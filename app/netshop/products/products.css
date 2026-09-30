@@ -1,0 +1,93 @@
+.netshop-products{--np-brand:#396149;--np-bg:#f5f7f6;--np-surface:#fff;--np-soft:#f3f7f4;--np-ink:#33453a;--np-secondary:#526959;--np-line:#e7ebe9;--np-up:#c83e4d;--np-down:#16825d;--np-warn:#a96518;--np-warn-bg:#fff5e9;color:var(--np-ink);background:var(--np-bg);font:400 14px/1.6 var(--font-body,Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif);min-width:0;padding:22px;border-radius:9px}
+.netshop-products *{box-sizing:border-box}
+.netshop-products h1{font-size:20px;line-height:1.3;margin:0;font-weight:650}
+.netshop-products h2{font-size:18px;line-height:1.4;margin:0;font-weight:650}
+.netshop-products h3{font-size:16px;line-height:1.4;margin:0;font-weight:600}
+.netshop-products p{margin:4px 0 10px}
+.netshop-products button,.netshop-products input,.netshop-products select{font:inherit;font-size:13px;line-height:1.6;color:var(--np-ink);min-width:0;max-width:100%}
+.netshop-products button{background:var(--np-surface);border:1px solid #c9d6ce;border-radius:6px;padding:6px 12px;min-height:34px;cursor:pointer}
+.netshop-products button:disabled{opacity:.45;cursor:default}
+.netshop-products button:focus-visible,.netshop-products a:focus-visible,.netshop-products input:focus-visible,.netshop-products select:focus-visible{outline:2px solid var(--np-brand);outline-offset:3px}
+.netshop-products button.np-active,.netshop-products .np-primary{color:#fff;background:var(--np-brand);border-color:var(--np-brand)}
+.netshop-products input,.netshop-products select{background:var(--np-surface);border:1px solid #c9d6ce;border-radius:6px;padding:6px 8px;min-height:34px}
+.netshop-products a{color:var(--np-brand);text-decoration:none}
+.netshop-products .np-title-row,.netshop-products .np-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.netshop-products .np-eyebrow,.netshop-products .np-caption{font-size:12px;color:var(--np-secondary)}
+.netshop-products .np-subtitle{color:var(--np-secondary);font-size:13px;margin-top:7px}
+.netshop-products .np-tabs{display:flex;gap:22px;border-bottom:1px solid var(--np-line);margin:17px 0;flex-wrap:wrap}
+.netshop-products .np-tabs button{border:0;border-radius:0;padding:10px 0;background:transparent}
+.netshop-products .np-tabs button.np-active{color:var(--np-brand);border-bottom:2px solid var(--np-brand);background:transparent;font-weight:600}
+.netshop-products .np-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.netshop-products .np-filters label{display:grid;gap:4px;font-size:13px;color:var(--np-secondary);flex:1 1 130px;min-width:0}
+.netshop-products .np-filters .np-date-label{flex:1 1 260px;position:relative}
+.netshop-products .np-filters fieldset{padding:6px 10px;border:1px solid var(--np-line);border-radius:6px;margin:0;min-width:0}
+.netshop-products .np-filters fieldset label{display:inline-flex;align-items:center;gap:5px;margin-right:10px}
+.netshop-products .np-filters input[type=checkbox]{min-height:0;width:auto}
+.netshop-products .np-context{font-size:12px;color:var(--np-secondary);margin:10px 0 16px;display:flex;gap:7px 14px;flex-wrap:wrap}
+.netshop-products .np-context strong{font-weight:500;color:var(--np-brand)}
+.netshop-products .np-stack{display:grid;gap:14px;min-width:0}
+.netshop-products .np-panel{background:var(--np-surface);border:1px solid var(--np-line);border-radius:9px;padding:16px;min-width:0}
+.netshop-products .np-panel-heading{display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.netshop-products .np-note{font-size:12px;color:var(--np-secondary);padding:9px 11px;background:var(--np-soft);border-radius:6px;margin:12px 0 0;overflow-wrap:anywhere}
+.netshop-products .np-notice{color:var(--np-warn);background:var(--np-warn-bg);padding:11px 13px;border-radius:7px;font-size:13px;margin:12px 0}
+.netshop-products .np-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.netshop-products .np-metric{background:var(--np-surface);border:1px solid var(--np-line);border-radius:9px;padding:13px 14px;min-width:0}
+.netshop-products .insights-metric{padding:0;background:transparent;border:0;box-shadow:none;display:grid;gap:5px}
+.netshop-products .insights-metric>span{font-size:13px;color:var(--np-secondary)}
+.netshop-products .insights-metric>strong{font-size:24px;font-weight:700;line-height:1.3;margin:3px 0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.netshop-products .insights-metric small{font-size:12px;color:var(--np-warn)}
+.netshop-products .np-metric-foot{font-size:12px;color:var(--np-secondary);display:flex;gap:8px;flex-wrap:wrap}
+.netshop-products .np-up{color:var(--np-up)}
+.netshop-products .np-down{color:var(--np-down)}
+.netshop-products .np-value,.netshop-products .np-comparison{font-variant-numeric:tabular-nums}
+.netshop-products .np-value small,.netshop-products .np-comparison small{display:block;color:var(--np-secondary);font-size:12px;max-width:180px;white-space:normal}
+.netshop-products .np-value[data-status=partial] small,.netshop-products .np-value[data-status=invalid] small{color:var(--np-warn)}
+.netshop-products .np-two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px}
+.netshop-products .np-even{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.netshop-products .np-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.netshop-products .np-toolbar input{flex:1 1 180px}
+.netshop-products .np-toolbar select{max-width:215px}
+.netshop-products .np-table-wrap{overflow-x:auto;width:100%;border-top:1px solid var(--np-line)}
+.netshop-products .np-table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+.netshop-products .np-table th{background:var(--np-soft);font-weight:500;color:var(--np-secondary);padding:10px;text-align:left}
+.netshop-products .np-table td{padding:11px 10px;border-bottom:1px solid var(--np-line);vertical-align:middle;font-variant-numeric:tabular-nums}
+.netshop-products .np-table .np-number{text-align:right}
+.netshop-products .np-link{border:0;background:transparent;color:var(--np-brand);padding:0;text-align:left;min-height:24px;font-weight:500}
+.netshop-products .np-product-cell{display:flex;gap:10px;align-items:center;min-width:220px;max-width:360px;white-space:normal}
+.netshop-products .np-product-cell small{display:block;color:var(--np-secondary);font-size:12px;overflow-wrap:anywhere}
+.netshop-products .np-thumb{width:42px;height:42px;background:#eef2ef;border-radius:6px;display:grid;place-items:center;flex-shrink:0;color:#5f7567;overflow:hidden}
+.netshop-products .np-thumb img{display:block;width:100%;height:100%;object-fit:contain}
+.netshop-products .np-thumb.np-big{width:102px;height:102px}
+.netshop-products .np-empty-image{font-size:12px;text-align:center}
+.netshop-products .np-badge{display:inline-block;border-radius:4px;padding:2px 6px;font-size:12px;line-height:1.6;background:var(--np-soft);color:var(--np-brand)}
+.netshop-products .np-badge.np-warning{background:var(--np-warn-bg);color:var(--np-warn)}
+.netshop-products .np-column-picker{display:flex;flex-wrap:wrap;gap:12px;background:var(--np-soft);padding:10px;margin-bottom:10px;border-radius:6px;font-size:13px}
+.netshop-products .np-column-picker label{display:flex;align-items:center;gap:5px}
+.netshop-products .np-column-picker input{min-height:0}
+.netshop-products .np-bars{display:grid;gap:11px}
+.netshop-products .np-bar-row{display:grid;grid-template-columns:minmax(0,100px) minmax(30px,1fr) 90px;gap:10px;align-items:center;font-size:13px}
+.netshop-products .np-bar-label{overflow-wrap:anywhere}
+.netshop-products .np-bar-track{background:var(--np-soft);height:9px;border-radius:5px;overflow:hidden}
+.netshop-products .np-bar-fill{height:100%;background:var(--np-brand);border-radius:5px}
+.netshop-products .np-bar-value{text-align:right;font-variant-numeric:tabular-nums}
+.netshop-products .np-chapter-nav{background:var(--np-surface);border-radius:9px;border:1px solid var(--np-line);padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0}
+.netshop-products .np-chapter-nav button{border:0;background:transparent;padding:7px 9px}
+.netshop-products .np-chapter-nav button.np-active{color:var(--np-brand);background:var(--np-soft)}
+.netshop-products .np-properties{display:grid;grid-template-columns:150px minmax(0,1fr);gap:0;margin:0;font-size:13px}
+.netshop-products .np-properties dt,.netshop-products .np-properties dd{border-bottom:1px solid var(--np-line);padding:9px 0;margin:0;overflow-wrap:anywhere}
+.netshop-products .np-properties dt{color:var(--np-secondary)}
+.netshop-products .np-empty,.netshop-products .np-missing{padding:24px 12px;color:var(--np-secondary);text-align:center;font-size:13px;background:var(--np-soft);border-radius:6px}
+.netshop-products .np-missing p{margin-bottom:0}
+.netshop-products .np-gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.netshop-products .np-gallery-item{border:1px solid var(--np-line);border-radius:8px;overflow:hidden;min-width:0}
+.netshop-products .np-gallery-image{height:160px;background:var(--np-soft);display:grid;place-items:center}
+.netshop-products .np-gallery-image .np-thumb{width:130px;height:130px}
+.netshop-products .np-gallery-body{padding:11px;display:grid;gap:5px}
+.netshop-products .np-gallery-body small{font-size:12px;color:var(--np-secondary);overflow-wrap:anywhere}
+.netshop-products .np-chart{width:100%;height:150px;overflow:visible}
+.netshop-products .np-chart-label{font-size:12px;fill:var(--np-secondary)}
+.netshop-products .np-coverage{margin-top:12px}
+.netshop-products .np-coverage ul{padding-left:20px;overflow-wrap:anywhere}
+.netshop-products .np-source-meta{font-size:12px;color:var(--np-secondary);overflow-wrap:anywhere}
+@media(max-width:1000px){.netshop-products .np-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.netshop-products .np-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.netshop-products{padding:14px}.netshop-products .np-two,.netshop-products .np-even{grid-template-columns:1fr}.netshop-products .np-panel{padding:13px}.netshop-products .np-tabs{gap:16px}.netshop-products .np-properties{grid-template-columns:105px minmax(0,1fr)}.netshop-products .np-filters .np-date-label{flex-basis:100%}.netshop-products .np-metric{padding:10px}.netshop-products .insights-metric>strong{font-size:22px}.netshop-products .np-bar-row{grid-template-columns:minmax(0,85px) minmax(15px,1fr) 78px}}
