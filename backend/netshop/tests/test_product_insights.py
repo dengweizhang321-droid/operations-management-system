@@ -156,7 +156,7 @@ class ProductInsightsTests(TestCase):
         self.assertEqual(self.read()["sections"]["summary"]["payment"]["value"], 1000)
 
     def test_unknown_duplicate_and_oversized_parameters_rejected(self):
-        for delta in ({"sql": "anything"}, {"page": ["1", "2"]}, {"sort": "payment"}, {"pageSize": "101"}, {"q": "q" * 121}, {"sectionToken": "bad"}):
+        for delta in ({"sql": "anything"}, {"page": ["1", "2"]}, {"sort": "payment"}, {"pageSize": "101"}, {"q": "q" * 121}, {"category": "类" * 121}, {"sectionToken": "bad"}):
             with self.subTest(delta=delta), self.assertRaises(NetshopApiError):
                 self.spec(**delta)
 
@@ -249,7 +249,7 @@ class ProductInsightsTests(TestCase):
     def test_section_token_binds_table_query_category_sort_not_page(self):
         self.fact()
         token = self.read()["sectionToken"]
-        for delta in ({"q": "P"}, {"category": "设备"}, {"sort": "payment_asc"}):
+        for delta in ({"q": "P"}, {"category": "设备"}, {"sort": "payment_asc"}, {"pageSize": "10"}):
             with self.subTest(delta=delta), self.assertRaises(NetshopApiError) as failure:
                 self.read(sectionToken=token, **delta)
             self.assertEqual(failure.exception.status, 409)
@@ -379,3 +379,18 @@ class ProductInsightsTests(TestCase):
             self.read(pageSize="100")
         self.assertEqual(failure.exception.status, 422)
         self.assertEqual(failure.exception.code, "quality_incomplete")
+
+    def test_shared_context_receives_original_outer_deadline_after_actor_sql(self):
+        self.fact()
+        from netshop.product_insights import read_context, actor_fence
+        clock, received = [0.0], []
+        def actor(*args):
+            value = actor_fence(*args)
+            clock[0] = 30.0
+            return value
+        def context(*args, **kwargs):
+            received.append(kwargs["deadline"])
+            return read_context(*args, **kwargs)
+        with patch("netshop.product_insights.time.monotonic", side_effect=lambda: clock[0]), patch("netshop.product_insights.actor_fence", side_effect=actor), patch("netshop.product_insights.read_context", side_effect=context):
+            self.read()
+        self.assertEqual(received, [65.0])
