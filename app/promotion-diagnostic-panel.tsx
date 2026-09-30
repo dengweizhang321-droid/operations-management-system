@@ -45,13 +45,14 @@ function download(name: string, bytes: BlobPart, type: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
-export default function PromotionDiagnosticPanel({ shopName, startDate, endDate, allowPaidModel = true, ratioLabel = "ROAS", expectedOwningRevision }: {
+export default function PromotionDiagnosticPanel({ shopName, startDate, endDate, allowPaidModel = true, ratioLabel = "ROAS", expectedOwningRevision, onReadInvalidated }: {
   shopName: string;
   startDate: string;
   endDate: string;
   allowPaidModel?: boolean;
   ratioLabel?: "ROI" | "ROAS";
   expectedOwningRevision?: string;
+  onReadInvalidated?: (code: string, message: string) => void;
 }) {
   const [storedReport, setReport] = useState<PromotionDiagnosticReport | null>(null);
   const [storedSource, setSource] = useState<DiagnosticPeriod | null>(null);
@@ -154,7 +155,7 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate,
       let baselineIssue = "";
       try { baseline = await read(previous.startDate, previous.endDate, current.sourceRevision); }
       catch (caught) {
-        if (controller.signal.aborted || caught instanceof PromotionDiagnosticBindingError || caught instanceof ApiError && ([401, 403].includes(caught.status) || caught.code === "promotion_diagnostic_binding_changed")) throw caught;
+        if (controller.signal.aborted || caught instanceof PromotionDiagnosticBindingError || caught instanceof ApiError && ([401, 403].includes(caught.status) || caught.status === 409 && (caught.code === "promotion_diagnostic_binding_changed" || caught.code?.endsWith("revision_changed")))) throw caught;
         baselineIssue = caught instanceof Error ? caught.message : "前等长周期不可用";
       }
       const built = appendPromotionRelations(buildPromotionDiagnosticReport(current, baseline), current);
@@ -168,6 +169,8 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate,
     } catch (caught) {
       if (requestRef.current === controller && !controller.signal.aborted && liveScopeRef.current.key === scopeKey) {
         setError(caught instanceof Error ? caught.message : "无法生成推广诊断草稿");
+        if (caught instanceof PromotionDiagnosticBindingError) onReadInvalidated?.(caught.code, caught.message);
+        else if (caught instanceof ApiError && ([401, 403].includes(caught.status) || caught.status === 409 && (caught.code === "promotion_diagnostic_binding_changed" || caught.code?.endsWith("revision_changed")))) onReadInvalidated?.(caught.code || "access_denied", caught.message);
       }
     } finally {
       if (requestRef.current === controller) {
