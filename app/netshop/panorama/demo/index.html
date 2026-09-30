@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TERUISI · 店铺全景五版设计</title>
+  <link rel="stylesheet" href="demo.css">
+  <script src="demo.js" defer></script>
+</head>
+<body>
+  <div class="demo-bar"><strong>设计评审 · 合成数据</strong><span>五种信息布局，同一套经营内容</span><button id="reference-button">参考与版式说明</button></div>
+  <div class="app-window">
+    <aside class="app-nav">
+      <div class="brand"><b>T</b><span>TERUISI<small>运营管理系统</small></span></div>
+      <div class="nav-label">经营工作台</div>
+      <span>销售分析</span><span>商品经营</span><span>库存管理</span>
+      <div class="active-nav">网店分析</div>
+      <div class="sub-nav"><span>网店总览</span><strong>店铺全景</strong><span>店铺与平台对比</span><span>商品表现</span><span>推广分析</span></div>
+      <span>财务报表</span><span>运营事务</span>
+      <footer><i></i>隔离设计预览<small>未接入业务接口</small></footer>
+    </aside>
+    <main>
+      <header class="page-title"><div><span class="eyebrow">网店分析 / 单店经营</span><h1>店铺全景</h1></div><span class="subtle">DESIGN REVIEW / 2026.09</span></header>
+      <div class="variant-tabs" id="variants" aria-label="五种版式"></div>
+      <div class="variant-description" id="variant-description"></div>
+      <div class="filterbar">
+        <label>平台与店铺<select id="shop"><option value="">请选择店铺</option><option value="jd-demo">京东 · 演示商用设备旗舰店</option><option value="tm-demo">天猫 · 演示厨电旗舰店</option></select></label>
+        <label>统计期间<button id="date-button" class="date-trigger"></button></label>
+        <label>比较方式<select id="compare"><option value="previous">环比</option><option value="year">同比</option><option value="none">不比较</option></select></label>
+        <button id="refresh" class="soft-button">刷新</button>
+        <details class="scenario"><summary>演示状态</summary><label>数据状态<select id="scenario"><option value="complete">完整覆盖</option><option value="missing">推广缺日</option><option value="revision">多源修订变化</option><option value="failure">本次刷新失败</option><option value="denied">无店铺权限</option></select></label></details>
+      </div>
+      <div id="scope" class="scope-line" aria-live="polite"></div>
+      <div id="feedback" aria-live="polite"></div>
+      <div id="content"></div>
+      <footer class="page-footer">所有数字、商品、店铺与事件均为合成示例。正式接线依赖公共底座与商品 / 推广接口验收。</footer>
+    </main>
+  </div>
+  <dialog id="date-dialog"><div class="dialog-head"><strong>自定义统计期间</strong><button data-close="date-dialog" aria-label="关闭日期选择">×</button></div><div class="date-presets"><button data-preset="month">本月至昨日</button><button data-preset="last">上月</button><button data-preset="seven">近7天</button></div><div id="calendars" class="calendars"></div><div class="date-inputs"><label>开始日期<input id="start" type="date" max="2026-09-30"></label><label>结束日期<input id="end" type="date" max="2026-09-30"></label></div><div id="date-error" role="alert"></div><footer><button data-close="date-dialog">取消</button><button id="apply-date" class="primary-button">确定</button></footer></dialog>
+  <dialog id="detail-dialog" class="detail-dialog"><div class="dialog-head"><strong id="detail-title"></strong><button data-close="detail-dialog" aria-label="关闭详情">×</button></div><div id="detail-content"></div></dialog>
+  <dialog id="reference-dialog"><div class="dialog-head"><strong>五版结构与参考</strong><button data-close="reference-dialog" aria-label="关闭说明">×</button></div><div id="references"></div><p class="subtle">借鉴信息组织思路，未安装或复制参考项目代码；配色与字体依据本系统已提交 tokens。</p></dialog>
+</body>
+</html>

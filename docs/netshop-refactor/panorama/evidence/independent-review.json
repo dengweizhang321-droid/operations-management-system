@@ -1,0 +1,408 @@
+{
+  "kind": "independent-synthetic-demo-review",
+  "url": "http://127.0.0.1:3160/",
+  "createdAt": "2026-09-30T09:35:53.481Z",
+  "scope": "Only panorama demo; no production, DB, real API or source mutations",
+  "hashesBefore": {
+    "index.html": "7e3473904dfe6a9b01100b615404d630642167c4af18c073899fc468fe3499a5",
+    "demo.css": "b7c4e2ef8b921e37b1ef19e292baba6c8a511861931b6c08cd3d5ba163213c7f",
+    "demo.js": "e05ecb78cf2016558bf7b2b3fd027e814a19dc267685f41c476d77a7f83b3415",
+    "serve.mjs": "39a4ef36679656af8b598bc84cbae4fc2781143b7570b0dedf0fa945bcfda948"
+  },
+  "checks": [
+    {
+      "name": "javascript-and-server-syntax",
+      "pass": true,
+      "details": "Both node --check exit 0"
+    },
+    {
+      "name": "layout-1-eight-chapters-desktop-narrow",
+      "pass": true,
+      "details": {
+        "desktop": {
+          "width": 1440,
+          "structure": "cockpit-layout"
+        },
+        "seen": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "narrowWidth": 390
+      }
+    },
+    {
+      "name": "layout-2-eight-chapters-desktop-narrow",
+      "pass": true,
+      "details": {
+        "desktop": {
+          "width": 1440,
+          "structure": "report"
+        },
+        "seen": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "narrowWidth": 390
+      }
+    },
+    {
+      "name": "layout-3-eight-chapters-desktop-narrow",
+      "pass": true,
+      "details": {
+        "desktop": {
+          "width": 1440,
+          "structure": "workspace"
+        },
+        "seen": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "narrowWidth": 390
+      }
+    },
+    {
+      "name": "layout-4-eight-chapters-desktop-narrow",
+      "pass": true,
+      "details": {
+        "desktop": {
+          "width": 1440,
+          "structure": "chapter-nav"
+        },
+        "seen": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "narrowWidth": 390
+      }
+    },
+    {
+      "name": "layout-5-eight-chapters-desktop-narrow",
+      "pass": true,
+      "details": {
+        "desktop": {
+          "width": 1440,
+          "structure": "board-intro"
+        },
+        "seen": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "narrowWidth": 390
+      }
+    },
+    {
+      "name": "svg-date-click-opens-detail",
+      "pass": true,
+      "details": "京东 · 演示商用设备旗舰店\n\n所属选期 2026-09-01 — 2026-09-29\n\n平台商品支付金额\n26,360.54 元\n商品 SPU 日报\nERP 净销售\n24,383.50 元\nERP 发货时间\n广告花费\n2,558.26 元\n独立广告来源\n商品访客累计\n2,226\n商品 × 日累计\n\n日期明细保留当前店铺身份；关闭后回到原章节与滚动位置。"
+    },
+    {
+      "name": "daily-dialog-date-locates-detail",
+      "pass": true
+    },
+    {
+      "name": "missing-day-partial-total-and-null-daily",
+      "pass": true,
+      "details": {
+        "complete": "推广花费\n7.33 万元\n广告源本期完整覆盖示例",
+        "partial": "推广花费\n7.08 万元\n仅已覆盖 28 天，缺 2026-09-15",
+        "missingDay": "广告花费\n—\n该店该日缺数据"
+      }
+    },
+    {
+      "name": "long-range-gap-includes-adjacent-points-and-break",
+      "pass": true,
+      "details": {
+        "days": 99,
+        "gap": "2026-08-11",
+        "adjacent": [
+          "2026-08-10",
+          "2026-08-12"
+        ],
+        "segments": [
+          [
+            42,
+            63.53846153846154,
+            85.07692307692308,
+            106.61538461538461,
+            128.15384615384616,
+            149.69230769230768,
+            171.23076923076923,
+            192.76923076923077,
+            214.30769230769232,
+            235.84615384615384,
+            257.38461538461536,
+            278.9230769230769,
+            300.46153846153845
+          ],
+          [
+            343.53846153846155,
+            365.0769230769231,
+            386.61538461538464,
+            408.15384615384613,
+            429.6923076923077,
+            451.2307692307692,
+            472.7692307692308,
+            494.3076923076923,
+            515.8461538461538,
+            537.3846153846154,
+            558.9230769230769,
+            580.4615384615385,
+            602
+          ]
+        ]
+      }
+    },
+    {
+      "name": "promotion-axis-distinct-currency-labels",
+      "pass": true,
+      "harnessCorrection": "SVG innerText is undefined; repeated with textContent",
+      "details": [
+        "0",
+        "1,776",
+        "3,553"
+      ]
+    },
+    {
+      "name": "comparison-none-no-false-delta",
+      "pass": true,
+      "details": {
+        "fee": "推广费率\n10.07%\n未启用比较\n同店同日匹配",
+        "deltas": [
+          "—",
+          "—",
+          "—",
+          "—",
+          "—"
+        ],
+        "diff": "本期与基期差额\n—\n未比较"
+      }
+    },
+    {
+      "name": "comparison-year-header-and-actual-period",
+      "pass": true,
+      "details": "京东 · 演示商用设备旗舰店\n本期 2026-09-01 — 2026-09-29\n同比 2025-09-01 — 2025-09-29 · 去年同期"
+    },
+    {
+      "name": "cross-year-calendar-retains-year",
+      "pass": true,
+      "details": [
+        "‹\n2025 年 8 月\n›",
+        "‹\n2025 年 9 月\n›"
+      ]
+    },
+    {
+      "name": "date-rules-single-full-month-cross-month-leap",
+      "pass": true,
+      "details": [
+        "京东 · 演示商用设备旗舰店\n本期 2026-09-30 — 2026-09-30\n环比 2026-09-29 — 2026-09-29 · 前一日",
+        "京东 · 演示商用设备旗舰店\n本期 2026-08-01 — 2026-08-31\n环比 2026-07-01 — 2026-07-31 · 上个完整自然月",
+        "京东 · 演示商用设备旗舰店\n本期 2026-08-29 — 2026-09-04\n环比 2026-08-22 — 2026-08-28 · 前等长区间",
+        "京东 · 演示商用设备旗舰店\n本期 2024-02-29 — 2024-02-29\n同比 2023-02-28 — 2023-02-28 · 去年同期"
+      ]
+    },
+    {
+      "name": "one-day-missing-not-zero-or-nan",
+      "pass": true,
+      "details": "推广花费\n— 万元\n仅已覆盖 0 天，缺 2024-02-29\n归因成交\n— 万元\n京东总订单金额；仅已覆盖 0 天，缺 2024-02-29\nROAS\n—\n归因成交 / 花费，非利润 ROI；仅已覆盖 0 天，缺 2024-02-29\n广告点击\n—\n不当作付费访客；仅已覆盖 0 天，缺 2024-02-29\n点击成本\n— 元\n已覆盖范围花费 / 点击\n推广费率\n—\n推广缺日，整期不可计算"
+    },
+    {
+      "name": "category-and-top-five-consistent",
+      "pass": true,
+      "details": {
+        "bars": [
+          "饮水设备\n40%",
+          "食品加工\n24%",
+          "厨房设备\n29%",
+          "未分类\n7%"
+        ],
+        "shares": [
+          "32.00%",
+          "24.00%",
+          "17.00%",
+          "12.00%",
+          "8.00%"
+        ]
+      }
+    },
+    {
+      "name": "revision-stops-combination-only",
+      "pass": true,
+      "details": "推广费率\n—\n来源修订变化，暂停组合\n同店同日匹配"
+    },
+    {
+      "name": "rapid-store-switch-no-stale-identity",
+      "pass": true,
+      "details": {
+        "scope": "天猫 · 演示厨电旗舰店\n本期 2026-09-01 — 2026-09-29\n环比 2026-08-01 — 2026-08-29 · 上月对应日",
+        "detail": "目标页交互示例\n商用开水设备\n\n天猫 / 演示厨电旗舰店 / SPU / P-DEMO-101\n\n携带日期 2026-09-01 — 2026-09-29；返回章节 2.3，保留当前滚动位置。\n\n店铺\n演示厨电旗舰店\n精确平台与店铺\n商品身份\nP-DEMO-101\n不按模糊名称合并\n\n目标专业页尚未接线。此处只演示上下文与返回；正式接口由对应 Lead 交付后再联调。\n\n返回店铺全景"
+      }
+    },
+    {
+      "name": "failed-refresh-and-denied-clear-metrics",
+      "pass": true,
+      "details": {
+        "scope": "天猫 · 演示厨电旗舰店\n本期 2026-09-01 — 2026-09-29\n环比 2026-08-01 — 2026-08-29 · 上月对应日",
+        "denied": "没有这家店铺的查看权限\n\n未显示受限店铺数据。此状态为 UI 设计示例，正式鉴权须由公共底座与只读服务验收。"
+      }
+    },
+    {
+      "name": "report-breakpoint-css-applied",
+      "pass": true,
+      "details": "185px 779px"
+    },
+    {
+      "name": "fractional-layout-falls-back",
+      "pass": true,
+      "details": "左侧章节索引，成绩卡与趋势优先，向下展开八个经营章节。\n适合日常巡店"
+    },
+    {
+      "name": "static-server-boundary",
+      "pass": true,
+      "details": {
+        "api": 404,
+        "post": 405,
+        "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'",
+        "requests": [
+          "http://127.0.0.1:3160/?layout=1&shop=jd-demo",
+          "http://127.0.0.1:3160/demo.css",
+          "http://127.0.0.1:3160/demo.js",
+          "http://127.0.0.1:3160/?layout=2&shop=jd-demo",
+          "http://127.0.0.1:3160/?layout=3&shop=jd-demo",
+          "http://127.0.0.1:3160/?layout=4&shop=jd-demo",
+          "http://127.0.0.1:3160/?layout=5&shop=jd-demo",
+          "http://127.0.0.1:3160/?layout=1.5&shop=jd-demo"
+        ]
+      }
+    },
+    {
+      "name": "matches-frozen-manifest-all-five-files",
+      "pass": true,
+      "details": {
+        "demo.css": "8d8dcadb1bfa72a1d8b78e5481d4df9a69863c638122f96ee9783dcc086f5d35",
+        "demo.js": "a7c60954c422830770e2a2ce1fda9b5fe04b52f08cc28c26fbeabbbf7bff7c18",
+        "index.html": "7e3473904dfe6a9b01100b615404d630642167c4af18c073899fc468fe3499a5",
+        "serve.mjs": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+        "verify.mjs": "71362a369d7b4ce885e5b5fc44ba52edb170595eda16017848591ff4f8b17a98"
+      }
+    },
+    {
+      "name": "verification-script-syntax",
+      "pass": true,
+      "details": "node --check verify.mjs exit 0"
+    },
+    {
+      "name": "final-lf-manifest-and-semantic-equivalence",
+      "pass": true,
+      "details": {
+        "demo.css": {
+          "priorSha256": "8d8dcadb1bfa72a1d8b78e5481d4df9a69863c638122f96ee9783dcc086f5d35",
+          "currentSha256": "8d8dcadb1bfa72a1d8b78e5481d4df9a69863c638122f96ee9783dcc086f5d35",
+          "lineEndingOnly": true
+        },
+        "demo.js": {
+          "priorSha256": "a7c60954c422830770e2a2ce1fda9b5fe04b52f08cc28c26fbeabbbf7bff7c18",
+          "currentSha256": "a7c60954c422830770e2a2ce1fda9b5fe04b52f08cc28c26fbeabbbf7bff7c18",
+          "lineEndingOnly": true
+        },
+        "index.html": {
+          "priorSha256": "7e3473904dfe6a9b01100b615404d630642167c4af18c073899fc468fe3499a5",
+          "currentSha256": "7e3473904dfe6a9b01100b615404d630642167c4af18c073899fc468fe3499a5",
+          "lineEndingOnly": true
+        },
+        "serve.mjs": {
+          "priorSha256": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+          "currentSha256": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+          "lineEndingOnly": true
+        },
+        "verify.mjs": {
+          "priorSha256": "71362a369d7b4ce885e5b5fc44ba52edb170595eda16017848591ff4f8b17a98",
+          "currentSha256": "71362a369d7b4ce885e5b5fc44ba52edb170595eda16017848591ff4f8b17a98",
+          "lineEndingOnly": true
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "C:\\Users\\86137\\AppData\\Local\\Temp/panorama-independent-final-20260930/layout-1.png",
+    "C:\\Users\\86137\\AppData\\Local\\Temp/panorama-independent-final-20260930/layout-2.png",
+    "C:\\Users\\86137\\AppData\\Local\\Temp/panorama-independent-final-20260930/layout-3.png",
+    "C:\\Users\\86137\\AppData\\Local\\Temp/panorama-independent-final-20260930/layout-4.png",
+    "C:\\Users\\86137\\AppData\\Local\\Temp/panorama-independent-final-20260930/layout-5.png"
+  ],
+  "pageErrors": [],
+  "hashesAfter": {
+    "index.html": "7e3473904dfe6a9b01100b615404d630642167c4af18c073899fc468fe3499a5",
+    "demo.css": "b7c4e2ef8b921e37b1ef19e292baba6c8a511861931b6c08cd3d5ba163213c7f",
+    "demo.js": "e05ecb78cf2016558bf7b2b3fd027e814a19dc267685f41c476d77a7f83b3415",
+    "serve.mjs": "39a4ef36679656af8b598bc84cbae4fc2781143b7570b0dedf0fa945bcfda948"
+  },
+  "filesUnchanged": true,
+  "passed": 26,
+  "failed": 0,
+  "conclusion": "PASS_SYNTHETIC_DESIGN_DEMO_ONLY",
+  "manifestPath": "docs/netshop-refactor/panorama/evidence/source-manifest.json",
+  "manifestHashes": {
+    "demo.css": "8d8dcadb1bfa72a1d8b78e5481d4df9a69863c638122f96ee9783dcc086f5d35",
+    "demo.js": "a7c60954c422830770e2a2ce1fda9b5fe04b52f08cc28c26fbeabbbf7bff7c18",
+    "index.html": "7e3473904dfe6a9b01100b615404d630642167c4af18c073899fc468fe3499a5",
+    "serve.mjs": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+    "verify.mjs": "71362a369d7b4ce885e5b5fc44ba52edb170595eda16017848591ff4f8b17a98"
+  },
+  "finalSourceManifest": {
+    "schemaVersion": "panorama-design-manifest-v1",
+    "role": "S",
+    "stage": "design-only",
+    "baselineAtStart": "c7c6c2a4c012dd60af0565b97b2d2f11f9246c0a",
+    "syncedCoordinatorMain": "daf211644efffdc762c0d33c1faba992cf082df7",
+    "files": {
+      "demo.css": "8d8dcadb1bfa72a1d8b78e5481d4df9a69863c638122f96ee9783dcc086f5d35",
+      "demo.js": "a7c60954c422830770e2a2ce1fda9b5fe04b52f08cc28c26fbeabbbf7bff7c18",
+      "index.html": "7e3473904dfe6a9b01100b615404d630642167c4af18c073899fc468fe3499a5",
+      "serve.mjs": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+      "verify.mjs": "71362a369d7b4ce885e5b5fc44ba52edb170595eda16017848591ff4f8b17a98"
+    },
+    "checks": "ui-checks.json",
+    "businessInterfaces": "not-connected",
+    "postgresql": "not-run",
+    "productionOperations": [],
+    "lineEndings": "LF (Git blob bytes)"
+  },
+  "finalHashes": {
+    "demo.css": "8d8dcadb1bfa72a1d8b78e5481d4df9a69863c638122f96ee9783dcc086f5d35",
+    "demo.js": "a7c60954c422830770e2a2ce1fda9b5fe04b52f08cc28c26fbeabbbf7bff7c18",
+    "index.html": "7e3473904dfe6a9b01100b615404d630642167c4af18c073899fc468fe3499a5",
+    "serve.mjs": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+    "verify.mjs": "71362a369d7b4ce885e5b5fc44ba52edb170595eda16017848591ff4f8b17a98"
+  },
+  "semanticFilesUnchangedSinceTests": true
+}
