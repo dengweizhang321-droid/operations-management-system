@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>店铺与平台对比 · 五版设计 Demo</title>
+  <link rel="stylesheet" href="./demo.css">
+</head>
+<body>
+  <aside class="app-nav" aria-label="应用导航">
+    <div class="brand"><span class="brand-icon">运</span><strong>运营管理系统</strong></div>
+    <div class="nav-label">业务工作台</div>
+    <div class="nav-item">◫ <span>经营总览</span></div>
+    <div class="nav-item nav-parent">▦ <span>网店分析</span><span>⌄</span></div>
+    <div class="nav-child">网店总览</div><div class="nav-child">店铺全景</div>
+    <div class="nav-child current" aria-current="page">店铺与平台对比</div>
+    <div class="nav-child">商品表现</div><div class="nav-child">推广分析</div>
+    <div class="nav-item">▤ <span>商品经营</span></div><div class="nav-item">▧ <span>库存管理</span></div>
+    <div class="nav-bottom">设计评审工作区<br><span>仅合成数据 · 独立预览</span></div>
+  </aside>
+  <div class="app-body">
+    <header class="app-top"><span>网店分析 <b>/</b> 店铺与平台对比</span><span class="user-dot">设</span></header>
+    <main>
+      <div class="page-heading"><div><h1>店铺与平台对比</h1><p>从规模、效率与结构看清差异，先确认口径，再比较经营。</p></div><span class="pill design-only">设计候选 · 未定版</span></div>
+      <div class="demo-notice"><span class="notice-symbol">◈</span><div><strong>合成数据 Demo</strong>　五个独立版式，共用筛选和数据原则。未连接业务 API，任何数字、商品及结论均为交互演示。</div><button class="text-button" data-action="definitions">查看指标口径</button></div>
+      <nav id="design-picker" class="design-picker" aria-label="五个设计版式"></nav>
+      <section id="filters" class="filter-card" aria-label="对比筛选"></section>
+      <div id="selection-bar"></div>
+      <div id="content" aria-live="polite"></div>
+      <footer class="page-footer">view=platforms 兼容目标 · 独立设计预览 · 来源、字段与钻取需冻结契约和真实专题验收后接线</footer>
+    </main>
+  </div>
+  <div id="drawer-root"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="./demo.js"></script>
+</body>
+</html>
