@@ -38,6 +38,7 @@ import { callMarketTool } from "@/lib/market/ai-tools";
 import { searchAiKnowledge } from "@/lib/ai/data-knowledge";
 import { getNetshopPerformanceForAi } from "@/lib/netshop/ai-tool";
 import { getNetshopInsightsContextForAi, netshopInsightsContextInputSchema, NETSHOP_INSIGHTS_CONTEXT_TOOL_NAME, NETSHOP_INSIGHTS_AI_TIMEOUT_MS, NETSHOP_INSIGHTS_AI_MAX_CHARACTERS } from "@/lib/ai/netshop-insights-context-tool";
+import { getNetshopProductInsightsForAi, netshopProductInsightsInputSchema, NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME, NETSHOP_PRODUCT_INSIGHTS_AI_TIMEOUT_MS, NETSHOP_PRODUCT_INSIGHTS_AI_MAX_CHARACTERS } from "@/lib/ai/netshop-product-insights-tool";
 import { getJdPromotionDiagnosticForChat } from "@/lib/ai/promotion-diagnostic-tool";
 import { getNetshopAnalysisRecords } from "@/lib/netshop/analysis-tool";
 import { getSalesAnalysisRecords } from "@/lib/sales/analysis-tool";
@@ -1017,6 +1018,18 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
     execution: { ...synchronousReadOnlyExecution, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
     handler: (args, context) => readBusinessEvidence(args, context.principal, context.signal),
+  },
+  {
+    name: NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME,
+    title: "商品表现完整汇总、比较与分页列表",
+    description: "只读运营系统已导入网店数据的商品表现：完整经营范围汇总、两期比较、先配对全集再排序的贡献排行及当前列表页，保留覆盖缺口、来源版本和基期错误。金额按安全整数分，商品访客及客户为商品×日累计；SKU/SPU不混用。q只筛列表，不改变经营汇总；类目是来源标签，不代表跨平台官方分类。明示分页，不能从一页求全店总额或把缺字段当零。snapshotToken和sectionToken仅在各自同种范围内续读；超过完整40000字符预算需缩小店铺、日期或pageSize，不截掉汇总或覆盖。未核验的历史映射、ERP/推广关联不推断；仅列表工具，不读取单品详情、不操作外部平台。",
+    inputSchema: netshopProductInsightsInputSchema,
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: allRoles,
+    scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["ai_chat", "ai_agent", "codex_mcp", "test"], timeoutMs: NETSHOP_PRODUCT_INSIGHTS_AI_TIMEOUT_MS, maxResultCharacters: NETSHOP_PRODUCT_INSIGHTS_AI_MAX_CHARACTERS, maxCallsPerRequest: 2 },
+    handler: getNetshopProductInsightsForAi,
   },
   {
     name: NETSHOP_INSIGHTS_CONTEXT_TOOL_NAME,

@@ -36,9 +36,11 @@ import {
   updateShopContextLocation,
   drillShopLocation,
   returnShopLocation,
+  updateModuleViewLocation,
 } from "./shell/navigation-contract";
 import type { ProductIdentity } from "@/lib/netshop/insights-contract";
 import { defaultShopLocationContext, type ShopLocationContext } from "./shell/shop-context";
+import { bindShopPresentationHistory, readBoundShopLocationContext, shopPresentationHistoryMatches } from "./shell/shop-presentation-history";
 import { normalizeModuleView } from "./shell/module-view-contract";
 import SidebarNavigation from "./shell/sidebar-navigation";
 import { useModuleViewState } from "./shell/use-module-view-state";
@@ -165,6 +167,7 @@ const viewMap: Record<ModuleKey, (props: ShellViewProps) => React.ReactNode> = {
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const shopPresentationPrincipal = currentUser ? JSON.stringify([currentUser.email, currentUser.role, currentUser.scopeRestricted]) : null;
   const [active, setActive] = useState<ModuleKey>("dashboard");
   const [moduleTransitionPending, startModuleTransition] = useTransition();
   const [shellLocationReady, setShellLocationReady] = useState(false);
@@ -273,7 +276,7 @@ export default function Home() {
     const minDate = `${Number(today.slice(0, 4)) - 1}-01-01`;
     setActive(state.module);
     setOverview(state.overview ?? defaultStoreOverviewLocation);
-    setShopContext(state.shop ?? defaultShopLocationContext);
+    setShopContext(readBoundShopLocationContext(window.location.href, window.history.state, shopPresentationPrincipal));
     syncModuleViewFromLocation(window.location.href);
     setImportSource(state.source ?? null);
     setRange(rangeForShellPeriod(state.period));
@@ -305,10 +308,14 @@ export default function Home() {
       period: appliedPeriod,
     }, normalizedContractUrl);
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (normalized !== currentUrl) window.history.replaceState(null, "", normalized);
-    setShopContext(parseShellLocation(normalized).shop ?? defaultShopLocationContext);
+    if (normalized !== currentUrl) {
+      const history = shopPresentationHistoryMatches(window.history.state, window.location.href, shopPresentationPrincipal)
+        ? bindShopPresentationHistory(window.history.state, normalized, shopPresentationPrincipal) : window.history.state;
+      window.history.replaceState(history, "", normalized);
+    }
+    setShopContext(readBoundShopLocationContext(normalized, window.history.state, shopPresentationPrincipal));
     setShellLocationReady(true);
-  }, [syncModuleViewFromLocation]);
+  }, [shopPresentationPrincipal, syncModuleViewFromLocation]);
 
   useEffect(() => {
     applyLocationState();
@@ -383,25 +390,31 @@ export default function Home() {
   const current = isAiChat ? { label: "AI 对话", description: "小特对话工作台" } : navItems.find((item) => item.key === active) ?? navItems[0];
   const View = viewMap[active];
 
-  const changeOverview = useCallback((next: StoreOverviewLocation) => {
+  const currentShopLocation = useCallback(() => {
     const state = parseShellLocation(window.location.href);
-    const nextUrl = serializeShellLocation({ ...state, overview: next }, window.location.href);
-    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(null, "", nextUrl);
+    return state.module === "shop" ? serializeShellLocation({ ...state, shop: readBoundShopLocationContext(window.location.href, window.history.state, shopPresentationPrincipal) }, window.location.href) : window.location.href;
+  }, [shopPresentationPrincipal]);
+  const changeOverview = useCallback((next: StoreOverviewLocation) => {
+    const state = parseShellLocation(currentShopLocation());
+    const nextUrl = serializeShellLocation({ ...state, overview: next }, currentShopLocation());
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
     setOverview(next);
-  }, []);
+  }, [currentShopLocation, shopPresentationPrincipal]);
   const changeShopContext = useCallback((next: Partial<ShopLocationContext>) => {
-    const nextUrl = updateShopContextLocation(window.location.href, next);
-    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(null, "", nextUrl);
-    setShopContext(parseShellLocation(nextUrl).shop ?? defaultShopLocationContext);
-  }, []);
+    const nextUrl = updateShopContextLocation(currentShopLocation(), next);
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
+    setShopContext(readBoundShopLocationContext(nextUrl, window.history.state, shopPresentationPrincipal));
+  }, [currentShopLocation, shopPresentationPrincipal]);
   const drillShop = useCallback((view: ModuleViewKey<"shop">, product: ProductIdentity | null, section?: string) => {
-    window.history.pushState(null, "", drillShopLocation(window.location.href, view, product, section));
+    const nextUrl = drillShopLocation(currentShopLocation(), view, product, section);
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
     applyLocationState();
-  }, [applyLocationState]);
+  }, [applyLocationState, currentShopLocation, shopPresentationPrincipal]);
   const returnShop = useCallback(() => {
-    window.history.pushState(null, "", returnShopLocation(window.location.href));
+    const nextUrl = returnShopLocation(currentShopLocation());
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
     applyLocationState();
-  }, [applyLocationState]);
+  }, [applyLocationState, currentShopLocation, shopPresentationPrincipal]);
 
   const replacePeriodUrl = useCallback((period: ShellPeriodState) => {
     const nextUrl = serializeShellLocation({
@@ -409,11 +422,11 @@ export default function Home() {
       view: normalizeModuleView(active, activeModuleView),
       ...(active === "import" && importSource ? { source: importSource } : {}),
       period,
-    }, window.location.href);
+    }, currentShopLocation());
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (nextUrl !== currentUrl) window.history.replaceState(null, "", nextUrl);
-    setShopContext(parseShellLocation(nextUrl).shop ?? defaultShopLocationContext);
-  }, [active, activeModuleView, importSource]);
+    if (nextUrl !== currentUrl) window.history.replaceState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
+    setShopContext(readBoundShopLocationContext(nextUrl, window.history.state, shopPresentationPrincipal));
+  }, [active, activeModuleView, currentShopLocation, importSource, shopPresentationPrincipal]);
 
   const hrefForModule = useCallback((key: ModuleKey, requestedView?: ModuleViewKey) => {
     const currentUrl = typeof window === "undefined" ? "/" : window.location.href;
@@ -428,25 +441,27 @@ export default function Home() {
       view: nextView,
       ...(nextSource ? { source: nextSource } : {}),
       period: shellPeriod,
-    }, window.location.href);
+    }, currentShopLocation());
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (nextUrl !== currentUrl) window.history.pushState(null, "", nextUrl);
+    if (nextUrl !== currentUrl) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
     startModuleTransition(() => {
       setModuleViewSelection(key, nextView);
       setImportSource(nextSource ?? null);
       setActive(key);
-      setShopContext(parseShellLocation(nextUrl).shop ?? defaultShopLocationContext);
+      setShopContext(readBoundShopLocationContext(nextUrl, window.history.state, shopPresentationPrincipal));
     });
     closeMobileMenu();
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => pageTitleRef.current?.focus()));
-  }, [closeMobileMenu, setModuleViewSelection, shellPeriod, startModuleTransition]);
+  }, [closeMobileMenu, currentShopLocation, setModuleViewSelection, shellPeriod, shopPresentationPrincipal, startModuleTransition]);
 
   const selectModuleView = useCallback((view: ModuleViewKey) => {
-    const nextUrl = pushModuleView(active, normalizeModuleView(active, view));
-    setShopContext(parseShellLocation(nextUrl).shop ?? defaultShopLocationContext);
-  }, [active, pushModuleView]);
+    const nextView = normalizeModuleView(active, view);
+    const expected = updateModuleViewLocation(currentShopLocation(), active, nextView);
+    const nextUrl = pushModuleView(active, nextView, bindShopPresentationHistory(window.history.state, expected, shopPresentationPrincipal));
+    setShopContext(readBoundShopLocationContext(nextUrl, window.history.state, shopPresentationPrincipal));
+  }, [active, currentShopLocation, pushModuleView, shopPresentationPrincipal]);
 
   const currentAiContext = useMemo(() => {
     const details = aiDetails?.module === active && aiDetails.view === activeModuleView ? aiDetails.details : null;
