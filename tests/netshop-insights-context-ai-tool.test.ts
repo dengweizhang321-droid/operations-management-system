@@ -164,20 +164,16 @@ test("cancellation reaches fetch and a late successful response cannot escape", 
 
 function largeValidContext() {
   const p = syntheticInsightsContext();
-  const dates = (start: string) => Array.from({ length: 30 }, (_, i) => new Date(Date.parse(start + "T00:00:00Z") + i * 86400000).toISOString().slice(0, 10));
-  const windows = { current: ["2026-09-01", "2026-09-30", "2026-10-01"], previous: ["2026-08-02", "2026-08-31", "2026-09-01"], yearAgo: ["2025-09-01", "2025-09-30", "2025-10-01"] };
-  const keys = Array.from({ length: 50 }, (_, i) => `京东\u001f合成店${i}`);
+  // Keep the owning single-day calendar unchanged; long legal shop identities
+  // alone can exceed the AI budget while remaining within the reader budget.
+  const keys = Array.from({ length: 50 }, (_, i) => `京东\u001f合成店${String(i).padStart(2, "0")}${"x".repeat(90)}`);
   p.requestedScope.shopKeys = keys; p.effectiveScope.shopKeys = keys;
-  for (const kind of ["current", "previous", "yearAgo"] as const) {
-    const [startDate, endDate, endExclusive] = windows[kind]; p.periods[kind] = { startDate, endDate, endExclusive, days: 30 };
-  }
-  p.periods.rule = "合成前等长30天";
-  p.calendar = dates(windows.current[0]).map((date, i) => ({ date, previous: dates(windows.previous[0])[i], yearAgo: dates(windows.yearAgo[0])[i] }));
   for (const [ref, coverage] of Object.entries(p.coverageBySource)) {
     const kind = ref.split(":").at(-1) as "current" | "previous" | "yearAgo";
-    Object.assign(coverage, { expectedShopDatePairs: 1500, coveredShopDatePairs: 0, complete: false, missingByShop: keys.map(shopKey => ({ shopKey, dates: dates(windows[kind][0]) })) });
+    Object.assign(coverage, { expectedShopDatePairs: 50, coveredShopDatePairs: 0, complete: false, missingByShop: keys.map(shopKey => ({ shopKey, dates: [p.periods[kind].startDate] })) });
   }
   for (const c of p.capabilities) Object.assign(c, { presentShopDatePairs: 0, status: "unavailable", reasonCode: "no_records" });
+  for (const f of p.freshness) f.dataThrough = null;
   p.sourceRevisions = p.sourceRevisions.slice(0, 2);
   for (const key of keys) for (const kind of ["product", "promotion"]) p.sourceRevisions.push({ domain: "netshop", kind: `京东:${kind}:${key}`, scopeKey: p.scopeKey, revision: "absent" });
   return p;
@@ -185,7 +181,7 @@ function largeValidContext() {
 
 test("a complete valid DTO over the 40000-character envelope is refused, never truncated", async () => {
   payload = largeValidContext(); decodeInsightsContext(payload);
-  const value = { ...args, endDate: "2026-09-30", shops: payload.requestedScope.shopKeys.map(k => ({ platform: "京东", shopName: k.split("\u001f")[1] })) };
+  const value = { ...args, shops: payload.requestedScope.shopKeys.map(k => ({ platform: "京东", shopName: k.split("\u001f")[1] })) };
   assert.ok(JSON.stringify({ ok: true, toolName: name, data: payload }).length > 40000);
   await assert.rejects(entry.handler(value, context), e => e instanceof RegistryToolError && e.code === "tool_result_too_large");
   assert.equal(calls.length, 1); assert.equal(payload.effectiveScope.shopKeys.length, 50);
