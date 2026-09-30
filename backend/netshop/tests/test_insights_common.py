@@ -1,6 +1,8 @@
 """Synthetic foundation contract and owning-reader negatives, including PG roles."""
 import hashlib
 import json
+import os
+import secrets
 import time
 from pathlib import Path
 from datetime import date
@@ -25,6 +27,17 @@ from netshop.insights_common import (read_context, validate_context, comparison_
     period_groups, periods, parse_identities, consistent_sources, validate_metric, compare_metrics)
 from netshop.query import product_performance, promotion_overview, period, revision_value
 from . import test_store_overview as overview_fixture
+
+CAPACITY_EVIDENCE = Path(os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR", str(
+    Path(__file__).resolve().parents[3] / ".runtime" / ("foundation-capacity-" + secrets.token_hex(6)))))
+
+
+def write_capacity_evidence(name, payload):
+    CAPACITY_EVIDENCE.mkdir(parents=True, exist_ok=True)
+    # Evidence is immutable per run. An explicit reused destination fails rather
+    # than replacing another author's or reviewer's measurement.
+    with (CAPACITY_EVIDENCE / name).open("x", encoding="utf-8") as output:
+        json.dump(payload, output, ensure_ascii=False, indent=2)
 
 
 class InsightsFoundationTests(TestCase):
@@ -111,9 +124,7 @@ class InsightsFoundationTests(TestCase):
         self.assertEqual(result["coverageBySource"]["jd_sku_daily:sku_daily:京东:yearAgo"]["expectedShopDatePairs"], 18350)
         encoded = json.dumps(result, ensure_ascii=False).encode("utf-8")
         self.assertLessEqual(len(encoded), 2*1024*1024)
-        evidence = Path(r"E:\codex-artifacts\netshop-scheme2-20260930\foundation\capacity")
-        evidence.mkdir(parents=True, exist_ok=True)
-        (evidence/"maximum-shape.json").write_text(json.dumps({"fixture": "synthetic-empty-source-v1", "shops": 50, "currentDays": 366, "yearAgoDays": 367, "bytes": len(encoded), "sourceMembers": 102, "truncated": False}), encoding="utf-8")
+        write_capacity_evidence("maximum-shape.json", {"fixture": "synthetic-empty-source-v1", "shops": 50, "currentDays": 366, "yearAgoDays": 367, "bytes": len(encoded), "sourceMembers": 102, "truncated": False})
 
     def test_metric_states_and_bad_baselines_do_not_invent_growth(self):
         metric = {"value": 0, "unit": "CNY_CENT", "status": "available", "reasonCode": None, "sourceIds": ["jd_sku_daily"], "basis": "product_day_sum", "aggregation": "sum", "coverageRef": "current"}
@@ -244,9 +255,7 @@ class InsightsFoundationTests(TestCase):
         self.assertTrue(result["summaryFieldAvailability"]["visitors"]["complete"])
         self.assertEqual(len(result["items"]), 50)
         self.assertEqual(result["pagination"]["total"], 500)
-        evidence = Path(r"E:\codex-artifacts\netshop-scheme2-20260930\foundation\capacity")
-        evidence.mkdir(parents=True, exist_ok=True)
-        (evidence/"query-scale.json").write_text(json.dumps({"fixture": "synthetic-5000-v1", "database": "private-postgresql", "rows": 5000, "shops": 10, "days": 10, "products": 500, "sqlCalls": len(calls), "seconds": elapsed, "bytes": len(json.dumps(result, ensure_ascii=False).encode()), "controlPaymentCents": 5_000_000, "rankPlan": json.loads(rank_plan), "fieldPlan": json.loads(field_plan), "limits": "This bounded synthetic sample does not establish production P95 or all maximum-source SQL cost"}, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_capacity_evidence("query-scale.json", {"fixture": "synthetic-5000-v1", "database": "private-postgresql", "rows": 5000, "shops": 10, "days": 10, "products": 500, "sqlCalls": len(calls), "seconds": elapsed, "bytes": len(json.dumps(result, ensure_ascii=False).encode()), "controlPaymentCents": 5_000_000, "rankPlan": json.loads(rank_plan), "fieldPlan": json.loads(field_plan), "limits": "This bounded synthetic sample does not establish production P95 or all maximum-source SQL cost"})
 
     def test_identity_rejects_wrong_dimension_scope_duplicate_and_changed_revision(self):
         for identities in [[json.dumps(["天猫", "A", "sku", "1"])], [json.dumps(["京东", "B", "sku", "1"])], [json.dumps(["京东", "A", "spu", "1"])], [json.dumps(["京东", "A", "sku", "1"])]*2]:

@@ -11,7 +11,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 RUN = ROOT / ".runtime" / ("foundation-pg-"+secrets.token_hex(6))
-EVIDENCE = Path(r"E:\codex-artifacts\netshop-scheme2-20260930\foundation") / RUN.name
+EVIDENCE = Path(os.environ.get("TERUISI_FOUNDATION_EVIDENCE_ROOT", str(ROOT / ".runtime" / "foundation-evidence"))) / RUN.name
 with socket.socket() as probe:
     probe.bind(("127.0.0.1", 0)); PORT = probe.getsockname()[1]
 if PORT == 5432: raise RuntimeError("Refusing production port")
@@ -20,6 +20,7 @@ password = secrets.token_hex(40)
 pwfile = RUN / "fixture-password.txt"; pwfile.write_text(password, encoding="ascii")
 env = {k: v for k, v in os.environ.items() if k in {"SYSTEMROOT", "WINDIR", "TEMP", "TMP", "PATH", "COMSPEC", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "PROGRAMFILES"}}
 env.update(PGPASSWORD=password, PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1", PYTHONPATH=str(ROOT / "tools")+os.pathsep+str(ROOT / "backend"), TERUISI_DJANGO_ENVIRONMENT="test", TERUISI_DJANGO_PROCESS_ROLE="development", DJANGO_DEBUG="true", TERUISI_DJANGO_DATABASE_URL=f"postgresql://foundation_fixture:{password}@127.0.0.1:{PORT}/foundation_fixture")
+env["TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR"] = str(EVIDENCE / "capacity")
 results = []
 def run(args, label):
     before = time.monotonic()
