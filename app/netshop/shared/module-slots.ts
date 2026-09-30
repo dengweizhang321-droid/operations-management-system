@@ -27,4 +27,6 @@ export const netshopColumnModules: Partial<Record<Exclude<NetshopView, "outlets"
   products: ProductsColumn,
   promotion: PromotionInsightsView,
 };
-export const netshopColumnCapabilities = { supportsPromotionProductDrill: false };
+// The candidate contains A's exact productIdentity reader and its real UI.
+// I publishes this capability only together with the independently verified M4 combination.
+export const netshopColumnCapabilities = { supportsPromotionProductDrill: true };
