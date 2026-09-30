@@ -70,6 +70,7 @@ try:
     from netshop.models import NetshopDataRevision
     from netshop.promotion_diagnostic import SHOP_NAME, read_promotion_diagnostic
     from netshop.promotion_insights import read_promotion_insights, read_promotion_detail
+    from netshop.insights_common import actor_fence
     from netshop.query import revision_value
     from netshop.tests.promotion_insights_fixtures import add_day
     from sales.auth import Principal
@@ -124,12 +125,14 @@ try:
                     value = (read_promotion_detail if parts.path.endswith("/detail") else read_promotion_insights)(principal, params)
                     revision = next(r["revision"] for r in value["context"]["sourceRevisions"] if r["kind"] == "owning_revision")
                 elif parts.path == "/api/netshop/promotion-diagnostic":
+                    actor = actor_fence(principal)
                     if user.role_id != "admin": raise NetshopApiError("Fixture role is not admin", code="access_denied", status=403)
                     if params.getlist("platform") != ["京东"] or params.getlist("outlet") != ["京东\x1f"+SHOP_NAME]: raise NetshopApiError("Original supported shop only")
                     from datetime import date
                     if not 1 <= (date.fromisoformat(params["endDate"])-date.fromisoformat(params["startDate"])).days+1 <= 7: raise NetshopApiError("Original 1-7 day UI boundary")
                     revision = revision_value()
                     value = read_promotion_diagnostic(start_date=params["startDate"], end_date=params["endDate"], source_revision=revision)
+                    if actor != actor_fence(principal): raise NetshopApiError("Fixture permissions changed", code="access_denied", status=403)
                     if revision != revision_value(): raise NetshopApiError("Source changed", code="insights_revision_changed", status=409)
                     value["sourceRevision"] = revision
                 else: raise NetshopApiError("Fixture adapter has no such route", code="not_found", status=404)
@@ -143,10 +146,22 @@ try:
 
         def do_POST(self):
             close_old_connections()
-            if self.path != "/fixture/advance-revision": self.send_payload({"code": "fixture_read_only", "error": "Only a synthetic revision fixture is writable"}, 403); return
-            with transaction.atomic():
-                NetshopDataRevision.objects.filter(domain="netshop").update(revision=F("revision")+1, source_digest=hashlib.sha256(secrets.token_bytes(32)).hexdigest())
-            self.send_payload({"fixture": "promotion-ui-synthetic-v1", "revisionAdvanced": True}); connections.close_all()
+            try:
+                if self.path == "/fixture/advance-revision":
+                    with transaction.atomic():
+                        NetshopDataRevision.objects.filter(domain="netshop").update(revision=F("revision")+1, source_digest=hashlib.sha256(secrets.token_bytes(32)).hexdigest())
+                    self.send_payload({"fixture": "promotion-ui-synthetic-v1", "revisionAdvanced": True})
+                elif self.path == "/fixture/account-status":
+                    length = int(self.headers.get("Content-Length", "0"))
+                    if not 0 < length <= 128: raise NetshopApiError("Bounded synthetic fixture control required")
+                    payload = json.loads(self.rfile.read(length))
+                    if set(payload) != {"status"} or payload["status"] not in {"active", "disabled"}: raise NetshopApiError("Only active/disabled synthetic account status is supported")
+                    AppUser.objects.filter(email="promotion-ui@example.test").update(status=payload["status"], version=F("version")+1)
+                    self.send_payload({"fixture": "promotion-ui-synthetic-v1", "accountStatus": payload["status"]})
+                else: self.send_payload({"code": "fixture_read_only", "error": "Only named synthetic fixture controls are writable"}, 403)
+            except (NetshopApiError, ValueError) as error:
+                self.send_payload({"code": "fixture_invalid_control", "error": str(error)}, 400)
+            finally: connections.close_all()
 
     server = ThreadingHTTPServer(("127.0.0.1", 18150), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
