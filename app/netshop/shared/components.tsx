@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { decodeInsightPagination, formatMetric, type MetricValue, type MetricComparison, type SourceCoverage, type InsightPagination } from "@/lib/netshop/insights-contract";
+import { decodeInsightPagination, formatMetric, formatDerivedMoneyPerCount, type DerivedMoneyPerCountV1, type MetricValue, type MetricComparison, type SourceCoverage, type InsightPagination } from "@/lib/netshop/insights-contract";
 import type { ReadStatus } from "./request-state";
 import "./shared.css";
 
@@ -13,6 +13,9 @@ export function InsightFilterBar({ children, sticky = true, label = "经营范�
 }
 export function InsightMetric({ label, metric }: { label: string; metric: MetricValue }) {
   return <div className="insights-metric" data-status={metric.status}><span>{label}</span><strong>{formatMetric(metric)}</strong>{metric.status !== "available" && <small>{reasons[metric.reasonCode ?? ""] ?? metric.reasonCode}</small>}</div>;
+}
+export function InsightDerivedMoneyMetric({ label, metric }: { label: string; metric: DerivedMoneyPerCountV1 }) {
+  return <div className="insights-metric" data-status={metric.status}><span>{label}</span><strong>{formatDerivedMoneyPerCount(metric)}</strong>{metric.status !== "available" && <small>{reasons[metric.reasonCode ?? ""] ?? metric.reasonCode}</small>}</div>;
 }
 export function InsightComparison({ value }: { value: MetricComparison }) {
   return <span className="insights-comparison" title={value.reasonCode ? reasons[value.reasonCode] ?? value.reasonCode : undefined}>{value.status === "available" && value.value !== null ? `${value.value > 0 ? "+" : ""}${(value.method === "percentage_points" ? value.value : value.value * 100).toFixed(2)}${value.method === "percentage_points" ? " 个百分点" : "%"}` : "—"}</span>;
