@@ -1,0 +1,84 @@
+{
+  "status": "production_adopted_business_verified",
+  "businessDateShanghai": "2026-09-30",
+  "authorization": "User approved the scoped zero-cost rule, short application maintenance, exact 5399 recovery permit and one complete original n8n manual rerun.",
+  "sourceCommit": "a5fbe6b5",
+  "release": {
+    "workerId": "20260930T005003Z-7df88d242a9635ba",
+    "workerManifestSha256": "8d8e1e89994bf61aced64e72e28ae6261357952ba79d245d91e5fe51f838811e",
+    "workerPlanSha256": "2ad70bb02bd8ba17dc2c2b71be7a3d220bfa95a1f0308cd9a1cce2ddfe298314",
+    "djangoAppFingerprint": "4abd17ba98d725588131c3aae2080cc1c3867371206532bdef6fc571e3ed8c9a",
+    "salesPolicyVersion": "2026-09-30.1",
+    "postgresPidRetained": 25736,
+    "n8nPidRetained": 13776,
+    "migrationFilesAdded": 0,
+    "n8nDefinitionsChanged": false
+  },
+  "preBackup": {
+    "id": "daily-20260930T010117Z-0ae5dc2c4c0a",
+    "manifestSha256": "3581da11a1691b79d64cacfe8e17f7f33a792cb1b375e2737a3dca735f62f70f",
+    "verified": true,
+    "isolatedRestoreId": "b6c9a284f3e1",
+    "restoredContentMatches": true,
+    "productionDatabaseTouchedByRehearsal": false,
+    "retainedAfterPostBackup": false
+  },
+  "recovery": {
+    "failedExecutionId": 5399,
+    "failedAtNode": "C",
+    "businessImportBeforeRecovery": false,
+    "fileEvidenceCount": 26,
+    "permitSha256": "9a3720033219307c4f5a973ac2cdf977393975c5444a32f98274ee5c987438de",
+    "claimedByExecutionId": 5400,
+    "originalPlanAndN8nFailurePreserved": true
+  },
+  "businessExecution": {
+    "id": 5400,
+    "mode": "manual",
+    "status": "success",
+    "startedAtUtc": "2026-09-30T01:37:30.144Z",
+    "stoppedAtUtc": "2026-09-30T01:41:43.874Z",
+    "completeStages": ["manual entry", "fixed execution time", "shared helper", "A", "B", "C", "D", "E"],
+    "runId": "n8n-export-first-5400",
+    "snapshotDate": "2026-09-30",
+    "salesStartDate": "2026-08-16",
+    "salesEndDate": "2026-09-29",
+    "approvedZeroCostRows": 1,
+    "approvedZeroCostCodes": ["ZG-WB-YSFLQ-006"],
+    "unmatchedCosts": 0,
+    "batches": [
+      {"module": "products", "batchId": "products:d5d00e5ec4843a7f1dd7d92a06fb2100ae1889ccbcc728959a1d7bcac1259188", "rows": 8527, "warnings": 0, "apiCompleted": true},
+      {"module": "inventory", "batchId": "14ab7cc1a22bc7915b82e9eec81a3c711311e832239d2a67c570851ecfbd5268", "rows": 24264, "warnings": 6, "apiCompleted": true, "isCurrent": true},
+      {"module": "inventory_age", "batchId": "inventory_age:421339b723a9d4881410cfe237d1e84bfe955069376ee3bd0a0d4e864bf5688e", "rows": 5580, "warnings": 0, "apiCompleted": true},
+      {"module": "sales", "batchId": "64e88e720339d623a22a3c5dc69c1fb5519431afec54ffb047e2cb1de3a70657", "rows": 39224, "warnings": 110, "apiCompleted": true, "ownedRows": 39224, "rowsNotOwnedByBatch": 0, "nonWhitelistChannels": 0, "costSourceInventoryBatchId": "14ab7cc1a22bc7915b82e9eec81a3c711311e832239d2a67c570851ecfbd5268"},
+      {"module": "combos", "batchId": "combos:544a352d7fb3c44496a195ea198bc38541fb0602b93cdcdd8f8853227ade4d54", "rows": 4454, "warnings": 2, "apiCompleted": true, "receiptStatus": "duplicate"}
+    ],
+    "salesRevisionAfter": "43:41",
+    "salesThroughYesterdayAfter": true
+  },
+  "postReleaseIncident": {
+    "workerSupervisorStoppedUnexpectedlyAfterBusinessSuccess": true,
+    "lastOldSupervisorHeartbeatShanghai": "2026-09-30T09:41:36+08:00",
+    "watchdogStaleReceiptShanghai": "2026-09-30T09:42:55+08:00",
+    "sameReleaseSupervisorStartedShanghai": "2026-09-30T09:47:19+08:00",
+    "twoHealthyWatchdogObservationsShanghai": ["2026-09-30T09:50:34+08:00", "2026-09-30T09:51:54+08:00"],
+    "underlyingExitCauseConfirmed": false,
+    "manualBusinessReplayAfterRecovery": false
+  },
+  "postBackup": {
+    "id": "daily-20260930T015255Z-0fdeba79b8b8",
+    "manifestSha256": "52b1bafec158fadc1312dda32f0cff38e8619f9f312a1ff97fa8c778fa8f1a61",
+    "verified": true,
+    "retainedOnE": true,
+    "unprotectedPreBackupRemovedByRetention": true,
+    "releasePayloadRetention": "blocked_process_ownership_unknown"
+  },
+  "finalService": {
+    "state": "Running",
+    "backendState": "Ready",
+    "workerState": "exact_release",
+    "readyComponents": 12,
+    "helperActiveWorkflowAtFinalRead": "jd",
+    "unrelatedJdExecution5401AtFinalRead": "running_original_schedule"
+  }
+}
