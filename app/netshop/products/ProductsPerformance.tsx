@@ -8,6 +8,7 @@ import { InsightListPagination, InsightReadState } from "../shared/components";
 import type { ProductInsightsResponse } from "./contract";
 import { CompareCell, MetricCell, MissingSource, ProductPicture, ProductsMetric, ProductsPanel } from "./ProductsPrimitives";
 import { ProductsBars } from "./ProductsCharts";
+import { ProductsCoverage } from "./ProductsCoverage";
 import { productPrincipalKey, productsQuery, readInsights, useProductRead } from "./ProductsRead";
 import { productSortOptions, type ProductsUiState } from "./ui-state";
 
@@ -39,5 +40,6 @@ export function ProductsPerformance({ props, ui, onUi, onContextAvailable }: { p
       <ProductRows rows={sections.items} columns={ui.columns} previous={props.context.previous} yearAgo={props.context.yearAgo} onSelect={open} /><InsightListPagination pagination={sections.pagination} onPage={page => props.onContextChange({ page })} /><p className="np-caption">实际排序 {data.tableScope.sort} · 返回 {sections.pagination.returned}/{sections.pagination.total} 条 · 服务端精确身份配对。</p>
     </ProductsPanel>
     {sections.dataQuality && <ProductsPanel title="资料质量" note={`当前目录快照；陈旧规则 ${sections.dataQuality.staleAfterDays} 天；只读展示`}><div className="np-metrics">{([["missingImage", "缺少图片"], ["missingCode", "缺少编码"], ["missingCategory", "缺少类目"], ["conflict", "身份冲突"], ["stale", "陈旧资料"], ["unmapped", "未关联"]] as const).map(([key, label]) => <ProductsMetric key={key} label={label} metric={sections.dataQuality!.counts[key]} />)}</div><p className="np-note">质量项可能重叠，不相加当作异常商品总数；不会自动修改映射、改码、合并或删除商品。</p></ProductsPanel>}
+    <ProductsCoverage context={data.context} revisions={data.joinedSourceRevisions} />
   </div>;
 }

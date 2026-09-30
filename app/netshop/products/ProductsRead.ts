@@ -13,6 +13,10 @@ export function productsQuery(props: Pick<NetshopColumnProps, "context" | "start
   (context.platforms.length ? context.platforms : ["京东", "天猫"]).forEach(platform => query.append("platform", platform));
   context.outlets.forEach(outlet => query.append("outlet", outlet));
   if (detail && context.product) {
+    query.delete("platform"); query.delete("outlet");
+    query.set("platform", context.product.platform);
+    query.set("outlet", `${context.product.platform}\u001f${context.product.shopName}`);
+    query.set("dimension", context.product.dimension);
     query.set("productIdentity", encodeProductIdentity(context.product)); query.set("section", detail.section);
     if (detail.section === "daily" || detail.section === "trends") query.set("source", detail.source);
   }

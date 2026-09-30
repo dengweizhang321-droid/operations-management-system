@@ -11,10 +11,12 @@ import type { MetricValue } from "../lib/netshop/insights-contract";
 // verifies text/state semantics without treating the stylesheet as JavaScript.
 registerHooks({ load(url, context, nextLoad) { return url.endsWith(".css") ? { format: "module", source: "", shortCircuit: true } : nextLoad(url, context); } });
 const { CompareCell, MetricCell, ProductPicture } = await import("../app/netshop/products/ProductsPrimitives");
+const { productsQuery } = await import("../app/netshop/products/ProductsRead");
+import { validateProductQuery } from "../app/netshop/products/contract";
 
 test("presentation settings preserve columns and sort without retaining results or API tokens", () => {
   const value = decodeProductsUiState(JSON.stringify({ sort: "decline_desc", columns: { traffic: false, comparison: false }, gallery: true, topic: "growth", snapshotToken: "old", data: [{ payment: 100 }] }));
-  assert.deepEqual(value, { sort: "decline_desc", columns: { traffic: false, comparison: false, association: true, coverage: true }, gallery: true, topic: "growth" });
+  assert.deepEqual(value, { sort: "decline_desc", columns: { traffic: false, comparison: false, association: true, coverage: true }, gallery: true, detailSource: "platform", topic: "growth" });
   assert.equal("snapshotToken" in value, false);
   assert.equal("data" in value, false);
 });
@@ -30,6 +32,7 @@ test("settings are isolated by account, exact shop, period and dimension", () =>
   assert.notEqual(key, productsUiStorageKey({ ...context, outlets: ["京东\u001f店B"] }, "2026-09-01", "2026-09-30", "user-a"));
   assert.notEqual(key, productsUiStorageKey({ ...context, dimension: "sku" }, "2026-09-01", "2026-09-30", "user-a"));
   assert.notEqual(key, productsUiStorageKey(context, "2026-08-01", "2026-08-30", "user-a"));
+  assert.notEqual(key, productsUiStorageKey(context, "2026-09-01", "2026-09-30", "user-a", "rolling"));
   assert.equal(key, productsUiStorageKey({ ...context, q: "search", page: 3, product: { platform: "京东", shopName: "店A", dimension: "spu", id: "1" } }, "2026-09-01", "2026-09-30", "user-a"));
 });
 test("product links reject scripts, inline data and credential-bearing URLs", () => {
@@ -56,4 +59,17 @@ test("comparisons consume server percentage points and preserve zero/negative/mi
 test("missing images do not invent a product photograph", () => {
   const html = renderToStaticMarkup(React.createElement(ProductPicture, { title: "<script>", url: null, link: "javascript:alert(1)" }));
   assert.match(html, /缺少主图/); assert.doesNotMatch(html, /<img|<a|<script>/);
+});
+test("detail query normalizes to exactly the selected product platform/shop/dimension", () => {
+  const context = { ...defaultShopLocationContext, platforms: ["京东", "天猫"] as ("京东" | "天猫")[], outlets: ["京东\u001f店A", "天猫\u001f店A"], product: { platform: "京东" as const, shopName: "店A", dimension: "sku" as const, id: "SKU1" }, page: 3, q: "SKU1" };
+  const query = productsQuery({ context, startDate: "2026-09-01", endDate: "2026-09-01", periodKind: "custom" }, "payment_desc", { section: "daily", source: "erp", page: 1 });
+  assert.deepEqual(query.getAll("platform"), ["京东"]);
+  assert.deepEqual(query.getAll("outlet"), ["京东\u001f店A"]);
+  assert.equal(query.get("dimension"), "sku"); assert.equal(query.get("source"), "erp"); assert.equal(query.get("q"), "SKU1");
+  assert.doesNotThrow(() => validateProductQuery(query, true));
+});
+test("empty global platform selection explicitly requests the two permitted platforms", () => {
+  const query = productsQuery({ context: defaultShopLocationContext, startDate: "2026-09-01", endDate: "2026-09-01", periodKind: "custom" }, "payment_desc");
+  assert.deepEqual(query.getAll("platform"), ["京东", "天猫"]);
+  assert.doesNotThrow(() => validateProductQuery(query));
 });

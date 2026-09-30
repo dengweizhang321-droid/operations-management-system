@@ -12,16 +12,17 @@ export type ProductsUiState = {
   sort: ProductSort;
   columns: Record<ProductColumnGroup, boolean>;
   gallery: boolean;
+  detailSource: "platform" | "promotion" | "erp";
   topic: "home" | "growth" | "traffic" | "list";
 };
 export const defaultProductsUiState: ProductsUiState = {
-  sort: "payment_desc", columns: { traffic: true, comparison: true, association: true, coverage: true }, gallery: false, topic: "home",
+  sort: "payment_desc", columns: { traffic: true, comparison: true, association: true, coverage: true }, gallery: false, detailSource: "platform", topic: "home",
 };
 
 /** Local presentation settings survive a shell drill/return. They contain no
  * results or source tokens and cannot authorize an API scope. */
-export function productsUiStorageKey(context: ShopLocationContext, startDate: string, endDate: string, principal: string) {
-  return `netshop-products-ui-v1:${JSON.stringify([principal, startDate, endDate, [...context.platforms].sort(), [...context.outlets].sort(), context.dimension])}`;
+export function productsUiStorageKey(context: ShopLocationContext, startDate: string, endDate: string, principal: string, periodKind = "custom") {
+  return `netshop-products-ui-v1:${JSON.stringify([principal, startDate, endDate, periodKind, [...context.platforms].sort(), [...context.outlets].sort(), context.dimension])}`;
 }
 export function decodeProductsUiState(raw: string | null): ProductsUiState {
   const fallback = () => ({ ...defaultProductsUiState, columns: { ...defaultProductsUiState.columns } });
@@ -35,6 +36,7 @@ export function decodeProductsUiState(raw: string | null): ProductsUiState {
       sort: productSortOptions.some(([key]) => key === v.sort) ? v.sort as ProductSort : "payment_desc",
       columns: Object.fromEntries(Object.keys(defaultProductsUiState.columns).map(key => [key, typeof c[key] === "boolean" ? c[key] : true])) as ProductsUiState["columns"],
       gallery: v.gallery === true,
+      detailSource: ["platform", "promotion", "erp"].includes(String(v.detailSource)) ? v.detailSource as ProductsUiState["detailSource"] : "platform",
       topic: ["home", "growth", "traffic", "list"].includes(String(v.topic)) ? v.topic as ProductsUiState["topic"] : "home",
     };
   } catch { return fallback(); }
