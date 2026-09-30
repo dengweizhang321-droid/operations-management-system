@@ -67,3 +67,16 @@ I已接收准备提交 `01ab8c5889da488c9922bfc9d019fe8c2725bb73`，七组pendin
 拟补负向夹具范围：跨平台请求拒绝、JD非SKU/天猫非SPU拒绝、paired-whole缺日但matched完整、零匹配、0点击与真实0花费、类别参数未支持、custom baseline未支持、q/focus仅影响对象列表、基期独有/未知身份桶、null能力计数、同rowKey错shopKey/objectKind/token及映射不合格禁止P钻取。只保存准备清单，本轮未执行新验证或调整UI。
 
 仍由I串行落实原七组公共请求及C专属版本化comparisonScope/selectedBaseline；P/A都main且M6通知后才同步真实实现。C分支当前只新增准备文档，3170与UI/date历史保持，不依赖未审候选或旧runtime作为正式父分支。
+
+## M3商品主线接收（仍待M4/M6）
+
+I发布并已fetch核验M3实际main `77a26703b143288edd91fbab40c6741ed487e698`，包含运行冻结候选 `9979c9386a0b6f951be2ef43ef2ce910f5d3d075`（祖先检查exit0）。只读该提交的M3公告及 `app/netshop/products/HANDOFF.md/contract.ts/data.ts`，P已合入不同于此前在途候选；没有合入P源码到C或提前实现M6。
+
+- 已实际注册两个GET product-insights及/detail，`netshop-product-insights-v1`；后续使用 `loadProductInsights/loadProductDetail` 和 `decodeProductInsights/decodeProductDetail`，带同类型owning header、context、joinedSourceRevisions、revision_vector_checked与sectionToken。固定v1分区缺失是协议错误，不当缺源。
+- 汇总/counts/structure是 `global_category_filtered` 完整集合，q只影响 `identity_title_code_only` 商品表；消费 `structure.denominator/top5/top10/categories/priceBands/changes`、qualification与服务端完整配对growth，不从当前items页重算全集。缺报不补0，旧精确配对不替代C店铺历史成员证明。
+- `CategoryEvidence`区分verified_id/label_only/unknown及sourceId/namespace/version/parentId/有效期/versionKind；当前来源是标签，不证明官方ID/层级/历史归属。导入快照或source revision不升级为vendor taxonomy版本，当前类别标签不回填历史；C跨平台规范化与任意基期仍由I另冻结。
+- 精确详情只有同平台/店/维度四段身份，日/trend按platform/promotion/erp分源；当前仅本期日序列，不能整期金额均摊出基期曲线。价格/库存/目录是各自当前快照，historical SKU关系及ERP历史净额/成本/毛利证据不足则不可用。
+- P→A `supportsPromotionProductDrill`在M3仍false；整店入口明确product=null。精确双向联动须M4真实lookup/组合验证后启用，不能用忽略对象的旧整店页代替。
+- 503可独立保留可靠本期；403/409整读失败并清失效引用。页码可变、页大小或范围/类目/身份/来源变需重读绑定token；用户偏好只走共享products-ui-v1，不自建history/权限。
+
+I已确认M3独立完整Q阻断0，继承其公告证据，不重跑P或设计测试。当前仍缺A最终main及M6开工SHA/公共C-F02版本适配；A clean6f契约仅作准备，不能成为正式C父分支。
