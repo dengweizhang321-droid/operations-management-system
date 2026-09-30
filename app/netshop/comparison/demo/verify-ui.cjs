@@ -34,6 +34,18 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
       assert.ok(response.headers()['content-security-policy'].includes("connect-src 'none'"));
       assert.match(await page.locator('body').innerText(), /合成/);
     });
+    await check('System font, palette and top-level column positions match the approved shell', async () => {
+      assert.equal(fs.readFileSync(path.join(__dirname,'system-tokens.css'),'utf8'),fs.readFileSync(path.join(__dirname,'../../../styles/tokens.css'),'utf8'));
+      const style=await page.evaluate(()=>{
+        const header=document.querySelector('.system-masthead'),tabs=document.querySelector('.system-subnav'),active=tabs.querySelector('.active');
+        return {font:getComputedStyle(document.body).fontFamily,bodySize:getComputedStyle(document.body).fontSize,tableSize:getComputedStyle(document.querySelector('td')).fontSize,bg:getComputedStyle(header).backgroundColor,tabBg:getComputedStyle(active).backgroundColor,margin:getComputedStyle(document.querySelector('.app-body')).marginLeft,header:header.getBoundingClientRect().toJSON(),tabs:tabs.getBoundingClientRect().toJSON(),columns:[...tabs.querySelectorAll('button')].map(e=>e.textContent)};
+      });
+      assert.match(style.font,/Inter.*SF Pro Display.*PingFang SC.*Microsoft YaHei/);
+      assert.equal(style.bodySize,'14px'); assert.equal(style.tableSize,'13px');
+      assert.equal(style.bg,'rgb(41, 63, 50)'); assert.equal(style.tabBg,'rgb(243, 247, 244)');
+      assert.equal(style.margin,'0px'); assert.equal(style.header.top,0); assert.ok(style.tabs.top>=style.header.bottom);
+      assert.deepEqual(style.columns.slice(0,5),['店铺全景','网店总览','店铺与平台对比','商品表现','推广分析']);
+    });
     for (let design = 1; design <= 5; design++) {
       await check(`Design ${design}: distinct rendering and desktop fit`, async () => {
         await page.getByTestId(`design-${design}`).click();
@@ -238,7 +250,7 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
     await browser.close();
     const report = {
       scope: 'synthetic isolated UI only',
-      sourceHashes: Object.fromEntries(['index.html','demo.js','demo.css'].filter(f=>fs.existsSync(path.join(__dirname,f))).map(f=>[f,sha(f)])),
+      sourceHashes: Object.fromEntries(['index.html','demo.js','demo.css','system-tokens.css','system-frame.css'].filter(f=>fs.existsSync(path.join(__dirname,f))).map(f=>[f,sha(f)])),
       testedAt: new Date().toISOString(),
       viewport: ['1440x1080','390x844'],
       cases, errors, requests,

@@ -1,11 +1,13 @@
 {
   "scope": "synthetic isolated UI only",
   "sourceHashes": {
-    "index.html": "6ba8391df928b53a3a0ef2aae3026c4b2a16c2d2b58a59221a8a25ecb5bd7bf4",
-    "demo.js": "7567851fbcd8f77e7b5a98068f6115018b2ba40fc7d6ab15e48eeb61e89eb15b",
-    "demo.css": "c861e52b1c464e4888045d73b8d6193cf9b73b47939bdf3c5658d4be464feec3"
+    "index.html": "e15c7b66402526f2545a4695293f04be45e37c31336642c75187b108020cf5ae",
+    "demo.js": "28d62588e0665d8b695f6323a00e8144584cb6159559de93ea88314a76f6b877",
+    "demo.css": "c861e52b1c464e4888045d73b8d6193cf9b73b47939bdf3c5658d4be464feec3",
+    "system-tokens.css": "67ce705f082787654bb9914f10d743f9219708b3a845a7a2f6116cd7dbce9821",
+    "system-frame.css": "49754a6133db1911c1bbb4ffb95846045e5bca55615433037cd08e25c44a5508"
   },
-  "testedAt": "2026-09-30T09:49:14.629Z",
+  "testedAt": "2026-09-30T10:25:54.158Z",
   "viewport": [
     "1440x1080",
     "390x844"
@@ -13,6 +15,10 @@
   "cases": [
     {
       "name": "Static-only CSP and synthetic disclosure",
+      "result": "pass"
+    },
+    {
+      "name": "System font, palette and top-level column positions match the approved shell",
       "result": "pass"
     },
     {
@@ -128,14 +134,22 @@
     },
     {
       "method": "GET",
+      "url": "http://127.0.0.1:3170/system-tokens.css"
+    },
+    {
+      "method": "GET",
       "url": "http://127.0.0.1:3170/demo.css"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/system-frame.css"
     },
     {
       "method": "GET",
       "url": "http://127.0.0.1:3170/demo.js"
     }
   ],
-  "passed": 27,
+  "passed": 28,
   "failed": 0,
   "PostgreSQL": "not implemented/not tested in this design stage",
   "productionPermissions": "not tested; required after F/P/A integration",

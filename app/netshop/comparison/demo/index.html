@@ -5,30 +5,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>店铺与平台对比 · 五版设计 Demo</title>
+  <link rel="stylesheet" href="./system-tokens.css">
   <link rel="stylesheet" href="./demo.css">
+  <link rel="stylesheet" href="./system-frame.css">
 </head>
 <body>
-  <aside class="app-nav" aria-label="应用导航">
-    <div class="brand"><span class="brand-icon">运</span><strong>运营管理系统</strong></div>
-    <div class="nav-label">业务工作台</div>
-    <div class="nav-item">◫ <span>经营总览</span></div>
-    <div class="nav-item nav-parent">▦ <span>网店分析</span><span>⌄</span></div>
-    <div class="nav-child">网店总览</div><div class="nav-child">店铺全景</div>
-    <div class="nav-child current" aria-current="page">店铺与平台对比</div>
-    <div class="nav-child">商品表现</div><div class="nav-child">推广分析</div>
-    <div class="nav-item">▤ <span>商品经营</span></div><div class="nav-item">▧ <span>库存管理</span></div>
-    <div class="nav-bottom">设计评审工作区<br><span>仅合成数据 · 独立预览</span></div>
-  </aside>
+  <header class="system-masthead" data-testid="system-masthead">
+    <button class="system-menu-button" type="button" data-action="system-menu" aria-label="展开主导航" aria-expanded="false">☰ <span>网店分析</span></button>
+    <nav class="primary-modules" aria-label="系统主导航">
+      <button type="button" data-action="preview-navigation"><i>AI</i>AI 对话</button>
+      <button type="button" data-action="preview-navigation"><i>务</i>运营事务</button>
+      <button type="button" data-action="preview-navigation"><i>流</i>自动化中心</button>
+      <button type="button" data-action="preview-navigation"><i>BI</i>BI 看板</button>
+      <button type="button" class="active" aria-current="page"><i>店</i>网店分析</button>
+      <button type="button" data-action="preview-navigation"><i>市</i>市场分析</button>
+      <button type="button" data-action="preview-navigation"><i>服</i>客服分析</button>
+      <button type="button" data-action="preview-navigation"><i>销</i>销售分析</button>
+      <button type="button" data-action="preview-navigation"><i>库</i>库存管理</button>
+      <button type="button" data-action="preview-navigation"><i>品</i>商品经营</button>
+      <button type="button" data-action="preview-navigation"><i>入</i>数据导入</button>
+      <button type="button" data-action="preview-navigation"><i>设</i>系统设置</button>
+      <button type="button" data-action="preview-navigation"><i>AI</i>AI 助理</button>
+    </nav>
+    <div class="system-tools" role="group" aria-label="页面工具">
+      <button class="system-context-button" type="button" data-action="definitions">问当前页面</button>
+      <button class="system-period" type="button" data-action="show-period" aria-label="编辑本期和比较区间"><span>统计周期</span><strong>自定义</strong><span aria-hidden="true">⌄</span></button>
+      <button class="system-account" type="button" popovertarget="demo-account" aria-label="账号操作">章</button>
+    </div>
+  </header>
+  <div id="demo-account" class="system-account-popover" popover>设计预览账号 · 仅查询</div>
   <div class="app-body">
-    <header class="app-top"><span>网店分析 <b>/</b> 店铺与平台对比</span><span class="user-dot">设</span></header>
+    <nav class="system-subnav" aria-label="网店分析栏目" data-testid="system-subnav">
+      <button type="button" data-action="preview-navigation">店铺全景</button>
+      <button type="button" data-action="preview-navigation">网店总览</button>
+      <button type="button" class="active" aria-current="page">店铺与平台对比</button>
+      <button type="button" data-action="preview-navigation">商品表现</button>
+      <button type="button" data-action="preview-navigation">推广分析</button>
+      <button type="button" disabled>企业购分析</button>
+      <button type="button" disabled>客服分析</button>
+    </nav>
     <main>
-      <div class="page-heading"><div><h1>店铺与平台对比</h1><p>从规模、效率与结构看清差异，先确认口径，再比较经营。</p></div><span class="pill design-only">设计候选 · 未定版</span></div>
+      <h1 class="system-visually-hidden">店铺与平台对比 · 五版设计预览</h1>
       <div class="demo-notice"><span class="notice-symbol">◈</span><div><strong>合成数据 Demo</strong>　五个独立版式，共用筛选和数据原则。未连接业务 API，任何数字、商品及结论均为交互演示。</div><button class="text-button" data-action="definitions">查看指标口径</button></div>
       <nav id="design-picker" class="design-picker" aria-label="五个设计版式"></nav>
       <section id="filters" class="filter-card" aria-label="对比筛选"></section>
       <div id="selection-bar"></div>
       <div id="content" aria-live="polite"></div>
-      <footer class="page-footer">view=platforms 兼容目标 · 独立设计预览 · 来源、字段与钻取需冻结契约和真实专题验收后接线</footer>
+      <footer class="page-footer">设计预览 · 合成数据 · 五种版式共用同一筛选范围</footer>
     </main>
   </div>
   <div id="drawer-root"></div>

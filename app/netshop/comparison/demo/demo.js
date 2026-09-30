@@ -333,7 +333,10 @@
     const button=event.target.closest('[data-action]');if(!button||button.disabled)return;
     const action=button.dataset.action,id=button.dataset.id;
     try{
-      if(action==='design')setState({design:+id});
+      if(action==='system-menu'){const head=document.querySelector('.system-masthead');head.classList.toggle('menu-open');button.setAttribute('aria-expanded',String(head.classList.contains('menu-open')));}
+      else if(action==='preview-navigation')toast('当前为店铺与平台对比设计预览，其他栏目等待正式接线。');
+      else if(action==='show-period'){$('filters').scrollIntoView({block:'start',behavior:'smooth'});$('current-start').focus({preventScroll:true});}
+      else if(action==='design')setState({design:+id});
       else if(action==='mode')setState({mode:id,platform:id==='platforms'?'all':state.platform});
       else if(action==='grain')setState({grain:id});
       else if(action==='normalize')setState({normalized:id==='true'});
@@ -361,5 +364,9 @@
   document.addEventListener('pointerover',event=>{const point=event.target.closest('[data-tip]');if(!point)return;const wrap=point.closest('.chart-wrap');wrap.querySelector('.chart-tooltip')?.remove();const tooltip=document.createElement('div');tooltip.className='chart-tooltip';const parts=point.dataset.tip.split('|');tooltip.innerHTML=`<strong>${esc(parts[0])}</strong>${esc(parts[1])}<br>${esc(parts[2])}`;const box=wrap.getBoundingClientRect(),pt=point.getBoundingClientRect();tooltip.style.left=Math.min(Math.max(0,pt.left-box.left),Math.max(0,box.width-220))+'px';tooltip.style.top='15px';wrap.append(tooltip);});
   document.addEventListener('pointerout',event=>{if(event.target.closest('[data-tip]'))event.target.closest('.chart-wrap')?.querySelector('.chart-tooltip')?.remove();});
   window.comparisonDemo=Object.freeze({setState,snapshot,openDetail,closeDetail,designs:DESIGNS.map(({id,name,title})=>({id,name,title})),fixtures:SHOPS.map(({id,platform,name})=>({id,platform,name})),reset:()=>setState({...DEFAULT,selectedIds:[...DEFAULT.selectedIds],expanded:[]})});
+  const masthead=document.querySelector('.system-masthead');
+  const syncShell=()=>document.documentElement.style.setProperty('--demo-masthead-height',masthead.getBoundingClientRect().height+'px');
+  new ResizeObserver(syncShell).observe(masthead);
+  syncShell();
   render();
 })();
