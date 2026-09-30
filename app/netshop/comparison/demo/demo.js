@@ -335,6 +335,7 @@
     const objects=compute().objects,validIds=objects.map(o=>o.id);
     state.selectedIds=[...new Set(state.selectedIds)].filter(id=>validIds.includes(id)).slice(0,4);
     if(state.selectedIds.length<Math.min(2,objects.length))state.selectedIds=[...new Set([...state.selectedIds,...validIds])].slice(0,Math.min(3,objects.length));
+    state.selectedIds=validIds.filter(id=>state.selectedIds.includes(id));
     if(!validIds.includes(state.focusId))state.focusId=state.selectedIds[0]||validIds[0]||null;
     render();return snapshot();
   }

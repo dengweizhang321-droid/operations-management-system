@@ -159,6 +159,17 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
       assert.equal((await snapshot()).objects.find(o=>o.id==='JD:C').products,null);
       await set({source:'platform',currentStart:'2026-09-01',currentEnd:'2026-09-28',previousStart:'2026-08-01',previousEnd:'2026-08-28'});
     });
+    await check('Reselected objects keep matching chip and trend colors', async () => {
+      await set({platform:'JD',selectedIds:['JD:A','JD:B','JD:C']});
+      await page.getByTestId('object-JD-A').click();await page.getByTestId('object-JD-A').click();
+      assert.deepEqual((await snapshot()).state.selectedIds,['JD:A','JD:B','JD:C']);
+      const pairs=await page.evaluate(()=>['A','B','C'].map(code=>{
+        const chip=document.querySelector(`[data-testid="object-JD-${code}"] i`);
+        const legend=[...document.querySelectorAll('.legend span')].find(el=>el.textContent.includes(`京东 ${code} 店`));
+        return [getComputedStyle(chip).backgroundColor,getComputedStyle(legend.querySelector('i')).backgroundColor];
+      }));
+      assert.ok(pairs.every(([chip,legend])=>chip===legend));
+    });
     await check('Platform mode keeps platforms separate from shop totals', async () => {
       await page.getByTestId('platform-filter').selectOption('all');
       await set({currentStart:'2026-09-01',currentEnd:'2026-09-03',source:'platform',coverage:'all'});
