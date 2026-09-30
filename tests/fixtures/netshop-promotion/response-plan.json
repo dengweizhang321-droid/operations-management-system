@@ -1,0 +1,1958 @@
+{
+  "columnVersion": "netshop-promotion-v1",
+  "context": {
+    "schemaVersion": "netshop-insights-v1",
+    "requestId": "8af357ad-5538-4235-9565-fe7cca8ee440",
+    "scopeKey": "0aefc06f3d02a1fb2275af8f1ad5cf6bfbb3c8a5cbb9f83ad08e081306c11a6f",
+    "snapshotToken": "13e0baeae1193ce7af941a16cc1d0a615b5a3bf4b6d751642634976519877e6a",
+    "requestedScope": {
+      "platforms": [
+        "京东"
+      ],
+      "shopKeys": [],
+      "dimension": "sku",
+      "periodKind": "custom"
+    },
+    "effectiveScope": {
+      "platforms": [
+        "京东"
+      ],
+      "shopKeys": [
+        "京东\u001f志高商用设备旗舰店"
+      ],
+      "dimension": "sku",
+      "periodKind": "custom"
+    },
+    "periods": {
+      "timezone": "Asia/Shanghai",
+      "rule": "前一日",
+      "ruleVersion": "sales-period-v1",
+      "current": {
+        "startDate": "2026-09-01",
+        "endDate": "2026-09-01",
+        "endExclusive": "2026-09-02",
+        "days": 1
+      },
+      "previous": {
+        "startDate": "2026-08-31",
+        "endDate": "2026-08-31",
+        "endExclusive": "2026-09-01",
+        "days": 1
+      },
+      "yearAgo": {
+        "startDate": "2025-09-01",
+        "endDate": "2025-09-01",
+        "endExclusive": "2025-09-02",
+        "days": 1
+      }
+    },
+    "calendar": [
+      {
+        "date": "2026-09-01",
+        "previous": "2026-08-31",
+        "yearAgo": "2025-09-01"
+      }
+    ],
+    "sourceRevisions": [
+      {
+        "domain": "netshop",
+        "kind": "owning_revision",
+        "scopeKey": "0aefc06f3d02a1fb2275af8f1ad5cf6bfbb3c8a5cbb9f83ad08e081306c11a6f",
+        "revision": "1:aaaaaaaaaaaa"
+      },
+      {
+        "domain": "netshop",
+        "kind": "京东:product:京东\u001f志高商用设备旗舰店",
+        "scopeKey": "0aefc06f3d02a1fb2275af8f1ad5cf6bfbb3c8a5cbb9f83ad08e081306c11a6f",
+        "revision": "absent"
+      },
+      {
+        "domain": "netshop",
+        "kind": "京东:promotion:京东\u001f志高商用设备旗舰店",
+        "scopeKey": "0aefc06f3d02a1fb2275af8f1ad5cf6bfbb3c8a5cbb9f83ad08e081306c11a6f",
+        "revision": "absent"
+      },
+      {
+        "domain": "netshop",
+        "kind": "京东:promotionManifest",
+        "scopeKey": "0aefc06f3d02a1fb2275af8f1ad5cf6bfbb3c8a5cbb9f83ad08e081306c11a6f",
+        "revision": "1:True"
+      }
+    ],
+    "coverageBySource": {
+      "jd_sku_daily:sku_daily:京东:current": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 1,
+        "complete": true,
+        "missingByShop": [],
+        "truncated": false
+      },
+      "jd_sku_daily:sku_daily:京东:previous": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001f志高商用设备旗舰店",
+            "dates": [
+              "2026-08-31"
+            ]
+          }
+        ],
+        "truncated": false
+      },
+      "jd_sku_daily:sku_daily:京东:yearAgo": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001f志高商用设备旗舰店",
+            "dates": [
+              "2025-09-01"
+            ]
+          }
+        ],
+        "truncated": false
+      },
+      "jd_promotion:ad:京东:current": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 1,
+        "complete": true,
+        "missingByShop": [],
+        "truncated": false
+      },
+      "jd_promotion:ad:京东:previous": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001f志高商用设备旗舰店",
+            "dates": [
+              "2026-08-31"
+            ]
+          }
+        ],
+        "truncated": false
+      },
+      "jd_promotion:ad:京东:yearAgo": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001f志高商用设备旗舰店",
+            "dates": [
+              "2025-09-01"
+            ]
+          }
+        ],
+        "truncated": false
+      }
+    },
+    "capabilities": [
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "current",
+        "field": "payment",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:current",
+        "presentShopDatePairs": 1,
+        "status": "available",
+        "reasonCode": null
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "current",
+        "field": "visitors",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:current",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "missing_field"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "current",
+        "field": "customers",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:current",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "missing_field"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "current",
+        "field": "quantity",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:current",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "missing_field"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "current",
+        "field": "addCartCustomers",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:current",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "missing_field"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "previous",
+        "field": "payment",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:previous",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "previous",
+        "field": "visitors",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:previous",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "previous",
+        "field": "customers",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:previous",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "previous",
+        "field": "quantity",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:previous",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "previous",
+        "field": "addCartCustomers",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:previous",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "yearAgo",
+        "field": "payment",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:yearAgo",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "yearAgo",
+        "field": "visitors",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:yearAgo",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "yearAgo",
+        "field": "customers",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:yearAgo",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "yearAgo",
+        "field": "quantity",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:yearAgo",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "period": "yearAgo",
+        "field": "addCartCustomers",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:yearAgo",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_promotion:ad:京东",
+        "period": "current",
+        "field": "spend",
+        "coverageRef": "jd_promotion:ad:京东:current",
+        "presentShopDatePairs": 1,
+        "status": "available",
+        "reasonCode": null
+      },
+      {
+        "sourceId": "jd_promotion:ad:京东",
+        "period": "current",
+        "field": "attributedPayment",
+        "coverageRef": "jd_promotion:ad:京东:current",
+        "presentShopDatePairs": 1,
+        "status": "available",
+        "reasonCode": null
+      },
+      {
+        "sourceId": "jd_promotion:ad:京东",
+        "period": "previous",
+        "field": "spend",
+        "coverageRef": "jd_promotion:ad:京东:previous",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_promotion:ad:京东",
+        "period": "previous",
+        "field": "attributedPayment",
+        "coverageRef": "jd_promotion:ad:京东:previous",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_promotion:ad:京东",
+        "period": "yearAgo",
+        "field": "spend",
+        "coverageRef": "jd_promotion:ad:京东:yearAgo",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      },
+      {
+        "sourceId": "jd_promotion:ad:京东",
+        "period": "yearAgo",
+        "field": "attributedPayment",
+        "coverageRef": "jd_promotion:ad:京东:yearAgo",
+        "presentShopDatePairs": 0,
+        "status": "unavailable",
+        "reasonCode": "no_records"
+      }
+    ],
+    "freshness": [
+      {
+        "sourceId": "jd_sku_daily:sku_daily:京东",
+        "dataThrough": "2026-09-01"
+      },
+      {
+        "sourceId": "jd_promotion:ad:京东",
+        "dataThrough": "2026-09-01"
+      }
+    ],
+    "limitations": [
+      "商品人数为商品×日累计；SKU/SPU不可相加",
+      "字段能力不是映射、归因窗口或推广聚合一致性证明",
+      "ERP/财报/库存须由所属consumer独立读取并验证修订向量"
+    ]
+  },
+  "sectionToken": "a6795392c8a68643aeb855241a84663e61234385ee0261b152e982e34b98d2e5",
+  "sections": {
+    "summary": {
+      "spend": {
+        "value": 100,
+        "unit": "CNY_CENT",
+        "status": "available",
+        "reasonCode": null,
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "basis": "platform_attributed",
+        "aggregation": "sum",
+        "coverageRef": "promotion:summary:current"
+      },
+      "attributedPayment": {
+        "value": 300,
+        "unit": "CNY_CENT",
+        "status": "available",
+        "reasonCode": null,
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "basis": "platform_attributed",
+        "aggregation": "sum",
+        "coverageRef": "promotion:summary:current"
+      },
+      "impressions": {
+        "value": 20,
+        "unit": "COUNT",
+        "status": "available",
+        "reasonCode": null,
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "basis": "platform_attributed",
+        "aggregation": "sum",
+        "coverageRef": "promotion:summary:current"
+      },
+      "clicks": {
+        "value": 3,
+        "unit": "COUNT",
+        "status": "available",
+        "reasonCode": null,
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "basis": "platform_attributed",
+        "aggregation": "sum",
+        "coverageRef": "promotion:summary:current"
+      },
+      "orders": {
+        "value": 2,
+        "unit": "COUNT",
+        "status": "available",
+        "reasonCode": null,
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "basis": "platform_attributed",
+        "aggregation": "sum",
+        "coverageRef": "promotion:summary:current"
+      },
+      "roas": {
+        "value": 3.0,
+        "unit": "MULTIPLE",
+        "status": "available",
+        "reasonCode": null,
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "basis": "platform_attributed",
+        "aggregation": "ratio_of_sums",
+        "coverageRef": "promotion:summary:current",
+        "numerator": 300,
+        "denominator": 100
+      },
+      "ctr": {
+        "value": 0.15,
+        "unit": "RATIO",
+        "status": "available",
+        "reasonCode": null,
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "basis": "platform_attributed",
+        "aggregation": "ratio_of_sums",
+        "coverageRef": "promotion:summary:current",
+        "numerator": 3,
+        "denominator": 20
+      },
+      "cpc": {
+        "value": 33.333333333333336,
+        "unit": "CNY_CENT_PER_COUNT",
+        "status": "available",
+        "reasonCode": null,
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "basis": "platform_attributed",
+        "aggregation": "ratio_of_sums",
+        "coverageRef": "promotion:summary:current",
+        "numerator": 100,
+        "denominator": 3,
+        "metricSchemaVersion": "netshop-money-per-count-v1",
+        "denominatorKind": "clicks"
+      },
+      "spendRate": {
+        "value": 0.1,
+        "unit": "RATIO",
+        "status": "available",
+        "reasonCode": null,
+        "sourceIds": [
+          "jd_promotion",
+          "jd_sku_daily"
+        ],
+        "basis": "product_day_sum",
+        "aggregation": "ratio_of_sums",
+        "coverageRef": "promotion:summary:current:matched",
+        "numerator": 100,
+        "denominator": 1000
+      }
+    },
+    "comparisons": {
+      "spend": {
+        "previous": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        },
+        "yearAgo": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        }
+      },
+      "attributedPayment": {
+        "previous": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        },
+        "yearAgo": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        }
+      },
+      "impressions": {
+        "previous": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        },
+        "yearAgo": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        }
+      },
+      "clicks": {
+        "previous": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        },
+        "yearAgo": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        }
+      },
+      "orders": {
+        "previous": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        },
+        "yearAgo": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        }
+      },
+      "roas": {
+        "previous": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        },
+        "yearAgo": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        }
+      },
+      "ctr": {
+        "previous": {
+          "value": null,
+          "method": "percentage_points",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        },
+        "yearAgo": {
+          "value": null,
+          "method": "percentage_points",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        }
+      },
+      "cpc": {
+        "previous": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        },
+        "yearAgo": {
+          "value": null,
+          "method": "relative_change",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        }
+      },
+      "spendRate": {
+        "previous": {
+          "value": null,
+          "method": "percentage_points",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        },
+        "yearAgo": {
+          "value": null,
+          "method": "percentage_points",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline"
+        }
+      }
+    },
+    "changes": {
+      "spend": {
+        "previous": {
+          "value": null,
+          "unit": "CNY_CENT",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline",
+          "sourceIds": [
+            "jd_promotion"
+          ],
+          "basis": "platform_attributed",
+          "aggregation": "sum",
+          "coverageRef": "promotion:summary:current"
+        },
+        "yearAgo": {
+          "value": null,
+          "unit": "CNY_CENT",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline",
+          "sourceIds": [
+            "jd_promotion"
+          ],
+          "basis": "platform_attributed",
+          "aggregation": "sum",
+          "coverageRef": "promotion:summary:current"
+        }
+      },
+      "attributedPayment": {
+        "previous": {
+          "value": null,
+          "unit": "CNY_CENT",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline",
+          "sourceIds": [
+            "jd_promotion"
+          ],
+          "basis": "platform_attributed",
+          "aggregation": "sum",
+          "coverageRef": "promotion:summary:current"
+        },
+        "yearAgo": {
+          "value": null,
+          "unit": "CNY_CENT",
+          "status": "unavailable",
+          "reasonCode": "incomplete_baseline",
+          "sourceIds": [
+            "jd_promotion"
+          ],
+          "basis": "platform_attributed",
+          "aggregation": "sum",
+          "coverageRef": "promotion:summary:current"
+        }
+      }
+    },
+    "matchedRange": {
+      "scopeLabel": "仅已匹配平台×店铺×日期",
+      "coverageRef": "promotion:summary:current:matched",
+      "metrics": {
+        "spend": {
+          "value": 100,
+          "unit": "CNY_CENT",
+          "status": "available",
+          "reasonCode": null,
+          "sourceIds": [
+            "jd_promotion"
+          ],
+          "basis": "platform_attributed",
+          "aggregation": "sum",
+          "coverageRef": "promotion:summary:current:matched"
+        },
+        "payment": {
+          "value": 1000,
+          "unit": "CNY_CENT",
+          "status": "available",
+          "reasonCode": null,
+          "sourceIds": [
+            "jd_sku_daily"
+          ],
+          "basis": "product_day_sum",
+          "aggregation": "sum",
+          "coverageRef": "promotion:summary:current:matched"
+        },
+        "spendRate": {
+          "value": 0.1,
+          "unit": "RATIO",
+          "status": "available",
+          "reasonCode": null,
+          "sourceIds": [
+            "jd_promotion",
+            "jd_sku_daily"
+          ],
+          "basis": "product_day_sum",
+          "aggregation": "ratio_of_sums",
+          "coverageRef": "promotion:summary:current:matched",
+          "numerator": 100,
+          "denominator": 1000
+        }
+      },
+      "shopDates": [
+        {
+          "shopKey": "京东\u001f志高商用设备旗舰店",
+          "dates": [
+            "2026-09-01"
+          ]
+        }
+      ]
+    },
+    "attribution": {
+      "amountDefinition": "jd_total_order_amount",
+      "orderDefinition": "jd_order_lines",
+      "window": null,
+      "amountLabel": "京东归因总订单金额",
+      "orderLabel": "京东总订单行",
+      "roiDisplayLabel": "ROI",
+      "roiMeaning": "platform_attributed_amount_divided_by_spend",
+      "denominatorDataset": "sku_daily",
+      "sourceMatrix": [
+        {
+          "sourceId": "jd_promotion",
+          "metrics": [
+            "spend",
+            "attributedPayment",
+            "impressions",
+            "clicks",
+            "orders"
+          ],
+          "aggregateReconciled": true
+        },
+        {
+          "sourceId": "jd_sku_daily",
+          "metrics": [
+            "payment"
+          ],
+          "purpose": "exact_shop_date_denominator"
+        }
+      ],
+      "limitations": [
+        "归因窗口未知，ROI为倍数，不能解释利润或广告增量",
+        "订单行/笔数不能替换成交客户数",
+        "归因成交不是已验证渠道子集，不推算自然成交",
+        "推广商品/触发SKU/跟单SKU分别建模，各视角同一事实不能相加",
+        "对象空集合0仅指已导入且核对完整的来源中未报告该对象，不代表平台真实零投放；缺ID或多义关系不推断缺席0",
+        "nullID未知桶保留本期来源金额，不能跨期作为同一实体比较或纳入贡献榜"
+      ]
+    },
+    "items": [
+      {
+        "platform": "京东",
+        "shopKey": "京东\u001f志高商用设备旗舰店",
+        "shopName": "志高商用设备旗舰店",
+        "objectKind": "plan",
+        "rowKey": "96d52033050797f6acfc4778e88bc6e7e5f8a88e53e15d69bf21f15a0bc06619",
+        "id": "P1",
+        "title": "合成计划",
+        "identityKind": "plan",
+        "planId": "P1",
+        "unitId": "U1",
+        "matchType": "精确",
+        "drillable": true,
+        "mapping": {
+          "status": "not_applicable",
+          "linkIdentity": null,
+          "evidence": "unverified",
+          "advertisedSkuId": null,
+          "triggerSkuId": null,
+          "followSkuId": null
+        },
+        "coverageRef": "promotion:plan:bd23b5f7d8b92409:current",
+        "observedDates": [
+          "2026-09-01"
+        ],
+        "metrics": {
+          "spend": {
+            "value": 100,
+            "unit": "CNY_CENT",
+            "status": "available",
+            "reasonCode": null,
+            "sourceIds": [
+              "jd_promotion"
+            ],
+            "basis": "platform_attributed",
+            "aggregation": "sum",
+            "coverageRef": "promotion:plan:bd23b5f7d8b92409:current"
+          },
+          "attributedPayment": {
+            "value": 300,
+            "unit": "CNY_CENT",
+            "status": "available",
+            "reasonCode": null,
+            "sourceIds": [
+              "jd_promotion"
+            ],
+            "basis": "platform_attributed",
+            "aggregation": "sum",
+            "coverageRef": "promotion:plan:bd23b5f7d8b92409:current"
+          },
+          "impressions": {
+            "value": 20,
+            "unit": "COUNT",
+            "status": "available",
+            "reasonCode": null,
+            "sourceIds": [
+              "jd_promotion"
+            ],
+            "basis": "platform_attributed",
+            "aggregation": "sum",
+            "coverageRef": "promotion:plan:bd23b5f7d8b92409:current"
+          },
+          "clicks": {
+            "value": 3,
+            "unit": "COUNT",
+            "status": "available",
+            "reasonCode": null,
+            "sourceIds": [
+              "jd_promotion"
+            ],
+            "basis": "platform_attributed",
+            "aggregation": "sum",
+            "coverageRef": "promotion:plan:bd23b5f7d8b92409:current"
+          },
+          "orders": {
+            "value": 2,
+            "unit": "COUNT",
+            "status": "available",
+            "reasonCode": null,
+            "sourceIds": [
+              "jd_promotion"
+            ],
+            "basis": "platform_attributed",
+            "aggregation": "sum",
+            "coverageRef": "promotion:plan:bd23b5f7d8b92409:current"
+          },
+          "roas": {
+            "value": 3.0,
+            "unit": "MULTIPLE",
+            "status": "available",
+            "reasonCode": null,
+            "sourceIds": [
+              "jd_promotion"
+            ],
+            "basis": "platform_attributed",
+            "aggregation": "ratio_of_sums",
+            "coverageRef": "promotion:plan:bd23b5f7d8b92409:current",
+            "numerator": 300,
+            "denominator": 100
+          },
+          "ctr": {
+            "value": 0.15,
+            "unit": "RATIO",
+            "status": "available",
+            "reasonCode": null,
+            "sourceIds": [
+              "jd_promotion"
+            ],
+            "basis": "platform_attributed",
+            "aggregation": "ratio_of_sums",
+            "coverageRef": "promotion:plan:bd23b5f7d8b92409:current",
+            "numerator": 3,
+            "denominator": 20
+          },
+          "cpc": {
+            "value": 33.333333333333336,
+            "unit": "CNY_CENT_PER_COUNT",
+            "status": "available",
+            "reasonCode": null,
+            "sourceIds": [
+              "jd_promotion"
+            ],
+            "basis": "platform_attributed",
+            "aggregation": "ratio_of_sums",
+            "coverageRef": "promotion:plan:bd23b5f7d8b92409:current",
+            "numerator": 100,
+            "denominator": 3,
+            "metricSchemaVersion": "netshop-money-per-count-v1",
+            "denominatorKind": "clicks"
+          },
+          "spendRate": {
+            "value": null,
+            "unit": "RATIO",
+            "status": "unavailable",
+            "reasonCode": "not_applicable",
+            "sourceIds": [
+              "jd_promotion",
+              "jd_sku_daily"
+            ],
+            "basis": "product_day_sum",
+            "aggregation": "ratio_of_sums",
+            "coverageRef": "promotion:plan:bd23b5f7d8b92409:current",
+            "numerator": null,
+            "denominator": null
+          }
+        },
+        "comparisons": {
+          "spend": {
+            "previous": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "yearAgo": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            }
+          },
+          "attributedPayment": {
+            "previous": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "yearAgo": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            }
+          },
+          "impressions": {
+            "previous": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "yearAgo": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            }
+          },
+          "clicks": {
+            "previous": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "yearAgo": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            }
+          },
+          "orders": {
+            "previous": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "yearAgo": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            }
+          },
+          "roas": {
+            "previous": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "yearAgo": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            }
+          },
+          "ctr": {
+            "previous": {
+              "value": null,
+              "method": "percentage_points",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "yearAgo": {
+              "value": null,
+              "method": "percentage_points",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            }
+          },
+          "cpc": {
+            "previous": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "yearAgo": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            }
+          },
+          "spendRate": {
+            "previous": {
+              "value": null,
+              "method": "percentage_points",
+              "status": "unavailable",
+              "reasonCode": "not_applicable"
+            },
+            "yearAgo": {
+              "value": null,
+              "method": "percentage_points",
+              "status": "unavailable",
+              "reasonCode": "not_applicable"
+            }
+          }
+        },
+        "changes": {
+          "spend": {
+            "previous": {
+              "value": null,
+              "unit": "CNY_CENT",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:plan:bd23b5f7d8b92409:current"
+            },
+            "yearAgo": {
+              "value": null,
+              "unit": "CNY_CENT",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:plan:bd23b5f7d8b92409:current"
+            }
+          },
+          "attributedPayment": {
+            "previous": {
+              "value": null,
+              "unit": "CNY_CENT",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:plan:bd23b5f7d8b92409:current"
+            },
+            "yearAgo": {
+              "value": null,
+              "unit": "CNY_CENT",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:plan:bd23b5f7d8b92409:current"
+            }
+          }
+        },
+        "spendShare": {
+          "value": 1.0,
+          "unit": "RATIO",
+          "status": "available",
+          "reasonCode": null,
+          "sourceIds": [
+            "jd_promotion"
+          ],
+          "basis": "platform_attributed",
+          "aggregation": "ratio_of_sums",
+          "coverageRef": "promotion:plan:bd23b5f7d8b92409:current",
+          "numerator": 100,
+          "denominator": 100
+        },
+        "missingIdentity": false,
+        "relations": [
+          {
+            "kind": "explicit_source_fields",
+            "description": "来源同一行关联：跟单SKU=SKU1；推广SKU=未提供；触发SKU=未提供；匹配方式=精确",
+            "sourceFields": [
+              "跟单SKU ID",
+              "智能投放推广SKU ID",
+              "触发SKU ID",
+              "关键词",
+              "搜索词",
+              "计划ID",
+              "单元ID",
+              "匹配方式"
+            ],
+            "targets": [
+              {
+                "objectKind": "product",
+                "id": "SKU1",
+                "rowKey": "8b99ad0a4afdbf6e7c7fd810fe38446b8193daeae0eda65b1d95fe89a8dc7140"
+              },
+              {
+                "objectKind": "plan",
+                "id": "P1",
+                "rowKey": "96d52033050797f6acfc4778e88bc6e7e5f8a88e53e15d69bf21f15a0bc06619"
+              },
+              {
+                "objectKind": "unit",
+                "id": "U1",
+                "rowKey": "a9ca79c815d5bd6214d8ed4b12b612c6d9d77b3f1647fc49e964dfa5d9899a26"
+              },
+              {
+                "objectKind": "keyword",
+                "id": "合成词",
+                "rowKey": "f774c1d7ac67c3b8ddcbe98d94f1629e70c028061dc89753fbf602794f36f206"
+              },
+              {
+                "objectKind": "search_term",
+                "id": "合成搜索",
+                "rowKey": "7aeb767fa2b2f112e70f27f15c133ef6f6b0d17f01a41b7333ae8087ef64101c"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "pageSize": 20,
+      "total": 1,
+      "returned": 1,
+      "hasMore": false,
+      "truncated": false
+    },
+    "objectKind": "plan",
+    "trend": {
+      "grain": "day",
+      "items": [
+        {
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-01",
+          "days": 1,
+          "truncatedPeriod": false,
+          "metrics": {
+            "spend": {
+              "value": 100,
+              "unit": "CNY_CENT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:trend:2026-09-01"
+            },
+            "attributedPayment": {
+              "value": 300,
+              "unit": "CNY_CENT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:trend:2026-09-01"
+            },
+            "impressions": {
+              "value": 20,
+              "unit": "COUNT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:trend:2026-09-01"
+            },
+            "clicks": {
+              "value": 3,
+              "unit": "COUNT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:trend:2026-09-01"
+            },
+            "orders": {
+              "value": 2,
+              "unit": "COUNT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:trend:2026-09-01"
+            },
+            "roas": {
+              "value": 3.0,
+              "unit": "MULTIPLE",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:trend:2026-09-01",
+              "numerator": 300,
+              "denominator": 100
+            },
+            "ctr": {
+              "value": 0.15,
+              "unit": "RATIO",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:trend:2026-09-01",
+              "numerator": 3,
+              "denominator": 20
+            },
+            "cpc": {
+              "value": 33.333333333333336,
+              "unit": "CNY_CENT_PER_COUNT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:trend:2026-09-01",
+              "numerator": 100,
+              "denominator": 3,
+              "metricSchemaVersion": "netshop-money-per-count-v1",
+              "denominatorKind": "clicks"
+            },
+            "spendRate": {
+              "value": 0.1,
+              "unit": "RATIO",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion",
+                "jd_sku_daily"
+              ],
+              "basis": "product_day_sum",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:trend:2026-09-01:matched",
+              "numerator": 100,
+              "denominator": 1000
+            }
+          },
+          "coverageRef": "promotion:trend:2026-09-01",
+          "comparisons": {
+            "spend": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "attributedPayment": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "impressions": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "clicks": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "orders": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "roas": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "ctr": {
+              "value": null,
+              "method": "percentage_points",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "cpc": {
+              "value": null,
+              "method": "relative_change",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            },
+            "spendRate": {
+              "value": null,
+              "method": "percentage_points",
+              "status": "unavailable",
+              "reasonCode": "incomplete_baseline"
+            }
+          },
+          "change": {
+            "spend": null,
+            "attributedPayment": null
+          },
+          "focusDate": "2026-09-01"
+        }
+      ]
+    },
+    "shops": {
+      "visible": false,
+      "items": [
+        {
+          "platform": "京东",
+          "shopKey": "京东\u001f志高商用设备旗舰店",
+          "shopName": "志高商用设备旗舰店",
+          "metrics": {
+            "spend": {
+              "value": 100,
+              "unit": "CNY_CENT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:shop:a06e240438310996:current"
+            },
+            "attributedPayment": {
+              "value": 300,
+              "unit": "CNY_CENT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:shop:a06e240438310996:current"
+            },
+            "impressions": {
+              "value": 20,
+              "unit": "COUNT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:shop:a06e240438310996:current"
+            },
+            "clicks": {
+              "value": 3,
+              "unit": "COUNT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:shop:a06e240438310996:current"
+            },
+            "orders": {
+              "value": 2,
+              "unit": "COUNT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:shop:a06e240438310996:current"
+            },
+            "roas": {
+              "value": 3.0,
+              "unit": "MULTIPLE",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:shop:a06e240438310996:current",
+              "numerator": 300,
+              "denominator": 100
+            },
+            "ctr": {
+              "value": 0.15,
+              "unit": "RATIO",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:shop:a06e240438310996:current",
+              "numerator": 3,
+              "denominator": 20
+            },
+            "cpc": {
+              "value": 33.333333333333336,
+              "unit": "CNY_CENT_PER_COUNT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:shop:a06e240438310996:current",
+              "numerator": 100,
+              "denominator": 3,
+              "metricSchemaVersion": "netshop-money-per-count-v1",
+              "denominatorKind": "clicks"
+            },
+            "spendRate": {
+              "value": 0.1,
+              "unit": "RATIO",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion",
+                "jd_sku_daily"
+              ],
+              "basis": "product_day_sum",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:shop:a06e240438310996:current:matched",
+              "numerator": 100,
+              "denominator": 1000
+            }
+          },
+          "comparisons": {
+            "spend": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "attributedPayment": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "impressions": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "clicks": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "orders": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "roas": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "ctr": {
+              "previous": {
+                "value": null,
+                "method": "percentage_points",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "percentage_points",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "cpc": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "spendRate": {
+              "previous": {
+                "value": null,
+                "method": "percentage_points",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "percentage_points",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            }
+          },
+          "changes": {
+            "spend": {
+              "previous": {
+                "value": null,
+                "unit": "CNY_CENT",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline",
+                "sourceIds": [
+                  "jd_promotion"
+                ],
+                "basis": "platform_attributed",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:a06e240438310996:current"
+              },
+              "yearAgo": {
+                "value": null,
+                "unit": "CNY_CENT",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline",
+                "sourceIds": [
+                  "jd_promotion"
+                ],
+                "basis": "platform_attributed",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:a06e240438310996:current"
+              }
+            },
+            "attributedPayment": {
+              "previous": {
+                "value": null,
+                "unit": "CNY_CENT",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline",
+                "sourceIds": [
+                  "jd_promotion"
+                ],
+                "basis": "platform_attributed",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:a06e240438310996:current"
+              },
+              "yearAgo": {
+                "value": null,
+                "unit": "CNY_CENT",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline",
+                "sourceIds": [
+                  "jd_promotion"
+                ],
+                "basis": "platform_attributed",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:a06e240438310996:current"
+              }
+            }
+          },
+          "matchedRange": {
+            "scopeLabel": "仅已匹配平台×店铺×日期",
+            "coverageRef": "promotion:shop:a06e240438310996:current:matched",
+            "metrics": {
+              "spend": {
+                "value": 100,
+                "unit": "CNY_CENT",
+                "status": "available",
+                "reasonCode": null,
+                "sourceIds": [
+                  "jd_promotion"
+                ],
+                "basis": "platform_attributed",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:a06e240438310996:current:matched"
+              },
+              "payment": {
+                "value": 1000,
+                "unit": "CNY_CENT",
+                "status": "available",
+                "reasonCode": null,
+                "sourceIds": [
+                  "jd_sku_daily"
+                ],
+                "basis": "product_day_sum",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:a06e240438310996:current:matched"
+              },
+              "spendRate": {
+                "value": 0.1,
+                "unit": "RATIO",
+                "status": "available",
+                "reasonCode": null,
+                "sourceIds": [
+                  "jd_promotion",
+                  "jd_sku_daily"
+                ],
+                "basis": "product_day_sum",
+                "aggregation": "ratio_of_sums",
+                "coverageRef": "promotion:shop:a06e240438310996:current:matched",
+                "numerator": 100,
+                "denominator": 1000
+              }
+            },
+            "shopDates": [
+              {
+                "shopKey": "京东\u001f志高商用设备旗舰店",
+                "dates": [
+                  "2026-09-01"
+                ]
+              }
+            ]
+          },
+          "coverageRef": "promotion:shop:a06e240438310996:current",
+          "spendShare": {
+            "value": 1.0,
+            "unit": "RATIO",
+            "status": "available",
+            "reasonCode": null,
+            "sourceIds": [
+              "jd_promotion"
+            ],
+            "basis": "platform_attributed",
+            "aggregation": "ratio_of_sums",
+            "coverageRef": "promotion:shop:a06e240438310996:current",
+            "numerator": 100,
+            "denominator": 100
+          }
+        }
+      ]
+    },
+    "objectCapabilities": {
+      "product": {
+        "status": "available",
+        "reasonCode": null,
+        "canQuery": true,
+        "message": "跟单SKU或推广商品ID，精确店铺隔离",
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "unidentifiedCount": 0
+      },
+      "plan": {
+        "status": "available",
+        "reasonCode": null,
+        "canQuery": true,
+        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词",
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "unidentifiedCount": 0
+      },
+      "unit": {
+        "status": "unavailable",
+        "reasonCode": "unverified_source",
+        "canQuery": true,
+        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词；选中后按真实来源核验",
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "unidentifiedCount": null
+      },
+      "keyword": {
+        "status": "unavailable",
+        "reasonCode": "unverified_source",
+        "canQuery": true,
+        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词；选中后按真实来源核验",
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "unidentifiedCount": null
+      },
+      "search_term": {
+        "status": "unavailable",
+        "reasonCode": "unverified_source",
+        "canQuery": true,
+        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词；选中后按真实来源核验",
+        "sourceIds": [
+          "jd_promotion"
+        ],
+        "unidentifiedCount": null
+      }
+    },
+    "sourceMatrix": [
+      {
+        "sourceId": "jd_promotion",
+        "label": "京东推广明细",
+        "coverageRef": "promotion:summary:current",
+        "fields": [
+          {
+            "field": "spend",
+            "status": "available",
+            "reasonCode": null
+          },
+          {
+            "field": "attributedPayment",
+            "status": "available",
+            "reasonCode": null
+          },
+          {
+            "field": "impressions",
+            "status": "available",
+            "reasonCode": null
+          },
+          {
+            "field": "clicks",
+            "status": "available",
+            "reasonCode": null
+          },
+          {
+            "field": "orders",
+            "status": "available",
+            "reasonCode": null
+          }
+        ],
+        "notes": [
+          "完成事实与manifest/state/shop/product聚合核对",
+          "分类字典未获可靠映射，商品分类为未知",
+          "归因窗口未提供"
+        ]
+      },
+      {
+        "sourceId": "jd_sku_daily",
+        "label": "京东商品SKU日",
+        "coverageRef": "jd_sku_daily:sku_daily:京东:current",
+        "fields": [
+          {
+            "field": "payment",
+            "status": "available",
+            "reasonCode": null
+          },
+          {
+            "field": "visitors",
+            "status": "unavailable",
+            "reasonCode": "missing_field"
+          },
+          {
+            "field": "customers",
+            "status": "unavailable",
+            "reasonCode": "missing_field"
+          },
+          {
+            "field": "quantity",
+            "status": "unavailable",
+            "reasonCode": "missing_field"
+          },
+          {
+            "field": "addCartCustomers",
+            "status": "unavailable",
+            "reasonCode": "missing_field"
+          }
+        ],
+        "notes": [
+          "推广费率按同平台×店铺×日期配对，商品层还需精确适用身份"
+        ]
+      }
+    ],
+    "limitations": [
+      "归因窗口未知，ROI为倍数，不能解释利润或广告增量",
+      "订单行/笔数不能替换成交客户数",
+      "归因成交不是已验证渠道子集，不推算自然成交",
+      "推广商品/触发SKU/跟单SKU分别建模，各视角同一事实不能相加",
+      "对象空集合0仅指已导入且核对完整的来源中未报告该对象，不代表平台真实零投放；缺ID或多义关系不推断缺席0",
+      "nullID未知桶保留本期来源金额，不能跨期作为同一实体比较或纳入贡献榜"
+    ],
+    "contributions": {
+      "collection": "comparable_full_set_before_search_pagination",
+      "comparedObjectCount": 0,
+      "excludedObjectCount": 1,
+      "previous": {
+        "spendIncrease": [],
+        "spendDecrease": [],
+        "attributedPaymentIncrease": [],
+        "attributedPaymentDecrease": []
+      }
+    },
+    "diagnostic": {
+      "status": "available",
+      "reasonCode": null,
+      "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词",
+      "shopName": "志高商用设备旗舰店",
+      "maximumDays": 7,
+      "paidModelAllowed": false,
+      "reportFormats": [
+        "html",
+        "xlsx"
+      ]
+    },
+    "dataQuality": {
+      "aggregateReconciled": true,
+      "invalidShopDates": []
+    },
+    "listScope": {
+      "objectKind": "plan",
+      "q": "",
+      "objectStartDate": "2026-09-01",
+      "objectEndDate": "2026-09-01",
+      "comparisonDates": {
+        "previous": [
+          "2026-08-31"
+        ],
+        "yearAgo": [
+          "2025-09-01"
+        ]
+      },
+      "summaryUnaffectedBySearch": true
+    },
+    "coverage": {
+      "promotion:summary:current": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 1,
+        "complete": true,
+        "missingByShop": [],
+        "truncated": false
+      },
+      "promotion:summary:current:matched": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 1,
+        "complete": true,
+        "missingByShop": [],
+        "truncated": false
+      },
+      "promotion:trend:2026-09-01": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 1,
+        "complete": true,
+        "missingByShop": [],
+        "truncated": false
+      },
+      "promotion:trend:2026-09-01:matched": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 1,
+        "complete": true,
+        "missingByShop": [],
+        "truncated": false
+      },
+      "promotion:shop:a06e240438310996:current": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 1,
+        "complete": true,
+        "missingByShop": [],
+        "truncated": false
+      },
+      "promotion:shop:a06e240438310996:current:matched": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 1,
+        "complete": true,
+        "missingByShop": [],
+        "truncated": false
+      },
+      "promotion:plan:bd23b5f7d8b92409:current": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 1,
+        "complete": true,
+        "missingByShop": [],
+        "truncated": false
+      }
+    }
+  }
+}
