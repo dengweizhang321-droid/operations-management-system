@@ -69,8 +69,10 @@
     const cost=net===null?null:Math.round(Math.abs(net)*shop.cost);
     const grossBeforeReturns=net===null?null:Math.round(Math.abs(net)/.953);
     const refund=net===null?null:Math.round(grossBeforeReturns*(.032+index*.005));
+    // Independent source fixture: aggregated order margin, deliberately distinct from net minus cost.
+    const grossProfit=erpOrders===null||net===null?null:Math.round(erpOrders*(11000+index*2700)*(net<0?-1:1));
     const visitors=platformAmount===null?null:Math.round(shop.visitors*wave*Math.max(factor,.3));
-    return {date,platformAmount,net,cost,grossProfit:net===null?null:net-cost,grossBeforeReturns,refund,orders,erpOrders,units,erpUnits,spend,attribution,impressions,clicks,visitors,customers:orders};
+    return {date,platformAmount,net,cost,grossProfit,grossBeforeReturns,refund,orders,erpOrders,units,erpUnits,spend,attribution,impressions,clicks,visitors,customers:orders};
   }
   function period(shop,start,end){
     const all=dates(start,end).map(date=>fixture(shop,date));
@@ -81,7 +83,7 @@
     const productCount=all.filter(row=>row.platformAmount!==null).length;
     const erpCount=all.filter(row=>row.net!==null).length;
     const knownSum=k=>all.some(row=>row[k]!==null)?sum(all,k):null;
-    return {amount:knownSum(key),orders:knownSum(state.source==='platform'?'orders':'erpOrders'),units:knownSum(state.source==='platform'?'units':'erpUnits'),net:knownSum('net'),cost:knownSum('cost'),grossProfit:knownSum('grossProfit'),platformAmount:knownSum('platformAmount'),refund:knownSum('refund'),grossBeforeReturns:knownSum('grossBeforeReturns'),spend:knownSum('spend'),attribution:knownSum('attribution'),impressions:knownSum('impressions'),clicks:knownSum('clicks'),visitors:knownSum('visitors'),customers:knownSum('customers'),status,coverage:{requested:all.length,selected:count,product:productCount,erp:erpCount,promotion:promoCount},days:all};
+    return {grossProfitBasis:'synthetic_source_order_margin_sum',amount:knownSum(key),orders:knownSum(state.source==='platform'?'orders':'erpOrders'),units:knownSum(state.source==='platform'?'units':'erpUnits'),net:knownSum('net'),cost:knownSum('cost'),grossProfit:knownSum('grossProfit'),platformAmount:knownSum('platformAmount'),refund:knownSum('refund'),grossBeforeReturns:knownSum('grossBeforeReturns'),spend:knownSum('spend'),attribution:knownSum('attribution'),impressions:knownSum('impressions'),clicks:knownSum('clicks'),visitors:knownSum('visitors'),customers:knownSum('customers'),status,coverage:{requested:all.length,selected:count,product:productCount,erp:erpCount,promotion:promoCount},days:all};
   }
   function attachRatios(object){
     const c=object.current;
@@ -96,7 +98,8 @@
     const keys=['amount','orders','units','net','cost','grossProfit','platformAmount','refund','grossBeforeReturns','spend','attribution','impressions','clicks','visitors','customers'];
     const result={};keys.forEach(key=>result[key]=periods.some(row=>row[key]!==null)?sum(periods,key):null);
     result.coverage={};['requested','selected','product','erp','promotion'].forEach(key=>result.coverage[key]=sum(periods.map(p=>p.coverage),key));
-    result.status=periods.every(p=>p.status==='available')?'available':periods.some(p=>p.status!=='unavailable')?'partial':'unavailable';
+    result.status=periods.length===0?'unavailable':periods.every(p=>p.status==='available')?'available':periods.some(p=>p.status!=='unavailable')?'partial':'unavailable';
+    result.reasonCode=periods.length===0?'NO_COMPLETE_OBJECTS':null;
     result.days=[];
     return result;
   }
@@ -105,7 +108,13 @@
     if(state.permission==='limited')shops=shops.filter(shop=>['JD:A','TMALL:D'].includes(shop.id));
     const storeObjects=shops.map(shop=>attachRatios({...shop,type:'shop',children:[],current:period(shop,state.currentStart,state.currentEnd),previous:period(shop,state.previousStart,state.previousEnd)}));
     if(state.mode==='shops')return storeObjects;
-    return ['JD','TMALL'].map(platform=>{const children=storeObjects.filter(shop=>shop.platform===platform);return children.length?attachRatios({id:platform,platform,name:`${platformName(platform)}平台`,code:platformName(platform).slice(0,1),type:'platform',children,current:aggregatePeriods(children.map(c=>c.current)),previous:aggregatePeriods(children.map(c=>c.previous)),categories:children[0].categories,products:sum(children,'products')}):null;}).filter(Boolean);
+    return ['JD','TMALL'].map(platform=>{
+      const children=storeObjects.filter(shop=>shop.platform===platform);
+      if(!children.length)return null;
+      const weightTotal=sum(children.map(child=>child.current),'platformAmount');
+      const categories=[0,1,2,3].map(index=>weightTotal>0?children.reduce((total,child)=>total+(child.current.platformAmount??0)*child.categories[index],0)/weightTotal:0);
+      return attachRatios({id:platform,platform,name:`${platformName(platform)}平台`,code:platformName(platform).slice(0,1),type:'platform',children,current:aggregatePeriods(children.map(c=>c.current)),previous:aggregatePeriods(children.map(c=>c.previous)),categories,categoryBasis:'covered_platform_transaction_weighted',products:sum(children,'products')});
+    }).filter(Boolean);
   }
   function compute(){
     const candidates=allObjects();
@@ -149,7 +158,7 @@
   }
   function card(title,number,body,span='span-6',subtitle='',tools=''){return `<section class="card ${span}" data-section="3.${number}"><div class="card-head"><div><h2><span class="section-no">3.${number}</span>${title}</h2>${subtitle?`<p>${subtitle}</p>`:''}</div>${tools?`<div class="card-tools">${tools}</div>`:''}</div>${body}</section>`;}
   function kpis(data){
-    const t=data.totals,rows=[['完整对象 · '+amountLabel(),money(t.current.amount),'万元',growthHTML(t)],['合成可信订单',n(t.current.orders),'单','同源订单数 · 非客户累计'],['销量',n(t.current.units),'件','订单与件数分别展示'],['ERP 订单毛利',money(t.current.grossProfit),'万元','保留成本口径 · 非净利润'],['同源客单价',yuan(t.ratios.aov),'元','合计金额 ÷ 合计订单数']];
+    const t=data.totals,rows=[['完整对象 · '+amountLabel(),money(t.current.amount),'万元',growthHTML(t)],['合成可信订单',n(t.current.orders),'单','同源订单数 · 非客户累计'],['销量',n(t.current.units),'件','订单与件数分别展示'],['ERP 订单毛利',money(t.current.grossProfit),'万元','模拟源订单毛利合计 · 非净利润'],['同源客单价',yuan(t.ratios.aov),'元','合计金额 ÷ 合计订单数']];
     return `<div class="kpi-row">${rows.map(([label,value,unit,foot])=>`<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}<small>${unit}</small></div><div class="kpi-foot">${foot}</div></div>`).join('')}</div>`;
   }
   function trend(data,large=false){
@@ -184,7 +193,7 @@
     const total=sum(objects.filter(o=>o.status==='available').map(o=>o.current),'amount');
     const leafIds=objects.flatMap(o=>o.type==='platform'?o.children:[o]).map(o=>o.id);
     const mapped=leafIds.includes('JD:A')&&leafIds.includes('JD:B');
-    return `<div class="legend">${cats.map((c,i)=>`<span><i style="background:${COLORS[i]}"></i>${c}</span>`).join('')}</div>${objects.map(o=>`<div class="stacked-row"><span>${o.name.replace('演示','')}</span><div class="stacked-bar">${o.categories.map((share,i)=>`<span style="width:${share*100}%;background:${COLORS[i]}" title="${cats[i]} ${pct(share)}">${share>=.18?n(share*100)+'%':''}</span>`).join('')}</div><span>${o.status==='available'?'成交占比':'已覆盖范围'}</span></div>`).join('')}<div class="structure-detail"><div class="structure-stat">完整范围成交商品<strong>${n(sum(objects.filter(o=>o.status==='available'),'products'))}</strong>SPU · 店铺内唯一</div><div class="structure-stat">TOP 5 集中度<strong>${total>0?'54.6%':'—'}</strong>合成完整商品全集</div><div class="structure-stat">未知类目<strong>保留</strong>不归入其他已知类目</div></div><div class="pricebands"><span>价格带：成交均价（元/件）</span><span>≤200 · (200,500] · (500,1000] · &gt;1000</span></div><div class="mini-bars" style="margin-top:12px">${[['≤200',18],['200–500',36],['500–1000',29],['>1000',17]].map(([label,value])=>`<div class="mini-bar-row"><span>${label} 元 / 件</span><div class="bar-track"><div class="bar-fill" style="width:${value}%;opacity:.75"></div></div><span>${value}%</span></div>`).join('')}</div><p class="plain-note">类目与价格带为本期合成商品事实占比；未知保留。跨店同款仅使用验证映射 M-001，商品 ID 相同也不合并。</p><div class="link-actions"><button class="text-button" data-action="${mapped?'product-detail':'product-unmapped'}" data-id="${objects[0]?.id||''}">${mapped?'查看同款 M-001':'缺少同款映射'} ↗</button><button class="text-button" data-action="product-unmapped">无同款映射示例 ↗</button></div>`;
+    return `<div class="legend">${cats.map((c,i)=>`<span><i style="background:${COLORS[i]}"></i>${c}</span>`).join('')}</div>${objects.map(o=>`<div class="stacked-row"><span>${o.name.replace('演示','')}</span><div class="stacked-bar">${o.categories.map((share,i)=>`<span style="width:${share*100}%;background:${COLORS[i]}" title="${cats[i]} ${pct(share)}">${share>=.18?n(share*100)+'%':''}</span>`).join('')}</div><span>${o.coverage.product===o.coverage.requested?'成交占比':'已覆盖范围'}</span></div>`).join('')}<div class="structure-detail"><div class="structure-stat">完整范围成交商品<strong>${n(sum(objects.filter(o=>o.status==='available'),'products'))}</strong>SPU · 店铺内唯一</div><div class="structure-stat">TOP 5 集中度<strong>${total>0?'54.6%':'—'}</strong>合成完整商品全集</div><div class="structure-stat">未知类目<strong>保留</strong>不归入其他已知类目</div></div><div class="pricebands"><span>价格带：成交均价（元/件）</span><span>≤200 · (200,500] · (500,1000] · &gt;1000</span></div><div class="mini-bars" style="margin-top:12px">${[['≤200',18],['200–500',36],['500–1000',29],['>1000',17]].map(([label,value])=>`<div class="mini-bar-row"><span>${label} 元 / 件</span><div class="bar-track"><div class="bar-fill" style="width:${value}%;opacity:.75"></div></div><span>${value}%</span></div>`).join('')}</div><p class="plain-note">类目与价格带为本期合成商品事实占比；平台类目按各店已覆盖成交金额加权，缺覆盖仅代表已覆盖范围；未知保留。跨店同款仅使用验证映射 M-001，商品 ID 相同也不合并。</p><div class="link-actions"><button class="text-button" data-action="${mapped?'product-detail':'product-unmapped'}" data-id="${objects[0]?.id||''}">${mapped?'查看同款 M-001':'缺少同款映射'} ↗</button><button class="text-button" data-action="product-unmapped">无同款映射示例 ↗</button></div>`;
   }
   function structureCard(data,span='span-6'){return card('商品与类目结构',4,structure(data),span,'类目占比、集中度与价格带；不按名称推断同款');}
   function promotion(data){
@@ -215,7 +224,7 @@
   function matrix(data){
     const group=(title)=>`<tr class="metric-group"><td colspan="${data.selected.length+1}">${title}</td></tr>`;
     const row=(label,sub,fn,big=false)=>`<tr><td class="metric-name">${label}<span>${sub}</span></td>${data.selected.map(o=>`<td class="${big?'big-cell heat-cell':''}">${fn(o)}</td>`).join('')}</tr>`;
-    return `<section class="card" data-section="3.1"><div class="card-head"><div><h2><span class="section-no">3.1–3.6</span>对象横向对比矩阵</h2><p>同一行读同一指标；点击对象查看趋势及上下文。金额、效率、投放分别成组。</p></div><span class="pill">无综合评分</span></div><div class="table-wrap"><table class="matrix-table" data-testid="matrix-table"><thead><tr><th>指标 / 定义</th>${data.selected.map(o=>`<th><button class="table-object" data-action="${o.type==='platform'?'expand':'store-detail'}" data-id="${o.id}" data-testid="matrix-object-${o.id.replace(':','-')}">${o.name}<small>${o.id}</small></button>${statusPill(o.status)}</th>`).join('')}</tr></thead><tbody>${group('3.1 规模与增长')}${row(amountLabel(),'本期 · 万元',o=>money(o.current.amount)+`<span class="cell-sub">基期 ${money(o.previous.amount)} 万元</span>`,true)}${row('增长 / 贡献','两期全集配对',o=>growthHTML(o)+`<span class="cell-sub">贡献 ${pct(o.contribution??null)}</span>`)}${row('订单 / 销量','可信订单 · 件数',o=>n(o.current.orders)+' 单 / '+n(o.current.units)+' 件')}${row('ERP 订单毛利','独立 ERP 口径 · 万元',o=>money(o.current.grossProfit))}${group('3.2 经营效率 · 分子分母加权')}${row('客单价','同源金额 / 订单数 · 元',o=>yuan(o.ratios.aov))}${row('大毛利率 / 退货金额率','ERP 净销售−成本 / 净销售',o=>pct(o.ratios.grossMargin)+' / '+pct(o.ratios.returnRate))}${row('商品累计转化率','SPU 客户累计 / 访客累计',o=>pct(o.ratios.conversion))}${group('3.4 商品结构')}${row('成交商品 / 未知类目','SPU · 未知类目不丢弃',o=>n(o.products)+' / '+pct(o.categories[3]))}${row('TOP 5 / 价格带','同口径商品全集 · 成交均价',o=>'54.6%<span class="cell-sub">≤200 / 200–500 / 500–1000 / &gt;1000 元</span>')}${group('3.5 推广 · 同平台组内观察')}${row('花费 / 归因成交','万元 · 原来源定义',o=>money(o.current.spend)+' / '+money(o.current.attribution))}${row('ROAS / CTR / CPC','倍数 / 百分比 / 元',o=>n(o.ratios.roas,2)+' / '+pct(o.ratios.ctr)+' / '+yuan(o.ratios.cpc))}${row('整期推广费率','同店 × 同日完整范围',o=>pct(o.ratios.promotionRate))}${group('3.6 可比性')}${row('覆盖 / 缺口','选中来源 · 店日',o=>`${o.coverage.selected}/${o.coverage.requested}<span class="cell-sub">${o.growthReason||'本期基期均完整'}</span>`)}</tbody></table></div><p class="plain-note">跨平台归因仅保留原定义并列观察；不生成合并 ROAS 或效率名次。矩阵中的部分合计不进入完整排名。</p></section><div class="matrix-footer">${trendCard(data,'')} ${card('可比性快照',6,coverage(data,true),'','先核对来源，再解释变化')}</div><div class="content-grid" style="margin-top:17px">${efficiencyCard(data)}${structureCard(data)}${rankingCard(data)}</div>${state.expanded.length?card('平台内店铺',1,ranking(data),'','展开不追加到平台合计'):''}`;
+    return `<section class="card" data-section="3.1"><div class="card-head"><div><h2><span class="section-no">3.1–3.6</span>对象横向对比矩阵</h2><p>同一行读同一指标；点击对象查看趋势及上下文。金额、效率、投放分别成组。</p></div><span class="pill">无综合评分</span></div><div class="table-wrap"><table class="matrix-table" data-testid="matrix-table"><thead><tr><th>指标 / 定义</th>${data.selected.map(o=>`<th><button class="table-object" data-action="${o.type==='platform'?'expand':'store-detail'}" data-id="${o.id}" data-testid="matrix-object-${o.id.replace(':','-')}">${o.name}<small>${o.id}</small></button>${statusPill(o.status)}</th>`).join('')}</tr></thead><tbody>${group('3.1 规模与增长')}${row(amountLabel(),'本期 · 万元',o=>money(o.current.amount)+`<span class="cell-sub">基期 ${money(o.previous.amount)} 万元</span>`,true)}${row('增长 / 贡献','两期全集配对',o=>growthHTML(o)+`<span class="cell-sub">贡献 ${pct(o.contribution??null)}</span>`)}${row('订单 / 销量','可信订单 · 件数',o=>n(o.current.orders)+' 单 / '+n(o.current.units)+' 件')}${row('ERP 订单毛利','独立模拟源字段合计 · 万元',o=>money(o.current.grossProfit))}${group('3.2 经营效率 · 分子分母加权')}${row('客单价','同源金额 / 订单数 · 元',o=>yuan(o.ratios.aov))}${row('大毛利率 / 退货金额率','ERP 净销售−成本 / 净销售',o=>pct(o.ratios.grossMargin)+' / '+pct(o.ratios.returnRate))}${row('商品累计转化率','SPU 客户累计 / 访客累计',o=>pct(o.ratios.conversion))}${group('3.4 商品结构')}${row('成交商品 / 未知类目','SPU · 未知类目不丢弃',o=>n(o.products)+' / '+pct(o.categories[3]))}${row('TOP 5 / 价格带','同口径商品全集 · 成交均价',o=>'54.6%<span class="cell-sub">≤200 / 200–500 / 500–1000 / &gt;1000 元</span>')}${group('3.5 推广 · 同平台组内观察')}${row('花费 / 归因成交','万元 · 原来源定义',o=>money(o.current.spend)+' / '+money(o.current.attribution))}${row('ROAS / CTR / CPC','倍数 / 百分比 / 元',o=>n(o.ratios.roas,2)+' / '+pct(o.ratios.ctr)+' / '+yuan(o.ratios.cpc))}${row('整期推广费率','同店 × 同日完整范围',o=>pct(o.ratios.promotionRate))}${group('3.6 可比性')}${row('覆盖 / 缺口','选中来源 · 店日',o=>`${o.coverage.selected}/${o.coverage.requested}<span class="cell-sub">${o.growthReason||'本期基期均完整'}</span>`)}</tbody></table></div><p class="plain-note">跨平台归因仅保留原定义并列观察；不生成合并 ROAS 或效率名次。矩阵中的部分合计不进入完整排名。</p></section><div class="matrix-footer">${trendCard(data,'')} ${card('可比性快照',6,coverage(data,true),'','先核对来源，再解释变化')}</div><div class="content-grid" style="margin-top:17px">${efficiencyCard(data)}${structureCard(data)}${rankingCard(data)}</div>${state.expanded.length?card('平台内店铺',1,ranking(data),'','展开不追加到平台合计'):''}`;
   }
   function focused(data){return data.objects.find(o=>o.id===state.focusId)||data.selected[0]||data.objects[0];}
   function workbench(data){
@@ -247,7 +256,7 @@
       ['对象全集','先按平台+精确店铺身份组成两期候选全集，再配对、计算与分页；平台模式只含父平台聚合。'],
       ['完整 / 部分','部分金额披露已覆盖合计，但增长不填 0 或冒充完整；整期费率与效率缺覆盖主值为空。'],
       ['金额 / 订单','平台商品 SPU 日成交与 ERP 净销售分别展示。合成夹具有可信订单数，客单价=同源金额/同源订单数。正式 ERP 现字段若为净额/净件数，只能称件均净额。'],
-      ['订单毛利 / 大毛利率','合成成本可验证：订单毛利独立展示；大毛利率=(净销售−成本)/净销售。正式源复用既有销售定义，不把任意订单毛利率替代。'],
+      ['订单毛利 / 大毛利率','订单毛利读取独立模拟源字段合计，不等于净销售−成本；合成大毛利率=(净销售−成本)/净销售。正式源复用既有销售定义，不把任意订单毛利率替代。'],
       ['退货金额率','合成退货金额/退货前销售金额；不混用订单率或件数率。'],
       ['加权比例','平台聚合、总体效率、ROAS、CTR、CPC均按合计分子/合计分母重算，不平均店铺百分比。跨平台归因不汇总 ROAS。'],
       ['基期','正基期且两期完整时计算增长；0、负值、缺失分别解释，0/负基期仅显示可信差额。'],
@@ -265,7 +274,7 @@
   function renderDrawer(){
     const kind=drawer.kind,data=compute();
     let object=data.candidates.find(o=>o.id===drawer.id)||data.candidates.flatMap(o=>o.children||[]).find(o=>o.id===drawer.id);
-    if(!object)object=allObjects().find(o=>o.id===drawer.id)||data.selected[0];
+    if(!object&&!drawer.id)object=data.selected[0];
     let title='指标与比较口径',body=definitions();
     if(kind==='coverage'){title='可比性完整审计';body=coverage(data);}
     if(kind==='efficiency'){title='经营效率指标矩阵';body=efficiencyTable(data)+scatter(data);}
@@ -274,12 +283,17 @@
       body=object?`<h2>${object.name}</h2><div class="identity">${object.id} · module=shop · view=analysis<br>本期 ${state.currentStart} — ${state.currentEnd}<br>基期 ${state.previousStart} — ${state.previousEnd}</div><div class="mini-kpis" style="margin-top:16px"><div>${amountLabel()}<strong>${money(object.current.amount)}</strong>万元</div><div>客单价<strong>${yuan(object.ratios.aov)}</strong>元</div><div>大毛利率<strong>${pct(object.ratios.grossMargin)}</strong>ERP</div></div>${trend({...data,selected:[object]})}<div class="link-actions"><button class="text-button" data-action="product-detail" data-id="${object.id}">商品表现 ↗</button><button class="text-button" data-action="promotion-detail" data-id="${object.id}">推广分析 ↗</button></div>`:'<div class="empty-state">未授权或当前范围不存在此对象</div>';
     }
     if(kind==='product'||kind==='unmapped'){
-      const authorizedIds=data.candidates.flatMap(o=>o.type==='platform'?o.children:[o]).map(o=>o.id);
-      const mappingAvailable=authorizedIds.includes('JD:A')&&authorizedIds.includes('JD:B');
-      const unmapped=kind==='unmapped'||!mappingAvailable;
       title='商品表现 · 隔离详情';
       const scope=object?.type==='platform'?object.children[0]:object;
-      body=`<h2>${unmapped?'未映射商品：名称相似不合并':'已验证同款：商用设备 M-001'}</h2><div class="identity">${esc(scope?.id||'JD:A')} | SPU | 10001<br>对照 ${scope?.id==='JD:A'?'JD:B':'JD:A'} | SPU | 10001<br>精确身份不同，事实保持隔离。</div><div class="warning-note">${unmapped?'同款映射 unavailable / UNMAPPED。禁止按名称、图片或相同ID猜测关联；无法形成同款排名。':'合成映射 M-001 已验证规格与有效期间，仅用于同款演示；正式同款必须依赖P验收映射。'}</div><div class="table-wrap" style="margin-top:16px"><table><thead><tr><th>精确身份</th><th>同款关系</th><th>类目</th><th>成交均价</th></tr></thead><tbody><tr><td>JD:A / SPU / 10001</td><td>${unmapped?'未关联':'M-001'}</td><td>商用设备</td><td>586 元/件</td></tr><tr><td>JD:B / SPU / 10001</td><td>${unmapped?'未关联':'M-001'}</td><td>未知类目</td><td>532 元/件</td></tr></tbody></table></div><p class="plain-note">日历范围、来源、商品维度与店铺身份保留。此详情仅演示专题钻取与返回，不打开生产页面。</p>`;
+      const authorizedIds=data.candidates.flatMap(o=>o.type==='platform'?o.children:[o]).map(o=>o.id);
+      const mappingAvailable=scope&&['JD:A','JD:B'].includes(scope.id)&&authorizedIds.includes('JD:A')&&authorizedIds.includes('JD:B');
+      const unmapped=kind==='unmapped'||!mappingAvailable;
+      if(!scope){
+        body='<div class="empty-state">未授权或当前范围不存在此商品对象；不展示其他范围的身份或事实。</div>';
+      }else{
+        const rows=unmapped?[{id:scope.id,category:'未知类目',price:'532 元/件'}]:[{id:'JD:A',category:'商用设备',price:'586 元/件'},{id:'JD:B',category:'未知类目',price:'532 元/件'}];
+        body=`<h2>${unmapped?'未映射商品：名称相似不合并':'已验证同款：商用设备 M-001'}</h2><div class="identity">${esc(scope.id)} | SPU | 10001<br>${unmapped?'当前范围缺少已验证映射；只展示该精确商品身份。':'对照 JD:A / JD:B | SPU | 10001；精确身份不同，事实保持隔离。'}</div><div class="warning-note">${unmapped?'同款映射 unavailable / UNMAPPED。禁止按名称、图片或相同ID猜测关联；无法形成同款排名。':'合成映射 M-001 已验证规格与有效期间，仅用于同款演示；正式同款必须依赖P验收映射。'}</div><div class="table-wrap" style="margin-top:16px"><table><thead><tr><th>精确身份</th><th>同款关系</th><th>类目</th><th>成交均价</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${esc(row.id)} / SPU / 10001</td><td>${unmapped?'未关联':'M-001'}</td><td>${row.category}</td><td>${row.price}</td></tr>`).join('')}</tbody></table></div><p class="plain-note">日历范围、来源、商品维度与店铺身份保留。此详情仅演示专题钻取与返回，不打开生产页面。</p>`;
+      }
     }
     if(kind==='promotion'){
       title='推广分析 · 隔离详情';body=object?`<div class="identity">module=shop · view=promotion<br>${object.id} · ${state.currentStart} — ${state.currentEnd}</div><h2>${object.name} · 推广经营</h2>${promotion({...data,selected:[object]})}<div class="warning-note">归因窗口是合成说明，正式窗口必须由A提供。没有计划/关键词明细来源时保持能力 unavailable。</div>`:'<div class="empty-state">当前范围无推广对象</div>';
