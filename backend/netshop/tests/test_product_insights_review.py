@@ -9,6 +9,7 @@ from netshop.insights_common import read_context
 from netshop.product_insights import read_product_detail
 from . import test_product_insights as product_seeds
 from . import test_product_insights_detail as detail_seeds
+from . import test_catalog_filter_wiring as catalog_seeds
 
 
 class ProductIndependentReviewTests(TestCase):
@@ -101,3 +102,44 @@ class ProductIndependentReviewTests(TestCase):
             self.assertEqual(failure.exception.status, 503)
         self.assertTrue(observations["triggered"], "The independent PG scenario must actually reach the catalogue SQL")
         self.assertEqual(observations["followingSelects"], 0, "An exhausted loader may unwind its transaction, but must not run more SELECTs")
+
+
+@catalog_seeds.override_settings(ROOT_URLCONF="netshop.tests.test_catalog_filter_wiring")
+@patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": catalog_seeds.TEST_SECRET})
+class ProductCatalogHeaderIndependentReviewTests(TestCase):
+    """Actual signed old directory reader supplies the new UI owning header."""
+    setUp = detail_seeds.ProductDetailTests.setUp
+    tearDown = detail_seeds.ProductDetailTests.tearDown
+    master = detail_seeds.ProductDetailTests.master
+    read = catalog_seeds.CatalogFilterWiringTests.read
+    seed = catalog_seeds.CatalogFilterWiringTests.seed
+
+    def test_review_actual_catalog_full_and_page_share_the_owning_revision(self):
+        import json
+        import os
+        from pathlib import Path
+        from urllib.parse import urlencode
+
+        self.seed()
+        values = {"status": "all", "quality": "all", "mapping": "all", "page": 1, "pageSize": 1, "q": "", "startDate": "2026-09-01", "endDate": "2026-09-01"}
+        response = self.read(**values)
+        self.assertEqual(response.status_code, 200, response.content)
+        full = response.json()
+        revision = response.headers["X-Netshop-Data-Revision"]
+        self.assertRegex(revision, r"^\d+:[a-f0-9]{12}$")
+        self.assertEqual(full["catalogFilters"]["sourceVersion"], revision)
+        self.assertNotEqual(full["snapshotToken"], revision)
+        page_values = {**values, "page": 2, "view": "page", "snapshotToken": full["snapshotToken"]}
+        page_response = self.read(**page_values)
+        self.assertEqual(page_response.status_code, 200, page_response.content)
+        page = page_response.json()
+        self.assertEqual(page_response.headers["X-Netshop-Data-Revision"], revision)
+        self.assertEqual(page["catalogFilters"]["sourceVersion"], revision)
+        self.assertEqual(page["snapshotToken"], full["snapshotToken"])
+        self.assertEqual(len(page["items"]), 1)
+        evidence = os.environ.get("TERUISI_PRODUCTS_QUERY_EVIDENCE_DIR")
+        if evidence:
+            path = Path(evidence).resolve()
+            self.assertIn("products\\review\\", str(path))
+            with (path / "wire-catalog-review.json").open("x", encoding="utf-8") as handle:
+                json.dump({"full": {"query": urlencode({"platform": "京东", **values}), "payload": full, "revision": revision}, "page": {"query": urlencode({"platform": "京东", **page_values}), "payload": page, "revision": page_response.headers["X-Netshop-Data-Revision"]}}, handle, ensure_ascii=False, indent=2)
