@@ -3,6 +3,11 @@ import { NetshopQueryError, type NetshopOutletFilter } from "@/lib/netshop/query
 
 export const NETSHOP_SUPPORTED_PLATFORMS = ["京东", "天猫"] as const;
 
+/** Netshop facts have no verified warehouse/ERP-channel scope attribution. */
+export function requireSupportedInsightScope(principal: AppPrincipal) {
+  if (principal.scope && (Object.keys(principal.scope).sort().join() !== "channels,platforms,warehouses" || principal.scope.channels.length || principal.scope.warehouses.length)) throw new AuthorizationError(403, "access_denied", "共享网店读取尚不支持渠道或仓库限制范围");
+}
+
 export function netshopPlatformOptionsForPrincipal(principal: AppPrincipal) {
   if (principal.scope === null) return [...NETSHOP_SUPPORTED_PLATFORMS];
   const allowed = new Set(principal.scope.platforms.map((value) => value.trim()).filter(Boolean));

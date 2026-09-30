@@ -7,6 +7,8 @@ import {
   type ModuleViewKey,
 } from "./navigation-catalog";
 import { normalizeModuleView, parseModuleView } from "./module-view-contract";
+import { defaultShopLocationContext, parseShopLocationContext, writeShopLocationContext, shopContextKeys, validShopReturn, type ShopLocationContext } from "./shop-context";
+import type { ProductIdentity } from "@/lib/netshop/insights-contract";
 
 export const shellPeriodKeys = [
   "today",
@@ -54,12 +56,13 @@ export type ShellLocationState<M extends ModuleKey = ModuleKey> = {
   source?: ImportSourceKey;
   period: ShellPeriodState;
   overview?: StoreOverviewLocation;
+  shop?: ShopLocationContext;
 };
 
 export type ShellLocationInput<M extends ModuleKey = ModuleKey> =
   Omit<ShellLocationState<M>, "view"> & { view?: ModuleViewKey<M> };
 
-export const shellOwnedQueryKeys = ["module", "view", "salesTab", "source", "period", "month", "from", "to", "overviewView", "overviewPlatform", "overviewOutlet", "overviewTrend", "overviewDetail", "overviewPrevious", "overviewYearAgo", "periodIntent"] as const;
+export const shellOwnedQueryKeys = ["module", "view", "salesTab", "source", "period", "month", "from", "to", "overviewView", "overviewPlatform", "overviewOutlet", "overviewTrend", "overviewDetail", "overviewPrevious", "overviewYearAgo", "periodIntent", ...shopContextKeys] as const;
 
 const relativeOrCurrentPeriodKeys: ReadonlySet<string> = new Set([
   "today",
@@ -140,6 +143,7 @@ export function parseShellLocation(input: string | URL): ShellLocationState {
     ...(source ? { source } : {}),
     period: parsePeriod(url.searchParams),
     ...(activeModule === "shop" && parseShellView(activeModule, url.searchParams) === "outlets" ? { overview: parseStoreOverview(url.searchParams) } : {}),
+    ...(activeModule === "shop" && shopContextKeys.some(k => url.searchParams.has(k)) ? { shop: parseShopLocationContext(url.searchParams) } : {}),
   };
 }
 
@@ -153,6 +157,8 @@ function writeShellState<M extends ModuleKey>(url: URL, state: ShellLocationInpu
     : undefined);
 
   const existingOverview = currentModule === "shop" ? parseStoreOverview(url.searchParams) : defaultStoreOverviewLocation;
+  const existingShop = currentModule === "shop" ? parseShopLocationContext(url.searchParams) : undefined;
+  const existingPeriod = parsePeriod(url.searchParams);
   for (const key of shellOwnedQueryKeys) url.searchParams.delete(key);
 
   if (state.module !== "dashboard") url.searchParams.append("module", state.module);
@@ -160,6 +166,11 @@ function writeShellState<M extends ModuleKey>(url: URL, state: ShellLocationInpu
   if (view !== getDefaultModuleView(state.module)) url.searchParams.append("view", view);
   if (state.module === "import" && state.source && isImportSourceKey(state.source)) {
     url.searchParams.append("source", state.source);
+  }
+  if (state.module === "shop" && (state.shop || existingShop)) {
+    const nextShop = { ...(state.shop ?? existingShop!) };
+    if (existingShop && JSON.stringify(existingPeriod) !== JSON.stringify(state.period)) nextShop.page = 1;
+    writeShopLocationContext(url.searchParams, nextShop);
   }
 
   if (state.module === "shop" && view === "outlets") {
@@ -219,4 +230,30 @@ export function updateModuleViewLocation<M extends ModuleKey>(
       : {}),
     period: current.period,
   }, input);
+}
+
+export type ShopContext = ShopLocationContext & { period: ShellPeriodState };
+export function shopContextFromLocation(input: string | URL): ShopContext {
+  const state = parseShellLocation(input);
+  return { ...(state.shop ?? defaultShopLocationContext), period: state.period };
+}
+/** Range/list filters reset page; a refresh of the same normalized scope keeps it. */
+export function updateShopContextLocation(input: string | URL, patch: Partial<ShopLocationContext>): string {
+  const state = parseShellLocation(input), before = state.shop ?? defaultShopLocationContext;
+  const next = { ...before, ...patch };
+  const params = new URLSearchParams(); writeShopLocationContext(params, next);
+  const canonical = parseShopLocationContext(params);
+  const scope = (v: ShopLocationContext) => JSON.stringify([v.platforms, v.outlets, v.dimension, v.category, v.q, v.pageSize]);
+  if (scope(before) !== scope(canonical)) canonical.page = 1;
+  return serializeShellLocation({ module: "shop", view: state.module === "shop" ? state.view as ModuleViewKey<"shop"> : "analysis", period: state.period, shop: canonical }, input);
+}
+export function drillShopLocation(input: string | URL, view: ModuleViewKey<"shop">, product: ProductIdentity | null, section = ""): string {
+  const state = parseShellLocation(input), before = state.shop ?? defaultShopLocationContext;
+  const returnTo = serializeShellLocation({ module: "shop", view: state.module === "shop" ? state.view as ModuleViewKey<"shop"> : "analysis", period: state.period, ...(state.overview ? { overview: state.overview } : {}), shop: { ...before, returnTo: null } }, "/");
+  const shop = { ...before, product, section, page: 1, returnTo, ...(product ? { platforms: [product.platform], outlets: [product.platform+"\u001f"+product.shopName], dimension: product.dimension } : {}) };
+  return serializeShellLocation({ module: "shop", view, period: state.period, shop }, input);
+}
+export function returnShopLocation(input: string | URL): string {
+  const state = parseShellLocation(input), target = validShopReturn(state.shop?.returnTo ?? null);
+  return target ? normalizeShellLocation(target) : serializeShellLocation({ module: "shop", view: "products", period: state.period, shop: { ...(state.shop ?? defaultShopLocationContext), product: null, returnTo: null } }, input);
 }

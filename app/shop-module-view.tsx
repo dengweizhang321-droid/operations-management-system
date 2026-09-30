@@ -4,6 +4,12 @@ import { useAiPageDetails } from "./ai-page-context-provider";
 import ModuleErrorBoundary from "./shell/module-error-boundary";
 import { createReloadableLazy, resetReloadableLazyScope } from "./shell/reloadable-lazy";
 import PromotionDiagnosticPanel from "./promotion-diagnostic-panel";
+import { encodeProductIdentity, type InsightPlatform, type ProductIdentity } from "@/lib/netshop/insights-contract";
+import { productSummaryForDisplay } from "@/lib/netshop/product-display";
+import { mergePromotionDisplayRows } from "@/lib/netshop/promotion-display";
+import { NetshopNavigation } from "./netshop/shared/navigation";
+import { netshopColumnModules } from "./netshop/shared/module-slots";
+import { defaultShopLocationContext, type ShopLocationContext } from "./shell/shop-context";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
@@ -114,30 +120,8 @@ function aggregateStorePeriods(daily: Array<{ date: string } & SalesStats>, gran
   return [...buckets.values()].sort((left, right) => left.key.localeCompare(right.key));
 }
 
-function mergeStorePromotionPeriods(rows: StorePeriodRow[], daily: NetshopPromotionPerformanceResponse["daily"], granularity: StoreGranularity) {
-  const buckets = new Map<string, { spend: number; net: number; payment: number; clicks: number }>();
-  for (const item of daily) {
-    const key = storePeriodKey(item.date, granularity);
-    const current = buckets.get(key) ?? { spend: 0, net: 0, payment: 0, clicks: 0 };
-    current.spend += item.spendCents;
-    current.net += item.netTransactionAmountCents;
-    current.payment += item.platformPaymentAmountCents ?? 0;
-    current.clicks += item.clicks;
-    buckets.set(key, current);
-  }
-  return rows.map((row) => {
-    const promotion = buckets.get(row.key);
-    if (!promotion) return row;
-    return {
-      ...row,
-      promotionSpendCents: promotion.spend,
-      promotionNetTransactionCents: promotion.net,
-      platformPaymentCents: promotion.payment,
-      promotionClicks: promotion.clicks,
-      promotionSpendRate: promotion.payment > 0 ? promotion.spend / promotion.payment : null,
-      promotionTransactionShare: promotion.payment > 0 ? promotion.net / promotion.payment : null,
-    };
-  });
+function mergeStorePromotionPeriods(rows: StorePeriodRow[], daily: NetshopPromotionPerformanceResponse["daily"], granularity: StoreGranularity, completeScope: boolean) {
+  return mergePromotionDisplayRows(rows, daily, day => storePeriodKey(day, granularity), completeScope);
 }
 
 const storeComparisonRate = (value: number, baseline?: number) => !baseline ? null : (value - baseline) / Math.abs(baseline);
@@ -171,7 +155,8 @@ function StoreSpuVisitorMetric({
   outlets: Array<Pick<SalesChannel, "groupKey" | "name" | "platform">>;
   selectedOutletKeys: string[];
 }) {
-  const [performance, setPerformance] = useState<NetshopProductPerformanceSummaryResponse | null>(null);
+  const [performanceResponse, setPerformance] = useState<NetshopProductPerformanceSummaryResponse | null>(null);
+  const [performanceResponseScope, setPerformanceResponseScope] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const selectedOutlets = useMemo(
@@ -182,6 +167,8 @@ function StoreSpuVisitorMetric({
     () => selectedOutlets.map((item) => netshopOutletFilterKey(item.platform, item.name)),
     [selectedOutlets],
   );
+  const visitorReadScope = JSON.stringify([startDate, endDate, [...scopeOutlets].sort()]);
+  const performance = performanceResponseScope === visitorReadScope ? performanceResponse : null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -196,7 +183,7 @@ function StoreSpuVisitorMetric({
         if (!response.ok || !payload?.summary || !snapshotTokenPattern.test(payload.snapshotToken) || payload.dimension !== "spu") {
           throw new Error(payload?.error || `SPU 商品访客读取失败（${response.status}）`);
         }
-        if (!controller.signal.aborted) setPerformance(payload);
+        if (!controller.signal.aborted) { setPerformance(payload); setPerformanceResponseScope(visitorReadScope); }
       } catch (requestError) {
         if (!controller.signal.aborted) setError(requestError instanceof Error ? requestError.message : "暂时无法读取 SPU 商品访客");
       } finally {
@@ -204,16 +191,16 @@ function StoreSpuVisitorMetric({
       }
     })();
     return () => controller.abort();
-  }, [endDate, scopeOutlets, startDate]);
+  }, [endDate, scopeOutlets, startDate, visitorReadScope]);
 
   if (loading && !performance) return <StoreMetricCard label="商品访客累计" value="同步中…" note="正在汇总已导入 SPU 商品×日访客" />;
   if ((error && !performance) || !performance?.dataCutoffDate) return <StoreMetricCard label="商品访客累计" value="—" note={error ? "未获取到匹配店铺的 SPU 日数据" : "待导入匹配店铺的 SPU 日数据"} unavailable />;
 
-  const sourceVisitors = performance.summary.visitors;
+  const sourceVisitors = productSummaryForDisplay(performance).visitors;
   const scopeNote = selectedOutletKeys.length === 0
     ? `全部已导入 SPU 店铺 · 截止 ${performance.dataCutoffDate}`
     : `已筛选 ${formatCount(scopeOutlets.length)} 个店铺 · 截止 ${performance.dataCutoffDate}`;
-  return <StoreMetricCard label="商品访客累计" value={formatCount(sourceVisitors)} note={`商品×日累计，非店铺去重 UV · ${scopeNote}${loading ? " · 正在更新" : error ? " · 刷新失败，保留上次结果" : ""}`} />;
+  return <StoreMetricCard label="商品访客累计" value={sourceVisitors === null ? "—" : formatCount(sourceVisitors)} note={sourceVisitors === null ? "字段或日期覆盖不足" : `商品×日累计，非店铺去重 UV · ${scopeNote}${loading ? " · 正在更新" : error ? " · 刷新失败，保留上次结果" : ""}`} unavailable={sourceVisitors === null} />;
 }
 
 function StoreTableMetric({ value, baseline, formatter, showComparison, showActual }: {
@@ -398,15 +385,20 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
   const [columnPickerOpen, setColumnPickerOpen] = useState(false);
   const [columnPickerSearch, setColumnPickerSearch] = useState("");
   const [visibleColumns, setVisibleColumns] = useState<StoreTableColumnKey[]>(() => storeTableColumns.map((column) => column.key));
-  const [promotion, setPromotion] = useState<NetshopPromotionOverviewResponse | null>(null);
-  const [promotionLoading, setPromotionLoading] = useState(true);
-  const [promotionError, setPromotionError] = useState("");
+  const [promotionResponse, setPromotion] = useState<NetshopPromotionOverviewResponse | null>(null);
+  const [promotionResponseScope, setPromotionResponseScope] = useState("");
+  const [promotionIsLoading, setPromotionLoading] = useState(true);
+  const [promotionErrorResponse, setPromotionError] = useState({ scope: "", message: "" });
+  const promotionReadScope = JSON.stringify([summary.startDate, summary.endDate, [...selectedOutletKeys].sort()]);
+  const promotion = promotionResponseScope === promotionReadScope ? promotionResponse : null;
+  const promotionError = promotionErrorResponse.scope === promotionReadScope ? promotionErrorResponse.message : "";
+  const promotionLoading = promotionIsLoading || promotionResponseScope !== promotionReadScope && !promotionError;
   const columnPickerRef = useRef<HTMLDivElement>(null);
   const current = summary.current;
   const baseline = comparisonMode === "period" ? summary.previous : summary.yearAgo;
   const comparisonLabel = comparisonMode === "period" ? "环比" : "同比";
   const salesRows = useMemo(() => aggregateStorePeriods(summary.daily ?? [], granularity), [granularity, summary.daily]);
-  const rows = useMemo(() => mergeStorePromotionPeriods(salesRows, promotion?.daily ?? [], granularity), [granularity, promotion?.daily, salesRows]);
+  const rows = useMemo(() => mergeStorePromotionPeriods(salesRows, promotion?.daily ?? [], granularity, promotion?.coverage.complete === true), [granularity, promotion, salesRows]);
   const storeDetailFilterScope = summary.trendTruncated === false
     && promotion?.dailyPagination.truncated === false
     ? "full"
@@ -460,7 +452,7 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
     const controller = new AbortController();
     void (async () => {
       setPromotionLoading(true);
-      setPromotionError("");
+      setPromotionError({ scope: promotionReadScope, message: "" });
       try {
         const params = new URLSearchParams({ startDate: summary.startDate, endDate: summary.endDate });
         promotionPlatforms.forEach((platform) => params.append("platform", platform));
@@ -468,15 +460,15 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
         const response = await fetch(`/api/netshop/promotion-performance/overview?${params.toString()}`, { cache: "no-store", signal: controller.signal });
         const payload = await response.json().catch(() => null) as (NetshopPromotionOverviewResponse & { error?: string }) | null;
         if (!response.ok || !payload?.summary) throw new Error(payload?.error || `推广数据读取失败（${response.status}）`);
-        if (!controller.signal.aborted) setPromotion(payload);
+        if (!controller.signal.aborted) { setPromotion(payload); setPromotionResponseScope(promotionReadScope); }
       } catch (requestError) {
-        if (!controller.signal.aborted) setPromotionError(requestError instanceof Error ? requestError.message : "推广数据读取失败");
+        if (!controller.signal.aborted) setPromotionError({ scope: promotionReadScope, message: requestError instanceof Error ? requestError.message : "推广数据读取失败" });
       } finally {
         if (!controller.signal.aborted) setPromotionLoading(false);
       }
     })();
     return () => controller.abort();
-  }, [promotionOutlets, promotionPlatforms, summary.endDate, summary.startDate]);
+  }, [promotionOutlets, promotionPlatforms, promotionReadScope, summary.endDate, summary.startDate]);
 
   useEffect(() => {
     if (!columnPickerOpen) return;
@@ -625,6 +617,7 @@ function ProductPerformanceMetricCell({
   showComparison,
   showActual,
   comparisonLabel,
+  comparisonMethod = "relative_change",
 }: {
   value?: number | null;
   baseline?: number | null;
@@ -632,14 +625,15 @@ function ProductPerformanceMetricCell({
   showComparison: boolean;
   showActual: boolean;
   comparisonLabel: string;
+  comparisonMethod?: "relative_change" | "percentage_points";
 }) {
-  const change = productComparisonRate(value, baseline);
+  const change = comparisonMethod === "percentage_points" ? value !== null && value !== undefined && baseline !== null && baseline !== undefined && Number.isFinite(value) && Number.isFinite(baseline) && Number.isFinite((value-baseline)*100) ? (value-baseline)*100 : null : productComparisonRate(value, baseline);
   const hasBaseline = baseline !== null && baseline !== undefined;
   return <div className="product-performance-cell">
     <strong>{value === null || value === undefined ? "—" : formatter(value)}</strong>
     {showComparison && <>
       {showActual && hasBaseline && <small>{formatter(baseline)}</small>}
-      <em className={change === null ? "muted-text" : change < 0 ? "red-text" : "green-text"}>{comparisonLabel} {formatProductComparison(value, baseline)}</em>
+      <em className={change === null ? "muted-text" : change < 0 ? "red-text" : "green-text"}>{comparisonLabel} {comparisonMethod === "percentage_points" ? change === null ? "—" : `${change >= 0 ? "+" : ""}${change.toFixed(1)} 个百分点` : formatProductComparison(value, baseline)}</em>
     </>}
   </div>;
 }
@@ -664,23 +658,29 @@ function ProductPerformanceDataCell({
   comparisonLabel: string;
 }) {
   if (!column.available) return <ProductPerformancePendingCell />;
-  const props = { showComparison, showActual, comparisonLabel };
-  if (column.key === "pageViews") return <ProductPerformanceMetricCell value={item.pageViews} baseline={compared?.pageViews} formatter={formatCount} {...props} />;
-  if (column.key === "visitors") return <ProductPerformanceMetricCell value={item.visitors} baseline={compared?.visitors} formatter={formatCount} {...props} />;
-  if (column.key === "transactionCustomers") return <ProductPerformanceMetricCell value={item.transactionCustomers} baseline={compared?.transactionCustomers} formatter={formatCount} {...props} />;
-  if (column.key === "transactionQuantity") return <ProductPerformanceMetricCell value={item.transactionQuantity} baseline={compared?.transactionQuantity} formatter={formatCount} {...props} />;
-  if (column.key === "addCartCustomers") return <ProductPerformanceMetricCell value={item.addCartCustomers} baseline={compared?.addCartCustomers} formatter={formatCount} {...props} />;
-  if (column.key === "addCartQuantity") return <ProductPerformanceMetricCell value={item.addCartQuantity} baseline={compared?.addCartQuantity} formatter={formatCount} {...props} />;
-  if (column.key === "transactionAmount") return <ProductPerformanceMetricCell value={item.transactionAmount} baseline={compared?.transactionAmount} formatter={formatMerchantCurrency} {...props} />;
-  if (column.key === "uvValue") return <ProductPerformanceMetricCell value={item.uvValue} baseline={compared?.uvValue} formatter={formatMerchantCurrency} {...props} />;
-  if (column.key === "conversionRate") return <ProductPerformanceMetricCell value={item.conversionRate} baseline={compared?.conversionRate} formatter={formatRate} {...props} />;
-  if (column.key === "searchImpressions") return <ProductPerformanceMetricCell value={item.searchImpressions} baseline={compared?.searchImpressions} formatter={formatCount} {...props} />;
-  if (column.key === "searchClicks") return <ProductPerformanceMetricCell value={item.searchClicks} baseline={compared?.searchClicks} formatter={formatCount} {...props} />;
-  if (column.key === "searchClickRate") return <ProductPerformanceMetricCell value={item.searchClickRate} baseline={compared?.searchClickRate} formatter={formatRate} {...props} />;
-  if (column.key === "favorites") return <ProductPerformanceMetricCell value={item.favorites} baseline={compared?.favorites} formatter={formatCount} {...props} />;
-  if (column.key === "refundAmount") return <ProductPerformanceMetricCell value={item.refundAmountCents} baseline={compared?.refundAmountCents} formatter={formatCurrencyFromCents} {...props} />;
-  if (column.key === "searchVisitors") return <ProductPerformanceMetricCell value={item.searchVisitors} baseline={compared?.searchVisitors} formatter={formatCount} {...props} />;
-  if (column.key === "searchTransactionCustomers") return <ProductPerformanceMetricCell value={item.searchTransactionCustomers} baseline={compared?.searchTransactionCustomers} formatter={formatCount} {...props} />;
+  const fieldKey = column.key === "transactionAmount" ? "transactionAmountCents" : column.key === "refundAmount" ? "refundAmountCents" : column.key;
+  const needed = fieldKey === "uvValue" ? ["transactionAmountCents", "visitors"] : fieldKey === "conversionRate" ? ["transactionCustomers", "visitors"] : fieldKey === "searchClickRate" ? ["searchClicks", "searchImpressions"] : [fieldKey];
+  const currentFieldComplete = needed.every(key => item.fieldAvailability?.[key]?.complete === true);
+  const priorFieldComplete = needed.every(key => compared?.fieldAvailability?.[key]?.complete === true);
+  if (!currentFieldComplete) return <div className="product-performance-pending"><strong>—</strong><small>字段或日期覆盖不足</small></div>;
+  const baseline = priorFieldComplete ? compared : undefined;
+  const props = { showComparison, showActual, comparisonLabel, comparisonMethod: fieldKey === "conversionRate" || fieldKey === "searchClickRate" ? "percentage_points" as const : "relative_change" as const };
+  if (column.key === "pageViews") return <ProductPerformanceMetricCell value={item.pageViews} baseline={baseline?.pageViews} formatter={formatCount} {...props} />;
+  if (column.key === "visitors") return <ProductPerformanceMetricCell value={item.visitors} baseline={baseline?.visitors} formatter={formatCount} {...props} />;
+  if (column.key === "transactionCustomers") return <ProductPerformanceMetricCell value={item.transactionCustomers} baseline={baseline?.transactionCustomers} formatter={formatCount} {...props} />;
+  if (column.key === "transactionQuantity") return <ProductPerformanceMetricCell value={item.transactionQuantity} baseline={baseline?.transactionQuantity} formatter={formatCount} {...props} />;
+  if (column.key === "addCartCustomers") return <ProductPerformanceMetricCell value={item.addCartCustomers} baseline={baseline?.addCartCustomers} formatter={formatCount} {...props} />;
+  if (column.key === "addCartQuantity") return <ProductPerformanceMetricCell value={item.addCartQuantity} baseline={baseline?.addCartQuantity} formatter={formatCount} {...props} />;
+  if (column.key === "transactionAmount") return <ProductPerformanceMetricCell value={item.transactionAmount} baseline={baseline?.transactionAmount} formatter={formatMerchantCurrency} {...props} />;
+  if (column.key === "uvValue") return <ProductPerformanceMetricCell value={item.uvValue} baseline={baseline?.uvValue} formatter={formatMerchantCurrency} {...props} />;
+  if (column.key === "conversionRate") return <ProductPerformanceMetricCell value={item.conversionRate} baseline={baseline?.conversionRate} formatter={formatRate} {...props} />;
+  if (column.key === "searchImpressions") return <ProductPerformanceMetricCell value={item.searchImpressions} baseline={baseline?.searchImpressions} formatter={formatCount} {...props} />;
+  if (column.key === "searchClicks") return <ProductPerformanceMetricCell value={item.searchClicks} baseline={baseline?.searchClicks} formatter={formatCount} {...props} />;
+  if (column.key === "searchClickRate") return <ProductPerformanceMetricCell value={item.searchClickRate} baseline={baseline?.searchClickRate} formatter={formatRate} {...props} />;
+  if (column.key === "favorites") return <ProductPerformanceMetricCell value={item.favorites} baseline={baseline?.favorites} formatter={formatCount} {...props} />;
+  if (column.key === "refundAmount") return <ProductPerformanceMetricCell value={item.refundAmountCents} baseline={baseline?.refundAmountCents} formatter={formatCurrencyFromCents} {...props} />;
+  if (column.key === "searchVisitors") return <ProductPerformanceMetricCell value={item.searchVisitors} baseline={baseline?.searchVisitors} formatter={formatCount} {...props} />;
+  if (column.key === "searchTransactionCustomers") return <ProductPerformanceMetricCell value={item.searchTransactionCustomers} baseline={baseline?.searchTransactionCustomers} formatter={formatCount} {...props} />;
   return <ProductPerformancePendingCell />;
 }
 
@@ -773,13 +773,13 @@ function ShopDailyProductPerformanceView({
   const [committedPerformancePageScopeKey, setCommittedPerformancePageScopeKey] = useState(currentPerformancePageScopeKey);
   const effectivePerformancePage = effectivePageForScope(page, currentPerformancePageScopeKey, committedPerformancePageScopeKey);
   const scopedCurrentPerformance = currentPerformanceLoadedScopeKey === currentPerformanceScopeKey ? currentPerformanceResponse : null;
-  const currentPerformance = scopedCurrentPerformance ?? currentPerformanceResponse;
+  const currentPerformance = scopedCurrentPerformance;
   const scopedComparisonPerformance = showComparison
     && comparisonPerformanceLoadedScopeKey === comparisonPerformanceScopeKey
     ? comparisonPerformanceResponse
     : null;
   const comparisonPerformance = showComparison
-    ? scopedComparisonPerformance ?? comparisonPerformanceResponse
+    ? scopedComparisonPerformance
     : null;
   const dimensionLabel = dimension === "sku" ? "SKU" : "SPU";
   const importLabel = dimension === "sku" ? "京东商品 SKU 日数据" : "网店商品 SPU 日数据";
@@ -884,10 +884,11 @@ function ShopDailyProductPerformanceView({
     setError("");
     let recoveringSnapshot = false;
     try {
-      const [currentResult, comparisonResult] = await Promise.all([
+      const [currentResult, loadedComparisonResult] = await Promise.all([
         requestPerformance("current", selectedPeriod, currentPerformanceScopeKey),
         comparisonPeriod ? requestPerformance("comparison", comparisonPeriod, comparisonPerformanceScopeKey) : Promise.resolve(null),
       ]);
+      let comparisonResult = loadedComparisonResult;
       const restartResult = [currentResult, comparisonResult].find((result) => result?.kind === "restart");
       if (restartResult?.kind === "restart") {
         if (!controller.signal.aborted
@@ -905,7 +906,35 @@ function ShopDailyProductPerformanceView({
         }
         throw new Error(`${dimensionLabel} 商品数据版本持续变化，请稍后重试`);
       }
+      if (currentResult.kind === "restart" || comparisonResult?.kind === "restart") throw new Error("商品版本需要重新读取");
       if (!controller.signal.aborted && generation === productPerformanceGenerationRef.current) {
+        if (comparisonResult && comparisonPeriod) {
+          try {
+          const revision = currentResult.payload.sourceRevision;
+          if (!revision || comparisonResult.payload.sourceRevision !== revision) throw new Error("商品两期来源版本不一致，请重新读取");
+          const identities = currentResult.payload.items;
+          if (identities.length) {
+            const exactParams = new URLSearchParams({ view: "identities", dimension, sourceRevision: revision, startDate: comparisonPeriod.startDate, endDate: comparisonPeriod.endDate });
+            selectedPlatforms.forEach(p => exactParams.append("platform", p));
+            selectedOutletKeys.forEach(k => exactParams.append("outlet", k));
+            identities.forEach(i => {
+              if (i.shopNames.length !== 1) throw new Error("商品配对需要精确单店身份");
+              exactParams.append("identity", encodeProductIdentity({ platform: i.platform as InsightPlatform, shopName: i.shopNames[0], dimension, id: i.id }));
+            });
+            const response = await fetch(`/api/netshop/product-performance?${exactParams}`, { cache: "no-store", signal: controller.signal });
+            const paired = await response.json().catch(() => null) as (NetshopProductPerformancePageResponse & { pairing?: string; error?: string }) | null;
+            if (!response.ok || !paired || paired.sourceRevision !== revision || paired.pairing !== "exact_identity" || !Array.isArray(paired.items)) throw new Error(paired?.error || "商品精确配对失败，请重新读取");
+            comparisonResult.payload.items = paired.items;
+          } else comparisonResult.payload.items = [];
+          if (controller.signal.aborted || generation !== productPerformanceGenerationRef.current) return;
+          } catch (comparisonError) {
+            if (controller.signal.aborted || generation !== productPerformanceGenerationRef.current) return;
+            comparisonResult = null;
+            setComparisonPerformanceResponse(null);
+            setComparisonPerformanceLoadedScopeKey("");
+            setError(`本期数据已读取；比较读取失败：${comparisonError instanceof Error ? comparisonError.message : "来源或权限未就绪"}`);
+          }
+        }
         if (currentResult.kind === "full") {
           currentPerformanceBootstrapKeyRef.current = currentResult.scopeKey;
           currentPerformanceSnapshotTokenRef.current = currentResult.payload.snapshotToken;
@@ -925,11 +954,12 @@ function ShopDailyProductPerformanceView({
           setComparisonPerformanceLoadedScopeKey(comparisonResult.scopeKey);
           setComparisonPerformanceResponse(comparisonResult.payload);
         } else if (comparisonResult?.kind === "page") {
+          const comparisonPageResult = comparisonResult;
           setComparisonPerformanceResponse((current) => current
-            && current.snapshotToken === comparisonResult.expectedSnapshotToken
-            && comparisonPerformanceSnapshotTokenRef.current === comparisonResult.expectedSnapshotToken
-            && comparisonPerformanceBootstrapKeyRef.current === comparisonResult.scopeKey
-            ? { ...current, items: comparisonResult.payload.items, pagination: comparisonResult.payload.pagination }
+            && current.snapshotToken === comparisonPageResult.expectedSnapshotToken
+            && comparisonPerformanceSnapshotTokenRef.current === comparisonPageResult.expectedSnapshotToken
+            && comparisonPerformanceBootstrapKeyRef.current === comparisonPageResult.scopeKey
+            ? { ...current, items: comparisonPageResult.payload.items, pagination: comparisonPageResult.payload.pagination }
             : current);
         }
       }
@@ -961,13 +991,10 @@ function ShopDailyProductPerformanceView({
   if (!currentPerformance) return null;
 
   const current = currentPerformance;
-  const comparisonSummary = comparisonPerformance?.summary;
-  const currentAverageTransactionValue = current.summary.transactionCustomers > 0
-    ? current.summary.transactionAmount / current.summary.transactionCustomers
-    : null;
-  const comparisonAverageTransactionValue = comparisonSummary && comparisonSummary.transactionCustomers > 0
-    ? comparisonSummary.transactionAmount / comparisonSummary.transactionCustomers
-    : null;
+  const currentSummary = productSummaryForDisplay(current);
+  const comparisonSummary = productSummaryForDisplay(comparisonPerformance);
+  const currentAverageTransactionValue = currentSummary.averageTransactionValue;
+  const comparisonAverageTransactionValue = comparisonSummary.averageTransactionValue;
   const productKpiNote = (source: string, value?: number | null, baseline?: number | null) => showComparison
     ? `${comparisonLabel} ${formatProductComparison(value, baseline)}`
     : source;
@@ -1027,13 +1054,13 @@ function ShopDailyProductPerformanceView({
       <p>以下 KPI 随当前 {dimensionLabel}、平台、店铺和日期筛选同步汇总；商品访客是商品×日累计，不能当作店铺去重 UV。</p>
     </section>
     <section className="store-metrics-grid product-performance-kpi-grid data-refresh-region" aria-label={`${dimensionLabel} 商品数据 KPI`} aria-busy={loading}>
-      <StoreMetricCard label="商品访客累计" value={formatCount(current.summary.visitors)} change={showComparison ? productComparisonRate(current.summary.visitors, comparisonSummary?.visitors) : null} note={productKpiNote("商品×日访客累计，非店铺去重 UV", current.summary.visitors, comparisonSummary?.visitors)} />
-      <StoreMetricCard label="成交金额" value={formatMerchantCurrency(current.summary.transactionAmount)} change={showComparison ? productComparisonRate(current.summary.transactionAmount, comparisonSummary?.transactionAmount) : null} note={productKpiNote("商智成交金额，不等同销售净额", current.summary.transactionAmount, comparisonSummary?.transactionAmount)} />
+      <StoreMetricCard label="商品访客累计" value={currentSummary.visitors === null ? "—" : formatCount(currentSummary.visitors)} change={showComparison ? productComparisonRate(currentSummary.visitors, comparisonSummary.visitors) : null} note={currentSummary.visitors === null ? "字段或店日覆盖不足" : productKpiNote("商品×日访客累计，非店铺去重 UV", currentSummary.visitors, comparisonSummary.visitors)} unavailable={currentSummary.visitors === null} />
+      <StoreMetricCard label="成交金额" value={formatMerchantCurrency(currentSummary.transactionAmount)} change={showComparison ? productComparisonRate(currentSummary.transactionAmount, comparisonSummary.transactionAmount) : null} note={currentSummary.transactionAmount === null ? "字段或店日覆盖不足" : productKpiNote("商品日报成交金额，不等同销售净额", currentSummary.transactionAmount, comparisonSummary.transactionAmount)} unavailable={currentSummary.transactionAmount === null} />
       <StoreMetricCard label="客单价" value={formatMerchantCurrency(currentAverageTransactionValue)} change={showComparison ? productComparisonRate(currentAverageTransactionValue, comparisonAverageTransactionValue) : null} note={currentAverageTransactionValue === null ? "当前周期没有成交人数" : productKpiNote("成交金额 / 成交人数", currentAverageTransactionValue, comparisonAverageTransactionValue)} unavailable={currentAverageTransactionValue === null} />
-      <StoreMetricCard label="UV 价值" value={formatMerchantCurrency(current.summary.uvValue)} change={showComparison ? productComparisonRate(current.summary.uvValue, comparisonSummary?.uvValue) : null} note={current.summary.uvValue === null ? "当前导入日数据未提供" : productKpiNote("商智 UV 价值", current.summary.uvValue, comparisonSummary?.uvValue)} unavailable={current.summary.uvValue === null} />
-      <StoreMetricCard label="转化率" value={formatOptionalRate(current.summary.conversionRate)} change={showComparison ? productComparisonRate(current.summary.conversionRate, comparisonSummary?.conversionRate) : null} note={current.summary.conversionRate === null ? "当前导入日数据未提供" : productKpiNote("商智总转化率", current.summary.conversionRate, comparisonSummary?.conversionRate)} unavailable={current.summary.conversionRate === null} />
+      <StoreMetricCard label="商品访客价值" value={formatMerchantCurrency(currentSummary.uvValue)} change={showComparison ? productComparisonRate(currentSummary.uvValue, comparisonSummary.uvValue) : null} note={currentSummary.uvValue === null ? "字段或日期覆盖不足，或分母为零" : productKpiNote("商品成交金额 / 商品访客累计", currentSummary.uvValue, comparisonSummary.uvValue)} unavailable={currentSummary.uvValue === null} />
+      <StoreMetricCard label="商品累计转化率" value={formatOptionalRate(currentSummary.conversionRate)} note={currentSummary.conversionRate === null ? "字段或日期覆盖不足，或分母为零" : showComparison ? comparisonSummary.conversionRate === null ? "基期覆盖不足" : `${comparisonLabel} ${((currentSummary.conversionRate-comparisonSummary.conversionRate)*100).toFixed(1)} 个百分点` : "成交客户累计 / 商品访客累计"} unavailable={currentSummary.conversionRate === null} />
       <StoreMetricCard label="推广花费" value="查看推广分析" note="按京东/天猫推广报表独立汇总" />
-      <StoreMetricCard label="推广占比" value="查看推广分析" note="只按推广与支付金额日期交集计算" />
+      <StoreMetricCard label="推广占比" value="查看推广分析" note="完整费率须同平台、同店、同日配对" />
       <StoreMetricCard label="零售占比" value="—" note="待接入订单类型标记" unavailable />
       <StoreMetricCard label="B 端占比" value="—" note="待接入企业购明细" unavailable />
       <StoreMetricCard label="推广点击数" value="查看推广分析" note="不替代付费访客" />
@@ -1155,8 +1182,10 @@ function ShopSkuView({
   }), [catalogBootstrapScopeKey, debouncedQuery]);
   const [committedCatalogPageScopeKey, setCommittedCatalogPageScopeKey] = useState(catalogPageScopeKey);
   const effectiveCatalogPage = effectivePageForScope(page, catalogPageScopeKey, committedCatalogPageScopeKey);
+  const catalogResultScope = JSON.stringify([catalogPageScopeKey, effectiveCatalogPage]);
+  const [loadedCatalogResultScope, setLoadedCatalogResultScope] = useState("");
   const scopedCatalog = catalogResponseScopeKey === catalogBootstrapScopeKey ? catalogResponse : null;
-  const catalog = scopedCatalog ?? catalogResponse;
+  const catalog = scopedCatalog && loadedCatalogResultScope !== catalogResultScope ? { ...scopedCatalog, items: [], pagination: { ...scopedCatalog.pagination, total: 0, page: 1 } } : scopedCatalog;
 
   const load = useCallback(async (forceFull = false) => {
     const expectedSnapshotToken = skuCatalogSnapshotTokenRef.current;
@@ -1207,6 +1236,7 @@ function ShopSkuView({
           throw new Error("网店货品分页与汇总数据版本不一致，请重新加载");
         }
         if (!controller.signal.aborted && generation === skuCatalogGenerationRef.current) {
+          setLoadedCatalogResultScope(catalogResultScope);
           setCatalog((current) => current
             && current.snapshotToken === expectedSnapshotToken
             && skuCatalogSnapshotTokenRef.current === expectedSnapshotToken
@@ -1223,6 +1253,7 @@ function ShopSkuView({
           skuCatalogBootstrapKeyRef.current = catalogBootstrapScopeKey;
           skuCatalogSnapshotTokenRef.current = fullPayload.snapshotToken;
           setCatalogResponseScopeKey(catalogBootstrapScopeKey);
+          setLoadedCatalogResultScope(catalogResultScope);
           setCatalog(fullPayload);
         }
       }
@@ -1234,7 +1265,7 @@ function ShopSkuView({
         if (skuCatalogControllerRef.current === controller) skuCatalogControllerRef.current = null;
       }
     }
-  }, [catalogBootstrapScopeKey, debouncedQuery, effectiveCatalogPage, salesPeriod.endDate, salesPeriod.startDate, selectedOutletKeys, selectedPlatforms]);
+  }, [catalogBootstrapScopeKey, catalogResultScope, debouncedQuery, effectiveCatalogPage, salesPeriod.endDate, salesPeriod.startDate, selectedOutletKeys, selectedPlatforms]);
 
   useEffect(() => {
     setCommittedCatalogPageScopeKey(catalogPageScopeKey);
@@ -1351,7 +1382,7 @@ function ShopPromotionView({
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState("");
   const [overviewRetryKey, setOverviewRetryKey] = useState(0);
-  const [promotionDisplayPair, setPromotionDisplayPair] = useState<{ items: NetshopPromotionItemsResponse; overview: NetshopPromotionOverviewResponse | null } | null>(null);
+  const [promotionDisplayPair, setPromotionDisplayPair] = useState<{ scopeKey: string; items: NetshopPromotionItemsResponse; overview: NetshopPromotionOverviewResponse | null } | null>(null);
   const promotionItemsGenerationRef = useRef(0);
   const promotionItemsControllerRef = useRef<AbortController | null>(null);
   const promotionOverviewGenerationRef = useRef(0);
@@ -1383,20 +1414,21 @@ function ShopPromotionView({
     ? promotionOverview
     : null;
   const hasCompleteScopedPair = Boolean(scopedItems && scopedOverview);
-  const currentItems = hasCompleteScopedPair || !promotionDisplayPair
+  const retainedPromotionPair = promotionDisplayPair?.scopeKey === promotionScopeKey ? promotionDisplayPair : null;
+  const currentItems = hasCompleteScopedPair || !retainedPromotionPair
     ? scopedItems
-    : promotionDisplayPair.items;
-  const currentOverview = hasCompleteScopedPair || !promotionDisplayPair
+    : retainedPromotionPair.items;
+  const currentOverview = hasCompleteScopedPair || !retainedPromotionPair
     ? scopedOverview
-    : promotionDisplayPair.overview;
+    : retainedPromotionPair.overview;
 
   useEffect(() => {
     if (scopedItems && scopedOverview) {
-      setPromotionDisplayPair({ items: scopedItems, overview: scopedOverview });
+      setPromotionDisplayPair({ scopeKey: promotionScopeKey, items: scopedItems, overview: scopedOverview });
       return;
     }
-    if (scopedItems) setPromotionDisplayPair((current) => current ?? { items: scopedItems, overview: null });
-  }, [scopedItems, scopedOverview]);
+    if (scopedItems) setPromotionDisplayPair((current) => current?.scopeKey === promotionScopeKey ? current : { scopeKey: promotionScopeKey, items: scopedItems, overview: null });
+  }, [promotionScopeKey, scopedItems, scopedOverview]);
   const promotionShops = (currentOverview?.filterOptions.shops ?? [])
     .filter((shop) => shop.platform === pageConfig.platform);
 
@@ -1605,8 +1637,12 @@ type ShopViewProps = { range: SalesRangeLabel; customStartDate: string; customEn
 function ClassicShopView({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange, platformSelection, onPlatformSelectionChange, outletSelection, onOutletSelectionChange }: { outletSelection: string[]; onOutletSelectionChange: (values: string[]) => void; platformSelection: string[]; onPlatformSelectionChange: (values: string[]) => void; range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; moduleView: OutletTab; onModuleViewChange: (view: OutletTab) => void }) {
   const apiRange = salesRangeMap[range];
   const activeTab = moduleView;
-  const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
-  const [analysisSummary, setAnalysisSummary] = useState<SalesSummaryResponse | null>(null);
+  const [summaryResponse, setSummary] = useState<SalesSummaryResponse | null>(null);
+  const [analysisSummaryResponse, setAnalysisSummary] = useState<SalesSummaryResponse | null>(null);
+  const [summaryResponseScope, setSummaryResponseScope] = useState("");
+  const summaryReadScope = JSON.stringify([activeTab, apiRange, customStartDate, customEndDate, activeTab === "analysis" ? [...outletSelection].sort() : []]);
+  const summary = summaryResponseScope === summaryReadScope ? summaryResponse : null;
+  const analysisSummary = summaryResponseScope === summaryReadScope ? analysisSummaryResponse : null;
   const selectedOutletKeys = outletSelection;
   const setSelectedOutletKeys = onOutletSelectionChange;
   const [loading, setLoading] = useState(true);
@@ -1649,6 +1685,7 @@ function ClassicShopView({ range, customStartDate, customEndDate, onNavigate, mo
       const validOutletKeys = selectedOutletKeys.filter((key) => availableOutletKeys.has(key));
       setSummary(payload);
       setAnalysisSummary(payload);
+      setSummaryResponseScope(summaryReadScope);
       if (validOutletKeys.length !== selectedOutletKeys.length) setSelectedOutletKeys(validOutletKeys);
     } catch (requestError) {
       if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
@@ -1659,7 +1696,7 @@ function ClassicShopView({ range, customStartDate, customEndDate, onNavigate, mo
         if (requestControllerRef.current === controller) requestControllerRef.current = null;
       }
     }
-  }, [activeTab, apiRange, customEndDate, customStartDate, selectedOutletKeys, setSelectedOutletKeys]);
+  }, [activeTab, apiRange, customEndDate, customStartDate, selectedOutletKeys, setSelectedOutletKeys, summaryReadScope]);
 
   useEffect(() => {
     void loadOutlets();
@@ -1695,7 +1732,7 @@ function ClassicShopView({ range, customStartDate, customEndDate, onNavigate, mo
     : summary?.groupPagination?.platforms;
   const rangeNote = summary ? `${summary.startDate} 至 ${summary.endDate}` : range;
 
-  const subnav = <div className="subnav outlet-subnav" role="tablist" aria-label="网店分析子版块"><button type="button" role="tab" aria-selected={activeTab === "analysis"} className={activeTab === "analysis" ? "active" : ""} onClick={() => onModuleViewChange("analysis")}>店铺分析</button><button type="button" role="tab" aria-selected={activeTab === "outlets"} className={activeTab === "outlets" ? "active" : ""} onClick={() => onModuleViewChange("outlets")}>网店总览</button><button type="button" role="tab" aria-selected={activeTab === "platforms"} className={activeTab === "platforms" ? "active" : ""} onClick={() => onModuleViewChange("platforms")}>平台对比</button><button type="button" role="tab" aria-selected={activeTab === "products"} className={activeTab === "products" ? "active" : ""} onClick={() => onModuleViewChange("products")}>商品数据</button><button type="button" role="tab" aria-selected={activeTab === "promotion"} className={activeTab === "promotion" ? "active" : ""} onClick={() => onModuleViewChange("promotion")}>推广分析</button><button type="button" disabled title="待接入企业购明细">企业购分析</button><button type="button" disabled title="待接入客服报表">客服分析</button></div>;
+  const subnav = <NetshopNavigation active={activeTab} onChange={onModuleViewChange} />;
 
   if (activeTab === "products") return <>{subnav}<ShopProductDataView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenCatalogImport={() => onNavigate("import", "tmall_product_master")} onOpenCatalogAssetImport={() => onNavigate("import", "tmall_product_assets")} onOpenImport={(dimension) => onNavigate("import", dimension === "sku" ? "jd_sku_daily" : "tmall_product_daily")} /></>;
   if (activeTab === "promotion") return <>{subnav}<ShopPromotionView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenTmallImport={() => onNavigate("import", "tmall_promotion")} /></>;
@@ -1730,13 +1767,19 @@ export default function ShopView(props: ShopViewProps & {
   onApplyPeriod?: (startDate: string, endDate: string, intent?: "rolling" | "quarter") => void;
   periodKind?: string;
   currentUser: import("./module-view-shared").CurrentUser | null;
+  context?: ShopLocationContext;
+  onContextChange?: (next: Partial<ShopLocationContext>) => void;
+  onDrill?: (view: OutletTab, product: ProductIdentity | null, section?: string) => void;
+  onReturn?: () => void;
 }) {
   const [classicOutlets, setClassicOutlets] = useState<string[]>([]);
   const [classicPlatforms, setClassicPlatforms] = useState<string[]>([]);
   const [balancedRetry, setBalancedRetry] = useState(0);
   const switcher = props.moduleView === "outlets" ? <div className="overview-view-switch" role="group" aria-label="网店总览视图">{(["classic", "balanced"] as const).map(view => <button type="button" key={view} aria-pressed={props.overview.view === view} onClick={() => props.onOverviewChange({ ...props.overview, view })}>{view === "classic" ? "旧视图" : "新视图"}</button>)}</div> : null;
+  const Column = props.moduleView === "outlets" ? undefined : netshopColumnModules[props.moduleView];
+  if (Column && props.onContextChange && props.onDrill && props.onReturn) return <><NetshopNavigation active={props.moduleView} onChange={props.onModuleViewChange} /><Column startDate={props.customStartDate} endDate={props.customEndDate} periodKind={props.periodKind ?? salesRangeMap[props.range]} context={props.context ?? defaultShopLocationContext} onContextChange={props.onContextChange} onDrill={props.onDrill} onReturn={props.onReturn} currentUser={props.currentUser} onModuleViewChange={props.onModuleViewChange} onApplyPeriod={props.onApplyPeriod} onNavigate={props.onNavigate} /></>;
   return <>{switcher}{props.moduleView === "outlets" && props.overview.view === "balanced" ? <>
-    <div className="subnav outlet-subnav" role="tablist" aria-label="网店分析子版块">{(["analysis", "outlets", "platforms", "products", "promotion"] as const).map((view, i) => <button type="button" key={view} role="tab" aria-selected={view === props.moduleView} className={view === props.moduleView ? "active" : ""} onClick={() => props.onModuleViewChange(view)}>{["店铺分析", "网店总览", "平台对比", "商品数据", "推广分析"][i]}</button>)}<button type="button" disabled title="待接入企业购明细">企业购分析</button><button type="button" disabled title="待接入客服报表">客服分析</button></div>
+    <NetshopNavigation active={props.moduleView} onChange={props.onModuleViewChange} />
     <ModuleErrorBoundary resetKey={`balanced-${balancedRetry}`} onRetry={() => { resetReloadableLazyScope("shop-balanced"); setBalancedRetry(v => v + 1); }} onOpenDashboard={() => props.onOverviewChange({ ...props.overview, view: "classic" })} returnLabel="返回旧视图"><Suspense fallback={<section className="panel data-state" role="status">正在加载新视图…</section>}><BalancedOverview options={props.overview} onChange={props.onOverviewChange} startDate={props.customStartDate} endDate={props.customEndDate} periodKind={props.periodKind ?? salesRangeMap[props.range]} onApplyPeriod={props.onApplyPeriod} currentUser={props.currentUser} onClassic={() => props.onOverviewChange({ ...props.overview, view: "classic" })} /></Suspense></ModuleErrorBoundary>
   </> : <ClassicShopView {...props} platformSelection={classicPlatforms} onPlatformSelectionChange={setClassicPlatforms} outletSelection={classicOutlets} onOutletSelectionChange={setClassicOutlets} />}</>;
 }

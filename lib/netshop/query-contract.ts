@@ -13,7 +13,7 @@ export type NetshopOutletFilter = {
 };
 
 export type NetshopProductCatalogView = "full" | "page";
-export type NetshopProductPerformanceView = "summary" | "full" | "page";
+export type NetshopProductPerformanceView = "summary" | "full" | "page" | "identities";
 
 export class NetshopQueryError extends Error {
   readonly status = 400;
@@ -188,7 +188,7 @@ export function readNetshopProductCatalogView(values: readonly string[]): Netsho
 }
 
 export function readNetshopProductPerformanceView(values: readonly string[]): NetshopProductPerformanceView {
-  return readStrictNetshopView(values, ["summary", "full", "page"] as const, "full");
+  return readStrictNetshopView(values, ["summary", "full", "page", "identities"] as const, "full");
 }
 
 export function readNetshopSnapshotToken(values: readonly string[], required: boolean) {
