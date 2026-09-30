@@ -12,15 +12,34 @@ function args(value: ReturnType<typeof fixture>, detail = false) {
   c.requestedScope.shopKeys.forEach((key: string) => query.append("outlet", key));
   if (detail) { query.set("shopKey", s.item.shopKey); query.set("objectId", s.item.rowKey); query.set("sectionToken", value.sectionToken); }
   else { query.set("page", String(s.pagination.page)); query.set("pageSize", String(s.pagination.pageSize)); query.set("q", s.listScope.q); }
+  if (!detail && s.listScope.productFocus) { const identity = s.listScope.productFocus.identity; query.set("productIdentity", JSON.stringify([identity.platform, identity.shopName, identity.dimension, identity.id])); }
   return { query, revision: c.sourceRevisions.find((r: { kind: string }) => r.kind === "owning_revision").revision as string };
 }
-for (const name of ["product", "plan", "partial-19-of-21", "misaligned", "missing-id"] as const) test(`actual isolated Python ${name} DTO obeys the consumer contract`, () => {
+for (const name of ["product", "plan", "partial-19-of-21", "misaligned", "missing-id", "product-focus-cross-store", "product-focus-unmapped", "product-focus-ambiguous"] as const) test(`actual isolated Python ${name} DTO obeys the consumer contract`, () => {
   const value = fixture(name), request = args(value);
   assert.equal(decodePromotionInsightsForQuery(value, request.query, request.revision).columnVersion, "netshop-promotion-v1");
 });
 test("actual isolated Python detail is bound to its exact object and version", () => {
   const value = fixture("detail"), request = args(value, true);
   assert.equal(decodePromotionDetailForQuery(value, request.query, request.revision).sections.item.rowKey, value.sections.item.rowKey);
+});
+test("actual exact-P focus detail binds its real parent identity and row", () => {
+  const value = fixture("product-focus-detail"), request = args(value, true), identity = value.sections.item.mapping.linkIdentity;
+  request.query.set("productIdentity", JSON.stringify([identity.platform, identity.shopName, identity.dimension, identity.id]));
+  assert.equal(decodePromotionDetailForQuery(value, request.query, request.revision).sections.item.id, identity.id);
+  request.query.set("productIdentity", JSON.stringify([identity.platform, identity.shopName, identity.dimension, "other-id"]));
+  assert.throws(() => decodePromotionDetailForQuery(value, request.query, request.revision));
+});
+test("the exact P identity cannot become another store, fuzzy q, or unavailable matches", () => {
+  const value = fixture("product-focus-cross-store"), request = args(value);
+  decodePromotionInsightsForQuery(value, request.query, request.revision);
+  request.query.set("productIdentity", JSON.stringify(["京东", "A", "sku", "same"]));
+  assert.throws(() => decodePromotionInsightsForQuery(value, request.query, request.revision));
+  const unavailable = fixture("product-focus-unmapped"), missingRequest = args(unavailable);
+  decodePromotionInsightsForQuery(unavailable, missingRequest.query, missingRequest.revision);
+  unavailable.sections.items = fixture("product-focus-cross-store").sections.items;
+  unavailable.sections.pagination.total = 1; unavailable.sections.pagination.returned = 1;
+  assert.throws(() => decodePromotionInsightsForQuery(unavailable, missingRequest.query, missingRequest.revision));
 });
 test("cross-shop rows and foreign owning headers fail closed", () => {
   const value = fixture("product"), request = args(value);

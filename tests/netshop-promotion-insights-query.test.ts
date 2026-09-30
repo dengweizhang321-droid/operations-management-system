@@ -39,3 +39,18 @@ test("new promotion budgets do not reduce the legacy endpoint budgets", () => {
   const malformed = query(); malformed.set("q", "a\u0000b"); assert.throws(() => validatePromotionQuery(malformed));
   const wrongDimension = query(); wrongDimension.set("dimension", "spu"); assert.throws(() => validatePromotionQuery(wrongDimension));
 });
+test("P focus uses an exact canonical shared identity instead of a substring search", () => {
+  const value = query(); value.set("productIdentity", JSON.stringify(["京东", "A店", "sku", "SKU-001"]));
+  assert.deepEqual(validatePromotionQuery(value).productIdentity, { platform: "京东", shopName: "A店", dimension: "sku", id: "SKU-001" });
+  value.set("q", "SKU"); assert.equal(validatePromotionQuery(value).productIdentity?.id, "SKU-001");
+  value.set("objectKind", "plan"); assert.throws(() => validatePromotionQuery(value));
+});
+test("P focus cannot change platform, dimension, shop scope, or detail's exact shop", () => {
+  for (const identity of [["京东", "A店", "spu", "SKU-001"], ["天猫", "A店", "spu", "SKU-001"], ["京东", " A店 ", "sku", "SKU-001"], ["京东", "A店", "sku", ""]]) {
+    const value = query(); value.set("productIdentity", JSON.stringify(identity)); assert.throws(() => validatePromotionQuery(value));
+  }
+  const value = query(); value.set("productIdentity", JSON.stringify(["京东", "A店", "sku", "SKU-001"]));
+  value.set("outlet", "京东\u001fB店"); assert.throws(() => validatePromotionQuery(value)); value.delete("outlet");
+  value.set("objectKind", "product"); value.set("objectId", "a".repeat(64)); value.set("sectionToken", "b".repeat(64)); value.set("shopKey", "京东\u001fB店");
+  assert.throws(() => validatePromotionQuery(value, true));
+});

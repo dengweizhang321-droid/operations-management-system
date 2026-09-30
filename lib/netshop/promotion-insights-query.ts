@@ -1,9 +1,9 @@
 import { isNetshopIsoDate, NetshopQueryError, readNetshopOutletFilters, readNetshopQueryInteger } from "./query-contract";
-import { validateContextQuery } from "./insights-contract";
+import { encodeProductIdentity, validateContextQuery, type ProductIdentity } from "./insights-contract";
 import { PROMOTION_OBJECT_KINDS, PROMOTION_SORTS, type PromotionObjectKind, type PromotionSort } from "./promotion-insights-contract";
 
 const sharedKeys = ["platform", "outlet", "dimension", "startDate", "endDate", "periodKind", "snapshotToken"] as const;
-const extraKeys = ["trendGrain", "q", "objectKind", "objectId", "shopKey", "page", "pageSize", "sort", "sectionToken", "focusDate", "objectStartDate", "objectEndDate"] as const;
+const extraKeys = ["trendGrain", "q", "objectKind", "objectId", "shopKey", "page", "pageSize", "sort", "sectionToken", "focusDate", "objectStartDate", "objectEndDate", "productIdentity"] as const;
 const allowed = new Set<string>([...sharedKeys, ...extraKeys]);
 function reject(message: string): never { throw new NetshopQueryError("invalid_promotion_request", message); }
 function boundedText(value: string | null, maximum: number, label: string) {
@@ -27,6 +27,19 @@ export function validatePromotionQuery(params: URLSearchParams, detail = false) 
   if (!["day", "week", "month"].includes(trendGrain)) reject("趋势粒度无效");
   const objectKind = params.get("objectKind") ?? "product", sort = params.get("sort") ?? "spend_desc";
   if (!PROMOTION_OBJECT_KINDS.includes(objectKind as PromotionObjectKind) || !PROMOTION_SORTS.includes(sort as PromotionSort)) reject("推广对象或排序无效");
+  let productIdentity: ProductIdentity | null = null;
+  const rawIdentity = params.get("productIdentity");
+  if (rawIdentity !== null) {
+    if (rawIdentity.length > 700) reject("精确商品焦点超出边界");
+    let values: unknown;
+    try { values = JSON.parse(rawIdentity); } catch { reject("精确商品焦点须为共享身份四元组"); }
+    if (!Array.isArray(values) || values.length !== 4 || !values.every(v => typeof v === "string")) reject("精确商品焦点须为共享身份四元组");
+    const [focusPlatform, focusShop, dimension, id] = values;
+    const identity = { platform: focusPlatform, shopName: focusShop, dimension, id } as ProductIdentity;
+    if (encodeProductIdentity(identity) !== JSON.stringify(values)) reject("精确商品焦点须使用规范身份");
+    if (objectKind !== "product" || identity.platform !== platform || identity.dimension !== context.dimension || context.shops.length && !context.shops.some(s => s.platform === identity.platform && s.shopName === identity.shopName) || detail && params.get("shopKey") !== `${identity.platform}\u001f${identity.shopName}`) reject("精确商品焦点须属于当前平台、店铺、维度和商品视角");
+    productIdentity = identity;
+  }
   const rawQ = params.get("q") ?? "";
   if (rawQ.length > 120 || /[\u0000-\u001f\u007f]/.test(rawQ)) reject("表内搜索超出边界");
   const q = rawQ.trim();
@@ -47,5 +60,5 @@ export function validatePromotionQuery(params: URLSearchParams, detail = false) 
   const objectStartDate = focusDate ?? start ?? context.window.startDate;
   const objectEndDate = focusDate ?? end ?? context.window.endDate;
   if (!isNetshopIsoDate(objectStartDate) || !isNetshopIsoDate(objectEndDate) || objectStartDate > objectEndDate || objectStartDate < context.window.startDate || objectEndDate > context.window.endDate) reject("对象日期必须在当前统计范围内");
-  return { contextQuery, context, platform, trendGrain: trendGrain as "day" | "week" | "month", objectKind: objectKind as PromotionObjectKind, sort: sort as PromotionSort, q, page, pageSize, sectionToken, shopKey, objectId, objectStartDate, objectEndDate };
+  return { contextQuery, context, platform, trendGrain: trendGrain as "day" | "week" | "month", objectKind: objectKind as PromotionObjectKind, sort: sort as PromotionSort, q, page, pageSize, sectionToken, shopKey, objectId, objectStartDate, objectEndDate, productIdentity };
 }
