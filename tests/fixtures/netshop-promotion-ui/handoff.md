@@ -19,6 +19,8 @@
 
 页面 callbacks 只通过 M2 context/history/期间/钻取/返回合同。q、页码、对象日期和商品焦点不在浏览器计算业务指标或重写 DTO。useScopedRead 与 own reader 负责取消、迟到拒绝、90 秒/2 MiB、严格 UTF-8；401/403、修订失效会清旧 summary/detail/binding。图表缺数断开；CPC 使用 I `DerivedMoneyPerCountV1`、共享 widget/formatter，未造均值算法。
 
+追加消费共享 `promotionPrefs`：原 local focusedPeriod/sortSelection 已移除，focus/clear/sort 单次 context patch 持久到共享 URL/history，范围清理由 I helper 处理，P 精确商品焦点保留，详情仍原整期。QA 也使用与正式 page 相同 principal key 的 bound history helper，不从 raw parsed context 复活未绑定偏好。作者 21 项 presentation/return/transport Node、lint、plain Vite build 通过；Q06 发现的实际返回 focus 丢失问题须由 Root 在新提交上重新跑真实 GUI，不能仅凭 pure helper 测试宣称闭合。
+
 作者验证：最近四套 `node --import tsx --test tests/netshop-promotion-view.test.ts tests/netshop-promotion-insights-query.test.ts tests/netshop-promotion-insights-decode.test.ts tests/netshop-promotion-diagnostic-reuse.test.ts` 共 **51 passed**，包含 Root/I 合同测试，不能统称为 51 个 UI 浏览器用例。7 个 reader transport 用例由本 Teammate 编写。相关 ESLint、diff check、plain React Vite build 通过；A/QA 文件 TypeScript 输出无新增匹配诊断，全库既有诊断由 Root 对照，不声称全库类型通过。
 
 Root 已回报私有 PG UI 搜索不改汇总、自然周日期焦点不改 KPI、精确 SKU001 整期详情趋势通过；原截图 `E:\codex-artifacts\netshop-scheme2-20261001\promotion-integration\root-ui-pg-03\01-overview.png` 是 CTR/CPC 宽度修复前证据，不能当最终截图。最终焦点、原报告、版本/撤权、钻取/返回及 Q 复验以 Root 最终 run/SHA 为准。

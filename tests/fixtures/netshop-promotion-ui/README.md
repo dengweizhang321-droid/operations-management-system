@@ -2,6 +2,8 @@
 
 本外壳直接 import `app/netshop/promotion/PromotionInsightsView.tsx`、系统 `app/globals.css`、M2 原导航/期间/上下文函数；没有复制页面、拦截 fetch 或改写 DTO。初始为京东全店、2026-09-01—07、custom、合成管理员。
 
+对象日期焦点与排序使用 I 的 `promotion-ui-v1` 偏好合同。外壳和正式页面一样，使用 `bindShopPresentationHistory` / `readBoundShopLocationContext`，principal key 同为 `[email,role,scopeRestricted]`；受控操作只向既有 browser history 写入一个绑定条目。前进、后退、刷新、钻取及返回都读取绑定上下文；未绑定或其他账号的 URL 偏好不被自动重绑复活。范围改变、超出本期的日期焦点由共享 helper 处理，不另建存储或解析器。
+
 总控先启动自身私有 PostgreSQL 和真实 Python reader，端口 `127.0.0.1:18150`。随后在本独立工作树运行：
 
 ```powershell
