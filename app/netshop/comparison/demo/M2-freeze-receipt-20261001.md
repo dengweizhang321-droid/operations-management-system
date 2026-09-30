@@ -37,3 +37,16 @@
 上述为待I/P/A冻结后的负向用例范围，并非本轮已执行测试。原31项设计验证与Q结论继承；本轮未跑UI/PG、未改代码或启动进程。普通字段/协议取舍由I协调；缺真实来源以能力状态交付，不把条件字段当阻断所有准备工作的理由。
 
 当前C源码仍为已交设计分支，3170及原UI09f9982c/date63d75fc0子树保留。cherry-pick等价不作为main祖先/清理依据，后续交付补完整子树归属、进程和ignored证据台账。本轮不部署、维护、生产库/迁移/重启、真实导入/补跑、外发或付费模型测试。
+
+## I接收及初步决策（待正式冻结）
+
+I已接收准备提交 `01ab8c5889da488c9922bfc9d019fe8c2725bb73`，七组pending及负向范围进入公共请求账本。以下来自2026-10-01总控交接，是设计约束，**不是新增可调用接口、最终wire字段冻结或M6开工通知**。
+
+- custom baseline采用C专属、显式版本化 `comparisonScope/selectedBaseline` opt-in；`netshop-insights-v1` previous/yearAgo原含义保留。手动各期最多366，所属派生可367；异长/重叠披露，不按天数暗缩放金额、不虚构逐日配对。
+- history扩展只由 `ShopLocationContext` 一套解析/写入承担；mode/metricSource/baseline/taxonomy/chart IDs精确字段待I正式冻结并测试。不复制Demo日历，不另建history。
+- 分类来源只消费真实source ID/namespace/version/hierarchy/unknown，或明确标为label-only的资料。label-only不升级成官方taxonomy；不得按同名跨平台归一，不拿当前分类/映射回填历史，不比例分摊。
+- 缺真实官方字典/有效期时使用unknown或不可比较状态，继续其他可靠来源内容。真实订单数与件均字段不能互换。Sales有界consumer入口待I阅读拥有者实际符号后提供；不扩角色权限，不改成本或仓库规则。
+- 分类、商品/推广完整集合请求由I同步P/A。C等待P和A接口均合main及准确SHA/M6通知，届时再同步main实施；当前继续保存待办、隔离夹具规划与来源清单，不重跑旧设计验证。
+- F/Q已完工树由I清理，冻结证据以main/E材料为准，不依赖旧venv/runtime；C的3170及UI/date独有历史仍保留，不能按cherry-pick等价误清理。
+
+后续协议负向样例应覆盖opt-in与旧字段兼容、手动366/派生367、异长/重叠/不重复配对、未知namespace/字典版本/label-only、历史有效期及共享history恢复。这些仍是待实施用例，没有在本轮宣称执行通过。
