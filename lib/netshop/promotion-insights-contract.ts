@@ -1,9 +1,10 @@
 import type { DerivedMoneyPerCountV1, InsightsContext, InsightPagination, MetricComparison, MetricReason, MetricValue, ProductIdentity, SourceCoverage } from "./insights-contract";
+import { promotionPresentationSorts } from "../../app/shell/shop-promotion-prefs";
 
 export const PROMOTION_COLUMN_VERSION = "netshop-promotion-v1" as const;
 export const PROMOTION_METRIC_KEYS = ["spend", "attributedPayment", "roas", "impressions", "clicks", "ctr", "cpc", "orders", "spendRate"] as const;
 export const PROMOTION_OBJECT_KINDS = ["product", "plan", "unit", "keyword", "search_term"] as const;
-export const PROMOTION_SORTS = ["spend_desc", "attributedPayment_desc", "roas_desc", "spend_change_desc", "spend_change_asc"] as const;
+export const PROMOTION_SORTS = promotionPresentationSorts;
 export type PromotionMetricKey = typeof PROMOTION_METRIC_KEYS[number];
 export type PromotionObjectKind = typeof PROMOTION_OBJECT_KINDS[number];
 export type PromotionSort = typeof PROMOTION_SORTS[number];
