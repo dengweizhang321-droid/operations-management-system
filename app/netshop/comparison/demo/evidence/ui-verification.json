@@ -6,10 +6,10 @@
     "demo.css": "c861e52b1c464e4888045d73b8d6193cf9b73b47939bdf3c5658d4be464feec3",
     "system-tokens.css": "67ce705f082787654bb9914f10d743f9219708b3a845a7a2f6116cd7dbce9821",
     "system-frame.css": "711109ad6e253ef01e64a82ef916c0c41c4bca2726f53a89bd39ea775c6776b3",
-    "date-picker.js": "c63103a07c8acd5783077abef0572f20eb4e127f38ad9519371a64f824d60a47",
-    "date-picker.css": "80c810cd684553c7c5def7c72e0113e306674ead1a2c06c9f68ae2700d6d5f9e"
+    "date-picker.js": "472a9d5b2b3cf4e8bb6895a39c12d8ee5f906526a429bbf20a3763d1a117e22b",
+    "date-picker.css": "743848863a58604a822df6b6ad3a3986f585b94f799e47e9666cec67cbf69426"
   },
-  "testedAt": "2026-09-30T11:54:44.929Z",
+  "testedAt": "2026-09-30T12:00:30.408Z",
   "viewport": [
     "1440x1080",
     "390x844"

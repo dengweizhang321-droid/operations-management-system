@@ -326,7 +326,8 @@
       <footer class="comparison-date-picker__footer"><button type="button" data-date-action="clear" data-testid="date-clear">清空</button><div><button type="button" data-date-action="cancel" data-testid="date-cancel">取消</button><button type="button" class="comparison-date-picker__apply" data-date-action="apply" data-testid="date-apply">确定</button></div></footer>`;
     renderCalendars();
     dialog.showModal();
-    dialog.querySelector('[data-date-action="start-input"]').focus();
+    dialog.scrollTop = 0;
+    dialog.querySelector('.comparison-date-picker__close').focus({ preventScroll: true });
     return snapshot();
   }
 
