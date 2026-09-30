@@ -5,6 +5,7 @@ import test, { afterEach, beforeEach } from "node:test";
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { AiToolEntry, RegistryAuditInput } from "../lib/ai/tool-registry-contract";
 import type { MetricValue } from "../lib/netshop/insights-contract";
+import { completeProductSectionsFixture } from "./netshop-products-test-fixture";
 
 const environment = {
   TERUISI_DJANGO_NETSHOP_READER_BASE_URL: "https://product-reader.example.test",
@@ -42,9 +43,9 @@ function fixture() {
     ...(key === "conversion" || key === "addCartRate" ? { numerator: 0, denominator: 10 } : {}),
   }])) as Record<typeof productMetricKeys[number], MetricValue>;
   const comparisons = Object.fromEntries(productMetricKeys.map(key => [key, { previous: compareMetrics(metrics[key], metrics[key]), yearAgo: compareMetrics(metrics[key], metrics[key]) }]));
-  const item = { identity: { platform: "京东", shopName: "合成店A", dimension: "spu", id: "P01" }, title: "合成商品", category: null, imageUrl: null, metrics, comparisons, baselineMetrics: { previous: metrics, yearAgo: metrics } };
+  const item = { identity: { platform: "京东", shopName: "合成店A", dimension: "spu", id: "P01" }, title: "合成商品", category: null, imageUrl: null, imageStatus: "unverified", metrics, comparisons, baselineMetrics: { previous: metrics, yearAgo: metrics } };
   const pagination = { page: 1, pageSize: 5, total: 1, returned: 1, hasMore: false, truncated: false };
-  return { schemaVersion: "netshop-product-insights-v1", context, sectionToken: "a".repeat(64), tableScope: { q: "", category: "", sort: "payment_desc", page: 1, pageSize: 5 }, joinedSourceRevisions: context.sourceRevisions, consistency: "revision_vector_checked", sections: { summary: metrics, comparisons, items: [item], pagination, baselineReads: { previous: { state: "ready", data: metrics }, yearAgo: { state: "ready", data: metrics } }, growth: { state: "ready", data: { collection: "paired_full_set_before_pagination", items: [item], pagination } } } };
+  return { schemaVersion: "netshop-product-insights-v1", context, sectionToken: "a".repeat(64), tableScope: { q: "", category: "", sort: "payment_desc", page: 1, pageSize: 5 }, joinedSourceRevisions: context.sourceRevisions, consistency: "revision_vector_checked", sections: { ...completeProductSectionsFixture(metrics), summary: metrics, comparisons, items: [item], pagination, baselineReads: { previous: { state: "ready", data: metrics }, yearAgo: { state: "ready", data: metrics } }, growth: { state: "ready", data: { collection: "paired_full_set_before_pagination", items: [item], pagination } } } };
 }
 let payload: ReturnType<typeof fixture>;
 function response(data: unknown = payload, status = 200, header: string | null = revision) {
