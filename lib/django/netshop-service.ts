@@ -8,6 +8,7 @@ import {
 import { PublicApiError } from "@/lib/http/api-error";
 
 export const NETSHOP_IMPORTS_PATH = "/api/netshop/imports";
+export const NETSHOP_STORE_OVERVIEW_PATH = "/api/netshop/store-overview";
 export const NETSHOP_OVERVIEW_PATH = "/api/netshop/overview";
 export const NETSHOP_PRODUCTS_PATH = "/api/netshop/products";
 export const NETSHOP_PRODUCT_PERFORMANCE_PATH = "/api/netshop/product-performance";
@@ -27,6 +28,7 @@ const STATIC_PATHS = new Set([
   NETSHOP_ANALYSIS_OPTIONS_PATH,
   NETSHOP_IMPORTS_PATH,
   NETSHOP_OVERVIEW_PATH,
+  NETSHOP_STORE_OVERVIEW_PATH,
   NETSHOP_PRODUCTS_PATH,
   NETSHOP_PRODUCT_PERFORMANCE_PATH,
   NETSHOP_PROMOTION_PERFORMANCE_PATH,
@@ -62,6 +64,8 @@ export type DjangoNetshopServiceOptions = {
   now?: () => number;
   requestId?: () => string;
   signal?: AbortSignal;
+  /** Separate bounded budget for the new source-verifying overview only. */
+  overviewTimeoutMs?: number;
 };
 
 export type DjangoNetshopServiceResult<T> = {
@@ -229,6 +233,10 @@ export async function requestDjangoNetshopService<T>(
   if (input.method === "POST" && input.payload === undefined) throw unavailable();
   if (input.method === "GET" && input.payload !== undefined) throw unavailable();
   const config = normalizedConfig(options.config ?? await loadConfig());
+  if (options.overviewTimeoutMs !== undefined) {
+    if (input.path !== NETSHOP_STORE_OVERVIEW_PATH || !readerRequest) throw unavailable();
+    config.timeoutMs = boundedInteger(options.overviewTimeoutMs, 90_000, 90_000);
+  }
   const rawQuery = input.query?.toString() ?? "";
   const body = input.payload === undefined ? undefined : encoder.encode(JSON.stringify(input.payload));
   if (body && body.byteLength > config.maxRequestBytes) {

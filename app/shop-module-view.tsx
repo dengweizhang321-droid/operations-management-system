@@ -1,9 +1,11 @@
 "use client";
 
 import { useAiPageDetails } from "./ai-page-context-provider";
+import ModuleErrorBoundary from "./shell/module-error-boundary";
+import { createReloadableLazy, resetReloadableLazyScope } from "./shell/reloadable-lazy";
 import PromotionDiagnosticPanel from "./promotion-diagnostic-panel";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import type { ImportSourceKey, ModuleKey, ModuleViewKey } from "./shell/navigation-catalog";
 import { SearchableMultiSelect, SearchableSelect } from "./ui/searchable-select";
@@ -1597,17 +1599,21 @@ function ShopPromotionView({
 }
 
 type OutletTab = ModuleViewKey<"shop">;
+type ShopViewProps = { range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; moduleView: OutletTab; onModuleViewChange: (view: OutletTab) => void };
 
-export default function ShopView({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange }: { range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; moduleView: OutletTab; onModuleViewChange: (view: OutletTab) => void }) {
+
+function ClassicShopView({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange, platformSelection, onPlatformSelectionChange, outletSelection, onOutletSelectionChange }: { outletSelection: string[]; onOutletSelectionChange: (values: string[]) => void; platformSelection: string[]; onPlatformSelectionChange: (values: string[]) => void; range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; moduleView: OutletTab; onModuleViewChange: (view: OutletTab) => void }) {
   const apiRange = salesRangeMap[range];
   const activeTab = moduleView;
   const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
   const [analysisSummary, setAnalysisSummary] = useState<SalesSummaryResponse | null>(null);
-  const [selectedOutletKeys, setSelectedOutletKeys] = useState<string[]>([]);
+  const selectedOutletKeys = outletSelection;
+  const setSelectedOutletKeys = onOutletSelectionChange;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
-  const [platformFilters, setPlatformFilters] = useState<string[]>([]);
+  const platformFilters = platformSelection;
+  const setPlatformFilters = onPlatformSelectionChange;
   useAiPageDetails("shop", {
     period: skuSalesPeriod(range, customStartDate, customEndDate),
     filters: activeTab === "outlets" ? { platforms: platformFilters } : {},
@@ -1653,7 +1659,7 @@ export default function ShopView({ range, customStartDate, customEndDate, onNavi
         if (requestControllerRef.current === controller) requestControllerRef.current = null;
       }
     }
-  }, [activeTab, apiRange, customEndDate, customStartDate, selectedOutletKeys]);
+  }, [activeTab, apiRange, customEndDate, customStartDate, selectedOutletKeys, setSelectedOutletKeys]);
 
   useEffect(() => {
     void loadOutlets();
@@ -1715,4 +1721,22 @@ export default function ShopView({ range, customStartDate, customEndDate, onNavi
       <div className="data-table-wrap"><table className="data-table outlet-data-table" data-column-filter-scope={dimensionPagination?.truncated === false ? "full" : "none"}><thead><tr><th>排名</th><th>{rowLabel}</th>{activeTab === "outlets" && <th>所属平台</th>}<th>销售净额</th><th>净额占比</th><th>净销售同比</th><th>订单量</th><th>大毛利率</th><th>退货率</th><th>经营状态</th></tr></thead><tbody>{displayedRows.map((item, index) => { const needsAttention = item.grossMarginRate < current.grossMarginRate - .05 || item.refundRate > current.refundRate + .03; const statusText = needsAttention ? "需要关注" : index < 3 && item.shareRate >= .1 ? "核心网店" : "经营稳健"; return <tr key={`${activeTab}-${item.platform}-${item.name}`}><td><span className={`table-rank ${index < 3 ? `top-${index + 1}` : ""}`}>{index + 1}</span></td><td><div className="channel-name-cell"><span>{(item.name || "未").slice(0, 1)}</span><strong title={item.name}>{item.name || "未分类"}</strong></div></td>{activeTab === "outlets" && <td><span className="soft-tag">{item.platform || "未分类"}</span></td>}<td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td><td>{formatRate(item.shareRate)}</td><td className={netSalesYearOverYearTone(item.salesYearOverYearRate)}>{formatNetSalesYearOverYear(item.salesYearOverYearRate)}</td><td>{formatCount(item.orderCount)}</td><td className={item.grossMarginRate < current.grossMarginRate ? "orange-text" : "green-text"}>{formatRate(item.grossMarginRate)}</td><td className={item.refundRate > current.refundRate ? "orange-text" : ""}>{formatRate(item.refundRate)}</td><td><span className={`status ${needsAttention ? "status-warning" : "status-success"}`}><Dot tone={needsAttention ? "orange" : "green"} />{statusText}</span></td></tr>; })}{displayedRows.length === 0 && <tr><td colSpan={activeTab === "outlets" ? 10 : 9}><div className="table-state">当前筛选条件下没有可展示的{rowLabel}数据。</div></td></tr>}</tbody></table></div>
     </section>
   </>;
+}
+
+const { Component: BalancedOverview } = createReloadableLazy("shop-balanced", () => import("./netshop-overview/balanced-overview"));
+export default function ShopView(props: ShopViewProps & {
+  overview: import("./shell/navigation-contract").StoreOverviewLocation;
+  onOverviewChange: (next: import("./shell/navigation-contract").StoreOverviewLocation) => void;
+  onApplyPeriod?: (startDate: string, endDate: string, intent?: "rolling" | "quarter") => void;
+  periodKind?: string;
+  currentUser: import("./module-view-shared").CurrentUser | null;
+}) {
+  const [classicOutlets, setClassicOutlets] = useState<string[]>([]);
+  const [classicPlatforms, setClassicPlatforms] = useState<string[]>([]);
+  const [balancedRetry, setBalancedRetry] = useState(0);
+  const switcher = props.moduleView === "outlets" ? <div className="overview-view-switch" role="group" aria-label="网店总览视图">{(["classic", "balanced"] as const).map(view => <button type="button" key={view} aria-pressed={props.overview.view === view} onClick={() => props.onOverviewChange({ ...props.overview, view })}>{view === "classic" ? "旧视图" : "新视图"}</button>)}</div> : null;
+  return <>{switcher}{props.moduleView === "outlets" && props.overview.view === "balanced" ? <>
+    <div className="subnav outlet-subnav" role="tablist" aria-label="网店分析子版块">{(["analysis", "outlets", "platforms", "products", "promotion"] as const).map((view, i) => <button type="button" key={view} role="tab" aria-selected={view === props.moduleView} className={view === props.moduleView ? "active" : ""} onClick={() => props.onModuleViewChange(view)}>{["店铺分析", "网店总览", "平台对比", "商品数据", "推广分析"][i]}</button>)}<button type="button" disabled title="待接入企业购明细">企业购分析</button><button type="button" disabled title="待接入客服报表">客服分析</button></div>
+    <ModuleErrorBoundary resetKey={`balanced-${balancedRetry}`} onRetry={() => { resetReloadableLazyScope("shop-balanced"); setBalancedRetry(v => v + 1); }} onOpenDashboard={() => props.onOverviewChange({ ...props.overview, view: "classic" })} returnLabel="返回旧视图"><Suspense fallback={<section className="panel data-state" role="status">正在加载新视图…</section>}><BalancedOverview options={props.overview} onChange={props.onOverviewChange} startDate={props.customStartDate} endDate={props.customEndDate} periodKind={props.periodKind ?? salesRangeMap[props.range]} onApplyPeriod={props.onApplyPeriod} currentUser={props.currentUser} onClassic={() => props.onOverviewChange({ ...props.overview, view: "classic" })} /></Suspense></ModuleErrorBoundary>
+  </> : <ClassicShopView {...props} platformSelection={classicPlatforms} onPlatformSelectionChange={setClassicPlatforms} outletSelection={classicOutlets} onOutletSelectionChange={setClassicOutlets} />}</>;
 }
