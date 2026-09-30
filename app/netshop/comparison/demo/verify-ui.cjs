@@ -47,11 +47,17 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
     await check('Platform mode keeps platforms separate from shop totals', async () => {
       await page.getByTestId('design-1').click();
       await page.getByTestId('platform-filter').selectOption('all');
+      await set({currentStart:'2026-09-01',currentEnd:'2026-09-03',source:'platform',coverage:'all'});
       await page.getByTestId('mode-platforms').click();
       const s = await snapshot();
       assert.equal(s.state.mode, 'platforms');
       assert.equal(s.objects.length, 2);
       assert.equal(new Set(s.objects.map(x => x.id)).size, 2);
+      assert.ok(s.totals.current.amount>0);
+      for(const platform of s.objects) {
+        assert.equal(platform.current.amount,platform.children.reduce((sum,shop)=>sum+shop.current.amount,0));
+      }
+      assert.equal(s.totals.current.amount,s.objects.reduce((sum,o)=>sum+o.current.amount,0));
       const expander = page.locator('[data-testid^="expand-platform-"]').first();
       await expander.click();
       assert.match(await page.getByTestId('ranking-table').innerText(), /演示/);
@@ -154,6 +160,22 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
       assert.ok(!s.selectedIds.includes('JD:B')&&!s.selectedIds.includes('TMALL:E'));
       // This models UI scope only. Formal principal/PG permission tests remain required.
       await set({permission:'full'});
+    });
+    await check('Complete coverage requires both periods, and a partial baseline prevents decomposition', async () => {
+      await set({mode:'shops',platform:'TMALL',source:'erp',coverage:'complete',currentStart:'2026-09-01',currentEnd:'2026-09-28',previousStart:'2026-08-01',previousEnd:'2026-08-28'});
+      assert.ok(!(await snapshot()).objects.some(o=>o.id==='TMALL:E'));
+      await set({coverage:'all'});
+      assert.equal((await snapshot()).objects.find(o=>o.id==='TMALL:E').status,'partial');
+      await set({platform:'JD',source:'platform',currentStart:'2026-08-01',currentEnd:'2026-08-28',previousStart:'2026-09-01',previousEnd:'2026-09-28'});
+      const s = await snapshot();
+      assert.ok(s.candidateSets.unknown.includes('JD:C'));
+      assert.equal(s.objects.find(o=>o.id==='JD:C').status,'partial');
+    });
+    await check('Workbench platform disclosure expands shops and does not only focus the row', async () => {
+      await set({design:3,mode:'platforms',platform:'all',source:'platform',coverage:'all',currentStart:'2026-09-01',currentEnd:'2026-09-03',previousStart:'2026-08-01',previousEnd:'2026-08-28'});
+      await page.getByTestId('expand-platform-JD').click();
+      assert.ok((await snapshot()).state.expanded.includes('JD'));
+      assert.ok(await page.locator('.table-subrow').count()>=3);
     });
     await set({mode:'shops',platform:'JD',source:'platform',coverage:'all',grain:'day',currentStart:'2026-09-01',currentEnd:'2026-09-29',previousStart:'2026-08-01',previousEnd:'2026-08-29'});
     await page.setViewportSize({width:390,height:844});
