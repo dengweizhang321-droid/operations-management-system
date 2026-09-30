@@ -148,6 +148,14 @@ def read_sales_consumer(
             if not REVISION_RE.fullmatch(revision):
                 raise _unavailable()
             value = json.loads(raw.decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        if error.code in {401, 403}:
+            raise NetshopApiError(
+                "当前账号无权读取销售数据",
+                code="access_denied",
+                status=error.code,
+            ) from None
+        raise _unavailable() from error
     except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
         raise _unavailable() from error
     if not isinstance(value, dict) or value.get("operation") != payload.get("operation"):

@@ -18,6 +18,18 @@ test("strict presentation schema refuses extra fields, coercion, missing columns
   assert.equal(parseShellLocation(duplicate).shop?.productsPrefs, undefined);
 });
 
+test("optional catalog preferences extend v1 compatibly and cannot carry invalid or extra filters", () => {
+  const withCatalog = { ...prefs, catalogFilters: { status: "on_sale", quality: "stale", mapping: "all" } } as const;
+  assert.deepEqual(decodeProductsPresentationPrefs(JSON.stringify(withCatalog)), withCatalog);
+  assert.deepEqual(decodeProductsPresentationPrefs(JSON.stringify(prefs)), prefs);
+  for (const catalogFilters of [null, [], { status: "on_sale", quality: "stale" }, { status: ["on_sale"], quality: "stale", mapping: "all" }, { status: "active", quality: "stale", mapping: "all" }, { status: "all", quality: "all", mapping: "all", token: "unsafe" }]) assert.equal(decodeProductsPresentationPrefs(JSON.stringify({ ...prefs, catalogFilters })), null);
+  const first = updateShopContextLocation(list, { productsPrefs: { ...prefs, catalogFilters: { status: "all", quality: "all", mapping: "all" } } });
+  assert.equal(parseShellLocation(first).shop?.page, 3);
+  const filtered = updateShopContextLocation(first, { productsPrefs: withCatalog });
+  assert.equal(parseShellLocation(filtered).shop?.page, 1);
+  assert.deepEqual(parseShellLocation(filtered).shop?.productsPrefs?.catalogFilters, withCatalog.catalogFilters);
+});
+
 test("only the same account and actual day scope may restore shared preferences", () => {
   const state = bindShopPresentationHistory({ unrelated: "preserved" }, list, account, today);
   assert.equal(state.unrelated, "preserved");

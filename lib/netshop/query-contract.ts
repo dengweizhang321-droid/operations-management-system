@@ -13,6 +13,19 @@ export type NetshopOutletFilter = {
 };
 
 export type NetshopProductCatalogView = "full" | "page";
+export const netshopCatalogStatusValues = ["all", "on_sale", "off_sale", "unknown"] as const;
+export const netshopCatalogQualityValues = ["all", "missing_image", "missing_code", "missing_category", "conflict", "stale", "unverified_mapping"] as const;
+export const netshopCatalogMappingValues = ["all", "verified", "unmapped", "ambiguous", "unverified"] as const;
+export type NetshopCatalogFilters = { status: typeof netshopCatalogStatusValues[number]; quality: typeof netshopCatalogQualityValues[number]; mapping: typeof netshopCatalogMappingValues[number] };
+export function readNetshopCatalogFilters(params: URLSearchParams): NetshopCatalogFilters {
+  const result: Record<string, string> = {};
+  for (const [key, allowed] of [["status", netshopCatalogStatusValues], ["quality", netshopCatalogQualityValues], ["mapping", netshopCatalogMappingValues]] as const) {
+    const values = params.getAll(key);
+    if (values.length > 1 || values.length === 1 && !allowed.some(value => value === values[0])) throw new NetshopQueryError("invalid_catalog_filter", `目录筛选包含无效或重复的${key}`);
+    result[key] = values[0] ?? "all";
+  }
+  return result as NetshopCatalogFilters;
+}
 export type NetshopProductPerformanceView = "summary" | "full" | "page" | "identities";
 
 export class NetshopQueryError extends Error {
