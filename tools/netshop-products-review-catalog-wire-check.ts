@@ -3,8 +3,13 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { registerHooks } from "node:module";
 import { resolve, sep } from "node:path";
-import { checkCatalog } from "../app/netshop/products/ProductsCatalog";
+
+// Styling is exercised by the independent browser replay; only this DTO guard
+// is imported here, with Node's documented hook excluding CSS module loading.
+registerHooks({ load(url, context, nextLoad) { return url.endsWith(".css") ? { format: "module", source: "export default {};", shortCircuit: true } : nextLoad(url, context); } });
+const { checkCatalog } = await import("../app/netshop/products/ProductsCatalog");
 
 const root = resolve("E:/codex-artifacts/netshop-scheme2-20261001/products/review");
 const input = resolve(process.argv[2] ?? "");
