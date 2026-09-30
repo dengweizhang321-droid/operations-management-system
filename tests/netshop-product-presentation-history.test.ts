@@ -45,6 +45,23 @@ test("legitimate scoped drill rebinds one history entry and restores detail then
   assert.equal(invalid.returnOrigin, null); assert.equal(invalid.returnTo, null);
 });
 
+test("an unbound or another-account single return cannot rebind preferences hidden in its destination", () => {
+  const product = { platform: "京东" as const, shopName: "A", dimension: "spu" as const, id: "P1" };
+  const detail = drillShopLocation(list, "products", product, "daily");
+  const bound = bindShopPresentationHistory({}, detail, account, today);
+  for (const [history, identity] of [[null, account], [bound, "synthetic-account-b"]] as const) {
+    const safe = readBoundShopLocationContext(detail, history, identity, today);
+    assert.equal(safe.productsPrefs, null);
+    const sanitizedDetail = serializeShellLocation({ ...parseShellLocation(detail), shop: safe }, detail);
+    const returned = returnShopLocation(sanitizedDetail);
+    const rebound = bindShopPresentationHistory({}, returned, identity, today);
+    const restored = readBoundShopLocationContext(returned, rebound, identity, today);
+    assert.equal(restored.productsPrefs, undefined);
+    assert.equal(restored.page, 3);
+    assert.deepEqual(restored.outlets, ["京东\u001fA", "京东\u001fB"]);
+  }
+});
+
 test("sort resets a list page while display columns keep it; changed scope resets preferences", () => {
   const changedSort = updateShopContextLocation(list, { productsPrefs: { ...prefs, sort: "payment_asc" } });
   assert.equal(parseShellLocation(changedSort).shop?.page, 1);
