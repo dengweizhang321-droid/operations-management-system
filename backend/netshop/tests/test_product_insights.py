@@ -369,3 +369,13 @@ class ProductInsightsTests(TestCase):
         if destination:
             with (Path(destination) / "representative-scale.json").open("x", encoding="utf-8") as output:
                 json.dump({"fixture": "products-5001-source-rows-v1", "sourceRows": 5001, "products": 501, "shops": 1, "days": 10, "sqlCount": len(captured), "elapsedSeconds": elapsed, "responseBytes": len(encoded), "controlPaymentCents": 5_001_000, "actualPaymentCents": result["sections"]["summary"]["payment"]["value"], "growthPlan": plan}, output, ensure_ascii=False, indent=2)
+
+    def test_actual_large_utf8_payload_rejected_not_truncated_to_fake_full_set(self):
+        for number in range(100):
+            product = f"Large-{number:03d}"
+            self.fact(product=product, title="合成" * 1000, values={"transactionAmountCents": 1000, "visitors": 400, "transactionCustomers": 0})
+            self.fact(product=product, day="2026-08-31", title="合成" * 1000, values={"transactionAmountCents": 0, "visitors": 400, "transactionCustomers": 0})
+        with self.assertRaises(NetshopApiError) as failure:
+            self.read(pageSize="100")
+        self.assertEqual(failure.exception.status, 422)
+        self.assertEqual(failure.exception.code, "quality_incomplete")
