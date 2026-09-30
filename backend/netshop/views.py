@@ -69,6 +69,19 @@ def analysis_records(request: HttpRequest) -> JsonResponse:
         return _error(error, "经营分析数据读取失败")
 
 
+@require_GET
+def insights_context(request: HttpRequest) -> JsonResponse:
+    from .insights_common import read_context, validate_context
+    try:
+        principal = _principal(request)
+        spec = validate_context(request.GET)
+        _platforms(principal, spec["platforms"])
+        payload = read_context(principal, spec)
+        return _json(payload, revision=payload["sourceRevisions"][0]["revision"])
+    except Exception as error:
+        return _error(error, "共享网店上下文读取失败")
+
+
 def _json(
     payload: object,
     status: int = 200,
@@ -417,7 +430,7 @@ def product_performance(request: HttpRequest) -> JsonResponse:
         principal = _principal(request)
         dimension = _single(request.GET.getlist("dimension"), "sku", {"sku", "spu"}, "dimension")
         view = _single(
-            request.GET.getlist("view"), "full", {"summary", "full", "page"}, "view"
+            request.GET.getlist("view"), "full", {"summary", "full", "page", "identities"}, "view"
         )
         snapshot = _snapshot(
             request.GET.getlist("snapshotToken"), required=view == "page", allowed=view == "page"
@@ -429,6 +442,24 @@ def product_performance(request: HttpRequest) -> JsonResponse:
             raise NetshopApiError("SKU 商品日数据仅支持京东平台")
         outlets = _outlets(request, platforms)
         requested_period = period(request.GET.get("startDate"), request.GET.get("endDate"))
+        identities = []
+        source_revision = None
+        actor = None
+        if view == "identities":
+            from .insights_common import parse_identities, require_supported_scope, actor_fence
+            actor = actor_fence(principal)
+            require_supported_scope(principal)
+            allowed = {"dimension", "view", "platform", "outlet", "startDate", "endDate", "identity", "sourceRevision"}
+            if set(request.GET)-allowed or any(len(request.GET.getlist(k)) != 1 for k in request.GET if k not in {"platform", "outlet", "identity"}):
+                raise NetshopApiError("精确配对包含未知或重复参数")
+            if requested_period is None:
+                raise NetshopApiError("精确配对必须提供日期")
+            identities = parse_identities(request.GET.getlist("identity"), dimension, platforms, outlets)
+            source_revision = request.GET.get("sourceRevision")
+            if not source_revision or len(source_revision) > 100:
+                raise NetshopApiError("精确配对须提供来源版本")
+        elif request.GET.getlist("identity") or request.GET.getlist("sourceRevision"):
+            raise NetshopApiError("只有identities视图接受精确配对参数")
         payload, revision = _consistent_read(
             lambda: read_product_performance(
                 dimension=dimension,
@@ -440,11 +471,15 @@ def product_performance(request: HttpRequest) -> JsonResponse:
                 requested_period=requested_period,
                 view=view,
                 expected_snapshot_token=snapshot,
+                identities=identities,
+                expected_source_revision=source_revision,
             )
         )
         if view == "full":
             allowed = ["京东"] if dimension == "sku" else list(SUPPORTED_PLATFORMS)
             payload["platforms"] = [item for item in allowed if not platforms or item in platforms]
+        if actor is not None and actor_fence(principal) != actor:
+            raise NetshopApiError("精确配对期间账号权限版本已变化", code="access_denied", status=403)
         return _json(payload, revision=revision)
     except Exception as error:
         return _error(error, "读取网店商品日数据失败")

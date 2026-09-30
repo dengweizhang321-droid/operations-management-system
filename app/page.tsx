@@ -33,7 +33,12 @@ import {
   type ShellPeriodState,
   type StoreOverviewLocation,
   defaultStoreOverviewLocation,
+  updateShopContextLocation,
+  drillShopLocation,
+  returnShopLocation,
 } from "./shell/navigation-contract";
+import type { ProductIdentity } from "@/lib/netshop/insights-contract";
+import { defaultShopLocationContext, type ShopLocationContext } from "./shell/shop-context";
 import { normalizeModuleView } from "./shell/module-view-contract";
 import SidebarNavigation from "./shell/sidebar-navigation";
 import { useModuleViewState } from "./shell/use-module-view-state";
@@ -137,12 +142,16 @@ type ShellViewProps = {
   overview: StoreOverviewLocation;
   periodKind?: string;
   onOverviewChange: (next: StoreOverviewLocation) => void;
+  shopContext: ShopLocationContext;
+  onShopContextChange: (next: Partial<ShopLocationContext>) => void;
+  onShopDrill: (view: ModuleViewKey<"shop">, product: ProductIdentity | null, section?: string) => void;
+  onShopReturn: () => void;
 };
 
 const viewMap: Record<ModuleKey, (props: ShellViewProps) => React.ReactNode> = {
   n8n_workflows: ({ currentUser, moduleView, onModuleViewChange }) => <N8nWorkflowView currentUser={currentUser} moduleView={normalizeModuleView("n8n_workflows", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   dashboard: DashboardView,
-  shop: ({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange, overview, onOverviewChange, onApplyPeriod, currentUser, periodKind }) => <ShopView periodKind={periodKind} overview={overview} onOverviewChange={onOverviewChange} onApplyPeriod={onApplyPeriod} currentUser={currentUser} range={range} customStartDate={customStartDate} customEndDate={customEndDate} onNavigate={onNavigate} moduleView={normalizeModuleView("shop", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
+  shop: ({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange, overview, onOverviewChange, onApplyPeriod, currentUser, periodKind, shopContext, onShopContextChange, onShopDrill, onShopReturn }) => <ShopView context={shopContext} onContextChange={onShopContextChange} onDrill={onShopDrill} onReturn={onShopReturn} periodKind={periodKind} overview={overview} onOverviewChange={onOverviewChange} onApplyPeriod={onApplyPeriod} currentUser={currentUser} range={range} customStartDate={customStartDate} customEndDate={customEndDate} onNavigate={onNavigate} moduleView={normalizeModuleView("shop", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   market: ({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onApplyPeriod }) => <MarketView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("market", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} onApplyPeriod={onApplyPeriod} />,
   customer_service: ({ customStartDate, customEndDate, currentUser, onNavigate }) => <CustomerServiceView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} onNavigate={onNavigate} />,
   sales: ({ range, customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange }) => <SalesView range={range} customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("sales", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
@@ -200,6 +209,7 @@ export default function Home() {
   const customMinDate = `${Number(customMaxDate.slice(0, 4)) - 1}-01-01`;
   const [customIntent, setCustomIntent] = useState<"rolling" | "quarter" | undefined>();
   const [overview, setOverview] = useState<StoreOverviewLocation>(defaultStoreOverviewLocation);
+  const [shopContext, setShopContext] = useState<ShopLocationContext>(defaultShopLocationContext);
   const globalPeriod = useMemo(
     () => skuSalesPeriod(range, customStartDate, customEndDate),
     [customEndDate, customStartDate, range],
@@ -263,6 +273,7 @@ export default function Home() {
     const minDate = `${Number(today.slice(0, 4)) - 1}-01-01`;
     setActive(state.module);
     setOverview(state.overview ?? defaultStoreOverviewLocation);
+    setShopContext(state.shop ?? defaultShopLocationContext);
     syncModuleViewFromLocation(window.location.href);
     setImportSource(state.source ?? null);
     setRange(rangeForShellPeriod(state.period));
@@ -295,6 +306,7 @@ export default function Home() {
     }, normalizedContractUrl);
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (normalized !== currentUrl) window.history.replaceState(null, "", normalized);
+    setShopContext(parseShellLocation(normalized).shop ?? defaultShopLocationContext);
     setShellLocationReady(true);
   }, [syncModuleViewFromLocation]);
 
@@ -377,6 +389,19 @@ export default function Home() {
     if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(null, "", nextUrl);
     setOverview(next);
   }, []);
+  const changeShopContext = useCallback((next: Partial<ShopLocationContext>) => {
+    const nextUrl = updateShopContextLocation(window.location.href, next);
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(null, "", nextUrl);
+    setShopContext(parseShellLocation(nextUrl).shop ?? defaultShopLocationContext);
+  }, []);
+  const drillShop = useCallback((view: ModuleViewKey<"shop">, product: ProductIdentity | null, section?: string) => {
+    window.history.pushState(null, "", drillShopLocation(window.location.href, view, product, section));
+    applyLocationState();
+  }, [applyLocationState]);
+  const returnShop = useCallback(() => {
+    window.history.pushState(null, "", returnShopLocation(window.location.href));
+    applyLocationState();
+  }, [applyLocationState]);
 
   const replacePeriodUrl = useCallback((period: ShellPeriodState) => {
     const nextUrl = serializeShellLocation({
@@ -387,6 +412,7 @@ export default function Home() {
     }, window.location.href);
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (nextUrl !== currentUrl) window.history.replaceState(null, "", nextUrl);
+    setShopContext(parseShellLocation(nextUrl).shop ?? defaultShopLocationContext);
   }, [active, activeModuleView, importSource]);
 
   const hrefForModule = useCallback((key: ModuleKey, requestedView?: ModuleViewKey) => {
@@ -409,6 +435,7 @@ export default function Home() {
       setModuleViewSelection(key, nextView);
       setImportSource(nextSource ?? null);
       setActive(key);
+      setShopContext(parseShellLocation(nextUrl).shop ?? defaultShopLocationContext);
     });
     closeMobileMenu();
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -417,7 +444,8 @@ export default function Home() {
   }, [closeMobileMenu, setModuleViewSelection, shellPeriod, startModuleTransition]);
 
   const selectModuleView = useCallback((view: ModuleViewKey) => {
-    pushModuleView(active, normalizeModuleView(active, view));
+    const nextUrl = pushModuleView(active, normalizeModuleView(active, view));
+    setShopContext(parseShellLocation(nextUrl).shop ?? defaultShopLocationContext);
   }, [active, pushModuleView]);
 
   const currentAiContext = useMemo(() => {
@@ -630,7 +658,7 @@ export default function Home() {
               onOpenDashboard={() => selectModule("dashboard")}
             >
               {shellLocationReady ? <Suspense fallback={<section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在加载{current.label}</strong><p>正在按需载入当前业务工作区…</p></section>}>
-                <AiPageContextProvider module={active} view={activeModuleView} publish={publishAiDetails}><View range={range} periodKind={range === "自定义" && customIntent ? customIntent : undefined} overview={overview} onOverviewChange={changeOverview} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onAskAi={askAiWithContext} aiContextPrompt={aiContextPrompt} aiPageContext={aiPageContext} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} /></AiPageContextProvider>
+                <AiPageContextProvider module={active} view={activeModuleView} publish={publishAiDetails}><View onShopDrill={drillShop} onShopReturn={returnShop} shopContext={shopContext} onShopContextChange={changeShopContext} range={range} periodKind={range === "自定义" && customIntent ? customIntent : undefined} overview={overview} onOverviewChange={changeOverview} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onAskAi={askAiWithContext} aiContextPrompt={aiContextPrompt} aiPageContext={aiPageContext} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} /></AiPageContextProvider>
               </Suspense> : <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在打开目标工作区</strong><p>正在读取当前页面位置与统计周期…</p></section>}
             </ModuleErrorBoundary>
           </div>

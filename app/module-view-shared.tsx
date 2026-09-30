@@ -704,6 +704,7 @@ export type JdSkuCatalogPageResponse = {
 export type NetshopProductPerformanceDimension = "sku" | "spu";
 
 export type NetshopProductPerformanceItem = {
+  fieldAvailability?: Record<string, { complete: boolean; reasonCode: string | null }>;
   id: string;
   platform: string;
   skuId: string;
@@ -742,6 +743,8 @@ export type NetshopProductPerformanceItem = {
 };
 
 export type NetshopProductPerformanceResponse = {
+  sourceRevision?: string;
+  summaryFieldAvailability?: Record<string, { complete: boolean; reasonCode: string | null }>;
   snapshotToken: string;
   dimension: NetshopProductPerformanceDimension;
   dataset: "sku_daily" | "spu_daily";
@@ -805,12 +808,12 @@ export type NetshopProductPerformanceResponse = {
 
 export type NetshopProductPerformanceSummaryResponse = Pick<
   NetshopProductPerformanceResponse,
-  "snapshotToken" | "dimension" | "dataset" | "requestedPeriod" | "dateMin" | "dataCutoffDate" | "monetaryUnit" | "visitorAggregation" | "summary"
+  "snapshotToken" | "sourceRevision" | "summaryFieldAvailability" | "dimension" | "dataset" | "requestedPeriod" | "dateMin" | "dataCutoffDate" | "monetaryUnit" | "visitorAggregation" | "summary"
 >;
 
 export type NetshopProductPerformancePageResponse = Pick<
   NetshopProductPerformanceResponse,
-  "snapshotToken" | "items" | "pagination"
+  "snapshotToken" | "sourceRevision" | "items" | "pagination"
 >;
 
 export type NetshopPromotionPerformanceResponse = {
@@ -818,11 +821,13 @@ export type NetshopPromotionPerformanceResponse = {
   requestedPeriod: { startDate: string | null; endDate: string | null };
   dateMin: string | null;
   dataCutoffDate: string | null;
-  coverage: { promotionDates: string[]; productDailyDates: string[]; intersectionDates: string[]; missingProductDailyDates: string[]; missingPromotionDates: string[] };
+  coverage: { promotionDates: string[]; productDailyDates: string[]; intersectionDates: string[]; missingProductDailyDates: string[]; missingPromotionDates: string[]; complete?: boolean; expectedShopDatePairs?: number; matchedShopDatePairs?: number; missingByShop?: Array<{ shopKey: string; dates: string[] }> };
   summary: {
     productCount: number; spendCents: number; netTransactionAmountCents: number; grossTransactionAmountCents: number;
     platformPaymentAmountCents: number; impressions: number; clicks: number; netOrders: number; favorites: number; cartQuantity: number;
     clickThroughRate: number | null; averageClickCostCents: number | null; roas: number | null; spendRate: number | null; promotionTransactionShare: number | null;
+    spendRateReason?: string | null;
+    matchedRange?: { spendCents: number; platformPaymentAmountCents: number; spendRate: number | null; coveredShopDatePairs: number; expectedShopDatePairs: number; byShop: Array<{ shopKey: string; dates: string[] }> };
   };
   daily: Array<{ date: string; spendCents: number; netTransactionAmountCents: number; platformPaymentAmountCents: number | null; impressions: number; clicks: number; netOrders: number; roas: number | null; spendRate: number | null; promotionTransactionShare: number | null }>;
   filterOptions: { shops: Array<{ platform: string; shopName: string }>; pagination: { total: number; returned: number; truncated: boolean } };
@@ -1093,7 +1098,7 @@ export const productComparisonPeriod = (
 };
 
 export const productComparisonRate = (value?: number | null, baseline?: number | null) => {
-  if (value === null || value === undefined || baseline === null || baseline === undefined || baseline === 0) return null;
+  if (value === null || value === undefined || baseline === null || baseline === undefined || !Number.isFinite(value) || !Number.isFinite(baseline) || baseline <= 0) return null;
   return (value - baseline) / Math.abs(baseline);
 };
 

@@ -100,10 +100,10 @@ function comparisons(value: unknown) {
       || c.status === "unavailable" && (c.value !== null || !text(c.reasonCode))) throw new Error("网店总览比较无效");
   }
 }
-function windowSpec(value: unknown) {
+function windowSpec(value: unknown, maximumDays = 366) {
   const w = object(value);
   if (![w.startDate, w.endDate, w.endExclusive].every(v => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v))
-    || !Number.isInteger(w.days) || Number(w.days) < 1 || Number(w.days) > 366
+    || !Number.isInteger(w.days) || Number(w.days) < 1 || Number(w.days) > maximumDays
     || ![w.startDate, w.endDate, w.endExclusive].every(v => { const t = Date.parse(`${v}T00:00:00Z`); return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === v; })
     || Date.parse(`${w.endExclusive}T00:00:00Z`) - Date.parse(`${w.endDate}T00:00:00Z`) !== 86_400_000
     || Date.parse(`${w.endExclusive}T00:00:00Z`) - Date.parse(`${w.startDate}T00:00:00Z`) !== Number(w.days) * 86_400_000) throw new Error("网店总览日期无效");
@@ -117,7 +117,7 @@ export function decodeStoreOverview(value: unknown): StoreOverviewResponse {
     || typeof f.periodKind !== "string" || !["today", "yesterday", "last7", "last15", "last30", "month", "quarter", "custom", "rolling", "all"].includes(f.periodKind)
     || !text(p.requestId, 128) || !text(periods.rule) || !text(periods.ruleVersion)
     || periods.timezone !== "Asia/Shanghai") throw new Error("网店总览范围无效");
-  for (const k of ["current", "previous", "yearAgo"]) windowSpec(periods[k]);
+  for (const k of ["current", "previous", "yearAgo"]) windowSpec(periods[k], k === "current" ? 366 : 367);
   const current = object(periods.current), shopKeys = new Set(f.shopKeys);
   const withinCurrent = (start: unknown, end: unknown) => calendarDate(start) && calendarDate(end)
     && start >= String(current.startDate) && end <= String(current.endDate);
@@ -133,7 +133,7 @@ export function decodeStoreOverview(value: unknown): StoreOverviewResponse {
         || k === "daily" && (r.days !== 1 || r.startDate !== new Date(Date.parse(`${current.startDate}T00:00:00Z`) + rowDates.size * 86_400_000).toISOString().slice(0, 10))) throw new Error("网店总览序列范围无效");
       rowDates.add(String(r.startDate));
       const dates = object(r.comparisonDates);
-      for (const kind of ["previous", "yearAgo"]) if (dates[kind] !== null) windowSpec(dates[kind]);
+      for (const kind of ["previous", "yearAgo"]) if (dates[kind] !== null) windowSpec(dates[kind], 367);
       const values = object(r.comparisonValues);
       for (const kind of ["previous", "yearAgo"]) for (const key of ["payment", "spend"]) {
         const v = object(values[kind])[key];
