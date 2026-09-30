@@ -17,10 +17,14 @@ type CatalogView = JdSkuCatalogResponse & { catalogFilters?: CatalogMetadata; ca
 const plain = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 const text = (value: unknown, maximum = 8000): value is string => typeof value === "string" && value.length <= maximum;
 const date = (value: unknown) => value === null || typeof value === "string" && isNetshopIsoDate(value);
+function owningCatalogRevision(value: string | null | undefined): string {
+  if (typeof value !== "string" || !/^\d+:[a-f0-9]{12}$/.test(value)) throw new InsightReadError("invalid_catalog_contract", "目录响应缺少有效的来源版本头");
+  return value;
+}
 
 const number = (value: number | null | undefined, money = false) => value === null || value === undefined ? "—" : (money ? value / 100 : value).toLocaleString("zh-CN", { minimumFractionDigits: money ? 2 : 0, maximumFractionDigits: money ? 2 : 0 });
 function quality(item: JdSkuCatalogItem) { return [!item.imageUrl ? "缺图" : null, !item.productCode ? "缺少商家码" : null, !item.category ? "缺类目" : null, !item.salesMatched ? "ERP经营未匹配" : null].filter(Boolean).join(" / ") || "本来源未报告字段缺口"; }
-export function checkCatalog(value: unknown, query: URLSearchParams): CatalogView {
+export function checkCatalog(value: unknown, query: URLSearchParams, revision?: string | null): CatalogView {
   if (!plain(value)) throw new Error("目录响应对象无效");
   const data = value as CatalogView;
   const pagination = data.pagination;
@@ -45,9 +49,10 @@ export function checkCatalog(value: unknown, query: URLSearchParams): CatalogVie
   const filters = readNetshopCatalogFilters(query);
   if (data.catalogFilters !== undefined) {
     const meta = data.catalogFilters, caps = data.catalogFilterCapabilities;
-    if (!plain(meta) || meta.policyVersion !== "netshop-product-catalog-filter-v1" || !(["status", "quality", "mapping"] as const).every(key => meta[key] === filters[key as keyof NetshopCatalogFilters]) || !isNetshopIsoDate(meta.asOfDate) || !/^[a-f0-9]{64}$/.test(meta.scopeKey) || !/^(?:\d+:[a-f0-9]{12}|[a-f0-9]{64})$/.test(meta.sourceVersion) || meta.staleAfterDays !== 30 || meta.summaryBasis !== "complete_store_set_before_table_filters" || !Number.isSafeInteger(meta.filteredRows) || meta.filteredRows < 0 || ![meta.onSaleValues, meta.offSaleValues].every(list => Array.isArray(list) && list.every(value => text(value, 100)))) throw new Error("目录筛选范围或来源版本回执无效");
+    if (!plain(meta) || meta.policyVersion !== "netshop-product-catalog-filter-v1" || !(["status", "quality", "mapping"] as const).every(key => meta[key] === filters[key as keyof NetshopCatalogFilters]) || !isNetshopIsoDate(meta.asOfDate) || !/^[a-f0-9]{64}$/.test(meta.scopeKey) || !/^\d+:[a-f0-9]{12}$/.test(meta.sourceVersion) || meta.staleAfterDays !== 30 || meta.summaryBasis !== "complete_store_set_before_table_filters" || !Number.isSafeInteger(meta.filteredRows) || meta.filteredRows < 0 || ![meta.onSaleValues, meta.offSaleValues].every(list => Array.isArray(list) && list.every(value => text(value, 100)))) throw new Error("目录筛选范围或来源版本回执无效");
     if (!plain(caps) || !plain(caps.mapping) || !Array.isArray(caps.mapping.supportedValues) || caps.mapping.supportedValues.length !== 1 || caps.mapping.supportedValues[0] !== "all" || caps.mapping.reasonCode !== "unverified_source" || !plain(caps.unverified_mapping) || caps.unverified_mapping.supported !== false || caps.unverified_mapping.reasonCode !== "unverified_source" || !plain(caps.missing_image) || typeof caps.missing_image.supported !== "boolean" || caps.missing_image.reasonCode !== (caps.missing_image.supported ? null : "unverified_source")) throw new Error("目录筛选能力回执无效");
-  } else if (Object.values(filters).some(value => value !== "all")) throw new Error("目录来源尚未提供这些筛选能力");
+    if (meta.sourceVersion !== owningCatalogRevision(revision)) throw new InsightReadError("insights_revision_changed", "目录来源版本与响应头不一致，请完整重读");
+  } else if (["status", "quality", "mapping"].some(key => query.has(key))) throw new InsightReadError("invalid_catalog_contract", "目录来源缺少已请求的筛选版本回执");
   return data;
 }
 
@@ -74,8 +79,10 @@ export function ProductsCatalog({ props, ui, onUi, onShops }: { props: NetshopCo
         const body = await response.json();
         if (bounded.aborted) throw new DOMException("读取已取消", "AbortError");
         if (!response.ok) throw new InsightReadError(base && response.status === 503 ? "insights_revision_changed" : typeof body?.code === "string" ? body.code : "service_unavailable", typeof body?.error === "string" ? body.error : "货品目录读取失败");
+        const revision = response.headers.get("X-Netshop-Data-Revision");
         if (base && body?.snapshotToken !== base.token) throw new InsightReadError("insights_revision_changed", "目录版本已变化");
-        const catalog = checkCatalog(base ? { ...base.data, ...body } : body, request);
+        if (base && owningCatalogRevision(revision) !== base.data.catalogFilters?.sourceVersion) throw new InsightReadError("insights_revision_changed", "目录分页来源版本已变化，请完整重读");
+        const catalog = checkCatalog(base ? { ...base.data, ...body } : body, request, revision);
         token.current = { key: family, token: catalog.snapshotToken, data: catalog };
         return catalog;
       } catch (error) {
