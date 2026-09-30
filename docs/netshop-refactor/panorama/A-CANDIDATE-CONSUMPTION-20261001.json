@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "S-A-candidate-preparation-v1",
+  "date": "2026-10-01",
+  "readCandidate": {
+    "sha": "6f6c8d4720eaec87f96c861ba181733b7e8a3081",
+    "path": "docs/netshop-refactor/promotion/contract-v1.md",
+    "blobSha256": "827e21c5cfac8dd0e34286e3fb96f7fdafa194d7dd511b9e477cb1f7c7c9dd79",
+    "source": "git-show-committed-contract-only"
+  },
+  "observedRemoteMain": "39bc403a5385cb4766c45b0c670bd4c65f96b9b8",
+  "formalM5Started": false,
+  "candidateAdopted": false,
+  "candidateMerged": false,
+  "runtimeTestsRun": false,
+  "predecessorPreparationCommit": "2e4031d91dcf8d28b962e83831f2f975a0b4f357",
+  "designCommit": "a4428e54770337d5e8063dad8c3af809c51c4c69",
+  "criticalConsumptionBoundaries": [
+    "summary_whole_scope_independent_of_q_and_focus",
+    "matchedRange_separate_subset_not_main_rate",
+    "JD_A_SKU_and_S_P_SPU_separate_contexts",
+    "CPC_netshop_money_per_count_v1_not_legacy_integer_cent",
+    "canQuery_eligibility_not_presence_and_null_unidentified_not_zero",
+    "rowKey_internal_lookup_not_business_id",
+    "mapping_matched_exact_source_identity_reliable_linkIdentity_required"
+  ],
+  "awaiting": [
+    "P_A_both_main_and_I_exact_start_sha",
+    "A_final_types_fields_decoder_and_exported_consumer",
+    "I_S_nested_promotion_envelope_joined_vectors_CPC_navigation_adapter"
+  ],
+  "publicFilesWritten": [],
+  "productionOperations": [],
+  "independentReview": {
+    "agent": "independent_review",
+    "result": "pass_read_only_document_matrix",
+    "openFindings": 0,
+    "candidateCodeRead": false,
+    "testsRun": false,
+    "candidateAncestorOfS": false,
+    "scope": "specified committed contract and role preparation only"
+  }
+}
