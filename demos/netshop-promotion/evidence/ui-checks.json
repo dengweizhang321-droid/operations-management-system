@@ -1,0 +1,530 @@
+{
+  "type": "synthetic-design-qa",
+  "checkedAt": "2026-09-30T09:26:35.233Z",
+  "productionValidated": false,
+  "checks": [
+    {
+      "name": "Layout 1: title",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 1: demo mark",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 1: section 1",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 1: section 2",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 1: section 3",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 1: section 4",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 1: section 5",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 1: section 6",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 1: section 7",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 1: section 8",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 1: narrow width",
+      "ok": true,
+      "detail": {
+        "viewport": 390,
+        "content": 390
+      }
+    },
+    {
+      "name": "Layout 2: title",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 2: demo mark",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 2: section 1",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 2: section 2",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 2: section 3",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 2: section 4",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 2: section 5",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 2: section 6",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 2: section 7",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 2: section 8",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 2: narrow width",
+      "ok": true,
+      "detail": {
+        "viewport": 390,
+        "content": 390
+      }
+    },
+    {
+      "name": "Layout 3: title",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 3: demo mark",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 3: section 1",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 3: section 2",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 3: section 3",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 3: section 4",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 3: section 5",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 3: section 6",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 3: section 7",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 3: section 8",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 3: narrow width",
+      "ok": true,
+      "detail": {
+        "viewport": 390,
+        "content": 390
+      }
+    },
+    {
+      "name": "Layout 4: title",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 4: demo mark",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 4: section 1",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 4: section 2",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 4: section 3",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 4: section 4",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 4: section 5",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 4: section 6",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 4: section 7",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 4: section 8",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 4: narrow width",
+      "ok": true,
+      "detail": {
+        "viewport": 390,
+        "content": 390
+      }
+    },
+    {
+      "name": "Layout 5: title",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 5: demo mark",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 5: section 1",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 5: section 2",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 5: section 3",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 5: section 4",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 5: section 5",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 5: section 6",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 5: section 7",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 5: section 8",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Layout 5: narrow width",
+      "ok": true,
+      "detail": {
+        "viewport": 390,
+        "content": 390
+      }
+    },
+    {
+      "name": "Tmall attribution label",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Tmall order unit",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Single shop hides duplicate comparison",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "List search keeps summary stable",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Search empty state",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Incomplete fee stays null",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Partial fee discloses matched scope",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Mismatched shop-day fee stays null",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Mismatched shop-day pair count",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Missing clicks not zero",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Missing CTR/CPC unavailable",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Real zero preserved",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Zero denominator unavailable",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Trend date links object scope",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Date detail keeps period summary",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Date cancel keeps scope",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Date apply updates scope",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Natural-week grouping labels",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Year comparison gap disclosed",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Unsupported plan shows gap",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Supported scope bounded",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Same plan names retain separate IDs",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Plan detail matches exact ID",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Plan ID is not treated as product ID",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "No-keyword ad kept separate",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Search term gap is explicit",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Report preview does not claim real export",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "XLSX scope/source structure",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Overlay escape closes",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Matrix selected-shop trend labeled",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Matrix chart tooltip uses same shop scope",
+      "ok": true,
+      "detail": "厨电专营店\n2026-09-25\n花费 ¥677.00\n归因成交 ¥4,252.87\nROAS 6.28× · 配对 1/1"
+    },
+    {
+      "name": "Matrix date drill shows selected shop only",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Platform change clears old date/shop drill",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Shop change clears old date/shop drill",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "System colors and typography",
+      "ok": true,
+      "detail": {
+        "brand": "#396149",
+        "body": "14px",
+        "kpi": "24px",
+        "title": "20px"
+      }
+    },
+    {
+      "name": "No ad records not zero-filled",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "No ad records do not fabricate products",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Calendar supports keyboard range selection",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Incomplete base suppresses summary growth",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "Incomplete base suppresses shop growth",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "No runtime errors",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "No business/external requests",
+      "ok": true,
+      "detail": [
+        "http://127.0.0.1:3196/?layout=1",
+        "http://127.0.0.1:3196/designs.css",
+        "http://127.0.0.1:3196/designs.js",
+        "http://127.0.0.1:3196/?layout=2",
+        "http://127.0.0.1:3196/?layout=3",
+        "http://127.0.0.1:3196/?layout=4",
+        "http://127.0.0.1:3196/?layout=5"
+      ]
+    }
+  ],
+  "errors": [],
+  "requests": [
+    "http://127.0.0.1:3196/?layout=1",
+    "http://127.0.0.1:3196/designs.css",
+    "http://127.0.0.1:3196/designs.js",
+    "http://127.0.0.1:3196/?layout=2",
+    "http://127.0.0.1:3196/?layout=3",
+    "http://127.0.0.1:3196/?layout=4",
+    "http://127.0.0.1:3196/?layout=5"
+  ]
+}
