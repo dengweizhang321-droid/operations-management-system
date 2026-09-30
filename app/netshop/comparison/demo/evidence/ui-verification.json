@@ -2,12 +2,12 @@
   "scope": "synthetic isolated UI only",
   "sourceHashes": {
     "index.html": "e15c7b66402526f2545a4695293f04be45e37c31336642c75187b108020cf5ae",
-    "demo.js": "28d62588e0665d8b695f6323a00e8144584cb6159559de93ea88314a76f6b877",
+    "demo.js": "0e3e6cd50ad4d413130f065b174b4a7a70e852c81006c05040950ceb63fd0f8b",
     "demo.css": "c861e52b1c464e4888045d73b8d6193cf9b73b47939bdf3c5658d4be464feec3",
     "system-tokens.css": "67ce705f082787654bb9914f10d743f9219708b3a845a7a2f6116cd7dbce9821",
-    "system-frame.css": "49754a6133db1911c1bbb4ffb95846045e5bca55615433037cd08e25c44a5508"
+    "system-frame.css": "fa7183b34eddb2b4c94897d0518a1a9046abee36fe66429a5c5d39fbe368afbb"
   },
-  "testedAt": "2026-09-30T10:25:54.158Z",
+  "testedAt": "2026-09-30T10:37:05.120Z",
   "viewport": [
     "1440x1080",
     "390x844"

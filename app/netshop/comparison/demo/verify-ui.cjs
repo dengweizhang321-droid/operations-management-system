@@ -26,6 +26,7 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
   };
   const snapshot = () => page.evaluate(() => window.comparisonDemo.snapshot());
   const set = patch => page.evaluate(x => window.comparisonDemo.setState(x), patch);
+  const topForCapture = () => page.evaluate(() => {window.scrollTo({top:0,left:0,behavior:'instant'});return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
   try {
     const response = await page.goto(url.href);
     await page.waitForFunction(() => Boolean(window.comparisonDemo));
@@ -53,6 +54,7 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
         assert.ok((await snapshot()).selectedIds.length >= 2 && (await snapshot()).selectedIds.length <= 4);
         assert.ok(await page.getByTestId('ranking-table').count());
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+        await topForCapture();
         await page.screenshot({path: path.join(out, `design-${design}-desktop.png`), fullPage: true});
       });
     }
@@ -238,6 +240,7 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
         const textSizes=await page.evaluate(()=>[...document.querySelectorAll('svg.chart-svg text')].map(el=>Number.parseFloat(getComputedStyle(el).fontSize)*el.getScreenCTM().a));
         assert.ok(textSizes.length>0&&textSizes.every(size=>size>=11.9));
+        await topForCapture();
         await page.screenshot({path: path.join(out, `design-${design}-narrow.png`),fullPage:true});
       });
     }

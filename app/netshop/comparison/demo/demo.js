@@ -365,8 +365,9 @@
   document.addEventListener('pointerout',event=>{if(event.target.closest('[data-tip]'))event.target.closest('.chart-wrap')?.querySelector('.chart-tooltip')?.remove();});
   window.comparisonDemo=Object.freeze({setState,snapshot,openDetail,closeDetail,designs:DESIGNS.map(({id,name,title})=>({id,name,title})),fixtures:SHOPS.map(({id,platform,name})=>({id,platform,name})),reset:()=>setState({...DEFAULT,selectedIds:[...DEFAULT.selectedIds],expanded:[]})});
   const masthead=document.querySelector('.system-masthead');
-  const syncShell=()=>document.documentElement.style.setProperty('--demo-masthead-height',masthead.getBoundingClientRect().height+'px');
-  new ResizeObserver(syncShell).observe(masthead);
+  const subnav=document.querySelector('.system-subnav');
+  const syncShell=()=>{document.documentElement.style.setProperty('--demo-masthead-height',masthead.getBoundingClientRect().height+'px');document.documentElement.style.setProperty('--demo-subnav-height',subnav.getBoundingClientRect().height+'px');};
+  const shellObserver=new ResizeObserver(syncShell);shellObserver.observe(masthead);shellObserver.observe(subnav);
   syncShell();
   render();
 })();
