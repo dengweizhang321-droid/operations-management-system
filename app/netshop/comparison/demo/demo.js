@@ -159,7 +159,10 @@
   }
   function card(title,number,body,span='span-6',subtitle='',tools=''){return `<section class="card ${span}" data-section="3.${number}"><div class="card-head"><div><h2><span class="section-no">3.${number}</span>${title}</h2>${subtitle?`<p>${subtitle}</p>`:''}</div>${tools?`<div class="card-tools">${tools}</div>`:''}</div>${body}</section>`;}
   function kpis(data){
-    const t=data.totals,rows=[['完整对象 · '+amountLabel(),money(t.current.amount),'万元',growthHTML(t)],['合成可信订单',n(t.current.orders),'单','同源订单数 · 非客户累计'],['销量',n(t.current.units),'件','订单与件数分别展示'],['ERP 订单毛利',money(t.current.grossProfit),'万元','模拟源订单毛利合计 · 非净利润'],['同源客单价',yuan(t.ratios.aov),'元','合计金额 ÷ 合计订单数']];
+    const t=data.totals,erpComplete=t.current.coverage.requested>0&&t.current.coverage.erp===t.current.coverage.requested;
+    const erpLabel=t.current.grossProfit===null?'ERP 订单毛利 · 缺源':erpComplete?'ERP 订单毛利':'ERP 订单毛利 · 已覆盖';
+    const erpFoot=erpComplete?'模拟源订单毛利合计 · 非净利润':`ERP 来源 ${t.current.coverage.erp}/${t.current.coverage.requested} 店日 · 其余未提供`;
+    const rows=[['完整对象 · '+amountLabel(),money(t.current.amount),'万元',growthHTML(t)],['合成可信订单',n(t.current.orders),'单','同源订单数 · 非客户累计'],['销量',n(t.current.units),'件','订单与件数分别展示'],[erpLabel,money(t.current.grossProfit),'万元',erpFoot],['同源客单价',yuan(t.ratios.aov),'元','合计金额 ÷ 合计订单数']];
     return `<div class="kpi-row">${rows.map(([label,value,unit,foot])=>`<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}<small>${unit}</small></div><div class="kpi-foot">${foot}</div></div>`).join('')}</div>`;
   }
   function trend(data,large=false){
@@ -178,7 +181,7 @@
   }
   function trendCard(data,span='span-7'){return card('趋势对比',3,trend(data),span,'统一指标和日期；相对走势仅使用有效基准',`<div class="segment"><button data-action="normalize" data-id="false" class="${!state.normalized?'active':''}">绝对值</button><button data-action="normalize" data-id="true" data-testid="normalize-toggle" class="${state.normalized?'active':''}">基准 100</button></div>`);}
   function scatter(data){
-    const objects=data.selected.filter(o=>o.ratios.aov!==null&&o.current.amount!==null);
+    const objects=data.selected.filter(o=>o.status==='available'&&o.ratios.aov!==null&&o.current.amount!==null&&o.current.amount>=0);
     const W=440,H=248,L=52,R=25,T=20,B=48,maxX=Math.max(1,...objects.map(o=>Math.abs(o.current.amount)))*1.18,maxY=Math.max(1,...objects.map(o=>o.ratios.aov))*1.3;
     let svg=`<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="规模与客单价分布"><text x="${L}" y="13">客单价（元）</text>`;
     for(let i=0;i<4;i++){const yy=H-B-i*(H-T-B)/3;svg+=`<line class="gridline" x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}"/><text x="${L-8}" y="${yy+4}" text-anchor="end">${n(maxY*i/3/100)}</text>`;}

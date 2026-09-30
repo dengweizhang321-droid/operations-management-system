@@ -2,10 +2,10 @@
   "scope": "synthetic isolated UI only",
   "sourceHashes": {
     "index.html": "6ba8391df928b53a3a0ef2aae3026c4b2a16c2d2b58a59221a8a25ecb5bd7bf4",
-    "demo.js": "66c0b44ad37ad32abf304aa2da0a86354d56937398913b8179beedb4d930443c",
+    "demo.js": "cbb9fa18560b76fedc8aaa6fe37815f11876de8d6bf12db23f18a7837a991eb8",
     "demo.css": "a5930c4e49522dc6e6768cfc42451d1895230a718f8080338a75917a588c93c1"
   },
-  "testedAt": "2026-09-30T09:42:53.793Z",
+  "testedAt": "2026-09-30T09:45:23.525Z",
   "viewport": [
     "1440x1080",
     "390x844"
@@ -88,6 +88,15 @@
       "result": "pass"
     },
     {
+      "name": "ERP summary labels coverage independently of the selected platform source",
+      "result": "pass"
+    },
+    {
+      "name": "Negative net sales remain in tables and do not enter the scale bubble chart",
+      "result": "fail",
+      "detail": "locator.innerText: Error: Node is not an HTMLElement\nCall log:\n\u001b[2m  - waiting for locator('svg[aria-label=\"规模与客单价分布\"]')\u001b[22m\n"
+    },
+    {
       "name": "Design 1: narrow layout",
       "result": "pass"
     },
@@ -127,8 +136,8 @@
       "url": "http://127.0.0.1:3170/demo.js"
     }
   ],
-  "passed": 25,
-  "failed": 0,
+  "passed": 26,
+  "failed": 1,
   "PostgreSQL": "not implemented/not tested in this design stage",
   "productionPermissions": "not tested; required after F/P/A integration",
   "productionOperations": []

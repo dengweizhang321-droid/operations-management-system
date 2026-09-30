@@ -198,6 +198,23 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
         assert.equal(s.series.find(o=>o.id===platform.id).points[0].value,platform.current.amount);
       }
     });
+    await check('ERP summary labels coverage independently of the selected platform source', async () => {
+      await set({design:1,mode:'shops',platform:'TMALL',source:'platform',coverage:'all',currentStart:'2026-08-01',currentEnd:'2026-08-03',previousStart:'2026-07-01',previousEnd:'2026-07-03',selectedIds:['TMALL:D','TMALL:E']});
+      const s=await snapshot();
+      assert.equal(s.totals.current.coverage.erp,3);
+      assert.equal(s.totals.current.coverage.requested,6);
+      const card=page.locator('.kpi-card').filter({hasText:'ERP 订单毛利'});
+      assert.match(await card.innerText(),/已覆盖/);
+      assert.match(await card.innerText(),/3\/6 店日/);
+    });
+    await check('Negative net sales remain in tables and do not enter the scale bubble chart', async () => {
+      await set({platform:'JD',source:'erp',currentStart:'2026-08-01',currentEnd:'2026-08-03',previousStart:'2026-07-01',previousEnd:'2026-07-03',selectedIds:['JD:A','JD:B']});
+      assert.ok((await snapshot()).objects.find(o=>o.id==='JD:B').current.amount<0);
+      const scatter=page.locator('svg[aria-label="规模与客单价分布"]');
+      assert.equal(await scatter.locator('circle').count(),1);
+      assert.doesNotMatch(await scatter.innerText(),/京东 B 店/);
+      assert.match(await page.getByTestId('ranking-table').innerText(),/京东 B 店/);
+    });
     await set({mode:'shops',platform:'JD',source:'platform',coverage:'all',grain:'day',currentStart:'2026-09-01',currentEnd:'2026-09-29',previousStart:'2026-08-01',previousEnd:'2026-08-29'});
     await page.setViewportSize({width:390,height:844});
     for (let design = 1; design <= 5; design++) {
