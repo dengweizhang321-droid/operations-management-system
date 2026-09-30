@@ -138,6 +138,27 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
       await page.getByTestId('date-cancel').click();
       await set({categoryId:'all',currentStart:'2026-09-01',currentEnd:'2026-09-28',previousStart:'2026-08-01',previousEnd:'2026-08-28'});
     });
+    await check('Product detail never replaces a selected category with another category', async () => {
+      for(const categoryId of ['cooking','parts','unknown']){
+        await set({categoryId});await page.evaluate(()=>window.comparisonDemo.openDetail('product','JD:A'));
+        const body=await page.locator('.drawer').innerText();assert.match(body,/单品明细未提供/);assert.doesNotMatch(body,/10001|532 元/);
+        await page.getByTestId('detail-close').click();
+      }
+      await set({categoryId:'commercial'});await page.evaluate(()=>window.comparisonDemo.openDetail('product','JD:A'));
+      assert.match(await page.locator('.drawer').innerText(),/M-001/);
+      assert.deepEqual(await page.locator('.drawer tbody tr td:nth-child(3)').allTextContents(),['商用设备','商用设备']);
+      await page.getByTestId('detail-close').click();await set({categoryId:'all'});
+    });
+    await check('Sold product count respects source coverage, zero sales and category conservation', async () => {
+      await set({platform:'JD',source:'platform',categoryId:'all',currentStart:'2026-08-01',currentEnd:'2026-08-01'});
+      const full=await snapshot();assert.equal(full.objects.find(o=>o.id==='JD:C').products,0);
+      const categories=[];
+      for(const categoryId of ['commercial','cooking','parts','unknown']){await set({categoryId});categories.push(await snapshot());}
+      for(const row of full.objects){assert.equal(categories.reduce((total,s)=>total+s.objects.find(o=>o.id===row.id).products,0),row.products);assert.ok(row.products<=row.current.days.reduce((total,d)=>total+d.units,0));}
+      await set({categoryId:'all',source:'erp',currentStart:'2026-09-15',currentEnd:'2026-09-15'});
+      assert.equal((await snapshot()).objects.find(o=>o.id==='JD:C').products,null);
+      await set({source:'platform',currentStart:'2026-09-01',currentEnd:'2026-09-28',previousStart:'2026-08-01',previousEnd:'2026-08-28'});
+    });
     await check('Platform mode keeps platforms separate from shop totals', async () => {
       await page.getByTestId('platform-filter').selectOption('all');
       await set({currentStart:'2026-09-01',currentEnd:'2026-09-03',source:'platform',coverage:'all'});
