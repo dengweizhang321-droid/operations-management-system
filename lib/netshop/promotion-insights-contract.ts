@@ -65,6 +65,7 @@ export type PromotionListScope = {
   objectStartDate: string; objectEndDate: string;
   comparisonDates: { previous: string[]; yearAgo: string[] };
   summaryUnaffectedBySearch: true;
+  productFocus?: { identity: ProductIdentity; status: "available" | "unavailable"; reasonCode: "unmapped" | "ambiguous_mapping" | null; message: string } | null;
 };
 export type PromotionDiagnosticCapability = {
   status: "available" | "unavailable"; reasonCode: MetricReason | null;
