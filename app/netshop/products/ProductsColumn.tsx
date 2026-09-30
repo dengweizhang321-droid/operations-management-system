@@ -35,7 +35,7 @@ function usePresentation(key: string, sharedPrefs: ProductsPresentationPrefs | n
   };
   // Valid shared preferences were account/scope-bound by the shell. An old
   // same-account/scope session value is only an initial presentation hint.
-  const selected = bound ? { sort: bound.sort, columns: bound.columns, gallery: bound.gallery, detailSource: bound.detailSource, topic: bound.topic } : stored.key === key ? stored.value : defaultProductsUiState;
+  const selected = bound ? { sort: bound.sort, columns: bound.columns, gallery: bound.gallery, detailSource: bound.detailSource, topic: bound.topic, catalogFilters: bound.catalogFilters ?? { status: "all", quality: "all", mapping: "all" } } : stored.key === key ? stored.value : defaultProductsUiState;
   return [selected, save] as const;
 }
 
@@ -71,9 +71,9 @@ export function ProductsColumn(props: NetshopColumnProps) {
       {view !== "catalog" && <label>商品维度<select aria-label="商品经营维度" value={props.context.dimension} onChange={event => props.onContextChange({ dimension: event.target.value as "sku" | "spu", product: null, page: 1 })}><option value="spu">SPU</option><option value="sku" disabled={props.context.platforms.length === 0 || props.context.platforms.includes("天猫")}>京东SKU</option></select></label>}
       {view === "performance" && <label>经营类目标签<input list="products-category-labels" aria-label="经营类目标签" value={props.context.category} maxLength={120} placeholder="全部类目标签" onChange={event => props.onContextChange({ category: event.target.value, page: 1 })} /><datalist id="products-category-labels">{(options.principal === principal ? options.categories : []).map(category => <option key={category} value={category} />)}</datalist></label>}
       {view !== "catalog" && <fieldset><legend>两期比较</legend><label><input type="checkbox" checked={props.context.previous} onChange={event => props.onContextChange({ previous: event.target.checked })} />环比</label><label><input type="checkbox" checked={props.context.yearAgo} onChange={event => props.onContextChange({ yearAgo: event.target.checked })} />同比</label></fieldset>}
-      <label>状态<select aria-label="完整状态筛选尚未具备" disabled><option>完整状态筛选待启用</option></select></label>
-      <label>ERP映射<select aria-label="完整ERP映射筛选尚未具备" disabled><option>完整映射筛选待启用</option></select></label>
-      <label>资料质量<select aria-label="完整资料质量筛选尚未具备" disabled><option>完整质量筛选待启用</option></select></label>
+      {view !== "catalog" && <label>状态<select aria-label="完整状态筛选尚未具备" disabled><option>完整状态筛选待启用</option></select></label>}
+      {view !== "catalog" && <label>ERP映射<select aria-label="完整ERP映射筛选尚未具备" disabled><option>完整映射筛选待启用</option></select></label>}
+      {view !== "catalog" && <label>资料质量<select aria-label="完整资料质量筛选尚未具备" disabled><option>完整质量筛选待启用</option></select></label>}
     </div></InsightFilterBar>
     {view !== "catalog" && (currentPeriods ? <PeriodContext periods={currentPeriods} previous={props.context.previous} yearAgo={props.context.yearAgo} dimension={props.context.dimension} /> : <p className="np-notice" role="status">所选本期 {props.startDate} — {props.endDate} 超出新商品经营的日期范围或期间规则；来源读取会明确报告错误。</p>)}
     {view === "performance" ? <ProductsPerformance props={props} ui={ui} onUi={onUi} onContextAvailable={onContextAvailable} /> : view === "detail" ? <ProductDetail key={JSON.stringify(props.context.product)} props={props} ui={ui} onUi={onUi} onContextAvailable={onContextAvailable} /> : <ProductsCatalog props={props} ui={ui} onUi={onUi} onShops={onShops} />}

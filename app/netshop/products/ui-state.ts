@@ -1,4 +1,5 @@
 import type { ShopLocationContext } from "../../shell/shop-context";
+import { readNetshopCatalogFilters, type NetshopCatalogFilters } from "@/lib/netshop/query-contract";
 
 export const productSortOptions = [
   ["payment_desc", "平台销售额从高到低"], ["payment_asc", "平台销售额从低到高"],
@@ -14,10 +15,11 @@ export type ProductsUiState = {
   gallery: boolean;
   detailSource: "platform" | "promotion" | "erp";
   topic: "home" | "growth" | "traffic" | "list";
+  catalogFilters?: NetshopCatalogFilters;
 };
 export type ProductsUiChange = (value: ProductsUiState, patch?: Partial<ShopLocationContext>) => void;
 export const defaultProductsUiState: ProductsUiState = {
-  sort: "payment_desc", columns: { traffic: true, comparison: true, association: true, coverage: true }, gallery: false, detailSource: "platform", topic: "home",
+  sort: "payment_desc", columns: { traffic: true, comparison: true, association: true, coverage: true }, gallery: false, detailSource: "platform", topic: "home", catalogFilters: { status: "all", quality: "all", mapping: "all" },
 };
 
 /** Local presentation settings survive a shell drill/return. They contain no
@@ -32,18 +34,24 @@ export function decodeProductsUiState(raw: string | null): ProductsUiState {
     const value: unknown = JSON.parse(raw);
     if (!value || typeof value !== "object" || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) return fallback();
     const v = value as Record<string, unknown>;
-    const keys = ["sort", "columns", "gallery", "detailSource", "topic"];
-    if (Object.keys(v).length !== keys.length || Object.keys(v).some(key => !keys.includes(key)) || typeof v.sort !== "string" || !productSortOptions.some(([key]) => key === v.sort) || typeof v.gallery !== "boolean" || typeof v.detailSource !== "string" || !["platform", "promotion", "erp"].includes(v.detailSource) || typeof v.topic !== "string" || !["home", "growth", "traffic", "list"].includes(v.topic)) return fallback();
+    const keys = ["sort", "columns", "gallery", "detailSource", "topic", "catalogFilters"];
+    if ((Object.keys(v).length < 5 || Object.keys(v).length > 6) || Object.keys(v).some(key => !keys.includes(key)) || typeof v.sort !== "string" || !productSortOptions.some(([key]) => key === v.sort) || typeof v.gallery !== "boolean" || typeof v.detailSource !== "string" || !["platform", "promotion", "erp"].includes(v.detailSource) || typeof v.topic !== "string" || !["home", "growth", "traffic", "list"].includes(v.topic)) return fallback();
     if (!v.columns || typeof v.columns !== "object" || Array.isArray(v.columns) || Object.getPrototypeOf(v.columns) !== Object.prototype) return fallback();
     const c = v.columns as Record<string, unknown>;
     const columnKeys = Object.keys(defaultProductsUiState.columns);
     if (Object.keys(c).length !== columnKeys.length || Object.keys(c).some(key => !columnKeys.includes(key)) || columnKeys.some(key => typeof c[key] !== "boolean")) return fallback();
+    let catalogFilters: NetshopCatalogFilters = { status: "all", quality: "all", mapping: "all" };
+    if (v.catalogFilters !== undefined) {
+      if (!v.catalogFilters || typeof v.catalogFilters !== "object" || Array.isArray(v.catalogFilters) || Object.getPrototypeOf(v.catalogFilters) !== Object.prototype || Object.keys(v.catalogFilters).length !== 3 || Object.keys(v.catalogFilters).some(key => !["status", "quality", "mapping"].includes(key)) || Object.values(v.catalogFilters).some(value => typeof value !== "string")) return fallback();
+      catalogFilters = readNetshopCatalogFilters(new URLSearchParams(v.catalogFilters as Record<string, string>));
+    }
     return {
       sort: v.sort as ProductSort,
       columns: { traffic: c.traffic, comparison: c.comparison, association: c.association, coverage: c.coverage } as ProductsUiState["columns"],
       gallery: v.gallery,
       detailSource: v.detailSource as ProductsUiState["detailSource"],
       topic: v.topic as ProductsUiState["topic"],
+      catalogFilters,
     };
   } catch { return fallback(); }
 }
