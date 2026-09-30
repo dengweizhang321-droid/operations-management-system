@@ -2,7 +2,7 @@
 
 本轮范围是设计、字段映射、隔离合成 Demo 和独立复核。用户选定版式后才开始系统改造。这里的 HTML 不挂载到正式 `view=platforms`，不调用任何业务 API；示例值不代表真实经营数据。
 
-基线：`c7c6c2a4c012dd60af0565b97b2d2f11f9246c0a`，2026-09-30 远端 main 与总控台账一致。总控 `interfaces.freezeStatus=not_frozen`，F 等待既有总览01交接；P/A 的新接口尚未合入。`docs/netshop-refactor/02-shared-contract.md` 是语义草案，新路径不是已验收接口。
+开工基线：`c7c6c2a4c012dd60af0565b97b2d2f11f9246c0a`。本树随后同步了总控main协调记录 `daf211644efffdc762c0d33c1faba992cf082df7`。总控 `interfaces.freezeStatus=not_frozen`，F 等待既有总览01交接；P/A 的新接口尚未合入。`docs/netshop-refactor/02-shared-contract.md` 是语义草案，新路径不是已验收接口。
 
 ## 五版
 
@@ -34,3 +34,5 @@ Demo 交互验证与正式 PostgreSQL/权限/查询验证分别记录；本轮�
 在本独立工作树运行 `python app/netshop/comparison/demo/serve.py --port 3170`，打开 `http://127.0.0.1:3170/`。只绑定回环，GET/HEAD读取Demo，CSP禁止业务连接/表单/iframe；不使用 `.env`、数据库、登录态或R2。
 
 设计选择仍待用户；只推送 `codex/netshop-comparison`，由I负责接纳与后续串行合并、清理。公共入口、路由、权限、共享算法和底座文件未变更。
+
+接口、字段映射、已知源限制与后续正式验收见 [dependencies.md](dependencies.md)；设计协议边界样例见 [contract-sample.json](contract-sample.json)。这些材料不是新正式接口的冻结版本。

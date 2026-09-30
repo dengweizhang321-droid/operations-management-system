@@ -38,7 +38,8 @@
     {
       "case": "misaligned_shop_day_coverage",
       "covered": [{"source": "promotion", "platform": "jd", "shopName": "演示商用A店", "date": "2026-09-01"}, {"source": "product_spu_daily", "platform": "jd", "shopName": "演示商用B店", "date": "2026-09-01"}],
-      "spendRate": {"value": null, "unit": "RATIO", "status": "partial", "reasonCode": "MISSING_SHOP_DAY_PAIRS"}
+      "coverageStatus": "partial",
+      "spendRate": {"value": null, "unit": "RATIO", "status": "unavailable", "reasonCode": "MISSING_SHOP_DAY_PAIRS"}
     },
     {
       "case": "weighted_ratio",
