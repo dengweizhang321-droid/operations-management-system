@@ -57,3 +57,21 @@ class ProductIndependentReviewTests(TestCase):
                     self.read()
                 self.assertEqual(nested.call_count, 1)
                 self.assertEqual(nested.call_args.kwargs.get("deadline"), 65.0, "Nested shared read must inherit the original budget after 64s of entry actor work")
+
+    def test_review_expired_final_summary_cannot_start_next_fact_phase(self):
+        """A slow successful SQL must not permit fresh SQL after the deadline."""
+        self.seed_pair()
+        from netshop.product_insights import _aggregate, _list_rows
+        clock = [0.0]
+
+        def slow_final_summary(rows, *args, **kwargs):
+            result = _aggregate(rows, *args, **kwargs)
+            if "2025-09-01" in str(rows.query):
+                clock[0] = 66.0
+            return result
+
+        with patch("netshop.product_insights.time.monotonic", side_effect=lambda: clock[0]), patch("netshop.product_insights._aggregate", side_effect=slow_final_summary), patch("netshop.product_insights._list_rows", wraps=_list_rows) as next_phase:
+            with self.assertRaises(NetshopApiError) as failure:
+                self.read()
+            self.assertEqual(failure.exception.status, 503)
+            self.assertEqual(next_phase.call_count, 0, "No new fact phase may start after the final baseline SQL has consumed the whole request budget")
