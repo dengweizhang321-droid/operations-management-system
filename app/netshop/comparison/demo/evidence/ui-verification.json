@@ -7,9 +7,9 @@
     "system-tokens.css": "67ce705f082787654bb9914f10d743f9219708b3a845a7a2f6116cd7dbce9821",
     "system-frame.css": "711109ad6e253ef01e64a82ef916c0c41c4bca2726f53a89bd39ea775c6776b3",
     "date-picker.js": "c63103a07c8acd5783077abef0572f20eb4e127f38ad9519371a64f824d60a47",
-    "date-picker.css": "c70600905c55eea71dbe5e91cc546f81a5b69adffb1400c55334b0c493e22f98"
+    "date-picker.css": "80c810cd684553c7c5def7c72e0113e306674ead1a2c06c9f68ae2700d6d5f9e"
   },
-  "testedAt": "2026-09-30T11:53:12.920Z",
+  "testedAt": "2026-09-30T11:54:44.929Z",
   "viewport": [
     "1440x1080",
     "390x844"
@@ -121,8 +121,7 @@
     },
     {
       "name": "Custom-time dialog fits a narrow screen with readable native controls",
-      "result": "fail",
-      "detail": "Expected values to be strictly equal:\n\n'14px' !== '13px'\n"
+      "result": "pass"
     },
     {
       "name": "No JS errors or business/network requests",
@@ -160,8 +159,8 @@
       "url": "http://127.0.0.1:3170/demo.js"
     }
   ],
-  "passed": 27,
-  "failed": 1,
+  "passed": 28,
+  "failed": 0,
   "PostgreSQL": "not implemented/not tested in this design stage",
   "productionPermissions": "not tested; required after F/P/A integration",
   "productionOperations": []

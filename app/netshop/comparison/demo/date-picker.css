@@ -87,3 +87,4 @@
   .comparison-date-picker .comparison-date-picker__feedback { padding: 8px 12px 10px; }
   .comparison-date-picker .comparison-date-picker__footer { padding: 10px 12px 12px; }
 }
+.comparison-date-picker .comparison-date-picker__day { font-size: var(--font-size-label, 13px); }
