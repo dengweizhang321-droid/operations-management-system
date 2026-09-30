@@ -74,6 +74,7 @@
 .promotion-chart .promotion-line { stroke:var(--color-brand,#396149); fill:none; stroke-width:2.5; }
 .promotion-chart .promotion-line-secondary { stroke:var(--color-purple,#8167d9); }
 .promotion-chart .promotion-hit { fill:transparent; cursor:pointer; }
+.promotion-chart .promotion-hit-readonly { cursor:crosshair; }
 .promotion-chart .promotion-hit:focus { fill:#39614916; outline:none; }
 .promotion-chart-legend { display:flex; flex-wrap:wrap; gap:15px; font-size:var(--font-size-caption,12px); }
 .promotion-chart-legend i { display:inline-block; width:14px; height:3px; background:var(--color-brand,#396149); margin-right:5px; vertical-align:middle; }
