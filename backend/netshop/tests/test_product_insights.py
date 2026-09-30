@@ -3,12 +3,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+from pathlib import Path
+import secrets
+import time
 from unittest.mock import patch
 from urllib.parse import urlencode
 
+from django.db import connection, transaction
 from django.db.models import F
 from django.http import QueryDict
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from access_control.models import AppUser
@@ -34,7 +40,8 @@ class ProductInsightsTests(TestCase):
         dataset = dimension + "_daily"
         batch = NetshopImportBatch.objects.create(id=f"products-{self.counter}", source=source, dataset=dataset, platform=platform, shop_name=shop, file_size_bytes=0, file_hash=f"{self.counter:064x}", raw_file_hash="a" * 64, content_hash="b" * 64, scope_key="c" * 64, status=status, row_count=1, date_min=day, date_max=day)
         metrics = {"transactionAmountCents": 1000, "transactionQuantity": 2, "visitors": 100, "transactionCustomers": 10, "addCartCustomers": 20, "refundAmountCents": 0} if values is None else values
-        columns = {"transactionAmountCents": "transaction_amount_cents", "transactionQuantity": "transaction_quantity", "visitors": "visitors", "transactionCustomers": "transaction_customers", "addCartCustomers": "add_cart_customers", "refundAmountCents": "refund_amount_cents"}
+        from netshop.product_insights import EXTRA_FIELDS
+        columns = {"transactionAmountCents": "transaction_amount_cents", "transactionQuantity": "transaction_quantity", "visitors": "visitors", "transactionCustomers": "transaction_customers", "addCartCustomers": "add_cart_customers", "refundAmountCents": "refund_amount_cents", **EXTRA_FIELDS}
         row = NetshopRow.objects.create(source_row_key=f"product-{self.counter}", source_row_hash="d" * 64, first_import_batch_id=batch.id, last_import_batch_id=batch.id, source_row_number=2, source=source, dataset=dataset, platform=platform, shop_name=shop, business_date=day, sku_id=product if dimension == "sku" else "SKU-" + product, spu_id=product if dimension == "spu" else "SPU-" + product, category=category, product_name=title or product, product_code="ERP-" + product, metrics_json=metrics, **{columns[key]: value for key, value in metrics.items() if key in columns and isinstance(value, int)})
         return row
 
@@ -210,3 +217,155 @@ class ProductInsightsTests(TestCase):
         self.fact(title="new name", day="2026-09-02")
         result = self.read(q="new name", endDate="2026-09-02")["sections"]
         self.assertEqual(result["items"][0]["metrics"]["payment"]["value"], 2000)
+
+    def test_ratio_comparison_is_percentage_points(self):
+        self.fact()
+        self.fact(day="2026-08-31", values={"visitors": 100, "transactionCustomers": 5, "addCartCustomers": 10})
+        result = self.read()["sections"]
+        self.assertEqual(result["comparisons"]["conversion"]["previous"]["method"], "percentage_points")
+        self.assertEqual(result["comparisons"]["conversion"]["previous"]["value"], 5)
+        self.assertEqual(result["comparisons"]["addCartRate"]["previous"]["value"], 10)
+
+    def test_add_cart_quantity_never_substitutes_customer_rate(self):
+        row = self.fact(values={"visitors": 100})
+        NetshopRow.objects.filter(pk=row.pk).update(add_cart_quantity=200, metrics_json={"visitors": 100, "addCartQuantity": 200})
+        result = self.read()["sections"]["summary"]
+        self.assertIsNone(result["addCartRate"]["value"])
+
+    def test_safe_integer_overflow_never_returns_rounded_money(self):
+        self.fact(product="A", values={"transactionAmountCents": 9_007_199_254_740_991})
+        self.fact(product="B", values={"transactionAmountCents": 1})
+        result = self.read()["sections"]["summary"]["payment"]
+        self.assertEqual(result["status"], "invalid")
+        self.assertEqual(result["reasonCode"], "unsafe_integer")
+        self.assertIsNone(result["value"])
+
+    def test_numeric_json_strings_and_nulls_cannot_prove_zero(self):
+        self.fact(values={"transactionAmountCents": "0", "visitors": None})
+        result = self.read()["sections"]["summary"]
+        self.assertIsNone(result["payment"]["value"])
+        self.assertIsNone(result["visitors"]["value"])
+
+    def test_section_token_binds_table_query_category_sort_not_page(self):
+        self.fact()
+        token = self.read()["sectionToken"]
+        for delta in ({"q": "P"}, {"category": "设备"}, {"sort": "payment_asc"}):
+            with self.subTest(delta=delta), self.assertRaises(NetshopApiError) as failure:
+                self.read(sectionToken=token, **delta)
+            self.assertEqual(failure.exception.status, 409)
+
+    def test_fact_read_revision_change_cannot_mix_context_and_rows(self):
+        self.fact()
+        from netshop.product_insights import _list_rows
+        calls = [0]
+        def change_revision(*args):
+            result = _list_rows(*args)
+            calls[0] += 1
+            if calls[0] == 1:
+                NetshopDataRevision.objects.filter(domain="netshop").update(revision=F("revision") + 1, source_digest="b" * 64)
+            return result
+        with patch("netshop.product_insights._list_rows", side_effect=change_revision), self.assertRaises(NetshopApiError) as failure:
+            self.read()
+        self.assertEqual(failure.exception.status, 409)
+
+    def test_initial_and_final_actor_sql_share_outer_deadline(self):
+        self.fact()
+        from netshop.product_insights import actor_fence
+        for slow_call in (1, 2):
+            clock, calls = [0], [0]
+            def slow_actor(*args):
+                value = actor_fence(*args)
+                calls[0] += 1
+                if calls[0] == slow_call:
+                    clock[0] = 66
+                return value
+            with self.subTest(call=slow_call), patch("netshop.product_insights.time.monotonic", side_effect=lambda: clock[0]), patch("netshop.product_insights.actor_fence", side_effect=slow_actor), self.assertRaises(NetshopApiError) as failure:
+                self.read()
+            self.assertEqual(failure.exception.status, 503)
+
+    def test_empty_explicit_store_is_preserved_not_filled_zero(self):
+        self.fact()
+        result = self.read(outlet="京东\x1fAbsent")
+        self.assertEqual(result["context"]["effectiveScope"]["shopKeys"], ["京东\x1fAbsent"])
+        self.assertIsNone(result["sections"]["summary"]["payment"]["value"])
+        self.assertEqual(result["sections"]["pagination"]["total"], 0)
+
+    def test_real_pg_baseline_statement_timeout_rolls_back_savepoint_only(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("Real PostgreSQL timeout required")
+        self.fact()
+        from netshop.product_insights import _aggregate
+        calls = [0]
+        def timeout_baseline(*args):
+            calls[0] += 1
+            if calls[0] == 2:
+                with connection.cursor() as cursor:
+                    cursor.execute("SET LOCAL statement_timeout='5ms'")
+                    cursor.execute("SELECT pg_sleep(0.05)")
+            return _aggregate(*args)
+        with patch("netshop.product_insights._aggregate", side_effect=timeout_baseline):
+            result = self.read()["sections"]
+        self.assertEqual(result["summary"]["payment"]["value"], 1000)
+        self.assertEqual(result["baselineReads"]["previous"]["state"], "error")
+        self.assertTrue(NetshopRow.objects.exists())
+
+    def test_persisted_roles_scope_and_stale_actor_enforced(self):
+        self.fact()
+        for role in ("viewer", "analyst", "operator", "admin"):
+            AppUser.objects.filter(email=self.user.email).update(role_id=role)
+            result = read_product_insights(Principal(self.user.email, "Synthetic", role, None), self.spec())
+            self.assertEqual(result["sections"]["summary"]["payment"]["value"], 1000)
+        scope = {"platforms": ["天猫"], "channels": [], "warehouses": []}
+        AppUser.objects.filter(email=self.user.email).update(role_id="viewer", scope=scope)
+        with self.assertRaises(NetshopApiError) as failure:
+            read_product_insights(Principal(self.user.email, "Synthetic", "viewer", scope), self.spec())
+        self.assertEqual(failure.exception.status, 403)
+
+    def test_least_privilege_pg_reader_can_select_but_cannot_write(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("Real PostgreSQL grants required")
+        from psycopg import sql
+        self.fact()
+        role = "products_reader_" + secrets.token_hex(6)
+        with connection.cursor() as cursor:
+            cursor.execute(sql.SQL("CREATE ROLE {} NOLOGIN").format(sql.Identifier(role)))
+            cursor.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(sql.Identifier(role)))
+            tables = [table for table in connection.introspection.table_names() if table.startswith("netshop_")] + ["access_control_users"]
+            for table in tables:
+                cursor.execute(sql.SQL("GRANT SELECT ON TABLE {} TO {}").format(sql.Identifier(table), sql.Identifier(role)))
+            cursor.execute(sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(role)))
+        try:
+            self.assertEqual(self.read()["sections"]["summary"]["payment"]["value"], 1000)
+            from django.db import DatabaseError
+            with self.assertRaises(DatabaseError), transaction.atomic():
+                NetshopRow.objects.update(product_name="Forbidden")
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("RESET ROLE")
+
+    def test_representative_scale_control_plan_and_response_budget(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("Real PostgreSQL plan required")
+        self.fact(product="control")
+        rows = []
+        for day_index in range(10):
+            day = f"2026-09-{day_index + 1:02d}"
+            batch = NetshopImportBatch.objects.create(id=f"scale-{day}", source="jd_sku_daily", dataset="spu_daily", platform="京东", shop_name="A", file_size_bytes=0, file_hash=hashlib.sha256(day.encode()).hexdigest(), raw_file_hash="a" * 64, content_hash="b" * 64, scope_key="c" * 64, status="completed", row_count=500, date_min=day, date_max=day)
+            for number in range(500):
+                metrics = {"transactionAmountCents": 1000, "transactionQuantity": 2, "visitors": 100, "transactionCustomers": 10, "addCartCustomers": 20, "refundAmountCents": 0}
+                rows.append(NetshopRow(source_row_key=f"scale-{day}-{number}", source_row_hash="d" * 64, first_import_batch_id=batch.id, last_import_batch_id=batch.id, source_row_number=number + 2, source="jd_sku_daily", dataset="spu_daily", platform="京东", shop_name="A", business_date=day, spu_id=f"Scale-{number:03d}", metrics_json=metrics, transaction_amount_cents=1000, transaction_quantity=2, visitors=100, transaction_customers=10, add_cart_customers=20, category="设备"))
+        NetshopRow.objects.bulk_create(rows, batch_size=500)
+        before = time.monotonic()
+        with CaptureQueriesContext(connection) as captured:
+            result = self.read(endDate="2026-09-10", pageSize="100")
+        elapsed = time.monotonic() - before
+        self.assertEqual(result["sections"]["summary"]["payment"]["value"], 5_001_000)
+        self.assertEqual(result["sections"]["counts"]["dataProducts"]["value"], 501)
+        encoded = json.dumps(result, ensure_ascii=False).encode("utf-8")
+        self.assertLessEqual(len(encoded), 2 * 1024 * 1024)
+        from netshop.product_insights import _base, _paired_query
+        plan = json.loads(_paired_query(_base(result["context"]), self.spec(endDate="2026-09-10")).explain(analyze=True, buffers=True, format="json"))
+        destination = os.environ.get("TERUISI_PRODUCTS_QUERY_EVIDENCE_DIR")
+        if destination:
+            with (Path(destination) / "representative-scale.json").open("x", encoding="utf-8") as output:
+                json.dump({"fixture": "products-5001-source-rows-v1", "sourceRows": 5001, "products": 501, "shops": 1, "days": 10, "sqlCount": len(captured), "elapsedSeconds": elapsed, "responseBytes": len(encoded), "controlPaymentCents": 5_001_000, "actualPaymentCents": result["sections"]["summary"]["payment"]["value"], "growthPlan": plan}, output, ensure_ascii=False, indent=2)
