@@ -20,6 +20,7 @@ from .models import NetshopImportBatch, NetshopRow
 
 CATALOG_FILTER_VERSION = "netshop-product-catalog-filter-v1"
 CATALOG_STALE_AFTER_DAYS = 30
+ASSET_SOURCE_DATASETS = {"jd_yimei_sku": "yimei_sku", "tmall_product_assets": "spu_assets"}
 CATALOG_STATUS_VALUES = {"all", "on_sale", "off_sale", "unknown"}
 CATALOG_QUALITY_VALUES = {"all", "missing_image", "missing_code", "missing_category", "conflict", "stale", "unverified_mapping"}
 CATALOG_MAPPING_VALUES = {"all", "verified", "unmapped", "ambiguous", "unverified"}
@@ -31,7 +32,7 @@ CATALOG_FIELD_ALIASES = {
     "catalogCode": {"sourcePrecedence": ["SKU商家编码", "商品编码", "product_code"], "notErpMappingProof": True},
     "category": {"projection": "category", "source": ["类目名称", "一级类目", "二级类目", "三级类目", "末级类目"]},
     "snapshot": {"projection": "snapshot_date", "unknownIsStale": False, "greaterThanDays": CATALOG_STALE_AFTER_DAYS},
-    "image": {"projection": "image_url/image_content_sha256", "relatedSources": ["jd_yimei_sku", "tmall_product_assets"], "identity": "platform+exact_shop+SKU_or_SPU+latest_completed_batch"},
+    "image": {"projection": "image_url/image_content_sha256", "relatedSources": ASSET_SOURCE_DATASETS, "identity": "exact platform/shop/SKU_or_SPU first; proven unique JD product_code only for current snapshot"},
     "conflict": {"identity": ["platform", "shop_name", "source", "dataset", "sku_id"], "fields": ["spu_id", "product_name", "catalog_code", "sale_attribute", "category", "brand", "product_status", "price_cents"]},
     "mapping": {"supportedPredicates": ["all"], "reason": "no_verified_current_erp_lookup"},
 }
@@ -72,7 +73,9 @@ def catalog_filter_binding(spec, *, as_of_date, capabilities):
     capabilities = _capabilities(capabilities)
     return {"policyVersion": CATALOG_FILTER_VERSION, "status": spec["status"], "quality": spec["quality"], "mapping": spec["mapping"],
             "asOfDate": _business_date(as_of_date).isoformat(), "scopeKey": capabilities["scopeKey"], "sourceVersion": capabilities["sourceVersion"],
-            "staleAfterDays": CATALOG_STALE_AFTER_DAYS, "onSaleValues": list(ON_SALE_VALUES), "offSaleValues": list(OFF_SALE_VALUES)}
+            "staleAfterDays": CATALOG_STALE_AFTER_DAYS, "onSaleValues": list(ON_SALE_VALUES), "offSaleValues": list(OFF_SALE_VALUES),
+            "imageIdentityPolicy": "exact_then_unique_current_code-v1", "imageLookup": capabilities["fields"].get("image_lookup") is True,
+            "jdCodeFallback": capabilities["fields"].get("jd_code_fallback") is True}
 
 
 def _require(capabilities, field):
@@ -90,13 +93,63 @@ def _with_code(rows):
     )))
 
 
-def _with_image(rows):
-    latest = NetshopImportBatch.objects.filter(platform=OuterRef("platform"), shop_name=OuterRef("shop_name"), source=OuterRef("source"), status="completed").order_by("-snapshot_date", "-completed_at", "-created_at", "-id").values("id")[:1]
+def _image_preflight(full_master):
+    """Validate the exact full asset heads, including legacy global ambiguity."""
+    heads = []
+    for scope in full_master.values("platform", "shop_name").distinct():
+        platform, shop = scope["platform"], scope["shop_name"]
+        source = "jd_yimei_sku" if platform == "京东" else "tmall_product_assets"
+        candidates = NetshopImportBatch.objects.filter(platform=platform, source=source, status="completed")
+        candidates = candidates.filter(Q(shop_name=shop) | Q(shop_name="")) if platform == "京东" else candidates.filter(shop_name=shop)
+        head = candidates.order_by("-snapshot_date", "-completed_at", "-created_at", "-id").first()
+        if head is None:
+            continue
+        all_rows = NetshopRow.objects.filter(last_import_batch_id=head.id)
+        owned = all_rows.filter(platform=head.platform, shop_name=head.shop_name, source=source, dataset=ASSET_SOURCE_DATASETS[source])
+        if head.dataset != ASSET_SOURCE_DATASETS[source] or all_rows.count() != head.row_count or owned.count() != head.row_count:
+            raise NetshopApiError("当前图片批次全集、dataset或归属未核验，不能判缺图", code="not_applicable", status=422)
+        if head.shop_name != shop:
+            # The old display may select a global JD head. Do not turn its
+            # potentially visible image into a safe same-shop missing verdict.
+            masters = full_master.filter(platform=platform, shop_name=shop, image_url="", image_content_sha256="")
+            possible = owned.filter(Q(image_url__gt="") | Q(image_content_sha256__gt="")).filter(
+                Q(sku_id__in=masters.exclude(sku_id="").values("sku_id")) |
+                Q(product_code__in=masters.exclude(product_code="").values("product_code")),
+            )
+            if possible.exists():
+                raise NetshopApiError("旧显示可能使用非同店图片回退，缺图predicate不能核验", code="not_applicable", status=422)
+            continue
+        heads.append(head.id)
+    return heads
+
+
+def _with_image(rows, full_master, capabilities):
+    heads = _image_preflight(full_master)
     completed = NetshopImportBatch.objects.filter(id=OuterRef("last_import_batch_id"), platform=OuterRef("platform"), shop_name=OuterRef("shop_name"), source=OuterRef("source"), dataset=OuterRef("dataset"), status="completed")
-    assets = NetshopRow.objects.filter(platform=OuterRef("platform"), shop_name=OuterRef("shop_name")).filter(
-        Q(platform="京东", source="jd_yimei_sku", sku_id=OuterRef("sku_id")) | Q(platform="天猫", source="tmall_product_assets", spu_id=OuterRef("spu_id")),
-    ).filter(Q(image_url__gt="") | Q(image_content_sha256__gt=""), last_import_batch_id=Subquery(latest)).filter(Exists(completed))
-    return rows.annotate(catalog_has_image=Case(When(Q(image_url__gt="") | Q(image_content_sha256__gt=""), then=Value(True)), When(Exists(assets), then=Value(True)), default=Value(False), output_field=BooleanField()))
+    assets = NetshopRow.objects.filter(last_import_batch_id__in=heads, platform=OuterRef("platform"), shop_name=OuterRef("shop_name")).filter(
+        Q(source="jd_yimei_sku", dataset="yimei_sku") | Q(source="tmall_product_assets", dataset="spu_assets"),
+    ).filter(Exists(completed)).annotate(asset_has_image=Case(When(Q(image_url__gt="") | Q(image_content_sha256__gt=""), then=Value(True)), default=Value(False), output_field=BooleanField()))
+    exact = assets.filter(
+        Q(platform="京东", sku_id=OuterRef("sku_id")) & ~Q(sku_id="") |
+        Q(platform="天猫", spu_id=OuterRef("spu_id")) & ~Q(spu_id=""),
+    ).order_by("-snapshot_date", "-id")
+    code = assets.filter(platform="京东", product_code=OuterRef("product_code")).exclude(product_code="").order_by("-snapshot_date", "-id")
+    master_count = full_master.filter(platform=OuterRef("platform"), shop_name=OuterRef("shop_name"), product_code=OuterRef("product_code")).values("platform", "shop_name", "product_code").annotate(total=Count("id")).values("total")[:1]
+    asset_count = code.order_by().values("platform", "shop_name", "product_code").annotate(total=Count("id")).values("total")[:1]
+    rows = rows.annotate(catalog_exact_asset=Exists(exact), catalog_exact_image=Coalesce(Subquery(exact.values("asset_has_image")[:1]), Value(False), output_field=BooleanField()),
+                         catalog_code_asset=Exists(code), catalog_code_image=Coalesce(Subquery(code.values("asset_has_image")[:1]), Value(False), output_field=BooleanField()),
+                         catalog_master_code_count=Subquery(master_count), catalog_asset_code_count=Subquery(asset_count))
+    needs_code = rows.filter(platform="京东", image_url="", image_content_sha256="", catalog_exact_asset=False, catalog_code_asset=True)
+    if needs_code.exists():
+        _require(capabilities, "jd_code_fallback")
+        if needs_code.exclude(catalog_master_code_count=1, catalog_asset_code_count=1).exists():
+            raise NetshopApiError("图片编码回退在当前master或asset全集不唯一，不能判缺图", code="not_applicable", status=422)
+        # The caller proves the entire current master, not a searched/page subset.
+        for entry in full_master.values("last_import_batch_id", "platform", "shop_name", "source", "dataset").annotate(total=Count("id")):
+            head = NetshopImportBatch.objects.filter(id=entry["last_import_batch_id"], platform=entry["platform"], shop_name=entry["shop_name"], source=entry["source"], dataset=entry["dataset"], status="completed").first()
+            if head is None or entry["dataset"] != "product_master" or head.row_count != entry["total"]:
+                raise NetshopApiError("当前master全集无法核验，不能采用图片编码回退", code="not_applicable", status=422)
+    return rows.annotate(catalog_has_image=Case(When(Q(image_url__gt="") | Q(image_content_sha256__gt=""), then=Value(True)), When(catalog_exact_asset=True, then=F("catalog_exact_image")), default=F("catalog_code_image"), output_field=BooleanField()))
 
 
 def apply_catalog_filters(full_latest_master_queryset, spec, *, as_of_date, capabilities):
@@ -136,7 +189,7 @@ def apply_catalog_filters(full_latest_master_queryset, spec, *, as_of_date, capa
         rows = rows.filter(snapshot_date__isnull=False, snapshot_date__regex=r"^\d{4}-\d{2}-\d{2}$", snapshot_date__lt=(business_date - timedelta(days=CATALOG_STALE_AFTER_DAYS)).isoformat()).exclude(snapshot_date="")
     elif quality == "missing_image":
         _require(capabilities, "image_lookup")
-        rows = _with_image(rows).filter(catalog_has_image=False)
+        rows = _with_image(rows, full_latest_master_queryset, capabilities).filter(catalog_has_image=False)
     elif quality == "conflict":
         _require(capabilities, "exact_identity")
         _require(capabilities, "catalog_code")

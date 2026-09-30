@@ -448,7 +448,9 @@ def overview(request: HttpRequest) -> JsonResponse:
 @require_GET
 def products(request: HttpRequest) -> JsonResponse:
     try:
+        from .catalog_filters import validate_catalog_filters
         principal = _principal(request)
+        catalog_filters = validate_catalog_filters(request.GET)
         view = _single(request.GET.getlist("view"), "full", {"full", "page"}, "view")
         snapshot = _snapshot(
             request.GET.getlist("snapshotToken"), required=view == "page", allowed=view == "page"
@@ -469,6 +471,7 @@ def products(request: HttpRequest) -> JsonResponse:
                 sales_period=sales_period,
                 view=view,
                 expected_snapshot_token=snapshot,
+                catalog_filters=catalog_filters,
             )
         )
         return _json(payload, revision=revision)

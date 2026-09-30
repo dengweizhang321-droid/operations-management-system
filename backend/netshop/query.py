@@ -8,6 +8,7 @@ from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
 
 from django.db.models import Count, Max, Min, Q, Sum
+from django.utils import timezone
 
 from sales.auth import Principal
 
@@ -278,7 +279,7 @@ def _empty_sales() -> dict[str, object]:
     }
 
 
-def _catalog_item(row: NetshopRow, asset: NetshopRow | None) -> tuple[dict[str, object], str]:
+def _catalog_item(row: NetshopRow, asset: NetshopRow | None, *, include_source_snapshots: bool = False) -> tuple[dict[str, object], str]:
     raw = row.raw_json
     asset_raw = asset.raw_json if asset else {}
     spu_id = row.spu_id or str(raw.get("商品ID") or raw.get("商品编码") or "").strip()
@@ -316,6 +317,9 @@ def _catalog_item(row: NetshopRow, asset: NetshopRow | None) -> tuple[dict[str, 
         "snapshotDate": row.snapshot_date,
         **_empty_sales(),
     }
+    if include_source_snapshots:
+        image_date = asset.snapshot_date if asset and (asset.image_content_sha256 or asset.image_url) else row.snapshot_date if row.image_url else None
+        item["catalogSnapshotDates"] = {"master": row.snapshot_date, "price": row.snapshot_date, "inventory": row.snapshot_date, "image": image_date}
     return item, sales_code
 
 
@@ -330,6 +334,7 @@ def product_catalog(
     sales_period: Mapping[str, object] | None,
     view: str,
     expected_snapshot_token: str | None,
+    catalog_filters: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     if len(query) > 120:
         raise NetshopApiError("q 最多 120 个字符")
@@ -347,8 +352,23 @@ def product_catalog(
         if not outlet_keys or (item.platform, item.shop_name) in outlet_keys
     ]
     asset_batches = _latest_asset_batches([(item.platform, item.shop_name) for item in selected])
-    snapshot = _canonical_token(
-        {
+    filter_binding = None
+    filter_capabilities = None
+    as_of_date = timezone.localdate()
+    if catalog_filters and catalog_filters.get("requested"):
+        from .catalog_filters import catalog_filter_binding
+        filter_capabilities = {
+            "latestMaster": True,
+            "scopeKey": _canonical_token({"platforms": list(platforms), "outlets": list(outlets), "principal": [principal.email, principal.role, principal.scope], "heads": sorted((b.platform, b.shop_name, b.source, b.id) for b in selected)}),
+            "sourceVersion": revision_value(),
+            "fields": {key: True for key in ("product_status", "catalog_code", "category", "snapshot_date", "image_lookup", "exact_identity")},
+        }
+        # Server-owned opt-in to the implemented current-snapshot proof. The
+        # predicate independently verifies full master/asset ownership, exact
+        # priority and code uniqueness, and rejects ambiguous/global fallbacks.
+        filter_capabilities["fields"]["jd_code_fallback"] = True
+        filter_binding = catalog_filter_binding(catalog_filters, as_of_date=as_of_date, capabilities=filter_capabilities)
+    snapshot_input = {
             "version": 2,
             "kind": "catalog",
             "revision": revision_value(),
@@ -365,7 +385,9 @@ def product_catalog(
                 [key + (value.id, value.snapshot_date or "") for key, value in asset_batches.items()]
             ),
         }
-    )
+    if filter_binding is not None:
+        snapshot_input["catalogFilters"] = filter_binding
+    snapshot = _canonical_token(snapshot_input)
     if view == "page" and expected_snapshot_token != snapshot:
         raise NetshopApiError(
             "货品目录版本已变化，请重新加载",
@@ -403,6 +425,9 @@ def product_catalog(
         availableInventory=Sum("inventory_quantity"),
     )
     on_sale = rows.filter(product_status="上架").count()
+    if filter_binding is not None:
+        from .catalog_filters import apply_catalog_filters
+        rows = apply_catalog_filters(rows, catalog_filters, as_of_date=as_of_date, capabilities=filter_capabilities)
     if query:
         rows = rows.filter(
             Q(shop_name__icontains=query)
@@ -428,7 +453,7 @@ def product_catalog(
             asset = assets.get((row.platform, row.shop_name, f"sku:{row.sku_id}")) or assets.get(
                 (row.platform, row.shop_name, f"code:{row.product_code}")
             )
-        internal_items.append(_catalog_item(row, asset))
+        internal_items.append(_catalog_item(row, asset, include_source_snapshots=filter_binding is not None))
     outlet_scopes = [
         {"platform": item.platform, "shopName": item.shop_name}
         for item in selected
@@ -482,6 +507,9 @@ def product_catalog(
             "truncated": offset + len(items) < total,
         },
     }
+    if filter_binding is not None:
+        page_payload["catalogFilters"] = {**filter_binding, "summaryBasis": "complete_store_set_before_table_filters", "filteredRows": total}
+        page_payload["catalogFilterCapabilities"] = {"mapping": {"supportedValues": ["all"], "reasonCode": "unverified_source"}, "unverified_mapping": {"supported": False, "reasonCode": "unverified_source"}, "missing_image": {"supported": filter_capabilities["fields"]["image_lookup"], "reasonCode": None if filter_capabilities["fields"]["image_lookup"] else "unverified_source"}}
     if view == "page":
         return page_payload
     return {

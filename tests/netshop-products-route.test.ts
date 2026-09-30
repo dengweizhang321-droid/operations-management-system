@@ -5,6 +5,7 @@ import { compareMetrics, type MetricValue } from "../lib/netshop/insights-contra
 import { syntheticInsightsContext } from "../lib/netshop/insights-fixtures";
 import { productMetricKeys } from "../app/netshop/products/contract";
 import type { AppPrincipal } from "../lib/auth/authorization";
+import { completeProductSectionsFixture } from "./netshop-products-test-fixture";
 
 const runtime = globalThis as typeof globalThis & { __pPrincipals?: AppPrincipal[]; __pData?: unknown; __pRevision?: string; __pCalls?: number };
 const compiled = await build({ entryPoints: ["app/api/netshop/product-insights/route.ts"], bundle: true, write: false, platform: "node", format: "esm", plugins: [{ name: "products-private-route-fixture", setup(builder) {
@@ -23,9 +24,9 @@ function reset() {
   const context = syntheticInsightsContext();
   const metrics = Object.fromEntries(productMetricKeys.map(key => [key, { value: 0, unit: key === "payment" || key === "refundPayment" ? "CNY_CENT" : key === "conversion" || key === "addCartRate" ? "RATIO" : "COUNT", status: "available", reasonCode: null, basis: "product_day_sum", sourceIds: ["jd_sku_daily:spu_daily:京东"], aggregation: key === "conversion" || key === "addCartRate" ? "ratio_of_sums" : "sum", coverageRef: "jd_sku_daily:spu_daily:京东:current", ...(key === "conversion" || key === "addCartRate" ? { numerator: 0, denominator: 10 } : {}) }])) as Record<typeof productMetricKeys[number], MetricValue>;
   const comparisons = Object.fromEntries(productMetricKeys.map(key => [key, { previous: compareMetrics(metrics[key], metrics[key]), yearAgo: compareMetrics(metrics[key], metrics[key]) }]));
-  const item = { identity: { platform: "京东", shopName: "合成店A", dimension: "spu", id: "P01" }, title: "Synthetic", category: null, imageUrl: null, metrics, comparisons, baselineMetrics: { previous: metrics, yearAgo: metrics } };
+  const item = { identity: { platform: "京东", shopName: "合成店A", dimension: "spu", id: "P01" }, title: "Synthetic", category: null, imageUrl: null, imageStatus: "unverified", metrics, comparisons, baselineMetrics: { previous: metrics, yearAgo: metrics } };
   const pagination = { page: 1, pageSize: 20, total: 1, returned: 1, hasMore: false, truncated: false };
-  const payload = { schemaVersion: "netshop-product-insights-v1", context, sectionToken: "a".repeat(64), tableScope: { q: "", category: "", sort: "payment_desc", page: 1, pageSize: 20 }, joinedSourceRevisions: context.sourceRevisions, consistency: "revision_vector_checked", sections: { summary: metrics, comparisons, items: [item], pagination, baselineReads: { previous: { state: "ready", data: metrics }, yearAgo: { state: "ready", data: metrics } }, growth: { state: "ready", data: { collection: "paired_full_set_before_pagination", items: [item], pagination } } } };
+  const payload = { schemaVersion: "netshop-product-insights-v1", context, sectionToken: "a".repeat(64), tableScope: { q: "", category: "", sort: "payment_desc", page: 1, pageSize: 20 }, joinedSourceRevisions: context.sourceRevisions, consistency: "revision_vector_checked", sections: { ...completeProductSectionsFixture(metrics), summary: metrics, comparisons, items: [item], pagination, baselineReads: { previous: { state: "ready", data: metrics }, yearAgo: { state: "ready", data: metrics } }, growth: { state: "ready", data: { collection: "paired_full_set_before_pagination", items: [item], pagination } } } };
   runtime.__pPrincipals = [principal, principal]; runtime.__pData = payload; runtime.__pRevision = "1:aaaaaaaaaaaa"; runtime.__pCalls = 0; return payload;
 }
 test("product route releases only signed reader-bound validated owning payload", async () => { reset(); const response = await route.GET(new Request(url)); assert.equal(response.status, 200); assert.equal(response.headers.get("cache-control"), "no-store"); assert.equal(response.headers.get("X-Netshop-Data-Revision"), "1:aaaaaaaaaaaa"); assert.equal(runtime.__pCalls, 1); });
