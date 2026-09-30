@@ -1,14 +1,18 @@
 """Promotion query semantics verified on the independently launched synthetic PG."""
 import hashlib
 import json
+import os
+import time
+from pathlib import Path
 from unittest import skipUnless
 from unittest.mock import patch
 from urllib.parse import urlencode
 
 from django.db import connection, transaction, DatabaseError
-from django.db.models import F
+from django.db.models import F, Count, Sum
 from django.http import QueryDict
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from access_control.models import AppUser
@@ -18,6 +22,7 @@ from netshop.models import (NetshopDataRevision, NetshopProductDailyScopeRevisio
     NetshopPromotionAggregateManifest, NetshopPromotionAggregateState, NetshopPromotionProductDaily, NetshopPromotionShopDaily)
 from netshop.promotion_diagnostic import SHOP_NAME
 from netshop.promotion_insights import read_promotion_insights, read_promotion_detail, _read_facts, _row_key
+from netshop.insights_common import periods
 from .promotion_insights_fixtures import add_day
 
 
@@ -112,6 +117,16 @@ class PromotionInsightsTests(TestCase):
             self.assertIsNone(m["value"])
             self.assertEqual(m["reasonCode"], reason)
             model.objects.update(**original)
+
+    def test_raw_control_reconciliation_before_metric_conversion(self):
+        self.pair()
+        p = periods("2026-09-01", "2026-09-01", "custom")
+        facts = _read_facts("京东", ["A"], p, time.monotonic()+65)
+        self.assertEqual(facts["failures"], {})
+        self.assertEqual(facts["shopRaw"][("A", "2026-09-01")]["spend_cents"], 200)
+        NetshopPromotionProductDaily.objects.update(clicks=99)
+        facts = _read_facts("京东", ["A"], p, time.monotonic()+65)
+        self.assertEqual(facts["failures"][("A", "2026-09-01")], "promotion_mismatch")
 
     def test_import_batch_ownership_is_checked_and_failed_fact_not_used(self):
         batch, _ = self.day()
@@ -216,6 +231,130 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(m["ctr"]["previous"]["method"], "percentage_points")
         self.assertEqual(m["spend"]["yearAgo"]["reasonCode"], "incomplete_baseline")
 
+    def test_negative_baseline_and_negative_denominator_are_explained(self):
+        self.day()
+        self.day(day="2026-08-31", rows=[{"id": "same", "values": {"spendCents": -100, "netTransactionAmountCents": 400, "impressions": 100, "clicks": -2, "netOrders": 1}}])
+        section = self.read()["sections"]
+        self.assertEqual(section["comparisons"]["spend"]["previous"]["reasonCode"], "negative_baseline")
+        self.assertEqual(section["comparisons"]["cpc"]["previous"]["reasonCode"], "incomplete_baseline")
+        self.assertIsNone(section["comparisons"]["spend"]["previous"]["value"])
+
+    def test_paired_full_universe_before_growth_pagination_and_search(self):
+        current, prior = [], []
+        for i in range(120):
+            current.append({"id": f"P{i:03d}", "values": {"spendCents": 100+i, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}})
+            prior.append({"id": f"P{i:03d}", "values": {"spendCents": 500 if i == 0 else 10, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}})
+        self.day(rows=current); self.day(day="2026-08-31", rows=prior)
+        section = self.read(sort="spend_change_asc", pageSize=20)["sections"]
+        self.assertEqual(section["pagination"]["total"], 120)
+        self.assertEqual(section["items"][0]["id"], "P000")
+        self.assertAlmostEqual(section["items"][0]["comparisons"]["spend"]["previous"]["value"], -.8)
+        self.assertEqual(section["pagination"]["returned"], 20)
+        self.assertTrue(section["pagination"]["hasMore"])
+        found = self.read(q="P000", pageSize=1)["sections"]
+        self.assertEqual(found["items"][0]["metrics"]["spend"]["value"], 100)
+        self.assertEqual(found["summary"]["spend"]["value"], sum(100+i for i in range(120)))
+        self.assertEqual(section["contributions"]["comparedObjectCount"], 120)
+        self.assertEqual(section["contributions"]["excludedObjectCount"], 0)
+        self.assertEqual(section["contributions"]["previous"]["spendDecrease"][0]["id"], "P000")
+        self.assertLessEqual(len(section["contributions"]["previous"]["spendIncrease"]), 10)
+
+    def test_verified_source_absence_zero_and_unknown_identity_blocks_inference(self):
+        values = {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}
+        self.day(rows=[{"id": "P1", "values": values}])
+        self.day(day="2026-08-31", rows=[{"id": "P2", "values": values}])
+        section = self.read()["sections"]
+        current = next(r for r in section["items"] if r["id"] == "P1")
+        gone = next(r for r in section["items"] if r["id"] == "P2")
+        self.assertEqual(current["comparisons"]["spend"]["previous"]["reasonCode"], "zero_denominator")
+        self.assertEqual(current["changes"]["spend"]["previous"]["value"], 100)
+        self.assertEqual(gone["metrics"]["spend"]["value"], 0)
+        self.assertEqual(gone["changes"]["spend"]["previous"]["value"], -100)
+        self.assertIn("已导入", " ".join(section["limitations"]))
+        # An unowned identity in a completely reconciled store-day means that
+        # the object universe is not complete, even when additive totals match.
+        from netshop.models import NetshopRow
+        NetshopRow.objects.filter(business_date="2026-08-31").update(sku_id="")
+        NetshopPromotionProductDaily.objects.filter(business_date="2026-08-31").update(product_id="")
+        section = self.read()["sections"]
+        current = next(r for r in section["items"] if r["id"] == "P1")
+        self.assertIsNone(current["changes"]["spend"]["previous"]["value"])
+        unknown = next(r for r in section["items"] if r["id"] is None)
+        self.assertFalse(unknown["drillable"])
+        self.assertEqual(unknown["changes"]["spend"]["previous"]["reasonCode"], "not_applicable")
+        self.assertEqual(section["contributions"]["comparedObjectCount"], 0)
+        self.assertEqual(section["contributions"]["excludedObjectCount"], 2)
+
+    def test_lazy_dimensions_unknown_bucket_not_entity_and_focus_share(self):
+        self.admin()
+        values = {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}
+        self.day(shop=SHOP_NAME, rows=[{"id": "P1", "values": values, "raw": {"推广计划": "缺少真实ID"}}])
+        self.day(shop=SHOP_NAME, day="2026-08-31", rows=[{"id": "P1", "values": values, "raw": {"推广计划": "缺少真实ID"}}])
+        with patch("netshop.promotion_insights._scalar", side_effect=AssertionError("Default product must not scan raw dimensions")):
+            default = self.read()["sections"]
+        self.assertTrue(default["objectCapabilities"]["plan"]["canQuery"])
+        self.assertIsNone(default["objectCapabilities"]["plan"]["unidentifiedCount"])
+        plans = self.read(objectKind="plan")["sections"]
+        self.assertEqual(plans["objectCapabilities"]["plan"]["unidentifiedCount"], 1)
+        self.assertEqual(plans["items"][0]["metrics"]["spend"]["value"], 100)
+        self.assertEqual(plans["items"][0]["changes"]["spend"]["previous"]["reasonCode"], "not_applicable")
+        self.assertEqual(plans["contributions"]["excludedObjectCount"], 1)
+        self.assertIsNone(plans["objectCapabilities"]["keyword"]["unidentifiedCount"])
+
+    def test_conflicting_raw_identity_aliases_stay_unknown_not_named_fallback(self):
+        self.admin()
+        values = {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}
+        self.day(shop=SHOP_NAME, rows=[{"id": "SKU", "values": values, "raw": {"计划ID": "P1", "计划id": "P2", "推广计划": "不能当ID"}}])
+        section = self.read(objectKind="plan")["sections"]
+        self.assertIsNone(section["items"][0]["id"])
+        self.assertEqual(section["items"][0]["metrics"]["spend"]["value"], 100)
+        self.assertFalse(section["items"][0]["drillable"])
+        self.assertEqual(section["objectCapabilities"]["plan"]["unidentifiedCount"], 1)
+
+    def test_scale_complete_5000_facts_preserves_weighted_rates_and_measures_plan(self):
+        from netshop.models import NetshopRow
+        for shop in range(10):
+            for day in range(1, 11):
+                identities = [f"P{i:03d}" for i in range(50)]
+                self.day(shop=f"S{shop}", day=f"2026-09-{day:02d}", rows=[{"id": id, "values": {"spendCents": 200, "netTransactionAmountCents": 400, "impressions": 100, "clicks": 3, "netOrders": 1}} for id in identities])
+                self.day(shop=f"S{shop}", day=f"2026-09-{day:02d}", promotion=False, rows=[{"id": id, "values": {"transactionAmountCents": 1000}} for id in identities])
+        with CaptureQueriesContext(connection) as calls:
+            start = time.monotonic(); result = self.read(endDate="2026-09-10"); elapsed = time.monotonic()-start
+        self.assertEqual(result["sections"]["summary"]["spend"]["value"], 1_000_000)
+        self.assertEqual(result["sections"]["summary"]["spendRate"]["value"], .2)
+        self.assertEqual(result["sections"]["pagination"]["total"], 500)
+        self.assertEqual(len(result["sections"]["items"]), 20)
+        self.assertEqual(result["sections"]["contributions"]["excludedObjectCount"], 500)
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if evidence:
+            source = NetshopRow.objects.filter(source="jd_promotion", business_date__gte="2026-09-01", business_date__lt="2026-09-11")
+            plan = source.values("shop_name", "business_date", "sku_id").annotate(count=Count("id"), spend=Sum("spend_cents")).explain(format="json", analyze=True, buffers=True)
+            with (Path(evidence)/"promotion-query-scale.json").open("x", encoding="utf-8") as output:
+                json.dump({"fixture": "synthetic-promotion-5000-v1", "promotionRows": 5000, "productRows": 5000,
+                    "shops": 10, "days": 10, "objects": 500, "sqlCalls": len(calls), "seconds": elapsed,
+                    "bytes": len(json.dumps(result, ensure_ascii=False).encode()), "controlSpendCents": 1_000_000,
+                    "plan": json.loads(plan), "limitation": "This synthetic sample does not establish production P95 or maximum-source cost."}, output, ensure_ascii=False, indent=2)
+
+    def test_leap_date_focus_does_not_compare_to_shorter_baseline(self):
+        self.pair(day="2024-02-29")
+        self.pair(day="2023-02-28")
+        section = self.read(startDate="2024-02-28", endDate="2024-02-29", focusDate="2024-02-29")["sections"]
+        self.assertEqual(section["listScope"]["comparisonDates"]["yearAgo"], [])
+        self.assertIsNone(section["items"][0]["comparisons"]["spend"]["yearAgo"]["value"])
+
+    def test_actual_response_examples_are_preserved_create_new_for_decoder(self):
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if not evidence: self.skipTest("Evidence root only provided by independent PG runner")
+        self.admin(); self.day(shop=SHOP_NAME, rows=[{"id": "SKU1", "values": {"spendCents": 100, "netTransactionAmountCents": 300, "impressions": 20, "clicks": 3, "netOrders": 2}, "raw": {"计划ID": "P1", "推广计划": "合成计划", "单元ID": "U1", "关键词": "合成词", "搜索词": "合成搜索", "匹配方式": "精确"}}])
+        self.day(shop=SHOP_NAME, promotion=False, rows=[{"id": "SKU1", "values": {"transactionAmountCents": 1000}}])
+        product = self.read()
+        plan = self.read(objectKind="plan")
+        row = plan["sections"]["items"][0]
+        detail = read_promotion_detail(self.principal, self.params(objectKind="plan", objectId=row["rowKey"], shopKey=row["shopKey"], sectionToken=plan["sectionToken"]))
+        root = Path(evidence); root.mkdir(parents=True, exist_ok=True)
+        for name, data in [("response-product.json", product), ("response-plan.json", plan), ("response-detail.json", detail)]:
+            with (root/name).open("x", encoding="utf-8") as output: json.dump(data, output, ensure_ascii=False, indent=2)
+
     def test_changed_source_vector_stale_token_actor_revocation_fail_closed(self):
         self.pair()
         result = self.read()
@@ -270,11 +409,12 @@ class PromotionInsightsTests(TestCase):
     def test_select_only_role_cannot_write_sources(self):
         self.pair()
         role = "promotion_reader_test"
-        tables = ["app_users", "netshop_rows", "netshop_import_batches", "netshop_data_revisions", "netshop_product_daily_scope_revisions", "netshop_promotion_scope_revisions", "netshop_promotion_aggregate_manifest", "netshop_promotion_aggregate_state", "netshop_promotion_shop_daily", "netshop_promotion_product_daily"]
+        tables = ["netshop_rows", "netshop_import_batches", "netshop_data_revisions", "netshop_product_daily_scope_revisions", "netshop_promotion_scope_revisions", "netshop_promotion_aggregate_manifest", "netshop_promotion_aggregate_state", "netshop_promotion_shop_daily", "netshop_promotion_product_daily"]
         with connection.cursor() as cursor:
             cursor.execute('CREATE ROLE "'+role+'" NOLOGIN')
             cursor.execute('GRANT USAGE ON SCHEMA public TO "'+role+'"')
             cursor.execute('GRANT SELECT ON '+','.join('"'+t+'"' for t in tables)+' TO "'+role+'"')
+            cursor.execute('GRANT SELECT(email,role,status,scope,version) ON access_control_users TO "'+role+'"')
         try:
             with transaction.atomic():
                 with connection.cursor() as cursor: cursor.execute('SET LOCAL ROLE "'+role+'"')
