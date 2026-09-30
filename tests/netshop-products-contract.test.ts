@@ -18,6 +18,7 @@ test("product decoder retains true zero and owning vectors containing the offici
 });
 test("request refuses unknown, duplicated, unsafe pagination and undocumented sorts", () => {
   for (const extra of ["page=0", "pageSize=101", "sort=growth", "q=a&q=b", "principal=admin", "section=daily"]) assert.throws(() => validateProductQuery(new URLSearchParams(query+"&"+extra)));
+  const long = new URLSearchParams(query); long.set("category", "类".repeat(121)); assert.throws(() => validateProductQuery(long));
 });
 test("response cannot cross store, units, pagination, current scope or owning revisions", () => {
   const mutations = [
