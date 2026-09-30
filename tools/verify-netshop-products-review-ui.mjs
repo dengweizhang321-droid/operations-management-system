@@ -41,7 +41,8 @@ source = source.replace(checkMarker, `
       await page.evaluate(mode=>{window.__mode=mode;},mode);
       // A changed filter starts a full read, so shops is present in the injected
       // response. Same-family refresh deliberately uses the page-only DTO.
-      await page.getByLabel('目录状态筛选').selectOption('on_sale');
+      const currentStatus=await page.getByLabel('目录状态筛选').inputValue();
+      await page.getByLabel('目录状态筛选').selectOption(currentStatus==='on_sale'?'all':'on_sale');
       await page.getByRole('alert').waitFor();
       assert.equal(await page.locator('.np-table tbody tr').count(),0);
       assert.equal(await page.locator('.np-gallery-item').count(),0);
