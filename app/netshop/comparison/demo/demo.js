@@ -41,8 +41,9 @@
   const previousDates = () => dates(state.previousStart,state.previousEnd);
   function statusPill(status){return `<span class="pill ${status === 'available' ? '' : status}">${status === 'available' ? '完整覆盖' : status === 'partial' ? '部分覆盖' : '来源缺失'}</span>`;}
   function change(current,previous,currentStatus='available',previousStatus='available'){
+    if(previous===null)return {value:null,difference:null,reason:'基期缺失'};
+    if(current===null)return {value:null,difference:null,reason:'本期缺失'};
     if(currentStatus !== 'available' || previousStatus !== 'available')return {value:null,difference:null,reason:'覆盖不完整，增长不可计算'};
-    if(current === null || previous === null)return {value:null,difference:null,reason:'基期缺失'};
     if(previous===0)return {value:null,difference:current,reason:'基期为 0，仅显示差额'};
     if(previous<0)return {value:null,difference:current-previous,reason:'负基期，仅显示差额'};
     return {value:(current-previous)/previous,difference:current-previous,reason:null};
