@@ -23,7 +23,7 @@ function positive(name: string, detail = false) {
   return { value, input };
 }
 for (const name of ["product", "plan", "partial-19-of-21", "misaligned", "missing-id", "detail"]) {
-  test(`Q independent actual-reader positive control: ${name}`, () => positive(name, name === "detail"));
+  test(`Q independent actual-reader positive control: ${name}`, () => { positive(name, name === "detail"); });
 }
 test("Q replay: partial auxiliary fee cannot become the requested whole fee", () => {
   const { value, input } = positive("partial-19-of-21");
