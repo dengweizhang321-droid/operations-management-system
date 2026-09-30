@@ -11,13 +11,13 @@ let source = await readFile(resolve("tools/verify-netshop-integrated-shell-ui.mj
 const decl = "const checks = [], errors = [], consoleErrors = [], blockedNetwork = [];";
 assert.equal(source.split(decl).length, 2);
 source = source.replace(decl, decl + "\nconst qNavigationFailures=[];");
-const marker = '    assert.equal(await page.getByRole("button", { name: "打开主导航", exact: true }).isVisible(), true);';
+const marker = '    await page.locator("#primary-navigation").waitFor({ state: "hidden" });';
 assert.equal(source.split(marker).length, 2);
 source = source.replace(marker, marker + `
     const menuToggle=page.getByRole('button',{name:'打开主导航',exact:true});
-    const glyph=await menuToggle.locator('span').evaluate(element=>{const css=getComputedStyle(element),rect=element.getBoundingClientRect();return {display:css.display,visibility:css.visibility,color:css.color,fontSize:css.fontSize,width:rect.width,height:rect.height,text:element.textContent};});
+    const qGlyph=await menuToggle.locator('span').evaluate(element=>{const css=getComputedStyle(element),rect=element.getBoundingClientRect();return {display:css.display,visibility:css.visibility,color:css.color,fontSize:css.fontSize,width:rect.width,height:rect.height,text:element.textContent};});
     await menuToggle.screenshot({path:resolve(evidence,'q-menu-button-'+width+'.png')});
-    if(glyph.display==='none'||glyph.visibility!=='visible'||glyph.width===0||glyph.height===0)qNavigationFailures.push({width,glyph});
+    if(qGlyph.display==='none'||qGlyph.visibility!=='visible'||qGlyph.width===0||qGlyph.height===0||parseFloat(qGlyph.fontSize)<16)qNavigationFailures.push({width,glyph:qGlyph});
     await menuToggle.click();
     await page.getByRole('dialog',{name:'顶部应用导航',exact:true}).waitFor();
     assert.equal(await menuToggle.getAttribute('aria-expanded'),'true');
@@ -28,7 +28,7 @@ source = source.replace(marker, marker + `
     await page.keyboard.press('Escape');
     await page.getByRole('dialog',{name:'顶部应用导航',exact:true}).waitFor({state:'hidden'});
     assert.equal(await menuToggle.getAttribute('aria-expanded'),'false');
-    await save('q-menu-'+width+'.json',{glyph,open,closedByEscape:true});
+    await save('q-menu-'+width+'.json',{glyph:qGlyph,open,closedByEscape:true});
     checks.push('Q real mobile menu '+width+' opens within viewport and closes by Escape');
 `);
 const after = '  await page.setViewportSize({ width: 1440, height: 1000 });';
