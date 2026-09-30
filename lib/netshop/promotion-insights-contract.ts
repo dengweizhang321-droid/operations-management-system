@@ -37,7 +37,10 @@ export type PromotionObjectRow = {
   identityKind: "follow_order_sku" | "promotion_product" | "plan" | "unit" | "keyword" | "search_term";
   title: string; planId: string | null; unitId: string | null; matchType: string | null;
   metrics: PromotionMetrics; comparisons: PromotionComparisons;
-  coverageRef: string; mapping: PromotionObjectMapping; drillable: boolean;
+  coverageRef: string; mapping: PromotionObjectMapping;
+  /** Reliable identity for this promotion domain's own detail only.
+   * Product navigation separately requires matched mapping/linkIdentity. */
+  drillable: boolean;
 };
 export type PromotionTrendPoint = {
   startDate: string; endDate: string; days: number;
