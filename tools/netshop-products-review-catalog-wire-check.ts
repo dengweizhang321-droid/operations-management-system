@@ -40,6 +40,8 @@ reject("null shop cannot reach React consumers", body => { body.shops = [null]; 
 reject("string mapping flag cannot claim ERP association", body => { body.items[0].salesMatched = "false"; });
 reject("string ratio cannot reach number formatting", body => { body.items[0].grossMarginRate = "broken"; });
 reject("unsafe currency integer cannot render as valid money", body => { body.items[0].priceCents = Number.MAX_SAFE_INTEGER + 1; });
+reject("legacy page flag remains a strict boolean", body => { body.pagination.truncated = "true"; });
+reject("page rows cannot exceed declared total", body => { body.pagination.total = 0; });
 const output = resolve(root, "products-review-catalog-wire-" + randomUUID());
 await mkdir(output);
 await writeFile(resolve(output, "result.json"), JSON.stringify({ sourceSha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), syntheticPrivatePostgres: true, input, controls, results }, null, 2), { flag: "wx" });
