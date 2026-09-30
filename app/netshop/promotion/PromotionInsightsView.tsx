@@ -30,7 +30,6 @@ const identityLabels: Record<PromotionObjectRow["identityKind"], string> = {
 };
 const mappingLabels = { matched: "精确关联", unmapped: "尚未关联", ambiguous: "关联多义", not_applicable: "不适用" };
 type ObjectSelection = Pick<PromotionObjectRow, "rowKey" | "id" | "shopKey" | "objectKind" | "title">;
-type FocusedPeriod = { baseScope: string; startDate: string; endDate: string };
 
 function isObjectKind(value: string): value is PromotionObjectKind { return PROMOTION_OBJECT_KINDS.includes(value as PromotionObjectKind); }
 function coverageForRef(data: PromotionInsightsResponse, ref: string) { return data.sections.coverage[ref] ?? data.context.coverageBySource[ref]; }
@@ -107,16 +106,14 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
   const outletScope = `${context.outlets.filter(outlet => outlet.startsWith(`${platform}\u001f`)).join("\u001e")}`;
   const selectedShopKeys = Object.freeze(context.outlets.filter(outlet => outlet.startsWith(`${platform}\u001f`)));
   const baseScope = `${JSON.stringify([platform, outletScope, startDate, endDate, periodKind, context.grain, authority, productIdentity])}`;
-  const [focusedPeriod, setFocusedPeriod] = useState<FocusedPeriod | null>(null);
   const [chosen, setChosen] = useState<{ response: PromotionInsightsResponse; item: ObjectSelection } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [trendMetric, setTrendMetric] = useState<"amount" | "roas" | "clicks" | "cpc">("amount");
-  const [sortSelection, setSortSelection] = useState<{ baseScope: string; value: PromotionSort } | null>(null);
   const [readGeneration, setReadGeneration] = useState(0);
   const [blocked, setBlocked] = useState<{ baseScope: string; code: string; message: string } | null>(null);
   const binding = useRef<{ baseScope: string; sectionToken: string; snapshotToken: string } | null>(null);
-  const focus = focusedPeriod?.baseScope === baseScope ? focusedPeriod : null;
-  const sort = sortSelection?.baseScope === baseScope ? sortSelection.value : "spend_desc";
+  const focus = context.promotionPrefs?.objectDateFocus ?? null;
+  const sort = context.promotionPrefs?.sort ?? "spend_desc";
   const params = new URLSearchParams({ platform, dimension: platform === "京东" ? "sku" : "spu", startDate, endDate, periodKind, trendGrain: context.grain, objectKind, q: context.q, page: String(context.page), pageSize: String(context.pageSize), sort });
   if (outletScope) outletScope.split("\u001e").forEach(outlet => params.append("outlet", outlet));
   if (focus) { params.set("objectStartDate", focus.startDate); params.set("objectEndDate", focus.endDate); }
@@ -143,7 +140,7 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
   }
   function changeObjectKind(kind: PromotionObjectKind) { setChosen(null); onContextChange({ section: kind, q: "", page: 1, product: kind === "product" && objectKind === "product" ? context.product : null }); }
   function scrollChapter(key: string) { document.getElementById(`promotion-${key}`)?.scrollIntoView({ block: "start", behavior: "smooth" }); }
-  function selectTrend(from: string, to: string) { setFocusedPeriod({ baseScope, startDate: from, endDate: to }); setChosen(null); onContextChange({ page: 1, product: null }); scrollChapter(objectKind === "product" ? "products" : objectKind === "plan" || objectKind === "unit" ? "plans" : "terms"); }
+  function selectTrend(from: string, to: string) { setChosen(null); onContextChange({ promotionPrefs: { schemaVersion: "promotion-ui-v1", sort, objectDateFocus: { startDate: from, endDate: to } }, page: 1 }); scrollChapter(objectKind === "product" ? "products" : objectKind === "plan" || objectKind === "unit" ? "plans" : "terms"); }
   const amountLabel = s?.attribution.amountDefinition === "tmall_net_amount" ? "推广净成交（归因）" : "总订单金额（归因）";
   const orderLabel = s?.attribution.orderDefinition === "tmall_net_transactions" ? "归因净成交笔数" : "归因订单行";
   const today = shanghaiIsoToday();
@@ -151,13 +148,13 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
   const owningRevision = data?.context.sourceRevisions.find(source => source.kind === "owning_revision")?.revision;
   const reportEligible = Boolean(data && s?.diagnostic.status === "available" && s.diagnostic.shopName === "志高商用设备旗舰店" && platform === "京东" && props.currentUser?.role === "admin" && data.context.effectiveScope.shopKeys.length === 1 && data.context.effectiveScope.shopKeys[0] === `京东\u001f${s.diagnostic.shopName}` && data.context.periods.current.days <= 7 && owningRevision);
   const selectedObject = chosen?.response === data && data ? chosen.item : null;
-  const sectionTable = data ? <ObjectTable data={data} props={props} onChoose={choose} sort={sort} onSort={next => { setSortSelection({ baseScope, value: next }); setChosen(null); onContextChange({ page: 1 }); }}/> : null;
+  const sectionTable = data ? <ObjectTable data={data} props={props} onChoose={choose} sort={sort} onSort={next => { setChosen(null); onContextChange({ promotionPrefs: { schemaVersion: "promotion-ui-v1", sort: next, objectDateFocus: focus }, page: 1 }); }}/> : null;
   return <div className="promotion-insights">
     <div className="promotion-heading"><h1>推广分析</h1>{context.returnTo && <button type="button" className="secondary-button" onClick={props.onReturn}>返回原列表</button>}<div className="promotion-platform-tabs" role="tablist" aria-label="推广分析平台">{(["京东", "天猫"] as const).map(name => <button type="button" key={name} role="tab" aria-selected={platform === name} onClick={() => { setChosen(null); onContextChange({ platforms: [name], outlets: [], dimension: name === "京东" ? "sku" : "spu", section: "product", q: "", page: 1, product: null }); }}>{name}推广</button>)}</div></div>
     <nav className="promotion-chapters" aria-label="推广分析分区">{chapters.map(([key, label]) => <button type="button" key={key} onClick={() => scrollChapter(key)}>{label}</button>)}</nav>
     <InsightFilterBar sticky={false} label="推广经营范围筛选">
       <div className="promotion-filter"><span>店铺范围</span><details className="promotion-shop-picker"><summary>{selectedShopKeys.length ? `已选 ${selectedShopKeys.length} 家店铺` : "全部有效店铺"}</summary><div className="promotion-shop-options"><button type="button" className="row-action" onClick={() => { setChosen(null); onContextChange({ outlets: [], page: 1, product: null }); }}>查看全部有效店铺</button>{s?.shops.items.map(shop => <label key={shop.shopKey}><input type="checkbox" aria-label={`选择推广店铺 ${shop.shopName}`} checked={!selectedShopKeys.length || selectedShopKeys.includes(shop.shopKey)} onChange={event => { const current = selectedShopKeys.length ? selectedShopKeys : s.shops.items.map(item => item.shopKey); setChosen(null); onContextChange({ outlets: event.target.checked ? [...current, shop.shopKey].filter((key, index, list) => list.indexOf(key) === index) : current.filter(key => key !== shop.shopKey), page: 1, product: null }); }}/>{shop.platform} · {shop.shopName}</label>)}{!s && selectedShopKeys.map(key => <p key={key}>{key.replace("\u001f", " · ")}</p>)}<p className="promotion-caption">当前列出已读取范围的店铺；查看全部可重新选择多店集合。</p></div></details></div>
-      <div className="promotion-filter date-selector promotion-date-selector"><span>统计期间</span><button type="button" className="promotion-date-trigger" aria-label="选择推广统计日期" aria-expanded={pickerOpen} onClick={() => setPickerOpen(value => !value)}>{startDate}—{endDate} ▦</button>{pickerOpen && <StatisticalPeriodPicker minDate={`${Number(today.slice(0, 4)) - 1}-01-01`} maxDate={today} startDate={startDate} endDate={endDate} periodIntent={periodKind === "quarter" ? "quarter" : ["rolling", "last7", "last15", "last30"].includes(periodKind) ? "rolling" : undefined} onCancel={() => setPickerOpen(false)} onApply={(from, to, intent) => { setPickerOpen(false); setFocusedPeriod(null); setChosen(null); onContextChange({ page: 1, product: null }); props.onApplyPeriod?.(from, to, intent); }}/>}</div>
+      <div className="promotion-filter date-selector promotion-date-selector"><span>统计期间</span><button type="button" className="promotion-date-trigger" aria-label="选择推广统计日期" aria-expanded={pickerOpen} onClick={() => setPickerOpen(value => !value)}>{startDate}—{endDate} ▦</button>{pickerOpen && <StatisticalPeriodPicker minDate={`${Number(today.slice(0, 4)) - 1}-01-01`} maxDate={today} startDate={startDate} endDate={endDate} periodIntent={periodKind === "quarter" ? "quarter" : ["rolling", "last7", "last15", "last30"].includes(periodKind) ? "rolling" : undefined} onCancel={() => setPickerOpen(false)} onApply={(from, to, intent) => { setPickerOpen(false); setChosen(null); props.onApplyPeriod?.(from, to, intent); }}/>}</div>
       <label className="promotion-filter">趋势粒度<select aria-label="推广趋势粒度" value={context.grain} onChange={event => onContextChange({ grain: event.target.value as "day" | "week" | "month", page: 1 })}><option value="day">日</option><option value="week">自然周（首尾截段）</option><option value="month">自然月（首尾截段）</option></select></label>
       <div className="promotion-checks"><label><input type="checkbox" checked={context.previous} onChange={event => onContextChange({ previous: event.target.checked })}/> 环比</label><label><input type="checkbox" checked={context.yearAgo} onChange={event => onContextChange({ yearAgo: event.target.checked })}/> 同比</label></div>
     </InsightFilterBar>
@@ -171,7 +168,7 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
         <div className="promotion-kpis">{(["spend", "attributedPayment", "roas", "spendRate"] as const).map((key, index) => <MetricCard key={key} label={["推广花费", amountLabel, "ROI", "推广费率"][index]} metric={s.summary[key]} previous={s.comparisons[key].previous} yearAgo={s.comparisons[key].yearAgo} showPrevious={context.previous} showYearAgo={context.yearAgo} previousChange={key === "spend" || key === "attributedPayment" ? s.changes[key].previous : undefined} yearAgoChange={key === "spend" || key === "attributedPayment" ? s.changes[key].yearAgo : undefined} note={key === "roas" ? "平台归因成交 ÷ 花费，单位倍数" : key === "spendRate" ? "同平台 × 店铺 × 日期完整配对" : undefined}/>)}</div>
         <PromotionSection id="promotion-trend" title="投入产出趋势" note="点击日期联动对象列表；顶部仍为整期汇总。缺日或缺字段处断开。" tools={<div className="promotion-trend-tabs">{([["amount", "花费 / 产出"], ["roas", "ROI"], ["clicks", "点击"], ["cpc", "CPC"]] as const).map(([key, label]) => <button type="button" key={key} aria-pressed={trendMetric === key} onClick={() => setTrendMetric(key)}>{label}</button>)}</div>}>
           <MetricTrend key={`${requestScope}:${trendMetric}`} points={s.trend.items.map(point => ({ ...point, values: trendMetric === "amount" ? [point.metrics.spend, point.metrics.attributedPayment] : [point.metrics[trendMetric]] }))} labels={trendMetric === "amount" ? ["推广花费 / 元", `${amountLabel} / 元`] : [trendMetric === "roas" ? "ROI / 倍" : trendMetric === "cpc" ? "CPC / 元/次" : "点击 / 次"]} onSelect={selectTrend}/>
-          <div className="promotion-context-line"><span>{focus ? `已定位对象期间 ${focus.startDate}—${focus.endDate}` : "选择趋势日期查看同范围对象"}</span>{focus && <button type="button" className="row-action" onClick={() => { setFocusedPeriod(null); setChosen(null); onContextChange({ page: 1 }); }}>返回整期对象</button>}</div>
+          <div className="promotion-context-line"><span>{focus ? `已定位对象期间 ${focus.startDate}—${focus.endDate}` : "选择趋势日期查看同范围对象"}</span>{focus && <button type="button" className="row-action" onClick={() => { setChosen(null); onContextChange({ promotionPrefs: { schemaVersion: "promotion-ui-v1", sort, objectDateFocus: null }, page: 1 }); }}>返回整期对象</button>}</div>
           <PromotionContributions data={data} showPrevious={context.previous} onChoose={choose}/>
         </PromotionSection>
         <PromotionSection id="promotion-shops" title="店铺投入与效率" note="同一平台下按每家店铺的独立店日覆盖核验；占比不代表交易渠道份额。">
