@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "comparison-design-draft-v1",
+  "contractStatus": "not_frozen",
+  "synthetic": true,
+  "purpose": "C review sample; not an implemented endpoint or replacement for the F contract",
+  "mode": "shops",
+  "requestedPeriods": {
+    "current": {"start": "2026-09-01", "end": "2026-09-29", "timezone": "Asia/Shanghai"},
+    "previous": {"start": "2026-08-01", "end": "2026-08-29", "rule": "same-month-day-range; await shared calendar version"}
+  },
+  "candidatePairing": {
+    "method": "complete_authorized_union_then_exact_identity_pairing_before_ranking",
+    "current": [{"platform": "jd", "shopName": "演示商用A店"}, {"platform": "jd", "shopName": "演示商用B店"}],
+    "previous": [{"platform": "jd", "shopName": "演示商用B店"}, {"platform": "jd", "shopName": "演示商用A店"}],
+    "historyVerified": false
+  },
+  "examples": [
+    {
+      "case": "real_zero_previous",
+      "current": {"value": 100000, "unit": "CNY_CENT", "status": "available"},
+      "previous": {"value": 0, "unit": "CNY_CENT", "status": "available"},
+      "delta": 100000,
+      "growth": {"value": null, "status": "invalid", "reasonCode": "ZERO_BASELINE"}
+    },
+    {
+      "case": "negative_previous",
+      "current": {"value": 100000, "unit": "CNY_CENT", "status": "available"},
+      "previous": {"value": -10000, "unit": "CNY_CENT", "status": "available"},
+      "delta": 110000,
+      "growth": {"value": null, "status": "invalid", "reasonCode": "NEGATIVE_BASELINE"}
+    },
+    {
+      "case": "missing_previous",
+      "previous": {"value": null, "unit": "CNY_CENT", "status": "unavailable", "reasonCode": "NO_RECORD"},
+      "delta": null,
+      "growth": {"value": null, "status": "unavailable", "reasonCode": "MISSING_BASELINE"}
+    },
+    {
+      "case": "misaligned_shop_day_coverage",
+      "covered": [{"source": "promotion", "platform": "jd", "shopName": "演示商用A店", "date": "2026-09-01"}, {"source": "product_spu_daily", "platform": "jd", "shopName": "演示商用B店", "date": "2026-09-01"}],
+      "spendRate": {"value": null, "unit": "RATIO", "status": "partial", "reasonCode": "MISSING_SHOP_DAY_PAIRS"}
+    },
+    {
+      "case": "weighted_ratio",
+      "shopNumerators": [10000, 90000],
+      "shopDenominators": [10000, 300000],
+      "numerator": 100000,
+      "denominator": 310000,
+      "value": 0.3225806451612903,
+      "aggregation": "ratio_of_sums",
+      "arithmeticMeanIsForbidden": true
+    }
+  ],
+  "crossPlatformPromotion": {"ranking": "blocked_until_basis_and_attribution_are_comparable", "sideBySideObservation": true},
+  "matchedProduct": {"value": null, "status": "unavailable", "reasonCode": "MAPPING_NOT_VERIFIED"},
+  "rangeDecomposition": {"value": null, "status": "unavailable", "reasonCode": "HISTORICAL_CANDIDATES_NOT_VERIFIED"},
+  "reasonCodesAreProposals": true
+}
