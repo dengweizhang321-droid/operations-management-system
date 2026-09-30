@@ -194,7 +194,7 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
         {reportEligible ? <>
           <p className="promotion-note">原报告本期 {startDate}—{endDate}；基期 {addIsoDays(startDate, -data.context.periods.current.days)}—{addIsoDays(startDate, -1)}，采用紧邻前等长规则。本页环比采用“{data.context.periods.rule}”，另有去年同期；原报告与页面比较规则分别披露。</p>
           <p className="promotion-caption">HTML / XLSX 导出保留原报告的完整本期与基期、精确店铺及同一网店来源修订，不导出当前搜索页、本页同比或新贡献榜。</p>
-          <PromotionDiagnosticPanel key={`${platform}:${s.diagnostic.shopName}:${startDate}:${endDate}:${owningRevision}:${authority}:${data.sectionToken}`} shopName={s.diagnostic.shopName!} startDate={startDate} endDate={endDate} allowPaidModel={false} ratioLabel="ROI" expectedOwningRevision={owningRevision} onReadInvalidated={invalidateReport}/>
+          <PromotionDiagnosticPanel key={`${platform}:${s.diagnostic.shopName}:${startDate}:${endDate}:${owningRevision}:${authority}:${data.sectionToken}`} shopName={s.diagnostic.shopName!} startDate={startDate} endDate={endDate} allowPaidModel={false} ratioLabel="ROI" expectedOwningRevision={owningRevision} onReadInvalidated={invalidateReport} includeExportProvenance={true}/>
         </> : <CapabilityGap reason={s.diagnostic.status === "available" ? "原报告须为已核验管理员、指定京东单店、1—7 个完整自然日及可信来源修订；当前条件不足。" : s.diagnostic.message}/>}<p className="promotion-caption">列表搜索和对象日期不裁剪原报告。规则草稿需运营复核；本栏目未启用付费模型解释。</p>
       </PromotionSection>
       <PromotionSection id="promotion-sources" title="数据与归因" note="来源、范围、版本、字段存在与映射共同决定可用性。">

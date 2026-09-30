@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import PromotionInsightsView from "../../../app/netshop/promotion/PromotionInsightsView";
@@ -11,17 +12,23 @@ import "./harness.css";
 type QAEvent = { at: string; kind: string; message: string };
 declare global { interface Window { __promotionUiQA: { events: QAEvent[]; errors: QAEvent[]; location: string }; } }
 window.__promotionUiQA = { events: [], errors: [], location: location.pathname + location.search };
+let disposed = false;
 function record(kind: string, message: string) {
+  if (disposed) return;
   const event = { at: new Date().toISOString(), kind, message: message.slice(0, 3000) };
   const log = kind === "error" || kind === "console-error" ? window.__promotionUiQA.errors : window.__promotionUiQA.events;
   log.push(event); if (log.length > 100) log.shift();
-  queueMicrotask(() => window.dispatchEvent(new CustomEvent("promotion-qa-event")));
+  queueMicrotask(() => { if (!disposed) window.dispatchEvent(new CustomEvent("promotion-qa-event")); });
 }
-window.addEventListener("error", event => record("error", event.message));
-window.addEventListener("unhandledrejection", event => record("error", event.reason instanceof Error ? event.reason.message : String(event.reason)));
-const originalError = console.error.bind(console), originalWarn = console.warn.bind(console);
-console.error = (...args: unknown[]) => { record("console-error", args.map(value => value instanceof Error ? value.message : String(value)).join(" ")); originalError(...args); };
-console.warn = (...args: unknown[]) => { record("console-warning", args.map(value => value instanceof Error ? value.message : String(value)).join(" ")); originalWarn(...args); };
+const onWindowError = (event: ErrorEvent) => record("error", event.message);
+const onUnhandledRejection = (event: PromiseRejectionEvent) => record("error", event.reason instanceof Error ? event.reason.message : String(event.reason));
+window.addEventListener("error", onWindowError);
+window.addEventListener("unhandledrejection", onUnhandledRejection);
+const originalError = console.error, originalWarn = console.warn;
+const qaError = (...args: unknown[]) => { record("console-error", args.map(value => value instanceof Error ? value.message : String(value)).join(" ")); originalError.apply(console, args); };
+const qaWarn = (...args: unknown[]) => { record("console-warning", args.map(value => value instanceof Error ? value.message : String(value)).join(" ")); originalWarn.apply(console, args); };
+console.error = qaError;
+console.warn = qaWarn;
 
 const currentUser: CurrentUser & { scope: null } = { email: "synthetic-promotion-ui@example.test", displayName: "合成验收管理员", role: "admin", roleLabel: "合成管理员", scopeRestricted: false, scope: null };
 const presentationPrincipal = `${JSON.stringify([currentUser.email, currentUser.role, currentUser.scopeRestricted])}`;
@@ -90,4 +97,15 @@ function App() {
     </main>
   </div>;
 }
-createRoot(document.getElementById("root")!).render(<App/>);
+const root = createRoot(document.getElementById("root")!);
+root.render(<App/>);
+import.meta.hot?.dispose(() => {
+  disposed = true;
+  try { root.unmount(); }
+  finally {
+    window.removeEventListener("error", onWindowError);
+    window.removeEventListener("unhandledrejection", onUnhandledRejection);
+    if (console.error === qaError) console.error = originalError;
+    if (console.warn === qaWarn) console.warn = originalWarn;
+  }
+});

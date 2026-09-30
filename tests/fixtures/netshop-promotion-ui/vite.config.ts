@@ -37,7 +37,7 @@ export default defineConfig({
   root: directory, envDir: false, envPrefix: [], plugins: [guard(), react()],
   resolve: { alias: { "@": project } },
   cacheDir: resolve(project, ".runtime/promotion-ui/vite-cache"),
-  server: { host: "127.0.0.1", port: 3150, strictPort: true, allowedHosts: ["localhost", "127.0.0.1"],
+  server: { host: "127.0.0.1", port: 3150, strictPort: true, hmr: false, watch: null, allowedHosts: ["localhost", "127.0.0.1"],
     fs: { allow: [project], deny: ["**/.env*", "**/.dev.vars*", "**/*.pem", "**/*.key", "**/.git/**"] },
     proxy: Object.fromEntries([...reads, revisionControl, accountControl].map(path => [path, proxy()])),
   },
