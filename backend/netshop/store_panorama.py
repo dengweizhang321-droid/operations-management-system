@@ -20,6 +20,7 @@ from . import product_insights, promotion_insights
 from .product_scope_series import read_product_scope_series
 from .panorama_workflow_client import read_panorama_workflow, verify_panorama_workflow
 from .panorama_sales_client import resolve_panorama_sales, read_panorama_sales, verify_panorama_sales
+from .panorama_finance_client import read_panorama_finance, verify_panorama_finance
 from sales.netshop_period_series import restore_period_point
 
 SCHEMA_VERSION = "netshop-store-panorama-v1"
@@ -186,6 +187,12 @@ def _sales_source(principal, context, deadline, grain):
     return _read_source(lambda: read_panorama_sales(principal, context, deadline=deadline, grain=grain), deadline)
 
 
+def _finance_source(principal, context, deadline):
+    if principal.scope is not None:
+        return {"state": "unavailable", "data": None, "reasonCode": "not_applicable", "message": "原财报与年度目标仅支持未受限数据范围账号，保留已授权独立章节、不扩大权限"}
+    return _read_source(lambda: read_panorama_finance(principal, context, deadline=deadline), deadline)
+
+
 def _read_source(loader, deadline):
     _budget(deadline)
     try:
@@ -242,6 +249,7 @@ def _sections(sources, context):
     series = sources["productSeries"]["data"] if sources["productSeries"]["state"] == "ready" else None
     workflow = sources["workflow"]["data"] if sources["workflow"]["state"] == "ready" else None
     sales = sources["sales"]["data"] if sources["sales"]["state"] == "ready" else None
+    finance = sources["finance"]["data"] if sources["finance"]["state"] == "ready" else None
     p = product["sections"] if product else {}
     a = promotion["sections"] if promotion else {}
     summary = p.get("summary", {})
@@ -343,6 +351,15 @@ def _sections(sources, context):
                                 for item in body["series"]["items"] for point in item["current"])
                 reason = "no_records"
                 message = "所属原生ERP序列；已导入业务日期记录、原数量/订单单位，不是全店结算或商品日排行"
+            elif identifier == "annual_target" and finance:
+                available = any(body["annual"]["state"] == "ready" and any(row["target"] is not None for row in body["annual"]["data"]["items"]) for body in (finance["owning"][index] for index in finance["annualReadRefs"]))
+                reason = "no_records"
+                message = "只读原全年度目标/进度，目标零仍为配置，进度零分母不可算"
+            elif identifier in {"finance_month", "history"} and finance:
+                indexes = [finance["periodReadRefs"]["yearAgo"]] if identifier == "history" else list(finance["periodReadRefs"].values())
+                available = any(metric["status"] == "available" for index in indexes for metric in finance["owning"][index]["monthly"]["currentMetricStates"].values())
+                reason = "unverified_source"
+                message = "原自然月currentMetricStates的可靠字段，非日利润/目标摊分，三期原月份分别保留"
             if "ready" not in states:
                 metric, available = None, False
                 reason = "dependency_pending" if state == "unavailable" else "unverified_source"
@@ -363,7 +380,7 @@ def read_store_panorama(principal, params: QueryDict):
             "productSeries": _read_source(lambda: _read_series(principal, params, table["grain"], deadline), deadline),
             "promotion": _read_source(lambda: _read_promotion(principal, _promotion_query(params, spec["platforms"][0], table["grain"]), deadline), deadline),
             "sales": _sales_source(principal, context, deadline, table["grain"]),
-            "finance": _pending("单店月财报及年度目标consumer尚待财务所属服务验收接线"),
+            "finance": _finance_source(principal, context, deadline),
             "workflow": _read_source(lambda: read_panorama_workflow(principal, _workflow_scope(context), deadline=deadline), deadline),
         }
         if actor_fence(principal) != actor:
@@ -377,7 +394,7 @@ def read_store_panorama(principal, params: QueryDict):
                 if source in {"products", "productSeries"} and owned["snapshotToken"] != context["snapshotToken"]:
                     raise NetshopApiError("商品信封不是全景同范围或版本", code="insights_revision_changed", status=409)
                 contexts.append(owned)
-        joined = contexts + [sources[key]["data"] for key in ("sales", "workflow") if sources[key]["state"] == "ready"]
+        joined = contexts + [sources[key]["data"] for key in ("sales", "finance", "workflow") if sources[key]["state"] == "ready"]
         vector = _joined_vector(joined)
         token = _canonical_token({"schemaVersion": SCHEMA_VERSION, "scopeKey": context["scopeKey"], "sourceRevisions": vector,
                                   "tableFilter": {"q": table["q"], "pageSize": table["pageSize"], "grain": table["grain"]}})
@@ -396,12 +413,14 @@ def read_store_panorama(principal, params: QueryDict):
         }
         for owned in contexts:
             _context_vector(owned, deadline)
-        if any(sources[key]["state"] == "ready" for key in ("sales", "workflow")) and actor_fence(principal) != actor:
+        if any(sources[key]["state"] == "ready" for key in ("sales", "finance", "workflow")) and actor_fence(principal) != actor:
             raise NetshopApiError("跨域最终核验前账号权限版本变化", code="access_denied", status=403)
         if sources["workflow"]["state"] == "ready":
             verify_panorama_workflow(principal, sources["workflow"]["data"], deadline=deadline)
         if sources["sales"]["state"] == "ready":
             verify_panorama_sales(principal, context, sources["sales"]["data"], deadline=deadline)
+        if sources["finance"]["state"] == "ready":
+            verify_panorama_finance(principal, context, sources["finance"]["data"], deadline=deadline)
         if actor_fence(principal) != actor:
             raise NetshopApiError("全景取数期间账号权限版本变化", code="access_denied", status=403)
         _budget(deadline)
