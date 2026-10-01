@@ -2,6 +2,7 @@
 import { validateComparisonQuery, decodeComparisonInsights } from "@/app/netshop/comparison/contract";
 import { validateProductQuery,decodeProductInsights,decodeProductDetail } from "@/app/netshop/products/contract";
 import { validatePromotionQuery,decodePromotionInsightsForQuery,decodePromotionDetailForQuery } from "@/lib/netshop/promotion-insights-contract";
+import { bindShopPresentationHistory } from "@/app/shell/shop-presentation-history";
 const ordered=v=>Array.isArray(v)?v.map(ordered):v&&typeof v==="object"?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b)).map(([k,x])=>[k,ordered(x)])):v;
 const key=(query,kind)=>JSON.stringify(ordered(kind==="comparison"?validateComparisonQuery(new URLSearchParams(query)):kind.startsWith("product")?validateProductQuery(new URLSearchParams(query),kind==="product-detail"):validatePromotionQuery(new URLSearchParams(query),kind==="promotion-detail")));
 async function decode(record,query){
@@ -13,6 +14,10 @@ async function decode(record,query){
  return decodePromotionDetailForQuery(body,q,record.owningRevision);
 }
 export async function installM6Transport(comparison,linked=[]){
+ const initialAccount=sessionStorage.getItem("m6-user")||"A";
+ // Original Home accepts stored presentation hints only in an account-bound
+ // history entry. This is fixture UI state, never source/authentication proof.
+ if(initialAccount==="A")history.replaceState(bindShopPresentationHistory(history.state,location.href,JSON.stringify(["comparison-signed@example.test","viewer",false])),"",location.href);
  const records=[...comparison,...linked],positive=records.filter(r=>(r.status||200)===200),faults=records.filter(r=>r.status&&r.status!==200);
  for(const record of positive){record.key=key(record.query,record.kind);await decode(record,record.query);}
  window.__m6={calls:[],served:[],pending:[],writes:[],models:[],external:[],unknown:[],faults:[],cases:positive.map(r=>({name:r.name,phase:r.phase,seed:r.seed,query:r.query,revision:r.owningRevision,rawMeaning:r.rawMeaning,sha256:r.sha256}))};
