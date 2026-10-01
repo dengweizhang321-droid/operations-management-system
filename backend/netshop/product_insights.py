@@ -17,6 +17,7 @@ from django.db.models import (
 )
 
 from .errors import NetshopApiError
+from .catalog_filters import ASSET_SOURCE_DATASETS, CATALOG_STALE_AFTER_DAYS, _with_image
 from .insights_common import (
     MAX_SAFE, actor_fence, compare_metrics, context_versions, parse_identities,
     read_context, validate_context, validate_metric, validate_derived_money_per_count,
@@ -81,7 +82,7 @@ def validate_product_query(params, *, detail=False):
             del shared[key]
     spec = validate_context(shared)
     query, category = params.get("q", "").strip(), params.get("category", "").strip()
-    if len(query) > 120 or len(category) > 200 or any(
+    if len(query) > 120 or len(category) > 120 or any(
         ord(char) < 32 or ord(char) == 127 for char in query + category
     ):
         raise NetshopApiError("商品搜索或类目无效")
@@ -309,12 +310,15 @@ def _baseline_read(loader, kind, errors, deadline):
     try:
         # A query timeout cannot poison the current-period transaction.
         with transaction.atomic():
-            return loader()
+            value = loader()
     except NetshopApiError as error:
         if error.status != 503:
             raise
     except DatabaseError:
         pass
+    else:
+        _check_budget(deadline)
+        return value
     _check_budget(deadline)
     errors[kind] = {"state": "error", "data": None, "code": "service_unavailable", "message": "基期事实读取失败；本期保留，比较不可用"}
     return None
@@ -340,7 +344,7 @@ def _rows_payload(grouped_rows, base, spec, context, deadline, errors):
         output.append({
             "identity": {"platform": row["platform"], "shopName": row["shop_name"], "dimension": spec["dimension"], "id": row[spec["dimension"] + "_id"]},
             "title": row["title"] or row[spec["dimension"] + "_id"],
-            "category": row["category_label"] or None, "imageUrl": None,
+            "category": row["category_label"] or None, "imageUrl": None, "imageStatus": "unverified",
             "metrics": current_metrics, "comparisons": _comparison(current_metrics, prior_metrics, year_metrics),
             "baselineMetrics": {"previous": prior_metrics, "yearAgo": year_metrics},
             "paymentDelta": _payment_delta(current_metrics["payment"], prior_metrics["payment"]),
@@ -407,7 +411,7 @@ def _section_token(context, spec):
     return _canonical_token({
         "kind": PRODUCT_SCHEMA, "contextScope": context["scopeKey"],
         "sourceRevisions": context["sourceRevisions"],
-        "filter": {"q": spec["query"], "category": spec["category"], "sort": spec["sort"], "identity": spec["identity"], "section": spec["section"], "source": spec["source"]},
+        "filter": {"q": spec["query"], "category": spec["category"], "sort": spec["sort"], "pageSize": spec["pageSize"], "identity": spec["identity"], "section": spec["section"], "source": spec["source"]},
     })
 
 
@@ -573,23 +577,41 @@ def _catalog_profile(identity, context, *, deadline):
     platform, shop, dimension, product = identity
     source = "jd_product_master" if platform == "京东" else "tmall_product_master"
     head = _latest_head(platform, shop, source, "product_master")
+    _check_budget(deadline)
     if head is None:
         return None
     master = NetshopRow.objects.filter(platform=platform, shop_name=shop, source=source, dataset="product_master", last_import_batch_id=head.id)
-    if master.count() != head.row_count:
+    master_total = master.count()
+    _check_budget(deadline)
+    if master_total != head.row_count:
         raise NetshopApiError("当前货品档案事实与完成批次不一致", code="service_unavailable", status=503)
     selected = master.filter(**{dimension + "_id": product})
     count = selected.count()
+    _check_budget(deadline)
     if not count:
         return None
     first = selected.order_by("sku_id", "id").first()
+    _check_budget(deadline)
     values = selected.aggregate(total=Sum("total_inventory"), available=Sum("available_inventory"), total_present=Count("total_inventory"), available_present=Count("available_inventory"), prices=Count("price_cents", distinct=True), price=Max("price_cents"), price_present=Count("price_cents"), codes=Count("product_code", distinct=True), titles=Count("product_name", distinct=True), categories=Count("category", distinct=True), skus=Count("sku_id", distinct=True))
+    _check_budget(deadline)
     image_source = "jd_yimei_sku" if platform == "京东" else "tmall_product_assets"
-    image_head = _latest_head(platform, shop, image_source)
+    image_head = _latest_head(platform, shop, image_source, ASSET_SOURCE_DATASETS[image_source])
+    _check_budget(deadline)
     image = None
     if image_head:
-        image = NetshopRow.objects.filter(platform=platform, shop_name=shop, source=image_source, last_import_batch_id=image_head.id, **{"sku_id" if platform == "京东" else "spu_id": first.sku_id if platform == "京东" else product}).order_by("-snapshot_date", "id").first()
+        image = NetshopRow.objects.filter(platform=platform, shop_name=shop, source=image_source, dataset=ASSET_SOURCE_DATASETS[image_source], last_import_batch_id=image_head.id, **{"sku_id" if platform == "京东" else "spu_id": first.sku_id if platform == "京东" else product}).filter(Exists(_completed_match())).order_by("-snapshot_date", "-id").first()
+        _check_budget(deadline)
     image_url = f"/api/netshop/product-images/{image.image_content_sha256}" if image and image.image_content_sha256 else image.image_url if image and image.image_url else first.image_url or None
+    image_verified = True
+    try:
+        # New insights have no audited code-semantic capability from a current
+        # lookup. Reuse full-master proof; possible code images stay unknown.
+        _with_image(selected, master, {"fields": {"jd_code_fallback": False}}).filter(catalog_has_image=False).count()
+    except NetshopApiError as error:
+        if error.status != 422:
+            raise
+        image_verified = False
+        image_url = None
     raw = first.raw_json
     # JD's typed product_code may be the platform's 商品编码/SPU, not ERP or
     # merchant SKU. Only Tmall's published master projection has that meaning.
@@ -597,12 +619,13 @@ def _catalog_profile(identity, context, *, deadline):
     code = merchant_code if count == 1 else None
     mapping = _mapping("ambiguous_mapping" if count > 1 and values["codes"] > 1 else "unverified_source", source=source, code=code, version=context["sourceRevisions"][0]["revision"])
     quality = []
-    if not image_url: quality.append("missingImage")
+    if not image_verified: quality.append("image_identity_unverified")
+    elif not image_url: quality.append("missingImage")
     if not merchant_code: quality.append("missingCode")
     if not first.category: quality.append("missingCategory")
     if values["titles"] > 1 or values["categories"] > 1: quality.append("conflict")
     from django.utils import timezone
-    if head.snapshot_date and head.snapshot_date < (timezone.localdate() - timedelta(days=7)).isoformat(): quality.append("stale")
+    if head.snapshot_date and head.snapshot_date < (timezone.localdate() - timedelta(days=CATALOG_STALE_AFTER_DAYS)).isoformat(): quality.append("stale")
     quality.append("mapping_unverified")
     price_reason = "ambiguous_mapping" if values["prices"] > 1 else "missing_field" if values["price_present"] != count else None
     return {"identity": {"platform": platform, "shopName": shop, "dimension": dimension, "id": product}, "title": first.product_name or product,
@@ -614,19 +637,23 @@ def _catalog_profile(identity, context, *, deadline):
             "inventory": {"total": _snapshot_metric("total", int(values["total"]) if values["total"] is not None else None, source, reason="ambiguous_mapping" if values["skus"] != count else "missing_field" if values["total_present"] != count else None),
                           "available": _snapshot_metric("available", int(values["available"]) if values["available"] is not None else None, source, reason="ambiguous_mapping" if values["skus"] != count else "missing_field" if values["available_present"] != count else None)},
             "snapshots": {"master": head.snapshot_date, "image": image_head.snapshot_date if image else head.snapshot_date if first.image_url else None, "price": head.snapshot_date, "inventory": head.snapshot_date},
-            "mapping": mapping, "categoryEvidence": _category_evidence(first.category, source, platform, context), "quality": quality}
+            "mapping": mapping, "categoryEvidence": _category_evidence(first.category, source, platform, context), "quality": quality,
+            "imageStatus": "unverified" if not image_verified else "available" if image_url else "missing"}
 
 
 def _source_section(loader, deadline):
     _check_budget(deadline)
     try:
         with transaction.atomic():
-            return {"state": "ready", "data": loader()}
+            value = loader()
     except NetshopApiError as error:
         if error.status != 503:
             raise
     except DatabaseError:
         pass
+    else:
+        _check_budget(deadline)
+        return {"state": "ready", "data": value}
     _check_budget(deadline)
     return {"state": "error", "data": None, "code": "service_unavailable", "message": "来源读取失败，未将错误当无记录"}
 
@@ -752,6 +779,7 @@ def _quality(base, spec, context, deadline):
     for batch in batches:
         heads.setdefault((batch.platform, batch.shop_name), batch)
     master = NetshopRow.objects.filter(selected_scopes, source__in=["jd_product_master", "tmall_product_master"], dataset="product_master", last_import_batch_id__in=[batch.id for batch in heads.values()]).filter(Exists(_completed_match()))
+    full_master = master
     cohort = _window_rows(base, spec["periods"]["current"]).filter(platform=OuterRef("platform"), shop_name=OuterRef("shop_name"), **{spec["dimension"] + "_id": OuterRef(spec["dimension"] + "_id")})
     master = master.filter(Exists(cohort))
     master = master.annotate(merchant=Coalesce(NullIf(KeyTextTransform("商家SKU", "raw_json"), Value("")), NullIf(KeyTextTransform("SKU商家编码", "raw_json"), Value("")), Case(When(platform="天猫", then=NullIf(F("product_code"), Value(""))), default=Value(None), output_field=NetshopRow._meta.get_field("product_code")), output_field=NetshopRow._meta.get_field("product_code")))
@@ -760,18 +788,22 @@ def _quality(base, spec, context, deadline):
     if not total:
         values = {key: None for key in ("missingImage", "missingCode", "missingCategory", "conflict", "stale", "unmapped")}
     else:
-        image_head = NetshopImportBatch.objects.filter(platform=OuterRef("platform"), shop_name=OuterRef("shop_name"), source=OuterRef("source"), status="completed").order_by("-snapshot_date", "-completed_at", "-created_at", "-id").values("id")[:1]
-        assets = NetshopRow.objects.filter(platform=OuterRef("platform"), shop_name=OuterRef("shop_name"), source__in=["jd_yimei_sku", "tmall_product_assets"]).filter(last_import_batch_id=Subquery(image_head)).filter(Q(image_url__gt="") | Q(image_content_sha256__gt="")).filter(Q(platform="天猫", spu_id=OuterRef("spu_id")) | Q(platform="京东", sku_id=OuterRef("sku_id")))
         missing_code = master.filter(merchant__isnull=True).count()
         conflicts = master.exclude(sku_id="").values("platform", "shop_name", "sku_id").annotate(titles=Count("product_name", distinct=True), codes=Count("product_code", distinct=True), parents=Count("spu_id", distinct=True)).filter(Q(titles__gt=1) | Q(codes__gt=1) | Q(parents__gt=1)).count()
-        values = {"missingImage": master.filter(image_url="").filter(~Exists(assets)).count(), "missingCode": missing_code, "missingCategory": master.filter(category="").count(), "conflict": conflicts, "stale": master.filter(snapshot_date__lt=(timezone.localdate() - timedelta(days=7)).isoformat()).count(), "unmapped": missing_code}
+        try:
+            missing_image = _with_image(master, full_master, {"fields": {"jd_code_fallback": False}}).filter(catalog_has_image=False).count()
+        except NetshopApiError as error:
+            if error.status != 422:
+                raise
+            missing_image = None
+        values = {"missingImage": missing_image, "missingCode": missing_code, "missingCategory": master.filter(category="").count(), "conflict": conflicts, "stale": master.filter(snapshot_date__isnull=False, snapshot_date__regex=r"^\d{4}-\d{2}-\d{2}$", snapshot_date__lt=(timezone.localdate() - timedelta(days=CATALOG_STALE_AFTER_DAYS)).isoformat()).exclude(snapshot_date="").count(), "unmapped": None}
     counts = {}
     for key, value in values.items():
-        counts[key] = _metric(key, None if key == "unmapped" else value, "unavailable" if key == "unmapped" or value is None else "available", "unverified_source" if key == "unmapped" else "no_records" if value is None else None, sources, "products:current_snapshot", basis="current_snapshot")
-    return {"counts": counts, "staleAfterDays": 7, "basis": "current_snapshot"}
+        counts[key] = _metric(key, None if key == "unmapped" else value, "unavailable" if key == "unmapped" or value is None else "available", "unverified_source" if key == "unmapped" or key == "missingImage" and total and value is None else "no_records" if value is None else None, sources, "products:current_snapshot", basis="current_snapshot")
+    return {"counts": counts, "staleAfterDays": CATALOG_STALE_AFTER_DAYS, "basis": "current_snapshot"}
 
 
-def _page_images(items, context, deadline):
+def _page_images(items, context, deadline, *, image_uncertain=False):
     """Only exact shop/ID current image metadata, read in one bounded query."""
     if not items:
         return
@@ -782,8 +814,8 @@ def _page_images(items, context, deadline):
         source = "tmall_product_assets" if identity["platform"] == "天猫" else "jd_yimei_sku"
         if identity["platform"] == "京东" and identity["dimension"] != "sku":
             continue  # A current SKU image is not a proved historical SPU image.
-        scope |= Q(platform=identity["platform"], shop_name=identity["shopName"], source=source)
-        candidates |= Q(platform=identity["platform"], shop_name=identity["shopName"], source=source, **{identity["dimension"] + "_id": identity["id"]})
+        scope |= Q(platform=identity["platform"], shop_name=identity["shopName"], source=source, dataset=ASSET_SOURCE_DATASETS[source])
+        candidates |= Q(platform=identity["platform"], shop_name=identity["shopName"], source=source, dataset=ASSET_SOURCE_DATASETS[source], **{identity["dimension"] + "_id": identity["id"]})
     _check_budget(deadline)
     heads = {}
     for batch in NetshopImportBatch.objects.filter(scope, status="completed").order_by("-snapshot_date", "-completed_at", "-created_at", "-id"):
@@ -795,6 +827,7 @@ def _page_images(items, context, deadline):
     for item in items:
         identity = item["identity"]
         item["imageUrl"] = images.get((identity["platform"], identity["shopName"], identity["id"]))
+        item["imageStatus"] = "available" if item["imageUrl"] else "unverified" if image_uncertain or identity["platform"] == "京东" and identity["dimension"] == "spu" else "missing"
 
 
 def _finish(payload, principal, actor, deadline):
@@ -818,16 +851,40 @@ def _finish(payload, principal, actor, deadline):
     return payload
 
 
+def _execute_product_reader(principal, spec, reader):
+    """One outer deadline fences every new read statement, including helpers.
+
+    An already executing SQL is not killed. Post-execution expiry fails the
+    whole read and no subsequent read SQL starts. Transaction cleanup remains
+    permitted; the existing per-statement limit is not changed here.
+    """
+    deadline = time.monotonic() + 65
+    def fence(execute, sql, params, many, context):
+        statement = re.sub(r"\A(?:\s+|/\*[\s\S]*?\*/|--[^\n]*(?:\n|$))*", "", str(sql))
+        read_sql = re.match(r"(?:SELECT|WITH|SHOW|EXPLAIN)\b", statement, re.I) is not None
+        if read_sql:
+            _check_budget(deadline)
+        value = execute(sql, params, many, context)
+        if read_sql:
+            _check_budget(deadline)
+        return value
+    with connection.execute_wrapper(fence):
+        return reader(principal, spec, deadline)
+
+
 def read_product_insights(principal, spec):
+    return _execute_product_reader(principal, spec, _read_product_insights)
+
+
+def _read_product_insights(principal, spec, deadline):
     """A single shared-context read (at most two attempts), then one fact read.
 
     The outer deadline starts before the initial actor SQL and includes the last
     actor SQL and serialization. There is no nested retry multiplier.
     """
-    deadline = time.monotonic() + 65
     actor = actor_fence(principal)
     _check_budget(deadline)
-    context = read_context(principal, _shared_spec(spec))
+    context = read_context(principal, _shared_spec(spec), deadline=deadline)
     _check_budget(deadline)
     section_token = _section_token(context, spec)
     if spec["sectionToken"] and spec["sectionToken"] != section_token:
@@ -837,8 +894,11 @@ def read_product_insights(principal, spec):
     for kind in ("current", "previous", "yearAgo"):
         _check_budget(deadline)
         aggregate = _aggregate(_window_rows(base, spec["periods"][kind])) if kind == "current" else _baseline_read(lambda: _aggregate(_window_rows(base, spec["periods"][kind])), kind, baseline_errors, deadline)
+        _check_budget(deadline)
         metrics[kind] = _metrics(aggregate or {}, context, kind)
+    _check_budget(deadline)
     grouped, total = _list_rows(base, spec)
+    _check_budget(deadline)
     items = _rows_payload(grouped, base, spec, context, deadline, baseline_errors)
     growth_spec = {**spec, "sort": "decline_desc" if spec["sort"] == "decline_desc" else "growth_desc"}
     if spec["sort"] == growth_spec["sort"]:
@@ -857,7 +917,7 @@ def read_product_insights(principal, spec):
     efficiency = _efficiency(base, spec, context, deadline, baseline_errors)
     structure = _structure(base, spec, context, metrics["current"], baseline_errors, deadline)
     quality = _quality(base, spec, context, deadline)
-    _page_images(items + growth_items + efficiency["watchlist"], context, deadline)
+    _page_images(items + growth_items + efficiency["watchlist"], context, deadline, image_uncertain=quality["counts"]["missingImage"]["reasonCode"] == "unverified_source")
     # Optional sections may perform more exact baseline reads. Clear all
     # comparisons for a failed baseline, not only the later watchlist rows.
     for kind in baseline_errors:
@@ -890,13 +950,16 @@ def read_product_insights(principal, spec):
 
 
 def read_product_detail(principal, spec):
+    return _execute_product_reader(principal, spec, _read_product_detail)
+
+
+def _read_product_detail(principal, spec, deadline):
     """Exact, single-shop product; current catalogue and each source separated."""
     if spec["identity"] is None:
         raise NetshopApiError("详情缺少商品精确身份")
-    deadline = time.monotonic() + 65
     actor = actor_fence(principal)
     _check_budget(deadline)
-    context = read_context(principal, _shared_spec(spec))
+    context = read_context(principal, _shared_spec(spec), deadline=deadline)
     _check_budget(deadline)
     section_token = _section_token(context, spec)
     if spec["sectionToken"] and spec["sectionToken"] != section_token:
@@ -907,15 +970,18 @@ def read_product_detail(principal, spec):
         _check_budget(deadline)
         loader = lambda: _aggregate(_window_rows(base, spec["periods"][kind]), ALL_FIELDS)
         aggregate = loader() if kind == "current" else _baseline_read(loader, kind, errors, deadline)
+        _check_budget(deadline)
         metrics[kind] = _metrics(aggregate or {}, context, kind, platform=spec["identity"][0], identity=True)
         if kind == "current":
             extras = _extra_metrics(aggregate or {}, context, kind, platform=spec["identity"][0], identity=True)
+    _check_budget(deadline)
     grouped = _grouped(_window_rows(base, spec["periods"]["current"]), spec).order_by(*_identity_fields(spec)).first()
+    _check_budget(deadline)
     platform, shop, dimension, product = spec["identity"]
     identity = {"platform": platform, "shopName": shop, "dimension": dimension, "id": product}
     catalog_section = _source_section(lambda: _catalog_profile(spec["identity"], context, deadline=deadline), deadline)
     catalog = catalog_section["data"] if catalog_section["state"] == "ready" else None
-    performance = {"identity": identity, "title": grouped["title"] if grouped and grouped["title"] else catalog["title"] if catalog else product, "category": grouped["category_label"] if grouped and grouped["category_label"] else None, "imageUrl": catalog["imageUrl"] if catalog else None, "metrics": metrics["current"], "comparisons": _comparison(metrics["current"], metrics["previous"], metrics["yearAgo"]), "baselineMetrics": {"previous": metrics["previous"], "yearAgo": metrics["yearAgo"]}, "paymentDelta": _payment_delta(metrics["current"]["payment"], metrics["previous"]["payment"])}
+    performance = {"identity": identity, "title": grouped["title"] if grouped and grouped["title"] else catalog["title"] if catalog else product, "category": grouped["category_label"] if grouped and grouped["category_label"] else None, "imageUrl": catalog["imageUrl"] if catalog else None, "imageStatus": catalog["imageStatus"] if catalog else "unverified", "metrics": metrics["current"], "comparisons": _comparison(metrics["current"], metrics["previous"], metrics["yearAgo"]), "baselineMetrics": {"previous": metrics["previous"], "yearAgo": metrics["yearAgo"]}, "paymentDelta": _payment_delta(metrics["current"]["payment"], metrics["previous"]["payment"])}
     promotion_data = [None]
     def load_promotion():
         value = _promotion_data(spec, context, deadline)

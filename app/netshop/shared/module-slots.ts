@@ -4,6 +4,7 @@ import type { ImportSourceKey, ModuleKey } from "../../shell/navigation-catalog"
 import type { ShopLocationContext } from "../../shell/shop-context";
 import type { NetshopView } from "./navigation";
 import type { ProductIdentity } from "@/lib/netshop/insights-contract";
+import ProductsColumn from "../products/ProductsColumn";
 
 export type NetshopColumnProps = {
   startDate: string; endDate: string; periodKind: string;
@@ -14,9 +15,12 @@ export type NetshopColumnProps = {
   onReturn: () => void;
   onApplyPeriod?: (startDate: string, endDate: string, intent?: "rolling" | "quarter") => void;
   onNavigate: (key: ModuleKey, source?: ImportSourceKey) => void;
+  /** Enabled by I only after the actual promotion exact-product reader/UI pair is verified. */
+  supportsPromotionProductDrill?: boolean;
 };
 /** I's single registration point after each real column and its API are merged.
  * Empty at M2: main never imports a future component or a design demo. O keeps
  * the separate classic/balanced path, so outlets cannot be replaced here.
  */
-export const netshopColumnModules: Partial<Record<Exclude<NetshopView, "outlets">, ComponentType<NetshopColumnProps>>> = {};
+export const netshopColumnModules: Partial<Record<Exclude<NetshopView, "outlets">, ComponentType<NetshopColumnProps>>> = { products: ProductsColumn };
+export const netshopColumnCapabilities = { supportsPromotionProductDrill: false };

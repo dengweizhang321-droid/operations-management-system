@@ -14,15 +14,15 @@ from netshop.models import (
     NetshopPromotionProductDaily, NetshopRow,
 )
 from netshop.product_insights import read_product_detail, read_product_insights, validate_product_query
-from .test_product_insights import ProductInsightsTests
+from . import test_product_insights as product_fixtures
 
 
 class ProductDetailTests(TestCase):
-    setUp = ProductInsightsTests.setUp
-    tearDown = ProductInsightsTests.tearDown
-    fact = ProductInsightsTests.fact
-    spec = ProductInsightsTests.spec
-    read = ProductInsightsTests.read
+    setUp = product_fixtures.ProductInsightsTests.setUp
+    tearDown = product_fixtures.ProductInsightsTests.tearDown
+    fact = product_fixtures.ProductInsightsTests.fact
+    spec = product_fixtures.ProductInsightsTests.spec
+    read = product_fixtures.ProductInsightsTests.read
 
     def detail_spec(self, *, platform="京东", shop="A", product="P1", dimension="spu", **values):
         return validate_product_query(QueryDict(urlencode({"platform": platform, "outlet": platform + "\x1f" + shop, "dimension": dimension, "startDate": "2026-09-01", "endDate": "2026-09-01", "productIdentity": json.dumps([platform, shop, dimension, product]), **values}, doseq=True)), detail=True)
@@ -39,7 +39,7 @@ class ProductDetailTests(TestCase):
 
     def asset(self, *, platform="天猫", shop="A", product="P1", snapshot="2026-09-30"):
         row = self.fact(platform=platform, shop=shop, product=product)
-        source, dataset = ("tmall_product_assets", "spu_assets") if platform == "天猫" else ("jd_yimei_sku", "sku_assets")
+        source, dataset = ("tmall_product_assets", "spu_assets") if platform == "天猫" else ("jd_yimei_sku", "yimei_sku")
         NetshopImportBatch.objects.filter(id=row.last_import_batch_id).update(source=source, dataset=dataset, snapshot_date=snapshot)
         NetshopRow.objects.filter(pk=row.pk).update(source=source, dataset=dataset, business_date=None, snapshot_date=snapshot, image_content_sha256="c" * 64)
         return row
@@ -396,3 +396,79 @@ class ProductDetailTests(TestCase):
         rows = self.read(platform="天猫")["sections"]["items"]
         self.assertIsNone(next(row for row in rows if row["identity"]["shopName"] == "A")["imageUrl"])
         self.assertTrue(next(row for row in rows if row["identity"]["shopName"] == "B")["imageUrl"])
+
+    def test_wrong_image_dataset_not_validated_in_new_detail_list_or_quality(self):
+        self.fact(platform="天猫")
+        self.master(platform="天猫")
+        asset = self.asset(platform="天猫")
+        NetshopImportBatch.objects.filter(pk=asset.last_import_batch_id).update(dataset="product_master")
+        NetshopRow.objects.filter(pk=asset.pk).update(dataset="product_master")
+        result = self.detail(platform="天猫")["sections"]["catalog"]["data"]
+        self.assertIsNone(result["imageUrl"])
+        listing = self.read(platform="天猫")["sections"]
+        self.assertIsNone(listing["items"][0]["imageUrl"])
+        self.assertIsNone(listing["dataQuality"]["counts"]["missingImage"]["value"])
+        self.assertEqual(listing["dataQuality"]["counts"]["missingImage"]["reasonCode"], "unverified_source")
+        self.assertEqual(result["imageStatus"], "unverified")
+
+    def test_successful_detail_baseline_expiry_stops_before_group_and_catalog(self):
+        self.fact()
+        from netshop.product_insights import _aggregate, _grouped
+        clock, reads, next_phase = [0.0], [0], [0]
+        def aggregate(*args):
+            value = _aggregate(*args)
+            reads[0] += 1
+            if reads[0] == 3:
+                clock[0] = 66.0
+            return value
+        def group(*args):
+            next_phase[0] += 1
+            return _grouped(*args)
+        with patch("netshop.product_insights.time.monotonic", side_effect=lambda: clock[0]), patch("netshop.product_insights._aggregate", side_effect=aggregate), patch("netshop.product_insights._grouped", side_effect=group), self.assertRaises(NetshopApiError) as failure:
+            self.detail()
+        self.assertEqual(failure.exception.code, "source_not_ready")
+        self.assertEqual(next_phase[0], 0)
+
+    def test_successful_source_loader_expiry_is_not_downgraded_to_section_error(self):
+        self.fact()
+        from netshop.product_insights import _source_section
+        clock = [0.0]
+        def loader():
+            value = NetshopRow.objects.count()
+            clock[0] = 66.0
+            return value
+        with patch("netshop.product_insights.time.monotonic", side_effect=lambda: clock[0]), self.assertRaises(NetshopApiError) as failure:
+            _source_section(loader, 65.0)
+        self.assertEqual(failure.exception.code, "source_not_ready")
+
+    def test_code_only_current_image_gap_is_unverified_not_missing_in_new_insights(self):
+        self.fact(dimension="sku")
+        self.master(dimension="sku", product_code="CURRENT-CODE")
+        asset = self.asset(platform="京东")
+        NetshopRow.objects.filter(pk=asset.pk).update(sku_id="", product_code="CURRENT-CODE", raw_json={"商品编码": "CURRENT-CODE"})
+        profile = self.detail(dimension="sku")["sections"]["catalog"]["data"]
+        self.assertEqual(profile["imageStatus"], "unverified")
+        self.assertIn("image_identity_unverified", profile["quality"])
+        self.assertNotIn("missingImage", profile["quality"])
+        listing = self.read(dimension="sku")["sections"]
+        self.assertIsNone(listing["dataQuality"]["counts"]["missingImage"]["value"])
+        self.assertEqual(listing["items"][0]["imageStatus"], "unverified")
+
+    def test_sql_boundary_budget_expiry_after_master_count_starts_no_further_select(self):
+        self.fact()
+        self.master()
+        clock, triggered, after_expiry = [0.0], [False], [0]
+        def expire(execute, sql, params, many, context):
+            if triggered[0] and str(sql).lstrip().upper().startswith("SELECT"):
+                after_expiry[0] += 1
+            value = execute(sql, params, many, context)
+            if not triggered[0] and str(sql).startswith("SELECT COUNT(*)") and '"source" = %s' in str(sql) and "jd_product_master" in params:
+                triggered[0] = True
+                clock[0] = 66.0
+            return value
+        from django.db import connection
+        with patch("netshop.product_insights.time.monotonic", side_effect=lambda: clock[0]), connection.execute_wrapper(expire), self.assertRaises(NetshopApiError) as failure:
+            self.detail()
+        self.assertTrue(triggered[0])
+        self.assertEqual(after_expiry[0], 0)
+        self.assertEqual(failure.exception.code, "source_not_ready")
