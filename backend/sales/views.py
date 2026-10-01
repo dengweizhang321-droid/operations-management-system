@@ -15,6 +15,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .auth import PrincipalEnvelopeError, verify_principal
 from .category import get_category_analysis, get_category_detail
 from .consumers import execute_consumer_query, parse_consumer_body
+from .netshop_periods import NetshopPeriodsError
 from .query import (
     SalesAccessError,
     SalesRequestError,
@@ -128,6 +129,8 @@ def _handle(view: Callable[[HttpRequest], JsonResponse], request: HttpRequest) -
         return _json({"error": str(error), "code": "access_denied"}, 403)
     except SalesRequestError as error:
         return _json({"error": str(error), "code": "invalid_request"}, 400)
+    except NetshopPeriodsError as error:
+        return _json({"error": str(error), "code": error.code}, error.status)
     except SalesRevisionChangedError as error:
         return _json(
             {"error": str(error), "code": "sales_overview_revision_changed"},
@@ -151,6 +154,12 @@ def consumer_query(request: HttpRequest) -> JsonResponse:
     def execute(inner: HttpRequest) -> JsonResponse:
         principal = _principal(inner)
         consumer_request = parse_consumer_body(inner)
+        if consumer_request["operation"] == "netshop_periods_v1":
+            # A cache hit must never skip this operation's live actor fence.
+            payload = execute_consumer_query(principal, consumer_request)
+            return _json({"operation": consumer_request["operation"], "data": payload},
+                         revision=payload["sourceRevisions"][0]["revision"],
+                         extra_headers={"X-Sales-Overview-Cache": "bypass_owned_periods_v1"})
         body_identity = hashlib.sha256(inner.body).hexdigest()
         payload, stable_revision, cache_status = _consistent_read(
             lambda: execute_consumer_query(principal, consumer_request),

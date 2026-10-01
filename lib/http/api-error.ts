@@ -36,7 +36,7 @@ export type PublicApiErrorCode =
   | "service_unavailable";
 
 export class PublicApiError extends Error {
-  readonly status: 400 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 499 | 503;
+  readonly status: 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 499 | 503;
   readonly code: PublicApiErrorCode;
 
   constructor(
