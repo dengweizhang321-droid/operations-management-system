@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "panorama-design-round-2-v1",
+  "stage": "design-only",
+  "parentDesignCommit": "38685c2ad14b3500619d5a8789c3a61a45d78273",
+  "syncedMain": "f08b34884fdc83813e4d2c8f3ec86b8ed2a795fe",
+  "files": {
+    "demo.css": "11aa62ab3ce93ebc7c5670c01c9ae36b3e6a7895e014d02f6ee2d8918d14f50f",
+    "demo.js": "1598408c0e65f5463cc063163700ddeb4412a188fd47be162f4b518c0bb4e827",
+    "index.html": "0f73907f59884ff6207f592716553b4f7b2c21a22c536d65a1a8fcb39b3907c7",
+    "serve.mjs": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+    "verify.mjs": "5d2f198b6bd1a63d0aedde30d0fa19070df72a8438f3ae3e34339fb4a1a8cf4e"
+  },
+  "cockpitRendererUnchanged": true,
+  "cockpitRendererSha256": "3c0aee979381d06c38baf0ee3edefb8e42f84a78cbbde908c54ee1ac3dceb81c",
+  "sourceRowsAndPeriods": "unchanged",
+  "productionOperations": [],
+  "postgresql": "not-run",
+  "businessAPI": "not-connected"
+}

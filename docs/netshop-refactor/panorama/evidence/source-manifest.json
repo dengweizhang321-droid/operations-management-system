@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "panorama-design-manifest-v1",
+  "role": "S",
+  "stage": "design-only",
+  "baselineAtStart": "c7c6c2a4c012dd60af0565b97b2d2f11f9246c0a",
+  "syncedCoordinatorMain": "daf211644efffdc762c0d33c1faba992cf082df7",
+  "files": {
+    "demo.css": "8d8dcadb1bfa72a1d8b78e5481d4df9a69863c638122f96ee9783dcc086f5d35",
+    "demo.js": "a7c60954c422830770e2a2ce1fda9b5fe04b52f08cc28c26fbeabbbf7bff7c18",
+    "index.html": "7e3473904dfe6a9b01100b615404d630642167c4af18c073899fc468fe3499a5",
+    "serve.mjs": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+    "verify.mjs": "71362a369d7b4ce885e5b5fc44ba52edb170595eda16017848591ff4f8b17a98"
+  },
+  "checks": "ui-checks.json",
+  "businessInterfaces": "not-connected",
+  "postgresql": "not-run",
+  "productionOperations": [],
+  "lineEndings": "LF (Git blob bytes)"
+}

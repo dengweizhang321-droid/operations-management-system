@@ -1,0 +1,107 @@
+{
+  "kind": "single01-search-pagination-synthetic-ui-only",
+  "checkedAt": "2026-09-30T11:42:55.786Z",
+  "checks": [
+    {
+      "check": "only01, eight chapters, non-sticky shop filter",
+      "pass": true,
+      "chapters": 8,
+      "filterTop": 250.98959350585935,
+      "position": "static",
+      "variants": 0
+    },
+    {
+      "check": "shop filter scrolls out with the page",
+      "pass": true,
+      "filterTop": -2243.67724609375,
+      "position": "static",
+      "scrollY": 2494.666748046875
+    },
+    {
+      "check": "next page shows records6-10 with correct IDs",
+      "pass": true,
+      "status": "共 18 条 · 6—10 条 · 第 2 / 4 页"
+    },
+    {
+      "check": "last page has three rows and next disabled",
+      "pass": true
+    },
+    {
+      "check": "ID search handles case/trim and resets page",
+      "pass": true
+    },
+    {
+      "check": "title search leaves store summary unchanged",
+      "pass": true
+    },
+    {
+      "check": "empty result explained, no fabricated row",
+      "pass": true
+    },
+    {
+      "check": "clear and page size reset retain keyboard focus",
+      "pass": true,
+      "focus": "product-page-size",
+      "rows": 10,
+      "status": "共 18 条 · 1—10 条 · 第 1 / 2 页"
+    },
+    {
+      "check": "20 per page displays full18 with next disabled",
+      "pass": true
+    },
+    {
+      "check": "detail and return retain exact identity and product page",
+      "pass": true
+    },
+    {
+      "check": "shop change resets page and replaces row identities",
+      "pass": true,
+      "identity": "tm-demo / SPU / P-DEMO-101",
+      "status": "共 18 条 · 1—5 条 · 第 1 / 4 页"
+    },
+    {
+      "check": "date picker refreshes scope and starts at first product page",
+      "pass": true
+    },
+    {
+      "check": "removed layout bookmark normalizes to01",
+      "pass": true
+    },
+    {
+      "check": "browser back to another shop normalizes product page",
+      "pass": true,
+      "shop": "tm-demo",
+      "status": "共 18 条 · 1—5 条 · 第 1 / 4 页"
+    },
+    {
+      "check": "failure removes old product list",
+      "pass": true
+    },
+    {
+      "check": "denied removes old product list",
+      "pass": true
+    },
+    {
+      "check": "search and pagination fit 390px",
+      "pass": true,
+      "pager": 317.3333435058594,
+      "scrollWidth": 375,
+      "search": 317.3333435058594,
+      "width": 390
+    },
+    {
+      "check": "search and pagination fit 320px",
+      "pass": true,
+      "pager": 247.33334350585935,
+      "scrollWidth": 305,
+      "search": 247.33334350585935,
+      "width": 320
+    }
+  ],
+  "passed": 18,
+  "failed": 0,
+  "businessAPI": "not-connected",
+  "postgresql": "not-run",
+  "note": "ID/title search and paging only affect fixture rows; global summary remains full-store",
+  "harnessCorrection": "Numeric page2 and next-page share the destination attribute; use accessible exact page number"
+}
