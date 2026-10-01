@@ -150,7 +150,7 @@ class StorePanoramaTests(TestCase):
         self.assertIsNone(result["sources"]["promotion"]["data"]["sections"]["summary"]["spendRate"]["value"])
         capabilities = {c["id"]: c for c in result["sections"]["traffic"]["capabilities"]}
         self.assertEqual(capabilities["conversion"]["status"], "unavailable")
-        self.assertEqual(capabilities["stay_time"]["reasonCode"], "dependency_pending")
+        self.assertEqual(capabilities["stay_time"]["reasonCode"], "unverified_source")
 
     def test_real_comparison_dates_are_owning_calendar_dates(self):
         self.product(day="2026-09-01", payment=3000)
@@ -190,10 +190,34 @@ class StorePanoramaTests(TestCase):
         self.product()
         token = self.read()["sectionToken"]
         self.assertEqual(self.read(sectionToken=token)["sectionToken"], token)
-        for changed in ({"q": "P1"}, {"outlet": "京东\x1fB"}):
+        for changed in ({"page": "2"}, {"section": "promotion"}):
+            with self.subTest(changed=changed):
+                response = self.read(sectionToken=token, **changed)
+                self.assertEqual(response["sectionToken"], token)
+                for key, value in changed.items():
+                    self.assertEqual(response["tableScope"][key], int(value) if key == "page" else value)
+        for changed in ({"q": "P1"}, {"pageSize": "10"}, {"outlet": "京东\x1fB"}):
             with self.subTest(changed=changed), self.assertRaises(NetshopApiError) as raised:
                 self.read(sectionToken=token, **changed)
             self.assertEqual(raised.exception.status, 409)
+
+    def test_add_cart_customers_uses_full_efficiency_field(self):
+        self.product()
+        response = self.read()
+        capabilities = {c["id"]: c for c in response["sections"]["traffic"]["capabilities"]}
+        self.assertEqual(capabilities["add_cart_customers"]["status"], "available")
+        self.assertEqual(response["sources"]["products"]["data"]["sections"]["efficiency"]["metrics"]["addCartCustomers"]["value"], 20)
+
+    def test_optional_raw_json_does_not_prove_customer_or_traffic_projection(self):
+        row = self.product(platform="天猫")
+        row.metrics_json.update(averageStaySeconds=20, bounceRate=.1, newTransactionCustomers=5, repeatTransactionCustomers=5)
+        row.save(update_fields=["metrics_json"])
+        response = self.read(platform="天猫", outlet="天猫\x1fA")
+        for section, names in (("traffic", ("stay_time", "bounce_rate")), ("customers", ("new_old_buyers",))):
+            capabilities = {c["id"]: c for c in response["sections"][section]["capabilities"]}
+            for name in names:
+                self.assertEqual(capabilities[name]["status"], "unavailable")
+                self.assertEqual(capabilities[name]["reasonCode"], "unverified_source")
 
     def test_actor_change_after_product_owner_finishes_fails_whole_read(self):
         self.product()
