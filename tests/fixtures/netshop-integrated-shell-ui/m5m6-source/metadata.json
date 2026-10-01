@@ -1,0 +1,39 @@
+{
+  "originalS": "E:\\codex-artifacts\\netshop-panorama-M5-20261001\\core\\panorama-pg-2cd4c2a49e977894d7d8\\response-owning-jd.json",
+  "originalSha256": "e8f7da2995b21c1cee2b986814ec65e854c7c57d7f43baea11922bfe845364c3",
+  "Squery": "platform=%E4%BA%AC%E4%B8%9C&outlet=%E4%BA%AC%E4%B8%9C%1FA&dimension=spu&startDate=2026-09-01&endDate=2026-09-01&periodKind=custom&q=&page=1&pageSize=5&section=performance&grain=day",
+  "owningHeader": "1:aaaaaaaaaaaa",
+  "actorFixture": {
+    "email": "panorama@example.test",
+    "displayName": "Synthetic",
+    "role": "viewer",
+    "scope": null,
+    "status": "active",
+    "version": 1
+  },
+  "files": {
+    "P": {
+      "path": "E:\\codex-artifacts\\netshop-panorama-M5-20261001\\lead\\owning-capture-e8f7\\P-owning-view.json",
+      "sha256": "78ca84855e73b4040f43bceba4f8c967d445b50d90012a0b9d357957168617a4",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&outlet=%E4%BA%AC%E4%B8%9C%1FA&dimension=spu&startDate=2026-09-01&endDate=2026-09-01&periodKind=custom&q=&page=1&pageSize=5&sort=payment_desc",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "kind": "unchanged JSON projection of nested owning envelope, not an independent HTTP capture"
+    },
+    "A": {
+      "path": "E:\\codex-artifacts\\netshop-panorama-M5-20261001\\lead\\owning-capture-e8f7\\A-owning-view.json",
+      "sha256": "86efc3c423719bb9cc569903e0ce60cbe88fc042486d1096e813b4b691b0eacd",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&outlet=%E4%BA%AC%E4%B8%9C%1FA&dimension=sku&startDate=2026-09-01&endDate=2026-09-01&periodKind=custom&q=&page=1&pageSize=5&objectKind=product&sort=spend_desc&trendGrain=day",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "kind": "unchanged JSON projection of nested owning envelope, not an independent HTTP capture"
+    },
+    "series": {
+      "path": "E:\\codex-artifacts\\netshop-panorama-M5-20261001\\lead\\owning-capture-e8f7\\series-owning-view.json",
+      "sha256": "5951c78f0400df18848425ee29e8b7eb34007f55405442a039015af0102816bb",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&outlet=%E4%BA%AC%E4%B8%9C%1FA&dimension=spu&startDate=2026-09-01&endDate=2026-09-01&periodKind=custom&grain=day",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "kind": "unchanged JSON projection of nested owning envelope, not an independent HTTP capture"
+    }
+  },
+  "syntheticPrivatePG": true,
+  "productionVerified": false
+}

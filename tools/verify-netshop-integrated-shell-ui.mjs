@@ -14,7 +14,7 @@ const root = process.cwd();
 const runId = `${new Date().toISOString().replace(/[-:.]/g, "")}-${randomUUID()}`;
 const role = process.env.NETSHOP_INTEGRATED_UI_ROLE || "I-harness-author";
 const phase = process.env.NETSHOP_INTEGRATED_UI_PHASE || "M3";
-assert.ok(["M3", "M4"].includes(phase), "Explicit integrated UI phase must be M3 or M4");
+assert.ok(["M3", "M4", "M5M6"].includes(phase), "Explicit integrated UI phase must be M3, M4 or M5M6; M7 remains gated by final sources");
 const parent = resolve(process.env.NETSHOP_INTEGRATED_UI_EVIDENCE_ROOT || "E:/codex-artifacts/netshop-scheme2-20261001/integrated-shell-ui");
 if (!/^E:[\\/]/i.test(parent)) throw new Error("Integrated UI evidence must use its external E drive directory");
 const evidence = resolve(parent, runId), runtime = resolve(evidence, "browser");
@@ -31,7 +31,7 @@ const entry = layoutStyles.map(path => `import '@/${path}';`).join("\n") + `
 import React from 'react';import {createRoot} from 'react-dom/client';
 import Home from '@/app/page';import {installIntegratedTransport} from '@/tests/fixtures/netshop-integrated-shell-ui/bootstrap.mjs';
 import {netshopColumnCapabilities,netshopColumnModules} from '@/app/netshop/shared/module-slots';
-installIntegratedTransport({phase:${JSON.stringify(phase)}});window.__integratedModules={products:!!netshopColumnModules.products,promotion:!!netshopColumnModules.promotion,exactPromotion:netshopColumnCapabilities.supportsPromotionProductDrill};
+installIntegratedTransport({phase:${JSON.stringify(phase)}});window.__integratedModules={products:!!netshopColumnModules.products,promotion:!!netshopColumnModules.promotion,panorama:!!netshopColumnModules.analysis,comparison:!!netshopColumnModules.platforms,exactPromotion:netshopColumnCapabilities.supportsPromotionProductDrill};
 createRoot(document.body).render(<Home/>);`;
 const checks = [], errors = [], consoleErrors = [], blockedNetwork = [];
 let browser, server, page, phaseResult;
@@ -46,6 +46,13 @@ try {
     inputs.push({ path, bytes: content.length, sha256: createHash("sha256").update(content).digest("hex") });
   }
   for (const path of ["app/layout.tsx", "tools/verify-netshop-integrated-shell-ui.mjs", "tools/verify-netshop-products-ui.mjs", ...(phase === "M4" ? ["tests/fixtures/netshop-integrated-shell-ui/m4-scenarios.mjs", "tests/fixtures/netshop-integrated-shell-ui/source6/manifest.json", "app/api/netshop/promotion-insights/route.ts", "app/api/netshop/promotion-insights/detail/route.ts"] : [])]) { const data = await readFile(resolve(root, path)); inputs.push({ path, bytes: data.length, sha256: createHash("sha256").update(data).digest("hex") }); }
+  if(phase==="M5M6"){
+    for(const path of ["tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs","app/api/netshop/store-panorama/route.ts","app/api/netshop/comparison-insights/route.ts","tests/fixtures/netshop-integrated-shell-ui/m5m6-source/metadata.json"]){const data=await readFile(resolve(root,path));inputs.push({path,bytes:data.length,sha256:createHash("sha256").update(data).digest("hex")});}
+    const metadata=JSON.parse(await readFile(resolve(root,"tests/fixtures/netshop-integrated-shell-ui/m5m6-source/metadata.json"),"utf8"));
+    const bytes=await readFile(resolve(root,"tests/fixtures/netshop-integrated-shell-ui/m5m6-source/response-owning-jd.json"));assert.equal(bytes.length,212544);assert.equal(createHash("sha256").update(bytes).digest("hex"),metadata.originalSha256);
+    for(const [key,record] of Object.entries(metadata.files)){const path=`tests/fixtures/netshop-integrated-shell-ui/m5m6-source/${key==="P"?"P-owning-view.json":key==="A"?"A-owning-view.json":"series-owning-view.json"}`,data=await readFile(resolve(root,path));assert.equal(createHash("sha256").update(data).digest("hex"),record.sha256);inputs.push({path,bytes:data.length,sha256:record.sha256});}
+    await save("actual-S-source-manifest.json",metadata);
+  }
   if (phase === "M4") {
     const manifest = JSON.parse(await readFile(resolve(root, "tests/fixtures/netshop-integrated-shell-ui/source6/manifest.json"), "utf8"));
     for (const record of manifest.records) { const data = await readFile(resolve(root, `tests/fixtures/netshop-integrated-shell-ui/source6/${record.name}.json`)); assert.equal(data.length, record.bytes); assert.equal(createHash("sha256").update(data).digest("hex"), record.sha256); }
@@ -77,7 +84,11 @@ try {
   });
   page = await context.newPage(); page.setDefaultTimeout(8000);
   await page.clock.setFixedTime(new Date("2026-10-01T04:00:00Z"));
-  if (phase === "M4") {
+  if (phase === "M5M6") {
+    const { runM5M6Scenarios } = await import("../tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs");
+    phaseResult = await runM5M6Scenarios({ page, context, origin, check, save, evidence, root });
+    await check("M5M6 real Home transport blocks unknown/external/write/model dispatch",async()=>{const telemetry=await page.evaluate(()=>window.__integrated);await save("transport.json",telemetry);assert.deepEqual(telemetry.blocked,[]);assert.deepEqual(telemetry.writeAttempts,[]);assert.deepEqual(telemetry.paidAttempts,[]);assert.deepEqual(blockedNetwork,[]);assert.deepEqual(errors,[]);assert.deepEqual(consoleErrors,[]);});
+  } else if (phase === "M4") {
     const { runM4Scenarios } = await import("../tests/fixtures/netshop-integrated-shell-ui/m4-scenarios.mjs");
     phaseResult = await runM4Scenarios({ page, context, origin, check, save, evidence, root });
     await check("M4 all tabs block unknown/external/write/interpret/paid dispatch and retain complete DTOs", async () => { const telemetry = await page.evaluate(() => window.__integrated); await save("transport.json", telemetry); assert.deepEqual(telemetry.blocked, []); assert.deepEqual(telemetry.fixturePending, []); assert.deepEqual(telemetry.writeAttempts, []); assert.deepEqual(telemetry.paidAttempts, []); assert.deepEqual(blockedNetwork, []); assert.deepEqual(errors, []); assert.deepEqual(consoleErrors, []); });
