@@ -122,10 +122,11 @@ def build_comparison_result(spec, sources, current, baseline, section_token, joi
         trend.append({"objectKey": item["objectKey"], **series, "indexBasis": {"status": "unavailable" if reason else "available", "reasonCode": reason, **basis}})
         counts = {p: item["structure"][p]["tradedProducts"] for p in ("current", "baseline")}
         structure.append({"objectKey": item["objectKey"], **{p: {k: v for k, v in item["structure"][p].items() if k not in {"dataProducts", "tradedProducts"}} for p in ("current", "baseline")}, "counts": counts})
-    lightweight = [{**{k: row[k] for k in ("objectKey", "kind", "platform", "shopName", "shopKeys", "qualification", "exclusionReasons")}, "currentPresence": sources["coverage"][row["current"][metric]["coverageRef"]]["coveredShopDatePairs"] > 0, "baselinePresence": sources["coverage"][row["baseline"][metric]["coverageRef"]]["coveredShopDatePairs"] > 0} for row in rows]
+    lightweight = [{**{k: row[k] for k in ("objectKey", "kind", "platform", "shopName", "shopKeys", "qualification", "exclusionReasons")}, "currentPresence": source["presence"]["current"], "baselinePresence": source["presence"]["baseline"]} for row, source in zip(rows, sources["objects"])]
     relationships = build_period_bindings(current, baseline)
     overlap = max(0, (min(date.fromisoformat(relationships[p]["endDate"]) for p in ("current", "baseline"))-max(date.fromisoformat(relationships[p]["startDate"]) for p in ("current", "baseline"))).days+1)
     limitations = ["完整授权两期候选按精确平台/店铺配对，平台及旗下店铺不混排累计", "不完整对象保留供核查，排列在可信对象后；增长/下降只对完整可比对象排序", "分类使用reference current来源标签cohort，不证明官方字典或两期历史分类", "本基期长度和重叠按实值披露，金额不按天数缩放，不伪造每日配对", "ERP拥有方比较consumer尚未就绪，订单/客单价/退货与毛利保持不可用", "商品成交订单为商品×日累计，不能称店铺去重订单或用作客单价分母", "跨平台商品访客/客户/成交订单累计与衍生效率仅并列，SKU/SPU及不同来源不当同口径店效率榜", "跨平台归因指标仅并列观察，不混合归因总额、评分或排名", "独立领域向量前后复验，不表示分布式原子快照"]
+    limitations.append("本期/基期记录标记只表示已纳入且可读的P/A记录并集，不依赖所选指标是否有值；错误或未映射来源仍未知，ERP待就绪不表示其记录不存在")
     if sources["sourceErrors"]:
         limitations += ["推广来源读取失败，独立商品章节保留；错误状态不等于无记录"]
     return {"schemaVersion": COMPARISON_SCHEMA, "currentContext": current, "baselineContext": baseline, "sectionToken": section_token,
