@@ -7,7 +7,7 @@ import {
 import { isNetshopIsoDate, NetshopQueryError } from "@/lib/netshop/query-contract";
 import { decodeProductInsights, ProductResponseError, type ProductInsightsResponse } from "../products/contract";
 import { decodePromotionInsightsForQuery, type PromotionInsightsResponse } from "@/lib/netshop/promotion-insights-contract";
-import { decodeProductScopeSeries, type ProductScopeSeries } from "@/lib/netshop/product-scope-series-contract";
+import { decodeProductScopeSeries, restoreProductScopeSeriesMetric, productSeriesColumns, type ProductScopeSeries } from "@/lib/netshop/product-scope-series-contract";
 
 export const PANORAMA_SCHEMA = "netshop-store-panorama-v1" as const;
 export const panoramaSections = ["performance", "traffic", "products", "promotion", "margin", "customers", "targets", "dataQuality"] as const;
@@ -248,7 +248,8 @@ function capabilityHasSource(section: PanoramaSectionKey, id: string, sources: S
   const promotionMetric: Record<string, keyof PromotionInsightsResponse["sections"]["summary"]> = { spend: "spend", attributed_payment: "attributedPayment", roas: "roas", cpc: "cpc", spend_rate: "spendRate" };
   if (id in promotionMetric) return available(a?.summary[promotionMetric[id]]);
   if (id === "visitor_value") return available(p?.efficiency.visitorValue);
-  if (["platform_trend", "platform_day_detail", "traffic_trend"].includes(id)) return !!series && series.series.current.length > 0;
+  if (id === "platform_trend" || id === "traffic_trend") return !!series && series.series.current.some(point => available(restoreProductScopeSeriesMetric(series, point, id === "platform_trend" ? "payment" : "visitors")));
+  if (id === "platform_day_detail") return !!series && series.series.current.some(point => productSeriesColumns.some(column => ["available", "partial"].includes(restoreProductScopeSeriesMetric(series, point, column).status)));
   if (id === "product_changes" || id === "growth_decline") return p?.growth.state === "ready" && available(p.comparisons.payment.previous);
   if (id === "traded_products") return available(p?.counts.tradedProducts);
   if (id === "category_contribution") return available(p?.structure.denominator);
