@@ -183,7 +183,7 @@ class ComparisonSignedGetTests(LiveServerTestCase):
             self.assertEqual(len(self.records[-1]["rpcCalls"]),5)
             self.assertTrue(all(call["sameOuterDeadline"] for call in self.records[-1]["rpcCalls"]))
         self.get_capture("signed-c-platform-quantity","/api/netshop/comparison-insights",self.query(**subset,comparisonScope=platform_scope,metricKey="erpNetQuantity",chartObjectKeys=["platform:京东","platform:天猫"]))
-        expanded={**values,"platform":"京东","comparisonScope":self.scope(metricSource="erp"),"metricKey":"erpNetSales","chartObjectKeys":[]}
+        expanded={**values,"platform":"京东","outlet":next(row["shopKeys"] for row in platform["sections"]["scale"]["items"] if row["platform"]=="京东"),"comparisonScope":self.scope(metricSource="erp"),"metricKey":"erpNetSales","chartObjectKeys":[]}
         expanded_result=self.get_capture("actual-owning-erp-platform-expanded-shops","/api/netshop/comparison-insights",self.query(**expanded))
         self.assertEqual(len(expanded_result["sections"]["scale"]["items"]),5)
         self.assertEqual({row["shopName"] for row in expanded_result["sections"]["scale"]["items"]},set(self.jd_names))
