@@ -180,6 +180,8 @@ function platformSeries(value:unknown,intent:SalesPlatformSeriesIntent,parent:Re
     if(present!==(records>0))fail("平台成员状态与两期记录不一致");
   }
   if(members.size>Number(count))fail("平台RAW集合超过父候选范围");
+  const coversExplicitScope=spec.rawOutlets.length>0&&spec.rawOutlets.every(id=>intent.platformNames.some(name=>name===id.platform));
+  if(coversExplicitScope&&members.size!==Number(count))fail("完整覆盖显式父范围的平台必须保留全部候选RAW成员");
   for(const value of parent.items as unknown[]){const row=record(value),id=identity(row.identity);if(intent.platformNames.some(name=>name===id.platform)&&!members.has(identityKey(id)))fail("平台遗漏父候选RAW成员");}
 }
 export function decodeSalesPeriodsForRequest(value: unknown, request: SalesPeriodsRequest | SalesPeriodsRpcRequest, revision: string | null): SalesPeriodsResponse {

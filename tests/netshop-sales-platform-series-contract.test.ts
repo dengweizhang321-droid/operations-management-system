@@ -28,6 +28,17 @@ test("native platform zero negative missing-order and no-record buckets retain o
   assert.equal(dto.platformSeries!.metricMetadata.cost.verification,"unverified_source");
   assert.equal(dto.platformSeries!.metricMetadata.cost.zeroCostVerification,"unknown");
 });
+test("complete explicit platform coverage rejects an omitted member outside the parent page",()=>{
+  const envelope=JSON.parse(readFileSync(new URL("registered-platform-max.json",directory),"utf8"));
+  const meta=JSON.parse(readFileSync(new URL("registered-platform-max.meta.json",directory),"utf8"));
+  const data=structuredClone(envelope.data),row=data.platformSeries.items.find((item:{platform:string})=>item.platform==="京东");
+  const hidden=row.rawMembers.find((id:{rawShopName:string})=>id.rawShopName==="J24");
+  assert.ok(hidden);assert.ok(!data.items.some((item:{identity:unknown})=>JSON.stringify(item.identity)===JSON.stringify(hidden)));
+  assert.equal(data.candidatePagination.candidateCount,50);
+  row.rawMembers=row.rawMembers.filter((id:unknown)=>JSON.stringify(id)!==JSON.stringify(hidden));row.rawCandidateCount--;
+  assert.equal(data.platformSeries.items.reduce((n:number,item:{rawCandidateCount:number})=>n+item.rawCandidateCount,0),49);
+  assert.throws(()=>decodeSalesPeriodsForRequest(data,meta.request,meta.headers["X-Sales-Data-Revision"]));
+});
 test("platform names are closed and mutually exclusive with original RAW series",()=>{
   const {request}=fixture("day");for(const value of [{...request,seriesPlatforms:[]},{...request,seriesPlatforms:["京东","京东"]},{...request,seriesPlatforms:[["京东"]]},{...request,seriesPlatforms:["ghost"]},{...request,seriesOutlets:[]},{...request,seriesGrain:["day"]}])assert.throws(()=>validateSalesPeriodsRequest(value));
 });

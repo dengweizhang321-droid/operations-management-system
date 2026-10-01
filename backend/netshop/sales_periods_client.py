@@ -203,6 +203,8 @@ def _decode_platform_series(value,intent,parent,spec):
                 _window(decoded["window"],window);_period(decoded["facts"],window);total_rows+=decoded["facts"]["rowCount"]
         if present!=(total_rows>0):_invalid("平台成员状态和两期桶记录不一致")
     if len(all_members)>parent["candidatePagination"]["candidateCount"]:_invalid("平台RAW完整集合超出父候选数量")
+    covers_explicit_scope=bool(spec["rawOutlets"]) and all(row["platform"] in intent["platformNames"] for row in spec["rawOutlets"])
+    if covers_explicit_scope and len(all_members)!=parent["candidatePagination"]["candidateCount"]:_invalid("完整覆盖显式父范围的平台必须保留全部候选RAW成员")
     for item in parent["items"]:
         if item["identity"]["platform"] in intent["platformNames"] and _identity_tuple(item["identity"])not in all_members:_invalid("平台遗漏父候选的精确RAW成员")
 
