@@ -45,6 +45,8 @@ class _DeadlineSocket:
         self._socket.settimeout(self._budget.remaining())
         try:
             value = self._socket.recv_into(buffer, nbytes, flags)
+        except InterruptedError:
+            raise
         except OSError:
             self._budget.remaining()
             raise
@@ -88,6 +90,10 @@ def _bounded_connection(address, budget, source_address=None):
             connection.connect(endpoint)
             budget.remaining()
             return connection
+        except InterruptedError:
+            if connection is not None:
+                connection.close()
+            raise
         except OSError as error:
             last_error = error
             if connection is not None:
@@ -182,6 +188,10 @@ def open_bounded_consumer_request(request, *, deadline, timeout_cap=None):
             # Keep authority status, but close its owned stream without reading
             # untrusted body bytes. No redirect destination was opened.
             error.close()
+            raise
+        except urllib.error.URLError as error:
+            if isinstance(error.reason, InterruptedError):
+                raise error.reason
             raise
         budget.remaining()
         yield response
