@@ -7,7 +7,8 @@ export async function runM6FullGates({page,open,ready,records,first,check,save,e
  const results=[],find=name=>{const r=records.find(r=>r.name===name);assert.ok(r,"Missing original capture "+name);return r;};
  let journal;
  const source=(record,path)=>{let v=record.body;for(const k of path)v=v?.[k];assert.notEqual(v,undefined,"Original source field missing: "+record.name+":"+path.join("."));journal.sources.push({capture:record.name,sha256:record.sha256,seed:record.seed,query:record.query,path,value:v});return v;};
- const act=async(name,fn)=>{journal.actions.push(name);await fn();};
+ const snapshot=async()=>({url:page.url(),comparisonText:await page.locator(".netshop-comparison").innerText().catch(()=>null)});
+ const act=async(name,fn)=>{const action={name,before:await snapshot()};journal.actions.push(action);try{await fn();}finally{action.after=await snapshot();}};
  const verified=(name,fn)=>{fn();journal.assertions.push(name);};
  const served=async record=>{await page.waitForFunction(name=>window.__m6.served.at(-1)?.fixture===name,record.name);await ready();const reply=await page.evaluate(()=>window.__m6.served.at(-1));verified("Exact original query identity/header and unprojected bytes "+record.name,()=>{assert.equal(reply.sha256,record.sha256);assert.equal(reply.noBodyProjection,true);assert.equal(reply.completeOriginalQuery,true);});};
  const format=metric=>page.evaluate(m=>window.__m6Display.formatComparisonMetric(m),metric);
@@ -22,7 +23,7 @@ export async function runM6FullGates({page,open,ready,records,first,check,save,e
  await gate("fiveOldNavAndOERP",async()=>{
   source(first,["currentContext","requestedScope"]);await start(first);
   const mapping=[["网店总览","outlets"],["店铺分析","analysis"],["平台对比","platforms"],["推广分析","promotion"],["商品表现","products"]];
-  for(const [label,view] of mapping){await act("Actual old navigation "+label,()=>page.getByRole("tab",{name:label,exact:true}).click());await page.getByRole("tab",{name:label,exact:true,selected:true}).waitFor();verified("Old view value "+view,()=>assert.equal(new URL(page.url()).searchParams.get("view"),view));
+  for(const [label,view] of mapping){await act("Actual old navigation "+label,()=>page.getByRole("tab",{name:label,exact:true}).click());await page.getByRole("tab",{name:label,exact:true,selected:true}).waitFor();const location=await page.evaluate(()=>window.__m6ReadLocation());verified("Original parser old view value "+view,()=>assert.equal(location.shell.view,view));
    if(view==="outlets")for(const mode of["旧视图","新视图"])await act("Actual O "+mode,()=>page.getByRole("button",{name:mode,exact:true}).click());
    if(view==="analysis"){await act("Actual original ERP entry",()=>page.getByRole("button",{name:"原ERP分析",exact:true}).click());verified("Legacy ERP mode",()=>assert.equal(new URL(page.url()).searchParams.get("shopAnalysisMode"),"legacy"));await act("Actual panorama entry",()=>page.getByRole("button",{name:"店铺全景",exact:true}).click());}
   }
@@ -90,7 +91,7 @@ export async function runM6FullGates({page,open,ready,records,first,check,save,e
   await act("Actual C → "+kind+" exact platform topic",()=>selector.click());await page.waitForFunction(view=>new URL(location.href).searchParams.get("view")===view,kind);
   const endpoint=kind==="products"?"/api/netshop/product-insights":"/api/netshop/promotion-insights";
   await page.waitForFunction(path=>window.__m6.calls.some(c=>c.path===path),endpoint);
-  const url=new URL(page.url()),outlets=url.searchParams.getAll("shopOutlet");verified("Drill keeps original platform, outlets, dates and dimension",()=>{assert.equal(url.searchParams.get("shopPlatform"),"京东");assert.deepEqual(outlets,r.body.sections.scale.items.find(x=>x.objectKey==="platform:京东").shopKeys);assert.equal(url.searchParams.get("shopDimension"),r.body.currentContext.requestedScope.dimension);assert.equal(url.searchParams.get("from"),r.body.currentContext.periods.current.startDate);assert.equal(url.searchParams.get("to"),r.body.currentContext.periods.current.endDate);});
+  const url=new URL(page.url()),location=await page.evaluate(()=>window.__m6ReadLocation()),outlets=url.searchParams.getAll("shopOutlet");verified("Drill keeps original platform, outlets, dates and original parser dimension",()=>{assert.equal(url.searchParams.get("shopPlatform"),"京东");assert.deepEqual(outlets,r.body.sections.scale.items.find(x=>x.objectKey==="platform:京东").shopKeys);assert.equal(location.shop.dimension,r.body.currentContext.requestedScope.dimension);assert.equal(url.searchParams.get("from"),r.body.currentContext.periods.current.startDate);assert.equal(url.searchParams.get("to"),r.body.currentContext.periods.current.endDate);});
   const calls=await page.evaluate(()=>window.__m6.pending),missing=calls.filter(c=>c.path===endpoint);
   journal.observedMissingDirect=missing.map(c=>({endpoint:c.path,query:new URLSearchParams(c.query).toString(),reason:c.reason}));
   if(!missing.length){
@@ -116,7 +117,13 @@ export async function runM6FullGates({page,open,ready,records,first,check,save,e
   }
  });
  await gate("accountScope",async()=>{
-  await start(first);source(first,["currentContext","requestedScope"]);source(find("signed-c-revoked"),["code"]);await act("Switch synthetic restricted principal via actual auth reload",async()=>{await page.evaluate(()=>sessionStorage.setItem("m6-user","B"));await page.reload();});await page.waitForFunction(()=>document.body.innerText.includes("权限"));const protectedRows=await page.locator(".nc-table-group").count(),rawEvidence=await page.locator(".nc-erp-owned-evidence").count(),serves=await page.evaluate(()=>window.__m6.served.length);verified("Prior account protected body clears and B receives no original A body",()=>{assert.equal(protectedRows,0);assert.equal(rawEvidence,0);assert.equal(serves,0);});journal.scope="Actual Home auth invalidation with synthetic principal; backend signed permission proofs remain in original corpus";await page.evaluate(()=>sessionStorage.setItem("m6-user","A"));
+  await start(first);source(first,["currentContext","requestedScope"]);const revoked=find("signed-c-revoked");source(revoked,["code"]);
+  await act("Switch synthetic restricted principal via actual auth reload",async()=>{await page.evaluate(()=>sessionStorage.setItem("m6-user","B"));await page.reload();});
+  await page.waitForFunction(()=>document.body.innerText.includes("当前账号或范围无权读取对比数据（403）"));
+  const protectedRows=await page.locator(".nc-table-group").count(),rawEvidence=await page.locator(".nc-erp-owned-evidence").count(),serves=await page.evaluate(()=>window.__m6.served.length),denied=await page.evaluate(()=>window.__m6.faultReplies.find(r=>r.status===403));
+  verified("Original 403 status/body/header provenance",()=>{assert.ok(denied);assert.equal(denied.capture,revoked.name);assert.equal(denied.sha256,revoked.sha256);assert.equal(denied.originalRaw,true);assert.deepEqual(denied.headers,revoked.headers);});
+  verified("Prior account protected body clears and B receives no original A body",()=>{assert.equal(protectedRows,0);assert.equal(rawEvidence,0);assert.equal(serves,0);});
+  journal.scope="Actual Home auth invalidation with synthetic principal; backend signed permission proofs remain in original corpus";await page.evaluate(()=>sessionStorage.setItem("m6-user","A"));
  });
  await save("full-gates.json",{results});const unresolved=results.filter(r=>r.status!=="passed");
  if(unresolved.length){await save("full-gates-pending.json",{unresolved:unresolved.map(r=>({gate:r.gate,status:r.status,error:r.error,requiredCaptures:r.requiredCaptures,lastCalls:r.lastCalls})),allElevenRequired:true});throw new Error("M6 full gates unresolved: "+unresolved.map(r=>r.gate+":"+r.status).join(","));}
