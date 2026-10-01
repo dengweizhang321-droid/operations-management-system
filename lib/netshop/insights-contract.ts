@@ -125,13 +125,15 @@ export function validateContextQuery(params: URLSearchParams) {
   return { platforms, shops, window: w, kind, dimension };
 }
 function windowValue(v: unknown, maximumDays = 366): InsightWindow {
-  const w = record(v), actual = resolveNetshopQueryPeriod(String(w.startDate), String(w.endDate), maximumDays);
+  const w = record(v);
+  if (typeof w.startDate !== "string" || typeof w.endDate !== "string" || typeof w.endExclusive !== "string") return fail("共享比较日期须为原始字符串");
+  const actual = resolveNetshopQueryPeriod(w.startDate, w.endDate, maximumDays);
   if (!actual || actual.endExclusive !== w.endExclusive || actual.days !== w.days) return fail("共享比较日期无效");
   return w as InsightWindow;
 }
 function scopeValue(v: unknown): InsightScope {
   const s = record(v);
-  if (!Array.isArray(s.platforms) || !s.platforms.length || s.platforms.length > 2 || new Set(s.platforms).size !== s.platforms.length || s.platforms.some(p => !["天猫", "京东"].includes(String(p))) || !Array.isArray(s.shopKeys) || s.shopKeys.length > 50 || new Set(s.shopKeys).size !== s.shopKeys.length || !s.shopKeys.every(k => typeof k === "string") || !["sku", "spu"].includes(String(s.dimension)) || s.dimension === "sku" && s.platforms.includes("天猫") || !periodKinds.includes(s.periodKind as typeof periodKinds[number])) return fail("共享响应范围无效");
+  if (!Array.isArray(s.platforms) || !s.platforms.length || s.platforms.length > 2 || new Set(s.platforms).size !== s.platforms.length || s.platforms.some(p => typeof p !== "string" || !["天猫", "京东"].includes(p)) || !Array.isArray(s.shopKeys) || s.shopKeys.length > 50 || new Set(s.shopKeys).size !== s.shopKeys.length || !s.shopKeys.every(k => typeof k === "string") || typeof s.dimension !== "string" || !["sku", "spu"].includes(s.dimension) || s.dimension === "sku" && s.platforms.includes("天猫") || typeof s.periodKind !== "string" || !periodKinds.includes(s.periodKind as typeof periodKinds[number])) return fail("共享响应范围无效");
   if (readNetshopOutletFilters(s.shopKeys as string[]).some(o => !(s.platforms as string[]).includes(o.platform))) return fail("店铺平台与范围不一致");
   return s as InsightScope;
 }
@@ -181,7 +183,7 @@ export function decodeInsightsContext(v: unknown): InsightsContext {
   for (const raw of p.capabilities) {
     const c = record(raw), coverage = record(coverages[String(c.coverageRef)]), key = JSON.stringify([c.sourceId, c.period, c.field]);
     const fields = String(c.sourceId).includes("promotion") ? ["spend", "attributedPayment"] : ["payment", "visitors", "customers", "quantity", "addCartCustomers"];
-    if (!text(c.sourceId) || !sources.includes(c.sourceId) || !["current", "previous", "yearAgo"].includes(String(c.period)) || !fields.includes(String(c.field)) || c.coverageRef !== `${c.sourceId}:${c.period}` || !integer(c.presentShopDatePairs, Number(coverage.coveredShopDatePairs)) || !["available", "unavailable"].includes(String(c.status)) || c.status === "available" && (c.reasonCode !== null || !coverage.complete || c.presentShopDatePairs !== coverage.expectedShopDatePairs) || c.status === "unavailable" && !["missing_field", "missing_day", "no_records"].includes(String(c.reasonCode)) || capabilities.has(key)) return fail("字段能力与覆盖不一致"); capabilities.add(key);
+    if (!text(c.sourceId) || !sources.includes(c.sourceId) || typeof c.period !== "string" || !["current", "previous", "yearAgo"].includes(c.period) || typeof c.field !== "string" || !fields.includes(c.field) || c.coverageRef !== `${c.sourceId}:${c.period}` || !integer(c.presentShopDatePairs, Number(coverage.coveredShopDatePairs)) || typeof c.status !== "string" || !["available", "unavailable"].includes(c.status) || c.status === "available" && (c.reasonCode !== null || !coverage.complete || c.presentShopDatePairs !== coverage.expectedShopDatePairs) || c.status === "unavailable" && (typeof c.reasonCode !== "string" || !["missing_field", "missing_day", "no_records"].includes(c.reasonCode)) || capabilities.has(key)) return fail("字段能力与覆盖不一致"); capabilities.add(key);
   }
   if (!Array.isArray(p.freshness) || p.freshness.length !== sources.length || new Set(p.freshness.map(raw => record(raw).sourceId)).size !== sources.length || !p.freshness.every(raw => { const r = record(raw); return typeof r.sourceId === "string" && sources.includes(r.sourceId) && (r.dataThrough === null || typeof r.dataThrough === "string" && isNetshopIsoDate(r.dataThrough)); }) || !Array.isArray(p.limitations) || p.limitations.length > 20 || !p.limitations.every(s => text(s, 500))) return fail("来源截止或限制无效");
   return p as InsightsContext;
