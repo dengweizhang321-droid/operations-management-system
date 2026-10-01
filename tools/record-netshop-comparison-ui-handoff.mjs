@@ -9,10 +9,12 @@ const runId=`handoff-${new Date().toISOString().replace(/[-:.]/g,"")}-${randomUU
 await mkdir(target); const preserved=[];
 const hash=value=>createHash("sha256").update(value).digest("hex");
 async function preserve(path){
- const source=resolve(root,path),value=await readFile(source),destination=resolve(target,"ignored",path);
+ const source=resolve(root,path),ownedPath=relative(root,source);
+ if(ownedPath.startsWith("..")||!ownedPath)throw Error("Evidence source escaped the C workspace");
+ const value=await readFile(source),destination=resolve(target,"ignored",ownedPath);
  await mkdir(resolve(destination,".."),{recursive:true}); await writeFile(destination,value,{flag:"wx"});
  const copy=await readFile(destination);if(hash(copy)!==hash(value))throw Error(`Evidence copy mismatch: ${path}`);
- preserved.push({path,size:value.length,sha256:hash(value),preserved:relative(target,destination)});
+ preserved.push({path:ownedPath,size:value.length,sha256:hash(value),preserved:relative(target,destination)});
 }
 async function walk(path){for(const entry of await readdir(resolve(root,path),{withFileTypes:true})){const next=resolve(path,entry.name);if(entry.isDirectory())await walk(next);else await preserve(relative(root,next));}}
 for(const entry of await readdir(resolve(root,".runtime"),{withFileTypes:true})){if(entry.isDirectory()&&entry.name.startsWith("comparison-ui-"))await walk(resolve(".runtime",entry.name));else if(entry.isFile()&&/^comparison-tsc.*\.txt$/.test(entry.name))await preserve(resolve(".runtime",entry.name));}
