@@ -16,7 +16,7 @@
 .sp-filter{display:grid;gap:5px;min-width:0;font-size:var(--font-size-label,13px);color:var(--sp-secondary)}
 .sp-shop-select{flex:1 1 340px;max-width:460px}
 .sp-filter input,.sp-filter select,.sp-date-trigger{border:1px solid var(--sp-line);border-radius:7px;padding:7px 10px;min-height:36px;background:var(--sp-panel);color:var(--sp-text);max-width:100%}
-.sp-date-selector{position:relative}
+.netshop-panorama .sp-date-selector{position:relative;display:grid;align-items:stretch;height:auto;min-height:0;min-width:0;padding:0;border:0;border-radius:0;background:transparent}
 .sp-date-selector .stat-period-picker{z-index:40}
 .sp-checks{border:0;margin:0;padding:0;font-size:var(--font-size-label,13px)}
 .sp-checks legend{padding:0;color:var(--sp-secondary);font-size:var(--font-size-label,13px);margin-bottom:5px}
