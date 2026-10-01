@@ -31,7 +31,7 @@
 .nc-section-number { color:var(--color-text-muted,#65756b); font-size:var(--font-size-caption,12px); font-weight:400; margin-right:7px; }
 .nc-card-head { margin-bottom:14px; }
 .nc-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:16px; }
-.nc-kpi { border:1px solid var(--color-border-default,#dde5df); border-radius:7px; padding:13px; min-width:0; }
+.nc-kpi { background:var(--color-bg-surface,#fff); border:1px solid var(--color-border-default,#dde5df); border-radius:7px; padding:13px; min-width:0; }
 .nc-kpi .insights-metric > strong { font-size:var(--font-size-kpi,24px); }
 .nc-kpi-foot { color:var(--color-text-muted,#65756b); font-size:var(--font-size-caption,12px); margin-top:8px; line-height:1.6; }
 .nc-pill { display:inline-block; font-size:var(--font-size-caption,12px); border-radius:5px; background:var(--color-bg-subtle,#eef4ef); color:var(--color-brand,#3b654b); padding:3px 7px; white-space:nowrap; }
