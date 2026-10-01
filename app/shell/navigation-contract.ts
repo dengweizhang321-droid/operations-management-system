@@ -7,7 +7,7 @@ import {
   type ModuleViewKey,
 } from "./navigation-catalog";
 import { normalizeModuleView, parseModuleView } from "./module-view-contract";
-import { defaultShopLocationContext, parseShopLocationContext, writeShopLocationContext, shopContextKeys, validShopReturn, type ShopLocationContext } from "./shop-context";
+import { defaultShopLocationContext, parseShopLocationContext, writeShopLocationContext, shopContextKeys, validShopReturn, type ShopLocationContext, type ShopDrillScope } from "./shop-context";
 import { encodeProductIdentity, type ProductIdentity } from "@/lib/netshop/insights-contract";
 
 export const shellPeriodKeys = [
@@ -175,7 +175,9 @@ function writeShellState<M extends ModuleKey>(url: URL, state: ShellLocationInpu
       nextShop.returnOrigin = null;
       nextShop.productsPrefs = null;
       nextShop.promotionPrefs = null;
+      nextShop.comparisonPrefs = null;
     }
+    if (view !== "platforms") { nextShop.comparisonIntent = null; nextShop.comparisonPrefs = null; }
     writeShopLocationContext(url.searchParams, nextShop);
   }
 
@@ -249,22 +251,41 @@ export function updateShopContextLocation(input: string | URL, patch: Partial<Sh
   const next = { ...before, ...patch };
   const params = new URLSearchParams(); writeShopLocationContext(params, next);
   const canonical = parseShopLocationContext(params);
-  const scope = (v: ShopLocationContext) => JSON.stringify([v.platforms, v.outlets, v.dimension, v.category, v.q, v.pageSize]);
+  const scope = (v: ShopLocationContext) => JSON.stringify([v.platforms, v.outlets, v.dimension, v.category, v.q, v.pageSize, v.comparisonIntent ?? null]);
   if (scope(before) !== scope(canonical)) canonical.page = 1;
   if (JSON.stringify([before.platforms, before.outlets, before.dimension]) !== JSON.stringify([canonical.platforms, canonical.outlets, canonical.dimension])) {
     canonical.returnTo = null;
     canonical.returnOrigin = null;
     canonical.productsPrefs = null;
     canonical.promotionPrefs = null;
+    canonical.comparisonPrefs = null;
+    if (canonical.comparisonIntent && !Object.hasOwn(patch, "comparisonIntent")) canonical.comparisonIntent = { ...canonical.comparisonIntent, category: { mode: "all" } };
   }
   if ((before.productsPrefs?.sort ?? "payment_desc") !== (canonical.productsPrefs?.sort ?? "payment_desc")) canonical.page = 1;
   const catalog = (context: ShopLocationContext) => context.productsPrefs?.catalogFilters ?? { status: "all", quality: "all", mapping: "all" };
   if (JSON.stringify(catalog(before)) !== JSON.stringify(catalog(canonical))) canonical.page = 1;
   if ((before.promotionPrefs?.sort ?? "spend_desc") !== (canonical.promotionPrefs?.sort ?? "spend_desc") || JSON.stringify(before.promotionPrefs?.objectDateFocus ?? null) !== JSON.stringify(canonical.promotionPrefs?.objectDateFocus ?? null)) canonical.page = 1;
+  if (JSON.stringify(before.comparisonIntent ?? null) !== JSON.stringify(canonical.comparisonIntent ?? null) && !Object.hasOwn(patch, "comparisonPrefs")) canonical.comparisonPrefs = null;
+  if ((before.comparisonPrefs?.sort ?? "") !== (canonical.comparisonPrefs?.sort ?? "") || (before.comparisonPrefs?.metricKey ?? "") !== (canonical.comparisonPrefs?.metricKey ?? "")) canonical.page = 1;
   return serializeShellLocation({ module: "shop", view: state.module === "shop" ? state.view as ModuleViewKey<"shop"> : "analysis", period: state.period, shop: canonical }, input);
 }
-export function drillShopLocation(input: string | URL, view: ModuleViewKey<"shop">, product: ProductIdentity | null, section = ""): string {
+export function drillShopLocation(input: string | URL, view: ModuleViewKey<"shop">, product: ProductIdentity | null, section = "", scopePatch?: ShopDrillScope): string {
   const state = parseShellLocation(input), before = state.shop ?? defaultShopLocationContext;
+  let outboundScope: ShopDrillScope | undefined;
+  if (scopePatch) {
+    const draft = new URLSearchParams();
+    writeShopLocationContext(draft, { ...defaultShopLocationContext, ...scopePatch });
+    const normalized = parseShopLocationContext(draft);
+    const sameKeys = (a: readonly string[], b: readonly string[]) => JSON.stringify([...new Set(a)].sort()) === JSON.stringify([...new Set(b)].sort());
+    // A malformed or broader patch must not normalize to "all shops".
+    if (!normalized.platforms.length || !sameKeys(scopePatch.platforms, normalized.platforms) || !sameKeys(scopePatch.outlets, normalized.outlets)
+      || before.platforms.length && normalized.platforms.some(p => !before.platforms.includes(p))
+      || before.outlets.length && normalized.outlets.some(key => !before.outlets.includes(key))) return toRelativeUrl(toUrl(input));
+    const outlets = normalized.outlets.length || !before.outlets.length ? normalized.outlets : before.outlets.filter(key => normalized.platforms.some(p => key.startsWith(p+"\u001f")));
+    if (before.outlets.length && !outlets.length) return toRelativeUrl(toUrl(input));
+    if (product && (!normalized.platforms.includes(product.platform) || outlets.length && !outlets.includes(product.platform+"\u001f"+product.shopName))) return toRelativeUrl(toUrl(input));
+    outboundScope = { platforms: normalized.platforms, outlets };
+  }
   // Following the same exact product back from A restores the original P
   // detail and its flat list origin instead of creating another return level.
   if (state.module === "shop" && state.view === "promotion" && view === "products" && product && before.returnTo) {
@@ -273,7 +294,7 @@ export function drillShopLocation(input: string | URL, view: ModuleViewKey<"shop
   }
   const returnTo = serializeShellLocation({ module: "shop", view: state.module === "shop" ? state.view as ModuleViewKey<"shop"> : "analysis", period: state.period, ...(state.overview ? { overview: state.overview } : {}), shop: { ...before, returnTo: null, returnOrigin: null } }, "/");
   const returnOrigin = state.module === "shop" && state.view === "products" && before.product && view === "promotion" ? validShopReturn(before.returnTo) : null;
-  const shop = { ...before, product, section, page: 1, returnTo, returnOrigin, ...(state.module === "shop" && state.view !== view ? { q: "", category: "" } : {}), ...(product ? { platforms: [product.platform], outlets: [product.platform+"\u001f"+product.shopName], dimension: product.dimension } : {}) };
+  const shop = { ...before, ...outboundScope, product, section, page: 1, returnTo, returnOrigin, ...(state.module === "shop" && state.view !== view ? { q: "", category: "" } : {}), ...(product ? { platforms: [product.platform], outlets: [product.platform+"\u001f"+product.shopName], dimension: product.dimension } : {}) };
   return serializeShellLocation({ module: "shop", view, period: state.period, shop }, input);
 }
 export function returnShopLocation(input: string | URL): string {
