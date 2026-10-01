@@ -8,7 +8,8 @@
 .nc-heading p,.nc-caption,.nc-card-head p { color:var(--color-text-muted,#65756b); font-size:var(--font-size-caption,12px); line-height:1.7; margin:4px 0; }
 .nc-eyebrow { color:var(--color-brand,#3b654b); font-size:var(--font-size-label,13px); margin-bottom:6px; }
 .nc-controls { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px 18px; width:100%; }
-.nc-controls > label { display:grid; gap:6px; font-size:var(--font-size-label,13px); color:var(--color-text-muted,#65756b); min-width:0; }
+.nc-controls > label { display:grid; grid-template-columns:minmax(0,1fr); gap:6px; font-size:var(--font-size-label,13px); color:var(--color-text-muted,#65756b); min-width:0; }
+.nc-controls select { width:100%; min-width:0; }
 .nc-controls :is(select,button,input) { min-height:34px; padding:6px 10px; border:1px solid var(--color-border-default,#dde5df); border-radius:6px; background:var(--color-bg-surface,#fff); color:var(--color-text-primary,#26392d); max-width:100%; }
 .nc-date { position:relative; }
 .nc-date.date-selector { height:auto; min-width:0; padding:0; border:0; border-radius:0; background:transparent; }
@@ -35,6 +36,7 @@
 .nc-pill { display:inline-block; font-size:var(--font-size-caption,12px); border-radius:5px; background:var(--color-bg-subtle,#eef4ef); color:var(--color-brand,#3b654b); padding:3px 7px; white-space:nowrap; }
 .nc-pill[data-coverage="partial"] { color:#8b672c; background:#faf3e6; }
 .nc-pill[data-coverage="unavailable"] { color:var(--color-text-muted,#65756b); background:var(--color-bg-subtle,#f3f5f3); }
+.nc-pill[data-coverage="incomparable"] { color:var(--color-text-secondary,#526959); background:var(--color-bg-subtle,#f3f5f3); }
 .nc-table-scroll { max-width:100%; overflow:auto; border:1px solid var(--color-border-default,#dde5df); border-radius:6px; }
 .nc-table { width:100%; border-collapse:separate; border-spacing:0; white-space:nowrap; font-size:var(--font-size-label,13px); }
 .nc-table th,.nc-table td { text-align:right; padding:11px 13px; border-bottom:1px solid var(--color-border-default,#e8ede9); }
