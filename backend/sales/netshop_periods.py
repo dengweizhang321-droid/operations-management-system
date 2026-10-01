@@ -77,7 +77,7 @@ def _window(value):
 
 def validate_netshop_periods(payload):
     required = {"operation", "current", "baseline"}
-    allowed = required | {"rawOutlets", "categories", "q", "page", "pageSize", "expectedRevision", "snapshotToken", "expiresAtEpochMs"}
+    allowed = required | {"rawOutlets", "categories", "q", "page", "pageSize", "expectedRevision", "snapshotToken", "expiresAtEpochMs", "seriesGrain", "seriesOutlets"}
     if type(payload) is not dict or set(payload) - allowed or required - set(payload) or payload["operation"] != OPERATION:
         raise NetshopPeriodsError("销售两期请求包含未知、缺少或错误字段")
     result = {"operation": OPERATION, "current": _window(payload["current"]), "baseline": _window(payload["baseline"])}
@@ -94,6 +94,20 @@ def validate_netshop_periods(payload):
             raise NetshopPeriodsError("原始销售三元组不能重复")
         seen.add(key); identities.append(row)
     result["rawOutlets"] = sorted(identities, key=lambda item: tuple(item[key].encode() for key in IDENTITY_FIELDS))
+    if "seriesGrain" in payload or "seriesOutlets" in payload:
+        if type(payload.get("seriesGrain")) is not str or payload["seriesGrain"] not in {"day", "week", "month"} or type(payload.get("seriesOutlets")) is not list or not 1 <= len(payload["seriesOutlets"]) <= 4:
+            raise NetshopPeriodsError("图形序列须同时提供真实粒度及1—4个精确RAW对象")
+        selected, selected_keys = [], set()
+        for item in payload["seriesOutlets"]:
+            if type(item) is not dict or set(item) != set(IDENTITY_FIELDS):
+                raise NetshopPeriodsError("图形序列身份必须是完整RAW三元组")
+            row = {key: _text(item[key], 200, empty=key == "rawShopName") for key in IDENTITY_FIELDS}
+            key = tuple(row.values())
+            if key in selected_keys or seen and key not in seen:
+                raise NetshopPeriodsError("图形序列对象重复或越出显式完整请求范围")
+            selected_keys.add(key); selected.append(row)
+        result["seriesGrain"] = payload["seriesGrain"]
+        result["seriesOutlets"] = sorted(selected, key=lambda item: tuple(item[key].encode() for key in IDENTITY_FIELDS))
     categories = payload.get("categories", [])
     if type(categories) is not list or len(categories) > 50:
         raise NetshopPeriodsError("来源类目标签最多50项")
@@ -264,6 +278,7 @@ def read_netshop_periods(principal: Principal, request, *, deadline=None):
                 raise NetshopPeriodsError("销售内部窗口与真实日期不一致")
             wire[key] = plain
     spec = validate_netshop_periods(wire)
+    if "seriesGrain" in spec: spec["seriesIntent"] = {"grain":spec["seriesGrain"],"rawOutlets":spec["seriesOutlets"]}
     if "expiresAtEpochMs" in spec:
         remaining = (spec["expiresAtEpochMs"] - time.time() * 1000) / 1000
         deadline = min(deadline, time.monotonic() + remaining)
@@ -273,6 +288,7 @@ def read_netshop_periods(principal: Principal, request, *, deadline=None):
         if spec["expectedRevision"] is not None and spec["expectedRevision"] != before:
             raise NetshopPeriodsError("销售/ERP拥有方版本已变化", code="sales_periods_revision_changed", status=409)
         scope = {key: spec[key] for key in ("current", "baseline", "rawOutlets", "categories")}
+        if "seriesIntent" in spec: scope["seriesIntent"] = spec["seriesIntent"]
         scope_key = _digest({"schema": SCHEMA, "scope": scope, "actor": actor})
         token = _digest({"schema": SCHEMA, "scopeKey": scope_key, "revision": before})
         if spec["snapshotToken"] is not None and spec["snapshotToken"] != token:
@@ -343,6 +359,9 @@ def read_netshop_periods(principal: Principal, request, *, deadline=None):
                                       "costCents": "原持久化typed成本有符号整数分；非空列不证明导入原字段presence、历史成本或历史商品映射。0可为原真零、豁免或SYSTEM_COST_UNRESOLVED，未做逐行历史验证",
                                       "orders": "仅可信ERP原order_no按精确来源三元组去重，不用online_order_no或source_line_key；均值不是支付客户客单价",
                                       "category": "resolved_category来源标签，非官方或历史分类ID"}}
+        if "seriesIntent" in spec:
+            from .netshop_period_series import read_period_series
+            result["series"] = read_period_series(base, spec, scope_key, before, deadline=deadline)
         raw = _canonical(result).encode()
         if len(raw) > MAX_BYTES:
             raise NetshopPeriodsError("销售两期完整响应超过2MiB，请缩小范围或分页", code="response_too_large", status=413)
