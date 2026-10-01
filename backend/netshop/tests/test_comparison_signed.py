@@ -177,6 +177,18 @@ class ComparisonSignedGetTests(LiveServerTestCase):
         self.assertEqual(page2["sections"]["scale"]["summary"],result["sections"]["scale"]["summary"])
         self.assertEqual(page2["sections"]["comparability"]["counts"],result["sections"]["comparability"]["counts"])
         self.assertFalse({row["objectKey"] for row in result["sections"]["scale"]["items"]}&{row["objectKey"] for row in page2["sections"]["scale"]["items"]})
+        ascending=self.get_capture("signed-c-sort-value-asc","/api/netshop/comparison-insights",self.query(**values,sort="value_asc"))
+        self.assertNotEqual(ascending["sectionToken"],result["sectionToken"])
+        self.assertEqual(ascending["sections"]["scale"]["summary"],result["sections"]["scale"]["summary"])
+        self.assertEqual(ascending["sections"]["comparability"]["counts"],result["sections"]["comparability"]["counts"])
+        ascending_page2=self.get_capture("signed-c-sort-value-asc-page2","/api/netshop/comparison-insights",self.query(**values,sort="value_asc",page=2,sectionToken=ascending["sectionToken"]))
+        self.assertEqual(ascending_page2["sectionToken"],ascending["sectionToken"])
+        self.assertEqual((ascending_page2["sections"]["scale"]["pagination"]["total"],len(ascending_page2["sections"]["scale"]["items"])),(25,5))
+        self.assertEqual(ascending_page2["sections"]["scale"]["summary"],ascending["sections"]["scale"]["summary"])
+        self.assertFalse({row["objectKey"] for row in ascending["sections"]["scale"]["items"]}&{row["objectKey"] for row in ascending_page2["sections"]["scale"]["items"]})
+        qualified_values=[row["current"]["payment"]["value"] for row in ascending["sections"]["scale"]["items"]+ascending_page2["sections"]["scale"]["items"] if row["qualification"]["comparable"]]
+        self.assertEqual(qualified_values,sorted(qualified_values))
+        self.get_capture("signed-c-unsupported-q","/api/netshop/comparison-insights",self.query(**values,q="synthetic"),status=400)
         self.get_capture("signed-c-partial","/api/netshop/comparison-insights",self.query(**values,comparisonScope=self.scope(coverageFilter="partial")))
         subset={**values,"outlet":self.base_keys}
         platform_scope=self.scope(mode="platform",metricSource="erp")
