@@ -102,6 +102,20 @@
 .sp-chart .promotion-chart-legend,.sp-chart .promotion-chart-dates,.sp-chart .promotion-trend-detail{font-size:var(--font-size-caption,12px)}
 .sp-chart .promotion-chart{min-height:190px}
 .sp-chart .promotion-trend-scroll{min-width:0}
+.sp-series-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
+.sp-series-tools>h3{margin-right:auto}
+.sp-series-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.sp-series-charts-single{grid-template-columns:minmax(0,1fr)}
+.sp-series-periods{display:flex;gap:4px;flex-wrap:wrap}
+.sp-series-periods button[aria-pressed=true]{background:var(--sp-brand);color:#fff;border-color:var(--sp-brand)}
+.sp-series-table-wrap{max-height:460px}
+.sp-series-table{min-width:1200px}
+.sp-series-table th{position:sticky;top:0;z-index:1}
+.sp-series-table td:first-child{white-space:nowrap}
+.sp-series-table details{min-width:150px}
+.sp-series-table summary{cursor:pointer;color:var(--sp-brand);font-size:var(--font-size-label,13px)}
+.sp-series-table details p{max-width:260px;white-space:normal;margin-top:6px}
+@media(max-width:850px){.sp-series-charts{grid-template-columns:minmax(0,1fr)}.sp-series-tools{justify-content:flex-start}.sp-series-tools>h3{flex-basis:100%}.sp-series-table-wrap{max-height:390px}}
 @media(max-width:1100px){.sp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.sp-pair{grid-template-columns:minmax(0,1fr) minmax(230px,.85fr)}}
 @media(max-width:850px){.sp-pair,.sp-ability-list{grid-template-columns:1fr}.sp-filter-row{align-items:start}.sp-shop-select{max-width:none}.sp-search-toolbar{display:grid;gap:8px}.sp-search-toolbar form{max-width:none}.sp-chapter{padding:17px}.sp-scope-line{display:grid;gap:4px}}
 @media(max-width:560px){.netshop-panorama{gap:14px}.sp-title{align-items:start}.sp-title .sp-toolbar{width:100%}.sp-filter-row{gap:12px;display:grid;grid-template-columns:minmax(0,1fr)}.sp-filter,.sp-shop-select{width:100%;max-width:none}.sp-filter input,.sp-filter select,.sp-search-controls input,.sp-pagination select{font-size:16px}.sp-chapters{gap:3px}.sp-chapters button{flex:1 0 auto;padding:7px 8px;font-size:var(--font-size-label,13px)}.sp-chapter{padding:15px;scroll-margin-top:165px}.sp-section-head{margin-bottom:15px}.sp-kpis{gap:9px}.sp-kpi{padding:11px}.sp-box{padding:13px}.sp-search-controls{flex-wrap:wrap}.sp-search-controls input{flex-basis:100%;height:40px}.sp-search-controls button{flex:1}.sp-pagination{justify-content:flex-start}.sp-pagination>span{flex-basis:100%}.sp-pagination>label{margin-left:0}.sp-page-buttons{width:100%}.sp-fact-list>div{gap:10px}.sp-compare{display:grid;gap:5px}.sp-date-selector .stat-period-picker{max-width:calc(100vw - 40px)}}
