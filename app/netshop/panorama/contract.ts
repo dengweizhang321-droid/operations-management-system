@@ -193,25 +193,28 @@ function decodeSales(value: unknown, context: InsightsContext, joined: Map<strin
   for (const kind of ["current", "previous", "yearAgo"] as const) { const period = record(periods[kind]); if (period.startDate !== context.periods[kind].startDate || period.endDate !== context.periods[kind].endDate) return reject("ERP比较日期不是实际基期"); salesMetrics(period.metrics); }
   for (const key of salesMetricKeys) { const pair = record(pairs[key]); comparison(pair.previous); comparison(pair.yearAgo); }
   if (!Array.isArray(data.daily) || data.daily.length > 366 || !Array.isArray(data.items) || data.items.length > 100) return reject("ERP明细或排行无界");
-  for (const raw of data.daily) { const row = record(raw); if (typeof row.date !== "string" || !isNetshopIsoDate(row.date) || row.date < context.periods.current.startDate || row.date > context.periods.current.endDate) return reject("ERP明细日期越界"); salesMetrics(row.metrics); }
-  for (const raw of data.items) { const row = record(raw); if (!text(row.id, 500) || !text(row.title) || row.category !== null && !text(row.category)) return reject("ERP商品贡献身份无效"); salesMetrics(row.metrics); }
+  const dates = new Set<string>(), ids = new Set<string>();
+  for (const raw of data.daily) { const row = record(raw); if (typeof row.date !== "string" || !isNetshopIsoDate(row.date) || dates.has(row.date) || row.date < context.periods.current.startDate || row.date > context.periods.current.endDate) return reject("ERP明细日期重复或越界"); dates.add(row.date); salesMetrics(row.metrics); }
+  for (const raw of data.items) { const row = record(raw); if (!text(row.id, 500) || ids.has(row.id) || !text(row.title) || row.category !== null && !text(row.category)) return reject("ERP商品贡献身份重复或无效"); ids.add(row.id); salesMetrics(row.metrics); }
   const pagination = decodeInsightPagination(data.pagination); if (pagination.returned !== data.items.length) return reject("ERP贡献分页不一致");
   return data as PanoramaSalesData;
 }
 function financeMetric(value: unknown, unit: string): MetricValue { const metric = decodeMetric(value); if (metric.unit !== unit || !["finance_month", "unverified"].includes(metric.basis)) return reject("财报或目标口径无效"); return metric; }
 function decodeFinance(value: unknown, context: InsightsContext, joined: Map<string, SourceRevision>): PanoramaFinanceData {
   const data = crossBase(value, "netshop-panorama-finance-v1", "finance", context, joined);
-  if (!Array.isArray(data.months) || data.months.length > 26 || !Array.isArray(data.annualTargets) || data.annualTargets.length > 3) return reject("财报月份或年度目标无界");
+  if (!Array.isArray(data.months) || data.months.length > 40 || !Array.isArray(data.annualTargets) || data.annualTargets.length > 3) return reject("财报月份或年度目标无界");
   const seen = new Set<string>();
-  for (const raw of data.months) { const row = record(raw); if (typeof row.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(row.month) || seen.has(row.month)) return reject("财报月份重复或无效"); seen.add(row.month); financeMetric(row.revenue, "CNY_CENT"); financeMetric(row.profit, "CNY_CENT"); }
-  for (const raw of data.annualTargets) { const row = record(raw); if (!integer(row.year, 9999) || Number(row.year) < 1900) return reject("年度目标年份无效"); financeMetric(row.target, "CNY_CENT"); financeMetric(row.actual, "CNY_CENT"); financeMetric(row.progress, "RATIO"); }
+  for (const raw of data.months) { const row = record(raw); if (typeof row.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(row.month) || seen.has(row.month) || ![context.periods.current, context.periods.previous, context.periods.yearAgo].some(period => String(row.month) >= period.startDate.slice(0, 7) && String(row.month) <= period.endDate.slice(0, 7))) return reject("财报月份重复、无效或不属于当前比较范围"); seen.add(row.month); financeMetric(row.revenue, "CNY_CENT"); financeMetric(row.profit, "CNY_CENT"); }
+  const years = new Set<number>();
+  for (const raw of data.annualTargets) { const row = record(raw); if (!integer(row.year, 9999) || years.has(row.year) || row.year < Number(context.periods.current.startDate.slice(0, 4)) || row.year > Number(context.periods.current.endDate.slice(0, 4))) return reject("年度目标年份重复或不属于本期"); years.add(row.year); financeMetric(row.target, "CNY_CENT"); financeMetric(row.actual, "CNY_CENT"); financeMetric(row.progress, "RATIO"); }
   return data as PanoramaFinanceData;
 }
 function decodeWorkflow(value: unknown, context: InsightsContext, joined: Map<string, SourceRevision>): PanoramaWorkflowData {
   const data = crossBase(value, "netshop-panorama-workflow-v1", "workflow", context, joined);
   if (!Array.isArray(data.items) || data.items.length > 100) return reject("经营事件无界");
   const seen = new Set<string>();
-  for (const raw of data.items) { const row = record(raw); if (!text(row.id, 200) || seen.has(String(row.id)) || !text(row.title) || !text(row.status, 80) || !text(row.eventType, 100) || typeof row.occurredAt !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(row.occurredAt) || !Number.isFinite(Date.parse(row.occurredAt))) return reject("经营事件身份或发生时间无效"); seen.add(row.id as string); }
+  const start = Date.parse(`${context.periods.current.startDate}T00:00:00+08:00`), end = Date.parse(`${context.periods.current.endExclusive}T00:00:00+08:00`);
+  for (const raw of data.items) { const row = record(raw), occurred = typeof row.occurredAt === "string" ? Date.parse(row.occurredAt) : NaN; if (!text(row.id, 200) || seen.has(String(row.id)) || !text(row.title) || !text(row.status, 80) || !text(row.eventType, 100) || typeof row.occurredAt !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(row.occurredAt) || !/(Z|[+-]\d{2}:\d{2})$/.test(row.occurredAt) || !Number.isFinite(occurred) || occurred < start || occurred >= end) return reject("经营事件身份或发生时间不属于本店本期"); seen.add(row.id as string); }
   const pagination = decodeInsightPagination(data.pagination); if (pagination.returned !== data.items.length) return reject("经营事件分页不一致");
   return data as PanoramaWorkflowData;
 }
