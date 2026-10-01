@@ -1,7 +1,8 @@
 "use client";
 
-import { formatMetric, formatDerivedMoneyPerCount, type MetricValue, type DerivedMoneyPerCountV1 } from "@/lib/netshop/insights-contract";
-type ChartMetric = MetricValue | DerivedMoneyPerCountV1;
+import type { ComparisonMetric } from "./contract";
+import { formatComparisonMetric } from "./ComparisonFormatting";
+type ChartMetric = ComparisonMetric;
 
 /** Chart values are supplied by the owning reader. Missing values stay gaps. */
 export type ComparisonChartSeries = {
@@ -12,7 +13,7 @@ export type ComparisonChartSeries = {
 export type ComparisonDistributionPoint = { key: string; label: string; x: ChartMetric; y: ChartMetric; partial: boolean };
 const colors = ["var(--color-brand,#396149)", "#7a9587", "#b19a70", "#748ba5"];
 const available = (metric: ChartMetric) => (metric.status === "available" || metric.status === "partial") && metric.value !== null && Number.isFinite(metric.value);
-const formatted = (metric: ChartMetric) => metric.unit === "CNY_CENT_PER_COUNT" ? formatDerivedMoneyPerCount(metric) : formatMetric(metric);
+const formatted = formatComparisonMetric;
 
 function ticks(minimum: number, maximum: number) {
   const lower = Math.min(0, minimum), upper = maximum === lower ? lower + 1 : maximum;
@@ -21,6 +22,7 @@ function ticks(minimum: number, maximum: number) {
 function tickLabel(value: number, unit: string) {
   if (unit === "CNY_CENT" || unit === "CNY_CENT_PER_COUNT") return `${(value / 100).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}元`;
   if (unit === "RATIO") return `${(value * 100).toFixed(1)}%`;
+  if (unit === "NATIVE_INTEGER_QUANTITY") return `${value.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} 原生数量`;
   return value.toLocaleString("zh-CN", { maximumFractionDigits: 1 });
 }
 
