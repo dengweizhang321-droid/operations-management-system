@@ -99,6 +99,7 @@
 .sp-source-details summary{cursor:pointer;color:var(--sp-brand);padding:6px 0}
 .sp-source-details ul{padding-left:20px;margin:8px 0}
 .sp-source-details li{margin:5px 0;overflow-wrap:anywhere}
+.sp-source-details pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--font-size-caption,12px);padding:12px;background:var(--sp-soft);border:1px solid var(--sp-line);border-radius:7px}
 .sp-chart .promotion-chart-legend,.sp-chart .promotion-chart-dates,.sp-chart .promotion-trend-detail{font-size:var(--font-size-caption,12px)}
 .sp-chart .promotion-chart{min-height:190px}
 .sp-chart .promotion-trend-scroll{min-width:0}

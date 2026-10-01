@@ -8,6 +8,7 @@ import { isNetshopIsoDate, NetshopQueryError } from "@/lib/netshop/query-contrac
 import { decodeProductInsights, ProductResponseError, type ProductInsightsResponse } from "../products/contract";
 import { decodePromotionInsightsForQuery, type PromotionInsightsResponse } from "@/lib/netshop/promotion-insights-contract";
 import { decodeProductScopeSeries, restoreProductScopeSeriesMetric, productSeriesColumns, type ProductScopeSeries } from "@/lib/netshop/product-scope-series-contract";
+import { decodeSalesPeriodsForRequest, type RawSalesIdentity, type SalesPeriodsResponse } from "@/lib/netshop/sales-periods-contract";
 
 export const PANORAMA_SCHEMA = "netshop-store-panorama-v1" as const;
 export const panoramaSections = ["performance", "traffic", "products", "promotion", "margin", "customers", "targets", "dataQuality"] as const;
@@ -47,10 +48,21 @@ export type PanoramaScope = {
   startDate: string; endDate: string;
 };
 export const salesMetricKeys = ["netSales", "cost", "netQuantity", "positiveQuantity", "returnAmount", "returnQuantity", "orderMargin", "largeMargin", "largeMarginRate", "orders", "orderAverageValue"] as const;
-export type PanoramaSalesMetrics = Record<typeof salesMetricKeys[number], MetricValue>;
+export type PanoramaNativeQuantity = Omit<MetricValue, "unit"> & { unit: "NATIVE_INTEGER_QUANTITY" };
+export type PanoramaOrderMean = Omit<MetricValue, "unit" | "status" | "reasonCode"> & {
+  unit: "CNY_CENT_PER_ORDER"; status: "available" | "unavailable";
+  reasonCode: "no_records" | "missing_order_no" | "zero_denominator" | "not_applicable" | null;
+  numerator: number | null; denominator: number | null;
+};
+export type PanoramaErpMetric = MetricValue | PanoramaNativeQuantity | PanoramaOrderMean;
+export type PanoramaSalesMetrics = Record<Exclude<typeof salesMetricKeys[number], "netQuantity" | "positiveQuantity" | "returnQuantity" | "orderAverageValue">, MetricValue> & {
+  netQuantity: PanoramaNativeQuantity; positiveQuantity: PanoramaNativeQuantity; returnQuantity: PanoramaNativeQuantity; orderAverageValue: PanoramaOrderMean;
+};
 /** Display projection of the owning sales consumer; never a second profit calculation. */
 export type PanoramaSalesData = {
   schemaVersion: "netshop-panorama-sales-v1"; scope: PanoramaScope; channel: string | null;
+  rawOutlets: RawSalesIdentity[];
+  owning: { previous: SalesPeriodsResponse; yearAgo: SalesPeriodsResponse | null };
   sourceRevisions: SourceRevision[];
   periods: Record<"current" | "previous" | "yearAgo", { startDate: string; endDate: string; metrics: PanoramaSalesMetrics }>;
   comparisons: Record<typeof salesMetricKeys[number], { previous: MetricComparison; yearAgo: MetricComparison }>;
@@ -185,10 +197,20 @@ function comparison(value: unknown): MetricComparison {
 function salesMetrics(value: unknown): PanoramaSalesMetrics {
   const input = record(value), result = {} as PanoramaSalesMetrics;
   for (const key of salesMetricKeys) {
-    const metric = decodeMetric(input[key]), expectedUnit = key === "largeMarginRate" ? "RATIO" : ["netQuantity", "positiveQuantity", "returnQuantity", "orders"].includes(key) ? "COUNT" : "CNY_CENT";
+    const raw = record(input[key]);
+    if (key === "orderAverageValue") {
+      if (raw.unit !== "CNY_CENT_PER_ORDER" || !enumValue(raw.status, ["available", "unavailable"]) || raw.reasonCode !== null && !enumValue(raw.reasonCode, ["no_records", "missing_order_no", "zero_denominator", "not_applicable"]) || raw.basis !== "erp_net_sales" || raw.aggregation !== "ratio_of_sums" || !Object.hasOwn(raw, "numerator") || !Object.hasOwn(raw, "denominator") || [raw.numerator, raw.denominator].some(v => v !== null && !Number.isSafeInteger(v))) return reject("ERP订单组均值原生单位、分母或原因无效");
+      if (raw.reasonCode === "not_applicable" && (raw.status !== "unavailable" || raw.value !== null || raw.numerator !== null || raw.denominator !== null)) return reject("ERP超限未请求基期不能伪装无记录或均值");
+      const proxy = decodeMetric({ ...raw, unit: "RATIO", reasonCode: raw.reasonCode === "missing_order_no" ? "missing_field" : raw.reasonCode });
+      if (proxy.status === "available" && (raw.denominator as number) <= 0) return reject("ERP订单组均值分母无效");
+      result.orderAverageValue = raw as PanoramaOrderMean; continue;
+    }
+    const native = ["netQuantity", "positiveQuantity", "returnQuantity"].includes(key);
+    if (native && raw.unit !== "NATIVE_INTEGER_QUANTITY") return reject("ERP原生整数数量不能冒充平台件数或通用COUNT");
+    const metric = decodeMetric(native ? { ...raw, unit: "COUNT" } : raw), expectedUnit = key === "largeMarginRate" ? "RATIO" : native || key === "orders" ? "COUNT" : "CNY_CENT";
     const basis = key === "orderMargin" ? "erp_order_margin" : key === "largeMargin" || key === "largeMarginRate" ? "erp_large_margin" : "erp_net_sales";
     if (metric.unit !== expectedUnit || ![basis, "unverified"].includes(metric.basis)) return reject("ERP指标单位或口径无效");
-    result[key] = metric;
+    (result as Record<string, PanoramaErpMetric>)[key] = native ? raw as PanoramaNativeQuantity : metric;
   }
   return result;
 }
@@ -201,9 +223,40 @@ function crossBase(value: unknown, schema: string, domain: string, context: Insi
 function decodeSales(value: unknown, context: InsightsContext, joined: Map<string, SourceRevision>): PanoramaSalesData {
   const data = crossBase(value, "netshop-panorama-sales-v1", "sales", context, joined), periods = record(data.periods), pairs = record(data.comparisons);
   if (data.channel !== null && !text(data.channel, 200)) return reject("ERP渠道来源无效");
-  for (const kind of ["current", "previous", "yearAgo"] as const) { const period = record(periods[kind]); if (period.startDate !== context.periods[kind].startDate || period.endDate !== context.periods[kind].endDate) return reject("ERP比较日期不是实际基期"); salesMetrics(period.metrics); }
-  for (const key of salesMetricKeys) { const pair = record(pairs[key]); comparison(pair.previous); comparison(pair.yearAgo); }
-  if (!Array.isArray(data.daily) || data.daily.length > 366 || !Array.isArray(data.items) || data.items.length > 100) return reject("ERP明细或排行无界");
+  if (!Array.isArray(data.rawOutlets) || !data.rawOutlets.length || data.rawOutlets.length > 50) return reject("ERP必须返回经拥有方解析的精确原始三元组");
+  const owning = record(data.owning), expectedRefs: SourceRevision[] = [];
+  const decodedOwners: Partial<Record<"previous" | "yearAgo", SalesPeriodsResponse>> = {};
+  let previous: SalesPeriodsResponse | null = null;
+  for (const kind of ["previous", "yearAgo"] as const) {
+    if (kind === "yearAgo" && context.periods.yearAgo.days > 366) { if (owning.yearAgo !== null) return reject("ERP367日同比不能截断为366日或伪旧回执"); continue; }
+    if (owning[kind] === null) return reject("已支持的ERP基期缺少完整拥有方信封");
+    const envelope = record(owning[kind]), refs = revisions(envelope.sourceRevisions);
+    const revision = [...refs.values()].find(r => r.domain === "sales" && r.kind === "sales_erp_revision_pair")?.revision ?? null;
+    const body = decodeSalesPeriodsForRequest(envelope, { operation: "netshop_periods_v1", current: { startDate: context.periods.current.startDate, endExclusive: context.periods.current.endExclusive }, baseline: { startDate: context.periods[kind].startDate, endExclusive: context.periods[kind].endExclusive }, rawOutlets: data.rawOutlets as RawSalesIdentity[], q: "", page: 1, pageSize: 20 }, revision);
+    if (body.requestedScope.rawOutlets.some(r => r.platform !== context.effectiveScope.platforms[0])) return reject("ERP原始平台不是全景平台");
+    if (previous && (previous.sourceRevisions[0].revision !== body.sourceRevisions[0].revision || JSON.stringify(previous.periodTotals.current) !== JSON.stringify(body.periodTotals.current))) throw new PanoramaResponseError(409, "insights_revision_changed", "ERP两次本期信封修订或事实不一致");
+    decodedOwners[kind] = body; previous = body; expectedRefs.push(...body.sourceRevisions);
+  }
+  const uniqueExpected = new Map(expectedRefs.map(ref => [JSON.stringify([ref.domain, ref.kind, ref.scopeKey]), ref]));
+  const declared = revisions(data.sourceRevisions), expected = revisions([...uniqueExpected.values()]);
+  if (declared.size !== expected.size || [...expected.entries()].some(([key, ref]) => declared.get(key)?.revision !== ref.revision)) return reject("ERP参与修订不等于实际拥有方信封");
+  const primaryMap = { netSales: "netSalesCents", netQuantity: "netQuantity", positiveQuantity: "positiveQuantity", returnAmount: "refundCents", returnQuantity: "returnQuantity" } as const;
+  for (const kind of ["current", "previous", "yearAgo"] as const) {
+    const period = record(periods[kind]); if (period.startDate !== context.periods[kind].startDate || period.endDate !== context.periods[kind].endDate) return reject("ERP比较日期不是实际基期");
+    const metrics = salesMetrics(period.metrics);
+    const owned = kind === "current" ? decodedOwners.previous?.periodTotals.current : decodedOwners[kind]?.periodTotals.baseline;
+    if (!owned) { for (const metric of Object.values(metrics)) if (metric.value !== null || metric.status !== "unavailable" || metric.reasonCode !== "not_applicable") return reject("ERP未支持基期不能返回伪数或无记录"); continue; }
+    for (const [key, rawKey] of Object.entries(primaryMap)) {
+      const metric = metrics[key as keyof typeof primaryMap];
+      if (metric.value !== owned.values[rawKey as typeof primaryMap[keyof typeof primaryMap]] || metric.status !== (owned.rowPresence ? "partial" : "unavailable") || metric.reasonCode !== (owned.rowPresence ? "incomplete_coverage" : "no_records")) return reject("ERP主净额与原生量须复制拥有方记录证据并保留未知完整性");
+    }
+    if (metrics.orders.value !== owned.orders.trustedOrderCount || metrics.orders.status !== (owned.rowPresence ? "partial" : "unavailable") || metrics.orders.reasonCode !== (owned.rowPresence ? "incomplete_coverage" : "no_records")) return reject("ERP可信订单组不能回退行数或伪完整");
+    const mean = owned.orders.netAmountPerOrder;
+    for (const key of ["unit", "status", "reasonCode", "value", "numerator", "denominator"] as const) if (metrics.orderAverageValue[key] !== mean[key]) return reject("ERP订单组原生均值与拥有方输入不一致");
+    for (const key of ["cost", "orderMargin", "largeMargin", "largeMarginRate"] as const) if (metrics[key].status !== "unavailable" || metrics[key].value !== null || metrics[key].reasonCode !== (owned.rowPresence ? "unverified_source" : "no_records")) return reject("未知原始成本或毛利不能变成已验证主指标");
+  }
+  for (const key of salesMetricKeys) { const pair = record(pairs[key]); const method = key === "largeMarginRate" ? "percentage_points" : "relative_change"; for (const kind of ["previous", "yearAgo"] as const) { const c = comparison(pair[kind]); if (c.method !== method || c.status !== "unavailable") return reject("ERP记录覆盖未知，不可声明完整基期比较"); } }
+  if (!Array.isArray(data.daily) || data.daily.length !== 0 || !Array.isArray(data.items) || data.items.length !== 0) return reject("ERP原始来源候选不能冒充商品贡献或逐日事实");
   const dates = new Set<string>(), ids = new Set<string>();
   for (const raw of data.daily) { const row = record(raw); if (typeof row.date !== "string" || !isNetshopIsoDate(row.date) || dates.has(row.date) || row.date < context.periods.current.startDate || row.date > context.periods.current.endDate) return reject("ERP明细日期重复或越界"); dates.add(row.date); salesMetrics(row.metrics); }
   for (const raw of data.items) { const row = record(raw); if (!text(row.id, 500) || ids.has(row.id) || !text(row.title) || row.category !== null && !text(row.category)) return reject("ERP商品贡献身份重复或无效"); ids.add(row.id); salesMetrics(row.metrics); }
