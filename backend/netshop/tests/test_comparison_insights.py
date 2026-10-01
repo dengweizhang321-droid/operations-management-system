@@ -218,6 +218,24 @@ class ComparisonInsightsTests(TestCase):
         self.assertTrue(all(s["dimension"] == "sku" for s in result["sections"]["promotion"]["sourceScopes"]))
         self.sample("actual-owning-a", result, self.query(dimension="sku", metricKey="roas"))
 
+    def test_pure_promotion_records_present_without_products_or_metric_value(self):
+        for day in ("2026-09-01", "2026-08-31"):
+            add_day(self, shop="promotion only", day=day)
+            add_day(self, shop="missing spend", day=day, rows=[{"id": "same", "values": {"netTransactionAmountCents": 400, "impressions": 100, "clicks": 2, "netOrders": 1}}])
+        self.assertFalse(NetshopRow.objects.filter(source="jd_sku_daily").exists())
+        payment = self.read(metricKey="payment")
+        spend = self.read(metricKey="spend")
+        for result in (payment, spend):
+            for row in result["sections"]["comparability"]["items"]:
+                self.assertTrue(row["currentPresence"])
+                self.assertTrue(row["baselinePresence"])
+        spend_rows = {r["shopName"]: r for r in spend["sections"]["scale"]["items"]}
+        self.assertTrue(spend_rows["promotion only"]["qualification"]["comparable"])
+        self.assertIsNone(spend_rows["promotion only"]["current"]["payment"]["value"])
+        self.assertIsNone(spend_rows["missing spend"]["current"]["spend"]["value"])
+        self.assertEqual(spend_rows["missing spend"]["current"]["spend"]["reasonCode"], "missing_field")
+        self.sample("actual-owning-promotion-presence", payment, self.query(metricKey="payment"))
+
     def sample(self, name, result, query):
         evidence = os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
         if evidence:
@@ -405,6 +423,8 @@ class ComparisonInsightsTests(TestCase):
             result = self.read()
             self.assertEqual(result["sections"]["scale"]["summary"]["current"]["payment"]["value"], 1000)
             self.assertTrue(all(s["state"] == "error" for s in result["sections"]["promotion"]["sourceStates"]))
+            failed_promotion = self.read(metricKey="spend")
+            self.assertTrue(all(r["currentPresence"] and r["baselinePresence"] for r in failed_promotion["sections"]["comparability"]["items"]))
         for status in (403, 409):
             with patch("netshop.comparison_adapter._promotion_scope", side_effect=NetshopApiError("synthetic fence", code="access_denied", status=status)): self.assert_error(status, lambda: self.read())
 

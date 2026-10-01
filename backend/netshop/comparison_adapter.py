@@ -233,6 +233,11 @@ def load_comparison_sources(principal, spec, current, baseline, *, deadline):
                 if item["platform"] != platform: continue
                 member_names = [k.split("\x1f", 1)[1] for k in item["shopKeys"]]
                 metrics, matched = reader.totals(member_names, dates, "comparison:"+period+":promotion:"+_canonical_token(key)[:16])
+                # Record presence is independent of the selected metric value.
+                # A validated raw record can lack spend; errors/unmapped scopes
+                # do not overwrite an already proved product record presence.
+                promotion_coverage = reader.context["coverageBySource"][metrics["spend"]["coverageRef"]]
+                item["presence"][period] = item["presence"][period] or promotion_coverage["coveredShopDatePairs"] > 0
                 item[period].update({k: metrics[k] for k in PROMOTION_KEYS})
                 item.setdefault("matchedRanges", {})[period] = matched
                 for bucket in item["trends"][period]:
