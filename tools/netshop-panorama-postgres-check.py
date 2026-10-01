@@ -78,7 +78,8 @@ try:
     # fixture. No repository settings or runtime configuration is modified.
     settings_file = RUN / "panorama_workflow_test_settings.py"
     with settings_file.open("x", encoding="utf-8") as output:
-        output.write('from netshop_products_test_settings import *\nINSTALLED_APPS = [*INSTALLED_APPS, "workflow.apps.WorkflowConfig"]\n')
+        extra = ', "finance.apps.FinanceConfig"' if any("_finance" in label or "_sources" in label for label in labels) else ""
+        output.write('from netshop_products_test_settings import *\nINSTALLED_APPS = [*INSTALLED_APPS, "workflow.apps.WorkflowConfig"' + extra + ']\n')
     env["PYTHONPATH"] = str(RUN) + os.pathsep + env["PYTHONPATH"]
     run([sys.executable, "backend/manage.py", "test", *labels, "--settings=panorama_workflow_test_settings", "--noinput", "--verbosity=2"], "tests")
 finally:
@@ -91,9 +92,11 @@ finally:
     finally:
         source_paths = [ROOT / name for name in (
             "backend/netshop/store_panorama.py", "backend/netshop/panorama_sales_client.py", "backend/netshop/panorama_workflow_client.py",
+            "backend/netshop/panorama_finance_client.py", "backend/netshop/finance_netshop_client.py", "backend/netshop/finance_netshop_contract.py",
             "backend/netshop/product_insights.py", "backend/netshop/product_scope_series.py", "backend/netshop/promotion_insights.py", "backend/netshop/insights_common.py",
             "backend/netshop/sales_periods_client.py", "backend/netshop/sales_client.py", "backend/sales/netshop_periods.py", "backend/sales/views.py", "backend/sales/auth.py",
             "backend/workflow/operations.py", "backend/workflow/operations_views.py", "backend/workflow/revisions.py",
+            "backend/finance/netshop_reads.py", "backend/finance/consumers.py", "backend/finance/views.py", "backend/finance/annual_progress.py",
         )] + [Path(__file__)]
         source_paths.extend(sorted((ROOT / "backend/netshop/tests").glob("test_store_panorama*.py")))
         with (EVIDENCE / "result.json").open("x", encoding="utf-8") as output:

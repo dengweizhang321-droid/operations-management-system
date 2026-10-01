@@ -18,6 +18,7 @@ from access_control.models import AccessRole, AppUser
 from sales.auth import Principal
 from sales.models import SalesDataRevision, SalesOrderLine
 from sales.tests.factories import TEST_SECRET, install_fixture, make_line
+from sales.netshop_period_series import restore_period_point
 from netshop.errors import NetshopApiError
 from netshop.insights_common import periods
 from netshop.models import NetshopDataRevision
@@ -55,8 +56,8 @@ class RealPanoramaSalesTests(LiveServerTestCase):
         row.save()
         return row
 
-    def read(self):
-        return bridge.read_panorama_sales(self.principal, self.context, deadline=time.monotonic() + 65)
+    def read(self, *, grain="day"):
+        return bridge.read_panorama_sales(self.principal, self.context, deadline=time.monotonic() + 65, grain=grain)
 
     def test_actual_raw_identity_native_units_and_unverified_cost_evidence(self):
         self.row(amount=1000, quantity=2)
@@ -89,12 +90,54 @@ class RealPanoramaSalesTests(LiveServerTestCase):
 
     def test_actual_no_records_null_and_missing_order_identity(self):
         no_rows = self.read()
+        self.assertNotIn("series", no_rows["owning"]["previous"])
+        self.assertNotIn("series", no_rows["owning"]["yearAgo"])
         self.assertIsNone(no_rows["periods"]["current"]["metrics"]["netSales"]["value"])
         self.assertEqual(no_rows["periods"]["current"]["metrics"]["netSales"]["reasonCode"], "no_records")
         self.row(order_no="")
         value = self.read()["periods"]["current"]["metrics"]["orderAverageValue"]
         self.assertIsNone(value["value"])
         self.assertEqual(value["reasonCode"], "missing_order_no")
+
+    def test_actual_week_series_keeps_owned_distinct_order_mean_not_daily_sum(self):
+        self.row(day="2026-09-01", amount=1000, order_no="SAME-ORDER")
+        self.row(day="2026-09-02", amount=400, order_no="SAME-ORDER")
+        result = self.read(grain="week")
+        series = result["owning"]["previous"]["series"]
+        self.assertEqual(series["intent"]["grain"], "week")
+        self.assertEqual(len(series["items"][0]["current"]), 2)
+        first = restore_period_point(series["items"][0]["current"][0])
+        self.assertEqual(first["window"]["startDate"], "2026-09-01")
+        self.assertEqual(first["window"]["endDate"], "2026-09-06")
+        self.assertEqual(first["facts"]["orders"]["trustedOrderCount"], 1)
+        self.assertEqual(first["facts"]["orders"]["netAmountPerOrder"]["value"], 1400)
+        bridge.verify_panorama_sales(self.principal, self.context, result, deadline=time.monotonic() + 65)
+
+    def test_actual_baseline_only_candidate_retains_null_current_series(self):
+        self.row(day="2026-08-01", amount=1000)
+        result = self.read()
+        self.assertIn("series", result["owning"]["previous"])
+        self.assertNotIn("series", result["owning"]["yearAgo"])
+        points = result["owning"]["previous"]["series"]["items"][0]["current"]
+        self.assertEqual(len(points), 7)
+        self.assertTrue(all(not restore_period_point(point)["facts"]["rowPresence"] and restore_period_point(point)["facts"]["values"]["netSalesCents"] is None for point in points))
+
+    def test_actual_s_grain_passes_owned_series_without_fabricated_daily_or_rank(self):
+        self.row(day="2026-09-01")
+        self.row(day="2026-09-02")
+        params = QueryDict(urlencode({"platform": "京东", "outlet": "京东\x1f" + CANONICAL, "startDate": "2026-09-01", "endDate": "2026-09-07", "grain": "week"}))
+        result = panorama.read_store_panorama(self.principal, params)
+        sales = result["sources"]["sales"]["data"]
+        self.assertEqual(sales["owning"]["previous"]["series"]["intent"]["grain"], "week")
+        self.assertEqual(sales["daily"], [])
+        self.assertEqual(sales["items"], [])
+        caps = {c["id"]: c for c in result["sections"]["performance"]["capabilities"]}
+        self.assertEqual(caps["erp_trend"]["status"], "available")
+        self.assertEqual(caps["erp_detail"]["status"], "available")
+        evidence = os.environ.get("TERUISI_PANORAMA_QUERY_EVIDENCE_DIR")
+        if evidence:
+            with (Path(evidence) / "response-owning-sales-temporal.json").open("x", encoding="utf-8") as output:
+                json.dump(result, output, ensure_ascii=False, indent=2)
 
     def test_real_zero_sum_is_partial_observed_record_not_complete_shop_zero(self):
         self.row(amount=0)

@@ -5,6 +5,7 @@ queries. These fixtures never read a live business source.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager, ExitStack
 import hashlib
 import json
 import os
@@ -84,6 +85,100 @@ class StorePanoramaTests(TestCase):
         from netshop.store_panorama import read_store_panorama
         return read_store_panorama(self.principal, params(**values))
 
+    @contextmanager
+    def final_check_protocol_frames(self):
+        """Cross-domain stubs are negative composition evidence only.
+
+        P/A/series and transaction-health checks still execute real private SQL.
+        Real registered cross-domain success/fault cases belong to sources tests.
+        """
+        refs = {key: {"domain": "sales" if key == "sales" else key,
+                "kind": "sales_erp_revision_pair" if key == "sales" else "owning_revision",
+                "scopeKey": hashlib.sha256(key.encode()).hexdigest(),
+                "revision": "7:3" if key == "sales" else "1:" + "b" * 12}
+                for key in ("workflow", "sales", "finance")}
+        data = {
+            "workflow": {"sourceRevisions": [refs["workflow"]], "items": [{"id": "synthetic-negative-event"}]},
+            "sales": {"sourceRevisions": [refs["sales"]], "owning": {}, "periods": {"current": {"metrics": {
+                "netSales": {"value": 123, "status": "available", "reasonCode": None}}}}},
+            "finance": {"sourceRevisions": [refs["finance"]], "owning": [{"annual": {"state": "ready", "data": {"items": []}},
+                "monthly": {"currentMetricStates": {"netSalesCents": {"status": "available"}}}}],
+                "periodReadRefs": {"current": 0, "previous": 0, "yearAgo": 0}, "annualReadRefs": [0]},
+        }
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(panorama, "read_panorama_workflow", return_value=data["workflow"]))
+            for key in ("sales", "finance"):
+                stack.enter_context(patch.object(panorama, "_" + key + "_source", return_value={"state": "ready", "data": data[key]}))
+            for key in data:
+                stack.enter_context(patch.object(panorama, "verify_panorama_" + key, return_value=None))
+            yield data
+
+    def test_final_source_503_clears_body_references_capability_and_reseals_token(self):
+        self.product()
+        self.promotion()
+        caps = {"workflow": ("targets", "events"), "sales": ("performance", "erp_net_sales"), "finance": ("targets", "finance_month")}
+        with self.final_check_protocol_frames() as data:
+            complete = self.read()
+            for key, (section, capability) in caps.items():
+                with self.subTest(key=key), patch.object(panorama, "verify_panorama_" + key,
+                        side_effect=NetshopApiError("negative final source outage", status=503)):
+                    response = self.read()
+                    self.assertEqual(response["sources"][key]["state"], "error")
+                    self.assertIsNone(response["sources"][key]["data"])
+                    self.assertFalse(any(ref["domain"] == key for ref in response["joinedSourceRevisions"]))
+                    self.assertNotEqual(response["sectionToken"], complete["sectionToken"])
+                    self.assertEqual(next(c for c in response["sections"][section]["capabilities"] if c["id"] == capability)["status"], "unavailable")
+                    for other in data.keys() - {key}:
+                        self.assertIs(response["sources"][other]["data"], data[other])
+                    self.assertEqual(self.read(sectionToken=response["sectionToken"])["sectionToken"], response["sectionToken"])
+                    with self.assertRaises(NetshopApiError) as raised:
+                        self.read(sectionToken=complete["sectionToken"])
+                    self.assertEqual(raised.exception.status, 409)
+
+    def test_final_database_failure_rolls_back_before_remaining_sources(self):
+        self.product()
+        self.promotion()
+        observed = []
+        def broken(*_args, **_kwargs):
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT * FROM panorama_fixture_missing_final_source")
+        def remaining(*_args, **_kwargs):
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 43")
+                observed.append(cursor.fetchone()[0])
+        with self.final_check_protocol_frames(), patch.object(panorama, "verify_panorama_workflow", side_effect=broken), patch.object(panorama, "verify_panorama_sales", side_effect=remaining):
+            response = self.read()
+        self.assertEqual(observed, [43])
+        self.assertEqual(response["sources"]["workflow"]["state"], "error")
+        self.assertEqual(response["sources"]["sales"]["state"], "ready")
+        self.assertEqual(response["sources"]["products"]["data"]["sections"]["summary"]["payment"]["value"], 3000)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 44")
+            self.assertEqual(cursor.fetchone()[0], 44)
+
+    def test_final_authority_and_cancellation_are_global(self):
+        with self.final_check_protocol_frames():
+            for key in ("workflow", "sales", "finance"):
+                for status in (401, 403, 409):
+                    with self.subTest(key=key, status=status), patch.object(panorama, "verify_panorama_" + key,
+                            side_effect=NetshopApiError("negative authority change", status=status)), self.assertRaises(NetshopApiError) as raised:
+                        self.read()
+                    self.assertEqual(raised.exception.status, status)
+                with patch.object(panorama, "verify_panorama_" + key, side_effect=InterruptedError("negative cancellation")), self.assertRaises(InterruptedError):
+                    self.read()
+
+    def test_final_parent_expiry_is_global_and_prevents_remaining_checks(self):
+        clock = [100.0]
+        def expired(*_args, **_kwargs):
+            clock[0] = 166.0
+            raise NetshopApiError("negative final timeout", status=503)
+        with self.final_check_protocol_frames(), patch("netshop.store_panorama.time.monotonic", side_effect=lambda: clock[0]), patch.object(panorama, "verify_panorama_workflow", side_effect=expired), patch.object(panorama, "verify_panorama_sales") as sales:
+            with self.assertRaises(NetshopApiError) as raised:
+                self.read()
+        self.assertEqual(raised.exception.status, 503)
+        self.assertEqual(raised.exception.code, "source_not_ready")
+        sales.assert_not_called()
+
     def test_real_jd_owning_envelopes_keep_spu_and_sku_denominators(self):
         self.product()
         self.promotion()
@@ -101,7 +196,7 @@ class StorePanoramaTests(TestCase):
         self.assertEqual(response["sections"]["performance"]["state"], "partial")
         self.assertEqual(response["sections"]["margin"]["state"], "unavailable")
         self.assertEqual(response["sections"]["targets"]["state"], "error")
-        self.assertEqual(response["sources"]["finance"]["reasonCode"], "dependency_pending")
+        self.assertEqual(response["sources"]["finance"]["code"], "service_unavailable")
         self.assertEqual(response["sources"]["sales"]["reasonCode"], "unverified_source")
         self.assertEqual(response["sources"]["workflow"]["code"], "service_unavailable")
         encoded = json.dumps(response)

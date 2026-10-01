@@ -24,6 +24,7 @@ import uuid
 from zoneinfo import ZoneInfo
 
 from .errors import NetshopApiError
+from .bounded_consumer_http import open_bounded_consumer_request
 from .insights_common import actor_fence
 from .query import _canonical_token
 
@@ -123,12 +124,6 @@ def _config():
     return value.rstrip("/"), secret
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        fp.close()
-        raise _unavailable()
-
-
 def _signed_request(principal, base, secret, parameters):
     query = urllib.parse.urlencode(parameters)
     envelope = base64.urlsafe_b64encode(json.dumps({"email": principal.email, "displayName": principal.display_name, "role": principal.role, "scope": principal.scope},
@@ -173,19 +168,9 @@ def _strict_json(raw):
 def _api_get(principal, parameters, deadline, *, expected_revision=None):
     base, secret = _config()
     request = _signed_request(principal, base, secret, parameters)
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
     request_deadline = min(deadline, time.monotonic() + 8)
     try:
-        try:
-            response = opener.open(request, timeout=_network_remaining(deadline, request_deadline))
-        except urllib.error.HTTPError as error:
-            try:
-                _authority(error.code)  # Never inspect an authority response body first.
-                _remaining(deadline)
-                raise _unavailable() from error
-            finally:
-                error.close()
-        with response:
+        with open_bounded_consumer_request(request, deadline=request_deadline, timeout_cap=8) as response:
             _authority(response.status)
             _network_remaining(deadline, request_deadline)
             if response.status != 200:
@@ -207,10 +192,7 @@ def _api_get(principal, parameters, deadline, *, expected_revision=None):
                 raise _unavailable()
             chunks, size = [], 0
             while True:
-                timeout = _network_remaining(deadline, request_deadline)
-                sock = getattr(getattr(getattr(response, "fp", None), "raw", None), "_sock", None)
-                if sock is not None:
-                    sock.settimeout(timeout)
+                _network_remaining(deadline, request_deadline)
                 chunk = response.read1(min(65536, MAX_BYTES + 1 - size))
                 _network_remaining(deadline, request_deadline)
                 if not chunk:
@@ -222,6 +204,10 @@ def _api_get(principal, parameters, deadline, *, expected_revision=None):
             if lengths and size != int(lengths[0]):
                 raise _unavailable()
             return _strict_json(b"".join(chunks)), revision
+    except urllib.error.HTTPError as error:
+        _authority(error.code)  # Transport closed its stream without body read.
+        _remaining(deadline)
+        raise _unavailable() from error
     except InterruptedError:
         raise  # An interrupted caller is not a recoverable source partial.
     except (urllib.error.URLError, TimeoutError, socket.timeout, UnicodeError, OSError, http.client.HTTPException) as error:

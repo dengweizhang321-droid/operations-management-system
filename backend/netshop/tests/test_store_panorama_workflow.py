@@ -6,6 +6,7 @@ from email.message import Message
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+from pathlib import Path
 import secrets
 import threading
 import time
@@ -132,6 +133,7 @@ class WorkflowProtocolTests(SimpleTestCase):
             headers["X-Workflow-Data-Revision"] = "1:" + "b" * 12
             def __enter__(self): return self
             def __exit__(self, *_args): pass
+            def close(self): pass
             def read1(self, _size):
                 reads[0] += 1
                 clock[0] = 166.0
@@ -291,3 +293,102 @@ class RealWorkflowApiTests(LiveServerTestCase):
             from pathlib import Path
             with (Path(evidence) / "response-owning-workflow.json").open("x", encoding="utf-8") as output:
                 json.dump(result, output, ensure_ascii=False, indent=2)
+
+
+class WorkflowWireDeadlineTests(SimpleTestCase):
+    """Real loopback wire replays, never business-source evidence.
+
+    The 200ms/40-header replay is the wider independent blocker case. The
+    original 50ms replay remains a separate result, not its replacement.
+    """
+    def wire(self, mode, allowance, *, expected_status=503, header_delay=.01, extras=40, network_cap=False):
+        sent, requests = [], []
+        release = threading.Event()
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args): pass
+            def do_GET(self):
+                requests.append(self.path)
+                try:
+                    body = b'{}' if mode != "body" and mode != "eight" else b'{"slow":"' + b'x' * 300 + b'"}'
+                    status = expected_status if mode == "authority" else 302 if mode == "redirect" else 200
+                    status_line = f"HTTP/1.0 {status} Response\r\n".encode()
+                    if mode == "status":
+                        for byte in status_line:
+                            self.wfile.write(bytes([byte])); self.wfile.flush(); sent.append(time.monotonic()); time.sleep(.015)
+                    else:
+                        self.wfile.write(status_line); self.wfile.flush(); sent.append(time.monotonic())
+                        if mode == "headers": time.sleep(header_delay)
+                    headers = [b'Content-Type: application/json\r\n', b'X-Workflow-Data-Revision: 1:bbbbbbbbbbbb\r\n', f'Content-Length: {len(body)}\r\n'.encode()]
+                    if mode == "redirect": headers.append(b'Location: /unapproved\r\n')
+                    if mode == "headers": headers += [f'X-Deadline-{number}: ok\r\n'.encode() for number in range(extras)]
+                    headers.append(b'\r\n')
+                    for line in headers:
+                        self.wfile.write(line); self.wfile.flush(); sent.append(time.monotonic())
+                        if mode == "headers": time.sleep(header_delay)
+                    if mode in {"authority", "redirect"}:
+                        release.wait(2)  # Authority/redirect must finish without reading this body.
+                        self.wfile.write(b'\xff'); self.wfile.flush()
+                    elif mode in {"body", "eight"}:
+                        for byte in body:
+                            self.wfile.write(bytes([byte])); self.wfile.flush(); sent.append(time.monotonic()); time.sleep(.04 if mode == "eight" else .01)
+                    else:
+                        self.wfile.write(body); self.wfile.flush()
+                except OSError:
+                    pass
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        principal = Principal("wire@example.test", "Synthetic", "viewer", None)
+        params = client._parameters(SCOPE, 1, 20)
+        start = time.monotonic()
+        try:
+            with patch.dict(os.environ, {"TERUISI_DJANGO_INTERNAL_SECRET": secrets.token_hex(40), "TERUISI_DJANGO_WORKFLOW_READER_BASE_URL": f"http://127.0.0.1:{server.server_port}"}):
+                if mode == "normal":
+                    value, revision = client._api_get(principal, params, start + allowance)
+                    self.assertEqual((value, revision), ({}, "1:" + "b" * 12))
+                    status = 200
+                else:
+                    with self.assertRaises(NetshopApiError) as raised:
+                        client._api_get(principal, params, start + allowance)
+                    status = raised.exception.status
+                    self.assertEqual(status, expected_status)
+                elapsed = time.monotonic() - start
+        finally:
+            release.set()
+            server.shutdown(); server.server_close(); thread.join(timeout=5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(len(requests), 1)
+        self.assertTrue(requests[0].startswith(client.PATH + "?"))
+        proof = {"case": mode, "parentAllowanceSeconds": allowance, "elapsedSeconds": elapsed, "status": status,
+                 "wireWrites": len(sent), "port": server.server_port, "httpClosedNormally": True, "production": False, "faultInjection": True,
+                 "absoluteRequestBudgetSeconds": 8 if network_cap else allowance}
+        evidence = os.environ.get("TERUISI_PANORAMA_QUERY_EVIDENCE_DIR")
+        if evidence:
+            with (Path(evidence) / f"wire-{mode}-{int(allowance*1000)}-{expected_status}.json").open("x", encoding="utf-8") as output:
+                json.dump(proof, output, indent=2)
+        return elapsed
+
+    def test_original_50ms_header_replay_remains(self):
+        self.assertLess(self.wire("headers", .05, header_delay=.025, extras=0), .10)
+
+    def test_wide_200ms_forty_extra_headers_replay(self):
+        self.assertLess(self.wire("headers", .20), .26)
+
+    def test_slow_status_is_inside_total_budget(self):
+        self.assertLess(self.wire("status", .20), .26)
+
+    def test_slow_body_is_inside_total_budget(self):
+        self.assertLess(self.wire("body", .20), .26)
+
+    def test_eight_second_request_cap_does_not_reset_on_body_recv(self):
+        elapsed = self.wire("eight", 20, network_cap=True)
+        self.assertGreater(elapsed, 7.5)
+        self.assertLess(elapsed, 8.5)
+
+    def test_normal_response_still_passes_real_transport(self):
+        self.assertLess(self.wire("normal", 2), 1)
+
+    def test_authority_and_redirect_finish_before_untrusted_body(self):
+        for status in (401, 403, 409):
+            self.assertLess(self.wire("authority", 1, expected_status=status), .20)
+        self.assertLess(self.wire("redirect", 1), .20)
