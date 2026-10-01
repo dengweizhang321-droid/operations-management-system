@@ -13,6 +13,16 @@ export async function readPromotion<T>(path: PromotionPath, query: URLSearchPara
   const timeout = setTimeout(() => controller.abort(new Error("推广读取超时，请缩小范围或重新读取")), insightBudget.requestDeadlineMs);
   try {
     const response = await fetchImpl(`${path}?${query}`, { cache: "no-store", signal: controller.signal });
+    if (controller.signal.aborted) throw controller.signal.reason ?? new DOMException("读取已取消", "AbortError");
+    // Auth/revision status is authoritative even if a proxy supplies HTML,
+    // an empty body or malformed bytes. Do not wait for an optional message
+    // body before fencing the parent result, and never trust its error code.
+    const authoritativeCode = response.status === 401 || response.status === 403 ? "access_denied" : response.status === 409 ? "promotion_revision_changed" : null;
+    if (authoritativeCode) {
+      void response.body?.cancel().catch(() => undefined);
+      const message = response.status === 401 ? "推广读取需要有效身份（401）" : response.status === 403 ? "当前账号或范围无权读取推广数据（403）" : "推广来源版本已变化，请重新读取当前范围（409）";
+      throw new InsightReadError(authoritativeCode, message);
+    }
     const reader = response.body?.getReader();
     let body = "";
     if (reader) {
@@ -40,10 +50,13 @@ export async function readPromotion<T>(path: PromotionPath, query: URLSearchPara
     if (!response.ok) {
       const error = payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : {};
       const message = typeof error.error === "string" ? error.error.slice(0, 600) : `推广来源读取失败（${response.status}）`;
-      const code = response.status === 401 || response.status === 403 ? "access_denied" : typeof error.code === "string" ? error.code : response.status === 409 ? "promotion_revision_changed" : "service_unavailable";
+      const code = typeof error.code === "string" ? error.code : "service_unavailable";
       throw new InsightReadError(code, message);
     }
     return decode(payload, query, response.headers.get("X-Netshop-Data-Revision"));
+  } catch (error) {
+    if (controller.signal.aborted) throw controller.signal.reason ?? new DOMException("读取已取消", "AbortError");
+    throw error;
   } finally {
     clearTimeout(timeout);
     signal.removeEventListener("abort", abort);

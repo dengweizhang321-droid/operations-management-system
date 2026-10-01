@@ -63,3 +63,52 @@ test("promotion transport rejects invalid UTF-8 rather than altering source iden
   await assert.rejects(readPromotion("/api/netshop/promotion-insights", query(), new AbortController().signal,
     () => null, async () => new Response(new Uint8Array([0x7b, 0x22, 0x78, 0x22, 0x3a, 0x22, 0xc3, 0x28, 0x22, 0x7d]))), /编码无法验证/);
 });
+
+for (const status of [401, 403, 409]) {
+  for (const shape of ["html", "empty", "invalid-utf8"] as const) {
+    test(`HTTP ${status} ${shape} retains its authoritative parent-invalidation code`, async () => {
+      let decoded = false;
+      const body = shape === "html" ? "<html>proxy error</html>" : shape === "empty" ? null : new Uint8Array([0xc3, 0x28]);
+      await assert.rejects(readPromotion("/api/netshop/promotion-insights/detail", query(), new AbortController().signal,
+        () => { decoded = true; return null; }, async () => new Response(body, { status })),
+      error => error instanceof InsightReadError && error.code === (status === 409 ? "promotion_revision_changed" : "access_denied"));
+      assert.equal(decoded, false);
+    });
+  }
+}
+
+test("known auth/revision codes cannot be overridden by valid JSON codes or an oversized error body", async () => {
+  for (const status of [401, 403, 409]) {
+    for (const response of [Response.json({ code: "invalid_request", error: "不得降级权威状态" }, { status }), new Response("x".repeat(2 * 1024 * 1024 + 1), { status })]) {
+      await assert.rejects(readPromotion("/api/netshop/promotion-insights/detail", query(), new AbortController().signal,
+        () => assert.fail("authority errors must never reach a data decoder"), async () => response),
+      error => error instanceof InsightReadError && error.code === (status === 409 ? "promotion_revision_changed" : "access_denied"));
+    }
+  }
+});
+
+test("cancelled scopes reject even late auth/revision errors without parent invalidation", async () => {
+  for (const status of [401, 403, 409]) {
+    const gate = new ScopedReadGate(), old = gate.begin("old");
+    let finish: ((response: Response) => void) | undefined;
+    const reading = readPromotion("/api/netshop/promotion-insights/detail", query(), old.signal,
+      () => assert.fail("cancelled data must not decode"), async () => new Promise(resolve => { finish = resolve; }));
+    gate.begin("current");
+    finish?.(new Response(new Uint8Array([0xc3, 0x28]), { status }));
+    await assert.rejects(reading, error => error instanceof DOMException && error.name === "AbortError" && !(error instanceof InsightReadError));
+    assert.equal(old.current(), false); gate.cancel();
+  }
+});
+
+test("other HTTP failures keep strict JSON, encoding and size checks", async () => {
+  for (const status of [400, 503]) {
+    for (const response of [new Response("<html>unknown error</html>", { status }), new Response(new Uint8Array([0xc3, 0x28]), { status })]) {
+      await assert.rejects(readPromotion("/api/netshop/promotion-insights/detail", query(), new AbortController().signal,
+        () => assert.fail("unverified errors must not decode"), async () => response),
+      error => error instanceof InsightReadError && error.code === "invalid_promotion_contract");
+    }
+    await assert.rejects(readPromotion("/api/netshop/promotion-insights/detail", query(), new AbortController().signal,
+      () => null, async () => new Response("x".repeat(2 * 1024 * 1024 + 1), { status })),
+    error => error instanceof InsightReadError && error.code === "response_too_large");
+  }
+});
