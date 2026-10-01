@@ -4,8 +4,8 @@
 
 | 问题 | 负责人 | 精确提交/证据 | 关闭条件与下一步 |
 | --- | --- | --- | --- |
-| M6实际签名父接口及同采样载体待交 | 原 C Query/Lead，I 公共单写 | C干净`cbdf5c16`；I四文件接线`c7460608`；净组合`0254d03ac3dad276e5b9955f12f7556ffd923620` | 在净组合/隔离PG真实签名GET comparison-insights并保存原body/query/header/seed；同采样必要模式/粒度/分页及可证明P/A钻取。函数层旧载体保留，不冒签名层，不编未知范围。 |
-| M6完整Home及最终非作者组合资格 | I；inventory工具作者；foundation_review非作者Q，原C Q继承其已审部分 | 新工具只写`tools/verify-netshop-m6-home.mjs`与新fixture，未运行WIP；I当前净组合Node54通过 | 收干净工具/完整原捕获，Q在最终精确SHA复验Home/date/320390/原模式/权限失效/取消/返回/AI不发送、容量及必要构建；当前核心平台整期/成员成果继承。 |
+| M6实际签名同采样证据：接口已交，工具尚待接入 | 原 C Query/Lead，I 公共单写 | 运行净组合`0254d03ac3dad276e5b9955f12f7556ffd923620`；新E/query/comparison-pg-916f288c43ce579a6a2b；harness叶64503、d412、97299不改runtime | 916一轮22GET含19成功与401/409/403，精确平台展开5JDoutlet与实际按钮匹配，全部C/P-A原query/header/body/seed保全。98旧无outlet响应保留，不冒同范围。原真实HTTP完整7768053B→422、clock-only66注入→503透明报告。把916完整原件交工具，Q最后源/层级确认，不拼旧S六seed。 |
+| M6完整Home及最终非作者组合资格 | I；inventory工具作者；foundation_review非作者Q，原C Q继承其已审部分 | 干净SourcePin`2edecb8b1a983839de4a93874eeb2a5395c9438d`=0254运行源+专属tool/签名test；工具作者在该树只写新fixture/tool，未运行WIP；I Node54、Q相关61已通过 | 收静态final916 corpus/gates并提交工具、仅集成新版harness叶后给干净最终SHA，作者先真实Home定位必要阻断，非作者Q独立复验；旧有效范围继承，不假sort/q的未捕获成功响应，不放clean/字节/预算门槛。最后必要build/type188delta/边界与组合报告后正常M6 main。 |
 | M7五栏目最终组合 | I与非作者Q | 尚待M6实际main | 只重测变更与受影响范围，保留组合、权限/口径与构建门槛；继承有效旧证据，明确最终SHA，不删测试/放预算/吞错。 |
 | M8候选准备 | I唯一串行 | 原流程已只读核；尚无最终候选 | M7后锁定最终main和干净发布检出，按原只准备入口生成候选/manifest/收据及上线材料；不apply、维护、启停、迁移或真实业务。 |
 
