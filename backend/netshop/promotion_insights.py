@@ -6,10 +6,12 @@ Product, plan and term tables are alternative views of the same promotion rows.
 from __future__ import annotations
 
 import json
+import re
 import time
 from calendar import monthrange
 from datetime import date
 
+from django.db import connection
 from django.db.models import Count, Exists, Max, Min, OuterRef, Q, Sum
 from django.http import QueryDict
 
@@ -46,6 +48,8 @@ def _budget(deadline):
 
 
 def _validate(params, detail=False):
+    if not detail and ("objectId" in params or "shopKey" in params):
+        raise NetshopApiError("列表不接受详情对象键或店铺键；请使用精确商品联动或详情入口", code="invalid_promotion_request", status=400)
     if set(params) - CONTEXT_PARAMS - EXTRA_PARAMS or any(len(params.getlist(k)) != 1 for k in params if k != "outlet"):
         raise NetshopApiError("推广请求包含未知或重复参数")
     platform = params.get("platform")
@@ -508,7 +512,26 @@ def _dimensions(reader, names, options, deadline, principal):
 
 
 def _read(principal, params, detail=False):
+    """The one outer deadline fences each actual read SQL, including helpers.
+
+    An executing SQL is not terminated here. Expiry after it returns fails the
+    read, and the next business query cannot execute. Transaction cleanup may
+    still execute; existing SQL timeouts and the two-attempt context budget are
+    unchanged.
+    """
     deadline = time.monotonic()+65
+    def fence(execute, sql, sql_params, many, context):
+        statement = re.sub(r"\A(?:\s+|/\*[\s\S]*?\*/|--[^\n]*(?:\n|$))*", "", str(sql))
+        read_sql = re.match(r"(?:SELECT|WITH|SHOW|EXPLAIN)\b", statement, re.I) is not None
+        if read_sql: _budget(deadline)
+        value = execute(sql, sql_params, many, context)
+        if read_sql: _budget(deadline)
+        return value
+    with connection.execute_wrapper(fence):
+        return _read_once(principal, params, detail, deadline)
+
+
+def _read_once(principal, params, detail, deadline):
     actor = actor_fence(principal)
     _budget(deadline)
     spec, options = _validate(params, detail)
