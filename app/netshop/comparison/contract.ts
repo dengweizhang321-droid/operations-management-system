@@ -316,7 +316,8 @@ function decodeComparisonStructure(value: unknown, params: URLSearchParams, owni
     const bindMetric = (m: ComparisonMetric, period: "current" | "baseline", keys: string[], window: { startDate: string; endDate: string }, metricKey?: ComparisonMetricKey) => {
       if (["erp_net_sales", "erp_order_margin", "erp_large_margin"].includes(m.basis)) {
         const observed = erpSource.observations[m.coverageRef];
-        if (!observed || observed.period !== period || observed.startDate !== window.startDate || observed.endDate !== window.endDate || stable([...observed.shopKeys].sort()) !== stable([...keys].sort()) || m.status === "available" || m.status === "partial" && (!erpSource.source || stable(m.sourceIds) !== stable(["erp_sales"]))) fail("ERP金额/数量须保观察范围、来源和未证完整性状态"); return;
+        const parent = (period === "current" ? current : baseline).periods.current, temporalUnavailable = m.status === "unavailable" && m.reasonCode === "not_applicable" && erpSource.temporalState.state === "dependency_pending" && observed?.startDate === parent.startDate && observed?.endDate === parent.endDate;
+        if (!observed || observed.period !== period || !temporalUnavailable && (observed.startDate !== window.startDate || observed.endDate !== window.endDate) || stable([...observed.shopKeys].sort()) !== stable([...keys].sort()) || m.status === "available" || m.status === "partial" && (!erpSource.source || stable(m.sourceIds) !== stable(["erp_sales"]))) fail("ERP金额/数量须保观察范围、来源和未证完整性状态"); return;
       }
       const cov = coverageFor(m.coverageRef, period), days = resolveNetshopQueryPeriod(window.startDate, window.endDate, 366)!.days;
       if (!cov) fail("指标覆盖未绑定所属两期范围");
@@ -377,7 +378,7 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
         const ready = platform ? dto.sections.promotion.sourceStates.find(state => state.period === period && state.platform === platform)?.state === "ready" : false;
         if (ready || m.status === "available" || m.status === "partial") { const ref = `comparison:${period}:promotion:${objectKey ? hashes.get(objectKey) : platform ? platform + ":summary" : "summary"}${date ? ":trend:" + date : ""}${key === "spendRate" ? ":paired-whole" : ""}`; if (m.coverageRef !== ref) fail("推广覆盖引用不能借其他期、对象或配对集合"); }
         else if (!m.coverageRef.startsWith(`comparison:${period}:promotion:`)) fail("不可用推广仍须保所属两期引用");
-      } else { const ref = `comparison:${period}:erp:${objectKey ? hashes.get(objectKey) : "summary"}${date ? ":trend:" + date : ""}`; if (m.coverageRef !== ref) fail("ERP观察引用不能借其他期、对象或趋势桶"); }
+      } else { const temporalUnavailable = !!date && m.status === "unavailable" && m.reasonCode === "not_applicable" && dto.sections.comparability.erpEvidence.temporalState.state === "dependency_pending"; const ref = `comparison:${period}:erp:${objectKey ? hashes.get(objectKey) : "summary"}${date && !temporalUnavailable ? ":trend:" + date : ""}`; if (m.coverageRef !== ref) fail("ERP观察引用不能借其他期、对象或趋势桶"); }
     };
     for (const period of ["current", "baseline"] as const) {
       for (const key of comparisonMetricKeys) check(dto.sections.scale.summary[period][key], period, key, null);
