@@ -1,0 +1,179 @@
+{
+  "scope": "synthetic isolated UI only",
+  "sourceHashes": {
+    "index.html": "3891d818442127dc533694460f347272785442f5e41c48853f59769cd8b3e374",
+    "demo.js": "c266877a715a56f13968509092b57eeeeadf88259389f5964e17e62d1e5b67c9",
+    "demo.css": "c861e52b1c464e4888045d73b8d6193cf9b73b47939bdf3c5658d4be464feec3",
+    "system-tokens.css": "67ce705f082787654bb9914f10d743f9219708b3a845a7a2f6116cd7dbce9821",
+    "system-frame.css": "711109ad6e253ef01e64a82ef916c0c41c4bca2726f53a89bd39ea775c6776b3",
+    "date-picker.js": "472a9d5b2b3cf4e8bb6895a39c12d8ee5f906526a429bbf20a3763d1a117e22b",
+    "date-picker.css": "743848863a58604a822df6b6ad3a3986f585b94f799e47e9666cec67cbf69426"
+  },
+  "testedAt": "2026-09-30T12:15:53.728Z",
+  "viewport": [
+    "1440x1080",
+    "390x844"
+  ],
+  "cases": [
+    {
+      "name": "Static-only CSP and synthetic disclosure",
+      "result": "pass"
+    },
+    {
+      "name": "System font, palette and top-level column positions match the approved shell",
+      "result": "pass"
+    },
+    {
+      "name": "Only approved balanced design remains with six sections",
+      "result": "pass"
+    },
+    {
+      "name": "Category selection changes summaries, trends, structure and ranking context",
+      "result": "pass"
+    },
+    {
+      "name": "Synthetic category facts conserve signed integer totals and missing fields",
+      "result": "pass"
+    },
+    {
+      "name": "Category changes reset pagination and preserve filter scope through details",
+      "result": "pass"
+    },
+    {
+      "name": "Calendar clicks only commit on confirmation and keep the category scope",
+      "result": "pass"
+    },
+    {
+      "name": "Calendar clear, cancellation and Escape preserve the committed periods",
+      "result": "pass"
+    },
+    {
+      "name": "Calendar previous-month shortcut updates the baseline only",
+      "result": "pass"
+    },
+    {
+      "name": "Mouse drag can select a range across the two months without early application",
+      "result": "pass"
+    },
+    {
+      "name": "Invalid, future, reversed and excessive custom ranges cannot be confirmed",
+      "result": "pass"
+    },
+    {
+      "name": "Product detail never replaces a selected category with another category",
+      "result": "pass"
+    },
+    {
+      "name": "Sold product count respects source coverage, zero sales and category conservation",
+      "result": "pass"
+    },
+    {
+      "name": "Reselected objects keep matching chip and trend colors",
+      "result": "pass"
+    },
+    {
+      "name": "Platform mode keeps platforms separate from shop totals",
+      "result": "pass"
+    },
+    {
+      "name": "Source/date/grain controls alter the actual dataset",
+      "result": "pass"
+    },
+    {
+      "name": "Partial coverage is visible and cannot produce full growth or rate",
+      "result": "pass"
+    },
+    {
+      "name": "Rapid range changes end with the latest explicit range",
+      "result": "pass"
+    },
+    {
+      "name": "Demo detail and return preserve the comparison range",
+      "result": "pass"
+    },
+    {
+      "name": "Zero, negative and missing baselines cannot generate growth or normalized indexes",
+      "result": "pass"
+    },
+    {
+      "name": "Weighted ratios and cross-period ranking use the complete selected candidates",
+      "result": "pass"
+    },
+    {
+      "name": "Mixed-platform promotion remains separate and cannot produce a combined ROAS",
+      "result": "pass"
+    },
+    {
+      "name": "Local ranking pagination and balanced sections remain interactive",
+      "result": "pass"
+    },
+    {
+      "name": "Synthetic limited-scope fixture rejects a shop outside that fixture scope",
+      "result": "pass"
+    },
+    {
+      "name": "Complete coverage requires both periods, and a partial baseline prevents decomposition",
+      "result": "pass"
+    },
+    {
+      "name": "Trend buckets and normalized values match the summary for stable shop identities",
+      "result": "pass"
+    },
+    {
+      "name": "ERP summary labels coverage independently of the selected platform source",
+      "result": "pass"
+    },
+    {
+      "name": "Negative net sales remain in tables and do not enter the scale bubble chart",
+      "result": "pass"
+    },
+    {
+      "name": "Selected balanced view fits a narrow screen and keeps chart labels readable",
+      "result": "pass"
+    },
+    {
+      "name": "Custom-time dialog fits a narrow screen with readable native controls",
+      "result": "pass"
+    },
+    {
+      "name": "No JS errors or business/network requests",
+      "result": "pass"
+    }
+  ],
+  "errors": [],
+  "requests": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/system-tokens.css"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/demo.css"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/system-frame.css"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/date-picker.css"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/date-picker.js"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/demo.js"
+    }
+  ],
+  "passed": 31,
+  "failed": 0,
+  "PostgreSQL": "not implemented/not tested in this design stage",
+  "productionPermissions": "not tested; required after F/P/A integration",
+  "productionOperations": []
+}
