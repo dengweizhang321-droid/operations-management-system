@@ -148,7 +148,8 @@ test("wires the sales import and PostgreSQL analytics capabilities", async () =>
       readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
       stat(new URL("../public/og.png", import.meta.url)),
     ]);
-  const clientSources = [shell, dashboardModule, shopModule, salesModule, inventoryModule, productModule, importModule, businessUiModule].join("\n");
+  const periodPicker = await readFile(new URL("../app/statistical-period-picker.tsx", import.meta.url), "utf8");
+  const clientSources = [shell, dashboardModule, shopModule, salesModule, inventoryModule, productModule, importModule, businessUiModule, periodPicker].join("\n");
 
   assert.match(clientSources, /\/api\/imports\/sales/);
   assert.match(clientSources, /\/api\/sales\/summary/);
@@ -275,10 +276,11 @@ test("keeps sales overview multi-selects mounted while filtered results refresh"
 });
 
 test("keeps shop analysis isolated by platform and matches year-over-year by the same shop key", async () => {
-  const [shopModule, navigation, summaryService] = await Promise.all([
+  const [shopModule, navigation, summaryService, shopNavigation] = await Promise.all([
     readFile(new URL("../app/shop-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/shell/navigation-catalog.ts", import.meta.url), "utf8"),
     readFile(new URL("../backend/sales/summary.py", import.meta.url), "utf8"),
+    readFile(new URL("../app/netshop/shared/navigation.tsx", import.meta.url), "utf8"),
   ]);
 
   // A shop name can legitimately occur on several marketplaces.  Its platform
@@ -292,7 +294,8 @@ test("keeps shop analysis isolated by platform and matches year-over-year by the
   // while the user has filtered the table to 京东.
   assert.match(shopModule, /key=\{`\$\{activeTab\}-\$\{item\.platform\}-\$\{item\.name\}`\}/);
   assert.match(navigation, /label: "网店分析"/);
-  assert.match(shopModule, /aria-label="网店分析子版块"/);
+  assert.match(shopModule, /<NetshopNavigation\b/);
+  assert.match(shopNavigation, /aria-label="网店分析子版块"/);
 });
 
 test("wires inventory health, synchronization, and replenishment", async () => {

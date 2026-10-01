@@ -1,0 +1,10 @@
+body { margin:0; background:var(--color-bg-app); color:var(--color-text-primary); }
+.promotion-qa-header { display:flex; gap:20px; align-items:center; flex-wrap:wrap; min-height:64px; padding:16px 24px; color:var(--color-text-inverse); background:var(--color-bg-inverse); }
+.promotion-qa-header strong { font-size:var(--font-size-page-title); }
+.promotion-qa-label { margin-left:auto; font-size:var(--font-size-label); padding:5px 9px; border:1px solid var(--color-brand-border); border-radius:6px; }
+.promotion-qa-tools { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 24px; background:var(--color-brand-soft); font-size:var(--font-size-label); }
+.promotion-qa-tools button { padding:7px 10px; border:1px solid var(--color-brand-border); border-radius:6px; background:var(--color-bg-surface); color:var(--color-brand); font:inherit; }
+.promotion-qa-workspace { max-width:1600px; margin:auto; padding:24px; }
+.promotion-qa-console { padding:16px 0; font-size:var(--font-size-caption); color:var(--color-text-muted); }
+.promotion-qa-console pre,#promotion-qa-drill-target { white-space:pre-wrap; overflow-wrap:anywhere; max-height:300px; overflow:auto; font-size:var(--font-size-caption); }
+@media(max-width:600px) { .promotion-qa-workspace { padding:14px; } .promotion-qa-header,.promotion-qa-tools { padding:14px; gap:10px; } .promotion-qa-label { margin-left:0; } }

@@ -64,6 +64,59 @@ export type PromotionDiagnosticReport = {
   limitations: string[];
 };
 
+export type PromotionDiagnosticDisplayOptions = { ratioLabel?: "ROI" | "ROAS" };
+/** Only read evidence already admitted by the panel; never a new source DTO. */
+export type PromotionDiagnosticBaselineProvenance = Readonly<{
+  identity: Readonly<DiagnosticPeriod["identity"]>;
+  period: Readonly<DiagnosticPeriod["period"]>;
+  sourceRevision: string;
+  coverage: Readonly<Omit<DiagnosticPeriod["coverage"], "requestedDates" | "presentDates" | "missingDates"> & {
+    requestedDates: readonly string[]; presentDates: readonly string[]; missingDates: readonly string[];
+  }>;
+}>;
+export type PromotionDiagnosticExportOptions = PromotionDiagnosticDisplayOptions & {
+  includeProvenance?: boolean;
+  /** null = no successful baseline read; omitted = read evidence not supplied. */
+  baselineProvenance?: PromotionDiagnosticBaselineProvenance | null;
+};
+export class PromotionDiagnosticBindingError extends Error {
+  readonly code = "promotion_diagnostic_binding_changed";
+  constructor(message: string) { super(message); this.name = "PromotionDiagnosticBindingError"; }
+}
+
+/** The revision is netshop's owning revision, never a promotion snapshot token. */
+export function validateDiagnosticResponse(period: DiagnosticPeriod, owningRevision: string | null, expected: {
+  shopName: string; startDate: string; endDate: string; expectedOwningRevision?: string;
+}) {
+  if (!owningRevision || !/^\d+:[a-f0-9]{12}$/.test(owningRevision) || period?.sourceRevision !== owningRevision
+    || expected.expectedOwningRevision !== undefined && owningRevision !== expected.expectedOwningRevision) {
+    throw new PromotionDiagnosticBindingError("推广诊断拥有方修订已变化或响应头不一致，请重新读取");
+  }
+  if (period.identity?.platform !== "京东" || period.identity?.shopName !== expected.shopName
+    || period.period?.startDate !== expected.startDate || period.period?.endDate !== expected.endDate) {
+    throw new PromotionDiagnosticBindingError("推广诊断响应不属于当前店铺或日期范围");
+  }
+  validateDiagnosticPeriod(period);
+  return period;
+}
+
+/** Copy display labels only. Canonical roas keys and numeric cells stay intact. */
+export function promotionDiagnosticDisplayReport(report: PromotionDiagnosticReport, { ratioLabel = "ROAS" }: PromotionDiagnosticDisplayOptions = {}): PromotionDiagnosticReport {
+  if (ratioLabel !== "ROI" && ratioLabel !== "ROAS") throw new Error("推广比值显示名称无效");
+  if (ratioLabel === "ROAS") return report;
+  const label = (text: string) => text.replace(/\bROAS\b/g, ratioLabel);
+  return {
+    ...report,
+    findings: report.findings.map(finding => ({ ...finding, title: label(finding.title), text: label(finding.text) })),
+    actions: report.actions.map(action => ({ ...action, evidence: label(action.evidence), change: label(action.change), metric: label(action.metric), observation: label(action.observation), rollback: label(action.rollback) })),
+    limitations: [...report.limitations.map(label), "ROI显示值仍为平台归因订单金额 / 推广花费，单位倍数；不代表利润回报率或增量效果。"],
+    tables: report.tables.map(table => ({
+      ...table, title: label(table.title), note: label(table.note), columns: table.columns.map(column => ({ ...column, label: label(column.label) })),
+      rows: table.rows.map(row => row.map((cell, index) => typeof cell === "string" && (table.key === "summary" && index === 0 || table.key === "actions" && index >= 2) ? label(cell) : cell)),
+    })),
+  };
+}
+
 function validDate(value: string) {
   return /^20\d\d-\d\d-\d\d$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
     && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
@@ -645,8 +698,55 @@ function promotionDiagnosticRuntimeScript() {
 })();`;
 }
 
+function promotionExportProvenance(report: PromotionDiagnosticReport, options: PromotionDiagnosticExportOptions): ReportTable {
+  if (!/^\d+:[a-f0-9]{12}$/.test(report.sourceRevision)) throw new PromotionDiagnosticBindingError("导出追溯须使用已核验的netshop拥有方修订，不是snapshotToken");
+  const requested = dates(report.period.startDate, report.period.endDate);
+  const baseline = options.baselineProvenance;
+  const unknown = baseline === null ? "未读成功；覆盖与拥有方修订未知" : "未知；未提供基期读取证据";
+  if (baseline) {
+    const previousStart = new Date(Date.parse(`${report.period.startDate}T00:00:00Z`) - requested.length * 86_400_000).toISOString().slice(0, 10);
+    const previousEnd = new Date(Date.parse(`${report.period.startDate}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+    if (baseline.identity.platform !== "京东" || baseline.identity.shopName !== report.shopName
+      || !/^\d+:[a-f0-9]{12}$/.test(baseline.sourceRevision)
+      || baseline.period.startDate !== previousStart || baseline.period.endDate !== previousEnd
+      || JSON.stringify(baseline.coverage.requestedDates) !== JSON.stringify(dates(previousStart, previousEnd))
+      || report.comparisonAvailable && (!baseline.coverage.complete || baseline.sourceRevision !== report.sourceRevision
+        || report.previousPeriod?.startDate !== baseline.period.startDate || report.previousPeriod?.endDate !== baseline.period.endDate)) {
+      throw new PromotionDiagnosticBindingError("基期导出追溯与实际店铺、前等长期间或可比拥有方修订不一致");
+    }
+  }
+  const joinedDates = (value: readonly string[]) => value.length ? value.join("、") : "无（日期列表为空）";
+  const reconciled = (value: boolean) => value ? "已核对" : "未核对";
+  const comparison = report.comparisonAvailable ? baseline ? "可比" : "报告声明可比；基期读取证据未知，不能独立核验" : "不可比；环比留空";
+  return { key: "exportProvenance", title: "范围与来源", note: "本表仅展示实际报告与已读取基期的来源证据；未知不是零，不补造基期覆盖或修订。", columns: [
+    { key: "item", label: "追溯项目", kind: "text" }, { key: "current", label: "本期", kind: "text" }, { key: "previous", label: "前等长基期", kind: "text" },
+  ], rows: [
+    ["平台", "京东", baseline?.identity.platform ?? unknown],
+    ["店铺", report.shopName, baseline?.identity.shopName ?? unknown],
+    ["实际统计期间", `${report.period.startDate} 至 ${report.period.endDate}`, baseline ? `${baseline.period.startDate} 至 ${baseline.period.endDate}` : unknown],
+    ["来源读取状态", "已读取本期报告", baseline ? "已读取基期来源" : unknown],
+    ["netshop拥有方修订（sourceRevision，非snapshotToken）", report.sourceRevision, baseline?.sourceRevision ?? unknown],
+    ["来源ID（已核验的京准通导入源）", "jd_promotion", baseline ? "jd_promotion" : unknown],
+    ["请求自然日", joinedDates(report.coverage.requestedDates), baseline ? joinedDates(baseline.coverage.requestedDates) : unknown],
+    ["已有来源日期", joinedDates(report.coverage.presentDates), baseline ? joinedDates(baseline.coverage.presentDates) : unknown],
+    ["缺少来源日期", joinedDates(report.coverage.missingDates), baseline ? joinedDates(baseline.coverage.missingDates) : unknown],
+    ["实际来源行数", report.coverage.rowCount, baseline?.coverage.rowCount ?? unknown],
+    ["日期覆盖完整", report.coverage.complete ? "完整" : "不完整", baseline ? baseline.coverage.complete ? "完整" : "不完整" : unknown],
+    ["聚合对账（aggregateReconciled）", reconciled(report.coverage.aggregateReconciled), baseline ? reconciled(baseline.coverage.aggregateReconciled) : unknown],
+    ["批次归属对账（batchOwnershipReconciled）", reconciled(report.coverage.batchOwnershipReconciled), baseline ? reconciled(baseline.coverage.batchOwnershipReconciled) : unknown],
+    ["比较状态", comparison, comparison],
+    ["独立比较规则", "独立1—7天报告，基期为紧邻本期之前的等长自然日；不替代全页环比/同比", "仅实际成功读取且来源修订与覆盖可比时形成比较"],
+    ["ROI/ROAS口径", "ROI（ROAS显示别名）=平台归因订单金额÷推广花费；单位倍数；非利润回报率或增量效果", "与本期相同口径，缺源留空"],
+    ["原表空值", "原表空串与null均导出为空白单元格；仅含空格的字符串保留原值；不补零", "未知读取证据不表示真实零"],
+  ] };
+}
+function promotionDiagnosticExportReport(source: PromotionDiagnosticReport, options?: PromotionDiagnosticExportOptions) {
+  const report = promotionDiagnosticDisplayReport(source, options);
+  return options?.includeProvenance ? { ...report, tables: [...report.tables, promotionExportProvenance(report, options)] } : report;
+}
 /** Self-contained, offline HTML. Every visible number comes from the same table cells as XLSX. */
-export function promotionDiagnosticHtml(report: PromotionDiagnosticReport) {
+export function promotionDiagnosticHtml(sourceReport: PromotionDiagnosticReport, options?: PromotionDiagnosticExportOptions) {
+  const report = promotionDiagnosticExportReport(sourceReport, options);
   const title = `${report.shopName} · ${report.period.startDate} 至 ${report.period.endDate} 推广深度诊断`;
   const mode = report.tables.some((table) => table.key === "chatInterpretation")
     ? "规则诊断与 AI 对话原文（文字未逐项核验） · 来源数值以确定性表为准 · 无自动投放操作"
@@ -654,14 +754,17 @@ export function promotionDiagnosticHtml(report: PromotionDiagnosticReport) {
       ? "规则诊断与单模型解释 · 来源与口径可核对 · 无自动投放操作"
       : "规则诊断草稿 · 来源与口径可核对 · 无自动投放操作";
   const encoded = JSON.stringify(report).replaceAll("<", "\\u003c").replaceAll("\u2028", "\\u2028").replaceAll("\u2029", "\\u2029");
+  const provenance = options?.includeProvenance ? report.tables.at(-1)! : null;
+  const provenanceHtml = provenance ? `<section id="export-provenance"><h2>${escapeHtml(provenance.title)}</h2><p>${escapeHtml(provenance.note)}</p><div class="tablewrap"><table><thead><tr>${provenance.columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr></thead><tbody>${provenance.rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell === null ? "未知" : String(cell))}</td>`).join("")}</tr>`).join("")}</tbody></table></div></section>` : "";
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'"><title>${escapeHtml(title)}</title><style>
   :root{font-family:system-ui,"Microsoft YaHei",sans-serif;color:#173129;background:#f4f7f5}body{margin:0}header{background:#12382f;color:white;padding:32px max(20px,5vw)}h1{font-size:clamp(24px,4vw,38px);margin:8px 0}main{max-width:1380px;margin:auto;padding:24px}p{line-height:1.55}.muted{color:#65746e}.warning{background:#fff3d7;border:1px solid #e0ba62;padding:14px;border-radius:10px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.card,section{background:white;border:1px solid #d8e3dd;border-radius:12px;padding:16px;margin:12px 0}.card b{font-size:23px;display:block}.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button,input,select{font:inherit;padding:9px;border:1px solid #b7cac0;border-radius:7px;background:white}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:2px solid #187f5a}nav{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}.active{background:#17684e;color:white}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #dce6e0;padding:9px;text-align:left;white-space:nowrap}th{background:#eef4f0;position:sticky;top:0}td.num{text-align:right;font-variant-numeric:tabular-nums}.pager{display:flex;justify-content:space-between;gap:8px;align-items:center}.chart{width:100%;max-height:220px}.badge{display:inline-block;border-radius:100px;background:#e9f5ec;padding:3px 9px;margin-right:6px}@media(max-width:600px){main{padding:12px}header{padding:22px 14px}}
   </style></head><body><header><small>BUSINESS REVIEW · 京东推广</small><h1>${escapeHtml(title)}</h1><p>${escapeHtml(mode)}</p></header><main><div id="status"></div><div id="kpis" class="grid"></div><section><h2>经营判断与复查方向</h2><div id="findings"></div></section><section><h2>逐日推广花费（元）</h2><div id="chart"></div></section><section><h2>明细与行动</h2><nav id="tabs"></nav><p id="note" class="muted"></p><div id="related" class="toolbar"></div><div class="toolbar"><input id="search" placeholder="搜索当前表" aria-label="搜索当前表"><select id="sort" aria-label="排序列"></select><button id="direction">降序</button><button id="csv">导出当前表CSV</button></div><div class="tablewrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div><div class="pager"><span id="count"></span><span><button id="prev">上一页</button> <button id="next">下一页</button></span></div></section><section><h2>口径与限制</h2><ul id="limits"></ul></section></main><script type="application/json" id="report">${encoded}</script><script>
   ${promotionDiagnosticRuntimeScript()}
-  </script></body></html>`.replace("</style></head>", ".chat-text{white-space:pre-wrap;overflow-wrap:anywhere;max-width:850px;line-height:1.55}</style></head>");
+  </script></body></html>`.replace("<section><h2>口径与限制</h2>", () => `${provenanceHtml}<section><h2>口径与限制</h2>`).replace("</style></head>", ".chat-text{white-space:pre-wrap;overflow-wrap:anywhere;max-width:850px;line-height:1.55}</style></head>");
 }
 
-export function promotionDiagnosticXlsx(report: PromotionDiagnosticReport) {
+export function promotionDiagnosticXlsx(sourceReport: PromotionDiagnosticReport, options?: PromotionDiagnosticExportOptions) {
+  const report = promotionDiagnosticExportReport(sourceReport, options);
   const sheets: XlsxOutputSheet[] = report.tables.map((table) => ({
     name: table.title.slice(0, 25),
     rows: [[...table.columns.map((column) => column.label)], ...table.rows],

@@ -8,7 +8,7 @@ import {
 } from "./navigation-catalog";
 import { normalizeModuleView, parseModuleView } from "./module-view-contract";
 import { defaultShopLocationContext, parseShopLocationContext, writeShopLocationContext, shopContextKeys, validShopReturn, type ShopLocationContext } from "./shop-context";
-import type { ProductIdentity } from "@/lib/netshop/insights-contract";
+import { encodeProductIdentity, type ProductIdentity } from "@/lib/netshop/insights-contract";
 
 export const shellPeriodKeys = [
   "today",
@@ -169,7 +169,13 @@ function writeShellState<M extends ModuleKey>(url: URL, state: ShellLocationInpu
   }
   if (state.module === "shop" && (state.shop || existingShop)) {
     const nextShop = { ...(state.shop ?? existingShop!) };
-    if (existingShop && JSON.stringify(existingPeriod) !== JSON.stringify(state.period)) nextShop.page = 1;
+    if (existingShop && JSON.stringify(existingPeriod) !== JSON.stringify(state.period)) {
+      nextShop.page = 1;
+      nextShop.returnTo = null;
+      nextShop.returnOrigin = null;
+      nextShop.productsPrefs = null;
+      nextShop.promotionPrefs = null;
+    }
     writeShopLocationContext(url.searchParams, nextShop);
   }
 
@@ -245,15 +251,40 @@ export function updateShopContextLocation(input: string | URL, patch: Partial<Sh
   const canonical = parseShopLocationContext(params);
   const scope = (v: ShopLocationContext) => JSON.stringify([v.platforms, v.outlets, v.dimension, v.category, v.q, v.pageSize]);
   if (scope(before) !== scope(canonical)) canonical.page = 1;
+  if (JSON.stringify([before.platforms, before.outlets, before.dimension]) !== JSON.stringify([canonical.platforms, canonical.outlets, canonical.dimension])) {
+    canonical.returnTo = null;
+    canonical.returnOrigin = null;
+    canonical.productsPrefs = null;
+    canonical.promotionPrefs = null;
+  }
+  if ((before.productsPrefs?.sort ?? "payment_desc") !== (canonical.productsPrefs?.sort ?? "payment_desc")) canonical.page = 1;
+  const catalog = (context: ShopLocationContext) => context.productsPrefs?.catalogFilters ?? { status: "all", quality: "all", mapping: "all" };
+  if (JSON.stringify(catalog(before)) !== JSON.stringify(catalog(canonical))) canonical.page = 1;
+  if ((before.promotionPrefs?.sort ?? "spend_desc") !== (canonical.promotionPrefs?.sort ?? "spend_desc") || JSON.stringify(before.promotionPrefs?.objectDateFocus ?? null) !== JSON.stringify(canonical.promotionPrefs?.objectDateFocus ?? null)) canonical.page = 1;
   return serializeShellLocation({ module: "shop", view: state.module === "shop" ? state.view as ModuleViewKey<"shop"> : "analysis", period: state.period, shop: canonical }, input);
 }
 export function drillShopLocation(input: string | URL, view: ModuleViewKey<"shop">, product: ProductIdentity | null, section = ""): string {
   const state = parseShellLocation(input), before = state.shop ?? defaultShopLocationContext;
-  const returnTo = serializeShellLocation({ module: "shop", view: state.module === "shop" ? state.view as ModuleViewKey<"shop"> : "analysis", period: state.period, ...(state.overview ? { overview: state.overview } : {}), shop: { ...before, returnTo: null } }, "/");
-  const shop = { ...before, product, section, page: 1, returnTo, ...(product ? { platforms: [product.platform], outlets: [product.platform+"\u001f"+product.shopName], dimension: product.dimension } : {}) };
+  // Following the same exact product back from A restores the original P
+  // detail and its flat list origin instead of creating another return level.
+  if (state.module === "shop" && state.view === "promotion" && view === "products" && product && before.returnTo) {
+    const origin = parseShellLocation(before.returnTo);
+    if (origin.module === "shop" && origin.view === "products" && origin.shop?.product && encodeProductIdentity(origin.shop.product) === encodeProductIdentity(product) && JSON.stringify(origin.period) === JSON.stringify(state.period)) return returnShopLocation(input);
+  }
+  const returnTo = serializeShellLocation({ module: "shop", view: state.module === "shop" ? state.view as ModuleViewKey<"shop"> : "analysis", period: state.period, ...(state.overview ? { overview: state.overview } : {}), shop: { ...before, returnTo: null, returnOrigin: null } }, "/");
+  const returnOrigin = state.module === "shop" && state.view === "products" && before.product && view === "promotion" ? validShopReturn(before.returnTo) : null;
+  const shop = { ...before, product, section, page: 1, returnTo, returnOrigin, ...(state.module === "shop" && state.view !== view ? { q: "", category: "" } : {}), ...(product ? { platforms: [product.platform], outlets: [product.platform+"\u001f"+product.shopName], dimension: product.dimension } : {}) };
   return serializeShellLocation({ module: "shop", view, period: state.period, shop }, input);
 }
 export function returnShopLocation(input: string | URL): string {
   const state = parseShellLocation(input), target = validShopReturn(state.shop?.returnTo ?? null);
-  return target ? normalizeShellLocation(target) : serializeShellLocation({ module: "shop", view: "products", period: state.period, shop: { ...(state.shop ?? defaultShopLocationContext), product: null, returnTo: null } }, input);
+  if (target) {
+    const destination = parseShellLocation(target);
+    const origin = validShopReturn(state.shop?.returnOrigin ?? null);
+    if (origin && destination.module === "shop" && destination.view === "products" && destination.shop?.product) {
+      return serializeShellLocation({ ...destination, shop: { ...destination.shop, returnTo: origin, returnOrigin: null } }, target);
+    }
+    return normalizeShellLocation(target);
+  }
+  return serializeShellLocation({ module: "shop", view: "products", period: state.period, shop: { ...(state.shop ?? defaultShopLocationContext), product: null, returnTo: null, returnOrigin: null } }, input);
 }

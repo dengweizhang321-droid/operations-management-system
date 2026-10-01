@@ -1,4 +1,4 @@
-import type { InsightPagination, InsightSections, MetricComparison, MetricValue, ProductIdentity, SourceRevision } from "./insights-contract";
+import type { DerivedMoneyPerCountV1, InsightPagination, InsightSections, MetricComparison, MetricValue, ProductIdentity, SourceRevision } from "./insights-contract";
 
 export type Comparisons<K extends string> = Record<K, { previous: MetricComparison; yearAgo: MetricComparison }>;
 export type SourceSection<T> = { state: "ready"; data: T } | { state: "error"; data: null; code: "access_denied" | "service_unavailable" | "insights_revision_changed"; message: string };
@@ -11,11 +11,12 @@ export type ProductInsightsDTO = InsightSections<{
   growth: SourceSection<{ collection: "paired_full_set_before_pagination"; items: ProductInsightRow[]; pagination: InsightPagination }>;
 }>;
 type PromotionMetric = "spend" | "attributedPayment" | "roas" | "impressions" | "clicks" | "ctr" | "cpc" | "orders" | "spendRate";
+export type PromotionMetrics = Omit<Record<PromotionMetric, MetricValue>, "cpc"> & { cpc: DerivedMoneyPerCountV1 };
 export type PromotionInsightsDTO = InsightSections<{
-  summary: Record<PromotionMetric, MetricValue>; comparisons: Comparisons<PromotionMetric>;
+  summary: PromotionMetrics; comparisons: Comparisons<PromotionMetric>;
   attribution: { amountDefinition: "jd_total_order_amount" | "tmall_net_amount"; orderDefinition: "jd_order_lines" | "tmall_net_transactions"; window: string | null };
   matchedRange: { scopeLabel: string; metrics: Record<"spend" | "payment" | "spendRate", MetricValue>; coverageRef: string } | null;
-  items: Array<{ platform: "京东" | "天猫"; shopKey: string; objectKind: "product" | "plan" | "unit" | "keyword" | "search_term"; id: string; title: string; metrics: Record<PromotionMetric, MetricValue> }>;
+  items: Array<{ platform: "京东" | "天猫"; shopKey: string; objectKind: "product" | "plan" | "unit" | "keyword" | "search_term"; id: string | null; rowKey: string; title: string; metrics: PromotionMetrics }>;
   pagination: InsightPagination;
 }>;
 export type StorePanoramaDTO = MultiSourceInsightSections<{
@@ -40,7 +41,7 @@ export type ComparisonInsightsDTO = MultiSourceInsightSections<{
  */
 export const reservedInsightEndpoints = {
   P: { owner: "P", path: "/api/netshop/product-insights", detailPath: "/api/netshop/product-insights/detail", state: "reserved_not_implemented", extraParameters: ["q", "category", "page", "pageSize", "sort", "productIdentity", "sectionToken"] },
-  A: { owner: "A", path: "/api/netshop/promotion-insights", detailPath: "/api/netshop/promotion-insights/detail", state: "reserved_not_implemented", extraParameters: ["q", "objectKind", "objectId", "page", "pageSize", "sort", "sectionToken"] },
+  A: { owner: "A", path: "/api/netshop/promotion-insights", detailPath: "/api/netshop/promotion-insights/detail", state: "reserved_not_implemented", extraParameters: ["q", "objectKind", "objectId", "shopKey", "trendGrain", "focusDate", "objectStartDate", "objectEndDate", "page", "pageSize", "sort", "sectionToken"] },
   S: { owner: "S", path: "/api/netshop/store-panorama", state: "reserved_not_implemented", extraParameters: ["section", "q", "page", "pageSize", "sectionToken"] },
   C: { owner: "C", path: "/api/netshop/comparison-insights", state: "reserved_not_implemented", extraParameters: ["mode", "category", "page", "pageSize", "sort", "sectionToken"] },
 } as const;

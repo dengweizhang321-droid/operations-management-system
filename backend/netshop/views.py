@@ -82,6 +82,58 @@ def insights_context(request: HttpRequest) -> JsonResponse:
         return _error(error, "共享网店上下文读取失败")
 
 
+@require_GET
+def promotion_insights(request: HttpRequest) -> JsonResponse:
+    from .promotion_insights import read_promotion_insights
+    try:
+        principal = _principal(request)
+        payload = read_promotion_insights(principal, request.GET)
+        revision = next(item["revision"] for item in payload["context"]["sourceRevisions"]
+                        if item["domain"] == "netshop" and item["kind"] == "owning_revision")
+        return _json(payload, revision=revision)
+    except Exception as error:
+        return _error(error, "推广经营分析读取失败")
+
+
+@require_GET
+def promotion_insights_detail(request: HttpRequest) -> JsonResponse:
+    from .promotion_insights import read_promotion_detail
+    try:
+        principal = _principal(request)
+        payload = read_promotion_detail(principal, request.GET)
+        revision = next(item["revision"] for item in payload["context"]["sourceRevisions"]
+                        if item["domain"] == "netshop" and item["kind"] == "owning_revision")
+        return _json(payload, revision=revision)
+    except Exception as error:
+        return _error(error, "推广经营详情读取失败")
+
+
+@require_GET
+def product_insights(request: HttpRequest) -> JsonResponse:
+    from .product_insights import read_product_insights, validate_product_query
+    try:
+        principal = _principal(request)
+        spec = validate_product_query(request.GET)
+        _platforms(principal, spec["platforms"])
+        payload = read_product_insights(principal, spec)
+        return _json(payload, revision=payload["context"]["sourceRevisions"][0]["revision"])
+    except Exception as error:
+        return _error(error, "商品经营分析读取失败")
+
+
+@require_GET
+def product_insights_detail(request: HttpRequest) -> JsonResponse:
+    from .product_insights import read_product_detail, validate_product_query
+    try:
+        principal = _principal(request)
+        spec = validate_product_query(request.GET, detail=True)
+        _platforms(principal, spec["platforms"])
+        payload = read_product_detail(principal, spec)
+        return _json(payload, revision=payload["context"]["sourceRevisions"][0]["revision"])
+    except Exception as error:
+        return _error(error, "商品经营详情读取失败")
+
+
 def _json(
     payload: object,
     status: int = 200,
@@ -396,7 +448,9 @@ def overview(request: HttpRequest) -> JsonResponse:
 @require_GET
 def products(request: HttpRequest) -> JsonResponse:
     try:
+        from .catalog_filters import validate_catalog_filters
         principal = _principal(request)
+        catalog_filters = validate_catalog_filters(request.GET)
         view = _single(request.GET.getlist("view"), "full", {"full", "page"}, "view")
         snapshot = _snapshot(
             request.GET.getlist("snapshotToken"), required=view == "page", allowed=view == "page"
@@ -417,6 +471,7 @@ def products(request: HttpRequest) -> JsonResponse:
                 sales_period=sales_period,
                 view=view,
                 expected_snapshot_token=snapshot,
+                catalog_filters=catalog_filters,
             )
         )
         return _json(payload, revision=revision)

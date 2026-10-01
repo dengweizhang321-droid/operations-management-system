@@ -86,6 +86,31 @@ def compare_metrics(current, baseline):
     return {"value": value, "method": method, "status": "unavailable" if reason else "available", "reasonCode": reason}
 
 
+def validate_derived_money_per_count(metric):
+    """Versioned fractional-cent unit price; original amounts stay integers."""
+    if not isinstance(metric, dict) or any(type(metric.get(key)) is not str for key in ("metricSchemaVersion", "unit", "aggregation", "denominatorKind", "status", "basis")) or metric.get("reasonCode") is not None and type(metric.get("reasonCode")) is not str:
+        raise NetshopApiError("派生货币单价枚举结构无效")
+    if not isinstance(metric, dict) or metric.get("metricSchemaVersion") != "netshop-money-per-count-v1" or metric.get("unit") != "CNY_CENT_PER_COUNT" or metric.get("aggregation") != "ratio_of_sums" or metric.get("denominatorKind") not in {"clicks", "item_quantity", "transaction_customers_sum", "product_day_visitors_sum"} or metric.get("status") not in {"available", "unavailable", "invalid"} or "numerator" not in metric or "denominator" not in metric:
+        raise NetshopApiError("派生货币单价版本、单位或分母定义无效")
+    numerator, denominator = metric["numerator"], metric["denominator"]
+    if any(v is not None and (type(v) is not int or abs(v) > MAX_SAFE) for v in (numerator, denominator)):
+        raise NetshopApiError("派生货币单价须以安全整数分和次数计算")
+    if metric["status"] == "available" and (type(numerator) is not int or type(denominator) is not int or denominator <= 0 or metric["denominatorKind"] == "clicks" and numerator < 0):
+        raise NetshopApiError("派生货币单价分子分母无效")
+    validate_metric({**metric, "unit": "RATIO"})
+    if metric["status"] == "available" and metric["value"] != numerator/denominator:
+        raise NetshopApiError("派生货币单价必须保留整数分/次数的未舍入商")
+    return metric
+
+
+def compare_derived_money_per_count(current, baseline):
+    validate_derived_money_per_count(current); validate_derived_money_per_count(baseline)
+    reason = "not_applicable" if current["denominatorKind"] != baseline["denominatorKind"] or current["basis"] != baseline["basis"] or sorted(current["sourceIds"]) != sorted(baseline["sourceIds"]) else "incomplete_baseline" if current["status"] != "available" or baseline["status"] != "available" else "zero_denominator" if baseline["value"] == 0 else "negative_baseline" if baseline["value"] < 0 else None
+    value = None if reason else (current["value"]-baseline["value"])/baseline["value"]
+    if value is not None and not isfinite(value): value, reason = None, "unsafe_integer"
+    return {"value": value, "method": "relative_change", "status": "unavailable" if reason else "available", "reasonCode": reason}
+
+
 def comparison_calendar(p):
     """Non-bijective month-end/leap dates remain null, never duplicate a day."""
     current = days(p["current"]["startDate"], p["current"]["endDate"])
@@ -208,8 +233,12 @@ def context_versions(platform, names, revision):
     return vector
 
 
-def read_context(principal, spec):
-    deadline = time.monotonic()+65
+def read_context(principal, spec, *, deadline=None):
+    started = time.monotonic()
+    if deadline is not None and (type(deadline) not in {int, float} or not isfinite(deadline)):
+        raise NetshopApiError("共享内部读取期限无效")
+    deadline = started + 65 if deadline is None else min(deadline, started + 65)
+    if started > deadline: raise NetshopApiError("共享来源读取超出预算", code="source_not_ready", status=503)
     actor = actor_fence(principal)
     if time.monotonic() > deadline: raise NetshopApiError("共享来源读取超出预算", code="source_not_ready", status=503)
     require_supported_scope(principal)

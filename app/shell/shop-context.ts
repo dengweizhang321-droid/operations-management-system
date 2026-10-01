@@ -1,13 +1,19 @@
 import { readNetshopOutletFilters, netshopOutletKey } from "@/lib/netshop/query-contract";
 import { encodeProductIdentity, type ProductIdentity, type InsightPlatform } from "@/lib/netshop/insights-contract";
+import { decodeProductsPresentationPrefs, type ProductsPresentationPrefs } from "./shop-products-prefs";
+import { decodePromotionPresentationPrefs, type PromotionPresentationPrefs } from "./shop-promotion-prefs";
 
 export type ShopLocationContext = {
   platforms: InsightPlatform[]; outlets: string[]; dimension: "sku" | "spu";
   previous: boolean; yearAgo: boolean; grain: "day" | "week" | "month";
   section: string; category: string; q: string; page: number; pageSize: number;
   product: ProductIdentity | null; returnTo: string | null;
+  /** Flat original list location while a product detail visits another column. */
+  returnOrigin?: string | null;
+  productsPrefs?: ProductsPresentationPrefs | null;
+  promotionPrefs?: PromotionPresentationPrefs | null;
 };
-export const shopContextKeys = ["shopPlatform", "shopOutlet", "shopDimension", "shopPrevious", "shopYearAgo", "shopGrain", "shopSection", "shopCategory", "shopQ", "shopPage", "shopPageSize", "shopProduct", "shopReturn"] as const;
+export const shopContextKeys = ["shopPlatform", "shopOutlet", "shopDimension", "shopPrevious", "shopYearAgo", "shopGrain", "shopSection", "shopCategory", "shopQ", "shopPage", "shopPageSize", "shopProduct", "shopReturn", "shopReturnOrigin", "shopProductsPrefs", "shopPromotionPrefs"] as const;
 export const defaultShopLocationContext: ShopLocationContext = { platforms: [], outlets: [], dimension: "spu", previous: true, yearAgo: true, grain: "day", section: "", category: "", q: "", page: 1, pageSize: 20, product: null, returnTo: null };
 
 function single(params: URLSearchParams, key: string): string | null { const values = params.getAll(key); return values.length === 1 ? values[0] : null; }
@@ -16,7 +22,9 @@ function positive(value: string | null, fallback: number, max: number) { return 
 export function validShopReturn(value: string | null): string | null {
   if (!value || value.length > 16000 || !value.startsWith("/?") || value.includes("\u0000")) return null;
   const url = new URL(value, "https://teruisi-shell.invalid");
-  if (url.pathname !== "/" || url.hash || url.searchParams.getAll("module").length !== 1 || url.searchParams.get("module") !== "shop" || url.searchParams.has("shopReturn")) return null;
+  if (url.pathname !== "/" || url.hash || url.searchParams.getAll("module").length !== 1 || url.searchParams.get("module") !== "shop" || url.searchParams.has("shopReturn") || url.searchParams.has("shopReturnOrigin")) return null;
+  if (url.searchParams.getAll("view").length > 1 || url.searchParams.has("view") && !["analysis", "outlets", "platforms", "products", "promotion"].includes(url.searchParams.get("view")!)) return null;
+  if ([...url.searchParams.keys()].some(key => key.startsWith("shopReturn"))) return null;
   return value;
 }
 export function parseShopLocationContext(params: URLSearchParams): ShopLocationContext {
@@ -38,7 +46,10 @@ export function parseShopLocationContext(params: URLSearchParams): ShopLocationC
       }
     }
   } catch { /* Invalid exact identities cannot select another product. */ }
-  return { platforms, outlets, dimension, previous: single(params, "shopPrevious") !== "0", yearAgo: single(params, "shopYearAgo") !== "0", grain: grain === "week" || grain === "month" ? grain : "day", section: boundedText(single(params, "shopSection"), 60), category: boundedText(single(params, "shopCategory"), 120), q: boundedText(single(params, "shopQ"), 120).trim(), page: positive(single(params, "shopPage"), 1, 10000), pageSize: positive(single(params, "shopPageSize"), 20, 100), product, returnTo: validShopReturn(single(params, "shopReturn")) };
+  const returnOrigin = validShopReturn(single(params, "shopReturnOrigin"));
+  const productsPrefs = decodeProductsPresentationPrefs(single(params, "shopProductsPrefs"));
+  const promotionPrefs = decodePromotionPresentationPrefs(single(params, "shopPromotionPrefs"));
+  return { platforms, outlets, dimension, previous: single(params, "shopPrevious") !== "0", yearAgo: single(params, "shopYearAgo") !== "0", grain: grain === "week" || grain === "month" ? grain : "day", section: boundedText(single(params, "shopSection"), 60), category: boundedText(single(params, "shopCategory"), 120), q: boundedText(single(params, "shopQ"), 120).trim(), page: positive(single(params, "shopPage"), 1, 10000), pageSize: positive(single(params, "shopPageSize"), 20, 100), product, returnTo: validShopReturn(single(params, "shopReturn")), ...(returnOrigin ? { returnOrigin } : {}), ...(productsPrefs ? { productsPrefs } : {}), ...(promotionPrefs ? { promotionPrefs } : {}) };
 }
 export function writeShopLocationContext(params: URLSearchParams, context: ShopLocationContext) {
   const draft = new URLSearchParams();
@@ -47,6 +58,9 @@ export function writeShopLocationContext(params: URLSearchParams, context: ShopL
   draft.set("shopSection", context.section); draft.set("shopCategory", context.category); draft.set("shopQ", context.q); draft.set("shopPage", String(context.page)); draft.set("shopPageSize", String(context.pageSize));
   if (context.product) draft.set("shopProduct", encodeProductIdentity(context.product));
   if (context.returnTo) draft.set("shopReturn", context.returnTo);
+  if (context.returnOrigin) draft.set("shopReturnOrigin", context.returnOrigin);
+  if (context.productsPrefs) draft.set("shopProductsPrefs", JSON.stringify(context.productsPrefs));
+  if (context.promotionPrefs) draft.set("shopPromotionPrefs", JSON.stringify(context.promotionPrefs));
   const normalized = parseShopLocationContext(draft);
   shopContextKeys.forEach(k => params.delete(k));
   normalized.platforms.forEach(p => params.append("shopPlatform", p)); normalized.outlets.forEach(k => params.append("shopOutlet", k));
@@ -54,6 +68,9 @@ export function writeShopLocationContext(params: URLSearchParams, context: ShopL
   if (!normalized.previous) params.set("shopPrevious", "0"); if (!normalized.yearAgo) params.set("shopYearAgo", "0");
   if (normalized.grain !== "day") params.set("shopGrain", normalized.grain);
   for (const [k, v] of [["shopSection", normalized.section], ["shopCategory", normalized.category], ["shopQ", normalized.q], ["shopReturn", normalized.returnTo]] as const) if (v) params.set(k, v);
+  if (normalized.returnOrigin) params.set("shopReturnOrigin", normalized.returnOrigin);
+  if (normalized.productsPrefs) params.set("shopProductsPrefs", JSON.stringify(normalized.productsPrefs));
+  if (normalized.promotionPrefs) params.set("shopPromotionPrefs", JSON.stringify(normalized.promotionPrefs));
   if (normalized.page !== 1) params.set("shopPage", String(normalized.page)); if (normalized.pageSize !== 20) params.set("shopPageSize", String(normalized.pageSize));
   if (normalized.product) params.set("shopProduct", encodeProductIdentity(normalized.product));
 }
