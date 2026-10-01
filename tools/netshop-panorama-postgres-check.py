@@ -89,7 +89,12 @@ finally:
             run([BIN / "pg_ctl.exe", "-D", RUN / "data", "-m", "fast", "-w", "-t", "30", "stop"], "stop", timeout=45)
             stopped = True
     finally:
-        source_paths = [ROOT / "backend/netshop/store_panorama.py", Path(__file__)]
+        source_paths = [ROOT / name for name in (
+            "backend/netshop/store_panorama.py", "backend/netshop/panorama_sales_client.py", "backend/netshop/panorama_workflow_client.py",
+            "backend/netshop/product_insights.py", "backend/netshop/product_scope_series.py", "backend/netshop/promotion_insights.py", "backend/netshop/insights_common.py",
+            "backend/netshop/sales_periods_client.py", "backend/netshop/sales_client.py", "backend/sales/netshop_periods.py", "backend/sales/views.py", "backend/sales/auth.py",
+            "backend/workflow/operations.py", "backend/workflow/operations_views.py", "backend/workflow/revisions.py",
+        )] + [Path(__file__)]
         source_paths.extend(sorted((ROOT / "backend/netshop/tests").glob("test_store_panorama*.py")))
         with (EVIDENCE / "result.json").open("x", encoding="utf-8") as output:
             json.dump({"fixture": "panorama-synthetic-postgresql-v1", "port": PORT, "runtime": str(RUN), "started": started, "stopped": stopped, "results": results,

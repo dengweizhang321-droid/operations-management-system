@@ -186,6 +186,7 @@ try:
     paths = [Path(__file__), ROOT / "backend/netshop/store_panorama.py", ROOT / "backend/netshop/insights_common.py",
              ROOT / "backend/netshop/product_insights.py", ROOT / "backend/netshop/promotion_insights.py",
              ROOT / "backend/netshop/product_scope_series.py", ROOT / "backend/netshop/panorama_workflow_client.py",
+             ROOT / "backend/netshop/panorama_sales_client.py",
              ROOT / "backend/netshop/sales_periods_client.py", ROOT / "backend/netshop/sales_client.py",
              ROOT / "backend/netshop/tests/promotion_insights_fixtures.py", ROOT / "tools/netshop_products_test_settings.py"]
     exclusive_json("fixture.json", {"fixture": FIXTURE, "adapter": "actual owning Python readers; public Edge/gateway registration tested separately",
