@@ -9,8 +9,8 @@ const users = {
 export function installIntegratedTransport({ phase = "M3" } = {}) {
   const product = installOwnerProductFixture();
   const prior = JSON.parse(sessionStorage.getItem("integrated-transport") || "null");
-  window.__integrated = { phase, calls: prior?.calls || [], blocked: prior?.blocked || [], writeAttempts: prior?.writeAttempts || [], paidAttempts: prior?.paidAttempts || [], projections: prior?.projections || [], fixturePending: prior?.fixturePending || [], user: users[sessionStorage.getItem("integrated-user") || "A"] };
-  window.__integratedControl = { error: null };
+  window.__integrated = { phase, calls: prior?.calls || [], blocked: prior?.blocked || [], writeAttempts: prior?.writeAttempts || [], paidAttempts: prior?.paidAttempts || [], projections: prior?.projections || [], fixturePending: prior?.fixturePending || [], injectedResponses: prior?.injectedResponses || [], user: users[sessionStorage.getItem("integrated-user") || "A"] };
+  window.__integratedControl = { error: null, childFailure: null, pending: null };
   if (phase === "M4") {
     window.__syntheticDownloads = [];
     URL.createObjectURL = blob => { const record = { url: `blob:synthetic-${window.__syntheticDownloads.length}`, name: null, type: blob.type, bytes: null }; window.__syntheticDownloads.push(record); blob.arrayBuffer().then(buffer => { record.bytes = Array.from(new Uint8Array(buffer)); }); return record.url; };
@@ -38,6 +38,14 @@ export function installIntegratedTransport({ phase = "M3" } = {}) {
     if (["/api/ai/models", "/api/ai/channels"].includes(url.pathname)) return Response.json({ items: [] });
     if (url.pathname === "/api/ai/conversations") return Response.json({ items: [], models: [], pagination: { page: 1, pageSize: 30, total: 0, returned: 0, hasMore: false, truncated: false } });
     if (url.pathname === "/api/ai/chat") return Response.json({ items: [], pagination: { pageSize: 30, total: 0, returned: 0, hasMore: false, truncated: false, nextBefore: null } });
+    if (phase === "M4" && url.pathname === "/api/netshop/promotion-insights/detail" && window.__integratedControl.childFailure) {
+      const failure = window.__integratedControl.childFailure;
+      const record = { ...info, status: failure.status, shape: failure.shape, deferred: !!failure.deferred, releasedAfterAbort: false };
+      window.__integrated.injectedResponses.push(record); remember();
+      const response = () => new Response(failure.shape === "html" ? "<html><body>Synthetic proxy failure</body></html>" : failure.shape === "invalidUTF8" ? Uint8Array.of(0xc3, 0x28) : null, { status: failure.status, headers: { "Content-Type": failure.shape === "html" ? "text/html" : "application/json" } });
+      if (failure.deferred) return new Promise(resolve => { window.__integratedControl.pending = { signal: init.signal, release() { record.releasedAfterAbort = !!init.signal?.aborted; remember(); resolve(response()); } }; });
+      return response();
+    }
     if (phase === "M4" && url.pathname.startsWith("/api/netshop/") && window.__integratedControl.error) {
       const error = window.__integratedControl.error;
       return deny(error === "epoch" ? "promotion_revision_changed" : "access_denied", `合成${error}失效：旧数据须清空`, error === "epoch" ? 409 : 403);

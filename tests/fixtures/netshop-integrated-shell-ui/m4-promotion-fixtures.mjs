@@ -6,7 +6,7 @@ import exact from "./source6/response-seven-day-shop-week-exact-product.json";
 import detail from "./source6/response-seven-day-shop-week-exact-detail.json";
 import diagnosticCurrent from "./source6/diagnostic-current.json";
 import diagnosticPrevious from "./source6/diagnostic-previous-equal.json";
-import { validatePromotionQuery, decodePromotionInsightsForQuery, decodePromotionDetailForQuery } from "@/lib/netshop/promotion-insights-contract";
+import { validatePromotionQuery, decodePromotionInsightsForQuery, decodePromotionDetailForQuery, PROMOTION_SORTS } from "@/lib/netshop/promotion-insights-contract";
 import { validateDiagnosticResponse } from "@/lib/jd/promotion-diagnostic-report";
 
 export const m4OwnerIdentity = exact.sections.listScope.productFocus.identity;
@@ -28,9 +28,10 @@ export function projectM4Promotion(url, telemetry) {
     decodePromotionDetailForQuery(body, params, m4OwnerRevision);
   } else {
     body.sections.listScope.q = spec.q;
-    const fields = { spend_desc: row => row.metrics.spend.value, attributedPayment_desc: row => row.metrics.attributedPayment.value, roas_desc: row => row.metrics.roas.value, spend_growth_desc: row => row.changes.spend.previous.value, spend_decline_desc: row => -(row.changes.spend.previous.value ?? 0) };
+    const fields = { spend_desc: row => row.metrics.spend.value, attributedPayment_desc: row => row.metrics.attributedPayment.value, roas_desc: row => row.metrics.roas.value, spend_change_desc: row => row.changes.spend.previous.value, spend_change_asc: row => row.changes.spend.previous.value };
+    if (PROMOTION_SORTS.length !== Object.keys(fields).length || !PROMOTION_SORTS.every(key => Object.hasOwn(fields, key))) throw Error("synthetic_fixture_pending: mock sorter does not implement the actual v1 enum");
     const rows = body.sections.items.filter(item => !spec.q || [item.id, item.title, item.shopName].some(value => value?.includes(spec.q)));
-    rows.sort((a, b) => { const x = fields[spec.sort](a), y = fields[spec.sort](b); return x === null || y === null ? x === y ? a.rowKey.localeCompare(b.rowKey) : x === null ? 1 : -1 : y - x || a.rowKey.localeCompare(b.rowKey); });
+    rows.sort((a, b) => { const x = fields[spec.sort](a), y = fields[spec.sort](b); return x === null || y === null ? x === y ? a.rowKey.localeCompare(b.rowKey) : x === null ? 1 : -1 : (spec.sort === "spend_change_asc" ? x - y : y - x) || a.rowKey.localeCompare(b.rowKey); });
     body.sections.items = rows.slice((spec.page - 1) * spec.pageSize, spec.page * spec.pageSize);
     body.sections.pagination = { page: spec.page, pageSize: spec.pageSize, total: rows.length, returned: body.sections.items.length, hasMore: spec.page * spec.pageSize < rows.length, truncated: false };
     decodePromotionInsightsForQuery(body, params, m4OwnerRevision);

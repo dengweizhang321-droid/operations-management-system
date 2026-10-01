@@ -64,6 +64,11 @@ export async function runM4Scenarios({ page, context, origin, check, save, evide
   });
   const aq = new URLSearchParams(query); aq.set("view", "promotion"); aq.set("shopPageSize", "1");
   await page.goto(`${origin}/?${aq}`); await readyA();
+  await check("bounded transport supports all five real v1 promotion sort enum values", async () => {
+    const actual = await page.getByLabel("推广对象排序").locator("option").evaluateAll(options => options.map(option => option.value));
+    assert.deepEqual(actual, ["spend_desc", "attributedPayment_desc", "roas_desc", "spend_change_desc", "spend_change_asc"]);
+    for (const sort of actual) { await page.getByLabel("推广对象排序").selectOption(sort); await readyA(); assert.equal(await page.getByLabel("推广对象排序").inputValue(), sort); }
+  });
   await check("actual weekly focus/search/sort/page A-to-P-to-A roundtrip restores bound preferences", async () => {
     await page.getByLabel("推广对象排序").selectOption("roas_desc");
     await page.getByLabel("搜索推广对象").fill("SKU");
@@ -97,10 +102,43 @@ export async function runM4Scenarios({ page, context, origin, check, save, evide
   for (const reason of ["role", "scope", "epoch"]) await check(`actual ${reason} reader error clears old A rows and report without paid dispatch`, async () => {
     await page.evaluate(value => { window.__integratedControl.error = value; }, reason);
     const sort = page.getByLabel("推广对象排序"); await sort.selectOption((await sort.inputValue()) === "roas_desc" ? "spend_desc" : "roas_desc");
-    if (reason === "epoch") await page.getByText("来源版本已变化，请重新读取", { exact: true }).waitFor(); else await page.getByRole("alert").filter({ hasText: "旧数据须清空" }).waitFor();
+    if (reason === "epoch") await page.getByText("来源版本已变化，请重新读取", { exact: true }).waitFor(); else await page.getByRole("alert").filter({ hasText: "无权读取推广数据" }).waitFor();
     assert.equal(await page.locator("#promotion-products .data-table tbody tr").count(), 0); assert.equal(await page.getByRole("button", { name: "导出 HTML", exact: true }).count(), 0);
     await page.evaluate(() => { window.__integratedControl.error = null; }); await page.getByRole("button", { name: "重新读取", exact: true }).click(); await readyA();
   });
+  for (const status of [401, 403, 409]) for (const shape of ["html", "empty", "invalidUTF8"]) await check(`actual detail HTTP ${status} ${shape} invalidates parent summary/detail/report`, async () => {
+    await page.getByRole("button", { name: "生成当前周期诊断", exact: true }).click();
+    await page.getByRole("button", { name: "导出 HTML", exact: true }).waitFor();
+    assert.equal(await page.getByRole("button", { name: "导出 HTML", exact: true }).isDisabled(), false);
+    assert.ok(await page.locator(".promotion-kpis .insights-metric strong").count() > 0);
+    await page.evaluate(failure => { window.__integratedControl.childFailure = failure; }, { status, shape });
+    await page.locator("#promotion-products .data-table tbody tr").getByRole("button", { name: "合成商品1", exact: true }).click();
+    if (status === 409) await page.getByText("来源版本已变化，请重新读取", { exact: true }).waitFor();
+    else await page.getByRole("alert").filter({ hasText: status === 401 ? "有效身份（401）" : "无权读取推广数据（403）" }).waitFor();
+    assert.equal(await page.locator(".promotion-kpis").count(), 0, "old parent summary removed");
+    assert.equal(await page.locator("#promotion-products .data-table tbody tr").count(), 0, "old parent list removed");
+    assert.equal(await page.locator(".promotion-detail-panel").count(), 0, "failed child detail removed");
+    assert.equal(await page.getByRole("button", { name: "导出 HTML", exact: true }).count(), 0, "old generated report removed");
+    await page.evaluate(() => { window.__integratedControl.childFailure = null; });
+    await page.getByRole("button", { name: "重新读取", exact: true }).click(); await readyA();
+  });
+  await check("cancelled late malformed detail HTTP does not invalidate trustworthy parent summary/report", async () => {
+    await page.getByRole("button", { name: "生成当前周期诊断", exact: true }).click(); await page.getByRole("button", { name: "导出 HTML", exact: true }).waitFor();
+    const before = await page.locator(".promotion-kpis").first().innerText();
+    await page.evaluate(() => { window.__integratedControl.childFailure = { status: 403, shape: "invalidUTF8", deferred: true }; });
+    await page.locator("#promotion-products .data-table tbody tr").getByRole("button", { name: "合成商品1", exact: true }).click();
+    await page.waitForFunction(() => !!window.__integratedControl.pending);
+    await page.getByRole("button", { name: "关闭详情", exact: true }).click();
+    await page.waitForFunction(() => window.__integratedControl.pending.signal.aborted);
+    await page.evaluate(() => { window.__integratedControl.pending.release(); window.__integratedControl.childFailure = null; });
+    await new Promise(resolve => setTimeout(resolve, 100));
+    assert.equal(await page.locator(".promotion-kpis").first().innerText(), before);
+    assert.equal(await page.getByRole("button", { name: "导出 HTML", exact: true }).isDisabled(), false);
+    assert.equal(await page.locator("#promotion-products .data-table tbody tr").count(), 1);
+    assert.equal(await page.locator(".promotion-detail-panel").count(), 0);
+    assert.equal(await page.getByRole("alert").count(), 0);
+  });
+  await save("detail-http-shape-matrix.json", await page.evaluate(() => window.__integrated.injectedResponses));
   await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: resolve(evidence, "m4-real-home-desktop.png"), fullPage: true });
   for (const width of [390, 320]) await check(`actual M4 complete-layout viewport ${width} is bounded`, async () => { await page.setViewportSize({ width, height: 900 }); await page.evaluate(() => window.scrollTo(0, 0)); const size = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth })); assert.ok(size.scroll <= size.client + 1, JSON.stringify(size)); assert.equal(await page.getByRole("button",{name:"打开主导航",exact:true}).isVisible(),true); assert.equal(await page.locator("#primary-navigation").evaluate(el=>getComputedStyle(el).display),"none"); await page.getByRole("button",{name:"打开主导航",exact:true}).click(); await page.getByRole("dialog",{name:"顶部应用导航",exact:true}).waitFor(); await page.getByRole("button",{name:"关闭主导航",exact:true}).click(); await page.screenshot({ path: resolve(evidence, `m4-real-home-${width}.png`), fullPage: true }); });
   return { completedScope: "M4 real Home source6 exact SKU/week-focus/search/sort/page returns, safe errors and actual report DTO binding", pending: ["Independent Q/live-source/actual P mapping and SQL query/ordering proof"], limitations: ["Explicit fixture_projection is recorded per request; A/report business cells and complete calendar/coverage are preserved source6 captures", "P values and positive mapping eligibility remain Owner synthetic fixture data; this run does not prove actual P backend mapping or numerical parity with A", "Role/scope errors are injected reader permission responses, not a database principal-policy test"] };
