@@ -15,6 +15,7 @@ from .query import _canonical_token, revision_value
 from .store_overview import days
 from .sales_client import sales_alias
 from .sales_periods_client import read_sales_periods
+from sales.netshop_period_series import restore_period_point
 
 PRODUCT_KEYS = ("payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders")
 PROMOTION_KEYS = ("spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate")
@@ -178,7 +179,7 @@ def _promotion_scope(principal, context, platform, deadline):
     return A._Reader(owning_context, facts, platform)
 
 
-def load_erp_comparison(principal, spec, current, baseline, *, deadline):
+def load_erp_comparison(principal, spec, current, baseline, *, deadline, chart_keys=None):
     """Exact owner-approved RAW cohorts; never guess a channel or query all ERP."""
     budget(deadline)
     shop_keys = sorted(set(current["effectiveScope"]["shopKeys"]) | set(baseline["effectiveScope"]["shopKeys"]))
@@ -197,7 +198,7 @@ def load_erp_comparison(principal, spec, current, baseline, *, deadline):
             for mapping in aliases: mapping.update(status="ambiguous", rawIdentity=None, reasonCode="ambiguous_mapping")
     category_active = spec["comparisonScope"]["category"]["mode"] != "all"
     raw_outlets = [m["rawIdentity"] for m in mappings if m["status"] == "verified_alias"]
-    evidence = {"schemaVersion": "netshop-comparison-erp-evidence-v1", "state": "unavailable", "code": "unmapped", "request": None, "mappings": mappings, "source": None, "observations": {}, "temporalState": {"state": "dependency_pending", "code": "series_dependency_pending"}}
+    evidence = {"schemaVersion": "netshop-comparison-erp-evidence-v1", "state": "unavailable", "code": "unmapped", "request": None, "mappings": mappings, "source": None, "observations": {}, "temporalState": {"state": "unavailable", "code": "no_series_mapping"}}
     result = {"state": "unavailable", "reasonCode": "unmapped", "sourceRevisions": [], "evidence": evidence}
     if category_active or not raw_outlets:
         return result
@@ -212,6 +213,32 @@ def load_erp_comparison(principal, spec, current, baseline, *, deadline):
         return {**result, "state": "error", "reasonCode": error.code}
     if data["candidatePagination"]["hasMore"] or data["candidatePagination"]["candidateCount"] != len(data["items"]) or len(data["items"]) > len(raw_outlets):
         raise NetshopApiError("ERP完整映射集合不允许分页遗漏", code="invalid_sales_periods_contract", status=503)
+    # The first complete read is the owning ERP candidate proof. A netshop
+    # product record/alias does not prove that an ERP raw tuple has any rows.
+    if spec["comparisonScope"]["metricSource"] == "erp" and spec["comparisonScope"]["mode"] == "shop":
+        mapped = {m["shopKey"]: m for m in mappings}
+        candidates = {_raw_identity(item["identity"]) for item in data["items"]}
+        plot = [mapped[key[5:]]["rawIdentity"] for key in (chart_keys or []) if key.startswith("shop:") and mapped[key[5:]]["status"] == "verified_alias" and _raw_identity(mapped[key[5:]]["rawIdentity"]) in candidates]
+        if plot:
+            series_request = {**request, "seriesGrain": spec["trendGrain"], "seriesOutlets": plot, "expectedRevision": pair}
+            try:
+                series_data, series_pair = read_sales_periods(principal, series_request, deadline=deadline)
+            except NetshopApiError as error:
+                if error.status != 503: raise
+                budget(deadline)
+                evidence.update(state="error", code=error.code)
+                return {**result, "state": "error", "reasonCode": error.code}
+            if series_pair != pair or any(series_data[key] != data[key] for key in ("periodTotals", "items", "candidatePagination", "metricMetadata", "latestRelevantBatch")):
+                raise NetshopApiError("ERP完整候选或源在图形读取期间变化", code="sales_periods_revision_changed", status=409)
+            data, request = series_data, series_request
+            evidence["request"] = request
+            evidence["temporalState"] = {"state": "ready", "code": None}
+        else:
+            evidence["temporalState"] = {"state": "unavailable", "code": "series_no_records"}
+    elif spec["comparisonScope"]["metricSource"] == "erp":
+        evidence["temporalState"] = {"state": "dependency_pending", "code": "platform_series_dependency_pending"}
+    else:
+        evidence["temporalState"] = {"state": "unavailable", "code": "not_requested"}
     evidence.update(state="ready", code=None, source=data)
     return {"state": "ready", "reasonCode": None, "sourceRevisions": data["sourceRevisions"], "evidence": evidence, "request": request, "pair": pair}
 
@@ -256,6 +283,7 @@ def _apply_erp(erp, summaries, objects, current, baseline):
     evidence, source = erp["evidence"], erp["evidence"]["source"]
     mappings = {m["shopKey"]: m for m in evidence["mappings"]}
     raw_items = {_raw_identity(item["identity"]): item for item in source["items"]} if source else {}
+    series_items = {_raw_identity(item["identity"]): item for item in source.get("series", {}).get("items", [])} if source else {}
     for period, context in (("current", current), ("baseline", baseline)):
         window = context["periods"]["current"]
         ref = "comparison:"+period+":erp:summary"
@@ -275,11 +303,16 @@ def _apply_erp(erp, summaries, objects, current, baseline):
             if native_period is not None and item["kind"] == "platform": reason = None
             if source and item["kind"] == "platform" and native_period is None: reason = "not_applicable"
             for key in ERP_KEYS: item[period][key] = _erp_metric(key, native_period, ref, reason=reason, proven=bool(source))
-            for bucket in item["trends"][period]:
-                # With the temporal owner still pending, null-only points refer
-                # to the full parent record observation/capability. This is not
-                # a claim that that natural bucket is covered or has an amount.
-                for key in ERP_KEYS: bucket["metrics"][key] = _erp_metric(key, None, ref, reason="not_applicable", proven=bool(source))
+            selected_series = series_items.get(_raw_identity(members[0]["rawIdentity"])) if item["kind"] == "shop" and members[0]["status"] == "verified_alias" else None
+            for index, bucket in enumerate(item["trends"][period]):
+                bucket_ref = ref+":trend:"+bucket["startDate"]
+                bucket_window = {"startDate": bucket["startDate"], "endDate": bucket["endDate"], "days": bucket["days"]}
+                evidence["observations"][bucket_ref] = _erp_observation(erp, period, item["objectKey"], item["shopKeys"], bucket_window)
+                point = restore_period_point(selected_series[period][index]) if selected_series else None
+                if point and any(point["window"][key] != bucket_window[key] for key in bucket_window):
+                    raise NetshopApiError("ERP拥有方自然桶与C所选原期不一致", code="invalid_sales_periods_contract", status=503)
+                bucket_reason = reason if reason in {"unmapped", "ambiguous_mapping", "unverified_source"} else None if point else "no_records" if source and item["kind"] == "shop" and not any(exact) else "not_applicable"
+                for key in ERP_KEYS: bucket["metrics"][key] = _erp_metric(key, point["facts"] if point else None, bucket_ref, reason=bucket_reason, proven=bool(source))
 
 
 def validate_erp_revision(principal, erp, *, deadline):
@@ -291,7 +324,7 @@ def validate_erp_revision(principal, erp, *, deadline):
         if error.status != 503: raise
         budget(deadline)
         erp.update(state="error", reasonCode=error.code, sourceRevisions=[])
-        erp["evidence"].update(state="error", code=error.code, source=None, observations={})
+        erp["evidence"].update(state="error", code=error.code, source=None, observations={}, temporalState={"state":"unavailable","code":"source_error"})
         return []
     if revision != erp["pair"] or data != erp["evidence"]["source"]:
         raise NetshopApiError("ERP两期源或映射读取期间变化", code="sales_periods_revision_changed", status=409)
@@ -398,7 +431,7 @@ def load_comparison_sources(principal, spec, current, baseline, *, deadline):
                 coverage["comparison:"+period+":promotion:summary"] = {"expectedShopDatePairs": sum(v["expectedShopDatePairs"] for v in pieces), "coveredShopDatePairs": sum(v["coveredShopDatePairs"] for v in pieces), "complete": all(v["complete"] for v in pieces), "missingByShop": [m for v in pieces for m in v["missingByShop"]], "truncated": False}
             else:
                 summaries[period][key] = unavailable(key, "comparison:"+period+":promotion:summary", "unmapped" if category_active else "not_applicable" if len(context["effectiveScope"]["platforms"]) > 1 else "unverified_source")
-    erp = load_erp_comparison(principal, spec, current, baseline, deadline=deadline)
+    erp = load_erp_comparison(principal, spec, current, baseline, deadline=deadline, chart_keys=charts)
     for period in ("current", "baseline"):
         for item in objects.values():
             for key in PROMOTION_KEYS:
