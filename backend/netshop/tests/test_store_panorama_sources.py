@@ -15,7 +15,7 @@ from urllib.parse import urlencode
 
 from django.db import connections, transaction
 from django.db.models import F
-from django.http import JsonResponse, QueryDict
+from django.http import QueryDict
 from django.test import override_settings
 from django.urls import path
 
@@ -27,6 +27,7 @@ from netshop.errors import NetshopApiError
 from netshop.models import (NetshopDataRevision, NetshopImportBatch, NetshopRow,
     NetshopPromotionAggregateState, NetshopPromotionProductDaily, NetshopPromotionShopDaily)
 from netshop.panorama_sales_client import resolve_panorama_sales
+from netshop.views import _json
 from sales.auth import Principal, verify_principal
 from sales.models import ErpProductMaster, SalesDataRevision, SalesImportBatch, SalesOrderLine
 from sales.tests.factories import make_line, signed_headers
@@ -42,9 +43,9 @@ S_PATH = "/api/netshop/store-panorama"
 def private_panorama_view(request):
     """Private URL binding of the unchanged S service; public registration is I's."""
     result = panorama.read_store_panorama(verify_principal(request), request.GET)
-    response = JsonResponse(result, json_dumps_params={"ensure_ascii": False, "allow_nan": False})
-    response["Cache-Control"] = "no-store"
-    return response
+    revision = next(ref["revision"] for ref in result["context"]["sourceRevisions"]
+                    if ref["domain"] == "netshop" and ref["kind"] == "owning_revision")
+    return _json(result, revision=revision)
 
 
 urlpatterns = [path(S_PATH.lstrip("/"), private_panorama_view), *native_urls]
@@ -112,6 +113,9 @@ class RealPanoramaAllSourcesTests(PanoramaRegisteredFixture):
             raw, status, response_headers = response.read(2 * 1024 * 1024 + 1), response.status, dict(response.headers)
         body = json.loads(raw)
         self.assertEqual(status, 200, body)
+        if not hasattr(self, "http_headers"):
+            self.http_headers = {}
+        self.http_headers[name] = response_headers
         capture(name, body, raw=raw, request={"method": "GET", "endpoint": endpoint, "query": query},
             metadata={"responseStatus": status, "responseHeaders": response_headers, "privateHttpPort": self.server_thread.port,
                       "freshSeedSha256": self.seed_hash, "requestPrincipalRole": self.principal.role, "requestPrincipalScope": self.principal.scope,
@@ -140,6 +144,11 @@ class RealPanoramaAllSourcesTests(PanoramaRegisteredFixture):
         item = next(item for item in a["sections"]["items"] if item["drillable"] and item["id"] is not None)
         self.get_http("/api/netshop/promotion-insights/detail", {**aquery, "objectId": item["rowKey"], "shopKey": item["shopKey"],
                       "sectionToken": a["sectionToken"]}, "response-owning-direct-promotion-detail")
+        owning_revision = next(ref["revision"] for ref in result["context"]["sourceRevisions"]
+                               if ref["domain"] == "netshop" and ref["kind"] == "owning_revision")
+        for name in ("response-owning-all-six", "response-owning-direct-products", "response-owning-direct-product-detail",
+                     "response-owning-direct-promotion", "response-owning-direct-promotion-detail"):
+            self.assertEqual(self.http_headers[name]["X-Netshop-Data-Revision"], owning_revision)
 
     def test_scoped_finance_is_explicit_not_applicable_and_rpc_never_runs(self):
         scope = {"platforms": ["京东"], "channels": [], "warehouses": []}
