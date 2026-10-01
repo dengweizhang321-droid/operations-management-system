@@ -18,7 +18,7 @@ from django.http import QueryDict
 from .analysis import DIMENSION_FIELDS, _scalar
 from .errors import NetshopApiError
 from .insights_common import (MAX_SAFE, actor_fence, compare_metrics, context_versions,
-                              coverage_for, parse_identities, period_groups, read_context,
+                              coverage_for, parse_identities, period_groups, read_context, resolve_read_deadline,
                               validate_context, validate_metric)
 from .models import (NetshopImportBatch, NetshopPromotionAggregateManifest,
                      NetshopPromotionAggregateState, NetshopPromotionProductDaily,
@@ -511,7 +511,7 @@ def _dimensions(reader, names, options, deadline, principal):
     return sections, capability
 
 
-def _read(principal, params, detail=False):
+def _read(principal, params, detail=False, deadline=None):
     """The one outer deadline fences each actual read SQL, including helpers.
 
     An executing SQL is not terminated here. Expiry after it returns fails the
@@ -519,7 +519,7 @@ def _read(principal, params, detail=False):
     still execute; existing SQL timeouts and the two-attempt context budget are
     unchanged.
     """
-    deadline = time.monotonic()+65
+    deadline = resolve_read_deadline(deadline)
     def fence(execute, sql, sql_params, many, context):
         statement = re.sub(r"\A(?:\s+|/\*[\s\S]*?\*/|--[^\n]*(?:\n|$))*", "", str(sql))
         read_sql = re.match(r"(?:SELECT|WITH|SHOW|EXPLAIN)\b", statement, re.I) is not None
@@ -673,9 +673,9 @@ def _read_once(principal, params, detail, deadline):
     return payload
 
 
-def read_promotion_insights(principal, params: QueryDict) -> dict:
-    return _read(principal, params)
+def read_promotion_insights(principal, params: QueryDict, *, deadline=None) -> dict:
+    return _read(principal, params, deadline=deadline)
 
 
-def read_promotion_detail(principal, params: QueryDict) -> dict:
-    return _read(principal, params, detail=True)
+def read_promotion_detail(principal, params: QueryDict, *, deadline=None) -> dict:
+    return _read(principal, params, detail=True, deadline=deadline)
