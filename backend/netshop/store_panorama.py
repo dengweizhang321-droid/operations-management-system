@@ -19,6 +19,7 @@ from .query import _canonical_token, positive, revision_value
 from . import product_insights, promotion_insights
 from .product_scope_series import read_product_scope_series
 from .panorama_workflow_client import read_panorama_workflow, verify_panorama_workflow
+from .panorama_sales_client import resolve_panorama_sales, read_panorama_sales, verify_panorama_sales
 
 SCHEMA_VERSION = "netshop-store-panorama-v1"
 READER_SECONDS = 65
@@ -176,6 +177,14 @@ def _workflow_scope(context):
     return {"platform": platform, "shopName": shop, "startDate": window["startDate"], "endDate": window["endDate"]}
 
 
+def _sales_source(principal, context, deadline):
+    if resolve_panorama_sales(context) is None:
+        return {"state": "unavailable", "data": None, "reasonCode": "unverified_source", "message": "该店尚无已核验的ERP原始店铺和明确渠道映射，不猜店或读取全域"}
+    if context["periods"]["previous"]["days"] > 366:
+        return {"state": "unavailable", "data": None, "reasonCode": "not_applicable", "message": "ERP实际基期超过所属366日上限，不截日或缩到最新记录"}
+    return _read_source(lambda: read_panorama_sales(principal, context, deadline=deadline), deadline)
+
+
 def _read_source(loader, deadline):
     _budget(deadline)
     try:
@@ -220,6 +229,8 @@ def _capability(identifier, metric=None, *, reason="dependency_pending", message
     if metric is not None:
         available = metric.get("status") == "available"
         reason = metric.get("reasonCode") or "incomplete_coverage"
+        if reason == "missing_order_no":
+            reason = "missing_field"  # The native mean itself keeps its owning reason.
     return {"id": identifier, "status": "available" if available else "unavailable", "reasonCode": None if available else reason, "message": message}
 
 
@@ -229,6 +240,7 @@ def _sections(sources, context):
     promotion = sources["promotion"]["data"] if sources["promotion"]["state"] == "ready" else None
     series = sources["productSeries"]["data"] if sources["productSeries"]["state"] == "ready" else None
     workflow = sources["workflow"]["data"] if sources["workflow"]["state"] == "ready" else None
+    sales = sources["sales"]["data"] if sources["sales"]["state"] == "ready" else None
     p = product["sections"] if product else {}
     a = promotion["sections"] if promotion else {}
     summary = p.get("summary", {})
@@ -245,6 +257,8 @@ def _sections(sources, context):
         "search_click_rate": "searchClickRate", "search_visitors": "searchVisitors", "search_customers": "searchCustomers",
     }
     promotion_metrics = {"spend": "spend", "attributed_payment": "attributedPayment", "roas": "roas", "cpc": "cpc", "spend_rate": "spendRate"}
+    sales_metrics = {"erp_net_sales": "netSales", "orders": "orders", "order_average_value": "orderAverageValue", "cost": "cost", "order_margin": "orderMargin",
+                     "large_margin": "largeMargin", "large_margin_rate": "largeMarginRate", "return_amount": "returnAmount", "return_quantity": "returnQuantity"}
     for section in SECTION_KEYS:
         states = [sources[key]["state"] for key in SECTION_SOURCES[section]]
         state = "ready" if all(s == "ready" for s in states) else "partial" if "ready" in states else "error" if "error" in states else "unavailable"
@@ -320,6 +334,9 @@ def _sections(sources, context):
                 available = bool(workflow["items"])
                 reason = "no_records"
                 message = "既有经营记录的发生时间与原类型/状态；仅该页，不推断因果"
+            elif identifier in sales_metrics and sales:
+                metric = sales["periods"]["current"]["metrics"].get(sales_metrics[identifier])
+                message = "ERP已导入记录范围及原生单位；observations不证明店日完整，成本/历史毛利未核验"
             if "ready" not in states:
                 metric, available = None, False
                 reason = "dependency_pending" if state == "unavailable" else "unverified_source"
@@ -339,7 +356,7 @@ def read_store_panorama(principal, params: QueryDict):
             "products": _read_source(lambda: _read_products(principal, _products_query(params, table), deadline), deadline),
             "productSeries": _read_source(lambda: _read_series(principal, params, table["grain"], deadline), deadline),
             "promotion": _read_source(lambda: _read_promotion(principal, _promotion_query(params, spec["platforms"][0], table["grain"]), deadline), deadline),
-            "sales": _pending("精确店铺/渠道销售与毛利退货consumer尚待总控验收接线"),
+            "sales": _sales_source(principal, context, deadline),
             "finance": _pending("单店月财报及年度目标consumer尚待财务所属服务验收接线"),
             "workflow": _read_source(lambda: read_panorama_workflow(principal, _workflow_scope(context), deadline=deadline), deadline),
         }
@@ -354,7 +371,7 @@ def read_store_panorama(principal, params: QueryDict):
                 if source in {"products", "productSeries"} and owned["snapshotToken"] != context["snapshotToken"]:
                     raise NetshopApiError("商品信封不是全景同范围或版本", code="insights_revision_changed", status=409)
                 contexts.append(owned)
-        joined = contexts + ([sources["workflow"]["data"]] if sources["workflow"]["state"] == "ready" else [])
+        joined = contexts + [sources[key]["data"] for key in ("sales", "workflow") if sources[key]["state"] == "ready"]
         vector = _joined_vector(joined)
         token = _canonical_token({"schemaVersion": SCHEMA_VERSION, "scopeKey": context["scopeKey"], "sourceRevisions": vector,
                                   "tableFilter": {"q": table["q"], "pageSize": table["pageSize"], "grain": table["grain"]}})
@@ -373,8 +390,12 @@ def read_store_panorama(principal, params: QueryDict):
         }
         for owned in contexts:
             _context_vector(owned, deadline)
+        if any(sources[key]["state"] == "ready" for key in ("sales", "workflow")) and actor_fence(principal) != actor:
+            raise NetshopApiError("跨域最终核验前账号权限版本变化", code="access_denied", status=403)
         if sources["workflow"]["state"] == "ready":
             verify_panorama_workflow(principal, sources["workflow"]["data"], deadline=deadline)
+        if sources["sales"]["state"] == "ready":
+            verify_panorama_sales(principal, context, sources["sales"]["data"], deadline=deadline)
         if actor_fence(principal) != actor:
             raise NetshopApiError("全景取数期间账号权限版本变化", code="access_denied", status=403)
         _budget(deadline)

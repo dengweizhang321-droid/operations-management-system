@@ -71,7 +71,7 @@ try:
     run([BIN / "pg_ctl.exe", "-D", RUN / "data", "-l", RUN / "postgres.log", "-w", "-t", "30", "start"], "start", timeout=45)
     started = True
     run([BIN / "createdb.exe", "-h", "127.0.0.1", "-p", str(PORT), "-U", "panorama_fixture", "panorama_fixture"], "database", timeout=30)
-    labels = sys.argv[1:] or ["netshop.tests.test_store_panorama", "netshop.tests.test_store_panorama_workflow"]
+    labels = sys.argv[1:] or ["netshop.tests.test_store_panorama", "netshop.tests.test_store_panorama_workflow", "netshop.tests.test_store_panorama_sales"]
     if any(not label.startswith("netshop.tests.test_store_panorama") for label in labels):
         raise RuntimeError("Only panorama-owned test labels are allowed")
     # The extra owning workflow tables and URLs exist only in this private
