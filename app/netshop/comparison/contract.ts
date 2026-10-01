@@ -8,7 +8,7 @@ import { NetshopQueryError, resolveNetshopQueryPeriod, readNetshopOutletFilters 
 import type { CategoryEvidence, ContributionBucket } from "../products/contract";
 
 export const COMPARISON_SCHEMA = "netshop-comparison-v1" as const;
-export const comparisonMetricKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate", "erpNetSales", "orderMargin", "largeMargin", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"] as const;
+export const comparisonMetricKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate", "erpNetSales", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"] as const;
 export type ComparisonMetricKey = typeof comparisonMetricKeys[number];
 export const comparisonSorts = ["value_desc", "value_asc", "growth_desc", "decline_desc", "name_asc"] as const;
 export type ComparisonSort = typeof comparisonSorts[number];
@@ -66,7 +66,7 @@ export function validateComparisonQuery(params: URLSearchParams) {
     validateObjectKeys(chartObjectKeys, 4);
     const metricKey = params.get("metricKey") ?? (scope.metricSource === "erp" ? "erpNetSales" : "payment"), sort = params.get("sort") ?? "value_desc", trendGrain = params.get("trendGrain") ?? "day";
     if (!(comparisonMetricKeys as readonly string[]).includes(metricKey) || !(comparisonSorts as readonly string[]).includes(sort) || !["day", "week", "month"].includes(trendGrain)) fail("对比指标、排序或粒度无效");
-    const erpKeys = ["erpNetSales", "orderMargin", "largeMargin", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"];
+    const erpKeys = ["erpNetSales", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"];
     if (erpKeys.includes(metricKey) !== (scope.metricSource === "erp")) fail("对比指标与来源不一致");
     const positive = (key: string, fallback: number, max: number) => { const value = params.get(key); if (value === null) return fallback; if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) > max) fail("分页无效"); return Number(value); };
     const page = positive("page", 1, 10000), pageSize = positive("pageSize", 20, 100);
@@ -108,8 +108,10 @@ function metrics(value: unknown): ComparisonMetrics {
   const m = object(value); exact(m, [...comparisonMetricKeys]);
   for (const key of comparisonMetricKeys) {
     const v = metric(m[key]);
-    const unit = ["visitorValue", "cpc", "averageOrderValue"].includes(key) ? "CNY_CENT_PER_COUNT" : ["payment", "spend", "attributedPayment", "erpNetSales", "orderMargin"].includes(key) ? "CNY_CENT" : key === "roas" ? "MULTIPLE" : ["conversion", "ctr", "spendRate", "largeMargin", "returnRate"].includes(key) ? "RATIO" : "COUNT";
+    const unit = ["visitorValue", "cpc", "averageOrderValue"].includes(key) ? "CNY_CENT_PER_COUNT" : ["payment", "spend", "attributedPayment", "erpNetSales", "orderMargin", "largeMarginAmount"].includes(key) ? "CNY_CENT" : key === "roas" ? "MULTIPLE" : ["conversion", "ctr", "spendRate", "largeMargin", "returnRate"].includes(key) ? "RATIO" : "COUNT";
     if (v.unit !== unit) fail("指标单位与定义不一致");
+    const basis = key === "spendRate" || ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders"].includes(key) ? "product_day_sum" : ["spend", "attributedPayment", "roas", "ctr", "cpc"].includes(key) ? "platform_attributed" : key === "orderMargin" ? "erp_order_margin" : ["largeMargin", "largeMarginAmount"].includes(key) ? "erp_large_margin" : "erp_net_sales";
+    if (v.basis !== basis) fail("指标不能跨来源改称平台成交、ERP净额或毛利");
     if (key === "averageOrderValue" && v.status === "available") fail("当前协议尚无可信订单分母，不能把件均金额当客单价");
   }
   return m as ComparisonMetrics;
@@ -122,6 +124,15 @@ function compare(value: unknown, current: ComparisonMetric, baseline: Comparison
 function comparisons(value: unknown, current: ComparisonMetrics, baseline: ComparisonMetrics): ComparisonComparisons {
   const input = object(value); exact(input, [...comparisonMetricKeys]);
   return Object.fromEntries(comparisonMetricKeys.map(key => [key, compare(input[key], current[key], baseline[key])])) as ComparisonComparisons;
+}
+function deltaMetric(value: unknown, current: ComparisonMetric, baseline: ComparisonMetric) {
+  const d = metric(value);
+  if (d.unit !== current.unit || d.basis !== current.basis || stable(d.sourceIds) !== stable(current.sourceIds) || d.coverageRef !== current.coverageRef) fail("差额单位、来源和覆盖必须保留所选指标语义");
+  if (current.unit === "CNY_CENT_PER_COUNT") { if (d.status !== "unavailable" || d.reasonCode !== "not_applicable") fail("派生单价差额没有合法分子分母时不能伪造"); return; }
+  const compatible = current.unit === baseline.unit && current.basis === baseline.basis && stable([...current.sourceIds].sort()) === stable([...baseline.sourceIds].sort());
+  const reason = !compatible ? "not_applicable" : current.status !== "available" || baseline.status !== "available" ? "incomplete_baseline" : null;
+  const expected = reason ? null : Number(current.value) - Number(baseline.value), unsafe = expected !== null && Math.abs(expected) > Number.MAX_SAFE_INTEGER;
+  if (d.value !== (unsafe ? null : expected) || d.status !== (unsafe ? "invalid" : reason ? "unavailable" : "available") || d.reasonCode !== (unsafe ? "unsafe_integer" : reason)) fail("差额与完整两期所选指标不一致");
 }
 function qualification(value: unknown): ComparisonQualification {
   const q = object(value); exact(q, ["currentComplete", "baselineComplete", "comparable"]);
@@ -137,15 +148,15 @@ function populationRow(value: unknown, mode: ComparisonScope["mode"], candidateS
   if (row.currentPresence !== undefined && typeof row.currentPresence !== "boolean" || row.baselinePresence !== undefined && typeof row.baselinePresence !== "boolean") fail("两期存在性无效");
   return row as ComparisonPopulationRow;
 }
-function fullRows(value: unknown, all: Map<string, ComparisonPopulationRow>): ComparisonRow[] {
+function fullRows(value: unknown, all: Map<string, ComparisonPopulationRow>, metricKey: ComparisonMetricKey): ComparisonRow[] {
   if (!Array.isArray(value) || value.length > 100) return fail("排名页无效");
   const used = new Set<string>();
   return value.map(raw => {
     const row = object(raw), reference = all.get(String(row.objectKey));
     if (!reference || used.has(String(row.objectKey))) fail("排名对象不在全集或身份重复"); used.add(String(row.objectKey));
     for (const key of ["kind", "platform", "shopName", "shopKeys", "qualification", "exclusionReasons"] as const) if (JSON.stringify(row[key]) !== JSON.stringify(reference[key])) fail("排名资格与完整候选证据不一致");
-    const current = metrics(row.current), baseline = metrics(row.baseline); comparisons(row.comparisons, current, baseline); metric(row.delta);
-    const share = object(row.share); metric(share.current); metric(share.baseline);
+    const current = metrics(row.current), baseline = metrics(row.baseline); comparisons(row.comparisons, current, baseline); deltaMetric(row.delta, current[metricKey], baseline[metricKey]);
+    const share = object(row.share); if (metric(share.current).unit !== "RATIO" || metric(share.baseline).unit !== "RATIO") fail("份额必须保留比例单位");
     return row as ComparisonRow;
   });
 }
@@ -166,14 +177,16 @@ function structure(value: unknown): ComparisonProductStructure {
 }
 function stable(value: unknown): string { if (Array.isArray(value)) return JSON.stringify(value.map(v => JSON.parse(stable(v)))); if (value && typeof value === "object") return JSON.stringify(Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, JSON.parse(stable(v))]))); return JSON.stringify(value); }
 
-function coverageRecord(value: unknown): Record<string, SourceCoverage> {
+function coverageRecord(value: unknown, allowedShopKeys?: Set<string>, windows?: InsightsContext["periods"]): Record<string, SourceCoverage> {
   const result = object(value);
   for (const [ref, raw] of Object.entries(result)) {
     if (!referenceText(ref, 400)) fail("来源覆盖引用无效");
     const c = object(raw), expected = count(c.expectedShopDatePairs, 50 * 367), covered = count(c.coveredShopDatePairs, expected);
     if (c.complete !== (expected > 0 && covered === expected) || c.truncated !== false || !Array.isArray(c.missingByShop) || c.missingByShop.length > 50) fail("来源覆盖统计无效");
     let missing = 0; const used = new Set<string>();
-    for (const rawMissing of c.missingByShop) { const m = object(rawMissing); readNetshopOutletFilters([String(m.shopKey)]); if (used.has(String(m.shopKey)) || !Array.isArray(m.dates) || !m.dates.length || m.dates.length > 367 || new Set(m.dates).size !== m.dates.length || !m.dates.every(date => typeof date === "string" && resolveNetshopQueryPeriod(date, date, 1))) fail("来源逐店缺日无效"); used.add(String(m.shopKey)); missing += m.dates.length; }
+    for (const rawMissing of c.missingByShop) { const m = object(rawMissing); readNetshopOutletFilters([String(m.shopKey)]); if (allowedShopKeys && !allowedShopKeys.has(String(m.shopKey)) || used.has(String(m.shopKey)) || !Array.isArray(m.dates) || !m.dates.length || m.dates.length > 367 || new Set(m.dates).size !== m.dates.length || !m.dates.every(date => typeof date === "string" && resolveNetshopQueryPeriod(date, date, 1))) fail("来源逐店缺日无效"); used.add(String(m.shopKey)); missing += m.dates.length;
+      if (windows) { const matched = ref.match(/:(current|baseline|previous|yearAgo)(?:$|:)/)?.[1]; const period = (matched === "baseline" ? "current" : matched) as "current" | "previous" | "yearAgo" | undefined; if (!period || m.dates.some(date => String(date) < windows[period].startDate || String(date) > windows[period].endDate)) fail("覆盖缺日不属于真实所属日期窗口"); }
+    }
     if (expected - covered !== missing) fail("来源覆盖与逐店缺口不一致");
   }
   return result as Record<string, SourceCoverage>;
@@ -213,22 +226,63 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
     if (counters.candidates !== all.size || counters.currentComplete !== [...all.values()].filter(r => r.qualification.currentComplete).length || counters.baselineComplete !== [...all.values()].filter(r => r.qualification.baselineComplete).length || counters.comparable !== [...all.values()].filter(r => r.qualification.comparable).length || counters.excluded !== all.size - Number(counters.comparable)) fail("完整候选资格计数不一致");
     const relationship = object(population.periodRelationship), overlapDays = Math.max(0, (Date.parse([current.periods.current.endDate, baseline.periods.current.endDate].sort()[0]) - Date.parse([current.periods.current.startDate, baseline.periods.current.startDate].sort()[1])) / 86400000 + 1);
     if (relationship.sameLength !== (current.periods.current.days === baseline.periods.current.days) || relationship.overlapDays !== overlapDays) fail("两期长度或重叠说明不一致"); strings(population.limitations, 50, 1000);
-    const scale = object(sections.scale), page = decodeInsightPagination(scale.pagination), rows = fullRows(scale.items, all);
+    const scale = object(sections.scale), page = decodeInsightPagination(scale.pagination), rows = fullRows(scale.items, all, expected.metricKey);
     if (scale.metricKey !== expected.metricKey || page.page !== expected.page || page.pageSize !== expected.pageSize || page.returned !== rows.length || page.truncated) fail("完整排名分页不一致");
-    const summary = object(scale.summary), cm = metrics(summary.current), bm = metrics(summary.baseline); comparisons(summary.comparisons, cm, bm); metric(summary.delta);
+    const filteredCandidates = [...all.values()].filter(row => scope.coverageFilter === "all" || (row.qualification.currentComplete && row.qualification.baselineComplete) === (scope.coverageFilter === "complete"));
+    if (page.total !== filteredCandidates.length || page.returned !== Math.min(page.pageSize, Math.max(0, page.total - (page.page - 1) * page.pageSize))) fail("完整排名总数或返回数不能截断完整候选");
+    const summary = object(scale.summary), cm = metrics(summary.current), bm = metrics(summary.baseline); comparisons(summary.comparisons, cm, bm); deltaMetric(summary.delta, cm[expected.metricKey], bm[expected.metricKey]);
     const contributions = object(scale.contributions); for (const key of ["continuousCurrent", "continuousBaseline", "continuousDelta", "scopeDelta"]) metric(contributions[key]);
     if (!enumValue(contributions.status, ["available", "unavailable"]) || contributions.status === "available" && contributions.reasonCode !== null || contributions.status === "unavailable" && !text(contributions.reasonCode)) fail("持续经营与统计范围拆分资格无效");
     const efficiency = object(sections.efficiency), promotion = object(sections.promotion), pageKeys = rows.map(row => row.objectKey);
     for (const section of [efficiency, promotion]) { validateObjectKeys(section.items, 100); if (stable(section.items) !== stable(pageKeys)) fail("效率与推广须精确引用同一服务端排名页"); }
     strings(efficiency.definitions, 30, 1000); strings(promotion.sourceDefinitions, 30, 1000);
-    const coverage = coverageRecord(population.coverage), erp = object(population.erpState);
+    const coverage = coverageRecord(population.coverage, candidateShopKeys), erp = object(population.erpState);
+    for (const [ref, cov] of Object.entries(coverage)) coverageRecord({ [ref]: cov }, candidateShopKeys, ref.startsWith("comparison:baseline:") ? baseline.periods : current.periods);
     if (!enumValue(erp.state, ["ready", "error", "unavailable", "dependency_pending"]) || erp.state === "ready" && erp.code !== null || erp.state !== "ready" && !text(erp.code, 200)) fail("ERP来源状态无效");
     if (!Array.isArray(promotion.sourceScopes) || promotion.sourceScopes.length > 4 || !Array.isArray(promotion.sourceStates) || promotion.sourceStates.length !== current.effectiveScope.platforms.length * 2) fail("推广所属范围或状态缺失");
     const coverageRefs = new Set([...Object.keys(current.coverageBySource), ...Object.keys(baseline.coverageBySource), ...Object.keys(coverage)]), sourceStateKeys = new Set<string>();
-    for (const raw of promotion.sourceScopes) { const a = object(raw); if (!enumValue(a.period, ["current", "baseline"]) || !token(a.scopeKey) || !token(a.snapshotToken) || !enumValue(a.dimension, ["sku", "spu"]) || !Array.isArray(a.sourceRevisions) || !a.sourceRevisions.length) fail("推广所属两期范围无效"); const keys = shopKeys(a.shopKeys); if (keys.some(key => !candidateShopKeys.has(key) || key.startsWith("京东\u001f") && a.dimension !== "sku" || key.startsWith("天猫\u001f") && a.dimension !== "spu")) fail("推广维度或授权店铺失配"); Object.keys(coverageRecord(a.coverageBySource)).forEach(ref => coverageRefs.add(ref)); }
-    for (const raw of promotion.sourceStates) { const s = object(raw), key = `${s.period}:${s.platform}`; if (!enumValue(s.period, ["current", "baseline"]) || !current.effectiveScope.platforms.includes(s.platform as InsightPlatform) || sourceStateKeys.has(key) || !enumValue(s.state, ["ready", "error", "unavailable"]) || s.state === "ready" && s.code !== null || s.state !== "ready" && !text(s.code, 200) || ["access_denied", "comparison_revision_changed"].includes(String(s.code))) fail("推广状态必须保留真实错误及权限失败关闭"); sourceStateKeys.add(key); }
-    const verifyReferences = (raw: unknown) => { if (!raw || typeof raw !== "object") return; if (Array.isArray(raw)) { raw.forEach(verifyReferences); return; } const r = raw as Record<string, unknown>; if (typeof r.coverageRef === "string" && !coverageRefs.has(r.coverageRef)) fail("指标覆盖引用未指向真实两期来源"); Object.values(r).forEach(verifyReferences); };
+    const expectedVector = new Map<string, SourceRevision>();
+    const addVector = (source: SourceRevision[]) => { for (const r of source) { const key = stable([r.domain, r.kind, r.scopeKey]); if (expectedVector.has(key) && expectedVector.get(key)!.revision !== r.revision) fail("同类同scope来源版本冲突"); expectedVector.set(key, r); } };
+    addVector(current.sourceRevisions); addVector(baseline.sourceRevisions);
+    for (const raw of promotion.sourceScopes) {
+      const a = object(raw);
+      if (!enumValue(a.period, ["current", "baseline"]) || !token(a.scopeKey) || !token(a.snapshotToken) || !enumValue(a.dimension, ["sku", "spu"]) || !Array.isArray(a.sourceRevisions) || !a.sourceRevisions.length) fail("推广所属两期范围无效");
+      const keys = shopKeys(a.shopKeys), owner = a.period === "current" ? current : baseline;
+      const entries = a.sourceRevisions.map(object), manifests = entries.filter(r => typeof r.kind === "string" && r.kind.endsWith(":promotionManifest"));
+      if (manifests.length !== 1) fail("推广所属平台向量不完整"); const platform = String(manifests[0].kind).split(":")[0];
+      if (!enumValue(platform, owner.effectiveScope.platforms) || (platform === "京东" ? a.dimension !== "sku" : a.dimension !== "spu") || stable([...keys].sort()) !== stable(owner.effectiveScope.shopKeys.filter(key => key.startsWith(platform + "\u001f")).sort())) fail("推广维度或授权精确店铺失配");
+      const kinds = ["owning_revision", platform + ":promotionManifest", ...keys.flatMap(key => [platform + ":product:" + key, platform + ":promotion:" + key])], seenKinds = new Set<string>();
+      if (entries.length !== kinds.length) fail("推广所属来源成员不完整");
+      for (const r of entries) { if (r.domain !== "netshop" || r.scopeKey !== a.scopeKey || typeof r.kind !== "string" || !kinds.includes(r.kind) || seenKinds.has(r.kind) || (r.kind === "owning_revision" ? r.revision !== owningRevision : r.kind.endsWith(":promotionManifest") ? r.revision !== "absent" && !/^\d+:(True|False)$/.test(String(r.revision)) : r.revision !== "absent" && !/^\d+$/.test(String(r.revision)))) fail("推广版本向量成员、类型或拥有版本无效"); seenKinds.add(r.kind); }
+      addVector(a.sourceRevisions as SourceRevision[]);
+      Object.keys(coverageRecord(a.coverageBySource, new Set(keys), owner.periods)).forEach(ref => coverageRefs.add(ref));
+    }
+    if (input.joinedSourceRevisions.length !== expectedVector.size || (input.joinedSourceRevisions as SourceRevision[]).some(r => expectedVector.get(stable([r.domain, r.kind, r.scopeKey]))?.revision !== r.revision)) fail("参与向量必须完整等于双F及推广拥有方向量，不能裁剪或注入");
+    const authorityCode = (code: unknown) => typeof code === "string" && (["access_denied", "authentication_required", "not_authenticated", "forbidden", "permission_denied"].includes(code) || code.endsWith("revision_changed"));
+    for (const raw of promotion.sourceStates) { const s = object(raw), key = `${s.period}:${s.platform}`; if (!enumValue(s.period, ["current", "baseline"]) || !current.effectiveScope.platforms.includes(s.platform as InsightPlatform) || sourceStateKeys.has(key) || !enumValue(s.state, ["ready", "error", "unavailable"]) || s.state === "ready" && s.code !== null || s.state !== "ready" && !text(s.code, 200) || authorityCode(s.code)) fail("推广状态必须保留真实错误及权限失败关闭"); sourceStateKeys.add(key); }
+    if (authorityCode(erp.code)) fail("ERP权限或版本失效须整体失败关闭");
+    const verifyReferences = (raw: unknown) => { if (!raw || typeof raw !== "object") return; if (Array.isArray(raw)) { raw.forEach(verifyReferences); return; } const r = raw as Record<string, unknown>; if (typeof r.coverageRef === "string") { if (!coverageRefs.has(r.coverageRef)) fail("指标覆盖引用未指向真实两期来源"); const cov = coverage[r.coverageRef]; if (r.status === "available" && cov && !cov.complete) fail("覆盖不完整的指标不能冒充完整可用值"); } Object.values(r).forEach(verifyReferences); };
     verifyReferences(sections);
+    const coverageFor = (ref: string, period: "current" | "baseline") => coverage[ref] ?? (period === "current" ? current : baseline).coverageBySource[ref] ?? (promotion.sourceScopes as ComparisonResponse["sections"]["promotion"]["sourceScopes"]).filter(scope => scope.period === period).map(scope => scope.coverageBySource[ref]).find(Boolean);
+    const bindMetric = (m: ComparisonMetric, period: "current" | "baseline", keys: string[], window: { startDate: string; endDate: string }, metricKey?: ComparisonMetricKey) => {
+      const cov = coverageFor(m.coverageRef, period), days = resolveNetshopQueryPeriod(window.startDate, window.endDate, 366)!.days;
+      if (!cov) fail("指标覆盖未绑定所属两期范围");
+      if (cov.missingByShop.some(item => !keys.includes(item.shopKey) || item.dates.some(date => date < window.startDate || date > window.endDate))) fail("指标覆盖不能引用其他店铺或日期");
+      if (m.status === "available" && (!cov.complete || cov.expectedShopDatePairs !== keys.length * days)) fail("可用指标必须覆盖该对象全部店日范围");
+      if (metricKey) {
+        const platforms = [...new Set(keys.map(key => key.split("\u001f")[0]))], productSources = platforms.map(platform => platform === "京东" ? "jd_sku_daily" : "tmall_product_daily"), promotionSources = platforms.map(platform => platform === "京东" ? "jd_promotion" : "tmall_promotion");
+        const productKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders"], promotionKeys = ["spend", "attributedPayment", "roas", "ctr", "cpc"], expectedSources = productKeys.includes(metricKey) ? productSources : promotionKeys.includes(metricKey) ? promotionSources : metricKey === "spendRate" ? [...productSources, ...promotionSources] : [];
+        if (m.status === "available" && stable([...m.sourceIds].sort()) !== stable([...expectedSources].sort())) fail("完整指标来源须与精确对象及拥有方匹配");
+      }
+    };
+    for (const period of ["current", "baseline"] as const) {
+      const ctx = period === "current" ? current : baseline;
+      for (const key of comparisonMetricKeys) bindMetric((period === "current" ? cm : bm)[key], period, ctx.effectiveScope.shopKeys, ctx.periods.current, key);
+      for (const row of rows) {
+        for (const key of comparisonMetricKeys) bindMetric(row[period][key], period, row.shopKeys, ctx.periods.current, key);
+        const selected = row[period][expected.metricKey]; if (row.qualification[period === "current" ? "currentComplete" : "baselineComplete"] !== (selected.status === "available")) fail("排名完整资格必须来自所选指标真实完整状态");
+      }
+    }
     if (!Array.isArray(efficiency.distribution) || efficiency.distribution.length !== all.size) fail("分布图未使用完整候选集合");
     const distributionKeys = new Set<string>(); for (const raw of efficiency.distribution) { const d = object(raw); if (!all.has(String(d.objectKey)) || distributionKeys.has(String(d.objectKey))) fail("分布图身份重复或不属于全集"); distributionKeys.add(String(d.objectKey)); metric(d.metric); if (stable(qualification(d.qualification)) !== stable(all.get(String(d.objectKey))!.qualification)) fail("分布资格与全集不一致"); }
     const charts = input.chartObjectKeys as string[]; if (charts.some(key => !all.has(key))) fail("主图对象不在完整候选集合");
@@ -239,8 +293,12 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
       const index = object(t.indexBasis); metric(index.current); metric(index.baseline);
       if (!enumValue(index.status, ["available", "unavailable"]) || index.reasonCode !== null && !metricReasons.includes(index.reasonCode as MetricReason)) fail("指数基准说明无效");
       for (const [key, w] of [["current", current.periods.current], ["baseline", baseline.periods.current]] as const) {
-        if (!Array.isArray(t[key]) || (t[key] as unknown[]).length > w.days) fail("趋势桶数量无效"); let last = "";
-        for (const rawPoint of t[key] as unknown[]) { const p = object(rawPoint); if (typeof p.date !== "string" || typeof p.bucketEnd !== "string" || !resolveNetshopQueryPeriod(p.date, p.bucketEnd, 366) || p.date < w.startDate || p.bucketEnd > w.endDate || p.date <= last) fail("趋势日期重复或越界"); last = p.bucketEnd; metric(p.metric); }
+        if (!Array.isArray(t[key]) || (t[key] as unknown[]).length > w.days) fail("趋势桶数量无效"); let last = "", cursor = 0;
+        const calendar = (key === "current" ? current : baseline).calendar.map(day => day.date);
+        for (const rawPoint of t[key] as unknown[]) { const p = object(rawPoint); if (typeof p.date !== "string" || typeof p.bucketEnd !== "string" || !resolveNetshopQueryPeriod(p.date, p.bucketEnd, 366) || p.date < w.startDate || p.bucketEnd > w.endDate || p.date <= last || p.date !== calendar[cursor]) fail("趋势日期重复、漏桶或越界");
+          const end = calendar.indexOf(p.bucketEnd, cursor); if (end < cursor || expected.trendGrain === "day" && end !== cursor || expected.trendGrain === "week" && (p.date !== w.startDate && new Date(p.date + "T00:00:00Z").getUTCDay() !== 1 || p.bucketEnd !== w.endDate && new Date(p.bucketEnd + "T00:00:00Z").getUTCDay() !== 0) || expected.trendGrain === "month" && (p.date !== w.startDate && !p.date.endsWith("-01") || p.bucketEnd !== w.endDate && calendar[end + 1]?.slice(0, 7) === p.bucketEnd.slice(0, 7))) fail("趋势桶须保持共享自然日/周/月边界");
+          cursor = end + 1; last = p.bucketEnd; const m = metric(p.metric); if (m.unit !== cm[expected.metricKey].unit || m.basis !== cm[expected.metricKey].basis) fail("趋势须保同一指标单位与来源口径"); bindMetric(m, key, all.get(String(t.objectKey))!.shopKeys, { startDate: p.date, endDate: p.bucketEnd }, expected.metricKey); }
+        if (cursor !== calendar.length) fail("趋势必须保完整所属窗口，缺日用不可用桶保留");
         const first = (t[key] as unknown[])[0]; if (!first || stable(object(first).metric) !== stable(index[key])) fail("指数基准必须是首自然桶，不能跳过缺口");
       }
       if (index.status === "available" && (index.reasonCode !== null || [index.current, index.baseline].some(rawMetric => { const m = metric(rawMetric); return m.status !== "available" || m.value === null || m.value <= 0; }))) fail("0、负值或缺失基准不能生成指数");
