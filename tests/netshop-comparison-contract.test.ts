@@ -9,6 +9,7 @@ import { ScopedReadGate, InsightReadError } from "../app/netshop/shared/request-
 const query = () => new URLSearchParams({ platform: "京东", dimension: "sku", startDate: "2026-09-01", endDate: "2026-09-30", periodKind: "custom" });
 const owningFixtures = JSON.parse(readFileSync(new URL("./fixtures/netshop-comparison-owning.json", import.meta.url), "utf8"));
 const erpFixtures = JSON.parse(readFileSync(new URL("./fixtures/netshop-comparison-erp-owned.json", import.meta.url), "utf8"));
+const erpTemporalFixtures = JSON.parse(readFileSync(new URL("./fixtures/netshop-comparison-erp-temporal.json", import.meta.url), "utf8"));
 function fetchResponse(response: Response) { return (async () => response) as typeof fetch; }
 
 test("comparison keeps F query plus closed independent scope and baseline", () => {
@@ -205,4 +206,35 @@ test("ERP observation dates and object identities cannot differ from the owning 
   await rejectsMutation(dto => { const ref = dto.sections.scale.summary.current.erpNetSales.coverageRef, observation = dto.sections.comparability.erpEvidence.observations[ref]; observation.observedByShop.forEach(item => { item.dates = []; }); observation.observedShopDatePairs = 0; }, fixture);
   await rejectsMutation(dto => { const ref = dto.sections.scale.items[0].current.erpNetSales.coverageRef; dto.sections.comparability.erpEvidence.observations[ref].objectKey = "shop:京东\u001f外店"; }, fixture);
   await rejectsMutation(dto => { Object.assign(dto.sections.comparability.erpEvidence.request!, { expiresAtEpochMs: 0 }); }, fixture);
+});
+
+for (const fixture of erpTemporalFixtures.cases) test(`actual owning ERP temporal response ${fixture.name} preserves both native calendars`, async () => {
+  const dto = await decodeComparisonInsights(fixture.response, new URLSearchParams(fixture.request.query), fixture.request.headerRevision);
+  assert.equal(dto.sections.comparability.erpEvidence.temporalState.state, "ready");
+  assert.equal(dto.sections.comparability.erpEvidence.source?.series?.intent.grain, dto.trendGrain);
+  assert.equal(dto.sections.scale.summary.current.erpNetSales.value, 680);
+  for (const row of dto.sections.trends.items) {
+    assert.equal(row.indexBasis.status, "unavailable");
+    for (const point of [...row.current, ...row.baseline]) {
+      assert.ok(point.metric.value === null || point.metric.status === "partial");
+      assert.match(point.metric.coverageRef, /:trend:\d{4}-\d{2}-\d{2}$/);
+      assert.equal(dto.sections.comparability.erpEvidence.observations[point.metric.coverageRef].completeness, "unknown");
+    }
+  }
+});
+
+test("ERP temporal values cannot be borrowed from whole-period amounts or another native bucket", async () => {
+  const fixture = erpTemporalFixtures.cases[0];
+  await rejectsMutation(dto => { dto.sections.trends.items[0].current[0].metric.value = 999999; }, fixture);
+  await rejectsMutation(dto => { dto.sections.trends.items[0].current[0].metric.coverageRef = dto.sections.scale.items[0].current.erpNetSales.coverageRef; }, fixture);
+  await rejectsMutation(dto => { dto.sections.trends.items[0].current[0].metric.coverageRef = dto.sections.trends.items[0].current[1].metric.coverageRef; }, fixture);
+  await rejectsMutation(dto => { const metric=dto.sections.trends.items[0].current[0].metric; metric.status="available"; metric.reasonCode=null; }, fixture);
+});
+
+test("ERP native series intent, grain, tuple values and observed dates remain owning-bound", async () => {
+  const fixture = erpTemporalFixtures.cases[1];
+  await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.source!.series!.intent.grain = "day"; }, fixture);
+  await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.source!.series!.items[0].current.pop(); }, fixture);
+  await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.temporalState = {state:"unavailable",code:"series_no_records"}; }, fixture);
+  await rejectsMutation(dto => { const point=dto.sections.trends.items[0].current[0]; dto.sections.comparability.erpEvidence.observations[point.metric.coverageRef].endDate=dto.currentContext.periods.current.endDate; }, fixture);
 });
