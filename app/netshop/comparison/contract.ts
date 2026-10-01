@@ -7,7 +7,7 @@ import {
 import { NetshopQueryError, resolveNetshopQueryPeriod, readNetshopOutletFilters } from "@/lib/netshop/query-contract";
 import type { CategoryEvidence, ContributionBucket } from "../products/contract";
 import { mappingHash } from "@/lib/ai/business-mapping-builder";
-import { decodeSalesPeriodsForRequest, type SalesPeriodsRequest, type SalesPeriodsResponse, type RawSalesIdentity } from "@/lib/netshop/sales-periods-contract";
+import { decodeSalesPeriodsForRequest, validateSalesPeriodsRequest, type SalesPeriodsRequest, type SalesPeriodsResponse, type RawSalesIdentity, type SalesObservedPeriod } from "@/lib/netshop/sales-periods-contract";
 
 export const COMPARISON_SCHEMA = "netshop-comparison-v1" as const;
 export const comparisonMetricKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate", "erpNetSales", "erpNetQuantity", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"] as const;
@@ -205,6 +205,7 @@ function erpEvidence(value: unknown, current: InsightsContext, baseline: Insight
   }
   if (e.state === "ready") {
     const request = object(e.request), source = object(e.source), revisions = source.sourceRevisions;
+    validateSalesPeriodsRequest(request, false);
     if (!Array.isArray(revisions) || revisions.length !== 1) fail("ERP拥有方向量未完整提供");
     decodeSalesPeriodsForRequest(source, request as SalesPeriodsRequest, String(object(revisions[0]).revision));
     if (stable(request.current) !== stable({ startDate: current.periods.current.startDate, endExclusive: current.periods.current.endExclusive }) || stable(request.baseline) !== stable({ startDate: baseline.periods.current.startDate, endExclusive: baseline.periods.current.endExclusive }) || request.q !== "" || request.page !== 1 || request.pageSize !== 100 || !Array.isArray(request.categories) || request.categories.length || !Array.isArray(request.rawOutlets) || stable(request.rawOutlets.map(stable).sort()) !== stable([...rawKeys].sort())) fail("ERP读必须绑定两期完整精确映射集合，不拿当前页或平台类目替代");
@@ -370,6 +371,38 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
   const dto = decodeComparisonStructure(value, params, owningRevision);
   try {
     const hashes = new Map(await Promise.all(dto.sections.comparability.items.map(async row => [row.objectKey, (await mappingHash(row.objectKey)).slice(0, 16)] as const)));
+    const evidence = dto.sections.comparability.erpEvidence, source = evidence.source;
+    const rawKey = (identity: RawSalesIdentity) => JSON.stringify([identity.platform, identity.rawShopName, identity.rawChannel]);
+    const mappings = new Map(evidence.mappings.map(mapping => [mapping.shopKey, mapping]));
+    const rawItems = new Map(source?.items.map(item => [rawKey(item.identity), item]) ?? []);
+    const rows = new Map(dto.sections.comparability.items.map(row => [row.objectKey, row]));
+    for (const [ref, observed] of Object.entries(evidence.observations)) {
+      const keys = observed.objectKey === "summary" ? (observed.period === "current" ? dto.currentContext : dto.baselineContext).effectiveScope.shopKeys : rows.get(observed.objectKey)?.shopKeys;
+      if (!keys || stable([...keys].sort()) !== stable([...observed.shopKeys].sort()) || ref !== `comparison:${observed.period}:erp:${observed.objectKey === "summary" ? "summary" : hashes.get(observed.objectKey)}`) fail("ERP观察证据必须绑定精确对象及所属引用");
+      const readable = !!source && keys.length > 0 && keys.every(key => mappings.get(key)?.status === "verified_alias");
+      const expected = readable ? keys.map(shopKey => { const mapping = mappings.get(shopKey)!, item = rawItems.get(rawKey(mapping.rawIdentity!)), dates: string[] = []; for (const range of item?.[observed.period].observations.observedDateRanges ?? []) for (let stamp = Date.parse(range.startDate + "T00:00:00Z"); stamp <= Date.parse(range.endDate + "T00:00:00Z"); stamp += 86400000) { const date = new Date(stamp).toISOString().slice(0, 10); if (date >= observed.startDate && date <= observed.endDate) dates.push(date); } return { shopKey, dates }; }).sort((a,b) => a.shopKey.localeCompare(b.shopKey)) : [];
+      if (observed.observedShopDatePairs !== (readable ? expected.reduce((sum,item) => sum + item.dates.length, 0) : null) || stable([...observed.observedByShop].sort((a,b) => a.shopKey.localeCompare(b.shopKey))) !== stable(expected)) fail("ERP观察日期和计数不能偏离完整拥有方记录范围");
+    }
+    const nativePeriod = (objectKey: string | null, period: "current" | "baseline"): { data: SalesObservedPeriod | null; reason: string | null } => {
+      if (!objectKey) return { data: source?.periodTotals[period] ?? null, reason: source ? null : evidence.state === "unavailable" ? "unmapped" : "unverified_source" };
+      const row = rows.get(objectKey)!, members = row.shopKeys.map(key => mappings.get(key)!);
+      let reason = members.some(m => m.status === "ambiguous") ? "ambiguous_mapping" : members.some(m => m.status === "unmapped") || evidence.state === "unavailable" ? "unmapped" : !source ? "unverified_source" : null;
+      const selected = members.filter(m => m.status === "verified_alias").map(m => rawKey(m.rawIdentity!));
+      const full = evidence.mappings.filter(m => m.status === "verified_alias").map(m => rawKey(m.rawIdentity!));
+      const data = row.kind === "shop" ? (selected.length ? rawItems.get(selected[0])?.[period] ?? null : null) : source && stable(selected.sort()) === stable(full.sort()) ? source.periodTotals[period] : null;
+      if (row.kind === "platform" && data) reason = null; else if (source && row.kind === "platform" && !data) reason = "not_applicable";
+      return { data, reason };
+    };
+    const erpKeys: ComparisonMetricKey[] = ["erpNetSales", "erpNetQuantity", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"];
+    const columns = { erpNetSales: "netSalesCents", erpNetQuantity: "netQuantity", orderMargin: "reportedGrossProfitCents", largeMarginAmount: "grossProfitCents", returnQuantity: "returnQuantity" } as const;
+    const bindProjection = (metric: ComparisonMetric, key: ComparisonMetricKey, period: "current" | "baseline", objectKey: string | null) => {
+      const record = nativePeriod(objectKey, period), hasRows = !!record.data?.rowPresence, numericKey = key in columns || key === "erpOrderCount";
+      const value = hasRows && !record.reason && numericKey ? key === "erpOrderCount" ? record.data!.orders.trustedOrderCount : record.data!.values[columns[key as keyof typeof columns]] : null;
+      const reason = record.reason ?? (!hasRows ? "no_records" : ["orderMargin", "largeMarginAmount", "largeMargin"].includes(key) ? "unverified_source" : "incomplete_coverage");
+      if (metric.value !== value || metric.status !== (value === null ? "unavailable" : "partial") || metric.reasonCode !== reason || stable(metric.sourceIds) !== stable(source ? ["erp_sales"] : [])) fail("ERP主字段必须直接保拥有方原值与未证成本/完整性原因");
+    };
+    for (const period of ["current", "baseline"] as const) { for (const key of erpKeys) bindProjection(dto.sections.scale.summary[period][key], key, period, null); for (const row of dto.sections.scale.items) for (const key of erpKeys) bindProjection(row[period][key], key, period, row.objectKey); }
+    if (erpKeys.includes(dto.metricKey)) for (const item of dto.sections.efficiency.distribution) bindProjection(item.metric, dto.metricKey, "current", item.objectKey);
     const productKeys: ComparisonMetricKey[] = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders"], promotionKeys: ComparisonMetricKey[] = ["spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate"];
     const check = (m: ComparisonMetric, period: "current" | "baseline", key: ComparisonMetricKey, objectKey: string | null, date?: string) => {
       if (!productKeys.includes(key) && m.status === "unavailable" && m.sourceIds.length === 0 && m.coverageRef === `comparison:${period}:unavailable` && dto.sections.comparability.coverage[m.coverageRef]?.expectedShopDatePairs === 0) return;

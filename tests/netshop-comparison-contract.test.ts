@@ -192,3 +192,17 @@ test("ERP full-source evidence cannot borrow a foreign window, RAW channel or do
   await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.mappings[0].rawIdentity!.rawChannel = "guessed-all-store"; }, erpFixtures.cases[0]);
   await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.source!.sourceRevisions[0].revision = "1:ffffffffffff"; }, erpFixtures.cases[0]);
 });
+
+test("ERP C values and cost reasons must remain exact owning projections", async () => {
+  const fixture = erpFixtures.cases[0];
+  await rejectsMutation(dto => { dto.sections.scale.summary.current.erpNetSales.value = 990000; }, fixture);
+  await rejectsMutation(dto => { dto.sections.scale.items[0].current.erpNetQuantity.value = 990000; }, fixture);
+  await rejectsMutation(dto => { dto.sections.scale.summary.current.orderMargin.value = 990000; }, fixture);
+  await rejectsMutation(dto => { dto.sections.scale.items[0].current.largeMarginAmount.reasonCode = "incomplete_coverage"; }, fixture);
+});
+test("ERP observation dates and object identities cannot differ from the owning record collection", async () => {
+  const fixture = erpFixtures.cases[0];
+  await rejectsMutation(dto => { const ref = dto.sections.scale.summary.current.erpNetSales.coverageRef, observation = dto.sections.comparability.erpEvidence.observations[ref]; observation.observedByShop.forEach(item => { item.dates = []; }); observation.observedShopDatePairs = 0; }, fixture);
+  await rejectsMutation(dto => { const ref = dto.sections.scale.items[0].current.erpNetSales.coverageRef; dto.sections.comparability.erpEvidence.observations[ref].objectKey = "shop:京东\u001f外店"; }, fixture);
+  await rejectsMutation(dto => { Object.assign(dto.sections.comparability.erpEvidence.request!, { expiresAtEpochMs: 0 }); }, fixture);
+});
