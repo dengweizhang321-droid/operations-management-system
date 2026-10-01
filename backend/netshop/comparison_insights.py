@@ -8,7 +8,7 @@ import time
 
 from django.db import connection
 
-from .comparison_adapter import budget, load_comparison_sources, validate_joined_revisions, unavailable
+from .comparison_adapter import budget, load_comparison_sources, validate_joined_revisions, unavailable, validate_comparison_metric, validate_erp_revision, refresh_erp_projection
 from .comparison_contract import COMPARISON_SCHEMA, METRIC_KEYS, build_period_bindings, parse_comparison_v1
 from .errors import NetshopApiError
 from .insights_common import MAX_SAFE, actor_fence, compare_metrics, compare_derived_money_per_count, read_context, require_supported_scope, validate_metric
@@ -17,14 +17,20 @@ from .query import _canonical_token
 MAX_RESPONSE_BYTES = 2*1024*1024
 PROMOTION_PARALLEL_KEYS = {"attributedPayment", "roas", "ctr", "cpc", "spendRate"}
 PRODUCT_PARALLEL_KEYS = {"visitors", "customers", "conversion", "visitorValue", "transactionOrders"}
-ADDITIVE_KEYS = {"payment", "quantity", "visitors", "customers", "transactionOrders", "spend", "attributedPayment", "erpNetSales", "orderMargin", "largeMarginAmount", "erpOrderCount", "returnQuantity"}
+ADDITIVE_KEYS = {"payment", "quantity", "visitors", "customers", "transactionOrders", "spend", "attributedPayment", "erpNetSales", "orderMargin", "largeMarginAmount", "erpOrderCount", "erpNetQuantity", "returnQuantity"}
 
 
 def _compare(current, baseline):
+    if current["unit"] == "NATIVE_INTEGER_QUANTITY":
+        validate_comparison_metric(current); validate_comparison_metric(baseline)
+        return compare_metrics({**current, "unit": "COUNT"}, {**baseline, "unit": "COUNT"})
     return compare_derived_money_per_count(current, baseline) if current["unit"] == "CNY_CENT_PER_COUNT" else compare_metrics(current, baseline)
 
 
 def _delta(current, baseline):
+    if current["unit"] == "NATIVE_INTEGER_QUANTITY":
+        validate_comparison_metric(current); validate_comparison_metric(baseline)
+        return validate_comparison_metric({**current, "value": None, "status": "unavailable", "reasonCode": "incomplete_baseline"})
     if current["unit"] == "CNY_CENT_PER_COUNT":
         return {**current, "value": None, "numerator": None, "denominator": None, "status": "unavailable", "reasonCode": "not_applicable"}
     compatible = current["unit"] == baseline["unit"] and current["basis"] == baseline["basis"] and sorted(current["sourceIds"]) == sorted(baseline["sourceIds"])
@@ -42,7 +48,7 @@ def _share(metric, denominator, metric_key):
 
 
 def _sum_metrics(values, template):
-    if template["unit"] in {"RATIO", "MULTIPLE", "CNY_CENT_PER_COUNT"}:
+    if template["unit"] in {"RATIO", "MULTIPLE", "CNY_CENT_PER_COUNT", "NATIVE_INTEGER_QUANTITY"}:
         return {**template, "value": None, "status": "unavailable", "reasonCode": "not_applicable", **({"numerator": None, "denominator": None} if "numerator" in template else {})}
     reason = None if values and all(v["status"] == "available" for v in values) else "incomplete_baseline"
     value = sum(v["value"] for v in values) if not reason else None
@@ -125,8 +131,8 @@ def build_comparison_result(spec, sources, current, baseline, section_token, joi
     lightweight = [{**{k: row[k] for k in ("objectKey", "kind", "platform", "shopName", "shopKeys", "qualification", "exclusionReasons")}, "currentPresence": source["presence"]["current"], "baselinePresence": source["presence"]["baseline"]} for row, source in zip(rows, sources["objects"])]
     relationships = build_period_bindings(current, baseline)
     overlap = max(0, (min(date.fromisoformat(relationships[p]["endDate"]) for p in ("current", "baseline"))-max(date.fromisoformat(relationships[p]["startDate"]) for p in ("current", "baseline"))).days+1)
-    limitations = ["完整授权两期候选按精确平台/店铺配对，平台及旗下店铺不混排累计", "不完整对象保留供核查，排列在可信对象后；增长/下降只对完整可比对象排序", "分类使用reference current来源标签cohort，不证明官方字典或两期历史分类", "本基期长度和重叠按实值披露，金额不按天数缩放，不伪造每日配对", "ERP拥有方比较consumer尚未就绪，订单/客单价/退货与毛利保持不可用", "商品成交订单为商品×日累计，不能称店铺去重订单或用作客单价分母", "跨平台商品访客/客户/成交订单累计与衍生效率仅并列，SKU/SPU及不同来源不当同口径店效率榜", "跨平台归因指标仅并列观察，不混合归因总额、评分或排名", "独立领域向量前后复验，不表示分布式原子快照"]
-    limitations.append("本期/基期记录标记只表示已纳入且可读的P/A记录并集，不依赖所选指标是否有值；错误或未映射来源仍未知，ERP待就绪不表示其记录不存在")
+    limitations = ["完整授权两期候选按精确平台/店铺配对，平台及旗下店铺不混排累计", "不完整对象保留供核查，排列在可信对象后；增长/下降只对完整可比对象排序", "分类使用reference current来源标签cohort，不证明官方字典或两期历史分类", "本基期长度和重叠按实值披露，金额不按天数缩放，不伪造每日配对", "ERP只读取已有sales_alias给出已证非空channel的精确RAW三元组；未知或多义映射不回全店", "ERP观察日期完整性未知，净额/可信订单/原生数量只披露观察汇总，不进入完整排名或增长", "ERP存储毛利及净额减存成本额未验证原字段/历史成本/历史映射/零成本，保留partial原值；毛利率/退货率/可信客单主值不可用", "商品成交订单为商品×日累计，不能称店铺去重订单或用作客单价分母", "跨平台商品访客/客户/成交订单累计与衍生效率仅并列，SKU/SPU及不同来源不当同口径店效率榜", "跨平台归因指标仅并列观察，不混合归因总额、评分或排名", "独立领域向量前后复验，不表示分布式原子快照"]
+    limitations.append("本期/基期记录标记只表示已纳入且可读的P/A记录并集，不依赖所选指标是否有值；错误或未映射来源仍未知，ERP记录单独由所属sourceEvidence披露")
     if sources["sourceErrors"]:
         limitations += ["推广来源读取失败，独立商品章节保留；错误状态不等于无记录"]
     return {"schemaVersion": COMPARISON_SCHEMA, "currentContext": current, "baselineContext": baseline, "sectionToken": section_token,
@@ -135,10 +141,10 @@ def build_comparison_result(spec, sources, current, baseline, section_token, joi
             "consistency": "revision_vector_checked_non_atomic", "sections": {
                 "scale": {"metricKey": metric, "summary": summary, "items": page, "pagination": pagination, "contributions": _contributions(rows, sources["summaries"], spec)},
                 "efficiency": {"items": [r["objectKey"] for r in page], "distribution": [{"objectKey": r["objectKey"], "metric": r["current"][metric], "qualification": r["qualification"]} for r in full], "definitions": ["矩阵与完整排名共享分页；分布来自完整候选而非当前页", "比例按完整同源分子/分母重算，不平均店铺比率，不设综合评分", "商品访客/客户是商品×日累计，非店铺UV；ERP可信订单分母尚未就绪"]},
-                "trends": {"grain": spec["trendGrain"], "items": trend, "definitions": ["两期分别返回真实自然日/周/月桶，缺数据保持空值，不补零", "指数分别以各期第一个自然桶的正且完整selected metric为100；缺失/零/负不算指数", "两期窗口独立，金额不按日数缩放"]},
+                "trends": {"grain": spec["trendGrain"], "items": trend, "definitions": ["两期分别返回真实自然日/周/月桶，缺数据保持空值，不补零", "指数分别以各期第一个自然桶的正且完整selected metric为100；缺失/零/负不算指数", "两期窗口独立，金额不按日数缩放", "当前ERP只提供两期整范围汇总，拥有方日周月序列仍待依赖；不把整期值摊入各桶"]},
                 "structure": {"items": structure, "categoryBasis": "reference_current_cohort", "sameProduct": {"status": "unavailable", "reasonCode": "unmapped"}, "categoryOptions": sources["categoryOptions"], "definitions": ["结构仅展示当前主图对象，来自其完整商品集合，不受排名分页影响", "类目为所属来源标签，无官方ID、跨平台归并或有效期证明", "价格带是同源成交金额/件数的成交均价，当前目录价格不回填历史", "同款映射未核验，不按同名商品猜测"]},
                 "promotion": {"items": [r["objectKey"] for r in page], "sourceScopes": sources["sourceScopes"], "sourceStates": sources["sourceStates"], "sourceDefinitions": ["推广矩阵与完整排名共享分页；完整店铺指标由推广拥有者计算", "京东归因为总订单金额，天猫归因为净成交金额；窗口未知，不代表利润或广告增量", "推广费率主值只用完整相同店日配对；京东SKU/天猫SPU分母由A所属scope保留", "分类条件缺可靠推广映射时不可用，不回退全店或按比例分摊"]},
-                "comparability": {"items": lightweight, "coverage": sources["coverage"], "erpState": {"state": sources["erp"]["state"], "code": sources["erp"]["reasonCode"]}, "counts": {"candidates": len(rows), "currentComplete": sum(r["qualification"]["currentComplete"] for r in rows), "baselineComplete": sum(r["qualification"]["baselineComplete"] for r in rows), "comparable": sum(r["qualification"]["comparable"] for r in rows), "excluded": sum(not r["qualification"]["comparable"] for r in rows)}, "periodRelationship": {"sameLength": relationships["equalLength"], "overlapDays": overlap}, "limitations": limitations, "population": "complete_authorized_candidate_union"}}}
+                "comparability": {"items": lightweight, "coverage": sources["coverage"], "erpState": {"state": sources["erp"]["state"], "code": sources["erp"]["reasonCode"]}, "erpEvidence": sources["erp"]["evidence"], "counts": {"candidates": len(rows), "currentComplete": sum(r["qualification"]["currentComplete"] for r in rows), "baselineComplete": sum(r["qualification"]["baselineComplete"] for r in rows), "comparable": sum(r["qualification"]["comparable"] for r in rows), "excluded": sum(not r["qualification"]["comparable"] for r in rows)}, "periodRelationship": {"sameLength": relationships["equalLength"], "overlapDays": overlap}, "limitations": limitations, "population": "complete_authorized_candidate_union"}}}
 
 
 def read_comparison_insights(principal, params):
@@ -160,8 +166,10 @@ def read_comparison_insights(principal, params):
         if current["sourceRevisions"][0]["revision"] != baseline["sourceRevisions"][0]["revision"]:
             raise NetshopApiError("本基期所属来源版本变化", code="insights_revision_changed", status=409)
         sources = load_comparison_sources(principal, spec, current, baseline, deadline=deadline)
-        joined = validate_joined_revisions(sources["contexts"], deadline=deadline)
-        section_token = _canonical_token({"schema": COMPARISON_SCHEMA, "actor": actor, "currentScope": current["scopeKey"], "currentSnapshot": current["snapshotToken"], "baselineScope": baseline["scopeKey"], "baselineSnapshot": baseline["snapshotToken"], "selection": spec["comparisonScope"], "selectedBaseline": spec["selectedBaseline"], "metricKey": spec["metricKey"], "sort": spec["sort"], "trendGrain": spec["trendGrain"], "chartObjectKeys": sources["chartObjectKeys"], "pageSize": spec["pageSize"], "joined": joined})
+        joined = validate_joined_revisions(sources["contexts"], deadline=deadline, principal=principal, erp=sources["erp"])
+        def token_for(vector):
+            return _canonical_token({"schema": COMPARISON_SCHEMA, "actor": actor, "currentScope": current["scopeKey"], "currentSnapshot": current["snapshotToken"], "baselineScope": baseline["scopeKey"], "baselineSnapshot": baseline["snapshotToken"], "selection": spec["comparisonScope"], "selectedBaseline": spec["selectedBaseline"], "metricKey": spec["metricKey"], "sort": spec["sort"], "trendGrain": spec["trendGrain"], "chartObjectKeys": sources["chartObjectKeys"], "pageSize": spec["pageSize"], "erpMappings": sources["erp"]["evidence"]["mappings"], "erpSnapshot": sources["erp"]["evidence"]["source"]["snapshotToken"] if sources["erp"]["state"] == "ready" else None, "joined": vector})
+        section_token = token_for(joined)
         if spec["sectionToken"] and section_token != spec["sectionToken"]:
             raise NetshopApiError("比较sectionToken不属于本基期/来源/账号/显示范围", code="insights_revision_changed", status=409)
         result = build_comparison_result(spec, sources, current, baseline, section_token, joined)
@@ -170,7 +178,17 @@ def read_comparison_insights(principal, params):
         if len(encoded) > MAX_RESPONSE_BYTES:
             raise NetshopApiError("完整比较响应超过2MiB，请缩小范围", code="quality_incomplete", status=422)
         budget(deadline)
-        if validate_joined_revisions(sources["contexts"], deadline=deadline) != joined:
+        erp_before = sources["erp"]["state"]
+        validate_erp_revision(principal, sources["erp"], deadline=deadline)
+        if erp_before == "ready" and sources["erp"]["state"] == "error":
+            refresh_erp_projection(sources, current, baseline)
+            joined = validate_joined_revisions(sources["contexts"], deadline=deadline, principal=principal, erp=sources["erp"])
+            result = build_comparison_result(spec, sources, current, baseline, token_for(joined), joined)
+            budget(deadline)
+            if len(json.dumps(result, ensure_ascii=False, allow_nan=False).encode("utf-8")) > MAX_RESPONSE_BYTES:
+                raise NetshopApiError("完整比较响应超过2MiB，请缩小范围", code="quality_incomplete", status=422)
+            budget(deadline)
+        if validate_joined_revisions(sources["contexts"], deadline=deadline, principal=principal, erp=sources["erp"]) != joined:
             raise NetshopApiError("比较末次来源向量变化", code="insights_revision_changed", status=409)
         if actor_fence(principal) != actor:
             raise NetshopApiError("比较读取期间账号权限变化", code="access_denied", status=403)

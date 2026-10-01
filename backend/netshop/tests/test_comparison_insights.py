@@ -315,7 +315,7 @@ class ComparisonInsightsTests(TestCase):
     def test_all_metric_refs_resolve_and_real_dto_sample(self):
         self.pair()
         result = self.read()
-        refs = {**result["currentContext"]["coverageBySource"], **result["baselineContext"]["coverageBySource"], **result["sections"]["comparability"]["coverage"]}
+        refs = {**result["currentContext"]["coverageBySource"], **result["baselineContext"]["coverageBySource"], **result["sections"]["comparability"]["coverage"], **result["sections"]["comparability"]["erpEvidence"]["observations"]}
         def check(value):
             if isinstance(value, dict):
                 if "coverageRef" in value: self.assertIn(value["coverageRef"], refs)
@@ -487,15 +487,15 @@ class ComparisonInsightsTests(TestCase):
         business_writes = [q["sql"] for q in captured if q["sql"].lstrip().split(" ", 1)[0].upper() in {"INSERT", "UPDATE", "DELETE"}]
         self.assertEqual(business_writes, [])
 
-    def test_erp_dependency_pending_honest_all_metrics(self):
+    def test_erp_unmapped_honest_all_metrics(self):
         self.pair()
         result = self.read(comparisonScope=self.scope(metricSource="erp"), metricKey="erpNetSales")
-        self.assertEqual(result["sections"]["comparability"]["erpState"]["state"], "dependency_pending")
+        self.assertEqual(result["sections"]["comparability"]["erpState"], {"state":"unavailable","code":"unmapped"})
         self.assertIsNone(result["sections"]["scale"]["summary"]["current"]["erpNetSales"]["value"])
         self.assertEqual(result["sections"]["scale"]["summary"]["current"]["largeMargin"]["unit"], "RATIO")
         self.assertEqual(result["sections"]["scale"]["summary"]["current"]["largeMarginAmount"]["unit"], "CNY_CENT")
         self.assertEqual(result["sections"]["scale"]["summary"]["current"]["largeMarginAmount"]["basis"], "erp_large_margin")
-        self.assertEqual(len(result["sections"]["scale"]["summary"]["current"]), 21)
+        self.assertEqual(len(result["sections"]["scale"]["summary"]["current"]), 22)
 
     def test_366_day_windows_are_independent_and_missing_buckets_not_zero(self):
         self.fact(day="2025-03-01")
@@ -527,7 +527,15 @@ class ComparisonInsightsTests(TestCase):
             facts = [NetshopRow(source_row_key=f"scale-{shop}-{day}-{product}", source_row_hash="d"*64, first_import_batch_id=batch.id, last_import_batch_id=batch.id, source_row_number=i+2, source="jd_sku_daily", dataset="spu_daily", platform="京东", shop_name=name, business_date=day, spu_id=f"P{product:02}", sku_id=f"SKU{product:02}", category="Synthetic category", product_name="Synthetic scale", metrics_json={"transactionAmountCents": 1000, "transactionQuantity": 2, "visitors": 100, "transactionCustomers": 10}, transaction_amount_cents=1000, transaction_quantity=2, visitors=100, transaction_customers=10) for i, (day, product) in enumerate((day, product) for day in dates for product in range(20))]
             NetshopRow.objects.bulk_create(facts, batch_size=500)
         before = time.monotonic()
-        with CaptureQueriesContext(connection) as queries:
+        actual_builder = C.build_comparison_result
+        def measure(*args, **kwargs):
+            response = actual_builder(*args, **kwargs)
+            target = os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
+            if target:
+                sizes = {"total":len(json.dumps(response,ensure_ascii=False).encode("utf8")), "fields":{key:len(json.dumps(value,ensure_ascii=False).encode("utf8")) for key,value in response.items()}, "sections":{key:len(json.dumps(value,ensure_ascii=False).encode("utf8")) for key,value in response["sections"].items()}}
+                with (Path(target)/"representative-response-sizes.json").open("x",encoding="utf8") as output: json.dump(sizes,output,indent=2)
+            return response
+        with patch.object(C,"build_comparison_result",measure), CaptureQueriesContext(connection) as queries:
             result = self.read(endDate="2026-09-30", selectedBaseline={"kind": "custom", "startDate": "2026-08-01", "endDate": "2026-08-30"})
         seconds = time.monotonic()-before
         encoded = json.dumps(result, ensure_ascii=False).encode("utf-8")
