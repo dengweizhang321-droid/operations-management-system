@@ -22,4 +22,25 @@ P/A 跨栏目使用 S 内原 owning envelope 的不改值投影，明确不是�
 
 作者 screenshot 在 f0b7 基线发现 sp-date-selector 继承 global date-selector 的38px固定高度，统计期间按钮下溢并在320压下一字段标签。工具已增加真实 date button/自身 field/下一 field 的几何回归；该问题须由 S/I 在其 Source 写权修，工具不改业务CSS。先前31项通过不替代这项新增布局门槛。
 
+## 同一运行六路原始捕获（opt-in）
+
+新增 same-run6-00dad2 目录，全部 raw/meta 与 capture-handoff.json 均 CreateNew 原字节保全，旧三文件/e8/旧 manifest 未覆盖。运行时设置 NETSHOP_M5_SOURCE_MANIFEST=tests/fixtures/netshop-m5-home/same-run6-00dad2/manifest.json。原捕获源码 00dad2ddd7d1a66885dcda7d69e0311ec1f1ecd0，来自 E:/codex-artifacts/netshop-panorama-M5-20261001/tests-root/00dad2ddd7d1a66885dcda7d69e0311ec1f1ecd0/directory-narrow-final；所有六路 header 都为 1:263b6b9094b1，freshSeedSHA256 都为 61e3b869890eed14d20da1d5191703491bd536542bceb41ab72aad48b3b69c31。Finance 此 seed 原8/9月不与旧全年29月数据混拼。
+
+| 路径 | 原 bytes | SHA256 |
+| --- | ---: | --- |
+| response-owning-directory.json | 7602 | 983a13587862f3eb98638db1fb6f2c8aafc81bb39bce2f6d845354e5d55c80fc |
+| response-owning-all-six.json | 207334 | dd919540b8015463c9b35a0a082610464804da97901d2863972758af5ca54bb9 |
+| response-owning-direct-products.json | 41172 | dd283e033cf9133dd8eef7b62a9a90f1bb66be32e512c2fb7f9547c136f6748f |
+| response-owning-direct-product-detail.json | 27025 | 4e6a04d675bedf6ca0e6c87bd5e5dd75b3d9cf29d158cbd835dd0e52c090489c |
+| response-owning-direct-promotion.json | 37786 | f684b8e731543605e6fdcc958b6ffc97a2286b82e2f4bd9e35a507052f846f04 |
+| response-owning-direct-promotion-detail.json | 18313 | a0487987a469dce43b86803ff880d7593622c2418742cf8e2f933261a8846849 |
+
+每份完整 body 用其原 meta query 和原 header 经实际 F/S/P/A decoder 正向校验。只同一 seed 的 panorama/目录/direct 分组互通；其他旧 capture 不借用新目录或新详情。字段原 query 的缺省值由实际 query validator 解释，不把缺省顺序差异当作新范围。详情身份、实际窗口和 token 必须匹配；没有 exact-product SKU采样时不补一个、不伪桥接SPU。专题列表允许完整行集合的展示投影，完整原生指标、F载体、序列和版本不变。
+
+精确 P detail 原pageSize20，测试先通过真实 S 每页20控件进入该范围，原详情 body不改5；S→P detail后原控件直接返回S原URL，与真实共享history规则相同。A使用实际“推广花费”widget定位章节，再进原SKU专题、按原对象标题进入详情、关详情并用其原返回控件恢复S精确URL。目录正例从原空outlet carrier取得选项，再由用户select明确单店，没有隐式第一店。Finance current/previous/yearAgo取各原读取引用，ERP日期/原生数量从原 compact series tuple对照，不复制SQL或业务聚合。
+
+NETSHOP_M5_DATE_PROBE=1 只运行真正Home的1440/1280/390/320期间选择几何探针。记录trigger/label/popup/近7按钮、viewport、ancestor overflow和内层scrollLeft/Top，若确有可达横滚只用可见mouse wheel并断言真实scroll变化，绝不forceclick或改DOM/CSS。Source8e实测popup computed fixed/y1008（1000高viewport），不是horizontal-scroll；公共Source修复由I独占。
+
+NETSHOP_M5_VALIDATION_SCOPE=transport 明确暂不执行已知需要公共CSS修复的日期矩阵，result会写该scope与pending，默认 full 保留全部日期与手机断言。它不会跳过手机：Source8e全6在390有ERP implicit grid track974撑页面1003的真实失败；错误截图、geometry与旧日期失败原样保留，未改为baseline绿。交接时新六路前11项实际Home已通过，完整新matrix仍待I串行源CSS修复及非作者Q。
+
 没有完整 O/旧ERP数值 golden 时只证明原入口/error存在，M1/O与M4原证据分别继承，不称真实经营回归、M7或生产采用。各失败 run CreateNew 原样保留；每 run 写 SourceHEAD/dirty、compile dependency/layout SHA、原捕获清单、DOM/截图、运输记录及正常 browser/server shutdown，无 PG/GRANT/业务下载导入/付费模型/生产操作。

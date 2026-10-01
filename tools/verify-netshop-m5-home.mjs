@@ -31,13 +31,14 @@ for(const record of manifest.records){
   assert.match(record.name,/^[a-z0-9-]+$/);assert.ok(Number.isSafeInteger(record.bytes));assert.match(record.sha256,/^[a-f0-9]{64}$/);
   const path=resolve(dirname(manifestPath),record.file),raw=await readFile(path);
   assert.equal(raw.length,record.bytes);assert.equal(hash(raw),record.sha256);
-  const body=JSON.parse(raw),scope=body.context.requestedScope,w=body.context.periods.current,t=body.tableScope;
+  const body=JSON.parse(raw),kind=record.kind||"panorama",carrier=kind==="directory"?body:body.context,scope=carrier.requestedScope,w=carrier.periods.current,t=body.tableScope||{};
   const query=new URLSearchParams({dimension:scope.dimension,periodKind:scope.periodKind,startDate:w.startDate,endDate:w.endDate});
   scope.platforms.forEach(p=>query.append("platform",p));scope.shopKeys.forEach(s=>query.append("outlet",s));for(const[k,v]of Object.entries(t))query.set(k,String(v));
-  const revision=body.context.sourceRevisions.find(r=>r.domain==="netshop"&&r.kind==="owning_revision")?.revision;
-  assert.ok(revision);if(record.query)assert.equal(queryPairs(record.query),queryPairs(query));if(record.owningRevision)assert.equal(record.owningRevision,revision);
-  records.push({...record,raw:raw.toString("utf8"),query:query.toString(),revision,body});
-  sourceFiles.push({name:record.name,path,bytes:raw.length,sha256:hash(raw),query:query.toString(),owningRevision:revision,sourceStatus:Object.fromEntries(Object.entries(body.sources).map(([k,v])=>[k,v.state]))});
+  const revision=carrier.sourceRevisions.find(r=>r.domain==="netshop"&&r.kind==="owning_revision")?.revision;
+  const originalQuery=record.originalRequest?new URLSearchParams(record.originalRequest.query).toString():record.query||query.toString();
+  assert.ok(revision);if(record.query&&!record.originalRequest)assert.equal(queryPairs(record.query),queryPairs(query));if(record.owningRevision)assert.equal(record.owningRevision,revision);
+  records.push({...record,kind,raw:raw.toString("utf8"),query:originalQuery,revision,body});
+  sourceFiles.push({name:record.name,kind,path,bytes:raw.length,sha256:hash(raw),originalQuery,owningRevision:revision,seed:record.seed||null,sourceStatus:Object.fromEntries(Object.entries(body.sources||{}).map(([k,v])=>[k,v.state]))});
 }
 await save("source-captures.json",{manifestPath,manifestSHA256:hash(manifestRaw),sourceFiles,externalOptIn:!!process.env.NETSHOP_M5_SOURCE_MANIFEST,allOriginalBytesVerified:true});
 const layout=await readFile(resolve(root,"app/layout.tsx"),"utf8");
@@ -48,7 +49,7 @@ const entry=styles.map(p=>"import '@/"+p+"';").join("\n")+
 "\nimport React from 'react';import {createRoot} from 'react-dom/client';import Home from '@/app/page';"+
 "import {installM5Transport} from '@/tests/fixtures/netshop-m5-home/bootstrap.mjs';"+
 "import {netshopColumnModules} from '@/app/netshop/shared/module-slots';"+
-"installM5Transport("+JSON.stringify(records.map(r=>({name:r.name,raw:r.raw,sha256:r.sha256,bytes:r.bytes})))+");"+
+"installM5Transport("+JSON.stringify(records.map(r=>({name:r.name,kind:r.kind,seed:r.seed,originalQuery:r.query,route:r.originalRequest?.endpoint,raw:r.raw,sha256:r.sha256,bytes:r.bytes})))+");"+
 "window.__m5Modules={panorama:!!netshopColumnModules.analysis,products:!!netshopColumnModules.products,promotion:!!netshopColumnModules.promotion,comparison:!!netshopColumnModules.platforms};"+
 "createRoot(document.body).render(<Home/>);";
 const checks=[],errors=[],consoleErrors=[],network=[];
