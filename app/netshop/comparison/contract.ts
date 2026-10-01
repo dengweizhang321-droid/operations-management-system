@@ -177,6 +177,12 @@ function structure(value: unknown): ComparisonProductStructure {
   return s as ComparisonProductStructure;
 }
 function stable(value: unknown): string { if (Array.isArray(value)) return JSON.stringify(value.map(v => JSON.parse(stable(v)))); if (value && typeof value === "object") return JSON.stringify(Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, JSON.parse(stable(v))]))); return JSON.stringify(value); }
+function primitiveFEnvelope(value: unknown) {
+  const context = object(value), periods = object(context.periods);
+  for (const name of ["current", "previous", "yearAgo"]) { const window = object(periods[name]); for (const field of ["startDate", "endDate", "endExclusive"]) if (typeof window[field] !== "string") fail("完整F窗口日期须为原始ISO字符串，不能类型强转"); }
+  if (!Array.isArray(context.capabilities)) fail("完整F字段能力缺失");
+  for (const raw of context.capabilities) { const capability = object(raw); for (const field of ["sourceId", "period", "field", "coverageRef", "status"]) if (typeof capability[field] !== "string") fail("完整F字段能力枚举须为原始字符串"); if (capability.reasonCode !== null && typeof capability.reasonCode !== "string") fail("完整F字段能力原因须为原始字符串"); }
+}
 
 function coverageRecord(value: unknown, allowedShopKeys?: Set<string>, windows?: InsightsContext["periods"]): Record<string, SourceCoverage> {
   const result = object(value);
@@ -199,6 +205,7 @@ function decodeComparisonStructure(value: unknown, params: URLSearchParams, owni
     if (new TextEncoder().encode(JSON.stringify(value)).length > insightBudget.responseBytes) fail("对比响应超过2MiB，请缩小范围");
     const input = object(value), expected = validateComparisonQuery(params);
     if (input.schemaVersion !== COMPARISON_SCHEMA || !token(input.sectionToken) || input.consistency !== "revision_vector_checked_non_atomic") fail("对比协议或一致性说明无效");
+    primitiveFEnvelope(input.currentContext); primitiveFEnvelope(input.baselineContext);
     const current = decodeInsightsContextForQuery(input.currentContext, comparisonContextQuery(params), owningRevision);
     const baselineQuery = comparisonContextQuery(params); baselineQuery.delete("snapshotToken"); baselineQuery.set("periodKind", "custom");
     const window = expected.baseline.kind === "custom" ? expected.baseline : current.periods[expected.baseline.kind];

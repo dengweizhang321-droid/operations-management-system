@@ -153,3 +153,11 @@ test("distribution and structure fields retain their selected ratio/money/count 
   await rejectsMutation(value => { value.sections.efficiency.distribution[0].metric.unit = "COUNT"; }, aSuccessful);
   await rejectsMutation(value => { value.sections.structure.items[0].current.top5Payment.unit = "COUNT"; }, aSuccessful);
 });
+
+test("both complete F envelopes retain primitive windows and capability enums", async () => {
+  for (const name of ["currentContext", "baselineContext"] as const) {
+    await rejectsMutation(value => { value[name].periods.previous.startDate = [value[name].periods.previous.startDate] as unknown as string; });
+    await rejectsMutation(value => { value[name].periods.yearAgo.endDate = [value[name].periods.yearAgo.endDate] as unknown as string; });
+    await rejectsMutation(value => { value[name].capabilities[0].period = ["current"] as unknown as "current"; });
+  }
+});
