@@ -16,11 +16,12 @@ export type RawSalesIdentity = { platform: string; rawShopName: string; rawChann
 export type SalesWindowRequest = { startDate: string; endExclusive: string };
 export type SalesPeriodWindow = SalesWindowRequest & { endDate: string; days: number };
 export type SalesPeriodSeriesIntent = { grain: "day" | "week" | "month"; rawOutlets: RawSalesIdentity[] };
+export type SalesPlatformSeriesIntent={grain:SalesPeriodSeriesIntent["grain"];platformNames:Array<"京东"|"天猫">};
 export type SalesPeriodsRequest = {
   operation: typeof SALES_PERIODS_OPERATION; current: SalesWindowRequest; baseline: SalesWindowRequest;
   rawOutlets?: RawSalesIdentity[]; categories?: string[]; q?: string; page?: number; pageSize?: number;
   expectedRevision?: string | null; snapshotToken?: string | null;
-  seriesGrain?: SalesPeriodSeriesIntent["grain"]; seriesOutlets?: RawSalesIdentity[];
+  seriesGrain?: SalesPeriodSeriesIntent["grain"]; seriesOutlets?: RawSalesIdentity[];seriesPlatforms?:SalesPlatformSeriesIntent["platformNames"];
 };
 /** Internal signed-RPC field; never accepted by an external C/S query decoder. */
 export type SalesPeriodsRpcRequest = SalesPeriodsRequest & { expiresAtEpochMs?: number };
@@ -32,7 +33,7 @@ export type SalesObservedPeriod = {
 };
 export type SalesPeriodsResponse = {
   schemaVersion: typeof SALES_PERIODS_SCHEMA; operation: typeof SALES_PERIODS_OPERATION; scopeKey: string; snapshotToken: string;
-  requestedScope: { current: SalesPeriodWindow; baseline: SalesPeriodWindow; rawOutlets: RawSalesIdentity[]; categories: string[]; seriesIntent?: SalesPeriodSeriesIntent };
+  requestedScope: { current: SalesPeriodWindow; baseline: SalesPeriodWindow; rawOutlets: RawSalesIdentity[]; categories: string[]; seriesIntent?: SalesPeriodSeriesIntent;platformSeriesIntent?:SalesPlatformSeriesIntent };
   scopeMode: "restricted" | "unrestricted"; periods: { current: SalesPeriodWindow; baseline: SalesPeriodWindow };
   periodTotals: { current: SalesObservedPeriod; baseline: SalesObservedPeriod };
   items: Array<{ identity: RawSalesIdentity; identityKey: string; current: SalesObservedPeriod; baseline: SalesObservedPeriod }>;
@@ -41,12 +42,15 @@ export type SalesPeriodsResponse = {
   sourceRevisions: Array<{ domain: "sales"; kind: "sales_erp_revision_pair"; scopeKey: string; revision: string }>;
   metricSemantics: Record<string, string>; metricMetadata: typeof salesPeriodMetricMetadata;
   series?: SalesPeriodSeries;
+  platformSeries?:SalesPlatformSeries;
 };
 export const salesPeriodSeriesBasis = { date:"imported_business_date",bucket:"clipped_calendar_day_week_monday_sunday_month",orders:"distinct_ERP_order_no_within_exact_raw_identity_and_bucket",category:"native_resolved_category_cohort",completeness:"unknown" } as const;
 export const salesSeriesWindowColumns=["startDate","endDate","endExclusive","days"] as const;
 export const salesSeriesPointColumns=["window","values","rowCount","trustedOrderCount","missingOrderNoRows","netAmountPerOrderValue","observedDateCount","observedDateRanges"] as const;
 export type SalesPeriodSeriesPoint=[[string,string,string,number],Array<number|null>,number,number|null,number|null,number|null,number,Array<[string,string]>];
 export type SalesPeriodSeries = {schemaVersion:"netshop-sales-period-series-v1";projection:"native-period-tuples-v1";windowColumns:typeof salesSeriesWindowColumns;metricColumns:typeof salesPeriodMetrics;pointColumns:typeof salesSeriesPointColumns;scopeKey:string;intent:SalesPeriodSeriesIntent;periods:{current:SalesPeriodWindow;baseline:SalesPeriodWindow};basis:typeof salesPeriodSeriesBasis;metricMetadata:typeof salesPeriodMetricMetadata;sourceRevisions:SalesPeriodsResponse["sourceRevisions"];items:Array<{identity:RawSalesIdentity;identityKey:string;current:SalesPeriodSeriesPoint[];baseline:SalesPeriodSeriesPoint[]}>};
+export const salesPlatformSeriesBasis={...salesPeriodSeriesBasis,grouping:"exact_source_platform",membership:"complete_authorized_parent_raw_union"} as const;
+export type SalesPlatformSeries=Omit<SalesPeriodSeries,"schemaVersion"|"intent"|"basis"|"items">&{schemaVersion:"netshop-sales-platform-series-v1";intent:SalesPlatformSeriesIntent;basis:typeof salesPlatformSeriesBasis;items:Array<{platform:"京东"|"天猫";identityKey:string;rawMembers:RawSalesIdentity[];rawCandidateCount:number;availability:{status:"available"|"unavailable";reasonCode:"no_records"|null};current:SalesPeriodSeriesPoint[];baseline:SalesPeriodSeriesPoint[]}>};
 
 export class SalesPeriodsContractError extends Error { constructor(message: string) { super(message); this.name = "SalesPeriodsContractError"; } }
 function fail(message: string): never { throw new SalesPeriodsContractError(message); }
@@ -76,13 +80,19 @@ const utf8 = (value: string) => new TextEncoder().encode(value);
 const byteCompare = (a: string, b: string) => { const x=utf8(a),y=utf8(b);for(let i=0;i<Math.min(x.length,y.length);i++)if(x[i]!==y[i])return x[i]-y[i];return x.length-y.length; };
 const compareIdentity = (a: RawSalesIdentity, b: RawSalesIdentity) => byteCompare(a.platform,b.platform)||byteCompare(a.rawShopName,b.rawShopName)||byteCompare(a.rawChannel,b.rawChannel);
 export function validateSalesPeriodsRequest(value: unknown, internal = false) {
-  const r=record(value);keys(r,["operation","current","baseline"],["rawOutlets","categories","q","page","pageSize","expectedRevision","snapshotToken","seriesGrain","seriesOutlets",...(internal?["expiresAtEpochMs"]:[])]);
+  const r=record(value);keys(r,["operation","current","baseline"],["rawOutlets","categories","q","page","pageSize","expectedRevision","snapshotToken","seriesGrain","seriesOutlets","seriesPlatforms",...(internal?["expiresAtEpochMs"]:[])]);
   if(!enumValue(r.operation,[SALES_PERIODS_OPERATION]))fail("销售两期operation无效");
   const outlets=r.rawOutlets??[],categories=r.categories??[];
   if(!Array.isArray(outlets)||outlets.length>50||!Array.isArray(categories)||categories.length>50)fail("销售来源或标签数量超限");
   const identities=outlets.map(item=>identity(item,true));if(new Set(identities.map(identityKey)).size!==identities.length)fail("销售原始身份重复");
   let seriesIntent:SalesPeriodSeriesIntent|undefined;
-  if(Object.hasOwn(r,"seriesGrain")||Object.hasOwn(r,"seriesOutlets")){
+  let platformSeriesIntent:SalesPlatformSeriesIntent|undefined;
+  if(Object.hasOwn(r,"seriesPlatforms")){
+    if(Object.hasOwn(r,"seriesOutlets")||!enumValue(r.seriesGrain,["day","week","month"] as const)||!Array.isArray(r.seriesPlatforms)||r.seriesPlatforms.length<1||r.seriesPlatforms.length>2||r.seriesPlatforms.some(value=>!enumValue(value,["京东","天猫"]))||new Set(r.seriesPlatforms).size!==r.seriesPlatforms.length)fail("平台序列须给1—2个精确京东/天猫，与RAW对象互斥并配真实粒度");
+    const names=(r.seriesPlatforms as SalesPlatformSeriesIntent["platformNames"]).slice().sort(byteCompare);
+    if(identities.length&&names.some(name=>!identities.some(row=>row.platform===name)))fail("平台序列越出父显式RAW范围");
+    platformSeriesIntent={grain:r.seriesGrain,platformNames:names};
+  }else if(Object.hasOwn(r,"seriesGrain")||Object.hasOwn(r,"seriesOutlets")){
     if(!enumValue(r.seriesGrain,["day","week","month"] as const)||!Array.isArray(r.seriesOutlets)||r.seriesOutlets.length<1||r.seriesOutlets.length>4)fail("原生序列须提供真实粒度及1—4个精确RAW对象");
     const selected=r.seriesOutlets.map(item=>identity(item,true)).sort(compareIdentity);
     if(new Set(selected.map(identityKey)).size!==selected.length||identities.length&&selected.some(row=>!identities.some(item=>identityKey(item)===identityKey(row))))fail("图形对象重复或越出显式完整请求范围");
@@ -92,7 +102,7 @@ export function validateSalesPeriodsRequest(value: unknown, internal = false) {
   const q=r.q??"",page=r.page??1,pageSize=r.pageSize??20;if(!text(q,120,true)||!number(page,1,10000)||!number(pageSize,1,100))fail("销售查询或分页超限");
   if(r.expectedRevision!=null&&!isSalesRevisionPair(r.expectedRevision)||r.snapshotToken!=null&&!token(r.snapshotToken))fail("销售版本种类或范围token无效");
   if(Object.hasOwn(r,"expiresAtEpochMs")&&!number(r.expiresAtEpochMs))fail("内部UTC期限无效");
-  return { operation: SALES_PERIODS_OPERATION, current:window(r.current),baseline:window(r.baseline),rawOutlets:identities.sort(compareIdentity),categories:(categories as string[]).slice().sort(byteCompare),q:q.trim(),page:Number(page),pageSize:Number(pageSize),expectedRevision:r.expectedRevision??null,snapshotToken:r.snapshotToken??null,...(seriesIntent?{seriesIntent}:{}) };
+  return { operation: SALES_PERIODS_OPERATION, current:window(r.current),baseline:window(r.baseline),rawOutlets:identities.sort(compareIdentity),categories:(categories as string[]).slice().sort(byteCompare),q:q.trim(),page:Number(page),pageSize:Number(pageSize),expectedRevision:r.expectedRevision??null,snapshotToken:r.snapshotToken??null,...(seriesIntent?{seriesIntent}:{}),...(platformSeriesIntent?{platformSeriesIntent}:{}) };
 }
 function period(value: unknown, w: SalesPeriodWindow): SalesObservedPeriod {
   const r=record(value);keys(r,["values","rowCount","rowPresence","orders","observations"]);if(!number(r.rowCount)||r.rowPresence!==(Number(r.rowCount)>0))fail("销售有行状态不一致");
@@ -149,16 +159,40 @@ function series(value:unknown,expected:SalesPeriodSeriesIntent,parent:Record<str
     for(const kind of ["current","baseline"] as const){const points=row[kind],expectedBuckets=salesPeriodBuckets(windows[kind],expected.grain);if(!Array.isArray(points)||points.length!==expectedBuckets.length)fail("序列须覆盖原期完整自然桶，缺桶不得截断");for(const [i,value]of points.entries()){const decoded=restoreSalesPeriodSeriesPoint(value);if(JSON.stringify(decoded.window)!==JSON.stringify(expectedBuckets[i]))fail("序列桶须按原窗口剪首尾自然周/月");}}
   }
 }
+function platformSeries(value:unknown,intent:SalesPlatformSeriesIntent,parent:Record<string,unknown>,spec:ReturnType<typeof validateSalesPeriodsRequest>){
+  const dto=record(value);keys(dto,["schemaVersion","projection","windowColumns","metricColumns","pointColumns","scopeKey","intent","periods","basis","metricMetadata","sourceRevisions","items"]);
+  if(!enumValue(dto.schemaVersion,["netshop-sales-platform-series-v1"])||!enumValue(dto.projection,["native-period-tuples-v1"])||JSON.stringify(dto.windowColumns)!==JSON.stringify(salesSeriesWindowColumns)||JSON.stringify(dto.metricColumns)!==JSON.stringify(salesPeriodMetrics)||JSON.stringify(dto.pointColumns)!==JSON.stringify(salesSeriesPointColumns)||dto.scopeKey!==parent.scopeKey)fail("平台序列协议、列顺序或父范围无效");
+  const actualIntent=record(dto.intent);keys(actualIntent,["grain","platformNames"]);if(!enumValue(actualIntent.grain,[intent.grain])||JSON.stringify(actualIntent.platformNames)!==JSON.stringify(intent.platformNames))fail("平台序列意图不属于请求");
+  const periods=record(dto.periods);keys(periods,["current","baseline"]);for(const kind of ["current","baseline"] as const)if(JSON.stringify(window(periods[kind],true))!==JSON.stringify(spec[kind]))fail("平台序列独立期间错位");
+  const basis=record(dto.basis);keys(basis,Object.keys(salesPlatformSeriesBasis));for(const [key,meaning]of Object.entries(salesPlatformSeriesBasis))if(!enumValue(basis[key],[meaning]))fail("平台分组完整集合/订单分母口径声明无效");
+  const stable=(value:unknown):string=>JSON.stringify(value,(_key,item)=>item&&typeof item==="object"&&!Array.isArray(item)?Object.fromEntries(Object.entries(item).sort(([a],[b])=>a.localeCompare(b))):item);
+  if(stable(dto.metricMetadata)!==stable(parent.metricMetadata)||stable(dto.sourceRevisions)!==stable(parent.sourceRevisions))fail("平台原生单位/未知成本/同种来源向量失配");
+  if(!Array.isArray(dto.items)||dto.items.length!==intent.platformNames.length)fail("平台对象缺失、重复或额外添加");
+  const members=new Set<string>(),count=record(parent.candidatePagination).candidateCount;
+  for(const [index,value]of dto.items.entries()){
+    const row=record(value);keys(row,["platform","identityKey","rawMembers","rawCandidateCount","availability","current","baseline"]);const name=intent.platformNames[index];
+    if(!enumValue(row.platform,[name])||row.identityKey!==JSON.stringify(["platform",name])||!number(row.rawCandidateCount,0,Number(count))||!Array.isArray(row.rawMembers)||row.rawCandidateCount!==row.rawMembers.length)fail("平台复合key或完整RAW计数无效");
+    let previous:RawSalesIdentity|null=null;
+    for(const value of row.rawMembers){const id=identity(value),key=identityKey(id);if(id.platform!==name||previous&&compareIdentity(previous,id)>=0||members.has(key)||spec.rawOutlets.length&&!spec.rawOutlets.some(r=>identityKey(r)===key))fail("平台RAW成员重复、乱序、跨平台或越出父范围");members.add(key);previous=id;}
+    const state=record(row.availability);keys(state,["status","reasonCode"]);const present=row.rawCandidateCount>0;if(!enumValue(state.status,[present?"available":"unavailable"])||state.reasonCode!==(present?null:"no_records"))fail("授权空平台不可伪造真实零");
+    let records=0;
+    for(const kind of ["current","baseline"] as const){const points=row[kind],expected=salesPeriodBuckets(spec[kind],intent.grain);if(!Array.isArray(points)||points.length!==expected.length)fail("平台序列须包含完整自然桶");for(const [i,point]of points.entries()){const p=restoreSalesPeriodSeriesPoint(point);if(JSON.stringify(p.window)!==JSON.stringify(expected[i]))fail("平台日期桶越界或本基期混用");records+=p.facts.rowCount;}}
+    if(present!==(records>0))fail("平台成员状态与两期记录不一致");
+  }
+  if(members.size>Number(count))fail("平台RAW集合超过父候选范围");
+  for(const value of parent.items as unknown[]){const row=record(value),id=identity(row.identity);if(intent.platformNames.some(name=>name===id.platform)&&!members.has(identityKey(id)))fail("平台遗漏父候选RAW成员");}
+}
 export function decodeSalesPeriodsForRequest(value: unknown, request: SalesPeriodsRequest | SalesPeriodsRpcRequest, revision: string | null): SalesPeriodsResponse {
   if(utf8(JSON.stringify(value)).length>2*1024*1024)fail("完整销售响应超过2MiB");
   const spec=validateSalesPeriodsRequest(request,Object.hasOwn(request,"expiresAtEpochMs")),r=record(value);
-  keys(r,["schemaVersion","operation","scopeKey","snapshotToken","requestedScope","scopeMode","periods","periodTotals","items","candidatePagination","latestRelevantBatch","sourceRevisions","metricSemantics","metricMetadata",...(spec.seriesIntent?["series"]:[])]);
+  keys(r,["schemaVersion","operation","scopeKey","snapshotToken","requestedScope","scopeMode","periods","periodTotals","items","candidatePagination","latestRelevantBatch","sourceRevisions","metricSemantics","metricMetadata",...(spec.seriesIntent?["series"]:[]),...(spec.platformSeriesIntent?["platformSeries"]:[])]);
   if(!enumValue(r.schemaVersion,[SALES_PERIODS_SCHEMA])||!enumValue(r.operation,[SALES_PERIODS_OPERATION])||!token(r.scopeKey)||!token(r.snapshotToken)||!isSalesRevisionPair(revision)||spec.expectedRevision&&spec.expectedRevision!==revision||spec.snapshotToken&&spec.snapshotToken!==r.snapshotToken)fail("销售协议、拥有方版本或范围token错位");
   const expectedScope={current:spec.current,baseline:spec.baseline,rawOutlets:spec.rawOutlets,categories:spec.categories};
-  const scope=record(r.requestedScope);keys(scope,["current","baseline","rawOutlets","categories",...(spec.seriesIntent?["seriesIntent"]:[])]);
+  const scope=record(r.requestedScope);keys(scope,["current","baseline","rawOutlets","categories",...(spec.seriesIntent?["seriesIntent"]:[]),...(spec.platformSeriesIntent?["platformSeriesIntent"]:[])]);
   if(!Array.isArray(scope.rawOutlets)||!Array.isArray(scope.categories))fail("销售返回范围身份或标签无效");
   const normalizedOutlets=scope.rawOutlets.map(item=>identity(item,true)).sort(compareIdentity);
   if(spec.seriesIntent){const intent=record(scope.seriesIntent);keys(intent,["grain","rawOutlets"]);if(!enumValue(intent.grain,[spec.seriesIntent.grain])||!Array.isArray(intent.rawOutlets)||JSON.stringify(intent.rawOutlets.map(row=>identity(row,true)))!==JSON.stringify(spec.seriesIntent.rawOutlets))fail("序列选择意图回显错位");}
+  if(spec.platformSeriesIntent){const actual=record(scope.platformSeriesIntent);keys(actual,["grain","platformNames"]);if(!enumValue(actual.grain,[spec.platformSeriesIntent.grain])||JSON.stringify(actual.platformNames)!==JSON.stringify(spec.platformSeriesIntent.platformNames))fail("平台选择意图回显错位");}
   if(JSON.stringify(window(scope.current,true))!==JSON.stringify(expectedScope.current)||JSON.stringify(window(scope.baseline,true))!==JSON.stringify(expectedScope.baseline)||JSON.stringify(normalizedOutlets)!==JSON.stringify(expectedScope.rawOutlets)||JSON.stringify(scope.categories)!==JSON.stringify(expectedScope.categories))fail("销售响应属于其他窗口或原始身份范围");
   if(!enumValue(r.scopeMode,["restricted","unrestricted"]))fail("销售授权模式无效");
   const windows=record(r.periods),totals=record(r.periodTotals);keys(windows,["current","baseline"]);keys(totals,["current","baseline"]);
@@ -172,5 +206,6 @@ export function decodeSalesPeriodsForRequest(value: unknown, request: SalesPerio
   const metadata=record(r.metricMetadata);keys(metadata,Object.keys(salesPeriodMetricMetadata));
   for(const name of Object.keys(salesPeriodMetricMetadata) as Array<keyof typeof salesPeriodMetricMetadata>){const expected=salesPeriodMetricMetadata[name],actual=record(metadata[name]);keys(actual,Object.keys(expected));for(const [field,meaning] of Object.entries(expected))if(!enumValue(actual[field],[meaning]))fail("原生单位或成本证据不能伪装为已验证");}
   if(spec.seriesIntent)series(r.series,spec.seriesIntent,r,{current:spec.current,baseline:spec.baseline});
+  if(spec.platformSeriesIntent)platformSeries(r.platformSeries,spec.platformSeriesIntent,r,spec);
   return r as SalesPeriodsResponse;
 }
