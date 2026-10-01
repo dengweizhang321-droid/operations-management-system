@@ -394,6 +394,24 @@ def read_store_panorama(principal, params: QueryDict):
                 if source in {"products", "productSeries"} and owned["snapshotToken"] != context["snapshotToken"]:
                     raise NetshopApiError("商品信封不是全景同范围或版本", code="insights_revision_changed", status=409)
                 contexts.append(owned)
+        if any(sources[key]["state"] == "ready" for key in ("sales", "finance", "workflow")) and actor_fence(principal) != actor:
+            raise NetshopApiError("跨域最终核验前账号权限版本变化", code="access_denied", status=403)
+        for key, checker in (
+            ("workflow", lambda: verify_panorama_workflow(principal, sources["workflow"]["data"], deadline=deadline)),
+            ("sales", lambda: verify_panorama_sales(principal, context, sources["sales"]["data"], deadline=deadline)),
+            ("finance", lambda: verify_panorama_finance(principal, context, sources["finance"]["data"], deadline=deadline)),
+        ):
+            if sources[key]["state"] == "ready":
+                checked = _read_source(checker, deadline)
+                if checked["state"] == "error":
+                    sources[key] = checked
+        # Failed final source reads have now rolled back and relinquished
+        # their body/revisions. Common netshop scope remains authoritative.
+        for owned in contexts:
+            _context_vector(owned, deadline)
+        if actor_fence(principal) != actor:
+            raise NetshopApiError("全景取数期间账号权限版本变化", code="access_denied", status=403)
+        _budget(deadline)
         joined = contexts + [sources[key]["data"] for key in ("sales", "finance", "workflow") if sources[key]["state"] == "ready"]
         vector = _joined_vector(joined)
         token = _canonical_token({"schemaVersion": SCHEMA_VERSION, "scopeKey": context["scopeKey"], "sourceRevisions": vector,
@@ -411,19 +429,6 @@ def read_store_panorama(principal, params: QueryDict):
                 "尚未接线的所属consumer不代表业务零值或无记录，不执行导入或工作流补跑",
             ],
         }
-        for owned in contexts:
-            _context_vector(owned, deadline)
-        if any(sources[key]["state"] == "ready" for key in ("sales", "finance", "workflow")) and actor_fence(principal) != actor:
-            raise NetshopApiError("跨域最终核验前账号权限版本变化", code="access_denied", status=403)
-        if sources["workflow"]["state"] == "ready":
-            verify_panorama_workflow(principal, sources["workflow"]["data"], deadline=deadline)
-        if sources["sales"]["state"] == "ready":
-            verify_panorama_sales(principal, context, sources["sales"]["data"], deadline=deadline)
-        if sources["finance"]["state"] == "ready":
-            verify_panorama_finance(principal, context, sources["finance"]["data"], deadline=deadline)
-        if actor_fence(principal) != actor:
-            raise NetshopApiError("全景取数期间账号权限版本变化", code="access_denied", status=403)
-        _budget(deadline)
         if len(_encode_response(payload)) > MAX_RESPONSE_BYTES:
             raise NetshopApiError("全景完整信封超过2MiB，请缩小范围", code="quality_incomplete", status=422)
         _budget(deadline)
