@@ -71,7 +71,7 @@ Sales provider 尚未冻结时为 dependency_pending，不称已验缺源；不�
 - 初读及序列化后 ONE 同expectedRevision/snapshotToken末核用同65秒；503清 ERP 值/源/向量后一次重建 P/A可信结果，401/403/409与全读过期整体失败关闭。A 原F覆盖与所有动态 C 覆盖各只传一份；无值 ERP temporal 点共用整期能力引用，不称桶覆盖。
 - Query 子提交 `32afa6e44badadb56a31205745f094e786d71f04`：55PG通过、12形状定向再验通过；50店/6万事实/两期30日，3.846秒、221SQL、完整默认JSON 1,687,138 bytes。E/query `comparison-pg-87c764cbf492a93d8cf4` 全样本及计划、`comparison-pg-d3cac38b25af300a6637` 最新ERP/zero样本；全部数据库正常停止，三次容量失败原样保留。
 - Page 子提交 `425e6352bce70240543508e279db8e3feb9f9d5d`：原样ERP和存0案例各19作者UI通过，非签名HTTP/Q/真正Home；85份忽略文件/21历史run已保全，manifest `f67188ba3c9eca7e16c6dc2078dd9ac4e088efafe1c473d75dc37bb86edd7ac0`，E/page `handoff-20261001T053621727Z-f5bf5da5-75cd-496b-8007-0559cd4ab6fd`。
-- Root 37 Node与target lint通过。Q本阶段独立PG16/Node35/真实DTO通过后发现投影/观察绑定P2，Root `962797da` 已修并新增变异检查，固定最终ERP-period组合复审仍在途；不以作者55或前阶段Q42冒此次通过。
+- Root 37 Node与target lint通过。Q本阶段独立PG16、Node37、12完整原DTO正向/11否定检查、新ERP与zero UI各20通过，原投影/观察绑定P2和expiry问题在 `962797da` 修复后已关闭。签字范围为 `221fcf1d4fbab41c31f2ee8c3d39aa84b6e28004`，后继仅HANDOFF文档；报告 E/review `erp-phase2-20261001T052200Z-03a1ec1c1e774e6d9876764ec4d2c8fb/independent-review-erp-period-final.json`，SHA `2c81d7cc540f7b5b68e8e0427242e649bf7697c16401a72e4af11cbb408385e2`。这次新增ERP renderer和decoder有独立复验，未以旧21/前阶段Q42或HMAC支撑代替。
 
 尚待 I 新系列 actual main、公共22键实际冻结、最新完整源/页面独立Q、I真正Home/签名HTTP组合。C一期21来源与本期22证据严格分层，未读生产经营数据或执行生产操作。
 
