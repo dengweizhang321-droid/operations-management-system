@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 function locationFor(record){
  const b=record.body,c=b.currentContext,q=new URLSearchParams(record.query),s=c.requestedScope;
  const intent={...b.comparisonScope,selectedBaseline:b.selectedBaseline};
- const prefs={schemaVersion:"comparison-ui-v1",metricKey:b.metricKey,sort:b.sort,columnKeys:[b.metricKey],chartObjectKeys:b.chartObjectKeys};
+ const prefs={schemaVersion:"comparison-ui-v1",metricKey:b.metricKey,sort:b.sort,columnKeys:[b.metricKey],chartObjectKeys:JSON.parse(q.get("chartObjectKeys")||"[]")};
  const url=new URLSearchParams({module:"shop",view:"platforms",period:s.periodKind,from:c.periods.current.startDate,to:c.periods.current.endDate,shopDimension:s.dimension,shopGrain:b.trendGrain,shopPage:q.get("page")||"1",shopPageSize:q.get("pageSize")||"20",shopComparisonIntent:JSON.stringify(intent),shopComparisonPrefs:JSON.stringify(prefs)});
  s.platforms.forEach(p=>url.append("shopPlatform",p));s.shopKeys.forEach(k=>url.append("shopOutlet",k));return url;
 }
