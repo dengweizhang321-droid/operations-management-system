@@ -1,0 +1,7 @@
+# Synthetic owning platform series captures
+
+`platform-series-{day,week,month}.json` and `platform-max.json` are full owning DTOs from private PostgreSQL, produced by `sales.tests.test_netshop_platform_series`. Their metadata records the real request/source basis. No business calculation is performed by a mock consumer.
+
+`registered-platform-max.json` is the original full HTTP envelope from the actual registered, HMAC-signed loopback sales endpoint, captured at source HEAD `a50e53281410a2716ddb615df33c2ca1a080b4b1` with the platform patch uncommitted and exact source hashes in the author run. The envelope was copied byte-for-byte from `E:/codex-artifacts/netshop-scheme2-20261001/platform-series/private-pg/crossdomain-pg-776af707bbd36ade/capacity`, using exclusive creation. The sidecar contains its request, non-secret response headers, exact response byte count and SHA; its repository copy uses Git's LF normalization. The original CRLF sidecar remains in E. No signing headers or private synthetic key are stored.
+
+All samples are synthetic test data, not live business or production sources. Two-platform maximum uses fifty exact RAW identities and full independent 366/365-day windows; every one of 1,462 points remains. Original source values, trusted ERP order groups, null/zero/negative values and unknown cost proof are retained. Tests decode the complete parent and platform payload; fixtures do not bypass mandatory metadata or coverage.

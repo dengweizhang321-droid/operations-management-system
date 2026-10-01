@@ -76,3 +76,21 @@ test("incomplete, foreign-key or duplicated series intent is rejected before tra
     assert.equal(fetched, false);
   }
 });
+
+test("the signed SDK accepts owning platform groups with every original RAW member and point", async () => {
+  const raw = readFileSync(new URL("./fixtures/netshop-sales-platform-series/registered-platform-max.json", import.meta.url));
+  const meta = JSON.parse(readFileSync(new URL("./fixtures/netshop-sales-platform-series/registered-platform-max.meta.json", import.meta.url), "utf8"));
+  assert.equal(createHash("sha256").update(raw).digest("hex"), meta.sha256);
+  let signed: Record<string, unknown> | undefined;
+  const result = await readDjangoSalesConsumer(principal, meta.request as SalesPeriodsRpcRequest, { config, fetchImpl: async (_, init) => {
+    signed = JSON.parse(new TextDecoder().decode(init?.body as Uint8Array));
+    return new Response(raw, { headers: meta.headers });
+  } });
+  assert.deepEqual(signed?.seriesPlatforms, meta.request.seriesPlatforms);
+  assert.deepEqual(result.data, JSON.parse(raw.toString()).data);
+  assert.equal(result.data.platformSeries?.items.reduce((sum, item) => sum + item.rawCandidateCount, 0), 50);
+  assert.equal(result.data.platformSeries?.items.reduce((sum, item) => sum + item.current.length + item.baseline.length, 0), 1462);
+  let fetched = false;
+  await assert.rejects(readDjangoSalesConsumer(principal, { ...meta.request, seriesOutlets: meta.request.rawOutlets.slice(0, 1) }, { config, fetchImpl: async () => { fetched = true; return response(); } }));
+  assert.equal(fetched, false);
+});

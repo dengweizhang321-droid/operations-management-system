@@ -77,7 +77,7 @@ def _window(value):
 
 def validate_netshop_periods(payload):
     required = {"operation", "current", "baseline"}
-    allowed = required | {"rawOutlets", "categories", "q", "page", "pageSize", "expectedRevision", "snapshotToken", "expiresAtEpochMs", "seriesGrain", "seriesOutlets"}
+    allowed = required | {"rawOutlets", "categories", "q", "page", "pageSize", "expectedRevision", "snapshotToken", "expiresAtEpochMs", "seriesGrain", "seriesOutlets", "seriesPlatforms"}
     if type(payload) is not dict or set(payload) - allowed or required - set(payload) or payload["operation"] != OPERATION:
         raise NetshopPeriodsError("销售两期请求包含未知、缺少或错误字段")
     result = {"operation": OPERATION, "current": _window(payload["current"]), "baseline": _window(payload["baseline"])}
@@ -94,7 +94,14 @@ def validate_netshop_periods(payload):
             raise NetshopPeriodsError("原始销售三元组不能重复")
         seen.add(key); identities.append(row)
     result["rawOutlets"] = sorted(identities, key=lambda item: tuple(item[key].encode() for key in IDENTITY_FIELDS))
-    if "seriesGrain" in payload or "seriesOutlets" in payload:
+    if "seriesPlatforms" in payload:
+        platforms=payload["seriesPlatforms"]
+        if "seriesOutlets" in payload or type(payload.get("seriesGrain"))is not str or payload["seriesGrain"] not in {"day","week","month"} or type(platforms)is not list or not 1<=len(platforms)<=2 or any(type(value)is not str or value not in {"京东","天猫"} for value in platforms) or len(set(platforms))!=len(platforms):
+            raise NetshopPeriodsError("平台序列须给1—2个精确京东/天猫，与RAW图形对象互斥并配真实粒度")
+        if identities and any(platform not in {row["platform"] for row in identities} for platform in platforms):
+            raise NetshopPeriodsError("平台序列越出父显式RAW范围")
+        result["seriesGrain"]=payload["seriesGrain"];result["seriesPlatforms"]=sorted(platforms,key=lambda item:item.encode())
+    elif "seriesGrain" in payload or "seriesOutlets" in payload:
         if type(payload.get("seriesGrain")) is not str or payload["seriesGrain"] not in {"day", "week", "month"} or type(payload.get("seriesOutlets")) is not list or not 1 <= len(payload["seriesOutlets"]) <= 4:
             raise NetshopPeriodsError("图形序列须同时提供真实粒度及1—4个精确RAW对象")
         selected, selected_keys = [], set()
@@ -278,7 +285,8 @@ def read_netshop_periods(principal: Principal, request, *, deadline=None):
                 raise NetshopPeriodsError("销售内部窗口与真实日期不一致")
             wire[key] = plain
     spec = validate_netshop_periods(wire)
-    if "seriesGrain" in spec: spec["seriesIntent"] = {"grain":spec["seriesGrain"],"rawOutlets":spec["seriesOutlets"]}
+    if "seriesPlatforms" in spec: spec["platformSeriesIntent"]={"grain":spec["seriesGrain"],"platformNames":spec["seriesPlatforms"]}
+    elif "seriesGrain" in spec: spec["seriesIntent"] = {"grain":spec["seriesGrain"],"rawOutlets":spec["seriesOutlets"]}
     if "expiresAtEpochMs" in spec:
         remaining = (spec["expiresAtEpochMs"] - time.time() * 1000) / 1000
         deadline = min(deadline, time.monotonic() + remaining)
@@ -289,6 +297,7 @@ def read_netshop_periods(principal: Principal, request, *, deadline=None):
             raise NetshopPeriodsError("销售/ERP拥有方版本已变化", code="sales_periods_revision_changed", status=409)
         scope = {key: spec[key] for key in ("current", "baseline", "rawOutlets", "categories")}
         if "seriesIntent" in spec: scope["seriesIntent"] = spec["seriesIntent"]
+        if "platformSeriesIntent" in spec: scope["platformSeriesIntent"] = spec["platformSeriesIntent"]
         scope_key = _digest({"schema": SCHEMA, "scope": scope, "actor": actor})
         token = _digest({"schema": SCHEMA, "scopeKey": scope_key, "revision": before})
         if spec["snapshotToken"] is not None and spec["snapshotToken"] != token:
@@ -362,6 +371,9 @@ def read_netshop_periods(principal: Principal, request, *, deadline=None):
         if "seriesIntent" in spec:
             from .netshop_period_series import read_period_series
             result["series"] = read_period_series(base, spec, scope_key, before, deadline=deadline)
+        if "platformSeriesIntent" in spec:
+            from .netshop_platform_series import read_platform_series
+            result["platformSeries"]=read_platform_series(base,principal,spec,scope_key,before,deadline=deadline)
         raw = _canonical(result).encode()
         if len(raw) > MAX_BYTES:
             raise NetshopPeriodsError("销售两期完整响应超过2MiB，请缩小范围或分页", code="response_too_large", status=413)
