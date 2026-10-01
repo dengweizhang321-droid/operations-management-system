@@ -3,6 +3,26 @@ import type { ShopLocationContext } from "../../shell/shop-context";
 import { netshopOutletKey, readNetshopOutletFilters } from "@/lib/netshop/query-contract";
 import type { InsightPlatform } from "@/lib/netshop/insights-contract";
 import type { PanoramaNativeQuantity, PanoramaOrderMean } from "./contract";
+import { restoreSalesPeriodSeriesPoint, type SalesPeriodsResponse, type SalesPeriodMetric } from "@/lib/netshop/sales-periods-contract";
+export type PanoramaErpSeriesChoice = SalesPeriodMetric | "orderMean" | "trustedOrders" | "rowCount";
+export const panoramaErpSeriesLabels: Record<PanoramaErpSeriesChoice, string> = {
+  netSalesCents: "已导入ERP净销售", positiveSalesCents: "已导入正向销售", refundCents: "已导入退货金额", costCents: "持久化成本（历史未核验）", grossProfitCents: "净额减持久化成本（历史未核验）", reportedGrossProfitCents: "持久化毛利字段（可能经清洗重算）", feeCents: "持久化来源费用", netQuantity: "净原生数量", positiveQuantity: "正向原生数量", returnQuantity: "退货原生数量", netSalesExcludingAccessoriesCents: "原口径扣除配件净额", orderMean: "ERP已导入订单组净额均值", trustedOrders: "已导入ERP订单号组数", rowCount: "观察导入行数",
+};
+export function panoramaErpSeriesRows(owner: SalesPeriodsResponse, identityKey: string, period: "current" | "baseline") {
+  const item = owner.series?.items.find(value => value.identityKey === identityKey);
+  return item ? item[period].map(point => restoreSalesPeriodSeriesPoint(point)) : null;
+}
+export function panoramaErpPlotValue(row: ReturnType<typeof restoreSalesPeriodSeriesPoint>, choice: PanoramaErpSeriesChoice): number | null {
+  if (!row.facts.rowPresence) return null;
+  return choice === "orderMean" ? row.facts.orders.netAmountPerOrder.value : choice === "trustedOrders" ? row.facts.orders.trustedOrderCount : choice === "rowCount" ? row.facts.rowCount : row.facts.values[choice];
+}
+export function formatPanoramaErpPoint(row: ReturnType<typeof restoreSalesPeriodSeriesPoint>, choice: PanoramaErpSeriesChoice): string {
+  if (choice === "orderMean") return formatPanoramaNative(row.facts.orders.netAmountPerOrder);
+  const value = choice === "trustedOrders" ? row.facts.orders.trustedOrderCount : choice === "rowCount" ? row.facts.rowCount : row.facts.values[choice];
+  if (choice === "netQuantity" || choice === "positiveQuantity" || choice === "returnQuantity") return formatPanoramaNative({ unit: "NATIVE_INTEGER_QUANTITY", value });
+  if (value === null) return "—";
+  return choice === "trustedOrders" || choice === "rowCount" ? value.toLocaleString("zh-CN") : `${(value / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 元`;
+}
 export function formatPanoramaNative(metric: Pick<PanoramaNativeQuantity | PanoramaOrderMean, "unit" | "value">): string {
   if (metric.value === null) return "—";
   if (metric.unit === "CNY_CENT_PER_ORDER" && metric.value !== 0 && Math.abs(metric.value / 100) < .00000001) return `${metric.value > 0 ? "<0.00000001" : ">-0.00000001"} 元/已导入订单组`;
