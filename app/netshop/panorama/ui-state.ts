@@ -2,6 +2,7 @@ import type { NetshopColumnProps } from "../shared/module-slots";
 import type { ShopLocationContext } from "../../shell/shop-context";
 import { netshopOutletKey, readNetshopOutletFilters } from "@/lib/netshop/query-contract";
 import type { InsightPlatform } from "@/lib/netshop/insights-contract";
+import { restoreProductScopeSeriesMetric, resolveProductScopeSeriesCoverage, type ProductScopeSeries, type ProductSeriesColumnKey } from "@/lib/netshop/product-scope-series-contract";
 
 export const panoramaChapters = [
   ["performance", "01", "经营成绩与变化"], ["traffic", "02", "流量与成交"],
@@ -11,6 +12,30 @@ export const panoramaChapters = [
 ] as const;
 export type PanoramaChapter = typeof panoramaChapters[number][0];
 export const panoramaPageSizes = [5, 10, 20] as const;
+export type PanoramaSeriesPeriod = "current" | "previous" | "yearAgo";
+export const panoramaSeriesPeriodLabels = { current: "本期", previous: "环比基期", yearAgo: "同比基期" };
+export const panoramaSeriesColumnLabels: Record<ProductSeriesColumnKey, string> = {
+  payment: "平台成交", quantity: "成交件数", visitors: "商品访客累计", customers: "成交客户累计", conversion: "商品累计转化率", addCartRate: "加购客户率", refundPayment: "平台退款",
+  pageViews: "商品浏览累计", favorites: "收藏累计", addCartCustomers: "加购客户累计", addCartQuantity: "加购件数", orderCustomers: "下单客户累计", orderQuantity: "下单件数", orderPayment: "下单金额", transactionOrders: "平台成交订单指标",
+  searchImpressions: "搜索曝光", searchClicks: "搜索点击", searchVisitors: "搜索访客累计", searchCustomers: "搜索成交客户累计", searchClickRate: "搜索点击率", visitorValue: "商品访客价值",
+};
+export function panoramaGrainChange(grain: string): Partial<ShopLocationContext> {
+  if (!["day", "week", "month"].includes(grain)) throw new Error("明细分组无效");
+  return { grain: grain as ShopLocationContext["grain"], page: 1 };
+}
+/** Rendering projection only. Values, operands and field/day coverage are
+ * restored by the owning decoder helpers, without aggregating browser rows. */
+export function panoramaSeriesRows(dto: ProductScopeSeries, period: PanoramaSeriesPeriod, columns: readonly ProductSeriesColumnKey[], coverageColumn: ProductSeriesColumnKey) {
+  return dto.series[period].map(point => {
+    const metrics = columns.map(key => ({ key, metric: restoreProductScopeSeriesMetric(dto, point, key) }));
+    const coverageMetric = restoreProductScopeSeriesMetric(dto, point, coverageColumn);
+    const calendar = dto.grain === "day" && period === "current" ? dto.context.calendar.find(day => day.date === point.date) : undefined;
+    return { date: point.date, endDate: point.endDate, metrics, coverage: resolveProductScopeSeriesCoverage(dto, coverageMetric.coverageRef), calendar };
+  });
+}
+export function panoramaSeriesChartPoints(dto: ProductScopeSeries, period: PanoramaSeriesPeriod, key: ProductSeriesColumnKey) {
+  return dto.series[period].map(point => ({ startDate: point.date, endDate: point.endDate, values: [restoreProductScopeSeriesMetric(dto, point, key)] }));
+}
 
 export function panoramaChapter(value: string): PanoramaChapter {
   return panoramaChapters.some(([key]) => key === value) ? value as PanoramaChapter : "performance";
@@ -61,7 +86,7 @@ export function panoramaQuery(props: Pick<NetshopColumnProps, "context" | "start
   if (!shop) return null;
   // All eight source envelopes are read together; a chapter is presentation
   // state in the shared shell, not a different business read.
-  return new URLSearchParams({ platform: shop.platform, outlet: shop.key, dimension: props.context.dimension, startDate: props.startDate, endDate: props.endDate, periodKind: props.periodKind, section: "performance", q: props.context.q.trim(), page: String(props.context.page), pageSize: String(panoramaPageSize(props.context.pageSize)) });
+  return new URLSearchParams({ platform: shop.platform, outlet: shop.key, dimension: props.context.dimension, startDate: props.startDate, endDate: props.endDate, periodKind: props.periodKind, section: "performance", q: props.context.q.trim(), page: String(props.context.page), pageSize: String(panoramaPageSize(props.context.pageSize)), grain: props.context.grain });
 }
 /** The owning product page token permits page changes only. Search, section,
  * page size, principal and every scope dimension get a new token family. */
@@ -83,7 +108,7 @@ export function panoramaPageButtons(page: number, total: number, pageSize: numbe
   return result;
 }
 export function panoramaPresentationScope(props: Pick<NetshopColumnProps, "context" | "startDate" | "endDate" | "periodKind" | "currentUser">): string {
-  return JSON.stringify([panoramaPrincipalKey(props), panoramaShop(props.context)?.key ?? null, props.context.dimension, props.startDate, props.endDate, props.periodKind]);
+  return JSON.stringify([panoramaPrincipalKey(props), panoramaShop(props.context)?.key ?? null, props.context.dimension, props.startDate, props.endDate, props.periodKind, props.context.grain]);
 }
 export function panoramaScrollStorageKey(props: Pick<NetshopColumnProps, "context" | "startDate" | "endDate" | "periodKind" | "currentUser">): string {
   const query = panoramaQuery(props);

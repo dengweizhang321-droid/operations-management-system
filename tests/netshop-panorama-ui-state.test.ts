@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { decodeProductScopeSeries } from "../lib/netshop/product-scope-series-contract";
 import { defaultShopLocationContext } from "../app/shell/shop-context";
-import { panoramaChapter, panoramaChapters, panoramaDirectoryQuery, panoramaPageButtons, panoramaPageSize, panoramaPageSizeChange, panoramaPresentationScope, panoramaQuery, panoramaScrollStorageKey, panoramaSearchChange, panoramaShop, panoramaShopChange, panoramaTokenFamily, decodePanoramaScroll } from "../app/netshop/panorama/ui-state";
+import { panoramaChapter, panoramaChapters, panoramaDirectoryQuery, panoramaGrainChange, panoramaPageButtons, panoramaPageSize, panoramaPageSizeChange, panoramaPresentationScope, panoramaQuery, panoramaScrollStorageKey, panoramaSearchChange, panoramaSeriesChartPoints, panoramaSeriesRows, panoramaShop, panoramaShopChange, panoramaTokenFamily, decodePanoramaScroll } from "../app/netshop/panorama/ui-state";
 import type { NetshopColumnProps } from "../app/netshop/shared/module-slots";
 
 const context = { ...defaultShopLocationContext, platforms: ["京东" as const], outlets: ["京东\u001f甲店"], pageSize: 5 };
@@ -60,10 +63,57 @@ test("page token family permits only page advancement; account/search/size/shop/
   const page2 = new URLSearchParams(query); page2.set("page", "2"); page2.set("snapshotToken", "old"); page2.set("sectionToken", "old");
   assert.equal(panoramaTokenFamily(page2, "account-A"), family);
   assert.notEqual(panoramaTokenFamily(query, "account-B"), family);
-  for (const [key, value] of [["q", "water"], ["pageSize", "10"], ["outlet", "京东\u001f乙店"], ["startDate", "2026-09-02"], ["dimension", "sku"], ["section", "traffic"]]) {
+  for (const [key, value] of [["q", "water"], ["pageSize", "10"], ["outlet", "京东\u001f乙店"], ["startDate", "2026-09-02"], ["dimension", "sku"], ["grain", "week"], ["section", "traffic"]]) {
     const next = new URLSearchParams(query); next.set(key, value);
     assert.notEqual(panoramaTokenFamily(next, "account-A"), family, key);
   }
+});
+function seriesFixture(name: string) {
+  const envelope = JSON.parse(readFileSync(join(import.meta.dirname, "fixtures/netshop-product-scope-series", name), "utf8"));
+  return decodeProductScopeSeries(envelope.body, new URLSearchParams(envelope.query), envelope.owningRevision);
+}
+test("series grain travels through the canonical S request and resets page without changing table search", () => {
+  assert.deepEqual(panoramaGrainChange("week"), { grain: "week", page: 1 });
+  assert.throws(() => panoramaGrainChange("seven_days"));
+  const next = { ...context, q: "设备", page: 3, ...panoramaGrainChange("month") };
+  const query = panoramaQuery({ ...scope, context: next })!;
+  assert.equal(query.get("grain"), "month"); assert.equal(query.get("page"), "1"); assert.equal(query.get("q"), "设备");
+});
+test("platform UI projects the complete owning current period and preserves a missing day as a gap", () => {
+  const dto = seriesFixture("series-day-response.json");
+  const rows = panoramaSeriesRows(dto, "current", ["payment", "quantity", "conversion"], "payment");
+  assert.equal(rows.length, dto.series.current.length);
+  assert.deepEqual(rows.map(row => [row.date, row.endDate]), dto.series.current.map(point => [point.date, point.endDate]));
+  assert.equal(rows[0].metrics[0].metric.value, 31000);
+  assert.equal(rows[1].metrics[0].metric.value, null); assert.equal(rows[1].coverage.complete, false);
+  const chart = panoramaSeriesChartPoints(dto, "current", "payment");
+  assert.equal(chart[1].values[0].value, null); assert.equal(chart[1].values[0].status, "unavailable");
+  assert.deepEqual(rows[0].calendar, dto.context.calendar.find(day => day.date === rows[0].date));
+});
+test("natural-month baseline UI retains its own Jan31 / Feb28 bounds instead of current-period indexes", () => {
+  const dto = seriesFixture("series-month-response.json");
+  assert.equal(panoramaSeriesChartPoints(dto, "previous", "payment")[0].endDate, "2024-01-31");
+  assert.equal(panoramaSeriesChartPoints(dto, "yearAgo", "payment")[0].endDate, "2023-02-28");
+  assert.equal(panoramaSeriesRows(dto, "previous", ["payment"], "payment")[0].calendar, undefined);
+});
+test("UI shows the owning weighted weekly conversion and fractional visitor value without averaging daily percentages", () => {
+  const dto = seriesFixture("series-week-response.json");
+  const rows = panoramaSeriesRows(dto, "current", ["conversion", "visitorValue"], "conversion");
+  assert.equal(rows[1].metrics[0].metric.value, 15 / 110);
+  assert.equal(rows[1].metrics[1].metric.value, 1400 / 110);
+  assert.equal(rows[1].metrics[1].metric.unit, "CNY_CENT_PER_COUNT");
+  assert.equal(rows[1].calendar, undefined);
+});
+test("field coverage uses only the selected owning metric dependencies and genuine zero stays distinct", () => {
+  const dto = seriesFixture("series-field-coverage-response.json");
+  const payment = panoramaSeriesRows(dto, "current", ["payment", "conversion"], "payment")[0];
+  const conversion = panoramaSeriesRows(dto, "current", ["payment", "conversion"], "conversion")[0];
+  assert.equal(payment.coverage.complete, true); assert.equal(conversion.coverage.complete, false);
+  assert.deepEqual(conversion.coverage.fields, ["customers", "visitors"]);
+  assert.deepEqual(conversion.coverage.missingByShop[0].dates, ["2026-09-07"]);
+  const zero = panoramaSeriesRows(seriesFixture("series-zero-response.json"), "current", ["payment", "quantity", "conversion"], "payment")[0];
+  assert.equal(zero.metrics[0].metric.value, 0); assert.equal(zero.metrics[0].metric.status, "available");
+  assert.equal(zero.metrics[1].metric.reasonCode, "missing_field"); assert.equal(zero.metrics[2].metric.reasonCode, "zero_denominator");
 });
 test("bottom page navigation stays bounded for a large result set and handles empty/out-of-range pages", () => {
   assert.deepEqual(panoramaPageButtons(1, 0, 5), [1]);
