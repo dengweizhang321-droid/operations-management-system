@@ -206,6 +206,9 @@ const FILTER_LABELS: Record<keyof AiPageFilters, string> = {
   sources: "来源", stageKey: "阶段", stageStatus: "阶段状态", proposedFrom: "提案起日", weekStart: "周起始日",
   marginFilterKeys: "毛利区间", itemSegments: "商品分组", storageStatuses: "入库状态", recognitionSources: "识别来源", risk: "风险级别",
   masterSection: "主数据页面", priceStatuses: "价格状态", candidatePriceSources: "候选价来源", annotationStatuses: "标注状态", pendingPriceSources: "待审核价格来源",
+  comparisonMode: "比较对象模式", metricSource: "指标来源", baselineKind: "基期规则", baselineStartDate: "基期起日", baselineEndDate: "基期截止日",
+  categoryMode: "类目口径", coverageFilter: "覆盖筛选", categoryPlatform: "类目平台", categorySource: "类目来源", categoryEvidence: "类目标签证据",
+  metricKey: "观察指标", trendGrain: "趋势日期桶", periodKind: "统计期间规则",
 };
 
 export function aiPageFilterSummary(filters?: AiPageFilters): string[] {
