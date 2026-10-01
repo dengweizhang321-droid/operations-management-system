@@ -44,6 +44,7 @@ env.update(
     DJANGO_DEBUG="true",
     TERUISI_DJANGO_DATABASE_URL=f"postgresql://panorama_fixture:{password}@127.0.0.1:{PORT}/panorama_fixture",
     TERUISI_PANORAMA_QUERY_EVIDENCE_DIR=str(EVIDENCE),
+    TERUISI_DJANGO_INTERNAL_SECRET=secrets.token_hex(40),
 )
 results = []
 
@@ -70,10 +71,16 @@ try:
     run([BIN / "pg_ctl.exe", "-D", RUN / "data", "-l", RUN / "postgres.log", "-w", "-t", "30", "start"], "start", timeout=45)
     started = True
     run([BIN / "createdb.exe", "-h", "127.0.0.1", "-p", str(PORT), "-U", "panorama_fixture", "panorama_fixture"], "database", timeout=30)
-    labels = sys.argv[1:] or ["netshop.tests.test_store_panorama"]
+    labels = sys.argv[1:] or ["netshop.tests.test_store_panorama", "netshop.tests.test_store_panorama_workflow"]
     if any(not label.startswith("netshop.tests.test_store_panorama") for label in labels):
         raise RuntimeError("Only panorama-owned test labels are allowed")
-    run([sys.executable, "backend/manage.py", "test", *labels, "--settings=netshop_products_test_settings", "--noinput", "--verbosity=2"], "tests")
+    # The extra owning workflow tables and URLs exist only in this private
+    # fixture. No repository settings or runtime configuration is modified.
+    settings_file = RUN / "panorama_workflow_test_settings.py"
+    with settings_file.open("x", encoding="utf-8") as output:
+        output.write('from netshop_products_test_settings import *\nINSTALLED_APPS = [*INSTALLED_APPS, "workflow.apps.WorkflowConfig"]\n')
+    env["PYTHONPATH"] = str(RUN) + os.pathsep + env["PYTHONPATH"]
+    run([sys.executable, "backend/manage.py", "test", *labels, "--settings=panorama_workflow_test_settings", "--noinput", "--verbosity=2"], "tests")
 finally:
     if pwfile.exists():
         pwfile.unlink()
