@@ -105,3 +105,19 @@ Query最终clean `1949e30d4d857ca8e32b35aef20c78ecd88ec8eb` 已普通集成；�
 | 50店、6万事实、两期30日 | 1,783,606 bytes，3.657秒，221 SQL，通过；非生产P95 |
 
 平台source、公共22键、S实际main/真实Home与C签名HTTP仍待I；本条只是单店原生趋势与容量回归收执，最终独立后继签字另附，不冒整个栏目完成。
+
+### 独立签字与Teammate清单
+
+非作者Q最终签字：本阶段PASSED，未决P1/P2=0。业务组合 `65f5b1351ac64841b5f948cfd5837cc99e99c3cd`；`17313a6e` 仅最终测试golden更新，`037f44f6069095ac617e6a17a6a3db36aa3118f9` 仅HANDOFF。独立新增PG6、独立原DTO6完整await/每引用/数值核对、最终Node42通过；e47三粒度各19UI按9前端文件摘要不变继承。独立原3grain对照证实所有保留coverage值、完整双F（除requestId）、主汇总/排名/结构/趋势、A scope、ERP观察与native tuple等同，只有未被返回指标引用的P/A图桶附加coverage不再构造。真实同订单日计数相加4与自然周distinct3分开验。
+
+最终报告：[independent-review-shop-temporal-final.json](E:/codex-artifacts/netshop-scheme2-20261001/comparison/review/temporal-stage3-20261001T072700Z-bbc1849d0e9948e0a56aaee173e4427e/independent-review-shop-temporal-final.json)，SHA `6a461cfeac9b2b2c8a8c6b180e7a006d7f2cc6b8dd900d20af729898a516e9d4`。同目录 `65f-final-source-resource-receipt.json` 记录15 tracked、前端9与独立PG源码摘要不变，PG54680/私有UI3191无监听。Root五树收执在 `E:/codex-artifacts/netshop-scheme2-20261001/comparison/lead/shop-stage-resources-20261001T090909Z-d69236e6349844afba1b954b8e1ff04d/receipt.json`，SHA `49707cc2514940c3e576d8d5783ff7714e84ae91abe101c8f2eff20913646c84`。
+
+| 角色 / 分支 | 独立工作树 | 本阶段精确SHA |
+| --- | --- | --- |
+| Lead / codex/netshop-comparison | D:/.codex/worktrees/netshop-comparison/运营管理系统 | 审查对象037f44f6069095ac617e6a17a6a3db36aa3118f9；后继交接仅文档 |
+| Query / codex/netshop-comparison-query | D:/.codex/worktrees/netshop-comparison-query/运营管理系统 | 1949e30d4d857ca8e32b35aef20c78ecd88ec8eb |
+| Page / codex/netshop-comparison-page | D:/.codex/worktrees/netshop-comparison-page/运营管理系统 | 7a4714b031e118aa724c766085f0f692441cfced |
+| 旧Demo / codex/netshop-comparison-ui | D:/.codex/worktrees/netshop-comparison-ui/运营管理系统 | 09f9982c29ab59fdc60cae556f276faa0db39d63 |
+| 旧日期 / codex/netshop-comparison-date | D:/.codex/worktrees/netshop-comparison-date/运营管理系统 | 63d75fc078382d0baa0d6396aae15115346edb57 |
+
+五树均clean；作者子分支未推，Lead仅推C。忽略Node依赖、venv/runtime与原测试证据由I按原保全及包含性条件清理，不把历史cherry等价误当祖先包含。3170仍是获准静态设计展示；未将mock接正式页面、操作生产数据库、部署、启停正式服务、迁移、真实导入或发送。平台趋势的实际owner source、公开22键、S真实main、C真实签名HTTP/Home组合是下一阶段，仍不能把本阶段PASSED写作M6完成。
