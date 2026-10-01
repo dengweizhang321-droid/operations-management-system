@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import { sha256 } from "./corpus.mjs";
 
 /** Imperative gates exercise the installed Home; every gate keeps its own source,
  * actions, assertions and failure. Missing captures never waive a required gate. */
@@ -7,7 +9,7 @@ export async function runM6FullGates({page,open,ready,records,first,check,save,e
  const results=[],find=name=>{const r=records.find(r=>r.name===name);assert.ok(r,"Missing original capture "+name);return r;};
  let journal;
  const source=(record,path)=>{let v=record.body;for(const k of path)v=v?.[k];assert.notEqual(v,undefined,"Original source field missing: "+record.name+":"+path.join("."));journal.sources.push({capture:record.name,sha256:record.sha256,seed:record.seed,query:record.query,path,value:v});return v;};
- const snapshot=async()=>({url:page.url(),comparisonText:await page.locator(".netshop-comparison").innerText().catch(()=>null)});
+ const snapshot=async()=>{const column=page.locator(".netshop-comparison");return{url:page.url(),comparisonText:await column.count()?await column.innerText():null};};
  const act=async(name,fn)=>{const action={name,before:await snapshot()};journal.actions.push(action);try{await fn();}finally{action.after=await snapshot();}};
  const verified=(name,fn)=>{fn();journal.assertions.push(name);};
  const served=async record=>{await page.waitForFunction(name=>window.__m6.served.at(-1)?.fixture===name,record.name);await ready();const reply=await page.evaluate(()=>window.__m6.served.at(-1));verified("Exact original query identity/header and unprojected bytes "+record.name,()=>{assert.equal(reply.sha256,record.sha256);assert.equal(reply.noBodyProjection,true);assert.equal(reply.completeOriginalQuery,true);});};
@@ -92,6 +94,16 @@ export async function runM6FullGates({page,open,ready,records,first,check,save,e
  const drillGate=async(kind)=>{
   const r=find("signed-c-platform-day");await start(r);const items=source(r,["sections",kind==="products"?"structure":"scale","items"]),row=items.find(x=>x.objectKey==="platform:京东");assert.ok(row);const original=page.url();
   const selector=kind==="products"?page.locator(".nc-structure-object").filter({has:page.getByRole("heading",{name:"京东",exact:true})}).getByRole("button",{name:"查看商品专题",exact:true}):page.getByLabel("推广对比表，横向滚动",{exact:true}).locator("tbody tr").filter({has:page.getByRole("button",{name:"京东",exact:true})}).getByRole("button",{name:"查看精确范围",exact:true});
+  if(kind==="products"){
+   const returnSource=await readFile(resolve("app/shell/navigation-contract.ts")),contractLines=returnSource.toString("utf8").split("\n"),flatLine=contractLines.findIndex(line=>line.includes('shop: { ...before, returnTo: null, returnOrigin: null }'));
+   assert.ok(flatLine>=0,"Original flat return source must remain present");journal.returnContractSource={path:"app/shell/navigation-contract.ts",sha256:sha256(returnSource),start:flatLine+1,fragment:contractLines.slice(flatLine,flatLine+3).join("\n"),reason:"Original returnTo strips prior returnTo/returnOrigin. Verify immediate C↔P visible/browser paths and detail→original five-shop P list independently; no second-level C button is part of this flat contract."};
+   const topic=find("signed-p-spu-five-shops-home-list");source(topic,["context","requestedScope"]);
+   for(const method of["visible","browser"]){
+    await act("Actual C → P original five-shop topic for "+method+" return",()=>selector.click());await page.waitForFunction(name=>window.__m6.served.at(-1)?.fixture===name,topic.name);await page.getByRole("heading",{name:"商品表现",exact:true}).waitFor();
+    await act(method==="visible"?"Actual immediate P visible return to original C":"Actual immediate P browser back to original C",()=>method==="visible"?page.getByRole("button",{name:"返回原范围",exact:true}).click():page.goBack());await served(r);
+    verified("Original flat C → P "+method+" return restores exact C URL",()=>assert.equal(page.url(),original));
+   }
+  }
   await act("Actual C → "+kind+" exact platform topic",()=>selector.click());await page.waitForFunction(view=>new URL(location.href).searchParams.get("view")===view,kind);
   const endpoint=kind==="products"?"/api/netshop/product-insights":"/api/netshop/promotion-insights";
   await page.waitForFunction(path=>window.__m6.calls.some(c=>c.path===path),endpoint);
@@ -113,7 +125,8 @@ export async function runM6FullGates({page,open,ready,records,first,check,save,e
    const detailDOM=await page.locator(kind==="products"?".netshop-products":".promotion-detail-panel").innerText();verified("Actual detail shows original title/ID",()=>{assert.ok(detailDOM.includes(title));assert.ok(detailDOM.includes(kind==="products"?identity.id:item.id));});
    await act("Actual detail back/close",()=>page.getByRole("button",{name:kind==="products"?"← 返回商品列表":"关闭详情",exact:true}).click());
    const returned=await page.evaluate(()=>window.__m6ReadLocation());verified("Topic return preserves original five-shop scope and shell dimension",()=>{assert.deepEqual(returned.shop.outlets,lineage[kind==="products"?"p":"a"].topicShopKeys);assert.equal(returned.shop.dimension,r.body.currentContext.requestedScope.dimension);});if(kind!=="products")verified("Closing A detail preserves original topic URL",()=>assert.equal(page.url(),topicURL));
-   await act("Actual topic return to C",()=>page.getByRole("button",{name:kind==="products"?"返回原范围":"返回原列表",exact:true}).click());await ready();verified("Visible return restores original comparison URL",()=>assert.equal(page.url(),original));
+   if(kind==="promotion"){await act("Actual topic return to C",()=>page.getByRole("button",{name:"返回原列表",exact:true}).click());await ready();verified("Visible return restores original comparison URL",()=>assert.equal(page.url(),original));}
+   else{const sourceReturn=await page.evaluate(()=>window.__m6ReadLocation());verified("Original P detail flat return remains the source-bound five-shop topic",()=>{assert.deepEqual(sourceReturn.shop.outlets,lineage.p.topicShopKeys);assert.equal(sourceReturn.shop.product,null);assert.equal(sourceReturn.shell.view,"products");});journal.returnContract="C↔P visible/browser returns verified before nested detail; P detail visibly returns its original five-shop list under original flat return model";}
   }else{
    await act("Browser back to original comparison",()=>page.goBack());await ready();verified("Drill browser back restores original comparison URL",()=>assert.equal(page.url(),original));
    await pending("Actual same-seed "+kind+" topic full query missing; no scope/dimension/pageSize retargeting");
