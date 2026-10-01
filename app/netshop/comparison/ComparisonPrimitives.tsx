@@ -18,7 +18,7 @@ export function ComparisonMetricCell({ metric }: { metric: ComparisonMetric }) {
 export function ComparisonChangeCell({ comparison }: { comparison: MetricComparison }) { return <span><InsightComparison value={comparison} />{comparison.status !== "available" && <small>{comparisonReason(comparison.reasonCode)}</small>}</span>; }
 export function ComparisonQualification({ row }: { row: Pick<ComparisonRow, "qualification"> }) {
   const status = row.qualification.comparable ? "complete" : row.qualification.currentComplete && row.qualification.baselineComplete ? "incomparable" : "partial";
-  return <span className="nc-pill" data-coverage={status}>{status === "complete" ? "两期完整可比" : status === "partial" ? "部分覆盖" : "定义不可比"}</span>;
+  return <span className="nc-pill" data-coverage={status}>{status === "complete" ? "两期完整可比" : status === "partial" ? "部分覆盖" : "完整覆盖 · 不可比"}</span>;
 }
 export function ComparisonPanel({ number, title, note, tools, children, half = false }: { number: string; title: string; note?: string; tools?: ReactNode; children: ReactNode; half?: boolean }) {
   return <section className={`nc-card${half ? " nc-half" : ""}`} aria-label={`${number} ${title}`}><header className="nc-card-head"><div><h2><span className="nc-section-number">{number}</span>{title}</h2>{note && <p>{note}</p>}</div>{tools}</header>{children}</section>;
