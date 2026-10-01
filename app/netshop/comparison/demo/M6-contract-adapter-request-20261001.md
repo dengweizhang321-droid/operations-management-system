@@ -44,3 +44,16 @@
 旧F无opt-in请求/旧书签保持；未知C版本/重复字段/非法窗口/手动367/预算失败；异长重叠不缩放和不重复日配对；两份合法current却窗口/权限/token错绑定；label-only同名跨平台/伪vendor ID/改版/无有效期/本期cohort误作历史；分类条件下A/ERP缺映射不回全店；500/93天截断不能作为全集；source_line无真实orderCount；全部比率对照、0/负/缺基期、401/403/409/503和迟到、分页刷新/跨专题返回及真实目标。
 
 当前仅保存DTO/adapter申请与夹具计划，既有方案1和31设计验证继承。M4实际main准确SHA和I的M6/公共适配通知后再同步实现；本轮无运行代码、共享变更、UI/PG复测、服务/数据库/生产/外发操作。
+
+## I接纳与两期信封冻结补充
+
+I已接纳准备提交 `147a5de17130ff22b55e4e74ac7de6abf5e9835f` 的专属文件/符号申请；正式开工仍待实际M4main和M6通知，公共schema由I实现并另发freeze。
+
+- C v1完整携带 `currentContext`、`baselineContext` 两份原F严格完整DTO，分别以自身current绑定用户两期。原F previous/yearAgo、calendar、coverage均保留，不采用隐式裁剪或投影。
+- C token分别绑定二者scopeKey/snapshotToken、同一实际principal、分类证据及全部参与域typed向量；前后复核，不宣称分布式原子快照，不把异kind token直接互比。
+- 整个C响应仍为2MiB UTF-8，单一65秒reader期限包含actor、两context、拥有者数据、序列化和末次核验。尺寸超限422、预算超时503，不能给不完整信封或各子读取重新计时。90秒客户端读取/有界恢复规则保留。
+- 异长/重叠两期按原窗口和实值披露，不按比例缩放。derived367只沿原F合法派生边界；不因此让手动或F current请求扩到367，不伪造baselineContext的current或截一天冒完整。遇所属派生窗口与“两F合法current绑定”不相容时，按I最终公共schema的显式不支持规则处理。
+- 公共导航区分可分享的合法比较业务意图（mode/source/selectedBaseline/分类cohort声明，严格有界URL，服务端始终鉴权）与展示偏好（chartIDs/columns/sort等account/history绑定）。新tab不得丢明确自选基期；偏好不当权限来源，不另建history。
+- C→P/A清目标当前不适用classification/q，并保留原C完整范围作为返回上下文。不能携带不可用分类假装已经筛选，也不能返回时丢基期、类别或原列表状态。
+
+待实施负向样例补充：两份完整F DTO分别错scope/window/principal/版本；2MiB完整信封超限而非单份合格即成功；第二context/序列化/末核耗尽共同期限；当前/手动367拒绝、派生367保持原边界；跨tab明确基期保留、另一账号偏好不复活；出站分类/q清理与完整C返回。仅记录用例，不在本輪宣称测试通过或开始M6。
