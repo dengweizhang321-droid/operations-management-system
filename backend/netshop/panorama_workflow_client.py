@@ -263,7 +263,7 @@ def _project(payload, principal, scope, parameters, revision, scope_key):
         items.append({"id": identity, "occurredAt": _iso(occurred), "title": _text(row.get("title"), 200),
                       "status": _text(row.get("status"), 24), "eventType": _text(row.get("type"), 16)})
     return {"schemaVersion": SCHEMA_VERSION, "scope": dict(scope), "sourceRevisions": [{"domain": "workflow", "kind": "owning_revision", "scopeKey": scope_key, "revision": revision}],
-            "items": items, "pagination": dict(pagination), "limitations": [
+            "items": items, "pagination": {**pagination, "hasMore": pagination["truncated"]}, "limitations": [
                 "只读既有运营记录的发生时间与原类型/状态，不推断经营变化因果",
                 "仅返回明确分页；truncated表示仍有后续页，不冒充整个历史事件集合",
                 "来源版本经过同参数重读核验；与网店来源仍为non_atomic跨域观察",

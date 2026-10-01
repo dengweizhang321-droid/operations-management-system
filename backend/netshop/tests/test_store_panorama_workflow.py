@@ -212,7 +212,7 @@ class RealWorkflowApiTests(LiveServerTestCase):
             self.event(f"E{number:02d}")
         first = self.read()
         second = self.read(page=2)
-        self.assertEqual(first["pagination"], {"page": 1, "pageSize": 20, "total": 25, "returned": 20, "truncated": True})
+        self.assertEqual(first["pagination"], {"page": 1, "pageSize": 20, "total": 25, "returned": 20, "truncated": True, "hasMore": True})
         self.assertEqual(second["pagination"]["returned"], 5)
         self.assertFalse(second["pagination"]["truncated"])
         self.assertFalse({r["id"] for r in first["items"]} & {r["id"] for r in second["items"]})
