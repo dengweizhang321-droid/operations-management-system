@@ -140,6 +140,8 @@ def read_finance_netshop(principal, payload, *, deadline=None):
         if error.code == 422:
             raise NetshopApiError("财报专题质量或容量不满足", code="quality_incomplete", status=422) from None
         raise _unavailable() from None
+    except InterruptedError:
+        raise
     except (urllib.error.URLError, TimeoutError, OSError) as error:
         check()
         raise _unavailable() from error
