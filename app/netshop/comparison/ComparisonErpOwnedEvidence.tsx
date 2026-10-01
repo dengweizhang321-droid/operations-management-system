@@ -44,5 +44,6 @@ export function ComparisonErpEvidence({ evidence }: { evidence: ErpEvidence }) {
       <ul className="nc-source-list">{Object.entries(evidence.observations).map(([key,observation]) => <li key={key}><strong>{observation.period === "current" ? "本期" : "基期"} · {observation.objectKey === "summary" ? "当前授权范围" : observation.objectKey.replace(/^shop:/,"").replace("\u001f"," · ")}</strong><p>{observation.startDate} — {observation.endDate}；已观察 {observation.observedShopDatePairs ?? "未确认"} 店日。结算完整性未知，不等同请求范围已完整覆盖。</p>{observation.observedByShop.map(shop => <p key={shop.shopKey}>{shop.shopKey.replace("\u001f"," · ")}：{shop.dates.join("、")}</p>)}</li>)}</ul>
     </details>
     {evidence.source && <ComparisonErpOwnedEvidence response={evidence.source} />}
+    {evidence.platformPeriods && <details className="nc-columns nc-erp-platform-periods"><summary>各平台整期原始来源</summary><p className="nc-caption">各平台整期数值来自拥有方对该平台完整原始身份范围的独立读取，使用本页原两期日期；不以主图日期桶或全范围总额代替。观察记录仍不证明完整结算。</p>{evidence.platformPeriods.map(item => <section key={item.platform}><h3>{item.platform}整期来源</h3><ComparisonErpOwnedEvidence response={item.source} /></section>)}</details>}
   </section>;
 }
