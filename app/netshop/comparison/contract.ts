@@ -220,7 +220,7 @@ function erpEvidence(value: unknown, current: InsightsContext, baseline: Insight
     else { count(o.observedShopDatePairs, Number(o.expectedShopDatePairs)); let observed = 0; const used = new Set<string>(); for (const item of o.observedByShop) { const row = object(item); if (typeof row.shopKey !== "string" || !keys.includes(row.shopKey) || used.has(row.shopKey) || !Array.isArray(row.dates) || new Set(row.dates).size !== row.dates.length || !row.dates.every(date => typeof date === "string" && resolveNetshopQueryPeriod(date, date, 1) && date >= String(o.startDate) && date <= String(o.endDate))) fail("ERP观察日期重复或越店越期"); used.add(row.shopKey); observed += row.dates.length; } if (observed !== o.observedShopDatePairs) fail("ERP观察日期数与完整记录不一致"); }
   }
   const temporal = object(e.temporalState); exact(temporal, ["state", "code"]);
-  if (!enumValue(temporal.state, ["ready", "unavailable", "dependency_pending"]) || temporal.state === "ready" && (temporal.code !== null || e.state !== "ready" || !(e.source as SalesPeriodsResponse | null)?.series) || temporal.state === "unavailable" && (!text(temporal.code, 200) || (e.source as SalesPeriodsResponse | null)?.series) || temporal.state === "dependency_pending" && (temporal.code !== "series_dependency_pending" || (e.source as SalesPeriodsResponse | null)?.series)) fail("ERP趋势状态须绑定真实拥有方原生序列或明确能力原因");
+  if (!enumValue(temporal.state, ["ready", "unavailable", "dependency_pending"]) || temporal.state === "ready" && (temporal.code !== null || e.state !== "ready" || !(e.source as SalesPeriodsResponse | null)?.series) || temporal.state === "unavailable" && (!text(temporal.code, 200) || (e.source as SalesPeriodsResponse | null)?.series) || temporal.state === "dependency_pending" && (!enumValue(temporal.code, ["series_dependency_pending", "platform_series_dependency_pending"]) || (e.source as SalesPeriodsResponse | null)?.series)) fail("ERP趋势状态须绑定真实拥有方原生序列或明确能力原因");
   return e as ErpEvidence;
 }
 
@@ -412,7 +412,11 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
     };
     for (const period of ["current", "baseline"] as const) { for (const key of erpKeys) bindProjection(dto.sections.scale.summary[period][key], key, period, null); for (const row of dto.sections.scale.items) for (const key of erpKeys) bindProjection(row[period][key], key, period, row.objectKey); }
     if (erpKeys.includes(dto.metricKey)) for (const item of dto.sections.efficiency.distribution) bindProjection(item.metric, dto.metricKey, "current", item.objectKey);
-    if (erpKeys.includes(dto.metricKey) && evidence.temporalState.state !== "dependency_pending") for (const item of dto.sections.trends.items) for (const period of ["current", "baseline"] as const) for (const point of item[period]) bindProjection(point.metric, dto.metricKey, period, item.objectKey, point.date);
+    if (source?.series) {
+      const selectedRawKeys = dto.chartObjectKeys.flatMap(key => rows.get(key)!.shopKeys).map(key => mappings.get(key)!).filter(mapping => mapping.status === "verified_alias" && rawItems.has(rawKey(mapping.rawIdentity!))).map(mapping => rawKey(mapping.rawIdentity!));
+      if (dto.comparisonScope.mode !== "shop" || source.series.intent.grain !== dto.trendGrain || stable([...new Set(selectedRawKeys)].sort()) !== stable(source.series.items.map(item => rawKey(item.identity)).sort())) fail("ERP原生趋势须绑定主图精确对象，不缩完整候选或借别店序列");
+    }
+    if (erpKeys.includes(dto.metricKey) && evidence.temporalState.code !== "series_dependency_pending") for (const item of dto.sections.trends.items) for (const period of ["current", "baseline"] as const) for (const point of item[period]) bindProjection(point.metric, dto.metricKey, period, item.objectKey, point.date);
     const productKeys: ComparisonMetricKey[] = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders"], promotionKeys: ComparisonMetricKey[] = ["spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate"];
     const check = (m: ComparisonMetric, period: "current" | "baseline", key: ComparisonMetricKey, objectKey: string | null, date?: string) => {
       if (!productKeys.includes(key) && m.status === "unavailable" && m.sourceIds.length === 0 && m.coverageRef === `comparison:${period}:unavailable` && dto.sections.comparability.coverage[m.coverageRef]?.expectedShopDatePairs === 0) return;
@@ -422,7 +426,7 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
         const ready = platform ? dto.sections.promotion.sourceStates.find(state => state.period === period && state.platform === platform)?.state === "ready" : false;
         if (ready || m.status === "available" || m.status === "partial") { const ref = `comparison:${period}:promotion:${objectKey ? hashes.get(objectKey) : platform ? platform + ":summary" : "summary"}${date ? ":trend:" + date : ""}${key === "spendRate" ? ":paired-whole" : ""}`; if (m.coverageRef !== ref) fail("推广覆盖引用不能借其他期、对象或配对集合"); }
         else if (!m.coverageRef.startsWith(`comparison:${period}:promotion:`)) fail("不可用推广仍须保所属两期引用");
-      } else { const temporalUnavailable = !!date && m.status === "unavailable" && m.reasonCode === "not_applicable" && dto.sections.comparability.erpEvidence.temporalState.state === "dependency_pending"; const ref = `comparison:${period}:erp:${objectKey ? hashes.get(objectKey) : "summary"}${date && !temporalUnavailable ? ":trend:" + date : ""}`; if (m.coverageRef !== ref) fail("ERP观察引用不能借其他期、对象或趋势桶"); }
+      } else { const temporalUnavailable = !!date && m.status === "unavailable" && m.reasonCode === "not_applicable" && dto.sections.comparability.erpEvidence.temporalState.code === "series_dependency_pending"; const ref = `comparison:${period}:erp:${objectKey ? hashes.get(objectKey) : "summary"}${date && !temporalUnavailable ? ":trend:" + date : ""}`; if (m.coverageRef !== ref) fail("ERP观察引用不能借其他期、对象或趋势桶"); }
     };
     for (const period of ["current", "baseline"] as const) {
       for (const key of comparisonMetricKeys) check(dto.sections.scale.summary[period][key], period, key, null);
