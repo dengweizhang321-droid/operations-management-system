@@ -222,6 +222,8 @@ Worker release 的 source snapshot、`dist`、`node_modules`、helper、bundled 
 
 在独立 `codex/*` worktree 中，双击 `预览系统.bat` 或运行 `npm run preview:isolated`。页面使用独立的 `127.0.0.1:3100`，代码保存自动更新；首次自动安装缺少的前端依赖、准备独立 Django/SQLite 与合成销售、货品、库存数据。`preview:prepare` 重新准备数据，`preview:snapshot` / `preview:restore` 保存和恢复预览数据，`preview:verify` 检查数据和隔离行为，`preview:stop` 停止预览。生产继续运行。当前仅开放查询和页面展示，其余领域以空态为主，完整写流程和 PostgreSQL 契约仍需领域镜像验收。使用和隔离边界见 [一键预览说明](docs/ISOLATED_PREVIEW.md)。
 
+网店总览 01 的隔离候选提供 URL `overviewView=balanced` 与真实新旧视图切换，默认保留旧视图；采用商品日报累计、同店同日覆盖与缺项状态。候选访问、来源限制与验收见 [网店总览 01 候选说明](docs/NETSHOP_OVERVIEW_01_CANDIDATE.md)，此说明不表示已正式上线。
+
 ### macOS / Linux 开发机本地启动
 
 开发机没有 PostgreSQL 与受控 runtime，直接运行 `npx vinext dev` 时所有 Django 域都会提示"Django xx 服务配置不完整"。`tools/django-dev-backend.mjs` 用 SQLite 与 `development` 进程角色在本机拉起一套仅供开发的 Django 后端，并把 Worker 需要的 `TERUISI_DJANGO_*` 变量写入 `.dev.vars` 的受管块：

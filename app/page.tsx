@@ -10,6 +10,7 @@ import {
 } from "@/lib/ai/page-context";
 import AiWorkspaceHost from "./ai-workspace-host";
 import { AiPageContextProvider, type AiPageRegistration } from "./ai-page-context-provider";
+import StatisticalPeriodPicker from "./statistical-period-picker";
 import AppShell from "./shell/app-shell";
 import GlobalHeader from "./shell/global-header";
 import ModuleErrorBoundary from "./shell/module-error-boundary";
@@ -30,7 +31,16 @@ import {
   parseShellLocation,
   serializeShellLocation,
   type ShellPeriodState,
+  type StoreOverviewLocation,
+  defaultStoreOverviewLocation,
+  updateShopContextLocation,
+  drillShopLocation,
+  returnShopLocation,
+  updateModuleViewLocation,
 } from "./shell/navigation-contract";
+import type { ProductIdentity } from "@/lib/netshop/insights-contract";
+import { defaultShopLocationContext, type ShopLocationContext } from "./shell/shop-context";
+import { bindShopPresentationHistory, readBoundShopLocationContext, shopPresentationHistoryMatches } from "./shell/shop-presentation-history";
 import { normalizeModuleView } from "./shell/module-view-contract";
 import SidebarNavigation from "./shell/sidebar-navigation";
 import { useModuleViewState } from "./shell/use-module-view-state";
@@ -38,18 +48,13 @@ import {
   type CurrentUser,
   type SalesRangeLabel,
   addIsoDays,
-  isoDayDifference,
   shanghaiIsoToday,
   selectedMonthPeriod,
   skuSalesPeriod,
   shellPeriodForRange,
   rangeForShellPeriod,
   useDebouncedValue,
-  startOfIsoMonth,
-  endOfIsoMonth,
-  addIsoMonths,
   previousYearPeriod,
-  clampIsoDate,
 } from "./module-view-shared";
 export { canManageFinanceTargets, validateFinanceTargetDeletionReason } from "./module-view-shared";
 import type {
@@ -123,82 +128,6 @@ function GlobalSearchLoadingDialog({ onClose, returnFocusRef }: { onClose: () =>
   </Dialog>;
 }
 
-type PickerPeriod = { startDate: string; endDate: string };
-
-function CalendarMonth({ month, minDate, maxDate, startDate, endDate, onSelect }: {
-  month: string;
-  minDate: string;
-  maxDate: string;
-  startDate: string | null;
-  endDate: string | null;
-  onSelect: (date: string) => void;
-}) {
-  const firstDate = `${month}-01`;
-  const firstWeekday = new Date(`${firstDate}T00:00:00Z`).getUTCDay();
-  const calendarStart = addIsoDays(firstDate, -firstWeekday);
-  const title = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${firstDate}T00:00:00Z`));
-  const weekNames = ["日", "一", "二", "三", "四", "五", "六"];
-  return <div className="period-calendar"><h4>{title}</h4><div className="period-weekdays">{weekNames.map((day) => <span key={day}>{day}</span>)}</div><div className="period-days">{Array.from({ length: 42 }, (_, index) => {
-    const date = addIsoDays(calendarStart, index);
-    const outside = !date.startsWith(month);
-    const disabled = date < minDate || date > maxDate;
-    const selected = date === startDate || date === endDate;
-    const inRange = Boolean(startDate && endDate && date > startDate && date < endDate);
-    return <button type="button" key={date} disabled={disabled} className={`${outside ? "outside" : ""} ${selected ? "selected" : ""} ${inRange ? "in-range" : ""}`} onClick={() => onSelect(date)}>{date.slice(8)}</button>;
-  })}</div></div>;
-}
-
-function StatisticalPeriodPicker({ minDate, maxDate, startDate, endDate, onApply }: {
-  minDate: string;
-  maxDate: string;
-  startDate: string;
-  endDate: string;
-  onApply: (startDate: string, endDate: string) => void;
-}) {
-  const [draftStart, setDraftStart] = useState<string | null>(startDate);
-  const [draftEnd, setDraftEnd] = useState<string | null>(endDate);
-  const [leftMonth, setLeftMonth] = useState(startDate.slice(0, 7));
-  useEffect(() => {
-    setDraftStart(startDate); setDraftEnd(endDate); setLeftMonth(startDate.slice(0, 7));
-  }, [endDate, startDate]);
-  const clampPeriod = (period: PickerPeriod): PickerPeriod => {
-    const nextStart = clampIsoDate(period.startDate, minDate, maxDate);
-    const nextEnd = clampIsoDate(period.endDate, minDate, maxDate);
-    return nextStart <= nextEnd ? { startDate: nextStart, endDate: nextEnd } : { startDate: nextEnd, endDate: nextEnd };
-  };
-  const year = Number(maxDate.slice(0, 4));
-  const month = Number(maxDate.slice(5, 7));
-  const quarterStartMonth = Math.floor((month - 1) / 3) * 3 + 1;
-  const shortcuts: Array<{ label: string; period: PickerPeriod }> = [
-    { label: "去年", period: { startDate: `${year - 1}-01-01`, endDate: `${year - 1}-12-31` } },
-    { label: "今年", period: { startDate: `${year}-01-01`, endDate: maxDate } },
-    { label: "本季", period: { startDate: `${year}-${String(quarterStartMonth).padStart(2, "0")}-01`, endDate: maxDate } },
-    { label: "本月", period: { startDate: startOfIsoMonth(maxDate), endDate: maxDate } },
-    { label: "近一年", period: { startDate: addIsoMonths(maxDate, -12), endDate: maxDate } },
-    { label: "近6月", period: { startDate: addIsoMonths(maxDate, -6), endDate: maxDate } },
-    { label: "近3月", period: { startDate: addIsoMonths(maxDate, -3), endDate: maxDate } },
-    { label: "上月", period: { startDate: startOfIsoMonth(addIsoMonths(maxDate, -1)), endDate: endOfIsoMonth(addIsoMonths(maxDate, -1)) } },
-    { label: "近1月", period: { startDate: addIsoMonths(maxDate, -1), endDate: maxDate } },
-    { label: "近7天", period: { startDate: addIsoDays(maxDate, -6), endDate: maxDate } },
-    { label: "前7天", period: { startDate: addIsoDays(maxDate, -13), endDate: addIsoDays(maxDate, -7) } },
-    { label: "昨天", period: { startDate: addIsoDays(maxDate, -1), endDate: addIsoDays(maxDate, -1) } },
-    { label: "今天", period: { startDate: maxDate, endDate: maxDate } },
-  ].map((item) => ({ ...item, period: clampPeriod(item.period) }));
-  const chooseDate = (date: string) => {
-    if (!draftStart || draftEnd) { setDraftStart(date); setDraftEnd(null); return; }
-    if (date < draftStart) { setDraftStart(date); setDraftEnd(draftStart); return; }
-    setDraftEnd(date);
-  };
-  const applyShortcut = (period: PickerPeriod) => { setDraftStart(period.startDate); setDraftEnd(period.endDate); setLeftMonth(period.startDate.slice(0, 7)); };
-  const selectedShortcut = shortcuts.find((item) => item.period.startDate === draftStart && item.period.endDate === draftEnd)?.label;
-  const rightMonth = addIsoMonths(`${leftMonth}-01`, 1).slice(0, 7);
-  const exceedsMaximumDays = Boolean(draftStart && draftEnd && isoDayDifference(draftStart, draftEnd) + 1 > 366);
-  return <div className="stat-period-picker" aria-label="自定义统计周期">
-    <div className="period-shortcuts">{shortcuts.map((item) => <button type="button" key={item.label} className={selectedShortcut === item.label ? "active" : ""} onClick={() => applyShortcut(item.period)}>{item.label}</button>)}</div>
-    <div className="period-calendars"><button type="button" className="period-nav" onClick={() => setLeftMonth(addIsoMonths(`${leftMonth}-01`, -1).slice(0, 7))} aria-label="上一月">‹</button><CalendarMonth month={leftMonth} minDate={minDate} maxDate={maxDate} startDate={draftStart} endDate={draftEnd} onSelect={chooseDate} /><CalendarMonth month={rightMonth} minDate={minDate} maxDate={maxDate} startDate={draftStart} endDate={draftEnd} onSelect={chooseDate} /><button type="button" className="period-nav" onClick={() => setLeftMonth(addIsoMonths(`${leftMonth}-01`, 1).slice(0, 7))} aria-label="下一月">›</button></div>
-    <div className="period-picker-footer"><span>{draftStart ? `${draftStart} 00:00:00` : "请选择开始日期"}</span><i className={exceedsMaximumDays ? "period-limit-warning" : ""}>{exceedsMaximumDays ? "最长366天" : "—"}</i><span>{draftEnd ? `${draftEnd} 23:59:59` : "请选择结束日期"}</span><div><button type="button" onClick={() => { setDraftStart(null); setDraftEnd(null); }}>清空</button><button type="button" className="primary-button" disabled={!draftStart || !draftEnd || exceedsMaximumDays} onClick={() => draftStart && draftEnd && onApply(draftStart, draftEnd)}>确定</button></div></div>
-  </div>;
-}
 type ShellViewProps = {
   range: SalesRangeLabel;
   customStartDate: string;
@@ -210,14 +139,21 @@ type ShellViewProps = {
   aiContextPrompt: string;
   aiPageContext: AiPageContext | null;
   onModuleViewChange: (view: ModuleViewKey) => void;
-  onApplyPeriod?: (startDate: string, endDate: string) => void;
+  onApplyPeriod?: (startDate: string, endDate: string, intent?: "rolling" | "quarter") => void;
   currentUser: CurrentUser | null;
+  overview: StoreOverviewLocation;
+  periodKind?: string;
+  onOverviewChange: (next: StoreOverviewLocation) => void;
+  shopContext: ShopLocationContext;
+  onShopContextChange: (next: Partial<ShopLocationContext>) => void;
+  onShopDrill: (view: ModuleViewKey<"shop">, product: ProductIdentity | null, section?: string) => void;
+  onShopReturn: () => void;
 };
 
 const viewMap: Record<ModuleKey, (props: ShellViewProps) => React.ReactNode> = {
   n8n_workflows: ({ currentUser, moduleView, onModuleViewChange }) => <N8nWorkflowView currentUser={currentUser} moduleView={normalizeModuleView("n8n_workflows", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   dashboard: DashboardView,
-  shop: ({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange }) => <ShopView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onNavigate={onNavigate} moduleView={normalizeModuleView("shop", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
+  shop: ({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange, overview, onOverviewChange, onApplyPeriod, currentUser, periodKind, shopContext, onShopContextChange, onShopDrill, onShopReturn }) => <ShopView context={shopContext} onContextChange={onShopContextChange} onDrill={onShopDrill} onReturn={onShopReturn} periodKind={periodKind} overview={overview} onOverviewChange={onOverviewChange} onApplyPeriod={onApplyPeriod} currentUser={currentUser} range={range} customStartDate={customStartDate} customEndDate={customEndDate} onNavigate={onNavigate} moduleView={normalizeModuleView("shop", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   market: ({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onApplyPeriod }) => <MarketView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("market", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} onApplyPeriod={onApplyPeriod} />,
   customer_service: ({ customStartDate, customEndDate, currentUser, onNavigate }) => <CustomerServiceView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} onNavigate={onNavigate} />,
   sales: ({ range, customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange }) => <SalesView range={range} customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("sales", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
@@ -231,6 +167,7 @@ const viewMap: Record<ModuleKey, (props: ShellViewProps) => React.ReactNode> = {
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const shopPresentationPrincipal = currentUser ? JSON.stringify([currentUser.email, currentUser.role, currentUser.scopeRestricted]) : null;
   const [active, setActive] = useState<ModuleKey>("dashboard");
   const [moduleTransitionPending, startModuleTransition] = useTransition();
   const [shellLocationReady, setShellLocationReady] = useState(false);
@@ -273,13 +210,16 @@ export default function Home() {
   const debouncedGlobalSearchQuery = useDebouncedValue(globalSearchQuery, 220);
   const customMaxDate = shanghaiIsoToday();
   const customMinDate = `${Number(customMaxDate.slice(0, 4)) - 1}-01-01`;
+  const [customIntent, setCustomIntent] = useState<"rolling" | "quarter" | undefined>();
+  const [overview, setOverview] = useState<StoreOverviewLocation>(defaultStoreOverviewLocation);
+  const [shopContext, setShopContext] = useState<ShopLocationContext>(defaultShopLocationContext);
   const globalPeriod = useMemo(
     () => skuSalesPeriod(range, customStartDate, customEndDate),
     [customEndDate, customStartDate, range],
   );
   const shellPeriod = useMemo(
-    () => shellPeriodForRange(range, selectedMonth, customStartDate, customEndDate),
-    [customEndDate, customStartDate, range, selectedMonth],
+    () => { const p = shellPeriodForRange(range, selectedMonth, customStartDate, customEndDate); return p.kind === "custom" && customIntent ? { ...p, intent: customIntent } : p; },
+    [customEndDate, customStartDate, range, selectedMonth, customIntent],
   );
   const activeModuleView = moduleViewSelection.module === active
     ? moduleViewSelection.view
@@ -335,9 +275,12 @@ export default function Home() {
     const today = shanghaiIsoToday();
     const minDate = `${Number(today.slice(0, 4)) - 1}-01-01`;
     setActive(state.module);
+    setOverview(state.overview ?? defaultStoreOverviewLocation);
+    setShopContext(readBoundShopLocationContext(window.location.href, window.history.state, shopPresentationPrincipal));
     syncModuleViewFromLocation(window.location.href);
     setImportSource(state.source ?? null);
     setRange(rangeForShellPeriod(state.period));
+    setCustomIntent(state.period.kind === "custom" ? state.period.intent : undefined);
     setStatPeriodPickerOpen(false);
     let appliedPeriod = state.period;
     if (state.period.kind === "calendar_month") {
@@ -355,7 +298,7 @@ export default function Home() {
       const startDate = state.period.from < minDate ? minDate : state.period.from > endDate ? endDate : state.period.from;
       setCustomStartDate(startDate);
       setCustomEndDate(endDate);
-      appliedPeriod = { kind: "custom", from: startDate, to: endDate };
+      appliedPeriod = { kind: "custom", from: startDate, to: endDate, ...(state.period.intent ? { intent: state.period.intent } : {}) };
     }
     const normalizedContractUrl = normalizeShellLocation(window.location.href);
     const normalized = serializeShellLocation({
@@ -365,9 +308,14 @@ export default function Home() {
       period: appliedPeriod,
     }, normalizedContractUrl);
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (normalized !== currentUrl) window.history.replaceState(null, "", normalized);
+    if (normalized !== currentUrl) {
+      const history = shopPresentationHistoryMatches(window.history.state, window.location.href, shopPresentationPrincipal)
+        ? bindShopPresentationHistory(window.history.state, normalized, shopPresentationPrincipal) : window.history.state;
+      window.history.replaceState(history, "", normalized);
+    }
+    setShopContext(readBoundShopLocationContext(normalized, window.history.state, shopPresentationPrincipal));
     setShellLocationReady(true);
-  }, [syncModuleViewFromLocation]);
+  }, [shopPresentationPrincipal, syncModuleViewFromLocation]);
 
   useEffect(() => {
     applyLocationState();
@@ -442,16 +390,43 @@ export default function Home() {
   const current = isAiChat ? { label: "AI 对话", description: "小特对话工作台" } : navItems.find((item) => item.key === active) ?? navItems[0];
   const View = viewMap[active];
 
+  const currentShopLocation = useCallback(() => {
+    const state = parseShellLocation(window.location.href);
+    return state.module === "shop" ? serializeShellLocation({ ...state, shop: readBoundShopLocationContext(window.location.href, window.history.state, shopPresentationPrincipal) }, window.location.href) : window.location.href;
+  }, [shopPresentationPrincipal]);
+  const changeOverview = useCallback((next: StoreOverviewLocation) => {
+    const state = parseShellLocation(currentShopLocation());
+    const nextUrl = serializeShellLocation({ ...state, overview: next }, currentShopLocation());
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
+    setOverview(next);
+  }, [currentShopLocation, shopPresentationPrincipal]);
+  const changeShopContext = useCallback((next: Partial<ShopLocationContext>) => {
+    const nextUrl = updateShopContextLocation(currentShopLocation(), next);
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
+    setShopContext(readBoundShopLocationContext(nextUrl, window.history.state, shopPresentationPrincipal));
+  }, [currentShopLocation, shopPresentationPrincipal]);
+  const drillShop = useCallback((view: ModuleViewKey<"shop">, product: ProductIdentity | null, section?: string) => {
+    const nextUrl = drillShopLocation(currentShopLocation(), view, product, section);
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
+    applyLocationState();
+  }, [applyLocationState, currentShopLocation, shopPresentationPrincipal]);
+  const returnShop = useCallback(() => {
+    const nextUrl = returnShopLocation(currentShopLocation());
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
+    applyLocationState();
+  }, [applyLocationState, currentShopLocation, shopPresentationPrincipal]);
+
   const replacePeriodUrl = useCallback((period: ShellPeriodState) => {
     const nextUrl = serializeShellLocation({
       module: active,
       view: normalizeModuleView(active, activeModuleView),
       ...(active === "import" && importSource ? { source: importSource } : {}),
       period,
-    }, window.location.href);
+    }, currentShopLocation());
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (nextUrl !== currentUrl) window.history.replaceState(null, "", nextUrl);
-  }, [active, activeModuleView, importSource]);
+    if (nextUrl !== currentUrl) window.history.replaceState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
+    setShopContext(readBoundShopLocationContext(nextUrl, window.history.state, shopPresentationPrincipal));
+  }, [active, activeModuleView, currentShopLocation, importSource, shopPresentationPrincipal]);
 
   const hrefForModule = useCallback((key: ModuleKey, requestedView?: ModuleViewKey) => {
     const currentUrl = typeof window === "undefined" ? "/" : window.location.href;
@@ -466,23 +441,27 @@ export default function Home() {
       view: nextView,
       ...(nextSource ? { source: nextSource } : {}),
       period: shellPeriod,
-    }, window.location.href);
+    }, currentShopLocation());
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (nextUrl !== currentUrl) window.history.pushState(null, "", nextUrl);
+    if (nextUrl !== currentUrl) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
     startModuleTransition(() => {
       setModuleViewSelection(key, nextView);
       setImportSource(nextSource ?? null);
       setActive(key);
+      setShopContext(readBoundShopLocationContext(nextUrl, window.history.state, shopPresentationPrincipal));
     });
     closeMobileMenu();
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => pageTitleRef.current?.focus()));
-  }, [closeMobileMenu, setModuleViewSelection, shellPeriod, startModuleTransition]);
+  }, [closeMobileMenu, currentShopLocation, setModuleViewSelection, shellPeriod, shopPresentationPrincipal, startModuleTransition]);
 
   const selectModuleView = useCallback((view: ModuleViewKey) => {
-    pushModuleView(active, normalizeModuleView(active, view));
-  }, [active, pushModuleView]);
+    const nextView = normalizeModuleView(active, view);
+    const expected = updateModuleViewLocation(currentShopLocation(), active, nextView);
+    const nextUrl = pushModuleView(active, nextView, bindShopPresentationHistory(window.history.state, expected, shopPresentationPrincipal));
+    setShopContext(readBoundShopLocationContext(nextUrl, window.history.state, shopPresentationPrincipal));
+  }, [active, currentShopLocation, pushModuleView, shopPresentationPrincipal]);
 
   const currentAiContext = useMemo(() => {
     const details = aiDetails?.module === active && aiDetails.view === activeModuleView ? aiDetails.details : null;
@@ -646,12 +625,13 @@ export default function Home() {
     replacePeriodUrl({ kind: "calendar_month", month });
   };
 
-  const applyCustomPeriod = (startDate: string, endDate: string) => {
+  const applyCustomPeriod = (startDate: string, endDate: string, intent?: "rolling" | "quarter") => {
+    setCustomIntent(intent);
     setRange("自定义");
     setCustomStartDate(startDate);
     setCustomEndDate(endDate);
     setStatPeriodPickerOpen(false);
-    replacePeriodUrl({ kind: "custom", from: startDate, to: endDate });
+    replacePeriodUrl({ kind: "custom", from: startDate, to: endDate, ...(intent ? { intent } : {}) });
   };
 
   return (
@@ -674,7 +654,7 @@ export default function Home() {
               <span>统计周期</span>
               <SearchableSelect value={range} onChange={(value) => selectRange(value as SalesRangeLabel)} ariaLabel="统计周期" searchPlaceholder="搜索统计周期" options={["今日", "昨天", "近7天", "近15天", "近30天", "本月", "月度", "去年同期", "自定义"].map((value) => ({ value, label: value }))} />
               {range === "月度" && <label className="month-selector"><span>选择月份</span><input type="month" value={selectedMonth} max={customMaxDate.slice(0, 7)} onChange={(event) => updateSelectedMonth(event.target.value)} aria-label="选择统计月份" /></label>}
-              {range === "自定义" && statPeriodPickerOpen && <StatisticalPeriodPicker minDate={customMinDate} maxDate={customMaxDate} startDate={customStartDate} endDate={customEndDate} onApply={applyCustomPeriod} />}
+              {range === "自定义" && statPeriodPickerOpen && <StatisticalPeriodPicker onCancel={() => setStatPeriodPickerOpen(false)} periodIntent={customIntent} minDate={customMinDate} maxDate={customMaxDate} startDate={customStartDate} endDate={customEndDate} onApply={applyCustomPeriod} />}
             </div>}
             <div className="shell-account">
               <button ref={accountButtonRef} type="button" className="shell-account-avatar" popoverTarget="shell-account-actions" aria-label="打开账号操作" title="账号操作">章</button>
@@ -693,7 +673,7 @@ export default function Home() {
               onOpenDashboard={() => selectModule("dashboard")}
             >
               {shellLocationReady ? <Suspense fallback={<section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在加载{current.label}</strong><p>正在按需载入当前业务工作区…</p></section>}>
-                <AiPageContextProvider module={active} view={activeModuleView} publish={publishAiDetails}><View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onAskAi={askAiWithContext} aiContextPrompt={aiContextPrompt} aiPageContext={aiPageContext} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} /></AiPageContextProvider>
+                <AiPageContextProvider module={active} view={activeModuleView} publish={publishAiDetails}><View range={range} onShopDrill={drillShop} onShopReturn={returnShop} shopContext={shopContext} onShopContextChange={changeShopContext} periodKind={range === "自定义" && customIntent ? customIntent : undefined} overview={overview} onOverviewChange={changeOverview} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onAskAi={askAiWithContext} aiContextPrompt={aiContextPrompt} aiPageContext={aiPageContext} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} /></AiPageContextProvider>
               </Suspense> : <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在打开目标工作区</strong><p>正在读取当前页面位置与统计周期…</p></section>}
             </ModuleErrorBoundary>
           </div>

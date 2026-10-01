@@ -2,7 +2,7 @@ import {
   createDjangoNetshopService,
   NETSHOP_PRODUCTS_PATH,
 } from "@/lib/django/netshop-service";
-import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import { AuthorizationError, authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import { netshopOutletsForPrincipal, netshopPlatformsForPrincipal } from "@/lib/netshop/access";
 import {
   NETSHOP_QUERY_MAX_PAGE,
@@ -10,6 +10,7 @@ import {
   NetshopQueryError,
   netshopQueryErrorPayload,
   readNetshopOutletFilters,
+  readNetshopCatalogFilters,
   readNetshopProductCatalogView,
   readNetshopQueryInteger,
   readNetshopSnapshotToken,
@@ -20,6 +21,7 @@ export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal();
     const params = new URL(request.url).searchParams;
+    readNetshopCatalogFilters(params);
     const view = readNetshopProductCatalogView(params.getAll("view"));
     readNetshopSnapshotToken(params.getAll("snapshotToken"), view === "page");
     readNetshopQueryInteger(params.get("page"), "page", 1, 1, NETSHOP_QUERY_MAX_PAGE);
@@ -40,7 +42,9 @@ export async function GET(request: Request) {
       { method: "GET", path: NETSHOP_PRODUCTS_PATH, query: params, service: "reader" },
       { signal: request.signal },
     );
-    return Response.json(result.data, { headers: { "cache-control": "no-store" } });
+    const current = await requireAppPrincipal();
+    if (JSON.stringify([principal.email, principal.role, principal.scope]) !== JSON.stringify([current.email, current.role, current.scope])) throw new AuthorizationError(403, "access_denied", "目录取数期间账号权限已变化，请重新读取");
+    return Response.json(result.data, { headers: { "cache-control": "no-store", ...(result.revision ? { "X-Netshop-Data-Revision": result.revision } : {}) } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;

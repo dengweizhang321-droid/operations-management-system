@@ -1,0 +1,54 @@
+{
+  "fixture": "promotion-ui-synthetic-v1",
+  "source": "Root06 actual private PG owned reader; not production/Worker proxy",
+  "records": [
+    {
+      "name": "response-seven-day-shop-week",
+      "endpoint": "/api/netshop/promotion-insights",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%BF%97%E9%AB%98%E5%95%86%E7%94%A8%E8%AE%BE%E5%A4%87%E6%97%97%E8%88%B0%E5%BA%97&startDate=2026-09-01&endDate=2026-09-07&periodKind=custom&trendGrain=week&objectKind=product",
+      "owningRevision": "6:cc2ab9667d7e",
+      "bytes": 88949,
+      "sha256": "3b2050af9c41a74f2883ba48c044109dabd8914905d80901998c4384ae8fe307"
+    },
+    {
+      "name": "response-seven-day-shop-week-object-focus-six",
+      "endpoint": "/api/netshop/promotion-insights",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%BF%97%E9%AB%98%E5%95%86%E7%94%A8%E8%AE%BE%E5%A4%87%E6%97%97%E8%88%B0%E5%BA%97&startDate=2026-09-01&endDate=2026-09-07&periodKind=custom&trendGrain=week&objectKind=product&objectStartDate=2026-09-01&objectEndDate=2026-09-06",
+      "owningRevision": "6:cc2ab9667d7e",
+      "bytes": 88527,
+      "sha256": "a739dc7cc3b5842bdc349ebad6667a76a01c8462872074cb7075602c0119de7a"
+    },
+    {
+      "name": "response-seven-day-shop-week-exact-product",
+      "endpoint": "/api/netshop/promotion-insights",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%BF%97%E9%AB%98%E5%95%86%E7%94%A8%E8%AE%BE%E5%A4%87%E6%97%97%E8%88%B0%E5%BA%97&startDate=2026-09-01&endDate=2026-09-07&periodKind=custom&trendGrain=week&objectKind=product&productIdentity=%5B%22%E4%BA%AC%E4%B8%9C%22%2C%22%E5%BF%97%E9%AB%98%E5%95%86%E7%94%A8%E8%AE%BE%E5%A4%87%E6%97%97%E8%88%B0%E5%BA%97%22%2C%22sku%22%2C%22SKU-001%22%5D",
+      "owningRevision": "6:cc2ab9667d7e",
+      "bytes": 59180,
+      "sha256": "b8a3478f955c4df90b126ef324aef3b32c43a18cf62d3880e8af8ad47a2ed527"
+    },
+    {
+      "name": "response-seven-day-shop-week-exact-detail",
+      "endpoint": "/api/netshop/promotion-insights/detail",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%BF%97%E9%AB%98%E5%95%86%E7%94%A8%E8%AE%BE%E5%A4%87%E6%97%97%E8%88%B0%E5%BA%97&startDate=2026-09-01&endDate=2026-09-07&periodKind=custom&trendGrain=week&objectKind=product&productIdentity=%5B%22%E4%BA%AC%E4%B8%9C%22%2C%22%E5%BF%97%E9%AB%98%E5%95%86%E7%94%A8%E8%AE%BE%E5%A4%87%E6%97%97%E8%88%B0%E5%BA%97%22%2C%22sku%22%2C%22SKU-001%22%5D&shopKey=%E4%BA%AC%E4%B8%9C%1F%E5%BF%97%E9%AB%98%E5%95%86%E7%94%A8%E8%AE%BE%E5%A4%87%E6%97%97%E8%88%B0%E5%BA%97&objectId=686b2d1fa506b220689a4962a6b4f0feeb253d9f5a89c6024859e576203af4f9&sectionToken=fabdfb97012cf276802c1ca12eb217259e9ffbe7748e824174c5bbb6ebdae3cc",
+      "owningRevision": "6:cc2ab9667d7e",
+      "bytes": 22233,
+      "sha256": "b427e687a6c0c09f186a48d8c9fa661e8e7b90136c90b3634e56d982560d8958"
+    },
+    {
+      "name": "diagnostic-current",
+      "endpoint": "/api/netshop/promotion-diagnostic",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%BF%97%E9%AB%98%E5%95%86%E7%94%A8%E8%AE%BE%E5%A4%87%E6%97%97%E8%88%B0%E5%BA%97&startDate=2026-09-01&endDate=2026-09-07",
+      "owningRevision": "6:cc2ab9667d7e",
+      "bytes": 14108,
+      "sha256": "5117f44cf58a95367d8a9847e25f993affbc1fcd2b4c57a2ef71750cf275ffdd"
+    },
+    {
+      "name": "diagnostic-previous-equal",
+      "endpoint": "/api/netshop/promotion-diagnostic",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%BF%97%E9%AB%98%E5%95%86%E7%94%A8%E8%AE%BE%E5%A4%87%E6%97%97%E8%88%B0%E5%BA%97&startDate=2026-08-25&endDate=2026-08-31",
+      "owningRevision": "6:cc2ab9667d7e",
+      "bytes": 14147,
+      "sha256": "aa2b9daa2b8ffd50d11bad638107083ab3235fa8dda41fc1d144a465b9338331"
+    }
+  ]
+}

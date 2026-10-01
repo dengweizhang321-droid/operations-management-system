@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { readModuleViewSelection } from "../app/shell/use-module-view-state";
+import { moduleViewCatalog } from "../app/shell/navigation-catalog";
+import { parseShellLocation, updateModuleViewLocation } from "../app/shell/navigation-contract";
 
 const pagePath = new URL("../app/page.tsx", import.meta.url);
 const hookPath = new URL("../app/shell/use-module-view-state.ts", import.meta.url);
@@ -47,13 +49,22 @@ test("page modules consume one controlled view and route tab clicks through the 
 
   for (const [index, moduleName] of ["ShopView", "SalesView", "InventoryView", "ProductView", "ImportView"].entries()) {
     const declaration = new RegExp(`export default function ${moduleName}\\([^)]*moduleView[^)]*onModuleViewChange`);
-    assert.match(moduleSources[index] ?? "", declaration, `${moduleName} must be controlled by the shell view`);
+    assert.match(moduleSources[index] ?? "", moduleName === "ShopView" ? /export default function ShopView\(props: ShopViewProps/ : declaration, `${moduleName} must be controlled by the shell view`);
   }
   assert.match(source, /Component: SettingsView \} = createReloadableLazy\("settings", \(\) => import\("\.\/settings-view"\)\)/);
   assert.match(source, /settings: \([^\n]+moduleView[^\n]+<SettingsView[^\n]+onModuleViewChange/);
   assert.match(source, /Component: AiModuleView \} = createReloadableLazy\("ai", \(\) => import\("\.\/ai-module-view"\)\)/);
   assert.match(source, /ai: \([^\n]+moduleView[^\n]+<AiModuleView[^\n]+onModuleViewChange/);
-  assert.ok((moduleSources.join("\n").match(/onModuleViewChange\("/g) ?? []).length >= 14);
+  // Tabs can live in shared/column components. Exercise every catalog value
+  // through the single shell transition rather than count call-site strings.
+  for (const moduleKey of ["shop", "sales", "inventory", "product", "import"] as const) {
+    for (const view of moduleViewCatalog[moduleKey].views) {
+      const location = updateModuleViewLocation("/?period=custom&from=2026-09-01&to=2026-09-07", moduleKey, view);
+      const state = parseShellLocation(location);
+      assert.equal(state.module, moduleKey); assert.equal(state.view, view);
+      assert.deepEqual(state.period, { kind: "custom", from: "2026-09-01", to: "2026-09-07" });
+    }
+  }
 });
 
 test("deep links wait for shell location before mounting a business view", async () => {

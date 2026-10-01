@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ApiError } from "@/lib/http/api-error";
 import { netshopOutletFilterKey } from "./module-view-shared";
 import { appendPromotionRelations, linksForPromotionTarget, type RelationLink } from "@/lib/jd/promotion-diagnostic-relations";
 import { promotionSystemSourceReady } from "@/lib/jd/promotion-diagnostic-identity";
@@ -9,9 +10,13 @@ import {
   buildPromotionDiagnosticReport,
   promotionDiagnosticHtml,
   promotionDiagnosticXlsx,
+  promotionDiagnosticDisplayReport,
+  validateDiagnosticResponse,
+  PromotionDiagnosticBindingError,
   type DiagnosticPeriod,
   type PromotionDiagnosticReport,
   type ReportColumn,
+  type PromotionDiagnosticExportOptions,
 } from "@/lib/jd/promotion-diagnostic-report";
 
 function previousPeriod(startDate: string, endDate: string) {
@@ -41,14 +46,30 @@ function download(name: string, bytes: BlobPart, type: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
-export default function PromotionDiagnosticPanel({ shopName, startDate, endDate }: {
+export default function PromotionDiagnosticPanel({ shopName, startDate, endDate, allowPaidModel = true, ratioLabel = "ROAS", expectedOwningRevision, onReadInvalidated, includeExportProvenance = false }: {
   shopName: string;
   startDate: string;
   endDate: string;
+  allowPaidModel?: boolean;
+  ratioLabel?: "ROI" | "ROAS";
+  expectedOwningRevision?: string;
+  onReadInvalidated?: (code: string, message: string) => void;
+  includeExportProvenance?: boolean;
 }) {
-  const [report, setReport] = useState<PromotionDiagnosticReport | null>(null);
-  const [source, setSource] = useState<DiagnosticPeriod | null>(null);
-  const [baselineSource, setBaselineSource] = useState<DiagnosticPeriod | null>(null);
+  const [storedReport, setReport] = useState<PromotionDiagnosticReport | null>(null);
+  const [storedSource, setSource] = useState<DiagnosticPeriod | null>(null);
+  const [storedBaselineSource, setBaselineSource] = useState<DiagnosticPeriod | null>(null);
+  const [loadedScope, setLoadedScope] = useState("");
+  const scopeKey = JSON.stringify([shopName, startDate, endDate, expectedOwningRevision ?? null, allowPaidModel]);
+  const report = loadedScope === scopeKey ? storedReport : null;
+  const source = loadedScope === scopeKey ? storedSource : null;
+  const baselineSource = loadedScope === scopeKey ? storedBaselineSource : null;
+  const exportOptions = useMemo<PromotionDiagnosticExportOptions>(() => includeExportProvenance ? {
+    ratioLabel, includeProvenance: true, baselineProvenance: baselineSource ? {
+      identity: baselineSource.identity, period: baselineSource.period, sourceRevision: baselineSource.sourceRevision, coverage: baselineSource.coverage,
+    } : null,
+  } : { ratioLabel }, [includeExportProvenance, ratioLabel, baselineSource]);
+  const displayReport = useMemo(() => report ? promotionDiagnosticDisplayReport(report, { ratioLabel }) : null, [report, ratioLabel]);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -62,9 +83,20 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
   const [relationFilter, setRelationFilter] = useState<RelationLink | null>(null);
   const requestRef = useRef<AbortController | null>(null);
   const aiRequestRef = useRef<AbortController | null>(null);
+  const liveScopeRef = useRef({ key: scopeKey, allowPaidModel });
 
-  useEffect(() => () => { requestRef.current?.abort(); requestRef.current = null; aiRequestRef.current?.abort(); aiRequestRef.current = null; }, []);
-  const table = report?.tables.find((item) => item.key === selected) ?? report?.tables[0];
+  useLayoutEffect(() => {
+    liveScopeRef.current = { key: scopeKey, allowPaidModel };
+    requestRef.current?.abort(); requestRef.current = null;
+    aiRequestRef.current?.abort(); aiRequestRef.current = null;
+    queueMicrotask(() => {
+      if (liveScopeRef.current.key !== scopeKey) return;
+      setReport(null); setSource(null); setBaselineSource(null); setLoadedScope("");
+      setLoading(false); setAiLoading(false); setError(""); setAiError(""); setFocus(null); setRelationFilter(null);
+    });
+    return () => { liveScopeRef.current = { key: "", allowPaidModel: false }; requestRef.current?.abort(); requestRef.current = null; aiRequestRef.current?.abort(); aiRequestRef.current = null; };
+  }, [scopeKey, allowPaidModel]);
+  const table = displayReport?.tables.find((item) => item.key === selected) ?? displayReport?.tables[0];
   const rows = useMemo(() => {
     if (!table) return [];
     const query = search.trim().toLocaleLowerCase();
@@ -91,7 +123,7 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
   const links = focus && source ? linksForPromotionTarget(source, focus.tableKey, focus.groupKey) : [];
   const systemSourceReady = Boolean(source && baselineSource && report?.comparisonAvailable
     && promotionSystemSourceReady(source, baselineSource));
-  const aiBlockReason = !baselineSource ? "前等长周期未读取，AI解读暂不可用。"
+  const aiBlockReason = !allowPaidModel ? "本栏目仅做规则诊断，模型解释未启用。" : !baselineSource ? "前等长周期未读取，AI解读暂不可用。"
     : !report?.comparisonAvailable ? "前等长周期覆盖或来源修订不可比，AI解读暂不可用。"
     : "系统导入批次归属不完整，暂不发送给模型。";
 
@@ -108,6 +140,7 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
   }
 
   async function load() {
+    if (liveScopeRef.current.key !== scopeKey) return;
     requestRef.current?.abort();
     aiRequestRef.current?.abort();
     aiRequestRef.current = null;
@@ -116,33 +149,35 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
     setLoading(true); setAiLoading(false); setError(""); setAiError(""); setReport(null); setSource(null); setBaselineSource(null);
     try {
       const previous = previousPeriod(startDate, endDate);
-      async function read(from: string, to: string) {
+      async function read(from: string, to: string, expectedRevision = expectedOwningRevision) {
         const query = new URLSearchParams({ platform: "京东", outlet: netshopOutletFilterKey("京东", shopName), startDate: from, endDate: to });
         const response = await fetch(`/api/netshop/promotion-diagnostic?${query.toString()}`, { cache: "no-store", signal: controller.signal });
-        const payload = await response.json().catch(() => null) as (DiagnosticPeriod & { error?: string }) | null;
-        if (!response.ok || payload?.schemaVersion !== "jd-promotion-diagnostic-v1") {
-          throw new Error(payload?.error || `推广诊断数据读取失败（${response.status}）`);
-        }
-        return payload;
+        const payload = await response.json().catch(() => null) as (DiagnosticPeriod & { error?: string; code?: string }) | null;
+        if (!response.ok) throw new ApiError({ status: response.status, code: payload?.code, message: payload?.error || `推广诊断数据读取失败（${response.status}）` });
+        if (!payload) throw new PromotionDiagnosticBindingError("推广诊断响应格式不完整");
+        return validateDiagnosticResponse(payload, response.headers.get("X-Netshop-Data-Revision"), { shopName, startDate: from, endDate: to, expectedOwningRevision: expectedRevision });
       }
       const current = await read(startDate, endDate);
       let baseline: DiagnosticPeriod | null = null;
       let baselineIssue = "";
-      try { baseline = await read(previous.startDate, previous.endDate); }
+      try { baseline = await read(previous.startDate, previous.endDate, current.sourceRevision); }
       catch (caught) {
-        if (controller.signal.aborted) throw caught;
+        if (controller.signal.aborted || caught instanceof PromotionDiagnosticBindingError || caught instanceof ApiError && ([401, 403].includes(caught.status) || caught.status === 409 && (caught.code === "promotion_diagnostic_binding_changed" || caught.code?.endsWith("revision_changed")))) throw caught;
         baselineIssue = caught instanceof Error ? caught.message : "前等长周期不可用";
       }
       const built = appendPromotionRelations(buildPromotionDiagnosticReport(current, baseline), current);
       if (baselineIssue) built.limitations.push(`前等长周期读取失败：${baselineIssue}；环比留空。`);
-      if (requestRef.current !== controller || controller.signal.aborted) return;
+      if (requestRef.current !== controller || controller.signal.aborted || liveScopeRef.current.key !== scopeKey) return;
       setReport(built);
       setSource(current);
       setBaselineSource(baseline);
+      setLoadedScope(scopeKey);
       openTable("summary");
     } catch (caught) {
-      if (requestRef.current === controller && !controller.signal.aborted) {
+      if (requestRef.current === controller && !controller.signal.aborted && liveScopeRef.current.key === scopeKey) {
         setError(caught instanceof Error ? caught.message : "无法生成推广诊断草稿");
+        if (caught instanceof PromotionDiagnosticBindingError) onReadInvalidated?.(caught.code, caught.message);
+        else if (caught instanceof ApiError && ([401, 403].includes(caught.status) || caught.status === 409 && (caught.code === "promotion_diagnostic_binding_changed" || caught.code?.endsWith("revision_changed")))) onReadInvalidated?.(caught.code || "access_denied", caught.message);
       }
     } finally {
       if (requestRef.current === controller) {
@@ -153,7 +188,7 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
   }
 
   async function interpretFocused() {
-    if (!report || !focus || !systemSourceReady || aiLoading || report.tables.some((item) => item.key === "modelInterpretation")) return;
+    if (!allowPaidModel || !liveScopeRef.current.allowPaidModel || liveScopeRef.current.key !== scopeKey || !report || !focus || !systemSourceReady || aiLoading || report.tables.some((item) => item.key === "modelInterpretation")) return;
     const controller = new AbortController();
     aiRequestRef.current = controller;
     setAiLoading(true); setAiError("");
@@ -168,7 +203,7 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
       if (!response.ok || !payload?.interpretation || payload.sourceRevision !== report.sourceRevision) {
         throw new Error(payload?.error || `AI 解读失败（${response.status}）`);
       }
-      if (aiRequestRef.current === controller && !controller.signal.aborted) {
+      if (aiRequestRef.current === controller && !controller.signal.aborted && liveScopeRef.current.key === scopeKey && liveScopeRef.current.allowPaidModel) {
         setReport((active) => active && active.sourceRevision === report.sourceRevision
           && active.period.startDate === report.period.startDate && active.period.endDate === report.period.endDate
           ? attachPromotionInterpretation(active, prepared, payload.interpretation!) : active);
@@ -186,7 +221,7 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
   const fileBase = `${shopName.replace(/[<>:"/\\|?*]/g, "_")}_${startDate}_${endDate}_推广诊断`;
   return <section className="panel" aria-label="京东推广深度诊断首版">
     <div className="table-toolbar">
-      <div><h2>推广深度诊断 · {report?.tables.some((item) => item.key === "modelInterpretation") ? "规则与单模型解释" : "规则草稿"}</h2><p>一店一周期；数值由京准通已导入事实汇总。AI 只解释已核对的对象证据，所有建议待运营复核，不自动调整投放。</p></div>
+      <div><h2>推广深度诊断 · {report?.tables.some((item) => item.key === "modelInterpretation") ? "规则与单模型解释" : "规则草稿"}</h2><p>独立1—7天报告，基期为前等长周期，不替代全页环比/同比导出。数值由京准通已导入事实汇总；建议待运营复核，不自动调整投放。</p></div>
       <button type="button" className="primary-button" disabled={loading || aiLoading} onClick={() => void load()}>{loading ? "正在核对来源…" : "生成当前周期诊断"}</button>
     </div>
     {error && <div className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>诊断未生成</strong><p>{error}</p></div></div>}
@@ -201,8 +236,8 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
         : "前等长周期不可比，环比留空"}。平台归因订单金额不是 ERP 净销售或利润。</p>
       <div className="table-toolbar"><div><strong>可查看的表与建议</strong><p>各分组是同一来源的不同视角，不跨表累加。</p></div>
         <div>
-          <button className="secondary-button" disabled={!report.complete} onClick={() => download(`${fileBase}.html`, promotionDiagnosticHtml(report), "text/html;charset=utf-8")}>导出 HTML</button>{" "}
-          <button className="secondary-button" disabled={!report.complete} onClick={() => download(`${fileBase}.xlsx`, Uint8Array.from(promotionDiagnosticXlsx(report)), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}>导出 XLSX</button>
+          <button className="secondary-button" disabled={!report.complete} onClick={() => download(`${fileBase}.html`, promotionDiagnosticHtml(report, exportOptions), "text/html;charset=utf-8")}>导出 HTML</button>{" "}
+          <button className="secondary-button" disabled={!report.complete} onClick={() => download(`${fileBase}.xlsx`, Uint8Array.from(promotionDiagnosticXlsx(report, exportOptions)), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}>导出 XLSX</button>
         </div>
       </div>
       <div className="store-metrics-grid">{[
@@ -212,12 +247,12 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
         ["归因订单行", formatCell(report.metrics.reportedOrderLines, "number")],
         ["归因总订单金额", report.metrics.reportedGmvCents === null ? "—" : formatCell(report.metrics.reportedGmvCents / 100, "money")],
       ].map(([label, value]) => <div className="panel" key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
-      <div className="grid">{report.findings.map((finding) => <article className="panel" key={finding.title}><h3>{finding.title}</h3><p>{finding.text}</p><button className="row-action" onClick={() => openTarget(finding.target, finding.tableKey)}>查看证据</button></article>)}</div>
-      <div className="subnav" role="tablist" aria-label="推广诊断表">{report.tables.map((item) => <button key={item.key} type="button" role="tab" aria-selected={table?.key === item.key} className={table?.key === item.key ? "active" : ""} onClick={() => openTable(item.key)}>{item.title}</button>)}</div>
+      <div className="grid">{displayReport!.findings.map((finding) => <article className="panel" key={finding.title}><h3>{finding.title}</h3><p>{finding.text}</p><button className="row-action" onClick={() => openTarget(finding.target, finding.tableKey)}>查看证据</button></article>)}</div>
+      <div className="subnav" role="tablist" aria-label="推广诊断表">{displayReport!.tables.map((item) => <button key={item.key} type="button" role="tab" aria-selected={table?.key === item.key} className={table?.key === item.key ? "active" : ""} onClick={() => openTable(item.key)}>{item.title}</button>)}</div>
       {table && <><p className="muted">{table.note}</p>
         {(focus || relationFilter) && <div className="table-toolbar"><strong>{focus ? `已定位来源键 ${focus.groupKey}` : `已筛选 ${relationFilter?.label}`}</strong><button className="row-action" onClick={() => openTable(table.key)}>查看当前表全部</button></div>}
         {links.length > 0 && <div className="table-toolbar"><span>沿同一来源行查看：</span>{links.map((link) => <button key={`${link.tableKey}:${link.columnKey}`} type="button" className="row-action" onClick={() => openRelation(link)}>{link.label}</button>)}</div>}
-        {focus && ["plans", "products", "keywords", "searchTerms", "keywordSku"].includes(focus.tableKey) && <div className="table-toolbar"><button type="button" className="secondary-button" disabled={!systemSourceReady || aiLoading || report.tables.some((item) => item.key === "modelInterpretation")} onClick={() => void interpretFocused()}>{aiLoading ? "正在生成 AI 解读…" : "用现有模型解释此对象"}</button><span className="muted">{systemSourceReady ? "手动单次调用，沿用模型最大输出 65,536 Token；按服务商实际计费。" : aiBlockReason}</span></div>}
+        {focus && ["plans", "products", "keywords", "searchTerms", "keywordSku"].includes(focus.tableKey) && <div className="table-toolbar"><button type="button" className="secondary-button" disabled={!allowPaidModel || !systemSourceReady || aiLoading || report.tables.some((item) => item.key === "modelInterpretation")} onClick={() => void interpretFocused()}>{aiLoading ? "正在生成 AI 解读…" : "用现有模型解释此对象"}</button><span className="muted">{allowPaidModel && systemSourceReady ? "手动单次调用，沿用模型最大输出 65,536 Token；按服务商实际计费。" : aiBlockReason}</span></div>}
         <div className="table-toolbar"><label>搜索当前表 <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(0); }} /></label><label>排序列 <select value={sortColumn} onChange={(event) => { setSortColumn(event.target.value); setPage(0); }}><option value="">原始顺序</option>{table.columns.map((column, index) => <option key={column.key} value={index}>{column.label}</option>)}</select></label><button className="row-action" onClick={() => setDescending((value) => !value)}>{descending ? "降序" : "升序"}</button></div>
         <div className="data-table-wrap"><table className="data-table"><thead><tr>{table.columns.map((column) => <th key={column.key}>{column.label}</th>)}{table.key === "actions" && <th>证据</th>}</tr></thead><tbody>{visible.map((row, index) => {
           const action = table.key === "actions" ? report.actions[table.rows.indexOf(row)] : undefined;
@@ -225,7 +260,7 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
         })}</tbody></table></div>
         <footer className="promotion-pagination"><span>{rows.length.toLocaleString()} / {table.rows.length.toLocaleString()} 行 · 第 {Math.min(page, pages - 1) + 1} / {pages} 页</span><button className="row-action" disabled={page <= 0} onClick={() => setPage((value) => value - 1)}>上一页</button><button className="row-action" disabled={page + 1 >= pages} onClick={() => setPage((value) => value + 1)}>下一页</button></footer>
       </>}
-      <details><summary>数据口径与限制</summary><ul>{report.limitations.map((item, index) => <li key={index}>{item}</li>)}</ul></details>
+      <details><summary>数据口径与限制</summary><ul>{displayReport!.limitations.map((item, index) => <li key={index}>{item}</li>)}</ul></details>
     </>}
   </section>;
 }

@@ -14,6 +14,7 @@ const inventoryPath = new URL("../app/inventory-module-view.tsx", import.meta.ur
 const customerServicePath = new URL("../app/customer-service-view.tsx", import.meta.url);
 
 function viewSource(page: string, start: string, end: string) {
+  page = page.replace(/\r\n/g, "\n");
   const startIndex = page.indexOf(start);
   const endIndex = page.indexOf(end, startIndex);
   assert.ok(startIndex >= 0, `missing view start: ${start}`);
@@ -84,7 +85,9 @@ test("netshop views send platform-qualified outlets instead of independent shop-
   assert.match(promotion, /selectedOutletKeys\.forEach\(\(outlet\) => params\.append\("outlet", outlet\)\)/);
   assert.match(promotion, /const promotionItemsSnapshotToken = scopedItems\?\.snapshotToken \?\? ""/);
   assert.match(promotion, /promotionOverview\?\.snapshotToken === promotionItemsSnapshotToken/);
-  assert.match(promotion, /const currentItems = hasCompleteScopedPair \|\| !promotionDisplayPair/);
+  assert.match(promotion, /const retainedPromotionPair = promotionDisplayPair\?\.scopeKey === promotionScopeKey \? promotionDisplayPair : null/);
+  assert.match(promotion, /const currentItems = hasCompleteScopedPair \|\| !retainedPromotionPair/);
+  assert.doesNotMatch(promotion, /:\s*promotionDisplayPair\.(items|overview)/);
   assert.match(promotion, /const promotionShops = \(currentOverview\?\.filterOptions\.shops \?\? \[\]\)/);
   assert.match(promotion, /netshopOutletFilterKey\(shop\.platform, shop\.shopName\)/);
   assert.doesNotMatch(promotion, /params\.append\("shop"/);
@@ -158,7 +161,10 @@ test("netshop catalog and daily product pages pair lightweight projections with 
   assert.match(daily, /currentPerformanceSnapshotTokenRef\.current = currentResult\.payload\.snapshotToken/);
   assert.match(daily, /comparisonPerformanceSnapshotTokenRef\.current = comparisonResult\.payload\.snapshotToken/);
   assert.match(daily, /current\.snapshotToken === currentResult\.expectedSnapshotToken[\s\S]+items: currentResult\.payload\.items, pagination: currentResult\.payload\.pagination/);
-  assert.match(daily, /current\.snapshotToken === comparisonResult\.expectedSnapshotToken[\s\S]+items: comparisonResult\.payload\.items, pagination: comparisonResult\.payload\.pagination/);
+  assert.match(daily, /comparisonResult\?\.kind === "page"[\s\S]+const comparisonPageResult = comparisonResult/);
+  assert.match(daily, /current\.snapshotToken === comparisonPageResult\.expectedSnapshotToken[\s\S]+comparisonPerformanceBootstrapKeyRef\.current === comparisonPageResult\.scopeKey[\s\S]+items: comparisonPageResult\.payload\.items, pagination: comparisonPageResult\.payload\.pagination/);
+  assert.match(daily, /view: "identities"[\s\S]+paired\.sourceRevision !== revision[\s\S]+comparisonResult\.payload\.items = paired\.items/);
+  assert.doesNotMatch(daily, /scopedComparisonPerformance \?\? comparisonPerformanceResponse/);
   assert.match(daily, /onChange=\{\(event\) => setQuery\(event\.target\.value\)\}/);
 });
 

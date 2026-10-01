@@ -1,0 +1,12 @@
+.insights-filter-bar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; background:var(--color-bg-panel,#fff); padding:12px 16px; border:1px solid var(--color-border-default,#e7ebe9); border-radius:10px; font:inherit; }
+.insights-filter-bar-sticky { position:sticky; top:var(--insights-sticky-top,0px); z-index:10; }
+.insights-metric { display:grid; gap:4px; min-width:0; }
+.insights-metric > span { font-size:var(--font-size-label,13px); font-weight:600; }
+.insights-metric > strong { font-size:var(--font-size-kpi,24px); font-weight:700; overflow-wrap:anywhere; }
+.insights-metric > small,.insights-coverage { color:var(--color-text-muted,#66756b); font-size:var(--font-size-caption,12px); }
+.insights-coverage { padding:8px 0; overflow-wrap:anywhere; }
+.insights-comparison { white-space:nowrap; }
+.insights-pagination { flex-wrap:wrap; }
+.insights-pagination.jd-sku-pagination,.insights-pagination .row-action,.insights-read-state button { font-size:var(--font-size-label,13px); font-family:inherit; }
+.insights-read-state,.insights-read-state p { font-size:var(--font-size-body,14px); }
+.insights-read-state strong { font-size:var(--font-size-card-title,16px); }

@@ -8,6 +8,7 @@ from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
 
 from django.db.models import Count, Max, Min, Q, Sum
+from django.utils import timezone
 
 from sales.auth import Principal
 
@@ -18,6 +19,7 @@ from .models import (
     NetshopProductDailyRevision,
     NetshopProductDailyScopeRevision,
     NetshopPromotionAggregateManifest,
+    NetshopPromotionAggregateState,
     NetshopPromotionProductDaily,
     NetshopPromotionScopeRevision,
     NetshopPromotionShopDaily,
@@ -277,7 +279,7 @@ def _empty_sales() -> dict[str, object]:
     }
 
 
-def _catalog_item(row: NetshopRow, asset: NetshopRow | None) -> tuple[dict[str, object], str]:
+def _catalog_item(row: NetshopRow, asset: NetshopRow | None, *, include_source_snapshots: bool = False) -> tuple[dict[str, object], str]:
     raw = row.raw_json
     asset_raw = asset.raw_json if asset else {}
     spu_id = row.spu_id or str(raw.get("商品ID") or raw.get("商品编码") or "").strip()
@@ -315,6 +317,9 @@ def _catalog_item(row: NetshopRow, asset: NetshopRow | None) -> tuple[dict[str, 
         "snapshotDate": row.snapshot_date,
         **_empty_sales(),
     }
+    if include_source_snapshots:
+        image_date = asset.snapshot_date if asset and (asset.image_content_sha256 or asset.image_url) else row.snapshot_date if row.image_url else None
+        item["catalogSnapshotDates"] = {"master": row.snapshot_date, "price": row.snapshot_date, "inventory": row.snapshot_date, "image": image_date}
     return item, sales_code
 
 
@@ -329,6 +334,7 @@ def product_catalog(
     sales_period: Mapping[str, object] | None,
     view: str,
     expected_snapshot_token: str | None,
+    catalog_filters: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     if len(query) > 120:
         raise NetshopApiError("q 最多 120 个字符")
@@ -346,8 +352,23 @@ def product_catalog(
         if not outlet_keys or (item.platform, item.shop_name) in outlet_keys
     ]
     asset_batches = _latest_asset_batches([(item.platform, item.shop_name) for item in selected])
-    snapshot = _canonical_token(
-        {
+    filter_binding = None
+    filter_capabilities = None
+    as_of_date = timezone.localdate()
+    if catalog_filters and catalog_filters.get("requested"):
+        from .catalog_filters import catalog_filter_binding
+        filter_capabilities = {
+            "latestMaster": True,
+            "scopeKey": _canonical_token({"platforms": list(platforms), "outlets": list(outlets), "principal": [principal.email, principal.role, principal.scope], "heads": sorted((b.platform, b.shop_name, b.source, b.id) for b in selected)}),
+            "sourceVersion": revision_value(),
+            "fields": {key: True for key in ("product_status", "catalog_code", "category", "snapshot_date", "image_lookup", "exact_identity")},
+        }
+        # Server-owned opt-in to the implemented current-snapshot proof. The
+        # predicate independently verifies full master/asset ownership, exact
+        # priority and code uniqueness, and rejects ambiguous/global fallbacks.
+        filter_capabilities["fields"]["jd_code_fallback"] = True
+        filter_binding = catalog_filter_binding(catalog_filters, as_of_date=as_of_date, capabilities=filter_capabilities)
+    snapshot_input = {
             "version": 2,
             "kind": "catalog",
             "revision": revision_value(),
@@ -364,7 +385,9 @@ def product_catalog(
                 [key + (value.id, value.snapshot_date or "") for key, value in asset_batches.items()]
             ),
         }
-    )
+    if filter_binding is not None:
+        snapshot_input["catalogFilters"] = filter_binding
+    snapshot = _canonical_token(snapshot_input)
     if view == "page" and expected_snapshot_token != snapshot:
         raise NetshopApiError(
             "货品目录版本已变化，请重新加载",
@@ -402,6 +425,9 @@ def product_catalog(
         availableInventory=Sum("inventory_quantity"),
     )
     on_sale = rows.filter(product_status="上架").count()
+    if filter_binding is not None:
+        from .catalog_filters import apply_catalog_filters
+        rows = apply_catalog_filters(rows, catalog_filters, as_of_date=as_of_date, capabilities=filter_capabilities)
     if query:
         rows = rows.filter(
             Q(shop_name__icontains=query)
@@ -427,7 +453,7 @@ def product_catalog(
             asset = assets.get((row.platform, row.shop_name, f"sku:{row.sku_id}")) or assets.get(
                 (row.platform, row.shop_name, f"code:{row.product_code}")
             )
-        internal_items.append(_catalog_item(row, asset))
+        internal_items.append(_catalog_item(row, asset, include_source_snapshots=filter_binding is not None))
     outlet_scopes = [
         {"platform": item.platform, "shopName": item.shop_name}
         for item in selected
@@ -481,6 +507,9 @@ def product_catalog(
             "truncated": offset + len(items) < total,
         },
     }
+    if filter_binding is not None:
+        page_payload["catalogFilters"] = {**filter_binding, "summaryBasis": "complete_store_set_before_table_filters", "filteredRows": total}
+        page_payload["catalogFilterCapabilities"] = {"mapping": {"supportedValues": ["all"], "reasonCode": "unverified_source"}, "unverified_mapping": {"supported": False, "reasonCode": "unverified_source"}, "missing_image": {"supported": filter_capabilities["fields"]["image_lookup"], "reasonCode": None if filter_capabilities["fields"]["image_lookup"] else "unverified_source"}}
     if view == "page":
         return page_payload
     return {
@@ -548,6 +577,18 @@ PERFORMANCE_SUM_FIELDS = (
     "search_visitors",
     "search_transaction_customers",
 )
+
+PERFORMANCE_FIELD_ALIASES = {
+    "page_views": ("pageViews", "商品浏览量"), "visitors": ("visitors", "商品访客数"),
+    "search_impressions": ("searchImpressions", "搜索曝光次数"), "search_clicks": ("searchClicks", "搜索点击次数"),
+    "add_cart_customers": ("addCartCustomers", "加购客户数"), "add_cart_quantity": ("addCartQuantity", "加购商品件数"),
+    "order_customers": ("orderCustomers", "下单客户数"), "order_quantity": ("orderQuantity", "下单商品件数"),
+    "order_amount_cents": ("orderAmountCents", "下单金额"), "transaction_orders": ("transactionOrders", "成交单量"),
+    "transaction_amount_cents": ("transactionAmountCents", "成交金额"), "transaction_quantity": ("transactionQuantity", "成交商品件数"),
+    "transaction_customers": ("transactionCustomers", "成交客户数"), "favorites": ("favorites",),
+    "refund_amount_cents": ("refundAmountCents",), "search_visitors": ("searchVisitors",),
+    "search_transaction_customers": ("searchTransactionCustomers",),
+}
 
 
 def _sum_annotations(fields: Sequence[str] = PERFORMANCE_SUM_FIELDS) -> dict[str, object]:
@@ -648,11 +689,13 @@ def product_performance(
     requested_period: Mapping[str, object] | None,
     view: str,
     expected_snapshot_token: str | None,
+    identities: Sequence[tuple[str, str, str, str]] = (),
+    expected_source_revision: str | None = None,
 ) -> dict[str, object]:
     if dimension not in {"sku", "spu"}:
         raise NetshopApiError("dimension 必须且只能是 sku 或 spu")
-    if view not in {"summary", "full", "page"}:
-        raise NetshopApiError("view 必须是 summary、full 或 page")
+    if view not in {"summary", "full", "page", "identities"}:
+        raise NetshopApiError("view 必须是 summary、full、page 或 identities")
     if len(query) > 120:
         raise NetshopApiError("q 最多 120 个字符")
     dataset = "sku_daily" if dimension == "sku" else "spu_daily"
@@ -681,6 +724,15 @@ def product_performance(
         query_filter |= Q(**{f"{identity_field}__icontains": query})
         rows = rows.filter(query_filter)
     revision = revision_value()
+    if view == "identities":
+        if not identities or len(identities) > 100 or expected_source_revision != revision:
+            raise NetshopApiError("精确配对来源版本已变化或身份无效", code="insights_revision_changed", status=409)
+        exact = Q(pk__in=[])
+        for platform, name, kind, product in identities:
+            if kind != dimension:
+                raise NetshopApiError("配对维度不一致")
+            exact |= Q(platform=platform, shop_name=name, **{identity_field: product})
+        rows = rows.filter(exact)
     scope_revisions = list(
         NetshopProductDailyScopeRevision.objects.filter(
             platform__in=platforms or ["京东", "天猫"]
@@ -696,6 +748,7 @@ def product_performance(
             "period": requested_period,
             "platforms": list(platforms),
             "outlets": list(outlets),
+            "identities": list(identities),
             "scopeRevisions": sorted(scope_revisions),
         }
     )
@@ -707,11 +760,14 @@ def product_performance(
         )
     identity_values = ("platform", "shop_name", identity_field)
     product_count = rows.values(*identity_values).distinct().count()
+    from .store_overview import NumericMetricPresent
     aggregate = rows.aggregate(
         date_min=Min("business_date"),
         date_max=Max("business_date"),
         date_count=Count("business_date", distinct=True),
         **_sum_annotations(),
+        row_count=Count("id"),
+        **{field+"_present": Count("id", filter=NumericMetricPresent(aliases)) for field, aliases in PERFORMANCE_FIELD_ALIASES.items()},
     )
     aggregate["product_count"] = product_count
     summary_payload = _performance_summary_payload(
@@ -720,6 +776,18 @@ def product_performance(
         dimension=dimension,
         requested_period=requested_period,
     )
+    summary_payload["sourceRevision"] = revision
+    selected_shops = {(o["platform"], o["shopName"]) for o in outlets} if outlets else set(unrestricted.values_list("platform", "shop_name").distinct()[:MAX_OUTLETS+1])
+    if len(selected_shops) > MAX_OUTLETS:
+        raise NetshopApiError("商品表现店铺超过50家，请缩小范围")
+    expected_pairs = len(selected_shops)*int(requested_period["days"]) if requested_period else 0
+    actual_pairs = rows.values("platform", "shop_name", "business_date").distinct().count()
+    safe_limit = 9_007_199_254_740_991
+    summary_payload["summaryFieldAvailability"] = {
+        aliases[0]: {"complete": expected_pairs > 0 and actual_pairs == expected_pairs and aggregate[field+"_present"] == aggregate["row_count"] and abs(_zero(aggregate[field])) <= safe_limit,
+                     "reasonCode": "unsafe_integer" if abs(_zero(aggregate[field])) > safe_limit else "missing_field" if aggregate[field+"_present"] != aggregate["row_count"] else "incomplete_coverage" if expected_pairs == 0 or actual_pairs != expected_pairs else None}
+        for field, aliases in PERFORMANCE_FIELD_ALIASES.items()
+    }
     if view == "summary":
         return summary_payload
     grouped = rows.values(*identity_values).annotate(
@@ -734,10 +802,19 @@ def product_performance(
         **_sum_annotations(),
     ).order_by("-transaction_amount_cents", "-visitors", identity_field)
     offset = (page - 1) * page_size
+    if view == "identities": offset, page_size = 0, len(identities)
     grouped_page = list(grouped[offset : offset + page_size])
+    presence_filter = Q(pk__in=[])
+    for selected in grouped_page:
+        presence_filter |= Q(platform=selected["platform"], shop_name=selected["shop_name"], **{identity_field: selected[identity_field]})
+    presence_by_identity = {(r["platform"], r["shop_name"], r[identity_field]): r for r in rows.filter(presence_filter).values(*identity_values).annotate(
+        row_count=Count("id"),
+        **{field+"_present": Count("id", filter=NumericMetricPresent(aliases)) for field, aliases in PERFORMANCE_FIELD_ALIASES.items()},
+    )} if grouped_page else {}
     assets = _performance_assets(grouped_page)
     items: list[dict[str, object]] = []
     for row in grouped_page:
+        row.update(presence_by_identity[(row["platform"], row["shop_name"], row[identity_field])])
         platform = str(row["platform"])
         shop_name = str(row["shop_name"])
         sku_id = str(row["sku_id_value"] or "")
@@ -801,10 +878,14 @@ def product_performance(
                 "searchTransactionCustomers": _zero(row["search_transaction_customers"]),
                 "uvValue": transaction_amount / 100 / visitors if visitors > 0 else None,
                 "conversionRate": transaction_customers / visitors if visitors > 0 else None,
+                "fieldAvailability": {aliases[0]: {"complete": bool(requested_period) and row["data_days"] == requested_period["days"] and row[field+"_present"] == row["row_count"] and abs(_zero(row[field])) <= safe_limit,
+                                                   "reasonCode": "unsafe_integer" if abs(_zero(row[field])) > safe_limit else "missing_field" if row[field+"_present"] != row["row_count"] else "incomplete_coverage" if not requested_period or row["data_days"] != requested_period["days"] else None}
+                                      for field, aliases in PERFORMANCE_FIELD_ALIASES.items()},
             }
         )
     page_payload: dict[str, object] = {
         "snapshotToken": snapshot,
+        "sourceRevision": revision,
         "items": items,
         "pagination": {
             "page": page,
@@ -814,6 +895,9 @@ def product_performance(
             "truncated": offset + len(items) < product_count,
         },
     }
+    if view == "identities":
+        found = {(i["platform"], i["shopNames"][0], dimension, i["id"]) for i in items}
+        return {**page_payload, "unmatched": [list(i) for i in identities if i not in found], "pairing": "exact_identity", "dimension": dimension}
     if view == "page":
         return page_payload
     daily_total = int(aggregate["date_count"] or 0)
@@ -986,7 +1070,7 @@ def _payment_daily(
     platforms: Sequence[str],
     outlets: Sequence[Mapping[str, str]],
     requested_period: Mapping[str, object],
-) -> dict[str, int]:
+) -> dict[tuple[str, str, str], dict[str, object]]:
     rows = NetshopRow.objects.filter(
         Q(source="tmall_product_daily", dataset="spu_daily", platform="天猫")
         | Q(source="jd_sku_daily", dataset="sku_daily", platform="京东"),
@@ -994,11 +1078,13 @@ def _payment_daily(
         business_date__lte=requested_period["endDate"],
     )
     rows = _apply_platform_outlets(rows, platforms, outlets)
+    from .store_overview import NumericMetricPresent
+    rows = rows.filter(last_import_batch_id__in=NetshopImportBatch.objects.filter(status="completed").values("id"))
     return {
-        str(item["business_date"]): _zero(item["payment"])
-        for item in rows.values("business_date")
-        .annotate(payment=Sum("transaction_amount_cents"))
-        .order_by("business_date")[:MAX_DAYS]
+        (str(item["platform"]), str(item["shop_name"]), str(item["business_date"])): item
+        for item in rows.values("platform", "shop_name", "business_date")
+        .annotate(payment=Sum("transaction_amount_cents"), row_count=Count("id"), present=Count("id", filter=NumericMetricPresent(("transactionAmountCents", "成交金额"))))
+        .order_by("platform", "shop_name", "business_date")
     }
 
 
@@ -1027,22 +1113,49 @@ def promotion_overview(
         **_sum_annotations(PROMOTION_SUM_FIELDS),
     )
     product_count = products.values("platform", "shop_name", "product_id").distinct().count()
-    payment_by_date = _payment_daily(
+    payment_pairs = _payment_daily(
         platforms=platforms, outlets=outlets, requested_period=requested_period
     )
+    promotion_pairs = {(r["platform"], r["shop_name"], r["business_date"]): r for r in shops.values("platform", "shop_name", "business_date", "spend_cents", "net_transaction_amount_cents", "source_row_count")}
+    from .store_overview import aggregate as source_aggregate, PROMOTION
+    valid_promotion = {}
+    for platform in platforms:
+        source, dataset = ("jd_promotion", "ad") if platform == "京东" else ("tmall_promotion", "promotion_daily")
+        raw = NetshopRow.objects.filter(platform=platform, source=source, dataset=dataset, business_date__gte=requested_period["startDate"], business_date__lte=requested_period["endDate"], last_import_batch_id__in=NetshopImportBatch.objects.filter(status="completed").values("id"))
+        raw = _apply_platform_outlets(raw, platforms, outlets)
+        valid_promotion.update({(platform, name, day): r for (name, day), r in source_aggregate(raw, PROMOTION).items()})
+    if outlets:
+        identities = {(o["platform"], o["shopName"]) for o in outlets}
+    else:
+        identities = set(NetshopRow.objects.filter(platform__in=platforms, source__in=["jd_sku_daily", "tmall_product_daily", "jd_promotion", "tmall_promotion"]).values_list("platform", "shop_name").distinct()[:MAX_OUTLETS+1])
+        identities |= set(NetshopPromotionShopDaily.objects.filter(platform__in=platforms).values_list("platform", "shop_name").distinct()[:MAX_OUTLETS+1])
+        identities.discard(("京东", "")); identities.discard(("天猫", ""))
+    if len(identities) > MAX_OUTLETS:
+        raise NetshopApiError("费率店铺范围超过50家，请明确筛选店铺")
+    requested_dates = _date_sequence(str(requested_period["startDate"]), str(requested_period["endDate"]))
+    expected_pairs = {(p, n, d) for p, n in identities for d in requested_dates}
+    states = {(r["platform"], r["shop_name"], r["business_date"]): r for r in _apply_platform_outlets(NetshopPromotionAggregateState.objects.filter(platform__in=platforms, business_date__gte=requested_period["startDate"], business_date__lte=requested_period["endDate"]), platforms, outlets).values("platform", "shop_name", "business_date", "ready", "raw_row_count")}
+    # Exact store-day intersection with source-field presence and aggregate
+    # reconciliation, never A's ad divided by B's payment on the same date.
+    matched_pairs = {key for key in expected_pairs if key in payment_pairs and key in promotion_pairs and key in valid_promotion
+                     and payment_pairs[key]["present"] == payment_pairs[key]["row_count"]
+                     and valid_promotion[key]["spend_present"] == valid_promotion[key]["row_count"]
+                     and valid_promotion[key]["promotionPayment_present"] == valid_promotion[key]["row_count"]
+                     and valid_promotion[key]["row_count"] == promotion_pairs[key]["source_row_count"]
+                     and key in states and states[key]["ready"] and states[key]["raw_row_count"] == valid_promotion[key]["row_count"]
+                     and valid_promotion[key]["spend"] == promotion_pairs[key]["spend_cents"]
+                     and valid_promotion[key]["promotionPayment"] == promotion_pairs[key]["net_transaction_amount_cents"]}
+    complete_pairs = bool(expected_pairs) and matched_pairs == expected_pairs
+    payment_by_date = defaultdict(int)
+    for key in matched_pairs: payment_by_date[key[2]] += _zero(payment_pairs[key]["payment"])
+    complete_dates = {d for d in requested_dates if identities and all((p, n, d) in matched_pairs for p, n in identities)}
     daily_by_date = {str(item["business_date"]): item for item in daily_rows}
     promotion_dates = sorted(daily_by_date)
-    product_daily_dates = sorted(payment_by_date)
-    intersection_dates = sorted(set(promotion_dates) & set(product_daily_dates))
-    requested_dates = _date_sequence(
-        str(requested_period["startDate"]), str(requested_period["endDate"])
-    )
-    ratio_spend = sum(_zero(daily_by_date[item]["spend_cents"]) for item in intersection_dates)
-    ratio_transaction = sum(
-        _zero(daily_by_date[item]["net_transaction_amount_cents"])
-        for item in intersection_dates
-    )
-    platform_payment = sum(payment_by_date[item] for item in intersection_dates)
+    product_daily_dates = sorted({key[2] for key in payment_pairs})
+    intersection_dates = sorted({key[2] for key in matched_pairs})
+    ratio_spend = sum(_zero(promotion_pairs[k]["spend_cents"]) for k in matched_pairs)
+    ratio_transaction = sum(_zero(promotion_pairs[k]["net_transaction_amount_cents"]) for k in matched_pairs)
+    platform_payment = sum(_zero(payment_pairs[k]["payment"]) for k in matched_pairs)
     spend = _zero(aggregate["spend_cents"])
     net = _zero(aggregate["net_transaction_amount_cents"])
     impressions = _zero(aggregate["impressions"])
@@ -1079,6 +1192,10 @@ def promotion_overview(
                 "truncated": False,
             },
             "intersectionTruncated": False,
+            "expectedShopDatePairs": len(expected_pairs),
+            "matchedShopDatePairs": len(matched_pairs),
+            "complete": complete_pairs,
+            "missingByShop": [{"shopKey": p+OUTLET_SEPARATOR+n, "dates": [d for d in requested_dates if (p, n, d) not in matched_pairs]} for p, n in sorted(identities)],
         },
         "summary": {
             "productCount": product_count,
@@ -1094,8 +1211,12 @@ def promotion_overview(
             "clickThroughRate": clicks / impressions if impressions > 0 else None,
             "averageClickCostCents": spend / clicks if clicks > 0 else None,
             "roas": net / spend if spend > 0 else None,
-            "spendRate": ratio_spend / platform_payment if platform_payment > 0 else None,
-            "promotionTransactionShare": ratio_transaction / platform_payment if platform_payment > 0 else None,
+            "spendRate": ratio_spend / platform_payment if complete_pairs and platform_payment > 0 else None,
+            "promotionTransactionShare": ratio_transaction / platform_payment if complete_pairs and platform_payment > 0 else None,
+            "spendRateReason": None if complete_pairs and platform_payment > 0 else "zero_denominator" if complete_pairs else "incomplete_coverage",
+            "matchedRange": {"spendCents": ratio_spend, "platformPaymentAmountCents": platform_payment, "spendRate": ratio_spend/platform_payment if platform_payment > 0 else None,
+                             "coveredShopDatePairs": len(matched_pairs), "expectedShopDatePairs": len(expected_pairs),
+                             "byShop": [{"shopKey": p+OUTLET_SEPARATOR+n, "dates": [d for d in requested_dates if (p, n, d) in matched_pairs]} for p, n in sorted(identities)]},
         },
         "daily": [
             {
@@ -1107,8 +1228,8 @@ def promotion_overview(
                 "clicks": _zero(item["clicks"]),
                 "netOrders": _zero(item["net_orders"]),
                 "roas": day_net / day_spend if day_spend > 0 else None,
-                "spendRate": day_spend / payment if payment and payment > 0 else None,
-                "promotionTransactionShare": day_net / payment if payment and payment > 0 else None,
+                "spendRate": day_spend / payment if str(item["business_date"]) in complete_dates and payment and payment > 0 else None,
+                "promotionTransactionShare": day_net / payment if str(item["business_date"]) in complete_dates and payment and payment > 0 else None,
             }
             for item in daily_rows
         ],
