@@ -8,7 +8,7 @@ import { NetshopQueryError, resolveNetshopQueryPeriod, readNetshopOutletFilters 
 import type { CategoryEvidence, ContributionBucket } from "../products/contract";
 
 export const COMPARISON_SCHEMA = "netshop-comparison-v1" as const;
-export const comparisonMetricKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate", "erpNetSales", "orderMargin", "largeMargin", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"] as const;
+export const comparisonMetricKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate", "erpNetSales", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"] as const;
 export type ComparisonMetricKey = typeof comparisonMetricKeys[number];
 export const comparisonSorts = ["value_desc", "value_asc", "growth_desc", "decline_desc", "name_asc"] as const;
 export type ComparisonSort = typeof comparisonSorts[number];
@@ -66,7 +66,7 @@ export function validateComparisonQuery(params: URLSearchParams) {
     validateObjectKeys(chartObjectKeys, 4);
     const metricKey = params.get("metricKey") ?? (scope.metricSource === "erp" ? "erpNetSales" : "payment"), sort = params.get("sort") ?? "value_desc", trendGrain = params.get("trendGrain") ?? "day";
     if (!(comparisonMetricKeys as readonly string[]).includes(metricKey) || !(comparisonSorts as readonly string[]).includes(sort) || !["day", "week", "month"].includes(trendGrain)) fail("对比指标、排序或粒度无效");
-    const erpKeys = ["erpNetSales", "orderMargin", "largeMargin", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"];
+    const erpKeys = ["erpNetSales", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"];
     if (erpKeys.includes(metricKey) !== (scope.metricSource === "erp")) fail("对比指标与来源不一致");
     const positive = (key: string, fallback: number, max: number) => { const value = params.get(key); if (value === null) return fallback; if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) > max) fail("分页无效"); return Number(value); };
     const page = positive("page", 1, 10000), pageSize = positive("pageSize", 20, 100);
@@ -108,9 +108,9 @@ function metrics(value: unknown): ComparisonMetrics {
   const m = object(value); exact(m, [...comparisonMetricKeys]);
   for (const key of comparisonMetricKeys) {
     const v = metric(m[key]);
-    const unit = ["visitorValue", "cpc", "averageOrderValue"].includes(key) ? "CNY_CENT_PER_COUNT" : ["payment", "spend", "attributedPayment", "erpNetSales", "orderMargin"].includes(key) ? "CNY_CENT" : key === "roas" ? "MULTIPLE" : ["conversion", "ctr", "spendRate", "largeMargin", "returnRate"].includes(key) ? "RATIO" : "COUNT";
+    const unit = ["visitorValue", "cpc", "averageOrderValue"].includes(key) ? "CNY_CENT_PER_COUNT" : ["payment", "spend", "attributedPayment", "erpNetSales", "orderMargin", "largeMarginAmount"].includes(key) ? "CNY_CENT" : key === "roas" ? "MULTIPLE" : ["conversion", "ctr", "spendRate", "largeMargin", "returnRate"].includes(key) ? "RATIO" : "COUNT";
     if (v.unit !== unit) fail("指标单位与定义不一致");
-    const basis = key === "spendRate" || ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders"].includes(key) ? "product_day_sum" : ["spend", "attributedPayment", "roas", "ctr", "cpc"].includes(key) ? "platform_attributed" : key === "orderMargin" ? "erp_order_margin" : key === "largeMargin" ? "erp_large_margin" : "erp_net_sales";
+    const basis = key === "spendRate" || ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders"].includes(key) ? "product_day_sum" : ["spend", "attributedPayment", "roas", "ctr", "cpc"].includes(key) ? "platform_attributed" : key === "orderMargin" ? "erp_order_margin" : ["largeMargin", "largeMarginAmount"].includes(key) ? "erp_large_margin" : "erp_net_sales";
     if (v.basis !== basis) fail("指标不能跨来源改称平台成交、ERP净额或毛利");
     if (key === "averageOrderValue" && v.status === "available") fail("当前协议尚无可信订单分母，不能把件均金额当客单价");
   }
