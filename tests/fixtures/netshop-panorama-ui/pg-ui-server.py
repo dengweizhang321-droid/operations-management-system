@@ -1,4 +1,4 @@
-"""Named loopback UI adapter over actual S/F/P/A readers and synthetic private PG.
+"""Named loopback UI adapter over actual S/F/P/A and signed owning readers.
 
 No production environment, account, cookie, connection, import or business
 source is used. Named source-503 and delay controls are fault injection only.
@@ -7,28 +7,33 @@ Lifetime is bounded and stopped through this run's stop.request, never stdin.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import io
 import json
 import os
 from pathlib import Path
 import re
 import secrets
 import socket
+from socketserver import ThreadingMixIn
 import subprocess
 import sys
 import threading
 import time
 from types import SimpleNamespace
 from urllib.parse import urlsplit
+from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
 
 ROOT = Path(__file__).resolve().parents[3]
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 EVIDENCE_ROOT = Path(r"E:\codex-artifacts\netshop-panorama-M5-20261001")
 HTTP_PORT = 18160
-FIXTURE = "panorama-ui-synthetic-postgresql-v1"
+FIXTURE = "panorama-ui-synthetic-postgresql-v2"
 EMAIL = "panorama-ui@example.test"
-STORES = (("京东", "合成店A", 1), ("京东", "合成店B", 2), ("天猫", "合成天猫A", 1))
+CANONICAL = "志高切肉机旗舰店"
+STORES = (("京东", "合成店A", 1), ("京东", "合成店B", 2), ("天猫", "合成天猫A", 1), ("京东", CANONICAL, 1))
 ROUTES = {
     "/api/netshop/store-panorama", "/api/netshop/insights-context",
     "/api/netshop/product-insights", "/api/netshop/product-insights/detail",
@@ -64,10 +69,24 @@ env = {key: value for key, value in os.environ.items() if key.upper() in {
 env.update(
     PGPASSWORD=password, PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1",
     PYTHONPATH=str(ROOT / "tools") + os.pathsep + str(ROOT / "backend"),
-    DJANGO_SETTINGS_MODULE="netshop_products_test_settings", TERUISI_DJANGO_ENVIRONMENT="test",
+    DJANGO_SETTINGS_MODULE="panorama_ui_test_settings", TERUISI_DJANGO_ENVIRONMENT="test",
     TERUISI_DJANGO_PROCESS_ROLE="development", DJANGO_DEBUG="true",
     TERUISI_DJANGO_DATABASE_URL=f"postgresql://panorama_ui_fixture:{password}@127.0.0.1:{PG_PORT}/panorama_ui_fixture",
+    TERUISI_DJANGO_INTERNAL_SECRET=secrets.token_hex(40),
 )
+with (RUN / "panorama_ui_test_settings.py").open("x", encoding="utf-8") as output:
+    output.write('from netshop_products_test_settings import *\n'
+                 'INSTALLED_APPS = [*INSTALLED_APPS, "workflow.apps.WorkflowConfig", "finance.apps.FinanceConfig"]\n'
+                 'ROOT_URLCONF = "panorama_ui_native_urls"\n')
+with (RUN / "panorama_ui_native_urls.py").open("x", encoding="utf-8") as output:
+    output.write('from django.urls import path\nfrom django.views.decorators.http import require_POST\n'
+                 'from sales.views import consumer_query as sales_query\n'
+                 'from finance.views import consumer_query as finance_query\n'
+                 'from workflow.operations_views import operation_records\n'
+                 'urlpatterns = [path("api/sales/consumers/query", require_POST(sales_query)), '
+                 'path("api/finance/consumers/query", require_POST(finance_query)), '
+                 'path("api/workflow/operations-records", operation_records)]\n')
+env["PYTHONPATH"] = str(RUN) + os.pathsep + env["PYTHONPATH"]
 # Explicitly block any later owning adapter's loopback-default fallback. This
 # bound, non-listening private port cannot be taken by a production service.
 upstream_guard = socket.socket()
@@ -76,7 +95,7 @@ blocked_upstream_port = upstream_guard.getsockname()[1]
 for domain in ("SALES", "FINANCE", "WORKFLOW", "INVENTORY", "ERP_REFERENCE", "PRODUCTS", "NETSHOP", "MARKET", "BI", "ACCESS_CONTROL"):
     for suffix in ("READER_BASE_URL", "BASE_URL"):
         env[f"TERUISI_DJANGO_{domain}_{suffix}"] = f"http://127.0.0.1:{blocked_upstream_port}"
-steps, started, server, request_log = [], False, None, None
+steps, started, server, request_log, upstream, upstream_log = [], False, None, None, None, None
 log_lock, control_lock = threading.Lock(), threading.Lock()
 controls = {"sourceFailure": None, "delayShop": None, "delayMilliseconds": 0}
 request_context = threading.local()
@@ -106,10 +125,10 @@ try:
     run([BIN / "pg_ctl.exe", "-D", RUN / "data", "-l", RUN / "postgres.log", "-w", "-t", "30", "start"], "start", 45)
     started = True
     run([BIN / "createdb.exe", "-h", "127.0.0.1", "-p", str(PG_PORT), "-U", "panorama_ui_fixture", "panorama_ui_fixture"], "database", 30)
-    run([sys.executable, "backend/manage.py", "migrate", "--settings=netshop_products_test_settings", "--noinput"], "fixture-migrate")
+    run([sys.executable, "backend/manage.py", "migrate", "--settings=panorama_ui_test_settings", "--noinput"], "fixture-migrate")
     os.environ.clear()
     os.environ.update(env)
-    sys.path[:0] = [str(ROOT / "tools"), str(ROOT / "backend")]
+    sys.path[:0] = [str(RUN), str(ROOT / "tools"), str(ROOT / "backend")]
     import django
     django.setup()
     from django.db import close_old_connections, connections, transaction
@@ -125,6 +144,14 @@ try:
     from netshop import store_panorama
     from netshop.tests.promotion_insights_fixtures import add_day
     from sales.auth import Principal
+    from sales.models import ErpProductMaster, SalesOrderLine
+    from sales.tests.factories import install_fixture, make_line
+    from finance.import_service import import_finance_payload
+    from finance.models import FinanceWriteAuthority
+    from finance.target_service import upsert_target
+    from finance.tests.factories import prepared_payload
+    from workflow.models import WorkflowOperationRecord
+    from workflow.revisions import bump_revision as bump_workflow_revision
 
     actual_products, actual_promotion = store_panorama._read_products, store_panorama._read_promotion
     def injected_products(*reader_args):
@@ -183,17 +210,153 @@ try:
                                        "clicks": 15 + number, "netOrders": 1 + number}})
                     add_day(owner, shop=shop, day=day, platform=platform, rows=advertisement_rows)
         NetshopDataRevision.objects.filter(domain="netshop").update(revision=F("revision") + 1, source_digest=hashlib.sha256(FIXTURE.encode()).hexdigest())
+    # This entire synthetic database belongs to this invocation. Native
+    # fixture factories and protected finance writers seed their own facts;
+    # no source transport below manufactures a successful business body.
+    install_fixture()
+    now = timezone.now().isoformat()
+    for number in range(1, 19):
+        ErpProductMaster.objects.create(product_code=f"SYNTHETIC-ERP-{number:03d}", product_name=f"合成商品{number:02d}",
+            brand="合成", specification="合成", barcode=f"SYNTHETIC-{number:03d}", category="合成品类" + str(1 + number % 3),
+            supplier="合成供应商", product_status="synthetic", source_row_number=number,
+            last_import_batch_id="erp-1", created_at=now, updated_at=now)
+    identity = store_panorama.resolve_panorama_sales({"effectiveScope": {"shopKeys": ["京东\x1f" + CANONICAL]}})
+    if identity is None:
+        raise RuntimeError("Canonical UI fixture has no verified native sales identity")
+    sales_rows = []
+    for month, factor in periods:
+        for day_index in range(1, 8):
+            for number in range(1, 4):
+                identifier = 100 + len(sales_rows)
+                amount = (1000 + number * 111 + day_index * 17) * factor // 100
+                sales_rows.append(make_line(identifier, f"PANORAMA-{identifier}", platform=identity["platform"],
+                    shop_name=identity["rawShopName"], channel=identity["rawChannel"],
+                    ship_time=f"{month}-{day_index:02d} 10:00:00", quantity=number,
+                    product_code=f"SYNTHETIC-ERP-{number:03d}", product_name=f"合成商品{number:02d}",
+                    allocated_amount_cents=amount, cost_amount_cents=0, gross_profit_cents=amount,
+                    order_no=f"SYNTHETIC-ERP-ORDER-{identifier}"))
+    SalesOrderLine.objects.bulk_create(sales_rows)
+    FinanceWriteAuthority.objects.filter(id=1).update(status="postgres")
+    finance_payload = prepared_payload(*(month for month, _ in periods))
+    finance_payload["fileName"] = "private-synthetic-panorama-finance.xlsx"
+    finance_payload["rawFileHash"] = hashlib.sha256((FIXTURE + CANONICAL).encode()).hexdigest()
+    for month in finance_payload["months"]:
+        for line in month["lines"]:
+            if line["scopeType"] == "shop" and line["groupName"] == "京东":
+                line["scopeName"] = CANONICAL
+                line["scopeKey"] = "shop:京东:" + CANONICAL
+    finance_receipt = import_finance_payload(finance_payload, EMAIL)
+    if finance_receipt.get("status") not in {"imported", "duplicate"}:
+        raise RuntimeError("Protected synthetic finance writer did not publish")
+    for year in ("2025", "2026"):
+        upsert_target({"periodType": "year", "periodKey": year, "platform": "京东", "shopName": CANONICAL,
+                       "salesTargetCents": 1000000, "profitTargetCents": 250000})
+    with transaction.atomic():
+        for platform, shop, _ in STORES:
+            for number in range(1, 4):
+                WorkflowOperationRecord.objects.create(id=f"UI-{platform}-{shop}-{number}", record_type="inspection",
+                    title=f"合成经营记录{number}", status="open", platform=platform, shop_name=shop,
+                    channel=identity["rawChannel"] if shop == CANONICAL else "SYNTHETIC-CHANNEL",
+                    occurred_at=datetime.fromisoformat(f"2026-09-0{number}T08:00:00+00:00"), created_by=EMAIL, updated_by=EMAIL)
+        bump_workflow_revision({"fixture": FIXTURE, "operation": "synthetic-record-seed"})
+
+    from django.core.handlers.wsgi import WSGIHandler
+    native_app = WSGIHandler()
+    native_routes = {("POST", "/api/sales/consumers/query"), ("POST", "/api/finance/consumers/query"),
+                     ("GET", "/api/workflow/operations-records")}
+    upstream_log = (EVIDENCE / "owning-rpc.jsonl").open("x", encoding="utf-8")
+
+    def save_response(payload, prefix):
+        digest = hashlib.sha256(payload).hexdigest()
+        if len(payload) <= 2 * 1024 * 1024:
+            try:
+                with (EVIDENCE / f"{prefix}-{digest}.json").open("xb") as output:
+                    output.write(payload)
+            except FileExistsError:
+                pass
+        return digest
+
+    def owning_app(wsgi, start_response):
+        """Only three registered reads; original views verify HMAC and grants."""
+        close_old_connections()
+        before, response_info = time.monotonic(), {}
+        method, path, query = wsgi["REQUEST_METHOD"], wsgi["PATH_INFO"], wsgi.get("QUERY_STRING", "")
+        length = wsgi.get("CONTENT_LENGTH", "") or "0"
+        if (method, path) not in native_routes or not length.isdecimal() or int(length) > 65536 or len(query) > 16384:
+            start_response("404 Not Found", [("Content-Type", "application/json"), ("Content-Length", "2")])
+            connections.close_all()
+            return [b"{}"]
+        body = wsgi["wsgi.input"].read(int(length))
+        wsgi["wsgi.input"] = io.BytesIO(body)
+        try:
+            logged_request = json.loads(body) if body else None
+        except (ValueError, UnicodeDecodeError):
+            logged_request = {"invalidJson": True}
+        def capture(status, headers, exc_info=None):
+            response_info.update(status=int(status.split()[0]), headers=dict(headers))
+        result = None
+        try:
+            result = native_app(wsgi, capture)
+            payload = b"".join(result)
+            if len(payload) > 2 * 1024 * 1024:
+                # A fixture transport failure is never returned as owning success.
+                start_response("503 Service Unavailable", [("Content-Type", "application/json"), ("Content-Length", "2")])
+                return [b"{}"]
+            headers = response_info["headers"]
+            start_response(str(response_info["status"]) + " Owning response", list(headers.items()))
+            digest = save_response(payload, "owning-response")
+            with log_lock:
+                upstream_log.write(json.dumps({"method": method, "path": path, "query": query,
+                    "request": logged_request, "requestBodySha256": hashlib.sha256(body).hexdigest(),
+                    "status": response_info["status"], "bytes": len(payload), "responseSha256": digest,
+                    "revisionHeaders": {k: v for k, v in headers.items() if k.lower().endswith("data-revision")},
+                    "seconds": round(time.monotonic() - before, 4)}, ensure_ascii=False) + "\n")
+                upstream_log.flush()
+            return [payload]
+        finally:
+            if result is not None and hasattr(result, "close"):
+                result.close()
+            connections.close_all()
+
+    class OwningServer(ThreadingMixIn, WSGIServer):
+        daemon_threads = False
+        block_on_close = True
+    class OwningHandler(WSGIRequestHandler):
+        def setup(self):
+            super().setup()
+            self.connection.settimeout(10)
+        def log_message(self, *_args): pass
+    upstream = OwningServer(("127.0.0.1", 0), OwningHandler)
+    if upstream.server_port in {5432, PG_PORT, HTTP_PORT, 3162, 13160, blocked_upstream_port}:
+        upstream.server_close()
+        upstream = None
+        raise RuntimeError("Native owning port collided with a reserved or private port")
+    upstream.set_app(owning_app)
+    upstream_thread = threading.Thread(target=upstream.serve_forever, daemon=True)
+    upstream_thread.start()
+    for domain in ("SALES", "FINANCE", "WORKFLOW"):
+        os.environ[f"TERUISI_DJANGO_{domain}_READER_BASE_URL"] = f"http://127.0.0.1:{upstream.server_port}"
+
     paths = [Path(__file__), ROOT / "backend/netshop/store_panorama.py", ROOT / "backend/netshop/insights_common.py",
              ROOT / "backend/netshop/product_insights.py", ROOT / "backend/netshop/promotion_insights.py",
              ROOT / "backend/netshop/product_scope_series.py", ROOT / "backend/netshop/panorama_workflow_client.py",
-             ROOT / "backend/netshop/panorama_sales_client.py",
+             ROOT / "backend/netshop/panorama_sales_client.py", ROOT / "backend/netshop/panorama_finance_client.py",
              ROOT / "backend/netshop/sales_periods_client.py", ROOT / "backend/netshop/sales_client.py",
-             ROOT / "backend/netshop/tests/promotion_insights_fixtures.py", ROOT / "tools/netshop_products_test_settings.py"]
+             ROOT / "backend/netshop/finance_netshop_client.py", ROOT / "backend/netshop/finance_netshop_contract.py",
+             ROOT / "backend/netshop/bounded_consumer_http.py", ROOT / "backend/sales/netshop_periods.py", ROOT / "backend/sales/netshop_period_series.py",
+             ROOT / "backend/sales/views.py", ROOT / "backend/sales/auth.py", ROOT / "backend/workflow/operations.py",
+             ROOT / "backend/workflow/operations_views.py", ROOT / "backend/finance/netshop_reads.py", ROOT / "backend/finance/consumers.py",
+             ROOT / "backend/finance/views.py", ROOT / "backend/finance/import_service.py", ROOT / "backend/finance/target_service.py",
+             ROOT / "backend/netshop/tests/promotion_insights_fixtures.py", ROOT / "tools/netshop_products_test_settings.py",
+             RUN / "panorama_ui_native_urls.py", RUN / "panorama_ui_test_settings.py"]
     exclusive_json("fixture.json", {"fixture": FIXTURE, "adapter": "actual owning Python readers; public Edge/gateway registration tested separately",
                     "root": str(ROOT), "seededBatches": owner.counter, "productsPerStore": 18, "advertisementObjectsPerStore": 3,
                     "stores": [{"platform": p, "shopName": s} for p, s, _ in STORES], "periods": [m + "-01 through " + m + "-07" for m, _ in periods],
                     "readerPort": HTTP_PORT, "privatePgPort": PG_PORT, "fixtureActor": EMAIL, "role": "admin", "scope": None,
-                    "crossDomainUpstreams": "disabled bound non-listening private port; no runtime fallback", "blockedUpstreamPort": blocked_upstream_port,
+                    "crossDomainUpstreams": "three exact registered owning routes with actual HMAC/actor/SQL; all other domain URLs trapped",
+                    "owningHttpPort": upstream.server_port, "blockedUpstreamPort": blocked_upstream_port,
+                    "canonicalStoreData": "all synthetic; canonical name used only to consume the existing verified ERP alias",
+                    "salesRawIdentity": identity, "financeSyntheticPublishStatus": finance_receipt["status"],
                     "faultInjectionControls": ["source-failure", "delay"], "lifetimeSeconds": args.timeout_seconds,
                     "sourceSha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}})
     connections.close_all()
@@ -213,6 +376,7 @@ try:
             if len(payload) > 2 * 1024 * 1024:
                 status, payload = 422, b'{"code":"quality_incomplete","error":"Fixture complete response exceeds 2MiB"}'
             self.response_status = status
+            self.response_digest, self.response_bytes = save_response(payload, "ui-response"), len(payload)
             try:
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -276,7 +440,8 @@ try:
                 self.send_payload({"code": "fixture_error", "error": type(error).__name__}, status)
             finally:
                 with log_lock:
-                    request_log.write(json.dumps({"path": parts.path, "querySha256": hashlib.sha256(parts.query.encode()).hexdigest(), "status": 499 if getattr(self, "client_disconnected", False) else getattr(self, "response_status", status),
+                    request_log.write(json.dumps({"path": parts.path, "query": parts.query, "querySha256": hashlib.sha256(parts.query.encode()).hexdigest(), "status": 499 if getattr(self, "client_disconnected", False) else getattr(self, "response_status", status),
+                                                  "bytes": getattr(self, "response_bytes", None), "responseSha256": getattr(self, "response_digest", None),
                                                   "seconds": round(time.monotonic() - before, 4), "faultInjection": injected}, ensure_ascii=False) + "\n")
                     request_log.flush()
                 request_context.source_failure = None
@@ -322,11 +487,11 @@ try:
     server = ThreadingHTTPServer(("127.0.0.1", HTTP_PORT), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    exclusive_json("ready.json", {"fixture": FIXTURE, "httpPort": HTTP_PORT, "privatePgPort": PG_PORT, "evidenceDirectory": str(EVIDENCE)})
+    exclusive_json("ready.json", {"fixture": FIXTURE, "httpPort": HTTP_PORT, "privatePgPort": PG_PORT, "owningHttpPort": upstream.server_port, "evidenceDirectory": str(EVIDENCE)})
     print(json.dumps({"state": "ready", "fixture": FIXTURE, "httpPort": HTTP_PORT, "evidenceDirectory": str(EVIDENCE)}), flush=True)
     timeout_at, polling = time.monotonic() + args.timeout_seconds, threading.Event()
     while not (EVIDENCE / "stop.request").exists():
-        if not thread.is_alive():
+        if not thread.is_alive() or not upstream_thread.is_alive():
             raise RuntimeError("Private HTTP fixture exited unexpectedly")
         if time.monotonic() >= timeout_at:
             try:
@@ -340,12 +505,21 @@ try:
     server.server_close()
     server = None
     thread.join(timeout=5)
+    upstream.shutdown()
+    upstream.server_close()
+    upstream = None
+    upstream_thread.join(timeout=5)
 finally:
     if server is not None:
         server.shutdown()
         server.server_close()
     if request_log is not None:
         request_log.close()
+    if upstream is not None:
+        upstream.shutdown()
+        upstream.server_close()
+    if upstream_log is not None:
+        upstream_log.close()
     if pwfile.exists():
         pwfile.unlink()
     try:
