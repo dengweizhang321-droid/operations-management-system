@@ -45,6 +45,18 @@ class ClientBudgetTests(SimpleTestCase):
         with self.assertRaises(NetshopApiError):client.read_sales_periods(P,REQUEST,deadline=time.monotonic()-1,reader=lambda *a,**k:calls.append(1))
         self.assertEqual(calls,[])
 
+    def test_actual_pg_array_enums_fraction_counts_money_and_cost_claims_fail_closed(self):
+        mutations=(lambda x:x.update(scopeMode=["unrestricted"]),
+                   lambda x:x["periodTotals"]["current"]["orders"]["netAmountPerOrder"].update(status=["available"],value=999),
+                   lambda x:x["periodTotals"]["current"]["orders"].update(trustedOrderCount=0.5),
+                   lambda x:x["periodTotals"]["current"]["values"].update(costCents=0.5),
+                   lambda x:x["periodTotals"]["current"]["observations"].update(observedDateCount=0.5),
+                   lambda x:x["candidatePagination"].update(candidateCount=True),
+                   lambda x:x["metricMetadata"]["cost"].update(zeroCostVerification="validatedZero"))
+        for mutate in mutations:
+            value=fixture();mutate(value)
+            with self.assertRaises(NetshopApiError):client.read_sales_periods(P,REQUEST,reader=lambda *a,**k:(value,"7:3"))
+
     def test_transport_time_expires_signed_body_before_remote_first_query(self):
         utc=[1000.0]
         def remote(principal,body,*,deadline):
