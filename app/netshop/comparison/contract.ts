@@ -112,7 +112,8 @@ export function decodeErpNativeQuantity(value: unknown): ErpNativeQuantityMetric
   const m = object(value);
   if (m.metricSchemaVersion !== "netshop-comparison-native-quantity-v1" || m.unit !== "NATIVE_INTEGER_QUANTITY" || m.aggregation !== "sum" || m.basis !== "erp_net_sales" || m.status === "available") fail("ERP原生数量版本、单位或未证完整性状态无效");
   // Validation proxy only: the published quantity keeps its native owning unit.
-  decodeMetric({ ...m, unit: "COUNT" }); return m as ErpNativeQuantityMetric;
+  try { decodeMetric({ ...m, unit: "COUNT" }); } catch (error) { fail(error instanceof Error ? error.message : "ERP原生数量无法验证"); }
+  return m as ErpNativeQuantityMetric;
 }
 function metric(value: unknown): ComparisonMetric { const m = object(value); return m.unit === "CNY_CENT_PER_COUNT" ? decodeDerivedMoneyPerCount(m) : m.unit === "NATIVE_INTEGER_QUANTITY" ? decodeErpNativeQuantity(m) : decodeMetric(m); }
 function comparableProxy(m: MetricValue | ErpNativeQuantityMetric): MetricValue { return m.unit === "NATIVE_INTEGER_QUANTITY" ? { ...m, unit: "COUNT" } : m; }
