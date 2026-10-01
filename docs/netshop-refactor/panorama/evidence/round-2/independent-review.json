@@ -1,0 +1,217 @@
+{
+  "kind": "independent-round-2-static-and-evidence-review",
+  "createdAt": "2026-09-30T11:01:52.963Z",
+  "method": "Read-only source, manifest, supplied screenshots and Lead CUA machine evidence; no browser operations",
+  "checks": [
+    {
+      "name": "current-files-match-frozen-manifest",
+      "pass": true,
+      "details": {
+        "demo.css": "11aa62ab3ce93ebc7c5670c01c9ae36b3e6a7895e014d02f6ee2d8918d14f50f",
+        "demo.js": "1598408c0e65f5463cc063163700ddeb4412a188fd47be162f4b518c0bb4e827",
+        "index.html": "0f73907f59884ff6207f592716553b4f7b2c21a22c536d65a1a8fcb39b3907c7",
+        "serve.mjs": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+        "verify.mjs": "5d2f198b6bd1a63d0aedde30d0fa19070df72a8438f3ae3e34339fb4a1a8cf4e"
+      }
+    },
+    {
+      "name": "javascript-syntax",
+      "pass": true,
+      "details": "node --check exit 0"
+    },
+    {
+      "name": "cockpit-renderer-byte-equivalence-to-prior-commit",
+      "pass": true,
+      "details": {
+        "normalizedFunctionBytes": 982,
+        "sha256": "3c0aee979381d06c38baf0ee3edefb8e42f84a78cbbde908c54ee1ac3dceb81c"
+      }
+    },
+    {
+      "name": "empty-svg-polyline-points-remain-empty",
+      "pass": true,
+      "details": {
+        "input": [
+          "",
+          "42,178 602,178"
+        ],
+        "output": [
+          "",
+          "42,178 218,178"
+        ]
+      }
+    },
+    {
+      "name": "nine-source-and-comparison-template-states",
+      "pass": true,
+      "details": [
+        {
+          "scenario": "complete",
+          "compare": "previous",
+          "chapters": 8,
+          "adStatus": "可用示例",
+          "combination": "分源可查看"
+        },
+        {
+          "scenario": "complete",
+          "compare": "year",
+          "chapters": 8,
+          "adStatus": "可用示例",
+          "combination": "分源可查看"
+        },
+        {
+          "scenario": "complete",
+          "compare": "none",
+          "chapters": 8,
+          "adStatus": "可用示例",
+          "combination": "分源可查看"
+        },
+        {
+          "scenario": "missing",
+          "compare": "previous",
+          "chapters": 8,
+          "adStatus": "部分覆盖",
+          "combination": "组合指标暂停"
+        },
+        {
+          "scenario": "missing",
+          "compare": "year",
+          "chapters": 8,
+          "adStatus": "部分覆盖",
+          "combination": "组合指标暂停"
+        },
+        {
+          "scenario": "missing",
+          "compare": "none",
+          "chapters": 8,
+          "adStatus": "部分覆盖",
+          "combination": "组合指标暂停"
+        },
+        {
+          "scenario": "revision",
+          "compare": "previous",
+          "chapters": 8,
+          "adStatus": "可用示例",
+          "combination": "组合指标暂停"
+        },
+        {
+          "scenario": "revision",
+          "compare": "year",
+          "chapters": 8,
+          "adStatus": "可用示例",
+          "combination": "组合指标暂停"
+        },
+        {
+          "scenario": "revision",
+          "compare": "none",
+          "chapters": 8,
+          "adStatus": "可用示例",
+          "combination": "组合指标暂停"
+        }
+      ]
+    },
+    {
+      "name": "prior-static-findings-closed-in-source",
+      "pass": true,
+      "details": [
+        "fold navigation highlight",
+        "12px table identity captions",
+        "measured sticky offsets"
+      ]
+    },
+    {
+      "name": "lead-cua-results-reviewed",
+      "pass": true,
+      "details": {
+        "method": "CUA isolated browser; desktop1440 and narrow390/320",
+        "passed": 31,
+        "failed": 0,
+        "independentBrowserRerun": false,
+        "anchor": {
+          "check": "320px chapter anchor clears sticky filters and updates highlight",
+          "pass": true,
+          "active": "true",
+          "chapterTop": 386.6875,
+          "filterBottom": 368.8541717529297,
+          "margin": "387px"
+        }
+      }
+    }
+  ],
+  "sourceManifest": {
+    "schemaVersion": "panorama-design-round-2-v1",
+    "stage": "design-only",
+    "parentDesignCommit": "38685c2ad14b3500619d5a8789c3a61a45d78273",
+    "syncedMain": "f08b34884fdc83813e4d2c8f3ec86b8ed2a795fe",
+    "files": {
+      "demo.css": "11aa62ab3ce93ebc7c5670c01c9ae36b3e6a7895e014d02f6ee2d8918d14f50f",
+      "demo.js": "1598408c0e65f5463cc063163700ddeb4412a188fd47be162f4b518c0bb4e827",
+      "index.html": "0f73907f59884ff6207f592716553b4f7b2c21a22c536d65a1a8fcb39b3907c7",
+      "serve.mjs": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+      "verify.mjs": "5d2f198b6bd1a63d0aedde30d0fa19070df72a8438f3ae3e34339fb4a1a8cf4e"
+    },
+    "cockpitRendererUnchanged": true,
+    "cockpitRendererSha256": "3c0aee979381d06c38baf0ee3edefb8e42f84a78cbbde908c54ee1ac3dceb81c",
+    "sourceRowsAndPeriods": "unchanged",
+    "productionOperations": [],
+    "postgresql": "not-run",
+    "businessAPI": "not-connected"
+  },
+  "visuallyInspectedScreenshots": [
+    {
+      "path": "docs/netshop-refactor/panorama/evidence/round-2/layout-1.png",
+      "sha256": "ab159daef6711b6a9b18f0d5407f3b48c9445a2917f8d91de45c2ecbb872a74f"
+    },
+    {
+      "path": "docs/netshop-refactor/panorama/evidence/round-2/layout-2.png",
+      "sha256": "e99faefc60b32916de28e2884920183ae8ceafc4ad2d372765f986447ff4b818"
+    },
+    {
+      "path": "docs/netshop-refactor/panorama/evidence/round-2/layout-3.png",
+      "sha256": "169e3f1440fa53447f0e767e5dd86b62e49c3e16e016191714f892120d17197b"
+    },
+    {
+      "path": "docs/netshop-refactor/panorama/evidence/round-2/layout-4.png",
+      "sha256": "453aac183a827f92ee0de7145005b4d43331be80b9617801fd4ebaf3c8110bdc"
+    },
+    {
+      "path": "docs/netshop-refactor/panorama/evidence/round-2/layout-5.png",
+      "sha256": "522e73a810f1a098327ce74463bb45a0ca614a10ad3f9e4414af0aed544c8170"
+    },
+    {
+      "path": "docs/netshop-refactor/panorama/evidence/round-2/layout-3-320.png",
+      "sha256": "04ea0809ed10334af2d3e70fc60544135e4bb84c1e6981df2cd2af0ba1e94158"
+    },
+    {
+      "path": "docs/netshop-refactor/panorama/evidence/round-2/layout-5-390.png",
+      "sha256": "5375300b78e51ffb0c295f7b3255d675ac8c4f998d0cbda26ffd8a3059de3c86"
+    },
+    {
+      "path": "docs/netshop-refactor/panorama/evidence/round-2/narrow-navigation-anchor.png",
+      "sha256": "d37cc42871301facb810866e565131d31e4b6337af69f09ff00a8aba1710c878"
+    },
+    {
+      "path": "docs/netshop-refactor/panorama/evidence/round-2/layout-1-320.png",
+      "sha256": "c5e27d9c22adbbf21b8a9ef29853d52cf5bd8c184443a2dc7f3834037f0e5cfd"
+    },
+    {
+      "path": "docs/netshop-refactor/panorama/evidence/round-2/layout-2-320.png",
+      "sha256": "df4a3278dd5527ca38a7db9baaf95734c7c79c382aaaef8bf7aad294c88cdbc4"
+    },
+    {
+      "path": "docs/netshop-refactor/panorama/evidence/round-2/layout-4-390.png",
+      "sha256": "687883e0f7a1fd84dfd2b05988ec935424a61d7639cad5a5296fda4815372382"
+    }
+  ],
+  "visualConclusion": "Distinct layouts and top navigation verified; supplied narrow anchor screenshot clears sticky filters; no blocking visual defect found in inspected captures",
+  "openFindings": [],
+  "limitations": [
+    "Synthetic design demo only",
+    "No independent browser operation in this round",
+    "No real API/PostgreSQL/backend permission/production/old-system regression verification",
+    "No user layout approval inferred"
+  ],
+  "passed": 7,
+  "failed": 0,
+  "conclusion": "PASS_SYNTHETIC_DESIGN_DEMO_ONLY"
+}

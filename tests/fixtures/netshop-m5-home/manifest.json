@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "netshop-m5-home-source-v1",
+  "syntheticOnly": true,
+  "independentHttpProof": false,
+  "records": [
+    {"name":"original-composite","file":"original-composite.json","bytes":212544,"sha256":"e8f7da2995b21c1cee2b986814ec65e854c7c57d7f43baea11922bfe845364c3","provenance":"original-provenance.json"},
+    {"name":"sales","file":"../netshop-panorama/response-sales.json","bytes":410597,"sha256":"474461b721676193100f61f06ef9dbd506dc575ed6bdb93d00b7f27acf52b2e0"},
+    {"name":"sales-missing-order","file":"../netshop-panorama/response-sales-missing-order.json","bytes":410681,"sha256":"d93e1ac02d27479491a9451bbc094dff9584e8725a1cb52f72b7477b4fe6bf42"},
+    {"name":"workflow","file":"../netshop-panorama/response-workflow.json","bytes":185451,"sha256":"3a1f0a2651e59fc2fa12bd6054f9f2687aea1c5abb512b497dbc5d039733fa45"}
+  ]
+}

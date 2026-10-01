@@ -1,0 +1,309 @@
+{
+  "kind": "round-2-synthetic-design-ui-only",
+  "checkedAt": "2026-09-30T11:01:09.737Z",
+  "checks": [
+    {
+      "check": "desktop layout 1",
+      "pass": true,
+      "filterLabel": "13px",
+      "folds": 0,
+      "matrixRows": 0,
+      "navTop": 0,
+      "pairs": 0,
+      "scrollWidth": 1425,
+      "sections": 8,
+      "selected": "01章节驾驶舱",
+      "title": "20px",
+      "width": 1440
+    },
+    {
+      "check": "desktop layout 2",
+      "pass": true,
+      "filterLabel": "13px",
+      "folds": 0,
+      "matrixRows": 8,
+      "navTop": 0,
+      "pairs": 0,
+      "scrollWidth": 1425,
+      "sections": 1,
+      "selected": "02经营对照矩阵",
+      "title": "20px",
+      "width": 1440
+    },
+    {
+      "check": "desktop layout 3",
+      "pass": true,
+      "filterLabel": "13px",
+      "folds": 0,
+      "matrixRows": 0,
+      "navTop": 0,
+      "pairs": 2,
+      "scrollWidth": 1425,
+      "sections": 2,
+      "selected": "03双列专题台",
+      "title": "20px",
+      "width": 1440
+    },
+    {
+      "check": "desktop layout 4",
+      "pass": true,
+      "filterLabel": "13px",
+      "folds": 0,
+      "matrixRows": 0,
+      "navTop": 0,
+      "pairs": 0,
+      "scrollWidth": 1425,
+      "sections": 1,
+      "selected": "04趋势先行",
+      "title": "20px",
+      "width": 1440
+    },
+    {
+      "check": "desktop layout 5",
+      "pass": true,
+      "filterLabel": "13px",
+      "folds": 8,
+      "matrixRows": 0,
+      "navTop": 0,
+      "pairs": 0,
+      "scrollWidth": 1425,
+      "sections": 8,
+      "selected": "05八章折叠档案",
+      "title": "20px",
+      "width": 1440
+    },
+    {
+      "check": "layout 2 reaches all eight chapters",
+      "pass": true
+    },
+    {
+      "check": "layout 3 reaches all eight chapters",
+      "pass": true
+    },
+    {
+      "check": "layout 4 reaches all eight chapters",
+      "pass": true
+    },
+    {
+      "check": "layout 5 reaches all eight chapters",
+      "pass": true
+    },
+    {
+      "check": "trend selector and selected date update",
+      "pass": true
+    },
+    {
+      "check": "layout 1 fits 390px with readable captions",
+      "pass": true,
+      "actualAxisFontPx": 12.012618681609819,
+      "chart": {
+        "font": "12px",
+        "height": 220,
+        "viewBox": "0 0 317 215",
+        "width": 317.3333435058594
+      },
+      "navTop": 0,
+      "scrollWidth": 375,
+      "selected": "01章节驾驶舱",
+      "width": 390
+    },
+    {
+      "check": "layout 2 fits 390px with readable captions",
+      "pass": true,
+      "actualAxisFontPx": 12.013115154328894,
+      "chart": {
+        "font": "12px",
+        "height": 220,
+        "viewBox": "0 0 305 215",
+        "width": 305.3333435058594
+      },
+      "navTop": 0,
+      "scrollWidth": 375,
+      "selected": "02经营对照矩阵",
+      "width": 390
+    },
+    {
+      "check": "layout 3 fits 390px with readable captions",
+      "pass": true,
+      "actualAxisFontPx": 12.012618681609819,
+      "chart": {
+        "font": "12px",
+        "height": 220,
+        "viewBox": "0 0 317 215",
+        "width": 317.3333435058594
+      },
+      "navTop": 0,
+      "scrollWidth": 375,
+      "selected": "03双列专题台",
+      "width": 390
+    },
+    {
+      "check": "layout 4 fits 390px with readable captions",
+      "pass": true,
+      "actualAxisFontPx": 12.012618681609819,
+      "chart": {
+        "font": "12px",
+        "height": 240,
+        "viewBox": "0 0 317 215",
+        "width": 317.3333435058594
+      },
+      "navTop": 0,
+      "scrollWidth": 375,
+      "selected": "04趋势先行",
+      "width": 390
+    },
+    {
+      "check": "layout 5 fits 390px with readable captions",
+      "pass": true,
+      "actualAxisFontPx": null,
+      "closed": 8,
+      "open": 0,
+      "scrollWidth": 375,
+      "width": 390
+    },
+    {
+      "check": "layout 1 fits 320px with readable captions",
+      "pass": true,
+      "actualAxisFontPx": 12.016194826195596,
+      "chart": {
+        "font": "12px",
+        "height": 220,
+        "viewBox": "0 0 247 215",
+        "width": 247.33334350585935
+      },
+      "navTop": 0,
+      "scrollWidth": 305,
+      "selected": "01章节驾驶舱",
+      "width": 320
+    },
+    {
+      "check": "layout 2 fits 320px with readable captions",
+      "pass": true,
+      "actualAxisFontPx": 12.017021796043881,
+      "chart": {
+        "font": "12px",
+        "height": 220,
+        "viewBox": "0 0 235 215",
+        "width": 235.33334350585935
+      },
+      "navTop": 0,
+      "scrollWidth": 305,
+      "selected": "02经营对照矩阵",
+      "width": 320
+    },
+    {
+      "check": "layout 3 fits 320px with readable captions",
+      "pass": true,
+      "actualAxisFontPx": 12.016194826195596,
+      "chart": {
+        "font": "12px",
+        "height": 220,
+        "viewBox": "0 0 247 215",
+        "width": 247.33334350585935
+      },
+      "navTop": 0,
+      "scrollWidth": 305,
+      "selected": "03双列专题台",
+      "width": 320
+    },
+    {
+      "check": "layout 4 fits 320px with readable captions",
+      "pass": true,
+      "actualAxisFontPx": 12.016194826195596,
+      "chart": {
+        "font": "12px",
+        "height": 240,
+        "viewBox": "0 0 247 215",
+        "width": 247.33334350585935
+      },
+      "navTop": 0,
+      "scrollWidth": 305,
+      "selected": "04趋势先行",
+      "width": 320
+    },
+    {
+      "check": "layout 5 fits 320px with readable captions",
+      "pass": true,
+      "actualAxisFontPx": null,
+      "chart": null,
+      "navTop": 0,
+      "scrollWidth": 305,
+      "selected": "05八章折叠档案",
+      "width": 320
+    },
+    {
+      "check": "320px chapter anchor clears sticky filters and updates highlight",
+      "pass": true,
+      "active": "true",
+      "chapterTop": 386.6875,
+      "filterBottom": 368.8541717529297,
+      "margin": "387px"
+    },
+    {
+      "check": "matrix missing day keeps partial source and blocks full-period combination",
+      "pass": true
+    },
+    {
+      "check": "revision change stops combination but keeps independent matrix sources",
+      "pass": true
+    },
+    {
+      "check": "failure clears old results",
+      "pass": true
+    },
+    {
+      "check": "denied clears old results",
+      "pass": true
+    },
+    {
+      "check": "rapid shop switch shows only final exact shop",
+      "pass": true
+    },
+    {
+      "check": "product drill preserves exact shop identity and dates",
+      "pass": true
+    },
+    {
+      "check": "top-right date picker updates actual comparison and all current scope labels",
+      "pass": true,
+      "scope": "天猫 · 演示厨电旗舰店\n本期 2026-08-28 — 2026-09-03\n环比 2026-08-21 — 2026-08-27 · 前等长区间"
+    },
+    {
+      "check": "system typography and colors applied to labels, table identity and title",
+      "pass": true,
+      "appBackground": "rgb(245, 247, 246)",
+      "body": "14px",
+      "bodyFont": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+      "brand": "rgb(68, 106, 82)",
+      "identityCaption": "12px",
+      "label": "13px",
+      "pageTitle": "20px",
+      "table": "13px"
+    },
+    {
+      "check": "top navigation uses exact system brand and navigation weight",
+      "pass": true,
+      "brand": "rgb(57, 97, 73)",
+      "navWeight": "600"
+    },
+    {
+      "check": "one missing ad day keeps empty SVG segments and null source metrics",
+      "pass": true,
+      "points": [
+        "",
+        ""
+      ],
+      "text": "推广花费\n— 万元\n仅已覆盖 0 天，缺 2026-09-15\n归因成交\n— 万元\n京东总订单金额；仅已覆盖 0 天，缺 2026-09-15\nROAS\n—\n归因成交 / 花费，非利润 ROI；仅已覆盖 0 天，缺 2026-09-15\n广告点击\n—\n不当作付费访客；仅已覆盖 0 天，缺 2026-09-15\n点击成本\n— 元\n已覆盖范围花费 / 点击\n推广费率\n—\n推广缺日，整期不可计算"
+    }
+  ],
+  "passed": 31,
+  "failed": 0,
+  "method": "CUA isolated browser; desktop1440 and narrow390/320",
+  "businessAPI": "not-connected",
+  "postgresql": "not-run",
+  "harnessCorrections": [
+    "Trend navigation nested under trend-chapter-zone",
+    "Browser key dispatch returns to top before variant switches",
+    "Only visible charts measured from viewBox and rendered box"
+  ]
+}

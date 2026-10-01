@@ -1,0 +1,213 @@
+{
+  "kind": "independent-round-3-static-and-evidence-review",
+  "createdAt": "2026-09-30T11:53:19.539Z",
+  "method": "Read-only source and supplied CUA/screenshot evidence; no browser operations",
+  "sourceManifest": {
+    "schemaVersion": "single01-search-pagination-v1",
+    "parentDesignCommit": "25e4dc1f7292bbf1afe9bb67f66b9777d4591cd1",
+    "baselineMain": "f08b34884fdc83813e4d2c8f3ec86b8ed2a795fe",
+    "files": {
+      "demo.css": "1fb7db67f6240bcf4a34a613fc86424e0e242063d222fa5104c8580849e49680",
+      "demo.js": "cd1736fcb2c557d4b3d023163c9b8fff1b9e0389b7b00a246a11044573aa2506",
+      "index.html": "a5e830c59c8cbf078ef4228e005023e0462393530be121a72778ab59b9759f16",
+      "serve.mjs": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+      "verify.mjs": "4c35d200937c2a734bb24b91e20eba100c1d7603d6319c60aae3bd3ac9c8a1cd"
+    },
+    "activeLayout": "01-only",
+    "fixtureCount": 18,
+    "pageSizes": [
+      5,
+      10,
+      20
+    ],
+    "filterScope": "product-list-only",
+    "productionOperations": [],
+    "businessAPI": "not-connected",
+    "postgresql": "not-run"
+  },
+  "checks": [
+    {
+      "name": "frozen-source-manifest-matches",
+      "pass": true,
+      "details": {
+        "demo.css": "1fb7db67f6240bcf4a34a613fc86424e0e242063d222fa5104c8580849e49680",
+        "demo.js": "cd1736fcb2c557d4b3d023163c9b8fff1b9e0389b7b00a246a11044573aa2506",
+        "index.html": "a5e830c59c8cbf078ef4228e005023e0462393530be121a72778ab59b9759f16",
+        "serve.mjs": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+        "verify.mjs": "4c35d200937c2a734bb24b91e20eba100c1d7603d6319c60aae3bd3ac9c8a1cd"
+      }
+    },
+    {
+      "name": "javascript-syntax",
+      "pass": true,
+      "details": "Both exit 0"
+    },
+    {
+      "name": "18-fixtures-top5-top10-and-full-share",
+      "pass": true,
+      "details": [
+        0.93,
+        0.9700000000000001,
+        1.0000000000000002
+      ]
+    },
+    {
+      "name": "pagination-first-last-and-negative-clamp",
+      "pass": true,
+      "details": [
+        {
+          "size": 5,
+          "pages": 4,
+          "lastRows": 3
+        },
+        {
+          "size": 10,
+          "pages": 2,
+          "lastRows": 8
+        },
+        {
+          "size": 20,
+          "pages": 1,
+          "lastRows": 18
+        }
+      ]
+    },
+    {
+      "name": "id-title-empty-search-and-escape",
+      "pass": true,
+      "details": [
+        {
+          "query": " p-demo-109 ",
+          "total": 1,
+          "page": 1
+        },
+        {
+          "query": "P-DEMO-109",
+          "total": 1,
+          "page": 1
+        },
+        {
+          "query": "商用",
+          "total": 4,
+          "page": 1
+        },
+        {
+          "query": "不存在的商品",
+          "total": 0,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "name": "query-and-pagination-leave-metrics-identical",
+      "pass": true,
+      "details": "Exact totals and markup equality"
+    },
+    {
+      "name": "size-change-resets-page-and-restores-select-focus",
+      "pass": true,
+      "details": {
+        "id": "#product-page-size",
+        "opts": {
+          "preventScroll": true
+        }
+      }
+    },
+    {
+      "name": "history-shop-change-resets-product-page",
+      "pass": true,
+      "details": {
+        "page": 1,
+        "shop": "tm-demo",
+        "layout": 1
+      }
+    },
+    {
+      "name": "only01-eight-sections-and-old-url-normalization",
+      "pass": true,
+      "details": "http://127.0.0.1:3160/?shop=tm-demo&layout=1"
+    },
+    {
+      "name": "denied-failure-clear-old-list-and-metrics",
+      "pass": true,
+      "details": [
+        "denied",
+        "failure"
+      ]
+    },
+    {
+      "name": "non-sticky-filter-offset-and-updated-empty-copy",
+      "pass": true,
+      "details": "Filter/title scroll naturally; only masthead/module height in final offset"
+    },
+    {
+      "name": "lead-cua-results-reviewed",
+      "pass": true,
+      "details": {
+        "passed": 18,
+        "failed": 0,
+        "independentlyRerun": false
+      }
+    },
+    {
+      "name": "replaced-390-narrow-capture-reviewed",
+      "pass": true,
+      "details": {
+        "path": "docs/netshop-refactor/panorama/evidence/round-3/narrow-390.png",
+        "format": "JPEG",
+        "height": 865,
+        "width": 375,
+        "sha256": "e1f6cf0def646ab3dd681b71efc7035f37a57dc3de1369c2aa9d454c793f99ce"
+      }
+    }
+  ],
+  "screenshotReview": {
+    "inspected": [
+      {
+        "path": "docs/netshop-refactor/panorama/evidence/round-3/only01-header.png",
+        "format": "JPEG",
+        "height": 990,
+        "width": 1425,
+        "sha256": "9a688be1317e7a7275359b63fefb9d0059565c861db7a987f31f6aec0569da88"
+      },
+      {
+        "path": "docs/netshop-refactor/panorama/evidence/round-3/product-search-pagination.png",
+        "format": "PNG",
+        "width": 1365,
+        "height": 580,
+        "sha256": "f487352ea8be491bcb0e330481e6ddf1118c01e3392acf17709bf2d7d98a0eb3"
+      },
+      {
+        "path": "docs/netshop-refactor/panorama/evidence/round-3/narrow-320.png",
+        "format": "JPEG",
+        "height": 858,
+        "width": 305,
+        "sha256": "795c3e0963db945395454b020acf8ad0d0ce304cac9c3d5d46a7f0082708dd34"
+      },
+      {
+        "path": "docs/netshop-refactor/panorama/evidence/round-3/narrow-390.png",
+        "format": "JPEG",
+        "height": 865,
+        "width": 375,
+        "sha256": "e1f6cf0def646ab3dd681b71efc7035f37a57dc3de1369c2aa9d454c793f99ce"
+      }
+    ],
+    "conclusion": "Updated390 capture visually shows main navigation on second row, wrapped shop filter and normal sized typography; desktop and product search/pagination captures are clear"
+  },
+  "openFindings": [],
+  "limitations": [
+    "Synthetic design fixture only",
+    "No shared browser operation in this review",
+    "No real API/PostgreSQL/backend permission/old-system regression/production verification"
+  ],
+  "passed": 13,
+  "failed": 0,
+  "conclusion": "PASS_SINGLE01_SYNTHETIC_DESIGN_ONLY",
+  "closedFindings": [
+    "Page-size select focus restored",
+    "Browser history shop change resets product page",
+    "Empty-state copy updated for non-sticky filters",
+    "Incorrect390 thumbnail replaced by genuine narrow capture"
+  ],
+  "finalReviewedAt": "2026-09-30T11:56:46.294Z"
+}
