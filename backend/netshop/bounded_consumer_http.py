@@ -133,7 +133,9 @@ def open_bounded_consumer_request(request, *, deadline, timeout_cap=None):
     if not isinstance(request, urllib.request.Request):
         raise ValueError("Consumer transport requires an already signed fixed Request")
     url = urllib.parse.urlsplit(request.full_url)
-    if request.get_method() != "POST" or url.scheme not in {"http", "https"} or not url.netloc or url.username or url.password or url.query or url.fragment or url.path not in {"/api/finance/consumers/query", "/api/sales/consumers/query"} or url.scheme == "http" and (url.hostname or "").lower() not in {"127.0.0.1", "localhost", "::1"}:
+    native_post = request.get_method() == "POST" and url.path in {"/api/finance/consumers/query", "/api/sales/consumers/query"} and not url.query
+    workflow_get = request.get_method() == "GET" and url.path == "/api/workflow/operations-records" and request.data is None
+    if not (native_post or workflow_get) or url.scheme not in {"http", "https"} or not url.netloc or url.username or url.password or url.fragment or url.scheme == "http" and (url.hostname or "").lower() not in {"127.0.0.1", "localhost", "::1"}:
         raise ValueError("Consumer transport destination/method is not a fixed native reader")
     budget = _Budget(deadline, timeout_cap)
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _HTTPHandler(budget), _HTTPSHandler(budget), _NoRedirect())
