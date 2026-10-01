@@ -265,3 +265,32 @@ class RegisteredPeriodsHttpTests(LiveServerTestCase):
         target = os.environ.get("TERUISI_CROSSDOMAIN_CAPACITY_EVIDENCE_DIR")
         if target:
             with (Path(target)/"actual-ts-sdk-result.json").open("x", encoding="utf8") as out: json.dump(result, out, indent=2)
+
+    def test_actual_registered_optin_series_is_one_signed_rpc_with_full_native_return(self):
+        identity={"platform":"京东","rawShopName":"京东一店","rawChannel":"渠道A"}
+        request={**REQUEST,"seriesGrain":"week","seriesOutlets":[identity]}
+        original=urllib.request.urlopen;calls=[]
+        def opening(call,**options):calls.append(json.loads(call.data));return original(call,**options)
+        with patch("netshop.sales_client.urllib.request.urlopen",side_effect=opening):data,revision=read_sales_periods(self.principal,request,deadline=time.monotonic()+5)
+        self.assertEqual(len(calls),1);self.assertIn("expiresAtEpochMs",calls[0])
+        self.assertEqual(revision,"7:3");self.assertEqual(data["series"]["sourceRevisions"],data["sourceRevisions"])
+        self.assertEqual(data["series"]["items"][0]["identity"],identity)
+        self.assertEqual(data["series"]["items"][0]["current"][0][0][3],2)
+        self.assertEqual(data["periodTotals"]["current"]["rowCount"],4)
+        status,envelope,headers,raw=self.post(request);self.assertEqual(status,200)
+        self.assertEqual(envelope["data"]["series"],data["series"])
+        capture("registered-optin-series",request,raw,headers)
+
+    def test_actual_signed_rpc_four_objects_two_full_366_windows_fit_complete_budget(self):
+        outlets=[{"platform":"京东","rawShopName":shop,"rawChannel":"渠道A"} for shop in ("京东一店","B","C","D")]
+        SalesOrderLine.objects.bulk_create([make_line(71+i,f"http-full-year-{i}",shop_name=row["rawShopName"],ship_time="2024-02-29 10:00:00") for i,row in enumerate(outlets)])
+        request={"operation":"netshop_periods_v1","current":{"startDate":"2024-02-28","endExclusive":"2025-02-28"},"baseline":{"startDate":"2020-02-28","endExclusive":"2021-02-28"},"seriesGrain":"day","seriesOutlets":outlets}
+        original=urllib.request.urlopen;calls=[]
+        def opening(call,**options):calls.append(1);return original(call,**options)
+        with patch("netshop.sales_client.urllib.request.urlopen",side_effect=opening):data,revision=read_sales_periods(self.principal,request,deadline=time.monotonic()+5)
+        self.assertEqual(calls,[1]);self.assertEqual(revision,"7:3")
+        self.assertEqual(sum(len(row[kind]) for row in data["series"]["items"] for kind in ("current","baseline")),2928)
+        status,envelope,headers,raw=self.post(request)
+        self.assertEqual(status,200);self.assertLessEqual(len(raw),2*1024*1024)
+        self.assertEqual(envelope["data"],data)
+        capture("registered-optin-max-series",request,raw,headers)

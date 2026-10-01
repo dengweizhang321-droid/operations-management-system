@@ -1,0 +1,32 @@
+{
+  "request": {
+    "operation": "netshop_periods_v1",
+    "current": {
+      "startDate": "2026-09-01",
+      "endExclusive": "2026-09-10"
+    },
+    "baseline": {
+      "startDate": "2026-08-01",
+      "endExclusive": "2026-08-06"
+    },
+    "seriesGrain": "day",
+    "seriesOutlets": [
+      {
+        "platform": "京东",
+        "rawShopName": "京东一店",
+        "rawChannel": "渠道A"
+      }
+    ]
+  },
+  "headerRevision": "7:3",
+  "sourceHead": "49306356b22b8c8ea6925f1d0f874dc45f5a31fb",
+  "dirty": " M backend/netshop/sales_periods_client.py\n M backend/netshop/tests/test_sales_periods_http.py\n M backend/sales/netshop_periods.py\n M backend/sales/tests/test_netshop_periods.py\n M lib/netshop/sales-periods-contract.ts\n?? backend/netshop/tests/test_sales_periods_series.py\n?? backend/sales/netshop_period_series.py\n?? backend/sales/tests/test_netshop_period_series.py\n?? docs/netshop-refactor/foundation/cross-domain-sales-series-v1.md\n?? tests/fixtures/netshop-sales-period-series/\n?? tests/netshop-sales-period-series-contract.test.ts\n",
+  "sha256": {
+    "backend/sales/netshop_periods.py": "1411a93760ede34b02e2d2076a8595bad9ec5ced8ab627b5f4f928a3f8720888",
+    "backend/sales/netshop_period_series.py": "edc20d8c66c5ce3d0ed4463dd746bf1c25d56deb6be38fa7e812b8a2e5db215e",
+    "backend/netshop/sales_periods_client.py": "08df9701b9479cd26192edfcb53e24b4868e75e86dd8b7faccd2385a58a9b962",
+    "lib/netshop/sales-periods-contract.ts": "71ad9b08d544e67f659e63f9fa8ac3f10ed876dc2ed777bf79cfd1d653b8aec0",
+    "backend/sales/tests/test_netshop_period_series.py": "b0185524e1b33a45e3dfbeb11e1c0322bac5cc4d441d2c9fcbad9d4954c4e77e"
+  },
+  "syntheticPrivatePg": true
+}
