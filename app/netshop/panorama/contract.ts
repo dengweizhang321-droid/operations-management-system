@@ -260,7 +260,9 @@ function capabilityHasSource(section: PanoramaSectionKey, id: string, sources: S
   if (id === "annual_target") return !!finance && finance.annualTargets.some(row => available(row.target));
   if (id === "finance_month") return !!finance && finance.months.some(row => available(row.revenue) || available(row.profit));
   if (id === "history") return !!finance && finance.months.some(row => row.month < finance.scope.startDate.slice(0, 7) && (available(row.revenue) || available(row.profit)));
-  if (id === "events" || id === "import_records") return !!workflow && workflow.items.length > 0;
+  if (id === "events") return !!workflow && workflow.items.length > 0;
+  // Inspection/review operations are not import batches or n8n executions.
+  if (id === "import_records") return false;
   if (["coverage", "field_availability", "source_freshness"].includes(id)) return Object.values(sources).some(source => source.state === "ready");
   if (id === "comparability") return available(p?.comparisons.payment.previous) || available(sales?.comparisons.netSales.previous);
   return false;
