@@ -47,6 +47,7 @@ function assertUnavailable(error: unknown): boolean {
 test("consumer reader exposes only the fixed non-SQL operation allowlist", () => {
   assert.deepEqual(salesConsumerOperations, [
     "analysis_records",
+    "netshop_periods_v1",
     "freshness",
     "summary",
     "inventory_demand",

@@ -1,0 +1,26 @@
+{
+  "request": {
+    "operation": "netshop_periods_v1",
+    "current": {
+      "startDate": "2026-08-01",
+      "endExclusive": "2026-08-03"
+    },
+    "baseline": {
+      "startDate": "2026-07-01",
+      "endExclusive": "2026-08-01"
+    },
+    "q": "基期店",
+    "page": 6,
+    "pageSize": 100
+  },
+  "headers": {
+    "Content-Type": "application/json",
+    "X-Sales-Data-Revision": "7:3",
+    "X-Sales-Source-Revision": "7:3",
+    "X-Sales-Overview-Cache": "bypass_owned_periods_v1",
+    "Cache-Control": "no-store"
+  },
+  "bytes": 199911,
+  "sha256": "be2726f3b40b17eae5ba6cb75aecd1eb6a03d64a6c72defc573b91bc07c5590c",
+  "dataSource": "actual_registered_signed_loopback_synthetic_pg"
+}
