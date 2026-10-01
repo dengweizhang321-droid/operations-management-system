@@ -14,7 +14,7 @@ from .query import positive
 COMPARISON_SCHEMA = "netshop-comparison-v1"
 SHARED_PARAMETERS = {"platform", "outlet", "dimension", "startDate", "endDate", "periodKind", "snapshotToken"}
 COMPARISON_PARAMETERS = {"comparisonScope", "selectedBaseline", "chartObjectKeys", "metricKey", "trendGrain", "page", "pageSize", "sort", "sectionToken"}
-ERP_METRIC_KEYS = {"erpNetSales", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"}
+ERP_METRIC_KEYS = {"erpNetSales", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "erpNetQuantity", "returnQuantity", "returnRate"}
 METRIC_KEYS = {"payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate"} | ERP_METRIC_KEYS
 SORTS = {"value_desc", "value_asc", "growth_desc", "decline_desc", "name_asc"}
 
