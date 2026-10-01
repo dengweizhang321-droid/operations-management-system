@@ -32,7 +32,7 @@ test("366-day selection and 367-day actual year-ago remain separate bounded natu
   assert.equal(context.periods.yearAgo.days, 367);
   const plan = panoramaFinanceReadPlan(context);
   assert.equal(plan.requests.length, 4);
-  for (const request of plan.requests) assert.equal(request.months.length, 13);
+  assert.deepEqual(plan.requests.map(request => request.months.length), [13, 12, 13, 13]);
   assert.equal(plan.requests[plan.periodReadRefs.yearAgo].months[0], "2023-03");
   assert.equal(plan.requests[plan.periodReadRefs.yearAgo].months.at(-1), "2024-03");
 });
