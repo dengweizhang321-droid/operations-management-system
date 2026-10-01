@@ -26,7 +26,7 @@
 
 ## 运行
 
-独立树运行 `python app/netshop/comparison/demo/serve.py --port 3170`，打开 `http://127.0.0.1:3170/`。仅回环GET/HEAD静态预览，CSP禁止业务连接，不使用生产配置或数据库。测试入口verify-ui.cjs需Playwright，报告写入本目录evidence。
+独立树运行 `python app/netshop/comparison/demo/serve.py --port 3170`，打开 `http://127.0.0.1:3170/`。仅回环GET/HEAD静态预览，CSP禁止业务连接，不使用生产配置或数据库。测试入口在 `tests/fixtures/netshop-comparison-demo/verify-ui.cjs`，复用已声明依赖 `playwright-core`；通过 `COMPARISON_CHROME` 指定隔离测试浏览器，报告写入本目录evidence。测试脚本不属于正式页面运行图。
 
 只推送codex/netshop-comparison，由I负责main合并和清理。当前主线同步至f08b34884fdc83813e4d2c8f3ec86b8ed2a795fe，F仍未冻结；不改公共文件、不接未验收接口。
 

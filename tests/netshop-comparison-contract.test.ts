@@ -183,7 +183,7 @@ test("native quantity cannot become a physical COUNT, fractional quantity or com
 });
 test("ERP imported dates and zero stored cost may not become verified source closure or profit", async () => {
   await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.source!.periodTotals.current.observations.completeness = "complete" as unknown as "unknown"; }, erpFixtures.cases[0]);
-  await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.source!.metricMetadata.cost.verification = "verified" as unknown as "unverified_source"; }, erpFixtures.cases[1]);
+  await rejectsMutation(dto => { (dto.sections.comparability.erpEvidence.source!.metricMetadata.cost as unknown as { verification: string }).verification = "verified"; }, erpFixtures.cases[1]);
   await rejectsMutation(dto => { dto.sections.scale.summary.current.largeMarginAmount.status = "available"; dto.sections.scale.summary.current.largeMarginAmount.reasonCode = null; }, erpFixtures.cases[1]);
   await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.observations[dto.sections.scale.items[0].current.erpNetSales.coverageRef].shopKeys = ["京东\u001f未经授权"]; }, erpFixtures.cases[0]);
 });

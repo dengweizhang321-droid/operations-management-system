@@ -3,17 +3,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { chromium } = require(process.env.COMPARISON_PLAYWRIGHT || 'playwright');
+const { chromium } = require('playwright-core');
+const demoRoot = path.resolve(__dirname, '../../../app/netshop/comparison/demo');
 
 const url = new URL(process.argv[2] || 'http://127.0.0.1:3170/');
 assert.equal(url.hostname, '127.0.0.1', 'Only an isolated loopback demo is allowed');
 assert.ok(Number(url.port) >= 3100 && Number(url.port) <= 3900);
-const out = path.join(__dirname, 'evidence');
+const out = path.join(demoRoot, 'evidence');
 fs.mkdirSync(out, {recursive: true});
 const cases = [];
 const errors = [];
 const requests = [];
-const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname, f))).digest('hex');
+const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(demoRoot, f))).digest('hex');
 
 (async () => {
   const browser = await chromium.launch({headless: true, ...(process.env.COMPARISON_CHROME ? {executablePath: process.env.COMPARISON_CHROME} : {})});
@@ -36,7 +37,7 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
       assert.match(await page.locator('body').innerText(), /合成/);
     });
     await check('System font, palette and top-level column positions match the approved shell', async () => {
-      assert.equal(fs.readFileSync(path.join(__dirname,'system-tokens.css'),'utf8'),fs.readFileSync(path.join(__dirname,'../../../styles/tokens.css'),'utf8'));
+      assert.equal(fs.readFileSync(path.join(demoRoot,'system-tokens.css'),'utf8'),fs.readFileSync(path.join(demoRoot,'../../../styles/tokens.css'),'utf8'));
       const style=await page.evaluate(()=>{
         const header=document.querySelector('.system-masthead'),tabs=document.querySelector('.system-subnav'),active=tabs.querySelector('.active');
         return {font:getComputedStyle(document.body).fontFamily,bodySize:getComputedStyle(document.body).fontSize,tableSize:getComputedStyle(document.querySelector('td')).fontSize,bg:getComputedStyle(header).backgroundColor,tabBg:getComputedStyle(active).backgroundColor,margin:getComputedStyle(document.querySelector('.app-body')).marginLeft,header:header.getBoundingClientRect().toJSON(),tabs:tabs.getBoundingClientRect().toJSON(),columns:[...tabs.querySelectorAll('button')].map(e=>e.textContent)};
@@ -359,7 +360,7 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
     await browser.close();
     const report = {
       scope: 'synthetic isolated UI only',
-      sourceHashes: Object.fromEntries(['index.html','demo.js','demo.css','system-tokens.css','system-frame.css','date-picker.js','date-picker.css'].filter(f=>fs.existsSync(path.join(__dirname,f))).map(f=>[f,sha(f)])),
+      sourceHashes: Object.fromEntries(['index.html','demo.js','demo.css','system-tokens.css','system-frame.css','date-picker.js','date-picker.css'].filter(f=>fs.existsSync(path.join(demoRoot,f))).map(f=>[f,sha(f)])),
       testedAt: new Date().toISOString(),
       viewport: ['1440x1080','390x844'],
       cases, errors, requests,
