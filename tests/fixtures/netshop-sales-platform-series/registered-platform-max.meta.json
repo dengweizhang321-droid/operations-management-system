@@ -1,0 +1,280 @@
+{
+  "request": {
+    "operation": "netshop_periods_v1",
+    "current": {
+      "startDate": "2024-02-28",
+      "endExclusive": "2025-02-28"
+    },
+    "baseline": {
+      "startDate": "2023-02-28",
+      "endExclusive": "2024-02-28"
+    },
+    "rawOutlets": [
+      {
+        "platform": "京东",
+        "rawShopName": "J00",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J01",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J02",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J03",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J04",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J05",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J06",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J07",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J08",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J09",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J10",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J11",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J12",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J13",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J14",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J15",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J16",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J17",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J18",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J19",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J20",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J21",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J22",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J23",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "京东",
+        "rawShopName": "J24",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T00",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T01",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T02",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T03",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T04",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T05",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T06",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T07",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T08",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T09",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T10",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T11",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T12",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T13",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T14",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T15",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T16",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T17",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T18",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T19",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T20",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T21",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T22",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T23",
+        "rawChannel": "共享渠道"
+      },
+      {
+        "platform": "天猫",
+        "rawShopName": "T24",
+        "rawChannel": "共享渠道"
+      }
+    ],
+    "seriesGrain": "day",
+    "seriesPlatforms": [
+      "京东",
+      "天猫"
+    ]
+  },
+  "headers": {
+    "Content-Type": "application/json",
+    "X-Sales-Data-Revision": "7:3",
+    "X-Sales-Source-Revision": "7:3",
+    "X-Sales-Overview-Cache": "bypass_owned_periods_v1",
+    "Cache-Control": "no-store"
+  },
+  "bytes": 266750,
+  "sha256": "c657a965ba5d9c2be1dcb8c2ac8edbd0346d9453420039faf48c44bb914a08ae",
+  "dataSource": "actual_registered_signed_loopback_synthetic_pg"
+}
