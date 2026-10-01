@@ -23,3 +23,11 @@ final-signed-98dd 与 final-signed-916 各自 CreateNew 保存完整22组三文�
 916精确平台展开273648 bytes、SHA68b2e84e509b317bfe86a2493e56fd4b350a28a1a1282a7eb2b13bcbef4e259f；原query显式five JD outlet逐值/次序匹配父真实row.shopKeys。98旧无outlet expanded事实也有五店，但请求不同，不用于这一门槛，绝不改requestedScope/请求或C按钮来骗过。
 
 目前交付raw与严格运输checkpoint，不声明完整Home已运行。新bootstrap直接消费原C与same-run P/A独立topic/detail，经原decoder校验完整query/identity/window/header；不再借旧S六seed。错误用原authority响应原字节；全部未知GET/写/模型/外部禁止。未知sort先确认并非已捕获同scope响应，再用真实合法UI变更验证清body；没有sort/q准确采样就明确pending，不能宣称排序源量全验。最终validationCases仍需按原实际步骤与原sourcePath逐gate落实；未执行、缺原capture或空assert不得伪通过。
+
+## Home 必要门槛执行器（2026-10-01）
+
+`scenarios.mjs` 现调用专属 `gates.mjs` 执行全部十一项必要门槛，取代上述未落实的 `validationCases` 声明骨架；manifest 原件与其 SHA、原 HTTP 三文件均不修改。每项实际执行后单独保存 `gate-名称.json`，包含原 capture SHA/query/seed、实际 sourcePath、真实控件动作、断言及 passed/failed/pending。失败另保存 DOM 和截图，并继续执行其余门槛，最后统一失败关闭；没有删减必要门槛或预算。工具作者的结果仍不构成独立 Q 签名。
+
+22 指标以真实列设置显示，并逐原始排名行验证金额、原生数量、不可用状态；另真实选择已捕获同范围的 ERP 原生净数量指标。日/自然周/月用实际粒度控件切换原响应。下一页用原 sectionToken 读取原 page2，完整 summary/population 不以页内行重算；合法排序缺原响应仍阻断。C 契约禁止文本 q，因此仅验证原验证器拒绝 unsupported q，不提出新增搜索功能。ERP 各平台整期使用各自原拥有方 periodTotals，完整 rawMembers 实际折叠展开，不求和补造数量或把未核验成本零当可信零。
+
+日历实际开关、取消、逐日期点击与确定，使用原本期/基期日期。迟到200/401/403/409先通过真实覆盖筛选改变 scope，再释放旧结果，验证原 AbortSignal 已取消且新原响应不变。账号切换仅使用隔离合成 auth 响应验证 Home 清除原账号结果，后端权限证明仍归原 signed 捕获。P/A 钻取严格按实际链接的完整查询匹配同 seed 原件；任何店铺集合、维度或 pageSize 不匹配保存精确 endpoint/query 为 requiredCaptures，不改原 body、客户端归一 scope 或借另一范围响应。旧五 view、O 旧/新视图及 ERP 只验入口与明确缺源，原经营数据证明继承 M5，不能称新增完整经营数据验收。

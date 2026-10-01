@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
+import { runM6FullGates } from "./gates.mjs";
 function locationFor(record){
  const b=record.body,c=b.currentContext,q=new URLSearchParams(record.query),s=c.requestedScope;
  const intent={...b.comparisonScope,selectedBaseline:b.selectedBaseline};
@@ -66,32 +67,6 @@ export async function runM6Scenarios({page,origin,check,save,evidence,records,ma
   if(first.body.selectedBaseline.kind==="custom")assert.ok(text.includes(first.body.selectedBaseline.startDate));
   assert.equal(await page.evaluate(()=>window.__m6.models.length),0);await save("m6-ai-unsent.txt",text);
  });
- const needed=["fiveOldNavAndOERP","metric22","allGrains","sortPageQ","nativePlatformTotals","memberFold","calendarClicks","sameSeedPDrill","sameSeedADrill","late401403409","accountScope"];
- const missing=needed.filter(name=>!manifest.validationCases?.some(c=>c.gate===name));
- if(missing.length){await save("full-gates-pending.json",{missing,reason:"Need final exact same-run full-query/direct corpus; never fabricate a complete total from a page"});throw new Error("M6 full gates pending: "+missing.join(","));}
- // Gate cases are explicit, source-bound declarative actual-control steps; no body retargeting.
- for(const gate of manifest.validationCases){
-  const record=cases.find(r=>r.name===gate.capture);assert.ok(record,"Gate must reference a validated original capture");
-  assert.ok(Array.isArray(gate.steps)&&gate.steps.length>0&&Array.isArray(gate.assertions)&&gate.assertions.length>0,"Full gate cannot be an empty label");
-  await open(record);await check("Final source-bound gate "+gate.gate,async()=>{
-   for(const step of gate.steps||[]){
-    if(step.action==="select")await page.getByLabel(step.label,{exact:true}).selectOption(step.value);
-    else if(step.action==="click")await page.getByRole("button",{name:step.name,exact:true}).click();
-    else if(step.action==="back")await page.goBack();
-    else if(step.action==="fill")await page.getByLabel(step.label,{exact:true}).fill(step.value);
-    else throw Error("Unknown gate action; no code/evaluate/CSS overrides allowed");
-   }
-   if(gate.expectedCapture){await page.waitForFunction(name=>window.__m6.served.at(-1)?.fixture===name,gate.expectedCapture);}
-   if(gate.returnExact){assert.equal(page.url(),origin+"/?"+locationFor(record));}
-   for(const assertion of gate.assertions){
-    assert.ok(Array.isArray(assertion.sourcePath)&&assertion.sourcePath.length>0,"Assertion must bind an original source field");
-    let expected=record.body;for(const key of assertion.sourcePath)expected=expected[key];
-    assert.notEqual(expected,undefined,"Missing original source field is pending, never invented");
-    if(assertion.kind==="count")assert.equal(await page.locator(assertion.selector).count(),Array.isArray(expected)?expected.length:expected);
-    else if(assertion.kind==="text")assert.ok((await page.locator(assertion.selector).innerText()).includes(String(expected)));
-    else throw Error("Unknown source-bound assertion; no aggregate/evaluate escape hatch");
-   }
-  });
- }
- return{completedScope:"M6 actual Home original complete corpus and declared full gates",independentReviewConclusion:null};
+ const gates=await runM6FullGates({page,open,ready,records,first,check,save,evidence,manifest});
+ return{completedScope:"M6 actual Home original complete corpus and eleven actual source-bound full gates",...gates,independentReviewConclusion:null};
 }
