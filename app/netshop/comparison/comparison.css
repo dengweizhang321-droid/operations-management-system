@@ -49,6 +49,8 @@
 .nc-table .nc-table-group td { text-align:left; font-weight:600; background:var(--color-brand-soft,#f3f7f4); position:static; }
 .nc-trend-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
 .nc-trend-pair > div { min-width:0; }
+.nc-card.nc-half .nc-trend-pair { grid-template-columns:minmax(0,1fr); }
+.nc-distribution-scroll { max-height:340px; overflow-y:auto; }
 .nc-count { display:block; font-size:var(--font-size-kpi,24px); margin-top:6px; }
 .nc-structure-object + .nc-structure-object { border-top:1px solid var(--color-border-default,#dde5df); margin-top:20px; padding-top:10px; }
 .nc-tools,.nc-chart-legend,.nc-object-selector,.nc-links { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
