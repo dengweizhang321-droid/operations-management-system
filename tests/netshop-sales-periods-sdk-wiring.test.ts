@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { readDjangoSalesConsumer, type SalesConsumerReaderConfig } from "../lib/django/sales-consumer-reader";
 import { PublicApiError } from "../lib/http/api-error";
+import { createHash } from "node:crypto";
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { SalesPeriodsRpcRequest } from "../lib/netshop/sales-periods-contract";
 
@@ -47,4 +48,31 @@ test("caller expiry shrinks the whole SDK read, including a transport that ignor
   let fetched = false;
   await assert.rejects(readDjangoSalesConsumer(principal, { ...request, expiresAtEpochMs: Date.now() - 1 }, { config, fetchImpl: async () => { fetched = true; return response(); } }), error => error instanceof PublicApiError && error.status === 503);
   assert.equal(fetched, false);
+});
+
+test("the SDK accepts the two opt-in keys and validates unchanged actual registered series bytes", async () => {
+  for (const name of ["registered-optin-series", "registered-optin-max-series"]) {
+    const raw = readFileSync(new URL(`./fixtures/netshop-sales-period-series/${name}.json`, import.meta.url));
+    const meta = JSON.parse(readFileSync(new URL(`./fixtures/netshop-sales-period-series/${name}.meta.json`, import.meta.url), "utf8"));
+    assert.equal(raw.byteLength, meta.bytes);
+    assert.equal(createHash("sha256").update(raw).digest("hex"), meta.sha256);
+    let signed: Record<string, unknown> | undefined;
+    const result = await readDjangoSalesConsumer(principal, meta.request as SalesPeriodsRpcRequest, { config, fetchImpl: async (_, init) => {
+      signed = JSON.parse(new TextDecoder().decode(init?.body as Uint8Array));
+      return new Response(raw, { headers: meta.headers });
+    } });
+    assert.equal(signed?.seriesGrain, meta.request.seriesGrain);
+    assert.deepEqual(signed?.seriesOutlets, meta.request.seriesOutlets);
+    assert.deepEqual(result.data, JSON.parse(raw.toString()).data);
+    assert.equal(result.data.series?.projection, "native-period-tuples-v1");
+  }
+});
+
+test("incomplete, foreign-key or duplicated series intent is rejected before transport", async () => {
+  const meta = JSON.parse(readFileSync(new URL("./fixtures/netshop-sales-period-series/registered-optin-series.meta.json", import.meta.url), "utf8"));
+  for (const invalid of [{ ...meta.request, seriesOutlets: undefined }, { ...meta.request, seriesGrain: ["week"] }, { ...meta.request, seriesOutlets: [...meta.request.seriesOutlets, ...meta.request.seriesOutlets] }, { ...meta.request, sourceUrl: "http://127.0.0.1/private" }]) {
+    let fetched = false;
+    await assert.rejects(readDjangoSalesConsumer(principal, invalid, { config, fetchImpl: async () => { fetched = true; return response(); } }));
+    assert.equal(fetched, false);
+  }
 });
