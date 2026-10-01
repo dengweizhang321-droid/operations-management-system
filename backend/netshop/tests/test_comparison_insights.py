@@ -119,6 +119,17 @@ class ComparisonInsightsTests(TestCase):
         self.assertEqual(rows[0]["current"]["payment"]["value"], 2000)
         self.assertEqual(rows[0]["shopKeys"], ["京东\x1fA", "京东\x1fB"])
 
+    def test_structure_observed_bucket_counts_remain_partial_with_parent_coverage(self):
+        self.fact(shop="A"); self.fact(shop="A", day="2026-09-02")
+        self.fact(shop="B")
+        result = self.read(endDate="2026-09-02", comparisonScope=self.scope(mode="platform"))
+        structure = result["sections"]["structure"]["items"][0]["current"]
+        for bucket in structure["categories"]+structure["priceBands"]:
+            metric = bucket["products"]
+            self.assertEqual((metric["status"], metric["reasonCode"]), ("partial", "incomplete_coverage"))
+            self.assertGreater(metric["value"], 0)
+            self.assertFalse(result["sections"]["comparability"]["coverage"][metric["coverageRef"]]["complete"])
+
     def test_complete_pairs_rank_before_partial_even_higher_current(self):
         self.pair(shop="complete", metrics={"transactionAmountCents": 1})
         self.fact(shop="partial", metrics={"transactionAmountCents": 9999})

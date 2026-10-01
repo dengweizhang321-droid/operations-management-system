@@ -122,6 +122,13 @@ def _product_structure(base, context, descriptor, metrics, rows, period, coverag
     # P computes bounded source-label and transaction-mean price buckets in SQL.
     categories = P._derived_buckets(grouped, scoped, metrics["payment"])
     prices = P._derived_buckets(grouped, scoped, metrics["payment"], price=True)
+    # P's count means observed identities. Binding that count to C's full
+    # object/date coverage must disclose partial coverage instead of upgrading
+    # an observed count into a complete-period product population.
+    if not coverage[ref]["complete"]:
+        for bucket in categories+prices:
+            if bucket["products"]["status"] == "available":
+                bucket["products"] = validate_metric({**bucket["products"], "status": "partial", "reasonCode": "incomplete_coverage"})
     top = list(grouped.order_by(F("payment").desc(nulls_last=True), "platform", "shop_name", dimension+"_id").values_list("payment", flat=True)[:10])
     complete = metrics["payment"]["status"] == "available"
     def top_money(number):
