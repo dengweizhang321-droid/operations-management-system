@@ -242,6 +242,7 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
     if (!Array.isArray(promotion.sourceScopes) || promotion.sourceScopes.length > 4 || !Array.isArray(promotion.sourceStates) || promotion.sourceStates.length !== current.effectiveScope.platforms.length * 2) fail("推广所属范围或状态缺失");
     const coverageRefs = new Set([...Object.keys(current.coverageBySource), ...Object.keys(baseline.coverageBySource), ...Object.keys(coverage)]), sourceStateKeys = new Set<string>();
     const expectedVector = new Map<string, SourceRevision>();
+    const sourceScopeKeys = new Set<string>();
     const addVector = (source: SourceRevision[]) => { for (const r of source) { const key = stable([r.domain, r.kind, r.scopeKey]); if (expectedVector.has(key) && expectedVector.get(key)!.revision !== r.revision) fail("同类同scope来源版本冲突"); expectedVector.set(key, r); } };
     addVector(current.sourceRevisions); addVector(baseline.sourceRevisions);
     for (const raw of promotion.sourceScopes) {
@@ -250,6 +251,7 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
       const keys = shopKeys(a.shopKeys), owner = a.period === "current" ? current : baseline;
       const entries = a.sourceRevisions.map(object), manifests = entries.filter(r => typeof r.kind === "string" && r.kind.endsWith(":promotionManifest"));
       if (manifests.length !== 1) fail("推广所属平台向量不完整"); const platform = String(manifests[0].kind).split(":")[0];
+      const scopeMember = `${a.period}:${platform}`; if (sourceScopeKeys.has(scopeMember)) fail("推广所属两期平台scope重复"); sourceScopeKeys.add(scopeMember);
       if (!enumValue(platform, owner.effectiveScope.platforms) || (platform === "京东" ? a.dimension !== "sku" : a.dimension !== "spu") || stable([...keys].sort()) !== stable(owner.effectiveScope.shopKeys.filter(key => key.startsWith(platform + "\u001f")).sort())) fail("推广维度或授权精确店铺失配");
       const kinds = ["owning_revision", platform + ":promotionManifest", ...keys.flatMap(key => [platform + ":product:" + key, platform + ":promotion:" + key])], seenKinds = new Set<string>();
       if (entries.length !== kinds.length) fail("推广所属来源成员不完整");
@@ -259,7 +261,7 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
     }
     if (input.joinedSourceRevisions.length !== expectedVector.size || (input.joinedSourceRevisions as SourceRevision[]).some(r => expectedVector.get(stable([r.domain, r.kind, r.scopeKey]))?.revision !== r.revision)) fail("参与向量必须完整等于双F及推广拥有方向量，不能裁剪或注入");
     const authorityCode = (code: unknown) => typeof code === "string" && (["access_denied", "authentication_required", "not_authenticated", "forbidden", "permission_denied"].includes(code) || code.endsWith("revision_changed"));
-    for (const raw of promotion.sourceStates) { const s = object(raw), key = `${s.period}:${s.platform}`; if (!enumValue(s.period, ["current", "baseline"]) || !current.effectiveScope.platforms.includes(s.platform as InsightPlatform) || sourceStateKeys.has(key) || !enumValue(s.state, ["ready", "error", "unavailable"]) || s.state === "ready" && s.code !== null || s.state !== "ready" && !text(s.code, 200) || authorityCode(s.code)) fail("推广状态必须保留真实错误及权限失败关闭"); sourceStateKeys.add(key); }
+    for (const raw of promotion.sourceStates) { const s = object(raw), key = `${s.period}:${s.platform}`; if (!enumValue(s.period, ["current", "baseline"]) || !current.effectiveScope.platforms.includes(s.platform as InsightPlatform) || sourceStateKeys.has(key) || !enumValue(s.state, ["ready", "error", "unavailable"]) || s.state === "ready" && s.code !== null || s.state !== "ready" && !text(s.code, 200) || authorityCode(s.code) || (s.state === "ready") !== sourceScopeKeys.has(key)) fail("推广状态必须保留真实错误及权限失败关闭"); sourceStateKeys.add(key); }
     if (authorityCode(erp.code)) fail("ERP权限或版本失效须整体失败关闭");
     const verifyReferences = (raw: unknown) => { if (!raw || typeof raw !== "object") return; if (Array.isArray(raw)) { raw.forEach(verifyReferences); return; } const r = raw as Record<string, unknown>; if (typeof r.coverageRef === "string") { if (!coverageRefs.has(r.coverageRef)) fail("指标覆盖引用未指向真实两期来源"); const cov = coverage[r.coverageRef]; if (r.status === "available" && cov && !cov.complete) fail("覆盖不完整的指标不能冒充完整可用值"); } Object.values(r).forEach(verifyReferences); };
     verifyReferences(sections);
