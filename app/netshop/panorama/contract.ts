@@ -105,6 +105,7 @@ function strings(value: unknown, maximum = 50): string[] {
   return value;
 }
 function integer(value: unknown, maximum = Number.MAX_SAFE_INTEGER): value is number { return Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= maximum; }
+function enumValue(value: unknown, allowed: readonly string[]): value is string { return typeof value === "string" && allowed.includes(value); }
 function page(value: string | null, fallback: number, maximum: number): number {
   if (value === null) return fallback;
   if (!/^[1-9]\d*$/.test(value) || !integer(Number(value), maximum)) return reject("全景分页无效");
@@ -140,7 +141,7 @@ function revisions(value: unknown): Map<string, SourceRevision> {
   const result = new Map<string, SourceRevision>();
   for (const raw of value) {
     const r = record(raw), key = JSON.stringify([r.domain, r.kind, r.scopeKey]);
-    if (!["netshop", "sales", "products", "inventory", "finance", "erp_reference", "workflow"].includes(String(r.domain)) || !referenceText(r.kind, 200) || !referenceText(r.scopeKey, 1024) || !text(r.revision, 1024) || result.has(key)) return reject("全景来源种类、范围或修订重复/无效");
+    if (!enumValue(r.domain, ["netshop", "sales", "products", "inventory", "finance", "erp_reference", "workflow"]) || !referenceText(r.kind, 200) || !referenceText(r.scopeKey, 1024) || !text(r.revision, 1024) || result.has(key)) return reject("全景来源种类、范围或修订重复/无效");
     result.set(key, r as SourceRevision);
   }
   return result;
@@ -150,11 +151,14 @@ function includeRevisions(joined: Map<string, SourceRevision>, member: SourceRev
 }
 function source<T>(value: unknown, decode: (value: unknown) => T): PanoramaSource<T> {
   const input = record(value);
+  // A known authority failure wins over a malformed ordinary error payload.
+  if (input.state === "error") {
+    if (input.code === "access_denied" || input.code === "unauthenticated") throw new PanoramaResponseError(input.code === "unauthenticated" ? 401 : 403, input.code, "来源权限失效，请重新读取当前授权范围");
+    if (input.code === "insights_revision_changed") throw new PanoramaResponseError(409, input.code, "参与来源版本已变化，请完整重读");
+  }
   if (input.state === "ready") return { state: "ready", data: decode(input.data) };
   if (input.data !== null || !text(input.message)) return reject("全景非就绪来源须为空并带原因");
   if (input.state === "error") {
-    if (input.code === "access_denied" || input.code === "unauthenticated") throw new PanoramaResponseError(input.code === "unauthenticated" ? 401 : 403, String(input.code), "来源权限失效，请重新读取当前授权范围");
-    if (input.code === "insights_revision_changed") throw new PanoramaResponseError(409, "insights_revision_changed", "参与来源版本已变化，请完整重读");
     if (input.code !== "service_unavailable") return reject("全景来源错误协议无效");
     return input as PanoramaSource<T>;
   }
@@ -168,7 +172,7 @@ function ownedScope(value: unknown, context: InsightsContext): PanoramaScope {
 }
 function comparison(value: unknown): MetricComparison {
   const v = record(value);
-  if (!["relative_change", "percentage_points"].includes(String(v.method)) || !["available", "unavailable"].includes(String(v.status)) || v.status === "available" && (typeof v.value !== "number" || !Number.isFinite(v.value) || v.reasonCode !== null) || v.status === "unavailable" && (v.value !== null || !metricReasons.includes(v.reasonCode as typeof metricReasons[number]))) return reject("全景比较状态无效");
+  if (!enumValue(v.method, ["relative_change", "percentage_points"]) || !enumValue(v.status, ["available", "unavailable"]) || v.status === "available" && (typeof v.value !== "number" || !Number.isFinite(v.value) || v.reasonCode !== null) || v.status === "unavailable" && (v.value !== null || !metricReasons.includes(v.reasonCode as typeof metricReasons[number]))) return reject("全景比较状态无效");
   return v as MetricComparison;
 }
 function salesMetrics(value: unknown): PanoramaSalesMetrics {
@@ -218,15 +222,48 @@ function decodeWorkflow(value: unknown, context: InsightsContext, joined: Map<st
   const pagination = decodeInsightPagination(data.pagination); if (pagination.returned !== data.items.length) return reject("经营事件分页不一致");
   return data as PanoramaWorkflowData;
 }
+function capabilityHasSource(section: PanoramaSectionKey, id: string, sources: StorePanoramaResponse["sources"]): boolean {
+  const p = sources.products.state === "ready" ? sources.products.data.sections : null;
+  const a = sources.promotion.state === "ready" ? sources.promotion.data.sections : null;
+  const sales = sources.sales.state === "ready" ? sources.sales.data : null;
+  const finance = sources.finance.state === "ready" ? sources.finance.data : null;
+  const workflow = sources.workflow.state === "ready" ? sources.workflow.data : null;
+  const available = (metric: { status: string } | null | undefined) => metric?.status === "available";
+  if (section === "customers") return false; // No owning customer/B2B envelope exists in v1.
+  if (id === "stay_time" || id === "bounce_rate" || id === "inventory" || id === "mapping") return false;
+  const productMetric: Record<string, keyof ProductInsightsResponse["sections"]["summary"]> = { platform_payment: "payment", platform_quantity: "quantity", platform_refund: "refundPayment", visitors: "visitors", customers: "customers", conversion: "conversion" };
+  if (id in productMetric) return available(p?.summary[productMetric[id]]);
+  const extraMetric: Record<string, keyof ProductInsightsResponse["sections"]["efficiency"]["metrics"]> = { page_views: "pageViews", favorites: "favorites", add_cart_customers: "addCartCustomers", add_cart_quantity: "addCartQuantity", order_customers: "orderCustomers", order_quantity: "orderQuantity", order_payment: "orderPayment", transaction_orders: "transactionOrders", search_impressions: "searchImpressions", search_clicks: "searchClicks", search_click_rate: "searchClickRate", search_visitors: "searchVisitors", search_customers: "searchCustomers" };
+  if (id in extraMetric) return available(p?.efficiency.metrics[extraMetric[id]]);
+  const salesMetric: Record<string, keyof PanoramaSalesMetrics> = { erp_net_sales: "netSales", orders: "orders", order_average_value: "orderAverageValue", order_margin: "orderMargin", large_margin: "largeMargin", large_margin_rate: "largeMarginRate", cost: "cost", return_amount: "returnAmount", return_quantity: "returnQuantity" };
+  if (id in salesMetric) return available(sales?.periods.current.metrics[salesMetric[id]]);
+  const promotionMetric: Record<string, keyof PromotionInsightsResponse["sections"]["summary"]> = { spend: "spend", attributed_payment: "attributedPayment", roas: "roas", cpc: "cpc", spend_rate: "spendRate" };
+  if (id in promotionMetric) return available(a?.summary[promotionMetric[id]]);
+  if (id === "visitor_value") return available(p?.efficiency.visitorValue);
+  if (id === "product_changes" || id === "growth_decline") return p?.growth.state === "ready" && available(p.comparisons.payment.previous);
+  if (id === "traded_products") return available(p?.counts.tradedProducts);
+  if (id === "category_contribution") return available(p?.structure.denominator);
+  if (id === "top_concentration") return available(p?.structure.top5Share) && available(p?.structure.top10Share);
+  if (id === "product_detail") return available(p?.counts.dataProducts) && Number(p?.counts.dataProducts.value) > 0;
+  if (id === "trend" || id === "distribution" || id === "promotion_detail") return available(a?.summary.spend);
+  if (id === "contribution") return !!sales && sales.items.some(item => available(item.metrics.orderMargin));
+  if (id === "annual_target") return !!finance && finance.annualTargets.some(row => available(row.target));
+  if (id === "finance_month") return !!finance && finance.months.some(row => available(row.revenue) || available(row.profit));
+  if (id === "history") return !!finance && finance.months.some(row => row.month < finance.scope.startDate.slice(0, 7) && (available(row.revenue) || available(row.profit)));
+  if (id === "events" || id === "import_records") return !!workflow && workflow.items.length > 0;
+  if (["coverage", "field_availability", "source_freshness"].includes(id)) return Object.values(sources).some(source => source.state === "ready");
+  if (id === "comparability") return available(p?.comparisons.payment.previous) || available(sales?.comparisons.netSales.previous);
+  return false;
+}
 function decodeSections(value: unknown, sources: StorePanoramaResponse["sources"]): StorePanoramaResponse["sections"] {
   const sections = record(value);
   if (Object.keys(sections).length !== panoramaSections.length) return reject("全景必须提供且只提供八个内容章节");
   for (const key of panoramaSections) {
     const section = record(sections[key]);
-    if (!["ready", "partial", "unavailable", "error"].includes(String(section.state)) || !Array.isArray(section.sources) || !section.sources.length || section.sources.length > 5 || new Set(section.sources).size !== section.sources.length || !section.sources.every(s => panoramaSourceKeys.includes(s as PanoramaSourceKey)) || !Array.isArray(section.capabilities) || !section.capabilities.length || section.capabilities.length > 30) return reject("全景章节状态、来源或能力无效");
+    if (!enumValue(section.state, ["ready", "partial", "unavailable", "error"]) || !Array.isArray(section.sources) || !section.sources.length || section.sources.length > 5 || new Set(section.sources).size !== section.sources.length || !section.sources.every(s => panoramaSourceKeys.includes(s as PanoramaSourceKey)) || !Array.isArray(section.capabilities) || !section.capabilities.length || section.capabilities.length > 30) return reject("全景章节状态、来源或能力无效");
     if (JSON.stringify(section.sources) !== JSON.stringify(panoramaSectionSources[key]) || section.capabilities.length !== panoramaCapabilityIds[key].length) return reject("全景章节引用或能力清单不符合固定八章合同");
     const ids = new Set<string>();
-    for (const raw of section.capabilities) { const capability = record(raw); if (!text(capability.id, 100) || ids.has(capability.id) || !["available", "unavailable"].includes(String(capability.status)) || !text(capability.message) || capability.status === "available" && capability.reasonCode !== null || capability.status === "unavailable" && ![...metricReasons, "dependency_pending"].includes(capability.reasonCode as PanoramaReason)) return reject("全景能力状态须提供明确原因"); ids.add(capability.id); }
+    for (const raw of section.capabilities) { const capability = record(raw); if (!text(capability.id, 100) || ids.has(capability.id) || !enumValue(capability.status, ["available", "unavailable"]) || !text(capability.message) || capability.status === "available" && capability.reasonCode !== null || capability.status === "unavailable" && ![...metricReasons, "dependency_pending"].includes(capability.reasonCode as PanoramaReason)) return reject("全景能力状态须提供明确原因"); if (capability.status === "available" && !capabilityHasSource(key, capability.id, sources)) return reject("全景能力缺少其所属可信来源或字段证明"); ids.add(capability.id); }
     if (panoramaCapabilityIds[key].some(id => !ids.has(id))) return reject("全景能力清单缺少合同字段");
     const states = section.sources.map(s => sources[s as PanoramaSourceKey].state);
     const expected = states.every(s => s === "ready") ? "ready" : states.some(s => s === "ready") ? "partial" : states.some(s => s === "error") ? "error" : "unavailable";

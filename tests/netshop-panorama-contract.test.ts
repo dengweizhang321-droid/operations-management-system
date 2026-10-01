@@ -37,6 +37,10 @@ test("embedded source permissions and revision failures reject the whole protect
   for (const [code, status] of [["access_denied", 403], ["unauthenticated", 401], ["insights_revision_changed", 409]] as const) {
     const value = panoramaFixture(true); (value.sources as unknown as Record<string, unknown>).sales = { state: "error", data: null, code, message: "来源失效" };
     assert.throws(() => decodeStorePanorama(value, panoramaFixtureQuery(), revision), error => error instanceof PanoramaResponseError && error.status === status);
+    for (const malformed of [{ state: "error", code, data: {} }, { state: "error", code, data: null, message: [] }]) {
+      (value.sources as unknown as Record<string, unknown>).sales = malformed;
+      assert.throws(() => decodeStorePanorama(value, panoramaFixtureQuery(), revision), error => error instanceof PanoramaResponseError && error.status === status);
+    }
   }
 });
 test("P HTTP200 embedded denied baseline does not leak current business results", () => {
@@ -60,4 +64,15 @@ test("cross-shop, wrong page/query, omitted chapters/capabilities and mixed revi
 test("full response limit counts all source envelopes and explanations in UTF8", () => {
   const value = panoramaFixture(); value.limitations = ["界".repeat(800_000)];
   assert.throws(() => decodeStorePanorama(value, panoramaFixtureQuery(), revision), /2MiB/);
+});
+test("scalar protocol enums and specific capability ownership cannot be bypassed by arrays or another ready domain", () => {
+  const mutations: Array<(value: ReturnType<typeof panoramaFixture>) => void> = [
+    value => { (value.sections.traffic as unknown as Record<string, unknown>).state = ["ready"]; },
+    value => { (value.sections.traffic.capabilities[0] as unknown as Record<string, unknown>).status = ["available"]; },
+    value => { (value.joinedSourceRevisions[0] as unknown as Record<string, unknown>).domain = ["netshop"]; },
+    value => { const cap = value.sections.performance.capabilities.find(c => c.id === "erp_net_sales")!; cap.status = "available"; cap.reasonCode = null; },
+    value => { const cap = value.sections.customers.capabilities.find(c => c.id === "b2b_payment")!; cap.status = "available"; cap.reasonCode = null; },
+    value => { const cap = value.sections.traffic.capabilities.find(c => c.id === "bounce_rate")!; cap.status = "available"; cap.reasonCode = null; },
+  ];
+  for (const mutate of mutations) { const value = panoramaFixture(true); mutate(value); assert.throws(() => decodeStorePanorama(value, panoramaFixtureQuery(), revision)); }
 });
