@@ -45,7 +45,7 @@ class StorePanoramaValidationTests(SimpleTestCase):
     def test_default_scope_and_product_table_size_are_explicit(self):
         spec, table, token = _validate(params())
         self.assertEqual(spec["dimension"], "spu")
-        self.assertEqual(table, {"q": "", "page": 1, "pageSize": 5, "section": "performance"})
+        self.assertEqual(table, {"q": "", "page": 1, "pageSize": 5, "section": "performance", "grain": "day"})
         self.assertIsNone(token)
 
     def test_sections_do_not_change_shared_source_spec(self):
@@ -138,10 +138,48 @@ class StorePanoramaTests(TestCase):
         for response in (searched, paged):
             self.assertEqual(response["sources"]["products"]["data"]["sections"]["summary"], plain["sources"]["products"]["data"]["sections"]["summary"])
             self.assertEqual(response["sources"]["promotion"]["data"]["sections"]["summary"], plain["sources"]["promotion"]["data"]["sections"]["summary"])
+            self.assertEqual(response["sources"]["productSeries"]["data"]["series"], plain["sources"]["productSeries"]["data"]["series"])
         self.assertEqual(searched["sources"]["products"]["data"]["sections"]["pagination"]["total"], 1)
         self.assertEqual(paged["sources"]["products"]["data"]["sections"]["pagination"]["returned"], 2)
         self.assertEqual(plain["tableScope"]["pageSize"], 5)
         self.assertEqual(paged["tableScope"]["page"], 2)
+
+    def test_real_full_scope_series_keeps_three_source_periods_and_21_columns(self):
+        self.product(day="2026-09-01", payment=3000)
+        self.product(day="2026-08-01", payment=1000)
+        self.product(day="2025-09-01", payment=500)
+        response = self.read(endDate="2026-09-02")
+        source = response["sources"]["productSeries"]
+        self.assertEqual(source["state"], "ready")
+        data = source["data"]
+        self.assertEqual(data["context"]["snapshotToken"], response["context"]["snapshotToken"])
+        self.assertEqual(len(data["columnDefinitions"]), 21)
+        self.assertEqual({key: len(values) for key, values in data["series"].items()}, {"current": 2, "previous": 2, "yearAgo": 2})
+        self.assertTrue(all(len(point["cells"]) == 21 and all(len(cell) == 6 for cell in point["cells"]) for values in data["series"].values() for point in values))
+
+    def test_real_grain_is_echoed_and_shared_by_series_and_promotion(self):
+        self.product()
+        self.promotion()
+        for grain in ("day", "week", "month"):
+            response = self.read(endDate="2026-09-07", grain=grain)
+            self.assertEqual(response["tableScope"]["grain"], grain)
+            self.assertEqual(response["sources"]["productSeries"]["data"]["grain"], grain)
+            self.assertEqual(response["sources"]["promotion"]["data"]["sections"]["trend"]["grain"], grain)
+
+    def test_unknown_date_points_do_not_prove_trend_or_day_detail(self):
+        response = self.read(outlet="京东\x1fEMPTY")
+        self.assertTrue(response["sources"]["productSeries"]["data"]["series"]["current"])
+        for section, names in (("performance", ("platform_trend", "platform_day_detail")), ("traffic", ("traffic_trend",))):
+            capabilities = {c["id"]: c for c in response["sections"][section]["capabilities"]}
+            for name in names:
+                self.assertEqual(capabilities[name]["status"], "unavailable")
+                self.assertEqual(capabilities[name]["reasonCode"], "no_records")
+
+    def test_actual_zero_payment_keeps_available_trend_proof(self):
+        self.product(payment=0)
+        response = self.read()
+        capabilities = {c["id"]: c for c in response["sections"]["performance"]["capabilities"]}
+        self.assertEqual(capabilities["platform_trend"]["status"], "available")
 
     def test_real_missing_day_and_field_remain_owning_partial_or_null(self):
         self.product()
@@ -168,7 +206,7 @@ class StorePanoramaTests(TestCase):
             response = self.read()
         self.assertEqual(response["sources"]["products"], {"state": "error", "data": None, "code": "service_unavailable", "message": "所属只读来源暂时不可用；其他已核验章节仍可查看"})
         self.assertEqual(response["sources"]["promotion"]["state"], "ready")
-        self.assertEqual(response["sections"]["traffic"]["state"], "error")
+        self.assertEqual(response["sections"]["traffic"]["state"], "partial")
         self.assertEqual(response["sections"]["performance"]["state"], "partial")
 
     def test_local_promotion_503_preserves_real_product_source(self):
@@ -246,7 +284,7 @@ class StorePanoramaTests(TestCase):
                 self.assertEqual(response["sectionToken"], token)
                 for key, value in changed.items():
                     self.assertEqual(response["tableScope"][key], int(value) if key == "page" else value)
-        for changed in ({"q": "P1"}, {"pageSize": "10"}, {"outlet": "京东\x1fB"}):
+        for changed in ({"q": "P1"}, {"pageSize": "10"}, {"outlet": "京东\x1fB"}, {"grain": "week"}):
             with self.subTest(changed=changed), self.assertRaises(NetshopApiError) as raised:
                 self.read(sectionToken=token, **changed)
             self.assertEqual(raised.exception.status, 409)
@@ -312,13 +350,13 @@ class StorePanoramaTests(TestCase):
         def expired(*args):
             value = real(*args)
             calls[0] += 1
-            if calls[0] == 2:
+            if calls[0] == 3:
                 clock[0] += 66
             return value
         with patch("netshop.store_panorama.time.monotonic", side_effect=lambda: clock[0]), patch.object(panorama, "actor_fence", side_effect=expired), self.assertRaises(NetshopApiError) as raised:
             self.read()
         self.assertEqual(raised.exception.status, 503)
-        self.assertEqual(calls[0], 2)
+        self.assertEqual(calls[0], 3)
 
     def test_serialization_is_inside_outer_deadline(self):
         clock = [100.0]

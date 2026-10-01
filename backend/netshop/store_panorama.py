@@ -17,6 +17,7 @@ from .errors import NetshopApiError
 from .insights_common import actor_fence, context_versions, read_context, validate_context
 from .query import _canonical_token, positive, revision_value
 from . import product_insights, promotion_insights
+from .product_scope_series import read_product_scope_series
 
 SCHEMA_VERSION = "netshop-store-panorama-v1"
 READER_SECONDS = 65
@@ -25,15 +26,15 @@ SECTION_KEYS = (
     "performance", "traffic", "products", "promotion", "margin", "customers", "targets", "dataQuality",
 )
 SHARED_PARAMS = {"platform", "outlet", "dimension", "startDate", "endDate", "periodKind", "snapshotToken"}
-TABLE_PARAMS = {"q", "page", "pageSize", "section", "sectionToken"}
+TABLE_PARAMS = {"q", "page", "pageSize", "section", "sectionToken", "grain"}
 SECTION_SOURCES = {
-    "performance": ["products", "sales", "promotion"], "traffic": ["products"], "products": ["products"],
+    "performance": ["products", "productSeries", "sales", "promotion"], "traffic": ["products", "productSeries"], "products": ["products"],
     "promotion": ["promotion"], "margin": ["sales"], "customers": ["products"], "targets": ["finance", "workflow"],
-    "dataQuality": ["products", "promotion", "sales", "finance", "workflow"],
+    "dataQuality": ["products", "productSeries", "promotion", "sales", "finance", "workflow"],
 }
 CAPABILITY_IDS = {
-    "performance": ["platform_payment", "platform_quantity", "erp_net_sales", "orders", "order_average_value", "order_margin", "large_margin_rate", "platform_refund", "product_changes"],
-    "traffic": ["page_views", "visitors", "customers", "conversion", "visitor_value", "favorites", "add_cart_customers", "add_cart_quantity", "order_customers", "order_quantity", "order_payment", "transaction_orders", "search_impressions", "search_clicks", "search_click_rate", "search_visitors", "search_customers", "stay_time", "bounce_rate"],
+    "performance": ["platform_payment", "platform_quantity", "erp_net_sales", "orders", "order_average_value", "order_margin", "large_margin_rate", "platform_refund", "product_changes", "platform_trend", "platform_day_detail"],
+    "traffic": ["page_views", "visitors", "customers", "conversion", "visitor_value", "favorites", "add_cart_customers", "add_cart_quantity", "order_customers", "order_quantity", "order_payment", "transaction_orders", "search_impressions", "search_clicks", "search_click_rate", "search_visitors", "search_customers", "stay_time", "bounce_rate", "traffic_trend"],
     "products": ["traded_products", "category_contribution", "top_concentration", "growth_decline", "product_detail", "inventory"],
     "promotion": ["spend", "attributed_payment", "roas", "cpc", "spend_rate", "trend", "distribution", "promotion_detail"],
     "margin": ["cost", "order_margin", "large_margin", "large_margin_rate", "return_amount", "return_quantity", "contribution"],
@@ -64,6 +65,9 @@ def _validate(params: QueryDict):
     section = params.get("section", "performance")
     if section not in SECTION_KEYS:
         raise NetshopApiError("店铺全景章节无效")
+    grain = params.get("grain", "day")
+    if grain not in {"day", "week", "month"}:
+        raise NetshopApiError("店铺全景趋势粒度无效")
     for key in ("page", "pageSize"):
         if key in params and not re.fullmatch(r"[1-9]\d*", params[key]):
             raise NetshopApiError("店铺全景分页须无前导零的正整数")
@@ -72,7 +76,7 @@ def _validate(params: QueryDict):
         raise NetshopApiError("店铺全景sectionToken无效")
     return spec, {
         "q": query.strip(), "page": positive(params.get("page"), 1, "page", 10000),
-        "pageSize": positive(params.get("pageSize"), 5, "pageSize", 100), "section": section,
+        "pageSize": positive(params.get("pageSize"), 5, "pageSize", 100), "section": section, "grain": grain,
     }, token
 
 
@@ -107,16 +111,16 @@ def _context_vector(context, deadline):
 
 def _joined_vector(contexts):
     revisions = {}
-    owning = None
+    owning = {}
     for context in contexts:
         for item in context["sourceRevisions"]:
             key = (item["domain"], item["kind"], item["scopeKey"])
             if key in revisions and revisions[key]["revision"] != item["revision"]:
                 raise NetshopApiError("全景来源向量不一致", code="insights_revision_changed", status=409)
             if item["kind"] == "owning_revision":
-                if owning is not None and owning != item["revision"]:
+                if item["domain"] in owning and owning[item["domain"]] != item["revision"]:
                     raise NetshopApiError("全景拥有方来源版本不一致", code="insights_revision_changed", status=409)
-                owning = item["revision"]
+                owning[item["domain"]] = item["revision"]
             revisions[key] = item
     return [revisions[key] for key in sorted(revisions)]
 
@@ -138,12 +142,12 @@ def _products_query(params, table):
     return product_insights.validate_product_query(query)
 
 
-def _promotion_query(params, platform):
+def _promotion_query(params, platform, grain):
     query = QueryDict("", mutable=True)
     for key in SHARED_PARAMS - {"snapshotToken", "dimension"}:
         if key in params:
             query.setlist(key, params.getlist(key))
-    query.update({"dimension": "sku" if platform == "京东" else "spu", "q": "", "page": "1", "pageSize": "5", "objectKind": "product", "sort": "spend_desc", "trendGrain": "day"})
+    query.update({"dimension": "sku" if platform == "京东" else "spu", "q": "", "page": "1", "pageSize": "5", "objectKind": "product", "sort": "spend_desc", "trendGrain": grain})
     return query
 
 
@@ -154,6 +158,21 @@ def _read_products(principal, spec, deadline):
 
 def _read_promotion(principal, params, deadline):
     return promotion_insights.read_promotion_insights(principal, params, deadline=deadline)
+
+
+def _read_series(principal, params, grain, deadline):
+    query = QueryDict("", mutable=True)
+    for key in SHARED_PARAMS:
+        if key in params:
+            query.setlist(key, params.getlist(key))
+    query["grain"] = grain
+    return read_product_scope_series(principal, query, deadline=deadline)
+
+
+def _workflow_scope(context):
+    platform, shop = context["effectiveScope"]["shopKeys"][0].split("\x1f", 1)
+    window = context["periods"]["current"]
+    return {"platform": platform, "shopName": shop, "startDate": window["startDate"], "endDate": window["endDate"]}
 
 
 def _read_source(loader, deadline):
@@ -184,6 +203,18 @@ def _encode_response(payload):
     return json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
 
 
+def _series_capability(identifier, series):
+    columns = {column["key"]: index for index, column in enumerate(series["columnDefinitions"])}
+    selected = [columns["payment"]] if identifier == "platform_trend" else [columns["visitors"]] if identifier == "traffic_trend" else list(columns.values())
+    cells = [point["cells"][index] for point in series["series"]["current"] for index in selected]
+    allowed = {"available", "partial"} if identifier == "platform_day_detail" else {"available"}
+    available = any(cell[1] in allowed for cell in cells)
+    reasons = [cell[2] for cell in cells if cell[2] is not None]
+    no_rows = all(series["pointCoverage"][point["coverageRef"]]["rows"] == 0 for point in series["series"]["current"])
+    reason = "no_records" if no_rows or not reasons or all(value == "no_records" for value in reasons) else next((value for value in ("missing_field", "missing_day", "incomplete_coverage") if value in reasons), reasons[0])
+    return available, reason
+
+
 def _capability(identifier, metric=None, *, reason="dependency_pending", message="所属来源能力尚未验收或接线", available=False):
     if metric is not None:
         available = metric.get("status") == "available"
@@ -195,6 +226,8 @@ def _sections(sources, context):
     """Capability projection only; amounts, ratios and contributions stay owned."""
     product = sources["products"]["data"] if sources["products"]["state"] == "ready" else None
     promotion = sources["promotion"]["data"] if sources["promotion"]["state"] == "ready" else None
+    series = sources["productSeries"]["data"] if sources["productSeries"]["state"] == "ready" else None
+    workflow = sources["workflow"]["data"] if sources["workflow"]["state"] == "ready" else None
     p = product["sections"] if product else {}
     a = promotion["sections"] if promotion else {}
     summary = p.get("summary", {})
@@ -239,7 +272,9 @@ def _sections(sources, context):
                 metric = summary.get("payment")
                 message = "来源类目标签贡献；尚非官方版本化类目字典"
             elif identifier == "top_concentration" and product:
-                metric = p.get("structure", {}).get("top10Share")
+                shares = [p.get("structure", {}).get(k, {}) for k in ("top5Share", "top10Share")]
+                available = all(m.get("status") == "available" for m in shares)
+                reason = next((m.get("reasonCode") for m in shares if m.get("reasonCode")), "unverified_source")
                 message = "复用所属服务完整集合TOP5/10集中度"
             elif identifier == "product_detail" and product:
                 observed = p.get("counts", {}).get("dataProducts", {})
@@ -277,6 +312,13 @@ def _sections(sources, context):
                 message = ("天猫导入适配器允许保存可选JSON字段；本范围字段存在性和所属聚合尚未核验"
                            if context["effectiveScope"]["platforms"] == ["天猫"]
                            else "本范围尚无已核验的所属字段投影或聚合证据")
+            elif identifier in {"platform_trend", "platform_day_detail", "traffic_trend"} and series:
+                available, reason = _series_capability(identifier, series)
+                message = "复用所属全店三期序列；按固定列/字段覆盖解码，不从商品页求和"
+            elif identifier == "events" and workflow:
+                available = bool(workflow["items"])
+                reason = "no_records"
+                message = "既有经营记录的发生时间与原类型/状态；仅该页，不推断因果"
             if "ready" not in states:
                 metric, available = None, False
                 reason = "dependency_pending" if state == "unavailable" else "unverified_source"
@@ -294,22 +336,26 @@ def read_store_panorama(principal, params: QueryDict):
         context = read_context(principal, spec, deadline=deadline)
         sources = {
             "products": _read_source(lambda: _read_products(principal, _products_query(params, table), deadline), deadline),
-            "promotion": _read_source(lambda: _read_promotion(principal, _promotion_query(params, spec["platforms"][0]), deadline), deadline),
+            "productSeries": _read_source(lambda: _read_series(principal, params, table["grain"], deadline), deadline),
+            "promotion": _read_source(lambda: _read_promotion(principal, _promotion_query(params, spec["platforms"][0], table["grain"]), deadline), deadline),
             "sales": _pending("精确店铺/渠道销售与毛利退货consumer尚待总控验收接线"),
             "finance": _pending("单店月财报及年度目标consumer尚待财务所属服务验收接线"),
-            "workflow": _pending("精确店铺及事件发生期consumer尚待所属服务验收接线；今日状态不是历史记录"),
+            "workflow": _pending("精确店铺及事件发生期适配尚待验收接线；今日状态不是历史记录"),
         }
+        if actor_fence(principal) != actor:
+            raise NetshopApiError("全景取数期间账号权限版本变化", code="access_denied", status=403)
+        _budget(deadline)
         contexts = [context]
-        for source, dimension in (("products", spec["dimension"]), ("promotion", "sku" if spec["platforms"][0] == "京东" else "spu")):
+        for source, dimension in (("products", spec["dimension"]), ("productSeries", spec["dimension"]), ("promotion", "sku" if spec["platforms"][0] == "京东" else "spu")):
             if sources[source]["state"] == "ready":
                 owned = sources[source]["data"]["context"]
                 _assert_context(owned, context, dimension=dimension)
-                if source == "products" and owned["snapshotToken"] != context["snapshotToken"]:
+                if source in {"products", "productSeries"} and owned["snapshotToken"] != context["snapshotToken"]:
                     raise NetshopApiError("商品信封不是全景同范围或版本", code="insights_revision_changed", status=409)
                 contexts.append(owned)
         vector = _joined_vector(contexts)
         token = _canonical_token({"schemaVersion": SCHEMA_VERSION, "scopeKey": context["scopeKey"], "sourceRevisions": vector,
-                                  "tableFilter": {"q": table["q"], "pageSize": table["pageSize"]}})
+                                  "tableFilter": {"q": table["q"], "pageSize": table["pageSize"], "grain": table["grain"]}})
         if expected_token and expected_token != token:
             raise NetshopApiError("全景sectionToken不属于本次范围或来源版本", code="insights_revision_changed", status=409)
         payload = {
