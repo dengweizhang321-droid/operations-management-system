@@ -6,6 +6,7 @@ alias fixture extends the immutable production resolver for synthetic members.
 from copy import deepcopy
 from datetime import date, timedelta
 import hashlib
+from importlib import import_module
 import json
 import os
 from pathlib import Path
@@ -20,7 +21,7 @@ from django.db import transaction
 from django.test import LiveServerTestCase
 from django.utils import timezone
 
-from access_control.models import AppUser
+from access_control.models import AccessRole, AppUser
 from sales.models import SalesOrderLine
 from sales.tests.factories import install_fixture, make_line, signed_headers
 from netshop.models import NetshopDataRevision
@@ -86,6 +87,8 @@ class ComparisonSignedGetTests(LiveServerTestCase):
         with transaction.atomic():
             install_fixture()
             SalesOrderLine.objects.all().delete()
+            label,description,rank,permissions=import_module("access_control.migrations.0001_initial").ROLE_CATALOG["viewer"]
+            AccessRole.objects.get_or_create(code="viewer",defaults={"label":label,"description":description,"rank":rank,"permissions":permissions,"version":1})
             AppUser.objects.create(email=self.email, display_name="Synthetic Signed", role_id="viewer", status="active", scope=None, version=1, created_at=timezone.now(), updated_at=timezone.now())
             for platform, names in (("京东", self.jd_names), ("天猫", ["合成平台店"+str(i).zfill(2) for i in range(20)])):
                 for index, name in enumerate(names):
