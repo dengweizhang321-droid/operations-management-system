@@ -26,7 +26,7 @@
 .nc-grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:16px; margin-top:16px; }
 .nc-card { min-width:0; grid-column:span 12; background:var(--color-bg-surface,#fff); border:1px solid var(--color-border-default,#dde5df); border-radius:9px; padding:18px; }
 .nc-card.nc-half { grid-column:span 6; }
-.nc-card h2 { font-size:var(--font-size-card-title,16px); margin:0; line-height:1.5; }
+.nc-card h2 { font-size:var(--font-size-section,18px); margin:0; line-height:1.5; }
 .nc-card h3 { font-size:var(--font-size-body,14px); margin:16px 0 10px; }
 .nc-section-number { color:var(--color-text-muted,#65756b); font-size:var(--font-size-caption,12px); font-weight:400; margin-right:7px; }
 .nc-card-head { margin-bottom:14px; }
@@ -92,4 +92,3 @@
   .netshop-comparison .nc-date .period-nav:first-child { grid-column:1; grid-row:1 / span 2; }
   .netshop-comparison .nc-date .period-nav:last-child { grid-column:3; grid-row:1 / span 2; }
 }
-
