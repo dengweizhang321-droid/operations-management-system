@@ -153,3 +153,24 @@ Query最终clean `1949e30d4d857ca8e32b35aef20c78ecd88ec8eb` 已普通集成；�
 正式超限与时间资格作者负向在 `comparison-pg-78d5696e7609a3abaa6c`：合法双366日＋4候选的完整7,768,053 bytes真实signedGET返回422 quality_incomplete，不裁桶/证据；另原signed owning RPC返回后仅test monotonic推进66，正式整体503 source_not_ready，meta透明声明clockInjection，实际秒由未修改perf_counter记，不冒真实等待65秒。此前LiveServer配置与详情错误对象定位、无outlet采样失败原样保留；最后972叶子只精确请求参数一行变，业务与门槛不变。
 
 正式协议非作者独立执行、准确公共组合的真实Home/返回/权限/资源和最终M6资格仍是剩余关键路径。上述作者TCP与非作者功能样本回放按层分别记录，不能当独立HMAC执行或Home通过；最终main仍I串行合入。无生产部署、数据库动作、正式服务启停、迁移、真实导入、外部发送或付费模型调用。
+
+## M6最终主线交付
+
+总控已正常发布并由本Lead只读fetch/远端核验：main `9e8d43d4dd6dd6f04465ac7277941a49ec7758c2`，运行验收组合 `ba5d092d735eb1336174ad407eebd9b57191a638`。正式公告见 `docs/netshop-refactor/execution/20261001-M6-comparison.md`。本条替代前文所有M6在途/公共注册和真实Home待验状态；保留历史分轮记录，不改写旧失败或旧样本。
+
+非作者最终批准 `M6_merge_ready=true`，未决核心0。最终组合Home35/35与11/11必要门槛通过，原layout三全局CSS/唯一history、1440/1280/390/320、五旧view/O新旧和ERP入口、22原生数量/三个粒度、原成员/各平台整期、真实日历、取消迟到/账号权限、低信任AI页面草稿未发送均验。P专题5店SPU→真实item单店详情→原五店列表、C直接P立即可见返回C/原浏览器返回C、A原五店SKU详情均遵守主线已有平级返回模型；没有新增嵌套二级C返回链。
+
+最终独立报告：`E:/codex-artifacts/netshop-scheme2-20261001/foundation-review/M6-final/review-final-M6-ba5d.md`，SHA `36e4b844acc6803a2980086710bd4765577219d72a13c51f65106a5a6791cd0b`；机器报告SHA `2ffd2c9b39a66c9c311b7b39ca2d8eb582ab9d7714ce36583c18ad1c2488c1e3`。最终corpus SHA `865c7fd7a780202c65f886d8e763347ce14ae2e5650cf58e5c7bceac55dcd290`，同freshseed真实TCP签名GET与源RPC/P-A原列表详情分层实际验证，各E原byte/header/meta保留；原caller30variants和C协议容量/预算2方法非作者执行资格按同源码范围继承，不累加成独有用例。正式隔离构建/backend boundary/lint通过，188旧全库类型诊断逐项无新增，不冒全库类型通过。
+
+最终作者原始采样 E/query `comparison-pg-a93289b690f9e992835c` 为同批30GET（原22、exact SPU C排序/真实tokenpage2、q原400、五JD SPU P专题、五JD SKU A专题、两合法detail与P五店非法detail400），源码0254不变，test Role seed原合法定义每case复建。测试最后owned叶子 `26d076f33f5a82b7ff008128a137c7a0f7e3a68a`，Root仅选C测试cherry为 `6db216e7b1a1ea2c87353b006fa3c50e4715d29d`；期间所有新getter都是原Source/API请求，无代码/dataModel/property膨胀。原Field插值/异维度/跨窗口/错误原Scope/未授权/隐藏成员/忽略child攻击仍拒。
+
+| 最终角色分支 | 工作树 | 当前精确子交接 |
+| --- | --- | --- |
+| codex/netshop-comparison | D:/.codex/worktrees/netshop-comparison/运营管理系统 | 功能3c45f06cdc88bfb95011280f29a1a7f33281ee5e；原完整72027584已交I，后继ownedtests及本收口文档 |
+| codex/netshop-comparison-query | D:/.codex/worktrees/netshop-comparison-query/运营管理系统 | 669ecfa3ed07af4d94301bc31db452aafd694779；同树新隔离combo分支如下，不整回合含未mainpublic祖先 |
+| codex/netshop-comparison-public-combo | 同Query独立工作树 | 26d076f33f5a82b7ff008128a137c7a0f7e3a68a（运行0254，后继onlyownedtests） |
+| codex/netshop-comparison-page | D:/.codex/worktrees/netshop-comparison-page/运营管理系统 | b6fb4b3f142eadf4bf8943e72e7caf95c82142ec |
+| codex/netshop-comparison-ui | D:/.codex/worktrees/netshop-comparison-ui/运营管理系统 | 09f9982c29ab59fdc60cae556f276faa0db39d63 |
+| codex/netshop-comparison-date | D:/.codex/worktrees/netshop-comparison-date/运营管理系统 | 63d75fc078382d0baa0d6396aae15115346edb57 |
+
+五原作者树、额外隔离combo branch及所有失败/忽略证据留给I按包含性与原保全五条件清理，C不自行移除。3170为用户原静态设计保留，不当正式运行API；所有已执行私有HTTP/PG/UI各有正常停止回执。M7五栏整体和M8候选属总控后续，C栏目M6交付已完成；生产版本仍未采用。没有部署、生产数据库/迁移/真实下载导入/补跑、正式服务启停、外部发送或付费模型调用。
