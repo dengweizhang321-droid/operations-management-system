@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | 3.1 | 完整精确候选配对后服务端分页，本期/独立基期/差额/变化/份额，持续对象贡献 | P/A 拥有方合计及实际 main ERP 原观察投影；完整性未知不混入完整排名。缺记录不能推导为退出或零值 |
 | 3.2 | 指标矩阵、完整候选分布、列设置，无综合评分 | 比例合计分子分母；ERP 原订单号分组可观察，客户客单价与可信毛利/退货率仍需来源证明；商品日客户/访客非店铺 UV |
-| 3.3 | 同指标真实日/自然周/月桶，绝对值及指数；ERP 单店原生序列已接线 | 每期第一个自然桶须完整且正；0、负或缺失不跳桶、不补零，长度不同不缩放金额。ERP 完整性未知不归一；平台原生分组待 I 实际 main |
+| 3.3 | 同指标真实日/自然周/月桶，绝对值及指数；ERP 单店、平台原生序列已接线 | 每期第一个自然桶须完整且正；0、负或缺失不跳桶、不补零，长度不同不缩放金额。ERP 完整性未知不归一；平台直接用已main拥有方原桶 |
 | 3.4 | 每主图对象完整商品集合的标签/价格带/TOP5/TOP10/成交商品数 | 当前来源标签 cohort，不称官方/跨平台/历史分类；价格带按成交均价；同款映射未验证保持 unavailable |
 | 3.5 | 花费/归因金额/ROAS/CTR/CPC/主整期费率及两期变化 | A 的 JD SKU/TM SPU 独立拥有范围；不同归因并列观察，不混排归因效率；错误不当缺数 |
 | 3.6 | 两期完整授权候选并集、真实存在/字段覆盖/资格/原因及各参与版本 | 双 F 完整 envelope、C 附加覆盖和 A 所属 scope 全保；来源前后复验，不称分布式原子快照 |
@@ -36,9 +36,9 @@
 | conversion / visitorValue | 同源客户累计÷访客累计 / 成交分÷访客累计；后者独立 CNY_CENT_PER_COUNT 协议，非客单价 |
 | spend / attributedPayment / roas | A 花费/所属归因金额/归因金额÷花费。京东成交订单额与天猫净成交额不同，归因窗口未知保留说明 |
 | ctr / cpc / spendRate | A 点击÷展现 / 花费整数分÷点击 / paired-whole 同店同日完整商品分母费率；CPC 不先舍入 |
-| erpNetSales / orderMargin / largeMargin / largeMarginAmount | 待 Sales 窄拥有方：净销售、订单毛利金额、大毛利率、原净额减原来源成本的金额；不复刻成本/仓库/退货算法，成本证据不足不称完整 |
-| erpOrderCount / averageOrderValue | 仅可使用可靠订单身份的去重分母，source_line_key 不算真订单；旧件均净额不当客单价。当前尚未就绪时值为空 |
-| returnQuantity / returnRate | 待 Sales 原退货件数及明确原分母，不用缺行推定零退货 |
+| erpNetSales / orderMargin / largeMargin / largeMarginAmount | 已main原netshop_periods_v1净额、存储毛利、净额减存储成本；成本与原字段/历史映射未证，金额partial/unverified_source、主毛利率不可用，不复刻算法 |
+| erpOrderCount / averageOrderValue | 原ERP订单号及精确RAW身份分组可观察，不把source_line_key算真订单；原每订单组均值仅折叠证据，非付款客户客单价，不提升未知结算完整性 |
+| erpNetQuantity / returnQuantity / returnRate | 原生净数量/原生退回数量沿用NATIVE_INTEGER_QUANTITY整数，不称物理件数或共享COUNT；主退回率缺可信来源证明保持不可用，缺行不推0 |
 
 比率差用共享百分点比较；其他同定义指标用共享相对变化。基期0或负不能强算增幅，绝对差额可在两期完整且同定义时保留。金额、数量与比例单位不互换。
 
@@ -121,3 +121,35 @@ Query最终clean `1949e30d4d857ca8e32b35aef20c78ecd88ec8eb` 已普通集成；�
 | 旧日期 / codex/netshop-comparison-date | D:/.codex/worktrees/netshop-comparison-date/运营管理系统 | 63d75fc078382d0baa0d6396aae15115346edb57 |
 
 五树均clean；作者子分支未推，Lead仅推C。忽略Node依赖、venv/runtime与原测试证据由I按原保全及包含性条件清理，不把历史cherry等价误当祖先包含。3170仍是获准静态设计展示；未将mock接正式页面、操作生产数据库、部署、启停正式服务、迁移、真实导入或发送。平台趋势的实际owner source、公开22键、S真实main、C真实签名HTTP/Home组合是下一阶段，仍不能把本阶段PASSED写作M6完成。
+
+## 平台趋势与整期源组合（M6最终证据在途）
+
+实际 source main `f0ad462dab3237f0276d544457809537aba873ed` 已普通同步；实际 M5 main `7ac1775e3af09d84427d6bf49db89fcb2547c250` 随后普通同步，真实S/P/A目标存在，公共比较偏好22键已冻结。C直接复用现系统全局样式、公共日期/权限/history；没有复制未提交代码或改公共文件。当前Lead业务组合 `cbdf5c168d33657c1ec8388acc8fceceb470e0ea`，专属UI工具后继正常合为 `3c45f06cdc88bfb95011280f29a1a7f33281ee5e`。
+
+- 平台趋势用原owner `seriesPlatforms` 1–2精确平台与独立 `platformSeries`：完整rawMembers精确等本栏目已读完整ERP两期union，不以自报count/第一页或前四店替代。直接restore原8列tuple，原数量/币种/订单分组/均值/未知成本保持；各桶不代表完整结算，不造增长/指数。
+- 混合平台整期复用原 `netshop_periods_v1` 每平台至多一个精确非空完整RAW读取，C `erpEvidence.platformPeriods:[{platform,request,source}]` 保留其完整原响应、独立scope/snapshot/同typedpair向量。whole scalar直接该child.periodTotals，不能累加图桶订单/均值/金融额；单父平台直接复用父整期，无额外读取。所有可完整读取平台必须保child，未选入主图的平台不能丢整期指标。
+- 总控批准平台最多5RPC，prime完整union→原平台native→最多2平台整期child→父新snapshot末核，共同outer65/2MiB/原UTCexpiry，每子源固定prime pair。单店仍3；无合法alias不发空全源，授权empty真null/no_records与未授权失败/缺映射分开。子或末503清全部ERP/source/child/数值/向量一次退回P/A，401/403/409整体失败。
+- 同seed原样函数/owner捕获：`comparison-pg-268445d3bbb4ef28fac8` 首平台4PG；`comparison-pg-d2e116bdcc82a10e80f7` 新整期及shop回归7PG；`comparison-pg-7e06d4b4c1ba80761784` 两期成员进出；`comparison-pg-0c2609a390c31585595a` 同scope两平台day/week/month及原净数量4响应，单fixture真实PG通过、全部正常stop/源摘要稳定。隔离alias override只用于合成fixture，不接正式页面。
+- 50RAW（49JD+1TM）、60k商品事实+3kERP事实、双30日、两平台120真桶、原父与两child全载体：完整1,788,397 bytes、8.086565秒、465SQL/6.893秒SQL wall、5RPC，E/query `comparison-pg-6f320bd08d85aff16c7c` 正常stop/sourceStable。这是隔离代表规模，不承诺生产P95或最大日图全回。
+- Root最新原Node48/lint通过，当前whole类型188继承/C0、官方backend boundary617/0违规。新4原样platform goldens只来自真实0c所有原字段；多个E原DTO完整async decode正向通过，借whole金额/RAW/period/pair/member/图桶/覆盖的否定检查拒绝。Q已发现并复现删除未绘图TM child与向量并将9个scalar降null的真实P2；`cbdf5c16`要求全部eligible整期载体集合精确，回归拒绝；非作者原完整攻击复验已rejected=true，最终Q签字仍在途。
+- Page clean `b6fb4b3f142eadf4bf8943e72e7caf95c82142ec` 已正常集成：真实双平台日→周→月→日和公共22原生净数量四精确响应组合18作者UI通过；本期/基期×1440/390/320弹层几何4检查通过。原始完整成员与原桶/每child整期来源均折叠观察，不相加或递归取数。149ignored/36历史runs逐SHA保全，E/page `handoff-20261001T114922555Z-aa6a900e-eaaa-4eb3-ac5d-b78ec7213b11/manifest.json` SHA `268770e28fbd7d0ba70dde9e81c64ed43618021f926888edcd6bccafbb9a4247`，所有自有3171关闭。原定位器失败/gate到期也保留，不计通过。
+
+剩余关键路径严格限定：I单写公共注册thin `c746060865cc4213f26b2e5710da4a194998e41e`（4公文件、父7ac）及净组合 `0254d03ac3dad276e5b9955f12f7556ffd923620` 未main；仅隔离Query/Q采用这个精确注册组合，C分支不反向引入未发布公共写入。正式C签名GET、同freshseed P/A完整原列表/detail及精确平台展开店铺响应、真实Home历史/权限/字形、最终独立Q门槛仍需完成。已通过函数体/owner注入PG和合成组件UI不能冒TCP HMAC C接口、真实Home或M6资格；不拼原S六源采样与另C采样作同源。只推栏目、I合main，生产不操作。
+
+### 平台功能独立签字
+
+非作者Q已对准确运行组合 `3c45f06cdc88bfb95011280f29a1a7f33281ee5e` 批准平台功能phase PASSED，未决P1/P2=0。完整删除未绘图TM子载体与其向量、将所有TM scalar降null的原P2复验已拒；代码修复为cbdf的eligible平台完整集合校验。
+
+独立immutable clone：PG8/10源码摘要稳定、自己的13原DTO完整await和19额外反例全部拒、Node48；新平台day27/原净数量20/week20/month20/empty18/fifty18均通过，各计原范围不累加冒独有总数。最后使用同一真实签名采样916的父平台与精确五JD outlet店铺响应，展开实际5店出数与返回原范围另21UI通过，scopeVerification=exact-owning-response-verified。53/98无outlet只scopepatch+422的旧不匹配样本保存，未计成功。
+
+最终报告 `E:/codex-artifacts/netshop-scheme2-20261001/comparison/review/platform-stage4-20261001T111712Z-901808b20cbd480292db9a3630293276/independent-review-platform-function-final.json`，SHA `29bcc8670f3872a8179ed1c45ddc7cea95335f989815075bdedd8fe88b5e7701`。全部Q私有PG56580和UI3191正常关闭/无监听。新代表Mixed50/60k商品＋3kERP事实、1,788,397 bytes、5RPC的独立读取9.370秒/465SQL保存，不当生产P95。
+
+### 正式GET作者采样与剩余资格
+
+准确I净公共注册组合 `0254d03ac3dad276e5b9955f12f7556ffd923620` 未main，只有相对cbdf的4个I公共文件。Query隔离分支 `codex/netshop-comparison-public-combo` 在原Query工作树采用该组合；RootC仅挑选owned测试叶子64503/d412/972，不反向整合含未main公共祖先的隔离分支。
+
+同freshseed真实TCP正式C GET→原HMAC verify→C→原sales_client signedPOST→同私有TCP registered Sales consumer→真实owning PostgreSQL。没有业务response/reader替换，trace wraps与合成alias扩展仅test并写入meta。E/query `comparison-pg-916f288c43ce579a6a2b` 完整22GET一次作者验证通过：19个200及未签名401、旧令牌409、撤权403；Page1候选25/p20与page2另5真实行（不改summary/population），平台双整期原值/日周月/nativeqty/独立custom、partial/未映射、精确5店展开和同seed P/A各JD SKU、TM SPU原列表/detail均保原query/body/header/UTF8 bytes/SHA。全C成功原身和展开原身已由Root严格async decode通过。源码稳定，私有HTTP/PG均正常关闭。
+
+正式超限与时间资格作者负向在 `comparison-pg-78d5696e7609a3abaa6c`：合法双366日＋4候选的完整7,768,053 bytes真实signedGET返回422 quality_incomplete，不裁桶/证据；另原signed owning RPC返回后仅test monotonic推进66，正式整体503 source_not_ready，meta透明声明clockInjection，实际秒由未修改perf_counter记，不冒真实等待65秒。此前LiveServer配置与详情错误对象定位、无outlet采样失败原样保留；最后972叶子只精确请求参数一行变，业务与门槛不变。
+
+正式协议非作者独立执行、准确公共组合的真实Home/返回/权限/资源和最终M6资格仍是剩余关键路径。上述作者TCP与非作者功能样本回放按层分别记录，不能当独立HMAC执行或Home通过；最终main仍I串行合入。无生产部署、数据库动作、正式服务启停、迁移、真实导入、外部发送或付费模型调用。

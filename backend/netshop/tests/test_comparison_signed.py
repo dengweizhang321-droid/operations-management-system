@@ -79,6 +79,7 @@ class ComparisonSignedGetTests(LiveServerTestCase):
         self.counter = 0
         self.rpc_calls = []
         self.records = []
+        self.rpc_completed_hook = None
         self.aliases = {}
         self.jd_names = ["合成平台店"+str(index).zfill(2) for index in range(5)]
         self.base_keys = ["京东\x1f"+name for name in self.jd_names]+["天猫\x1f合成平台店00"]
@@ -124,8 +125,10 @@ class ComparisonSignedGetTests(LiveServerTestCase):
         from netshop.sales_periods_client import read_sales_consumer as actual_rpc
         def trace_rpc(principal, request, *, deadline):
             before=time.monotonic()
+            wall_before=time.perf_counter()
             result=actual_rpc(principal,request,deadline=deadline)
-            self.rpc_calls.append({"request":deepcopy(request),"deadline":deadline,"remainingBudgetSeconds":deadline-before,"seconds":time.monotonic()-before,"revision":result[1]})
+            self.rpc_calls.append({"request":deepcopy(request),"deadline":deadline,"remainingBudgetSeconds":deadline-before,"seconds":time.perf_counter()-wall_before,"revision":result[1]})
+            if self.rpc_completed_hook:self.rpc_completed_hook(len(self.rpc_calls))
             return result
         self.rpc_patch=patch("netshop.sales_periods_client.read_sales_consumer",side_effect=trace_rpc)
         self.rpc_patch.start();self.addCleanup(self.rpc_patch.stop)
@@ -134,7 +137,7 @@ class ComparisonSignedGetTests(LiveServerTestCase):
         query=params.urlencode()
         url=self.live_server_url+path+("?"+query if query else "")
         headers=signed_headers(url,secret=self.secret,role="viewer",email=self.email,display_name="Synthetic Signed",request_id=name) if signed else {}
-        before=time.monotonic();first=len(self.rpc_calls)
+        before=time.perf_counter();first=len(self.rpc_calls)
         request=urllib.request.Request(url,headers=headers,method="GET")
         try:
             response=urllib.request.urlopen(request,timeout=90)
@@ -143,7 +146,7 @@ class ComparisonSignedGetTests(LiveServerTestCase):
         with response:
             raw=response.read();actual_status=response.status;response_headers=dict(response.headers)
         payload=json.loads(raw)
-        metadata={"schemaVersion":"comparison-signed-private-get-v1","synthetic":True,"layer":"actual_loopback_tcp_registered_get_hmac_wrapper_and_real_signed_registered_sales_rpc","aliasFixture":"test_only_explicit_injective_raw_triples","url":url,"method":"GET","query":query,"status":actual_status,"signed":signed,"principal":{"email":self.email,"role":"viewer","scope":None},"responseHeaders":response_headers,"responseUtf8Bytes":len(raw),"responseSha256":hashlib.sha256(raw).hexdigest(),"seconds":time.monotonic()-before,"rpcCalls":[{**{k:v for k,v in call.items() if k!="deadline"},"sameOuterDeadline":call["deadline"]==self.rpc_calls[first]["deadline"]} for call in self.rpc_calls[first:]]}
+        metadata={"schemaVersion":"comparison-signed-private-get-v1","synthetic":True,"layer":"actual_loopback_tcp_registered_get_hmac_wrapper_and_real_signed_registered_sales_rpc","aliasFixture":"test_only_explicit_injective_raw_triples","name":name,"url":url,"method":"GET","query":query,"status":actual_status,"signed":signed,"principal":{"email":self.email,"role":"viewer","scope":None},"responseHeaders":response_headers,"responseUtf8Bytes":len(raw),"responseSha256":hashlib.sha256(raw).hexdigest(),"seconds":time.perf_counter()-before,"rpcCalls":[{**{k:v for k,v in call.items() if k!="deadline"},"sameOuterDeadline":call["deadline"]==self.rpc_calls[first]["deadline"]} for call in self.rpc_calls[first:]]}
         target=os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
         if target:
             target=Path(target)
@@ -180,7 +183,7 @@ class ComparisonSignedGetTests(LiveServerTestCase):
             self.assertEqual(len(self.records[-1]["rpcCalls"]),5)
             self.assertTrue(all(call["sameOuterDeadline"] for call in self.records[-1]["rpcCalls"]))
         self.get_capture("signed-c-platform-quantity","/api/netshop/comparison-insights",self.query(**subset,comparisonScope=platform_scope,metricKey="erpNetQuantity",chartObjectKeys=["platform:京东","platform:天猫"]))
-        expanded={**values,"platform":"京东","comparisonScope":self.scope(metricSource="erp"),"metricKey":"erpNetSales","chartObjectKeys":[]}
+        expanded={**values,"platform":"京东","outlet":next(row["shopKeys"] for row in platform["sections"]["scale"]["items"] if row["platform"]=="京东"),"comparisonScope":self.scope(metricSource="erp"),"metricKey":"erpNetSales","chartObjectKeys":[]}
         expanded_result=self.get_capture("actual-owning-erp-platform-expanded-shops","/api/netshop/comparison-insights",self.query(**expanded))
         self.assertEqual(len(expanded_result["sections"]["scale"]["items"]),5)
         self.assertEqual({row["shopName"] for row in expanded_result["sections"]["scale"]["items"]},set(self.jd_names))
@@ -218,3 +221,25 @@ class ComparisonSignedGetTests(LiveServerTestCase):
         if target:
             with (Path(target)/"signed-same-seed-manifest.json").open("x",encoding="utf8") as out:
                 json.dump({"synthetic":True,"comboPin":"0254d03ac3dad276e5b9955f12f7556ffd923620","sharedPositiveSeed":{"netshopRevision":"2:bbbbbbbbbbbb","salesRevision":"7:3","shops":25,"jdExpandedShops":5,"nativeParentRawMembers":6,"current":{"startDate":"2026-09-01","endDate":"2026-09-07"},"baseline":{"startDate":"2026-08-25","endDate":"2026-08-31"}},"actualTcp":True,"mockBusinessDto":False,"businessTransportInjected":False,"captures":[{"name":record["url"],"query":record["query"],"status":record["status"],"sha256":record["responseSha256"],"bytes":record["responseUtf8Bytes"],"rpcCount":len(record["rpcCalls"])} for record in self.records]},out,ensure_ascii=False,indent=2)
+
+    def test_registered_whole_capacity_and_parent_budget(self):
+        from netshop import comparison_insights as C
+        sizes=[]
+        actual_builder=C.build_comparison_result
+        def measured(*args,**kwargs):
+            result=actual_builder(*args,**kwargs)
+            sizes.append(len(json.dumps(result,ensure_ascii=False,allow_nan=False).encode("utf8")))
+            return result
+        with patch.object(C,"build_comparison_result",side_effect=measured):
+            capped=self.get_capture("signed-c-capacity","/api/netshop/comparison-insights",self.query(platform=["京东","天猫"],startDate="2025-03-01",endDate="2026-03-01",selectedBaseline={"kind":"custom","startDate":"2023-01-01","endDate":"2024-01-01"},comparisonScope=self.scope(metricSource="erp"),metricKey="erpNetSales",chartObjectKeys=["shop:京东\x1f"+name for name in self.jd_names[:4]]),status=422)
+        self.assertEqual(capped["code"],"quality_incomplete")
+        self.assertTrue(sizes and sizes[0]>2*1024*1024)
+        clock=[0.0]
+        self.rpc_completed_hook=lambda count:clock.__setitem__(0,66.0)
+        with patch("netshop.comparison_insights.time.monotonic",side_effect=lambda:clock[0]):
+            expired=self.get_capture("signed-c-parent-expired","/api/netshop/comparison-insights",self.query(endDate="2026-09-07",comparisonScope=self.scope(metricSource="erp"),metricKey="erpNetSales"),status=503)
+        self.assertEqual(expired["code"],"source_not_ready")
+        target=os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
+        if target:
+            with (Path(target)/"signed-capacity-and-budget.json").open("x",encoding="utf8") as out:
+                json.dump({"computedFullComparisonUtf8Bytes":sizes,"capacityLimitBytes":2*1024*1024,"capacityHttpStatus":422,"capacityCode":"quality_incomplete","windowsDays":[366,366],"sourceBodyTruncated":False,"parentBudgetSeconds":65,"budgetHttpStatus":503,"budgetCode":"source_not_ready","clockInjection":"test_only_monotonic_advanced_to_66_after_actual_signed_owner_RPC; HTTP seconds use unaffected perf_counter","mockBusinessDto":False,"actualTcp":True},out,indent=2)
