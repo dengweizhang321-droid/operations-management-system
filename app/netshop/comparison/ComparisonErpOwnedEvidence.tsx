@@ -2,6 +2,7 @@
 
 import type { SalesObservedPeriod, SalesPeriodsResponse } from "@/lib/netshop/sales-periods-contract";
 import { formatNativeIntegerQuantityValue } from "./ComparisonFormatting";
+import type { ErpEvidence } from "./contract";
 
 const sourceMoney = (value: number | null) => value === null ? "—" : `${(value / 100).toLocaleString("zh-CN", { maximumFractionDigits: 2 })} 元`;
 const observedOrderMean = (period: SalesObservedPeriod) => {
@@ -23,4 +24,16 @@ export function ComparisonErpOwnedEvidence({ response }: { response: SalesPeriod
     <div className="nc-table-scroll" tabIndex={0} aria-label="ERP 原始平台店铺渠道身份，横向滚动"><table className="nc-table"><thead><tr><th>原始平台 / 店铺</th><th>原始渠道</th><th>本期已读记录</th><th>基期已读记录</th></tr></thead><tbody>{response.items.map(item => <tr key={item.identityKey}><td>{item.identity.platform} · {item.identity.rawShopName}</td><td>{item.identity.rawChannel}</td><td>{item.current.rowCount}</td><td>{item.baseline.rowCount}</td></tr>)}</tbody></table></div>
     <p className="nc-caption">此原始身份列表为拥有方分页：{response.candidatePagination.returned}/{response.candidatePagination.filteredCount} 条，完整授权两期候选 {response.candidatePagination.candidateCount} 条。原始身份不等于已验证的历史跨域映射。</p>
   </details>;
+}
+
+export function ComparisonErpEvidence({ evidence }: { evidence: ErpEvidence }) {
+  return <section className="nc-erp-evidence" aria-label="ERP 来源与观察口径">
+    <p className="nc-notice" role={evidence.state === "error" ? "alert" : "status"}>{evidence.state === "ready" ? "ERP 已读记录可查看；观察日期不代表完整店日结算。" : evidence.state === "error" ? "ERP 来源读取失败，当前不能确认该范围。" : "当前范围 ERP 来源不可用，不推断业务记录不存在。"} ERP 日、自然周、月趋势的拥有方接口尚未就绪，金额和数量不按天均摊。</p>
+    <details className="nc-columns"><summary>ERP 店铺关联与日期观察</summary>
+      <p className="nc-caption">关联为本轮原始平台、店铺和渠道的精确别名解析，不证明历史商品关系或官方分类。</p>
+      <div className="nc-table-scroll" tabIndex={0} aria-label="ERP 精确来源关联，横向滚动"><table className="nc-table"><thead><tr><th>经营店铺</th><th>关联状态</th><th>原始店铺 / 渠道</th></tr></thead><tbody>{evidence.mappings.map(mapping => <tr key={mapping.shopKey}><td>{mapping.shopKey.replace("\u001f"," · ")}</td><td>{mapping.status === "verified_alias" ? "当前精确别名已核验" : mapping.status === "ambiguous" ? "关联不唯一" : "尚未关联"}</td><td>{mapping.rawIdentity ? `${mapping.rawIdentity.platform} · ${mapping.rawIdentity.rawShopName} · ${mapping.rawIdentity.rawChannel}` : "—"}</td></tr>)}</tbody></table></div>
+      <ul className="nc-source-list">{Object.entries(evidence.observations).map(([key,observation]) => <li key={key}><strong>{observation.period === "current" ? "本期" : "基期"} · {observation.objectKey === "summary" ? "当前授权范围" : observation.objectKey.replace(/^shop:/,"").replace("\u001f"," · ")}</strong><p>{observation.startDate} — {observation.endDate}；已观察 {observation.observedShopDatePairs ?? "未确认"} 店日。结算完整性未知，不等同请求范围已完整覆盖。</p>{observation.observedByShop.map(shop => <p key={shop.shopKey}>{shop.shopKey.replace("\u001f"," · ")}：{shop.dates.join("、")}</p>)}</li>)}</ul>
+    </details>
+    {evidence.source && <ComparisonErpOwnedEvidence response={evidence.source} />}
+  </section>;
 }
