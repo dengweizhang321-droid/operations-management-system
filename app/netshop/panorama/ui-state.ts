@@ -2,6 +2,12 @@ import type { NetshopColumnProps } from "../shared/module-slots";
 import type { ShopLocationContext } from "../../shell/shop-context";
 import { netshopOutletKey, readNetshopOutletFilters } from "@/lib/netshop/query-contract";
 import type { InsightPlatform } from "@/lib/netshop/insights-contract";
+import type { PanoramaNativeQuantity, PanoramaOrderMean } from "./contract";
+export function formatPanoramaNative(metric: Pick<PanoramaNativeQuantity | PanoramaOrderMean, "unit" | "value">): string {
+  if (metric.value === null) return "—";
+  if (metric.unit === "CNY_CENT_PER_ORDER" && metric.value !== 0 && Math.abs(metric.value / 100) < .00000001) return `${metric.value > 0 ? "<0.00000001" : ">-0.00000001"} 元/已导入订单组`;
+  return metric.unit === "NATIVE_INTEGER_QUANTITY" ? `${metric.value.toLocaleString("zh-CN")} 原生数量` : `${(metric.value / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 8 })} 元/已导入订单组`;
+}
 import { restoreProductScopeSeriesMetric, resolveProductScopeSeriesCoverage, type ProductScopeSeries, type ProductSeriesColumnKey } from "@/lib/netshop/product-scope-series-contract";
 
 export const panoramaChapters = [

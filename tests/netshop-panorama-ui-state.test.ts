@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { decodeProductScopeSeries } from "../lib/netshop/product-scope-series-contract";
 import { defaultShopLocationContext } from "../app/shell/shop-context";
-import { panoramaChapter, panoramaChapters, panoramaDirectoryQuery, panoramaGrainChange, panoramaPageButtons, panoramaPageSize, panoramaPageSizeChange, panoramaPresentationScope, panoramaQuery, panoramaScrollStorageKey, panoramaSearchChange, panoramaSeriesChartPoints, panoramaSeriesRows, panoramaShop, panoramaShopChange, panoramaTokenFamily, decodePanoramaScroll } from "../app/netshop/panorama/ui-state";
+import { formatPanoramaNative, panoramaChapter, panoramaChapters, panoramaDirectoryQuery, panoramaGrainChange, panoramaPageButtons, panoramaPageSize, panoramaPageSizeChange, panoramaPresentationScope, panoramaQuery, panoramaScrollStorageKey, panoramaSearchChange, panoramaSeriesChartPoints, panoramaSeriesRows, panoramaShop, panoramaShopChange, panoramaTokenFamily, decodePanoramaScroll } from "../app/netshop/panorama/ui-state";
 import type { NetshopColumnProps } from "../app/netshop/shared/module-slots";
 
 const context = { ...defaultShopLocationContext, platforms: ["京东" as const], outlets: ["京东\u001f甲店"], pageSize: 5 };
@@ -136,3 +136,13 @@ test("scroll restoration stores only a bounded coordinate, bound to account and 
   assert.equal(decodePanoramaScroll("218.5"), 218.5);
   for (const value of [null, "", "-1", "NaN", "Infinity", "10000001", '{"result":"not allowed"}']) assert.equal(decodePanoramaScroll(value), null);
 });
+
+ test("S ERP formatter preserves native quantity and fractional imported-order mean without generic COUNT", () => {
+  assert.equal(formatPanoramaNative({unit:"NATIVE_INTEGER_QUANTITY",value:-3}),"-3 原生数量");
+  assert.equal(formatPanoramaNative({unit:"NATIVE_INTEGER_QUANTITY",value:0}),"0 原生数量");
+  const mean={unit:"CNY_CENT_PER_ORDER" as const,value:126.5};
+  assert.equal(formatPanoramaNative(mean),"1.265 元/已导入订单组");
+  assert.equal(mean.value,126.5);
+  assert.equal(formatPanoramaNative({unit:"CNY_CENT_PER_ORDER",value:1e-8}),"<0.00000001 元/已导入订单组");
+  assert.equal(formatPanoramaNative({unit:"CNY_CENT_PER_ORDER",value:null}),"—");
+ });
