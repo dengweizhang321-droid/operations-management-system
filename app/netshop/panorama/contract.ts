@@ -51,7 +51,7 @@ export const salesMetricKeys = ["netSales", "cost", "netQuantity", "positiveQuan
 export type PanoramaNativeQuantity = Omit<MetricValue, "unit"> & { unit: "NATIVE_INTEGER_QUANTITY" };
 export type PanoramaOrderMean = Omit<MetricValue, "unit" | "status" | "reasonCode"> & {
   unit: "CNY_CENT_PER_ORDER"; status: "available" | "unavailable";
-  reasonCode: "no_records" | "missing_order_no" | "zero_denominator" | null;
+  reasonCode: "no_records" | "missing_order_no" | "zero_denominator" | "not_applicable" | null;
   numerator: number | null; denominator: number | null;
 };
 export type PanoramaErpMetric = MetricValue | PanoramaNativeQuantity | PanoramaOrderMean;
@@ -199,7 +199,8 @@ function salesMetrics(value: unknown): PanoramaSalesMetrics {
   for (const key of salesMetricKeys) {
     const raw = record(input[key]);
     if (key === "orderAverageValue") {
-      if (raw.unit !== "CNY_CENT_PER_ORDER" || !enumValue(raw.status, ["available", "unavailable"]) || raw.reasonCode !== null && !enumValue(raw.reasonCode, ["no_records", "missing_order_no", "zero_denominator"]) || raw.basis !== "erp_net_sales" || raw.aggregation !== "ratio_of_sums" || !Object.hasOwn(raw, "numerator") || !Object.hasOwn(raw, "denominator") || [raw.numerator, raw.denominator].some(v => v !== null && !Number.isSafeInteger(v))) return reject("ERP订单组均值原生单位、分母或原因无效");
+      if (raw.unit !== "CNY_CENT_PER_ORDER" || !enumValue(raw.status, ["available", "unavailable"]) || raw.reasonCode !== null && !enumValue(raw.reasonCode, ["no_records", "missing_order_no", "zero_denominator", "not_applicable"]) || raw.basis !== "erp_net_sales" || raw.aggregation !== "ratio_of_sums" || !Object.hasOwn(raw, "numerator") || !Object.hasOwn(raw, "denominator") || [raw.numerator, raw.denominator].some(v => v !== null && !Number.isSafeInteger(v))) return reject("ERP订单组均值原生单位、分母或原因无效");
+      if (raw.reasonCode === "not_applicable" && (raw.status !== "unavailable" || raw.value !== null || raw.numerator !== null || raw.denominator !== null)) return reject("ERP超限未请求基期不能伪装无记录或均值");
       const proxy = decodeMetric({ ...raw, unit: "RATIO", reasonCode: raw.reasonCode === "missing_order_no" ? "missing_field" : raw.reasonCode });
       if (proxy.status === "available" && (raw.denominator as number) <= 0) return reject("ERP订单组均值分母无效");
       result.orderAverageValue = raw as PanoramaOrderMean; continue;
