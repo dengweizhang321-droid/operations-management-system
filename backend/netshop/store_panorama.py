@@ -18,6 +18,7 @@ from .insights_common import actor_fence, context_versions, read_context, valida
 from .query import _canonical_token, positive, revision_value
 from . import product_insights, promotion_insights
 from .product_scope_series import read_product_scope_series
+from .panorama_workflow_client import read_panorama_workflow, verify_panorama_workflow
 
 SCHEMA_VERSION = "netshop-store-panorama-v1"
 READER_SECONDS = 65
@@ -45,7 +46,7 @@ CAPABILITY_IDS = {
 
 
 def _budget(deadline):
-    if time.monotonic() > deadline:
+    if time.monotonic() >= deadline:
         raise NetshopApiError("店铺全景读取超出65秒整体预算，请缩小日期范围", code="source_not_ready", status=503)
 
 
@@ -340,7 +341,7 @@ def read_store_panorama(principal, params: QueryDict):
             "promotion": _read_source(lambda: _read_promotion(principal, _promotion_query(params, spec["platforms"][0], table["grain"]), deadline), deadline),
             "sales": _pending("精确店铺/渠道销售与毛利退货consumer尚待总控验收接线"),
             "finance": _pending("单店月财报及年度目标consumer尚待财务所属服务验收接线"),
-            "workflow": _pending("精确店铺及事件发生期适配尚待验收接线；今日状态不是历史记录"),
+            "workflow": _read_source(lambda: read_panorama_workflow(principal, _workflow_scope(context), deadline=deadline), deadline),
         }
         if actor_fence(principal) != actor:
             raise NetshopApiError("全景取数期间账号权限版本变化", code="access_denied", status=403)
@@ -353,7 +354,8 @@ def read_store_panorama(principal, params: QueryDict):
                 if source in {"products", "productSeries"} and owned["snapshotToken"] != context["snapshotToken"]:
                     raise NetshopApiError("商品信封不是全景同范围或版本", code="insights_revision_changed", status=409)
                 contexts.append(owned)
-        vector = _joined_vector(contexts)
+        joined = contexts + ([sources["workflow"]["data"]] if sources["workflow"]["state"] == "ready" else [])
+        vector = _joined_vector(joined)
         token = _canonical_token({"schemaVersion": SCHEMA_VERSION, "scopeKey": context["scopeKey"], "sourceRevisions": vector,
                                   "tableFilter": {"q": table["q"], "pageSize": table["pageSize"], "grain": table["grain"]}})
         if expected_token and expected_token != token:
@@ -371,6 +373,8 @@ def read_store_panorama(principal, params: QueryDict):
         }
         for owned in contexts:
             _context_vector(owned, deadline)
+        if sources["workflow"]["state"] == "ready":
+            verify_panorama_workflow(principal, sources["workflow"]["data"], deadline=deadline)
         if actor_fence(principal) != actor:
             raise NetshopApiError("全景取数期间账号权限版本变化", code="access_denied", status=403)
         _budget(deadline)

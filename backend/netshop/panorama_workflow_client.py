@@ -48,6 +48,14 @@ def _remaining(deadline):
     return min(8.0, value)
 
 
+def _network_remaining(parent_deadline, request_deadline):
+    parent = _remaining(parent_deadline)
+    remaining = request_deadline - time.monotonic()
+    if remaining <= 0:
+        raise _unavailable()
+    return min(parent, remaining)
+
+
 def _text(value, maximum, *, empty=False):
     if type(value) is not str or len(value) > maximum or not empty and not value.strip() or any(ord(c) < 32 or ord(c) == 127 for c in value):
         raise _unavailable()
@@ -166,9 +174,10 @@ def _api_get(principal, parameters, deadline, *, expected_revision=None):
     base, secret = _config()
     request = _signed_request(principal, base, secret, parameters)
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+    request_deadline = min(deadline, time.monotonic() + 8)
     try:
         try:
-            response = opener.open(request, timeout=_remaining(deadline))
+            response = opener.open(request, timeout=_network_remaining(deadline, request_deadline))
         except urllib.error.HTTPError as error:
             try:
                 _authority(error.code)  # Never inspect an authority response body first.
@@ -178,7 +187,7 @@ def _api_get(principal, parameters, deadline, *, expected_revision=None):
                 error.close()
         with response:
             _authority(response.status)
-            _remaining(deadline)
+            _network_remaining(deadline, request_deadline)
             if response.status != 200:
                 raise _unavailable()
             revisions = response.headers.get_all("X-Workflow-Data-Revision", [])
@@ -198,12 +207,12 @@ def _api_get(principal, parameters, deadline, *, expected_revision=None):
                 raise _unavailable()
             chunks, size = [], 0
             while True:
-                timeout = _remaining(deadline)
+                timeout = _network_remaining(deadline, request_deadline)
                 sock = getattr(getattr(getattr(response, "fp", None), "raw", None), "_sock", None)
                 if sock is not None:
                     sock.settimeout(timeout)
                 chunk = response.read1(min(65536, MAX_BYTES + 1 - size))
-                _remaining(deadline)
+                _network_remaining(deadline, request_deadline)
                 if not chunk:
                     break
                 size += len(chunk)
