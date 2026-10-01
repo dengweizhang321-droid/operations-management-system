@@ -82,7 +82,7 @@ class ComparisonErpTests(TestCase):
             with (Path(target)/(name+"-rpc-layer.json")).open("x", encoding="utf-8") as out:
                 json.dump({"layer": "real_owning_reader_injected_transport_private_postgresql", "hmacLayer": "published_registered_http_suite_separate", "requests": [{"request": {k:v for k,v in c["request"].items() if k != "expiresAtEpochMs"}, "deadlineShared": c["deadline"] == self.calls[0]["deadline"]} for c in self.calls]}, out, ensure_ascii=False)
 
-    def test_native_money_cost_order_evidence_and_only_one_final_rpc(self):
+    def test_native_money_cost_order_evidence_and_one_primed_series_final_rpc(self):
         self.line(quantity=3, allocated_amount_cents=1000, cost_amount_cents=400, gross_profit_cents=123, order_no="trusted")
         self.line(quantity=-1, allocated_amount_cents=-200, cost_amount_cents=-80, gross_profit_cents=-21, order_no="trusted")
         self.line(day="2026-08-31", quantity=2, allocated_amount_cents=500, cost_amount_cents=100, gross_profit_cents=77)
@@ -107,11 +107,12 @@ class ComparisonErpTests(TestCase):
         self.assertEqual((observation["observedShopDatePairs"], observation["expectedShopDatePairs"], observation["completeness"]), (1, 1, "unknown"))
         self.assertNotIn(ref, result["sections"]["comparability"]["coverage"])
         self.assertFalse(result["sections"]["scale"]["items"][0]["qualification"]["comparable"])
-        self.assertTrue(all(p["metric"]["reasonCode"] == "not_applicable" for p in result["sections"]["trends"]["items"][0]["current"]))
-        self.assertEqual(len(self.calls), 2)
+        self.assertEqual(result["sections"]["trends"]["items"][0]["current"][0]["metric"]["value"],800)
+        self.assertEqual(len(self.calls), 3)
         self.assertEqual(self.calls[1]["request"]["expectedRevision"], "7:3")
-        self.assertEqual(self.calls[1]["request"]["snapshotToken"], evidence["source"]["snapshotToken"])
-        self.assertEqual(self.calls[0]["deadline"], self.calls[1]["deadline"])
+        self.assertNotIn("snapshotToken",self.calls[1]["request"])
+        self.assertEqual(self.calls[2]["request"]["snapshotToken"], evidence["source"]["snapshotToken"])
+        self.assertEqual(len({c["deadline"] for c in self.calls}),1)
         self.assertEqual(len([v for v in result["joinedSourceRevisions"] if v["domain"] == "sales"]), 1)
         self.evidence("actual-owning-erp", result)
 
@@ -174,7 +175,7 @@ class ComparisonErpTests(TestCase):
 
     def test_503_initial_and_after_serialization_downgrade_erp_only_once(self):
         self.line()
-        for failure_call in (1,2):
+        for failure_call in (1,2,3):
             self.calls.clear()
             def fails(count,when):
                 if count == failure_call and when == "before": raise NetshopApiError("private synthetic unavailable",code="service_unavailable",status=503)
@@ -196,7 +197,7 @@ class ComparisonErpTests(TestCase):
 
     def test_parent_deadline_covers_actual_remote_owner_and_final_recheck(self):
         self.line()
-        for call in (1,2):
+        for call in (1,2,3):
             clock=[0.0]; self.calls.clear()
             def expires(count,when):
                 if count == call and when == "after": clock[0]=66.0
@@ -208,7 +209,7 @@ class ComparisonErpTests(TestCase):
     def test_netshop_change_during_last_rpc_still_invalidates_whole_join(self):
         self.line()
         def changes(count,when):
-            if count == 2 and when == "after": NetshopDataRevision.objects.filter(domain="netshop").update(revision=2,source_digest="b"*64)
+            if count == 3 and when == "after": NetshopDataRevision.objects.filter(domain="netshop").update(revision=2,source_digest="b"*64)
         self.hook=changes
         self.assert_error(409,lambda:self.erp())
 
@@ -229,3 +230,52 @@ class ComparisonErpTests(TestCase):
             response["sections"]["comparability"]["erpEvidence"]["source"]["metricSemantics"]["costCents"]="合"*(1024*1024)
             return response
         with patch.object(C,"build_comparison_result",large):self.assert_error(422,lambda:self.erp())
+
+    def test_owned_day_week_month_two_shops_distinct_orders_and_full_summary(self):
+        second="志高商用厨电旗舰店"
+        self.pair(shop=second)
+        self.line(day="2026-09-01",allocated_amount_cents=100,cost_amount_cents=20,order_no="same-order")
+        self.line(day="2026-09-02",allocated_amount_cents=200,cost_amount_cents=40,order_no="same-order")
+        self.line(day="2026-09-05",allocated_amount_cents=0,cost_amount_cents=0,order_no="zero-order")
+        self.line(day="2026-09-06",allocated_amount_cents=-20,cost_amount_cents=-4,quantity=-1,order_no="return-order")
+        self.line(canonical=second,day="2026-09-01",allocated_amount_cents=400,cost_amount_cents=80,order_no="same-order")
+        for canonical in (self.canonical,second):self.line(canonical=canonical,day="2026-08-25",allocated_amount_cents=50,cost_amount_cents=10,order_no="baseline")
+        baseline={"kind":"custom","startDate":"2026-08-25","endDate":"2026-08-31"}
+        for grain in ("day","week","month"):
+            self.calls.clear()
+            values={"endDate":"2026-09-07","selectedBaseline":baseline,"trendGrain":grain,"chartObjectKeys":["shop:京东\x1f"+self.canonical,"shop:京东\x1f"+second]}
+            result=self.erp(**values)
+            self.assertEqual(len(self.calls),3)
+            source=result["sections"]["comparability"]["erpEvidence"]["source"]
+            self.assertEqual(len(source["series"]["items"]),2)
+            self.assertEqual(result["sections"]["scale"]["summary"]["current"]["erpNetSales"]["value"],680)
+            self.assertEqual(result["sections"]["comparability"]["erpEvidence"]["temporalState"],{"state":"ready","code":None})
+            first=next(t for t in result["sections"]["trends"]["items"] if t["objectKey"].endswith(self.canonical))
+            if grain=="day":
+                self.assertEqual(len(first["current"]),7)
+                self.assertEqual(first["current"][4]["metric"]["value"],0)
+                self.assertEqual(first["current"][5]["metric"]["value"],-20)
+                self.assertIsNone(first["current"][2]["metric"]["value"])
+                self.assertEqual(first["current"][2]["metric"]["reasonCode"],"no_records")
+            else:
+                self.assertEqual(first["current"][0]["metric"]["value"],280)
+                from sales.netshop_period_series import restore_period_point
+                own=next(i for i in source["series"]["items"] if i["identity"]["rawShopName"]==sales_alias("京东",self.canonical)["rawShopName"])
+                self.assertEqual(restore_period_point(own["current"][0])["facts"]["orders"]["trustedOrderCount"],3)
+            for point in first["current"]:
+                observation=result["sections"]["comparability"]["erpEvidence"]["observations"][point["metric"]["coverageRef"]]
+                self.assertEqual((observation["startDate"],observation["endDate"]),(point["date"],point["bucketEnd"]))
+                self.assertEqual(observation["completeness"],"unknown")
+            self.evidence("actual-owning-erp-series-"+grain,result,**values)
+
+    def test_primed_plot_absent_both_and_baseline_only_no_false_current_zero(self):
+        no_erp="志高商用厨电旗舰店"
+        self.pair(shop=no_erp)
+        self.line(day="2026-08-31",allocated_amount_cents=77)
+        result=self.erp(chartObjectKeys=["shop:京东\x1f"+self.canonical,"shop:京东\x1f"+no_erp])
+        self.assertEqual(len(self.calls),3)
+        self.assertEqual(len(self.calls[1]["request"]["seriesOutlets"]),1)
+        for series in result["sections"]["trends"]["items"]:
+            self.assertIsNone(series["current"][0]["metric"]["value"])
+            self.assertEqual(series["current"][0]["metric"]["reasonCode"],"no_records")
+        self.assertEqual(next(t for t in result["sections"]["trends"]["items"] if t["objectKey"].endswith(self.canonical))["baseline"][0]["metric"]["value"],77)
