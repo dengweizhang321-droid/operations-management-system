@@ -17,13 +17,28 @@ def validate_year(year: str) -> str:
     return year
 
 
-def annual_progress(year: str, page: int, page_size: int) -> dict[str, object]:
+def annual_progress(year: str, page: int, page_size: int, *, shop_pairs: list[tuple[str, str]] | None = None) -> dict[str, object]:
     validate_year(year)
     months = list(FinanceMonth.objects.filter(status="completed", month__startswith=f"{year}-").order_by("month").values_list("month", flat=True))
     cutoff = months[-1] if months else None
     expected = [f"{year}-{number:02d}" for number in range(1, int(cutoff[5:]) + 1)] if cutoff else []
     facts = FinanceLine.objects.filter(month__in=months, section="summary", scope_type="shop", metric_key__in=METRIC_KEYS)
     targets = FinanceTarget.objects.filter(period_type="year", period_key=year, category="").exclude(platform="")
+    fact_scope = Q()
+    if shop_pairs is not None:
+        if not isinstance(shop_pairs, list) or len(shop_pairs) > 50 or any(
+            not isinstance(pair, (tuple, list)) or len(pair) != 2
+            or any(not isinstance(value, str) or not value or len(value) > 200 or any(ord(char) < 32 or ord(char) == 127 for char in value) for value in pair)
+            for pair in shop_pairs
+        ):
+            raise FinanceApiError("年度精确店铺范围无效")
+        fact_scope, target_scope = Q(pk__in=[]), Q(pk__in=[])
+        for platform, name in set(tuple(pair) for pair in shop_pairs):
+            fact_scope |= Q(group_name__in=[platform, ""] if platform == "未分组" else [platform], scope_name=name)
+            target_scope |= Q(platform=platform, shop_name=name)
+        # Filter the native candidate set before limits and pagination.
+        facts = facts.filter(fact_scope)
+        targets = targets.filter(target_scope)
     pairs = set(facts.values_list("group_name", "scope_name").distinct()[:5001])
     pairs.update(targets.values_list("platform", "shop_name").distinct()[:5001])
     if len(pairs) > 5000:
@@ -53,6 +68,7 @@ def annual_progress(year: str, page: int, page_size: int) -> dict[str, object]:
                 scope_type="shop",
                 subject_name__startswith="销售费用_推广费用_",
             )
+            .filter(fact_scope)
             .filter(fact_filter)
             .values("month", "group_name", "scope_name")
             .annotate(amount_cents=Sum("amount_cents", default=0))[:5001]
