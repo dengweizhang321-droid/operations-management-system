@@ -131,7 +131,7 @@ function qualification(value: unknown): ComparisonQualification {
 function populationRow(value: unknown, mode: ComparisonScope["mode"], candidateShopKeys: Set<string>): ComparisonPopulationRow {
   const row = object(value); validateObjectKeys([row.objectKey], 1);
   const shops = shopKeys(row.shopKeys);
-  if (new Set(shops).size !== shops.length || shops.some(key => !candidateShopKeys.has(key) || !key.startsWith(row.platform + "\u001f")) || row.kind !== mode || !["京东", "天猫"].includes(String(row.platform))) fail("对比对象不属于授权精确候选集");
+  if (new Set(shops).size !== shops.length || shops.some(key => !candidateShopKeys.has(key) || !key.startsWith(row.platform + "\u001f")) || row.kind !== mode || !enumValue(row.platform, ["京东", "天猫"])) fail("对比对象不属于授权精确候选集");
   if (mode === "shop" ? !text(row.shopName, 100) || row.objectKey !== "shop:" + row.platform + "\u001f" + row.shopName || shops.length !== 1 || shops[0] !== row.platform + "\u001f" + row.shopName : row.shopName !== null || row.objectKey !== "platform:" + row.platform) fail("平台与子店不能混排或失去精确身份");
   qualification(row.qualification); strings(row.exclusionReasons, 30, 500);
   if (row.currentPresence !== undefined && typeof row.currentPresence !== "boolean" || row.baselinePresence !== undefined && typeof row.baselinePresence !== "boolean") fail("两期存在性无效");
@@ -151,7 +151,7 @@ function fullRows(value: unknown, all: Map<string, ComparisonPopulationRow>): Co
 }
 function categoryEvidence(value: unknown): CategoryEvidence {
   const c = object(value);
-  if (!["label_only", "unknown"].includes(String(c.status)) || c.namespace !== null || c.id !== null || c.parentId !== null || c.effectiveFrom !== null || c.effectiveTo !== null || c.platform !== null && !["京东", "天猫"].includes(String(c.platform)) || c.status === "label_only" && (!text(c.label, 120) || !text(c.sourceId, 200) || !text(c.version, 200))) fail("类目证据不能提升为官方字典或历史映射");
+  if (!enumValue(c.status, ["label_only", "unknown"]) || c.namespace !== null || c.id !== null || c.parentId !== null || c.effectiveFrom !== null || c.effectiveTo !== null || c.platform !== null && !enumValue(c.platform, ["京东", "天猫"]) || c.status === "label_only" && (!text(c.label, 120) || !text(c.sourceId, 200) || !text(c.version, 200))) fail("类目证据不能提升为官方字典或历史映射");
   return c as CategoryEvidence;
 }
 function structure(value: unknown): ComparisonProductStructure {
@@ -199,7 +199,7 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
     const vectorKeys = new Set<string>();
     for (const raw of input.joinedSourceRevisions) {
       const r = object(raw), key = stable([r.domain, r.kind, r.scopeKey]);
-      if (!["netshop", "sales", "products", "inventory", "finance", "erp_reference", "workflow"].includes(String(r.domain)) || !referenceText(r.kind, 300) || !text(r.scopeKey, 200) || !text(r.revision, 200) || vectorKeys.has(key)) fail("参与来源重复或未明确版本类型"); vectorKeys.add(key);
+      if (!enumValue(r.domain, ["netshop", "sales", "products", "inventory", "finance", "erp_reference", "workflow"]) || !referenceText(r.kind, 300) || !text(r.scopeKey, 200) || !text(r.revision, 200) || vectorKeys.has(key)) fail("参与来源重复或未明确版本类型"); vectorKeys.add(key);
     }
     const sections = object(input.sections); exact(sections, ["scale", "efficiency", "trends", "structure", "promotion", "comparability"]);
     const population = object(sections.comparability), candidateShopKeys = new Set([...current.effectiveScope.shopKeys, ...baseline.effectiveScope.shopKeys]);
@@ -214,14 +214,14 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
     if (scale.metricKey !== expected.metricKey || page.page !== expected.page || page.pageSize !== expected.pageSize || page.returned !== rows.length || page.truncated) fail("完整排名分页不一致");
     const summary = object(scale.summary), cm = metrics(summary.current), bm = metrics(summary.baseline); comparisons(summary.comparisons, cm, bm); metric(summary.delta);
     const contributions = object(scale.contributions); for (const key of ["continuousCurrent", "continuousBaseline", "continuousDelta", "scopeDelta"]) metric(contributions[key]);
-    if (!["available", "unavailable"].includes(String(contributions.status)) || contributions.status === "available" && contributions.reasonCode !== null || contributions.status === "unavailable" && !text(contributions.reasonCode)) fail("持续经营与统计范围拆分资格无效");
+    if (!enumValue(contributions.status, ["available", "unavailable"]) || contributions.status === "available" && contributions.reasonCode !== null || contributions.status === "unavailable" && !text(contributions.reasonCode)) fail("持续经营与统计范围拆分资格无效");
     const efficiency = object(sections.efficiency), promotion = object(sections.promotion); fullRows(efficiency.items, all); fullRows(promotion.items, all); strings(efficiency.definitions, 30, 1000); strings(promotion.sourceDefinitions, 30, 1000);
     const coverage = coverageRecord(population.coverage), erp = object(population.erpState);
-    if (!["ready", "error", "unavailable", "dependency_pending"].includes(String(erp.state)) || erp.state === "ready" && erp.code !== null || erp.state !== "ready" && !text(erp.code, 200)) fail("ERP来源状态无效");
+    if (!enumValue(erp.state, ["ready", "error", "unavailable", "dependency_pending"]) || erp.state === "ready" && erp.code !== null || erp.state !== "ready" && !text(erp.code, 200)) fail("ERP来源状态无效");
     if (!Array.isArray(promotion.sourceScopes) || promotion.sourceScopes.length > 4 || !Array.isArray(promotion.sourceStates) || promotion.sourceStates.length !== current.effectiveScope.platforms.length * 2) fail("推广所属范围或状态缺失");
     const coverageRefs = new Set([...Object.keys(current.coverageBySource), ...Object.keys(baseline.coverageBySource), ...Object.keys(coverage)]), sourceStateKeys = new Set<string>();
-    for (const raw of promotion.sourceScopes) { const a = object(raw); if (!["current", "baseline"].includes(String(a.period)) || !token(a.scopeKey) || !token(a.snapshotToken) || !["sku", "spu"].includes(String(a.dimension)) || !Array.isArray(a.sourceRevisions) || !a.sourceRevisions.length) fail("推广所属两期范围无效"); const keys = shopKeys(a.shopKeys); if (keys.some(key => !candidateShopKeys.has(key) || key.startsWith("京东\u001f") && a.dimension !== "sku" || key.startsWith("天猫\u001f") && a.dimension !== "spu")) fail("推广维度或授权店铺失配"); Object.keys(coverageRecord(a.coverageBySource)).forEach(ref => coverageRefs.add(ref)); }
-    for (const raw of promotion.sourceStates) { const s = object(raw), key = `${s.period}:${s.platform}`; if (!["current", "baseline"].includes(String(s.period)) || !current.effectiveScope.platforms.includes(s.platform as InsightPlatform) || sourceStateKeys.has(key) || !["ready", "error", "unavailable"].includes(String(s.state)) || s.state === "ready" && s.code !== null || s.state !== "ready" && !text(s.code, 200) || ["access_denied", "comparison_revision_changed"].includes(String(s.code))) fail("推广状态必须保留真实错误及权限失败关闭"); sourceStateKeys.add(key); }
+    for (const raw of promotion.sourceScopes) { const a = object(raw); if (!enumValue(a.period, ["current", "baseline"]) || !token(a.scopeKey) || !token(a.snapshotToken) || !enumValue(a.dimension, ["sku", "spu"]) || !Array.isArray(a.sourceRevisions) || !a.sourceRevisions.length) fail("推广所属两期范围无效"); const keys = shopKeys(a.shopKeys); if (keys.some(key => !candidateShopKeys.has(key) || key.startsWith("京东\u001f") && a.dimension !== "sku" || key.startsWith("天猫\u001f") && a.dimension !== "spu")) fail("推广维度或授权店铺失配"); Object.keys(coverageRecord(a.coverageBySource)).forEach(ref => coverageRefs.add(ref)); }
+    for (const raw of promotion.sourceStates) { const s = object(raw), key = `${s.period}:${s.platform}`; if (!enumValue(s.period, ["current", "baseline"]) || !current.effectiveScope.platforms.includes(s.platform as InsightPlatform) || sourceStateKeys.has(key) || !enumValue(s.state, ["ready", "error", "unavailable"]) || s.state === "ready" && s.code !== null || s.state !== "ready" && !text(s.code, 200) || ["access_denied", "comparison_revision_changed"].includes(String(s.code))) fail("推广状态必须保留真实错误及权限失败关闭"); sourceStateKeys.add(key); }
     const verifyReferences = (raw: unknown) => { if (!raw || typeof raw !== "object") return; if (Array.isArray(raw)) { raw.forEach(verifyReferences); return; } const r = raw as Record<string, unknown>; if (typeof r.coverageRef === "string" && !coverageRefs.has(r.coverageRef)) fail("指标覆盖引用未指向真实两期来源"); Object.values(r).forEach(verifyReferences); };
     verifyReferences(sections);
     if (!Array.isArray(efficiency.distribution) || efficiency.distribution.length !== all.size) fail("分布图未使用完整候选集合");
@@ -232,7 +232,7 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
     for (const raw of trends.items) {
       const t = object(raw); if (!charts.includes(String(t.objectKey)) || seen.has(String(t.objectKey))) fail("趋势对象失配"); seen.add(String(t.objectKey));
       const index = object(t.indexBasis); metric(index.current); metric(index.baseline);
-      if (!["available", "unavailable"].includes(String(index.status)) || index.reasonCode !== null && !metricReasons.includes(index.reasonCode as MetricReason)) fail("指数基准说明无效");
+      if (!enumValue(index.status, ["available", "unavailable"]) || index.reasonCode !== null && !metricReasons.includes(index.reasonCode as MetricReason)) fail("指数基准说明无效");
       for (const [key, w] of [["current", current.periods.current], ["baseline", baseline.periods.current]] as const) {
         if (!Array.isArray(t[key]) || (t[key] as unknown[]).length > w.days) fail("趋势桶数量无效"); let last = "";
         for (const rawPoint of t[key] as unknown[]) { const p = object(rawPoint); if (typeof p.date !== "string" || typeof p.bucketEnd !== "string" || !resolveNetshopQueryPeriod(p.date, p.bucketEnd, 366) || p.date < w.startDate || p.bucketEnd > w.endDate || p.date <= last) fail("趋势日期重复或越界"); last = p.bucketEnd; metric(p.metric); }
