@@ -62,7 +62,7 @@ export async function runM6Scenarios({page,origin,check,save,evidence,records,ma
  await open(first);
  await check("Actual Home AI draft is unsent and binds C original independent baseline/object/category",async()=>{
   await page.getByRole("button",{name:"让 AI 分析当前网店分析页面",exact:true}).click();await page.getByRole("button",{name:"对话详情",exact:true}).click();
-  const text=await page.locator(".ai-workbench-details").innerText();assert.ok(text.includes(first.body.currentContext.periods.current.startDate));
+  const text=await page.locator(".ai-workbench-details").innerText(),period=await page.locator(".ai-workbench-context").innerText();assert.ok(period.includes(first.body.currentContext.periods.current.startDate+" 至 "+first.body.currentContext.periods.current.endDate));
   if(first.body.selectedBaseline.kind==="custom")assert.ok(text.includes(first.body.selectedBaseline.startDate));
   assert.equal(await page.evaluate(()=>window.__m6.models.length),0);await save("m6-ai-unsent.txt",text);
  });
