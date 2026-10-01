@@ -331,7 +331,9 @@ class RealPanoramaAllSourcesTests(PanoramaRegisteredFixture):
             return result
         with patch.object(panorama, "verify_panorama_workflow", side_effect=fail_workflow), \
                 patch.object(panorama, "verify_panorama_sales", side_effect=verify_sales):
-            result = self.read()
+            result = self.get_http(S_PATH, self.query, "response-final-workflow-db-error", evidence_metadata={
+                "faultInjection": True, "faultPhase": "final-workflow-verify", "actualFaultSql": "SELECT 1/0",
+                "nextOwnerSqlValues": sql_after, "actualNextNativeOwnersVerified": verified})
         self.assertEqual(sql_after, [42])
         self.assertEqual(verified, ["sales"])
         self.assertEqual(result["sources"]["workflow"]["state"], "error")
@@ -341,9 +343,6 @@ class RealPanoramaAllSourcesTests(PanoramaRegisteredFixture):
             self.assert_source_facts_equal(result["sources"][key]["data"], healthy["sources"][key]["data"])
         self.assertFalse(any(ref["domain"] == "workflow" for ref in result["joinedSourceRevisions"]))
         self.assertNotEqual(result["sectionToken"], healthy["sectionToken"])
-        capture("response-final-workflow-db-error", result, request={"method": "service", "query": self.query},
-                metadata={"faultInjection": True, "faultPhase": "final-workflow-verify", "actualFaultSql": "SELECT 1/0",
-                          "nextOwnerSqlValue": 42, "actualNextNativeOwnerVerified": "sales"})
 
     def test_registered_final_finance_401_403_409_remain_global_rejections(self):
         for status in (401, 403, 409):
