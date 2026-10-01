@@ -100,9 +100,10 @@ class StorePanoramaTests(TestCase):
         self.assertEqual(list(response["sections"]), list(panorama.SECTION_KEYS))
         self.assertEqual(response["sections"]["performance"]["state"], "partial")
         self.assertEqual(response["sections"]["margin"]["state"], "unavailable")
-        self.assertEqual(response["sections"]["targets"]["state"], "unavailable")
-        for key in ("sales", "finance", "workflow"):
+        self.assertEqual(response["sections"]["targets"]["state"], "error")
+        for key in ("sales", "finance"):
             self.assertEqual(response["sources"][key]["reasonCode"], "dependency_pending")
+        self.assertEqual(response["sources"]["workflow"]["code"], "service_unavailable")
         encoded = json.dumps(response)
         self.assertEqual(encoded.count('"netshop-product-insights-v1"'), 1)
         self.assertEqual(encoded.count('"netshop-promotion-v1"'), 1)

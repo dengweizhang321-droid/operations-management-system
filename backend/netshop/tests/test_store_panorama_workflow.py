@@ -23,6 +23,7 @@ from sales.auth import Principal
 from workflow.models import WorkflowDataRevision, WorkflowOperationRecord
 from workflow.operations_views import operation_records
 from netshop.errors import NetshopApiError
+from netshop.models import NetshopDataRevision
 from netshop import panorama_workflow_client as client
 from netshop import store_panorama as panorama
 
@@ -144,6 +145,14 @@ class WorkflowProtocolTests(SimpleTestCase):
         with patch("urllib.request.OpenerDirector.open", side_effect=InterruptedError("fixture interruption")), self.assertRaises(InterruptedError):
             self.get()
 
+    def test_network_lifetime_is_eight_seconds_without_resetting_parent(self):
+        with patch("netshop.panorama_workflow_client.time.monotonic", return_value=109.0), self.assertRaises(NetshopApiError) as raised:
+            client._network_remaining(165.0, 108.0)
+        self.assertEqual(raised.exception.code, "service_unavailable")
+        with patch("netshop.panorama_workflow_client.time.monotonic", return_value=166.0), self.assertRaises(NetshopApiError) as raised:
+            client._network_remaining(165.0, 108.0)
+        self.assertEqual(raised.exception.code, "source_not_ready")
+
     def test_source_scope_window_pagination_and_strict_scalars_are_checked(self):
         filters = {"types": [], "statuses": [], "shopNames": [SCOPE["shopName"]], "platforms": [SCOPE["platform"]], "owners": [], "query": "",
                    "from": self.parameters["from"], "to": self.parameters["to"], "page": 1, "pageSize": 20, "dataScope": "unrestricted"}
@@ -171,6 +180,7 @@ class RealWorkflowApiTests(LiveServerTestCase):
         AccessRole.objects.get_or_create(code="viewer", defaults={"label": "Synthetic viewer", "description": "Private test role", "rank": 1})
         self.user = AppUser.objects.create(email=self.principal.email, display_name="Synthetic", role_id="viewer", status="active", scope=None, version=1, created_at=timezone.now(), updated_at=timezone.now())
         WorkflowDataRevision.objects.update_or_create(domain="workflow", defaults={"revision": 1, "source_digest": "b" * 64})
+        NetshopDataRevision.objects.update_or_create(domain="netshop", defaults={"revision": 1, "source_digest": "a" * 64})
         self.env = patch.dict(os.environ, {"TERUISI_DJANGO_WORKFLOW_READER_BASE_URL": self.live_server_url})
         self.env.start()
 
@@ -202,7 +212,7 @@ class RealWorkflowApiTests(LiveServerTestCase):
             self.event(f"E{number:02d}")
         first = self.read()
         second = self.read(page=2)
-        self.assertEqual(first["pagination"], {"page": 1, "pageSize": 20, "total": 25, "returned": 20, "truncated": True})
+        self.assertEqual(first["pagination"], {"page": 1, "pageSize": 20, "total": 25, "returned": 20, "truncated": True, "hasMore": True})
         self.assertEqual(second["pagination"]["returned"], 5)
         self.assertFalse(second["pagination"]["truncated"])
         self.assertFalse({r["id"] for r in first["items"]} & {r["id"] for r in second["items"]})
@@ -262,3 +272,22 @@ class RealWorkflowApiTests(LiveServerTestCase):
         netshop = {"sourceRevisions": [{"domain": "netshop", "kind": "owning_revision", "scopeKey": "a" * 64, "revision": "99:" + "c" * 12}]}
         joined = panorama._joined_vector([netshop, data])
         self.assertEqual({r["domain"] for r in joined}, {"netshop", "workflow"})
+
+    def test_real_store_panorama_composes_signed_events_and_final_domain_revision(self):
+        self.event("S1")
+        self.event("S2")
+        from django.http import QueryDict
+        from urllib.parse import urlencode
+        params = QueryDict(urlencode({"platform": "京东", "outlet": "京东\x1f合成店A", "startDate": "2026-09-01", "endDate": "2026-09-01"}))
+        result = panorama.read_store_panorama(self.principal, params)
+        self.assertEqual(result["sources"]["workflow"]["state"], "ready")
+        self.assertEqual(result["sections"]["targets"]["state"], "partial")
+        self.assertEqual({r["domain"] for r in result["joinedSourceRevisions"]}, {"netshop", "workflow"})
+        capabilities = {r["id"]: r for r in result["sections"]["targets"]["capabilities"]}
+        self.assertEqual(capabilities["events"]["status"], "available")
+        self.assertEqual(next(r for r in result["sections"]["dataQuality"]["capabilities"] if r["id"] == "import_records")["status"], "unavailable")
+        evidence = os.environ.get("TERUISI_PANORAMA_QUERY_EVIDENCE_DIR")
+        if evidence:
+            from pathlib import Path
+            with (Path(evidence) / "response-owning-workflow.json").open("x", encoding="utf-8") as output:
+                json.dump(result, output, ensure_ascii=False, indent=2)
