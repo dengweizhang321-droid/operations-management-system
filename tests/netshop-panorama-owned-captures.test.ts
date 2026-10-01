@@ -11,12 +11,25 @@ function fixture(name: string) {
   const revision = c.sourceRevisions.find((ref: { kind: string }) => ref.kind === "owning_revision").revision;
   return { value, query, revision };
 }
-for (const name of ["sales", "sales-missing-order", "workflow"]) test(`unchanged private PG and owning HTTP ${name} capture is accepted by S`, () => {
+for (const name of ["sales", "sales-missing-order", "sales-temporal", "workflow"]) test(`unchanged private PG and owning HTTP ${name} capture is accepted by S`, () => {
   const { value, query, revision } = fixture(name), decoded = decodeStorePanorama(value, query, revision);
   assert.equal(decoded.schemaVersion, "netshop-store-panorama-v1");
   if (decoded.sources.sales.state === "ready") {
     assert.equal(decoded.sources.sales.data.periods.current.metrics.netQuantity.unit, "NATIVE_INTEGER_QUANTITY");
     assert.equal(decoded.sources.sales.data.periods.current.metrics.cost.value, null);
+  }
+});
+test("native ERP temporal evidence binds grain, complete points, exact identity, own mean and revisions", () => {
+  const valid = fixture("sales-temporal"), decoded = decodeStorePanorama(valid.value, valid.query, valid.revision);
+  assert.equal(decoded.sources.sales.state, "ready");
+  for (const kind of ["grain", "identity", "omitted-point", "mean", "revision"] as const) {
+    const { value, query, revision } = fixture("sales-temporal"), series = value.sources.sales.data.owning.previous.series;
+    if (kind === "grain") series.intent.grain = "month";
+    if (kind === "identity") series.items[0].identity.rawChannel = "另一渠道";
+    if (kind === "omitted-point") series.items[0].current.pop();
+    if (kind === "mean") series.items[0].current.find((point: unknown[]) => point[5] !== null)[5] += 1;
+    if (kind === "revision") series.sourceRevisions[0].revision = "999:999";
+    assert.throws(() => decodeStorePanorama(value, query, revision));
   }
 });
 test("native ERP amounts, trusted groups, units and raw cost restrictions cannot be fabricated in the display projection", () => {
