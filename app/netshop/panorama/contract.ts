@@ -245,7 +245,8 @@ function capabilityHasSource(section: PanoramaSectionKey, id: string, sources: S
   if (id === "category_contribution") return available(p?.structure.denominator);
   if (id === "top_concentration") return available(p?.structure.top5Share) && available(p?.structure.top10Share);
   if (id === "product_detail") return available(p?.counts.dataProducts) && Number(p?.counts.dataProducts.value) > 0;
-  if (id === "trend" || id === "distribution" || id === "promotion_detail") return available(a?.summary.spend);
+  if (id === "trend" || id === "distribution") return available(a?.summary.spend);
+  if (id === "promotion_detail") return !!a && a.items.some(row => row.drillable && row.id !== null && row.objectKind === "product");
   if (id === "contribution") return !!sales && sales.items.some(item => available(item.metrics.orderMargin));
   if (id === "annual_target") return !!finance && finance.annualTargets.some(row => available(row.target));
   if (id === "finance_month") return !!finance && finance.months.some(row => available(row.revenue) || available(row.profit));

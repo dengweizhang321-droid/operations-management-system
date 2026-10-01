@@ -9,6 +9,7 @@ import { drillShopLocation, parseShellLocation, returnShopLocation, serializeShe
 import { bindShopPresentationHistory, readBoundShopLocationContext } from "../../../app/shell/shop-presentation-history";
 import type { CurrentUser } from "../../../app/module-view-shared";
 import type { NetshopColumnProps } from "../../../app/netshop/shared/module-slots";
+import type { NetshopView } from "../../../app/netshop/shared/navigation";
 import "../../../app/globals.css";
 import "./harness.css";
 
@@ -23,10 +24,10 @@ const currentUser: CurrentUser = { email: "panorama-ui@example.test", displayNam
 const principal = JSON.stringify([currentUser.email, currentUser.role, currentUser.scopeRestricted]);
 const initial = serializeShellLocation({ module: "shop", view: "analysis", period: { kind: "custom", from: "2026-09-01", to: "2026-09-07" }, shop: { ...defaultShopLocationContext, platforms: ["京东"], outlets: ["京东\u001f合成店A"], pageSize: 5 } });
 if (!location.search) history.replaceState(null, "", initial);
-function boundLocation() { return serializeShellLocation({ ...parseShellLocation(location.pathname+location.search), shop: readBoundShopLocationContext(history.state, location.pathname+location.search, principal) ?? parseShellLocation(location.pathname+location.search).shop }); }
+function boundLocation() { const url = location.pathname+location.search; return serializeShellLocation({ ...parseShellLocation(url), shop: readBoundShopLocationContext(url, history.state, principal) }); }
 function App() {
   const [state, setState] = useState(() => parseShellLocation(boundLocation())), [control, setControl] = useState("");
-  const navigate = (url: string) => { const parsed = parseShellLocation(url); history.pushState(bindShopPresentationHistory(url, principal, parsed.shop ?? defaultShopLocationContext), "", url); setState(parseShellLocation(boundLocation())); record("navigate", url); };
+  const navigate = (url: string) => { history.pushState(bindShopPresentationHistory(history.state, url, principal), "", url); setState(parseShellLocation(boundLocation())); record("navigate", url); };
   useEffect(() => { const pop = () => setState(parseShellLocation(boundLocation())); addEventListener("popstate", pop); return () => removeEventListener("popstate", pop); }, []);
   const context = state.shop ?? defaultShopLocationContext, period = state.period;
   const from = "from" in period ? period.from : "2026-09-01", to = "to" in period ? period.to : "2026-09-07";
@@ -35,7 +36,7 @@ function App() {
     onModuleViewChange: view => navigate(updateModuleViewLocation(boundLocation(), "shop", view)),
     onDrill: (view, product, section) => { record("drill", { view, product, section, from, to }); navigate(drillShopLocation(boundLocation(), view, product, section)); },
     onReturn: () => navigate(returnShopLocation(boundLocation())),
-    onApplyPeriod: (start, end, intent) => navigate(serializeShellLocation({ module: "shop", view: state.view, period: { kind: "custom", from: start, to: end, ...(intent ? { intent } : {}) }, shop: context }, boundLocation())),
+    onApplyPeriod: (start, end, intent) => navigate(serializeShellLocation({ module: "shop", view: state.view as NetshopView, period: { kind: "custom", from: start, to: end, ...(intent ? { intent } : {}) }, shop: context }, boundLocation())),
     onNavigate: (module, source) => record("external-existing-module", { module, source }), supportsPromotionProductDrill: true };
   async function fixture(path: string, body: unknown) {
     try { const response = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), cache: "no-store" }); if (!response.ok) throw new Error(`隔离控制失败(${response.status})`); record("fault-control", { path, body }); setControl("隔离测试控制已生效；重新读取触发验证"); }
