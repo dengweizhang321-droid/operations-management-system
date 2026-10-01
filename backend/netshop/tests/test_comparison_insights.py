@@ -119,6 +119,17 @@ class ComparisonInsightsTests(TestCase):
         self.assertEqual(rows[0]["current"]["payment"]["value"], 2000)
         self.assertEqual(rows[0]["shopKeys"], ["京东\x1fA", "京东\x1fB"])
 
+    def test_structure_observed_bucket_counts_remain_partial_with_parent_coverage(self):
+        self.fact(shop="A"); self.fact(shop="A", day="2026-09-02")
+        self.fact(shop="B")
+        result = self.read(endDate="2026-09-02", comparisonScope=self.scope(mode="platform"))
+        structure = result["sections"]["structure"]["items"][0]["current"]
+        for bucket in structure["categories"]+structure["priceBands"]:
+            metric = bucket["products"]
+            self.assertEqual((metric["status"], metric["reasonCode"]), ("partial", "incomplete_coverage"))
+            self.assertGreater(metric["value"], 0)
+            self.assertFalse(result["sections"]["comparability"]["coverage"][metric["coverageRef"]]["complete"])
+
     def test_complete_pairs_rank_before_partial_even_higher_current(self):
         self.pair(shop="complete", metrics={"transactionAmountCents": 1})
         self.fact(shop="partial", metrics={"transactionAmountCents": 9999})
@@ -252,6 +263,15 @@ class ComparisonInsightsTests(TestCase):
         self.assertEqual(result["sections"]["scale"]["summary"]["current"]["payment"]["value"], 3000)
         self.assertTrue(all(s["state"] == "unavailable" for s in result["sections"]["promotion"]["sourceStates"]))
         self.sample("actual-owning-label", result, label)
+        jd_shops = self.query(**{**values, "platform": "京东"}, comparisonScope=self.scope(), chartObjectKeys=[], metricKey="payment", sort="value_desc", trendGrain="day")
+        result = C.read_comparison_insights(self.principal, jd_shops)
+        self.assertEqual({r["platform"] for r in result["sections"]["scale"]["items"]}, {"京东"})
+        self.assertEqual(len(result["chartObjectKeys"]), 2)
+        self.sample("actual-owning-jd-shops", result, jd_shops)
+        label_default = self.query(**values, comparisonScope=self.scope(category=category), chartObjectKeys=[], metricKey="payment", sort="value_desc", trendGrain="day")
+        result = C.read_comparison_insights(self.principal, label_default)
+        self.assertEqual(len(result["chartObjectKeys"]), 3)
+        self.sample("actual-owning-label-default", result, label_default)
 
     def test_cross_platform_product_efficiency_is_parallel_only(self):
         self.pair(platform="京东"); self.pair(platform="天猫")
