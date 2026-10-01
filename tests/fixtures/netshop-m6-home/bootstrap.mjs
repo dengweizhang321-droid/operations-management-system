@@ -3,6 +3,7 @@ import { validateComparisonQuery, decodeComparisonInsights } from "@/app/netshop
 import { validateProductQuery,decodeProductInsights,decodeProductDetail } from "@/app/netshop/products/contract";
 import { validatePromotionQuery,decodePromotionInsightsForQuery,decodePromotionDetailForQuery } from "@/lib/netshop/promotion-insights-contract";
 import { bindShopPresentationHistory } from "@/app/shell/shop-presentation-history";
+import { parseShellLocation,serializeShellLocation } from "@/app/shell/navigation-contract";
 const ordered=v=>Array.isArray(v)?v.map(ordered):v&&typeof v==="object"?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b)).map(([k,x])=>[k,ordered(x)])):v;
 const key=(query,kind)=>JSON.stringify(ordered(kind==="comparison"?validateComparisonQuery(new URLSearchParams(query)):kind.startsWith("product")?validateProductQuery(new URLSearchParams(query),kind==="product-detail"):validatePromotionQuery(new URLSearchParams(query),kind==="promotion-detail")));
 async function decode(record,query){
@@ -23,7 +24,7 @@ export async function installM6Transport(comparison,linked=[]){
  window.__m6={calls:[],served:[],pending:[],writes:[],models:[],external:[],unknown:[],faults:[],cases:positive.map(r=>({name:r.name,phase:r.phase,seed:r.seed,query:r.query,revision:r.owningRevision,rawMeaning:r.rawMeaning,sha256:r.sha256}))};
  window.__m6Cases=positive.filter(r=>r.kind==="comparison").map(r=>({name:r.name,query:r.query,body:JSON.parse(r.raw),phase:r.phase,seed:r.seed,finalAcceptance:r.finalAcceptance}));
  window.__m6Control={error:null,defer:null,pending:null,probe:false};
- window.__m6RestorePresentation=url=>{history.replaceState(bindShopPresentationHistory(history.state,url,JSON.stringify(["comparison-signed@example.test","viewer",false])),"",url);dispatchEvent(new PopStateEvent("popstate"));};
+ window.__m6RestorePresentation=url=>{const canonical=serializeShellLocation(parseShellLocation(url),url);history.replaceState(bindShopPresentationHistory(history.state,canonical,JSON.stringify(["comparison-signed@example.test","viewer",false])),"",canonical);dispatchEvent(new PopStateEvent("popstate"));};
  const fail=status=>{const original=faults.find(r=>r.status===status);return original?new Response(original.raw,{status,headers:original.headers}):Response.json({code:"synthetic_source_pending",error:"当前范围尚无已核对来源，请重新读取。"}, {status});};
  const pending=(call,reason)=>{window.__m6.pending.push({...call,reason});return fail(503);};
  window.fetch=async(input,init={})=>{
