@@ -9,7 +9,7 @@ const bytes = readFileSync(path), value = JSON.parse(bytes.toString("utf8"));
 const c = value.context, table = value.tableScope;
 const query = new URLSearchParams({ platform: c.requestedScope.platforms[0], outlet: c.requestedScope.shopKeys[0], dimension: c.requestedScope.dimension,
   startDate: c.periods.current.startDate, endDate: c.periods.current.endDate, periodKind: c.requestedScope.periodKind,
-  q: table.q, page: String(table.page), pageSize: String(table.pageSize), section: table.section });
+  q: table.q, page: String(table.page), pageSize: String(table.pageSize), section: table.section, grain: table.grain });
 const revision = c.sourceRevisions.find((item: { kind: string }) => item.kind === "owning_revision").revision;
 const decoded = decodeStorePanorama(value, query, revision);
 console.log(JSON.stringify({ path, bytes: bytes.byteLength, sha256: createHash("sha256").update(bytes).digest("hex"), schemaVersion: decoded.schemaVersion,
