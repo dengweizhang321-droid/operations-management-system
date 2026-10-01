@@ -196,10 +196,10 @@ def _sections(sources, context):
     result = {}
     product_metrics = {
         "platform_payment": "payment", "platform_quantity": "quantity", "platform_refund": "refundPayment",
-        "visitors": "visitors", "customers": "customers", "conversion": "conversion", "add_cart_customers": "addCartCustomers",
+        "visitors": "visitors", "customers": "customers", "conversion": "conversion",
     }
     extra_metrics = {
-        "page_views": "pageViews", "favorites": "favorites", "add_cart_quantity": "addCartQuantity",
+        "page_views": "pageViews", "favorites": "favorites", "add_cart_customers": "addCartCustomers", "add_cart_quantity": "addCartQuantity",
         "order_customers": "orderCustomers", "order_quantity": "orderQuantity", "order_payment": "orderPayment",
         "transaction_orders": "transactionOrders", "search_impressions": "searchImpressions", "search_clicks": "searchClicks",
         "search_click_rate": "searchClickRate", "search_visitors": "searchVisitors", "search_customers": "searchCustomers",
@@ -261,7 +261,10 @@ def _sections(sources, context):
                 reason = "unverified_source"
                 message = "缺稳定匿名客户历史或企业购子集关系证明，不能推算去重、复购或B端占比"
             elif identifier in {"stay_time", "bounce_rate", "new_old_buyers"}:
-                message = "部分原始来源已有字段，所属有界投影及聚合证据尚未交付"
+                reason = "unverified_source"
+                message = ("天猫导入适配器允许保存可选JSON字段；本范围字段存在性和所属聚合尚未核验"
+                           if context["effectiveScope"]["platforms"] == ["天猫"]
+                           else "本范围尚无已核验的所属字段投影或聚合证据")
             if "ready" not in states:
                 metric, available = None, False
                 reason = "dependency_pending" if state == "unavailable" else "unverified_source"
@@ -293,7 +296,8 @@ def read_store_panorama(principal, params: QueryDict):
                     raise NetshopApiError("商品信封不是全景同范围或版本", code="insights_revision_changed", status=409)
                 contexts.append(owned)
         vector = _joined_vector(contexts)
-        token = _canonical_token({"schemaVersion": SCHEMA_VERSION, "scopeKey": context["scopeKey"], "sourceRevisions": vector, "tableScope": table})
+        token = _canonical_token({"schemaVersion": SCHEMA_VERSION, "scopeKey": context["scopeKey"], "sourceRevisions": vector,
+                                  "tableFilter": {"q": table["q"], "pageSize": table["pageSize"]}})
         if expected_token and expected_token != token:
             raise NetshopApiError("全景sectionToken不属于本次范围或来源版本", code="insights_revision_changed", status=409)
         payload = {
