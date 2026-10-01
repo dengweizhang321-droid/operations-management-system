@@ -48,9 +48,9 @@ test("comparison rejects duplicate unknown parameters, query search and loose so
   const p = query(); p.append("page", "1"); p.append("page", "2"); assert.throws(() => validateComparisonQuery(p));
 });
 
-test("success requires full dual envelopes and all six sections, even with empty candidates", () => {
-  assert.throws(() => decodeComparisonInsights({ schemaVersion: "netshop-comparison-v1", sections: {} }, query(), "8:aabbccddeeff"), ComparisonResponseError);
-  assert.throws(() => decodeComparisonInsights({ schemaVersion: "netshop-comparison-v1", sections: { scale: { items: [] } }, currentContext: {} }, query(), "8:aabbccddeeff"), ComparisonResponseError);
+test("success requires full dual envelopes and all six sections, even with empty candidates", async () => {
+  await assert.rejects(() => decodeComparisonInsights({ schemaVersion: "netshop-comparison-v1", sections: {} }, query(), "8:aabbccddeeff"), ComparisonResponseError);
+  await assert.rejects(() => decodeComparisonInsights({ schemaVersion: "netshop-comparison-v1", sections: { scale: { items: [] } }, currentContext: {} }, query(), "8:aabbccddeeff"), ComparisonResponseError);
 });
 
 for (const status of [401, 403, 409]) test(`authoritative ${status} fences empty/HTML/malformed upstream`, async () => {
@@ -88,49 +88,49 @@ test("rapid scope replacement rejects a late response even when upstream ignores
   gate.cancel(); assert.equal(next.current(), false);
 });
 
-for (const fixture of owningFixtures.cases) test(`actual private PostgreSQL successful full envelope: ${fixture.name}`, () => {
+for (const fixture of owningFixtures.cases) test(`actual private PostgreSQL successful full envelope: ${fixture.name}`, async () => {
   assert.equal(owningFixtures.synthetic, true); assert.equal(fixture.request.synthetic, true);
-  const dto = decodeComparisonInsights(fixture.response, new URLSearchParams(fixture.request.query), fixture.request.headerRevision);
+  const dto = await decodeComparisonInsights(fixture.response, new URLSearchParams(fixture.request.query), fixture.request.headerRevision);
   assert.equal(dto.sections.comparability.counts.candidates, fixture.name.endsWith("mixed") ? 3 : 2);
   assert.deepEqual(dto.sections.efficiency.items, dto.sections.scale.items.map(row => row.objectKey));
   assert.deepEqual(dto.sections.promotion.items, dto.sections.scale.items.map(row => row.objectKey));
 });
 
 const successful = owningFixtures.cases[0], aSuccessful = owningFixtures.cases[1];
-function rejectsMutation(mutate: (value: ComparisonResponse) => void, fixture = successful) {
+async function rejectsMutation(mutate: (value: ComparisonResponse) => void, fixture = successful) {
   const value = structuredClone(fixture.response) as ComparisonResponse; mutate(value);
-  assert.throws(() => decodeComparisonInsights(value, new URLSearchParams(fixture.request.query), fixture.request.headerRevision), ComparisonResponseError);
+  await assert.rejects(() => decodeComparisonInsights(value, new URLSearchParams(fixture.request.query), fixture.request.headerRevision), ComparisonResponseError);
 }
-test("complete vectors cannot omit a member, change kind/version or add a domain", () => {
-  rejectsMutation(value => { value.joinedSourceRevisions = []; });
-  rejectsMutation(value => { value.joinedSourceRevisions.pop(); });
-  rejectsMutation(value => { value.joinedSourceRevisions[0].revision = "999:aaaaaaaaaaaa"; });
-  rejectsMutation(value => { value.joinedSourceRevisions.push({ domain: "sales", kind: "invented", scopeKey: "unknown", revision: "999" }); });
-  rejectsMutation(value => { value.sections.promotion.sourceScopes[0].sourceRevisions = [null as unknown as SourceRevision]; }, aSuccessful);
+test("complete vectors cannot omit a member, change kind/version or add a domain", async () => {
+  await rejectsMutation(value => { value.joinedSourceRevisions = []; });
+  await rejectsMutation(value => { value.joinedSourceRevisions.pop(); });
+  await rejectsMutation(value => { value.joinedSourceRevisions[0].revision = "999:aaaaaaaaaaaa"; });
+  await rejectsMutation(value => { value.joinedSourceRevisions.push({ domain: "sales", kind: "invented", scopeKey: "unknown", revision: "999" }); });
+  await rejectsMutation(value => { value.sections.promotion.sourceScopes[0].sourceRevisions = [null as unknown as SourceRevision]; }, aSuccessful);
 });
-test("metric source, amount/count delta and share semantics cannot be relabelled", () => {
-  rejectsMutation(value => { value.sections.scale.summary.current.payment.basis = "erp_net_sales"; });
-  rejectsMutation(value => { value.sections.scale.summary.delta.unit = "COUNT"; });
-  rejectsMutation(value => { value.sections.scale.items[0].share.current.unit = "MULTIPLE"; });
-  rejectsMutation(value => { value.sections.scale.summary.current.payment.sourceIds = ["invented-product-source"]; });
+test("metric source, amount/count delta and share semantics cannot be relabelled", async () => {
+  await rejectsMutation(value => { value.sections.scale.summary.current.payment.basis = "erp_net_sales"; });
+  await rejectsMutation(value => { value.sections.scale.summary.delta.unit = "COUNT"; });
+  await rejectsMutation(value => { value.sections.scale.items[0].share.current.unit = "MULTIPLE"; });
+  await rejectsMutation(value => { value.sections.scale.summary.current.payment.sourceIds = ["invented-product-source"]; });
 });
-test("coverage may not reference an unauthorized shop or a date outside its period", () => {
-  rejectsMutation(value => { const coverage = Object.values(value.sections.comparability.coverage).find(c => c.missingByShop.length)!; coverage.missingByShop[0].shopKey = "京东\u001f未授权店"; });
-  rejectsMutation(value => { const coverage = Object.values(value.sections.comparability.coverage).find(c => c.missingByShop.length)!; coverage.missingByShop[0].dates[0] = "1999-01-01"; });
-  rejectsMutation(value => { const selected = value.sections.scale.summary.current.payment, coverage = value.sections.comparability.coverage[selected.coverageRef]; selected.status = "available"; selected.reasonCode = null; coverage.complete = false; });
+test("coverage may not reference an unauthorized shop or a date outside its period", async () => {
+  await rejectsMutation(value => { const coverage = Object.values(value.sections.comparability.coverage).find(c => c.missingByShop.length)!; coverage.missingByShop[0].shopKey = "京东\u001f未授权店"; });
+  await rejectsMutation(value => { const coverage = Object.values(value.sections.comparability.coverage).find(c => c.missingByShop.length)!; coverage.missingByShop[0].dates[0] = "1999-01-01"; });
+  await rejectsMutation(value => { const selected = value.sections.scale.summary.current.payment, coverage = value.sections.comparability.coverage[selected.coverageRef]; selected.status = "available"; selected.reasonCode = null; coverage.complete = false; });
 });
-test("candidate union and rank pagination cannot silently become an empty or partial page", () => {
-  rejectsMutation(value => { value.sections.comparability.items.pop(); value.sections.comparability.counts.candidates--; });
-  rejectsMutation(value => { value.sections.scale.items = []; value.sections.efficiency.items = []; value.sections.promotion.items = []; value.sections.scale.pagination = { page: 1, pageSize: 20, total: 0, returned: 0, hasMore: false, truncated: false }; });
-  rejectsMutation(value => { value.sections.scale.pagination.total = 10; value.sections.scale.pagination.hasMore = true; });
-  rejectsMutation(value => { value.sections.promotion.items.reverse(); });
+test("candidate union and rank pagination cannot silently become an empty or partial page", async () => {
+  await rejectsMutation(value => { value.sections.comparability.items.pop(); value.sections.comparability.counts.candidates--; });
+  await rejectsMutation(value => { value.sections.scale.items = []; value.sections.efficiency.items = []; value.sections.promotion.items = []; value.sections.scale.pagination = { page: 1, pageSize: 20, total: 0, returned: 0, hasMore: false, truncated: false }; });
+  await rejectsMutation(value => { value.sections.scale.pagination.total = 10; value.sections.scale.pagination.hasMore = true; });
+  await rejectsMutation(value => { value.sections.promotion.items.reverse(); });
 });
-test("trends must retain selected metric and full natural calendar buckets", () => {
-  rejectsMutation(value => { for (const period of ["current", "baseline"] as const) { value.sections.trends.items[0][period][0].metric.unit = "COUNT"; value.sections.trends.items[0].indexBasis[period].unit = "COUNT"; } });
-  rejectsMutation(value => { value.sections.trends.items[0].current.pop(); });
+test("trends must retain selected metric and full natural calendar buckets", async () => {
+  await rejectsMutation(value => { for (const period of ["current", "baseline"] as const) { value.sections.trends.items[0][period][0].metric.unit = "COUNT"; value.sections.trends.items[0].indexBasis[period].unit = "COUNT"; } });
+  await rejectsMutation(value => { value.sections.trends.items[0].current.pop(); });
 });
-test("nested auth or revision failures cannot be downgraded to a successful source section", () => {
-  for (const code of ["access_denied", "authentication_required", "promotion_revision_changed", "insights_revision_changed"]) rejectsMutation(value => { value.sections.promotion.sourceStates[0] = { ...value.sections.promotion.sourceStates[0], state: "error", code }; });
+test("nested auth or revision failures cannot be downgraded to a successful source section", async () => {
+  for (const code of ["access_denied", "authentication_required", "promotion_revision_changed", "insights_revision_changed"]) await rejectsMutation(value => { value.sections.promotion.sourceStates[0] = { ...value.sections.promotion.sourceStates[0], state: "error", code }; });
 });
 
 test("one front-end deadline includes JSON parsing and strict envelope validation CPU", async () => {
@@ -142,4 +142,14 @@ test("one front-end deadline includes JSON parsing and strict envelope validatio
     JSON.parse = ((text: string) => { const value = parse(text); if (value?.schemaVersion === "netshop-comparison-v1") clock = 90_001; return value; }) as typeof JSON.parse;
     await assert.rejects(loadComparisonInsights(new URLSearchParams(successful.request.query), new AbortController().signal, fetchResponse(new Response(body, { headers: { "X-Netshop-Data-Revision": successful.request.headerRevision } }))), (e: unknown) => e instanceof InsightReadError && e.code === "source_not_ready");
   } finally { JSON.parse = parse; Object.defineProperty(globalThis, "performance", descriptor); }
+});
+
+test("complete coverage refs cannot be borrowed from another period or object", async () => {
+  await rejectsMutation(value => { value.sections.scale.summary.baseline.spend.coverageRef = value.sections.scale.summary.current.spend.coverageRef; }, aSuccessful);
+  await rejectsMutation(value => { value.sections.scale.items[0].current.payment.coverageRef = value.sections.scale.items[1].current.payment.coverageRef; }, aSuccessful);
+  await rejectsMutation(value => { value.sections.structure.items[0].current.denominator.coverageRef = value.sections.structure.items[0].baseline.denominator.coverageRef; }, aSuccessful);
+});
+test("distribution and structure fields retain their selected ratio/money/count units", async () => {
+  await rejectsMutation(value => { value.sections.efficiency.distribution[0].metric.unit = "COUNT"; }, aSuccessful);
+  await rejectsMutation(value => { value.sections.structure.items[0].current.top5Payment.unit = "COUNT"; }, aSuccessful);
 });

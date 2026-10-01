@@ -48,7 +48,7 @@ export async function loadComparisonInsights(query: URLSearchParams, signal: Abo
       const failure = payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : {};
       throw new InsightReadError(typeof failure.code === "string" ? failure.code : "service_unavailable", typeof failure.error === "string" ? failure.error.slice(0, 600) : `比较来源读取失败（${response.status}）`);
     }
-    const data = decodeComparisonInsights(payload, query, response.headers.get("X-Netshop-Data-Revision"));
+    const data = await interruptible(decodeComparisonInsights(payload, query, response.headers.get("X-Netshop-Data-Revision")), bounded);
     cancelled();
     return data;
   } catch (error) {

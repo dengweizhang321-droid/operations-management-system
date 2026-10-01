@@ -6,6 +6,7 @@ import {
 } from "@/lib/netshop/insights-contract";
 import { NetshopQueryError, resolveNetshopQueryPeriod, readNetshopOutletFilters } from "@/lib/netshop/query-contract";
 import type { CategoryEvidence, ContributionBucket } from "../products/contract";
+import { mappingHash } from "@/lib/ai/business-mapping-builder";
 
 export const COMPARISON_SCHEMA = "netshop-comparison-v1" as const;
 export const comparisonMetricKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate", "erpNetSales", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"] as const;
@@ -168,10 +169,10 @@ function categoryEvidence(value: unknown): CategoryEvidence {
 function structure(value: unknown): ComparisonProductStructure {
   const s = object(value);
   if (s.collection !== "complete_global_filter_set" || s.categoryBasis !== "source_label_only" || s.priceBasis !== "transaction_mean") fail("商品结构范围或价格带定义无效");
-  for (const key of ["denominator", "top5Payment", "top10Payment", "top5Share", "top10Share"]) decodeMetric(s[key]);
+  for (const key of ["denominator", "top5Payment", "top10Payment", "top5Share", "top10Share"]) { const m = decodeMetric(s[key]); if (m.unit !== (key.endsWith("Share") ? "RATIO" : "CNY_CENT") || m.basis !== "product_day_sum") fail("结构金额及集中度单位和来源不一致"); }
   for (const key of ["categories", "priceBands"]) {
     if (!Array.isArray(s[key]) || (s[key] as unknown[]).length > 500) fail("商品结构分组无效");
-    for (const raw of s[key] as unknown[]) { const b = object(raw); if (!text(b.label, 200)) fail("结构名称无效"); decodeMetric(b.payment); decodeMetric(b.share); decodeMetric(b.products); if (b.categoryEvidence) categoryEvidence(b.categoryEvidence); }
+    for (const raw of s[key] as unknown[]) { const b = object(raw); if (!text(b.label, 200)) fail("结构名称无效"); for (const [field, unit] of [["payment", "CNY_CENT"], ["share", "RATIO"], ["products", "COUNT"]]) { const m = decodeMetric(b[field]); if (m.unit !== unit || m.basis !== "product_day_sum") fail("类目或价格带金额、份额和商品数定义不一致"); } if (b.categoryEvidence) categoryEvidence(b.categoryEvidence); }
   }
   return s as ComparisonProductStructure;
 }
@@ -193,7 +194,7 @@ function coverageRecord(value: unknown, allowedShopKeys?: Set<string>, windows?:
 }
 
 /** Every successful response is bound to two complete F envelopes and this UI request. */
-export function decodeComparisonInsights(value: unknown, params: URLSearchParams, owningRevision: string | null): ComparisonResponse {
+function decodeComparisonStructure(value: unknown, params: URLSearchParams, owningRevision: string | null): ComparisonResponse {
   try {
     if (new TextEncoder().encode(JSON.stringify(value)).length > insightBudget.responseBytes) fail("对比响应超过2MiB，请缩小范围");
     const input = object(value), expected = validateComparisonQuery(params);
@@ -286,7 +287,7 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
       }
     }
     if (!Array.isArray(efficiency.distribution) || efficiency.distribution.length !== all.size) fail("分布图未使用完整候选集合");
-    const distributionKeys = new Set<string>(); for (const raw of efficiency.distribution) { const d = object(raw); if (!all.has(String(d.objectKey)) || distributionKeys.has(String(d.objectKey))) fail("分布图身份重复或不属于全集"); distributionKeys.add(String(d.objectKey)); metric(d.metric); if (stable(qualification(d.qualification)) !== stable(all.get(String(d.objectKey))!.qualification)) fail("分布资格与全集不一致"); }
+    const distributionKeys = new Set<string>(); for (const raw of efficiency.distribution) { const d = object(raw); if (!all.has(String(d.objectKey)) || distributionKeys.has(String(d.objectKey))) fail("分布图身份重复或不属于全集"); distributionKeys.add(String(d.objectKey)); const m = metric(d.metric); if (m.unit !== cm[expected.metricKey].unit || m.basis !== cm[expected.metricKey].basis) fail("分布必须保同一比较指标"); bindMetric(m, "current", all.get(String(d.objectKey))!.shopKeys, current.periods.current, expected.metricKey); if (stable(qualification(d.qualification)) !== stable(all.get(String(d.objectKey))!.qualification)) fail("分布资格与全集不一致"); }
     const charts = input.chartObjectKeys as string[]; if (charts.some(key => !all.has(key))) fail("主图对象不在完整候选集合");
     const trends = object(sections.trends); if (trends.grain !== expected.trendGrain || !Array.isArray(trends.items) || trends.items.length !== charts.length) fail("趋势粒度或图表对象无效"); strings(trends.definitions, 30, 1000);
     const seen = new Set<string>();
@@ -306,8 +307,36 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
       if (index.status === "available" && (index.reasonCode !== null || [index.current, index.baseline].some(rawMetric => { const m = metric(rawMetric); return m.status !== "available" || m.value === null || m.value <= 0; }))) fail("0、负值或缺失基准不能生成指数");
     }
     const product = object(sections.structure); if (product.categoryBasis !== "reference_current_cohort" || !Array.isArray(product.items) || product.items.length !== charts.length || !Array.isArray(product.categoryOptions) || product.categoryOptions.length > 500) fail("商品结构图范围无效"); strings(product.definitions, 30, 1000); product.categoryOptions.forEach(categoryEvidence);
-    seen.clear(); for (const raw of product.items) { const s = object(raw); if (!charts.includes(String(s.objectKey)) || seen.has(String(s.objectKey))) fail("商品结构对象失配"); seen.add(String(s.objectKey)); structure(s.current); structure(s.baseline); const counts = object(s.counts); metric(counts.current); metric(counts.baseline); }
+    seen.clear(); for (const raw of product.items) { const s = object(raw); if (!charts.includes(String(s.objectKey)) || seen.has(String(s.objectKey))) fail("商品结构对象失配"); seen.add(String(s.objectKey)); structure(s.current); structure(s.baseline); const counts = object(s.counts); if (metric(counts.current).unit !== "COUNT" || metric(counts.baseline).unit !== "COUNT") fail("成交商品数须为数量单位"); }
     const same = object(product.sameProduct); if (same.status !== "unavailable" || same.reasonCode !== "unmapped") fail("无验证映射不能按名称配对同款");
     return input as ComparisonResponse;
   } catch (error) { if (error instanceof ComparisonResponseError) throw error; return fail(error instanceof Error ? error.message : "对比响应无法验证"); }
+}
+
+/** Native SHA verifies the existing owning ref family; no new wire fields or lost coverage. */
+export async function decodeComparisonInsights(value: unknown, params: URLSearchParams, owningRevision: string | null): Promise<ComparisonResponse> {
+  const dto = decodeComparisonStructure(value, params, owningRevision);
+  try {
+    const hashes = new Map(await Promise.all(dto.sections.comparability.items.map(async row => [row.objectKey, (await mappingHash(row.objectKey)).slice(0, 16)] as const)));
+    const productKeys: ComparisonMetricKey[] = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders"], promotionKeys: ComparisonMetricKey[] = ["spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate"];
+    const check = (m: ComparisonMetric, period: "current" | "baseline", key: ComparisonMetricKey, objectKey: string | null, date?: string) => {
+      if (!productKeys.includes(key) && m.status === "unavailable" && m.sourceIds.length === 0 && m.coverageRef === `comparison:${period}:unavailable` && dto.sections.comparability.coverage[m.coverageRef]?.expectedShopDatePairs === 0) return;
+      if (productKeys.includes(key)) { const ref = `comparison:${period}:product:${objectKey ? hashes.get(objectKey) : "summary"}${date ? ":trend:" + date : ""}`; if (m.coverageRef !== ref) fail("商品覆盖引用不能借其他期、对象或趋势桶"); }
+      else if (promotionKeys.includes(key)) {
+        const platform = objectKey ? dto.sections.comparability.items.find(row => row.objectKey === objectKey)!.platform : dto.currentContext.effectiveScope.platforms.length === 1 ? dto.currentContext.effectiveScope.platforms[0] : null;
+        const ready = platform ? dto.sections.promotion.sourceStates.find(state => state.period === period && state.platform === platform)?.state === "ready" : false;
+        if (ready || m.status === "available" || m.status === "partial") { const ref = `comparison:${period}:promotion:${objectKey ? hashes.get(objectKey) : platform ? platform + ":summary" : "summary"}${date ? ":trend:" + date : ""}${key === "spendRate" ? ":paired-whole" : ""}`; if (m.coverageRef !== ref) fail("推广覆盖引用不能借其他期、对象或配对集合"); }
+        else if (!m.coverageRef.startsWith(`comparison:${period}:promotion:`)) fail("不可用推广仍须保所属两期引用");
+      } else if (!m.coverageRef.startsWith(`comparison:${period}:erp:`)) fail("ERP覆盖引用必须保所属两期来源");
+    };
+    for (const period of ["current", "baseline"] as const) {
+      for (const key of comparisonMetricKeys) check(dto.sections.scale.summary[period][key], period, key, null);
+      for (const row of dto.sections.scale.items) for (const key of comparisonMetricKeys) check(row[period][key], period, key, row.objectKey);
+    }
+    for (const d of dto.sections.efficiency.distribution) check(d.metric, "current", dto.metricKey, d.objectKey);
+    for (const t of dto.sections.trends.items) for (const period of ["current", "baseline"] as const) for (const point of t[period]) check(point.metric, period, dto.metricKey, t.objectKey, point.date);
+    const visitStructure = (value: unknown, ref: string) => { if (!value || typeof value !== "object") return; if (Array.isArray(value)) { value.forEach(child => visitStructure(child, ref)); return; } const r = value as Record<string, unknown>; if (typeof r.coverageRef === "string" && r.coverageRef !== ref) fail("商品结构覆盖必须保精确对象和所属期"); Object.values(r).forEach(child => visitStructure(child, ref)); };
+    for (const s of dto.sections.structure.items) for (const period of ["current", "baseline"] as const) { const ref = `comparison:${period}:product:${hashes.get(s.objectKey)}`; visitStructure(s[period], ref); visitStructure(s.counts[period], ref); }
+    return dto;
+  } catch (error) { if (error instanceof ComparisonResponseError) throw error; return fail(error instanceof Error ? error.message : "比较覆盖绑定无法验证"); }
 }
