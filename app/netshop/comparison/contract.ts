@@ -25,6 +25,7 @@ export class ComparisonResponseError extends Error { readonly status = 502; read
 function fail(message: string): never { throw new ComparisonResponseError(message); }
 function object(value: unknown): Record<string, unknown> { if (!value || typeof value !== "object" || Array.isArray(value)) return fail("对比响应对象不完整"); return value as Record<string, unknown>; }
 function text(value: unknown, maximum = 500): value is string { return typeof value === "string" && value.length > 0 && value.length <= maximum && !/[\u0000-\u001f\u007f]/.test(value); }
+function referenceText(value: unknown, maximum = 500): value is string { return typeof value === "string" && value.length > 0 && value.length <= maximum && !/[\u0000-\u001e\u007f]/.test(value); }
 function exact(value: Record<string, unknown>, keys: string[]) { if (Object.keys(value).some(key => !keys.includes(key)) || keys.some(key => !(key in value))) fail("对比参数字段不完整或未知"); }
 function strings(value: unknown, maximum = 50, length = 500): string[] { if (!Array.isArray(value) || value.length > maximum || !value.every(v => text(v, length))) return fail("对比文本列表无效"); return value; }
 function shopKeys(value: unknown): string[] { if (!Array.isArray(value) || value.length > 50 || !value.every(v => typeof v === "string")) return fail("店铺精确键无效"); readNetshopOutletFilters(value); if (new Set(value).size !== value.length) fail("店铺精确键重复"); return value; }
@@ -167,7 +168,7 @@ function stable(value: unknown): string { if (Array.isArray(value)) return JSON.
 function coverageRecord(value: unknown): Record<string, SourceCoverage> {
   const result = object(value);
   for (const [ref, raw] of Object.entries(result)) {
-    if (!text(ref, 400)) fail("来源覆盖引用无效");
+    if (!referenceText(ref, 400)) fail("来源覆盖引用无效");
     const c = object(raw), expected = count(c.expectedShopDatePairs, 50 * 367), covered = count(c.coveredShopDatePairs, expected);
     if (c.complete !== (expected > 0 && covered === expected) || c.truncated !== false || !Array.isArray(c.missingByShop) || c.missingByShop.length > 50) fail("来源覆盖统计无效");
     let missing = 0; const used = new Set<string>();
@@ -197,7 +198,7 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
     const vectorKeys = new Set<string>();
     for (const raw of input.joinedSourceRevisions) {
       const r = object(raw), key = stable([r.domain, r.kind, r.scopeKey]);
-      if (!["netshop", "sales", "products", "inventory", "finance", "erp_reference", "workflow"].includes(String(r.domain)) || !text(r.kind, 200) || !text(r.scopeKey, 200) || !text(r.revision, 200) || vectorKeys.has(key)) fail("参与来源重复或未明确版本类型"); vectorKeys.add(key);
+      if (!["netshop", "sales", "products", "inventory", "finance", "erp_reference", "workflow"].includes(String(r.domain)) || !referenceText(r.kind, 300) || !text(r.scopeKey, 200) || !text(r.revision, 200) || vectorKeys.has(key)) fail("参与来源重复或未明确版本类型"); vectorKeys.add(key);
     }
     const sections = object(input.sections); exact(sections, ["scale", "efficiency", "trends", "structure", "promotion", "comparability"]);
     const population = object(sections.comparability), candidateShopKeys = new Set([...current.effectiveScope.shopKeys, ...baseline.effectiveScope.shopKeys]);
