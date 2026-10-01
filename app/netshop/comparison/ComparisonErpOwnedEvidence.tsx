@@ -1,6 +1,6 @@
 "use client";
 
-import type { SalesObservedPeriod, SalesPeriodsResponse } from "@/lib/netshop/sales-periods-contract";
+import { restoreSalesPeriodSeriesPoint, type SalesObservedPeriod, type SalesPeriodsResponse } from "@/lib/netshop/sales-periods-contract";
 import { formatNativeIntegerQuantityValue, erpTemporalMessage } from "./ComparisonFormatting";
 import type { ErpEvidence } from "./contract";
 
@@ -23,6 +23,15 @@ export function ComparisonErpOwnedEvidence({ response }: { response: SalesPeriod
     <p className="nc-caption">数量沿用 ERP 的原生整数口径，不代表已核验的物理件数。成本、净额减成本及存储毛利的原字段存在性、历史成本和历史映射证据未知；存储毛利可能经过既有写链重算，零成本也不等于已核验真实零。</p>
     <div className="nc-table-scroll" tabIndex={0} aria-label="ERP 原始平台店铺渠道身份，横向滚动"><table className="nc-table"><thead><tr><th>原始平台 / 店铺</th><th>原始渠道</th><th>本期已读记录</th><th>基期已读记录</th></tr></thead><tbody>{response.items.map(item => <tr key={item.identityKey}><td>{item.identity.platform} · {item.identity.rawShopName}</td><td>{item.identity.rawChannel}</td><td>{item.current.rowCount}</td><td>{item.baseline.rowCount}</td></tr>)}</tbody></table></div>
     <p className="nc-caption">此原始身份列表为拥有方分页：{response.candidatePagination.returned}/{response.candidatePagination.filteredCount} 条，完整授权两期候选 {response.candidatePagination.candidateCount} 条。原始身份不等于已验证的历史跨域映射。</p>
+    {response.platformSeries && <div className="nc-erp-platform-evidence"><h3>平台完整原始成员与桶观察</h3><p className="nc-caption">成员来自拥有方的完整授权两期并集，不随排名页或搜索缩减。平台桶及订单分组由同次拥有方读取返回；完整日期桶不等于完整结算，均值仍只代表原始订单分组观察。</p>
+      {response.platformSeries.items.map(platform => <details className="nc-columns" key={platform.identityKey}><summary>{platform.platform} · {platform.rawCandidateCount} 个原始平台/店铺/渠道身份 · {platform.availability.status === "available" ? "已有授权记录" : "已授权，当前范围无已读记录"}</summary>
+        <div className="nc-table-scroll" tabIndex={0} aria-label={`${platform.platform}完整原始成员，横向滚动`}><table className="nc-table"><thead><tr><th>原始平台 / 店铺</th><th>原始渠道</th></tr></thead><tbody>{platform.rawMembers.map(member => <tr key={JSON.stringify([member.platform,member.rawShopName,member.rawChannel])}><td>{member.platform} · {member.rawShopName}</td><td>{member.rawChannel}</td></tr>)}</tbody></table></div>
+        <div className="nc-trend-pair">{(["current","baseline"] as const).map(kind => <section key={kind}><h3>{kind === "current" ? "本期" : "基期"}平台原生桶</h3><div className="nc-table-scroll nc-distribution-scroll" tabIndex={0} aria-label={`${platform.platform}${kind === "current" ? "本期" : "基期"}平台原始桶，横向滚动`}><table className="nc-table"><thead><tr><th>业务日期桶</th><th>原生净数量</th><th>原始订单分组</th><th>净额均值（观察）</th><th>观察日期数</th></tr></thead><tbody>{platform[kind].map(point => {
+          const decoded=restoreSalesPeriodSeriesPoint(point);
+          return <tr key={decoded.window.startDate}><td>{decoded.window.startDate} — {decoded.window.endDate}</td><td>{formatNativeIntegerQuantityValue(decoded.facts.values.netQuantity)}</td><td>{decoded.facts.orders.trustedOrderCount ?? "—"}</td><td>{observedOrderMean(decoded.facts)}</td><td>{decoded.facts.observations.observedDateCount}</td></tr>;
+        })}</tbody></table></div></section>)}</div>
+      </details>)}
+    </div>}
   </details>;
 }
 

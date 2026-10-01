@@ -83,6 +83,9 @@
 .nc-erp-values dt { color:var(--color-text-secondary,#526959); }
 .nc-erp-values dd { margin:0; overflow-wrap:anywhere; }
 .nc-erp-owned-evidence > .nc-trend-pair { display:grid; padding:0; }
+.nc-erp-owned-evidence > .nc-erp-platform-evidence { display:block; }
+.nc-erp-platform-evidence .nc-trend-pair { display:grid; padding:0; }
+.nc-erp-platform-evidence .nc-trend-pair > section { min-width:0; }
 .nc-columns { margin:8px 0 14px; font-size:var(--font-size-label,13px); }
 .nc-columns summary { cursor:pointer; }
 .nc-columns > div { display:flex; flex-wrap:wrap; gap:10px 18px; padding:12px 0; }
