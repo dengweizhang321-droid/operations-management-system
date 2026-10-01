@@ -1,0 +1,28 @@
+{
+  "request": {
+    "operation": "netshop_periods_v1",
+    "current": {
+      "startDate": "2026-09-01",
+      "endExclusive": "2026-09-10"
+    },
+    "baseline": {
+      "startDate": "2026-08-01",
+      "endExclusive": "2026-08-06"
+    },
+    "seriesGrain": "day",
+    "seriesPlatforms": [
+      "京东",
+      "天猫"
+    ]
+  },
+  "revision": "7:3",
+  "sourceHead": "a845eb560acc6a1803282de3c826acd1a153dabe",
+  "sha256": {
+    "backend/sales/netshop_platform_series.py": "e011f6af92e0cf1cbd83d424ef46736d0eb084f1f9fefe06139d375c28c1d1e1",
+    "backend/sales/netshop_periods.py": "da2cfcd8686a0a9c19889f982be8c66e85e83077576af447f9a61f23ddf2010a",
+    "backend/netshop/sales_periods_client.py": "57a043af275766c75953b9a5b6479c8eb12d7673936ae934f266107a0e74ba6a",
+    "lib/netshop/sales-periods-contract.ts": "eedfbedae9242ce1fb6d04f27523ef060e0d6e43ec1e3ed9f57eeb28261a054a",
+    "backend/sales/tests/test_netshop_platform_series.py": "3427c778e91e9063aa4a7656cbe3d23e02b5e69f4860fc20b5997f5f261d057c"
+  },
+  "synthetic": true
+}
