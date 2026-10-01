@@ -13,13 +13,15 @@ import { chromium } from "playwright-core";
 const root = process.cwd();
 const runId = `${new Date().toISOString().replace(/[-:.]/g, "")}-${randomUUID()}`;
 const role = process.env.NETSHOP_INTEGRATED_UI_ROLE || "I-harness-author";
+const phase = process.env.NETSHOP_INTEGRATED_UI_PHASE || "M3";
+assert.ok(["M3", "M4"].includes(phase), "Explicit integrated UI phase must be M3 or M4");
 const parent = resolve(process.env.NETSHOP_INTEGRATED_UI_EVIDENCE_ROOT || "E:/codex-artifacts/netshop-scheme2-20261001/integrated-shell-ui");
 if (!/^E:[\\/]/i.test(parent)) throw new Error("Integrated UI evidence must use its external E drive directory");
 const evidence = resolve(parent, runId), runtime = resolve(evidence, "browser");
 await mkdir(parent, { recursive: true }); await mkdir(evidence); await mkdir(runtime);
-const save = (name, value) => writeFile(resolve(evidence, name), typeof value === "string" ? value : JSON.stringify(value, null, 2), { flag: "wx" });
+const save = (name, value) => writeFile(resolve(evidence, name), typeof value === "string" || value instanceof Uint8Array ? value : JSON.stringify(value, null, 2), { flag: "wx" });
 const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
-const source = { head: git("rev-parse", "HEAD"), branch: git("branch", "--show-current"), dirty: git("status", "--porcelain"), root, role, runId, synthetic: true };
+const source = { head: git("rev-parse", "HEAD"), branch: git("branch", "--show-current"), dirty: git("status", "--porcelain"), root, role, phase, runId, synthetic: true };
 await save("source-before.json", source);
 const layoutSource = await readFile(resolve(root, "app/layout.tsx"), "utf8");
 const layoutStyles = [...layoutSource.matchAll(/^import ["'](\.\/[^"']+\.css)["'];/gm)].map(match => `app/${match[1].slice(2)}`);
@@ -29,10 +31,10 @@ const entry = layoutStyles.map(path => `import '@/${path}';`).join("\n") + `
 import React from 'react';import {createRoot} from 'react-dom/client';
 import Home from '@/app/page';import {installIntegratedTransport} from '@/tests/fixtures/netshop-integrated-shell-ui/bootstrap.mjs';
 import {netshopColumnCapabilities,netshopColumnModules} from '@/app/netshop/shared/module-slots';
-installIntegratedTransport();window.__integratedModules={products:!!netshopColumnModules.products,promotion:!!netshopColumnModules.promotion,exactPromotion:netshopColumnCapabilities.supportsPromotionProductDrill};
+installIntegratedTransport({phase:${JSON.stringify(phase)}});window.__integratedModules={products:!!netshopColumnModules.products,promotion:!!netshopColumnModules.promotion,exactPromotion:netshopColumnCapabilities.supportsPromotionProductDrill};
 createRoot(document.body).render(<Home/>);`;
 const checks = [], errors = [], consoleErrors = [], blockedNetwork = [];
-let browser, server, page;
+let browser, server, page, phaseResult;
 const check = async (name, fn) => { await fn(); checks.push(name); process.stdout.write(`PASS ${name}\n`); };
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 try {
@@ -43,7 +45,12 @@ try {
     const content = await readFile(resolve(root, path));
     inputs.push({ path, bytes: content.length, sha256: createHash("sha256").update(content).digest("hex") });
   }
-  for (const path of ["app/layout.tsx", "tools/verify-netshop-integrated-shell-ui.mjs", "tools/verify-netshop-products-ui.mjs"]) { const data = await readFile(resolve(root, path)); inputs.push({ path, bytes: data.length, sha256: createHash("sha256").update(data).digest("hex") }); }
+  for (const path of ["app/layout.tsx", "tools/verify-netshop-integrated-shell-ui.mjs", "tools/verify-netshop-products-ui.mjs", ...(phase === "M4" ? ["tests/fixtures/netshop-integrated-shell-ui/m4-scenarios.mjs", "tests/fixtures/netshop-integrated-shell-ui/source6/manifest.json", "app/api/netshop/promotion-insights/route.ts", "app/api/netshop/promotion-insights/detail/route.ts"] : [])]) { const data = await readFile(resolve(root, path)); inputs.push({ path, bytes: data.length, sha256: createHash("sha256").update(data).digest("hex") }); }
+  if (phase === "M4") {
+    const manifest = JSON.parse(await readFile(resolve(root, "tests/fixtures/netshop-integrated-shell-ui/source6/manifest.json"), "utf8"));
+    for (const record of manifest.records) { const data = await readFile(resolve(root, `tests/fixtures/netshop-integrated-shell-ui/source6/${record.name}.json`)); assert.equal(data.length, record.bytes); assert.equal(createHash("sha256").update(data).digest("hex"), record.sha256); }
+    await save("actual-source6-capture-manifest.json", manifest);
+  }
   await save("compile-source.json", { ...source, sourceAfterCompile: git("rev-parse", "HEAD"), inputs, entry, layoutStyles, layoutWrapper: { html: { lang: "zh-CN" }, body: {} }, productionSourceModified: false });
   const html = '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/ui.css"></head><body><script type="module" src="/ui.js"></script></body></html>';
   server = createServer(async (req, res) => {
@@ -61,6 +68,7 @@ try {
   await save("resource.json", { ...source, pid: process.pid, origin, evidence, status: "running", paidProduction: false });
   browser = await chromium.launch({ executablePath: process.env.NETSHOP_UI_CHROME || "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: "block" });
+  context.on("page", tab => { tab.on("pageerror", error => errors.push(error.message)); tab.on("console", message => { if (message.type() === "error" && !/Failed to load resource/.test(message.text())) consoleErrors.push(message.text()); }); });
   await context.route("**/*", route => {
     const url = new URL(route.request().url());
     if (url.origin === origin) return route.continue();
@@ -69,8 +77,11 @@ try {
   });
   page = await context.newPage(); page.setDefaultTimeout(8000);
   await page.clock.setFixedTime(new Date("2026-10-01T04:00:00Z"));
-  page.on("pageerror", error => errors.push(error.message));
-  page.on("console", message => { if (message.type() === "error" && !/Failed to load resource/.test(message.text())) consoleErrors.push(message.text()); });
+  if (phase === "M4") {
+    const { runM4Scenarios } = await import("../tests/fixtures/netshop-integrated-shell-ui/m4-scenarios.mjs");
+    phaseResult = await runM4Scenarios({ page, context, origin, check, save, evidence, root });
+    await check("M4 all tabs block unknown/external/write/interpret/paid dispatch and retain complete DTOs", async () => { const telemetry = await page.evaluate(() => window.__integrated); await save("transport.json", telemetry); assert.deepEqual(telemetry.blocked, []); assert.deepEqual(telemetry.fixturePending, []); assert.deepEqual(telemetry.writeAttempts, []); assert.deepEqual(telemetry.paidAttempts, []); assert.deepEqual(blockedNetwork, []); assert.deepEqual(errors, []); assert.deepEqual(consoleErrors, []); });
+  } else {
   const query = new URLSearchParams({ module: "shop", view: "products", period: "custom", from: "2026-09-01", to: "2026-09-01", shopPlatform: "京东", shopOutlet: "京东\u001f合成店A" });
   await page.goto(`${origin}/?${query}`);
   await check("real Home mounts the registered ProductsColumn with one real system navigation", async () => {
@@ -225,7 +236,8 @@ try {
     assert.deepEqual(telemetry.writeAttempts, []); assert.deepEqual(telemetry.paidAttempts, []); assert.deepEqual(telemetry.blocked, []); assert.deepEqual(blockedNetwork, []);
     assert.deepEqual(errors, []); assert.deepEqual(consoleErrors, []);
   });
-  await save("result.json", { ...source, checks, errors, consoleErrors, blockedNetwork, status: "passed", completedScope: "M3 real Home synthetic navigation probe", authorExecution: role === "I-harness-author", independentReviewConclusion: null, pending: ["M4 actual A registered list/detail/return controls and Owner-A complete transport", "Full legacy and 01 metric/source fixtures"], limitations: ["Only synthetic Owner-P transport plus actual Home/ShopView/ProductsColumn; no live source, backend, database, or paid model validation", "M3 unregistered A uses its actual classic whole-store entry; M4 exact-product and actual A return-control chain remains pending", "Classic/01 entries mounted on explicit synthetic source-pending errors; no full legacy/01 metric proof"] });
+  }
+  await save("result.json", { ...source, checks, errors, consoleErrors, blockedNetwork, status: "passed", ...(phaseResult || { completedScope: "M3 real Home synthetic navigation probe", pending: ["M4 actual A registered list/detail/return controls and Owner-A complete transport", "Full legacy and 01 metric/source fixtures"], limitations: ["Only synthetic Owner-P transport plus actual Home/ShopView/ProductsColumn; no live source, backend, database, or paid model validation", "M3 supplies no complete A transport and uses its real source-pending UI; M4 validation is explicit opt-in", "Classic/01 entries mounted on explicit synthetic source-pending errors; no full legacy/01 metric proof"] }), authorExecution: role === "I-harness-author", independentReviewConclusion: null });
   process.stdout.write(`${JSON.stringify({ evidence, checks: checks.length, status: "passed", sourceHead: source.head })}\n`);
 } catch (error) {
   if (page) { await save("transport-failed.json", await page.evaluate(() => window.__integrated).catch(() => null)); await save("dom-failed.txt", await page.locator("body").innerText().catch(() => "")); await page.screenshot({ path: resolve(evidence, "failed.png"), fullPage: true }).catch(() => {}); }

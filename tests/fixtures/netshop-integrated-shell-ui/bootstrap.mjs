@@ -1,14 +1,23 @@
 /** Bounded synthetic GET transport. No real network or navigation controller. */
 import { installOwnerProductFixture } from "./owner-products.mjs";
+import { m4OwnerRevision, projectM4Promotion, projectM4Product, projectM4Diagnostic } from "./m4-promotion-fixtures.mjs";
 
 const users = {
   A: { email: "integrated-a@example.test", displayName: "合成账号A", role: "admin", roleLabel: "管理员", scopeRestricted: false },
   B: { email: "integrated-b@example.test", displayName: "合成账号B", role: "admin", roleLabel: "管理员", scopeRestricted: false },
 };
-export function installIntegratedTransport() {
+export function installIntegratedTransport({ phase = "M3" } = {}) {
   const product = installOwnerProductFixture();
   const prior = JSON.parse(sessionStorage.getItem("integrated-transport") || "null");
-  window.__integrated = { calls: prior?.calls || [], blocked: prior?.blocked || [], writeAttempts: prior?.writeAttempts || [], paidAttempts: prior?.paidAttempts || [], user: users[sessionStorage.getItem("integrated-user") || "A"] };
+  window.__integrated = { phase, calls: prior?.calls || [], blocked: prior?.blocked || [], writeAttempts: prior?.writeAttempts || [], paidAttempts: prior?.paidAttempts || [], projections: prior?.projections || [], fixturePending: prior?.fixturePending || [], user: users[sessionStorage.getItem("integrated-user") || "A"] };
+  window.__integratedControl = { error: null };
+  if (phase === "M4") {
+    window.__syntheticDownloads = [];
+    URL.createObjectURL = blob => { const record = { url: `blob:synthetic-${window.__syntheticDownloads.length}`, name: null, type: blob.type, bytes: null }; window.__syntheticDownloads.push(record); blob.arrayBuffer().then(buffer => { record.bytes = Array.from(new Uint8Array(buffer)); }); return record.url; };
+    URL.revokeObjectURL = () => {};
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { const record = window.__syntheticDownloads.find(item => item.url === this.href); if (record && this.download) { record.name = this.download; return; } return originalClick.call(this); };
+  }
   const remember = () => sessionStorage.setItem("integrated-transport", JSON.stringify(window.__integrated));
   window.fetch = async (input, init = {}) => {
     const raw = input instanceof Request ? input.url : String(input);
@@ -29,15 +38,30 @@ export function installIntegratedTransport() {
     if (["/api/ai/models", "/api/ai/channels"].includes(url.pathname)) return Response.json({ items: [] });
     if (url.pathname === "/api/ai/conversations") return Response.json({ items: [], models: [], pagination: { page: 1, pageSize: 30, total: 0, returned: 0, hasMore: false, truncated: false } });
     if (url.pathname === "/api/ai/chat") return Response.json({ items: [], pagination: { pageSize: 30, total: 0, returned: 0, hasMore: false, truncated: false, nextBefore: null } });
+    if (phase === "M4" && url.pathname.startsWith("/api/netshop/") && window.__integratedControl.error) {
+      const error = window.__integratedControl.error;
+      return deny(error === "epoch" ? "promotion_revision_changed" : "access_denied", `合成${error}失效：旧数据须清空`, error === "epoch" ? 409 : 403);
+    }
+    if (phase === "M4" && ["/api/netshop/promotion-insights", "/api/netshop/promotion-insights/detail"].includes(url.pathname)) {
+      try { const body = projectM4Promotion(url, window.__integrated); remember(); return Response.json(body, { headers: { "X-Netshop-Data-Revision": m4OwnerRevision } }); }
+      catch (error) {
+        if (error.message === "promotion_revision_changed") return deny(error.message, "合成原版本失效", 409);
+        window.__integrated.fixturePending.push({ ...info, error: error.message }); return deny("synthetic_fixture_pending", error.message);
+      }
+    }
+    if (phase === "M4" && url.pathname === "/api/netshop/promotion-diagnostic") {
+      try { const body = projectM4Diagnostic(url, window.__integrated); remember(); return Response.json(body, { headers: { "X-Netshop-Data-Revision": m4OwnerRevision } }); }
+      catch(error) { window.__integrated.fixturePending.push({ ...info, error: error.message }); return deny("synthetic_fixture_pending", error.message); }
+    }
     if (["/api/netshop/product-insights", "/api/netshop/product-insights/detail", "/api/netshop/products"].includes(url.pathname)) {
-      const body = product(url);
+      const body = phase === "M4" ? projectM4Product(product(url), url, window.__integrated) : product(url);
       // Slow A ignores cancellation deliberately; the actual consumer must fence it.
       await new Promise(resolve => setTimeout(resolve, (url.searchParams.get("outlet") || "").endsWith("合成店A") ? 70 : 5));
-      return Response.json(body, { headers: { "X-Netshop-Data-Revision": "1:aaaaaaaaaaaa" } });
+      remember(); return Response.json(body, { headers: { "X-Netshop-Data-Revision": phase === "M4" ? m4OwnerRevision : "1:aaaaaaaaaaaa" } });
     }
     // These real classic/01 reads have no owner full fixture in this harness yet.
     // Mounting their real error UI proves entry preservation, not source success.
-    if (["/api/sales/summary", "/api/netshop/store-overview", "/api/netshop/product-performance", "/api/netshop/promotion-performance/items", "/api/netshop/promotion-performance/overview"].includes(url.pathname)) return deny("synthetic_source_pending", "本合成工具尚未提供该旧视图完整来源夹具");
+    if (["/api/sales/summary", "/api/netshop/store-overview", "/api/netshop/product-performance", "/api/netshop/promotion-performance/items", "/api/netshop/promotion-performance/overview", "/api/netshop/promotion-insights", "/api/netshop/promotion-insights/detail"].includes(url.pathname)) return deny("synthetic_source_pending", "本合成工具尚未提供该模式/旧视图完整来源夹具");
     window.__integrated.blocked.push({ ...info, reason: "unknown-get" });
     return deny("synthetic_route_blocked", "未登记合成只读接口已拦截");
   };
