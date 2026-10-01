@@ -12,7 +12,7 @@ function fetchResponse(response: Response) { return (async () => response) as ty
 
 test("comparison keeps F query plus closed independent scope and baseline", () => {
   const p = query(), spec = validateComparisonQuery(p);
-  assert.equal(spec.metricKey, "payment"); assert.equal(spec.scope.mode, "shop"); assert.equal(spec.baseline.kind, "previous"); assert.equal(comparisonMetricKeys.length, 20);
+  assert.equal(spec.metricKey, "payment"); assert.equal(spec.scope.mode, "shop"); assert.equal(spec.baseline.kind, "previous"); assert.equal(comparisonMetricKeys.length, 21);
   p.set("selectedBaseline", JSON.stringify({ kind: "custom", startDate: "2024-01-01", endDate: "2024-12-31" }));
   assert.equal(validateComparisonQuery(p).baseline.kind, "custom");
   p.set("selectedBaseline", JSON.stringify({ kind: "custom", startDate: "2024-01-01", endDate: "2025-01-01" }));
