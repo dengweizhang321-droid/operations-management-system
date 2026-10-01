@@ -28,6 +28,8 @@ FILTERS = {
     "conversionStatuses", "priorities", "sources", "stageKey", "stageStatus", "proposedFrom",
     "weekStart", "marginFilterKeys", "itemSegments", "storageStatuses", "recognitionSources", "risk",
     "masterSection", "priceStatuses", "candidatePriceSources", "annotationStatuses", "pendingPriceSources",
+    "comparisonMode", "metricSource", "baselineKind", "baselineStartDate", "baselineEndDate", "categoryMode",
+    "coverageFilter", "categoryPlatform", "categorySource", "categoryEvidence", "metricKey", "trendGrain", "periodKind",
 }
 
 

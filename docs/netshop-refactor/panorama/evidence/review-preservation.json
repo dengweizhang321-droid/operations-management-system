@@ -1,0 +1,32 @@
+{
+  "kind": "independent-review-evidence-preservation",
+  "screenshots": [
+    {
+      "original": "C:\\Users\\86137\\AppData\\Local\\Temp\\panorama-independent-final-20260930\\layout-1.png",
+      "preserved": "independent/layout-1.png",
+      "sha256": "0bd61ac693ea229af53cfd89897747bb8ecbd1f9340d957382ec4a9019275620"
+    },
+    {
+      "original": "C:\\Users\\86137\\AppData\\Local\\Temp\\panorama-independent-final-20260930\\layout-2.png",
+      "preserved": "independent/layout-2.png",
+      "sha256": "536dbd5b3f76d8c93c42a346abed10e833a54086eff5f328765cb4713a658b99"
+    },
+    {
+      "original": "C:\\Users\\86137\\AppData\\Local\\Temp\\panorama-independent-final-20260930\\layout-3.png",
+      "preserved": "independent/layout-3.png",
+      "sha256": "efcd41ffa2aff5f4649d543a85448b52d01eb74eddc437aca7d340e51a121892"
+    },
+    {
+      "original": "C:\\Users\\86137\\AppData\\Local\\Temp\\panorama-independent-final-20260930\\layout-4.png",
+      "preserved": "independent/layout-4.png",
+      "sha256": "4b15c54c04de6561ad6b0af0e550980bf9dbe84abc61444779ad6137ced3cbfe"
+    },
+    {
+      "original": "C:\\Users\\86137\\AppData\\Local\\Temp\\panorama-independent-final-20260930\\layout-5.png",
+      "preserved": "independent/layout-5.png",
+      "sha256": "2f565de0eba1c69dd92bf45e7202a02e0f2e86a1926a958aff70ca466c88bba3"
+    }
+  ],
+  "passed": 26,
+  "failed": 0
+}

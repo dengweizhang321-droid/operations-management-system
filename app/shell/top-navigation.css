@@ -20,7 +20,7 @@
 .top-navigation-shell .ai-context-button { min-height: 36px; color: #e1e7f0; border-color: #ffffff25; background: #ffffff0c; white-space: nowrap; }
 .top-navigation-shell .date-selector { min-width: 146px; color: var(--text); }
 .top-navigation-shell .date-selector .searchable-select { min-width: 90px; }
-.top-navigation-shell .date-selector > .stat-period-picker { position: fixed; top: calc(var(--app-sticky-offset) + 8px); right: 18px; width: min(804px, calc(100vw - 36px)); max-height: calc(100dvh - var(--app-sticky-offset) - 24px); overflow: auto; }
+.top-navigation-shell .shell-masthead .date-selector > .stat-period-picker { position: fixed; top: calc(var(--app-sticky-offset) + 8px); right: 18px; width: min(804px, calc(100vw - 36px)); max-height: calc(100dvh - var(--app-sticky-offset) - 24px); overflow: auto; }
 .top-navigation-shell .sidebar {
   position: relative;
   inset: auto;
