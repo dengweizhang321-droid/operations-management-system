@@ -354,11 +354,11 @@ class ComparisonErpTests(TestCase):
                     self.line(day="2026-08-25", platform=platform, shop_name=aliases[(platform,name)]["rawShopName"], channel=aliases[(platform,name)]["rawChannel"], allocated_amount_cents=50, order_no="same-order")
         return aliases
 
-    def _platform_read(self, **values):
-        return self.read(comparisonScope=self.scope(mode="platform", metricSource="erp"), metricKey="erpNetSales", **values)
+    def _platform_read(self, *, metricKey="erpNetSales", **values):
+        return self.read(comparisonScope=self.scope(mode="platform", metricSource="erp"), metricKey=metricKey, **values)
 
-    def _platform_evidence(self, name, result, **values):
-        params = self.query(comparisonScope=self.scope(mode="platform", metricSource="erp"), metricKey="erpNetSales", **values)
+    def _platform_evidence(self, name, result, *, metricKey="erpNetSales", **values):
+        params = self.query(comparisonScope=self.scope(mode="platform", metricSource="erp"), metricKey=metricKey, **values)
         self.sample(name, result, params)
         target = os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
         if target:
@@ -425,12 +425,23 @@ class ComparisonErpTests(TestCase):
                         self.assertEqual(observation["completeness"],"unknown")
                         self.assertNotEqual(point["metric"]["status"],"available")
                 self._platform_evidence("actual-owning-erp-platform-"+grain,result,**values,trendGrain=grain)
-            self.calls.clear()
             both={**values,"chartObjectKeys":["platform:京东","platform:天猫"]}
-            result=self._platform_read(**both)
-            self.assertEqual(self.calls[1]["request"]["seriesPlatforms"],["京东","天猫"])
-            self.assertEqual(len(result["sections"]["trends"]["items"]),2)
-            self._platform_evidence("actual-owning-erp-platform-both-day",result,**both)
+            for grain in ("day","week","month"):
+                self.calls.clear()
+                result=self._platform_read(**both,trendGrain=grain)
+                self.assertEqual(self.calls[1]["request"]["seriesPlatforms"],["京东","天猫"])
+                self.assertEqual(len(self.calls),5)
+                self.assertEqual(len(result["sections"]["trends"]["items"]),2)
+                self._platform_evidence("actual-owning-erp-platform-both-"+grain,result,**both,trendGrain=grain)
+            self.calls.clear()
+            result=self._platform_read(**both,metricKey="erpNetQuantity")
+            rows={row["platform"]:row for row in result["sections"]["scale"]["items"]}
+            self.assertEqual(result["sections"]["scale"]["summary"]["current"]["erpNetQuantity"]["value"],6)
+            self.assertEqual(rows["京东"]["current"]["erpNetQuantity"]["value"],5)
+            self.assertEqual(rows["天猫"]["current"]["erpNetQuantity"]["value"],1)
+            self.assertEqual(len(self.calls),5)
+            self.assertTrue(all(point["metric"]["unit"]=="NATIVE_INTEGER_QUANTITY" for item in result["sections"]["trends"]["items"] for period in ("current","baseline") for point in item[period]))
+            self._platform_evidence("actual-owning-erp-platform-both-quantity-day",result,**both,metricKey="erpNetQuantity")
 
     def test_platform_authorized_empty_group_and_unmapped_platform(self):
         aliases = self._platform_fixture(count=1, rows=False)
