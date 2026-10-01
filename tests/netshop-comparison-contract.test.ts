@@ -10,6 +10,7 @@ const query = () => new URLSearchParams({ platform: "京东", dimension: "sku", 
 const owningFixtures = JSON.parse(readFileSync(new URL("./fixtures/netshop-comparison-owning.json", import.meta.url), "utf8"));
 const erpFixtures = JSON.parse(readFileSync(new URL("./fixtures/netshop-comparison-erp-owned.json", import.meta.url), "utf8"));
 const erpTemporalFixtures = JSON.parse(readFileSync(new URL("./fixtures/netshop-comparison-erp-temporal.json", import.meta.url), "utf8"));
+const erpPlatformFixtures = JSON.parse(readFileSync(new URL("./fixtures/netshop-comparison-erp-platform.json", import.meta.url), "utf8"));
 function fetchResponse(response: Response) { return (async () => response) as typeof fetch; }
 
 test("comparison keeps F query plus closed independent scope and baseline", () => {
@@ -237,4 +238,40 @@ test("ERP native series intent, grain, tuple values and observed dates remain ow
   await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.source!.series!.items[0].current.pop(); }, fixture);
   await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.temporalState = {state:"unavailable",code:"series_no_records"}; }, fixture);
   await rejectsMutation(dto => { const point=dto.sections.trends.items[0].current[0]; dto.sections.comparability.erpEvidence.observations[point.metric.coverageRef].endDate=dto.currentContext.periods.current.endDate; }, fixture);
+});
+
+for (const fixture of erpPlatformFixtures.cases) test(`actual whole-platform response ${fixture.name} binds original period totals and buckets`, async () => {
+  const dto=await decodeComparisonInsights(fixture.response,new URLSearchParams(fixture.request.query),fixture.request.headerRevision);
+  const evidence=dto.sections.comparability.erpEvidence;
+  assert.equal(evidence.temporalState.state,"ready");
+  assert.equal(evidence.platformPeriods?.length,2);
+  assert.equal(dto.sections.scale.summary.current.erpNetSales.value,680);
+  const rows=new Map(dto.sections.scale.items.map(row=>[row.platform,row]));
+  assert.equal(rows.get("京东")?.current.erpNetSales.value,580);
+  assert.equal(rows.get("天猫")?.current.erpNetSales.value,100);
+  assert.equal(evidence.source?.platformSeries?.items[0].rawCandidateCount,5);
+  for(const trend of dto.sections.trends.items)assert.equal(trend.indexBasis.status,"unavailable");
+  if(dto.metricKey==="erpNetQuantity"){
+    assert.equal(rows.get("京东")?.current.erpNetQuantity.value,5);assert.equal(rows.get("天猫")?.current.erpNetQuantity.value,1);
+    for(const trend of dto.sections.trends.items)for(const point of [...trend.current,...trend.baseline])assert.equal(point.metric.unit,"NATIVE_INTEGER_QUANTITY");
+  }
+});
+
+test("platform whole-period carriers cannot borrow parent totals, foreign RAW scope or another pair", async () => {
+  const fixture=erpPlatformFixtures.cases[0];
+  await rejectsMutation(dto=>{dto.sections.scale.items[0].current.erpNetSales.value=680;},fixture);
+  await rejectsMutation(dto=>{dto.sections.comparability.erpEvidence.platformPeriods![0].request.rawOutlets!.pop();},fixture);
+  await rejectsMutation(dto=>{dto.sections.comparability.erpEvidence.platformPeriods![0].request.expectedRevision="1:999";},fixture);
+  await rejectsMutation(dto=>{dto.sections.comparability.erpEvidence.platformPeriods![0].source.sourceRevisions[0].scopeKey=dto.sections.comparability.erpEvidence.source!.scopeKey;},fixture);
+  await rejectsMutation(dto=>{dto.sections.comparability.erpEvidence.platformPeriods![0].source.items.pop();},fixture);
+  await rejectsMutation(dto=>{dto.joinedSourceRevisions=dto.joinedSourceRevisions.filter(member=>member.scopeKey!==dto.sections.comparability.erpEvidence.platformPeriods![0].source.scopeKey);},fixture);
+});
+
+test("platform member omission, wrong platform, source tuple and false completeness are rejected", async () => {
+  const fixture=erpPlatformFixtures.cases[0];
+  await rejectsMutation(dto=>{const group=dto.sections.comparability.erpEvidence.source!.platformSeries!.items[0];group.rawMembers.pop();group.rawCandidateCount--;},fixture);
+  await rejectsMutation(dto=>{dto.sections.comparability.erpEvidence.source!.platformSeries!.items[0].rawMembers[0].rawChannel="foreign-exact-channel";},fixture);
+  await rejectsMutation(dto=>{dto.sections.trends.items[0].current[0].metric.value=999;},fixture);
+  await rejectsMutation(dto=>{dto.sections.trends.items[0].current[0].metric.coverageRef=dto.sections.trends.items[1].current[0].metric.coverageRef;},fixture);
+  await rejectsMutation(dto=>{const m=dto.sections.trends.items[0].current[0].metric;m.status="available";m.reasonCode=null;},fixture);
 });
