@@ -9,7 +9,7 @@ import { productSummaryForDisplay } from "@/lib/netshop/product-display";
 import { mergePromotionDisplayRows } from "@/lib/netshop/promotion-display";
 import { NetshopNavigation } from "./netshop/shared/navigation";
 import { netshopColumnModules, netshopColumnCapabilities } from "./netshop/shared/module-slots";
-import { defaultShopLocationContext, type ShopLocationContext } from "./shell/shop-context";
+import { defaultShopLocationContext, type ShopLocationContext, type ShopDrillScope } from "./shell/shop-context";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
@@ -1791,7 +1791,7 @@ export default function ShopView(props: ShopViewProps & {
   currentUser: import("./module-view-shared").CurrentUser | null;
   context?: ShopLocationContext;
   onContextChange?: (next: Partial<ShopLocationContext>) => void;
-  onDrill?: (view: OutletTab, product: ProductIdentity | null, section?: string) => void;
+  onDrill?: (view: OutletTab, product: ProductIdentity | null, section?: string, scopePatch?: ShopDrillScope) => void;
   onReturn?: () => void;
 }) {
   const [classicOutlets, setClassicOutlets] = useState<string[]>([]);
