@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlencode
 
+from django.db import connection
 from django.db.models import F
 from django.http import QueryDict
 from django.test import SimpleTestCase, TestCase
@@ -280,6 +281,35 @@ class StorePanoramaTests(TestCase):
         with patch("netshop.store_panorama.time.monotonic", side_effect=lambda: clock[0]), patch.object(panorama, "_encode_response", side_effect=expired), self.assertRaises(NetshopApiError) as raised:
             self.read()
         self.assertEqual(raised.exception.status, 503)
+
+    def test_actual_sql_finishing_after_deadline_blocks_next_read(self):
+        clock, completed = [100.0], []
+        def expire_after_actual_sql(execute, sql, values, many, context):
+            result = execute(sql, values, many, context)
+            completed.append(str(sql))
+            clock[0] = 166.0
+            return result
+        with patch("netshop.store_panorama.time.monotonic", side_effect=lambda: clock[0]), connection.execute_wrapper(panorama._sql_fence(165.0)), connection.execute_wrapper(expire_after_actual_sql):
+            with connection.cursor() as cursor:
+                with self.assertRaises(NetshopApiError):
+                    cursor.execute("/* owning read */ SELECT 42")
+                with self.assertRaises(NetshopApiError):
+                    cursor.execute("SELECT 43")
+        self.assertEqual(completed, ["/* owning read */ SELECT 42"])
+
+    def test_budget_covers_initial_actor_sql_before_any_business_read(self):
+        calls, completed = [0], []
+        def clock():
+            calls[0] += 1
+            return 100.0 if calls[0] == 1 else 166.0
+        def record_completed(execute, sql, values, many, context):
+            result = execute(sql, values, many, context)
+            completed.append(str(sql))
+            return result
+        with patch("netshop.store_panorama.time.monotonic", side_effect=clock), connection.execute_wrapper(record_completed), self.assertRaises(NetshopApiError) as raised:
+            self.read()
+        self.assertEqual(raised.exception.status, 503)
+        self.assertEqual(completed, [])
 
     def test_combined_response_overflow_fails_without_truncation(self):
         self.product()
