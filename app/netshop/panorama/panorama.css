@@ -13,7 +13,7 @@
 .sp-title p{margin-top:3px;color:var(--sp-muted);font-size:var(--font-size-caption,12px)}
 .sp-toolbar,.sp-filter-row,.sp-section-tools,.sp-scope-line,.sp-checks{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .sp-filter-row{width:100%;gap:12px 18px}
-.sp-filter{display:grid;gap:5px;min-width:0;font-size:var(--font-size-label,13px);color:var(--sp-secondary)}
+.sp-filter{display:grid;grid-template-columns:minmax(0,1fr);gap:5px;min-width:0;font-size:var(--font-size-label,13px);color:var(--sp-secondary)}
 .sp-shop-select{flex:1 1 340px;max-width:460px}
 .sp-filter input,.sp-filter select,.sp-date-trigger{border:1px solid var(--sp-line);border-radius:7px;padding:7px 10px;min-height:36px;background:var(--sp-panel);color:var(--sp-text);max-width:100%}
 .netshop-panorama .sp-date-selector{position:relative;display:grid;align-items:stretch;height:auto;min-height:0;min-width:0;padding:0;border:0;border-radius:0;background:transparent}
