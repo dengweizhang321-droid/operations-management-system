@@ -74,6 +74,8 @@ export const AI_PAGE_FILTER_KEYS = [
   "stageKey", "stageStatus", "proposedFrom", "weekStart", "marginFilterKeys",
   "itemSegments", "storageStatuses", "recognitionSources", "risk",
   "masterSection", "priceStatuses", "candidatePriceSources", "annotationStatuses", "pendingPriceSources",
+  "comparisonMode", "metricSource", "baselineKind", "baselineStartDate", "baselineEndDate", "categoryMode",
+  "coverageFilter", "categoryPlatform", "categorySource", "categoryEvidence", "metricKey", "trendGrain", "periodKind",
 ] as const;
 export type AiPageFilters = Partial<Record<(typeof AI_PAGE_FILTER_KEYS)[number], string | string[]>>;
 
