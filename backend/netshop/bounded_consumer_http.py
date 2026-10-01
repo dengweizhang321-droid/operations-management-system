@@ -69,11 +69,41 @@ class _DeadlineSocket:
         return stream
 
 
+def _bounded_connection(address, budget, source_address=None):
+    """A resolver returning late must not start TCP; each address gets remaining time."""
+    budget.remaining()
+    host, port = address
+    addresses = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
+    budget.remaining()
+    last_error = None
+    for family, kind, protocol, _name, endpoint in addresses:
+        budget.remaining()
+        connection = None
+        try:
+            connection = socket.socket(family, kind, protocol)
+            connection.settimeout(budget.remaining())
+            if source_address:
+                connection.bind(source_address)
+                budget.remaining()
+            connection.connect(endpoint)
+            budget.remaining()
+            return connection
+        except OSError as error:
+            last_error = error
+            if connection is not None:
+                connection.close()
+            budget.remaining()
+    if last_error is not None:
+        raise last_error
+    raise OSError("Consumer resolver returned no addresses")
+
+
 class _DeadlineHTTPConnection(http.client.HTTPConnection):
     def __init__(self, host, *, budget, **kwargs):
         kwargs["timeout"] = budget.remaining()
         super().__init__(host, **kwargs)
         self._budget = budget
+        self._create_connection = lambda address, _timeout, source_address: _bounded_connection(address, budget, source_address)
 
     def connect(self):
         self.timeout = self._budget.remaining()
@@ -91,11 +121,16 @@ class _DeadlineHTTPSConnection(http.client.HTTPSConnection):
         kwargs["timeout"] = budget.remaining()
         super().__init__(host, **kwargs)
         self._budget = budget
+        self._create_connection = lambda address, _timeout, source_address: _bounded_connection(address, budget, source_address)
 
     def connect(self):
         self.timeout = self._budget.remaining()
         try:
-            super().connect()
+            # Do not let HTTPSConnection reuse the earlier TCP timeout for TLS.
+            http.client.HTTPConnection.connect(self)
+            self._budget.remaining()
+            self.sock.settimeout(self._budget.remaining())
+            self.sock = self._context.wrap_socket(self.sock, server_hostname=self._tunnel_host or self.host)
             self._budget.remaining()
             self.sock = _DeadlineSocket(self.sock, self._budget)
         except BaseException:
