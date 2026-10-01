@@ -8,7 +8,8 @@ import { isNetshopIsoDate, NetshopQueryError } from "@/lib/netshop/query-contrac
 import { decodeProductInsights, ProductResponseError, type ProductInsightsResponse } from "../products/contract";
 import { decodePromotionInsightsForQuery, type PromotionInsightsResponse } from "@/lib/netshop/promotion-insights-contract";
 import { decodeProductScopeSeries, restoreProductScopeSeriesMetric, productSeriesColumns, type ProductScopeSeries } from "@/lib/netshop/product-scope-series-contract";
-import { decodeSalesPeriodsForRequest, type RawSalesIdentity, type SalesPeriodsResponse } from "@/lib/netshop/sales-periods-contract";
+import { decodeSalesPeriodsForRequest, restoreSalesPeriodSeriesPoint, type RawSalesIdentity, type SalesPeriodsResponse } from "@/lib/netshop/sales-periods-contract";
+import { decodeFinanceNetshop, financeNetshopOperation, type FinanceNetshopDTO, type FinanceNetshopRequest } from "@/lib/netshop/finance-netshop-contract";
 
 export const PANORAMA_SCHEMA = "netshop-store-panorama-v1" as const;
 export const panoramaSections = ["performance", "traffic", "products", "promotion", "margin", "customers", "targets", "dataQuality"] as const;
@@ -43,6 +44,8 @@ export const panoramaCapabilityIds: Record<PanoramaSectionKey, readonly string[]
   targets: ["annual_target", "finance_month", "history", "events"],
   dataQuality: ["coverage", "field_availability", "source_freshness", "mapping", "comparability", "import_records"],
 };
+/** Additive native ERP series support; historical v1 captures retain their original capability list. */
+const panoramaOptionalCapabilityIds: Partial<Record<PanoramaSectionKey, readonly string[]>> = { performance: ["erp_trend", "erp_detail"] };
 export type PanoramaScope = {
   platform: "京东" | "天猫"; shopName: string;
   startDate: string; endDate: string;
@@ -51,7 +54,7 @@ export const salesMetricKeys = ["netSales", "cost", "netQuantity", "positiveQuan
 export type PanoramaNativeQuantity = Omit<MetricValue, "unit"> & { unit: "NATIVE_INTEGER_QUANTITY" };
 export type PanoramaOrderMean = Omit<MetricValue, "unit" | "status" | "reasonCode"> & {
   unit: "CNY_CENT_PER_ORDER"; status: "available" | "unavailable";
-  reasonCode: "no_records" | "missing_order_no" | "zero_denominator" | null;
+  reasonCode: "no_records" | "missing_order_no" | "zero_denominator" | "not_applicable" | null;
   numerator: number | null; denominator: number | null;
 };
 export type PanoramaErpMetric = MetricValue | PanoramaNativeQuantity | PanoramaOrderMean;
@@ -71,9 +74,10 @@ export type PanoramaSalesData = {
   pagination: InsightPagination; limitations: string[];
 };
 export type PanoramaFinanceData = {
-  schemaVersion: "netshop-panorama-finance-v1"; scope: PanoramaScope; sourceRevisions: SourceRevision[];
-  months: Array<{ month: string; revenue: MetricValue; profit: MetricValue }>;
-  annualTargets: Array<{ year: number; target: MetricValue; actual: MetricValue; progress: MetricValue }>;
+  schemaVersion: "netshop-panorama-finance-v2"; scope: PanoramaScope; sourceRevisions: SourceRevision[];
+  owning: FinanceNetshopDTO[];
+  periodReadRefs: Record<"current" | "previous" | "yearAgo", number>;
+  annualReadRefs: number[];
   limitations: string[];
 };
 export type PanoramaWorkflowData = {
@@ -199,7 +203,8 @@ function salesMetrics(value: unknown): PanoramaSalesMetrics {
   for (const key of salesMetricKeys) {
     const raw = record(input[key]);
     if (key === "orderAverageValue") {
-      if (raw.unit !== "CNY_CENT_PER_ORDER" || !enumValue(raw.status, ["available", "unavailable"]) || raw.reasonCode !== null && !enumValue(raw.reasonCode, ["no_records", "missing_order_no", "zero_denominator"]) || raw.basis !== "erp_net_sales" || raw.aggregation !== "ratio_of_sums" || !Object.hasOwn(raw, "numerator") || !Object.hasOwn(raw, "denominator") || [raw.numerator, raw.denominator].some(v => v !== null && !Number.isSafeInteger(v))) return reject("ERP订单组均值原生单位、分母或原因无效");
+      if (raw.unit !== "CNY_CENT_PER_ORDER" || !enumValue(raw.status, ["available", "unavailable"]) || raw.reasonCode !== null && !enumValue(raw.reasonCode, ["no_records", "missing_order_no", "zero_denominator", "not_applicable"]) || raw.basis !== "erp_net_sales" || raw.aggregation !== "ratio_of_sums" || !Object.hasOwn(raw, "numerator") || !Object.hasOwn(raw, "denominator") || [raw.numerator, raw.denominator].some(v => v !== null && !Number.isSafeInteger(v))) return reject("ERP订单组均值原生单位、分母或原因无效");
+      if (raw.reasonCode === "not_applicable" && (raw.status !== "unavailable" || raw.value !== null || raw.numerator !== null || raw.denominator !== null)) return reject("ERP超限未请求基期不能伪装无记录或均值");
       const proxy = decodeMetric({ ...raw, unit: "RATIO", reasonCode: raw.reasonCode === "missing_order_no" ? "missing_field" : raw.reasonCode });
       if (proxy.status === "available" && (raw.denominator as number) <= 0) return reject("ERP订单组均值分母无效");
       result.orderAverageValue = raw as PanoramaOrderMean; continue;
@@ -219,42 +224,89 @@ function crossBase(value: unknown, schema: string, domain: string, context: Insi
   if (!own.size || [...own.values()].some(r => r.domain !== domain)) return reject("跨域来源不能冒充其他域修订");
   includeRevisions(joined, [...own.values()]); strings(data.limitations); return data;
 }
-function decodeSales(value: unknown, context: InsightsContext, joined: Map<string, SourceRevision>): PanoramaSalesData {
+function decodeSales(value: unknown, context: InsightsContext, joined: Map<string, SourceRevision>, grain: "day" | "week" | "month"): PanoramaSalesData {
   const data = crossBase(value, "netshop-panorama-sales-v1", "sales", context, joined), periods = record(data.periods), pairs = record(data.comparisons);
   if (data.channel !== null && !text(data.channel, 200)) return reject("ERP渠道来源无效");
   if (!Array.isArray(data.rawOutlets) || !data.rawOutlets.length || data.rawOutlets.length > 50) return reject("ERP必须返回经拥有方解析的精确原始三元组");
   const owning = record(data.owning), expectedRefs: SourceRevision[] = [];
+  const decodedOwners: Partial<Record<"previous" | "yearAgo", SalesPeriodsResponse>> = {};
   let previous: SalesPeriodsResponse | null = null;
   for (const kind of ["previous", "yearAgo"] as const) {
     if (kind === "yearAgo" && context.periods.yearAgo.days > 366) { if (owning.yearAgo !== null) return reject("ERP367日同比不能截断为366日或伪旧回执"); continue; }
     if (owning[kind] === null) return reject("已支持的ERP基期缺少完整拥有方信封");
     const envelope = record(owning[kind]), refs = revisions(envelope.sourceRevisions);
     const revision = [...refs.values()].find(r => r.domain === "sales" && r.kind === "sales_erp_revision_pair")?.revision ?? null;
-    const body = decodeSalesPeriodsForRequest(envelope, { operation: "netshop_periods_v1", current: { startDate: context.periods.current.startDate, endExclusive: context.periods.current.endExclusive }, baseline: { startDate: context.periods[kind].startDate, endExclusive: context.periods[kind].endExclusive }, rawOutlets: data.rawOutlets as RawSalesIdentity[], q: "", page: 1, pageSize: 20 }, revision);
+    const hasSeries = Object.hasOwn(envelope, "series");
+    const body = decodeSalesPeriodsForRequest(envelope, { operation: "netshop_periods_v1", current: { startDate: context.periods.current.startDate, endExclusive: context.periods.current.endExclusive }, baseline: { startDate: context.periods[kind].startDate, endExclusive: context.periods[kind].endExclusive }, rawOutlets: data.rawOutlets as RawSalesIdentity[], q: "", page: 1, pageSize: 20, ...(hasSeries ? { seriesGrain: grain, seriesOutlets: data.rawOutlets as RawSalesIdentity[] } : {}) }, revision);
     if (body.requestedScope.rawOutlets.some(r => r.platform !== context.effectiveScope.platforms[0])) return reject("ERP原始平台不是全景平台");
     if (previous && (previous.sourceRevisions[0].revision !== body.sourceRevisions[0].revision || JSON.stringify(previous.periodTotals.current) !== JSON.stringify(body.periodTotals.current))) throw new PanoramaResponseError(409, "insights_revision_changed", "ERP两次本期信封修订或事实不一致");
-    previous = body; expectedRefs.push(...body.sourceRevisions);
+    if (previous?.series && body.series && JSON.stringify(previous.series.items.map(item => ({ identity: item.identity, current: item.current }))) !== JSON.stringify(body.series.items.map(item => ({ identity: item.identity, current: item.current })))) throw new PanoramaResponseError(409, "insights_revision_changed", "ERP两次本期序列事实不一致");
+    decodedOwners[kind] = body; previous = body; expectedRefs.push(...body.sourceRevisions);
   }
   const uniqueExpected = new Map(expectedRefs.map(ref => [JSON.stringify([ref.domain, ref.kind, ref.scopeKey]), ref]));
   const declared = revisions(data.sourceRevisions), expected = revisions([...uniqueExpected.values()]);
   if (declared.size !== expected.size || [...expected.entries()].some(([key, ref]) => declared.get(key)?.revision !== ref.revision)) return reject("ERP参与修订不等于实际拥有方信封");
-  for (const kind of ["current", "previous", "yearAgo"] as const) { const period = record(periods[kind]); if (period.startDate !== context.periods[kind].startDate || period.endDate !== context.periods[kind].endDate) return reject("ERP比较日期不是实际基期"); salesMetrics(period.metrics); }
-  for (const key of salesMetricKeys) { const pair = record(pairs[key]); comparison(pair.previous); comparison(pair.yearAgo); }
-  if (!Array.isArray(data.daily) || data.daily.length > 366 || !Array.isArray(data.items) || data.items.length > 100) return reject("ERP明细或排行无界");
+  const primaryMap = { netSales: "netSalesCents", netQuantity: "netQuantity", positiveQuantity: "positiveQuantity", returnAmount: "refundCents", returnQuantity: "returnQuantity" } as const;
+  for (const kind of ["current", "previous", "yearAgo"] as const) {
+    const period = record(periods[kind]); if (period.startDate !== context.periods[kind].startDate || period.endDate !== context.periods[kind].endDate) return reject("ERP比较日期不是实际基期");
+    const metrics = salesMetrics(period.metrics);
+    const owned = kind === "current" ? decodedOwners.previous?.periodTotals.current : decodedOwners[kind]?.periodTotals.baseline;
+    if (!owned) { for (const metric of Object.values(metrics)) if (metric.value !== null || metric.status !== "unavailable" || metric.reasonCode !== "not_applicable") return reject("ERP未支持基期不能返回伪数或无记录"); continue; }
+    for (const [key, rawKey] of Object.entries(primaryMap)) {
+      const metric = metrics[key as keyof typeof primaryMap];
+      if (metric.value !== owned.values[rawKey as typeof primaryMap[keyof typeof primaryMap]] || metric.status !== (owned.rowPresence ? "partial" : "unavailable") || metric.reasonCode !== (owned.rowPresence ? "incomplete_coverage" : "no_records")) return reject("ERP主净额与原生量须复制拥有方记录证据并保留未知完整性");
+    }
+    if (metrics.orders.value !== owned.orders.trustedOrderCount || metrics.orders.status !== (owned.rowPresence ? "partial" : "unavailable") || metrics.orders.reasonCode !== (owned.rowPresence ? "incomplete_coverage" : "no_records")) return reject("ERP可信订单组不能回退行数或伪完整");
+    const mean = owned.orders.netAmountPerOrder;
+    for (const key of ["unit", "status", "reasonCode", "value", "numerator", "denominator"] as const) if (metrics.orderAverageValue[key] !== mean[key]) return reject("ERP订单组原生均值与拥有方输入不一致");
+    for (const key of ["cost", "orderMargin", "largeMargin", "largeMarginRate"] as const) if (metrics[key].status !== "unavailable" || metrics[key].value !== null || metrics[key].reasonCode !== (owned.rowPresence ? "unverified_source" : "no_records")) return reject("未知原始成本或毛利不能变成已验证主指标");
+  }
+  for (const key of salesMetricKeys) { const pair = record(pairs[key]); const method = key === "largeMarginRate" ? "percentage_points" : "relative_change"; for (const kind of ["previous", "yearAgo"] as const) { const c = comparison(pair[kind]); if (c.method !== method || c.status !== "unavailable") return reject("ERP记录覆盖未知，不可声明完整基期比较"); } }
+  if (!Array.isArray(data.daily) || data.daily.length !== 0 || !Array.isArray(data.items) || data.items.length !== 0) return reject("ERP原始来源候选不能冒充商品贡献或逐日事实");
   const dates = new Set<string>(), ids = new Set<string>();
   for (const raw of data.daily) { const row = record(raw); if (typeof row.date !== "string" || !isNetshopIsoDate(row.date) || dates.has(row.date) || row.date < context.periods.current.startDate || row.date > context.periods.current.endDate) return reject("ERP明细日期重复或越界"); dates.add(row.date); salesMetrics(row.metrics); }
   for (const raw of data.items) { const row = record(raw); if (!text(row.id, 500) || ids.has(row.id) || !text(row.title) || row.category !== null && !text(row.category)) return reject("ERP商品贡献身份重复或无效"); ids.add(row.id); salesMetrics(row.metrics); }
   const pagination = decodeInsightPagination(data.pagination); if (pagination.returned !== data.items.length) return reject("ERP贡献分页不一致");
   return data as PanoramaSalesData;
 }
-function financeMetric(value: unknown, unit: string): MetricValue { const metric = decodeMetric(value); if (metric.unit !== unit || !["finance_month", "unverified"].includes(metric.basis)) return reject("财报或目标口径无效"); return metric; }
+/** Only maps the selected dates to owning natural months; no financial amounts are calculated. */
+export function panoramaFinanceReadPlan(context: InsightsContext) {
+  const shop = context.effectiveScope.shopKeys[0].split("\u001f"), shopKeys = [JSON.stringify(shop)];
+  const requests: FinanceNetshopRequest[] = [];
+  const add = (period: "current" | "previous" | "yearAgo", year: string) => {
+    const window = context.periods[period], months: string[] = [];
+    let cursor = window.startDate.slice(0, 7);
+    while (cursor <= window.endDate.slice(0, 7)) {
+      if (months.length >= 24) return reject("财报所属月份超过24月上限，不能截断");
+      months.push(cursor);
+      const month = Number(cursor.slice(5));
+      cursor = `${Number(cursor.slice(0, 4)) + (month === 12 ? 1 : 0)}-${String(month === 12 ? 1 : month + 1).padStart(2, "0")}`;
+    }
+    const request: FinanceNetshopRequest = { operation: financeNetshopOperation, shopKeys, months, year };
+    const existing = requests.findIndex(value => JSON.stringify(value) === JSON.stringify(request));
+    if (existing >= 0) return existing;
+    requests.push(request); return requests.length - 1;
+  };
+  const periodReadRefs = Object.fromEntries((["current", "previous", "yearAgo"] as const).map(period => [period, add(period, context.periods[period].startDate.slice(0, 4))])) as PanoramaFinanceData["periodReadRefs"];
+  const years = [...new Set([context.periods.current.startDate.slice(0, 4), context.periods.current.endDate.slice(0, 4)])];
+  return { requests, periodReadRefs, annualReadRefs: years.map(year => add("current", year)) };
+}
 function decodeFinance(value: unknown, context: InsightsContext, joined: Map<string, SourceRevision>): PanoramaFinanceData {
-  const data = crossBase(value, "netshop-panorama-finance-v1", "finance", context, joined);
-  if (!Array.isArray(data.months) || data.months.length > 40 || !Array.isArray(data.annualTargets) || data.annualTargets.length > 3) return reject("财报月份或年度目标无界");
-  const seen = new Set<string>();
-  for (const raw of data.months) { const row = record(raw); if (typeof row.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(row.month) || seen.has(row.month) || ![context.periods.current, context.periods.previous, context.periods.yearAgo].some(period => String(row.month) >= period.startDate.slice(0, 7) && String(row.month) <= period.endDate.slice(0, 7))) return reject("财报月份重复、无效或不属于当前比较范围"); seen.add(row.month); financeMetric(row.revenue, "CNY_CENT"); financeMetric(row.profit, "CNY_CENT"); }
-  const years = new Set<number>();
-  for (const raw of data.annualTargets) { const row = record(raw); if (!integer(row.year, 9999) || years.has(row.year) || row.year < Number(context.periods.current.startDate.slice(0, 4)) || row.year > Number(context.periods.current.endDate.slice(0, 4))) return reject("年度目标年份重复或不属于本期"); years.add(row.year); financeMetric(row.target, "CNY_CENT"); financeMetric(row.actual, "CNY_CENT"); financeMetric(row.progress, "RATIO"); }
+  const data = crossBase(value, "netshop-panorama-finance-v2", "finance", context, joined), plan = panoramaFinanceReadPlan(context);
+  const fields = ["schemaVersion", "scope", "sourceRevisions", "owning", "periodReadRefs", "annualReadRefs", "limitations"];
+  if (Object.keys(data).length !== fields.length || fields.some(field => !Object.hasOwn(data, field)) || !Array.isArray(data.owning) || data.owning.length !== plan.requests.length) return reject("财报须保留完整且有界的独立拥有方读取");
+  const refs = record(data.periodReadRefs);
+  if (Object.keys(refs).length !== 3 || Object.entries(plan.periodReadRefs).some(([key, index]) => refs[key] !== index) || JSON.stringify(data.annualReadRefs) !== JSON.stringify(plan.annualReadRefs)) return reject("财报月/全年引用不属于所选实际范围");
+  const expected = new Map<string, SourceRevision>(); let pair: string | null = null;
+  data.owning.forEach((raw, index) => {
+    const envelope = record(raw), revision = [...revisions(envelope.sourceRevisions).values()].find(ref => ref.domain === "finance" && ref.kind === "owning_revision")?.revision ?? null;
+    const body = decodeFinanceNetshop(envelope, plan.requests[index], revision);
+    if (pair !== null && pair !== revision) throw new PanoramaResponseError(409, "insights_revision_changed", "财报多次读取参与版本变化");
+    pair = revision;
+    for (const ref of body.sourceRevisions) expected.set(JSON.stringify([ref.domain, ref.kind, ref.scopeKey]), ref);
+  });
+  const declared = revisions(data.sourceRevisions);
+  if (declared.size !== expected.size || [...expected].some(([key, ref]) => declared.get(key)?.revision !== ref.revision)) return reject("财报参与修订不是完整所属读取向量");
   return data as PanoramaFinanceData;
 }
 function decodeWorkflow(value: unknown, context: InsightsContext, joined: Map<string, SourceRevision>): PanoramaWorkflowData {
@@ -287,6 +339,7 @@ function capabilityHasSource(section: PanoramaSectionKey, id: string, sources: S
   if (id === "visitor_value") return available(p?.efficiency.visitorValue);
   if (id === "platform_trend" || id === "traffic_trend") return !!series && series.series.current.some(point => available(restoreProductScopeSeriesMetric(series, point, id === "platform_trend" ? "payment" : "visitors")));
   if (id === "platform_day_detail") return !!series && series.series.current.some(point => productSeriesColumns.some(column => ["available", "partial"].includes(restoreProductScopeSeriesMetric(series, point, column).status)));
+  if (id === "erp_trend" || id === "erp_detail") return !!sales && [sales.owning.previous, sales.owning.yearAgo].some(owner => owner?.series?.items.some(item => item.current.some(point => restoreSalesPeriodSeriesPoint(point).facts.rowPresence)));
   if (id === "product_changes" || id === "growth_decline") return p?.growth.state === "ready" && available(p.comparisons.payment.previous);
   if (id === "traded_products") return available(p?.counts.tradedProducts);
   if (id === "category_contribution") return available(p?.structure.denominator);
@@ -295,9 +348,9 @@ function capabilityHasSource(section: PanoramaSectionKey, id: string, sources: S
   if (id === "trend" || id === "distribution") return available(a?.summary.spend);
   if (id === "promotion_detail") return !!a && a.items.some(row => row.drillable && row.id !== null && row.objectKind === "product");
   if (id === "contribution") return !!sales && sales.items.some(item => available(item.metrics.orderMargin));
-  if (id === "annual_target") return !!finance && finance.annualTargets.some(row => available(row.target));
-  if (id === "finance_month") return !!finance && finance.months.some(row => available(row.revenue) || available(row.profit));
-  if (id === "history") return !!finance && finance.months.some(row => row.month < finance.scope.startDate.slice(0, 7) && (available(row.revenue) || available(row.profit)));
+  if (id === "annual_target") return !!finance && finance.annualReadRefs.some(index => { const annual = finance.owning[index].annual; return annual.state === "ready" && Array.isArray(annual.data?.items) && annual.data.items.some(row => row !== null && typeof row === "object" && !Array.isArray(row) && row.target !== null); });
+  if (id === "finance_month") return !!finance && Object.values(finance.periodReadRefs).some(index => Object.values(finance.owning[index].monthly.currentMetricStates).some(available));
+  if (id === "history") return !!finance && Object.values(finance.owning[finance.periodReadRefs.yearAgo].monthly.currentMetricStates).some(available);
   if (id === "events") return !!workflow && workflow.items.length > 0;
   // Inspection/review operations are not import batches or n8n executions.
   if (id === "import_records") return false;
@@ -311,10 +364,12 @@ function decodeSections(value: unknown, sources: StorePanoramaResponse["sources"
   for (const key of panoramaSections) {
     const section = record(sections[key]);
     if (!enumValue(section.state, ["ready", "partial", "unavailable", "error"]) || !Array.isArray(section.sources) || !section.sources.length || section.sources.length > 6 || new Set(section.sources).size !== section.sources.length || !section.sources.every(s => panoramaSourceKeys.includes(s as PanoramaSourceKey)) || !Array.isArray(section.capabilities) || !section.capabilities.length || section.capabilities.length > 30) return reject("全景章节状态、来源或能力无效");
-    if (JSON.stringify(section.sources) !== JSON.stringify(panoramaSectionSources[key]) || section.capabilities.length !== panoramaCapabilityIds[key].length) return reject("全景章节引用或能力清单不符合固定八章合同");
+    const optional = panoramaOptionalCapabilityIds[key] ?? [];
+    if (JSON.stringify(section.sources) !== JSON.stringify(panoramaSectionSources[key]) || ![panoramaCapabilityIds[key].length, panoramaCapabilityIds[key].length + optional.length].includes(section.capabilities.length)) return reject("全景章节引用或能力清单不符合固定八章合同");
     const ids = new Set<string>();
     for (const raw of section.capabilities) { const capability = record(raw); if (!text(capability.id, 100) || ids.has(capability.id) || !enumValue(capability.status, ["available", "unavailable"]) || !text(capability.message) || capability.status === "available" && capability.reasonCode !== null || capability.status === "unavailable" && ![...metricReasons, "dependency_pending"].includes(capability.reasonCode as PanoramaReason)) return reject("全景能力状态须提供明确原因"); if (capability.status === "available" && !capabilityHasSource(key, capability.id, sources)) return reject("全景能力缺少其所属可信来源或字段证明"); ids.add(capability.id); }
     if (panoramaCapabilityIds[key].some(id => !ids.has(id))) return reject("全景能力清单缺少合同字段");
+    if ([...ids].some(id => !panoramaCapabilityIds[key].includes(id) && !optional.includes(id)) || optional.some(id => ids.has(id)) && optional.some(id => !ids.has(id))) return reject("全景可选能力必须完整声明且不得含未知字段");
     const states = section.sources.map(s => sources[s as PanoramaSourceKey].state);
     const expected = states.every(s => s === "ready") ? "ready" : states.some(s => s === "ready") ? "partial" : states.some(s => s === "error") ? "error" : "unavailable";
     if (section.state !== expected) return reject("全景章节状态与实际来源不一致");
@@ -346,7 +401,7 @@ export function decodeStorePanorama(value: unknown, params: URLSearchParams, rev
   }
   const sources: StorePanoramaResponse["sources"] = {
     products, productSeries, promotion,
-    sales: source(raw.sales, data => decodeSales(data, context, joined)),
+    sales: source(raw.sales, data => decodeSales(data, context, joined, request.tableScope.grain)),
     finance: source(raw.finance, data => decodeFinance(data, context, joined)),
     workflow: source(raw.workflow, data => decodeWorkflow(data, context, joined)),
   };

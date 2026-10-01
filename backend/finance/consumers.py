@@ -20,7 +20,7 @@ from .models import FinanceImportBatch, FinanceLine, FinanceTarget
 
 
 CONSUMER_OPERATIONS = frozenset(
-    {"line_search", "target_search", "import_batch_search"}
+    {"line_search", "target_search", "import_batch_search", "netshop_finance_read_v1"}
 )
 CONSUMER_BODY_MAX_BYTES = 64 * 1024
 JSON_CONTENT_TYPE_RE = re.compile(
@@ -70,6 +70,9 @@ def _integer(
 
 
 def validate_consumer_request(payload: dict[str, object]) -> dict[str, object]:
+    if payload.get("operation") == "netshop_finance_read_v1":
+        from .netshop_reads import validate_netshop_read
+        return validate_netshop_read(payload)
     if set(payload) != {"operation", "query", "offset", "limit"}:
         raise FinanceApiError("消费者查询字段不完整或包含未知字段。")
     operation = payload.get("operation")
@@ -246,6 +249,9 @@ def execute_consumer_query(
     principal: Principal, request: dict[str, object]
 ) -> dict[str, object]:
     operation = str(request["operation"])
+    if operation == "netshop_finance_read_v1":
+        from .netshop_reads import read_netshop_finance
+        return read_netshop_finance(principal, request)
     _access(principal, operation)
     if operation == "line_search":
         return _line_search(principal, request)
