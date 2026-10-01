@@ -31,14 +31,15 @@ function strings(value: unknown, maximum = 50, length = 500): string[] { if (!Ar
 function shopKeys(value: unknown): string[] { if (!Array.isArray(value) || value.length > 50 || !value.every(v => typeof v === "string")) return fail("店铺精确键无效"); readNetshopOutletFilters(value); if (new Set(value).size !== value.length) fail("店铺精确键重复"); return value; }
 function count(value: unknown, maximum = Number.MAX_SAFE_INTEGER): number { if (!Number.isSafeInteger(value) || Number(value) < 0 || Number(value) > maximum) return fail("对比计数无效"); return Number(value); }
 function token(value: unknown): value is string { return typeof value === "string" && /^[a-f0-9]{64}$/.test(value); }
+function enumValue(value: unknown, values: readonly string[]): value is string { return typeof value === "string" && values.includes(value); }
 export function decodeComparisonScope(value: unknown): ComparisonScope {
   const scope = object(value); exact(scope, ["schemaVersion", "mode", "metricSource", "category", "coverageFilter"]);
-  if (scope.schemaVersion !== "comparison-scope-v1" || !["shop", "platform"].includes(String(scope.mode)) || !["platform", "erp"].includes(String(scope.metricSource)) || !["all", "complete", "partial"].includes(String(scope.coverageFilter))) fail("对比模式或覆盖筛选无效");
+  if (scope.schemaVersion !== "comparison-scope-v1" || !enumValue(scope.mode, ["shop", "platform"]) || !enumValue(scope.metricSource, ["platform", "erp"]) || !enumValue(scope.coverageFilter, ["all", "complete", "partial"])) fail("对比模式或覆盖筛选无效");
   const category = object(scope.category);
   if (category.mode === "all" || category.mode === "unknown") exact(category, ["mode"]);
   else if (category.mode === "label_only") {
     exact(category, ["mode", "platform", "sourceId", "label", "evidenceVersion"]);
-    if (!["京东", "天猫"].includes(String(category.platform)) || !text(category.sourceId, 200) || !text(category.label, 120) || !text(category.evidenceVersion, 200)) fail("类目标签来源证据无效");
+    if (!enumValue(category.platform, ["京东", "天猫"]) || !text(category.sourceId, 200) || !text(category.label, 120) || !text(category.evidenceVersion, 200)) fail("类目标签来源证据无效");
   } else fail("当前尚不支持未经验证的类目ID");
   return scope as ComparisonScope;
 }
