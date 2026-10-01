@@ -54,6 +54,7 @@ from .summary import SALES_RANGES, get_sales_summary
 CONSUMER_OPERATIONS = frozenset(
     {
         "analysis_records",
+        "netshop_periods_v1",
         "freshness",
         "summary",
         "inventory_demand",
@@ -314,6 +315,9 @@ def _resolved_outlets(
 
 def validate_consumer_request(payload: dict[str, object]) -> dict[str, object]:
     operation = payload.get("operation")
+    if operation == "netshop_periods_v1":
+        from .netshop_periods import validate_netshop_periods
+        return validate_netshop_periods(payload)
     if operation == "analysis_records":
         from .analysis import validate
         return validate(payload)
@@ -1240,6 +1244,9 @@ def execute_consumer_query(
     principal: Principal, request: dict[str, object]
 ) -> dict[str, object]:
     operation = str(request["operation"])
+    if operation == "netshop_periods_v1":
+        from .netshop_periods import read_netshop_periods
+        return read_netshop_periods(principal, request)
     if operation == "analysis_records":
         from .analysis import read_page
         return read_page(principal, request)

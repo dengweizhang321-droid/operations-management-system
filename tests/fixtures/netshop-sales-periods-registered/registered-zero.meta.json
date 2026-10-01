@@ -1,0 +1,23 @@
+{
+  "request": {
+    "operation": "netshop_periods_v1",
+    "current": {
+      "startDate": "2026-08-01",
+      "endExclusive": "2026-08-03"
+    },
+    "baseline": {
+      "startDate": "2026-07-01",
+      "endExclusive": "2026-08-01"
+    }
+  },
+  "headers": {
+    "Content-Type": "application/json",
+    "X-Sales-Data-Revision": "7:3",
+    "X-Sales-Source-Revision": "7:3",
+    "X-Sales-Overview-Cache": "bypass_owned_periods_v1",
+    "Cache-Control": "no-store"
+  },
+  "bytes": 7129,
+  "sha256": "4130e1dc89e83720f7b3b97d3026fa836d03d3b344ff8f30b9b137f282c7d922",
+  "dataSource": "actual_registered_signed_loopback_synthetic_pg"
+}

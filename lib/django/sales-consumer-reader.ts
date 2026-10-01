@@ -5,6 +5,7 @@ import {
   salesGatewayBodySha256,
 } from "@/lib/django/sales-gateway";
 import { PublicApiError } from "@/lib/http/api-error";
+import { validateSalesPeriodsRequest, decodeSalesPeriodsForRequest, type SalesPeriodsRpcRequest, type SalesPeriodsResponse } from "@/lib/netshop/sales-periods-contract";
 
 /**
  * Fixed internal contract for non-sales domains that need bounded sales facts.
@@ -14,6 +15,7 @@ import { PublicApiError } from "@/lib/http/api-error";
 export const SALES_CONSUMER_QUERY_PATH = "/api/sales/consumers/query";
 export const salesConsumerOperations = [
   "analysis_records",
+  "netshop_periods_v1",
   "freshness",
   "summary",
   "inventory_demand",
@@ -114,6 +116,7 @@ export type SalesProductAggregate = {
 };
 
 export type SalesConsumerRequestMap = {
+  netshop_periods_v1: SalesPeriodsRpcRequest;
   analysis_records: { operation: "analysis_records"; platform: string; shop: string; channel: string; startDate: string; endDate: string; window?: "current" | "previous" | "yearAgo"; limit?: number; cursor?: string };
   freshness: {
     operation: "freshness";
@@ -189,6 +192,7 @@ export type SalesConsumerRequestMap = {
 };
 
 export type SalesConsumerResponseMap = {
+  netshop_periods_v1: SalesPeriodsResponse;
   analysis_records: Record<string, unknown>;
   freshness: {
     dataStartDate: string | null;
@@ -424,6 +428,7 @@ function assertRequest(request: SalesConsumerRequest): void {
   if (!isRecord(request) || !isOperation(request.operation)) throw unavailable();
   const keys = new Set(Object.keys(request));
   const allowed: Record<SalesConsumerOperation, readonly string[]> = {
+    netshop_periods_v1: ["operation", "current", "baseline", "rawOutlets", "categories", "q", "page", "pageSize", "expectedRevision", "snapshotToken", "expiresAtEpochMs"],
     analysis_records: ["operation", "platform", "shop", "channel", "startDate", "endDate", "window", "limit", "cursor"],
     freshness: ["operation"],
     summary: ["operation", "range", "startDate", "endDate", "productQueries", "platforms", "outlets", "categories"],
@@ -438,6 +443,9 @@ function assertRequest(request: SalesConsumerRequest): void {
     category_options: ["operation", "limit"],
   };
   if ([...keys].some((key) => !allowed[request.operation].includes(key))) throw unavailable();
+  if (request.operation === "netshop_periods_v1") {
+    try { validateSalesPeriodsRequest(request, true); } catch { throw new PublicApiError(400, "invalid_request", "销售两期读取参数无效。"); }
+  }
 }
 
 function contentTypeIsJson(value: string | null): boolean {
@@ -456,9 +464,23 @@ export async function readDjangoSalesConsumer<R extends SalesConsumerRequest>(
   request: R,
   options: SalesConsumerReaderOptions = {},
 ): Promise<SalesConsumerReaderResult<R>> {
+  const started = performance.now();
+  const now = options.now ?? Date.now;
+  const epochStarted = now();
   assertRequest(request);
   const config = normalizeConfig(options.config ?? await loadConfig());
-  const body = encoder.encode(JSON.stringify(request));
+  const signedRequest = request.operation === "netshop_periods_v1"
+    ? { ...request, expiresAtEpochMs: Math.min(request.expiresAtEpochMs ?? Number.MAX_SAFE_INTEGER, Math.floor(epochStarted + config.timeoutMs)) }
+    : request;
+  const deadline = request.operation === "netshop_periods_v1" ? started + (signedRequest as SalesPeriodsRpcRequest).expiresAtEpochMs! - epochStarted : null;
+  const remainingTimeout = () => {
+    if (deadline === null) return config.timeoutMs;
+    const remaining = Math.min(deadline - performance.now(), (signedRequest as SalesPeriodsRpcRequest).expiresAtEpochMs! - now());
+    if (remaining <= 0) throw new PublicApiError(503, "service_unavailable", "销售两期读取共同期限已耗尽。");
+    return Math.max(1, Math.floor(remaining));
+  };
+  remainingTimeout();
+  const body = encoder.encode(JSON.stringify(signedRequest));
   if (body.byteLength > config.maxRequestBytes) throw unavailable();
   const bodySha256 = await salesGatewayBodySha256(body);
   const requestId = (options.requestId ?? (() => crypto.randomUUID()))();
@@ -474,6 +496,7 @@ export async function readDjangoSalesConsumer<R extends SalesConsumerRequest>(
     requestId,
   });
   headers.set("content-type", "application/json; charset=utf-8");
+  remainingTimeout();
 
   try {
     const { response, data } = await fetchBoundedJson({
@@ -484,9 +507,18 @@ export async function readDjangoSalesConsumer<R extends SalesConsumerRequest>(
         body,
         cache: "no-store",
       },
-      timeoutMs: config.timeoutMs,
-      maxBytes: config.maxResponseBytes,
-      fetcher: options.fetchImpl,
+      timeoutMs: remainingTimeout(),
+      maxBytes: request.operation === "netshop_periods_v1" ? Math.min(config.maxResponseBytes, 2 * 1024 * 1024) : config.maxResponseBytes,
+      fatalUtf8: request.operation === "netshop_periods_v1",
+      fetcher: request.operation === "netshop_periods_v1" ? async (input, init) => {
+        const response = await (options.fetchImpl ?? fetch)(input, init);
+        if (init?.signal?.aborted) { void response.body?.cancel().catch(() => undefined); throw init.signal.reason ?? new DOMException("读取已取消", "AbortError"); }
+        if ([401, 403, 409].includes(response.status)) {
+          void response.body?.cancel().catch(() => undefined);
+          throw new PublicApiError(response.status as 401 | 403 | 409, response.status === 409 ? "version_conflict" : "access_denied", response.status === 409 ? "销售来源版本已变化，请重新读取。" : "当前身份或范围无权读取销售数据。");
+        }
+        return response;
+      } : options.fetchImpl,
       signal: options.signal,
     });
     if (response.status < 200 || response.status >= 300 || !contentTypeIsJson(response.headers.get("content-type"))) {
@@ -494,12 +526,15 @@ export async function readDjangoSalesConsumer<R extends SalesConsumerRequest>(
     }
     const revision = readRevision(response.headers);
     if (!isRecord(data) || data.operation !== request.operation || !Object.hasOwn(data, "data")) throw unavailable();
+    if (request.operation === "netshop_periods_v1") decodeSalesPeriodsForRequest(data.data, signedRequest as SalesPeriodsRpcRequest, revision);
+    remainingTimeout();
     return {
       revision,
       data: data.data as SalesConsumerResponseMap[R["operation"]],
     };
   } catch (error) {
     if (error instanceof PublicApiError) throw error;
+    if (request.operation === "netshop_periods_v1" && error instanceof BoundedFetchError && error.code === "cancelled") throw new PublicApiError(499, "invalid_request", "销售读取已取消。");
     if (error instanceof BoundedFetchError) throw unavailable();
     throw unavailable();
   }

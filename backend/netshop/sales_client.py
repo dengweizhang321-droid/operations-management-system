@@ -4,6 +4,7 @@ import base64
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
 import time
@@ -92,8 +93,19 @@ def _principal_envelope(principal: Principal) -> str:
 
 
 def read_sales_consumer(
-    principal: Principal, payload: dict[str, object]
+    principal: Principal, payload: dict[str, object], *, deadline: float | None = None
 ) -> tuple[dict[str, object], str]:
+    def remaining_timeout():
+        if deadline is None:
+            return 8
+        if isinstance(deadline, bool) or not isinstance(deadline, (int, float)) or (isinstance(deadline, int) and abs(deadline) > 9_007_199_254_740_991) or not math.isfinite(deadline):
+            raise NetshopApiError("内部销售读取期限无效")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise NetshopApiError("销售读取共同期限已耗尽", code="source_not_ready", status=503)
+        return min(8, remaining)
+    remaining_timeout()
+    response_limit = min(MAX_RESPONSE_BYTES, 2 * 1024 * 1024) if payload.get("operation") == "netshop_periods_v1" else MAX_RESPONSE_BYTES
     secret = os.getenv("TERUISI_DJANGO_INTERNAL_SECRET", "")
     if len(secret.encode("utf-8")) < 32:
         raise _unavailable()
@@ -134,13 +146,33 @@ def read_sales_consumer(
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=8) as response:
+        with urllib.request.urlopen(request, timeout=remaining_timeout()) as response:
+            remaining_timeout()
             declared = response.headers.get("Content-Length")
-            if declared and int(declared) > MAX_RESPONSE_BYTES:
+            if declared and int(declared) > response_limit:
                 raise _unavailable()
-            raw = response.read(MAX_RESPONSE_BYTES + 1)
-            if len(raw) > MAX_RESPONSE_BYTES:
+            if deadline is None:
+                raw = response.read(response_limit + 1)
+            else:
+                chunks, total = [], 0
+                reader = getattr(response, "read1", None) or response.read
+                while True:
+                    timeout = remaining_timeout()
+                    sock = getattr(getattr(getattr(response, "fp", None), "raw", None), "_sock", None)
+                    if sock is not None:
+                        sock.settimeout(timeout)
+                    chunk = reader(min(32768, response_limit + 1 - total))
+                    remaining_timeout()
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    total += len(chunk)
+                    if total > response_limit:
+                        raise _unavailable()
+                raw = b"".join(chunks)
+            if len(raw) > response_limit:
                 raise _unavailable()
+            remaining_timeout()
             content_type = response.headers.get("Content-Type", "")
             revision = response.headers.get("X-Sales-Data-Revision", "")
             if not re.match(r"^application/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|$)", content_type, re.I):
@@ -148,6 +180,7 @@ def read_sales_consumer(
             if not REVISION_RE.fullmatch(revision):
                 raise _unavailable()
             value = json.loads(raw.decode("utf-8"))
+            remaining_timeout()
     except urllib.error.HTTPError as error:
         if error.code in {401, 403}:
             raise NetshopApiError(
@@ -155,6 +188,8 @@ def read_sales_consumer(
                 code="access_denied",
                 status=error.code,
             ) from None
+        if error.code == 409 and payload.get("operation") == "netshop_periods_v1":
+            raise NetshopApiError("销售来源版本已变化", code="sales_periods_revision_changed", status=409) from None
         raise _unavailable() from error
     except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
         raise _unavailable() from error
@@ -163,6 +198,7 @@ def read_sales_consumer(
     data = value.get("data")
     if not isinstance(data, dict):
         raise _unavailable()
+    remaining_timeout()
     return data, revision
 
 
