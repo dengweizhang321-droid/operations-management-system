@@ -68,6 +68,14 @@ env.update(
     TERUISI_DJANGO_PROCESS_ROLE="development", DJANGO_DEBUG="true",
     TERUISI_DJANGO_DATABASE_URL=f"postgresql://panorama_ui_fixture:{password}@127.0.0.1:{PG_PORT}/panorama_ui_fixture",
 )
+# Explicitly block any later owning adapter's loopback-default fallback. This
+# bound, non-listening private port cannot be taken by a production service.
+upstream_guard = socket.socket()
+upstream_guard.bind(("127.0.0.1", 0))
+blocked_upstream_port = upstream_guard.getsockname()[1]
+for domain in ("SALES", "FINANCE", "WORKFLOW", "INVENTORY", "ERP_REFERENCE", "PRODUCTS", "NETSHOP", "MARKET", "BI", "ACCESS_CONTROL"):
+    for suffix in ("READER_BASE_URL", "BASE_URL"):
+        env[f"TERUISI_DJANGO_{domain}_{suffix}"] = f"http://127.0.0.1:{blocked_upstream_port}"
 steps, started, server, request_log = [], False, None, None
 log_lock, control_lock = threading.Lock(), threading.Lock()
 controls = {"sourceFailure": None, "delayShop": None, "delayMilliseconds": 0}
@@ -111,7 +119,7 @@ try:
     from access_control.models import AppUser
     from netshop.errors import NetshopApiError
     from netshop.models import NetshopDataRevision
-    from netshop.insights_common import read_context, validate_context
+    from netshop.insights_common import actor_fence, read_context, validate_context
     from netshop.product_insights import ALL_FIELDS, read_product_insights, read_product_detail, validate_product_query
     from netshop.promotion_insights import read_promotion_insights, read_promotion_detail
     from netshop import store_panorama
@@ -182,6 +190,7 @@ try:
                     "root": str(ROOT), "seededBatches": owner.counter, "productsPerStore": 18, "advertisementObjectsPerStore": 3,
                     "stores": [{"platform": p, "shopName": s} for p, s, _ in STORES], "periods": [m + "-01 through " + m + "-07" for m, _ in periods],
                     "readerPort": HTTP_PORT, "privatePgPort": PG_PORT, "fixtureActor": EMAIL, "role": "admin", "scope": None,
+                    "crossDomainUpstreams": "disabled bound non-listening private port; no runtime fallback", "blockedUpstreamPort": blocked_upstream_port,
                     "faultInjectionControls": ["source-failure", "delay"], "lifetimeSeconds": args.timeout_seconds,
                     "sourceSha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}})
     connections.close_all()
@@ -238,6 +247,8 @@ try:
                     time.sleep(snapshot["delayMilliseconds"] / 1000)
                 user = AppUser.objects.get(email=EMAIL)
                 principal = Principal(user.email, user.display_name, user.role_id, user.scope)
+                # Fault injection must never hide a real disabled-actor 403.
+                actor_fence(principal)
                 if parts.path == "/api/netshop/store-panorama":
                     value = store_panorama.read_store_panorama(principal, params)
                 elif parts.path == "/api/netshop/insights-context":
@@ -338,6 +349,7 @@ finally:
         if started or (RUN / "data/postmaster.pid").exists():
             run([BIN / "pg_ctl.exe", "-D", RUN / "data", "-m", "fast", "-w", "-t", "30", "stop"], "stop", 45)
     finally:
+        upstream_guard.close()
         exclusive_json("result.json", {"fixture": FIXTURE, "root": str(ROOT), "privatePgPort": PG_PORT, "runtime": str(RUN), "pgStarted": started,
                        "normalStop": any(s["step"] == "stop" and s["exitCode"] == 0 for s in steps), "steps": steps})
         print("Private panorama UI fixture stopped; evidence " + str(EVIDENCE), flush=True)
