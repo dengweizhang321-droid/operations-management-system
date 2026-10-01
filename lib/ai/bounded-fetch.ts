@@ -18,6 +18,8 @@ export async function fetchBoundedJson(input: {
   maxBytes?: number;
   fetcher?: typeof fetch;
   signal?: AbortSignal;
+  /** Internal fact readers may require lossless UTF-8; legacy callers keep their default. */
+  fatalUtf8?: boolean;
 }): Promise<{ response: Response; data: unknown; responseBytes: number }> {
   const controller = new AbortController();
   const externalSignal = input.signal ?? input.init.signal ?? undefined;
@@ -50,7 +52,7 @@ export async function fetchBoundedJson(input: {
     bodyConsumed = true;
     if (bytes.byteLength === 0) return { response, data: null, responseBytes: 0 };
     try {
-      return { response, data: JSON.parse(new TextDecoder().decode(bytes)) as unknown, responseBytes: bytes.byteLength };
+      return { response, data: JSON.parse(new TextDecoder("utf-8", { fatal: input.fatalUtf8 === true }).decode(bytes)) as unknown, responseBytes: bytes.byteLength };
     } catch {
       return { response, data: null, responseBytes: bytes.byteLength };
     }
