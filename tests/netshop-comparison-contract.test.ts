@@ -139,7 +139,7 @@ test("one front-end deadline includes JSON parsing and strict envelope validatio
   Object.defineProperty(globalThis, "performance", { configurable: true, value: { now: () => clock } });
   try {
     const body = JSON.stringify(successful.response);
-    JSON.parse = ((text: string) => { const value = parse(text); clock = 90_001; return value; }) as typeof JSON.parse;
+    JSON.parse = ((text: string) => { const value = parse(text); if (value?.schemaVersion === "netshop-comparison-v1") clock = 90_001; return value; }) as typeof JSON.parse;
     await assert.rejects(loadComparisonInsights(new URLSearchParams(successful.request.query), new AbortController().signal, fetchResponse(new Response(body, { headers: { "X-Netshop-Data-Revision": successful.request.headerRevision } }))), (e: unknown) => e instanceof InsightReadError && e.code === "source_not_ready");
   } finally { JSON.parse = parse; Object.defineProperty(globalThis, "performance", descriptor); }
 });
