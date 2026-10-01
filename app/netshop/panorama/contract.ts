@@ -8,7 +8,7 @@ import { isNetshopIsoDate, NetshopQueryError } from "@/lib/netshop/query-contrac
 import { decodeProductInsights, ProductResponseError, type ProductInsightsResponse } from "../products/contract";
 import { decodePromotionInsightsForQuery, type PromotionInsightsResponse } from "@/lib/netshop/promotion-insights-contract";
 import { decodeProductScopeSeries, restoreProductScopeSeriesMetric, productSeriesColumns, type ProductScopeSeries } from "@/lib/netshop/product-scope-series-contract";
-import { decodeSalesPeriodsForRequest, type RawSalesIdentity, type SalesPeriodsResponse } from "@/lib/netshop/sales-periods-contract";
+import { decodeSalesPeriodsForRequest, restoreSalesPeriodSeriesPoint, type RawSalesIdentity, type SalesPeriodsResponse } from "@/lib/netshop/sales-periods-contract";
 
 export const PANORAMA_SCHEMA = "netshop-store-panorama-v1" as const;
 export const panoramaSections = ["performance", "traffic", "products", "promotion", "margin", "customers", "targets", "dataQuality"] as const;
@@ -43,6 +43,8 @@ export const panoramaCapabilityIds: Record<PanoramaSectionKey, readonly string[]
   targets: ["annual_target", "finance_month", "history", "events"],
   dataQuality: ["coverage", "field_availability", "source_freshness", "mapping", "comparability", "import_records"],
 };
+/** Additive native ERP series support; historical v1 captures retain their original capability list. */
+const panoramaOptionalCapabilityIds: Partial<Record<PanoramaSectionKey, readonly string[]>> = { performance: ["erp_trend", "erp_detail"] };
 export type PanoramaScope = {
   platform: "京东" | "天猫"; shopName: string;
   startDate: string; endDate: string;
@@ -220,7 +222,7 @@ function crossBase(value: unknown, schema: string, domain: string, context: Insi
   if (!own.size || [...own.values()].some(r => r.domain !== domain)) return reject("跨域来源不能冒充其他域修订");
   includeRevisions(joined, [...own.values()]); strings(data.limitations); return data;
 }
-function decodeSales(value: unknown, context: InsightsContext, joined: Map<string, SourceRevision>): PanoramaSalesData {
+function decodeSales(value: unknown, context: InsightsContext, joined: Map<string, SourceRevision>, grain: "day" | "week" | "month"): PanoramaSalesData {
   const data = crossBase(value, "netshop-panorama-sales-v1", "sales", context, joined), periods = record(data.periods), pairs = record(data.comparisons);
   if (data.channel !== null && !text(data.channel, 200)) return reject("ERP渠道来源无效");
   if (!Array.isArray(data.rawOutlets) || !data.rawOutlets.length || data.rawOutlets.length > 50) return reject("ERP必须返回经拥有方解析的精确原始三元组");
@@ -232,9 +234,11 @@ function decodeSales(value: unknown, context: InsightsContext, joined: Map<strin
     if (owning[kind] === null) return reject("已支持的ERP基期缺少完整拥有方信封");
     const envelope = record(owning[kind]), refs = revisions(envelope.sourceRevisions);
     const revision = [...refs.values()].find(r => r.domain === "sales" && r.kind === "sales_erp_revision_pair")?.revision ?? null;
-    const body = decodeSalesPeriodsForRequest(envelope, { operation: "netshop_periods_v1", current: { startDate: context.periods.current.startDate, endExclusive: context.periods.current.endExclusive }, baseline: { startDate: context.periods[kind].startDate, endExclusive: context.periods[kind].endExclusive }, rawOutlets: data.rawOutlets as RawSalesIdentity[], q: "", page: 1, pageSize: 20 }, revision);
+    const hasSeries = Object.hasOwn(envelope, "series");
+    const body = decodeSalesPeriodsForRequest(envelope, { operation: "netshop_periods_v1", current: { startDate: context.periods.current.startDate, endExclusive: context.periods.current.endExclusive }, baseline: { startDate: context.periods[kind].startDate, endExclusive: context.periods[kind].endExclusive }, rawOutlets: data.rawOutlets as RawSalesIdentity[], q: "", page: 1, pageSize: 20, ...(hasSeries ? { seriesGrain: grain, seriesOutlets: data.rawOutlets as RawSalesIdentity[] } : {}) }, revision);
     if (body.requestedScope.rawOutlets.some(r => r.platform !== context.effectiveScope.platforms[0])) return reject("ERP原始平台不是全景平台");
     if (previous && (previous.sourceRevisions[0].revision !== body.sourceRevisions[0].revision || JSON.stringify(previous.periodTotals.current) !== JSON.stringify(body.periodTotals.current))) throw new PanoramaResponseError(409, "insights_revision_changed", "ERP两次本期信封修订或事实不一致");
+    if (previous?.series && body.series && JSON.stringify(previous.series.items.map(item => ({ identity: item.identity, current: item.current }))) !== JSON.stringify(body.series.items.map(item => ({ identity: item.identity, current: item.current })))) throw new PanoramaResponseError(409, "insights_revision_changed", "ERP两次本期序列事实不一致");
     decodedOwners[kind] = body; previous = body; expectedRefs.push(...body.sourceRevisions);
   }
   const uniqueExpected = new Map(expectedRefs.map(ref => [JSON.stringify([ref.domain, ref.kind, ref.scopeKey]), ref]));
@@ -303,6 +307,7 @@ function capabilityHasSource(section: PanoramaSectionKey, id: string, sources: S
   if (id === "visitor_value") return available(p?.efficiency.visitorValue);
   if (id === "platform_trend" || id === "traffic_trend") return !!series && series.series.current.some(point => available(restoreProductScopeSeriesMetric(series, point, id === "platform_trend" ? "payment" : "visitors")));
   if (id === "platform_day_detail") return !!series && series.series.current.some(point => productSeriesColumns.some(column => ["available", "partial"].includes(restoreProductScopeSeriesMetric(series, point, column).status)));
+  if (id === "erp_trend" || id === "erp_detail") return !!sales && [sales.owning.previous, sales.owning.yearAgo].some(owner => owner?.series?.items.some(item => item.current.some(point => restoreSalesPeriodSeriesPoint(point).facts.rowPresence)));
   if (id === "product_changes" || id === "growth_decline") return p?.growth.state === "ready" && available(p.comparisons.payment.previous);
   if (id === "traded_products") return available(p?.counts.tradedProducts);
   if (id === "category_contribution") return available(p?.structure.denominator);
@@ -327,10 +332,12 @@ function decodeSections(value: unknown, sources: StorePanoramaResponse["sources"
   for (const key of panoramaSections) {
     const section = record(sections[key]);
     if (!enumValue(section.state, ["ready", "partial", "unavailable", "error"]) || !Array.isArray(section.sources) || !section.sources.length || section.sources.length > 6 || new Set(section.sources).size !== section.sources.length || !section.sources.every(s => panoramaSourceKeys.includes(s as PanoramaSourceKey)) || !Array.isArray(section.capabilities) || !section.capabilities.length || section.capabilities.length > 30) return reject("全景章节状态、来源或能力无效");
-    if (JSON.stringify(section.sources) !== JSON.stringify(panoramaSectionSources[key]) || section.capabilities.length !== panoramaCapabilityIds[key].length) return reject("全景章节引用或能力清单不符合固定八章合同");
+    const optional = panoramaOptionalCapabilityIds[key] ?? [];
+    if (JSON.stringify(section.sources) !== JSON.stringify(panoramaSectionSources[key]) || ![panoramaCapabilityIds[key].length, panoramaCapabilityIds[key].length + optional.length].includes(section.capabilities.length)) return reject("全景章节引用或能力清单不符合固定八章合同");
     const ids = new Set<string>();
     for (const raw of section.capabilities) { const capability = record(raw); if (!text(capability.id, 100) || ids.has(capability.id) || !enumValue(capability.status, ["available", "unavailable"]) || !text(capability.message) || capability.status === "available" && capability.reasonCode !== null || capability.status === "unavailable" && ![...metricReasons, "dependency_pending"].includes(capability.reasonCode as PanoramaReason)) return reject("全景能力状态须提供明确原因"); if (capability.status === "available" && !capabilityHasSource(key, capability.id, sources)) return reject("全景能力缺少其所属可信来源或字段证明"); ids.add(capability.id); }
     if (panoramaCapabilityIds[key].some(id => !ids.has(id))) return reject("全景能力清单缺少合同字段");
+    if ([...ids].some(id => !panoramaCapabilityIds[key].includes(id) && !optional.includes(id)) || optional.some(id => ids.has(id)) && optional.some(id => !ids.has(id))) return reject("全景可选能力必须完整声明且不得含未知字段");
     const states = section.sources.map(s => sources[s as PanoramaSourceKey].state);
     const expected = states.every(s => s === "ready") ? "ready" : states.some(s => s === "ready") ? "partial" : states.some(s => s === "error") ? "error" : "unavailable";
     if (section.state !== expected) return reject("全景章节状态与实际来源不一致");
@@ -362,7 +369,7 @@ export function decodeStorePanorama(value: unknown, params: URLSearchParams, rev
   }
   const sources: StorePanoramaResponse["sources"] = {
     products, productSeries, promotion,
-    sales: source(raw.sales, data => decodeSales(data, context, joined)),
+    sales: source(raw.sales, data => decodeSales(data, context, joined, request.tableScope.grain)),
     finance: source(raw.finance, data => decodeFinance(data, context, joined)),
     workflow: source(raw.workflow, data => decodeWorkflow(data, context, joined)),
   };
