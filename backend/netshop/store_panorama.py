@@ -20,6 +20,7 @@ from . import product_insights, promotion_insights
 from .product_scope_series import read_product_scope_series
 from .panorama_workflow_client import read_panorama_workflow, verify_panorama_workflow
 from .panorama_sales_client import resolve_panorama_sales, read_panorama_sales, verify_panorama_sales
+from sales.netshop_period_series import restore_period_point
 
 SCHEMA_VERSION = "netshop-store-panorama-v1"
 READER_SECONDS = 65
@@ -35,7 +36,7 @@ SECTION_SOURCES = {
     "dataQuality": ["products", "productSeries", "promotion", "sales", "finance", "workflow"],
 }
 CAPABILITY_IDS = {
-    "performance": ["platform_payment", "platform_quantity", "erp_net_sales", "orders", "order_average_value", "order_margin", "large_margin_rate", "platform_refund", "product_changes", "platform_trend", "platform_day_detail"],
+    "performance": ["platform_payment", "platform_quantity", "erp_net_sales", "orders", "order_average_value", "order_margin", "large_margin_rate", "platform_refund", "product_changes", "platform_trend", "platform_day_detail", "erp_trend", "erp_detail"],
     "traffic": ["page_views", "visitors", "customers", "conversion", "visitor_value", "favorites", "add_cart_customers", "add_cart_quantity", "order_customers", "order_quantity", "order_payment", "transaction_orders", "search_impressions", "search_clicks", "search_click_rate", "search_visitors", "search_customers", "stay_time", "bounce_rate", "traffic_trend"],
     "products": ["traded_products", "category_contribution", "top_concentration", "growth_decline", "product_detail", "inventory"],
     "promotion": ["spend", "attributed_payment", "roas", "cpc", "spend_rate", "trend", "distribution", "promotion_detail"],
@@ -177,12 +178,12 @@ def _workflow_scope(context):
     return {"platform": platform, "shopName": shop, "startDate": window["startDate"], "endDate": window["endDate"]}
 
 
-def _sales_source(principal, context, deadline):
+def _sales_source(principal, context, deadline, grain):
     if resolve_panorama_sales(context) is None:
         return {"state": "unavailable", "data": None, "reasonCode": "unverified_source", "message": "该店尚无已核验的ERP原始店铺和明确渠道映射，不猜店或读取全域"}
     if context["periods"]["previous"]["days"] > 366:
         return {"state": "unavailable", "data": None, "reasonCode": "not_applicable", "message": "ERP实际基期超过所属366日上限，不截日或缩到最新记录"}
-    return _read_source(lambda: read_panorama_sales(principal, context, deadline=deadline), deadline)
+    return _read_source(lambda: read_panorama_sales(principal, context, deadline=deadline, grain=grain), deadline)
 
 
 def _read_source(loader, deadline):
@@ -337,6 +338,11 @@ def _sections(sources, context):
             elif identifier in sales_metrics and sales:
                 metric = sales["periods"]["current"]["metrics"].get(sales_metrics[identifier])
                 message = "ERP已导入记录范围及原生单位；observations不证明店日完整，成本/历史毛利未核验"
+            elif identifier in {"erp_trend", "erp_detail"} and sales:
+                available = any(restore_period_point(point)["facts"]["rowPresence"] for body in sales["owning"].values() if body is not None and "series" in body
+                                for item in body["series"]["items"] for point in item["current"])
+                reason = "no_records"
+                message = "所属原生ERP序列；已导入业务日期记录、原数量/订单单位，不是全店结算或商品日排行"
             if "ready" not in states:
                 metric, available = None, False
                 reason = "dependency_pending" if state == "unavailable" else "unverified_source"
@@ -356,7 +362,7 @@ def read_store_panorama(principal, params: QueryDict):
             "products": _read_source(lambda: _read_products(principal, _products_query(params, table), deadline), deadline),
             "productSeries": _read_source(lambda: _read_series(principal, params, table["grain"], deadline), deadline),
             "promotion": _read_source(lambda: _read_promotion(principal, _promotion_query(params, spec["platforms"][0], table["grain"]), deadline), deadline),
-            "sales": _sales_source(principal, context, deadline),
+            "sales": _sales_source(principal, context, deadline, table["grain"]),
             "finance": _pending("单店月财报及年度目标consumer尚待财务所属服务验收接线"),
             "workflow": _read_source(lambda: read_panorama_workflow(principal, _workflow_scope(context), deadline=deadline), deadline),
         }
