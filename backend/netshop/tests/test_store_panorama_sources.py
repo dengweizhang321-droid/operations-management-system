@@ -13,13 +13,15 @@ import urllib.request
 from unittest.mock import patch
 from urllib.parse import urlencode
 
-from django.db import connections, transaction
+from django.db import connection, connections, transaction
 from django.db.models import F
 from django.http import QueryDict
 from django.test import override_settings
 from django.urls import path
 
 from access_control.models import AppUser
+from finance import views as finance_views
+from finance.errors import FinanceApiError
 from netshop import panorama_finance_client as finance_bridge
 from netshop import finance_netshop_client as native_finance
 from netshop import store_panorama as panorama
@@ -106,7 +108,7 @@ class RealPanoramaAllSourcesTests(PanoramaRegisteredFixture):
     def read(self):
         return panorama.read_store_panorama(self.principal, QueryDict(urlencode(self.query)))
 
-    def get_http(self, endpoint, query, name):
+    def get_http(self, endpoint, query, name, *, evidence_metadata=None):
         url = self.live_server_url + endpoint + "?" + urlencode(query)
         headers = signed_headers(url, role=self.principal.role, email=self.email, scope=self.principal.scope)
         with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=65) as response:
@@ -120,7 +122,7 @@ class RealPanoramaAllSourcesTests(PanoramaRegisteredFixture):
             metadata={"responseStatus": status, "responseHeaders": response_headers, "privateHttpPort": self.server_thread.port,
                       "freshSeedSha256": self.seed_hash, "requestPrincipalRole": self.principal.role, "requestPrincipalScope": self.principal.scope,
                       "nativeDomainReaders": [self.live_server_url + p for p in ("/api/sales/consumers/query", "/api/finance/consumers/query", "/api/workflow/operations-records")],
-                      "privateSRouteBinding": endpoint == S_PATH})
+                      "privateSRouteBinding": endpoint == S_PATH, **(evidence_metadata or {})})
         return body
 
     def test_all_six_original_sources_and_independent_native_topics_details(self):
@@ -265,3 +267,113 @@ class RealPanoramaAllSourcesTests(PanoramaRegisteredFixture):
         with patch.object(panorama, "verify_panorama_finance", side_effect=advance), self.assertRaises(NetshopApiError) as raised:
             self.read()
         self.assertEqual((raised.exception.status, raised.exception.code), (409, "insights_revision_changed"))
+
+    def final_finance_fault(self, status, calls):
+        """Runtime failure of a real final POST, after all initial SQL reads."""
+        actual = finance_views.execute_consumer_query
+        def execute(principal, request):
+            phase = "final" if "snapshotToken" in request else "initial"
+            calls.append({"phase": phase, "months": request["months"], "year": request["year"],
+                          "expectedRevision": request.get("expectedRevision"), "snapshotTokenPresent": "snapshotToken" in request})
+            if phase == "final":
+                raise FinanceApiError("synthetic final consumer runtime fault", status=status,
+                                      code="service_unavailable" if status == 503 else "access_denied" if status in {401, 403} else "insights_revision_changed")
+            return actual(principal, request)
+        return patch.object(finance_views, "execute_consumer_query", side_effect=execute)
+
+    def assert_source_facts_equal(self, actual, prior):
+        # Owning readers issue a fresh correlation requestId per read. Compare
+        # every other field recursively without changing either response/copy.
+        def facts(value):
+            if isinstance(value, dict):
+                return {key: facts(item) for key, item in value.items() if key != "requestId"}
+            if isinstance(value, list):
+                return [facts(item) for item in value]
+            return value
+        self.assertEqual(facts(actual), facts(prior))
+
+    def test_real_finance_final_http_503_downgrades_only_finance_and_rebuilds_s(self):
+        healthy = self.read()
+        calls = []
+        with self.final_finance_fault(503, calls):
+            result = self.get_http(S_PATH, self.query, "response-final-finance-503", evidence_metadata={
+                "faultInjection": True, "faultPhase": "final-owning-snapshot-post", "injectedHttpStatus": 503, "nativeRequests": calls})
+        self.assertEqual([call["phase"] for call in calls], ["initial"] * 3 + ["final"])
+        self.assertEqual(result["sources"]["finance"], {"state": "error", "data": None, "code": "service_unavailable",
+                         "message": "所属只读来源暂时不可用；其他已核验章节仍可查看"})
+        for key in ("products", "productSeries", "promotion", "sales", "workflow"):
+            self.assertEqual(result["sources"][key]["state"], "ready")
+            self.assert_source_facts_equal(result["sources"][key]["data"], healthy["sources"][key]["data"])
+        self.assertFalse(any(ref["domain"] == "finance" for ref in result["joinedSourceRevisions"]))
+        self.assertEqual({ref["domain"] for ref in result["joinedSourceRevisions"]}, {"netshop", "sales", "workflow"})
+        self.assertNotEqual(result["sectionToken"], healthy["sectionToken"])
+        self.assertEqual(set(result["sections"]), set(panorama.SECTION_KEYS))
+        self.assertEqual(result["sections"]["targets"]["state"], "partial")
+        self.assertEqual(result["sections"]["dataQuality"]["state"], "partial")
+        self.assertEqual(result["sections"]["performance"]["state"], "ready")
+        caps = {cap["id"]: cap for cap in result["sections"]["targets"]["capabilities"]}
+        for key in ("annual_target", "finance_month", "history"):
+            self.assertEqual(caps[key]["status"], "unavailable")
+        self.assertEqual(caps["events"]["status"], "available")
+
+    def test_real_final_workflow_sql_error_rolls_back_before_sales_and_finance_reads(self):
+        healthy = self.read()
+        actual_sales, sql_after, verified = panorama.verify_panorama_sales, [], []
+        def fail_workflow(*_args, **_kwargs):
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1/0 /* synthetic final Workflow DB fault */")
+        def verify_sales(*args, **kwargs):
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 42 /* actual next owner read after rollback */")
+                sql_after.append(cursor.fetchone()[0])
+            result = actual_sales(*args, **kwargs)
+            verified.append("sales")
+            return result
+        with patch.object(panorama, "verify_panorama_workflow", side_effect=fail_workflow), \
+                patch.object(panorama, "verify_panorama_sales", side_effect=verify_sales):
+            result = self.read()
+        self.assertEqual(sql_after, [42])
+        self.assertEqual(verified, ["sales"])
+        self.assertEqual(result["sources"]["workflow"]["state"], "error")
+        self.assertIsNone(result["sources"]["workflow"]["data"])
+        for key in ("products", "productSeries", "promotion", "sales", "finance"):
+            self.assertEqual(result["sources"][key]["state"], "ready")
+            self.assert_source_facts_equal(result["sources"][key]["data"], healthy["sources"][key]["data"])
+        self.assertFalse(any(ref["domain"] == "workflow" for ref in result["joinedSourceRevisions"]))
+        self.assertNotEqual(result["sectionToken"], healthy["sectionToken"])
+        capture("response-final-workflow-db-error", result, request={"method": "service", "query": self.query},
+                metadata={"faultInjection": True, "faultPhase": "final-workflow-verify", "actualFaultSql": "SELECT 1/0",
+                          "nextOwnerSqlValue": 42, "actualNextNativeOwnerVerified": "sales"})
+
+    def test_registered_final_finance_401_403_409_remain_global_rejections(self):
+        for status in (401, 403, 409):
+            calls = []
+            with self.subTest(status=status), self.final_finance_fault(status, calls), self.assertRaises(NetshopApiError) as raised:
+                self.read()
+            self.assertEqual(raised.exception.status, status)
+            self.assertEqual([call["phase"] for call in calls], ["initial"] * 3 + ["final"])
+
+    def test_parent_deadline_expiry_during_final_verify_stops_later_owners_globally(self):
+        clock, actual, completed = [100.0], panorama.verify_panorama_workflow, []
+        def expire(*args, **kwargs):
+            result = actual(*args, **kwargs)
+            completed.append("workflow")
+            clock[0] = 166.0
+            return result
+        with patch("netshop.store_panorama.time.monotonic", side_effect=lambda: clock[0]), \
+                patch.object(panorama, "verify_panorama_workflow", side_effect=expire), \
+                patch.object(panorama, "verify_panorama_sales") as sales, \
+                patch.object(panorama, "verify_panorama_finance") as finance, self.assertRaises(NetshopApiError) as raised:
+            self.read()
+        self.assertEqual((raised.exception.status, raised.exception.code), (503, "source_not_ready"))
+        self.assertEqual(completed, ["workflow"])
+        sales.assert_not_called()
+        finance.assert_not_called()
+
+    def test_final_interruption_remains_global_and_prevents_later_owner_reads(self):
+        with patch.object(panorama, "verify_panorama_workflow", side_effect=InterruptedError("synthetic cancellation")), \
+                patch.object(panorama, "verify_panorama_sales") as sales, \
+                patch.object(panorama, "verify_panorama_finance") as finance, self.assertRaises(InterruptedError):
+            self.read()
+        sales.assert_not_called()
+        finance.assert_not_called()
