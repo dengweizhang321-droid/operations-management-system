@@ -121,12 +121,14 @@ def _period(value, window):
 def _decode_response(data, revision, spec):
     if type(revision) is not str or not PAIR_RE.fullmatch(revision) or any(int(item) > MAX_SAFE for item in revision.split(":")):
         _invalid("跨域销售响应头不是所属整数pair")
-    intent = {"grain":spec["seriesGrain"],"rawOutlets":spec["seriesOutlets"]} if "seriesGrain" in spec else None
-    data = _object(data, ("schemaVersion", "operation", "scopeKey", "snapshotToken", "requestedScope", "scopeMode", "periods", "periodTotals", "items", "candidatePagination", "latestRelevantBatch", "sourceRevisions", "metricSemantics", "metricMetadata",*(("series",) if intent else ())))
+    intent = {"grain":spec["seriesGrain"],"rawOutlets":spec["seriesOutlets"]} if "seriesOutlets" in spec else None
+    platform_intent={"grain":spec["seriesGrain"],"platformNames":spec["seriesPlatforms"]} if "seriesPlatforms" in spec else None
+    data = _object(data, ("schemaVersion", "operation", "scopeKey", "snapshotToken", "requestedScope", "scopeMode", "periods", "periodTotals", "items", "candidatePagination", "latestRelevantBatch", "sourceRevisions", "metricSemantics", "metricMetadata",*(("series",) if intent else ()),*(("platformSeries",) if platform_intent else ())))
     if not _enum(data["schemaVersion"], (SCHEMA,)) or not _enum(data["operation"], (OPERATION,)) or not _token(data["scopeKey"]) or not _token(data["snapshotToken"]) or not _enum(data["scopeMode"], ("restricted", "unrestricted")):
         _invalid("跨域销售协议、token或授权模式无效")
-    scope = _object(data["requestedScope"], ("current", "baseline", "rawOutlets", "categories",*(("seriesIntent",) if intent else ())))
+    scope = _object(data["requestedScope"], ("current", "baseline", "rawOutlets", "categories",*(("seriesIntent",) if intent else ()),*(("platformSeriesIntent",) if platform_intent else ())))
     if intent and scope["seriesIntent"] != intent: _invalid("图形选择意图不属于原始请求")
+    if platform_intent and scope["platformSeriesIntent"]!=platform_intent:_invalid("平台选择意图不属于原始请求")
     for kind in ("current", "baseline"): _window(scope[kind], spec[kind])
     if type(scope["rawOutlets"]) is not list or len(scope["rawOutlets"]) > 50 or sorted((_identity(row, True) for row in scope["rawOutlets"]), key=_identity_order) != spec["rawOutlets"] or type(scope["categories"]) is not list or scope["categories"] != spec["categories"] or any(not _text(value, 200) for value in scope["categories"]):
         _invalid("跨域销售响应范围不属于原始身份/来源标签请求")
@@ -167,6 +169,44 @@ def _decode_response(data, revision, spec):
         actual = _object(metadata[name], expected)
         if any(not _enum(actual[key], (value,)) for key, value in expected.items()): _invalid("跨域销售成本证据或原生单位不得冒充已验证")
     if intent: _decode_series(data["series"], intent, data, spec)
+    if platform_intent:_decode_platform_series(data["platformSeries"],platform_intent,data,spec)
+
+
+def _decode_platform_series(value,intent,parent,spec):
+    from sales.netshop_platform_series import PLATFORM_SERIES_SCHEMA,PLATFORM_BASIS
+    from sales.netshop_period_series import SERIES_PROJECTION,WINDOW_COLUMNS,POINT_COLUMNS,period_buckets,restore_period_point
+    dto=_object(value,("schemaVersion","projection","windowColumns","metricColumns","pointColumns","scopeKey","intent","periods","basis","metricMetadata","sourceRevisions","items"))
+    if not _enum(dto["schemaVersion"],(PLATFORM_SERIES_SCHEMA,)) or not _enum(dto["projection"],(SERIES_PROJECTION,)) or dto["windowColumns"]!=WINDOW_COLUMNS or dto["metricColumns"]!=list(METRICS) or dto["pointColumns"]!=POINT_COLUMNS or dto["scopeKey"]!=parent["scopeKey"] or type(dto["scopeKey"])is not str or dto["intent"]!=intent:_invalid("平台序列版本、列规范或父范围/意图错位")
+    _object(dto["intent"],("grain","platformNames"));_object(dto["periods"],("current","baseline"))
+    for kind in ("current","baseline"):_window(dto["periods"][kind],spec[kind])
+    basis=_object(dto["basis"],PLATFORM_BASIS)
+    if any(not _enum(basis[key],(meaning,)) for key,meaning in PLATFORM_BASIS.items()) or dto["metricMetadata"]!=parent["metricMetadata"] or dto["sourceRevisions"]!=parent["sourceRevisions"]:_invalid("平台序列完整成员/原始分母/单位/版本声明无效")
+    if type(dto["items"])is not list or len(dto["items"])!=len(intent["platformNames"]):_invalid("平台序列对象不得重复、缺失或额外添加")
+    all_members=set();explicit={_identity_tuple(row) for row in spec["rawOutlets"]}
+    for index,value in enumerate(dto["items"]):
+        row=_object(value,("platform","identityKey","rawMembers","rawCandidateCount","availability","current","baseline"));platform=intent["platformNames"][index]
+        if not _enum(row["platform"],(platform,)) or row["identityKey"]!=json.dumps(["platform",platform],ensure_ascii=False,separators=(",",":")) or type(row["rawMembers"])is not list or not _integer(row["rawCandidateCount"],0,parent["candidatePagination"]["candidateCount"]) or row["rawCandidateCount"]!=len(row["rawMembers"]):_invalid("平台身份/key或完整成员计数无效")
+        previous=None
+        for member in row["rawMembers"]:
+            identity=_identity(member);key=_identity_tuple(identity);order=_identity_order(identity)
+            if identity["platform"]!=platform or previous is not None and order<=previous or key in all_members or explicit and key not in explicit:_invalid("平台RAW成员乱序、重复、跨平台或越界")
+            previous=order;all_members.add(key)
+        state=_object(row["availability"],("status","reasonCode"));present=row["rawCandidateCount"]>0
+        if not _enum(state["status"],("available" if present else "unavailable",)) or state["reasonCode"]!=(None if present else "no_records"):_invalid("授权无记录平台不可冒充真实零")
+        total_rows=0
+        for kind in ("current","baseline"):
+            expected=period_buckets(spec[kind],intent["grain"]);points=row[kind]
+            if type(points)is not list or len(points)!=len(expected):_invalid("平台序列不得截断完整原期自然桶")
+            for point,window in zip(points,expected):
+                try:decoded=restore_period_point(point)
+                except (TypeError,ValueError):_invalid("平台序列元组列或类型非法")
+                _window(decoded["window"],window);_period(decoded["facts"],window);total_rows+=decoded["facts"]["rowCount"]
+        if present!=(total_rows>0):_invalid("平台成员状态和两期桶记录不一致")
+    if len(all_members)>parent["candidatePagination"]["candidateCount"]:_invalid("平台RAW完整集合超出父候选数量")
+    covers_explicit_scope=bool(spec["rawOutlets"]) and all(row["platform"] in intent["platformNames"] for row in spec["rawOutlets"])
+    if covers_explicit_scope and len(all_members)!=parent["candidatePagination"]["candidateCount"]:_invalid("完整覆盖显式父范围的平台必须保留全部候选RAW成员")
+    for item in parent["items"]:
+        if item["identity"]["platform"] in intent["platformNames"] and _identity_tuple(item["identity"])not in all_members:_invalid("平台遗漏父候选的精确RAW成员")
 
 
 def _decode_series(value, intent, parent, spec):
