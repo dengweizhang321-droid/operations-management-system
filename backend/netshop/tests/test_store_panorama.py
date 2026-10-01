@@ -101,7 +101,7 @@ class StorePanoramaTests(TestCase):
         self.assertEqual(response["sections"]["performance"]["state"], "partial")
         self.assertEqual(response["sections"]["margin"]["state"], "unavailable")
         self.assertEqual(response["sections"]["targets"]["state"], "error")
-        self.assertEqual(response["sources"]["finance"]["reasonCode"], "dependency_pending")
+        self.assertEqual(response["sources"]["finance"]["code"], "service_unavailable")
         self.assertEqual(response["sources"]["sales"]["reasonCode"], "unverified_source")
         self.assertEqual(response["sources"]["workflow"]["code"], "service_unavailable")
         encoded = json.dumps(response)
