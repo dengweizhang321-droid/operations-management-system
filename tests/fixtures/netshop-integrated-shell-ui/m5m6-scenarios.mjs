@@ -95,5 +95,17 @@ export async function runM5M6Scenarios({page,context,origin,check,save,evidence,
     await page.getByRole("button",{name:"店铺全景",exact:true}).click();
     for(const name of ["网店总览","店铺分析","平台对比","推广分析","商品表现"]){await page.getByRole("tab",{name,exact:true}).click();await page.getByRole("tab",{name,exact:true,selected:true}).waitFor();if(name==="网店总览"){await page.getByRole("button",{name:"旧视图",exact:true}).click();await page.getByRole("button",{name:"新视图",exact:true}).click();}}
   });
+  await page.goto(`${origin}/?${sq}`);
+  await page.getByRole("heading",{name:"逐来源店日覆盖",exact:true}).waitFor();
+  await check("actual Home AI draft carries the selected S shop and current dates without sending a model request",async()=>{
+    await page.getByRole("button",{name:"让 AI 分析当前网店分析页面",exact:true}).click();
+    await page.getByRole("button",{name:"对话详情",exact:true}).click();
+    const details=await page.locator(".ai-workbench-details").innerText();
+    assert.ok(details.includes("平台：京东"));assert.ok(details.includes("店铺：京东\u001fA"));
+    assert.ok((await page.locator(".ai-workbench-context").innerText()).includes("2026-09-01 至 2026-09-01"));
+    assert.ok(details.includes("页面筛选不是查询结果"));
+    await save("S-actual-ai-draft-context.txt",details);
+    assert.deepEqual(await page.evaluate(()=>window.__integrated.paidAttempts),[]);
+  });
   return {completedScope:"M5M6 actual Home basic S/C author preparation with owning corpus; partial domains; visible and native returns verified",pending:["Complete C/S same-scope direct topic and detail corpus, context directory","C independent custom-baseline/platform/label-only owning captures","Final Sales/finance adapter receipts and independent Q M7"],limitations:["Synthetic browser transport only; no live/business/PG/production/model call in this tool","C table-only and S section-only presentation projections; no business formula, F carrier or source-value rewrite","S nested P SPU3000 and A JDSKU1000 remain distinct; no fake exact-product bridge","Current dependency_pending remains explicit; this run does not certify all eight S chapters or M7","O/legacy switches mount their real source-pending views; no complete legacy metrics supplied"]};
 }
