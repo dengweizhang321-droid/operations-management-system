@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "comparison-capture-manifest-v1",
+  "sourceQuerySha": "32afa6e44badadb56a31205745f094e786d71f04",
+  "actualDependencyMain": "49306356b22b8c8ea6925f1d0f874dc45f5a31fb",
+  "phase": "native22 plus ERP two-periods; ERP temporal dependency_pending",
+  "records": [
+    {
+      "case": "actual-owning",
+      "request": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-request.json",
+      "response": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-response.json",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-01",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "actorFixture": {
+        "email": "comparison@example.test",
+        "role": "viewer",
+        "scope": null,
+        "kind": "synthetic owning-functions/private PostgreSQL; ERP registered-owner transport injection, not signing/HTTP/production acceptance"
+      },
+      "bytes": 74289,
+      "responseSha256": "23fc81889bd0a8667c983b5087c27df2464b3a71d5db3f68b2e27de2ff82b43a",
+      "requestSha256": "fb76fbb2c9e7ed51855155400365a87c7e786255be983828502fae0793d85c2f",
+      "synthetic": true
+    },
+    {
+      "case": "actual-owning-a",
+      "request": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-a-request.json",
+      "response": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-a-response.json",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-01&dimension=sku&metricKey=roas",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "actorFixture": {
+        "email": "comparison@example.test",
+        "role": "viewer",
+        "scope": null,
+        "kind": "synthetic owning-functions/private PostgreSQL; ERP registered-owner transport injection, not signing/HTTP/production acceptance"
+      },
+      "bytes": 105978,
+      "responseSha256": "89ea8d3c6162acb7a77741be94c245d9ad26eb5a891764cdb738f6504bf82e07",
+      "requestSha256": "d19cb7c62cb6a39df0ef9b4dd0c7d98750c116e54c5d82deefec87e0e1c4a7a6",
+      "synthetic": true
+    },
+    {
+      "case": "actual-owning-mixed",
+      "request": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-mixed-request.json",
+      "response": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-mixed-response.json",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-01",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "actorFixture": {
+        "email": "comparison@example.test",
+        "role": "viewer",
+        "scope": null,
+        "kind": "synthetic owning-functions/private PostgreSQL; ERP registered-owner transport injection, not signing/HTTP/production acceptance"
+      },
+      "bytes": 157078,
+      "responseSha256": "7ee3f2a3b33c5256f1ee8ff53673140044be273ad9d77261867d27c330e0f26d",
+      "requestSha256": "51048c8bbeae5c5699a52f54f15a39f65de0d8a68e43cc22eced32ebba6d37ca",
+      "synthetic": true
+    },
+    {
+      "case": "actual-owning-platform",
+      "request": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-platform-request.json",
+      "response": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-platform-response.json",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-02&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-30%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22platform%22%2C+%22metricSource%22%3A+%22platform%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&chartObjectKeys=%5B%22platform%3A%E4%BA%AC%E4%B8%9C%22%2C+%22platform%3A%E5%A4%A9%E7%8C%AB%22%5D",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "actorFixture": {
+        "email": "comparison@example.test",
+        "role": "viewer",
+        "scope": null,
+        "kind": "synthetic owning-functions/private PostgreSQL; ERP registered-owner transport injection, not signing/HTTP/production acceptance"
+      },
+      "bytes": 137509,
+      "responseSha256": "bd95a29cf690e42a9abcc1e2c94acd714847503b2b5e5e7af38dc56c114c7aaf",
+      "requestSha256": "f79868bc993af00a4eb1f94a3119ccc65332b3a14e7a709cfb421b988943f1a7",
+      "synthetic": true
+    },
+    {
+      "case": "actual-owning-label",
+      "request": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-label-request.json",
+      "response": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-label-response.json",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-02&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-30%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22platform%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22label_only%22%2C+%22platform%22%3A+%22%E4%BA%AC%E4%B8%9C%22%2C+%22sourceId%22%3A+%22jd_sku_daily%22%2C+%22label%22%3A+%22%E8%AE%BE%E5%A4%87%22%2C+%22evidenceVersion%22%3A+%221%3Aaaaaaaaaaaaa%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&chartObjectKeys=%5B%22shop%3A%E4%BA%AC%E4%B8%9C%5Cu001fsame%22%2C+%22shop%3A%E4%BA%AC%E4%B8%9C%5Cu001fpartial%22%5D",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "actorFixture": {
+        "email": "comparison@example.test",
+        "role": "viewer",
+        "scope": null,
+        "kind": "synthetic owning-functions/private PostgreSQL; ERP registered-owner transport injection, not signing/HTTP/production acceptance"
+      },
+      "bytes": 129155,
+      "responseSha256": "0816767d83cd891467c420a05a71b2ddfad4cc143b36de9b28a5c7a793c9dfbf",
+      "requestSha256": "ed2f0282b73c0b30d7573cce00fcb5f552d1f266143aa2fdfba890ead90867d7",
+      "synthetic": true
+    },
+    {
+      "case": "actual-owning-two-chart",
+      "request": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-two-chart-request.json",
+      "response": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-two-chart-response.json",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-02&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-30%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&chartObjectKeys=%5B%22shop%3A%E4%BA%AC%E4%B8%9C%5Cu001fsame%22%2C+%22shop%3A%E5%A4%A9%E7%8C%AB%5Cu001fsame%22%5D",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "actorFixture": {
+        "email": "comparison@example.test",
+        "role": "viewer",
+        "scope": null,
+        "kind": "synthetic owning-functions/private PostgreSQL; ERP registered-owner transport injection, not signing/HTTP/production acceptance"
+      },
+      "bytes": 154896,
+      "responseSha256": "9e7158d2358453332e13148ba42d40f9b35135636ed6bb1190e69919b9f79183",
+      "requestSha256": "d82aa7d38301ad7ea662dc00313a8ffef4bee5653b15e4cd6bb46f302015cfee",
+      "synthetic": true
+    },
+    {
+      "case": "actual-owning-jd-shops",
+      "request": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-jd-shops-request.json",
+      "response": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-jd-shops-response.json",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-02&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-30%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22platform%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&chartObjectKeys=%5B%5D&metricKey=payment&sort=value_desc&trendGrain=day",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "actorFixture": {
+        "email": "comparison@example.test",
+        "role": "viewer",
+        "scope": null,
+        "kind": "synthetic owning-functions/private PostgreSQL; ERP registered-owner transport injection, not signing/HTTP/production acceptance"
+      },
+      "bytes": 112193,
+      "responseSha256": "a714067daea981ee63921f74f0e86ceabdc59738073ba2542335dc6117388865",
+      "requestSha256": "41721ec20b03bbe8beb0b283c31352a68fc2bc41f5470e2a7561ccf1300ff3b5",
+      "synthetic": true
+    },
+    {
+      "case": "actual-owning-label-default",
+      "request": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-label-default-request.json",
+      "response": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-87c764cbf492a93d8cf4\\actual-owning-label-default-response.json",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-02&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-30%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22platform%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22label_only%22%2C+%22platform%22%3A+%22%E4%BA%AC%E4%B8%9C%22%2C+%22sourceId%22%3A+%22jd_sku_daily%22%2C+%22label%22%3A+%22%E8%AE%BE%E5%A4%87%22%2C+%22evidenceVersion%22%3A+%221%3Aaaaaaaaaaaaa%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&chartObjectKeys=%5B%5D&metricKey=payment&sort=value_desc&trendGrain=day",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "actorFixture": {
+        "email": "comparison@example.test",
+        "role": "viewer",
+        "scope": null,
+        "kind": "synthetic owning-functions/private PostgreSQL; ERP registered-owner transport injection, not signing/HTTP/production acceptance"
+      },
+      "bytes": 135763,
+      "responseSha256": "c1fda94aa3a2b99a419485ca79158644b43183845d0412e8e6780872d70b377b",
+      "requestSha256": "a64e6049bdd494c437542d1f0bc3d5f14cdb0b6c8fb96dad980cfe50564e67be",
+      "synthetic": true
+    },
+    {
+      "case": "actual-owning-erp",
+      "request": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-d3cac38b25af300a6637\\actual-owning-erp-request.json",
+      "response": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-d3cac38b25af300a6637\\actual-owning-erp-response.json",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-01&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "actorFixture": {
+        "email": "comparison@example.test",
+        "role": "viewer",
+        "scope": null,
+        "kind": "synthetic owning-functions/private PostgreSQL; ERP registered-owner transport injection, not signing/HTTP/production acceptance"
+      },
+      "bytes": 85314,
+      "responseSha256": "944ceef44216032ab4582ff18c5a2bcb7c256b6ca25751e5a132be90ef7e6d32",
+      "requestSha256": "b4e7977e0a93efe22a2a2ebc3b4a94f3530538bd1af962a45dd34b12a29f1244",
+      "synthetic": true
+    },
+    {
+      "case": "actual-owning-erp-zero",
+      "request": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-d3cac38b25af300a6637\\actual-owning-erp-zero-request.json",
+      "response": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-d3cac38b25af300a6637\\actual-owning-erp-zero-response.json",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-01&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales",
+      "owningHeader": "1:aaaaaaaaaaaa",
+      "actorFixture": {
+        "email": "comparison@example.test",
+        "role": "viewer",
+        "scope": null,
+        "kind": "synthetic owning-functions/private PostgreSQL; ERP registered-owner transport injection, not signing/HTTP/production acceptance"
+      },
+      "bytes": 85168,
+      "responseSha256": "f12b456fe8df7d1831c8132efed5f3d03a0808c4ac1da0775aeef748336bba55",
+      "requestSha256": "b4e7977e0a93efe22a2a2ebc3b4a94f3530538bd1af962a45dd34b12a29f1244",
+      "synthetic": true
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 /** Actual C owning PG receipts. Only supplied table rows are projected for
  * display sort/page; no metric, F carrier, denominator, dates or source rewrite. */
-import corpus from "@/tests/fixtures/netshop-comparison-owning.json";
+import corpus from "./m5m6-C-source/index.mjs";
 import { validateComparisonQuery, decodeComparisonInsights } from "@/app/netshop/comparison/contract";
 import panorama from "./m5m6-source/response-owning-jd.json";
 import owningP from "./m5m6-source/P-owning-view.json";
@@ -20,8 +20,9 @@ const comparable = value => JSON.stringify(value);
 function queryFamily(spec){return {platforms:[...spec.shared.platforms].sort(),shops:spec.shared.shops,dimension:spec.shared.dimension,periodKind:spec.shared.periodKind,current:spec.shared.window,scope:spec.scope,baseline:spec.baseline,metricKey:spec.metricKey,trendGrain:spec.trendGrain};}
 export async function projectM5M6Comparison(url,telemetry){
   const spec=validateComparisonQuery(url.searchParams);
-  const record=corpus.cases.find(row=>comparable(queryFamily(validateComparisonQuery(new URLSearchParams(row.request.query))))===comparable(queryFamily(spec)));
+  const record=corpus.cases.find(row=>(!window.__integratedControl.comparisonCapture||row.name===window.__integratedControl.comparisonCapture)&&comparable(queryFamily(validateComparisonQuery(new URLSearchParams(row.request.query))))===comparable(queryFamily(spec)));
   if(!record)throw new Error("synthetic_fixture_pending: no actual C scope/date/baseline/category/metric/grain capture for this query");
+  if((url.searchParams.get("q")||"").trim()!==(new URLSearchParams(record.request.query).get("q")||"").trim())throw new Error("synthetic_fixture_pending: table search requires an actual owning capture");
   const body=structuredClone(record.response),sourceRows=body.sections.scale.items;
   if(sourceRows.length!==body.sections.scale.pagination.total)throw new Error("synthetic_fixture_pending: captured C ranking is not the full set for presentation projection");
   if(spec.chartObjectKeys.length&&comparable(spec.chartObjectKeys)!==comparable(body.chartObjectKeys))throw new Error("synthetic_fixture_pending: C chart selection requires an actual owning capture");

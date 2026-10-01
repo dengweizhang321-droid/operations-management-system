@@ -1,0 +1,13 @@
+import metadata from './metadata.json';
+import body0 from './actual-owning.json';
+import body1 from './actual-owning-a.json';
+import body2 from './actual-owning-mixed.json';
+import body3 from './actual-owning-platform.json';
+import body4 from './actual-owning-label.json';
+import body5 from './actual-owning-two-chart.json';
+import body6 from './actual-owning-jd-shops.json';
+import body7 from './actual-owning-label-default.json';
+import body8 from './actual-owning-erp.json';
+import body9 from './actual-owning-erp-zero.json';
+const bodies=[body0,body1,body2,body3,body4,body5,body6,body7,body8,body9];
+export default {cases:metadata.records.map((record,index)=>({name:record.case,request:{query:record.query,headerRevision:record.owningHeader},response:bodies[index]}))};

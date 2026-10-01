@@ -10,7 +10,7 @@ export async function runM5M6Scenarios({page,context,origin,check,save,evidence,
     assert.equal(await page.getByRole("navigation",{name:"主导航",exact:true}).count(),1);
     assert.deepEqual(await page.evaluate(()=>[window.__integratedModules.panorama,window.__integratedModules.comparison]),[true,true]);
     assert.equal(await page.locator("[data-column='comparison']").count(),1);
-    assert.ok((await page.locator(".netshop-comparison").innerText()).includes("所属比较来源准备中"));
+    assert.ok((await page.locator(".netshop-comparison").innerText()).includes("ERP 比较：当前来源不可用（身份或分类未关联）"));
   });
   await check("C actual search-independent page/sort keeps summary and complete candidate distribution",async()=>{
     const summary=await page.locator(".nc-summary").count()?await page.locator(".nc-summary").innerText():await page.locator(".nc-kpis").first().innerText();
@@ -107,5 +107,38 @@ export async function runM5M6Scenarios({page,context,origin,check,save,evidence,
     await save("S-actual-ai-draft-context.txt",details);
     assert.deepEqual(await page.evaluate(()=>window.__integrated.paidAttempts),[]);
   });
+  const cManifest=JSON.parse(await readFile(resolve(root,"tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/metadata.json"),"utf8"));
+  for(const name of ["actual-owning-platform","actual-owning-label-default","actual-owning-two-chart","actual-owning-erp","actual-owning-erp-zero"]){
+    const record=cManifest.records.find(item=>item.case===name),raw=new URLSearchParams(record.query);
+    const body=JSON.parse(await readFile(resolve(root,`tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/${name}.json`),"utf8"));
+    const current=body.currentContext.periods.current;
+    const request=new URLSearchParams({module:"shop",view:"platforms",period:body.currentContext.requestedScope.periodKind,from:current.startDate,to:current.endDate,shopDimension:body.currentContext.requestedScope.dimension,shopPageSize:"5",shopComparisonIntent:JSON.stringify({...body.comparisonScope,selectedBaseline:body.selectedBaseline}),shopComparisonPrefs:JSON.stringify({schemaVersion:"comparison-ui-v1",metricKey:body.metricKey,chartObjectKeys:body.chartObjectKeys,columnKeys:[body.metricKey],sort:body.sort})});
+    for(const platform of raw.getAll("platform"))request.append("shopPlatform",platform);
+    for(const outlet of raw.getAll("outlet"))request.append("shopOutlet",outlet);
+    await page.evaluate(value=>sessionStorage.setItem("integrated-comparison-capture",value),name);
+    await page.goto(`${origin}/?${request}`);
+    await check(`actual Home consumes complete unchanged C ${name} and retains its independent baseline and native scope`,async()=>{
+      await page.locator(".nc-table-group").first().waitFor();
+      assert.equal(await page.getByLabel("对比模式").inputValue(),body.comparisonScope.mode);
+      assert.equal(await page.getByLabel("对比指标来源").inputValue(),body.comparisonScope.metricSource);
+      assert.ok((await page.locator(".netshop-comparison").innerText()).includes(`${body.baselineContext.periods.current.startDate} — ${body.baselineContext.periods.current.endDate}`));
+      const calls=await page.evaluate(()=>window.__integrated.calls),sent=new URLSearchParams(calls.filter(call=>call.path==="/api/netshop/comparison-insights").at(-1).query);
+      assert.equal(JSON.parse(sent.get("comparisonScope")).mode,body.comparisonScope.mode);
+      assert.equal(sent.get("metricKey"),body.metricKey);
+      if(body.comparisonScope.category.mode==="label_only")assert.equal(JSON.parse(sent.get("comparisonScope")).category.evidenceVersion,body.comparisonScope.category.evidenceVersion);
+      if(body.comparisonScope.metricSource==="erp")assert.ok((await page.locator(".netshop-comparison").innerText()).includes("历史成本"));
+      await save(`C-${name}-actual-dom.txt`,await page.locator(".netshop-comparison").innerText());
+    });
+    await page.screenshot({path:`${evidence}/m5m6-comparison-${name}.png`,fullPage:true});
+    if(name==="actual-owning-platform")await check("actual C custom-baseline AI draft preserves both periods and platform mode without a model call",async()=>{
+      await page.getByRole("button",{name:"让 AI 分析当前网店分析页面",exact:true}).click();
+      await page.getByRole("button",{name:"对话详情",exact:true}).click();
+      const details=await page.locator(".ai-workbench-details").innerText();
+      assert.ok(details.includes("基期起日：2026-08-30"));assert.ok(details.includes("基期截止日：2026-08-31"));assert.ok(details.includes("比较对象模式：platform"));
+      assert.ok((await page.locator(".ai-workbench-context").innerText()).includes("2026-09-01 至 2026-09-02"));
+      await save("C-custom-baseline-actual-ai-draft-context.txt",details);
+      assert.deepEqual(await page.evaluate(()=>window.__integrated.paidAttempts),[]);
+    });
+  }
   return {completedScope:"M5M6 actual Home basic S/C author preparation with owning corpus; partial domains; visible and native returns verified",pending:["Complete C/S same-scope direct topic and detail corpus, context directory","C independent custom-baseline/platform/label-only owning captures","Final Sales/finance adapter receipts and independent Q M7"],limitations:["Synthetic browser transport only; no live/business/PG/production/model call in this tool","C table-only and S section-only presentation projections; no business formula, F carrier or source-value rewrite","S nested P SPU3000 and A JDSKU1000 remain distinct; no fake exact-product bridge","Current dependency_pending remains explicit; this run does not certify all eight S chapters or M7","O/legacy switches mount their real source-pending views; no complete legacy metrics supplied"]};
 }
