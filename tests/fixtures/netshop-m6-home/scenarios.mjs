@@ -8,7 +8,7 @@ function locationFor(record){
  s.platforms.forEach(p=>url.append("shopPlatform",p));s.shopKeys.forEach(k=>url.append("shopOutlet",k));return url;
 }
 export async function runM6Scenarios({page,origin,check,save,evidence,records,manifest}){
- const cases=records.filter(r=>r.kind==="comparison"),first=cases[0];
+ const cases=records.filter(r=>r.kind==="comparison"&&(r.status||200)===200),first=cases.find(r=>r.name==="signed-c-smoke")||cases[0];
  const ready=()=>page.locator("[data-column='comparison'] .nc-table-group").first().waitFor();
  const open=async record=>{if(page.url().startsWith(origin))await page.evaluate(name=>sessionStorage.setItem("m6-case",name),record.name);await page.goto(origin+"/?"+locationFor(record));await ready();};
  await open(first);
@@ -38,7 +38,10 @@ export async function runM6Scenarios({page,origin,check,save,evidence,records,ma
  }
  await page.setViewportSize({width:1440,height:1000});
  await check("Unknown complete comparison query is denied and original C body clears before new reply",async()=>{
-  await page.getByLabel("对比排名排序",{exact:true}).selectOption("name_asc");
+  const current=first.body;
+  const unknownSort=["name_asc","value_asc","growth_desc","decline_desc"].find(sort=>!cases.some(r=>r.body.sort===sort&&r.body.metricKey===current.metricKey&&JSON.stringify(r.body.comparisonScope)===JSON.stringify(current.comparisonScope)&&JSON.stringify(r.body.currentContext.requestedScope)===JSON.stringify(current.currentContext.requestedScope)));
+  assert.ok(unknownSort,"Need a legitimate uncaptured sort query, never mislabel an existing captured response unknown");
+  await page.getByLabel("对比排名排序",{exact:true}).selectOption(unknownSort);
   await page.waitForFunction(()=>!document.querySelector(".nc-table-group"));
   assert.ok((await page.locator(".netshop-comparison").innerText()).includes("当前范围"));
  });

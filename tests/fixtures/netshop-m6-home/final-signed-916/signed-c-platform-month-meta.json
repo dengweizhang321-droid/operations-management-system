@@ -1,0 +1,289 @@
+{
+  "schemaVersion": "comparison-signed-private-get-v1",
+  "synthetic": true,
+  "layer": "actual_loopback_tcp_registered_get_hmac_wrapper_and_real_signed_registered_sales_rpc",
+  "aliasFixture": "test_only_explicit_injective_raw_triples",
+  "name": "signed-c-platform-month",
+  "url": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22platform%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&chartObjectKeys=%5B%22platform%3A%E4%BA%AC%E4%B8%9C%22%2C+%22platform%3A%E5%A4%A9%E7%8C%AB%22%5D&trendGrain=month&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+  "method": "GET",
+  "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22platform%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&chartObjectKeys=%5B%22platform%3A%E4%BA%AC%E4%B8%9C%22%2C+%22platform%3A%E5%A4%A9%E7%8C%AB%22%5D&trendGrain=month&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+  "status": 200,
+  "signed": true,
+  "principal": {
+    "email": "comparison-signed@example.test",
+    "role": "viewer",
+    "scope": null
+  },
+  "responseHeaders": {
+    "Date": "Thu, 01 Oct 2026 12:39:23 GMT",
+    "Server": "WSGIServer/0.2 CPython/3.14.6",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "X-Netshop-Data-Revision": "2:bbbbbbbbbbbb",
+    "X-Frame-Options": "DENY",
+    "Content-Length": "206257",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  },
+  "responseUtf8Bytes": 206257,
+  "responseSha256": "8040c4e5f4473b0909dce81cdf510efc58b80ed0d35e96d60efe90fbd45595ce",
+  "seconds": 1.2624263000034261,
+  "rpcCalls": [
+    {
+      "request": {
+        "operation": "netshop_periods_v1",
+        "current": {
+          "startDate": "2026-09-01",
+          "endExclusive": "2026-09-08"
+        },
+        "baseline": {
+          "startDate": "2026-08-25",
+          "endExclusive": "2026-09-01"
+        },
+        "rawOutlets": [
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店01 ",
+            "rawChannel": " exact channel 1 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店02 ",
+            "rawChannel": " exact channel 2 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店03 ",
+            "rawChannel": " exact channel 3 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店04 ",
+            "rawChannel": " exact channel 4 "
+          },
+          {
+            "platform": "天猫",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          }
+        ],
+        "categories": [],
+        "q": "",
+        "page": 1,
+        "pageSize": 100,
+        "expiresAtEpochMs": 1790858427559
+      },
+      "remainingBudgetSeconds": 64.48224219999975,
+      "seconds": 0.13279650002368726,
+      "revision": "7:3",
+      "sameOuterDeadline": true
+    },
+    {
+      "request": {
+        "operation": "netshop_periods_v1",
+        "current": {
+          "startDate": "2026-09-01",
+          "endExclusive": "2026-09-08"
+        },
+        "baseline": {
+          "startDate": "2026-08-25",
+          "endExclusive": "2026-09-01"
+        },
+        "rawOutlets": [
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店01 ",
+            "rawChannel": " exact channel 1 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店02 ",
+            "rawChannel": " exact channel 2 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店03 ",
+            "rawChannel": " exact channel 3 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店04 ",
+            "rawChannel": " exact channel 4 "
+          },
+          {
+            "platform": "天猫",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          }
+        ],
+        "categories": [],
+        "q": "",
+        "page": 1,
+        "pageSize": 100,
+        "seriesGrain": "month",
+        "seriesPlatforms": [
+          "京东",
+          "天猫"
+        ],
+        "expectedRevision": "7:3",
+        "expiresAtEpochMs": 1790858427559
+      },
+      "remainingBudgetSeconds": 64.34860129997833,
+      "seconds": 0.13364939999883063,
+      "revision": "7:3",
+      "sameOuterDeadline": true
+    },
+    {
+      "request": {
+        "operation": "netshop_periods_v1",
+        "current": {
+          "startDate": "2026-09-01",
+          "endExclusive": "2026-09-08"
+        },
+        "baseline": {
+          "startDate": "2026-08-25",
+          "endExclusive": "2026-09-01"
+        },
+        "rawOutlets": [
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店01 ",
+            "rawChannel": " exact channel 1 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店02 ",
+            "rawChannel": " exact channel 2 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店03 ",
+            "rawChannel": " exact channel 3 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店04 ",
+            "rawChannel": " exact channel 4 "
+          }
+        ],
+        "categories": [],
+        "q": "",
+        "page": 1,
+        "pageSize": 100,
+        "expectedRevision": "7:3",
+        "expiresAtEpochMs": 1790858427559
+      },
+      "remainingBudgetSeconds": 64.21381329998258,
+      "seconds": 0.14363770000636578,
+      "revision": "7:3",
+      "sameOuterDeadline": true
+    },
+    {
+      "request": {
+        "operation": "netshop_periods_v1",
+        "current": {
+          "startDate": "2026-09-01",
+          "endExclusive": "2026-09-08"
+        },
+        "baseline": {
+          "startDate": "2026-08-25",
+          "endExclusive": "2026-09-01"
+        },
+        "rawOutlets": [
+          {
+            "platform": "天猫",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          }
+        ],
+        "categories": [],
+        "q": "",
+        "page": 1,
+        "pageSize": 100,
+        "expectedRevision": "7:3",
+        "expiresAtEpochMs": 1790858427559
+      },
+      "remainingBudgetSeconds": 64.0694529999746,
+      "seconds": 0.1366429000045173,
+      "revision": "7:3",
+      "sameOuterDeadline": true
+    },
+    {
+      "request": {
+        "operation": "netshop_periods_v1",
+        "current": {
+          "startDate": "2026-09-01",
+          "endExclusive": "2026-09-08"
+        },
+        "baseline": {
+          "startDate": "2026-08-25",
+          "endExclusive": "2026-09-01"
+        },
+        "rawOutlets": [
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店01 ",
+            "rawChannel": " exact channel 1 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店02 ",
+            "rawChannel": " exact channel 2 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店03 ",
+            "rawChannel": " exact channel 3 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店04 ",
+            "rawChannel": " exact channel 4 "
+          },
+          {
+            "platform": "天猫",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          }
+        ],
+        "categories": [],
+        "q": "",
+        "page": 1,
+        "pageSize": 100,
+        "seriesGrain": "month",
+        "seriesPlatforms": [
+          "京东",
+          "天猫"
+        ],
+        "expectedRevision": "7:3",
+        "snapshotToken": "cc689eca753fd6a3a2e25ee5b6ff6cb09fd83f5387e7f3b9fda0ed0f1d290a62",
+        "expiresAtEpochMs": 1790858427559
+      },
+      "remainingBudgetSeconds": 63.90959209998255,
+      "seconds": 0.13458779998472892,
+      "revision": "7:3",
+      "sameOuterDeadline": true
+    }
+  ]
+}

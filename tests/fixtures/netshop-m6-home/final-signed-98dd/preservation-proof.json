@@ -1,0 +1,403 @@
+{
+  "sourceRoot": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338",
+  "entries": [
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\actual-owning-erp-platform-expanded-shops-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\actual-owning-erp-platform-expanded-shops-request.json",
+      "bytes": 528,
+      "sha256": "f0d4d0b4e5fba0425fb29e03140ff3c68b9b1ee3cd20702b9981a852c1ee36aa"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\actual-owning-erp-platform-expanded-shops-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\actual-owning-erp-platform-expanded-shops-response.json",
+      "bytes": 273322,
+      "sha256": "2fcb00db65cc5f3a9e29609ec58a27504c36470fd72ee446abbb6f1a9f27665f"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\actual-owning-erp-platform-expanded-shops-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\actual-owning-erp-platform-expanded-shops-meta.json",
+      "bytes": 8021,
+      "sha256": "bd71dec1661f7a60d49e492e262ae7dd3e9a29516f149dc141df0f171238d831"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-sku-detail-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-sku-detail-request.json",
+      "bytes": 473,
+      "sha256": "9137c39096fc25649b6eb283273431d1326581f0481766eb816d003dd788ff80"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-sku-detail-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-sku-detail-response.json",
+      "bytes": 36228,
+      "sha256": "aba844c8351cb79bd8c37ecdfdb65ffd7d287f2afbccdd428ea51c555c0c77b6"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-sku-detail-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-sku-detail-meta.json",
+      "bytes": 1932,
+      "sha256": "f4c85d8dd0e9219263466c9d84aa47b0d228d7bee7c2686fe1a372d6de0a1fb9"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-sku-list-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-sku-list-request.json",
+      "bytes": 238,
+      "sha256": "e5daa5b8fb18992622dd139f764b33ba7955ad9b688f1d406393ef7573254831"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-sku-list-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-sku-list-response.json",
+      "bytes": 71701,
+      "sha256": "2035ef90e0e2ded300ded620ceabf1976ed11a29845dbc4f01e88b5955d3b902"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-sku-list-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-sku-list-meta.json",
+      "bytes": 1456,
+      "sha256": "ae034886721414b2f687cb2c0febe6b481e4fa24476db351147eb99b1e834ee7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-spu-detail-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-spu-detail-request.json",
+      "bytes": 473,
+      "sha256": "eb585ef51e93d930b0b16c8689eece00cf4a74d4ac7139f1f2f01316b3df08b0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-spu-detail-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-spu-detail-response.json",
+      "bytes": 38118,
+      "sha256": "2bea3282aa1b9dfd4c57927e04a4a9fe574b33ac59edaef3b4a4dae2038239fe"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-spu-detail-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-spu-detail-meta.json",
+      "bytes": 1932,
+      "sha256": "63e022f4a62bed0e2f5c40b14b24377407cf70f76e7e394102c9bbf7be2e3690"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-spu-list-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-spu-list-request.json",
+      "bytes": 238,
+      "sha256": "dbb019e9b225a6245b47b53c2110308a21485a735176d744f1213f24a6e864a0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-spu-list-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-spu-list-response.json",
+      "bytes": 75159,
+      "sha256": "1be083b598106648f1f1eb3a7675e42fd77afad7c6eb2e2a3d3a54c8b80ec19a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-a-spu-list-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-a-spu-list-meta.json",
+      "bytes": 1454,
+      "sha256": "6a5c8fbaf8708cf38fc0572efcb5a1ea5404024578191b4b8f4943511bde1c70"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-custom-unequal-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-custom-unequal-request.json",
+      "bytes": 289,
+      "sha256": "e86d1ae5271e743856fb7965f7a9047ddf63880fc98ea4ee289d96c5c47c5917"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-custom-unequal-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-custom-unequal-response.json",
+      "bytes": 730303,
+      "sha256": "0512d3b960eacecc033ce52761a51b0b4a5af681dcef5ab6a7ac8210c91c2a75"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-custom-unequal-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-custom-unequal-meta.json",
+      "bytes": 4928,
+      "sha256": "1443a52e102a709a86d651988da26c0816315029b5a325de3c853f12d396958c"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-no-signature-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-no-signature-request.json",
+      "bytes": 277,
+      "sha256": "8338607df89e21bc2714f0489b42319c6b8c485855972210490da37a9cb3c8bf"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-no-signature-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-no-signature-response.json",
+      "bytes": 72,
+      "sha256": "09c50a596d7b47a823265cffcfd788c88370d46109e2d71a7b99a2a6956e4ac2"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-no-signature-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-no-signature-meta.json",
+      "bytes": 1506,
+      "sha256": "a6da7ffa4c6973e8e6324c81ea4b1bc13b820d7eeced40912dfaace3e56546b4"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-page2-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-page2-request.json",
+      "bytes": 374,
+      "sha256": "3656d0e88de7cd45d60f09ac972c12762995fa1330d979dff8825580b4477494"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-page2-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-page2-response.json",
+      "bytes": 494806,
+      "sha256": "4cc9560ee16f8dba841e413d5af9e79972c23052f55599b2932934161bbec717"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-page2-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-page2-meta.json",
+      "bytes": 5097,
+      "sha256": "ec90bf6c340be210843cb8a9e28c2cc72bcbc37066774c8e91d876ea32f68412"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-partial-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-partial-request.json",
+      "bytes": 520,
+      "sha256": "0a93f3b5a14f7fd3f74890a1df8c11f1225ac32b53c23628ff7db535cc8117b8"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-partial-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-partial-response.json",
+      "bytes": 430308,
+      "sha256": "17ef1bf98cd0e29a5e72038b9c74ddcb350d0e17bf2a8df934667591972a2a2e"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-partial-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-partial-meta.json",
+      "bytes": 5392,
+      "sha256": "a9a16ad0c711a4a1a90cd37c5eb706ab5e7da9666b68d36c6861dbf017e38dd7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-day-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-day-request.json",
+      "bytes": 1105,
+      "sha256": "d27ce4e37e4a34c8f387c87f93c203f5f9055977ad13bc5bd0732ee28b9c0bd8"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-day-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-day-response.json",
+      "bytes": 231813,
+      "sha256": "c75c145fd3b8933b062f701005b00decc777b9b2da29a8b946e05f45ae681177"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-day-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-day-meta.json",
+      "bytes": 10764,
+      "sha256": "88579d128b1725b1aa59d6e8efa39d687e41eba9e82ba8e0d7ee4d55b26d53ba"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-month-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-month-request.json",
+      "bytes": 1107,
+      "sha256": "d85a2d8b6599fd11437dded161d7834d747512533effde7e7f26f0336b229051"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-month-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-month-response.json",
+      "bytes": 206257,
+      "sha256": "b48c1160c9bed6f466b8bc54238e3c10ebb89d166db49952fc652c1005f3a817"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-month-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-month-meta.json",
+      "bytes": 10770,
+      "sha256": "8c905df03c45de34305d060162a8b64c7552720cf8c8bce122a8f3cf58176861"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-quantity-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-quantity-request.json",
+      "bytes": 1093,
+      "sha256": "c28fda2f965eb641502f224d806bc7e54dad0d35312be588ae4b36c6cb1432e6"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-quantity-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-quantity-response.json",
+      "bytes": 234980,
+      "sha256": "7aa090984360f565e477f51235a2a5fa1d3a3028388448197f563425f9431eaf"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-quantity-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-quantity-meta.json",
+      "bytes": 10737,
+      "sha256": "1bf31717e32a4611f2b17e40a2f8e5ccb64981172d9317b37b7aba2d5d820b5e"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-week-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-week-request.json",
+      "bytes": 1106,
+      "sha256": "c7a0fa9bbdddb9dcc35b4df8a8c59f81ff86d469cffa6ec2d2ad9ea804be7fb2"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-week-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-week-response.json",
+      "bytes": 210522,
+      "sha256": "04e5ff707d13870b1a9ebb03c2731098ea0594cdfb31e09e455e4c9048c333a7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-platform-week-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-platform-week-meta.json",
+      "bytes": 10767,
+      "sha256": "a32994edd857c746f42c57f75d2acb9c6053b2db78ec4e9f38a57311b1af6381"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-revoked-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-revoked-request.json",
+      "bytes": 277,
+      "sha256": "8338607df89e21bc2714f0489b42319c6b8c485855972210490da37a9cb3c8bf"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-revoked-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-revoked-response.json",
+      "bytes": 74,
+      "sha256": "d47c08322f55e91817d15ce03b38430b71bdd6e3fdd991d90ea1f13d2408820b"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-revoked-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-revoked-meta.json",
+      "bytes": 1503,
+      "sha256": "d07be52d248982668da04c88d49dce965208b4f5dc7f7b582f9b482ad0286035"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-shop-native-quantity-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-shop-native-quantity-request.json",
+      "bytes": 531,
+      "sha256": "c823134afc6b0553a21aa0d94337c145c5149be7a7b7fdc8e2535bca6d524961"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-shop-native-quantity-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-shop-native-quantity-response.json",
+      "bytes": 279420,
+      "sha256": "d044fb535f64e63053c2a3784bfade2ab4a57bb6733e4aaf80a1b6d32e85e29a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-shop-native-quantity-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-shop-native-quantity-meta.json",
+      "bytes": 8026,
+      "sha256": "f44781cd7bdb179087f26edcc826d7357fbb579255ea588edbe7c36074770b25"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-smoke-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-smoke-request.json",
+      "bytes": 289,
+      "sha256": "65167dc23043374aaf83eb6c01e32c88288f53239513aaa7be32a6bbeb667b8a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-smoke-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-smoke-response.json",
+      "bytes": 737280,
+      "sha256": "7afc2ef17ddbedc320d98c0f6fe729afc9025b9ec9d4bb070b5a23c2b3b9fd1f"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-smoke-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-smoke-meta.json",
+      "bytes": 4927,
+      "sha256": "68d32aef195288c2c6b6ba6d2ce3bd14abeae05db630e1593e6acaa0220e8e8e"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-stale-token-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-stale-token-request.json",
+      "bytes": 355,
+      "sha256": "18722eaf513139321e3c34667e3ee67606bfa4563c8c3388578d30fdb0051c90"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-stale-token-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-stale-token-response.json",
+      "bytes": 113,
+      "sha256": "6271e08cba9ff549dc65961693c8ff72350aac820506731a2fb0212c6302f305"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-stale-token-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-stale-token-meta.json",
+      "bytes": 3281,
+      "sha256": "f0a53bcfc1cea128e9589e5baa40c1620adc97342362ad43f7a8b17798ffa451"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-unmapped-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-unmapped-request.json",
+      "bytes": 581,
+      "sha256": "f1e93f11e6eb8c90aeb85b3fdd23abcef36e47e2a3b0120af6f86eed98c55f97"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-unmapped-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-unmapped-response.json",
+      "bytes": 84810,
+      "sha256": "00f554d43b180b6693eea323cd0056a54590f6cbae18ab6aefe430135c828c39"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-c-unmapped-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-c-unmapped-meta.json",
+      "bytes": 2143,
+      "sha256": "99cf092f67e09955971f0244da17569f7924ee9e6475de30864030180b1c5658"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-sku-detail-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-sku-detail-request.json",
+      "bytes": 357,
+      "sha256": "c686c8546a55c439abf16223457abe02dcae4a45f8befd16f29bca06646c3479"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-sku-detail-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-sku-detail-response.json",
+      "bytes": 28626,
+      "sha256": "5a9e89a1111fa36d526b22e738e8829572d56d2287dc0f8155e01c3005d2fcec"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-sku-detail-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-sku-detail-meta.json",
+      "bytes": 1699,
+      "sha256": "4503aeec54442c455e767dd3cf083588c6cff7d752f0d6592b77268fbafa34c1"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-sku-list-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-sku-list-request.json",
+      "bytes": 238,
+      "sha256": "e5daa5b8fb18992622dd139f764b33ba7955ad9b688f1d406393ef7573254831"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-sku-list-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-sku-list-response.json",
+      "bytes": 43550,
+      "sha256": "a340d26809c4dc6559ba6f500a5f9fb6b59bd0b9d906b4711350269e0617649a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-sku-list-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-sku-list-meta.json",
+      "bytes": 1453,
+      "sha256": "56df57bd07a5933c5a3a91a0ef3c6cc39f0d394f8841e66165f42882dbc02c50"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-spu-detail-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-spu-detail-request.json",
+      "bytes": 357,
+      "sha256": "2cd6fac8a00ae0d3a9e0f6d1cb5a4383059b276ad2e6fdfb7841688875affa8a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-spu-detail-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-spu-detail-response.json",
+      "bytes": 29552,
+      "sha256": "b1f6c8e15b2559dbd56bd0618c5fe5aaa63b49dd68d2e75fc7984cc910603441"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-spu-detail-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-spu-detail-meta.json",
+      "bytes": 1699,
+      "sha256": "54ced6f4a256d08c22407685d3ccb06bc8c11106a667d72babe614efb7fbb735"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-spu-list-request.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-spu-list-request.json",
+      "bytes": 238,
+      "sha256": "dbb019e9b225a6245b47b53c2110308a21485a735176d744f1213f24a6e864a0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-spu-list-response.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-spu-list-response.json",
+      "bytes": 44776,
+      "sha256": "a60cffd00da991ea596dd3ecc611dac8e8a1a7056d8099acf132798dfc8374b8"
+    },
+    {
+      "source": "E:\\codex-artifacts\\netshop-scheme2-20261001\\comparison\\query\\comparison-pg-98ddc7f6de86b2274338\\signed-p-spu-list-meta.json",
+      "target": "tests\\fixtures\\netshop-m6-home\\final-signed-98dd\\signed-p-spu-list-meta.json",
+      "bytes": 1454,
+      "sha256": "65017fc2ed47d535051c120fe27c0f35aa88c555ffb3afdf2fa1d8086584782b"
+    }
+  ],
+  "allSourceTargetOriginalBytesEqual": true,
+  "originalManifestSHA256": "033dc7c938967fda90dd64d7bd68a24e4c30812aeacaf195df87be38ff1cf9b6"
+}

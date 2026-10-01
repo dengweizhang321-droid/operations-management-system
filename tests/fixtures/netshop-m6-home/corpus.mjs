@@ -11,7 +11,10 @@ export async function readM6Corpus(manifestPath){
  if(manifest.metadata){const data=await readFile(resolve(root,manifest.metadata.path));assert.equal(sha256(data),manifest.metadata.sha256);}
  const records=[];
  for(const r of manifest.records){
-  assert.match(r.name,/^[a-zA-Z0-9-]+$/);assert.equal(typeof r.query,"string");assert.match(r.owningRevision,/^(0|[1-9][0-9]*):[a-f0-9]{12}$/);
+  assert.match(r.name,/^[a-zA-Z0-9-]+$/);assert.equal(typeof r.query,"string");
+  if((r.status||200)===200)assert.match(r.owningRevision,/^(0|[1-9][0-9]*):[a-f0-9]{12}$/);
+  if(r.metadata){const metaBytes=await readFile(resolve(root,r.metadata));assert.equal(sha256(metaBytes),r.metadataSha256);const m=JSON.parse(metaBytes);assert.equal(m.query,r.query);assert.equal(m.responseSha256,r.sha256);assert.equal(m.responseUtf8Bytes,r.bytes);assert.equal(m.status,r.status);assert.equal(m.responseHeaders["X-Netshop-Data-Revision"]||null,r.owningRevision||null);}
+  if(r.requestFile){const req=await readFile(resolve(root,r.requestFile));assert.equal(sha256(req),r.requestSha256);assert.equal(JSON.parse(req).query,r.query);}
   assert.ok(Number.isSafeInteger(r.bytes)&&r.bytes>0);assert.match(r.sha256,/^[a-f0-9]{64}$/);
   const path=resolve(root,r.file),bytes=await readFile(path);assert.equal(bytes.length,r.bytes);assert.equal(sha256(bytes),r.sha256);
   const wrapper=JSON.parse(bytes),body=r.caseIndex===undefined?wrapper:wrapper.cases[r.caseIndex].response;

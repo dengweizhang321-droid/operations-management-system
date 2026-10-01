@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "comparison-signed-private-get-v1",
+  "synthetic": true,
+  "layer": "actual_loopback_tcp_registered_get_hmac_wrapper_and_real_signed_registered_sales_rpc",
+  "aliasFixture": "test_only_explicit_injective_raw_triples",
+  "name": "signed-c-unmapped",
+  "url": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9719",
+  "method": "GET",
+  "query": "platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9719",
+  "status": 200,
+  "signed": true,
+  "principal": {
+    "email": "comparison-signed@example.test",
+    "role": "viewer",
+    "scope": null
+  },
+  "responseHeaders": {
+    "Date": "Thu, 01 Oct 2026 12:39:28 GMT",
+    "Server": "WSGIServer/0.2 CPython/3.14.6",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "X-Netshop-Data-Revision": "2:bbbbbbbbbbbb",
+    "X-Frame-Options": "DENY",
+    "Content-Length": "84810",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  },
+  "responseUtf8Bytes": 84810,
+  "responseSha256": "0d722d673ea94969fa1a82528609f217b78055309c6d347f87c44794d0ceb065",
+  "seconds": 0.2791909000079613,
+  "rpcCalls": []
+}

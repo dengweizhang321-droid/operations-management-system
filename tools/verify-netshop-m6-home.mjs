@@ -30,7 +30,7 @@ const source={head:git("rev-parse","HEAD"),sourcePin,corpusPin,root,runId,role:p
 await save("source-before.json",source);await save("corpus.json",{manifest:corpus.manifest,records:corpus.records.map(r=>({...Object.fromEntries(Object.entries(r).filter(([k])=>!["body","raw"].includes(k))),bodyIncludedInBundle:true,rawBytesPreserved:true}))});
 const layout=await readFile(resolve(root,"app/layout.tsx"),"utf8"),styles=[...layout.matchAll(/^import ["'](\.\/[^"']+\.css)["'];/gm)].map(m=>"app/"+m[1].slice(2));
 assert.deepEqual(styles,["app/globals.css","app/shell/top-navigation.css","app/styles/shared-theme.css"]);assert.match(layout,/<html lang="zh-CN">\s*<body>/);
-const payload=corpus.records.map(r=>({name:r.name,kind:r.kind,phase:r.phase,seed:r.seed,query:r.query,owningRevision:r.owningRevision,raw:r.raw,sha256:r.sha256,rawMeaning:r.rawMeaning,finalAcceptance:r.finalAcceptance}));
+const payload=corpus.records.map(r=>({name:r.name,kind:r.kind,status:r.status,headers:r.headers,phase:r.phase,seed:r.seed,query:r.query,owningRevision:r.owningRevision,raw:r.raw,sha256:r.sha256,rawMeaning:r.rawMeaning,finalAcceptance:r.finalAcceptance}));
 const entry=styles.map(p=>"import '@/"+p+"';").join("\n")+
 "\nimport React from 'react';import {createRoot} from 'react-dom/client';import Home from '@/app/page';import {installM6Transport} from '@/tests/fixtures/netshop-m6-home/bootstrap.mjs';"+
 "import {netshopColumnModules as m} from '@/app/netshop/shared/module-slots';"+

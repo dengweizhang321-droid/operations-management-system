@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "comparison-signed-private-get-v1",
+  "synthetic": true,
+  "layer": "actual_loopback_tcp_registered_get_hmac_wrapper_and_real_signed_registered_sales_rpc",
+  "aliasFixture": "test_only_explicit_injective_raw_triples",
+  "name": "signed-c-no-signature",
+  "url": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D",
+  "method": "GET",
+  "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D",
+  "status": 401,
+  "signed": false,
+  "principal": {
+    "email": "comparison-signed@example.test",
+    "role": "viewer",
+    "scope": null
+  },
+  "responseHeaders": {
+    "Date": "Thu, 01 Oct 2026 12:39:17 GMT",
+    "Server": "WSGIServer/0.2 CPython/3.14.6",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "X-Frame-Options": "DENY",
+    "Content-Length": "72",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  },
+  "responseUtf8Bytes": 72,
+  "responseSha256": "09c50a596d7b47a823265cffcfd788c88370d46109e2d71a7b99a2a6956e4ac2",
+  "seconds": 0.020176799996988848,
+  "rpcCalls": []
+}

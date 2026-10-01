@@ -13,3 +13,13 @@
 完整门槛保留：fiveOldNavAndOERP、metric22、allGrains、sortPageQ、nativePlatformTotals、memberFold、calendarClicks、sameSeedPDrill、sameSeedADrill、late401403409、accountScope。final manifest.validationCases 每项必须引用原capture、有真实UI步骤和至少一个绑定原sourcePath的post assertion；无数据、无步骤或无原字段则阻断，不用一个gate标签冒通过。steps仅支持实际select/click/fill/browser back，无force/evaluate/CSS改写。旧O/ERP来源不齐只继承M1/M5源证明并核真实入口/error，不称真实经营全验。
 
 当前缺最终C clean交接、同seed signed C/P/A q/page/grain/direct，及native owner ERP全平台totals/bucket/member fold最新capture，均pending。范围冻结，只补已承诺核心阻断，不扩新分析能力。Root完成工具单独commit后可显式纳入M6干净候选，由未编写本工具的Q运行；工具作者不会自称Q。每run E独占CreateNew Source/corpus SHA、实际compile/layout样式closure、原请求、DOM/viewport、资源及normal browser/server shutdown，所有失败保留；无生产/真实业务/付费/GRANT。
+
+## 最终 signed 原件 checkpoint（2026-10-01）
+
+final-signed-98dd 与 final-signed-916 各自 CreateNew 保存完整22组三文件（request/response/meta）和原signed-same-seed-manifest。98目录仅历史，不被916覆盖；两个run虽然fixture seed相同，HTTP nonce/实际时间不同，不能混称同一次。最终所有 positive C/P/A 统一引用 final-signed-916/manifest-final-signed.json。19个200＋原401/403/409三件大小、SHA、query、header、status原样核，保留真实signed/private TCP/实际Sales RPC层。seed字符串只是原manifest sharedPositiveSeed的run定位引用，原定义完整保存，不捏造新业务seed值。
+
+原runtime组合0254d03ac3dad276e5b9955f12f7556ffd923620，已批准tool/harness来源2edecb8b1a983839de4a93874eeb2a5395c9438d；只有已明示的签名测试/helpers叶不同，runtime不变。之后Root可先只commit本专属tool/raw再加已审test-only leaf，给新的干净HEAD。Meta中的原comboPin/时间/signature/body无修改。原test_only_explicit_injective_raw_triples仅隔离fixture映射，不称生产真实别名或独立来源核验。普通smoke实测两RPC、platform day实际五RPC，不相加为独有用例。
+
+916精确平台展开273648 bytes、SHA68b2e84e509b317bfe86a2493e56fd4b350a28a1a1282a7eb2b13bcbef4e259f；原query显式five JD outlet逐值/次序匹配父真实row.shopKeys。98旧无outlet expanded事实也有五店，但请求不同，不用于这一门槛，绝不改requestedScope/请求或C按钮来骗过。
+
+目前交付raw与严格运输checkpoint，不声明完整Home已运行。新bootstrap直接消费原C与same-run P/A独立topic/detail，经原decoder校验完整query/identity/window/header；不再借旧S六seed。错误用原authority响应原字节；全部未知GET/写/模型/外部禁止。未知sort先确认并非已捕获同scope响应，再用真实合法UI变更验证清body；没有sort/q准确采样就明确pending，不能宣称排序源量全验。最终validationCases仍需按原实际步骤与原sourcePath逐gate落实；未执行、缺原capture或空assert不得伪通过。

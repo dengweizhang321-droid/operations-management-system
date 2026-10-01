@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "comparison-signed-private-get-v1",
+  "synthetic": true,
+  "layer": "actual_loopback_tcp_registered_get_hmac_wrapper_and_real_signed_registered_sales_rpc",
+  "aliasFixture": "test_only_explicit_injective_raw_triples",
+  "url": "http://127.0.0.1:57866/api/netshop/product-insights/detail?platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&productIdentity=%5B%22%E5%A4%A9%E7%8C%AB%22%2C+%22%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700%22%2C+%22spu%22%2C+%22SPU01%22%5D&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+  "method": "GET",
+  "query": "platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&productIdentity=%5B%22%E5%A4%A9%E7%8C%AB%22%2C+%22%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700%22%2C+%22spu%22%2C+%22SPU01%22%5D&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+  "status": 200,
+  "signed": true,
+  "principal": {
+    "email": "comparison-signed@example.test",
+    "role": "viewer",
+    "scope": null
+  },
+  "responseHeaders": {
+    "Date": "Thu, 01 Oct 2026 12:23:39 GMT",
+    "Server": "WSGIServer/0.2 CPython/3.14.6",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "X-Netshop-Data-Revision": "2:bbbbbbbbbbbb",
+    "X-Frame-Options": "DENY",
+    "Content-Length": "29552",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  },
+  "responseUtf8Bytes": 29552,
+  "responseSha256": "b1f6c8e15b2559dbd56bd0618c5fe5aaa63b49dd68d2e75fc7984cc910603441",
+  "seconds": 0.17499560001306236,
+  "rpcCalls": []
+}

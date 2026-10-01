@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "comparison-signed-private-get-v1",
+  "synthetic": true,
+  "layer": "actual_loopback_tcp_registered_get_hmac_wrapper_and_real_signed_registered_sales_rpc",
+  "aliasFixture": "test_only_explicit_injective_raw_triples",
+  "name": "signed-a-spu-list",
+  "url": "http://127.0.0.1:58685/api/netshop/promotion-insights?platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&pageSize=100&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+  "method": "GET",
+  "query": "platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&pageSize=100&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+  "status": 200,
+  "signed": true,
+  "principal": {
+    "email": "comparison-signed@example.test",
+    "role": "viewer",
+    "scope": null
+  },
+  "responseHeaders": {
+    "Date": "Thu, 01 Oct 2026 12:39:29 GMT",
+    "Server": "WSGIServer/0.2 CPython/3.14.6",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "X-Netshop-Data-Revision": "2:bbbbbbbbbbbb",
+    "X-Frame-Options": "DENY",
+    "Content-Length": "75159",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  },
+  "responseUtf8Bytes": 75159,
+  "responseSha256": "e9e678ddbc6834cc1263245639d1c0be63a855cb3689fe2bfd4cc481e21118dc",
+  "seconds": 0.1464826000155881,
+  "rpcCalls": []
+}

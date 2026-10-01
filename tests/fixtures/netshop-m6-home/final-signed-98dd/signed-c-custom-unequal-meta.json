@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "comparison-signed-private-get-v1",
+  "synthetic": true,
+  "layer": "actual_loopback_tcp_registered_get_hmac_wrapper_and_real_signed_registered_sales_rpc",
+  "aliasFixture": "test_only_explicit_injective_raw_triples",
+  "url": "http://127.0.0.1:57866/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-30%22%7D",
+  "method": "GET",
+  "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-30%22%7D",
+  "status": 200,
+  "signed": true,
+  "principal": {
+    "email": "comparison-signed@example.test",
+    "role": "viewer",
+    "scope": null
+  },
+  "responseHeaders": {
+    "Date": "Thu, 01 Oct 2026 12:23:38 GMT",
+    "Server": "WSGIServer/0.2 CPython/3.14.6",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "X-Netshop-Data-Revision": "2:bbbbbbbbbbbb",
+    "X-Frame-Options": "DENY",
+    "Content-Length": "730303",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  },
+  "responseUtf8Bytes": 730303,
+  "responseSha256": "0512d3b960eacecc033ce52761a51b0b4a5af681dcef5ab6a7ac8210c91c2a75",
+  "seconds": 1.5253636999987066,
+  "rpcCalls": [
+    {
+      "request": {
+        "operation": "netshop_periods_v1",
+        "current": {
+          "startDate": "2026-09-01",
+          "endExclusive": "2026-09-08"
+        },
+        "baseline": {
+          "startDate": "2026-08-25",
+          "endExclusive": "2026-08-31"
+        },
+        "rawOutlets": [
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店01 ",
+            "rawChannel": " exact channel 1 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店02 ",
+            "rawChannel": " exact channel 2 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店03 ",
+            "rawChannel": " exact channel 3 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店04 ",
+            "rawChannel": " exact channel 4 "
+          },
+          {
+            "platform": "天猫",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          }
+        ],
+        "categories": [],
+        "q": "",
+        "page": 1,
+        "pageSize": 100,
+        "expiresAtEpochMs": 1790857481538
+      },
+      "remainingBudgetSeconds": 63.919158700009575,
+      "seconds": 0.170651699998416,
+      "revision": "7:3",
+      "sameOuterDeadline": true
+    },
+    {
+      "request": {
+        "operation": "netshop_periods_v1",
+        "current": {
+          "startDate": "2026-09-01",
+          "endExclusive": "2026-09-08"
+        },
+        "baseline": {
+          "startDate": "2026-08-25",
+          "endExclusive": "2026-08-31"
+        },
+        "rawOutlets": [
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店01 ",
+            "rawChannel": " exact channel 1 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店02 ",
+            "rawChannel": " exact channel 2 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店03 ",
+            "rawChannel": " exact channel 3 "
+          },
+          {
+            "platform": "京东",
+            "rawShopName": " RAW 合成平台店04 ",
+            "rawChannel": " exact channel 4 "
+          },
+          {
+            "platform": "天猫",
+            "rawShopName": " RAW 合成平台店00 ",
+            "rawChannel": " exact channel 0 "
+          }
+        ],
+        "categories": [],
+        "q": "",
+        "page": 1,
+        "pageSize": 100,
+        "expectedRevision": "7:3",
+        "snapshotToken": "b210797e772179b3e7c0f0e0ca5c7e47eaaf29051f5f074c751bcdbd9adf9bde",
+        "expiresAtEpochMs": 1790857481538
+      },
+      "remainingBudgetSeconds": 63.681139899999835,
+      "seconds": 0.1597784000041429,
+      "revision": "7:3",
+      "sameOuterDeadline": true
+    }
+  ]
+}

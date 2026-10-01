@@ -1,0 +1,200 @@
+{
+  "synthetic": true,
+  "comboPin": "0254d03ac3dad276e5b9955f12f7556ffd923620",
+  "sharedPositiveSeed": {
+    "netshopRevision": "2:bbbbbbbbbbbb",
+    "salesRevision": "7:3",
+    "shops": 25,
+    "jdExpandedShops": 5,
+    "nativeParentRawMembers": 6,
+    "current": {
+      "startDate": "2026-09-01",
+      "endDate": "2026-09-07"
+    },
+    "baseline": {
+      "startDate": "2026-08-25",
+      "endDate": "2026-08-31"
+    }
+  },
+  "actualTcp": true,
+  "mockBusinessDto": false,
+  "businessTransportInjected": false,
+  "captures": [
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D",
+      "status": 200,
+      "sha256": "d6581afe45b98d4aca1db779a189fe316d268e54adb9ec786b155ea76380b1e3",
+      "bytes": 737280,
+      "rpcCount": 2
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D",
+      "status": 401,
+      "sha256": "09c50a596d7b47a823265cffcfd788c88370d46109e2d71a7b99a2a6956e4ac2",
+      "bytes": 72,
+      "rpcCount": 0
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&page=2&sectionToken=c52ff8fcb975775037cfd40d0106a55bc12b7f8377b0cd75db14fe7c8850b2b6",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&page=2&sectionToken=c52ff8fcb975775037cfd40d0106a55bc12b7f8377b0cd75db14fe7c8850b2b6",
+      "status": 200,
+      "sha256": "aa9cd618a5ab4eaec3dd3465bdef875b9d9adcf91f00e4f99bbf0a196136a152",
+      "bytes": 494806,
+      "rpcCount": 2
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22platform%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22partial%22%7D",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22platform%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22partial%22%7D",
+      "status": 200,
+      "sha256": "d8f806a5e9b570cc70116cae86ea7ea97212e1052f990c6e83fd722c12a58aca",
+      "bytes": 430308,
+      "rpcCount": 2
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22platform%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&chartObjectKeys=%5B%22platform%3A%E4%BA%AC%E4%B8%9C%22%2C+%22platform%3A%E5%A4%A9%E7%8C%AB%22%5D&trendGrain=day&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22platform%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&chartObjectKeys=%5B%22platform%3A%E4%BA%AC%E4%B8%9C%22%2C+%22platform%3A%E5%A4%A9%E7%8C%AB%22%5D&trendGrain=day&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "c0896bdc279ca992119573f6ce3264c03826ecae2a0535c5d38643e20aac164c",
+      "bytes": 231813,
+      "rpcCount": 5
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22platform%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&chartObjectKeys=%5B%22platform%3A%E4%BA%AC%E4%B8%9C%22%2C+%22platform%3A%E5%A4%A9%E7%8C%AB%22%5D&trendGrain=week&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22platform%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&chartObjectKeys=%5B%22platform%3A%E4%BA%AC%E4%B8%9C%22%2C+%22platform%3A%E5%A4%A9%E7%8C%AB%22%5D&trendGrain=week&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "e8d4b938707f6b30a00b00ea2de2f25eb8dfcf410a1b420b6a3ca41eee5abd9e",
+      "bytes": 210522,
+      "rpcCount": 5
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22platform%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&chartObjectKeys=%5B%22platform%3A%E4%BA%AC%E4%B8%9C%22%2C+%22platform%3A%E5%A4%A9%E7%8C%AB%22%5D&trendGrain=month&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22platform%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&chartObjectKeys=%5B%22platform%3A%E4%BA%AC%E4%B8%9C%22%2C+%22platform%3A%E5%A4%A9%E7%8C%AB%22%5D&trendGrain=month&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "8040c4e5f4473b0909dce81cdf510efc58b80ed0d35e96d60efe90fbd45595ce",
+      "bytes": 206257,
+      "rpcCount": 5
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22platform%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetQuantity&chartObjectKeys=%5B%22platform%3A%E4%BA%AC%E4%B8%9C%22%2C+%22platform%3A%E5%A4%A9%E7%8C%AB%22%5D&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22platform%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetQuantity&chartObjectKeys=%5B%22platform%3A%E4%BA%AC%E4%B8%9C%22%2C+%22platform%3A%E5%A4%A9%E7%8C%AB%22%5D&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "3c0857b3444fdf20b3e05b2d2ed29b31560c41ffcf4308609e4edc9c649e459d",
+      "bytes": 234980,
+      "rpcCount": 5
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&chartObjectKeys=%5B%5D&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&chartObjectKeys=%5B%5D&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704",
+      "status": 200,
+      "sha256": "68b2e84e509b317bfe86a2493e56fd4b350a28a1a1282a7eb2b13bcbef4e259f",
+      "bytes": 273648,
+      "rpcCount": 3
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetQuantity&chartObjectKeys=%5B%5D&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetQuantity&chartObjectKeys=%5B%5D&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9701&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9702&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9704",
+      "status": 200,
+      "sha256": "fe11ea901b0fdce46211b4075eb6ee150ab31df619341f7991a576d6f9ca7a61",
+      "bytes": 279746,
+      "rpcCount": 3
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-30%22%7D",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-30%22%7D",
+      "status": 200,
+      "sha256": "c3230ef5011cabb0126b9c8aa8cc1f76215363a1f4c22b0d6f30c49344db2b38",
+      "bytes": 730303,
+      "rpcCount": 2
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9719",
+      "query": "platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&comparisonScope=%7B%22schemaVersion%22%3A+%22comparison-scope-v1%22%2C+%22mode%22%3A+%22shop%22%2C+%22metricSource%22%3A+%22erp%22%2C+%22category%22%3A+%7B%22mode%22%3A+%22all%22%7D%2C+%22coverageFilter%22%3A+%22all%22%7D&metricKey=erpNetSales&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9719",
+      "status": 200,
+      "sha256": "0d722d673ea94969fa1a82528609f217b78055309c6d347f87c44794d0ceb065",
+      "bytes": 84810,
+      "rpcCount": 0
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/product-insights?platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&dimension=sku&pageSize=100&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&dimension=sku&pageSize=100&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "ebf0831ef4fcbd029150a824ecc72ab77c43a28da95c69c48a92aa6555434666",
+      "bytes": 43550,
+      "rpcCount": 0
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/product-insights/detail?platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&dimension=sku&productIdentity=%5B%22%E4%BA%AC%E4%B8%9C%22%2C+%22%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700%22%2C+%22sku%22%2C+%22SKU01%22%5D&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&dimension=sku&productIdentity=%5B%22%E4%BA%AC%E4%B8%9C%22%2C+%22%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700%22%2C+%22sku%22%2C+%22SKU01%22%5D&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "c774c4fd5794b58f45d339bed934b4e6e75e5683e37a8801a299f7deb182a605",
+      "bytes": 28626,
+      "rpcCount": 0
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/promotion-insights?platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&dimension=sku&pageSize=100&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&dimension=sku&pageSize=100&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "74f1420862cdb8e03cca5e9c22afc18ac325c69626a26e5553ac9a7d2f8ae915",
+      "bytes": 71701,
+      "rpcCount": 0
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/promotion-insights/detail?platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&dimension=sku&objectKind=product&objectId=70bb98dad43958e7726dafc06b81e183dfb437bb94d4060063a9b36857155d87&shopKey=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&sectionToken=32a907b12ad314908eec377d1846cac54476840c626627db427d0536888cfec8&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&dimension=sku&objectKind=product&objectId=70bb98dad43958e7726dafc06b81e183dfb437bb94d4060063a9b36857155d87&shopKey=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&sectionToken=32a907b12ad314908eec377d1846cac54476840c626627db427d0536888cfec8&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "716ce7dceb1848b487c097432f8a0fdd133ab3d44c6abf8d8fd156e92442d697",
+      "bytes": 36228,
+      "rpcCount": 0
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/product-insights?platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&pageSize=100&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&pageSize=100&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "25a4a85e6243beadc752baabf787434bd1577dc1b1d1de153a5ebbbd690b8db7",
+      "bytes": 44776,
+      "rpcCount": 0
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/product-insights/detail?platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&productIdentity=%5B%22%E5%A4%A9%E7%8C%AB%22%2C+%22%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700%22%2C+%22spu%22%2C+%22SPU01%22%5D&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&productIdentity=%5B%22%E5%A4%A9%E7%8C%AB%22%2C+%22%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700%22%2C+%22spu%22%2C+%22SPU01%22%5D&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "197deb3c0e62def0a496c589f7a29f7a87e19c73b8a8e4ba5be6e88bbef1af70",
+      "bytes": 29552,
+      "rpcCount": 0
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/promotion-insights?platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&pageSize=100&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&pageSize=100&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "e9e678ddbc6834cc1263245639d1c0be63a855cb3689fe2bfd4cc481e21118dc",
+      "bytes": 75159,
+      "rpcCount": 0
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/promotion-insights/detail?platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&objectKind=product&objectId=63d9a32da8a508b19703e081b65f6ee8aefeb38b9d48eb7cac7d33aa8d8d244b&shopKey=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&sectionToken=9d3f95f94486b60d58dd2355c4cb4dc9d0ad1252426f0029f20e44bb11f2ef8c&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "query": "platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&objectKind=product&objectId=63d9a32da8a508b19703e081b65f6ee8aefeb38b9d48eb7cac7d33aa8d8d244b&shopKey=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&sectionToken=9d3f95f94486b60d58dd2355c4cb4dc9d0ad1252426f0029f20e44bb11f2ef8c&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+      "status": 200,
+      "sha256": "81670aff854511fb2a6856b57d079c2ecd1d7e7b374710e5d4e8879e8311a4b2",
+      "bytes": 38118,
+      "rpcCount": 0
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&sectionToken=0000000000000000000000000000000000000000000000000000000000000000",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D&sectionToken=0000000000000000000000000000000000000000000000000000000000000000",
+      "status": 409,
+      "sha256": "6271e08cba9ff549dc65961693c8ff72350aac820506731a2fb0212c6302f305",
+      "bytes": 113,
+      "rpcCount": 1
+    },
+    {
+      "name": "http://127.0.0.1:58685/api/netshop/comparison-insights?platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D",
+      "query": "platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&selectedBaseline=%7B%22kind%22%3A+%22custom%22%2C+%22startDate%22%3A+%222026-08-25%22%2C+%22endDate%22%3A+%222026-08-31%22%7D",
+      "status": 403,
+      "sha256": "d47c08322f55e91817d15ce03b38430b71bdd6e3fdd991d90ea1f13d2408820b",
+      "bytes": 74,
+      "rpcCount": 0
+    }
+  ]
+}
