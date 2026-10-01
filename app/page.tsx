@@ -39,7 +39,7 @@ import {
   updateModuleViewLocation,
 } from "./shell/navigation-contract";
 import type { ProductIdentity } from "@/lib/netshop/insights-contract";
-import { defaultShopLocationContext, type ShopLocationContext } from "./shell/shop-context";
+import { defaultShopLocationContext, type ShopLocationContext, type ShopDrillScope } from "./shell/shop-context";
 import { bindShopPresentationHistory, readBoundShopLocationContext, shopPresentationHistoryMatches } from "./shell/shop-presentation-history";
 import { normalizeModuleView } from "./shell/module-view-contract";
 import SidebarNavigation from "./shell/sidebar-navigation";
@@ -146,7 +146,7 @@ type ShellViewProps = {
   onOverviewChange: (next: StoreOverviewLocation) => void;
   shopContext: ShopLocationContext;
   onShopContextChange: (next: Partial<ShopLocationContext>) => void;
-  onShopDrill: (view: ModuleViewKey<"shop">, product: ProductIdentity | null, section?: string) => void;
+  onShopDrill: (view: ModuleViewKey<"shop">, product: ProductIdentity | null, section?: string, scopePatch?: ShopDrillScope) => void;
   onShopReturn: () => void;
 };
 
@@ -405,8 +405,8 @@ export default function Home() {
     if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
     setShopContext(readBoundShopLocationContext(nextUrl, window.history.state, shopPresentationPrincipal));
   }, [currentShopLocation, shopPresentationPrincipal]);
-  const drillShop = useCallback((view: ModuleViewKey<"shop">, product: ProductIdentity | null, section?: string) => {
-    const nextUrl = drillShopLocation(currentShopLocation(), view, product, section);
+  const drillShop = useCallback((view: ModuleViewKey<"shop">, product: ProductIdentity | null, section?: string, scopePatch?: ShopDrillScope) => {
+    const nextUrl = drillShopLocation(currentShopLocation(), view, product, section, scopePatch);
     if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.pushState(bindShopPresentationHistory(window.history.state, nextUrl, shopPresentationPrincipal), "", nextUrl);
     applyLocationState();
   }, [applyLocationState, currentShopLocation, shopPresentationPrincipal]);
