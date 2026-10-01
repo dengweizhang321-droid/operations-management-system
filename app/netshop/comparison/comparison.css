@@ -1,5 +1,6 @@
 .netshop-comparison { color:var(--color-text-primary,#26392d); font-size:var(--font-size-body,14px); min-width:0; }
 .netshop-comparison :is(button,input,select) { font:inherit; }
+.netshop-comparison small { font-size:var(--font-size-caption,12px); line-height:1.6; }
 .netshop-comparison button { cursor:pointer; }
 .netshop-comparison button:disabled { cursor:default; opacity:.6; }
 .nc-heading,.nc-card-head { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; }
