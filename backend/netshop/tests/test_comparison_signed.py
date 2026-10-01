@@ -177,11 +177,12 @@ class ComparisonSignedGetTests(LiveServerTestCase):
         self.assertEqual(page2["sections"]["scale"]["summary"],result["sections"]["scale"]["summary"])
         self.assertEqual(page2["sections"]["comparability"]["counts"],result["sections"]["comparability"]["counts"])
         self.assertFalse({row["objectKey"] for row in result["sections"]["scale"]["items"]}&{row["objectKey"] for row in page2["sections"]["scale"]["items"]})
-        ascending=self.get_capture("signed-c-sort-value-asc","/api/netshop/comparison-insights",self.query(**values,sort="value_asc"))
+        home_c={**values,"periodKind":"custom","dimension":"spu","page":1,"pageSize":20,"comparisonScope":self.scope(),"metricKey":"payment","trendGrain":"day","chartObjectKeys":[]}
+        ascending=self.get_capture("signed-c-sort-value-asc-exact-home","/api/netshop/comparison-insights",self.query(**home_c,sort="value_asc"))
         self.assertNotEqual(ascending["sectionToken"],result["sectionToken"])
         self.assertEqual(ascending["sections"]["scale"]["summary"],result["sections"]["scale"]["summary"])
         self.assertEqual(ascending["sections"]["comparability"]["counts"],result["sections"]["comparability"]["counts"])
-        ascending_page2=self.get_capture("signed-c-sort-value-asc-page2","/api/netshop/comparison-insights",self.query(**values,sort="value_asc",page=2,sectionToken=ascending["sectionToken"]))
+        ascending_page2=self.get_capture("signed-c-sort-value-asc-page2-exact-home","/api/netshop/comparison-insights",self.query(**{**home_c,"page":2},sort="value_asc",sectionToken=ascending["sectionToken"]))
         self.assertEqual(ascending_page2["sectionToken"],ascending["sectionToken"])
         self.assertEqual((ascending_page2["sections"]["scale"]["pagination"]["total"],len(ascending_page2["sections"]["scale"]["items"])),(25,5))
         self.assertEqual(ascending_page2["sections"]["scale"]["summary"],ascending["sections"]["scale"]["summary"])
@@ -208,6 +209,34 @@ class ComparisonSignedGetTests(LiveServerTestCase):
         different=self.get_capture("signed-c-custom-unequal","/api/netshop/comparison-insights",self.query(**custom))
         self.assertFalse(different["sections"]["comparability"]["periodRelationship"]["sameLength"])
         self.get_capture("signed-c-unmapped","/api/netshop/comparison-insights",self.query(platform="天猫",outlet="天猫\x1f合成平台店19",endDate="2026-09-07",selectedBaseline=values["selectedBaseline"],comparisonScope=self.scope(metricSource="erp"),metricKey="erpNetSales"))
+
+        # Exact Home requests taken from I's actual gate network trace. The P
+        # detail builder narrows to the selected real identity; A keeps its
+        # original five-shop topic scope under its different owning validator.
+        five_keys=["京东\x1f"+name for name in self.jd_names]
+        home_p={"platform":"京东","outlet":five_keys,"endDate":"2026-09-07","periodKind":"custom","dimension":"spu","page":1,"pageSize":20,"sort":"payment_desc","q":"","category":""}
+        p_topic=self.get_capture("signed-p-spu-five-shops-home-list","/api/netshop/product-insights",self.query(**home_p))
+        self.assertEqual(p_topic["context"]["requestedScope"]["shopKeys"],five_keys)
+        self.assertEqual(p_topic["tableScope"]["pageSize"],20)
+        self.assertTrue(p_topic["sections"]["items"])
+        p_identity=p_topic["sections"]["items"][0]["identity"]
+        p_encoded=json.dumps([p_identity[key] for key in ("platform","shopName","dimension","id")],ensure_ascii=False)
+        rejected=self.get_capture("signed-p-spu-five-shops-home-detail-unsupported","/api/netshop/product-insights/detail",self.query(**home_p,productIdentity=p_encoded,section="overview"),status=400)
+        self.assertEqual(rejected["code"],"invalid_request")
+        home_p_detail={**home_p,"platform":p_identity["platform"],"outlet":p_identity["platform"]+"\x1f"+p_identity["shopName"],"dimension":p_identity["dimension"]}
+        p_detail=self.get_capture("signed-p-spu-home-selected-detail","/api/netshop/product-insights/detail",self.query(**home_p_detail,productIdentity=p_encoded,section="overview"))
+        self.assertEqual(p_detail["sections"]["performance"]["identity"],p_identity)
+        home_a={"platform":"京东","outlet":five_keys,"endDate":"2026-09-07","periodKind":"custom","dimension":"sku","trendGrain":"day","objectKind":"product","q":"","page":1,"pageSize":20,"sort":"spend_desc"}
+        a_topic=self.get_capture("signed-a-sku-five-shops-home-list","/api/netshop/promotion-insights",self.query(**home_a))
+        self.assertEqual(a_topic["context"]["requestedScope"]["shopKeys"],five_keys)
+        self.assertEqual(a_topic["sections"]["pagination"]["pageSize"],20)
+        a_item=next(item for item in a_topic["sections"]["items"] if item["drillable"])
+        a_detail=self.get_capture("signed-a-sku-five-shops-home-detail","/api/netshop/promotion-insights/detail",self.query(**home_a,objectId=a_item["rowKey"],shopKey=a_item["shopKey"],sectionToken=a_topic["sectionToken"]))
+        self.assertEqual(a_detail["sections"]["item"]["rowKey"],a_item["rowKey"])
+        target=os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
+        if target:
+            with (Path(target)/"signed-home-topic-detail-lineage.json").open("x",encoding="utf8") as out:
+                json.dump({"trace":"m6-home/20261001T135902727Z-990c1a07-f1d3-498a-a289-71fcfc276df0/gate-{sortPageQ,sameSeedPDrill,sameSeedADrill}.json.lastCalls","sourceDataAltered":False,"cSort":"explicit_original_shared_spu_and_C_defaults","p":{"topicShopKeys":five_keys,"detailShopKeys":p_detail["context"]["requestedScope"]["shopKeys"],"selectedIdentity":p_identity,"scopeRule":"original ProductsRead.productsQuery selected identity only; topic return retains original five-shop scope","unsupportedFiveShopDetailStatus":400},"a":{"topicShopKeys":five_keys,"detailShopKeys":a_detail["context"]["requestedScope"]["shopKeys"],"selectedRowKey":a_item["rowKey"],"scopeRule":"original promotion detail same full topic scope/rowKey/sectionToken","nativeDimension":"sku","shellDimensionUnchanged":"spu"}},out,ensure_ascii=False,indent=2)
 
         # Owning P/A lists and detail use each original source's actual dimension
         # and real returned identity/token; no response bridge is manufactured.
