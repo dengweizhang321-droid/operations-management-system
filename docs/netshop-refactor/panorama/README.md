@@ -50,12 +50,14 @@ node app/netshop/panorama/demo/serve.mjs
 ```powershell
 $env:PLAYWRIGHT_MODULE = '<独立 playwright 模块路径>'
 $env:PANORAMA_BROWSER_PATH = '<浏览器可执行文件>'
-node app/netshop/panorama/demo/verify.mjs
+node tests/fixtures/netshop-panorama-ui/demo-verify.mjs
 ```
 
 首轮38项UI及26项独立复核适用于 `38685c2a`，保留在 `evidence/`，不作为第二轮通过声明。第二轮[CUA UI 结果](evidence/round-2/cua-ui-checks.json)记录31组通过、0失败，包含五布局、四版逐章可达、折叠高亮、趋势/日期、1440/390/320、缺日/修订/权限/失败、快切店、商品上下文与顶部日期。图表按实际容器重排，窄屏实测标注约12px，未以CSS字号冒充渲染字号。章节定位依据真实顶部导航和筛选高度，320px的目标章节顶部386.69px高于筛选底368.85px。01内容renderer与首轮字节相同，见[冻结摘要](evidence/round-2/source-manifest.json)。
 
 第二轮浏览器检查使用CUA；更新后的独立 `verify.mjs` 留作可复现检查入口，本轮未再次运行该CLI脚本。独立复核另见本轮证据目录。业务范围中的负基期、ERP规则、PG reader/consumer、真实revision及旧五视图/01回归仍未验收，不能据Demo通过声称真实功能完成。
+
+2026-10-01：正式阶段将独立 Demo 验收脚本原样迁至 `tests/fixtures/netshop-panorama-ui/demo-verify.mjs`，避免测试用的可配置 Playwright 加载器被生产 `app/**` 边界扫描视为运行入口。历史证据中的旧路径和 SHA 保留；四个静态预览资源未因此变化。正式阶段进度见 [M5-PROGRESS-20261001.md](M5-PROGRESS-20261001.md)，目前仍有公共依赖待接线，不代表 M5 已交付。
 
 首次自动检查遇到浏览器包缺失，改用现有独立 Chrome；首次版式/窄屏检查发现报告章计数重复与 grid min-content 溢出，修订后复跑。未删除断言或放宽覆盖标准。
 

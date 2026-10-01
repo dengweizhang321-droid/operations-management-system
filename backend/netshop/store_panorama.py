@@ -10,7 +10,7 @@ import json
 import re
 import time
 
-from django.db import connection
+from django.db import DatabaseError, connection, transaction
 from django.http import QueryDict
 
 from .errors import NetshopApiError
@@ -148,22 +148,28 @@ def _promotion_query(params, platform):
 
 
 def _read_products(principal, spec, deadline):
-    # This existing owning helper performs its own actor, context, complete-set
-    # query, source vector and response validation. No algorithm is reproduced.
-    return product_insights._read_product_insights(principal, spec, deadline)
+    # Public owning entry keeps its own fences while sharing the S deadline.
+    return product_insights.read_product_insights(principal, spec, deadline=deadline)
 
 
 def _read_promotion(principal, params, deadline):
-    return promotion_insights._read_once(principal, params, False, deadline)
+    return promotion_insights.read_promotion_insights(principal, params, deadline=deadline)
 
 
 def _read_source(loader, deadline):
     _budget(deadline)
     try:
-        data = loader()
+        # A failed primary SQL must not poison the next independent source.
+        # PostgreSQL rolls this source frame/savepoint back before either
+        # service-error branch below runs. Existing reader permissions stay.
+        with transaction.atomic():
+            data = loader()
     except NetshopApiError as error:
         if error.status != 503:
             raise
+        _budget(deadline)
+        return {"state": "error", "data": None, "code": "service_unavailable", "message": "所属只读来源暂时不可用；其他已核验章节仍可查看"}
+    except DatabaseError:
         _budget(deadline)
         return {"state": "error", "data": None, "code": "service_unavailable", "message": "所属只读来源暂时不可用；其他已核验章节仍可查看"}
     _budget(deadline)
@@ -241,11 +247,17 @@ def _sections(sources, context):
                 reason = observed.get("reasonCode") or "no_records"
                 message = "按精确平台、店铺、维度、商品ID进入所属详情"
             elif section == "promotion" and promotion:
-                if identifier in promotion_metrics:
+                if identifier == "promotion_detail":
+                    rows = a.get("items", [])
+                    available = any(row.get("drillable") is True and row.get("id") is not None and row.get("objectKind") == "product" for row in rows)
+                    reason = "no_records" if not rows else "missing_field" if all(row.get("id") is None for row in rows) else "unverified_source"
+                    message = "所属服务提供可靠精确身份后才开放推广对象详情；同店推广专题可独立进入"
+                elif identifier in promotion_metrics:
                     metric = a.get("summary", {}).get(promotion_metrics[identifier])
                 else:
                     metric = a.get("summary", {}).get("spend")
-                message = "复用推广独立信封；京东SKU或天猫SPU分母、覆盖和归因定义保持"
+                if identifier != "promotion_detail":
+                    message = "复用推广独立信封；京东SKU或天猫SPU分母、覆盖和归因定义保持"
             elif section == "dataQuality" and identifier in {"coverage", "field_availability", "source_freshness"} and "ready" in states:
                 available = True
                 message = "各所属信封分别保留店日缺口、字段状态与实际截止日"

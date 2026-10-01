@@ -7,11 +7,12 @@ import {
 import { isNetshopIsoDate, NetshopQueryError } from "@/lib/netshop/query-contract";
 import { decodeProductInsights, ProductResponseError, type ProductInsightsResponse } from "../products/contract";
 import { decodePromotionInsightsForQuery, type PromotionInsightsResponse } from "@/lib/netshop/promotion-insights-contract";
+import { decodeProductScopeSeries, type ProductScopeSeries } from "@/lib/netshop/product-scope-series-contract";
 
 export const PANORAMA_SCHEMA = "netshop-store-panorama-v1" as const;
 export const panoramaSections = ["performance", "traffic", "products", "promotion", "margin", "customers", "targets", "dataQuality"] as const;
 export type PanoramaSectionKey = typeof panoramaSections[number];
-export const panoramaSourceKeys = ["products", "promotion", "sales", "finance", "workflow"] as const;
+export const panoramaSourceKeys = ["products", "productSeries", "promotion", "sales", "finance", "workflow"] as const;
 export type PanoramaSourceKey = typeof panoramaSourceKeys[number];
 export type PanoramaReason = typeof metricReasons[number] | "dependency_pending";
 export type PanoramaSource<T> =
@@ -27,13 +28,13 @@ export type PanoramaSection = {
   sources: PanoramaSourceKey[]; capabilities: PanoramaCapability[];
 };
 export const panoramaSectionSources: Record<PanoramaSectionKey, readonly PanoramaSourceKey[]> = {
-  performance: ["products", "sales", "promotion"], traffic: ["products"], products: ["products"],
+  performance: ["products", "productSeries", "sales", "promotion"], traffic: ["products", "productSeries"], products: ["products"],
   promotion: ["promotion"], margin: ["sales"], customers: ["products"], targets: ["finance", "workflow"],
-  dataQuality: ["products", "promotion", "sales", "finance", "workflow"],
+  dataQuality: ["products", "productSeries", "promotion", "sales", "finance", "workflow"],
 };
 export const panoramaCapabilityIds: Record<PanoramaSectionKey, readonly string[]> = {
-  performance: ["platform_payment", "platform_quantity", "erp_net_sales", "orders", "order_average_value", "order_margin", "large_margin_rate", "platform_refund", "product_changes"],
-  traffic: ["page_views", "visitors", "customers", "conversion", "visitor_value", "favorites", "add_cart_customers", "add_cart_quantity", "order_customers", "order_quantity", "order_payment", "transaction_orders", "search_impressions", "search_clicks", "search_click_rate", "search_visitors", "search_customers", "stay_time", "bounce_rate"],
+  performance: ["platform_payment", "platform_quantity", "erp_net_sales", "orders", "order_average_value", "order_margin", "large_margin_rate", "platform_refund", "product_changes", "platform_trend", "platform_day_detail"],
+  traffic: ["page_views", "visitors", "customers", "conversion", "visitor_value", "favorites", "add_cart_customers", "add_cart_quantity", "order_customers", "order_quantity", "order_payment", "transaction_orders", "search_impressions", "search_clicks", "search_click_rate", "search_visitors", "search_customers", "stay_time", "bounce_rate", "traffic_trend"],
   products: ["traded_products", "category_contribution", "top_concentration", "growth_decline", "product_detail", "inventory"],
   promotion: ["spend", "attributed_payment", "roas", "cpc", "spend_rate", "trend", "distribution", "promotion_detail"],
   margin: ["cost", "order_margin", "large_margin", "large_margin_rate", "return_amount", "return_quantity", "contribution"],
@@ -70,10 +71,11 @@ export type PanoramaWorkflowData = {
 };
 export type StorePanoramaResponse = {
   schemaVersion: typeof PANORAMA_SCHEMA; context: InsightsContext; sectionToken: string;
-  tableScope: { q: string; page: number; pageSize: number; section: PanoramaSectionKey };
+  tableScope: { q: string; page: number; pageSize: number; section: PanoramaSectionKey; grain: "day" | "week" | "month" };
   joinedSourceRevisions: SourceRevision[]; consistency: "revision_vector_checked";
   sources: {
     products: PanoramaSource<ProductInsightsResponse>;
+    productSeries: PanoramaSource<ProductScopeSeries>;
     promotion: PanoramaSource<PromotionInsightsResponse>;
     sales: PanoramaSource<PanoramaSalesData>;
     finance: PanoramaSource<PanoramaFinanceData>;
@@ -87,7 +89,7 @@ export class PanoramaResponseError extends Error {
 }
 
 const sharedKeys = new Set(["platform", "outlet", "dimension", "startDate", "endDate", "periodKind", "snapshotToken"]);
-const ownKeys = new Set(["q", "page", "pageSize", "section", "sectionToken"]);
+const ownKeys = new Set(["q", "page", "pageSize", "section", "sectionToken", "grain"]);
 const reject = (message: string): never => { throw new NetshopQueryError("invalid_store_panorama_contract", message); };
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return reject("全景响应对象无效");
@@ -105,6 +107,7 @@ function strings(value: unknown, maximum = 50): string[] {
   return value;
 }
 function integer(value: unknown, maximum = Number.MAX_SAFE_INTEGER): value is number { return Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= maximum; }
+function enumValue(value: unknown, allowed: readonly string[]): value is string { return typeof value === "string" && allowed.includes(value); }
 function page(value: string | null, fallback: number, maximum: number): number {
   if (value === null) return fallback;
   if (!/^[1-9]\d*$/.test(value) || !integer(Number(value), maximum)) return reject("全景分页无效");
@@ -120,8 +123,10 @@ export function validatePanoramaQuery(params: URLSearchParams) {
   const rawQ = params.get("q") ?? "", q = rawQ.trim();
   if (rawQ.length > 120 || /[\u0000-\u001f\u007f]/.test(rawQ)) return reject("商品ID或标题搜索无效");
   const section = params.get("section") ?? "performance";
+  const grain = params.get("grain") ?? "day";
+  if (!["day", "week", "month"].includes(grain)) return reject("全景趋势粒度无效");
   if (!panoramaSections.includes(section as PanoramaSectionKey) || params.has("sectionToken") && !token(params.get("sectionToken"))) return reject("全景章节或来源令牌无效");
-  return { query, shared, tableScope: { q, page: page(params.get("page"), 1, 10000), pageSize: page(params.get("pageSize"), 5, 100), section: section as PanoramaSectionKey } };
+  return { query, shared, tableScope: { q, page: page(params.get("page"), 1, 10000), pageSize: page(params.get("pageSize"), 5, 100), section: section as PanoramaSectionKey, grain: grain as "day" | "week" | "month" } };
 }
 /** Each owning decoder receives its own request. S tokens never become A SKU tokens. */
 export function panoramaProductQuery(params: URLSearchParams): URLSearchParams {
@@ -132,15 +137,18 @@ export function panoramaProductQuery(params: URLSearchParams): URLSearchParams {
 export function panoramaPromotionQuery(params: URLSearchParams): URLSearchParams {
   const spec = validatePanoramaQuery(params), query = new URLSearchParams(spec.query);
   query.delete("snapshotToken"); query.set("dimension", spec.shared.platforms[0] === "京东" ? "sku" : "spu");
-  query.set("q", ""); query.set("page", "1"); query.set("pageSize", "5"); query.set("objectKind", "product"); query.set("sort", "spend_desc"); query.set("trendGrain", "day");
+  query.set("q", ""); query.set("page", "1"); query.set("pageSize", "5"); query.set("objectKind", "product"); query.set("sort", "spend_desc"); query.set("trendGrain", spec.tableScope.grain);
   return query;
+}
+export function panoramaSeriesQuery(params: URLSearchParams): URLSearchParams {
+  const spec = validatePanoramaQuery(params), query = new URLSearchParams(spec.query); query.set("grain", spec.tableScope.grain); return query;
 }
 function revisions(value: unknown): Map<string, SourceRevision> {
   if (!Array.isArray(value) || value.length > 512) return reject("全景参与来源向量无界");
   const result = new Map<string, SourceRevision>();
   for (const raw of value) {
     const r = record(raw), key = JSON.stringify([r.domain, r.kind, r.scopeKey]);
-    if (!["netshop", "sales", "products", "inventory", "finance", "erp_reference", "workflow"].includes(String(r.domain)) || !referenceText(r.kind, 200) || !referenceText(r.scopeKey, 1024) || !text(r.revision, 1024) || result.has(key)) return reject("全景来源种类、范围或修订重复/无效");
+    if (!enumValue(r.domain, ["netshop", "sales", "products", "inventory", "finance", "erp_reference", "workflow"]) || !referenceText(r.kind, 200) || !referenceText(r.scopeKey, 1024) || !text(r.revision, 1024) || result.has(key)) return reject("全景来源种类、范围或修订重复/无效");
     result.set(key, r as SourceRevision);
   }
   return result;
@@ -150,11 +158,14 @@ function includeRevisions(joined: Map<string, SourceRevision>, member: SourceRev
 }
 function source<T>(value: unknown, decode: (value: unknown) => T): PanoramaSource<T> {
   const input = record(value);
+  // A known authority failure wins over a malformed ordinary error payload.
+  if (input.state === "error") {
+    if (input.code === "access_denied" || input.code === "unauthenticated") throw new PanoramaResponseError(input.code === "unauthenticated" ? 401 : 403, input.code, "来源权限失效，请重新读取当前授权范围");
+    if (input.code === "insights_revision_changed") throw new PanoramaResponseError(409, input.code, "参与来源版本已变化，请完整重读");
+  }
   if (input.state === "ready") return { state: "ready", data: decode(input.data) };
   if (input.data !== null || !text(input.message)) return reject("全景非就绪来源须为空并带原因");
   if (input.state === "error") {
-    if (input.code === "access_denied" || input.code === "unauthenticated") throw new PanoramaResponseError(input.code === "unauthenticated" ? 401 : 403, String(input.code), "来源权限失效，请重新读取当前授权范围");
-    if (input.code === "insights_revision_changed") throw new PanoramaResponseError(409, "insights_revision_changed", "参与来源版本已变化，请完整重读");
     if (input.code !== "service_unavailable") return reject("全景来源错误协议无效");
     return input as PanoramaSource<T>;
   }
@@ -168,7 +179,7 @@ function ownedScope(value: unknown, context: InsightsContext): PanoramaScope {
 }
 function comparison(value: unknown): MetricComparison {
   const v = record(value);
-  if (!["relative_change", "percentage_points"].includes(String(v.method)) || !["available", "unavailable"].includes(String(v.status)) || v.status === "available" && (typeof v.value !== "number" || !Number.isFinite(v.value) || v.reasonCode !== null) || v.status === "unavailable" && (v.value !== null || !metricReasons.includes(v.reasonCode as typeof metricReasons[number]))) return reject("全景比较状态无效");
+  if (!enumValue(v.method, ["relative_change", "percentage_points"]) || !enumValue(v.status, ["available", "unavailable"]) || v.status === "available" && (typeof v.value !== "number" || !Number.isFinite(v.value) || v.reasonCode !== null) || v.status === "unavailable" && (v.value !== null || !metricReasons.includes(v.reasonCode as typeof metricReasons[number]))) return reject("全景比较状态无效");
   return v as MetricComparison;
 }
 function salesMetrics(value: unknown): PanoramaSalesMetrics {
@@ -218,15 +229,51 @@ function decodeWorkflow(value: unknown, context: InsightsContext, joined: Map<st
   const pagination = decodeInsightPagination(data.pagination); if (pagination.returned !== data.items.length) return reject("经营事件分页不一致");
   return data as PanoramaWorkflowData;
 }
+function capabilityHasSource(section: PanoramaSectionKey, id: string, sources: StorePanoramaResponse["sources"]): boolean {
+  const p = sources.products.state === "ready" ? sources.products.data.sections : null;
+  const a = sources.promotion.state === "ready" ? sources.promotion.data.sections : null;
+  const sales = sources.sales.state === "ready" ? sources.sales.data : null;
+  const finance = sources.finance.state === "ready" ? sources.finance.data : null;
+  const workflow = sources.workflow.state === "ready" ? sources.workflow.data : null;
+  const series = sources.productSeries.state === "ready" ? sources.productSeries.data : null;
+  const available = (metric: { status: string } | null | undefined) => metric?.status === "available";
+  if (section === "customers") return false; // No owning customer/B2B envelope exists in v1.
+  if (id === "stay_time" || id === "bounce_rate" || id === "inventory" || id === "mapping") return false;
+  const productMetric: Record<string, keyof ProductInsightsResponse["sections"]["summary"]> = { platform_payment: "payment", platform_quantity: "quantity", platform_refund: "refundPayment", visitors: "visitors", customers: "customers", conversion: "conversion" };
+  if (id in productMetric) return available(p?.summary[productMetric[id]]);
+  const extraMetric: Record<string, keyof ProductInsightsResponse["sections"]["efficiency"]["metrics"]> = { page_views: "pageViews", favorites: "favorites", add_cart_customers: "addCartCustomers", add_cart_quantity: "addCartQuantity", order_customers: "orderCustomers", order_quantity: "orderQuantity", order_payment: "orderPayment", transaction_orders: "transactionOrders", search_impressions: "searchImpressions", search_clicks: "searchClicks", search_click_rate: "searchClickRate", search_visitors: "searchVisitors", search_customers: "searchCustomers" };
+  if (id in extraMetric) return available(p?.efficiency.metrics[extraMetric[id]]);
+  const salesMetric: Record<string, keyof PanoramaSalesMetrics> = { erp_net_sales: "netSales", orders: "orders", order_average_value: "orderAverageValue", order_margin: "orderMargin", large_margin: "largeMargin", large_margin_rate: "largeMarginRate", cost: "cost", return_amount: "returnAmount", return_quantity: "returnQuantity" };
+  if (id in salesMetric) return available(sales?.periods.current.metrics[salesMetric[id]]);
+  const promotionMetric: Record<string, keyof PromotionInsightsResponse["sections"]["summary"]> = { spend: "spend", attributed_payment: "attributedPayment", roas: "roas", cpc: "cpc", spend_rate: "spendRate" };
+  if (id in promotionMetric) return available(a?.summary[promotionMetric[id]]);
+  if (id === "visitor_value") return available(p?.efficiency.visitorValue);
+  if (["platform_trend", "platform_day_detail", "traffic_trend"].includes(id)) return !!series && series.series.current.length > 0;
+  if (id === "product_changes" || id === "growth_decline") return p?.growth.state === "ready" && available(p.comparisons.payment.previous);
+  if (id === "traded_products") return available(p?.counts.tradedProducts);
+  if (id === "category_contribution") return available(p?.structure.denominator);
+  if (id === "top_concentration") return available(p?.structure.top5Share) && available(p?.structure.top10Share);
+  if (id === "product_detail") return available(p?.counts.dataProducts) && Number(p?.counts.dataProducts.value) > 0;
+  if (id === "trend" || id === "distribution") return available(a?.summary.spend);
+  if (id === "promotion_detail") return !!a && a.items.some(row => row.drillable && row.id !== null && row.objectKind === "product");
+  if (id === "contribution") return !!sales && sales.items.some(item => available(item.metrics.orderMargin));
+  if (id === "annual_target") return !!finance && finance.annualTargets.some(row => available(row.target));
+  if (id === "finance_month") return !!finance && finance.months.some(row => available(row.revenue) || available(row.profit));
+  if (id === "history") return !!finance && finance.months.some(row => row.month < finance.scope.startDate.slice(0, 7) && (available(row.revenue) || available(row.profit)));
+  if (id === "events" || id === "import_records") return !!workflow && workflow.items.length > 0;
+  if (["coverage", "field_availability", "source_freshness"].includes(id)) return Object.values(sources).some(source => source.state === "ready");
+  if (id === "comparability") return available(p?.comparisons.payment.previous) || available(sales?.comparisons.netSales.previous);
+  return false;
+}
 function decodeSections(value: unknown, sources: StorePanoramaResponse["sources"]): StorePanoramaResponse["sections"] {
   const sections = record(value);
   if (Object.keys(sections).length !== panoramaSections.length) return reject("全景必须提供且只提供八个内容章节");
   for (const key of panoramaSections) {
     const section = record(sections[key]);
-    if (!["ready", "partial", "unavailable", "error"].includes(String(section.state)) || !Array.isArray(section.sources) || !section.sources.length || section.sources.length > 5 || new Set(section.sources).size !== section.sources.length || !section.sources.every(s => panoramaSourceKeys.includes(s as PanoramaSourceKey)) || !Array.isArray(section.capabilities) || !section.capabilities.length || section.capabilities.length > 30) return reject("全景章节状态、来源或能力无效");
+    if (!enumValue(section.state, ["ready", "partial", "unavailable", "error"]) || !Array.isArray(section.sources) || !section.sources.length || section.sources.length > 6 || new Set(section.sources).size !== section.sources.length || !section.sources.every(s => panoramaSourceKeys.includes(s as PanoramaSourceKey)) || !Array.isArray(section.capabilities) || !section.capabilities.length || section.capabilities.length > 30) return reject("全景章节状态、来源或能力无效");
     if (JSON.stringify(section.sources) !== JSON.stringify(panoramaSectionSources[key]) || section.capabilities.length !== panoramaCapabilityIds[key].length) return reject("全景章节引用或能力清单不符合固定八章合同");
     const ids = new Set<string>();
-    for (const raw of section.capabilities) { const capability = record(raw); if (!text(capability.id, 100) || ids.has(capability.id) || !["available", "unavailable"].includes(String(capability.status)) || !text(capability.message) || capability.status === "available" && capability.reasonCode !== null || capability.status === "unavailable" && ![...metricReasons, "dependency_pending"].includes(capability.reasonCode as PanoramaReason)) return reject("全景能力状态须提供明确原因"); ids.add(capability.id); }
+    for (const raw of section.capabilities) { const capability = record(raw); if (!text(capability.id, 100) || ids.has(capability.id) || !enumValue(capability.status, ["available", "unavailable"]) || !text(capability.message) || capability.status === "available" && capability.reasonCode !== null || capability.status === "unavailable" && ![...metricReasons, "dependency_pending"].includes(capability.reasonCode as PanoramaReason)) return reject("全景能力状态须提供明确原因"); if (capability.status === "available" && !capabilityHasSource(key, capability.id, sources)) return reject("全景能力缺少其所属可信来源或字段证明"); ids.add(capability.id); }
     if (panoramaCapabilityIds[key].some(id => !ids.has(id))) return reject("全景能力清单缺少合同字段");
     const states = section.sources.map(s => sources[s as PanoramaSourceKey].state);
     const expected = states.every(s => s === "ready") ? "ready" : states.some(s => s === "ready") ? "partial" : states.some(s => s === "error") ? "error" : "unavailable";
@@ -249,6 +296,8 @@ export function decodeStorePanorama(value: unknown, params: URLSearchParams, rev
   try { products = source(raw.products, data => decodeProductInsights(data, panoramaProductQuery(params), revision)); }
   catch (error) { if (error instanceof ProductResponseError) throw new PanoramaResponseError(error.status, error.code, error.message); throw error; }
   if (products.state === "ready") { if (products.data.context.snapshotToken !== context.snapshotToken) return reject("商品信封不是全景拥有方范围或版本"); includeRevisions(joined, products.data.joinedSourceRevisions); }
+  const productSeries = source(raw.productSeries, data => decodeProductScopeSeries(data, panoramaSeriesQuery(params), revision ?? null));
+  if (productSeries.state === "ready") { if (productSeries.data.context.snapshotToken !== context.snapshotToken) throw new PanoramaResponseError(409, "insights_revision_changed", "平台序列不是全景本店本期版本"); includeRevisions(joined, productSeries.data.joinedSourceRevisions); }
   const promotion = source(raw.promotion, data => decodePromotionInsightsForQuery(data, panoramaPromotionQuery(params), revision ?? null));
   if (promotion.state === "ready") {
     const own = promotion.data.context;
@@ -256,7 +305,7 @@ export function decodeStorePanorama(value: unknown, params: URLSearchParams, rev
     includeRevisions(joined, own.sourceRevisions);
   }
   const sources: StorePanoramaResponse["sources"] = {
-    products, promotion,
+    products, productSeries, promotion,
     sales: source(raw.sales, data => decodeSales(data, context, joined)),
     finance: source(raw.finance, data => decodeFinance(data, context, joined)),
     workflow: source(raw.workflow, data => decodeWorkflow(data, context, joined)),
@@ -264,7 +313,7 @@ export function decodeStorePanorama(value: unknown, params: URLSearchParams, rev
   const involved = new Set(context.sourceRevisions.map(r => JSON.stringify([r.domain, r.kind, r.scopeKey])));
   for (const key of panoramaSourceKeys) if (sources[key].state === "ready") {
     const data = sources[key].data;
-    const refs = key === "products" ? (data as ProductInsightsResponse).joinedSourceRevisions : key === "promotion" ? (data as PromotionInsightsResponse).context.sourceRevisions : (data as PanoramaSalesData | PanoramaFinanceData | PanoramaWorkflowData).sourceRevisions;
+    const refs = key === "products" ? (data as ProductInsightsResponse).joinedSourceRevisions : key === "productSeries" ? (data as ProductScopeSeries).joinedSourceRevisions : key === "promotion" ? (data as PromotionInsightsResponse).context.sourceRevisions : (data as PanoramaSalesData | PanoramaFinanceData | PanoramaWorkflowData).sourceRevisions;
     for (const r of refs) involved.add(JSON.stringify([r.domain, r.kind, r.scopeKey]));
   }
   if (joined.size !== involved.size) return reject("全景向量包含未参与读取的来源");

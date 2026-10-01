@@ -27,5 +27,5 @@ export function panoramaFixture(withProducts = false): StorePanoramaResponse {
     const state = states.every(s => s === "ready") ? "ready" : states.some(s => s === "ready") ? "partial" : "unavailable";
     return [key, { state, sources: [...panoramaSectionSources[key]], capabilities: panoramaCapabilityIds[key].map(id => ({ id, status: "unavailable", reasonCode: "unverified_source", message: "隔离夹具未核验能力" })) }];
   })) as StorePanoramaResponse["sections"];
-  return { schemaVersion: "netshop-store-panorama-v1", context, sectionToken: "c".repeat(64), tableScope: { q: "", page: 1, pageSize: 5, section: "performance" }, joinedSourceRevisions: context.sourceRevisions, consistency: "revision_vector_checked", sources, sections, limitations: ["仅协议隔离夹具，不是业务或生产验收"] };
+  return { schemaVersion: "netshop-store-panorama-v1", context, sectionToken: "c".repeat(64), tableScope: { q: "", page: 1, pageSize: 5, section: "performance", grain: "day" }, joinedSourceRevisions: context.sourceRevisions, consistency: "revision_vector_checked", sources, sections, limitations: ["仅协议隔离夹具，不是业务或生产验收"] };
 }

@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlencode
 
+from django.db import connection
 from django.db.models import F
 from django.http import QueryDict
 from django.test import SimpleTestCase, TestCase
@@ -178,6 +179,55 @@ class StorePanoramaTests(TestCase):
         self.assertEqual(response["sources"]["promotion"]["state"], "error")
         self.assertNotIn("private cause", json.dumps(response))
 
+    def test_available_spend_does_not_prove_drillable_promotion_identity(self):
+        self.product()
+        add_day(self, rows=[{"id": "", "values": {"spendCents": 200, "netTransactionAmountCents": 400, "impressions": 100, "clicks": 2, "netOrders": 1}}])
+        add_day(self, promotion=False)
+        response = self.read()
+        owned = response["sources"]["promotion"]["data"]["sections"]
+        self.assertEqual(owned["summary"]["spend"]["status"], "available")
+        self.assertTrue(all(row["id"] is None for row in owned["items"]))
+        capabilities = {c["id"]: c for c in response["sections"]["promotion"]["capabilities"]}
+        self.assertEqual(capabilities["spend"]["status"], "available")
+        self.assertEqual(capabilities["promotion_detail"]["status"], "unavailable")
+        self.assertEqual(capabilities["promotion_detail"]["reasonCode"], "missing_field")
+
+    def test_real_primary_sql_failure_rolls_back_before_other_source(self):
+        self.promotion()
+        def broken_primary(*_args):
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT * FROM panorama_fixture_missing_primary_table")
+        with patch.object(panorama, "_read_products", side_effect=broken_primary):
+            response = self.read()
+        self.assertEqual(response["sources"]["products"]["state"], "error")
+        self.assertEqual(response["sources"]["products"]["code"], "service_unavailable")
+        self.assertEqual(response["sources"]["promotion"]["state"], "ready")
+        self.assertEqual(response["sources"]["promotion"]["data"]["sections"]["summary"]["spend"]["value"], 200)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 42")
+            self.assertEqual(cursor.fetchone()[0], 42)
+
+    def test_real_primary_statement_timeout_restores_transaction_and_setting(self):
+        self.product()
+        self.promotion()
+        with connection.cursor() as cursor:
+            cursor.execute("SHOW statement_timeout")
+            original_timeout = cursor.fetchone()[0]
+        def timed_out_primary(*_args):
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL statement_timeout = '20ms'")
+                cursor.execute("SELECT pg_sleep(0.2)")
+        with patch.object(panorama, "_read_products", side_effect=timed_out_primary):
+            response = self.read()
+        self.assertEqual(response["sources"]["products"]["state"], "error")
+        self.assertEqual(response["sources"]["promotion"]["state"], "ready")
+        self.assertEqual(response["sources"]["promotion"]["data"]["sections"]["summary"]["spend"]["value"], 200)
+        with connection.cursor() as cursor:
+            cursor.execute("SHOW statement_timeout")
+            self.assertEqual(cursor.fetchone()[0], original_timeout)
+            cursor.execute("SELECT 43")
+            self.assertEqual(cursor.fetchone()[0], 43)
+
     def test_authoritative_401_403_409_never_become_local_sources(self):
         for status, code in ((401, "authentication_required"), (403, "access_denied"), (409, "insights_revision_changed")):
             with self.subTest(status=status), patch.object(panorama, "_read_products", side_effect=NetshopApiError("reject", status=status, code=code)), patch.object(panorama, "_read_promotion") as promotion:
@@ -280,6 +330,35 @@ class StorePanoramaTests(TestCase):
         with patch("netshop.store_panorama.time.monotonic", side_effect=lambda: clock[0]), patch.object(panorama, "_encode_response", side_effect=expired), self.assertRaises(NetshopApiError) as raised:
             self.read()
         self.assertEqual(raised.exception.status, 503)
+
+    def test_actual_sql_finishing_after_deadline_blocks_next_read(self):
+        clock, completed = [100.0], []
+        def expire_after_actual_sql(execute, sql, values, many, context):
+            result = execute(sql, values, many, context)
+            completed.append(str(sql))
+            clock[0] = 166.0
+            return result
+        with patch("netshop.store_panorama.time.monotonic", side_effect=lambda: clock[0]), connection.execute_wrapper(panorama._sql_fence(165.0)), connection.execute_wrapper(expire_after_actual_sql):
+            with connection.cursor() as cursor:
+                with self.assertRaises(NetshopApiError):
+                    cursor.execute("/* owning read */ SELECT 42")
+                with self.assertRaises(NetshopApiError):
+                    cursor.execute("SELECT 43")
+        self.assertEqual(completed, ["/* owning read */ SELECT 42"])
+
+    def test_budget_covers_initial_actor_sql_before_any_business_read(self):
+        calls, completed = [0], []
+        def clock():
+            calls[0] += 1
+            return 100.0 if calls[0] == 1 else 166.0
+        def record_completed(execute, sql, values, many, context):
+            result = execute(sql, values, many, context)
+            completed.append(str(sql))
+            return result
+        with patch("netshop.store_panorama.time.monotonic", side_effect=clock), connection.execute_wrapper(record_completed), self.assertRaises(NetshopApiError) as raised:
+            self.read()
+        self.assertEqual(raised.exception.status, 503)
+        self.assertEqual(completed, [])
 
     def test_combined_response_overflow_fails_without_truncation(self):
         self.product()
