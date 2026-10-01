@@ -7,13 +7,17 @@ import {
 import { NetshopQueryError, resolveNetshopQueryPeriod, readNetshopOutletFilters } from "@/lib/netshop/query-contract";
 import type { CategoryEvidence, ContributionBucket } from "../products/contract";
 import { mappingHash } from "@/lib/ai/business-mapping-builder";
+import { decodeSalesPeriodsForRequest, type SalesPeriodsRequest, type SalesPeriodsResponse, type RawSalesIdentity } from "@/lib/netshop/sales-periods-contract";
 
 export const COMPARISON_SCHEMA = "netshop-comparison-v1" as const;
-export const comparisonMetricKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate", "erpNetSales", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"] as const;
+export const comparisonMetricKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate", "erpNetSales", "erpNetQuantity", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"] as const;
 export type ComparisonMetricKey = typeof comparisonMetricKeys[number];
 export const comparisonSorts = ["value_desc", "value_asc", "growth_desc", "decline_desc", "name_asc"] as const;
 export type ComparisonSort = typeof comparisonSorts[number];
-export type ComparisonMetric = MetricValue | DerivedMoneyPerCountV1;
+export type ErpNativeQuantityMetric = Omit<MetricValue, "unit" | "aggregation" | "basis"> & { metricSchemaVersion: "netshop-comparison-native-quantity-v1"; unit: "NATIVE_INTEGER_QUANTITY"; aggregation: "sum"; basis: "erp_net_sales" };
+export type ComparisonMetric = MetricValue | DerivedMoneyPerCountV1 | ErpNativeQuantityMetric;
+export type ErpObservation = { schemaVersion: "netshop-comparison-erp-observations-v1"; period: "current" | "baseline"; objectKey: "summary" | string; shopKeys: string[]; startDate: string; endDate: string; expectedShopDatePairs: number; observedShopDatePairs: number | null; observedByShop: Array<{ shopKey: string; dates: string[] }>; completeness: "unknown" };
+export type ErpEvidence = { schemaVersion: "netshop-comparison-erp-evidence-v1"; state: "ready" | "error" | "unavailable"; code: string | null; request: SalesPeriodsRequest | null; mappings: Array<{ shopKey: string; status: "verified_alias" | "unmapped" | "ambiguous"; rawIdentity: RawSalesIdentity | null; method: "netshop_sales_alias_v1"; reasonCode: string | null }>; source: SalesPeriodsResponse | null; observations: Record<string, ErpObservation>; temporalState: { state: "dependency_pending"; code: "series_dependency_pending" } };
 export type ComparisonMetrics = Record<ComparisonMetricKey, ComparisonMetric>;
 export type ComparisonComparisons = Record<ComparisonMetricKey, MetricComparison>;
 export type ComparisonCategory = { mode: "all" | "unknown" } | { mode: "label_only"; platform: InsightPlatform; sourceId: string; label: string; evidenceVersion: string };
@@ -67,7 +71,7 @@ export function validateComparisonQuery(params: URLSearchParams) {
     validateObjectKeys(chartObjectKeys, 4);
     const metricKey = params.get("metricKey") ?? (scope.metricSource === "erp" ? "erpNetSales" : "payment"), sort = params.get("sort") ?? "value_desc", trendGrain = params.get("trendGrain") ?? "day";
     if (!(comparisonMetricKeys as readonly string[]).includes(metricKey) || !(comparisonSorts as readonly string[]).includes(sort) || !["day", "week", "month"].includes(trendGrain)) fail("对比指标、排序或粒度无效");
-    const erpKeys = ["erpNetSales", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"];
+    const erpKeys = ["erpNetSales", "erpNetQuantity", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"];
     if (erpKeys.includes(metricKey) !== (scope.metricSource === "erp")) fail("对比指标与来源不一致");
     const positive = (key: string, fallback: number, max: number) => { const value = params.get(key); if (value === null) return fallback; if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) > max) fail("分页无效"); return Number(value); };
     const page = positive("page", 1, 10000), pageSize = positive("pageSize", 20, 100);
@@ -100,16 +104,23 @@ export type ComparisonResponse = {
     trends: { grain: "day" | "week" | "month"; items: Array<{ objectKey: string; current: ComparisonTrendPoint[]; baseline: ComparisonTrendPoint[]; indexBasis: { status: "available" | "unavailable"; reasonCode: MetricReason | null; current: ComparisonMetric; baseline: ComparisonMetric } }>; definitions: string[] };
     structure: { items: Array<{ objectKey: string; current: ComparisonProductStructure; baseline: ComparisonProductStructure; counts: { current: ComparisonMetric; baseline: ComparisonMetric } }>; categoryBasis: "reference_current_cohort"; sameProduct: { status: "unavailable"; reasonCode: "unmapped" }; categoryOptions: CategoryEvidence[]; definitions: string[] };
     promotion: { items: string[]; sourceDefinitions: string[]; sourceScopes: Array<{ period: "current" | "baseline"; scopeKey: string; snapshotToken: string; dimension: "sku" | "spu"; shopKeys: string[]; sourceRevisions: SourceRevision[]; coverageBySource: Record<string, SourceCoverage> }>; sourceStates: Array<{ period: "current" | "baseline"; platform: InsightPlatform; state: "ready" | "error" | "unavailable"; code: string | null }> };
-    comparability: { items: ComparisonPopulationRow[]; counts: { candidates: number; currentComplete: number; baselineComplete: number; comparable: number; excluded: number }; periodRelationship: { sameLength: boolean; overlapDays: number }; limitations: string[]; population: "complete_authorized_candidate_union"; coverage: Record<string, SourceCoverage>; erpState: { state: "ready" | "error" | "unavailable" | "dependency_pending"; code: string | null } };
+    comparability: { items: ComparisonPopulationRow[]; counts: { candidates: number; currentComplete: number; baselineComplete: number; comparable: number; excluded: number }; periodRelationship: { sameLength: boolean; overlapDays: number }; limitations: string[]; population: "complete_authorized_candidate_union"; coverage: Record<string, SourceCoverage>; erpState: { state: "ready" | "error" | "unavailable" | "dependency_pending"; code: string | null }; erpEvidence: ErpEvidence };
   };
 };
 
-function metric(value: unknown): ComparisonMetric { const m = object(value); return m.unit === "CNY_CENT_PER_COUNT" ? decodeDerivedMoneyPerCount(m) : decodeMetric(m); }
+export function decodeErpNativeQuantity(value: unknown): ErpNativeQuantityMetric {
+  const m = object(value);
+  if (m.metricSchemaVersion !== "netshop-comparison-native-quantity-v1" || m.unit !== "NATIVE_INTEGER_QUANTITY" || m.aggregation !== "sum" || m.basis !== "erp_net_sales" || m.status === "available") fail("ERP原生数量版本、单位或未证完整性状态无效");
+  // Validation proxy only: the published quantity keeps its native owning unit.
+  decodeMetric({ ...m, unit: "COUNT" }); return m as ErpNativeQuantityMetric;
+}
+function metric(value: unknown): ComparisonMetric { const m = object(value); return m.unit === "CNY_CENT_PER_COUNT" ? decodeDerivedMoneyPerCount(m) : m.unit === "NATIVE_INTEGER_QUANTITY" ? decodeErpNativeQuantity(m) : decodeMetric(m); }
+function comparableProxy(m: MetricValue | ErpNativeQuantityMetric): MetricValue { return m.unit === "NATIVE_INTEGER_QUANTITY" ? { ...m, unit: "COUNT" } : m; }
 function metrics(value: unknown): ComparisonMetrics {
   const m = object(value); exact(m, [...comparisonMetricKeys]);
   for (const key of comparisonMetricKeys) {
     const v = metric(m[key]);
-    const unit = ["visitorValue", "cpc", "averageOrderValue"].includes(key) ? "CNY_CENT_PER_COUNT" : ["payment", "spend", "attributedPayment", "erpNetSales", "orderMargin", "largeMarginAmount"].includes(key) ? "CNY_CENT" : key === "roas" ? "MULTIPLE" : ["conversion", "ctr", "spendRate", "largeMargin", "returnRate"].includes(key) ? "RATIO" : "COUNT";
+    const unit = ["erpNetQuantity", "returnQuantity"].includes(key) ? "NATIVE_INTEGER_QUANTITY" : ["visitorValue", "cpc", "averageOrderValue"].includes(key) ? "CNY_CENT_PER_COUNT" : ["payment", "spend", "attributedPayment", "erpNetSales", "orderMargin", "largeMarginAmount"].includes(key) ? "CNY_CENT" : key === "roas" ? "MULTIPLE" : ["conversion", "ctr", "spendRate", "largeMargin", "returnRate"].includes(key) ? "RATIO" : "COUNT";
     if (v.unit !== unit) fail("指标单位与定义不一致");
     const basis = key === "spendRate" || ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders"].includes(key) ? "product_day_sum" : ["spend", "attributedPayment", "roas", "ctr", "cpc"].includes(key) ? "platform_attributed" : key === "orderMargin" ? "erp_order_margin" : ["largeMargin", "largeMarginAmount"].includes(key) ? "erp_large_margin" : "erp_net_sales";
     if (v.basis !== basis) fail("指标不能跨来源改称平台成交、ERP净额或毛利");
@@ -118,7 +129,7 @@ function metrics(value: unknown): ComparisonMetrics {
   return m as ComparisonMetrics;
 }
 function compare(value: unknown, current: ComparisonMetric, baseline: ComparisonMetric): MetricComparison {
-  const c = object(value), expected = current.unit === "CNY_CENT_PER_COUNT" && baseline.unit === "CNY_CENT_PER_COUNT" ? compareDerivedMoneyPerCount(current, baseline) : current.unit === "CNY_CENT_PER_COUNT" || baseline.unit === "CNY_CENT_PER_COUNT" ? null : compareMetrics(current, baseline);
+  const c = object(value), expected = current.unit === "CNY_CENT_PER_COUNT" && baseline.unit === "CNY_CENT_PER_COUNT" ? compareDerivedMoneyPerCount(current, baseline) : current.unit === "CNY_CENT_PER_COUNT" || baseline.unit === "CNY_CENT_PER_COUNT" ? null : compareMetrics(comparableProxy(current), comparableProxy(baseline));
   if (!expected || c.method !== expected.method || c.status !== expected.status || c.reasonCode !== expected.reasonCode || c.value !== expected.value) fail("比较结果与已验证分子分母或基期状态不一致");
   return c as MetricComparison;
 }
@@ -183,6 +194,32 @@ function primitiveFEnvelope(value: unknown) {
   if (!Array.isArray(context.capabilities)) fail("完整F字段能力缺失");
   for (const raw of context.capabilities) { const capability = object(raw); for (const field of ["sourceId", "period", "field", "coverageRef", "status"]) if (typeof capability[field] !== "string") fail("完整F字段能力枚举须为原始字符串"); if (capability.reasonCode !== null && typeof capability.reasonCode !== "string") fail("完整F字段能力原因须为原始字符串"); }
 }
+function erpEvidence(value: unknown, current: InsightsContext, baseline: InsightsContext, candidates: Set<string>): ErpEvidence {
+  const e = object(value); exact(e, ["schemaVersion", "state", "code", "request", "mappings", "source", "observations", "temporalState"]);
+  if (e.schemaVersion !== "netshop-comparison-erp-evidence-v1" || !enumValue(e.state, ["ready", "error", "unavailable"]) || e.state === "ready" && e.code !== null || e.state !== "ready" && !text(e.code, 200) || !Array.isArray(e.mappings) || e.mappings.length !== candidates.size) fail("ERP证据状态或完整映射集合无效");
+  const mappingKeys = new Set<string>(), rawKeys = new Set<string>();
+  for (const raw of e.mappings) { const m = object(raw); exact(m, ["shopKey", "status", "rawIdentity", "method", "reasonCode"]); if (typeof m.shopKey !== "string" || !candidates.has(m.shopKey) || mappingKeys.has(m.shopKey) || !enumValue(m.status, ["verified_alias", "unmapped", "ambiguous"]) || m.method !== "netshop_sales_alias_v1") fail("ERP映射必须精确且覆盖全部授权候选"); mappingKeys.add(m.shopKey);
+    if (m.status === "verified_alias") { const id = object(m.rawIdentity); exact(id, ["platform", "rawShopName", "rawChannel"]); if (!text(id.platform, 200) || typeof id.rawShopName !== "string" || id.rawShopName.length > 200 || !text(id.rawChannel, 200) || id.platform !== m.shopKey.split("\u001f")[0] || m.reasonCode !== null) fail("ERP三元组不能猜渠道、跨平台或失去证据"); const key = stable(id); if (rawKeys.has(key)) fail("两网店不能重复累计同一ERP原始三元组"); rawKeys.add(key); }
+    else if (m.rawIdentity !== null || !text(m.reasonCode, 200)) fail("ERP未映射或多义不能猜原始三元组");
+  }
+  if (e.state === "ready") {
+    const request = object(e.request), source = object(e.source), revisions = source.sourceRevisions;
+    if (!Array.isArray(revisions) || revisions.length !== 1) fail("ERP拥有方向量未完整提供");
+    decodeSalesPeriodsForRequest(source, request as SalesPeriodsRequest, String(object(revisions[0]).revision));
+    if (stable(request.current) !== stable({ startDate: current.periods.current.startDate, endExclusive: current.periods.current.endExclusive }) || stable(request.baseline) !== stable({ startDate: baseline.periods.current.startDate, endExclusive: baseline.periods.current.endExclusive }) || request.q !== "" || request.page !== 1 || request.pageSize !== 100 || !Array.isArray(request.categories) || request.categories.length || !Array.isArray(request.rawOutlets) || stable(request.rawOutlets.map(stable).sort()) !== stable([...rawKeys].sort())) fail("ERP读必须绑定两期完整精确映射集合，不拿当前页或平台类目替代");
+    const p = object(source.candidatePagination); if (p.hasMore || p.truncated || p.candidateCount !== p.returned) fail("ERP完整映射集合不得使用其当前排名页替代");
+  } else if (e.source !== null) fail("ERP读取错误或未映射不能保留旧源数值");
+  const observations = object(e.observations);
+  for (const [ref, raw] of Object.entries(observations)) { const o = object(raw); exact(o, ["schemaVersion", "period", "objectKey", "shopKeys", "startDate", "endDate", "expectedShopDatePairs", "observedShopDatePairs", "observedByShop", "completeness"]);
+    if (o.schemaVersion !== "netshop-comparison-erp-observations-v1" || !enumValue(o.period, ["current", "baseline"]) || o.completeness !== "unknown" || !referenceText(ref, 400) || !ref.startsWith(`comparison:${o.period}:erp:`)) fail("ERP观察日期不能冒F覆盖或丢所属期");
+    const keys = shopKeys(o.shopKeys), window = (o.period === "current" ? current : baseline).periods.current, range = resolveNetshopQueryPeriod(String(o.startDate), String(o.endDate), 366);
+    if (typeof o.startDate !== "string" || typeof o.endDate !== "string" || !range || o.startDate < window.startDate || o.endDate > window.endDate || keys.some(key => !candidates.has(key)) || o.expectedShopDatePairs !== keys.length * range.days || !Array.isArray(o.observedByShop)) fail("ERP观察范围越权、日期非法或统计范围错误");
+    if (o.observedShopDatePairs === null) { if (o.observedByShop.length) fail("未知ERP观察不能伪造记录日期"); }
+    else { count(o.observedShopDatePairs, Number(o.expectedShopDatePairs)); let observed = 0; const used = new Set<string>(); for (const item of o.observedByShop) { const row = object(item); if (typeof row.shopKey !== "string" || !keys.includes(row.shopKey) || used.has(row.shopKey) || !Array.isArray(row.dates) || new Set(row.dates).size !== row.dates.length || !row.dates.every(date => typeof date === "string" && resolveNetshopQueryPeriod(date, date, 1) && date >= String(o.startDate) && date <= String(o.endDate))) fail("ERP观察日期重复或越店越期"); used.add(row.shopKey); observed += row.dates.length; } if (observed !== o.observedShopDatePairs) fail("ERP观察日期数与完整记录不一致"); }
+  }
+  const temporal = object(e.temporalState); if (temporal.state !== "dependency_pending" || temporal.code !== "series_dependency_pending") fail("ERP日序列尚未冻结，不能配日伪造");
+  return e as ErpEvidence;
+}
 
 function coverageRecord(value: unknown, allowedShopKeys?: Set<string>, windows?: InsightsContext["periods"]): Record<string, SourceCoverage> {
   const result = object(value);
@@ -244,15 +281,17 @@ function decodeComparisonStructure(value: unknown, params: URLSearchParams, owni
     const efficiency = object(sections.efficiency), promotion = object(sections.promotion), pageKeys = rows.map(row => row.objectKey);
     for (const section of [efficiency, promotion]) { validateObjectKeys(section.items, 100); if (stable(section.items) !== stable(pageKeys)) fail("效率与推广须精确引用同一服务端排名页"); }
     strings(efficiency.definitions, 30, 1000); strings(promotion.sourceDefinitions, 30, 1000);
-    const coverage = coverageRecord(population.coverage, candidateShopKeys), erp = object(population.erpState);
+    const coverage = coverageRecord(population.coverage, candidateShopKeys), erp = object(population.erpState), erpSource = erpEvidence(population.erpEvidence, current, baseline, candidateShopKeys);
+    if (erp.state !== erpSource.state || erp.code !== erpSource.code) fail("ERP来源状态与完整证据不一致");
     for (const [ref, cov] of Object.entries(coverage)) coverageRecord({ [ref]: cov }, candidateShopKeys, ref.startsWith("comparison:baseline:") ? baseline.periods : current.periods);
     if (!enumValue(erp.state, ["ready", "error", "unavailable", "dependency_pending"]) || erp.state === "ready" && erp.code !== null || erp.state !== "ready" && !text(erp.code, 200)) fail("ERP来源状态无效");
     if (!Array.isArray(promotion.sourceScopes) || promotion.sourceScopes.length > 4 || !Array.isArray(promotion.sourceStates) || promotion.sourceStates.length !== current.effectiveScope.platforms.length * 2) fail("推广所属范围或状态缺失");
-    const coverageRefs = new Set([...Object.keys(current.coverageBySource), ...Object.keys(baseline.coverageBySource), ...Object.keys(coverage)]), sourceStateKeys = new Set<string>();
+    const coverageRefs = new Set([...Object.keys(current.coverageBySource), ...Object.keys(baseline.coverageBySource), ...Object.keys(coverage), ...Object.keys(erpSource.observations)]), sourceStateKeys = new Set<string>();
     const expectedVector = new Map<string, SourceRevision>();
     const sourceScopeKeys = new Set<string>();
     const addVector = (source: SourceRevision[]) => { for (const r of source) { const key = stable([r.domain, r.kind, r.scopeKey]); if (expectedVector.has(key) && expectedVector.get(key)!.revision !== r.revision) fail("同类同scope来源版本冲突"); expectedVector.set(key, r); } };
     addVector(current.sourceRevisions); addVector(baseline.sourceRevisions);
+    if (erpSource.source) addVector(erpSource.source.sourceRevisions as SourceRevision[]);
     for (const raw of promotion.sourceScopes) {
       const a = object(raw);
       if (!enumValue(a.period, ["current", "baseline"]) || !token(a.scopeKey) || !token(a.snapshotToken) || !enumValue(a.dimension, ["sku", "spu"]) || !Array.isArray(a.sourceRevisions) || !a.sourceRevisions.length) fail("推广所属两期范围无效");
@@ -275,6 +314,11 @@ function decodeComparisonStructure(value: unknown, params: URLSearchParams, owni
     verifyReferences(sections);
     const coverageFor = (ref: string, period: "current" | "baseline") => coverage[ref] ?? (period === "current" ? current : baseline).coverageBySource[ref] ?? (promotion.sourceScopes as ComparisonResponse["sections"]["promotion"]["sourceScopes"]).filter(scope => scope.period === period).map(scope => scope.coverageBySource[ref]).find(Boolean);
     const bindMetric = (m: ComparisonMetric, period: "current" | "baseline", keys: string[], window: { startDate: string; endDate: string }, metricKey?: ComparisonMetricKey) => {
+      if (["erp_net_sales", "erp_order_margin", "erp_large_margin"].includes(m.basis)) {
+        const observed = erpSource.observations[m.coverageRef];
+        const parent = (period === "current" ? current : baseline).periods.current, temporalUnavailable = m.status === "unavailable" && m.reasonCode === "not_applicable" && erpSource.temporalState.state === "dependency_pending" && observed?.startDate === parent.startDate && observed?.endDate === parent.endDate;
+        if (!observed || observed.period !== period || !temporalUnavailable && (observed.startDate !== window.startDate || observed.endDate !== window.endDate) || stable([...observed.shopKeys].sort()) !== stable([...keys].sort()) || m.status === "available" || m.status === "partial" && (!erpSource.source || stable(m.sourceIds) !== stable(["erp_sales"]))) fail("ERP金额/数量须保观察范围、来源和未证完整性状态"); return;
+      }
       const cov = coverageFor(m.coverageRef, period), days = resolveNetshopQueryPeriod(window.startDate, window.endDate, 366)!.days;
       if (!cov) fail("指标覆盖未绑定所属两期范围");
       if (cov.missingByShop.some(item => !keys.includes(item.shopKey) || item.dates.some(date => date < window.startDate || date > window.endDate))) fail("指标覆盖不能引用其他店铺或日期");
@@ -334,7 +378,7 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
         const ready = platform ? dto.sections.promotion.sourceStates.find(state => state.period === period && state.platform === platform)?.state === "ready" : false;
         if (ready || m.status === "available" || m.status === "partial") { const ref = `comparison:${period}:promotion:${objectKey ? hashes.get(objectKey) : platform ? platform + ":summary" : "summary"}${date ? ":trend:" + date : ""}${key === "spendRate" ? ":paired-whole" : ""}`; if (m.coverageRef !== ref) fail("推广覆盖引用不能借其他期、对象或配对集合"); }
         else if (!m.coverageRef.startsWith(`comparison:${period}:promotion:`)) fail("不可用推广仍须保所属两期引用");
-      } else if (!m.coverageRef.startsWith(`comparison:${period}:erp:`)) fail("ERP覆盖引用必须保所属两期来源");
+      } else { const temporalUnavailable = !!date && m.status === "unavailable" && m.reasonCode === "not_applicable" && dto.sections.comparability.erpEvidence.temporalState.state === "dependency_pending"; const ref = `comparison:${period}:erp:${objectKey ? hashes.get(objectKey) : "summary"}${date && !temporalUnavailable ? ":trend:" + date : ""}`; if (m.coverageRef !== ref) fail("ERP观察引用不能借其他期、对象或趋势桶"); }
     };
     for (const period of ["current", "baseline"] as const) {
       for (const key of comparisonMetricKeys) check(dto.sections.scale.summary[period][key], period, key, null);
