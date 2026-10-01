@@ -265,6 +265,7 @@ test("platform whole-period carriers cannot borrow parent totals, foreign RAW sc
   await rejectsMutation(dto=>{dto.sections.comparability.erpEvidence.platformPeriods![0].source.sourceRevisions[0].scopeKey=dto.sections.comparability.erpEvidence.source!.scopeKey;},fixture);
   await rejectsMutation(dto=>{dto.sections.comparability.erpEvidence.platformPeriods![0].source.items.pop();},fixture);
   await rejectsMutation(dto=>{dto.joinedSourceRevisions=dto.joinedSourceRevisions.filter(member=>member.scopeKey!==dto.sections.comparability.erpEvidence.platformPeriods![0].source.scopeKey);},fixture);
+  await rejectsMutation(dto=>{const removed=dto.sections.comparability.erpEvidence.platformPeriods!.pop()!;dto.joinedSourceRevisions=dto.joinedSourceRevisions.filter(member=>member.scopeKey!==removed.source.scopeKey);},fixture);
 });
 
 test("platform member omission, wrong platform, source tuple and false completeness are rejected", async () => {

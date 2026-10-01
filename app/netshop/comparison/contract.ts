@@ -393,6 +393,9 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
     if (evidence.platformPeriods && dto.comparisonScope.mode !== "platform") fail("ERP平台整期载体只属于平台模式，不能注入单店读取");
     const rawKey = (identity: RawSalesIdentity) => JSON.stringify([identity.platform, identity.rawShopName, identity.rawChannel]);
     const mappings = new Map(evidence.mappings.map(mapping => [mapping.shopKey, mapping]));
+    const parentPlatforms = [...new Set(source?.requestedScope.rawOutlets.map(identity => identity.platform) ?? [])];
+    const expectedPeriodPlatforms = source && dto.comparisonScope.mode === "platform" && parentPlatforms.length > 1 ? parentPlatforms.filter(platform => { const members=evidence.mappings.filter(mapping=>mapping.shopKey.startsWith(platform+"\u001f"));return members.length>0&&members.every(mapping=>mapping.status==="verified_alias"); }).sort() : [];
+    if (stable((evidence.platformPeriods ?? []).map(child=>child.platform).sort()) !== stable(expectedPeriodPlatforms)) fail("ERP平台整期载体须覆盖全部可读取平台，不能删除未选主图的平台经营值");
     const rawItems = new Map(source?.items.map(item => [rawKey(item.identity), item]) ?? []);
     const rawSeries = new Map(source?.series?.items.map(item => [rawKey(item.identity), item]) ?? []);
     const platformSeries = new Map(source?.platformSeries?.items.map(item => [item.platform, item]) ?? []);
