@@ -402,7 +402,7 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
         return { data: point ? restoreSalesPeriodSeriesPoint(point).facts : null, reason: reason ?? (point || row.kind === "shop" && selected.length === 1 && !rawItems.has(selected[0]) ? null : "not_applicable") };
       }
       const data = row.kind === "shop" ? (selected.length ? rawItems.get(selected[0])?.[period] ?? null : null) : source && stable(selected.sort()) === stable(full.sort()) ? source.periodTotals[period] : null;
-      if (row.kind === "platform" && data) reason = null; else if (source && row.kind === "platform" && !data) reason = "not_applicable";
+      if (row.kind === "platform" && data) reason = null; else if (source && row.kind === "platform" && !data && (!source.platformSeries || !reason)) reason = "not_applicable";
       return { data, reason };
     };
     const erpKeys: ComparisonMetricKey[] = ["erpNetSales", "erpNetQuantity", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"];
