@@ -10,7 +10,7 @@ import json
 import re
 import time
 
-from django.db import connection
+from django.db import DatabaseError, connection, transaction
 from django.http import QueryDict
 
 from .errors import NetshopApiError
@@ -160,10 +160,17 @@ def _read_promotion(principal, params, deadline):
 def _read_source(loader, deadline):
     _budget(deadline)
     try:
-        data = loader()
+        # A failed primary SQL must not poison the next independent source.
+        # PostgreSQL rolls this source frame/savepoint back before either
+        # service-error branch below runs. Existing reader permissions stay.
+        with transaction.atomic():
+            data = loader()
     except NetshopApiError as error:
         if error.status != 503:
             raise
+        _budget(deadline)
+        return {"state": "error", "data": None, "code": "service_unavailable", "message": "所属只读来源暂时不可用；其他已核验章节仍可查看"}
+    except DatabaseError:
         _budget(deadline)
         return {"state": "error", "data": None, "code": "service_unavailable", "message": "所属只读来源暂时不可用；其他已核验章节仍可查看"}
     _budget(deadline)

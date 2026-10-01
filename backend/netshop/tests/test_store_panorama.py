@@ -179,6 +179,42 @@ class StorePanoramaTests(TestCase):
         self.assertEqual(response["sources"]["promotion"]["state"], "error")
         self.assertNotIn("private cause", json.dumps(response))
 
+    def test_real_primary_sql_failure_rolls_back_before_other_source(self):
+        self.promotion()
+        def broken_primary(*_args):
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT * FROM panorama_fixture_missing_primary_table")
+        with patch.object(panorama, "_read_products", side_effect=broken_primary):
+            response = self.read()
+        self.assertEqual(response["sources"]["products"]["state"], "error")
+        self.assertEqual(response["sources"]["products"]["code"], "service_unavailable")
+        self.assertEqual(response["sources"]["promotion"]["state"], "ready")
+        self.assertEqual(response["sources"]["promotion"]["data"]["sections"]["summary"]["spend"]["value"], 200)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 42")
+            self.assertEqual(cursor.fetchone()[0], 42)
+
+    def test_real_primary_statement_timeout_restores_transaction_and_setting(self):
+        self.product()
+        self.promotion()
+        with connection.cursor() as cursor:
+            cursor.execute("SHOW statement_timeout")
+            original_timeout = cursor.fetchone()[0]
+        def timed_out_primary(*_args):
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL statement_timeout = '20ms'")
+                cursor.execute("SELECT pg_sleep(0.2)")
+        with patch.object(panorama, "_read_products", side_effect=timed_out_primary):
+            response = self.read()
+        self.assertEqual(response["sources"]["products"]["state"], "error")
+        self.assertEqual(response["sources"]["promotion"]["state"], "ready")
+        self.assertEqual(response["sources"]["promotion"]["data"]["sections"]["summary"]["spend"]["value"], 200)
+        with connection.cursor() as cursor:
+            cursor.execute("SHOW statement_timeout")
+            self.assertEqual(cursor.fetchone()[0], original_timeout)
+            cursor.execute("SELECT 43")
+            self.assertEqual(cursor.fetchone()[0], 43)
+
     def test_authoritative_401_403_409_never_become_local_sources(self):
         for status, code in ((401, "authentication_required"), (403, "access_denied"), (409, "insights_revision_changed")):
             with self.subTest(status=status), patch.object(panorama, "_read_products", side_effect=NetshopApiError("reject", status=status, code=code)), patch.object(panorama, "_read_promotion") as promotion:
