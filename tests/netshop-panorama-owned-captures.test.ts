@@ -40,3 +40,13 @@ test("cost stored zero remains only owning evidence; missing order number never 
     assert.equal(mean.value, null); assert.equal(mean.reasonCode, "missing_order_no");
   }
 });
+test("additive ERP trend capabilities accept a complete unavailable pair and reject invented series evidence", () => {
+  const { value, query, revision } = fixture("sales");
+  for (const id of ["erp_trend", "erp_detail"]) value.sections.performance.capabilities.push({ id, status: "unavailable", reasonCode: "not_applicable", message: "历史原始捕获未请求原生序列" });
+  assert.equal(decodeStorePanorama(value, query, revision).sources.sales.state, "ready");
+  const last = value.sections.performance.capabilities.at(-1);
+  last.status = "available"; last.reasonCode = null;
+  assert.throws(() => decodeStorePanorama(value, query, revision));
+  value.sections.performance.capabilities.pop();
+  assert.throws(() => decodeStorePanorama(value, query, revision));
+});
