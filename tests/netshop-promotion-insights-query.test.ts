@@ -54,3 +54,9 @@ test("P focus cannot change platform, dimension, shop scope, or detail's exact s
   value.set("objectKind", "product"); value.set("objectId", "a".repeat(64)); value.set("sectionToken", "b".repeat(64)); value.set("shopKey", "京东\u001fB店");
   assert.throws(() => validatePromotionQuery(value, true));
 });
+test("list rejects detail-only row keys and shops instead of creating an unbound table filter", () => {
+  for (const fields of [{objectId:"a".repeat(64)}, {shopKey:"京东\u001fA店"}, {objectId:"a".repeat(64),shopKey:"京东\u001fA店"}]) {
+    const value = query(); for(const [key,input] of Object.entries(fields)) value.set(key,input);
+    assert.throws(()=>validatePromotionQuery(value));
+  }
+});

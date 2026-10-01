@@ -6,6 +6,7 @@ import { PROMOTION_COLUMN_VERSION, PROMOTION_METRIC_KEYS, PROMOTION_OBJECT_KINDS
 function fail(message: string): never { throw new NetshopQueryError("invalid_promotion_insights_contract", message); }
 function rec(value: unknown): Record<string, unknown> { if (!value || typeof value !== "object" || Array.isArray(value)) fail("推广响应对象无效"); return value as Record<string, unknown>; }
 function txt(value: unknown, maximum = 200): value is string { return typeof value === "string" && value.length > 0 && value.length <= maximum && !/[\u0000-\u001f\u007f]/.test(value); }
+function oneOf(value: unknown, choices: readonly string[]): value is string { return typeof value === "string" && choices.includes(value); }
 function int(value: unknown, maximum = Number.MAX_SAFE_INTEGER) { return Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= maximum; }
 function token(value: unknown) { return typeof value === "string" && /^[a-f0-9]{64}$/.test(value); }
 function notes(value: unknown, maximum = 50) { if (!Array.isArray(value) || value.length > maximum || !value.every(v => txt(v, 1500))) fail("推广说明超出边界"); }
@@ -33,6 +34,8 @@ function registry(value: unknown, context: InsightsContext) {
   return result;
 }
 function referenced(value: unknown, covers: Record<string, SourceCoverage>, context: InsightsContext, cpc = false) {
+  const raw = rec(value);
+  if (!oneOf(raw.status, ["available", "partial", "unavailable", "invalid"]) || !oneOf(raw.unit, cpc ? ["CNY_CENT_PER_COUNT"] : ["CNY_CENT", "COUNT", "RATIO", "MULTIPLE", "SECONDS"]) || !oneOf(raw.basis, ["product_day_sum", "platform_attributed", "erp_net_sales", "erp_order_margin", "erp_large_margin", "finance_month", "current_snapshot", "unverified"]) || !oneOf(raw.aggregation, ["sum", "ratio_of_sums", "source_value_only"])) fail("推广指标枚举须为闭合字符串类型");
   const m = cpc ? (() => {
     const decoded = decodeDerivedMoneyPerCount(value); if (decoded.denominatorKind !== "clicks") fail("CPC须使用真实点击次数分母"); return decoded as PromotionCpc;
   })() : decodeMetric(value);
@@ -70,7 +73,7 @@ function comparisons(value: unknown) {
   const c = rec(value);
   for (const key of PROMOTION_METRIC_KEYS) for (const period of ["previous", "yearAgo"]) {
     const m = rec(rec(c[key])[period]), expected = key === "ctr" || key === "spendRate" ? "percentage_points" : "relative_change";
-    if (m.method !== expected || !["available", "unavailable"].includes(String(m.status)) || m.status === "available" && (typeof m.value !== "number" || !Number.isFinite(m.value) || m.reasonCode !== null) || m.status === "unavailable" && (m.value !== null || !metricReasons.includes(m.reasonCode as typeof metricReasons[number]))) fail("推广比较方法、状态或数值无效");
+    if (m.method !== expected || !oneOf(m.status, ["available", "unavailable"]) || m.status === "available" && (typeof m.value !== "number" || !Number.isFinite(m.value) || m.reasonCode !== null) || m.status === "unavailable" && (m.value !== null || !oneOf(m.reasonCode, metricReasons))) fail("推广比较方法、状态或数值无效");
   }
 }
 function changes(value: unknown, covers: Record<string, SourceCoverage>, context: InsightsContext) {
@@ -84,7 +87,7 @@ function row(value: unknown, covers: Record<string, SourceCoverage>, context: In
   if (r.id === null && r.drillable) fail("无业务身份对象不能钻取");
   if (r.observation !== undefined) for (const period of ["current", "previous", "yearAgo"] as const) { const o = rec(rec(r.observation)[period]); const observed = dates(o.observedDates, context, period), absent = dates(o.verifiedAbsentDates, context, period); if (absent.some(d => observed.includes(d)) || r.id === null && absent.length) fail("来源缺席不能冒记录或虚构身份"); }
   const identityKinds = { product: ["follow_order_sku", "promotion_product"], plan: ["plan"], unit: ["unit"], keyword: ["keyword"], search_term: ["search_term"] };
-  if (!identityKinds[r.objectKind as keyof typeof identityKinds].includes(String(r.identityKind))) fail("推广、触发与跟单身份被混用");
+  if (!oneOf(r.identityKind, identityKinds[r.objectKind as keyof typeof identityKinds])) fail("推广、触发与跟单身份被混用");
   if (r.objectKind === "product" && r.identityKind !== (r.platform === "京东" ? "follow_order_sku" : "promotion_product")) fail("推广商品身份维度不属于当前平台来源");
   metricMap(r.metrics, covers, context, String(r.coverageRef), periodDays); comparisons(r.comparisons); changes(r.changes, covers, context);
   if (r.id === null) {
@@ -95,7 +98,7 @@ function row(value: unknown, covers: Record<string, SourceCoverage>, context: In
   semanticSources(share, context);
   if (share.aggregation !== "ratio_of_sums" || !Object.hasOwn(share, "numerator") || !Object.hasOwn(share, "denominator") || share.coverageRef !== r.coverageRef || share.numerator !== rec(rec(r.metrics).spend).value) fail("对象花费份额须来自同一对象的完整花费");
   const mapping = rec(r.mapping);
-  if (!["matched", "unmapped", "ambiguous", "not_applicable"].includes(String(mapping.status)) || !["exact_source_identity", "unverified"].includes(String(mapping.evidence))) fail("推广商品关联状态无效");
+  if (!oneOf(mapping.status, ["matched", "unmapped", "ambiguous", "not_applicable"]) || !oneOf(mapping.evidence, ["exact_source_identity", "unverified"])) fail("推广商品关联状态无效");
   for (const name of ["advertisedSkuId", "triggerSkuId", "followSkuId"]) nullableText(mapping[name]);
   if (mapping.status === "matched") {
     const identity = rec(mapping.linkIdentity) as unknown as Parameters<typeof encodeProductIdentity>[0]; encodeProductIdentity(identity);
@@ -108,7 +111,9 @@ function trend(value: unknown, covers: Record<string, SourceCoverage>, context: 
   const t = rec(value); if (t.grain !== grain || !Array.isArray(t.items) || t.items.length > 366) fail("推广趋势粒度或点数无效");
   let cursor = context.periods.current.startDate;
   for (const raw of t.items) {
-    const point = rec(raw), start = String(point.startDate), end = String(point.endDate);
+    const point = rec(raw);
+    if (!txt(point.startDate, 10) || !txt(point.endDate, 10) || !txt(point.coverageRef)) fail("推广趋势日期和覆盖须为原始字符串");
+    const start = point.startDate, end = point.endDate;
     if (!isNetshopIsoDate(start) || !isNetshopIsoDate(end) || start !== cursor || start > end || end > context.periods.current.endDate || point.days !== (Date.parse(end+"T00:00:00Z")-Date.parse(start+"T00:00:00Z"))/86400000+1 || !Object.hasOwn(covers, String(point.coverageRef))) fail("推广趋势须连续覆盖所请求的完整日期");
     const date = new Date(start+"T00:00:00Z");
     const boundary = grain === "day" ? start : grain === "week" ? new Date(date.getTime()+((7-date.getUTCDay())%7)*86400000).toISOString().slice(0,10) : new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth()+1, 0)).toISOString().slice(0,10);
@@ -171,7 +176,7 @@ export function decodePromotionInsightsForQuery(value: unknown, query: URLSearch
   if (expected.productIdentity === null) { if (list.productFocus !== undefined && list.productFocus !== null) fail("响应带有未请求的精确商品焦点"); }
   else {
     const focus = rec(list.productFocus), identity = rec(focus.identity) as unknown as NonNullable<typeof expected.productIdentity>;
-    if (encodeProductIdentity(identity) !== encodeProductIdentity(expected.productIdentity) || !context.effectiveScope.shopKeys.includes(`${identity.platform}\u001f${identity.shopName}`) || !txt(focus.message, 1500) || !["available", "unavailable"].includes(String(focus.status)) || focus.status === "available" && focus.reasonCode !== null || focus.status === "unavailable" && !["unmapped", "ambiguous_mapping"].includes(String(focus.reasonCode))) fail("精确商品焦点的身份或来源关联状态不属于本次请求");
+    if (encodeProductIdentity(identity) !== encodeProductIdentity(expected.productIdentity) || !context.effectiveScope.shopKeys.includes(`${identity.platform}\u001f${identity.shopName}`) || !txt(focus.message, 1500) || !oneOf(focus.status, ["available", "unavailable"]) || focus.status === "available" && focus.reasonCode !== null || focus.status === "unavailable" && !oneOf(focus.reasonCode, ["unmapped", "ambiguous_mapping"])) fail("精确商品焦点的身份或来源关联状态不属于本次请求");
   }
   const calendar = rec(list.comparisonDates); dates(calendar.previous, context, "previous"); dates(calendar.yearAgo, context, "yearAgo");
   for (const period of ["previous", "yearAgo"] as const) { const focused = query.has("focusDate") || query.has("objectStartDate"); const targetDates = focused ? context.calendar.filter(r => r.date >= expected.objectStartDate && r.date <= expected.objectEndDate).map(r => r[period]).filter((v): v is string => v !== null) : Array.from({ length: context.periods[period].days }, (_, i) => new Date(Date.parse(context.periods[period].startDate+"T00:00:00Z")+i*86400000).toISOString().slice(0,10)); if (JSON.stringify(calendar[period]) !== JSON.stringify(targetDates)) fail("对象比较不是所属实际基期范围"); }
@@ -197,10 +202,12 @@ export function decodePromotionInsightsForQuery(value: unknown, query: URLSearch
   }
   pairedRange(s.matchedRange, rec(s.summary).spendRate, covers, context, context.effectiveScope.shopKeys);
   const capabilities = rec(s.objectCapabilities);
-  for (const kind of PROMOTION_OBJECT_KINDS) { const c = rec(capabilities[kind]); if (typeof c.canQuery !== "boolean" || !["available", "unavailable"].includes(String(c.status)) || !txt(c.message, 1500) || c.unidentifiedCount !== null && !int(c.unidentifiedCount, 1000000) || !Array.isArray(c.sourceIds) || !c.sourceIds.every(v => txt(v)) || c.status === "available" && c.reasonCode !== null || c.status === "unavailable" && !metricReasons.includes(c.reasonCode as typeof metricReasons[number])) fail("对象资格、字段能力或未核计数无效"); }
-  const d = rec(s.diagnostic); if (!txt(d.message, 1500) || !["available", "unavailable"].includes(String(d.status)) || d.maximumDays !== 7 || d.paidModelAllowed !== false || !Array.isArray(d.reportFormats) || !d.reportFormats.every(v => ["html", "xlsx"].includes(String(v)))) fail("原诊断边界或付费限制无效"); nullableText(d.shopName);
+  for (const kind of PROMOTION_OBJECT_KINDS) { const c = rec(capabilities[kind]); if (typeof c.canQuery !== "boolean" || !oneOf(c.status, ["available", "unavailable"]) || !txt(c.message, 1500) || c.unidentifiedCount !== null && !int(c.unidentifiedCount, 1000000) || !Array.isArray(c.sourceIds) || !c.sourceIds.every(v => txt(v)) || c.status === "available" && (!c.canQuery || c.reasonCode !== null) || c.status === "unavailable" && !oneOf(c.reasonCode, metricReasons)) fail("对象资格、字段能力或未核计数无效"); }
+  const d = rec(s.diagnostic);
+  if (!txt(d.message, 1500) || !oneOf(d.status, ["available", "unavailable"]) || d.maximumDays !== 7 || d.paidModelAllowed !== false || !Array.isArray(d.reportFormats) || d.reportFormats.length > 2 || new Set(d.reportFormats).size !== d.reportFormats.length || !d.reportFormats.every(v => oneOf(v, ["html", "xlsx"])) || d.status === "available" && (d.reasonCode !== null || !txt(d.shopName) || !d.reportFormats.includes("html") || !d.reportFormats.includes("xlsx")) || d.status === "unavailable" && (!oneOf(d.reasonCode, metricReasons) || d.shopName !== null || d.reportFormats.length !== 0)) fail("原诊断状态、范围或报告能力无效");
+  nullableText(d.shopName);
   if (!Array.isArray(s.sourceMatrix) || s.sourceMatrix.length > 20) fail("来源能力矩阵超限");
-  for (const raw of s.sourceMatrix) { const m = rec(raw); if (!txt(m.sourceId) || !txt(m.label, 500) || !Object.hasOwn(covers, String(m.coverageRef)) || !Array.isArray(m.fields) || m.fields.length > 50) fail("来源能力引用无效"); for (const rawField of m.fields) { const f = rec(rawField); if (!txt(f.field) || !["available", "unavailable"].includes(String(f.status)) || f.status === "available" && f.reasonCode !== null || f.status === "unavailable" && !metricReasons.includes(f.reasonCode as typeof metricReasons[number])) fail("来源字段状态无效"); } notes(m.notes); }
+  for (const raw of s.sourceMatrix) { const m = rec(raw); if (!txt(m.sourceId) || !txt(m.label, 500) || !txt(m.coverageRef) || !Object.hasOwn(covers, m.coverageRef) || !Array.isArray(m.fields) || m.fields.length > 50) fail("来源能力引用无效"); for (const rawField of m.fields) { const f = rec(rawField); if (!txt(f.field) || !oneOf(f.status, ["available", "unavailable"]) || f.status === "available" && f.reasonCode !== null || f.status === "unavailable" && !oneOf(f.reasonCode, metricReasons)) fail("来源字段状态无效"); } notes(m.notes); }
   const contributions = rec(s.contributions), lists = rec(contributions.previous);
   if (contributions.collection !== "comparable_full_set_before_search_pagination" || !int(contributions.comparedObjectCount, 100000) || !int(contributions.excludedObjectCount, 100000)) fail("贡献集合未经完整配对");
   for (const [name, key, direction] of [["spendIncrease", "spend", 1], ["spendDecrease", "spend", -1], ["attributedPaymentIncrease", "attributedPayment", 1], ["attributedPaymentDecrease", "attributedPayment", -1]] as const) {
