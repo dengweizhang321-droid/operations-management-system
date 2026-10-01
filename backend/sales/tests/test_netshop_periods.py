@@ -63,6 +63,8 @@ class OwnedPeriodsTests(TestCase):
         self.assertEqual(result["periodTotals"]["baseline"]["values"]["netSalesCents"],None)
         self.assertEqual(current["observations"]["completeness"],"unknown")
         self.assertEqual(result["sourceRevisions"][0]["revision"],"7:3")
+        original=json.loads((Path(__file__).resolve().parents[3]/"tests/fixtures/netshop-sales-periods/response-periods.json").read_text(encoding="utf8"))
+        self.assertEqual(owner._canonical(result),owner._canonical(original))
         self.assertEqual(result["metricMetadata"]["quantity"]["unit"],"NATIVE_INTEGER_QUANTITY")
         for name in ("cost","grossProfit","reportedGrossProfit"):
             self.assertEqual(result["metricMetadata"][name]["verification"],"unverified_source")
