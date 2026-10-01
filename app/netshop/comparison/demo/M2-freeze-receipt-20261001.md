@@ -80,3 +80,5 @@ I发布并已fetch核验M3实际main `77a26703b143288edd91fbab40c6741ed487e698`�
 - 503可独立保留可靠本期；403/409整读失败并清失效引用。页码可变、页大小或范围/类目/身份/来源变需重读绑定token；用户偏好只走共享products-ui-v1，不自建history/权限。
 
 I已确认M3独立完整Q阻断0，继承其公告证据，不重跑P或设计测试。当前仍缺A最终main及M6开工SHA/公共C-F02版本适配；A clean6f契约仅作准备，不能成为正式C父分支。
+
+I进一步确定两期各绑定F合法current、C专属versioned comparisonScope/selectedBaseline，不改F旧三期。Sales旧500排名/93天adminpage不作完整比较源，source_line fallback不是真订单；label-only/current cohort不冒历史分类。精确专属DTO/adapter文件与符号申请见 [M6准备申请](M6-contract-adapter-request-20261001.md)，全部尚未实现，等待实际M4main和M6通知。
