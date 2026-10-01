@@ -1,5 +1,18 @@
 # 本轮收口剩余阻断
 
+## 当前状态：2026-10-02，本节替代下方历史表
+
+M1—M6均已远端main；M7独立通过（核心阻断0）；M8原Worker/Django候选完成且非作者绑定复核通过。准确候选源main `22a323c956c28179294b8dbfe494fd4f60ea497d`。用户已在规划原会话明确批准本次上线及维护时间，Root直接读原文核实。当前生产未切换，未进入维护。
+
+| 当前问题 | 负责人 | 精确证据 | 条件/下一步 |
+| --- | --- | --- | --- |
+| 新生产维护阻断：helper5413隔离未闭合 | Root；非作者foundation_review只读核验 | 正式health busy1/quarantined/failed；n8n JdN8nSilentCopy2026/5413昨日error；原线程starting/ready=false/exit1，原Wait-AutomationDrain拒绝隔离 | 先核精确业务效果与原人工解除隔离流程；没有公开释放route，不删槽、不Stop或重启绕排空、不重跑业务。候选前驱变化须沿原流程重新准备。 |
+| 发布前独立恢复验证在途 | Root原installed operator | Backup及Verify通过；E恢复点daily-20261001T211319Z-dbe6b97da371/manifest581ef42e；RestoreRehearsal2619d7478d76/55897 | 等原恢复及权限/内容核验、正常临时集群清理；生产数据库未覆盖。 |
+
+清理非关键路径：完成归档16棵；另6个Root已main未checkout的本地refs正常-d完成（同名远端不存在）；未知进程/活动预览/独有历史/其他owner附件范围的树仍保留。Backup自动releaseRetention为blocked/Process ownership is unknown，备份本身completed，不混称清理成功。M8交付及具体路径在candidate树docs/netshop-refactor/execution/20261002-M8-prepared-and-production-preflight.md和E证据。没有正式部署/启停、迁移、业务补跑、真实下载导入、n8n定义调度修改、外部发送或付费调用。
+
+## 历史阶段表：已由M6/M7/M8证据关闭
+
 已冻结功能范围；继承 O/F/P/A/S。主线 `7ac1775e`，M5完成，生产未采用。唯一关键路径：M6 → M7 → M8；清理保留项不阻塞功能交付。
 
 | 问题 | 负责人 | 精确提交/证据 | 关闭条件与下一步 |
