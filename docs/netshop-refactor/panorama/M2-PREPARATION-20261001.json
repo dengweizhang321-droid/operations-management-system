@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "S-M2-preparation-v1",
+  "date": "2026-10-01",
+  "role": "S",
+  "frozenMain": "9d4830ee50232b956bdb9c1c7dd5b30564805355",
+  "branchSyncMerge": "a5afe89ff34b6c18efb45b4dac38146dfbb3e22a",
+  "designCommit": "a4428e54770337d5e8063dad8c3af809c51c4c69",
+  "stage": "preparation_waiting_P_A_main_and_I_start",
+  "formalM5Started": false,
+  "demoFilesUnchanged": {
+    "demo.css": true,
+    "demo.js": true,
+    "index.html": true,
+    "serve.mjs": true,
+    "verify.mjs": true
+  },
+  "newDesignTestsRun": false,
+  "productionOperations": [],
+  "publicFilesWritten": [],
+  "actualMainAPI": "/api/netshop/insights-context",
+  "dedicatedAPIStatus": {
+    "P": "reserved_not_implemented_at_frozen_main",
+    "A": "reserved_not_implemented_at_frozen_main",
+    "S": "reserved_not_implemented_at_frozen_main"
+  },
+  "registry": "netshopColumnModules empty",
+  "pendingPublicRequests": [
+    "S001:P/A actual main delivery",
+    "S002:analysis registration/return context",
+    "S003:panorama DTO/section/GET/decoder",
+    "S004:ERP exact channel/alias/coverage/transport",
+    "S005:precise finance/annual consumer",
+    "S006:precise events/batch/history refs",
+    "S007:P q/page/pageSize scopes and full summary",
+    "S008:joined vectors and owning budgets/errors"
+  ],
+  "resources": {
+    "previewPort": 3160,
+    "listenerCountAtRead": 0,
+    "startedOrStopped": false,
+    "worktreeRetained": true,
+    "newPostgres": false
+  },
+  "teammates": [
+    {
+      "name": "field_mapping",
+      "readOnly": true,
+      "newBranch": null,
+      "newWorktree": null
+    },
+    {
+      "name": "independent_review",
+      "readOnly": true,
+      "newBranch": null,
+      "newWorktree": null
+    }
+  ],
+  "independentReview": {
+    "agent": "independent_review",
+    "result": "pass_document_preparation",
+    "blockingFindings": 0,
+    "method": "read-only symbols, boundary statements, links and preserved Demo hashes",
+    "designUIOrPostgresRerun": false,
+    "note": "P3 projection digest terminology corrected"
+  }
+}
