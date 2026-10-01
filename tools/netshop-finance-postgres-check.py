@@ -57,7 +57,9 @@ try:
     started = True
     run([BIN / "createdb.exe", "-h", "127.0.0.1", "-p", PORT, "-U", "finance_fixture", "finance_fixture"], "database")
     labels = sys.argv[1:] or ["finance.tests.test_netshop_reads", "netshop.tests.test_finance_netshop_client"]
-    allowed = {"finance.tests.test_netshop_reads", "netshop.tests.test_finance_netshop_client"}
+    allowed = {"finance.tests.test_netshop_reads", "netshop.tests.test_finance_netshop_client",
+               "netshop.tests.test_finance_netshop_registered", "netshop.tests.test_finance_netshop_contract"}
+    allowed.add("netshop.tests.test_bounded_consumer_http")
     if not labels or any(label not in allowed and not any(label.startswith(module + ".") for module in allowed) for label in labels):
         raise RuntimeError("Only the new scoped finance/netshop tests allowed")
     run([sys.executable, "backend/manage.py", "test", *labels, "--settings=netshop_finance_test_settings", "--noinput", "--verbosity", "2"], "tests")

@@ -17,10 +17,13 @@ class Response:
     status = 200
     def __init__(self, body, revision):
         self.body = json.dumps(body, ensure_ascii=False).encode()
+        self.offset = 0
         self.headers = {"Content-Type": "application/json", "X-Finance-Data-Revision": revision}
     def __enter__(self): return self
     def __exit__(self, *_args): return False
-    def read(self, limit): return self.body[:limit]
+    def read(self, limit):
+        result = self.body[self.offset:self.offset + limit]; self.offset += len(result)
+        return result
 
 
 class FinanceNetshopClientTests(SimpleTestCase):
@@ -34,15 +37,18 @@ class FinanceNetshopClientTests(SimpleTestCase):
 
     def fixture(self):
         root = os.environ.get("TERUISI_FINANCE_NETSHOP_CAPACITY")
-        if not root:
-            self.skipTest("Requires actual same-run private finance DTO export")
-        return json.loads((Path(root) / "finance-response.json").read_text(encoding="utf-8"))
+        if root:
+            for name in ("registered-python-rpc.json", "finance-response.json"):
+                if (Path(root) / name).exists():
+                    return json.loads((Path(root) / name).read_text(encoding="utf-8"))
+        captured = Path(__file__).resolve().parents[3] / "tests/fixtures/netshop-finance/finance-response.json"
+        return json.loads(captured.read_text(encoding="utf-8"))
 
     def test_actual_pg_response_native_signed_request_and_scope_header(self):
         fixture = self.fixture()
-        def exchange(request, timeout):
+        def exchange(request, *, deadline):
             self.assertEqual(request.full_url, "http://127.0.0.1:18888" + client.PATH)
-            self.assertGreater(timeout, 0); self.assertLessEqual(timeout, 65)
+            self.assertGreater(deadline - client.time.monotonic(), 0); self.assertLessEqual(deadline - client.time.monotonic(), 65)
             incoming = RequestFactory().post(client.PATH, data=request.data,
                 content_type="application/json", headers=dict(request.header_items()))
             actor = verify_principal(incoming)
@@ -52,7 +58,7 @@ class FinanceNetshopClientTests(SimpleTestCase):
             self.assertEqual(signed_body["shopKeys"], self.request["shopKeys"])
             # This is the actual owning DTO exported by the private PG tests.
             return Response(fixture["response"], fixture["owningRevision"])
-        with patch.object(client.urllib.request, "urlopen", side_effect=exchange):
+        with patch.object(client, "open_bounded_consumer_request", side_effect=exchange):
             data, revision = client.read_finance_netshop(self.principal, self.request)
         self.assertEqual(data, fixture["response"]["data"])
         self.assertEqual(revision, fixture["owningRevision"])
@@ -61,7 +67,7 @@ class FinanceNetshopClientTests(SimpleTestCase):
         for status, code in ((401, "access_denied"), (403, "access_denied"), (409, "insights_revision_changed")):
             error = urllib.error.HTTPError("http://127.0.0.1", status, "untrusted", {}, io.BytesIO(b"never expose upstream body"))
             with patch.object(error, "read", side_effect=AssertionError("Must not read authority error body")), \
-                 patch.object(client.urllib.request, "urlopen", side_effect=error), self.assertRaises(NetshopApiError) as failure:
+                 patch.object(client, "open_bounded_consumer_request", side_effect=error), self.assertRaises(NetshopApiError) as failure:
                 client.read_finance_netshop(self.principal, self.request)
             self.assertEqual((failure.exception.status, failure.exception.code), (status, code))
             self.assertNotIn("upstream", str(failure.exception))
@@ -70,19 +76,19 @@ class FinanceNetshopClientTests(SimpleTestCase):
         for change in ({"sourceUrl": "http://127.0.0.1:5432"}, {"sql": "SELECT"}, {"operation": "target_write"},
                        {"months": []}, {"year": 2026}, {"expiresAtEpochMs": True}, {"expectedRevision": "1:erp"},
                        {"snapshotToken": 1}, {"shopKeys": ['["京东", "同名店"]']}):
-            with patch.object(client.urllib.request, "urlopen", side_effect=AssertionError("no HTTP")), self.assertRaises(NetshopApiError):
+            with patch.object(client, "open_bounded_consumer_request", side_effect=AssertionError("no HTTP")), self.assertRaises(NetshopApiError):
                 client.read_finance_netshop(self.principal, {**self.request, **change})
 
     def test_native_signature_refuses_body_and_principal_tampering(self):
         fixture = self.fixture()
-        def exchange(request, timeout):
+        def exchange(request, *, deadline):
             for headers, body in ((dict(request.header_items()), request.data+b" "),
                                   ({**dict(request.header_items()), "X-teruisi-principal": "tampered"}, request.data)):
                 incoming = RequestFactory().post(client.PATH, data=body, content_type="application/json", headers=headers)
                 with self.assertRaises(PrincipalEnvelopeError):
                     verify_principal(incoming)
             return Response(fixture["response"], fixture["owningRevision"])
-        with patch.object(client.urllib.request, "urlopen", side_effect=exchange):
+        with patch.object(client, "open_bounded_consumer_request", side_effect=exchange):
             client.read_finance_netshop(self.principal, self.request)
 
     def test_response_header_scope_and_budget_fail_closed(self):
@@ -95,9 +101,9 @@ class FinanceNetshopClientTests(SimpleTestCase):
                 response.body = json.dumps(data).encode()
             if mutation == "overflow": response.body = b"x"*(client.MAX_BYTES+1)
             if mutation == "nonjson": response.headers["Content-Type"] = "text/html"
-            with patch.object(client.urllib.request, "urlopen", return_value=response), self.assertRaises(NetshopApiError):
+            with patch.object(client, "open_bounded_consumer_request", return_value=response), self.assertRaises(NetshopApiError):
                 client.read_finance_netshop(self.principal, self.request)
-        with patch.object(client.urllib.request, "urlopen", side_effect=AssertionError("expired no request")), self.assertRaises(NetshopApiError) as expired:
+        with patch.object(client, "open_bounded_consumer_request", side_effect=AssertionError("expired no request")), self.assertRaises(NetshopApiError) as expired:
             client.read_finance_netshop(self.principal, {**self.request, "expiresAtEpochMs": 0})
         self.assertEqual(expired.exception.code, "source_not_ready")
 
@@ -113,6 +119,6 @@ class FinanceNetshopClientTests(SimpleTestCase):
             if mutation == "daily_basis": value["data"]["metricSemantics"]["dailyAllocation"] = 0
             response.body = json.dumps(value).encode()
             if mutation == "duplicate": response.body = response.body[:-1] + b',"operation":"netshop_finance_read_v1"}'
-            with patch.object(client.urllib.request, "urlopen", return_value=response), self.assertRaises(NetshopApiError) as bad:
+            with patch.object(client, "open_bounded_consumer_request", return_value=response), self.assertRaises(NetshopApiError) as bad:
                 client.read_finance_netshop(self.principal, self.request)
             self.assertEqual(bad.exception.status, 503)

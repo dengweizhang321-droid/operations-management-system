@@ -56,6 +56,12 @@ test("financial header owning kind, scope, native actual months, units and compl
     (d: ReturnType<typeof fixture>) => { d.response.data.monthly.fieldEvidence.push(d.response.data.monthly.fieldEvidence[0]); },
     (d: ReturnType<typeof fixture>) => { d.response.data.extra = false; },
     (d: ReturnType<typeof fixture>) => { d.response.data.metricSemantics.dailyAllocation = true; },
+    (d: ReturnType<typeof fixture>) => { d.response.data.monthly.data.timeline = []; },
+    (d: ReturnType<typeof fixture>) => { d.response.data.monthly.data.previousMonths = ["2025-12"]; },
+    (d: ReturnType<typeof fixture>) => { d.response.data.monthly.comparisonMonthEvidence.pop(); },
+    (d: ReturnType<typeof fixture>) => { d.response.data.annual.data.cutoffMonth = "2026-04"; },
+    (d: ReturnType<typeof fixture>) => { d.response.data.annual.data.items[0].manager = [""]; },
+    (d: ReturnType<typeof fixture>) => { d.response.data.annual.data.items[0].missingMonths = ["2025-02"]; },
   ]) { const d = fixture(); change(d); assert.throws(() => decode(d)); }
 });
 test("defaulted raw zero cannot acquire verified amount or promotion/rate state", () => {
@@ -87,4 +93,25 @@ test("2MiB, strict string and finite scalar budgets reject instead of truncating
   assert.throws(() => decode(large));
   const unsafe = fixture(); unsafe.response.data.monthly.data.current.netSalesCents = Number.MAX_SAFE_INTEGER + 1;
   assert.throws(() => decode(unsafe));
+});
+test("all protocol enum/date/identity positions reject arrays objects and boolean coercions", () => {
+  const paths: Array<Array<string | number>> = [
+    ["schemaVersion"], ["operation"], ["scopeKey"], ["snapshotToken"],
+    ["metricSemantics", "monthlyBasis"], ["metricSemantics", "nativeRatioUnit"],
+    ["monthly", "state"], ["monthly", "monthEvidence", 0, "status"], ["monthly", "monthEvidence", 0, "month"],
+    ["monthly", "fieldEvidence", 0, "shopKey"], ["monthly", "currentMetricStates", "netSalesCents", "unit"],
+    ["monthly", "currentMetricStates", "netSalesCents", "status"], ["annual", "state"],
+    ["annual", "data", "year"], ["annual", "data", "items", 0, "platform"],
+  ];
+  for (const path of paths) {
+    for (const wrap of [(v: unknown) => [v], (v: unknown) => ({ value: v }), () => true]) {
+      const data = fixture(); let node = data.response.data;
+      for (const key of path.slice(0, -1)) node = node[key];
+      const last = path.at(-1)!; node[last] = wrap(node[last]);
+      assert.throws(() => decode(data));
+    }
+  }
+  const data = fixture("finance-missing-month-response.json");
+  data.response.data.monthly.monthEvidence[1].status = ["absent"];
+  assert.throws(() => decode(data));
 });
