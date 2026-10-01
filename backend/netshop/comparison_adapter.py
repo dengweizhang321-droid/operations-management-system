@@ -370,7 +370,9 @@ def load_comparison_sources(principal, spec, current, baseline, *, deadline):
             if key in charts:
                 for bucket in period_groups(dates[0], dates[-1], spec["trendGrain"]):
                     budget(deadline)
-                    metrics, _ = _product_metrics(projection, context, descriptor["shopKeys"], bucket, ref+":trend:"+bucket[0], coverage)
+                    metrics = {}
+                    if spec["comparisonScope"]["metricSource"] != "erp":
+                        metrics, _ = _product_metrics(projection, context, descriptor["shopKeys"], bucket, ref+":trend:"+bucket[0], coverage)
                     item["trends"][period].append({"startDate": bucket[0], "endDate": bucket[-1], "days": len(bucket), "metrics": metrics})
                     budget(deadline)
     category_active = spec["comparisonScope"]["category"]["mode"] != "all"
@@ -410,6 +412,7 @@ def load_comparison_sources(principal, spec, current, baseline, *, deadline):
                 item[period].update({k: metrics[k] for k in PROMOTION_KEYS})
                 item.setdefault("matchedRanges", {})[period] = matched
                 for bucket in item["trends"][period]:
+                    if spec["comparisonScope"]["metricSource"] == "erp": continue
                     budget(deadline)
                     metric, _ = reader.totals(member_names, days(bucket["startDate"], bucket["endDate"]), "comparison:"+period+":promotion:"+_canonical_token(key)[:16]+":trend:"+bucket["startDate"])
                     bucket["metrics"].update({k: metric[k] for k in PROMOTION_KEYS})

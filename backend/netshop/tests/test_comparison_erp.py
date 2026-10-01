@@ -279,3 +279,63 @@ class ComparisonErpTests(TestCase):
             self.assertIsNone(series["current"][0]["metric"]["value"])
             self.assertEqual(series["current"][0]["metric"]["reasonCode"],"no_records")
         self.assertEqual(next(t for t in result["sections"]["trends"]["items"] if t["objectKey"].endswith(self.canonical))["baseline"][0]["metric"]["value"],77)
+
+    def _representative_four_raw_series(self, day_count, expect_capacity_rejection=False):
+        from datetime import date,timedelta
+        from netshop.sales_client import CONTROLLED_JD_ALIASES
+        names=list(CONTROLLED_JD_ALIASES)
+        for name in names:
+            if name!=self.canonical:self.pair(shop=name)
+        windows=[date(2025,3,1),date(2023,1,1)]
+        rows=[]
+        for name in names:
+            alias=sales_alias("京东",name)
+            for start in windows:
+                for index in range(day_count):
+                    day=(start+timedelta(days=index)).isoformat();self.line_counter+=1
+                    rows.append(make_line(self.line_counter,"max-series-"+str(self.line_counter),platform="京东",shop_name=alias["rawShopName"],channel=alias["rawChannel"],ship_time=day+" 10:00:00",allocated_amount_cents=100,cost_amount_cents=40,gross_profit_cents=20,order_no="weekly-order-"+str(index//7)))
+        SalesOrderLine.objects.bulk_create(rows,batch_size=500)
+        values={"startDate":"2025-03-01","endDate":(windows[0]+timedelta(days=day_count-1)).isoformat(),"selectedBaseline":{"kind":"custom","startDate":"2023-01-01","endDate":(windows[1]+timedelta(days=day_count-1)).isoformat()},"chartObjectKeys":["shop:京东\x1f"+n for n in names]}
+        actual_builder=C.build_comparison_result
+        def measured(*args,**kwargs):
+            response=actual_builder(*args,**kwargs)
+            target=os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
+            if target:
+                with (Path(target)/("erp-series-"+str(day_count)+"-"+args[0]["trendGrain"]+"-body-sizes.json")).open("x",encoding="utf8") as out:
+                    json.dump({"bytes":len(json.dumps(response,ensure_ascii=False).encode("utf8")),"fields":{key:len(json.dumps(value,ensure_ascii=False).encode("utf8")) for key,value in response.items()},"sections":{key:len(json.dumps(value,ensure_ascii=False).encode("utf8")) for key,value in response["sections"].items()}},out,indent=2)
+            return response
+        before=time.monotonic()
+        with patch.object(C,"build_comparison_result",measured):
+            if expect_capacity_rejection:
+                failure=self.assert_error(422,lambda:self.erp(**values))
+                self.assertEqual(failure.code,"quality_incomplete")
+                self.assertEqual(len(self.calls),2)
+                target=os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
+                results=[]
+                for grain in ("week","month"):
+                    self.calls.clear();before=time.monotonic()
+                    response=self.erp(**{**values,"trendGrain":grain})
+                    size=len(json.dumps(response,ensure_ascii=False).encode("utf8"))
+                    self.assertLess(size,2*1024*1024)
+                    results.append({"grain":grain,"daysEachPeriod":day_count,"bytes":size,"seconds":time.monotonic()-before,"points":sum(len(t[p]) for t in response["sections"]["trends"]["items"] for p in ("current","baseline")),"rpcCalls":len(self.calls)})
+                    self.evidence("actual-owning-erp-series-max-"+grain,response,**{**values,"trendGrain":grain})
+                if target:
+                    with (Path(target)/"erp-series-max-supported-grains.json").open("x",encoding="utf8") as out:json.dump(results,out,indent=2)
+                return
+            result=self.erp(**values)
+        seconds=time.monotonic()-before
+        encoded=json.dumps(result,ensure_ascii=False).encode("utf8")
+        self.assertEqual(len(self.calls),3)
+        self.assertEqual(sum(len(t[p]) for t in result["sections"]["trends"]["items"] for p in ("current","baseline")),8*day_count)
+        self.assertEqual(result["sections"]["scale"]["summary"]["current"]["erpNetSales"]["value"],400*day_count)
+        self.assertLess(len(encoded),2*1024*1024);self.assertLess(seconds,65)
+        self.evidence("actual-owning-erp-series-representative",result,**values)
+        target=os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
+        if target:
+            with (Path(target)/"erp-series-representative.json").open("x",encoding="utf8") as out:json.dump({"rawOutlets":4,"daysEachPeriod":day_count,"points":8*day_count,"sourceRows":8*day_count,"seconds":seconds,"bytes":len(encoded),"rpcCalls":len(self.calls),"sameOuterDeadline":len({c["deadline"] for c in self.calls})==1},out,indent=2)
+
+    def test_representative_four_raw_two_120_day_windows_all_points_and_budget(self):
+        self._representative_four_raw_series(120)
+
+    def test_four_raw_two_366_legal_windows_whole_response_honestly_rejects_capacity(self):
+        self._representative_four_raw_series(366,True)

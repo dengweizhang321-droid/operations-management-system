@@ -140,7 +140,7 @@ def build_comparison_result(spec, sources, current, baseline, section_token, joi
             "trendGrain": spec["trendGrain"], "sort": spec["sort"], "chartObjectKeys": sources["chartObjectKeys"], "joinedSourceRevisions": joined,
             "consistency": "revision_vector_checked_non_atomic", "sections": {
                 "scale": {"metricKey": metric, "summary": summary, "items": page, "pagination": pagination, "contributions": _contributions(rows, sources["summaries"], spec)},
-                "efficiency": {"items": [r["objectKey"] for r in page], "distribution": [{"objectKey": r["objectKey"], "metric": r["current"][metric], "qualification": r["qualification"]} for r in full], "definitions": ["矩阵与完整排名共享分页；分布来自完整候选而非当前页", "比例按完整同源分子/分母重算，不平均店铺比率，不设综合评分", "商品访客/客户是商品×日累计，非店铺UV；ERP可信订单分母尚未就绪"]},
+                "efficiency": {"items": [r["objectKey"] for r in page], "distribution": [{"objectKey": r["objectKey"], "metric": r["current"][metric], "qualification": r["qualification"]} for r in full], "definitions": ["矩阵与完整排名共享分页；分布来自完整候选而非当前页", "比例按完整同源分子/分母重算，不平均店铺比率，不设综合评分", "商品访客/客户是商品×日累计，非店铺UV；ERP原订单号分组可观察，缺失号及未核店日完整性保留原状态，不称付款客户客单价"]},
                 "trends": {"grain": spec["trendGrain"], "items": trend, "definitions": ["两期分别返回真实自然日/周/月桶，缺数据保持空值，不补零", "指数分别以各期第一个自然桶的正且完整selected metric为100；缺失/零/负不算指数", "两期窗口独立，金额不按日数缩放", "ERP店铺序列由拥有方同RPC按原RAW身份与自然桶聚合，订单为各桶真实distinct原订单；观察日期仍未证完整，不重算利润或按日数分摊", "平台ERP序列等待拥有方完整平台投影；不累加店铺日订单或缩水平台范围"]},
                 "structure": {"items": structure, "categoryBasis": "reference_current_cohort", "sameProduct": {"status": "unavailable", "reasonCode": "unmapped"}, "categoryOptions": sources["categoryOptions"], "definitions": ["结构仅展示当前主图对象，来自其完整商品集合，不受排名分页影响", "类目为所属来源标签，无官方ID、跨平台归并或有效期证明", "价格带是同源成交金额/件数的成交均价，当前目录价格不回填历史", "同款映射未核验，不按同名商品猜测"]},
                 "promotion": {"items": [r["objectKey"] for r in page], "sourceScopes": sources["sourceScopes"], "sourceStates": sources["sourceStates"], "sourceDefinitions": ["推广矩阵与完整排名共享分页；完整店铺指标由推广拥有者计算", "京东归因为总订单金额，天猫归因为净成交金额；窗口未知，不代表利润或广告增量", "推广费率主值只用完整相同店日配对；京东SKU/天猫SPU分母由A所属scope保留", "分类条件缺可靠推广映射时不可用，不回退全店或按比例分摊"]},
@@ -176,7 +176,7 @@ def read_comparison_insights(principal, params):
         budget(deadline)
         encoded = json.dumps(result, ensure_ascii=False, allow_nan=False).encode("utf-8")
         if len(encoded) > MAX_RESPONSE_BYTES:
-            raise NetshopApiError("完整比较响应超过2MiB，请缩小范围", code="quality_incomplete", status=422)
+            raise NetshopApiError("完整比较响应超过2MiB，请缩短期间、切换周/月或减少主图对象后重试", code="quality_incomplete", status=422)
         budget(deadline)
         erp_before = sources["erp"]["state"]
         validate_erp_revision(principal, sources["erp"], deadline=deadline)
@@ -186,7 +186,7 @@ def read_comparison_insights(principal, params):
             result = build_comparison_result(spec, sources, current, baseline, token_for(joined), joined)
             budget(deadline)
             if len(json.dumps(result, ensure_ascii=False, allow_nan=False).encode("utf-8")) > MAX_RESPONSE_BYTES:
-                raise NetshopApiError("完整比较响应超过2MiB，请缩小范围", code="quality_incomplete", status=422)
+                raise NetshopApiError("完整比较响应超过2MiB，请缩短期间、切换周/月或减少主图对象后重试", code="quality_incomplete", status=422)
             budget(deadline)
         if validate_joined_revisions(sources["contexts"], deadline=deadline, principal=principal, erp=sources["erp"]) != joined:
             raise NetshopApiError("比较末次来源向量变化", code="insights_revision_changed", status=409)
