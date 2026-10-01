@@ -21,6 +21,13 @@ def request(**changes):
             "baseline": {"startDate": "2026-07-01", "endExclusive": "2026-08-01"}, **changes}
 
 
+def capture(result, name):
+    evidence=os.environ.get("TERUISI_CROSSDOMAIN_CAPACITY_EVIDENCE_DIR")
+    if evidence:
+        target=Path(evidence);target.mkdir(exist_ok=True)
+        with (target/name).open("x",encoding="utf8") as out:json.dump(result,out,ensure_ascii=False,allow_nan=False)
+
+
 class ContractTests(SimpleTestCase):
     def test_exact_closed_windows_and_internal_deadline(self):
         value = validate_netshop_periods(request(expiresAtEpochMs=1000))
@@ -56,10 +63,11 @@ class OwnedPeriodsTests(TestCase):
         self.assertEqual(result["periodTotals"]["baseline"]["values"]["netSalesCents"],None)
         self.assertEqual(current["observations"]["completeness"],"unknown")
         self.assertEqual(result["sourceRevisions"][0]["revision"],"7:3")
-        evidence=os.environ.get("TERUISI_CROSSDOMAIN_CAPACITY_EVIDENCE_DIR")
-        if evidence:
-            target=Path(evidence);target.mkdir(exist_ok=True)
-            with (target/"response-periods.json").open("x",encoding="utf8") as out:json.dump(result,out,ensure_ascii=False)
+        self.assertEqual(result["metricMetadata"]["quantity"]["unit"],"NATIVE_INTEGER_QUANTITY")
+        for name in ("cost","grossProfit","reportedGrossProfit"):
+            self.assertEqual(result["metricMetadata"][name]["verification"],"unverified_source")
+            self.assertEqual(result["metricMetadata"][name]["primaryMetricUse"],"unavailable_or_partial")
+        capture(result,"response-periods.json")
 
     def test_complete_union_above_500_baseline_only_and_search_page_control(self):
         SalesOrderLine.objects.bulk_create([make_line(1000+i,f"B{i}",shop_name=f"基期店{i:04d}",ship_time="2026-07-04 10:00:00") for i in range(601)])
@@ -97,15 +105,44 @@ class OwnedPeriodsTests(TestCase):
         result=self.read();orders=result["periodTotals"]["current"]["orders"]
         self.assertEqual(orders["missingOrderNoRows"],1);self.assertEqual(orders["netAmountPerOrder"]["reasonCode"],"missing_order_no")
         self.assertIsNone(orders["netAmountPerOrder"]["value"])
+        capture(result,"response-missing-order.json")
 
     def test_true_zero_negative_returns_and_accessories_keep_rules(self):
         SalesOrderLine.objects.all().delete()
         SalesOrderLine.objects.bulk_create([make_line(10,"zero",allocated_amount_cents=0,cost_amount_cents=0,gross_profit_cents=0,quantity=0)])
         result=self.read();self.assertEqual(result["periodTotals"]["current"]["values"]["netSalesCents"],0)
+        self.assertEqual(result["periodTotals"]["current"]["orders"]["netAmountPerOrder"]["value"],0)
+        self.assertEqual(result["metricMetadata"]["cost"]["zeroCostVerification"],"unknown")
+        capture(result,"response-typed-zero.json")
         SalesOrderLine.objects.all().delete()
         SalesOrderLine.objects.bulk_create([make_line(10,"ret",allocated_amount_cents=-5000,cost_amount_cents=-2000,quantity=-2),make_line(11,"acc",allocated_amount_cents=1000,category="配件",product_code="ACC")])
         values=self.read()["periodTotals"]["current"]["values"]
         self.assertEqual(values["netSalesCents"],-4000);self.assertEqual(values["returnQuantity"],2);self.assertEqual(values["positiveQuantity"],0)
+
+    def test_native_owner_integer_gate_and_unresolved_cost_zero_evidence(self):
+        # Exercise the existing owner boundary, not a newly invented cost rule.
+        from sales.write_service import _normalize_row, _stored_line_content_row, _clean_zero_cost_rows, SalesImportServiceError
+        source=_stored_line_content_row(make_line(20,"typed-cost",cost_amount_cents=0))
+        self.assertEqual(_normalize_row(source)["costAmountCents"],0)
+        for field,value in (("quantity",1.25),("costAmountCents",0.25),("costAmountCents",None)):
+            invalid={**source,field:value}
+            with self.assertRaises(SalesImportServiceError) as rejected:_normalize_row(invalid)
+            self.assertEqual(rejected.exception.code,"INVALID_INTEGER")
+        missing=dict(source);del missing["costAmountCents"]
+        with self.assertRaises(SalesImportServiceError):_normalize_row(missing)
+        with patch("sales.write_service.zero_cost_product_names",return_value=[]):
+            with self.assertRaises(SalesImportServiceError) as snapshot:_clean_zero_cost_rows([source],None)
+            self.assertEqual(snapshot.exception.code,"MISSING_SYSTEM_COST_SNAPSHOT")
+            cleaned,proof,warnings,_=_clean_zero_cost_rows([source],{"sourceBatchId":"synthetic-current-cost","snapshotDate":"2026-08-02","costs":[]})
+        self.assertEqual(cleaned[0]["costAmountCents"],0)
+        self.assertEqual(proof["unresolvedRows"],1)
+        self.assertIn("SYSTEM_COST_UNRESOLVED",[item["code"] for item in warnings])
+        SalesOrderLine.objects.all().delete()
+        SalesOrderLine.objects.bulk_create([make_line(20,"typed-cost",cost_amount_cents=cleaned[0]["costAmountCents"])])
+        result=self.read()
+        self.assertEqual(result["periodTotals"]["current"]["values"]["costCents"],0)
+        self.assertEqual(result["metricMetadata"]["cost"]["verification"],"unverified_source")
+        self.assertEqual(result["metricMetadata"]["reportedGrossProfit"]["originalFieldPresence"],"unknown")
 
     def test_raw_projection_incoherence_is_not_hidden_or_repaired(self):
         SalesOrderLine.objects.filter(id=1).update(channel_key="not-the-raw-channel")

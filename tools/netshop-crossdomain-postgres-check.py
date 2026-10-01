@@ -22,6 +22,14 @@ allowed={"SYSTEMROOT","WINDIR","TEMP","TMP","PATH","COMSPEC","USERPROFILE","LOCA
 env={key:value for key,value in os.environ.items() if key in allowed}
 env.update(PGPASSWORD=password,PYTHONUTF8="1",PYTHONDONTWRITEBYTECODE="1",PYTHONPATH=str(ROOT/"tools")+os.pathsep+str(ROOT/"backend"),TERUISI_DJANGO_ENVIRONMENT="test",TERUISI_DJANGO_PROCESS_ROLE="development",DJANGO_DEBUG="true",TERUISI_DJANGO_DATABASE_URL=f"postgresql://crossdomain_fixture:{password}@127.0.0.1:{PORT}/crossdomain_fixture",TERUISI_DJANGO_SALES_READER_BASE_URL="http://127.0.0.1:1",TERUISI_CROSSDOMAIN_CAPACITY_EVIDENCE_DIR=str(EVIDENCE/"capacity"))
 results=[];started=False;stopped=False
+
+def source_snapshot():
+    files=["backend/sales/netshop_periods.py","backend/netshop/sales_periods_client.py","backend/sales/tests/test_netshop_periods.py","backend/netshop/tests/test_sales_periods_client.py","backend/sales/tests/factories.py","backend/sales/models.py","backend/sales/auth.py","backend/sales/query.py","backend/sales/analysis.py","backend/sales/write_service.py","backend/sales/consumers.py","backend/sales/views.py","backend/netshop/sales_client.py","backend/netshop/insights_common.py","backend/access_control/models.py","lib/netshop/sales-periods-contract.ts","tools/netshop-crossdomain-postgres-check.py"]
+    files.extend(str(item.relative_to(ROOT)).replace("\\","/") for item in (ROOT/"tests/fixtures/netshop-sales-periods").glob("*.json"))
+    return {"head":subprocess.check_output(["git","rev-parse","HEAD"],cwd=ROOT,text=True).strip(),"dirty":subprocess.check_output(["git","status","--porcelain"],cwd=ROOT,text=True),"sha256":{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in files}}
+
+source_before=source_snapshot()
+with (EVIDENCE/"source-before.json").open("x",encoding="utf8") as out:json.dump(source_before,out,indent=2)
 def run(args,label):
     before=time.monotonic()
     with (EVIDENCE/(label+".log")).open("x",encoding="utf8") as log:result=subprocess.run([str(item) for item in args],cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT,creationflags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0)
@@ -39,6 +47,8 @@ finally:
     if pwfile.exists():pwfile.unlink()
     if started:
         run([BIN/"pg_ctl.exe","-D",RUN/"data","-m","fast","-w","-t","30","stop"],"stop");stopped=True
-    meta={"fixture":"crossdomain-synthetic-v1","sourceHead":subprocess.check_output(["git","rev-parse","HEAD"],cwd=ROOT,text=True).strip(),"port":PORT,"runtime":str(RUN),"started":started,"normalStop":stopped,"results":results,"productionFallback":False}
+    source_after=source_snapshot()
+    meta={"fixture":"crossdomain-synthetic-v1","sourceHead":source_before["head"],"sourceBefore":source_before,"sourceAfter":source_after,"sourceStable":source_before==source_after,"port":PORT,"runtime":str(RUN),"started":started,"normalStop":stopped,"results":results,"productionFallback":False}
     with (EVIDENCE/"result.json").open("x",encoding="utf8") as out:json.dump(meta,out,indent=2)
     print(f"Private cross-domain PG normalStop={stopped}; evidence {EVIDENCE}")
+    if source_before!=source_after:raise RuntimeError("Source changed during private PG test; evidence retained, run not authoritative")

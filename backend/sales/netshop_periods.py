@@ -31,6 +31,13 @@ RAW_FIELDS = ("platform", "shop_name", "channel")
 METRICS = tuple(expressions())
 PAIR_RE = re.compile(r"^(0|[1-9]\d*):(0|[1-9]\d*)$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+METRIC_METADATA = {
+    "money": {"unit": "CNY_CENT", "basis": "persisted_sales_source_amounts"},
+    "quantity": {"unit": "NATIVE_INTEGER_QUANTITY", "basis": "is_net_quantity_row_signed_source_quantity", "fractionalValues": "not_supported_by_owning_column"},
+    "cost": {"basis": "persisted_typed_source_cost", "originalFieldPresence": "unknown", "historicalCostVerification": "unknown", "historicalMappingVerification": "unknown", "zeroCostVerification": "unknown", "verification": "unverified_source", "primaryMetricUse": "unavailable_or_partial"},
+    "grossProfit": {"basis": "net_sales_minus_persisted_source_cost", "originalFieldPresence": "unknown", "historicalCostVerification": "unknown", "historicalMappingVerification": "unknown", "verification": "unverified_source", "primaryMetricUse": "unavailable_or_partial"},
+    "reportedGrossProfit": {"basis": "persisted_gross_profit_may_be_write_chain_recomputed", "originalFieldPresence": "unknown", "historicalCostVerification": "unknown", "historicalMappingVerification": "unknown", "verification": "unverified_source", "primaryMetricUse": "unavailable_or_partial"},
+}
 
 
 class NetshopPeriodsError(ValueError):
@@ -329,9 +336,12 @@ def read_netshop_periods(principal: Principal, request, *, deadline=None):
                                           "filteredCount": filtered_total, "q": spec["q"], "page": page, "pageSize": size, "returned": len(items), "hasMore": page*size < filtered_total, "truncated": False},
                   "latestRelevantBatch": {"id": batch["id"], "source": batch["source"], "completedAt": batch["completed_at"], "rowCount": batch["row_count"]} if batch else None,
                   "sourceRevisions": [{"domain": "sales", "kind": "sales_erp_revision_pair", "scopeKey": scope_key, "revision": before}],
+                  "metricMetadata": {name: dict(item) for name, item in METRIC_METADATA.items()},
                   "metricSemantics": {"date": "发货business_date，用户独立窗口不自动调整到cutoff", "netSalesCents": "原分摊金额有符号求和，含配件/补差价且已排除原is_business_row刷刷仓",
                                       "grossProfitCents": "原analysis.expressions净额减源成本，不扣fee", "reportedGrossProfitCents": "来源订单行原gross_profit_cents，独立列示不替代大毛利",
-                                      "quantity": "原is_net_quantity_row/源数量正负规则", "orders": "仅可信ERP原order_no按精确来源三元组去重，不用online_order_no或source_line_key；均值不是支付客户客单价",
+                                      "quantity": "NATIVE_INTEGER_QUANTITY：既有BigIntegerField及写入安全整数门禁；原is_net_quantity_row/源数量正负规则，不等同订单/行COUNT",
+                                      "costCents": "原持久化typed成本有符号整数分；非空列不证明导入原字段presence、历史成本或历史商品映射。0可为原真零、豁免或SYSTEM_COST_UNRESOLVED，未做逐行历史验证",
+                                      "orders": "仅可信ERP原order_no按精确来源三元组去重，不用online_order_no或source_line_key；均值不是支付客户客单价",
                                       "category": "resolved_category来源标签，非官方或历史分类ID"}}
         raw = _canonical(result).encode()
         if len(raw) > MAX_BYTES:
