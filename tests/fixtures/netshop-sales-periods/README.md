@@ -1,0 +1,3 @@
+# Sales two-period synthetic fixture
+
+`response-periods.json` was serialized by the actual `sales.netshop_periods.read_netshop_periods` in the owned isolated PostgreSQL run `crossdomain-pg-d46c4c0d7be3a7dd` (dynamic55296, 17 tests passed, normal stop). Source base main b7fafb48 plus the author's dedicated draft. It is synthetic ERP fact data, not production or a public registered API receipt. Its owning pair is7:3; source intervals, signed metrics, no-record nulls, raw identity and unknown completeness are preserved for consumer decoder tests. Core and API integration SHAs are recorded separately when delivered.
