@@ -148,13 +148,12 @@ def _promotion_query(params, platform):
 
 
 def _read_products(principal, spec, deadline):
-    # This existing owning helper performs its own actor, context, complete-set
-    # query, source vector and response validation. No algorithm is reproduced.
-    return product_insights._read_product_insights(principal, spec, deadline)
+    # Public owning entry keeps its own fences while sharing the S deadline.
+    return product_insights.read_product_insights(principal, spec, deadline=deadline)
 
 
 def _read_promotion(principal, params, deadline):
-    return promotion_insights._read_once(principal, params, False, deadline)
+    return promotion_insights.read_promotion_insights(principal, params, deadline=deadline)
 
 
 def _read_source(loader, deadline):
