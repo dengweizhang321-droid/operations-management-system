@@ -12,12 +12,13 @@ function interruptible<T>(promise: Promise<T>, signal: AbortSignal, late?: (valu
   });
 }
 export async function loadComparisonInsights(query: URLSearchParams, signal: AbortSignal, fetchImpl: typeof fetch = fetch) {
-  validateComparisonQuery(query);
   let budget = budgets.get(signal);
   if (!budget) { budget = { signal: AbortSignal.any([signal, AbortSignal.timeout(insightBudget.requestDeadlineMs)]), deadline: performance.now() + insightBudget.requestDeadlineMs }; budgets.set(signal, budget); }
   const bounded = budget.signal;
   const cancelled = () => { if (bounded.aborted) throw bounded.reason ?? new DOMException("读取已取消", "AbortError"); if (performance.now() > budget!.deadline) throw new InsightReadError("source_not_ready", "比较读取超过90秒整体期限，请缩小范围或重新读取"); };
   try {
+    cancelled();
+    validateComparisonQuery(query);
     cancelled();
     const response = await interruptible(fetchImpl(`/api/netshop/comparison-insights?${query}`, { cache: "no-store", signal: bounded }), bounded, late => { void late.body?.cancel().catch(() => undefined); });
     cancelled();
