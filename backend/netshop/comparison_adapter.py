@@ -215,14 +215,22 @@ def load_erp_comparison(principal, spec, current, baseline, *, deadline, chart_k
         raise NetshopApiError("ERP完整映射集合不允许分页遗漏", code="invalid_sales_periods_contract", status=503)
     # The first complete read is the owning ERP candidate proof. A netshop
     # product record/alias does not prove that an ERP raw tuple has any rows.
-    if spec["comparisonScope"]["metricSource"] == "erp" and spec["comparisonScope"]["mode"] == "shop":
+    if spec["comparisonScope"]["metricSource"] == "erp":
         mapped = {m["shopKey"]: m for m in mappings}
         candidates = {_raw_identity(item["identity"]) for item in data["items"]}
-        plot = [mapped[key[5:]]["rawIdentity"] for key in (chart_keys or []) if key.startswith("shop:") and mapped[key[5:]]["status"] == "verified_alias" and _raw_identity(mapped[key[5:]]["rawIdentity"]) in candidates]
-        if plot:
-            series_request = {**request, "seriesGrain": spec["trendGrain"], "seriesOutlets": plot, "expectedRevision": pair}
+        if spec["comparisonScope"]["mode"] == "shop":
+            plot = [mapped[key[5:]]["rawIdentity"] for key in (chart_keys or []) if key.startswith("shop:") and mapped[key[5:]]["status"] == "verified_alias" and _raw_identity(mapped[key[5:]]["rawIdentity"]) in candidates]
+            intent = {"seriesOutlets":plot} if plot else None
+        else:
+            parent_platforms={identity["platform"] for identity in raw_outlets}
+            platforms=sorted({key[9:] for key in (chart_keys or []) if key.startswith("platform:") and key[9:] in parent_platforms},key=lambda name:name.encode("utf8"))
+            intent={"seriesPlatforms":platforms} if platforms else None
+        if intent:
+            series_request = {**request, "seriesGrain": spec["trendGrain"], **intent, "expectedRevision": pair}
             try:
                 series_data, series_pair = read_sales_periods(principal, series_request, deadline=deadline)
+                if "seriesPlatforms" in intent:
+                    _validate_platform_members(series_data,data,intent["seriesPlatforms"])
             except NetshopApiError as error:
                 if error.status != 503: raise
                 budget(deadline)
@@ -234,9 +242,7 @@ def load_erp_comparison(principal, spec, current, baseline, *, deadline, chart_k
             evidence["request"] = request
             evidence["temporalState"] = {"state": "ready", "code": None}
         else:
-            evidence["temporalState"] = {"state": "unavailable", "code": "series_no_records"}
-    elif spec["comparisonScope"]["metricSource"] == "erp":
-        evidence["temporalState"] = {"state": "dependency_pending", "code": "platform_series_dependency_pending"}
+            evidence["temporalState"] = {"state": "unavailable", "code": "series_no_records" if spec["comparisonScope"]["mode"] == "shop" else "no_series_mapping"}
     else:
         evidence["temporalState"] = {"state": "unavailable", "code": "not_requested"}
     evidence.update(state="ready", code=None, source=data)
@@ -245,6 +251,18 @@ def load_erp_comparison(principal, spec, current, baseline, *, deadline, chart_k
 
 def _raw_identity(identity):
     return tuple(identity[field] for field in ("platform", "rawShopName", "rawChannel"))
+
+
+def _validate_platform_members(source,prime,platforms):
+    """C's complete page proves the exact union, not just a member-count bound."""
+    items=source.get("platformSeries",{}).get("items",[])
+    if [item["platform"] for item in items]!=platforms:
+        raise NetshopApiError("ERP平台对象不是所选完整集合",code="invalid_sales_platform_membership",status=503)
+    for item in items:
+        expected=sorted((_raw_identity(row["identity"]) for row in prime["items"] if row["identity"]["platform"]==item["platform"]),key=lambda row:tuple(value.encode("utf8") for value in row))
+        actual=[_raw_identity(row) for row in item["rawMembers"]]
+        if actual!=expected or item["rawCandidateCount"]!=len(expected):
+            raise NetshopApiError("ERP平台隐藏或添加了父授权RAW成员",code="invalid_sales_platform_membership",status=503)
 
 
 def _erp_metric(key, period, ref, *, reason=None, proven=False):
@@ -284,6 +302,7 @@ def _apply_erp(erp, summaries, objects, current, baseline):
     mappings = {m["shopKey"]: m for m in evidence["mappings"]}
     raw_items = {_raw_identity(item["identity"]): item for item in source["items"]} if source else {}
     series_items = {_raw_identity(item["identity"]): item for item in source.get("series", {}).get("items", [])} if source else {}
+    platform_items={item["platform"]:item for item in source.get("platformSeries",{}).get("items",[])} if source else {}
     for period, context in (("current", current), ("baseline", baseline)):
         window = context["periods"]["current"]
         ref = "comparison:"+period+":erp:summary"
@@ -301,9 +320,10 @@ def _apply_erp(erp, summaries, objects, current, baseline):
             # only when that platform is the entire requested ERP cohort.
             native_period = exact[0][period] if item["kind"] == "shop" and exact and exact[0] else source["periodTotals"][period] if source and item["kind"] == "platform" and {_raw_identity(m["rawIdentity"]) for m in members if m["status"] == "verified_alias"} == {_raw_identity(m["rawIdentity"]) for m in mappings.values() if m["status"] == "verified_alias"} else None
             if native_period is not None and item["kind"] == "platform": reason = None
-            if source and item["kind"] == "platform" and native_period is None: reason = "not_applicable"
+            if source and item["kind"] == "platform" and native_period is None and reason is None: reason = "not_applicable"
             for key in ERP_KEYS: item[period][key] = _erp_metric(key, native_period, ref, reason=reason, proven=bool(source))
             selected_series = series_items.get(_raw_identity(members[0]["rawIdentity"])) if item["kind"] == "shop" and members[0]["status"] == "verified_alias" else None
+            if item["kind"]=="platform":selected_series=platform_items.get(item["platform"])
             for index, bucket in enumerate(item["trends"][period]):
                 bucket_ref = ref+":trend:"+bucket["startDate"]
                 bucket_window = {"startDate": bucket["startDate"], "endDate": bucket["endDate"], "days": bucket["days"]}
@@ -311,7 +331,8 @@ def _apply_erp(erp, summaries, objects, current, baseline):
                 point = restore_period_point(selected_series[period][index]) if selected_series else None
                 if point and any(point["window"][key] != bucket_window[key] for key in bucket_window):
                     raise NetshopApiError("ERP拥有方自然桶与C所选原期不一致", code="invalid_sales_periods_contract", status=503)
-                bucket_reason = reason if reason in {"unmapped", "ambiguous_mapping", "unverified_source"} else None if point else "no_records" if source and item["kind"] == "shop" and not any(exact) else "not_applicable"
+                mapping_reason="ambiguous_mapping" if any(m["status"]=="ambiguous" for m in members) else "unmapped" if not any(m["status"]=="verified_alias" for m in members) or erp["state"]=="unavailable" else "unverified_source" if not source else None
+                bucket_reason = None if point else mapping_reason or ("no_records" if source and item["kind"] == "shop" and not any(exact) else "not_applicable")
                 for key in ERP_KEYS: bucket["metrics"][key] = _erp_metric(key, point["facts"] if point else None, bucket_ref, reason=bucket_reason, proven=bool(source))
 
 
