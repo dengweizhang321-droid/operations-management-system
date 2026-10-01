@@ -23,6 +23,7 @@ from access_control.models import AccessRole, AppUser
 from netshop.errors import NetshopApiError
 from netshop.sales_client import read_sales_consumer
 from netshop.sales_periods_client import read_sales_periods
+from netshop.bounded_consumer_http import open_bounded_consumer_request
 from sales import netshop_periods as owner
 from sales import views
 from sales.auth import Principal
@@ -186,7 +187,11 @@ class RegisteredPeriodsHttpTests(LiveServerTestCase):
         original = urllib.request.urlopen; timeouts = []; bodies = []
         def opening(call, **options):
             timeouts.append(options["timeout"]); bodies.append(json.loads(call.data)); return original(call, **options)
-        with patch("netshop.sales_client.urllib.request.urlopen", side_effect=opening):
+        def bounded_opening(call, **options):
+            timeouts.append(min(options["timeout_cap"], options["deadline"] - time.monotonic()))
+            bodies.append(json.loads(call.data))
+            return open_bounded_consumer_request(call, **options)
+        with patch("netshop.sales_client.urllib.request.urlopen", side_effect=opening), patch("netshop.bounded_consumer_http.open_bounded_consumer_request", side_effect=bounded_opening):
             data, revision = read_sales_periods(self.principal, REQUEST, deadline=time.monotonic()+5)
             self.assertEqual(revision, "7:3"); self.assertEqual(data["periodTotals"]["current"]["values"]["netSalesCents"], 14000)
             self.assertEqual(data["metricMetadata"]["cost"]["verification"], "unverified_source")
@@ -198,9 +203,10 @@ class RegisteredPeriodsHttpTests(LiveServerTestCase):
             self.assertEqual(legacy_revision, "7:3"); self.assertIn("dataCutoffDate", legacy)
             self.assertEqual(timeouts[1], 8)
         for deadline in (True, float("inf"), float("nan"), "later", 9007199254740992):
-            with patch("netshop.sales_client.urllib.request.urlopen") as forbidden, self.assertRaises(NetshopApiError):
+            with patch("netshop.sales_client.urllib.request.urlopen") as forbidden, patch("netshop.bounded_consumer_http.open_bounded_consumer_request") as bounded_forbidden, self.assertRaises(NetshopApiError):
                 read_sales_consumer(self.principal, REQUEST, deadline=deadline)
             forbidden.assert_not_called()
+            bounded_forbidden.assert_not_called()
 
     def test_transport_latency_cannot_reset_signed_expiry_before_actor_sql(self):
         original = views.parse_consumer_body
@@ -265,3 +271,32 @@ class RegisteredPeriodsHttpTests(LiveServerTestCase):
         target = os.environ.get("TERUISI_CROSSDOMAIN_CAPACITY_EVIDENCE_DIR")
         if target:
             with (Path(target)/"actual-ts-sdk-result.json").open("x", encoding="utf8") as out: json.dump(result, out, indent=2)
+
+    def test_actual_registered_optin_series_is_one_signed_rpc_with_full_native_return(self):
+        identity={"platform":"京东","rawShopName":"京东一店","rawChannel":"渠道A"}
+        request={**REQUEST,"seriesGrain":"week","seriesOutlets":[identity]}
+        original=open_bounded_consumer_request;calls=[]
+        def opening(call,**options):calls.append(json.loads(call.data));return original(call,**options)
+        with patch("netshop.bounded_consumer_http.open_bounded_consumer_request",side_effect=opening):data,revision=read_sales_periods(self.principal,request,deadline=time.monotonic()+5)
+        self.assertEqual(len(calls),1);self.assertIn("expiresAtEpochMs",calls[0])
+        self.assertEqual(revision,"7:3");self.assertEqual(data["series"]["sourceRevisions"],data["sourceRevisions"])
+        self.assertEqual(data["series"]["items"][0]["identity"],identity)
+        self.assertEqual(data["series"]["items"][0]["current"][0][0][3],2)
+        self.assertEqual(data["periodTotals"]["current"]["rowCount"],4)
+        status,envelope,headers,raw=self.post(request);self.assertEqual(status,200)
+        self.assertEqual(envelope["data"]["series"],data["series"])
+        capture("registered-optin-series",request,raw,headers)
+
+    def test_actual_signed_rpc_four_objects_two_full_366_windows_fit_complete_budget(self):
+        outlets=[{"platform":"京东","rawShopName":shop,"rawChannel":"渠道A"} for shop in ("京东一店","B","C","D")]
+        SalesOrderLine.objects.bulk_create([make_line(71+i,f"http-full-year-{i}",shop_name=row["rawShopName"],ship_time="2024-02-29 10:00:00") for i,row in enumerate(outlets)])
+        request={"operation":"netshop_periods_v1","current":{"startDate":"2024-02-28","endExclusive":"2025-02-28"},"baseline":{"startDate":"2020-02-28","endExclusive":"2021-02-28"},"seriesGrain":"day","seriesOutlets":outlets}
+        original=open_bounded_consumer_request;calls=[]
+        def opening(call,**options):calls.append(1);return original(call,**options)
+        with patch("netshop.bounded_consumer_http.open_bounded_consumer_request",side_effect=opening):data,revision=read_sales_periods(self.principal,request,deadline=time.monotonic()+5)
+        self.assertEqual(calls,[1]);self.assertEqual(revision,"7:3")
+        self.assertEqual(sum(len(row[kind]) for row in data["series"]["items"] for kind in ("current","baseline")),2928)
+        status,envelope,headers,raw=self.post(request)
+        self.assertEqual(status,200);self.assertLessEqual(len(raw),2*1024*1024)
+        self.assertEqual(envelope["data"],data)
+        capture("registered-optin-max-series",request,raw,headers)

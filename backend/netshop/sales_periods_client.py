@@ -121,10 +121,12 @@ def _period(value, window):
 def _decode_response(data, revision, spec):
     if type(revision) is not str or not PAIR_RE.fullmatch(revision) or any(int(item) > MAX_SAFE for item in revision.split(":")):
         _invalid("跨域销售响应头不是所属整数pair")
-    data = _object(data, ("schemaVersion", "operation", "scopeKey", "snapshotToken", "requestedScope", "scopeMode", "periods", "periodTotals", "items", "candidatePagination", "latestRelevantBatch", "sourceRevisions", "metricSemantics", "metricMetadata"))
+    intent = {"grain":spec["seriesGrain"],"rawOutlets":spec["seriesOutlets"]} if "seriesGrain" in spec else None
+    data = _object(data, ("schemaVersion", "operation", "scopeKey", "snapshotToken", "requestedScope", "scopeMode", "periods", "periodTotals", "items", "candidatePagination", "latestRelevantBatch", "sourceRevisions", "metricSemantics", "metricMetadata",*(("series",) if intent else ())))
     if not _enum(data["schemaVersion"], (SCHEMA,)) or not _enum(data["operation"], (OPERATION,)) or not _token(data["scopeKey"]) or not _token(data["snapshotToken"]) or not _enum(data["scopeMode"], ("restricted", "unrestricted")):
         _invalid("跨域销售协议、token或授权模式无效")
-    scope = _object(data["requestedScope"], ("current", "baseline", "rawOutlets", "categories"))
+    scope = _object(data["requestedScope"], ("current", "baseline", "rawOutlets", "categories",*(("seriesIntent",) if intent else ())))
+    if intent and scope["seriesIntent"] != intent: _invalid("图形选择意图不属于原始请求")
     for kind in ("current", "baseline"): _window(scope[kind], spec[kind])
     if type(scope["rawOutlets"]) is not list or len(scope["rawOutlets"]) > 50 or sorted((_identity(row, True) for row in scope["rawOutlets"]), key=_identity_order) != spec["rawOutlets"] or type(scope["categories"]) is not list or scope["categories"] != spec["categories"] or any(not _text(value, 200) for value in scope["categories"]):
         _invalid("跨域销售响应范围不属于原始身份/来源标签请求")
@@ -164,6 +166,31 @@ def _decode_response(data, revision, spec):
     for name, expected in METRIC_METADATA.items():
         actual = _object(metadata[name], expected)
         if any(not _enum(actual[key], (value,)) for key, value in expected.items()): _invalid("跨域销售成本证据或原生单位不得冒充已验证")
+    if intent: _decode_series(data["series"], intent, data, spec)
+
+
+def _decode_series(value, intent, parent, spec):
+    from sales.netshop_period_series import SERIES_SCHEMA, SERIES_PROJECTION, WINDOW_COLUMNS, POINT_COLUMNS, SERIES_BASIS, period_buckets, restore_period_point
+    series=_object(value,("schemaVersion","projection","windowColumns","metricColumns","pointColumns","scopeKey","intent","periods","basis","metricMetadata","sourceRevisions","items"))
+    if not _enum(series["schemaVersion"],(SERIES_SCHEMA,)) or not _enum(series["projection"],(SERIES_PROJECTION,)) or series["windowColumns"]!=WINDOW_COLUMNS or series["metricColumns"]!=list(METRICS) or series["pointColumns"]!=POINT_COLUMNS or series["scopeKey"]!=parent["scopeKey"] or type(series["scopeKey"])is not str or series["intent"]!=intent:
+        _invalid("序列版本、父范围或图形意图错位")
+    _object(series["intent"],("grain","rawOutlets"))
+    _object(series["periods"],("current","baseline"))
+    for kind in ("current","baseline"):_window(series["periods"][kind],spec[kind])
+    basis=_object(series["basis"],SERIES_BASIS)
+    if any(not _enum(basis[key],(meaning,)) for key,meaning in SERIES_BASIS.items()) or series["metricMetadata"]!=parent["metricMetadata"] or series["sourceRevisions"]!=parent["sourceRevisions"]:
+        _invalid("序列不能冒完整结算、累计日订单或混用单位/未知成本/版本")
+    if type(series["items"])is not list or len(series["items"])!=len(intent["rawOutlets"]):_invalid("序列对象不得添加、省略或重复")
+    for index,value in enumerate(series["items"]):
+        row=_object(value,("identity","identityKey","current","baseline"));identity=_identity(row["identity"],True)
+        if identity!=intent["rawOutlets"][index] or type(row["identityKey"])is not str or row["identityKey"]!=json.dumps(list(_identity_tuple(identity)),ensure_ascii=False,separators=(",",":")):_invalid("序列精确RAW身份/key或排列越界")
+        for kind in ("current","baseline"):
+            expected=period_buckets(spec[kind],intent["grain"]);points=row[kind]
+            if type(points)is not list or len(points)!=len(expected):_invalid("序列不得截断完整原期自然桶")
+            for point,window in zip(points,expected):
+                try:decoded=restore_period_point(point)
+                except (TypeError,ValueError):_invalid("序列元组列或类型非法")
+                _window(decoded["window"],window);_period(decoded["facts"],window)
 
 
 def read_sales_periods(principal, request, *, deadline=None, reader=None):

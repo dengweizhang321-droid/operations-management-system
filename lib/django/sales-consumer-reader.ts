@@ -428,7 +428,7 @@ function assertRequest(request: SalesConsumerRequest): void {
   if (!isRecord(request) || !isOperation(request.operation)) throw unavailable();
   const keys = new Set(Object.keys(request));
   const allowed: Record<SalesConsumerOperation, readonly string[]> = {
-    netshop_periods_v1: ["operation", "current", "baseline", "rawOutlets", "categories", "q", "page", "pageSize", "expectedRevision", "snapshotToken", "expiresAtEpochMs"],
+    netshop_periods_v1: ["operation", "current", "baseline", "rawOutlets", "categories", "q", "page", "pageSize", "expectedRevision", "snapshotToken", "expiresAtEpochMs", "seriesGrain", "seriesOutlets"],
     analysis_records: ["operation", "platform", "shop", "channel", "startDate", "endDate", "window", "limit", "cursor"],
     freshness: ["operation"],
     summary: ["operation", "range", "startDate", "endDate", "productQueries", "platforms", "outlets", "categories"],
