@@ -16,7 +16,9 @@ export function shopPresentationWindow(input: string | URL, today = shanghaiIsoT
 }
 export function shopPresentationScopeKey(input: string | URL, today = shanghaiIsoToday()) {
   const { startDate, endDate, period, context } = shopPresentationWindow(input, today);
-  return JSON.stringify([startDate, endDate, period, context.platforms, context.outlets, context.dimension]);
+  const parts: unknown[] = [startDate, endDate, period, context.platforms, context.outlets, context.dimension];
+  if (context.comparisonIntent) parts.push(context.comparisonIntent);
+  return JSON.stringify(parts);
 }
 /** The existing browser history is the only route owner. This binding is a
  * presentation hint, not an authentication receipt or a source revision. */
@@ -43,9 +45,9 @@ export function readBoundShopLocationContext(input: string | URL, history: unkno
   let returnTo = context.returnTo;
   if (returnTo) {
     const target = parseShellLocation(returnTo);
-    if (target.shop) returnTo = serializeShellLocation({ ...target, shop: { ...target.shop, productsPrefs: null, promotionPrefs: null, returnOrigin: null } }, returnTo);
+    if (target.shop) returnTo = serializeShellLocation({ ...target, shop: { ...target.shop, productsPrefs: null, promotionPrefs: null, comparisonPrefs: null, returnOrigin: null } }, returnTo);
   }
   // Old single return bookmarks retain their existing meaning. New flat origins
   // and shared preferences are restored only in an account-bound history entry.
-  return { ...context, productsPrefs: null, promotionPrefs: null, returnOrigin: null, returnTo: context.returnOrigin ? null : returnTo };
+  return { ...context, productsPrefs: null, promotionPrefs: null, comparisonPrefs: null, returnOrigin: null, returnTo: context.returnOrigin ? null : returnTo };
 }

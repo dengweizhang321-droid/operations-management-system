@@ -20,7 +20,7 @@ from .errors import NetshopApiError
 from .catalog_filters import ASSET_SOURCE_DATASETS, CATALOG_STALE_AFTER_DAYS, _with_image
 from .insights_common import (
     MAX_SAFE, actor_fence, compare_metrics, context_versions, parse_identities,
-    read_context, validate_context, validate_metric, validate_derived_money_per_count,
+    read_context, resolve_read_deadline, validate_context, validate_metric, validate_derived_money_per_count,
     compare_derived_money_per_count,
 )
 from .models import (
@@ -851,14 +851,14 @@ def _finish(payload, principal, actor, deadline):
     return payload
 
 
-def _execute_product_reader(principal, spec, reader):
+def _execute_product_reader(principal, spec, reader, deadline=None):
     """One outer deadline fences every new read statement, including helpers.
 
     An already executing SQL is not killed. Post-execution expiry fails the
     whole read and no subsequent read SQL starts. Transaction cleanup remains
     permitted; the existing per-statement limit is not changed here.
     """
-    deadline = time.monotonic() + 65
+    deadline = resolve_read_deadline(deadline)
     def fence(execute, sql, params, many, context):
         statement = re.sub(r"\A(?:\s+|/\*[\s\S]*?\*/|--[^\n]*(?:\n|$))*", "", str(sql))
         read_sql = re.match(r"(?:SELECT|WITH|SHOW|EXPLAIN)\b", statement, re.I) is not None
@@ -872,8 +872,8 @@ def _execute_product_reader(principal, spec, reader):
         return reader(principal, spec, deadline)
 
 
-def read_product_insights(principal, spec):
-    return _execute_product_reader(principal, spec, _read_product_insights)
+def read_product_insights(principal, spec, *, deadline=None):
+    return _execute_product_reader(principal, spec, _read_product_insights, deadline)
 
 
 def _read_product_insights(principal, spec, deadline):
@@ -949,8 +949,8 @@ def _read_product_insights(principal, spec, deadline):
     return _finish(payload, principal, actor, deadline)
 
 
-def read_product_detail(principal, spec):
-    return _execute_product_reader(principal, spec, _read_product_detail)
+def read_product_detail(principal, spec, *, deadline=None):
+    return _execute_product_reader(principal, spec, _read_product_detail, deadline)
 
 
 def _read_product_detail(principal, spec, deadline):

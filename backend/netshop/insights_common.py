@@ -22,6 +22,20 @@ from .store_overview import NumericMetricPresent, days, grouped_dates, periods, 
 SCHEMA_VERSION = "netshop-insights-v1"
 MAX_SAFE = 9_007_199_254_740_991
 MAX_DAYS, MAX_SHOPS, MAX_IDENTITIES = 366, 50, 100
+
+
+def resolve_read_deadline(deadline=None):
+    """An internal caller may shrink the owning 65-second budget, never extend it."""
+    if deadline is not None and (isinstance(deadline, bool) or not isinstance(deadline, (int, float))
+                                 or isinstance(deadline, int) and abs(deadline) > MAX_SAFE or not isfinite(deadline)):
+        raise NetshopApiError("内部读取期限无效")
+    started = time.monotonic()
+    result = started + 65 if deadline is None else min(deadline, started + 65)
+    if result <= started:
+        raise NetshopApiError("共同读取期限已耗尽", code="source_not_ready", status=503)
+    return result
+
+
 PERIOD_KINDS = {"today", "yesterday", "last7", "last15", "last30", "month", "quarter", "custom", "rolling", "all"}
 PRODUCT_FIELDS = {
     "payment": ("transactionAmountCents", "成交金额"),
