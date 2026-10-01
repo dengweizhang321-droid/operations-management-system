@@ -28,7 +28,7 @@ pwfile = RUN / "fixture-password.txt"
 env = {k: v for k, v in os.environ.items() if k.upper() in {"SYSTEMROOT", "WINDIR", "TEMP", "TMP", "PATH", "COMSPEC", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "PROGRAMFILES"}}
 env.update(PGPASSWORD=password, PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1", PYTHONPATH=str(ROOT/"tools")+os.pathsep+str(ROOT/"backend"), TERUISI_DJANGO_ENVIRONMENT="test", TERUISI_DJANGO_PROCESS_ROLE="development", DJANGO_DEBUG="true", TERUISI_DJANGO_DATABASE_URL=f"postgresql://comparison_fixture:{password}@127.0.0.1:{PORT}/comparison_fixture", TERUISI_COMPARISON_EVIDENCE_DIR=str(EVIDENCE))
 results = []
-SOURCE_FILES = ["backend/netshop/comparison_adapter.py", "backend/netshop/comparison_insights.py", "backend/netshop/comparison_contract.py", "backend/netshop/tests/test_comparison_erp.py", "backend/netshop/tests/test_comparison_insights.py", "backend/netshop/sales_periods_client.py", "backend/sales/netshop_periods.py", "backend/sales/netshop_period_series.py", "tools/netshop-comparison-postgres-check.py"]
+SOURCE_FILES = ["backend/netshop/comparison_adapter.py", "backend/netshop/comparison_insights.py", "backend/netshop/comparison_contract.py", "backend/netshop/tests/test_comparison_erp.py", "backend/netshop/tests/test_comparison_insights.py", "backend/netshop/sales_periods_client.py", "backend/sales/netshop_periods.py", "backend/sales/netshop_period_series.py", "backend/sales/netshop_platform_series.py", "tools/netshop-comparison-postgres-check.py"]
 def source_snapshot():
     return {"head":subprocess.check_output(["git","rev-parse","HEAD"],cwd=ROOT,text=True).strip(),"sha256":{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in SOURCE_FILES}}
 source_before = source_snapshot()
