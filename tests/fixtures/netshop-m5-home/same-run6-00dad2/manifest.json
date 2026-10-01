@@ -1,0 +1,146 @@
+{
+  "schemaVersion": "netshop-m5-home-source-v1",
+  "syntheticOnly": true,
+  "sameRunSourceCode": "00dad2ddd7d1a66885dcda7d69e0311ec1f1ecd0",
+  "records": [
+    {
+      "name": "all-six",
+      "kind": "panorama",
+      "file": "response-owning-all-six.json",
+      "bytes": 207334,
+      "sha256": "dd919540b8015463c9b35a0a082610464804da97901d2863972758af5ca54bb9",
+      "originalRequest": {
+        "method": "GET",
+        "endpoint": "/api/netshop/store-panorama",
+        "query": {
+          "platform": "京东",
+          "outlet": "京东\u001f志高切肉机旗舰店",
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-01",
+          "dimension": "spu"
+        }
+      },
+      "owningRevision": "1:263b6b9094b1",
+      "seed": "61e3b869890eed14d20da1d5191703491bd536542bceb41ab72aad48b3b69c31",
+      "metadata": "response-owning-all-six.meta.json",
+      "codeSha": "00dad2ddd7d1a66885dcda7d69e0311ec1f1ecd0"
+    },
+    {
+      "name": "directory",
+      "kind": "directory",
+      "file": "response-owning-directory.json",
+      "bytes": 7602,
+      "sha256": "983a13587862f3eb98638db1fb6f2c8aafc81bb39bce2f6d845354e5d55c80fc",
+      "originalRequest": {
+        "method": "GET",
+        "endpoint": "/api/netshop/insights-context",
+        "query": {
+          "platform": "京东",
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-01",
+          "dimension": "spu"
+        }
+      },
+      "owningRevision": "1:263b6b9094b1",
+      "seed": "61e3b869890eed14d20da1d5191703491bd536542bceb41ab72aad48b3b69c31",
+      "metadata": "response-owning-directory.meta.json",
+      "codeSha": "00dad2ddd7d1a66885dcda7d69e0311ec1f1ecd0"
+    },
+    {
+      "name": "direct-products",
+      "kind": "products",
+      "file": "response-owning-direct-products.json",
+      "bytes": 41172,
+      "sha256": "dd283e033cf9133dd8eef7b62a9a90f1bb66be32e512c2fb7f9547c136f6748f",
+      "originalRequest": {
+        "method": "GET",
+        "endpoint": "/api/netshop/product-insights",
+        "query": {
+          "platform": "京东",
+          "outlet": "京东\u001f志高切肉机旗舰店",
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-01",
+          "dimension": "spu"
+        }
+      },
+      "owningRevision": "1:263b6b9094b1",
+      "seed": "61e3b869890eed14d20da1d5191703491bd536542bceb41ab72aad48b3b69c31",
+      "metadata": "response-owning-direct-products.meta.json",
+      "codeSha": "00dad2ddd7d1a66885dcda7d69e0311ec1f1ecd0"
+    },
+    {
+      "name": "direct-product-detail",
+      "kind": "product-detail",
+      "file": "response-owning-direct-product-detail.json",
+      "bytes": 27025,
+      "sha256": "4e6a04d675bedf6ca0e6c87bd5e5dd75b3d9cf29d158cbd835dd0e52c090489c",
+      "originalRequest": {
+        "method": "GET",
+        "endpoint": "/api/netshop/product-insights/detail",
+        "query": {
+          "platform": "京东",
+          "outlet": "京东\u001f志高切肉机旗舰店",
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-01",
+          "dimension": "spu",
+          "productIdentity": "[\"京东\",\"志高切肉机旗舰店\",\"spu\",\"SPU-P1\"]"
+        }
+      },
+      "owningRevision": "1:263b6b9094b1",
+      "seed": "61e3b869890eed14d20da1d5191703491bd536542bceb41ab72aad48b3b69c31",
+      "metadata": "response-owning-direct-product-detail.meta.json",
+      "codeSha": "00dad2ddd7d1a66885dcda7d69e0311ec1f1ecd0"
+    },
+    {
+      "name": "direct-promotion",
+      "kind": "promotion",
+      "file": "response-owning-direct-promotion.json",
+      "bytes": 37786,
+      "sha256": "f684b8e731543605e6fdcc958b6ffc97a2286b82e2f4bd9e35a507052f846f04",
+      "originalRequest": {
+        "method": "GET",
+        "endpoint": "/api/netshop/promotion-insights",
+        "query": {
+          "platform": "京东",
+          "outlet": "京东\u001f志高切肉机旗舰店",
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-01",
+          "dimension": "sku",
+          "objectKind": "product",
+          "trendGrain": "day"
+        }
+      },
+      "owningRevision": "1:263b6b9094b1",
+      "seed": "61e3b869890eed14d20da1d5191703491bd536542bceb41ab72aad48b3b69c31",
+      "metadata": "response-owning-direct-promotion.meta.json",
+      "codeSha": "00dad2ddd7d1a66885dcda7d69e0311ec1f1ecd0"
+    },
+    {
+      "name": "direct-promotion-detail",
+      "kind": "promotion-detail",
+      "file": "response-owning-direct-promotion-detail.json",
+      "bytes": 18313,
+      "sha256": "a0487987a469dce43b86803ff880d7593622c2418742cf8e2f933261a8846849",
+      "originalRequest": {
+        "method": "GET",
+        "endpoint": "/api/netshop/promotion-insights/detail",
+        "query": {
+          "platform": "京东",
+          "outlet": "京东\u001f志高切肉机旗舰店",
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-01",
+          "dimension": "sku",
+          "objectKind": "product",
+          "trendGrain": "day",
+          "objectId": "e9b574355a8d5e287d394c945f7b688a9446dc0c93a927a329596010b2be9d39",
+          "shopKey": "京东\u001f志高切肉机旗舰店",
+          "sectionToken": "98350032e037ffa99dc3ad8b56d760f2a56473cd527d322859a85219ff2f476b"
+        }
+      },
+      "owningRevision": "1:263b6b9094b1",
+      "seed": "61e3b869890eed14d20da1d5191703491bd536542bceb41ab72aad48b3b69c31",
+      "metadata": "response-owning-direct-promotion-detail.meta.json",
+      "codeSha": "00dad2ddd7d1a66885dcda7d69e0311ec1f1ecd0"
+    }
+  ]
+}

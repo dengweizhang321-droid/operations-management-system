@@ -1,0 +1,61 @@
+{
+  "request": {
+    "method": "GET",
+    "endpoint": "/api/netshop/promotion-insights/detail",
+    "query": {
+      "platform": "京东",
+      "outlet": "京东\u001f志高切肉机旗舰店",
+      "startDate": "2026-09-01",
+      "endDate": "2026-09-01",
+      "dimension": "sku",
+      "objectKind": "product",
+      "trendGrain": "day",
+      "objectId": "e9b574355a8d5e287d394c945f7b688a9446dc0c93a927a329596010b2be9d39",
+      "shopKey": "京东\u001f志高切肉机旗舰店",
+      "sectionToken": "98350032e037ffa99dc3ad8b56d760f2a56473cd527d322859a85219ff2f476b"
+    }
+  },
+  "responseFile": "response-owning-direct-promotion-detail.json",
+  "responseBytesUtf8": 18313,
+  "responseSha256": "a0487987a469dce43b86803ff880d7593622c2418742cf8e2f933261a8846849",
+  "codeSha": "00dad2ddd7d1a66885dcda7d69e0311ec1f1ecd0",
+  "sourceSha256": {
+    "backend/netshop/store_panorama.py": "39ebd978ac282673a33fad6520ef1d86f296ce21fd0a3ae5e22ca6a88ff76440",
+    "backend/netshop/panorama_finance_client.py": "21b4d49ac427429e09d2b6a4c6b9d83598cbc26899722f0f7263071c63895839",
+    "backend/netshop/finance_netshop_client.py": "da5420bb3c99daf94a810b6fce8c4ee831d1445415608170cb84a83217a05fdd",
+    "backend/netshop/finance_netshop_contract.py": "7efae14c27f3a0ce43e2ca7acc846d4959e0b62dae353ba73d4462d08a47ac3d",
+    "backend/netshop/bounded_consumer_http.py": "9140e86406207351312060a4accff87d9bf2d31dd3b50405fdffeb011e5dd48c",
+    "backend/finance/netshop_reads.py": "325581fcb6836fe950371f4e52861b6d0b72f91eb5a9b5fc46a93baca325174c",
+    "backend/finance/import_service.py": "76c7c8d399da701e71891fd120b1231626b97628bd203b9cbfa7099cf563f290",
+    "backend/finance/target_service.py": "02461d9e98092bf4b05d6d0c4bbd087aab81711902476ba372db2e064a089b73",
+    "backend/netshop/tests/test_store_panorama_finance.py": "fa81fa3def436353d4ce2819ab3019320050c6cddb219f4e1dd7cb45e724a8bc",
+    "backend/netshop/tests/test_store_panorama_sources.py": "1d97dbc5ba4ac6a0739c71393dd34fd0465fbfcdfd8122719d7a7bcb189e5450"
+  },
+  "syntheticPrivateOnly": true,
+  "grantsIssued": 0,
+  "productionActions": [],
+  "paidCalls": 0,
+  "responseStatus": 200,
+  "responseHeaders": {
+    "Date": "Thu, 01 Oct 2026 08:53:48 GMT",
+    "Server": "WSGIServer/0.2 CPython/3.14.6",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "X-Netshop-Data-Revision": "1:263b6b9094b1",
+    "X-Frame-Options": "DENY",
+    "Content-Length": "18313",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  },
+  "privateHttpPort": 52516,
+  "freshSeedSha256": "61e3b869890eed14d20da1d5191703491bd536542bceb41ab72aad48b3b69c31",
+  "requestPrincipalRole": "viewer",
+  "requestPrincipalScope": null,
+  "nativeDomainReaders": [
+    "http://127.0.0.1:52516/api/sales/consumers/query",
+    "http://127.0.0.1:52516/api/finance/consumers/query",
+    "http://127.0.0.1:52516/api/workflow/operations-records"
+  ],
+  "privateSRouteBinding": false
+}
