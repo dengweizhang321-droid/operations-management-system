@@ -234,7 +234,7 @@ def load_erp_comparison(principal, spec, current, baseline, *, deadline, chart_k
             except NetshopApiError as error:
                 if error.status != 503: raise
                 budget(deadline)
-                evidence.update(state="error", code=error.code)
+                evidence.update(state="error", code=error.code, temporalState={"state":"unavailable","code":"source_error"})
                 return {**result, "state": "error", "reasonCode": error.code}
             if series_pair != pair or any(series_data[key] != data[key] for key in ("periodTotals", "items", "candidatePagination", "metricMetadata", "latestRelevantBatch")):
                 raise NetshopApiError("ERP完整候选或源在图形读取期间变化", code="sales_periods_revision_changed", status=409)
@@ -245,8 +245,33 @@ def load_erp_comparison(principal, spec, current, baseline, *, deadline, chart_k
             evidence["temporalState"] = {"state": "unavailable", "code": "series_no_records" if spec["comparisonScope"]["mode"] == "shop" else "no_series_mapping"}
     else:
         evidence["temporalState"] = {"state": "unavailable", "code": "not_requested"}
+    platform_periods = []
+    if spec["comparisonScope"]["mode"] == "platform" and len({raw["platform"] for raw in raw_outlets}) > 1:
+        for platform in sorted({raw["platform"] for raw in raw_outlets}, key=lambda name: name.encode("utf8")):
+            members = [mapping for mapping in mappings if mapping["shopKey"].startswith(platform+"\x1f")]
+            # A child is an exact complete mapped cohort, never an empty all-ERP query.
+            if not members or any(mapping["status"] != "verified_alias" for mapping in members):
+                continue
+            child_request = {key: value for key, value in request.items() if key not in {"seriesGrain", "seriesOutlets", "seriesPlatforms", "expectedRevision", "snapshotToken"}}
+            child_request.update(rawOutlets=[mapping["rawIdentity"] for mapping in members], expectedRevision=pair)
+            try:
+                child_source, child_pair = read_sales_periods(principal, child_request, deadline=deadline)
+            except NetshopApiError as error:
+                if error.status != 503: raise
+                budget(deadline)
+                evidence.update(state="error", code=error.code, temporalState={"state":"unavailable","code":"source_error"})
+                return {**result, "state": "error", "reasonCode": error.code}
+            expected_items = [item for item in data["items"] if item["identity"]["platform"] == platform]
+            if child_pair != pair or child_source["items"] != expected_items or child_source["metricMetadata"] != data["metricMetadata"]:
+                raise NetshopApiError("ERP平台整期源与完整父候选不一致", code="sales_periods_revision_changed", status=409)
+            if child_source["candidatePagination"]["hasMore"] or child_source["candidatePagination"]["candidateCount"] != len(expected_items):
+                raise NetshopApiError("ERP平台整期完整候选不可分页遗漏", code="invalid_sales_periods_contract", status=503)
+            platform_periods.append({"platform": platform, "request": child_request, "source": child_source})
+    if platform_periods:
+        evidence["platformPeriods"] = platform_periods
     evidence.update(state="ready", code=None, source=data)
-    return {"state": "ready", "reasonCode": None, "sourceRevisions": data["sourceRevisions"], "evidence": evidence, "request": request, "pair": pair}
+    vector = data["sourceRevisions"]+[member for carrier in platform_periods for member in carrier["source"]["sourceRevisions"]]
+    return {"state": "ready", "reasonCode": None, "sourceRevisions": vector, "evidence": evidence, "request": request, "pair": pair}
 
 
 def _raw_identity(identity):
@@ -303,6 +328,7 @@ def _apply_erp(erp, summaries, objects, current, baseline):
     raw_items = {_raw_identity(item["identity"]): item for item in source["items"]} if source else {}
     series_items = {_raw_identity(item["identity"]): item for item in source.get("series", {}).get("items", [])} if source else {}
     platform_items={item["platform"]:item for item in source.get("platformSeries",{}).get("items",[])} if source else {}
+    platform_periods = {carrier["platform"]: carrier["source"] for carrier in evidence.get("platformPeriods", [])} if source else {}
     for period, context in (("current", current), ("baseline", baseline)):
         window = context["periods"]["current"]
         ref = "comparison:"+period+":erp:summary"
@@ -319,6 +345,8 @@ def _apply_erp(erp, summaries, objects, current, baseline):
             # of financial fields. Read once per whole platform in the source
             # only when that platform is the entire requested ERP cohort.
             native_period = exact[0][period] if item["kind"] == "shop" and exact and exact[0] else source["periodTotals"][period] if source and item["kind"] == "platform" and {_raw_identity(m["rawIdentity"]) for m in members if m["status"] == "verified_alias"} == {_raw_identity(m["rawIdentity"]) for m in mappings.values() if m["status"] == "verified_alias"} else None
+            if item["kind"] == "platform" and item["platform"] in platform_periods:
+                native_period = platform_periods[item["platform"]]["periodTotals"][period]
             if native_period is not None and item["kind"] == "platform": reason = None
             if source and item["kind"] == "platform" and native_period is None and reason is None: reason = "not_applicable"
             for key in ERP_KEYS: item[period][key] = _erp_metric(key, native_period, ref, reason=reason, proven=bool(source))
@@ -346,10 +374,11 @@ def validate_erp_revision(principal, erp, *, deadline):
         budget(deadline)
         erp.update(state="error", reasonCode=error.code, sourceRevisions=[])
         erp["evidence"].update(state="error", code=error.code, source=None, observations={}, temporalState={"state":"unavailable","code":"source_error"})
+        erp["evidence"].pop("platformPeriods", None)
         return []
     if revision != erp["pair"] or data != erp["evidence"]["source"]:
         raise NetshopApiError("ERP两期源或映射读取期间变化", code="sales_periods_revision_changed", status=409)
-    return data["sourceRevisions"]
+    return erp["sourceRevisions"]
 
 
 def refresh_erp_projection(sources, current, baseline):

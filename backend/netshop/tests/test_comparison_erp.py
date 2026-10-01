@@ -54,7 +54,7 @@ class ComparisonErpTests(TestCase):
         NetshopDataRevision.objects.filter(domain="netshop").update(revision=F("revision")+1, source_digest=hashlib.sha256(self.id().encode()).hexdigest())
 
     def owner_transport(self, principal, request, *, deadline):
-        self.calls.append({"request": deepcopy(request), "deadline": deadline})
+        self.calls.append({"request": deepcopy(request), "deadline": deadline, "remainingBudgetSeconds":deadline-time.monotonic()})
         if self.hook: self.hook(len(self.calls), "before")
         try:
             data = read_netshop_periods(principal, request, deadline=deadline)
@@ -363,7 +363,7 @@ class ComparisonErpTests(TestCase):
         target = os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
         if target:
             with (Path(target)/(name+"-rpc-layer.json")).open("x", encoding="utf8") as out:
-                json.dump({"layer":"real_owning_reader_injected_transport_private_postgresql", "aliasFixture":"test_only_explicit_injective_raw_triples", "hmacLayer":"published_registered_http_suite_separate", "bytes":len(json.dumps(result,ensure_ascii=False).encode("utf8")), "requests":[{"request":{k:v for k,v in c["request"].items() if k!="expiresAtEpochMs"}, "deadlineShared":c["deadline"]==self.calls[0]["deadline"], "expiresAtEpochMs":c["request"]["expiresAtEpochMs"]} for c in self.calls]},out,ensure_ascii=False,indent=2)
+                json.dump({"layer":"real_owning_reader_injected_transport_private_postgresql", "aliasFixture":"test_only_explicit_injective_raw_triples", "hmacLayer":"published_registered_http_suite_separate", "bytes":len(json.dumps(result,ensure_ascii=False).encode("utf8")), "requests":[{"request":{k:v for k,v in c["request"].items() if k!="expiresAtEpochMs"}, "deadlineShared":c["deadline"]==self.calls[0]["deadline"], "remainingBudgetSeconds":c["remainingBudgetSeconds"], "expiresAtEpochMs":c["request"]["expiresAtEpochMs"]} for c in self.calls]},out,ensure_ascii=False,indent=2)
 
     def test_platform_owned_day_week_month_more_than_four_raw_full_candidates(self):
         from sales.netshop_period_series import restore_period_point
@@ -391,12 +391,23 @@ class ComparisonErpTests(TestCase):
                 self.assertEqual(evidence["temporalState"],{"state":"ready","code":None})
                 self.assertEqual(self.calls[1]["request"]["seriesPlatforms"],["京东"])
                 self.assertNotIn("seriesOutlets",self.calls[1]["request"])
-                self.assertEqual(len(self.calls),3)
+                self.assertEqual(len(self.calls),5)
                 self.assertEqual(self.calls[1]["request"]["expectedRevision"],"7:3")
                 self.assertNotIn("snapshotToken",self.calls[1]["request"])
-                self.assertEqual(self.calls[2]["request"]["snapshotToken"],evidence["source"]["snapshotToken"])
+                self.assertEqual(self.calls[-1]["request"]["snapshotToken"],evidence["source"]["snapshotToken"])
                 self.assertEqual(len({c["deadline"] for c in self.calls}),1)
+                self.assertGreater(self.calls[0]["remainingBudgetSeconds"],self.calls[1]["remainingBudgetSeconds"])
+                self.assertTrue(all(a["remainingBudgetSeconds"]>b["remainingBudgetSeconds"] for a,b in zip(self.calls,self.calls[1:])))
                 self.assertEqual(sorted(c["request"]["expiresAtEpochMs"] for c in self.calls),[c["request"]["expiresAtEpochMs"] for c in reversed(self.calls)])
+                self.assertEqual([carrier["platform"] for carrier in evidence["platformPeriods"]],["京东","天猫"])
+                rows={row["platform"]:row for row in result["sections"]["scale"]["items"]}
+                self.assertEqual(rows["京东"]["current"]["erpNetSales"]["value"],580)
+                self.assertEqual(rows["天猫"]["current"]["erpNetSales"]["value"],100)
+                for carrier in evidence["platformPeriods"]:
+                    self.assertEqual(carrier["request"]["expectedRevision"],"7:3")
+                    self.assertFalse(any(key.startswith("series") for key in carrier["request"]))
+                    self.assertEqual(carrier["source"]["items"],[item for item in evidence["source"]["items"] if item["identity"]["platform"]==carrier["platform"]])
+                self.assertEqual(len([v for v in result["joinedSourceRevisions"] if v["domain"]=="sales"]),3)
                 trend = result["sections"]["trends"]["items"][0]
                 if grain=="day":
                     self.assertEqual([p["metric"]["value"] for p in trend["current"]],[400,200,None,None,0,-20,None])
@@ -411,6 +422,12 @@ class ComparisonErpTests(TestCase):
                         self.assertEqual(observation["completeness"],"unknown")
                         self.assertNotEqual(point["metric"]["status"],"available")
                 self._platform_evidence("actual-owning-erp-platform-"+grain,result,**values,trendGrain=grain)
+            self.calls.clear()
+            both={**values,"chartObjectKeys":["platform:京东","platform:天猫"]}
+            result=self._platform_read(**both)
+            self.assertEqual(self.calls[1]["request"]["seriesPlatforms"],["京东","天猫"])
+            self.assertEqual(len(result["sections"]["trends"]["items"]),2)
+            self._platform_evidence("actual-owning-erp-platform-both-day",result,**both)
 
     def test_platform_authorized_empty_group_and_unmapped_platform(self):
         aliases = self._platform_fixture(count=1, rows=False)
@@ -474,3 +491,87 @@ class ComparisonErpTests(TestCase):
                 if count==1 and when=="after":SalesOrderLine.objects.filter(business_date="2026-09-01").update(allocated_amount_cents=999)
             self.hook=change
             self.assert_error(409,lambda:self._platform_read(chartObjectKeys=["platform:京东"]))
+
+    def test_platform_parent_deadline_actor_and_native_order_quantity_projection(self):
+        aliases=self._platform_fixture(count=2)
+        first=aliases[("京东","合成平台店00")]
+        self.line(day="2026-09-02",shop_name=first["rawShopName"],channel=first["rawChannel"],order_no="same-order",allocated_amount_cents=-20,quantity=-2)
+        with patch("netshop.comparison_adapter.sales_alias",side_effect=lambda p,n:aliases[(p,n)]):
+            for key,expected in (("erpOrderCount",2),("erpNetQuantity",0),("returnQuantity",2)):
+                result=self.read(endDate="2026-09-07",comparisonScope=self.scope(mode="platform",metricSource="erp"),metricKey=key,trendGrain="week",chartObjectKeys=["platform:京东"])
+                metric=result["sections"]["trends"]["items"][0]["current"][0]["metric"]
+                self.assertEqual((metric["value"],metric["status"]),(expected,"partial"))
+                if key!="erpOrderCount":self.assertEqual(metric["unit"],"NATIVE_INTEGER_QUANTITY")
+            for call in (1,2,3):
+                clock=[0.0];self.calls.clear()
+                def expires(count,when):
+                    if count==call and when=="after":clock[0]=66.0
+                self.hook=expires
+                with patch("netshop.comparison_insights.time.monotonic",side_effect=lambda:clock[0]):
+                    self.assert_error(503,lambda:self._platform_read(chartObjectKeys=["platform:京东"]))
+                self.assertEqual(len(self.calls),call)
+            self.calls.clear()
+            def revoke(count,when):
+                if count==3 and when=="after":AppUser.objects.filter(pk=self.user.pk).update(status="disabled")
+            self.hook=revoke
+            self.assert_error(403,lambda:self._platform_read(chartObjectKeys=["platform:京东"]))
+
+    def test_platform_representative_fifty_raw_60000_product_facts_two_thirty_day_periods(self):
+        from datetime import date,timedelta
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from netshop.models import NetshopImportBatch
+        aliases=self._platform_fixture(count=50,rows=False)
+        dates=[(date(2026,month,1)+timedelta(days=i)).isoformat() for month in (8,9) for i in range(30)]
+        NetshopRow.objects.all().delete()
+        rows=[]
+        for index,((platform,name),alias) in enumerate(aliases.items()):
+            batch=NetshopImportBatch.objects.create(id=f"platform-scale-{index}",source="jd_sku_daily",dataset="spu_daily",platform=platform,shop_name=name,file_size_bytes=1,file_hash=f"{index+1:064x}",raw_file_hash="a"*64,content_hash="b"*64,scope_key="c"*64,status="completed",row_count=1200,date_min=dates[0],date_max=dates[-1])
+            facts=[NetshopRow(source_row_key=f"platform-scale-{index}-{day}-{product}",source_row_hash="d"*64,first_import_batch_id=batch.id,last_import_batch_id=batch.id,source_row_number=i+2,source="jd_sku_daily",dataset="spu_daily",platform=platform,shop_name=name,business_date=day,spu_id=f"P{product:02}",sku_id=f"SKU{product:02}",category="Synthetic category",product_name="Synthetic scale",metrics_json={"transactionAmountCents":1000,"transactionQuantity":2,"visitors":100,"transactionCustomers":10},transaction_amount_cents=1000,transaction_quantity=2,visitors=100,transaction_customers=10) for i,(day,product) in enumerate((day,product) for day in dates for product in range(20))]
+            NetshopRow.objects.bulk_create(facts,batch_size=500)
+            for day in dates:
+                self.line_counter+=1
+                rows.append(make_line(self.line_counter,"platform-scale-erp-"+str(self.line_counter),platform=platform,shop_name=alias["rawShopName"],channel=alias["rawChannel"],ship_time=day+" 10:00:00",allocated_amount_cents=100,cost_amount_cents=40,order_no="weekly-order-"+str(date.fromisoformat(day).isocalendar().week)))
+        SalesOrderLine.objects.bulk_create(rows,batch_size=500)
+        values={"endDate":"2026-09-30","selectedBaseline":{"kind":"custom","startDate":"2026-08-01","endDate":"2026-08-30"},"chartObjectKeys":["platform:京东"]}
+        before=time.monotonic()
+        with patch("netshop.comparison_adapter.sales_alias",side_effect=lambda p,n:aliases[(p,n)]),CaptureQueriesContext(connection) as queries:
+            result=self._platform_read(**values)
+        elapsed=time.monotonic()-before
+        self.assertEqual(result["sections"]["scale"]["summary"]["current"]["payment"]["value"],30_000_000)
+        self.assertEqual(result["sections"]["scale"]["summary"]["current"]["erpNetSales"]["value"],150_000)
+        self.assertEqual(len(result["sections"]["comparability"]["erpEvidence"]["source"]["platformSeries"]["items"][0]["rawMembers"]),50)
+        self.assertEqual(len(result["sections"]["trends"]["items"][0]["current"]),30)
+        size=len(json.dumps(result,ensure_ascii=False).encode("utf8"))
+        self.assertLess(size,2*1024*1024);self.assertLess(elapsed,65)
+        self._platform_evidence("actual-owning-erp-platform-representative",result,**values)
+        target=os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
+        if target:
+            with (Path(target)/"erp-platform-representative.json").open("x",encoding="utf8") as out:
+                json.dump({"synthetic":True,"productFacts":60000,"erpFacts":3000,"rawOutlets":50,"daysEachPeriod":30,"points":60,"seconds":elapsed,"sqlCount":len(queries),"sqlWallSeconds":sum(float(q["time"]) for q in queries),"responseUtf8Bytes":size,"rpcCalls":len(self.calls)},out,indent=2)
+
+    def test_platform_child_carriers_late_error_authority_and_global_same_pair_fence(self):
+        aliases=self._platform_fixture(count=1,with_tmall=True)
+        with patch("netshop.comparison_adapter.sales_alias",side_effect=lambda p,n:aliases[(p,n)]):
+            for call in (3,4,5):
+                for status in (503,401,403,409):
+                    self.calls.clear()
+                    def fails(count,when):
+                        if count==call and when=="before":raise NetshopApiError("synthetic child/parent failure",code="synthetic_carrier_failure",status=status)
+                    self.hook=fails
+                    values={"platform":["京东","天猫"],"chartObjectKeys":["platform:京东","platform:天猫"]}
+                    if status==503:
+                        result=self._platform_read(**values)
+                        evidence=result["sections"]["comparability"]["erpEvidence"]
+                        self.assertEqual((evidence["state"],evidence["source"]),("error",None))
+                        self.assertNotIn("platformPeriods",evidence)
+                        self.assertEqual(evidence["temporalState"],{"state":"unavailable","code":"source_error"})
+                        self.assertFalse(any(v["domain"]=="sales" for v in result["joinedSourceRevisions"]))
+                        self.assertTrue(all(row[p]["erpNetSales"]["value"] is None for row in result["sections"]["scale"]["items"] for p in ("current","baseline")))
+                    else:self.assert_error(status,lambda:self._platform_read(**values))
+                    self.assertEqual(len(self.calls),call)
+            self.calls.clear()
+            def changed(count,when):
+                if count==3 and when=="before":SalesOrderLine.objects.filter(platform="京东",business_date="2026-09-01").update(allocated_amount_cents=999)
+            self.hook=changed
+            self.assert_error(409,lambda:self._platform_read(platform=["京东","天猫"],chartObjectKeys=["platform:京东"]))

@@ -17,7 +17,8 @@ export type ComparisonSort = typeof comparisonSorts[number];
 export type ErpNativeQuantityMetric = Omit<MetricValue, "unit" | "aggregation" | "basis"> & { metricSchemaVersion: "netshop-comparison-native-quantity-v1"; unit: "NATIVE_INTEGER_QUANTITY"; aggregation: "sum"; basis: "erp_net_sales" };
 export type ComparisonMetric = MetricValue | DerivedMoneyPerCountV1 | ErpNativeQuantityMetric;
 export type ErpObservation = { schemaVersion: "netshop-comparison-erp-observations-v1"; period: "current" | "baseline"; objectKey: "summary" | string; shopKeys: string[]; startDate: string; endDate: string; expectedShopDatePairs: number; observedShopDatePairs: number | null; observedByShop: Array<{ shopKey: string; dates: string[] }>; completeness: "unknown" };
-export type ErpEvidence = { schemaVersion: "netshop-comparison-erp-evidence-v1"; state: "ready" | "error" | "unavailable"; code: string | null; request: SalesPeriodsRequest | null; mappings: Array<{ shopKey: string; status: "verified_alias" | "unmapped" | "ambiguous"; rawIdentity: RawSalesIdentity | null; method: "netshop_sales_alias_v1"; reasonCode: string | null }>; source: SalesPeriodsResponse | null; observations: Record<string, ErpObservation>; temporalState: { state: "ready" | "unavailable" | "dependency_pending"; code: string | null } };
+export type ErpPlatformPeriod = {platform: InsightPlatform; request: SalesPeriodsRequest; source: SalesPeriodsResponse};
+export type ErpEvidence = { schemaVersion: "netshop-comparison-erp-evidence-v1"; state: "ready" | "error" | "unavailable"; code: string | null; request: SalesPeriodsRequest | null; mappings: Array<{ shopKey: string; status: "verified_alias" | "unmapped" | "ambiguous"; rawIdentity: RawSalesIdentity | null; method: "netshop_sales_alias_v1"; reasonCode: string | null }>; source: SalesPeriodsResponse | null; observations: Record<string, ErpObservation>; temporalState: { state: "ready" | "unavailable" | "dependency_pending"; code: string | null }; platformPeriods?: ErpPlatformPeriod[] };
 export type ComparisonMetrics = Record<ComparisonMetricKey, ComparisonMetric>;
 export type ComparisonComparisons = Record<ComparisonMetricKey, MetricComparison>;
 export type ComparisonCategory = { mode: "all" | "unknown" } | { mode: "label_only"; platform: InsightPlatform; sourceId: string; label: string; evidenceVersion: string };
@@ -196,7 +197,7 @@ function primitiveFEnvelope(value: unknown) {
   for (const raw of context.capabilities) { const capability = object(raw); for (const field of ["sourceId", "period", "field", "coverageRef", "status"]) if (typeof capability[field] !== "string") fail("完整F字段能力枚举须为原始字符串"); if (capability.reasonCode !== null && typeof capability.reasonCode !== "string") fail("完整F字段能力原因须为原始字符串"); }
 }
 function erpEvidence(value: unknown, current: InsightsContext, baseline: InsightsContext, candidates: Set<string>): ErpEvidence {
-  const e = object(value); exact(e, ["schemaVersion", "state", "code", "request", "mappings", "source", "observations", "temporalState"]);
+  const e = object(value); exact(e, ["schemaVersion", "state", "code", "request", "mappings", "source", "observations", "temporalState", ...(Object.hasOwn(e, "platformPeriods") ? ["platformPeriods"] : [])]);
   if (e.schemaVersion !== "netshop-comparison-erp-evidence-v1" || !enumValue(e.state, ["ready", "error", "unavailable"]) || e.state === "ready" && e.code !== null || e.state !== "ready" && !text(e.code, 200) || !Array.isArray(e.mappings) || e.mappings.length !== candidates.size) fail("ERP证据状态或完整映射集合无效");
   const mappingKeys = new Set<string>(), rawKeys = new Set<string>();
   for (const raw of e.mappings) { const m = object(raw); exact(m, ["shopKey", "status", "rawIdentity", "method", "reasonCode"]); if (typeof m.shopKey !== "string" || !candidates.has(m.shopKey) || mappingKeys.has(m.shopKey) || !enumValue(m.status, ["verified_alias", "unmapped", "ambiguous"]) || m.method !== "netshop_sales_alias_v1") fail("ERP映射必须精确且覆盖全部授权候选"); mappingKeys.add(m.shopKey);
@@ -211,6 +212,20 @@ function erpEvidence(value: unknown, current: InsightsContext, baseline: Insight
     if (stable(request.current) !== stable({ startDate: current.periods.current.startDate, endExclusive: current.periods.current.endExclusive }) || stable(request.baseline) !== stable({ startDate: baseline.periods.current.startDate, endExclusive: baseline.periods.current.endExclusive }) || request.q !== "" || request.page !== 1 || request.pageSize !== 100 || !Array.isArray(request.categories) || request.categories.length || !Array.isArray(request.rawOutlets) || stable(request.rawOutlets.map(stable).sort()) !== stable([...rawKeys].sort())) fail("ERP读必须绑定两期完整精确映射集合，不拿当前页或平台类目替代");
     const p = object(source.candidatePagination); if (p.hasMore || p.truncated || p.candidateCount !== p.returned) fail("ERP完整映射集合不得使用其当前排名页替代");
   } else if (e.source !== null) fail("ERP读取错误或未映射不能保留旧源数值");
+  if (Object.hasOwn(e, "platformPeriods")) {
+    if (e.state !== "ready" || !Array.isArray(e.platformPeriods) || e.platformPeriods.length < 1 || e.platformPeriods.length > 2) fail("ERP平台整期载体须来自成功原读取，不保失败旧值");
+    const parent = e.source as SalesPeriodsResponse, used = new Set<string>();
+    for (const raw of e.platformPeriods) {
+      const child = object(raw); exact(child, ["platform", "request", "source"]);
+      if (!enumValue(child.platform, ["京东", "天猫"]) || used.has(child.platform)) fail("ERP整期平台载体重复或非精确平台"); used.add(child.platform);
+      const req = object(child.request), childSource = object(child.source);
+      validateSalesPeriodsRequest(req, false);
+      const expectedRaw = (e.mappings as ErpEvidence["mappings"]).filter(mapping => mapping.status === "verified_alias" && mapping.rawIdentity!.platform === child.platform).map(mapping => stable(mapping.rawIdentity)).sort();
+      if (!expectedRaw.length || stable(req.current) !== stable(object(e.request).current) || stable(req.baseline) !== stable(object(e.request).baseline) || req.q !== "" || req.page !== 1 || req.pageSize !== 100 || !Array.isArray(req.categories) || req.categories.length || !Array.isArray(req.rawOutlets) || stable(req.rawOutlets.map(stable).sort()) !== stable(expectedRaw) || req.expectedRevision !== parent.sourceRevisions[0].revision || ["seriesGrain", "seriesOutlets", "seriesPlatforms", "snapshotToken"].some(key => Object.hasOwn(req, key))) fail("ERP整期平台须保持父完整非空RAW、两窗口和同pair，不借图桶或放大权限");
+      const decoded = decodeSalesPeriodsForRequest(childSource, req as SalesPeriodsRequest, parent.sourceRevisions[0].revision);
+      if (decoded.candidatePagination.hasMore || decoded.candidatePagination.candidateCount !== decoded.candidatePagination.returned || stable(decoded.items) !== stable(parent.items.filter(item => item.identity.platform === child.platform)) || stable(decoded.metricMetadata) !== stable(parent.metricMetadata)) fail("ERP整期平台须保完整原成员与源字段，不能拿当前排名页替代");
+    }
+  }
   const observations = object(e.observations);
   for (const [ref, raw] of Object.entries(observations)) { const o = object(raw); exact(o, ["schemaVersion", "period", "objectKey", "shopKeys", "startDate", "endDate", "expectedShopDatePairs", "observedShopDatePairs", "observedByShop", "completeness"]);
     if (o.schemaVersion !== "netshop-comparison-erp-observations-v1" || !enumValue(o.period, ["current", "baseline"]) || o.completeness !== "unknown" || !referenceText(ref, 400) || !ref.startsWith(`comparison:${o.period}:erp:`)) fail("ERP观察日期不能冒F覆盖或丢所属期");
@@ -296,6 +311,7 @@ function decodeComparisonStructure(value: unknown, params: URLSearchParams, owni
     const addVector = (source: SourceRevision[]) => { for (const r of source) { const key = stable([r.domain, r.kind, r.scopeKey]); if (expectedVector.has(key) && expectedVector.get(key)!.revision !== r.revision) fail("同类同scope来源版本冲突"); expectedVector.set(key, r); } };
     addVector(current.sourceRevisions); addVector(baseline.sourceRevisions);
     if (erpSource.source) addVector(erpSource.source.sourceRevisions as SourceRevision[]);
+    for (const child of erpSource.platformPeriods ?? []) addVector(child.source.sourceRevisions as SourceRevision[]);
     for (const raw of promotion.sourceScopes) {
       const a = object(raw);
       if (!enumValue(a.period, ["current", "baseline"]) || !token(a.scopeKey) || !token(a.snapshotToken) || !enumValue(a.dimension, ["sku", "spu"]) || !Array.isArray(a.sourceRevisions) || !a.sourceRevisions.length) fail("推广所属两期范围无效");
@@ -374,11 +390,13 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
   try {
     const hashes = new Map(await Promise.all(dto.sections.comparability.items.map(async row => [row.objectKey, (await mappingHash(row.objectKey)).slice(0, 16)] as const)));
     const evidence = dto.sections.comparability.erpEvidence, source = evidence.source;
+    if (evidence.platformPeriods && dto.comparisonScope.mode !== "platform") fail("ERP平台整期载体只属于平台模式，不能注入单店读取");
     const rawKey = (identity: RawSalesIdentity) => JSON.stringify([identity.platform, identity.rawShopName, identity.rawChannel]);
     const mappings = new Map(evidence.mappings.map(mapping => [mapping.shopKey, mapping]));
     const rawItems = new Map(source?.items.map(item => [rawKey(item.identity), item]) ?? []);
     const rawSeries = new Map(source?.series?.items.map(item => [rawKey(item.identity), item]) ?? []);
     const platformSeries = new Map(source?.platformSeries?.items.map(item => [item.platform, item]) ?? []);
+    const platformPeriods = new Map(evidence.platformPeriods?.map(item => [item.platform, item.source]) ?? []);
     const rows = new Map(dto.sections.comparability.items.map(row => [row.objectKey, row]));
     for (const [ref, observed] of Object.entries(evidence.observations)) {
       const keys = observed.objectKey === "summary" ? (observed.period === "current" ? dto.currentContext : dto.baselineContext).effectiveScope.shopKeys : rows.get(observed.objectKey)?.shopKeys;
@@ -401,7 +419,7 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
         if (point && row.kind === "platform") return {data: restoreSalesPeriodSeriesPoint(point).facts, reason: null};
         return { data: point ? restoreSalesPeriodSeriesPoint(point).facts : null, reason: reason ?? (point || row.kind === "shop" && selected.length === 1 && !rawItems.has(selected[0]) ? null : "not_applicable") };
       }
-      const data = row.kind === "shop" ? (selected.length ? rawItems.get(selected[0])?.[period] ?? null : null) : source && stable(selected.sort()) === stable(full.sort()) ? source.periodTotals[period] : null;
+      const data = row.kind === "shop" ? (selected.length ? rawItems.get(selected[0])?.[period] ?? null : null) : platformPeriods.get(row.platform)?.periodTotals[period] ?? (source && stable(selected.sort()) === stable(full.sort()) ? source.periodTotals[period] : null);
       if (row.kind === "platform" && data) reason = null; else if (source && row.kind === "platform" && !data && (!source.platformSeries || !reason)) reason = "not_applicable";
       return { data, reason };
     };
