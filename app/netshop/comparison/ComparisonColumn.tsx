@@ -15,6 +15,7 @@ import { loadComparisonInsights } from "./data";
 import { ComparisonTrendChart, ComparisonAmountBars, type ComparisonChartSeries } from "./ComparisonCharts";
 import { ComparisonMetricCard, ComparisonMetricCell, ComparisonChangeCell, ComparisonQualification, ComparisonPanel, comparisonMetricLabels, comparisonObjectLabel, comparisonReason } from "./ComparisonPrimitives";
 import { ComparisonErpEvidence } from "./ComparisonErpOwnedEvidence";
+import { erpTemporalMessage } from "./ComparisonFormatting";
 import "./comparison.css";
 
 const erpKeys: ComparisonMetricKey[] = ["erpNetSales", "erpNetQuantity", "orderMargin", "largeMarginAmount", "largeMargin", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"];
@@ -76,9 +77,13 @@ export default function ComparisonColumn(props: NetshopColumnProps) {
     else drill("analysis", null, "", { platforms:[row.platform], outlets:row.shopKeys });
   };
   const onProductTopic = (key: string) => { const row=population.find(item => item.objectKey === key); if (row) drill("products",null,"overview",{platforms:[row.platform],outlets:row.shopKeys}); };
+  const canIndex = data?.sections.trends.items.some(item => item.indexBasis.status === "available") ?? false;
+  const showIndex = indexed && canIndex;
+  const erpTemporal = data?.sections.comparability.erpEvidence.temporalState;
+  const canDrawTrend = intent.metricSource !== "erp" || erpTemporal?.state === "ready";
   const trends: ComparisonChartSeries[] = (data?.sections.trends.items ?? []).flatMap(item => {
-    if (indexed && item.indexBasis.status !== "available") return [];
-    return (["current", "baseline"] as const).map(period => ({ key: `${item.objectKey}:${period}`, label: `${objectLabel(item.objectKey)} · ${period === "current" ? "本期" : "基期"}`, values: item[period].map(point => ({ label: point.date, metric: indexed ? indexedMetric(point.metric, item.indexBasis[period]) : point.metric })) }));
+    if (showIndex && item.indexBasis.status !== "available") return [];
+    return (["current", "baseline"] as const).map(period => ({ key: `${item.objectKey}:${period}`, label: `${objectLabel(item.objectKey)} · ${period === "current" ? "本期" : "基期"}`, values: item[period].map(point => ({ label: point.date, metric: showIndex ? indexedMetric(point.metric, item.indexBasis[period]) : point.metric })) }));
   });
   // Chart object cap is four. Each object keeps both periods; render paired charts to keep all four objects visible.
   const currentTrends = trends.filter(series => series.key.endsWith(":current")), baselineTrends = trends.filter(series => series.key.endsWith(":baseline"));
@@ -112,9 +117,11 @@ export default function ComparisonColumn(props: NetshopColumnProps) {
       <div className="nc-object-selector"><strong>主图对象（最多 4 个）</strong><SearchableMultiSelect values={selectedChartKeys} options={chartOptions.map(row => ({ value: row.objectKey, label: `${comparisonObjectLabel(row)}${row.qualification.comparable ? "" : " · 部分覆盖/不可比"}` }))} ariaLabel="对比主图对象" allLabel="使用服务端默认对象" maxSelections={4} onChange={chartObjectKeys => applyPrefs({ chartObjectKeys }, false)} /></div>
           <div className="nc-kpis">{kpiKeys.map(key => <div className="nc-kpi" key={key}><ComparisonMetricCard label={comparisonMetricLabels[key]} metric={data.sections.scale.summary.current[key]} /><div className="nc-kpi-foot">基期 <ComparisonMetricCell metric={data.sections.scale.summary.baseline[key]} /> · <ComparisonChangeCell comparison={data.sections.scale.summary.comparisons[key]} /></div></div>)}</div>
       <div className="nc-grid">
-        <ComparisonPanel number="3.3" title="趋势对比" half note="本期与基期分别使用真实日期；两期异长不缩放金额。" tools={<div className="nc-tools"><select aria-label="对比趋势粒度" value={context.grain} onChange={event => change({grain:event.target.value === "month" ? "month" : event.target.value === "week" ? "week" : "day"})}><option value="day">日</option><option value="week">自然周</option><option value="month">月</option></select><button type="button" aria-pressed={!indexed} onClick={() => setIndexed(false)}>绝对值</button><button type="button" aria-pressed={indexed} onClick={() => setIndexed(true)}>有效基准 = 100</button></div>}>
-          {intent.metricSource === "erp" ? <p className="nc-notice" role="status">ERP 日、自然周、月趋势的拥有方接口尚未就绪，不按天均摊或从记录日期补造序列。</p> : <><div className="nc-trend-pair"><div><h3>本期 · {comparisonMetricLabels[prefs.metricKey]}</h3><ComparisonTrendChart series={currentTrends} indexed={indexed} title={`本期${comparisonMetricLabels[prefs.metricKey]}趋势`} /></div><div><h3>基期 · {comparisonMetricLabels[prefs.metricKey]}</h3><ComparisonTrendChart series={baselineTrends} indexed={indexed} title={`基期${comparisonMetricLabels[prefs.metricKey]}趋势`} /></div></div>
-          {indexed && data.sections.trends.items.filter(item => item.indexBasis.status !== "available").map(item => <p className="nc-caption" key={item.objectKey}>{objectLabel(item.objectKey)}：{comparisonReason(item.indexBasis.reasonCode)}，未绘制指数。</p>)}{data.sections.trends.definitions.map(note => <p className="nc-caption" key={note}>{note}</p>)}</>}
+        <ComparisonPanel number="3.3" title="趋势对比" half note="本期与基期分别使用真实日期；两期异长不缩放金额。" tools={<div className="nc-tools"><select aria-label="对比趋势粒度" value={context.grain} onChange={event => change({grain:event.target.value === "month" ? "month" : event.target.value === "week" ? "week" : "day"})}><option value="day">日</option><option value="week">自然周</option><option value="month">月</option></select><button type="button" aria-pressed={!showIndex} onClick={() => setIndexed(false)}>绝对值</button><button type="button" aria-pressed={showIndex} disabled={!canIndex} onClick={() => setIndexed(true)}>有效基准 = 100</button></div>}>
+          {intent.metricSource === "erp" && erpTemporal && <p className="nc-notice" role="status" title={erpTemporal.code ?? undefined}>{erpTemporalMessage(erpTemporal)}</p>}
+          {canDrawTrend && <><div className="nc-trend-pair"><div><h3>本期 · {comparisonMetricLabels[prefs.metricKey]}</h3><ComparisonTrendChart series={currentTrends} indexed={showIndex} title={`本期${comparisonMetricLabels[prefs.metricKey]}趋势`} /></div><div><h3>基期 · {comparisonMetricLabels[prefs.metricKey]}</h3><ComparisonTrendChart series={baselineTrends} indexed={showIndex} title={`基期${comparisonMetricLabels[prefs.metricKey]}趋势`} /></div></div>
+          {showIndex && data.sections.trends.items.filter(item => item.indexBasis.status !== "available").map(item => <p className="nc-caption" key={item.objectKey}>{objectLabel(item.objectKey)}：{comparisonReason(item.indexBasis.reasonCode)}，未绘制指数。</p>)}{data.sections.trends.definitions.map(note => <p className="nc-caption" key={note}>{note}</p>)}</>}
+          {intent.metricSource === "erp" && !canIndex && <p className="nc-caption">观察记录完整性未知，当前不生成变化增幅或基准归一走势。</p>}
         </ComparisonPanel>
         <ComparisonPanel number="3.2" title="经营效率" half note="比率由拥有方按合计分子和分母计算，不平均店铺比例。">
           <details className="nc-columns"><summary>综合表列设置（规模 / 效率 / 推广）</summary><div>{comparisonMetricKeys.map(key => <label key={key}><input type="checkbox" checked={prefs.columnKeys.includes(key)} onChange={event => applyPrefs({ columnKeys: event.target.checked ? [...prefs.columnKeys,key].slice(0,24) : prefs.columnKeys.filter(column => column !== key) },false)} />{comparisonMetricLabels[key]}</label>)}</div></details>
