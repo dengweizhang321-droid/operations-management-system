@@ -3,12 +3,16 @@ import { InsightReadError } from "../shared/request-state";
 import { decodeStorePanorama, PanoramaResponseError, validatePanoramaQuery } from "./contract";
 
 const budgets = new WeakMap<AbortSignal, AbortSignal>();
+const deadlines = new WeakMap<AbortSignal, number>();
 function budgetSignal(signal: AbortSignal): AbortSignal {
   let bounded = budgets.get(signal);
-  if (!bounded) { bounded = AbortSignal.any([signal, AbortSignal.timeout(insightBudget.requestDeadlineMs)]); budgets.set(signal, bounded); }
+  if (!bounded) { bounded = AbortSignal.any([signal, AbortSignal.timeout(insightBudget.requestDeadlineMs)]); budgets.set(signal, bounded); deadlines.set(bounded, performance.now()+insightBudget.requestDeadlineMs); }
   return bounded;
 }
-function cancelled(signal: AbortSignal) { if (signal.aborted) throw signal.reason; }
+function cancelled(signal: AbortSignal) {
+  if (signal.aborted) throw signal.reason;
+  const deadline = deadlines.get(signal); if (deadline !== undefined && performance.now() >= deadline) throw new DOMException("来源读取超时", "TimeoutError");
+}
 
 /** Authority is checked before parsing an upstream HTML/empty error response. */
 async function readBody(response: Response, signal: AbortSignal): Promise<unknown> {

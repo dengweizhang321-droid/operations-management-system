@@ -97,6 +97,9 @@ function text(value: unknown, maximum = 2000, empty = false): value is string {
   return typeof value === "string" && value.length <= maximum && (empty || value.trim().length > 0) && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value);
 }
 function token(value: unknown): value is string { return typeof value === "string" && /^[a-f0-9]{64}$/.test(value); }
+function referenceText(value: unknown, maximum: number): value is string {
+  return typeof value === "string" && value.trim().length > 0 && value.length <= maximum && !/[\u0000-\u001e\u007f]/.test(value);
+}
 function strings(value: unknown, maximum = 50): string[] {
   if (!Array.isArray(value) || value.length > maximum || !value.every(v => text(v))) return reject("全景说明列表无界或无效");
   return value;
@@ -137,7 +140,7 @@ function revisions(value: unknown): Map<string, SourceRevision> {
   const result = new Map<string, SourceRevision>();
   for (const raw of value) {
     const r = record(raw), key = JSON.stringify([r.domain, r.kind, r.scopeKey]);
-    if (!["netshop", "sales", "products", "inventory", "finance", "erp_reference", "workflow"].includes(String(r.domain)) || !text(r.kind, 200) || typeof r.scopeKey !== "string" || !r.scopeKey || r.scopeKey.length > 1024 || !text(r.revision, 1024) || result.has(key)) return reject("全景来源种类、范围或修订重复/无效");
+    if (!["netshop", "sales", "products", "inventory", "finance", "erp_reference", "workflow"].includes(String(r.domain)) || !referenceText(r.kind, 200) || !referenceText(r.scopeKey, 1024) || !text(r.revision, 1024) || result.has(key)) return reject("全景来源种类、范围或修订重复/无效");
     result.set(key, r as SourceRevision);
   }
   return result;
@@ -243,7 +246,7 @@ export function decodeStorePanorama(value: unknown, params: URLSearchParams, rev
   try { products = source(raw.products, data => decodeProductInsights(data, panoramaProductQuery(params), revision)); }
   catch (error) { if (error instanceof ProductResponseError) throw new PanoramaResponseError(error.status, error.code, error.message); throw error; }
   if (products.state === "ready") { if (products.data.context.snapshotToken !== context.snapshotToken) return reject("商品信封不是全景拥有方范围或版本"); includeRevisions(joined, products.data.joinedSourceRevisions); }
-  const promotion = source(raw.promotion, data => decodePromotionInsightsForQuery(data, panoramaPromotionQuery(params), revision));
+  const promotion = source(raw.promotion, data => decodePromotionInsightsForQuery(data, panoramaPromotionQuery(params), revision ?? null));
   if (promotion.state === "ready") {
     const own = promotion.data.context;
     if (JSON.stringify(own.effectiveScope.shopKeys) !== JSON.stringify(context.effectiveScope.shopKeys) || JSON.stringify(own.periods) !== JSON.stringify(context.periods)) return reject("推广不是本店同周期的独立信封");
