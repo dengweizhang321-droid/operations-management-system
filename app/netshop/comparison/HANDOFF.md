@@ -89,3 +89,19 @@ Sales provider 尚未冻结时为 dependency_pending，不称已验缺源；不�
 - Page原样3grain各21作者UI通过，不相加冒独有63项；新增零/负/缺桶、未知完整性/禁归一、日期与返回、实际字形与320/390布局均验。107份忽略文件/26历史run逐hash保全至 `E:/codex-artifacts/netshop-scheme2-20261001/comparison/page/handoff-20261001T082446005Z-81cc78a7-2964-4730-8ea7-03fcfbfbbcbf/manifest.json`，SHA `99a5d5638b9283c53d7100dc2c43831377dcb0f86c6b1a7c51df1d5e7c09841c`；失败旧harness断言证据也保留。私有3171/Chrome已关闭，用户3170静态设计保留。
 
 最大范围是有界能力，不承诺所有日期/对象组合均能在2MiB内返回。4RAW×独立双366天日图的完整C JSON在停止构造未参图P/A桶后仍为3,834,050 bytes，必须明确422，原尺寸细分与两次失败正常停止证据保留（`comparison-pg-9571806c2def34419e1d`、`comparison-pg-b1db989a28ddb61640d9`）。不裁参与证据、抬预算或默缩窗口；总控已确认以最大真实负向加实际4RAW×双120天正向及50店/6万事实/双30日最终回归验收。后继projection、该正向规模、平台新main、公开22键、C签名HTTP和真正Home组合仍待最终交接，不能由本阶段样本替代。
+
+### 单店趋势最终容量回归
+
+Query最终clean `1949e30d4d857ca8e32b35aef20c78ecd88ec8eb` 已普通集成；其 `fc75e0e3` 只在ERP主图时停止构造未参与response的P/A图桶及附加覆盖。双F原完整carrier、各源整期缺日、主汇总/排名/结构P/A指标和覆盖、ERP每桶实际原值/观察、完整候选和参与向量不裁。2MiB错误仍422，明确提示缩短期间、切换周/月或减少主图对象。
+
+最终实际fe47源的ERP16＋原50店代表1，共17定向PG通过，9文件before/after稳定，全部正常停止。原样8正向DTO与RPC层在 `E:/codex-artifacts/netshop-scheme2-20261001/comparison/query/comparison-pg-77bb0b3c9a9cd0ac8dcf`；Root全量await解码8/8、相关Node42通过；测试golden在 `17313a6ec23b23d367d0a83a1e8f54aae27fe893` 换成最新原样三粒度，没有编造数值。
+
+| 实际场景 | 结果与限制 |
+| --- | --- |
+| 4RAW、两期各120日、日图960点 | 1,381,346 bytes，1.219秒，3次同期限RPC，通过 |
+| 4RAW、两期各366日、日图 | 完整3,834,050 bytes，真实容量负向422；原先正向失败及尺寸细分保留 |
+| 同366日、周图428点 | 1,501,563 bytes，2.398秒，3次同期限RPC，通过 |
+| 同366日、月图104点 | 1,199,640 bytes，2.587秒，3次同期限RPC，通过 |
+| 50店、6万事实、两期30日 | 1,783,606 bytes，3.657秒，221 SQL，通过；非生产P95 |
+
+平台source、公共22键、S实际main/真实Home与C签名HTTP仍待I；本条只是单店原生趋势与容量回归收执，最终独立后继签字另附，不冒整个栏目完成。
