@@ -11,6 +11,8 @@ import type { CurrentUser } from "../../../app/module-view-shared";
 import type { NetshopColumnProps } from "../../../app/netshop/shared/module-slots";
 import type { NetshopView } from "../../../app/netshop/shared/navigation";
 import "../../../app/globals.css";
+import "../../../app/shell/top-navigation.css";
+import "../../../app/styles/shared-theme.css";
 import "./harness.css";
 
 type QAEvent = { kind: string; text: string };
