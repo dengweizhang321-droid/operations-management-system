@@ -61,4 +61,18 @@ Sales provider 尚未冻结时为 dependency_pending，不称已验缺源；不�
 
 尚待：Sales 验收/注册/SDK 实际 main 后接 ERP，C 后端/Worker/column 公共注册、S 真目标落主线、真正 Home 钻取/返回和角色验证、最终独立 Q；不能以上述作者 UI 或 Q SQL 代替这些门槛。没有复制未提交代码或把样本接入正式页面。
 
+## ERP-period稳定增量（非M6终验）
+
+实际 main `49306356b22b8c8ea6925f1d0f874dc45f5a31fb` 已普通同步，替代上段 Sales 未注册状态。C 使用已注册 `netshop.sales_periods_client.read_sales_periods`，两独立窗口和最多50个已证明 RAW 三元组；无渠道/非注射/分类未映射不发空全集查询。原时间序列仍待 I 拥有方 opt-in series 的实际 main，暂为 dependency_pending，绝不按总额配日。
+
+- 22nd `erpNetQuantity` 与 `returnQuantity` 使用 C 专属 `netshop-comparison-native-quantity-v1` / `NATIVE_INTEGER_QUANTITY`，保持原生整数与符号，不能称 P 件数、订单或共享 COUNT。公比较偏好22键为 I 候选，实际 main 未发布前页面选择器仅实际已冻结的21键，矩阵/证据已支持22。
+- ERP 净额/原生数量/原订单号分组仅已导入记录观察；成本、大毛利金额及可能写链重算的存储毛利为 partial/unverified_source。主毛利率、退回率与客单价不升可信；`CNY_CENT_PER_ORDER` 原观察均值只保在完整拥有方证据展开。
+- erpEvidence 保完整 owner source/request/metricMetadata/observations/mapping 和唯一参与 sales pair。记录日期未知完整性不塞 F 店日 complete；未知计数为 null，无源不补0。主数值逐项回绑拥有方 periodTotals/精确RAW item，观察日期/对象/字段原因亦绑定，业务请求不允许控制内部expiry。
+- 初读及序列化后 ONE 同expectedRevision/snapshotToken末核用同65秒；503清 ERP 值/源/向量后一次重建 P/A可信结果，401/403/409与全读过期整体失败关闭。A 原F覆盖与所有动态 C 覆盖各只传一份；无值 ERP temporal 点共用整期能力引用，不称桶覆盖。
+- Query 子提交 `32afa6e44badadb56a31205745f094e786d71f04`：55PG通过、12形状定向再验通过；50店/6万事实/两期30日，3.846秒、221SQL、完整默认JSON 1,687,138 bytes。E/query `comparison-pg-87c764cbf492a93d8cf4` 全样本及计划、`comparison-pg-d3cac38b25af300a6637` 最新ERP/zero样本；全部数据库正常停止，三次容量失败原样保留。
+- Page 子提交 `425e6352bce70240543508e279db8e3feb9f9d5d`：原样ERP和存0案例各19作者UI通过，非签名HTTP/Q/真正Home；85份忽略文件/21历史run已保全，manifest `f67188ba3c9eca7e16c6dc2078dd9ac4e088efafe1c473d75dc37bb86edd7ac0`，E/page `handoff-20261001T053621727Z-f5bf5da5-75cd-496b-8007-0559cd4ab6fd`。
+- Root 37 Node与target lint通过。Q本阶段独立PG16、Node37、12完整原DTO正向/11否定检查、新ERP与zero UI各20通过，原投影/观察绑定P2和expiry问题在 `962797da` 修复后已关闭。签字范围为 `221fcf1d4fbab41c31f2ee8c3d39aa84b6e28004`，后继仅HANDOFF文档；报告 E/review `erp-phase2-20261001T052200Z-03a1ec1c1e774e6d9876764ec4d2c8fb/independent-review-erp-period-final.json`，SHA `2c81d7cc540f7b5b68e8e0427242e649bf7697c16401a72e4af11cbb408385e2`。这次新增ERP renderer和decoder有独立复验，未以旧21/前阶段Q42或HMAC支撑代替。
+
+尚待 I 新系列 actual main、公共22键实际冻结、最新完整源/页面独立Q、I真正Home/签名HTTP组合。C一期21来源与本期22证据严格分层，未读生产经营数据或执行生产操作。
+
 所有写代码 Teammate 独立工作树。只推 C 栏目分支；main 合并与最后资源/工作树清理由 I 协调。本轮未部署、操作生产数据库、启停正式服务、迁移、真实导入或发送。

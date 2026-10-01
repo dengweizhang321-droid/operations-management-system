@@ -1,18 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { validateComparisonQuery, decodeComparisonInsights, comparisonMetricKeys, ComparisonResponseError, type ComparisonResponse } from "../app/netshop/comparison/contract";
+import { validateComparisonQuery, decodeComparisonInsights, comparisonMetricKeys, ComparisonResponseError, decodeErpNativeQuantity, type ComparisonResponse } from "../app/netshop/comparison/contract";
 import type { SourceRevision } from "../lib/netshop/insights-contract";
 import { loadComparisonInsights } from "../app/netshop/comparison/data";
 import { ScopedReadGate, InsightReadError } from "../app/netshop/shared/request-state";
 
 const query = () => new URLSearchParams({ platform: "京东", dimension: "sku", startDate: "2026-09-01", endDate: "2026-09-30", periodKind: "custom" });
 const owningFixtures = JSON.parse(readFileSync(new URL("./fixtures/netshop-comparison-owning.json", import.meta.url), "utf8"));
+const erpFixtures = JSON.parse(readFileSync(new URL("./fixtures/netshop-comparison-erp-owned.json", import.meta.url), "utf8"));
 function fetchResponse(response: Response) { return (async () => response) as typeof fetch; }
 
 test("comparison keeps F query plus closed independent scope and baseline", () => {
   const p = query(), spec = validateComparisonQuery(p);
-  assert.equal(spec.metricKey, "payment"); assert.equal(spec.scope.mode, "shop"); assert.equal(spec.baseline.kind, "previous"); assert.equal(comparisonMetricKeys.length, 21);
+  assert.equal(spec.metricKey, "payment"); assert.equal(spec.scope.mode, "shop"); assert.equal(spec.baseline.kind, "previous"); assert.equal(comparisonMetricKeys.length, 22);
   p.set("selectedBaseline", JSON.stringify({ kind: "custom", startDate: "2024-01-01", endDate: "2024-12-31" }));
   assert.equal(validateComparisonQuery(p).baseline.kind, "custom");
   p.set("selectedBaseline", JSON.stringify({ kind: "custom", startDate: "2024-01-01", endDate: "2025-01-01" }));
@@ -160,4 +161,48 @@ test("both complete F envelopes retain primitive windows and capability enums", 
     await rejectsMutation(value => { value[name].periods.yearAgo.endDate = [value[name].periods.yearAgo.endDate] as unknown as string; });
     await rejectsMutation(value => { value[name].capabilities[0].period = ["current"] as unknown as "current"; });
   }
+});
+
+for (const fixture of erpFixtures.cases) test(`actual registered-owner ERP captured response ${fixture.name} preserves unknown coverage and native units`, async () => {
+  const dto = await decodeComparisonInsights(fixture.response, new URLSearchParams(fixture.request.query), fixture.request.headerRevision);
+  assert.equal(dto.sections.comparability.erpEvidence.state, "ready");
+  assert.equal(dto.sections.scale.summary.current.erpNetQuantity.unit, "NATIVE_INTEGER_QUANTITY");
+  assert.equal(dto.sections.scale.summary.current.erpNetQuantity.status, "partial");
+  assert.equal(dto.sections.scale.summary.current.largeMarginAmount.status, "partial");
+  assert.equal(dto.sections.scale.summary.current.largeMarginAmount.reasonCode, "unverified_source");
+  assert.equal(dto.sections.scale.summary.current.averageOrderValue.value, null);
+  assert.equal(dto.sections.comparability.counts.comparable, 0);
+  assert.equal(dto.sections.comparability.erpEvidence.source?.periodTotals.current.observations.completeness, "unknown");
+});
+test("native quantity cannot become a physical COUNT, fractional quantity or complete coverage", async () => {
+  const value = erpFixtures.cases[0].response.sections.scale.summary.current.erpNetQuantity;
+  assert.equal(decodeErpNativeQuantity(value).value, 2);
+  assert.throws(() => decodeErpNativeQuantity({ ...value, value: 1.5 }), ComparisonResponseError);
+  assert.throws(() => decodeErpNativeQuantity({ ...value, status: "available", reasonCode: null }), ComparisonResponseError);
+  await rejectsMutation(dto => { dto.sections.scale.summary.current.erpNetQuantity.unit = "COUNT"; }, erpFixtures.cases[0]);
+});
+test("ERP imported dates and zero stored cost may not become verified source closure or profit", async () => {
+  await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.source!.periodTotals.current.observations.completeness = "complete" as unknown as "unknown"; }, erpFixtures.cases[0]);
+  await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.source!.metricMetadata.cost.verification = "verified" as unknown as "unverified_source"; }, erpFixtures.cases[1]);
+  await rejectsMutation(dto => { dto.sections.scale.summary.current.largeMarginAmount.status = "available"; dto.sections.scale.summary.current.largeMarginAmount.reasonCode = null; }, erpFixtures.cases[1]);
+  await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.observations[dto.sections.scale.items[0].current.erpNetSales.coverageRef].shopKeys = ["京东\u001f未经授权"]; }, erpFixtures.cases[0]);
+});
+test("ERP full-source evidence cannot borrow a foreign window, RAW channel or domain revision", async () => {
+  await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.request!.current.startDate = "2026-08-01"; }, erpFixtures.cases[0]);
+  await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.mappings[0].rawIdentity!.rawChannel = "guessed-all-store"; }, erpFixtures.cases[0]);
+  await rejectsMutation(dto => { dto.sections.comparability.erpEvidence.source!.sourceRevisions[0].revision = "1:ffffffffffff"; }, erpFixtures.cases[0]);
+});
+
+test("ERP C values and cost reasons must remain exact owning projections", async () => {
+  const fixture = erpFixtures.cases[0];
+  await rejectsMutation(dto => { dto.sections.scale.summary.current.erpNetSales.value = 990000; }, fixture);
+  await rejectsMutation(dto => { dto.sections.scale.items[0].current.erpNetQuantity.value = 990000; }, fixture);
+  await rejectsMutation(dto => { dto.sections.scale.summary.current.orderMargin.value = 990000; }, fixture);
+  await rejectsMutation(dto => { dto.sections.scale.items[0].current.largeMarginAmount.reasonCode = "incomplete_coverage"; }, fixture);
+});
+test("ERP observation dates and object identities cannot differ from the owning record collection", async () => {
+  const fixture = erpFixtures.cases[0];
+  await rejectsMutation(dto => { const ref = dto.sections.scale.summary.current.erpNetSales.coverageRef, observation = dto.sections.comparability.erpEvidence.observations[ref]; observation.observedByShop.forEach(item => { item.dates = []; }); observation.observedShopDatePairs = 0; }, fixture);
+  await rejectsMutation(dto => { const ref = dto.sections.scale.items[0].current.erpNetSales.coverageRef; dto.sections.comparability.erpEvidence.observations[ref].objectKey = "shop:京东\u001f外店"; }, fixture);
+  await rejectsMutation(dto => { Object.assign(dto.sections.comparability.erpEvidence.request!, { expiresAtEpochMs: 0 }); }, fixture);
 });
