@@ -31,3 +31,5 @@ final-signed-98dd 与 final-signed-916 各自 CreateNew 保存完整22组三文�
 22 指标以真实列设置显示，并逐原始排名行验证金额、原生数量、不可用状态；另真实选择已捕获同范围的 ERP 原生净数量指标。日/自然周/月用实际粒度控件切换原响应。下一页用原 sectionToken 读取原 page2，完整 summary/population 不以页内行重算；合法排序缺原响应仍阻断。C 契约禁止文本 q，因此仅验证原验证器拒绝 unsupported q，不提出新增搜索功能。ERP 各平台整期使用各自原拥有方 periodTotals，完整 rawMembers 实际折叠展开，不求和补造数量或把未核验成本零当可信零。
 
 日历实际开关、取消、逐日期点击与确定，使用原本期/基期日期。迟到200/401/403/409先通过真实覆盖筛选改变 scope，再释放旧结果，验证原 AbortSignal 已取消且新原响应不变。账号切换仅使用隔离合成 auth 响应验证 Home 清除原账号结果，后端权限证明仍归原 signed 捕获。P/A 钻取严格按实际链接的完整查询匹配同 seed 原件；任何店铺集合、维度或 pageSize 不匹配保存精确 endpoint/query 为 requiredCaptures，不改原 body、客户端归一 scope 或借另一范围响应。旧五 view、O 旧/新视图及 ERP 只验入口与明确缺源，原经营数据证明继承 M5，不能称新增完整经营数据验收。
+
+`final-signed-a932` 为独立新批次，30 组实际 GET 原三文件全部 CreateNew 保存（25 个200、5个401/403/409/400）；原 metadata 和 `signed-home-topic-detail-lineage.json` 同目录保存并核 SHA。全部记录只来自 `comparison-pg-a93289b690f9e992835c`，没有把旧916/98拼入。新增真实 `value_asc` 两页、unsupported-q400、京东五店SPU/20条商品专题及SKU/20条推广专题和合法详情。P 原 `ProductsRead.productsQuery` 自动将详情查询收敛至所选 SPU01 的精确单店，返回仍保留五店；A 原详情保持五店及商品 rowKey（查询字段 objectId）/sectionToken，来源维度 SKU 与 shell 原 SPU 分别验证。非法五店 P 详情400原件保留为负向来源，不拿它替代合法单身份详情。此记录说明原件与工具适配，完整 Home 结果须另运行并由独立 Q 复验。

@@ -8,7 +8,7 @@ function locationFor(record){
  const url=new URLSearchParams({module:"shop",view:"platforms",period:s.periodKind,from:c.periods.current.startDate,to:c.periods.current.endDate,shopDimension:s.dimension,shopGrain:b.trendGrain,shopPage:q.get("page")||"1",shopPageSize:q.get("pageSize")||"20",shopComparisonIntent:JSON.stringify(intent),shopComparisonPrefs:JSON.stringify(prefs)});
  s.platforms.forEach(p=>url.append("shopPlatform",p));s.shopKeys.forEach(k=>url.append("shopOutlet",k));return url;
 }
-export async function runM6Scenarios({page,origin,check,save,evidence,records,manifest}){
+export async function runM6Scenarios({page,origin,check,save,evidence,records,manifest,lineage}){
  const cases=records.filter(r=>r.kind==="comparison"&&(r.status||200)===200),first=cases.find(r=>r.name==="signed-c-smoke")||cases[0];
  const ready=()=>page.locator("[data-column='comparison'] .nc-table-group").first().waitFor();
  const open=async record=>{
@@ -67,6 +67,6 @@ export async function runM6Scenarios({page,origin,check,save,evidence,records,ma
   if(first.body.selectedBaseline.kind==="custom")assert.ok(text.includes(first.body.selectedBaseline.startDate));
   assert.equal(await page.evaluate(()=>window.__m6.models.length),0);await save("m6-ai-unsent.txt",text);
  });
- const gates=await runM6FullGates({page,open,ready,records,first,check,save,evidence,manifest});
+ const gates=await runM6FullGates({page,open,ready,records,first,check,save,evidence,manifest,lineage});
  return{completedScope:"M6 actual Home original complete corpus and eleven actual source-bound full gates",...gates,independentReviewConclusion:null};
 }

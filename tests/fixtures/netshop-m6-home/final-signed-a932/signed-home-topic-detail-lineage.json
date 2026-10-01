@@ -1,0 +1,45 @@
+{
+  "trace": "m6-home/20261001T135902727Z-990c1a07-f1d3-498a-a289-71fcfc276df0/gate-{sortPageQ,sameSeedPDrill,sameSeedADrill}.json.lastCalls",
+  "sourceDataAltered": false,
+  "cSort": "explicit_original_shared_spu_and_C_defaults",
+  "p": {
+    "topicShopKeys": [
+      "京东\u001f合成平台店00",
+      "京东\u001f合成平台店01",
+      "京东\u001f合成平台店02",
+      "京东\u001f合成平台店03",
+      "京东\u001f合成平台店04"
+    ],
+    "detailShopKeys": [
+      "京东\u001f合成平台店03"
+    ],
+    "selectedIdentity": {
+      "platform": "京东",
+      "shopName": "合成平台店03",
+      "dimension": "spu",
+      "id": "SPU01"
+    },
+    "scopeRule": "original ProductsRead.productsQuery selected identity only; topic return retains original five-shop scope",
+    "unsupportedFiveShopDetailStatus": 400
+  },
+  "a": {
+    "topicShopKeys": [
+      "京东\u001f合成平台店00",
+      "京东\u001f合成平台店01",
+      "京东\u001f合成平台店02",
+      "京东\u001f合成平台店03",
+      "京东\u001f合成平台店04"
+    ],
+    "detailShopKeys": [
+      "京东\u001f合成平台店00",
+      "京东\u001f合成平台店01",
+      "京东\u001f合成平台店02",
+      "京东\u001f合成平台店03",
+      "京东\u001f合成平台店04"
+    ],
+    "selectedRowKey": "70bb98dad43958e7726dafc06b81e183dfb437bb94d4060063a9b36857155d87",
+    "scopeRule": "original promotion detail same full topic scope/rowKey/sectionToken",
+    "nativeDimension": "sku",
+    "shellDimensionUnchanged": "spu"
+  }
+}

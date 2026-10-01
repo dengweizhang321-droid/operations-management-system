@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "comparison-signed-private-get-v1",
+  "synthetic": true,
+  "layer": "actual_loopback_tcp_registered_get_hmac_wrapper_and_real_signed_registered_sales_rpc",
+  "aliasFixture": "test_only_explicit_injective_raw_triples",
+  "name": "signed-a-spu-detail",
+  "url": "http://127.0.0.1:65286/api/netshop/promotion-insights/detail?platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&objectKind=product&objectId=63d9a32da8a508b19703e081b65f6ee8aefeb38b9d48eb7cac7d33aa8d8d244b&shopKey=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&sectionToken=9d3f95f94486b60d58dd2355c4cb4dc9d0ad1252426f0029f20e44bb11f2ef8c&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+  "method": "GET",
+  "query": "platform=%E5%A4%A9%E7%8C%AB&startDate=2026-09-01&endDate=2026-09-07&dimension=spu&objectKind=product&objectId=63d9a32da8a508b19703e081b65f6ee8aefeb38b9d48eb7cac7d33aa8d8d244b&shopKey=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700&sectionToken=9d3f95f94486b60d58dd2355c4cb4dc9d0ad1252426f0029f20e44bb11f2ef8c&outlet=%E5%A4%A9%E7%8C%AB%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9700",
+  "status": 200,
+  "signed": true,
+  "principal": {
+    "email": "comparison-signed@example.test",
+    "role": "viewer",
+    "scope": null
+  },
+  "responseHeaders": {
+    "Date": "Thu, 01 Oct 2026 14:13:55 GMT",
+    "Server": "WSGIServer/0.2 CPython/3.14.6",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "X-Netshop-Data-Revision": "2:bbbbbbbbbbbb",
+    "X-Frame-Options": "DENY",
+    "Content-Length": "38118",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  },
+  "responseUtf8Bytes": 38118,
+  "responseSha256": "6cf5428f83eca449a8d36af2dd1d7f6c3a112b54305ff06339cf7765d895774c",
+  "seconds": 0.15173079998930916,
+  "rpcCalls": []
+}

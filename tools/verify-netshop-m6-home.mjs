@@ -52,7 +52,7 @@ try{
  const context=await browser.newContext({viewport:{width:1440,height:1000},serviceWorkers:"block"});context.on("page",p=>p.on("pageerror",e=>errors.push(e.message)));
  await context.route("**/*",r=>{if(new URL(r.request().url()).origin===origin)return r.continue();blocked.push({reason:"external",path:new URL(r.request().url()).pathname});return r.abort("blockedbyclient");});
  page=await context.newPage();page.setDefaultTimeout(8000);await page.clock.setFixedTime(new Date("2026-10-01T04:00:00Z"));
- const result=await runM6Scenarios({page,origin,check,save,evidence,records:corpus.records,manifest:corpus.manifest});
+ const result=await runM6Scenarios({page,origin,check,save,evidence,records:corpus.records,manifest:corpus.manifest,lineage:corpus.lineage});
  assert.deepEqual(errors,[]);assert.deepEqual(blocked,[]);for(const f of inputs){assert.equal(sha256(await readFile(resolve(root,f.path))),f.sha256);}assert.equal(git("rev-parse","HEAD"),source.head);
  await save("transport.json",await page.evaluate(()=>window.__m6));await save("result.json",{...source,status:"passed",checks,...result,authorNotIndependentQ:true});
 }catch(e){if(page){await save("dom-failed.txt",await page.locator("body").innerText().catch(()=>""));await save("transport-failed.json",await page.evaluate(()=>window.__m6).catch(()=>null));await save("location-failed.json",await page.evaluate(()=>({url:location.href,history:history.state})).catch(()=>null));await page.screenshot({path:resolve(evidence,"failed.png"),fullPage:true}).catch(()=>{});}await save("failure.json",{...source,checks,error:e.message,errors,blocked});throw e;}

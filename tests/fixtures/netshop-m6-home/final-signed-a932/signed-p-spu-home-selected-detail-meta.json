@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "comparison-signed-private-get-v1",
+  "synthetic": true,
+  "layer": "actual_loopback_tcp_registered_get_hmac_wrapper_and_real_signed_registered_sales_rpc",
+  "aliasFixture": "test_only_explicit_injective_raw_triples",
+  "name": "signed-p-spu-home-selected-detail",
+  "url": "http://127.0.0.1:65286/api/netshop/product-insights/detail?platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&periodKind=custom&dimension=spu&page=1&pageSize=20&sort=payment_desc&q=&category=&productIdentity=%5B%22%E4%BA%AC%E4%B8%9C%22%2C+%22%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703%22%2C+%22spu%22%2C+%22SPU01%22%5D&section=overview&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703",
+  "method": "GET",
+  "query": "platform=%E4%BA%AC%E4%B8%9C&startDate=2026-09-01&endDate=2026-09-07&periodKind=custom&dimension=spu&page=1&pageSize=20&sort=payment_desc&q=&category=&productIdentity=%5B%22%E4%BA%AC%E4%B8%9C%22%2C+%22%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703%22%2C+%22spu%22%2C+%22SPU01%22%5D&section=overview&outlet=%E4%BA%AC%E4%B8%9C%1F%E5%90%88%E6%88%90%E5%B9%B3%E5%8F%B0%E5%BA%9703",
+  "status": 200,
+  "signed": true,
+  "principal": {
+    "email": "comparison-signed@example.test",
+    "role": "viewer",
+    "scope": null
+  },
+  "responseHeaders": {
+    "Date": "Thu, 01 Oct 2026 14:13:53 GMT",
+    "Server": "WSGIServer/0.2 CPython/3.14.6",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "X-Netshop-Data-Revision": "2:bbbbbbbbbbbb",
+    "X-Frame-Options": "DENY",
+    "Content-Length": "28687",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin"
+  },
+  "responseUtf8Bytes": 28687,
+  "responseSha256": "6a812b2f7512d5fe9321febcc056465be2a61f55d901778b0e0338d52889002d",
+  "seconds": 0.11836800002492964,
+  "rpcCalls": []
+}

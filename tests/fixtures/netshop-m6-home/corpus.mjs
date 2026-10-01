@@ -9,6 +9,7 @@ export async function readM6Corpus(manifestPath){
  assert.equal(manifest.schemaVersion,"netshop-m6-home-corpus-v1");assert.equal(manifest.syntheticOnly,true);
  assert.ok(Array.isArray(manifest.records)&&manifest.records.length>0&&manifest.records.length<=100);
  if(manifest.metadata){const data=await readFile(resolve(root,manifest.metadata.path));assert.equal(sha256(data),manifest.metadata.sha256);}
+ let lineage=null;if(manifest.lineage){const data=await readFile(resolve(root,manifest.lineage.path));assert.equal(sha256(data),manifest.lineage.sha256);lineage=JSON.parse(data);}
  const records=[];
  for(const r of manifest.records){
   assert.match(r.name,/^[a-zA-Z0-9-]+$/);assert.equal(typeof r.query,"string");
@@ -23,5 +24,5 @@ export async function readM6Corpus(manifestPath){
   records.push({...r,path,raw:r.caseIndex===undefined?bytes.toString("utf8"):JSON.stringify(body),body,
    rawMeaning:r.caseIndex===undefined?"original standalone capture bytes":"JSON projection from byte-verified committed wrapper, not original standalone HTTP bytes"});
  }
- return{manifestPath:absolute,manifestSHA256:sha256(raw),manifest,records};
+ return{manifestPath:absolute,manifestSHA256:sha256(raw),manifest,records,lineage};
 }
