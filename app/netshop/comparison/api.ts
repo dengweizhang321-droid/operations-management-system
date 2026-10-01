@@ -12,9 +12,11 @@ export async function readComparisonApi(request: Request) {
     netshopPlatformsForPrincipal(principal, spec.shared.platforms);
     netshopOutletsForPrincipal(principal, spec.shared.shops, spec.shared.platforms);
     const result = await createDjangoNetshopService().request<unknown>(principal, { method: "GET", path: "/api/netshop/comparison-insights", query, service: "reader" }, { signal: request.signal, insightsTimeoutMs: 90_000 });
-    const current = await requireAppPrincipal();
-    if (JSON.stringify([principal.email, principal.role, principal.scope]) !== JSON.stringify([current.email, current.role, current.scope])) throw new AuthorizationError(403, "access_denied", "取数期间账号权限已变化，请重新读取");
-    const data = decodeComparisonInsights(result.data, query, result.revision ?? null);
+    const verifyActor = async () => { const current = await requireAppPrincipal(); if (JSON.stringify([principal.email, principal.role, principal.scope]) !== JSON.stringify([current.email, current.role, current.scope])) throw new AuthorizationError(403, "access_denied", "取数期间账号权限已变化，请重新读取"); };
+    let data;
+    try { data = await decodeComparisonInsights(result.data, query, result.revision ?? null); }
+    catch (error) { await verifyActor(); throw error; }
+    await verifyActor();
     return Response.json(data, { headers: { "cache-control": "no-store", "X-Netshop-Data-Revision": result.revision! } });
   } catch (error) {
     if (error instanceof ComparisonResponseError) return Response.json({ code: error.code, error: error.message }, { status: error.status, headers: { "cache-control": "no-store" } });

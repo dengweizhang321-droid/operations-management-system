@@ -50,7 +50,8 @@ try:
     started = True
     run([BIN/"createdb.exe", "-h", "127.0.0.1", "-p", PORT, "-U", "comparison_fixture", "comparison_fixture"], "database", 30)
     labels = sys.argv[1:] or ["netshop.tests.test_comparison_insights"]
-    if any(not label.startswith("netshop.tests.test_comparison") for label in labels): raise RuntimeError("Only comparison-owned tests allowed")
+    # The only non-C regression is I's published owning-reader deadline suite.
+    if any(not label.startswith("netshop.tests.test_comparison") and label != "netshop.tests.test_nested_reader_deadline" for label in labels): raise RuntimeError("Only C tests and the approved shared deadline regression allowed")
     run([sys.executable, "backend/manage.py", "test", *labels, "--settings=netshop_comparison_test_settings", "--noinput", "--verbosity=2"], "tests")
 finally:
     if pwfile.exists(): pwfile.unlink()
