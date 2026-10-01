@@ -369,6 +369,12 @@ def consumer_query(request: HttpRequest) -> JsonResponse:
     try:
         principal = verify_principal(request)
         consumer_request = parse_consumer_body(request)
+        if consumer_request["operation"] == "netshop_finance_read_v1":
+            # The owned reader has one actor/version/serialization budget.
+            data = execute_consumer_query(principal, consumer_request)
+            revision = next(item["revision"] for item in data["sourceRevisions"]
+                            if item["domain"] == "finance" and item["kind"] == "owning_revision")
+            return _json({"operation": consumer_request["operation"], "data": data}, revision=revision)
 
         def load() -> dict[str, object]:
             return {

@@ -1,0 +1,2 @@
+# Keep raw owning-capture bytes (including original CRLF) unchanged in Git.
+*.json -text
