@@ -91,6 +91,10 @@ function safeJson(v: unknown, depth = 0): void {
   for (const value of Object.values(object(v))) safeJson(value, depth + 1);
 }
 function metrics(v: unknown): void { const r = closed(v, financeMetricKeys); if (Object.values(r).some(x => !integer(x, -Number.MAX_SAFE_INTEGER))) return fail("native metric units"); }
+function shiftMonth(month: string, delta: number): string {
+  const index = Number(month.slice(0, 4)) * 12 + Number(month.slice(5)) - 1 + delta;
+  return String(Math.floor(index / 12)).padStart(4, "0") + "-" + String(index % 12 + 1).padStart(2, "0");
+}
 function targetValue(v: unknown): RecordValue {
   const r = closed(v, ["id", "periodType", "periodKey", "platform", "shopName", "category", "manager",
     "salesTargetCents", "profitTargetCents", "grossMarginBps", "smallMarginBps", "inventoryCleanupTargetCents",
@@ -104,11 +108,26 @@ function targetValue(v: unknown): RecordValue {
   }
   return r;
 }
+const totalsKeys = ["salesTargetCents", "profitTargetCents", "smallMarginBps", "inventoryCleanupTargetCents",
+  "promotionFeeRatioBps", "stagnantInventoryTargetCents", "targetCount"] as const;
+function progressValue(v: unknown) {
+  const r = closed(v, ["sales", "profit", "smallMarginGapBps", "promotionFeeGapBps"]);
+  if (Object.values(r).some(n => n !== null && (typeof n !== "number" || !Number.isFinite(n)))) return fail("native progress scalars");
+}
+function pageValue(v: unknown, length?: number) {
+  const r = closed(v, ["total", "returned", "truncated"]);
+  if (!integer(r.total) || !integer(r.returned) || r.returned > r.total || typeof r.truncated !== "boolean"
+    || length !== undefined && r.returned !== length) return fail("native pagination");
+}
+function totalsValue(v: unknown) {
+  const r = closed(v, totalsKeys);
+  if (Object.values(r).some(n => !integer(n, -Number.MAX_SAFE_INTEGER)) || !integer(r.targetCount)) return fail("native target totals");
+}
 function monthEvidence(v: unknown, expected?: string[]): MonthEvidence[] {
   if (!Array.isArray(v) || v.length > 120) return fail("month evidence bound");
   const result = v.map(raw => {
     const r = closed(raw, ["month", "status", "batchRef", "metadataVerified"]);
-    if (typeof r.month !== "string" || !monthPattern.test(r.month) || !["completed", "processing", "absent", "failed"].includes(String(r.status))
+    if (typeof r.month !== "string" || !monthPattern.test(r.month) || typeof r.status !== "string" || !["completed", "processing", "absent", "failed"].includes(r.status)
       || r.batchRef !== null && typeof r.batchRef !== "string" || typeof r.metadataVerified !== "boolean"
       || r.metadataVerified && (r.status !== "completed" || !r.batchRef)) return fail("month evidence");
     return r as MonthEvidence;
@@ -141,10 +160,28 @@ function nativeMonthly(v: unknown, months: string[], keys: string[]): FinanceNat
     if (typeof m.month !== "string" || !monthPattern.test(m.month) || typeof m.fileName !== "string"
       || typeof m.importedAt !== "string" || !integer(m.shopCount) || !integer(m.subjectCount)) return fail("native month scalars");
   }
+  const available = r.months.map(raw => (raw as RecordValue).month as string);
+  if (!equal(available, [...new Set(available)].sort()) || months.some(m => !available.includes(m))) return fail("native month directory");
+  for (const [kind, candidates] of [["previous", months.map((_, i) => shiftMonth(months[0], i - months.length))],
+    ["yearAgo", months.map(m => shiftMonth(m, -12))]] as const) {
+    if (!equal(r[kind + "Months"], candidates.every(m => available.includes(m)) ? candidates : [])) return fail("native derived comparison months");
+  }
   const sync = closed(r.sync, ["dataCutoffMonth", "sourceFileName", "importedAt"]);
   if (sync.dataCutoffMonth !== months.at(-1) || typeof sync.sourceFileName !== "string" || typeof sync.importedAt !== "string") return fail("native cutoff");
-  if (!Array.isArray(r.shops) || r.shops.length > 500 || r.shops.some(raw => { const s = object(raw); metrics(s.actual); return typeof s.key !== "string" || !keys.includes(s.key); })) return fail("native shop identities");
-  if (!Array.isArray(r.timeline) || r.timeline.length > 24 || r.timeline.some(raw => { const p = object(raw); return typeof p.month !== "string" || !monthPattern.test(p.month) || financeMetricKeys.some(k => !integer(p[k], -Number.MAX_SAFE_INTEGER)); })) return fail("native timeline");
+  const shopIds = new Set<string>();
+  if (!Array.isArray(r.shops) || r.shops.length > 500 || r.shops.some(raw => {
+    const s = closed(raw, ["name", "key", "groupName", "manager", "actual", "target", "progress"]);
+    metrics(s.actual); totalsValue(s.target); progressValue(s.progress);
+    if (typeof s.key !== "string" || !keys.includes(s.key) || shopIds.has(s.key)
+      || !equal(pair(s.key), [s.groupName, s.name]) || typeof s.manager !== "string") return true;
+    shopIds.add(s.key); return false;
+  })) return fail("native shop identities");
+  if (!Array.isArray(r.timeline) || r.timeline.length > 24 || r.timeline.some(raw => {
+    const p = closed(raw, ["month", ...financeMetricKeys]);
+    return typeof p.month !== "string" || !monthPattern.test(p.month) || financeMetricKeys.some(k => !integer(p[k], -Number.MAX_SAFE_INTEGER));
+  })) return fail("native timeline");
+  if (!equal(r.timeline.map(raw => (raw as RecordValue).month), months.length === 1
+    ? available.filter(m => m <= months[0]).slice(-24) : months)) return fail("complete native timeline months");
   const targets = closed(r.targets, ["month", "year", "projects", "projectPagination", "periodPagination", "legacyCompatibility"]);
   for (const kind of ["month", "year"]) {
     const t = closed(targets[kind], ["salesTargetCents", "profitTargetCents", "smallMarginBps", "inventoryCleanupTargetCents",
@@ -153,11 +190,37 @@ function nativeMonthly(v: unknown, months: string[], keys: string[]): FinanceNat
   }
   if (!Array.isArray(targets.projects) || targets.projects.length > 100) return fail("native projects");
   targets.projects.forEach(targetValue);
+  pageValue(targets.projectPagination, targets.projects.length); pageValue(targets.periodPagination);
+  const legacy = closed(targets.legacyCompatibility, ["excluded", "reason"]);
+  if (!integer(legacy.excluded) || typeof legacy.reason !== "string") return fail("legacy compatibility");
   for (const [name, countValue] of [["monthPagination", r.months.length], ["expensePagination", Array.isArray(r.expenses) ? r.expenses.length : -1], ["shopPagination", r.shops.length]] as const) {
     const p = closed(r[name], ["total", "returned", "truncated"]);
     if (!integer(p.total) || p.returned !== countValue || p.total < countValue || typeof p.truncated !== "boolean") return fail("native pagination");
   }
-  for (const name of ["progress", "filters"]) object(r[name]);
+  Object.values(closed(r.progress, ["month", "year"])).forEach(progressValue);
+  if (!Array.isArray(r.expenses) || r.expenses.length > 1000) return fail("expenses bound");
+  for (const raw of r.expenses) {
+    const e = closed(raw, ["name", "current", "previous", "yearAgo", "sortOrder", "feeRateBps",
+      "yearAgoFeeRateBps", "momRate", "yoyRate", "abnormal"]);
+    if (typeof e.name !== "string" || !integer(e.current, -Number.MAX_SAFE_INTEGER) || !integer(e.sortOrder)
+      || !integer(e.feeRateBps, -Number.MAX_SAFE_INTEGER) || typeof e.abnormal !== "boolean"
+      || ["previous", "yearAgo", "yearAgoFeeRateBps", "momRate", "yoyRate"].some(k => e[k] !== null
+        && (typeof e[k] !== "number" || !Number.isFinite(e[k])))) return fail("expense scalars");
+  }
+  if (!Array.isArray(r.anomalies) || r.anomalies.length > 20) return fail("anomalies bound");
+  for (const raw of r.anomalies) {
+    const a = closed(raw, ["level", "title", "detail"]);
+    if (typeof a.level !== "string" || !["info", "warning", "critical"].includes(a.level)
+      || typeof a.title !== "string" || typeof a.detail !== "string") return fail("anomaly primitives");
+  }
+  const filters = closed(r.filters, ["platforms", "shops", "pagination"]);
+  if (!strings(filters.platforms, 100) || !Array.isArray(filters.shops) || filters.shops.length > 550) return fail("filter options");
+  for (const raw of filters.shops) {
+    const f = closed(raw, ["key", "platform", "name"]);
+    if (typeof f.key !== "string" || !equal(pair(f.key), [f.platform, f.name])) return fail("filter identity");
+  }
+  const optionPages = closed(filters.pagination, ["platforms", "shops"]);
+  pageValue(optionPages.platforms, filters.platforms.length); pageValue(optionPages.shops, filters.shops.length);
   for (const name of ["months", "expenses", "anomalies"]) if (!Array.isArray(r[name])) return fail("native complete arrays");
   safeJson(r);
   return r as FinanceNativeMonthly;
@@ -188,7 +251,7 @@ export function decodeFinanceNetshop(value: unknown, request: unknown, owningRev
   const r = closed(value, ["schemaVersion", "operation", "scopeKey", "snapshotToken", "requestedScope", "sourceRevisions", "monthly", "annual", "metricSemantics", "limitations"]);
   if (r.schemaVersion !== financeNetshopSchema || r.operation !== financeNetshopOperation || typeof r.scopeKey !== "string"
     || !/^[a-f0-9]{64}$/.test(r.scopeKey) || typeof r.snapshotToken !== "string" || !/^[a-f0-9]{64}$/.test(r.snapshotToken)
-    || !owningRevision || !revisionPattern.test(owningRevision)) return fail("envelope");
+    || typeof owningRevision !== "string" || !revisionPattern.test(owningRevision)) return fail("envelope");
   if (!equal(r.metricSemantics, { monthlyBasis: "finance_month", annualProgressBasis: "finance_year_progress",
     targetBasis: "finance_year_target", nativeRatioUnit: "BASIS_POINT", netshopIdentityMapping: "unverified",
     dailyAllocation: false, distributedSnapshot: false })) return fail("native month/year basis");
@@ -213,6 +276,12 @@ export function decodeFinanceNetshop(value: unknown, request: unknown, owningRev
     return e as FieldEvidence;
   });
   const data = monthly.data === null ? null : nativeMonthly(monthly.data, monthly.actualMonths, monthly.effectiveShopKeys);
+  const known = spec.shopKeys.filter(k => fields.some(e => e.shopKey === k && (monthly.actualMonths as string[]).includes(e.month)
+    && Object.values(e.fields).some(f => f.rows > 0)));
+  if (!equal(known, monthly.effectiveShopKeys)) return fail("native effective shops presence");
+  const relatedMonths = [...new Set([...spec.months, ...(data ? [...data.previousMonths, ...data.yearAgoMonths,
+    ...(data.timeline as Array<Record<string, Json>>).map(p => p.month as string)] : [])])].sort();
+  if (!equal(comparisonsMeta.map(m => m.month), relatedMonths)) return fail("complete related month evidence");
   if (monthly.state !== (data ? "ready" : "unavailable") || monthly.reasonCode !== (data ? null : "no_scope_records")
     || data === null && monthly.effectiveShopKeys.length) return fail("monthly state");
   states(monthly.currentMetricStates, data?.current ?? null, fields, spec.months, meta);
@@ -228,20 +297,31 @@ export function decodeFinanceNetshop(value: unknown, request: unknown, owningRev
     if (a.year !== spec.year || a.cutoffMonth !== null && (typeof a.cutoffMonth !== "string" || !monthPattern.test(a.cutoffMonth) || !a.cutoffMonth.startsWith(spec.year))
       || !strings(a.availableMonths, 12, monthPattern) || a.availableMonths.some(m => !m.startsWith(spec.year))
       || !strings(a.missingMonths, 12, monthPattern) || !Array.isArray(a.items) || a.items.length > spec.shopKeys.length) return fail("annual actual months");
+    const available = a.availableMonths as string[];
+    if (!equal(available, [...available].sort()) || a.cutoffMonth !== (available.at(-1) ?? null)) return fail("annual cutoff");
+    const expectedMonths = available.length ? Array.from({ length: Number((a.cutoffMonth as string).slice(5)) },
+      (_, i) => spec.year + "-" + String(i + 1).padStart(2, "0")) : [];
+    if (!equal(a.missingMonths, expectedMonths.filter(m => !available.includes(m)))) return fail("annual missing months");
     const itemKeys = new Set<string>();
     for (const raw of a.items) {
       const item = closed(raw, ["key", "platform", "shopName", "manager", "target", "netSalesCents", "profitCents", "salesProgress", "profitProgress",
         "grossMarginBps", "grossMarginGapBps", "promotionFeeRatioBps", "promotionFeeGapBps", "availableMonths", "missingMonths", "missingGrossMarginMonths"]);
       if (typeof item.key !== "string" || !spec.shopKeys.includes(item.key) || itemKeys.has(item.key)
         || !equal(pair(item.key), [item.platform, item.shopName]) || !strings(item.availableMonths, 12, monthPattern)
+        || !strings(item.missingMonths, 12, monthPattern) || !strings(item.missingGrossMarginMonths, 12, monthPattern)
+        || typeof item.manager !== "string" || item.manager.length > 1000
         || (item.netSalesCents === null) !== (item.availableMonths.length === 0) || (item.profitCents === null) !== (item.availableMonths.length === 0)) return fail("annual exact identities/absence");
+      const itemMonths = item.availableMonths;
+      if (!equal(itemMonths, [...itemMonths].sort()) || itemMonths.some(m => !available.includes(m))
+        || !equal(item.missingMonths, expectedMonths.filter(m => !itemMonths.includes(m)))
+        || item.missingGrossMarginMonths.some(m => !expectedMonths.includes(m))) return fail("annual item months");
       itemKeys.add(item.key);
       for (const k of ["netSalesCents", "profitCents", "grossMarginBps", "grossMarginGapBps", "promotionFeeRatioBps", "promotionFeeGapBps"]) if (item[k] !== null && !integer(item[k], -Number.MAX_SAFE_INTEGER)) return fail("annual units");
       const target = item.target === null ? null : targetValue(item.target);
       if (target && (target.periodType !== "year" || target.periodKey !== spec.year || target.platform !== item.platform || target.shopName !== item.shopName || target.category !== "")) return fail("whole-year target identity");
       for (const [valueKey, amountKey, goalKey] of [["salesProgress", "netSalesCents", "salesTargetCents"], ["profitProgress", "profitCents", "profitTargetCents"]]) {
         const goal = target?.[goalKey];
-        const expected = item[amountKey] !== null && typeof goal === "number" && goal > 0 ? Number(item[amountKey]) / goal : null;
+        const expected = item[amountKey] !== null && typeof goal === "number" && goal > 0 ? (item[amountKey] as number) / goal : null;
         if (item[valueKey] !== expected) return fail("native annual progress/zero target");
       }
     }

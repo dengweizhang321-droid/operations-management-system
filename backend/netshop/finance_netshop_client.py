@@ -15,6 +15,7 @@ import urllib.request
 import uuid
 
 from .errors import NetshopApiError
+from .bounded_consumer_http import open_bounded_consumer_request
 
 PATH = "/api/finance/consumers/query"
 OPERATION = "netshop_finance_read_v1"
@@ -59,94 +60,11 @@ def _unavailable():
 
 
 def _assert_body(data, spec, revision):
-    required = {"schemaVersion", "operation", "scopeKey", "snapshotToken", "requestedScope", "sourceRevisions",
-                "monthly", "annual", "metricSemantics", "limitations"}
-    if set(data) != required or any(type(data[k]) is not str or re.fullmatch(r"[a-f0-9]{64}", data[k]) is None for k in ("scopeKey", "snapshotToken")):
-        raise _unavailable()
-    if data["metricSemantics"] != {"monthlyBasis": "finance_month", "annualProgressBasis": "finance_year_progress",
-            "targetBasis": "finance_year_target", "nativeRatioUnit": "BASIS_POINT",
-            "netshopIdentityMapping": "unverified", "dailyAllocation": False, "distributedSnapshot": False}:
-        raise _unavailable()
-    if any(type(data["metricSemantics"][k]) is not bool for k in ("dailyAllocation", "distributedSnapshot")):
-        raise _unavailable()
-    monthly = data["monthly"]
-    if type(monthly) is not dict or set(monthly) != {"state", "reasonCode", "actualMonths", "effectiveShopKeys", "data",
-            "monthEvidence", "fieldEvidence", "comparisonMonthEvidence", "currentMetricStates", "comparisonMetricStates"}:
-        raise _unavailable()
-    for key, expected in (("actualMonths", spec["months"]), ("effectiveShopKeys", spec["shopKeys"])):
-        if type(monthly[key]) is not list or len(set(str(v) for v in monthly[key])) != len(monthly[key]) or any(type(v) is not str or v not in expected for v in monthly[key]):
-            raise _unavailable()
-    for key in ("monthEvidence", "comparisonMonthEvidence"):
-        values = monthly[key]
-        if type(values) is not list or len(values) > 120:
-            raise _unavailable()
-        seen = set()
-        for value in values:
-            if type(value) is not dict or set(value) != {"month", "status", "batchRef", "metadataVerified"} or type(value["month"]) is not str or not re.fullmatch(r"(?:19|20|21)\d{2}-(?:0[1-9]|1[0-2])", value["month"]) or value["month"] in seen or type(value["metadataVerified"]) is not bool or type(value["status"]) is not str or value["status"] not in {"completed", "processing", "absent", "failed"} or value["batchRef"] is not None and type(value["batchRef"]) is not str or value["metadataVerified"] and (value["status"] != "completed" or not value["batchRef"]):
-                raise _unavailable()
-            seen.add(value["month"])
-        if key == "monthEvidence" and sorted(seen) != spec["months"]:
-            raise _unavailable()
-    available = [r["month"] for r in monthly["monthEvidence"] if r["status"] == "completed"]
-    if monthly["actualMonths"] != available:
-        raise _unavailable()
-    comparison_months = {r["month"] for r in monthly["comparisonMonthEvidence"]}
-    fields = monthly["fieldEvidence"]
-    if type(fields) is not list or len(fields) != len(spec["shopKeys"]) * len(comparison_months):
-        raise _unavailable()
-    seen = set()
-    for row in fields:
-        if type(row) is not dict or set(row) != {"shopKey", "month", "fields"} or type(row["shopKey"]) is not str or row["shopKey"] not in spec["shopKeys"] or type(row["month"]) is not str or row["month"] not in comparison_months:
-            raise _unavailable()
-        identity = (row["shopKey"], row["month"])
-        if identity in seen or type(row["fields"]) is not dict or set(row["fields"]) != SOURCE_FIELDS:
-            raise _unavailable()
-        seen.add(identity)
-        for field in row["fields"].values():
-            if type(field) is not dict or set(field) != {"rows", "amountPresent", "ratePresent"} or any(type(v) is not int or not 0 <= v <= MAX_SAFE for v in field.values()) or field["amountPresent"] > field["rows"] or field["ratePresent"] > field["rows"]:
-                raise _unavailable()
-    known = [key for key in spec["shopKeys"] if any(r["shopKey"] == key and r["month"] in available
-             and any(f["rows"] for f in r["fields"].values()) for r in fields)]
-    if monthly["effectiveShopKeys"] != known:
-        raise _unavailable()
-    if type(monthly["currentMetricStates"]) is not dict or set(monthly["currentMetricStates"]) != set(METRICS):
-        raise _unavailable()
-    for key, state in monthly["currentMetricStates"].items():
-        if type(state) is not dict or set(state) != {"value", "unit", "status", "reasonCode"} or state["unit"] != ("BASIS_POINT" if key.endswith("Bps") else "CNY_CENT"):
-            raise _unavailable()
-        if state["status"] == "available":
-            if state["reasonCode"] is not None or type(state["value"]) is not int or abs(state["value"]) > MAX_SAFE:
-                raise _unavailable()
-        elif state["status"] != "unavailable" or state["value"] is not None or state["reasonCode"] not in {"missing_month", "unverified_source", "missing_field", "no_records"}:
-            raise _unavailable()
-    native = monthly["data"]
-    if monthly["state"] == "ready":
-        if not monthly["actualMonths"] or not monthly["effectiveShopKeys"] or type(native) is not dict or native.get("hasData") is not True or native.get("selectedMonths") != monthly["actualMonths"] or native.get("selection", {}).get("shops") != monthly["effectiveShopKeys"]:
-            raise _unavailable()
-        current = native.get("current")
-        if type(current) is not dict or set(current) != set(METRICS) or any(type(v) is not int or abs(v) > MAX_SAFE for v in current.values()):
-            raise _unavailable()
-        for key in METRICS:
-            if key.endswith("Bps") or key == "promotionExpenseCents":
-                if monthly["currentMetricStates"][key]["status"] != "unavailable" or monthly["currentMetricStates"][key]["reasonCode"] != "unverified_source":
-                    raise _unavailable()
-    elif monthly["state"] != "unavailable" or native is not None or monthly["reasonCode"] != "no_scope_records":
-        raise _unavailable()
-    annual = data["annual"]
-    if type(annual) is not dict or set(annual) != {"state", "reasonCode", "data", "rateFieldsVerification"}:
-        raise _unavailable()
-    if annual["state"] == "ready":
-        rows = annual["data"]
-        if type(rows) is not dict or rows.get("year") != spec["year"] or type(rows.get("items")) is not list or len(rows["items"]) > len(spec["shopKeys"]):
-            raise _unavailable()
-        keys = [row.get("key") for row in rows["items"] if type(row) is dict]
-        if len(keys) != len(rows["items"]) or len(set(str(v) for v in keys)) != len(keys) or any(v not in spec["shopKeys"] for v in keys):
-            raise _unavailable()
-    elif annual["state"] != "dependency_pending" or annual["data"] is not None or annual["reasonCode"] != "annual_exact_scope_provider_pending":
-        raise _unavailable()
-    if data["sourceRevisions"] != [{"domain": "finance", "kind": "owning_revision", "scopeKey": data["scopeKey"], "revision": revision}]:
-        raise _unavailable()
-
+    from .finance_netshop_contract import validate_finance_body
+    try:
+        validate_finance_body(data, spec, revision)
+    except (ValueError, TypeError, KeyError, AttributeError, OverflowError) as error:
+        raise _unavailable() from error
 
 def read_finance_netshop(principal, payload, *, deadline=None):
     started = time.monotonic()
@@ -186,7 +104,7 @@ def read_finance_netshop(principal, payload, *, deadline=None):
     })
     check()
     try:
-        with urllib.request.urlopen(request, timeout=end - time.monotonic()) as response:
+        with open_bounded_consumer_request(request, deadline=end) as response:
             check()
             if response.status != 200 or not re.match(r"^application/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|$)", response.headers.get("Content-Type", ""), re.I):
                 raise _unavailable()
@@ -196,9 +114,24 @@ def read_finance_netshop(principal, payload, *, deadline=None):
             revision = response.headers.get("X-Finance-Data-Revision", "")
             if not REVISION.fullmatch(revision):
                 raise _unavailable()
-            raw = response.read(MAX_BYTES + 1)
-            check()
-            if len(raw) > MAX_BYTES: raise _unavailable()
+            # Match the mainline bounded transport: never grant the body the
+            # older connection/header timeout again. Each read1 consumes the
+            # same remaining monotonic parent budget.
+            chunks, total = [], 0
+            reader = getattr(response, "read1", None) or response.read
+            while True:
+                check()
+                remaining = end - time.monotonic()
+                sock = getattr(getattr(getattr(response, "fp", None), "raw", None), "_sock", None)
+                if sock is not None:
+                    sock.settimeout(remaining)
+                chunk = reader(min(32768, MAX_BYTES + 1 - total))
+                check()
+                if not chunk: break
+                chunks.append(chunk)
+                total += len(chunk)
+                if total > MAX_BYTES: raise _unavailable()
+            raw = b"".join(chunks)
     except urllib.error.HTTPError as error:
         if error.code in {401, 403}:
             raise NetshopApiError("当前账号无权读取财报专题", code="access_denied", status=error.code) from None
@@ -211,6 +144,7 @@ def read_finance_netshop(principal, payload, *, deadline=None):
         check()
         raise _unavailable() from error
     try:
+        check()
         def duplicate_safe(pairs):
             result = {}
             for key, value in pairs:
@@ -219,6 +153,8 @@ def read_finance_netshop(principal, payload, *, deadline=None):
             return result
         value = json.loads(raw.decode("utf-8"), object_pairs_hook=duplicate_safe,
             parse_constant=lambda _v: (_ for _ in ()).throw(ValueError("non-finite")))
+        if type(value) is not dict or set(value) != {"operation", "data"}:
+            raise _unavailable()
         data = value.get("data")
         scope = {k: spec[k] for k in ("shopKeys", "months", "year")}
         if value.get("operation") != OPERATION or type(data) is not dict or data.get("schemaVersion") != "finance-netshop-read-v1" or data.get("operation") != OPERATION or data.get("requestedScope") != scope:
