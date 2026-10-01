@@ -376,6 +376,9 @@ class ComparisonErpTests(TestCase):
         # A baseline-only member remains in the full authorized platform union.
         last = aliases[("京东",names[-1])]
         SalesOrderLine.objects.filter(shop_name=last["rawShopName"],business_date="2026-09-01").delete()
+        # A current-only member also remains; neither period can shrink the union.
+        current_only = aliases[("京东",names[1])]
+        SalesOrderLine.objects.filter(shop_name=current_only["rawShopName"],business_date="2026-08-25").delete()
         values = {"platform":["京东","天猫"], "endDate":"2026-09-07", "selectedBaseline":{"kind":"custom","startDate":"2026-08-25","endDate":"2026-08-31"}, "chartObjectKeys":["platform:京东"]}
         with patch("netshop.comparison_adapter.sales_alias", side_effect=lambda p,n:aliases.get((p,n),sales_alias(p,n))):
             for grain in ("day","week","month"):
@@ -521,26 +524,28 @@ class ComparisonErpTests(TestCase):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
         from netshop.models import NetshopImportBatch
-        aliases=self._platform_fixture(count=50,rows=False)
+        aliases=self._platform_fixture(count=49,with_tmall=True,rows=False)
         dates=[(date(2026,month,1)+timedelta(days=i)).isoformat() for month in (8,9) for i in range(30)]
         NetshopRow.objects.all().delete()
         rows=[]
         for index,((platform,name),alias) in enumerate(aliases.items()):
-            batch=NetshopImportBatch.objects.create(id=f"platform-scale-{index}",source="jd_sku_daily",dataset="spu_daily",platform=platform,shop_name=name,file_size_bytes=1,file_hash=f"{index+1:064x}",raw_file_hash="a"*64,content_hash="b"*64,scope_key="c"*64,status="completed",row_count=1200,date_min=dates[0],date_max=dates[-1])
-            facts=[NetshopRow(source_row_key=f"platform-scale-{index}-{day}-{product}",source_row_hash="d"*64,first_import_batch_id=batch.id,last_import_batch_id=batch.id,source_row_number=i+2,source="jd_sku_daily",dataset="spu_daily",platform=platform,shop_name=name,business_date=day,spu_id=f"P{product:02}",sku_id=f"SKU{product:02}",category="Synthetic category",product_name="Synthetic scale",metrics_json={"transactionAmountCents":1000,"transactionQuantity":2,"visitors":100,"transactionCustomers":10},transaction_amount_cents=1000,transaction_quantity=2,visitors=100,transaction_customers=10) for i,(day,product) in enumerate((day,product) for day in dates for product in range(20))]
+            source="jd_sku_daily" if platform=="京东" else "tmall_product_daily"
+            batch=NetshopImportBatch.objects.create(id=f"platform-scale-{index}",source=source,dataset="spu_daily",platform=platform,shop_name=name,file_size_bytes=1,file_hash=f"{index+1:064x}",raw_file_hash="a"*64,content_hash="b"*64,scope_key="c"*64,status="completed",row_count=1200,date_min=dates[0],date_max=dates[-1])
+            facts=[NetshopRow(source_row_key=f"platform-scale-{index}-{day}-{product}",source_row_hash="d"*64,first_import_batch_id=batch.id,last_import_batch_id=batch.id,source_row_number=i+2,source=source,dataset="spu_daily",platform=platform,shop_name=name,business_date=day,spu_id=f"P{product:02}",sku_id=f"SKU{product:02}",category="Synthetic category",product_name="Synthetic scale",metrics_json={"transactionAmountCents":1000,"transactionQuantity":2,"visitors":100,"transactionCustomers":10},transaction_amount_cents=1000,transaction_quantity=2,visitors=100,transaction_customers=10) for i,(day,product) in enumerate((day,product) for day in dates for product in range(20))]
             NetshopRow.objects.bulk_create(facts,batch_size=500)
             for day in dates:
                 self.line_counter+=1
                 rows.append(make_line(self.line_counter,"platform-scale-erp-"+str(self.line_counter),platform=platform,shop_name=alias["rawShopName"],channel=alias["rawChannel"],ship_time=day+" 10:00:00",allocated_amount_cents=100,cost_amount_cents=40,order_no="weekly-order-"+str(date.fromisoformat(day).isocalendar().week)))
         SalesOrderLine.objects.bulk_create(rows,batch_size=500)
-        values={"endDate":"2026-09-30","selectedBaseline":{"kind":"custom","startDate":"2026-08-01","endDate":"2026-08-30"},"chartObjectKeys":["platform:京东"]}
+        values={"platform":["京东","天猫"],"endDate":"2026-09-30","selectedBaseline":{"kind":"custom","startDate":"2026-08-01","endDate":"2026-08-30"},"chartObjectKeys":["platform:京东","platform:天猫"]}
         before=time.monotonic()
         with patch("netshop.comparison_adapter.sales_alias",side_effect=lambda p,n:aliases[(p,n)]),CaptureQueriesContext(connection) as queries:
             result=self._platform_read(**values)
         elapsed=time.monotonic()-before
         self.assertEqual(result["sections"]["scale"]["summary"]["current"]["payment"]["value"],30_000_000)
         self.assertEqual(result["sections"]["scale"]["summary"]["current"]["erpNetSales"]["value"],150_000)
-        self.assertEqual(len(result["sections"]["comparability"]["erpEvidence"]["source"]["platformSeries"]["items"][0]["rawMembers"]),50)
+        self.assertEqual(sum(len(item["rawMembers"]) for item in result["sections"]["comparability"]["erpEvidence"]["source"]["platformSeries"]["items"]),50)
+        self.assertEqual(len(self.calls),5)
         self.assertEqual(len(result["sections"]["trends"]["items"][0]["current"]),30)
         size=len(json.dumps(result,ensure_ascii=False).encode("utf8"))
         self.assertLess(size,2*1024*1024);self.assertLess(elapsed,65)
@@ -548,7 +553,7 @@ class ComparisonErpTests(TestCase):
         target=os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
         if target:
             with (Path(target)/"erp-platform-representative.json").open("x",encoding="utf8") as out:
-                json.dump({"synthetic":True,"productFacts":60000,"erpFacts":3000,"rawOutlets":50,"daysEachPeriod":30,"points":60,"seconds":elapsed,"sqlCount":len(queries),"sqlWallSeconds":sum(float(q["time"]) for q in queries),"responseUtf8Bytes":size,"rpcCalls":len(self.calls)},out,indent=2)
+                json.dump({"synthetic":True,"productFacts":60000,"erpFacts":3000,"rawOutlets":50,"daysEachPeriod":30,"points":120,"seconds":elapsed,"sqlCount":len(queries),"sqlWallSeconds":sum(float(q["time"]) for q in queries),"responseUtf8Bytes":size,"rpcCalls":len(self.calls)},out,indent=2)
 
     def test_platform_child_carriers_late_error_authority_and_global_same_pair_fence(self):
         aliases=self._platform_fixture(count=1,with_tmall=True)
