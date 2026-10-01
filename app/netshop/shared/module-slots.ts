@@ -6,6 +6,7 @@ import type { NetshopView } from "./navigation";
 import type { ProductIdentity } from "@/lib/netshop/insights-contract";
 import PromotionInsightsView from "../promotion/PromotionInsightsView";
 import ProductsColumn from "../products/ProductsColumn";
+import ComparisonColumn from "../comparison/ComparisonColumn";
 
 export type NetshopColumnProps = {
   startDate: string; endDate: string; periodKind: string;
@@ -26,6 +27,7 @@ export type NetshopColumnProps = {
 export const netshopColumnModules: Partial<Record<Exclude<NetshopView, "outlets">, ComponentType<NetshopColumnProps>>> = {
   products: ProductsColumn,
   promotion: PromotionInsightsView,
+  platforms: ComparisonColumn,
 };
 // The candidate contains A's exact productIdentity reader and its real UI.
 // I publishes this capability only together with the independently verified M4 combination.
