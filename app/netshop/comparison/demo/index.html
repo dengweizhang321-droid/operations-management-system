@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>店铺与平台对比 · 均衡对比看板</title>
+  <link rel="stylesheet" href="./system-tokens.css">
+  <link rel="stylesheet" href="./demo.css">
+  <link rel="stylesheet" href="./system-frame.css">
+  <link rel="stylesheet" href="./date-picker.css">
+</head>
+<body>
+  <header class="system-masthead" data-testid="system-masthead">
+    <button class="system-menu-button" type="button" data-action="system-menu" aria-label="展开主导航" aria-expanded="false">☰ <span>网店分析</span></button>
+    <nav class="primary-modules" aria-label="系统主导航">
+      <button type="button" data-action="preview-navigation"><i>AI</i>AI 对话</button>
+      <button type="button" data-action="preview-navigation"><i>务</i>运营事务</button>
+      <button type="button" data-action="preview-navigation"><i>流</i>自动化中心</button>
+      <button type="button" data-action="preview-navigation"><i>BI</i>BI 看板</button>
+      <button type="button" class="active" aria-current="page"><i>店</i>网店分析</button>
+      <button type="button" data-action="preview-navigation"><i>市</i>市场分析</button>
+      <button type="button" data-action="preview-navigation"><i>服</i>客服分析</button>
+      <button type="button" data-action="preview-navigation"><i>销</i>销售分析</button>
+      <button type="button" data-action="preview-navigation"><i>库</i>库存管理</button>
+      <button type="button" data-action="preview-navigation"><i>品</i>商品经营</button>
+      <button type="button" data-action="preview-navigation"><i>入</i>数据导入</button>
+      <button type="button" data-action="preview-navigation"><i>设</i>系统设置</button>
+      <button type="button" data-action="preview-navigation"><i>AI</i>AI 助理</button>
+    </nav>
+    <div class="system-tools" role="group" aria-label="页面工具">
+      <button class="system-context-button" type="button" data-action="definitions">问当前页面</button>
+      <button class="system-period" type="button" data-action="show-period" aria-label="编辑本期和比较区间"><span>统计周期</span><strong>自定义</strong><span aria-hidden="true">⌄</span></button>
+      <button class="system-account" type="button" popovertarget="demo-account" aria-label="账号操作">章</button>
+    </div>
+  </header>
+  <div id="demo-account" class="system-account-popover" popover>设计预览账号 · 仅查询</div>
+  <div class="app-body">
+    <nav class="system-subnav" aria-label="网店分析栏目" data-testid="system-subnav">
+      <button type="button" data-action="preview-navigation">店铺全景</button>
+      <button type="button" data-action="preview-navigation">网店总览</button>
+      <button type="button" class="active" aria-current="page">店铺与平台对比</button>
+      <button type="button" data-action="preview-navigation">商品表现</button>
+      <button type="button" data-action="preview-navigation">推广分析</button>
+      <button type="button" disabled>企业购分析</button>
+      <button type="button" disabled>客服分析</button>
+    </nav>
+    <main>
+      <h1 class="system-visually-hidden">店铺与平台对比 · 均衡对比看板</h1>
+      <div class="demo-notice"><span class="notice-symbol">◈</span><div><strong>均衡对比看板 · 方案1已采用</strong>　当前为合成数据预览，类目及本期/基期可自定义。正式来源将在接口验收后接入。</div><button class="text-button" data-action="definitions">查看指标口径</button></div>
+      <section id="filters" class="filter-card" aria-label="对比筛选"></section>
+      <div id="selection-bar"></div>
+      <div id="content" aria-live="polite"></div>
+      <footer class="page-footer">均衡对比看板 · 合成数据预览 · 方案1已定版</footer>
+    </main>
+  </div>
+  <div id="drawer-root"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="./date-picker.js"></script>
+  <script src="./demo.js"></script>
+</body>
+</html>
