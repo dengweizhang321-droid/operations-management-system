@@ -220,7 +220,8 @@ function erpEvidence(value: unknown, current: InsightsContext, baseline: Insight
     else { count(o.observedShopDatePairs, Number(o.expectedShopDatePairs)); let observed = 0; const used = new Set<string>(); for (const item of o.observedByShop) { const row = object(item); if (typeof row.shopKey !== "string" || !keys.includes(row.shopKey) || used.has(row.shopKey) || !Array.isArray(row.dates) || new Set(row.dates).size !== row.dates.length || !row.dates.every(date => typeof date === "string" && resolveNetshopQueryPeriod(date, date, 1) && date >= String(o.startDate) && date <= String(o.endDate))) fail("ERP观察日期重复或越店越期"); used.add(row.shopKey); observed += row.dates.length; } if (observed !== o.observedShopDatePairs) fail("ERP观察日期数与完整记录不一致"); }
   }
   const temporal = object(e.temporalState); exact(temporal, ["state", "code"]);
-  if (!enumValue(temporal.state, ["ready", "unavailable", "dependency_pending"]) || temporal.state === "ready" && (temporal.code !== null || e.state !== "ready" || !(e.source as SalesPeriodsResponse | null)?.series) || temporal.state === "unavailable" && (!text(temporal.code, 200) || (e.source as SalesPeriodsResponse | null)?.series) || temporal.state === "dependency_pending" && (!enumValue(temporal.code, ["series_dependency_pending", "platform_series_dependency_pending"]) || (e.source as SalesPeriodsResponse | null)?.series)) fail("ERP趋势状态须绑定真实拥有方原生序列或明确能力原因");
+  const hasNativeSeries = !!((e.source as SalesPeriodsResponse | null)?.series || (e.source as SalesPeriodsResponse | null)?.platformSeries);
+  if (!enumValue(temporal.state, ["ready", "unavailable", "dependency_pending"]) || temporal.state === "ready" && (temporal.code !== null || e.state !== "ready" || !hasNativeSeries) || temporal.state === "unavailable" && (!text(temporal.code, 200) || hasNativeSeries) || temporal.state === "dependency_pending" && (!enumValue(temporal.code, ["series_dependency_pending", "platform_series_dependency_pending"]) || hasNativeSeries)) fail("ERP趋势状态须绑定真实拥有方原生序列或明确能力原因");
   return e as ErpEvidence;
 }
 
@@ -377,6 +378,7 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
     const mappings = new Map(evidence.mappings.map(mapping => [mapping.shopKey, mapping]));
     const rawItems = new Map(source?.items.map(item => [rawKey(item.identity), item]) ?? []);
     const rawSeries = new Map(source?.series?.items.map(item => [rawKey(item.identity), item]) ?? []);
+    const platformSeries = new Map(source?.platformSeries?.items.map(item => [item.platform, item]) ?? []);
     const rows = new Map(dto.sections.comparability.items.map(row => [row.objectKey, row]));
     for (const [ref, observed] of Object.entries(evidence.observations)) {
       const keys = observed.objectKey === "summary" ? (observed.period === "current" ? dto.currentContext : dto.baselineContext).effectiveScope.shopKeys : rows.get(observed.objectKey)?.shopKeys;
@@ -395,7 +397,8 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
       const selected = members.filter(m => m.status === "verified_alias").map(m => rawKey(m.rawIdentity!));
       const full = evidence.mappings.filter(m => m.status === "verified_alias").map(m => rawKey(m.rawIdentity!));
       if (date) {
-        const point = row.kind === "shop" && selected.length === 1 ? rawSeries.get(selected[0])?.[period].find(point => point[0][0] === date) : null;
+        const point = row.kind === "shop" && selected.length === 1 ? rawSeries.get(selected[0])?.[period].find(point => point[0][0] === date) : row.kind === "platform" ? platformSeries.get(row.platform)?.[period].find(point => point[0][0] === date) : null;
+        if (point && row.kind === "platform") return {data: restoreSalesPeriodSeriesPoint(point).facts, reason: null};
         return { data: point ? restoreSalesPeriodSeriesPoint(point).facts : null, reason: reason ?? (point || row.kind === "shop" && selected.length === 1 && !rawItems.has(selected[0]) ? null : "not_applicable") };
       }
       const data = row.kind === "shop" ? (selected.length ? rawItems.get(selected[0])?.[period] ?? null : null) : source && stable(selected.sort()) === stable(full.sort()) ? source.periodTotals[period] : null;
@@ -415,6 +418,15 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
     if (source?.series) {
       const selectedRawKeys = dto.chartObjectKeys.flatMap(key => rows.get(key)!.shopKeys).map(key => mappings.get(key)!).filter(mapping => mapping.status === "verified_alias" && rawItems.has(rawKey(mapping.rawIdentity!))).map(mapping => rawKey(mapping.rawIdentity!));
       if (dto.comparisonScope.mode !== "shop" || source.series.intent.grain !== dto.trendGrain || stable([...new Set(selectedRawKeys)].sort()) !== stable(source.series.items.map(item => rawKey(item.identity)).sort())) fail("ERP原生趋势须绑定主图精确对象，不缩完整候选或借别店序列");
+    }
+    if (source?.platformSeries) {
+      const parentPlatforms = new Set(source.requestedScope.rawOutlets.map(identity => identity.platform));
+      const expectedPlatforms = dto.chartObjectKeys.map(key => rows.get(key)!).filter(row => row.kind === "platform" && parentPlatforms.has(row.platform)).map(row => row.platform).sort();
+      if (dto.comparisonScope.mode !== "platform" || source.platformSeries.intent.grain !== dto.trendGrain || stable(expectedPlatforms) !== stable(source.platformSeries.intent.platformNames.slice().sort())) fail("ERP平台序列须绑定主图与完整父RAW范围");
+      for (const group of source.platformSeries.items) {
+        const expectedMembers = source.items.filter(item => item.identity.platform === group.platform).map(item => rawKey(item.identity));
+        if (group.rawCandidateCount !== expectedMembers.length || stable(group.rawMembers.map(rawKey)) !== stable(expectedMembers)) fail("ERP平台成员须等完整授权两期全集，不以排名页或自报计数替代");
+      }
     }
     if (erpKeys.includes(dto.metricKey) && evidence.temporalState.code !== "series_dependency_pending") for (const item of dto.sections.trends.items) for (const period of ["current", "baseline"] as const) for (const point of item[period]) bindProjection(point.metric, dto.metricKey, period, item.objectKey, point.date);
     const productKeys: ComparisonMetricKey[] = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders"], promotionKeys: ComparisonMetricKey[] = ["spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate"];
