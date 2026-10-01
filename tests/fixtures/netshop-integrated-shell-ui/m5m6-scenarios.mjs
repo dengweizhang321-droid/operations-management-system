@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-export async function runM5M6Scenarios({page,context,origin,check,save,evidence}){
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+export async function runM5M6Scenarios({page,context,origin,check,save,evidence,root}){
   const query=new URLSearchParams({module:"shop",view:"platforms",period:"custom",from:"2026-09-01",to:"2026-09-01",shopDimension:"spu",shopPageSize:"1"});
   await page.goto(`${origin}/?${query}`);
   await check("M5M6 actual Home registers S/C and C consumes complete owning PG mixed-platform DTO",async()=>{
@@ -61,6 +63,33 @@ export async function runM5M6Scenarios({page,context,origin,check,save,evidence}
     await page.screenshot({path:`${evidence}/m5m6-panorama-${width}.png`,fullPage:true});
   }
   await page.setViewportSize({width:1440,height:1000});
+  for(const name of ["sales","sales-missing-order","workflow"]){
+    const body=JSON.parse(await readFile(resolve(root,`tests/fixtures/netshop-panorama/response-${name}.json`),"utf8")),carrier=body.context;
+    const request=new URLSearchParams({module:"shop",view:"analysis",period:carrier.requestedScope.periodKind,from:carrier.periods.current.startDate,to:carrier.periods.current.endDate,shopPlatform:carrier.requestedScope.platforms[0],shopOutlet:carrier.requestedScope.shopKeys[0],shopDimension:carrier.requestedScope.dimension,shopPageSize:String(body.tableScope.pageSize),shopSection:body.tableScope.section});
+    await page.evaluate(value=>sessionStorage.setItem("integrated-panorama-capture",value),name);
+    await page.goto(`${origin}/?${request}`);
+    await check(`actual Home accepts untouched owning ${name} composite and preserves its conditional source states`,async()=>{
+      await page.getByRole("heading",{name:"逐来源店日覆盖",exact:true}).waitFor();
+      assert.equal(new URL(page.url()).searchParams.get("shopOutlet"),carrier.requestedScope.shopKeys[0]);
+      if(name==="workflow"){
+        for(const item of body.sources.workflow.data.items)assert.ok((await page.locator(".sp-timeline").innerText()).includes(item.title));
+        assert.equal(await page.locator(".sp-timeline li").count(),body.sources.workflow.data.pagination.returned);
+      }else{
+        const quantity=page.locator("#panorama-performance .sp-kpi").filter({hasText:"ERP净原生数量"});
+        assert.ok((await quantity.innerText()).includes(String(body.sources.sales.data.periods.current.metrics.netQuantity.value)));
+        const mean=page.locator("#panorama-performance .sp-kpi").filter({hasText:"ERP已导入订单组净额均值"});
+        if(name==="sales-missing-order")assert.ok((await mean.innerText()).includes("缺少可靠ERP订单号"));
+        const margin=page.locator("#panorama-performance .sp-kpi").filter({hasText:"订单毛利"});
+        assert.equal(await margin.locator(".insights-metric").getAttribute("data-status"),"unavailable");
+      }
+      const telemetry=await page.evaluate(()=>window.__integrated);assert.equal(telemetry.projections.at(-1).fixture,`S-owning-${name}`);
+      await save(`S-${name}-actual-dom.txt`,await page.locator(".netshop-panorama").innerText());
+    });
+    await page.screenshot({path:`${evidence}/m5m6-panorama-${name}.png`,fullPage:true});
+  }
+  await page.evaluate(()=>sessionStorage.removeItem("integrated-panorama-capture"));
+  await page.goto(`${origin}/?${sq}`);
+  await page.getByRole("heading",{name:"逐来源店日覆盖",exact:true}).waitFor();
   await check("all five actual menus and S legacy ERP / O classic-balanced switches remain present",async()=>{
     await page.getByRole("button",{name:"原ERP分析",exact:true}).click();
     await page.getByRole("button",{name:"店铺全景",exact:true}).click();

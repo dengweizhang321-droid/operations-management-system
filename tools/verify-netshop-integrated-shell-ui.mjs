@@ -52,6 +52,9 @@ try {
     const bytes=await readFile(resolve(root,"tests/fixtures/netshop-integrated-shell-ui/m5m6-source/response-owning-jd.json"));assert.equal(bytes.length,212544);assert.equal(createHash("sha256").update(bytes).digest("hex"),metadata.originalSha256);
     for(const [key,record] of Object.entries(metadata.files)){const path=`tests/fixtures/netshop-integrated-shell-ui/m5m6-source/${key==="P"?"P-owning-view.json":key==="A"?"A-owning-view.json":"series-owning-view.json"}`,data=await readFile(resolve(root,path));assert.equal(createHash("sha256").update(data).digest("hex"),record.sha256);inputs.push({path,bytes:data.length,sha256:record.sha256});}
     await save("actual-S-source-manifest.json",metadata);
+    const captures={sales:"474461b721676193100f61f06ef9dbd506dc575ed6bdb93d00b7f27acf52b2e0","sales-missing-order":"d93e1ac02d27479491a9451bbc094dff9584e8725a1cb52f72b7477b4fe6bf42",workflow:"3a1f0a2651e59fc2fa12bd6054f9f2687aea1c5abb512b497dbc5d039733fa45"};
+    for(const [name,sha256] of Object.entries(captures)){const path=`tests/fixtures/netshop-panorama/response-${name}.json`,data=await readFile(resolve(root,path));assert.equal(createHash("sha256").update(data).digest("hex"),sha256);inputs.push({path,bytes:data.length,sha256});}
+    await save("actual-S-crossdomain-captures.json",captures);
   }
   if (phase === "M4") {
     const manifest = JSON.parse(await readFile(resolve(root, "tests/fixtures/netshop-integrated-shell-ui/source6/manifest.json"), "utf8"));

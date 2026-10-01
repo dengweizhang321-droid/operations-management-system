@@ -7,6 +7,9 @@ import owningP from "./m5m6-source/P-owning-view.json";
 import owningA from "./m5m6-source/A-owning-view.json";
 import owningSeries from "./m5m6-source/series-owning-view.json";
 import sourceMeta from "./m5m6-source/metadata.json";
+import owningSales from "@/tests/fixtures/netshop-panorama/response-sales.json";
+import owningSalesMissingOrder from "@/tests/fixtures/netshop-panorama/response-sales-missing-order.json";
+import owningWorkflow from "@/tests/fixtures/netshop-panorama/response-workflow.json";
 import { validatePanoramaQuery,decodeStorePanorama } from "@/app/netshop/panorama/contract";
 import { decodeProductInsights } from "@/app/netshop/products/contract";
 import { decodePromotionInsightsForQuery } from "@/lib/netshop/promotion-insights-contract";
@@ -39,13 +42,20 @@ export async function projectM5M6Comparison(url,telemetry){
 }
 const sharedFamily=params=>{const s=validateContextQuery(params);return {platforms:s.platforms,shops:s.shops,dimension:s.dimension,periodKind:s.periodKind,window:s.window};};
 export function projectM5M6Panorama(url,telemetry){
-  const spec=validatePanoramaQuery(url.searchParams),expected=validatePanoramaQuery(new URLSearchParams(sourceMeta.Squery));
+  const selected=window.__integratedControl.panoramaCapture;
+  const capture={sales:owningSales,"sales-missing-order":owningSalesMissingOrder,workflow:owningWorkflow}[selected];
+  if(selected&&!capture)throw new Error("synthetic_fixture_pending: unknown owning panorama capture");
+  const original=capture||panorama;
+  const carrier=original.context,table=original.tableScope;
+  const reference=capture?new URLSearchParams({platform:carrier.requestedScope.platforms[0],outlet:carrier.requestedScope.shopKeys[0],dimension:carrier.requestedScope.dimension,startDate:carrier.periods.current.startDate,endDate:carrier.periods.current.endDate,periodKind:carrier.requestedScope.periodKind,...Object.fromEntries(Object.entries(table).map(([key,value])=>[key,String(value)]))}):new URLSearchParams(sourceMeta.Squery);
+  const revision=capture?carrier.sourceRevisions.find(ref=>ref.domain==="netshop"&&ref.kind==="owning_revision").revision:sourceMeta.owningHeader;
+  const spec=validatePanoramaQuery(url.searchParams),expected=validatePanoramaQuery(reference);
   if(comparable(sharedFamily(spec.query))!==comparable(sharedFamily(expected.query))||spec.tableScope.grain!==expected.tableScope.grain||spec.tableScope.q!==""||spec.tableScope.page!==1||spec.tableScope.pageSize!==5)throw new Error("synthetic_fixture_pending: actual S capture supports JD/A SPU 9/1 custom/day empty-search page1 size5 only");
-  const body=structuredClone(panorama);
+  const body=structuredClone(original);
   body.tableScope.section=spec.tableScope.section;
-  decodeStorePanorama(body,url.searchParams,sourceMeta.owningHeader);
-  telemetry.projections.push({path:url.pathname,fixture:"S-owning-e8f7",fixture_projection:"section-only presentation echo; actual full S source envelope, table rows, all money/operands/F dates/carriers/coverage/identities unchanged; sales/finance/workflow remain dependency_pending"});
-  return {body,revision:sourceMeta.owningHeader};
+  decodeStorePanorama(body,url.searchParams,revision);
+  telemetry.projections.push({path:url.pathname,fixture:selected?`S-owning-${selected}`:"S-owning-e8f7",fixture_projection:"section-only presentation echo; actual full S source envelope, table rows, all money/operands/F dates/carriers/coverage/identities unchanged; source states remain exactly as captured"});
+  return {body,revision};
 }
 export function projectM5M6OwningTopic(url,telemetry){
   const kind=url.pathname==="/api/netshop/product-insights"?"P":url.pathname==="/api/netshop/promotion-insights"?"A":null;

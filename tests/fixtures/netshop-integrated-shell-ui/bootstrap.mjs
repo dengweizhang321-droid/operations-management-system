@@ -11,7 +11,7 @@ export function installIntegratedTransport({ phase = "M3" } = {}) {
   const product = installOwnerProductFixture();
   const prior = JSON.parse(sessionStorage.getItem("integrated-transport") || "null");
   window.__integrated = { phase, calls: prior?.calls || [], blocked: prior?.blocked || [], writeAttempts: prior?.writeAttempts || [], paidAttempts: prior?.paidAttempts || [], projections: prior?.projections || [], fixturePending: prior?.fixturePending || [], injectedResponses: prior?.injectedResponses || [], user: users[sessionStorage.getItem("integrated-user") || "A"] };
-  window.__integratedControl = { error: null, childFailure: null, pending: null };
+  window.__integratedControl = { error: null, childFailure: null, pending: null, panoramaCapture: sessionStorage.getItem("integrated-panorama-capture") };
   if (phase === "M4") {
     window.__syntheticDownloads = [];
     URL.createObjectURL = blob => { const record = { url: `blob:synthetic-${window.__syntheticDownloads.length}`, name: null, type: blob.type, bytes: null }; window.__syntheticDownloads.push(record); blob.arrayBuffer().then(buffer => { record.bytes = Array.from(new Uint8Array(buffer)); }); return record.url; };
