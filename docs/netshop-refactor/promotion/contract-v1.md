@@ -26,6 +26,8 @@ P→A 可选 `productIdentity` 使用共享规范四元 JSON `[platform,shopName
 
 `GET /api/netshop/promotion-insights/detail` 必须同时提供 `objectId=rowKey`、shopKey、显式 objectKind、sectionToken。rowKey 是内部不可展示作业务 ID 的所属版本 lookup key；仅存在于同范围的可靠非 null 来源身份可读。详情使用原整期，禁止列表日期聚焦。推广自己的详情与 P 联动分开：仅 mapping=matched、exact_source_identity、可靠 linkIdentity 才触发 P；京东跟单 SKU 联 SKU，天猫推广商品联 SPU。同文本不同维度、跨店、跨期多义映射不能猜配。
 
+`objectId` 与 `shopKey` 只允许详情请求；列表携带任一参数即拒绝，不能暗中缩窄列表。`sectionToken` 绑定完整 owning source scope 和可选精确商品焦点，不绑定 q、列表日期、对象视角或页码；这些列表投影必须分别回显并校验 listScope、pagination 与对象所属视角。详情仍以完整统计期、可靠 rowKey、精确店铺和对象视角定位，不使用列表过滤期的指标代替整期详情。
+
 ## 八分区与条件来源
 
 | 分区 | 实际行为 | 来源门槛 |
@@ -40,3 +42,5 @@ P→A 可选 `productIdentity` 使用共享规范四元 JSON `[platform,shopName
 | 5.8 数据归因 | 金额订单定义、未知窗口、店日覆盖、来源版本/字段能力/映射与不可比项 | 京东总订单金额、天猫净成交分别标名；订单行/笔数不换客户；不推自然成交或利润/广告增量 |
 
 所有读取前后均核验 actor/来源向量；版本变化返回 409，权限变化 403，前端清除旧范围与详情。65 秒完整 reader 预算包含首次 actor 和末次 actor，客户端 SDK/组件取消期限为 90 秒。真实付费解释、事项创建、保存负责人、自动停投/调预算不属于本栏目。
+
+该 65 秒期限在每条业务读 SQL 前后复验，嵌套公共读取沿用同一期限；到期后不启动下一条业务查询，事务清理仍正常执行。响应枚举只接纳闭合的原始字符串，不能通过数组字符串化绕过状态与数值依赖。HTTP 401/403/409 的权限或来源失效含义优先于正文格式；空正文、HTML、非法编码不能把它们降为普通格式错误，正常取消仍不触发父页面失效通知。

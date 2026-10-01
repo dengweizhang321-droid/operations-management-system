@@ -19,6 +19,7 @@ export function promotionContextQuery(params: URLSearchParams) {
 }
 export function validatePromotionQuery(params: URLSearchParams, detail = false) {
   for (const key of params.keys()) if (!allowed.has(key) || !["platform", "outlet"].includes(key) && params.getAll(key).length !== 1) reject("推广请求包含未知或重复参数");
+  if (!detail && (params.has("objectId") || params.has("shopKey"))) reject("对象行键与精确详情店铺只用于详情接口");
   if (params.getAll("platform").length !== 1) reject("推广分析须选择唯一平台，分别保留归因定义");
   const contextQuery = promotionContextQuery(params), context = validateContextQuery(contextQuery);
   const platform = context.platforms[0];

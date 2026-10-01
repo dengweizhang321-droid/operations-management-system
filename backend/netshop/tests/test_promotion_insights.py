@@ -517,6 +517,76 @@ class PromotionInsightsTests(TestCase):
         self.assertIn("deadline", context_reader.call_args.kwargs)
         self.assertIsInstance(context_reader.call_args.kwargs["deadline"], float)
 
+    def test_list_rejects_detail_only_keys_but_exact_detail_is_preserved(self):
+        self.pair()
+        initial = self.read()
+        row = initial["sections"]["items"][0]
+        for keys in ({"objectId": row["rowKey"]}, {"shopKey": row["shopKey"]},
+                     {"objectId": row["rowKey"], "shopKey": row["shopKey"]}):
+            with self.assertRaises(NetshopApiError) as failure: self.read(**keys)
+            self.assertEqual(failure.exception.status, 400)
+            self.assertEqual(failure.exception.code, "invalid_promotion_request")
+        detail = read_promotion_detail(self.principal, self.params(objectKind="product", objectId=row["rowKey"], shopKey=row["shopKey"], sectionToken=initial["sectionToken"]))
+        self.assertEqual(detail["sections"]["item"]["rowKey"], row["rowKey"])
+
+    def expire_actual_sql(self, predicate, *, query=None, detail=False):
+        """Install the clock observer inside the reader's actual SQL fence.
+
+        Advancing the clock outside that fence would only simulate time spent
+        by a caller after SQL; this observer times the real statement itself.
+        """
+        import re
+        from netshop.promotion_insights import _read_once
+        clock = [0.0]
+        proof = {"triggeredSql": [], "expiredAdditionalSql": [], "readSqlCount": 0}
+
+        def expire(execute, sql, params, many, context):
+            statement = re.sub(r"\A(?:\s+|/\*[\s\S]*?\*/|--[^\n]*(?:\n|$))*", "", str(sql))
+            read = re.match(r"(?:SELECT|WITH|SHOW|EXPLAIN)\b", statement, re.I) is not None
+            if read:
+                proof["readSqlCount"] += 1
+                if clock[0] > 65: proof["expiredAdditionalSql"].append(str(sql))
+            value = execute(sql, params, many, context)
+            if read and not proof["triggeredSql"] and predicate(statement, params):
+                proof["triggeredSql"].append(str(sql)); clock[0] = 66.0
+            return value
+
+        def loader(principal, params, detail, deadline):
+            with connection.execute_wrapper(expire):
+                return _read_once(principal, params, detail, deadline)
+
+        reader = read_promotion_detail if detail else read_promotion_insights
+        with patch("netshop.promotion_insights.time.monotonic", side_effect=lambda: clock[0]), patch("netshop.promotion_insights._read_once", side_effect=loader), CaptureQueriesContext(connection) as captured:
+            with self.assertRaises(NetshopApiError) as failure:
+                reader(self.principal, query or self.params())
+        self.assertEqual(failure.exception.status, 503)
+        self.assertEqual(failure.exception.code, "source_not_ready")
+        self.assertTrue(proof["triggeredSql"], "The negative case must reach actual SQL")
+        self.assertEqual(proof["expiredAdditionalSql"], [], "No more actual read SQL may execute after expiry")
+        proof["errorCode"] = failure.exception.code
+        proof["capturedSqlCount"] = len(captured)
+        return proof
+
+    def test_every_sql_deadline_stops_first_actor_and_nested_manifest_before_next_select(self):
+        self.pair()
+        initial = self.read()
+        row = initial["sections"]["items"][0]
+        proof = {}
+        for detail in (False, True):
+            query = self.params(objectKind="product", objectId=row["rowKey"], shopKey=row["shopKey"], sectionToken=initial["sectionToken"]) if detail else self.params()
+            for table in ("access_control_users", "netshop_promotion_aggregate_manifest"):
+                proof[f"{'detail' if detail else 'list'}:{table}"] = self.expire_actual_sql(lambda sql, params, table=table: 'FROM "'+table+'"' in sql, query=query, detail=detail)
+        self.preserve_focus("deadline-every-sql-manifest.json", proof)
+
+    def test_every_sql_deadline_stops_fact_metadata_and_raw_dimension_count_or_iterator(self):
+        self.admin(); self.day(shop=SHOP_NAME, rows=[{"id": "SKU", "values": {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 10, "clicks": 1, "netOrders": 1}, "raw": {"计划ID": "P1", "推广计划": "真实计划"}}])
+        proof = {}
+        for table in ("netshop_promotion_aggregate_state", "netshop_promotion_shop_daily", "netshop_promotion_product_daily"):
+            proof[table] = self.expire_actual_sql(lambda sql, params, table=table: 'FROM "'+table+'"' in sql)
+        proof["dimension_count"] = self.expire_actual_sql(lambda sql, params: sql.upper().startswith("SELECT COUNT(") and 'FROM "netshop_rows"' in sql and "jd_promotion" in (params or ()), query=self.params(objectKind="plan"))
+        proof["dimension_iterator"] = self.expire_actual_sql(lambda sql, params: '"netshop_rows"."raw_json"' in sql and 'FROM "netshop_rows"' in sql, query=self.params(objectKind="plan"))
+        self.preserve_focus("deadline-every-sql-facts-dimensions.json", proof)
+
     def test_scale_complete_5000_facts_preserves_weighted_rates_and_measures_plan(self):
         from netshop.models import NetshopRow
         for shop in range(10):
