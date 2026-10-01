@@ -40,3 +40,11 @@ test("success with invalid UTF8 or a wrong request/revision binding fails closed
     await assert.rejects(readDjangoSalesConsumer(principal, request, { config, fetchImpl: async () => response(data) }), error => error instanceof PublicApiError && error.status === 503);
   }
 });
+
+test("caller expiry shrinks the whole SDK read, including a transport that ignores abort", async () => {
+  const expiresAtEpochMs = Date.now() + 10;
+  await assert.rejects(readDjangoSalesConsumer(principal, { ...request, expiresAtEpochMs }, { config, fetchImpl: async () => { await new Promise(resolve => setTimeout(resolve, 80)); return response(); } }), error => error instanceof PublicApiError && error.status === 503);
+  let fetched = false;
+  await assert.rejects(readDjangoSalesConsumer(principal, { ...request, expiresAtEpochMs: Date.now() - 1 }, { config, fetchImpl: async () => { fetched = true; return response(); } }), error => error instanceof PublicApiError && error.status === 503);
+  assert.equal(fetched, false);
+});
