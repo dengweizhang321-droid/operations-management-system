@@ -5,7 +5,7 @@ import {
   type SourceRevision, type InsightPagination, type InsightPlatform, type MetricReason,
 } from "@/lib/netshop/insights-contract";
 import { NetshopQueryError, resolveNetshopQueryPeriod, readNetshopOutletFilters } from "@/lib/netshop/query-contract";
-import type { CategoryEvidence, ProductStructure } from "../products/contract";
+import type { CategoryEvidence, ContributionBucket } from "../products/contract";
 
 export const COMPARISON_SCHEMA = "netshop-comparison-v1" as const;
 export const comparisonMetricKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate", "erpNetSales", "orderMargin", "largeMargin", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"] as const;
@@ -81,7 +81,10 @@ function validateObjectKeys(value: unknown, maximum: number): asserts value is s
 }
 
 export type ComparisonRow = { objectKey: string; kind: "shop" | "platform"; platform: InsightPlatform; shopName: string | null; shopKeys: string[]; current: ComparisonMetrics; baseline: ComparisonMetrics; comparisons: ComparisonComparisons; delta: ComparisonMetric; share: { current: ComparisonMetric; baseline: ComparisonMetric }; qualification: { currentComplete: boolean; baselineComplete: boolean; comparable: boolean }; exclusionReasons: string[] };
-export type ComparisonTrendPoint = { date: string; bucketEnd: string; metrics: ComparisonMetrics };
+export type ComparisonTrendPoint = { date: string; bucketEnd: string; metric: ComparisonMetric };
+export type ComparisonQualification = ComparisonRow["qualification"];
+export type ComparisonPopulationRow = Pick<ComparisonRow, "objectKey" | "kind" | "platform" | "shopName" | "shopKeys" | "qualification" | "exclusionReasons"> & { currentPresence: boolean; baselinePresence: boolean };
+export type ComparisonProductStructure = { collection: "complete_global_filter_set"; denominator: MetricValue; top5Payment: MetricValue; top10Payment: MetricValue; top5Share: MetricValue; top10Share: MetricValue; categories: ContributionBucket[]; priceBands: ContributionBucket[]; categoryBasis: "source_label_only"; priceBasis: "transaction_mean" };
 export type ComparisonResponse = {
   schemaVersion: typeof COMPARISON_SCHEMA; currentContext: InsightsContext; baselineContext: InsightsContext;
   sectionToken: string; comparisonScope: ComparisonScope; selectedBaseline: SelectedBaseline;
@@ -89,10 +92,10 @@ export type ComparisonResponse = {
   joinedSourceRevisions: SourceRevision[]; consistency: "revision_vector_checked_non_atomic";
   sections: {
     scale: { metricKey: ComparisonMetricKey; summary: { current: ComparisonMetrics; baseline: ComparisonMetrics; comparisons: ComparisonComparisons; delta: ComparisonMetric }; items: ComparisonRow[]; pagination: InsightPagination; contributions: { continuousCurrent: ComparisonMetric; continuousBaseline: ComparisonMetric; continuousDelta: ComparisonMetric; scopeDelta: ComparisonMetric; status: "available" | "unavailable"; reasonCode: string | null } };
-    efficiency: { items: ComparisonRow[]; definitions: string[] };
+    efficiency: { items: ComparisonRow[]; distribution: Array<{ objectKey: string; metric: ComparisonMetric; qualification: ComparisonQualification }>; definitions: string[] };
     trends: { grain: "day" | "week" | "month"; items: Array<{ objectKey: string; current: ComparisonTrendPoint[]; baseline: ComparisonTrendPoint[]; indexBasis: { status: "available" | "unavailable"; reasonCode: MetricReason | null; current: ComparisonMetric; baseline: ComparisonMetric } }>; definitions: string[] };
-    structure: { items: Array<{ objectKey: string; current: ProductStructure; baseline: ProductStructure; counts: { current: ComparisonMetric; baseline: ComparisonMetric } }>; categoryBasis: "reference_current_cohort"; sameProduct: { status: "unavailable"; reasonCode: "unmapped" }; categoryOptions: CategoryEvidence[]; definitions: string[] };
+    structure: { items: Array<{ objectKey: string; current: ComparisonProductStructure; baseline: ComparisonProductStructure; counts: { current: ComparisonMetric; baseline: ComparisonMetric } }>; categoryBasis: "reference_current_cohort"; sameProduct: { status: "unavailable"; reasonCode: "unmapped" }; categoryOptions: CategoryEvidence[]; definitions: string[] };
     promotion: { items: ComparisonRow[]; sourceDefinitions: string[] };
-    comparability: { items: ComparisonRow[]; counts: { candidates: number; currentComplete: number; baselineComplete: number; comparable: number; excluded: number }; periodRelationship: { sameLength: boolean; overlapDays: number }; limitations: string[]; population: "complete_authorized_candidate_union" };
+    comparability: { items: ComparisonPopulationRow[]; counts: { candidates: number; currentComplete: number; baselineComplete: number; comparable: number; excluded: number }; periodRelationship: { sameLength: boolean; overlapDays: number }; limitations: string[]; population: "complete_authorized_candidate_union" };
   };
 };
