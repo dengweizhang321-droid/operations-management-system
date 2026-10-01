@@ -179,6 +179,19 @@ class StorePanoramaTests(TestCase):
         self.assertEqual(response["sources"]["promotion"]["state"], "error")
         self.assertNotIn("private cause", json.dumps(response))
 
+    def test_available_spend_does_not_prove_drillable_promotion_identity(self):
+        self.product()
+        add_day(self, rows=[{"id": "", "values": {"spendCents": 200, "netTransactionAmountCents": 400, "impressions": 100, "clicks": 2, "netOrders": 1}}])
+        add_day(self, promotion=False)
+        response = self.read()
+        owned = response["sources"]["promotion"]["data"]["sections"]
+        self.assertEqual(owned["summary"]["spend"]["status"], "available")
+        self.assertTrue(all(row["id"] is None for row in owned["items"]))
+        capabilities = {c["id"]: c for c in response["sections"]["promotion"]["capabilities"]}
+        self.assertEqual(capabilities["spend"]["status"], "available")
+        self.assertEqual(capabilities["promotion_detail"]["status"], "unavailable")
+        self.assertEqual(capabilities["promotion_detail"]["reasonCode"], "missing_field")
+
     def test_real_primary_sql_failure_rolls_back_before_other_source(self):
         self.promotion()
         def broken_primary(*_args):
