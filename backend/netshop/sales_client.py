@@ -146,7 +146,12 @@ def read_sales_consumer(
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=remaining_timeout()) as response:
+        if payload.get("operation") == "netshop_periods_v1" and deadline is not None:
+            from .bounded_consumer_http import open_bounded_consumer_request
+            response_context = open_bounded_consumer_request(request, deadline=deadline, timeout_cap=8)
+        else:
+            response_context = urllib.request.urlopen(request, timeout=remaining_timeout())
+        with response_context as response:
             remaining_timeout()
             declared = response.headers.get("Content-Length")
             if declared and int(declared) > response_limit:
