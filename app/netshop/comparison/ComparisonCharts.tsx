@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComparisonMetric } from "./contract";
-import { formatComparisonMetric } from "./ComparisonFormatting";
+import { formatComparisonMetric, partialMetricObservationLabel } from "./ComparisonFormatting";
 type ChartMetric = ComparisonMetric;
 
 /** Chart values are supplied by the owning reader. Missing values stay gaps. */
@@ -43,9 +43,9 @@ export function ComparisonTrendChart({ series, indexed = false, title }: { serie
     {chosen.map((item, seriesIndex) => <g key={item.key} style={{ color: colors[seriesIndex] }}>{item.values.map((point, index) => {
       if (!available(point.metric)) return null;
       const prior = index > 0 ? item.values[index-1] : null;
-      return <g key={`${point.label}-${index}`}><title>{item.label} · {point.label} · {indexed ? `指数 ${point.metric.value!.toFixed(2)}` : formatted(point.metric)}{point.metric.status === "partial" ? " · 部分覆盖" : ""}</title>{prior && available(prior.metric) && <line x1={x(index-1)} y1={y(prior.metric.value!)} x2={x(index)} y2={y(point.metric.value!)} stroke="currentColor" strokeWidth="2" strokeDasharray={point.metric.status === "partial" || prior.metric.status === "partial" ? "4 3" : undefined} />}<circle cx={x(index)} cy={y(point.metric.value!)} r="3" fill="currentColor" /></g>;
+      return <g key={`${point.label}-${index}`}><title>{item.label} · {point.label} · {indexed ? `指数 ${point.metric.value!.toFixed(2)}` : formatted(point.metric)}{point.metric.status === "partial" ? ` · ${partialMetricObservationLabel(point.metric)}` : ""}</title>{prior && available(prior.metric) && <line x1={x(index-1)} y1={y(prior.metric.value!)} x2={x(index)} y2={y(point.metric.value!)} stroke="currentColor" strokeWidth="2" strokeDasharray={point.metric.status === "partial" || prior.metric.status === "partial" ? "4 3" : undefined} />}<circle cx={x(index)} cy={y(point.metric.value!)} r="3" fill="currentColor" /></g>;
     })}</g>)}
-  </svg></div><div className="nc-chart-legend">{chosen.map((item, index) => <span key={item.key}><i style={{ background: colors[index] }} />{item.label}</span>)}</div><p className="nc-caption">缺失或不可用日期留空；各期使用各自的真实日期。{indexed && "指数只展示服务端返回的有效基准，基准为 100。"}</p></div>;
+  </svg></div><div className="nc-chart-legend">{chosen.map((item, index) => <span key={item.key}><i style={{ background: colors[index] }} />{item.label}{item.values.some(point=>point.metric.status === "partial") ? `（${partialMetricObservationLabel(item.values.find(point=>point.metric.status === "partial")!.metric)}）` : ""}</span>)}</div><p className="nc-caption">缺失或不可用日期留空；各期使用各自的真实日期。{indexed && "指数只展示服务端返回的有效基准，基准为 100。"}</p></div>;
 }
 
 export function ComparisonDistributionChart({ points, xLabel, yLabel }: { points: ComparisonDistributionPoint[]; xLabel: string; yLabel: string }) {
@@ -60,7 +60,7 @@ export function ComparisonDistributionChart({ points, xLabel, yLabel }: { points
     {yTicks.map(value => <g key={value}><line className="nc-gridline" x1={left} x2={width-right} y1={y(value)} y2={y(value)} /><text x={left-10} y={y(value)+4} textAnchor="end">{tickLabel(value, valid[0].y.unit)}</text></g>)}
     {xTicks.filter((_, index) => index % 2 === 0).map(value => <text key={value} x={x(value)} y={height-bottom+22} textAnchor="middle">{tickLabel(value, valid[0].x.unit)}</text>)}
     <text x={left} y="16">{yLabel}</text><text x={(left+width-right)/2} y={height-10} textAnchor="middle">{xLabel}</text>
-    {valid.map((point, index) => <g key={point.key} style={{ color: colors[index%4] }}><title>{point.label} · {xLabel} {formatted(point.x)} · {yLabel} {formatted(point.y)}{point.partial ? " · 部分覆盖" : ""}</title><circle cx={x(point.x.value!)} cy={y(point.y.value!)} r="7" fill={point.partial ? "var(--color-bg-surface,#fff)" : "currentColor"} stroke="currentColor" strokeWidth="2" /></g>)}
+    {valid.map((point, index) => <g key={point.key} style={{ color: colors[index%4] }}><title>{point.label} · {xLabel} {formatted(point.x)} · {yLabel} {formatted(point.y)}{point.partial ? ` · ${partialMetricObservationLabel(point.x)}` : ""}</title><circle cx={x(point.x.value!)} cy={y(point.y.value!)} r="7" fill={point.partial ? "var(--color-bg-surface,#fff)" : "currentColor"} stroke="currentColor" strokeWidth="2" /></g>)}
   </svg></div><div className="nc-chart-legend">{valid.map((point, index) => <span key={point.key}><i style={{ background: colors[index%4] }} />{point.label}{point.partial ? "（部分覆盖）" : ""}</span>)}</div><p className="nc-caption">只并列展示来源成立的指标，不计算综合评分。</p></div>;
 }
 

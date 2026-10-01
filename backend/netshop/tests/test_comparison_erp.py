@@ -82,7 +82,7 @@ class ComparisonErpTests(TestCase):
             with (Path(target)/(name+"-rpc-layer.json")).open("x", encoding="utf-8") as out:
                 json.dump({"layer": "real_owning_reader_injected_transport_private_postgresql", "hmacLayer": "published_registered_http_suite_separate", "requests": [{"request": {k:v for k,v in c["request"].items() if k != "expiresAtEpochMs"}, "deadlineShared": c["deadline"] == self.calls[0]["deadline"]} for c in self.calls]}, out, ensure_ascii=False)
 
-    def test_native_money_cost_order_evidence_and_only_one_final_rpc(self):
+    def test_native_money_cost_order_evidence_and_one_primed_series_final_rpc(self):
         self.line(quantity=3, allocated_amount_cents=1000, cost_amount_cents=400, gross_profit_cents=123, order_no="trusted")
         self.line(quantity=-1, allocated_amount_cents=-200, cost_amount_cents=-80, gross_profit_cents=-21, order_no="trusted")
         self.line(day="2026-08-31", quantity=2, allocated_amount_cents=500, cost_amount_cents=100, gross_profit_cents=77)
@@ -107,11 +107,12 @@ class ComparisonErpTests(TestCase):
         self.assertEqual((observation["observedShopDatePairs"], observation["expectedShopDatePairs"], observation["completeness"]), (1, 1, "unknown"))
         self.assertNotIn(ref, result["sections"]["comparability"]["coverage"])
         self.assertFalse(result["sections"]["scale"]["items"][0]["qualification"]["comparable"])
-        self.assertTrue(all(p["metric"]["reasonCode"] == "not_applicable" for p in result["sections"]["trends"]["items"][0]["current"]))
-        self.assertEqual(len(self.calls), 2)
+        self.assertEqual(result["sections"]["trends"]["items"][0]["current"][0]["metric"]["value"],800)
+        self.assertEqual(len(self.calls), 3)
         self.assertEqual(self.calls[1]["request"]["expectedRevision"], "7:3")
-        self.assertEqual(self.calls[1]["request"]["snapshotToken"], evidence["source"]["snapshotToken"])
-        self.assertEqual(self.calls[0]["deadline"], self.calls[1]["deadline"])
+        self.assertNotIn("snapshotToken",self.calls[1]["request"])
+        self.assertEqual(self.calls[2]["request"]["snapshotToken"], evidence["source"]["snapshotToken"])
+        self.assertEqual(len({c["deadline"] for c in self.calls}),1)
         self.assertEqual(len([v for v in result["joinedSourceRevisions"] if v["domain"] == "sales"]), 1)
         self.evidence("actual-owning-erp", result)
 
@@ -174,7 +175,7 @@ class ComparisonErpTests(TestCase):
 
     def test_503_initial_and_after_serialization_downgrade_erp_only_once(self):
         self.line()
-        for failure_call in (1,2):
+        for failure_call in (1,2,3):
             self.calls.clear()
             def fails(count,when):
                 if count == failure_call and when == "before": raise NetshopApiError("private synthetic unavailable",code="service_unavailable",status=503)
@@ -196,7 +197,7 @@ class ComparisonErpTests(TestCase):
 
     def test_parent_deadline_covers_actual_remote_owner_and_final_recheck(self):
         self.line()
-        for call in (1,2):
+        for call in (1,2,3):
             clock=[0.0]; self.calls.clear()
             def expires(count,when):
                 if count == call and when == "after": clock[0]=66.0
@@ -208,7 +209,7 @@ class ComparisonErpTests(TestCase):
     def test_netshop_change_during_last_rpc_still_invalidates_whole_join(self):
         self.line()
         def changes(count,when):
-            if count == 2 and when == "after": NetshopDataRevision.objects.filter(domain="netshop").update(revision=2,source_digest="b"*64)
+            if count == 3 and when == "after": NetshopDataRevision.objects.filter(domain="netshop").update(revision=2,source_digest="b"*64)
         self.hook=changes
         self.assert_error(409,lambda:self.erp())
 
@@ -229,3 +230,112 @@ class ComparisonErpTests(TestCase):
             response["sections"]["comparability"]["erpEvidence"]["source"]["metricSemantics"]["costCents"]="合"*(1024*1024)
             return response
         with patch.object(C,"build_comparison_result",large):self.assert_error(422,lambda:self.erp())
+
+    def test_owned_day_week_month_two_shops_distinct_orders_and_full_summary(self):
+        second="志高商用厨电旗舰店"
+        self.pair(shop=second)
+        self.line(day="2026-09-01",allocated_amount_cents=100,cost_amount_cents=20,order_no="same-order")
+        self.line(day="2026-09-02",allocated_amount_cents=200,cost_amount_cents=40,order_no="same-order")
+        self.line(day="2026-09-05",allocated_amount_cents=0,cost_amount_cents=0,order_no="zero-order")
+        self.line(day="2026-09-06",allocated_amount_cents=-20,cost_amount_cents=-4,quantity=-1,order_no="return-order")
+        self.line(canonical=second,day="2026-09-01",allocated_amount_cents=400,cost_amount_cents=80,order_no="same-order")
+        for canonical in (self.canonical,second):self.line(canonical=canonical,day="2026-08-25",allocated_amount_cents=50,cost_amount_cents=10,order_no="baseline")
+        baseline={"kind":"custom","startDate":"2026-08-25","endDate":"2026-08-31"}
+        for grain in ("day","week","month"):
+            self.calls.clear()
+            values={"endDate":"2026-09-07","selectedBaseline":baseline,"trendGrain":grain,"chartObjectKeys":["shop:京东\x1f"+self.canonical,"shop:京东\x1f"+second]}
+            result=self.erp(**values)
+            self.assertEqual(len(self.calls),3)
+            source=result["sections"]["comparability"]["erpEvidence"]["source"]
+            self.assertEqual(len(source["series"]["items"]),2)
+            self.assertEqual(result["sections"]["scale"]["summary"]["current"]["erpNetSales"]["value"],680)
+            self.assertEqual(result["sections"]["comparability"]["erpEvidence"]["temporalState"],{"state":"ready","code":None})
+            first=next(t for t in result["sections"]["trends"]["items"] if t["objectKey"].endswith(self.canonical))
+            if grain=="day":
+                self.assertEqual(len(first["current"]),7)
+                self.assertEqual(first["current"][4]["metric"]["value"],0)
+                self.assertEqual(first["current"][5]["metric"]["value"],-20)
+                self.assertIsNone(first["current"][2]["metric"]["value"])
+                self.assertEqual(first["current"][2]["metric"]["reasonCode"],"no_records")
+            else:
+                self.assertEqual(first["current"][0]["metric"]["value"],280)
+                from sales.netshop_period_series import restore_period_point
+                own=next(i for i in source["series"]["items"] if i["identity"]["rawShopName"]==sales_alias("京东",self.canonical)["rawShopName"])
+                self.assertEqual(restore_period_point(own["current"][0])["facts"]["orders"]["trustedOrderCount"],3)
+            for point in first["current"]:
+                observation=result["sections"]["comparability"]["erpEvidence"]["observations"][point["metric"]["coverageRef"]]
+                self.assertEqual((observation["startDate"],observation["endDate"]),(point["date"],point["bucketEnd"]))
+                self.assertEqual(observation["completeness"],"unknown")
+            self.evidence("actual-owning-erp-series-"+grain,result,**values)
+
+    def test_primed_plot_absent_both_and_baseline_only_no_false_current_zero(self):
+        no_erp="志高商用厨电旗舰店"
+        self.pair(shop=no_erp)
+        self.line(day="2026-08-31",allocated_amount_cents=77)
+        result=self.erp(chartObjectKeys=["shop:京东\x1f"+self.canonical,"shop:京东\x1f"+no_erp])
+        self.assertEqual(len(self.calls),3)
+        self.assertEqual(len(self.calls[1]["request"]["seriesOutlets"]),1)
+        for series in result["sections"]["trends"]["items"]:
+            self.assertIsNone(series["current"][0]["metric"]["value"])
+            self.assertEqual(series["current"][0]["metric"]["reasonCode"],"no_records")
+        self.assertEqual(next(t for t in result["sections"]["trends"]["items"] if t["objectKey"].endswith(self.canonical))["baseline"][0]["metric"]["value"],77)
+
+    def _representative_four_raw_series(self, day_count, expect_capacity_rejection=False):
+        from datetime import date,timedelta
+        from netshop.sales_client import CONTROLLED_JD_ALIASES
+        names=list(CONTROLLED_JD_ALIASES)
+        for name in names:
+            if name!=self.canonical:self.pair(shop=name)
+        windows=[date(2025,3,1),date(2023,1,1)]
+        rows=[]
+        for name in names:
+            alias=sales_alias("京东",name)
+            for start in windows:
+                for index in range(day_count):
+                    day=(start+timedelta(days=index)).isoformat();self.line_counter+=1
+                    rows.append(make_line(self.line_counter,"max-series-"+str(self.line_counter),platform="京东",shop_name=alias["rawShopName"],channel=alias["rawChannel"],ship_time=day+" 10:00:00",allocated_amount_cents=100,cost_amount_cents=40,gross_profit_cents=20,order_no="weekly-order-"+str(index//7)))
+        SalesOrderLine.objects.bulk_create(rows,batch_size=500)
+        values={"startDate":"2025-03-01","endDate":(windows[0]+timedelta(days=day_count-1)).isoformat(),"selectedBaseline":{"kind":"custom","startDate":"2023-01-01","endDate":(windows[1]+timedelta(days=day_count-1)).isoformat()},"chartObjectKeys":["shop:京东\x1f"+n for n in names]}
+        actual_builder=C.build_comparison_result
+        def measured(*args,**kwargs):
+            response=actual_builder(*args,**kwargs)
+            target=os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
+            if target:
+                with (Path(target)/("erp-series-"+str(day_count)+"-"+args[0]["trendGrain"]+"-body-sizes.json")).open("x",encoding="utf8") as out:
+                    json.dump({"bytes":len(json.dumps(response,ensure_ascii=False).encode("utf8")),"fields":{key:len(json.dumps(value,ensure_ascii=False).encode("utf8")) for key,value in response.items()},"sections":{key:len(json.dumps(value,ensure_ascii=False).encode("utf8")) for key,value in response["sections"].items()}},out,indent=2)
+            return response
+        before=time.monotonic()
+        with patch.object(C,"build_comparison_result",measured):
+            if expect_capacity_rejection:
+                failure=self.assert_error(422,lambda:self.erp(**values))
+                self.assertEqual(failure.code,"quality_incomplete")
+                self.assertEqual(len(self.calls),2)
+                target=os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
+                results=[]
+                for grain in ("week","month"):
+                    self.calls.clear();before=time.monotonic()
+                    response=self.erp(**{**values,"trendGrain":grain})
+                    size=len(json.dumps(response,ensure_ascii=False).encode("utf8"))
+                    self.assertLess(size,2*1024*1024)
+                    results.append({"grain":grain,"daysEachPeriod":day_count,"bytes":size,"seconds":time.monotonic()-before,"points":sum(len(t[p]) for t in response["sections"]["trends"]["items"] for p in ("current","baseline")),"rpcCalls":len(self.calls)})
+                    self.evidence("actual-owning-erp-series-max-"+grain,response,**{**values,"trendGrain":grain})
+                if target:
+                    with (Path(target)/"erp-series-max-supported-grains.json").open("x",encoding="utf8") as out:json.dump(results,out,indent=2)
+                return
+            result=self.erp(**values)
+        seconds=time.monotonic()-before
+        encoded=json.dumps(result,ensure_ascii=False).encode("utf8")
+        self.assertEqual(len(self.calls),3)
+        self.assertEqual(sum(len(t[p]) for t in result["sections"]["trends"]["items"] for p in ("current","baseline")),8*day_count)
+        self.assertEqual(result["sections"]["scale"]["summary"]["current"]["erpNetSales"]["value"],400*day_count)
+        self.assertLess(len(encoded),2*1024*1024);self.assertLess(seconds,65)
+        self.evidence("actual-owning-erp-series-representative",result,**values)
+        target=os.environ.get("TERUISI_COMPARISON_EVIDENCE_DIR")
+        if target:
+            with (Path(target)/"erp-series-representative.json").open("x",encoding="utf8") as out:json.dump({"rawOutlets":4,"daysEachPeriod":day_count,"points":8*day_count,"sourceRows":8*day_count,"seconds":seconds,"bytes":len(encoded),"rpcCalls":len(self.calls),"sameOuterDeadline":len({c["deadline"] for c in self.calls})==1},out,indent=2)
+
+    def test_representative_four_raw_two_120_day_windows_all_points_and_budget(self):
+        self._representative_four_raw_series(120)
+
+    def test_four_raw_two_366_legal_windows_whole_response_honestly_rejects_capacity(self):
+        self._representative_four_raw_series(366,True)
