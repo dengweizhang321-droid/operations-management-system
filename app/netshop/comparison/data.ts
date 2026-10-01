@@ -3,7 +3,7 @@ import { InsightReadError } from "../shared/request-state";
 import { ComparisonResponseError, decodeComparisonInsights, validateComparisonQuery } from "./contract";
 
 // A scoped signal owns a single budget, including any permitted version recovery.
-const budgets = new WeakMap<AbortSignal, AbortSignal>();
+const budgets = new WeakMap<AbortSignal, { signal: AbortSignal; deadline: number }>();
 function interruptible<T>(promise: Promise<T>, signal: AbortSignal, late?: (value: T) => void): Promise<T> {
   return new Promise((resolve, reject) => {
     const abort = () => { reject(signal.reason ?? new DOMException("读取已取消", "AbortError")); };
@@ -13,9 +13,10 @@ function interruptible<T>(promise: Promise<T>, signal: AbortSignal, late?: (valu
 }
 export async function loadComparisonInsights(query: URLSearchParams, signal: AbortSignal, fetchImpl: typeof fetch = fetch) {
   validateComparisonQuery(query);
-  let bounded = budgets.get(signal);
-  if (!bounded) { bounded = AbortSignal.any([signal, AbortSignal.timeout(insightBudget.requestDeadlineMs)]); budgets.set(signal, bounded); }
-  const cancelled = () => { if (bounded!.aborted) throw bounded!.reason ?? new DOMException("读取已取消", "AbortError"); };
+  let budget = budgets.get(signal);
+  if (!budget) { budget = { signal: AbortSignal.any([signal, AbortSignal.timeout(insightBudget.requestDeadlineMs)]), deadline: performance.now() + insightBudget.requestDeadlineMs }; budgets.set(signal, budget); }
+  const bounded = budget.signal;
+  const cancelled = () => { if (bounded.aborted) throw bounded.reason ?? new DOMException("读取已取消", "AbortError"); if (performance.now() > budget!.deadline) throw new InsightReadError("source_not_ready", "比较读取超过90秒整体期限，请缩小范围或重新读取"); };
   try {
     cancelled();
     const response = await interruptible(fetchImpl(`/api/netshop/comparison-insights?${query}`, { cache: "no-store", signal: bounded }), bounded, late => { void late.body?.cancel().catch(() => undefined); });
@@ -46,7 +47,9 @@ export async function loadComparisonInsights(query: URLSearchParams, signal: Abo
       const failure = payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : {};
       throw new InsightReadError(typeof failure.code === "string" ? failure.code : "service_unavailable", typeof failure.error === "string" ? failure.error.slice(0, 600) : `比较来源读取失败（${response.status}）`);
     }
-    return decodeComparisonInsights(payload, query, response.headers.get("X-Netshop-Data-Revision"));
+    const data = decodeComparisonInsights(payload, query, response.headers.get("X-Netshop-Data-Revision"));
+    cancelled();
+    return data;
   } catch (error) {
     cancelled();
     if (error instanceof ComparisonResponseError) throw new InsightReadError(error.code, error.message);

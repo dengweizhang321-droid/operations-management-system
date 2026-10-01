@@ -132,3 +132,14 @@ test("trends must retain selected metric and full natural calendar buckets", () 
 test("nested auth or revision failures cannot be downgraded to a successful source section", () => {
   for (const code of ["access_denied", "authentication_required", "promotion_revision_changed", "insights_revision_changed"]) rejectsMutation(value => { value.sections.promotion.sourceStates[0] = { ...value.sections.promotion.sourceStates[0], state: "error", code }; });
 });
+
+test("one front-end deadline includes JSON parsing and strict envelope validation CPU", async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "performance")!, parse = JSON.parse;
+  let clock = 0;
+  Object.defineProperty(globalThis, "performance", { configurable: true, value: { now: () => clock } });
+  try {
+    const body = JSON.stringify(successful.response);
+    JSON.parse = ((text: string) => { const value = parse(text); clock = 90_001; return value; }) as typeof JSON.parse;
+    await assert.rejects(loadComparisonInsights(new URLSearchParams(successful.request.query), new AbortController().signal, fetchResponse(new Response(body, { headers: { "X-Netshop-Data-Revision": successful.request.headerRevision } }))), (e: unknown) => e instanceof InsightReadError && e.code === "source_not_ready");
+  } finally { JSON.parse = parse; Object.defineProperty(globalThis, "performance", descriptor); }
+});
