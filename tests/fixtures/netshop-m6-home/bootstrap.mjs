@@ -23,6 +23,7 @@ export async function installM6Transport(comparison,linked=[]){
  window.__m6={calls:[],served:[],pending:[],writes:[],models:[],external:[],unknown:[],faults:[],cases:positive.map(r=>({name:r.name,phase:r.phase,seed:r.seed,query:r.query,revision:r.owningRevision,rawMeaning:r.rawMeaning,sha256:r.sha256}))};
  window.__m6Cases=positive.filter(r=>r.kind==="comparison").map(r=>({name:r.name,query:r.query,body:JSON.parse(r.raw),phase:r.phase,seed:r.seed,finalAcceptance:r.finalAcceptance}));
  window.__m6Control={error:null,defer:null,pending:null,probe:false};
+ window.__m6RestorePresentation=url=>{history.replaceState(bindShopPresentationHistory(history.state,url,JSON.stringify(["comparison-signed@example.test","viewer",false])),"",url);dispatchEvent(new PopStateEvent("popstate"));};
  const fail=status=>{const original=faults.find(r=>r.status===status);return original?new Response(original.raw,{status,headers:original.headers}):Response.json({code:"synthetic_source_pending",error:"当前范围尚无已核对来源，请重新读取。"}, {status});};
  const pending=(call,reason)=>{window.__m6.pending.push({...call,reason});return fail(503);};
  window.fetch=async(input,init={})=>{

@@ -10,7 +10,15 @@ function locationFor(record){
 export async function runM6Scenarios({page,origin,check,save,evidence,records,manifest}){
  const cases=records.filter(r=>r.kind==="comparison"&&(r.status||200)===200),first=cases.find(r=>r.name==="signed-c-smoke")||cases[0];
  const ready=()=>page.locator("[data-column='comparison'] .nc-table-group").first().waitFor();
- const open=async record=>{if(page.url().startsWith(origin))await page.evaluate(name=>sessionStorage.setItem("m6-case",name),record.name);await page.goto(origin+"/?"+locationFor(record));await ready();};
+ const open=async record=>{
+  if(page.url().startsWith(origin))await page.evaluate(name=>sessionStorage.setItem("m6-case",name),record.name);
+  const url=origin+"/?"+locationFor(record);await page.goto(url);
+  // A cold URL is intentionally unbound until auth loads. Restore the original
+  // account-bound presentation entry through the existing history helper after
+  // Home's first scoped read, without changing any source response or account.
+  await page.waitForFunction(()=>window.__m6.calls.some(c=>c.path==="/api/netshop/comparison-insights"));
+  await page.evaluate(url=>window.__m6RestorePresentation(url),url);await ready();
+ };
  await open(first);
  await check("M6 actual Home uniquely registers C alongside S/P/A and uses one primary navigation",async()=>{
   assert.deepEqual(await page.evaluate(()=>window.__m6Modules),{comparison:true,panorama:true,products:true,promotion:true});
