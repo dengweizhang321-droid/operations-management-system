@@ -1,1 +1,2 @@
+*.bat text eol=crlf
 tests/fixtures/netshop-integrated-shell-ui/m5m6-source/*.json -text
