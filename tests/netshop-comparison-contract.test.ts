@@ -26,6 +26,12 @@ test("category labels require original source/version and cannot claim verified 
   p.set("comparisonScope", JSON.stringify({ ...scope, category: { mode: "verified_id", id: "guessed" } })); assert.throws(() => validateComparisonQuery(p), /类目ID/);
 });
 
+test("JSON scope enums never accept array or object coercion", () => {
+  const scope = { schemaVersion: "comparison-scope-v1", mode: "shop", metricSource: "platform", category: { mode: "all" }, coverageFilter: "all" };
+  for (const [key, value] of [["mode", ["shop"]], ["metricSource", ["platform"]], ["coverageFilter", ["all"]]]) { const p = query(); p.set("comparisonScope", JSON.stringify({ ...scope, [String(key)]: value })); assert.throws(() => validateComparisonQuery(p)); }
+  const p = query(); p.set("comparisonScope", JSON.stringify({ ...scope, category: { mode: "label_only", platform: ["京东"], sourceId: "jd_sku_daily", label: "标签", evidenceVersion: "1:aabbccddeeff" } })); assert.throws(() => validateComparisonQuery(p));
+});
+
 test("ERP source and exact chart identities are bounded and do not replace population", () => {
   const p = query(); p.set("chartObjectKeys", JSON.stringify(["shop:京东\u001f同名店", "platform:京东"])); assert.equal(validateComparisonQuery(p).chartObjectKeys.length, 2);
   p.set("chartObjectKeys", JSON.stringify(["shop:京东\u001f同名店", "shop:京东\u001f同名店"])); assert.throws(() => validateComparisonQuery(p), /重复/);
