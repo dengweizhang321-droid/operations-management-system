@@ -396,7 +396,7 @@ export async function decodeComparisonInsights(value: unknown, params: URLSearch
       const full = evidence.mappings.filter(m => m.status === "verified_alias").map(m => rawKey(m.rawIdentity!));
       if (date) {
         const point = row.kind === "shop" && selected.length === 1 ? rawSeries.get(selected[0])?.[period].find(point => point[0][0] === date) : null;
-        return { data: point ? restoreSalesPeriodSeriesPoint(point).facts : null, reason: reason ?? (point ? null : "not_applicable") };
+        return { data: point ? restoreSalesPeriodSeriesPoint(point).facts : null, reason: reason ?? (point || row.kind === "shop" && selected.length === 1 && !rawItems.has(selected[0]) ? null : "not_applicable") };
       }
       const data = row.kind === "shop" ? (selected.length ? rawItems.get(selected[0])?.[period] ?? null : null) : source && stable(selected.sort()) === stable(full.sort()) ? source.periodTotals[period] : null;
       if (row.kind === "platform" && data) reason = null; else if (source && row.kind === "platform" && !data) reason = "not_applicable";
