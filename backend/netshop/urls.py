@@ -18,6 +18,7 @@ read_patterns = [
     path("product-insights", views.product_insights, name="netshop-product-insights"),
     path("product-insights/detail", views.product_insights_detail, name="netshop-product-insights-detail"),
     path("comparison-insights", views.comparison_insights, name="netshop-comparison-insights"),
+    path("store-panorama", views.store_panorama, name="netshop-store-panorama"),
     path("overview", views.overview, name="netshop-overview"),
     path("products", views.products, name="netshop-products"),
     path("product-performance", views.product_performance, name="netshop-product-performance"),

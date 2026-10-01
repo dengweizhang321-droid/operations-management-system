@@ -109,6 +109,19 @@ def promotion_insights_detail(request: HttpRequest) -> JsonResponse:
 
 
 @require_GET
+def store_panorama(request: HttpRequest) -> JsonResponse:
+    from .store_panorama import read_store_panorama
+    try:
+        principal = _principal(request)
+        payload = read_store_panorama(principal, request.GET)
+        revision = next(item["revision"] for item in payload["context"]["sourceRevisions"]
+                        if item["domain"] == "netshop" and item["kind"] == "owning_revision")
+        return _json(payload, revision=revision)
+    except Exception as error:
+        return _error(error, "店铺全景读取失败")
+
+
+@require_GET
 def comparison_insights(request: HttpRequest) -> JsonResponse:
     from .comparison_insights import read_comparison_insights
     try:
