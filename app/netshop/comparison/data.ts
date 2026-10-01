@@ -1,0 +1,48 @@
+import { insightBudget } from "@/lib/netshop/insights-contract";
+import { InsightReadError } from "../shared/request-state";
+import { ComparisonResponseError, decodeComparisonInsights, validateComparisonQuery } from "./contract";
+
+// A scoped signal owns a single budget, including any permitted version recovery.
+const budgets = new WeakMap<AbortSignal, AbortSignal>();
+export async function loadComparisonInsights(query: URLSearchParams, signal: AbortSignal, fetchImpl: typeof fetch = fetch) {
+  validateComparisonQuery(query);
+  let bounded = budgets.get(signal);
+  if (!bounded) { bounded = AbortSignal.any([signal, AbortSignal.timeout(insightBudget.requestDeadlineMs)]); budgets.set(signal, bounded); }
+  const cancelled = () => { if (bounded!.aborted) throw bounded!.reason ?? new DOMException("读取已取消", "AbortError"); };
+  try {
+    cancelled();
+    const response = await fetchImpl(`/api/netshop/comparison-insights?${query}`, { cache: "no-store", signal: bounded });
+    cancelled();
+    if ([401, 403, 409].includes(response.status)) {
+      void response.body?.cancel().catch(() => undefined);
+      throw new InsightReadError(response.status === 409 ? "comparison_revision_changed" : "access_denied", response.status === 409 ? "比较来源版本已变化，请重新读取当前范围" : `当前账号或范围无权读取对比数据（${response.status}）`);
+    }
+    const reader = response.body?.getReader();
+    let body = "", bytes = 0;
+    if (reader) {
+      const decoder = new TextDecoder("utf-8", { fatal: true });
+      try {
+        while (true) {
+          const part = await reader.read(); cancelled(); if (part.done) break;
+          bytes += part.value.byteLength;
+          if (bytes > insightBudget.responseBytes) { void reader.cancel().catch(() => undefined); throw new InsightReadError("response_too_large", "比较响应超过2MiB，请缩小店铺或日期范围"); }
+          body += decoder.decode(part.value, { stream: true });
+        }
+        body += decoder.decode();
+      } finally { reader.releaseLock(); }
+    }
+    cancelled();
+    let payload: unknown;
+    try { payload = JSON.parse(body); } catch { throw new InsightReadError("invalid_comparison_contract", "比较来源返回无法验证的响应"); }
+    if (!response.ok) {
+      const failure = payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : {};
+      throw new InsightReadError(typeof failure.code === "string" ? failure.code : "service_unavailable", typeof failure.error === "string" ? failure.error.slice(0, 600) : `比较来源读取失败（${response.status}）`);
+    }
+    return decodeComparisonInsights(payload, query, response.headers.get("X-Netshop-Data-Revision"));
+  } catch (error) {
+    cancelled();
+    if (error instanceof ComparisonResponseError) throw new InsightReadError(error.code, error.message);
+    if (error instanceof TypeError && error.message.includes("encoded data")) throw new InsightReadError("invalid_comparison_contract", "比较响应编码无法验证");
+    throw error;
+  }
+}
