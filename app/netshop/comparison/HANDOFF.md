@@ -135,3 +135,21 @@ Query最终clean `1949e30d4d857ca8e32b35aef20c78ecd88ec8eb` 已普通集成；�
 - Page clean `b6fb4b3f142eadf4bf8943e72e7caf95c82142ec` 已正常集成：真实双平台日→周→月→日和公共22原生净数量四精确响应组合18作者UI通过；本期/基期×1440/390/320弹层几何4检查通过。原始完整成员与原桶/每child整期来源均折叠观察，不相加或递归取数。149ignored/36历史runs逐SHA保全，E/page `handoff-20261001T114922555Z-aa6a900e-eaaa-4eb3-ac5d-b78ec7213b11/manifest.json` SHA `268770e28fbd7d0ba70dde9e81c64ed43618021f926888edcd6bccafbb9a4247`，所有自有3171关闭。原定位器失败/gate到期也保留，不计通过。
 
 剩余关键路径严格限定：I单写公共注册thin `c746060865cc4213f26b2e5710da4a194998e41e`（4公文件、父7ac）及净组合 `0254d03ac3dad276e5b9955f12f7556ffd923620` 未main；仅隔离Query/Q采用这个精确注册组合，C分支不反向引入未发布公共写入。正式C签名GET、同freshseed P/A完整原列表/detail及精确平台展开店铺响应、真实Home历史/权限/字形、最终独立Q门槛仍需完成。已通过函数体/owner注入PG和合成组件UI不能冒TCP HMAC C接口、真实Home或M6资格；不拼原S六源采样与另C采样作同源。只推栏目、I合main，生产不操作。
+
+### 平台功能独立签字
+
+非作者Q已对准确运行组合 `3c45f06cdc88bfb95011280f29a1a7f33281ee5e` 批准平台功能phase PASSED，未决P1/P2=0。完整删除未绘图TM子载体与其向量、将所有TM scalar降null的原P2复验已拒；代码修复为cbdf的eligible平台完整集合校验。
+
+独立immutable clone：PG8/10源码摘要稳定、自己的13原DTO完整await和19额外反例全部拒、Node48；新平台day27/原净数量20/week20/month20/empty18/fifty18均通过，各计原范围不累加冒独有总数。最后使用同一真实签名采样916的父平台与精确五JD outlet店铺响应，展开实际5店出数与返回原范围另21UI通过，scopeVerification=exact-owning-response-verified。53/98无outlet只scopepatch+422的旧不匹配样本保存，未计成功。
+
+最终报告 `E:/codex-artifacts/netshop-scheme2-20261001/comparison/review/platform-stage4-20261001T111712Z-901808b20cbd480292db9a3630293276/independent-review-platform-function-final.json`，SHA `29bcc8670f3872a8179ed1c45ddc7cea95335f989815075bdedd8fe88b5e7701`。全部Q私有PG56580和UI3191正常关闭/无监听。新代表Mixed50/60k商品＋3kERP事实、1,788,397 bytes、5RPC的独立读取9.370秒/465SQL保存，不当生产P95。
+
+### 正式GET作者采样与剩余资格
+
+准确I净公共注册组合 `0254d03ac3dad276e5b9955f12f7556ffd923620` 未main，只有相对cbdf的4个I公共文件。Query隔离分支 `codex/netshop-comparison-public-combo` 在原Query工作树采用该组合；RootC仅挑选owned测试叶子64503/d412/972，不反向整合含未main公共祖先的隔离分支。
+
+同freshseed真实TCP正式C GET→原HMAC verify→C→原sales_client signedPOST→同私有TCP registered Sales consumer→真实owning PostgreSQL。没有业务response/reader替换，trace wraps与合成alias扩展仅test并写入meta。E/query `comparison-pg-916f288c43ce579a6a2b` 完整22GET一次作者验证通过：19个200及未签名401、旧令牌409、撤权403；Page1候选25/p20与page2另5真实行（不改summary/population），平台双整期原值/日周月/nativeqty/独立custom、partial/未映射、精确5店展开和同seed P/A各JD SKU、TM SPU原列表/detail均保原query/body/header/UTF8 bytes/SHA。全C成功原身和展开原身已由Root严格async decode通过。源码稳定，私有HTTP/PG均正常关闭。
+
+正式超限与时间资格作者负向在 `comparison-pg-78d5696e7609a3abaa6c`：合法双366日＋4候选的完整7,768,053 bytes真实signedGET返回422 quality_incomplete，不裁桶/证据；另原signed owning RPC返回后仅test monotonic推进66，正式整体503 source_not_ready，meta透明声明clockInjection，实际秒由未修改perf_counter记，不冒真实等待65秒。此前LiveServer配置与详情错误对象定位、无outlet采样失败原样保留；最后972叶子只精确请求参数一行变，业务与门槛不变。
+
+正式协议非作者独立执行、准确公共组合的真实Home/返回/权限/资源和最终M6资格仍是剩余关键路径。上述作者TCP与非作者功能样本回放按层分别记录，不能当独立HMAC执行或Home通过；最终main仍I串行合入。无生产部署、数据库动作、正式服务启停、迁移、真实导入、外部发送或付费模型调用。
