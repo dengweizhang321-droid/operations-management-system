@@ -72,6 +72,16 @@ test("cancellation outranks late access-denied or late fetch errors", async () =
   }
 });
 
+test("aborting a pending fetch or stalled stream completes even if upstream ignores its signal", async () => {
+  for (const stream of [false, true]) {
+    const controller = new AbortController(), reason = new Error("changed scope");
+    const fetcher = (stream ? async () => new Response(new ReadableStream({ start() { /* Deliberately never sends bytes. */ } })) : async () => new Promise<Response>(() => {})) as typeof fetch;
+    const pending = loadComparisonInsights(query(), controller.signal, fetcher);
+    await new Promise(resolve => setTimeout(resolve, 5)); controller.abort(reason);
+    await assert.rejects(pending, (error: unknown) => error === reason);
+  }
+});
+
 test("rapid scope replacement rejects a late response even when upstream ignores abort", () => {
   const gate = new ScopedReadGate(), old = gate.begin("京东/shop-A/custom-A"), next = gate.begin("天猫/shop-B/custom-B");
   assert.equal(old.current(), false); assert.equal(old.signal.aborted, true); assert.equal(next.current(), true);
@@ -116,7 +126,7 @@ test("candidate union and rank pagination cannot silently become an empty or par
   rejectsMutation(value => { value.sections.promotion.items.reverse(); });
 });
 test("trends must retain selected metric and full natural calendar buckets", () => {
-  rejectsMutation(value => { for (const period of ["current", "baseline"]) { value.sections.trends.items[0][period][0].metric.unit = "COUNT"; value.sections.trends.items[0].indexBasis[period].unit = "COUNT"; } });
+  rejectsMutation(value => { for (const period of ["current", "baseline"] as const) { value.sections.trends.items[0][period][0].metric.unit = "COUNT"; value.sections.trends.items[0].indexBasis[period].unit = "COUNT"; } });
   rejectsMutation(value => { value.sections.trends.items[0].current.pop(); });
 });
 test("nested auth or revision failures cannot be downgraded to a successful source section", () => {

@@ -4,6 +4,13 @@ import { ComparisonResponseError, decodeComparisonInsights, validateComparisonQu
 
 // A scoped signal owns a single budget, including any permitted version recovery.
 const budgets = new WeakMap<AbortSignal, AbortSignal>();
+function interruptible<T>(promise: Promise<T>, signal: AbortSignal, late?: (value: T) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const abort = () => { reject(signal.reason ?? new DOMException("读取已取消", "AbortError")); };
+    if (signal.aborted) abort(); else signal.addEventListener("abort", abort, { once: true });
+    promise.then(value => { signal.removeEventListener("abort", abort); if (signal.aborted) { late?.(value); abort(); } else resolve(value); }, error => { signal.removeEventListener("abort", abort); if (signal.aborted) abort(); else reject(error); });
+  });
+}
 export async function loadComparisonInsights(query: URLSearchParams, signal: AbortSignal, fetchImpl: typeof fetch = fetch) {
   validateComparisonQuery(query);
   let bounded = budgets.get(signal);
@@ -11,7 +18,7 @@ export async function loadComparisonInsights(query: URLSearchParams, signal: Abo
   const cancelled = () => { if (bounded!.aborted) throw bounded!.reason ?? new DOMException("读取已取消", "AbortError"); };
   try {
     cancelled();
-    const response = await fetchImpl(`/api/netshop/comparison-insights?${query}`, { cache: "no-store", signal: bounded });
+    const response = await interruptible(fetchImpl(`/api/netshop/comparison-insights?${query}`, { cache: "no-store", signal: bounded }), bounded, late => { void late.body?.cancel().catch(() => undefined); });
     cancelled();
     if ([401, 403, 409].includes(response.status)) {
       void response.body?.cancel().catch(() => undefined);
@@ -23,13 +30,14 @@ export async function loadComparisonInsights(query: URLSearchParams, signal: Abo
       const decoder = new TextDecoder("utf-8", { fatal: true });
       try {
         while (true) {
-          const part = await reader.read(); cancelled(); if (part.done) break;
+          const part = await interruptible(reader.read(), bounded); cancelled(); if (part.done) break;
           bytes += part.value.byteLength;
           if (bytes > insightBudget.responseBytes) { void reader.cancel().catch(() => undefined); throw new InsightReadError("response_too_large", "比较响应超过2MiB，请缩小店铺或日期范围"); }
           body += decoder.decode(part.value, { stream: true });
         }
         body += decoder.decode();
-      } finally { reader.releaseLock(); }
+      } catch (error) { void reader.cancel().catch(() => undefined); throw error; }
+      finally { reader.releaseLock(); }
     }
     cancelled();
     let payload: unknown;
