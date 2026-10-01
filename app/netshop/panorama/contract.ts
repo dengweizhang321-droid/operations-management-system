@@ -9,6 +9,7 @@ import { decodeProductInsights, ProductResponseError, type ProductInsightsRespon
 import { decodePromotionInsightsForQuery, type PromotionInsightsResponse } from "@/lib/netshop/promotion-insights-contract";
 import { decodeProductScopeSeries, restoreProductScopeSeriesMetric, productSeriesColumns, type ProductScopeSeries } from "@/lib/netshop/product-scope-series-contract";
 import { decodeSalesPeriodsForRequest, restoreSalesPeriodSeriesPoint, type RawSalesIdentity, type SalesPeriodsResponse } from "@/lib/netshop/sales-periods-contract";
+import { decodeFinanceNetshop, financeNetshopOperation, type FinanceNetshopDTO, type FinanceNetshopRequest } from "@/lib/netshop/finance-netshop-contract";
 
 export const PANORAMA_SCHEMA = "netshop-store-panorama-v1" as const;
 export const panoramaSections = ["performance", "traffic", "products", "promotion", "margin", "customers", "targets", "dataQuality"] as const;
@@ -73,9 +74,10 @@ export type PanoramaSalesData = {
   pagination: InsightPagination; limitations: string[];
 };
 export type PanoramaFinanceData = {
-  schemaVersion: "netshop-panorama-finance-v1"; scope: PanoramaScope; sourceRevisions: SourceRevision[];
-  months: Array<{ month: string; revenue: MetricValue; profit: MetricValue }>;
-  annualTargets: Array<{ year: number; target: MetricValue; actual: MetricValue; progress: MetricValue }>;
+  schemaVersion: "netshop-panorama-finance-v2"; scope: PanoramaScope; sourceRevisions: SourceRevision[];
+  owning: FinanceNetshopDTO[];
+  periodReadRefs: Record<"current" | "previous" | "yearAgo", number>;
+  annualReadRefs: number[];
   limitations: string[];
 };
 export type PanoramaWorkflowData = {
@@ -267,14 +269,44 @@ function decodeSales(value: unknown, context: InsightsContext, joined: Map<strin
   const pagination = decodeInsightPagination(data.pagination); if (pagination.returned !== data.items.length) return reject("ERP贡献分页不一致");
   return data as PanoramaSalesData;
 }
-function financeMetric(value: unknown, unit: string): MetricValue { const metric = decodeMetric(value); if (metric.unit !== unit || !["finance_month", "unverified"].includes(metric.basis)) return reject("财报或目标口径无效"); return metric; }
+/** Only maps the selected dates to owning natural months; no financial amounts are calculated. */
+export function panoramaFinanceReadPlan(context: InsightsContext) {
+  const shop = context.effectiveScope.shopKeys[0].split("\u001f"), shopKeys = [JSON.stringify(shop)];
+  const requests: FinanceNetshopRequest[] = [];
+  const add = (period: "current" | "previous" | "yearAgo", year: string) => {
+    const window = context.periods[period], months: string[] = [];
+    let cursor = window.startDate.slice(0, 7);
+    while (cursor <= window.endDate.slice(0, 7)) {
+      if (months.length >= 24) return reject("财报所属月份超过24月上限，不能截断");
+      months.push(cursor);
+      const month = Number(cursor.slice(5));
+      cursor = `${Number(cursor.slice(0, 4)) + (month === 12 ? 1 : 0)}-${String(month === 12 ? 1 : month + 1).padStart(2, "0")}`;
+    }
+    const request: FinanceNetshopRequest = { operation: financeNetshopOperation, shopKeys, months, year };
+    const existing = requests.findIndex(value => JSON.stringify(value) === JSON.stringify(request));
+    if (existing >= 0) return existing;
+    requests.push(request); return requests.length - 1;
+  };
+  const periodReadRefs = Object.fromEntries((["current", "previous", "yearAgo"] as const).map(period => [period, add(period, context.periods[period].startDate.slice(0, 4))])) as PanoramaFinanceData["periodReadRefs"];
+  const years = [...new Set([context.periods.current.startDate.slice(0, 4), context.periods.current.endDate.slice(0, 4)])];
+  return { requests, periodReadRefs, annualReadRefs: years.map(year => add("current", year)) };
+}
 function decodeFinance(value: unknown, context: InsightsContext, joined: Map<string, SourceRevision>): PanoramaFinanceData {
-  const data = crossBase(value, "netshop-panorama-finance-v1", "finance", context, joined);
-  if (!Array.isArray(data.months) || data.months.length > 40 || !Array.isArray(data.annualTargets) || data.annualTargets.length > 3) return reject("财报月份或年度目标无界");
-  const seen = new Set<string>();
-  for (const raw of data.months) { const row = record(raw); if (typeof row.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(row.month) || seen.has(row.month) || ![context.periods.current, context.periods.previous, context.periods.yearAgo].some(period => String(row.month) >= period.startDate.slice(0, 7) && String(row.month) <= period.endDate.slice(0, 7))) return reject("财报月份重复、无效或不属于当前比较范围"); seen.add(row.month); financeMetric(row.revenue, "CNY_CENT"); financeMetric(row.profit, "CNY_CENT"); }
-  const years = new Set<number>();
-  for (const raw of data.annualTargets) { const row = record(raw); if (!integer(row.year, 9999) || years.has(row.year) || row.year < Number(context.periods.current.startDate.slice(0, 4)) || row.year > Number(context.periods.current.endDate.slice(0, 4))) return reject("年度目标年份重复或不属于本期"); years.add(row.year); financeMetric(row.target, "CNY_CENT"); financeMetric(row.actual, "CNY_CENT"); financeMetric(row.progress, "RATIO"); }
+  const data = crossBase(value, "netshop-panorama-finance-v2", "finance", context, joined), plan = panoramaFinanceReadPlan(context);
+  const fields = ["schemaVersion", "scope", "sourceRevisions", "owning", "periodReadRefs", "annualReadRefs", "limitations"];
+  if (Object.keys(data).length !== fields.length || fields.some(field => !Object.hasOwn(data, field)) || !Array.isArray(data.owning) || data.owning.length !== plan.requests.length) return reject("财报须保留完整且有界的独立拥有方读取");
+  const refs = record(data.periodReadRefs);
+  if (Object.keys(refs).length !== 3 || Object.entries(plan.periodReadRefs).some(([key, index]) => refs[key] !== index) || JSON.stringify(data.annualReadRefs) !== JSON.stringify(plan.annualReadRefs)) return reject("财报月/全年引用不属于所选实际范围");
+  const expected = new Map<string, SourceRevision>(); let pair: string | null = null;
+  data.owning.forEach((raw, index) => {
+    const envelope = record(raw), revision = [...revisions(envelope.sourceRevisions).values()].find(ref => ref.domain === "finance" && ref.kind === "owning_revision")?.revision ?? null;
+    const body = decodeFinanceNetshop(envelope, plan.requests[index], revision);
+    if (pair !== null && pair !== revision) throw new PanoramaResponseError(409, "insights_revision_changed", "财报多次读取参与版本变化");
+    pair = revision;
+    for (const ref of body.sourceRevisions) expected.set(JSON.stringify([ref.domain, ref.kind, ref.scopeKey]), ref);
+  });
+  const declared = revisions(data.sourceRevisions);
+  if (declared.size !== expected.size || [...expected].some(([key, ref]) => declared.get(key)?.revision !== ref.revision)) return reject("财报参与修订不是完整所属读取向量");
   return data as PanoramaFinanceData;
 }
 function decodeWorkflow(value: unknown, context: InsightsContext, joined: Map<string, SourceRevision>): PanoramaWorkflowData {
@@ -316,9 +348,9 @@ function capabilityHasSource(section: PanoramaSectionKey, id: string, sources: S
   if (id === "trend" || id === "distribution") return available(a?.summary.spend);
   if (id === "promotion_detail") return !!a && a.items.some(row => row.drillable && row.id !== null && row.objectKind === "product");
   if (id === "contribution") return !!sales && sales.items.some(item => available(item.metrics.orderMargin));
-  if (id === "annual_target") return !!finance && finance.annualTargets.some(row => available(row.target));
-  if (id === "finance_month") return !!finance && finance.months.some(row => available(row.revenue) || available(row.profit));
-  if (id === "history") return !!finance && finance.months.some(row => row.month < finance.scope.startDate.slice(0, 7) && (available(row.revenue) || available(row.profit)));
+  if (id === "annual_target") return !!finance && finance.annualReadRefs.some(index => { const annual = finance.owning[index].annual; return annual.state === "ready" && Array.isArray(annual.data?.items) && annual.data.items.some(row => row !== null && typeof row === "object" && !Array.isArray(row) && row.target !== null); });
+  if (id === "finance_month") return !!finance && Object.values(finance.periodReadRefs).some(index => Object.values(finance.owning[index].monthly.currentMetricStates).some(available));
+  if (id === "history") return !!finance && Object.values(finance.owning[finance.periodReadRefs.yearAgo].monthly.currentMetricStates).some(available);
   if (id === "events") return !!workflow && workflow.items.length > 0;
   // Inspection/review operations are not import batches or n8n executions.
   if (id === "import_records") return false;
