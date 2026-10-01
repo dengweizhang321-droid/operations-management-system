@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "single01-search-pagination-v1",
+  "parentDesignCommit": "25e4dc1f7292bbf1afe9bb67f66b9777d4591cd1",
+  "baselineMain": "f08b34884fdc83813e4d2c8f3ec86b8ed2a795fe",
+  "files": {
+    "demo.css": "1fb7db67f6240bcf4a34a613fc86424e0e242063d222fa5104c8580849e49680",
+    "demo.js": "cd1736fcb2c557d4b3d023163c9b8fff1b9e0389b7b00a246a11044573aa2506",
+    "index.html": "a5e830c59c8cbf078ef4228e005023e0462393530be121a72778ab59b9759f16",
+    "serve.mjs": "fc5c7ee6bdbf04ea7238a8bc17e3d0924ec2e6f48b0bc4d744401570ed505b53",
+    "verify.mjs": "4c35d200937c2a734bb24b91e20eba100c1d7603d6319c60aae3bd3ac9c8a1cd"
+  },
+  "activeLayout": "01-only",
+  "fixtureCount": 18,
+  "pageSizes": [
+    5,
+    10,
+    20
+  ],
+  "filterScope": "product-list-only",
+  "productionOperations": [],
+  "businessAPI": "not-connected",
+  "postgresql": "not-run"
+}

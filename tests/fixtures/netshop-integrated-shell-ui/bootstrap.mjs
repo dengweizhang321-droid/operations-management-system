@@ -1,6 +1,7 @@
 /** Bounded synthetic GET transport. No real network or navigation controller. */
 import { installOwnerProductFixture } from "./owner-products.mjs";
 import { m4OwnerRevision, projectM4Promotion, projectM4Product, projectM4Diagnostic } from "./m4-promotion-fixtures.mjs";
+import { projectM5M6Comparison,projectM5M6Panorama,projectM5M6OwningTopic } from "./m5m6-fixtures.mjs";
 
 const users = {
   A: { email: "integrated-a@example.test", displayName: "合成账号A", role: "admin", roleLabel: "管理员", scopeRestricted: false },
@@ -38,6 +39,15 @@ export function installIntegratedTransport({ phase = "M3" } = {}) {
     if (["/api/ai/models", "/api/ai/channels"].includes(url.pathname)) return Response.json({ items: [] });
     if (url.pathname === "/api/ai/conversations") return Response.json({ items: [], models: [], pagination: { page: 1, pageSize: 30, total: 0, returned: 0, hasMore: false, truncated: false } });
     if (url.pathname === "/api/ai/chat") return Response.json({ items: [], pagination: { pageSize: 30, total: 0, returned: 0, hasMore: false, truncated: false, nextBefore: null } });
+    if(phase==="M5M6"&&url.pathname==="/api/netshop/comparison-insights"){
+      try{const {body,revision}=await projectM5M6Comparison(url,window.__integrated);remember();return Response.json(body,{headers:{"X-Netshop-Data-Revision":revision}});}
+      catch(error){window.__integrated.fixturePending.push({...info,error:error.message});return deny(error.message==="comparison_revision_changed"?error.message:"synthetic_fixture_pending",error.message,error.message==="comparison_revision_changed"?409:503);}
+    }
+    if(phase==="M5M6"&&["/api/netshop/store-panorama","/api/netshop/product-insights","/api/netshop/promotion-insights"].includes(url.pathname)){
+      try{const {body,revision}=url.pathname==="/api/netshop/store-panorama"?projectM5M6Panorama(url,window.__integrated):projectM5M6OwningTopic(url,window.__integrated);remember();return Response.json(body,{headers:{"X-Netshop-Data-Revision":revision}});}
+      catch(error){window.__integrated.fixturePending.push({...info,error:error.message});return deny("synthetic_fixture_pending",error.message);}
+    }
+    if(["/api/netshop/store-panorama","/api/netshop/comparison-insights","/api/netshop/insights-context"].includes(url.pathname))return deny("synthetic_source_pending","该phase尚无本范围拥有者完整夹具；仅验证实际入口/错误状态");
     if (phase === "M4" && url.pathname === "/api/netshop/promotion-insights/detail" && window.__integratedControl.childFailure) {
       const failure = window.__integratedControl.childFailure;
       const record = { ...info, status: failure.status, shape: failure.shape, deferred: !!failure.deferred, releasedAfterAbort: false };

@@ -11,7 +11,7 @@ export type ComparisonIntentV1 = {
   coverageFilter: "all" | "complete" | "partial";
 };
 /** Presentation hints only; the owning reader validates metric and object keys. */
-export const comparisonMetricKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate", "erpNetSales", "orderMargin", "largeMargin", "largeMarginAmount", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"] as const;
+export const comparisonMetricKeys = ["payment", "quantity", "visitors", "customers", "conversion", "visitorValue", "transactionOrders", "spend", "attributedPayment", "roas", "ctr", "cpc", "spendRate", "erpNetSales", "orderMargin", "largeMargin", "largeMarginAmount", "erpNetQuantity", "erpOrderCount", "averageOrderValue", "returnQuantity", "returnRate"] as const;
 export const comparisonPresentationSorts = ["value_desc", "value_asc", "growth_desc", "decline_desc", "name_asc"] as const;
 export type ComparisonPresentationPrefs = {
   schemaVersion: "comparison-ui-v1";
