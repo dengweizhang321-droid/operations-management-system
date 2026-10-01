@@ -137,6 +137,12 @@ class RealPanoramaAllSourcesTests(PanoramaRegisteredFixture):
         self.assertEqual({ref["domain"] for ref in result["joinedSourceRevisions"]}, {"netshop", "sales", "finance", "workflow"})
         self.assertEqual(result["sources"]["promotion"]["data"]["context"]["effectiveScope"]["dimension"], "sku")
         self.assertEqual(result["sources"]["finance"]["data"]["schemaVersion"], "netshop-panorama-finance-v2")
+        directory_query = {key: value for key, value in self.query.items() if key != "outlet"}
+        directory = self.get_http("/api/netshop/insights-context", directory_query, "response-owning-directory")
+        self.assertEqual(directory["requestedScope"]["platforms"], ["京东"])
+        self.assertEqual(directory["requestedScope"]["shopKeys"], [])
+        self.assertEqual(directory["requestedScope"]["dimension"], "spu")
+        self.assertEqual(directory["periods"]["current"], result["context"]["periods"]["current"])
         p = self.get_http("/api/netshop/product-insights", self.query, "response-owning-direct-products")
         self.assertEqual(p["sections"]["summary"], result["sources"]["products"]["data"]["sections"]["summary"])
         identity = json.dumps(["京东", CANONICAL, "spu", "SPU-P1"], ensure_ascii=False, separators=(",", ":"))
@@ -148,7 +154,7 @@ class RealPanoramaAllSourcesTests(PanoramaRegisteredFixture):
                       "sectionToken": a["sectionToken"]}, "response-owning-direct-promotion-detail")
         owning_revision = next(ref["revision"] for ref in result["context"]["sourceRevisions"]
                                if ref["domain"] == "netshop" and ref["kind"] == "owning_revision")
-        for name in ("response-owning-all-six", "response-owning-direct-products", "response-owning-direct-product-detail",
+        for name in ("response-owning-all-six", "response-owning-directory", "response-owning-direct-products", "response-owning-direct-product-detail",
                      "response-owning-direct-promotion", "response-owning-direct-promotion-detail"):
             self.assertEqual(self.http_headers[name]["X-Netshop-Data-Revision"], owning_revision)
 
