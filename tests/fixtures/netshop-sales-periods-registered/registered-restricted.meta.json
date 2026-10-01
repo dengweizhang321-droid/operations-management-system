@@ -1,0 +1,30 @@
+{
+  "request": {
+    "operation": "netshop_periods_v1",
+    "current": {
+      "startDate": "2026-08-01",
+      "endExclusive": "2026-08-03"
+    },
+    "baseline": {
+      "startDate": "2026-07-01",
+      "endExclusive": "2026-08-01"
+    },
+    "rawOutlets": [
+      {
+        "platform": "京东",
+        "rawShopName": "京东一店",
+        "rawChannel": "渠道B"
+      }
+    ]
+  },
+  "headers": {
+    "Content-Type": "application/json",
+    "X-Sales-Data-Revision": "7:3",
+    "X-Sales-Source-Revision": "7:3",
+    "X-Sales-Overview-Cache": "bypass_owned_periods_v1",
+    "Cache-Control": "no-store"
+  },
+  "bytes": 7263,
+  "sha256": "8b3dbfcb1167c7784ceac62baa09967b09fafbde02bf59ddbf3f165125633263",
+  "dataSource": "actual_registered_signed_loopback_synthetic_pg"
+}
