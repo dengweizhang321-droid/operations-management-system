@@ -27,6 +27,7 @@ function object(value: unknown): Record<string, unknown> { if (!value || typeof 
 function text(value: unknown, maximum = 500): value is string { return typeof value === "string" && value.length > 0 && value.length <= maximum && !/[\u0000-\u001f\u007f]/.test(value); }
 function exact(value: Record<string, unknown>, keys: string[]) { if (Object.keys(value).some(key => !keys.includes(key)) || keys.some(key => !(key in value))) fail("对比参数字段不完整或未知"); }
 function strings(value: unknown, maximum = 50, length = 500): string[] { if (!Array.isArray(value) || value.length > maximum || !value.every(v => text(v, length))) return fail("对比文本列表无效"); return value; }
+function shopKeys(value: unknown): string[] { if (!Array.isArray(value) || value.length > 50 || !value.every(v => typeof v === "string")) return fail("店铺精确键无效"); readNetshopOutletFilters(value); if (new Set(value).size !== value.length) fail("店铺精确键重复"); return value; }
 function count(value: unknown, maximum = Number.MAX_SAFE_INTEGER): number { if (!Number.isSafeInteger(value) || Number(value) < 0 || Number(value) > maximum) return fail("对比计数无效"); return Number(value); }
 function token(value: unknown): value is string { return typeof value === "string" && /^[a-f0-9]{64}$/.test(value); }
 export function decodeComparisonScope(value: unknown): ComparisonScope {
@@ -127,7 +128,7 @@ function qualification(value: unknown): ComparisonQualification {
 }
 function populationRow(value: unknown, mode: ComparisonScope["mode"], candidateShopKeys: Set<string>): ComparisonPopulationRow {
   const row = object(value); validateObjectKeys([row.objectKey], 1);
-  const shops = strings(row.shopKeys, 50, 201); readNetshopOutletFilters(shops);
+  const shops = shopKeys(row.shopKeys);
   if (new Set(shops).size !== shops.length || shops.some(key => !candidateShopKeys.has(key) || !key.startsWith(row.platform + "\u001f")) || row.kind !== mode || !["京东", "天猫"].includes(String(row.platform))) fail("对比对象不属于授权精确候选集");
   if (mode === "shop" ? !text(row.shopName, 100) || row.objectKey !== "shop:" + row.platform + "\u001f" + row.shopName || shops.length !== 1 || shops[0] !== row.platform + "\u001f" + row.shopName : row.shopName !== null || row.objectKey !== "platform:" + row.platform) fail("平台与子店不能混排或失去精确身份");
   qualification(row.qualification); strings(row.exclusionReasons, 30, 500);
@@ -192,7 +193,7 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
     if (params.has("sectionToken") && input.sectionToken !== params.get("sectionToken")) fail("对比分区版本已变化");
     validateObjectKeys(input.chartObjectKeys, 4);
     if (expected.chartObjectKeys.length && stable(input.chartObjectKeys) !== stable(expected.chartObjectKeys)) fail("图表对象未按精确选择返回");
-    if (!Array.isArray(input.joinedSourceRevisions) || input.joinedSourceRevisions.length > 300) fail("参与来源版本向量无效");
+    if (!Array.isArray(input.joinedSourceRevisions) || input.joinedSourceRevisions.length > 630) fail("参与来源版本向量无效");
     const vectorKeys = new Set<string>();
     for (const raw of input.joinedSourceRevisions) {
       const r = object(raw), key = stable([r.domain, r.kind, r.scopeKey]);
@@ -217,7 +218,7 @@ export function decodeComparisonInsights(value: unknown, params: URLSearchParams
     if (!["ready", "error", "unavailable", "dependency_pending"].includes(String(erp.state)) || erp.state === "ready" && erp.code !== null || erp.state !== "ready" && !text(erp.code, 200)) fail("ERP来源状态无效");
     if (!Array.isArray(promotion.sourceScopes) || promotion.sourceScopes.length > 4 || !Array.isArray(promotion.sourceStates) || promotion.sourceStates.length !== current.effectiveScope.platforms.length * 2) fail("推广所属范围或状态缺失");
     const coverageRefs = new Set([...Object.keys(current.coverageBySource), ...Object.keys(baseline.coverageBySource), ...Object.keys(coverage)]), sourceStateKeys = new Set<string>();
-    for (const raw of promotion.sourceScopes) { const a = object(raw); if (!["current", "baseline"].includes(String(a.period)) || !token(a.scopeKey) || !token(a.snapshotToken) || !["sku", "spu"].includes(String(a.dimension)) || !Array.isArray(a.sourceRevisions) || !a.sourceRevisions.length) fail("推广所属两期范围无效"); const keys = strings(a.shopKeys, 50, 201); readNetshopOutletFilters(keys); if (keys.some(key => !candidateShopKeys.has(key) || key.startsWith("京东\u001f") && a.dimension !== "sku" || key.startsWith("天猫\u001f") && a.dimension !== "spu")) fail("推广维度或授权店铺失配"); Object.keys(coverageRecord(a.coverageBySource)).forEach(ref => coverageRefs.add(ref)); }
+    for (const raw of promotion.sourceScopes) { const a = object(raw); if (!["current", "baseline"].includes(String(a.period)) || !token(a.scopeKey) || !token(a.snapshotToken) || !["sku", "spu"].includes(String(a.dimension)) || !Array.isArray(a.sourceRevisions) || !a.sourceRevisions.length) fail("推广所属两期范围无效"); const keys = shopKeys(a.shopKeys); if (keys.some(key => !candidateShopKeys.has(key) || key.startsWith("京东\u001f") && a.dimension !== "sku" || key.startsWith("天猫\u001f") && a.dimension !== "spu")) fail("推广维度或授权店铺失配"); Object.keys(coverageRecord(a.coverageBySource)).forEach(ref => coverageRefs.add(ref)); }
     for (const raw of promotion.sourceStates) { const s = object(raw), key = `${s.period}:${s.platform}`; if (!["current", "baseline"].includes(String(s.period)) || !current.effectiveScope.platforms.includes(s.platform as InsightPlatform) || sourceStateKeys.has(key) || !["ready", "error", "unavailable"].includes(String(s.state)) || s.state === "ready" && s.code !== null || s.state !== "ready" && !text(s.code, 200) || ["access_denied", "comparison_revision_changed"].includes(String(s.code))) fail("推广状态必须保留真实错误及权限失败关闭"); sourceStateKeys.add(key); }
     const verifyReferences = (raw: unknown) => { if (!raw || typeof raw !== "object") return; if (Array.isArray(raw)) { raw.forEach(verifyReferences); return; } const r = raw as Record<string, unknown>; if (typeof r.coverageRef === "string" && !coverageRefs.has(r.coverageRef)) fail("指标覆盖引用未指向真实两期来源"); Object.values(r).forEach(verifyReferences); };
     verifyReferences(sections);
