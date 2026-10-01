@@ -6,7 +6,7 @@ import { panoramaFixture, panoramaFixtureQuery } from "./netshop-panorama-fixtur
 const revision = "1:aaaaaaaaaaaa";
 test("single exact shop, search and bounded bottom pagination accept only the owned request", () => {
   const query = panoramaFixtureQuery();
-  assert.deepEqual(validatePanoramaQuery(query).tableScope, { q: "", page: 1, pageSize: 5, section: "performance" });
+  assert.deepEqual(validatePanoramaQuery(query).tableScope, { q: "", page: 1, pageSize: 5, section: "performance", grain: "day" });
   query.set("q", " P01 "); query.set("page", "2"); query.set("pageSize", "10");
   assert.equal(validatePanoramaQuery(query).tableScope.q, "P01");
   for (const extra of ["platform=京东", "outlet=京东%1F别店", "page=0", "pageSize=101", "q=a&q=b", "principal=admin", "category=官方", "section=unknown", "source=sales", "productIdentity=P01"]) assert.throws(() => validatePanoramaQuery(new URLSearchParams(panoramaFixtureQuery()+"&"+extra)));
@@ -27,7 +27,7 @@ test("owning P full envelope, official shop separator and true zero survive deco
   const data = decodeStorePanorama(panoramaFixture(true), panoramaFixtureQuery(), revision);
   assert.equal(data.sources.products.state, "ready");
   if (data.sources.products.state === "ready") assert.equal(data.sources.products.data.sections.summary.payment.value, 0);
-  assert.equal(data.sections.performance.state, "partial"); assert.equal(data.sections.traffic.state, "ready");
+  assert.equal(data.sections.performance.state, "partial"); assert.equal(data.sections.traffic.state, "partial");
 });
 test("a local sales 503 leaves independently trusted product sections intact", () => {
   const value = panoramaFixture(true); value.sources.sales = { state: "error", data: null, code: "service_unavailable", message: "销售暂不可用" }; value.sections.margin.state = "error";
