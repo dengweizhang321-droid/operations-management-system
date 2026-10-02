@@ -114,10 +114,18 @@ class NumericMetricPresent(Func):
 
     def as_postgresql(self, compiler, connection, **extra):
         column, params = compiler.compile(self.source_expressions[0])
-        # Owning writer canonical metrics and numeric source aliases are JSON
-        # numbers. Missing, null, strings and objects cannot prove a real zero.
-        expr = "COALESCE(" + ",".join(f"{column} -> %s" for _ in self.names) + ")"
-        return f"jsonb_typeof({expr}) = 'number'", [v for name in self.names for v in [*params, name]]
+        # This is a positive Count/Sum FILTER contract, not a public negated
+        # predicate: absent/nonobject FALSE and the former SQL NULL both exclude.
+        # Strict missing-key exists is UNKNOWN; an existing JSON null/string/
+        # object/array must still block a later numeric alias. Strict root/type
+        # guards also prevent lax array unwrapping and preserve numeric zero.
+        paths = ["@." + json.dumps(name, ensure_ascii=False) for name in self.names]
+        branches = []
+        for index, path in enumerate(paths):
+            prior = [f"(exists({previous})) is unknown" for previous in paths[:index]]
+            branches.append("(" + " && ".join([*prior, f"exists({path})", f'{path}.type() == "number"']) + ")")
+        query = 'strict $ ? (@.type() == "object") ? (' + " || ".join(branches) + ")"
+        return f"jsonb_path_exists({column}, %s::jsonpath, '{{}}'::jsonb, true)", [*params, query]
 
 
     def as_sqlite(self, compiler, connection, **extra):
