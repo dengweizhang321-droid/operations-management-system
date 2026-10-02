@@ -1,5 +1,17 @@
 # 本轮收口剩余阻断
 
+## 当前状态：2026-10-03 06:50，本节替代下方历史状态
+
+M1—M6、M7与原M8采用证据继承。正式仍Worker87/Django76f/138；原用户9月1—29五新栏目与目录503、旧总览/ERP200，生产业务验收未完成。新缓存修复作者最终3dba3b66ec3d6db4fb0e5fa03f18979079297840在22文件单写范围完成，非作者源码阻断0；Root正常无冲突合main978a6322bee9f106a226200bf37977b2204ead16、远端fetch精确同SHA并包含3dba，主工作区clean安全FF。
+
+专属Teammate m6_home_completion拥有普通tree D:\.codex\worktrees\netshop-promotion-presence-cache\运营管理系统 / codex/netshop-promotion-presence-cache，原core a9→00c、完整代际/PS后继3dba；底层缓存接口不变，新增5内部nullable字段+netshop0004，原0003守卫字节不动。根系修订也对缓存更新推进，原global→行锁/原JSON快照CAS、缺失三态与fallback、分页token失效均受审。独立foundation_review在自己的普通Q树复core+准确PS+完整profile原件；readiness_review独立控制38unit/PS10/metadata9和2万真实TOAST样本，代码作者与非作者区分。原138完整schema由实际62+76迁移建成，唯一0004/v4真实journal，前后备份/独立恢复/角色登录健康和原Python/PS备份路径通过；21证据SHA及官方candidate gate由Root/Q各自核验。
+
+实际原PrepareApp已成功：源码main978，id76b7deb901b44492b767ae50673557bb / receipt2d11452cecb3a8baed437e9fdb6378cd5d159d25aad4de131461a481369b6799 / manifest1b4472b5b82e6ecb5be88b7f5f6f3eeac94c973f7d5dbe61635e96b9b509cffe / fingerprint630f07d6553be16f0ed1464840f6e5363307ca06d49209a40ed05294c7ed566b，绑定原76f。正式父138receipt4c2已实际delta-admission verified；没有Deploy/139生产迁移/回填/新增维护。准备包独立copy范围验证与Root原canonical全2917文件重fingerprint一致，CF metadata为原Prepare R2guard生成且覆盖；最终Q报告另接。
+
+新增生产139迁移/派生回填及另一维护窗口超出原明确范围，必须以精确包/源码/影响/回退方案取得用户明确许可。原guards要求同窗口新138前备份+独立恢复，139后备份+独立恢复/Finalize必须先于Exit/Start。不得提高7秒SQL/8秒RPC/65秒/2MiB或绕门禁。正式月范围性能没有通过；2万合成资格不推全2百万行。额外真实备份副本资格因3个私有Windows executor准备失败按边界停止，0restore/SQL/derive/生产，自己空55895已正常停且精确emptyDATA移除，原backupSHA不变，不能冒完成或认source缺陷。
+
+资源：作者全私有55881/55882/55883、Q64702、独立scale55891和未恢复55895均normalstop/status3/listen0；作者首taint合成DATA保留原拒绝、guard不关；其余E证据/源码保全。无设计预览被接管。已清理19工作树/额外8闲置refs继承；候选来源、准备包、共享Node依赖/Q树、未合独有历史及其他会话附件范围保留，不因main已有3dba而删除当前来源。准确报告与准备入口在main docs/netshop-refactor/execution/20261003-combined-sql-production.md及E presence-prepared/。无新增业务下载导入/补跑、业务记录删除、强清槽、生产扩权/预算调整、n8n定义调度或外发/付费模型。
+
 ## 当前状态：2026-10-03 03:49，本节替代下方历史状态
 
 M1—M6与M7资格继承。原M8已实际采用Worker87；组合修复source21d/Django76f也已按本轮许可采用，12Ready/启动绑定、前备份独立恢复、后Backup/Verify和两轮自然watchdog通过，PostgreSQL/n8n身份保持，138迁移证据不变。真实原用户9月1—29日五新栏目/目录仍503，旧总览与ERP200；因此业务验收未完成。主线执行材料当前main f7777eb68b39d8890001f55082fee84f226922d8，准确采用/失败报告及现存恢复点见20261003-combined-sql-production.md。
