@@ -48,4 +48,19 @@ Django守护在恢复初期stale，按原已安装Restore-WatchSupervisor受保�
 
 10月3日另正常删除Root未checkout的两旧本地refs：`codex/netshop-m6-integration`/56e与`codex/netshop-runtime-peer-urls`/33a，均已远端main包含；后者同名远端8707正常删除，前者远端原不存在。原普通-d因旧upstream落后拒绝peer本地删除，复验main包含后解除该旧upstream、仍普通-d完成，没有force删除。当前context source tree保持；清理回执 `production-combined/unused-old-refs-before.json`、`unused-old-refs-completed.json`。
 
+新增已完成两项工作树清理，累计 **18受管归档+1普通移除=19**：
+
+- 平台作者 `D:\.codex\worktrees\netshop-platform-series\运营管理系统` / `codex/netshop-platform-series` / e3db：旧3受保护进程身份在外部整机重启后消失或重用已独立核实；当前无借用/锁/进程/启动依赖，5尾7471B逐SHA保全复验。Root真实附件范围应用归档为 `01a0fddc-cf79-7330-b56d-43da915df263`，目录/登记/本地与同名远端分支实际消失，main包含源；恢复附件保留。非作者资格报告 SHA `66A22C9869EB3E09ED1894A0C5D465A05B05F7756008C54BB080B183F267E378`；实际回执 `production-combined/platform-cleanup-completed.json`。
+- 就绪修复普通树 `D:\.codex\worktrees\netshop-readiness-fixes\运营管理系统` / `codex/netshop-readiness-review-fixes` / f975：必要源及测试证据E保全逐SHA、main包含、无活动借用/锁后原生Git移除。Git留下唯一已知node_modules junction，逐身份确认仅解除该链接、不递归借用目标，再移空目录/父目录；public-freeze借用缓存marker摘要保持。目录/登记/本地与同名远端分支消失，无force。回执 `readiness-fixes-cleanup-preflight/completed/postflight.json`。
+
+## 下一阶段：只准备离线可审恢复候选
+
+单JSONPath原型开发源 `0be58e2189328c74e1753a606bf8e190331d68c3` 推送保全但没有合main或采用。非作者496自造VALUES正过滤Count/Sum等价，原NULL/新FALSE差异单列；微型warm约30%改善未覆盖生产。Root最小reader明确只读、原7秒限额下的真实9月1—29日 original/current与prototype/current/previous各一次均57014（约7.06秒），没有业务行返回、未保存SQL参数或凭据。因此不继续发布该原型。
+
+窄索引的私有Micro虽然可IndexOnly，但合法长batchId完整回退的耗时仍退化，且未覆盖A五指标/原对象路径，不采用。这符合 [PostgreSQL17覆盖索引限制](https://www.postgresql.org/docs/17/indexes-index-only-scans.html)，不能将wide metrics_json塞索引后承诺消除TOAST。
+
+I已组织新的 **仅离线** 候选 `codex/netshop-promotion-presence-cache`：仅JD推广/ad五tuple，以两个mask保存完整TRUE/NULL/FALSE，加规则及精确rowhash/batch echo五nullable派生字段；未知或不匹配始终原JSON回退，writer原事务维护，业务basis更新失效，历史精确JSON快照CAS分批更新。原0003 guard不改、不加例外；缓存更新也遵守全局revision/digest，每批推进会使token失效；锁顺序先global再目标行，0row CAS savepoint撤marker。结构readiness将校验新增列/失效触发器，liveness不改。
+
+这是新增迁移/派生回填及另一采用窗口的候选准备，**生产138/76f/87保持，没有实施**。离线完整迁移、写链/并发、三态、旧源兼容和非作者审查尚在途，未给可采用结论。待精确源码/包绑定与测试收口后，必须先向用户说明新增结构、回填WAL/锁/容量、token失效、回滚及维护影响；未获该范围明确许可不能执行生产迁移或回填。设计 `E:\codex-artifacts\netshop-scheme2-20261003\JD_PROMOTION_PRESENCE_RECOVERY_DESIGN.md` 与冻结补充 `JD_PROMOTION_PRESENCE_RECOVERY_DESIGN_ADDENDUM.md`（SHA A4978E7E486BF94CF898E130E67EFB6ED22BE688CAE19D38B10CE6AA65621D57）分开保留旧备选与最终不绕守卫的决策。
+
 实际顺序回执入口：`E:\codex-artifacts\netshop-scheme2-20261003\production-combined`。
