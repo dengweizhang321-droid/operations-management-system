@@ -9,13 +9,16 @@ from calendar import monthrange
 from datetime import date
 from math import isfinite
 import json
+import re
 import time
 import uuid
 
-from django.db.models import Count, Max
+from django.db import connection
+from django.db.models import Count
 
 from .errors import NetshopApiError
 from .models import NetshopImportBatch, NetshopRow
+from .context_queries import discover_shop_names, source_latest_date
 from .query import _canonical_token, parse_outlets, revision_value
 from .store_overview import NumericMetricPresent, days, grouped_dates, periods, source_versions
 
@@ -247,23 +250,48 @@ def context_versions(platform, names, revision):
     return vector
 
 
+def _context_budget(deadline):
+    if time.monotonic() >= deadline:
+        raise NetshopApiError("共享来源读取超出预算", code="source_not_ready", status=503)
+
+
 def read_context(principal, spec, *, deadline=None):
     started = time.monotonic()
     if deadline is not None and (type(deadline) not in {int, float} or not isfinite(deadline)):
         raise NetshopApiError("共享内部读取期限无效")
     deadline = started + 65 if deadline is None else min(deadline, started + 65)
-    if started > deadline: raise NetshopApiError("共享来源读取超出预算", code="source_not_ready", status=503)
+    _context_budget(deadline)
+
+    def fence(execute, sql, params, many, context):
+        statement = re.sub(r"\A(?:\s+|/\*[\s\S]*?\*/|--[^\n]*(?:\n|$))*", "", str(sql))
+        reading = re.match(r"(?:SELECT|WITH|SHOW|EXPLAIN)\b", statement, re.I) is not None
+        if reading:
+            _context_budget(deadline)
+        value = execute(sql, params, many, context)
+        if reading:
+            _context_budget(deadline)
+        return value
+
+    # The standalone shared route owns the same fence as enclosing columns;
+    # nested readers can only shrink this deadline, never restart its budget.
+    with connection.execute_wrapper(fence):
+        return _read_context(principal, spec, deadline=deadline)
+
+
+def _read_context(principal, spec, *, deadline):
+    _context_budget(deadline)
     actor = actor_fence(principal)
     if time.monotonic() > deadline: raise NetshopApiError("共享来源读取超出预算", code="source_not_ready", status=503)
     require_supported_scope(principal)
     if principal.scope is not None and (not principal.scope["platforms"] or set(spec["platforms"])-set(principal.scope["platforms"])):
         raise NetshopApiError("共享平台超出权限", code="access_denied", status=403)
     def load(before):
+        _context_budget(deadline)
         effective, coverages, capabilities, freshness, sampled = [], {}, [], [], {}
         for platform in spec["platforms"]:
             names = [o["shopName"] for o in spec["outlets"] if o["platform"] == platform]
             if not spec["outlets"]:
-                names = list(NetshopRow.objects.filter(platform=platform).exclude(shop_name="").values_list("shop_name", flat=True).distinct().order_by("shop_name")[:MAX_SHOPS+1])
+                names = discover_shop_names(platform, MAX_SHOPS + 1)
             effective.extend(platform+"\x1f"+n for n in names)
             if len(effective) > MAX_SHOPS: raise NetshopApiError("授权店铺超过50家，请缩小范围", code="quality_incomplete", status=422)
             sampled[platform] = context_versions(platform, names, before)
@@ -273,7 +301,7 @@ def read_context(principal, spec, *, deadline=None):
             for source, dataset, fields in [(*product, PRODUCT_FIELDS), (*promotion, PROMOTION_FIELDS)]:
                 base = NetshopRow.objects.filter(platform=platform, shop_name__in=names, source=source, dataset=dataset, last_import_batch_id__in=completed)
                 ref = source+":"+dataset+":"+platform
-                freshness.append({"sourceId": ref, "dataThrough": base.aggregate(day=Max("business_date"))["day"]})
+                freshness.append({"sourceId": ref, "dataThrough": source_latest_date(base, platform, names, source, dataset)})
                 # Coverage of each actual comparison window, never union/max-day.
                 for kind in ("current", "previous", "yearAgo"):
                     if time.monotonic() > deadline: raise NetshopApiError("共享来源读取超出预算", code="source_not_ready", status=503)
