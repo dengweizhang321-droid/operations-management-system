@@ -2,6 +2,8 @@
 
 ## 当前状态：2026-10-03 06:50，本节替代下方历史状态
 
+本节后续收口：交付仅文档main已正常push/fetch为8e7d9bcff68e5821461c74851fe857332d167c35，源码仍978/3dba不变；准备包最终Q PreparedPASS，报告SHA d066fce4a61f85c2981467f186a431841965f37daa940402db44abbeffa7f40a。实际prepared-binding SHA的63位消息笔误已校准64位01547de506feaa7d29d4998eaed530089ff766a8460a1afc3a89611411f21aa8。候选author普通树现已Root native remove及普通-d local/同名remote，目录/登记/两ref0，main包含3dba、全trackedarchive+E证据保全、无活动/借用/锁，actual attachments列表无此managed项；累计20工作树（18受管+2普通）。正式Plan来源为保留的public-freeze clean8e（仅docs后继），当前author历史重放脚本路径可由main恢复，不依赖被移除目录。其余未满足条件者按原路径/理由保留。运行76f/87/138和原月503未变，无新的生产139/回填或维护许可。
+
 M1—M6、M7与原M8采用证据继承。正式仍Worker87/Django76f/138；原用户9月1—29五新栏目与目录503、旧总览/ERP200，生产业务验收未完成。新缓存修复作者最终3dba3b66ec3d6db4fb0e5fa03f18979079297840在22文件单写范围完成，非作者源码阻断0；Root正常无冲突合main978a6322bee9f106a226200bf37977b2204ead16、远端fetch精确同SHA并包含3dba，主工作区clean安全FF。
 
 专属Teammate m6_home_completion拥有普通tree D:\.codex\worktrees\netshop-promotion-presence-cache\运营管理系统 / codex/netshop-promotion-presence-cache，原core a9→00c、完整代际/PS后继3dba；底层缓存接口不变，新增5内部nullable字段+netshop0004，原0003守卫字节不动。根系修订也对缓存更新推进，原global→行锁/原JSON快照CAS、缺失三态与fallback、分页token失效均受审。独立foundation_review在自己的普通Q树复core+准确PS+完整profile原件；readiness_review独立控制38unit/PS10/metadata9和2万真实TOAST样本，代码作者与非作者区分。原138完整schema由实际62+76迁移建成，唯一0004/v4真实journal，前后备份/独立恢复/角色登录健康和原Python/PS备份路径通过；21证据SHA及官方candidate gate由Root/Q各自核验。
