@@ -34,10 +34,16 @@ Django守护在恢复初期stale，按原已安装Restore-WatchSupervisor受保�
 
 01:45:24与01:51:24两次自然watchdog实际Result0且healthy/supervisorHealthy，早期Running267009和stale记录保留。后备份待真实验收读取结束后顺序执行。未把503历史改写为通过，也未把数据缺源当作系统故障。
 
+正式非作者真实验收FAIL报告 `E:\codex-artifacts\netshop-scheme2-20261003\foundation-review\production-acceptance-combined\review-final-production-combined-fail.md`，SHA256 `95AC257995038E7A48D103D8BB9A5226E77B797132661CA998188AC52157443D`。实际同范围原ERP sales/summary200，自动旧P摘要/旧推广总览200；01切旧视图pressed且原经营明细1表/200。正常导航框架重挂载额外新reader失败单列，不称请求唯一或全部旧功能全面回归。
+
+唯一允许的旧历史9/30设备店SPU单日S LocalDirect补充一次403/access_denied、4.512秒，未伪造身份或重试，不能替代浏览器或证明六源生产闭合。Q已结束全部读取，Network观察关闭，用户页留旧总览同月范围。02:01:42原installed后Backup开始，操作ID `585a32af895c4348a0e71d264770d138`，完成结果另补。
+
 独立启动链/业务就绪新工具原baf存在健康请求头及未验证PID清理两项独立阻断。另一个隔离作者只修这两处和负例，精确源 `f9753b0d47a85e27dd8da6daad3d130053fad649` 已经原非作者复验PASS，正常合main `2fdfca029be054fe41d4fd144fcc564685cb6f37`并核验远端。独立实际12 Node、6私有HTTP预算/取消负例、PS5/7各5归属状态及原拒绝seam通过，拒绝handle Wait/Kill=0；真实启动矩阵两正两负两hash拒继承作者，明确不是非作者自己重跑。工具没有混入76f运行候选或修改现有liveness/看门狗；文档接线见 [就绪检查](../../../NETSHOP_READINESS_GATES.md)。
 
 独立报告 `E:\codex-artifacts\netshop-readiness-independent-delta-20261003-fd89910732bc47f6ad348bd7a1744c0b\PASS-DELTA.md`；旧FAIL保留。新增检查只显式用于发布，不挂定时重型查询、不扩业务授权。
 
 本轮已安全归档17棵并额外删除6个闲置本地开发refs；仍有活动预览、独有历史和未知进程依赖的树保留。无业务记录删除、强清槽、手工业务重跑/下载导入、付费模型或主动外部通知；n8n定义/调度与数据库保留。原5413 error及历史根因未知状态保留。
+
+10月3日另正常删除Root未checkout的两旧本地refs：`codex/netshop-m6-integration`/56e与`codex/netshop-runtime-peer-urls`/33a，均已远端main包含；后者同名远端8707正常删除，前者远端原不存在。原普通-d因旧upstream落后拒绝peer本地删除，复验main包含后解除该旧upstream、仍普通-d完成，没有force删除。当前context source tree保持；清理回执 `production-combined/unused-old-refs-before.json`、`unused-old-refs-completed.json`。
 
 实际顺序回执入口：`E:\codex-artifacts\netshop-scheme2-20261003\production-combined`。
