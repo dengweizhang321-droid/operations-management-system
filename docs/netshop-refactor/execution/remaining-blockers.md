@@ -1,5 +1,17 @@
 # 本轮收口剩余阻断
 
+## 当前状态：2026-10-03 01:26，本节替代下方历史状态
+
+M1—M6远端main，M7独立通过；原M8于10月2日晚实际采用，Worker87/Django6929，12组件Ready及备份/自然看门狗通过。暂停期间整机重启后原helper空槽、原5413 error保留；Root没有强清槽/故障重启/业务补跑，历史根因未确定。
+
+真实原用户浏览器五栏目503与全景三跨域错误仍是当前功能阻断。peer URL8707已合main33；最小SQL/绝对期限修复21d经非作者实际PG47/47和纯probe7/7正常合mainac319dfc、远端核验。新组合Django Prepare99e/a447/manifest76f通过独立绑定核对，原6929前驱不变、Worker87不另apply。
+
+用户选择先修SQL再一次追加维护，并授权常规技术决策。新前备份170502/8f5及Verify完成，独立E恢复a5b40bb1ca39/55897当前restore_verification；完成后新鲜全队列准入、唯一KeepPostgres维护/Deploy/Harden/Exit/Start，再做原用户浏览器五栏/六源、资源/版本、后Backup/Verify与两轮自然watchdog。此前53/51d恢复点已按原策略淘汰，不再冒现存备份。
+
+独立启动/业务就绪工具baf另有健康marker与未经验证PID清理两项FAIL，由m6_home_completion新隔离branch单写修复，readiness_review保持非作者复验；尚未合main/生产，不混入76f候选。准确执行入口为主线 docs/netshop-refactor/execution/20261003-combined-sql-production.md，原日志与实际候选SHA保留。
+
+安全归档17树及额外6闲置本地refs继承；活动预览、独有历史、未知进程依赖、当前来源和Q借用环境保留，不强制清理。无业务删除、手工真实下载导入/补跑、扩权/索引/预算调整、n8n定义调度或主动外发/付费模型。
+
 ## 当前状态：2026-10-02，本节替代下方历史表
 
 M1—M6均已远端main；M7独立通过（核心阻断0）；M8原Worker/Django候选完成且非作者绑定复核通过。准确候选源main `22a323c956c28179294b8dbfe494fd4f60ea497d`。用户已在规划原会话明确批准本次上线及维护时间，Root直接读原文核实。当前生产未切换，未进入维护。
