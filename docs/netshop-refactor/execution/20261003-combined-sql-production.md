@@ -34,17 +34,17 @@ Django守护在恢复初期stale，按原已安装Restore-WatchSupervisor受保�
 
 新reader固定脱敏日志证实 O store_overview.py:225 的七日推广原始聚合、共享 insights_common.py:311 的字段覆盖聚合出现 statement_timeout。没有权限/schema/连接错误证据；重复trace计数不当作请求数。原最小reader仅 EXPLAIN/noANALYZE 核真实月范围：推广现有 scope/date 索引 Bitmap Heap + completed HashJoin，仍有高估计成本；没有重复低估Nested Loop根因证据。JSON重复TOAST及heap I/O尚为待私有实证假说，不声称已定位全部底层原因。
 
-01:45:24与01:51:24两次自然watchdog实际Result0且healthy/supervisorHealthy，早期Running267009和stale记录保留。后备份待真实验收读取结束后顺序执行。未把503历史改写为通过，也未把数据缺源当作系统故障。
+01:45:24与01:51:24两次自然watchdog实际Result0且healthy/supervisorHealthy，早期Running267009和stale记录保留。真实验收读取结束后已顺序完成上节后备份和Verify。未把503历史改写为通过，也未把数据缺源当作系统故障。
 
 正式非作者真实验收FAIL报告 `E:\codex-artifacts\netshop-scheme2-20261003\foundation-review\production-acceptance-combined\review-final-production-combined-fail.md`，SHA256 `95AC257995038E7A48D103D8BB9A5226E77B797132661CA998188AC52157443D`。实际同范围原ERP sales/summary200，自动旧P摘要/旧推广总览200；01切旧视图pressed且原经营明细1表/200。正常导航框架重挂载额外新reader失败单列，不称请求唯一或全部旧功能全面回归。
 
-唯一允许的旧历史9/30设备店SPU单日S LocalDirect补充一次403/access_denied、4.512秒，未伪造身份或重试，不能替代浏览器或证明六源生产闭合。Q已结束全部读取，Network观察关闭，用户页留旧总览同月范围。02:01:42原installed后Backup开始，操作ID `585a32af895c4348a0e71d264770d138`，完成结果另补。
+唯一允许的旧历史9/30设备店SPU单日S LocalDirect补充一次403/access_denied、4.512秒，未伪造身份或重试，不能替代浏览器或证明六源生产闭合。Q已结束全部读取，Network观察关闭，用户页留旧总览同月范围。02:01:42原installed后Backup开始，操作ID `585a32af895c4348a0e71d264770d138`，02:12:32实际完成，准确现存恢复点见上节。
 
 独立启动链/业务就绪新工具原baf存在健康请求头及未验证PID清理两项独立阻断。另一个隔离作者只修这两处和负例，精确源 `f9753b0d47a85e27dd8da6daad3d130053fad649` 已经原非作者复验PASS，正常合main `2fdfca029be054fe41d4fd144fcc564685cb6f37`并核验远端。独立实际12 Node、6私有HTTP预算/取消负例、PS5/7各5归属状态及原拒绝seam通过，拒绝handle Wait/Kill=0；真实启动矩阵两正两负两hash拒继承作者，明确不是非作者自己重跑。工具没有混入76f运行候选或修改现有liveness/看门狗；文档接线见 [就绪检查](../../../NETSHOP_READINESS_GATES.md)。
 
 独立报告 `E:\codex-artifacts\netshop-readiness-independent-delta-20261003-fd89910732bc47f6ad348bd7a1744c0b\PASS-DELTA.md`；旧FAIL保留。新增检查只显式用于发布，不挂定时重型查询、不扩业务授权。
 
-本轮已安全归档17棵并额外删除6个闲置本地开发refs；仍有活动预览、独有历史和未知进程依赖的树保留。无业务记录删除、强清槽、手工业务重跑/下载导入、付费模型或主动外部通知；n8n定义/调度与数据库保留。原5413 error及历史根因未知状态保留。
+本轮原先安全归档17棵、删除6个闲置本地开发refs；本日新增资格和实际清理见后两段，累计19棵与额外8个闲置本地refs。仍有活动预览、独有历史及未完成候选/审查环境保留。无业务记录删除、强清槽、手工业务重跑/下载导入、付费模型或主动外部通知；n8n定义/调度与数据库保留。原5413 error及历史根因未知状态保留。
 
 10月3日另正常删除Root未checkout的两旧本地refs：`codex/netshop-m6-integration`/56e与`codex/netshop-runtime-peer-urls`/33a，均已远端main包含；后者同名远端8707正常删除，前者远端原不存在。原普通-d因旧upstream落后拒绝peer本地删除，复验main包含后解除该旧upstream、仍普通-d完成，没有force删除。当前context source tree保持；清理回执 `production-combined/unused-old-refs-before.json`、`unused-old-refs-completed.json`。
 
@@ -62,5 +62,15 @@ Django守护在恢复初期stale，按原已安装Restore-WatchSupervisor受保�
 I已组织新的 **仅离线** 候选 `codex/netshop-promotion-presence-cache`：仅JD推广/ad五tuple，以两个mask保存完整TRUE/NULL/FALSE，加规则及精确rowhash/batch echo五nullable派生字段；未知或不匹配始终原JSON回退，writer原事务维护，业务basis更新失效，历史精确JSON快照CAS分批更新。原0003 guard不改、不加例外；缓存更新也遵守全局revision/digest，每批推进会使token失效；锁顺序先global再目标行，0row CAS savepoint撤marker。结构readiness将校验新增列/失效触发器，liveness不改。
 
 这是新增迁移/派生回填及另一采用窗口的候选准备，**生产138/76f/87保持，没有实施**。离线完整迁移、写链/并发、三态、旧源兼容和非作者审查尚在途，未给可采用结论。待精确源码/包绑定与测试收口后，必须先向用户说明新增结构、回填WAL/锁/容量、token失效、回滚及维护影响；未获该范围明确许可不能执行生产迁移或回填。设计 `E:\codex-artifacts\netshop-scheme2-20261003\JD_PROMOTION_PRESENCE_RECOVERY_DESIGN.md` 与冻结补充 `JD_PROMOTION_PRESENCE_RECOVERY_DESIGN_ADDENDUM.md`（SHA A4978E7E486BF94CF898E130E67EFB6ED22BE688CAE19D38B10CE6AA65621D57）分开保留旧备选与最终不绕守卫的决策。
+
+离线最终作者候选为 `00c6f642fb4228f1c91a2e03844a1140a8fd6fd0`，干净远端分支 `codex/netshop-promotion-presence-cache`；20拥有者文件Root对作者磁盘SHA清单全部匹配。三处作者磁盘CRLF、Git/Q清洁源码LF导致原字节SHA不同，Root逐二进制归一复验20/20内容与准确Git相同，映射 `presence-cache-author-git-provenance.json` / SHA `ecb7f787baec1bad35a196b992dd3a1ab1b997852bd8a9dfd239b2094884652f`；不把作者原字节清单说成Git原字节清单。尚未合main、Prepare或生产采用。作者最终49实际私有PG、38unit、PS5/7各5通过；早前core独立57+2私有验证只覆盖core版本，不能替代最终新增代际与catalog delta的复核。作者原交接明确没有完整138→139备份/profile及应用生命周期证据，当前安排纯自造完整schema的官方函数演练和两名非作者分工复核。准确交接 `E:\codex-artifacts\netshop-scheme2-20261003\presence-cache-author-20261003-07\FINAL-HANDBACK.md`；具体采用和回退待审方案 `E:\codex-artifacts\netshop-scheme2-20261003\PRESENCE-CACHE-ADOPTION-PLAN.md`。
+
+原正式代际控制器要求同一维护标记时间之后的新138前备份及独立恢复；139后备份、独立恢复与Finalize也须应用停止、保持同一维护。必须在Finalize后再Exit/Start，不能把普通应用维护的先启动后备份顺序套用。新方案窗口包括这些重型步骤，尚未声称可短窗口采用；原安全门槛不放宽。
+
+最终补证实际发现原PowerShell备份校验仍硬138；未放宽为>=，唯一作者只改NoKeys代际符号和专属PS测试，后继 `3dba3b66ec3d6db4fb0e5fa03f18979079297840`：完整原138集合固定Ordinal/canonical SHA，139须只增加唯一0004，真实标量类型、重复/未知/缺项/表计数不一致均拒。作者与非作者分别PS5/7各2正、8集合负、9类型负实际通过；原数组类型反例已拒。最后作者真实139 Python备份、新PS载荷验证、独立新DATA恢复及AI reader/writer实际登录健康均通过，295表/308合成行/31角色。原完整138由实际62+76步骤构建，并先真实备份/独立恢复；不是插入138条假记录。21见证SHA、真实before138 roles/authority/catalog witness、唯一0004原引擎intent/outcome和139内容/角色/权限完整根由非作者独立审核；Q明确此准确源码可正常合main和进入候选准备，未闭源码阻断0。Root与Q分别实际官方candidate gate verified，候选证据SHA `9a1245bfebdc15eefd1a324d62ea597ce1ed748ac8d60d676b17bb466c0befda`，独立证据核验 `q-final-evidence-audit-3dba.json` / SHA `51cef3369fa4515a94ac379b7dbd7e5004c8db0b94b2d4c067a4b1e353ea6b21`。正式context/生产生命周期没有执行；旧拒绝日志、两次私有harness失败和已停用tainted合成DATA保留。最终证据入口 `presence-full-rehearsal-00c6-01/candidate-evidence-final/README.md`。
+
+非作者2万条真实TOAST合成范围完成有限核心SQL资格：完整八Sum/五presence Count、owner/title/分组结果592251B同hash且匹配oracle。保全原续测0.694秒、cache冷首0.151秒、warm0.149秒；TOAST堆122880000B，缓存样本观测TOAST访问0。单SQL7秒保持，原首样本耗时未保全、续测经重启不能叫raw warm，异步IO和OS缓存未知、两harness失败分列，不称P95/正式月范围/整体RPC通过。私有55891正常停止、监听0。报告 `E:\codex-artifacts\presence-scale-independent-20261003-8b6286021a9843fd9f1fa3b41a05522c\FINAL-SCALE-REVIEW.md` / SHA `c190e0b730189949edb4b6ba51b541a1fe2960d9ca8a3dff3ddec25581d3ee6c`。现存后备份netshop_rows元数据1,999,139行，不能由2万合成样本推导正式所有范围预算。
+
+Root只读核实际Worker87全部19声明artifact匹配、实际无sibling Django库，原canonical successor resolver确认effective87而非旧bootstrap pointer；非作者静态补记确认维护与普通Start均委托installed Django，此Django-only候选本身不要求重建Worker。此为静态包闭包，真实139/Start尚未执行。补记 `WORKER87-STATIC-ADDENDUM.json` / SHA `644405ed7ece1f82d52febd22c4cbdc284e4a9b9fec78f34afab9328595206d2`。
 
 实际顺序回执入口：`E:\codex-artifacts\netshop-scheme2-20261003\production-combined`。
