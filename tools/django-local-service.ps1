@@ -2895,6 +2895,8 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_DATABASE_URL", "TERUISI_DJANGO_INTERNAL_SECRET",
     "DJANGO_SECRET_KEY", "DJANGO_DEBUG", "DJANGO_ALLOWED_HOSTS",
     "TERUISI_DJANGO_ENVIRONMENT", "TERUISI_DJANGO_PROCESS_ROLE",
+    "TERUISI_DJANGO_SALES_READER_BASE_URL", "TERUISI_DJANGO_FINANCE_READER_BASE_URL",
+    "TERUISI_DJANGO_WORKFLOW_READER_BASE_URL",
     "TERUISI_DJANGO_EXPECT_READ_ONLY", "TERUISI_DJANGO_SALES_CACHE_SECONDS",
     "TERUISI_DJANGO_ERP_SYNC_MAX_AGE_SECONDS",
     "TERUISI_DJANGO_LOG_LEVEL", "TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS",
@@ -2929,6 +2931,11 @@ function Invoke-WithDjangoEnvironment(
     $env:DJANGO_ALLOWED_HOSTS = "127.0.0.1,localhost"
     $env:TERUISI_DJANGO_ENVIRONMENT = "production"
     $env:TERUISI_DJANGO_PROCESS_ROLE = $ProcessRole
+    if ($ProcessRole -eq "netshop_reader") {
+      $env:TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:8001"
+      $env:TERUISI_DJANGO_FINANCE_READER_BASE_URL = "http://127.0.0.1:8011"
+      $env:TERUISI_DJANGO_WORKFLOW_READER_BASE_URL = "http://127.0.0.1:8061"
+    }
     $env:TERUISI_DJANGO_EXPECT_READ_ONLY = if ($ExpectReadOnly) { "true" } else { "false" }
     $env:TERUISI_DJANGO_SALES_CACHE_SECONDS = if ($ProcessRole -eq "reader") { "300" } else { "0" }
     $env:TERUISI_DJANGO_ERP_SYNC_MAX_AGE_SECONDS = "60"
@@ -3100,7 +3107,12 @@ function Invoke-WithDjangoEnvironment(
     & $Operation
   } finally {
     foreach ($name in $names) {
-      [Environment]::SetEnvironmentVariable($name, $previous[$name], "Process")
+      if ($name -in @("TERUISI_DJANGO_SALES_READER_BASE_URL", "TERUISI_DJANGO_FINANCE_READER_BASE_URL", "TERUISI_DJANGO_WORKFLOW_READER_BASE_URL") -and $null -eq $previous[$name]) {
+        # PS7/.NET preserves an empty string; NullString restores actual absence.
+        [Environment]::SetEnvironmentVariable($name, [NullString]::Value, "Process")
+      } else {
+        [Environment]::SetEnvironmentVariable($name, $previous[$name], "Process")
+      }
     }
     $DatabaseUrl = $null
   }
