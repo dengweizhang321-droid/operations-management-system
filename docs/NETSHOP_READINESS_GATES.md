@@ -67,6 +67,8 @@ node --import tsx tools/netshop-business-readiness.ts `
 
 Windows PowerShell5和PowerShell7分别对真实准备候选与未含peer注入的主线基线执行原启动函数/原受管进程、Waitress/Django WSGI。两种来源的liveness均通过，但旧基线在两版本中都因三路配置缺失明确失败；修复候选通过。该正反例能够重现本次“进程可用但依赖配置缺失”的遗漏。
 
+可复用矩阵入口为 `tests/netshop-startup-chain.integration.ps1`，参数为 `PatchedCandidateRoot`、`BaselineCandidateRoot`、`PythonPath`、`ExpectedPythonVersion`、`EvidenceRoot`。本次负向基线固定为 `56e236e4`；main后来合入配置补丁后不能再把当前HEAD当作预期失败基线。应使用经核实的旧提交隔离检出或只读导出，不反向修改生产目录。矩阵还验证两版PowerShell对错误候选摘要都在启动前拒绝。
+
 业务工具使用现有独立PostgreSQL生成的完整六来源捕获，经原解码器核验，再通过独立动态端口HTTP验证运输、内部失败和脱敏。另测403、重定向、非法UTF8、超长响应、真实慢HTTP超时、取消和不完整DTO。它们证明工具行为，不冒充新的生产经营数据或全栈生产验收。
 
 本轮不修改正式控制器/公共路由，三peer配置补丁仍由原总控独立维护；本工具不能替代其审查或授权。本轮也未修复业务SQL超时，配置、传输和查询问题分别记录。
