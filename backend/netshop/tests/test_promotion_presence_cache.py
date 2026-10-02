@@ -243,6 +243,29 @@ class PromotionPresenceCacheTests(TestCase):
         self.assertIsNone(row.numeric_presence_mask)
         self.assertEqual(NetshopDataRevision.objects.get(domain="netshop").revision, before)
 
+    def test_cursor_exhaustion_with_real_zero_row_cas_does_not_claim_verified_cache(self):
+        row = self.row({"花费": 0}, cached=False)
+        before = NetshopDataRevision.objects.get(domain="netshop").revision
+        # Exercise a real 0-row SQL CAS/savepoint while deterministically
+        # representing a disappeared snapshot identity at the operation seam.
+        def absent_identity(cursor, record, values):
+            return apply_snapshot(cursor, (-1, *record[1:]), values)
+        with tempfile.TemporaryDirectory() as directory, patch(
+                "netshop.management.commands.backfill_netshop_promotion_presence.apply_snapshot",
+                side_effect=absent_identity):
+            path = Path(directory) / "miss"
+            call_command("backfill_netshop_promotion_presence", execute=True, confirmed_cache_only=True,
+                         progress_dir=str(path), stdout=io.StringIO())
+            receipt = json.loads((path / "complete.json").read_text())
+            self.assertTrue(receipt["exhausted"])
+            self.assertFalse(receipt["allCacheVerified"])
+            self.assertTrue(receipt["needsRescan"])
+            self.assertEqual(receipt["casMissTotal"], 1)
+            self.assertEqual(receipt["changedTotal"], 0)
+        row.refresh_from_db()
+        self.assertIsNone(row.numeric_presence_mask)
+        self.assertEqual(NetshopDataRevision.objects.get(domain="netshop").revision, before)
+
     def test_minimum_private_writer_can_fire_invoker_invalidator_without_function_execute(self):
         row = self.row({"花费": 0})
         role = "presence_role_" + uuid4().hex[:12]
@@ -258,6 +281,23 @@ class PromotionPresenceCacheTests(TestCase):
                 cursor.execute('RESET ROLE')
         row.refresh_from_db()
         self.assertIsNone(row.numeric_presence_mask)
+
+    def test_internal_cache_fields_are_not_dataset_descriptors_or_requestable_columns(self):
+        from system_datasets.catalog import SPECS, describe
+        from system_datasets.reader import query
+        from ai_assistant.policy import AiError
+        from sales.auth import Principal
+        spec = SPECS["rows_netshop_rows"]
+        descriptor = describe(spec, True)
+        self.assertEqual(set(spec["fields"]) | set(spec["excludedFields"]), {field.attname for field in NetshopRow._meta.concrete_fields})
+        self.assertFalse(set(spec["fields"]) & set(spec["excludedFields"]))
+        for name in FIELDS:
+            self.assertIn(name, spec["excludedFields"])
+            self.assertNotIn(name, spec["fields"])
+            self.assertNotIn(name, json.dumps(descriptor))
+            self.assertNotIn(spec["excludedFields"][name], json.dumps(descriptor, ensure_ascii=False))
+            with self.assertRaises(AiError):
+                query(spec["id"], {"columns": [name]}, Principal("synthetic@example.invalid", "Synthetic", "admin", None))
 
 
 @skipUnless(connection.vendor == "postgresql", "Requires real PG commit and independent connections")

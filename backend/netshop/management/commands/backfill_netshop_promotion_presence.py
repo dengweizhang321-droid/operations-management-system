@@ -157,25 +157,32 @@ class Command(BaseCommand):
         run_id = uuid.uuid4().hex
         common = {"runId": run_id, "kind": "cache-maintenance", "rule": RULE,
                   "execute": options["execute"], "businessSuccess": False,
+                  "allCacheVerified": False, "needsIndependentVerification": True,
                   "revisionPolicy": "original-global-revision-per-changed-batch"}
         write_receipt(directory, "start.json", {**common, "afterId": options["after_id"]})
         after_id = options["after_id"]
+        totals = {"scannedTotal": 0, "changedTotal": 0, "casMissTotal": 0}
         try:
             for number in range(1, options["max_batches"] + 1):
                 # Persist intention before SQL; absent completion is explicitly
                 # uncertain after a crash. A fresh run can safely CAS/recheck.
                 write_receipt(directory, f"batch-{number:04d}-intent.json", {**common, "afterId": after_id})
                 result = run_batch(after_id, options["batch_size"], options["execute"], run_id, number)
+                totals["scannedTotal"] += result["scanned"]
+                totals["changedTotal"] += result["changed" if options["execute"] else "wouldChange"]
+                totals["casMissTotal"] += result["casMiss"]
                 write_receipt(directory, f"batch-{number:04d}-complete.json", {**common, **result})
                 self.stdout.write(json.dumps({**common, **result}, ensure_ascii=False, sort_keys=True))
                 after_id = result["afterId"]
                 if result["scanned"] < options["batch_size"]:
                     break
-            write_receipt(directory, "complete.json", {**common, "afterId": after_id,
+            write_receipt(directory, "complete.json", {**common, **totals, "afterId": after_id,
                           "status": "bounded-run-completed",
+                          "needsRescan": True,
                           "exhausted": result["scanned"] < options["batch_size"]})
         except BaseException:
             # Database exceptions can contain bound JSON. Never emit their text.
-            write_receipt(directory, "failed.json", {**common, "lastCompletedAfterId": after_id,
+            write_receipt(directory, "failed.json", {**common, **totals, "lastCompletedAfterId": after_id,
+                          "needsRescan": True,
                           "status": "stopped-review-intent-vs-completion"})
             raise CommandError("缓存维护停止；仅检查元数据receipt，未完成意图不能当成功") from None

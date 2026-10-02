@@ -22,6 +22,7 @@ param(
   [string]$PreparedAppSha256 = "",
   [string]$IntegrationEvidencePath = "",
   [string]$IntegrationEvidenceSha256 = "",
+  [string]$IntegrationOperationId = "",
   [switch]$KeepPostgres,
   [switch]$Json,
   [switch]$Execute
@@ -1748,7 +1749,34 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if ((Test-Path -LiteralPath $integrationGate -PathType Leaf) -and
       (Test-Path -LiteralPath $integrationPolicy -PathType Leaf)) {
     $arguments = @($integrationGate)
-    if ($Operation -cin @('PrepareApp','DeployApp') -and
+    $explicitDeltaEvidence = $false
+    if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and
+        $IntegrationEvidenceSha256 -cmatch '^[0-9a-f]{64}$' -and
+        (Test-Path -LiteralPath $IntegrationEvidencePath -PathType Leaf) -and
+        (Get-FileSha256 $IntegrationEvidencePath) -ceq $IntegrationEvidenceSha256) {
+      $reviewedEvidence = Read-JsonFile $IntegrationEvidencePath 'Explicit integration candidate evidence'
+      $explicitDeltaEvidence = [string]$reviewedEvidence.generation -ceq 'teruisi-integration-migration-plan-v4-netshop-presence'
+    }
+    if ($Operation -ceq 'PrepareApp' -and $explicitDeltaEvidence) {
+      if ($IntegrationEvidenceSha256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Explicit integration evidence digest is required' }
+      # The approved JSON selects v4 explicitly; merely shipping a v4 file never
+      # authorizes a different generation. The parent release is reverified.
+      $arguments += @('delta-admission', '--root', $candidateRoot, '--runtime', $RuntimeRoot,
+        '--evidence', $IntegrationEvidencePath, '--approved-sha256', $IntegrationEvidenceSha256)
+    } elseif ($Operation -ceq 'DeployApp' -and -not [string]::IsNullOrWhiteSpace($IntegrationOperationId)) {
+      if ($IntegrationOperationId -cnotmatch '^[0-9a-f]{32}$' -or
+          $IntegrationEvidenceSha256 -cnotmatch '^[0-9a-f]{64}$' -or [string]::IsNullOrWhiteSpace($IntegrationEvidencePath)) {
+        throw 'Delta deployment requires exact operation and approved evidence'
+      }
+      $admission = Invoke-BoundedNativeProcess $Python @($integrationGate, 'delta-admission',
+        '--root', $candidateRoot, '--runtime', $RuntimeRoot, '--evidence', $IntegrationEvidencePath,
+        '--approved-sha256', $IntegrationEvidenceSha256) $candidateRoot
+      $proof = ConvertFrom-UniqueNativeJson $admission 'Verify explicit delta deployment evidence'
+      if ([string]$proof.status -cne 'verified') { throw 'Delta deployment evidence refused' }
+      $deltaPlan = Read-JsonFile (Join-Path $RuntimeRoot ('integration-deltas\' + $IntegrationOperationId + '\plan.json')) 'Exact delta plan'
+      if ($deltaPlan.candidateEvidenceSha256 -cne $IntegrationEvidenceSha256) { throw 'Delta plan differs from approved evidence' }
+      $arguments += @('deployment', '--root', $candidateRoot, '--runtime', $RuntimeRoot, '--operation-id', $IntegrationOperationId)
+    } elseif ($Operation -cin @('PrepareApp','DeployApp') -and
         (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'integration-release.json') -PathType Leaf)) {
       # A successor with byte-equivalent migration sources needs no database
       # upgrade. New/rewritten migrations still fail the published generation.
@@ -1899,6 +1927,7 @@ function Prepare-Application {
       "tools\integration_migration_journal.py",
       "tools\django-integration-install.ps1",
       "config\integration-migration-policy-v3.json",
+      "config\integration-migration-policy-v4-netshop-presence.json",
       "drizzle\0090_sales_write_authority.sql",
       "drizzle\0091_erp_reference_projection.sql",
       "drizzle\0092_sales_domain_retirement.sql",
@@ -1958,6 +1987,11 @@ print(json.dumps({'same':migration_digest(Path(sys.argv[1]))==migration_digest(P
         # Source approval evolves with maintenance code. The runtime retains
         # the original installed generation policy and its immutable journal.
         Copy-Item -LiteralPath $installedIntegrationPolicy -Destination (Join-Path $staging 'config\integration-migration-policy-v3.json') -Force
+        $installedDeltaPolicy = Join-Path $InstalledAppRoot 'config\integration-migration-policy-v4-netshop-presence.json'
+        if ((Test-Path -LiteralPath (Join-Path $RuntimeRoot 'integration-active-generation.json') -PathType Leaf) -and
+            (Test-Path -LiteralPath $installedDeltaPolicy -PathType Leaf)) {
+          Copy-Item -LiteralPath $installedDeltaPolicy -Destination (Join-Path $staging 'config\integration-migration-policy-v4-netshop-presence.json') -Force
+        }
       }
     }
     Assert-WranglerLocalR2RoundTrip $staging
@@ -3178,7 +3212,7 @@ function Invoke-DjangoMigrations(
     if ((Get-CanonicalPath $RuntimeRoot) -ieq 'D:\teruisi-runtime\django-sales' -and
         (Test-Path -LiteralPath $integrationGate -PathType Leaf)) {
       $env:DJANGO_SETTINGS_MODULE = 'teruisi_backend.settings'
-      $check = Invoke-BoundedNativeProcess $Python @($integrationGate, 'database', '--root', $ExecutionRoot) $BackendRoot
+      $check = Invoke-BoundedNativeProcess $Python @($integrationGate, 'database', '--root', $ExecutionRoot, '--runtime', $RuntimeRoot) $BackendRoot
       $verified = ConvertFrom-UniqueNativeJson $check 'Verify completed integration migrations'
       if ([string]$verified.status -cne 'verified') { throw 'Protected migration plan is incomplete' }
     }

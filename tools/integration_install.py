@@ -14,10 +14,11 @@ import sys
 
 import psycopg
 from psycopg import sql
-from integration_migration_plan import build_plan, canonical, digest, load_policy, PlanBlocked
+from integration_migration_plan import build_plan, canonical, digest, load_policy, PlanBlocked, DELTA_VERSION
 from integration_migration_journal import Journal, _write_new, apply_one
 from integration_release_gate import (VERSION, POLICY, migration_digest, read_json,
-    verify_backup_restore, verify_deployment)
+    verify_backup_restore, verify_deployment, DELTA_POLICY, DELTA_RELEASE, DELTA_ACTIVE,
+    delta_directory, verify_delta_deployment)
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = Path(r"D:\teruisi-runtime\django-sales")
@@ -36,14 +37,18 @@ def apply_django_step(approved, journal, inspect, use_role):
     return apply_one(journal, approved, inspect, execute)
 
 
-def context(runtime):
+def context(runtime, operation_id=None):
     if Path(runtime).resolve() != RUNTIME.resolve():
         raise PlanBlocked("formal installer runtime is not the fixed production root")
-    plan, plan_sha = read_json(RUNTIME / "integration-install-plan.json")
-    operation_root = RUNTIME / "integration-installs" / str(plan.get("operationId", ""))
+    if operation_id is not None:
+        operation_root = delta_directory(RUNTIME, operation_id)
+        plan, plan_sha = read_json(operation_root / "plan.json")
+    else:
+        plan, plan_sha = read_json(RUNTIME / "integration-install-plan.json")
+        operation_root = RUNTIME / "integration-installs" / str(plan.get("operationId", ""))
     if ROOT != (operation_root / "source").resolve():
         raise PlanBlocked("formal installer must run from its protected source snapshot")
-    verified = verify_deployment(RUNTIME / "app", RUNTIME, after_deployment=True)
+    verified = verify_delta_deployment(RUNTIME / "app", RUNTIME, operation_id, after_deployment=True) if operation_id else verify_deployment(RUNTIME / "app", RUNTIME, after_deployment=True)
     if verified != plan:
         raise PlanBlocked("installation plan changed while checking context")
     return operation_root, plan, plan_sha
@@ -69,9 +74,12 @@ def bootstrap(admin, policy, operation_root, binding):
         "status": "committed", "roleCount": len(policy.bootstrap_roles)})
 
 
-def install(runtime):
-    operation_root, approved, plan_sha = context(runtime)
-    policy = load_policy(ROOT / POLICY)
+def install(runtime, operation_id=None):
+    operation_root, approved, plan_sha = context(runtime, operation_id)
+    delta = approved.get("generation") == DELTA_VERSION
+    if bool(operation_id) != delta:
+        raise PlanBlocked("installation generation must be explicitly selected")
+    policy = load_policy(ROOT / (DELTA_POLICY if delta else POLICY))
     sys.path.insert(0, str(ROOT / "backend"))
     os.environ["DJANGO_SETTINGS_MODULE"] = "teruisi_backend.settings"
     import django
@@ -116,7 +124,7 @@ def install(runtime):
                             raise PlanBlocked("migration connection identity or privileges changed")
 
                 def inspect():
-                    _, current, current_sha = context(runtime)
+                    _, current, current_sha = context(runtime, operation_id)
                     if current_sha != plan_sha or current != approved:
                         raise PlanBlocked("maintenance or installation binding changed")
                     use_role(False)
@@ -130,14 +138,28 @@ def install(runtime):
                     raise PlanBlocked("installer requires an untouched baseline; partial results need audit")
                 directory = operation_root / "migration-journal"
                 directory.mkdir()
-                journal = Journal(directory, approved["operationId"])
+                journal = Journal(directory, approved["operationId"], generation=policy.version,
+                    baseline_witness=approved["operationWitness"] if delta else None)
                 journal.initialize(before)
-                bootstrap(admin, policy, operation_root, binding)
+                if delta:
+                    from postgres_no_key_backup import verify_closed_profile, role_contract
+                    with admin.transaction():
+                        verify_closed_profile(admin)
+                        if digest(role_contract(admin)) != approved["operationWitness"]["rolesSha256"]:
+                            raise PlanBlocked("delta ordinary/protected role witness changed")
+                        admin.execute("SET LOCAL TIME ZONE 'UTC'")
+                        hashes = admin.execute("SELECT sha256(convert_to(row_to_json(t)::text,'UTF8')) "
+                            "FROM public.netshop_write_authority t ORDER BY 1").fetchall()
+                        authority = hashlib.sha256(b''.join(value for (value,) in hashes)).hexdigest()
+                        if authority != approved["operationWitness"]["authoritySha256"]:
+                            raise PlanBlocked("delta authority witness changed")
+                else:
+                    bootstrap(admin, policy, operation_root, binding)
                 models_before = admin.execute("SELECT id,model_type,max_total_tool_calls,version "
                     "FROM ai_models ORDER BY id").fetchall()
                 while before.next_step:
                     before = apply_django_step(before, journal, inspect, use_role)
-                expected = [(key,kind,300 if kind in ("text","vision") and limit == 74 else limit,
+                expected = models_before if delta else [(key,kind,300 if kind in ("text","vision") and limit == 74 else limit,
                     version+1 if kind in ("text","vision") and limit == 74 else version)
                     for key,kind,limit,version in models_before]
                 if admin.execute("SELECT id,model_type,max_total_tool_calls,version FROM ai_models ORDER BY id").fetchall() != expected:
@@ -145,12 +167,22 @@ def install(runtime):
                 from postgres_no_key_backup import verify_closed_profile
                 with admin.transaction():
                     verify_closed_profile(admin)
-                result = {"version": VERSION, "status": "schema_installed",
+                result = {"version": DELTA_RELEASE if delta else VERSION, "status": "schema_installed",
                     "operationId": approved["operationId"], "policySha256": policy.sha256,
                     "migrationSha256": migration_digest(ROOT), "bindingSha256": binding,
                     "journalCommittedSteps": len(before.completed), "journalSha256": journal.complete_digest(before),
                     "modelBudgetAndVersionsVerified": True}
+                if delta:
+                    result.update(generation=DELTA_VERSION,
+                        baselineWitnessSha256=approved["baselineWitnessSha256"],
+                        operationWitnessSha256=approved["operationWitnessSha256"])
                 _write_new(operation_root / "evidence/installed.json", result)
+                if delta:
+                    _write_new(RUNTIME / "integration-active-generation.json", {
+                        "version": DELTA_ACTIVE, "generation": DELTA_VERSION,
+                        "operationId": approved["operationId"],
+                        "installedSha256": hashlib.sha256(canonical(result)).hexdigest(),
+                        "candidateManifestSha256": approved["candidateManifestSha256"]})
                 return result
             finally:
                 admin.execute("SELECT pg_advisory_unlock(%s)", [LOCK])
@@ -160,8 +192,9 @@ def install(runtime):
         connection.settings_dict.update(original)
 
 
-def finalize(runtime):
-    operation_root, plan, _ = context(runtime)
+def finalize(runtime, operation_id=None):
+    operation_root, plan, _ = context(runtime, operation_id)
+    delta = plan.get("generation") == DELTA_VERSION
     installed, installed_sha = read_json(operation_root / "evidence/installed.json")
     _, after_backup_sha = read_json(operation_root / "evidence/after-backup.json")
     _, after_restore_sha = read_json(operation_root / "evidence/after-restore.json")
@@ -171,13 +204,16 @@ def finalize(runtime):
         raise PlanBlocked("post-install backup came from a different deployed application")
     if (installed.get("status") != "schema_installed" or installed.get("policySha256") != plan["policySha256"]
             or installed.get("migrationSha256") != plan["migrationSha256"]
-            or installed.get("journalCommittedSteps") != 76):
+            or installed.get("journalCommittedSteps") != (1 if delta else 76)):
         raise PlanBlocked("installation outcome is incomplete")
-    receipt = {"version": VERSION, "status": "verified", "operationId": plan["operationId"],
+    receipt = {"version": DELTA_RELEASE if delta else VERSION, "status": "verified", "operationId": plan["operationId"],
         "migrationSha256": plan["migrationSha256"], "policySha256": plan["policySha256"],
         "installedSha256": installed_sha, "afterBackupSha256": after_backup_sha,
         "afterRestoreSha256": after_restore_sha}
-    _write_new(RUNTIME / "integration-release.json", receipt)
+    if delta:
+        receipt.update(generation=DELTA_VERSION, baselineWitnessSha256=plan["baselineWitnessSha256"],
+                       operationWitnessSha256=plan["operationWitnessSha256"])
+    _write_new(operation_root / "release.json" if delta else RUNTIME / "integration-release.json", receipt)
     return receipt
 
 
@@ -186,11 +222,12 @@ def main():
     parser.add_argument("action", choices=("install", "finalize"))
     parser.add_argument("--runtime", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--operation-id")
     args = parser.parse_args()
     try:
         if not args.execute:
             raise PlanBlocked("explicit execution is required")
-        result = install(args.runtime) if args.action == "install" else finalize(args.runtime)
+        result = install(args.runtime, args.operation_id) if args.action == "install" else finalize(args.runtime, args.operation_id)
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     except Exception as error:
         print(json.dumps({"status": "blocked", "errorType": type(error).__name__,
