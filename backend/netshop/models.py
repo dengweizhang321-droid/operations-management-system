@@ -74,6 +74,13 @@ class NetshopRow(models.Model):
     metrics_json = models.JSONField(default=dict)
     raw_json = models.JSONField(default=dict)
 
+    # Optional exact-basis cache. These fields never enter business DTO/hash.
+    numeric_presence_mask = models.BigIntegerField(null=True)
+    numeric_presence_null_mask = models.BigIntegerField(null=True)
+    numeric_presence_rule = models.CharField(max_length=32, null=True)
+    numeric_presence_row_hash = models.CharField(max_length=64, null=True)
+    numeric_presence_batch_id = models.CharField(max_length=1024, null=True)
+
     # Typed projections are populated and revalidated by the Django writer.
     # JSON is retained for audit and forward-compatible source fields, while
     # all page metrics use integer PostgreSQL columns rather than floating JSON.

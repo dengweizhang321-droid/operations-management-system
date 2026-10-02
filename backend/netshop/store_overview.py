@@ -14,6 +14,7 @@ import time
 import json
 
 from django.db.models import BooleanField, Count, F, Func, Max, Q, Sum
+from django.db.models.expressions import Col
 
 from sales.summary import _custom_comparison_period, _period_for
 from sales.query import add_years
@@ -22,6 +23,7 @@ from .models import (NetshopRow, NetshopImportBatch, NetshopPromotionShopDaily,
                      NetshopPromotionAggregateManifest, NetshopPromotionAggregateState,
                      NetshopProductDailyScopeRevision, NetshopPromotionScopeRevision)
 from .query import period, positive, parse_outlets, _canonical_token, revision_value
+from .promotion_presence import BITS, MAX_MASK, RULE
 
 MAX_SAFE = 9_007_199_254_740_991
 KEYS = ("payment", "visitors", "customers", "spend", "promotionPayment", "spendRate", "conversion", "roas", "averageOrder", "uvValue", "paidVisitors", "freeVisitors", "b2bRate")
@@ -106,18 +108,67 @@ class NumericMetricPresent(Func):
     output_field = BooleanField()
 
     def __init__(self, names):
-        self.names = names
+        self.names = tuple(names)
         super().__init__(F("metrics_json"))
 
     def as_sql(self, compiler, connection, **extra):
         return self.as_postgresql(compiler, connection, **extra) if connection.vendor == "postgresql" else self.as_sqlite(compiler, connection, **extra)
+
+    def resolve_expression(self, query=None, allow_joins=True, reuse=None, summarize=False, for_save=False):
+        result = super().resolve_expression(query, allow_joins, reuse, summarize, for_save)
+        source = result.source_expressions[0]
+        result._cache_bit = None
+        if (BITS.get(self.names) and isinstance(source, Col) and source.target.model is NetshopRow
+                and source.target.name == "metrics_json"):
+            # Register real source expressions *before* aggregate/subquery
+            # projection and alias relabeling. SQL-only Col creation is unsafe.
+            result._cache_bit = BITS[self.names]
+            result.source_expressions = [source, *[
+                Col(source.alias, NetshopRow._meta.get_field(name))
+                for name in self.CACHE_COLUMNS
+            ]]
+        return result
+
+    CACHE_COLUMNS = ("source", "dataset", "numeric_presence_rule", "numeric_presence_mask",
+                     "numeric_presence_null_mask", "numeric_presence_row_hash", "source_row_hash",
+                     "numeric_presence_batch_id", "last_import_batch_id")
 
     def as_postgresql(self, compiler, connection, **extra):
         column, params = compiler.compile(self.source_expressions[0])
         # Owning writer canonical metrics and numeric source aliases are JSON
         # numbers. Missing, null, strings and objects cannot prove a real zero.
         expr = "COALESCE(" + ",".join(f"{column} -> %s" for _ in self.names) + ")"
-        return f"jsonb_typeof({expr}) = 'number'", [v for name in self.names for v in [*params, name]]
+        original = f"jsonb_typeof({expr}) = 'number'"
+        values = [v for name in self.names for v in [*params, name]]
+        bit = getattr(self, "_cache_bit", None)
+        # Expressions, other models/sources and unknown ordered aliases retain
+        # the original JSON predicate. A cache hit preserves TRUE/FALSE/NULL.
+        if not bit or len(self.source_expressions) != len(self.CACHE_COLUMNS) + 1:
+            return original, values
+        columns = dict(zip(self.CACHE_COLUMNS, self.source_expressions[1:]))
+        gate_params = []
+        def col(name):
+            sql, bound = compiler.compile(columns[name])
+            gate_params.extend(bound)
+            return sql
+        number, missing = col("numeric_presence_mask"), col("numeric_presence_null_mask")
+        gate = (
+            f"{col('source')} COLLATE \"C\" = %s AND {col('dataset')} COLLATE \"C\" = %s "
+            f"AND {col('numeric_presence_rule')} COLLATE \"C\" = %s "
+            f"AND {number} BETWEEN 0 AND %s AND {missing} BETWEEN 0 AND %s "
+            f"AND ({number} & {missing}) = 0 "
+            f"AND {col('numeric_presence_row_hash')} COLLATE \"C\" = {col('source_row_hash')} COLLATE \"C\" "
+            f"AND {col('numeric_presence_batch_id')} COLLATE \"C\" = {col('last_import_batch_id')} COLLATE \"C\""
+        )
+        # All auxiliary expressions are Col/Ref and bind no parameters. Keep
+        # that invariant explicit rather than silently misordering parameters.
+        if gate_params:
+            raise ValueError("presence cache columns must be parameter-free")
+        return (
+            f"CASE WHEN {gate} THEN CASE WHEN ({number} & %s) <> 0 THEN TRUE "
+            f"WHEN ({missing} & %s) <> 0 THEN NULL::boolean ELSE FALSE END ELSE {original} END",
+            ["jd_promotion", "ad", RULE, MAX_MASK, MAX_MASK, bit, bit, *values],
+        )
 
 
     def as_sqlite(self, compiler, connection, **extra):

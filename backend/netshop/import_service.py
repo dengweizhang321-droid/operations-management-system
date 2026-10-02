@@ -873,6 +873,7 @@ def _build_row_models(
     migration_generation: str = "",
 ) -> list[NetshopRow]:
     now = _now_text()
+    from .promotion_presence import cache_values
     result: list[NetshopRow] = []
     for row in rows:
         projection = _row_projection(row)
@@ -900,6 +901,8 @@ def _build_row_models(
                 created_at=now,
                 updated_at=now,
                 migration_generation=migration_generation,
+                **cache_values(row["source"], row["dataset"], row["metrics"],
+                               row["sourceRowHash"], batch_id),
                 **projection,
             )
         )

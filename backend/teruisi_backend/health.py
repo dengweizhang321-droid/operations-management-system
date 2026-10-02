@@ -227,6 +227,8 @@ REQUIRED_NETSHOP_COLUMNS = {
         "source_row_key", "last_import_batch_id", "source", "dataset",
         "platform", "shop_name", "business_date", "snapshot_date", "sku_id",
         "spu_id", "transaction_amount_cents", "spend_cents", "migration_generation",
+        "numeric_presence_mask", "numeric_presence_null_mask", "numeric_presence_rule",
+        "numeric_presence_row_hash", "numeric_presence_batch_id",
     },
     "netshop_promotion_product_daily": {
         "platform", "shop_name", "business_date", "product_id", "spend_cents",
@@ -1321,8 +1323,77 @@ def _validate_netshop_source_marker_guard(cursor) -> None:
         raise ReadinessError("netshop_source_marker_privilege_excessive")
 
 
+def _validate_netshop_presence_cache(cursor) -> None:
+    """Catalog-only readiness for netshop.0004; never a business read."""
+    if connection.vendor != "postgresql":
+        return
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations "
+                   "WHERE app='netshop' AND name='0004_promotion_presence_cache')")
+    if cursor.fetchone()[0] is not True:
+        raise ReadinessError("netshop_presence_migration_missing")
+    cursor.execute(
+        "SELECT a.attname,a.attnotnull,pg_catalog.format_type(a.atttypid,a.atttypmod),d.adbin IS NULL "
+        "FROM pg_catalog.pg_attribute a LEFT JOIN pg_catalog.pg_attrdef d "
+        "ON d.adrelid=a.attrelid AND d.adnum=a.attnum "
+        "WHERE a.attrelid=pg_catalog.to_regclass('public.netshop_rows') "
+        "AND a.attname=ANY(%s) AND NOT a.attisdropped ORDER BY a.attname",
+        [["numeric_presence_mask", "numeric_presence_null_mask", "numeric_presence_rule",
+          "numeric_presence_row_hash", "numeric_presence_batch_id"]],
+    )
+    if cursor.fetchall() != [
+        ("numeric_presence_batch_id", False, "character varying(1024)", True),
+        ("numeric_presence_mask", False, "bigint", True),
+        ("numeric_presence_null_mask", False, "bigint", True),
+        ("numeric_presence_row_hash", False, "character varying(64)", True),
+        ("numeric_presence_rule", False, "character varying(32)", True),
+    ]:
+        raise ReadinessError("netshop_presence_columns_invalid")
+    cursor.execute(
+        "SELECT n.nspname,c.relname,t.tgenabled,t.tgtype,t.tgdeferrable,t.tginitdeferred,"
+        "fn.nspname,p.proname,t.tgqual IS NULL,octet_length(t.tgargs),"
+        "ARRAY(SELECT a.attname FROM unnest(t.tgattr::smallint[]) WITH ORDINALITY k(num,ord) "
+        "JOIN pg_catalog.pg_attribute a ON a.attrelid=t.tgrelid AND a.attnum=k.num ORDER BY k.ord) "
+        "FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "JOIN pg_catalog.pg_namespace fn ON fn.oid=p.pronamespace "
+        "WHERE t.tgname='netshop_presence_invalidate' AND NOT t.tgisinternal"
+    )
+    if cursor.fetchall() != [("public", "netshop_rows", "O", 19, False, False, "public",
+            "netshop_presence_invalidate", True, 0,
+            ["metrics_json", "source", "dataset", "source_row_hash", "last_import_batch_id"])]:
+        raise ReadinessError("netshop_presence_trigger_invalid")
+    cursor.execute(
+        "SELECT p.prosecdef,p.proisstrict,p.provolatile,p.proconfig,l.lanname,"
+        "pg_catalog.pg_get_function_result(p.oid),p.prosrc,"
+        "EXISTS(SELECT 1 FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) acl "
+        "WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE') "
+        "FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace "
+        "JOIN pg_catalog.pg_language l ON l.oid=p.prolang "
+        "WHERE n.nspname='public' AND p.proname='netshop_presence_invalidate' "
+        "AND pg_catalog.pg_get_function_identity_arguments(p.oid)=''"
+    )
+    functions = cursor.fetchall()
+    body = """BEGIN
+  NEW.numeric_presence_mask := NULL;
+  NEW.numeric_presence_null_mask := NULL;
+  NEW.numeric_presence_rule := NULL;
+  NEW.numeric_presence_row_hash := NULL;
+  NEW.numeric_presence_batch_id := NULL;
+  RETURN NEW;
+END"""
+    if len(functions) != 1:
+        raise ReadinessError("netshop_presence_function_invalid")
+    definer, strict, volatility, config, language, result, source, public_execute = functions[0]
+    if (definer or strict or volatility != "v" or language != "plpgsql" or result != "trigger"
+            or public_execute or str(source).strip() != body
+            or [str(x).replace(" ", "") for x in (config or [])] != ["search_path=pg_catalog,public"]):
+        raise ReadinessError("netshop_presence_function_invalid")
+
+
 def _validate_netshop_schema(cursor, *, writer: bool) -> None:
     _validate_netshop_source_marker_guard(cursor)
+    _validate_netshop_presence_cache(cursor)
     if connection.vendor == "postgresql" and not writer:
         from netshop.analysis_permissions import validate_actor_read
         try:
