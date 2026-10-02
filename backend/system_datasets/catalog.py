@@ -58,4 +58,8 @@ def describe(spec, detail=False):
             consistency="live_per_page", sourceDomain=spec["domain"],
             limits={"maxPageSize": 100, "maxColumns": 50, "defaultCellCharacters": 2000, "maxCellCharacters": 8000,
                     "maxResponseCharacters": 34000, "cursorTtlSeconds": 1800})
+    if detail and spec["id"] == "rows_netshop_rows":
+        internal = {"numeric_presence_mask", "numeric_presence_null_mask", "numeric_presence_rule",
+                    "numeric_presence_row_hash", "numeric_presence_batch_id"}
+        result["excludedFields"] = {name: reason for name, reason in result["excludedFields"].items() if name not in internal}
     return result

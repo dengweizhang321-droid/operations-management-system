@@ -227,6 +227,8 @@ REQUIRED_NETSHOP_COLUMNS = {
         "source_row_key", "last_import_batch_id", "source", "dataset",
         "platform", "shop_name", "business_date", "snapshot_date", "sku_id",
         "spu_id", "transaction_amount_cents", "spend_cents", "migration_generation",
+        "numeric_presence_mask", "numeric_presence_null_mask", "numeric_presence_rule",
+        "numeric_presence_row_hash", "numeric_presence_batch_id",
     },
     "netshop_promotion_product_daily": {
         "platform", "shop_name", "business_date", "product_id", "spend_cents",
@@ -1321,8 +1323,19 @@ def _validate_netshop_source_marker_guard(cursor) -> None:
         raise ReadinessError("netshop_source_marker_privilege_excessive")
 
 
+def _validate_netshop_presence_cache(cursor) -> None:
+    if connection.vendor != "postgresql":
+        return
+    from netshop.promotion_presence import verify_cache_catalog
+    try:
+        verify_cache_catalog(cursor)
+    except RuntimeError as error:
+        raise ReadinessError(str(error)) from error
+
+
 def _validate_netshop_schema(cursor, *, writer: bool) -> None:
     _validate_netshop_source_marker_guard(cursor)
+    _validate_netshop_presence_cache(cursor)
     if connection.vendor == "postgresql" and not writer:
         from netshop.analysis_permissions import validate_actor_read
         try:

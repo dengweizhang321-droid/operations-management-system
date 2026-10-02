@@ -13,7 +13,8 @@ param(
   [string]$BackupManifestSha256 = '',
   [string]$RestoreResultPath = '',
   [string]$RestoreResultSha256 = '',
-  [switch]$Execute
+  [switch]$Execute,
+  [ValidateSet('legacy138','netshop-presence139')][string]$Generation = 'legacy138'
 )
 $ErrorActionPreference = 'Stop'
 $IntegrationRequest = [pscustomobject]@{
@@ -22,6 +23,7 @@ $IntegrationRequest = [pscustomobject]@{
   CandidateEvidencePath=$CandidateEvidencePath; CandidateEvidenceSha256=$CandidateEvidenceSha256
   BackupDirectory=$BackupDirectory; BackupManifestSha256=$BackupManifestSha256
   RestoreResultPath=$RestoreResultPath; RestoreResultSha256=$RestoreResultSha256; Execute=[bool]$Execute
+  Generation=$Generation
 }
 if (-not $IntegrationRequest.Execute -or $IntegrationRequest.OperationId -cnotmatch '^[0-9a-f]{32}$' -or
     $IntegrationRequest.MaintenanceId -cnotmatch '^[0-9a-f]{32}$' -or
@@ -39,6 +41,13 @@ function Copy-IntegrationProof([string]$Source, [string]$Digest, [string]$Target
       (Test-Path -LiteralPath $Target)) { throw 'Integration proof is missing, changed or already recorded' }
   Copy-Item -LiteralPath $Source -Destination $Target
   if ((Get-FileSha256 $Target) -cne $Digest) { throw 'Integration proof copy differs' }
+}
+
+function Write-NewIntegrationPlan([string]$Path, [object]$Value) {
+  $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($Value | ConvertTo-Json -Depth 24 -Compress))
+  $stream = [IO.File]::Open($Path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+  try { $stream.Write($bytes,0,$bytes.Length); $stream.Flush($true) }
+  finally { $stream.Dispose() }
 }
 
 function Assert-IntegrationStopped {
@@ -82,10 +91,12 @@ function Assert-IntegrationPreparedSource([string]$Prepared, [string]$Source) {
 
 $result = Invoke-WithServiceMutex {
   $maintenance = Assert-IntegrationStopped
-  $operationRoot = Assert-RuntimeChildPath (Join-Path $RuntimeRoot ('integration-installs\' + $IntegrationRequest.OperationId))
+  $isDelta = $IntegrationRequest.Generation -ceq 'netshop-presence139'
+  $operationFamily = if ($isDelta) { 'integration-deltas' } else { 'integration-installs' }
+  $operationRoot = Assert-RuntimeChildPath (Join-Path $RuntimeRoot ($operationFamily + '\' + $IntegrationRequest.OperationId))
   $evidenceRoot = Join-Path $operationRoot 'evidence'
   $snapshot = Join-Path $operationRoot 'source'
-  $planPath = Assert-RuntimeChildPath (Join-Path $RuntimeRoot 'integration-install-plan.json')
+  $planPath = if ($isDelta) { Assert-RuntimeChildPath (Join-Path $operationRoot 'plan.json') } else { Assert-RuntimeChildPath (Join-Path $RuntimeRoot 'integration-install-plan.json') }
   if ($IntegrationRequest.Action -ceq 'Plan') {
     if ((Test-Path -LiteralPath $operationRoot) -or (Test-Path -LiteralPath $planPath)) {
       throw 'An integration operation already exists; audit it instead of overwriting'
@@ -108,6 +119,11 @@ $result = Invoke-WithServiceMutex {
       '--evidence',$IntegrationRequest.CandidateEvidencePath,'--approved-sha256',$IntegrationRequest.CandidateEvidenceSha256) $source
     $candidate = ConvertFrom-UniqueNativeJson $candidateRun 'Verify integration source candidate'
     if ([string]$candidate.status -cne 'verified') { throw 'Candidate proof was not verified' }
+    $candidateDelta = [string]$candidate.result.generation -ceq 'teruisi-integration-migration-plan-v4-netshop-presence'
+    if ($candidateDelta -cne $isDelta) { throw 'Explicit integration generation differs from reviewed evidence' }
+    if ($isDelta -and (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'integration-active-generation.json'))) {
+      throw 'An adopted delta already exists; never overwrite its active reference'
+    }
     # The existing installed operator validates archive bytes before any plan.
     $maintenanceOperator = Join-Path $InstalledAppRoot 'tools\django-postgres-maintenance.ps1'
     $verifyRun = Invoke-BoundedNativeProcess (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') @(
@@ -137,10 +153,23 @@ $result = Invoke-WithServiceMutex {
       beforeBackupSha256=$IntegrationRequest.BackupManifestSha256; beforeRestoreSha256=$IntegrationRequest.RestoreResultSha256
       preparedAppId=$IntegrationRequest.PreparedAppId; preparedAppSha256=$IntegrationRequest.PreparedAppSha256
     }
+    if ($isDelta) { $plan.version='teruisi-netshop-presence-release-v1' }
     foreach ($property in $candidate.result.PSObject.Properties) { $plan[$property.Name]=$property.Value }
-    Write-AtomicJson $planPath $plan
-    $verifyPlan = Invoke-BoundedNativeProcess $Python @((Join-Path $snapshot 'tools\integration_release_gate.py'),
-      'deployment','--root',$prepared,'--runtime',$RuntimeRoot) $snapshot
+    if ($isDelta) {
+      $witnessRun = Invoke-BoundedNativeProcess $Python @($gate, 'delta-witness', '--root', $source,
+        '--runtime', $RuntimeRoot, '--evidence', $IntegrationRequest.CandidateEvidencePath,
+        '--approved-sha256', $IntegrationRequest.CandidateEvidenceSha256,
+        '--backup-manifest', (Join-Path $evidenceRoot 'before-backup.json'), '--backup-sha256', $IntegrationRequest.BackupManifestSha256,
+        '--restore-result', (Join-Path $evidenceRoot 'before-restore.json'), '--restore-sha256', $IntegrationRequest.RestoreResultSha256) $source
+      $witness = ConvertFrom-UniqueNativeJson $witnessRun 'Bind actual delta baseline witness'
+      if ([string]$witness.status -cne 'verified') { throw 'Actual delta baseline witness refused' }
+      $plan.operationWitness=$witness.result.operationWitness
+      $plan.operationWitnessSha256=$witness.result.operationWitnessSha256
+    }
+    if ($isDelta) { Write-NewIntegrationPlan $planPath $plan } else { Write-AtomicJson $planPath $plan }
+    $verifyArguments = @((Join-Path $snapshot 'tools\integration_release_gate.py'), 'deployment','--root',$prepared,'--runtime',$RuntimeRoot)
+    if ($isDelta) { $verifyArguments += @('--operation-id',$IntegrationRequest.OperationId) }
+    $verifyPlan = Invoke-BoundedNativeProcess $Python $verifyArguments $snapshot
     $checked = ConvertFrom-UniqueNativeJson $verifyPlan 'Verify integration deployment plan'
     if ([string]$checked.status -cne 'verified') { throw 'Integration plan did not verify' }
     return [pscustomobject]@{status='prepared'; operationId=$IntegrationRequest.OperationId; planSha256=Get-FileSha256 $planPath}
@@ -168,8 +197,9 @@ $result = Invoke-WithServiceMutex {
     $ownerUrl = Database-Url 'teruisi_sales_owner' $secrets.OwnerPassword 'teruisi_integration_migrate' 900000 'teruisi_sales'
     $verb = if ($IntegrationRequest.Action -ceq 'Install') { 'install' } else { 'finalize' }
     Invoke-WithDjangoEnvironment $secrets $ownerUrl 'migration_writer' $false $WriterMaxBodyBytes '' '' {
-      $run = Invoke-BoundedNativeProcess $Python @((Join-Path $snapshot 'tools\integration_install.py'),
-        $verb,'--runtime',$RuntimeRoot,'--execute') $snapshot
+      $installArguments = @((Join-Path $snapshot 'tools\integration_install.py'), $verb,'--runtime',$RuntimeRoot,'--execute')
+      if ($isDelta) { $installArguments += @('--operation-id',$IntegrationRequest.OperationId) }
+      $run = Invoke-BoundedNativeProcess $Python $installArguments $snapshot
       ConvertFrom-UniqueNativeJson $run 'Run protected integration operation'
     }
   } finally {

@@ -39,15 +39,41 @@ def digest(value):
     return hashlib.sha256(canonical(value)).hexdigest()
 
 
+def verify_receipt_generation(cursor):
+    """Two exact catalogues, never a row-count-based admission shortcut."""
+    from integration_migration_plan import load_policy, LEGACY_CATALOGUE_SHA256, DELTA_STEP
+    policy = load_policy(Path(__file__).resolve().parents[1] / "config/integration-migration-policy-v3.json")
+    baseline = sorted(policy.baseline + policy.steps)
+    if len(baseline) != 138 or digest(baseline) != LEGACY_CATALOGUE_SHA256:
+        raise RuntimeError("reviewed baseline migration catalogue changed")
+    cursor.execute("SELECT app,name FROM public.django_migrations ORDER BY app,name")
+    receipts = [".".join(row) for row in cursor.fetchall()]
+    if receipts == baseline:
+        # A 138 receipt set with partial/unrecorded cache schema is not legacy.
+        cursor.execute("SELECT count(*) FROM pg_attribute WHERE attrelid=to_regclass('public.netshop_rows') "
+                       "AND NOT attisdropped AND attname=ANY(%s)", [[
+            "numeric_presence_mask", "numeric_presence_null_mask", "numeric_presence_rule",
+            "numeric_presence_row_hash", "numeric_presence_batch_id"]])
+        if cursor.fetchone() != (0,):
+            raise RuntimeError("legacy generation contains unrecorded cache columns")
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='netshop_presence_invalidate' "
+                       "AND NOT tgisinternal),to_regprocedure('public.netshop_presence_invalidate()') IS NOT NULL")
+        if cursor.fetchone() != (False, False):
+            raise RuntimeError("legacy generation contains unrecorded cache invalidator")
+        return 138
+    if receipts == sorted([*baseline, DELTA_STEP]):
+        from netshop.promotion_presence import verify_cache_catalog
+        verify_cache_catalog(cursor)
+        return 139
+    raise RuntimeError("no-key backup migration catalogue is not a reviewed generation")
+
+
 def verify_closed_profile(db):
     with db.cursor() as cursor:
         cursor.execute("SELECT rolsuper FROM pg_roles WHERE rolname=current_user")
         if cursor.fetchone() != (True,):
             raise RuntimeError("no-key backup requires the existing privileged maintenance identity")
-        cursor.execute("SELECT count(*),count(*) FILTER (WHERE app='ai_assistant' AND name=%s) "
-            "FROM public.django_migrations", [GENERATION])
-        if cursor.fetchone() != (138, 1):
-            raise RuntimeError("no-key backup generation is not reviewed")
+        verify_receipt_generation(cursor)
         # Hold this lock until pg_dump exits. It blocks inserts/DDL even by an
         # administrator, closing the precheck-to-dump race for private keys.
         cursor.execute("LOCK TABLE " + KEY_TABLE + " IN SHARE MODE")

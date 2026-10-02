@@ -7640,7 +7640,12 @@
         }
       },
       "excludedFields": {
-        "image_object_key": "凭据、执行栅栏或内部存储定位信息不对 AI 暴露"
+        "image_object_key": "凭据、执行栅栏或内部存储定位信息不对 AI 暴露",
+        "numeric_presence_mask": "内部派生存在性缓存，不属于业务或AI字段",
+        "numeric_presence_null_mask": "内部派生存在性缓存，不属于业务或AI字段",
+        "numeric_presence_rule": "内部派生缓存规则，不属于业务或AI字段",
+        "numeric_presence_row_hash": "内部派生缓存绑定，不属于业务或AI字段",
+        "numeric_presence_batch_id": "内部派生缓存绑定，不属于业务或AI字段"
       },
       "keys": [
         "id"

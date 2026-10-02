@@ -12,6 +12,9 @@ from pathlib import Path
 import re
 
 VERSION = "teruisi-integration-migration-plan-v3-no-keys"
+DELTA_VERSION = "teruisi-integration-migration-plan-v4-netshop-presence"
+DELTA_STEP = "netshop.0004_promotion_presence_cache"
+LEGACY_CATALOGUE_SHA256 = "99dd6bdeb44bc558c5077e2eefefea64c68ae6fbc5dc814bc186c9684237d86b"
 SOURCE_FORMAT = "python-and-json-utf8-lf-sha256-v1"
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 NODE = re.compile(r"[a-z][a-z0-9_]*\.[0-9]{4}_[a-zA-Z0-9_]+\Z")
@@ -70,6 +73,10 @@ class Policy:
     files: tuple[tuple[str, str], ...]
     bootstrap_roles: tuple[str, ...]
 
+    @property
+    def version(self):
+        return VERSION
+
     def __post_init__(self):
         if (len(self.baseline) != 62 or len(self.steps) != 76
                 or len(set(self.baseline + self.steps)) != 138
@@ -118,16 +125,74 @@ class Policy:
 
 
 @dataclass(frozen=True)
+class NetshopPresencePolicy(Policy):
+    """Exactly the reviewed 138 baseline plus one owning netshop migration."""
+    django_version: str
+    builtin_files: tuple[tuple[str, str], ...]
+    @property
+    def version(self):
+        return DELTA_VERSION
+
+    def __post_init__(self):
+        if (len(self.baseline) != 138 or len(set(self.baseline)) != 138
+                or digest(sorted(self.baseline)) != LEGACY_CATALOGUE_SHA256
+                or self.steps != (DELTA_STEP,) or self.bootstrap_roles != ()
+                or not self.files or len(self.files) > 4096
+                or len({path for path, _ in self.files}) != len(self.files)
+                or self.django_version != "5.2.17"
+                or {key for key, _ in self.builtin_files} != {
+                    "contenttypes.0001_initial", "contenttypes.0002_remove_content_type_name"}
+                or len(self.builtin_files) != 2
+                or any(not HEX64.fullmatch(value) for _, value in self.builtin_files)):
+            raise PlanBlocked("netshop delta generation inventory invalid")
+        for path, expected in self.files:
+            relative = Path(path)
+            if (relative.is_absolute() or ".." in relative.parts or "\\" in path
+                    or ":" in path or "\x00" in path or relative.as_posix() != path
+                    or not path.startswith(("backend/", "tools/"))
+                    or not path.endswith((".py", ".json")) or not HEX64.fullmatch(expected)):
+                raise PlanBlocked("source inventory path or digest invalid")
+
+        wanted_migrations = {"backend/" + key.split(".", 1)[0] + "/migrations/" + key.split(".", 1)[1] + ".py"
+                             for key in self.baseline + self.steps
+                             if key not in {"contenttypes.0001_initial", "contenttypes.0002_remove_content_type_name"}}
+        actual_migrations = {path for path, _ in self.files if re.fullmatch(r"backend/[a-z_]+/migrations/[0-9]{4}_[^/]+\.py", path)}
+        if actual_migrations != wanted_migrations:
+            raise PlanBlocked("delta source migration catalogue differs from exact receipts")
+
+    def verify_source(self, root):
+        import django
+        if django.get_version() != self.django_version:
+            raise PlanBlocked("delta installed Django version changed")
+        for key, expected in self.builtin_files:
+            path = Path(django.__file__).parent / "contrib/contenttypes/migrations" / (key.split(".", 1)[1] + ".py")
+            if (not path.is_file() or path.stat().st_nlink != 1 or
+                    any(parent.is_symlink() or getattr(parent, "is_junction", lambda: False)()
+                        for parent in [path, *path.parents]) or
+                    python_source_sha256(path.read_bytes()) != expected):
+                raise PlanBlocked("delta Django builtin migration source changed")
+        return super().verify_source(root)
+
+    @property
+    def sha256(self):
+        return digest({"version": self.version, "sourceFormat": SOURCE_FORMAT,
+            "baseline": self.baseline, "steps": self.steps, "files": self.files,
+            "bootstrapRoles": self.bootstrap_roles, "djangoVersion": self.django_version,
+            "builtinMigrations": self.builtin_files})
+
+
+@dataclass(frozen=True)
 class Plan:
     policy_sha256: str
     source_sha256: str
     binding_sha256: str
     completed: tuple[str, ...]
     remaining: tuple[str, ...]
+    generation: str = VERSION
 
     @property
     def sha256(self):
-        return digest({"version": VERSION, "policy": self.policy_sha256,
+        return digest({"version": self.generation, "policy": self.policy_sha256,
             "source": self.source_sha256, "databaseBinding": self.binding_sha256,
             "completed": self.completed, "remaining": self.remaining})
 
@@ -163,12 +228,13 @@ def build_plan(policy: Policy, root: Path, applied, pending, binding_sha256: str
         actual.append(migration_key(entry[:2]))
     if tuple(actual) != wanted:
         raise PlanBlocked("migration planner differs from the reviewed order")
-    return Plan(policy.sha256, source, binding_sha256, completed, wanted)
+    return Plan(policy.sha256, source, binding_sha256, completed, wanted, policy.version)
 
 
 def confirm_single_step(before: Plan, after: Plan):
     """A lost/failed response must be audited, never treated as retry permission."""
-    if (before.next_step is None or before.policy_sha256 != after.policy_sha256
+    if (before.next_step is None or before.generation != after.generation
+            or before.policy_sha256 != after.policy_sha256
             or before.source_sha256 != after.source_sha256
             or before.binding_sha256 != after.binding_sha256
             or after.completed != before.completed + (before.next_step,)
@@ -189,11 +255,18 @@ def load_policy(path: Path):
         return result
     try:
         value = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_pairs)
-        if (type(value) is not dict or set(value) != {"version", "sourceFormat", "baseline", "steps",
-                "files", "bootstrapRoles"} or value["version"] != VERSION
+        delta = type(value) is dict and value.get("version") == DELTA_VERSION
+        keys = {"version", "sourceFormat", "baseline", "steps", "files", "bootstrapRoles"}
+        if delta:
+            keys |= {"djangoVersion", "builtinMigrations"}
+        if (type(value) is not dict or set(value) != keys or value["version"] not in (VERSION, DELTA_VERSION)
                 or value["sourceFormat"] != SOURCE_FORMAT):
             raise PlanBlocked("migration policy schema invalid")
-        return Policy(tuple(value["baseline"]), tuple(value["steps"]),
-            tuple(sorted(value["files"].items())), tuple(value["bootstrapRoles"]))
+        cls = NetshopPresencePolicy if value["version"] == DELTA_VERSION else Policy
+        args = (tuple(value["baseline"]), tuple(value["steps"]),
+                tuple(sorted(value["files"].items())), tuple(value["bootstrapRoles"]))
+        if delta:
+            return cls(*args, value["djangoVersion"], tuple(sorted(value["builtinMigrations"].items())))
+        return cls(*args)
     except (ValueError, TypeError, AttributeError, KeyError):
         raise PlanBlocked("migration policy is invalid") from None

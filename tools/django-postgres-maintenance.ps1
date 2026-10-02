@@ -429,8 +429,36 @@ function Assert-MaintenanceEvidence(
   )
   $protectedTables = @()
   if ($NoKeys) {
+    # Exactly the original reviewed138 catalogue, optionally plus the single
+    # owning presence-cache migration. A count alone cannot prove generation.
+    $migrationIdentities = [Collections.Generic.List[string]]::new()
+    $presenceCount = 0
+    foreach ($migration in @($Evidence.migrations)) {
+      if ($migration -isnot [pscustomobject] -or $migration.app -isnot [string] -or $migration.name -isnot [string]) {
+        throw "无新增密钥备份迁移必须为标量字符串身份"
+      }
+      $app = [string]$migration.app; $name = [string]$migration.name
+      if ($app -cnotmatch '^[a-z][a-z0-9_]*$' -or $name -cnotmatch '^[0-9]{4}_[a-zA-Z0-9_]+$') {
+        throw "无新增密钥备份迁移身份无效"
+      }
+      if ($app -ceq 'netshop' -and $name -ceq '0004_promotion_presence_cache') { $presenceCount++ }
+      else { $migrationIdentities.Add($app + '.' + $name) }
+    }
+    $generation = @($Evidence.migrations).Count
+    if (($generation -ne 138 -and $generation -ne 139) -or
+        ($generation -eq 138 -and $presenceCount -ne 0) -or
+        ($generation -eq 139 -and $presenceCount -ne 1) -or $migrationIdentities.Count -ne 138 -or
+        [long]$Evidence.tables.django_migrations -ne $generation) {
+      throw "无新增密钥备份迁移代际未获核验"
+    }
+    $migrationIdentities.Sort([StringComparer]::Ordinal)
+    $catalogueJson = ConvertTo-Json -InputObject @($migrationIdentities.ToArray()) -Compress
+    $catalogueHasher = [Security.Cryptography.SHA256]::Create()
+    try { $catalogueSha256 = [BitConverter]::ToString($catalogueHasher.ComputeHash([Text.UTF8Encoding]::new($false).GetBytes($catalogueJson))).Replace('-','').ToLowerInvariant() }
+    finally { $catalogueHasher.Dispose() }
     if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and
-          $_.name -ceq "0082_no_new_keys_profile" }).Count -ne 1 -or @($Evidence.migrations).Count -ne 138) {
+          $_.name -ceq "0082_no_new_keys_profile" }).Count -ne 1 -or
+        $catalogueSha256 -cne '99dd6bdeb44bc558c5077e2eefefea64c68ae6fbc5dc814bc186c9684237d86b') {
       throw "无新增密钥备份迁移代际未获核验"
     }
     $protectedTables = @(
