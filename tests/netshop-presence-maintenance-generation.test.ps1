@@ -32,4 +32,25 @@ for($case=0;$case -lt 8;$case++){
   if(-not $failed){throw "Unreviewed catalogue accepted: $case"}
 }
 if($rejected -ne 8){throw 'Negative count mismatch'}
-@{status='passed';positiveChecks=2;negativeChecks=8;productionActions=0} | ConvertTo-Json -Compress
+$typeRejected=0
+foreach($field in @('app','name')){
+  $originalValue=($second | ConvertFrom-Json).evidence.migrations[0].$field
+  $variants=[Collections.Generic.List[object]]::new()
+  $variants.Add([object[]]@($originalValue))
+  $variants.Add([pscustomobject]@{value=$originalValue})
+  $variants.Add(7)
+  $variants.Add($null)
+  foreach($value in $variants){
+    $payload=$second | ConvertFrom-Json
+    $payload.evidence.migrations[0].$field=$value
+    $failed=$false
+    try{Assert-MaintenanceEvidence $payload.evidence 'teruisi_integration_role_probe' 'ai_rehearsal_admin' $ExpectedPort $true}catch{$failed=$true;$typeRejected++}
+    if(-not $failed){throw "Non-scalar migration identity accepted: $field"}
+  }
+}
+$payload=$second | ConvertFrom-Json
+$payload.evidence.migrations[0]='not-a-migration-object'
+$failed=$false
+try{Assert-MaintenanceEvidence $payload.evidence 'teruisi_integration_role_probe' 'ai_rehearsal_admin' $ExpectedPort $true}catch{$failed=$true;$typeRejected++}
+if(-not $failed -or $typeRejected -ne 9){throw 'Migration raw type checks incomplete'}
+@{status='passed';positiveChecks=2;negativeChecks=8;rawTypeNegativeChecks=9;productionActions=0} | ConvertTo-Json -Compress

@@ -434,6 +434,9 @@ function Assert-MaintenanceEvidence(
     $migrationIdentities = [Collections.Generic.List[string]]::new()
     $presenceCount = 0
     foreach ($migration in @($Evidence.migrations)) {
+      if ($migration -isnot [pscustomobject] -or $migration.app -isnot [string] -or $migration.name -isnot [string]) {
+        throw "无新增密钥备份迁移必须为标量字符串身份"
+      }
       $app = [string]$migration.app; $name = [string]$migration.name
       if ($app -cnotmatch '^[a-z][a-z0-9_]*$' -or $name -cnotmatch '^[0-9]{4}_[a-zA-Z0-9_]+$') {
         throw "无新增密钥备份迁移身份无效"
