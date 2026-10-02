@@ -156,6 +156,16 @@ def operation_witness(runtime, candidate, backup_path, backup_sha, restore_path,
         "authoritySha256": authority, "protectedCatalogueSha256": digest(profile["catalog"])})
 
 
+def require_delta_after_backup(manifest, candidate_manifest_sha):
+    from postgres_no_key_backup import validate_evidence
+    profile = manifest.get("profileEvidence", {})
+    validate_evidence(profile)
+    if (profile.get("tables", {}).get("django_migrations", {}).get("rows") != 139
+            or manifest.get("software", {}).get("deploymentManifestSha256") != candidate_manifest_sha):
+        raise PlanBlocked("delta after-backup must bind exact 139 and candidate manifest")
+    return profile
+
+
 def verify_delta_deployment(root, runtime, operation_id, *, after_deployment=False):
     directory = delta_directory(runtime, operation_id)
     plan, _ = read_json(directory / "plan.json")
@@ -253,8 +263,9 @@ def verify_delta_release(root, runtime, reference, *, allow_installed=False):
             or receipt.get("policySha256") != plan.get("policySha256")
             or receipt.get("migrationSha256") != plan.get("migrationSha256")):
         raise PlanBlocked("delta finalized receipt invalid")
-    verify_backup_restore(directory / "evidence/after-backup.json", receipt.get("afterBackupSha256"),
-                          directory / "evidence/after-restore.json", receipt.get("afterRestoreSha256"), protected=True)
+    manifest = verify_backup_restore(directory / "evidence/after-backup.json", receipt.get("afterBackupSha256"),
+                                     directory / "evidence/after-restore.json", receipt.get("afterRestoreSha256"), protected=True)
+    require_delta_after_backup(manifest, plan["candidateManifestSha256"])
     return receipt
 
 

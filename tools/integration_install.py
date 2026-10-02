@@ -18,7 +18,7 @@ from integration_migration_plan import build_plan, canonical, digest, load_polic
 from integration_migration_journal import Journal, _write_new, apply_one
 from integration_release_gate import (VERSION, POLICY, migration_digest, read_json,
     verify_backup_restore, verify_deployment, DELTA_POLICY, DELTA_RELEASE, DELTA_ACTIVE,
-    delta_directory, verify_delta_deployment)
+    delta_directory, verify_delta_deployment, require_delta_after_backup)
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = Path(r"D:\teruisi-runtime\django-sales")
@@ -202,6 +202,8 @@ def finalize(runtime, operation_id=None):
         operation_root / "evidence/after-restore.json", after_restore_sha, protected=True)
     if manifest.get("software", {}).get("deploymentManifestSha256") != plan["candidateManifestSha256"]:
         raise PlanBlocked("post-install backup came from a different deployed application")
+    if delta:
+        require_delta_after_backup(manifest, plan["candidateManifestSha256"])
     if (installed.get("status") != "schema_installed" or installed.get("policySha256") != plan["policySha256"]
             or installed.get("migrationSha256") != plan["migrationSha256"]
             or installed.get("journalCommittedSteps") != (1 if delta else 76)):

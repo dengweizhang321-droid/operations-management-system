@@ -191,6 +191,21 @@ class NetshopPresenceGenerationTests(unittest.TestCase):
             with self.assertRaises(plans.PlanBlocked):
                 gate.operation_witness(ROOT, {"baselineWitness": self.witness}, "backup", "e" * 64, "restore", "f" * 64)
 
+    def test_after_backup_rejects_138_even_when_candidate_manifest_already_deployed(self):
+        profile = {"profile": backup.PROFILE,
+            "roles": {"roles": [["teruisi_sales_owner", True, False, False, False, False, False, False, -1]], "settings": []},
+            "tables": {"django_migrations": {"rows": 138, "sha256": "b" * 64}}, "catalog": {"relations": "d" * 64}}
+        profile.update(contentSha256=backup.digest(profile), sequenceLowerBounds={},
+                       archiveEncrypted=False, newRecoveryKeyGenerated=False, privateKeyRows=0)
+        manifest = {"profileEvidence": profile, "software": {"deploymentManifestSha256": "e" * 64}}
+        with self.assertRaises(plans.PlanBlocked):
+            gate.require_delta_after_backup(manifest, "e" * 64)
+        profile["tables"]["django_migrations"]["rows"] = 139
+        profile["contentSha256"] = backup.digest({key:profile[key] for key in ("profile","roles","tables","catalog")})
+        gate.require_delta_after_backup(manifest, "e" * 64)
+        with self.assertRaises(plans.PlanBlocked):
+            gate.require_delta_after_backup(manifest, "f" * 64)
+
 
 if __name__ == "__main__":
     unittest.main()
