@@ -73,4 +73,16 @@ I已组织新的 **仅离线** 候选 `codex/netshop-promotion-presence-cache`�
 
 Root只读核实际Worker87全部19声明artifact匹配、实际无sibling Django库，原canonical successor resolver确认effective87而非旧bootstrap pointer；非作者静态补记确认维护与普通Start均委托installed Django，此Django-only候选本身不要求重建Worker。此为静态包闭包，真实139/Start尚未执行。补记 `WORKER87-STATIC-ADDENDUM.json` / SHA `644405ed7ece1f82d52febd22c4cbdc284e4a9b9fec78f34afab9328595206d2`。
 
+## 缓存候选实际主线与准备状态
+
+上述未合/未准备是历史阶段，现已闭合源码集成：在干净独立publisher上普通无冲突合入 `3dba3b66`，准确合并main `978a6322bee9f106a226200bf37977b2204ead16`，父为文档后继 `b1f0b7e1055f79317c0c2a410094e1aca388841a` 与作者 `3dba3b66ec3d6db4fb0e5fa03f18979079297840`。组合backend/tools/config与作者准确受审树无差异，实际官方candidate gate verified；normal push后fetch远端精确同978且包含3dba，主工作区与公共准备树在clean前提下安全快进，没有stash/reset/强制切分支。
+
+最终非作者资格报告 `E:\codex-artifacts\netshop-scheme2-20261003\foundation-review\presence-cache-final-review\FINAL-PRESENCE-CACHE-REVIEW-3dba.md` / SHA `0675e23945ac23561d9788b3ab4ce4710feb93a4e5ad7e24660f100d5974bdf0`；准确结论可合入、源码未闭阻断0，作者演练与Q自执行清楚分列。
+
+组合主线源码实际通过delta-admission并复验原138父receipt `4c2bb9bb834a37a137a9c8b88f51287baf2164834ecd32e69fe4851ef251db59`。原PrepareApp真实成功exit0：id `76b7deb901b44492b767ae50673557bb`，receipt `2d11452cecb3a8baed437e9fdb6378cd5d159d25aad4de131461a481369b6799`，candidate manifest `1b4472b5b82e6ecb5be88b7f5f6f3eeac94c973f7d5dbe61635e96b9b509cffe`，fingerprint `630f07d6553be16f0ed1464840f6e5363307ca06d49209a40ed05294c7ed566b`，前驱严格绑定现running76f。准备回执 `presence-prepared/prepared-binding.json` / SHA `01547de506feaa7d29d4998eaed530089ff766a8460a1afc3a89611411f21aa8`；早前交接少一字符的63位笔误已实文件校准，内容未改。独立真实准备包已Prepared PASS：17复制owned与5原契约排除、1264实际policy成员摘要、原0003/0082/v3与三PS闭包核验，2917文件Root原canonical指纹重算完全一致；唯一CF元数据是原Prepare R2guard生成且指纹覆盖。独立报告 `presence-prepared-review/PREPARED-76b7-REVIEW.md` / SHA `d066fce4a61f85c2981467f186a431841965f37daa940402db44abbeffa7f40a`。这不是Deploy、139迁移、回填或生产采用，正式app实际manifest仍76f。
+
+额外真实备份副本资格未完成：原档manifest/dump再次实际流式SHA匹配，容量/受限目录/端口门禁通过，但私有Windows执行器三次准备失败（stdin密码接口、继承输出句柄、报告辅助文件锁），按边界停止。精确0restore/0profile/0derive/0hotspot/0生产；两次自己空PG正常stop，55895监听0/status3，精确emptyDATA移除，原备份不改。不是源码或备份缺陷，也不能冒真实2百万行资格。报告 `E:\codex-artifacts\presence-real-backup-copy-independent-20261003-de8a513119f64cff8b28ca751f43f30d\FINAL-BLOCKED-REAL-COPY.md` / SHA `b33918224148e553806bc70ddb10d9b7d786694b0b601fa2c35291934ad00b31`；源/失败/元数据保留，未继续重试。不把2万合成结果、完整合成profile或准备包PASS当正式月范围性能恢复。
+
+候选author普通树已按完整资格安全清理，累计20工作树（18受管归档+2普通移除）：native worktree remove、普通-d local/同名remote实际完成，末查目录/登记/两ref不存在，全部E证据/tainted合成DATA/旧失败保留；Source3dba已main包含且完整tracked archive另保全，public-freeze978为实际准备/下一Plan来源，不依赖该author目录。详细资格、结果与保留清单见 [候选交付](20261003-presence-cache-ready.md)。正式新生产操作仍未获批/未执行。
+
 实际顺序回执入口：`E:\codex-artifacts\netshop-scheme2-20261003\production-combined`。
