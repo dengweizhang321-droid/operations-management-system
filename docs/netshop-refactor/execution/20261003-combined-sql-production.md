@@ -14,19 +14,29 @@
 
 已按原 PrepareApp 完成组合准备并独立核对：id `99e085cd17ab4c4c9e1e8a7a9f142fa2`、receipt `a4471ae09ff70f6936ff3ecc60e76794f99b1d8aa7c474853ef84da8a0dcdc1d`、candidate manifest `76f7857203e780758fb2393b10ae735a0e46ba8aaa2dbf3fba32654a2c3a3179`、fingerprint `5b76b77030088834c39f25b82e0dd6b6f1768a191757ba885c32bdd48803aace`。前驱仍 `6929b2c6cc4248c5be84e108c57622419f7f071bfc393b4075d8b198d1c88707`。旧配置单包5bed仅准备，没有单独采用。
 
-原 Worker/helper `20261001T164608Z-4dc26d0ae8921e88` / manifest `87f5e879ca2bb3d797886c859c7452d4a72fffdb8e9ff777cd839d039db368e9` 保持，本次不另 apply Worker。第二次维护ID `3c3dd4a3c51f4dbab9c2b0092f4c54ea` 已生成，尚未执行；完成隔离恢复及最新任务准入后才使用唯一引擎 KeepPostgres / DeployApp / HardenAcl / 同ID Exit / 原Start。
+原 Worker/helper `20261001T164608Z-4dc26d0ae8921e88` / manifest `87f5e879ca2bb3d797886c859c7452d4a72fffdb8e9ff777cd839d039db368e9` 保持，本次没有另 apply Worker。第二次维护ID `3c3dd4a3c51f4dbab9c2b0092f4c54ea` 已实际完成：最新任务准入及原排空通过，KeepPostgres / DeployApp / HardenAcl / 同ID Exit / 原Start 均exit0。维护标记生成01:29:55.7755513，Exit命令实际返回maintenance_ended；没有精确结束标记时间证据，不据此声称精准网页停服秒数。
+
+01:38:18.2352051原组合状态为Running/Ready/exact_release，全部12组件true；live/ready正确请求头均200，VerifyStartup verified。原Start回执started/supervisor27716；本轮外壳正常exit0。安装三处改动文件逐文件SHA与受审源完全相同。PostgreSQL20664/create10月2日20:37:32.026194、n8n16852/create20:35:33.535468维护前后均保持。
+
+Django守护在恢复初期stale，按原已安装Restore-WatchSupervisor受保护函数补齐，01:40:29状态running/healthy/all_components_ready；没有重新停止业务服务或主动发送通知。初期任务exit0但healthy=false记录保留，不冒最终健康轮次。
 
 ## 备份
 
-新前备份及 Verify 实际完成：`E:\运营管理系统业务数据\daily-20261002T170502Z-8f5c76835ea7`，manifest `c7904ac23a503bb99847cb8ef4a151f1c51d9252d1d19ebd07ddaa1ec937adc4`、dump `8d42bf504db44af114c78bfc6829aea654d606736822c93a8620e4cc137ac868`、content `6ffb67840c3f5fa00f3fc25a2c4e0bffe0762fb2d8fd48947cbf4454b28c8b5f`。独立 E 恢复 `a5b40bb1ca39` / 55897 正在原工具流程中，未覆盖生产。
+新前备份及 Verify 实际完成：`E:\运营管理系统业务数据\daily-20261002T170502Z-8f5c76835ea7`，manifest `c7904ac23a503bb99847cb8ef4a151f1c51d9252d1d19ebd07ddaa1ec937adc4`、dump `8d42bf504db44af114c78bfc6829aea654d606736822c93a8620e4cc137ac868`、content `6ffb67840c3f5fa00f3fc25a2c4e0bffe0762fb2d8fd48947cbf4454b28c8b5f`。独立 E 恢复 `a5b40bb1ca39` / 55897 实际01:19:05—01:28:10完成，内容摘要相同、profileRestoreVerified、isolated_data_removed，productionDatabaseTouched=false、serviceStateChanged=false，原执行exit0。
 
 原保留策略仍最多3份/2保护。首次采用后备份 `daily-20261002T135742Z-51d1f444fb7a` 已被新前备份按原策略淘汰，只是历史验证证据，不能继续当现存恢复点。
 
 ## 待完成与边界
 
-组合真实采用、恢复后五栏目原用户浏览器/API、全景六来源、旧入口/01切换、启动及资源绑定、后备份/Verify/自然看门狗两轮仍待实际证据。未把503历史改写为通过，也未把数据缺源当作系统故障。
+组合实际采用与运行绑定完成；非作者Q真实原用户浏览器五栏目在当前用户9月1—29日范围仍全部503，目录也503，未生成可验六来源载体。不是全五栏通过。O原无outlet整JD为约8.68秒、P同设备店SPU约7.30秒、A SKU约7.43秒、S约7.23秒、目录约8.41秒、C约12.04秒；这些是浏览器响应头阶段单次观察，不能称P95或完整渲染耗时。旧入口/01切换及精确FAIL报告仍在收口。新源码隔离资格不覆盖真实生产失败。
 
-独立启动链/业务就绪新工具由另一个已交接任务提供，原 baf 候选的健康请求头和未验证PID清理存在两项独立阻断，正在隔离修复；未合未审工具不混入本次Django候选。
+新reader固定脱敏日志证实 O store_overview.py:225 的七日推广原始聚合、共享 insights_common.py:311 的字段覆盖聚合出现 statement_timeout。没有权限/schema/连接错误证据；重复trace计数不当作请求数。原最小reader仅 EXPLAIN/noANALYZE 核真实月范围：推广现有 scope/date 索引 Bitmap Heap + completed HashJoin，仍有高估计成本；没有重复低估Nested Loop根因证据。JSON重复TOAST及heap I/O尚为待私有实证假说，不声称已定位全部底层原因。
+
+01:45:24与01:51:24两次自然watchdog实际Result0且healthy/supervisorHealthy，早期Running267009和stale记录保留。后备份待真实验收读取结束后顺序执行。未把503历史改写为通过，也未把数据缺源当作系统故障。
+
+独立启动链/业务就绪新工具原baf存在健康请求头及未验证PID清理两项独立阻断。另一个隔离作者只修这两处和负例，精确源 `f9753b0d47a85e27dd8da6daad3d130053fad649` 已经原非作者复验PASS，正常合main `2fdfca029be054fe41d4fd144fcc564685cb6f37`并核验远端。独立实际12 Node、6私有HTTP预算/取消负例、PS5/7各5归属状态及原拒绝seam通过，拒绝handle Wait/Kill=0；真实启动矩阵两正两负两hash拒继承作者，明确不是非作者自己重跑。工具没有混入76f运行候选或修改现有liveness/看门狗；文档接线见 [就绪检查](../../../NETSHOP_READINESS_GATES.md)。
+
+独立报告 `E:\codex-artifacts\netshop-readiness-independent-delta-20261003-fd89910732bc47f6ad348bd7a1744c0b\PASS-DELTA.md`；旧FAIL保留。新增检查只显式用于发布，不挂定时重型查询、不扩业务授权。
 
 本轮已安全归档17棵并额外删除6个闲置本地开发refs；仍有活动预览、独有历史和未知进程依赖的树保留。无业务记录删除、强清槽、手工业务重跑/下载导入、付费模型或主动外部通知；n8n定义/调度与数据库保留。原5413 error及历史根因未知状态保留。
 
