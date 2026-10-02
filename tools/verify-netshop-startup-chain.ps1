@@ -65,15 +65,24 @@ try {
   $taskResult.childReceipt=$taskReceipt
   if ($taskReceipt.schemaVersion -cne 'netshop-startup-child-v1' -or $taskReceipt.nonce -cne $taskNonce -or $taskReceipt.state -cne 'running') { throw 'Candidate WSGI child failed its startup contract' }
   if ($taskReceipt.pythonVersion -cne $ExpectedPythonVersion) { throw 'Child interpreter differs from the expected runtime version' }
-  $taskPythonChild=[Diagnostics.Process]::GetProcessById([int]$taskReceipt.pid)
-  $null=$taskPythonChild.Handle
-  if ($taskReceipt.pid -ne $taskProcess.Id) {
-    # Windows venv python.exe is a redirector. Accept only its exact child.
-    $taskChildIdentity=Get-CimInstance Win32_Process -Filter ('ProcessId = '+[int]$taskReceipt.pid)
-    if ($null -eq $taskChildIdentity -or $taskChildIdentity.ParentProcessId -ne $taskProcess.Id -or $taskPythonChild.StartTime -lt $taskProcess.StartTime) { throw 'Candidate child is not owned by the launched process' }
+  $taskReceiptChild=[Diagnostics.Process]::GetProcessById([int]$taskReceipt.pid)
+  try {
+    $null=$taskReceiptChild.Handle
+    if ($taskReceipt.pid -ne $taskProcess.Id) {
+      # Windows venv python.exe is a redirector. Accept only its exact child.
+      $taskChildIdentity=Get-CimInstance Win32_Process -Filter ('ProcessId = '+[int]$taskReceipt.pid)
+      if ($null -eq $taskChildIdentity -or $taskChildIdentity.ParentProcessId -ne $taskProcess.Id -or $taskReceiptChild.StartTime -lt $taskProcess.StartTime) { throw 'Candidate child is not owned by the launched process' }
+    } elseif ($taskReceiptChild.StartTime -ne $taskProcess.StartTime) {
+      throw 'Candidate receipt process creation differs from the launched process'
+    }
+    # Only a completely verified receipt handle has cleanup authority.
+    $taskPythonChild=$taskReceiptChild
+    $taskReceiptChild=$null
+    $taskResult.childLineageVerified=$true
+  } finally {
+    if ($taskReceiptChild) { $taskReceiptChild.Dispose() }
   }
   $taskResult.launcherPid=$taskProcess.Id
-  $taskResult.childLineageVerified=$true
   $taskPort = [int]$taskReceipt.listenerPort
   if ($taskPort -lt 1024 -or $taskPort -in @(3000,5432,5791,8001,8011,8021,8022,8061)) { throw 'Child listener outside isolated port policy' }
   $taskHttp=[Net.HttpWebRequest]::Create('http://127.0.0.1:'+$taskPort+'/health/live')
@@ -106,7 +115,7 @@ try {
 } finally {
   if(Test-Path -LiteralPath $taskScratch){[IO.File]::WriteAllText((Join-Path $taskScratch 'stop'),'stop',[Text.UTF8Encoding]::new($false))}
   if ($taskProcess) {
-    if ($taskPythonChild -and -not $taskPythonChild.WaitForExit(8000)) { $taskPythonChild.Kill();[void]$taskPythonChild.WaitForExit(3000);$taskResult.state='failed';$taskResult.reason='isolated_child_timed_out' }
+    if ($taskPythonChild -and $taskResult.childLineageVerified -eq $true -and -not $taskPythonChild.WaitForExit(8000)) { $taskPythonChild.Kill();[void]$taskPythonChild.WaitForExit(3000);$taskResult.state='failed';$taskResult.reason='isolated_child_timed_out' }
     if ($taskProcess.WaitForExit(8000)) { $taskResult.normalChildExit=$true; $taskResult.childExitCode=$taskProcess.ExitCode; if($taskProcess.ExitCode -ne 0){$taskResult.state='failed'} }
     else { $taskProcess.Kill(); [void]$taskProcess.WaitForExit(3000); $taskResult.normalChildExit=$false }
     if (-not $taskResult.normalChildExit) { $taskResult.state='failed';$taskResult.reason='isolated_child_failed_or_timed_out' }

@@ -24,11 +24,16 @@ export type BusinessReport = {
 };
 type Spec = { id: string; path: string; query: URLSearchParams; decode: (v: unknown, q: URLSearchParams, revision: string | null) => unknown | Promise<unknown> };
 const MAX_BYTES = 2 * 1024 * 1024;
+function requestHeaders(path: string): Record<string, string> {
+  return path === "/_teruisi/local/health/live" || path === "/_teruisi/local/health/ready"
+    ? { accept: "application/json", "x-teruisi-local-health": "1" }
+    : { accept: "application/json" };
+}
 // Node's core HTTP client does not consult proxy environment variables. Keep
 // local shop/date query strings on the local machine, even with proxy flags.
 const directFetch: typeof fetch = async (input, init) => new Promise<Response>((resolve, reject) => {
   const url = new URL(String(input));
-  const request = httpRequest(url, { method: "GET", agent: false, signal: init?.signal ?? undefined, headers: { accept: "application/json" } }, response => {
+  const request = httpRequest(url, { method: "GET", agent: false, signal: init?.signal ?? undefined, headers: requestHeaders(url.pathname) }, response => {
     const headers = new Headers();
     for (const [key, value] of Object.entries(response.headers)) if (value !== undefined) headers.set(key, Array.isArray(value) ? value.join(", ") : value);
     const status = response.statusCode ?? 502, noBody = [204, 205, 304].includes(status);
@@ -133,7 +138,7 @@ export async function runBusinessChecks(base: string, scope: ProbeScope, options
     const timer = setTimeout(() => controller.abort(), Math.min(remaining, perCheckMs));
     try {
       response = await (options.fetcher ?? directFetch)(`${origin}${spec.path}${spec.query.size ? "?" + spec.query.toString() : ""}`, {
-        method: "GET", redirect: "manual", cache: "no-store", signal, headers: { accept: "application/json" },
+        method: "GET", redirect: "manual", cache: "no-store", signal, headers: requestHeaders(spec.path),
       });
       result.httpStatus = response.status;
       if (response.status !== 200) {
