@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "netshop-readiness-gates-development-v1",
+  "recordedAt": "2026-10-02T16:16:19.7339882+00:00",
+  "baseSha": "56e236e4c765fc7370fe88645b56eb81bd2352bd",
+  "branch": "codex/netshop-readiness-gates",
+  "candidateConfigurationDependency": "8707b9d60092a2697439de5609be0a09df5481ad",
+  "nodeTests": {
+    "failed": 0,
+    "passed": 73
+  },
+  "focusedNewTests": 11,
+  "powershellMatrix": "E:\\codex-artifacts\\netshop-readiness-gates\\final-matrix-90aa62df82cf48588a7d9fe3e4696571\\matrix.json",
+  "pythonVersion": "3.12.10",
+  "lintErrors": 0,
+  "lintWarnings": 0,
+  "backendBoundaryViolations": 0,
+  "isolatedBuildExitCode": 0,
+  "typescript": {
+    "inheritedDiagnostics": 188,
+    "newFileDiagnostics": 0,
+    "exitCode": 2
+  },
+  "sourceSha256": {
+    "tests/netshop-startup-chain.integration.ps1": "f370320b0fc2ab21718963bab017eb009c67f2e13b9da3191b577969d3bba25a",
+    "docs/NETSHOP_READINESS_GATES.md": "213707677e79b7f36c9b1d3d44cde8ed809f5468b402a74f7ee0a3132204bb29",
+    "tests/netshop-business-readiness.test.ts": "f5f2626b50b60f627578f9f8bfb56f8501ed14496ef43bdc2bc90598e6afd685",
+    "tools/verify-netshop-startup-chain.ps1": "68051b249fb94207c46f7ad5644e43a141cda8259dc2bb90fd48e4c32fad94df",
+    "tools/netshop-business-readiness.ts": "315c172d94be970d8100fa28b10cfc1bd66979a436e1b16052cd4ac18e90eb10",
+    "tools/netshop-readiness/startup-child.py": "92b7e4cf4a83724737ef2e30a3738767856d6716af477f0b51cbf390228c4e8a",
+    "tools/netshop-readiness/business-check.ts": "bfded853f2287ac136ef51a8ca2f477b6869eac500f3dcaede252de2bc7d2634"
+  },
+  "logs": "E:\\codex-artifacts\\netshop-readiness-gates\\delivery-b259f29c396541eeaf2b3c92f2f80200",
+  "productionOperations": 0,
+  "newProductionBusinessProbes": 0,
+  "limitations": [
+    "Startup contract runs candidate environment/process/Waitress/WSGI with DB driver blocked, not the full production lifecycle",
+    "HTTP business tests use original private-PostgreSQL captures and local test transport, not current production facts",
+    "Independent review and shared release integration remain with coordinator",
+    "Initial failed private scratch cleanup rejected by automatic review: blocked by policy; retained, no bypass"
+  ]
+}
