@@ -1,5 +1,15 @@
 # 本轮收口剩余阻断
 
+## 当前状态：2026-10-03 03:49，本节替代下方历史状态
+
+M1—M6与M7资格继承。原M8已实际采用Worker87；组合修复source21d/Django76f也已按本轮许可采用，12Ready/启动绑定、前备份独立恢复、后Backup/Verify和两轮自然watchdog通过，PostgreSQL/n8n身份保持，138迁移证据不变。真实原用户9月1—29日五新栏目/目录仍503，旧总览与ERP200；因此业务验收未完成。主线执行材料当前main f7777eb68b39d8890001f55082fee84f226922d8，准确采用/失败报告及现存恢复点见20261003-combined-sql-production.md。
+
+JSONPath候选0be未合：独立正语义通过但真实最小reader7秒诊断三条均超时；窄索引micro亦因合法长ID回退及未覆盖A对象路径不具采用资格，均保全不部署。当前唯一工作是新的离线修复候选 codex/netshop-promotion-presence-cache/core a9f9f6b9e090dc0d4c0426bafc2c6886ebc74ab6，作者47实际私有PG过，非作者core复核在途；五nullable派生字段/完整三态/精确basis/原JSON CAS/原0003修订guard、global→行锁及token失效均受约束。
+
+新增139迁移不能沿原固定138备份/安装/启动门禁冒成功。作者正在最小独立v4精确138→139 policy/journal/receipt源码闭包，原v3/62→138、ProtectedAI0082、角色及原守卫保持；ordinary startup不得凭SQLcount自授权。core资格与完整采用资格分开。当前无新Prepare/生产迁移、回填或追加维护，必须完整候选测试/独立审查后再向用户说明新增操作和影响、取得明确许可。
+
+安全清理累计19工作树（18受管归档＋1普通Git移除）；新platform树原unknown进程在外部boot后消失/复用身份核清且5尾保全，真实本chat归档01a0fddc；readiness-fixes普通树只解除已知junction、借用cache marker保持。额外旧闲置本地refs累计8，活动来源/新未合候选/审查依赖/原设计预览和独有历史继续保留。无业务记录删除、强清槽、真实下载导入/补跑、预算放宽、n8n定义调度或主动外发/付费模型。
+
 ## 当前状态：2026-10-03 01:26，本节替代下方历史状态
 
 M1—M6远端main，M7独立通过；原M8于10月2日晚实际采用，Worker87/Django6929，12组件Ready及备份/自然看门狗通过。暂停期间整机重启后原helper空槽、原5413 error保留；Root没有强清槽/故障重启/业务补跑，历史根因未确定。
