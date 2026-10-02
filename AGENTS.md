@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+2026-10-03，方案二本机实际 Worker/helper `20261001T164608Z-4dc26d0ae8921e88` / manifest `87f5e879ca2bb3d797886c859c7452d4a72fffdb8e9ff777cd839d039db368e9`；Django组合源码 `21d79ab1` / manifest `76f7857203e780758fb2393b10ae735a0e46ba8aaa2dbf3fba32654a2c3a3179` 已按本轮许可原KeepPostgres流程采用，SQL7秒/RPC8秒/整体65秒/2MiB保持。原5413历史error未改，Root无强清槽/故障重启/业务补跑。12组件及运行绑定通过，但真实原用户五新栏目9月1—29日仍503：O七日promotion原始聚合、共享字段覆盖存在SQL超时，不能称生产五栏验收完成；旧总览及ERP入口200。独立源码PG47/47与真实生产结果分开报告。新显式启动/业务就绪工具经两项负例修复及非作者复核合main，不接每分钟看门狗或自动重启。采用、备份现存状态及限制见 `docs/netshop-refactor/execution/20261003-combined-sql-production.md`；本记录不授予未来维护、迁移、扩权或补跑。
+
 2026-09-29，手动完整补跑统计已按本轮上线授权采用。核心源码 `34caa914`，实际页面验收补齐旧说明 `0e96f617`；最终 Worker/helper `20260929T100854Z-25db306d29baf4ee`、manifest `cb9ef902f969d3de3c0ed154653986680ca8c49478e1df869932d88886336d55`，Django manifest `52b13c8cf8c580fb6bcef2c3b17c187a0b6aee3811b5df1e1aa0622f16fb19e1`。manual success 须核验同一原工作流手动入口及所有业务阶段、顺序/时间和成功状态，排除局部执行、固定测试数据与证据不完整；不得简单把任意编辑器 success 纳入完成。正式接口和页面四店共用 #5392、15:59 已完成通过；12 组件、启动绑定、资源与钉钉连接、前备份独立恢复、后备份 Verify、E 三份两保护及未决零通过。138 迁移和 18 条 n8n 定义不变，无真实业务补跑。后备份按原保留策略自动淘汰未保护的本轮前备份，不能再引用其目录作现存恢复点。两轮运维探针未完成后自然恢复，原样本保留、不声称底层原因已修复。见 `docs/evidence/manual-import-status-production-20260929.json`；不授予未来维护或补跑授权。
 
 
