@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+2026-10-04，全部店铺元数据读取优化已按本次明确批准采用。Django manifest `e4f48e98` / source `5686f277`，Worker87/139保持；原KeepPostgres133cf维护、前后Backup/Verify/E独立恢复及295表/49roles/profile/evidence严格相等通过。实际12Ready/启动绑定/17assets/Django守护healthy，三截图原范围目录/推广/新总览200、完整DTO独立解码；原月单店S200/六源/八章/alerts0仅UI资格，body采集缺失。原Start stdout started但ExitCode采集null，控制器退出码未知；独立看门狗旧23:51检查在途，未冒两轮自然验收。业务缺源/缺字段保留，不新增迁移/回填、扩权预算或业务补跑。见 `docs/netshop-refactor/execution/20261004-all-shops-production.md`；本记录不授予未来维护或修复许可。
+
 2026-10-03，用户已明确批准全景财务兼容e3a/318后继的追加应用维护。Root原KeepPostgres维护 `d57d8472603b4c509fa0f3ec5caf85e9` 已完整排空并停止应用、保留PG/n8n，前后备份/独立恢复、318原Deploy/Harden及全部295表/49角色/profile/evidence一致已通过；原Exit/Worker Start exit0、12Ready、启动绑定及17资产通过，应用已恢复Django318/Worker87/139。原同月/同店SPU全景已真实200、六源可信与八章渲染，无alerts；O/P/A/C/目录/旧01/ERP原范围资格继承，缺源继续保留。**不把一次真实范围通过冒任意范围/P95，不重复139迁移/缓存回填。** 实际状态见 `docs/netshop-refactor/execution/20261003-finance-edge-production.md`；下方等待批准是历史阶段，本记录不授予本轮之外的操作。
 
 以下同日较早记录为历史阶段；当前状态以上述首条与本次生产执行记录为准。
