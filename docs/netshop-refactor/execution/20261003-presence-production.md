@@ -1,4 +1,4 @@
-# Presence139 已批准生产维护（进行中）
+# Presence139 已采用；真实页面独立验收进行中
 
 用户在候选交付后明确回复“批准”，包含本次138→139迁移、五派生字段cache-only回填及追加维护。原不删除业务记录、不强清槽、不补跑下载导入、不扩权/预算、不新建密钥或调用付费模型的边界保持。本页记录进行中事实，不把安装或回填阶段当最终业务恢复。
 
@@ -29,4 +29,18 @@
 
 独立Q代码36e在Root原netshop_reader/固定原服务7秒/只读/PK≤500实执行，全表1,999,139原业务列SHA `54428a069153336b2a24fead9b789d56597e48b0478b1e60476d91795723907e` 与before完全相同，目标1,232,499、无效basis残余0、五tuple原SQL/实际cache三态差异全0；MATERIALIZED每批复用计算，不增加单SQL预算。最终result SHA `5ca88c62681fb246ca701f8be868bc06329b5a39402e74eecd28f8d4d2fd4076`，完整代码/受限E固定摘要块与原件保留，不存业务行或凭据。
 
-现在原139后备份进行中。随后必须独立恢复、Finalize/Exit/Start和真实原用户同月范围五栏/旧入口/六源验收；原月范围503仍未关闭，应用仍停止。仅在实际恢复和业务验收后更新最终结论。
+上段安装阶段已结束。后备份、独立恢复和原Finalize均已成功，已ExitMaintenance/原Start恢复应用；以下是实际后续结果。
+
+## 维护恢复与数据保护结果
+
+后139备份 `daily-20261003T013934Z-3b127c662b68` / manifest `d867108593889b798637af032d1437bcf8fe7845644d12c37d036c43100586ef`、dump `200bdf0309b097897adc50f3033f1250d48d87be1cdc04e93cd0064f075c3585`、content `07793ef9dc80d4312cc852e1216bff39167a0121509bc2c1de05b834037fffce`，原Backup/Verify exit0。E独立恢复 `9aabe9418ee5` 实际09:52:48—10:01:31完成，内容/profile一致、生产数据库和服务未改，隔离DATA正常清理。原Finalize exit0，opf839 release verified。
+
+前后295表完整比较：只有django_migrations、netshop_rows五cache字段和netshop_data_revisions改变；原netshop业务列全表摘要完全相同，其他292表行数/根摘要、49角色设置、34项权限/authority/范围/导入批次关键表均一致，私钥行0。修订25539及完整digest与24650步原回执重算一致。原三份/两保护规则未改：当前后139加9月28/29两保护点；before138由原轮转淘汰，完整三文件仍在上述私有安全副本，不把已淘汰目录冒现存恢复点。
+
+原ExitMaintenance已返回maintenance_ended、维护/排空标记消失；原Start已返回started，Worker/helper仍 `20261001T164608Z-4dc26d0ae8921e88` / manifest `87f5e879ca2bb3d797886c859c7452d4a72fffdb8e9ff777cd839d039db368e9`，Django采用6b/源码f9/139。10:09:28原系统Status全部12组件Ready/exact_release，原VerifyStartup verified。PG20664/n8n16852及创建时间与before逐项相同。原受保护Restore-WatchSupervisor入口复验后返回，原Status为running/healthy；不直接手工启动业务进程。Start外层采集管道仍尾挂，子Start已退出但外壳退出码尚未取得，另行审计，不冒完整外壳exit0。
+
+10:19只读核验helper ready/空槽；原5413仍error且未删除。维护期京东原自然5600于10:00启动、10:11失败，原安全重试5603等待，未人工重放或取消。自然看门狗10:19/10:22两个完成轮次均task result0、healthy/四探针200；既有钉钉被动日志connected/错误流0字节。市场被动业务观测仍unknown/no_confirmed_failure，结构健康不冒其真实业务成功。
+
+原Start PS子5460已经退出，尾挂的是本任务pwsh29100（creation10:04:06.294962）。独立元数据复核后，Root重验exe/creation/命令SHA、原子已退出和直接子仅conhost，使用单进程Process.Kill()只关闭准确外壳，未用树终止/服务Stop。Worker supervisor/helper/workerd/PG/n8n五进程创建身份逐项不变；外壳exec实际exit-1，原Start退出码不可得而非exit0。10:22:45再次原系统Status全部12Ready/exact_release。原件 `outer-shell-tail-closure.json` 与 `final-system-status.json` 保全。
+
+实际原用户9月1—29日五栏、目录/六源、01旧入口及ERP仍在逐项独立验收。新01主请求200/9.2795秒、店铺detail200/2.2392秒已构成当前一次真实正例；其他栏目结果未出前不宣称全部恢复或稳定P95。
