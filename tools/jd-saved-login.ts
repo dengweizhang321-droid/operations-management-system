@@ -233,6 +233,20 @@ export async function isJdLoginSurface(page: Page) {
   return await readJdSessionSurface(page) === "login";
 }
 
+/** Sanitized frame topology for query diagnosis; never returns URLs, names or body text. */
+export async function inspectJdSessionSurfaceCounts(page: Pick<Page, "frames" | "mainFrame">) {
+  const main = page.mainFrame();
+  const states = await Promise.all(page.frames().map(async (frame) => {
+    const bodyText = await frame.locator("body").innerText({ timeout: 1_000 }).catch(() => "");
+    const password = await frame.locator('input[type="password"],#nloginpwd').count().catch(() => 0);
+    return { main: frame === main, surface: jdSessionSurfaceDecision(frame.url(), bodyText, password > 0) };
+  }));
+  return {
+    mainSurface: states.find(s => s.main)?.surface ?? "pending" as JdSessionSurface,
+    loginSubframeCount: states.filter(s => !s.main && s.surface === "login").length,
+  };
+}
+
 export async function ensureJdStoreAuthenticatedSession(
   page: Page,
   store: Pick<JdStore, "storeKey" | "shopName" | "loginMode">,
