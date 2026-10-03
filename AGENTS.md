@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+2026-10-03，本轮新增139迁移/回填已获用户明确“批准”，现正在原KeepPostgres维护 `3b796c2d78f2480e85fc33283d7c23a7` 中。Deploy-only门禁路径修复 `f9dccf04` 经独立复核后，新candidate `03817dc9` / manifest `6b1312c4` 已实际Deploy/HardenAcl，op `f839551d` 唯一0004安装成功，正式已139；1232499缓存回填与全部1999139行原字段摘要/残余/三态独立验证通过。**应用尚未恢复，后139备份/独立恢复、Finalize/Exit/Start与真实五栏验收仍进行中，不擅自启动或绕过维护。** PostgreSQL/n8n原进程保留，旧失败/未使用旧包及前备份安全副本保全，原预算/权限/无新密钥策略不放宽。准确在途状态见 `docs/netshop-refactor/execution/20261003-presence-production.md` 与E对应原件；下条等待批准/生产138是历史阶段。
+
 2026-10-03，JD推广presence修复源码 `3dba3b66` 已经非作者复核、正常合main `978a6322`及远端核验；实际Prepare `76b7deb901b44492b767ae50673557bb` / receipt `2d11452c` / manifest `1b4472b5`绑定running76f，独立Prepared PASS。它含精确138→139/五内部nullable派生字段与原修订guard下的显式回填；**没有新增生产维护、迁移或回填授权，没有采用**。正式仍76f/87/138、原月范围新五栏503未闭合。原SQL7/RPC8/65秒/2MiB、角色权限/0082无新密钥保护不放宽，Finalize先于Exit/Start。累计20树安全清理，当前发布来源/包/依赖/证据与不满足清理条件的历史树保留。见 `docs/netshop-refactor/execution/20261003-presence-cache-ready.md`；本记录不授予新生产操作。
 
 2026-10-03，方案二本机实际 Worker/helper `20261001T164608Z-4dc26d0ae8921e88` / manifest `87f5e879ca2bb3d797886c859c7452d4a72fffdb8e9ff777cd839d039db368e9`；Django组合源码 `21d79ab1` / manifest `76f7857203e780758fb2393b10ae735a0e46ba8aaa2dbf3fba32654a2c3a3179` 已按本轮许可原KeepPostgres流程采用，SQL7秒/RPC8秒/整体65秒/2MiB保持。原5413历史error未改，Root无强清槽/故障重启/业务补跑。12组件及运行绑定通过，但真实原用户五新栏目9月1—29日仍503：O七日promotion原始聚合、共享字段覆盖存在SQL超时，不能称生产五栏验收完成；旧总览及ERP入口200。独立源码PG47/47与真实生产结果分开报告。新显式启动/业务就绪工具经两项负例修复及非作者复核合main，不接每分钟看门狗或自动重启。采用、备份现存状态及限制见 `docs/netshop-refactor/execution/20261003-combined-sql-production.md`；本记录不授予未来维护、迁移、扩权或补跑。
