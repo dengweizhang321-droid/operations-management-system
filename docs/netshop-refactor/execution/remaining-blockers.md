@@ -72,3 +72,16 @@ M1—M6均已远端main；M7独立通过（核心阻断0）；M8原Worker/Django
 非关键路径保留：平台作者树/branch因现时受保护进程依赖未全面证明保留，清理报告`A912E29E02D1D1FA6CEDB366E9B40BC9006BDBD48A97C671CDF81972171A676F`；原设计预览及在途Q/I资源保留，完成安全清理累计16。S三完成子树资格另核，未满足五条件不绕应用归档保护。误建空`D:\ .codex`的删除曾被自动审批拒绝，原样保留。
 
 平台整期5RPC只是既定3.1正确性收口：复用原两期owner，每平台完整非空RAW子集直接periodTotals，同outer65秒/2MiB，不相加趋势订单/均价，不扩新分析能力。无映射/无记录/真实零/成本未核验分别报告。
+
+### 10:40 真实全景403与新修复单写登记
+
+O/P/A/C实际同月范围200，S sectionperformance403 headers21.100929秒/90.002977秒abort，财务consumer原日志Forbidden；六源未验，不能宣称生产全完成。原F和sales支持经HMAC后的exact reserved本地身份，finance netshop_reads._actor仅持久AppUser造成契约差异。实际Worker非敏感配置local-direct=true/environment=development；原浏览器已有DOM/DTO无principal，真实请求身份尚不能由此直接证实。只做兼容缺口修复和隔离负向证明，不建用户或授予权限。
+
+单写作者m6_home_completion：普通D:\codex-isolated\netshop-finance-edge-compat\运营管理系统、codex/netshop-finance-edge-compat，父origin/main0b55af6e；仅backend/finance/netshop_reads.py及专属测试/交接。自有E private-pg50875/performance_fixture新私有DB，先复验归属，Q/readiness未借且错峰；正常Stop交回。readiness_review非作者等干净SHA后复验，不测WIP。Root串行合main/候选/后续必要发布，当前无新生产变更。
+### 11:08 后继修复主线/准备及清理
+
+实际UI已经封存：O/P/A/C/目录及旧01/ERP通过，S403总体FAIL/六源未验。Q报告PRODUCTION-BROWSER-6B-REVIEW.md SHA07c21527933981acbdfae37b52c223f58fa8c9b01b6f04ed941fc1b5fe4b519c。财务兼容作者a129及非作者各真实私有PG14通过，Root无冲突合main bd96029bfb45207cc82599e2098daaebf8aa8513，remote同，primary/public-freeze cleanFF。
+
+原successor Prepare exit0，e3a80ecfeecc449888cad9a9c0428304/receipt6e2e5d00/manifest3184134a/fingerprintd0356da4，父实际running6b、139迁移不变；独立包Q收尾中，尚未新维护/采用。此修复是新运行源码和需追加窗口，本次139批准窗口已退出；具体后继方案在主线待提交docs/netshop-refactor/execution/20261003-finance-edge-candidate.md。生产维持6b/87在线，不重复迁移/回填。
+
+新增作者普通树完整archive4786项CRC与SHA39156361保全、ignored258pyc外无独有内容、Q/作者已归还、进程/计划任务/锁0，main含a129后native remove/local-d成功；remote从未存在。累计21树=18受管+3普通。E私有DATA与证据不删，public-freeze准备源/Root/Q依赖/独有历史原条件保持。
