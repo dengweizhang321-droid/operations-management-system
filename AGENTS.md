@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+2026-10-03，139维护已完成并恢复，真实原月范围O/P/A/C/目录及旧01/ERP通过，但全景财务来源403仍阻断六源验收。最小签名保留身份兼容源码 `a129ea00` 经作者/非作者各14项私有PG验证，已合main `bd96029b`；原successor Prepare `e3a80ecf` / candidate manifest `3184134a` 绑定当前running6b，仅准备、尚未采用。生产仍Django6b/Worker87/139；新候选不重复迁移/回填，不建用户/改权限或预算。累计21树安全清理，下一窗口具体材料见 `docs/netshop-refactor/execution/20261003-finance-edge-candidate.md`；不得把源码合并或Prepared当作全景生产恢复或未来维护许可。
+
 2026-10-03，本轮新增139迁移/派生缓存回填已按用户明确“批准”采用：源码 `f9dccf04`，Django manifest `6b1312c4` / op `f839551d`，唯一0004安装，1232499缓存及1999139行原业务列/三态独立验证通过。前后备份独立恢复、Finalize、Exit/Start已完成，应用恢复12组件Ready/exact_release；原VerifyStartup、守护healthy、自然10:19/10:22任务exit0及渠道connected通过。PG/n8n原身份保留。实际原用户月范围五栏独立验收仍在途，不把结构Ready冒业务全面通过。外层Start采集管道尾挂经独立核验只关闭精确外壳，业务身份保持，原Start退出码未取得。见 `docs/netshop-refactor/execution/20261003-presence-production.md`；下方等待批准/生产138/应用未恢复均为历史阶段，不授予未来生产操作。
 
 2026-10-03，JD推广presence修复源码 `3dba3b66` 已经非作者复核、正常合main `978a6322`及远端核验；实际Prepare `76b7deb901b44492b767ae50673557bb` / receipt `2d11452c` / manifest `1b4472b5`绑定running76f，独立Prepared PASS。它含精确138→139/五内部nullable派生字段与原修订guard下的显式回填；**没有新增生产维护、迁移或回填授权，没有采用**。正式仍76f/87/138、原月范围新五栏503未闭合。原SQL7/RPC8/65秒/2MiB、角色权限/0082无新密钥保护不放宽，Finalize先于Exit/Start。累计20树安全清理，当前发布来源/包/依赖/证据与不满足清理条件的历史树保留。见 `docs/netshop-refactor/execution/20261003-presence-cache-ready.md`；本记录不授予新生产操作。
