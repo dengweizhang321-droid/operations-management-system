@@ -44,3 +44,17 @@
 原Start PS子5460已经退出，尾挂的是本任务pwsh29100（creation10:04:06.294962）。独立元数据复核后，Root重验exe/creation/命令SHA、原子已退出和直接子仅conhost，使用单进程Process.Kill()只关闭准确外壳，未用树终止/服务Stop。Worker supervisor/helper/workerd/PG/n8n五进程创建身份逐项不变；外壳exec实际exit-1，原Start退出码不可得而非exit0。10:22:45再次原系统Status全部12Ready/exact_release。原件 `outer-shell-tail-closure.json` 与 `final-system-status.json` 保全。
 
 实际原用户9月1—29日五栏、目录/六源、01旧入口及ERP仍在逐项独立验收。新01主请求200/9.2795秒、店铺detail200/2.2392秒已构成当前一次真实正例；其他栏目结果未出前不宣称全部恢复或稳定P95。
+
+## 实际页面进展与新阻断
+
+同一原用户Chrome、原9月1—29日范围：P商品SPU page1/size5为200/3.9602秒，A同店SKU为200/9.4288秒，C原previous/SPU/平台成交/source all为200/22.5285秒。实际表格均正常、无alerts，owning revision均25539:e40e78b1867a；这些是当前生产正例，不冒任意范围或稳定P95。
+
+S同店同月SPU section=performance仍失败：403响应头21.100929秒，最终90.002977秒cancelled/ERR_ABORTED，CDP无完整body，不能把它记为21秒完整响应。页面清空旧范围数据并提示来源权限失效，六源/八章节尚未验收。财务reader10:29:00原被动日志为Forbidden /api/finance/consumers/query；正在核验财务专题持久身份与原签名本地管理员路径的兼容差异，不放宽权限、不造用户、不把推断冒实证根因。该项阻止“五栏目生产全部完成”。
+
+当前首页HTML真实17个唯一/assets引用逐项HTTP200、长度及原bytes/SHA与准确Worker87包dist/client相同。没有沿用旧15条hashed URL或凑固定数量，原件 `current-assets-verification.json`。17静态资源通过不替代全景业务验收。
+
+目录同原范围200/0.9134秒，实际5行目录及当前快照/映射未核验标签保留。财务兼容缺口静态证明：原F/sales的exact reserved本地管理员在HMAC校验后复用actor_fence，finance专题却强制AppUser存在；原财务一般读取也没有此新增持久身份前提。实际Worker87仅提取非敏感flags为local-direct=true/runtime=development，准确编译authorization资产包含local-build=true且优先返回reserved，构成该路径强静态证据；未捕获原请求principal，不冒直接观察。Root已委派m6作者在普通隔离树 `D:\codex-isolated\netshop-finance-edge-compat\运营管理系统` / `codex/netshop-finance-edge-compat` 做最小兼容补丁，readiness_review独立复核；不建用户/GRANT，不改原签名、role/scope、其他财务证据权限或预算。当前未采用该补丁，S403仍保留。
+
+原01切旧模式实际23行ERP店铺明细、sales summary200；原ERP同日期实际29日表，单次缓存读0.08285秒，另自然进入读5.5248/5.6396秒分别保留，不混为同一性能样本。非作者真实UI结果 `foundation-review/presence-production-review/browser139-actual/browser-results-meta.json`，结束后Network采集关闭，原tab留ERP同日期店铺，无新业务或AI动作。
+
+身份兼容作者提交 `a129ea002ba2bb472b098489cc44f8221c1382e8`（父0b55af6e），两文件/运行源码10行；作者独立私有PG实际14项通过、原finance/access实际7迁移、50875正常Stop。独立审查未完成前不合主线或采用，该隔离结果不冒生产全景恢复。
