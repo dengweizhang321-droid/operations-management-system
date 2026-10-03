@@ -115,6 +115,16 @@ def _deadline(spec, parent=None):
 def _actor(principal):
     if principal.role not in {"viewer", "analyst", "operator", "admin"} or principal.scope is not None:
         raise FinanceApiError("财报专题仅允许原未受限身份", code="access_denied", status=403)
+    if principal.email == "local-admin@teruisi.local":
+        # Same precise signed-edge identity as F and the owning sales reader.
+        # The registered boundary already verified the complete HMAC envelope;
+        # this is never an absent-user fallback for any ordinary identity.
+        from netshop.insights_common import actor_fence
+        from netshop.errors import NetshopApiError
+        try:
+            return actor_fence(principal)
+        except NetshopApiError as error:
+            raise FinanceApiError(str(error), code=error.code, status=error.status) from error
     row = AppUser.objects.filter(email=principal.email.strip().lower()).values("email", "role", "status", "scope", "version").first()
     if not row or row["status"] != "active" or row["role"] != principal.role or row["scope"] is not None:
         raise FinanceApiError("当前财报账号或权限版本不可用", code="access_denied", status=403)
