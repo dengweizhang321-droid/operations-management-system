@@ -45,3 +45,19 @@
 采用需按 `docs/STARTUP_RELEASE_OPTIMIZATION.md` 和 `docs/NETSHOP_READINESS_GATES.md`：批准本次后继应用维护后，排空、前备份/Verify/独立恢复、精确 Prepared Deploy/Harden、后备份/独立恢复、Exit/唯一 Start、12 组件及启动绑定；最后分别验收京东推广全部店铺 9月20–24日、天猫全景目录 9月20–26日、京东新总览全部店铺 9月20–26日及原月/单店功能。不可省略原门禁，不重复139迁移或缓存回填。
 
 市场 projection identity 去重计数的周期性超时属于另一个已记录问题；本次没有修改其 consumer、调度或任务，不声称已证明其为截图失败的负载根因。
+
+## 准确后继候选已准备
+
+源码 `5686f2772f9e713999c2a0b9a7841050c883f1f5` 已正常合入、推送 main 并核验远端。原 PrepareApp 实际 exit0；`Get-PreparedApplication` 使用准确收据重新核验完整指纹及前驱，实际通过。
+
+| 绑定 | 值 |
+| --- | --- |
+| Prepared ID | `a179d1acabd2437a82dc91f7c7005284` |
+| receipt SHA256 | `61113c73a40ba854b248eebce2837837f941a1d537963bbfeff13782a97714be` |
+| parent running manifest | `3184134ad0ea2ada3c644d95035a1cce0361b103a12d4717154b995db4f3ee58` |
+| candidate manifest | `e4f48e98178a77fac41ac269b40076f2c30bf449c8c5562e28a0a056f4ba22e1` |
+| candidate fingerprint | `abb61f609dce095fa7d20843dec3cffe192e6ef3446336daf654ae2f2053cd3f` |
+
+候选目录 `D:\teruisi-runtime\django-sales\app.deploy-a179d1acabd2437a82dc91f7c7005284`，三个功能源码与候选逐 SHA 相等，候选与当前 running 的完整迁移 digest 相同，保留139。真实 `verify-netshop-startup-chain.ps1` 以准确 launcher SHA 和 Python 3.12.10 运行，候选原环境函数、受控进程入口、Waitress/WSGI与三路配置全部通过，私有子进程正常 exit0、scratch正常清理；该检查封闭数据库连接，不能冒业务终验。证据分别为 `final-binding.json`、`prepared-verified.json`、`startup-candidate\startup.json`。
+
+尚未获得本候选的生产应用维护许可，未 Deploy/Exit/Start。当前源码工作树及独立依赖仍作为准确候选发布来源保留，不在等待采用时归档。两个已停止的百万行合成 benchmark 目录清理遭自动审批审查拒绝，工具仅返回“blocked by policy”；两个目录及其证据保留，未改用其他方式删除。此限制不影响 Prepare 或运行应用。
