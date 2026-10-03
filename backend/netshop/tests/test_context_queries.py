@@ -178,3 +178,28 @@ class ContextQueriesPostgresTests(TestCase):
         self.row("only-foreign", "2026-09-01", platform="天猫")
         self.assertEqual(discover_shop_names("京东", 51), self.original_names("京东"))
         self.assertEqual(discover_shop_names("京东", 51), [])
+
+    def test_directory_merges_all_prefixes_before_global_limit_and_deduplicates(self):
+        # Prefix order differs from shop order; stopping at the first prefix
+        # or capping the union before sorting would drop legitimate members.
+        for source, dataset, names in [
+            ("a-source", "z-dataset", ["z-shop", "shared"]),
+            ("z-source", "a-dataset", ["a-shop", "shared"]),
+            ("a-source", "a-dataset", ["b-shop", "shared"]),
+            ("", "", ["legacy-shop"]),
+        ]:
+            for name in names:
+                self.row(name, None, self.pending, source=source, dataset=dataset)
+            self.row("foreign-only", None, platform="天猫", source=source, dataset=dataset)
+            self.row("", None, source=source, dataset=dataset)
+        for limit in (1, 2, 4, 51):
+            with self.subTest(limit=limit), self.assertNumQueries(1):
+                actual = discover_shop_names("京东", limit)
+            self.assertEqual(actual, self.original_names("京东", limit))
+
+    def test_directory_duplicate_large_prefixes_cannot_hide_51st_shop(self):
+        for source in ("first", "second"):
+            for i in range(60):
+                self.row(f"shop-{i:02}", None, source=source, dataset="other")
+        self.row("earliest", None, source="last", dataset="new-source")
+        self.assertEqual(discover_shop_names("京东", 51), self.original_names("京东"))

@@ -196,3 +196,24 @@ test("netshop upstream failures never fall back to D1", async () => {
     );
   }
 });
+
+test("netshop reader preserves the bounded query timeout reason through the public adapter", async () => {
+  await assert.rejects(
+    requestDjangoNetshopService(
+      principal,
+      { method: "GET", path: NETSHOP_OVERVIEW_PATH, service: "reader" },
+      {
+        config,
+        fetchImpl: async () => Response.json(
+          { error: "当前范围查询超时，请稍后重新读取。", code: "source_not_ready" },
+          { status: 503 },
+        ),
+      },
+    ),
+    (error: unknown) => error instanceof DjangoNetshopServiceResponseError
+      && error.status === 503
+      && error.code === "service_unavailable"
+      && error.upstreamCode === "source_not_ready"
+      && error.message === "当前范围查询超时，请稍后重新读取。",
+  );
+});

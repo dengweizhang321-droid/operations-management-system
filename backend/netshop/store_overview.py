@@ -13,7 +13,7 @@ import uuid
 import time
 import json
 
-from django.db.models import BooleanField, Count, F, Func, Max, Q, Sum
+from django.db.models import BooleanField, Count, F, Func, Q, Sum
 from django.db.models.expressions import Col
 
 from sales.summary import _custom_comparison_period, _period_for
@@ -24,6 +24,7 @@ from .models import (NetshopRow, NetshopImportBatch, NetshopPromotionShopDaily,
                      NetshopProductDailyScopeRevision, NetshopPromotionScopeRevision)
 from .query import period, positive, parse_outlets, _canonical_token, revision_value
 from .promotion_presence import BITS, MAX_MASK, RULE
+from .context_queries import source_latest_date
 
 MAX_SAFE = 9_007_199_254_740_991
 KEYS = ("payment", "visitors", "customers", "spend", "promotionPayment", "spendRate", "conversion", "roas", "averageOrder", "uvValue", "paidVisitors", "freeVisitors", "b2bRate")
@@ -396,7 +397,14 @@ def _read_once(principal, spec, revision, deadline):
         covered = expected - sum(len(s["dates"]) for s in missing)
         return {"expectedShopDatePairs": expected, "coveredShopDatePairs": covered, "complete": expected > 0 and covered == expected, "missingByShop": [s for s in missing if s["dates"]], "truncated": False}
 
-    freshness = [{"sourceId": source, "dataThrough": rows.filter(shop_name__in=selected_names, last_import_batch_id__in=completed).aggregate(value=Max("business_date"))["value"]} for source, rows in [(product_source, product_base), (promo_source, promo_base)]]
+    freshness = []
+    for source, dataset, rows in [(product_source, product_dataset, product_base),
+                                  (promo_source, promo_dataset, promo_base)]:
+        check_budget()
+        qualified = rows.filter(shop_name__in=selected_names, last_import_batch_id__in=completed)
+        freshness.append({"sourceId": source, "dataThrough": source_latest_date(
+            qualified, platform, selected_names, source, dataset,
+        )})
     check_budget()
     return {"schemaVersion": "netshop-store-overview-v1", "requestId": str(uuid.uuid4()), "scopeKey": scope_key, "overviewToken": token, "sourceRevisions": source_revisions,
             "filters": {"platform": platform, "shopKeys": [platform+"\x1f"+n for n in selected_names], "periodKind": spec["kind"], "trendGrain": spec["trend"], "detailGrain": spec["detail"]},

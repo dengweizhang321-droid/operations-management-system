@@ -10,25 +10,44 @@ def discover_shop_names(platform, limit):
     if connection.vendor != "postgresql":
         return list(NetshopRow.objects.filter(platform=platform).exclude(shop_name="")
                     .values_list("shop_name", flat=True).distinct().order_by("shop_name")[:limit])
-    # The existing shop-leading index can skip duplicate names. The recursive
-    # step keeps the same platform, nonempty predicate and database collation.
+    # First skip distinct source/dataset prefixes of net_scope_date_idx, then
+    # seek shops with source/dataset/platform all fixed. A shop-leading scan
+    # has to visit the other platform's historical rows just to reject them.
+    # Discover prefixes from the table, not an allowlist: legacy/new sources
+    # and unfinished batches remain members of the original directory.
     sql = """
-      WITH RECURSIVE discovered(shop_name, ordinal) AS (
-        (SELECT shop_name, 1 FROM netshop_rows
-         WHERE platform = %s AND shop_name <> %s
-         ORDER BY shop_name LIMIT 1)
+      WITH RECURSIVE prefixes(source, dataset) AS (
+        (SELECT source, dataset FROM netshop_rows
+         ORDER BY source, dataset LIMIT 1)
         UNION ALL
-        SELECT following.shop_name, previous.ordinal + 1
+        SELECT following.source, following.dataset
+        FROM prefixes previous CROSS JOIN LATERAL (
+          SELECT source, dataset FROM netshop_rows
+          WHERE (source, dataset) > (previous.source, previous.dataset)
+          ORDER BY source, dataset LIMIT 1
+        ) following
+      ), discovered(source, dataset, shop_name, ordinal) AS (
+        SELECT p.source, p.dataset, first_shop.shop_name, 1
+        FROM prefixes p CROSS JOIN LATERAL (
+          SELECT shop_name FROM netshop_rows
+          WHERE source = p.source AND dataset = p.dataset
+            AND platform = %s AND shop_name > %s
+          ORDER BY shop_name LIMIT 1
+        ) first_shop
+        UNION ALL
+        SELECT previous.source, previous.dataset, following.shop_name,
+               previous.ordinal + 1
         FROM discovered previous CROSS JOIN LATERAL (
           SELECT shop_name FROM netshop_rows
-          WHERE platform = %s AND shop_name <> %s
+          WHERE source = previous.source AND dataset = previous.dataset
+            AND platform = %s AND shop_name <> %s
             AND shop_name > previous.shop_name
           ORDER BY shop_name LIMIT 1
         ) following WHERE previous.ordinal < %s
-      ) SELECT shop_name FROM discovered ORDER BY shop_name
+      ) SELECT DISTINCT shop_name FROM discovered ORDER BY shop_name LIMIT %s
     """
     with connection.cursor() as cursor:
-        cursor.execute(sql, [platform, "", platform, "", limit])
+        cursor.execute(sql, [platform, "", platform, "", limit, limit])
         return [row[0] for row in cursor.fetchall()]
 
 

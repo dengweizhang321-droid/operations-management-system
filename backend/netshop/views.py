@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable, Sequence
 from datetime import date, timedelta
 
-from django.db import connection, transaction
+from django.db import connection, transaction, OperationalError
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -206,6 +206,14 @@ def _error(error: Exception, fallback: str, *, import_shape: bool = False) -> Js
                 error.status,
             )
         return _json({"error": str(error), "code": error.code, **error.payload}, error.status)
+    cause = error.__cause__
+    if (not import_shape and isinstance(error, OperationalError)
+            and getattr(cause, "sqlstate", None) == "57014"
+            and "statement timeout" in str(cause)):
+        # Return a bounded reason, never the database message or query text.
+        logger.warning("Netshop query exceeded statement timeout")
+        return _json({"error": "当前范围查询超时，请稍后重新读取。",
+                      "code": "source_not_ready"}, 503)
     logger.exception("Unhandled netshop API error")
     if import_shape:
         return _json(
