@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+2026-10-03，用户已明确批准全景财务兼容e3a/318后继的追加应用维护。Root原KeepPostgres维护 `d57d8472603b4c509fa0f3ec5caf85e9` 已完整排空并停止应用、保留PG/n8n，现做本窗口前备份/独立恢复；尚未采用新包或恢复服务。**当前保持原维护，不重复启动、不绕排空，不重复139迁移/缓存回填。** 实际状态见 `docs/netshop-refactor/execution/20261003-finance-edge-production.md`；下方等待批准是历史阶段，本记录不授予本轮之外的操作。
+
 2026-10-03，139维护已完成并恢复，真实原月范围O/P/A/C/目录及旧01/ERP通过，但全景财务来源403仍阻断六源验收。最小签名保留身份兼容源码 `a129ea00` 经作者/非作者各14项私有PG验证，已合main `bd96029b`；原successor Prepare `e3a80ecf` / candidate manifest `3184134a` 绑定当前running6b，仅准备、尚未采用。生产仍Django6b/Worker87/139；新候选不重复迁移/回填，不建用户/改权限或预算。累计21树安全清理，下一窗口具体材料见 `docs/netshop-refactor/execution/20261003-finance-edge-candidate.md`；不得把源码合并或Prepared当作全景生产恢复或未来维护许可。
 
 2026-10-03，本轮新增139迁移/派生缓存回填已按用户明确“批准”采用：源码 `f9dccf04`，Django manifest `6b1312c4` / op `f839551d`，唯一0004安装，1232499缓存及1999139行原业务列/三态独立验证通过。前后备份独立恢复、Finalize、Exit/Start已完成，应用恢复12组件Ready/exact_release；原VerifyStartup、守护healthy、自然10:19/10:22任务exit0及渠道connected通过。PG/n8n原身份保留。实际原用户月范围五栏独立验收仍在途，不把结构Ready冒业务全面通过。外层Start采集管道尾挂经独立核验只关闭精确外壳，业务身份保持，原Start退出码未取得。见 `docs/netshop-refactor/execution/20261003-presence-production.md`；下方等待批准/生产138/应用未恢复均为历史阶段，不授予未来生产操作。
