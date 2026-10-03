@@ -18,17 +18,54 @@ $IntegrationOperationId=''
 $script:Generation=''
 $script:Calls=@()
 $script:EvidenceDigest='a'*64
-function Test-Path { param($LiteralPath,$Path,[switch]$PathType)
+$script:BadPlan=$false;$script:LinkedSource=$false;$script:BadCopiedEvidence=$false;$script:MissingSource=$false
+New-Item -ItemType Directory -Path $TestRoot -ErrorAction Stop | Out-Null
+$privateComplete=Join-Path $TestRoot 'protected-full-source'
+$privateSubset=Join-Path $TestRoot 'prepared-subset'
+New-Item -ItemType Directory -Path (Join-Path $privateComplete 'backend\tests') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $privateComplete 'tools') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $privateSubset 'backend') -Force | Out-Null
+[IO.File]::WriteAllText((Join-Path $privateComplete 'backend\tests\source-only.py'),'# private complete source')
+[IO.File]::WriteAllText((Join-Path $privateComplete 'tools\integration_install.py'),'# private full engine')
+$expectedSource=Join-Path $RuntimeRoot ('integration-deltas\'+('b'*32)+'\source')
+function Test-Path { param($LiteralPath,$Path,[string]$PathType='')
   $p=if($LiteralPath){[string]$LiteralPath}else{[string]$Path}
+  if($p.StartsWith((Join-Path $RuntimeRoot 'integration-deltas'),[StringComparison]::OrdinalIgnoreCase)){
+    if($script:MissingSource -and $p -match '\\source(?:\\|$)'){return $false}
+    if($PathType -ceq 'Container'){return $p -ceq $expectedSource}
+    return $true
+  }
   return $p -match '(integration_release_gate\.py|integration-migration-policy-v3\.json|integration-release\.json|candidate-evidence\.json)$'
 }
-function Get-FileSha256([string]$Path) { return $script:EvidenceDigest }
+function Get-Item {param([string]$LiteralPath,[switch]$Force)
+  if($script:LinkedSource -and $LiteralPath -ceq $expectedSource){return [pscustomobject]@{Attributes=[IO.FileAttributes]::ReparsePoint}}
+  return [pscustomobject]@{Attributes=[IO.FileAttributes]::Normal}
+}
+function Get-CanonicalPath([string]$Path){[IO.Path]::GetFullPath($Path).TrimEnd('\')}
+function Assert-RuntimeChildPath([string]$Path){
+  $p=Get-CanonicalPath $Path
+  if(-not $p.StartsWith($RuntimeRoot+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Outside runtime source scope'}
+  return $p
+}
+function Get-FileSha256([string]$Path) {
+  if($script:BadCopiedEvidence -and $Path -match '\\evidence\\candidate\.json$'){return 'c'*64}
+  return $script:EvidenceDigest
+}
 function Read-JsonFile([string]$Path,[string]$Label) {
-  if($Path -match 'plan\.json$'){return [pscustomobject]@{candidateEvidenceSha256=$script:EvidenceDigest}}
+  if($Path -match 'plan\.json$'){
+    return [pscustomobject]@{version='teruisi-netshop-presence-release-v1';generation='teruisi-integration-migration-plan-v4-netshop-presence';status='prepared';operationId=$(if($script:BadPlan){'d'*32}else{'b'*32});candidateEvidenceSha256=$script:EvidenceDigest}
+  }
   return [pscustomobject]@{generation=$script:Generation}
 }
 function Invoke-BoundedNativeProcess([string]$Binary,[object[]]$Arguments,[string]$WorkingDirectory) {
   $script:Calls+=,@($Arguments)
+  if($Arguments[1] -ceq 'delta-admission' -and $IntegrationOperationId){
+    if($Arguments[[Array]::IndexOf($Arguments,'--root')+1] -cne $expectedSource -or $WorkingDirectory -cne $expectedSource -or
+        $Arguments[0] -cne (Join-Path $expectedSource 'tools\integration_release_gate.py')){throw 'Admission used prepared subset instead of full source'}
+    if(-not (Microsoft.PowerShell.Management\Test-Path -LiteralPath (Join-Path $privateComplete 'backend\tests\source-only.py')) -or
+        (Microsoft.PowerShell.Management\Test-Path -LiteralPath (Join-Path $privateSubset 'backend\tests'))){throw 'Private source/subset fixtures invalid'}
+  }
+  if($Arguments[1] -ceq 'deployment' -and $Arguments[[Array]::IndexOf($Arguments,'--root')+1] -cne (Split-Path -Parent $BackendRoot)){throw 'Staging verification replaced by full source'}
   return [pscustomobject]@{status='verified'}
 }
 function ConvertFrom-UniqueNativeJson($Value,[string]$Label){return $Value}
@@ -57,4 +94,14 @@ $IntegrationEvidenceSha256=''
 $rejected=$false
 try{Assert-NoUnapprovedProtectedAiMigration 'DeployApp'}catch{$rejected=$true}
 if(-not $rejected -or $script:Calls.Count){throw 'An id alone authorized deployment'}
-'presence-admission-5-cases-passed-no-runtime-actions'
+$IntegrationEvidenceSha256=$script:EvidenceDigest
+$extra=0
+foreach($case in @('wrong-plan','copied-evidence-mismatch','reparse-source','missing-source')){
+  $script:Calls=@()
+  switch($case){'wrong-plan'{$script:BadPlan=$true};'copied-evidence-mismatch'{$script:BadCopiedEvidence=$true};'reparse-source'{$script:LinkedSource=$true};'missing-source'{$script:MissingSource=$true}}
+  $rejected=$false
+  try{Assert-NoUnapprovedProtectedAiMigration 'DeployApp'}catch{$rejected=$true;$extra++}
+  if(-not $rejected -or $script:Calls.Count){throw "Unbound full source accepted: $case"}
+  $script:BadPlan=$false;$script:BadCopiedEvidence=$false;$script:LinkedSource=$false;$script:MissingSource=$false
+}
+@{status='passed';positiveChecks=4;negativeChecks=5;productionActions=0;fullSourceAndPreparedSubsetSeparated=$true} | ConvertTo-Json -Compress

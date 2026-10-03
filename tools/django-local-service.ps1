@@ -1768,13 +1768,38 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
           $IntegrationEvidenceSha256 -cnotmatch '^[0-9a-f]{64}$' -or [string]::IsNullOrWhiteSpace($IntegrationEvidencePath)) {
         throw 'Delta deployment requires exact operation and approved evidence'
       }
-      $admission = Invoke-BoundedNativeProcess $Python @($integrationGate, 'delta-admission',
-        '--root', $candidateRoot, '--runtime', $RuntimeRoot, '--evidence', $IntegrationEvidencePath,
-        '--approved-sha256', $IntegrationEvidenceSha256) $candidateRoot
+      $deltaRoot = Assert-RuntimeChildPath (Join-Path $RuntimeRoot ('integration-deltas\' + $IntegrationOperationId))
+      $deltaPlanPath = Assert-RuntimeChildPath (Join-Path $deltaRoot 'plan.json')
+      $deltaSource = Assert-RuntimeChildPath (Join-Path $deltaRoot 'source')
+      $deltaEvidence = Assert-RuntimeChildPath (Join-Path $deltaRoot 'evidence\candidate.json')
+      $deltaSourceGate = Assert-RuntimeChildPath (Join-Path $deltaSource 'tools\integration_release_gate.py')
+      foreach ($boundPath in @($deltaPlanPath,$deltaSource,$deltaEvidence,$deltaSourceGate)) {
+        $cursor = $boundPath
+        while ($cursor -and (Get-CanonicalPath $cursor) -ine (Get-CanonicalPath $RuntimeRoot)) {
+          if (-not (Test-Path -LiteralPath $cursor)) { throw 'Delta source binding path is missing' }
+          if (((Get-Item -LiteralPath $cursor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Delta source binding path is redirected' }
+          $cursor = Split-Path -Parent $cursor
+        }
+      }
+      if (-not (Test-Path -LiteralPath $deltaSource -PathType Container) -or
+          -not (Test-Path -LiteralPath $deltaPlanPath -PathType Leaf) -or
+          -not (Test-Path -LiteralPath $deltaEvidence -PathType Leaf) -or
+          -not (Test-Path -LiteralPath $deltaSourceGate -PathType Leaf)) { throw 'Delta source binding types are invalid' }
+      $deltaPlan = Read-JsonFile $deltaPlanPath 'Exact delta plan'
+      if ($deltaPlan.version -cne 'teruisi-netshop-presence-release-v1' -or
+          $deltaPlan.generation -cne 'teruisi-integration-migration-plan-v4-netshop-presence' -or
+          $deltaPlan.status -cne 'prepared' -or $deltaPlan.operationId -cne $IntegrationOperationId -or
+          $deltaPlan.candidateEvidenceSha256 -cne $IntegrationEvidenceSha256 -or
+          (Get-FileSha256 $deltaEvidence) -cne $IntegrationEvidenceSha256 -or
+          (Get-FileSha256 $IntegrationEvidencePath) -cne $IntegrationEvidenceSha256) { throw 'Delta plan differs from exact approved source evidence' }
+      # Candidate approval requires the protected complete source inventory;
+      # staging intentionally omits tests/engine files. Deployment below still
+      # verifies the actual prepared package, manifest and migration binding.
+      $admission = Invoke-BoundedNativeProcess $Python @($deltaSourceGate, 'delta-admission',
+        '--root', $deltaSource, '--runtime', $RuntimeRoot, '--evidence', $deltaEvidence,
+        '--approved-sha256', $IntegrationEvidenceSha256) $deltaSource
       $proof = ConvertFrom-UniqueNativeJson $admission 'Verify explicit delta deployment evidence'
       if ([string]$proof.status -cne 'verified') { throw 'Delta deployment evidence refused' }
-      $deltaPlan = Read-JsonFile (Join-Path $RuntimeRoot ('integration-deltas\' + $IntegrationOperationId + '\plan.json')) 'Exact delta plan'
-      if ($deltaPlan.candidateEvidenceSha256 -cne $IntegrationEvidenceSha256) { throw 'Delta plan differs from approved evidence' }
       $arguments += @('deployment', '--root', $candidateRoot, '--runtime', $RuntimeRoot, '--operation-id', $IntegrationOperationId)
     } elseif ($Operation -cin @('PrepareApp','DeployApp') -and
         (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'integration-release.json') -PathType Leaf)) {
