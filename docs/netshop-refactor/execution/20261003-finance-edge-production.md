@@ -17,3 +17,13 @@
 后备份daily-20261003T071934Z-3fb1777e8236 / manifest `d35a04684a546497fb76b686fbc8bc1ad1216c2e126f3f166520a0d889f02ddb`、dump `d3690c5de54bb86b2fad5293e2a3ab1bb99775730975d6a444b1580838320c64`、content同before的b250；Backup整体exit0及Verify成功。全部295表、完整profile/evidence、49角色前后严格相等，没有任何表豁免；139→139、私钥0。本轮netshop基线是自然业务后的25551，不能与早晨回填后25539混称。
 
 原三份/两保护保持，before点及早晨139后点已按原规则轮转淘汰；当前为本次后备份与9月28/29两个既有保护点，旧点仅有历史证据，不冒现存恢复点。上午pre138私有安全保全独立保持。本次后独立恢复a3750aa99eee/E55897正在执行；只有实际完成后才退出维护/原Start/真实全景复验，不能称生产业务已恢复。
+
+## 应用已恢复，真实全景验收进行中
+
+后独立恢复a3750aa99eee于15:39:08实际完成exit0，expected/restored content b250及profile dcf6一致、生产/服务未改、隔离DATA正常清理。前后完整backup/restore/Deploy/Harden链及全部295表/49角色/证据逐字段一致已由非作者E审闭合；本次没有Install或新增迁移。
+
+原ExitMaintenance d57成功，原Worker87 Start真实子进程27556于15:48:16结束exit0，实际started/supervisor24184。采用文件日志捕获，仅等待原控制器，不重复启动；运行Django318/139、Worker87。15:52:37原系统Status全部12组件Ready/exact_release，VerifyStartup verified；17实际首页assets均200且原字节一致。PG20664/n8n16852与before创建身份保持，原helper空闲、5413 error与原自然等待5690/5696/5704均保留。
+
+原受保护Restore-WatchSupervisor入口返回并恢复Django supervisor3544，Status running/healthy。该入口的采集外壳39752发生输出尾挂；其原子命令已消失、仅conhost子，Root即时核验exe/创建时间/命令SHA后仅单进程Kill外壳，六服务身份逐项不变，未用树终止或服务Stop。该采集外壳exit-1/原函数控制器exit未知明确保留，不与前述Worker Start exit0混称。既有钉钉stdout精确connected，stderr非空217字节未称零错误流；本任务未发送测试消息。
+
+自然15:55:24轮次task0与15:55:25 healthy快照匹配；第二轮与原用户同9月1—29设备店/SPU全景六源/八章独立复验仍待完成。当前不能由结构就绪推断旧S403已闭合。
