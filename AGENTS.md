@@ -1,6 +1,8 @@
 # TERUISI 运营管理系统协作规范
 
-2026-10-03，用户已明确批准全景财务兼容e3a/318后继的追加应用维护。Root原KeepPostgres维护 `d57d8472603b4c509fa0f3ec5caf85e9` 已完整排空并停止应用、保留PG/n8n，前后备份/独立恢复、318原Deploy/Harden及全部295表/49角色/profile/evidence一致已通过；原Exit/Worker Start exit0、12Ready、启动绑定及17资产通过，应用已恢复Django318/Worker87/139。**全景六源真实复验仍在途，不称五栏全部恢复；不重复139迁移/缓存回填。** 实际状态见 `docs/netshop-refactor/execution/20261003-finance-edge-production.md`；下方等待批准是历史阶段，本记录不授予本轮之外的操作。
+2026-10-03，用户已明确批准全景财务兼容e3a/318后继的追加应用维护。Root原KeepPostgres维护 `d57d8472603b4c509fa0f3ec5caf85e9` 已完整排空并停止应用、保留PG/n8n，前后备份/独立恢复、318原Deploy/Harden及全部295表/49角色/profile/evidence一致已通过；原Exit/Worker Start exit0、12Ready、启动绑定及17资产通过，应用已恢复Django318/Worker87/139。原同月/同店SPU全景已真实200、六源可信与八章渲染，无alerts；O/P/A/C/目录/旧01/ERP原范围资格继承，缺源继续保留。**不把一次真实范围通过冒任意范围/P95，不重复139迁移/缓存回填。** 实际状态见 `docs/netshop-refactor/execution/20261003-finance-edge-production.md`；下方等待批准是历史阶段，本记录不授予本轮之外的操作。
+
+以下同日较早记录为历史阶段；当前状态以上述首条与本次生产执行记录为准。
 
 2026-10-03，139维护已完成并恢复，真实原月范围O/P/A/C/目录及旧01/ERP通过，但全景财务来源403仍阻断六源验收。最小签名保留身份兼容源码 `a129ea00` 经作者/非作者各14项私有PG验证，已合main `bd96029b`；原successor Prepare `e3a80ecf` / candidate manifest `3184134a` 绑定当前running6b，仅准备、尚未采用。生产仍Django6b/Worker87/139；新候选不重复迁移/回填，不建用户/改权限或预算。累计21树安全清理，下一窗口具体材料见 `docs/netshop-refactor/execution/20261003-finance-edge-candidate.md`；不得把源码合并或Prepared当作全景生产恢复或未来维护许可。
 
