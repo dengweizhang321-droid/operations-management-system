@@ -25,6 +25,8 @@ Root从独立 `D:\.codex\worktrees\netshop-public-freeze\运营管理系统` / b
 
 独立包核验已通过：实际2917文件canonical指纹为d035、receipt6e2/manifest318/父6b精确相符，文件集合完全相同。唯一功能代码delta是已测试的finance/netshop_reads.py；另有原R2guard生成的.wrangler/cache/cf.json，同key集合/2053字节且计入指纹。137个仓库迁移源、7个控制/准入/备份脚本及v3/v4策略全部逐SHA不变，新增测试按原包规则排除。初始“唯一一文件”断言因生成元数据失败的原日志保留，未改产品或包以适配断言。仓库137源与正式139收据是不同计数，本包核验未重新查生产DB。Prepared不等于已采用，当前正式仍6b，139迁移与回填已完成，后继不重复它们。
 
+非作者封存报告 `E:\codex-artifacts\finance-edge-independent-20261003-48178a473fd44422bcc4f286b58701ea\FINAL-FINANCE-SOURCE-AND-PACKAGE-REVIEW.md` / SHA `fae225fb444c6b3d6c325077d7ef9a7a17e9006b492b5a4133e188b94966dfa6`；同目录实际14项result SHA `94c3cfdeb32b4e33acd99e9e7d96086014fdf2904240d4649d80362d562a0eb8`，包delta JSON SHA `2592816850de8d5a65869fbd2f064b63fba1036054129694e296954c53a94702`。原6b浏览器总体FAIL报告在production记录明确保留，不被候选PASS覆盖。
+
 ## 后继采用方案与影响
 
 需按原安全流程再进入一次保留PostgreSQL的应用维护：先复验当前包父版本、原helper/业务排空和资源身份，完成最新前备份及独立恢复，再采用已审Django包、原HardenAcl和唯一Start恢复；后备份/Verify/归档、12组件、启动绑定、守护与渠道及原范围全景六源真实验收分别记证据。PostgreSQL/n8n保持，Worker/helper和Django会临时停止并恢复。采用期间不增加迁移、回填、业务重跑、数据删除、权限或预算改动。恢复前原139包沿原受保护Rollback兼容路径处理，不能恢复138数据库或DROP缓存字段。
