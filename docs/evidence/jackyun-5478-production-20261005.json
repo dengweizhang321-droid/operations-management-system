@@ -1,0 +1,288 @@
+{
+  "status": "production_recovery_verified",
+  "dateShanghai": "2026-10-05",
+  "sourceCommit": "5b219fee3e5cc157a27632c6bca72de0f81772a7",
+  "approvedScope": "Worker/helper adoption and exact original-file continuation 5478",
+  "worker": {
+    "status": "activated",
+    "version": "teruisi-local-worker-release-successor-v1",
+    "planSha256": "0b1cb36f5cadc6d96cee4d1bc963a8383942cc4e8aff3cf34332c3313f1bc455",
+    "predecessorReleaseId": "20261001T164608Z-4dc26d0ae8921e88",
+    "releaseId": "20261004T154501Z-5a6e049ba6ecd7fe",
+    "manifestPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261004T154501Z-5a6e049ba6ecd7fe\\deployment-manifest.json",
+    "manifestSha256": "02fe0954c22bf8d572a770ae0e5610cd6a4b8271d38b0008fed9e4dd4e9a94e7",
+    "successorSha256": "5517f9605b21abdb595e361447212c9cf6e0207dd339296da74e182635f8c5f0",
+    "consumptionSha256": "9a1ad1e63dc68d53f949802ba469fba33ec1976a4765352e526379fe63c38657",
+    "startupBindingSha256": "855e8f40bc3f861616ff821307c703af8d5fdfb11507192310b9ec642967ab53"
+  },
+  "django": {
+    "manifestSha256": "e4f48e98178a77fac41ac269b40076f2c30bf449c8c5562e28a0a056f4ba22e1"
+  },
+  "preservedBackendDatabaseN8nIdentities": 26,
+  "startControllerExitCode": null,
+  "startCaptureNote": "controller 34652 completed; only exact outer capture shell 35728 was ended after identity and independent readiness verification",
+  "system": {
+    "version": "teruisi-operations-system-control-v2",
+    "state": "Running",
+    "backendState": "Ready",
+    "workerState": "exact_release",
+    "releaseId": "20261004T154501Z-5a6e049ba6ecd7fe",
+    "supervisorProcessId": 33908,
+    "portProcessId": 22744,
+    "url": "http://localhost:3000/",
+    "reason": null,
+    "components": {
+      "core": true,
+      "finance": true,
+      "netshop": true,
+      "market": true,
+      "products": true,
+      "workflow": true,
+      "inventory": true,
+      "customerService": true,
+      "accessControl": true,
+      "erpReference": true,
+      "bi": true,
+      "ai": true
+    },
+    "checkedAt": "2026-10-05T01:58:29.1158415+08:00"
+  },
+  "startupBinding": {
+    "status": "verified",
+    "version": "teruisi-local-worker-status-v1",
+    "releaseId": "20261004T154501Z-5a6e049ba6ecd7fe",
+    "manifestSha256": "02fe0954c22bf8d572a770ae0e5610cd6a4b8271d38b0008fed9e4dd4e9a94e7",
+    "startupVerified": true
+  },
+  "servedAssets": {
+    "count": 17,
+    "allMatch": true
+  },
+  "execution": {
+    "id": 6129,
+    "workflowId": "J8kY2mQ5vR7sT4pN",
+    "status": "success",
+    "mode": "manual",
+    "startedAt": "2026-10-04 17:21:21.485",
+    "stoppedAt": "2026-10-04 17:23:23.920"
+  },
+  "originalExecution": {
+    "id": 5478,
+    "status": "error",
+    "retrySuccessId": null
+  },
+  "runId": "n8n-export-first-5478",
+  "snapshotDate": "2026-10-03",
+  "salesPeriod": {
+    "startDate": "2026-08-19",
+    "endDate": "2026-10-02"
+  },
+  "modules": [
+    {
+      "module": "products",
+      "status": "completed",
+      "batchId": "products:0786bc7b5cd2c341a5cf2deb071e153c886f009e00c5a513abf0a9929e2847ba",
+      "rowCount": 8529,
+      "warningCount": 0,
+      "outputSha256": "c4ebfded0bc107bc2fbd347e10f38f89ac37e8fc905397ca81b361a3d96d232c",
+      "djangoReceipt": {
+        "status": "imported",
+        "inputSha256": "c4ebfded0bc107bc2fbd347e10f38f89ac37e8fc905397ca81b361a3d96d232c",
+        "batchId": "products:0786bc7b5cd2c341a5cf2deb071e153c886f009e00c5a513abf0a9929e2847ba",
+        "sourceKey": "products",
+        "contentHash": "253a25cc9491f2cdae2d4453bc195018361d85be68ca5c30ea6517c9f1f0cf3a",
+        "rawFileHash": "c4ebfded0bc107bc2fbd347e10f38f89ac37e8fc905397ca81b361a3d96d232c"
+      }
+    },
+    {
+      "module": "inventory",
+      "status": "completed",
+      "batchId": "7a1301f9e18727a7bffe735075f7c03ef333bcb1ff43e665950a0b6a42d94521",
+      "rowCount": 24280,
+      "warningCount": 6,
+      "outputSha256": "d78fd1b706e30f31b420fbf9c3403292ffb9af68b6f14a2d2b7f9bd975cec31e",
+      "djangoReceipt": {
+        "status": "imported",
+        "inputSha256": "d78fd1b706e30f31b420fbf9c3403292ffb9af68b6f14a2d2b7f9bd975cec31e",
+        "batchId": "7a1301f9e18727a7bffe735075f7c03ef333bcb1ff43e665950a0b6a42d94521",
+        "sourceKey": "inventory_stock",
+        "contentHash": "e765091523725041a8b95f6b6303b5dd0ba4d2ec90c07fba06c6d2f520c6c88e",
+        "rawFileHash": "d78fd1b706e30f31b420fbf9c3403292ffb9af68b6f14a2d2b7f9bd975cec31e"
+      }
+    },
+    {
+      "module": "inventory_age",
+      "status": "completed",
+      "batchId": "inventory_age:17f669b3550d949f19f4e15bfc3742908daf91311c345a287f7dace93d1ff719",
+      "rowCount": 5613,
+      "warningCount": 0,
+      "outputSha256": "b682145fff33adcbdd0debd234816f57adc6fbab5ed38e42328442b51c549c32",
+      "djangoReceipt": {
+        "status": "imported",
+        "inputSha256": "b682145fff33adcbdd0debd234816f57adc6fbab5ed38e42328442b51c549c32",
+        "batchId": "inventory_age:17f669b3550d949f19f4e15bfc3742908daf91311c345a287f7dace93d1ff719",
+        "sourceKey": "inventory_age",
+        "contentHash": "09ba65cc78455f9b45d224a2d1602dcfb6610cb1812b558666712233439f81dc",
+        "rawFileHash": "b682145fff33adcbdd0debd234816f57adc6fbab5ed38e42328442b51c549c32"
+      }
+    },
+    {
+      "module": "sales",
+      "status": "completed",
+      "batchId": "0c84b41ff2e247a4e77d553b091d8ba524d0e5db9d8dd59528599c08818598d4",
+      "rowCount": 38549,
+      "warningCount": 108,
+      "outputSha256": "21f64a843509a2c26b0b7a6ac2ad0b14ee9a9a7ddeef78123ab4284b15ebe427",
+      "salesPolicyVersion": "2026-09-30.1"
+    },
+    {
+      "module": "combos",
+      "status": "completed",
+      "batchId": "combos:544a352d7fb3c44496a195ea198bc38541fb0602b93cdcdd8f8853227ade4d54",
+      "rowCount": 4454,
+      "warningCount": 2,
+      "outputSha256": "492faf7bcdfff17613caf45a33f3b9494d79afac8ce91a595f88d746d1e86b83",
+      "djangoReceipt": {
+        "status": "duplicate",
+        "inputSha256": "492faf7bcdfff17613caf45a33f3b9494d79afac8ce91a595f88d746d1e86b83",
+        "batchId": "combos:544a352d7fb3c44496a195ea198bc38541fb0602b93cdcdd8f8853227ade4d54",
+        "sourceKey": "combos",
+        "contentHash": "ba872f9258641f1296408a3dd8fd74b904c87bbcfde957f18c9dbb1e17d7672a",
+        "rawFileHash": "6649618db4e229dc8fe0654765de49c78d83126ae2a3c9a0fd1ed9bddb6736c5"
+      }
+    }
+  ],
+  "completedPrefixUnchanged": true,
+  "originalFilesAndHandoffsUnchanged": true,
+  "originalFailureArchivePreserved": true,
+  "workflowDefinitionUnchanged": true,
+  "manifestUnchangedDuringIndependentVerification": true,
+  "salesHealth": {
+    "source": "django_postgresql",
+    "revision": "44:42",
+    "currentBusinessDate": "2026-10-05",
+    "expectedThroughDate": "2026-10-04",
+    "coverage": {
+      "startDate": "2025-01-01",
+      "cutoffDate": "2026-10-02",
+      "coveredDayCount": 640,
+      "lagDaysToCurrentBusinessDate": 3,
+      "throughYesterday": false
+    },
+    "latestBatch": {
+      "id": "0c84b41ff2e247a4e77d553b091d8ba524d0e5db9d8dd59528599c08818598d4",
+      "fileName": "销售单明细账_2026-08-19_2026-10-02_已筛选并匹配成本.xlsx",
+      "completedAt": "2026-10-05T01:23:13.318691+08:00",
+      "rowCount": 38549
+    }
+  },
+  "backups": {
+    "pre": {
+      "status": "completed",
+      "backupId": "daily-20261004T161130Z-c51c61cd90d8",
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261004T161130Z-c51c61cd90d8",
+      "manifestSha256": "9c2a5eb354e311cf2230845ebcf80861adddef9c5e65ba920c30af275bde5493",
+      "dumpSha256": "f809214a531037f4afe5351b4778337d542c55eb3290ae8799c259605a921f51",
+      "contentSha256": "a48bf7564bfda735394a7600f134b7517dee8bb968dfacd9f8e4dc895415a1e3",
+      "completedAt": "2026-10-04T16:17:56.6920813+00:00",
+      "serviceStateChanged": false,
+      "retention": {
+        "version": "teruisi-backup-retention-plan-v2",
+        "maximumRecoveryPoints": 3,
+        "retainedVerification": "full-evidence",
+        "discardedVerification": "container-integrity",
+        "retained": [
+          "daily-20261004T161130Z-c51c61cd90d8",
+          "daily-20260929T012900Z-ad2817875f20",
+          "daily-20260928T125351Z-31cb501bc72d"
+        ],
+        "removed": [
+          "daily-20261004T143753Z-ee21da84c35d"
+        ],
+        "serviceStateChanged": false,
+        "status": "completed"
+      },
+      "releaseRetention": {
+        "serviceStateChanged": false,
+        "status": "completed",
+        "removedPayloads": 0
+      }
+    },
+    "post": {
+      "status": "completed",
+      "backupId": "daily-20261004T173347Z-fc69b6753939",
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261004T173347Z-fc69b6753939",
+      "manifestSha256": "345f9c005b6fa885c8df5a50e4e9b7d1399d3ac545152b00cba1f18753b80e7f",
+      "dumpSha256": "9d7a708e8613df506859f3fd7bef6e117dfd8c792d6e657a40ec3b31f4337ee7",
+      "contentSha256": "a3dec5a7765fe98399583172476ee2c09205920da508d1ce7207e70a881de5a6",
+      "completedAt": "2026-10-04T17:40:14.7132133+00:00",
+      "serviceStateChanged": false,
+      "retention": {
+        "version": "teruisi-backup-retention-plan-v2",
+        "maximumRecoveryPoints": 3,
+        "retainedVerification": "full-evidence",
+        "discardedVerification": "container-integrity",
+        "retained": [
+          "daily-20261004T173347Z-fc69b6753939",
+          "daily-20260929T012900Z-ad2817875f20",
+          "daily-20260928T125351Z-31cb501bc72d"
+        ],
+        "removed": [
+          "daily-20261004T161130Z-c51c61cd90d8"
+        ],
+        "serviceStateChanged": false,
+        "status": "completed"
+      },
+      "releaseRetention": {
+        "serviceStateChanged": false,
+        "status": "completed",
+        "removedPayloads": 0
+      }
+    },
+    "preRestore": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "754acfe03521",
+      "startedAt": "2026-10-04T16:22:16.7846476+00:00",
+      "completedAt": "2026-10-04T16:31:42.8387456+00:00",
+      "backupId": "daily-20261004T161130Z-c51c61cd90d8",
+      "backupManifestSha256": "9c2a5eb354e311cf2230845ebcf80861adddef9c5e65ba920c30af275bde5493",
+      "dumpSha256": "f809214a531037f4afe5351b4778337d542c55eb3290ae8799c259605a921f51",
+      "expectedContentSha256": "a48bf7564bfda735394a7600f134b7517dee8bb968dfacd9f8e4dc895415a1e3",
+      "restoredContentSha256": "a48bf7564bfda735394a7600f134b7517dee8bb968dfacd9f8e4dc895415a1e3",
+      "isolatedPort": 55695,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "profileContentSha256": "e29dae739e2918b58d54d1ba808b18ab583c94933f46fd34142ab04c09f5095e",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    },
+    "postRestore": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "b805df42e709",
+      "startedAt": "2026-10-04T17:45:23.5261327+00:00",
+      "completedAt": "2026-10-04T17:55:03.1768951+00:00",
+      "backupId": "daily-20261004T173347Z-fc69b6753939",
+      "backupManifestSha256": "345f9c005b6fa885c8df5a50e4e9b7d1399d3ac545152b00cba1f18753b80e7f",
+      "dumpSha256": "9d7a708e8613df506859f3fd7bef6e117dfd8c792d6e657a40ec3b31f4337ee7",
+      "expectedContentSha256": "a3dec5a7765fe98399583172476ee2c09205920da508d1ce7207e70a881de5a6",
+      "restoredContentSha256": "a3dec5a7765fe98399583172476ee2c09205920da508d1ce7207e70a881de5a6",
+      "isolatedPort": 55696,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "profileContentSha256": "024d856881d0b24f771746c1bac2bc60d93c9a2bd9e5b69f75bae2da6db17ab3",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    },
+    "preBackupCurrentlyRetained": false
+  },
+  "maintenanceOperationsUnresolved": 0,
+  "futureMaintenanceOrFreshDateReplayAuthorized": false,
+  "evidenceDirectory": "D:\\codex-artifacts\\jackyun-5478-production-20261005",
+  "screenshot": "D:\\codex-artifacts\\jackyun-5478-production-20261005\\execution-record-success.jpg"
+}
