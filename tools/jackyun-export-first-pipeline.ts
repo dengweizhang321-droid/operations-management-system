@@ -18,6 +18,8 @@ import { claimJackyunResumePermit } from "../lib/jackyun/execution-resume";
 import { claimWebConfirmationRecovery } from "../lib/jackyun/web-session-recovery";
 import { claimHttpScopeRecovery } from "../lib/jackyun/http-scope-recovery";
 import { claimImportRecovery, type ImportRecoveryBinding } from "../lib/jackyun/import-recovery";
+import { claimPartialImportRecovery, isPartialImportRecovery, verifyPartialImportGate } from "../lib/jackyun/partial-import-recovery";
+import { readN8nReplacementEvidence } from "../lib/jackyun/n8n-preflight-evidence";
 import { claimJackyunApiResumePermit } from "../lib/jackyun/api-execution-resume";
 import { claimValidationRecovery } from "../lib/jackyun/validation-recovery";
 import { runController } from "./jackyun-browser-controller";
@@ -66,6 +68,7 @@ export type ExportFirstDependencies = {
   runApi?: typeof runApiExports;
   runDownload?: typeof runJackyunDownload;
   recoverPreviousPreflight?: (previousId: string, replacementId: string, at: string) => Promise<void>;
+  partialRecoveryEvidence?: typeof readN8nReplacementEvidence;
 };
 const sha = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 const nowOf = (deps: ExportFirstDependencies) => (deps.now?.() ?? new Date()).toISOString();
@@ -108,7 +111,8 @@ export function assertExportFirstAction(plan: JackyunExportFirstPlan, executionI
   if ((action === "plan" || action.startsWith("export/")) && plan.exportTransport)
     throw new Error("网页批量计划不能降级为旧单表模式。");
   if (action === "plan" || action === "plan-web-session" || action === "plan-direct-http" || action === "plan-api") return;
-  if (importRecovery && plan.exportTransport === jackyunDirectTransport && ["importing", "imported", "completed"].includes(plan.phase)
+  if (importRecovery && (plan.exportTransport === jackyunDirectTransport
+    || (plan.exportTransport === jackyunApiTransport && plan.executionId === "5478")) && ["importing", "imported", "completed"].includes(plan.phase)
     && ["export-all", "validate"].includes(action)) {
     if (jackyunExportOrder.some(module => !plan.exports[module])) throw new Error("导入续跑缺少五表");
     return;
@@ -220,7 +224,7 @@ async function runImports(root: string, plan: JackyunExportFirstPlan, policy: Po
         navigationIntentAt: handoff.navigationIntentAt, queryIntentAt: handoff.queryIntentAt,
         tableStableAt: handoff.tableStableAt, exportIntentAt: handoff.exportIntentAt, downloadEventAt: handoff.downloadEventAt,
       }, allowedDownloadHosts: policy.browser.allowedDownloadHosts, dryRun,
-      ...(!dryRun && moduleKey === "products" && importRecovery ? { importRecovery } : {}),
+      ...(!dryRun && importRecovery && (isPartialImportRecovery(importRecovery) ? moduleKey === "sales" : moduleKey === "products") ? { importRecovery } : {}),
     };
     const result = await (deps.runDownload ?? runJackyunDownload)(options);
     if (!(dryRun ? ["prepared", "duplicate_ignored"] : ["completed", "duplicate_ignored"]).includes(result.status)) {
@@ -304,8 +308,16 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
           importRecovery = await claimImportRecovery(root, active.executionId, executionId, action, nowOf(deps));
           executionId = active.executionId; runId = active.runId;
         }
+      } else if (previous.phase === "completed" && active.executionId === "5478") {
+        const existing = await readJsonFileOr<ImportRecoveryBinding | null>(path.join(paths(root).pipelineRoot, "partial-import-claims/5478.json"), null);
+        if (existing?.executionId === executionId) {
+          importRecovery = await claimPartialImportRecovery(root, active.executionId, executionId, action, nowOf(deps), {
+            request: deps.request, replacementEvidence: deps.partialRecoveryEvidence ?? readN8nReplacementEvidence });
+          executionId = active.executionId; runId = active.runId;
+        }
       } else if (previous.phase !== "completed") {
-        if (action === "plan-api" && previous.exportTransport === jackyunApiTransport && deps.recoverPreviousPreflight) {
+        const partialImportOnly = active.executionId === "5478" && ["importing", "imported"].includes(previous.phase);
+        if (!partialImportOnly && action === "plan-api" && previous.exportTransport === jackyunApiTransport && deps.recoverPreviousPreflight) {
           await ensureNewPlanReady();
           await deps.recoverPreviousPreflight(active.executionId, executionId, nowOf(deps));
         }
@@ -319,7 +331,10 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
             if (previous.exportTransport === jackyunWebSessionTransport) {
               webConfirmationRecovery = await claimWebConfirmationRecovery(root, active.executionId, executionId, action, nowOf(deps));
             } else if (previous.exportTransport === jackyunApiTransport) {
-              apiResumeTaskBinding = await claimJackyunApiResumePermit(root, active.executionId, executionId, action, nowOf(deps));
+              if (active.executionId === "5478" && ["importing", "imported"].includes(previous.phase)) {
+                importRecovery = await claimPartialImportRecovery(root, active.executionId, executionId, action, nowOf(deps), {
+                  request: deps.request, replacementEvidence: deps.partialRecoveryEvidence ?? readN8nReplacementEvidence });
+              } else apiResumeTaskBinding = await claimJackyunApiResumePermit(root, active.executionId, executionId, action, nowOf(deps));
             } else if (previous.exportTransport === jackyunDirectTransport) {
               if (["importing", "imported"].includes(previous.phase)) {
                 importRecovery = await claimImportRecovery(root, active.executionId, executionId, action, nowOf(deps));
@@ -359,7 +374,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       // Revalidate original dry-run evidence without replaying the browser,
       // producing replacement workbooks, or rewinding the import phase.
       await verifyJackyunPreparedImports(root, plan, policy);
-      return { ...publicExportFirstPlan(plan), reusedExports: true, resumedFromExecutionId: "891" };
+      return { ...publicExportFirstPlan(plan), reusedExports: true, resumedFromExecutionId: importRecovery.failedExecutionId };
     }
     if (action === "export-all") {
       for (const moduleKey of jackyunExportOrder) if (plan.exports[moduleKey]) await readBoundHandoff(root, plan, policy, moduleKey);
@@ -451,6 +466,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       }
     } else if (action === "import") {
       if (plan.phase !== "imported") {
+        if (importRecovery && isPartialImportRecovery(importRecovery)) await verifyPartialImportGate(root, importRecovery, { request: deps.request });
         plan.phase = "importing";
         await writeJsonAtomic(planPath, plan);
         if (importRecovery) await verifyJackyunPreparedImports(root, plan, policy);
