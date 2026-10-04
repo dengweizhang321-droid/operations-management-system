@@ -66,12 +66,17 @@ export async function inspectJackyunApiResumePermit(root: string, executionId: s
   const taskNotYetBound = inventory?.pendingTaskId === undefined && inventory?.binding === undefined;
   const allowedTriggers = new Set(["手动运行", "每天本机时间 00:10", "失败后每小时安全重试入口"]);
   const expectedTail = ["领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"];
+  // The published maintenance-coordination version adds this read-only anchor
+  // between the trigger and claim. Preserve the full observed sequence; no
+  // arbitrary node, local step, skipped claim or reordered stage is eligible.
+  const validSequence = allowedTriggers.has(evidence.runNodes[0])
+    && (isDeepStrictEqual(evidence.runNodes.slice(1), expectedTail)
+      || isDeepStrictEqual(evidence.runNodes.slice(1), ["固定原执行计划时间", ...expectedTail]));
   if (evidence.executionId !== executionId || evidence.workflowId !== jackyunWorkflowId || evidence.status !== "error"
     || evidence.activeExecutions !== 0 || evidence.retrySuccessId !== null || evidence.httpCode !== "500"
     || evidence.lastNode !== "B·接口校验与五表下载" || evidence.requestUrl !== "http://127.0.0.1:5791/jackyun/export-first/export-all"
     || evidence.error !== (taskAlreadyBound ? "fetch failed" : "导出任务绑定条件无效。") || !/^[a-f0-9]{64}$/.test(evidence.executionDataSha256)
-    || evidence.runNodes.length !== 5 || !allowedTriggers.has(evidence.runNodes[0])
-    || !isDeepStrictEqual(evidence.runNodes.slice(1), expectedTail)
+    || !validSequence
     || plan.executionId !== executionId || plan.runId !== `n8n-export-first-${executionId}` || plan.phase !== "exporting"
     || plan.exportTransport !== jackyunApiTransport || Object.keys(plan.exports ?? {}).length || plan.exportIntent !== "inventory"
     || plan.protocol !== jackyunExportFirstPolicyVersion || policy.version !== plan.protocol

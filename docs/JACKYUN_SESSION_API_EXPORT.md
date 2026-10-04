@@ -45,6 +45,8 @@
 
 该恢复仅接受首个库存模块和 `submitted` 状态；是否允许存在 pending task/binding，严格取决于上面两种失败现场。任务缺失、仍在生成、失败、重复、附件改变、文件已开始落地、跨日、其他 execution 已领取或任一证据变化均停止。许可必须在创建后 30 分钟内，由一个新的完整 n8n execution 从 `plan-api` 单次领取；领取后复用原任务并禁止重发库存导出 POST。不能通过删除 `active.json`、重写状态或直接调用导入接口绕过。
 
+续跑的失败节点序列兼容两种完整入口：旧版“触发器 → 领取共享 helper → 判断 → A → B”，以及已发布协调版在触发器与领取之间加入唯一“固定原执行计划时间”的完整序列。保存全部实际节点，不裁掉计划锚点来伪装旧执行；缺少领取、锚点错位/重复、未知节点或已进入 C/D/E 仍拒绝。此兼容须采用对应 helper 后生效，不改变原任务、文件落地、日期和单消费者门槛。
+
 API 登录安全验证和专用浏览器端口占用属于另一类“导出前零业务效果”闭合，不使用任务续跑许可。`tools/jackyun-preflight-recovery.ts` 只在原计划为 `session_api_v1`、`exports` 为空且不存在 `exportIntent`，n8n 精确停在 B 节点，并且浏览器事件、导入运行、验证结果和下载目录四条业务效果路径全部不存在时，允许 create-only 闭合。可接受的错误只有精确 `challenge_present` 和“专用浏览器端口已占用，自动任务不会接管已打开的浏览器”；原计划、原 active 指针和 n8n 失败历史均保留，只有后续新的完整 execution 可以推进 active。
 
 `api-controller-state.json` 与历史浏览器 controller 分离。交接仍使用现有 importer 的 schema 2：`navigationIntentAt/tableStableAt` 是兼容字段，分别对应接口预检开始和接口数量查询完成；`evidence.controller=authenticated_http_api` 及显式 API 时刻字段标明来源，不能解释为实际发生了页面导航或表格渲染。

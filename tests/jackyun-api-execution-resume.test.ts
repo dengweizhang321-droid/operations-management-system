@@ -100,6 +100,31 @@ test("approved API resume reuses an already-bound task after download fetch fail
   assert.deepEqual(f.passedBinding(), task);
 });
 
+test("published plan-anchor sequence resumes the bound task and preserves every observed node", async () => {
+  const f = await fixture();
+  const inventory = f.controller.modules.inventory as typeof f.controller.modules.inventory & { pendingTaskId?: string; binding?: JackyunExportTaskBinding };
+  inventory.pendingTaskId = task.taskId; inventory.binding = task;
+  await writeFile(f.statePath, JSON.stringify(f.controller));
+  await mkdir(path.join(f.root, "downloads/jackyun", f.runId, "inventory"), { recursive: true });
+  const modern = { ...evidence, error: "fetch failed", runNodes: ["手动运行", "固定原执行计划时间", ...evidence.runNodes.slice(1)] };
+  const before = await Promise.all([f.planPath, f.statePath].map(p => readFile(p)));
+  const permit = await inspectJackyunApiResumePermit(f.root, "2285", modern, task, at(8));
+  assert.deepEqual(permit.evidence.runNodes, modern.runNodes);
+  await publishJackyunApiResumePermit(permit, modern, recoverySha(JSON.stringify(permit)));
+  assert.deepEqual(await claimJackyunApiResumePermit(f.root, "2285", "2300", "plan-api", at(9)), task);
+  assert.deepEqual(await Promise.all([f.planPath, f.statePath].map(p => readFile(p))), before);
+  await assert.rejects(runJackyunExportFirstAction("export-all", "2300", f.deps), /resumed API adapter reached/);
+  assert.deepEqual(f.passedBinding(), task);
+  await assert.rejects(claimJackyunApiResumePermit(f.root, "2285", "2301", "plan-api", at(9)), /其他 execution/);
+  for (const nodes of [modern.runNodes.slice(1), modern.runNodes.filter(n => n !== "领取共享 helper"),
+    [modern.runNodes[0], ...modern.runNodes.slice(2), "固定原执行计划时间"],
+    [modern.runNodes[0], "unrecognized step", ...modern.runNodes.slice(2)],
+    [...modern.runNodes, "C·五表完整校验和导入演练"],
+    [modern.runNodes[0], "固定原执行计划时间", "固定原执行计划时间", ...modern.runNodes.slice(2)]]) {
+    await assert.rejects(inspectJackyunApiResumePermit(f.root, "2285", { ...modern, runNodes: nodes }, task, at(8)));
+  }
+});
+
 test("bound-task fetch recovery rejects an unbound task, changed failure or any partial download", async () => {
   for (const fault of ["pending", "binding", "failure", "file"]) {
     const f = await fixture();
