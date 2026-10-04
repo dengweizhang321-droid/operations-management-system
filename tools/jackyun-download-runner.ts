@@ -36,6 +36,7 @@ import { jackyunDjangoImportReceipt } from "../lib/jackyun/django-import-receipt
 import { jackyunExportFirstPolicyVersion } from "../lib/jackyun/run-contract";
 import { auditedComboNameRejection, isAuditedComboNameRepair } from "../lib/jackyun/combo-name-recovery";
 import { assertExactFailedImportRetry, type ImportRecoveryBinding } from "../lib/jackyun/import-recovery";
+import { assertPartialFailedImportRetry, isPartialImportRecovery } from "../lib/jackyun/partial-import-recovery";
 
 type CliOptions = {
   module: JackyunModule;
@@ -782,9 +783,11 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         failedAudit,
       });
       if (!options.dryRun && options.importRecovery) {
-        assertExactFailedImportRetry({ runId: options.runId, module: options.module,
-          sourceSha256: rawHash, inputContractHash, prior: existing,
-          auditRaw: await readFile(auditPath), binding: options.importRecovery });
+        const retryInput = { runId: options.runId, module: options.module,
+          sourceSha256: rawHash, inputContractHash, prior: existing, auditRaw: await readFile(auditPath) };
+        if (isPartialImportRecovery(options.importRecovery)) {
+          assertPartialFailedImportRetry({ ...retryInput, binding: options.importRecovery });
+        } else assertExactFailedImportRetry({ ...retryInput, binding: options.importRecovery });
         // The pipeline already saved the original failed manifest and audit in
         // a create-only archive before binding this new n8n execution.
         delete manifest.modules[options.module];
