@@ -20,7 +20,8 @@ import { getJdStore } from "../lib/jd/store-registry";
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { hasJdInteractivePageGate, isJdInteractiveBrowserFailure, launchJdWareBrowser, revealJdBrowserForInteractiveFailure } from "../lib/jd/browser-mode";
 import { parseXlsxFirstSheet } from "../lib/imports/xlsx";
-import { ensureJdStoreAuthenticatedSession } from "./jd-saved-login";
+import { ensureJdStoreAuthenticatedSession, inspectJdLoginPageState, inspectJdSessionSurfaceCounts, isJdLoginSurface } from "./jd-saved-login";
+import { JdWareQueryObservationError, jdWareQueryResponseTimeoutMs, observeJdWareInitialQuery, waitForJdWareLoginSurface, type JdWareQueryDiagnostics } from "./jd-ware-query-observer";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const targetUrl = "https://wares-jdm.jd.com/ware/wareList?activeTab=OnsaleWare&businessModel=0";
@@ -32,7 +33,7 @@ const maximumJdWareWorkbookBytes = 25 * 1024 * 1024;
 const jdWareCreateExportApi = "dsm.product.manage.view.batchJobService.createExportJob";
 const jdWareProductQueryApi = "dsm.product.manage.ProductInfoReadViewService.queryValidProductList";
 export const jdWareTargetNavigationTimeoutMs = 30_000;
-export const jdWareInitialProductQueryTimeoutMs = 60_000;
+export const jdWareInitialProductQueryTimeoutMs = jdWareQueryResponseTimeoutMs;
 
 async function withJdWareExportRunLock<T>(task: () => Promise<T>) {
   return withJdChromiumRunLock(
@@ -68,10 +69,12 @@ export function isJdWareProductTargetPage(url: string) {
 export async function reopenJdWareTargetAfterAutomatedLogin(input: {
   authentication: "existing_session" | "windows_dpapi_credentials";
   currentUrl: string;
+  queryObserved?: boolean;
   gotoTarget: () => Promise<void>;
   verifyPostNavigation: () => Promise<void>;
 }) {
   if (input.authentication !== "windows_dpapi_credentials" || isJdWareProductTargetPage(input.currentUrl)) return false;
+  if (input.queryObserved) throw new Error("waiting_login：登录与首屏查询发生交错，拒绝再次导航商品页，需要人工核验。");
   // JD sometimes completes password login on the merchant home page instead
   // of restoring the originally requested WareList URL. The first navigation
   // never reached the product page or dispatched its query in that case, so a
@@ -102,6 +105,7 @@ export type CliOptions = {
   interactiveLogin: boolean;
   visibleRecovery: boolean;
   autoImport: boolean;
+  inspectQueryOnly: boolean;
   baseUrl: string;
 };
 
@@ -117,7 +121,7 @@ export type ScriptResult = {
 };
 
 export type WareExportAudit = {
-  status: "running" | "completed" | "failed";
+  status: "running" | "completed" | "failed" | "inspected";
   stage: string;
   startedAt: string;
   updatedAt: string;
@@ -132,6 +136,7 @@ export type WareExportAudit = {
   queryBusinessCode?: number;
   queryTotal?: number;
   queryObservedAt?: string;
+  queryDiagnostics?: JdWareQueryDiagnostics;
   baselineTaskIds?: string[];
   taskId?: string;
   taskStatus?: JdWareExportTask["status"];
@@ -323,6 +328,7 @@ async function parseCliOptions(): Promise<CliOptions> {
   let interactiveLogin = false;
   let visibleRecovery = true;
   let autoImport = true;
+  let inspectQueryOnly = false;
   let baseUrl = (process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000").replace(/\/$/, "");
   // 京东导出任务通常需要数分钟，默认给足等待时间，避免任务已完成但脚本提前超时。
   let taskTimeoutMs = 300_000;
@@ -357,6 +363,10 @@ async function parseCliOptions(): Promise<CliOptions> {
       autoImport = false;
       continue;
     }
+    if (argument === "--inspect-query-only") {
+      inspectQueryOnly = true;
+      continue;
+    }
     if (argument === "--base-url") {
       const value = args[index + 1];
       if (!value || value.startsWith("--")) throw new Error("--base-url 必须提供运营管理系统地址");
@@ -375,6 +385,7 @@ async function parseCliOptions(): Promise<CliOptions> {
   }
 
   if (interactiveLogin && !visibleRecovery) throw new Error("--interactive-login 不能与 --no-visible-recovery 同时使用。");
+  if (inspectQueryOnly && (interactiveLogin || reuseLatest || debug)) throw new Error("只读查询诊断不能与交互登录、复用导出或截图调试同时使用。");
   const store = await getJdStore(storeKey);
   return {
     storeKey: store.storeKey,
@@ -390,8 +401,9 @@ async function parseCliOptions(): Promise<CliOptions> {
     taskTimeoutMs,
     debug,
     interactiveLogin,
-    visibleRecovery,
-    autoImport,
+    visibleRecovery: inspectQueryOnly ? false : visibleRecovery,
+    autoImport: inspectQueryOnly ? false : autoImport,
+    inspectQueryOnly,
     baseUrl,
   };
 }
@@ -699,14 +711,20 @@ async function openTargetPage(
   page: Page,
   queryBootstrapState: JdWareQueryBootstrapState,
   store: Pick<CliOptions, "storeKey" | "shopName" | "loginMode">,
+  recordDiagnostics?: (diagnostics: JdWareQueryDiagnostics) => Promise<void>,
+  prepareExport = true,
 ) {
+  let observation: ReturnType<typeof observeJdWareInitialQuery> | undefined;
   let authenticationPromise: Promise<void> | null = null;
+  const currentAuthentication = (): Promise<void> | null => authenticationPromise;
   const authenticateAndRestoreTarget = () => {
     authenticationPromise ??= (async () => {
+      observation?.loginStarted();
       const authenticated = await ensureJdStoreAuthenticatedSession(page, store);
       await reopenJdWareTargetAfterAutomatedLogin({
         authentication: authenticated.authentication,
         currentUrl: page.url(),
+        queryObserved: observation?.hasRequest(),
         gotoTarget: async () => { await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: jdWareTargetNavigationTimeoutMs }); },
         verifyPostNavigation: async () => {
           const postLoginText = await page.locator("body").innerText({ timeout: 2_000 }).catch(() => "");
@@ -719,76 +737,98 @@ async function openTargetPage(
           }
         },
       });
+      observation?.loginCompleted();
     })();
     return authenticationPromise;
   };
-  const response = await captureJdWareInitialProductQuery(queryBootstrapState, {
-    gotoBlank: async () => { await page.goto("about:blank", { waitUntil: "domcontentloaded", timeout: 10_000 }); },
-    waitForQuery: () => {
-      const query = page.waitForResponse(
-        (candidate) => isJdWareProductQueryRequest(candidate.url(), candidate.request().method()),
-        // The listener is installed before navigation and must outlive the full
-        // navigation budget. On a cold JD profile the page can finish its DOM
-        // navigation before the application dispatches the initial query.
-        { timeout: jdWareInitialProductQueryTimeoutMs },
-      );
-      // DPAPI login is handled by verifyAfterNavigation below. Keep the query
-      // observer alive across the single login submission so the redirected
-      // merchant page's first query remains the only accepted freshness proof.
-      if (store.loginMode === "windows_dpapi_credentials") {
-        return waitForJdWareQueryOrAutomatedLoginRedirect(
-          query,
-          waitForJdWareLoginNavigation(
-            () => page.waitForURL(
-              (url) => /passport|login/i.test(url.hostname) || /passport|login/i.test(url.pathname),
-              { timeout: jdWareInitialProductQueryTimeoutMs },
-            ),
-            () => page.url(),
-          ),
-          authenticateAndRestoreTarget,
-        );
-      }
-      return waitForJdWareQueryOrInteractiveRedirect(query, waitForJdWareLoginRedirect(
-        () => page.waitForURL(
-          (url) => /passport|login/i.test(url.hostname) || /passport|login/i.test(url.pathname),
-          { timeout: jdWareInitialProductQueryTimeoutMs },
-        ),
-        () => page.url(),
-      ));
-    },
-    gotoTarget: async () => { await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: jdWareTargetNavigationTimeoutMs }); },
-    verifyAfterNavigation: async () => {
-      const pageText = await page.locator("body").innerText({ timeout: 2_000 }).catch(() => "");
+  try {
+    const response = await captureJdWareInitialProductQuery(queryBootstrapState, {
+      gotoBlank: async () => { await page.goto("about:blank", { waitUntil: "domcontentloaded", timeout: 10_000 }); },
+      waitForQuery: () => {
+        observation = observeJdWareInitialQuery(page, isJdWareProductQueryRequest);
+        const query = observation.promise;
+        const login = waitForJdWareLoginSurface(
+          async () => {
+            const gate = await inspectJdLoginPageState(page);
+            observation?.recordGate(gate);
+            if (gate.challengePresent || gate.credentialRejected || gate.temporarilyLocked) {
+              throw new Error("waiting_login：京东登录或安全验证门禁未通过，需要人工处理。");
+            }
+            return isJdLoginSurface(page);
+          },
+          observation.isStopped,
+          () => page.waitForTimeout(250),
+        ).then(async value => {
+          observation?.loginObserved();
+          observation?.recordSurface(await inspectJdSessionSurfaceCounts(page));
+          return value;
+        });
+        // Frame-aware observation continues during application loading; a
+        // single immediate DOM sample misses late embedded login surfaces.
+        if (store.loginMode === "windows_dpapi_credentials") {
+          return waitForJdWareQueryOrAutomatedLoginRedirect(
+            query,
+            login,
+            authenticateAndRestoreTarget,
+          );
+        }
+        return waitForJdWareQueryOrInteractiveRedirect(query, login.then(() => {
+          throw new Error("waiting_login：京东商家后台尚未登录，请在专用浏览器中完成验证。");
+        }));
+      },
+      gotoTarget: async () => { await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: jdWareTargetNavigationTimeoutMs }); },
+      verifyAfterNavigation: async () => {
+        observation?.navigationReady();
+        const pageText = await page.locator("body").innerText({ timeout: 2_000 }).catch(() => "");
+        if (hasJdInteractivePageGate(pageText)) {
+          throw new Error("京东商家后台需要人工完成验证码或安全验证。");
+        }
+        const hasPasswordInput = await page.locator('input[type="password"]').count().then((count) => count > 0).catch(() => false);
+        if (isLikelyJdLoginPage(page.url(), pageText, hasPasswordInput) || await isJdLoginSurface(page)) {
+          observation?.loginObserved();
+          await authenticateAndRestoreTarget();
+        }
+      },
+    });
+    // A response can arrive while the one permitted login is still restoring
+    // the target. Do not advance to export or submit a second login in parallel.
+    const runningAuthentication = currentAuthentication();
+    if (runningAuthentication) await runningAuthentication;
+    observation?.assertUniqueRequest();
+    // Login redirects render faster than the merchant export button. Check them
+    // first so each unauthenticated store does not burn the 30-second UI wait.
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const pageText = await page.locator("body").innerText({ timeout: 1_000 }).catch(() => "");
       if (hasJdInteractivePageGate(pageText)) {
         throw new Error("京东商家后台需要人工完成验证码或安全验证。");
       }
-      const hasPasswordInput = await page.locator('input[type="password"]').count().then((count) => count > 0).catch(() => false);
-      if (isLikelyJdLoginPage(page.url(), pageText, hasPasswordInput)) {
+      if (await isJdLoginSurface(page)) {
         await authenticateAndRestoreTarget();
       }
-    },
-  });
-  // Login redirects render faster than the merchant export button. Check them
-  // first so each unauthenticated store does not burn the 30-second UI wait.
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    const pageText = await page.locator("body").innerText({ timeout: 1_000 }).catch(() => "");
-    if (hasJdInteractivePageGate(pageText)) {
-      throw new Error("京东商家后台需要人工完成验证码或安全验证。");
+      if (/导出查询商品|批量操作|商品管理/.test(pageText)) break;
+      await page.waitForTimeout(150);
     }
-    if (isLikelyJdLoginPage(page.url(), pageText, await page.locator('input[type="password"]').count().then((count) => count > 0))) {
-      await ensureJdStoreAuthenticatedSession(page, store);
+    if (!prepareExport) return validateJdWareProductQueryResponse({ status: response.status(), payload: await response.json() });
+    await dismissJdMenuUpdateNotice(page);
+    // A drawer opened before the product query settled captures total=0 even
+    // after the table later shows rows. Reopen it only after a fresh, positive
+    // initial query response and the same total are visible in the toolbar.
+    await closeExistingJdWareSkuExportDrawer(page);
+    const verified = await verifyJdWareProductQueryResponse(page, response);
+    await prepareJdWareExportEntry(page);
+    observation?.assertUniqueRequest();
+    return verified;
+  } finally {
+    // The login helper has its own finite form/submission budget. Wait for its
+    // result before the caller closes this owned browser, even on query failure.
+    const finishingAuthentication = currentAuthentication();
+    if (finishingAuthentication) await finishingAuthentication.catch(() => undefined);
+    if (observation && observation.diagnostics().mainSurface === "unobserved") {
+      observation.recordSurface(await inspectJdSessionSurfaceCounts(page));
     }
-    if (/导出查询商品|批量操作|商品管理/.test(pageText)) break;
-    await page.waitForTimeout(150);
+    observation?.dispose();
+    if (observation) await recordDiagnostics?.(observation.diagnostics());
   }
-  await dismissJdMenuUpdateNotice(page);
-  // A drawer opened before the product query settled captures total=0 even
-  // after the table later shows rows. Reopen it only after a fresh, positive
-  // initial query response and the same total are visible in the toolbar.
-  await closeExistingJdWareSkuExportDrawer(page);
-  const verified = await verifyJdWareProductQueryResponse(page, response);
-  await prepareJdWareExportEntry(page);
-  return verified;
 }
 
 async function dismissJdMenuUpdateNotice(page: Page) {
@@ -1370,7 +1410,10 @@ async function main() {
     try {
       const queryBootstrapState = createJdWareQueryBootstrapState();
       await persistAudit({ stage: "verify_product_query", querySource: "initial_navigation" });
-      const verifiedQuery = await openTargetPage(page, queryBootstrapState, options);
+      const verifiedQuery = await openTargetPage(page, queryBootstrapState,
+        options.inspectQueryOnly ? { ...options, loginMode: "manual" } : options,
+        async (queryDiagnostics) => { await persistAudit({ queryDiagnostics }); },
+        !options.inspectQueryOnly);
       await persistAudit({
         stage: "product_query_verified",
         querySource: "initial_navigation",
@@ -1379,6 +1422,14 @@ async function main() {
         queryTotal: verifiedQuery.total,
         queryObservedAt: new Date().toISOString(),
       });
+      if (options.inspectQueryOnly) {
+        // A diagnostic has no export/import success sentinel and never reaches
+        // runShopSkuExport, task baselines, recovery mutation or the upload interface.
+        await persistAudit({ status: "inspected", stage: "query_inspected" });
+        console.log(JSON.stringify({ status: "query_inspected", configuredStoreKey: options.storeKey,
+          queryTotal: verifiedQuery.total, queryDiagnostics: audit.queryDiagnostics, auditPath }));
+        return;
+      }
       const abandonRecovery = async () => {
         if (!recovery || recovery.taskId) throw new Error("活动任务清单不满足无 taskId 的放弃条件。");
         const archivedPath = path.join(artifactDir, `active-task-${options.storeKey}.abandoned-${Date.now()}.json`);
@@ -1407,7 +1458,10 @@ async function main() {
       client.close();
     }
   } catch (error) {
-    const message = error instanceof Error ? error.stack ?? error.message : String(error);
+    const message = options.inspectQueryOnly
+      ? error instanceof JdWareQueryObservationError ? error.message
+        : `JD_QUERY_INSPECTION_${isJdInteractiveBrowserFailure(error) ? "LOGIN_REQUIRED" : "FAILED"}`
+      : error instanceof Error ? error.stack ?? error.message : String(error);
     const interactiveAttentionRequired = !options.interactiveLogin && isJdInteractiveBrowserFailure(error);
     revealInteractiveBrowser = options.visibleRecovery && interactiveAttentionRequired;
     if (error instanceof JdWareCreateExportRejectedError && error.definitiveNoTask && recovery && !recovery.taskId) {
