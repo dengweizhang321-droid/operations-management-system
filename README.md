@@ -257,7 +257,7 @@ npm run backend:dev:stop
 
 ## 吉客云自动化
 
-针对已下载五表、前三表完成而销售导入前读取失败的原执行 5478，源码提供一次性原文件续导许可，保持原日期、批次和成本源，并由新完整手动执行接回原进度。生产采用与操作条件见 [5478 受控续导](docs/JACKYUN_5478_IMPORT_RECOVERY.md)；源码与只读计划通过不代表已执行恢复。
+2026-10-05，5478 原文件续导能力已按本次批准采用，完整手动执行 6129 成功，五表独立批次回查通过。原三表保持，销售恢复原 8 月 19 日至 10 月 2 日窗口，组合装内容相同复用批次；来源提示和旧 error 保留。本次不代表已同步新日期。见 [5478 受控续导](docs/JACKYUN_5478_IMPORT_RECOVERY.md) 与 [正式采用记录](docs/JACKYUN_5478_PRODUCTION_20261005.md)。
 
 五表另提供浏览器仅登录、报表走会话接口的候选工作流 `automation/n8n/jackyun-five-dataset-api.workflow.json`。它保留原有销售成本校验、五表屏障和导入回查，并为平台与本机时间差增加任务匹配证据；尚未替换上文已采用版本。参数校准、运行边界和验收见 [`docs/JACKYUN_SESSION_API_EXPORT.md`](docs/JACKYUN_SESSION_API_EXPORT.md)。
 
