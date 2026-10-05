@@ -942,14 +942,29 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
   </section>;
 }
 
-export default function MarketView({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onApplyPeriod }: {
+type MarketViewProps = {
   customStartDate: string;
   customEndDate: string;
   currentUser: CurrentUser;
   moduleView: ModuleViewKey<"market">;
   onModuleViewChange: (view: ModuleViewKey<"market">) => void;
   onApplyPeriod?: (startDate: string, endDate: string) => void;
-}) {
+};
+const marketIdentityPackets = new WeakMap<object, number>();
+let nextMarketIdentityPacket = 0;
+export default function MarketView(props: MarketViewProps) {
+  const actor = props.currentUser;
+  let generation = 0;
+  if (actor) {
+    generation = marketIdentityPackets.get(actor) ?? ++nextMarketIdentityPacket;
+    marketIdentityPackets.set(actor, generation);
+  }
+  // A new authenticated identity packet invalidates all local success regions,
+  // even when the display-only restriction flag stayed the same.
+  return <MarketWorkspace key={`${generation}:${JSON.stringify(actor)}`} {...props} />;
+}
+
+function MarketWorkspace({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onApplyPeriod }: MarketViewProps) {
   const activeSection: MarketSectionKey = moduleView;
   const initialRequestKey = defaultMarketRankingParams(customStartDate, customEndDate).toString();
   const initialOverview = cachedMarketOverview(initialRequestKey);
