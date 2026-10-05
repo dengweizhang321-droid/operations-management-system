@@ -12,10 +12,11 @@ from .revisions import revision_value
 
 
 class FilterCache:
-    def __init__(self):
+    def __init__(self, *, maximum_bytes=2 * 1024 * 1024):
         self.lock = Lock()
         self.entry = None
         self.failure = None
+        self.maximum_bytes = maximum_bytes
 
     def read(self, key, loader, revision):
         if not self.lock.acquire(timeout=5):
@@ -36,7 +37,7 @@ class FilterCache:
             # A concurrent import must never stamp old or mixed counts as a new revision.
             if revision() != key[-1]:
                 raise MarketApiError("市场数据已更新，请重新加载筛选选项。", status=503, code="service_unavailable")
-            if len(json.dumps(value, ensure_ascii=False).encode()) <= 2 * 1024 * 1024:
+            if len(json.dumps(value, ensure_ascii=False).encode()) <= self.maximum_bytes:
                 self.entry = (key, monotonic() + 300, deepcopy(value))
             else:
                 self.entry = None
@@ -48,7 +49,7 @@ class FilterCache:
 cache = FilterCache()
 
 
-def cached_filters(loader):
+def cached_filters(loader, *, cache_store=None):
     # Tests, imports and commands can see uncommitted rows. Do not publish those
     # into a process cache or reuse a committed snapshot in their transaction.
     if connection.in_atomic_block or not connection.get_autocommit():
@@ -57,4 +58,4 @@ def cached_filters(loader):
     key = tuple(str(database.get(k, "")) for k in ("ENGINE", "HOST", "PORT", "NAME", "USER")) + (
         str(settings.MARKET_WRITE_AUTHORITY_EPOCH), revision_value(),
     )
-    return cache.read(key, loader, revision_value)
+    return (cache if cache_store is None else cache_store).read(key, loader, revision_value)

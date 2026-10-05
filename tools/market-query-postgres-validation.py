@@ -62,6 +62,7 @@ SCOPES = {
     'market.tests.test_analysis_options.MarketOptionsOwningTests': ['market', 'access_control'],
     'market.tests.test_annotation_queue.AnnotationQueueConcurrencyTests': ['market'],
     'market.tests.test_filter_count_performance.FacetRevisionRegressionTests': ['market'],
+    'market.tests.test_complete_performance.ScalarCacheApplicationTests': ['market'],
     'market.tests.test_prompt_concurrency.PromptConcurrencyTests': ['market'],
 }
 

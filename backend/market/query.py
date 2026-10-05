@@ -10,12 +10,13 @@ from time import monotonic
 
 from django.db import connection, transaction
 from django.db.models import Count, F, Max, Min, Q, Sum
+from django.db.models.functions import Substr
 
 from netshop.sales_client import read_sales_consumer
 from sales.auth import Principal
 
 from .errors import MarketApiError
-from .filter_cache import cached_filters
+from .filter_cache import FilterCache, cached_filters
 from .models import (
     MarketAnnotationCloudRun,
     MarketAnnotationConcurrencySetting,
@@ -107,6 +108,11 @@ PRODUCT_SIGNAL_RULES = [
     ("服务承诺", "质保/保修", re.compile(r"质保|保修|联保")),
     ("服务承诺", "滤芯供应", re.compile(r"滤芯|耗材")),
 ]
+
+# Only this facts-derived scalar is reusable. Image ready/failed state changes
+# independently of fact revision and must continue to be read on every request.
+# Reuse the existing revision/DB/role/authority fence and failure/lock policy.
+_image_total_cache = FilterCache(maximum_bytes=256)
 
 
 def _error(message: str) -> MarketApiError:
@@ -230,7 +236,7 @@ def _queryset(filters: dict[str, object]):
 
 
 def _preferred_rows(filters: dict[str, object]) -> list[MarketRankingEntry]:
-    query = _queryset(filters).order_by("id")
+    query = _queryset(filters).defer("raw_json").order_by("id")
     if query.count() > MAX_ANALYTICS_ROWS:
         raise MarketApiError(
             "市场分析范围过大，请缩小日期或筛选范围",
@@ -1430,7 +1436,10 @@ def overview(
     if global_options is None:
         global_options = filter_options()
     image_counts = Counter({row["status"]: row["count"] for row in MarketImageCache.objects.order_by().values("status").annotate(count=Count("pk"))})
-    total_images = MarketRankingEntry.objects.exclude(image_url="").values("image_url").distinct().count()
+    total_images = cached_filters(
+        lambda: MarketRankingEntry.objects.exclude(image_url="").order_by().values("image_url").distinct().count(),
+        cache_store=_image_total_cache,
+    )
     official_prices = sorted(int(item["official"]) for item in summary_rows if item["official"] is not None)
     weighted_denominator = sum(int(item["gmv"]) for item in summary_rows if item["official"] is not None)
     weighted_price = (
@@ -1517,16 +1526,16 @@ def item_trend(request: dict[str, object]) -> dict[str, object]:
     dimension = request["rankingDimension"]
     if not sku or not category or not scope or dimension not in {"SKU", "SPU"}:
         raise _error("市场单品趋势身份无效")
-    rows = list(
-        MarketRankingEntry.objects.filter(
+    history = MarketRankingEntry.objects.filter(
             sku_code=sku,
             category=category,
             scope=scope,
             ranking_dimension=dimension,
-        ).order_by("-period_end", "-period_start", "-id")
-    )
-    total = len({row.period_end[:7] for row in rows})
-    rows = rows[:60]
+        )
+    # Count the complete identity history in SQL, then load only the existing
+    # 60-row display window. Do not replace totalMonths with a page count.
+    total = history.aggregate(months=Count(Substr("period_end", 1, 7), distinct=True))["months"]
+    rows = list(history.defer("raw_json").order_by("-period_end", "-period_start", "-id")[:60])
     snapshots = _snapshot_map(rows)
     items = []
     for row in rows:
