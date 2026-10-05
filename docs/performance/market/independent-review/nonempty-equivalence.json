@@ -1,0 +1,355 @@
+{
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "baselineMasterBoundSeparately": true,
+  "singleCTEPerMasterRead": true,
+  "knownCompareScopeGap": {
+    "emptyDateRangeReturnedItems": 2,
+    "categoryExcludedReturnedItems": 2,
+    "baselineBehaviorPreserved": true
+  },
+  "database": ".runtime\\market-independent-20261005\\nonempty-equivalence-73cd664e.sqlite3",
+  "checks": [
+    {
+      "name": "ranking-scope0-page1",
+      "sha256": "9eee6545ff8e86527ac08b1d87b5892d99c54a3a41031727575ced70446a57c8"
+    },
+    {
+      "name": "ranking-scope0-page2",
+      "sha256": "f56834819405574c280c2ec6b3ba532ac996a11cab5188b661eeb3f6a8dd38e6"
+    },
+    {
+      "name": "ranking-scope1-page1",
+      "sha256": "d75a7e2bed3365d8a55762f08010ea854eba4f4e166929a08a8e302241c9a429"
+    },
+    {
+      "name": "ranking-scope1-page2",
+      "sha256": "ff04c9c843ad50f5802352b4d99e9cfba01d90983ec2b14936cd65d3440bfbb8"
+    },
+    {
+      "name": "ranking-scope2-page1",
+      "sha256": "3c73020d4d7699d071654d27a7e28a0586d2d8f81a8baa2c264ea5326b1a8ac0"
+    },
+    {
+      "name": "ranking-scope2-page2",
+      "sha256": "99f6f3c8b3837151e046a251b34800348b0c0fb0f9c549788ad7e525937d619e"
+    },
+    {
+      "name": "full-scope0-page1",
+      "sha256": "9aae833e4d462d1d6120d8af111be7d63639b00cd2c3df6a406cb5ffaf9a3d18"
+    },
+    {
+      "name": "full-scope1-page1",
+      "sha256": "d6202cfb65add94847032e5ad548e2210e84c3859282cda689654cea01aef990"
+    },
+    {
+      "name": "full-scope2-page1",
+      "sha256": "8ee9771bce0ca5d16c610ad9569d8786642d2f87f9aba9217576e6149926c21b"
+    },
+    {
+      "name": "settings_status",
+      "sha256": "2a3f00a8371bcd467c2f2a5061ea7843272c49a9193e53e53deb58ec2319c12b"
+    },
+    {
+      "name": "database_primary",
+      "sha256": "b7d51579ba1a7eabe014e4165698da5d3606af6749b8fbecfe060a1e6f049ca9"
+    },
+    {
+      "name": "database_filters",
+      "sha256": "3b05e36234627355d1ad65e08bb3c59a260af9f7e9a4c76324d540b3030c7cbf"
+    },
+    {
+      "name": "database_secondary",
+      "sha256": "3ca93600e2f549da406e16f4c175795989c562ca8dc3442d6e93e77493727f66"
+    },
+    {
+      "name": "system_kpis",
+      "sha256": "09d5b124519d982ff69550fbb7076172a9a3c403065e171c2c5df519b3263339"
+    },
+    {
+      "name": "workspace-subcategory-1",
+      "sha256": "19024a23698b441ce33bfef26d072e49b379054373b7a8de7301c490b23b8b1d"
+    },
+    {
+      "name": "workspace-subcategory-2",
+      "sha256": "19024a23698b441ce33bfef26d072e49b379054373b7a8de7301c490b23b8b1d"
+    },
+    {
+      "name": "workspace-brand-1",
+      "sha256": "8dac56df5aa55298f3fcc10550724241924d02d95946794784c173a821f0df2a"
+    },
+    {
+      "name": "workspace-brand-2",
+      "sha256": "1ec2ac06f1212a59864d40fc62fb65d45fee36bc4fdcd32dc04bed7dc76f4658"
+    },
+    {
+      "name": "workspace-mapping-1",
+      "sha256": "fbe24ce68e290ea19bebd6c37cf8503a6420496861f852ac83e2b43386c20b23"
+    },
+    {
+      "name": "workspace-mapping-2",
+      "sha256": "fbe24ce68e290ea19bebd6c37cf8503a6420496861f852ac83e2b43386c20b23"
+    },
+    {
+      "name": "workspace-data-1",
+      "sha256": "09190335feb884f677f575fef00d20ae06d905e00f109bc04229702f0d66e0d8"
+    },
+    {
+      "name": "workspace-data-2",
+      "sha256": "09190335feb884f677f575fef00d20ae06d905e00f109bc04229702f0d66e0d8"
+    },
+    {
+      "name": "master-pendingFalse-{}-page1",
+      "sha256": "e38f2d99250d06e22e1530126e27b9ab7db51af9654e00d86a523ab0078fa181"
+    },
+    {
+      "name": "master-pendingFalse-{}-page2",
+      "sha256": "1cabf75cd77137c5ed4620ec3b2ef25c812220d51be6219da0a5862ea1dd5f88"
+    },
+    {
+      "name": "master-pendingFalse-{}-page10000",
+      "sha256": "e84c1a5fa965b47e34fd08a36009f480b24d6e3d30db434a3ce67766a792acab"
+    },
+    {
+      "name": "master-pendingFalse-{'q': 'not-existing'}-page1",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingFalse-{'q': 'not-existing'}-page2",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingFalse-{'q': 'not-existing'}-page10000",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingFalse-{'categories': ['演示净水设备']}-page1",
+      "sha256": "dfbbabdf24236070d9a83c59380fcb1c8d2e6dbdc6a1c5b56f27e72681c4affc"
+    },
+    {
+      "name": "master-pendingFalse-{'categories': ['演示净水设备']}-page2",
+      "sha256": "4073c559b2437f14a836876a959c9b440d3d7103eab4c7d1efc39b15be4e654c"
+    },
+    {
+      "name": "master-pendingFalse-{'categories': ['演示净水设备']}-page10000",
+      "sha256": "4073c559b2437f14a836876a959c9b440d3d7103eab4c7d1efc39b15be4e654c"
+    },
+    {
+      "name": "master-pendingFalse-{'categories': ['演示净水设备', '演示厨房设备']}-page1",
+      "sha256": "e38f2d99250d06e22e1530126e27b9ab7db51af9654e00d86a523ab0078fa181"
+    },
+    {
+      "name": "master-pendingFalse-{'categories': ['演示净水设备', '演示厨房设备']}-page2",
+      "sha256": "1cabf75cd77137c5ed4620ec3b2ef25c812220d51be6219da0a5862ea1dd5f88"
+    },
+    {
+      "name": "master-pendingFalse-{'categories': ['演示净水设备', '演示厨房设备']}-page10000",
+      "sha256": "e84c1a5fa965b47e34fd08a36009f480b24d6e3d30db434a3ce67766a792acab"
+    },
+    {
+      "name": "master-pendingFalse-{'priceStatuses': ['confirmed']}-page1",
+      "sha256": "530657bbb3e10ba2f6601c7f21bf1e1e34aa65083c3f19ed91589fcb597d9758"
+    },
+    {
+      "name": "master-pendingFalse-{'priceStatuses': ['confirmed']}-page2",
+      "sha256": "530657bbb3e10ba2f6601c7f21bf1e1e34aa65083c3f19ed91589fcb597d9758"
+    },
+    {
+      "name": "master-pendingFalse-{'priceStatuses': ['confirmed']}-page10000",
+      "sha256": "530657bbb3e10ba2f6601c7f21bf1e1e34aa65083c3f19ed91589fcb597d9758"
+    },
+    {
+      "name": "master-pendingFalse-{'priceStatuses': ['pending']}-page1",
+      "sha256": "3383664c57e629d0efb4ecb300b028a9ed6d964ac96b17e5e0cdaa3ae77b395d"
+    },
+    {
+      "name": "master-pendingFalse-{'priceStatuses': ['pending']}-page2",
+      "sha256": "4b56365bdd76aafe3406c04e705e1e95ec7528457789ba068daf0c74778e9b3a"
+    },
+    {
+      "name": "master-pendingFalse-{'priceStatuses': ['pending']}-page10000",
+      "sha256": "b88bf580fb764d044d7f2cdf416a15cd16145e8faff5cb0d228c3003ec5cc4b6"
+    },
+    {
+      "name": "master-pendingFalse-{'candidatePriceSources': ['ai']}-page1",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingFalse-{'candidatePriceSources': ['ai']}-page2",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingFalse-{'candidatePriceSources': ['ai']}-page10000",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingFalse-{'candidatePriceSources': ['non_ai']}-page1",
+      "sha256": "e38f2d99250d06e22e1530126e27b9ab7db51af9654e00d86a523ab0078fa181"
+    },
+    {
+      "name": "master-pendingFalse-{'candidatePriceSources': ['non_ai']}-page2",
+      "sha256": "1cabf75cd77137c5ed4620ec3b2ef25c812220d51be6219da0a5862ea1dd5f88"
+    },
+    {
+      "name": "master-pendingFalse-{'candidatePriceSources': ['non_ai']}-page10000",
+      "sha256": "e84c1a5fa965b47e34fd08a36009f480b24d6e3d30db434a3ce67766a792acab"
+    },
+    {
+      "name": "master-pendingFalse-{'annotationStatuses': ['pending']}-page1",
+      "sha256": "e38f2d99250d06e22e1530126e27b9ab7db51af9654e00d86a523ab0078fa181"
+    },
+    {
+      "name": "master-pendingFalse-{'annotationStatuses': ['pending']}-page2",
+      "sha256": "1cabf75cd77137c5ed4620ec3b2ef25c812220d51be6219da0a5862ea1dd5f88"
+    },
+    {
+      "name": "master-pendingFalse-{'annotationStatuses': ['pending']}-page10000",
+      "sha256": "e84c1a5fa965b47e34fd08a36009f480b24d6e3d30db434a3ce67766a792acab"
+    },
+    {
+      "name": "master-pendingFalse-{'includeHistory': True}-page1",
+      "sha256": "e38f2d99250d06e22e1530126e27b9ab7db51af9654e00d86a523ab0078fa181"
+    },
+    {
+      "name": "master-pendingFalse-{'includeHistory': True}-page2",
+      "sha256": "1cabf75cd77137c5ed4620ec3b2ef25c812220d51be6219da0a5862ea1dd5f88"
+    },
+    {
+      "name": "master-pendingFalse-{'includeHistory': True}-page10000",
+      "sha256": "e84c1a5fa965b47e34fd08a36009f480b24d6e3d30db434a3ce67766a792acab"
+    },
+    {
+      "name": "master-pendingTrue-{}-page1",
+      "sha256": "3383664c57e629d0efb4ecb300b028a9ed6d964ac96b17e5e0cdaa3ae77b395d"
+    },
+    {
+      "name": "master-pendingTrue-{}-page2",
+      "sha256": "4b56365bdd76aafe3406c04e705e1e95ec7528457789ba068daf0c74778e9b3a"
+    },
+    {
+      "name": "master-pendingTrue-{}-page10000",
+      "sha256": "b88bf580fb764d044d7f2cdf416a15cd16145e8faff5cb0d228c3003ec5cc4b6"
+    },
+    {
+      "name": "master-pendingTrue-{'q': 'not-existing'}-page1",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingTrue-{'q': 'not-existing'}-page2",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingTrue-{'q': 'not-existing'}-page10000",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingTrue-{'categories': ['演示净水设备']}-page1",
+      "sha256": "5174a368f1a6d346b403d6806a73dca97bc359eb58cf5aabe276e89ea2c6a197"
+    },
+    {
+      "name": "master-pendingTrue-{'categories': ['演示净水设备']}-page2",
+      "sha256": "5174a368f1a6d346b403d6806a73dca97bc359eb58cf5aabe276e89ea2c6a197"
+    },
+    {
+      "name": "master-pendingTrue-{'categories': ['演示净水设备']}-page10000",
+      "sha256": "5174a368f1a6d346b403d6806a73dca97bc359eb58cf5aabe276e89ea2c6a197"
+    },
+    {
+      "name": "master-pendingTrue-{'categories': ['演示净水设备', '演示厨房设备']}-page1",
+      "sha256": "3383664c57e629d0efb4ecb300b028a9ed6d964ac96b17e5e0cdaa3ae77b395d"
+    },
+    {
+      "name": "master-pendingTrue-{'categories': ['演示净水设备', '演示厨房设备']}-page2",
+      "sha256": "4b56365bdd76aafe3406c04e705e1e95ec7528457789ba068daf0c74778e9b3a"
+    },
+    {
+      "name": "master-pendingTrue-{'categories': ['演示净水设备', '演示厨房设备']}-page10000",
+      "sha256": "b88bf580fb764d044d7f2cdf416a15cd16145e8faff5cb0d228c3003ec5cc4b6"
+    },
+    {
+      "name": "master-pendingTrue-{'priceStatuses': ['confirmed']}-page1",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingTrue-{'priceStatuses': ['confirmed']}-page2",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingTrue-{'priceStatuses': ['confirmed']}-page10000",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingTrue-{'priceStatuses': ['pending']}-page1",
+      "sha256": "3383664c57e629d0efb4ecb300b028a9ed6d964ac96b17e5e0cdaa3ae77b395d"
+    },
+    {
+      "name": "master-pendingTrue-{'priceStatuses': ['pending']}-page2",
+      "sha256": "4b56365bdd76aafe3406c04e705e1e95ec7528457789ba068daf0c74778e9b3a"
+    },
+    {
+      "name": "master-pendingTrue-{'priceStatuses': ['pending']}-page10000",
+      "sha256": "b88bf580fb764d044d7f2cdf416a15cd16145e8faff5cb0d228c3003ec5cc4b6"
+    },
+    {
+      "name": "master-pendingTrue-{'candidatePriceSources': ['ai']}-page1",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingTrue-{'candidatePriceSources': ['ai']}-page2",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingTrue-{'candidatePriceSources': ['ai']}-page10000",
+      "sha256": "8dc4144ee4bad86ce0d77e95a31270de8e522bd0bc204444acb31e151225d041"
+    },
+    {
+      "name": "master-pendingTrue-{'candidatePriceSources': ['non_ai']}-page1",
+      "sha256": "3383664c57e629d0efb4ecb300b028a9ed6d964ac96b17e5e0cdaa3ae77b395d"
+    },
+    {
+      "name": "master-pendingTrue-{'candidatePriceSources': ['non_ai']}-page2",
+      "sha256": "4b56365bdd76aafe3406c04e705e1e95ec7528457789ba068daf0c74778e9b3a"
+    },
+    {
+      "name": "master-pendingTrue-{'candidatePriceSources': ['non_ai']}-page10000",
+      "sha256": "b88bf580fb764d044d7f2cdf416a15cd16145e8faff5cb0d228c3003ec5cc4b6"
+    },
+    {
+      "name": "master-pendingTrue-{'annotationStatuses': ['pending']}-page1",
+      "sha256": "3383664c57e629d0efb4ecb300b028a9ed6d964ac96b17e5e0cdaa3ae77b395d"
+    },
+    {
+      "name": "master-pendingTrue-{'annotationStatuses': ['pending']}-page2",
+      "sha256": "4b56365bdd76aafe3406c04e705e1e95ec7528457789ba068daf0c74778e9b3a"
+    },
+    {
+      "name": "master-pendingTrue-{'annotationStatuses': ['pending']}-page10000",
+      "sha256": "b88bf580fb764d044d7f2cdf416a15cd16145e8faff5cb0d228c3003ec5cc4b6"
+    },
+    {
+      "name": "master-pendingTrue-{'includeHistory': True}-page1",
+      "sha256": "3383664c57e629d0efb4ecb300b028a9ed6d964ac96b17e5e0cdaa3ae77b395d"
+    },
+    {
+      "name": "master-pendingTrue-{'includeHistory': True}-page2",
+      "sha256": "4b56365bdd76aafe3406c04e705e1e95ec7528457789ba068daf0c74778e9b3a"
+    },
+    {
+      "name": "master-pendingTrue-{'includeHistory': True}-page10000",
+      "sha256": "b88bf580fb764d044d7f2cdf416a15cd16145e8faff5cb0d228c3003ec5cc4b6"
+    },
+    {
+      "name": "compare-two-identities",
+      "sha256": "cce4e1dc30daaecedba589dbf1afeea3b16d83e3238e0b202671bc7ca34d3ec6"
+    },
+    {
+      "name": "trend-formal-price",
+      "sha256": "3add7f8da6b8eae0306780d5ccc7e2fcce8acfa825ec04b04548d64a627229be"
+    }
+  ],
+  "count": 84,
+  "allDeepEquivalent": true,
+  "synthetic": true,
+  "productionTouched": false,
+  "externalCalls": 0,
+  "performanceClaim": false
+}

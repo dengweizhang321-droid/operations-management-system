@@ -1,0 +1,26 @@
+{
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "rows": 631,
+  "trendFullDeepEquivalent": true,
+  "trendMonths": 70,
+  "windowRows": 60,
+  "preferredIdentityEquivalent": true,
+  "preferredRows": 210,
+  "knownCompareRawSourceGap": {
+    "rawCompareGmvCents": 8610000,
+    "preferredGmvCents": 2870000,
+    "rawSourceMultiplier": 3,
+    "preexistingBehavior": true
+  },
+  "imageGroupedEquivalent": true,
+  "imageScalarCacheRevisionTransactionStateAuthority": true,
+  "scalarConcurrentSingleLoader": true,
+  "scalarFailureBackoff": true,
+  "factQueries": [
+    "SELECT COUNT(DISTINCT SUBSTR(\"market_ranking_entries\".\"period_end\", 1, 7)) AS \"months\" FROM \"market_ranking_entries\" WHERE (\"market_ranking_entries\".\"category\" = '独立验证' AND \"market_ranking_entries\".\"ranking_dimension\" = 'SKU' AND \"market_ranking_entries\".\"scope\" = 'pop' AND \"market_ranking_entries\".\"sku_code\" = '100001')",
+    "SELECT \"market_ranking_entries\".\"id\", \"market_ranking_entries\".\"natural_key\", \"market_ranking_entries\".\"source_row_number\", \"market_ranking_entries\".\"period_start\", \"market_ranking_entries\".\"period_end\", \"market_ranking_entries\".\"category\", \"market_ranking_entries\".\"scope\", \"market_ranking_entries\".\"price_band_filter\", \"market_ranking_entries\".\"ranking_dimension\", \"market_ranking_entries\".\"operation_mode\", \"market_ranking_entries\".\"subcategory\", \"market_ranking_entries\".\"source_brand\", \"market_ranking_entries\".\"source_operation_mode\", \"market_ranking_entries\".\"source_subcategory\", \"market_ranking_entries\".\"rank\", \"market_ranking_entries\".\"sku_code\", \"market_ranking_entries\".\"product_name\", \"market_ranking_entries\".\"brand\", \"market_ranking_entries\".\"price_cents\", \"market_ranking_entries\".\"price_low_cents\", \"market_ranking_entries\".\"price_high_cents\", \"market_ranking_entries\".\"price_estimated\", \"market_ranking_entries\".\"price_raw\", \"market_ranking_entries\".\"gmv_cents\", \"market_ranking_entries\".\"gmv_low_cents\", \"market_ranking_entries\".\"gmv_high_cents\", \"market_ranking_entries\".\"gmv_raw\", \"market_ranking_entries\".\"quantity\", \"market_ranking_entries\".\"quantity_low\", \"market_ranking_entries\".\"quantity_high\", \"market_ranking_entries\".\"quantity_raw\", \"market_ranking_entries\".\"page_views\", \"market_ranking_entries\".\"page_views_raw\", \"market_ranking_entries\".\"visitors\", \"market_ranking_entries\".\"visitors_low\", \"market_ranking_entries\".\"visitors_high\", \"market_ranking_entries\".\"visitors_raw\", \"market_ranking_entries\".\"conversion_bps\", \"market_ranking_entries\".\"conversion_low_bps\", \"market_ranking_entries\".\"conversion_high_bps\", \"market_ranking_entries\".\"conversion_raw\", \"market_ranking_entries\".\"cart_customers\", \"market_ranking_entries\".\"cart_customers_raw\", \"market_ranking_entries\".\"search_clicks\", \"market_ranking_entries\".\"search_clicks_raw\", \"market_ranking_entries\".\"image_url\", \"market_ranking_entries\".\"product_url\", \"market_ranking_entries\".\"last_import_batch_id\", \"market_ranking_entries\".\"created_at\", \"market_ranking_entries\".\"updated_at\", \"market_ranking_entries\".\"migration_generation\" FROM \"market_ranking_entries\" WHERE (\"market_ranking_entries\".\"category\" = '独立验证' AND \"market_ranking_entries\".\"ranking_dimension\" = 'SKU' AND \"market_ranking_entries\".\"scope\" = 'pop' AND \"market_ranking_entries\".\"sku_code\" = '100001') ORDER BY \"market_ranking_entries\".\"period_end\" DESC, \"market_ranking_entries\".\"period_start\" DESC, \"market_ranking_entries\".\"id\" DESC LIMIT 60"
+  ],
+  "database": "SQLite in-memory only",
+  "productionTouched": false,
+  "performanceClaim": false
+}

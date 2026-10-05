@@ -1,0 +1,28 @@
+{
+  "checks": [
+    "trend_cancel_late_different_identity",
+    "trend_failure_retry_recovers"
+  ],
+  "failures": [
+    {
+      "name": "trend_record_window_does_not_claim_full_month_table",
+      "error": "locator.waitFor: Timeout 7000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('展示 60 条趋势记录 · 完整历史 2 个月', { exact: true }) to be visible\u001b[22m\n\u001b[2m    18 × locator resolved to hidden <small>展示 60 条趋势记录 · 完整历史 2 个月</small>\u001b[22m\n"
+    },
+    {
+      "name": "harness",
+      "error": "locator.click: Timeout 7000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.market-compare-check').first()\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" aria-label=\"选择对比 合成商品1\" class=\"market-compare-check \">+</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"modal-backdrop\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not stable\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    14 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <div class=\"modal-backdrop\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\n    at D:\\.codex\\worktrees\\market-performance-complete\\运营管理系统\\.runtime\\market-independent-20261005\\details-negative-ui.mjs:14:52"
+    }
+  ],
+  "errors": [],
+  "requests": [
+    "/api/auth/me",
+    "/api/market/overview?view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+    "/api/market/filters",
+    "/api/market/trend?skuCode=100001&category=%E7%B1%BB%E7%9B%AE-1&scope=pop&dimension=SKU",
+    "/api/market/trend?skuCode=100002&category=%E7%B1%BB%E7%9B%AE-2&scope=pop&dimension=SKU",
+    "/api/market/trend?skuCode=100002&category=%E7%B1%BB%E7%9B%AE-2&scope=pop&dimension=SKU",
+    "/api/market/trend?skuCode=100002&category=%E7%B1%BB%E7%9B%AE-2&scope=pop&dimension=SKU",
+    "/api/market/trend?skuCode=100002&category=%E7%B1%BB%E7%9B%AE-2&scope=pop&dimension=SKU"
+  ],
+  "boundary": "mock GET-only; cancellation/scope/refresh logic; no performance or database claim"
+}

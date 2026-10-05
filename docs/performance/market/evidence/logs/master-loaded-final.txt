@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-complete-performance.py", line 236, in <module>
+    harness.main()
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-query-performance.py", line 256, in main
+    wait_for_capacity()
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-complete-performance.py", line 231, in loaded_capacity
+    raise RuntimeError('Loaded-machine diagnostic requires 1.5 GiB free memory')
+RuntimeError: Loaded-machine diagnostic requires 1.5 GiB free memory

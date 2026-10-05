@@ -1,0 +1,14 @@
+{
+  "database": ".runtime\\market-independent-20261005\\scalar-application.sqlite3",
+  "actualOverviewWiring": true,
+  "coldTotal": 1,
+  "warmTotal": 1,
+  "liveReadyState": 1,
+  "warmSkipsDistinctScan": true,
+  "transactionRollbackNoPollution": true,
+  "committedFactAndRevisionTotal": 2,
+  "rebuildDistinctScan": true,
+  "productionTouched": false,
+  "externalCalls": 0,
+  "performanceClaim": false
+}

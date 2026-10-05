@@ -1,0 +1,17 @@
+{
+  "database": ".runtime\\preview\\demo-1791212224923-ee9514f1.sqlite3",
+  "synthetic": true,
+  "productionTouched": false,
+  "modelsCalled": 0,
+  "rankingRows": 40,
+  "beforeActualPriceFilters": {
+    "confirmed": 0,
+    "pending": 0
+  },
+  "afterActualPriceFilters": {
+    "confirmed": 10,
+    "pending": 30
+  },
+  "correction": "Initial seed copied missing source prices; final fixtures install explicit synthetic numeric prices and verify real query predicates",
+  "databaseSha256": "5e79bc3d2feda27b0ccf2705d46734126af66196e49b55522677934464d3636d"
+}

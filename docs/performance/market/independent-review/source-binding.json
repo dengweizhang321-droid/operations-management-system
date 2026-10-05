@@ -1,0 +1,18 @@
+{
+  "app\\market-master-admin-panel.tsx": "3520bf64d8ab04e18730923fc50c21b70c77b6395aaca20c120a6a0a6a6a5d11",
+  "backend\\market\\filter_cache.py": "462796d832ba8519db482edc2514a451e6d71f72646ddfc3db302a1a4c5c550b",
+  "ownBrowsersClosed": true,
+  "detailsNegativeChecks": 8,
+  "nonemptyUIChecks": 12,
+  "backend\\market\\query.py": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec",
+  "productionTouched": false,
+  "app\\market-view.tsx": "b8434b7525e61efd0ff741ff4599842e16e0b6ebc4ea0751e0ef6b2b7569e0c4",
+  "baselineSHA": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "backend\\market\\master_query.py": "4f9319396ac031a970a397a1f8bcad792ca43ce917cb3b5b3d59f27823d4db5e",
+  "backend\\market\\admin.py": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92",
+  "independentPayloadChecks": 84,
+  "reviewCompletedClientDate": "2026-10-06",
+  "parentPreviewLeftRunning": 3186,
+  "candidateSHA": "07c71ff4908cdf0ce71ad7335a53cce5d045217c",
+  "newContentSamples": 19
+}

@@ -1,0 +1,12 @@
+{
+  "checks": [],
+  "failures": [
+    {
+      "name": "harness",
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://127.0.0.1:3188/.runtime/market-independent-20261005/index.html\", waiting until \"load\"\u001b[22m\n\n    at D:\\.codex\\worktrees\\market-performance-complete\\运营管理系统\\.runtime\\market-independent-20261005\\review-ui.mjs:24:12"
+    }
+  ],
+  "errors": [],
+  "requests": [],
+  "boundary": "synthetic APIs; GET only; no production; no performance claim"
+}

@@ -1,0 +1,10 @@
+{"output": "D:\\.codex\\worktrees\\market-performance-complete\\\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf\\.runtime\\market-performance-da1554fa72cc", "stage": "experiment"}
+{"case": "ranking-7d", "p50": {"baseline": 701.2197000003653, "candidate": 591.4854000002379}, "p95": {"baseline": 701.2197000003653, "candidate": 591.4854000002379}, "equal": true}
+{"case": "ranking-all", "p50": {"baseline": 5430.179300004966, "candidate": 4537.066100005177}, "p95": {"baseline": 5430.179300004966, "candidate": 4537.066100005177}, "equal": true}
+{"case": "report-7d", "p50": {"baseline": 2247.7029000001494, "candidate": 2017.340599995805}, "p95": {"baseline": 2247.7029000001494, "candidate": 2017.340599995805}, "equal": true}
+{"case": "trend", "p50": {"baseline": 20.312399996328168, "candidate": 12.736999997287057}, "p95": {"baseline": 20.312399996328168, "candidate": 12.736999997287057}, "equal": true}
+{"case": "settings-status", "p50": {"baseline": 50.58309999003541, "candidate": 21.211700004641898}, "p95": {"baseline": 50.58309999003541, "candidate": 21.211700004641898}, "equal": true}
+{"case": "database-primary", "p50": {"baseline": 107.59020000114106, "candidate": 56.20499998622108}, "p95": {"baseline": 107.59020000114106, "candidate": 56.20499998622108}, "equal": true}
+{"case": "database-secondary", "p50": {"baseline": 4215.309699997306, "candidate": 1710.7675999868661}, "p95": {"baseline": 4215.309699997306, "candidate": 1710.7675999868661}, "equal": true}
+{"case": "workspace-mapping", "p50": {"baseline": 611.5738000080455, "candidate": 245.50980000640266}, "p95": {"baseline": 611.5738000080455, "candidate": 245.50980000640266}, "equal": true}
+{"output": "D:\\.codex\\worktrees\\market-performance-complete\\\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf\\.runtime\\market-performance-da1554fa72cc", "stopped": true}

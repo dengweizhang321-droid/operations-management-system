@@ -1,0 +1,12 @@
+{
+  "database": ".runtime\\preview\\demo-1791212224923-ee9514f1.sqlite3",
+  "synthetic": true,
+  "modelCalls": 0,
+  "productionTouched": false,
+  "validationRuns": 2,
+  "validationResults": 2,
+  "pausedCloudRuns": 2,
+  "disabledAgent": 1,
+  "allJobsNonRunnable": true,
+  "rankingRows": 40
+}

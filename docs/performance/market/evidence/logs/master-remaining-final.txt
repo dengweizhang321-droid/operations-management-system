@@ -1,0 +1,20 @@
+{"stage": "capacity_wait", "cpuPercent": 48.6, "availableGiB": 2.44}
+{"stage": "capacity_wait", "cpuPercent": 39.1, "availableGiB": 2.14}
+{"stage": "capacity_wait", "cpuPercent": 67.6, "availableGiB": 1.65}
+{"stage": "capacity_wait", "cpuPercent": 64.1, "availableGiB": 1.38}
+{"stage": "capacity_wait", "cpuPercent": 40.8, "availableGiB": 1.31}
+{"stage": "capacity_wait", "cpuPercent": 18.8, "availableGiB": 1.21}
+{"stage": "capacity_wait", "cpuPercent": 21.3, "availableGiB": 1.91}
+{"stage": "capacity_wait", "cpuPercent": 41.4, "availableGiB": 1.71}
+{"stage": "capacity_wait", "cpuPercent": 34.4, "availableGiB": 1.74}
+{"stage": "capacity_wait", "cpuPercent": 39.5, "availableGiB": 1.63}
+{"stage": "capacity_wait", "cpuPercent": 26.6, "availableGiB": 1.47}
+{"stage": "capacity_wait", "cpuPercent": 29.6, "availableGiB": 2.38}
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-complete-performance.py", line 226, in <module>
+    harness.main()
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-query-performance.py", line 256, in main
+    wait_for_capacity()
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-query-performance.py", line 67, in wait_for_capacity
+    raise RuntimeError('Measurement deferred: capacity remained constrained for 60 seconds')
+RuntimeError: Measurement deferred: capacity remained constrained for 60 seconds

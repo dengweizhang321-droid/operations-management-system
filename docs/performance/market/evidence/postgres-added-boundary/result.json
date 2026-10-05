@@ -1,0 +1,11 @@
+{
+  "port": 55485,
+  "productionTouched": false,
+  "externalModelCalls": 0,
+  "tests": {
+    "count": null,
+    "log": "D:\\.codex\\worktrees\\market-performance-complete\\运营管理系统\\.runtime\\market-annotation-pg-80f93653e3e4\\tests.log"
+  },
+  "status": "passed",
+  "isolatedClusterStopped": true
+}

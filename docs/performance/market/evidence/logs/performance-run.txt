@@ -1,0 +1,32 @@
+{"stage": "capacity_wait", "cpuPercent": 98.2, "availableGiB": 2.1}
+{"stage": "capacity_wait", "cpuPercent": 77.1, "availableGiB": 2.25}
+{"stage": "capacity_wait", "cpuPercent": 87.9, "availableGiB": 1.78}
+{"stage": "capacity_wait", "cpuPercent": 79.9, "availableGiB": 1.74}
+{"stage": "capacity_wait", "cpuPercent": 90.4, "availableGiB": 1.39}
+{"stage": "capacity_wait", "cpuPercent": 67.8, "availableGiB": 3.11}
+{"output": "D:\\.codex\\worktrees\\market-performance-complete\\\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf\\.runtime\\market-performance-2a55f824c837", "stage": "experiment"}
+{"stage": "capacity_wait", "cpuPercent": 49.1, "availableGiB": 1.96}
+{"stage": "capacity_wait", "cpuPercent": 45.5, "availableGiB": 2.35}
+{"case": "filters", "p50": {"baseline": 2.814200008288026, "candidate": 2.824700000928715}, "p95": {"baseline": 465.4461000027368, "candidate": 226.58079999382608}, "equal": true}
+{"stage": "capacity_wait", "cpuPercent": 40.8, "availableGiB": 2.46}
+{"stage": "capacity_wait", "cpuPercent": 39.3, "availableGiB": 2.13}
+{"stage": "capacity_wait", "cpuPercent": 29.1, "availableGiB": 1.75}
+{"stage": "capacity_wait", "cpuPercent": 28.5, "availableGiB": 1.57}
+{"stage": "capacity_wait", "cpuPercent": 65.0, "availableGiB": 1.4}
+{"stage": "capacity_wait", "cpuPercent": 59.6, "availableGiB": 1.37}
+{"stage": "capacity_wait", "cpuPercent": 46.6, "availableGiB": 1.36}
+{"stage": "capacity_wait", "cpuPercent": 24.9, "availableGiB": 1.33}
+{"stage": "capacity_wait", "cpuPercent": 48.0, "availableGiB": 1.74}
+{"stage": "capacity_wait", "cpuPercent": 56.1, "availableGiB": 2.56}
+{"stage": "capacity_wait", "cpuPercent": 70.1, "availableGiB": 2.44}
+{"stage": "capacity_wait", "cpuPercent": 53.7, "availableGiB": 2.2}
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-complete-performance.py", line 186, in <module>
+    harness.main()
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-query-performance.py", line 269, in main
+    experiment(args, run_root)
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-complete-performance.py", line 123, in experiment
+    harness.wait_for_capacity()
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-query-performance.py", line 67, in wait_for_capacity
+    raise RuntimeError('Measurement deferred: capacity remained constrained for 60 seconds')
+RuntimeError: Measurement deferred: capacity remained constrained for 60 seconds

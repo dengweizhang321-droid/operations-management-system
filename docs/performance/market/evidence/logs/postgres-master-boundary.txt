@@ -1,0 +1,3 @@
+{"stage": "isolated_cluster_started", "port": 55485, "productionTouched": false, "externalModelCalls": 0}
+{"stage": "market_tests_passed", "tests": {"count": null, "log": "D:\\.codex\\worktrees\\market-performance-complete\\\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf\\.runtime\\market-annotation-pg-80f93653e3e4\\tests.log"}}
+{"port": 55485, "productionTouched": false, "externalModelCalls": 0, "tests": {"count": null, "log": "D:\\.codex\\worktrees\\market-performance-complete\\��Ӫ����ϵͳ\\.runtime\\market-annotation-pg-80f93653e3e4\\tests.log"}, "status": "passed", "isolatedClusterStopped": true, "evidence": "D:\\.codex\\worktrees\\market-performance-complete\\��Ӫ����ϵͳ\\.runtime\\market-annotation-pg-80f93653e3e4\\result.json"}
