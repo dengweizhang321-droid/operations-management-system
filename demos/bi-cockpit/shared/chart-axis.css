@@ -1,0 +1,2 @@
+/* Axis glyphs are HTML at 12px; responsive SVG scales geometry only. */
+.chart-plot{position:relative;padding-left:40px;min-width:0}.chart-plot svg{margin-top:0}.chart-axis{position:absolute;left:0;font-size:12px;line-height:19.2px;max-width:65px;white-space:nowrap;pointer-events:none}.chart-dates{display:flex;justify-content:space-between;gap:12px;padding-left:40px}.chart h3{margin:18px 0 8px}

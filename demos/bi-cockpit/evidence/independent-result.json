@@ -1,0 +1,31 @@
+{
+  "result": "PASS",
+  "nonAuthorReview": true,
+  "originalAssertions": 223,
+  "finalClosureAssertions": 6,
+  "appInteractionAssertions": 9,
+  "moduleScopeAssertions": 8,
+  "totalAssertions": 246,
+  "renders": 40,
+  "localSkuSales": 61596.56,
+  "promotionMissingCoverage": {
+    "covered": 0,
+    "expected": 30,
+    "complete": false
+  },
+  "sources": {
+    "shared/data.js": "808e74d94fa9e789698e6eceb83f2f0ab912d58dc270e79a3a410cdde2863447",
+    "shared/ui.js": "083835c064e4493c7e58e4d6bd4d68a5994a00ba8836834c42a63fc24247cacd",
+    "shared/scope.js": "3a01e584fd790e1aefd0eea004a5890bf1c380191fb164d55cac4312b5ba535a",
+    "app.js": "366f9fc0edf3de04dbe31213d00ea5ab73721ea4e0bac7e9b123f39a9a18cc26",
+    "demo02/layout.js": "f28521163498f5cf37f0d286e90c34c09b5ff975dc1d8f86b24329441a6919bf",
+    "demo03/layout.js": "3e8342dca0054d8b0af400e024c634427a3c65cb59ca564e9342e0f8f9678a50",
+    "demo04/layout.js": "39e49ed223158314ade050c08880e0d1af22359bd3c648bf1f33223374a19fbe",
+    "demo05/layout.js": "b9caf365ae018b1e448f8bb29a40dbfcd095187704c4954cb2951d0d1478afbe"
+  },
+  "limitations": [
+    "No browser execution or screenshots in this script",
+    "DOM event wiring reviewed statically",
+    "Does not certify production data, permissions, or release"
+  ]
+}

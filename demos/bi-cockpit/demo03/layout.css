@@ -1,0 +1,29 @@
+.demo03 { min-width: 0; }
+.demo03 .matrix-intro { display: flex; gap: 16px; flex-wrap: wrap; align-items: baseline; }
+.demo03 .matrix-intro strong { font-weight: 600; }
+.demo03 .matrix-switch { justify-content: space-between; margin-bottom: 14px; }
+.demo03 .matrix-switch button[aria-pressed="true"] { background: var(--color-brand); color: white; border-color: var(--color-brand); }
+.demo03 .matrix-main .table-scroll { max-height: 480px; overflow: auto; }
+.demo03 .matrix-main table { min-width: 1080px; }
+.demo03 .matrix-main thead th { position: sticky; top: 0; z-index: 2; background: var(--color-bg-app); }
+.demo03 .matrix-main th:first-child { position: sticky; left: 0; z-index: 1; background: white; width: 220px; min-width: 220px; max-width: 260px; text-align: left; font-weight: 400; }
+.demo03 .matrix-main thead th:first-child { z-index: 3; background: var(--color-bg-app); }
+.demo03 .matrix-main tr.selected th:first-child { background: var(--color-brand-soft); }
+.demo03 .matrix-main th:first-child button { white-space: normal; text-align: left; overflow-wrap: anywhere; line-height: inherit; }
+.demo03 .matrix-main td { min-width: 90px; vertical-align: top; }
+.demo03 .matrix-main small { display: block; }
+.demo03 .matrix-main td:last-child button { display: block; margin-top: 6px; }
+.demo03 .matrix-domain-index { padding: 4px 0; }
+.demo03 .matrix-evidence { border-left: 3px solid var(--color-brand); min-width: 0; }
+.demo03 .matrix-evidence .section-head { min-width: 0; }
+.demo03 .matrix-evidence h2 { overflow-wrap: anywhere; }
+.demo03 .matrix-support > * { min-width: 0; }
+.demo03 .matrix-support table { min-width: 620px; }
+.demo03 .matrix-support .chart { min-width: 0; }
+@media (max-width: 1000px) { .demo03 .matrix-support { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) {
+ .demo03 .matrix-main th:first-child { width: 180px; min-width: 180px; max-width: 180px; }
+ .demo03 .matrix-switch { align-items: stretch; }
+ .demo03 .matrix-intro { gap: 8px; }
+ .demo03 .matrix-domain-index { flex-wrap: wrap; }
+}

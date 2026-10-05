@@ -1,0 +1,46 @@
+.demo02 { min-width: 0; }
+.demo02 .report-cover { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--space-6); margin-bottom: var(--space-5); border-top: 3px solid var(--color-brand); }
+.demo02 .report-cover-title { min-width: 0; }
+.demo02 .report-cover-title h2 { margin: var(--space-3) 0; }
+.demo02 .report-cover-title p { margin: 0; color: var(--color-text-secondary); }
+.demo02 .report-period { margin: 0; display: grid; gap: var(--space-3); padding-left: var(--space-5); border-left: 1px solid var(--color-border-default); }
+.demo02 .report-period div { min-width: 0; }
+.demo02 .report-period dt { font-size: var(--font-size-caption); line-height: var(--line-height-body); color: var(--color-text-muted); }
+.demo02 .report-period dd { margin: 2px 0 0; overflow-wrap: anywhere; font-size: var(--font-size-label); line-height: var(--line-height-body); }
+.demo02 .report-grid { display: grid; grid-template-columns: 206px minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+.demo02 .report-index { position: sticky; top: var(--space-4); padding: var(--space-4); min-width: 0; }
+.demo02 .report-index h3 { margin: 0 0 var(--space-2); }
+.demo02 .report-index > p { margin: 0 0 var(--space-4); }
+.demo02 .report-index nav { display: grid; gap: var(--space-2); }
+.demo02 .report-index nav button { display: flex; align-items: flex-start; text-align: left; height: auto; min-height: 48px; gap: var(--space-2); padding: var(--space-2); border: 1px solid transparent; background: transparent; color: var(--color-text-primary); white-space: normal; }
+.demo02 .report-index nav button:hover { background: var(--color-brand-soft); border-color: var(--color-brand-border); }
+.demo02 .report-index nav small { display: block; font-size: var(--font-size-caption); line-height: var(--line-height-body); font-weight: 400; color: var(--color-text-muted); }
+.demo02 .index-number { color: var(--color-brand); font-size: var(--font-size-caption); line-height: var(--line-height-body); padding-top: 1px; }
+.demo02 .index-note { margin-top: var(--space-5); padding-top: var(--space-3); border-top: 1px solid var(--color-border-default); }
+.demo02 .index-note p { margin: 0 0 var(--space-3); }
+.demo02 .report-body { min-width: 0; display: grid; gap: var(--space-6); }
+.demo02 .report-observation { min-width: 0; padding: var(--space-4) var(--space-5); border-left: 3px solid var(--color-brand-border); border-radius: var(--radius-sm); background: var(--color-brand-soft); }
+.demo02 .report-observation h3 { margin: 0 0 var(--space-2); }
+.demo02 .report-observation p { margin: 0 0 var(--space-2); overflow-wrap: anywhere; }
+.demo02 .report-observation p:last-child { margin-bottom: 0; }
+.demo02 .report-chapter { min-width: 0; padding-top: var(--space-5); border-top: 1px solid var(--color-border-strong); scroll-margin-top: var(--space-5); }
+.demo02 .chapter-heading { display: flex; align-items: center; gap: var(--space-3); }
+.demo02 .chapter-heading h2 { margin: 0; }
+.demo02 .chapter-heading p { margin: var(--space-1) 0 0; color: var(--color-text-muted); }
+.demo02 .chapter-number { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border: 1px solid var(--color-brand-border); background: var(--color-brand-soft); border-radius: var(--radius-md); color: var(--color-brand); font-size: var(--font-size-card-title); font-weight: 400; }
+.demo02 .chapter-intro { margin: var(--space-3) 0 var(--space-4); color: var(--color-text-secondary); }
+.demo02 .report-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding-top: var(--space-4); border-top: 1px solid var(--color-border-default); }
+.demo02 .report-footer span { min-width: 0; }
+@media (max-width: 1050px) {
+  .demo02 .report-grid { grid-template-columns: minmax(0, 1fr); }
+  .demo02 .report-index { position: static; }
+  .demo02 .report-index nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .demo02 .index-note { display: none; }
+}
+@media (max-width: 600px) {
+  .demo02 .report-cover { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+  .demo02 .report-period { padding: var(--space-3) 0 0; border-left: 0; border-top: 1px solid var(--color-border-default); }
+  .demo02 .report-index nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .demo02 .report-observation { padding: var(--space-4); }
+  .demo02 .report-body { gap: var(--space-5); }
+}

@@ -1,0 +1,70 @@
+{
+  "computed": [
+    {
+      "bg": "rgb(245, 247, 246)",
+      "cls": "",
+      "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+      "line": "22.4px",
+      "size": "14px",
+      "tag": "BODY",
+      "weight": "400"
+    },
+    {
+      "bg": "rgb(41, 63, 50)",
+      "cls": "shell-masthead",
+      "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+      "line": "22.4px",
+      "size": "14px",
+      "tag": "DIV",
+      "weight": "400"
+    },
+    {
+      "bg": "rgba(0, 0, 0, 0)",
+      "cls": "",
+      "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+      "line": "26px",
+      "size": "20px",
+      "tag": "H1",
+      "weight": "400"
+    },
+    {
+      "bg": "rgba(0, 0, 0, 0)",
+      "cls": "",
+      "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+      "line": "23.4px",
+      "size": "18px",
+      "tag": "H2",
+      "weight": "400"
+    },
+    {
+      "bg": "rgba(0, 0, 0, 0)",
+      "cls": "",
+      "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+      "line": "23.4px",
+      "size": "18px",
+      "tag": "H2",
+      "weight": "400"
+    },
+    {
+      "bg": "rgba(0, 0, 0, 0)",
+      "cls": "",
+      "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+      "line": "23.4px",
+      "size": "18px",
+      "tag": "H2",
+      "weight": "400"
+    },
+    {
+      "bg": "rgba(0, 0, 0, 0)",
+      "cls": "",
+      "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+      "line": "23.4px",
+      "size": "18px",
+      "tag": "H2",
+      "weight": "400"
+    }
+  ],
+  "styles": [
+    "http://127.0.0.1:3000/assets/index-DRlAWjS5.css"
+  ]
+}

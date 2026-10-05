@@ -1,0 +1,103 @@
+// Non-author, isolated synthetic-data checks. Run from any cwd: node <absolute path to this file>.
+// This evidence script never starts services, connects to production, or changes implementation files.
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import vm from 'node:vm';
+import {createModel,money,percent,escape,aggregate,shops,products} from '../shared/data.js';
+import {createUI} from '../shared/ui.js';
+import {detailScope} from '../shared/scope.js';
+const base={start:'2026-09-01',end:'2026-09-30',platform:'',shop:'',grain:'week',compare:'previous',status:'ready',rank:'sales',allShops:true,qShop:'',qProduct:'',productFilter:'all',selectedShop:'',evidenceDate:'',exploreLevel:'platform',exploreMetric:'sales',explorePlatform:'',exploreShop:'',exploreCategory:''};
+const context=patch=>{const state={...base,...patch},model=createModel(state),ctx={state,model,money,percent,escape,set(){}};ctx.ui=createUI(ctx);return ctx;};
+let assertions=0;const check=fn=>{fn();assertions++;};
+const missing=context({status:'missing',shop:'s1'});
+check(()=>assert.equal(missing.model.totals.spend,null));
+check(()=>assert.equal(missing.model.totals.promotionCoverage.covered,0));
+check(()=>assert(missing.model.trends.every(x=>x.roas===null&&x.spend===null)));
+check(()=>assert(missing.model.shops.every(x=>x.spend===null)));
+check(()=>assert.equal(missing.model.totals.sales,context({shop:'s1'}).model.totals.sales));
+const absent=context({shop:'s7'});
+check(()=>assert.equal(absent.model.totals.sales,null));
+check(()=>assert(!absent.ui.shopTable().includes('天猫：0 元')));
+check(()=>assert(!absent.ui.productTable().includes('<b>0 元')));
+const zero=context({shop:'s8'});
+check(()=>assert.equal(zero.model.totals.sales,0));
+check(()=>assert.equal(zero.model.totals.margin,null));
+check(()=>assert.equal(zero.model.totals.roas,null));
+const negative=context({shop:'s2',platform:'京东',compare:'year'});
+check(()=>assert(negative.model.totals.change>0&&negative.model.totals.profitChange<0));
+check(()=>assert(negative.model.totals.profit<0));
+check(()=>assert.equal(negative.model.totals.margin,negative.model.totals.profit/negative.model.totals.sales));
+const noBaseline=context({shop:'s6',compare:'year'});
+check(()=>assert.equal(noBaseline.model.totals.change,null));
+check(()=>assert.equal(noBaseline.model.totals.delta,null));
+const noComparison=context({shop:'s1',compare:'none'});
+check(()=>assert.equal(noComparison.model.totals.delta,null));
+check(()=>assert.equal(noComparison.model.periods.baseline,null));
+const local=context({selectedShop:'s1',evidenceDate:'2026-09-01'}),scope=detailScope(local.state,local.model,'local');
+check(()=>assert.deepEqual(scope,{start:'2026-09-01',end:'2026-09-07',shop:'s1',platform:''}));
+check(()=>assert.equal(aggregate(scope.start,scope.end,[shops[0]],[products[0]]).sales,61596.56));
+check(()=>assert.equal(context({shop:'s1'}).model.inventory,context({shop:'s3'}).model.inventory));
+check(()=>assert.equal(context({shop:'s1'}).model.finance,context({shop:'s3'}).model.finance));
+check(()=>assert.equal(context({status:'empty',selectedShop:'s1'}).model.totals.sales,null));
+const scenarios=[{},{status:'empty',selectedShop:'s1'},{status:'missing',shop:'s1'},{shop:'s7'},{shop:'s8'},{shop:'s2',compare:'year'},{compare:'none'},{selectedShop:'s1',evidenceDate:'2026-09-01',linkedProduct:'K01'},{shop:'s1',platform:'京东',matrixMode:'platforms'},{exploreLevel:'product',explorePlatform:'京东',exploreShop:'s1',exploreCategory:'食品机械'}];
+let renders=0;
+for(const id of ['02','03','04','05']){
+ const {render}=await import(`../demo${id}/layout.js`);
+ for(const scenario of scenarios){
+  const ctx=context(scenario),html=render(ctx);
+  check(()=>assert(!html.includes('NaN')&&!html.includes('undefined')));
+  for(const key of ['inventory','finance','quality','promotion'])check(()=>assert(html.includes(`data-domain="${key}"`)));
+  renders++;
+ }
+}
+assert.equal(assertions,223);
+// Final P2 closure checks, separately counted so the original 223-check batch remains reproducible.
+let closureChecks=0;const closure=fn=>{fn();closureChecks++;};
+closure(()=>assert(missing.ui.kpis().includes('已知来源全量')));
+closure(()=>assert(!missing.ui.kpis().includes('缺来源：以上')));
+closure(()=>assert.equal(context({status:'empty'}).model.totals.coverage.covered,0));
+closure(()=>assert.equal(context({status:'empty'}).model.totals.promotionCoverage.covered,0));
+const {render:matrixRender}=await import('../demo03/layout.js');
+const matrix=matrixRender(context({shop:'s1',platform:'京东',matrixMode:'platforms'}));
+closure(()=>assert(!matrix.includes(money(1159288.98))));
+closure(()=>assert(matrix.includes('?module=shop&view=platforms')));
+// Execute the actual latest app.js fragments with isolated stand-ins; no browser or service is used.
+const appSource=readFileSync(new URL('../app.js',import.meta.url),'utf8');
+const setSource=appSource.slice(appSource.indexOf('function set(patch)'),appSource.indexOf('function render()'));
+const dispatchSource=appSource.slice(appSource.indexOf('function dispatch('),appSource.indexOf("document.addEventListener('click'"));
+const sandbox={state:{demo:'04',shop:'s1',platform:'京东',grain:'week',evidenceDate:'2026-09-01',exploreMetric:'profit',matrixMode:'platforms',linkedView:'products',linkedProduct:'K04'},sessionStorage:{setItem(){}},render(){},ctx(){return{}},layout:null};
+vm.createContext(sandbox);vm.runInContext(setSource+dispatchSource,sandbox);
+let appInteractionAssertions=0;const appCheck=fn=>{fn();appInteractionAssertions++;};
+vm.runInContext("set({grain:'month'})",sandbox);
+appCheck(()=>assert.equal(sandbox.state.evidenceDate,''));appCheck(()=>assert.equal(sandbox.state.shop,'s1'));
+vm.runInContext("dispatch('reset','')",sandbox);
+for(const [key,value] of Object.entries({exploreMetric:'sales',matrixMode:'shops',linkedView:'trend',linkedProduct:''}))appCheck(()=>assert.equal(sandbox.state[key],value));
+const capture=appSource.slice(appSource.indexOf(' for(const fold of root.querySelectorAll'),appSource.indexOf(' const c=ctx(),d='));
+const restoreStart=appSource.indexOf(' for(const fold of root.querySelectorAll',appSource.indexOf('root.innerHTML=')),restoreEnd=appSource.indexOf('\n}',restoreStart),restore=appSource.slice(restoreStart,restoreEnd);
+let folds=[{id:'',open:true,querySelector(){return{textContent:'商品与品类贡献 · 全选期完整明细'}}}];
+const foldScope={foldStates:new Map(),renderedDemo:'04',state:{demo:'04'},root:{querySelectorAll(){return folds}}};vm.createContext(foldScope);
+vm.runInContext(capture,foldScope);
+folds=[{id:'',open:false,querySelector(){return{textContent:'商品与品类贡献 · 全选期完整明细'}}}];vm.runInContext(restore,foldScope);appCheck(()=>assert.equal(folds[0].open,true));
+folds=[{id:'',open:false,querySelector(){return{textContent:'商品与品类贡献 · 全选期完整明细'}}}];foldScope.state.demo='05';vm.runInContext(restore,foldScope);appCheck(()=>assert.equal(folds[0].open,false));
+foldScope.renderedDemo='04';foldScope.state.demo='04';folds=[{id:'d04-risk',open:false,querySelector(){return{textContent:'库存风险'}}}];vm.runInContext(capture,foldScope);
+folds=[{id:'d04-risk',open:true,querySelector(){return{textContent:'库存风险'}}}];vm.runInContext(restore,foldScope);appCheck(()=>assert.equal(folds[0].open,false));
+// Execute the new professional-module scope normalization with a previously selected shop/product/date.
+const moduleSource=appSource.slice(appSource.indexOf('function moduleDetail('),appSource.indexOf('function detailShop('));
+let renderedModule='';
+const moduleSandbox={state:{start:'2026-09-01',end:'2026-09-07',shop:'s1',selectedShop:'s1',platform:'京东'},modalScope:{start:'2026-09-01',end:'2026-09-07',shop:'s1',platform:'京东',product:'K01'},inventory:context({}).model.inventory,finance:context({}).model.finance,shops,escape,openDetail(title,body){renderedModule=body;}};
+vm.createContext(moduleSandbox);vm.runInContext(moduleSource,moduleSandbox);
+let moduleScopeAssertions=0;const moduleCheck=fn=>{fn();moduleScopeAssertions++;};
+vm.runInContext("moduleDetail('?module=inventory&view=plan')",moduleSandbox);
+moduleCheck(()=>assert(renderedModule.includes('公司库存快照 2026-10-01')));
+moduleCheck(()=>assert(renderedModule.includes('需求窗口 2026-09-05—2026-10-04')));
+moduleCheck(()=>assert(!renderedModule.includes('精确店铺')));
+moduleCheck(()=>assert(!renderedModule.includes('范围 2026-09-01—2026-09-07')));
+vm.runInContext("moduleDetail('?module=sales&view=finance')",moduleSandbox);
+moduleCheck(()=>assert(renderedModule.includes('公司完整财报月 2026-08')));
+moduleCheck(()=>assert(!renderedModule.includes('精确店铺')));
+moduleCheck(()=>assert(!renderedModule.includes('商品 K01')));
+moduleCheck(()=>assert(!renderedModule.includes('范围 2026-09-01—2026-09-07')));
+const files=['shared/data.js','shared/ui.js','shared/scope.js','app.js','demo02/layout.js','demo03/layout.js','demo04/layout.js','demo05/layout.js'];
+const sources=Object.fromEntries(files.map(path=>[path,createHash('sha256').update(readFileSync(new URL('../'+path,import.meta.url))).digest('hex')]));
+console.log(JSON.stringify({result:'PASS',nonAuthorReview:true,originalAssertions:assertions,finalClosureAssertions:closureChecks,appInteractionAssertions,moduleScopeAssertions,totalAssertions:assertions+closureChecks+appInteractionAssertions+moduleScopeAssertions,renders,localSkuSales:61596.56,promotionMissingCoverage:missing.model.totals.promotionCoverage,sources,limitations:['No browser execution or screenshots in this script','DOM event wiring reviewed statically','Does not certify production data, permissions, or release']},null,2));

@@ -1,0 +1,27 @@
+.demo01 { gap:20px; }
+.demo01 :is(section,article,div) { min-width:0; }
+.demo01-intro { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(220px,1fr); gap:24px; padding:22px; border-top:3px solid var(--color-brand); }
+.demo01-intro h2 { margin:8px 0; }
+.demo01-intro p { margin:0 0 6px; }
+.demo01-reading { align-self:center; padding-left:24px; border-left:1px solid var(--color-border-default); }
+.demo01-reading nav { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.demo01-reading button { padding:7px 11px; border:1px solid var(--color-border-default); border-radius:6px; background:var(--color-brand-soft); color:var(--color-brand); font:inherit; font-size:13px; cursor:pointer; }
+.demo01-reading button:hover { background:var(--color-brand-tint); }
+.demo01-section-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin:0 0 12px; }
+.demo01-section-heading h2 { margin:0; }
+.demo01-focus-card { display:flex; flex-direction:column; gap:8px; padding:18px; }
+.demo01-focus-title { display:flex; align-items:center; gap:10px; }
+.demo01-focus-title h3 { margin:0; }
+.demo01-focus-index { display:grid; place-items:center; width:28px; height:28px; flex:0 0 auto; border-radius:6px; color:var(--color-brand); background:var(--color-brand-soft); font-size:12px; }
+.demo01-focus-card p { margin:0; }
+.demo01-focus-card > .row-action { align-self:flex-start; margin-top:auto; padding-top:8px; }
+.demo01-pair { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; align-items:start; }
+.demo01-pair > section > .panel { height:auto; }
+.demo01-trend-shops { grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); }
+.demo01-context { padding:12px 16px; margin:8px 0 0; border:1px solid var(--color-border-default); border-radius:9px; color:var(--color-text-secondary); background:var(--color-brand-soft); }
+.demo01-next { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px; padding:20px; align-items:center; }
+.demo01-next h3,.demo01-next p { margin:0; }
+.demo01-next p { margin-top:6px; }
+.demo01 section[id] { scroll-margin-top:155px; }
+@media(max-width:1100px){.demo01-pair,.demo01-trend-shops{grid-template-columns:minmax(0,1fr)}.demo01-next{grid-template-columns:minmax(0,1fr)} }
+@media(max-width:700px){.demo01-intro{grid-template-columns:minmax(0,1fr);padding:18px;gap:16px}.demo01-reading{padding:12px 0 0;border-left:0;border-top:1px solid var(--color-border-default)}.demo01-focus{grid-template-columns:minmax(0,1fr)}.demo01{gap:16px}.demo01-pair{gap:16px}.demo01-next{padding:16px}.demo01-reading button{min-height:38px}.demo01-focus-card{padding:16px} }

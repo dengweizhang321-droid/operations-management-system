@@ -1,0 +1,1292 @@
+[
+  {
+    "demo": "01",
+    "clientWidth": 1425,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "shops",
+      "products",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 1000,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 1425,
+    "width": 1440
+  },
+  {
+    "demo": "02",
+    "clientWidth": 1425,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "report-chapter",
+      "shops",
+      "products",
+      "report-chapter",
+      "finance",
+      "report-chapter",
+      "promotion",
+      "report-chapter",
+      "inventory",
+      "report-chapter",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "16px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 1000,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 1425,
+    "width": 1440
+  },
+  {
+    "demo": "03",
+    "clientWidth": 1425,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "shops",
+      "trend",
+      "products",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 1000,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 1425,
+    "width": 1440
+  },
+  {
+    "demo": "04",
+    "clientWidth": 1425,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "products",
+      "shops",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 1000,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 1425,
+    "width": 1440
+  },
+  {
+    "demo": "05",
+    "clientWidth": 1425,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "shops",
+      "products",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 1000,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 1425,
+    "width": 1440
+  },
+  {
+    "demo": "01",
+    "clientWidth": 1265,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "shops",
+      "products",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 900,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 1265,
+    "width": 1280
+  },
+  {
+    "demo": "02",
+    "clientWidth": 1265,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "report-chapter",
+      "shops",
+      "products",
+      "report-chapter",
+      "finance",
+      "report-chapter",
+      "promotion",
+      "report-chapter",
+      "inventory",
+      "report-chapter",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "16px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 900,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 1265,
+    "width": 1280
+  },
+  {
+    "demo": "03",
+    "clientWidth": 1265,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "shops",
+      "trend",
+      "products",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 900,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 1265,
+    "width": 1280
+  },
+  {
+    "demo": "04",
+    "clientWidth": 1265,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "products",
+      "shops",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 900,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 1265,
+    "width": 1280
+  },
+  {
+    "demo": "05",
+    "clientWidth": 1265,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "shops",
+      "products",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 900,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 1265,
+    "width": 1280
+  },
+  {
+    "demo": "01",
+    "clientWidth": 375,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "shops",
+      "products",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 844,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 375,
+    "width": 390
+  },
+  {
+    "demo": "02",
+    "clientWidth": 375,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "report-chapter",
+      "shops",
+      "products",
+      "report-chapter",
+      "finance",
+      "report-chapter",
+      "promotion",
+      "report-chapter",
+      "inventory",
+      "report-chapter",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "16px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 844,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 375,
+    "width": 390
+  },
+  {
+    "demo": "03",
+    "clientWidth": 375,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "shops",
+      "trend",
+      "products",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 844,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 375,
+    "width": 390
+  },
+  {
+    "demo": "04",
+    "clientWidth": 375,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "products",
+      "shops",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 844,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 375,
+    "width": 390
+  },
+  {
+    "demo": "05",
+    "clientWidth": 375,
+    "clippedText": [],
+    "domains": [
+      "results",
+      "trend",
+      "shops",
+      "products",
+      "promotion",
+      "inventory",
+      "finance",
+      "quality"
+    ],
+    "duplicateIDs": [],
+    "fonts": [
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "22.4px",
+        "sel": "body",
+        "size": "14px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "26px",
+        "sel": "h1",
+        "size": "20px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "23.4px",
+        "sel": "h2",
+        "size": "18px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "h3",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "31.2px",
+        "sel": ".kpi>strong",
+        "size": "24px",
+        "weight": "600"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "20.8px",
+        "sel": "td",
+        "size": "13px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".caption",
+        "size": "12px",
+        "weight": "400"
+      },
+      {
+        "font": "Inter, \"SF Pro Display\", \"PingFang SC\", \"Microsoft YaHei\", system-ui, sans-serif",
+        "line": "19.2px",
+        "sel": ".chart-axis",
+        "size": "12px",
+        "weight": "400"
+      }
+    ],
+    "height": 844,
+    "kpis": [
+      "209.11 万元",
+      "33.25 万元",
+      "15.9%",
+      "7.48 万元",
+      "108.9%",
+      "2.89 倍"
+    ],
+    "scrollWidth": 375,
+    "width": 390
+  }
+]
