@@ -1,0 +1,2122 @@
+{
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "fixture": "synthetic business scale on private PostgreSQL",
+  "products": 8000,
+  "stockRows": 24000,
+  "ageRows": 24000,
+  "salesRows": 240000,
+  "jdProducts": 2500,
+  "watchedProducts": 1000,
+  "anchorDate": "2026-10-05",
+  "conditions": "single client; OS/PG pages warm; no production connections; cold means process calculation cache empty; baseline and candidate alternate",
+  "records": [
+    {
+      "scenario": "before/overview/first/0",
+      "totalMs": 2707.29,
+      "sqlMs": 1061.55,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1645.74,
+      "serializationMs": 2.36,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/first/0",
+      "totalMs": 2667.57,
+      "sqlMs": 956.87,
+      "queries": 94,
+      "pythonFetchAndCopyMs": 1710.7,
+      "serializationMs": 2.92,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "before/overview/reentry/0",
+      "totalMs": 2838.41,
+      "sqlMs": 1060.5,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1777.9,
+      "serializationMs": 1.81,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/reentry/0",
+      "totalMs": 831.84,
+      "sqlMs": 2.4,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 829.44,
+      "serializationMs": 1.8,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "before/overview/filter/0",
+      "totalMs": 2214.56,
+      "sqlMs": 1001.53,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1213.03,
+      "serializationMs": 1.84,
+      "responseBytes": 164838
+    },
+    {
+      "scenario": "after/overview/filter/0",
+      "totalMs": 213.33,
+      "sqlMs": 1.5,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 211.84,
+      "serializationMs": 1.63,
+      "responseBytes": 164838
+    },
+    {
+      "scenario": "before/overview/page/0",
+      "totalMs": 2742.69,
+      "sqlMs": 968.47,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1774.22,
+      "serializationMs": 1.86,
+      "responseBytes": 164938
+    },
+    {
+      "scenario": "after/overview/page/0",
+      "totalMs": 752.2,
+      "sqlMs": 2.0,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 750.2,
+      "serializationMs": 2.41,
+      "responseBytes": 164938
+    },
+    {
+      "scenario": "before/overview/refresh/0",
+      "totalMs": 3194.03,
+      "sqlMs": 1161.22,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 2032.8,
+      "serializationMs": 2.85,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/refresh/0",
+      "totalMs": 811.33,
+      "sqlMs": 2.24,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 809.1,
+      "serializationMs": 2.55,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "before/overview/search/0",
+      "totalMs": 2908.05,
+      "sqlMs": 1317.99,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1590.05,
+      "serializationMs": 0.58,
+      "responseBytes": 54375
+    },
+    {
+      "scenario": "after/overview/search/0",
+      "totalMs": 325.18,
+      "sqlMs": 1.96,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 323.22,
+      "serializationMs": 0.78,
+      "responseBytes": 54375
+    },
+    {
+      "scenario": "before/overview/first/1",
+      "totalMs": 3445.84,
+      "sqlMs": 1136.5,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 2309.35,
+      "serializationMs": 1.75,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/first/1",
+      "totalMs": 2557.01,
+      "sqlMs": 907.8,
+      "queries": 94,
+      "pythonFetchAndCopyMs": 1649.21,
+      "serializationMs": 1.68,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "before/overview/reentry/1",
+      "totalMs": 2654.69,
+      "sqlMs": 966.24,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1688.45,
+      "serializationMs": 1.79,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/reentry/1",
+      "totalMs": 860.8,
+      "sqlMs": 2.1,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 858.7,
+      "serializationMs": 1.82,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "before/overview/filter/1",
+      "totalMs": 2194.82,
+      "sqlMs": 938.65,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1256.17,
+      "serializationMs": 2.18,
+      "responseBytes": 164838
+    },
+    {
+      "scenario": "after/overview/filter/1",
+      "totalMs": 185.62,
+      "sqlMs": 2.1,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 183.52,
+      "serializationMs": 1.57,
+      "responseBytes": 164838
+    },
+    {
+      "scenario": "before/overview/page/1",
+      "totalMs": 2485.81,
+      "sqlMs": 926.04,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1559.78,
+      "serializationMs": 1.75,
+      "responseBytes": 164938
+    },
+    {
+      "scenario": "after/overview/page/1",
+      "totalMs": 613.25,
+      "sqlMs": 2.01,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 611.24,
+      "serializationMs": 1.8,
+      "responseBytes": 164938
+    },
+    {
+      "scenario": "before/overview/refresh/1",
+      "totalMs": 2532.57,
+      "sqlMs": 886.82,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1645.75,
+      "serializationMs": 1.74,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/refresh/1",
+      "totalMs": 736.43,
+      "sqlMs": 1.86,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 734.58,
+      "serializationMs": 1.8,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "before/overview/search/1",
+      "totalMs": 2975.37,
+      "sqlMs": 1320.92,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1654.45,
+      "serializationMs": 0.53,
+      "responseBytes": 54375
+    },
+    {
+      "scenario": "after/overview/search/1",
+      "totalMs": 284.86,
+      "sqlMs": 1.67,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 283.19,
+      "serializationMs": 0.56,
+      "responseBytes": 54375
+    },
+    {
+      "scenario": "before/overview/first/2",
+      "totalMs": 3173.0,
+      "sqlMs": 1134.24,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 2038.76,
+      "serializationMs": 1.66,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/first/2",
+      "totalMs": 2531.15,
+      "sqlMs": 944.16,
+      "queries": 94,
+      "pythonFetchAndCopyMs": 1586.99,
+      "serializationMs": 2.13,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "before/overview/reentry/2",
+      "totalMs": 2249.69,
+      "sqlMs": 826.54,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1423.14,
+      "serializationMs": 1.62,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/reentry/2",
+      "totalMs": 608.12,
+      "sqlMs": 1.88,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 606.24,
+      "serializationMs": 1.97,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "before/overview/filter/2",
+      "totalMs": 1875.28,
+      "sqlMs": 847.87,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1027.41,
+      "serializationMs": 1.92,
+      "responseBytes": 164838
+    },
+    {
+      "scenario": "after/overview/filter/2",
+      "totalMs": 246.97,
+      "sqlMs": 1.81,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 245.16,
+      "serializationMs": 1.72,
+      "responseBytes": 164838
+    },
+    {
+      "scenario": "before/overview/page/2",
+      "totalMs": 2297.3,
+      "sqlMs": 847.77,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1449.53,
+      "serializationMs": 1.58,
+      "responseBytes": 164938
+    },
+    {
+      "scenario": "after/overview/page/2",
+      "totalMs": 595.66,
+      "sqlMs": 1.64,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 594.03,
+      "serializationMs": 1.64,
+      "responseBytes": 164938
+    },
+    {
+      "scenario": "before/overview/refresh/2",
+      "totalMs": 2465.81,
+      "sqlMs": 902.12,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1563.68,
+      "serializationMs": 1.78,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/refresh/2",
+      "totalMs": 755.56,
+      "sqlMs": 2.29,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 753.27,
+      "serializationMs": 1.81,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "before/overview/search/2",
+      "totalMs": 2156.59,
+      "sqlMs": 906.6,
+      "queries": 84,
+      "pythonFetchAndCopyMs": 1250.0,
+      "serializationMs": 0.57,
+      "responseBytes": 54375
+    },
+    {
+      "scenario": "after/overview/search/2",
+      "totalMs": 265.06,
+      "sqlMs": 1.92,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 263.14,
+      "serializationMs": 0.56,
+      "responseBytes": 54375
+    },
+    {
+      "scenario": "before/plan/first/0",
+      "totalMs": 2419.08,
+      "sqlMs": 908.42,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1510.66,
+      "serializationMs": 1.54,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/first/0",
+      "totalMs": 2340.83,
+      "sqlMs": 831.74,
+      "queries": 101,
+      "pythonFetchAndCopyMs": 1509.09,
+      "serializationMs": 2.07,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "before/plan/reentry/0",
+      "totalMs": 2281.88,
+      "sqlMs": 844.75,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1437.13,
+      "serializationMs": 2.67,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/reentry/0",
+      "totalMs": 723.91,
+      "sqlMs": 4.71,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 719.21,
+      "serializationMs": 1.56,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "before/plan/filter/0",
+      "totalMs": 1866.01,
+      "sqlMs": 907.96,
+      "queries": 93,
+      "pythonFetchAndCopyMs": 958.04,
+      "serializationMs": 1.31,
+      "responseBytes": 121594
+    },
+    {
+      "scenario": "after/plan/filter/0",
+      "totalMs": 170.14,
+      "sqlMs": 7.91,
+      "queries": 14,
+      "pythonFetchAndCopyMs": 162.23,
+      "serializationMs": 1.34,
+      "responseBytes": 121594
+    },
+    {
+      "scenario": "before/plan/page/0",
+      "totalMs": 2360.41,
+      "sqlMs": 940.73,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1419.68,
+      "serializationMs": 1.31,
+      "responseBytes": 124785
+    },
+    {
+      "scenario": "after/plan/page/0",
+      "totalMs": 601.18,
+      "sqlMs": 4.47,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 596.71,
+      "serializationMs": 1.95,
+      "responseBytes": 124785
+    },
+    {
+      "scenario": "before/plan/refresh/0",
+      "totalMs": 2372.88,
+      "sqlMs": 879.25,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1493.63,
+      "serializationMs": 1.67,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/refresh/0",
+      "totalMs": 663.86,
+      "sqlMs": 4.33,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 659.53,
+      "serializationMs": 1.73,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "before/plan/search/0",
+      "totalMs": 2061.46,
+      "sqlMs": 898.46,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1163.0,
+      "serializationMs": 0.34,
+      "responseBytes": 32864
+    },
+    {
+      "scenario": "after/plan/search/0",
+      "totalMs": 265.93,
+      "sqlMs": 5.05,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 260.88,
+      "serializationMs": 0.33,
+      "responseBytes": 32864
+    },
+    {
+      "scenario": "before/plan/first/1",
+      "totalMs": 2287.12,
+      "sqlMs": 837.8,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1449.32,
+      "serializationMs": 1.46,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/first/1",
+      "totalMs": 2803.54,
+      "sqlMs": 1160.97,
+      "queries": 101,
+      "pythonFetchAndCopyMs": 1642.57,
+      "serializationMs": 1.79,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "before/plan/reentry/1",
+      "totalMs": 2623.76,
+      "sqlMs": 980.42,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1643.34,
+      "serializationMs": 1.9,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/reentry/1",
+      "totalMs": 633.39,
+      "sqlMs": 5.19,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 628.2,
+      "serializationMs": 1.67,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "before/plan/filter/1",
+      "totalMs": 1975.24,
+      "sqlMs": 983.21,
+      "queries": 93,
+      "pythonFetchAndCopyMs": 992.03,
+      "serializationMs": 3.31,
+      "responseBytes": 121594
+    },
+    {
+      "scenario": "after/plan/filter/1",
+      "totalMs": 357.64,
+      "sqlMs": 13.76,
+      "queries": 14,
+      "pythonFetchAndCopyMs": 343.89,
+      "serializationMs": 2.48,
+      "responseBytes": 121594
+    },
+    {
+      "scenario": "before/plan/page/1",
+      "totalMs": 2311.88,
+      "sqlMs": 863.54,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1448.34,
+      "serializationMs": 1.5,
+      "responseBytes": 124785
+    },
+    {
+      "scenario": "after/plan/page/1",
+      "totalMs": 635.57,
+      "sqlMs": 4.72,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 630.85,
+      "serializationMs": 1.61,
+      "responseBytes": 124785
+    },
+    {
+      "scenario": "before/plan/refresh/1",
+      "totalMs": 2485.4,
+      "sqlMs": 860.76,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1624.64,
+      "serializationMs": 2.59,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/refresh/1",
+      "totalMs": 746.02,
+      "sqlMs": 5.11,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 740.91,
+      "serializationMs": 2.68,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "before/plan/search/1",
+      "totalMs": 2795.89,
+      "sqlMs": 1171.98,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1623.91,
+      "serializationMs": 0.87,
+      "responseBytes": 32864
+    },
+    {
+      "scenario": "after/plan/search/1",
+      "totalMs": 377.06,
+      "sqlMs": 5.4,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 371.66,
+      "serializationMs": 0.46,
+      "responseBytes": 32864
+    },
+    {
+      "scenario": "before/plan/first/2",
+      "totalMs": 4453.56,
+      "sqlMs": 1841.64,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 2611.92,
+      "serializationMs": 1.96,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/first/2",
+      "totalMs": 2880.62,
+      "sqlMs": 1090.75,
+      "queries": 101,
+      "pythonFetchAndCopyMs": 1789.87,
+      "serializationMs": 2.1,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "before/plan/reentry/2",
+      "totalMs": 2750.5,
+      "sqlMs": 990.73,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1759.77,
+      "serializationMs": 1.95,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/reentry/2",
+      "totalMs": 815.64,
+      "sqlMs": 4.29,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 811.35,
+      "serializationMs": 1.92,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "before/plan/filter/2",
+      "totalMs": 1870.79,
+      "sqlMs": 843.29,
+      "queries": 93,
+      "pythonFetchAndCopyMs": 1027.5,
+      "serializationMs": 1.19,
+      "responseBytes": 121594
+    },
+    {
+      "scenario": "after/plan/filter/2",
+      "totalMs": 192.52,
+      "sqlMs": 8.51,
+      "queries": 14,
+      "pythonFetchAndCopyMs": 184.01,
+      "serializationMs": 1.11,
+      "responseBytes": 121594
+    },
+    {
+      "scenario": "before/plan/page/2",
+      "totalMs": 2455.56,
+      "sqlMs": 831.21,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1624.35,
+      "serializationMs": 1.43,
+      "responseBytes": 124785
+    },
+    {
+      "scenario": "after/plan/page/2",
+      "totalMs": 641.93,
+      "sqlMs": 4.48,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 637.45,
+      "serializationMs": 1.91,
+      "responseBytes": 124785
+    },
+    {
+      "scenario": "before/plan/refresh/2",
+      "totalMs": 2445.38,
+      "sqlMs": 894.49,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1550.89,
+      "serializationMs": 1.75,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/refresh/2",
+      "totalMs": 686.9,
+      "sqlMs": 4.91,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 681.99,
+      "serializationMs": 1.55,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "before/plan/search/2",
+      "totalMs": 2166.03,
+      "sqlMs": 936.26,
+      "queries": 91,
+      "pythonFetchAndCopyMs": 1229.77,
+      "serializationMs": 0.67,
+      "responseBytes": 32864
+    },
+    {
+      "scenario": "after/plan/search/2",
+      "totalMs": 338.84,
+      "sqlMs": 4.58,
+      "queries": 12,
+      "pythonFetchAndCopyMs": 334.26,
+      "serializationMs": 0.35,
+      "responseBytes": 32864
+    },
+    {
+      "scenario": "before/age/first/0",
+      "totalMs": 874.39,
+      "sqlMs": 255.25,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 619.14,
+      "serializationMs": 0.39,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/first/0",
+      "totalMs": 946.59,
+      "sqlMs": 100.16,
+      "queries": 10,
+      "pythonFetchAndCopyMs": 846.43,
+      "serializationMs": 0.59,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "before/age/reentry/0",
+      "totalMs": 961.77,
+      "sqlMs": 121.74,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 840.03,
+      "serializationMs": 0.47,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/reentry/0",
+      "totalMs": 405.2,
+      "sqlMs": 13.25,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 391.95,
+      "serializationMs": 0.55,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "before/age/filter/0",
+      "totalMs": 631.93,
+      "sqlMs": 132.03,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 499.91,
+      "serializationMs": 0.34,
+      "responseBytes": 35009
+    },
+    {
+      "scenario": "after/age/filter/0",
+      "totalMs": 123.29,
+      "sqlMs": 12.58,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 110.71,
+      "serializationMs": 0.66,
+      "responseBytes": 35009
+    },
+    {
+      "scenario": "before/age/page/0",
+      "totalMs": 995.15,
+      "sqlMs": 153.34,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 841.82,
+      "serializationMs": 0.33,
+      "responseBytes": 35795
+    },
+    {
+      "scenario": "after/age/page/0",
+      "totalMs": 397.46,
+      "sqlMs": 11.86,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 385.6,
+      "serializationMs": 0.58,
+      "responseBytes": 35795
+    },
+    {
+      "scenario": "before/age/refresh/0",
+      "totalMs": 1001.25,
+      "sqlMs": 143.74,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 857.51,
+      "serializationMs": 0.52,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/refresh/0",
+      "totalMs": 387.83,
+      "sqlMs": 13.43,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 374.4,
+      "serializationMs": 0.34,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "before/age/search/0",
+      "totalMs": 669.5,
+      "sqlMs": 118.67,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 550.83,
+      "serializationMs": 0.35,
+      "responseBytes": 21796
+    },
+    {
+      "scenario": "after/age/search/0",
+      "totalMs": 174.03,
+      "sqlMs": 11.66,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 162.37,
+      "serializationMs": 0.35,
+      "responseBytes": 21796
+    },
+    {
+      "scenario": "before/age/first/1",
+      "totalMs": 841.8,
+      "sqlMs": 120.29,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 721.51,
+      "serializationMs": 0.55,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/first/1",
+      "totalMs": 1040.81,
+      "sqlMs": 126.47,
+      "queries": 10,
+      "pythonFetchAndCopyMs": 914.34,
+      "serializationMs": 0.56,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "before/age/reentry/1",
+      "totalMs": 935.08,
+      "sqlMs": 150.49,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 784.58,
+      "serializationMs": 0.55,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/reentry/1",
+      "totalMs": 434.78,
+      "sqlMs": 15.61,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 419.18,
+      "serializationMs": 0.55,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "before/age/filter/1",
+      "totalMs": 716.95,
+      "sqlMs": 131.09,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 585.87,
+      "serializationMs": 0.59,
+      "responseBytes": 35009
+    },
+    {
+      "scenario": "after/age/filter/1",
+      "totalMs": 139.88,
+      "sqlMs": 17.77,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 122.1,
+      "serializationMs": 0.61,
+      "responseBytes": 35009
+    },
+    {
+      "scenario": "before/age/page/1",
+      "totalMs": 1125.03,
+      "sqlMs": 157.65,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 967.38,
+      "serializationMs": 0.51,
+      "responseBytes": 35795
+    },
+    {
+      "scenario": "after/age/page/1",
+      "totalMs": 417.92,
+      "sqlMs": 15.49,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 402.44,
+      "serializationMs": 0.37,
+      "responseBytes": 35795
+    },
+    {
+      "scenario": "before/age/refresh/1",
+      "totalMs": 826.71,
+      "sqlMs": 117.12,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 709.58,
+      "serializationMs": 0.58,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/refresh/1",
+      "totalMs": 474.17,
+      "sqlMs": 12.3,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 461.87,
+      "serializationMs": 0.33,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "before/age/search/1",
+      "totalMs": 622.4,
+      "sqlMs": 104.37,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 518.04,
+      "serializationMs": 0.24,
+      "responseBytes": 21796
+    },
+    {
+      "scenario": "after/age/search/1",
+      "totalMs": 175.53,
+      "sqlMs": 14.41,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 161.12,
+      "serializationMs": 0.29,
+      "responseBytes": 21796
+    },
+    {
+      "scenario": "before/age/first/2",
+      "totalMs": 832.76,
+      "sqlMs": 181.83,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 650.93,
+      "serializationMs": 0.35,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/first/2",
+      "totalMs": 859.89,
+      "sqlMs": 112.36,
+      "queries": 10,
+      "pythonFetchAndCopyMs": 747.53,
+      "serializationMs": 0.35,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "before/age/reentry/2",
+      "totalMs": 858.38,
+      "sqlMs": 112.06,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 746.32,
+      "serializationMs": 0.43,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/reentry/2",
+      "totalMs": 518.82,
+      "sqlMs": 15.89,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 502.93,
+      "serializationMs": 1.11,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "before/age/filter/2",
+      "totalMs": 835.41,
+      "sqlMs": 147.68,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 687.73,
+      "serializationMs": 0.57,
+      "responseBytes": 35009
+    },
+    {
+      "scenario": "after/age/filter/2",
+      "totalMs": 134.2,
+      "sqlMs": 17.59,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 116.61,
+      "serializationMs": 0.51,
+      "responseBytes": 35009
+    },
+    {
+      "scenario": "before/age/page/2",
+      "totalMs": 724.29,
+      "sqlMs": 114.83,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 609.46,
+      "serializationMs": 0.34,
+      "responseBytes": 35795
+    },
+    {
+      "scenario": "after/age/page/2",
+      "totalMs": 392.21,
+      "sqlMs": 12.41,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 379.8,
+      "serializationMs": 0.37,
+      "responseBytes": 35795
+    },
+    {
+      "scenario": "before/age/refresh/2",
+      "totalMs": 786.15,
+      "sqlMs": 112.57,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 673.59,
+      "serializationMs": 0.52,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/refresh/2",
+      "totalMs": 392.39,
+      "sqlMs": 11.73,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 380.65,
+      "serializationMs": 0.33,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "before/age/search/2",
+      "totalMs": 650.56,
+      "sqlMs": 111.47,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 539.09,
+      "serializationMs": 0.35,
+      "responseBytes": 21796
+    },
+    {
+      "scenario": "after/age/search/2",
+      "totalMs": 186.13,
+      "sqlMs": 12.82,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 173.31,
+      "serializationMs": 0.26,
+      "responseBytes": 21796
+    },
+    {
+      "scenario": "before/stale/first/0",
+      "totalMs": 839.05,
+      "sqlMs": 126.72,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 712.33,
+      "serializationMs": 0.49,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/first/0",
+      "totalMs": 817.33,
+      "sqlMs": 142.47,
+      "queries": 10,
+      "pythonFetchAndCopyMs": 674.86,
+      "serializationMs": 0.53,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "before/stale/reentry/0",
+      "totalMs": 676.24,
+      "sqlMs": 102.98,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 573.26,
+      "serializationMs": 0.38,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/reentry/0",
+      "totalMs": 232.78,
+      "sqlMs": 11.24,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 221.54,
+      "serializationMs": 0.4,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "before/stale/filter/0",
+      "totalMs": 515.55,
+      "sqlMs": 99.59,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 415.96,
+      "serializationMs": 0.49,
+      "responseBytes": 34804
+    },
+    {
+      "scenario": "after/stale/filter/0",
+      "totalMs": 101.84,
+      "sqlMs": 13.32,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 88.52,
+      "serializationMs": 0.32,
+      "responseBytes": 34804
+    },
+    {
+      "scenario": "before/stale/page/0",
+      "totalMs": 715.82,
+      "sqlMs": 108.15,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 607.67,
+      "serializationMs": 0.37,
+      "responseBytes": 35631
+    },
+    {
+      "scenario": "after/stale/page/0",
+      "totalMs": 252.76,
+      "sqlMs": 11.62,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 241.15,
+      "serializationMs": 0.56,
+      "responseBytes": 35631
+    },
+    {
+      "scenario": "before/stale/refresh/0",
+      "totalMs": 700.46,
+      "sqlMs": 164.85,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 535.6,
+      "serializationMs": 0.34,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/refresh/0",
+      "totalMs": 223.57,
+      "sqlMs": 10.09,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 213.48,
+      "serializationMs": 0.32,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "before/stale/search/0",
+      "totalMs": 531.03,
+      "sqlMs": 98.06,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 432.96,
+      "serializationMs": 0.13,
+      "responseBytes": 2938
+    },
+    {
+      "scenario": "after/stale/search/0",
+      "totalMs": 162.06,
+      "sqlMs": 10.36,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 151.7,
+      "serializationMs": 0.13,
+      "responseBytes": 2938
+    },
+    {
+      "scenario": "before/stale/first/1",
+      "totalMs": 911.87,
+      "sqlMs": 115.73,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 796.14,
+      "serializationMs": 0.72,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/first/1",
+      "totalMs": 1494.61,
+      "sqlMs": 160.12,
+      "queries": 10,
+      "pythonFetchAndCopyMs": 1334.49,
+      "serializationMs": 0.54,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "before/stale/reentry/1",
+      "totalMs": 1249.31,
+      "sqlMs": 229.78,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 1019.53,
+      "serializationMs": 0.79,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/reentry/1",
+      "totalMs": 317.32,
+      "sqlMs": 17.13,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 300.19,
+      "serializationMs": 0.42,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "before/stale/filter/1",
+      "totalMs": 1314.03,
+      "sqlMs": 198.05,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 1115.98,
+      "serializationMs": 0.72,
+      "responseBytes": 34804
+    },
+    {
+      "scenario": "after/stale/filter/1",
+      "totalMs": 171.51,
+      "sqlMs": 17.82,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 153.69,
+      "serializationMs": 0.56,
+      "responseBytes": 34804
+    },
+    {
+      "scenario": "before/stale/page/1",
+      "totalMs": 1369.2,
+      "sqlMs": 173.93,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 1195.26,
+      "serializationMs": 1.05,
+      "responseBytes": 35631
+    },
+    {
+      "scenario": "after/stale/page/1",
+      "totalMs": 554.93,
+      "sqlMs": 20.6,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 534.33,
+      "serializationMs": 0.62,
+      "responseBytes": 35631
+    },
+    {
+      "scenario": "before/stale/refresh/1",
+      "totalMs": 1264.67,
+      "sqlMs": 215.47,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 1049.2,
+      "serializationMs": 0.57,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/refresh/1",
+      "totalMs": 391.17,
+      "sqlMs": 19.97,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 371.2,
+      "serializationMs": 0.72,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "before/stale/search/1",
+      "totalMs": 1229.68,
+      "sqlMs": 212.16,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 1017.52,
+      "serializationMs": 0.15,
+      "responseBytes": 2938
+    },
+    {
+      "scenario": "after/stale/search/1",
+      "totalMs": 302.18,
+      "sqlMs": 19.92,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 282.26,
+      "serializationMs": 0.13,
+      "responseBytes": 2938
+    },
+    {
+      "scenario": "before/stale/first/2",
+      "totalMs": 1186.51,
+      "sqlMs": 252.77,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 933.74,
+      "serializationMs": 0.63,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/first/2",
+      "totalMs": 1567.46,
+      "sqlMs": 222.42,
+      "queries": 10,
+      "pythonFetchAndCopyMs": 1345.04,
+      "serializationMs": 0.57,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "before/stale/reentry/2",
+      "totalMs": 1858.35,
+      "sqlMs": 225.8,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 1632.55,
+      "serializationMs": 0.68,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/reentry/2",
+      "totalMs": 464.27,
+      "sqlMs": 35.08,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 429.19,
+      "serializationMs": 0.73,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "before/stale/filter/2",
+      "totalMs": 1047.74,
+      "sqlMs": 194.41,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 853.33,
+      "serializationMs": 0.88,
+      "responseBytes": 34804
+    },
+    {
+      "scenario": "after/stale/filter/2",
+      "totalMs": 189.73,
+      "sqlMs": 23.72,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 166.01,
+      "serializationMs": 0.61,
+      "responseBytes": 34804
+    },
+    {
+      "scenario": "before/stale/page/2",
+      "totalMs": 1427.75,
+      "sqlMs": 179.56,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 1248.19,
+      "serializationMs": 0.59,
+      "responseBytes": 35631
+    },
+    {
+      "scenario": "after/stale/page/2",
+      "totalMs": 377.71,
+      "sqlMs": 20.41,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 357.3,
+      "serializationMs": 0.55,
+      "responseBytes": 35631
+    },
+    {
+      "scenario": "before/stale/refresh/2",
+      "totalMs": 1405.14,
+      "sqlMs": 198.77,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 1206.37,
+      "serializationMs": 0.62,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/refresh/2",
+      "totalMs": 490.68,
+      "sqlMs": 28.81,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 461.87,
+      "serializationMs": 0.74,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "before/stale/search/2",
+      "totalMs": 1292.72,
+      "sqlMs": 217.82,
+      "queries": 5,
+      "pythonFetchAndCopyMs": 1074.9,
+      "serializationMs": 0.14,
+      "responseBytes": 2938
+    },
+    {
+      "scenario": "after/stale/search/2",
+      "totalMs": 281.32,
+      "sqlMs": 19.77,
+      "queries": 7,
+      "pythonFetchAndCopyMs": 261.56,
+      "serializationMs": 0.12,
+      "responseBytes": 2938
+    },
+    {
+      "scenario": "before/inbound/first/0",
+      "totalMs": 1491.79,
+      "sqlMs": 739.78,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 752.01,
+      "serializationMs": 0.54,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/first/0",
+      "totalMs": 1067.95,
+      "sqlMs": 415.87,
+      "queries": 13,
+      "pythonFetchAndCopyMs": 652.08,
+      "serializationMs": 0.46,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "before/inbound/reentry/0",
+      "totalMs": 945.81,
+      "sqlMs": 380.6,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 565.21,
+      "serializationMs": 0.48,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/reentry/0",
+      "totalMs": 32.62,
+      "sqlMs": 6.35,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 26.27,
+      "serializationMs": 0.25,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "before/inbound/filter/0",
+      "totalMs": 1077.48,
+      "sqlMs": 427.97,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 649.5,
+      "serializationMs": 0.62,
+      "responseBytes": 27256
+    },
+    {
+      "scenario": "after/inbound/filter/0",
+      "totalMs": 37.85,
+      "sqlMs": 8.37,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 29.47,
+      "serializationMs": 0.52,
+      "responseBytes": 27256
+    },
+    {
+      "scenario": "before/inbound/page/0",
+      "totalMs": 1380.28,
+      "sqlMs": 619.3,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 760.97,
+      "serializationMs": 0.73,
+      "responseBytes": 27243
+    },
+    {
+      "scenario": "after/inbound/page/0",
+      "totalMs": 64.61,
+      "sqlMs": 15.12,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 49.49,
+      "serializationMs": 0.51,
+      "responseBytes": 27243
+    },
+    {
+      "scenario": "before/inbound/refresh/0",
+      "totalMs": 1570.95,
+      "sqlMs": 748.21,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 822.74,
+      "serializationMs": 0.57,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/refresh/0",
+      "totalMs": 56.88,
+      "sqlMs": 9.91,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 46.96,
+      "serializationMs": 0.46,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "before/inbound/search/0",
+      "totalMs": 1136.72,
+      "sqlMs": 507.74,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 628.98,
+      "serializationMs": 0.12,
+      "responseBytes": 7013
+    },
+    {
+      "scenario": "after/inbound/search/0",
+      "totalMs": 42.39,
+      "sqlMs": 8.2,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 34.19,
+      "serializationMs": 0.19,
+      "responseBytes": 7013
+    },
+    {
+      "scenario": "before/inbound/first/1",
+      "totalMs": 1106.62,
+      "sqlMs": 485.23,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 621.39,
+      "serializationMs": 0.59,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/first/1",
+      "totalMs": 942.18,
+      "sqlMs": 440.46,
+      "queries": 13,
+      "pythonFetchAndCopyMs": 501.71,
+      "serializationMs": 0.51,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "before/inbound/reentry/1",
+      "totalMs": 829.42,
+      "sqlMs": 386.43,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 442.98,
+      "serializationMs": 0.3,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/reentry/1",
+      "totalMs": 39.19,
+      "sqlMs": 6.58,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 32.6,
+      "serializationMs": 0.59,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "before/inbound/filter/1",
+      "totalMs": 1042.53,
+      "sqlMs": 400.61,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 641.93,
+      "serializationMs": 0.6,
+      "responseBytes": 27256
+    },
+    {
+      "scenario": "after/inbound/filter/1",
+      "totalMs": 40.93,
+      "sqlMs": 9.46,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 31.47,
+      "serializationMs": 0.48,
+      "responseBytes": 27256
+    },
+    {
+      "scenario": "before/inbound/page/1",
+      "totalMs": 1030.78,
+      "sqlMs": 427.37,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 603.41,
+      "serializationMs": 0.55,
+      "responseBytes": 27243
+    },
+    {
+      "scenario": "after/inbound/page/1",
+      "totalMs": 58.76,
+      "sqlMs": 10.89,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 47.86,
+      "serializationMs": 0.51,
+      "responseBytes": 27243
+    },
+    {
+      "scenario": "before/inbound/refresh/1",
+      "totalMs": 1098.7,
+      "sqlMs": 429.17,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 669.53,
+      "serializationMs": 0.52,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/refresh/1",
+      "totalMs": 37.9,
+      "sqlMs": 6.51,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 31.38,
+      "serializationMs": 0.28,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "before/inbound/search/1",
+      "totalMs": 790.97,
+      "sqlMs": 364.9,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 426.07,
+      "serializationMs": 0.27,
+      "responseBytes": 7013
+    },
+    {
+      "scenario": "after/inbound/search/1",
+      "totalMs": 42.81,
+      "sqlMs": 6.61,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 36.2,
+      "serializationMs": 0.12,
+      "responseBytes": 7013
+    },
+    {
+      "scenario": "before/inbound/first/2",
+      "totalMs": 866.21,
+      "sqlMs": 387.74,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 478.47,
+      "serializationMs": 0.3,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/first/2",
+      "totalMs": 798.64,
+      "sqlMs": 329.62,
+      "queries": 13,
+      "pythonFetchAndCopyMs": 469.01,
+      "serializationMs": 0.27,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "before/inbound/reentry/2",
+      "totalMs": 871.55,
+      "sqlMs": 394.98,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 476.57,
+      "serializationMs": 0.29,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/reentry/2",
+      "totalMs": 38.06,
+      "sqlMs": 10.18,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 27.88,
+      "serializationMs": 0.35,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "before/inbound/filter/2",
+      "totalMs": 876.5,
+      "sqlMs": 393.26,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 483.23,
+      "serializationMs": 0.36,
+      "responseBytes": 27256
+    },
+    {
+      "scenario": "after/inbound/filter/2",
+      "totalMs": 32.61,
+      "sqlMs": 9.59,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 23.02,
+      "serializationMs": 0.32,
+      "responseBytes": 27256
+    },
+    {
+      "scenario": "before/inbound/page/2",
+      "totalMs": 783.97,
+      "sqlMs": 342.42,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 441.56,
+      "serializationMs": 0.28,
+      "responseBytes": 27243
+    },
+    {
+      "scenario": "after/inbound/page/2",
+      "totalMs": 45.83,
+      "sqlMs": 7.8,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 38.02,
+      "serializationMs": 0.5,
+      "responseBytes": 27243
+    },
+    {
+      "scenario": "before/inbound/refresh/2",
+      "totalMs": 882.03,
+      "sqlMs": 380.55,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 501.48,
+      "serializationMs": 0.54,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/refresh/2",
+      "totalMs": 37.18,
+      "sqlMs": 7.83,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 29.36,
+      "serializationMs": 0.47,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "before/inbound/search/2",
+      "totalMs": 948.41,
+      "sqlMs": 378.4,
+      "queries": 8,
+      "pythonFetchAndCopyMs": 570.01,
+      "serializationMs": 0.21,
+      "responseBytes": 7013
+    },
+    {
+      "scenario": "after/inbound/search/2",
+      "totalMs": 41.83,
+      "sqlMs": 6.52,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 35.31,
+      "serializationMs": 0.19,
+      "responseBytes": 7013
+    },
+    {
+      "scenario": "before/guangdong/first/0",
+      "totalMs": 318.1,
+      "sqlMs": 172.13,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 145.97,
+      "serializationMs": 0.73,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/first/0",
+      "totalMs": 289.68,
+      "sqlMs": 142.3,
+      "queries": 20,
+      "pythonFetchAndCopyMs": 147.38,
+      "serializationMs": 0.94,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "before/guangdong/reentry/0",
+      "totalMs": 260.19,
+      "sqlMs": 136.23,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 123.96,
+      "serializationMs": 0.66,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/reentry/0",
+      "totalMs": 36.45,
+      "sqlMs": 5.62,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 30.83,
+      "serializationMs": 0.53,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "before/guangdong/filter/0",
+      "totalMs": 267.29,
+      "sqlMs": 130.89,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 136.4,
+      "serializationMs": 1.75,
+      "responseBytes": 79957
+    },
+    {
+      "scenario": "after/guangdong/filter/0",
+      "totalMs": 47.7,
+      "sqlMs": 6.95,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 40.74,
+      "serializationMs": 1.84,
+      "responseBytes": 79957
+    },
+    {
+      "scenario": "before/guangdong/page/0",
+      "totalMs": 239.3,
+      "sqlMs": 133.05,
+      "queries": 14,
+      "pythonFetchAndCopyMs": 106.25,
+      "serializationMs": 0.53,
+      "responseBytes": 81967
+    },
+    {
+      "scenario": "after/guangdong/page/0",
+      "totalMs": 39.5,
+      "sqlMs": 4.73,
+      "queries": 10,
+      "pythonFetchAndCopyMs": 34.77,
+      "serializationMs": 0.52,
+      "responseBytes": 81967
+    },
+    {
+      "scenario": "before/guangdong/refresh/0",
+      "totalMs": 292.19,
+      "sqlMs": 129.28,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 162.9,
+      "serializationMs": 0.61,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/refresh/0",
+      "totalMs": 37.17,
+      "sqlMs": 5.56,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 31.61,
+      "serializationMs": 0.62,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "before/guangdong/search/0",
+      "totalMs": 237.05,
+      "sqlMs": 122.48,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 114.58,
+      "serializationMs": 0.33,
+      "responseBytes": 18214
+    },
+    {
+      "scenario": "after/guangdong/search/0",
+      "totalMs": 41.25,
+      "sqlMs": 6.46,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 34.79,
+      "serializationMs": 0.27,
+      "responseBytes": 18214
+    },
+    {
+      "scenario": "before/guangdong/first/1",
+      "totalMs": 243.04,
+      "sqlMs": 123.58,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 119.46,
+      "serializationMs": 0.83,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/first/1",
+      "totalMs": 282.03,
+      "sqlMs": 131.37,
+      "queries": 20,
+      "pythonFetchAndCopyMs": 150.66,
+      "serializationMs": 0.59,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "before/guangdong/reentry/1",
+      "totalMs": 228.52,
+      "sqlMs": 120.17,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 108.35,
+      "serializationMs": 0.54,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/reentry/1",
+      "totalMs": 46.62,
+      "sqlMs": 5.37,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 41.25,
+      "serializationMs": 0.57,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "before/guangdong/filter/1",
+      "totalMs": 277.24,
+      "sqlMs": 114.91,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 162.32,
+      "serializationMs": 0.63,
+      "responseBytes": 79957
+    },
+    {
+      "scenario": "after/guangdong/filter/1",
+      "totalMs": 34.25,
+      "sqlMs": 5.32,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 28.93,
+      "serializationMs": 1.04,
+      "responseBytes": 79957
+    },
+    {
+      "scenario": "before/guangdong/page/1",
+      "totalMs": 208.02,
+      "sqlMs": 104.4,
+      "queries": 14,
+      "pythonFetchAndCopyMs": 103.62,
+      "serializationMs": 0.61,
+      "responseBytes": 81967
+    },
+    {
+      "scenario": "after/guangdong/page/1",
+      "totalMs": 38.85,
+      "sqlMs": 4.59,
+      "queries": 10,
+      "pythonFetchAndCopyMs": 34.26,
+      "serializationMs": 0.8,
+      "responseBytes": 81967
+    },
+    {
+      "scenario": "before/guangdong/refresh/1",
+      "totalMs": 200.62,
+      "sqlMs": 102.97,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 97.65,
+      "serializationMs": 0.54,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/refresh/1",
+      "totalMs": 34.49,
+      "sqlMs": 5.13,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 29.36,
+      "serializationMs": 0.61,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "before/guangdong/search/1",
+      "totalMs": 206.29,
+      "sqlMs": 103.38,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 102.91,
+      "serializationMs": 0.21,
+      "responseBytes": 18214
+    },
+    {
+      "scenario": "after/guangdong/search/1",
+      "totalMs": 35.23,
+      "sqlMs": 5.95,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 29.28,
+      "serializationMs": 0.21,
+      "responseBytes": 18214
+    },
+    {
+      "scenario": "before/guangdong/first/2",
+      "totalMs": 209.75,
+      "sqlMs": 111.75,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 98.0,
+      "serializationMs": 0.56,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/first/2",
+      "totalMs": 274.51,
+      "sqlMs": 106.18,
+      "queries": 20,
+      "pythonFetchAndCopyMs": 168.32,
+      "serializationMs": 0.51,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "before/guangdong/reentry/2",
+      "totalMs": 196.59,
+      "sqlMs": 101.71,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 94.88,
+      "serializationMs": 0.6,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/reentry/2",
+      "totalMs": 41.39,
+      "sqlMs": 5.8,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 35.6,
+      "serializationMs": 0.71,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "before/guangdong/filter/2",
+      "totalMs": 200.81,
+      "sqlMs": 102.22,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 98.6,
+      "serializationMs": 0.83,
+      "responseBytes": 79957
+    },
+    {
+      "scenario": "after/guangdong/filter/2",
+      "totalMs": 35.21,
+      "sqlMs": 5.52,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 29.69,
+      "serializationMs": 0.64,
+      "responseBytes": 79957
+    },
+    {
+      "scenario": "before/guangdong/page/2",
+      "totalMs": 214.73,
+      "sqlMs": 105.58,
+      "queries": 14,
+      "pythonFetchAndCopyMs": 109.15,
+      "serializationMs": 0.85,
+      "responseBytes": 81967
+    },
+    {
+      "scenario": "after/guangdong/page/2",
+      "totalMs": 46.08,
+      "sqlMs": 5.97,
+      "queries": 10,
+      "pythonFetchAndCopyMs": 40.12,
+      "serializationMs": 0.56,
+      "responseBytes": 81967
+    },
+    {
+      "scenario": "before/guangdong/refresh/2",
+      "totalMs": 223.98,
+      "sqlMs": 112.94,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 111.04,
+      "serializationMs": 0.55,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/refresh/2",
+      "totalMs": 44.27,
+      "sqlMs": 5.95,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 38.32,
+      "serializationMs": 0.62,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "before/guangdong/search/2",
+      "totalMs": 330.02,
+      "sqlMs": 138.02,
+      "queries": 15,
+      "pythonFetchAndCopyMs": 192.0,
+      "serializationMs": 0.28,
+      "responseBytes": 18214
+    },
+    {
+      "scenario": "after/guangdong/search/2",
+      "totalMs": 35.94,
+      "sqlMs": 6.01,
+      "queries": 11,
+      "pythonFetchAndCopyMs": 29.94,
+      "serializationMs": 0.23,
+      "responseBytes": 18214
+    },
+    {
+      "scenario": "management/watchlist",
+      "totalMs": 59.28,
+      "sqlMs": 22.07,
+      "queries": 6,
+      "pythonFetchAndCopyMs": 37.2,
+      "serializationMs": 2.44,
+      "responseBytes": 227444
+    },
+    {
+      "scenario": "management/product-search",
+      "totalMs": 6.75,
+      "sqlMs": 5.09,
+      "queries": 2,
+      "pythonFetchAndCopyMs": 1.66,
+      "serializationMs": 0.06,
+      "responseBytes": 1981
+    },
+    {
+      "scenario": "after/version-update/inventory",
+      "totalMs": 2766.57,
+      "sqlMs": 1185.68,
+      "queries": 94,
+      "pythonFetchAndCopyMs": 1580.89,
+      "serializationMs": 1.44,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/version-update/sales",
+      "totalMs": 2920.18,
+      "sqlMs": 963.41,
+      "queries": 94,
+      "pythonFetchAndCopyMs": 1956.77,
+      "serializationMs": 1.58,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/version-update/erp",
+      "totalMs": 2379.99,
+      "sqlMs": 834.86,
+      "queries": 94,
+      "pythonFetchAndCopyMs": 1545.13,
+      "serializationMs": 1.65,
+      "responseBytes": 164915
+    }
+  ],
+  "exactDeepEquivalence": [
+    "overview/first/0",
+    "overview/reentry/0",
+    "overview/filter/0",
+    "overview/page/0",
+    "overview/refresh/0",
+    "overview/search/0",
+    "overview/first/1",
+    "overview/reentry/1",
+    "overview/filter/1",
+    "overview/page/1",
+    "overview/refresh/1",
+    "overview/search/1",
+    "overview/first/2",
+    "overview/reentry/2",
+    "overview/filter/2",
+    "overview/page/2",
+    "overview/refresh/2",
+    "overview/search/2",
+    "plan/first/0",
+    "plan/reentry/0",
+    "plan/filter/0",
+    "plan/page/0",
+    "plan/refresh/0",
+    "plan/search/0",
+    "plan/first/1",
+    "plan/reentry/1",
+    "plan/filter/1",
+    "plan/page/1",
+    "plan/refresh/1",
+    "plan/search/1",
+    "plan/first/2",
+    "plan/reentry/2",
+    "plan/filter/2",
+    "plan/page/2",
+    "plan/refresh/2",
+    "plan/search/2",
+    "age/first/0",
+    "age/reentry/0",
+    "age/filter/0",
+    "age/page/0",
+    "age/refresh/0",
+    "age/search/0",
+    "age/first/1",
+    "age/reentry/1",
+    "age/filter/1",
+    "age/page/1",
+    "age/refresh/1",
+    "age/search/1",
+    "age/first/2",
+    "age/reentry/2",
+    "age/filter/2",
+    "age/page/2",
+    "age/refresh/2",
+    "age/search/2",
+    "stale/first/0",
+    "stale/reentry/0",
+    "stale/filter/0",
+    "stale/page/0",
+    "stale/refresh/0",
+    "stale/search/0",
+    "stale/first/1",
+    "stale/reentry/1",
+    "stale/filter/1",
+    "stale/page/1",
+    "stale/refresh/1",
+    "stale/search/1",
+    "stale/first/2",
+    "stale/reentry/2",
+    "stale/filter/2",
+    "stale/page/2",
+    "stale/refresh/2",
+    "stale/search/2",
+    "inbound/first/0",
+    "inbound/reentry/0",
+    "inbound/filter/0",
+    "inbound/page/0",
+    "inbound/refresh/0",
+    "inbound/search/0",
+    "inbound/first/1",
+    "inbound/reentry/1",
+    "inbound/filter/1",
+    "inbound/page/1",
+    "inbound/refresh/1",
+    "inbound/search/1",
+    "inbound/first/2",
+    "inbound/reentry/2",
+    "inbound/filter/2",
+    "inbound/page/2",
+    "inbound/refresh/2",
+    "inbound/search/2",
+    "guangdong/first/0",
+    "guangdong/reentry/0",
+    "guangdong/filter/0",
+    "guangdong/page/0",
+    "guangdong/refresh/0",
+    "guangdong/search/0",
+    "guangdong/first/1",
+    "guangdong/reentry/1",
+    "guangdong/filter/1",
+    "guangdong/page/1",
+    "guangdong/refresh/1",
+    "guangdong/search/1",
+    "guangdong/first/2",
+    "guangdong/reentry/2",
+    "guangdong/filter/2",
+    "guangdong/page/2",
+    "guangdong/refresh/2",
+    "guangdong/search/2",
+    "version-update/inventory",
+    "version-update/sales",
+    "version-update/erp"
+  ],
+  "cacheBytes": 23618459,
+  "limitations": [
+    "Python residual includes ORM fetch/materialization/copy, not only business math",
+    "HTTP/frontend timings measured separately; no production P95 claim",
+    "Fixed authoritative sorting; global date controls do not change latest snapshot/latest 30 day inventory semantics"
+  ]
+}

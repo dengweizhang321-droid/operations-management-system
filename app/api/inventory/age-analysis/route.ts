@@ -20,7 +20,8 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "库龄分析数据");
     const params = new URL(request.url).searchParams;
-    const allowed = new Set(["cardFilter", "q", "warehouse", "brand", "category", "status", "ageBucket", "page", "pageSize"]);
+    if (params.getAll("section").length > 1 || (params.has("section") && !["summary", "detail"].includes(params.get("section")!))) throw new InventoryQueryContractError("section 必须是 summary 或 detail");
+    const allowed = new Set(["section", "cardFilter", "q", "warehouse", "brand", "category", "status", "ageBucket", "page", "pageSize"]);
     if ([...params.keys()].some((key) => !allowed.has(key))) throw new InventoryQueryContractError("库龄分析包含未知查询参数");
     if (params.getAll("cardFilter").length > 1 || (params.get("cardFilter") && !["stagnant", "aged90", "zero_sales"].includes(params.get("cardFilter")!))) throw new InventoryQueryContractError("统计卡片筛选无效");
     const query = params.get("q")?.trim();

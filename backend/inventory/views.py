@@ -21,6 +21,8 @@ from .import_service import import_inventory_payload, list_import_batches, recor
 from .plans import import_plans, plan_payload, plan_summary, query_plans, update_plan, upsert_plan
 from .query import inventory_age_analysis, inventory_inbound_monitor, inventory_overview, replenishment_plan_sources
 from .revisions import revision_value
+from .read_cache import snapshot
+from .regions import region_option, regional_read
 from .settings_service import read_settings, update_settings
 from .warehouse_mapping_service import mapping_payload, update_mapping
 from .uploads import CHUNK_SIZE_BYTES, MAX_FILE_SIZE_BYTES, execute_upload_action, read_chunk, receive_chunk
@@ -86,11 +88,11 @@ def _body(request: HttpRequest) -> dict[str, object]:
 
 def _consistent_read(loader: Callable[[], dict[str, object]]) -> tuple[dict[str, object], str]:
     for _attempt in range(2):
-        before = revision_value()
+        before = snapshot()
         payload = loader()
-        after = revision_value()
+        after = snapshot()
         if before == after:
-            return payload, after
+            return payload, after[0]
     raise InventoryApiError("库存数据版本持续变化，请稍后重试", code="service_unavailable", status=503)
 
 
@@ -220,7 +222,7 @@ def _selections(request: HttpRequest, key: str, maximum: int, allowed: set[str] 
 
 
 def _overview_options(request: HttpRequest) -> dict[str, object]:
-    allowed = {"view", "startDate", "endDate", "q", "warehouse", "brand", "category", "warehouseType", "status", "page", "pageSize", "planPage", "planPageSize", "planStatus", "includeCancelledPlans"}
+    allowed = {"section", "view", "startDate", "endDate", "q", "warehouse", "brand", "category", "warehouseType", "status", "page", "pageSize", "planPage", "planPageSize", "planStatus", "includeCancelledPlans"}
     _unknown(request, allowed, "库存总览")
     view = _one(request, "view") or "full"
     if view not in {"full", "dashboard", "overview", "plan"}:
@@ -248,7 +250,9 @@ def _overview_options(request: HttpRequest) -> dict[str, object]:
 def overview(request: HttpRequest) -> JsonResponse:
     try:
         principal = _principal(request, {"viewer", "analyst", "operator", "admin"})
-        payload, revision = _consistent_read(lambda: inventory_overview(principal, _overview_options(request)))
+        options = _overview_options(request)
+        section = region_option(request)
+        payload, revision = _consistent_read(lambda: regional_read(principal, "overview", options, section, lambda: inventory_overview(principal, options)))
         return _json(payload, revision=revision)
     except Exception as error:
         return _error(error, "读取库存健康数据失败")
@@ -257,14 +261,15 @@ def overview(request: HttpRequest) -> JsonResponse:
 @require_GET
 def age_analysis(request: HttpRequest) -> JsonResponse:
     try:
-        _principal(request, {"viewer", "analyst", "operator", "admin"})
-        _unknown(request, {"cardFilter", "q", "warehouse", "brand", "category", "status", "ageBucket", "page", "pageSize"}, "库龄分析")
+        principal = _principal(request, {"viewer", "analyst", "operator", "admin"})
+        _unknown(request, {"section", "cardFilter", "q", "warehouse", "brand", "category", "status", "ageBucket", "page", "pageSize"}, "库龄分析")
         options = {"query": _one(request, "q"), "warehouses": _selections(request, "warehouse", 10), "brands": _selections(request, "brand", 20), "categories": _selections(request, "category", 20), "statuses": _selections(request, "status", 5, {"healthy", "aged", "slow", "stagnant", "no_stock"}), "ageBuckets": _selections(request, "ageBucket", 10, {"0-7", "8-15", "16-30", "31-60", "61-90", "91-120", "121-150", "151-180", "181-360", "361+"}), "page": _positive(_one(request, "page"), 1, "page", 10_000), "pageSize": _positive(_one(request, "pageSize"), 50, "pageSize", 100)}
         card_filter = _one(request, "cardFilter") or ""
         if card_filter and card_filter not in {"stagnant", "aged90", "zero_sales"}:
             raise InventoryApiError("统计卡片筛选无效")
         options["cardFilter"] = card_filter
-        payload, revision = _consistent_read(lambda: inventory_age_analysis(options))
+        section = region_option(request)
+        payload, revision = _consistent_read(lambda: regional_read(principal, "age", options, section, lambda: inventory_age_analysis(options, principal)))
         return _json(payload, revision=revision)
     except Exception as error:
         return _error(error, "读取库龄分析数据失败")
@@ -274,13 +279,14 @@ def age_analysis(request: HttpRequest) -> JsonResponse:
 def inbound_monitor(request: HttpRequest) -> JsonResponse:
     try:
         principal = _principal(request, {"viewer", "analyst", "operator", "admin"})
-        _unknown(request, {"cardFilter", "q", "warehouse", "brand", "category", "supplier", "page", "pageSize"}, "京东入仓监控")
+        _unknown(request, {"section", "cardFilter", "q", "warehouse", "brand", "category", "supplier", "page", "pageSize"}, "京东入仓监控")
         options = {"query": _one(request, "q"), "warehouses": _selections(request, "warehouse", 10), "brands": _selections(request, "brand", 20), "categories": _selections(request, "category", 20), "suppliers": _selections(request, "supplier", 20), "page": _positive(_one(request, "page"), 1, "page", 10_000), "pageSize": _positive(_one(request, "pageSize"), 50, "pageSize", 100)}
         card_filter = _one(request, "cardFilter") or ""
         if card_filter and card_filter not in {"stale"}:
             raise InventoryApiError("统计卡片筛选无效")
         options["cardFilter"] = card_filter
-        payload, revision = _consistent_read(lambda: inventory_inbound_monitor(principal, options))
+        section = region_option(request)
+        payload, revision = _consistent_read(lambda: regional_read(principal, "inbound", options, section, lambda: inventory_inbound_monitor(principal, options)))
         return _json(payload, revision=revision)
     except Exception as error:
         return _error(error, "读取京东入仓库存监控失败")

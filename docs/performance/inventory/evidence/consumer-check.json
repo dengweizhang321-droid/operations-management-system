@@ -1,0 +1,90 @@
+{
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "fixture": "private business-scale synthetic PostgreSQL",
+  "role": "inventory_fixture_bi",
+  "inventoryAuthoritySelect": false,
+  "inventoryStockUpdate": false,
+  "selectTableContract": [
+    "bi_migration_runs",
+    "sales_data_revisions",
+    "sales_import_batches",
+    "sales_order_lines",
+    "erp_product_master",
+    "erp_combo_items",
+    "erp_reference_import_batches_pg",
+    "erp_reference_import_scope_heads",
+    "erp_reference_write_authority",
+    "inventory_import_batches",
+    "inventory_stock_lines",
+    "inventory_age_lines",
+    "inventory_data_revisions",
+    "replenishment_plan_items",
+    "inventory_operating_settings",
+    "inventory_guangdong_monitor_items",
+    "inventory_guangdong_supplier_cycles"
+  ],
+  "rows": {
+    "stock": 24000,
+    "age": 24000,
+    "sales": 240000
+  },
+  "results": [
+    {
+      "case": "bi/full/cold",
+      "exactDeepEqual": true,
+      "sha256": "ccb8d052bcd52f98a15dc34f1f5f8b1650cc271c55999a153757df17d72cb4f6"
+    },
+    {
+      "case": "bi/full/warm",
+      "exactDeepEqual": true,
+      "sha256": "ccb8d052bcd52f98a15dc34f1f5f8b1650cc271c55999a153757df17d72cb4f6"
+    },
+    {
+      "case": "stock_projection/0",
+      "exactDeepEqual": true,
+      "sha256": "3979fa3e66692f94bdaec08f595344a9ed6d16e1c2070e52c9d0f8064f1a1238"
+    },
+    {
+      "case": "stock_projection/2000",
+      "exactDeepEqual": true,
+      "sha256": "c5f7caf1fb44ce41b28e846c5766608cf24e98b2638b4555df2da9da714230e6"
+    },
+    {
+      "case": "system_cost_snapshot/0",
+      "exactDeepEqual": true,
+      "sha256": "09347d624768370a4c6a51dfa4a194f4145522fc23ca50b69ad1a92c23104a57"
+    },
+    {
+      "case": "freshness/0",
+      "exactDeepEqual": true,
+      "sha256": "0c7fe5a7617e4de8d469b012c635b80d09d85f38b97052a38b2af2313d18626e"
+    }
+  ],
+  "sourceHashes": {
+    "apps.py": "016ca91b5b2f07955b458c1bb574a315fa8e3f34a43578a7246f139bf5f221be",
+    "consumers.py": "16a752a9fa402b2fc7ea2fd27f03372d059e4d62b4ad7c7e59c75b411ec65910",
+    "dingtalk_group_message.py": "f394722910dc2fbf6384bfd08cb8d994503ecc4cf44cbbf312c8528e33bfb1d4",
+    "dingtalk_sync.py": "8788ad6d9b2c9e5fb0b7a17593c2f0abc87d2131e15c71fb590c42bb22a4f202",
+    "errors.py": "612f1f3ce56afe71efe6795662eee8b3eab8817de01d07b445c972ae44aa7045",
+    "guangdong.py": "c39f68ee6a0dd5c15b223cfebc6cf9ca03f0f6e08a4bcadcfc255f4a10a88cf1",
+    "guangdong_replenishment.py": "b863d18f9d3e1ae1af48d4d2af443e92d7fa1ccfc05712c560a34ba8b428b20e",
+    "guangdong_risk_reset.py": "d44e44913b2d47937b810dc2a4b29e569dffd97481cf5ea9b494e8fca7783e67",
+    "guangdong_views.py": "fb4e4c485226ac7b5ab64703af113d64b6a06f80bfa8167bb56c79e4775e8c58",
+    "import_service.py": "bc95652ecb1863dea3dc87dc67a5cfdfdac0e4c2122c41eb6466fe86ac356fb0",
+    "models.py": "387368c0d763bd19cb96c5527aa90ac697956058abd8d6cb72987a2cbae0217a",
+    "plans.py": "97bd48bec14931a5d3e5c0eeea4c65e9c624d51ff1daa49c5b63f5bd1e803d94",
+    "query.py": "dbe88a6fd228a2557d0ad3f2dd8b0b3d84b92b0d298fc1f5e34fd258b9617399",
+    "read_cache.py": "036104e955f1d9d1783441a241d9f556d636941791cda7604ce7559a7508c7ed",
+    "regions.py": "bd942e918e800fc66fca512609bbf714b08b464c587fb5705835b17d7c229c19",
+    "replenishment_health.py": "4c37608e69e9106dfb2959256f182e33a192a1814649c8c77a0668de5c737b04",
+    "revisions.py": "1893ff97fbdc3d6b240ac42dd668241c0ec86159056bfaf04503be5610995434",
+    "settings_service.py": "a2b6045dfd59c516ee878ff2ba42f7df5bbe36a6d5cebbca3a3d94ff6fd3c5e8",
+    "uploads.py": "01456501b5ca6c75391a7d34d9b8bfe4539513a1c92d8d1b17687a9a2167588d",
+    "urls.py": "487b39edfeb0ce8023b60ee5169d35cb303b85513d46481389e62ab23c12b3c2",
+    "views.py": "c31a6baee9c360386ef89803812a670658f90b49b542b49f1c8840105dbb2703",
+    "warehouse_mapping.py": "06d60fae2ebd4a4616959808d67eb8c574cd4a3295b812caddda2c140d5931b5",
+    "warehouse_mapping_service.py": "fd5fa19c4bcadb172d39fa08a80e02463684a8baccc0c80a108488da0b5ee0cb",
+    "write_requests.py": "7a9cd391934f0e31ed9b02097c843e029da8de03af7de01f7a14478e0593e2e0",
+    "__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  }
+}
