@@ -1542,16 +1542,26 @@ test("monthly trend boundaries keep the newest 120 item months and newest 60 ove
   sqlite.close();
 });
 
-test("item trend exposes the 120-month boundary and the UI reports the total month count", async () => {
-  const [database, overviewSql, view] = await Promise.all([
+test("legacy item trend retains its 120-month boundary and the UI distinguishes Django's raw rows from historical months", async () => {
+  const [database, overviewSql, view, djangoQuery] = await Promise.all([
     readFile(new URL("../lib/market/database.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/overview-sql.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../backend/market/query.py", import.meta.url), "utf8"),
   ]);
   assert.match(overviewSql, /COUNT\(\*\) OVER \(\) total_months[\s\S]*LIMIT 120/);
   assert.match(database, /totalMonths,\s*truncated: totalMonths > trendRows\.length/);
   assert.match(view, /totalMonths: number; truncated: boolean/);
-  assert.match(view, /展示最近 \$\{count\(data\.items\.length\)\} \/ 共 \$\{count\(data\.totalMonths\)\} 个月/);
+  assert.match(view, /展示 \$\{count\(data\.items\.length\)\} 条趋势记录 · 完整历史 \$\{count\(data\.totalMonths\)\} 个月/);
+  const itemTrend = djangoQuery.slice(djangoQuery.indexOf("def item_trend("), djangoQuery.indexOf("def daily_coverage("));
+  assert.match(itemTrend, /total = history\.aggregate\(months=Count\(Substr\("period_end", 1, 7\), distinct=True\)\)\["months"\]/);
+  assert.match(itemTrend, /rows = list\(history\.defer\("raw_json"\)\.order_by\("-period_end", "-period_start", "-id"\)\[:60\]\)/);
+  assert.ok(itemTrend.indexOf("total = history.aggregate") < itemTrend.indexOf("rows = list(history"));
+  assert.match(itemTrend, /"totalMonths": total/);
+  // The pre-existing flag compares month count with raw-row count. Preserve
+  // compatibility without treating false as proof that all source rows fit.
+  assert.match(itemTrend, /"truncated": total > len\(items\)/);
+  assert.doesNotMatch(view, /展示最近 \$\{count\(data\.items\.length\)\} \/ 共/);
   assert.doesNotMatch(view, /读取全量月度趋势/);
 });
 

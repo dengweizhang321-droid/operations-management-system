@@ -53,18 +53,19 @@ test("full-scope routing only activates explicit filter controls and fails close
 });
 
 test("known bounded result tables declare an explicit safe column-filter scope", async () => {
-  const [assistant, imports, market, marketAdmin, salesCategory, sales, shops, shared] = await Promise.all([
+  const [assistant, imports, market, marketAdmin, salesCategory, sales, finance, shops, shared] = await Promise.all([
     "ai-assistant-view.tsx", "import-run-records-view.tsx", "market-view.tsx",
-    "market-master-admin-panel.tsx", "sales-category-view.tsx", "sales-module-view.tsx", "shop-module-view.tsx", "module-view-shared.tsx",
+    "market-master-admin-panel.tsx", "sales-category-view.tsx", "sales-module-view.tsx", "sales-finance-views.tsx", "shop-module-view.tsx", "module-view-shared.tsx",
   ].map((file) => readFile(new URL(`../app/${file}`, import.meta.url), "utf8")));
   assert.match(assistant, /data-column-filter-scope=\{artifact\.truncated \? "none" : "full"\}/);
   assert.match(imports, /import-history-panel[\s\S]{0,1800}data-column-filter-scope="none"/);
   assert.ok((market.match(/data-column-filter-scope="none"/g) ?? []).length >= 2);
-  assert.match(market, /data-column-filter-scope=\{data\.truncated \? "none" : "full"\} data-column-filter-total=\{data\.totalMonths\}/);
+  assert.match(market, /data-column-filter-scope=\{data\.items\.length >= 60 \? "none" : "full"\} data-column-filter-total=\{data\.items\.length\}/, "a full 60-row raw window cannot claim complete page-local filtering even when the legacy month-based flag is false");
+  assert.match(market, /展示 \$\{count\(data\.items\.length\)\} 条趋势记录 · 完整历史 \$\{count\(data\.totalMonths\)\} 个月/);
   assert.ok((marketAdmin.match(/data-column-filter-scope="none"/g) ?? []).length >= 4);
   assert.match(salesCategory, /data-column-filter-scope=\{data\.pagination\.truncated \? "none" : "full"\}/);
   assert.match(sales, /dimensionPagination\?\.truncated === false \? "full" : "none"/);
-  assert.match(sales, /data\.expensePagination\?\.truncated === false \? "full" : "none"/);
+  assert.match(finance, /data\.expensePagination\?\.truncated === false \? "full" : "none"/);
   const annual = await readFile(new URL("../app/finance-annual-progress-view.tsx", import.meta.url), "utf8");
   assert.match(annual, /page === 1 && !data\.pagination\.truncated \? "full" : "none"/);
   assert.match(shops, /dimensionPagination\?\.truncated === false \? "full" : "none"/);

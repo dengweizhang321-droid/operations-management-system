@@ -87,5 +87,10 @@ test("sales overview opts into bounded recovery without retrying write requests"
   const page = await readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8");
 
   assert.match(page, /fetchWithTransientRetry\(\s*`\/api\/sales\/summary/);
-  assert.match(page, /delaysMs: \[1_000, 2_000, 4_000, 8_000, 12_000, 15_000\]/);
+  assert.match(page, /let retryRemaining = 1;/);
+  assert.match(page, /delaysMs: retryRemaining > 0 \? \[1_000\] : \[\]/);
+  assert.match(page, /retryRemaining -= 1;/);
+  assert.match(page, /const timeout = window\.setTimeout\([\s\S]*?controller\.abort\(\);[\s\S]*?\}, 30_000\)/);
+  assert.match(page, /await read\("full", initial\.revision\)/);
+  assert.doesNotMatch(page, /delaysMs: \[1_000, 2_000, 4_000, 8_000, 12_000, 15_000\]/);
 });

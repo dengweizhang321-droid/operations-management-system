@@ -7,9 +7,10 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 
 test("finance cutover keeps the existing UI and public paths with Django as the only backend", async () => {
-  const [page, salesModule, importModule, analysis, targets, targetImport, imports, service] = await Promise.all([
+  const [page, salesModule, financeViews, importModule, analysis, targets, targetImport, imports, service] = await Promise.all([
     readFile(path.join(root, "app", "page.tsx"), "utf8"),
     readFile(path.join(root, "app", "sales-module-view.tsx"), "utf8"),
+    readFile(path.join(root, "app", "sales-finance-views.tsx"), "utf8"),
     readFile(path.join(root, "app", "import-module-view.tsx"), "utf8"),
     readFile(path.join(root, "app", "api", "finance", "analysis", "route.ts"), "utf8"),
     readFile(path.join(root, "app", "api", "finance", "targets", "route.ts"), "utf8"),
@@ -18,10 +19,11 @@ test("finance cutover keeps the existing UI and public paths with Django as the 
     readFile(path.join(root, "lib", "django", "finance-service.ts"), "utf8"),
   ]);
   assert.match(page, /createReloadableLazy\("sales", \(\) => import\("\.\/sales-module-view"\)\)/);
-  assert.match(salesModule, /\/api\/finance\/analysis/);
-  assert.match(salesModule, /\/api\/finance\/targets/);
+  assert.match(salesModule, /import\("\.\/sales-finance-views"\)/);
+  assert.match(financeViews, /\/api\/finance\/analysis/);
+  assert.match(financeViews, /\/api\/finance\/targets/);
   assert.match(importModule, /\/api\/imports\/finance/);
-  assert.doesNotMatch(`${page}\n${salesModule}\n${importModule}`, /TERUISI_DJANGO_FINANCE_MODE|finance-normalized-v1/);
+  assert.doesNotMatch(`${page}\n${salesModule}\n${financeViews}\n${importModule}`, /TERUISI_DJANGO_FINANCE_MODE|finance-normalized-v1/);
   for (const route of [analysis, targets, targetImport, imports]) {
     assert.match(route, /createDjangoFinanceService/);
     assert.doesNotMatch(route, /getFinanceDatabase|ensureFinanceSchema|observeFinanceShadow/);

@@ -1710,8 +1710,12 @@ test("market SKU comparison keeps the full 121-month summary while bounding tren
   }
 
   const view = await readFile(new URL("../app/market-view.tsx", import.meta.url), "utf8");
-  assert.match(view, /主指标按当前筛选范围完整汇总；月度火花图只展示最近 12 个月/);
-  assert.match(view, /服务端趋势最近 120 \/ 共 \{count\(item\.trendTotalMonths\)\} 个月/);
+  // The legacy SQLite consumer above retains its 120-month contract. The UI
+  // uses Django's existing raw-row trend window, so rows must not be labelled
+  // as 120 months or as the date-filtered comparison population.
+  assert.match(view, /主指标按所选商品的完整身份汇总全部历史；日期等条件用于榜单选品。火花图展示趋势窗口中的 12 条记录/);
+  assert.match(view, /item\.trendTruncated && [\s\S]*?服务端趋势已截断 \/ 共 \{count\(item\.trendTotalMonths\)\} 个月/);
+  assert.doesNotMatch(view, /服务端趋势最近 120/);
   assert.match(view, /item\.trend\.slice\(-12\)/);
   sqlite.close();
 });

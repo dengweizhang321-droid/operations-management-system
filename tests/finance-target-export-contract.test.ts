@@ -6,7 +6,7 @@ test("annual target template and export endpoints stay authenticated and shape-b
   const [importRoute, exportRoute, sales, library] = await Promise.all([
     readFile(new URL("../app/api/finance/targets/import/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/finance/targets/export/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/sales-finance-views.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/finance/annual-target-workbook.ts", import.meta.url), "utf8"),
   ]);
 
@@ -43,7 +43,7 @@ test("annual target template and export endpoints stay authenticated and shape-b
 
 test("annual progress table delete control reuses the audited removeTarget flow", async () => {
   const [sales, progress] = await Promise.all([
-    readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/sales-finance-views.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/finance-annual-progress-view.tsx", import.meta.url), "utf8"),
   ]);
 
