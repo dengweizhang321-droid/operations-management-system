@@ -139,6 +139,18 @@
       "bytes": 50187,
       "sha256": "88d972898dd445658020512e2d8f42fcf277e1b8d1c33ebd38cf35895b055abf",
       "retainedPath": ".runtime/performance-integration/rendered-html.log"
+    },
+    {
+      "name": "rendered-html-final.log",
+      "bytes": 1842,
+      "sha256": "d63bb3b47014b553c3438593b6573635eb9302bfc5d316d3251399ceaad53c98",
+      "retainedPath": ".runtime/performance-integration/rendered-html-final.log"
     }
-  ]
+  ],
+  "renderedHtml": {
+    "tests": 20,
+    "pass": 20,
+    "fail": 0,
+    "skip": 0
+  }
 }
