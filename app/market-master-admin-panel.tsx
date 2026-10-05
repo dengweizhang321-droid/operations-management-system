@@ -67,8 +67,8 @@ type MarketMasterWorkspace = {
   };
   statusCounts: { total: number; pendingPrices: number; confirmedPrices: number };
   subcategorySettings: {
-    category: string; categories: FilterOption[];
-    items: Array<{ subcategory: string; sku_count: number; annotation_count: number; status: string; sort_order: number }>;
+    category: string; categories: Array<string | FilterOption>;
+    items: Array<{ subcategory: string; sku_count?: number | null; annotation_count?: number | null; status: string; sort_order?: number; sortOrder?: number }>;
   };
   audits: Array<Record<string, string | number | null>>;
   error?: string;
@@ -738,6 +738,14 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: Marke
   const relevantAiModelsError = mode === "brand" || (mode === "database" && databaseSecondaryRequested) ? aiModelsError : "";
   const fatalError = primaryError;
   const visibleError = error || fatalError || relevantDatabaseFiltersError || relevantSecondaryError || relevantAiModelsError;
+  // Django provides category strings; legacy adapters provided options.
+  // Reuse the complete workspace counts and preserve unknown as missing.
+  const subcategoryCategoryOptions = (data?.subcategorySettings.categories ?? []).map((item) => {
+    const value = typeof item === "string" ? item : item.value;
+    const optionCount = data?.categories.find((option) => option.value === value)?.count
+      ?? (typeof item === "string" ? undefined : item.count);
+    return { value, count: optionCount };
+  });
   if (!data && fatalError) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol" aria-hidden="true">!</span><strong>TOP SKU 主数据中心加载失败</strong><p>{fatalError}</p><button className="secondary-button" onClick={() => void load().catch((reason) => setPrimaryError(reason instanceof Error ? reason.message : "市场主数据读取失败"))}>重新加载</button></section>;
   if (!data) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在读取 TOP SKU 主数据中心</strong></section>;
   const enabledModels = aiModels.filter((item) => item.status === "enabled");
@@ -784,7 +792,7 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: Marke
     </article>
     <article className="panel"><div className="section-header"><div><h3>数据覆盖、图片缓存与审计</h3><p>覆盖检查和完整审计记录来自市场主数据审计表。</p></div></div><div className="settings-master-cards">{data.coverage.slice(0, 8).map((row) => <div key={`${row.category}-${row.scope}-${row.ranking_dimension}`}><strong>{String(row.month_min ?? "-")}~{String(row.month_max ?? "-")}</strong><span>{String(row.category)} · {String(row.scope)} · {String(row.ranking_dimension)} · SKU {String(row.sku_count)}</span></div>)}</div><div className="data-table-wrap"><table className="data-table" data-column-filter-scope="none"><thead><tr><th>时间</th><th>人员</th><th>动作</th><th>对象</th></tr></thead><tbody>{data.audits.map((row) => <tr key={String(row.id)}><td>{String(row.created_at)}</td><td>{String(row.actor_email)}</td><td>{String(row.action)}</td><td>{String(row.entity_type)} · {String(row.entity_id)}</td></tr>)}</tbody></table></div></article>
     </>}
-    {mode === "subcategory" && <article className="panel market-subcategory-settings"><div className="section-header"><div><h2>细分品类设置</h2><p>按三级类目维护统一细分品类。保存后会同步刷新榜单、SKU 入库标注和待复核候选，并发布映射供后续导入复用。</p></div><select value={category} onChange={(event) => { setCategory(event.target.value); setPage(1); }}><option value="">请选择三级类目</option>{data.subcategorySettings.categories.map((item) => <option key={item.value} value={item.value}>{item.value}（{count(item.count)}）</option>)}</select></div>{category ? <><div className="data-table-wrap"><table className="data-table"><thead><tr><th>当前细分品类</th><th>关联 SKU</th><th>已入库标注</th><th>修改为</th></tr></thead><tbody>{data.subcategorySettings.items.map((item) => <tr key={item.subcategory}><td><strong>{item.subcategory}</strong></td><td>{count(Number(item.sku_count))}</td><td>{count(Number(item.annotation_count))}</td><td><input value={subcategoryDrafts[item.subcategory] ?? item.subcategory} onChange={(event) => setSubcategoryDrafts((current) => ({ ...current, [item.subcategory]: event.target.value }))} /></td></tr>)}{!data.subcategorySettings.items.length && <tr><td colSpan={4}><div className="table-state">该三级类目尚无细分品类，可直接新增。</div></td></tr>}</tbody></table></div><label className="market-subcategory-add"><span>新增细分品类（每行一个）</span><textarea value={newSubcategory} onChange={(event) => setNewSubcategory(event.target.value)} placeholder="例如：台式净饮机&#10;商用直饮机" /></label><div className="annotation-actions"><button className="primary-button" disabled={!isAdmin || busy !== ""} onClick={() => void saveSubcategories()}>{busy === "save_subcategory_settings" ? "刷新关联数据中…" : "保存并刷新全部关联数据"}</button></div></> : <div className="table-state">请先选择三级类目。</div>}</article>}
+    {mode === "subcategory" && <article className="panel market-subcategory-settings"><div className="section-header"><div><h2>细分品类设置</h2><p>按三级类目维护统一细分品类。保存后会同步刷新榜单、SKU 入库标注和待复核候选，并发布映射供后续导入复用。</p></div><select value={category} onChange={(event) => { setCategory(event.target.value); setPage(1); }}><option value="">请选择三级类目</option>{subcategoryCategoryOptions.map((item) => <option key={item.value} value={item.value}>{item.value}（{item.count === undefined ? "—" : count(item.count)}）</option>)}</select></div>{category ? <><div className="data-table-wrap"><table className="data-table"><thead><tr><th>当前细分品类</th><th>关联 SKU</th><th>已入库标注</th><th>修改为</th></tr></thead><tbody>{data.subcategorySettings.items.map((item) => <tr key={item.subcategory}><td><strong>{item.subcategory}</strong></td><td>{typeof item.sku_count === "number" ? count(item.sku_count) : "—"}</td><td>{typeof item.annotation_count === "number" ? count(item.annotation_count) : "—"}</td><td><input value={subcategoryDrafts[item.subcategory] ?? item.subcategory} onChange={(event) => setSubcategoryDrafts((current) => ({ ...current, [item.subcategory]: event.target.value }))} /></td></tr>)}{!data.subcategorySettings.items.length && <tr><td colSpan={4}><div className="table-state">该三级类目尚无细分品类，可直接新增。</div></td></tr>}</tbody></table></div><label className="market-subcategory-add"><span>新增细分品类（每行一个）</span><textarea value={newSubcategory} onChange={(event) => setNewSubcategory(event.target.value)} placeholder="例如：台式净饮机&#10;商用直饮机" /></label><div className="annotation-actions"><button className="primary-button" disabled={!isAdmin || busy !== ""} onClick={() => void saveSubcategories()}>{busy === "save_subcategory_settings" ? "刷新关联数据中…" : "保存并刷新全部关联数据"}</button></div></> : <div className="table-state">请先选择三级类目。</div>}</article>}
     {editingSku && <Dialog
       open
       onClose={closeSkuEditor}

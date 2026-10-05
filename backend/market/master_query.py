@@ -69,12 +69,22 @@ def master_page(query, *, history, pending, price_statuses, candidate_sources,
         chosen AS (SELECT * FROM preferred {preferred_filter}),
         enriched AS (SELECT p.* {fields} FROM chosen p {join}),
         selected AS (SELECT * FROM enriched {where})'''
-    total = int(_read(cte+' SELECT COUNT(*) FROM selected', params)[0][0])
-    safe_page = min(page, max(1, math.ceil(total/page_size)))
-    ids = [row[0] for row in _read(cte+''' SELECT s.id FROM selected s
-        LEFT JOIN market_sku_gmv_totals g ON g.sku_code=s.sku_code
-        ORDER BY COALESCE(g.gmv_total_cents,0) DESC,s.period_end,s.id LIMIT %s OFFSET %s''',
-        [*params, page_size, (safe_page-1)*page_size])]
+    # Counting and fetching used to execute the entire history/preference/price
+    # relation twice. Share it in one statement, including the existing clamp
+    # to the final page. A LEFT JOIN retains totals even for an empty page.
+    records = _read(cte+''', totals AS (SELECT COUNT(*) total FROM selected),
+        paging AS (SELECT total,CASE WHEN total=0 THEN 1
+            WHEN %s>(total+%s-1)/%s THEN (total+%s-1)/%s ELSE %s END safe_page FROM totals),
+        page_rows AS (SELECT s.id,ROW_NUMBER() OVER (
+            ORDER BY COALESCE(g.gmv_total_cents,0) DESC,s.period_end,s.id) position
+            FROM selected s LEFT JOIN market_sku_gmv_totals g ON g.sku_code=s.sku_code
+            ORDER BY COALESCE(g.gmv_total_cents,0) DESC,s.period_end,s.id
+            LIMIT %s OFFSET (SELECT (safe_page-1)*%s FROM paging))
+        SELECT p.total,p.safe_page,r.id FROM paging p LEFT JOIN page_rows r ON TRUE
+        ORDER BY r.position''',
+        [*params,page,page_size,page_size,page_size,page_size,page,page_size,page_size])
+    total, safe_page = int(records[0][0]), int(records[0][1])
+    ids = [row[2] for row in records if row[2] is not None]
     return ids, {'page': safe_page, 'pageSize': page_size, 'total': total,
                  'pageCount': max(1, math.ceil(total/page_size))}
 

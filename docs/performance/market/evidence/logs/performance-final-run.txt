@@ -1,0 +1,55 @@
+{"stage": "capacity_wait", "cpuPercent": 55.3, "availableGiB": 3.98}
+{"output": "D:\\.codex\\worktrees\\market-performance-complete\\\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf\\.runtime\\market-performance-e0b5513b8738", "stage": "experiment"}
+{"stage": "capacity_wait", "cpuPercent": 50.8, "availableGiB": 2.23}
+{"stage": "capacity_wait", "cpuPercent": 50.4, "availableGiB": 2.12}
+{"stage": "capacity_wait", "cpuPercent": 49.0, "availableGiB": 1.64}
+{"stage": "capacity_wait", "cpuPercent": 76.0, "availableGiB": 2.75}
+{"stage": "capacity_wait", "cpuPercent": 73.5, "availableGiB": 2.26}
+{"case": "filters", "p50": {"baseline": 3.235800002585165, "candidate": 3.1484999926760793}, "p95": {"baseline": 536.8918999884045, "candidate": 299.69149999669753}, "equal": true}
+{"stage": "capacity_wait", "cpuPercent": 85.4, "availableGiB": 3.79}
+{"stage": "capacity_wait", "cpuPercent": 90.6, "availableGiB": 3.08}
+{"stage": "capacity_wait", "cpuPercent": 95.4, "availableGiB": 2.58}
+{"case": "ranking-7d", "p50": {"baseline": 603.8974999974016, "candidate": 235.1582999981474}, "p95": {"baseline": 4111.181000000215, "candidate": 655.7974000024842}, "equal": true}
+{"case": "ranking-all", "p50": {"baseline": 4833.662999997614, "candidate": 4412.3924000014085}, "p95": {"baseline": 6494.049700006144, "candidate": 4823.601399999461}, "equal": true}
+{"case": "ranking-page2", "p50": {"baseline": 5146.528699988266, "candidate": 4757.889600005001}, "p95": {"baseline": 6914.48949999176, "candidate": 5213.600999995833}, "equal": true}
+{"stage": "capacity_wait", "cpuPercent": 67.0, "availableGiB": 3.75}
+{"stage": "capacity_wait", "cpuPercent": 58.9, "availableGiB": 3.52}
+{"stage": "capacity_wait", "cpuPercent": 59.7, "availableGiB": 3.24}
+{"case": "ranking-unconfirmed", "p50": {"baseline": 6526.693899999373, "candidate": 6094.090099999448}, "p95": {"baseline": 7339.822899986757, "candidate": 7021.655699994881}, "equal": false}
+{"stage": "capacity_wait", "cpuPercent": 99.6, "availableGiB": 0.64}
+{"stage": "capacity_wait", "cpuPercent": 94.3, "availableGiB": 1.09}
+{"stage": "capacity_wait", "cpuPercent": 100.0, "availableGiB": 2.56}
+{"stage": "capacity_wait", "cpuPercent": 86.4, "availableGiB": 2.36}
+{"stage": "capacity_wait", "cpuPercent": 85.0, "availableGiB": 1.65}
+{"stage": "capacity_wait", "cpuPercent": 65.4, "availableGiB": 3.38}
+{"stage": "capacity_wait", "cpuPercent": 57.0, "availableGiB": 2.96}
+{"case": "report-7d", "p50": {"baseline": 1918.1715000013355, "candidate": 1544.910799988429}, "p95": {"baseline": 4942.621499998495, "candidate": 2034.342299986747}, "equal": true}
+{"case": "report-category", "p50": {"baseline": 8455.614400008926, "candidate": 7564.847700006794}, "p95": {"baseline": 12683.37879999308, "candidate": 16265.98529999319}, "equal": true}
+{"stage": "capacity_wait", "cpuPercent": 37.3, "availableGiB": 2.12}
+{"case": "trend", "p50": {"baseline": 12.340300003415905, "candidate": 9.32890000694897}, "p95": {"baseline": 23.737500014249235, "candidate": 14.175399992382154}, "equal": true}
+{"case": "compare", "p50": {"baseline": 33.89979999337811, "candidate": 23.163700010627508}, "p95": {"baseline": 47.51699999906123, "candidate": 38.630600000033155}, "equal": true}
+{"case": "settings-status", "p50": {"baseline": 33.52860000450164, "candidate": 9.466000003158115}, "p95": {"baseline": 40.009799995459616, "candidate": 10.703099993406795}, "equal": true}
+{"stage": "capacity_wait", "cpuPercent": 52.5, "availableGiB": 2.98}
+{"stage": "capacity_wait", "cpuPercent": 70.9, "availableGiB": 2.54}
+{"stage": "capacity_wait", "cpuPercent": 58.8, "availableGiB": 2.54}
+{"stage": "capacity_wait", "cpuPercent": 28.9, "availableGiB": 2.47}
+{"stage": "capacity_wait", "cpuPercent": 47.7, "availableGiB": 2.19}
+{"stage": "capacity_wait", "cpuPercent": 44.5, "availableGiB": 1.89}
+{"stage": "capacity_wait", "cpuPercent": 41.2, "availableGiB": 1.58}
+{"stage": "capacity_wait", "cpuPercent": 62.7, "availableGiB": 1.58}
+{"stage": "capacity_wait", "cpuPercent": 42.2, "availableGiB": 1.47}
+{"stage": "capacity_wait", "cpuPercent": 66.2, "availableGiB": 1.29}
+{"stage": "capacity_wait", "cpuPercent": 58.8, "availableGiB": 2.09}
+{"stage": "capacity_wait", "cpuPercent": 44.5, "availableGiB": 2.34}
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-complete-performance.py", line 186, in <module>
+    entry = {'case':name,'equal':succeeded,'digest':hashes['candidate'][0],'samples':values,'work':work,
+^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-query-performance.py", line 269, in main
+    experiment(args, run_root)
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-complete-performance.py", line 123, in experiment
+    cases = [case for case in cases if case[0] in ('ranking-7d','ranking-all','report-7d','trend','settings-status','workspace-mapping')]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-performance-complete\��Ӫ����ϵͳ\tools\market-query-performance.py", line 67, in wait_for_capacity
+    raise RuntimeError('Measurement deferred: capacity remained constrained for 60 seconds')
+RuntimeError: Measurement deferred: capacity remained constrained for 60 seconds

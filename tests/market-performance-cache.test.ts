@@ -447,7 +447,7 @@ test("market UI requests lightweight ranking data and aborts superseded requests
   assert.match(view, /signal: controller\.signal/);
   assert.match(view, /request\.subscribers === 0 && !request\.settled/);
   assert.match(view, /rememberMarketOverview\(requestKey, payload\)/);
-  assert.match(view, /const delay = isInitialLoad \? 0 : 350/);
+  assert.match(view, /const delay = isInitialLoad \? 0 : 150/);
   assert.match(view, /isInitialLoad \? MARKET_OVERVIEW_RECENT_PREFETCH_MS : 0/);
   assert.match(view, /MARKET_RANKING_PAGE_SIZE = 20/);
   assert.match(view, /params\.set\("page", String\(page\)\)/);

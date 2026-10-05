@@ -335,7 +335,8 @@ def _options(query, field: str, *, distinct_field: str | None = None) -> list[di
 
 
 def _image_summary() -> dict[str, int]:
-    counts = Counter(MarketImageCache.objects.values_list("status", flat=True))
+    counts = Counter({row["status"]: row["count"] for row in
+        MarketImageCache.objects.order_by().values("status").annotate(count=Count("*"))})
     total = sum(counts.values())
     return {
         "total": total,
@@ -532,7 +533,7 @@ def master_workspace(params: dict[str, object]) -> dict[str, object]:
         MarketRankingEntry.objects.values("category", "scope", "ranking_dimension")
         .annotate(month_min=Min("period_end"), month_max=Max("period_end"), month_count=Count("period_end", distinct=True), sku_count=Count("sku_code", distinct=True))
         .order_by("category", "scope", "ranking_dimension")[:200]
-    )
+    ) if mode in {"all", "data"} else []
     for item in coverage:
         item["month_min"] = str(item["month_min"] or "")[:7]
         item["month_max"] = str(item["month_max"] or "")[:7]
@@ -593,7 +594,7 @@ def comparison(params: dict[str, object]) -> dict[str, object]:
         rows = MarketRankingEntry.objects.filter(sku_code=identity["skuCode"])
         if identity["category"]:
             rows = rows.filter(category=identity["category"], scope=identity["scope"], ranking_dimension=identity["rankingDimension"])
-        latest = rows.order_by("-period_end", "-period_start", "-id").first()
+        latest = rows.defer("raw_json").order_by("-period_end", "-period_start", "-id").first()
         if latest is None:
             missing.append(identity)
             continue

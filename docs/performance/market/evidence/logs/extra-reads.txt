@@ -1,0 +1,7 @@
+{"output": "D:\\.codex\\worktrees\\market-performance-complete\\\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf\\.runtime\\market-performance-94c102fb002c", "stage": "experiment"}
+{"case": "system-kpis", "p50": {"baseline": 81.17079999647103, "candidate": 79.78210000146646}, "p95": {"baseline": 90.5227999901399, "candidate": 87.32810000947211}, "equal": true}
+{"case": "annotation-candidates", "p50": {"baseline": 67.30290000268724, "candidate": 68.18509999720845}, "p95": {"baseline": 94.04619999986608, "candidate": 74.86030001018662}, "equal": true}
+{"case": "annotation-workspace", "p50": {"baseline": 207.01800000097137, "candidate": 210.84919999702834}, "p95": {"baseline": 233.98910000105388, "candidate": 230.66989998915233}, "equal": true}
+{"case": "annotation-review", "p50": {"baseline": 10.226300000795163, "candidate": 10.537299996940419}, "p95": {"baseline": 10.844299991731532, "candidate": 12.677799997618422}, "equal": true}
+{"case": "database-filters", "p50": {"baseline": 191.4978999993764, "candidate": 185.15360000310466}, "p95": {"baseline": 199.751499996637, "candidate": 199.6460000082152}, "equal": true}
+{"output": "D:\\.codex\\worktrees\\market-performance-complete\\\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf\\.runtime\\market-performance-94c102fb002c", "stopped": true}

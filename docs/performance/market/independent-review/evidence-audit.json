@@ -1,0 +1,1323 @@
+{
+  "reports": [
+    {
+      "name": "core-reading-stage1",
+      "complete": false,
+      "mode": null,
+      "concurrency": 1,
+      "samplesPerVersion": 10,
+      "conditions": "Application-cold then repeated, shared OS/PG buffers; CPU/memory recorded; synthetic consumer excludes network",
+      "rows": 350000,
+      "priceSnapshots": 25200,
+      "imageRows": 70000,
+      "masterIdentities": 2800,
+      "allDeclaredSourcesMatchCurrent": true,
+      "sources": {
+        "backend\\market\\query.py": {
+          "declared": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec",
+          "actual": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec"
+        },
+        "backend\\market\\admin.py": {
+          "declared": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92",
+          "actual": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92"
+        }
+      },
+      "failures": [
+        {
+          "case": "ranking-unconfirmed",
+          "version": "candidate",
+          "sample": 3,
+          "errorType": "OperationalError"
+        },
+        {
+          "case": "ranking-unconfirmed",
+          "version": "baseline",
+          "sample": 3,
+          "errorType": "OperationalError"
+        }
+      ],
+      "cases": [
+        {
+          "case": "filters",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 3.235800002585165,
+            "candidate": 3.1484999926760793
+          },
+          "p95": {
+            "baseline": 536.8918999884045,
+            "candidate": 299.69149999669753
+          },
+          "cpuAcrossCasePercent": 63.33333333333333,
+          "initialAvailableGiB": 3.7321853637695312,
+          "finalAvailableGiB": 3.8290481567382812,
+          "queryCounts": {
+            "baseline": 22,
+            "candidate": 22
+          }
+        },
+        {
+          "case": "ranking-7d",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 603.8974999974016,
+            "candidate": 235.1582999981474
+          },
+          "p95": {
+            "baseline": 4111.181000000215,
+            "candidate": 655.7974000024842
+          },
+          "cpuAcrossCasePercent": 36.8607099879663,
+          "initialAvailableGiB": 5.003547668457031,
+          "finalAvailableGiB": 4.313808441162109,
+          "queryCounts": {
+            "baseline": 12,
+            "candidate": 14
+          }
+        },
+        {
+          "case": "ranking-all",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 4833.662999997614,
+            "candidate": 4412.3924000014085
+          },
+          "p95": {
+            "baseline": 6494.049700006144,
+            "candidate": 4823.601399999461
+          },
+          "cpuAcrossCasePercent": 40.354241877256314,
+          "initialAvailableGiB": 4.249568939208984,
+          "finalAvailableGiB": 3.0413246154785156,
+          "queryCounts": {
+            "baseline": 12,
+            "candidate": 12
+          }
+        },
+        {
+          "case": "ranking-page2",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 5146.528699988266,
+            "candidate": 4757.889600005001
+          },
+          "p95": {
+            "baseline": 6914.48949999176,
+            "candidate": 5213.600999995833
+          },
+          "cpuAcrossCasePercent": 52.311219238326935,
+          "initialAvailableGiB": 2.934032440185547,
+          "finalAvailableGiB": 3.6253280639648438,
+          "queryCounts": {
+            "baseline": 12,
+            "candidate": 12
+          }
+        },
+        {
+          "case": "ranking-unconfirmed",
+          "equal": false,
+          "sampleCounts": {
+            "baseline": 4,
+            "candidate": 4
+          },
+          "p50": {
+            "baseline": 6526.693899999373,
+            "candidate": 6094.090099999448
+          },
+          "p95": {
+            "baseline": 7339.822899986757,
+            "candidate": 7021.655699994881
+          },
+          "cpuAcrossCasePercent": 78.20570570570571,
+          "initialAvailableGiB": 3.422557830810547,
+          "finalAvailableGiB": 0.7896842956542969,
+          "queryCounts": {
+            "baseline": 12,
+            "candidate": 12
+          }
+        },
+        {
+          "case": "report-7d",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 1918.1715000013355,
+            "candidate": 1544.910799988429
+          },
+          "p95": {
+            "baseline": 4942.621499998495,
+            "candidate": 2034.342299986747
+          },
+          "cpuAcrossCasePercent": 28.161734900689094,
+          "initialAvailableGiB": 3.786083221435547,
+          "finalAvailableGiB": 3.863903045654297,
+          "queryCounts": {
+            "baseline": 12,
+            "candidate": 14
+          }
+        },
+        {
+          "case": "report-category",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 8455.614400008926,
+            "candidate": 7564.847700006794
+          },
+          "p95": {
+            "baseline": 12683.37879999308,
+            "candidate": 16265.98529999319
+          },
+          "cpuAcrossCasePercent": 53.13067824110804,
+          "initialAvailableGiB": 3.8505401611328125,
+          "finalAvailableGiB": 2.1472434997558594,
+          "queryCounts": {
+            "baseline": 12,
+            "candidate": 12
+          }
+        },
+        {
+          "case": "trend",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 12.340300003415905,
+            "candidate": 9.32890000694897
+          },
+          "p95": {
+            "baseline": 23.737500014249235,
+            "candidate": 14.175399992382154
+          },
+          "cpuAcrossCasePercent": 30.12820512820513,
+          "initialAvailableGiB": 3.2760658264160156,
+          "finalAvailableGiB": 3.215564727783203,
+          "queryCounts": {
+            "baseline": 4,
+            "candidate": 5
+          }
+        },
+        {
+          "case": "compare",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 33.89979999337811,
+            "candidate": 23.163700010627508
+          },
+          "p95": {
+            "baseline": 47.51699999906123,
+            "candidate": 38.630600000033155
+          },
+          "cpuAcrossCasePercent": 42.78565471226021,
+          "initialAvailableGiB": 3.1842384338378906,
+          "finalAvailableGiB": 3.068511962890625,
+          "queryCounts": {
+            "baseline": 12,
+            "candidate": 14
+          }
+        },
+        {
+          "case": "settings-status",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 33.52860000450164,
+            "candidate": 9.466000003158115
+          },
+          "p95": {
+            "baseline": 40.009799995459616,
+            "candidate": 10.703099993406795
+          },
+          "cpuAcrossCasePercent": 33.744855967078195,
+          "initialAvailableGiB": 3.0894317626953125,
+          "finalAvailableGiB": 3.0646438598632812,
+          "queryCounts": {
+            "baseline": 5,
+            "candidate": 5
+          }
+        }
+      ],
+      "analyzePlanCount": 0,
+      "actualPlans": []
+    },
+    {
+      "name": "settings-final",
+      "complete": true,
+      "mode": "remaining-reads",
+      "concurrency": 1,
+      "samplesPerVersion": 10,
+      "conditions": "Filter cache cleared at case sample0; image scalar empty at first ranking then shared across scopes; shared OS/PG buffers; synthetic consumer excludes network",
+      "rows": 350000,
+      "priceSnapshots": 25200,
+      "imageRows": 70000,
+      "masterIdentities": 2800,
+      "allDeclaredSourcesMatchCurrent": true,
+      "sources": {
+        "backend\\market\\query.py": {
+          "declared": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec",
+          "actual": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec"
+        },
+        "backend\\market\\admin.py": {
+          "declared": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92",
+          "actual": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92"
+        },
+        "backend\\market\\master_query.py": {
+          "declared": "4f9319396ac031a970a397a1f8bcad792ca43ce917cb3b5b3d59f27823d4db5e",
+          "actual": "4f9319396ac031a970a397a1f8bcad792ca43ce917cb3b5b3d59f27823d4db5e"
+        }
+      },
+      "failures": [],
+      "cases": [
+        {
+          "case": "database-primary",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 44.480600001406856,
+            "candidate": 35.497200005920604
+          },
+          "p95": {
+            "baseline": 88.2082000025548,
+            "candidate": 39.557399999466725
+          },
+          "cpuAcrossCasePercent": 30.603448275862068,
+          "initialAvailableGiB": 3.688129425048828,
+          "finalAvailableGiB": 3.592418670654297,
+          "queryCounts": {
+            "baseline": 11,
+            "candidate": 10
+          }
+        },
+        {
+          "case": "database-secondary",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 3693.4501999930944,
+            "candidate": 1861.3060000061523
+          },
+          "p95": {
+            "baseline": 3960.023799998453,
+            "candidate": 2332.034699997166
+          },
+          "cpuAcrossCasePercent": 32.76990185387132,
+          "initialAvailableGiB": 3.592418670654297,
+          "finalAvailableGiB": 5.159603118896484,
+          "queryCounts": {
+            "baseline": 14,
+            "candidate": 13
+          }
+        },
+        {
+          "case": "workspace-subcategory",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 584.5895000093151,
+            "candidate": 272.61810000345577
+          },
+          "p95": {
+            "baseline": 1157.1838000090793,
+            "candidate": 282.3685000039404
+          },
+          "cpuAcrossCasePercent": 21.251760917689676,
+          "initialAvailableGiB": 5.159580230712891,
+          "finalAvailableGiB": 4.997871398925781,
+          "queryCounts": {
+            "baseline": 26,
+            "candidate": 25
+          }
+        },
+        {
+          "case": "workspace-brand",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 777.1159000112675,
+            "candidate": 416.88750000321306
+          },
+          "p95": {
+            "baseline": 1073.684199989657,
+            "candidate": 554.3710000056308
+          },
+          "cpuAcrossCasePercent": 38.551540284360186,
+          "initialAvailableGiB": 4.997802734375,
+          "finalAvailableGiB": 4.9299774169921875,
+          "queryCounts": {
+            "baseline": 216,
+            "candidate": 214
+          }
+        },
+        {
+          "case": "workspace-mapping",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 559.930000003078,
+            "candidate": 239.75310000241734
+          },
+          "p95": {
+            "baseline": 590.1118000037968,
+            "candidate": 259.04249999439344
+          },
+          "cpuAcrossCasePercent": 22.317351598173516,
+          "initialAvailableGiB": 4.927989959716797,
+          "finalAvailableGiB": 4.791637420654297,
+          "queryCounts": {
+            "baseline": 26,
+            "candidate": 25
+          }
+        },
+        {
+          "case": "workspace-data",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 596.5211000002455,
+            "candidate": 556.2031000008574
+          },
+          "p95": {
+            "baseline": 682.9975000000559,
+            "candidate": 618.539500006591
+          },
+          "cpuAcrossCasePercent": 34.48607108549472,
+          "initialAvailableGiB": 4.791770935058594,
+          "finalAvailableGiB": 4.4485321044921875,
+          "queryCounts": {
+            "baseline": 27,
+            "candidate": 27
+          }
+        }
+      ],
+      "analyzePlanCount": 0,
+      "actualPlans": []
+    },
+    {
+      "name": "actual-plans",
+      "complete": true,
+      "mode": "actual-plans",
+      "concurrency": 1,
+      "samplesPerVersion": 1,
+      "conditions": "Filter cache cleared at case sample0; image scalar empty at first ranking then shared across scopes; shared OS/PG buffers; synthetic consumer excludes network",
+      "rows": 350000,
+      "priceSnapshots": 25200,
+      "imageRows": 70000,
+      "masterIdentities": 2800,
+      "allDeclaredSourcesMatchCurrent": true,
+      "sources": {
+        "backend\\market\\query.py": {
+          "declared": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec",
+          "actual": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec"
+        },
+        "backend\\market\\admin.py": {
+          "declared": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92",
+          "actual": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92"
+        },
+        "backend\\market\\master_query.py": {
+          "declared": "4f9319396ac031a970a397a1f8bcad792ca43ce917cb3b5b3d59f27823d4db5e",
+          "actual": "4f9319396ac031a970a397a1f8bcad792ca43ce917cb3b5b3d59f27823d4db5e"
+        }
+      },
+      "failures": [],
+      "cases": [
+        {
+          "case": "ranking-7d",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 1,
+            "candidate": 1
+          },
+          "p50": {
+            "baseline": 701.2197000003653,
+            "candidate": 591.4854000002379
+          },
+          "p95": {
+            "baseline": 701.2197000003653,
+            "candidate": 591.4854000002379
+          },
+          "cpuAcrossCasePercent": 22.880061115355232,
+          "initialAvailableGiB": 3.9971885681152344,
+          "finalAvailableGiB": 4.049236297607422,
+          "queryCounts": {
+            "baseline": 12,
+            "candidate": 14
+          }
+        },
+        {
+          "case": "ranking-all",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 1,
+            "candidate": 1
+          },
+          "p50": {
+            "baseline": 5430.179300004966,
+            "candidate": 4537.066100005177
+          },
+          "p95": {
+            "baseline": 5430.179300004966,
+            "candidate": 4537.066100005177
+          },
+          "cpuAcrossCasePercent": 44.512081784386616,
+          "initialAvailableGiB": 4.045780181884766,
+          "finalAvailableGiB": 4.480907440185547,
+          "queryCounts": {
+            "baseline": 12,
+            "candidate": 12
+          }
+        },
+        {
+          "case": "report-7d",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 1,
+            "candidate": 1
+          },
+          "p50": {
+            "baseline": 2247.7029000001494,
+            "candidate": 2017.340599995805
+          },
+          "p95": {
+            "baseline": 2247.7029000001494,
+            "candidate": 2017.340599995805
+          },
+          "cpuAcrossCasePercent": 51.023391812865505,
+          "initialAvailableGiB": 4.477603912353516,
+          "finalAvailableGiB": 4.404056549072266,
+          "queryCounts": {
+            "baseline": 12,
+            "candidate": 12
+          }
+        },
+        {
+          "case": "trend",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 1,
+            "candidate": 1
+          },
+          "p50": {
+            "baseline": 20.312399996328168,
+            "candidate": 12.736999997287057
+          },
+          "p95": {
+            "baseline": 20.312399996328168,
+            "candidate": 12.736999997287057
+          },
+          "cpuAcrossCasePercent": 75.0,
+          "initialAvailableGiB": 4.412712097167969,
+          "finalAvailableGiB": 4.404441833496094,
+          "queryCounts": {
+            "baseline": 4,
+            "candidate": 5
+          }
+        },
+        {
+          "case": "settings-status",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 1,
+            "candidate": 1
+          },
+          "p50": {
+            "baseline": 50.58309999003541,
+            "candidate": 21.211700004641898
+          },
+          "p95": {
+            "baseline": 50.58309999003541,
+            "candidate": 21.211700004641898
+          },
+          "cpuAcrossCasePercent": 80.0,
+          "initialAvailableGiB": 4.396686553955078,
+          "finalAvailableGiB": 4.402824401855469,
+          "queryCounts": {
+            "baseline": 5,
+            "candidate": 5
+          }
+        },
+        {
+          "case": "database-primary",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 1,
+            "candidate": 1
+          },
+          "p50": {
+            "baseline": 107.59020000114106,
+            "candidate": 56.20499998622108
+          },
+          "p95": {
+            "baseline": 107.59020000114106,
+            "candidate": 56.20499998622108
+          },
+          "cpuAcrossCasePercent": 83.08823529411764,
+          "initialAvailableGiB": 4.395778656005859,
+          "finalAvailableGiB": 4.394229888916016,
+          "queryCounts": {
+            "baseline": 11,
+            "candidate": 10
+          }
+        },
+        {
+          "case": "database-secondary",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 1,
+            "candidate": 1
+          },
+          "p50": {
+            "baseline": 4215.309699997306,
+            "candidate": 1710.7675999868661
+          },
+          "p95": {
+            "baseline": 4215.309699997306,
+            "candidate": 1710.7675999868661
+          },
+          "cpuAcrossCasePercent": 31.729587357330992,
+          "initialAvailableGiB": 4.384746551513672,
+          "finalAvailableGiB": 4.405788421630859,
+          "queryCounts": {
+            "baseline": 14,
+            "candidate": 13
+          }
+        },
+        {
+          "case": "workspace-mapping",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 1,
+            "candidate": 1
+          },
+          "p50": {
+            "baseline": 611.5738000080455,
+            "candidate": 245.50980000640266
+          },
+          "p95": {
+            "baseline": 611.5738000080455,
+            "candidate": 245.50980000640266
+          },
+          "cpuAcrossCasePercent": 24.73537604456825,
+          "initialAvailableGiB": 4.406974792480469,
+          "finalAvailableGiB": 4.459148406982422,
+          "queryCounts": {
+            "baseline": 26,
+            "candidate": 25
+          }
+        }
+      ],
+      "analyzePlanCount": 64,
+      "actualPlans": [
+        {
+          "key": "ranking-7d:baseline",
+          "executionMs": 187.331,
+          "actualRows": 22,
+          "sharedHits": 13223,
+          "sharedReads": 3110,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-7d:baseline",
+          "executionMs": 0.147,
+          "actualRows": 20,
+          "sharedHits": 52,
+          "sharedReads": 16,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-7d:baseline",
+          "executionMs": 0.292,
+          "actualRows": 20,
+          "sharedHits": 39,
+          "sharedReads": 41,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-7d:baseline",
+          "executionMs": 14.456,
+          "actualRows": 4,
+          "sharedHits": 20,
+          "sharedReads": 1087,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-7d:baseline",
+          "executionMs": 366.774,
+          "actualRows": 1,
+          "sharedHits": 2451,
+          "sharedReads": 85050,
+          "tempWritten": 54
+        },
+        {
+          "key": "ranking-7d:baseline",
+          "executionMs": 26.006,
+          "actualRows": 1,
+          "sharedHits": 1,
+          "sharedReads": 3416,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-7d:candidate",
+          "executionMs": 184.796,
+          "actualRows": 22,
+          "sharedHits": 13223,
+          "sharedReads": 3110,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-7d:candidate",
+          "executionMs": 0.12,
+          "actualRows": 20,
+          "sharedHits": 52,
+          "sharedReads": 16,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-7d:candidate",
+          "executionMs": 0.206,
+          "actualRows": 20,
+          "sharedHits": 39,
+          "sharedReads": 41,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-7d:candidate",
+          "executionMs": 13.404,
+          "actualRows": 4,
+          "sharedHits": 20,
+          "sharedReads": 1087,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-7d:candidate",
+          "executionMs": 366.701,
+          "actualRows": 1,
+          "sharedHits": 2451,
+          "sharedReads": 85050,
+          "tempWritten": 54
+        },
+        {
+          "key": "ranking-7d:candidate",
+          "executionMs": 27.064,
+          "actualRows": 1,
+          "sharedHits": 1,
+          "sharedReads": 3416,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-all:baseline",
+          "executionMs": 4992.977,
+          "actualRows": 22,
+          "sharedHits": 470561,
+          "sharedReads": 87370,
+          "tempWritten": 32793
+        },
+        {
+          "key": "ranking-all:baseline",
+          "executionMs": 0.098,
+          "actualRows": 20,
+          "sharedHits": 80,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-all:baseline",
+          "executionMs": 0.125,
+          "actualRows": 20,
+          "sharedHits": 80,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-all:baseline",
+          "executionMs": 26.883,
+          "actualRows": 4,
+          "sharedHits": 52,
+          "sharedReads": 1055,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-all:baseline",
+          "executionMs": 408.248,
+          "actualRows": 1,
+          "sharedHits": 163,
+          "sharedReads": 87338,
+          "tempWritten": 54
+        },
+        {
+          "key": "ranking-all:baseline",
+          "executionMs": 0.06,
+          "actualRows": 1,
+          "sharedHits": 9,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-all:candidate",
+          "executionMs": 5531.034,
+          "actualRows": 22,
+          "sharedHits": 470657,
+          "sharedReads": 87274,
+          "tempWritten": 32793
+        },
+        {
+          "key": "ranking-all:candidate",
+          "executionMs": 0.1,
+          "actualRows": 20,
+          "sharedHits": 80,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-all:candidate",
+          "executionMs": 0.081,
+          "actualRows": 20,
+          "sharedHits": 80,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-all:candidate",
+          "executionMs": 17.039,
+          "actualRows": 4,
+          "sharedHits": 116,
+          "sharedReads": 991,
+          "tempWritten": 0
+        },
+        {
+          "key": "ranking-all:candidate",
+          "executionMs": 0.058,
+          "actualRows": 1,
+          "sharedHits": 9,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "report-7d:baseline",
+          "executionMs": 0.918,
+          "actualRows": 1,
+          "sharedHits": 66,
+          "sharedReads": 13,
+          "tempWritten": 0
+        },
+        {
+          "key": "report-7d:baseline",
+          "executionMs": 467.974,
+          "actualRows": 9800,
+          "sharedHits": 0,
+          "sharedReads": 88460,
+          "tempWritten": 0
+        },
+        {
+          "key": "report-7d:baseline",
+          "executionMs": 0.253,
+          "actualRows": 20,
+          "sharedHits": 36,
+          "sharedReads": 44,
+          "tempWritten": 0
+        },
+        {
+          "key": "report-7d:baseline",
+          "executionMs": 14.49,
+          "actualRows": 4,
+          "sharedHits": 20,
+          "sharedReads": 1087,
+          "tempWritten": 0
+        },
+        {
+          "key": "report-7d:baseline",
+          "executionMs": 412.136,
+          "actualRows": 1,
+          "sharedHits": 3945,
+          "sharedReads": 83556,
+          "tempWritten": 54
+        },
+        {
+          "key": "report-7d:baseline",
+          "executionMs": 27.436,
+          "actualRows": 1,
+          "sharedHits": 1,
+          "sharedReads": 3416,
+          "tempWritten": 0
+        },
+        {
+          "key": "report-7d:candidate",
+          "executionMs": 0.95,
+          "actualRows": 1,
+          "sharedHits": 66,
+          "sharedReads": 13,
+          "tempWritten": 0
+        },
+        {
+          "key": "report-7d:candidate",
+          "executionMs": 30.563,
+          "actualRows": 9800,
+          "sharedHits": 78,
+          "sharedReads": 2451,
+          "tempWritten": 0
+        },
+        {
+          "key": "report-7d:candidate",
+          "executionMs": 0.445,
+          "actualRows": 20,
+          "sharedHits": 39,
+          "sharedReads": 41,
+          "tempWritten": 0
+        },
+        {
+          "key": "report-7d:candidate",
+          "executionMs": 23.564,
+          "actualRows": 4,
+          "sharedHits": 20,
+          "sharedReads": 1087,
+          "tempWritten": 0
+        },
+        {
+          "key": "report-7d:candidate",
+          "executionMs": 37.334,
+          "actualRows": 1,
+          "sharedHits": 67,
+          "sharedReads": 3350,
+          "tempWritten": 0
+        },
+        {
+          "key": "trend:baseline",
+          "executionMs": 0.399,
+          "actualRows": 222,
+          "sharedHits": 227,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "trend:candidate",
+          "executionMs": 0.261,
+          "actualRows": 1,
+          "sharedHits": 9,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "trend:candidate",
+          "executionMs": 0.243,
+          "actualRows": 60,
+          "sharedHits": 64,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "settings-status:baseline",
+          "executionMs": 0.054,
+          "actualRows": 1,
+          "sharedHits": 9,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "settings-status:baseline",
+          "executionMs": 12.88,
+          "actualRows": 70000,
+          "sharedHits": 84,
+          "sharedReads": 1023,
+          "tempWritten": 0
+        },
+        {
+          "key": "settings-status:candidate",
+          "executionMs": 0.043,
+          "actualRows": 1,
+          "sharedHits": 9,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "settings-status:candidate",
+          "executionMs": 22.024,
+          "actualRows": 4,
+          "sharedHits": 148,
+          "sharedReads": 959,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-primary:baseline",
+          "executionMs": 12.781,
+          "actualRows": 1,
+          "sharedHits": 11229,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-primary:baseline",
+          "executionMs": 14.821,
+          "actualRows": 30,
+          "sharedHits": 11229,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-primary:baseline",
+          "executionMs": 0.118,
+          "actualRows": 30,
+          "sharedHits": 36,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-primary:baseline",
+          "executionMs": 0.075,
+          "actualRows": 30,
+          "sharedHits": 18,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-primary:candidate",
+          "executionMs": 19.283,
+          "actualRows": 30,
+          "sharedHits": 11229,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-primary:candidate",
+          "executionMs": 0.113,
+          "actualRows": 30,
+          "sharedHits": 36,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-primary:candidate",
+          "executionMs": 0.078,
+          "actualRows": 30,
+          "sharedHits": 18,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-secondary:baseline",
+          "executionMs": 1736.003,
+          "actualRows": 1,
+          "sharedHits": 2709,
+          "sharedReads": 85438,
+          "tempWritten": 3532
+        },
+        {
+          "key": "database-secondary:baseline",
+          "executionMs": 1686.474,
+          "actualRows": 30,
+          "sharedHits": 2741,
+          "sharedReads": 85406,
+          "tempWritten": 3532
+        },
+        {
+          "key": "database-secondary:baseline",
+          "executionMs": 0.074,
+          "actualRows": 30,
+          "sharedHits": 33,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-secondary:baseline",
+          "executionMs": 0.047,
+          "actualRows": 30,
+          "sharedHits": 15,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-secondary:baseline",
+          "executionMs": 6.89,
+          "actualRows": 70000,
+          "sharedHits": 222,
+          "sharedReads": 885,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-secondary:candidate",
+          "executionMs": 1700.407,
+          "actualRows": 30,
+          "sharedHits": 2805,
+          "sharedReads": 85342,
+          "tempWritten": 4474
+        },
+        {
+          "key": "database-secondary:candidate",
+          "executionMs": 0.081,
+          "actualRows": 30,
+          "sharedHits": 33,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-secondary:candidate",
+          "executionMs": 0.059,
+          "actualRows": 30,
+          "sharedHits": 15,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "database-secondary:candidate",
+          "executionMs": 7.906,
+          "actualRows": 4,
+          "sharedHits": 121,
+          "sharedReads": 0,
+          "tempWritten": 0
+        },
+        {
+          "key": "workspace-mapping:baseline",
+          "executionMs": 198.348,
+          "actualRows": 7,
+          "sharedHits": 8401,
+          "sharedReads": 4655,
+          "tempWritten": 0
+        },
+        {
+          "key": "workspace-mapping:baseline",
+          "executionMs": 329.973,
+          "actualRows": 14,
+          "sharedHits": 8401,
+          "sharedReads": 4655,
+          "tempWritten": 0
+        },
+        {
+          "key": "workspace-mapping:baseline",
+          "executionMs": 5.741,
+          "actualRows": 70000,
+          "sharedHits": 0,
+          "sharedReads": 121,
+          "tempWritten": 0
+        },
+        {
+          "key": "workspace-mapping:baseline",
+          "executionMs": 46.458,
+          "actualRows": 7,
+          "sharedHits": 22,
+          "sharedReads": 540,
+          "tempWritten": 0
+        },
+        {
+          "key": "workspace-mapping:candidate",
+          "executionMs": 203.28,
+          "actualRows": 7,
+          "sharedHits": 8401,
+          "sharedReads": 4655,
+          "tempWritten": 0
+        },
+        {
+          "key": "workspace-mapping:candidate",
+          "executionMs": 8.537,
+          "actualRows": 4,
+          "sharedHits": 0,
+          "sharedReads": 121,
+          "tempWritten": 0
+        },
+        {
+          "key": "workspace-mapping:candidate",
+          "executionMs": 44.998,
+          "actualRows": 7,
+          "sharedHits": 22,
+          "sharedReads": 540,
+          "tempWritten": 0
+        }
+      ]
+    },
+    {
+      "name": "extra-reads",
+      "complete": true,
+      "mode": "extra-reads",
+      "concurrency": 1,
+      "samplesPerVersion": 10,
+      "conditions": "Filter cache cleared at case sample0; image scalar empty at first ranking then shared across scopes; shared OS/PG buffers; synthetic consumer excludes network",
+      "rows": 350000,
+      "priceSnapshots": 25200,
+      "imageRows": 70000,
+      "masterIdentities": 2800,
+      "allDeclaredSourcesMatchCurrent": true,
+      "sources": {
+        "backend\\market\\query.py": {
+          "declared": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec",
+          "actual": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec"
+        },
+        "backend\\market\\admin.py": {
+          "declared": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92",
+          "actual": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92"
+        },
+        "backend\\market\\master_query.py": {
+          "declared": "4f9319396ac031a970a397a1f8bcad792ca43ce917cb3b5b3d59f27823d4db5e",
+          "actual": "4f9319396ac031a970a397a1f8bcad792ca43ce917cb3b5b3d59f27823d4db5e"
+        }
+      },
+      "failures": [],
+      "cases": [
+        {
+          "case": "system-kpis",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 81.17079999647103,
+            "candidate": 79.78210000146646
+          },
+          "p95": {
+            "baseline": 90.5227999901399,
+            "candidate": 87.32810000947211
+          },
+          "cpuAcrossCasePercent": 23.43324250681199,
+          "initialAvailableGiB": 4.448486328125,
+          "finalAvailableGiB": 4.407444000244141,
+          "queryCounts": {
+            "baseline": 3,
+            "candidate": 3
+          }
+        },
+        {
+          "case": "annotation-candidates",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 67.30290000268724,
+            "candidate": 68.18509999720845
+          },
+          "p95": {
+            "baseline": 94.04619999986608,
+            "candidate": 74.86030001018662
+          },
+          "cpuAcrossCasePercent": 39.0495867768595,
+          "initialAvailableGiB": 4.407444000244141,
+          "finalAvailableGiB": 4.270114898681641,
+          "queryCounts": {
+            "baseline": 4,
+            "candidate": 4
+          }
+        },
+        {
+          "case": "annotation-workspace",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 207.01800000097137,
+            "candidate": 210.84919999702834
+          },
+          "p95": {
+            "baseline": 233.98910000105388,
+            "candidate": 230.66989998915233
+          },
+          "cpuAcrossCasePercent": 32.51241721854304,
+          "initialAvailableGiB": 4.269863128662109,
+          "finalAvailableGiB": 4.085475921630859,
+          "queryCounts": {
+            "baseline": 12,
+            "candidate": 12
+          }
+        },
+        {
+          "case": "annotation-review",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 10.226300000795163,
+            "candidate": 10.537299996940419
+          },
+          "p95": {
+            "baseline": 10.844299991731532,
+            "candidate": 12.677799997618422
+          },
+          "cpuAcrossCasePercent": 17.934782608695656,
+          "initialAvailableGiB": 4.085472106933594,
+          "finalAvailableGiB": 4.187721252441406,
+          "queryCounts": {
+            "baseline": 2,
+            "candidate": 2
+          }
+        },
+        {
+          "case": "database-filters",
+          "equal": true,
+          "sampleCounts": {
+            "baseline": 10,
+            "candidate": 10
+          },
+          "p50": {
+            "baseline": 191.4978999993764,
+            "candidate": 185.15360000310466
+          },
+          "p95": {
+            "baseline": 199.751499996637,
+            "candidate": 199.6460000082152
+          },
+          "cpuAcrossCasePercent": 29.731574158325746,
+          "initialAvailableGiB": 4.187721252441406,
+          "finalAvailableGiB": 4.068347930908203,
+          "queryCounts": {
+            "baseline": 4,
+            "candidate": 4
+          }
+        }
+      ],
+      "analyzePlanCount": 0,
+      "actualPlans": []
+    }
+  ],
+  "productionTouched": false,
+  "audit": "Author-generated artifacts independently inspected; no rerun or production/HTTP claim"
+}

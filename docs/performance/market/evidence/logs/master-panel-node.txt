@@ -1,0 +1,17 @@
+✔ market ranking keeps master administration behind a direct lazy boundary (8.4656ms)
+﹣ fresh production artifacts keep market administration out of the page entry budget (1.4835ms) # production client artifacts predate the chunk boundary sources
+✔ market master database first paint excludes deferred price, image, prompt, and model work (13.6366ms)
+✔ market master filter aggregates start only after the paginated first paint and remain cancellable (3.6898ms)
+✔ deferred database details are explicit, cancellable, generation-fenced, and models load once (1.9277ms)
+✔ parallel market master channels cannot clear each other's errors or expose stale secondary rows (1.0607ms)
+✔ market settings loads a lightweight truthful status instead of reusing ranking overview (1.9156ms)
+✔ market master view projection preserves the legacy default but rejects duplicates and unknown values (0.5877ms)
+✔ market master pagination applies the unique id tie-breaker inside and outside both query paths (1.2538ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 398.5486

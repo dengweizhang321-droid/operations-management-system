@@ -1,0 +1,152 @@
+Creating test database for alias 'default' ('test_market_performance_regression')...
+Found 1 test(s).
+Operations to perform:
+  Apply all migrations: access_control, ai_assistant, bi, contenttypes, customer_service, erp_reference, finance, inventory, market, netshop, products, sales, workflow
+Running migrations:
+  Applying access_control.0001_initial... OK
+  Applying netshop.0001_initial... OK
+  Applying netshop.0002_migration_run_time_order... OK
+  Applying netshop.0003_netshop_source_revision_guard... OK
+  Applying finance.0001_initial... OK
+  Applying finance.0002_finance_target_gross_margin... OK
+  Applying finance.0003_finance_source_revision_guard... OK
+  Applying finance.0004_finance_revision_monotonic... OK
+  Applying ai_assistant.0001_initial... OK
+  Applying ai_assistant.0002_seed_authority... OK
+  Applying ai_assistant.0003_runtime_fencing... OK
+  Applying ai_assistant.0004_terminal_control_guards... OK
+  Applying ai_assistant.0005_postgres_image_payload... OK
+  Applying ai_assistant.0006_conversation_workspaces... OK
+  Applying ai_assistant.0007_dingtalk_readonly... OK
+  Applying ai_assistant.0008_dingtalk_settings... OK
+  Applying ai_assistant.0009_model_generation_capabilities... OK
+  Applying ai_assistant.0010_dingtalk_schedules... OK
+  Applying ai_assistant.0011_prompt_settings... OK
+  Applying ai_assistant.0012_report_library... OK
+  Applying ai_assistant.0013_dingtalk_schedule_media... OK
+  Applying ai_assistant.0014_business_evidence... OK
+  Applying ai_assistant.0015_business_collection... OK
+  Applying ai_assistant.0016_business_files... OK
+  Applying ai_assistant.0017_business_file_renderer... OK
+  Applying ai_assistant.0018_business_excel_renderer... OK
+  Applying ai_assistant.0019_business_source_directory... OK
+  Applying ai_assistant.0020_business_volume_files... OK
+  Applying ai_assistant.0021_business_budget_plans... OK
+  Applying ai_assistant.0022_business_integrated_reports... OK
+  Applying ai_assistant.0023_business_screening_storage... OK
+  Applying ai_assistant.0024_business_screening_runtime... OK
+  Applying ai_assistant.0025_business_file_opc... OK
+  Applying ai_assistant.0026_business_promotion_profile... OK
+  Applying ai_assistant.0027_business_promotion_file_guard... OK
+  Applying ai_assistant.0028_business_finance_v3_gate... OK
+  Applying ai_assistant.0029_business_promotion_file_ready... OK
+  Applying ai_assistant.0030_business_finance_source_pages... OK
+  Applying ai_assistant.0031_business_daily_v3_source_pages... OK
+  Applying ai_assistant.0032_business_source_tool_receipts... OK
+  Applying ai_assistant.0033_business_v3_parent_seal... OK
+  Applying ai_assistant.0034_business_v3_report_intent... OK
+  Applying ai_assistant.0035_business_v4_ledger... OK
+  Applying ai_assistant.0036_business_v4_validation_segments... OK
+  Applying ai_assistant.0037_business_v4_seal_admission_read... OK
+  Applying ai_assistant.0038_business_v4_seal_writer_gate... OK
+  Applying ai_assistant.0039_business_v4_sealer_ledger_read... OK
+  Applying ai_assistant.0040_business_v4_sealer_narrow_stream... OK
+  Applying ai_assistant.0041_business_v4_seal_ticket... OK
+  Applying ai_assistant.0042_business_v4_claimed_read... OK
+  Applying ai_assistant.0043_business_v4_seal_consumption_candidate... OK
+  Applying ai_assistant.0044_business_market_v2_profile... OK
+  Applying ai_assistant.0045_business_market_v2_material_attestation... OK
+  Applying ai_assistant.0046_business_promotion_trial_file_guard... OK
+  Applying ai_assistant.0047_business_v4_sealer_replay_progress... OK
+  Applying ai_assistant.0048_business_v4_finance_replay_progress... OK
+  Applying ai_assistant.0049_business_v4_sealer_source_bridge... OK
+  Applying ai_assistant.0050_business_v4_replay_read_cast... OK
+  Applying ai_assistant.0051_business_v4_prior_claim_column... OK
+  Applying ai_assistant.0052_business_v4_commit_consumption... OK
+  Applying ai_assistant.0053_business_market_v2_admitted_paused... OK
+  Applying ai_assistant.0054_business_promotion_budget_file_staging... OK
+  Applying ai_assistant.0055_business_v4_period_plan_candidate... OK
+  Applying ai_assistant.0056_business_market_v2_material_role_bridge... OK
+  Applying ai_assistant.0057_business_promotion_budget_v10_attestation... OK
+  Applying ai_assistant.0058_business_promotion_budget_v10_publish_gate... OK
+  Applying ai_assistant.0059_business_promotion_budget_v10_reader_fence... OK
+  Applying ai_assistant.0060_business_market_v2_execution_snapshot... OK
+  Applying ai_assistant.0061_business_market_v2_context_proof... OK
+  Applying ai_assistant.0062_business_market_v2_read_receipt_candidate... OK
+  Applying ai_assistant.0063_business_market_v2_execution_plan... OK
+  Applying ai_assistant.0064_business_market_v2_synthetic_vertical... OK
+  Applying ai_assistant.0065_business_market_v2_model_cost_reservation... OK
+  Applying ai_assistant.0066_business_promotion_budget_v11_durable_stage... OK
+  Applying ai_assistant.0067_business_promotion_budget_v11_attestation... OK
+  Applying ai_assistant.0068_business_promotion_budget_v11_verifier_receipt... OK
+  Applying ai_assistant.0069_business_market_v2_paid_round_rehearsal... OK
+  Applying ai_assistant.0070_business_promotion_budget_v11_limited_identity... OK
+  Applying ai_assistant.0071_business_v4_report_source_link... OK
+  Applying ai_assistant.0072_business_market_v2_authority_proposals... OK
+  Applying ai_assistant.0073_business_promotion_budget_v11_login_attestation... OK
+  Applying ai_assistant.0074_business_market_v2_human_cap_approval... OK
+  Applying ai_assistant.0075_business_v4_report_restricted_page... OK
+  Applying ai_assistant.0076_business_promotion_budget_v11_ticket_bound_signer... OK
+  Applying ai_assistant.0077_business_market_v6_paused_topology... OK
+  Applying ai_assistant.0078_business_promotion_budget_v11_signed_publication... OK
+  Applying ai_assistant.0079_business_market_v6_source_ticket... OK
+  Applying ai_assistant.0080_model_tool_budget_300... OK
+  Applying ai_assistant.0081_readiness_catalog_probe... OK
+  Applying ai_assistant.0082_no_new_keys_profile... OK
+  Applying sales.0001_initial... OK
+  Applying sales.0002_sales_migration_approval... OK
+  Applying sales.0003_query_ready_projection... OK
+  Applying sales.0004_projection_sync... OK
+  Applying sales.0005_postgres_write_authority... OK
+  Applying sales.0006_drop_legacy_projection_checkpoint... OK
+  Applying sales.0007_legacy_upload_audit... OK
+  Applying sales.0008_sales_cutover_attestation... OK
+  Applying sales.0009_postgres_raw_upload_payload... OK
+  Applying inventory.0001_initial... OK
+  Applying inventory.0002_seed_control_rows... OK
+  Applying inventory.0003_replenishment_plan_details... OK
+  Applying inventory.0004_replenishment_dingtalk_sync... OK
+  Applying inventory.0005_stock_supplier_warehouse_mapping... OK
+  Applying inventory.0006_replenishment_group_delivery... OK
+  Applying bi.0001_initial... OK
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying customer_service.0001_initial... OK
+  Applying customer_service.0002_seed_control_rows... OK
+  Applying erp_reference.0001_initial... OK
+  Applying erp_reference.0002_erpproductmaster_erpreferenceimportscopehead_and_more... OK
+  Applying finance.0005_raw_column_evidence_v2... OK
+  Applying finance.0006_raw_workbook_bytes_v2... OK
+  Applying inventory.0007_guangdong_monitor... OK
+  Applying inventory.0008_guangdong_item_overrides... OK
+  Applying inventory.0009_guangdong_item_risk_overrides... OK
+  Applying inventory.0010_replenishment_health... OK
+  Applying inventory.0011_inventory_warehouse_mapping_settings... OK
+  Applying market.0001_initial... OK
+  Applying market.0002_seed_control_rows... OK
+  Applying market.0003_remove_marketannotationvalidationsample_mkt_validation_sample_uq_and_more... OK
+  Applying market.0004_projection_sync_fencing... OK
+  Applying market.0005_filter_facet_indexes... OK
+  Applying market.0006_analysis_options... OK
+  Applying netshop.0004_promotion_presence_cache... OK
+  Applying products.0001_initial... OK
+  Applying products.0002_seed_control_rows... OK
+  Applying products.0003_alter_productimportattempt_created_at_and_more... OK
+  Applying sales.0010_analysis_options... OK
+  Applying workflow.0001_initial... OK
+  Applying workflow.0002_seed_control_rows... OK
+  Applying workflow.0003_workflowmigrationrun_and_authority_run... OK
+  Applying workflow.0004_new_product_weekly_followup... OK
+  Applying workflow.0005_product_line_continuous_monitoring... OK
+  Applying workflow.0005_operations_domain... OK
+  Applying workflow.0006_merge_20260904_1700... OK
+  Applying workflow.0007_new_product_line_uploaded_image... OK
+  Applying workflow.0008_new_product_shop_plan...test_master_count_and_page_share_one_scope_and_keep_empty_last_page_clamp (market.tests.test_complete_performance.CompleteMarketReadTests.test_master_count_and_page_share_one_scope_and_keep_empty_last_page_clamp) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.052s
+
+OK
+Destroying test database for alias 'default' ('test_market_performance_regression')...
+ OK
+System check identified no issues (0 silenced).

@@ -1,0 +1,266 @@
+{
+  "checks": [
+    "ranking_initial_and_repeat",
+    "all_11_industry_regions",
+    "real_master_nonempty_cards_table_editor_page",
+    "real_settings_brand",
+    "real_settings_mapping",
+    "real_settings_data",
+    "real_settings_subcategory",
+    "real_master_revisit",
+    "real_annotation_nonempty_list_gallery_pages"
+  ],
+  "failures": [
+    {
+      "name": "real_pending_prices_merged_filter_page_detail",
+      "error": "Expected values to be strictly equal:\n\n30 !== 20\n"
+    },
+    {
+      "name": "real_annotation_prompt_validation_progress_runner",
+      "error": "page.waitForResponse: Timeout 10000ms exceeded while waiting for event \"response\""
+    }
+  ],
+  "errors": [],
+  "requests": [
+    {
+      "url": "/api/auth/me",
+      "method": "GET",
+      "elapsedMs": 17.601200000000063
+    },
+    {
+      "url": "/api/market/overview?view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+      "method": "GET",
+      "elapsedMs": 73.36910000000012
+    },
+    {
+      "url": "/api/market/filters",
+      "method": "GET",
+      "elapsedMs": 78.40789999999993
+    },
+    {
+      "url": "/api/market/filters",
+      "method": "GET",
+      "elapsedMs": 22.39560000000006
+    },
+    {
+      "url": "/api/market/overview?view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+      "method": "GET",
+      "elapsedMs": 58.88539999999989
+    },
+    {
+      "url": "/api/market/filters",
+      "method": "GET",
+      "elapsedMs": 24.52500000000009
+    },
+    {
+      "url": "/api/market/overview?view=full&includeFilterOptions=false&dimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+      "method": "GET",
+      "elapsedMs": 51.18219999999974
+    },
+    {
+      "url": "/api/market/master?view=settings_status",
+      "method": "GET",
+      "elapsedMs": 39.88530000000037
+    },
+    {
+      "url": "/api/market/master?view=system_kpis",
+      "method": "GET",
+      "elapsedMs": 50.38110000000006
+    },
+    {
+      "url": "/api/market/master?view=database_primary&page=1&pageSize=30",
+      "method": "GET",
+      "elapsedMs": 44.08549999999968
+    },
+    {
+      "url": "/api/market/master?view=database_filters",
+      "method": "GET",
+      "elapsedMs": 25.16300000000001
+    },
+    {
+      "url": "/api/market/master?view=database_primary&page=2&pageSize=30",
+      "method": "GET",
+      "elapsedMs": 33.780199999999695
+    },
+    {
+      "url": "/api/market/master?view=database_primary&priceStatus=pending&page=1&pageSize=30",
+      "method": "GET",
+      "elapsedMs": 51.07120000000032
+    },
+    {
+      "url": "/api/market/master?view=database_primary&priceStatus=pending&page=1&pageSize=20",
+      "method": "GET",
+      "elapsedMs": 41.90049999999974
+    },
+    {
+      "url": "/api/market/master?view=database_primary&priceStatus=pending&page=2&pageSize=20",
+      "method": "GET",
+      "elapsedMs": 32.98939999999948
+    },
+    {
+      "url": "/api/ai/models",
+      "method": "GET",
+      "elapsedMs": 23.087499999999636
+    },
+    {
+      "url": "/api/market/master?view=database_secondary&pendingPricePage=1&pendingPricePageSize=20",
+      "method": "GET",
+      "elapsedMs": 43.4341000000004
+    },
+    {
+      "url": "/api/ai/models",
+      "method": "GET",
+      "elapsedMs": 22.896500000000742
+    },
+    {
+      "url": "/api/market/master?view=workspace&section=brand&page=1&pageSize=30",
+      "method": "GET",
+      "elapsedMs": 46.51670000000013
+    },
+    {
+      "url": "/api/market/master?view=workspace&section=mapping&page=1&pageSize=30",
+      "method": "GET",
+      "elapsedMs": 27.22109999999884
+    },
+    {
+      "url": "/api/market/master?view=workspace&section=data&page=1&pageSize=30",
+      "method": "GET",
+      "elapsedMs": 28.54439999999886
+    },
+    {
+      "url": "/api/market/master?view=workspace&section=subcategory&page=1&pageSize=30",
+      "method": "GET",
+      "elapsedMs": 27.148799999999028
+    },
+    {
+      "url": "/api/market/master?view=workspace&section=subcategory&category=%E6%BC%94%E7%A4%BA%E5%87%80%E6%B0%B4%E8%AE%BE%E5%A4%87&page=1&pageSize=30",
+      "method": "GET",
+      "elapsedMs": 28.823199999998906
+    },
+    {
+      "url": "/api/market/master?view=database_primary&page=1&pageSize=30",
+      "method": "GET",
+      "elapsedMs": 50.98939999999857
+    },
+    {
+      "url": "/api/market/annotations?view=workspace_fast&itemPage=1&itemPageSize=20&aggregateJobs=1",
+      "method": "GET",
+      "elapsedMs": 67.91040000000066
+    },
+    {
+      "url": "/api/market/annotations?view=candidate_counts",
+      "method": "GET",
+      "elapsedMs": 92.09340000000157
+    },
+    {
+      "url": "/api/market/annotations?view=review&itemPage=2&itemPageSize=20&aggregateJobs=1",
+      "method": "GET",
+      "elapsedMs": 41.006499999999505
+    }
+  ],
+  "samples": [
+    {
+      "name": "ranking-initial",
+      "feedbackMs": 72.33669999999995,
+      "newContentReadyMs": 781.2002000000001,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "ranking-refresh",
+      "feedbackMs": 54.572400000000016,
+      "newContentReadyMs": 272.72800000000007,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "industry-first",
+      "feedbackMs": 42.14670000000024,
+      "newContentReadyMs": 367.81280000000015,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "settings-first-master",
+      "feedbackMs": 55.71340000000009,
+      "newContentReadyMs": 379.61259999999993,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "master-page2",
+      "feedbackMs": 40.501900000000205,
+      "newContentReadyMs": 318.0241000000001,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "pending-primary-filter",
+      "feedbackMs": 36.39259999999922,
+      "newContentReadyMs": 336.27489999999943,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "pending-primary-size20",
+      "feedbackMs": 33.25959999999941,
+      "newContentReadyMs": 314.8069999999998,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "pending-primary-page2",
+      "feedbackMs": 1318.1980000000003,
+      "newContentReadyMs": 1572.3994999999995,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "secondary-stats-read",
+      "feedbackMs": 43.61039999999957,
+      "newContentReadyMs": 312.4969000000001,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "settings-brand-first",
+      "feedbackMs": 30.228799999998955,
+      "newContentReadyMs": 331.7602999999999,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "settings-mapping-first",
+      "feedbackMs": 28.784899999998743,
+      "newContentReadyMs": 268.67249999999876,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "settings-data-first",
+      "feedbackMs": 42.892900000000736,
+      "newContentReadyMs": 278.72010000000046,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "settings-subcategory-first",
+      "feedbackMs": 25.172500000000582,
+      "newContentReadyMs": 254.33129999999983,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "subcategory-filter",
+      "feedbackMs": 6.841700000000856,
+      "newContentReadyMs": 249.76670000000013,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "master-revisit",
+      "feedbackMs": 26.924599999998463,
+      "newContentReadyMs": 312.1961999999985,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "annotation-first",
+      "feedbackMs": 24.575000000000728,
+      "newContentReadyMs": 494.14789999999994,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    },
+    {
+      "name": "annotation-page2",
+      "feedbackMs": 64.73400000000038,
+      "newContentReadyMs": 154.95290000000023,
+      "conditions": "SQLite synthetic40/one client; includes GET body + assertion + two rAF; no GPU/P95/production claim"
+    }
+  ],
+  "boundary": "Parent-approved isolated SQLite synthetic fixture40; GET-only; no model/production/P95 claim"
+}

@@ -1,0 +1,400 @@
+✖ market ranking keeps master administration behind a direct lazy boundary (16.0572ms)
+﹣ fresh production artifacts keep market administration out of the page entry budget (4.307ms) # production client artifacts are not present
+✔ market master database first paint excludes deferred price, image, prompt, and model work (15.084ms)
+✔ market master filter aggregates start only after the paginated first paint and remain cancellable (4.4992ms)
+✔ deferred database details are explicit, cancellable, generation-fenced, and models load once (2.405ms)
+✔ parallel market master channels cannot clear each other's errors or expose stale secondary rows (1.8929ms)
+✔ market settings loads a lightweight truthful status instead of reusing ranking overview (2.7058ms)
+✔ market master view projection preserves the legacy default but rejects duplicates and unknown values (0.8577ms)
+✔ market master pagination applies the unique id tie-breaker inside and outside both query paths (3.0623ms)
+✔ market overview can read precomputed effective metrics without rebuilding anchor windows (1.8779ms)
+✔ market schema and migration persist cache rows and their source revision (12.5672ms)
+✔ effective-metrics refresh updates the cache without deleting every persisted row first (1.3557ms)
+✔ market and netshop mutations invalidate the persisted effective-metrics revision (2.279ms)
+✔ effective-metrics netshop invalidation is scoped identically in runtime and migration (4.891ms)
+✖ market UI requests lightweight ranking data and aborts superseded requests (6.1736ms)
+✔ aborting the prefetch subscriber does not cancel a joined page load (26.8904ms)
+✔ aborting the page subscriber does not cancel a joined prefetch (0.8707ms)
+✔ the shared market request aborts only after its last subscriber leaves (0.7254ms)
+✔ market overview response cache is canonical, version-invalidated, and coalesces duplicate loads (51.7884ms)
+✔ exact market revisions invalidate same-second batch, image, and taxonomy changes (9.0108ms)
+✔ market cache validators fail closed on valid JSON with the wrong surface shape (8.3486ms)
+✔ shared market cache capacity remains bounded and usable across mixed surfaces (20.8034ms)
+✔ market overview and filter single-flight streams are isolated by database (7.8193ms)
+✔ market overview and filter single-flight entries are removed after loader errors (8.6739ms)
+✔ market overview and filter cache misses close their revision fence and retry only once (3.9294ms)
+✔ market filter options use a separate revision-aware cache (2.8534ms)
+✔ legacy market response cache schema remains migratable while the active route uses Django (2.492ms)
+✔ system KPI cache is persistent, single-flight, and invalidated by every KPI dependency (41.5017ms)
+✔ market identity updates invalidate a previously cached system KPI payload (3.3158ms)
+✔ system KPI single-flight is isolated by database identity (4.2722ms)
+✔ system KPI cache never persists a payload while its revision keeps moving (2.9907ms)
+✔ controlled master-identity refresh bumps once, rolls back cleanly, and leaves direct writes observable (52.7587ms)
+✔ system KPI cache runtime schema and forward migration keep the same dependency triggers (18.9876ms)
+✔ pending-price history starts from snapshots and uses the representative identity-month index (1.9553ms)
+✔ market overview rejects single, duplicate, impossible, and reversed dates before database access (2.4397ms)
+✔ market overview pagination is strict decimal and facet selection has a shared hard ceiling (1.6102ms)
+✔ market route validates before the Django gateway and retained migration SQL keeps bounded JSON bindings (10.715ms)
+✔ market GET preserves range errors without retrying (38.2333ms)
+✔ market GET deadline includes a stalled response body and clears the request (15.9187ms)
+✔ a cancelled filter read cannot accept a late successful body (1.0318ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 37
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 1113.8037
+
+✖ failing tests:
+
+test at tests\market-client-chunk-budget.test.ts:1:816
+✖ market ranking keeps master administration behind a direct lazy boundary (16.0572ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /activeSection === "settings" && settingsData && <MarketSettingsWorkspace/. Input:
+  
+  '"use client";\n' +
+    '\n' +
+    'import { useAiPageDetails } from "./ai-page-context-provider";\n' +
+    '/* eslint-disable @next/next/no-img-element -- Market ranking thumbnails are imported business assets. */\n' +
+    '\n' +
+    'import { Suspense, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";\n' +
+    'import { beginLatestRequest, invalidateLatestRequest } from "@/lib/market/latest-request";\n' +
+    'import { readMarketJson } from "@/lib/market/read-request";\n' +
+    'import type { ModuleViewKey } from "./shell/navigation-catalog";\n' +
+    'import { createReloadableLazy } from "./shell/reloadable-lazy";\n' +
+    'import Dialog from "./ui/dialog";\n' +
+    '\n' +
+    'const MARKET_RANKING_PAGE_SIZE = 20;\n' +
+    'const { Component: MarketAnnotationView } = createReloadableLazy("market", () => import("./market-annotation-view"));\n' +
+    'const { Component: LazyMarketMasterAdminPanel } = createReloadableLazy("market", () => import("./market-master-admin-panel"));\n' +
+    '\n' +
+    'export { canCloseMarketSkuEditor } from "./market-master-admin-contract";\n' +
+    '\n' +
+    'type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;\n' +
+    'type FilterOption = { value: string; count: number; label?: string };\n' +
+    'type MarketItem = {\n' +
+    '  id: number; periodStart: string; periodEnd: string; category: string; scope: string; rankingDimension: "SKU" | "SPU";\n' +
+    '  operationMode: "POP" | "自营" | "未知"; subcategory: string; rank: number | null; previousRank: number | null; rankChange: number | null;\n' +
+    '  skuCode: string; productName: string; brand: string; priceCents: number | null; marketPriceCents: number | null; marketPriceSource: string;\n' +
+    '  averageTransactionPriceCents: number | null; discountBps: number | null; discountReference: boolean;\n' +
+    '  gmvCents: number; quantity: number; pageViews: number; visitors: number; conversionBps: number | null;\n' +
+    '  cartCustomers: number; searchClicks: number; imageUrl: string; productUrl: string; sourceImageUrl: string; imageCacheStatus: string;\n' +
+    '  periodCount: number; isOwn: boolean; ownSalesCents: number; gmvOutOfBand?: boolean;\n' +
+    '};\n' +
+    'type MarketCompareIdentity = Pick<MarketItem, "skuCode" | "category" | "scope" | "rankingDimension">;\n' +
+    'type MarketCompareSelection = MarketCompareIdentity & Pick<MarketItem, "productName">;\n' +
+    'type GrowthFields = { latestPeriod: string | null; monthOverMonthBps: number | null; yearOverYearBps: number | null };\n' +
+    'type MarketIndustryReport = {\n' +
+    '  definition: {\n' +
+    '    title: string; metricScope: string;\n' +
+    '    profile: { category: string; coreSubcategories: readonly string[]; adjacentSubcategories: readonly string[]; adjacentCategories: readonly string[] };\n' +
+    '    selectedCategories: string[]; selectedScopes: string[]; selectedRankingDimensions: string[];\n' +
+    '  };\n' +
+    '  period: {\n' +
+    '    coverageMonths: number; latestPeriod: string | null; latestGmvCents: number; monthOverMonthBps: number | null; yearOverYearBps: number | null;\n' +
+    '    peak: { period: string; gmvCents: number } | null; trough: { period: string; gmvCents: number } | null;\n' +
+    '    latestEntryCount: number | null; latestExitCount: number | null; latestExitPeriod: string | null;\n' +
+    '  };\n' +
+    '  lifecycle: Array<{ period: string; entryCount: number | null; exitCount: number | null }>;\n' +
+    '  operationModes: Array<{\n' +
+    '    operationMode: string; gmvCents: number; quantity: number; skuCount: number; visitors: number; conversionBps: number | null;\n' +
+    '    brandCount: number; gmvShareBps: number; averageTransactionPriceCents: number | null; gmvPerSkuCents: number;\n' +
+    '  }>;\n' +
+    '  brandConcentrationTrend: Array<{ period: string; gmvCents: number; brandCount: number; cr3Bps: number; cr5Bps: number }>;\n' +
+    '  trafficQuadrants: Array<{\n' +
+    '    quadrant: "high_traffic_high_conversion" | "high_traffic_low_conversion" | "low_traffic_high_conversion" | "low_traffic_low_conversion";\n' +
+    '    productCount: number; gmvCents: number; quantity: number; visitors: number; conversionBps: number | null;\n' +
+    '    visitorThreshold: number; conversionThresholdBps: number;\n' +
+    '    examples: Array<{ skuCode: string; productName: string; gmvCents: number }>;\n' +
+    '  }>;\n' +
+    '  productSignals: { sampleSize: number; source: string; signals: Array<{ group: string; label: string; count: number; shareBps: number; examples: string[] }> };\n' +
+    '  opportunities: Array<{\n' +
+    '    subcategory: string; priceBand: string; scenario: string; gmvCents: number; quantity: number; skuCount: number; visitors: number;\n' +
+    '    conversionBps: number | null; brandCount: number; gmvShareBps: number; growthBps: number | null; selfOperatedShareBps: number;\n' +
+    '    pendingPriceShareBps: number; score: number; recommendation: "建议进入" | "持续观察" | "谨慎回避"; reasons: string[]; decisionReady: boolean;\n' +
+    '  }>;\n' +
+    '  dataQuality: {\n' +
+    '    categoryCount: number; scopeCount: number; rankingDimensionCount: number; operationModeCount: number;\n' +
+    '    unknownBrandSkuCount: number; unclassifiedSkuCount: number; pendingPriceSkuCount: number;\n' +
+    '    identityReady: boolean; coverageReady: boolean; comparisonReady: boolean; warnings: string[];\n' +
+    '  };\n' +
+    '  externalDataGaps: Array<{ key: string; label: string; status: string; note: string }>;\n' +
+    '};\n' +
+    'type MarketOverview = {\n' +
+    '  view: "ranking" | "full";\n' +
+    '  salesRevision: string;\n' +
+    '  summary: {\n' +
+    '    productCount: number; categoryCount: number; brandCount: number; gmvCents: number; quantity: number; pageViews: number; visitors: number;\n' +
+    '    ownProductCount: number; activeSkuCount: number; pendingAiCount: number; selfOperatedGmvCents: number; selfOperatedShareBps: number | null;\n' +
+    '    medianMarketPriceCents: number | null; weightedMarketPriceCents: number | null; averageTransactionPriceCents: number | null;\n' +
+    '  };\n' +
+    '  items: MarketItem[];\n' +
+    '  pagination: { page: number; pageSize: number; total: number; pageCount: number };\n' +
+    '  trend: Array<Record<string, string | number | null>>;\n' +
+    '  trendTotal: number;\n' +
+    '  trendTruncated: boolean;\n' +
+    '  priceBands: FilterOption[];\n' +
+    '  priceBandSummary: Array<{ priceBand: string; gmvCents: number; quantity: number; skuCount: number; popGmvCents: number; selfGmvCents: number; gmvShareBps: number; selfOperatedShareBps: number | null; mainBrands: string[] }>;\n' +
+    '  priceBandTrend: Array<{ period: string; priceBand: string; gmvCents: number; quantity: number; gmvShareBps: number }>;\n' +
+    '  brandAnalysis: { items: Array<{ brand: string; gmvCents: number; quantity: number; skuCount: number; bestRank: number | null; gmvShareBps: number; heroSkuGmvCents: number; heroSkuShareBps: number; priceBands: string[]; subcategories: string[] } & GrowthFields>; cr3Bps: number; cr5Bps: number; concentration: string };\n' +
+    '  subcategorySummary: Array<{ subcategory: string; skuCount: number; gmvCents: number; gmvShareBps: number; quantity: number; averageTransactionPriceCents: number | null; selfOperatedShareBps: number | null; pendingSkuCount: number; mainBrands: string[]; mainPriceBands: string[] } & GrowthFields>;\n' +
+    '  industryReport: MarketIndustryReport;\n' +
+    '  filters: { categories: FilterOption[]; scopes: FilterOption[]; brands: FilterOption[]; rankingDimensions: FilterOption[]; operationModes: FilterOption[]; subcategories: FilterOption[]; priceBands: FilterOption[] };\n' +
+    '  dataRange: { startDate: string | null; endDate: string | null };\n' +
+    '  batches: Array<{ id: string; fileName: string; sourceType: string; rowCount: number; insertedCount: number; updatedCount: number; warningCount: number; completedAt: string | null }>;\n' +
+    '  imageCache: { total: number; cached: number; failed: number; pending: number };\n' +
+    '  error?: string;\n' +
+    '};\n' +
+    'type MarketSettingsStatus = Pick<MarketOverview, "dataRange" | "batches" | "imageCache">;\n' +
+    'const EMPTY_MARKET_FILTERS: MarketOverview["filters"] = {\n' +
+    '  categories: [], scopes: [], brands: [], rankingDimensions: [{ value: "SKU", count: 0 }, { value: "SPU", count: 0 }],\n' +
+    '  operationModes: [], subcategories: [], priceBands: [],\n' +
+    '};\n' +
+    'type MarketImageCacheJob = MarketOverview["imageCache"] & {\n' +
+    '  id: string;\n' +
+    '  status: "queued" | "running" | "completed" | "failed";\n' +
+    '  discoveryComplete: boolean;\n' +
+    '  discoveredCount: number;\n' +
+    '  propagationPending: number;\n' +
+    '  processedCount: number;\n' +
+    '  runCount: number;\n' +
+    '  errorMessage: string;\n' +
+    '};\n' +
+    '\n' +
+    'function imageCacheWorkPending(job: MarketImageCacheJob) {\n' +
+    '  return job.pending + job.propagationPending;\n' +
+    '}\n' +
+    '\n' +
+    'function cacheStatsFromJob(job: MarketImageCacheJob): MarketOverview["imageCache"] {\n' +
+    '  return { total: job.total, cached: job.cached, failed: job.failed, pending: imageCacheWorkPending(job) };\n' +
+    '}\n' +
+    '\n' +
+    'function imageCacheJobProgress(job: MarketImageCacheJob) {\n' +
+    '  if (!job.discoveryComplete) {\n' +
+    '    return `后台扫描/排队中：已发现 ${job.discoveredCount} 张，待缓存 ${job.pending} 张，待传播 ${job.propagationPending} 张`;\n' +
+    '  }\n' +
+    '  return `已缓存 ${job.cached} 张，待缓存 ${job.pending} 张，待传播 ${job.propagationPending} 张`;\n' +
+    '}\n' +
+    '\n' +
+    'function waitForImageCachePoll(signal: AbortSignal, delayMs = 2_000) {\n' +
+    '  return new Promise<void>((resolve, reject) => {\n' +
+    '    const timer = window.setTimeout(() => { cleanup(); resolve(); }, delayMs);\n' +
+    '    const abort = () => { cleanup(); reject(new DOMException("请求已取消", "AbortError")); };\n' +
+    '    const cleanup = () => { window.clearTimeout(timer); signal.removeEventListener("abort", abort); };\n' +
+    '    signal.addEventListener("abort", abort, { once: true });\n' +
+    '    if (signal.aborted) abort();\n' +
+    '  });\n' +
+    '}\n' +
+    '\n' +
+    'async function pollMarketImageCacheJob(\n' +
+    '  initialJob: MarketImageCacheJob,\n' +
+    '  signal: AbortSignal,\n' +
+    '  onUpdate: (job: MarketImageCacheJob) => void,\n' +
+    '  maxPolls = 30,\n' +
+    ') {\n' +
+    '  let job = initialJob;\n' +
+    '  for (let poll = 0; poll < maxPolls && job.status !== "completed" && job.status !== "failed"; poll += 1) {\n' +
+    '    await waitForImageCachePoll(signal);\n' +
+    '    const response = await fetch(`/api/market/images/cache?jobId=${encodeURIComponent(job.id)}`, {\n' +
+    '      cache: "no-store",\n' +
+    '      signal,\n' +
+    '    });\n' +
+    '    const payload = await response.json().catch(() => null) as { error?: string; job?: MarketImageCacheJob } | null;\n' +
+    '    if (!response.ok || !payload?.job) throw new Error(payload?.error || "图片缓存任务状态无响应");\n' +
+    '    job = payload.job;\n' +
+    '    onUpdate(job);\n' +
+    '  }\n' +
+    '  return { job, timedOut: job.status !== "completed" && job.status !== "failed" };\n' +
+    '}\n' +
+    'type MarketOverviewClientCacheEntry = { payload: MarketOverview; storedAt: number };\n' +
+    'type MarketOverviewSharedRequest = {\n' +
+    '  controller: AbortController;\n' +
+    '  promise: Promise<MarketOverview>;\n' +
+    '  subscribers: number;\n'... 79446 more characters
+  
+      at TestContext.<anonymous> (D:\.codex\worktrees\market-performance-complete\运营管理系统\tests\market-client-chunk-budget.test.ts:61:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '"use client";\n\nimport { useAiPageDetails } from "./ai-page-context-provider";\n/* eslint-disable @next/next/no-img-element -- Market ranking thumbnails are imported business assets. */\n\nimport { Suspense, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";\nimport { beginLatestRequest, invalidateLatestRequest } from "@/lib/market/latest-request";\nimport { readMarketJson } from "@/lib/market/read-request";\nimport type { ModuleViewKey } from "./shell/navigation-catalog";\nimport { createReloadableLazy } from "./shell/reloadable-lazy";\nimport Dialog from "./ui/dialog";\n\nconst MARKET_RANKING_PAGE_SIZE = 20;\nconst { Component: MarketAnnotationView } = createReloadableLazy("market", () => import("./market-annotation-view"));\nconst { Component: LazyMarketMasterAdminPanel } = createReloadableLazy("market", () => import("./market-master-admin-panel"));\n\nexport { canCloseMarketSkuEditor } from "./market-master-admin-contract";\n\ntype CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;\ntype FilterOption = { value: string; count: number; label?: string };\ntype MarketItem = {\n  id: number; periodStart: string; periodEnd: string; category: string; scope: string; rankingDimension: "SKU" | "SPU";\n  operationMode: "POP" | "自营" | "未知"; subcategory: string; rank: number | null; previousRank: number | null; rankChange: number | null;\n  skuCode: string; productName: string; brand: string; priceCents: number | null; marketPriceCents: number | null; marketPriceSource: string;\n  averageTransactionPriceCents: number | null; discountBps: number | null; discountReference: boolean;\n  gmvCents: number; quantity: number; pageViews: number; visitors: number; conversionBps: number | null;\n  cartCustomers: number; searchClicks: number; imageUrl: string; productUrl: string; sourceImageUrl: string; imageCacheStatus: string;\n  periodCount: number; isOwn: boolean; ownSalesCents: number; gmvOutOfBand?: boolean;\n};\ntype MarketCompareIdentity = Pick<MarketItem, "skuCode" | "category" | "scope" | "rankingDimension">;\ntype MarketCompareSelection = MarketCompareIdentity & Pick<MarketItem, "productName">;\ntype GrowthFields = { latestPeriod: string | null; monthOverMonthBps: number | null; yearOverYearBps: number | null };\ntype MarketIndustryReport = {\n  definition: {\n    title: string; metricScope: string;\n    profile: { category: string; coreSubcategories: readonly string[]; adjacentSubcategories: readonly string[]; adjacentCategories: readonly string[] };\n    selectedCategories: string[]; selectedScopes: string[]; selectedRankingDimensions: string[];\n  };\n  period: {\n    coverageMonths: number; latestPeriod: string | null; latestGmvCents: number; monthOverMonthBps: number | null; yearOverYearBps: number | null;\n    peak: { period: string; gmvCents: number } | null; trough: { period: string; gmvCents: number } | null;\n    latestEntryCount: number | null; latestExitCount: number | null; latestExitPeriod: string | null;\n  };\n  lifecycle: Array<{ period: string; entryCount: number | null; exitCount: number | null }>;\n  operationModes: Array<{\n    operationMode: string; gmvCents: number; quantity: number; skuCount: number; visitors: number; conversionBps: number | null;\n    brandCount: number; gmvShareBps: number; averageTransactionPriceCents: number | null; gmvPerSkuCents: number;\n  }>;\n  brandConcentrationTrend: Array<{ period: string; gmvCents: number; brandCount: number; cr3Bps: number; cr5Bps: number }>;\n  trafficQuadrants: Array<{\n    quadrant: "high_traffic_high_conversion" | "high_traffic_low_conversion" | "low_traffic_high_conversion" | "low_traffic_low_conversion";\n    productCount: number; gmvCents: number; quantity: number; visitors: number; conversionBps: number | null;\n    visitorThreshold: number; conversionThresholdBps: number;\n    examples: Array<{ skuCode: string; productName: string; gmvCents: number }>;\n  }>;\n  productSignals: { sampleSize: number; source: string; signals: Array<{ group: string; label: string; count: number; shareBps: number; examples: string[] }> };\n  opportunities: Array<{\n    subcategory: string; priceBand: string; scenario: string; gmvCents: number; quantity: number; skuCount: number; visitors: number;\n    conversionBps: number | null; brandCount: number; gmvShareBps: number; growthBps: number | null; selfOperatedShareBps: number;\n    pendingPriceShareBps: number; score: number; recommendation: "建议进入" | "持续观察" | "谨慎回避"; reasons: string[]; decisionReady: boolean;\n  }>;\n  dataQuality: {\n    categoryCount: number; scopeCount: number; rankingDimensionCount: number; operationModeCount: number;\n    unknownBrandSkuCount: number; unclassifiedSkuCount: number; pendingPriceSkuCount: number;\n    identityReady: boolean; coverageReady: boolean; comparisonReady: boolean; warnings: string[];\n  };\n  externalDataGaps: Array<{ key: string; label: string; status: string; note: string }>;\n};\ntype MarketOverview = {\n  view: "ranking" | "full";\n  salesRevision: string;\n  summary: {\n    productCount: number; categoryCount: number; brandCount: number; gmvCents: number; quantity: number; pageViews: number; visitors: number;\n    ownProductCount: number; activeSkuCount: number; pendingAiCount: number; selfOperatedGmvCents: number; selfOperatedShareBps: number | null;\n    medianMarketPriceCents: number | null; weightedMarketPriceCents: number | null; averageTransactionPriceCents: number | null;\n  };\n  items: MarketItem[];\n  pagination: { page: number; pageSize: number; total: number; pageCount: number };\n  trend: Array<Record<string, string | number | null>>;\n  trendTotal: number;\n  trendTruncated: boolean;\n  priceBands: FilterOption[];\n  priceBandSummary: Array<{ priceBand: string; gmvCents: number; quantity: number; skuCount: number; popGmvCents: number; selfGmvCents: number; gmvShareBps: number; selfOperatedShareBps: number | null; mainBrands: string[] }>;\n  priceBandTrend: Array<{ period: string; priceBand: string; gmvCents: number; quantity: number; gmvShareBps: number }>;\n  brandAnalysis: { items: Array<{ brand: string; gmvCents: number; quantity: number; skuCount: number; bestRank: number | null; gmvShareBps: number; heroSkuGmvCents: number; heroSkuShareBps: number; priceBands: string[]; subcategories: string[] } & GrowthFields>; cr3Bps: number; cr5Bps: number; concentration: string };\n  subcategorySummary: Array<{ subcategory: string; skuCount: number; gmvCents: number; gmvShareBps: number; quantity: number; averageTransactionPriceCents: number | null; selfOperatedShareBps: number | null; pendingSkuCount: number; mainBrands: string[]; mainPriceBands: string[] } & GrowthFields>;\n  industryReport: MarketIndustryReport;\n  filters: { categories: FilterOption[]; scopes: FilterOption[]; brands: FilterOption[]; rankingDimensions: FilterOption[]; operationModes: FilterOption[]; subcategories: FilterOption[]; priceBands: FilterOption[] };\n  dataRange: { startDate: string | null; endDate: string | null };\n  batches: Array<{ id: string; fileName: string; sourceType: string; rowCount: number; insertedCount: number; updatedCount: number; warningCount: number; completedAt: string | null }>;\n  imageCache: { total: number; cached: number; failed: number; pending: number };\n  error?: string;\n};\ntype MarketSettingsStatus = Pick<MarketOverview, "dataRange" | "batches" | "imageCache">;\nconst EMPTY_MARKET_FILTERS: MarketOverview["filters"] = {\n  categories: [], scopes: [], brands: [], rankingDimensions: [{ value: "SKU", count: 0 }, { value: "SPU", count: 0 }],\n  operationModes: [], subcategories: [], priceBands: [],\n};\ntype MarketImageCacheJob = MarketOverview["imageCache"] & {\n  id: string;\n  status: "queued" | "running" | "completed" | "failed";\n  discoveryComplete: boolean;\n  discoveredCount: number;\n  propagationPending: number;\n  processedCount: number;\n  runCount: number;\n  errorMessage: string;\n};\n\nfunction imageCacheWorkPending(job: MarketImageCacheJob) {\n  return job.pending + job.propagationPending;\n}\n\nfunction cacheStatsFromJob(job: MarketImageCacheJob): MarketOverview["imageCache"] {\n  return { total: job.total, cached: job.cached, failed: job.failed, pending: imageCacheWorkPending(job) };\n}\n\nfunction imageCacheJobProgress(job: MarketImageCacheJob) {\n  if (!job.discoveryComplete) {\n    return `后台扫描/排队中：已发现 ${job.discoveredCount} 张，待缓存 ${job.pending} 张，待传播 ${job.propagationPending} 张`;\n  }\n  return `已缓存 ${job.cached} 张，待缓存 ${job.pending} 张，待传播 ${job.propagationPending} 张`;\n}\n\nfunction waitForImageCachePoll(signal: AbortSignal, delayMs = 2_000) {\n  return new Promise<void>((resolve, reject) => {\n    const timer = window.setTimeout(() => { cleanup(); resolve(); }, delayMs);\n    const abort = () => { cleanup(); reject(new DOMException("请求已取消", "AbortError")); };\n    const cleanup = () => { window.clearTimeout(timer); signal.removeEventListener("abort", abort); };\n    signal.addEventListener("abort", abort, { once: true });\n    if (signal.aborted) abort();\n  });\n}\n\nasync function pollMarketImageCacheJob(\n  initialJob: MarketImageCacheJob,\n  signal: AbortSignal,\n  onUpdate: (job: MarketImageCacheJob) => void,\n  maxPolls = 30,\n) {\n  let job = initialJob;\n  for (let poll = 0; poll < maxPolls && job.status !== "completed" && job.status !== "failed"; poll += 1) {\n    await waitForImageCachePoll(signal);\n    const response = await fetch(`/api/market/images/cache?jobId=${encodeURIComponent(job.id)}`, {\n      cache: "no-store",\n      signal,\n    });\n    const payload = await response.json().catch(() => null) as { error?: string; job?: MarketImageCacheJob } | null;\n    if (!response.ok || !payload?.job) throw new Error(payload?.error || "图片缓存任务状态无响应");\n    job = payload.job;\n    onUpdate(job);\n  }\n  return { job, timedOut: job.status !== "completed" && job.status !== "failed" };\n}\ntype MarketOverviewClientCacheEntry = { payload: MarketOverview; storedAt: number };\ntype MarketOverviewSharedRequest = {\n  controller: AbortController;\n  promise: Promise<MarketOverview>;\n  subscribers: number;\n'... 79446 more characters,
+    expected: /activeSection === "settings" && settingsData && <MarketSettingsWorkspace/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests\market-performance-cache.test.ts:52:1232
+✖ market UI requests lightweight ranking data and aborts superseded requests (6.1736ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /const delay = isInitialLoad \? 0 : 350/. Input:
+  
+  '"use client";\n' +
+    '\n' +
+    'import { useAiPageDetails } from "./ai-page-context-provider";\n' +
+    '/* eslint-disable @next/next/no-img-element -- Market ranking thumbnails are imported business assets. */\n' +
+    '\n' +
+    'import { Suspense, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";\n' +
+    'import { beginLatestRequest, invalidateLatestRequest } from "@/lib/market/latest-request";\n' +
+    'import { readMarketJson } from "@/lib/market/read-request";\n' +
+    'import type { ModuleViewKey } from "./shell/navigation-catalog";\n' +
+    'import { createReloadableLazy } from "./shell/reloadable-lazy";\n' +
+    'import Dialog from "./ui/dialog";\n' +
+    '\n' +
+    'const MARKET_RANKING_PAGE_SIZE = 20;\n' +
+    'const { Component: MarketAnnotationView } = createReloadableLazy("market", () => import("./market-annotation-view"));\n' +
+    'const { Component: LazyMarketMasterAdminPanel } = createReloadableLazy("market", () => import("./market-master-admin-panel"));\n' +
+    '\n' +
+    'export { canCloseMarketSkuEditor } from "./market-master-admin-contract";\n' +
+    '\n' +
+    'type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;\n' +
+    'type FilterOption = { value: string; count: number; label?: string };\n' +
+    'type MarketItem = {\n' +
+    '  id: number; periodStart: string; periodEnd: string; category: string; scope: string; rankingDimension: "SKU" | "SPU";\n' +
+    '  operationMode: "POP" | "自营" | "未知"; subcategory: string; rank: number | null; previousRank: number | null; rankChange: number | null;\n' +
+    '  skuCode: string; productName: string; brand: string; priceCents: number | null; marketPriceCents: number | null; marketPriceSource: string;\n' +
+    '  averageTransactionPriceCents: number | null; discountBps: number | null; discountReference: boolean;\n' +
+    '  gmvCents: number; quantity: number; pageViews: number; visitors: number; conversionBps: number | null;\n' +
+    '  cartCustomers: number; searchClicks: number; imageUrl: string; productUrl: string; sourceImageUrl: string; imageCacheStatus: string;\n' +
+    '  periodCount: number; isOwn: boolean; ownSalesCents: number; gmvOutOfBand?: boolean;\n' +
+    '};\n' +
+    'type MarketCompareIdentity = Pick<MarketItem, "skuCode" | "category" | "scope" | "rankingDimension">;\n' +
+    'type MarketCompareSelection = MarketCompareIdentity & Pick<MarketItem, "productName">;\n' +
+    'type GrowthFields = { latestPeriod: string | null; monthOverMonthBps: number | null; yearOverYearBps: number | null };\n' +
+    'type MarketIndustryReport = {\n' +
+    '  definition: {\n' +
+    '    title: string; metricScope: string;\n' +
+    '    profile: { category: string; coreSubcategories: readonly string[]; adjacentSubcategories: readonly string[]; adjacentCategories: readonly string[] };\n' +
+    '    selectedCategories: string[]; selectedScopes: string[]; selectedRankingDimensions: string[];\n' +
+    '  };\n' +
+    '  period: {\n' +
+    '    coverageMonths: number; latestPeriod: string | null; latestGmvCents: number; monthOverMonthBps: number | null; yearOverYearBps: number | null;\n' +
+    '    peak: { period: string; gmvCents: number } | null; trough: { period: string; gmvCents: number } | null;\n' +
+    '    latestEntryCount: number | null; latestExitCount: number | null; latestExitPeriod: string | null;\n' +
+    '  };\n' +
+    '  lifecycle: Array<{ period: string; entryCount: number | null; exitCount: number | null }>;\n' +
+    '  operationModes: Array<{\n' +
+    '    operationMode: string; gmvCents: number; quantity: number; skuCount: number; visitors: number; conversionBps: number | null;\n' +
+    '    brandCount: number; gmvShareBps: number; averageTransactionPriceCents: number | null; gmvPerSkuCents: number;\n' +
+    '  }>;\n' +
+    '  brandConcentrationTrend: Array<{ period: string; gmvCents: number; brandCount: number; cr3Bps: number; cr5Bps: number }>;\n' +
+    '  trafficQuadrants: Array<{\n' +
+    '    quadrant: "high_traffic_high_conversion" | "high_traffic_low_conversion" | "low_traffic_high_conversion" | "low_traffic_low_conversion";\n' +
+    '    productCount: number; gmvCents: number; quantity: number; visitors: number; conversionBps: number | null;\n' +
+    '    visitorThreshold: number; conversionThresholdBps: number;\n' +
+    '    examples: Array<{ skuCode: string; productName: string; gmvCents: number }>;\n' +
+    '  }>;\n' +
+    '  productSignals: { sampleSize: number; source: string; signals: Array<{ group: string; label: string; count: number; shareBps: number; examples: string[] }> };\n' +
+    '  opportunities: Array<{\n' +
+    '    subcategory: string; priceBand: string; scenario: string; gmvCents: number; quantity: number; skuCount: number; visitors: number;\n' +
+    '    conversionBps: number | null; brandCount: number; gmvShareBps: number; growthBps: number | null; selfOperatedShareBps: number;\n' +
+    '    pendingPriceShareBps: number; score: number; recommendation: "建议进入" | "持续观察" | "谨慎回避"; reasons: string[]; decisionReady: boolean;\n' +
+    '  }>;\n' +
+    '  dataQuality: {\n' +
+    '    categoryCount: number; scopeCount: number; rankingDimensionCount: number; operationModeCount: number;\n' +
+    '    unknownBrandSkuCount: number; unclassifiedSkuCount: number; pendingPriceSkuCount: number;\n' +
+    '    identityReady: boolean; coverageReady: boolean; comparisonReady: boolean; warnings: string[];\n' +
+    '  };\n' +
+    '  externalDataGaps: Array<{ key: string; label: string; status: string; note: string }>;\n' +
+    '};\n' +
+    'type MarketOverview = {\n' +
+    '  view: "ranking" | "full";\n' +
+    '  salesRevision: string;\n' +
+    '  summary: {\n' +
+    '    productCount: number; categoryCount: number; brandCount: number; gmvCents: number; quantity: number; pageViews: number; visitors: number;\n' +
+    '    ownProductCount: number; activeSkuCount: number; pendingAiCount: number; selfOperatedGmvCents: number; selfOperatedShareBps: number | null;\n' +
+    '    medianMarketPriceCents: number | null; weightedMarketPriceCents: number | null; averageTransactionPriceCents: number | null;\n' +
+    '  };\n' +
+    '  items: MarketItem[];\n' +
+    '  pagination: { page: number; pageSize: number; total: number; pageCount: number };\n' +
+    '  trend: Array<Record<string, string | number | null>>;\n' +
+    '  trendTotal: number;\n' +
+    '  trendTruncated: boolean;\n' +
+    '  priceBands: FilterOption[];\n' +
+    '  priceBandSummary: Array<{ priceBand: string; gmvCents: number; quantity: number; skuCount: number; popGmvCents: number; selfGmvCents: number; gmvShareBps: number; selfOperatedShareBps: number | null; mainBrands: string[] }>;\n' +
+    '  priceBandTrend: Array<{ period: string; priceBand: string; gmvCents: number; quantity: number; gmvShareBps: number }>;\n' +
+    '  brandAnalysis: { items: Array<{ brand: string; gmvCents: number; quantity: number; skuCount: number; bestRank: number | null; gmvShareBps: number; heroSkuGmvCents: number; heroSkuShareBps: number; priceBands: string[]; subcategories: string[] } & GrowthFields>; cr3Bps: number; cr5Bps: number; concentration: string };\n' +
+    '  subcategorySummary: Array<{ subcategory: string; skuCount: number; gmvCents: number; gmvShareBps: number; quantity: number; averageTransactionPriceCents: number | null; selfOperatedShareBps: number | null; pendingSkuCount: number; mainBrands: string[]; mainPriceBands: string[] } & GrowthFields>;\n' +
+    '  industryReport: MarketIndustryReport;\n' +
+    '  filters: { categories: FilterOption[]; scopes: FilterOption[]; brands: FilterOption[]; rankingDimensions: FilterOption[]; operationModes: FilterOption[]; subcategories: FilterOption[]; priceBands: FilterOption[] };\n' +
+    '  dataRange: { startDate: string | null; endDate: string | null };\n' +
+    '  batches: Array<{ id: string; fileName: string; sourceType: string; rowCount: number; insertedCount: number; updatedCount: number; warningCount: number; completedAt: string | null }>;\n' +
+    '  imageCache: { total: number; cached: number; failed: number; pending: number };\n' +
+    '  error?: string;\n' +
+    '};\n' +
+    'type MarketSettingsStatus = Pick<MarketOverview, "dataRange" | "batches" | "imageCache">;\n' +
+    'const EMPTY_MARKET_FILTERS: MarketOverview["filters"] = {\n' +
+    '  categories: [], scopes: [], brands: [], rankingDimensions: [{ value: "SKU", count: 0 }, { value: "SPU", count: 0 }],\n' +
+    '  operationModes: [], subcategories: [], priceBands: [],\n' +
+    '};\n' +
+    'type MarketImageCacheJob = MarketOverview["imageCache"] & {\n' +
+    '  id: string;\n' +
+    '  status: "queued" | "running" | "completed" | "failed";\n' +
+    '  discoveryComplete: boolean;\n' +
+    '  discoveredCount: number;\n' +
+    '  propagationPending: number;\n' +
+    '  processedCount: number;\n' +
+    '  runCount: number;\n' +
+    '  errorMessage: string;\n' +
+    '};\n' +
+    '\n' +
+    'function imageCacheWorkPending(job: MarketImageCacheJob) {\n' +
+    '  return job.pending + job.propagationPending;\n' +
+    '}\n' +
+    '\n' +
+    'function cacheStatsFromJob(job: MarketImageCacheJob): MarketOverview["imageCache"] {\n' +
+    '  return { total: job.total, cached: job.cached, failed: job.failed, pending: imageCacheWorkPending(job) };\n' +
+    '}\n' +
+    '\n' +
+    'function imageCacheJobProgress(job: MarketImageCacheJob) {\n' +
+    '  if (!job.discoveryComplete) {\n' +
+    '    return `后台扫描/排队中：已发现 ${job.discoveredCount} 张，待缓存 ${job.pending} 张，待传播 ${job.propagationPending} 张`;\n' +
+    '  }\n' +
+    '  return `已缓存 ${job.cached} 张，待缓存 ${job.pending} 张，待传播 ${job.propagationPending} 张`;\n' +
+    '}\n' +
+    '\n' +
+    'function waitForImageCachePoll(signal: AbortSignal, delayMs = 2_000) {\n' +
+    '  return new Promise<void>((resolve, reject) => {\n' +
+    '    const timer = window.setTimeout(() => { cleanup(); resolve(); }, delayMs);\n' +
+    '    const abort = () => { cleanup(); reject(new DOMException("请求已取消", "AbortError")); };\n' +
+    '    const cleanup = () => { window.clearTimeout(timer); signal.removeEventListener("abort", abort); };\n' +
+    '    signal.addEventListener("abort", abort, { once: true });\n' +
+    '    if (signal.aborted) abort();\n' +
+    '  });\n' +
+    '}\n' +
+    '\n' +
+    'async function pollMarketImageCacheJob(\n' +
+    '  initialJob: MarketImageCacheJob,\n' +
+    '  signal: AbortSignal,\n' +
+    '  onUpdate: (job: MarketImageCacheJob) => void,\n' +
+    '  maxPolls = 30,\n' +
+    ') {\n' +
+    '  let job = initialJob;\n' +
+    '  for (let poll = 0; poll < maxPolls && job.status !== "completed" && job.status !== "failed"; poll += 1) {\n' +
+    '    await waitForImageCachePoll(signal);\n' +
+    '    const response = await fetch(`/api/market/images/cache?jobId=${encodeURIComponent(job.id)}`, {\n' +
+    '      cache: "no-store",\n' +
+    '      signal,\n' +
+    '    });\n' +
+    '    const payload = await response.json().catch(() => null) as { error?: string; job?: MarketImageCacheJob } | null;\n' +
+    '    if (!response.ok || !payload?.job) throw new Error(payload?.error || "图片缓存任务状态无响应");\n' +
+    '    job = payload.job;\n' +
+    '    onUpdate(job);\n' +
+    '  }\n' +
+    '  return { job, timedOut: job.status !== "completed" && job.status !== "failed" };\n' +
+    '}\n' +
+    'type MarketOverviewClientCacheEntry = { payload: MarketOverview; storedAt: number };\n' +
+    'type MarketOverviewSharedRequest = {\n' +
+    '  controller: AbortController;\n' +
+    '  promise: Promise<MarketOverview>;\n' +
+    '  subscribers: number;\n'... 79446 more characters
+  
+      at TestContext.<anonymous> (D:\.codex\worktrees\market-performance-complete\运营管理系统\tests\market-performance-cache.test.ts:450:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '"use client";\n\nimport { useAiPageDetails } from "./ai-page-context-provider";\n/* eslint-disable @next/next/no-img-element -- Market ranking thumbnails are imported business assets. */\n\nimport { Suspense, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";\nimport { beginLatestRequest, invalidateLatestRequest } from "@/lib/market/latest-request";\nimport { readMarketJson } from "@/lib/market/read-request";\nimport type { ModuleViewKey } from "./shell/navigation-catalog";\nimport { createReloadableLazy } from "./shell/reloadable-lazy";\nimport Dialog from "./ui/dialog";\n\nconst MARKET_RANKING_PAGE_SIZE = 20;\nconst { Component: MarketAnnotationView } = createReloadableLazy("market", () => import("./market-annotation-view"));\nconst { Component: LazyMarketMasterAdminPanel } = createReloadableLazy("market", () => import("./market-master-admin-panel"));\n\nexport { canCloseMarketSkuEditor } from "./market-master-admin-contract";\n\ntype CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;\ntype FilterOption = { value: string; count: number; label?: string };\ntype MarketItem = {\n  id: number; periodStart: string; periodEnd: string; category: string; scope: string; rankingDimension: "SKU" | "SPU";\n  operationMode: "POP" | "自营" | "未知"; subcategory: string; rank: number | null; previousRank: number | null; rankChange: number | null;\n  skuCode: string; productName: string; brand: string; priceCents: number | null; marketPriceCents: number | null; marketPriceSource: string;\n  averageTransactionPriceCents: number | null; discountBps: number | null; discountReference: boolean;\n  gmvCents: number; quantity: number; pageViews: number; visitors: number; conversionBps: number | null;\n  cartCustomers: number; searchClicks: number; imageUrl: string; productUrl: string; sourceImageUrl: string; imageCacheStatus: string;\n  periodCount: number; isOwn: boolean; ownSalesCents: number; gmvOutOfBand?: boolean;\n};\ntype MarketCompareIdentity = Pick<MarketItem, "skuCode" | "category" | "scope" | "rankingDimension">;\ntype MarketCompareSelection = MarketCompareIdentity & Pick<MarketItem, "productName">;\ntype GrowthFields = { latestPeriod: string | null; monthOverMonthBps: number | null; yearOverYearBps: number | null };\ntype MarketIndustryReport = {\n  definition: {\n    title: string; metricScope: string;\n    profile: { category: string; coreSubcategories: readonly string[]; adjacentSubcategories: readonly string[]; adjacentCategories: readonly string[] };\n    selectedCategories: string[]; selectedScopes: string[]; selectedRankingDimensions: string[];\n  };\n  period: {\n    coverageMonths: number; latestPeriod: string | null; latestGmvCents: number; monthOverMonthBps: number | null; yearOverYearBps: number | null;\n    peak: { period: string; gmvCents: number } | null; trough: { period: string; gmvCents: number } | null;\n    latestEntryCount: number | null; latestExitCount: number | null; latestExitPeriod: string | null;\n  };\n  lifecycle: Array<{ period: string; entryCount: number | null; exitCount: number | null }>;\n  operationModes: Array<{\n    operationMode: string; gmvCents: number; quantity: number; skuCount: number; visitors: number; conversionBps: number | null;\n    brandCount: number; gmvShareBps: number; averageTransactionPriceCents: number | null; gmvPerSkuCents: number;\n  }>;\n  brandConcentrationTrend: Array<{ period: string; gmvCents: number; brandCount: number; cr3Bps: number; cr5Bps: number }>;\n  trafficQuadrants: Array<{\n    quadrant: "high_traffic_high_conversion" | "high_traffic_low_conversion" | "low_traffic_high_conversion" | "low_traffic_low_conversion";\n    productCount: number; gmvCents: number; quantity: number; visitors: number; conversionBps: number | null;\n    visitorThreshold: number; conversionThresholdBps: number;\n    examples: Array<{ skuCode: string; productName: string; gmvCents: number }>;\n  }>;\n  productSignals: { sampleSize: number; source: string; signals: Array<{ group: string; label: string; count: number; shareBps: number; examples: string[] }> };\n  opportunities: Array<{\n    subcategory: string; priceBand: string; scenario: string; gmvCents: number; quantity: number; skuCount: number; visitors: number;\n    conversionBps: number | null; brandCount: number; gmvShareBps: number; growthBps: number | null; selfOperatedShareBps: number;\n    pendingPriceShareBps: number; score: number; recommendation: "建议进入" | "持续观察" | "谨慎回避"; reasons: string[]; decisionReady: boolean;\n  }>;\n  dataQuality: {\n    categoryCount: number; scopeCount: number; rankingDimensionCount: number; operationModeCount: number;\n    unknownBrandSkuCount: number; unclassifiedSkuCount: number; pendingPriceSkuCount: number;\n    identityReady: boolean; coverageReady: boolean; comparisonReady: boolean; warnings: string[];\n  };\n  externalDataGaps: Array<{ key: string; label: string; status: string; note: string }>;\n};\ntype MarketOverview = {\n  view: "ranking" | "full";\n  salesRevision: string;\n  summary: {\n    productCount: number; categoryCount: number; brandCount: number; gmvCents: number; quantity: number; pageViews: number; visitors: number;\n    ownProductCount: number; activeSkuCount: number; pendingAiCount: number; selfOperatedGmvCents: number; selfOperatedShareBps: number | null;\n    medianMarketPriceCents: number | null; weightedMarketPriceCents: number | null; averageTransactionPriceCents: number | null;\n  };\n  items: MarketItem[];\n  pagination: { page: number; pageSize: number; total: number; pageCount: number };\n  trend: Array<Record<string, string | number | null>>;\n  trendTotal: number;\n  trendTruncated: boolean;\n  priceBands: FilterOption[];\n  priceBandSummary: Array<{ priceBand: string; gmvCents: number; quantity: number; skuCount: number; popGmvCents: number; selfGmvCents: number; gmvShareBps: number; selfOperatedShareBps: number | null; mainBrands: string[] }>;\n  priceBandTrend: Array<{ period: string; priceBand: string; gmvCents: number; quantity: number; gmvShareBps: number }>;\n  brandAnalysis: { items: Array<{ brand: string; gmvCents: number; quantity: number; skuCount: number; bestRank: number | null; gmvShareBps: number; heroSkuGmvCents: number; heroSkuShareBps: number; priceBands: string[]; subcategories: string[] } & GrowthFields>; cr3Bps: number; cr5Bps: number; concentration: string };\n  subcategorySummary: Array<{ subcategory: string; skuCount: number; gmvCents: number; gmvShareBps: number; quantity: number; averageTransactionPriceCents: number | null; selfOperatedShareBps: number | null; pendingSkuCount: number; mainBrands: string[]; mainPriceBands: string[] } & GrowthFields>;\n  industryReport: MarketIndustryReport;\n  filters: { categories: FilterOption[]; scopes: FilterOption[]; brands: FilterOption[]; rankingDimensions: FilterOption[]; operationModes: FilterOption[]; subcategories: FilterOption[]; priceBands: FilterOption[] };\n  dataRange: { startDate: string | null; endDate: string | null };\n  batches: Array<{ id: string; fileName: string; sourceType: string; rowCount: number; insertedCount: number; updatedCount: number; warningCount: number; completedAt: string | null }>;\n  imageCache: { total: number; cached: number; failed: number; pending: number };\n  error?: string;\n};\ntype MarketSettingsStatus = Pick<MarketOverview, "dataRange" | "batches" | "imageCache">;\nconst EMPTY_MARKET_FILTERS: MarketOverview["filters"] = {\n  categories: [], scopes: [], brands: [], rankingDimensions: [{ value: "SKU", count: 0 }, { value: "SPU", count: 0 }],\n  operationModes: [], subcategories: [], priceBands: [],\n};\ntype MarketImageCacheJob = MarketOverview["imageCache"] & {\n  id: string;\n  status: "queued" | "running" | "completed" | "failed";\n  discoveryComplete: boolean;\n  discoveredCount: number;\n  propagationPending: number;\n  processedCount: number;\n  runCount: number;\n  errorMessage: string;\n};\n\nfunction imageCacheWorkPending(job: MarketImageCacheJob) {\n  return job.pending + job.propagationPending;\n}\n\nfunction cacheStatsFromJob(job: MarketImageCacheJob): MarketOverview["imageCache"] {\n  return { total: job.total, cached: job.cached, failed: job.failed, pending: imageCacheWorkPending(job) };\n}\n\nfunction imageCacheJobProgress(job: MarketImageCacheJob) {\n  if (!job.discoveryComplete) {\n    return `后台扫描/排队中：已发现 ${job.discoveredCount} 张，待缓存 ${job.pending} 张，待传播 ${job.propagationPending} 张`;\n  }\n  return `已缓存 ${job.cached} 张，待缓存 ${job.pending} 张，待传播 ${job.propagationPending} 张`;\n}\n\nfunction waitForImageCachePoll(signal: AbortSignal, delayMs = 2_000) {\n  return new Promise<void>((resolve, reject) => {\n    const timer = window.setTimeout(() => { cleanup(); resolve(); }, delayMs);\n    const abort = () => { cleanup(); reject(new DOMException("请求已取消", "AbortError")); };\n    const cleanup = () => { window.clearTimeout(timer); signal.removeEventListener("abort", abort); };\n    signal.addEventListener("abort", abort, { once: true });\n    if (signal.aborted) abort();\n  });\n}\n\nasync function pollMarketImageCacheJob(\n  initialJob: MarketImageCacheJob,\n  signal: AbortSignal,\n  onUpdate: (job: MarketImageCacheJob) => void,\n  maxPolls = 30,\n) {\n  let job = initialJob;\n  for (let poll = 0; poll < maxPolls && job.status !== "completed" && job.status !== "failed"; poll += 1) {\n    await waitForImageCachePoll(signal);\n    const response = await fetch(`/api/market/images/cache?jobId=${encodeURIComponent(job.id)}`, {\n      cache: "no-store",\n      signal,\n    });\n    const payload = await response.json().catch(() => null) as { error?: string; job?: MarketImageCacheJob } | null;\n    if (!response.ok || !payload?.job) throw new Error(payload?.error || "图片缓存任务状态无响应");\n    job = payload.job;\n    onUpdate(job);\n  }\n  return { job, timedOut: job.status !== "completed" && job.status !== "failed" };\n}\ntype MarketOverviewClientCacheEntry = { payload: MarketOverview; storedAt: number };\ntype MarketOverviewSharedRequest = {\n  controller: AbortController;\n  promise: Promise<MarketOverview>;\n  subscribers: number;\n'... 79446 more characters,
+    expected: /const delay = isInitialLoad \? 0 : 350/,
+    operator: 'match',
+    diff: 'simple'
+  }
