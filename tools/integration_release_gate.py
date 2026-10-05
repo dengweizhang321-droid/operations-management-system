@@ -325,7 +325,10 @@ def verify_deployment(root, runtime, *, after_deployment=False):
     return plan
 
 
-def verify_release(root, runtime, *, allow_delta=True):
+def verify_release(root, runtime, *, allow_delta=True, allow_addition=True):
+    if allow_addition and (Path(runtime) / "bi-app-addition-active.json").exists():
+        from bi_app_addition import verify_active
+        return verify_active(root, runtime)[0]
     reference = active_delta(runtime) if allow_delta else None
     if reference:
         return verify_delta_release(root, runtime, reference)
@@ -365,6 +368,9 @@ def verify_database_complete(root, runtime=None):
     from django.db import connection
     from django.db.migrations.executor import MigrationExecutor
     from django.db.migrations.recorder import MigrationRecorder
+    if runtime is not None and (Path(runtime) / "bi-app-addition-active.json").exists():
+        from bi_app_addition import complete_database
+        return complete_database(root, runtime)
     reference = active_delta(runtime) if runtime is not None else None
     if reference:
         verify_delta_release(root, runtime, reference, allow_installed=True)
