@@ -1,0 +1,64 @@
+Creating test database for alias 'default' ('test_teruisi_ai_rehearsal')...
+Found 6 test(s).
+Operations to perform:
+  Apply all migrations: access_control, bi, contenttypes, erp_reference, finance, inventory, products, sales
+Running migrations:
+  Applying access_control.0001_initial... OK
+  Applying sales.0001_initial... OK
+  Applying sales.0002_sales_migration_approval... OK
+  Applying sales.0003_query_ready_projection... OK
+  Applying sales.0004_projection_sync... OK
+  Applying sales.0005_postgres_write_authority... OK
+  Applying sales.0006_drop_legacy_projection_checkpoint... OK
+  Applying sales.0007_legacy_upload_audit... OK
+  Applying sales.0008_sales_cutover_attestation... OK
+  Applying sales.0009_postgres_raw_upload_payload... OK
+  Applying inventory.0001_initial... OK
+  Applying inventory.0002_seed_control_rows... OK
+  Applying inventory.0003_replenishment_plan_details... OK
+  Applying inventory.0004_replenishment_dingtalk_sync... OK
+  Applying inventory.0005_stock_supplier_warehouse_mapping... OK
+  Applying inventory.0006_replenishment_group_delivery... OK
+  Applying bi.0001_initial... OK
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying erp_reference.0001_initial... OK
+  Applying erp_reference.0002_erpproductmaster_erpreferenceimportscopehead_and_more... OK
+  Applying finance.0001_initial... OK
+  Applying finance.0002_finance_target_gross_margin... OK
+  Applying finance.0003_finance_source_revision_guard... OK
+  Applying finance.0004_finance_revision_monotonic... OK
+  Applying finance.0005_raw_column_evidence_v2... OK
+  Applying finance.0006_raw_workbook_bytes_v2... OK
+  Applying inventory.0007_guangdong_monitor... OK
+  Applying inventory.0008_guangdong_item_overrides... OK
+  Applying inventory.0009_guangdong_item_risk_overrides... OK
+  Applying inventory.0010_replenishment_health... OK
+  Applying inventory.0011_inventory_warehouse_mapping_settings... OK
+  Applying products.0001_initial... OK
+  Applying products.0002_seed_control_rows... OK
+  Applying products.0003_alter_productimportattempt_created_at_and_more... OK
+  Applying sales.0010_analysis_options...test_calculation_context_scope_actor_authority_and_revision (sales.tests.test_performance.SalesPerformanceTests.test_calculation_context_scope_actor_authority_and_revision) ... ok
+test_core_matches_full_and_expected_revision_fails_closed (sales.tests.test_performance.SalesPerformanceTests.test_core_matches_full_and_expected_revision_fails_closed) ... 2026-10-06 00:47:05,740 level=WARNING logger=django.request message=Conflict: /api/sales/summary
+2026-10-06 00:47:05,741 level=WARNING logger=django.request message=Forbidden: /api/sales/summary
+ok
+test_database_identity_and_transaction_bypass_do_not_publish_rollback (sales.tests.test_performance.SalesPerformanceTests.test_database_identity_and_transaction_bypass_do_not_publish_rollback) ... ok
+test_http_hit_rechecks_dynamic_identity_after_get (sales.tests.test_performance.SalesPerformanceTests.test_http_hit_rechecks_dynamic_identity_after_get) ... D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\core\cache\backends\base.py:119: CacheKeyWarning: Cache key will cause errors if used with memcached: ':1:teruisi:sales-read:v2:7:3:{"actor": ["one@example.test", "admin", null], "authority": null, "database": ["default", "django.db.backends.postgresql", "127.0.0.1", "55440", "test_teruisi_ai_rehearsal", "sales_fixture"], "runtimeAuthority": ["", "", "", ""]}' (longer than 250)
+  warnings.warn(warning, CacheKeyWarning)
+D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\core\cache\backends\base.py:119: CacheKeyWarning: Cache key contains characters that will cause errors if used with memcached: ':1:teruisi:sales-read:v2:7:3:{"actor": ["one@example.test", "admin", null], "authority": null, "database": ["default", "django.db.backends.postgresql", "127.0.0.1", "55440", "test_teruisi_ai_rehearsal", "sales_fixture"], "runtimeAuthority": ["", "", "", ""]}'
+  warnings.warn(warning, CacheKeyWarning)
+D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\core\cache\backends\base.py:119: CacheKeyWarning: Cache key will cause errors if used with memcached: ':1:teruisi:sales-read:v2:7:3:{"actor": ["one@example.test", "admin", null], "authority": {"authority_epoch": "9bb7e9a7-967b-4350-b35e-22b057c6b834", "cutover_id": "changed-synthetic-epoch", "status": "postgres"}, "database": ["default", "django.db.backends.postgresql", "127.0.0.1", "55440", "test_teruisi_ai_rehearsal", "sales_fixture"], "runtimeAuthority": ["", "", "", ""]}' (longer than 250)
+  warnings.warn(warning, CacheKeyWarning)
+D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\core\cache\backends\base.py:119: CacheKeyWarning: Cache key contains characters that will cause errors if used with memcached: ':1:teruisi:sales-read:v2:7:3:{"actor": ["one@example.test", "admin", null], "authority": {"authority_epoch": "9bb7e9a7-967b-4350-b35e-22b057c6b834", "cutover_id": "changed-synthetic-epoch", "status": "postgres"}, "database": ["default", "django.db.backends.postgresql", "127.0.0.1", "55440", "test_teruisi_ai_rehearsal", "sales_fixture"], "runtimeAuthority": ["", "", "", ""]}'
+  warnings.warn(warning, CacheKeyWarning)
+ok
+test_size_count_ttl_and_changing_revision (sales.tests.test_performance.SalesPerformanceTests.test_size_count_ttl_and_changing_revision) ... ok
+test_summary_consumer_discards_no_contract_fields_and_skips_metadata (sales.tests.test_performance.SalesPerformanceTests.test_summary_consumer_discards_no_contract_fields_and_skips_metadata) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 6.903s
+
+OK
+Destroying test database for alias 'default' ('test_teruisi_ai_rehearsal')...
+ OK
+System check identified no issues (0 silenced).

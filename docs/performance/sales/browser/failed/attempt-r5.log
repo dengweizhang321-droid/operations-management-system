@@ -1,0 +1,40 @@
+00:20:36 [vite] (client) [optimizer] bundling dependencies...
+Sales paired PostgreSQL preview: http://127.0.0.1:3481/.runtime/sales-performance-lab/index.html
+Running bounded sales browser verification
+Browser module URL file:///D:/.codex/worktrees/sales-performance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/sales-performance-browser.mjs
+Browser evidence directory D:\.codex\worktrees\sales-performance\运营管理系统\docs\performance\sales\browser
+00:21:55 [vite] (client) [Unhandled error] ReferenceError: useMemo is not defined
+ > FinanceAnalysisView app/sales-finance-views.tsx:182:23
+    180 |    onFilterOptionsChange: (options: SalesSharedFilterOptions) => void;
+    181 |  }) {
+    182 |    const globalMonths = useMemo(() => isoMonthsBetween(customStartDate, customEndDate), [customEndDate, customStartDat...
+        |                         ^
+    183 |    const [selectedMonths, setSelectedMonths] = useState<string[] | null>(globalMonths);
+    184 |    const [allowInitialMonthFallback, setAllowInitialMonthFallback] = useState(true);
+ > Object.react_stack_bottom_frame .runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom_client.js?v=7909b04d:12867:11
+ > renderWithHooks .runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom_client.js?v=7909b04d:4212:18
+ > updateFunctionComponent .runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom_client.js?v=7909b04d:5568:15
+ > beginWork .runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom_client.js?v=7909b04d:6119:627
+ > runWithFiberInDEV .runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom_client.js?v=7909b04d:850:65
+ > performUnitOfWork .runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom_client.js?v=7909b04d:8428:91
+ > workLoopSync .runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom_client.js?v=7909b04d:8324:36
+ > renderRootSync .runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom_client.js?v=7909b04d:8308:5
+ > performWorkOnRoot .runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom_client.js?v=7909b04d:7993:26
+
+00:21:55 [vite] (client) [console.warn] An error occurred in the <FinanceAnalysisView> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.
+
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+page.waitForFunction: Timeout 30000ms exceeded.
+    at measure (D:\.codex\worktrees\sales-performance\运营管理系统\tools\sales-performance-browser.mjs:54:10)
+    at async file:///D:/.codex/worktrees/sales-performance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/sales-performance-browser.mjs:84:5 {
+  log: [],
+  name: 'TimeoutError'
+}
+
+Node.js v24.18.0

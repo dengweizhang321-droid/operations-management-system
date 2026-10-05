@@ -1,0 +1,514 @@
+[
+  {
+    "name": "http://127.0.0.1:3481/.runtime/sales-performance-lab/main.tsx",
+    "duration": 19.299999997019768,
+    "responseStart": 237.6000000089407,
+    "responseEnd": 238,
+    "transferMs": 0.3999999910593033,
+    "bytes": 12003
+  },
+  {
+    "name": "http://127.0.0.1:3481/.runtime/sales-performance-lab/vite-cache-app-only/deps/react.js?v=7909b04d",
+    "duration": 22.100000008940697,
+    "responseStart": 260.1000000089407,
+    "responseEnd": 262.1000000089407,
+    "transferMs": 2,
+    "bytes": 807
+  },
+  {
+    "name": "http://127.0.0.1:3481/.runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom_client.js?v=7909b04d",
+    "duration": 53.599999994039536,
+    "responseStart": 281.20000000298023,
+    "responseEnd": 293.70000000298023,
+    "transferMs": 12.5,
+    "bytes": 2539298
+  },
+  {
+    "name": "http://127.0.0.1:3481/.runtime/sales-performance-lab/vite-cache-app-only/deps/react_jsx-dev-runtime.js?v=7909b04d",
+    "duration": 50.19999998807907,
+    "responseStart": 289.70000000298023,
+    "responseEnd": 290.5,
+    "transferMs": 0.7999999970197678,
+    "bytes": 33229
+  },
+  {
+    "name": "http://127.0.0.1:3481/.runtime/sales-performance-lab/vite-cache-app-only/deps/react-DGPCLjpP.js?v=7909b04d",
+    "duration": 42.29999999701977,
+    "responseStart": 305.1000000089407,
+    "responseEnd": 305.6000000089407,
+    "transferMs": 0.5,
+    "bytes": 121140
+  },
+  {
+    "name": "http://127.0.0.1:3481/.runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom.js?v=7909b04d",
+    "duration": 3.7000000029802322,
+    "responseStart": 318.1000000089407,
+    "responseEnd": 318.6000000089407,
+    "transferMs": 0.5,
+    "bytes": 43550
+  },
+  {
+    "name": "http://127.0.0.1:3481/.runtime/sales-performance-lab/baseline-sales-module-view.tsx",
+    "duration": 3315.7999999970198,
+    "responseStart": 5312.300000011921,
+    "responseEnd": 5313.4000000059605,
+    "transferMs": 1.0999999940395355,
+    "bytes": 360232
+  },
+  {
+    "name": "http://127.0.0.1:3481/.runtime/sales-performance-lab/baseline-finance-annual-progress-view.tsx",
+    "duration": 118.20000000298023,
+    "responseStart": 5435.4000000059605,
+    "responseEnd": 5435.70000000298,
+    "transferMs": 0.29999999701976776,
+    "bytes": 36508
+  },
+  {
+    "name": "http://127.0.0.1:3481/app/sales-filter-bar.tsx",
+    "duration": 120.5,
+    "responseStart": 5437.9000000059605,
+    "responseEnd": 5438.20000000298,
+    "transferMs": 0.29999999701976776,
+    "bytes": 43512
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 1893.199999988079,
+    "responseStart": 8533.10000000894,
+    "responseEnd": 8534,
+    "transferMs": 0.8999999910593033,
+    "bytes": 115011
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 173.29999999701977,
+    "responseStart": 8988.70000000298,
+    "responseEnd": 8989.5,
+    "transferMs": 0.7999999970197678,
+    "bytes": 115011
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-10&endDate=2026-09-30",
+    "duration": 1426.199999988079,
+    "responseStart": 10508.20000000298,
+    "responseEnd": 10509,
+    "transferMs": 0.7999999970197678,
+    "bytes": 104239
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 65.79999999701977,
+    "responseStart": 10658.40000000596,
+    "responseEnd": 10659.10000000894,
+    "transferMs": 0.7000000029802322,
+    "bytes": 115011
+  },
+  {
+    "name": "http://127.0.0.1:3481/.runtime/sales-performance-lab/baseline-sales-category-view.tsx",
+    "duration": 13.799999997019768,
+    "responseStart": 10824.800000011921,
+    "responseEnd": 10825.40000000596,
+    "transferMs": 0.5999999940395355,
+    "bytes": 142918
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=1&pageSize=20",
+    "duration": 689.2999999970198,
+    "responseStart": 11802,
+    "responseEnd": 11802.5,
+    "transferMs": 0.5,
+    "bytes": 107490
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=2&pageSize=20",
+    "duration": 559.7999999970198,
+    "responseStart": 12448.60000000894,
+    "responseEnd": 12449.10000000894,
+    "transferMs": 0.5,
+    "bytes": 107495
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 651.7000000029802,
+    "responseStart": 13160.20000000298,
+    "responseEnd": 13160.70000000298,
+    "transferMs": 0.5,
+    "bytes": 107493
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=week&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 569.7999999970198,
+    "responseStart": 13787.300000011921,
+    "responseEnd": 13788,
+    "transferMs": 0.699999988079071,
+    "bytes": 50956
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=month&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 589.5,
+    "responseStart": 14449.20000000298,
+    "responseEnd": 14449.60000000894,
+    "transferMs": 0.4000000059604645,
+    "bytes": 40473
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 58.79999999701977,
+    "responseStart": 14576.90000000596,
+    "responseEnd": 14577.60000000894,
+    "transferMs": 0.7000000029802322,
+    "bytes": 107493
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis/detail?startDate=2026-09-01&endDate=2026-09-30&category=%E5%90%88%E6%88%90%E5%93%81%E7%B1%BB14",
+    "duration": 78.20000000298023,
+    "responseStart": 14721.70000000298,
+    "responseEnd": 14722.300000011921,
+    "transferMs": 0.6000000089406967,
+    "bytes": 1724
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/analysis?month=2026-09&initialMonthFallback=latest_completed",
+    "duration": 142.70000000298023,
+    "responseStart": 14971.20000000298,
+    "responseEnd": 14971.90000000596,
+    "transferMs": 0.7000000029802322,
+    "bytes": 7327
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=annual&year=2026&page=1&pageSize=100",
+    "duration": 141.90000000596046,
+    "responseStart": 15537.5,
+    "responseEnd": 15538.300000011921,
+    "transferMs": 0.800000011920929,
+    "bytes": 94338
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=items&page=1&pageSize=100&year=2026",
+    "duration": 98,
+    "responseStart": 15494.10000000894,
+    "responseEnd": 15494.800000011921,
+    "transferMs": 0.7000000029802322,
+    "bytes": 39094
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=options",
+    "duration": 204,
+    "responseStart": 15749.800000011921,
+    "responseEnd": 15750.10000000894,
+    "transferMs": 0.29999999701976776,
+    "bytes": 1599
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=annual&year=2026&page=2&pageSize=100",
+    "duration": 120.70000000298023,
+    "responseStart": 16399.5,
+    "responseEnd": 16399.90000000596,
+    "transferMs": 0.4000000059604645,
+    "bytes": 20872
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=items&page=2&pageSize=100&year=2026",
+    "duration": 62.30000001192093,
+    "responseStart": 16551.80000001192,
+    "responseEnd": 16552.30000001192,
+    "transferMs": 0.5,
+    "bytes": 8144
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 56.29999999701977,
+    "responseStart": 0,
+    "responseEnd": 16914.70000000298,
+    "transferMs": 16914.70000000298,
+    "bytes": 0
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 1923.7999999970198,
+    "responseStart": 18860,
+    "responseEnd": 18860.5,
+    "transferMs": 0.5,
+    "bytes": 115011
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 51.79999999701977,
+    "responseStart": 18987.90000000596,
+    "responseEnd": 18988.40000000596,
+    "transferMs": 0.5,
+    "bytes": 115011
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-10&endDate=2026-09-30",
+    "duration": 1198.5,
+    "responseStart": 20264,
+    "responseEnd": 20264.5,
+    "transferMs": 0.5,
+    "bytes": 104239
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 63.79999999701977,
+    "responseStart": 20404.70000000298,
+    "responseEnd": 20405.20000000298,
+    "transferMs": 0.5,
+    "bytes": 115011
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=1&pageSize=20",
+    "duration": 510.20000000298023,
+    "responseStart": 21021.80000001192,
+    "responseEnd": 21022.20000000298,
+    "transferMs": 0.3999999910593033,
+    "bytes": 107490
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=2&pageSize=20",
+    "duration": 534.7999999970198,
+    "responseStart": 21636.5,
+    "responseEnd": 21637,
+    "transferMs": 0.5,
+    "bytes": 107495
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 507,
+    "responseStart": 22216.30000001192,
+    "responseEnd": 22216.80000001192,
+    "transferMs": 0.5,
+    "bytes": 107493
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=week&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 674.2000000029802,
+    "responseStart": 22972.90000000596,
+    "responseEnd": 22973.60000000894,
+    "transferMs": 0.7000000029802322,
+    "bytes": 50956
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=month&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 554.3000000119209,
+    "responseStart": 23625.80000001192,
+    "responseEnd": 23626.30000001192,
+    "transferMs": 0.5,
+    "bytes": 40473
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 61.8999999910593,
+    "responseStart": 23755.60000000894,
+    "responseEnd": 23756.20000000298,
+    "transferMs": 0.5999999940395355,
+    "bytes": 107493
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis/detail?startDate=2026-09-01&endDate=2026-09-30&category=%E5%90%88%E6%88%90%E5%93%81%E7%B1%BB14",
+    "duration": 95.70000000298023,
+    "responseStart": 23931.70000000298,
+    "responseEnd": 23932.80000001192,
+    "transferMs": 1.1000000089406967,
+    "bytes": 1724
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/analysis?month=2026-09&initialMonthFallback=latest_completed",
+    "duration": 118.29999999701977,
+    "responseStart": 24144.5,
+    "responseEnd": 24145.5,
+    "transferMs": 1,
+    "bytes": 7327
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=annual&year=2026&page=1&pageSize=100",
+    "duration": 176.5,
+    "responseStart": 25203.70000000298,
+    "responseEnd": 25204.40000000596,
+    "transferMs": 0.7000000029802322,
+    "bytes": 94338
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=items&page=1&pageSize=100&year=2026",
+    "duration": 127.79999999701977,
+    "responseStart": 25155.5,
+    "responseEnd": 25156,
+    "transferMs": 0.5,
+    "bytes": 39094
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=options",
+    "duration": 227.5,
+    "responseStart": 25457.60000000894,
+    "responseEnd": 25458.40000000596,
+    "transferMs": 0.7999999970197678,
+    "bytes": 1599
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=annual&year=2026&page=2&pageSize=100",
+    "duration": 177.3999999910593,
+    "responseStart": 26135.60000000894,
+    "responseEnd": 26136.20000000298,
+    "transferMs": 0.5999999940395355,
+    "bytes": 20872
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=items&page=2&pageSize=100&year=2026",
+    "duration": 100.09999999403954,
+    "responseStart": 26424.90000000596,
+    "responseEnd": 26425.5,
+    "transferMs": 0.5999999940395355,
+    "bytes": 8144
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 59.70000000298023,
+    "responseStart": 0,
+    "responseEnd": 26638.90000000596,
+    "transferMs": 26638.90000000596,
+    "bytes": 0
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 2373.7000000029802,
+    "responseStart": 29041.20000000298,
+    "responseEnd": 29041.90000000596,
+    "transferMs": 0.7000000029802322,
+    "bytes": 115011
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 60.400000005960464,
+    "responseStart": 29214.40000000596,
+    "responseEnd": 29215.30000001192,
+    "transferMs": 0.9000000059604645,
+    "bytes": 115011
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-10&endDate=2026-09-30",
+    "duration": 1446.5,
+    "responseStart": 30755.40000000596,
+    "responseEnd": 30755.90000000596,
+    "transferMs": 0.5,
+    "bytes": 104239
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 63.5,
+    "responseStart": 30905.5,
+    "responseEnd": 30906,
+    "transferMs": 0.5,
+    "bytes": 115011
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=1&pageSize=20",
+    "duration": 583.7000000029802,
+    "responseStart": 31621.40000000596,
+    "responseEnd": 31621.90000000596,
+    "transferMs": 0.5,
+    "bytes": 107490
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=2&pageSize=20",
+    "duration": 547.9000000059605,
+    "responseStart": 32252,
+    "responseEnd": 32252.90000000596,
+    "transferMs": 0.9000000059604645,
+    "bytes": 107495
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 579.3000000119209,
+    "responseStart": 32909,
+    "responseEnd": 32909.80000001192,
+    "transferMs": 0.800000011920929,
+    "bytes": 107493
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=week&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 576,
+    "responseStart": 33559.5,
+    "responseEnd": 33560.5,
+    "transferMs": 1,
+    "bytes": 50956
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=month&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 542.4000000059605,
+    "responseStart": 34178.10000000894,
+    "responseEnd": 34178.60000000894,
+    "transferMs": 0.5,
+    "bytes": 40473
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=grossProfitCents&direction=desc&page=1&pageSize=20",
+    "duration": 56.29999999701977,
+    "responseStart": 34299.20000000298,
+    "responseEnd": 34299.70000000298,
+    "transferMs": 0.5,
+    "bytes": 107493
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/category-analysis/detail?startDate=2026-09-01&endDate=2026-09-30&category=%E5%90%88%E6%88%90%E5%93%81%E7%B1%BB14",
+    "duration": 70.20000000298023,
+    "responseStart": 34433.20000000298,
+    "responseEnd": 34433.60000000894,
+    "transferMs": 0.4000000059604645,
+    "bytes": 1724
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/analysis?month=2026-09&initialMonthFallback=latest_completed",
+    "duration": 104.29999999701977,
+    "responseStart": 34623.90000000596,
+    "responseEnd": 34624.40000000596,
+    "transferMs": 0.5,
+    "bytes": 7327
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=annual&year=2026&page=1&pageSize=100",
+    "duration": 113.29999999701977,
+    "responseStart": 35605.5,
+    "responseEnd": 35606.10000000894,
+    "transferMs": 0.6000000089406967,
+    "bytes": 94338
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=items&page=1&pageSize=100&year=2026",
+    "duration": 175.90000000596046,
+    "responseStart": 35668.30000001192,
+    "responseEnd": 35668.90000000596,
+    "transferMs": 0.5999999940395355,
+    "bytes": 39094
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=options",
+    "duration": 144.90000000596046,
+    "responseStart": 35979.10000000894,
+    "responseEnd": 35979.60000000894,
+    "transferMs": 0.5,
+    "bytes": 1599
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=annual&year=2026&page=2&pageSize=100",
+    "duration": 78.90000000596046,
+    "responseStart": 36142,
+    "responseEnd": 36142.40000000596,
+    "transferMs": 0.4000000059604645,
+    "bytes": 20872
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/finance/targets?view=items&page=2&pageSize=100&year=2026",
+    "duration": 68.40000000596046,
+    "responseStart": 36271.20000000298,
+    "responseEnd": 36271.80000001192,
+    "transferMs": 0.6000000089406967,
+    "bytes": 8144
+  },
+  {
+    "name": "http://127.0.0.1:3481/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+    "duration": 48.599999994039536,
+    "responseStart": 0,
+    "responseEnd": 36396.40000000596,
+    "transferMs": 36396.40000000596,
+    "bytes": 0
+  }
+]
