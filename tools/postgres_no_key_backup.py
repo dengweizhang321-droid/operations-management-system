@@ -65,6 +65,19 @@ def verify_receipt_generation(cursor):
         from netshop.promotion_presence import verify_cache_catalog
         verify_cache_catalog(cursor)
         return 139
+    if receipts == sorted([*baseline, DELTA_STEP, "finance.0007_finance_erp_targets"]):
+        from netshop.promotion_presence import verify_cache_catalog
+        verify_cache_catalog(cursor)
+        cursor.execute("SELECT attname FROM pg_attribute WHERE attrelid=to_regclass('public.finance_erp_targets') AND attnum>0 AND NOT attisdropped ORDER BY attname")
+        if [row[0] for row in cursor.fetchall()] != sorted(["id","period_type","period_key","platform","shop_name","sales_target_cents","version","created_at","updated_at","updated_by"]):
+            raise RuntimeError("ERP-goal addition schema differs")
+        cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid=to_regclass('public.finance_erp_targets') ORDER BY conname")
+        if [row[0] for row in cursor.fetchall()] != sorted(["finance_erp_targets_pkey","fin_erp_target_scope_uq","fin_erp_target_period_ck","fin_erp_target_values_ck"]):
+            raise RuntimeError("ERP-goal addition constraints differ")
+        cursor.execute("SELECT t.tgtype,p.proname,t.tgenabled FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid=to_regclass('public.finance_erp_targets') AND t.tgname='finance_erp_target_revision_required' AND NOT t.tgisinternal")
+        if cursor.fetchall()!=[(30,"finance_source_mark_revision_required","O")]:
+            raise RuntimeError("ERP-goal addition revision guard differs")
+        return 140
     raise RuntimeError("no-key backup migration catalogue is not a reviewed generation")
 
 
