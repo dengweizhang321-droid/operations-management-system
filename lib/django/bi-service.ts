@@ -8,6 +8,8 @@ import { PublicApiError } from "@/lib/http/api-error";
 
 
 export const BI_OVERVIEW_PATH = "/api/bi/overview";
+export const BI_COCKPIT_PATH = "/api/bi/cockpit";
+export const BI_FLOW_PATH = "/api/bi/flow";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_TIMEOUT_MS = 120_000;
@@ -115,33 +117,36 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export async function requestDjangoBiOverview<T>(
+async function requestDjangoBiRead<T>(
   principal: AppPrincipal,
   rawQuery: string,
   options: DjangoBiServiceOptions = {},
+  cockpit = false,
+  flow = false,
 ): Promise<DjangoBiServiceResult<T>> {
   if (rawQuery.startsWith("?") || rawQuery.length > 2_048 || /[\r\n]/.test(rawQuery)) {
     throw unavailable();
   }
   const config = normalizedConfig(options.config ?? await loadConfig());
+  const path = flow ? BI_FLOW_PATH : cockpit ? BI_COCKPIT_PATH : BI_OVERVIEW_PATH;
   const headers = await createBiGatewayAuthHeaders({
     secret: config.internalSecret,
     principal,
     method: "GET",
-    path: BI_OVERVIEW_PATH,
+    path,
     rawQuery,
     bodySha256: EMPTY_SHA256,
     timestamp: Math.floor((options.now ?? Date.now)() / 1_000),
     requestId: (options.requestId ?? (() => crypto.randomUUID()))(),
   });
-  const target = new URL(BI_OVERVIEW_PATH, config.readerBaseUrl);
+  const target = new URL(path, config.readerBaseUrl);
   target.search = rawQuery;
   try {
     const { response, data } = await fetchBoundedJson({
       url: target.toString(),
       init: { method: "GET", headers, cache: "no-store" },
-      timeoutMs: config.timeoutMs,
-      maxBytes: config.maxResponseBytes,
+      timeoutMs: cockpit ? Math.min(config.timeoutMs, 65_000) : config.timeoutMs,
+      maxBytes: cockpit ? Math.min(config.maxResponseBytes, 2 * 1024 * 1024) : config.maxResponseBytes,
       fetcher: options.fetchImpl,
       signal: options.signal,
     });
@@ -159,10 +164,10 @@ export async function requestDjangoBiOverview<T>(
     }
     if (response.status !== 200) throw unavailable();
     const revision = response.headers.get("x-bi-data-revision") ?? "";
-    if (!/^\d+:\d+\|\d+:[a-f0-9]{12}$/.test(revision)
+    if (!(cockpit ? /^[a-f0-9]{64}$/.test(revision) : /^\d+:\d+\|\d+:[a-f0-9]{12}$/.test(revision))
       || data.revision !== revision
-      || data.contractVersion !== "bi-dashboard-read-model-v1"
-      || data.projection !== "dashboard") {
+      || data.contractVersion !== (flow ? "bi-flow-v1" : cockpit ? "bi-cockpit-v1" : "bi-dashboard-read-model-v1")
+      || data.projection !== (flow ? "flow" : cockpit ? "cockpit" : "dashboard")) {
       throw unavailable();
     }
     return { status: response.status, data: data as T, revision };
@@ -171,4 +176,16 @@ export async function requestDjangoBiOverview<T>(
     if (error instanceof BoundedFetchError) throw unavailable();
     throw unavailable();
   }
+}
+
+export function requestDjangoBiOverview<T>(principal: AppPrincipal, rawQuery: string, options: DjangoBiServiceOptions = {}) {
+  return requestDjangoBiRead<T>(principal, rawQuery, options);
+}
+
+export function requestDjangoBiCockpit<T>(principal: AppPrincipal, rawQuery: string, options: DjangoBiServiceOptions = {}) {
+  return requestDjangoBiRead<T>(principal, rawQuery, options, true);
+}
+
+export function requestDjangoBiFlow<T>(principal: AppPrincipal, rawQuery: string, options: DjangoBiServiceOptions = {}) {
+  return requestDjangoBiRead<T>(principal, rawQuery, options, true, true);
 }

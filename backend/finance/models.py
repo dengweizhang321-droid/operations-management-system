@@ -293,6 +293,29 @@ class FinanceTarget(models.Model):
         ]
 
 
+class FinanceErpTarget(models.Model):
+    """Explicit ERP net-sales goals; fiscal targets are never converted."""
+    id = models.CharField(primary_key=True, max_length=128)
+    period_type = models.CharField(max_length=8)
+    period_key = models.CharField(max_length=7)
+    platform = models.CharField(max_length=100, default="")
+    shop_name = models.CharField(max_length=100, default="")
+    sales_target_cents = models.BigIntegerField()
+    version = models.PositiveBigIntegerField(default=1)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    updated_by = models.CharField(max_length=320)
+
+    class Meta:
+        db_table = "finance_erp_targets"
+        constraints = [
+            models.UniqueConstraint(fields=["period_type", "period_key", "platform", "shop_name"], name="fin_erp_target_scope_uq"),
+            models.CheckConstraint(condition=models.Q(period_type__in=["year", "month"]), name="fin_erp_target_period_ck"),
+            models.CheckConstraint(condition=models.Q(sales_target_cents__gte=0, version__gte=1), name="fin_erp_target_values_ck"),
+        ]
+        indexes = [models.Index(fields=["period_type", "period_key"], name="fin_erp_target_period_idx")]
+
+
 class FinanceTargetDeletionAudit(models.Model):
     audit_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     target_id = models.CharField(max_length=128)

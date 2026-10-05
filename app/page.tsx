@@ -134,7 +134,7 @@ type ShellViewProps = {
   customEndDate: string;
   importSource?: ImportSourceKey;
   moduleView: ModuleViewKey;
-  onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void;
+  onNavigate: (key: ModuleKey, importSource?: ImportSourceKey, requestedView?: ModuleViewKey) => void;
   onAskAi: (prompt: string) => void;
   aiContextPrompt: string;
   aiPageContext: AiPageContext | null;
@@ -152,7 +152,7 @@ type ShellViewProps = {
 
 const viewMap: Record<ModuleKey, (props: ShellViewProps) => React.ReactNode> = {
   n8n_workflows: ({ currentUser, moduleView, onModuleViewChange }) => <N8nWorkflowView currentUser={currentUser} moduleView={normalizeModuleView("n8n_workflows", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
-  dashboard: DashboardView,
+  dashboard: ({ range, customStartDate, customEndDate, currentUser, onNavigate }) => <DashboardView range={range} customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} onNavigate={onNavigate} />,
   shop: ({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange, overview, onOverviewChange, onApplyPeriod, currentUser, periodKind, shopContext, onShopContextChange, onShopDrill, onShopReturn }) => <ShopView context={shopContext} onContextChange={onShopContextChange} onDrill={onShopDrill} onReturn={onShopReturn} periodKind={periodKind} overview={overview} onOverviewChange={onOverviewChange} onApplyPeriod={onApplyPeriod} currentUser={currentUser} range={range} customStartDate={customStartDate} customEndDate={customEndDate} onNavigate={onNavigate} moduleView={normalizeModuleView("shop", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   market: ({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onApplyPeriod }) => <MarketView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} moduleView={normalizeModuleView("market", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} onApplyPeriod={onApplyPeriod} />,
   customer_service: ({ customStartDate, customEndDate, currentUser, onNavigate }) => <CustomerServiceView customStartDate={customStartDate} customEndDate={customEndDate} currentUser={currentUser} onNavigate={onNavigate} />,

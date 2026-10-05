@@ -9,7 +9,7 @@ export const AI_PAGE_CONTEXT_CATALOG = {
   dashboard: {
     label: "BI 看板",
     views: ["overview"],
-    suggestedTools: ["get_data_freshness", "get_sales_summary", "get_inventory_health", "get_netshop_performance"],
+    suggestedTools: ["get_bi_cockpit", "get_data_freshness", "get_sales_summary", "get_inventory_health", "get_netshop_performance"],
   },
   shop: {
     label: "网店分析",

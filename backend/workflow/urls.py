@@ -2,10 +2,11 @@ from django.conf import settings
 from django.urls import path
 from django.views.decorators.http import require_GET
 
-from . import import_chain_views, operations_views, views
+from . import import_chain_views, operations_views, views, bi_status
 
 
 read_patterns = [
+    path("bi-status", bi_status.status, name="workflow-bi-status"),
     path("import-chain-status", import_chain_views.today_status, name="workflow-import-chain-status"),
     path("launch-projects", views.launch_projects, name="workflow-launch-projects"),
     path("launch-projects/<uuid:project_id>", views.launch_project, name="workflow-launch-project"),

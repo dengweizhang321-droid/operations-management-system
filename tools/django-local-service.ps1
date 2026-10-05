@@ -2955,7 +2955,7 @@ function Invoke-WithDjangoEnvironment(
     "DJANGO_SECRET_KEY", "DJANGO_DEBUG", "DJANGO_ALLOWED_HOSTS",
     "TERUISI_DJANGO_ENVIRONMENT", "TERUISI_DJANGO_PROCESS_ROLE",
     "TERUISI_DJANGO_SALES_READER_BASE_URL", "TERUISI_DJANGO_FINANCE_READER_BASE_URL",
-    "TERUISI_DJANGO_WORKFLOW_READER_BASE_URL",
+    "TERUISI_DJANGO_WORKFLOW_READER_BASE_URL", "TERUISI_DJANGO_INVENTORY_READER_BASE_URL", "TERUISI_DJANGO_NETSHOP_READER_BASE_URL",
     "TERUISI_DJANGO_EXPECT_READ_ONLY", "TERUISI_DJANGO_SALES_CACHE_SECONDS",
     "TERUISI_DJANGO_ERP_SYNC_MAX_AGE_SECONDS",
     "TERUISI_DJANGO_LOG_LEVEL", "TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS",
@@ -2990,10 +2990,14 @@ function Invoke-WithDjangoEnvironment(
     $env:DJANGO_ALLOWED_HOSTS = "127.0.0.1,localhost"
     $env:TERUISI_DJANGO_ENVIRONMENT = "production"
     $env:TERUISI_DJANGO_PROCESS_ROLE = $ProcessRole
-    if ($ProcessRole -eq "netshop_reader") {
+    if ($ProcessRole -in @("netshop_reader", "bi_reader")) {
       $env:TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:8001"
       $env:TERUISI_DJANGO_FINANCE_READER_BASE_URL = "http://127.0.0.1:8011"
       $env:TERUISI_DJANGO_WORKFLOW_READER_BASE_URL = "http://127.0.0.1:8061"
+    }
+    if ($ProcessRole -eq "bi_reader") {
+      $env:TERUISI_DJANGO_INVENTORY_READER_BASE_URL = "http://127.0.0.1:8051"
+      $env:TERUISI_DJANGO_NETSHOP_READER_BASE_URL = "http://127.0.0.1:8021"
     }
     $env:TERUISI_DJANGO_EXPECT_READ_ONLY = if ($ExpectReadOnly) { "true" } else { "false" }
     $env:TERUISI_DJANGO_SALES_CACHE_SECONDS = if ($ProcessRole -eq "reader") { "300" } else { "0" }
@@ -3166,7 +3170,7 @@ function Invoke-WithDjangoEnvironment(
     & $Operation
   } finally {
     foreach ($name in $names) {
-      if ($name -in @("TERUISI_DJANGO_SALES_READER_BASE_URL", "TERUISI_DJANGO_FINANCE_READER_BASE_URL", "TERUISI_DJANGO_WORKFLOW_READER_BASE_URL") -and $null -eq $previous[$name]) {
+      if ($name -in @("TERUISI_DJANGO_SALES_READER_BASE_URL", "TERUISI_DJANGO_FINANCE_READER_BASE_URL", "TERUISI_DJANGO_WORKFLOW_READER_BASE_URL", "TERUISI_DJANGO_INVENTORY_READER_BASE_URL", "TERUISI_DJANGO_NETSHOP_READER_BASE_URL") -and $null -eq $previous[$name]) {
         # PS7/.NET preserves an empty string; NullString restores actual absence.
         [Environment]::SetEnvironmentVariable($name, [NullString]::Value, "Process")
       } else {
@@ -3354,7 +3358,7 @@ with transaction.atomic(), connection.cursor() as c:
 
     c.execute(
         "GRANT SELECT ON finance_import_batches, finance_months, finance_lines, "
-        "finance_targets_scoped, finance_data_revisions TO teruisi_finance_reader"
+        "finance_targets_scoped, finance_erp_targets, finance_data_revisions TO teruisi_finance_reader"
     )
     from finance.business_source_permissions import grant_actor_read as grant_finance_source_actor
     grant_finance_source_actor(c)
@@ -3363,6 +3367,7 @@ with transaction.atomic(), connection.cursor() as c:
 
     c.execute("GRANT SELECT, INSERT, UPDATE ON finance_import_batches, finance_months, finance_import_scope_heads, finance_import_attempts, finance_data_revisions, finance_write_request_receipts TO teruisi_finance_writer")
     c.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON finance_lines, finance_targets_scoped TO teruisi_finance_writer")
+    c.execute("GRANT SELECT, INSERT, UPDATE ON finance_erp_targets TO teruisi_finance_writer")
     c.execute("GRANT SELECT, INSERT ON finance_target_deletion_audits, finance_import_fingerprints TO teruisi_finance_writer")
     c.execute("GRANT SELECT ON finance_write_authority TO teruisi_finance_writer")
     for table in ("finance_lines", "finance_import_fingerprints"):

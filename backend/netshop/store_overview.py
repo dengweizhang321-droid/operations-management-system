@@ -213,9 +213,9 @@ def source_versions(platform, selected_names, revision):
     return source_revisions
 
 
-def read(principal, spec):
+def read(principal, spec, *, deadline=None):
     """Two fenced attempts; manifest and source revisions are separately bound."""
-    deadline = time.monotonic() + 65
+    deadline = min(time.monotonic() + 65, deadline) if deadline is not None else time.monotonic() + 65
     for _ in range(2):
         before = revision_value()
         payload = _read_once(principal, spec, before, deadline)
@@ -232,10 +232,22 @@ def _read_once(principal, spec, revision, deadline):
             raise NetshopApiError("来源核验超过有界读取预算，请缩小范围后重试", code="source_not_ready", status=503)
     platform, p = spec["platform"], spec["periods"]
     product_source, product_dataset, promo_source, promo_dataset = SOURCES[platform]
+    if spec.get("biSummary", False):
+        # BI flow uses one product dimension with actual visitor fields.
+        # JD SPU and SKU share the owning source family but are never summed
+        # together. The public professional overview keeps its original SKU.
+        product_dataset = "spu_daily"
     base = NetshopRow.objects.filter(platform=platform)
     product_base = base.filter(source=product_source, dataset=product_dataset)
     promo_base = base.filter(source=promo_source, dataset=promo_dataset)
-    names = sorted(set(product_base.values_list("shop_name", flat=True).distinct()) | set(promo_base.values_list("shop_name", flat=True).distinct()))
+    if spec.get("biSummary", False):
+        # Owning completed batch identities are the BI discovery contract;
+        # scanning every historical wide fact only to discover names costs
+        # more than the bounded current-period summary itself.
+        published = NetshopImportBatch.objects.filter(status="completed", platform=platform).filter(Q(source=product_source, dataset=product_dataset) | Q(source=promo_source, dataset=promo_dataset))
+        names = sorted(set(published.values_list("shop_name", flat=True).distinct()))
+    else:
+        names = sorted(set(product_base.values_list("shop_name", flat=True).distinct()) | set(promo_base.values_list("shop_name", flat=True).distinct()))
     if len(names) > 50:
         raise NetshopApiError("授权店铺超过50家，请缩小范围", code="quality_incomplete", status=422)
     options = [{"shopKey": platform + "\x1f" + name, "shopName": name} for name in names if name]
@@ -257,7 +269,7 @@ def _read_once(principal, spec, revision, deadline):
     ranges = [p["current"]]
     if spec["previous"]: ranges.append(p["previous"])
     if spec["yearAgo"]: ranges.append(p["yearAgo"])
-    before_start = str(date.fromisoformat(p["current"]["startDate"]) - timedelta(days=6))
+    before_start = p["current"]["startDate"] if spec.get("biSummary", False) else str(date.fromisoformat(p["current"]["startDate"]) - timedelta(days=6))
     query_ranges = [window(before_start, p["current"]["endDate"])] + ranges[1:]
     # Separate bounded windows keep the existing scope/date index usable; an
     # OR over current/previous/year windows produced a broad heap scan on JD.
@@ -271,9 +283,10 @@ def _read_once(principal, spec, revision, deadline):
         # Wide JD reports carry hundreds of source fields. Bound each source
         # verification query to seven days while preserving the exact union.
         wd = days(w["startDate"], w["endDate"])
-        for offset in range(0, len(wd), 7):
+        step = len(wd) if spec.get("biSummary", False) else 7
+        for offset in range(0, len(wd), step):
             check_budget()
-            chunk = window(wd[offset], wd[min(offset + 6, len(wd) - 1)])
+            chunk = window(wd[offset], wd[min(offset + step - 1, len(wd) - 1)])
             raw_promotion.update(aggregate(scoped_rows(promo_base, chunk), PROMOTION))
     date_filter = Q(business_date__gte=before_start, business_date__lt=p["current"]["endExclusive"])
     for w in ranges[1:]: date_filter |= Q(business_date__gte=w["startDate"], business_date__lt=w["endExclusive"])
@@ -374,19 +387,21 @@ def _read_once(principal, spec, revision, deadline):
         return current, comparisons(current, previous, year)
 
     summary, comps = summary_for(selected_names)
-    daily = [row(selected_names, [d]) for d in current_dates]
-    trend = [row(selected_names, ds) for ds in grouped_dates(current_dates, spec["trend"])]
+    bi_summary = spec.get("biSummary", False)
+    daily = [] if bi_summary else [row(selected_names, [d]) for d in current_dates]
+    trend = [] if bi_summary else [row(selected_names, ds) for ds in grouped_dates(current_dates, spec["trend"])]
     detail_groups = [[d] for d in current_dates] if spec["detail"] == "day" else [current_dates[i:i+7] for i in range(0, len(current_dates), 7)]
     detail_groups.reverse()
     detail_offset = (spec["detailPage"]-1)*5
-    details = [row(selected_names, ds) for ds in detail_groups[detail_offset:detail_offset+5]]
-    shop_offset = (spec["shopPage"]-1)*10
+    details = [] if bi_summary else [row(selected_names, ds) for ds in detail_groups[detail_offset:detail_offset+5]]
+    shop_offset = 0 if bi_summary else (spec["shopPage"]-1)*10
+    shop_size = len(selected_names) if bi_summary else 10
     shops = []
-    for name in selected_names[shop_offset:shop_offset+10]:
+    for name in selected_names[shop_offset:shop_offset+shop_size]:
         stats, c = summary_for([name])
         shops.append({"shopKey": platform+"\x1f"+name, "shopName": name, "metrics": stats, "comparisons": c})
     moving = []
-    for d in current_dates:
+    for d in ([] if bi_summary else current_dates):
         dates = days(str(date.fromisoformat(d)-timedelta(days=6)), d)
         m = value_for("payment", selected_names, dates)
         moving.append({"date": d, "paymentCents": round(m["value"] / 7) if m["status"] == "available" else None})
@@ -411,5 +426,5 @@ def _read_once(principal, spec, revision, deadline):
             "periods": p, "freshness": freshness, "coverageBySource": {product_source: coverage(product), promo_source: coverage(raw_promotion)},
             "summary": summary, "comparisons": comps, "daily": daily, "trend": trend, "details": details,
             "detailPagination": {"page": spec["detailPage"], "pageSize": 5, "total": len(detail_groups), "hasMore": detail_offset+5 < len(detail_groups)},
-            "shopOptions": options, "shops": shops, "shopPagination": {"page": spec["shopPage"], "pageSize": 10, "total": len(selected_names), "hasMore": shop_offset+10 < len(selected_names)},
+            "shopOptions": options, "shops": shops, "shopPagination": {"page": spec["shopPage"], "pageSize": shop_size, "total": len(selected_names), "hasMore": shop_offset+shop_size < len(selected_names)},
             "movingAverage": moving, "annotations": []}

@@ -4,14 +4,14 @@ import test from "node:test";
 
 test("BI 首页通过 Django BI reader 获取库存 dashboard 轻量投影", async () => {
   const [dashboardView, route, biQuery, overview] = await Promise.all([
-    readFile(new URL("../app/dashboard-module-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/bi-cockpit-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/bi/overview/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../backend/bi/query.py", import.meta.url), "utf8"),
     readFile(new URL("../backend/inventory/query.py", import.meta.url), "utf8"),
   ]);
 
-  assert.match(dashboardView, /new URLSearchParams\(\{ range: apiRange \}\)/);
-  assert.match(dashboardView, /requestJson<BiDashboardResponse>/);
+  assert.match(dashboardView, /new URLSearchParams\(\{ range: apiRange, mine:/);
+  assert.match(dashboardView, /requestJson<unknown>/);
   assert.match(route, /requestDjangoBiOverview/);
   assert.match(route, /params\.toString\(\)/);
   assert.doesNotMatch(route, /getInventoryDatabase|getD1Database|env\.DB/);
