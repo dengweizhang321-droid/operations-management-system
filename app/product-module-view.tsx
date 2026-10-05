@@ -5,7 +5,8 @@ import { useAiPageDetails } from "./ai-page-context-provider";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PRODUCT_SUMMARY_QUERY_MAX_LENGTH } from "@/lib/products/query-contract";
 import { decodeProductRead } from "@/lib/products/read-contract";
-import type { ProductSummaryInitialPageResponse, ProductSummaryOverviewResponse } from "@/lib/products/summary";
+import { validateProductDetail } from "@/lib/products/detail-contract";
+import type { ProductSummaryInitialPageResponse, ProductSummaryOverviewResponse, ProductSummaryFullResponse as ProductSummaryResponse } from "@/lib/products/summary";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { SearchableMultiSelect, SearchableSelect } from "./ui/searchable-select";
 import { InventoryKpiCard, MultiFilterSelect, ProductPlatformSalesShare, ProductSalesTrend, ShopSalesDistribution } from "./module-view-business-ui";
@@ -16,7 +17,6 @@ import {
   snapshotTokenPattern,
   claimSnapshotRestart,
   effectivePageForScope,
-  type ProductSummaryResponse,
   formatCurrency,
   formatCurrencyFromCents,
   formatCount,
@@ -29,7 +29,7 @@ import {
 type ProductTab = ModuleViewKey<"product">;
 type ProductCalculatorInput = { salePrice: number; unitCost: number; feeRate: number; promotionCost: number };
 type ProductMarginFilter = "低于35%" | "35%-40%" | "40%-45%" | "45%以上" | "暂无有效毛利率";
-type ProductDetailSnapshot = { productCode: string; detail: SalesSummaryResponse };
+type ProductDetailSnapshot = { requestKey: string; detail: SalesSummaryResponse };
 const productSortLabels = {
   netSalesCents: "销售净额", grossProfitCents: "订单毛利", grossMarginRate: "实际毛利率",
   refundRate: "退货率", stockValueCents: "库存货值", netQuantity: "净销量",
@@ -43,6 +43,8 @@ function ProductDetailView({
   rangeLabel,
   onBack,
   onRetry,
+  waitingForSummary,
+  emptyRange,
 }: {
   item: ProductSummaryItem;
   detail: SalesSummaryResponse | null;
@@ -51,6 +53,8 @@ function ProductDetailView({
   rangeLabel: string;
   onBack: () => void;
   onRetry: () => void;
+  waitingForSummary: boolean;
+  emptyRange: boolean;
 }) {
   return <div className="data-refresh-region" aria-busy={loading}>
     <section className="panel product-detail-heading">
@@ -59,8 +63,10 @@ function ProductDetailView({
       <div className="product-detail-heading-meta"><strong>{rangeLabel}</strong><span>{detail ? `${detail.startDate} 至 ${detail.endDate}` : "正在载入统计周期"}</span><small>可通过上方周期切换查看趋势</small></div>
     </section>
 
-    {loading && !detail && <section className="panel data-state product-detail-state" role="status"><span className="state-spinner" /><strong>正在汇总该规格的销售明细</strong><p>正在读取销量、销售额、平台和店铺分布…</p></section>}
-    {!loading && !detail && <section className="panel data-state data-state-error product-detail-state" role="alert"><span className="state-symbol">!</span><strong>规格详情加载失败</strong><p>{error || "暂时无法读取该规格的销售明细"}</p><button className="secondary-button" onClick={onRetry}>重新加载</button></section>}
+    {waitingForSummary && <section className="panel data-state product-detail-state" role="status"><strong>等待当前范围的商品快照</strong><p>快照校验完成后读取规格详情。</p><button className="secondary-button" onClick={onRetry}>重新加载</button></section>}
+    {emptyRange && <section className="panel data-state product-detail-state" role="status"><strong>当前统计周期没有销售覆盖</strong><p>请选择有销售覆盖的日期查看规格详情。</p></section>}
+    {loading && !detail && !waitingForSummary && !emptyRange && <section className="panel data-state product-detail-state" role="status"><span className="state-spinner" /><strong>正在汇总该规格的销售明细</strong><p>正在读取销量、销售额、平台和店铺分布…</p></section>}
+    {!loading && !detail && !waitingForSummary && !emptyRange && <section className="panel data-state data-state-error product-detail-state" role="alert"><span className="state-symbol">!</span><strong>规格详情加载失败</strong><p>{error || "暂时无法读取该规格的销售明细"}</p><button className="secondary-button" onClick={onRetry}>重新加载</button></section>}
 
     {detail && <>
       {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>详情刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={onRetry}>重试</button></section>}
@@ -101,7 +107,10 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
   const [calculatorOverrides, setCalculatorOverrides] = useState<Record<string, ProductCalculatorInput>>({});
   const [productDetailSnapshot, setProductDetailSnapshot] = useState<ProductDetailSnapshot | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoadingKey, setDetailLoadingKey] = useState("");
   const [detailError, setDetailError] = useState("");
+  const [detailErrorKey, setDetailErrorKey] = useState("");
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
   const [productPage, setProductPage] = useState(1);
   const [productSummarySnapshotRecoveryKey, setProductSummarySnapshotRecoveryKey] = useState(0);
   const productSummaryGenerationRef = useRef(0);
@@ -209,7 +218,7 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
         if (!payload && recoveringSnapshot) return;
         if (payload) {
           if (payload.projection === "page") {
-            if (!next || next.snapshotToken !== expectedSnapshotToken || productSummaryBootstrapKeyRef.current !== bootstrapKey) throw new Error("商品分页缺少同范围汇总");
+            if (!next || next.snapshotToken !== expectedSnapshotToken || payload.salesSourceRevision !== next.salesSourceRevision || productSummaryBootstrapKeyRef.current !== bootstrapKey) throw new Error("商品分页缺少同范围汇总");
             next = { ...next, sort: payload.sort, pagination: payload.pagination, items: payload.items };
           } else if (payload.projection === "initial-page" || payload.projection === "full") {
             next = payload;
@@ -235,7 +244,7 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
         try {
           const payload = await read(params);
           if (!payload || !active()) return;
-          if (payload.projection !== "overview" || payload.pagination.total !== next.pagination.total) throw new Error("商品分布与明细全集合不一致");
+          if (payload.projection !== "overview" || payload.pagination.total !== next.pagination.total || payload.salesSourceRevision !== next.salesSourceRevision) throw new Error("商品分布与明细全集合不一致");
           setOverview(payload); setOverviewScope(bootstrapKey);
           overviewReadyKeyRef.current = `${bootstrapKey}:${payload.snapshotToken}`;
         } catch (regionError) {
@@ -275,11 +284,16 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
       ?? (detailItem?.productCode === detailProductCode ? detailItem : null),
     [detailItem, detailProductCode, summary?.items],
   );
-  const productDetail = productDetailSnapshot?.productCode === detailProductCode
-    ? productDetailSnapshot.detail
-    : null;
   const detailStartDate = summary?.sync.salesWindowStart ?? "";
   const detailEndDate = summary?.sync.salesThrough ?? "";
+  const detailSalesRevision = summary?.salesSourceRevision ?? "";
+  const detailRequestKey = JSON.stringify({ productCode: detailProductCode,
+    requestedStart: customStartDate, requestedEnd: customEndDate,
+    start: detailStartDate, end: detailEndDate, snapshot: summary?.snapshotToken ?? "" });
+  const productDetail = productDetailSnapshot?.requestKey === detailRequestKey
+    ? productDetailSnapshot.detail : null;
+  const currentDetailError = detailErrorKey === detailRequestKey ? detailError : "";
+  const detailBusy = detailLoading && detailLoadingKey === detailRequestKey && !!detailStartDate && !!detailEndDate;
   useAiPageDetails("product", {
     period: detailOpen ? (detailStartDate && detailEndDate ? { startDate: detailStartDate, endDate: detailEndDate } : null) : { startDate: customStartDate, endDate: customEndDate },
     filters: detailOpen
@@ -299,7 +313,9 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
     const controller = new AbortController();
     productDetailControllerRef.current = controller;
     setDetailLoading(true);
+    setDetailLoadingKey(detailRequestKey);
     setDetailError("");
+    setDetailErrorKey(detailRequestKey);
     try {
       const params = new URLSearchParams({
         range: "custom",
@@ -312,8 +328,13 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
       if (!response.ok || !payload || !payload.current || !Array.isArray(payload.daily)) {
         throw new Error(payload?.error || `规格详情读取失败（${response.status}）`);
       }
+      if (!detailSalesRevision || response.headers.get("x-sales-source-revision") !== detailSalesRevision
+        || response.headers.get("x-sales-data-revision") !== detailSalesRevision) {
+        throw new Error("规格详情与商品快照的销售版本不一致，请同步数据后重试");
+      }
+      validateProductDetail(payload, requestedProductCode, requestedStartDate, requestedEndDate);
       if (!controller.signal.aborted && generation === productDetailGenerationRef.current) {
-        setProductDetailSnapshot({ productCode: requestedProductCode, detail: payload });
+        setProductDetailSnapshot({ requestKey: detailRequestKey, detail: payload });
       }
     } catch (requestError) {
       if (!controller.signal.aborted && generation === productDetailGenerationRef.current) setDetailError(requestError instanceof Error ? requestError.message : "暂时无法读取规格详情");
@@ -323,7 +344,7 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
         if (productDetailControllerRef.current === controller) productDetailControllerRef.current = null;
       }
     }
-  }, [detailEndDate, detailProductCode, detailStartDate]);
+  }, [detailEndDate, detailProductCode, detailStartDate, detailRequestKey, detailSalesRevision]);
   useEffect(() => {
     if (!detailOpen || !detailProductCode || !detailStartDate || !detailEndDate) return;
     void loadProductDetail();
@@ -331,7 +352,7 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
       productDetailGenerationRef.current += 1;
       productDetailControllerRef.current?.abort();
     };
-  }, [detailEndDate, detailOpen, detailProductCode, detailStartDate, loadProductDetail]);
+  }, [detailEndDate, detailOpen, detailProductCode, detailStartDate, loadProductDetail, detailRefreshKey]);
 
   useEffect(() => { setDetailOpen(false); }, [activeTab]);
 
@@ -420,12 +441,16 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
     if (effectiveProductPage === page) void loadSummary();
     else setProductPage(page);
   };
+  const refreshProduct = () => {
+    void loadSummary(true);
+    if (detailOpen) setDetailRefreshKey((value) => value + 1);
+  };
   const subnav = <div className="subnav product-subnav" role="tablist" aria-label="商品管理子版块"><button type="button" role="tab" aria-selected={activeTab === "overview" && !detailOpen} className={activeTab === "overview" && !detailOpen ? "active" : ""} onClick={() => changeProductTab("overview")}>商品经营</button><button type="button" role="tab" aria-selected={activeTab === "calculator" && !detailOpen} className={activeTab === "calculator" && !detailOpen ? "active" : ""} onClick={() => changeProductTab("calculator")}>毛利测算</button>{detailOpen && <button type="button" role="tab" aria-selected className="active">规格详情</button>}</div>;
 
   return (
     <>
       {subnav}
-      <section className="product-search-hero product-live-hero"><div><span className="eyebrow">商品经营中心</span><h2>商品表现与实际毛利实时汇总</h2><p>全局统计周期 {customStartDate} 至 {customEndDate} · {summary ? `实际数据 ${summary.sync.salesWindowStart ?? "无覆盖"} 至 ${summary.sync.salesThrough ?? "无覆盖"} · 库存快照 ${summary.sync.inventoryAsOf ?? "未同步"}` : "正在核验当前范围的销售与库存快照…"}</p></div><div className="product-hero-actions"><span className="global-period-badge">{range} · 全局同步</span><button className="secondary-button product-refresh" onClick={() => void loadSummary(true)} disabled={loading || overviewLoading}>{loading || overviewLoading ? "同步中…" : "↻ 同步数据"}</button></div></section>
+      <section className="product-search-hero product-live-hero"><div><span className="eyebrow">商品经营中心</span><h2>商品表现与实际毛利实时汇总</h2><p>全局统计周期 {customStartDate} 至 {customEndDate} · {summary ? `实际数据 ${summary.sync.salesWindowStart ?? "无覆盖"} 至 ${summary.sync.salesThrough ?? "无覆盖"} · 库存快照 ${summary.sync.inventoryAsOf ?? "未同步"}` : "正在核验当前范围的销售与库存快照…"}</p></div><div className="product-hero-actions"><span className="global-period-badge">{range} · 全局同步</span><button className="secondary-button product-refresh" onClick={refreshProduct} disabled={loading || overviewLoading || (detailOpen && detailBusy)}>{loading || overviewLoading || (detailOpen && detailBusy) ? "同步中…" : "↻ 同步数据"}</button></div></section>
 
       {summary && !summary.hasSales && <section className="panel" role="status">还没有可用于毛利测算的销售明细，请先在“数据导入”同步销售单明细账。</section>}
 
@@ -446,7 +471,7 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
           </tbody></table></div>
           {summary && <footer className="jd-sku-pagination"><span>第 {summary.pagination.page} / {Math.max(1, summary.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={loading || summary.pagination.page <= 1} onClick={() => changeProductPage(Math.max(1, summary.pagination.page - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || summary.pagination.page >= Math.max(1, summary.pagination.totalPages)} onClick={() => changeProductPage(summary.pagination.page + 1)}>下一页</button></div></footer>}
         </section>
-      </> : detailOpen && summary && selectedDetailItem ? <ProductDetailView item={selectedDetailItem} detail={productDetail} loading={detailLoading} error={detailError} rangeLabel={rangeLabel} onBack={() => setDetailOpen(false)} onRetry={() => void loadProductDetail()} /> : !summary ? <section className="panel data-state" role="status">{error || "正在准备毛利测算的商品数据…"}</section> : <>
+      </> : detailOpen && selectedDetailItem ? <ProductDetailView item={selectedDetailItem} detail={productDetail} loading={!!detailStartDate && !!detailEndDate && (detailBusy || (!productDetail && !currentDetailError))} error={currentDetailError} waitingForSummary={!summary} emptyRange={!!summary && (!detailStartDate || !detailEndDate)} rangeLabel={rangeLabel} onBack={() => setDetailOpen(false)} onRetry={() => summary ? void loadProductDetail() : void loadSummary(true)} /> : !summary ? <section className="panel data-state" role="status">{error || "正在准备毛利测算的商品数据…"}</section> : <>
         <section className="product-calculator-grid data-refresh-region" aria-busy={loading}>
           <article className="panel calculator-input-panel"><SectionHeader title="毛利测算" note="默认带入所选商品近期开单均价、成本与费用率，可按活动方案调整" /><div className="calculator-fields"><label><span>选择商品</span><SearchableSelect value={selectedCode} onChange={setSelectedCode} ariaLabel="选择用于测算的商品" searchPlaceholder="搜索商品名称或规格代码" options={summary.items.map((item) => ({ value: item.productCode, label: `${item.productName} · ${item.productCode}`, searchText: `${item.productName} ${item.productCode} ${item.specification}` }))} /></label><label><span>预计成交价（元）</span><input type="number" min={0} step="0.01" value={calculator.salePrice} onChange={(event) => updateCalculator("salePrice", Number(event.target.value))} /></label><label><span>单位成本（元）</span><input type="number" min={0} step="0.01" value={calculator.unitCost} onChange={(event) => updateCalculator("unitCost", Number(event.target.value))} /></label><label><span>平台综合费率（%）</span><input type="number" min={0} step="0.01" value={calculator.feeRate} onChange={(event) => updateCalculator("feeRate", Number(event.target.value))} /></label><label><span>单件促销/履约成本（元）</span><input type="number" min={0} step="0.01" value={calculator.promotionCost} onChange={(event) => updateCalculator("promotionCost", Number(event.target.value))} /></label></div><div className="calculator-source"><Dot tone="blue" /><span>{selectedProduct ? `${selectedProduct.productName} · 最近实际毛利率 ${selectedProduct.grossMarginRate === null ? "—" : formatRate(selectedProduct.grossMarginRate)}` : "请选择商品"}</span></div></article>
           <article className="panel calculator-result-panel"><SectionHeader title="预计单件收益" note="成交价 − 单位成本 − 平台费 − 促销/履约成本" /><div className="calculator-result"><div><span>预计单件毛利</span><strong className={estimatedProfit < 0 ? "red-text" : "green-text"}>{formatCurrency(estimatedProfit)}</strong></div><div><span>预计毛利率</span><strong className={estimatedMargin === null ? "" : estimatedMargin < 0 ? "red-text" : "green-text"}>{estimatedMargin === null ? "—" : formatRate(estimatedMargin)}</strong></div><div><span>预计平台费用</span><strong>{formatCurrency(estimatedFee)}</strong></div></div><div className={`calculator-decision ${estimatedMargin !== null && estimatedMargin < 0 ? "danger" : estimatedMargin !== null && estimatedMargin < 0.2 ? "warning" : "success"}`}><strong>{estimatedMargin === null ? "请输入成交价" : estimatedMargin < 0 ? "该方案预计亏损" : estimatedMargin < 0.2 ? "该方案毛利偏低" : "该方案毛利健康"}</strong><p>{estimatedMargin === null ? "成交价大于 0 后即可得到测算结果。" : `每售出 1 件，预计保留 ${formatCurrency(estimatedProfit)} 毛利。`}</p></div></article>

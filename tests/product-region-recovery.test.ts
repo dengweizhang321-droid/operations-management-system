@@ -13,7 +13,7 @@ function response(url: string, total = 55, token = "a".repeat(64)) {
     productCode:`S-${(page-1)*size+i}`,productName:`合成商品 ${(page-1)*size+i}`,brand:"合成品牌",supplierName:"合成供应商",specification:"合成规格",category:"合成类目",outlets:[],
     netQuantity:1,grossSalesCents:10000,refundAmountCents:100,netSalesCents:9900,costCents:5000,feeCents:100,grossProfitCents:4900,grossMarginRate:4900/9900,refundRate:.01,shippingRate:null,averageSalePriceCents:9900,averageCostCents:5000,observedFeeRate:.01,availableQuantity:null,stockValueCents:null,knownStockValueCents:null,costCoverageRate:null,
   }));
-  const full:ProductSummaryFullResponse={projection:"full",snapshotToken:token,hasSales:true,range:"custom",
+  const full:ProductSummaryFullResponse={projection:"full",snapshotToken:token,salesSourceRevision:"1:1",hasSales:true,range:"custom",
     sync:{salesWindowStart:q.get("startDate"),salesThrough:q.get("endDate"),requestedStartDate:q.get("startDate"),requestedEndDate:q.get("endDate"),dataStartDate:"2026-09-01",dataCutoffDate:"2026-09-30",inventoryAsOf:null,latestSalesFile:"synthetic"},
     sort:{by:(q.get("sortBy")??"netSalesCents") as ProductSummaryFullResponse["sort"]["by"],direction:"desc"},
     pagination:{page,pageSize:size,total,returned:items.length,totalPages:Math.ceil(total/size),truncated:(page-1)*size+items.length<total},items,
@@ -22,7 +22,7 @@ function response(url: string, total = 55, token = "a".repeat(64)) {
   };
   if(q.get("view")==="initial-page"){const p={...full,projection:"initial-page"};Reflect.deleteProperty(p,"metrics");Reflect.deleteProperty(p,"filters");return p;}
   if(q.get("view")==="overview"){const p={...full,projection:"overview"};Reflect.deleteProperty(p,"items");return p;}
-  return {projection:"page",snapshotToken:token,sort:full.sort,pagination:full.pagination,items};
+  return {projection:"page",snapshotToken:token,salesSourceRevision:full.salesSourceRevision,sort:full.sort,pagination:full.pagination,items};
 }
 async function pending(page:Page, count:number){await page.waitForFunction(n=>((window as unknown as {pending:Array<unknown>}).pending?.length??0)>=n,count);}
 async function request(page:Page,index:number){return page.evaluate(i=>(window as unknown as {pending:Array<{url:string}>}).pending[i].url,index);}
@@ -59,6 +59,17 @@ test("an interrupted distribution recovers even when the next page or refresh fa
     assert.equal(await page.locator(".product-kpi-grid").getAttribute("aria-busy"),"false");
     assert.equal(await page.locator(".product-cell").count(),5);assert.deepEqual(errors,[]);
   }finally{await browser.close();}
+});
+
+test("same snapshot with conflicting sales source witness fails the affected region locally",{skip:!existsSync(chrome),timeout:30000},async()=>{
+  const {browser,page,errors}=await fixturePage();try {
+    await pending(page,1);await reply(page,0,response(await request(page,0)));await pending(page,2);
+    const wrong={...response(await request(page,1)),salesSourceRevision:"2:1"};await reply(page,1,wrong);
+    await page.getByText("商品分布与明细全集合不一致",{exact:false}).waitFor();assert.equal(await page.locator('.product-cell').count(),50);
+    await page.getByRole('button',{name:'重试分布与筛选',exact:true}).click();await pending(page,3);await reply(page,2,response(await request(page,2)));await page.getByText('55 个',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'下一页',exact:true}).click();await pending(page,4);await reply(page,3,{...response(await request(page,3)),salesSourceRevision:'2:1'});
+    await page.getByText('商品分页缺少同范围汇总',{exact:false}).waitFor();assert.equal(await page.locator('.product-cell').count(),50);assert.deepEqual(errors,[]);
+  } finally {await browser.close();}
 });
 
 test("first/new scope failures show blocked statistics, and a changed snapshot restarts page one",{skip:!existsSync(chrome),timeout:30000},async()=>{

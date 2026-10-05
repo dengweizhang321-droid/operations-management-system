@@ -5,6 +5,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from django.test import TransactionTestCase
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from products.errors import ProductsApiError
 from products.models import ProductDataRevision, ProductInventoryProjection, ProductInventoryProjectionControl, ProductShippingRate
 from products.query import product_summary
@@ -56,7 +58,8 @@ class ProgressiveSummaryTests(TransactionTestCase):
                         opts={**self.options,**filters,'sortBy':sort,'direction':direction}
                         old=baseline.product_summary(self.principal,opts)
                         new=product_summary(self.principal,opts)
-                        self.assertEqual(new,old)
+                        self.assertEqual({k:v for k,v in new.items() if k!='salesSourceRevision'},old)
+                        self.assertEqual(new['salesSourceRevision'],'1:1')
             before=len(self.calls)
             initial=product_summary(self.principal,{**self.options,'projection':'initial-page'})
             self.assertNotIn('metrics',initial);self.assertNotIn('filters',initial)
@@ -79,6 +82,52 @@ class ProgressiveSummaryTests(TransactionTestCase):
         with patch('products.query.sales_revision_token',side_effect=['v1','v2']):
             with self.assertRaises(ProductsApiError):product_summary(self.principal,self.options)
         self.assertFalse(cache.entries)
+
+    def test_current_page_rates_and_overview_skip_display_materialization(self):
+        with CaptureQueriesContext(connection) as queries:
+            initial=product_summary(self.principal,{**self.options,'projection':'initial-page'})
+        rate_sql=[q['sql'] for q in queries if 'product_shipping_rates' in q['sql']]
+        self.assertEqual(len(rate_sql),2)
+        self.assertIn('COUNT(',rate_sql[0])
+        self.assertIn(' IN ',rate_sql[1])
+        for item in initial['items']:
+            self.assertEqual(item['shippingRate'],.05 if int(item['productCode'].split('-')[1])%2 else 0)
+        with CaptureQueriesContext(connection) as queries, patch('products.query._page_items',side_effect=AssertionError('overview materialized page')):
+            overview=product_summary(self.principal,{**self.options,'projection':'overview','expectedSnapshotToken':initial['snapshotToken']})
+        self.assertFalse(any('product_shipping_rates' in q['sql'] for q in queries))
+        self.assertEqual(overview['metrics']['skuCount'],120)
+        with CaptureQueriesContext(connection) as queries:
+            page=product_summary(self.principal,{**self.options,'projection':'page','page':2,'expectedSnapshotToken':initial['snapshotToken']})
+        self.assertEqual(len([q for q in queries if 'product_shipping_rates' in q['sql']]),1)
+        self.assertEqual(self.calls.count('product_performance'),1)
+        self.assertEqual(page['pagination']['total'],120)
+
+    def test_page_rate_version_change_and_local_failure_recover_without_rescan(self):
+        initial=product_summary(self.principal,self.options)
+        opts={**self.options,'projection':'page','page':2,'expectedSnapshotToken':initial['snapshotToken']}
+        with patch('products.query._page_items',side_effect=RuntimeError('temporary page error')):
+            with self.assertRaises(RuntimeError): product_summary(self.principal,opts)
+        before=len(self.calls)
+        self.assertEqual(len(product_summary(self.principal,opts)['items']),50)
+        self.assertEqual(len(self.calls),before)
+        from products.query import _page_items
+        def changed(rows):
+            result=_page_items(rows)
+            ProductDataRevision.objects.filter(domain='products').update(revision=99)
+            return result
+        with patch('products.query._page_items',side_effect=changed):
+            with self.assertRaises(ProductsApiError):product_summary(self.principal,opts)
+        with self.assertRaises(ProductsApiError):product_summary(self.principal,opts)
+        self.assertNotEqual(product_summary(self.principal,self.options)['snapshotToken'],initial['snapshotToken'])
+
+    def test_shipping_safety_limit_preserved_and_negative_rates_not_clamped(self):
+        with patch('products.query.ProductShippingRate.objects.count',return_value=20001):
+            with self.assertRaises(ProductsApiError):product_summary(self.principal,self.options)
+        self.assertFalse(cache.entries)
+        ProductShippingRate.objects.filter(product_code='X-001').update(shipping_rate='-.01')
+        ProductShippingRate.objects.filter(product_code='X-002').update(shipping_rate='1.25')
+        result=product_summary(self.principal,{**self.options,'query':'X-001 X-002'})
+        self.assertEqual({i['productCode']:i['shippingRate'] for i in result['items']},{'X-001':-.01,'X-002':1.25})
 
     def test_non_cacheable_base_returns_full_inline_without_second_region_scan(self):
         with patch.object(cache,'maximum_bytes',1):
