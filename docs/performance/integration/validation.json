@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "sourceHead": "cc49aa515e6bd2e06310667a04c42f2e6ebde3b9",
+  "businessFixes": [
+    "3dc098d04d81ffb5ffc93fdbb75174a786ff81fa",
+    "8fcad768a5cbb5dd1376afea65300eb05cfddb4b"
+  ],
+  "node": {
+    "tests": 3330,
+    "pass": 3309,
+    "fail": 0,
+    "cancelled": 0,
+    "skip": 21
+  },
+  "postgres": {
+    "sales": 65,
+    "inventory": {
+      "total": 132,
+      "pass": 129,
+      "skip": 3
+    },
+    "products": 31,
+    "market": 148
+  },
+  "typescript": {
+    "baselineSha": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+    "baselineCount": 188,
+    "currentCount": 188,
+    "added": [],
+    "removed": [],
+    "method": "file,code,message multiset; whitespace normalized, line positions ignored"
+  },
+  "productionAdopted": false,
+  "bindings": [
+    {
+      "name": "unit-all.log",
+      "bytes": 703469,
+      "sha256": "92f1fd9a2755565384339d640dd81c3f1a56ff6d715a6c6d36556d20d3710708",
+      "retainedPath": ".runtime/performance-integration/unit-all.log"
+    },
+    {
+      "name": "unit-final.log",
+      "bytes": 316214,
+      "sha256": "d9e80110bfe061194595ca9f7623e4a2db045fcefbe3ab63d935aa9a1eb2ef4d",
+      "retainedPath": ".runtime/performance-integration/unit-final.log"
+    },
+    {
+      "name": "node-initial.log",
+      "bytes": 9343,
+      "sha256": "505b569f7c2289b66dccac66f4da6acc3d3f14516d93055a1bf2603c4b45521c",
+      "retainedPath": ".runtime/performance-integration/node-initial.log"
+    },
+    {
+      "name": "public-market-final.log",
+      "bytes": 3881,
+      "sha256": "7bef214f406f4a3e3a6cc23c3ba520f728af8afe5c89fe95b7da1bb918393d8b",
+      "retainedPath": ".runtime/performance-integration/public-market-final.log"
+    },
+    {
+      "name": "market-identity.log",
+      "bytes": 3615,
+      "sha256": "8436b13ab4192f363ffeeb02a1a2407ec45338be6157dd586c9bcac005845dcb",
+      "retainedPath": ".runtime/performance-integration/market-identity.log"
+    },
+    {
+      "name": "python-contracts-complete.log",
+      "bytes": 4863,
+      "sha256": "ab717862481b7a52f3a74d8c05d3d84dcac556c43b1538499a565d466d3403aa",
+      "retainedPath": ".runtime/performance-integration/python-contracts-complete.log"
+    },
+    {
+      "name": "pg-sales.log",
+      "bytes": 834,
+      "sha256": "cb60b01574cb8018847c2d506f64a5084d7a12fa91e028710305402c4efd1589",
+      "retainedPath": ".runtime/performance-integration/pg-sales.log"
+    },
+    {
+      "name": "pg-sales-targeted.log",
+      "bytes": 111,
+      "sha256": "e572463fccf69cc4a276b320041d2aa2f94802d25fe9594d498428df5b508210",
+      "retainedPath": ".runtime/performance-integration/pg-sales-targeted.log"
+    },
+    {
+      "name": "pg-inventory.log",
+      "bytes": 115,
+      "sha256": "627e20180e5a252df2b09b41758f3c6b60fbb4e26ac645c4638e797b7a569672",
+      "retainedPath": ".runtime/performance-integration/pg-inventory.log"
+    },
+    {
+      "name": "pg-products.log",
+      "bytes": 110,
+      "sha256": "ab5a2936cb9e597517a2f8268149ea2255622289cbd8c5f0f9540e00043ddfc5",
+      "retainedPath": ".runtime/performance-integration/pg-products.log"
+    },
+    {
+      "name": "pg-market.log",
+      "bytes": 1271,
+      "sha256": "842f5f38bfbffbaf9aa6f55454d8caff657d142e1b31532e6d670b5c48860346",
+      "retainedPath": ".runtime/performance-integration/pg-market.log"
+    },
+    {
+      "name": "inventory-ui.log",
+      "bytes": 779,
+      "sha256": "441a080f95d09adefc9e44f96d66919df46039f0085d19ef0abb02b1498a01f8",
+      "retainedPath": ".runtime/performance-integration/inventory-ui.log"
+    },
+    {
+      "name": "inventory-ui-fixture-ready.log",
+      "bytes": 393,
+      "sha256": "ef975b4f2a26f9e0e17f18b012256649604a53843f3ac4464acfc8b36f9b2d8a",
+      "retainedPath": ".runtime/performance-integration/inventory-ui-fixture-ready.log"
+    },
+    {
+      "name": "types.log",
+      "bytes": 56334,
+      "sha256": "3292f6af90603a1caa0a3f199dcd18dc5485afef9e82aa9c292e1d3139ca931a",
+      "retainedPath": ".runtime/performance-integration/types.log"
+    },
+    {
+      "name": "lint.log",
+      "bytes": 5426,
+      "sha256": "9feb225aae2f83674f232e1d585b4fed39d6fc91bc1f66daaf316f0a94fd58c4",
+      "retainedPath": ".runtime/performance-integration/lint.log"
+    },
+    {
+      "name": "build.log",
+      "bytes": 15192,
+      "sha256": "4d7e03cf3c75bf8f46525f35c633b76f281ba85acf3c7e87e69d08955f4f4798",
+      "retainedPath": ".runtime/performance-integration/build.log"
+    },
+    {
+      "name": "boundary.log",
+      "bytes": 1463,
+      "sha256": "2b6e6c5750ece1868f9e97aa38a9828de0ca779c13304a8e533443b5b563f8d7",
+      "retainedPath": ".runtime/performance-integration/boundary.log"
+    },
+    {
+      "name": "rendered-html.log",
+      "bytes": 50187,
+      "sha256": "88d972898dd445658020512e2d8f42fcf277e1b8d1c33ebd38cf35895b055abf",
+      "retainedPath": ".runtime/performance-integration/rendered-html.log"
+    }
+  ]
+}
