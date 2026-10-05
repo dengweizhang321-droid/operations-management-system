@@ -1744,6 +1744,23 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   $currentRoot = [IO.Path]::GetFullPath($RuntimeRoot).TrimEnd('\')
   if ($currentRoot -ine $formalRoot) { return }
   $candidateRoot = Split-Path -Parent $CandidateBackendRoot
+  $biAdditionGate = Join-Path $candidateRoot 'tools\bi_app_addition.py'
+  $biEvidence = $null
+  if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
+    $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
+  }
+  if ((Test-Path -LiteralPath $biAdditionGate) -and
+      ([string]$biEvidence.version -ceq 'teruisi-bi-erp-goal-addition-v1' -or
+       (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'bi-app-addition-active.json')))) {
+    $biCommand = if ($Operation -ceq 'PrepareApp') { if ($null -ne $biEvidence) {'admission'} else {'successor'} } elseif ($Operation -ceq 'DeployApp') {'deployment'} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported BI addition lifecycle operation'}
+    $biArgs = @($biAdditionGate,$biCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if($biCommand -ceq 'admission'){$biArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if($biCommand -ceq 'deployment'){$biArgs += @('--operation',$IntegrationOperationId)}
+    $biRun = Invoke-BoundedNativeProcess $Python $biArgs $candidateRoot
+    $biProof = ConvertFrom-UniqueNativeJson $biRun 'Verify finite BI ERP-goal addition'
+    if([string]$biProof.status -cne 'verified'){throw 'BI ERP-goal addition gate refused'}
+    return
+  }
   $integrationGate = Join-Path $candidateRoot 'tools\integration_release_gate.py'
   $integrationPolicy = Join-Path $candidateRoot 'config\integration-migration-policy-v3.json'
   if ((Test-Path -LiteralPath $integrationGate -PathType Leaf) -and
@@ -1948,6 +1965,8 @@ function Prepare-Application {
       "tools\protected_ai_shadow_evidence_0073.py",
       "tools\postgres_restore_semantics.py",
       "tools\integration_release_gate.py",
+      "tools\bi_app_addition.py",
+      "tools\bi-app-adopt.ps1",
       "tools\integration_migration_plan.py",
       "tools\integration_migration_journal.py",
       "tools\django-integration-install.ps1",
