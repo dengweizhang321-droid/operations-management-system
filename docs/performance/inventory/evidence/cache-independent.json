@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "sourceSha256": "036104e955f1d9d1783441a241d9f556d636941791cda7604ce7559a7508c7ed",
+  "checks": [
+    "miss-and-hit-caller-mutation-cannot-poison-base",
+    "account-role-scope-base-and-database-isolation",
+    "source-version-invalidation",
+    "transaction-autocommit-and-no-principal-bypass",
+    "source-change-during-loader-fails-without-cache-publish",
+    "cache-hit-rechecks-source",
+    "entry-byte-capacity-lru-ttl-and-oversize-bypass",
+    "overlapping-identical-miss-calculated-once"
+  ],
+  "databaseSockets": 0,
+  "limitations": "Explicit version/connection doubles, not a substitute for PG source-race or actual-role validation."
+}

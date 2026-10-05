@@ -15,6 +15,7 @@ from sales.consumers import validate_consumer_request as validate_sales_consumer
 from sales.models import ErpProductMaster, SalesDataRevision
 
 from .errors import InventoryApiError
+from .read_cache import cached_base
 from .models import (
     InventoryAgeLine,
     InventoryImportBatch,
@@ -333,7 +334,7 @@ def _quality(items: list[dict[str, object]], inventory_stale: bool, auto_repleni
     }
 
 
-def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
+def _uncached_overview_items(principal: Principal, options: dict[str, object]) -> tuple[
     InventoryImportBatch | None,
     list[dict[str, object]],
     dict[str, object],
@@ -474,6 +475,13 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
     if _sales_revision() != revision:
         raise InventoryApiError("销售版本在库存计算期间发生变化", code="service_unavailable", status=503)
     return latest, items, settings, sales_start, sales_end, revision
+
+
+def _overview_items(principal: Principal, options: dict[str, object]):
+    # The source range is the complete current snapshot / latest 30 sales days.
+    # Text, facets and pagination are deliberately applied after this base.
+    return cached_base("overview", principal, "current-stock/latest-30-days",
+                       lambda: _uncached_overview_items(principal, options))
 
 
 def _filtered_overview(
@@ -833,23 +841,7 @@ def _age_bucket(age_days: int | None) -> tuple[str | None, str]:
     return None, "未提供库龄"
 
 
-def inventory_age_analysis(options: dict[str, object]) -> dict[str, object]:
-    page, page_size, offset = _pagination(options)
-    age_batch = _latest_batch("age")
-    stock_batch = _latest_batch("stock")
-    source_batch = age_batch or stock_batch
-    if source_batch is None:
-        return {
-            "hasInventory": False,
-            "sync": {"inventoryAsOf": None, "latestInventoryBatchId": None, "hasAgeSales": False},
-            "metrics": {"skuWarehouseCount": 0, "stockValueComplete": True, "aged90Count": 0, "aged90ValueCents": 0, "stagnantCount": 0, "stagnantValueCents": 0, "zeroSalesCount": 0, "cleanupCount": 0},
-            "coverage": {"unagedStockCount": 0, "unagedQuantity": 0},
-            "distribution": [],
-            "fineDistribution": [],
-            "filters": {"warehouses": [], "brands": [], "categories": [], "statuses": list(AGE_STATUSES), "ageBuckets": [{"value": key, "label": label} for key, label, _minimum, _maximum in AGE_BUCKETS]},
-            "pagination": {"page": page, "pageSize": page_size, "limit": page_size, "total": 0, "returned": 0, "totalPages": 0, "truncated": False},
-            "items": [],
-        }
+def _age_items(age_batch, stock_batch):
     product_codes: set[str] = set()
     source_rows: list[object]
     if age_batch:
@@ -909,6 +901,28 @@ def inventory_age_analysis(options: dict[str, object]) -> dict[str, object]:
                 "recommendation": recommendation,
             }
         )
+    return items
+
+
+def inventory_age_analysis(options: dict[str, object], principal: Principal | None = None) -> dict[str, object]:
+    page, page_size, offset = _pagination(options)
+    age_batch = _latest_batch("age")
+    stock_batch = _latest_batch("stock")
+    source_batch = age_batch or stock_batch
+    if source_batch is None:
+        return {
+            "hasInventory": False,
+            "sync": {"inventoryAsOf": None, "latestInventoryBatchId": None, "hasAgeSales": False},
+            "metrics": {"skuWarehouseCount": 0, "stockValueComplete": True, "aged90Count": 0, "aged90ValueCents": 0, "stagnantCount": 0, "stagnantValueCents": 0, "zeroSalesCount": 0, "cleanupCount": 0},
+            "coverage": {"unagedStockCount": 0, "unagedQuantity": 0},
+            "distribution": [],
+            "fineDistribution": [],
+            "filters": {"warehouses": [], "brands": [], "categories": [], "statuses": list(AGE_STATUSES), "ageBuckets": [{"value": key, "label": label} for key, label, _minimum, _maximum in AGE_BUCKETS]},
+            "pagination": {"page": page, "pageSize": page_size, "limit": page_size, "total": 0, "returned": 0, "totalPages": 0, "truncated": False},
+            "items": [],
+        }
+    items = cached_base("age", principal, (age_batch.id if age_batch else None, stock_batch.id if stock_batch else None),
+                        lambda: _age_items(age_batch, stock_batch))
     facets = {
         "warehouses": sorted({str(item["warehouse"]) for item in items}),
         "brands": sorted({str(item["brand"]) for item in items if item["brand"]}),
@@ -984,20 +998,7 @@ def inventory_age_analysis(options: dict[str, object]) -> dict[str, object]:
     }
 
 
-def inventory_inbound_monitor(principal: Principal, options: dict[str, object]) -> dict[str, object]:
-    page, page_size, offset = _pagination(options)
-    latest = _latest_batch("stock")
-    if latest is None:
-        return {
-            "hasInventory": False,
-            "sync": {"inventoryAsOf": None, "salesThrough": None, "latestInventoryBatchId": None, "salesRevision": None},
-            "scope": {"warehouseType": "jd_rdc", "valuationBasis": "fixed_cost", "supplyPriceAvailable": False, "nativeComparisonAvailable": False},
-            "metrics": {"itemCount": 0, "warehouseCount": 0, "availableQuantity": 0, "inTransitQuantity": 0, "knownStockValueCents": 0, "costCoverageRate": 1, "salesMatchRate": 0, "outbound30dQuantity": 0, "turnoverDays": None, "staleItemCount": 0, "staleValueCents": 0, "missingSupplierCount": 0},
-            "filters": {"warehouses": [], "brands": [], "categories": [], "suppliers": []},
-            "pagination": {"page": page, "pageSize": page_size, "total": 0, "returned": 0, "totalPages": 0, "truncated": False},
-            "regions": [], "items": [],
-            "disclosures": ["当前没有库存快照。", "京东原生库存/周转指标尚未接入，暂不输出原生差异或残差结论。"],
-        }
+def _inbound_items(principal, latest):
     warehouse_mapping = effective_mapping()
     stock = [row for row in InventoryStockLine.objects.filter(batch_id=latest.id).order_by("product_code", "warehouse", "id") if row.warehouse.strip() != "刷刷仓" and _is_jd_warehouse(row.warehouse, row.warehouse_type, warehouse_mapping)]
     product_codes = sorted({row.product_code for row in stock})
@@ -1043,6 +1044,26 @@ def inventory_inbound_monitor(principal: Principal, options: dict[str, object]) 
             "turnoverDays": max(0, available) / (sales_30 / 30) if sales_30 is not None and sales_30 > 0 else None,
             "risk": risk,
         })
+    return items, sales_data, revision, product_codes
+
+
+def inventory_inbound_monitor(principal: Principal, options: dict[str, object]) -> dict[str, object]:
+    page, page_size, offset = _pagination(options)
+    latest = _latest_batch("stock")
+    if latest is None:
+        return {
+            "hasInventory": False,
+            "sync": {"inventoryAsOf": None, "salesThrough": None, "latestInventoryBatchId": None, "salesRevision": None},
+            "scope": {"warehouseType": "jd_rdc", "valuationBasis": "fixed_cost", "supplyPriceAvailable": False, "nativeComparisonAvailable": False},
+            "metrics": {"itemCount": 0, "warehouseCount": 0, "availableQuantity": 0, "inTransitQuantity": 0, "knownStockValueCents": 0, "costCoverageRate": 1, "salesMatchRate": 0, "outbound30dQuantity": 0, "turnoverDays": None, "staleItemCount": 0, "staleValueCents": 0, "missingSupplierCount": 0},
+            "filters": {"warehouses": [], "brands": [], "categories": [], "suppliers": []},
+            "pagination": {"page": page, "pageSize": page_size, "total": 0, "returned": 0, "totalPages": 0, "truncated": False},
+            "regions": [], "items": [],
+            "disclosures": ["当前没有库存快照。", "京东原生库存/周转指标尚未接入，暂不输出原生差异或残差结论。"],
+        }
+    items, sales_data, revision, product_codes = cached_base(
+        "inbound", principal, ("current-stock/jd/latest-90-days", latest.id),
+        lambda: _inbound_items(principal, latest))
     facets = {key: sorted({str(item[field]) for item in items if item[field]}) for key, field in (("warehouses", "warehouse"), ("brands", "brand"), ("categories", "category"), ("suppliers", "supplier"))}
     warehouses = set(_selected(options, "warehouses", 10)); brands = set(_selected(options, "brands", 20)); categories = set(_selected(options, "categories", 20)); suppliers = set(_selected(options, "suppliers", 20))
     filtered = [item for item in items if _matches_text(item, options.get("query"), ("productCode", "productName", "brand", "category", "supplier", "warehouse")) and (not warehouses or item["warehouse"] in warehouses) and (not brands or item["brand"] in brands) and (not categories or item["category"] in categories) and (not suppliers or item["supplier"] in suppliers)]

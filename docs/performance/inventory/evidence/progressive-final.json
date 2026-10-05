@@ -1,0 +1,2134 @@
+{
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "fixture": "private PostgreSQL synthetic business scale",
+  "port": 49392,
+  "products": 8000,
+  "stockRows": 24000,
+  "ageRows": 24000,
+  "salesRows": 240000,
+  "source": "same seeded fixture as benchmark.py",
+  "sourceHashes": {
+    "backend\\inventory\\apps.py": "016ca91b5b2f07955b458c1bb574a315fa8e3f34a43578a7246f139bf5f221be",
+    "backend\\inventory\\consumers.py": "16a752a9fa402b2fc7ea2fd27f03372d059e4d62b4ad7c7e59c75b411ec65910",
+    "backend\\inventory\\dingtalk_group_message.py": "f394722910dc2fbf6384bfd08cb8d994503ecc4cf44cbbf312c8528e33bfb1d4",
+    "backend\\inventory\\dingtalk_sync.py": "8788ad6d9b2c9e5fb0b7a17593c2f0abc87d2131e15c71fb590c42bb22a4f202",
+    "backend\\inventory\\errors.py": "612f1f3ce56afe71efe6795662eee8b3eab8817de01d07b445c972ae44aa7045",
+    "backend\\inventory\\guangdong.py": "c39f68ee6a0dd5c15b223cfebc6cf9ca03f0f6e08a4bcadcfc255f4a10a88cf1",
+    "backend\\inventory\\guangdong_replenishment.py": "b863d18f9d3e1ae1af48d4d2af443e92d7fa1ccfc05712c560a34ba8b428b20e",
+    "backend\\inventory\\guangdong_risk_reset.py": "d44e44913b2d47937b810dc2a4b29e569dffd97481cf5ea9b494e8fca7783e67",
+    "backend\\inventory\\guangdong_views.py": "fb4e4c485226ac7b5ab64703af113d64b6a06f80bfa8167bb56c79e4775e8c58",
+    "backend\\inventory\\import_service.py": "bc95652ecb1863dea3dc87dc67a5cfdfdac0e4c2122c41eb6466fe86ac356fb0",
+    "backend\\inventory\\models.py": "387368c0d763bd19cb96c5527aa90ac697956058abd8d6cb72987a2cbae0217a",
+    "backend\\inventory\\plans.py": "97bd48bec14931a5d3e5c0eeea4c65e9c624d51ff1daa49c5b63f5bd1e803d94",
+    "backend\\inventory\\query.py": "dbe88a6fd228a2557d0ad3f2dd8b0b3d84b92b0d298fc1f5e34fd258b9617399",
+    "backend\\inventory\\read_cache.py": "036104e955f1d9d1783441a241d9f556d636941791cda7604ce7559a7508c7ed",
+    "backend\\inventory\\regions.py": "bd942e918e800fc66fca512609bbf714b08b464c587fb5705835b17d7c229c19",
+    "backend\\inventory\\replenishment_health.py": "4c37608e69e9106dfb2959256f182e33a192a1814649c8c77a0668de5c737b04",
+    "backend\\inventory\\revisions.py": "1893ff97fbdc3d6b240ac42dd668241c0ec86159056bfaf04503be5610995434",
+    "backend\\inventory\\settings_service.py": "a2b6045dfd59c516ee878ff2ba42f7df5bbe36a6d5cebbca3a3d94ff6fd3c5e8",
+    "backend\\inventory\\uploads.py": "01456501b5ca6c75391a7d34d9b8bfe4539513a1c92d8d1b17687a9a2167588d",
+    "backend\\inventory\\urls.py": "487b39edfeb0ce8023b60ee5169d35cb303b85513d46481389e62ab23c12b3c2",
+    "backend\\inventory\\views.py": "c31a6baee9c360386ef89803812a670658f90b49b542b49f1c8840105dbb2703",
+    "backend\\inventory\\warehouse_mapping.py": "06d60fae2ebd4a4616959808d67eb8c574cd4a3295b812caddda2c140d5931b5",
+    "backend\\inventory\\warehouse_mapping_service.py": "fd5fa19c4bcadb172d39fa08a80e02463684a8baccc0c80a108488da0b5ee0cb",
+    "backend\\inventory\\write_requests.py": "7a9cd391934f0e31ed9b02097c843e029da8de03af7de01f7a14478e0593e2e0",
+    "backend\\inventory\\__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  "cacheLimitBytes": 33554432,
+  "exactEquivalence": [
+    {
+      "scenario": "overview/first",
+      "pairCompleteMs": 3375.76
+    },
+    {
+      "scenario": "overview/reentry",
+      "pairCompleteMs": 86.02
+    },
+    {
+      "scenario": "overview/filter",
+      "pairCompleteMs": 378.3
+    },
+    {
+      "scenario": "overview/page",
+      "pairCompleteMs": 1210.14
+    },
+    {
+      "scenario": "overview/refresh",
+      "pairCompleteMs": 88.59
+    },
+    {
+      "scenario": "overview/date-control",
+      "pairCompleteMs": 801.33
+    },
+    {
+      "scenario": "plan/first",
+      "pairCompleteMs": 2780.7
+    },
+    {
+      "scenario": "plan/reentry",
+      "pairCompleteMs": 85.55
+    },
+    {
+      "scenario": "plan/filter",
+      "pairCompleteMs": 305.06
+    },
+    {
+      "scenario": "plan/page",
+      "pairCompleteMs": 772.99
+    },
+    {
+      "scenario": "plan/refresh",
+      "pairCompleteMs": 86.16
+    },
+    {
+      "scenario": "plan/date-control",
+      "pairCompleteMs": 753.68
+    },
+    {
+      "scenario": "age/first",
+      "pairCompleteMs": 772.92
+    },
+    {
+      "scenario": "age/reentry",
+      "pairCompleteMs": 94.5
+    },
+    {
+      "scenario": "age/filter",
+      "pairCompleteMs": 173.37
+    },
+    {
+      "scenario": "age/page",
+      "pairCompleteMs": 398.19
+    },
+    {
+      "scenario": "age/refresh",
+      "pairCompleteMs": 62.89
+    },
+    {
+      "scenario": "age/date-control",
+      "pairCompleteMs": 341.69
+    },
+    {
+      "scenario": "stale/first",
+      "pairCompleteMs": 675.38
+    },
+    {
+      "scenario": "stale/reentry",
+      "pairCompleteMs": 64.76
+    },
+    {
+      "scenario": "stale/filter",
+      "pairCompleteMs": 150.81
+    },
+    {
+      "scenario": "stale/page",
+      "pairCompleteMs": 206.03
+    },
+    {
+      "scenario": "stale/refresh",
+      "pairCompleteMs": 71.76
+    },
+    {
+      "scenario": "stale/date-control",
+      "pairCompleteMs": 262.5
+    },
+    {
+      "scenario": "inbound/first",
+      "pairCompleteMs": 647.12
+    },
+    {
+      "scenario": "inbound/reentry",
+      "pairCompleteMs": 71.84
+    },
+    {
+      "scenario": "inbound/filter",
+      "pairCompleteMs": 174.2
+    },
+    {
+      "scenario": "inbound/page",
+      "pairCompleteMs": 96.64
+    },
+    {
+      "scenario": "inbound/refresh",
+      "pairCompleteMs": 61.18
+    },
+    {
+      "scenario": "inbound/date-control",
+      "pairCompleteMs": 102.57
+    },
+    {
+      "scenario": "guangdong/first",
+      "pairCompleteMs": 311.98
+    },
+    {
+      "scenario": "guangdong/reentry",
+      "pairCompleteMs": 61.86
+    },
+    {
+      "scenario": "guangdong/filter",
+      "pairCompleteMs": 156.28
+    },
+    {
+      "scenario": "guangdong/page",
+      "pairCompleteMs": 89.76
+    },
+    {
+      "scenario": "guangdong/refresh",
+      "pairCompleteMs": 60.65
+    },
+    {
+      "scenario": "guangdong/date-control",
+      "pairCompleteMs": 160.51
+    }
+  ],
+  "server": [
+    {
+      "request": "/perf/before/overview",
+      "queryMs": 3531.87,
+      "sqlMs": 1283.84,
+      "queries": 84,
+      "pythonFetchCopyMs": 2248.03,
+      "serializationMs": 3.92,
+      "responseBytes": 164915
+    },
+    {
+      "request": "/perf/after/overview?&section=summary",
+      "queryMs": 3360.53,
+      "sqlMs": 1258.14,
+      "queries": 107,
+      "pythonFetchCopyMs": 2102.39,
+      "serializationMs": 0.19,
+      "responseBytes": 2972
+    },
+    {
+      "request": "/perf/after/overview?&section=detail",
+      "queryMs": 3357.16,
+      "sqlMs": 26.58,
+      "queries": 13,
+      "pythonFetchCopyMs": 3330.58,
+      "serializationMs": 2.76,
+      "responseBytes": 165105
+    },
+    {
+      "request": "/perf/before/overview",
+      "queryMs": 2801.28,
+      "sqlMs": 1093.19,
+      "queries": 84,
+      "pythonFetchCopyMs": 1708.09,
+      "serializationMs": 2.19,
+      "responseBytes": 164915
+    },
+    {
+      "request": "/perf/after/overview?&section=detail",
+      "queryMs": 73.53,
+      "sqlMs": 16.36,
+      "queries": 13,
+      "pythonFetchCopyMs": 57.18,
+      "serializationMs": 2.23,
+      "responseBytes": 165105
+    },
+    {
+      "request": "/perf/after/overview?&section=summary",
+      "queryMs": 80.95,
+      "sqlMs": 24.83,
+      "queries": 13,
+      "pythonFetchCopyMs": 56.12,
+      "serializationMs": 0.21,
+      "responseBytes": 2972
+    },
+    {
+      "request": "/perf/before/overview?category=Category+1",
+      "queryMs": 2591.82,
+      "sqlMs": 1177.47,
+      "queries": 84,
+      "pythonFetchCopyMs": 1414.35,
+      "serializationMs": 2.45,
+      "responseBytes": 164838
+    },
+    {
+      "request": "/perf/after/overview?category=Category+1&section=summary",
+      "queryMs": 365.89,
+      "sqlMs": 27.28,
+      "queries": 18,
+      "pythonFetchCopyMs": 338.61,
+      "serializationMs": 0.16,
+      "responseBytes": 2956
+    },
+    {
+      "request": "/perf/after/overview?category=Category+1&section=detail",
+      "queryMs": 365.47,
+      "sqlMs": 18.94,
+      "queries": 13,
+      "pythonFetchCopyMs": 346.52,
+      "serializationMs": 2.16,
+      "responseBytes": 165028
+    },
+    {
+      "request": "/perf/before/overview?page=2",
+      "queryMs": 3061.76,
+      "sqlMs": 1090.27,
+      "queries": 84,
+      "pythonFetchCopyMs": 1971.49,
+      "serializationMs": 3.42,
+      "responseBytes": 164938
+    },
+    {
+      "request": "/perf/after/overview?page=2&section=detail",
+      "queryMs": 1197.06,
+      "sqlMs": 29.52,
+      "queries": 18,
+      "pythonFetchCopyMs": 1167.54,
+      "serializationMs": 2.84,
+      "responseBytes": 165128
+    },
+    {
+      "request": "/perf/after/overview?page=2&section=summary",
+      "queryMs": 1200.87,
+      "sqlMs": 26.03,
+      "queries": 13,
+      "pythonFetchCopyMs": 1174.84,
+      "serializationMs": 0.13,
+      "responseBytes": 2972
+    },
+    {
+      "request": "/perf/before/overview",
+      "queryMs": 2798.36,
+      "sqlMs": 1139.64,
+      "queries": 84,
+      "pythonFetchCopyMs": 1658.72,
+      "serializationMs": 3.33,
+      "responseBytes": 164915
+    },
+    {
+      "request": "/perf/after/overview?&section=summary",
+      "queryMs": 78.57,
+      "sqlMs": 22.41,
+      "queries": 13,
+      "pythonFetchCopyMs": 56.16,
+      "serializationMs": 0.14,
+      "responseBytes": 2972
+    },
+    {
+      "request": "/perf/after/overview?&section=detail",
+      "queryMs": 77.3,
+      "sqlMs": 17.22,
+      "queries": 13,
+      "pythonFetchCopyMs": 60.08,
+      "serializationMs": 2.08,
+      "responseBytes": 165105
+    },
+    {
+      "request": "/perf/before/overview?startDate=2025-01-01",
+      "queryMs": 2654.9,
+      "sqlMs": 1079.28,
+      "queries": 84,
+      "pythonFetchCopyMs": 1575.61,
+      "serializationMs": 2.08,
+      "responseBytes": 164915
+    },
+    {
+      "request": "/perf/after/overview?startDate=2025-01-01&section=summary",
+      "queryMs": 790.55,
+      "sqlMs": 20.37,
+      "queries": 18,
+      "pythonFetchCopyMs": 770.18,
+      "serializationMs": 0.17,
+      "responseBytes": 2972
+    },
+    {
+      "request": "/perf/after/overview?startDate=2025-01-01&section=detail",
+      "queryMs": 794.44,
+      "sqlMs": 21.47,
+      "queries": 13,
+      "pythonFetchCopyMs": 772.97,
+      "serializationMs": 1.76,
+      "responseBytes": 165105
+    },
+    {
+      "request": "/perf/before/plan",
+      "queryMs": 3299.09,
+      "sqlMs": 1168.97,
+      "queries": 91,
+      "pythonFetchCopyMs": 2130.12,
+      "serializationMs": 3.01,
+      "responseBytes": 155004
+    },
+    {
+      "request": "/perf/after/plan?&section=detail",
+      "queryMs": 2771.57,
+      "sqlMs": 1041.57,
+      "queries": 114,
+      "pythonFetchCopyMs": 1730.0,
+      "serializationMs": 1.74,
+      "responseBytes": 155194
+    },
+    {
+      "request": "/perf/after/plan?&section=summary",
+      "queryMs": 2773.09,
+      "sqlMs": 15.19,
+      "queries": 13,
+      "pythonFetchCopyMs": 2757.89,
+      "serializationMs": 0.08,
+      "responseBytes": 2968
+    },
+    {
+      "request": "/perf/before/plan",
+      "queryMs": 2678.44,
+      "sqlMs": 1017.01,
+      "queries": 91,
+      "pythonFetchCopyMs": 1661.43,
+      "serializationMs": 1.95,
+      "responseBytes": 155004
+    },
+    {
+      "request": "/perf/after/plan?&section=detail",
+      "queryMs": 75.4,
+      "sqlMs": 15.59,
+      "queries": 13,
+      "pythonFetchCopyMs": 59.81,
+      "serializationMs": 1.36,
+      "responseBytes": 155194
+    },
+    {
+      "request": "/perf/after/plan?&section=summary",
+      "queryMs": 81.1,
+      "sqlMs": 20.48,
+      "queries": 13,
+      "pythonFetchCopyMs": 60.63,
+      "serializationMs": 0.08,
+      "responseBytes": 2968
+    },
+    {
+      "request": "/perf/before/plan?category=Category+1",
+      "queryMs": 2128.82,
+      "sqlMs": 966.13,
+      "queries": 93,
+      "pythonFetchCopyMs": 1162.68,
+      "serializationMs": 1.72,
+      "responseBytes": 121594
+    },
+    {
+      "request": "/perf/after/plan?category=Category+1&section=summary",
+      "queryMs": 294.63,
+      "sqlMs": 40.53,
+      "queries": 27,
+      "pythonFetchCopyMs": 254.1,
+      "serializationMs": 0.1,
+      "responseBytes": 2953
+    },
+    {
+      "request": "/perf/after/plan?category=Category+1&section=detail",
+      "queryMs": 299.02,
+      "sqlMs": 18.11,
+      "queries": 13,
+      "pythonFetchCopyMs": 280.91,
+      "serializationMs": 1.32,
+      "responseBytes": 121784
+    },
+    {
+      "request": "/perf/before/plan?page=2",
+      "queryMs": 2608.53,
+      "sqlMs": 1071.64,
+      "queries": 91,
+      "pythonFetchCopyMs": 1536.89,
+      "serializationMs": 1.52,
+      "responseBytes": 124785
+    },
+    {
+      "request": "/perf/after/plan?page=2&section=detail",
+      "queryMs": 763.08,
+      "sqlMs": 32.93,
+      "queries": 25,
+      "pythonFetchCopyMs": 730.16,
+      "serializationMs": 1.63,
+      "responseBytes": 124975
+    },
+    {
+      "request": "/perf/after/plan?page=2&section=summary",
+      "queryMs": 770.28,
+      "sqlMs": 21.02,
+      "queries": 13,
+      "pythonFetchCopyMs": 749.26,
+      "serializationMs": 0.09,
+      "responseBytes": 2969
+    },
+    {
+      "request": "/perf/before/plan",
+      "queryMs": 2610.08,
+      "sqlMs": 1151.58,
+      "queries": 91,
+      "pythonFetchCopyMs": 1458.5,
+      "serializationMs": 1.98,
+      "responseBytes": 155004
+    },
+    {
+      "request": "/perf/after/plan?&section=detail",
+      "queryMs": 75.16,
+      "sqlMs": 11.78,
+      "queries": 13,
+      "pythonFetchCopyMs": 63.38,
+      "serializationMs": 1.64,
+      "responseBytes": 155194
+    },
+    {
+      "request": "/perf/after/plan?&section=summary",
+      "queryMs": 83.08,
+      "sqlMs": 24.52,
+      "queries": 13,
+      "pythonFetchCopyMs": 58.55,
+      "serializationMs": 0.09,
+      "responseBytes": 2968
+    },
+    {
+      "request": "/perf/before/plan?startDate=2025-01-01",
+      "queryMs": 2518.26,
+      "sqlMs": 970.35,
+      "queries": 91,
+      "pythonFetchCopyMs": 1547.9,
+      "serializationMs": 1.86,
+      "responseBytes": 155004
+    },
+    {
+      "request": "/perf/after/plan?startDate=2025-01-01&section=summary",
+      "queryMs": 745.55,
+      "sqlMs": 29.19,
+      "queries": 25,
+      "pythonFetchCopyMs": 716.36,
+      "serializationMs": 0.12,
+      "responseBytes": 2968
+    },
+    {
+      "request": "/perf/after/plan?startDate=2025-01-01&section=detail",
+      "queryMs": 745.48,
+      "sqlMs": 15.08,
+      "queries": 13,
+      "pythonFetchCopyMs": 730.4,
+      "serializationMs": 1.55,
+      "responseBytes": 155194
+    },
+    {
+      "request": "/perf/before/age",
+      "queryMs": 708.05,
+      "sqlMs": 137.09,
+      "queries": 5,
+      "pythonFetchCopyMs": 570.96,
+      "serializationMs": 0.45,
+      "responseBytes": 35600
+    },
+    {
+      "request": "/perf/after/age?&section=summary",
+      "queryMs": 767.71,
+      "sqlMs": 141.32,
+      "queries": 23,
+      "pythonFetchCopyMs": 626.39,
+      "serializationMs": 0.11,
+      "responseBytes": 3746
+    },
+    {
+      "request": "/perf/after/age?&section=detail",
+      "queryMs": 766.92,
+      "sqlMs": 11.13,
+      "queries": 13,
+      "pythonFetchCopyMs": 755.8,
+      "serializationMs": 0.29,
+      "responseBytes": 35790
+    },
+    {
+      "request": "/perf/before/age",
+      "queryMs": 817.05,
+      "sqlMs": 130.52,
+      "queries": 5,
+      "pythonFetchCopyMs": 686.53,
+      "serializationMs": 0.42,
+      "responseBytes": 35600
+    },
+    {
+      "request": "/perf/after/age?&section=summary",
+      "queryMs": 67.39,
+      "sqlMs": 10.25,
+      "queries": 13,
+      "pythonFetchCopyMs": 57.14,
+      "serializationMs": 0.12,
+      "responseBytes": 3746
+    },
+    {
+      "request": "/perf/after/age?&section=detail",
+      "queryMs": 68.74,
+      "sqlMs": 9.68,
+      "queries": 13,
+      "pythonFetchCopyMs": 59.07,
+      "serializationMs": 0.31,
+      "responseBytes": 35790
+    },
+    {
+      "request": "/perf/before/age?category=Category+1",
+      "queryMs": 524.13,
+      "sqlMs": 119.0,
+      "queries": 5,
+      "pythonFetchCopyMs": 405.13,
+      "serializationMs": 0.37,
+      "responseBytes": 35009
+    },
+    {
+      "request": "/perf/after/age?category=Category+1&section=detail",
+      "queryMs": 167.55,
+      "sqlMs": 40.49,
+      "queries": 20,
+      "pythonFetchCopyMs": 127.05,
+      "serializationMs": 0.33,
+      "responseBytes": 35199
+    },
+    {
+      "request": "/perf/after/age?category=Category+1&section=summary",
+      "queryMs": 168.32,
+      "sqlMs": 9.18,
+      "queries": 13,
+      "pythonFetchCopyMs": 159.14,
+      "serializationMs": 0.09,
+      "responseBytes": 3692
+    },
+    {
+      "request": "/perf/before/age?page=2",
+      "queryMs": 711.55,
+      "sqlMs": 125.94,
+      "queries": 5,
+      "pythonFetchCopyMs": 585.61,
+      "serializationMs": 0.39,
+      "responseBytes": 35795
+    },
+    {
+      "request": "/perf/after/age?page=2&section=summary",
+      "queryMs": 391.76,
+      "sqlMs": 45.44,
+      "queries": 20,
+      "pythonFetchCopyMs": 346.32,
+      "serializationMs": 0.11,
+      "responseBytes": 3746
+    },
+    {
+      "request": "/perf/after/age?page=2&section=detail",
+      "queryMs": 391.77,
+      "sqlMs": 9.71,
+      "queries": 13,
+      "pythonFetchCopyMs": 382.06,
+      "serializationMs": 0.32,
+      "responseBytes": 35985
+    },
+    {
+      "request": "/perf/before/age",
+      "queryMs": 756.67,
+      "sqlMs": 166.97,
+      "queries": 5,
+      "pythonFetchCopyMs": 589.7,
+      "serializationMs": 0.41,
+      "responseBytes": 35600
+    },
+    {
+      "request": "/perf/after/age?&section=detail",
+      "queryMs": 53.84,
+      "sqlMs": 8.38,
+      "queries": 13,
+      "pythonFetchCopyMs": 45.46,
+      "serializationMs": 0.31,
+      "responseBytes": 35790
+    },
+    {
+      "request": "/perf/after/age?&section=summary",
+      "queryMs": 57.47,
+      "sqlMs": 8.44,
+      "queries": 13,
+      "pythonFetchCopyMs": 49.02,
+      "serializationMs": 0.09,
+      "responseBytes": 3746
+    },
+    {
+      "request": "/perf/before/age?startDate=2025-01-01",
+      "queryMs": 588.11,
+      "sqlMs": 112.45,
+      "queries": 5,
+      "pythonFetchCopyMs": 475.66,
+      "serializationMs": 0.43,
+      "responseBytes": 35600
+    },
+    {
+      "request": "/perf/after/age?startDate=2025-01-01&section=summary",
+      "queryMs": 336.69,
+      "sqlMs": 40.55,
+      "queries": 20,
+      "pythonFetchCopyMs": 296.14,
+      "serializationMs": 0.12,
+      "responseBytes": 3746
+    },
+    {
+      "request": "/perf/after/age?startDate=2025-01-01&section=detail",
+      "queryMs": 326.07,
+      "sqlMs": 8.09,
+      "queries": 13,
+      "pythonFetchCopyMs": 317.98,
+      "serializationMs": 0.3,
+      "responseBytes": 35790
+    },
+    {
+      "request": "/perf/before/stale",
+      "queryMs": 549.97,
+      "sqlMs": 124.12,
+      "queries": 5,
+      "pythonFetchCopyMs": 425.85,
+      "serializationMs": 0.36,
+      "responseBytes": 35436
+    },
+    {
+      "request": "/perf/after/stale?&section=summary",
+      "queryMs": 669.63,
+      "sqlMs": 166.23,
+      "queries": 23,
+      "pythonFetchCopyMs": 503.4,
+      "serializationMs": 0.11,
+      "responseBytes": 3582
+    },
+    {
+      "request": "/perf/after/stale?&section=detail",
+      "queryMs": 669.66,
+      "sqlMs": 8.45,
+      "queries": 13,
+      "pythonFetchCopyMs": 661.2,
+      "serializationMs": 0.32,
+      "responseBytes": 35626
+    },
+    {
+      "request": "/perf/before/stale",
+      "queryMs": 643.17,
+      "sqlMs": 115.62,
+      "queries": 5,
+      "pythonFetchCopyMs": 527.54,
+      "serializationMs": 0.36,
+      "responseBytes": 35436
+    },
+    {
+      "request": "/perf/after/stale?&section=detail",
+      "queryMs": 51.18,
+      "sqlMs": 6.52,
+      "queries": 13,
+      "pythonFetchCopyMs": 44.66,
+      "serializationMs": 0.33,
+      "responseBytes": 35626
+    },
+    {
+      "request": "/perf/after/stale?&section=summary",
+      "queryMs": 48.46,
+      "sqlMs": 6.34,
+      "queries": 13,
+      "pythonFetchCopyMs": 42.12,
+      "serializationMs": 0.1,
+      "responseBytes": 3582
+    },
+    {
+      "request": "/perf/before/stale?category=Category+1",
+      "queryMs": 515.73,
+      "sqlMs": 111.13,
+      "queries": 5,
+      "pythonFetchCopyMs": 404.6,
+      "serializationMs": 0.36,
+      "responseBytes": 34804
+    },
+    {
+      "request": "/perf/after/stale?category=Category+1&section=summary",
+      "queryMs": 145.89,
+      "sqlMs": 38.68,
+      "queries": 20,
+      "pythonFetchCopyMs": 107.21,
+      "serializationMs": 0.1,
+      "responseBytes": 3487
+    },
+    {
+      "request": "/perf/after/stale?category=Category+1&section=detail",
+      "queryMs": 145.92,
+      "sqlMs": 7.67,
+      "queries": 13,
+      "pythonFetchCopyMs": 138.25,
+      "serializationMs": 0.28,
+      "responseBytes": 34994
+    },
+    {
+      "request": "/perf/before/stale?page=2",
+      "queryMs": 591.63,
+      "sqlMs": 116.78,
+      "queries": 5,
+      "pythonFetchCopyMs": 474.85,
+      "serializationMs": 0.36,
+      "responseBytes": 35631
+    },
+    {
+      "request": "/perf/after/stale?page=2&section=summary",
+      "queryMs": 200.49,
+      "sqlMs": 39.18,
+      "queries": 20,
+      "pythonFetchCopyMs": 161.31,
+      "serializationMs": 0.1,
+      "responseBytes": 3582
+    },
+    {
+      "request": "/perf/after/stale?page=2&section=detail",
+      "queryMs": 200.86,
+      "sqlMs": 9.69,
+      "queries": 13,
+      "pythonFetchCopyMs": 191.17,
+      "serializationMs": 0.29,
+      "responseBytes": 35821
+    },
+    {
+      "request": "/perf/before/stale",
+      "queryMs": 557.1,
+      "sqlMs": 111.86,
+      "queries": 5,
+      "pythonFetchCopyMs": 445.24,
+      "serializationMs": 0.53,
+      "responseBytes": 35436
+    },
+    {
+      "request": "/perf/after/stale?&section=detail",
+      "queryMs": 60.25,
+      "sqlMs": 8.01,
+      "queries": 13,
+      "pythonFetchCopyMs": 52.25,
+      "serializationMs": 0.41,
+      "responseBytes": 35626
+    },
+    {
+      "request": "/perf/after/stale?&section=summary",
+      "queryMs": 57.89,
+      "sqlMs": 7.92,
+      "queries": 13,
+      "pythonFetchCopyMs": 49.97,
+      "serializationMs": 0.1,
+      "responseBytes": 3582
+    },
+    {
+      "request": "/perf/before/stale?startDate=2025-01-01",
+      "queryMs": 679.61,
+      "sqlMs": 124.71,
+      "queries": 5,
+      "pythonFetchCopyMs": 554.89,
+      "serializationMs": 0.43,
+      "responseBytes": 35436
+    },
+    {
+      "request": "/perf/after/stale?startDate=2025-01-01&section=summary",
+      "queryMs": 249.8,
+      "sqlMs": 38.29,
+      "queries": 20,
+      "pythonFetchCopyMs": 211.51,
+      "serializationMs": 0.11,
+      "responseBytes": 3582
+    },
+    {
+      "request": "/perf/after/stale?startDate=2025-01-01&section=detail",
+      "queryMs": 258.54,
+      "sqlMs": 7.46,
+      "queries": 13,
+      "pythonFetchCopyMs": 251.08,
+      "serializationMs": 0.33,
+      "responseBytes": 35626
+    },
+    {
+      "request": "/perf/before/inbound",
+      "queryMs": 673.95,
+      "sqlMs": 284.67,
+      "queries": 8,
+      "pythonFetchCopyMs": 389.28,
+      "serializationMs": 0.32,
+      "responseBytes": 27240
+    },
+    {
+      "request": "/perf/after/inbound?&section=summary",
+      "queryMs": 641.67,
+      "sqlMs": 277.47,
+      "queries": 26,
+      "pythonFetchCopyMs": 364.2,
+      "serializationMs": 0.08,
+      "responseBytes": 2287
+    },
+    {
+      "request": "/perf/after/inbound?&section=detail",
+      "queryMs": 641.81,
+      "sqlMs": 8.86,
+      "queries": 13,
+      "pythonFetchCopyMs": 632.96,
+      "serializationMs": 0.28,
+      "responseBytes": 27430
+    },
+    {
+      "request": "/perf/before/inbound",
+      "queryMs": 724.11,
+      "sqlMs": 319.54,
+      "queries": 8,
+      "pythonFetchCopyMs": 404.58,
+      "serializationMs": 0.31,
+      "responseBytes": 27240
+    },
+    {
+      "request": "/perf/after/inbound?&section=summary",
+      "queryMs": 49.91,
+      "sqlMs": 7.09,
+      "queries": 13,
+      "pythonFetchCopyMs": 42.82,
+      "serializationMs": 0.07,
+      "responseBytes": 2287
+    },
+    {
+      "request": "/perf/after/inbound?&section=detail",
+      "queryMs": 51.48,
+      "sqlMs": 6.61,
+      "queries": 13,
+      "pythonFetchCopyMs": 44.87,
+      "serializationMs": 0.3,
+      "responseBytes": 27430
+    },
+    {
+      "request": "/perf/before/inbound?category=Category+1",
+      "queryMs": 623.9,
+      "sqlMs": 271.92,
+      "queries": 8,
+      "pythonFetchCopyMs": 351.98,
+      "serializationMs": 0.32,
+      "responseBytes": 27256
+    },
+    {
+      "request": "/perf/after/inbound?category=Category+1&section=detail",
+      "queryMs": 90.58,
+      "sqlMs": 26.16,
+      "queries": 19,
+      "pythonFetchCopyMs": 64.42,
+      "serializationMs": 0.32,
+      "responseBytes": 27446
+    },
+    {
+      "request": "/perf/after/inbound?category=Category+1&section=summary",
+      "queryMs": 153.12,
+      "sqlMs": 7.04,
+      "queries": 13,
+      "pythonFetchCopyMs": 146.08,
+      "serializationMs": 0.08,
+      "responseBytes": 2271
+    },
+    {
+      "request": "/perf/before/inbound?page=2",
+      "queryMs": 669.96,
+      "sqlMs": 272.11,
+      "queries": 8,
+      "pythonFetchCopyMs": 397.85,
+      "serializationMs": 0.31,
+      "responseBytes": 27243
+    },
+    {
+      "request": "/perf/after/inbound?page=2&section=summary",
+      "queryMs": 91.41,
+      "sqlMs": 28.64,
+      "queries": 19,
+      "pythonFetchCopyMs": 62.77,
+      "serializationMs": 0.08,
+      "responseBytes": 2287
+    },
+    {
+      "request": "/perf/after/inbound?page=2&section=detail",
+      "queryMs": 91.79,
+      "sqlMs": 8.56,
+      "queries": 13,
+      "pythonFetchCopyMs": 83.23,
+      "serializationMs": 0.31,
+      "responseBytes": 27433
+    },
+    {
+      "request": "/perf/before/inbound",
+      "queryMs": 652.02,
+      "sqlMs": 275.55,
+      "queries": 8,
+      "pythonFetchCopyMs": 376.48,
+      "serializationMs": 0.32,
+      "responseBytes": 27240
+    },
+    {
+      "request": "/perf/after/inbound?&section=summary",
+      "queryMs": 52.46,
+      "sqlMs": 7.59,
+      "queries": 13,
+      "pythonFetchCopyMs": 44.86,
+      "serializationMs": 0.07,
+      "responseBytes": 2287
+    },
+    {
+      "request": "/perf/after/inbound?&section=detail",
+      "queryMs": 56.43,
+      "sqlMs": 7.03,
+      "queries": 13,
+      "pythonFetchCopyMs": 49.4,
+      "serializationMs": 0.29,
+      "responseBytes": 27430
+    },
+    {
+      "request": "/perf/before/inbound?startDate=2025-01-01",
+      "queryMs": 656.28,
+      "sqlMs": 264.97,
+      "queries": 8,
+      "pythonFetchCopyMs": 391.3,
+      "serializationMs": 0.47,
+      "responseBytes": 27240
+    },
+    {
+      "request": "/perf/after/inbound?startDate=2025-01-01&section=summary",
+      "queryMs": 97.58,
+      "sqlMs": 29.13,
+      "queries": 19,
+      "pythonFetchCopyMs": 68.45,
+      "serializationMs": 0.08,
+      "responseBytes": 2287
+    },
+    {
+      "request": "/perf/after/inbound?startDate=2025-01-01&section=detail",
+      "queryMs": 97.56,
+      "sqlMs": 8.05,
+      "queries": 13,
+      "pythonFetchCopyMs": 89.51,
+      "serializationMs": 0.27,
+      "responseBytes": 27430
+    },
+    {
+      "request": "/perf/before/guangdong",
+      "queryMs": 272.23,
+      "sqlMs": 152.2,
+      "queries": 15,
+      "pythonFetchCopyMs": 120.03,
+      "serializationMs": 0.74,
+      "responseBytes": 83035
+    },
+    {
+      "request": "/perf/after/guangdong?&section=summary",
+      "queryMs": 306.17,
+      "sqlMs": 158.98,
+      "queries": 33,
+      "pythonFetchCopyMs": 147.19,
+      "serializationMs": 0.1,
+      "responseBytes": 3333
+    },
+    {
+      "request": "/perf/after/guangdong?&section=detail",
+      "queryMs": 305.58,
+      "sqlMs": 22.45,
+      "queries": 13,
+      "pythonFetchCopyMs": 283.13,
+      "serializationMs": 0.61,
+      "responseBytes": 83225
+    },
+    {
+      "request": "/perf/before/guangdong",
+      "queryMs": 310.6,
+      "sqlMs": 183.41,
+      "queries": 15,
+      "pythonFetchCopyMs": 127.2,
+      "serializationMs": 0.59,
+      "responseBytes": 83035
+    },
+    {
+      "request": "/perf/after/guangdong?&section=detail",
+      "queryMs": 55.98,
+      "sqlMs": 8.74,
+      "queries": 13,
+      "pythonFetchCopyMs": 47.24,
+      "serializationMs": 0.62,
+      "responseBytes": 83225
+    },
+    {
+      "request": "/perf/after/guangdong?&section=summary",
+      "queryMs": 56.45,
+      "sqlMs": 10.16,
+      "queries": 13,
+      "pythonFetchCopyMs": 46.29,
+      "serializationMs": 0.08,
+      "responseBytes": 3333
+    },
+    {
+      "request": "/perf/before/guangdong?category=Category+1",
+      "queryMs": 266.8,
+      "sqlMs": 147.66,
+      "queries": 15,
+      "pythonFetchCopyMs": 119.14,
+      "serializationMs": 0.65,
+      "responseBytes": 79957
+    },
+    {
+      "request": "/perf/after/guangdong?category=Category+1&section=summary",
+      "queryMs": 117.38,
+      "sqlMs": 31.7,
+      "queries": 24,
+      "pythonFetchCopyMs": 85.68,
+      "serializationMs": 0.1,
+      "responseBytes": 3307
+    },
+    {
+      "request": "/perf/after/guangdong?category=Category+1&section=detail",
+      "queryMs": 151.9,
+      "sqlMs": 6.55,
+      "queries": 13,
+      "pythonFetchCopyMs": 145.35,
+      "serializationMs": 0.57,
+      "responseBytes": 80147
+    },
+    {
+      "request": "/perf/before/guangdong?page=2",
+      "queryMs": 418.47,
+      "sqlMs": 184.64,
+      "queries": 14,
+      "pythonFetchCopyMs": 233.83,
+      "serializationMs": 0.55,
+      "responseBytes": 81967
+    },
+    {
+      "request": "/perf/after/guangdong?page=2&section=summary",
+      "queryMs": 84.07,
+      "sqlMs": 13.71,
+      "queries": 23,
+      "pythonFetchCopyMs": 70.36,
+      "serializationMs": 0.09,
+      "responseBytes": 3333
+    },
+    {
+      "request": "/perf/after/guangdong?page=2&section=detail",
+      "queryMs": 84.24,
+      "sqlMs": 8.83,
+      "queries": 13,
+      "pythonFetchCopyMs": 75.41,
+      "serializationMs": 0.58,
+      "responseBytes": 82157
+    },
+    {
+      "request": "/perf/before/guangdong",
+      "queryMs": 271.67,
+      "sqlMs": 145.83,
+      "queries": 15,
+      "pythonFetchCopyMs": 125.84,
+      "serializationMs": 0.59,
+      "responseBytes": 83035
+    },
+    {
+      "request": "/perf/after/guangdong?&section=summary",
+      "queryMs": 54.79,
+      "sqlMs": 9.13,
+      "queries": 13,
+      "pythonFetchCopyMs": 45.66,
+      "serializationMs": 0.08,
+      "responseBytes": 3333
+    },
+    {
+      "request": "/perf/after/guangdong?&section=detail",
+      "queryMs": 55.24,
+      "sqlMs": 9.89,
+      "queries": 13,
+      "pythonFetchCopyMs": 45.35,
+      "serializationMs": 0.54,
+      "responseBytes": 83225
+    },
+    {
+      "request": "/perf/before/guangdong?startDate=2025-01-01",
+      "queryMs": 264.54,
+      "sqlMs": 145.42,
+      "queries": 15,
+      "pythonFetchCopyMs": 119.11,
+      "serializationMs": 0.61,
+      "responseBytes": 83035
+    },
+    {
+      "request": "/perf/after/guangdong?startDate=2025-01-01&section=summary",
+      "queryMs": 96.92,
+      "sqlMs": 27.27,
+      "queries": 24,
+      "pythonFetchCopyMs": 69.65,
+      "serializationMs": 0.09,
+      "responseBytes": 3333
+    },
+    {
+      "request": "/perf/after/guangdong?startDate=2025-01-01&section=detail",
+      "queryMs": 154.98,
+      "sqlMs": 6.57,
+      "queries": 13,
+      "pythonFetchCopyMs": 148.41,
+      "serializationMs": 0.69,
+      "responseBytes": 83225
+    }
+  ],
+  "wire": [
+    {
+      "scenario": "before/overview/first",
+      "urlPath": "/perf/before/overview?",
+      "firstByteMs": 3597.99,
+      "bodyReadMs": 1.33,
+      "httpCompleteMs": 3599.31,
+      "decodeMs": 2.86,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/first/summary",
+      "urlPath": "/perf/after/overview?&section=summary",
+      "firstByteMs": 3366.36,
+      "bodyReadMs": 4.32,
+      "httpCompleteMs": 3370.68,
+      "decodeMs": 0.13,
+      "responseBytes": 2972
+    },
+    {
+      "scenario": "after/overview/first/detail",
+      "urlPath": "/perf/after/overview?&section=detail",
+      "firstByteMs": 3368.8,
+      "bodyReadMs": 0.9,
+      "httpCompleteMs": 3369.7,
+      "decodeMs": 2.59,
+      "responseBytes": 165105
+    },
+    {
+      "scenario": "before/overview/reentry",
+      "urlPath": "/perf/before/overview?",
+      "firstByteMs": 2807.13,
+      "bodyReadMs": 0.39,
+      "httpCompleteMs": 2807.53,
+      "decodeMs": 1.49,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/reentry/detail",
+      "urlPath": "/perf/after/overview?&section=detail",
+      "firstByteMs": 81.42,
+      "bodyReadMs": 1.45,
+      "httpCompleteMs": 82.87,
+      "decodeMs": 1.33,
+      "responseBytes": 165105
+    },
+    {
+      "scenario": "after/overview/reentry/summary",
+      "urlPath": "/perf/after/overview?&section=summary",
+      "firstByteMs": 84.94,
+      "bodyReadMs": 0.5,
+      "httpCompleteMs": 85.44,
+      "decodeMs": 0.06,
+      "responseBytes": 2972
+    },
+    {
+      "scenario": "before/overview/filter",
+      "urlPath": "/perf/before/overview?category=Category+1",
+      "firstByteMs": 2597.17,
+      "bodyReadMs": 0.99,
+      "httpCompleteMs": 2598.16,
+      "decodeMs": 2.0,
+      "responseBytes": 164838
+    },
+    {
+      "scenario": "after/overview/filter/summary",
+      "urlPath": "/perf/after/overview?category=Category+1&section=summary",
+      "firstByteMs": 370.32,
+      "bodyReadMs": 3.6,
+      "httpCompleteMs": 373.92,
+      "decodeMs": 0.08,
+      "responseBytes": 2956
+    },
+    {
+      "scenario": "after/overview/filter/detail",
+      "urlPath": "/perf/after/overview?category=Category+1&section=detail",
+      "firstByteMs": 374.03,
+      "bodyReadMs": 0.45,
+      "httpCompleteMs": 374.48,
+      "decodeMs": 2.23,
+      "responseBytes": 165028
+    },
+    {
+      "scenario": "before/overview/page",
+      "urlPath": "/perf/before/overview?page=2",
+      "firstByteMs": 3069.24,
+      "bodyReadMs": 1.02,
+      "httpCompleteMs": 3070.26,
+      "decodeMs": 2.87,
+      "responseBytes": 164938
+    },
+    {
+      "scenario": "after/overview/page/detail",
+      "urlPath": "/perf/after/overview?page=2&section=detail",
+      "firstByteMs": 1204.04,
+      "bodyReadMs": 1.77,
+      "httpCompleteMs": 1205.81,
+      "decodeMs": 2.15,
+      "responseBytes": 165128
+    },
+    {
+      "scenario": "after/overview/page/summary",
+      "urlPath": "/perf/after/overview?page=2&section=summary",
+      "firstByteMs": 1209.02,
+      "bodyReadMs": 0.23,
+      "httpCompleteMs": 1209.25,
+      "decodeMs": 0.08,
+      "responseBytes": 2972
+    },
+    {
+      "scenario": "before/overview/refresh",
+      "urlPath": "/perf/before/overview?",
+      "firstByteMs": 2804.98,
+      "bodyReadMs": 0.6,
+      "httpCompleteMs": 2805.57,
+      "decodeMs": 1.43,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/refresh/summary",
+      "urlPath": "/perf/after/overview?&section=summary",
+      "firstByteMs": 82.15,
+      "bodyReadMs": 0.65,
+      "httpCompleteMs": 82.79,
+      "decodeMs": 0.07,
+      "responseBytes": 2972
+    },
+    {
+      "scenario": "after/overview/refresh/detail",
+      "urlPath": "/perf/after/overview?&section=detail",
+      "firstByteMs": 85.18,
+      "bodyReadMs": 0.49,
+      "httpCompleteMs": 85.67,
+      "decodeMs": 1.54,
+      "responseBytes": 165105
+    },
+    {
+      "scenario": "before/overview/date-control",
+      "urlPath": "/perf/before/overview?startDate=2025-01-01",
+      "firstByteMs": 2659.65,
+      "bodyReadMs": 0.64,
+      "httpCompleteMs": 2660.29,
+      "decodeMs": 1.72,
+      "responseBytes": 164915
+    },
+    {
+      "scenario": "after/overview/date-control/summary",
+      "urlPath": "/perf/after/overview?startDate=2025-01-01&section=summary",
+      "firstByteMs": 795.19,
+      "bodyReadMs": 3.12,
+      "httpCompleteMs": 798.31,
+      "decodeMs": 0.07,
+      "responseBytes": 2972
+    },
+    {
+      "scenario": "after/overview/date-control/detail",
+      "urlPath": "/perf/after/overview?startDate=2025-01-01&section=detail",
+      "firstByteMs": 798.31,
+      "bodyReadMs": 0.63,
+      "httpCompleteMs": 798.94,
+      "decodeMs": 1.45,
+      "responseBytes": 165105
+    },
+    {
+      "scenario": "before/plan/first",
+      "urlPath": "/perf/before/plan?",
+      "firstByteMs": 3304.98,
+      "bodyReadMs": 0.9,
+      "httpCompleteMs": 3305.89,
+      "decodeMs": 2.07,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/first/detail",
+      "urlPath": "/perf/after/plan?&section=detail",
+      "firstByteMs": 2776.63,
+      "bodyReadMs": 1.03,
+      "httpCompleteMs": 2777.66,
+      "decodeMs": 1.27,
+      "responseBytes": 155194
+    },
+    {
+      "scenario": "after/plan/first/summary",
+      "urlPath": "/perf/after/plan?&section=summary",
+      "firstByteMs": 2779.87,
+      "bodyReadMs": 0.19,
+      "httpCompleteMs": 2780.06,
+      "decodeMs": 0.07,
+      "responseBytes": 2968
+    },
+    {
+      "scenario": "before/plan/reentry",
+      "urlPath": "/perf/before/plan?",
+      "firstByteMs": 2682.48,
+      "bodyReadMs": 0.45,
+      "httpCompleteMs": 2682.93,
+      "decodeMs": 1.45,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/reentry/detail",
+      "urlPath": "/perf/after/plan?&section=detail",
+      "firstByteMs": 81.88,
+      "bodyReadMs": 1.18,
+      "httpCompleteMs": 83.06,
+      "decodeMs": 1.22,
+      "responseBytes": 155194
+    },
+    {
+      "scenario": "after/plan/reentry/summary",
+      "urlPath": "/perf/after/plan?&section=summary",
+      "firstByteMs": 83.58,
+      "bodyReadMs": 1.46,
+      "httpCompleteMs": 85.04,
+      "decodeMs": 0.06,
+      "responseBytes": 2968
+    },
+    {
+      "scenario": "before/plan/filter",
+      "urlPath": "/perf/before/plan?category=Category+1",
+      "firstByteMs": 2133.29,
+      "bodyReadMs": 0.32,
+      "httpCompleteMs": 2133.61,
+      "decodeMs": 1.35,
+      "responseBytes": 121594
+    },
+    {
+      "scenario": "after/plan/filter/summary",
+      "urlPath": "/perf/after/plan?category=Category+1&section=summary",
+      "firstByteMs": 300.64,
+      "bodyReadMs": 0.41,
+      "httpCompleteMs": 301.05,
+      "decodeMs": 0.05,
+      "responseBytes": 2953
+    },
+    {
+      "scenario": "after/plan/filter/detail",
+      "urlPath": "/perf/after/plan?category=Category+1&section=detail",
+      "firstByteMs": 302.7,
+      "bodyReadMs": 0.3,
+      "httpCompleteMs": 303.01,
+      "decodeMs": 1.07,
+      "responseBytes": 121784
+    },
+    {
+      "scenario": "before/plan/page",
+      "urlPath": "/perf/before/plan?page=2",
+      "firstByteMs": 2612.25,
+      "bodyReadMs": 0.21,
+      "httpCompleteMs": 2612.47,
+      "decodeMs": 1.16,
+      "responseBytes": 124785
+    },
+    {
+      "scenario": "after/plan/page/detail",
+      "urlPath": "/perf/after/plan?page=2&section=detail",
+      "firstByteMs": 769.23,
+      "bodyReadMs": 0.71,
+      "httpCompleteMs": 769.94,
+      "decodeMs": 1.15,
+      "responseBytes": 124975
+    },
+    {
+      "scenario": "after/plan/page/summary",
+      "urlPath": "/perf/after/plan?page=2&section=summary",
+      "firstByteMs": 772.2,
+      "bodyReadMs": 0.16,
+      "httpCompleteMs": 772.36,
+      "decodeMs": 0.06,
+      "responseBytes": 2969
+    },
+    {
+      "scenario": "before/plan/refresh",
+      "urlPath": "/perf/before/plan?",
+      "firstByteMs": 2632.89,
+      "bodyReadMs": 0.55,
+      "httpCompleteMs": 2633.44,
+      "decodeMs": 1.43,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/refresh/detail",
+      "urlPath": "/perf/after/plan?&section=detail",
+      "firstByteMs": 81.36,
+      "bodyReadMs": 0.75,
+      "httpCompleteMs": 82.11,
+      "decodeMs": 2.05,
+      "responseBytes": 155194
+    },
+    {
+      "scenario": "after/plan/refresh/summary",
+      "urlPath": "/perf/after/plan?&section=summary",
+      "firstByteMs": 85.3,
+      "bodyReadMs": 0.17,
+      "httpCompleteMs": 85.47,
+      "decodeMs": 0.08,
+      "responseBytes": 2968
+    },
+    {
+      "scenario": "before/plan/date-control",
+      "urlPath": "/perf/before/plan?startDate=2025-01-01",
+      "firstByteMs": 2522.22,
+      "bodyReadMs": 0.34,
+      "httpCompleteMs": 2522.56,
+      "decodeMs": 1.3,
+      "responseBytes": 155004
+    },
+    {
+      "scenario": "after/plan/date-control/summary",
+      "urlPath": "/perf/after/plan?startDate=2025-01-01&section=summary",
+      "firstByteMs": 748.7,
+      "bodyReadMs": 2.34,
+      "httpCompleteMs": 751.04,
+      "decodeMs": 0.06,
+      "responseBytes": 2968
+    },
+    {
+      "scenario": "after/plan/date-control/detail",
+      "urlPath": "/perf/after/plan?startDate=2025-01-01&section=detail",
+      "firstByteMs": 751.01,
+      "bodyReadMs": 0.51,
+      "httpCompleteMs": 751.53,
+      "decodeMs": 1.31,
+      "responseBytes": 155194
+    },
+    {
+      "scenario": "before/age/first",
+      "urlPath": "/perf/before/age?",
+      "firstByteMs": 710.44,
+      "bodyReadMs": 0.2,
+      "httpCompleteMs": 710.64,
+      "decodeMs": 0.28,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/first/summary",
+      "urlPath": "/perf/after/age?&section=summary",
+      "firstByteMs": 770.43,
+      "bodyReadMs": 1.08,
+      "httpCompleteMs": 771.51,
+      "decodeMs": 0.07,
+      "responseBytes": 3746
+    },
+    {
+      "scenario": "after/age/first/detail",
+      "urlPath": "/perf/after/age?&section=detail",
+      "firstByteMs": 771.47,
+      "bodyReadMs": 0.2,
+      "httpCompleteMs": 771.68,
+      "decodeMs": 0.27,
+      "responseBytes": 35790
+    },
+    {
+      "scenario": "before/age/reentry",
+      "urlPath": "/perf/before/age?",
+      "firstByteMs": 829.69,
+      "bodyReadMs": 0.31,
+      "httpCompleteMs": 830.01,
+      "decodeMs": 0.29,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/reentry/summary",
+      "urlPath": "/perf/after/age?&section=summary",
+      "firstByteMs": 90.41,
+      "bodyReadMs": 1.21,
+      "httpCompleteMs": 91.61,
+      "decodeMs": 0.08,
+      "responseBytes": 3746
+    },
+    {
+      "scenario": "after/age/reentry/detail",
+      "urlPath": "/perf/after/age?&section=detail",
+      "firstByteMs": 92.73,
+      "bodyReadMs": 0.43,
+      "httpCompleteMs": 93.15,
+      "decodeMs": 0.47,
+      "responseBytes": 35790
+    },
+    {
+      "scenario": "before/age/filter",
+      "urlPath": "/perf/before/age?category=Category+1",
+      "firstByteMs": 526.41,
+      "bodyReadMs": 0.23,
+      "httpCompleteMs": 526.64,
+      "decodeMs": 0.4,
+      "responseBytes": 35009
+    },
+    {
+      "scenario": "after/age/filter/detail",
+      "urlPath": "/perf/after/age?category=Category+1&section=detail",
+      "firstByteMs": 170.55,
+      "bodyReadMs": 0.51,
+      "httpCompleteMs": 171.06,
+      "decodeMs": 0.3,
+      "responseBytes": 35199
+    },
+    {
+      "scenario": "after/age/filter/summary",
+      "urlPath": "/perf/after/age?category=Category+1&section=summary",
+      "firstByteMs": 172.56,
+      "bodyReadMs": 0.15,
+      "httpCompleteMs": 172.72,
+      "decodeMs": 0.06,
+      "responseBytes": 3692
+    },
+    {
+      "scenario": "before/age/page",
+      "urlPath": "/perf/before/age?page=2",
+      "firstByteMs": 713.77,
+      "bodyReadMs": 0.45,
+      "httpCompleteMs": 714.21,
+      "decodeMs": 0.32,
+      "responseBytes": 35795
+    },
+    {
+      "scenario": "after/age/page/summary",
+      "urlPath": "/perf/after/age?page=2&section=summary",
+      "firstByteMs": 395.26,
+      "bodyReadMs": 0.19,
+      "httpCompleteMs": 395.45,
+      "decodeMs": 0.07,
+      "responseBytes": 3746
+    },
+    {
+      "scenario": "after/age/page/detail",
+      "urlPath": "/perf/after/age?page=2&section=detail",
+      "firstByteMs": 396.29,
+      "bodyReadMs": 0.38,
+      "httpCompleteMs": 396.66,
+      "decodeMs": 0.28,
+      "responseBytes": 35985
+    },
+    {
+      "scenario": "before/age/refresh",
+      "urlPath": "/perf/before/age?",
+      "firstByteMs": 772.79,
+      "bodyReadMs": 0.29,
+      "httpCompleteMs": 773.08,
+      "decodeMs": 0.36,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/refresh/detail",
+      "urlPath": "/perf/after/age?&section=detail",
+      "firstByteMs": 56.11,
+      "bodyReadMs": 0.59,
+      "httpCompleteMs": 56.7,
+      "decodeMs": 0.29,
+      "responseBytes": 35790
+    },
+    {
+      "scenario": "after/age/refresh/summary",
+      "urlPath": "/perf/after/age?&section=summary",
+      "firstByteMs": 61.52,
+      "bodyReadMs": 0.68,
+      "httpCompleteMs": 62.2,
+      "decodeMs": 0.07,
+      "responseBytes": 3746
+    },
+    {
+      "scenario": "before/age/date-control",
+      "urlPath": "/perf/before/age?startDate=2025-01-01",
+      "firstByteMs": 590.92,
+      "bodyReadMs": 0.29,
+      "httpCompleteMs": 591.21,
+      "decodeMs": 0.28,
+      "responseBytes": 35600
+    },
+    {
+      "scenario": "after/age/date-control/summary",
+      "urlPath": "/perf/after/age?startDate=2025-01-01&section=summary",
+      "firstByteMs": 339.34,
+      "bodyReadMs": 0.41,
+      "httpCompleteMs": 339.75,
+      "decodeMs": 0.08,
+      "responseBytes": 3746
+    },
+    {
+      "scenario": "after/age/date-control/detail",
+      "urlPath": "/perf/after/age?startDate=2025-01-01&section=detail",
+      "firstByteMs": 340.43,
+      "bodyReadMs": 0.13,
+      "httpCompleteMs": 340.56,
+      "decodeMs": 0.28,
+      "responseBytes": 35790
+    },
+    {
+      "scenario": "before/stale/first",
+      "urlPath": "/perf/before/stale?",
+      "firstByteMs": 567.01,
+      "bodyReadMs": 0.3,
+      "httpCompleteMs": 567.31,
+      "decodeMs": 0.32,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/first/summary",
+      "urlPath": "/perf/after/stale?&section=summary",
+      "firstByteMs": 672.66,
+      "bodyReadMs": 0.51,
+      "httpCompleteMs": 673.17,
+      "decodeMs": 0.08,
+      "responseBytes": 3582
+    },
+    {
+      "scenario": "after/stale/first/detail",
+      "urlPath": "/perf/after/stale?&section=detail",
+      "firstByteMs": 673.95,
+      "bodyReadMs": 0.36,
+      "httpCompleteMs": 674.31,
+      "decodeMs": 0.3,
+      "responseBytes": 35626
+    },
+    {
+      "scenario": "before/stale/reentry",
+      "urlPath": "/perf/before/stale?",
+      "firstByteMs": 669.61,
+      "bodyReadMs": 0.22,
+      "httpCompleteMs": 669.83,
+      "decodeMs": 0.32,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/reentry/detail",
+      "urlPath": "/perf/after/stale?&section=detail",
+      "firstByteMs": 53.35,
+      "bodyReadMs": 0.15,
+      "httpCompleteMs": 53.49,
+      "decodeMs": 0.33,
+      "responseBytes": 35626
+    },
+    {
+      "scenario": "after/stale/reentry/summary",
+      "urlPath": "/perf/after/stale?&section=summary",
+      "firstByteMs": 63.97,
+      "bodyReadMs": 0.15,
+      "httpCompleteMs": 64.12,
+      "decodeMs": 0.07,
+      "responseBytes": 3582
+    },
+    {
+      "scenario": "before/stale/filter",
+      "urlPath": "/perf/before/stale?category=Category+1",
+      "firstByteMs": 527.95,
+      "bodyReadMs": 0.57,
+      "httpCompleteMs": 528.52,
+      "decodeMs": 0.29,
+      "responseBytes": 34804
+    },
+    {
+      "scenario": "after/stale/filter/summary",
+      "urlPath": "/perf/after/stale?category=Category+1&section=summary",
+      "firstByteMs": 148.27,
+      "bodyReadMs": 0.4,
+      "httpCompleteMs": 148.66,
+      "decodeMs": 0.07,
+      "responseBytes": 3487
+    },
+    {
+      "scenario": "after/stale/filter/detail",
+      "urlPath": "/perf/after/stale?category=Category+1&section=detail",
+      "firstByteMs": 149.05,
+      "bodyReadMs": 0.32,
+      "httpCompleteMs": 149.37,
+      "decodeMs": 0.27,
+      "responseBytes": 34994
+    },
+    {
+      "scenario": "before/stale/page",
+      "urlPath": "/perf/before/stale?page=2",
+      "firstByteMs": 594.0,
+      "bodyReadMs": 0.61,
+      "httpCompleteMs": 594.62,
+      "decodeMs": 0.29,
+      "responseBytes": 35631
+    },
+    {
+      "scenario": "after/stale/page/summary",
+      "urlPath": "/perf/after/stale?page=2&section=summary",
+      "firstByteMs": 203.35,
+      "bodyReadMs": 0.24,
+      "httpCompleteMs": 203.59,
+      "decodeMs": 0.08,
+      "responseBytes": 3582
+    },
+    {
+      "scenario": "after/stale/page/detail",
+      "urlPath": "/perf/after/stale?page=2&section=detail",
+      "firstByteMs": 204.66,
+      "bodyReadMs": 0.16,
+      "httpCompleteMs": 204.83,
+      "decodeMs": 0.28,
+      "responseBytes": 35821
+    },
+    {
+      "scenario": "before/stale/refresh",
+      "urlPath": "/perf/before/stale?",
+      "firstByteMs": 581.47,
+      "bodyReadMs": 0.21,
+      "httpCompleteMs": 581.68,
+      "decodeMs": 0.43,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/refresh/detail",
+      "urlPath": "/perf/after/stale?&section=detail",
+      "firstByteMs": 62.89,
+      "bodyReadMs": 0.14,
+      "httpCompleteMs": 63.03,
+      "decodeMs": 0.29,
+      "responseBytes": 35626
+    },
+    {
+      "scenario": "after/stale/refresh/summary",
+      "urlPath": "/perf/after/stale?&section=summary",
+      "firstByteMs": 70.88,
+      "bodyReadMs": 0.31,
+      "httpCompleteMs": 71.19,
+      "decodeMs": 0.07,
+      "responseBytes": 3582
+    },
+    {
+      "scenario": "before/stale/date-control",
+      "urlPath": "/perf/before/stale?startDate=2025-01-01",
+      "firstByteMs": 682.02,
+      "bodyReadMs": 0.25,
+      "httpCompleteMs": 682.28,
+      "decodeMs": 0.4,
+      "responseBytes": 35436
+    },
+    {
+      "scenario": "after/stale/date-control/summary",
+      "urlPath": "/perf/after/stale?startDate=2025-01-01&section=summary",
+      "firstByteMs": 254.3,
+      "bodyReadMs": 0.28,
+      "httpCompleteMs": 254.58,
+      "decodeMs": 0.08,
+      "responseBytes": 3582
+    },
+    {
+      "scenario": "after/stale/date-control/detail",
+      "urlPath": "/perf/after/stale?startDate=2025-01-01&section=detail",
+      "firstByteMs": 260.82,
+      "bodyReadMs": 0.14,
+      "httpCompleteMs": 260.95,
+      "decodeMs": 0.28,
+      "responseBytes": 35626
+    },
+    {
+      "scenario": "before/inbound/first",
+      "urlPath": "/perf/before/inbound?",
+      "firstByteMs": 676.57,
+      "bodyReadMs": 0.22,
+      "httpCompleteMs": 676.79,
+      "decodeMs": 0.26,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/first/summary",
+      "urlPath": "/perf/after/inbound?&section=summary",
+      "firstByteMs": 644.88,
+      "bodyReadMs": 0.2,
+      "httpCompleteMs": 645.08,
+      "decodeMs": 0.04,
+      "responseBytes": 2287
+    },
+    {
+      "scenario": "after/inbound/first/detail",
+      "urlPath": "/perf/after/inbound?&section=detail",
+      "firstByteMs": 645.5,
+      "bodyReadMs": 0.14,
+      "httpCompleteMs": 645.64,
+      "decodeMs": 0.26,
+      "responseBytes": 27430
+    },
+    {
+      "scenario": "before/inbound/reentry",
+      "urlPath": "/perf/before/inbound?",
+      "firstByteMs": 726.25,
+      "bodyReadMs": 0.19,
+      "httpCompleteMs": 726.44,
+      "decodeMs": 0.24,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/reentry/summary",
+      "urlPath": "/perf/after/inbound?&section=summary",
+      "firstByteMs": 52.17,
+      "bodyReadMs": 0.15,
+      "httpCompleteMs": 52.32,
+      "decodeMs": 0.05,
+      "responseBytes": 2287
+    },
+    {
+      "scenario": "after/inbound/reentry/detail",
+      "urlPath": "/perf/after/inbound?&section=detail",
+      "firstByteMs": 70.37,
+      "bodyReadMs": 0.33,
+      "httpCompleteMs": 70.7,
+      "decodeMs": 0.26,
+      "responseBytes": 27430
+    },
+    {
+      "scenario": "before/inbound/filter",
+      "urlPath": "/perf/before/inbound?category=Category+1",
+      "firstByteMs": 649.18,
+      "bodyReadMs": 0.21,
+      "httpCompleteMs": 649.39,
+      "decodeMs": 0.26,
+      "responseBytes": 27256
+    },
+    {
+      "scenario": "after/inbound/filter/detail",
+      "urlPath": "/perf/after/inbound?category=Category+1&section=detail",
+      "firstByteMs": 93.3,
+      "bodyReadMs": 0.17,
+      "httpCompleteMs": 93.47,
+      "decodeMs": 0.26,
+      "responseBytes": 27446
+    },
+    {
+      "scenario": "after/inbound/filter/summary",
+      "urlPath": "/perf/after/inbound?category=Category+1&section=summary",
+      "firstByteMs": 173.34,
+      "bodyReadMs": 0.17,
+      "httpCompleteMs": 173.5,
+      "decodeMs": 0.05,
+      "responseBytes": 2271
+    },
+    {
+      "scenario": "before/inbound/page",
+      "urlPath": "/perf/before/inbound?page=2",
+      "firstByteMs": 696.86,
+      "bodyReadMs": 0.13,
+      "httpCompleteMs": 697.0,
+      "decodeMs": 0.26,
+      "responseBytes": 27243
+    },
+    {
+      "scenario": "after/inbound/page/summary",
+      "urlPath": "/perf/after/inbound?page=2&section=summary",
+      "firstByteMs": 94.39,
+      "bodyReadMs": 0.2,
+      "httpCompleteMs": 94.59,
+      "decodeMs": 0.05,
+      "responseBytes": 2287
+    },
+    {
+      "scenario": "after/inbound/page/detail",
+      "urlPath": "/perf/after/inbound?page=2&section=detail",
+      "firstByteMs": 95.2,
+      "bodyReadMs": 0.29,
+      "httpCompleteMs": 95.49,
+      "decodeMs": 0.25,
+      "responseBytes": 27433
+    },
+    {
+      "scenario": "before/inbound/refresh",
+      "urlPath": "/perf/before/inbound?",
+      "firstByteMs": 667.47,
+      "bodyReadMs": 0.26,
+      "httpCompleteMs": 667.73,
+      "decodeMs": 0.31,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/refresh/summary",
+      "urlPath": "/perf/after/inbound?&section=summary",
+      "firstByteMs": 54.99,
+      "bodyReadMs": 0.67,
+      "httpCompleteMs": 55.66,
+      "decodeMs": 0.04,
+      "responseBytes": 2287
+    },
+    {
+      "scenario": "after/inbound/refresh/detail",
+      "urlPath": "/perf/after/inbound?&section=detail",
+      "firstByteMs": 59.74,
+      "bodyReadMs": 0.16,
+      "httpCompleteMs": 59.9,
+      "decodeMs": 0.25,
+      "responseBytes": 27430
+    },
+    {
+      "scenario": "before/inbound/date-control",
+      "urlPath": "/perf/before/inbound?startDate=2025-01-01",
+      "firstByteMs": 671.56,
+      "bodyReadMs": 0.44,
+      "httpCompleteMs": 672.01,
+      "decodeMs": 0.33,
+      "responseBytes": 27240
+    },
+    {
+      "scenario": "after/inbound/date-control/summary",
+      "urlPath": "/perf/after/inbound?startDate=2025-01-01&section=summary",
+      "firstByteMs": 100.2,
+      "bodyReadMs": 0.48,
+      "httpCompleteMs": 100.68,
+      "decodeMs": 0.05,
+      "responseBytes": 2287
+    },
+    {
+      "scenario": "after/inbound/date-control/detail",
+      "urlPath": "/perf/after/inbound?startDate=2025-01-01&section=detail",
+      "firstByteMs": 101.16,
+      "bodyReadMs": 0.14,
+      "httpCompleteMs": 101.3,
+      "decodeMs": 0.24,
+      "responseBytes": 27430
+    },
+    {
+      "scenario": "before/guangdong/first",
+      "urlPath": "/perf/before/guangdong?",
+      "firstByteMs": 275.05,
+      "bodyReadMs": 0.37,
+      "httpCompleteMs": 275.42,
+      "decodeMs": 0.66,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/first/summary",
+      "urlPath": "/perf/after/guangdong?&section=summary",
+      "firstByteMs": 309.25,
+      "bodyReadMs": 0.98,
+      "httpCompleteMs": 310.23,
+      "decodeMs": 0.05,
+      "responseBytes": 3333
+    },
+    {
+      "scenario": "after/guangdong/first/detail",
+      "urlPath": "/perf/after/guangdong?&section=detail",
+      "firstByteMs": 310.13,
+      "bodyReadMs": 0.45,
+      "httpCompleteMs": 310.59,
+      "decodeMs": 0.56,
+      "responseBytes": 83225
+    },
+    {
+      "scenario": "before/guangdong/reentry",
+      "urlPath": "/perf/before/guangdong?",
+      "firstByteMs": 330.54,
+      "bodyReadMs": 0.5,
+      "httpCompleteMs": 331.04,
+      "decodeMs": 0.6,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/reentry/detail",
+      "urlPath": "/perf/after/guangdong?&section=detail",
+      "firstByteMs": 58.9,
+      "bodyReadMs": 0.9,
+      "httpCompleteMs": 59.81,
+      "decodeMs": 0.58,
+      "responseBytes": 83225
+    },
+    {
+      "scenario": "after/guangdong/reentry/summary",
+      "urlPath": "/perf/after/guangdong?&section=summary",
+      "firstByteMs": 61.01,
+      "bodyReadMs": 0.16,
+      "httpCompleteMs": 61.17,
+      "decodeMs": 0.07,
+      "responseBytes": 3333
+    },
+    {
+      "scenario": "before/guangdong/filter",
+      "urlPath": "/perf/before/guangdong?category=Category+1",
+      "firstByteMs": 269.45,
+      "bodyReadMs": 0.21,
+      "httpCompleteMs": 269.66,
+      "decodeMs": 0.71,
+      "responseBytes": 79957
+    },
+    {
+      "scenario": "after/guangdong/filter/summary",
+      "urlPath": "/perf/after/guangdong?category=Category+1&section=summary",
+      "firstByteMs": 121.67,
+      "bodyReadMs": 0.26,
+      "httpCompleteMs": 121.94,
+      "decodeMs": 0.06,
+      "responseBytes": 3307
+    },
+    {
+      "scenario": "after/guangdong/filter/detail",
+      "urlPath": "/perf/after/guangdong?category=Category+1&section=detail",
+      "firstByteMs": 154.26,
+      "bodyReadMs": 0.16,
+      "httpCompleteMs": 154.41,
+      "decodeMs": 0.57,
+      "responseBytes": 80147
+    },
+    {
+      "scenario": "before/guangdong/page",
+      "urlPath": "/perf/before/guangdong?page=2",
+      "firstByteMs": 420.89,
+      "bodyReadMs": 0.23,
+      "httpCompleteMs": 421.12,
+      "decodeMs": 0.65,
+      "responseBytes": 81967
+    },
+    {
+      "scenario": "after/guangdong/page/summary",
+      "urlPath": "/perf/after/guangdong?page=2&section=summary",
+      "firstByteMs": 86.7,
+      "bodyReadMs": 0.42,
+      "httpCompleteMs": 87.13,
+      "decodeMs": 0.05,
+      "responseBytes": 3333
+    },
+    {
+      "scenario": "after/guangdong/page/detail",
+      "urlPath": "/perf/after/guangdong?page=2&section=detail",
+      "firstByteMs": 87.99,
+      "bodyReadMs": 0.34,
+      "httpCompleteMs": 88.33,
+      "decodeMs": 0.57,
+      "responseBytes": 82157
+    },
+    {
+      "scenario": "before/guangdong/refresh",
+      "urlPath": "/perf/before/guangdong?",
+      "firstByteMs": 292.48,
+      "bodyReadMs": 0.19,
+      "httpCompleteMs": 292.68,
+      "decodeMs": 0.54,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/refresh/summary",
+      "urlPath": "/perf/after/guangdong?&section=summary",
+      "firstByteMs": 57.64,
+      "bodyReadMs": 0.16,
+      "httpCompleteMs": 57.81,
+      "decodeMs": 0.05,
+      "responseBytes": 3333
+    },
+    {
+      "scenario": "after/guangdong/refresh/detail",
+      "urlPath": "/perf/after/guangdong?&section=detail",
+      "firstByteMs": 58.82,
+      "bodyReadMs": 0.25,
+      "httpCompleteMs": 59.07,
+      "decodeMs": 0.56,
+      "responseBytes": 83225
+    },
+    {
+      "scenario": "before/guangdong/date-control",
+      "urlPath": "/perf/before/guangdong?startDate=2025-01-01",
+      "firstByteMs": 267.0,
+      "bodyReadMs": 0.49,
+      "httpCompleteMs": 267.49,
+      "decodeMs": 0.6,
+      "responseBytes": 83035
+    },
+    {
+      "scenario": "after/guangdong/date-control/summary",
+      "urlPath": "/perf/after/guangdong?startDate=2025-01-01&section=summary",
+      "firstByteMs": 99.07,
+      "bodyReadMs": 0.15,
+      "httpCompleteMs": 99.23,
+      "decodeMs": 0.05,
+      "responseBytes": 3333
+    },
+    {
+      "scenario": "after/guangdong/date-control/detail",
+      "urlPath": "/perf/after/guangdong?startDate=2025-01-01&section=detail",
+      "firstByteMs": 158.83,
+      "bodyReadMs": 0.16,
+      "httpCompleteMs": 158.99,
+      "decodeMs": 0.57,
+      "responseBytes": 83225
+    }
+  ],
+  "conditions": "one before request then concurrent region pair; process cache empty only first; warm OS/database pages; private WSGI/owner role, no Worker/Home/auth gateway latency",
+  "limitations": "one sample per action; no P95; Python residual includes ORM materialization/cache copies; total wire bytes include both requests"
+}

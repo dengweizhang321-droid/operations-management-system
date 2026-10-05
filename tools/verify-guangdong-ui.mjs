@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { createServer } from "vite";
 import react from "@vitejs/plugin-react";
 import { chromium } from "playwright-core";
+import { createHash } from "node:crypto";
 
 const root = resolve(import.meta.dirname, "..");
 const output = resolve(root, ".runtime/guangdong-ui");
@@ -66,6 +67,14 @@ try {
       if (suffix === "/export") assert.equal(url.searchParams.get("version"), version);
       await route.fulfill({ status: 200, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", body: Buffer.from("ui-download-fixture") }); return;
     } else throw new Error("Unexpected API: " + suffix);
+    if (!suffix && url.searchParams.has("section")) {
+      const section = url.searchParams.get("section");
+      const scope = new URLSearchParams(url.searchParams); scope.delete("section"); scope.sort();
+      result = { ...result, readSection: section,
+        readScope: createHash("sha256").update(scope.toString()).digest("hex"),
+        readSnapshot: createHash("sha256").update(version).digest("hex"),
+        items: section === "summary" ? [] : result.items };
+    }
     await route.fulfill({ status: 200, json: result });
   });
   await page.goto("http://127.0.0.1:3108/.runtime/guangdong-ui/index.html");

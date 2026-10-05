@@ -16,7 +16,7 @@ import {
 } from "@/lib/inventory/query-contract";
 
 const allowedKeys = new Set([
-  "view", "startDate", "endDate", "q", "warehouse", "brand", "category",
+  "section", "view", "startDate", "endDate", "q", "warehouse", "brand", "category",
   "warehouseType", "status", "page", "pageSize", "planPage", "planPageSize",
   "planStatus", "includeCancelledPlans",
 ]);
@@ -26,6 +26,7 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "库存健康数据");
     const params = new URL(request.url).searchParams;
+    if (params.getAll("section").length > 1 || (params.has("section") && !["summary", "detail"].includes(params.get("section")!))) throw new InventoryQueryContractError("section 必须是 summary 或 detail");
     if ([...params.keys()].some((key) => !allowedKeys.has(key))) {
       throw new InventoryQueryContractError("库存总览包含未知查询参数");
     }

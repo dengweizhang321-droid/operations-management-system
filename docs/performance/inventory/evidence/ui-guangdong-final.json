@@ -1,0 +1,751 @@
+{
+  "status": "passed",
+  "syntheticApi": true,
+  "businessPgBenchmark": false,
+  "scope": "actual inventory component + original globals; excludes Home/shell and production authority",
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "candidateHead": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "dirty": "M app/api/inventory/age-analysis/route.ts\n M app/api/inventory/inbound-monitor/route.ts\n M app/api/inventory/overview/route.ts\n M app/inventory-guangdong-view.tsx\n M app/inventory-module-view.tsx\n M backend/inventory/guangdong.py\n M backend/inventory/guangdong_views.py\n M backend/inventory/query.py\n M backend/inventory/views.py\n?? app/inventory-region-notice.tsx\n?? backend/inventory/read_cache.py\n?? backend/inventory/regions.py\n?? backend/inventory/tests/test_read_cache.py\n?? docs/performance/\n?? inventory-install.log\n?? lib/inventory/read-regions.ts\n?? tests/inventory-read-regions.test.ts",
+  "sourceHashes": {
+    "inventory-module-view.tsx": "86897fa007b94cb12bee597405648f434b21c1ab179bb5ea79c348fa4036d924",
+    "inventory-guangdong-view.tsx": "e9124f06cf52279c501a5e88ba8968828939e4774182425233c72bbd4ec96665",
+    "inventory-filter-bar.tsx": "534bafd582776be3a3086c3d57fdb1f4c6afe78e3b3b7ed6824b8b61f80cdcc1"
+  },
+  "fixtureSha256": "afe323d8ba02c71836528e004d65f3f93ed80616acbdb72c380850ee138bb274",
+  "upstreamDelayMs": 180,
+  "lateResponseDelayMs": 900,
+  "requests": [
+    {
+      "id": 1,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=summary",
+      "ms": 180.70929999999498,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 2,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=detail",
+      "ms": 181.16270000000077,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 3,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=summary",
+      "ms": 183.3173999999999,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 4,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=detail",
+      "ms": 184.07450000000244,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 5,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=summary",
+      "ms": 194.41990000000078,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 6,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=detail",
+      "ms": 194.6973999999973,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 7,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?brand=Brand+0&page=1&section=summary",
+      "ms": 195.08610000000044,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 8,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?brand=Brand+0&page=1&section=detail",
+      "ms": 194.04490000000078,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 9,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=summary",
+      "ms": 187.60459999999875,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 10,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=detail",
+      "ms": 187.3703999999998,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 11,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?category=Category+0&page=1&section=summary",
+      "ms": 183.03749999999854,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 12,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?category=Category+0&page=1&section=detail",
+      "ms": 183.18669999999838,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 13,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=summary",
+      "ms": 192.47260000000097,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 14,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=detail",
+      "ms": 192.61450000000332,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 15,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?supplier=Supplier+0&page=1&section=summary",
+      "ms": 186.29279999999562,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 16,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?supplier=Supplier+0&page=1&section=detail",
+      "ms": 185.87809999999445,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 17,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=summary",
+      "ms": 181.99149999999645,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 18,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=detail",
+      "ms": 182.05279999999766,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 19,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=FAST&page=1&section=summary",
+      "ms": 188.26640000000043,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 20,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=FAST&page=1&section=detail",
+      "ms": 188.60779999999795,
+      "status": 200,
+      "bytes": 79177,
+      "ignoredAbort": true
+    },
+    {
+      "id": 23,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=1&section=summary",
+      "ms": 180.68479999999545,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 24,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=1&section=detail",
+      "ms": 180.80460000000312,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 21,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=LATE&page=1&section=summary",
+      "ms": 900.7131999999983,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 22,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=LATE&page=1&section=detail",
+      "ms": 902.4175000000032,
+      "status": 200,
+      "bytes": 79177,
+      "ignoredAbort": true
+    },
+    {
+      "id": 26,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=SUMMARYSLOW&page=1&section=detail",
+      "ms": 195.40649999999732,
+      "status": 200,
+      "bytes": 79877,
+      "ignoredAbort": true
+    },
+    {
+      "id": 25,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=SUMMARYSLOW&page=1&section=summary",
+      "ms": 915.2153999999937,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 27,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=1&section=summary",
+      "ms": 184.77449999999953,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 28,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=1&section=detail",
+      "ms": 184.83699999999953,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 29,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=DOUBLEFAIL&page=1&section=summary",
+      "ms": 190.92919999999867,
+      "status": 503,
+      "bytes": 36,
+      "ignoredAbort": true
+    },
+    {
+      "id": 30,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=DOUBLEFAIL&page=1&section=detail",
+      "ms": 191.23579999999492,
+      "status": 503,
+      "bytes": 36,
+      "ignoredAbort": true
+    },
+    {
+      "id": 31,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=DOUBLEFAIL&page=1&section=summary",
+      "ms": 185.25359999999637,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 32,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=DOUBLEFAIL&page=1&section=detail",
+      "ms": 182.8257999999987,
+      "status": 200,
+      "bytes": 79777,
+      "ignoredAbort": true
+    },
+    {
+      "id": 33,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=1&section=summary",
+      "ms": 189.2059999999983,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 34,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=1&section=detail",
+      "ms": 189.4216000000015,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 35,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=FAILSCOPE&page=1&section=summary",
+      "ms": 181.45179999999527,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 36,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=FAILSCOPE&page=1&section=detail",
+      "ms": 181.48569999999745,
+      "status": 503,
+      "bytes": 36,
+      "ignoredAbort": true
+    },
+    {
+      "id": 37,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=FAILSCOPE&page=1&section=detail",
+      "ms": 194.70089999999618,
+      "status": 200,
+      "bytes": 79677,
+      "ignoredAbort": true
+    },
+    {
+      "id": 38,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=1&section=summary",
+      "ms": 183.41440000000148,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 39,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=1&section=detail",
+      "ms": 183.3675000000003,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 40,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=summary",
+      "ms": 192.2908000000025,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 41,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=detail",
+      "ms": 192.40200000000186,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 42,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=summary",
+      "ms": 181.35499999999593,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 43,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=detail",
+      "ms": 181.29000000000087,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 44,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=summary",
+      "ms": 195.49339999999938,
+      "status": 503,
+      "bytes": 36,
+      "ignoredAbort": true
+    },
+    {
+      "id": 45,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=detail",
+      "ms": 195.73909999999887,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 46,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=summary",
+      "ms": 182.4395000000004,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 47,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=summary",
+      "ms": 189.52620000000024,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 48,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=detail",
+      "ms": 189.7954000000027,
+      "status": 503,
+      "bytes": 36,
+      "ignoredAbort": true
+    },
+    {
+      "id": 49,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=detail",
+      "ms": 183.793700000002,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 50,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=summary",
+      "ms": 181.95799999999872,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 51,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?q=NEW&page=2&section=detail",
+      "ms": 182.1808000000019,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 52,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=summary",
+      "ms": 192.6978999999992,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 53,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=detail",
+      "ms": 193.08150000000023,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 54,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=summary",
+      "ms": 180.7401000000027,
+      "status": 200,
+      "bytes": 3162,
+      "ignoredAbort": true
+    },
+    {
+      "id": 55,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor",
+      "query": "?page=1&section=detail",
+      "ms": 181.293700000002,
+      "status": 200,
+      "bytes": 79077,
+      "ignoredAbort": true
+    },
+    {
+      "id": 56,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor/watchlist",
+      "query": "",
+      "ms": 195.14459999999963,
+      "status": 200,
+      "bytes": 209442,
+      "ignoredAbort": true
+    },
+    {
+      "id": 57,
+      "implementation": "candidate",
+      "path": "/api/inventory/guangdong-monitor/suppliers",
+      "query": "",
+      "ms": 192.16539999999804,
+      "status": 200,
+      "bytes": 1162,
+      "ignoredAbort": true
+    }
+  ],
+  "measures": [
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "first-open",
+      "feedbackMs": 1426.6201999999976,
+      "firstContentMs": 5473.7139000000025,
+      "completeMs": 6146.229500000001,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "filter-brand",
+      "feedbackMs": 35.99409999999625,
+      "completeMs": 352.9244999999937,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "filter-category",
+      "feedbackMs": 34.95420000000013,
+      "completeMs": 339.1157999999996,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "filter-supplier",
+      "feedbackMs": 72.4351999999999,
+      "completeMs": 381.16799999999785,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "search",
+      "feedbackMs": 31.101300000002084,
+      "completeMs": 854.2194000000018,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "page-2",
+      "feedbackMs": 28.37170000000333,
+      "completeMs": 411.3778999999995,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "refresh",
+      "feedbackMs": 145.18709999999555,
+      "completeMs": 395.8912999999957,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "reentry",
+      "feedbackMs": 34.30159999999887,
+      "firstContentMs": 372.72839999999997,
+      "completeMs": 413.05539999999746,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "监控清单",
+      "feedbackMs": 184.68309999999474,
+      "completeMs": 406.7846999999965,
+      "requests": 1
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "清单本地搜索",
+      "feedbackMs": 87.6591000000044,
+      "completeMs": 96.07990000000427,
+      "requests": 0
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "清单本地分页",
+      "feedbackMs": 133.4675000000061,
+      "completeMs": 141.6805000000022,
+      "requests": 0
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "供应商备货周期",
+      "feedbackMs": 46.77969999999914,
+      "completeMs": 288.22009999999864,
+      "requests": 1
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "action": "型号设置详情",
+      "feedbackMs": 98.44889999999577,
+      "completeMs": 106.74919999999838,
+      "requests": 0
+    }
+  ],
+  "checks": [
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "check": "same-role-account-change-hides-previous-account"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "check": "global-date-does-not-change-fixed-inventory-window"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "check": "ignored-abort-late-response-fenced"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "check": "detail-can-render-before-summary-and-cancelled-summary-not-stuck"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "check": "initial-pair-failure-retries-each-region"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "check": "new-scope-failure-hides-old-content-and-retries"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "check": "same-scope-refresh-failure-retains-and-retries"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "check": "independent-detail-refresh-failure-and-local-retry"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "check": "refresh-displays-new-source-snapshot-date"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "guangdong",
+      "check": "sort-no-existing-ui-authoritative-fixed-order"
+    }
+  ],
+  "errors": [],
+  "failures": []
+}

@@ -1,0 +1,56 @@
+{
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "branch": "codex/inventory-performance",
+  "validation": {
+    "postgres": {
+      "tests": 132,
+      "passed": 129,
+      "skipped": 3,
+      "runtime": ".runtime/inventory-performance-pg-3322229037e37726"
+    },
+    "node": {
+      "tests": 75,
+      "passed": 75
+    },
+    "legacyDeepEquivalence": 111,
+    "finalRegionActions": 36,
+    "leastPrivilegeConsumerChecks": 6,
+    "build": "passed",
+    "targetedLint": "passed (no warnings)",
+    "backendBoundary": "passed; violations=[]",
+    "migrationDrift": "No changes detected",
+    "typescript": {
+      "baselineDiagnostics": 188,
+      "candidateDiagnostics": 188,
+      "newDiagnostics": 0
+    }
+  },
+  "productionOperations": false,
+  "mergeMain": false,
+  "releasePreparation": false,
+  "newMigrationCandidate": false,
+  "sourceSha256": {
+    "app/api/inventory/overview/route.ts": "39a55e320035116cf67a3e9f989334572b4687d38005c47bcdf930786e73a3bd",
+    "app/api/inventory/age-analysis/route.ts": "ece71b420936db9c4f3c585ea4453fa8b8c2cdb5ee8898c3376d16cff3a4229a",
+    "app/api/inventory/inbound-monitor/route.ts": "1605e08b434146e21f849b071c8965e7a546c43f704495dcaab5d18fcb9e1c92",
+    "app/inventory-module-view.tsx": "7ce46decd9f41a59e09e7796d9c6fda5972c1608809dd2b1838c28057b400293",
+    "app/inventory-guangdong-view.tsx": "e9124f06cf52279c501a5e88ba8968828939e4774182425233c72bbd4ec96665",
+    "app/inventory-region-notice.tsx": "9a5f8e6b7ec56175c13494eb77769e2a6cf2be43e512346243aac40437cea966",
+    "backend/inventory/query.py": "dbe88a6fd228a2557d0ad3f2dd8b0b3d84b92b0d298fc1f5e34fd258b9617399",
+    "backend/inventory/guangdong.py": "c39f68ee6a0dd5c15b223cfebc6cf9ca03f0f6e08a4bcadcfc255f4a10a88cf1",
+    "backend/inventory/guangdong_views.py": "fb4e4c485226ac7b5ab64703af113d64b6a06f80bfa8167bb56c79e4775e8c58",
+    "backend/inventory/views.py": "c31a6baee9c360386ef89803812a670658f90b49b542b49f1c8840105dbb2703",
+    "backend/inventory/read_cache.py": "036104e955f1d9d1783441a241d9f556d636941791cda7604ce7559a7508c7ed",
+    "backend/inventory/regions.py": "bd942e918e800fc66fca512609bbf714b08b464c587fb5705835b17d7c229c19",
+    "backend/inventory/tests/test_read_cache.py": "d28214a48169971a6594847767de73ecb7dbefd3f7ebed92655210ebc8c67935",
+    "lib/inventory/read-regions.ts": "57945da84b13f132eaa6342f35728b945671dd2818f1d75e4c03026799db6435",
+    "tests/inventory-read-regions.test.ts": "dcfa2a3d982a202098ccbe5939bd1e1e84714296d25bd182a2d5ee2a952ad99b",
+    "tools/verify-guangdong-ui.mjs": "ced18f72b098ae4f815702004aa00e01c3c3f53d9526193d93fc72877324fcfb"
+  },
+  "knownIncomplete": [
+    "overview/plan cold 1-2 second reference target",
+    "some ~200ms UI feedback samples",
+    "Home/auth gateway/Worker end-to-end and production P95"
+  ],
+  "preview": "http://127.0.0.1:49763/.runtime/inventory-independent-ui/index.html"
+}
