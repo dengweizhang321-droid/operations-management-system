@@ -1,0 +1,9 @@
+{
+  "pending": [
+    "http://127.0.0.1:3481/app/globals.css",
+    "http://127.0.0.1:3481/.runtime/sales-performance-lab/vite-cache-app-only/deps/react-dom.js?v=7909b04d"
+  ],
+  "network": [],
+  "body": "",
+  "errors": []
+}

@@ -30,6 +30,24 @@ const config = {
   maxResponseBytes: 64 * 1024,
 };
 
+test("caller cancellation prevents dispatch and fences non-cooperative late upstream reads", async () => {
+  const cancelled = new AbortController(); cancelled.abort();
+  let calls = 0;
+  const local = { ...config, djangoBaseUrl: "http://127.0.0.1:53333" };
+  await assert.rejects(routeDjangoSalesReadRequest({ request: new Request("http://fixture.invalid/api/sales/summary", { signal: cancelled.signal }),
+    principal, config: local, fetchImpl: async () => { calls++; throw new Error("must not dispatch"); } }));
+  assert.equal(calls, 0);
+  const current = new AbortController();
+  let forwardedSignal: AbortSignal | null | undefined;
+  await assert.rejects(routeDjangoSalesReadRequest({ request: new Request("http://fixture.invalid/api/sales/summary", { signal: current.signal }),
+    principal, config: local, fetchImpl: async (_input, init) => {
+      forwardedSignal = init?.signal;
+      current.abort();
+      return Response.json({ ok: true }, { headers: { "x-sales-data-revision": revision, "x-sales-source-revision": revision } });
+    } }));
+  assert.equal(forwardedSignal?.aborted, true);
+});
+
 function jsonResponse(value: unknown, init: ResponseInit = {}): Response {
   const headers = new Headers(init.headers);
   if (!headers.has("content-type")) {

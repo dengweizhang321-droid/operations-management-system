@@ -1,0 +1,306 @@
+Creating test database for alias 'default' ('test_teruisi_ai_rehearsal')...
+Found 81 test(s).
+Operations to perform:
+  Apply all migrations: access_control, bi, contenttypes, erp_reference, finance, inventory, products, sales
+Running migrations:
+  Applying access_control.0001_initial... OK
+  Applying sales.0001_initial... OK
+  Applying sales.0002_sales_migration_approval... OK
+  Applying sales.0003_query_ready_projection... OK
+  Applying sales.0004_projection_sync... OK
+  Applying sales.0005_postgres_write_authority... OK
+  Applying sales.0006_drop_legacy_projection_checkpoint... OK
+  Applying sales.0007_legacy_upload_audit... OK
+  Applying sales.0008_sales_cutover_attestation... OK
+  Applying sales.0009_postgres_raw_upload_payload... OK
+  Applying inventory.0001_initial... OK
+  Applying inventory.0002_seed_control_rows... OK
+  Applying inventory.0003_replenishment_plan_details... OK
+  Applying inventory.0004_replenishment_dingtalk_sync... OK
+  Applying inventory.0005_stock_supplier_warehouse_mapping... OK
+  Applying inventory.0006_replenishment_group_delivery... OK
+  Applying bi.0001_initial... OK
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying erp_reference.0001_initial... OK
+  Applying erp_reference.0002_erpproductmaster_erpreferenceimportscopehead_and_more... OK
+  Applying finance.0001_initial... OK
+  Applying finance.0002_finance_target_gross_margin... OK
+  Applying finance.0003_finance_source_revision_guard... OK
+  Applying finance.0004_finance_revision_monotonic... OK
+  Applying finance.0005_raw_column_evidence_v2... OK
+  Applying finance.0006_raw_workbook_bytes_v2... OK
+  Applying inventory.0007_guangdong_monitor... OK
+  Applying inventory.0008_guangdong_item_overrides... OK
+  Applying inventory.0009_guangdong_item_risk_overrides... OK
+  Applying inventory.0010_replenishment_health... OK
+  Applying inventory.0011_inventory_warehouse_mapping_settings... OK
+  Applying products.0001_initial... OK
+  Applying products.0002_seed_control_rows... OK
+  Applying products.0003_alter_productimportattempt_created_at_and_more... OK
+  Applying sales.0010_analysis_options...test_consumer_response_fails_when_revision_keeps_changing (sales.tests.test_consumers_api.SalesConsumerApiTests.test_consumer_response_fails_when_revision_keeps_changing) ... 2026-10-06 00:43:22,106 level=ERROR logger=django.request message=Service Unavailable: /api/sales/consumers/query
+ok
+test_freshness_inventory_and_product_queries_are_scoped_and_revisioned (sales.tests.test_consumers_api.SalesConsumerApiTests.test_freshness_inventory_and_product_queries_are_scoped_and_revisioned) ... ok
+test_product_bounds_can_be_omitted_without_changing_complete_business_rows (sales.tests.test_consumers_api.SalesConsumerApiTests.test_product_bounds_can_be_omitted_without_changing_complete_business_rows) ... 2026-10-06 00:43:22,189 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,189 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,190 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,190 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,191 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,191 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+ok
+test_search_batch_and_category_operations_preserve_authorization (sales.tests.test_consumers_api.SalesConsumerApiTests.test_search_batch_and_category_operations_preserve_authorization) ... 2026-10-06 00:43:22,213 level=WARNING logger=django.request message=Forbidden: /api/sales/consumers/query
+ok
+test_summary_customer_netshop_and_market_contracts (sales.tests.test_consumers_api.SalesConsumerApiTests.test_summary_customer_netshop_and_market_contracts) ... ok
+test_unknown_fields_wrong_types_and_unbounded_inputs_fail_closed (sales.tests.test_consumers_api.SalesConsumerApiTests.test_unknown_fields_wrong_types_and_unbounded_inputs_fail_closed) ... 2026-10-06 00:43:22,288 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,288 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,289 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,289 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,290 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,291 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,291 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,292 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,292 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,293 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-06 00:43:22,293 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+ok
+test_chunk_upload_is_actor_bound_integrity_checked_and_replayable (products.tests.test_api.ProductsDomainTests.test_chunk_upload_is_actor_bound_integrity_checked_and_replayable) ... ok
+test_duplicate_retry_fails_closed_when_current_facts_are_corrupted (products.tests.test_api.ProductsDomainTests.test_duplicate_retry_fails_closed_when_current_facts_are_corrupted) ... ok
+test_explicit_last30_ignores_legacy_days_while_implicit_range_accepts_it (products.tests.test_api.ProductsDomainTests.test_explicit_last30_ignores_legacy_days_while_implicit_range_accepts_it) ... ok
+test_import_api_is_atomic_business_idempotent_and_request_replay_safe (products.tests.test_api.ProductsDomainTests.test_import_api_is_atomic_business_idempotent_and_request_replay_safe) ... ok
+test_inventory_projection_activation_recomputes_declared_digest (products.tests.test_api.ProductsDomainTests.test_inventory_projection_activation_recomputes_declared_digest) ... ok
+test_inventory_projection_is_ordered_owner_fenced_and_atomically_activated (products.tests.test_api.ProductsDomainTests.test_inventory_projection_is_ordered_owner_fenced_and_atomically_activated) ... ok
+test_prevalidation_rejection_is_audited_without_creating_fact_batch (products.tests.test_api.ProductsDomainTests.test_prevalidation_rejection_is_audited_without_creating_fact_batch) ... ok
+test_summary_joins_postgres_authorities_and_preserves_snapshot (products.tests.test_api.ProductsDomainTests.test_summary_joins_postgres_authorities_and_preserves_snapshot) ... ok
+test_summary_search_accepts_1000_characters_and_rejects_overflow (products.tests.test_api.ProductsDomainTests.test_summary_search_accepts_1000_characters_and_rejects_overflow) ... ok
+test_bi_readiness_requires_a_verified_migration_receipt (bi.tests.test_api.BiApiContractTests.test_bi_readiness_requires_a_verified_migration_receipt) ... 2026-10-06 00:43:22,779 level=WARNING logger=teruisi_backend.health message=readiness_failed code=bi_reader_migration_unverified
+2026-10-06 00:43:22,779 level=ERROR logger=django.request message=Service Unavailable: /health/ready
+ok
+test_health_score_is_a_server_owned_metric (bi.tests.test_api.BiApiContractTests.test_health_score_is_a_server_owned_metric) ... ok
+test_overview_fails_closed_when_source_revisions_keep_changing (bi.tests.test_api.BiApiContractTests.test_overview_fails_closed_when_source_revisions_keep_changing) ... 2026-10-06 00:43:22,899 level=ERROR logger=django.request message=Service Unavailable: /api/bi/overview
+ok
+test_overview_is_one_bounded_consistent_projection (bi.tests.test_api.BiApiContractTests.test_overview_is_one_bounded_consistent_projection) ... ok
+test_overview_rejects_scope_unknown_parameters_and_wrong_process (bi.tests.test_api.BiApiContractTests.test_overview_rejects_scope_unknown_parameters_and_wrong_process) ... 2026-10-06 00:43:22,956 level=WARNING logger=django.request message=Forbidden: /api/bi/overview
+2026-10-06 00:43:22,957 level=WARNING logger=django.request message=Bad Request: /api/bi/overview
+2026-10-06 00:43:22,957 level=ERROR logger=django.request message=Service Unavailable: /api/bi/overview
+ok
+test_apply_rejects_stale_plan (bi.tests.test_api.BiMigrationCommandTests.test_apply_rejects_stale_plan) ... ok
+test_plan_apply_verify_records_only_audit_evidence (bi.tests.test_api.BiMigrationCommandTests.test_plan_apply_verify_records_only_audit_evidence) ... ok
+test_plan_rejects_a_continuously_changing_source (bi.tests.test_api.BiMigrationCommandTests.test_plan_rejects_a_continuously_changing_source) ... ok
+test_analysis_preserves_metrics_filters_and_same_name_shop_identity (finance.tests.test_api.FinanceApiContractTests.test_analysis_preserves_metrics_filters_and_same_name_shop_identity) ... 2026-10-06 00:43:23,295 level=WARNING logger=django.request message=Bad Request: /api/finance/analysis
+ok
+test_changed_month_replaces_exact_authoritative_set (finance.tests.test_api.FinanceApiContractTests.test_changed_month_replaces_exact_authoritative_set) ... ok
+test_finance_endpoints_fail_closed_for_restricted_principals (finance.tests.test_api.FinanceApiContractTests.test_finance_endpoints_fail_closed_for_restricted_principals) ... 2026-10-06 00:43:23,336 level=WARNING logger=django.request message=Forbidden: /api/finance/analysis
+ok
+test_import_is_atomic_content_idempotent_and_replay_fenced (finance.tests.test_api.FinanceApiContractTests.test_import_is_atomic_content_idempotent_and_replay_fenced) ... 2026-10-06 00:43:23,377 level=WARNING logger=django.request message=Conflict: /api/finance/imports
+ok
+test_rejected_attempt_is_audited_without_claiming_scope_or_creating_batch (finance.tests.test_api.FinanceApiContractTests.test_rejected_attempt_is_audited_without_claiming_scope_or_creating_batch) ... 2026-10-06 00:43:23,382 level=WARNING logger=django.request message=Unprocessable Content: /api/finance/imports
+ok
+test_target_create_update_delete_use_cas_and_audit (finance.tests.test_api.FinanceApiContractTests.test_target_create_update_delete_use_cas_and_audit) ... 2026-10-06 00:43:23,403 level=WARNING logger=django.request message=Conflict: /api/finance/targets
+2026-10-06 00:43:23,416 level=WARNING logger=django.request message=Conflict: /api/finance/targets
+ok
+test_default_full_remains_compatible (finance.tests.test_target_views.FinanceTargetViewTests.test_default_full_remains_compatible) ... ok
+test_invalid_view_scope_and_signature_are_rejected (finance.tests.test_target_views.FinanceTargetViewTests.test_invalid_view_scope_and_signature_are_rejected) ... 2026-10-06 00:43:23,456 level=WARNING logger=django.request message=Bad Request: /api/finance/targets
+2026-10-06 00:43:23,457 level=WARNING logger=django.request message=Bad Request: /api/finance/targets
+2026-10-06 00:43:23,457 level=WARNING logger=django.request message=Bad Request: /api/finance/targets
+2026-10-06 00:43:23,458 level=WARNING logger=django.request message=Forbidden: /api/finance/targets
+2026-10-06 00:43:23,458 level=WARNING logger=django.request message=Unauthorized: /api/finance/targets
+ok
+test_items_skip_options_and_options_skip_items (finance.tests.test_target_views.FinanceTargetViewTests.test_items_skip_options_and_options_skip_items) ... ok
+test_ambiguous_or_unknown_shop_rejects_without_partial_write (finance.tests.test_target_import.AnnualTargetImportTests.test_ambiguous_or_unknown_shop_rejects_without_partial_write) ... ok
+test_import_atomically_creates_updates_and_preserves_unlisted_targets (finance.tests.test_target_import.AnnualTargetImportTests.test_import_atomically_creates_updates_and_preserves_unlisted_targets) ... ok
+test_trailing_note_alias_rejects_multiple_candidates (finance.tests.test_target_import.AnnualTargetImportTests.test_trailing_note_alias_rejects_multiple_candidates) ... ok
+test_unique_trailing_note_alias_resolves_to_canonical_shop (finance.tests.test_target_import.AnnualTargetImportTests.test_unique_trailing_note_alias_resolves_to_canonical_shop) ... ok
+test_writer_endpoint_is_replay_fenced (finance.tests.test_target_import.AnnualTargetImportTests.test_writer_endpoint_is_replay_fenced) ... 2026-10-06 00:43:23,651 level=WARNING logger=django.request message=Conflict: /api/finance/targets/import
+ok
+test_annual_endpoint_validates_year_and_enforces_scope (finance.tests.test_annual_progress.AnnualProgressTests.test_annual_endpoint_validates_year_and_enforces_scope) ... 2026-10-06 00:43:23,750 level=WARNING logger=django.request message=Bad Request: /api/finance/targets
+2026-10-06 00:43:23,750 level=WARNING logger=django.request message=Bad Request: /api/finance/targets
+2026-10-06 00:43:23,751 level=WARNING logger=django.request message=Bad Request: /api/finance/targets
+2026-10-06 00:43:23,751 level=WARNING logger=django.request message=Unauthorized: /api/finance/targets
+ok
+test_annual_uses_only_whole_shop_year_target_and_monthly_facts (finance.tests.test_annual_progress.AnnualProgressTests.test_annual_uses_only_whole_shop_year_target_and_monthly_facts) ... ok
+test_incomplete_import_and_zero_targets_do_not_generate_progress (finance.tests.test_annual_progress.AnnualProgressTests.test_incomplete_import_and_zero_targets_do_not_generate_progress) ... ok
+test_missing_shop_metric_discloses_gap_and_negative_profit_is_preserved (finance.tests.test_annual_progress.AnnualProgressTests.test_missing_shop_metric_discloses_gap_and_negative_profit_is_preserved) ... ok
+test_reimport_replaces_actuals_without_double_counting_or_changing_targets (finance.tests.test_annual_progress.AnnualProgressTests.test_reimport_replaces_actuals_without_double_counting_or_changing_targets) ... ok
+test_same_name_shops_remain_separate_across_pages (finance.tests.test_annual_progress.AnnualProgressTests.test_same_name_shops_remain_separate_across_pages) ... ok
+test_target_without_financial_data_is_not_zero_completion (finance.tests.test_annual_progress.AnnualProgressTests.test_target_without_financial_data_is_not_zero_completion) ... ok
+test_year_target_list_excludes_month_category_and_other_year (finance.tests.test_annual_progress.AnnualProgressTests.test_year_target_list_excludes_month_category_and_other_year) ... ok
+test_brand_filter_uses_exact_erp_identity_and_preserves_refunds (sales.tests.test_api.SalesApiContractTests.test_brand_filter_uses_exact_erp_identity_and_preserves_refunds) ... ok
+test_category_analysis_uses_erp_category_and_keeps_refunds (sales.tests.test_api.SalesApiContractTests.test_category_analysis_uses_erp_category_and_keeps_refunds) ... ok
+test_category_detail_uses_platform_plus_shop_identity (sales.tests.test_api.SalesApiContractTests.test_category_detail_uses_platform_plus_shop_identity) ... ok
+test_category_detail_uses_utf8_binary_tie_break_order (sales.tests.test_api.SalesApiContractTests.test_category_detail_uses_utf8_binary_tie_break_order) ... ok
+test_category_queries_use_materialized_projection_without_runtime_trim_or_substr (sales.tests.test_api.SalesApiContractTests.test_category_queries_use_materialized_projection_without_runtime_trim_or_substr) ... ok
+test_continuously_changing_revision_returns_retryable_503 (sales.tests.test_api.SalesApiContractTests.test_continuously_changing_revision_returns_retryable_503) ... 2026-10-06 00:43:29,765 level=ERROR logger=django.request message=Service Unavailable: /api/sales/summary
+ok
+test_dashboard_projection_is_bounded (sales.tests.test_api.SalesApiContractTests.test_dashboard_projection_is_bounded) ... ok
+test_full_and_category_contracts_accept_the_366_day_boundary (sales.tests.test_api.SalesApiContractTests.test_full_and_category_contracts_accept_the_366_day_boundary) ... ok
+test_invalid_signature_age_configuration_fails_as_service_unavailable (sales.tests.test_api.SalesApiContractTests.test_invalid_signature_age_configuration_fails_as_service_unavailable) ... 2026-10-06 00:43:33,008 level=ERROR logger=django.request message=Service Unavailable: /api/sales/summary
+ok
+test_payload_header_uses_the_revision_verified_with_payload (sales.tests.test_api.SalesApiContractTests.test_payload_header_uses_the_revision_verified_with_payload) ... ok
+test_product_name_resolution_does_not_leak_codes_outside_principal_scope (sales.tests.test_api.SalesApiContractTests.test_product_name_resolution_does_not_leak_codes_outside_principal_scope) ... ok
+test_repeated_scalar_parameters_use_the_public_edge_first_value_contract (sales.tests.test_api.SalesApiContractTests.test_repeated_scalar_parameters_use_the_public_edge_first_value_contract) ... ok
+test_scope_is_intersected_and_empty_scope_denied (sales.tests.test_api.SalesApiContractTests.test_scope_is_intersected_and_empty_scope_denied) ... 2026-10-06 00:43:37,403 level=WARNING logger=django.request message=Forbidden: /api/sales/category-analysis
+ok
+test_signature_tampering_fails_closed (sales.tests.test_api.SalesApiContractTests.test_signature_tampering_fails_closed) ... 2026-10-06 00:43:38,442 level=WARNING logger=django.request message=Unauthorized: /api/sales/summary
+ok
+test_structured_outlet_overrides_legacy_shop_filter (sales.tests.test_api.SalesApiContractTests.test_structured_outlet_overrides_legacy_shop_filter) ... ok
+test_summary_cache_is_revision_keyed (sales.tests.test_api.SalesApiContractTests.test_summary_cache_is_revision_keyed) ... ok
+test_summary_multicode_query_accepts_1000_characters_and_rejects_overflow (sales.tests.test_api.SalesApiContractTests.test_summary_multicode_query_accepts_1000_characters_and_rejects_overflow) ... 2026-10-06 00:43:41,348 level=WARNING logger=django.request message=Bad Request: /api/sales/summary
+ok
+test_summary_preserves_metrics_cutoff_and_revision_headers (sales.tests.test_api.SalesApiContractTests.test_summary_preserves_metrics_cutoff_and_revision_headers) ... ok
+test_summary_preserves_raw_shop_whitespace_while_category_contract_trims_it (sales.tests.test_api.SalesApiContractTests.test_summary_preserves_raw_shop_whitespace_while_category_contract_trims_it) ... ok
+test_summary_rejects_restricted_principal (sales.tests.test_api.SalesApiContractTests.test_summary_rejects_restricted_principal) ... 2026-10-06 00:43:44,632 level=WARNING logger=django.request message=Forbidden: /api/sales/summary
+ok
+test_calculation_context_scope_actor_authority_and_revision (sales.tests.test_performance.SalesPerformanceTests.test_calculation_context_scope_actor_authority_and_revision) ... ok
+test_core_matches_full_and_expected_revision_fails_closed (sales.tests.test_performance.SalesPerformanceTests.test_core_matches_full_and_expected_revision_fails_closed) ... 2026-10-06 00:43:46,899 level=WARNING logger=django.request message=Conflict: /api/sales/summary
+2026-10-06 00:43:46,899 level=WARNING logger=django.request message=Forbidden: /api/sales/summary
+ok
+test_database_identity_and_transaction_bypass_do_not_publish_rollback (sales.tests.test_performance.SalesPerformanceTests.test_database_identity_and_transaction_bypass_do_not_publish_rollback) ... ok
+test_http_hit_rechecks_dynamic_identity_after_get (sales.tests.test_performance.SalesPerformanceTests.test_http_hit_rechecks_dynamic_identity_after_get) ... D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\core\cache\backends\base.py:119: CacheKeyWarning: Cache key will cause errors if used with memcached: ':1:teruisi:sales-read:v2:7:3:{"actor": ["one@example.test", "admin", null], "authority": null, "database": ["default", "django.db.backends.postgresql", "127.0.0.1", "55440", "test_teruisi_ai_rehearsal", "sales_fixture"], "runtimeAuthority": ["", "", "", ""]}' (longer than 250)
+  warnings.warn(warning, CacheKeyWarning)
+D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\core\cache\backends\base.py:119: CacheKeyWarning: Cache key contains characters that will cause errors if used with memcached: ':1:teruisi:sales-read:v2:7:3:{"actor": ["one@example.test", "admin", null], "authority": null, "database": ["default", "django.db.backends.postgresql", "127.0.0.1", "55440", "test_teruisi_ai_rehearsal", "sales_fixture"], "runtimeAuthority": ["", "", "", ""]}'
+  warnings.warn(warning, CacheKeyWarning)
+ERROR
+test_size_count_ttl_and_changing_revision (sales.tests.test_performance.SalesPerformanceTests.test_size_count_ttl_and_changing_revision) ... ok
+test_summary_consumer_discards_no_contract_fields_and_skips_metadata (sales.tests.test_performance.SalesPerformanceTests.test_summary_consumer_discards_no_contract_fields_and_skips_metadata) ... ok
+test_complete_custom_month_compares_complete_previous_month (sales.tests.test_periods.SalesComparisonPeriodTests.test_complete_custom_month_compares_complete_previous_month) ... ok
+test_completed_current_month_compares_complete_previous_month (sales.tests.test_periods.SalesComparisonPeriodTests.test_completed_current_month_compares_complete_previous_month) ... ok
+test_cross_month_custom_range_compares_previous_equal_length_period (sales.tests.test_periods.SalesComparisonPeriodTests.test_cross_month_custom_range_compares_previous_equal_length_period) ... ok
+test_cutoff_keeps_calendar_aligned_custom_comparison (sales.tests.test_periods.SalesComparisonPeriodTests.test_cutoff_keeps_calendar_aligned_custom_comparison) ... ok
+test_last_30_days_remains_a_rolling_comparison (sales.tests.test_periods.SalesComparisonPeriodTests.test_last_30_days_remains_a_rolling_comparison) ... ok
+test_missing_previous_month_dates_clamp_to_month_end (sales.tests.test_periods.SalesComparisonPeriodTests.test_missing_previous_month_dates_clamp_to_month_end) ... ok
+test_month_to_date_clamps_at_shorter_previous_month_end (sales.tests.test_periods.SalesComparisonPeriodTests.test_month_to_date_clamps_at_shorter_previous_month_end) ... ok
+test_same_month_custom_range_compares_previous_month_dates (sales.tests.test_periods.SalesComparisonPeriodTests.test_same_month_custom_range_compares_previous_month_dates) ... ok
+test_single_day_custom_range_compares_previous_day (sales.tests.test_periods.SalesComparisonPeriodTests.test_single_day_custom_range_compares_previous_day) ... ok
+test_concurrent_cold_reads_compute_once (sales.tests.test_singleflight.SalesReadSingleflightTests.test_concurrent_cold_reads_compute_once) ... ok
+
+======================================================================
+ERROR: test_http_hit_rechecks_dynamic_identity_after_get (sales.tests.test_performance.SalesPerformanceTests.test_http_hit_rechecks_dynamic_identity_after_get)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\query.py", line 948, in get_or_create
+    return self.get(**kwargs), False
+           ~~~~~~~~^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\query.py", line 635, in get
+    raise self.model.DoesNotExist(
+        "%s matching query does not exist." % self.model._meta.object_name
+    )
+erp_reference.models.ErpReferenceWriteAuthority.DoesNotExist: ErpReferenceWriteAuthority matching query does not exist.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\psycopg\cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.CheckViolation: new row for relation "erp_reference_write_authority" violates check constraint "erp_auth_state_ck"
+DETAIL:  Failing row contains (1, postgres, 11790986-016b-43e1-8f0b-0c429b942dc0, changed-synthetic-epoch, erp-reference-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, null, 2026-10-05 16:43:49.103608+00).
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\backend\sales\tests\test_performance.py", line 84, in test_http_hit_rechecks_dynamic_identity_after_get
+    value, _, status = _consistent_read(load, identity)
+                       ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\backend\sales\views.py", line 91, in _consistent_read
+    payload = cache.get(cache_key)
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python314\Lib\unittest\mock.py", line 1176, in __call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python314\Lib\unittest\mock.py", line 1180, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python314\Lib\unittest\mock.py", line 1247, in _execute_mock_call
+    result = effect(*args, **kwargs)
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\backend\sales\tests\test_performance.py", line 79, in get_and_change
+    ErpReferenceWriteAuthority.objects.update_or_create(id=1, defaults={"status": "postgres",
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        "authority_epoch": uuid.uuid4(), "cutover_id": "changed-synthetic-epoch",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        "migration_verify_run_id": "erp-reference-" + "a"*32})
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\query.py", line 990, in update_or_create
+    obj, created = self.select_for_update().get_or_create(
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        create_defaults, **kwargs
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\query.py", line 955, in get_or_create
+    return self.create(**params), True
+           ~~~~~~~~~~~^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\query.py", line 665, in create
+    obj.save(force_insert=True, using=self.db)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\base.py", line 902, in save
+    self.save_base(
+    ~~~~~~~~~~~~~~^
+        using=using,
+        ^^^^^^^^^^^^
+    ...<2 lines>...
+        update_fields=update_fields,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\base.py", line 1008, in save_base
+    updated = self._save_table(
+        raw,
+    ...<4 lines>...
+        update_fields,
+    )
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\base.py", line 1169, in _save_table
+    results = self._do_insert(
+        cls._base_manager, using, fields, returning_fields, raw
+    )
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\base.py", line 1210, in _do_insert
+    return manager._insert(
+           ~~~~~~~~~~~~~~~^
+        [self],
+        ^^^^^^^
+    ...<3 lines>...
+        raw=raw,
+        ^^^^^^^^
+    )
+    ^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\query.py", line 1873, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1882, in execute_sql
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\sales-performance\运营管理系统\.runtime\sales-venv\Lib\site-packages\psycopg\cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+django.db.utils.IntegrityError: new row for relation "erp_reference_write_authority" violates check constraint "erp_auth_state_ck"
+DETAIL:  Failing row contains (1, postgres, 11790986-016b-43e1-8f0b-0c429b942dc0, changed-synthetic-epoch, erp-reference-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, null, 2026-10-05 16:43:49.103608+00).
+
+----------------------------------------------------------------------
+Ran 81 tests in 30.342s
+
+FAILED (errors=1)
+Destroying test database for alias 'default' ('test_teruisi_ai_rehearsal')...
+ OK
+System check identified no issues (0 silenced).

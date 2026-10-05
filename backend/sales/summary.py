@@ -9,6 +9,7 @@ from django.db.models.functions import Coalesce, Concat, NullIf
 
 from .models import ErpProductMaster, SalesOrderLine
 from .auth import Principal
+from .calculation_cache import reuse
 from .query import (
     SalesRequestError,
     ISO_DATE_RE,
@@ -323,10 +324,10 @@ def _filter_options(period: dict[str, str], product_codes: list[str], principal:
     }
 
 
-def get_sales_summary(*, range_name: str, projection: str, start_date: str | None, end_date: str | None, product_queries: list[str], product_codes: list[str], platforms: list[str], shop: str | None, outlets: list[dict[str, str]], categories: list[str], principal: Principal | None = None) -> dict[str, object]:
+def get_sales_summary(*, range_name: str, projection: str, start_date: str | None, end_date: str | None, product_queries: list[str], product_codes: list[str], platforms: list[str], shop: str | None, outlets: list[dict[str, str]], categories: list[str], principal: Principal | None = None, include_metadata: bool = True) -> dict[str, object]:
     if range_name not in SALES_RANGES:
         raise SalesRequestError(f"range 必须是 {', '.join(['today', 'yesterday', 'last7', 'last15', 'last30', 'month', 'quarter', 'custom', 'all'])} 之一")
-    if projection not in {"full", "dashboard"}:
+    if projection not in {"full", "dashboard", "core"}:
         raise SalesRequestError("view 必须是 dashboard。")
     filters: dict[str, object] = {
         "productCodes": product_codes,
@@ -370,12 +371,13 @@ def get_sales_summary(*, range_name: str, projection: str, start_date: str | Non
         "endDate": period["endDate"],
     }
     year_ago_trend = {"startDate": add_years(trend_period["startDate"], -1), "endDate": add_years(trend_period["endDate"], -1)}
-    outlet_result = _grouped_yoy("shop", period, year_ago, filters)
     metric_periods = {"current": period, "yearAgo": year_ago}
     if previous:
         metric_periods["previous"] = previous
-    metrics = _period_metrics(filters, metric_periods)
+    metric_scope = {"periods": metric_periods, **{key: value for key, value in filters.items() if key != "principal"}}
+    metrics = reuse("summary-metrics", metric_scope, principal, lambda: _period_metrics(filters, metric_periods))
     empty_group = {"items": [], "pagination": {"total": 0, "returned": 0, "truncated": False}}
+    outlet_result = empty_group if projection == "core" else _grouped_yoy("shop", period, year_ago, filters)
     if projection == "full":
         channel_result = _grouped_yoy("channel", period, year_ago, filters)
         platform_result = _grouped_yoy("platform", period, year_ago, filters)
@@ -386,7 +388,11 @@ def get_sales_summary(*, range_name: str, projection: str, start_date: str | Non
         daily = daily_rows["current"]
         previous_daily = daily_rows.get("previous", [])
         year_ago_daily = daily_rows["yearAgo"]
-        options = _filter_options(period, product_codes, principal)
+        options = _filter_options(period, product_codes, principal) if include_metadata else {"shops": [], "platforms": [], "categories": []}
+    elif projection == "core":
+        channel_result = platform_result = empty_group
+        daily = previous_daily = year_ago_daily = []
+        options = {"shops": [], "platforms": [], "categories": []}
     else:
         channel_result = platform_result = empty_group
         daily = _daily_ranges({"current": trend_period}, filters)["current"]
@@ -433,7 +439,7 @@ def get_sales_summary(*, range_name: str, projection: str, start_date: str | Non
         "trendEndDate": trend_period["endDate"],
         "trendReturned": len(daily),
         "trendTruncated": trend_truncated,
-        "latestBatch": latest_batch_payload(),
+        "latestBatch": latest_batch_payload() if include_metadata else None,
     }
     if previous:
         payload["previous"] = metrics["previous"]

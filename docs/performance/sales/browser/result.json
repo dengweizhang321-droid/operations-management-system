@@ -1,0 +1,1002 @@
+{
+  "environment": "private synthetic PostgreSQL17, real signed domain adapters; Vite dev; external requests blocked; serial three repeats; per-repeat reset both application caches; database buffers warm; mocked failures are separate from DB timing",
+  "session": {
+    "fixture": "synthetic-only",
+    "port": 3483,
+    "backendPort": 18483,
+    "writerPort": 18484,
+    "pid": 48460,
+    "source": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+    "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494"
+  },
+  "records": [],
+  "checks": [
+    "overview-trend-and-distribution-all-local-dimensions",
+    "whole-round-one-retry-and-successful-region-retained",
+    "non-cooperative-late-summary-does-not-overwrite-new-scope",
+    "core-full-version-conflict-complete-reread",
+    "slow-sales-read-feedback-retention-and-leaving-page-cancels-ui",
+    "category-direct-entry-authorized-platform-options-and-filter",
+    "category-refresh-retained-new-scope-failure-clears-old-business",
+    "detail-failure-retains-valid-same-scope",
+    "finance-refresh-failure-retains-same-signature",
+    "annual-and-target-list-independent-failure-retention",
+    "target-read-deadline-keeps-valid-same-page",
+    "synthetic-target-create",
+    "synthetic-target-update",
+    "synthetic-target-delete",
+    "actual-template-download",
+    "actual-xlsx-parse-and-private-postgres-import",
+    "actual-paged-target-export",
+    "baseline-actual-home-navigation",
+    "candidate-actual-home-navigation"
+  ],
+  "responses": [
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&view=core",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219074943.828,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.306,
+        "responseStart": 461.272,
+        "responseEnd": 463.991
+      },
+      "serverTiming": "domain;dur=449.325,sql;dur=354.483",
+      "cache": "miss",
+      "queries": "13"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&expectedRevision=1%3A1",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219075408.612,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.366,
+        "responseStart": 1342.466,
+        "responseEnd": 1344.524
+      },
+      "serverTiming": "domain;dur=1336.422,sql;dur=1264.268",
+      "cache": "miss",
+      "queries": "21"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&view=core",
+      "status": 503,
+      "timing": {
+        "startTime": 1791219077334.039,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": -1,
+        "responseStart": 2.36,
+        "responseEnd": 2.961
+      }
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&view=core",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219078394.043,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.266,
+        "responseStart": 62.97,
+        "responseEnd": 65.833
+      },
+      "serverTiming": "domain;dur=58.128,sql;dur=7.510",
+      "cache": "hit",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&expectedRevision=1%3A1",
+      "status": 503,
+      "timing": {
+        "startTime": 1791219078460.5142,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": -1,
+        "responseStart": 1.799,
+        "responseEnd": 2.326
+      }
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&view=core",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219078762.015,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.328,
+        "responseStart": 53.253,
+        "responseEnd": 55.869
+      },
+      "serverTiming": "domain;dur=48.492,sql;dur=4.672",
+      "cache": "hit",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&expectedRevision=1%3A1",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219078818.778,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.245,
+        "responseStart": 153.155,
+        "responseEnd": 154.811
+      },
+      "serverTiming": "domain;dur=147.676,sql;dur=5.003",
+      "cache": "hit",
+      "queries": "5"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-20&endDate=2026-09-30&view=core",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219079043.078,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.405,
+        "responseStart": 255.627,
+        "responseEnd": 259.189
+      },
+      "serverTiming": "domain;dur=207.250,sql;dur=146.198",
+      "cache": "miss",
+      "queries": "13"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-20&endDate=2026-09-30&expectedRevision=1%3A1",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219079376.961,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.246,
+        "responseStart": 783.004,
+        "responseEnd": 860.388
+      },
+      "serverTiming": "domain;dur=776.794,sql;dur=597.903",
+      "cache": "miss",
+      "queries": "21"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-10&endDate=2026-09-30&view=core",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219079026.541,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": -1,
+        "responseStart": 1433.751,
+        "responseEnd": 1434.84
+      },
+      "serverTiming": "domain;dur=426.405,sql;dur=259.771",
+      "cache": "miss",
+      "queries": "13"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&view=core",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219080578.1592,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 1.416,
+        "responseStart": 59.335,
+        "responseEnd": 63.523
+      },
+      "serverTiming": "domain;dur=51.347,sql;dur=4.680",
+      "cache": "hit",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&expectedRevision=1%3A1",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219080641.192,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.249,
+        "responseStart": 59.796,
+        "responseEnd": 61.805
+      },
+      "serverTiming": "domain;dur=54.123,sql;dur=5.289",
+      "cache": "hit",
+      "queries": "5"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&view=core",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219080831.915,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.287,
+        "responseStart": 65.75,
+        "responseEnd": 68.976
+      },
+      "serverTiming": "domain;dur=60.655,sql;dur=5.981",
+      "cache": "hit",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&expectedRevision=1%3A1",
+      "status": 409,
+      "timing": {
+        "startTime": 1791219080901.4639,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": -1,
+        "responseStart": 1.14,
+        "responseEnd": 1.583
+      }
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&view=core",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219080933.517,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.477,
+        "responseStart": 75.594,
+        "responseEnd": 78.689
+      },
+      "serverTiming": "domain;dur=70.107,sql;dur=7.627",
+      "cache": "hit",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&expectedRevision=1%3A1",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219081013.4,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.322,
+        "responseStart": 73.945,
+        "responseEnd": 76.748
+      },
+      "serverTiming": "domain;dur=67.482,sql;dur=7.807",
+      "cache": "hit",
+      "queries": "5"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/analysis?month=2026-09&initialMonthFallback=latest_completed",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219081525.82,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.248,
+        "responseStart": 110.885,
+        "responseEnd": 113.76
+      },
+      "serverTiming": "domain;dur=104.267,sql;dur=45.846",
+      "queries": "22"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&view=core",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219082039.895,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.256,
+        "responseStart": 55.972,
+        "responseEnd": 949.173
+      },
+      "serverTiming": "domain;dur=51.515,sql;dur=4.730",
+      "cache": "hit",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=1&pageSize=20",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219082369.619,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.259,
+        "responseStart": 544.77,
+        "responseEnd": 547.739
+      },
+      "serverTiming": "domain;dur=535.100,sql;dur=471.895",
+      "queries": "20"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=1&pageSize=20&platform=%E4%BA%AC%E4%B8%9C",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219083551.197,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.248,
+        "responseStart": 468.743,
+        "responseEnd": 472.665
+      },
+      "serverTiming": "domain;dur=446.529,sql;dur=281.107",
+      "queries": "16"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=1&pageSize=20",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219084146.675,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.274,
+        "responseStart": 55.34,
+        "responseEnd": 59.297
+      },
+      "serverTiming": "domain;dur=50.199,sql;dur=4.396",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=1&pageSize=20",
+      "status": 500,
+      "timing": {
+        "startTime": 1791219084280.6858,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": -1,
+        "responseStart": 1.903,
+        "responseEnd": 2.505
+      }
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/category-analysis?startDate=2026-09-10&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=1&pageSize=20",
+      "status": 500,
+      "timing": {
+        "startTime": 1791219084358.044,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": -1,
+        "responseStart": 1.7,
+        "responseEnd": 2.489
+      }
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/category-analysis?startDate=2026-09-01&endDate=2026-09-30&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=1&pageSize=20",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219084431.206,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.241,
+        "responseStart": 53.985,
+        "responseEnd": 57.178
+      },
+      "serverTiming": "domain;dur=49.278,sql;dur=5.495",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/category-analysis/detail?startDate=2026-09-01&endDate=2026-09-30&category=%E5%90%88%E6%88%90%E5%93%81%E7%B1%BB14",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219084507.2788,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.711,
+        "responseStart": 92.402,
+        "responseEnd": 95.164
+      },
+      "serverTiming": "domain;dur=84.375,sql;dur=22.680",
+      "queries": "7"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/category-analysis/detail?startDate=2026-09-01&endDate=2026-09-30&category=%E5%90%88%E6%88%90%E5%93%81%E7%B1%BB14",
+      "status": 500,
+      "timing": {
+        "startTime": 1791219084673.596,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": -1,
+        "responseStart": 1.827,
+        "responseEnd": 2.377
+      }
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/analysis?month=2026-09&initialMonthFallback=latest_completed",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219084885.2659,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.299,
+        "responseStart": 95.876,
+        "responseEnd": 100.605
+      },
+      "serverTiming": "domain;dur=90.716,sql;dur=33.546",
+      "queries": "22"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/analysis?month=2026-09&initialMonthFallback=latest_completed",
+      "status": 500,
+      "timing": {
+        "startTime": 1791219085093.2542,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": -1,
+        "responseStart": 1.787,
+        "responseEnd": 2.518
+      }
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=items&page=1&pageSize=100&year=2026",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219085578.292,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.35,
+        "responseStart": 129.261,
+        "responseEnd": 134.286
+      },
+      "serverTiming": "domain;dur=87.531,sql;dur=12.801",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=annual&year=2026&page=1&pageSize=100",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219085576.4119,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.252,
+        "responseStart": 252.957,
+        "responseEnd": 256.624
+      },
+      "serverTiming": "domain;dur=209.415,sql;dur=26.652",
+      "queries": "8"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=options",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219085578.465,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.462,
+        "responseStart": 332.169,
+        "responseEnd": 336.808
+      },
+      "serverTiming": "domain;dur=200.896,sql;dur=23.650,domain;dur=300.353,sql;dur=110.548",
+      "queries": "10"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=annual&year=2026&page=1&pageSize=100",
+      "status": 500,
+      "timing": {
+        "startTime": 1791219086270.029,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": -1,
+        "responseStart": 2.413,
+        "responseEnd": 3.056
+      }
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=items&page=1&pageSize=100&year=2026",
+      "status": 500,
+      "timing": {
+        "startTime": 1791219086492.155,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": -1,
+        "responseStart": 37.1,
+        "responseEnd": 37.632
+      }
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=annual&year=2026&page=1&pageSize=100",
+      "status": 500,
+      "timing": {
+        "startTime": 1791219086520.48,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": -1,
+        "responseStart": 9.104,
+        "responseEnd": 9.625
+      }
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=items&page=1&pageSize=100&year=2026",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219086868.521,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.246,
+        "responseStart": 64.923,
+        "responseEnd": 218.949
+      },
+      "serverTiming": "domain;dur=58.796,sql;dur=9.779",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=annual&year=2026&page=1&pageSize=100",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219086868.665,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.413,
+        "responseStart": 109.418,
+        "responseEnd": 234.65
+      },
+      "serverTiming": "domain;dur=101.939,sql;dur=29.138",
+      "queries": "8"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets",
+      "status": 201,
+      "timing": {
+        "startTime": 1791219087098.1428,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.266,
+        "responseStart": 73.701,
+        "responseEnd": 109.056
+      },
+      "serverTiming": "domain;dur=68.499,sql;dur=25.142",
+      "queries": "11"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=items&page=1&pageSize=100&year=2026",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219087203.9268,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.238,
+        "responseStart": 123.372,
+        "responseEnd": 154.409
+      },
+      "serverTiming": "domain;dur=64.070,sql;dur=10.742",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=annual&year=2026&page=1&pageSize=100",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219087276.694,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.305,
+        "responseStart": 124.252,
+        "responseEnd": 187.327
+      },
+      "serverTiming": "domain;dur=96.747,sql;dur=24.677",
+      "queries": "8"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219089052.219,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.25,
+        "responseStart": 71.393,
+        "responseEnd": 189.918
+      },
+      "serverTiming": "domain;dur=66.427,sql;dur=15.869",
+      "queries": "12"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=items&page=1&pageSize=100&year=2026",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219089129.137,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.324,
+        "responseStart": 62.141,
+        "responseEnd": 66.373
+      },
+      "serverTiming": "domain;dur=57.411,sql;dur=8.982",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=annual&year=2026&page=1&pageSize=100",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219089244.274,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.389,
+        "responseStart": 107.498,
+        "responseEnd": 109.654
+      },
+      "serverTiming": "domain;dur=101.747,sql;dur=26.299",
+      "queries": "8"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?id=07034a7c-c82a-4bb5-ac1a-ead496037884&expectedVersion=2&reason=%E5%90%88%E6%88%90%E5%9B%9E%E5%BD%92%E5%88%A0%E9%99%A4",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219089444.978,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.61,
+        "responseStart": 68.336,
+        "responseEnd": 106.983
+      },
+      "serverTiming": "domain;dur=62.375,sql;dur=15.684",
+      "queries": "12"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=items&page=1&pageSize=100&year=2026",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219089544.178,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.246,
+        "responseStart": 126.311,
+        "responseEnd": 156.168
+      },
+      "serverTiming": "domain;dur=66.120,sql;dur=9.761",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=annual&year=2026&page=1&pageSize=100",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219089603.001,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.458,
+        "responseStart": 121.319,
+        "responseEnd": 169.703
+      },
+      "serverTiming": "domain;dur=115.541,sql;dur=31.109",
+      "queries": "8"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets/import",
+      "status": 201,
+      "timing": {
+        "startTime": 1791219089793.592,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.437,
+        "responseStart": 84.651,
+        "responseEnd": 116.519
+      },
+      "serverTiming": "domain;dur=72.839,sql;dur=21.609",
+      "queries": "15"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=items&page=1&pageSize=100&year=2026",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219089882.7341,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.237,
+        "responseStart": 60.635,
+        "responseEnd": 63.636
+      },
+      "serverTiming": "domain;dur=56.588,sql;dur=10.161",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets?view=annual&year=2026&page=1&pageSize=100",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219089934.262,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.313,
+        "responseStart": 100.81,
+        "responseEnd": 106.242
+      },
+      "serverTiming": "domain;dur=95.337,sql;dur=25.761",
+      "queries": "8"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/finance/targets/export?year=2026",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219090250.792,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.265,
+        "responseStart": 110.672,
+        "responseEnd": 145.728
+      },
+      "serverTiming": "domain;dur=50.674,sql;dur=7.539,domain;dur=46.732,sql;dur=7.366",
+      "queries": "8"
+    },
+    {
+      "impl": "baseline",
+      "url": "http://127.0.0.1:3483/api/auth/me",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219091305.374,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.253,
+        "responseStart": 0.677,
+        "responseEnd": 4.871
+      }
+    },
+    {
+      "impl": "baseline",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219091623.0068,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.241,
+        "responseStart": 1754.044,
+        "responseEnd": 1756.078
+      },
+      "serverTiming": "domain;dur=1709.462,sql;dur=1630.697",
+      "cache": "miss",
+      "queries": "14"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/auth/me",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219094879.219,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.425,
+        "responseStart": 0.831,
+        "responseEnd": 5.15
+      }
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&view=core",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219095190.2969,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.229,
+        "responseStart": 52.79,
+        "responseEnd": 55.071
+      },
+      "serverTiming": "domain;dur=48.292,sql;dur=5.142",
+      "cache": "hit",
+      "queries": "4"
+    },
+    {
+      "impl": "candidate",
+      "url": "http://127.0.0.1:3483/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&expectedRevision=1%3A1",
+      "status": 200,
+      "timing": {
+        "startTime": 1791219095246.5999,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.246,
+        "responseStart": 60.365,
+        "responseEnd": 62.602
+      },
+      "serverTiming": "domain;dur=55.311,sql;dur=6.232",
+      "cache": "hit",
+      "queries": "5"
+    }
+  ],
+  "errors": []
+}
