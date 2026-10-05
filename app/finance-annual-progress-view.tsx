@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { FinanceTarget } from "./module-view-shared";
 import { formatCurrencyFromCents } from "./module-view-shared";
 import { requestJson } from "@/lib/http/api-client";
+import { validAnnualProgress } from "@/lib/sales/view-response";
 
 type AnnualShop = {
   key: string; platform: string; shopName: string; manager: string; target: FinanceTarget | null;
@@ -36,7 +37,9 @@ export default function FinanceAnnualProgressView({ year, refreshKey, canManageT
   year: string; refreshKey: number; canManageTargets: boolean; busy?: boolean; onEdit: (row: AnnualShop) => void; onDelete: (row: AnnualShop) => void;
 }) {
   const [page, setPage] = useState(1);
-  const [data, setData] = useState<AnnualProgress | null>(null);
+  const [result, setResult] = useState<{ key: string; payload: AnnualProgress } | null>(null);
+  const requestKey = `${year}:${page}`;
+  const data = result?.key === requestKey ? result.payload : null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -44,21 +47,23 @@ export default function FinanceAnnualProgressView({ year, refreshKey, canManageT
     const controller = new AbortController();
     let active = true;
     const timeout = window.setTimeout(() => { if (active) { setError("年度进度读取超时，请重试。"); setLoading(false); controller.abort(); } }, 30_000);
-    setLoading(true); setError(""); setData(null);
+    setLoading(true); setError("");
     void requestJson<AnnualProgress>(`/api/finance/targets?view=annual&year=${year}&page=${page}&pageSize=100`, { signal: controller.signal })
       .then((result) => {
-        if (!Array.isArray(result.items) || !Array.isArray(result.missingMonths) || !result.pagination || result.year !== year) throw new Error("年度进度响应格式不完整，请重试。");
-        if (active && !controller.signal.aborted) setData(result);
+        if (!validAnnualProgress(result, year, page)) throw new Error("年度进度响应格式不完整，请重试。");
+        if (active && !controller.signal.aborted) setResult({ key: requestKey, payload: result });
       })
       .catch((reason) => { if (active && !controller.signal.aborted) setError(reason instanceof Error ? reason.message : "年度进度读取失败。"); })
       .finally(() => { window.clearTimeout(timeout); if (active && !controller.signal.aborted) setLoading(false); });
     return () => { active = false; window.clearTimeout(timeout); controller.abort(); };
-  }, [year, page, refreshKey, retry]);
+  }, [year, page, refreshKey, retry, requestKey]);
   return <section className="panel finance-shop-panel" aria-busy={loading}>
     <div className="finance-panel-heading"><div><span className="eyebrow">ANNUAL SHOP TARGETS</span><h2>店铺年度目标进度</h2><p>{year} 年累计财报对照全年目标；金额、比率都按已完成月份汇总后计算。</p></div><span className="soft-tag">{data?.cutoffMonth ? `财报截至 ${data.cutoffMonth}` : "暂无财报截止月份"}</span></div>
     {data && data.missingMonths.length > 0 && <p className="inline-feedback warning">缺少财报月份：{data.missingMonths.join("、")}。当前金额仅累计已导入月份。</p>}
     {error && <div className="inline-feedback error" role="alert">{error}<button type="button" className="row-action" onClick={() => setRetry((value) => value + 1)}>重试</button></div>}
-    {loading ? <div className="table-state">正在读取年累计进度…</div> : data && <>
+    <button type="button" className="row-action" disabled={loading} onClick={() => setRetry((value) => value + 1)}>刷新年度进度</button>
+    {loading && <div className="table-state" role="status">{data ? "正在刷新年度进度，当前结果仍保留…" : "正在读取年累计进度…"}</div>}
+    {data && <>
       <div className="data-table-wrap"><table className="data-table finance-shop-table annual-target-progress-table" data-column-filter-scope={page === 1 && !data.pagination.truncated ? "full" : "none"}><thead><tr><th>平台 / 店铺</th><th>负责人</th><th>销售目标进度</th><th>利润目标进度</th><th>大毛利率目标</th><th>推广费目标</th><th>数据覆盖</th>{canManageTargets && <th>操作</th>}</tr></thead><tbody>
         {data.items.map((row) => <tr key={row.key}><td><strong>{row.shopName}</strong><small>{row.platform}</small></td><td>{row.manager || "—"}</td><td><AmountMetric target={row.target?.salesTargetCents ?? 0} actual={row.netSalesCents} progress={row.salesProgress} /></td><td><AmountMetric target={row.target?.profitTargetCents ?? 0} actual={row.profitCents} progress={row.profitProgress} /></td><td><RateMetric target={row.target?.grossMarginBps ?? 0} actual={row.grossMarginBps} difference={row.grossMarginGapBps} /></td><td><RateMetric target={row.target?.promotionFeeRatioBps ?? 0} actual={row.promotionFeeRatioBps} difference={row.promotionFeeGapBps} lowerIsBetter /></td><td><small>{row.availableMonths.length ? `已计 ${row.availableMonths.length} 个月` : "暂无财报"}</small>{row.missingMonths.length > 0 && <small title={row.missingMonths.join("、")}>缺 {row.missingMonths.map((month) => Number(month.slice(5))).join("、")} 月</small>}{row.missingGrossMarginMonths.length > 0 && <small title={row.missingGrossMarginMonths.join("、")}>大毛利率口径不全</small>}</td>{canManageTargets && <td><div className="finance-target-row-actions"><button type="button" disabled={busy} onClick={() => onEdit(row)}>{row.target ? "编辑目标" : "填写目标"}</button>{row.target && <button type="button" className="danger" disabled={busy} onClick={() => onDelete(row)}>删除</button>}</div></td>}</tr>)}
         {data.items.length === 0 && <tr><td colSpan={canManageTargets ? 8 : 7}><div className="table-state">该年份暂无店铺财报或年度目标。</div></td></tr>}

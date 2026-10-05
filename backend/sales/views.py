@@ -3,12 +3,14 @@ from __future__ import annotations
 import logging
 import hashlib
 import json
+import re
 from collections.abc import Callable
 from functools import lru_cache
 from threading import Lock
 
 from django.conf import settings
 from django.core.cache import cache
+from django.db import connection
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
@@ -26,6 +28,8 @@ from .query import (
     selected_values,
 )
 from .summary import dashboard_projection, get_sales_summary
+from .calculation_cache import context_identity
+from .summary import _today
 
 
 logger = logging.getLogger(__name__)
@@ -60,37 +64,48 @@ def _cache_identity(request: HttpRequest, principal) -> str:
             "query": request.META.get("QUERY_STRING", ""),
             "role": principal.role,
             "scope": principal.scope,
+            "context": context_identity(principal),
+            "businessDay": _today(),
         },
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
+        default=str,
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
-def _consistent_read(loader: Callable[[], object], cache_identity: str) -> tuple[object, str, str]:
+def _consistent_read(loader: Callable[[], object], cache_identity: str | Callable[[], str]) -> tuple[object, str, str]:
     """Retry once when a multi-query response straddles a migration commit."""
     for _attempt in range(2):
         before = revision_token()
-        cache_key = f"teruisi:sales-read:v1:{before}:{cache_identity}"
+        identity = cache_identity() if callable(cache_identity) else cache_identity
+        identity_matches = lambda: not callable(cache_identity) or cache_identity() == identity
+        if connection.in_atomic_block or (connection.connection is not None and not connection.get_autocommit()):
+            payload = loader()
+            after = revision_token()
+            if before == after and identity_matches():
+                return payload, after, "bypass_transaction"
+            continue
+        cache_key = f"teruisi:sales-read:v2:{before}:{identity}"
         payload = cache.get(cache_key)
         if payload is not None:
             after = revision_token()
-            if before == after:
+            if before == after and identity_matches():
                 return payload, after, "hit"
             continue
         with _read_cache_lock(cache_key):
             # The leading request may have populated the cache while this
             # thread waited. Re-read the revision before trusting that value.
             locked_before = revision_token()
-            if locked_before != before:
+            if locked_before != before or not identity_matches():
                 continue
             payload = cache.get(cache_key)
             cache_status = "hit" if payload is not None else "miss"
             if payload is None:
                 payload = loader()
             after = revision_token()
-            if before == after:
+            if before == after and identity_matches():
                 if cache_status == "miss" and settings.SALES_READ_CACHE_SECONDS > 0:
                     cache.set(cache_key, payload, timeout=settings.SALES_READ_CACHE_SECONDS)
                 return payload, after, cache_status
@@ -163,7 +178,7 @@ def consumer_query(request: HttpRequest) -> JsonResponse:
         body_identity = hashlib.sha256(inner.body).hexdigest()
         payload, stable_revision, cache_status = _consistent_read(
             lambda: execute_consumer_query(principal, consumer_request),
-            f"{_cache_identity(inner, principal)}:{body_identity}",
+            lambda: f"{_cache_identity(inner, principal)}:{body_identity}",
         )
         return _json(
             {"operation": consumer_request["operation"], "data": payload},
@@ -184,8 +199,13 @@ def summary(request: HttpRequest) -> JsonResponse:
         if len(views) > 1:
             raise SalesRequestError("view 参数不能重复。")
         requested_view = views[0] if views else None
-        if requested_view not in {None, "dashboard"}:
-            raise SalesRequestError("view 必须是 dashboard。")
+        if requested_view not in {None, "dashboard", "core"}:
+            raise SalesRequestError("view 必须是 dashboard 或 core。")
+        revisions = inner.GET.getlist("expectedRevision")
+        if len(revisions) > 1 or (revisions and (len(revisions[0]) > 128 or not re.fullmatch(r"\d+:\d+", revisions[0]))):
+            raise SalesRequestError("expectedRevision 无效。")
+        if revisions and revision_token() != revisions[0]:
+            return _json({"error": "销售版本已变化，请重新读取核心指标。", "code": "sales_revision_changed"}, 409)
         product_queries = parse_product_queries([*inner.GET.getlist("productQuery"), _first(inner.GET, "productCodes", "") or ""])
         categories = selected_values(inner.GET, "categories", "category", label="品类")
         platforms = selected_values(inner.GET, "platforms", "platform", label="平台")
@@ -193,7 +213,7 @@ def summary(request: HttpRequest) -> JsonResponse:
         outlets = parse_outlets(outlet_values)
         payload, stable_revision, cache_status = _consistent_read(lambda: get_sales_summary(
                 range_name=_first(inner.GET, "range", "month") or "month",
-                projection="dashboard" if requested_view == "dashboard" else "full",
+                projection=requested_view or "full",
                 start_date=_first(inner.GET, "startDate"),
                 end_date=_first(inner.GET, "endDate"),
                 product_queries=product_queries,
@@ -202,7 +222,10 @@ def summary(request: HttpRequest) -> JsonResponse:
                 shop=_first(inner.GET, "shop"),
                 outlets=outlets,
                 categories=categories,
-            ), _cache_identity(inner, principal))
+                principal=principal,
+            ), lambda: _cache_identity(inner, principal))
+        if revisions and stable_revision != revisions[0]:
+            return _json({"error": "销售版本已变化，请重新读取核心指标。", "code": "sales_revision_changed"}, 409)
         if requested_view == "dashboard":
             payload = dashboard_projection(payload)
         return _json(payload, revision=stable_revision, extra_headers={"X-Sales-Overview-Cache": cache_status})
@@ -251,7 +274,7 @@ def category_analysis(request: HttpRequest) -> JsonResponse:
         )
         payload, stable_revision, _cache_status = _consistent_read(lambda: get_category_analysis(
             {**params, "productCodes": resolve_product_codes(params["productQueries"], principal)}, principal
-        ), _cache_identity(inner, principal))
+        ), lambda: _cache_identity(inner, principal))
         return _json(payload, revision=stable_revision)
 
     return _handle(execute, request)
@@ -264,7 +287,7 @@ def category_detail(request: HttpRequest) -> JsonResponse:
         params["category"] = _first(inner.GET, "category", "") or ""
         payload, stable_revision, _cache_status = _consistent_read(lambda: get_category_detail(
             {**params, "productCodes": resolve_product_codes(params["productQueries"], principal)}, principal
-        ), _cache_identity(inner, principal))
+        ), lambda: _cache_identity(inner, principal))
         return _json(payload, revision=stable_revision)
 
     return _handle(execute, request)

@@ -4,8 +4,9 @@ import { useAiPageDetails } from "./ai-page-context-provider";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
+import { validCategoryAnalysis, validCategoryDetail } from "@/lib/sales/category-response";
 import Dialog from "./ui/dialog";
-import type { SalesSharedFilters } from "./sales-filter-bar";
+import type { SalesSharedFilters, SalesSharedFilterOptions } from "./sales-filter-bar";
 
 type CategoryMetric = {
   category: string;
@@ -233,12 +234,13 @@ function MultiFilter({ label, values, selected, onChange, display }: {
   </details>;
 }
 
-function CategoryOutletDrawer({ category, data, loading, error, onClose }: {
+function CategoryOutletDrawer({ category, data, loading, error, onClose, onRetry }: {
   category: string;
   data: CategoryOutletBreakdownResponse | null;
   loading: boolean;
   error: string;
   onClose: () => void;
+  onRetry: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   return <Dialog
@@ -250,11 +252,12 @@ function CategoryOutletDrawer({ category, data, loading, error, onClose }: {
     initialFocusRef={closeButtonRef}
   >
       <header>
+        <button type="button" className="row-action" disabled={loading} onClick={onRetry}>刷新详情</button>
         <div><span className="eyebrow">PLATFORM &amp; SHOP DETAIL</span><h2 id="category-outlet-title">{category} · 平台店铺详情</h2><p>{data ? `${data.range.startDate} 至 ${data.range.endDate} · ${data.range.timezone}` : "正在读取当前筛选范围"}</p></div>
         <button ref={closeButtonRef} type="button" aria-label="关闭品类详情" onClick={onClose}>×</button>
       </header>
       {loading && !data ? <div className="category-drawer-state" role="status"><span className="state-spinner" /><strong>正在汇总平台与店铺数据</strong></div>
-        : error && !data ? <div className="category-drawer-state error" role="alert"><strong>详情加载失败</strong><p>{error}</p></div>
+        : error && !data ? <div className="category-drawer-state error" role="alert"><strong>详情加载失败</strong><p>{error}</p><button type="button" className="row-action" onClick={onRetry}>重试详情</button></div>
           : data ? <>
             {error && <div className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>详情刷新失败</strong><p>{error}；当前仍显示上一次成功结果。</p></div></div>}
             <section className="category-drawer-summary data-refresh-region" aria-busy={loading}>
@@ -312,15 +315,19 @@ const sortableColumns: Array<{ key: CategorySortKey; label: string }> = [
   { key: "weekOverWeekRate", label: "环比上周" },
 ];
 
-export default function SalesCategoryView({ startDate, endDate, filters, onFiltersChange }: { startDate: string; endDate: string; filters: SalesSharedFilters; onFiltersChange: (filters: SalesSharedFilters) => void }) {
+export default function SalesCategoryView({ startDate, endDate, filters, onFiltersChange, onFilterOptionsChange }: { startDate: string; endDate: string; filters: SalesSharedFilters; onFiltersChange: (filters: SalesSharedFilters) => void; onFilterOptionsChange?: (options: SalesSharedFilterOptions) => void }) {
   const [urlState, setUrlState] = useState<CategoryUrlState>(readCategoryUrl);
-  const [data, setData] = useState<CategoryAnalysisResponse | null>(null);
+  const [result, setResult] = useState<{ key: string; payload: CategoryAnalysisResponse } | null>(null);
+  const requestKey = JSON.stringify([startDate, endDate, filters, urlState]);
+  const data = result?.key === requestKey ? result.payload : null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
   const [detailCategory, setDetailCategory] = useState<string | null>(null);
   const [detailData, setDetailData] = useState<CategoryOutletBreakdownResponse | null>(null);
-  const [detailDataCategory, setDetailDataCategory] = useState<string | null>(null);
+  const [detailDataKey, setDetailDataKey] = useState<string | null>(null);
+  const [detailRetry, setDetailRetry] = useState(0);
+  const detailKey = JSON.stringify([detailCategory, startDate, endDate, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
   const requestGenerationRef = useRef(0);
@@ -334,7 +341,7 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
   const closeCategoryDetail = useCallback(() => {
     setDetailCategory(null);
     setDetailData(null);
-    setDetailDataCategory(null);
+    setDetailDataKey(null);
     setDetailError("");
   }, []);
 
@@ -353,6 +360,10 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
   useEffect(() => {
     const controller = new AbortController();
     const generation = ++requestGenerationRef.current;
+    const timeout = window.setTimeout(() => {
+      if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
+      setError("品类读取超时，请重试。"); setLoading(false); controller.abort();
+    }, 30_000);
     void (async () => {
       setLoading(true);
       setError("");
@@ -374,21 +385,28 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
         if (filters.productQuery.trim()) query.append("productQuery", filters.productQuery.trim());
         const payload = await requestJson<CategoryAnalysisResponse>(`/api/sales/category-analysis?${query}`, { signal: controller.signal });
         if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
-        setData(payload);
+        if (!validCategoryAnalysis(payload, { startDate, endDate, ...urlState })) throw new Error("品类响应不完整，请重试。");
+        setResult({ key: requestKey, payload });
+        onFilterOptionsChange?.({ platforms: payload.filterOptions.platforms, shops: payload.filterOptions.outlets, categories: payload.filterOptions.categories });
       } catch (reason) {
         if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
         setError(reason instanceof Error ? reason.message : "暂时无法读取品类分析");
       } finally {
+        window.clearTimeout(timeout);
         if (!controller.signal.aborted && generation === requestGenerationRef.current) setLoading(false);
       }
     })();
-    return () => controller.abort();
-  }, [endDate, filters.categories, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery, retryKey, startDate, urlState]);
+    return () => { window.clearTimeout(timeout); controller.abort(); };
+  }, [endDate, filters.categories, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery, retryKey, startDate, urlState, requestKey, onFilterOptionsChange]);
 
   useEffect(() => {
     if (!detailCategory) return;
     const controller = new AbortController();
     const generation = ++detailRequestGenerationRef.current;
+    const timeout = window.setTimeout(() => {
+      if (controller.signal.aborted || generation !== detailRequestGenerationRef.current) return;
+      setDetailError("品类详情读取超时，请重试。"); setDetailLoading(false); controller.abort();
+    }, 30_000);
     void (async () => {
       setDetailLoading(true);
       setDetailError("");
@@ -400,33 +418,27 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
         if (filters.productQuery.trim()) query.append("productQuery", filters.productQuery.trim());
         const payload = await requestJson<CategoryOutletBreakdownResponse>(`/api/sales/category-analysis/detail?${query}`, { signal: controller.signal });
         if (!controller.signal.aborted && generation === detailRequestGenerationRef.current) {
+          if (!validCategoryDetail(payload, startDate, endDate, detailCategory)) throw new Error("品类详情响应不完整，请重试。");
           setDetailData(payload);
-          setDetailDataCategory(detailCategory);
+          setDetailDataKey(detailKey);
         }
       } catch (reason) {
         if (!controller.signal.aborted && generation === detailRequestGenerationRef.current) {
           setDetailError(reason instanceof Error ? reason.message : "暂时无法读取平台店铺详情");
         }
       } finally {
+        window.clearTimeout(timeout);
         if (!controller.signal.aborted && generation === detailRequestGenerationRef.current) setDetailLoading(false);
       }
     })();
-    return () => controller.abort();
-  }, [detailCategory, endDate, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery, startDate]);
+    return () => { window.clearTimeout(timeout); controller.abort(); };
+  }, [detailCategory, endDate, filters.channels, filters.outletKeys, filters.platforms, filters.productQuery, startDate, detailKey, detailRetry]);
 
   const filterOptions = data?.filterOptions ?? { categories: [], channels: [], platforms: [], outlets: [], totals: { categories: 0, channels: 0, platforms: 0, outlets: 0 }, truncated: false, limit: 200 };
   const hasChannelFilter = filters.channels.length > 0;
 
-  if (loading && !data) return <section className="panel data-state sales-data-state" role="status"><span className="state-spinner" /><strong>正在汇总品类经营数据</strong><p>正在按商品主数据映射销售、退款和毛利明细…</p></section>;
-  if (error && !data) return <section className="panel data-state sales-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>品类分析加载失败</strong><p>{error}</p><button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button></section>;
-  if (!data) return null;
-
-  const summary = data.summary;
-  const maxRankingSales = Math.max(1, ...data.ranking.map((item) => Math.max(0, item.netSalesCents)));
-  const visibleDetailData = detailDataCategory === detailCategory ? detailData : null;
-  return <div className="sales-category-view data-refresh-region" aria-busy={loading}>
-    <section className="panel category-filter-panel category-analysis-settings" aria-label="品类分析设置">
-      <div className="category-filter-heading"><div><span className="eyebrow">CATEGORY SETTINGS</span><h2>品类分析设置</h2><p>{data.range.startDate} 至 {data.range.endDate} · 公共筛选已同步应用，渠道与趋势粒度为品类页专属设置。</p></div><span className="soft-tag">{data.filtersApplied.dataScope.mode === "restricted" ? "已应用账号数据范围" : "全部授权范围"}</span></div>
+  const settingsPanel = (<section className="panel category-filter-panel category-analysis-settings" aria-label="品类分析设置">
+      <div className="category-filter-heading"><div><span className="eyebrow">CATEGORY SETTINGS</span><h2>品类分析设置</h2><p>{startDate} 至 {endDate} · 公共筛选已同步应用，渠道与趋势粒度为品类页专属设置。</p></div><span className="soft-tag">{data?.filtersApplied.dataScope.mode === "restricted" ? "已应用账号数据范围" : "全部授权范围"}</span></div>
       <div className="category-filter-layout">
         <div className="category-level-field"><span>当前分析层级</span><strong>一级品类</strong><small>品类以 ERP 商品主数据为准，暂无下级类目</small></div>
         <div className="category-filter-controls">
@@ -434,15 +446,27 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
             <MultiFilter label="渠道" values={filterOptions.channels} selected={filters.channels} onChange={(channels) => onFiltersChange({ ...filters, channels })} />
           </div>
           <div className="category-filter-actions">
+            <button type="button" className="row-action" disabled={loading} onClick={() => setRetryKey((value) => value + 1)}>刷新品类</button>
             <span>趋势粒度</span>
             <div className="segmented category-granularity" role="group" aria-label="品类趋势统计粒度">{(["day", "week", "month"] as const).map((value) => <button key={value} type="button" className={urlState.granularity === value ? "active" : ""} onClick={() => updateUrlState({ granularity: value })}>{value === "day" ? "按日" : value === "week" ? "按周" : "按月"}</button>)}</div>
             {hasChannelFilter && <button type="button" className="secondary-button category-filter-reset" onClick={() => onFiltersChange({ ...filters, channels: [] })}>清空渠道</button>}
           </div>
         </div>
       </div>
-      {(filterOptions.truncated || loading || error) && <div className={`category-filter-note ${error ? "error" : ""}`} role={error ? "alert" : "status"}>{error || (loading ? "正在更新筛选结果，旧结果会保留到新请求完成。" : `筛选选项每类最多返回 ${filterOptions.limit} 个，当前已截断。`)}</div>}
-    </section>
-
+      {(filterOptions.truncated || loading || error) && <div className={`category-filter-note ${error ? "error" : ""}`} role={error ? "alert" : "status"}>{error || (loading ? "正在读取当前范围，数据通过校验后显示。" : `筛选选项每类最多返回 ${filterOptions.limit} 个，当前已截断。`)}</div>}
+    </section>);
+  const visibleDetailData = detailDataKey === detailKey ? detailData : null;
+  const drawer = detailCategory && <CategoryOutletDrawer category={detailCategory} data={visibleDetailData}
+    loading={detailLoading || (!visibleDetailData && !detailError)} error={detailError}
+    onClose={closeCategoryDetail} onRetry={() => setDetailRetry((value) => value + 1)} />;
+  if (!data) return <div className="sales-category-view">{settingsPanel}<section className="panel data-state sales-data-state" role={error ? "alert" : "status"}>
+    <strong>{error ? "品类分析加载失败" : "正在汇总品类经营数据"}</strong><p>{error || "正在按当前范围汇总销售、退款和毛利…"}</p>
+    {error && <button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button>}
+  </section>{drawer}</div>;
+  const summary = data.summary;
+  const maxRankingSales = Math.max(1, ...data.ranking.map((item) => Math.max(0, item.netSalesCents)));
+  return <div className="sales-category-view data-refresh-region" aria-busy={loading}>
+    {settingsPanel}
     <section className="category-kpi-grid">
       <article><span>品类净销售额</span><strong>{formatCurrency(summary.netSalesCents)}</strong><small>销售额扣除退款，退款以负值参与</small></article>
       <article><span>正向销量</span><strong>{formatCount(summary.positiveQuantity)}</strong><small>仅数量大于 0 的销售行</small></article>
@@ -466,6 +490,6 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
       </section>
     </>}
     <section className="category-source-note"><strong>数据来源与口径</strong><span>品类：ERP 商品主数据优先，销售明细品类兜底，以商品编码关联；未命中归“未分类”。</span><span>销售：吉客云销售单明细账，排除“刷刷仓”；净销量沿用销售总览口径，排除配件、赠品配件、补差价专用和销售行未分类，退货率 = 退款金额 / 正向销售额。</span><span>同比：{data.comparisonPeriods.yearAgo.startDate} 至 {data.comparisonPeriods.yearAgo.endDate}；环比上周：近 7 天 {data.comparisonPeriods.weekOverWeek.current.startDate} 至 {data.comparisonPeriods.weekOverWeek.current.endDate}，对比此前 7 天 {data.comparisonPeriods.weekOverWeek.previous.startDate} 至 {data.comparisonPeriods.weekOverWeek.previous.endDate}。</span><span>品类趋势：按当前{data.details.trend.granularity === "day" ? "日" : data.details.trend.granularity === "week" ? "周" : "月"}粒度展示最近 {data.details.trend.periodLimit} 个有数据周期；数据截止 {data.dataCutoffDate ?? "暂无"}。</span></section>
-    {detailCategory && <CategoryOutletDrawer category={detailCategory} data={visibleDetailData} loading={detailLoading} error={detailError} onClose={closeCategoryDetail} />}
+    {drawer}
   </div>;
 }

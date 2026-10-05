@@ -556,6 +556,7 @@ def _summary(principal: Principal, request: dict[str, object]) -> dict[str, obje
         outlets=outlets,
         categories=request["categories"],
         principal=principal,
+        include_metadata=False,
     )
     keys = (
         "range", "startDate", "endDate", "previousStartDate", "previousEndDate",
