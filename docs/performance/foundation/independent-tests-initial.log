@@ -1,0 +1,73 @@
+✔ independent: a late subscriber's own deadline leaves earlier subscriber alive (47.1548ms)
+✔ independent: cancellation during body does not cancel a surviving subscriber (3.3831ms)
+✔ independent: invalidation followed by old transport rejection cannot finish the replacement (9.0966ms)
+✔ independent: lifetime is measured from first request, not extended by late joining (49.5122ms)
+✔ independent: exhausted transport capacity still permits an existing exact-key subscriber (1.9062ms)
+✔ independent: user, permission, date, filter, version, and response header dimensions never join (3.2253ms)
+✔ independent: each of four representative endpoints can opt in without completed-result reuse (19.9582ms)
+✖ independent: an undefined body rejection remains a failure for every subscriber (2.4757ms)
+✖ independent: observed transport honors its declared options.signal (1.7622ms)
+✔ independent: the default requestJson remains uncapped and preserves writes (13.8809ms)
+✔ independent: loading region escapes labels, hides spinner and does not steal keyboard focus (11.7102ms)
+✔ independent: old preload failure after reset cannot clear a newer code load (0.6138ms)
+✔ independent: recorder wraps in chronological order and stores only numeric allowlisted spans (0.6241ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 11
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1062.2834
+
+✖ failing tests:
+
+test at tests\foundation-independent-review.test.ts:1:5793
+✖ independent: an undefined body rejection remains a failure for every subscriber (2.4757ms)
+  AssertionError [ERR_ASSERTION]: [{"status":"fulfilled"},{"status":"fulfilled"}]
+      at TestContext.<anonymous> (D:\.codex\worktrees\performance-foundation\运营管理系统\tests\foundation-independent-review.test.ts:103:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\foundation-independent-review.test.ts:1:6276
+✖ independent: observed transport honors its declared options.signal (1.7622ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - AbortSignal {
+  -   Symbol(events.maxEventTargetListeners): 0,
+  -   Symbol(events.maxEventTargetListenersWarned): false,
+  -   Symbol(kAborted): true,
+  -   Symbol(kComposite): false,
+  -   Symbol(kEvents): SafeMap(0) {},
+  -   Symbol(kHandlers): SafeMap(0) {},
+  -   Symbol(kReason): DOMException [AbortError]: This operation was aborted
+  -       at new DOMException (node:internal/per_context/domexception:76:18)
+  -       at AbortController.abort (node:internal/abort_controller:565:18)
+  -       at TestContext.<anonymous> (D:\.codex\worktrees\performance-foundation\运营管理系统\tests\foundation-independent-review.test.ts:108:56)
+  -       at Test.runInAsyncScope (node:async_hooks:227:14)
+  -       at Test.run (node:internal/test_runner/test:1325:25)
+  -       at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+  -       at Test.postRun (node:internal/test_runner/test:1465:19)
+  -       at Test.run (node:internal/test_runner/test:1390:12)
+  -       at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  - }
+
+      at TestContext.<anonymous> (D:\.codex\worktrees\performance-foundation\运营管理系统\tests\foundation-independent-review.test.ts:113:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: {},
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

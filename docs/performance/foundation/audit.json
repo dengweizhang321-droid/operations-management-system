@@ -1,0 +1,515 @@
+{
+  "schema": "foundation-source-build-v1",
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "unchanged": [
+    {
+      "path": "app/sales-module-view.tsx",
+      "bytes": 87018,
+      "sha256": "41c79bc657ab09b53886ab4d197a0600fa4dbd43df5feca2247feb569d45dbc4",
+      "baselineEqual": true
+    },
+    {
+      "path": "app/inventory-module-view.tsx",
+      "bytes": 134188,
+      "sha256": "b1fdcd5e7a5c66c94655dd00792a31cca86a9f90be8531123b86c149cc1fde14",
+      "baselineEqual": true
+    },
+    {
+      "path": "app/product-module-view.tsx",
+      "bytes": 39076,
+      "sha256": "672830cfddac68cac4bd59fd79d444d28eeab10d6ccdbd57526cca69077b20c1",
+      "baselineEqual": true
+    },
+    {
+      "path": "app/market-view.tsx",
+      "bytes": 95537,
+      "sha256": "3f1fda490161feadfb3946435ce6411cb131e9dcfdbd3d7f29bf617b6ed71092",
+      "baselineEqual": true
+    },
+    {
+      "path": "lib/auth/authorization.ts",
+      "bytes": 7295,
+      "sha256": "3c320d2c82f5ce7fdb6a46353beb2c48db878041325ebbfad2feb57fe1969702",
+      "baselineEqual": true
+    },
+    {
+      "path": "backend/teruisi_backend/settings.py",
+      "bytes": 21645,
+      "sha256": "3d4a7f00d0eafdab86c58927ce1482eddc4436c8fbe4f01925e435c93e673180",
+      "baselineEqual": true
+    }
+  ],
+  "assets": [
+    {
+      "key": "_api-client-s3WRMrgQ.js",
+      "file": "assets/api-client-s3WRMrgQ.js",
+      "bytes": 3483,
+      "gzipBytes": 1605,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "_api-error-CJCV3BJQ.js"
+      ],
+      "dynamicImports": []
+    },
+    {
+      "key": "_framework-CXnKph_e.js",
+      "file": "assets/framework-CXnKph_e.js",
+      "bytes": 189805,
+      "gzipBytes": 59029,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js"
+      ],
+      "dynamicImports": []
+    },
+    {
+      "key": "_module-view-business-ui-CZ1FJnXJ.js",
+      "file": "assets/module-view-business-ui-CZ1FJnXJ.js",
+      "bytes": 13764,
+      "gzipBytes": 4560,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js",
+        "_module-view-shared-C1gE-e6r.js",
+        "_framework-CXnKph_e.js"
+      ],
+      "dynamicImports": []
+    },
+    {
+      "key": "_module-view-shared-C1gE-e6r.js",
+      "file": "assets/module-view-shared-C1gE-e6r.js",
+      "bytes": 35318,
+      "gzipBytes": 11408,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js",
+        "_api-error-CJCV3BJQ.js",
+        "_framework-CXnKph_e.js"
+      ],
+      "dynamicImports": []
+    },
+    {
+      "key": "_xlsx-C6AzBya5.js",
+      "file": "assets/xlsx-C6AzBya5.js",
+      "bytes": 421192,
+      "gzipBytes": 139312,
+      "isEntry": false,
+      "isDynamicEntry": false,
+      "imports": [],
+      "dynamicImports": []
+    },
+    {
+      "key": "app/ai-module-view.tsx",
+      "file": "assets/ai-module-view-CZykEEQr.js",
+      "bytes": 6160,
+      "gzipBytes": 2091,
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js",
+        "virtual:vinext-app-browser-entry",
+        "_framework-CXnKph_e.js"
+      ],
+      "dynamicImports": [
+        "app/ai-assistant-view.tsx",
+        "app/ai-agent-workflow-view.tsx",
+        "app/ai-memory-view.tsx",
+        "app/ai-space-view.tsx",
+        "app/ai-space-management-view.tsx",
+        "app/ai-report-workbench-view.tsx",
+        "app/ai-prompt-settings-view.tsx",
+        "app/ai-dingtalk-schedules-view.tsx"
+      ]
+    },
+    {
+      "key": "app/dashboard-module-view.tsx",
+      "file": "assets/dashboard-module-view-BHhtpYuO.js",
+      "bytes": 9674,
+      "gzipBytes": 3240,
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js",
+        "_module-view-shared-C1gE-e6r.js",
+        "_api-client-s3WRMrgQ.js",
+        "_framework-CXnKph_e.js"
+      ],
+      "dynamicImports": []
+    },
+    {
+      "key": "app/import-module-view.tsx",
+      "file": "assets/import-module-view-Ca6MGhJY.js",
+      "bytes": 48585,
+      "gzipBytes": 13803,
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js",
+        "_customer-service-import-card-CDXB9VnK.js",
+        "_module-view-shared-C1gE-e6r.js",
+        "_api-client-s3WRMrgQ.js",
+        "_framework-CXnKph_e.js"
+      ],
+      "dynamicImports": []
+    },
+    {
+      "key": "app/inventory-module-view.tsx",
+      "file": "assets/inventory-module-view-Cfd5jfu3.js",
+      "bytes": 136158,
+      "gzipBytes": 34207,
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js",
+        "virtual:vinext-app-browser-entry",
+        "_ai-page-context-provider-6aMBgYsu.js",
+        "_module-view-business-ui-CZ1FJnXJ.js",
+        "_module-view-shared-C1gE-e6r.js",
+        "_searchable-select-TuzqFU6k.js",
+        "_warehouse-classification-aaYu4ULj.js",
+        "_summary-filter-Bw4FHW78.js",
+        "_framework-CXnKph_e.js"
+      ],
+      "dynamicImports": [
+        "lib/inventory/guangdong-workbook.ts"
+      ]
+    },
+    {
+      "key": "app/market-view.tsx",
+      "file": "assets/market-view-pnxlx6Ih.js",
+      "bytes": 65874,
+      "gzipBytes": 18829,
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js",
+        "virtual:vinext-app-browser-entry",
+        "_ai-page-context-provider-6aMBgYsu.js",
+        "_market-master-admin-contract-BrZUjGCU.js",
+        "_reloadable-lazy-DexOD8PV.js",
+        "_dialog-Bm9QE-Sy.js",
+        "_framework-CXnKph_e.js"
+      ],
+      "dynamicImports": [
+        "app/market-annotation-view.tsx",
+        "app/market-master-admin-panel.tsx"
+      ]
+    },
+    {
+      "key": "app/page.tsx",
+      "file": "assets/page-DKEdmGdO.js",
+      "bytes": 63512,
+      "gzipBytes": 20390,
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js",
+        "virtual:vinext-app-browser-entry",
+        "_ai-page-context-provider-6aMBgYsu.js",
+        "_module-view-shared-C1gE-e6r.js",
+        "_shop-context-DOKKreXo.js",
+        "_navigation-catalog-CQnuDa9b.js",
+        "_reloadable-lazy-DexOD8PV.js",
+        "_statistical-period-picker-Bn71Inhf.js",
+        "_dialog-Bm9QE-Sy.js",
+        "_searchable-select-TuzqFU6k.js",
+        "_page-context-CuwTk5Rc.js",
+        "_api-client-s3WRMrgQ.js",
+        "_framework-CXnKph_e.js"
+      ],
+      "dynamicImports": [
+        "app/ai-assistant-view.tsx",
+        "app/market-view.tsx",
+        "app/n8n-workflow-view.tsx",
+        "app/operations-view.tsx",
+        "app/settings-view.tsx",
+        "app/global-search-dialog.tsx",
+        "app/customer-service-view.tsx",
+        "app/ai-module-view.tsx",
+        "app/dashboard-module-view.tsx",
+        "app/shop-module-view.tsx",
+        "app/sales-module-view.tsx",
+        "app/inventory-module-view.tsx",
+        "app/product-module-view.tsx",
+        "app/import-module-view.tsx"
+      ]
+    },
+    {
+      "key": "app/product-module-view.tsx",
+      "file": "assets/product-module-view-D2A3tHUb.js",
+      "bytes": 29860,
+      "gzipBytes": 9301,
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js",
+        "_ai-page-context-provider-6aMBgYsu.js",
+        "_module-view-business-ui-CZ1FJnXJ.js",
+        "_module-view-shared-C1gE-e6r.js",
+        "_searchable-select-TuzqFU6k.js",
+        "_framework-CXnKph_e.js"
+      ],
+      "dynamicImports": []
+    },
+    {
+      "key": "app/sales-module-view.tsx",
+      "file": "assets/sales-module-view-DUvndsL5.js",
+      "bytes": 74833,
+      "gzipBytes": 21160,
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js",
+        "virtual:vinext-app-browser-entry",
+        "_ai-page-context-provider-6aMBgYsu.js",
+        "_module-view-business-ui-CZ1FJnXJ.js",
+        "_module-view-shared-C1gE-e6r.js",
+        "_reloadable-lazy-DexOD8PV.js",
+        "_searchable-select-TuzqFU6k.js",
+        "_api-client-s3WRMrgQ.js",
+        "_framework-CXnKph_e.js"
+      ],
+      "dynamicImports": [
+        "app/sales-category-view.tsx"
+      ]
+    },
+    {
+      "key": "app/shop-module-view.tsx",
+      "file": "assets/shop-module-view-UHBThQ5R.js",
+      "bytes": 564905,
+      "gzipBytes": 157416,
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_rolldown-runtime-S-ySWqyJ.js",
+        "virtual:vinext-app-browser-entry",
+        "_ai-page-context-provider-6aMBgYsu.js",
+        "_module-view-shared-C1gE-e6r.js",
+        "_shop-context-DOKKreXo.js",
+        "_reloadable-lazy-DexOD8PV.js",
+        "_statistical-period-picker-Bn71Inhf.js",
+        "_searchable-select-TuzqFU6k.js",
+        "_business-mapping-builder-B_kPTN-p.js",
+        "_page-context-CuwTk5Rc.js",
+        "_api-client-s3WRMrgQ.js",
+        "_api-error-CJCV3BJQ.js",
+        "_browser-BBNoE-Nh.js",
+        "_framework-CXnKph_e.js"
+      ],
+      "dynamicImports": [
+        "app/netshop-overview/balanced-overview.tsx"
+      ]
+    },
+    {
+      "key": "lib/imports/new-product-followup-xlsx.ts",
+      "file": "assets/new-product-followup-xlsx-CxNTcgAY.js",
+      "bytes": 9568,
+      "gzipBytes": 2999,
+      "isEntry": false,
+      "isDynamicEntry": true,
+      "imports": [
+        "_browser-BBNoE-Nh.js"
+      ],
+      "dynamicImports": []
+    }
+  ],
+  "clientBundles": [
+    {
+      "name": "baseline",
+      "bytes": 1836,
+      "gzipBytes": 907
+    },
+    {
+      "name": "candidate",
+      "bytes": 3941,
+      "gzipBytes": 1757
+    }
+  ],
+  "pageStaticKeys": [
+    "app/page.tsx",
+    "_rolldown-runtime-S-ySWqyJ.js",
+    "virtual:vinext-app-browser-entry",
+    "_framework-CXnKph_e.js",
+    "_ai-page-context-provider-6aMBgYsu.js",
+    "_module-view-shared-C1gE-e6r.js",
+    "_api-error-CJCV3BJQ.js",
+    "_shop-context-DOKKreXo.js",
+    "_navigation-catalog-CQnuDa9b.js",
+    "_reloadable-lazy-DexOD8PV.js",
+    "_statistical-period-picker-Bn71Inhf.js",
+    "_dialog-Bm9QE-Sy.js",
+    "_searchable-select-TuzqFU6k.js",
+    "_page-context-CuwTk5Rc.js",
+    "_api-client-s3WRMrgQ.js"
+  ],
+  "typeErrors": {
+    "count": 188,
+    "files": [
+      {
+        "path": "lib/ai/business-market-v2-tool-candidate.ts",
+        "baselineEqual": true,
+        "sha256": "08f2019c72a4ff96fcfc80f419ed7d601b44121cb065c348087b97bd890005cb"
+      },
+      {
+        "path": "tests/automation-drain.test.ts",
+        "baselineEqual": true,
+        "sha256": "5688b143a0547fdb9345cc357d2f8b8a9a0f2c1d0f17d09096f26062d870160c"
+      },
+      {
+        "path": "tests/business-agent-budget-tools.test.ts",
+        "baselineEqual": true,
+        "sha256": "42b440b0971d0cda6eaf3035c4131d5683716d7948f7e283a917f3bf6f03083c"
+      },
+      {
+        "path": "tests/business-agent-integrated-tools.test.ts",
+        "baselineEqual": true,
+        "sha256": "f31e72a512ca44dcc31fa47a47585a95a796f9b1056415a1e19003e6510022ce"
+      },
+      {
+        "path": "tests/business-agent-v2-tools.test.ts",
+        "baselineEqual": true,
+        "sha256": "54e678967df440c9e2e0ee3378ef12c809984e42f21c641ba6f69a837c5068ca"
+      },
+      {
+        "path": "tests/business-market-v2-five-catalog.test.ts",
+        "baselineEqual": true,
+        "sha256": "e6b4b465ed049caead1a0764f756929666700ccd7c970b9a7e1e22d1b146eb42"
+      },
+      {
+        "path": "tests/business-market-v2-tool-registry-gate.test.ts",
+        "baselineEqual": true,
+        "sha256": "a3bf8aa7b57e470875779d6292a374164f60a4f844bb5062cf4d8deb3194118a"
+      },
+      {
+        "path": "tests/business-screening-tools.test.ts",
+        "baselineEqual": true,
+        "sha256": "75de49bf4ff9c38483eb96795bc976c98e65ec5a671a5a88faf0801ea34c3bd2"
+      },
+      {
+        "path": "tests/customer-save-recovery-interaction.test.ts",
+        "baselineEqual": true,
+        "sha256": "daf678af4b6205434fb7c552b6b6f65423ae5f8436ccb18392b6dd78790006cc"
+      },
+      {
+        "path": "tests/django-inventory-cutover.test.ts",
+        "baselineEqual": true,
+        "sha256": "3aced459ae55ea936f7d763cad9164557a46534b0d05297c592207cf41daf4d8"
+      },
+      {
+        "path": "tests/finance-raw-workbook-route.test.ts",
+        "baselineEqual": true,
+        "sha256": "c08cceae078a8e3c390a8b57b208f88e710bdb4dfdf45d9a54e65ec96b84fc1b"
+      },
+      {
+        "path": "tests/local-worker-start.test.ts",
+        "baselineEqual": true,
+        "sha256": "c2ad04528ca751ed965805e30a26cc691bbff53d51ada89e29e0d12a8b0c9c6c"
+      },
+      {
+        "path": "tests/market-admin-workflow.test.ts",
+        "baselineEqual": true,
+        "sha256": "2f5de4a6543296871f328c2fdf76217861bddfcbedbf58638805dba4207d8d9b"
+      },
+      {
+        "path": "tests/market-annotation.test.ts",
+        "baselineEqual": true,
+        "sha256": "11fb77b3f0ec55d6b82d6bb9971976e82aabc6c92ea83754067eb5842168d2ad"
+      },
+      {
+        "path": "tests/market-price-band-publish-safety.test.ts",
+        "baselineEqual": true,
+        "sha256": "6493ad518fa9a18814042bfce523aa9b7c472c8105026d693235234bee2e5e55"
+      },
+      {
+        "path": "tests/market-read-request.test.ts",
+        "baselineEqual": true,
+        "sha256": "faa39a8722b6ea3ca25c586a20ebe104b13b73f89317070684daaedab363ce64"
+      },
+      {
+        "path": "tests/n8n-hourly-retry-workflow.test.ts",
+        "baselineEqual": true,
+        "sha256": "2980e12d7945255a3ebc06403389fe46deb9d958ec417dcc95785c51b10341ac"
+      },
+      {
+        "path": "tests/sales-cutover-tools.test.ts",
+        "baselineEqual": true,
+        "sha256": "ce8d8c44675522b9d7ffd3c9a2a3680c290023e1100c76cf4713390d9839d660"
+      },
+      {
+        "path": "tests/sales-local-cutover-rehearsal.test.ts",
+        "baselineEqual": true,
+        "sha256": "31b3ee55213265608eee8057ea993eca76a7a90dd1fd88166dcc9816bd554d9e"
+      },
+      {
+        "path": "tests/supervisor-exit-diagnostics.test.ts",
+        "baselineEqual": true,
+        "sha256": "27d15d9528c064854ec5afa38600f905a9fee9083baa823d68e3db22b35cc652"
+      },
+      {
+        "path": "tests/tmall-product-master-cadence.test.ts",
+        "baselineEqual": true,
+        "sha256": "8aaa5865dade521af847f94f7f9d92d4003752ddea5c5796756c7a8e1ed8a234"
+      },
+      {
+        "path": "tests/tmall-yiyong-direct-pm.test.ts",
+        "baselineEqual": true,
+        "sha256": "3e0ea5109b2de6da50d6f4c450cfbda8e01f452a11a225b4d3ff14db23c4a3d6"
+      },
+      {
+        "path": "tests/worker-local-release-rotation.test.ts",
+        "baselineEqual": true,
+        "sha256": "9b8a7b4b4e9e11bf8f71028dea519855c677a96c284a17add99cb8fa0b0f7d14"
+      },
+      {
+        "path": "tests/worker-local-release.test.ts",
+        "baselineEqual": true,
+        "sha256": "b36f3b73eac97baa09b9fc06dcbf60fd67c915d331e4c4c03b3ae715e88fef6b"
+      },
+      {
+        "path": "tests/workerd-heap.test.ts",
+        "baselineEqual": true,
+        "sha256": "5ea0a06d013e4123dc522d2d669a8f1ca0354a00f55d63357e368ac011a47735"
+      },
+      {
+        "path": "tests/workerd-memory-snapshot.test.ts",
+        "baselineEqual": true,
+        "sha256": "d204f498c02dfdbd222108dfce9771619aa2ca4b12df75592258bcdb1b4db507"
+      },
+      {
+        "path": "tests/wrangler-inspector-patch.test.ts",
+        "baselineEqual": true,
+        "sha256": "6f218d56c2ca40e327e138a1d68ca0c6f93b60ded1869af99536476e933dacba"
+      },
+      {
+        "path": "tools/erp-sales-automation.ts",
+        "baselineEqual": true,
+        "sha256": "8f47faba5d41a1092a8c09d360362daa7d66f99c8bcb913b7b5ef39bb297e065"
+      },
+      {
+        "path": "tools/jd-n8n-pipeline.ts",
+        "baselineEqual": true,
+        "sha256": "89b13cd2f6f24e90cd8064341c0d6fc3acadbe8e45abe360b34e534d539bf487"
+      },
+      {
+        "path": "tools/sales-import-runner.ts",
+        "baselineEqual": true,
+        "sha256": "42c1292df0c6485c54bb3bebda55a019d33f262e8aabd10b04bdcf3f4982c167"
+      },
+      {
+        "path": "tools/tmall-direct-promotion-export.ts",
+        "baselineEqual": true,
+        "sha256": "f9739c965139db66e574515c112ca512b7bd099b7f1ae5acf02e2a5fe5e0c75e"
+      },
+      {
+        "path": "tools/tmall-promotion-export.ts",
+        "baselineEqual": true,
+        "sha256": "a8dc17a98feb75bf5dc01bb5ff818fb00298369445034189f23730e2ef7b0367"
+      }
+    ]
+  },
+  "limitations": "Local production-mode build inventory only, not release candidate preparation; standalone client comparison exports all client public APIs, so added optional capability is included. Type error file equality is not a baseline tsc diagnostic replay. No before/after production asset comparison, bundle-wide reduction, runtime bottleneck attribution or task contention claim."
+}

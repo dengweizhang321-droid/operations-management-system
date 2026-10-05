@@ -1,0 +1,166 @@
+{
+  "format": "whitespace-only-normalized-log-delivery-v1",
+  "rawLogsPreservedInWorktree": true,
+  "records": [
+    {
+      "name": "audit.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\audit.log",
+      "rawBytes": 40,
+      "rawSha256": "a3165223601590cfe4727645c8eeb8020f8985e9ba923c7cac20c720fe57ac20",
+      "normalizedBytes": 39,
+      "normalizedSha256": "88f5bfdd3bfddf41ea80de784ba3716fb68e9c25c5b4143393f984b5bee5661a"
+    },
+    {
+      "name": "benchmark.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\benchmark.log",
+      "rawBytes": 44,
+      "rawSha256": "fa54de11930541457a8cab4e7e80b53955db99f155e59af947cb9bc63e5127e8",
+      "normalizedBytes": 43,
+      "normalizedSha256": "a1558a031bbc2ab8435a7a7c73f8e44835ec4dd6d9a7bc04b5b24f15ac55e98a"
+    },
+    {
+      "name": "browser.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\browser.log",
+      "rawBytes": 23,
+      "rawSha256": "21dd4e8c4e452d138ca57d3b53c11acd65ab228448474727be33ac3ae8bcd31d",
+      "normalizedBytes": 22,
+      "normalizedSha256": "c17e1d89d7f6d27942c679a2593219e1a56770e92b9a82e614af7b2cf5d84c0a"
+    },
+    {
+      "name": "build.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\build.log",
+      "rawBytes": 15533,
+      "rawSha256": "862c7358c7e666f19564d3302055d7ade49dff73b565634e11f9d73de356c8af",
+      "normalizedBytes": 9351,
+      "normalizedSha256": "97c6492d652a7ebc5948795e6bb822a2d5f100038cbfef632b3a72f80fbcbee6"
+    },
+    {
+      "name": "changed-files-lint.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\changed-files-lint.log",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normalizedBytes": 0,
+      "normalizedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "dependency-patches.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\dependency-patches.log",
+      "rawBytes": 305,
+      "rawSha256": "f745c37ab5f3a507756a94e0f14e8b7e3fa7faee91e6bc3fa1ce8827bb1d5fec",
+      "normalizedBytes": 300,
+      "normalizedSha256": "6d0ab79541e229607d2400c620a280be42705ea97d095261b0d301251a9f2dad"
+    },
+    {
+      "name": "final-regressions.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\final-regressions.log",
+      "rawBytes": 9671,
+      "rawSha256": "eeac8894af01b12f5cdaa63a0ec4113f7c279dfe8e27acab91d0d13a00a3713a",
+      "normalizedBytes": 9558,
+      "normalizedSha256": "9b5803e55cf7bdcf2c753d6ae2c0d1910d209663b5cb1a88273a6bf1363d2a0c"
+    },
+    {
+      "name": "final-shell-tests.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\final-shell-tests.log",
+      "rawBytes": 1147,
+      "rawSha256": "5e5e304056194af1143ffdaa8ab3d5f2166c3f385542a8cc8e05ec3a0efd554c",
+      "normalizedBytes": 1129,
+      "normalizedSha256": "c6a2dbc772ceb48083604f6109c3bfd702cc5b9069531f2315276236a7750c77"
+    },
+    {
+      "name": "independent-domain-regression.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\independent-domain-regression.log",
+      "rawBytes": 1032,
+      "rawSha256": "ccda371fcf2bf61e117c8ed03a149c5cc77ceb495b4328cf4e5c3f549d1e742e",
+      "normalizedBytes": 1014,
+      "normalizedSha256": "b0502dfc47c445f5d1bc84a5d21cdf82683e24c77e4fb6eaa56e23f440746f46"
+    },
+    {
+      "name": "independent-regression.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\independent-regression.log",
+      "rawBytes": 2146,
+      "rawSha256": "565f65d84132ae277d50095029922d958dd500a845362726eca229fa5a951c21",
+      "normalizedBytes": 2113,
+      "normalizedSha256": "3e2525ff7c5826f6aa5ac2ef92fff2bc4ef4ec512871d561a993d4b96c599257"
+    },
+    {
+      "name": "independent-tests-final.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\independent-tests-final.log",
+      "rawBytes": 1636,
+      "rawSha256": "24c9c671f19f5e59b99d9995a78a6dd893419199e3e54d10c5efd98c3eaa1db6",
+      "normalizedBytes": 1613,
+      "normalizedSha256": "d187e0c521c7c573951640a8fa247d7d52574300fb20a762ac8e3c069c894f6b"
+    },
+    {
+      "name": "independent-tests-initial.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\independent-tests-initial.log",
+      "rawBytes": 3945,
+      "rawSha256": "684450c05b78b630c8cb6fced1eb2e92c8df73c71d3a12437f34edef23169a48",
+      "normalizedBytes": 3868,
+      "normalizedSha256": "198ac76604ea7f3b04acb38c237111594dabec16eeb7a189a80d7b0cce564efd"
+    },
+    {
+      "name": "lint.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\lint.log",
+      "rawBytes": 5646,
+      "rawSha256": "869762f917a28358bc04597a9fb900cb2788811729fae0962c8f38e251632927",
+      "normalizedBytes": 5574,
+      "normalizedSha256": "1b9cb2b76dad2729abfd61b242dfc9dab7a1a27aa21bf7a976c578a3979d111e"
+    },
+    {
+      "name": "remaining-regressions.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\remaining-regressions.log",
+      "rawBytes": 8726,
+      "rawSha256": "e64105d0bf2f6f299e91ae6b0077c1c60a35640c161d7df45c8050b49b7db11a",
+      "normalizedBytes": 8630,
+      "normalizedSha256": "b496850dc1708d1659926a2066c4380d16e3a4df993c4c77910b74c02afee5ad"
+    },
+    {
+      "name": "soak.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\soak.log",
+      "rawBytes": 37,
+      "rawSha256": "a3d1c0fae44e34dcc72faf5b3b62976ca15370cacc01a4fdb74ad25ec31d51e1",
+      "normalizedBytes": 36,
+      "normalizedSha256": "c88c308d974e798c09f59453973111e4be7a15b08bcdbb1703d8d9930874ae3b"
+    },
+    {
+      "name": "targeted-tests-pre-review-adjustment.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\targeted-tests-pre-review-adjustment.log",
+      "rawBytes": 5478,
+      "rawSha256": "4921a6b2bfc4459d2b829a1bc36bb69581d2d09800e5c17cdc4cb1b5b30e1212",
+      "normalizedBytes": 5391,
+      "normalizedSha256": "72f212b048bcdf156e6d1cc96cd1a28d6a115bb4206ed771914ed3444019a8c9"
+    },
+    {
+      "name": "targeted-tests.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\targeted-tests.log",
+      "rawBytes": 3854,
+      "rawSha256": "ddb9c48b0625621638b2d487774c39e6af9bfcc29ba34796479b09a1ceb977be",
+      "normalizedBytes": 3807,
+      "normalizedSha256": "e5d791c181c62ee64078e5a10a207a425e5d561238c9e20fcbc19c82c2b527ba"
+    },
+    {
+      "name": "types-final.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\types-final.log",
+      "rawBytes": 56334,
+      "rawSha256": "3292f6af90603a1caa0a3f199dcd18dc5485afef9e82aa9c292e1d3139ca931a",
+      "normalizedBytes": 56054,
+      "normalizedSha256": "fbbe1881be1f3c223d74d5cd37f52714bab971072be3860069b9b12825e62029"
+    },
+    {
+      "name": "types.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\types.log",
+      "rawBytes": 57620,
+      "rawSha256": "2f0c54968e5e04a96bfdd7f3069d77cabe1018f94033c55ac8025b7b4c358260",
+      "normalizedBytes": 57328,
+      "normalizedSha256": "17d3fb304f1a4d8e29c6657c9038b510ba39d3d10456f6423a4613fb5b819bbe"
+    },
+    {
+      "name": "unit-tests.log",
+      "rawPath": ".runtime\\foundation-validation\\raw-logs\\unit-tests.log",
+      "rawBytes": 364814,
+      "rawSha256": "fe82bc92d7bd933a142a0391ea1b188431778fbfde8c95a68eb5b6d7fd3e6581",
+      "normalizedBytes": 361080,
+      "normalizedSha256": "28f300fce7a2c611d220ba0f3c46f750fd5298f7e4cbc74824c9139b7c8270d7"
+    }
+  ]
+}

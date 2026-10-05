@@ -1,0 +1,5 @@
+
+> teruisi-operations-frontend@0.1.0 postinstall
+> node tools/install-workerd-heap-patch.mjs
+
+{"status":"patched","sha256":"2b2a89fb96a270e678b4aa87e65aa1282049b18d28a1e30ff7fe7f2736b648c7","inspector":{"status":"patched","sha256":"ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c"}}

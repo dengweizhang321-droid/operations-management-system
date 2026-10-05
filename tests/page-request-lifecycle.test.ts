@@ -247,7 +247,7 @@ test("heavy module views are lazy and the dashboard does not eagerly import thei
   assert.match(page, /setShellLocationReady\(true\)/);
   assert.match(page, /\{shellLocationReady \? <Suspense[\s\S]+<View range=/);
   assert.match(page, /正在打开目标工作区/);
-  assert.match(page, /<Suspense fallback=\{<section className="panel data-state" role="status"/);
+  assert.match(page, /<Suspense fallback=\{<ModuleLoadingState title=/);
   assert.match(page, /\{searchOpen && <GlobalSearchLoadBoundary[\s\S]+<Suspense fallback=\{<GlobalSearchLoadingDialog[\s\S]+<GlobalSearchDialogView/);
   assert.match(page, /GlobalSearchLoadingDialog[\s\S]+<Dialog open onClose=\{onClose\}/);
   assert.match(page, /class GlobalSearchLoadBoundary[\s\S]+<Dialog open onClose=\{this\.props\.onClose\}/);

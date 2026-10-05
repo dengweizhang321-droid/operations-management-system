@@ -1,0 +1,300 @@
+{
+  "schema": "foundation-browser-v1",
+  "synthetic": true,
+  "checks": [
+    "initial inventory does not fetch other three domain data",
+    "销售分析: actual existing read + error UI keeps shell/keyboard navigation",
+    "库存管理: actual existing read + error UI keeps shell/keyboard navigation",
+    "商品经营: actual existing read + error UI keeps shell/keyboard navigation",
+    "市场分析: actual existing read + error UI keeps shell/keyboard navigation",
+    "mobile drawer Escape closes and releases navigation",
+    "real browser loading reserves 160px and exposes one status",
+    "lazy rejection focuses boundary; keyboard retry resets import and restores page heading"
+  ],
+  "errors": [],
+  "layout": {
+    "height": 167.59375,
+    "minHeight": "160px",
+    "spinnerHidden": "true"
+  },
+  "initialResources": [
+    {
+      "file": "ui.css",
+      "bytes": 611428
+    },
+    {
+      "file": "ui.js",
+      "bytes": 1133706
+    },
+    {
+      "file": "chunk-MM2IFAYW.js",
+      "bytes": 17911
+    },
+    {
+      "file": "chunk-OE4IG324.js",
+      "bytes": 11014
+    },
+    {
+      "file": "chunk-QFTEV4BT.js",
+      "bytes": 6339
+    },
+    {
+      "file": "chunk-ZA6SGDO4.js",
+      "bytes": 4525
+    },
+    {
+      "file": "chunk-VGDJ7UP4.js",
+      "bytes": 59067
+    },
+    {
+      "file": "chunk-IUMR6CME.js",
+      "bytes": 10774
+    },
+    {
+      "file": "chunk-2OLUQGSG.js",
+      "bytes": 10980
+    },
+    {
+      "file": "chunk-NE3KWVWX.js",
+      "bytes": 315
+    },
+    {
+      "file": "chunk-SQJUISGI.js",
+      "bytes": 6806
+    },
+    {
+      "file": "chunk-LROC5LZ6.js",
+      "bytes": 1588
+    },
+    {
+      "file": "chunk-PFNN4HD5.js",
+      "bytes": 16456
+    },
+    {
+      "file": "chunk-GXC4WI43.js",
+      "bytes": 1135
+    },
+    {
+      "file": "chunk-HP4WCQXG.js",
+      "bytes": 58658
+    },
+    {
+      "file": "chunk-U67V476Y.js",
+      "bytes": 1497
+    },
+    {
+      "file": "chunk-VOPERTLD.js",
+      "bytes": 280828
+    },
+    {
+      "file": "chunk-RMGDZ4UW.js",
+      "bytes": 1132
+    },
+    {
+      "file": "chunk-NHNXYPX2.js",
+      "bytes": 27648
+    },
+    {
+      "file": "chunk-4PW7FXZR.js",
+      "bytes": 40792
+    }
+  ],
+  "allResources": [
+    {
+      "file": "ui.css",
+      "bytes": 611428
+    },
+    {
+      "file": "ui.js",
+      "bytes": 1133706
+    },
+    {
+      "file": "chunk-MM2IFAYW.js",
+      "bytes": 17911
+    },
+    {
+      "file": "chunk-OE4IG324.js",
+      "bytes": 11014
+    },
+    {
+      "file": "chunk-QFTEV4BT.js",
+      "bytes": 6339
+    },
+    {
+      "file": "chunk-ZA6SGDO4.js",
+      "bytes": 4525
+    },
+    {
+      "file": "chunk-VGDJ7UP4.js",
+      "bytes": 59067
+    },
+    {
+      "file": "chunk-IUMR6CME.js",
+      "bytes": 10774
+    },
+    {
+      "file": "chunk-2OLUQGSG.js",
+      "bytes": 10980
+    },
+    {
+      "file": "chunk-NE3KWVWX.js",
+      "bytes": 315
+    },
+    {
+      "file": "chunk-SQJUISGI.js",
+      "bytes": 6806
+    },
+    {
+      "file": "chunk-LROC5LZ6.js",
+      "bytes": 1588
+    },
+    {
+      "file": "chunk-PFNN4HD5.js",
+      "bytes": 16456
+    },
+    {
+      "file": "chunk-GXC4WI43.js",
+      "bytes": 1135
+    },
+    {
+      "file": "chunk-HP4WCQXG.js",
+      "bytes": 58658
+    },
+    {
+      "file": "chunk-U67V476Y.js",
+      "bytes": 1497
+    },
+    {
+      "file": "chunk-VOPERTLD.js",
+      "bytes": 280828
+    },
+    {
+      "file": "chunk-RMGDZ4UW.js",
+      "bytes": 1132
+    },
+    {
+      "file": "chunk-NHNXYPX2.js",
+      "bytes": 27648
+    },
+    {
+      "file": "chunk-4PW7FXZR.js",
+      "bytes": 40792
+    },
+    {
+      "file": "chunk-FNG67SQE.js",
+      "bytes": 155820
+    },
+    {
+      "file": "chunk-DTEW6ABF.js",
+      "bytes": 62236
+    },
+    {
+      "file": "chunk-MADBD2R6.js",
+      "bytes": 136078
+    },
+    {
+      "file": "chunk-RYDB32IZ.js",
+      "bytes": 540
+    },
+    {
+      "file": "ui.css",
+      "bytes": 611428
+    },
+    {
+      "file": "ui.js",
+      "bytes": 1133706
+    },
+    {
+      "file": "chunk-MM2IFAYW.js",
+      "bytes": 17911
+    },
+    {
+      "file": "chunk-OE4IG324.js",
+      "bytes": 11014
+    },
+    {
+      "file": "chunk-QFTEV4BT.js",
+      "bytes": 6339
+    },
+    {
+      "file": "chunk-ZA6SGDO4.js",
+      "bytes": 4525
+    },
+    {
+      "file": "chunk-VGDJ7UP4.js",
+      "bytes": 59067
+    },
+    {
+      "file": "chunk-IUMR6CME.js",
+      "bytes": 10774
+    },
+    {
+      "file": "chunk-2OLUQGSG.js",
+      "bytes": 10980
+    },
+    {
+      "file": "chunk-NE3KWVWX.js",
+      "bytes": 315
+    },
+    {
+      "file": "chunk-LROC5LZ6.js",
+      "bytes": 1588
+    },
+    {
+      "file": "chunk-SQJUISGI.js",
+      "bytes": 6806
+    },
+    {
+      "file": "chunk-PFNN4HD5.js",
+      "bytes": 16456
+    },
+    {
+      "file": "chunk-GXC4WI43.js",
+      "bytes": 1135
+    },
+    {
+      "file": "chunk-HP4WCQXG.js",
+      "bytes": 58658
+    },
+    {
+      "file": "chunk-U67V476Y.js",
+      "bytes": 1497
+    }
+  ],
+  "domainCalls": [
+    {
+      "path": "/api/auth/me",
+      "method": "GET"
+    },
+    {
+      "path": "/api/inventory/overview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/sales/summary",
+      "method": "GET"
+    },
+    {
+      "path": "/api/inventory/overview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/products/summary",
+      "method": "GET"
+    },
+    {
+      "path": "/api/market/filters",
+      "method": "GET"
+    },
+    {
+      "path": "/api/market/overview",
+      "method": "GET"
+    },
+    {
+      "path": "/api/market/overview",
+      "method": "GET"
+    }
+  ],
+  "compiledBytes": 7341698,
+  "limitations": "Actual Home and shell compiled with esbuild development splitting, not production Worker. Four domain reads return deliberate 503 fixture errors; no domain success DTO equivalence or production render timing claim. Probe import delay is explicit synthetic only."
+}

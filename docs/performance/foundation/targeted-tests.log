@@ -1,0 +1,47 @@
+✔ requestJson applies same-origin defaults and serializes JSON bodies (24.6468ms)
+✔ requestJson preserves explicit fetch options (0.6025ms)
+✔ requestJson returns undefined for successful empty responses (0.2167ms)
+✔ requestJson sends FormData without setting a multipart content type (0.7721ms)
+✔ requestJson exposes structured HTTP failures as ApiError (0.8767ms)
+✔ requestJson converts network failures without retrying (0.2833ms)
+✔ requestJson passes AbortError and the caller signal through unchanged (0.1919ms)
+✔ requestJson rejects malformed successful JSON with a bounded ApiError (0.6479ms)
+✔ independent: a late subscriber's own deadline leaves earlier subscriber alive (45.7945ms)
+✔ independent: cancellation during body does not cancel a surviving subscriber (2.6423ms)
+✔ independent: invalidation followed by old transport rejection cannot finish the replacement (11.7806ms)
+✔ independent: lifetime is measured from first request, not extended by late joining (44.6291ms)
+✔ independent: exhausted transport capacity still permits an existing exact-key subscriber (1.3012ms)
+✔ independent: completed capacity-one reads can be awaited sequentially without a cleanup turn (1.6646ms)
+✔ independent: user, permission, date, filter, version, and response header dimensions never join (1.266ms)
+✔ independent: each of four representative endpoints can opt in without completed-result reuse (42.6871ms)
+✔ independent: an undefined body rejection remains a failure for every subscriber (1.1484ms)
+✔ independent: observed transport honors its declared options.signal (0.4847ms)
+✔ independent: active observed options.signal reaches fetch and cancels a pending body (1.383ms)
+✔ independent: the default requestJson remains uncapped and preserves writes (11.9549ms)
+✔ independent: loading region escapes labels, hides spinner and does not steal keyboard focus (6.884ms)
+✔ independent: old preload failure after reset cannot clear a newer code load (0.3698ms)
+✔ independent: recorder wraps in chronological order and stores only numeric allowlisted spans (0.3687ms)
+✔ four audited representative reads join only exact in-flight keys; legacy results stay independent (46.2618ms)
+✔ user, permission/scope, date, filter order, version and headers isolate entries (3.8809ms)
+✔ one cancellation and one short subscriber deadline cannot cancel a survivor (22.127ms)
+✔ all subscribers cancelling aborts transport; late completion cannot poison a new read (14.9304ms)
+✔ network/HTTP/JSON failures are shared only in flight, never retried or cached (46.9113ms)
+✔ missing version disables joining; completed results are never reused (1.1078ms)
+✔ invalidation rejects old subscribers and permits a new epoch, without cached authorization (14.2041ms)
+✔ capacity bounds entries, subscribers, keys and abandoned transports (35.5147ms)
+✔ pre-abort, writes, SSE, credentials, foreign/unregistered URLs and invalid budgets never reach transport (1.2771ms)
+✔ bounded bodies reject dishonest Content-Length and release the reader (23.4642ms)
+✔ one lifetime covers slow headers and slow body; stream cancellation releases slots (33.4937ms)
+✔ observation is disabled by default, bounded and strips sensitive fields; observer failures are harmless (1.562ms)
+✔ loading regions reserve space, expose text/status and hide decorative spinner (7.1479ms)
+✔ registration is lazy; explicit preload joins mount and reset permits failed chunk retry (1.3714ms)
+✔ a scoped market lazy importer can reject once and resolve after an explicit retry (2.1545ms)
+✔ the module error boundary rebuilds its lazy scope before clearing the fallback (1.2757ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 856.8122

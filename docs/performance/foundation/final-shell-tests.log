@@ -1,0 +1,18 @@
+✔ loading regions reserve space, expose text/status and hide decorative spinner (11.3398ms)
+✔ registration is lazy; explicit preload joins mount and reset permits failed chunk retry (1.762ms)
+✔ filter scope changes issue exactly the first page request before committing pagination state (17.5033ms)
+✔ ShopView makes one scoped summary request and rejects stale responses (4.5522ms)
+✔ netshop views send platform-qualified outlets instead of independent shop-name filters (4.1557ms)
+✔ netshop catalog and daily product pages pair lightweight projections with their own snapshot (4.5234ms)
+✔ netshop promotion, catalog, and daily filters select page one before their first scoped request (4.9999ms)
+✔ ImportView loads history only for history views and isolates seven domain failures (3.5001ms)
+✔ heavy module views are lazy and the dashboard does not eagerly import their runtime chunks (3.713ms)
+✔ global search pagination is query-keyed, cancellable, deduplicated, and target-gated (3.6675ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 934.6679

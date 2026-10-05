@@ -1,0 +1,109 @@
+{
+  "synthetic": true,
+  "cycles": 1000,
+  "subscribers": 2000,
+  "transports": 1000,
+  "samples": [
+    {
+      "cycles": 100,
+      "entries": 0,
+      "subscribers": 0,
+      "transports": 0,
+      "resultCacheEntries": 0,
+      "listenerBalance": 0,
+      "heapUsedBytes": 19289224,
+      "rssBytes": 112709632
+    },
+    {
+      "cycles": 200,
+      "entries": 0,
+      "subscribers": 0,
+      "transports": 0,
+      "resultCacheEntries": 0,
+      "listenerBalance": 0,
+      "heapUsedBytes": 16733432,
+      "rssBytes": 113147904
+    },
+    {
+      "cycles": 300,
+      "entries": 0,
+      "subscribers": 0,
+      "transports": 0,
+      "resultCacheEntries": 0,
+      "listenerBalance": 0,
+      "heapUsedBytes": 20562184,
+      "rssBytes": 115195904
+    },
+    {
+      "cycles": 400,
+      "entries": 0,
+      "subscribers": 0,
+      "transports": 0,
+      "resultCacheEntries": 0,
+      "listenerBalance": 0,
+      "heapUsedBytes": 18000776,
+      "rssBytes": 117141504
+    },
+    {
+      "cycles": 500,
+      "entries": 0,
+      "subscribers": 0,
+      "transports": 0,
+      "resultCacheEntries": 0,
+      "listenerBalance": 0,
+      "heapUsedBytes": 16486232,
+      "rssBytes": 101896192
+    },
+    {
+      "cycles": 600,
+      "entries": 0,
+      "subscribers": 0,
+      "transports": 0,
+      "resultCacheEntries": 0,
+      "listenerBalance": 0,
+      "heapUsedBytes": 16576768,
+      "rssBytes": 102043648
+    },
+    {
+      "cycles": 700,
+      "entries": 0,
+      "subscribers": 0,
+      "transports": 0,
+      "resultCacheEntries": 0,
+      "listenerBalance": 0,
+      "heapUsedBytes": 16257576,
+      "rssBytes": 102117376
+    },
+    {
+      "cycles": 800,
+      "entries": 0,
+      "subscribers": 0,
+      "transports": 0,
+      "resultCacheEntries": 0,
+      "listenerBalance": 0,
+      "heapUsedBytes": 16746080,
+      "rssBytes": 102141952
+    },
+    {
+      "cycles": 900,
+      "entries": 0,
+      "subscribers": 0,
+      "transports": 0,
+      "resultCacheEntries": 0,
+      "listenerBalance": 0,
+      "heapUsedBytes": 17226288,
+      "rssBytes": 101543936
+    },
+    {
+      "cycles": 1000,
+      "entries": 0,
+      "subscribers": 0,
+      "transports": 0,
+      "resultCacheEntries": 0,
+      "listenerBalance": 0,
+      "heapUsedBytes": 16940360,
+      "rssBytes": 101847040
+    }
+  ],
+  "limitations": "Synthetic 1ms transport, not a browser long-session memory measurement. Heap/RSS include GC and module runtime; zero entries/listeners prove bookkeeping cleanup, not production memory slope."
+}
