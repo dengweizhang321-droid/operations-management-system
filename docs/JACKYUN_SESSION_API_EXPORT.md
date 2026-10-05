@@ -47,6 +47,8 @@
 
 续跑的失败节点序列兼容两种完整入口：旧版“触发器 → 领取共享 helper → 判断 → A → B”，以及已发布协调版在触发器与领取之间加入唯一“固定原执行计划时间”的完整序列。保存全部实际节点，不裁掉计划锚点来伪装旧执行；缺少领取、锚点错位/重复、未知节点或已进入 C/D/E 仍拒绝。此兼容须采用对应 helper 后生效，不改变原任务、文件落地、日期和单消费者门槛。
 
+2026-10-05，该兼容已按本轮批准采用 Worker/helper manifest `10c9153e`。原 6165 的唯一库存任务在完整手动 6225 中复用，五表导入/精确批次独立回查成功；销售截止 10 月 4 日、throughYesterday=true，库存/库龄标记实际 10 月 5 日快照，旧 error 与来源提示保留。详见 [本次正式采用及补数记录](JACKYUN_OCT4_RECOVERY_PRODUCTION_20261005.md)。此结果不授予其他失败或未来新日期恢复权限。
+
 API 登录安全验证和专用浏览器端口占用属于另一类“导出前零业务效果”闭合，不使用任务续跑许可。`tools/jackyun-preflight-recovery.ts` 只在原计划为 `session_api_v1`、`exports` 为空且不存在 `exportIntent`，n8n 精确停在 B 节点，并且浏览器事件、导入运行、验证结果和下载目录四条业务效果路径全部不存在时，允许 create-only 闭合。可接受的错误只有精确 `challenge_present` 和“专用浏览器端口已占用，自动任务不会接管已打开的浏览器”；原计划、原 active 指针和 n8n 失败历史均保留，只有后续新的完整 execution 可以推进 active。
 
 `api-controller-state.json` 与历史浏览器 controller 分离。交接仍使用现有 importer 的 schema 2：`navigationIntentAt/tableStableAt` 是兼容字段，分别对应接口预检开始和接口数量查询完成；`evidence.controller=authenticated_http_api` 及显式 API 时刻字段标明来源，不能解释为实际发生了页面导航或表格渲染。
