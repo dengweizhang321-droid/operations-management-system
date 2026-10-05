@@ -1,10 +1,9 @@
 /* Synthetic UI checks only. This script never queries a business API or PostgreSQL. */
-(async () => {
-const { default: assert } = await import('node:assert/strict');
-const { default: fs } = await import('node:fs');
-const { default: path } = await import('node:path');
-const { default: crypto } = await import('node:crypto');
-const { chromium } = await import('playwright-core');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { chromium } = require('playwright-core');
 const demoRoot = path.resolve(__dirname, '../../../app/netshop/comparison/demo');
 
 const url = new URL(process.argv[2] || 'http://127.0.0.1:3170/');
@@ -17,6 +16,7 @@ const errors = [];
 const requests = [];
 const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(demoRoot, f))).digest('hex');
 
+(async () => {
   const browser = await chromium.launch({headless: true, ...(process.env.COMPARISON_CHROME ? {executablePath: process.env.COMPARISON_CHROME} : {})});
   const page = await browser.newPage({viewport: {width: 1440, height: 1080}, locale: 'zh-CN', timezoneId: 'Asia/Shanghai'});
   page.on('pageerror', e => errors.push(e.message));

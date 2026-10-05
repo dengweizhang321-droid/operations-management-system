@@ -1,25 +1,5 @@
 # TERUISI 运营管理系统协作规范
 
-2026-10-05，按“补充4号数据”及本轮明确批准，吉客云原任务恢复节点顺序兼容已采用。源码 `c2adc4ca` / main `b1a62741`，原已采用源上仅追加三文件组合 `7ced503b`；实际 Worker/helper `20261004T203845Z-d5c7953e916f69ec` / manifest `10c9153e`，Django `e4f48e98` / 139保持。原 Worker-only Stop/apply/Start 实际控制器均 exit0；Start 先采集直接控制器退出，业务子进程持有流导致 outputCopyCompleted=false，不冒退出码未知，不杀业务服务。12Ready、启动绑定、17assets、26 原后端/PG/n8n 身份及两轮自然看门狗已完成0通过。原 6165 库存任务 `sys-115251725` 在完整 manual6225 于08:59–09:04复用，五表文件/交接/精确批次/事实归属/成本源独立通过；货品8530、库存24281、库龄5663、销售38236、组合装4454行（duplicate复用）。销售8月21日至10月4日、revision `45:43`、throughYesterday=true，库存/库龄为10月5日实际快照；6/106/2 来源提示与原6165 error保留。前后备份Verify/E独立恢复通过，原三份/两保护策略淘汰本轮未保护前备份，仅恢复证据保留。无Django重部署、迁移、回填、扩权或n8n定义/重启；仅本次恢复及补数，见 `docs/JACKYUN_OCT4_RECOVERY_PRODUCTION_20261005.md`，不授予未来维护、新日期补跑、一般503重试或未知提交重放。
-
-2026-10-05，吉客云5478原文件续导已按本次明确批准采用。源码 `5b219fee` / main `2d405969`，原Worker87源上七文件组合 `a7804b9c`；实际Worker/helper `20261004T154501Z-5a6e049ba6ecd7fe` / manifest `02fe0954`，Django `e4f48e98` / 139保持。原Worker-only Stop/apply exit0，Start控制器已完成但退出码未采集；仅精确结束留尾的本任务采集外壳，独立12Ready、启动绑定、17assets及26原后端/PG/n8n进程身份一致通过。原n8n完整manual6129于01:21–01:23 success，原5478计划completed、旧error和失败归档保留；原三表不重导，销售38549行、组合装4454行duplicate复用，五表原文件/交接/精确批次/事实归属/成本源独立通过。库存/库龄仍10月3日，销售8月19日至10月2日、revision `44:42`、throughYesterday=false，6/108/2提示保留；不冒今日同步或成本问题已修复。前后备份Verify/E独立恢复通过，原三份/两保护策略已淘汰本轮未保护前备份，不能再引用前备份目录为现存恢复点；两份恢复证据保留。无Django重部署、迁移、回填、扩权、n8n定义/重启或新导出。仅此一次精确续导，见 `docs/JACKYUN_5478_PRODUCTION_20261005.md`；不授予未来维护、一般503重试或新日期补跑。
-
-2026-10-04，用户本轮批准后，京东首屏查询子 CLI 源码 `72cd332b` 已按原 Worker-only Stop/Start 采用，三文件摘要与审查候选一致；Worker/helper 仍87、Django仍e4/139，无不可变包替换、迁移或 n8n 定义变化。暂停期间机器重启中断的原后备份精确核验后保留失败收尾；新 E 盘备份/Verify及原三份两保护通过。原完整恢复6087（9月30日）/6090（10月1–2日）均success，四店SKU/SPU八组目标三日权威覆盖零缺口，24步骤精确批次及文件/重复内容核验通过，设备店旧三步骤保留；准确对应旧等待6069单条停止，其他调度保持。详见 `docs/JD_QUERY_SOURCE_ADOPTION_20261004.md`。此结论仅覆盖四店目标日期，不授予未来维护或补跑，也不冒其他工作流恢复。
-
-2026-10-04，全部店铺元数据读取优化已按本次明确批准采用。Django manifest `e4f48e98` / source `5686f277`，Worker87/139保持；原KeepPostgres133cf维护、前后Backup/Verify/E独立恢复及295表/49roles/profile/evidence严格相等通过。实际12Ready/启动绑定/17assets/Django守护healthy，三截图原范围目录/推广/新总览200、完整DTO独立解码；原月单店S200/六源/八章/alerts0仅UI资格，body采集缺失。原Start stdout started但ExitCode采集null，控制器退出码未知；独立看门狗旧23:51检查在途，未冒两轮自然验收。业务缺源/缺字段保留，不新增迁移/回填、扩权预算或业务补跑。见 `docs/netshop-refactor/execution/20261004-all-shops-production.md`；本记录不授予未来维护或修复许可。
-
-2026-10-03，用户已明确批准全景财务兼容e3a/318后继的追加应用维护。Root原KeepPostgres维护 `d57d8472603b4c509fa0f3ec5caf85e9` 已完整排空并停止应用、保留PG/n8n，前后备份/独立恢复、318原Deploy/Harden及全部295表/49角色/profile/evidence一致已通过；原Exit/Worker Start exit0、12Ready、启动绑定及17资产通过，应用已恢复Django318/Worker87/139。原同月/同店SPU全景已真实200、六源可信与八章渲染，无alerts；O/P/A/C/目录/旧01/ERP原范围资格继承，缺源继续保留。**不把一次真实范围通过冒任意范围/P95，不重复139迁移/缓存回填。** 实际状态见 `docs/netshop-refactor/execution/20261003-finance-edge-production.md`；下方等待批准是历史阶段，本记录不授予本轮之外的操作。
-
-以下同日较早记录为历史阶段；当前状态以上述首条与本次生产执行记录为准。
-
-2026-10-03，139维护已完成并恢复，真实原月范围O/P/A/C/目录及旧01/ERP通过，但全景财务来源403仍阻断六源验收。最小签名保留身份兼容源码 `a129ea00` 经作者/非作者各14项私有PG验证，已合main `bd96029b`；原successor Prepare `e3a80ecf` / candidate manifest `3184134a` 绑定当前running6b，仅准备、尚未采用。生产仍Django6b/Worker87/139；新候选不重复迁移/回填，不建用户/改权限或预算。累计21树安全清理，下一窗口具体材料见 `docs/netshop-refactor/execution/20261003-finance-edge-candidate.md`；不得把源码合并或Prepared当作全景生产恢复或未来维护许可。
-
-2026-10-03，本轮新增139迁移/派生缓存回填已按用户明确“批准”采用：源码 `f9dccf04`，Django manifest `6b1312c4` / op `f839551d`，唯一0004安装，1232499缓存及1999139行原业务列/三态独立验证通过。前后备份独立恢复、Finalize、Exit/Start已完成，应用恢复12组件Ready/exact_release；原VerifyStartup、守护healthy、自然10:19/10:22任务exit0及渠道connected通过。PG/n8n原身份保留。实际原用户月范围五栏独立验收仍在途，不把结构Ready冒业务全面通过。外层Start采集管道尾挂经独立核验只关闭精确外壳，业务身份保持，原Start退出码未取得。见 `docs/netshop-refactor/execution/20261003-presence-production.md`；下方等待批准/生产138/应用未恢复均为历史阶段，不授予未来生产操作。
-
-2026-10-03，JD推广presence修复源码 `3dba3b66` 已经非作者复核、正常合main `978a6322`及远端核验；实际Prepare `76b7deb901b44492b767ae50673557bb` / receipt `2d11452c` / manifest `1b4472b5`绑定running76f，独立Prepared PASS。它含精确138→139/五内部nullable派生字段与原修订guard下的显式回填；**没有新增生产维护、迁移或回填授权，没有采用**。正式仍76f/87/138、原月范围新五栏503未闭合。原SQL7/RPC8/65秒/2MiB、角色权限/0082无新密钥保护不放宽，Finalize先于Exit/Start。累计20树安全清理，当前发布来源/包/依赖/证据与不满足清理条件的历史树保留。见 `docs/netshop-refactor/execution/20261003-presence-cache-ready.md`；本记录不授予新生产操作。
-
-2026-10-03，方案二本机实际 Worker/helper `20261001T164608Z-4dc26d0ae8921e88` / manifest `87f5e879ca2bb3d797886c859c7452d4a72fffdb8e9ff777cd839d039db368e9`；Django组合源码 `21d79ab1` / manifest `76f7857203e780758fb2393b10ae735a0e46ba8aaa2dbf3fba32654a2c3a3179` 已按本轮许可原KeepPostgres流程采用，SQL7秒/RPC8秒/整体65秒/2MiB保持。原5413历史error未改，Root无强清槽/故障重启/业务补跑。12组件及运行绑定通过，但真实原用户五新栏目9月1—29日仍503：O七日promotion原始聚合、共享字段覆盖存在SQL超时，不能称生产五栏验收完成；旧总览及ERP入口200。独立源码PG47/47与真实生产结果分开报告。新显式启动/业务就绪工具经两项负例修复及非作者复核合main，不接每分钟看门狗或自动重启。采用、备份现存状态及限制见 `docs/netshop-refactor/execution/20261003-combined-sql-production.md`；本记录不授予未来维护、迁移、扩权或补跑。
-
 2026-09-29，手动完整补跑统计已按本轮上线授权采用。核心源码 `34caa914`，实际页面验收补齐旧说明 `0e96f617`；最终 Worker/helper `20260929T100854Z-25db306d29baf4ee`、manifest `cb9ef902f969d3de3c0ed154653986680ca8c49478e1df869932d88886336d55`，Django manifest `52b13c8cf8c580fb6bcef2c3b17c187a0b6aee3811b5df1e1aa0622f16fb19e1`。manual success 须核验同一原工作流手动入口及所有业务阶段、顺序/时间和成功状态，排除局部执行、固定测试数据与证据不完整；不得简单把任意编辑器 success 纳入完成。正式接口和页面四店共用 #5392、15:59 已完成通过；12 组件、启动绑定、资源与钉钉连接、前备份独立恢复、后备份 Verify、E 三份两保护及未决零通过。138 迁移和 18 条 n8n 定义不变，无真实业务补跑。后备份按原保留策略自动淘汰未保护的本轮前备份，不能再引用其目录作现存恢复点。两轮运维探针未完成后自然恢复，原样本保留、不声称底层原因已修复。见 `docs/evidence/manual-import-status-production-20260929.json`；不授予未来维护或补跑授权。
 
 
@@ -331,8 +311,6 @@
 - 2026-09-06，本机 D1 控制链脱钩已正式采用，effective release 为 `20260906T035823Z-fceee410b71f79b0`，manifest SHA 为 `ab44b00f096534c97651108c4bb75ea6d9343eb1d6d66f3f96a3b043dd3ea492`，全局退役 proof SHA 为 `24503a096bb6649b4d4f0988ccfaab9924100232129daa13f70edf78e1f22c52`。首次采用只读复验 12 个终态单元、23 个 PostgreSQL 服务 readiness 和既有保留证据；日常启动、自动子进程恢复及后续 successor 发布继承同一不可变证明，不再打开历史 D1。Django v5 的历史 D1 路径仅为元数据，v6 可不配置该路径；显式历史 operator 仍严格检查来源。无 D1 镜像、真实子进程恢复、正式启动项和 API 回读均通过，旧 release 拒绝启动。不得跳过 guard、把 completed 写死、删改历史 manifest/authority，或恢复 D1/legacy/fallback/双写。历史 D1 及审计材料保留，物理销毁和远程部署不在本次范围。实现、备份恢复与正式证据见 `docs/GLOBAL_D1_CONTROL_RETIREMENT.md`；`docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md` 仅描述采用前的核查。
 
 ## 9. API、前端与性能要求
-
-- 商品经营总览的分区必须同时绑定完整查询scope和来源snapshot；snapshot只证明来源版本，不能替代日期/筛选身份。initial-page的完整full退化可内联全量指标，避免公共结果超容量/不可缓存时两个区域重复扫描。复用完整基行后仍从授权完整集合筛选、排序和重算指标；浏览器测量须把旧内容可用与本次新内容提交/绘制分开，不将一次样本称稳定P95。具体协议与限制见 `docs/PRODUCT_OVERVIEW_SPEED_PILOT_20261005.md`。
 
 - API 响应默认 `no-store`，除非实现了显式版本指纹、失效策略和并发复用的持久缓存。缓存不能绕过身份、scope 或数据新鲜度。
 - 列表和搜索在服务端筛选、分页并设置硬上限，同时返回 `total/returned/truncated` 等必要元数据；不得把数万行完整数据发到浏览器再筛选。

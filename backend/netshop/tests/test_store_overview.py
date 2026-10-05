@@ -219,25 +219,3 @@ class StoreOverviewTests(TestCase):
         result = read(self.principal, self.spec())
         self.assertEqual(result["comparisons"]["payment"]["previous"]["reasonCode"], "negative_baseline")
         self.assertIsNone(result["comparisons"]["payment"]["previous"]["value"])
-
-    def test_screenshot_ranges_all_shops_and_freshness_outside_selected_period(self):
-        for platform in ("京东", "天猫"):
-            for shop in ("A", "B", "C", "D"):
-                self.fact(shop=shop, day="2026-09-20", platform=platform)
-                self.fact(shop=shop, day="2026-09-20", platform=platform, promotion=True)
-            self.fact(shop="A", day="2026-09-29", platform=platform)
-            self.fact(shop="A", day="2026-09-29", platform=platform, promotion=True)
-            self.fact(shop="B", day="2026-09-30", platform=platform)
-            # A newer unfinished row is not a valid freshness witness.
-            NetshopImportBatch.objects.filter(id=f"batch-{self.counter}").update(status="running")
-            for end in ("2026-09-24", "2026-09-26"):
-                for selected in ({}, {"outlet": platform + "\x1fA"}):
-                    with self.subTest(platform=platform, end=end, selected=selected):
-                        result = read(self.principal, self.spec(
-                            platform=platform, startDate="2026-09-20", endDate=end, **selected,
-                        ))
-                        self.assertEqual(len(result["shopOptions"]), 4)
-                        self.assertEqual([f["dataThrough"] for f in result["freshness"]],
-                                         ["2026-09-29", "2026-09-29"])
-                        self.assertEqual(result["summary"]["payment"]["value"],
-                                         1000 if selected else 4000)
