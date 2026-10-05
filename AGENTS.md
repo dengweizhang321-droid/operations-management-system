@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+2026-10-06，用户明确“正式上线”后，五项性能组合来源 `2f46e1a9` 已按原KeepPostgres维护采用：Worker/helper `20261005T185310Z-463d585110456a95` / manifest `d67a7cdd`，Django Prepared `5cdf848d` / manifest `c51eba5a`，139迁移保持。原Enter/Deploy/Harden/apply/Exit/Start真实控制器均exit0；12Ready、启动绑定、17字节资产、四固定范围完整业务摘要一致与分区DTO契约通过。前后Backup/Verify/E隔离恢复通过，完整元数据已在淘汰前保全；停稳基线→后备份295表/49roles/catalog/sequence/全部证据严格相等。在线前备份→停稳仅市场回执表+38行，区间变化不自动归因。原3份/2保护已淘汰前dump，不能称前点现存。PG/n8n身份保持，两轮完成自然任务0/新守护healthy通过；维护周报6481/6488失败、6489自然success，未重放。详情及性能限定见 `docs/PERFORMANCE_FIVE_PRODUCTION_20261006.md`。主线另含BI/ERP140候选后继，本轮未采用；main文档SHA不等于正式构建来源，不重用已消费plan/Prepared或共享固定源。仅本次采用，不授予未来维护、迁移/回填、扩权/调度、业务补跑或外部消息。
+
 2026-10-06，五项性能并行分支已在 `codex/performance-integration-20261006` 完整组合并验证，来源与范围见 `docs/performance/integration/REPORT.md`。库存局部重试取消共享控制器时须补读未就绪兄弟区域；市场未取得完整身份、权限与来源版本见证时保留独立读取，不使用展示布尔或常量启用客户端数据缓存/共享。新认证对象包须隔离市场全部本地成功区域。四板块意图预载仅载代码、最多两项在途；业务读取仍沿各域原权限/快照/预算。组合回归和候选准备不能冒所有冷范围、比较口径、生产 P95 或正式采用通过；本记录不授予生产维护、部署、迁移、回填或业务操作。
 
 2026-10-05，商品经营总览速度试点已按本次“上线受控应用维护”采用Django cb6/f007/manifest426b与Worker b334/release20261005T063949Z-62c5bbb1bc2901ab/manifestd2b5。原KeepPostgres、准确Deploy/apply、原Exit/Start重试成功；12Ready、绑定、17资产、固定9月full独立深等价、两轮完成自然看门狗0通过，PG/n8n身份保持、139迁移保持。前后各自Backup/Verify/私有恢复通过，原三份两保护淘汰前备份；前后全库content不同且前完整逐表元数据未保全，**全库比较证据缺口保留**，不宣称全部295表49roles前后相等或归因未知变化。首轮锁拒绝/外壳0和初期看门狗失败样本保留。暖范围受益，首次API2.36秒仍未完全达标；未推广全站，无新迁移/回填/扩权/业务补跑/n8n定义或重启，见 `docs/PRODUCT_OVERVIEW_SPEED_PRODUCTION_20261005.md`。不授予未来维护或补跑。今后原保留淘汰前须先保全完整比较元数据。

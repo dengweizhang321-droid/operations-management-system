@@ -1,0 +1,241 @@
+{
+  "schema": "teruisi-five-performance-production-v1",
+  "status": "adopted_and_validated_with_disclosed_performance_and_data_limits",
+  "checkedAtUtc": "2026-10-05T22:09:08.546218+00:00",
+  "sourceCommit": "2f46e1a998264a15ed514165942c5ecccd4fc044",
+  "worker": {
+    "releaseId": "20261005T185310Z-463d585110456a95",
+    "manifestSha256": "d67a7cdddae2c0c9ca448e30e538699e584635c7bff02d9fd54fed7e9829c361",
+    "planSha256": "a82cca1d598bdadd2e11a8f295df2b1c300d2bff87e46b80eee0b9baffaea698"
+  },
+  "django": {
+    "preparedId": "5cdf848db1a64ccaa17044c91e59b1d4",
+    "manifestSha256": "c51eba5ae0b59e77793a77af51278c19b470c870c5da1adfea866e5c869a6ec5",
+    "installedMigrationCount": 139
+  },
+  "maintenanceId": "c4ad24a5d23c4907807c6c1706bfeeb1",
+  "operations": [
+    {
+      "name": "pre-backup",
+      "controllerPid": 55912,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T20:32:33.401011+00:00",
+      "finishedAtUtc": "2026-10-05T20:43:08.289214+00:00"
+    },
+    {
+      "name": "pre-verify",
+      "controllerPid": 37728,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T20:46:45.455711+00:00",
+      "finishedAtUtc": "2026-10-05T20:46:47.915654+00:00"
+    },
+    {
+      "name": "pre-restore-bound",
+      "controllerPid": 35928,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T20:51:19.048972+00:00",
+      "finishedAtUtc": "2026-10-05T21:01:35.837600+00:00"
+    },
+    {
+      "name": "enter-maintenance",
+      "controllerPid": 47900,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:08:07.306594+00:00",
+      "finishedAtUtc": "2026-10-05T21:11:25.730639+00:00"
+    },
+    {
+      "name": "frozen-content",
+      "controllerPid": 29676,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:11:33.085349+00:00",
+      "finishedAtUtc": "2026-10-05T21:15:35.732487+00:00"
+    },
+    {
+      "name": "deploy-django",
+      "controllerPid": 22324,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:15:52.746094+00:00",
+      "finishedAtUtc": "2026-10-05T21:17:04.761358+00:00"
+    },
+    {
+      "name": "harden-django",
+      "controllerPid": 13284,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:17:34.400245+00:00",
+      "finishedAtUtc": "2026-10-05T21:18:00.257355+00:00"
+    },
+    {
+      "name": "apply-worker",
+      "controllerPid": 50160,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:18:06.939361+00:00",
+      "finishedAtUtc": "2026-10-05T21:20:43.352969+00:00"
+    },
+    {
+      "name": "post-backup",
+      "controllerPid": 24816,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:21:31.603388+00:00",
+      "finishedAtUtc": "2026-10-05T21:30:48.096815+00:00"
+    },
+    {
+      "name": "post-verify",
+      "controllerPid": 45532,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:31:10.804869+00:00",
+      "finishedAtUtc": "2026-10-05T21:31:12.969649+00:00"
+    },
+    {
+      "name": "post-restore",
+      "controllerPid": 45968,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:31:24.100706+00:00",
+      "finishedAtUtc": "2026-10-05T21:41:08.323664+00:00"
+    },
+    {
+      "name": "exit-maintenance",
+      "controllerPid": 30288,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:42:41.232591+00:00",
+      "finishedAtUtc": "2026-10-05T21:43:18.905632+00:00"
+    },
+    {
+      "name": "start-system",
+      "controllerPid": 4612,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:43:52.347434+00:00",
+      "finishedAtUtc": "2026-10-05T21:47:44.319094+00:00"
+    },
+    {
+      "name": "system-status",
+      "controllerPid": 30480,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:49:56.534799+00:00",
+      "finishedAtUtc": "2026-10-05T21:50:26.889776+00:00"
+    },
+    {
+      "name": "verify-startup",
+      "controllerPid": 30716,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:51:10.192339+00:00",
+      "finishedAtUtc": "2026-10-05T21:51:14.518277+00:00"
+    },
+    {
+      "name": "backup-status",
+      "controllerPid": 54192,
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-05T21:52:03.943045+00:00",
+      "finishedAtUtc": "2026-10-05T21:52:12.896804+00:00"
+    }
+  ],
+  "frozenToPostComparison": {
+    "contentEqual": true,
+    "profileEqual": true,
+    "tableCountBefore": 295,
+    "tableCountAfter": 295,
+    "changedTables": [],
+    "rolesEqual": true,
+    "roleCount": 49,
+    "catalogEqual": true,
+    "migrationsEqual": true,
+    "sequenceLowerBoundsEqual": true,
+    "changedDomainEvidence": []
+  },
+  "onlinePreToFrozenChangedTables": [
+    "market_write_request_receipts"
+  ],
+  "businessComparison": [
+    {
+      "domain": "sales",
+      "status": 200,
+      "equal": true,
+      "allPriorBusinessFieldsEqual": true,
+      "addedTopLevelKeys": []
+    },
+    {
+      "domain": "inventory",
+      "status": 200,
+      "equal": true,
+      "allPriorBusinessFieldsEqual": true,
+      "addedTopLevelKeys": []
+    },
+    {
+      "domain": "products",
+      "status": 200,
+      "equal": true,
+      "allPriorBusinessFieldsEqual": true,
+      "addedTopLevelKeys": [
+        "salesSourceRevision"
+      ]
+    },
+    {
+      "domain": "market",
+      "status": 200,
+      "equal": true,
+      "allPriorBusinessFieldsEqual": true,
+      "addedTopLevelKeys": []
+    }
+  ],
+  "regionAssertions": {
+    "salesTypedCoreFull": true,
+    "salesRevisionAndBusinessEqual": true,
+    "inventoryRegionIdentityAndMetricsEqual": true,
+    "productsTypedInitialOverviewPage": true,
+    "productsSnapshotAndSourceEqual": true
+  },
+  "ui": {
+    "primaryViews": 17,
+    "allReadOnlyViewsAndDetails": 31,
+    "get200ApiReads": 50,
+    "runtimeExceptions": 0,
+    "consoleErrorsAndWarnings": 0,
+    "jsonSha256": "8a7e3ab47e5378a252b2562ef176753e4306ae163813ac82f7fe50ec62bdee00"
+  },
+  "independentBackendReview": {
+    "status": "pass_for_assigned_production_backend_release_backup_and_operations_scope_ui_review_separate",
+    "sha256": "f8d342af23a5debdb88c63f39df145c613af292f21c46bf37532a94f3acb19ca"
+  },
+  "naturalWatchdog": [
+    {
+      "lastRunAtUtc": "2026-10-05T21:56:24.0000000Z",
+      "lastTaskResult": 0,
+      "snapshotAt": "2026-10-05T21:56:25.2848892+00:00",
+      "healthy": true
+    },
+    {
+      "lastRunAtUtc": "2026-10-05T21:58:24.0000000Z",
+      "lastTaskResult": 0,
+      "snapshotAt": "2026-10-05T21:58:25.3697785+00:00",
+      "healthy": true
+    }
+  ],
+  "preservedOriginalProcesses": [
+    {
+      "pid": 4080,
+      "name": "postgres.exe",
+      "createdAtUtc": "2026-10-04T14:26:47.0957370Z",
+      "equal": true
+    },
+    {
+      "pid": 18800,
+      "name": "node.exe",
+      "createdAtUtc": "2026-10-04T14:25:05.7875120Z",
+      "equal": true
+    }
+  ],
+  "retention": {
+    "recoveryPoints": 3,
+    "protectedRecoveryPoints": 2,
+    "preDumpPruned": true,
+    "preCompleteMetadataPreserved": true,
+    "postRestoreVerified": true
+  },
+  "bi140Adopted": false,
+  "productionP95Verified": false,
+  "allSpeedTargetsMet": false,
+  "evidenceRoot": "E:\\codex-artifacts\\five-performance-production-20261006",
+  "rawCustomerRowsSaved": false,
+  "businessReruns": false,
+  "newMigrationsOrBackfills": false,
+  "newPermissionsOrBudgets": false
+}
