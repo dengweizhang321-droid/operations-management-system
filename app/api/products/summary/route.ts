@@ -34,18 +34,18 @@ export async function GET(request: Request) {
       throw new ProductSummaryRequestError("view 参数不能重复");
     }
     const requestedView = requestedViews[0] ?? null;
-    if (requestedView !== null && requestedView !== "page") {
-      throw new ProductSummaryRequestError("view 必须是 page");
+    if (requestedView !== null && !["page", "initial-page", "overview"].includes(requestedView)) {
+      throw new ProductSummaryRequestError("view 必须是 page、initial-page 或 overview");
     }
     const requestedSnapshotTokens = searchParams.getAll("snapshotToken");
     if (requestedSnapshotTokens.length > 1) {
       throw new ProductSummaryRequestError("snapshotToken 参数不能重复");
     }
     const expectedSnapshotToken = requestedSnapshotTokens[0];
-    if (requestedView === "page" && !/^[a-f0-9]{64}$/.test(expectedSnapshotToken ?? "")) {
+    if ((requestedView === "page" || requestedView === "overview") && !/^[a-f0-9]{64}$/.test(expectedSnapshotToken ?? "")) {
       throw new ProductSummaryRequestError("page 视图必须使用完整汇总返回的有效数据版本");
     }
-    if (requestedView === null && expectedSnapshotToken !== undefined) {
+    if ((requestedView === null || requestedView === "initial-page") && expectedSnapshotToken !== undefined) {
       throw new ProductSummaryRequestError("完整汇总不接受 snapshotToken");
     }
     const requestedRange = searchParams.get("range");
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
       marginBands,
       sortBy: requestedSort === null ? undefined : requestedSort as typeof allowedSorts[number],
       direction: requestedDirection === null ? undefined : requestedDirection,
-      projection: requestedView === "page" ? "page" : "full",
+      projection: (requestedView ?? "full") as "full" | "page" | "initial-page" | "overview",
       expectedSnapshotToken,
       signal: request.signal,
     });

@@ -333,7 +333,7 @@ def validate_consumer_request(payload: dict[str, object]) -> dict[str, object]:
         "inventory_inbound_windows": {"operation", "asOfDate", "productCodes", "limit"},
         "product_performance": {
             "operation", "startDate", "endDate", "platforms", "outlets",
-            "productCodes", "limit",
+            "productCodes", "limit", "includeBounds",
         },
         "customer_service_products": {"operation", "onlineSpecCodes", "categories", "limit"},
         "netshop_product_metrics": {
@@ -399,6 +399,10 @@ def validate_consumer_request(payload: dict[str, object]) -> dict[str, object]:
         normalized["limit"] = _integer(payload, "limit", default=10_000, maximum=10_000)
         return normalized
     if operation == "product_performance":
+        include_bounds = payload.get("includeBounds", True)
+        if not isinstance(include_bounds, bool):
+            raise SalesRequestError("includeBounds 必须是布尔值")
+        normalized["includeBounds"] = include_bounds
         normalized["startDate"], normalized["endDate"] = _exclusive_range(
             payload, required=True
         )
@@ -767,7 +771,7 @@ def _product_performance(principal: Principal, request: dict[str, object]) -> di
         selected = selected.filter(_outlet_filter(request["outlets"]))
     if request["productCodes"]:
         selected = selected.filter(product_code__in=request["productCodes"])
-    data_start, data_cutoff = _bounds(selected)
+    data_start, data_cutoff = _bounds(selected) if request.get("includeBounds", True) else (None, None)
     facts = selected.filter(
         business_date__gte=request["startDate"], business_date__lt=request["endDate"]
     )
@@ -881,8 +885,8 @@ def _product_performance(principal: Principal, request: dict[str, object]) -> di
         outlet_options = outlet_options[:500]
 
     return {
-        "dataStartDate": data_start,
-        "dataCutoffDate": data_cutoff,
+        **({"dataStartDate": data_start, "dataCutoffDate": data_cutoff}
+           if request.get("includeBounds", True) else {}),
         "latestBatch": _latest_batch(principal),
         "rows": [
             {

@@ -3336,3 +3336,9 @@ body { font-size: var(--font-size-body); line-height: var(--line-height-body); }
 .overview-view-switch button:first-child { border-radius:6px 0 0 6px; }
 .overview-view-switch button:last-child { border-radius:0 6px 6px 0; }
 .overview-view-switch button[aria-pressed=true] { background:var(--color-brand); color:white; }
+/* 商品经营试点：预留分区空间，依赖筛选就绪前保留入口。 */
+.product-dependent-filters { display: flex; gap: 10px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.product-dependent-filters legend { font-size: 12px; color: var(--color-text-muted, #64748b); }
+.product-list-region { min-height: 320px; }
+.product-list-progress { font-size: 13px; color: var(--color-text-muted, #64748b); min-height: 20px; }
+.product-margin-kpi:disabled { cursor: default; opacity: .8; }

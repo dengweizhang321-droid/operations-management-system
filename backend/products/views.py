@@ -184,8 +184,8 @@ def summary(request: HttpRequest) -> JsonResponse:
         if any(key not in allowed for key in request.GET):
             raise ProductsApiError("商品汇总包含未知查询参数")
         view = _one(request, "view")
-        if view not in {None, "page"}:
-            raise ProductsApiError("view 必须是 page")
+        if view not in {None, "page", "initial-page", "overview"}:
+            raise ProductsApiError("view 必须是 page、initial-page 或 overview")
         options: dict[str, object] = {
             "platforms": request.GET.getlist("platform"),
             "shopKeys": request.GET.getlist("shop"),
@@ -194,7 +194,7 @@ def summary(request: HttpRequest) -> JsonResponse:
             "query": _one(request, "q") or "",
             "categories": request.GET.getlist("category"),
             "marginBands": request.GET.getlist("marginBand"),
-            "projection": "page" if view == "page" else "full",
+            "projection": view or "full",
         }
         for query_name, option_name in {
             "range": "range", "startDate": "startDate", "endDate": "endDate",
