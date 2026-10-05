@@ -162,6 +162,16 @@ type MarketOverviewSharedRequest = {
 const MARKET_OVERVIEW_RECENT_PREFETCH_MS = 5_000;
 const marketOverviewClientCache = new Map<string, MarketOverviewClientCacheEntry>();
 const marketOverviewRequests = new Map<string, MarketOverviewSharedRequest>();
+export type MarketReadContext = {
+  identityKey: string;
+  permissionFingerprint: string;
+  sourceRevision: string;
+};
+function scopedMarketReadKey(requestKey: string, context?: MarketReadContext | null): string | null {
+  if (!context || ![context.identityKey, context.permissionFingerprint, context.sourceRevision]
+    .every(value => typeof value === "string" && value.trim().length > 0 && value.length <= 512)) return null;
+  return JSON.stringify([context.identityKey, context.permissionFingerprint, context.sourceRevision, requestKey]);
+}
 
 function defaultMarketRankingParams(startDate: string, endDate: string) {
   const params = new URLSearchParams();
@@ -175,7 +185,10 @@ function defaultMarketRankingParams(startDate: string, endDate: string) {
   return params;
 }
 
-function cachedMarketOverview(requestKey: string, maximumAgeMs = MARKET_OVERVIEW_RECENT_PREFETCH_MS) {
+function cachedMarketOverview(requestKey: string, maximumAgeMs = MARKET_OVERVIEW_RECENT_PREFETCH_MS, context?: MarketReadContext | null) {
+  const scopedKey = scopedMarketReadKey(requestKey, context);
+  if (!scopedKey) return null;
+  requestKey = scopedKey;
   const cached = marketOverviewClientCache.get(requestKey);
   if (!cached) return null;
   const ageMs = Date.now() - cached.storedAt;
@@ -227,44 +240,49 @@ function subscribeMarketOverview(request: MarketOverviewSharedRequest, signal?: 
   });
 }
 
-export async function requestMarketOverview(requestKey: string, signal?: AbortSignal, maximumCacheAgeMs = 0) {
+export async function requestMarketOverview(requestKey: string, signal?: AbortSignal, maximumCacheAgeMs = 0, context?: MarketReadContext | null) {
   if (signal?.aborted) throw marketOverviewAbortError();
+  const scopedKey = scopedMarketReadKey(requestKey, context);
+  // The shell exposes a restricted/not-restricted flag, not a full permission
+  // fingerprint or a live source version. Such reads must remain independent.
+  if (!scopedKey) return readMarketJson<MarketOverview>(`/api/market/overview?${requestKey}`, signal);
   if (maximumCacheAgeMs > 0) {
-    const cached = cachedMarketOverview(requestKey, maximumCacheAgeMs);
+    const cached = cachedMarketOverview(requestKey, maximumCacheAgeMs, context);
     if (cached) return cached;
   }
-  let request = marketOverviewRequests.get(requestKey);
+  let request = marketOverviewRequests.get(scopedKey);
   if (request?.controller.signal.aborted) {
-    if (marketOverviewRequests.get(requestKey) === request) marketOverviewRequests.delete(requestKey);
+    if (marketOverviewRequests.get(scopedKey) === request) marketOverviewRequests.delete(scopedKey);
     request = undefined;
   }
   if (!request) {
     const controller = new AbortController();
     const task = (async () => {
       const payload = await readMarketJson<MarketOverview>(`/api/market/overview?${requestKey}`, controller.signal);
-      rememberMarketOverview(requestKey, payload);
+      rememberMarketOverview(scopedKey, payload);
       return payload;
     })();
     request = { controller, promise: task, subscribers: 0, settled: false };
     const ownedRequest = request;
-    marketOverviewRequests.set(requestKey, ownedRequest);
+    marketOverviewRequests.set(scopedKey, ownedRequest);
     task.then(
       () => {
         ownedRequest.settled = true;
-        if (marketOverviewRequests.get(requestKey) === ownedRequest) marketOverviewRequests.delete(requestKey);
+        if (marketOverviewRequests.get(scopedKey) === ownedRequest) marketOverviewRequests.delete(scopedKey);
       },
       () => {
         ownedRequest.settled = true;
-        if (marketOverviewRequests.get(requestKey) === ownedRequest) marketOverviewRequests.delete(requestKey);
+        if (marketOverviewRequests.get(scopedKey) === ownedRequest) marketOverviewRequests.delete(scopedKey);
       },
     );
   }
   return await subscribeMarketOverview(request, signal);
 }
 
-export async function prefetchMarketRankingOverview(startDate: string, endDate: string, signal?: AbortSignal) {
+export async function prefetchMarketRankingOverview(startDate: string, endDate: string, signal?: AbortSignal, context?: MarketReadContext | null) {
   const requestKey = defaultMarketRankingParams(startDate, endDate).toString();
-  await requestMarketOverview(requestKey, signal, MARKET_OVERVIEW_RECENT_PREFETCH_MS);
+  if (!scopedMarketReadKey(requestKey, context)) return;
+  await requestMarketOverview(requestKey, signal, MARKET_OVERVIEW_RECENT_PREFETCH_MS, context);
 }
 type TrendPayload = { items: Array<Record<string, string | number | null>>; totalMonths: number; truncated: boolean; error?: string };
 type ComparePayload = {

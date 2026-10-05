@@ -46,6 +46,7 @@ function Lab(){const[tab,setTab]=useState('overview'),[open,setOpen]=useState(fa
 
 const tabs = [['overview','库存总览'], ['age','库龄分析'], ['plan','备货计划'], ['stale','滞销清理'], ['inbound','京东入仓监控'], ['guangdong','广东入仓监控']].filter(([key])=>!process.env.INVENTORY_UI_ONLY_TAB||process.env.INVENTORY_UI_ONLY_TAB.split(',').includes(key));
 let sequence = 0, failNext = false, failSection = '', failBothQuery = '', emptyNext = false, snapshot = '2026-10-05';
+let retryRace = null;
 const requests = [], measures = [], checks = [], failures = [];
 const endpointFixture = (url) => url.pathname.endsWith('/overview') ? (url.searchParams.get('view') === 'plan' ? 'plan' : 'overview') : url.pathname.endsWith('/age-analysis') ? 'age' : url.pathname.endsWith('/inbound-monitor') ? 'inbound' : 'guangdong';
 const cloned = value => JSON.parse(JSON.stringify(value));
@@ -114,10 +115,15 @@ try {
         }
         const url=new URL(target,'http://127.0.0.1');
         const id=++sequence, start=performance.now(), selectedSection=url.searchParams.get('section')||'';
-        const fail=(failBothQuery&&url.searchParams.get('q')===failBothQuery)||(failNext&&(!failSection||selectedSection===failSection));if(fail&&failNext){failNext=false;failSection='';}
-        const body=fail?{error:'隔离实验读取失败'}:answer(url,actor);
+        const race=retryRace?.query===url.searchParams.get('q')?retryRace:null;
+        const raceAttempt=race&&selectedSection?++race.calls[selectedSection]:0;
+        const heldSibling=race&&selectedSection!==race.failed&&raceAttempt===1;
+        const fail=(race&&selectedSection===race.failed&&raceAttempt===1)||(failBothQuery&&url.searchParams.get('q')===failBothQuery)||(failNext&&(!failSection||selectedSection===failSection));if(fail&&failNext){failNext=false;failSection='';}
+        let body=fail?{error:'隔离实验读取失败'}:answer(url,actor);
+        if(heldSibling){body=JSON.parse(JSON.stringify(body).replaceAll(`UI-${race.query}-`,`UI-STALE-${race.query}-`));body.readSnapshot='c'.repeat(64);}
         const delay=url.searchParams.get('q')==='LATE'||(url.searchParams.get('q')==='DETAILSLOW'&&selectedSection==='detail')||(url.searchParams.get('q')==='SUMMARYSLOW'&&selectedSection==='summary')?900:180;
-        await new Promise(r=>setTimeout(r,delay));
+        if(heldSibling)await new Promise(resolve=>{race.release=resolve;});
+        else await new Promise(r=>setTimeout(r,delay));
         requests.push({id,implementation:impl,path:url.pathname,query:url.search,ms:performance.now()-start,status:fail?503:200,bytes:Buffer.byteLength(JSON.stringify(body)),ignoredAbort:true});
         return {status:fail?503:200,body};
       });
@@ -196,8 +202,27 @@ try {
           await page.getByLabel('库存公共货品搜索').fill('SUMMARYSLOW');await page.getByText('UI-SUMMARYSLOW-P1',{exact:false}).first().waitFor();
           await page.getByLabel('库存公共货品搜索').fill('NEW');await page.getByText('UI-NEW-P1',{exact:false}).first().waitFor();await idle();await page.waitForTimeout(1100);
           assert.equal(await page.getByText('UI-SUMMARYSLOW-P1',{exact:false}).count(),0);checks.push({implementation,tab,check:'detail-can-render-before-summary-and-cancelled-summary-not-stuck'});
+          for(const failed of ['summary','detail']){
+            const query=`EARLYFAIL-${failed}`, before=sequence;
+            const race={query,failed,calls:{summary:0,detail:0},release:null};retryRace=race;
+            try{
+              await page.getByLabel('库存公共货品搜索').fill(query);
+              const retry=page.getByRole('button',{name:failed==='summary'?'重试统计与分布':'重试当前页明细',exact:true});await retry.waitFor();
+              assert.equal(typeof race.release,'function','Sibling must still be in flight when retry is clicked');
+              await retry.click();await idle();await page.getByText(`UI-${query}-P1`,{exact:false}).first().waitFor();
+              assert.deepEqual(race.calls,{summary:2,detail:2},'Retry must replace the cancelled not-ready sibling');
+              assert.equal(await page.getByRole('button',{name:/^重试(统计与分布|当前页明细)$/}).count(),0);
+              assert.equal(await page.getByText(/^(统计与分布|当前页明细)正在读取$/).count(),0);
+              race.release();race.release=null;await page.waitForTimeout(100);await painted();
+              assert.equal(await page.getByText(`UI-STALE-${query}-P1`,{exact:false}).count(),0,'Cancelled late sibling must not replace the recovered view');
+              await page.getByText(`UI-${query}-P1`,{exact:false}).first().waitFor();
+              assert.equal(await page.getByText(/^(统计与分布|当前页明细)正在读取$/).count(),0);
+              assert.equal(requests.filter(request=>request.id>before&&new URLSearchParams(request.query).get('q')===query).length,4);
+              checks.push({implementation,tab,check:`early-${failed}-failure-retry-recovers-inflight-sibling`});
+            }finally{race.release?.();retryRace=null;}
+          }
           failBothQuery='DOUBLEFAIL';await page.getByLabel('库存公共货品搜索').fill('DOUBLEFAIL');await page.getByRole('button',{name:'重试统计与分布',exact:true}).waitFor();await page.getByRole('button',{name:'重试当前页明细',exact:true}).waitFor();failBothQuery='';
-          await page.getByRole('button',{name:'重试统计与分布',exact:true}).click();await idle();await page.getByRole('button',{name:'重试当前页明细',exact:true}).click();await page.getByText('UI-DOUBLEFAIL-P1',{exact:false}).first().waitFor();await idle();checks.push({implementation,tab,check:'initial-pair-failure-retries-each-region'});
+          await page.getByRole('button',{name:'重试统计与分布',exact:true}).click();await idle();await page.getByText('UI-DOUBLEFAIL-P1',{exact:false}).first().waitFor();assert.equal(await page.getByRole('button',{name:'重试当前页明细',exact:true}).count(),0);checks.push({implementation,tab,check:'initial-pair-failure-retry-recovers-both-not-ready-regions'});
           await page.getByLabel('库存公共货品搜索').fill('NEW');await page.getByText('UI-NEW-P1',{exact:false}).first().waitFor();await idle();
           failNext=true;failSection='detail';await page.getByLabel('库存公共货品搜索').fill('FAILSCOPE');await page.getByRole('alert').first().waitFor();
           assert.equal(await page.getByText('UI-NEW-P1',{exact:false}).count(),0,'Failed new scope must not show previous scope as current');

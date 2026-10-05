@@ -242,7 +242,8 @@ test("heavy module views are lazy and the dashboard does not eagerly import thei
   assert.match(sales, /createReloadableLazy\("sales", \(\) => import\("\.\/sales-category-view"\)\)/);
   assert.doesNotMatch(sales, /^import (?!type )[^\n]+from "\.\/sales-category-view"/m);
   assert.match(page, /const GlobalSearchDialog = lazy\(\(\) => import\("\.\/global-search-dialog"\)\)/);
-  assert.match(page, /if \(!shellLocationReady \|\| !currentUser \|\| active !== "market" \|\| activeModuleView === "settings" \|\| activeModuleView === "compare"\) return;[\s\S]+import\("\.\/market-view"\)/);
+  assert.match(page, /if \(shellLocationReady\) prepareNavigationModule\(active\)/);
+  assert.doesNotMatch(page, /prefetchMarketRankingOverview/);
   assert.match(page, /const \[shellLocationReady, setShellLocationReady\] = useState\(false\)/);
   assert.match(page, /setShellLocationReady\(true\)/);
   assert.match(page, /\{shellLocationReady \? <Suspense[\s\S]+<View range=/);

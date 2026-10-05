@@ -441,12 +441,12 @@ test("market UI requests lightweight ranking data and aborts superseded requests
   assert.match(route, /requestDjangoMarketService/);
   assert.doesNotMatch(route, /getCachedMarketOverview|getD1Database|ensureMarketSchema/);
   assert.match(view, /prefetchMarketRankingOverview/);
-  assert.match(view, /requestMarketOverview\(requestKey, signal, MARKET_OVERVIEW_RECENT_PREFETCH_MS\)/);
+  assert.match(view, /requestMarketOverview\(requestKey, signal, MARKET_OVERVIEW_RECENT_PREFETCH_MS, context\)/);
   assert.match(view, /requestMarketOverview\(params\.toString\(\), signal, maximumCacheAgeMs\)/);
-  assert.match(view, /marketOverviewRequests\.get\(requestKey\)/);
+  assert.match(view, /marketOverviewRequests\.get\(scopedKey\)/);
   assert.match(view, /signal: controller\.signal/);
   assert.match(view, /request\.subscribers === 0 && !request\.settled/);
-  assert.match(view, /rememberMarketOverview\(requestKey, payload\)/);
+  assert.match(view, /rememberMarketOverview\(scopedKey, payload\)/);
   assert.match(view, /const delay = isInitialLoad \? 0 : 150/);
   assert.match(view, /isInitialLoad \? MARKET_OVERVIEW_RECENT_PREFETCH_MS : 0/);
   assert.match(view, /MARKET_RANKING_PAGE_SIZE = 20/);
@@ -467,6 +467,31 @@ test("market UI requests lightweight ranking data and aborts superseded requests
   assert.doesNotMatch(database, /COUNT\(DISTINCT CASE WHEN mic\.status='ready'/);
 });
 
+const verifiedMarketRead = { identityKey: "synthetic-session", permissionFingerprint: "synthetic-full-admin-scope-v1", sourceRevision: "synthetic-market-source-v1" };
+
+test("market reads need complete owner context to reuse data, and isolate actor, permission and source changes", async (context) => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => new Response(JSON.stringify({ marker: ++calls }), { headers: { "content-type": "application/json" } });
+  context.after(() => { globalThis.fetch = originalFetch; });
+  const query = "view=ranking&startDate=2026-07-21&endDate=2026-07-22";
+  await prefetchMarketRankingOverview("2026-07-21", "2026-07-22");
+  assert.equal(calls, 0, "shell without permission/source witnesses must not prefetch data");
+  await Promise.all([requestMarketOverview(query), requestMarketOverview(query)]);
+  assert.equal(calls, 2, "unbound simultaneous reads remain independent");
+  const first = await requestMarketOverview(query, undefined, 5_000, verifiedMarketRead);
+  assert.deepEqual(await requestMarketOverview(query, undefined, 5_000, verifiedMarketRead), first);
+  assert.equal(calls, 3);
+  for (const changed of [
+    { ...verifiedMarketRead, identityKey: "different-session" },
+    { ...verifiedMarketRead, permissionFingerprint: "different-full-scope" },
+    { ...verifiedMarketRead, sourceRevision: "different-source" },
+  ]) await requestMarketOverview(query, undefined, 5_000, changed);
+  assert.equal(calls, 6);
+  await requestMarketOverview(query, undefined, 5_000, { ...verifiedMarketRead, permissionFingerprint: "" });
+  assert.equal(calls, 7, "incomplete witnesses cannot reuse an earlier result");
+});
+
 test("aborting the prefetch subscriber does not cancel a joined page load", async (context) => {
   const deferred = installDeferredMarketOverviewFetch();
   context.after(deferred.restore);
@@ -475,9 +500,9 @@ test("aborting the prefetch subscriber does not cancel a joined page load", asyn
   const requestKey = `view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=${startDate}&endDate=${endDate}`;
   const prefetchController = new AbortController();
   const pageController = new AbortController();
-  const prefetch = prefetchMarketRankingOverview(startDate, endDate, prefetchController.signal);
+  const prefetch = prefetchMarketRankingOverview(startDate, endDate, prefetchController.signal, verifiedMarketRead);
   const internalSignal = await deferred.started;
-  const page = requestMarketOverview(requestKey, pageController.signal);
+  const page = requestMarketOverview(requestKey, pageController.signal, 0, verifiedMarketRead);
   const cancelledPrefetch = assert.rejects(prefetch, { name: "AbortError" });
   prefetchController.abort();
   await cancelledPrefetch;
@@ -495,9 +520,9 @@ test("aborting the page subscriber does not cancel a joined prefetch", async (co
   const requestKey = `view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=${startDate}&endDate=${endDate}`;
   const pageController = new AbortController();
   const prefetchController = new AbortController();
-  const page = requestMarketOverview(requestKey, pageController.signal);
+  const page = requestMarketOverview(requestKey, pageController.signal, 0, verifiedMarketRead);
   const internalSignal = await deferred.started;
-  const prefetch = prefetchMarketRankingOverview(startDate, endDate, prefetchController.signal);
+  const prefetch = prefetchMarketRankingOverview(startDate, endDate, prefetchController.signal, verifiedMarketRead);
   const cancelledPage = assert.rejects(page, { name: "AbortError" });
   pageController.abort();
   await cancelledPage;
@@ -513,9 +538,9 @@ test("the shared market request aborts only after its last subscriber leaves", a
   const requestKey = "view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-08-07&endDate=2026-08-08";
   const firstController = new AbortController();
   const secondController = new AbortController();
-  const first = requestMarketOverview(requestKey, firstController.signal);
+  const first = requestMarketOverview(requestKey, firstController.signal, 0, verifiedMarketRead);
   const internalSignal = await deferred.started;
-  const second = requestMarketOverview(requestKey, secondController.signal);
+  const second = requestMarketOverview(requestKey, secondController.signal, 0, verifiedMarketRead);
   const firstCancelled = assert.rejects(first, { name: "AbortError" });
   firstController.abort();
   await firstCancelled;

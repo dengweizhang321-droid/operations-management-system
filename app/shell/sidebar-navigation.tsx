@@ -19,6 +19,7 @@ export type SidebarNavigationProps = {
   hrefForModule: (moduleKey: ModuleKey, view?: ModuleViewKey) => string;
   onNavigate: (event: MouseEvent<HTMLAnchorElement>, moduleKey: ModuleKey, view?: ModuleViewKey) => void;
   onToggleCollapsed: () => void;
+  onPrepareModule?: (moduleKey: ModuleKey) => void;
 };
 
 const navItemsByKey: ReadonlyMap<ModuleKey, NavItem> = new Map(
@@ -32,6 +33,7 @@ export default function SidebarNavigation({
   hrefForModule,
   onNavigate,
   onToggleCollapsed,
+  onPrepareModule,
 }: SidebarNavigationProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -115,11 +117,12 @@ export default function SidebarNavigation({
                           title={collapsed ? `${item.label} · ${item.description}` : undefined}
                           onClick={(event) => {
                             setTooltip(null);
+                            onPrepareModule?.(moduleKey);
                             onNavigate(event, moduleKey, moduleKey === "ai" ? "agents" : undefined);
                           }}
-                          onMouseEnter={(event) => showTooltip(event.currentTarget, item, tooltipId)}
+                          onMouseEnter={(event) => { showTooltip(event.currentTarget, item, tooltipId); onPrepareModule?.(moduleKey); }}
                           onMouseLeave={hideTooltip}
-                          onFocus={(event) => showTooltip(event.currentTarget, item, tooltipId)}
+                          onFocus={(event) => { showTooltip(event.currentTarget, item, tooltipId); onPrepareModule?.(moduleKey); }}
                           onBlur={hideTooltip}
                           onKeyDown={dismissTooltip}
                         >

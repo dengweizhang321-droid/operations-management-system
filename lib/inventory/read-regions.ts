@@ -17,7 +17,7 @@ export function mergeInventoryRegion<T>(previous: InventoryRegionState<T> | null
 
 export async function readInventoryRegions<T>(url: string, options: {
   signal: AbortSignal; section?: InventoryReadSection;
-  previous?: { snapshot: string; scope: string } | null;
+  previous?: { snapshot: string; scope: string; summary: boolean; detail: boolean } | null;
   validate: (value: T) => void;
   onData: (value: InventoryRegionPayload<T>) => void;
   onError: (section: InventoryReadSection, message: string) => void;
@@ -25,7 +25,12 @@ export async function readInventoryRegions<T>(url: string, options: {
 }) {
   // Regions become visible independently. A racing source update never mixes
   // two snapshots; retry the read-only pair once, then expose a bounded failure.
-  let sections: InventoryReadSection[] = options.section ? [options.section] : ["summary", "detail"];
+  // Each view replaces the shared controller when retrying. A not-yet-ready
+  // sibling must join the replacement read, or its cancelled request would
+  // leave it loading forever without an error or another retry button.
+  const sibling = options.section === "summary" ? "detail" : "summary";
+  let sections: InventoryReadSection[] = options.section && options.previous?.[sibling]
+    ? [options.section] : ["summary", "detail"];
   for (let attempt = 0; attempt < 2 && !options.signal.aborted; attempt++) {
     const tokens: string[] = [];
     await Promise.all(sections.map(async section => {
