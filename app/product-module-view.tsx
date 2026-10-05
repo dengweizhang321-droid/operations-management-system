@@ -30,6 +30,10 @@ type ProductTab = ModuleViewKey<"product">;
 type ProductCalculatorInput = { salePrice: number; unitCost: number; feeRate: number; promotionCost: number };
 type ProductMarginFilter = "低于35%" | "35%-40%" | "40%-45%" | "45%以上" | "暂无有效毛利率";
 type ProductDetailSnapshot = { productCode: string; detail: SalesSummaryResponse };
+const productSortLabels = {
+  netSalesCents: "销售净额", grossProfitCents: "订单毛利", grossMarginRate: "实际毛利率",
+  refundRate: "退货率", stockValueCents: "库存货值", netQuantity: "净销量",
+};
 
 function ProductDetailView({
   item,
@@ -157,6 +161,7 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
       productSummarySnapshotTokenRef.current = "";
       summaryRef.current = null;
       setSummary(null); setOverview(null); setSelectedCode("");
+      setProductPage(1);
       setProductSummarySnapshotRecoveryKey((value) => value + 1);
       return true;
     };
@@ -188,25 +193,39 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
       };
       let next = summaryRef.current;
       if (!overviewOnly || !next || productSummaryBootstrapKeyRef.current !== bootstrapKey) {
-        const payload = await read(params);
-        if (!payload || !active()) return;
-        if (payload.projection === "page") {
-          if (!next || next.snapshotToken !== expectedSnapshotToken || productSummaryBootstrapKeyRef.current !== bootstrapKey) throw new Error("商品分页缺少同范围汇总");
-          next = { ...next, sort: payload.sort, pagination: payload.pagination, items: payload.items };
-        } else if (payload.projection === "initial-page" || payload.projection === "full") {
-          next = payload;
-          productSummaryBootstrapKeyRef.current = bootstrapKey;
-          productSummarySnapshotTokenRef.current = payload.snapshotToken;
-          if (summaryRef.current?.snapshotToken !== payload.snapshotToken) setOverview(null);
-          if (payload.projection === "full") {
-            setOverview({ ...payload, projection: "overview" }); setOverviewScope(bootstrapKey);
-            overviewReadyKeyRef.current = `${bootstrapKey}:${payload.snapshotToken}`;
-            needsOverview = false;
-          }
-        } else throw new Error("商品明细响应视图无效");
-        summaryRef.current = next;
-        setSummary(next); setSummaryScope(bootstrapKey);
-        setSelectedCode((current) => next!.items.some((item) => item.productCode === current) ? current : next!.items[0]?.productCode || "");
+        let payload;
+        try {
+          payload = await read(params);
+        } catch (pageError) {
+          // A page/refresh failure must not strand an interrupted overview.
+          // Only the already validated same-scope snapshot can supply its
+          // dependency; a first/new-scope failure still requires a bootstrap.
+          if (!active()) return;
+          if (!next || productSummaryBootstrapKeyRef.current !== bootstrapKey
+            || !snapshotTokenPattern.test(next.snapshotToken)) throw pageError;
+          setError(pageError instanceof Error ? pageError.message : "商品明细读取失败");
+        }
+        if (!active()) return;
+        if (!payload && recoveringSnapshot) return;
+        if (payload) {
+          if (payload.projection === "page") {
+            if (!next || next.snapshotToken !== expectedSnapshotToken || productSummaryBootstrapKeyRef.current !== bootstrapKey) throw new Error("商品分页缺少同范围汇总");
+            next = { ...next, sort: payload.sort, pagination: payload.pagination, items: payload.items };
+          } else if (payload.projection === "initial-page" || payload.projection === "full") {
+            next = payload;
+            productSummaryBootstrapKeyRef.current = bootstrapKey;
+            productSummarySnapshotTokenRef.current = payload.snapshotToken;
+            if (summaryRef.current?.snapshotToken !== payload.snapshotToken) setOverview(null);
+            if (payload.projection === "full") {
+              setOverview({ ...payload, projection: "overview" }); setOverviewScope(bootstrapKey);
+              overviewReadyKeyRef.current = `${bootstrapKey}:${payload.snapshotToken}`;
+              needsOverview = false;
+            }
+          } else throw new Error("商品明细响应视图无效");
+          summaryRef.current = next;
+          setSummary(next); setSummaryScope(bootstrapKey);
+          setSelectedCode((current) => next!.items.some((item) => item.productCode === current) ? current : next!.items[0]?.productCode || "");
+        }
       }
       setLoading(false);
       if (needsOverview && next) {
@@ -411,16 +430,16 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
       {summary && !summary.hasSales && <section className="panel" role="status">还没有可用于毛利测算的销售明细，请先在“数据导入”同步销售单明细账。</section>}
 
       {activeTab === "overview" && !detailOpen ? <>
-        <section className="inventory-kpi-grid product-kpi-grid data-refresh-region" aria-busy={overviewLoading || !currentOverview} aria-label="毛利分布">
-          {marginBucketCards.map((bucket) => <button type="button" disabled={!currentOverview} aria-pressed={marginFilters.includes(bucket.filter)} onClick={() => setMarginFilters((current) => current.includes(bucket.filter) ? current.filter((value) => value !== bucket.filter) : [...current, bucket.filter])} className={`inventory-kpi-card summary-filter-card product-margin-kpi ${marginFilters.includes(bucket.filter) ? "active" : ""}`} key={bucket.filter}><div><span>{bucket.label}</span><i className={`inventory-kpi-icon ${bucket.tone}`}>{bucket.icon}</i></div><strong>{currentOverview ? `${formatCount(bucket.value)} 个` : "—"}</strong><p>{bucket.note}</p><span className="summary-filter-hint">{!currentOverview ? overviewError ? "加载失败" : "正在加载全量分布…" : overviewLoading ? "正在更新…" : marginFilters.includes(bucket.filter) ? "取消筛选" : "加入筛选 →"}</span></button>)}
+        <section className="inventory-kpi-grid product-kpi-grid data-refresh-region" aria-busy={overviewLoading || (!currentOverview && !error && !overviewError)} aria-label="毛利分布">
+          {marginBucketCards.map((bucket) => <button type="button" disabled={!currentOverview} aria-pressed={marginFilters.includes(bucket.filter)} onClick={() => setMarginFilters((current) => current.includes(bucket.filter) ? current.filter((value) => value !== bucket.filter) : [...current, bucket.filter])} className={`inventory-kpi-card summary-filter-card product-margin-kpi ${marginFilters.includes(bucket.filter) ? "active" : ""}`} key={bucket.filter}><div><span>{bucket.label}</span><i className={`inventory-kpi-icon ${bucket.tone}`}>{bucket.icon}</i></div><strong>{currentOverview ? `${formatCount(bucket.value)} 个` : "—"}</strong><p>{bucket.note}</p><span className="summary-filter-hint">{!currentOverview ? overviewError ? "加载失败，可重试" : error && !overviewLoading ? "等待明细快照恢复" : "正在加载全量分布…" : overviewLoading ? "正在更新…" : marginFilters.includes(bucket.filter) ? "取消筛选" : "加入筛选 →"}</span></button>)}
         </section>
-        {overviewError && <section className="inventory-feedback inventory-feedback-error" role="alert"><div><strong>毛利分布与筛选刷新失败</strong><p>{overviewError}{currentOverview ? " · 保留上次成功统计" : ""}</p></div><button className="row-action" disabled={loading || overviewLoading} onClick={() => void loadSummary(false, true)}>重试分布与筛选</button></section>}
+        {overviewError && <section className="inventory-feedback inventory-feedback-error" role="alert"><div><strong>毛利分布与筛选刷新失败</strong><p>{overviewError}{currentOverview ? " · 保留上次成功统计" : ""}</p></div><button className="row-action" disabled={!summary || loading || overviewLoading} onClick={() => void loadSummary(false, true)}>重试分布与筛选</button></section>}
 
         <section className="panel product-filter-panel">
           <div className="table-toolbar"><div><h2>商品经营明细</h2><p>已按 {appliedScope} 汇总；净销量已扣除退货。快递费率来自最近一次“SKU累计”全量导入，其余金额与毛利来自订单明细。</p></div><span className="soft-tag">{multiCodeQueryCount > 1 ? `已查询 ${formatCount(multiCodeQueryCount)} 个规格代码 · ` : ""}显示 {formatCount(productItems.length)} / {summary ? formatCount(summary.pagination.total) : "—"}</span></div>
-          <div className="filter-row product-filter-row"><div className="search-box compact product-multi-query">⌕ <textarea rows={1} maxLength={PRODUCT_SUMMARY_QUERY_MAX_LENGTH} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入或粘贴货品规格代码、名称或规格（空格、逗号或换行分隔，最多1000字符）" aria-label="搜索一个或多个货品规格代码、名称、品牌、供应商、规格或品类" /></div><fieldset disabled={!currentOverview} className="product-dependent-filters" aria-label="依赖数据的筛选"><legend>{currentOverview ? "销售范围筛选" : "筛选选项正在加载"}</legend><MultiFilterSelect label="品类" allLabel="全部品类" ariaLabel="商品品类" options={categories} selected={categoryFilters} onChange={setCategoryFilters} /><MultiFilterSelect label="平台" allLabel="全部平台" ariaLabel="销售平台" options={platformOptions} selected={platformFilters} onChange={setPlatformFilters} /><MultiFilterSelect label="店铺" allLabel="全部店铺" ariaLabel="销售店铺" options={shopOptions} selected={shopFilters} onChange={setShopFilters} /></fieldset><SearchableMultiSelect className="filter-select" values={marginFilters} onChange={(values) => setMarginFilters(values as ProductMarginFilter[])} ariaLabel="实际大毛利率区间" allLabel="全部毛利" searchPlaceholder="搜索毛利率区间" options={["低于35%", "35%-40%", "40%-45%", "45%以上", "暂无有效毛利率"].map((value) => ({ value, label: value }))} /><SearchableSelect className="filter-select" value={sortBy} onChange={setSortBy} ariaLabel="排序方式" searchPlaceholder="搜索排序方式" options={[{ value: "sales", label: "按销售净额" }, { value: "profit", label: "按订单毛利" }, { value: "margin", label: "按毛利率" }, { value: "refund", label: "按退货率" }]} /></div>
+          <div className="filter-row product-filter-row"><div className="search-box compact product-multi-query">⌕ <textarea rows={1} maxLength={PRODUCT_SUMMARY_QUERY_MAX_LENGTH} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入或粘贴货品规格代码、名称或规格（空格、逗号或换行分隔，最多1000字符）" aria-label="搜索一个或多个货品规格代码、名称、品牌、供应商、规格或品类" /></div><fieldset disabled={!currentOverview} className="product-dependent-filters" aria-label="依赖数据的筛选"><legend>{currentOverview ? "销售范围筛选" : overviewError ? "筛选选项加载失败" : error && !overviewLoading ? "请先恢复明细快照" : "筛选选项正在加载"}</legend><MultiFilterSelect label="品类" allLabel="全部品类" ariaLabel="商品品类" options={categories} selected={categoryFilters} onChange={setCategoryFilters} /><MultiFilterSelect label="平台" allLabel="全部平台" ariaLabel="销售平台" options={platformOptions} selected={platformFilters} onChange={setPlatformFilters} /><MultiFilterSelect label="店铺" allLabel="全部店铺" ariaLabel="销售店铺" options={shopOptions} selected={shopFilters} onChange={setShopFilters} /></fieldset><SearchableMultiSelect className="filter-select" values={marginFilters} onChange={(values) => setMarginFilters(values as ProductMarginFilter[])} ariaLabel="实际大毛利率区间" allLabel="全部毛利" searchPlaceholder="搜索毛利率区间" options={["低于35%", "35%-40%", "40%-45%", "45%以上", "暂无有效毛利率"].map((value) => ({ value, label: value }))} /><SearchableSelect className="filter-select" value={sortBy} onChange={setSortBy} ariaLabel="排序方式" searchPlaceholder="搜索排序方式" options={[{ value: "sales", label: "按销售净额" }, { value: "profit", label: "按订单毛利" }, { value: "margin", label: "按毛利率" }, { value: "refund", label: "按退货率" }]} /></div>
           {error && <div className="inventory-feedback inventory-feedback-error" role="alert"><div><strong>商品明细刷新失败</strong><p>{error}{summary ? " · 保留上次成功明细" : ""}</p></div><button className="row-action" disabled={loading} onClick={() => void loadSummary(!summary)}>重试明细</button></div>}
-          {(loading || query.trim() !== debouncedProductQuery.trim()) && <p role="status" className="product-list-progress">{query.trim() !== debouncedProductQuery.trim() ? "搜索条件正在应用；当前显示上次成功范围。" : summary ? `正在更新明细；当前保留上次成功第 ${summary.pagination.page} 页（${summary.sort.by}）` : "正在加载当前范围的商品明细…"}</p>}
+          {(loading || query.trim() !== debouncedProductQuery.trim()) && <p role="status" className="product-list-progress">{query.trim() !== debouncedProductQuery.trim() ? "搜索条件正在应用；当前显示上次成功范围。" : summary ? `正在更新明细；当前保留上次成功第 ${summary.pagination.page} 页（${productSortLabels[summary.sort.by]}）` : "正在加载当前范围的商品明细…"}</p>}
           <div className="data-table-wrap data-refresh-region product-list-region" aria-busy={loading}><table className="data-table product-live-table"><thead><tr><th>货品 / 规格代码</th><th>品牌</th><th>供应商</th><th>品类</th><th>{rangeLabel}销量</th><th>销售净额</th><th>均价 / 均成本</th><th>订单毛利</th><th>实际毛利率</th><th>退货率</th><th>快递费率</th><th>操作</th></tr></thead><tbody>
             {productItems.map((item) => { const loss = item.grossProfitCents < 0; return <tr key={item.productCode}><td><div className="product-cell"><span className="product-thumb gradient-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>规格代码：{item.productCode}{item.specification ? ` · ${item.specification}` : " · 默认规格"}</small></span></div></td><td><span className="product-dimension" title={item.brand || "品牌未同步"}>{item.brand || "—"}</span></td><td><span className="product-dimension" title={item.supplierName || "供应商未同步"}>{item.supplierName || "—"}</span></td><td><span className="soft-tag">{item.category}</span></td><td>{formatCount(item.netQuantity)}</td><td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td><td><div className="product-money-pair"><strong>{item.averageSalePriceCents === null ? "—" : formatCurrencyFromCents(item.averageSalePriceCents)}</strong><small>成本 {item.averageCostCents === null ? "—" : formatCurrencyFromCents(item.averageCostCents)}</small></div></td><td className={loss ? "red-text" : "green-text"}><strong>{formatCurrencyFromCents(item.grossProfitCents)}</strong></td><td><span className={`product-margin ${loss ? "loss" : item.grossMarginRate !== null && item.grossMarginRate < 0.35 ? "low" : ""}`}>{item.grossMarginRate === null ? "—" : formatRate(item.grossMarginRate)}</span></td><td className={item.refundRate > 0.1 ? "orange-text" : ""}><strong>{formatRate(item.refundRate)}</strong></td><td className={item.shippingRate !== null && (item.shippingRate < 0 || item.shippingRate > 1) ? "orange-text" : ""}><strong>{item.shippingRate === null ? "—" : formatRate(item.shippingRate)}</strong></td><td><button className="row-action" onClick={() => openProductDetail(item.productCode)}>详情</button></td></tr>; })}
             {productItems.length === 0 && <tr><td colSpan={12}><div className="table-state">{!summary ? error ? "明细加载失败，请重试。" : "正在读取完整授权集合，明细就绪后显示…" : "没有符合当前筛选条件的商品。"}</div></td></tr>}
