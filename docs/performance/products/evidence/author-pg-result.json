@@ -1,0 +1,26 @@
+{
+  "fixture": "synthetic-only",
+  "port": 51100,
+  "steps": [
+    {
+      "step": "initdb",
+      "exitCode": 0
+    },
+    {
+      "step": "start",
+      "exitCode": 0
+    },
+    {
+      "step": "database",
+      "exitCode": 0
+    },
+    {
+      "step": "tests",
+      "exitCode": 0
+    },
+    {
+      "step": "stop",
+      "exitCode": 0
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+✔ products reader signs the exact GET query and requires a product revision (56.9754ms)
+✔ products consumer stays reader-only while imports and projection use writer (17.0098ms)
+✔ products read/write allowlists and loopback configuration fail closed (1.6645ms)
+✔ products upstream failures never fall back to D1 (6.7184ms)
+✔ inventory consumer uses fixed chunks, exclusive end dates, and the exact principal (98.0745ms)
+✔ inventory consumer fails closed on truncated and out-of-request aggregate rows (9.4991ms)
+✔ inventory consumer fails closed on incomplete batch metadata (3.8499ms)
+✔ inventory and product online paths contain no D1 sales dependency (57.124ms)
+✔ detail hides old periods synchronously, rejects late/error responses and recovers (3590.5761ms)
+✔ same-range refresh reads detail, retains success on failure and enforces source version (2604.0199ms)
+✔ calculator uses validated first-page data, local inputs and tab reentry without another aggregate (3311.4996ms)
+✔ product online paths terminate in Django and expose no D1/R2 fallback (36.1661ms)
+✔ inventory sync consumes only the bounded Django projection and excludes 刷刷仓 at its owner (3.1128ms)
+✔ AI and global search consume the revisioned products reader (3.1769ms)
+✔ product upload UI uses the same 20 MiB and 1 MiB chunk contract as Django (2.1809ms)
+✔ 库存 overview 保留缺省 full 兼容并支持唯一受控投影 (2.0576ms)
+✔ 库存真实 SQL 分页把明确零成本计为完整覆盖 (192.0775ms)
+✔ 库存 overview 推荐投影严格限制为排序后的前 50 条 (27.7009ms)
+✔ progressive regions require their complete projection and range witnesses (2.93ms)
+✔ an unloaded, malformed, truncated or wrong page cannot become a business empty/zero region (0.4997ms)
+✔ an interrupted distribution recovers even when the next page or refresh fails (3423.181ms)
+✔ first/new scope failures show blocked statistics, and a changed snapshot restarts page one (4852.6487ms)
+✔ SKU累计 parser recalculates rates, collapses safe duplicates, and ignores repeated code headers (38.3444ms)
+✔ SKU累计 parser accepts valid namespace-prefixed SpreadsheetML (21.4859ms)
+✔ SKU累计 parser rejects stale cached rate values (13.5392ms)
+✔ SKU累计 parser rejects conflicting complete rows for one specification code (5.5905ms)
+✔ SKU累计 parser requires the exact worksheet identity (4.2056ms)
+✔ shipping-rate publication atomically replaces the complete specification set (66.1786ms)
+✔ shipping-rate production contract uses Django fencing while legacy D1 stays isolated test material (16.8071ms)
+✔ 商品汇总只向独立 Django products reader 传递有界查询 (8.3359ms)
+✔ 商品汇总 page 投影绑定同一 snapshot token (0.5795ms)
+✔ 商品前端只在同一 bootstrap 和 snapshot 下请求 page 投影，版本漂移有界回到 full (20.0635ms)
+✔ sales overview preserves multiline code paste, sends all codes and restores them after reload (3758.0192ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10745.5375

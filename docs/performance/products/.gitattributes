@@ -1,0 +1,4 @@
+# Preserve raw command transcripts, including CRCRLF and terminal escapes.
+evidence/*.log -text -diff
+evidence/**/*.log -text -diff
+review/*.log -text -diff

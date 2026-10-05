@@ -267,14 +267,13 @@ def _read_dimensions() -> tuple[
             raise _error("商品库存投影版本与行数不一致", code="service_unavailable", status=503)
     elif int(control.active_total) != 0:
         raise _error("商品库存投影控制记录无效", code="service_unavailable", status=503)
-    shipping_rows = list(
-        ProductShippingRate.objects.order_by("product_code").values("product_code", "shipping_rate")[: MAX_PRODUCT_KEYS + 1]
-    )
-    if len(shipping_rows) > MAX_PRODUCT_KEYS:
+    # Keep the complete-set safety guard, but defer display-only rates until
+    # filtering and ranking have selected the requested page.
+    if ProductShippingRate.objects.count() > MAX_PRODUCT_KEYS:
         raise _error("SKU 快递费率规模超过商品域安全上限", code="service_unavailable", status=503)
     erp = {str(row["product_code"]): row for row in erp_rows}
     inventory = {str(row["product_code"]): row for row in inventory_rows}
-    shipping = {str(row["product_code"]): float(row["shipping_rate"]) for row in shipping_rows}
+    shipping = {}
     product_codes = sorted(set(erp) | set(inventory), key=lambda value: value.encode("utf-8"))
     if len(product_codes) > MAX_PRODUCT_KEYS:
         raise _error("商品规格数量超过安全上限", code="service_unavailable", status=503)
@@ -462,6 +461,18 @@ def _item(row: dict[str, object]) -> dict[str, object]:
     }
 
 
+def _page_items(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    if not rows:
+        return []
+    rates = dict(ProductShippingRate.objects.filter(
+        product_code__in=[row["product_code"] for row in rows]
+    ).values_list("product_code", "shipping_rate"))
+    # Do not mutate the shared base rows. Zero, negative and >100% rates all
+    # retain their original value; a missing rate remains null.
+    return [{**_item(row), "shippingRate": float(rates[row["product_code"]])
+             if row["product_code"] in rates else None} for row in rows]
+
+
 def _pagination(page: int, page_size: int, total: int, returned: int) -> dict[str, object]:
     return {
         "page": page,
@@ -538,6 +549,7 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
         page_payload = {
             "projection": "page",
             "snapshotToken": snapshot,
+            "salesSourceRevision": sales_before,
             "sort": sort,
             "pagination": _pagination(page, page_size, 0, 0),
             "items": [],
@@ -607,28 +619,34 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
     direction = str(options["direction"])
     # Stable two-pass sorting preserves product_code as the tie breaker while
     # keeping nulls first for ascending and last for descending.
-    filtered.sort(key=lambda row: str(row["product_code"]).encode("utf-8"))
-    filtered.sort(
-        key=lambda row: (
-            row[sort_field] is not None if direction == "asc" else row[sort_field] is None,
-            float(row[sort_field] or 0) if direction == "asc" else -float(row[sort_field] or 0),
+    if options["projection"] != "overview":
+        filtered.sort(key=lambda row: str(row["product_code"]).encode("utf-8"))
+        filtered.sort(
+            key=lambda row: (
+                row[sort_field] is not None if direction == "asc" else row[sort_field] is None,
+                float(row[sort_field] or 0) if direction == "asc" else -float(row[sort_field] or 0),
+            )
         )
-    )
     offset = (page - 1) * page_size
     selected = filtered[offset : offset + page_size]
     page_payload = {
         "projection": "page",
         "snapshotToken": snapshot,
+        "salesSourceRevision": sales_before,
         "sort": sort,
         "pagination": _pagination(page, page_size, len(filtered), len(selected)),
-        "items": [_item(row) for row in selected],
+        "items": _page_items(selected) if options["projection"] != "overview" else [],
     }
     stable()
     if options["projection"] == "page":
         return page_payload
-    gross_sales = sum(int(row["gross_sales_cents"]) for row in filtered)
-    net_sales = sum(int(row["net_sales_cents"]) for row in filtered)
-    gross_profit = sum(int(row["gross_profit_cents"]) for row in filtered)
+    # A reusable initial-page needs only the common metadata and page. The
+    # complete statistics are calculated once by overview below, after this
+    # page can be shown. Non-cacheable results still inline full statistics.
+    needs_metrics = options["projection"] != "initial-page" or not reusable
+    gross_sales = sum(int(row["gross_sales_cents"]) for row in filtered) if needs_metrics else 0
+    net_sales = sum(int(row["net_sales_cents"]) for row in filtered) if needs_metrics else 0
+    gross_profit = sum(int(row["gross_profit_cents"]) for row in filtered) if needs_metrics else 0
     metrics = {
         "skuCount": len(filtered),
         "grossSalesCents": gross_sales,
@@ -645,10 +663,10 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
             "between40And45Count": sum(1 for row in filtered if row["gross_margin_rate"] is not None and 0.4 <= float(row["gross_margin_rate"]) < 0.45),
             "atLeast45Count": sum(1 for row in filtered if row["gross_margin_rate"] is not None and float(row["gross_margin_rate"]) >= 0.45),
         },
-    }
+    } if needs_metrics else None
     sorted_outlets = sorted(
         outlet_options.values(), key=lambda item: (item["platform"].encode("utf-8"), item["shop"].encode("utf-8"))
-    )
+    ) if needs_metrics else []
     return project({
         **page_payload,
         "projection": "full",
@@ -674,7 +692,7 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
             ],
             "categories": sorted(
                 set(str(row["category"] or "未分类") for row in facet_rows), key=lambda value: value.encode("utf-8")
-            )[:500],
+            )[:500] if needs_metrics else [],
         },
         "filtersApplied": {
             "platforms": options["platforms"],

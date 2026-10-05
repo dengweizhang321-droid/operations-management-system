@@ -68,6 +68,7 @@ export type ProductSummaryPagination = {
 export type ProductSummaryPageResponse = {
   projection: "page";
   snapshotToken: string;
+  salesSourceRevision?: string;
   sort: { by: ProductSummarySort; direction: ProductSummaryDirection };
   pagination: ProductSummaryPagination;
   items: ProductSummaryItem[];
@@ -92,6 +93,7 @@ export type ProductSummaryMetrics = {
 export type ProductSummaryFullResponse = {
   projection: "full";
   snapshotToken: string;
+  salesSourceRevision?: string;
   hasSales: boolean;
   range: ProductSummaryRange;
   sync: {

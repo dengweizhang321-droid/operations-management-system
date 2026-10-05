@@ -8,6 +8,7 @@ export function decodeProductRead(value: unknown, request: URLSearchParams): Pro
   const view = request.get("view") ?? "full";
   if ((p.projection !== view && !(view === "initial-page" && p.projection === "full")) || !/^[a-f0-9]{64}$/.test(p.snapshotToken)) throw new Error("商品响应缺少有效数据版本或视图");
   if (request.has("snapshotToken") && p.snapshotToken !== request.get("snapshotToken")) throw new Error("商品数据版本不一致");
+  if (p.salesSourceRevision !== undefined && !/^(0|[1-9]\d*):(0|[1-9]\d*)$/.test(p.salesSourceRevision)) throw new Error("商品销售来源版本无效");
   const page = Number(request.get("page") ?? 1), size = Number(request.get("pageSize") ?? 50);
   const pg = p.pagination;
   if (!pg || pg.page !== page || pg.pageSize !== size || !Number.isSafeInteger(pg.total) || pg.total < 0
