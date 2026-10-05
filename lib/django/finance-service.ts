@@ -10,12 +10,14 @@ import { PublicApiError } from "@/lib/http/api-error";
 export const FINANCE_IMPORTS_PATH = "/api/finance/imports";
 export const FINANCE_RAW_WORKBOOK_ATTEST_PATH = "/api/finance/imports/raw-attest";
 export const FINANCE_ANALYSIS_PATH = "/api/finance/analysis";
+export const FINANCE_ERP_TARGETS_PATH = "/api/finance/erp-targets";
 export const FINANCE_TARGETS_PATH = "/api/finance/targets";
 export const FINANCE_TARGET_IMPORT_PATH = "/api/finance/targets/import";
 export const FINANCE_CONSUMER_QUERY_PATH = "/api/finance/consumers/query";
 export const FINANCE_BUSINESS_EVIDENCE_PAGE_PATH = "/api/finance/business-evidence/page";
 
 const FINANCE_PATHS = new Set([
+  FINANCE_ERP_TARGETS_PATH,
   FINANCE_IMPORTS_PATH,
   FINANCE_ANALYSIS_PATH,
   FINANCE_TARGETS_PATH,
@@ -218,7 +220,7 @@ export async function requestDjangoFinanceService<T>(
     || (input.method === "POST" && (input.path === FINANCE_CONSUMER_QUERY_PATH || input.path === FINANCE_BUSINESS_EVIDENCE_PAGE_PATH))
   );
   const writerRequest = input.service === "writer" && (
-    (input.method === "POST" && (input.path === FINANCE_IMPORTS_PATH || input.path === FINANCE_TARGETS_PATH || input.path === FINANCE_TARGET_IMPORT_PATH))
+    (input.method === "POST" && (input.path === FINANCE_IMPORTS_PATH || input.path === FINANCE_TARGETS_PATH || input.path === FINANCE_TARGET_IMPORT_PATH || input.path === FINANCE_ERP_TARGETS_PATH))
     || (input.method === "DELETE" && input.path === FINANCE_TARGETS_PATH)
   );
   if (!readerRequest && !writerRequest) throw unavailable();

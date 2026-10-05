@@ -38,11 +38,11 @@ test("application shell keeps mobile period access and navigation focus behavior
 });
 
 test("BI pilot cancels stale requests and uses the shared JSON client", async () => {
-  const dashboard = await source("../app/dashboard-module-view.tsx");
-  assert.match(dashboard, /requestGenerationRef/);
-  assert.match(dashboard, /requestControllerRef\.current\?\.abort\(\)/);
-  assert.match(dashboard, /requestJson<BiDashboardResponse>/);
-  assert.match(dashboard, /\/api\/bi\/overview/);
+  const dashboard = await source("../app/bi-cockpit-view.tsx");
+  assert.match(dashboard, /generation/);
+  assert.match(dashboard, /return \(\) => controller\.abort\(\)/);
+  assert.match(dashboard, /requestJson<unknown>/);
+  assert.match(dashboard, /\/api\/bi\/cockpit/);
   assert.doesNotMatch(dashboard, /\/api\/sales\/summary|\/api\/inventory\/overview/);
-  assert.match(dashboard, /generation !== requestGenerationRef\.current/);
+  assert.match(dashboard, /attempt !== generation\.current/);
 });
