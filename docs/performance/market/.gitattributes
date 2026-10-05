@@ -1,0 +1,3 @@
+# Preserve original isolated evidence bytes and their recorded SHA-256 values.
+evidence/** -text
+independent-review/** -text
