@@ -113,7 +113,7 @@ test("module navigation remains client-side and preserves the previous lazy view
 
 test("refresh errors retain already rendered business data", async () => {
   const [dashboard, sales, customer, operations, searchDialog, page] = await Promise.all([
-    readSource("../app/dashboard-module-view.tsx"),
+    readSource("../app/bi-cockpit-view.tsx"),
     readSource("../app/sales-module-view.tsx"),
     readSource("../app/customer-service-view.tsx"),
     readSource("../app/operations-view.tsx"),
@@ -122,7 +122,7 @@ test("refresh errors retain already rendered business data", async () => {
   ]);
 
   assert.doesNotMatch(dashboard, /setSales\(null\)|setInventory\(null\)/);
-  assert.match(dashboard, /经营看板刷新失败/);
+  assert.match(dashboard, /当前仍显示本范围上一次成功结果/);
   assert.match(sales, /if \(error && !summary\)/);
   assert.match(sales, /销售数据刷新失败/);
   assert.match(customer, /loading && !data && <tr>/);

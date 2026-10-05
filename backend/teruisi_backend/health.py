@@ -149,6 +149,7 @@ REQUIRED_FINANCE_COLUMNS = {
     "finance_targets_scoped": {
         "id", "period_type", "period_key", "platform", "shop_name", "category", "version",
     },
+    "finance_erp_targets": {"id", "period_type", "period_key", "platform", "shop_name", "sales_target_cents", "version", "created_at", "updated_at", "updated_by"},
     "finance_data_revisions": {"domain", "revision", "source_digest"},
 }
 REQUIRED_FINANCE_WRITER_COLUMNS = {
@@ -169,6 +170,7 @@ REQUIRED_FINANCE_READER_COLLATION = "zh-Hans-CN-x-icu"
 FINANCE_MARKER_MIGRATION = "0003_finance_source_revision_guard"
 FINANCE_MARKER_TABLE = "finance_source_revision_markers"
 FINANCE_MARKER_TRIGGERS = {
+    ("finance_erp_targets", "finance_erp_target_revision_required", "finance_source_mark_revision_required", 30, False, False),
     ("finance_lines", "finance_line_revision_required", "finance_source_mark_revision_required", 30, False, False),
     ("finance_months", "finance_month_revision_required", "finance_source_mark_revision_required", 30, False, False),
     ("finance_import_batches", "finance_batch_revision_required", "finance_source_mark_revision_required", 30, False, False),
@@ -196,6 +198,7 @@ FINANCE_WRITER_TABLE_PRIVILEGES = {
     "finance_months": ("SELECT", "INSERT", "UPDATE"),
     "finance_lines": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "finance_targets_scoped": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "finance_erp_targets": ("SELECT", "INSERT", "UPDATE"),
     "finance_target_deletion_audits": ("SELECT", "INSERT"),
     "finance_import_scope_heads": ("SELECT", "INSERT", "UPDATE"),
     "finance_import_attempts": ("SELECT", "INSERT", "UPDATE"),

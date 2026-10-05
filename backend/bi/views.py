@@ -10,9 +10,36 @@ from sales.auth import PrincipalEnvelopeError, verify_principal
 
 from .errors import BiApiError
 from .query import get_bi_overview, parse_overview_options
+from .cockpit import parse_request, read_cockpit, read_flow
 
 
 logger = logging.getLogger(__name__)
+
+
+@require_GET
+def cockpit(request: HttpRequest) -> JsonResponse:
+    return _cockpit_request(request)
+
+
+@require_GET
+def flow(request: HttpRequest) -> JsonResponse:
+    return _cockpit_request(request, flow_only=True)
+
+
+def _cockpit_request(request, *, flow_only=False):
+    try:
+        if settings.DJANGO_PROCESS_ROLE not in {"bi_reader", "development"}:
+            raise BiApiError("BI reader进程不可用", code="service_unavailable", status=503)
+        principal = verify_principal(request)
+        if principal.role not in {"viewer", "analyst", "operator", "admin"}:
+            raise PrincipalEnvelopeError("当前角色无权访问", status=403, code="insufficient_role")
+        payload, revision = (read_flow if flow_only else read_cockpit)(principal, parse_request(request.GET))
+        return _json(payload, revision=revision)
+    except (PrincipalEnvelopeError, BiApiError) as error:
+        return _json({"error": str(error), "code": error.code}, error.status)
+    except Exception:
+        logger.exception("Unhandled BI cockpit read error")
+        return _json({"error": "BI驾驶舱读取失败", "code": "internal_error"}, 500)
 
 
 def _json(payload: object, status: int = 200, *, revision: str | None = None) -> JsonResponse:

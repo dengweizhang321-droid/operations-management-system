@@ -27,10 +27,12 @@ class StoreOverviewTests(TestCase):
         # guard before Django's constraint check; the test transaction rolls back.
         NetshopDataRevision.objects.filter(domain="netshop").update(revision=F("revision") + 1, source_digest=hashlib.sha256(self.id().encode()).hexdigest())
 
-    def fact(self, shop="A", day="2026-09-01", platform="京东", promotion=False, values=None):
+    def fact(self, shop="A", day="2026-09-01", platform="京东", promotion=False, values=None, dataset_override=None):
         self.counter += 1
         source = ("jd_promotion" if platform == "京东" else "tmall_promotion") if promotion else ("jd_sku_daily" if platform == "京东" else "tmall_product_daily")
         dataset = ("ad" if platform == "京东" else "promotion_daily") if promotion else ("sku_daily" if platform == "京东" else "spu_daily")
+        if dataset_override is not None:
+            dataset = dataset_override
         batch = NetshopImportBatch.objects.create(id=f"batch-{self.counter}", source=source, dataset=dataset, platform=platform, shop_name=shop, file_size_bytes=0, file_hash=f"{self.counter:064x}", raw_file_hash="a"*64, content_hash="b"*64, scope_key="c"*64, status="completed")
         metrics = values if values is not None else {"spendCents": 200, "netTransactionAmountCents": 400} if promotion else {"transactionAmountCents": 1000, "visitors": 100, "transactionCustomers": 10}
         column_map = {"transactionAmountCents": "transaction_amount_cents", "visitors": "visitors", "transactionCustomers": "transaction_customers", "spendCents": "spend_cents", "netTransactionAmountCents": "net_transaction_amount_cents"}
@@ -53,6 +55,16 @@ class StoreOverviewTests(TestCase):
         self.assertEqual(result["summary"]["roas"]["value"], 2)
         self.assertEqual(result["summary"]["uvValue"]["value"], None)
         self.assertEqual(result["daily"][0]["metrics"], result["summary"])
+
+    def test_bi_spu_is_unique_and_does_not_change_professional_sku_overview(self):
+        self.fact()
+        self.fact(dataset_override="spu_daily", values={"transactionAmountCents": 2000, "visitors": 20, "transactionCustomers": 4})
+        spec = self.spec(); spec["biSummary"] = True
+        bi = read(self.principal, spec)
+        self.assertEqual(bi["summary"]["visitors"]["value"], 20)
+        self.assertEqual(bi["summary"]["conversion"]["value"], .2)
+        self.assertEqual(bi["daily"], [])
+        self.assertEqual(read(self.principal, self.spec())["summary"]["visitors"]["value"], 100)
 
     def test_same_day_different_shops_never_form_a_ratio(self):
         self.fact(shop="A"); self.fact(shop="B", promotion=True)

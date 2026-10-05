@@ -4,10 +4,12 @@ from django.views.decorators.http import require_GET, require_POST
 
 from . import views
 from .analysis_continuation import continuation
+from . import bi_flow
 
 
 read_patterns = [
     path("imports", require_GET(views.imports), name="netshop-imports"),
+    path("bi-flow", bi_flow.view, name="netshop-bi-flow"),
     path("analysis-records", views.analysis_records, name="netshop-analysis-records"),
     path("analysis-records/continuation", continuation, name="netshop-analysis-continuation"),
     path("analysis-options", views.analysis_options, name="netshop-analysis-options"),

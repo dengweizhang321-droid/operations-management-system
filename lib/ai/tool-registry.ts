@@ -1,4 +1,5 @@
 import { readBusinessPromotionDispatchTool } from "@/lib/ai/business-promotion-dispatch-tools";
+import { getBiCockpitForAi } from "@/lib/bi/ai-tool";
 import { readBusinessMarketV2ToolCandidate, MARKET_V2_TOOL, MARKET_V2_SURFACE } from "@/lib/ai/business-market-v2-tool-candidate";
 import { readBusinessMarketV2BaseToolCandidate, MARKET_V2_BASE_NAMES } from "@/lib/ai/business-market-v2-base-tool-candidate";
 import {
@@ -133,6 +134,13 @@ const dingTalkReadOnlyExecution: AiToolExecutionPolicy = {
  * Never derive this registry from API routes, database tables, or arbitrary SQL.
  */
 export const aiToolRegistry = [
+  {
+    name: "get_bi_cockpit", title: "查询综合经营驾驶舱",
+    description: "读取ERP净销售年度/月度目标进度、经营指标、店铺同比下滑、吉客云类目同比环比、运营待处理、库存/广东仓和平台流量的有界摘要。ERP目标明确独立于财报目标；缺源不补零、不将缺记录或非正基期称正常同比。只支持未受限数据范围，查询截至上海昨天的完整日期。返回逐来源修订，不宣称跨域单一原子快照。",
+    inputSchema: { type: "object", properties: { range: { type: "string", enum: ["yesterday", "last7", "last15", "last30", "month", "quarter", "custom"] }, startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, platform: { type: "string", maxLength: 200 }, shop: { type: "string", maxLength: 200 } }, additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: allRoles, scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, timeoutMs: 30_000, maxResultCharacters: 24_000, maxCallsPerRequest: 1 }, handler: getBiCockpitForAi,
+  },
   {
     name: "get_jd_promotion_diagnostic",
     title: "京东单店推广深度诊断与对象证据",

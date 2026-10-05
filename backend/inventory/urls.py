@@ -3,8 +3,10 @@ from django.urls import path
 
 from . import views
 from . import guangdong_views as gd
+from . import bi_projection
 
 read_patterns = [
+    path("bi-cockpit", bi_projection.cockpit, name="inventory-bi-cockpit"),
     path("guangdong-monitor", gd.monitor),
     path("guangdong-monitor/watchlist", gd.watchlist),
     path("guangdong-monitor/products", gd.products),

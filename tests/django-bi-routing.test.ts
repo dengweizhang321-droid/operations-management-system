@@ -6,7 +6,7 @@ import test from "node:test";
 test("BI public route is a thin authenticated adapter to the dedicated Django reader", async () => {
   const [route, dashboard, backend] = await Promise.all([
     readFile(new URL("../app/api/bi/overview/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/dashboard-module-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/bi-cockpit-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../backend/bi/query.py", import.meta.url), "utf8"),
   ]);
   assert.match(route, /requireAppPrincipal/);
@@ -14,7 +14,7 @@ test("BI public route is a thin authenticated adapter to the dedicated Django re
   assert.match(route, /requestDjangoBiOverview/);
   assert.match(route, /last30/);
   assert.doesNotMatch(route, /getSalesSummary|getInventoryDashboardOverview|\.prepare\(/);
-  assert.match(dashboard, /requestJson<BiDashboardResponse>\(`\/api\/bi\/overview\?/);
+  assert.match(dashboard, /requestJson<unknown>\(`\/api\/bi\/cockpit\?/);
   assert.doesNotMatch(dashboard, /\/api\/sales\/summary|\/api\/inventory\/overview/);
   assert.doesNotMatch(dashboard, /100\s*-\s*inventory\.metrics\.urgentCount/);
   assert.match(backend, /get_sales_summary/);

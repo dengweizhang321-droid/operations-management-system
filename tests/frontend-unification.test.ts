@@ -97,16 +97,16 @@ test("one global page head owns the shared period and passes it to every module"
   const [page, header, dashboard, market] = await Promise.all([
     source("../app/page.tsx"),
     source("../app/shell/global-header.tsx"),
-    source("../app/dashboard-module-view.tsx"),
+    source("../app/bi-cockpit-view.tsx"),
     source("../app/market-view.tsx"),
   ]);
   assert.doesNotMatch(page, /className="page-intro"/);
   assert.match(page, /title=\{current\.label\}/);
   assert.match(header, /<h1 id="global-page-title" ref=\{titleRef\} tabIndex=\{-1\}>\{title\}<\/h1>/);
   assert.match(page, /customStartDate=\{globalPeriod\.startDate\} customEndDate=\{globalPeriod\.endDate\}/);
-  assert.match(dashboard, /new URLSearchParams\(\{ range: apiRange \}\)/);
-  assert.match(dashboard, /query\.set\("startDate", customStartDate\)/);
-  assert.match(dashboard, /query\.set\("endDate", customEndDate\)/);
+  assert.match(dashboard, /new URLSearchParams\(\{ range: apiRange, mine:/);
+  assert.match(dashboard, /params\.set\("startDate", customStartDate\)/);
+  assert.match(dashboard, /params\.set\("endDate", customEndDate\)/);
   assert.match(market, /const marketStartDate = customStartDate/);
   assert.match(market, /const marketEndDate = customEndDate/);
   assert.match(market, /market-overview-period market-global-period/);

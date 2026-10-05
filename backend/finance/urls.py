@@ -2,10 +2,11 @@ from django.conf import settings
 from django.urls import path
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
-from . import views
+from . import views, erp_target_views
 
 
 read_patterns = [
+    path("erp-targets", require_GET(erp_target_views.targets), name="finance-erp-targets-read"),
     path("analysis", require_GET(views.analysis), name="finance-analysis"),
     path("imports", require_GET(views.imports), name="finance-imports"),
     path("targets", require_GET(views.targets), name="finance-targets"),
@@ -13,6 +14,7 @@ read_patterns = [
     path("business-evidence/page", require_POST(views.business_evidence_page), name="finance-business-evidence-page"),
 ]
 write_patterns = [
+    path("erp-targets", require_POST(erp_target_views.targets), name="finance-erp-targets-write"),
     path("imports", require_POST(views.imports), name="finance-imports"),
     path("imports/raw-attest", require_POST(views.raw_workbook_attest),
          name="finance-raw-workbook-attest"),
@@ -20,6 +22,7 @@ write_patterns = [
     path("targets", require_http_methods(["POST", "DELETE"])(views.targets), name="finance-targets"),
 ]
 development_patterns = [
+    path("erp-targets", erp_target_views.targets, name="finance-erp-targets-development"),
     path("analysis", views.analysis, name="finance-analysis"),
     path("imports", views.imports, name="finance-imports"),
     path("imports/raw-attest", views.raw_workbook_attest,
