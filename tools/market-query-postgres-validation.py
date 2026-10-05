@@ -16,6 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
+    test_labels = [argument.split('=',1)[1] for argument in sys.argv[1:] if argument.startswith('--test-label=')]
+    forwarded = [argument for argument in sys.argv[1:] if not argument.startswith('--test-label=')]
+    if any(not label.startswith('market.') or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.' for c in label) for label in test_labels):
+        raise RuntimeError('Additional labels must name market tests')
     if not (ROOT / '.git').is_file() or ROOT == Path(r'D:\运营管理系统'):
         raise RuntimeError('Requires isolated Git worktree')
     source = ROOT / 'tools/market-annotation-postgres-rehearsal.py'
@@ -28,6 +32,11 @@ def main():
              'teruisi_finance_writer', 'teruisi_netshop_reader', 'teruisi_netshop_writer',
              'teruisi_ai_seal_writer', *closed)
     text = source.read_text(encoding='utf-8-sig')
+    if test_labels:
+        marker = 'manage("test", "market",'
+        if text.count(marker)!=1:
+            raise RuntimeError('Market test entry changed; review required')
+        text = text.replace(marker,'manage("test", '+','.join(repr(label) for label in test_labels)+',')
     for before, after in (
         ('PORT = 55447', 'PORT = 55485'),
         ('DATABASE = "market_annotation_rehearsal"', 'DATABASE = "market_performance_regression"'),
@@ -111,9 +120,10 @@ class ScopedMarketRunner(DiscoverRunner):
         'migrationsConstraintsAndTriggersPreserved': True,
         'port': 55485, 'database': 'market_performance_regression',
         'preparedClosedRoles': list(roles), 'productionTouched': False,
+        'testLabels': test_labels or ['market'],
     }
     (runtime / 'regression-harness-binding.json').write_text(json.dumps(binding, indent=2), encoding='utf-8')
-    result = subprocess.run([sys.executable, '-B', str(entry), *sys.argv[1:]], cwd=ROOT)
+    result = subprocess.run([sys.executable, '-B', str(entry), *forwarded], cwd=ROOT)
     raise SystemExit(result.returncode)
 
 

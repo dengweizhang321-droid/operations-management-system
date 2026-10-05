@@ -28,6 +28,7 @@ harness.DATABASE = 'market_complete_isolated'
 PLAN_ONLY = '--capture-plans' in sys.argv
 EXTRA_ONLY = '--extra-reads' in sys.argv
 REMAINING_ONLY = '--remaining-reads' in sys.argv
+UNDER_LOAD = '--loaded-machine' in sys.argv
 
 
 def experiment(args, output):
@@ -46,7 +47,9 @@ def experiment(args, output):
     baseline_dir = ROOT / '.runtime/market-performance-complete'
     before_query = module('market.complete_query_reference', baseline_dir / 'backend_market_query.py')
     before_admin = module('market.complete_admin_reference', baseline_dir / 'backend_market_admin.py')
+    before_master = module('market.complete_master_reference', baseline_dir / 'backend_market_master_query.py')
     before_admin.item_trend = before_query.item_trend
+    before_admin.master_page = before_master.master_page
     seed = MarketRankingEntry.objects.create(natural_key='seed', source_row_number=1,
         period_start='2026-01-01', period_end='2026-01-01', sku_code='seed',
         category='synthetic', last_import_batch_id='synthetic-only', quantity=10,
@@ -121,7 +124,7 @@ def experiment(args, output):
             ('annotation-review',lambda m,a:execute_annotation_query({'operation':'annotations','view':'review','params':{}},principal)),
             ('database-filters',lambda m,a:a.execute_master_query({'operation':'master','view':'database_filters','params':{}}))]
     if PLAN_ONLY:
-        cases = [case for case in cases if case[0] in ('ranking-7d','ranking-all','report-7d','trend','settings-status','workspace-mapping')]
+        cases = [case for case in cases if case[0] in ('ranking-7d','ranking-all','report-7d','trend','settings-status','workspace-mapping','database-primary','database-secondary')]
     if REMAINING_ONLY:
         cases = [case for case in cases if case[0].startswith(('database-','workspace-'))]
     report = {'baselineSHA':'bab42d8ce836b4ee9acd82e80de085ff71f9f494',
@@ -129,16 +132,17 @@ def experiment(args, output):
         'masterIdentities':MarketMasterIdentity.objects.count(),'heapBytes':sizes[0],'indexBytes':sizes[1],
         'database':harness.DATABASE,'port':harness.PORT,'concurrency':1,'samplesPerVersion':1 if PLAN_ONLY else 10,
         'mode':'actual-plans' if PLAN_ONLY else 'extra-reads' if EXTRA_ONLY else 'remaining-reads' if REMAINING_ONLY else 'paired-reads',
+        'loadedMachine':UNDER_LOAD,
         'toolSHA256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         'sourceSha256':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in [ROOT/'backend/market/query.py',ROOT/'backend/market/admin.py']},
+            for p in [ROOT/'backend/market/query.py',ROOT/'backend/market/admin.py',ROOT/'backend/market/master_query.py']},
         'conditions':'Filter cache cleared at case sample0; image scalar empty at first ranking then shared across scopes; shared OS/PG buffers; synthetic consumer excludes network',
         'productionTouched':False,'results':[],'complete':False}
     plans = {}
     # Capture actual statements outside measurements. Regular paired run uses
     # estimated plans; --capture-plans separately obtains ANALYZE/BUFFERS.
     for name, call in cases:
-        if not (EXTRA_ONLY or REMAINING_ONLY):
+        if not (EXTRA_ONLY or REMAINING_ONLY or UNDER_LOAD):
             harness.wait_for_capacity()
         # The lightweight follow-up groups still require bootstrap capacity,
         # but record concurrent machine load instead of repeatedly deferring
@@ -210,7 +214,7 @@ def experiment(args, output):
 if __name__ == '__main__':
     baseline_dir = ROOT / '.runtime/market-performance-complete'
     baseline_dir.mkdir(parents=True,exist_ok=True)
-    for source in ('backend/market/query.py','backend/market/admin.py'):
+    for source in ('backend/market/query.py','backend/market/admin.py','backend/market/master_query.py'):
         expected = subprocess.check_output(['git','show',BASELINE+':'+source],cwd=ROOT)
         target = baseline_dir / source.replace('/','_')
         if target.exists() and target.read_bytes()!=expected:
@@ -218,6 +222,14 @@ if __name__ == '__main__':
         if not target.exists():
             target.write_bytes(expected)
     harness.experiment = experiment
+    if UNDER_LOAD:
+        # Explicit diagnostic mode for concurrently busy development hosts.
+        # Retain all samples and load flags; never qualify this as idle P95.
+        # Only the mirror bootstrap memory gate changes, not SQL/HTTP/roles.
+        def loaded_capacity():
+            if harness.machine_load()['availableBytes'] < 1.5*1024**3:
+                raise RuntimeError('Loaded-machine diagnostic requires 1.5 GiB free memory')
+        harness.wait_for_capacity = loaded_capacity
     # Preserve the reviewed bootstrap's bounded options. The experiment above
     # fixes its own representative scale and number of serial samples.
     sys.argv = [sys.argv[0], '--plans-only']

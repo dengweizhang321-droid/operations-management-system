@@ -4,7 +4,7 @@ from django.test.utils import CaptureQueriesContext
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from market.admin import _image_summary, master_workspace
+from market.admin import _image_summary, master_workspace, list_master
 from market.models import MarketImageCache, MarketRankingEntry
 from market.query import _preferred_rows, item_trend, validate_filters
 from market.filter_cache import FilterCache, cached_filters
@@ -70,6 +70,19 @@ class CompleteMarketReadTests(TestCase):
         self.assertEqual(result['coverage'],[])
         self.assertFalse(any('month_min' in q['sql'] for q in captured))
         self.assertTrue(master_workspace({'section':'data'})['coverage'])
+
+    def test_master_count_and_page_share_one_scope_and_keep_empty_last_page_clamp(self):
+        empty=list_master({'includeHistory':True,'page':99,'pageSize':5})
+        self.assertEqual(empty['items'],[])
+        self.assertEqual(empty['pagination'],{'page':1,'pageSize':5,'total':0,'pageCount':1})
+        for number in range(12):
+            self.row(number)
+        with CaptureQueriesContext(connection) as captured:
+            result=list_master({'includeHistory':True,'page':99,'pageSize':5})
+        self.assertEqual(result['pagination'],{'page':3,'pageSize':5,'total':12,'pageCount':3})
+        self.assertEqual(len(result['items']),2)
+        statements=[q['sql'] for q in captured if q['sql'].lstrip().startswith('WITH source')]
+        self.assertEqual(len(statements),1)
 
 
 class ScalarCacheFenceTests(SimpleTestCase):

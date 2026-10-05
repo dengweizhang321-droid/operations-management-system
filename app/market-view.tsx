@@ -582,6 +582,7 @@ function TrendDrawer({ item, onClose }: { item: MarketItem; onClose: () => void 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const requestId = beginLatestRequest(generation);
+    setResult(null);
     const controller = new AbortController();
     const params = new URLSearchParams({ skuCode: item.skuCode, category: item.category, scope: item.scope, dimension: item.rankingDimension });
     void readMarketJson<TrendPayload>(`/api/market/trend?${params}`, controller.signal)
@@ -599,7 +600,7 @@ function TrendDrawer({ item, onClose }: { item: MarketItem; onClose: () => void 
     <header><div><span>{item.skuCode}</span><h3>{item.productName || item.skuCode}</h3><small>{item.category} · {item.rankingDimension}</small></div><button ref={closeButtonRef} type="button" onClick={onClose} aria-label="关闭商品月度趋势">×</button></header>
     {error && <div className="market-feedback error">{error}<button type="button" className="row-action" onClick={() => setRefreshKey((key) => key + 1)}>重新读取趋势</button></div>}
     {!data && !error && <div className="table-state"><span className="state-spinner" />正在读取商品月度趋势…</div>}
-    {data && <><small>{data.truncated ? `展示最近 ${count(data.items.length)} / 共 ${count(data.totalMonths)} 个月` : `展示全部 ${count(data.totalMonths)} 个月`}</small><div className="data-table-wrap"><table className="data-table" data-column-filter-scope={data.truncated ? "none" : "full"} data-column-filter-total={data.totalMonths}><thead><tr><th>月份</th><th>销售额</th><th>成交件数</th><th>市场定位价</th><th>成交均价</th><th>排名</th><th>POP/自营</th><th>价格确认状态</th></tr></thead><tbody>{data.items.map((row) => <tr key={`${row.month}-${row.rank}`}>
+    {data && <><small>{`展示 ${count(data.items.length)} 条趋势记录 · 完整历史 ${count(data.totalMonths)} 个月`}</small><div className="data-table-wrap"><table className="data-table" data-column-filter-scope={data.items.length >= 60 ? "none" : "full"} data-column-filter-total={data.items.length}><thead><tr><th>月份</th><th>销售额</th><th>成交件数</th><th>市场定位价</th><th>成交均价</th><th>排名</th><th>POP/自营</th><th>价格确认状态</th></tr></thead><tbody>{data.items.map((row, index) => <tr key={`${row.periodStart}-${row.periodEnd}-${row.month}-${row.rank}-${index}`}>
       <td>{String(row.month)}</td><td>{money(Number(row.gmvCents ?? 0))}</td><td>{count(Number(row.quantity ?? 0))}</td><td>{money(row.marketPriceCents === null ? null : Number(row.marketPriceCents))}</td><td>{money(row.averageTransactionPriceCents === null ? null : Number(row.averageTransactionPriceCents))}</td><td>{row.rank === null ? "-" : `#${row.rank}`}</td><td>{String(row.operationMode)}</td><td>{String(row.priceStatus)} · {String(row.confirmationStatus)}</td>
     </tr>)}</tbody></table></div></>}
   </Dialog>;
@@ -661,11 +662,12 @@ function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, q
   const missingSelections = data?.missingSelections ?? [];
   const maxTrend = Math.max(1, ...compared.flatMap((item) => item.trend.slice(-12).map((row) => Number(row.gmvCents ?? 0))));
   return <section className="panel market-compare-workspace data-refresh-region" aria-busy={loading}>
-    <header><div><span className="eyebrow">COMPETITOR BENCHMARK</span><h2>竞品对比工作区</h2><p>主指标按当前筛选范围完整汇总；月度火花图只展示最近 12 个月。</p></div><div><strong>已选择 {selections.length} / 5</strong><button type="button" className="secondary-button" onClick={onGoRanking}>继续选择</button><button type="button" className="row-action" onClick={onClear}>清空</button></div></header>
+    <header><div><span className="eyebrow">COMPETITOR BENCHMARK</span><h2>竞品对比工作区</h2><p>主指标按所选商品的完整身份汇总全部历史；日期等条件用于榜单选品。火花图展示趋势窗口中的 12 条记录。</p></div><div><strong>已选择 {selections.length} / 5</strong><button type="button" className="secondary-button" onClick={onGoRanking}>继续选择</button><button type="button" className="row-action" onClick={onClear}>清空</button></div></header>
     <div className="market-compare-selection">{selections.map((item) => <button type="button" key={marketCompareSelectionKey(item)} onClick={() => onRemoveCompare(marketCompareSelectionKey(item))}>{item.productName || item.skuCode}<span>×</span></button>)}</div>
     {error && <small className="red-text">{error}</small>}
     {loading && !data && !error && <small>正在读取对比数据...</small>}
     {loading && data && <small role="status">正在刷新对比数据…</small>}
+    {loading && error && <small role="status">正在重新读取对比数据…</small>}
     {data && missingSelections.length > 0 && <small className="red-text">当前筛选范围无数据：{missingSelections.map((item) => `${item.skuCode}（${item.scope}）`).join("、")}。可调整筛选，或从上方移除。</small>}
     {data && <div className="market-compare-grid market-compare-grid-live">
       <div className="metric-labels"><strong>指标</strong>{["销售额", "成交件数", "市场定位价", "成交均价", "访客", "转化率", "最好排名", "月度趋势"].map((label) => <span key={label}>{label}</span>)}</div>
@@ -673,7 +675,7 @@ function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, q
         <strong title={item.productName}>{item.productName || item.skuCode}</strong><small>{item.skuCode} · {item.scope} · {item.brand || "-"} · {item.rankingDimension}{item.trendTruncated && <><br />服务端趋势已截断 / 共 {count(item.trendTotalMonths)} 个月</>}</small><button type="button" aria-label={`移除 ${item.productName || item.skuCode}`} onClick={() => onRemoveCompare(marketCompareSelectionKey(item))}>×</button>
         <span>{money(item.gmvCents)}</span><span>{count(item.quantity)}</span><span>{money(item.marketPriceCents)}</span><span>{money(item.averageTransactionPriceCents)}</span>
         <span>{count(item.visitors)}</span><span>{percent(item.conversionBps)}</span><span>{item.bestRank ? `#${item.bestRank}` : "-"}</span>
-        <span><i className="market-compare-spark">{item.trend.slice(-12).map((row) => <b key={String(row.month)} style={{ height: `${Math.max(4, Number(row.gmvCents ?? 0) / maxTrend * 28)}px` }} title={`${String(row.month)} ${money(Number(row.gmvCents ?? 0))}`} />)}</i></span>
+        <span><i className="market-compare-spark">{item.trend.slice(-12).map((row, index) => <b key={`${row.periodStart}-${row.periodEnd}-${row.month}-${index}`} style={{ height: `${Math.max(4, Number(row.gmvCents ?? 0) / maxTrend * 28)}px` }} title={`${String(row.month)} ${money(Number(row.gmvCents ?? 0))}`} />)}</i></span>
       </article>)}
     </div>}
   </section>;
