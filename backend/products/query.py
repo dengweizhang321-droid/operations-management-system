@@ -18,6 +18,7 @@ from .models import (
     ProductShippingRate,
 )
 from .revisions import revision_value
+from .summary_cache import cached_base
 
 
 MAX_PRODUCT_KEYS = 20_000
@@ -152,10 +153,10 @@ def normalize_options(raw: dict[str, object]) -> dict[str, object]:
     if direction not in {"asc", "desc"}:
         raise _error("商品排序方向必须是 asc 或 desc")
     projection = raw.get("projection") or "full"
-    if projection not in {"full", "page"}:
+    if projection not in {"full", "page", "initial-page", "overview"}:
         raise _error("商品汇总投影视图无效")
     snapshot = raw.get("expectedSnapshotToken")
-    if projection == "page":
+    if projection in {"page", "overview"}:
         if not isinstance(snapshot, str) or not re.fullmatch(r"[0-9a-f]{64}", snapshot):
             raise _error("page 视图必须使用完整汇总返回的有效数据版本")
     elif snapshot is not None:
@@ -297,6 +298,10 @@ def _sales_performance(
         request = validate_consumer_request(
             {
                 "operation": "product_performance",
+                # Global coverage was already read once from freshness. The
+                # per-1000-SKU bounds are unused here; retain all row/outlet,
+                # truncation and latest-batch consistency checks.
+                "includeBounds": False,
                 "startDate": start_date,
                 "endDate": end_exclusive,
                 "platforms": platforms,
@@ -474,13 +479,10 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
     options = normalize_options(raw_options)
     sales_before = sales_revision_token()
     product_before = revision_value()
-    freshness = execute_consumer_query(
-        principal, validate_consumer_request({"operation": "freshness"})
-    )
-    product_codes, erp, inventory, shipping, control = _read_dimensions()
+    control = ProductInventoryProjectionControl.objects.get(id=1)
     snapshot = _snapshot_token(sales_before, product_before, control)
-    if options["projection"] == "page" and options["expectedSnapshotToken"] != snapshot:
-        raise _error("商品列表与汇总数据版本已变化，请重新加载", code="service_unavailable", status=503)
+    if options["projection"] in {"page", "overview"} and options["expectedSnapshotToken"] != snapshot:
+        raise _error("商品列表与汇总数据版本已变化，请重新加载", code="version_conflict", status=503)
     page = int(options["page"])
     page_size = int(options["pageSize"])
     sort = {"by": options["sortBy"], "direction": options["direction"]}
@@ -492,9 +494,47 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
             or revision_value() != product_before
             or _snapshot_token(sales_before, product_before, after_control) != snapshot
         ):
-            raise _error("商品汇总在读取期间已更新，请重新加载", code="service_unavailable", status=503)
+            raise _error("商品汇总在读取期间已更新，请重新加载", code="version_conflict", status=503)
+
+    def load_base():
+        freshness = execute_consumer_query(
+            principal, validate_consumer_request({"operation": "freshness"})
+        )
+        product_codes, erp, inventory, shipping, loaded_control = _read_dimensions()
+        if _snapshot_token(sales_before, product_before, loaded_control) != snapshot:
+            raise _error("商品公共数据版本已变化", code="version_conflict", status=503)
+        start, cutoff = freshness.get("dataStartDate"), freshness.get("dataCutoffDate")
+        period = _period(start, cutoff, options) if isinstance(start, str) and isinstance(cutoff, str) else None
+        all_rows, outlets = [], {}
+        if period and period["startDate"] and period["endDate"] and product_codes:
+            performance, outlets = _sales_performance(principal, product_codes,
+                str(period["startDate"]), str(period["endDate"]), options["platforms"],
+                options["shops"], freshness.get("latestBatch"))
+            all_rows = [_merge(row, erp.get(code), inventory.get(code), shipping.get(code))
+                for code, row in performance.items()]
+        return {"freshness": freshness, "period": period, "rows": all_rows, "outlets": outlets, "hasProducts": bool(product_codes)}
+
+    base, reusable = cached_base(principal, options, snapshot, load_base, stable, with_status=True)
+    freshness, period, all_rows, outlet_options = (base[k] for k in ("freshness", "period", "rows", "outlets"))
+
+    def project(payload):
+        if options["projection"] == "initial-page":
+            # A bounded cache must not force the next region to scan again for
+            # an oversized/non-cacheable base. Return the validated full result
+            # inline while still sending only this one requested page of rows.
+            if not reusable:
+                return payload
+            return {k:v for k,v in {**payload, "projection": "initial-page"}.items() if k not in {"metrics", "filters"}}
+        if options["projection"] == "overview":
+            return {k:v for k,v in {**payload, "projection": "overview"}.items() if k != "items"}
+        return payload
 
     def empty_payload(range_name: str, requested_start: str | None, requested_end: str | None) -> dict[str, object]:
+        if options["projection"] in {"initial-page", "overview"} and range_name == "custom" and requested_start is None:
+            # Even an authoritative no-sales result needs a request witness;
+            # keep the legacy full empty payload's metadata unchanged.
+            requested = _period("0001-01-01", "9999-12-31", options)
+            requested_start, requested_end = requested["requestedStartDate"], requested["requestedEndDate"]
         page_payload = {
             "projection": "page",
             "snapshotToken": snapshot,
@@ -505,7 +545,7 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
         stable()
         if options["projection"] == "page":
             return page_payload
-        return {
+        return project({
             **page_payload,
             "projection": "full",
             "hasSales": bool(freshness.get("dataCutoffDate")),
@@ -534,32 +574,18 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
                 "marginBands": options["marginBands"],
             },
             "metrics": empty_metrics(),
-        }
+        })
 
     data_start = freshness.get("dataStartDate")
     data_cutoff = freshness.get("dataCutoffDate")
     if not isinstance(data_start, str) or not isinstance(data_cutoff, str):
         return empty_payload(str(options["range"]), None, None)
-    period = _period(data_start, data_cutoff, options)
-    if period["startDate"] is None or period["endDate"] is None or not product_codes:
+    if period["startDate"] is None or period["endDate"] is None or not base["hasProducts"]:
         return empty_payload(
             str(period["range"]),
             str(period["requestedStartDate"]),
             str(period["requestedEndDate"]),
         )
-    performance, outlet_options = _sales_performance(
-        principal,
-        product_codes,
-        str(period["startDate"]),
-        str(period["endDate"]),
-        options["platforms"],
-        options["shops"],
-        freshness.get("latestBatch"),
-    )
-    all_rows = [
-        _merge(row, erp.get(code), inventory.get(code), shipping.get(code))
-        for code, row in performance.items()
-    ]
     # The validated 1000-character query bounds this list; never silently drop later codes.
     keywords = list(dict.fromkeys(value.lower() for value in re.split(r"[\s,，;；]+", str(options["query"])) if value))
     facet_rows = [row for row in all_rows if _matches_text(row, keywords)]
@@ -623,7 +649,7 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
     sorted_outlets = sorted(
         outlet_options.values(), key=lambda item: (item["platform"].encode("utf-8"), item["shop"].encode("utf-8"))
     )
-    return {
+    return project({
         **page_payload,
         "projection": "full",
         "hasSales": True,
@@ -661,4 +687,4 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
             "marginBands": options["marginBands"],
         },
         "metrics": metrics,
-    }
+    })

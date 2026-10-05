@@ -19,6 +19,19 @@ def encoded(payload: object) -> str:
 
 
 class SalesConsumerApiTests(TestCase):
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_product_bounds_can_be_omitted_without_changing_complete_business_rows(self):
+        request = {"operation":"product_performance", "startDate":"2026-08-01", "endDate":"2026-08-03", "productCodes":["P1"]}
+        default = self.post(request).json()["data"]
+        explicit = self.post({**request,"includeBounds":True}).json()["data"]
+        self.assertEqual(default, explicit)
+        with patch("sales.consumers._bounds", side_effect=AssertionError("unused per-chunk bounds must not be read")):
+            compact = self.post({**request,"includeBounds":False})
+        self.assertEqual(compact.status_code,200,compact.content)
+        self.assertEqual(compact.json()["data"],{k:v for k,v in default.items() if k not in {"dataStartDate","dataCutoffDate"}})
+        for invalid in (0,1,None,"false",[],{}):
+            self.assertEqual(self.post({**request,"includeBounds":invalid}).status_code,400)
+
     def setUp(self) -> None:
         cache.clear()
         install_fixture()

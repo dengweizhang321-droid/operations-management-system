@@ -117,7 +117,7 @@ test("customer, sales, and product views avoid superseded or duplicate work", as
   assert.match(customer, /listControllerRef\.current\?\.abort\(\)/);
   assert.match(customer, /listGenerationRef\.current === generation/);
   assert.match(customer, /listRequestKeyRef\.current === requestKey/);
-  assert.match(productView, /products\/summary\?\$\{params\}[\s\S]*signal/);
+  assert.match(productView, /products\/summary\?\$\{query\}[\s\S]*signal/);
   assert.match(customerRoute, /includeOptions: url\.searchParams\.get\("includeOptions"\) !== "false"/);
   assert.doesNotMatch(customerDatabase, /SELECT COUNT\(\*\) AS total FROM customer_service_conversations \$\{where\}[\s\S]*SELECT COUNT\(\*\) AS total, SUM/);
   const aiConversationQuery = customerDatabase.slice(customerDatabase.indexOf("export async function getCustomerServiceConversationsForAi"));

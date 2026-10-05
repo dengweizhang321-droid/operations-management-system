@@ -122,6 +122,6 @@ test("商品前端只在同一 bootstrap 和 snapshot 下请求 page 投影，�
   assert.match(product, /productSummaryRestartedTokensRef = useRef\(new Set<string>\(\)\)/);
   assert.match(product, /const expectedSnapshotToken = productSummarySnapshotTokenRef\.current/);
   assert.match(product, /params\.set\("view", "page"\)[\s\S]+params\.set\("snapshotToken", expectedSnapshotToken\)/);
-  assert.match(product, /response\.status === 503 \|\| pageSnapshotMismatch/);
+  assert.match(product, /raw\?\.code === "version_conflict"/);
   assert.match(product, /productSummarySnapshotTokenRef\.current = payload\.snapshotToken/);
 });

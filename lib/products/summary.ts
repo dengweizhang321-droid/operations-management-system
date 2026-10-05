@@ -50,7 +50,11 @@ export type ProductSummaryOptions = ProductSummaryQueryOptions & {
   signal?: AbortSignal;
 };
 
-export type ProductSummaryProjection = "full" | "page";
+export type ProductSummaryProjection = "full" | "page" | "initial-page" | "overview";
+
+export type ProductSummaryInitialPageResponse = Omit<ProductSummaryFullResponse, "projection" | "metrics" | "filters"> & { projection: "initial-page" };
+export type ProductSummaryOverviewResponse = Omit<ProductSummaryFullResponse, "projection" | "items"> & { projection: "overview" };
+export type ProductSummaryReadResponse = ProductSummaryFullResponse | ProductSummaryPageResponse | ProductSummaryInitialPageResponse | ProductSummaryOverviewResponse;
 
 export type ProductSummaryPagination = {
   page: number;
@@ -150,8 +154,8 @@ function summaryQuery(options: ProductSummaryOptions) {
   appendList(params, "marginBand", options.marginBands);
   if (options.sortBy) params.set("sortBy", options.sortBy);
   if (options.direction) params.set("direction", options.direction);
-  if (options.projection === "page") {
-    params.set("view", "page");
+  if (options.projection && options.projection !== "full") {
+    params.set("view", options.projection);
     if (options.expectedSnapshotToken) params.set("snapshotToken", options.expectedSnapshotToken);
   }
   return params.toString();
@@ -171,13 +175,13 @@ export function getProductSummary(
   principal: AppPrincipal,
   options: ProductSummaryOptions,
   reader?: ProductsSummaryReader,
-): Promise<ProductSummaryFullResponse | ProductSummaryPageResponse>;
+): Promise<ProductSummaryReadResponse>;
 export async function getProductSummary(
   principal: AppPrincipal,
   options: ProductSummaryOptions = {},
   reader: ProductsSummaryReader = createDjangoProductsService(),
-): Promise<ProductSummaryFullResponse | ProductSummaryPageResponse> {
-  const result = await reader.requestJson<ProductSummaryFullResponse | ProductSummaryPageResponse>(
+): Promise<ProductSummaryReadResponse> {
+  const result = await reader.requestJson<ProductSummaryReadResponse>(
     principal,
     {
       method: "GET",
