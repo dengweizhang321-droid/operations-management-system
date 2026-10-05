@@ -14,6 +14,8 @@ type LazyImporter<Props extends object> = () => Promise<{
 export type ReloadableLazyController<Props extends object> = {
   readonly current: LazyExoticComponent<ComponentType<Props>>;
   reset: () => LazyExoticComponent<ComponentType<Props>>;
+  /** Explicit code-only navigation intent; never invoked during registration. */
+  preload: () => ReturnType<LazyImporter<Props>>;
 };
 
 const scopeResets = new Map<string, Set<() => void>>();
@@ -21,15 +23,26 @@ const scopeResets = new Map<string, Set<() => void>>();
 export function createReloadableLazyController<Props extends object>(
   importer: LazyImporter<Props>,
 ): ReloadableLazyController<Props> {
-  let current = lazy(importer);
+  let pending: ReturnType<LazyImporter<Props>> | undefined;
+  const load = () => {
+    if (!pending) {
+      pending = Promise.resolve().then(importer);
+      const attempt = pending;
+      void attempt.catch(() => { if (pending === attempt) pending = undefined; });
+    }
+    return pending;
+  };
+  let current = lazy(load);
   return {
     get current() {
       return current;
     },
     reset() {
-      current = lazy(importer);
+      pending = undefined;
+      current = lazy(load);
       return current;
     },
+    preload: load,
   };
 }
 

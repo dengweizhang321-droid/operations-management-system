@@ -1,0 +1,83 @@
+✔ requestJson applies same-origin defaults and serializes JSON bodies (34.6256ms)
+✔ requestJson preserves explicit fetch options (0.9997ms)
+✔ requestJson returns undefined for successful empty responses (0.4859ms)
+✔ requestJson sends FormData without setting a multipart content type (1.2342ms)
+✔ requestJson exposes structured HTTP failures as ApiError (1.5681ms)
+✔ requestJson converts network failures without retrying (0.4532ms)
+✔ requestJson passes AbortError and the caller signal through unchanged (0.3685ms)
+✔ requestJson rejects malformed successful JSON with a bounded ApiError (0.8179ms)
+✔ independent: a late subscriber's own deadline leaves earlier subscriber alive (36.8098ms)
+✔ independent: cancellation during body does not cancel a surviving subscriber (12.5198ms)
+✔ independent: invalidation followed by old transport rejection cannot finish the replacement (11.758ms)
+✔ independent: lifetime is measured from first request, not extended by late joining (43.4509ms)
+✔ independent: exhausted transport capacity still permits an existing exact-key subscriber (1.3401ms)
+✔ independent: user, permission, date, filter, version, and response header dimensions never join (2.5984ms)
+✔ independent: each of four representative endpoints can opt in without completed-result reuse (31.7227ms)
+✔ independent: an undefined body rejection remains a failure for every subscriber (0.7264ms)
+✖ independent: observed transport honors its declared options.signal (2.1537ms)
+✔ independent: the default requestJson remains uncapped and preserves writes (12.9944ms)
+✔ independent: loading region escapes labels, hides spinner and does not steal keyboard focus (6.5015ms)
+✔ independent: old preload failure after reset cannot clear a newer code load (0.3928ms)
+✔ independent: recorder wraps in chronological order and stores only numeric allowlisted spans (0.3555ms)
+✔ four audited representative reads join only exact in-flight keys; legacy results stay independent (46.7107ms)
+✔ user, permission/scope, date, filter order, version and headers isolate entries (3.9322ms)
+✔ one cancellation and one short subscriber deadline cannot cancel a survivor (20.4535ms)
+✔ all subscribers cancelling aborts transport; late completion cannot poison a new read (3.0438ms)
+✔ network/HTTP/JSON failures are shared only in flight, never retried or cached (12.902ms)
+✔ missing version disables joining; completed results are never reused (1.5666ms)
+✔ invalidation rejects old subscribers and permits a new epoch, without cached authorization (14.2781ms)
+✔ capacity bounds entries, subscribers, keys and abandoned transports (33.5838ms)
+✔ pre-abort, writes, SSE, credentials, foreign/unregistered URLs and invalid budgets never reach transport (0.9125ms)
+✔ bounded bodies reject dishonest Content-Length and release the reader (7.2944ms)
+✔ one lifetime covers slow headers and slow body; stream cancellation releases slots (34.8144ms)
+✔ observation is disabled by default, bounded and strips sensitive fields; observer failures are harmless (1.6024ms)
+✔ loading regions reserve space, expose text/status and hide decorative spinner (12.3253ms)
+✔ registration is lazy; explicit preload joins mount and reset permits failed chunk retry (1.635ms)
+✔ a scoped market lazy importer can reject once and resolve after an explicit retry (2.8996ms)
+✔ the module error boundary rebuilds its lazy scope before clearing the fallback (1.3359ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 36
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 674.8108
+
+✖ failing tests:
+
+test at tests\foundation-independent-review.test.ts:1:6276
+✖ independent: observed transport honors its declared options.signal (2.1537ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - AbortSignal {
+  -   Symbol(events.maxEventTargetListeners): 0,
+  -   Symbol(events.maxEventTargetListenersWarned): false,
+  -   Symbol(kAborted): true,
+  -   Symbol(kComposite): false,
+  -   Symbol(kEvents): SafeMap(0) {},
+  -   Symbol(kHandlers): SafeMap(0) {},
+  -   Symbol(kReason): DOMException [AbortError]: This operation was aborted
+  -       at new DOMException (node:internal/per_context/domexception:76:18)
+  -       at AbortController.abort (node:internal/abort_controller:565:18)
+  -       at TestContext.<anonymous> (D:\.codex\worktrees\performance-foundation\运营管理系统\tests\foundation-independent-review.test.ts:108:56)
+  -       at Test.runInAsyncScope (node:async_hooks:227:14)
+  -       at Test.run (node:internal/test_runner/test:1325:25)
+  -       at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+  -       at Test.postRun (node:internal/test_runner/test:1465:19)
+  -       at Test.run (node:internal/test_runner/test:1390:12)
+  -       at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  - }
+
+      at TestContext.<anonymous> (D:\.codex\worktrees\performance-foundation\运营管理系统\tests\foundation-independent-review.test.ts:113:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: {},
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -14,6 +14,7 @@ import StatisticalPeriodPicker from "./statistical-period-picker";
 import AppShell from "./shell/app-shell";
 import GlobalHeader from "./shell/global-header";
 import ModuleErrorBoundary from "./shell/module-error-boundary";
+import ModuleLoadingState from "./shell/module-loading-state";
 import {
   createReloadableLazy,
   resetReloadableLazyScope,
@@ -672,9 +673,9 @@ export default function Home() {
               onRetry={() => { resetReloadableLazyScope(active); }}
               onOpenDashboard={() => selectModule("dashboard")}
             >
-              {shellLocationReady ? <Suspense fallback={<section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在加载{current.label}</strong><p>正在按需载入当前业务工作区…</p></section>}>
+              {shellLocationReady ? <Suspense fallback={<ModuleLoadingState title={`正在加载${current.label}`}>正在按需载入当前业务工作区…</ModuleLoadingState>}>
                 <AiPageContextProvider module={active} view={activeModuleView} publish={publishAiDetails}><View range={range} onShopDrill={drillShop} onShopReturn={returnShop} shopContext={shopContext} onShopContextChange={changeShopContext} periodKind={range === "自定义" && customIntent ? customIntent : undefined} overview={overview} onOverviewChange={changeOverview} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onAskAi={askAiWithContext} aiContextPrompt={aiContextPrompt} aiPageContext={aiPageContext} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} /></AiPageContextProvider>
-              </Suspense> : <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在打开目标工作区</strong><p>正在读取当前页面位置与统计周期…</p></section>}
+              </Suspense> : <ModuleLoadingState title="正在打开目标工作区">正在读取当前页面位置与统计周期…</ModuleLoadingState>}
             </ModuleErrorBoundary>
           </div>
           {currentUser && shellLocationReady && <AiWorkspaceHost
