@@ -242,12 +242,13 @@ test("heavy module views are lazy and the dashboard does not eagerly import thei
   assert.match(sales, /createReloadableLazy\("sales", \(\) => import\("\.\/sales-category-view"\)\)/);
   assert.doesNotMatch(sales, /^import (?!type )[^\n]+from "\.\/sales-category-view"/m);
   assert.match(page, /const GlobalSearchDialog = lazy\(\(\) => import\("\.\/global-search-dialog"\)\)/);
-  assert.match(page, /if \(!shellLocationReady \|\| !currentUser \|\| active !== "market" \|\| activeModuleView === "settings" \|\| activeModuleView === "compare"\) return;[\s\S]+import\("\.\/market-view"\)/);
+  assert.match(page, /if \(shellLocationReady\) prepareNavigationModule\(active\)/);
+  assert.doesNotMatch(page, /prefetchMarketRankingOverview/);
   assert.match(page, /const \[shellLocationReady, setShellLocationReady\] = useState\(false\)/);
   assert.match(page, /setShellLocationReady\(true\)/);
   assert.match(page, /\{shellLocationReady \? <Suspense[\s\S]+<View range=/);
   assert.match(page, /正在打开目标工作区/);
-  assert.match(page, /<Suspense fallback=\{<section className="panel data-state" role="status"/);
+  assert.match(page, /<Suspense fallback=\{<ModuleLoadingState title=/);
   assert.match(page, /\{searchOpen && <GlobalSearchLoadBoundary[\s\S]+<Suspense fallback=\{<GlobalSearchLoadingDialog[\s\S]+<GlobalSearchDialogView/);
   assert.match(page, /GlobalSearchLoadingDialog[\s\S]+<Dialog open onClose=\{onClose\}/);
   assert.match(page, /class GlobalSearchLoadBoundary[\s\S]+<Dialog open onClose=\{this\.props\.onClose\}/);

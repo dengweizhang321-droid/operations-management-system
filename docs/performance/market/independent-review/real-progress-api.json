@@ -1,0 +1,47 @@
+{
+  "job": {
+    "id": "independent-review-job-0",
+    "category": "演示净水设备",
+    "promptVersionId": "independent-prompt-0",
+    "executor": "cloud",
+    "modelId": null,
+    "localModelName": "",
+    "status": "review_ready",
+    "totalCount": 20,
+    "completedCount": 20,
+    "failedCount": 0,
+    "reviewedCount": 0,
+    "committedCount": 0,
+    "remainingInferenceCount": 0,
+    "createdBy": "fixture@example.invalid",
+    "createdAt": "2026-10-05T15:12:43.204634Z",
+    "startedAt": null,
+    "completedAt": null,
+    "updatedAt": "2026-10-05T15:12:43.204634Z"
+  },
+  "activeClaims": 0,
+  "uniqueInferenceUnits": 20,
+  "remainingInferenceUnits": 0,
+  "cloudRun": {
+    "jobId": "independent-review-job-0",
+    "state": "paused",
+    "runConcurrency": 1,
+    "targetConcurrency": 1,
+    "recovering": false,
+    "nextRunAt": null,
+    "lastFailureCode": "",
+    "lastFailureMessage": "",
+    "lastStartedAt": null,
+    "lastHeartbeatAt": null,
+    "completedAt": "2026-10-05T15:53:14.706702Z",
+    "updatedAt": "2026-10-05T15:53:14.707723Z"
+  },
+  "performance": {
+    "measuredCount": 0,
+    "averageImageLoadMs": 0,
+    "averageImagePrepareMs": 0,
+    "averageModelCallMs": 0,
+    "averageTotalInferenceMs": 0,
+    "averageModelInputBytes": 0
+  }
+}

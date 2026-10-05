@@ -1,0 +1,43 @@
+{
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "implementationSHA": "d849830149d2fbf000f2b5a4f437f7dbf53ba779",
+  "branch": "codex/sales-performance",
+  "worktree": "D:\\.codex\\worktrees\\sales-performance\\运营管理系统",
+  "businessEquivalentCases": 70,
+  "pgTestsPassed": 81,
+  "nodePassed": 52,
+  "nodeHistoricalSkipped": 2,
+  "browserPerformanceRecords": 123,
+  "browserChecks": [
+    "overview-trend-and-distribution-all-local-dimensions",
+    "whole-round-one-retry-and-successful-region-retained",
+    "non-cooperative-late-summary-does-not-overwrite-new-scope",
+    "core-full-version-conflict-complete-reread",
+    "slow-sales-read-feedback-retention-and-leaving-page-cancels-ui",
+    "category-direct-entry-authorized-platform-options-and-filter",
+    "category-refresh-retained-new-scope-failure-clears-old-business",
+    "detail-failure-retains-valid-same-scope",
+    "finance-refresh-failure-retains-same-signature",
+    "annual-and-target-list-independent-failure-retention",
+    "target-read-deadline-keeps-valid-same-page",
+    "synthetic-target-create",
+    "synthetic-target-update",
+    "synthetic-target-delete",
+    "actual-template-download",
+    "actual-xlsx-parse-and-private-postgres-import",
+    "actual-paged-target-export",
+    "baseline-actual-home-navigation",
+    "candidate-actual-home-navigation"
+  ],
+  "limitations": [
+    "production/P95/long-session/uncontrolled-background not measured",
+    "cold category/finance and full revisit regressions disclosed",
+    "background preview blocked; offline fixed snapshot provided",
+    "global typecheck historical failures",
+    "author timing evidence ran on uncommitted candidate; original baseline session.source preserved"
+  ],
+  "integrationStatus": "unmerged independent branch; no candidate or production operations",
+  "independentNodePassed": 20,
+  "directEntryCases": 16,
+  "coldChannelFirstMs": 2235.5
+}

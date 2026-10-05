@@ -7,7 +7,7 @@ import {
   validateFinanceTargetDeletionReason,
 } from "../app/module-view-shared";
 
-const salesPath = new URL("../app/sales-module-view.tsx", import.meta.url);
+const salesPath = new URL("../app/sales-finance-views.tsx", import.meta.url);
 
 test("finance target write controls are restricted to administrators", async () => {
   assert.equal(canManageFinanceTargets({ role: "admin" }), true);
@@ -16,10 +16,13 @@ test("finance target write controls are restricted to administrators", async () 
   assert.equal(canManageFinanceTargets({ role: "operator" }), false);
   assert.equal(canManageFinanceTargets(null), false);
 
-  const sales = await readFile(salesPath, "utf8");
-  assert.match(sales, /function SalesView\(\{[^\n]+currentUser[^\n]+\}: \{[^\n]+currentUser: CurrentUser \| null;/);
-  assert.match(sales, /const canManageTargets = canManageFinanceTargets\(currentUser\);/);
-  assert.match(sales, /<FinanceTargetSettingsView canManageTargets=\{canManageTargets\}/);
+  const [sales, salesModule] = await Promise.all([
+    readFile(salesPath, "utf8"),
+    readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(salesModule, /function SalesView\(\{[^\n]+currentUser[^\n]+\}: \{[^\n]+currentUser: CurrentUser \| null;/);
+  assert.match(salesModule, /const canManageTargets = canManageFinanceTargets\(currentUser\);/);
+  assert.match(salesModule, /<FinanceTargetSettingsView key=\{JSON\.stringify\(currentUser\)\} canManageTargets=\{canManageTargets\}/);
   assert.match(sales, /\{canManageTargets \? <section className="panel finance-target-form-panel">/);
   assert.match(sales, /\{canManageTargets \? <div className="finance-target-row-actions">/);
   assert.match(sales, /仅管理员可新增、编辑或删除经营目标；你仍可查看全部目标并使用分页。/);
@@ -83,7 +86,8 @@ test("finance target list is decoupled from slow admin-only options while full s
 
   assert.match(sales, /finance\/targets\?view=items&page=\$\{targetPage\}&pageSize=100/);
   assert.match(sales, /if \(!canManageTargets\) return;[\s\S]*?finance\/targets\?view=options/);
-  assert.match(sales, /if \(loading \|\| optionsLoadedRef\.current\) return;/, "option scan must start only after the target list settles");
+  assert.match(sales, /useEffect\(\(\) => \{ void loadTargets\(\); return \(\) => targetRequestControllerRef\.current\?\.abort\(\); \}, \[loadTargets\]\)/);
+  assert.match(sales, /if \(optionsLoadedRef\.current\) return;\s*void loadOptions\(\);\s*return \(\) => optionsRequestControllerRef\.current\?\.abort\(\);\s*\}, \[canManageTargets, loadOptions\]\)/, "options have an independent effect and cannot block target-list settlement");
   assert.match(sales, /optionsRequestGenerationRef[\s\S]*?generation !== optionsRequestGenerationRef\.current/);
   assert.match(sales, /optionsRequestControllerRef\.current\?\.abort\(\)/);
   assert.match(sales, /管理选项加载失败[\s\S]*?重试加载/);

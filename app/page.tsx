@@ -14,6 +14,7 @@ import StatisticalPeriodPicker from "./statistical-period-picker";
 import AppShell from "./shell/app-shell";
 import GlobalHeader from "./shell/global-header";
 import ModuleErrorBoundary from "./shell/module-error-boundary";
+import ModuleLoadingState from "./shell/module-loading-state";
 import {
   createReloadableLazy,
   resetReloadableLazyScope,
@@ -43,6 +44,7 @@ import { defaultShopLocationContext, type ShopLocationContext, type ShopDrillSco
 import { bindShopPresentationHistory, readBoundShopLocationContext, shopPresentationHistoryMatches } from "./shell/shop-presentation-history";
 import { normalizeModuleView } from "./shell/module-view-contract";
 import SidebarNavigation from "./shell/sidebar-navigation";
+import { createNavigationPreloader } from "./shell/navigation-preload";
 import { useModuleViewState } from "./shell/use-module-view-state";
 import {
   type CurrentUser,
@@ -66,7 +68,7 @@ import Dialog from "./ui/dialog";
 import { SearchableSelect } from "./ui/searchable-select";
 import TableColumnFilters from "./ui/table-column-filters";
 
-const { Component: MarketView } = createReloadableLazy("market", () => import("./market-view"));
+const { Component: MarketView, controller: marketCode } = createReloadableLazy("market", () => import("./market-view"));
 const { Component: N8nWorkflowView } = createReloadableLazy("n8n_workflows", () => import("./n8n-workflow-view"));
 const { Component: OperationsView } = createReloadableLazy("workflow", () => import("./operations-view"));
 const { Component: SettingsView } = createReloadableLazy("settings", () => import("./settings-view"));
@@ -75,10 +77,16 @@ const { Component: CustomerServiceView } = createReloadableLazy("customer_servic
 const { Component: AiModuleView } = createReloadableLazy("ai", () => import("./ai-module-view"));
 const { Component: DashboardView } = createReloadableLazy("dashboard", () => import("./dashboard-module-view"));
 const { Component: ShopView } = createReloadableLazy("shop", () => import("./shop-module-view"));
-const { Component: SalesView } = createReloadableLazy("sales", () => import("./sales-module-view"));
-const { Component: InventoryView } = createReloadableLazy("inventory", () => import("./inventory-module-view"));
-const { Component: ProductView } = createReloadableLazy("product", () => import("./product-module-view"));
+const { Component: SalesView, controller: salesCode } = createReloadableLazy("sales", () => import("./sales-module-view"));
+const { Component: InventoryView, controller: inventoryCode } = createReloadableLazy("inventory", () => import("./inventory-module-view"));
+const { Component: ProductView, controller: productCode } = createReloadableLazy("product", () => import("./product-module-view"));
 const { Component: ImportView } = createReloadableLazy("import", () => import("./import-module-view"));
+const prepareNavigationModule = createNavigationPreloader({
+  sales: salesCode.preload,
+  inventory: inventoryCode.preload,
+  product: productCode.preload,
+  market: marketCode.preload,
+});
 
 type GlobalSearchLoadBoundaryProps = {
   children: ReactNode;
@@ -257,18 +265,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!shellLocationReady || !currentUser || active !== "market" || activeModuleView === "settings" || activeModuleView === "compare") return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      void import("./market-view")
-        .then(({ prefetchMarketRankingOverview }) => prefetchMarketRankingOverview(globalPeriod.startDate, globalPeriod.endDate, controller.signal))
-        .catch(() => undefined);
-    }, 0);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [active, activeModuleView, currentUser, globalPeriod.endDate, globalPeriod.startDate, shellLocationReady]);
+    if (shellLocationReady) prepareNavigationModule(active);
+  }, [active, shellLocationReady]);
 
   const applyLocationState = useCallback(() => {
     const state = parseShellLocation(window.location.href);
@@ -640,7 +638,7 @@ export default function Home() {
         collapsed={collapsed}
         mobileOpen={mobileMenu}
         onCloseMobile={closeMobileMenu}
-        sidebar={<SidebarNavigation active={active} activeView={activeModuleView} collapsed={collapsed} hrefForModule={hrefForModule} onNavigate={handleSidebarNavigate} onToggleCollapsed={toggleCollapsed} />}
+        sidebar={<SidebarNavigation active={active} activeView={activeModuleView} collapsed={collapsed} hrefForModule={hrefForModule} onNavigate={handleSidebarNavigate} onPrepareModule={prepareNavigationModule} onToggleCollapsed={toggleCollapsed} />}
         header={<GlobalHeader
           title={current.label}
           description={`${current.description}${active !== "n8n_workflows" ? ` · ${globalPeriod.startDate} 至 ${globalPeriod.endDate}` : ""}`}
@@ -672,9 +670,9 @@ export default function Home() {
               onRetry={() => { resetReloadableLazyScope(active); }}
               onOpenDashboard={() => selectModule("dashboard")}
             >
-              {shellLocationReady ? <Suspense fallback={<section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在加载{current.label}</strong><p>正在按需载入当前业务工作区…</p></section>}>
+              {shellLocationReady ? <Suspense fallback={<ModuleLoadingState title={`正在加载${current.label}`}>正在按需载入当前业务工作区…</ModuleLoadingState>}>
                 <AiPageContextProvider module={active} view={activeModuleView} publish={publishAiDetails}><View range={range} onShopDrill={drillShop} onShopReturn={returnShop} shopContext={shopContext} onShopContextChange={changeShopContext} periodKind={range === "自定义" && customIntent ? customIntent : undefined} overview={overview} onOverviewChange={changeOverview} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onAskAi={askAiWithContext} aiContextPrompt={aiContextPrompt} aiPageContext={aiPageContext} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} /></AiPageContextProvider>
-              </Suspense> : <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在打开目标工作区</strong><p>正在读取当前页面位置与统计周期…</p></section>}
+              </Suspense> : <ModuleLoadingState title="正在打开目标工作区">正在读取当前页面位置与统计周期…</ModuleLoadingState>}
             </ModuleErrorBoundary>
           </div>
           {currentUser && shellLocationReady && <AiWorkspaceHost

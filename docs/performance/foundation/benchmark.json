@@ -1,0 +1,826 @@
+{
+  "schema": "foundation-synthetic-loopback-v1",
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "baselineClientSha256": "f1245028c5bf1307a5c89e454d7523c1a9211d442cb42d00aadc4112afe835b0",
+  "sourceFiles": [
+    {
+      "path": "lib/http/api-client.ts",
+      "sha256": "e82a5a47ead60d636b4945a800b6f7f2214e89c6c0d5410299da994149e3c41a"
+    },
+    {
+      "path": "lib/http/read-client.ts",
+      "sha256": "73d13f2322d76b8db4de4e36739fbe5d5f405fad52842b087a0a6bb6f866e219"
+    },
+    {
+      "path": "lib/http/performance.ts",
+      "sha256": "3e1bcbf46b77b090479992b5d536bd849b2663930654cae93fe42f7c623d0d89"
+    }
+  ],
+  "sourceHead": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "synthetic": true,
+  "transport": "loopback dynamic port; native fetch; four identical subscribers; 30 alternating rounds per domain",
+  "limits": "No real Worker/permission service/Django/SQL/browser. Heap deltas include GC; process CPU includes the synthetic server. Latency is not production P95.",
+  "payloadBytes": 2189,
+  "records": [
+    {
+      "path": "/api/sales/summary",
+      "legacy": {
+        "n": 30,
+        "p50Ms": 61.4403999999995,
+        "p95Ms": 91.2781,
+        "requests": 120,
+        "bytes": 262680,
+        "cpuMicros": 359000,
+        "heapDeltaBytes": -10257808,
+        "peakActive": 4
+      },
+      "joined": {
+        "n": 30,
+        "p50Ms": 59.325700000000325,
+        "p95Ms": 71.42560000000049,
+        "requests": 30,
+        "bytes": 65670,
+        "cpuMicros": 109000,
+        "heapDeltaBytes": 9580512,
+        "peakActive": 1
+      },
+      "samples": {
+        "legacy": [
+          91.2781,
+          47.30780000000004,
+          57.855699999999615,
+          58.227499999999964,
+          67.55259999999998,
+          61.40099999999984,
+          58.46950000000015,
+          54.3735999999999,
+          97.16820000000007,
+          67.61270000000013,
+          51.55859999999984,
+          69.61840000000029,
+          60.352400000000216,
+          63.364299999999275,
+          61.4403999999995,
+          63.339100000000144,
+          60.631100000000515,
+          62.554300000000694,
+          58.783400000000256,
+          63.008600000000115,
+          60.807700000000295,
+          60.064800000000105,
+          62.42999999999938,
+          55.05460000000039,
+          61.59549999999945,
+          62.48230000000058,
+          70.03780000000006,
+          61.838300000000345,
+          54.722999999999956,
+          61.5652999999993
+        ],
+        "joined": [
+          59.325700000000325,
+          54.41249999999991,
+          60.07210000000032,
+          64.51200000000017,
+          60.9092999999998,
+          59.57990000000018,
+          52.284000000000106,
+          51.0011999999997,
+          83.4393,
+          48.35609999999997,
+          59.21129999999994,
+          46.59180000000015,
+          61.690200000000004,
+          60.11409999999978,
+          61.71429999999964,
+          61.404999999999745,
+          40.95229999999992,
+          59.46509999999944,
+          60.32629999999972,
+          46.27270000000044,
+          55.84769999999935,
+          56.026199999999335,
+          43.58690000000024,
+          66.64600000000064,
+          71.42560000000049,
+          62.178100000000086,
+          56.61190000000079,
+          46.01459999999952,
+          62.30419999999958,
+          53.560199999999895
+        ]
+      },
+      "host": {
+        "meanBusyPercent": 71.1078099921456,
+        "freeBytesBefore": 740048896,
+        "freeBytesAfter": 1820602368
+      }
+    },
+    {
+      "path": "/api/inventory/overview",
+      "legacy": {
+        "n": 30,
+        "p50Ms": 59.13770000000022,
+        "p95Ms": 68.20840000000044,
+        "requests": 120,
+        "bytes": 262680,
+        "cpuMicros": 125000,
+        "heapDeltaBytes": -12436040,
+        "peakActive": 4
+      },
+      "joined": {
+        "n": 30,
+        "p50Ms": 59.3112000000001,
+        "p95Ms": 62.45709999999963,
+        "requests": 30,
+        "bytes": 65670,
+        "cpuMicros": 141000,
+        "heapDeltaBytes": 7675712,
+        "peakActive": 1
+      },
+      "samples": {
+        "legacy": [
+          59.97999999999956,
+          51.15350000000035,
+          61.990099999999984,
+          60.425100000000384,
+          57.6864000000005,
+          63.48739999999998,
+          55.927200000000084,
+          53.04179999999997,
+          58.14139999999952,
+          68.20840000000044,
+          47.34029999999984,
+          62.94239999999991,
+          43.61149999999998,
+          62.970800000000054,
+          59.13770000000022,
+          57.10609999999997,
+          52.02680000000055,
+          61.86539999999877,
+          60.552200000000084,
+          63.3676000000014,
+          61.527500000000146,
+          55.600899999999456,
+          56.67000000000007,
+          38.116799999999785,
+          61.27770000000055,
+          44.594600000000355,
+          62.01479999999901,
+          55.58100000000013,
+          69.19480000000112,
+          61.98650000000089
+        ],
+        "joined": [
+          61.26750000000084,
+          57.61779999999999,
+          58.02419999999984,
+          57.76100000000042,
+          61.84890000000087,
+          60.548899999999776,
+          61.73689999999988,
+          63.48979999999938,
+          56.85080000000016,
+          59.3112000000001,
+          61.09020000000055,
+          61.962000000000444,
+          47.13709999999992,
+          59.70650000000023,
+          61.556800000000294,
+          61.91199999999935,
+          61.38349999999991,
+          60.76350000000002,
+          55.87250000000131,
+          55.403299999999945,
+          47.07590000000164,
+          47.279200000000856,
+          45.77839999999924,
+          58.28269999999975,
+          62.45709999999963,
+          44.835000000000946,
+          53.012400000001435,
+          61.16849999999977,
+          61.530000000000655,
+          52.31049999999959
+        ]
+      },
+      "host": {
+        "meanBusyPercent": 57.84797988022219,
+        "freeBytesBefore": 1820372992,
+        "freeBytesAfter": 2184384512
+      }
+    },
+    {
+      "path": "/api/products/summary",
+      "legacy": {
+        "n": 30,
+        "p50Ms": 55.55659999999989,
+        "p95Ms": 66.35709999999926,
+        "requests": 120,
+        "bytes": 262680,
+        "cpuMicros": 156000,
+        "heapDeltaBytes": -14674656,
+        "peakActive": 4
+      },
+      "joined": {
+        "n": 30,
+        "p50Ms": 58.10540000000037,
+        "p95Ms": 64.9466999999986,
+        "requests": 30,
+        "bytes": 65670,
+        "cpuMicros": 188000,
+        "heapDeltaBytes": 1693424,
+        "peakActive": 1
+      },
+      "samples": {
+        "legacy": [
+          54.214200000000346,
+          46.332400000001144,
+          58.44720000000052,
+          62.22479999999996,
+          62.25280000000021,
+          62.66280000000006,
+          61.722600000000966,
+          63.86369999999988,
+          50.940599999999904,
+          66.35709999999926,
+          55.957399999999325,
+          53.8700000000008,
+          57.32899999999972,
+          68.6947999999993,
+          52.52469999999994,
+          51.82600000000093,
+          54.426400000000285,
+          47.20550000000003,
+          54.816500000000815,
+          46.27099999999882,
+          55.55659999999989,
+          46.813099999999395,
+          63.163000000000466,
+          61.9301000000014,
+          61.45460000000094,
+          59.83179999999993,
+          48.71879999999874,
+          65.85020000000077,
+          49.80709999999999,
+          54.89840000000004
+        ],
+        "joined": [
+          61.71110000000044,
+          49.761099999999715,
+          61.314000000000306,
+          46.83339999999953,
+          59.9992000000002,
+          58.270699999999124,
+          59.4393,
+          44.50840000000062,
+          64.7523000000001,
+          60.29310000000078,
+          44.51879999999983,
+          63.06530000000021,
+          51.32099999999991,
+          32.42369999999937,
+          68.81009999999878,
+          45.40660000000025,
+          58.2518,
+          61.19549999999981,
+          44.49120000000039,
+          60.998999999999796,
+          49.88720000000103,
+          52.32580000000053,
+          55.42690000000039,
+          60.91149999999834,
+          44.95180000000073,
+          53.11579999999958,
+          46.59649999999965,
+          63.293399999998655,
+          64.9466999999986,
+          58.10540000000037
+        ]
+      },
+      "host": {
+        "meanBusyPercent": 63.05819675163713,
+        "freeBytesBefore": 2184077312,
+        "freeBytesAfter": 2192355328
+      }
+    },
+    {
+      "path": "/api/market/overview",
+      "legacy": {
+        "n": 30,
+        "p50Ms": 55.72159999999894,
+        "p95Ms": 68.97619999999915,
+        "requests": 120,
+        "bytes": 262680,
+        "cpuMicros": 47000,
+        "heapDeltaBytes": 1980184,
+        "peakActive": 4
+      },
+      "joined": {
+        "n": 30,
+        "p50Ms": 58.258600000001024,
+        "p95Ms": 66.3101999999999,
+        "requests": 30,
+        "bytes": 65670,
+        "cpuMicros": 47000,
+        "heapDeltaBytes": 1880760,
+        "peakActive": 1
+      },
+      "samples": {
+        "legacy": [
+          58.492599999999584,
+          71.22429999999986,
+          55.72159999999894,
+          55.64670000000115,
+          38.29449999999997,
+          61.94470000000001,
+          52.489700000000084,
+          62.13169999999991,
+          46.51000000000022,
+          62.5005000000001,
+          51.52529999999933,
+          42.09569999999985,
+          59.34169999999904,
+          59.22520000000077,
+          55.54899999999907,
+          68.97619999999915,
+          61.34979999999996,
+          54.96310000000085,
+          54.87359999999899,
+          65.58489999999983,
+          49.54280000000108,
+          48.34350000000086,
+          66.84089999999924,
+          59.09640000000036,
+          57.21929999999884,
+          67.99330000000009,
+          46.01419999999962,
+          46.9448999999986,
+          55.069900000000416,
+          62.95290000000023
+        ],
+        "joined": [
+          66.3101999999999,
+          58.81660000000011,
+          63.51369999999952,
+          59.31869999999981,
+          46.323599999999715,
+          53.26499999999942,
+          61.39670000000115,
+          61.88580000000002,
+          62.868500000000495,
+          54.99289999999928,
+          67.32130000000143,
+          45.60490000000027,
+          47.719199999999546,
+          46.58179999999993,
+          60.186799999999494,
+          50.61749999999847,
+          52.58139999999912,
+          61.14539999999943,
+          62.195599999999104,
+          64.95590000000084,
+          57.30090000000018,
+          57.4296000000013,
+          43.11729999999989,
+          62.32170000000042,
+          61.53859999999986,
+          55.38750000000073,
+          46.06130000000121,
+          52.63120000000163,
+          60.09770000000026,
+          58.258600000001024
+        ]
+      },
+      "host": {
+        "meanBusyPercent": 41.86726740911651,
+        "freeBytesBefore": 2192289792,
+        "freeBytesAfter": 2419548160
+      }
+    }
+  ],
+  "browserTransportStagesMeasuredInNode": {
+    "browser.headers": {
+      "n": 120,
+      "p50Ms": 43.651700000000346,
+      "p95Ms": 50.11859999999979
+    },
+    "browser.body": {
+      "n": 120,
+      "p50Ms": 15.213700000000244,
+      "p95Ms": 18.38909999999987
+    },
+    "browser.decode": {
+      "n": 120,
+      "p50Ms": 0.04099999999925785,
+      "p95Ms": 0.059600000000500586
+    }
+  },
+  "authorization": {
+    "environment": "actual unchanged authorization.ts executed with injected synthetic identity/header + loopback permission seams",
+    "samples": {
+      "ordinary": {
+        "n": 30,
+        "p50Ms": 31.856700000000274,
+        "p95Ms": 47.01300000000265,
+        "calls": {
+          "identity": 30,
+          "permissions": 30,
+          "localHeaders": 0
+        },
+        "observations": [
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.018500000001949957
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 36.6221000000005
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.005499999999301508
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 45.09940000000279
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.01569999999992433
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 31.423899999997957
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.006199999999807915
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 45.76350000000093
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.007700000001932494
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 30.028299999998126
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.005699999997887062
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 40.66819999999643
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.005199999999604188
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 21.1820000000007
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.005199999999604188
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 46.75909999999931
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.005999999997584382
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 47.59029999999984
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.009700000002339948
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 25.448700000000827
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.010000000002037268
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 36.31930000000284
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.012800000000424916
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 28.489299999997456
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.010900000001129229
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 46.25489999999991
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.0072000000000116415
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 30.54910000000018
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.005200000003242167
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 46.96839999999793
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.007099999998899875
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 46.33729999999923
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.005499999999301508
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 31.534599999999045
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.006600000000617001
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 45.64349999999831
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.005699999997887062
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 27.361100000001898
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.007000000001426088
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 29.99750000000131
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.006500000003143214
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 14.908100000000559
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.005699999997887062
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 30.997999999999593
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.007799999999406282
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 21.80790000000343
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.007499999999708962
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 33.075300000000425
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.02350000000296859
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 15.808999999997468
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.005799999998998828
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 33.97999999999956
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.007799999999406282
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 31.79859999999826
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.005199999999604188
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 43.23490000000311
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.006300000000919681
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 30.824699999997392
+          },
+          {
+            "stage": "auth.identity",
+            "durationMs": 0.0051000000021304
+          },
+          {
+            "stage": "auth.permissions",
+            "durationMs": 35.42289999999775
+          }
+        ]
+      },
+      "local": {
+        "n": 30,
+        "p50Ms": 0.005699999997887062,
+        "p95Ms": 0.07709999999860884,
+        "calls": {
+          "identity": 0,
+          "permissions": 0,
+          "localHeaders": 30
+        },
+        "observations": [
+          {
+            "stage": "auth.local",
+            "durationMs": 0.2618000000002212
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.015299999999115244
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.006199999999807915
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.003399999997782288
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0031999999991967343
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.002899999999499414
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0028000000020256266
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.002599999999802094
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.01599999999962165
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.01239999999961583
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0059000000001105946
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.004299999996874249
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.002300000000104774
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.001999999996769475
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0019000000029336661
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.00210000000151922
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.002899999999499414
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0020000000004074536
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0018999999992956873
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0018999999992956873
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0018999999992956873
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.002300000000104774
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0018999999992956873
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0021999999989930075
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0016999999970721547
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0018000000018218998
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0019000000029336661
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.0018999999992956873
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.001799999998183921
+          },
+          {
+            "stage": "auth.local",
+            "durationMs": 0.001799999998183921
+          }
+        ]
+      }
+    },
+    "securityChecks": [
+      "local admin role denial",
+      "production disables local opt-in"
+    ]
+  },
+  "unknown": [
+    "Worker real frontend cost",
+    "real auth",
+    "Django queue",
+    "SQL",
+    "GPU rendering",
+    "background resource contention"
+  ],
+  "finalStats": {
+    "entries": 0,
+    "subscribers": 0,
+    "transports": 0,
+    "resultCacheEntries": 0
+  }
+}

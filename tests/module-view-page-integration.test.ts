@@ -75,5 +75,8 @@ test("deep links wait for shell location before mounting a business view", async
   assert.ok(locationReady > 0);
   assert.ok(guardedView > locationReady);
   assert.match(source, /const \[active, setActive\] = useState<ModuleKey>\("dashboard"\);\s+const \[moduleTransitionPending, startModuleTransition\] = useTransition\(\);\s+const \[shellLocationReady, setShellLocationReady\] = useState\(false\)/);
-  assert.match(source, /if \(!shellLocationReady \|\| !currentUser \|\| active !== "market" \|\| activeModuleView === "settings" \|\| activeModuleView === "compare"\) return/);
+  assert.match(source, /if \(shellLocationReady\) prepareNavigationModule\(active\)/);
+  assert.match(source, /const prepareNavigationModule = createNavigationPreloader\(\{[\s\S]*?sales: salesCode\.preload,[\s\S]*?inventory: inventoryCode\.preload,[\s\S]*?product: productCode\.preload,[\s\S]*?market: marketCode\.preload,/);
+  assert.doesNotMatch(source, /prefetchMarketRankingOverview|requestMarketOverview/, "the shell must not prefetch market data without verified identity/permission/source context");
+  assert.match(source, /shellLocationReady \? <Suspense[\s\S]*?<View[\s\S]*?<\/Suspense> : <ModuleLoadingState/, "code preloading must not bypass the business-view location gate");
 });

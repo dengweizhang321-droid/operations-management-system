@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { build } from "esbuild";
 import { chromium } from "playwright-core";
+import { validFinanceAnalysis } from "../lib/sales/view-response";
 
 const chromePath = process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe";
 
@@ -24,18 +25,21 @@ test("finance filters preserve search and multiple selections through loading, e
     bundle: true, write: false, format: "iife", platform: "browser", jsx: "automatic",
     define: { "process.env.NODE_ENV": '"test"' },
   });
-  const metrics = { netSalesCents: 1234500, profitCents: 1200 };
-  const targets = { salesTargetCents: 0, profitTargetCents: 0, smallMarginBps: 0, promotionFeeRatioBps: 0 };
-  const progress = { sales: null, profit: null };
+  const complete = JSON.parse(await readFile(new URL("../docs/performance/sales/fixtures/finance.json", import.meta.url), "utf8"));
+  const metrics = Object.fromEntries(Object.entries(complete.current).map(([key, value]) =>
+    [key, key.endsWith("Cents") ? Math.round(Number(value) * 1234500 / complete.current.netSalesCents) : value]));
   const payload = {
+    ...complete,
     hasData: true, selectedMonth: "2026-09", selectedMonths: ["2026-09"],
-    months: ["2026-09", "2026-08", "2026-07"].map(month => ({ month })),
+    months: ["2026-09", "2026-08", "2026-07"].map(month => ({ ...complete.months[0], month })),
     current: metrics, yearToDate: metrics, timeline: [], expenses: [], shops: [], anomalies: [],
-    targets: { month: targets, year: targets, projects: [] }, progress: { month: progress, year: progress },
+    expensePagination: { total: 0, returned: 0, truncated: false },
+    shopPagination: { total: 0, returned: 0, truncated: false },
     filters: { platforms: ["京东"], shops: ["甲旗舰店", "乙旗舰店", "丙专卖店"].map(name => ({
       key: JSON.stringify(["京东", name]), name, platform: "京东",
     })) },
   };
+  assert.equal(validFinanceAnalysis(payload), true, "the interaction fixture must satisfy the unchanged business response guard");
   const browser = await chromium.launch({ executablePath: chromePath, headless: true });
   try {
     const page = await browser.newPage();
@@ -47,9 +51,33 @@ test("finance filters preserve search and multiple selections through loading, e
     await page.evaluate(initial => {
       const pending: Array<{ url: string; resolve: (response: Response) => void }> = [];
       Object.assign(window, { financePending: pending });
+      // Every success must echo the actual pending scope. Replaying a fixed
+      // September/all-shops response after changing filters is invalid now.
+      Object.assign(window, { financeShapeResponse(url: string, body: typeof initial) {
+        const value = structuredClone(body);
+        const query = new URL(url, location.href).searchParams;
+        const requestedMonths = query.getAll("month");
+        const allMonths = requestedMonths.includes("*");
+        const months = allMonths ? value.months.map((item: { month: string }) => item.month) : requestedMonths;
+        value.selectedMonths = value.hasData ? months : [];
+        value.selectedMonth = value.hasData ? months.at(-1) ?? null : null;
+        value.selection = {
+          ...value.selection, allMonths, requestedMonths, months: value.hasData ? months : [],
+          platforms: query.getAll("platform"), shops: query.getAll("shop"), fallbackApplied: false,
+        };
+        if (!value.hasData) {
+          value.current = value.previous = value.yearAgo = null;
+          value.yearToDate = Object.fromEntries(Object.keys(initial.current).map(key => [key, 0]));
+          value.timeline = []; value.expenses = []; value.shops = []; value.anomalies = [];
+        }
+        return value;
+      } });
       let first = true;
       window.fetch = async input => {
-        if (first) { first = false; return Response.json(initial); }
+        if (first) {
+          first = false;
+          return Response.json((window as unknown as { financeShapeResponse: (url: string, body: typeof initial) => unknown }).financeShapeResponse(String(input), initial));
+        }
         // Deliberately ignore abort: generation fencing must reject late responses too.
         return new Promise<Response>(resolve => pending.push({ url: String(input), resolve }));
       };
@@ -62,9 +90,13 @@ test("finance filters preserve search and multiple selections through loading, e
         return last && !last.settled;
       });
       await page.evaluate(({ status, body }) => {
-        const pending = (window as unknown as { financePending: Array<{ settled?: boolean; resolve: (response: Response) => void }> }).financePending;
+        const state = window as unknown as {
+          financePending: Array<{ url: string; settled?: boolean; resolve: (response: Response) => void }>;
+          financeShapeResponse: (url: string, body: unknown) => unknown;
+        };
+        const pending = state.financePending;
         pending.at(-1)!.settled = true;
-        pending.at(-1)!.resolve(Response.json(body, { status }));
+        pending.at(-1)!.resolve(Response.json(status === 200 ? state.financeShapeResponse(pending.at(-1)!.url, body) : body, { status }));
       }, { status, body });
     };
     for (let index = 0; index < 2; index++) {

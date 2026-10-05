@@ -1,0 +1,57 @@
+{
+  "checks": [
+    "actual_synthetic_ranking20_and_pagination",
+    "actual_synthetic_trend_drawer",
+    "actual_synthetic_compare_two_full_identities",
+    "actual_synthetic_industry_complete"
+  ],
+  "failures": [],
+  "errors": [],
+  "requests": [
+    {
+      "url": "/api/auth/me",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/overview?view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-10-01&endDate=2026-10-05",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/filters",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/overview?view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-10-01&endDate=2026-10-04",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/overview?view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-10-01&endDate=2026-10-04",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/overview?view=ranking&includeFilterOptions=false&page=2&pageSize=20&dimension=SKU&startDate=2026-10-01&endDate=2026-10-04",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/overview?view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-10-01&endDate=2026-10-04",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/trend?skuCode=MARKET-DEMO-001&category=%E6%BC%94%E7%A4%BA%E5%87%80%E6%B0%B4%E8%AE%BE%E5%A4%87&scope=%E5%85%A8%E9%83%A8&dimension=SKU",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/master?view=compare&selection=%7B%22skuCode%22%3A%22MARKET-DEMO-001%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E6%BC%94%E7%A4%BA%E5%95%86%E5%93%81+01%22%2C%22category%22%3A%22%E6%BC%94%E7%A4%BA%E5%87%80%E6%B0%B4%E8%AE%BE%E5%A4%87%22%2C%22scope%22%3A%22%E5%85%A8%E9%83%A8%22%2C%22rankingDimension%22%3A%22SKU%22%7D&selection=%7B%22skuCode%22%3A%22MARKET-DEMO-002%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E6%BC%94%E7%A4%BA%E5%95%86%E5%93%81+02%22%2C%22category%22%3A%22%E6%BC%94%E7%A4%BA%E5%87%80%E6%B0%B4%E8%AE%BE%E5%A4%87%22%2C%22scope%22%3A%22%E5%85%A8%E9%83%A8%22%2C%22rankingDimension%22%3A%22SKU%22%7D&rankingDimension=SKU&startDate=2026-10-01&endDate=2026-10-04",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/filters",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/overview?view=full&includeFilterOptions=false&dimension=SKU&startDate=2026-10-01&endDate=2026-10-04",
+      "method": "GET"
+    }
+  ],
+  "boundary": "GET-only parent isolated preview3186/SQLite synthetic40; no performance claim; no model/write"
+}

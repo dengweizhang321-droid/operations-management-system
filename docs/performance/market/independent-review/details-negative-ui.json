@@ -1,0 +1,33 @@
+{
+  "checks": [
+    "trend_cancel_late_different_identity",
+    "trend_failure_retry_recovers",
+    "trend_record_window_does_not_claim_full_month_table",
+    "compare_late_scope_switch_hides_old_payload",
+    "compare_cross_scope_failure_has_no_old_payload",
+    "compare_same_scope_refresh_failure_keeps_success",
+    "compare_refresh_recovers_and_clears_error",
+    "compare_cancel_to_empty_rejects_late_payload"
+  ],
+  "failures": [],
+  "errors": [],
+  "requests": [
+    "/api/auth/me",
+    "/api/market/overview?view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+    "/api/market/filters",
+    "/api/market/trend?skuCode=100001&category=%E7%B1%BB%E7%9B%AE-1&scope=pop&dimension=SKU",
+    "/api/market/trend?skuCode=100002&category=%E7%B1%BB%E7%9B%AE-2&scope=pop&dimension=SKU",
+    "/api/market/trend?skuCode=100002&category=%E7%B1%BB%E7%9B%AE-2&scope=pop&dimension=SKU",
+    "/api/market/trend?skuCode=100002&category=%E7%B1%BB%E7%9B%AE-2&scope=pop&dimension=SKU",
+    "/api/market/trend?skuCode=100002&category=%E7%B1%BB%E7%9B%AE-2&scope=pop&dimension=SKU",
+    "/api/market/master?view=compare&selection=%7B%22skuCode%22%3A%22100001%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%811%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-1%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&selection=%7B%22skuCode%22%3A%22100002%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%812%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-2%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&rankingDimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+    "/api/market/master?view=compare&selection=%7B%22skuCode%22%3A%22100001%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%811%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-1%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&selection=%7B%22skuCode%22%3A%22100002%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%812%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-2%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&q=old-delay&rankingDimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+    "/api/market/master?view=compare&selection=%7B%22skuCode%22%3A%22100001%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%811%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-1%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&selection=%7B%22skuCode%22%3A%22100002%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%812%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-2%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&q=new-scope&rankingDimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+    "/api/market/master?view=compare&selection=%7B%22skuCode%22%3A%22100001%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%811%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-1%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&selection=%7B%22skuCode%22%3A%22100002%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%812%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-2%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&q=failure&rankingDimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+    "/api/market/master?view=compare&selection=%7B%22skuCode%22%3A%22100001%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%811%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-1%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&selection=%7B%22skuCode%22%3A%22100002%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%812%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-2%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&q=new-scope&rankingDimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+    "/api/market/master?view=compare&selection=%7B%22skuCode%22%3A%22100001%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%811%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-1%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&selection=%7B%22skuCode%22%3A%22100002%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%812%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-2%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&q=new-scope&rankingDimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+    "/api/market/master?view=compare&selection=%7B%22skuCode%22%3A%22100001%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%811%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-1%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&selection=%7B%22skuCode%22%3A%22100002%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%812%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-2%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&q=new-scope&rankingDimension=SKU&startDate=2026-10-01&endDate=2026-10-06",
+    "/api/market/master?view=compare&selection=%7B%22skuCode%22%3A%22100001%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%811%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-1%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&selection=%7B%22skuCode%22%3A%22100002%22%2C%22productName%22%3A%22%E5%90%88%E6%88%90%E5%95%86%E5%93%812%22%2C%22category%22%3A%22%E7%B1%BB%E7%9B%AE-2%22%2C%22scope%22%3A%22pop%22%2C%22rankingDimension%22%3A%22SKU%22%7D&q=old-delay&rankingDimension=SKU&startDate=2026-10-01&endDate=2026-10-06"
+  ],
+  "boundary": "mock GET-only; cancellation/scope/refresh logic; no performance or database claim"
+}

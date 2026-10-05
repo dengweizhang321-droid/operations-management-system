@@ -85,7 +85,16 @@ test("sales and inventory tabs only request the data source needed by the visibl
   assert.equal((salesView.match(/\/api\/sales\/summary/g) ?? []).length, 1);
   assert.match(salesView, /const usesSalesSummary = activeTab === "overview" \|\| activeTab === "channel"/);
   assert.match(salesView, /if \(!usesSalesSummary\) return;/);
-  assert.match(salesView, /retryKey, usesSalesSummary\]/);
+  assert.match(salesView, /\[summaryKey, retryKey, usesSalesSummary, apiRange, customStartDate, customEndDate,\s*debouncedProductQuery, filters\.productQuery, filters\.platforms, filters\.outletKeys, filters\.categories\]/);
+  const summaryEffect = salesView.slice(salesView.indexOf("if (!usesSalesSummary) return;"), salesView.indexOf("const current = summary?.current"));
+  assert.match(summaryEffect, /const read = async \(projection: "core" \| "full", revision\?: string\)/);
+  assert.match(summaryEffect, /if \(projection === "core"\) params\.set\("view", "core"\)/);
+  assert.match(summaryEffect, /if \(revision\) params\.set\("expectedRevision", revision\)/);
+  assert.match(summaryEffect, /for \(let round = 0; round < 2; round\+\+\)/);
+  assert.match(summaryEffect, /const initial = await read\("core"\);\s*if \(!live\(\)\) return;[\s\S]*?setCoreResult\(initial\);[\s\S]*?const complete = await read\("full", initial\.revision\);/);
+  assert.match(summaryEffect, /if \(complete && complete\.revision === initial\.revision\s*&& complete\.payload\.startDate === initial\.payload\.startDate && complete\.payload\.endDate === initial\.payload\.endDate\) \{ setFullResult\(complete\); return; \}/);
+  assert.match(summaryEffect, /const live = \(\) => !controller\.signal\.aborted && generation === generationRef\.current/);
+  assert.match(summaryEffect, /window\.clearTimeout\(timeout\); controller\.abort\(\)/);
 
   assert.equal((inventoryView.match(/\/api\/inventory\/overview/g) ?? []).length, 1);
   assert.equal((inventoryView.match(/\/api\/inventory\/age-analysis/g) ?? []).length, 1);

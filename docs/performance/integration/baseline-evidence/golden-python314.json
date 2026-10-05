@@ -1,0 +1,176 @@
+{
+  "schema": "finance-golden-pure-baseline-review-v1",
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "head": "8fcad768a5cbb5dd1376afea65300eb05cfddb4b",
+  "runtime": {
+    "executable": "C:\\Users\\86137\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+    "python": "3.14.6",
+    "zlibVersion": "1.3.1.zlib-ng",
+    "zlibRuntimeVersion": "1.3.1.zlib-ng",
+    "zlibNgVersion": "2.2.4",
+    "zlibNgRuntimeVersion": null
+  },
+  "testSource": {
+    "path": "backend/finance/tests/test_workbook_bytes_v2.py",
+    "baselineBlobSha256": "711da548184c585a141163ddae3f9490eddd3f488e88edab98ccc43c7ce17a3b",
+    "headBlobSha256": "711da548184c585a141163ddae3f9490eddd3f488e88edab98ccc43c7ce17a3b",
+    "workingBytesSha256": "711da548184c585a141163ddae3f9490eddd3f488e88edab98ccc43c7ce17a3b",
+    "baselineEqualsHeadBlob": true,
+    "baselineEqualsWorkingNormalized": true,
+    "selectedHelpersAstEqual": true
+  },
+  "fixture": {
+    "path": "backend/finance/tests/fixtures/raw_bytes_v2_cross_group.xlsx",
+    "sha256": "098c31d5f64b19347baea3b33b5daa059cc7cd7aadfde8466170943a87680f54",
+    "length": 1665,
+    "baselineEqualsHeadEqualsWorking": true
+  },
+  "generated": {
+    "baselineLength": 1674,
+    "workingLength": 1674,
+    "baselineSha256": "72fb9179657daff6e42e5def9a5e603e1b80211f65ead65f78dce3481269c0ba",
+    "workingSha256": "72fb9179657daff6e42e5def9a5e603e1b80211f65ead65f78dce3481269c0ba",
+    "baselineEqualsWorking": true,
+    "baselineEqualsFixedFixture": false,
+    "workingEqualsFixedFixture": false
+  },
+  "archiveComparison": {
+    "memberNamesEqual": true,
+    "members": [
+      {
+        "name": "[Content_Types].xml",
+        "uncompressedEqual": true,
+        "uncompressedLength": [
+          502,
+          502
+        ],
+        "uncompressedSha256": [
+          "58341b56ce90ce38a5052685582283daee451be925062fc4b67b62caa6017751",
+          "58341b56ce90ce38a5052685582283daee451be925062fc4b67b62caa6017751"
+        ],
+        "crcEqual": true,
+        "compressedEqual": false,
+        "compressedLength": [
+          216,
+          217
+        ],
+        "compressedSha256": [
+          "820e2f8d16aa1fa4954c087228170f40a8c095a85f42a0202760ee729a3f2edb",
+          "c87b75926ea1c2e8ccd11b21b86acbb4cd88b905f5d11a226225c7ae8b7b7bd0"
+        ],
+        "metadataDifferences": {},
+        "extraEqual": true,
+        "commentEqual": true
+      },
+      {
+        "name": "_rels/.rels",
+        "uncompressedEqual": true,
+        "uncompressedLength": [
+          240,
+          240
+        ],
+        "uncompressedSha256": [
+          "fc5715a86467973c771fed6cf49203ed48734dcbd0f24088be6bbb6e290cd7b5",
+          "fc5715a86467973c771fed6cf49203ed48734dcbd0f24088be6bbb6e290cd7b5"
+        ],
+        "crcEqual": true,
+        "compressedEqual": false,
+        "compressedLength": [
+          138,
+          138
+        ],
+        "compressedSha256": [
+          "e6825a007898e527333fb2398718ff345f0b4ae451b0e0347849b109673b7646",
+          "21637a02d1b8c1cae2b496d35c26cedd3bdf9fb6bb46ba39731211a81439c443"
+        ],
+        "metadataDifferences": {},
+        "extraEqual": true,
+        "commentEqual": true
+      },
+      {
+        "name": "xl/workbook.xml",
+        "uncompressedEqual": true,
+        "uncompressedLength": [
+          226,
+          226
+        ],
+        "uncompressedSha256": [
+          "46efd35e3d86bdbe7456aa6858cc024aa61c434d78230d55a5e256d813bd8e48",
+          "46efd35e3d86bdbe7456aa6858cc024aa61c434d78230d55a5e256d813bd8e48"
+        ],
+        "crcEqual": true,
+        "compressedEqual": false,
+        "compressedLength": [
+          143,
+          145
+        ],
+        "compressedSha256": [
+          "4da652121387ad94506fe8b0981c042ffd3e89a8b24d6f390a397e0d254e5888",
+          "565d95e63a06a8b9829d09f244f4f6db9ad7fd55d5c42d1072a303e9af2e01d4"
+        ],
+        "metadataDifferences": {},
+        "extraEqual": true,
+        "commentEqual": true
+      },
+      {
+        "name": "xl/_rels/workbook.xml.rels",
+        "uncompressedEqual": true,
+        "uncompressedLength": [
+          241,
+          241
+        ],
+        "uncompressedSha256": [
+          "cd08e5907cb6dac158f533d606c8654824bf1f22b42b22122d3722d25413bfdf",
+          "cd08e5907cb6dac158f533d606c8654824bf1f22b42b22122d3722d25413bfdf"
+        ],
+        "crcEqual": true,
+        "compressedEqual": false,
+        "compressedLength": [
+          142,
+          143
+        ],
+        "compressedSha256": [
+          "b2196560de25c9a10f27c155a66fa7679c0215167d372955e1d44eb8a1255f9c",
+          "b90a30a8c5319c850b4d830f5711e26ec0d4f1bd574d4864efe7a827438537df"
+        ],
+        "metadataDifferences": {},
+        "extraEqual": true,
+        "commentEqual": true
+      },
+      {
+        "name": "xl/worksheets/sheet1.xml",
+        "uncompressedEqual": true,
+        "uncompressedLength": [
+          1452,
+          1452
+        ],
+        "uncompressedSha256": [
+          "0bbc9e637b3fed1f12d7895046a6f221722041b1d9d5b8f68988b15b1acd0728",
+          "0bbc9e637b3fed1f12d7895046a6f221722041b1d9d5b8f68988b15b1acd0728"
+        ],
+        "crcEqual": true,
+        "compressedEqual": false,
+        "compressedLength": [
+          434,
+          439
+        ],
+        "compressedSha256": [
+          "3d550100c00f5c134a20d9d7e584d03d71a84cb1c13130a1ce20eb734324d693",
+          "4fb26803873bedb3727f1c93b87259891b8cc16405822c34bf0622fd3c6cc7e6"
+        ],
+        "metadataDifferences": {},
+        "extraEqual": true,
+        "commentEqual": true
+      }
+    ],
+    "archiveCommentEqual": true,
+    "allUncompressedMembersEqual": true,
+    "allMemberMetadataEqual": true
+  },
+  "safety": {
+    "onlyPureHelpersExecuted": true,
+    "djangoImported": false,
+    "financeImported": false,
+    "noDatabaseOrNetworkOperations": true
+  }
+}

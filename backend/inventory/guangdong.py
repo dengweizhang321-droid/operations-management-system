@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from sales.models import ErpProductMaster
 from .errors import InventoryApiError
+from .read_cache import cached_base
 from .models import (
     GuangdongMonitorAudit,
     GuangdongMonitorItem,
@@ -324,7 +325,7 @@ def risk_fields(*, available, sales30, lead, buffer, snapshot):
     return {"risk": risk, "riskLabel": RISK_LABELS[risk], "riskReasons": reasons, "turnoverDays": turnover, "latestOrderDate": order_date}
 
 
-def _project_items(principal, watched):
+def _uncached_project_items(principal, watched):
     codes = [row.product_code for row in watched]
     latest, stock = _stock(codes)
     age_latest, ages = _ages(codes)
@@ -413,6 +414,17 @@ def _project_items(principal, watched):
         item["riskReason"] = "；".join(item["riskReasons"])
         items.append(item)
     return items, latest, age_latest, sales, stale
+
+
+def _project_items(principal, watched):
+    # Watch records may include transient default models for overview members.
+    # Bind their full public configuration as well as the source versions.
+    scope = json.dumps([{
+        field.attname: str(getattr(row, field.attname))
+        for field in row._meta.concrete_fields
+    } for row in watched], sort_keys=True)
+    return cached_base("guangdong", principal, scope,
+                       lambda: _uncached_project_items(principal, watched))
 
 
 def overview_risks(principal, codes):

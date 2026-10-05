@@ -1,0 +1,92 @@
+{
+  "checks": [
+    "ranking_failure_preserves_navigation_filters",
+    "settings_tabs_available_before_status",
+    "pending_status_does_not_claim_empty_or_mount_import",
+    "null_status_import_does_not_seed_today",
+    "status_updates_image_cache_notice",
+    "settings_细分品类设置",
+    "settings_品牌确认",
+    "settings_映射配置",
+    "settings_数据配置",
+    "settings_SKU 数据库",
+    "master_cards_table",
+    "nonempty_master_edit_dialog_close_without_write",
+    "annotation_list_gallery_and_readonly_sections",
+    "status_failure_preserves_all_settings_tabs",
+    "status_refresh_keeps_selected_settings_tab"
+  ],
+  "failures": [],
+  "errors": [],
+  "requests": [
+    {
+      "url": "/api/market/filters",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/overview?view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-09-01&endDate=2026-09-30",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/master?view=system_kpis",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/master?view=settings_status",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/master?view=workspace&section=data&page=1&pageSize=30",
+      "method": "GET"
+    },
+    {
+      "url": "/api/ai/models",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/master?view=database_primary&page=1&pageSize=30",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/master?view=database_filters",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/annotations?view=workspace_fast&itemPage=1&itemPageSize=20&aggregateJobs=1",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/annotations?view=candidate_counts",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/filters",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/overview?view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-09-01&endDate=2026-09-30",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/master?view=system_kpis",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/master?view=settings_status",
+      "method": "GET"
+    },
+    {
+      "url": "/api/ai/models",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/master?view=workspace&section=brand&page=1&pageSize=30",
+      "method": "GET"
+    },
+    {
+      "url": "/api/market/master?view=settings_status",
+      "method": "GET"
+    }
+  ],
+  "boundary": "synthetic APIs; GET only; no production; no performance claim"
+}

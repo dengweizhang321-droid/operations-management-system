@@ -47,6 +47,9 @@ import {
 } from "./module-view-shared";
 import { confirmAndSyncDraftPlans, retainFailedPlanSelections } from "../lib/inventory/replenishment-batch";
 
+import InventoryRegionNotice from "./inventory-region-notice";
+import { readInventoryRegions, mergeInventoryRegion, type InventoryRegionState, type InventoryReadSection } from "@/lib/inventory/read-regions";
+
 type InventoryTab = ModuleViewKey<"inventory">;
 
 type InventoryWorkItemDraft = {
@@ -200,6 +203,13 @@ function downloadInventoryCsv(fileName: string, rows: Array<Array<string | numbe
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
+
+const planStatusLabel: Record<ReplenishmentPlanItem["status"], string> = {
+    draft: "草稿",
+    confirmed: "已确认",
+    completed: "已完成",
+    cancelled: "已取消",
+  };
 
 const inventoryStatusMeta: Record<InventoryHealthStatus, { label: string; tone: string }> = {
   no_stock: { label: "无库存可用", tone: "danger" },
@@ -446,13 +456,13 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const usesInventoryAgeAnalysis = activeTab === "age" || activeTab === "stale";
   const usesInboundMonitor = activeTab === "inbound";
   const activeInventoryTabRef = useRef(activeTab);
-  const [overviewResponse, setOverviewResponse] = useState<InventoryOverviewResponse | null>(null);
-  const overview = usesInventoryOverview && overviewResponse?.projection === activeTab ? overviewResponse : null;
-  const [ageAnalysis, setAgeAnalysis] = useState<InventoryAgeAnalysisResponse | null>(null);
+  const [overviewState, setOverviewState] = useState<InventoryRegionState<InventoryOverviewResponse> | null>(null);
+  const [ageState, setAgeState] = useState<InventoryRegionState<InventoryAgeAnalysisResponse> | null>(null);
+  const [regionErrors, setRegionErrors] = useState<Record<string, Partial<Record<InventoryReadSection, string>>>>({});
   const [ageLoading, setAgeLoading] = useState(false);
   const [ageError, setAgeError] = useState("");
   const [ageRetryKey, setAgeRetryKey] = useState(0);
-  const [inboundMonitor, setInboundMonitor] = useState<InventoryInboundMonitorResponse | null>(null);
+  const [inboundState, setInboundState] = useState<InventoryRegionState<InventoryInboundMonitorResponse> | null>(null);
   const [inboundLoading, setInboundLoading] = useState(false);
   const [inboundError, setInboundError] = useState("");
   const [inboundRetryKey, setInboundRetryKey] = useState(0);
@@ -481,10 +491,16 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const [inboundPage, setInboundPage] = useState(1);
   const [workItemDraft, setWorkItemDraft] = useState<InventoryWorkItemDraft | null>(null);
   const [workItemSaving, setWorkItemSaving] = useState(false);
+  const overviewRegionRef = useRef(overviewState);
+  useEffect(() => { overviewRegionRef.current = overviewState; }, [overviewState]);
   const overviewGenerationRef = useRef(0);
   const overviewControllerRef = useRef<AbortController | null>(null);
+  const ageRegionRef = useRef(ageState);
+  useEffect(() => { ageRegionRef.current = ageState; }, [ageState]);
   const ageGenerationRef = useRef(0);
   const ageControllerRef = useRef<AbortController | null>(null);
+  const inboundRegionRef = useRef(inboundState);
+  useEffect(() => { inboundRegionRef.current = inboundState; }, [inboundState]);
   const inboundGenerationRef = useRef(0);
   const inboundControllerRef = useRef<AbortController | null>(null);
   const debouncedInventoryQuery = useDebouncedValue(filters.productQuery);
@@ -548,6 +564,15 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const effectivePlanPage = effectivePageForScope(planPage, planPageScopeKey, committedPlanPageScopeKey);
   const effectiveAgePage = effectivePageForScope(agePage, agePageScopeKey, committedAgePageScopeKey);
   const effectiveInboundPage = effectivePageForScope(inboundPage, inboundPageScopeKey, committedInboundPageScopeKey);
+  const principalKey = JSON.stringify(currentUser);
+  const overviewRequestKey = `${principalKey}:${activeTab}:${activeTab === "plan" ? planPageScopeKey : overviewPageScopeKey}:${activeTab === "plan" ? effectivePlanPage : effectiveOverviewPage}`;
+  const ageRequestKey = `${principalKey}:${agePageScopeKey}:${effectiveAgePage}`;
+  const inboundRequestKey = `${principalKey}:${inboundPageScopeKey}:${effectiveInboundPage}`;
+  const searchPending = filters.productQuery.trim() !== debouncedInventoryQuery.trim();
+  const overviewResponse = overviewState?.key.startsWith(`${principalKey}:`) ? overviewState.value : null;
+  const overview = !searchPending && usesInventoryOverview && overviewState?.key === overviewRequestKey ? overviewState.value : null;
+  const ageAnalysis = !searchPending && ageState?.key === ageRequestKey ? ageState.value : null;
+  const inboundMonitor = !searchPending && inboundState?.key === inboundRequestKey ? inboundState.value : null;
   const canSyncInventory = currentUser?.role === "admin";
   const canManageInventory = currentUser?.role === "admin" || currentUser?.role === "operator";
   const selectablePlans = useMemo(
@@ -607,7 +632,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     activeInventoryTabRef.current = activeTab;
   }, [activeTab]);
 
-  const loadOverview = useCallback(async () => {
+  const loadOverview = useCallback(async (section?: InventoryReadSection) => {
     const generation = overviewGenerationRef.current + 1;
     overviewGenerationRef.current = generation;
     overviewControllerRef.current?.abort();
@@ -632,13 +657,21 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         filters.warehouseTypes.forEach((value) => params.append("warehouseType", value));
         filters.healthStatuses.forEach((value) => params.append("status", value));
       }
-      const response = await fetch(`/api/inventory/overview?${params}`, { cache: "no-store", signal: controller.signal });
-      const payload = await response.json().catch(() => null) as (InventoryOverviewResponse & { error?: string; message?: string }) | null;
-      if (!response.ok) throw new Error(payload?.error || payload?.message || `库存数据读取失败（${response.status}）`);
-      if (!payload || payload.projection !== projection || !payload.metrics || !payload.sync) throw new Error("库存响应格式不完整");
-      if (projection === "overview" && !Array.isArray(payload.items)) throw new Error("库存总览响应格式不完整");
-      if (projection === "plan" && (!Array.isArray(payload.plans) || !payload.planSummary)) throw new Error("备货计划响应格式不完整");
-      if (!controller.signal.aborted && generation === overviewGenerationRef.current) setOverviewResponse(payload);
+      setRegionErrors(current => ({ [overviewRequestKey]: section ? { ...current[overviewRequestKey], [section]: "" } : {} }));
+      await readInventoryRegions<InventoryOverviewResponse>(`/api/inventory/overview?${params}`, {
+        signal: controller.signal, section, previous: overviewRegionRef.current?.key === overviewRequestKey ? overviewRegionRef.current : null,
+        validate: payload => { if (!payload || payload.projection !== projection || !payload.metrics || !payload.sync || !Array.isArray(payload.items) || !Array.isArray(payload.plans)) throw new Error("库存响应格式不完整"); },
+        onData: payload => {
+          if (!controller.signal.aborted && generation === overviewGenerationRef.current) {
+            setOverviewState(previous => mergeInventoryRegion(previous, overviewRequestKey, payload));
+            setRegionErrors(current => ({ [overviewRequestKey]: { ...current[overviewRequestKey], [payload.readSection]: "" } }));
+          }
+        },
+        onError: (part, message) => {
+          if (!controller.signal.aborted && generation === overviewGenerationRef.current) setRegionErrors(current => ({ [overviewRequestKey]: { ...current[overviewRequestKey], [part]: message } }));
+        },
+        onReset: () => { if (!controller.signal.aborted && generation === overviewGenerationRef.current) setOverviewState(null); },
+      });
     } catch (requestError) {
       if (!controller.signal.aborted && generation === overviewGenerationRef.current) setError(requestError instanceof Error ? requestError.message : "暂时无法读取库存数据");
     } finally {
@@ -647,7 +680,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         if (overviewControllerRef.current === controller) overviewControllerRef.current = null;
       }
     }
-  }, [activeTab, debouncedInventoryQuery, effectiveOverviewPage, effectivePlanPage, filters.brands, filters.categories, filters.healthStatuses, filters.planStatus, filters.warehouses, filters.warehouseTypes]);
+  }, [overviewRequestKey, activeTab, debouncedInventoryQuery, effectiveOverviewPage, effectivePlanPage, filters.brands, filters.categories, filters.healthStatuses, filters.planStatus, filters.warehouses, filters.warehouseTypes]);
 
   useEffect(() => {
     if (!usesInventoryOverview) return;
@@ -659,7 +692,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     };
   }, [loadOverview, retryKey, usesInventoryOverview]);
 
-  const loadAgeAnalysis = useCallback(async (tab: "age" | "stale") => {
+  const loadAgeAnalysis = useCallback(async (tab: "age" | "stale", section?: InventoryReadSection) => {
     const generation = ageGenerationRef.current + 1;
     ageGenerationRef.current = generation;
     ageControllerRef.current?.abort();
@@ -681,12 +714,21 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         ? (selectedCleanupStatuses.length > 0 ? selectedCleanupStatuses : cleanupStatuses)
         : filters.ageStatuses;
       selectedAgeStatuses.forEach((status) => params.append("status", status));
-      const response = await fetch(`/api/inventory/age-analysis?${params}`, { cache: "no-store", signal: controller.signal });
-      const payload = await response.json().catch(() => null) as (InventoryAgeAnalysisResponse & { error?: string }) | null;
-      if (!response.ok || !payload || !Array.isArray(payload.items) || !payload.metrics) {
-        throw new Error(payload?.error || `库龄数据读取失败（${response.status}）`);
-      }
-      if (!controller.signal.aborted && generation === ageGenerationRef.current) setAgeAnalysis(payload);
+      setRegionErrors(current => ({ [ageRequestKey]: section ? { ...current[ageRequestKey], [section]: "" } : {} }));
+      await readInventoryRegions<InventoryAgeAnalysisResponse>(`/api/inventory/age-analysis?${params}`, {
+        signal: controller.signal, section, previous: ageRegionRef.current?.key === ageRequestKey ? ageRegionRef.current : null,
+        validate: payload => { if (!payload || !Array.isArray(payload.items) || !payload.metrics) throw new Error("库龄响应格式不完整"); },
+        onData: payload => {
+          if (!controller.signal.aborted && generation === ageGenerationRef.current) {
+            setAgeState(previous => mergeInventoryRegion(previous, ageRequestKey, payload));
+            setRegionErrors(current => ({ [ageRequestKey]: { ...current[ageRequestKey], [payload.readSection]: "" } }));
+          }
+        },
+        onError: (part, message) => {
+          if (!controller.signal.aborted && generation === ageGenerationRef.current) setRegionErrors(current => ({ [ageRequestKey]: { ...current[ageRequestKey], [part]: message } }));
+        },
+        onReset: () => { if (!controller.signal.aborted && generation === ageGenerationRef.current) setAgeState(null); },
+      });
     } catch (requestError) {
       if (!controller.signal.aborted && generation === ageGenerationRef.current) setAgeError(requestError instanceof Error ? requestError.message : "暂时无法读取库龄分析数据");
     } finally {
@@ -695,7 +737,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         if (ageControllerRef.current === controller) ageControllerRef.current = null;
       }
     }
-  }, [ageCard, debouncedInventoryQuery, effectiveAgePage, filters.ageBuckets, filters.ageStatuses, filters.brands, filters.categories, filters.warehouses]);
+  }, [ageRequestKey, ageCard, debouncedInventoryQuery, effectiveAgePage, filters.ageBuckets, filters.ageStatuses, filters.brands, filters.categories, filters.warehouses]);
 
   useEffect(() => {
     if (!usesInventoryAgeAnalysis) return;
@@ -707,7 +749,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     };
   }, [activeTab, ageRetryKey, loadAgeAnalysis, usesInventoryAgeAnalysis]);
 
-  const loadInboundMonitor = useCallback(async () => {
+  const loadInboundMonitor = useCallback(async (section?: InventoryReadSection) => {
     const generation = inboundGenerationRef.current + 1;
     inboundGenerationRef.current = generation;
     inboundControllerRef.current?.abort();
@@ -723,12 +765,21 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       filters.categories.forEach((category) => params.append("category", category));
       if (inboundCard) params.set("cardFilter", inboundCard);
       filters.suppliers.forEach((supplier) => params.append("supplier", supplier));
-      const response = await fetch(`/api/inventory/inbound-monitor?${params}`, { cache: "no-store", signal: controller.signal });
-      const payload = await response.json().catch(() => null) as (InventoryInboundMonitorResponse & { error?: string }) | null;
-      if (!response.ok || !payload || !Array.isArray(payload.items) || !Array.isArray(payload.regions) || !payload.metrics) {
-        throw new Error(payload?.error || `京东入仓监控读取失败（${response.status}）`);
-      }
-      if (!controller.signal.aborted && generation === inboundGenerationRef.current) setInboundMonitor(payload);
+      setRegionErrors(current => ({ [inboundRequestKey]: section ? { ...current[inboundRequestKey], [section]: "" } : {} }));
+      await readInventoryRegions<InventoryInboundMonitorResponse>(`/api/inventory/inbound-monitor?${params}`, {
+        signal: controller.signal, section, previous: inboundRegionRef.current?.key === inboundRequestKey ? inboundRegionRef.current : null,
+        validate: payload => { if (!payload || !Array.isArray(payload.items) || !Array.isArray(payload.regions) || !payload.metrics) throw new Error("入仓响应格式不完整"); },
+        onData: payload => {
+          if (!controller.signal.aborted && generation === inboundGenerationRef.current) {
+            setInboundState(previous => mergeInventoryRegion(previous, inboundRequestKey, payload));
+            setRegionErrors(current => ({ [inboundRequestKey]: { ...current[inboundRequestKey], [payload.readSection]: "" } }));
+          }
+        },
+        onError: (part, message) => {
+          if (!controller.signal.aborted && generation === inboundGenerationRef.current) setRegionErrors(current => ({ [inboundRequestKey]: { ...current[inboundRequestKey], [part]: message } }));
+        },
+        onReset: () => { if (!controller.signal.aborted && generation === inboundGenerationRef.current) setInboundState(null); },
+      });
     } catch (requestError) {
       if (!controller.signal.aborted && generation === inboundGenerationRef.current) setInboundError(requestError instanceof Error ? requestError.message : "暂时无法读取京东入仓监控");
     } finally {
@@ -737,7 +788,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         if (inboundControllerRef.current === controller) inboundControllerRef.current = null;
       }
     }
-  }, [inboundCard, debouncedInventoryQuery, effectiveInboundPage, filters.brands, filters.categories, filters.suppliers, filters.warehouses]);
+  }, [inboundRequestKey, inboundCard, debouncedInventoryQuery, effectiveInboundPage, filters.brands, filters.categories, filters.suppliers, filters.warehouses]);
 
   useEffect(() => {
     if (!usesInboundMonitor) return;
@@ -1333,179 +1384,10 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       ageBuckets: ageAnalysis?.filters.ageBuckets ?? [],
     };
   }, [ageAnalysis, inboundMonitor, overviewResponse]);
-  const sharedFilterBar = <InventoryFilterBar
-    activeTab={activeTab}
-    filters={filters}
-    options={sharedFilterOptions}
-    updating={usesInventoryAgeAnalysis ? ageLoading : usesInboundMonitor ? inboundLoading : loading}
-    extraFilterActive={usesInventoryAgeAnalysis ? Boolean(ageCard) : usesInboundMonitor && Boolean(inboundCard)}
-    onResetExtra={() => { if (usesInventoryAgeAnalysis) setAgeCard(""); if (usesInboundMonitor) setInboundCard(""); }}
-    onChange={updateFilters}
-  />;
-
-  const subnav = (
-    <div className="subnav inventory-subnav" role="tablist" aria-label="库存管理子版块">
-      <button type="button" role="tab" aria-selected={activeTab === "overview"} className={activeTab === "overview" ? "active" : ""} onClick={() => onModuleViewChange("overview")}>库存总览</button>
-      <button type="button" role="tab" aria-selected={activeTab === "age"} className={activeTab === "age" ? "active" : ""} onClick={() => onModuleViewChange("age")}>库龄分析</button>
-      <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => onModuleViewChange("plan")}>备货计划</button>
-      <button type="button" role="tab" aria-selected={activeTab === "stale"} className={activeTab === "stale" ? "active" : ""} onClick={() => onModuleViewChange("stale")}>滞销清理</button>
-      <button type="button" role="tab" aria-selected={activeTab === "inbound"} className={activeTab === "inbound" ? "active" : ""} onClick={() => onModuleViewChange("inbound")}>京东入仓监控</button>
-      <button type="button" role="tab" aria-selected={activeTab === "guangdong"} className={activeTab === "guangdong" ? "active" : ""} onClick={() => onModuleViewChange("guangdong")}>广东入仓监控</button>
-    </div>
-  );
-
-  if (activeTab === "guangdong") return <>{subnav}<GuangdongInventoryView canManage={currentUser?.role === "operator" || currentUser?.role === "admin"} filters={filters} onFiltersChange={updateFilters} onAskAi={onAskAi} /></>;
-
-  const activeInventoryHasData = usesInventoryAgeAnalysis ? ageAnalysis?.hasInventory : usesInboundMonitor ? inboundMonitor?.hasInventory : overview?.hasInventory;
-  const activeInventoryAsOf = usesInventoryAgeAnalysis ? ageAnalysis?.sync.inventoryAsOf : usesInboundMonitor ? inboundMonitor?.sync.inventoryAsOf : overview?.sync.inventoryAsOf;
-
-  const syncBar = (
-    <section className="inventory-sync-bar">
-      <div className="inventory-sync-title">
-        <span className={`sync-pulse ${usesInventoryOverview && overview?.sync.inventoryStale ? "stale" : activeInventoryHasData ? "ready" : ""}`} aria-hidden="true" />
-        <div><strong>{usesInventoryAgeAnalysis
-          ? activeInventoryHasData ? "库龄与动销数据已同步" : "等待首次库龄库存同步"
-          : usesInboundMonitor ? activeInventoryHasData ? "京东入仓库存监控已就绪" : "等待包含京东 RDC / DC 的库存快照"
-          : overview?.hasInventory ? overview.sync.salesThrough ? "库存与近30天销量已联动" : "库存已同步，近30天暂无销售数据" : "等待首次库存同步"}</strong><small>{usesInventoryAgeAnalysis
-            ? activeInventoryHasData ? `库存快照 ${activeInventoryAsOf ?? "—"} · ${ageAnalysis?.sync.hasAgeSales ? "包含前 7 天与前 30 天销量" : "当前报表未提供销量列"}` : "上传包含库龄字段的分仓库存报表后生成库龄与滞销分析"
-            : usesInboundMonitor ? activeInventoryHasData ? `京东入仓快照 ${activeInventoryAsOf ?? "—"} · 销售截至 ${inboundMonitor?.sync.salesThrough ?? "暂无"}` : "同步包含京东 RDC / DC 仓库的库存报表后生成监控"
-            : overview?.hasInventory ? `近30天正向销量 ${overview.sync.salesWindowStart ?? "暂无"} 至 ${overview.sync.salesThrough ?? "暂无"} · 库存快照 ${overview.sync.inventoryAsOf}` : "上传分仓库存报表后，按最新销售截止日计算近30天库存健康与备货建议"}</small></div>
-      </div>
-      <div className="inventory-source-status" aria-label="库存数据源状态">
-        {usesInventoryOverview && (overview?.sources ?? []).map((source) => <span className={`source-status source-status-${source.status}`} key={source.key}><Dot tone={source.status === "ready" ? "green" : source.status === "stale" ? "orange" : "gray"} />{source.label}<small>{source.status === "ready" ? "已同步" : source.status === "stale" ? "待更新" : "未接入"}</small></span>)}
-      </div>
-      <div className="inventory-ai-actions" aria-label="库存上下文 AI"><button type="button" className="row-action" onClick={() => askInventoryAi("analyze")}>问问小特 · 分析</button><button type="button" className="row-action" onClick={() => askInventoryAi("explain")}>指标解读</button><button type="button" className="row-action" onClick={() => askInventoryAi("export")}>导出表格</button></div>
-      {canSyncInventory ? <>
-        <label className="inventory-snapshot-input"><span>快照日期</span><input type="date" value={snapshotDate} onChange={(event) => setSnapshotDate(event.target.value)} disabled={syncing} /></label>
-        <input ref={syncInputRef} className="file-input-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void syncInventory(event.currentTarget.files?.[0])} />
-        <button type="button" className="primary-button inventory-sync-button" disabled={syncing} onClick={() => syncInputRef.current?.click()}>{syncing ? `${syncProgress}%` : "↻ 同步库存"}</button>
-      </> : <span className="soft-tag">仅管理员可同步库存；运营可维护执行计划</span>}
-      {syncing && <div className="inventory-sync-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={syncProgress} aria-label={syncStage}><span style={{ width: `${syncProgress}%` }} /><small>{syncStage}</small></div>}
-    </section>
-  );
-
-  const feedback = syncFeedback && <section className={`inventory-feedback inventory-feedback-${syncFeedback.tone}`} role={syncFeedback.tone === "error" ? "alert" : "status"}><span>{syncFeedback.tone === "success" ? "✓" : syncFeedback.tone === "warning" ? "!" : "×"}</span><div><strong>{syncFeedback.title}</strong><p>{syncFeedback.message}</p></div></section>;
-  const refreshError = usesInventoryOverview && error && overview && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>最新数据刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></section>;
-  const ageRefreshError = usesInventoryAgeAnalysis && ageError && ageAnalysis && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>库龄数据刷新失败</strong><p>{ageError}；当前仍显示上一次成功结果。</p></div><button className="row-action" onClick={() => setAgeRetryKey((key) => key + 1)}>重试</button></section>;
-  const inboundRefreshError = usesInboundMonitor && inboundError && inboundMonitor && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>京东入仓监控刷新失败</strong><p>{inboundError}；当前仍显示上一次成功结果。</p></div><button className="row-action" onClick={() => setInboundRetryKey((key) => key + 1)}>重试</button></section>;
-
-  if (usesInventoryAgeAnalysis && !ageAnalysis) {
-    if (!ageLoading && ageError) {
-      return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>库龄数据加载失败</strong><p>{ageError}</p><button className="secondary-button" onClick={() => setAgeRetryKey((key) => key + 1)}>重新加载</button></section></>;
-    }
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总库龄与动销数据</strong><p>正在读取最新库存快照中的库龄、前 7 天与前 30 天销量…</p></section></>;
-  }
-
-  if (usesInventoryAgeAnalysis && ageAnalysis && !ageAnalysis.hasInventory) {
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">龄</span><strong>还没有可分析的库存快照</strong><p>请同步包含库龄字段的库存报表后再查看库龄分析和滞销清理。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
-  }
-
-  if (usesInboundMonitor && !inboundMonitor) {
-    if (!inboundLoading && inboundError) {
-      return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>京东入仓监控加载失败</strong><p>{inboundError}</p><button className="secondary-button" onClick={() => setInboundRetryKey((key) => key + 1)}>重新加载</button></section></>;
-    }
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总京东入仓库存</strong><p>正在关联 RDC / DC 库存、供应商和近 7/30/90 日正向出库…</p></section></>;
-  }
-
-  if (usesInboundMonitor && inboundMonitor && !inboundMonitor.hasInventory) {
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">仓</span><strong>暂无京东入仓库存</strong><p>当前快照中没有京东 RDC / DC 或可识别的京东区域平台仓。请核对仓名规则并同步最新库存。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
-  }
-
-  if (usesInventoryOverview && loading && !overview) {
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在同步库存健康数据</strong><p>正在关联最新库存快照与近30天正向销售明细…</p></section></>;
-  }
-
-  if (usesInventoryOverview && !overview) {
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>库存数据加载失败</strong><p>{error || "暂时无法读取库存数据"}</p><button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button></section></>;
-  }
-
-  if (usesInventoryOverview && overview && !overview.hasInventory) {
-    return <>{subnav}{syncBar}{feedback}{refreshError}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">库</span><strong>还没有库存快照</strong><p>请上传吉客云“分仓库存查询” .xlsx 报表。系统会保留批次、自动读取实盘库存与成本，并联动销售生成备货建议。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
-  }
-
-  const totalHealth = Math.max(1, overview ? overview.health.noStock + overview.health.urgent
-    + overview.health.warning + overview.health.stale + overview.health.slow + overview.health.healthy : 0);
-  const planStatusLabel: Record<ReplenishmentPlanItem["status"], string> = {
-    draft: "草稿",
-    confirmed: "已确认",
-    completed: "已完成",
-    cancelled: "已取消",
-  };
-  const cleanupItems = (ageAnalysis?.items ?? []).filter((item) => item.status === "stagnant" || item.status === "slow" || item.status === "aged");
-  const ageDistribution = ageAnalysis?.fineDistribution ?? [];
-  const hasKnownAgeDistribution = ageDistribution.some((bucket) => bucket.quantity > 0);
-
-  return (
-    <>
-      {subnav}
-      {syncBar}
-      {feedback}
-      {refreshError}
-      {ageRefreshError}
-      {inboundRefreshError}
-      {sharedFilterBar}
-      {activeTab === "overview" && overview ? <>
-        <section className="inventory-diagnosis-grid">
-          <article className="panel inventory-health-panel">
-            <SectionHeader title="库存健康分布" note="仅统计京东仓、天猫仓、广东仓、自营仓" />
-            <div className="health-stack" aria-label="库存健康状态分布">
-              {([
-                ["no_stock", overview.health.noStock], ["urgent", overview.health.urgent], ["warning", overview.health.warning],
-                ["stale", overview.health.stale], ["slow", overview.health.slow], ["healthy", overview.health.healthy],
-              ] as [InventoryHealthStatus, number][]).map(([status, count]) => count > 0 && <i className={`health-${status}`} style={{ width: `${count / totalHealth * 100}%` }} title={`${inventoryStatusMeta[status].label} ${count}`} key={status} />)}
-            </div>
-            <div className="health-legend">
-              {([
-                ["no_stock", overview.health.noStock], ["urgent", overview.health.urgent], ["warning", overview.health.warning],
-                ["stale", overview.health.stale], ["slow", overview.health.slow], ["healthy", overview.health.healthy],
-              ] as [InventoryHealthStatus, number][]).map(([status, count]) => <button type="button" aria-pressed={filters.healthStatuses.length === 1 && filters.healthStatuses[0] === status} onClick={() => updateFilters({ ...filters, healthStatuses: toggleFilterGroup(filters.healthStatuses, [status]) })} key={status}><span className={`health-swatch health-${status}`} /><div><small>{inventoryStatusMeta[status].label}</small><strong>{formatCount(count)}</strong></div></button>)}
-            </div>
-            <div className="inventory-health-note"><span>积压风险与低周转货值</span><strong>{formatCurrencyFromCents(overview.metrics.slowMovingValueCents)}</strong><small>低周转：库存周转大于 180 天；工厂代发仓不计入</small></div>
-          </article>
-
-          <article className="panel replenishment-opportunity-panel">
-            <SectionHeader title="优先补货建议" note="已扣减库存、报表在途和备货计划" />
-            <div className="replenishment-opportunity-list">
-              {recommendations.slice(0, 5).map((item, index) => <div key={item.key}><span className={`opportunity-rank ${index < 3 ? `top-${index + 1}` : ""}`}>{index + 1}</span><div><strong title={item.productName}>{item.productName}</strong><small>{item.warehouse} · 可售 {item.coverageDays?.toFixed(1) ?? "—"} 天</small></div><em>+{formatCount(item.suggestedQuantity ?? 0)}</em></div>)}
-              {recommendations.length === 0 && <div className="inventory-mini-empty">{overview.quality.recommendationsSuppressed ? "先修复数据质量或仓库映射，再生成补货建议" : "当前没有需要补货的货品"}</div>}
-            </div>
-            <button className="inventory-plan-link" onClick={() => onModuleViewChange("plan")}>查看备货计划 <span>→</span></button>
-          </article>
-        </section>
-
-        <section className="panel table-panel inventory-mapping-panel inventory-health-thirty-day-panel">
-          <div className="table-toolbar"><div><h2>库存健康明细（近30天）</h2><p>与“销量近30天”保持同一货品汇总口径和列布局，库存、销量、周转、在途及补货预警可直接横向核对</p></div><span className="soft-tag">展示 {formatCount(overview.mapping.samples.length)} 个货品</span><button type="button" className="row-action" disabled={overview.mapping.samples.length === 0} onClick={() => downloadInventoryCsv(`库存健康_近30天_${overview.sync.inventoryAsOf ?? "snapshot"}.csv`, inventoryThirtyDayCsvRows(overview.mapping.samples))}>导出当前明细 CSV</button></div>
-          <InventoryThirtyDayTable samples={overview.mapping.samples} loading={loading} canManageInventory={canManageInventory} planActionId={planActionId} onCreatePlan={openPlanModal} />
-        </section>
-      </> : activeTab === "plan" && overview ? <>
-        <section className="inventory-kpi-grid inventory-plan-kpis data-refresh-region" aria-busy={loading}>
-          <InventoryKpiCard selected={filters.planStatus === "draft"} onClick={() => updateFilters({ ...filters, planStatus: toggleSingleFilter(filters.planStatus, "draft", "") })} label="待确认草稿" value={`${formatCount(overview.planSummary.draftCount)} 项`} note="确认后进入执行队列" tone="orange" icon="草" />
-          <InventoryKpiCard selected={filters.planStatus === "confirmed"} onClick={() => updateFilters({ ...filters, planStatus: toggleSingleFilter(filters.planStatus, "confirmed", "") })} label="已确认计划" value={`${formatCount(overview.planSummary.confirmedCount)} 项`} note="已计入在途库存" tone="blue" icon="确" />
-          <InventoryKpiCard label="计划待回写量" value={`${formatCount(overview.planSummary.activeQuantity)} 件`} note="含完成后等待库存快照回写的数量" tone="purple" icon="途" />
-          <InventoryKpiCard selected={filters.planStatus === "completed"} onClick={() => updateFilters({ ...filters, planStatus: toggleSingleFilter(filters.planStatus, "completed", "") })} label="已完成计划" value={`${formatCount(overview.planSummary.completedCount)} 项`} note="保留历史执行记录" tone="green" icon="完" />
-        </section>
-
-        <InventoryPlanWorkflowPanel summary={overview.planSummary} />
-
-        <section className="panel table-panel replenishment-plan-panel">
-          <div className="table-toolbar">
-            <div><h2>备货计划</h2><p>草稿可多选后一键确认并提交钉钉；已确认计划可批量重试钉钉表或发送群消息</p></div>
-            <span className="soft-tag">本页 {overview.plansPagination.returned} / 共 {overview.plansPagination.total} 项</span>
-            <div className="inventory-toolbar-actions">
-              {canManageInventory && <>
-                <a className="row-action" href="/api/inventory/replenishment/import" download>下载导入模板</a>
-                <input ref={planImportInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(event) => void importReplenishmentPlans(event.target.files?.[0])} />
-                <button type="button" className="row-action" disabled={planImporting || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading} onClick={() => planImportInputRef.current?.click()}>{planImporting ? "正在导入…" : "导入备货计划"}</button>
-                <button type="button" className="primary-button" disabled={selectedDraftPlans.length === 0 || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading || planImporting} onClick={() => void batchConfirmDraftPlans()}>{batchDraftConfirmLoading ? "正在确认并提交…" : `一键确认并提交钉钉（${selectedDraftPlans.length}）`}</button>
-                <button type="button" className="primary-button" disabled={selectedConfirmedPlans.length === 0 || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading || planImporting} onClick={() => void batchSyncPlansToDingTalk()}>{batchDingTalkLoading ? "正在批量提交…" : `批量提交钉钉表（${selectedConfirmedPlans.length}）`}</button>
-                <button type="button" className="primary-button plan-group-send-button" title={groupSelectionReady ? "按采购与工厂汇总后发送群消息" : "发送群消息要求全部所选计划均为已确认，且填写对应采购和供应商"} disabled={!groupSelectionReady || groupMessageLoading || batchDraftConfirmLoading || batchDingTalkLoading || planImporting} onClick={() => void previewDingTalkGroupMessage()}>{groupMessageLoading && !groupPreview ? "正在核验钉钉…" : `发送钉钉群（${selectedConfirmedPlans.length}）`}</button>
-              </>}
-              <button type="button" className="row-action" disabled={overview.plans.length === 0} onClick={() => downloadInventoryCsv(`备货计划_${overview.sync.inventoryAsOf ?? "snapshot"}_第${overview.plansPagination.page}页.csv`, [["计划ID", "货品编号", "货品名称", "品牌", "分类", "供应商", "入库库房", "对应采购", "对应运营", "部门", "备货类型", "现有库存", "近30天销量", "预计消耗周期(天)", "系统建议", "备货数量", "下单日期", "预计到货日", "状态", "是否验货", "备注", "创建时间", "更新时间"], ...overview.plans.map((plan) => [plan.id, plan.productCode, plan.productName, plan.brand, plan.category, plan.supplier, plan.warehouse, plan.buyer, plan.operatorName, plan.department, plan.planType, plan.currentStockQuantity, plan.sales30dQuantity, plan.coverageDays, plan.suggestedQuantity, plan.plannedQuantity, plan.orderDate, plan.expectedArrivalDate, planStatusLabel[plan.status], plan.requiresInspection ? "是" : "否", plan.notes, plan.createdAt, plan.updatedAt])])}>导出当前页 CSV</button>
-              <button className="secondary-button" onClick={() => onModuleViewChange("overview")}>返回库存明细</button>
-            </div>
-          </div>
-          <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table replenishment-plan-table"><thead><tr><th className="plan-selection-cell"><input type="checkbox" aria-label="全选本页草稿和已确认备货计划" checked={allSelectablePlansSelected} disabled={selectablePlans.length === 0 || batchDraftConfirmLoading || batchDingTalkLoading} onChange={toggleAllPlanSelections} /></th><th>货品</th><th>品牌 / 供应商</th><th>入库库房</th><th>采购 / 运营</th><th>类型 / 部门</th><th>库存 / 近30天销量</th><th>预计消耗周期</th><th>备货数量</th><th>下单 / 到货</th><th>状态 / 验货</th><th>操作</th></tr></thead><tbody>
-            {overview.plans.map((plan) => {
+  const planRowsSource = overview?.plans;
+  const planRows = useMemo(() => {
+    if (!planRowsSource) return null;
+    return planRowsSource.map((plan) => {
               const selectable = selectablePlanIds.has(plan.id);
               const rowBusy = planActionId === plan.id || batchDraftConfirmLoading || batchDingTalkLoading;
               return <tr key={plan.id}>
@@ -1543,22 +1425,205 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
                   {plan.status === "cancelled" && <span className="soft-text">已取消</span>}
                 </> : <span className="soft-text">只读</span>}</div></td>
               </tr>;
-            })}
+            });
+  }, [planRowsSource, selectablePlanIds, selectedPlanIds, planActionId, batchDraftConfirmLoading,
+      batchDingTalkLoading, canManageInventory, planQuantities, togglePlanSelection,
+      updatePlanStatus, syncPlanToDingTalk, openProcurementWorkItem]);
+  const activeRegionKey = usesInventoryAgeAnalysis ? ageRequestKey : usesInboundMonitor ? inboundRequestKey : overviewRequestKey;
+  const activeRegions = usesInventoryAgeAnalysis ? ageState : usesInboundMonitor ? inboundState : overviewState;
+  const activeRegionErrors = regionErrors[activeRegionKey] ?? {};
+  const summaryReady = activeRegions?.key === activeRegionKey && activeRegions.summary;
+  const detailReady = activeRegions?.key === activeRegionKey && activeRegions.detail;
+  const regionNotice = <InventoryRegionNotice summary={Boolean(summaryReady)} detail={Boolean(detailReady)} errors={activeRegionErrors} onRetry={section => {
+    if (usesInventoryAgeAnalysis) void loadAgeAnalysis(activeTab === "stale" ? "stale" : "age", section);
+    else if (usesInboundMonitor) void loadInboundMonitor(section);
+    else void loadOverview(section);
+  }} />;
+  const sharedFilterBar = <>{regionNotice}<InventoryFilterBar
+    activeTab={activeTab}
+    filters={filters}
+    options={sharedFilterOptions}
+    updating={usesInventoryAgeAnalysis ? ageLoading : usesInboundMonitor ? inboundLoading : loading}
+    extraFilterActive={usesInventoryAgeAnalysis ? Boolean(ageCard) : usesInboundMonitor && Boolean(inboundCard)}
+    onResetExtra={() => { if (usesInventoryAgeAnalysis) setAgeCard(""); if (usesInboundMonitor) setInboundCard(""); }}
+    onChange={updateFilters}
+  /></>;
+
+  const subnav = (
+    <div className="subnav inventory-subnav" role="tablist" aria-label="库存管理子版块">
+      <button type="button" role="tab" aria-selected={activeTab === "overview"} className={activeTab === "overview" ? "active" : ""} onClick={() => onModuleViewChange("overview")}>库存总览</button>
+      <button type="button" role="tab" aria-selected={activeTab === "age"} className={activeTab === "age" ? "active" : ""} onClick={() => onModuleViewChange("age")}>库龄分析</button>
+      <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => onModuleViewChange("plan")}>备货计划</button>
+      <button type="button" role="tab" aria-selected={activeTab === "stale"} className={activeTab === "stale" ? "active" : ""} onClick={() => onModuleViewChange("stale")}>滞销清理</button>
+      <button type="button" role="tab" aria-selected={activeTab === "inbound"} className={activeTab === "inbound" ? "active" : ""} onClick={() => onModuleViewChange("inbound")}>京东入仓监控</button>
+      <button type="button" role="tab" aria-selected={activeTab === "guangdong"} className={activeTab === "guangdong" ? "active" : ""} onClick={() => onModuleViewChange("guangdong")}>广东入仓监控</button>
+    </div>
+  );
+
+  if (activeTab === "guangdong") return <>{subnav}<GuangdongInventoryView key={principalKey} canManage={currentUser?.role === "operator" || currentUser?.role === "admin"} filters={filters} onFiltersChange={updateFilters} onAskAi={onAskAi} /></>;
+
+  const activeInventoryHasData = usesInventoryAgeAnalysis ? ageAnalysis?.hasInventory : usesInboundMonitor ? inboundMonitor?.hasInventory : overview?.hasInventory;
+  const activeInventoryAsOf = usesInventoryAgeAnalysis ? ageAnalysis?.sync.inventoryAsOf : usesInboundMonitor ? inboundMonitor?.sync.inventoryAsOf : overview?.sync.inventoryAsOf;
+
+  const syncBar = (
+    <section className="inventory-sync-bar">
+      <button type="button" className="row-action" onClick={() => void refreshActiveInventoryTab()} disabled={usesInventoryAgeAnalysis ? ageLoading : usesInboundMonitor ? inboundLoading : loading}>刷新数据</button>
+      {(usesInventoryAgeAnalysis ? ageLoading : usesInboundMonitor ? inboundLoading : loading) && <span role="status">正在读取当前范围；同范围保留上次结果</span>}
+      <div className="inventory-sync-title">
+        <span className={`sync-pulse ${usesInventoryOverview && overview?.sync.inventoryStale ? "stale" : activeInventoryHasData ? "ready" : ""}`} aria-hidden="true" />
+        <div><strong>{usesInventoryAgeAnalysis
+          ? activeInventoryHasData ? "库龄与动销数据已同步" : "等待首次库龄库存同步"
+          : usesInboundMonitor ? activeInventoryHasData ? "京东入仓库存监控已就绪" : "等待包含京东 RDC / DC 的库存快照"
+          : overview?.hasInventory ? overview.sync.salesThrough ? "库存与近30天销量已联动" : "库存已同步，近30天暂无销售数据" : "等待首次库存同步"}</strong><small>{usesInventoryAgeAnalysis
+            ? activeInventoryHasData ? `库存快照 ${activeInventoryAsOf ?? "—"} · ${ageAnalysis?.sync.hasAgeSales ? "包含前 7 天与前 30 天销量" : "当前报表未提供销量列"}` : "上传包含库龄字段的分仓库存报表后生成库龄与滞销分析"
+            : usesInboundMonitor ? activeInventoryHasData ? `京东入仓快照 ${activeInventoryAsOf ?? "—"} · 销售截至 ${inboundMonitor?.sync.salesThrough ?? "暂无"}` : "同步包含京东 RDC / DC 仓库的库存报表后生成监控"
+            : overview?.hasInventory ? `近30天正向销量 ${overview.sync.salesWindowStart ?? "暂无"} 至 ${overview.sync.salesThrough ?? "暂无"} · 库存快照 ${overview.sync.inventoryAsOf}` : "上传分仓库存报表后，按最新销售截止日计算近30天库存健康与备货建议"}</small></div>
+      </div>
+      <div className="inventory-source-status" aria-label="库存数据源状态">
+        {usesInventoryOverview && (overview?.sources ?? []).map((source) => <span className={`source-status source-status-${source.status}`} key={source.key}><Dot tone={source.status === "ready" ? "green" : source.status === "stale" ? "orange" : "gray"} />{source.label}<small>{source.status === "ready" ? "已同步" : source.status === "stale" ? "待更新" : "未接入"}</small></span>)}
+      </div>
+      <div className="inventory-ai-actions" aria-label="库存上下文 AI"><button type="button" className="row-action" onClick={() => askInventoryAi("analyze")}>问问小特 · 分析</button><button type="button" className="row-action" onClick={() => askInventoryAi("explain")}>指标解读</button><button type="button" className="row-action" onClick={() => askInventoryAi("export")}>导出表格</button></div>
+      {canSyncInventory ? <>
+        <label className="inventory-snapshot-input"><span>快照日期</span><input type="date" value={snapshotDate} onChange={(event) => setSnapshotDate(event.target.value)} disabled={syncing} /></label>
+        <input ref={syncInputRef} className="file-input-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void syncInventory(event.currentTarget.files?.[0])} />
+        <button type="button" className="primary-button inventory-sync-button" disabled={syncing} onClick={() => syncInputRef.current?.click()}>{syncing ? `${syncProgress}%` : "↻ 同步库存"}</button>
+      </> : <span className="soft-tag">仅管理员可同步库存；运营可维护执行计划</span>}
+      {syncing && <div className="inventory-sync-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={syncProgress} aria-label={syncStage}><span style={{ width: `${syncProgress}%` }} /><small>{syncStage}</small></div>}
+    </section>
+  );
+
+  const feedback = syncFeedback && <section className={`inventory-feedback inventory-feedback-${syncFeedback.tone}`} role={syncFeedback.tone === "error" ? "alert" : "status"}><span>{syncFeedback.tone === "success" ? "✓" : syncFeedback.tone === "warning" ? "!" : "×"}</span><div><strong>{syncFeedback.title}</strong><p>{syncFeedback.message}</p></div></section>;
+  const refreshError = usesInventoryOverview && error && overview && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>最新数据刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></section>;
+  const ageRefreshError = usesInventoryAgeAnalysis && ageError && ageAnalysis && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>库龄数据刷新失败</strong><p>{ageError}；当前仍显示上一次成功结果。</p></div><button className="row-action" onClick={() => setAgeRetryKey((key) => key + 1)}>重试</button></section>;
+  const inboundRefreshError = usesInboundMonitor && inboundError && inboundMonitor && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>京东入仓监控刷新失败</strong><p>{inboundError}；当前仍显示上一次成功结果。</p></div><button className="row-action" onClick={() => setInboundRetryKey((key) => key + 1)}>重试</button></section>;
+
+  if (usesInventoryAgeAnalysis && !ageAnalysis) {
+    if (!ageLoading && (ageError || Object.values(activeRegionErrors).some(Boolean))) {
+      return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>库龄数据加载失败</strong><p>{ageError || "请重试未就绪区域。"}</p><button className="secondary-button" onClick={() => setAgeRetryKey((key) => key + 1)}>重新加载</button></section></>;
+    }
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总库龄与动销数据</strong><p>正在读取最新库存快照中的库龄、前 7 天与前 30 天销量…</p></section></>;
+  }
+
+  if (usesInventoryAgeAnalysis && ageAnalysis && !ageAnalysis.hasInventory) {
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">龄</span><strong>还没有可分析的库存快照</strong><p>请同步包含库龄字段的库存报表后再查看库龄分析和滞销清理。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
+  }
+
+  if (usesInboundMonitor && !inboundMonitor) {
+    if (!inboundLoading && (inboundError || Object.values(activeRegionErrors).some(Boolean))) {
+      return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>京东入仓监控加载失败</strong><p>{inboundError || "请重试未就绪区域。"}</p><button className="secondary-button" onClick={() => setInboundRetryKey((key) => key + 1)}>重新加载</button></section></>;
+    }
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总京东入仓库存</strong><p>正在关联 RDC / DC 库存、供应商和近 7/30/90 日正向出库…</p></section></>;
+  }
+
+  if (usesInboundMonitor && inboundMonitor && !inboundMonitor.hasInventory) {
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">仓</span><strong>暂无京东入仓库存</strong><p>当前快照中没有京东 RDC / DC 或可识别的京东区域平台仓。请核对仓名规则并同步最新库存。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
+  }
+
+  if (usesInventoryOverview && loading && !overview) {
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在同步库存健康数据</strong><p>正在关联最新库存快照与近30天正向销售明细…</p></section></>;
+  }
+
+  if (usesInventoryOverview && !overview) {
+    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>库存数据加载失败</strong><p>{error || "暂时无法读取库存数据"}</p><button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button></section></>;
+  }
+
+  if (usesInventoryOverview && overview && !overview.hasInventory) {
+    return <>{subnav}{syncBar}{feedback}{refreshError}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">库</span><strong>还没有库存快照</strong><p>请上传吉客云“分仓库存查询” .xlsx 报表。系统会保留批次、自动读取实盘库存与成本，并联动销售生成备货建议。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
+  }
+
+  const totalHealth = Math.max(1, overview ? overview.health.noStock + overview.health.urgent
+    + overview.health.warning + overview.health.stale + overview.health.slow + overview.health.healthy : 0);
+
+  const cleanupItems = (ageAnalysis?.items ?? []).filter((item) => item.status === "stagnant" || item.status === "slow" || item.status === "aged");
+  const ageDistribution = ageAnalysis?.fineDistribution ?? [];
+  const hasKnownAgeDistribution = ageDistribution.some((bucket) => bucket.quantity > 0);
+
+  return (
+    <>
+      {subnav}
+      {syncBar}
+      {feedback}
+      {refreshError}
+      {ageRefreshError}
+      {inboundRefreshError}
+      {sharedFilterBar}
+      {activeTab === "overview" && overview ? <>
+        <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="inventory-diagnosis-grid">
+          <article className="panel inventory-health-panel">
+            <SectionHeader title="库存健康分布" note="仅统计京东仓、天猫仓、广东仓、自营仓" />
+            <div className="health-stack" aria-label="库存健康状态分布">
+              {([
+                ["no_stock", overview.health.noStock], ["urgent", overview.health.urgent], ["warning", overview.health.warning],
+                ["stale", overview.health.stale], ["slow", overview.health.slow], ["healthy", overview.health.healthy],
+              ] as [InventoryHealthStatus, number][]).map(([status, count]) => count > 0 && <i className={`health-${status}`} style={{ width: `${count / totalHealth * 100}%` }} title={`${inventoryStatusMeta[status].label} ${count}`} key={status} />)}
+            </div>
+            <div className="health-legend">
+              {([
+                ["no_stock", overview.health.noStock], ["urgent", overview.health.urgent], ["warning", overview.health.warning],
+                ["stale", overview.health.stale], ["slow", overview.health.slow], ["healthy", overview.health.healthy],
+              ] as [InventoryHealthStatus, number][]).map(([status, count]) => <button type="button" aria-pressed={filters.healthStatuses.length === 1 && filters.healthStatuses[0] === status} onClick={() => updateFilters({ ...filters, healthStatuses: toggleFilterGroup(filters.healthStatuses, [status]) })} key={status}><span className={`health-swatch health-${status}`} /><div><small>{inventoryStatusMeta[status].label}</small><strong>{formatCount(count)}</strong></div></button>)}
+            </div>
+            <div className="inventory-health-note"><span>积压风险与低周转货值</span><strong>{formatCurrencyFromCents(overview.metrics.slowMovingValueCents)}</strong><small>低周转：库存周转大于 180 天；工厂代发仓不计入</small></div>
+          </article>
+
+          <article className="panel replenishment-opportunity-panel">
+            <SectionHeader title="优先补货建议" note="已扣减库存、报表在途和备货计划" />
+            <div className="replenishment-opportunity-list">
+              {recommendations.slice(0, 5).map((item, index) => <div key={item.key}><span className={`opportunity-rank ${index < 3 ? `top-${index + 1}` : ""}`}>{index + 1}</span><div><strong title={item.productName}>{item.productName}</strong><small>{item.warehouse} · 可售 {item.coverageDays?.toFixed(1) ?? "—"} 天</small></div><em>+{formatCount(item.suggestedQuantity ?? 0)}</em></div>)}
+              {recommendations.length === 0 && <div className="inventory-mini-empty">{overview.quality.recommendationsSuppressed ? "先修复数据质量或仓库映射，再生成补货建议" : "当前没有需要补货的货品"}</div>}
+            </div>
+            <button className="inventory-plan-link" onClick={() => onModuleViewChange("plan")}>查看备货计划 <span>→</span></button>
+          </article>
+        </section>
+
+        <section hidden={!detailReady} style={detailReady ? undefined : { display: "none" }} className="panel table-panel inventory-mapping-panel inventory-health-thirty-day-panel">
+          <div className="table-toolbar"><div><h2>库存健康明细（近30天）</h2><p>与“销量近30天”保持同一货品汇总口径和列布局，库存、销量、周转、在途及补货预警可直接横向核对</p></div><span className="soft-tag">展示 {formatCount(overview.mapping.samples.length)} 个货品</span><button type="button" className="row-action" disabled={overview.mapping.samples.length === 0} onClick={() => downloadInventoryCsv(`库存健康_近30天_${overview.sync.inventoryAsOf ?? "snapshot"}.csv`, inventoryThirtyDayCsvRows(overview.mapping.samples))}>导出当前明细 CSV</button></div>
+          <InventoryThirtyDayTable samples={overview.mapping.samples} loading={loading} canManageInventory={canManageInventory} planActionId={planActionId} onCreatePlan={openPlanModal} />
+        </section>
+      </> : activeTab === "plan" && overview ? <>
+        <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="inventory-kpi-grid inventory-plan-kpis data-refresh-region" aria-busy={loading}>
+          <InventoryKpiCard selected={filters.planStatus === "draft"} onClick={() => updateFilters({ ...filters, planStatus: toggleSingleFilter(filters.planStatus, "draft", "") })} label="待确认草稿" value={`${formatCount(overview.planSummary.draftCount)} 项`} note="确认后进入执行队列" tone="orange" icon="草" />
+          <InventoryKpiCard selected={filters.planStatus === "confirmed"} onClick={() => updateFilters({ ...filters, planStatus: toggleSingleFilter(filters.planStatus, "confirmed", "") })} label="已确认计划" value={`${formatCount(overview.planSummary.confirmedCount)} 项`} note="已计入在途库存" tone="blue" icon="确" />
+          <InventoryKpiCard label="计划待回写量" value={`${formatCount(overview.planSummary.activeQuantity)} 件`} note="含完成后等待库存快照回写的数量" tone="purple" icon="途" />
+          <InventoryKpiCard selected={filters.planStatus === "completed"} onClick={() => updateFilters({ ...filters, planStatus: toggleSingleFilter(filters.planStatus, "completed", "") })} label="已完成计划" value={`${formatCount(overview.planSummary.completedCount)} 项`} note="保留历史执行记录" tone="green" icon="完" />
+        </section>
+
+        {summaryReady && <InventoryPlanWorkflowPanel summary={overview.planSummary} />}
+
+        <section hidden={!detailReady} style={detailReady ? undefined : { display: "none" }} className="panel table-panel replenishment-plan-panel">
+          <div className="table-toolbar">
+            <div><h2>备货计划</h2><p>草稿可多选后一键确认并提交钉钉；已确认计划可批量重试钉钉表或发送群消息</p></div>
+            <span className="soft-tag">本页 {overview.plansPagination.returned} / 共 {overview.plansPagination.total} 项</span>
+            <div className="inventory-toolbar-actions">
+              {canManageInventory && <>
+                <a className="row-action" href="/api/inventory/replenishment/import" download>下载导入模板</a>
+                <input ref={planImportInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(event) => void importReplenishmentPlans(event.target.files?.[0])} />
+                <button type="button" className="row-action" disabled={planImporting || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading} onClick={() => planImportInputRef.current?.click()}>{planImporting ? "正在导入…" : "导入备货计划"}</button>
+                <button type="button" className="primary-button" disabled={selectedDraftPlans.length === 0 || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading || planImporting} onClick={() => void batchConfirmDraftPlans()}>{batchDraftConfirmLoading ? "正在确认并提交…" : `一键确认并提交钉钉（${selectedDraftPlans.length}）`}</button>
+                <button type="button" className="primary-button" disabled={selectedConfirmedPlans.length === 0 || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading || planImporting} onClick={() => void batchSyncPlansToDingTalk()}>{batchDingTalkLoading ? "正在批量提交…" : `批量提交钉钉表（${selectedConfirmedPlans.length}）`}</button>
+                <button type="button" className="primary-button plan-group-send-button" title={groupSelectionReady ? "按采购与工厂汇总后发送群消息" : "发送群消息要求全部所选计划均为已确认，且填写对应采购和供应商"} disabled={!groupSelectionReady || groupMessageLoading || batchDraftConfirmLoading || batchDingTalkLoading || planImporting} onClick={() => void previewDingTalkGroupMessage()}>{groupMessageLoading && !groupPreview ? "正在核验钉钉…" : `发送钉钉群（${selectedConfirmedPlans.length}）`}</button>
+              </>}
+              <button type="button" className="row-action" disabled={overview.plans.length === 0} onClick={() => downloadInventoryCsv(`备货计划_${overview.sync.inventoryAsOf ?? "snapshot"}_第${overview.plansPagination.page}页.csv`, [["计划ID", "货品编号", "货品名称", "品牌", "分类", "供应商", "入库库房", "对应采购", "对应运营", "部门", "备货类型", "现有库存", "近30天销量", "预计消耗周期(天)", "系统建议", "备货数量", "下单日期", "预计到货日", "状态", "是否验货", "备注", "创建时间", "更新时间"], ...overview.plans.map((plan) => [plan.id, plan.productCode, plan.productName, plan.brand, plan.category, plan.supplier, plan.warehouse, plan.buyer, plan.operatorName, plan.department, plan.planType, plan.currentStockQuantity, plan.sales30dQuantity, plan.coverageDays, plan.suggestedQuantity, plan.plannedQuantity, plan.orderDate, plan.expectedArrivalDate, planStatusLabel[plan.status], plan.requiresInspection ? "是" : "否", plan.notes, plan.createdAt, plan.updatedAt])])}>导出当前页 CSV</button>
+              <button className="secondary-button" onClick={() => onModuleViewChange("overview")}>返回库存明细</button>
+            </div>
+          </div>
+          <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table replenishment-plan-table"><thead><tr><th className="plan-selection-cell"><input type="checkbox" aria-label="全选本页草稿和已确认备货计划" checked={allSelectablePlansSelected} disabled={selectablePlans.length === 0 || batchDraftConfirmLoading || batchDingTalkLoading} onChange={toggleAllPlanSelections} /></th><th>货品</th><th>品牌 / 供应商</th><th>入库库房</th><th>采购 / 运营</th><th>类型 / 部门</th><th>库存 / 近30天销量</th><th>预计消耗周期</th><th>备货数量</th><th>下单 / 到货</th><th>状态 / 验货</th><th>操作</th></tr></thead><tbody>
+            {planRows}
             {overview.plans.length === 0 && <tr><td colSpan={12}><div className="table-state">暂无备货计划。请在“库存总览”中创建备货计划。</div></td></tr>}
           </tbody></table></div>
           <footer className="jd-sku-pagination"><span>第 {overview.plansPagination.page} / {Math.max(1, overview.plansPagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={loading || overview.plansPagination.page <= 1} onClick={() => setPlanPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || overview.plansPagination.page >= Math.max(1, overview.plansPagination.totalPages)} onClick={() => setPlanPage((value) => value + 1)}>下一页</button></div></footer>
         </section>
 
       </> : activeTab === "inbound" && inboundMonitor ? <>
-        <section className="inventory-kpi-grid inbound-kpi-grid data-refresh-region" aria-busy={inboundLoading}>
+        <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="inventory-kpi-grid inbound-kpi-grid data-refresh-region" aria-busy={inboundLoading}>
           <InventoryKpiCard label="京东入仓库存" value={`${formatCount(inboundMonitor.metrics.availableQuantity)} 件`} note={`${formatCount(inboundMonitor.metrics.itemCount)} 个 SKU × 仓库 · ${formatCount(inboundMonitor.metrics.warehouseCount)} 个仓`} tone="blue" icon="仓" />
           <InventoryKpiCard label="固定成本货值" value={formatCurrencyFromCents(inboundMonitor.metrics.knownStockValueCents)} note={`成本覆盖 ${formatRate(inboundMonitor.metrics.costCoverageRate)} · 暂无供应价口径`} tone="purple" icon="值" />
           <InventoryKpiCard label="30日计算周转" value={inboundMonitor.metrics.turnoverDays === null ? "待匹配" : `${inboundMonitor.metrics.turnoverDays.toFixed(1)} 天`} note={`出库 ${formatCount(inboundMonitor.metrics.outbound30dQuantity)} 件 · 销量匹配 ${formatRate(inboundMonitor.metrics.salesMatchRate)}`} tone="green" icon="转" />
           <InventoryKpiCard selected={inboundCard === "stale"} onClick={() => setInboundCard(current => toggleSingleFilter(current, "stale", ""))} label="滞销 / 长库龄" value={`${formatCount(inboundMonitor.metrics.staleItemCount)} 项`} note={`${formatCurrencyFromCents(inboundMonitor.metrics.staleValueCents)} · 供应商缺口 ${formatCount(inboundMonitor.metrics.missingSupplierCount)}`} tone="orange" icon="险" />
         </section>
         <section className="inventory-feedback inventory-feedback-warning inbound-disclosure" role="status"><span>!</span><div><strong>口径边界</strong><p>{inboundMonitor.disclosures.join("；")}</p></div></section>
-        <section className="panel inbound-region-panel data-refresh-region" aria-busy={inboundLoading}><div className="table-toolbar"><div><h2>RDC / DC 区域概览</h2><p>库存、在途、固定成本货值和 30 日计算周转按入仓仓库拆分</p></div><span className="soft-tag">计算口径，非京东原生指标</span></div><div className="inbound-region-grid">{inboundMonitor.regions.map((region) => <article key={region.warehouse}><span>{region.warehouse}</span><strong>{formatCount(region.availableQuantity)} 件</strong><small>{formatCurrencyFromCents(region.knownStockValueCents)} · 在途 {formatCount(region.inTransitQuantity)}</small><div><em>30日出库 {formatCount(region.outbound30dQuantity)}</em><em>周转 {region.turnoverDays === null ? "—" : `${region.turnoverDays.toFixed(1)}天`}</em></div><small>销量匹配 {formatRate(region.salesMatchRate)}</small></article>)}</div></section>
-        <InventoryInboundActionPanel
+        <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="panel inbound-region-panel data-refresh-region" aria-busy={inboundLoading}><div className="table-toolbar"><div><h2>RDC / DC 区域概览</h2><p>库存、在途、固定成本货值和 30 日计算周转按入仓仓库拆分</p></div><span className="soft-tag">计算口径，非京东原生指标</span></div><div className="inbound-region-grid">{inboundMonitor.regions.map((region) => <article key={region.warehouse}><span>{region.warehouse}</span><strong>{formatCount(region.availableQuantity)} 件</strong><small>{formatCurrencyFromCents(region.knownStockValueCents)} · 在途 {formatCount(region.inTransitQuantity)}</small><div><em>30日出库 {formatCount(region.outbound30dQuantity)}</em><em>周转 {region.turnoverDays === null ? "—" : `${region.turnoverDays.toFixed(1)}天`}</em></div><small>销量匹配 {formatRate(region.salesMatchRate)}</small></article>)}</div></section>
+        {summaryReady && <InventoryInboundActionPanel
           metrics={inboundMonitor.metrics}
           nativeComparisonAvailable={inboundMonitor.scope.nativeComparisonAvailable}
           onShowMissingSuppliers={() => updateFilters({ ...filters, suppliers: ["未映射供应商"] })}
@@ -1566,21 +1631,21 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
             updateFilters({ ...filters, ageStatuses: ["stagnant", "slow", "aged"], ageBuckets: [] });
             onModuleViewChange("stale");
           }}
-        />
-        <section className="panel table-panel inbound-detail-panel data-refresh-region" aria-busy={inboundLoading}><div className="table-toolbar"><div><h2>京东入仓 SKU 明细</h2><p>7/30/90 日出库只统计正向销量；退款不计为出库</p></div><span className="soft-tag">显示 {formatCount(inboundMonitor.pagination.returned)} / {formatCount(inboundMonitor.pagination.total)}</span><button type="button" className="row-action" disabled={inboundMonitor.items.length === 0} onClick={() => downloadInventoryCsv(`京东入仓监控_${inboundMonitor.sync.inventoryAsOf ?? "snapshot"}_第${inboundMonitor.pagination.page}页.csv`, [["货品编码", "货品名称", "品类", "供应商", "RDC/DC", "可用库存", "在途", "7日出库", "30日出库", "90日出库", "计算周转天数", "库龄天数", "固定成本分", "库存货值分", "风险"], ...inboundMonitor.items.map((item) => [item.productCode, item.productName, item.category, item.supplier, item.warehouse, item.availableQuantity, item.inTransitQuantity, item.outbound7dQuantity, item.outbound30dQuantity, item.outbound90dQuantity, item.turnoverDays, item.inventoryAgeDays, item.unitCostCents, item.knownStockValueCents, inboundRiskMeta[item.risk].label])])}>导出当前页 CSV</button></div><div className="data-table-wrap"><table className="data-table inbound-detail-table"><thead><tr><th>货品</th><th>供应商</th><th>RDC / DC</th><th>库存 / 在途</th><th>7日出库</th><th>30日出库</th><th>90日出库</th><th>计算周转</th><th>库龄</th><th>固定成本 / 货值</th><th>风险</th></tr></thead><tbody>{inboundMonitor.items.map((item) => { const risk = inboundRiskMeta[item.risk]; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode} · {item.category}</small></span></div></td><td>{item.supplier}<small className="cell-note">{item.supplier === "未映射供应商" ? "待补映射" : "ERP 货品档案"}</small></td><td>{item.warehouse}</td><td><strong>{formatCount(item.availableQuantity)}</strong><small className="cell-note">在途 {formatCount(item.inTransitQuantity)}</small></td><td>{item.outbound7dQuantity === null ? "—" : formatCount(item.outbound7dQuantity)}</td><td>{item.outbound30dQuantity === null ? "—" : formatCount(item.outbound30dQuantity)}</td><td>{item.outbound90dQuantity === null ? "—" : formatCount(item.outbound90dQuantity)}</td><td>{item.turnoverDays === null ? "—" : `${item.turnoverDays.toFixed(1)} 天`}</td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td>{item.unitCostCents === null ? "—" : formatCurrencyFromCents(item.unitCostCents)}<small className="cell-note">货值 {formatCurrencyFromCents(item.knownStockValueCents)}</small></td><td><span className={`status status-${risk.tone}`}><Dot tone={risk.dot} />{risk.label}</span></td></tr>; })}{inboundMonitor.items.length === 0 && <tr><td colSpan={11}><div className="table-state">没有符合当前筛选条件的京东入仓库存。</div></td></tr>}</tbody></table></div><footer className="jd-sku-pagination"><span>第 {inboundMonitor.pagination.page} / {Math.max(1, inboundMonitor.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={inboundLoading || inboundMonitor.pagination.page <= 1} onClick={() => setInboundPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={inboundLoading || inboundMonitor.pagination.page >= Math.max(1, inboundMonitor.pagination.totalPages)} onClick={() => setInboundPage((value) => value + 1)}>下一页</button></div></footer></section>
+        />}
+        <section hidden={!detailReady} style={detailReady ? undefined : { display: "none" }} className="panel table-panel inbound-detail-panel data-refresh-region" aria-busy={inboundLoading}><div className="table-toolbar"><div><h2>京东入仓 SKU 明细</h2><p>7/30/90 日出库只统计正向销量；退款不计为出库</p></div><span className="soft-tag">显示 {formatCount(inboundMonitor.pagination.returned)} / {formatCount(inboundMonitor.pagination.total)}</span><button type="button" className="row-action" disabled={inboundMonitor.items.length === 0} onClick={() => downloadInventoryCsv(`京东入仓监控_${inboundMonitor.sync.inventoryAsOf ?? "snapshot"}_第${inboundMonitor.pagination.page}页.csv`, [["货品编码", "货品名称", "品类", "供应商", "RDC/DC", "可用库存", "在途", "7日出库", "30日出库", "90日出库", "计算周转天数", "库龄天数", "固定成本分", "库存货值分", "风险"], ...inboundMonitor.items.map((item) => [item.productCode, item.productName, item.category, item.supplier, item.warehouse, item.availableQuantity, item.inTransitQuantity, item.outbound7dQuantity, item.outbound30dQuantity, item.outbound90dQuantity, item.turnoverDays, item.inventoryAgeDays, item.unitCostCents, item.knownStockValueCents, inboundRiskMeta[item.risk].label])])}>导出当前页 CSV</button></div><div className="data-table-wrap"><table className="data-table inbound-detail-table"><thead><tr><th>货品</th><th>供应商</th><th>RDC / DC</th><th>库存 / 在途</th><th>7日出库</th><th>30日出库</th><th>90日出库</th><th>计算周转</th><th>库龄</th><th>固定成本 / 货值</th><th>风险</th></tr></thead><tbody>{inboundMonitor.items.map((item) => { const risk = inboundRiskMeta[item.risk]; return <tr key={item.key}><td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode} · {item.category}</small></span></div></td><td>{item.supplier}<small className="cell-note">{item.supplier === "未映射供应商" ? "待补映射" : "ERP 货品档案"}</small></td><td>{item.warehouse}</td><td><strong>{formatCount(item.availableQuantity)}</strong><small className="cell-note">在途 {formatCount(item.inTransitQuantity)}</small></td><td>{item.outbound7dQuantity === null ? "—" : formatCount(item.outbound7dQuantity)}</td><td>{item.outbound30dQuantity === null ? "—" : formatCount(item.outbound30dQuantity)}</td><td>{item.outbound90dQuantity === null ? "—" : formatCount(item.outbound90dQuantity)}</td><td>{item.turnoverDays === null ? "—" : `${item.turnoverDays.toFixed(1)} 天`}</td><td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td><td>{item.unitCostCents === null ? "—" : formatCurrencyFromCents(item.unitCostCents)}<small className="cell-note">货值 {formatCurrencyFromCents(item.knownStockValueCents)}</small></td><td><span className={`status status-${risk.tone}`}><Dot tone={risk.dot} />{risk.label}</span></td></tr>; })}{inboundMonitor.items.length === 0 && <tr><td colSpan={11}><div className="table-state">没有符合当前筛选条件的京东入仓库存。</div></td></tr>}</tbody></table></div><footer className="jd-sku-pagination"><span>第 {inboundMonitor.pagination.page} / {Math.max(1, inboundMonitor.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={inboundLoading || inboundMonitor.pagination.page <= 1} onClick={() => setInboundPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={inboundLoading || inboundMonitor.pagination.page >= Math.max(1, inboundMonitor.pagination.totalPages)} onClick={() => setInboundPage((value) => value + 1)}>下一页</button></div></footer></section>
       </> : <>
         {ageLoading && !ageAnalysis && <section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总库龄与动销数据</strong><p>正在读取最新库存快照中的库龄、前 7 天与前 30 天销量…</p></section>}
         {!ageLoading && !ageError && ageAnalysis && !ageAnalysis.hasInventory && <section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">龄</span><strong>还没有可分析的库存快照</strong><p>请同步包含库龄字段的库存报表后再查看库龄分析和滞销清理。</p></section>}
         {ageAnalysis?.hasInventory && activeTab === "age" && <>
-          <section className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard label="库龄明细" value={`${formatCount(ageAnalysis.metrics.skuWarehouseCount)} 条`} note={`快照日期 ${ageAnalysis.sync.inventoryAsOf ?? "—"}`} tone="blue" icon="龄" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "90天以上货值" : "已覆盖90天以上货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.aged90ValueCents)} note={ageAnalysis.metrics.stockValueComplete ? `${formatCount(ageAnalysis.metrics.aged90Count)} 个 SKU × 仓库` : "缺少成本的库存未计入货值"} tone="orange" icon="90" /><InventoryKpiCard selected={ageCard === "stagnant"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "stagnant", ""))} label="滞销清理" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note={ageAnalysis.sync.hasAgeSales ? "库龄≥90天且前30天销量为0" : "报表未提供前30天销量"} tone="purple" icon="清" /><InventoryKpiCard selected={ageCard === "zero_sales"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "zero_sales", ""))} label="30天零销量" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="仅统计有可用库存的商品" tone="green" icon="零" /></section>
+          <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard label="库龄明细" value={`${formatCount(ageAnalysis.metrics.skuWarehouseCount)} 条`} note={`快照日期 ${ageAnalysis.sync.inventoryAsOf ?? "—"}`} tone="blue" icon="龄" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "90天以上货值" : "已覆盖90天以上货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.aged90ValueCents)} note={ageAnalysis.metrics.stockValueComplete ? `${formatCount(ageAnalysis.metrics.aged90Count)} 个 SKU × 仓库` : "缺少成本的库存未计入货值"} tone="orange" icon="90" /><InventoryKpiCard selected={ageCard === "stagnant"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "stagnant", ""))} label="滞销清理" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note={ageAnalysis.sync.hasAgeSales ? "库龄≥90天且前30天销量为0" : "报表未提供前30天销量"} tone="purple" icon="清" /><InventoryKpiCard selected={ageCard === "zero_sales"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "zero_sales", ""))} label="30天零销量" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="仅统计有可用库存的商品" tone="green" icon="零" /></section>
           {ageAnalysis.coverage.unagedStockCount > 0 && <section className="inventory-feedback inventory-feedback-warning" role="status"><span>!</span><div><strong>部分库存缺少库龄</strong><p>{formatCount(ageAnalysis.coverage.unagedStockCount)} 个 SKU × 仓库、{formatCount(ageAnalysis.coverage.unagedQuantity)} 件库存未进入库龄区间占比。</p></div></section>}
-          <section className="panel inventory-age-distribution-panel data-refresh-region" aria-labelledby="inventory-age-distribution-title" aria-busy={ageLoading}>
+          <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="panel inventory-age-distribution-panel data-refresh-region" aria-labelledby="inventory-age-distribution-title" aria-busy={ageLoading}>
             <div className="table-toolbar inventory-age-distribution-heading"><div><h2 id="inventory-age-distribution-title">库龄分布图</h2><p>库存数量按可用库存件数统计；库存金额按固定成本价 × 可用库存计算</p></div><div className="age-distribution-legend" aria-label="库龄分布图图例"><span><i className="quantity" />库存数量</span><span><i className="value" />库存金额</span></div></div>
             {!hasKnownAgeDistribution && <div className="inventory-age-distribution-empty" role="status"><strong>当前筛选范围没有已识别的库龄数量</strong><p>10 个库龄区间和成本金额口径已启用；请确认当前库龄快照已正确导入“库龄(天)”列。</p></div>}
             {hasKnownAgeDistribution && <InventoryAgeDistributionChart buckets={ageDistribution} stockValueComplete={ageAnalysis.metrics.stockValueComplete} />}
           </section>
-          <InventoryAgeSummaryPanel buckets={ageDistribution} stockValueComplete={ageAnalysis.metrics.stockValueComplete} selectedBuckets={filters.ageBuckets} onToggleBucket={toggleAgeBucket} />
-          <section className="panel table-panel inventory-age-table-panel data-refresh-region" aria-busy={ageLoading}>
+          {summaryReady && <InventoryAgeSummaryPanel buckets={ageDistribution} stockValueComplete={ageAnalysis.metrics.stockValueComplete} selectedBuckets={filters.ageBuckets} onToggleBucket={toggleAgeBucket} />}
+          <section hidden={!detailReady} style={detailReady ? undefined : { display: "none" }} className="panel table-panel inventory-age-table-panel data-refresh-region" aria-busy={ageLoading}>
             <div className="table-toolbar">
               <div><h2>库龄分析明细</h2><p>{ageAnalysis.sync.hasAgeSales ? "库龄、前 7 天销量与前 30 天销量来自本次库龄报表" : "当前报表未提供销量列，系统仅展示库龄风险"}</p></div>
               <span className="soft-tag">显示 {formatCount(ageAnalysis.items.length)} / {formatCount(ageAnalysis.pagination.total)}</span>
@@ -1606,9 +1671,9 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
         </>}
         {ageAnalysis?.hasInventory && activeTab === "stale" && <>
-          <section className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard selected={ageCard === "stagnant"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "stagnant", ""))} label="优先清理项" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note="库龄≥90天且近30日无销量" tone="orange" icon="清" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "待处理货值" : "已覆盖待处理货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.stagnantValueCents)} note={ageAnalysis.metrics.stockValueComplete ? "按固定成本价与可用库存计算" : "缺少成本的库存未计入货值"} tone="purple" icon="值" /><InventoryKpiCard selected={ageCard === "aged90"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "aged90", ""))} label="高库龄商品" value={`${formatCount(ageAnalysis.metrics.aged90Count)} 项`} note="库龄超过90天且仍有可用库存" tone="blue" icon="龄" /><InventoryKpiCard selected={ageCard === "zero_sales"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "zero_sales", ""))} label="零销量库存" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="前30天销量为0" tone="green" icon="零" /></section>
-          <InventoryStalePlaybookPanel metrics={ageAnalysis.metrics} hasAgeSales={ageAnalysis.sync.hasAgeSales} />
-          <section className="panel table-panel stale-cleanup-panel data-refresh-region" aria-busy={ageLoading}>
+          <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard selected={ageCard === "stagnant"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "stagnant", ""))} label="优先清理项" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note="库龄≥90天且近30日无销量" tone="orange" icon="清" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "待处理货值" : "已覆盖待处理货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.stagnantValueCents)} note={ageAnalysis.metrics.stockValueComplete ? "按固定成本价与可用库存计算" : "缺少成本的库存未计入货值"} tone="purple" icon="值" /><InventoryKpiCard selected={ageCard === "aged90"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "aged90", ""))} label="高库龄商品" value={`${formatCount(ageAnalysis.metrics.aged90Count)} 项`} note="库龄超过90天且仍有可用库存" tone="blue" icon="龄" /><InventoryKpiCard selected={ageCard === "zero_sales"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "zero_sales", ""))} label="零销量库存" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="前30天销量为0" tone="green" icon="零" /></section>
+          {summaryReady && <InventoryStalePlaybookPanel metrics={ageAnalysis.metrics} hasAgeSales={ageAnalysis.sync.hasAgeSales} />}
+          <section hidden={!detailReady} style={detailReady ? undefined : { display: "none" }} className="panel table-panel stale-cleanup-panel data-refresh-region" aria-busy={ageLoading}>
             <div className="table-toolbar">
               <div><h2>滞销清理清单</h2><p>创建清理事项后进入“运营事务”跟进；系统不会自动改库存或删除数据。</p></div>
               <span className="soft-tag">优先处理 {formatCount(ageAnalysis.metrics.cleanupCount)} 项</span>

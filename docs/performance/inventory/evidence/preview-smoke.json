@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "url": "http://127.0.0.1:49763/.runtime/inventory-independent-ui/index.html",
+  "checks": [
+    "库存总览",
+    "库龄分析",
+    "备货计划",
+    "滞销清理",
+    "京东入仓监控",
+    "广东入仓监控",
+    "广东监控清单",
+    "native-middleware-rejects-write"
+  ],
+  "errors": [],
+  "syntheticApi": true,
+  "productionConnection": false
+}

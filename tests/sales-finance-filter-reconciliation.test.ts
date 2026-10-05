@@ -170,7 +170,7 @@ test("服务端继续以400失败关闭并精确返回无效与跨平台店铺",
 
 test("财报前端按结构化400只清理无效项、同步URL并显示调整提示", async () => {
   const [source, route] = await Promise.all([
-    readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8"),
+    Promise.all(["sales-module-view.tsx", "sales-finance-views.tsx"].map((file) => readFile(new URL(`../app/${file}`, import.meta.url), "utf8"))).then((parts) => parts.join("\n")),
     readFile(new URL("../app/api/finance/analysis/route.ts", import.meta.url), "utf8"),
   ]);
   assert.match(source, /payload\?\.code === "finance_dimension_filter_out_of_scope"/);
@@ -192,7 +192,7 @@ test("财报前端按结构化400只清理无效项、同步URL并显示调整�
 
 test("初始财务月份回退保持显式且手动选择后恢复严格读取", async () => {
   const [source, route] = await Promise.all([
-    readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/sales-finance-views.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/finance/analysis/route.ts", import.meta.url), "utf8"),
   ]);
   assert.match(route, /getAll\("initialMonthFallback"\)/);

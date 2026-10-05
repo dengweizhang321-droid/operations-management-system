@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "mockedApi": true,
+  "requests": 26,
+  "checks": [
+    "fixed-warehouse",
+    "risk-url",
+    "item-overrides-risk-reason-and-fallback",
+    "paste-preview-commit",
+    "supplier-cycle",
+    "versioned-export",
+    "viewer-read-only",
+    "desktop-mobile-render"
+  ]
+}

@@ -205,7 +205,7 @@ test("netshop requests reject late filter responses", async () => {
 
 test("page consumes customer and finance bounded detail, pagination and CAS contracts", async () => {
   const [sales, customer] = await Promise.all([
-    source("../app/sales-module-view.tsx"),
+    source("../app/sales-finance-views.tsx"),
     source("../app/customer-service-view.tsx"),
   ]);
   assert.match(customer, /listControllerRef\.current\?\.abort\(\)/);

@@ -1,0 +1,376 @@
+{
+  "workspace-mapping:baseline": [
+    [
+      {
+        "Plan": {
+          "Node Type": "Limit",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 58354.64,
+          "Total Cost": 58354.66,
+          "Plan Rows": 7,
+          "Plan Width": 19,
+          "Plans": [
+            {
+              "Node Type": "Sort",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 58354.64,
+              "Total Cost": 58354.66,
+              "Plan Rows": 7,
+              "Plan Width": 19,
+              "Sort Key": [
+                "(count(DISTINCT sku_code)) DESC",
+                "category"
+              ],
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Strategy": "Sorted",
+                  "Partial Mode": "Simple",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 7461.72,
+                  "Total Cost": 58354.54,
+                  "Plan Rows": 7,
+                  "Plan Width": 19,
+                  "Group Key": [
+                    "category"
+                  ],
+                  "Plans": [
+                    {
+                      "Node Type": "Incremental Sort",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Startup Cost": 7461.72,
+                      "Total Cost": 56604.51,
+                      "Plan Rows": 349992,
+                      "Plan Width": 19,
+                      "Sort Key": [
+                        "category",
+                        "sku_code"
+                      ],
+                      "Presorted Key": [
+                        "category"
+                      ],
+                      "Plans": [
+                        {
+                          "Node Type": "Index Only Scan",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Scan Direction": "Forward",
+                          "Index Name": "mkt_entry_identity_idx",
+                          "Relation Name": "market_ranking_entries",
+                          "Alias": "market_ranking_entries",
+                          "Startup Cost": 0.42,
+                          "Total Cost": 24913.28,
+                          "Plan Rows": 349992,
+                          "Plan Width": 19,
+                          "Filter": "(category <> ''::text)"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      {
+        "Plan": {
+          "Node Type": "Limit",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 3543.57,
+          "Total Cost": 60104.71,
+          "Plan Rows": 14,
+          "Plan Width": 99,
+          "Plans": [
+            {
+              "Node Type": "Aggregate",
+              "Strategy": "Sorted",
+              "Partial Mode": "Simple",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 3543.57,
+              "Total Cost": 60104.71,
+              "Plan Rows": 14,
+              "Plan Width": 99,
+              "Group Key": [
+                "category",
+                "scope",
+                "ranking_dimension"
+              ],
+              "Plans": [
+                {
+                  "Node Type": "Incremental Sort",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 3543.57,
+                  "Total Cost": 53979.71,
+                  "Plan Rows": 349992,
+                  "Plan Width": 38,
+                  "Sort Key": [
+                    "category",
+                    "scope",
+                    "ranking_dimension",
+                    "period_end"
+                  ],
+                  "Presorted Key": [
+                    "category",
+                    "scope",
+                    "ranking_dimension"
+                  ],
+                  "Plans": [
+                    {
+                      "Node Type": "Index Only Scan",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Scan Direction": "Forward",
+                      "Index Name": "mkt_entry_identity_idx",
+                      "Relation Name": "market_ranking_entries",
+                      "Alias": "market_ranking_entries",
+                      "Startup Cost": 0.42,
+                      "Total Cost": 24038.3,
+                      "Plan Rows": 349992,
+                      "Plan Width": 38
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      {
+        "Plan": {
+          "Node Type": "Index Only Scan",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Scan Direction": "Forward",
+          "Index Name": "mkt_image_status_idx",
+          "Relation Name": "market_image_cache",
+          "Alias": "market_image_cache",
+          "Startup Cost": 0.29,
+          "Total Cost": 1598.29,
+          "Plan Rows": 70000,
+          "Plan Width": 7
+        }
+      }
+    ],
+    [
+      {
+        "Plan": {
+          "Node Type": "Result",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 0.42,
+          "Total Cost": 9176.26,
+          "Plan Rows": 7,
+          "Plan Width": 11,
+          "Plans": [
+            {
+              "Node Type": "Unique",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 0.42,
+              "Total Cost": 9176.26,
+              "Plan Rows": 7,
+              "Plan Width": 11,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "mkt_entry_category_idx",
+                  "Relation Name": "market_ranking_entries",
+                  "Alias": "market_ranking_entries",
+                  "Startup Cost": 0.42,
+                  "Total Cost": 8301.28,
+                  "Plan Rows": 349992,
+                  "Plan Width": 11,
+                  "Filter": "(category <> ''::text)"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  ],
+  "workspace-mapping:candidate": [
+    [
+      {
+        "Plan": {
+          "Node Type": "Limit",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 58354.64,
+          "Total Cost": 58354.66,
+          "Plan Rows": 7,
+          "Plan Width": 19,
+          "Plans": [
+            {
+              "Node Type": "Sort",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 58354.64,
+              "Total Cost": 58354.66,
+              "Plan Rows": 7,
+              "Plan Width": 19,
+              "Sort Key": [
+                "(count(DISTINCT sku_code)) DESC",
+                "category"
+              ],
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Strategy": "Sorted",
+                  "Partial Mode": "Simple",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 7461.72,
+                  "Total Cost": 58354.54,
+                  "Plan Rows": 7,
+                  "Plan Width": 19,
+                  "Group Key": [
+                    "category"
+                  ],
+                  "Plans": [
+                    {
+                      "Node Type": "Incremental Sort",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Startup Cost": 7461.72,
+                      "Total Cost": 56604.51,
+                      "Plan Rows": 349992,
+                      "Plan Width": 19,
+                      "Sort Key": [
+                        "category",
+                        "sku_code"
+                      ],
+                      "Presorted Key": [
+                        "category"
+                      ],
+                      "Plans": [
+                        {
+                          "Node Type": "Index Only Scan",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Scan Direction": "Forward",
+                          "Index Name": "mkt_entry_identity_idx",
+                          "Relation Name": "market_ranking_entries",
+                          "Alias": "market_ranking_entries",
+                          "Startup Cost": 0.42,
+                          "Total Cost": 24913.28,
+                          "Plan Rows": 349992,
+                          "Plan Width": 19,
+                          "Filter": "(category <> ''::text)"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      {
+        "Plan": {
+          "Node Type": "Aggregate",
+          "Strategy": "Sorted",
+          "Partial Mode": "Simple",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 0.29,
+          "Total Cost": 1948.33,
+          "Plan Rows": 4,
+          "Plan Width": 15,
+          "Group Key": [
+            "status"
+          ],
+          "Plans": [
+            {
+              "Node Type": "Index Only Scan",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "mkt_image_status_idx",
+              "Relation Name": "market_image_cache",
+              "Alias": "market_image_cache",
+              "Startup Cost": 0.29,
+              "Total Cost": 1598.29,
+              "Plan Rows": 70000,
+              "Plan Width": 7
+            }
+          ]
+        }
+      }
+    ],
+    [
+      {
+        "Plan": {
+          "Node Type": "Result",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 0.42,
+          "Total Cost": 9176.26,
+          "Plan Rows": 7,
+          "Plan Width": 11,
+          "Plans": [
+            {
+              "Node Type": "Unique",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 0.42,
+              "Total Cost": 9176.26,
+              "Plan Rows": 7,
+              "Plan Width": 11,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "mkt_entry_category_idx",
+                  "Relation Name": "market_ranking_entries",
+                  "Alias": "market_ranking_entries",
+                  "Startup Cost": 0.42,
+                  "Total Cost": 8301.28,
+                  "Plan Rows": 349992,
+                  "Plan Width": 11,
+                  "Filter": "(category <> ''::text)"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}

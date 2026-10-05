@@ -1,0 +1,691 @@
+{
+  "status": "passed",
+  "syntheticApi": true,
+  "businessPgBenchmark": false,
+  "scope": "actual inventory component + original globals; excludes Home/shell and production authority",
+  "port": 63925,
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "candidateHead": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "dirty": "M app/api/inventory/age-analysis/route.ts\n M app/api/inventory/inbound-monitor/route.ts\n M app/api/inventory/overview/route.ts\n M app/inventory-guangdong-view.tsx\n M app/inventory-module-view.tsx\n M backend/inventory/guangdong.py\n M backend/inventory/guangdong_views.py\n M backend/inventory/query.py\n M backend/inventory/views.py\n?? app/inventory-region-notice.tsx\n?? backend/inventory/read_cache.py\n?? backend/inventory/regions.py\n?? backend/inventory/tests/test_read_cache.py\n?? docs/performance/\n?? lib/inventory/read-regions.ts\n?? tests/inventory-read-regions.test.ts",
+  "sourceHashes": {
+    "inventory-module-view.tsx": "7ce46decd9f41a59e09e7796d9c6fda5972c1608809dd2b1838c28057b400293",
+    "inventory-guangdong-view.tsx": "e9124f06cf52279c501a5e88ba8968828939e4774182425233c72bbd4ec96665",
+    "inventory-filter-bar.tsx": "534bafd582776be3a3086c3d57fdb1f4c6afe78e3b3b7ed6824b8b61f80cdcc1"
+  },
+  "fixtureSha256": "afe323d8ba02c71836528e004d65f3f93ed80616acbdb72c380850ee138bb274",
+  "upstreamDelayMs": 180,
+  "lateResponseDelayMs": 900,
+  "requests": [
+    {
+      "id": 1,
+      "implementation": "baseline",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50",
+      "ms": 325.1022000000012,
+      "status": 200,
+      "bytes": 145100,
+      "ignoredAbort": true
+    },
+    {
+      "id": 2,
+      "implementation": "baseline",
+      "path": "/api/inventory/replenishment/dingtalk/group",
+      "method": "POST",
+      "simulatedReadOnlyAction": "preview",
+      "status": 200
+    },
+    {
+      "id": 3,
+      "implementation": "baseline",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=EMPTY&planPage=1&planPageSize=50",
+      "ms": 189.6460999999981,
+      "status": 200,
+      "bytes": 2580,
+      "ignoredAbort": true
+    },
+    {
+      "id": 4,
+      "implementation": "baseline",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=EMPTY&planPage=1&planPageSize=50",
+      "ms": 182.74109999999928,
+      "status": 200,
+      "bytes": 2580,
+      "ignoredAbort": true
+    },
+    {
+      "id": 5,
+      "implementation": "baseline",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50",
+      "ms": 187.40149999999994,
+      "status": 200,
+      "bytes": 145100,
+      "ignoredAbort": true
+    },
+    {
+      "id": 6,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 191.6849000000002,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 7,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 189.26239999999962,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 8,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 182.89130000000296,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 9,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 182.28490000000602,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 10,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 189.88730000000214,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 11,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 189.14779999999882,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 12,
+      "implementation": "candidate",
+      "path": "/api/inventory/replenishment/dingtalk/group",
+      "method": "POST",
+      "simulatedReadOnlyAction": "preview",
+      "status": 200
+    },
+    {
+      "id": 13,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=EMPTY&planPage=1&planPageSize=50&section=summary",
+      "ms": 181.59139999999752,
+      "status": 200,
+      "bytes": 2765,
+      "ignoredAbort": true
+    },
+    {
+      "id": 14,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=EMPTY&planPage=1&planPageSize=50&section=detail",
+      "ms": 181.30430000000342,
+      "status": 200,
+      "bytes": 2764,
+      "ignoredAbort": true
+    },
+    {
+      "id": 15,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=EMPTY&planPage=1&planPageSize=50&section=summary",
+      "ms": 190.37749999999505,
+      "status": 200,
+      "bytes": 2765,
+      "ignoredAbort": true
+    },
+    {
+      "id": 16,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=EMPTY&planPage=1&planPageSize=50&section=detail",
+      "ms": 189.9250000000029,
+      "status": 200,
+      "bytes": 2764,
+      "ignoredAbort": true
+    },
+    {
+      "id": 17,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 183.0164999999979,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 18,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 182.87490000000253,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    }
+  ],
+  "measures": [
+    {
+      "implementation": "baseline",
+      "tab": "plan",
+      "action": "first-open",
+      "feedbackMs": 4500.486400000002,
+      "firstContentMs": 4517.030400000003,
+      "completeMs": 4525.3315,
+      "requests": 1
+    },
+    {
+      "implementation": "baseline",
+      "tab": "plan",
+      "action": "group-message-preview-detail",
+      "feedbackMs": 46.16560000000027,
+      "completeMs": 276.77449999999953,
+      "requests": 1
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "first-open",
+      "feedbackMs": 143.24259999999776,
+      "firstContentMs": 518.2065000000002,
+      "completeMs": 584.5135000000009,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "group-message-preview-detail",
+      "feedbackMs": 37.44640000000072,
+      "completeMs": 245.5859999999957,
+      "requests": 1
+    }
+  ],
+  "checks": [
+    {
+      "implementation": "baseline",
+      "tab": "plan",
+      "check": "draft-quantity-mixed-selection-all-selection-and-state-buttons"
+    },
+    {
+      "implementation": "baseline",
+      "tab": "plan",
+      "check": "group-preview-detail-open-close-without-send"
+    },
+    {
+      "implementation": "baseline",
+      "tab": "plan",
+      "check": "empty-authoritative-data-does-not-show-prior-range"
+    },
+    {
+      "implementation": "baseline",
+      "tab": "plan",
+      "check": "empty-range-refresh-reentry-and-recovery"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "same-role-account-change-hides-previous-account"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "draft-quantity-mixed-selection-all-selection-and-state-buttons"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "group-preview-detail-open-close-without-send"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "empty-authoritative-data-does-not-show-prior-range"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "empty-range-refresh-reentry-and-recovery"
+    }
+  ],
+  "errors": [],
+  "network": [
+    {
+      "implementation": "baseline",
+      "path": "/.runtime/inventory-independent-ui/index.html",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/@vite/client",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/.runtime/inventory-independent-ui/main.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/@react-refresh",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214888409/deps/react.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214888409/deps/react-dom_client.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/app/inventory-module-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/.runtime/inventory-independent-ui/baseline-inventory-module-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/app/globals.css",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214888409/deps/react_jsx-dev-runtime.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/node_modules/vite/dist/client/env.mjs",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214888409/deps/react-DGPCLjpP.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214888409/deps/react-dom.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/lib/ui/summary-filter.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/lib/inventory/warehouse-classification.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/app/ai-page-context-provider.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/app/module-view-business-ui.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/.runtime/inventory-independent-ui/baseline-inventory-guangdong-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/.runtime/inventory-independent-ui/baseline-inventory-filter-bar.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/app/inventory-workbench-panels.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/app/module-view-shared.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/lib/inventory/replenishment-batch.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/app/inventory-guangdong-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/app/inventory-filter-bar.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/app/inventory-region-notice.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/lib/inventory/read-regions.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/app/ui/searchable-select.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/app/inventory-guangdong.module.css",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/lib/netshop/periods.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/config/inventory-warehouse-mapping.json",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/lib/netshop/query-contract.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/lib/netshop/insights-contract.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/lib/netshop/store-overview-contract.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "baseline",
+      "path": "/lib/http/api-error.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/index.html",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/@vite/client",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/main.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/@react-refresh",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214888409/deps/react.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214888409/deps/react-dom_client.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-module-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/baseline-inventory-module-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/globals.css",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214888409/deps/react_jsx-dev-runtime.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/node_modules/vite/dist/client/env.mjs",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214888409/deps/react-DGPCLjpP.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/ui/summary-filter.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/inventory/warehouse-classification.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/ai-page-context-provider.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/module-view-business-ui.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-guangdong-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-filter-bar.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-workbench-panels.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/module-view-shared.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/inventory/replenishment-batch.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-region-notice.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/inventory/read-regions.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/baseline-inventory-guangdong-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/baseline-inventory-filter-bar.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214888409/deps/react-dom.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/config/inventory-warehouse-mapping.json",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-guangdong.module.css",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/ui/searchable-select.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/netshop/periods.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/netshop/query-contract.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/netshop/insights-contract.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/http/api-error.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/netshop/store-overview-contract.ts",
+      "state": "response",
+      "status": 200
+    }
+  ],
+  "failures": []
+}

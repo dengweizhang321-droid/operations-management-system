@@ -24,14 +24,14 @@ test("multi-select choices stay open while another option is selected", async ()
 });
 
 test("filter-driven requests keep the last successful layout mounted", async () => {
-  const [shop, inventory, operations, marketMaster, aiAssistant, salesCategory, sales, product, importView] = await Promise.all([
+  const [shop, inventory, operations, marketMaster, aiAssistant, salesCategory, finance, product, importView] = await Promise.all([
     readSource("../app/shop-module-view.tsx"),
     readSource("../app/inventory-module-view.tsx"),
     readSource("../app/operations-view.tsx"),
     readSource("../app/market-master-admin-panel.tsx"),
     readSource("../app/ai-assistant-view.tsx"),
     readSource("../app/sales-category-view.tsx"),
-    readSource("../app/sales-module-view.tsx"),
+    readSource("../app/sales-finance-views.tsx"),
     readSource("../app/product-module-view.tsx"),
     readSource("../app/import-module-view.tsx"),
   ]);
@@ -73,12 +73,16 @@ test("filter-driven requests keep the last successful layout mounted", async () 
   assert.match(aiAssistant, /if \(showChat && chatLoading && !conversationLoaded\)/);
   const categoryDetailRefresh = between(salesCategory, "if (!detailCategory) return;", "const filterOptions = data?.filterOptions");
   assert.doesNotMatch(categoryDetailRefresh, /setDetailData\(null\)/);
-  assert.match(salesCategory, /const visibleDetailData = detailDataCategory === detailCategory \? detailData : null/);
+  assert.match(salesCategory, /const visibleDetailData = detailDataKey === detailKey \? detailData : null/);
+  assert.match(salesCategory, /const detailKey = JSON\.stringify\(\[detailCategory, startDate, endDate, filters\.channels, filters\.outletKeys, filters\.platforms, filters\.productQuery\]\)/);
 
-  assert.match(sales, /finance-target-list-panel data-refresh-region" aria-busy=\{loading\}/);
-  assert.match(sales, /loading && !targetsLoaded \? <div className="table-state">/);
-  assert.match(product, /const productDetail = productDetailSnapshot\?\.productCode === detailProductCode/);
-  assert.match(product, /setProductDetailSnapshot\(\{ productCode: requestedProductCode, detail: payload \}\)/);
+  assert.match(finance, /finance-target-list-panel data-refresh-region" aria-busy=\{loading\}/);
+  assert.match(finance, /const targetsLoaded = storedTargetsLoaded && itemsKey === listKey/);
+  assert.match(finance, /loading && targetsLoaded && <div className="table-state" role="status">正在刷新当前目标列表，成功结果仍保留/);
+  assert.match(finance, /!targetsLoaded \? <div className="table-state" role="status">/);
+  assert.match(product, /const productDetail = productDetailSnapshot\?\.requestKey === detailRequestKey/);
+  assert.match(product, /const detailRequestKey = JSON\.stringify\(\{ productCode: detailProductCode,[\s\S]*?requestedStart: customStartDate, requestedEnd: customEndDate,[\s\S]*?start: detailStartDate, end: detailEndDate, snapshot: summary\?\.snapshotToken/);
+  assert.match(product, /setProductDetailSnapshot\(\{ requestKey: detailRequestKey, detail: payload \}\)/);
   assert.match(importView, /<ImportRunRecordsView history=\{history\} loading=\{historyLoading\} loaded=\{historyLoaded\}/);
   const importRecords = await readSource("../app/import-run-records-view.tsx");
   assert.match(importRecords, /loading && !loaded/);

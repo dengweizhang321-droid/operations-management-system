@@ -1,0 +1,2262 @@
+{
+  "baseline": [
+    {
+      "code": 2454,
+      "file": "lib/ai/business-market-v2-tool-candidate.ts",
+      "line": 34,
+      "message": "Variable 'allowed' is used before being assigned."
+    },
+    {
+      "code": 2454,
+      "file": "lib/ai/business-market-v2-tool-candidate.ts",
+      "line": 34,
+      "message": "Variable 'allowed' is used before being assigned."
+    },
+    {
+      "code": 2454,
+      "file": "lib/ai/business-market-v2-tool-candidate.ts",
+      "line": 35,
+      "message": "Variable 'allowed' is used before being assigned."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 59,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 59,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 77,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 78,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 87,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 88,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 105,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 107,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-agent-budget-tools.test.ts",
+      "line": 42,
+      "message": "Argument of type 'readonly AiToolEntry[]' is not assignable to parameter of type 'AiToolEntry[]'.\n  The type 'readonly AiToolEntry[]' is 'readonly' and cannot be assigned to the mutable type 'AiToolEntry[]'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-agent-integrated-tools.test.ts",
+      "line": 44,
+      "message": "Argument of type 'readonly AiToolEntry[]' is not assignable to parameter of type 'AiToolEntry[]'.\n  The type 'readonly AiToolEntry[]' is 'readonly' and cannot be assigned to the mutable type 'AiToolEntry[]'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-agent-v2-tools.test.ts",
+      "line": 42,
+      "message": "Argument of type 'readonly AiToolEntry[]' is not assignable to parameter of type 'AiToolEntry[]'.\n  The type 'readonly AiToolEntry[]' is 'readonly' and cannot be assigned to the mutable type 'AiToolEntry[]'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-five-catalog.test.ts",
+      "line": 71,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-five-catalog.test.ts",
+      "line": 82,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-five-catalog.test.ts",
+      "line": 105,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-tool-registry-gate.test.ts",
+      "line": 70,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-tool-registry-gate.test.ts",
+      "line": 76,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-tool-registry-gate.test.ts",
+      "line": 100,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-tool-registry-gate.test.ts",
+      "line": 104,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-screening-tools.test.ts",
+      "line": 51,
+      "message": "Argument of type 'readonly AiToolEntry[]' is not assignable to parameter of type 'AiToolEntry[]'.\n  The type 'readonly AiToolEntry[]' is 'readonly' and cannot be assigned to the mutable type 'AiToolEntry[]'."
+    },
+    {
+      "code": 2532,
+      "file": "tests/customer-save-recovery-interaction.test.ts",
+      "line": 99,
+      "message": "Object is possibly 'undefined'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/customer-save-recovery-interaction.test.ts",
+      "line": 102,
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'.\n  Type 'undefined' is not assignable to type 'string'."
+    },
+    {
+      "code": 1501,
+      "file": "tests/django-inventory-cutover.test.ts",
+      "line": 28,
+      "message": "This regular expression flag is only available when targeting 'es2018' or later."
+    },
+    {
+      "code": 5097,
+      "file": "tests/finance-raw-workbook-route.test.ts",
+      "line": 67,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 155,
+      "message": "Property 'url' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 156,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 157,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 158,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 180,
+      "message": "Property 'url' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 181,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 205,
+      "message": "Object literal may only specify known properties, and 'onFailure' does not exist in type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 7031,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 205,
+      "message": "Binding element 'consecutiveFailures' implicitly has an 'any' type."
+    },
+    {
+      "code": 7031,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 206,
+      "message": "Binding element 'previousFailures' implicitly has an 'any' type."
+    },
+    {
+      "code": 2353,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 239,
+      "message": "Object literal may only specify known properties, and 'signal' does not exist in type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 7031,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 242,
+      "message": "Binding element 'consecutiveFailures' implicitly has an 'any' type."
+    },
+    {
+      "code": 7031,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 243,
+      "message": "Binding element 'consecutiveFailures' implicitly has an 'any' type."
+    },
+    {
+      "code": 7031,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 244,
+      "message": "Binding element 'previousFailures' implicitly has an 'any' type."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 262,
+      "message": "Type '() => FakeLocalWorkerChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeLocalWorkerChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 10 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 267,
+      "message": "Type '({ signal, onDegraded }: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | und...' is not assignable to type '({ probe, wait, signal, initialDelayMs, intervalMs, onFailure, onDegraded, onRecovered, }?: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>...'.\n  Type 'Promise<{ status: string; consecutiveFailures: number; }>' is not assignable to type 'Promise<{ status: string; state: string; consecutiveFailures: number; }>'.\n    Property 'state' is missing in type '{ status: string; consecutiveFailures: number; }' but required in type '{ status: string; state: string; consecutiveFailures: number; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 267,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 267,
+      "message": "Property 'onDegraded' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 275,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2740,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 288,
+      "message": "Type '{ warn(): void; }' is missing the following properties from type 'Console': assert, clear, count, countReset, and 18 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 305,
+      "message": "Type '() => FakeLocalWorkerChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeLocalWorkerChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 10 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 310,
+      "message": "Type '({ signal }: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) =...' is not assignable to type '({ probe, wait, signal, initialDelayMs, intervalMs, onFailure, onDegraded, onRecovered, }?: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>...'.\n  Type 'Promise<{ status: string; consecutiveFailures: number; }>' is not assignable to type 'Promise<{ status: string; state: string; consecutiveFailures: number; }>'.\n    Property 'state' is missing in type '{ status: string; consecutiveFailures: number; }' but required in type '{ status: string; state: string; consecutiveFailures: number; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 310,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 311,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2740,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 326,
+      "message": "Type '{ warn(): void; }' is missing the following properties from type 'Console': assert, clear, count, countReset, and 18 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 343,
+      "message": "Type '() => FakeLocalWorkerChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeLocalWorkerChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 10 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 356,
+      "message": "Type '({ signal, onDegraded }: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | und...' is not assignable to type '({ probe, wait, signal, initialDelayMs, intervalMs, onFailure, onDegraded, onRecovered, }?: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>...'.\n  Type 'Promise<{ status: string; consecutiveFailures: number; }>' is not assignable to type 'Promise<{ status: string; state: string; consecutiveFailures: number; }>'.\n    Property 'state' is missing in type '{ status: string; consecutiveFailures: number; }' but required in type '{ status: string; state: string; consecutiveFailures: number; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 356,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 356,
+      "message": "Property 'onDegraded' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 360,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2740,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 371,
+      "message": "Type '{ warn(message: string): void; }' is missing the following properties from type 'Console': assert, clear, count, countReset, and 18 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 387,
+      "message": "Type '() => FakeLocalWorkerChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeLocalWorkerChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 10 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 393,
+      "message": "Type '({ signal }: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) =...' is not assignable to type '({ probe, wait, signal, initialDelayMs, intervalMs, onFailure, onDegraded, onRecovered, }?: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>...'.\n  Type 'Promise<{ status: string; consecutiveFailures: number; }>' is not assignable to type 'Promise<{ status: string; state: string; consecutiveFailures: number; }>'.\n    Property 'state' is missing in type '{ status: string; consecutiveFailures: number; }' but required in type '{ status: string; state: string; consecutiveFailures: number; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 393,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 394,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2740,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 403,
+      "message": "Type '{ warn(): void; }' is missing the following properties from type 'Console': assert, clear, count, countReset, and 18 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 416,
+      "message": "Type '() => FakeLocalWorkerChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeLocalWorkerChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 10 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 417,
+      "message": "Type '({ signal }: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) =...' is not assignable to type '({ probe, wait, signal, initialDelayMs, intervalMs, onFailure, onDegraded, onRecovered, }?: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>...'.\n  Type 'Promise<{ status: string; consecutiveFailures: number; }>' is not assignable to type 'Promise<{ status: string; state: string; consecutiveFailures: number; }>'.\n    Property 'state' is missing in type '{ status: string; consecutiveFailures: number; }' but required in type '{ status: string; state: string; consecutiveFailures: number; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 417,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2740,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 428,
+      "message": "Type '{ warn(): void; }' is missing the following properties from type 'Console': assert, clear, count, countReset, and 18 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 478,
+      "message": "Type '() => FakeChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 8 more."
+    },
+    {
+      "code": 2741,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 483,
+      "message": "Property '__promisify__' is missing in type '(callback: any, delay: any) => { callback: any; delay: any; }' but required in type 'typeof setTimeout'."
+    },
+    {
+      "code": 7006,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 483,
+      "message": "Parameter 'callback' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 483,
+      "message": "Parameter 'delay' implicitly has an 'any' type."
+    },
+    {
+      "code": 18048,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 489,
+      "message": "'timer' is possibly 'undefined'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 489,
+      "message": "Property 'cancelled' does not exist on type 'string | number | Timeout'.\n  Property 'cancelled' does not exist on type 'string'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 518,
+      "message": "Property 'url' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 519,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 520,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 527,
+      "message": "Type '() => Promise<void>' is not assignable to type '({ fetchImpl, url, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; }) => Promise<...>'.\n  Type 'Promise<void>' is not assignable to type 'Promise<number>'.\n    Type 'void' is not assignable to type 'number'."
+    },
+    {
+      "code": 2741,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 531,
+      "message": "Property '__promisify__' is missing in type '(callback: any, delay: any) => { callback: any; delay: any; }' but required in type 'typeof setTimeout'."
+    },
+    {
+      "code": 7006,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 531,
+      "message": "Parameter 'callback' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 531,
+      "message": "Parameter 'delay' implicitly has an 'any' type."
+    },
+    {
+      "code": 18048,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 536,
+      "message": "'timer' is possibly 'undefined'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 536,
+      "message": "Property 'cancelled' does not exist on type 'string | number | Timeout'.\n  Property 'cancelled' does not exist on type 'string'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 61,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 67,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 73,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2352,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 875,
+      "message": "Conversion of type '{ brand: string; productName: string; scope: string; operationMode: \"POP\"; raw: { 店铺类型: string; }; }' to type 'MarketEntryForImport' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.\n  Type '{ brand: string; productName: string; scope: string; operationMode: \"POP\"; raw: { 店铺类型: string; }; }' is missing the following properties from type 'MarketEntryForImport': naturalKey, sourceRowNumber, periodStart, periodEnd, and 35 more."
+    },
+    {
+      "code": 2352,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 883,
+      "message": "Conversion of type '{ brand: string; productName: string; scope: string; operationMode: \"POP\"; raw: { 店铺类型: string; }; }' to type 'MarketEntryForImport' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.\n  Type '{ brand: string; productName: string; scope: string; operationMode: \"POP\"; raw: { 店铺类型: string; }; }' is missing the following properties from type 'MarketEntryForImport': naturalKey, sourceRowNumber, periodStart, periodEnd, and 35 more."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 1077,
+      "message": "Property 'maintenanceFailed' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; } | { status: string; duplicate: boolean; ... 9 more ...; externalValidation?: undefined; } | { ...; }'.\n  Property 'maintenanceFailed' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 1078,
+      "message": "Property 'reconciliationPending' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; } | { status: string; duplicate: boolean; ... 9 more ...; externalValidation?: undefined; } | { ...; }'.\n  Property 'reconciliationPending' does not exist on type '{ status: string; duplicate: boolean; maintenanceFailed: boolean; taskId: string; batchId: string; stagingBatchId: string; rowCount: number; validation: { headerValid: number; periodValid: boolean; ... 5 more ...; importIdentityHash: string; }; terminal?: undefined; busy?: undefined; retryAt?: undefined; externalVal...'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 1120,
+      "message": "Property 'reconciliationPending' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; } | { status: string; busy: boolean; ... 5 more ...; rowCount?: undefined; } | ... 8 more ... | { ...; }'.\n  Property 'reconciliationPending' does not exist on type '{ status: string; duplicate: boolean; taskId: string; terminal?: undefined; busy?: undefined; retryAt?: undefined; externalValidation?: undefined; maintenanceFailed?: undefined; batchId?: undefined; stagingBatchId?: undefined; rowCount?: undefined; validation?: undefined; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 1133,
+      "message": "Property 'reconciled' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; } | { status: string; busy: boolean; ... 5 more ...; rowCount?: undefined; } | ... 8 more ... | { ...; }'.\n  Property 'reconciled' does not exist on type '{ status: string; duplicate: boolean; taskId: string; terminal?: undefined; busy?: undefined; retryAt?: undefined; externalValidation?: undefined; maintenanceFailed?: undefined; batchId?: undefined; stagingBatchId?: undefined; rowCount?: undefined; validation?: undefined; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 1505,
+      "message": "Property 'reconciled' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; } | { status: string; busy: boolean; ... 5 more ...; rowCount?: undefined; } | ... 8 more ... | { ...; }'.\n  Property 'reconciled' does not exist on type '{ status: string; duplicate: boolean; taskId: string; terminal?: undefined; busy?: undefined; retryAt?: undefined; externalValidation?: undefined; maintenanceFailed?: undefined; batchId?: undefined; stagingBatchId?: undefined; rowCount?: undefined; validation?: undefined; }'."
+    },
+    {
+      "code": 1501,
+      "file": "tests/market-annotation.test.ts",
+      "line": 213,
+      "message": "This regular expression flag is only available when targeting 'es2018' or later."
+    },
+    {
+      "code": 1501,
+      "file": "tests/market-annotation.test.ts",
+      "line": 332,
+      "message": "This regular expression flag is only available when targeting 'es2018' or later."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-annotation.test.ts",
+      "line": 403,
+      "message": "Property 'done' does not exist on type '{ idle: boolean; jobId: string; category: string; concurrency: number; } | { job: { id: string; category: string; promptVersionId: string; executor: string; modelId: string | null; localModelName: string; ... 11 more ...; updatedAt: string; } | null; ... 10 more ...; concurrency: number; } | { ...; }'.\n  Property 'done' does not exist on type '{ idle: boolean; jobId: string; category: string; concurrency: number; }'."
+    },
+    {
+      "code": 2558,
+      "file": "tests/market-annotation.test.ts",
+      "line": 404,
+      "message": "Expected 0 type arguments, but got 1."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-annotation.test.ts",
+      "line": 2000,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-annotation.test.ts",
+      "line": 2001,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-annotation.test.ts",
+      "line": 2002,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 21,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 22,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 24,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 53,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 314,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 315,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 322,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 323,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 362,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 364,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 375,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 377,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 397,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 402,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 407,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 411,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 425,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 430,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 438,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 443,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 447,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 455,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 7006,
+      "file": "tests/market-read-request.test.ts",
+      "line": 7,
+      "message": "Parameter '_url' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/market-read-request.test.ts",
+      "line": 7,
+      "message": "Parameter 'init' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/market-read-request.test.ts",
+      "line": 18,
+      "message": "Parameter '_url' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/market-read-request.test.ts",
+      "line": 18,
+      "message": "Parameter 'init' implicitly has an 'any' type."
+    },
+    {
+      "code": 2339,
+      "file": "tests/n8n-hourly-retry-workflow.test.ts",
+      "line": 52,
+      "message": "Property 'errorWorkflow' does not exist on type '{ executionOrder: string; timezone: string; callerPolicy: string; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/n8n-hourly-retry-workflow.test.ts",
+      "line": 61,
+      "message": "Property 'maxTries' does not exist on type '{ parameters: { method: string; url: string; sendBody: boolean; specifyBody: string; jsonBody: string; options: { timeout: number; }; mode?: undefined; jsCode?: undefined; resume?: undefined; amount?: undefined; ... 6 more ...; color?: undefined; }; ... 6 more ...; onError: string; }'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/n8n-hourly-retry-workflow.test.ts",
+      "line": 130,
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'.\n  Type 'undefined' is not assignable to type 'string'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/n8n-hourly-retry-workflow.test.ts",
+      "line": 169,
+      "message": "Property 'errorWorkflow' does not exist on type '{}'."
+    },
+    {
+      "code": 7053,
+      "file": "tests/n8n-hourly-retry-workflow.test.ts",
+      "line": 170,
+      "message": "Element implicitly has an 'any' type because expression of type '\"失败后每小时安全重试入口\"' can't be used to index type '{}'.\n  Property '失败后每小时安全重试入口' does not exist on type '{}'."
+    },
+    {
+      "code": 1501,
+      "file": "tests/sales-cutover-tools.test.ts",
+      "line": 713,
+      "message": "This regular expression flag is only available when targeting 'es2018' or later."
+    },
+    {
+      "code": 1501,
+      "file": "tests/sales-local-cutover-rehearsal.test.ts",
+      "line": 275,
+      "message": "This regular expression flag is only available when targeting 'es2018' or later."
+    },
+    {
+      "code": 2345,
+      "file": "tests/supervisor-exit-diagnostics.test.ts",
+      "line": 55,
+      "message": "Argument of type 'EventEmitter<DefaultEventMap> & { stdout: EventEmitter<DefaultEventMap>; stderr: EventEmitter<DefaultEventMap>; }' is not assignable to parameter of type 'Process | undefined'.\n  Type 'EventEmitter<DefaultEventMap> & { stdout: EventEmitter<DefaultEventMap>; stderr: EventEmitter<DefaultEventMap>; }' is missing the following properties from type 'Process': browser, stdin, argv, argv0, and 49 more."
+    },
+    {
+      "code": 2345,
+      "file": "tests/supervisor-exit-diagnostics.test.ts",
+      "line": 89,
+      "message": "Argument of type '(event: string, fields: Record<string, unknown>) => number' is not assignable to parameter of type '() => void'.\n  Target signature provides too few arguments. Expected 2 or more, but got 0."
+    },
+    {
+      "code": 2345,
+      "file": "tests/supervisor-exit-diagnostics.test.ts",
+      "line": 93,
+      "message": "Argument of type '(event: string, fields: Record<string, unknown>) => number' is not assignable to parameter of type '() => void'.\n  Target signature provides too few arguments. Expected 2 or more, but got 0."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 221,
+      "message": "Property 'status' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 226,
+      "message": "Property 'cadence' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 272,
+      "message": "Property 'status' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 273,
+      "message": "Property 'cadence' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 310,
+      "message": "Property 'status' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 311,
+      "message": "Property 'cadence' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-yiyong-direct-pm.test.ts",
+      "line": 138,
+      "message": "Property 'status' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 7006,
+      "file": "tests/worker-local-release-rotation.test.ts",
+      "line": 597,
+      "message": "Parameter 'entrypoint' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/worker-local-release-rotation.test.ts",
+      "line": 599,
+      "message": "Parameter 'entrypoint' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/worker-local-release-rotation.test.ts",
+      "line": 606,
+      "message": "Parameter 'entrypoint' implicitly has an 'any' type."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 509,
+      "message": "Object literal may only specify known properties, and 'cwd' does not exist in type '{ env?: ProcessEnv | undefined; label?: string | undefined; maxOutputBytes?: number | undefined; timeoutMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 515,
+      "message": "Object literal may only specify known properties, and 'cwd' does not exist in type '{ env?: ProcessEnv | undefined; label?: string | undefined; maxOutputBytes?: number | undefined; timeoutMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 521,
+      "message": "Object literal may only specify known properties, and 'cwd' does not exist in type '{ env?: ProcessEnv | undefined; label?: string | undefined; maxOutputBytes?: number | undefined; timeoutMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1315,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1321,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1328,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1348,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1357,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1393,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1398,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 18047,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1403,
+      "message": "'current' is possibly 'null'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1406,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1417,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1426,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1466,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1467,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1581,
+      "message": "Object literal may only specify known properties, and 'expectedSupervisorPid' does not exist in type '{ acceptedStates?: string[] | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1585,
+      "message": "Object literal may only specify known properties, and 'expectedSupervisorPid' does not exist in type '{ acceptedStates?: string[] | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1589,
+      "message": "Object literal may only specify known properties, and 'expectedSupervisorPid' does not exist in type '{ acceptedStates?: string[] | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1596,
+      "message": "Object literal may only specify known properties, and 'processPolicy' does not exist in type '{ probePort?: ((port: any) => Promise<any>) | undefined; readSupervisorPrelaunchState?: (({ manifestPath, releaseRoot, expectedSupervisorPid, waitBudgetMs, retryDelayMs, }?: { waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }) => Promise<...>) | undefined; assertStoppedState?: ((runtimeRoot: an...'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1622,
+      "message": "Object literal may only specify known properties, and 'processPolicy' does not exist in type '{ probePort?: ((port: any) => Promise<any>) | undefined; readSupervisorPrelaunchState?: (({ manifestPath, releaseRoot, expectedSupervisorPid, waitBudgetMs, retryDelayMs, }?: { waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }) => Promise<...>) | undefined; assertStoppedState?: ((runtimeRoot: an...'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1626,
+      "message": "Object literal may only specify known properties, and 'expectedSupervisorPid' does not exist in type '{ waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1839,
+      "message": "Object literal may only specify known properties, and 'manifestPath' does not exist in type '{ waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1855,
+      "message": "Object literal may only specify known properties, and 'manifestPath' does not exist in type '{ waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1865,
+      "message": "Object literal may only specify known properties, and 'manifestPath' does not exist in type '{ waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1902,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ inheritedEnvironment?: ProcessEnv | undefined; }'."
+    },
+    {
+      "code": 2741,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1967,
+      "message": "Property 'NODE_ENV' is missing in type '{ TERUISI_LOCAL_WRANGLER_STATE_DIR: string; MINIFLARE_CACHE_DIR: string; CLOUDFLARE_CF_FETCH_PATH: string; CLOUDFLARE_CF_FETCH_ENABLED: string; TERUISI_WORKERD_HEAP_MB: string; }' but required in type 'ProcessEnv'."
+    },
+    {
+      "code": 2741,
+      "file": "tests/workerd-heap.test.ts",
+      "line": 20,
+      "message": "Property 'NODE_ENV' is missing in type '{ teruisi_workerd_heap_mb: string; TERUISI_WORKERD_HEAP_MB: string; }' but required in type 'ProcessEnv'."
+    },
+    {
+      "code": 2551,
+      "file": "tests/workerd-heap.test.ts",
+      "line": 22,
+      "message": "Property 'teruisi_workerd_heap_mb' does not exist on type '{ TERUISI_LOCAL_WRANGLER_STATE_DIR: string; MINIFLARE_CACHE_DIR: string; CLOUDFLARE_CF_FETCH_PATH: string; CLOUDFLARE_CF_FETCH_ENABLED: string; TERUISI_WORKERD_HEAP_MB: string; }'. Did you mean 'TERUISI_WORKERD_HEAP_MB'?"
+    },
+    {
+      "code": 2683,
+      "file": "tests/workerd-heap.test.ts",
+      "line": 30,
+      "message": "'this' implicitly has type 'any' because it does not have a type annotation."
+    },
+    {
+      "code": 2532,
+      "file": "tests/workerd-memory-snapshot.test.ts",
+      "line": 24,
+      "message": "Object is possibly 'undefined'."
+    },
+    {
+      "code": 2571,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 109,
+      "message": "Object is of type 'unknown'."
+    },
+    {
+      "code": 2571,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 109,
+      "message": "Object is of type 'unknown'."
+    },
+    {
+      "code": 2571,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 111,
+      "message": "Object is of type 'unknown'."
+    },
+    {
+      "code": 18046,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 113,
+      "message": "'state' is of type 'unknown'."
+    },
+    {
+      "code": 18046,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 114,
+      "message": "'state' is of type 'unknown'."
+    },
+    {
+      "code": 18046,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 114,
+      "message": "'state' is of type 'unknown'."
+    },
+    {
+      "code": 2339,
+      "file": "tools/erp-sales-automation.ts",
+      "line": 206,
+      "message": "Property 'pageName' does not exist on type '{ startUrl: string; searchPlaceholder: string; salesFrameUrlContains: string; chromePath: string; profileDirectory: string; fixedTabs?: { label: string; match: string; }[] | undefined; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tools/erp-sales-automation.ts",
+      "line": 213,
+      "message": "Property 'pageName' does not exist on type '{ startUrl: string; searchPlaceholder: string; salesFrameUrlContains: string; chromePath: string; profileDirectory: string; fixedTabs?: { label: string; match: string; }[] | undefined; }'."
+    },
+    {
+      "code": 2345,
+      "file": "tools/jd-n8n-pipeline.ts",
+      "line": 349,
+      "message": "Argument of type '{ status: \"planned\"; startDate: string; endDate: string; storeKey: string; step: string; }' is not assignable to parameter of type 'JdN8nOperation'.\n  Types of property 'step' are incompatible.\n    Type 'string' is not assignable to type '\"jd_sku_daily\" | \"spu_daily\" | \"jd_product_master\"'."
+    },
+    {
+      "code": 18047,
+      "file": "tools/sales-import-runner.ts",
+      "line": 842,
+      "message": "'fee' is possibly 'null'."
+    },
+    {
+      "code": 18047,
+      "file": "tools/sales-import-runner.ts",
+      "line": 864,
+      "message": "'fee' is possibly 'null'."
+    },
+    {
+      "code": 18048,
+      "file": "tools/tmall-direct-promotion-export.ts",
+      "line": 268,
+      "message": "'signal' is possibly 'undefined'."
+    },
+    {
+      "code": 18048,
+      "file": "tools/tmall-direct-promotion-export.ts",
+      "line": 268,
+      "message": "'signal' is possibly 'undefined'."
+    },
+    {
+      "code": 2345,
+      "file": "tools/tmall-promotion-export.ts",
+      "line": 330,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'string'."
+    }
+  ],
+  "candidate": [
+    {
+      "code": 2454,
+      "file": "lib/ai/business-market-v2-tool-candidate.ts",
+      "line": 34,
+      "message": "Variable 'allowed' is used before being assigned."
+    },
+    {
+      "code": 2454,
+      "file": "lib/ai/business-market-v2-tool-candidate.ts",
+      "line": 34,
+      "message": "Variable 'allowed' is used before being assigned."
+    },
+    {
+      "code": 2454,
+      "file": "lib/ai/business-market-v2-tool-candidate.ts",
+      "line": 35,
+      "message": "Variable 'allowed' is used before being assigned."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 59,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 59,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 77,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 78,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 87,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 88,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 105,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/automation-drain.test.ts",
+      "line": 107,
+      "message": "Parameter 'n' implicitly has an 'any' type."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-agent-budget-tools.test.ts",
+      "line": 42,
+      "message": "Argument of type 'readonly AiToolEntry[]' is not assignable to parameter of type 'AiToolEntry[]'.\n  The type 'readonly AiToolEntry[]' is 'readonly' and cannot be assigned to the mutable type 'AiToolEntry[]'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-agent-integrated-tools.test.ts",
+      "line": 44,
+      "message": "Argument of type 'readonly AiToolEntry[]' is not assignable to parameter of type 'AiToolEntry[]'.\n  The type 'readonly AiToolEntry[]' is 'readonly' and cannot be assigned to the mutable type 'AiToolEntry[]'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-agent-v2-tools.test.ts",
+      "line": 42,
+      "message": "Argument of type 'readonly AiToolEntry[]' is not assignable to parameter of type 'AiToolEntry[]'.\n  The type 'readonly AiToolEntry[]' is 'readonly' and cannot be assigned to the mutable type 'AiToolEntry[]'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-five-catalog.test.ts",
+      "line": 71,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-five-catalog.test.ts",
+      "line": 82,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-five-catalog.test.ts",
+      "line": 105,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-tool-registry-gate.test.ts",
+      "line": 70,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-tool-registry-gate.test.ts",
+      "line": 76,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-tool-registry-gate.test.ts",
+      "line": 100,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-market-v2-tool-registry-gate.test.ts",
+      "line": 104,
+      "message": "Argument of type '{ principal: AppPrincipal; surface: string; requestId: string; providerCallId: string; }' is not assignable to parameter of type 'AiToolExecutionContext'.\n  Types of property 'surface' are incompatible.\n    Type 'string' is not assignable to type '\"test\" | \"ai_chat\" | \"dingtalk_chat\" | \"ai_agent\" | \"ai_sandbox\" | \"market_ai\" | \"customer_service_ai\" | \"codex_mcp\" | \"business_collection\" | \"business_agent_v2\" | \"business_agent_budget_v1\" | \"business_agent_integrated_v1\" | \"business_agent_screening_v1\" | \"business_agent_screening_promotion_v1\" | \"business_agent_...'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/business-screening-tools.test.ts",
+      "line": 51,
+      "message": "Argument of type 'readonly AiToolEntry[]' is not assignable to parameter of type 'AiToolEntry[]'.\n  The type 'readonly AiToolEntry[]' is 'readonly' and cannot be assigned to the mutable type 'AiToolEntry[]'."
+    },
+    {
+      "code": 2532,
+      "file": "tests/customer-save-recovery-interaction.test.ts",
+      "line": 99,
+      "message": "Object is possibly 'undefined'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/customer-save-recovery-interaction.test.ts",
+      "line": 102,
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'.\n  Type 'undefined' is not assignable to type 'string'."
+    },
+    {
+      "code": 1501,
+      "file": "tests/django-inventory-cutover.test.ts",
+      "line": 28,
+      "message": "This regular expression flag is only available when targeting 'es2018' or later."
+    },
+    {
+      "code": 5097,
+      "file": "tests/finance-raw-workbook-route.test.ts",
+      "line": 67,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 155,
+      "message": "Property 'url' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 156,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 157,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 158,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 180,
+      "message": "Property 'url' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 181,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 205,
+      "message": "Object literal may only specify known properties, and 'onFailure' does not exist in type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 7031,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 205,
+      "message": "Binding element 'consecutiveFailures' implicitly has an 'any' type."
+    },
+    {
+      "code": 7031,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 206,
+      "message": "Binding element 'previousFailures' implicitly has an 'any' type."
+    },
+    {
+      "code": 2353,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 239,
+      "message": "Object literal may only specify known properties, and 'signal' does not exist in type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 7031,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 242,
+      "message": "Binding element 'consecutiveFailures' implicitly has an 'any' type."
+    },
+    {
+      "code": 7031,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 243,
+      "message": "Binding element 'consecutiveFailures' implicitly has an 'any' type."
+    },
+    {
+      "code": 7031,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 244,
+      "message": "Binding element 'previousFailures' implicitly has an 'any' type."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 262,
+      "message": "Type '() => FakeLocalWorkerChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeLocalWorkerChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 10 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 267,
+      "message": "Type '({ signal, onDegraded }: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | und...' is not assignable to type '({ probe, wait, signal, initialDelayMs, intervalMs, onFailure, onDegraded, onRecovered, }?: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>...'.\n  Type 'Promise<{ status: string; consecutiveFailures: number; }>' is not assignable to type 'Promise<{ status: string; state: string; consecutiveFailures: number; }>'.\n    Property 'state' is missing in type '{ status: string; consecutiveFailures: number; }' but required in type '{ status: string; state: string; consecutiveFailures: number; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 267,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 267,
+      "message": "Property 'onDegraded' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 275,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2740,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 288,
+      "message": "Type '{ warn(): void; }' is missing the following properties from type 'Console': assert, clear, count, countReset, and 18 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 305,
+      "message": "Type '() => FakeLocalWorkerChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeLocalWorkerChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 10 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 310,
+      "message": "Type '({ signal }: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) =...' is not assignable to type '({ probe, wait, signal, initialDelayMs, intervalMs, onFailure, onDegraded, onRecovered, }?: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>...'.\n  Type 'Promise<{ status: string; consecutiveFailures: number; }>' is not assignable to type 'Promise<{ status: string; state: string; consecutiveFailures: number; }>'.\n    Property 'state' is missing in type '{ status: string; consecutiveFailures: number; }' but required in type '{ status: string; state: string; consecutiveFailures: number; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 310,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 311,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2740,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 326,
+      "message": "Type '{ warn(): void; }' is missing the following properties from type 'Console': assert, clear, count, countReset, and 18 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 343,
+      "message": "Type '() => FakeLocalWorkerChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeLocalWorkerChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 10 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 356,
+      "message": "Type '({ signal, onDegraded }: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | und...' is not assignable to type '({ probe, wait, signal, initialDelayMs, intervalMs, onFailure, onDegraded, onRecovered, }?: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>...'.\n  Type 'Promise<{ status: string; consecutiveFailures: number; }>' is not assignable to type 'Promise<{ status: string; state: string; consecutiveFailures: number; }>'.\n    Property 'state' is missing in type '{ status: string; consecutiveFailures: number; }' but required in type '{ status: string; state: string; consecutiveFailures: number; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 356,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 356,
+      "message": "Property 'onDegraded' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 360,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2740,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 371,
+      "message": "Type '{ warn(message: string): void; }' is missing the following properties from type 'Console': assert, clear, count, countReset, and 18 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 387,
+      "message": "Type '() => FakeLocalWorkerChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeLocalWorkerChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 10 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 393,
+      "message": "Type '({ signal }: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) =...' is not assignable to type '({ probe, wait, signal, initialDelayMs, intervalMs, onFailure, onDegraded, onRecovered, }?: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>...'.\n  Type 'Promise<{ status: string; consecutiveFailures: number; }>' is not assignable to type 'Promise<{ status: string; state: string; consecutiveFailures: number; }>'.\n    Property 'state' is missing in type '{ status: string; consecutiveFailures: number; }' but required in type '{ status: string; state: string; consecutiveFailures: number; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 393,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 394,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2740,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 403,
+      "message": "Type '{ warn(): void; }' is missing the following properties from type 'Console': assert, clear, count, countReset, and 18 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 416,
+      "message": "Type '() => FakeLocalWorkerChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeLocalWorkerChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 10 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 417,
+      "message": "Type '({ signal }: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) =...' is not assignable to type '({ probe, wait, signal, initialDelayMs, intervalMs, onFailure, onDegraded, onRecovered, }?: { probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>...'.\n  Type 'Promise<{ status: string; consecutiveFailures: number; }>' is not assignable to type 'Promise<{ status: string; state: string; consecutiveFailures: number; }>'.\n    Property 'state' is missing in type '{ status: string; consecutiveFailures: number; }' but required in type '{ status: string; state: string; consecutiveFailures: number; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 417,
+      "message": "Property 'signal' does not exist on type '{ probe?: (({ fetchImpl, url, timeoutMs, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; timeoutMs?: number | undefined; }) => Promise<......'."
+    },
+    {
+      "code": 2740,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 428,
+      "message": "Type '{ warn(): void; }' is missing the following properties from type 'Console': assert, clear, count, countReset, and 18 more."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 478,
+      "message": "Type '() => FakeChild' is not assignable to type '{ (command: string, options?: SpawnOptionsWithoutStdio | undefined): ChildProcessWithoutNullStreams; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWithStdioTuple<...>): ChildProcessByStdio<...>; (command: string, options: SpawnOptionsWit...'.\n  Type 'FakeChild' is missing the following properties from type 'ChildProcessWithoutNullStreams': stdin, stdout, stderr, stdio, and 8 more."
+    },
+    {
+      "code": 2741,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 483,
+      "message": "Property '__promisify__' is missing in type '(callback: any, delay: any) => { callback: any; delay: any; }' but required in type 'typeof setTimeout'."
+    },
+    {
+      "code": 7006,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 483,
+      "message": "Parameter 'callback' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 483,
+      "message": "Parameter 'delay' implicitly has an 'any' type."
+    },
+    {
+      "code": 18048,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 489,
+      "message": "'timer' is possibly 'undefined'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 489,
+      "message": "Property 'cancelled' does not exist on type 'string | number | Timeout'.\n  Property 'cancelled' does not exist on type 'string'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 518,
+      "message": "Property 'url' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 519,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 520,
+      "message": "Property 'init' does not exist on type 'never'."
+    },
+    {
+      "code": 2322,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 527,
+      "message": "Type '() => Promise<void>' is not assignable to type '({ fetchImpl, url, signal, }?: { fetchImpl?: { (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; } | undefined; url?: string | undefined; }) => Promise<...>'.\n  Type 'Promise<void>' is not assignable to type 'Promise<number>'.\n    Type 'void' is not assignable to type 'number'."
+    },
+    {
+      "code": 2741,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 531,
+      "message": "Property '__promisify__' is missing in type '(callback: any, delay: any) => { callback: any; delay: any; }' but required in type 'typeof setTimeout'."
+    },
+    {
+      "code": 7006,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 531,
+      "message": "Parameter 'callback' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 531,
+      "message": "Parameter 'delay' implicitly has an 'any' type."
+    },
+    {
+      "code": 18048,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 536,
+      "message": "'timer' is possibly 'undefined'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/local-worker-start.test.ts",
+      "line": 536,
+      "message": "Property 'cancelled' does not exist on type 'string | number | Timeout'.\n  Property 'cancelled' does not exist on type 'string'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 61,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 67,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 73,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2352,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 875,
+      "message": "Conversion of type '{ brand: string; productName: string; scope: string; operationMode: \"POP\"; raw: { 店铺类型: string; }; }' to type 'MarketEntryForImport' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.\n  Type '{ brand: string; productName: string; scope: string; operationMode: \"POP\"; raw: { 店铺类型: string; }; }' is missing the following properties from type 'MarketEntryForImport': naturalKey, sourceRowNumber, periodStart, periodEnd, and 35 more."
+    },
+    {
+      "code": 2352,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 883,
+      "message": "Conversion of type '{ brand: string; productName: string; scope: string; operationMode: \"POP\"; raw: { 店铺类型: string; }; }' to type 'MarketEntryForImport' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.\n  Type '{ brand: string; productName: string; scope: string; operationMode: \"POP\"; raw: { 店铺类型: string; }; }' is missing the following properties from type 'MarketEntryForImport': naturalKey, sourceRowNumber, periodStart, periodEnd, and 35 more."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 1077,
+      "message": "Property 'maintenanceFailed' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; } | { status: string; duplicate: boolean; ... 9 more ...; externalValidation?: undefined; } | { ...; }'.\n  Property 'maintenanceFailed' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 1078,
+      "message": "Property 'reconciliationPending' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; } | { status: string; duplicate: boolean; ... 9 more ...; externalValidation?: undefined; } | { ...; }'.\n  Property 'reconciliationPending' does not exist on type '{ status: string; duplicate: boolean; maintenanceFailed: boolean; taskId: string; batchId: string; stagingBatchId: string; rowCount: number; validation: { headerValid: number; periodValid: boolean; ... 5 more ...; importIdentityHash: string; }; terminal?: undefined; busy?: undefined; retryAt?: undefined; externalVal...'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 1120,
+      "message": "Property 'reconciliationPending' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; } | { status: string; busy: boolean; ... 5 more ...; rowCount?: undefined; } | ... 8 more ... | { ...; }'.\n  Property 'reconciliationPending' does not exist on type '{ status: string; duplicate: boolean; taskId: string; terminal?: undefined; busy?: undefined; retryAt?: undefined; externalValidation?: undefined; maintenanceFailed?: undefined; batchId?: undefined; stagingBatchId?: undefined; rowCount?: undefined; validation?: undefined; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 1133,
+      "message": "Property 'reconciled' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; } | { status: string; busy: boolean; ... 5 more ...; rowCount?: undefined; } | ... 8 more ... | { ...; }'.\n  Property 'reconciled' does not exist on type '{ status: string; duplicate: boolean; taskId: string; terminal?: undefined; busy?: undefined; retryAt?: undefined; externalValidation?: undefined; maintenanceFailed?: undefined; batchId?: undefined; stagingBatchId?: undefined; rowCount?: undefined; validation?: undefined; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-admin-workflow.test.ts",
+      "line": 1505,
+      "message": "Property 'reconciled' does not exist on type '{ status: string; duplicate: boolean; reconciled: boolean; taskId: string; batchId: string; rowCount: number; busy?: undefined; reconciliationPending?: undefined; } | { status: string; busy: boolean; ... 5 more ...; rowCount?: undefined; } | ... 8 more ... | { ...; }'.\n  Property 'reconciled' does not exist on type '{ status: string; duplicate: boolean; taskId: string; terminal?: undefined; busy?: undefined; retryAt?: undefined; externalValidation?: undefined; maintenanceFailed?: undefined; batchId?: undefined; stagingBatchId?: undefined; rowCount?: undefined; validation?: undefined; }'."
+    },
+    {
+      "code": 1501,
+      "file": "tests/market-annotation.test.ts",
+      "line": 213,
+      "message": "This regular expression flag is only available when targeting 'es2018' or later."
+    },
+    {
+      "code": 1501,
+      "file": "tests/market-annotation.test.ts",
+      "line": 332,
+      "message": "This regular expression flag is only available when targeting 'es2018' or later."
+    },
+    {
+      "code": 2339,
+      "file": "tests/market-annotation.test.ts",
+      "line": 403,
+      "message": "Property 'done' does not exist on type '{ idle: boolean; jobId: string; category: string; concurrency: number; } | { job: { id: string; category: string; promptVersionId: string; executor: string; modelId: string | null; localModelName: string; ... 11 more ...; updatedAt: string; } | null; ... 10 more ...; concurrency: number; } | { ...; }'.\n  Property 'done' does not exist on type '{ idle: boolean; jobId: string; category: string; concurrency: number; }'."
+    },
+    {
+      "code": 2558,
+      "file": "tests/market-annotation.test.ts",
+      "line": 404,
+      "message": "Expected 0 type arguments, but got 1."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-annotation.test.ts",
+      "line": 2000,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-annotation.test.ts",
+      "line": 2001,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-annotation.test.ts",
+      "line": 2002,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 21,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 22,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 24,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'SQLInputValue'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 53,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 314,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 315,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 322,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 323,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 362,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 364,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 375,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 377,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 397,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 402,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 407,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 411,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 425,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 430,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 438,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 443,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 447,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/market-price-band-publish-safety.test.ts",
+      "line": 455,
+      "message": "Argument of type 'MarketSchemaDatabase' is not assignable to parameter of type 'D1Database'.\n  The types returned by 'prepare(...).bind(...)' are incompatible between these types.\n    Property 'bind' is missing in type '{ first<T = unknown>(): Promise<T | null>; all<T = unknown>(): Promise<{ results?: T[] | undefined; }>; run(): Promise<unknown>; }' but required in type 'D1PreparedStatement'."
+    },
+    {
+      "code": 7006,
+      "file": "tests/market-read-request.test.ts",
+      "line": 7,
+      "message": "Parameter '_url' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/market-read-request.test.ts",
+      "line": 7,
+      "message": "Parameter 'init' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/market-read-request.test.ts",
+      "line": 18,
+      "message": "Parameter '_url' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/market-read-request.test.ts",
+      "line": 18,
+      "message": "Parameter 'init' implicitly has an 'any' type."
+    },
+    {
+      "code": 2339,
+      "file": "tests/n8n-hourly-retry-workflow.test.ts",
+      "line": 52,
+      "message": "Property 'errorWorkflow' does not exist on type '{ executionOrder: string; timezone: string; callerPolicy: string; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/n8n-hourly-retry-workflow.test.ts",
+      "line": 61,
+      "message": "Property 'maxTries' does not exist on type '{ parameters: { method: string; url: string; sendBody: boolean; specifyBody: string; jsonBody: string; options: { timeout: number; }; mode?: undefined; jsCode?: undefined; resume?: undefined; amount?: undefined; ... 6 more ...; color?: undefined; }; ... 6 more ...; onError: string; }'."
+    },
+    {
+      "code": 2345,
+      "file": "tests/n8n-hourly-retry-workflow.test.ts",
+      "line": 130,
+      "message": "Argument of type 'string | undefined' is not assignable to parameter of type 'string'.\n  Type 'undefined' is not assignable to type 'string'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/n8n-hourly-retry-workflow.test.ts",
+      "line": 169,
+      "message": "Property 'errorWorkflow' does not exist on type '{}'."
+    },
+    {
+      "code": 7053,
+      "file": "tests/n8n-hourly-retry-workflow.test.ts",
+      "line": 170,
+      "message": "Element implicitly has an 'any' type because expression of type '\"失败后每小时安全重试入口\"' can't be used to index type '{}'.\n  Property '失败后每小时安全重试入口' does not exist on type '{}'."
+    },
+    {
+      "code": 1501,
+      "file": "tests/sales-cutover-tools.test.ts",
+      "line": 713,
+      "message": "This regular expression flag is only available when targeting 'es2018' or later."
+    },
+    {
+      "code": 1501,
+      "file": "tests/sales-local-cutover-rehearsal.test.ts",
+      "line": 275,
+      "message": "This regular expression flag is only available when targeting 'es2018' or later."
+    },
+    {
+      "code": 2345,
+      "file": "tests/supervisor-exit-diagnostics.test.ts",
+      "line": 55,
+      "message": "Argument of type 'EventEmitter<DefaultEventMap> & { stdout: EventEmitter<DefaultEventMap>; stderr: EventEmitter<DefaultEventMap>; }' is not assignable to parameter of type 'Process | undefined'.\n  Type 'EventEmitter<DefaultEventMap> & { stdout: EventEmitter<DefaultEventMap>; stderr: EventEmitter<DefaultEventMap>; }' is missing the following properties from type 'Process': browser, stdin, argv, argv0, and 49 more."
+    },
+    {
+      "code": 2345,
+      "file": "tests/supervisor-exit-diagnostics.test.ts",
+      "line": 89,
+      "message": "Argument of type '(event: string, fields: Record<string, unknown>) => number' is not assignable to parameter of type '() => void'.\n  Target signature provides too few arguments. Expected 2 or more, but got 0."
+    },
+    {
+      "code": 2345,
+      "file": "tests/supervisor-exit-diagnostics.test.ts",
+      "line": 93,
+      "message": "Argument of type '(event: string, fields: Record<string, unknown>) => number' is not assignable to parameter of type '() => void'.\n  Target signature provides too few arguments. Expected 2 or more, but got 0."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 221,
+      "message": "Property 'status' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 226,
+      "message": "Property 'cadence' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 272,
+      "message": "Property 'status' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 273,
+      "message": "Property 'cadence' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 310,
+      "message": "Property 'status' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-product-master-cadence.test.ts",
+      "line": 311,
+      "message": "Property 'cadence' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tests/tmall-yiyong-direct-pm.test.ts",
+      "line": 138,
+      "message": "Property 'status' does not exist on type '{ browserClosure: { ok: true; status: \"closed\" | \"already_closed\"; } | { ok: true; status: \"already_closed\" | \"force_closed\"; }; }'."
+    },
+    {
+      "code": 7006,
+      "file": "tests/worker-local-release-rotation.test.ts",
+      "line": 597,
+      "message": "Parameter 'entrypoint' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/worker-local-release-rotation.test.ts",
+      "line": 599,
+      "message": "Parameter 'entrypoint' implicitly has an 'any' type."
+    },
+    {
+      "code": 7006,
+      "file": "tests/worker-local-release-rotation.test.ts",
+      "line": 606,
+      "message": "Parameter 'entrypoint' implicitly has an 'any' type."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 509,
+      "message": "Object literal may only specify known properties, and 'cwd' does not exist in type '{ env?: ProcessEnv | undefined; label?: string | undefined; maxOutputBytes?: number | undefined; timeoutMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 515,
+      "message": "Object literal may only specify known properties, and 'cwd' does not exist in type '{ env?: ProcessEnv | undefined; label?: string | undefined; maxOutputBytes?: number | undefined; timeoutMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 521,
+      "message": "Object literal may only specify known properties, and 'cwd' does not exist in type '{ env?: ProcessEnv | undefined; label?: string | undefined; maxOutputBytes?: number | undefined; timeoutMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1315,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1321,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1328,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1348,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1357,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1393,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1398,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 18047,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1403,
+      "message": "'current' is possibly 'null'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1406,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1417,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1426,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1466,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1467,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ allowTestRuntimeRoot?: boolean | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1581,
+      "message": "Object literal may only specify known properties, and 'expectedSupervisorPid' does not exist in type '{ acceptedStates?: string[] | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1585,
+      "message": "Object literal may only specify known properties, and 'expectedSupervisorPid' does not exist in type '{ acceptedStates?: string[] | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1589,
+      "message": "Object literal may only specify known properties, and 'expectedSupervisorPid' does not exist in type '{ acceptedStates?: string[] | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1596,
+      "message": "Object literal may only specify known properties, and 'processPolicy' does not exist in type '{ probePort?: ((port: any) => Promise<any>) | undefined; readSupervisorPrelaunchState?: (({ manifestPath, releaseRoot, expectedSupervisorPid, waitBudgetMs, retryDelayMs, }?: { waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }) => Promise<...>) | undefined; assertStoppedState?: ((runtimeRoot: an...'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1622,
+      "message": "Object literal may only specify known properties, and 'processPolicy' does not exist in type '{ probePort?: ((port: any) => Promise<any>) | undefined; readSupervisorPrelaunchState?: (({ manifestPath, releaseRoot, expectedSupervisorPid, waitBudgetMs, retryDelayMs, }?: { waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }) => Promise<...>) | undefined; assertStoppedState?: ((runtimeRoot: an...'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1626,
+      "message": "Object literal may only specify known properties, and 'expectedSupervisorPid' does not exist in type '{ waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1839,
+      "message": "Object literal may only specify known properties, and 'manifestPath' does not exist in type '{ waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1855,
+      "message": "Object literal may only specify known properties, and 'manifestPath' does not exist in type '{ waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1865,
+      "message": "Object literal may only specify known properties, and 'manifestPath' does not exist in type '{ waitBudgetMs?: number | undefined; retryDelayMs?: number | undefined; }'."
+    },
+    {
+      "code": 2353,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1902,
+      "message": "Object literal may only specify known properties, and 'runtimeRoot' does not exist in type '{ inheritedEnvironment?: ProcessEnv | undefined; }'."
+    },
+    {
+      "code": 2741,
+      "file": "tests/worker-local-release.test.ts",
+      "line": 1967,
+      "message": "Property 'NODE_ENV' is missing in type '{ TERUISI_LOCAL_WRANGLER_STATE_DIR: string; MINIFLARE_CACHE_DIR: string; CLOUDFLARE_CF_FETCH_PATH: string; CLOUDFLARE_CF_FETCH_ENABLED: string; TERUISI_WORKERD_HEAP_MB: string; }' but required in type 'ProcessEnv'."
+    },
+    {
+      "code": 2741,
+      "file": "tests/workerd-heap.test.ts",
+      "line": 20,
+      "message": "Property 'NODE_ENV' is missing in type '{ teruisi_workerd_heap_mb: string; TERUISI_WORKERD_HEAP_MB: string; }' but required in type 'ProcessEnv'."
+    },
+    {
+      "code": 2551,
+      "file": "tests/workerd-heap.test.ts",
+      "line": 22,
+      "message": "Property 'teruisi_workerd_heap_mb' does not exist on type '{ TERUISI_LOCAL_WRANGLER_STATE_DIR: string; MINIFLARE_CACHE_DIR: string; CLOUDFLARE_CF_FETCH_PATH: string; CLOUDFLARE_CF_FETCH_ENABLED: string; TERUISI_WORKERD_HEAP_MB: string; }'. Did you mean 'TERUISI_WORKERD_HEAP_MB'?"
+    },
+    {
+      "code": 2683,
+      "file": "tests/workerd-heap.test.ts",
+      "line": 30,
+      "message": "'this' implicitly has type 'any' because it does not have a type annotation."
+    },
+    {
+      "code": 2532,
+      "file": "tests/workerd-memory-snapshot.test.ts",
+      "line": 24,
+      "message": "Object is possibly 'undefined'."
+    },
+    {
+      "code": 2571,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 109,
+      "message": "Object is of type 'unknown'."
+    },
+    {
+      "code": 2571,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 109,
+      "message": "Object is of type 'unknown'."
+    },
+    {
+      "code": 2571,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 111,
+      "message": "Object is of type 'unknown'."
+    },
+    {
+      "code": 18046,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 113,
+      "message": "'state' is of type 'unknown'."
+    },
+    {
+      "code": 18046,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 114,
+      "message": "'state' is of type 'unknown'."
+    },
+    {
+      "code": 18046,
+      "file": "tests/wrangler-inspector-patch.test.ts",
+      "line": 114,
+      "message": "'state' is of type 'unknown'."
+    },
+    {
+      "code": 2339,
+      "file": "tools/erp-sales-automation.ts",
+      "line": 206,
+      "message": "Property 'pageName' does not exist on type '{ startUrl: string; searchPlaceholder: string; salesFrameUrlContains: string; chromePath: string; profileDirectory: string; fixedTabs?: { label: string; match: string; }[] | undefined; }'."
+    },
+    {
+      "code": 2339,
+      "file": "tools/erp-sales-automation.ts",
+      "line": 213,
+      "message": "Property 'pageName' does not exist on type '{ startUrl: string; searchPlaceholder: string; salesFrameUrlContains: string; chromePath: string; profileDirectory: string; fixedTabs?: { label: string; match: string; }[] | undefined; }'."
+    },
+    {
+      "code": 2345,
+      "file": "tools/jd-n8n-pipeline.ts",
+      "line": 349,
+      "message": "Argument of type '{ status: \"planned\"; startDate: string; endDate: string; storeKey: string; step: string; }' is not assignable to parameter of type 'JdN8nOperation'.\n  Types of property 'step' are incompatible.\n    Type 'string' is not assignable to type '\"jd_sku_daily\" | \"spu_daily\" | \"jd_product_master\"'."
+    },
+    {
+      "code": 18047,
+      "file": "tools/sales-import-runner.ts",
+      "line": 842,
+      "message": "'fee' is possibly 'null'."
+    },
+    {
+      "code": 18047,
+      "file": "tools/sales-import-runner.ts",
+      "line": 864,
+      "message": "'fee' is possibly 'null'."
+    },
+    {
+      "code": 18048,
+      "file": "tools/tmall-direct-promotion-export.ts",
+      "line": 268,
+      "message": "'signal' is possibly 'undefined'."
+    },
+    {
+      "code": 18048,
+      "file": "tools/tmall-direct-promotion-export.ts",
+      "line": 268,
+      "message": "'signal' is possibly 'undefined'."
+    },
+    {
+      "code": 2345,
+      "file": "tools/tmall-promotion-export.ts",
+      "line": 330,
+      "message": "Argument of type 'unknown' is not assignable to parameter of type 'string'."
+    }
+  ]
+}

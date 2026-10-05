@@ -968,9 +968,13 @@ export async function routeDjangoSalesReadRequest(options: {
   });
   const target = new URL(`${path}${rawQuery ? `?${rawQuery}` : ""}`, baseUrl);
   const controller = new AbortController();
+  const abortFromCaller = () => controller.abort();
+  if (options.request.signal.aborted) controller.abort();
+  else options.request.signal.addEventListener("abort", abortFromCaller, { once: true });
   const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
 
   try {
+    if (controller.signal.aborted) throw serviceUnavailable();
     const upstream = await (options.fetchImpl ?? fetch)(target, {
       method: "GET",
       headers,
@@ -996,6 +1000,7 @@ export async function routeDjangoSalesReadRequest(options: {
       }
     }
     const bytes = await readBoundedBody(upstream, config.maxResponseBytes);
+    if (controller.signal.aborted) throw serviceUnavailable();
     const bodyForbidden = upstream.status === 204 || upstream.status === 205 || upstream.status === 304;
     if (!bodyForbidden) {
       if (!isJsonContentType(upstream.headers.get("content-type")) || bytes.byteLength === 0) {
@@ -1020,5 +1025,6 @@ export async function routeDjangoSalesReadRequest(options: {
     throw serviceUnavailable();
   } finally {
     clearTimeout(timeout);
+    options.request.signal.removeEventListener("abort", abortFromCaller);
   }
 }

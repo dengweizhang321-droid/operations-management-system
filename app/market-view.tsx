@@ -162,6 +162,16 @@ type MarketOverviewSharedRequest = {
 const MARKET_OVERVIEW_RECENT_PREFETCH_MS = 5_000;
 const marketOverviewClientCache = new Map<string, MarketOverviewClientCacheEntry>();
 const marketOverviewRequests = new Map<string, MarketOverviewSharedRequest>();
+export type MarketReadContext = {
+  identityKey: string;
+  permissionFingerprint: string;
+  sourceRevision: string;
+};
+function scopedMarketReadKey(requestKey: string, context?: MarketReadContext | null): string | null {
+  if (!context || ![context.identityKey, context.permissionFingerprint, context.sourceRevision]
+    .every(value => typeof value === "string" && value.trim().length > 0 && value.length <= 512)) return null;
+  return JSON.stringify([context.identityKey, context.permissionFingerprint, context.sourceRevision, requestKey]);
+}
 
 function defaultMarketRankingParams(startDate: string, endDate: string) {
   const params = new URLSearchParams();
@@ -175,7 +185,10 @@ function defaultMarketRankingParams(startDate: string, endDate: string) {
   return params;
 }
 
-function cachedMarketOverview(requestKey: string, maximumAgeMs = MARKET_OVERVIEW_RECENT_PREFETCH_MS) {
+function cachedMarketOverview(requestKey: string, maximumAgeMs = MARKET_OVERVIEW_RECENT_PREFETCH_MS, context?: MarketReadContext | null) {
+  const scopedKey = scopedMarketReadKey(requestKey, context);
+  if (!scopedKey) return null;
+  requestKey = scopedKey;
   const cached = marketOverviewClientCache.get(requestKey);
   if (!cached) return null;
   const ageMs = Date.now() - cached.storedAt;
@@ -227,44 +240,49 @@ function subscribeMarketOverview(request: MarketOverviewSharedRequest, signal?: 
   });
 }
 
-export async function requestMarketOverview(requestKey: string, signal?: AbortSignal, maximumCacheAgeMs = 0) {
+export async function requestMarketOverview(requestKey: string, signal?: AbortSignal, maximumCacheAgeMs = 0, context?: MarketReadContext | null) {
   if (signal?.aborted) throw marketOverviewAbortError();
+  const scopedKey = scopedMarketReadKey(requestKey, context);
+  // The shell exposes a restricted/not-restricted flag, not a full permission
+  // fingerprint or a live source version. Such reads must remain independent.
+  if (!scopedKey) return readMarketJson<MarketOverview>(`/api/market/overview?${requestKey}`, signal);
   if (maximumCacheAgeMs > 0) {
-    const cached = cachedMarketOverview(requestKey, maximumCacheAgeMs);
+    const cached = cachedMarketOverview(requestKey, maximumCacheAgeMs, context);
     if (cached) return cached;
   }
-  let request = marketOverviewRequests.get(requestKey);
+  let request = marketOverviewRequests.get(scopedKey);
   if (request?.controller.signal.aborted) {
-    if (marketOverviewRequests.get(requestKey) === request) marketOverviewRequests.delete(requestKey);
+    if (marketOverviewRequests.get(scopedKey) === request) marketOverviewRequests.delete(scopedKey);
     request = undefined;
   }
   if (!request) {
     const controller = new AbortController();
     const task = (async () => {
       const payload = await readMarketJson<MarketOverview>(`/api/market/overview?${requestKey}`, controller.signal);
-      rememberMarketOverview(requestKey, payload);
+      rememberMarketOverview(scopedKey, payload);
       return payload;
     })();
     request = { controller, promise: task, subscribers: 0, settled: false };
     const ownedRequest = request;
-    marketOverviewRequests.set(requestKey, ownedRequest);
+    marketOverviewRequests.set(scopedKey, ownedRequest);
     task.then(
       () => {
         ownedRequest.settled = true;
-        if (marketOverviewRequests.get(requestKey) === ownedRequest) marketOverviewRequests.delete(requestKey);
+        if (marketOverviewRequests.get(scopedKey) === ownedRequest) marketOverviewRequests.delete(scopedKey);
       },
       () => {
         ownedRequest.settled = true;
-        if (marketOverviewRequests.get(requestKey) === ownedRequest) marketOverviewRequests.delete(requestKey);
+        if (marketOverviewRequests.get(scopedKey) === ownedRequest) marketOverviewRequests.delete(scopedKey);
       },
     );
   }
   return await subscribeMarketOverview(request, signal);
 }
 
-export async function prefetchMarketRankingOverview(startDate: string, endDate: string, signal?: AbortSignal) {
+export async function prefetchMarketRankingOverview(startDate: string, endDate: string, signal?: AbortSignal, context?: MarketReadContext | null) {
   const requestKey = defaultMarketRankingParams(startDate, endDate).toString();
-  await requestMarketOverview(requestKey, signal, MARKET_OVERVIEW_RECENT_PREFETCH_MS);
+  if (!scopedMarketReadKey(requestKey, context)) return;
+  await requestMarketOverview(requestKey, signal, MARKET_OVERVIEW_RECENT_PREFETCH_MS, context);
 }
 type TrendPayload = { items: Array<Record<string, string | number | null>>; totalMonths: number; truncated: boolean; error?: string };
 type ComparePayload = {
@@ -573,35 +591,44 @@ function RankingTable({ data, compareKeys, loadingMore, onLoadMore, onPrevious, 
 }
 
 function TrendDrawer({ item, onClose }: { item: MarketItem; onClose: () => void }) {
-  const [data, setData] = useState<TrendPayload | null>(null);
-  const [error, setError] = useState("");
+  const requestKey = marketCompareSelectionKey(item);
+  const [result, setResult] = useState<{ requestKey: string; payload: TrendPayload | null; error: string } | null>(null);
+  const data = result?.requestKey === requestKey ? result.payload : null;
+  const error = result?.requestKey === requestKey ? result.error : "";
+  const generation = useRef(0);
+  const [refreshKey, setRefreshKey] = useState(0);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
+    const requestId = beginLatestRequest(generation);
+    setResult(null);
     const controller = new AbortController();
     const params = new URLSearchParams({ skuCode: item.skuCode, category: item.category, scope: item.scope, dimension: item.rankingDimension });
-    void fetch(`/api/market/trend?${params}`, { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as TrendPayload | null;
-        if (!response.ok || !payload) throw new Error(payload?.error || "趋势读取失败");
-        setData(payload);
+    void readMarketJson<TrendPayload>(`/api/market/trend?${params}`, controller.signal)
+      .then((payload) => {
+        if (controller.signal.aborted || requestId !== generation.current) return;
+        setResult({ requestKey, payload, error: "" });
       })
-      .catch((reason) => { if (!(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "趋势读取失败"); });
-    return () => controller.abort();
-  }, [item]);
+      .catch((reason) => {
+        if (controller.signal.aborted || requestId !== generation.current) return;
+        setResult({ requestKey, payload: null, error: reason instanceof Error ? reason.message : "趋势读取失败" });
+      });
+    return () => { invalidateLatestRequest(generation); controller.abort(); };
+  }, [item, requestKey, refreshKey]);
   return <Dialog open onClose={onClose} dialogId="market-trend-dialog" ariaLabel="商品月度趋势" className="market-trend-drawer" initialFocusRef={closeButtonRef}>
-    <header><div><span>{item.skuCode}</span><h3>{item.productName || item.skuCode}</h3><small>{item.category} · {item.rankingDimension}</small></div><button ref={closeButtonRef} type="button" onClick={onClose} aria-label="关闭商品月度趋势">×</button></header>
-    {error && <div className="market-feedback error">{error}</div>}
-    {!data && !error && <div className="table-state"><span className="state-spinner" />正在读取最近 120 个月的月度趋势…</div>}
-    {data && <><small>{data.truncated ? `展示最近 ${count(data.items.length)} / 共 ${count(data.totalMonths)} 个月` : `展示全部 ${count(data.totalMonths)} 个月`}</small><div className="data-table-wrap"><table className="data-table" data-column-filter-scope={data.truncated ? "none" : "full"} data-column-filter-total={data.totalMonths}><thead><tr><th>月份</th><th>销售额</th><th>成交件数</th><th>市场定位价</th><th>成交均价</th><th>排名</th><th>POP/自营</th><th>价格确认状态</th></tr></thead><tbody>{data.items.map((row) => <tr key={`${row.month}-${row.rank}`}>
+    <header><div><span>{item.skuCode}</span><h3>{item.productName || item.skuCode}</h3><small>{item.category} · {item.rankingDimension}</small>{data && <small>{`展示 ${count(data.items.length)} 条趋势记录 · 完整历史 ${count(data.totalMonths)} 个月`}</small>}</div><button ref={closeButtonRef} type="button" onClick={onClose} aria-label="关闭商品月度趋势">×</button></header>
+    {error && <div className="market-feedback error">{error}<button type="button" className="row-action" onClick={() => setRefreshKey((key) => key + 1)}>重新读取趋势</button></div>}
+    {!data && !error && <div className="table-state"><span className="state-spinner" />正在读取商品月度趋势…</div>}
+    {data && <><div className="data-table-wrap"><table className="data-table" data-column-filter-scope={data.items.length >= 60 ? "none" : "full"} data-column-filter-total={data.items.length}><thead><tr><th>月份</th><th>销售额</th><th>成交件数</th><th>市场定位价</th><th>成交均价</th><th>排名</th><th>POP/自营</th><th>价格确认状态</th></tr></thead><tbody>{data.items.map((row, index) => <tr key={`${row.periodStart}-${row.periodEnd}-${row.month}-${row.rank}-${index}`}>
       <td>{String(row.month)}</td><td>{money(Number(row.gmvCents ?? 0))}</td><td>{count(Number(row.quantity ?? 0))}</td><td>{money(row.marketPriceCents === null ? null : Number(row.marketPriceCents))}</td><td>{money(row.averageTransactionPriceCents === null ? null : Number(row.averageTransactionPriceCents))}</td><td>{row.rank === null ? "-" : `#${row.rank}`}</td><td>{String(row.operationMode)}</td><td>{String(row.priceStatus)} · {String(row.confirmationStatus)}</td>
     </tr>)}</tbody></table></div></>}
   </Dialog>;
 }
 
-function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, query, categories, scopes, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate }: {
+function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, query, categories, scopes, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate, refreshKey }: {
   selections: MarketCompareSelection[]; onClear: () => void; onRemoveCompare: (sku: string) => void; onGoRanking: () => void;
   query: string; categories: string[]; scopes: string[]; rankingDimensions: string[]; operationModes: string[]; brands: string[]; subcategories: string[]; priceBands: string[];
   startDate: string; endDate: string;
+  refreshKey: number;
 }) {
   const request = useMemo(() => {
     const params = new URLSearchParams({ view: "compare" });
@@ -621,29 +648,29 @@ function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, q
   }, [selections, query, categories, scopes, rankingDimensions, operationModes, brands, subcategories, priceBands, startDate, endDate]);
   const [result, setResult] = useState<{ requestKey: string; payload: ComparePayload | null; error: string } | null>(null);
   const currentResult = result?.requestKey === request.requestKey ? result : null;
-  const data = currentResult?.payload ?? result?.payload ?? null;
+  const data = currentResult?.payload ?? null;
   const error = currentResult?.error ?? "";
-  const loading = Boolean(request.url && result?.requestKey !== request.requestKey);
+  const [refreshing, setRefreshing] = useState(false);
+  const loading = refreshing || Boolean(request.url && result?.requestKey !== request.requestKey);
   const requestGeneration = useRef(0);
   useEffect(() => {
     const requestId = beginLatestRequest(requestGeneration);
-    if (!request.url) return;
+    if (!request.url) { setRefreshing(false); return; }
     const controller = new AbortController();
-    void fetch(request.url, { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null) as ComparePayload | null;
-        if (!response.ok || !payload) throw new Error(payload?.error || "商品对比读取失败");
+    setRefreshing(true);
+    void readMarketJson<ComparePayload>(request.url, controller.signal)
+      .then((payload) => {
         if (requestId !== requestGeneration.current) return;
         setResult({ requestKey: request.requestKey, payload, error: "" });
       })
       .catch((reason) => {
         if (requestId !== requestGeneration.current) return;
         if (!(reason instanceof DOMException && reason.name === "AbortError")) {
-          setResult((current) => ({ requestKey: request.requestKey, payload: current?.payload ?? null, error: reason instanceof Error ? reason.message : "商品对比读取失败" }));
+          setResult((current) => ({ requestKey: request.requestKey, payload: current?.requestKey === request.requestKey ? current.payload : null, error: reason instanceof Error ? reason.message : "商品对比读取失败" }));
         }
-      });
+      }).finally(() => { if (requestId === requestGeneration.current) setRefreshing(false); });
     return () => { invalidateLatestRequest(requestGeneration); controller.abort(); };
-  }, [request]);
+  }, [request, refreshKey]);
   if (selections.length < 2) return <section className="panel market-compare-workspace market-compare-empty">
     <div><span className="eyebrow">COMPETITOR BENCHMARK</span><h2>竞品对比工作区</h2><p>请先从商品榜单勾选 2–5 个 SKU。系统将使用当前筛选口径，对比销售额、成交件数、主图价格、成交均价、访客、转化率、排名和月度趋势。</p></div>
     <div className="market-compare-selection"><strong>已选择 {selections.length} / 5</strong>{selections.map((item) => <button type="button" key={marketCompareSelectionKey(item)} onClick={() => onRemoveCompare(marketCompareSelectionKey(item))}>{item.productName || item.skuCode}<span>×</span></button>)}</div>
@@ -653,18 +680,20 @@ function CompareWorkspace({ selections, onClear, onRemoveCompare, onGoRanking, q
   const missingSelections = data?.missingSelections ?? [];
   const maxTrend = Math.max(1, ...compared.flatMap((item) => item.trend.slice(-12).map((row) => Number(row.gmvCents ?? 0))));
   return <section className="panel market-compare-workspace data-refresh-region" aria-busy={loading}>
-    <header><div><span className="eyebrow">COMPETITOR BENCHMARK</span><h2>竞品对比工作区</h2><p>主指标按当前筛选范围完整汇总；月度火花图只展示最近 12 个月。</p></div><div><strong>已选择 {selections.length} / 5</strong><button type="button" className="secondary-button" onClick={onGoRanking}>继续选择</button><button type="button" className="row-action" onClick={onClear}>清空</button></div></header>
+    <header><div><span className="eyebrow">COMPETITOR BENCHMARK</span><h2>竞品对比工作区</h2><p>主指标按所选商品的完整身份汇总全部历史；日期等条件用于榜单选品。火花图展示趋势窗口中的 12 条记录。</p></div><div><strong>已选择 {selections.length} / 5</strong><button type="button" className="secondary-button" onClick={onGoRanking}>继续选择</button><button type="button" className="row-action" onClick={onClear}>清空</button></div></header>
     <div className="market-compare-selection">{selections.map((item) => <button type="button" key={marketCompareSelectionKey(item)} onClick={() => onRemoveCompare(marketCompareSelectionKey(item))}>{item.productName || item.skuCode}<span>×</span></button>)}</div>
     {error && <small className="red-text">{error}</small>}
     {loading && !data && !error && <small>正在读取对比数据...</small>}
+    {loading && data && <small role="status">正在刷新对比数据…</small>}
+    {loading && error && <small role="status">正在重新读取对比数据…</small>}
     {data && missingSelections.length > 0 && <small className="red-text">当前筛选范围无数据：{missingSelections.map((item) => `${item.skuCode}（${item.scope}）`).join("、")}。可调整筛选，或从上方移除。</small>}
     {data && <div className="market-compare-grid market-compare-grid-live">
       <div className="metric-labels"><strong>指标</strong>{["销售额", "成交件数", "市场定位价", "成交均价", "访客", "转化率", "最好排名", "月度趋势"].map((label) => <span key={label}>{label}</span>)}</div>
       {compared.map((item) => <article key={marketCompareSelectionKey(item)}>
-        <strong title={item.productName}>{item.productName || item.skuCode}</strong><small>{item.skuCode} · {item.scope} · {item.brand || "-"} · {item.rankingDimension}{item.trendTruncated && <><br />服务端趋势最近 120 / 共 {count(item.trendTotalMonths)} 个月</>}</small><button type="button" aria-label={`移除 ${item.productName || item.skuCode}`} onClick={() => onRemoveCompare(marketCompareSelectionKey(item))}>×</button>
+        <strong title={item.productName}>{item.productName || item.skuCode}</strong><small>{item.skuCode} · {item.scope} · {item.brand || "-"} · {item.rankingDimension}{item.trendTruncated && <><br />服务端趋势已截断 / 共 {count(item.trendTotalMonths)} 个月</>}</small><button type="button" aria-label={`移除 ${item.productName || item.skuCode}`} onClick={() => onRemoveCompare(marketCompareSelectionKey(item))}>×</button>
         <span>{money(item.gmvCents)}</span><span>{count(item.quantity)}</span><span>{money(item.marketPriceCents)}</span><span>{money(item.averageTransactionPriceCents)}</span>
         <span>{count(item.visitors)}</span><span>{percent(item.conversionBps)}</span><span>{item.bestRank ? `#${item.bestRank}` : "-"}</span>
-        <span><i className="market-compare-spark">{item.trend.slice(-12).map((row) => <b key={String(row.month)} style={{ height: `${Math.max(4, Number(row.gmvCents ?? 0) / maxTrend * 28)}px` }} title={`${String(row.month)} ${money(Number(row.gmvCents ?? 0))}`} />)}</i></span>
+        <span><i className="market-compare-spark">{item.trend.slice(-12).map((row, index) => <b key={`${row.periodStart}-${row.periodEnd}-${row.month}-${index}`} style={{ height: `${Math.max(4, Number(row.gmvCents ?? 0) / maxTrend * 28)}px` }} title={`${String(row.month)} ${money(Number(row.gmvCents ?? 0))}`} />)}</i></span>
       </article>)}
     </div>}
   </section>;
@@ -776,7 +805,7 @@ export function MarketWorkflowPanel({ data }: { data: MarketSettingsStatus | nul
   return <section className="panel market-batch-list"><div className="section-header"><div><h2>AI 数据工作流与任务记录</h2><p>自动下载导入、结构化校验、缺失字段识别、人工确认和发布均在此跟踪。</p></div></div>
     <div className="market-workflow-steps">{["自动下载导入", "结构化校验", "缺失字段识别", "人工确认", "发布到分析"].map((step, index) => <article key={step}><strong>{index + 1}</strong><span>{step}</span></article>)}</div>
     {data?.batches.map((batch) => <article key={batch.id}><div><strong>{batch.fileName}</strong><small>{batch.sourceType} · {batch.completedAt ? new Date(batch.completedAt).toLocaleString("zh-CN") : "处理中"}</small></div><span>{count(batch.rowCount)} 行</span><small>新增 {count(batch.insertedCount)} · 更新 {count(batch.updatedCount)} · 告警 {count(batch.warningCount)}</small></article>)}
-    {!data?.batches.length && <p className="soft-text">暂无市场数据任务记录。</p>}
+    {!data ? <p className="soft-text">任务记录等待状态读取。</p> : !data.batches.length && <p className="soft-text">暂无市场数据任务记录。</p>}
   </section>;
 }
 
@@ -800,6 +829,7 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
   const [systemKpis, setSystemKpis] = useState<MarketSystemKpis | null>(null);
   const [systemKpisError, setSystemKpisError] = useState("");
   const [cacheStats, setCacheStats] = useState(data?.imageCache ?? EMPTY_IMAGE_CACHE_STATS);
+  const [cacheStatsReady, setCacheStatsReady] = useState(Boolean(data));
   const [cacheRunning, setCacheRunning] = useState(false);
   const [cacheNotice, setCacheNotice] = useState(data ? "" : "图片统计将在后台维护任务启动后更新");
   const [cacheError, setCacheError] = useState("");
@@ -823,7 +853,11 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
     return () => controller.abort();
   }, []);
   useEffect(() => {
-    if (!cacheRunning && data?.imageCache) setCacheStats(data.imageCache);
+    if (!cacheRunning && data?.imageCache) {
+      setCacheStats(data.imageCache);
+      setCacheStatsReady(true);
+      setCacheNotice((notice) => notice === "图片统计将在后台维护任务启动后更新" ? "" : notice);
+    }
   }, [cacheRunning, data?.imageCache]);
   useEffect(() => () => cachePollControllerRef.current?.abort(), []);
   const refreshImageCache = async () => {
@@ -845,6 +879,7 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
       const payload = await response.json().catch(() => null) as { error?: string; job?: MarketImageCacheJob } | null;
       if (!response.ok || !payload?.job) throw new Error(payload?.error || "图片缓存任务创建失败");
       setCacheStats(cacheStatsFromJob(payload.job));
+      setCacheStatsReady(true);
       setCacheNotice(payload.job.status === "completed"
         ? `图片后台维护已是最新状态：已缓存 ${count(payload.job.cached)} 张`
         : `后台任务已${payload.job.status === "running" ? "续接" : "排队"}：${imageCacheJobProgress(payload.job)}`);
@@ -893,7 +928,7 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
     if (nextIndex >= 0) { event.preventDefault(); tabs[nextIndex]?.focus(); tabs[nextIndex]?.click(); }
   };
   return <section className="market-settings-workspace">
-    <article className="panel market-settings-intro"><div><span className="eyebrow">MARKET OPERATIONS & AI</span><h2>系统和 AI 设置</h2><p>以下指标按市场数据全库独立统计，不受商品榜单的日期、类目、范围或维度筛选影响；“待 AI 标注总量”按最高算力需求归入下方四种互斥路径，四项合计与总量一致。</p></div><div>{systemKpiCards.map((item) => <span className="market-system-kpi" key={item.key} title={systemKpisError}><strong>{systemKpis ? count(systemKpis[item.key]) : "—"}</strong><em>{item.label}</em><small>{systemKpisError ? "全库统计读取失败" : item.note}</small></span>)}<div className="market-image-cache-card"><strong>{count(cacheStats.pending)}</strong><em>待后台处理图片</em><div className="market-image-cache-progress" role="progressbar" aria-label="图片缓存进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={cachePercent}><b style={{ width: `${cachePercent}%` }} /></div><small className={cacheError ? "error" : ""}>{cacheError || cacheNotice || `已缓存 ${count(cacheStats.cached)} / ${count(cacheStats.total)}，失败 ${count(cacheStats.failed)}`}</small><div className="market-image-cache-actions"><button type="button" className="primary-button" disabled={!isAdmin || cacheRunning} onClick={() => void refreshImageCache()}>{cacheRunning ? "正在查看后台进度…" : cacheStats.pending > 0 ? "启动后台图片缓存" : "检查后台图片维护"}</button>{cacheRunning && <button type="button" className="secondary-button" onClick={() => { cachePollStoppedRef.current = true; cachePollControllerRef.current?.abort(); }}>停止查看</button>}</div></div></div></article>
+    <article className="panel market-settings-intro"><div><span className="eyebrow">MARKET OPERATIONS & AI</span><h2>系统和 AI 设置</h2><p>以下指标按市场数据全库独立统计，不受商品榜单的日期、类目、范围或维度筛选影响；“待 AI 标注总量”按最高算力需求归入下方四种互斥路径，四项合计与总量一致。</p></div><div>{systemKpiCards.map((item) => <span className="market-system-kpi" key={item.key} title={systemKpisError}><strong>{systemKpis ? count(systemKpis[item.key]) : "—"}</strong><em>{item.label}</em><small>{systemKpisError ? "全库统计读取失败" : item.note}</small></span>)}<div className="market-image-cache-card"><strong>{cacheStatsReady ? count(cacheStats.pending) : "—"}</strong><em>待后台处理图片</em><div className="market-image-cache-progress" role="progressbar" aria-label="图片缓存进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={cacheStatsReady ? cachePercent : undefined}><b style={{ width: `${cachePercent}%` }} /></div><small className={cacheError ? "error" : ""}>{cacheError || cacheNotice || `已缓存 ${count(cacheStats.cached)} / ${count(cacheStats.total)}，失败 ${count(cacheStats.failed)}`}</small><div className="market-image-cache-actions"><button type="button" className="primary-button" disabled={!isAdmin || cacheRunning} onClick={() => void refreshImageCache()}>{cacheRunning ? "正在查看后台进度…" : cacheStats.pending > 0 ? "启动后台图片缓存" : "检查后台图片维护"}</button>{cacheRunning && <button type="button" className="secondary-button" onClick={() => { cachePollStoppedRef.current = true; cachePollControllerRef.current?.abort(); }}>停止查看</button>}</div></div></div></article>
     <nav className="panel market-settings-tabs" role="tablist" aria-label="市场系统和 AI 设置子板块">{tabs.map((item) => <button type="button" role="tab" id={`market-settings-tab-${item.key}`} aria-controls={`market-settings-panel-${item.key}`} aria-selected={tab === item.key} tabIndex={tab === item.key ? 0 : -1} key={item.key} className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)} onKeyDown={onTabKeyDown}><strong>{item.label}</strong><small>{item.note}</small></button>)}</nav>
     <div role="tabpanel" id={`market-settings-panel-${tab}`} aria-labelledby={`market-settings-tab-${tab}`}>
       {tab === "database" ? <>
@@ -902,19 +937,34 @@ function MarketSettingsWorkspace({ currentUser, data, onImported }: { currentUse
           {databaseArea === "annotation" ? <Suspense fallback={<div className="panel data-state" role="status"><span className="state-spinner" aria-hidden="true" /><strong>正在加载 AI 标注工作区…</strong></div>}><MarketAnnotationView currentUser={currentUser} embedded /></Suspense> : <MarketMasterAdminPanel currentUser={currentUser} mode="database" />}
         </div>
       </> : <MarketMasterAdminPanel currentUser={currentUser} mode={tab} />}
-      {tab === "data" && <><MarketDataImportPanel currentUser={currentUser} data={data} onImported={onImported} /><MarketWorkflowPanel data={data} /></>}
+      {tab === "data" && <>{data ? <MarketDataImportPanel currentUser={currentUser} data={data} onImported={onImported} /> : <div className="panel data-state" role="status">正在读取导入日期与批次状态…</div>}<MarketWorkflowPanel data={data} /></>}
     </div>
   </section>;
 }
 
-export default function MarketView({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onApplyPeriod }: {
+type MarketViewProps = {
   customStartDate: string;
   customEndDate: string;
   currentUser: CurrentUser;
   moduleView: ModuleViewKey<"market">;
   onModuleViewChange: (view: ModuleViewKey<"market">) => void;
   onApplyPeriod?: (startDate: string, endDate: string) => void;
-}) {
+};
+const marketIdentityPackets = new WeakMap<object, number>();
+let nextMarketIdentityPacket = 0;
+export default function MarketView(props: MarketViewProps) {
+  const actor = props.currentUser;
+  let generation = 0;
+  if (actor) {
+    generation = marketIdentityPackets.get(actor) ?? ++nextMarketIdentityPacket;
+    marketIdentityPackets.set(actor, generation);
+  }
+  // A new authenticated identity packet invalidates all local success regions,
+  // even when the display-only restriction flag stayed the same.
+  return <MarketWorkspace key={`${generation}:${JSON.stringify(actor)}`} {...props} />;
+}
+
+function MarketWorkspace({ customStartDate, customEndDate, currentUser, moduleView, onModuleViewChange, onApplyPeriod }: MarketViewProps) {
   const activeSection: MarketSectionKey = moduleView;
   const initialRequestKey = defaultMarketRankingParams(customStartDate, customEndDate).toString();
   const initialOverview = cachedMarketOverview(initialRequestKey);
@@ -1035,7 +1085,10 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     loadRequestId.current += 1;
     setLoadingMore(false);
     const isInitialLoad = initialLoad.current;
-    const delay = isInitialLoad ? 0 : 350;
+    // Show progress immediately, including the bounded debounce interval.
+    // Existing content remains visible only for an identical request key.
+    setLoading(true);
+    const delay = isInitialLoad ? 0 : 150;
     initialLoad.current = false;
     const timer = window.setTimeout(() => void load(
       controller.signal,
@@ -1189,10 +1242,10 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
       <OpportunityMatrixSection data={data} />
       <IndustryDataGapSection data={data} />
     </>}
-    {activeSection === "compare" && <CompareWorkspace selections={compareSelections} onClear={() => setCompareSelections([])} onRemoveCompare={removeCompare} onGoRanking={() => selectMarketSection("ranking")} query={query} categories={categories} scopes={scopes} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={marketStartDate} endDate={marketEndDate} />}
+    {activeSection === "compare" && <CompareWorkspace selections={compareSelections} onClear={() => setCompareSelections([])} onRemoveCompare={removeCompare} onGoRanking={() => selectMarketSection("ranking")} query={query} categories={categories} scopes={scopes} rankingDimensions={dimensions} operationModes={operationModes} brands={brands} subcategories={subcategories} priceBands={priceBands} startDate={marketStartDate} endDate={marketEndDate} refreshKey={reloadKey} />}
     {activeSection === "settings" && settingsStatusLoading && !settingsData && <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在读取市场设置状态</strong><p>正在同步导入记录、图片缓存和业务日期…</p></section>}
     {activeSection === "settings" && settingsStatusError && <div className="market-feedback error" role="alert">{settingsStatusError}<button type="button" className="row-action" onClick={() => setReloadKey((key) => key + 1)}>重新加载</button></div>}
-    {activeSection === "settings" && settingsData && <MarketSettingsWorkspace currentUser={currentUser} data={settingsData} onImported={() => setReloadKey((key) => key + 1)} />}
+    {activeSection === "settings" && <MarketSettingsWorkspace currentUser={currentUser} data={settingsData} onImported={() => setReloadKey((key) => key + 1)} />}
     {trendItem && <TrendDrawer item={trendItem} onClose={() => setTrendItem(null)} />}
     </div>
   </div>;

@@ -1,0 +1,390 @@
+Creating test database for alias 'default' ('test_market_performance_regression')...
+Found 147 test(s).
+Operations to perform:
+  Apply all migrations: access_control, ai_assistant, bi, contenttypes, customer_service, erp_reference, finance, inventory, market, netshop, products, sales, workflow
+Running migrations:
+  Applying access_control.0001_initial... OK
+  Applying netshop.0001_initial... OK
+  Applying netshop.0002_migration_run_time_order... OK
+  Applying netshop.0003_netshop_source_revision_guard... OK
+  Applying finance.0001_initial... OK
+  Applying finance.0002_finance_target_gross_margin... OK
+  Applying finance.0003_finance_source_revision_guard... OK
+  Applying finance.0004_finance_revision_monotonic... OK
+  Applying ai_assistant.0001_initial... OK
+  Applying ai_assistant.0002_seed_authority... OK
+  Applying ai_assistant.0003_runtime_fencing... OK
+  Applying ai_assistant.0004_terminal_control_guards... OK
+  Applying ai_assistant.0005_postgres_image_payload... OK
+  Applying ai_assistant.0006_conversation_workspaces... OK
+  Applying ai_assistant.0007_dingtalk_readonly... OK
+  Applying ai_assistant.0008_dingtalk_settings... OK
+  Applying ai_assistant.0009_model_generation_capabilities... OK
+  Applying ai_assistant.0010_dingtalk_schedules... OK
+  Applying ai_assistant.0011_prompt_settings... OK
+  Applying ai_assistant.0012_report_library... OK
+  Applying ai_assistant.0013_dingtalk_schedule_media... OK
+  Applying ai_assistant.0014_business_evidence... OK
+  Applying ai_assistant.0015_business_collection... OK
+  Applying ai_assistant.0016_business_files... OK
+  Applying ai_assistant.0017_business_file_renderer... OK
+  Applying ai_assistant.0018_business_excel_renderer... OK
+  Applying ai_assistant.0019_business_source_directory... OK
+  Applying ai_assistant.0020_business_volume_files... OK
+  Applying ai_assistant.0021_business_budget_plans... OK
+  Applying ai_assistant.0022_business_integrated_reports... OK
+  Applying ai_assistant.0023_business_screening_storage... OK
+  Applying ai_assistant.0024_business_screening_runtime... OK
+  Applying ai_assistant.0025_business_file_opc... OK
+  Applying ai_assistant.0026_business_promotion_profile... OK
+  Applying ai_assistant.0027_business_promotion_file_guard... OK
+  Applying ai_assistant.0028_business_finance_v3_gate... OK
+  Applying ai_assistant.0029_business_promotion_file_ready... OK
+  Applying ai_assistant.0030_business_finance_source_pages... OK
+  Applying ai_assistant.0031_business_daily_v3_source_pages... OK
+  Applying ai_assistant.0032_business_source_tool_receipts... OK
+  Applying ai_assistant.0033_business_v3_parent_seal... OK
+  Applying ai_assistant.0034_business_v3_report_intent... OK
+  Applying ai_assistant.0035_business_v4_ledger... OK
+  Applying ai_assistant.0036_business_v4_validation_segments... OK
+  Applying ai_assistant.0037_business_v4_seal_admission_read... OK
+  Applying ai_assistant.0038_business_v4_seal_writer_gate... OK
+  Applying ai_assistant.0039_business_v4_sealer_ledger_read... OK
+  Applying ai_assistant.0040_business_v4_sealer_narrow_stream... OK
+  Applying ai_assistant.0041_business_v4_seal_ticket... OK
+  Applying ai_assistant.0042_business_v4_claimed_read... OK
+  Applying ai_assistant.0043_business_v4_seal_consumption_candidate... OK
+  Applying ai_assistant.0044_business_market_v2_profile... OK
+  Applying ai_assistant.0045_business_market_v2_material_attestation... OK
+  Applying ai_assistant.0046_business_promotion_trial_file_guard... OK
+  Applying ai_assistant.0047_business_v4_sealer_replay_progress... OK
+  Applying ai_assistant.0048_business_v4_finance_replay_progress... OK
+  Applying ai_assistant.0049_business_v4_sealer_source_bridge... OK
+  Applying ai_assistant.0050_business_v4_replay_read_cast... OK
+  Applying ai_assistant.0051_business_v4_prior_claim_column... OK
+  Applying ai_assistant.0052_business_v4_commit_consumption... OK
+  Applying ai_assistant.0053_business_market_v2_admitted_paused... OK
+  Applying ai_assistant.0054_business_promotion_budget_file_staging... OK
+  Applying ai_assistant.0055_business_v4_period_plan_candidate... OK
+  Applying ai_assistant.0056_business_market_v2_material_role_bridge... OK
+  Applying ai_assistant.0057_business_promotion_budget_v10_attestation... OK
+  Applying ai_assistant.0058_business_promotion_budget_v10_publish_gate... OK
+  Applying ai_assistant.0059_business_promotion_budget_v10_reader_fence... OK
+  Applying ai_assistant.0060_business_market_v2_execution_snapshot... OK
+  Applying ai_assistant.0061_business_market_v2_context_proof... OK
+  Applying ai_assistant.0062_business_market_v2_read_receipt_candidate... OK
+  Applying ai_assistant.0063_business_market_v2_execution_plan... OK
+  Applying ai_assistant.0064_business_market_v2_synthetic_vertical... OK
+  Applying ai_assistant.0065_business_market_v2_model_cost_reservation... OK
+  Applying ai_assistant.0066_business_promotion_budget_v11_durable_stage... OK
+  Applying ai_assistant.0067_business_promotion_budget_v11_attestation... OK
+  Applying ai_assistant.0068_business_promotion_budget_v11_verifier_receipt... OK
+  Applying ai_assistant.0069_business_market_v2_paid_round_rehearsal... OK
+  Applying ai_assistant.0070_business_promotion_budget_v11_limited_identity... OK
+  Applying ai_assistant.0071_business_v4_report_source_link... OK
+  Applying ai_assistant.0072_business_market_v2_authority_proposals... OK
+  Applying ai_assistant.0073_business_promotion_budget_v11_login_attestation... OK
+  Applying ai_assistant.0074_business_market_v2_human_cap_approval... OK
+  Applying ai_assistant.0075_business_v4_report_restricted_page... OK
+  Applying ai_assistant.0076_business_promotion_budget_v11_ticket_bound_signer... OK
+  Applying ai_assistant.0077_business_market_v6_paused_topology... OK
+  Applying ai_assistant.0078_business_promotion_budget_v11_signed_publication... OK
+  Applying ai_assistant.0079_business_market_v6_source_ticket... OK
+  Applying ai_assistant.0080_model_tool_budget_300... OK
+  Applying ai_assistant.0081_readiness_catalog_probe... OK
+  Applying ai_assistant.0082_no_new_keys_profile... OK
+  Applying sales.0001_initial... OK
+  Applying sales.0002_sales_migration_approval... OK
+  Applying sales.0003_query_ready_projection... OK
+  Applying sales.0004_projection_sync... OK
+  Applying sales.0005_postgres_write_authority... OK
+  Applying sales.0006_drop_legacy_projection_checkpoint... OK
+  Applying sales.0007_legacy_upload_audit... OK
+  Applying sales.0008_sales_cutover_attestation... OK
+  Applying sales.0009_postgres_raw_upload_payload... OK
+  Applying inventory.0001_initial... OK
+  Applying inventory.0002_seed_control_rows... OK
+  Applying inventory.0003_replenishment_plan_details... OK
+  Applying inventory.0004_replenishment_dingtalk_sync... OK
+  Applying inventory.0005_stock_supplier_warehouse_mapping... OK
+  Applying inventory.0006_replenishment_group_delivery... OK
+  Applying bi.0001_initial... OK
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying customer_service.0001_initial... OK
+  Applying customer_service.0002_seed_control_rows... OK
+  Applying erp_reference.0001_initial... OK
+  Applying erp_reference.0002_erpproductmaster_erpreferenceimportscopehead_and_more... OK
+  Applying finance.0005_raw_column_evidence_v2... OK
+  Applying finance.0006_raw_workbook_bytes_v2... OK
+  Applying inventory.0007_guangdong_monitor... OK
+  Applying inventory.0008_guangdong_item_overrides... OK
+  Applying inventory.0009_guangdong_item_risk_overrides... OK
+  Applying inventory.0010_replenishment_health... OK
+  Applying inventory.0011_inventory_warehouse_mapping_settings... OK
+  Applying market.0001_initial... OK
+  Applying market.0002_seed_control_rows... OK
+  Applying market.0003_remove_marketannotationvalidationsample_mkt_validation_sample_uq_and_more... OK
+  Applying market.0004_projection_sync_fencing... OK
+  Applying market.0005_filter_facet_indexes... OK
+  Applying market.0006_analysis_options... OK
+  Applying netshop.0004_promotion_presence_cache... OK
+  Applying products.0001_initial... OK
+  Applying products.0002_seed_control_rows... OK
+  Applying products.0003_alter_productimportattempt_created_at_and_more... OK
+  Applying sales.0010_analysis_options... OK
+  Applying workflow.0001_initial... OK
+  Applying workflow.0002_seed_control_rows... OK
+  Applying workflow.0003_workflowmigrationrun_and_authority_run... OK
+  Applying workflow.0004_new_product_weekly_followup... OK
+  Applying workflow.0005_product_line_continuous_monitoring... OK
+  Applying workflow.0005_operations_domain... OK
+  Applying workflow.0006_merge_20260904_1700... OK
+  Applying workflow.0007_new_product_line_uploaded_image... OK
+  Applying workflow.0008_new_product_shop_plan...test_bulk_page_byte_budget_keeps_cursor_and_control_complete (market.tests.test_analysis.MarketAnalysisTests.test_bulk_page_byte_budget_keeps_cursor_and_control_complete) ... ok
+test_complete_daily_sample_bounds_and_overlapping_exclusion (market.tests.test_analysis.MarketAnalysisTests.test_complete_daily_sample_bounds_and_overlapping_exclusion) ... ok
+test_identity_revision_range_and_cursor_fail_closed (market.tests.test_analysis.MarketAnalysisTests.test_identity_revision_range_and_cursor_fail_closed) ... ok
+test_interval_comparison_never_turns_midpoint_into_actual_growth (market.tests.test_analysis.MarketAnalysisTests.test_interval_comparison_never_turns_midpoint_into_actual_growth) ... ok
+test_native_spu_and_empty_history_are_explicit (market.tests.test_analysis.MarketAnalysisTests.test_native_spu_and_empty_history_are_explicit) ... ok
+test_signed_owning_consumer_and_role_guards (market.tests.test_analysis.MarketAnalysisTests.test_signed_owning_consumer_and_role_guards) ... 2026-10-05 23:30:11,908 level=WARNING logger=django.request message=Forbidden: /api/market/consumers/query
+2026-10-05 23:30:11,910 level=WARNING logger=django.request message=Forbidden: /api/market/consumers/query
+2026-10-05 23:30:11,911 level=WARNING logger=django.request message=Forbidden: /api/market/consumers/query
+ok
+test_actual_minimal_reader_cannot_read_private_users_or_write (market.tests.test_analysis_continuation.AnalysisContinuationTests.test_actual_minimal_reader_cannot_read_private_users_or_write) ... ok
+test_bad_signed_payload_salt_and_exact_scope_never_fall_back (market.tests.test_analysis_continuation.AnalysisContinuationTests.test_bad_signed_payload_salt_and_exact_scope_never_fall_back) ... ok
+test_expiration_boundary_only_direct_expired_cause (market.tests.test_analysis_continuation.AnalysisContinuationTests.test_expiration_boundary_only_direct_expired_cause) ... ok
+test_fresh_original_reader_and_expired_complete_replay_are_read_only (market.tests.test_analysis_continuation.AnalysisContinuationTests.test_fresh_original_reader_and_expired_complete_replay_are_read_only) ... ok
+test_parameter_set_fixed_page_and_no_implicit_window (market.tests.test_analysis_continuation.AnalysisContinuationTests.test_parameter_set_fixed_page_and_no_implicit_window) ... ok
+test_real_actor_and_late_permission_version_fail_closed (market.tests.test_analysis_continuation.AnalysisContinuationTests.test_real_actor_and_late_permission_version_fail_closed) ... ok
+test_revision_missing_changed_or_corrupt_cannot_continue (market.tests.test_analysis_continuation.AnalysisContinuationTests.test_revision_missing_changed_or_corrupt_cannot_continue) ... ok
+test_signed_route_headers_and_reader_writer_split (market.tests.test_analysis_continuation.AnalysisContinuationTests.test_signed_route_headers_and_reader_writer_split) ... 2026-10-05 23:30:12,776 level=WARNING logger=django.request message=Method Not Allowed (POST): /api/market/analysis-records/continuation
+2026-10-05 23:30:12,777 level=WARNING logger=django.request message=Unauthorized: /api/market/analysis-records/continuation
+2026-10-05 23:30:12,777 level=WARNING logger=django.request message=Forbidden: /api/market/analysis-records/continuation
+2026-10-05 23:30:12,777 level=WARNING logger=django.request message=Forbidden: /api/market/analysis-records/continuation
+2026-10-05 23:30:12,777 level=WARNING logger=django.request message=Forbidden: /api/market/analysis-records/continuation
+2026-10-05 23:30:12,787 level=WARNING logger=django.request message=Not Found: /api/market/analysis-records/continuation
+ok
+test_all_stale_is_bounded_noop_with_receipt_and_preserves_candidates (market.tests.test_annotation_commit_receipts.MarketAnnotationCommitReceiptTests.test_all_stale_is_bounded_noop_with_receipt_and_preserves_candidates) ... ok
+test_changed_image_does_not_block_valid_selected_candidate_or_replay (market.tests.test_annotation_commit_receipts.MarketAnnotationCommitReceiptTests.test_changed_image_does_not_block_valid_selected_candidate_or_replay) ... ok
+test_existing_annotation_dates_are_preserved_and_commit_replays_without_updates (market.tests.test_annotation_commit_receipts.MarketAnnotationCommitReceiptTests.test_existing_annotation_dates_are_preserved_and_commit_replays_without_updates) ... ok
+test_image_change_after_batch_selection_is_skipped_without_rolling_back_valid_work (market.tests.test_annotation_commit_receipts.MarketAnnotationCommitReceiptTests.test_image_change_after_batch_selection_is_skipped_without_rolling_back_valid_work) ... ok
+test_missing_snapshot_or_ranking_does_not_admit_other_month (market.tests.test_annotation_commit_receipts.MarketAnnotationCommitReceiptTests.test_missing_snapshot_or_ranking_does_not_admit_other_month) ... ok
+test_operator_cannot_commit_existing_annotation (market.tests.test_annotation_commit_receipts.MarketAnnotationCommitReceiptTests.test_operator_cannot_commit_existing_annotation) ... 2026-10-05 23:30:13,199 level=WARNING logger=django.request message=Forbidden: /api/market/commands
+ok
+test_ready_cache_hash_wins_but_empty_cache_hash_uses_snapshot (market.tests.test_annotation_commit_receipts.MarketAnnotationCommitReceiptTests.test_ready_cache_hash_wins_but_empty_cache_hash_uses_snapshot) ... ok
+test_receipt_failure_rolls_back_entire_batch_and_same_request_can_retry (market.tests.test_annotation_commit_receipts.MarketAnnotationCommitReceiptTests.test_receipt_failure_rolls_back_entire_batch_and_same_request_can_retry) ... 2026-10-05 23:30:13,307 level=ERROR logger=market.views message=Unhandled market API error
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\market-performance-complete\运营管理系统\backend\market\views.py", line 355, in commands
+    return _replay_fenced_write(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-performance-complete\运营管理系统\backend\market\views.py", line 235, in _replay_fenced_write
+    payload, status = callback()
+                      ^^^^^^^^^^
+  File "D:\.codex\worktrees\market-performance-complete\运营管理系统\backend\market\views.py", line 348, in execute
+    result = execute_annotation_command(command, principal)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-performance-complete\运营管理系统\backend\market\annotations.py", line 1714, in execute_annotation_command
+    return _commit({**payload, "candidateIds": []}, principal)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 81, in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-performance-complete\运营管理系统\backend\market\annotations.py", line 1583, in _commit
+    MarketAnnotationCommitReceipt.objects.create(
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1204, in _execute_mock_call
+    result = effect(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-performance-complete\运营管理系统\backend\market\tests\test_annotation_commit_receipts.py", line 110, in fail_second
+    raise RuntimeError("synthetic receipt write failure")
+RuntimeError: synthetic receipt write failure
+2026-10-05 23:30:13,321 level=ERROR logger=django.request message=Internal Server Error: /api/market/commands
+ok
+test_snapshot_validity_is_shared_by_rows_counts_selection_and_review (market.tests.test_annotation_commit_receipts.MarketAnnotationCommitReceiptTests.test_snapshot_validity_is_shared_by_rows_counts_selection_and_review) ... ok
+test_account_failure_pauses_before_consuming_more_items_and_keeps_retry_budget (market.tests.test_annotation_queue.AnnotationQueueTests.test_account_failure_pauses_before_consuming_more_items_and_keeps_retry_budget) ... ok
+test_cooled_first_five_plans_do_not_hide_a_ready_sixth_plan (market.tests.test_annotation_queue.AnnotationQueueTests.test_cooled_first_five_plans_do_not_hide_a_ready_sixth_plan) ... ok
+test_coordinator_fencing_pause_resume_and_stale_release (market.tests.test_annotation_queue.AnnotationQueueTests.test_coordinator_fencing_pause_resume_and_stale_release) ... ok
+test_cross_month_same_image_claims_once_and_diffuses_atomically (market.tests.test_annotation_queue.AnnotationQueueTests.test_cross_month_same_image_claims_once_and_diffuses_atomically) ... ok
+test_default_cloud_concurrency_is_ten_and_new_limit_applies_to_leases (market.tests.test_annotation_queue.AnnotationQueueTests.test_default_cloud_concurrency_is_ten_and_new_limit_applies_to_leases) ... ok
+test_dispatch_and_claim_without_expired_leases_skip_backlog_quarantine_update (market.tests.test_annotation_queue.AnnotationQueueTests.test_dispatch_and_claim_without_expired_leases_skip_backlog_quarantine_update) ... ok
+test_finished_stale_job_does_not_hide_runnable_job (market.tests.test_annotation_queue.AnnotationQueueTests.test_finished_stale_job_does_not_hide_runnable_job) ... ok
+test_full_oldest_job_does_not_starve_another_plan (market.tests.test_annotation_queue.AnnotationQueueTests.test_full_oldest_job_does_not_starve_another_plan) ... ok
+test_last_unknown_group_remains_paused_even_after_progress_refresh (market.tests.test_annotation_queue.AnnotationQueueTests.test_last_unknown_group_remains_paused_even_after_progress_refresh) ... ok
+test_late_final_failure_cannot_erase_another_items_unknown_quarantine (market.tests.test_annotation_queue.AnnotationQueueTests.test_late_final_failure_cannot_erase_another_items_unknown_quarantine) ... ok
+test_rate_limit_blocks_same_model_only_and_dispatch_obeys_cooldown (market.tests.test_annotation_queue.AnnotationQueueTests.test_rate_limit_blocks_same_model_only_and_dispatch_obeys_cooldown) ... ok
+test_retry_budget_is_shared_across_months_and_bad_image_does_not_pause_plan (market.tests.test_annotation_queue.AnnotationQueueTests.test_retry_budget_is_shared_across_months_and_bad_image_does_not_pause_plan) ... ok
+test_transient_lane_cooldown_does_not_block_other_lanes_or_plans (market.tests.test_annotation_queue.AnnotationQueueTests.test_transient_lane_cooldown_does_not_block_other_lanes_or_plans) ... ok
+test_unknown_expired_lease_quarantines_all_months_and_pauses (market.tests.test_annotation_queue.AnnotationQueueTests.test_unknown_expired_lease_quarantines_all_months_and_pauses) ... ok
+test_commit_uses_500_item_batches_while_other_items_keep_running (market.tests.test_annotation_review.MarketAnnotationReviewTests.test_commit_uses_500_item_batches_while_other_items_keep_running) ... ok
+test_filter_counts_and_selection_share_completed_item_rules (market.tests.test_annotation_review.MarketAnnotationReviewTests.test_filter_counts_and_selection_share_completed_item_rules) ... ok
+test_historical_review_has_authoritative_context_outside_recent_jobs (market.tests.test_annotation_review.MarketAnnotationReviewTests.test_historical_review_has_authoritative_context_outside_recent_jobs) ... ok
+test_review_keeps_formal_price_type_when_ui_only_changes_price (market.tests.test_annotation_review.MarketAnnotationReviewTests.test_review_keeps_formal_price_type_when_ui_only_changes_price) ... ok
+test_annotation_progress_is_read_only_and_derives_live_counts (market.tests.test_api.MarketApiContractTests.test_annotation_progress_is_read_only_and_derives_live_counts) ... ok
+test_candidate_counts_is_set_based_and_keeps_exact_image_identity (market.tests.test_api.MarketApiContractTests.test_candidate_counts_is_set_based_and_keeps_exact_image_identity) ... ok
+test_changed_exact_scope_replaces_complete_fact_set_and_prunes_derived_rows (market.tests.test_api.MarketApiContractTests.test_changed_exact_scope_replaces_complete_fact_set_and_prunes_derived_rows) ... ok
+test_daily_coverage_preserves_exact_daily_price_band_contract (market.tests.test_api.MarketApiContractTests.test_daily_coverage_preserves_exact_daily_price_band_contract) ... ok
+test_exact_scope_duplicate_survives_another_date_in_the_same_lock_month (market.tests.test_api.MarketApiContractTests.test_exact_scope_duplicate_survives_another_date_in_the_same_lock_month) ... ok
+test_import_is_atomic_business_idempotent_and_replay_fenced (market.tests.test_api.MarketApiContractTests.test_import_is_atomic_business_idempotent_and_replay_fenced) ... 2026-10-05 23:30:20,070 level=WARNING logger=django.request message=Conflict: /api/market/imports
+ok
+test_independent_filters_keep_query_auth_and_strict_shape (market.tests.test_api.MarketApiContractTests.test_independent_filters_keep_query_auth_and_strict_shape) ... 2026-10-05 23:30:20,096 level=WARNING logger=django.request message=Bad Request: /api/market/queries
+2026-10-05 23:30:20,097 level=WARNING logger=django.request message=Forbidden: /api/market/queries
+ok
+test_industry_report_rejects_gap_and_non_formal_starting_price (market.tests.test_api.MarketApiContractTests.test_industry_report_rejects_gap_and_non_formal_starting_price) ... ok
+test_industry_report_requires_continuous_coverage_and_image_fenced_formal_prices (market.tests.test_api.MarketApiContractTests.test_industry_report_requires_continuous_coverage_and_image_fenced_formal_prices) ... ok
+test_market_reader_rejects_scoped_principal_and_duplicate_json_keys (market.tests.test_api.MarketApiContractTests.test_market_reader_rejects_scoped_principal_and_duplicate_json_keys) ... 2026-10-05 23:30:20,195 level=WARNING logger=django.request message=Forbidden: /api/market/queries
+2026-10-05 23:30:20,196 level=WARNING logger=django.request message=Bad Request: /api/market/queries
+ok
+test_master_pagination_preserves_auth_revision_and_read_only_contract (market.tests.test_api.MarketApiContractTests.test_master_pagination_preserves_auth_revision_and_read_only_contract) ... 2026-10-05 23:30:20,203 level=WARNING logger=django.request message=Forbidden: /api/market/queries
+2026-10-05 23:30:20,207 level=WARNING logger=django.request message=Forbidden: /api/market/queries
+ok
+test_overview_is_revisioned_and_keeps_formal_price_separate (market.tests.test_api.MarketApiContractTests.test_overview_is_revisioned_and_keeps_formal_price_separate) ... ok
+test_prevalidation_failure_is_audited_without_claiming_scope (market.tests.test_api.MarketApiContractTests.test_prevalidation_failure_is_audited_without_claiming_scope) ... 2026-10-05 23:30:20,268 level=WARNING logger=django.request message=Bad Request: /api/market/imports
+ok
+test_ranking_overview_reads_sales_only_for_current_page (market.tests.test_api.MarketApiContractTests.test_ranking_overview_reads_sales_only_for_current_page) ... ok
+test_system_kpis_keep_signed_read_scope_and_response_contract (market.tests.test_api.MarketApiContractTests.test_system_kpis_keep_signed_read_scope_and_response_contract) ... 2026-10-05 23:30:20,486 level=WARNING logger=django.request message=Forbidden: /api/market/queries
+2026-10-05 23:30:20,487 level=WARNING logger=django.request message=Unauthorized: /api/market/queries
+ok
+test_writer_fails_closed_without_exact_authority (market.tests.test_api.MarketApiContractTests.test_writer_fails_closed_without_exact_authority) ... 2026-10-05 23:30:20,497 level=ERROR logger=django.request message=Service Unavailable: /api/market/imports
+ok
+test_annotation_commit_rechecks_exact_snapshot_and_updates_price_atomically (market.tests.test_commands.MarketCommandContractTests.test_annotation_commit_rechecks_exact_snapshot_and_updates_price_atomically) ... ok
+test_formal_price_confirmation_is_image_fenced_and_replay_safe (market.tests.test_commands.MarketCommandContractTests.test_formal_price_confirmation_is_image_fenced_and_replay_safe) ... 2026-10-05 23:30:20,856 level=WARNING logger=django.request message=Conflict: /api/market/commands
+ok
+test_image_cache_claim_complete_owns_only_metadata (market.tests.test_commands.MarketCommandContractTests.test_image_cache_claim_complete_owns_only_metadata) ... ok
+test_image_cache_job_lease_cannot_be_overwritten_by_a_second_claim (market.tests.test_commands.MarketCommandContractTests.test_image_cache_job_lease_cannot_be_overwritten_by_a_second_claim) ... ok
+test_netshop_projection_is_paged_count_fenced_and_atomically_activated (market.tests.test_commands.MarketCommandContractTests.test_netshop_projection_is_paged_count_fenced_and_atomically_activated) ... 2026-10-05 23:30:21,020 level=WARNING logger=django.request message=Conflict: /api/market/commands
+ok
+test_image_counts_include_unknown_states_and_empty_collection (market.tests.test_complete_performance.CompleteMarketReadTests.test_image_counts_include_unknown_states_and_empty_collection) ... ok
+test_non_data_workspace_skips_unused_full_coverage (market.tests.test_complete_performance.CompleteMarketReadTests.test_non_data_workspace_skips_unused_full_coverage) ... ok
+test_report_preference_is_preserved_without_raw_payload (market.tests.test_complete_performance.CompleteMarketReadTests.test_report_preference_is_preserved_without_raw_payload) ... ok
+test_trend_counts_all_months_but_materializes_only_display_window (market.tests.test_complete_performance.CompleteMarketReadTests.test_trend_counts_all_months_but_materializes_only_display_window) ... ok
+test_query_timeout_is_explicit_and_private_details_are_not_exposed (market.tests.test_filter_cache.ReadTimeoutContractTests.test_query_timeout_is_explicit_and_private_details_are_not_exposed) ... 2026-10-05 23:30:21,244 level=WARNING logger=market.views message=Market read timed out: operation=filter_options
+2026-10-05 23:30:21,244 level=ERROR logger=django.request message=Service Unavailable: /api/market/queries
+ok
+test_transaction_never_uses_or_publishes_process_cache (market.tests.test_filter_cache.TransactionFilterCacheTests.test_transaction_never_uses_or_publishes_process_cache) ... ok
+test_exact_duplicate_blank_unicode_and_tie_counts_for_all_facets (market.tests.test_filter_count_performance.FacetCountRegressionTests.test_exact_duplicate_blank_unicode_and_tie_counts_for_all_facets) ... ok
+test_local_query_limits_restored_after_success_and_failure (market.tests.test_filter_count_performance.FacetCountRegressionTests.test_local_query_limits_restored_after_success_and_failure) ... ok
+test_partial_scan_failure_never_returns_partial_or_zero_options (market.tests.test_filter_count_performance.FacetCountRegressionTests.test_partial_scan_failure_never_returns_partial_or_zero_options) ... ok
+test_all_fields_match_old_contract_before_and_after_filters (market.tests.test_master_pagination.MasterPaginationTests.test_all_fields_match_old_contract_before_and_after_filters) ... ok
+test_enrichment_and_query_count_bounded_by_page (market.tests.test_master_pagination.MasterPaginationTests.test_enrichment_and_query_count_bounded_by_page) ... ok
+test_next_read_reflects_changes_without_cache (market.tests.test_master_pagination.MasterPaginationTests.test_next_read_reflects_changes_without_cache) ... ok
+test_removed_page_row_fails_closed_with_retryable_read_error (market.tests.test_master_pagination.MasterPaginationTests.test_removed_page_row_fails_closed_with_retryable_read_error) ... ok
+test_uses_date_bounded_projection_series_and_preserves_inclusive_ranges (market.tests.test_query.MarketProjectionMetricsTests.test_uses_date_bounded_projection_series_and_preserves_inclusive_ranges) ... ok
+test_confirmed_price_without_matching_band_keeps_price_and_pending_count (market.tests.test_ranking_pagination.RankingPaginationTests.test_confirmed_price_without_matching_band_keeps_price_and_pending_count) ... ok
+test_correlated_price_states_keep_full_scale_read_within_statement_budget (market.tests.test_ranking_pagination.RankingPaginationTests.test_correlated_price_states_keep_full_scale_read_within_statement_budget) ... ok
+test_dedup_source_preference_and_filtered_rows_match_report (market.tests.test_ranking_pagination.RankingPaginationTests.test_dedup_source_preference_and_filtered_rows_match_report) ... ok
+test_global_facets_match_independent_counts_including_empty_values (market.tests.test_ranking_pagination.RankingPaginationTests.test_global_facets_match_independent_counts_including_empty_values) ... ok
+test_more_than_250000_rows_uses_bounded_page_and_keeps_report_guard (market.tests.test_ranking_pagination.RankingPaginationTests.test_more_than_250000_rows_uses_bounded_page_and_keeps_report_guard) ... ok
+test_optional_global_filters_do_not_block_ranking_and_keep_default_contract (market.tests.test_ranking_pagination.RankingPaginationTests.test_optional_global_filters_do_not_block_ranking_and_keep_default_contract) ... ok
+test_page_matches_report_dedup_identity_price_rank_and_projection (market.tests.test_ranking_pagination.RankingPaginationTests.test_page_matches_report_dedup_identity_price_rank_and_projection) ... ok
+test_paging_keeps_valid_long_identity_and_brand_inputs (market.tests.test_ranking_pagination.RankingPaginationTests.test_paging_keeps_valid_long_identity_and_brand_inputs) ... ok
+test_price_boundaries_invalid_confirmation_and_category_precedence (market.tests.test_ranking_pagination.RankingPaginationTests.test_price_boundaries_invalid_confirmation_and_category_precedence) ... ok
+test_rank_boundary_keeps_all_ties_and_projects_history_outside_candidates (market.tests.test_ranking_pagination.RankingPaginationTests.test_rank_boundary_keeps_all_ties_and_projects_history_outside_candidates) ... ok
+test_annotations_expose_only_the_public_search_fields (market.tests.test_search_consumers.MarketSearchConsumerTests.test_annotations_expose_only_the_public_search_fields) ... ok
+test_batches_have_the_plain_bounded_consumer_shape (market.tests.test_search_consumers.MarketSearchConsumerTests.test_batches_have_the_plain_bounded_consumer_shape) ... ok
+test_current_identity_literal_search_and_exact_pagination (market.tests.test_search_consumers.MarketSearchConsumerTests.test_current_identity_literal_search_and_exact_pagination) ... ok
+test_invalid_bounds_unknown_fields_and_revision_changes_are_rejected (market.tests.test_search_consumers.MarketSearchConsumerTests.test_invalid_bounds_unknown_fields_and_revision_changes_are_rejected) ... 2026-10-05 23:31:28,375 level=WARNING logger=django.request message=Bad Request: /api/market/consumers/query
+2026-10-05 23:31:28,375 level=WARNING logger=django.request message=Bad Request: /api/market/consumers/query
+2026-10-05 23:31:28,376 level=WARNING logger=django.request message=Bad Request: /api/market/consumers/query
+2026-10-05 23:31:28,376 level=WARNING logger=django.request message=Bad Request: /api/market/consumers/query
+2026-10-05 23:31:28,377 level=WARNING logger=django.request message=Bad Request: /api/market/consumers/query
+2026-10-05 23:31:28,383 level=ERROR logger=django.request message=Service Unavailable: /api/market/consumers/query
+ok
+test_signed_principal_scope_and_batch_roles_fail_closed (market.tests.test_search_consumers.MarketSearchConsumerTests.test_signed_principal_scope_and_batch_roles_fail_closed) ... 2026-10-05 23:31:28,387 level=WARNING logger=django.request message=Forbidden: /api/market/consumers/query
+2026-10-05 23:31:28,388 level=WARNING logger=django.request message=Forbidden: /api/market/consumers/query
+2026-10-05 23:31:28,389 level=WARNING logger=django.request message=Forbidden: /api/market/consumers/query
+2026-10-05 23:31:28,391 level=WARNING logger=django.request message=Forbidden: /api/market/consumers/query
+2026-10-05 23:31:28,392 level=WARNING logger=django.request message=Forbidden: /api/market/consumers/query
+2026-10-05 23:31:28,398 level=WARNING logger=django.request message=Unauthorized: /api/market/consumers/query
+ok
+test_cross_month_routes_deduplicate_and_choose_highest_cost (market.tests.test_system_kpis.SystemKpiTests.test_cross_month_routes_deduplicate_and_choose_highest_cost) ... ok
+test_current_cache_hash_overrides_stale_snapshot_results (market.tests.test_system_kpis.SystemKpiTests.test_current_cache_hash_overrides_stale_snapshot_results) ... ok
+test_empty_and_missing_snapshots_are_not_completed (market.tests.test_system_kpis.SystemKpiTests.test_empty_and_missing_snapshots_are_not_completed) ... ok
+test_one_read_only_statement_for_many_identities (market.tests.test_system_kpis.SystemKpiTests.test_one_read_only_statement_for_many_identities) ... ok
+test_prompt_taxonomy_and_terminal_replacement_are_exact (market.tests.test_system_kpis.SystemKpiTests.test_prompt_taxonomy_and_terminal_replacement_are_exact) ... ok
+test_rejected_result_does_not_trigger_automatic_reinference (market.tests.test_system_kpis.SystemKpiTests.test_rejected_result_does_not_trigger_automatic_reinference) ... ok
+test_result_scope_month_image_and_orphans_cannot_hide_work (market.tests.test_system_kpis.SystemKpiTests.test_result_scope_month_image_and_orphans_cannot_hide_work) ... ok
+test_actual_account_revocation_scope_local_and_late_change (market.tests.test_analysis_options.MarketOptionsOwningTests.test_actual_account_revocation_scope_local_and_late_change) ... 2026-10-05 23:31:29,197 level=WARNING logger=django.request message=Forbidden: /api/market/analysis-options
+2026-10-05 23:31:29,204 level=WARNING logger=django.request message=Forbidden: /api/market/analysis-options
+2026-10-05 23:31:29,209 level=WARNING logger=django.request message=Forbidden: /api/market/analysis-options
+2026-10-05 23:31:29,213 level=WARNING logger=django.request message=Forbidden: /api/market/analysis-options
+2026-10-05 23:31:29,217 level=WARNING logger=django.request message=Forbidden: /api/market/analysis-options
+2026-10-05 23:31:29,225 level=WARNING logger=django.request message=Forbidden: /api/market/analysis-options
+2026-10-05 23:31:29,244 level=WARNING logger=django.request message=Forbidden: /api/market/analysis-options
+ok
+test_actual_import_rebuild_and_http_page_use_only_index_metadata (market.tests.test_analysis_options.MarketOptionsOwningTests.test_actual_import_rebuild_and_http_page_use_only_index_metadata) ... ok
+test_cursor_query_revision_generation_and_expiry (market.tests.test_analysis_options.MarketOptionsOwningTests.test_cursor_query_revision_generation_and_expiry) ... 2026-10-05 23:31:31,585 level=WARNING logger=django.request message=Conflict: /api/market/analysis-options
+2026-10-05 23:31:31,591 level=WARNING logger=django.request message=Conflict: /api/market/analysis-options
+2026-10-05 23:31:31,598 level=WARNING logger=django.request message=Conflict: /api/market/analysis-options
+2026-10-05 23:31:31,605 level=WARNING logger=django.request message=Conflict: /api/market/analysis-options
+2026-10-05 23:31:31,647 level=WARNING logger=django.request message=Conflict: /api/market/analysis-options
+ok
+test_damaged_index_and_late_generation_never_return_success (market.tests.test_analysis_options.MarketOptionsOwningTests.test_damaged_index_and_late_generation_never_return_success) ... 2026-10-05 23:31:32,494 level=ERROR logger=django.request message=Service Unavailable: /api/market/analysis-options
+2026-10-05 23:31:32,513 level=WARNING logger=django.request message=Conflict: /api/market/analysis-options
+ok
+test_filters_raw_price_and_strict_http_parameters (market.tests.test_analysis_options.MarketOptionsOwningTests.test_filters_raw_price_and_strict_http_parameters) ... 2026-10-05 23:31:33,341 level=WARNING logger=django.request message=Bad Request: /api/market/analysis-options
+2026-10-05 23:31:33,345 level=WARNING logger=django.request message=Bad Request: /api/market/analysis-options
+2026-10-05 23:31:33,350 level=WARNING logger=django.request message=Bad Request: /api/market/analysis-options
+2026-10-05 23:31:33,354 level=WARNING logger=django.request message=Bad Request: /api/market/analysis-options
+2026-10-05 23:31:33,357 level=WARNING logger=django.request message=Not Found: /api/market/analysis-options
+2026-10-05 23:31:33,360 level=WARNING logger=django.request message=Method Not Allowed (POST): /api/market/analysis-options
+ok
+test_import_sync_and_rollback_bad_range_marks_blocked_without_losing_import (market.tests.test_analysis_options.MarketOptionsOwningTests.test_import_sync_and_rollback_bad_range_marks_blocked_without_losing_import) ... 2026-10-05 23:31:34,293 level=ERROR logger=django.request message=Service Unavailable: /api/market/analysis-options
+ok
+test_not_initialized_bad_history_and_valid_empty_are_distinct (market.tests.test_analysis_options.MarketOptionsOwningTests.test_not_initialized_bad_history_and_valid_empty_are_distinct) ... 2026-10-05 23:31:35,074 level=ERROR logger=django.request message=Service Unavailable: /api/market/analysis-options
+ok
+test_prepare_is_outside_transaction_stale_or_json_cannot_publish (market.tests.test_analysis_options.MarketOptionsOwningTests.test_prepare_is_outside_transaction_stale_or_json_cannot_publish) ... ok
+test_real_restricted_roles_use_production_grants_and_no_sensitive_user_columns (market.tests.test_analysis_options.MarketOptionsOwningTests.test_real_restricted_roles_use_production_grants_and_no_sensitive_user_columns) ... ok
+test_rebuild_bounded_metadata_no_fact_scan_and_failure_leaves_uninitialized (market.tests.test_analysis_options.MarketOptionsOwningTests.test_rebuild_bounded_metadata_no_fact_scan_and_failure_leaves_uninitialized) ... ok
+test_unicode_casefold_and_literal_search_match_pure_contract (market.tests.test_analysis_options.MarketOptionsOwningTests.test_unicode_casefold_and_literal_search_match_pure_contract) ... ok
+test_simultaneous_claims_never_exceed_database_limit_or_duplicate_month_identity (market.tests.test_annotation_queue.AnnotationQueueConcurrencyTests.test_simultaneous_claims_never_exceed_database_limit_or_duplicate_month_identity) ... ok
+test_simultaneous_explicit_lanes_fill_configured_capacity (market.tests.test_annotation_queue.AnnotationQueueConcurrencyTests.test_simultaneous_explicit_lanes_fill_configured_capacity) ... ok
+test_only_account_and_configuration_permanent_failures_pause_whole_run (market.tests.test_annotation_runtime.AnnotationRuntimeTests.test_only_account_and_configuration_permanent_failures_pause_whole_run) ... ok
+test_rate_limit_is_global_bounded_and_does_not_extend_on_concurrent_failure (market.tests.test_annotation_runtime.AnnotationRuntimeTests.test_rate_limit_is_global_bounded_and_does_not_extend_on_concurrent_failure) ... ok
+test_three_independent_floor_failures_pause_and_success_resets_floor (market.tests.test_annotation_runtime.AnnotationRuntimeTests.test_three_independent_floor_failures_pause_and_success_resets_floor) ... ok
+test_three_successes_restore_one_lane_and_configuration_changes_apply (market.tests.test_annotation_runtime.AnnotationRuntimeTests.test_three_successes_restore_one_lane_and_configuration_changes_apply) ... ok
+test_transient_failures_only_cool_their_channels_and_count_one_incident (market.tests.test_annotation_runtime.AnnotationRuntimeTests.test_transient_failures_only_cool_their_channels_and_count_one_incident) ... ok
+test_fact_revision_invalidates_total_but_live_image_state_is_not_cached (market.tests.test_complete_performance.ScalarCacheApplicationTests.test_fact_revision_invalidates_total_but_live_image_state_is_not_cached) ... ok
+test_scalar_capacity_is_separately_bounded_without_changing_filter_limit (market.tests.test_complete_performance.ScalarCacheFenceTests.test_scalar_capacity_is_separately_bounded_without_changing_filter_limit) ... ok
+test_scalar_shares_revision_role_database_and_transaction_guards (market.tests.test_complete_performance.ScalarCacheFenceTests.test_scalar_shares_revision_role_database_and_transaction_guards) ... ok
+test_concurrent_cold_requests_compute_once (market.tests.test_filter_cache.FilterCacheTests.test_concurrent_cold_requests_compute_once) ... ok
+test_failed_and_changed_revision_results_are_not_cached (market.tests.test_filter_cache.FilterCacheTests.test_failed_and_changed_revision_results_are_not_cached) ... ok
+test_revision_replacement_database_isolation_and_mutation_safety (market.tests.test_filter_cache.FilterCacheTests.test_revision_replacement_database_isolation_and_mutation_safety) ... ok
+test_ttl_and_oversized_payload_do_not_retain_old_entry (market.tests.test_filter_cache.FilterCacheTests.test_ttl_and_oversized_payload_do_not_retain_old_entry) ... ok
+test_two_errors_degrade_success_recovers_expiry_becomes_unknown (market.tests.test_filter_cache.MarketReadHealthTests.test_two_errors_degrade_success_recovers_expiry_becomes_unknown) ... 2026-10-05 23:31:41,361 level=WARNING logger=django.request message=Method Not Allowed (POST): /
+ok
+test_committed_fact_change_and_revision_rebuild_exact_counts (market.tests.test_filter_count_performance.FacetRevisionRegressionTests.test_committed_fact_change_and_revision_rebuild_exact_counts) ... ok
+test_audit_failure_rolls_back_version_and_releases_lock (market.tests.test_prompt_concurrency.PromptConcurrencyTests.test_audit_failure_rolls_back_version_and_releases_lock) ... ok
+test_different_categories_do_not_block_each_other (market.tests.test_prompt_concurrency.PromptConcurrencyTests.test_different_categories_do_not_block_each_other) ... ok
+test_first_category_and_existing_category_allocate_distinct_versions (market.tests.test_prompt_concurrency.PromptConcurrencyTests.test_first_category_and_existing_category_allocate_distinct_versions) ... ok
+test_chunks_products_and_long_date_ranges_with_one_revision (market.tests.test_query.MarketSalesMetricsTests.test_chunks_products_and_long_date_ranges_with_one_revision) ... ok
+test_fails_closed_when_chunk_revisions_drift (market.tests.test_query.MarketSalesMetricsTests.test_fails_closed_when_chunk_revisions_drift) ... ok
+test_shared_receipt_hashes_only_non_market_rows (market.tests.test_retirement.MarketRetirementSharedReceiptTests.test_shared_receipt_hashes_only_non_market_rows) ... ok
+test_5000_ranges_and_10000_identities_complete_no_truncation (market.test_analysis_options_contract.MarketOptionsContractTests.test_5000_ranges_and_10000_identities_complete_no_truncation) ... ok
+test_actual_import_normalization_and_analysis_validator_compatibility (market.test_analysis_options_contract.MarketOptionsContractTests.test_actual_import_normalization_and_analysis_validator_compatibility) ... ok
+test_complete_scope_validated_before_daily_exclusion (market.test_analysis_options_contract.MarketOptionsContractTests.test_complete_scope_validated_before_daily_exclusion) ... ok
+test_daily_envelope_is_not_contiguous_coverage (market.test_analysis_options_contract.MarketOptionsContractTests.test_daily_envelope_is_not_contiguous_coverage) ... ok
+test_directory_byte_budget_independent_of_identity_count (market.test_analysis_options_contract.MarketOptionsContractTests.test_directory_byte_budget_independent_of_identity_count) ... ok
+test_fixed_capacity_constants (market.test_analysis_options_contract.MarketOptionsContractTests.test_fixed_capacity_constants) ... ok
+test_merge_exact_identity_copy_and_digest_order (market.test_analysis_options_contract.MarketOptionsContractTests.test_merge_exact_identity_copy_and_digest_order) ... ok
+test_missing_empty_bad_history_cannot_be_empty_success (market.test_analysis_options_contract.MarketOptionsContractTests.test_missing_empty_bad_history_cannot_be_empty_success) ... ok
+test_normalized_sorted_unique_ranges_required (market.test_analysis_options_contract.MarketOptionsContractTests.test_normalized_sorted_unique_ranges_required) ... ok
+test_original_band_dimension_scope_never_aliased (market.test_analysis_options_contract.MarketOptionsContractTests.test_original_band_dimension_scope_never_aliased) ... ok
+test_page_digests_cover_all_protocol_fields_and_no_aliases (market.test_analysis_options_contract.MarketOptionsContractTests.test_page_digests_cover_all_protocol_fields_and_no_aliases) ... ok
+test_page_order_duplicate_query_and_pagination_guards (market.test_analysis_options_contract.MarketOptionsContractTests.test_page_order_duplicate_query_and_pagination_guards) ... ok
+test_strict_fields_and_scalar_types (market.test_analysis_options_contract.MarketOptionsContractTests.test_strict_fields_and_scalar_types) ... ok
+test_utf8_page_exact_boundary_and_one_byte_over (market.test_analysis_options_contract.MarketOptionsContractTests.test_utf8_page_exact_boundary_and_one_byte_over) ... ok
+test_valid_nondaily_scope_explicitly_excluded (market.test_analysis_options_contract.MarketOptionsContractTests.test_valid_nondaily_scope_explicitly_excluded) ... ok
+test_whole_page_rejects_wide_identities_not_prefix_success (market.test_analysis_options_contract.MarketOptionsContractTests.test_whole_page_rejects_wide_identities_not_prefix_success) ... ok
+
+----------------------------------------------------------------------
+Ran 147 tests in 93.767s
+
+OK
+Destroying test database for alias 'default' ('test_market_performance_regression')...
+ OK
+System check identified no issues (0 silenced).

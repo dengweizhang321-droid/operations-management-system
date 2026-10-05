@@ -2,6 +2,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 
 from . import guangdong as service
 from .errors import InventoryApiError
+from .regions import region_option, regional_read
 from .models import GuangdongSupplierCycle
 from .views import _principal, _json, _error, _body, _one, _selections, _unknown, _positive, _replay_write
 
@@ -20,7 +21,7 @@ def _read(loader):
 
 
 def _options(request, export=False):
-    _unknown(request, {"q", "brand", "category", "supplier", "risk", "page", "pageSize"} | ({"version", "kind"} if export else set()), "广东入仓监控")
+    _unknown(request, {"section", "q", "brand", "category", "supplier", "risk", "page", "pageSize"} | ({"version", "kind"} if export else set()), "广东入仓监控")
     query = _one(request, "q") or ""
     risk = _one(request, "risk") or ""
     if len(query) > 100 or risk and risk not in service.RISK_LABELS:
@@ -32,7 +33,9 @@ def _options(request, export=False):
 def monitor(request):
     try:
         principal = _principal(request, READ_ROLES)
-        return _read(lambda: service.monitor(principal, _options(request)))
+        options = _options(request)
+        section = region_option(request)
+        return _read(lambda: regional_read(principal, "guangdong", options, section, lambda: service.monitor(principal, options)))
     except Exception as error:
         return _error(error, "广东入仓监控读取失败")
 

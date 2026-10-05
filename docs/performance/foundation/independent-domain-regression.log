@@ -1,0 +1,18 @@
+✔ inventory demand uses the selected global period within available sales coverage (1.8344ms)
+✔ inventory demand reports the actual overlap when selected dates exceed imported coverage (0.2041ms)
+✔ inventory demand keeps the legacy 30-day default and rejects unsafe date ranges (0.4645ms)
+✔ market GET preserves range errors without retrying (22.9006ms)
+✔ market GET deadline includes a stalled response body and clears the request (18.8827ms)
+✔ a cancelled filter read cannot accept a late successful body (1.1066ms)
+✔ 商品汇总只向独立 Django products reader 传递有界查询 (1.9593ms)
+✔ 商品汇总 page 投影绑定同一 snapshot token (0.3496ms)
+✔ 商品前端只在同一 bootstrap 和 snapshot 下请求 page 投影，版本漂移有界回到 full (9.9514ms)
+✔ sales summary forwards 100 codes as one signed query field and preserves other filters (69.4424ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 289.7204

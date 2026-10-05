@@ -1,0 +1,33 @@
+✔ requestJson applies same-origin defaults and serializes JSON bodies (26.1035ms)
+✔ requestJson preserves explicit fetch options (1.6537ms)
+✔ requestJson returns undefined for successful empty responses (0.3706ms)
+✔ requestJson sends FormData without setting a multipart content type (1.7198ms)
+✔ requestJson exposes structured HTTP failures as ApiError (1.4072ms)
+✔ requestJson converts network failures without retrying (0.336ms)
+✔ requestJson passes AbortError and the caller signal through unchanged (0.208ms)
+✔ requestJson rejects malformed successful JSON with a bounded ApiError (0.7016ms)
+✔ mobile drawer focus wrapping is deterministic without a browser DOM (0.7373ms)
+✔ application landmarks and the mobile navigation state stay accessible (11.9589ms)
+✔ collapsed navigation exposes stable group names without dangling tooltip references (1.392ms)
+✔ global header and module fallback have named, focusable semantics (3.7914ms)
+✔ reduced motion remains a global application contract (2.4818ms)
+✔ navigation catalog preserves the twelve modules and task-oriented group order (1.6168ms)
+✔ import source catalog exposes every current legal value (0.1422ms)
+✔ dashboard is canonical at root and invalid or duplicate modules fail closed (0.8901ms)
+✔ module and import source parse, serialize, and normalize safely (0.3382ms)
+✔ period contract supports relative, calendar month, and custom ranges (0.8659ms)
+✔ malformed period details normalize to current month without stale fields (0.4886ms)
+✔ normalization preserves unknown query parameters, pathname, and hash (0.4598ms)
+✔ canonical serialization is stable across parse and normalize (0.4434ms)
+✔ module failures stay inside the application shell (10.7482ms)
+✔ global search dialog traps focus and restores the background (2.9287ms)
+✔ mobile navigation releases its interaction lock at the desktop breakpoint (7.3941ms)
+✔ market master initial failures are visible and retryable (1.7081ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 312.2057

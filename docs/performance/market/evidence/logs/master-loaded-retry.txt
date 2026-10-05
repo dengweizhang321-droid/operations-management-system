@@ -1,0 +1,8 @@
+{"output": "D:\\.codex\\worktrees\\market-performance-complete\\\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf\\.runtime\\market-performance-441c0ae9766f", "stage": "experiment"}
+{"case": "database-primary", "p50": {"baseline": 44.480600001406856, "candidate": 35.497200005920604}, "p95": {"baseline": 88.2082000025548, "candidate": 39.557399999466725}, "equal": true}
+{"case": "database-secondary", "p50": {"baseline": 3693.4501999930944, "candidate": 1861.3060000061523}, "p95": {"baseline": 3960.023799998453, "candidate": 2332.034699997166}, "equal": true}
+{"case": "workspace-subcategory", "p50": {"baseline": 584.5895000093151, "candidate": 272.61810000345577}, "p95": {"baseline": 1157.1838000090793, "candidate": 282.3685000039404}, "equal": true}
+{"case": "workspace-brand", "p50": {"baseline": 777.1159000112675, "candidate": 416.88750000321306}, "p95": {"baseline": 1073.684199989657, "candidate": 554.3710000056308}, "equal": true}
+{"case": "workspace-mapping", "p50": {"baseline": 559.930000003078, "candidate": 239.75310000241734}, "p95": {"baseline": 590.1118000037968, "candidate": 259.04249999439344}, "equal": true}
+{"case": "workspace-data", "p50": {"baseline": 596.5211000002455, "candidate": 556.2031000008574}, "p95": {"baseline": 682.9975000000559, "candidate": 618.539500006591}, "equal": true}
+{"output": "D:\\.codex\\worktrees\\market-performance-complete\\\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf\\.runtime\\market-performance-441c0ae9766f", "stopped": true}

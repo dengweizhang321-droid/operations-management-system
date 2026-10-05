@@ -1,0 +1,355 @@
+{
+  "environment": "Vite development preview, six synthetic products / 180 sales; backend scale measured separately",
+  "label": "candidate",
+  "records": [
+    {
+      "scenario": "open-0",
+      "start": 2291.1000000089407,
+      "retainedContentMs": null,
+      "feedback": 119.8999999910593,
+      "firstCommit": 174.79999999701977,
+      "allCommit": 201.5,
+      "first": 246.79999999701977,
+      "all": 246.79999999701977
+    },
+    {
+      "scenario": "refresh-0",
+      "start": 2668.9000000059605,
+      "retainedContentMs": 0,
+      "feedback": 11,
+      "firstCommit": 40.70000000298023,
+      "first": 45.29999999701977,
+      "allCommit": 65.70000000298023,
+      "all": 68
+    },
+    {
+      "scenario": "open-1",
+      "start": 2854.2999999970198,
+      "retainedContentMs": null,
+      "feedback": 36.20000000298023,
+      "firstCommit": 97.80000001192093,
+      "allCommit": 124,
+      "first": 125.5,
+      "all": 127.40000000596046
+    },
+    {
+      "scenario": "refresh-1",
+      "start": 3020.7000000029802,
+      "retainedContentMs": 0,
+      "feedback": 12.299999997019768,
+      "firstCommit": 44.099999994039536,
+      "first": 48.099999994039536,
+      "allCommit": 75.09999999403954,
+      "all": 78
+    },
+    {
+      "scenario": "open-2",
+      "start": 3304.2999999970198,
+      "retainedContentMs": null,
+      "feedback": 44.20000000298023,
+      "firstCommit": 91.80000001192093,
+      "first": 106,
+      "allCommit": 116.80000001192093,
+      "all": 119.70000000298023
+    },
+    {
+      "scenario": "refresh-2",
+      "start": 3464.2000000029802,
+      "retainedContentMs": 0,
+      "feedback": 5.700000002980232,
+      "firstCommit": 28.400000005960464,
+      "first": 33.400000005960464,
+      "allCommit": 55.099999994039536,
+      "all": 59.29999999701977
+    }
+  ],
+  "requests": [
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213806309.191,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.238,
+        "responseStart": 37.242,
+        "responseEnd": 38.042
+      }
+    },
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213806348.609,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.201,
+        "responseStart": 26.036,
+        "responseEnd": 26.623
+      }
+    },
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213806559.458,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.177,
+        "responseStart": 29.567,
+        "responseEnd": 30.358
+      }
+    },
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213806591.104,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.231,
+        "responseStart": 25.718,
+        "responseEnd": 26.412
+      }
+    },
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213806793.8198,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.246,
+        "responseStart": 32.75,
+        "responseEnd": 33.599
+      }
+    },
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213806829.0288,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.266,
+        "responseStart": 25.827,
+        "responseEnd": 26.637
+      }
+    },
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213806910.5898,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.168,
+        "responseStart": 29.483,
+        "responseEnd": 30.266
+      }
+    },
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213806942.979,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.165,
+        "responseStart": 28.267,
+        "responseEnd": 29.001
+      }
+    },
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213807248.1821,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.191,
+        "responseStart": 25.176,
+        "responseEnd": 25.947
+      }
+    },
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213807275.7039,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.188,
+        "responseStart": 22.456,
+        "responseEnd": 23.034
+      }
+    },
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213807354.174,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.173,
+        "responseStart": 23.588,
+        "responseEnd": 24.313
+      }
+    },
+    {
+      "url": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "status": 200,
+      "timing": {
+        "startTime": 1791213807379.8862,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.16,
+        "responseStart": 24.855,
+        "responseEnd": 25.407
+      }
+    }
+  ],
+  "resource": [
+    {
+      "name": "http://127.0.0.1:3146/app/product-module-view.tsx",
+      "startTime": 2331.5,
+      "duration": 5,
+      "transferSize": 166041,
+      "responseStart": 2334.4000000059605,
+      "responseEnd": 2336.5
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "startTime": 2419.7000000029802,
+      "duration": 37.900000005960464,
+      "transferSize": 4699,
+      "responseStart": 2457.2000000029802,
+      "responseEnd": 2457.6000000089407
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "startTime": 2459.1000000089407,
+      "duration": 26.599999994039536,
+      "transferSize": 1474,
+      "responseStart": 2485.4000000059605,
+      "responseEnd": 2485.7000000029802
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "startTime": 2669.9000000059605,
+      "duration": 30.200000002980232,
+      "transferSize": 4699,
+      "responseStart": 2699.7999999970198,
+      "responseEnd": 2700.1000000089407
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "startTime": 2701.6000000089407,
+      "duration": 26.299999997019768,
+      "transferSize": 1474,
+      "responseStart": 2727.6000000089407,
+      "responseEnd": 2727.9000000059605
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "startTime": 2904.2000000029802,
+      "duration": 33.599999994039536,
+      "transferSize": 4699,
+      "responseStart": 2937.2999999970198,
+      "responseEnd": 2937.7999999970198
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "startTime": 2939.5,
+      "duration": 26.400000005960464,
+      "transferSize": 1474,
+      "responseStart": 2965.6000000089407,
+      "responseEnd": 2965.9000000059605
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "startTime": 3021.1000000089407,
+      "duration": 30.099999994039536,
+      "transferSize": 4699,
+      "responseStart": 3050.7999999970198,
+      "responseEnd": 3051.2000000029802
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "startTime": 3053.5,
+      "duration": 29,
+      "transferSize": 1474,
+      "responseStart": 3081.9000000059605,
+      "responseEnd": 3082.5
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "startTime": 3358.5,
+      "duration": 25.900000005960464,
+      "transferSize": 4699,
+      "responseStart": 3384.1000000089407,
+      "responseEnd": 3384.4000000059605
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "startTime": 3386.2000000029802,
+      "duration": 23.099999994039536,
+      "transferSize": 1474,
+      "responseStart": 3408.9000000059605,
+      "responseEnd": 3409.2999999970198
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "startTime": 3464.6000000089407,
+      "duration": 24.19999998807907,
+      "transferSize": 4699,
+      "responseStart": 3488.5,
+      "responseEnd": 3488.7999999970198
+    },
+    {
+      "name": "http://127.0.0.1:3146/api/products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-05&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "startTime": 3490.5,
+      "duration": 25.299999997019768,
+      "transferSize": 1474,
+      "responseStart": 3515.5,
+      "responseEnd": 3515.7999999970198
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "checks": [
+    "actual-two-NOLOGIN-PG-roles-without-authority-table-permission",
+    "commit-between-batch-selection-and-cache-key-does-not-poison-next-current-batch",
+    "explicit-zero-cost-remains-zero-and-not-missing"
+  ],
+  "privateDatabase": "inventory_review",
+  "port": 57287,
+  "sourceHashes": {
+    "backend/inventory/read_cache.py": "036104e955f1d9d1783441a241d9f556d636941791cda7604ce7559a7508c7ed",
+    "backend/inventory/query.py": "dbe88a6fd228a2557d0ad3f2dd8b0b3d84b92b0d298fc1f5e34fd258b9617399",
+    "backend/inventory/views.py": "c31a6baee9c360386ef89803812a670658f90b49b542b49f1c8840105dbb2703"
+  },
+  "limitations": "Tiny independent PG race/role probes; business-scale equivalence is separate."
+}

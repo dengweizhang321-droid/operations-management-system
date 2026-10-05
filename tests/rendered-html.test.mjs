@@ -267,7 +267,10 @@ test("keeps sales overview multi-selects mounted while filtered results refresh"
 
   assert.match(multiSelect, /const toggle = \(nextValue: string\)/);
   assert.doesNotMatch(toggle, /setOpen\(false\)/);
-  assert.match(salesModule, /if \(loading && !summary\)/);
+  assert.match(salesModule, /if \(!summary && !error\)/);
+  assert.match(salesModule, /if \(!summary && !error\)[\s\S]*?<>{salesSubnav}{sharedFilterBar\(\)}/);
+  assert.match(salesModule, /const core = coreResult\?\.key === summaryKey \? coreResult : null/);
+  assert.match(salesModule, /const full = fullResult\?\.key === summaryKey[\s\S]*?core\.revision === fullResult\.revision/);
   assert.match(salesModule, /updating=\{usesSalesSummary && loading\}/);
   assert.match(salesFilterBar, /aria-busy=\{updating\}/);
   assert.match(salesFilterBar, /正在按公共筛选更新\$\{scopeLabel\}/);
@@ -480,8 +483,9 @@ test("wires all five ERP imports and excludes 刷刷仓 from operating analysis"
 });
 
 test("imports dynamic monthly financial reports and exposes target-linked analysis", async () => {
-  const [salesModule, schema, parser, database, analysis, importRoute, analysisRoute, targetRoute, migration, packageJson] = await Promise.all([
+  const [salesModule, financeViews, schema, parser, database, analysis, importRoute, analysisRoute, targetRoute, migration, packageJson] = await Promise.all([
     readFile(new URL("../app/sales-module-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/sales-finance-views.tsx", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/finance/parser.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/finance/database.ts", import.meta.url), "utf8"),
@@ -493,11 +497,13 @@ test("imports dynamic monthly financial reports and exposes target-linked analys
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
-  for (const label of ["财报分析", "目标进度情况", "月度财报", "费用同环比与异常点", "大毛利率", "退货率", "费用率", "全部月份", "8系列"]) assert.match(salesModule, new RegExp(label));
+  for (const label of ["财报分析", "目标进度情况"]) assert.match(salesModule, new RegExp(label));
+  assert.match(salesModule, /import\("\.\/sales-finance-views"\)/);
+  for (const label of ["月度财报", "费用同环比与异常点", "大毛利率", "退货率", "费用率", "全部月份", "8系列"]) assert.match(financeViews, new RegExp(label));
   const importModule = await readFile(new URL("../app/import-module-view.tsx", import.meta.url), "utf8");
   assert.match(importModule, /key: "finance"[^\r\n]+directEndpoint: "\/api\/imports\/finance"[^\r\n]+extensions: \["\.xls", "\.xlsx"\]/);
-  assert.match(salesModule, /\/api\/finance\/analysis/);
-  assert.match(salesModule, /\/api\/finance\/targets/);
+  assert.match(financeViews, /\/api\/finance\/analysis/);
+  assert.match(financeViews, /\/api\/finance\/targets/);
   assert.match(schema, /financeImportBatches/);
   assert.match(schema, /financeMonths/);
   assert.match(schema, /financeLines/);
@@ -515,10 +521,10 @@ test("imports dynamic monthly financial reports and exposes target-linked analys
   assert.match(analysis, /platformFilter/);
   assert.match(analysis, /isSelectableShopName/);
   assert.match(analysis, /momRate/);
-  assert.match(salesModule, /formatFinanceWan/);
-  assert.match(salesModule, /FinanceSortButton/);
-  assert.match(salesModule, /expenseSearch/);
-  assert.match(salesModule, /yearAgoFeeRateBps/);
+  assert.match(financeViews, /formatFinanceWan/);
+  assert.match(financeViews, /FinanceSortButton/);
+  assert.match(financeViews, /expenseSearch/);
+  assert.match(financeViews, /yearAgoFeeRateBps/);
   assert.match(importRoute, /application\/octet-stream/);
   assert.match(importRoute, /requireAppPrincipal\(\["admin"\]\)/);
   assert.match(analysisRoute, /path: FINANCE_ANALYSIS_PATH, query: searchParams, service: "reader"/);

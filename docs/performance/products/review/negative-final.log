@@ -1,0 +1,11 @@
+✔ independent: aborted detail followed by no-coverage scope must release refresh (1773.54ms)
+✔ independent: malformed daily date must not reach shared trend rendering (1624.082ms)
+✔ independent: owned detail decoder preserves legitimate null/zero and rejects identity/numeric/date faults (5.8001ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4245.3947

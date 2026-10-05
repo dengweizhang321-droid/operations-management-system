@@ -1,0 +1,66 @@
+✔ market ranking keeps master administration behind a direct lazy boundary (18.5137ms)
+﹣ fresh production artifacts keep market administration out of the page entry budget (4.3778ms) # production client artifacts are not present
+✔ market master database first paint excludes deferred price, image, prompt, and model work (16.5949ms)
+✔ market master filter aggregates start only after the paginated first paint and remain cancellable (8.9626ms)
+✔ deferred database details are explicit, cancellable, generation-fenced, and models load once (4.1736ms)
+✔ parallel market master channels cannot clear each other's errors or expose stale secondary rows (1.9928ms)
+✖ market settings loads a lightweight truthful status instead of reusing ranking overview (9.2215ms)
+✔ market master view projection preserves the legacy default but rejects duplicates and unknown values (1.7777ms)
+✔ market master pagination applies the unique id tie-breaker inside and outside both query paths (4.3027ms)
+✔ market overview can read precomputed effective metrics without rebuilding anchor windows (2.3936ms)
+✔ market schema and migration persist cache rows and their source revision (12.068ms)
+✔ effective-metrics refresh updates the cache without deleting every persisted row first (1.9684ms)
+✔ market and netshop mutations invalidate the persisted effective-metrics revision (2.7633ms)
+✔ effective-metrics netshop invalidation is scoped identically in runtime and migration (7.9897ms)
+✔ market UI requests lightweight ranking data and aborts superseded requests (3.316ms)
+✔ aborting the prefetch subscriber does not cancel a joined page load (35.2621ms)
+✔ aborting the page subscriber does not cancel a joined prefetch (1.4027ms)
+✔ the shared market request aborts only after its last subscriber leaves (1.0087ms)
+✔ market overview response cache is canonical, version-invalidated, and coalesces duplicate loads (54.0588ms)
+✔ exact market revisions invalidate same-second batch, image, and taxonomy changes (10.6363ms)
+✔ market cache validators fail closed on valid JSON with the wrong surface shape (10.2776ms)
+✔ shared market cache capacity remains bounded and usable across mixed surfaces (26.4353ms)
+✔ market overview and filter single-flight streams are isolated by database (9.9099ms)
+✔ market overview and filter single-flight entries are removed after loader errors (5.6263ms)
+✔ market overview and filter cache misses close their revision fence and retry only once (5.2439ms)
+✔ market filter options use a separate revision-aware cache (4.4125ms)
+✔ legacy market response cache schema remains migratable while the active route uses Django (3.0138ms)
+✔ system KPI cache is persistent, single-flight, and invalidated by every KPI dependency (35.199ms)
+✔ market identity updates invalidate a previously cached system KPI payload (10.3585ms)
+✔ system KPI single-flight is isolated by database identity (6.9705ms)
+✔ system KPI cache never persists a payload while its revision keeps moving (4.1493ms)
+✔ controlled master-identity refresh bumps once, rolls back cleanly, and leaves direct writes observable (90.0695ms)
+✔ system KPI cache runtime schema and forward migration keep the same dependency triggers (49.9117ms)
+✔ pending-price history starts from snapshots and uses the representative identity-month index (2.6656ms)
+✔ market overview rejects single, duplicate, impossible, and reversed dates before database access (2.4541ms)
+✔ market overview pagination is strict decimal and facet selection has a shared hard ceiling (2.4491ms)
+✔ market route validates before the Django gateway and retained migration SQL keeps bounded JSON bindings (21.1511ms)
+✔ market GET preserves range errors without retrying (37.4432ms)
+✔ market GET deadline includes a stalled response body and clears the request (16.8052ms)
+✔ a cancelled filter read cannot accept a late successful body (1.4927ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 38
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 1268.2665
+
+✖ failing tests:
+
+test at tests\market-master-first-load-performance.test.ts:1:8960
+✖ market settings loads a lightweight truthful status instead of reusing ranking overview (9.2215ms)
+  AssertionError [ERR_ASSERTION]: missing start marker:   useEffect(() => {
+      if (activeSection !== "settings")
+      at between (D:\.codex\worktrees\market-performance-complete\运营管理系统\tests\market-master-first-load-performance.test.ts:10:10)
+      at TestContext.<anonymous> (D:\.codex\worktrees\market-performance-complete\运营管理系统\tests\market-master-first-load-performance.test.ts:137:26)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

@@ -1,0 +1,964 @@
+{
+  "status": "passed",
+  "syntheticApi": true,
+  "businessPgBenchmark": false,
+  "scope": "actual inventory component + original globals; excludes Home/shell and production authority",
+  "port": 50532,
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "candidateHead": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "dirty": "M app/api/inventory/age-analysis/route.ts\n M app/api/inventory/inbound-monitor/route.ts\n M app/api/inventory/overview/route.ts\n M app/inventory-guangdong-view.tsx\n M app/inventory-module-view.tsx\n M backend/inventory/guangdong.py\n M backend/inventory/guangdong_views.py\n M backend/inventory/query.py\n M backend/inventory/views.py\n?? app/inventory-region-notice.tsx\n?? backend/inventory/read_cache.py\n?? backend/inventory/regions.py\n?? backend/inventory/tests/test_read_cache.py\n?? docs/performance/\n?? inventory-install.log\n?? lib/inventory/read-regions.ts\n?? tests/inventory-read-regions.test.ts",
+  "sourceHashes": {
+    "inventory-module-view.tsx": "7ce46decd9f41a59e09e7796d9c6fda5972c1608809dd2b1838c28057b400293",
+    "inventory-guangdong-view.tsx": "e9124f06cf52279c501a5e88ba8968828939e4774182425233c72bbd4ec96665",
+    "inventory-filter-bar.tsx": "534bafd582776be3a3086c3d57fdb1f4c6afe78e3b3b7ed6824b8b61f80cdcc1"
+  },
+  "fixtureSha256": "afe323d8ba02c71836528e004d65f3f93ed80616acbdb72c380850ee138bb274",
+  "upstreamDelayMs": 180,
+  "lateResponseDelayMs": 900,
+  "requests": [
+    {
+      "id": 1,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 184.15170000000217,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 2,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 182.89510000000155,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 3,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 183.7152999999962,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 4,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 182.90780000000086,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 5,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 186.01469999999972,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 6,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 185.67029999999795,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 7,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&brand=ACCOUNT-A&planPage=1&planPageSize=50&section=summary",
+      "ms": 194.64940000000206,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 8,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&brand=ACCOUNT-A&planPage=1&planPageSize=50&section=detail",
+      "ms": 194.83920000000217,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 9,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 196.61499999999796,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 10,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 196.04780000000028,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 11,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&category=Category+0&planPage=1&planPageSize=50&section=summary",
+      "ms": 184.0925999999963,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 12,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&category=Category+0&planPage=1&planPageSize=50&section=detail",
+      "ms": 183.99529999999504,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 13,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 195.7314999999944,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 14,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 196.0020000000004,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 15,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&warehouse=%E8%8F%9C%E9%B8%9F%E5%B1%A5%E7%BA%A6%E4%BB%93&planPage=1&planPageSize=50&section=summary",
+      "ms": 194.04349999999977,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 16,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&warehouse=%E8%8F%9C%E9%B8%9F%E5%B1%A5%E7%BA%A6%E4%BB%93&planPage=1&planPageSize=50&section=detail",
+      "ms": 193.59419999999955,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 17,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 190.96489999999903,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 18,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 190.0951999999961,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 19,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&planStatus=draft&section=summary",
+      "ms": 192.23790000000008,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 20,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&planStatus=draft&section=detail",
+      "ms": 191.81900000000314,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 21,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 195.44920000000275,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 22,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 194.1275999999998,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 23,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=FAST&planPage=1&planPageSize=50&section=summary",
+      "ms": 196.66849999999977,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 24,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=FAST&planPage=1&planPageSize=50&section=detail",
+      "ms": 195.91410000000178,
+      "status": 200,
+      "bytes": 145484,
+      "ignoredAbort": true
+    },
+    {
+      "id": 27,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=1&planPageSize=50&section=summary",
+      "ms": 186.2728999999963,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 28,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=1&planPageSize=50&section=detail",
+      "ms": 186.22630000000208,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 25,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=LATE&planPage=1&planPageSize=50&section=summary",
+      "ms": 903.5780000000013,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 26,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=LATE&planPage=1&planPageSize=50&section=detail",
+      "ms": 902.5377999999982,
+      "status": 200,
+      "bytes": 145484,
+      "ignoredAbort": true
+    },
+    {
+      "id": 30,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=SUMMARYSLOW&planPage=1&planPageSize=50&section=detail",
+      "ms": 181.82080000000133,
+      "status": 200,
+      "bytes": 146884,
+      "ignoredAbort": true
+    },
+    {
+      "id": 29,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=SUMMARYSLOW&planPage=1&planPageSize=50&section=summary",
+      "ms": 900.7989000000016,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 31,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=1&planPageSize=50&section=summary",
+      "ms": 185.2980000000025,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 32,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=1&planPageSize=50&section=detail",
+      "ms": 184.44050000000425,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 33,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=DOUBLEFAIL&planPage=1&planPageSize=50&section=summary",
+      "ms": 185.82920000000013,
+      "status": 503,
+      "bytes": 36,
+      "ignoredAbort": true
+    },
+    {
+      "id": 34,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=DOUBLEFAIL&planPage=1&planPageSize=50&section=detail",
+      "ms": 186.10809999999765,
+      "status": 503,
+      "bytes": 36,
+      "ignoredAbort": true
+    },
+    {
+      "id": 35,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=DOUBLEFAIL&planPage=1&planPageSize=50&section=summary",
+      "ms": 184.70490000000427,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 36,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=DOUBLEFAIL&planPage=1&planPageSize=50&section=detail",
+      "ms": 190.62659999999596,
+      "status": 200,
+      "bytes": 146684,
+      "ignoredAbort": true
+    },
+    {
+      "id": 37,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=1&planPageSize=50&section=summary",
+      "ms": 187.380799999999,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 38,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=1&planPageSize=50&section=detail",
+      "ms": 186.69640000000072,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 39,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=1&planPageSize=50&section=summary",
+      "ms": 181.79000000000087,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 40,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=1&planPageSize=50&section=detail",
+      "ms": 181.1275999999998,
+      "status": 503,
+      "bytes": 36,
+      "ignoredAbort": true
+    },
+    {
+      "id": 41,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=FAILSCOPE&planPage=1&planPageSize=50&section=summary",
+      "ms": 185.175900000002,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 42,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=FAILSCOPE&planPage=1&planPageSize=50&section=detail",
+      "ms": 185.10779999999795,
+      "status": 200,
+      "bytes": 146484,
+      "ignoredAbort": true
+    },
+    {
+      "id": 43,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=1&planPageSize=50&section=summary",
+      "ms": 181.3027000000002,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 44,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=1&planPageSize=50&section=detail",
+      "ms": 183.20969999999943,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 45,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=summary",
+      "ms": 189.6886999999988,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 46,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=detail",
+      "ms": 189.32450000000244,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 47,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=summary",
+      "ms": 183.01029999999446,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 48,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=detail",
+      "ms": 182.9455999999991,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 49,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=summary",
+      "ms": 180.41249999999854,
+      "status": 503,
+      "bytes": 36,
+      "ignoredAbort": true
+    },
+    {
+      "id": 50,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=detail",
+      "ms": 181.21710000000166,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 51,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=summary",
+      "ms": 185.49789999999484,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 52,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=summary",
+      "ms": 181.72630000000208,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 53,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=detail",
+      "ms": 181.79339999999502,
+      "status": 503,
+      "bytes": 36,
+      "ignoredAbort": true
+    },
+    {
+      "id": 54,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=detail",
+      "ms": 193.04409999999916,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 55,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=summary",
+      "ms": 183.28330000000278,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 56,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&q=NEW&planPage=2&planPageSize=50&section=detail",
+      "ms": 182.90359999999782,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 57,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 182.327200000007,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 58,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 182.38260000000446,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    },
+    {
+      "id": 59,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=summary",
+      "ms": 192.9429999999993,
+      "status": 200,
+      "bytes": 2749,
+      "ignoredAbort": true
+    },
+    {
+      "id": 60,
+      "implementation": "candidate",
+      "path": "/api/inventory/overview",
+      "query": "?view=plan&planPage=1&planPageSize=50&section=detail",
+      "ms": 192.49089999999705,
+      "status": 200,
+      "bytes": 145284,
+      "ignoredAbort": true
+    }
+  ],
+  "measures": [
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "first-open",
+      "feedbackMs": 252.295100000003,
+      "firstContentMs": 568.2949999999983,
+      "completeMs": 572.7396999999983,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "filter-brand",
+      "feedbackMs": 41.133999999998196,
+      "completeMs": 495.61129999999685,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "filter-category",
+      "feedbackMs": 45.51860000000306,
+      "completeMs": 503.8199999999997,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "filter-warehouse",
+      "feedbackMs": 46.28500000000349,
+      "completeMs": 540.3619000000035,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "filter-planStatus",
+      "feedbackMs": 86.45089999999618,
+      "completeMs": 521.5504000000001,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "search",
+      "feedbackMs": 34.68029999999999,
+      "completeMs": 876.072500000002,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "page-2",
+      "feedbackMs": 39.201200000003155,
+      "completeMs": 539.5935000000027,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "refresh",
+      "feedbackMs": 49.45079999999871,
+      "completeMs": 409.1880999999994,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "reentry",
+      "feedbackMs": 27.521700000004785,
+      "firstContentMs": 464.41879999999946,
+      "completeMs": 464.4462000000058,
+      "requests": 2
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "action": "open-detail-dialog",
+      "feedbackMs": 152.76480000000447,
+      "completeMs": 156.81940000000031,
+      "requests": 0
+    }
+  ],
+  "checks": [
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "same-role-account-change-hides-previous-account"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "global-date-does-not-change-fixed-inventory-window"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "ignored-abort-late-response-fenced"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "detail-can-render-before-summary-and-cancelled-summary-not-stuck"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "initial-pair-failure-retries-each-region"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "new-scope-failure-hides-old-content-and-retries"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "same-scope-refresh-failure-retains-and-retries"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "independent-detail-refresh-failure-and-local-retry"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "refresh-displays-new-source-snapshot-date"
+    },
+    {
+      "implementation": "candidate",
+      "tab": "plan",
+      "check": "sort-no-existing-ui-authoritative-fixed-order"
+    }
+  ],
+  "errors": [],
+  "network": [
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/index.html",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/@vite/client",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/main.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/@react-refresh",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214183918/deps/react.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214183918/deps/react-dom_client.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-module-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/baseline-inventory-module-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/globals.css",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214183918/deps/react_jsx-dev-runtime.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/node_modules/vite/dist/client/env.mjs",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214183918/deps/react-DGPCLjpP.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/ui/summary-filter.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/inventory/warehouse-classification.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/ai-page-context-provider.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/module-view-business-ui.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-guangdong-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-filter-bar.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-workbench-panels.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/module-view-shared.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/inventory/replenishment-batch.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-region-notice.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/inventory/read-regions.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/vite-cache-1791214183918/deps/react-dom.js",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/baseline-inventory-guangdong-view.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/.runtime/inventory-independent-ui/baseline-inventory-filter-bar.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/ui/searchable-select.tsx",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/netshop/periods.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/config/inventory-warehouse-mapping.json",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/app/inventory-guangdong.module.css",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/netshop/query-contract.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/netshop/insights-contract.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/netshop/store-overview-contract.ts",
+      "state": "response",
+      "status": 200
+    },
+    {
+      "implementation": "candidate",
+      "path": "/lib/http/api-error.ts",
+      "state": "response",
+      "status": 200
+    }
+  ],
+  "failures": []
+}

@@ -1,0 +1,58 @@
+{
+  "baseline-paired.json": {
+    "sha256": "1e308211a8b3944a93a63cf3318d8c9581966d09315504846da2432a5d48934b",
+    "source": ".runtime/inventory-performance-pg-6c780345818a071d/benchmark.json"
+  },
+  "progressive-final.json": {
+    "sha256": "a38a2e8c5b020dcffb9d0dab8ef0c25860f99cd0b438ddf06dabd0d4c0a7a24d",
+    "source": ".runtime/inventory-performance-pg-137b09de8eb718fd/progressive-benchmark.json"
+  },
+  "consumer-check.json": {
+    "sha256": "1a95ee88bcfb7102f898fcb1898cff5d15ceff3b0462d206e5856e29652dbea2",
+    "source": ".runtime/inventory-performance-pg-4328f9b1a4fe83a2/consumer-check.json"
+  },
+  "ui-all-pages.json": {
+    "sha256": "9e508e1fb4b9ca191ff1ee2086212a4f222c68cadcdce045e6ffd961eefe9bc5",
+    "source": ".runtime/inventory-independent-ui/history-2026-10-05T15-20-55.695Z/result.json"
+  },
+  "ui-guangdong-final.json": {
+    "sha256": "8879aaa22e84fa763a71fc39e7bd9b4569a3f046abd0b53194254eb560b761ff",
+    "source": ".runtime/inventory-independent-ui/history-2026-10-05T15-24-23.121Z/result.json"
+  },
+  "ui-plan-final.json": {
+    "sha256": "4bdc9f378abacab1ab96db09aa5512fa2282fac49d3d3ae3512f2f4d8b537c44",
+    "source": ".runtime/inventory-independent-ui/history-2026-10-05T15-32-06.564Z/result.json"
+  },
+  "ui-identity-empty-final.json": {
+    "sha256": "d57b6d52796c6f8153f492bbb24bcfb84b19c69fa685136bfe123365f2510e78",
+    "source": ".runtime/inventory-independent-ui/result.json"
+  },
+  "cache-independent.json": {
+    "sha256": "bee196e01133f03cefdf2f0a479c2a43d1179538ee5ddf55ef63db219e0b1340",
+    "source": ".runtime/inventory-independent-ui/cache-independent-result.json"
+  },
+  "pg-independent.json": {
+    "sha256": "4505b45b46a942a2262e5a9c06dbc2a4579ae3367142b407b4ad09812e818a85",
+    "source": ".runtime/inventory-independent-pg-03b12e306b4a3dce/pg-independent-result.json"
+  },
+  "typescript-baseline-comparison.json": {
+    "sha256": "cf1b5ba322a108ffe627eaa467f54c58c776d44ec10301bb667872bdbce85c5f",
+    "source": ".runtime/inventory-tsc-comparison.json"
+  },
+  "preview-smoke.json": {
+    "sha256": "54c497ffd8ba71b482562c3e9c4324ae29faf338e0b63aaadf7fbf8a88001f33",
+    "source": ".runtime/inventory-independent-ui/preview-smoke-result.json"
+  },
+  "ui-message-preview.json": {
+    "sha256": "d57b6d52796c6f8153f492bbb24bcfb84b19c69fa685136bfe123365f2510e78",
+    "source": ".runtime (synthetic UI only)"
+  },
+  "guangdong-existing-ui.json": {
+    "sha256": "c53be72c838aaa9fe8bb1f0d499223d589590262bb71e8d5fed2ae8f58e904c8",
+    "source": ".runtime (synthetic UI only)"
+  },
+  "validation-summary.json": {
+    "sha256": "431a3b5474aabbe91db32f2c354de6ff79152e175f35610a421adf022ec48e6e",
+    "source": "final validation logs and source fingerprints"
+  }
+}

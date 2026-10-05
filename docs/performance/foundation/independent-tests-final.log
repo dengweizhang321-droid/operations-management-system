@@ -1,0 +1,23 @@
+✔ independent: a late subscriber's own deadline leaves earlier subscriber alive (37.277ms)
+✔ independent: cancellation during body does not cancel a surviving subscriber (2.2324ms)
+✔ independent: invalidation followed by old transport rejection cannot finish the replacement (13.3023ms)
+✔ independent: lifetime is measured from first request, not extended by late joining (37.3877ms)
+✔ independent: exhausted transport capacity still permits an existing exact-key subscriber (1.0025ms)
+✔ independent: completed capacity-one reads can be awaited sequentially without a cleanup turn (1.6418ms)
+✔ independent: user, permission, date, filter, version, and response header dimensions never join (1.1899ms)
+✔ independent: each of four representative endpoints can opt in without completed-result reuse (12.6183ms)
+✔ independent: an undefined body rejection remains a failure for every subscriber (0.7309ms)
+✔ independent: observed transport honors its declared options.signal (0.1965ms)
+✔ independent: active observed options.signal reaches fetch and cancels a pending body (11.6498ms)
+✔ independent: the default requestJson remains uncapped and preserves writes (8.5199ms)
+✔ independent: loading region escapes labels, hides spinner and does not steal keyboard focus (6.7735ms)
+✔ independent: old preload failure after reset cannot clear a newer code load (0.3753ms)
+✔ independent: recorder wraps in chronological order and stores only numeric allowlisted spans (0.3535ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 471.6967

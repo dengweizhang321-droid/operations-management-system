@@ -1,0 +1,299 @@
+{
+  "sourceCommit": "2f46e1a998264a15ed514165942c5ecccd4fc044",
+  "worker": {
+    "status": "planned",
+    "version": "teruisi-local-worker-release-rotation-plan-v1",
+    "planSha256": "a82cca1d598bdadd2e11a8f295df2b1c300d2bff87e46b80eee0b9baffaea698",
+    "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\a82cca1d598bdadd2e11a8f295df2b1c300d2bff87e46b80eee0b9baffaea698.json",
+    "predecessorReleaseId": "20261005T063949Z-62c5bbb1bc2901ab",
+    "candidateReleaseId": "20261005T185310Z-463d585110456a95",
+    "candidateManifestSha256": "d67a7cdddae2c0c9ca448e30e538699e584635c7bff02d9fd54fed7e9829c361",
+    "candidateGuardReceiptSha256": "16bb4dd45f95af77af035a17581025bbac06708691d9271c8608ec81ae859056",
+    "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+  },
+  "django": {
+    "id": "5cdf848db1a64ccaa17044c91e59b1d4",
+    "receiptSha256": "5f76ba6a96594bf1132da43642b8d623dffcf557e9b0e964ab83561cdd2a3dba",
+    "appFingerprint": "571077e2af2c4494a9e18c6f586b24705cc852161774db6ada3fdc86c1d92774",
+    "version": "teruisi-django-prepared-app-v1",
+    "runtimeRoot": "D:\\teruisi-runtime\\django-sales",
+    "predecessorManifestSha256": "426b1ab97341774a0b68656897af10d6131979b7899e52bf64884255e82ab49e",
+    "candidateManifestSha256": "c51eba5ae0b59e77793a77af51278c19b470c870c5da1adfea866e5c869a6ec5"
+  },
+  "verification": {
+    "verified": true,
+    "sourceCommit": "2f46e1a998264a15ed514165942c5ecccd4fc044",
+    "planSha256": "a82cca1d598bdadd2e11a8f295df2b1c300d2bff87e46b80eee0b9baffaea698",
+    "candidateReleaseId": "20261005T185310Z-463d585110456a95",
+    "candidateManifestSha256": "d67a7cdddae2c0c9ca448e30e538699e584635c7bff02d9fd54fed7e9829c361",
+    "predecessorReleaseId": "20261005T063949Z-62c5bbb1bc2901ab",
+    "protectedEntrypointsUnchanged": 11,
+    "djangoPreparedId": "5cdf848db1a64ccaa17044c91e59b1d4",
+    "djangoAppFingerprint": "571077e2af2c4494a9e18c6f586b24705cc852161774db6ada3fdc86c1d92774",
+    "sourceBindings": [
+      {
+        "file": "app/api/inventory/age-analysis/route.ts",
+        "sha256": "f9d140fa7f9175ebc87e620f7c599568788edc12d58437edee43025bc02131b9",
+        "target": "worker"
+      },
+      {
+        "file": "app/api/inventory/inbound-monitor/route.ts",
+        "sha256": "e21b28b6b9894d970cca7cceb31714a127d7acec2bc0966a0ec05ca2d071a7b0",
+        "target": "worker"
+      },
+      {
+        "file": "app/api/inventory/overview/route.ts",
+        "sha256": "34002ad4acb7df1b4b41033c86d2a1c80988440facf53cf7190e971c9a270255",
+        "target": "worker"
+      },
+      {
+        "file": "app/finance-annual-progress-view.tsx",
+        "sha256": "e8c0b8ac1fe93a32a65e4df4c018d142a08d840a7568319b1edf19e001b860da",
+        "target": "worker"
+      },
+      {
+        "file": "app/inventory-guangdong-view.tsx",
+        "sha256": "efb2ea7fd6fe243f98cda853dea5c387034318d8925fbcab0dd53d435dfb510b",
+        "target": "worker"
+      },
+      {
+        "file": "app/inventory-module-view.tsx",
+        "sha256": "617dbff463d9ee2cf4b3ab45d4cc4b4cb55a96bcaff4ac3c4a7267217dfa44ad",
+        "target": "worker"
+      },
+      {
+        "file": "app/inventory-region-notice.tsx",
+        "sha256": "9a5f8e6b7ec56175c13494eb77769e2a6cf2be43e512346243aac40437cea966",
+        "target": "worker"
+      },
+      {
+        "file": "app/market-master-admin-panel.tsx",
+        "sha256": "3520bf64d8ab04e18730923fc50c21b70c77b6395aaca20c120a6a0a6a6a5d11",
+        "target": "worker"
+      },
+      {
+        "file": "app/market-view.tsx",
+        "sha256": "f9a041963514365b7d07976c5b15c2b99b7d704a16916f2c247e455adea4e072",
+        "target": "worker"
+      },
+      {
+        "file": "app/page.tsx",
+        "sha256": "8d392a80f7373ac60b75b6f731de71ff0bbe1454d6c266e0bb78ef319b91def8",
+        "target": "worker"
+      },
+      {
+        "file": "app/product-module-view.tsx",
+        "sha256": "e0fa8e5ed6e21d244400e4ea3cc7f5f1e85150d987c77667a628b76a4b486eb0",
+        "target": "worker"
+      },
+      {
+        "file": "app/sales-category-view.tsx",
+        "sha256": "778f9343b13a3cc4f6f73b3f02396df4965ec730938ff65f9b74f8561c87ddc3",
+        "target": "worker"
+      },
+      {
+        "file": "app/sales-finance-views.tsx",
+        "sha256": "f865c08fda66ff08d222a722c6d9c6cfcb9a0b8eb75e94f6c1d2570db25ecac6",
+        "target": "worker"
+      },
+      {
+        "file": "app/sales-module-view.tsx",
+        "sha256": "6662a02464d0e0e1a9ddc2f59e96ee8c8f4380066fb3fc282d644c6330690d2e",
+        "target": "worker"
+      },
+      {
+        "file": "app/shell/module-loading-state.tsx",
+        "sha256": "91336997f792d1fe32dfe0d0bcdd2d1f18a260c06f467127cf6e62c0959c59d5",
+        "target": "worker"
+      },
+      {
+        "file": "app/shell/navigation-preload.ts",
+        "sha256": "0e49b127a7ab56d42ffcad80463fb276268d5b91fe08f3f53451076de64428bc",
+        "target": "worker"
+      },
+      {
+        "file": "app/shell/reloadable-lazy.tsx",
+        "sha256": "ab49fd36d8c3b28a0789b9dab0486aca1d10cf33c0a4535c6d263e6748fe0d0e",
+        "target": "worker"
+      },
+      {
+        "file": "app/shell/sidebar-navigation.tsx",
+        "sha256": "7e6b343e42b0ba0a64a5fbae82b82b44634105f5e9fea7b3e801d017cd56deaf",
+        "target": "worker"
+      },
+      {
+        "file": "backend/inventory/guangdong.py",
+        "sha256": "6f85a2dee380ffa91623f5e463c44d69457825929a96668d0b9cf7d67b1d6493",
+        "target": "django"
+      },
+      {
+        "file": "backend/inventory/guangdong_views.py",
+        "sha256": "6f3be448107f970f7f81e74aea923163e0f524256902a398473ffcda10d98598",
+        "target": "django"
+      },
+      {
+        "file": "backend/inventory/query.py",
+        "sha256": "2625dfa0389ab75394716e87547408ec3aa991ac81040097f91fc901bbe13d0b",
+        "target": "django"
+      },
+      {
+        "file": "backend/inventory/read_cache.py",
+        "sha256": "036104e955f1d9d1783441a241d9f556d636941791cda7604ce7559a7508c7ed",
+        "target": "django"
+      },
+      {
+        "file": "backend/inventory/regions.py",
+        "sha256": "bd942e918e800fc66fca512609bbf714b08b464c587fb5705835b17d7c229c19",
+        "target": "django"
+      },
+      {
+        "file": "backend/inventory/views.py",
+        "sha256": "d36861e4a7ee971d5282a1701f82b7eb89549eaff1371c1400f3f0e1f4611841",
+        "target": "django"
+      },
+      {
+        "file": "backend/market/admin.py",
+        "sha256": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92",
+        "target": "django"
+      },
+      {
+        "file": "backend/market/filter_cache.py",
+        "sha256": "462796d832ba8519db482edc2514a451e6d71f72646ddfc3db302a1a4c5c550b",
+        "target": "django"
+      },
+      {
+        "file": "backend/market/master_query.py",
+        "sha256": "4f9319396ac031a970a397a1f8bcad792ca43ce917cb3b5b3d59f27823d4db5e",
+        "target": "django"
+      },
+      {
+        "file": "backend/market/query.py",
+        "sha256": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec",
+        "target": "django"
+      },
+      {
+        "file": "backend/products/query.py",
+        "sha256": "3ae1004115ba9d08575103c6f11bb4bdc95e2ffa64eb48ab989e1c8cda5937f6",
+        "target": "django"
+      },
+      {
+        "file": "backend/sales/calculation_cache.py",
+        "sha256": "f7e4cf8f1e7f8b6e291b151711649a515e690e5603c70fbfa983bbca4f8834d4",
+        "target": "django"
+      },
+      {
+        "file": "backend/sales/category.py",
+        "sha256": "b662283178699d6bb1fc7255cbae588cbd05390f4f9d876f448deff1ebf6147d",
+        "target": "django"
+      },
+      {
+        "file": "backend/sales/consumers.py",
+        "sha256": "f15cad07af02ec998c9d532a2a28d9a801f9bb7080e73aacae728c65ba3314de",
+        "target": "django"
+      },
+      {
+        "file": "backend/sales/summary.py",
+        "sha256": "bc3b45f4444ba696f6de373a966058b5be90d706de9a48085bd5bc3889579f29",
+        "target": "django"
+      },
+      {
+        "file": "backend/sales/views.py",
+        "sha256": "473247b594b8734d2281e61dd34ab2e3bd9d45bd24514935266bb79a17a5b186",
+        "target": "django"
+      },
+      {
+        "file": "lib/django/sales-gateway.ts",
+        "sha256": "38857d14e8281120b9c421b2d532d838334c8d63a937bd98648aec1716d4686f",
+        "target": "worker"
+      },
+      {
+        "file": "lib/http/api-client.ts",
+        "sha256": "e82a5a47ead60d636b4945a800b6f7f2214e89c6c0d5410299da994149e3c41a",
+        "target": "worker"
+      },
+      {
+        "file": "lib/http/performance.ts",
+        "sha256": "3e1bcbf46b77b090479992b5d536bd849b2663930654cae93fe42f7c623d0d89",
+        "target": "worker"
+      },
+      {
+        "file": "lib/http/read-client.ts",
+        "sha256": "73d13f2322d76b8db4de4e36739fbe5d5f405fad52842b087a0a6bb6f866e219",
+        "target": "worker"
+      },
+      {
+        "file": "lib/inventory/read-regions.ts",
+        "sha256": "e50e17079fe93bfa901e4d84c6b5723ca97bf69b799c22944ec199a2f60f855e",
+        "target": "worker"
+      },
+      {
+        "file": "lib/products/detail-contract.ts",
+        "sha256": "cf8e4df450929a3c26bf836673463410c65f24f35aa437d986ee8f188597c9c0",
+        "target": "worker"
+      },
+      {
+        "file": "lib/products/read-contract.ts",
+        "sha256": "a939b596b6969128df7a1f9cb7fed267beb05e592070a3aec649792d2f24015a",
+        "target": "worker"
+      },
+      {
+        "file": "lib/products/summary.ts",
+        "sha256": "6c439f6481e31e3ac7f3fa8ee2e2dde8680fe39f99ce489d84362c682aef32b8",
+        "target": "worker"
+      },
+      {
+        "file": "lib/sales/category-response.ts",
+        "sha256": "d0cd84b526cb0c705d30f41abe4ad133ef80684f7795616c2f92e681c18a0858",
+        "target": "worker"
+      },
+      {
+        "file": "lib/sales/summary-response.ts",
+        "sha256": "f767bd70abed8166914b2b9da0d68a5e8fb2bb9a1e4fac95d738db837442cf68",
+        "target": "worker"
+      },
+      {
+        "file": "lib/sales/view-response.ts",
+        "sha256": "47f0a274e391ef56062d15e74149d406f7fdc51848e2a52346a9ff425fe23f41",
+        "target": "worker"
+      }
+    ],
+    "excludedTestSources": [
+      "backend/inventory/tests/test_read_cache.py",
+      "backend/market/tests/test_complete_performance.py",
+      "backend/products/tests/test_progressive.py",
+      "backend/sales/tests/test_api.py",
+      "backend/sales/tests/test_performance.py"
+    ],
+    "productionAdopted": false
+  },
+  "migration": {
+    "migrationSourceFiles": 149,
+    "changed": [],
+    "requiresMigration": false
+  },
+  "after": {
+    "state": "Running",
+    "backendState": "Ready",
+    "workerState": "exact_release",
+    "releaseId": "20261005T063949Z-62c5bbb1bc2901ab",
+    "components": {
+      "core": true,
+      "finance": true,
+      "netshop": true,
+      "market": true,
+      "products": true,
+      "workflow": true,
+      "inventory": true,
+      "customerService": true,
+      "accessControl": true,
+      "erpReference": true,
+      "bi": true,
+      "ai": true
+    }
+  },
+  "automation": {
+    "id": "automation-6",
+    "status": "PAUSED"
+  },
+  "productionAdopted": false
+}

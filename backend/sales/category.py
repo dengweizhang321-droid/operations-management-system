@@ -8,6 +8,7 @@ from django.db.models import BigIntegerField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce, TruncMonth, TruncWeek
 
 from .auth import Principal
+from .calculation_cache import reuse
 from .query import (
     SalesRequestError,
     ISO_DATE_RE,
@@ -210,7 +211,7 @@ def _period_annotation(queryset, granularity: str):
     return queryset.annotate(period_key=F("business_date"))
 
 
-def _trend_rows(params: dict[str, Any], principal: Principal, categories: Sequence[str], *, recent_periods: int | None = None) -> list[dict[str, Any]]:
+def _trend_rows(params: dict[str, Any], principal: Principal, categories: Sequence[str], *, recent_periods: int | None = None, all_periods: bool = False) -> list[dict[str, Any]]:
     if not categories:
         return []
     queryset, _ = _base(params, principal)
@@ -220,7 +221,7 @@ def _trend_rows(params: dict[str, Any], principal: Principal, categories: Sequen
     grouped = queryset.values("period_key", "resolved_category").annotate(**keep).order_by(
         "period_key", "-net_sales_cents", binary_order("resolved_category")
     )
-    rows = list(grouped if recent_periods is not None else grouped[:3000])
+    rows = list(grouped if recent_periods is not None or all_periods else grouped[:3000])
     for row in rows:
         value = row["period_key"]
         normalized = value.isoformat() if hasattr(value, "isoformat") else str(value)
@@ -270,7 +271,10 @@ def get_category_analysis(params: dict[str, Any], principal: Principal) -> dict[
     if params["sortBy"] not in SORT_KEYS:
         raise SalesRequestError("sortBy 无效")
     comparisons = _comparison_periods(params["startDate"], params["endDate"])
-    current_rows, scope_mode = _grouped_with_comparisons(params, principal, comparisons)
+    # Sorting, page size and trend granularity do not change these totals.
+    scope = {key: value for key, value in params.items() if key not in {"sortBy", "direction", "page", "pageSize", "granularity"}}
+    current_rows, scope_mode = reuse("category-comparisons", scope, principal,
+        lambda: _grouped_with_comparisons(params, principal, comparisons))
     totals = _summary(current_rows)
     total_net = int(totals["netSalesCents"])
     metrics = [_serialize_category(row, total_net) for row in current_rows]
@@ -291,13 +295,20 @@ def get_category_analysis(params: dict[str, Any], principal: Principal) -> dict[
         ordered = sorted(metrics, key=lambda item: (item[key] is not None, item[key] or 0, binary_text_key(item["category"])))
     offset = (params["page"] - 1) * params["pageSize"]
     details = ordered[offset : offset + params["pageSize"]]
-    detail_trends = _trend_rows(params, principal, [item["category"] for item in details], recent_periods=DETAIL_TREND_PERIOD_LIMIT)
+    detail_categories = [item["category"] for item in details]
+    top_categories = [item["category"] for item in ranking[:TREND_CATEGORY_LIMIT]]
+    # One aggregation for both views; apply their distinct period/row bounds
+    # afterwards, preserving the established ordering and response contract.
+    combined_trends = _trend_rows(params, principal, sorted(set(detail_categories + top_categories)), all_periods=True)
+    detail_trends = [row for row in combined_trends if row["resolved_category"] in detail_categories]
+    recent = set(sorted({row["period_key"] for row in detail_trends}, reverse=True)[:DETAIL_TREND_PERIOD_LIMIT])
+    detail_trends = [row for row in detail_trends if row["period_key"] in recent]
+    detail_trends.sort(key=lambda row: (row["period_key"], binary_text_key(row["resolved_category"])))
     trend_by_category: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in detail_trends:
         trend_by_category[row["resolved_category"]].append(row)
     details = [{**item, "trend": _category_trend(trend_by_category[item["category"]])} for item in details]
-    top_categories = [item["category"] for item in ranking[:TREND_CATEGORY_LIMIT]]
-    trend_rows = _trend_rows(params, principal, top_categories)
+    trend_rows = [row for row in combined_trends if row["resolved_category"] in top_categories][:3000]
     uncategorized = next((item for item in metrics if item["category"] == "未分类"), None)
     uncategorized_net = int(uncategorized["netSalesCents"]) if uncategorized else 0
     uncategorized_products = int(uncategorized["productCount"]) if uncategorized else 0
@@ -346,7 +357,9 @@ def get_category_analysis(params: dict[str, Any], principal: Principal) -> dict[
             "sort": {"by": params["sortBy"], "direction": params["direction"]},
             "trend": {"granularity": params["granularity"], "periodLimit": DETAIL_TREND_PERIOD_LIMIT},
         },
-        "filterOptions": _filter_options(params, principal),
+        "filterOptions": reuse("category-options", {key: value for key, value in scope.items()
+            if key not in {"categories", "channels", "platforms", "outlets"}}, principal,
+            lambda: _filter_options(params, principal)),
     }
 
 

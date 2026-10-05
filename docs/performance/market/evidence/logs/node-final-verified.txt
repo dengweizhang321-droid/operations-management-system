@@ -1,0 +1,48 @@
+✔ market ranking keeps master administration behind a direct lazy boundary (13.1701ms)
+✔ fresh production artifacts keep market administration out of the page entry budget (65.4471ms)
+✔ market master database first paint excludes deferred price, image, prompt, and model work (19.0593ms)
+✔ market master filter aggregates start only after the paginated first paint and remain cancellable (3.0208ms)
+✔ deferred database details are explicit, cancellable, generation-fenced, and models load once (3.5906ms)
+✔ parallel market master channels cannot clear each other's errors or expose stale secondary rows (2.2638ms)
+✔ market settings loads a lightweight truthful status instead of reusing ranking overview (3.2704ms)
+✔ market master view projection preserves the legacy default but rejects duplicates and unknown values (1.0451ms)
+✔ market master pagination applies the unique id tie-breaker inside and outside both query paths (1.5497ms)
+✔ market overview can read precomputed effective metrics without rebuilding anchor windows (1.8509ms)
+✔ market schema and migration persist cache rows and their source revision (8.6583ms)
+✔ effective-metrics refresh updates the cache without deleting every persisted row first (1.3827ms)
+✔ market and netshop mutations invalidate the persisted effective-metrics revision (2.3314ms)
+✔ effective-metrics netshop invalidation is scoped identically in runtime and migration (4.8648ms)
+✔ market UI requests lightweight ranking data and aborts superseded requests (2.0865ms)
+✔ aborting the prefetch subscriber does not cancel a joined page load (20.7829ms)
+✔ aborting the page subscriber does not cancel a joined prefetch (0.6941ms)
+✔ the shared market request aborts only after its last subscriber leaves (0.5027ms)
+✔ market overview response cache is canonical, version-invalidated, and coalesces duplicate loads (51.2856ms)
+✔ exact market revisions invalidate same-second batch, image, and taxonomy changes (5.3381ms)
+✔ market cache validators fail closed on valid JSON with the wrong surface shape (4.649ms)
+✔ shared market cache capacity remains bounded and usable across mixed surfaces (14.743ms)
+✔ market overview and filter single-flight streams are isolated by database (6.1158ms)
+✔ market overview and filter single-flight entries are removed after loader errors (3.7088ms)
+✔ market overview and filter cache misses close their revision fence and retry only once (5.1104ms)
+✔ market filter options use a separate revision-aware cache (4.2086ms)
+✔ legacy market response cache schema remains migratable while the active route uses Django (2.4695ms)
+✔ system KPI cache is persistent, single-flight, and invalidated by every KPI dependency (33.9511ms)
+✔ market identity updates invalidate a previously cached system KPI payload (2.8898ms)
+✔ system KPI single-flight is isolated by database identity (4.2387ms)
+✔ system KPI cache never persists a payload while its revision keeps moving (3.0184ms)
+✔ controlled master-identity refresh bumps once, rolls back cleanly, and leaves direct writes observable (60.5751ms)
+✔ system KPI cache runtime schema and forward migration keep the same dependency triggers (21.1498ms)
+✔ pending-price history starts from snapshots and uses the representative identity-month index (1.4829ms)
+✔ market overview rejects single, duplicate, impossible, and reversed dates before database access (5.3386ms)
+✔ market overview pagination is strict decimal and facet selection has a shared hard ceiling (1.7695ms)
+✔ market route validates before the Django gateway and retained migration SQL keeps bounded JSON bindings (11.4008ms)
+✔ market GET preserves range errors without retrying (33.2602ms)
+✔ market GET deadline includes a stalled response body and clears the request (16.7875ms)
+✔ a cancelled filter read cannot accept a late successful body (1.0451ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1157.6573
