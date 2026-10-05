@@ -10,7 +10,7 @@
 - [120商品可操作候选实验](http://127.0.0.1:3138/.runtime/product-overview-lab/index.html?implementation=candidate) / [原版对照](http://127.0.0.1:3138/.runtime/product-overview-lab/index.html?implementation=baseline)：120商品、3600条销售、120条库存、120条费率，固定2026-09月，包含退款、费率0/5%、库存成本缺失。使用真实两版本React组件和真实领域SQL；实验专用固定合成principal，未包含正式鉴权或主导航lazy代码加载，GET仅查询。
 - [可播放截图时间轴和完整报告](http://127.0.0.1:3138/.runtime/product-overview-lab/evidence/report.html)。原始CDP帧有实际时间戳，无人为接口延迟。完整证据保存在 `E:\codex-artifacts\product-overview-speed-20261005`，包含逐次JSON、测试/构建日志、截图及SHA-256清单；不包含数据库文件、密码或原始客户资料。
 
-私有PostgreSQL使用独立随机非5432端口、临时凭据、全新目录；每次正常停止，未连接正式数据库。主导航测量与领域实验分开；主导航Vite开发预览的初次模块加载原样本约444ms、候选约147ms出现试点框架，但各一条冷模块样本不能证明稳定打包性能。资源Timing保存模块加载、API等待与响应传输，领域实验Server-Timing保存SQL、领域计算和JSON序列化；DOM提交与后续两次rAF的绘制时点分别记录。Python非SQL时间包含游标取行和物化，不能冒纯CPU时间。
+私有PostgreSQL使用独立随机非5432端口、临时凭据、全新目录；每次正常停止，未连接正式数据库。主导航测量与领域实验分开；主导航Vite开发预览的初次模块加载原样本约444ms、最终候选样本约158ms出现试点框架，但各一条冷模块样本不能证明稳定打包性能。资源Timing保存模块加载、API等待与响应传输，领域实验Server-Timing保存SQL、领域计算和JSON序列化；DOM提交与后续两次rAF的绘制时点分别记录。Python非SQL时间包含游标取行和物化，不能冒纯CPU时间。
 
 ## 已确认瓶颈和采用方案
 
@@ -21,6 +21,14 @@
 完整基行进程缓存最多4个基础范围、总16MiB不可变JSON、TTL120秒；key绑定数据库身份、authority、principal email/role/scope、完整基础日期口径、平台、店铺和snapshot。搜索、品类、毛利区间和排序仍在完整基行上重新应用，不进入一个不完整范围键。销售+ERP revision、products revision和库存投影控制前后复验，每次命中也验证；事务/非autocommit绕过，loader失败或版本变化不发布。锁等待最多5秒，原SQL/服务期限未放宽。超容量或不可缓存时initial请求内联完整full（仍只当前页50行），不再请求overview，防止完整扫描加倍。没有前端回访缓存、全站预取或永久挂载。
 
 sales `product_performance.includeBounds`为严格布尔可选参数，默认true保持原消费响应；products显式false仅省略每个分块未使用的日期边界查询。完整rows、outlets、latestBatch、truncated及前后版本校验全部保留。全量统计、总数和排序没有使用当前页或截断集合代替。
+
+## 当前正式入口的只读上线前样本
+
+会话没有可用的TERUISI MCP，因此按用户明确指定本机项目，使用本机只读API作为替代；先读取`/api/sales/data-health`，来源`django_postgresql`、sales单写，覆盖2025-01-01至2026-10-04，覆盖昨天。随后只发18次GET，不保留业务行，只记录耗时、响应字节/摘要、版本、页码和总数。当前运行仍是前驱，没有候选改造后的生产数据。
+
+固定9月1—30、全平台全店、默认净额降序、每页50，该正式范围返回1290个商品；新日期9月10—30返回1180。筛选使用真实候选中的一个品类，返回2个商品，未在证据保存品类名称。三个重复的API完整耗时中位（ms）：打开856、翻页870、排序915、品类筛选978、新日期796、同范围刷新824。本次第一请求2899，后两次同范围打开797–856；不把第一请求机械称缓存未命中，前驱没有本轮计算缓存。18个响应均200，见归档`product-live-baseline.json`。
+
+这组样本在在线候选准备并行期间读取，含正常机器负载；不是稳定性能/P95，也没有浏览器呈现计时。它与下面不同数据、不同权限连接/端口的合成候选不能直接作生产前后对比。正式改造后同范围性能要待本次采用批准之后再验。
 
 ## 性能结果
 
@@ -54,10 +62,10 @@ sales `product_performance.includeBounds`为严格布尔可选参数，默认tru
 
 ## 正确性、回归和独立复核
 
-- 作者/独立私有PG各28项通过：旧导入/幂等/库存投影回归、新投影签名与非法参数、缓存容量/TTL/并发/失败/事务、ERP与products版本变化和读取中更新、oversize一次扫描。
+- 作者/独立私有PG各28项通过：旧导入/幂等/库存投影回归、新投影签名与非法参数、缓存容量/TTL/并发/失败/事务、ERP与products版本变化和读取中更新、oversize一次扫描、真实无销售的新投影日期见证与旧full兼容。
 - 作者48种小范围排序/筛选组合与原31d完整对象精确相等；规模21组精确相等。独立真实SQL22范围×3投影通过，金额、退货、成本、费用、毛利、库存缺失/0、费率缺失/0、总数、顺序与明细保持。
-- 独立浏览器10组通过：日期/搜索/排序/分页快速交错、旧响应故意忽略abort后迟到、错页拒绝、分布失败仍保留明细、刷新失败、版本变化有界恢复、页失败后的下一次请求不跳页、oversize不发overview。毛利测算和规格详情按原范围回归通过；独立缓存5组负向通过。
-- 相关Node17项通过。全量unit首次3225通过/8失败/22跳过（3255总计）：7项缺本树独立test-venv，1项旧源码断言变量名变化。保留原日志；补齐锁定依赖和更新本轮相关断言后，失败全集对应57项定向通过，不追认旧全量为全绿。独立Node14项通过。
+- 独立浏览器11组通过：日期/搜索/排序/分页快速交错、旧响应故意忽略abort后迟到、错页拒绝、分布失败仍保留明细、刷新失败、版本变化有界恢复、页失败后的下一次请求不跳页、oversize不发overview、无销售与真实0/缺失区分。毛利测算和规格详情按原范围回归通过；独立缓存5组负向通过。
+- 最后相关Node25项通过。全量unit首次3225通过/8失败/22跳过（3255总计）：7项缺本树独立test-venv，1项旧源码断言变量名变化。保留原日志；补齐锁定依赖和更新本轮相关断言后，失败全集对应57项定向通过，不追认旧全量为全绿。独立Node14项通过。
 - lint 0错误、14个未触及文件旧警告；本轮文件定向lint0错误。最终隔离生产构建通过；预览smoke通过。
 - 全项目TypeScript仍有旧诊断；完整抽取31d基线与候选作同口径对比，基线和候选均188项完全相同诊断，无新增诊断。未把已有类型欠账说成修好。
 
@@ -69,6 +77,21 @@ Worker专用候选来源须基于当前已采用固定来源，仅组合本轮�
 
 本轮只准备不可变候选。上线需本次明确批准，按原唯一入口排空、前备份/独立恢复、KeepPostgres应用维护、采用准确Django/Worker候选、最终12Ready/资源/业务范围及后备份验收。预计影响为Worker及Django应用维护期间页面暂不可用；PG/n8n保留，实际窗口时长未承诺。无新增迁移/回填，兼容代码恢复保留原full/page协议；回退只能走原受控兼容包/前向恢复，不回滚业务数据、删历史回执或绕过guard。
 
-候选准确提交/合并/远端/准备收据将在准备后追加。来源、预览和候选仍使用本树，所以本轮worktree暂保留；不能为清理中断可查看预览。
+### 已完成的合并与真实准备
+
+主开发提交`407fb2a81f1f954893bef24c92b11a8265ce7805`已FF合入main，并推送/回读GitHub远端main相同SHA。开发分支也已推送。独立复核将28PG/11UI/5缓存的源码摘要绑定此提交；本节后续文档提交不改变业务源码。
+
+Worker专用来源`D:\运营管理系统-sales-django-release`的原`7ced503b5745bf275d2039f1c35d803f520fbca2`上仅追加五文件组合`e4c3dae7936852fda723ccf049e1f18df6f9c39d`，分支`codex/product-overview-worker-candidate`；相对原来源4mod+1add，所有app/lib共683文件与受测407源码逐SHA完全一致，保留原helper/lifecycle。该组合已同步到其配置的本机origin仓库对应ref，原直接push因SYSTEM所有权检查拒绝，改从已受信任主仓库反向fetch同步，没有放宽global safe.directory或改变用户分支。
+
+- Django真实PrepareApp exit0：`cb6bbad9cb024baca54048b07bcb410f`，receipt SHA `ba858d4d4906c30d0e765296e70869fb98ecf75e097cafe28fa164780680b203`，候选manifest `426b1ab9`前缀，fingerprint `f0077445e967e6bdb595ed90f41fa78f4fe81f5939e12fb11f0cad651ec4d162`。收据在 `D:\teruisi-runtime\django-sales\app.prepare-cb6bbad9cb024baca54048b07bcb410f.json`。独立完整2918文件ordinal-v2重算/4业务文件绑定/149迁移源及100工具配置文件与前驱相等/R2真实put-get-delete往返通过；前驱仍`e4f48e98`。**只Prepared，未Deploy**。
+- Worker真实`plan --prepare-online` exit0，plan `e960d33b653193cac1f6c46024eef26da8691b9c8076a8de16af392c10c60ac1`，候选 `20261005T052256Z-8f767afa89696df8`，manifest `2a3569906170bc258030249e5e727256e55f4dd146b6ffcbe513bb48bfac7606`，guard `83024cb00fa1ec2d9778ca83c71f6c37d328edea7e99fba2f183ead7893e6aec`；绑定前驱 `20261004T203845Z-d5c7953e916f69ec`。plan收据在 `D:\teruisi-runtime\teruisi-worker-sales\state\worker-release-rotation-plans\e960d33b653193cac1f6c46024eef26da8691b9c8076a8de16af392c10c60ac1.json`。**只Planned，未apply/Start**。独立原准备路径完整核验4312 source文件、154 dist文件、31248依赖文件、helper/guard/退役合同/硬链接通过；683 app/lib逐SHA绑定407受测树，helper和9份release工具与前驱全等；计划/sidecar/原payload/11受保护入口重建全等。前驱原不可变verifier和末次fresh复验均`exact_release`，effective及chainState不变。
+
+独立第一次误走public Verify的调用在末尾正确拒绝尚未成为effective head的候选，拒绝日志保留；随后按原Prepare实际内部路径验证，结果为`preparation_verified`，不签启动授权回执。不能将其解释为候选运行或public Verify已授权启动。
+
+最终独立复核 `final-review.json` SHA `ac10c82d05a9346fd6c1bb1d208c9764f1d43a649e6ad6ee174083206e7ad124`，绑定407业务源码、28PG/11UI/5缓存和两份真实Prepared，未闭合代码阻断0。正常原Worker与Django部署仍为前驱；不把Prepared或18次原API200冒新代码生产采用。
+
+来源、预览和Prepared收据仍使用本开发树及固定来源组合，所以本轮worktree/两候选分支暂保留；不能为清理中断可查看预览或丢弃准备来源。下一次如果前驱变化或源码改动，需要按原门禁重新准备，以上记录不授予维护、发布或未来补跑许可。
 
 可推广的做法是先按依赖拆区域、共享完整计算、以范围+版本双绑定、局部失败与保留成功内容、独立记录DOM/绘制/取数时间；本轮没有推广到全站。后续先解决新日期冷范围查询计划及小规模交互渲染开销，再考虑其他模块。
+
+尚未测量多账号/多个冷基础范围并发时的生产P95与锁等待；本轮验证了同key单次计算和有界失败，但不冒全站并发性能。当前阶段可批准的是本次准确候选及一次原应用维护，不能授予未来任意维护/重放。
