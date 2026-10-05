@@ -1,0 +1,693 @@
+{
+  "version": "jackyun-oct4-production-20261005-v1",
+  "status": "adopted_and_business_verified",
+  "checkedAt": "2026-10-05T01:28:39.174Z",
+  "authorization": {
+    "date": "2026-10-05",
+    "purpose": "补充4号数据",
+    "approved": true,
+    "scope": "本次 Worker/helper 候选采用及原 6165 绑定任务恢复，不授予未来维护或新日期补跑"
+  },
+  "source": {
+    "commit": "c2adc4cac8a5d75ec5aa62135b1cdd1847c958eb",
+    "pullRequest": 59,
+    "main": "b1a62741d1fa2534bbbb401251db2e5d5ba7fcc5",
+    "runtimeComposite": "7ced503b5745bf275d2039f1c35d803f520fbca2",
+    "files": [
+      "docs/JACKYUN_SESSION_API_EXPORT.md",
+      "lib/jackyun/api-execution-resume.ts",
+      "tests/jackyun-api-execution-resume.test.ts"
+    ],
+    "validation": {
+      "tests": 283,
+      "lint": "passed",
+      "build": "passed",
+      "helperBundleAndSyntax": "passed",
+      "backendBoundary": "passed",
+      "original6165ReadonlyPlan": "passed"
+    }
+  },
+  "adoption": {
+    "status": "activated",
+    "version": "teruisi-local-worker-release-successor-v1",
+    "planSha256": "acd4adfd6be5f22ab5e4b2ba7c5e4c257936dff8052f33f1d5c0f43b6f7b6f89",
+    "predecessorReleaseId": "20261004T154501Z-5a6e049ba6ecd7fe",
+    "releaseId": "20261004T203845Z-d5c7953e916f69ec",
+    "manifestPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261004T203845Z-d5c7953e916f69ec\\deployment-manifest.json",
+    "manifestSha256": "10c9153e2b0ccaf4effa32134442b0487b11e54027fac8e5e858cd6f1e5c6b5a",
+    "successorSha256": "49d83039d2eeb912534255221d990a69ffba1db2d56c3a9f9e523ff5218c310a",
+    "consumptionSha256": "1db2dcc66f684e948e5d72c89ac04ddaf4609bf27c327924b8c9d3027770d2d5",
+    "startupBindingSha256": "01c000db51381933cf3d39e8f43ff75df65d7bcb3ca72e9bec2d6570e07f910b",
+    "stopExitCode": 0,
+    "start": {
+      "controllerPid": 17232,
+      "controllerExitCode": 0,
+      "directControllerExited": true,
+      "outputCopyCompleted": false,
+      "elapsedMs": 84961,
+      "businessProcessesTerminated": false
+    },
+    "djangoManifestSha256": "e4f48e98178a77fac41ac269b40076f2c30bf449c8c5562e28a0a056f4ba22e1",
+    "djangoMigrationCount": 139,
+    "djangoRedeployed": false,
+    "migrationOrBackfill": false,
+    "postgresOrN8nRestarted": false,
+    "workflowDefinitionChanged": false,
+    "preservedBackendPostgresN8nProcessCount": 26,
+    "originalProcessesPreserved": true,
+    "startup": {
+      "status": "verified",
+      "version": "teruisi-local-worker-status-v1",
+      "releaseId": "20261004T203845Z-d5c7953e916f69ec",
+      "manifestSha256": "10c9153e2b0ccaf4effa32134442b0487b11e54027fac8e5e858cd6f1e5c6b5a",
+      "startupVerified": true
+    },
+    "service": {
+      "version": "teruisi-operations-system-control-v2",
+      "state": "Running",
+      "backendState": "Ready",
+      "workerState": "exact_release",
+      "releaseId": "20261004T203845Z-d5c7953e916f69ec",
+      "supervisorProcessId": 33624,
+      "portProcessId": 23196,
+      "url": "http://localhost:3000/",
+      "reason": null,
+      "components": {
+        "core": true,
+        "finance": true,
+        "netshop": true,
+        "market": true,
+        "products": true,
+        "workflow": true,
+        "inventory": true,
+        "customerService": true,
+        "accessControl": true,
+        "erpReference": true,
+        "bi": true,
+        "ai": true
+      },
+      "checkedAt": "2026-10-05T09:28:07.0227700+08:00"
+    },
+    "servedAssets": {
+      "pageStatus": 200,
+      "count": 17,
+      "allMatched": true
+    }
+  },
+  "business": {
+    "status": "verified_success",
+    "checkedAt": "2026-10-05T01:05:14.018Z",
+    "source": "local public read-only Django/PostgreSQL APIs and original artifacts; operations MCP unavailable",
+    "execution": {
+      "id": 6225,
+      "workflowId": "J8kY2mQ5vR7sT4pN",
+      "status": "success",
+      "mode": "manual",
+      "startedAt": "2026-10-05 00:59:55.318",
+      "stoppedAt": "2026-10-05 01:04:05.199"
+    },
+    "originalExecution": {
+      "id": 6165,
+      "status": "error",
+      "retrySuccessId": null
+    },
+    "originalInventoryTaskReused": true,
+    "inventoryTaskId": "sys-115251725",
+    "runId": "n8n-export-first-6165",
+    "snapshotDate": "2026-10-05",
+    "salesPeriod": {
+      "startDate": "2026-08-21",
+      "endDate": "2026-10-04"
+    },
+    "stages": [
+      {
+        "name": "手动运行",
+        "statuses": [
+          "success"
+        ]
+      },
+      {
+        "name": "固定原执行计划时间",
+        "statuses": [
+          "success"
+        ]
+      },
+      {
+        "name": "领取共享 helper",
+        "statuses": [
+          "success"
+        ]
+      },
+      {
+        "name": "helper 领取成功？",
+        "statuses": [
+          "success"
+        ]
+      },
+      {
+        "name": "A·固定采集日和销售日期",
+        "statuses": [
+          "success"
+        ]
+      },
+      {
+        "name": "B·接口校验与五表下载",
+        "statuses": [
+          "success"
+        ]
+      },
+      {
+        "name": "C·五表完整校验和导入演练",
+        "statuses": [
+          "success"
+        ]
+      },
+      {
+        "name": "D·统一导入运营管理系统",
+        "statuses": [
+          "success"
+        ]
+      },
+      {
+        "name": "E·独立核验五类精确批次",
+        "statuses": [
+          "success"
+        ]
+      }
+    ],
+    "modules": [
+      {
+        "module": "products",
+        "status": "completed",
+        "batchId": "products:43541db3fe9cc0d47d2d2f1763a1b4e30689072ee0be8f96473695b17203796a",
+        "rowCount": 8530,
+        "warningCount": 0,
+        "outputSha256": "13ba9c4bdc459ef9c61c3cf2cd0a0dcf339667740de77a81b02fb66fa4005064",
+        "djangoReceipt": {
+          "status": "imported",
+          "inputSha256": "13ba9c4bdc459ef9c61c3cf2cd0a0dcf339667740de77a81b02fb66fa4005064",
+          "batchId": "products:43541db3fe9cc0d47d2d2f1763a1b4e30689072ee0be8f96473695b17203796a",
+          "sourceKey": "products",
+          "contentHash": "2162fe777e1df554f3453ef35f3270dfa8d740931d6d7b530a693311d3d85418",
+          "rawFileHash": "13ba9c4bdc459ef9c61c3cf2cd0a0dcf339667740de77a81b02fb66fa4005064"
+        }
+      },
+      {
+        "module": "inventory",
+        "status": "completed",
+        "batchId": "bfa347ae6a590e4bc6dca56e7a944c33a8f983cc697434151c4264ba7e069488",
+        "rowCount": 24281,
+        "warningCount": 6,
+        "outputSha256": "f7b015b45916c581f5ae532ae6b09b0ae4be3dfe3dbbb0fec32c9824db516ab4",
+        "djangoReceipt": {
+          "status": "imported",
+          "inputSha256": "f7b015b45916c581f5ae532ae6b09b0ae4be3dfe3dbbb0fec32c9824db516ab4",
+          "batchId": "bfa347ae6a590e4bc6dca56e7a944c33a8f983cc697434151c4264ba7e069488",
+          "sourceKey": "inventory_stock",
+          "contentHash": "cdf298f82e223dd1f0c847b8a84a7a73f25cc1318e4a48e8328a77bcf3c8c260",
+          "rawFileHash": "f7b015b45916c581f5ae532ae6b09b0ae4be3dfe3dbbb0fec32c9824db516ab4"
+        }
+      },
+      {
+        "module": "inventory_age",
+        "status": "completed",
+        "batchId": "inventory_age:c42afbed566e74a34c152209d75e4f6dfad5756b58659d15eeba1696d5562e64",
+        "rowCount": 5663,
+        "warningCount": 0,
+        "outputSha256": "11e4ddee975387bdf5939621b15f1af16c5a4559a771a21056293583d80b4ff9",
+        "djangoReceipt": {
+          "status": "imported",
+          "inputSha256": "11e4ddee975387bdf5939621b15f1af16c5a4559a771a21056293583d80b4ff9",
+          "batchId": "inventory_age:c42afbed566e74a34c152209d75e4f6dfad5756b58659d15eeba1696d5562e64",
+          "sourceKey": "inventory_age",
+          "contentHash": "8d924cfa8c6b91d29bd38f9b415e1a6050f801f4597b79d5dc0edc79b7cf8509",
+          "rawFileHash": "11e4ddee975387bdf5939621b15f1af16c5a4559a771a21056293583d80b4ff9"
+        }
+      },
+      {
+        "module": "sales",
+        "status": "completed",
+        "batchId": "a74e6374c0499612cc80ccb20a8ea10e6cca80df3bc91036671c3a7409ad0669",
+        "rowCount": 38236,
+        "warningCount": 106,
+        "outputSha256": "08d47dbf35b8d3d98a7c9d40786b7b55d036d348f1e31c034f209f7a1334909b",
+        "salesPolicyVersion": "2026-09-30.1"
+      },
+      {
+        "module": "combos",
+        "status": "completed",
+        "batchId": "combos:544a352d7fb3c44496a195ea198bc38541fb0602b93cdcdd8f8853227ade4d54",
+        "rowCount": 4454,
+        "warningCount": 2,
+        "outputSha256": "380cf5b965c11657de2335fe863bdbe334bcad02de5c6ec48ac6a4cebdfa017e",
+        "djangoReceipt": {
+          "status": "duplicate",
+          "inputSha256": "380cf5b965c11657de2335fe863bdbe334bcad02de5c6ec48ac6a4cebdfa017e",
+          "batchId": "combos:544a352d7fb3c44496a195ea198bc38541fb0602b93cdcdd8f8853227ade4d54",
+          "sourceKey": "combos",
+          "contentHash": "ba872f9258641f1296408a3dd8fd74b904c87bbcfde957f18c9dbb1e17d7672a",
+          "rawFileHash": "6649618db4e229dc8fe0654765de49c78d83126ae2a3c9a0fd1ed9bddb6736c5"
+        }
+      }
+    ],
+    "originalFilesAndHandoffsVerified": true,
+    "workflowDefinitionUnchanged": true,
+    "manifestUnchangedDuringVerification": true,
+    "manifestSha256": "fa384841722fe4ce046a00b118807b98012381e13f014da8dca55cca9b58a6d0",
+    "salesHealth": {
+      "status": "available",
+      "source": "django_postgresql",
+      "authority": "sales_single_write",
+      "revision": "45:43",
+      "timeZone": "Asia/Shanghai",
+      "currentBusinessDate": "2026-10-05",
+      "expectedThroughDate": "2026-10-04",
+      "checkedAt": "2026-10-05T01:05:13.953Z",
+      "coverage": {
+        "startDate": "2025-01-01",
+        "cutoffDate": "2026-10-04",
+        "coveredDayCount": 642,
+        "lagDaysToCurrentBusinessDate": 1,
+        "throughYesterday": true
+      },
+      "latestBatch": {
+        "id": "a74e6374c0499612cc80ccb20a8ea10e6cca80df3bc91036671c3a7409ad0669",
+        "fileName": "销售单明细账_2026-08-21_2026-10-04_已筛选并匹配成本.xlsx",
+        "completedAt": "2026-10-05T01:03:54.248702+00:00",
+        "rowCount": 38236
+      }
+    },
+    "helperIdle": true
+  },
+  "backup": {
+    "pre": {
+      "status": "completed",
+      "backupId": "daily-20261005T002432Z-76e4218533e9",
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261005T002432Z-76e4218533e9",
+      "manifestSha256": "5481f19ad65793abab7abbc3c63eb67bee7d8b8ca3ccab5f9cf1f69343bf64f9",
+      "dumpSha256": "f2f2779f0d17ed0073beea6c190678c6e9d9cf9d31db159bae276dad434e1069",
+      "contentSha256": "0803a253bf7943cae1b24577f1c51eb2a42d7155816194bd938003fe58e8f06d",
+      "completedAt": "2026-10-05T00:31:19.0393509+00:00",
+      "serviceStateChanged": false,
+      "retention": {
+        "version": "teruisi-backup-retention-plan-v2",
+        "maximumRecoveryPoints": 3,
+        "retainedVerification": "full-evidence",
+        "discardedVerification": "container-integrity",
+        "retained": [
+          "daily-20261005T002432Z-76e4218533e9",
+          "daily-20260929T012900Z-ad2817875f20",
+          "daily-20260928T125351Z-31cb501bc72d"
+        ],
+        "removed": [
+          "daily-20261004T173347Z-fc69b6753939"
+        ],
+        "serviceStateChanged": false,
+        "status": "completed"
+      },
+      "releaseRetention": {
+        "serviceStateChanged": false,
+        "status": "completed",
+        "removedPayloads": 0
+      },
+      "verification": {
+        "status": "completed",
+        "backupId": "daily-20261005T002432Z-76e4218533e9",
+        "manifestSha256": "5481f19ad65793abab7abbc3c63eb67bee7d8b8ca3ccab5f9cf1f69343bf64f9",
+        "dumpSha256": "f2f2779f0d17ed0073beea6c190678c6e9d9cf9d31db159bae276dad434e1069",
+        "contentSha256": "0803a253bf7943cae1b24577f1c51eb2a42d7155816194bd938003fe58e8f06d",
+        "serviceStateChanged": false
+      },
+      "independentRestore": {
+        "version": "teruisi-postgres-restore-rehearsal-v1",
+        "status": "completed",
+        "rehearsalId": "2fe01d57e904",
+        "startedAt": "2026-10-05T00:37:20.6136141+00:00",
+        "completedAt": "2026-10-05T00:46:58.2419108+00:00",
+        "backupId": "daily-20261005T002432Z-76e4218533e9",
+        "backupManifestSha256": "5481f19ad65793abab7abbc3c63eb67bee7d8b8ca3ccab5f9cf1f69343bf64f9",
+        "dumpSha256": "f2f2779f0d17ed0073beea6c190678c6e9d9cf9d31db159bae276dad434e1069",
+        "expectedContentSha256": "0803a253bf7943cae1b24577f1c51eb2a42d7155816194bd938003fe58e8f06d",
+        "restoredContentSha256": "0803a253bf7943cae1b24577f1c51eb2a42d7155816194bd938003fe58e8f06d",
+        "isolatedPort": 55697,
+        "productionDatabaseTouched": false,
+        "serviceStateChanged": false,
+        "cleanupStatus": "isolated_data_removed",
+        "profileRestoreVerified": true,
+        "profileContentSha256": "f6254274a9868156b96cf48a854a94738ed9dedfadf84966991583dd7104b6df",
+        "policySyntaxEquivalenceVerified": false,
+        "policySyntaxWitnessSha256": ""
+      },
+      "currentRecoveryPoint": false
+    },
+    "post": {
+      "status": "completed",
+      "backupId": "daily-20261005T010737Z-273aeac11604",
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261005T010737Z-273aeac11604",
+      "manifestSha256": "39491cb730bfbb172281a39123a81c21fe612d762bfa441dd71c7989d4d90086",
+      "dumpSha256": "6a3ed8eaaff5d20635f4ef9fbbae93ec60d9b5f0b2418401152e5e0e44117f9d",
+      "contentSha256": "a8fc3ba4977681036b8059c974ce90a06465b0c65ed12d4422445e07b4406984",
+      "completedAt": "2026-10-05T01:14:05.5146083+00:00",
+      "serviceStateChanged": false,
+      "retention": {
+        "version": "teruisi-backup-retention-plan-v2",
+        "maximumRecoveryPoints": 3,
+        "retainedVerification": "full-evidence",
+        "discardedVerification": "container-integrity",
+        "retained": [
+          "daily-20261005T010737Z-273aeac11604",
+          "daily-20260929T012900Z-ad2817875f20",
+          "daily-20260928T125351Z-31cb501bc72d"
+        ],
+        "removed": [
+          "daily-20261005T002432Z-76e4218533e9"
+        ],
+        "serviceStateChanged": false,
+        "status": "completed"
+      },
+      "releaseRetention": {
+        "serviceStateChanged": false,
+        "status": "completed",
+        "removedPayloads": 0
+      },
+      "verification": {
+        "status": "completed",
+        "backupId": "daily-20261005T010737Z-273aeac11604",
+        "manifestSha256": "39491cb730bfbb172281a39123a81c21fe612d762bfa441dd71c7989d4d90086",
+        "dumpSha256": "6a3ed8eaaff5d20635f4ef9fbbae93ec60d9b5f0b2418401152e5e0e44117f9d",
+        "contentSha256": "a8fc3ba4977681036b8059c974ce90a06465b0c65ed12d4422445e07b4406984",
+        "serviceStateChanged": false
+      },
+      "independentRestore": {
+        "version": "teruisi-postgres-restore-rehearsal-v1",
+        "status": "completed",
+        "rehearsalId": "7b236da659f4",
+        "startedAt": "2026-10-05T01:17:31.2176153+00:00",
+        "completedAt": "2026-10-05T01:27:10.9965642+00:00",
+        "backupId": "daily-20261005T010737Z-273aeac11604",
+        "backupManifestSha256": "39491cb730bfbb172281a39123a81c21fe612d762bfa441dd71c7989d4d90086",
+        "dumpSha256": "6a3ed8eaaff5d20635f4ef9fbbae93ec60d9b5f0b2418401152e5e0e44117f9d",
+        "expectedContentSha256": "a8fc3ba4977681036b8059c974ce90a06465b0c65ed12d4422445e07b4406984",
+        "restoredContentSha256": "a8fc3ba4977681036b8059c974ce90a06465b0c65ed12d4422445e07b4406984",
+        "isolatedPort": 55698,
+        "productionDatabaseTouched": false,
+        "serviceStateChanged": false,
+        "cleanupStatus": "isolated_data_removed",
+        "profileRestoreVerified": true,
+        "profileContentSha256": "c4d3bd4dc4287864a1ab8a67d84c704746660695d56280203f40d667a1a5fe54",
+        "policySyntaxEquivalenceVerified": false,
+        "policySyntaxWitnessSha256": ""
+      },
+      "currentRecoveryPoint": true
+    },
+    "archive": {
+      "checkedAt": "2026-10-05T09:28:08.7700379+08:00",
+      "maximumRecoveryPoints": 3,
+      "protectedCount": 2,
+      "retained": [
+        {
+          "backupId": "daily-20261005T010737Z-273aeac11604",
+          "manifestSha256": "39491cb730bfbb172281a39123a81c21fe612d762bfa441dd71c7989d4d90086",
+          "threeFilesPresent": true,
+          "manifestMatches": true,
+          "protected": false
+        },
+        {
+          "backupId": "daily-20260929T012900Z-ad2817875f20",
+          "manifestSha256": "b93fa5c4c939f5dfbec9758b4d8fe7d7274465cbb1df0eb16028ba55d0f61e40",
+          "threeFilesPresent": true,
+          "manifestMatches": true,
+          "protected": true
+        },
+        {
+          "backupId": "daily-20260928T125351Z-31cb501bc72d",
+          "manifestSha256": "36f3c99be1a9c23421547a70600006d0a05027e5bc40e5579e4d973189b14ad5",
+          "threeFilesPresent": true,
+          "manifestMatches": true,
+          "protected": true
+        }
+      ],
+      "preBackupStillPresent": false,
+      "policyUnchangedFromExistingContract": true
+    },
+    "unresolvedOperations": 0
+  },
+  "cleanup": {
+    "helperIdle": true,
+    "noBusinessProcessKilled": true
+  },
+  "watchdog": {
+    "checkedAt": "2026-10-05T09:28:09.0432353+08:00",
+    "lastRunTime": "2026-10-05T09:27:24.0000000+08:00",
+    "lastTaskResult": 0,
+    "state": {
+      "lastMode": "running",
+      "decision": "healthy",
+      "incident": null,
+      "lastCheck": "2026-10-05T01:27:54.0727069+00:00",
+      "notification": null,
+      "lastHealthy": "2026-10-05T01:27:54.0915073+00:00",
+      "failures": 0,
+      "version": "teruisi-operations-watchdog-v2",
+      "lastFence": "852052bab3d29ccdb0f0e7bc1acd4363a483653279909fd363041c004bd63e1b",
+      "attempts": [
+        "2026-10-04T23:49:13.0284041+08:00"
+      ],
+      "firstFailure": "2026-10-05T09:02:56.5231064+08:00",
+      "identityAttempts": 0,
+      "lastIdentityAttempt": null,
+      "notificationReason": null,
+      "marketFailureOpen": false
+    },
+    "snapshot": {
+      "supervisorHealth": "healthy",
+      "healthy": true,
+      "system": "Running",
+      "probes": {
+        "ready": {
+          "status": 200,
+          "ok": true
+        },
+        "helper": {
+          "status": 200,
+          "ok": true
+        },
+        "homepage": {
+          "status": 200,
+          "ok": true
+        },
+        "live": {
+          "status": 200,
+          "ok": true
+        }
+      },
+      "supervisorPid": 33624,
+      "components": {
+        "products": true,
+        "bi": true,
+        "erpReference": true,
+        "core": true,
+        "accessControl": true,
+        "customerService": true,
+        "market": true,
+        "inventory": true,
+        "netshop": true,
+        "workflow": true,
+        "ai": true,
+        "finance": true
+      },
+      "backend": "Ready",
+      "ports": [
+        {
+          "pid": 10828,
+          "port": 5791
+        },
+        {
+          "pid": 4080,
+          "port": 5432
+        },
+        {
+          "pid": 23196,
+          "port": 3000
+        }
+      ],
+      "worker": "exact_release",
+      "releaseId": "20261004T203845Z-d5c7953e916f69ec",
+      "supervisor": "running",
+      "admission": {
+        "fence": "852052bab3d29ccdb0f0e7bc1acd4363a483653279909fd363041c004bd63e1b",
+        "mode": "running"
+      },
+      "business": {
+        "checkedAt": "2026-10-05T01:24:51.8221624+00:00",
+        "version": "market-read-probe-v1",
+        "reason": "no_confirmed_failure",
+        "status": "unknown"
+      },
+      "probeError": false,
+      "at": "2026-10-05T01:27:25.4677220+00:00",
+      "workerPid": 23196
+    },
+    "completedSamples": [
+      {
+        "checkedAt": "2026-10-05T09:19:16.3086239+08:00",
+        "lastRunTime": "2026-10-05T09:18:24.0000000+08:00",
+        "lastTaskResult": 0,
+        "snapshot": {
+          "workerPid": 23196,
+          "healthy": true,
+          "backend": "Ready",
+          "supervisorPid": 33624,
+          "system": "Running",
+          "probeError": false,
+          "admission": {
+            "mode": "running",
+            "fence": "852052bab3d29ccdb0f0e7bc1acd4363a483653279909fd363041c004bd63e1b"
+          },
+          "ports": [
+            {
+              "pid": 10828,
+              "port": 5791
+            },
+            {
+              "pid": 4080,
+              "port": 5432
+            },
+            {
+              "pid": 23196,
+              "port": 3000
+            }
+          ],
+          "components": {
+            "bi": true,
+            "core": true,
+            "products": true,
+            "workflow": true,
+            "inventory": true,
+            "netshop": true,
+            "finance": true,
+            "accessControl": true,
+            "ai": true,
+            "customerService": true,
+            "market": true,
+            "erpReference": true
+          },
+          "supervisorHealth": "healthy",
+          "probes": {
+            "homepage": {
+              "status": 200,
+              "ok": true
+            },
+            "helper": {
+              "status": 200,
+              "ok": true
+            },
+            "live": {
+              "status": 200,
+              "ok": true
+            },
+            "ready": {
+              "status": 200,
+              "ok": true
+            }
+          },
+          "business": {
+            "checkedAt": "2026-10-05T09:18:58.8454102+08:00",
+            "version": "market-read-probe-v1",
+            "status": "unknown",
+            "reason": "no_confirmed_failure"
+          },
+          "at": "2026-10-05T09:18:25.4264641+08:00",
+          "worker": "exact_release",
+          "releaseId": "20261004T203845Z-d5c7953e916f69ec",
+          "supervisor": "running"
+        }
+      },
+      {
+        "checkedAt": "2026-10-05T09:24:06.0441969+08:00",
+        "lastRunTime": "2026-10-05T09:23:24.0000000+08:00",
+        "lastTaskResult": 0,
+        "snapshot": {
+          "releaseId": "20261004T203845Z-d5c7953e916f69ec",
+          "ports": [
+            {
+              "pid": 10828,
+              "port": 5791
+            },
+            {
+              "pid": 4080,
+              "port": 5432
+            },
+            {
+              "pid": 23196,
+              "port": 3000
+            }
+          ],
+          "business": {
+            "checkedAt": "2026-10-05T09:18:58.8454102+08:00",
+            "version": "market-read-probe-v1",
+            "status": "unknown",
+            "reason": "no_confirmed_failure"
+          },
+          "system": "Running",
+          "worker": "exact_release",
+          "healthy": true,
+          "supervisorHealth": "healthy",
+          "supervisor": "running",
+          "backend": "Ready",
+          "supervisorPid": 33624,
+          "at": "2026-10-05T09:23:26.316808+08:00",
+          "admission": {
+            "fence": "852052bab3d29ccdb0f0e7bc1acd4363a483653279909fd363041c004bd63e1b",
+            "mode": "running"
+          },
+          "probes": {
+            "live": {
+              "status": 200,
+              "ok": true
+            },
+            "ready": {
+              "status": 200,
+              "ok": true
+            },
+            "helper": {
+              "status": 200,
+              "ok": true
+            },
+            "homepage": {
+              "status": 200,
+              "ok": true
+            }
+          },
+          "workerPid": 23196,
+          "probeError": false,
+          "components": {
+            "products": true,
+            "inventory": true,
+            "accessControl": true,
+            "market": true,
+            "erpReference": true,
+            "core": true,
+            "finance": true,
+            "bi": true,
+            "customerService": true,
+            "netshop": true,
+            "ai": true,
+            "workflow": true
+          }
+        }
+      }
+    ]
+  },
+  "evidenceDirectories": [
+    "D:\\codex-artifacts\\jackyun-anchor-adoption-20261005",
+    "D:\\codex-artifacts\\jackyun-20261004-backfill-20261005"
+  ],
+  "limits": [
+    "原 6165 error 与原任务/控制器保留",
+    "库存及库龄是 10 月 5 日快照，不冒历史余额",
+    "库存6/销售106/组合装2条来源提示保留",
+    "流复制未 EOF 不等于控制器退出码未知",
+    "前备份已被原保留策略淘汰，仅恢复证据仍保留"
+  ]
+}

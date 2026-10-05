@@ -257,9 +257,11 @@ npm run backend:dev:stop
 
 ## 吉客云自动化
 
+2026-10-05，按“补充4号数据”及本轮批准，原任务恢复节点顺序兼容已采用，完整手动执行 **6225** 成功并独立核验五表。销售 38,236 行，45 天窗口 8 月 21 日至 **10 月 4 日**、throughYesterday=true；库存/库龄为 10 月 5 日实际采集快照，组合装内容相同复用批次。原 6165 库存任务复用，旧 error 与来源提示保留。实际 Worker/helper manifest `10c9153e`，Django `e4f48e98` / 139保持，见 [正式采用及补数记录](docs/JACKYUN_OCT4_RECOVERY_PRODUCTION_20261005.md)。
+
 2026-10-05，5478 原文件续导能力已按本次批准采用，完整手动执行 6129 成功，五表独立批次回查通过。原三表保持，销售恢复原 8 月 19 日至 10 月 2 日窗口，组合装内容相同复用批次；来源提示和旧 error 保留。本次不代表已同步新日期。见 [5478 受控续导](docs/JACKYUN_5478_IMPORT_RECOVERY.md) 与 [正式采用记录](docs/JACKYUN_5478_PRODUCTION_20261005.md)。
 
-五表另提供浏览器仅登录、报表走会话接口的候选工作流 `automation/n8n/jackyun-five-dataset-api.workflow.json`。它保留原有销售成本校验、五表屏障和导入回查，并为平台与本机时间差增加任务匹配证据；尚未替换上文已采用版本。参数校准、运行边界和验收见 [`docs/JACKYUN_SESSION_API_EXPORT.md`](docs/JACKYUN_SESSION_API_EXPORT.md)。
+五表现行工作流 `automation/n8n/jackyun-five-dataset-api.workflow.json` 已正式采用，浏览器仅负责登录，报表走会话接口。它保留原有销售成本校验、五表屏障和导入回查，并为平台与本机时间差增加任务匹配证据。参数校准、运行边界和验收见 [`docs/JACKYUN_SESSION_API_EXPORT.md`](docs/JACKYUN_SESSION_API_EXPORT.md)。
 
 五表 n8n 模板采用一次专用登录会话顺序导出：通过当前账号的网站接口核验权限、查询条件和总数，再提交本轮异步任务、轮询并直链下载。登录沿用 DPAPI，会话不写入 n8n；下载阶段无需加载五个报表页面。五表齐全后统一校验、导入、回查，旧单表计划和只读诊断不能升级成新批量运行。部署和实际采用状态见下方五表文档。
 
@@ -267,8 +269,8 @@ npm run backend:dev:stop
 - `npm run jackyun:credential:setup`：打开本机 DPAPI 凭据录入窗口，填写手机号或工号和密码；`npm run jackyun:credential:status` 只检查当前 Windows 用户能否解密。`npm run jackyun:authenticate` 只验证专用登录与企业号，不执行导出或导入。配置见 `config/jackyun-login.json`，维护步骤见 [`docs/吉客云DPAPI登录配置.md`](docs/吉客云DPAPI登录配置.md)。
 - 五表任务若只在首次库存登录检查或指定查询验证失败，可按五表文档使用受控 `jackyun-preflight-recovery.ts` 闭合导出前停止的旧执行，再从 n8n 手动入口启动完整新执行。查询失败必须额外核验唯一 controller 状态及摘要、无导出意图，并保留全部旧证据；有任何导出、下载或导入证据时拒绝该恢复方式。
 - `npm run jackyun:daily`：运行每日五类数据导入
-- `automation/n8n/jackyun-five-dataset-api.workflow.json`：本机已采用、每天本机时间 00:10 自动运行并保留手动入口的吉客云五表工作流，按分仓库存 → 组合装及子件 → 发货时间销售明细 → 库龄 → SKU 货品依次导出；五表全部校验后，再按主数据和成本依赖统一导入并独立核验精确批次。库存和库龄使用实际采集日，销售使用本月至昨天。新旧传输的计划和恢复状态隔离，工作流不保存账号、密码或会话。原 `jackyun-five-dataset-http.workflow.json` 和 `jackyun-five-dataset-daily.workflow.json` 保留用于历史协议，不是当前已采用定义。详见 [`docs/JACKYUN_SESSION_API_EXPORT.md`](docs/JACKYUN_SESSION_API_EXPORT.md)。
-- 网页会话版已在本机完成真实五表下载、Django 导入和独立批次回查。货品、组合装内容未变化时按幂等规则复用原批次；库存/库龄精确归属由同 revision 的只读事实核验，销售同时绑定发货日期和本轮库存成本源。组合装确认会等待按钮事件就绪后只点击一次。日调度仍停用；各次 n8n 执行、原始文件、采用回执及受控恢复记录保留在五表文档中，失败执行不会改写为成功。
+- `automation/n8n/jackyun-five-dataset-api.workflow.json`：本机已采用、每天本机时间 00:10 自动运行并保留手动入口的吉客云五表工作流，按分仓库存 → 组合装及子件 → 发货时间销售明细 → 库龄 → SKU 货品依次导出；五表全部校验后，再按主数据和成本依赖统一导入并独立核验精确批次。库存和库龄使用实际采集日，销售使用截至昨天（含）的最近 45 天。新旧传输的计划和恢复状态隔离，工作流不保存账号、密码或会话。原 `jackyun-five-dataset-http.workflow.json` 和 `jackyun-five-dataset-daily.workflow.json` 保留用于历史协议，不是当前已采用定义。详见 [`docs/JACKYUN_SESSION_API_EXPORT.md`](docs/JACKYUN_SESSION_API_EXPORT.md)。
+- 历史网页会话版已在本机完成真实五表下载、Django 导入和独立批次回查。货品、组合装内容未变化时按幂等规则复用原批次；库存/库龄精确归属由同 revision 的只读事实核验，销售同时绑定发货日期和本轮库存成本源。历史版组合装确认会等待按钮事件就绪后只点击一次，其日调度停用；现行会话接口版保持每日 00:10。各次 n8n 执行、原始文件、采用回执及受控恢复记录保留在五表文档中，失败执行不会改写为成功。
 - 2026-08-05 历史快照的多 AI、多方法验证结论和真实来源限制见 [`docs/吉客云导入系统多AI多方法跑通测试-2026-08-06.md`](docs/吉客云导入系统多AI多方法跑通测试-2026-08-06.md)。
 
 ## 网店数据
