@@ -1,0 +1,48 @@
+{
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "sourceSha": "748443e43f6c006fb49ecd28bbe96a916c9bb1bd",
+  "branch": "codex/products-performance-complete",
+  "files": [
+    {
+      "path": "app/product-module-view.tsx",
+      "worktreeSha256": "decca8c36c5dab92ee9f39b518e9337037879484f73468eab2f599c77091bc10",
+      "gitBlobSha256": "e0fa8e5ed6e21d244400e4ea3cc7f5f1e85150d987c77667a628b76a4b486eb0"
+    },
+    {
+      "path": "backend/products/query.py",
+      "worktreeSha256": "3ae1004115ba9d08575103c6f11bb4bdc95e2ffa64eb48ab989e1c8cda5937f6",
+      "gitBlobSha256": "3ae1004115ba9d08575103c6f11bb4bdc95e2ffa64eb48ab989e1c8cda5937f6"
+    },
+    {
+      "path": "backend/products/tests/test_progressive.py",
+      "worktreeSha256": "318b32d792fdadfea8f566a05cdcb941777cc114cf4a919f88b49d0cefd83c33",
+      "gitBlobSha256": "1b87f0c3ad3fb6823c0110f054717fcab64afdd9d4d7d94c402ca77b67dc8cda"
+    },
+    {
+      "path": "lib/products/detail-contract.ts",
+      "worktreeSha256": "cf8e4df450929a3c26bf836673463410c65f24f35aa437d986ee8f188597c9c0",
+      "gitBlobSha256": "cf8e4df450929a3c26bf836673463410c65f24f35aa437d986ee8f188597c9c0"
+    },
+    {
+      "path": "lib/products/read-contract.ts",
+      "worktreeSha256": "a939b596b6969128df7a1f9cb7fed267beb05e592070a3aec649792d2f24015a",
+      "gitBlobSha256": "a939b596b6969128df7a1f9cb7fed267beb05e592070a3aec649792d2f24015a"
+    },
+    {
+      "path": "lib/products/summary.ts",
+      "worktreeSha256": "6c439f6481e31e3ac7f3fa8ee2e2dde8680fe39f99ce489d84362c682aef32b8",
+      "gitBlobSha256": "6c439f6481e31e3ac7f3fa8ee2e2dde8680fe39f99ce489d84362c682aef32b8"
+    },
+    {
+      "path": "tests/product-detail-performance.test.ts",
+      "worktreeSha256": "1c466f872f481520d86552202a5232c14e32e80d7c18a60a2ab097b4e5db1df6",
+      "gitBlobSha256": "053743284d8c771e12ab3a6a0f1a124fe0be685089a8ef9645870c7b337fd4be"
+    },
+    {
+      "path": "tests/product-region-recovery.test.ts",
+      "worktreeSha256": "be9bddc65c4ed10464228900b5d11d8dd5701ac2e15beb6eae703698e4dbd551",
+      "gitBlobSha256": "67443e5ae906827b43195ffef6a9f4a2608a189f10823e3e3a4948867b153d7f"
+    }
+  ],
+  "note": "physical worktree and Git-normalized text blob hashes are both recorded; evidence/docs companion commit does not alter these sources"
+}

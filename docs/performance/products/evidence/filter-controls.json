@@ -1,0 +1,944 @@
+{
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "fixture": "synthetic120/3600; one synthetic platform/shop and two categories; selected platform+shop complete120, category60, no proof of real multi-platform/store coverage",
+  "records": [
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "label": "销售平台",
+      "reset": false,
+      "feedbackMs": 1.5,
+      "newCompletePaintMs": 166.79999999701977,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "label": "销售店铺",
+      "reset": false,
+      "feedbackMs": 0.5999999940395355,
+      "newCompletePaintMs": 112.70000000298023,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "label": "商品品类",
+      "reset": false,
+      "feedbackMs": 0.5,
+      "newCompletePaintMs": 83.90000000596046,
+      "total": 60,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [
+          "演示设备"
+        ],
+        "marginBands": []
+      },
+      "businessHash": "e00da4842d53c4995212121140580585c16a61313409ee6cbdceaa715b2e26ce",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "label": "商品品类",
+      "reset": true,
+      "feedbackMs": 1.4000000059604645,
+      "newCompletePaintMs": 225.1000000089407,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "label": "销售店铺",
+      "reset": true,
+      "feedbackMs": 1.0999999940395355,
+      "newCompletePaintMs": 216.09999999403954,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "label": "销售平台",
+      "reset": true,
+      "feedbackMs": 0.8999999910593033,
+      "newCompletePaintMs": 112.69999998807907,
+      "total": 120,
+      "applied": {
+        "platforms": [],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "7938483b7dd6c7304011913caab1ce231f3c37b8b8820dbd53b3487f3fde3d3e",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "label": "销售平台",
+      "reset": false,
+      "feedbackMs": 1.2000000029802322,
+      "newCompletePaintMs": 116.5,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "label": "销售店铺",
+      "reset": false,
+      "feedbackMs": 1.2999999970197678,
+      "newCompletePaintMs": 220.40000000596046,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "label": "商品品类",
+      "reset": false,
+      "feedbackMs": 0.800000011920929,
+      "newCompletePaintMs": 186,
+      "total": 60,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [
+          "演示设备"
+        ],
+        "marginBands": []
+      },
+      "businessHash": "e00da4842d53c4995212121140580585c16a61313409ee6cbdceaa715b2e26ce",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "label": "商品品类",
+      "reset": true,
+      "feedbackMs": 0.5999999940395355,
+      "newCompletePaintMs": 81.70000000298023,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "label": "销售店铺",
+      "reset": true,
+      "feedbackMs": 0.5,
+      "newCompletePaintMs": 73.3999999910593,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "label": "销售平台",
+      "reset": true,
+      "feedbackMs": 0.5,
+      "newCompletePaintMs": 81.5,
+      "total": 120,
+      "applied": {
+        "platforms": [],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "7938483b7dd6c7304011913caab1ce231f3c37b8b8820dbd53b3487f3fde3d3e",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "label": "销售平台",
+      "reset": false,
+      "feedbackMs": 0.7999999970197678,
+      "newCompletePaintMs": 173.59999999403954,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "label": "销售店铺",
+      "reset": false,
+      "feedbackMs": 0.6000000089406967,
+      "newCompletePaintMs": 181.70000000298023,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "label": "商品品类",
+      "reset": false,
+      "feedbackMs": 0.5,
+      "newCompletePaintMs": 99.29999999701977,
+      "total": 60,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [
+          "演示设备"
+        ],
+        "marginBands": []
+      },
+      "businessHash": "e00da4842d53c4995212121140580585c16a61313409ee6cbdceaa715b2e26ce",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "label": "商品品类",
+      "reset": true,
+      "feedbackMs": 0.5,
+      "newCompletePaintMs": 80.3999999910593,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "label": "销售店铺",
+      "reset": true,
+      "feedbackMs": 0.5999999940395355,
+      "newCompletePaintMs": 95,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "label": "销售平台",
+      "reset": true,
+      "feedbackMs": 0.7999999970197678,
+      "newCompletePaintMs": 170.29999999701977,
+      "total": 120,
+      "applied": {
+        "platforms": [],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "7938483b7dd6c7304011913caab1ce231f3c37b8b8820dbd53b3487f3fde3d3e",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "label": "销售平台",
+      "reset": false,
+      "feedbackMs": 1.4000000059604645,
+      "newCompletePaintMs": 263.29999999701977,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "label": "销售店铺",
+      "reset": false,
+      "feedbackMs": 1.2000000029802322,
+      "newCompletePaintMs": 281,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "label": "商品品类",
+      "reset": false,
+      "feedbackMs": 1.300000011920929,
+      "newCompletePaintMs": 198.40000000596046,
+      "total": 60,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [
+          "演示设备"
+        ],
+        "marginBands": []
+      },
+      "businessHash": "e00da4842d53c4995212121140580585c16a61313409ee6cbdceaa715b2e26ce",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "label": "商品品类",
+      "reset": true,
+      "feedbackMs": 0.800000011920929,
+      "newCompletePaintMs": 79.70000000298023,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "label": "销售店铺",
+      "reset": true,
+      "feedbackMs": 0.7000000029802322,
+      "newCompletePaintMs": 83.40000000596046,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "label": "销售平台",
+      "reset": true,
+      "feedbackMs": 0.800000011920929,
+      "newCompletePaintMs": 179,
+      "total": 120,
+      "applied": {
+        "platforms": [],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "7938483b7dd6c7304011913caab1ce231f3c37b8b8820dbd53b3487f3fde3d3e",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "label": "销售平台",
+      "reset": false,
+      "feedbackMs": 0.7999999970197678,
+      "newCompletePaintMs": 161,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "label": "销售店铺",
+      "reset": false,
+      "feedbackMs": 0.7000000029802322,
+      "newCompletePaintMs": 78.20000000298023,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "label": "商品品类",
+      "reset": false,
+      "feedbackMs": 0.5,
+      "newCompletePaintMs": 75,
+      "total": 60,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [
+          "演示设备"
+        ],
+        "marginBands": []
+      },
+      "businessHash": "e00da4842d53c4995212121140580585c16a61313409ee6cbdceaa715b2e26ce",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "label": "商品品类",
+      "reset": true,
+      "feedbackMs": 0.800000011920929,
+      "newCompletePaintMs": 81.40000000596046,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "label": "销售店铺",
+      "reset": true,
+      "feedbackMs": 0.5999999940395355,
+      "newCompletePaintMs": 137.09999999403954,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "label": "销售平台",
+      "reset": true,
+      "feedbackMs": 0.800000011920929,
+      "newCompletePaintMs": 170.80000001192093,
+      "total": 120,
+      "applied": {
+        "platforms": [],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "7938483b7dd6c7304011913caab1ce231f3c37b8b8820dbd53b3487f3fde3d3e",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "label": "销售平台",
+      "reset": false,
+      "feedbackMs": 0.7999999970197678,
+      "newCompletePaintMs": 134.20000000298023,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "label": "销售店铺",
+      "reset": false,
+      "feedbackMs": 0.5,
+      "newCompletePaintMs": 77.59999999403954,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "label": "商品品类",
+      "reset": false,
+      "feedbackMs": 0.7000000029802322,
+      "newCompletePaintMs": 80.09999999403954,
+      "total": 60,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [
+          "演示设备"
+        ],
+        "marginBands": []
+      },
+      "businessHash": "e00da4842d53c4995212121140580585c16a61313409ee6cbdceaa715b2e26ce",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&category=%E6%BC%94%E7%A4%BA%E8%AE%BE%E5%A4%87&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "label": "商品品类",
+      "reset": true,
+      "feedbackMs": 0.5999999940395355,
+      "newCompletePaintMs": 80.20000000298023,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [
+          {
+            "key": "演示\u001f演示店",
+            "platform": "演示",
+            "shop": "演示店"
+          }
+        ],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "52eff2f4bfdce679209197ad28cb983a826f5e1889f48eeb6d9c89af33074521",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&shop=%E6%BC%94%E7%A4%BA%1F%E6%BC%94%E7%A4%BA%E5%BA%97&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "label": "销售店铺",
+      "reset": true,
+      "feedbackMs": 0.800000011920929,
+      "newCompletePaintMs": 166.5,
+      "total": 120,
+      "applied": {
+        "platforms": [
+          "演示"
+        ],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "db39db02f3fee52ccc99540c5f7966eed8bbf5a9f3dcfd28813bada6d8c1053c",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E6%BC%94%E7%A4%BA&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "label": "销售平台",
+      "reset": true,
+      "feedbackMs": 0.7999999970197678,
+      "newCompletePaintMs": 161,
+      "total": 120,
+      "applied": {
+        "platforms": [],
+        "shops": [],
+        "query": "",
+        "categories": [],
+        "marginBands": []
+      },
+      "businessHash": "7938483b7dd6c7304011913caab1ce231f3c37b8b8820dbd53b3487f3fde3d3e",
+      "requests": [
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+        "/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+      ]
+    }
+  ],
+  "errors": [],
+  "deepEqualPairs": 18
+}

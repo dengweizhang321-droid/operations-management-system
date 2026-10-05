@@ -1,0 +1,302 @@
+{
+  "records": [
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "calculationCache": "cold; cleared own synthetic process cache, complete September range",
+      "start": 3008.5999999940395,
+      "feedback": 7.200000002980232,
+      "firstCommit": 137.09999999403954,
+      "first": 165.09999999403954,
+      "allCommit": 169,
+      "all": 179.40000000596046
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "calculationCache": "cold; cleared own synthetic process cache, complete September range",
+      "start": 215.8999999910593,
+      "feedback": 6.299999997019768,
+      "firstCommit": 79.6000000089407,
+      "first": 103.40000000596046,
+      "allCommit": 107.20000000298023,
+      "all": 117.29999999701977
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "calculationCache": "cold; cleared own synthetic process cache, complete September range",
+      "start": 189.59999999403954,
+      "feedback": 6.299999997019768,
+      "firstCommit": 79.90000000596046,
+      "first": 104.79999999701977,
+      "allCommit": 108.70000000298023,
+      "all": 118.6000000089407
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "calculationCache": "cold; cleared own synthetic process cache, complete September range",
+      "start": 197.70000000298023,
+      "feedback": 7.399999991059303,
+      "firstCommit": 84,
+      "first": 108.09999999403954,
+      "allCommit": 112.69999998807907,
+      "all": 123.5
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "calculationCache": "cold; cleared own synthetic process cache, complete September range",
+      "start": 190,
+      "feedback": 6.5999999940395355,
+      "firstCommit": 78.3999999910593,
+      "first": 103.69999998807907,
+      "allCommit": 108.29999999701977,
+      "all": 118.59999999403954
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "calculationCache": "cold; cleared own synthetic process cache, complete September range",
+      "start": 187.6000000089407,
+      "feedback": 6.399999991059303,
+      "firstCommit": 75.59999999403954,
+      "first": 98.69999998807907,
+      "allCommit": 103.59999999403954,
+      "all": 113
+    }
+  ],
+  "requests": [
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214436854.872,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.173,
+        "responseStart": 93.143,
+        "responseEnd": 93.779
+      },
+      "serverTiming": "domain;dur=88.062,sql;dur=17.349,serialize;dur=0.348",
+      "queries": "19"
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214436950.861,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.212,
+        "responseStart": 11.239,
+        "responseEnd": 12.022
+      },
+      "serverTiming": "domain;dur=6.839,sql;dur=0.812,serialize;dur=0.028",
+      "queries": "9"
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214437420.1912,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.238,
+        "responseStart": 39.452,
+        "responseEnd": 40.139
+      },
+      "serverTiming": "domain;dur=33.826,sql;dur=9.703,serialize;dur=0.363",
+      "queries": "19"
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214437462.1633,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.241,
+        "responseStart": 10.785,
+        "responseEnd": 11.424
+      },
+      "serverTiming": "domain;dur=6.878,sql;dur=0.705,serialize;dur=0.027",
+      "queries": "9"
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214437890.921,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.173,
+        "responseStart": 39.44,
+        "responseEnd": 40.082
+      },
+      "serverTiming": "domain;dur=34.733,sql;dur=9.503,serialize;dur=0.345",
+      "queries": "19"
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214437932.7402,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.27,
+        "responseStart": 12.732,
+        "responseEnd": 13.386
+      },
+      "serverTiming": "domain;dur=8.314,sql;dur=0.903,serialize;dur=0.030",
+      "queries": "9"
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214438371.297,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.167,
+        "responseStart": 43.015,
+        "responseEnd": 43.635
+      },
+      "serverTiming": "domain;dur=39.017,sql;dur=9.345,serialize;dur=0.397",
+      "queries": "20"
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214438416.8232,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.167,
+        "responseStart": 10.287,
+        "responseEnd": 10.884
+      },
+      "serverTiming": "domain;dur=6.562,sql;dur=0.728,serialize;dur=0.054",
+      "queries": "9"
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214438854.189,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.211,
+        "responseStart": 36.891,
+        "responseEnd": 37.75
+      },
+      "serverTiming": "domain;dur=32.718,sql;dur=8.462,serialize;dur=0.363",
+      "queries": "20"
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214438893.543,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.152,
+        "responseStart": 9.909,
+        "responseEnd": 10.817
+      },
+      "serverTiming": "domain;dur=6.572,sql;dur=0.639,serialize;dur=0.034",
+      "queries": "9"
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214439320.093,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.222,
+        "responseStart": 36.728,
+        "responseEnd": 37.425
+      },
+      "serverTiming": "domain;dur=32.471,sql;dur=8.493,serialize;dur=0.367",
+      "queries": "20"
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171",
+      "status": 200,
+      "timing": {
+        "startTime": 1791214439359.758,
+        "domainLookupStart": -1,
+        "domainLookupEnd": -1,
+        "connectStart": -1,
+        "secureConnectionStart": -1,
+        "connectEnd": -1,
+        "requestStart": 0.162,
+        "responseStart": 9.344,
+        "responseEnd": 10.016
+      },
+      "serverTiming": "domain;dur=6.454,sql;dur=0.649,serialize;dur=0.030",
+      "queries": "9"
+    }
+  ],
+  "errors": [],
+  "fixture": "same fixed complete September 120-product/3600-sales synthetic loopback laboratory; no artificial delay"
+}

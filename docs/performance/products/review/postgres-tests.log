@@ -1,0 +1,82 @@
+Creating test database for alias 'default' ('test_product_fixture')...
+Found 31 test(s).
+Operations to perform:
+  Apply all migrations: access_control, contenttypes, products, sales
+Running migrations:
+  Applying access_control.0001_initial... OK
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying products.0001_initial... OK
+  Applying products.0002_seed_control_rows... OK
+  Applying products.0003_alter_productimportattempt_created_at_and_more... OK
+  Applying sales.0001_initial... OK
+  Applying sales.0002_sales_migration_approval... OK
+  Applying sales.0003_query_ready_projection... OK
+  Applying sales.0004_projection_sync... OK
+  Applying sales.0005_postgres_write_authority... OK
+  Applying sales.0006_drop_legacy_projection_checkpoint... OK
+  Applying sales.0007_legacy_upload_audit... OK
+  Applying sales.0008_sales_cutover_attestation... OK
+  Applying sales.0009_postgres_raw_upload_payload... OK
+  Applying sales.0010_analysis_options...test_chunk_upload_is_actor_bound_integrity_checked_and_replayable (products.tests.test_api.ProductsDomainTests.test_chunk_upload_is_actor_bound_integrity_checked_and_replayable) ... ok
+test_duplicate_retry_fails_closed_when_current_facts_are_corrupted (products.tests.test_api.ProductsDomainTests.test_duplicate_retry_fails_closed_when_current_facts_are_corrupted) ... ok
+test_explicit_last30_ignores_legacy_days_while_implicit_range_accepts_it (products.tests.test_api.ProductsDomainTests.test_explicit_last30_ignores_legacy_days_while_implicit_range_accepts_it) ... ok
+test_import_api_is_atomic_business_idempotent_and_request_replay_safe (products.tests.test_api.ProductsDomainTests.test_import_api_is_atomic_business_idempotent_and_request_replay_safe) ... ok
+test_inventory_projection_activation_recomputes_declared_digest (products.tests.test_api.ProductsDomainTests.test_inventory_projection_activation_recomputes_declared_digest) ... ok
+test_inventory_projection_is_ordered_owner_fenced_and_atomically_activated (products.tests.test_api.ProductsDomainTests.test_inventory_projection_is_ordered_owner_fenced_and_atomically_activated) ... ok
+test_prevalidation_rejection_is_audited_without_creating_fact_batch (products.tests.test_api.ProductsDomainTests.test_prevalidation_rejection_is_audited_without_creating_fact_batch) ... ok
+test_summary_joins_postgres_authorities_and_preserves_snapshot (products.tests.test_api.ProductsDomainTests.test_summary_joins_postgres_authorities_and_preserves_snapshot) ... ok
+test_summary_search_accepts_1000_characters_and_rejects_overflow (products.tests.test_api.ProductsDomainTests.test_summary_search_accepts_1000_characters_and_rejects_overflow) ... ok
+test_plan_apply_verify_rehearsal_preserves_digest_and_excludes_shuashuacang (products.tests.test_migration.ProductsMigrationTests.test_plan_apply_verify_rehearsal_preserves_digest_and_excludes_shuashuacang) ... ok
+test_plan_fails_closed_while_legacy_product_chunk_keys_remain (products.tests.test_migration.ProductsMigrationTests.test_plan_fails_closed_while_legacy_product_chunk_keys_remain) ... ok
+test_plan_fails_closed_while_source_has_processing_batch (products.tests.test_migration.ProductsMigrationTests.test_plan_fails_closed_while_source_has_processing_batch) ... ok
+test_terminal_retirement_is_plan_bound_and_preserves_inventory_domain (products.tests.test_migration.ProductsMigrationTests.test_terminal_retirement_is_plan_bound_and_preserves_inventory_domain) ... ok
+test_consumer_response_fails_when_revision_keeps_changing (sales.tests.test_consumers_api.SalesConsumerApiTests.test_consumer_response_fails_when_revision_keeps_changing) ... 2026-10-05 23:13:23,111 level=ERROR logger=django.request message=Service Unavailable: /api/sales/consumers/query
+ok
+test_freshness_inventory_and_product_queries_are_scoped_and_revisioned (sales.tests.test_consumers_api.SalesConsumerApiTests.test_freshness_inventory_and_product_queries_are_scoped_and_revisioned) ... ok
+test_product_bounds_can_be_omitted_without_changing_complete_business_rows (sales.tests.test_consumers_api.SalesConsumerApiTests.test_product_bounds_can_be_omitted_without_changing_complete_business_rows) ... 2026-10-05 23:13:23,271 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,272 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,272 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,273 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,274 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,274 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+ok
+test_search_batch_and_category_operations_preserve_authorization (sales.tests.test_consumers_api.SalesConsumerApiTests.test_search_batch_and_category_operations_preserve_authorization) ... 2026-10-05 23:13:23,314 level=WARNING logger=django.request message=Forbidden: /api/sales/consumers/query
+ok
+test_summary_customer_netshop_and_market_contracts (sales.tests.test_consumers_api.SalesConsumerApiTests.test_summary_customer_netshop_and_market_contracts) ... ok
+test_unknown_fields_wrong_types_and_unbounded_inputs_fail_closed (sales.tests.test_consumers_api.SalesConsumerApiTests.test_unknown_fields_wrong_types_and_unbounded_inputs_fail_closed) ... 2026-10-05 23:13:23,474 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,475 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,476 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,477 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,479 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,479 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,480 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,481 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,482 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,482 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+2026-10-05 23:13:23,483 level=WARNING logger=django.request message=Bad Request: /api/sales/consumers/query
+ok
+test_authoritative_no_sales_keeps_new_region_request_witness (products.tests.test_progressive.ProgressiveSummaryTests.test_authoritative_no_sales_keeps_new_region_request_witness) ... ok
+test_complete_set_equivalence_initial_overview_page_and_cache_reuse (products.tests.test_progressive.ProgressiveSummaryTests.test_complete_set_equivalence_initial_overview_page_and_cache_reuse) ... ok
+test_current_page_rates_and_overview_skip_display_materialization (products.tests.test_progressive.ProgressiveSummaryTests.test_current_page_rates_and_overview_skip_display_materialization) ... ok
+test_non_cacheable_base_returns_full_inline_without_second_region_scan (products.tests.test_progressive.ProgressiveSummaryTests.test_non_cacheable_base_returns_full_inline_without_second_region_scan) ... ok
+test_page_rate_version_change_and_local_failure_recover_without_rescan (products.tests.test_progressive.ProgressiveSummaryTests.test_page_rate_version_change_and_local_failure_recover_without_rescan) ... ok
+test_shipping_safety_limit_preserved_and_negative_rates_not_clamped (products.tests.test_progressive.ProgressiveSummaryTests.test_shipping_safety_limit_preserved_and_negative_rates_not_clamped) ... ok
+test_signed_new_views_reject_missing_token_duplicates_and_scope (products.tests.test_progressive.ProgressiveSummaryTests.test_signed_new_views_reject_missing_token_duplicates_and_scope) ... 2026-10-05 23:13:32,306 level=WARNING logger=django.request message=Bad Request: /api/products/summary
+2026-10-05 23:13:32,307 level=WARNING logger=django.request message=Bad Request: /api/products/summary
+2026-10-05 23:13:32,308 level=WARNING logger=django.request message=Bad Request: /api/products/summary
+2026-10-05 23:13:32,309 level=WARNING logger=django.request message=Bad Request: /api/products/summary
+ok
+test_source_version_changes_invalidate_and_fail_closed (products.tests.test_progressive.ProgressiveSummaryTests.test_source_version_changes_invalidate_and_fail_closed) ... ok
+test_shared_receipt_hashes_only_non_product_rows (products.tests.test_retirement.ProductsRetirementSharedReceiptTests.test_shared_receipt_hashes_only_non_product_rows) ... ok
+test_expiry_failed_load_revision_and_oversize_never_reuse (products.tests.test_summary_cache.SummaryCacheTests.test_expiry_failed_load_revision_and_oversize_never_reuse) ... ok
+test_identity_scope_database_authority_and_transactions (products.tests.test_summary_cache.SummaryCacheTests.test_identity_scope_database_authority_and_transactions) ... ok
+test_single_flight_copies_and_bounded_eviction (products.tests.test_summary_cache.SummaryCacheTests.test_single_flight_copies_and_bounded_eviction) ... ok
+
+----------------------------------------------------------------------
+Ran 31 tests in 12.276s
+
+OK
+Destroying test database for alias 'default' ('test_product_fixture')...
+ OK
+System check identified no issues (0 silenced).

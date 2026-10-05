@@ -1,0 +1,366 @@
+{
+  "records": [
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "control": "周维度",
+      "paintMs": 16.299999997019768
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "control": "月维度",
+      "paintMs": 15.5
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "control": "日维度",
+      "paintMs": 13.100000008940697
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "control": "净销量",
+      "paintMs": 9
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "control": "净销量",
+      "paintMs": 9.299999997019768
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "control": "平台维度",
+      "paintMs": 9.799999997019768
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 0,
+      "control": "店铺维度",
+      "paintMs": 9.200000002980232
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "control": "周维度",
+      "paintMs": 14.399999991059303
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "control": "月维度",
+      "paintMs": 12.900000005960464
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "control": "日维度",
+      "paintMs": 12.400000005960464
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "control": "净销量",
+      "paintMs": 12.400000005960464
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "control": "净销量",
+      "paintMs": 10.900000005960464
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "control": "平台维度",
+      "paintMs": 9.299999997019768
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 1,
+      "control": "店铺维度",
+      "paintMs": 7.799999997019768
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "control": "周维度",
+      "paintMs": 11.199999988079071
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "control": "月维度",
+      "paintMs": 9.100000008940697
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "control": "日维度",
+      "paintMs": 7.799999997019768
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "control": "净销量",
+      "paintMs": 12.400000005960464
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "control": "净销量",
+      "paintMs": 9.099999994039536
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "control": "平台维度",
+      "paintMs": 8.600000008940697
+    },
+    {
+      "implementation": "baseline",
+      "repeat": 2,
+      "control": "店铺维度",
+      "paintMs": 8
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "control": "周维度",
+      "paintMs": 21.69999998807907
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "control": "月维度",
+      "paintMs": 22.799999997019768
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "control": "日维度",
+      "paintMs": 14.900000005960464
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "control": "净销量",
+      "paintMs": 13.5
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "control": "净销量",
+      "paintMs": 14.899999991059303
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "control": "平台维度",
+      "paintMs": 13.700000002980232
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 0,
+      "control": "店铺维度",
+      "paintMs": 11.799999997019768
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "control": "周维度",
+      "paintMs": 15.200000002980232
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "control": "月维度",
+      "paintMs": 13.200000002980232
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "control": "日维度",
+      "paintMs": 13.099999994039536
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "control": "净销量",
+      "paintMs": 14
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "control": "净销量",
+      "paintMs": 17.600000008940697
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "control": "平台维度",
+      "paintMs": 11.200000002980232
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 1,
+      "control": "店铺维度",
+      "paintMs": 11.099999994039536
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "control": "周维度",
+      "paintMs": 14.099999994039536
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "control": "月维度",
+      "paintMs": 11.400000005960464
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "control": "日维度",
+      "paintMs": 14.5
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "control": "净销量",
+      "paintMs": 11.099999994039536
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "control": "净销量",
+      "paintMs": 12.200000002980232
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "control": "平台维度",
+      "paintMs": 11.199999988079071
+    },
+    {
+      "implementation": "candidate",
+      "repeat": 2,
+      "control": "店铺维度",
+      "paintMs": 7.800000011920929
+    }
+  ],
+  "requests": [
+    {
+      "implementation": "baseline",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page"
+    },
+    {
+      "implementation": "baseline",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+    },
+    {
+      "implementation": "baseline",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=grossMarginRate&direction=desc&view=page&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+    },
+    {
+      "implementation": "baseline",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=refundRate&direction=desc&view=page&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+    },
+    {
+      "implementation": "baseline",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=grossProfitCents&direction=desc&view=page&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+    },
+    {
+      "implementation": "baseline",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=page&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+    },
+    {
+      "implementation": "baseline",
+      "url": "http://127.0.0.1:3148/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&productCodes=LAB-119"
+    },
+    {
+      "implementation": "candidate",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page"
+    },
+    {
+      "implementation": "candidate",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+    },
+    {
+      "implementation": "candidate",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=grossMarginRate&direction=desc&view=page&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+    },
+    {
+      "implementation": "candidate",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=refundRate&direction=desc&view=page&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+    },
+    {
+      "implementation": "candidate",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=grossProfitCents&direction=desc&view=page&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+    },
+    {
+      "implementation": "candidate",
+      "url": "http://127.0.0.1:3148/api/products/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=page&snapshotToken=21b2035a5fb3ce2aef1e145f48b6baf8d89c0306b2d74a38d338fcfbab4ae171"
+    },
+    {
+      "implementation": "candidate",
+      "url": "http://127.0.0.1:3148/api/sales/summary?range=custom&startDate=2026-09-01&endDate=2026-09-30&productCodes=LAB-119"
+    }
+  ],
+  "errors": [],
+  "sortRecords": [
+    {
+      "implementation": "baseline",
+      "field": "grossMarginRate",
+      "total": 120,
+      "firstProductCode": "LAB-119"
+    },
+    {
+      "implementation": "baseline",
+      "field": "refundRate",
+      "total": 120,
+      "firstProductCode": "LAB-005"
+    },
+    {
+      "implementation": "baseline",
+      "field": "grossProfitCents",
+      "total": 120,
+      "firstProductCode": "LAB-119"
+    },
+    {
+      "implementation": "baseline",
+      "field": "netSalesCents",
+      "total": 120,
+      "firstProductCode": "LAB-119"
+    },
+    {
+      "implementation": "candidate",
+      "field": "grossMarginRate",
+      "total": 120,
+      "firstProductCode": "LAB-119"
+    },
+    {
+      "implementation": "candidate",
+      "field": "refundRate",
+      "total": 120,
+      "firstProductCode": "LAB-005"
+    },
+    {
+      "implementation": "candidate",
+      "field": "grossProfitCents",
+      "total": 120,
+      "firstProductCode": "LAB-119"
+    },
+    {
+      "implementation": "candidate",
+      "field": "netSalesCents",
+      "total": 120,
+      "firstProductCode": "LAB-119"
+    }
+  ],
+  "fixture": "same 120/3600 paired synthetic laboratory; real existing shared detail components unchanged"
+}

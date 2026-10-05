@@ -1,0 +1,40 @@
+{
+  "baseline": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+  "products": 8500,
+  "salesRows": 255000,
+  "observations": [
+    {
+      "implementation": "baseline",
+      "cold": {
+        "ms": 2798.4182999935,
+        "total": 8500,
+        "queries": 51,
+        "salesQueries": 28
+      },
+      "warm": {
+        "ms": 2673.955099991872,
+        "total": 8500,
+        "queries": 9,
+        "salesQueries": 0
+      },
+      "wallMs": 2874.164400011068
+    },
+    {
+      "implementation": "candidate",
+      "cold": {
+        "ms": 2935.6608999951277,
+        "total": 8500,
+        "queries": 52,
+        "salesQueries": 28
+      },
+      "warm": {
+        "ms": 2761.8423999956576,
+        "total": 8500,
+        "queries": 10,
+        "salesQueries": 0
+      },
+      "wallMs": 2947.568699994008
+    }
+  ],
+  "method": "two owned threads; warm request starts when cold cache loader enters sales, no injected sleep; existing cache global lock unchanged; one sample per implementation"
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "file": "app\\product-module-view.tsx",
+    "Hash": "DECCA8C36C5DAB92EE9F39B518E9337037879484F73468EAB2F599C77091BC10"
+  },
+  {
+    "file": "backend\\products\\query.py",
+    "Hash": "3AE1004115BA9D08575103C6F11BB4BDC95E2FFA64EB48AB989E1C8CDA5937F6"
+  },
+  {
+    "file": "lib\\products\\summary.ts",
+    "Hash": "6C439F6481E31E3AC7F3FA8EE2E2DDE8680FE39F99CE489D84362C682AEF32B8"
+  },
+  {
+    "file": "lib\\products\\read-contract.ts",
+    "Hash": "A939B596B6969128DF7A1F9CB7FED267BEB05E592070A3AEC649792D2F24015A"
+  },
+  {
+    "file": "lib\\products\\detail-contract.ts",
+    "Hash": "CF8E4DF450929A3C26BF836673463410C65F24F35AA437D986EE8F188597C9C0"
+  }
+]

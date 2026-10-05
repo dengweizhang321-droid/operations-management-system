@@ -1,0 +1,18 @@
+✔ detail hides old periods synchronously, rejects late/error responses and recovers (2454.8271ms)
+✔ same-range refresh reads detail, retains success on failure and enforces source version (2052.1293ms)
+✔ calculator uses validated first-page data, local inputs and tab reentry without another aggregate (4576.4174ms)
+✔ cancelled detail followed by empty coverage releases refresh and rejects its late response (1672.5395ms)
+✔ malformed dates, wrong specification and invalid amounts fail locally before chart rendering (1831.3279ms)
+✔ progressive regions require their complete projection and range witnesses (2.7708ms)
+✔ an unloaded, malformed, truncated or wrong page cannot become a business empty/zero region (0.3567ms)
+✔ an interrupted distribution recovers even when the next page or refresh fails (2815.736ms)
+✔ same snapshot with conflicting sales source witness fails the affected region locally (2489.3554ms)
+✔ first/new scope failures show blocked statistics, and a changed snapshot restarts page one (3605.909ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14503.8143
