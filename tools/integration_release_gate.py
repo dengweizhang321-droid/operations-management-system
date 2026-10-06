@@ -134,7 +134,7 @@ def verify_parent_138(runtime, witness):
     if not re.fullmatch(r"[0-9a-f]{32}", operation):
         raise PlanBlocked("delta parent operation invalid")
     original = Path(runtime) / "integration-installs" / operation / "source"
-    return verify_release(original, runtime, allow_delta=False)
+    return verify_release(original, runtime, allow_delta=False, allow_addition=False)
 
 
 def operation_witness(runtime, candidate, backup_path, backup_sha, restore_path, restore_sha):

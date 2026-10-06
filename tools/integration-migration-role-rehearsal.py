@@ -300,7 +300,7 @@ def worker(stage, port, privileged_steps, reviewed_policy):
 
 
 def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_policy, verify_runtime,
-              baseline_runtime_grants=False):
+              baseline_runtime_grants=False, *, worker_script=None, expected_generation=138):
     if (ROOT.resolve() == Path(r"D:\运营管理系统").resolve()
             or not 55440 <= port <= 55999):
         raise RuntimeError("probe requires an isolated worktree and test port")
@@ -389,7 +389,7 @@ def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_polic
         for stage in stages:
             print(json.dumps({"stage": stage, "port": port,
                 "runRoot": str(run_root), "productionWrites": False}), flush=True)
-            args = [sys.executable, "-B", __file__, "--worker", stage, "--port", str(port)]
+            args = [sys.executable, "-B", str(worker_script or __file__), "--worker", stage, "--port", str(port)]
             for number in privileged_steps:
                 args += ["--privileged-ai-step", number]
             if reviewed_policy:
@@ -415,7 +415,8 @@ def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_polic
                 "targetPort": restore_port, "productionWrites": False}), flush=True)
             output = native([sys.executable, "-B", ROOT / "tools" /
                 "integration-protected-restore-rehearsal.py", "--run-root", run_root,
-                "--source-port", str(port), "--target-port", str(restore_port)],
+                "--source-port", str(port), "--target-port", str(restore_port),
+                "--expected-generation", str(expected_generation)],
                 environment=django_env, timeout=900)
             print(output.strip(), flush=True)
         print(json.dumps({name: value for name, value in result.items()

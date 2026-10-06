@@ -1752,7 +1752,7 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if ((Test-Path -LiteralPath $biAdditionGate) -and
       ([string]$biEvidence.version -ceq 'teruisi-bi-erp-goal-addition-v1' -or
        (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'bi-app-addition-active.json')))) {
-    $biCommand = if ($Operation -ceq 'PrepareApp') { if ($null -ne $biEvidence) {'admission'} else {'successor'} } elseif ($Operation -ceq 'DeployApp') {'deployment'} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported BI addition lifecycle operation'}
+    $biCommand = if ($Operation -ceq 'PrepareApp') { if ($null -ne $biEvidence) {'admission'} else {'successor'} } elseif ($Operation -ceq 'DeployApp') { if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'} } elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported BI addition lifecycle operation'}
     $biArgs = @($biAdditionGate,$biCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
     if($biCommand -ceq 'admission'){$biArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
     if($biCommand -ceq 'deployment'){$biArgs += @('--operation',$IntegrationOperationId)}

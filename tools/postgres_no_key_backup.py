@@ -72,7 +72,7 @@ def verify_receipt_generation(cursor):
         if [row[0] for row in cursor.fetchall()] != sorted(["id","period_type","period_key","platform","shop_name","sales_target_cents","version","created_at","updated_at","updated_by"]):
             raise RuntimeError("ERP-goal addition schema differs")
         cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid=to_regclass('public.finance_erp_targets') ORDER BY conname")
-        if [row[0] for row in cursor.fetchall()] != sorted(["finance_erp_targets_pkey","fin_erp_target_scope_uq","fin_erp_target_period_ck","fin_erp_target_values_ck"]):
+        if [row[0] for row in cursor.fetchall()] != sorted(["finance_erp_targets_pkey","finance_erp_targets_version_check","fin_erp_target_scope_uq","fin_erp_target_period_ck","fin_erp_target_values_ck"]):
             raise RuntimeError("ERP-goal addition constraints differ")
         cursor.execute("SELECT t.tgtype,p.proname,t.tgenabled FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid=to_regclass('public.finance_erp_targets') AND t.tgname='finance_erp_target_revision_required' AND NOT t.tgisinternal")
         if cursor.fetchall()!=[(30,"finance_source_mark_revision_required","O")]:

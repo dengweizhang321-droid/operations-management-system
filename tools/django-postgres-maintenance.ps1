@@ -433,6 +433,7 @@ function Assert-MaintenanceEvidence(
     # owning presence-cache migration. A count alone cannot prove generation.
     $migrationIdentities = [Collections.Generic.List[string]]::new()
     $presenceCount = 0
+    $erpGoalCount = 0
     foreach ($migration in @($Evidence.migrations)) {
       if ($migration -isnot [pscustomobject] -or $migration.app -isnot [string] -or $migration.name -isnot [string]) {
         throw "无新增密钥备份迁移必须为标量字符串身份"
@@ -442,15 +443,18 @@ function Assert-MaintenanceEvidence(
         throw "无新增密钥备份迁移身份无效"
       }
       if ($app -ceq 'netshop' -and $name -ceq '0004_promotion_presence_cache') { $presenceCount++ }
+      elseif ($app -ceq 'finance' -and $name -ceq '0007_finance_erp_targets') { $erpGoalCount++ }
       else { $migrationIdentities.Add($app + '.' + $name) }
     }
     $generation = @($Evidence.migrations).Count
-    if (($generation -ne 138 -and $generation -ne 139) -or
-        ($generation -eq 138 -and $presenceCount -ne 0) -or
-        ($generation -eq 139 -and $presenceCount -ne 1) -or $migrationIdentities.Count -ne 138 -or
+    if (($generation -ne 138 -and $generation -ne 139 -and $generation -ne 140) -or
+        ($generation -eq 138 -and ($presenceCount -ne 0 -or $erpGoalCount -ne 0)) -or
+        ($generation -eq 139 -and ($presenceCount -ne 1 -or $erpGoalCount -ne 0)) -or
+        ($generation -eq 140 -and ($presenceCount -ne 1 -or $erpGoalCount -ne 1)) -or $migrationIdentities.Count -ne 138 -or
         [long]$Evidence.tables.django_migrations -ne $generation) {
       throw "无新增密钥备份迁移代际未获核验"
     }
+    if ($generation -eq 140) { $requiredTables += 'finance_erp_targets' }
     $migrationIdentities.Sort([StringComparer]::Ordinal)
     $catalogueJson = ConvertTo-Json -InputObject @($migrationIdentities.ToArray()) -Compress
     $catalogueHasher = [Security.Cryptography.SHA256]::Create()
