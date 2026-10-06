@@ -9,6 +9,7 @@ import { validateProductDetail } from "@/lib/products/detail-contract";
 import type { ProductSummaryInitialPageResponse, ProductSummaryOverviewResponse, ProductSummaryFullResponse as ProductSummaryResponse } from "@/lib/products/summary";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { SearchableMultiSelect, SearchableSelect } from "./ui/searchable-select";
+import { FilterDraftActions, useFilterDraft } from "./ui/filter-draft";
 import { InventoryKpiCard, MultiFilterSelect, ProductPlatformSalesShare, ProductSalesTrend, ShopSalesDistribution } from "./module-view-business-ui";
 import {
   type SalesRangeLabel,
@@ -148,6 +149,21 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
   // Hide old scopes synchronously, before the effect starts the next request.
   const summary = summaryScope === bootstrapKey ? storedSummary : null;
   const currentOverview = summary && overviewScope === bootstrapKey && overview?.snapshotToken === summary.snapshotToken ? overview : null;
+  const filterMetadataKey = JSON.stringify([customStartDate, customEndDate]);
+  const [filterMetadata, setFilterMetadata] = useState<{ key: string; filters: ProductSummaryOverviewResponse["filters"] } | null>(null);
+  useEffect(() => {
+    if (currentOverview) setFilterMetadata({ key: filterMetadataKey, filters: currentOverview.filters });
+  }, [currentOverview, filterMetadataKey]);
+  const filterOptions = currentOverview?.filters ?? (filterMetadata?.key === filterMetadataKey ? filterMetadata.filters : null);
+  const { draft, setDraft, pending, discard } = useFilterDraft({ query, categoryFilters, platformFilters, shopFilters, marginFilters }, JSON.stringify([activeTab, filterMetadataKey]));
+  const applyFilters = () => {
+    setQuery(draft.query); setCategoryFilters(draft.categoryFilters);
+    setPlatformFilters(draft.platformFilters); setShopFilters(draft.shopFilters);
+    setMarginFilters(draft.marginFilters); setProductPage(1);
+  };
+  const changeDraftPlatforms = (values: string[]) => {
+    setDraft({ ...draft, platformFilters: values, shopFilters: draft.shopFilters.filter(shop => !values.length || values.includes(shop.split("\u001f")[0])) });
+  };
 
   const loadSummary = useCallback(async (forceFull = false, overviewOnly = false) => {
     const expectedSnapshotToken = productSummarySnapshotTokenRef.current;
@@ -367,26 +383,26 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
   }, [calculatorOverrides, selectedProduct]);
 
   const categories = useMemo(
-    () => currentOverview?.filters.categories ?? [],
-    [currentOverview?.filters.categories],
+    () => filterOptions?.categories ?? [],
+    [filterOptions?.categories],
   );
   const platformOptions = useMemo(
-    () => currentOverview?.filters.platforms ?? [],
-    [currentOverview?.filters.platforms],
+    () => filterOptions?.platforms ?? [],
+    [filterOptions?.platforms],
   );
   const shopOptions = useMemo(
-    () => (currentOverview?.filters.shops ?? [])
-      .filter((outlet) => platformFilters.length === 0 || platformFilters.includes(outlet.platform))
+    () => (filterOptions?.shops ?? [])
+      .filter((outlet) => draft.platformFilters.length === 0 || draft.platformFilters.includes(outlet.platform))
       .map((outlet) => ({ value: outlet.key, label: `${outlet.platform} · ${outlet.shop}` })),
-    [platformFilters, currentOverview?.filters.shops],
+    [draft.platformFilters, filterOptions?.shops],
   );
   useEffect(() => {
     if (!currentOverview) return;
     setShopFilters((current) => {
-      const next = current.filter((item) => shopOptions.some((option) => option.value === item));
+      const next = current.filter(item => currentOverview.filters.shops.some(shop => shop.key === item && (!platformFilters.length || platformFilters.includes(shop.platform))));
       return next.length === current.length ? current : next;
     });
-  }, [shopOptions, currentOverview]);
+  }, [platformFilters, currentOverview]);
   const productItems = summary?.items ?? [];
   const multiCodeQueryCount = useMemo(
     () => (summary?.filtersApplied.query ?? "").split(/[\s,，;；]+/).filter(Boolean).length,
@@ -462,7 +478,8 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
 
         <section className="panel product-filter-panel">
           <div className="table-toolbar"><div><h2>商品经营明细</h2><p>已按 {appliedScope} 汇总；净销量已扣除退货。快递费率来自最近一次“SKU累计”全量导入，其余金额与毛利来自订单明细。</p></div><span className="soft-tag">{multiCodeQueryCount > 1 ? `已查询 ${formatCount(multiCodeQueryCount)} 个规格代码 · ` : ""}显示 {formatCount(productItems.length)} / {summary ? formatCount(summary.pagination.total) : "—"}</span></div>
-          <div className="filter-row product-filter-row"><div className="search-box compact product-multi-query">⌕ <textarea rows={1} maxLength={PRODUCT_SUMMARY_QUERY_MAX_LENGTH} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="输入或粘贴货品规格代码、名称或规格（空格、逗号或换行分隔，最多1000字符）" aria-label="搜索一个或多个货品规格代码、名称、品牌、供应商、规格或品类" /></div><fieldset disabled={!currentOverview} className="product-dependent-filters" aria-label="依赖数据的筛选"><legend>{currentOverview ? "销售范围筛选" : overviewError ? "筛选选项加载失败" : error && !overviewLoading ? "请先恢复明细快照" : "筛选选项正在加载"}</legend><MultiFilterSelect label="品类" allLabel="全部品类" ariaLabel="商品品类" options={categories} selected={categoryFilters} onChange={setCategoryFilters} /><MultiFilterSelect label="平台" allLabel="全部平台" ariaLabel="销售平台" options={platformOptions} selected={platformFilters} onChange={setPlatformFilters} /><MultiFilterSelect label="店铺" allLabel="全部店铺" ariaLabel="销售店铺" options={shopOptions} selected={shopFilters} onChange={setShopFilters} /></fieldset><SearchableMultiSelect className="filter-select" values={marginFilters} onChange={(values) => setMarginFilters(values as ProductMarginFilter[])} ariaLabel="实际大毛利率区间" allLabel="全部毛利" searchPlaceholder="搜索毛利率区间" options={["低于35%", "35%-40%", "40%-45%", "45%以上", "暂无有效毛利率"].map((value) => ({ value, label: value }))} /><SearchableSelect className="filter-select" value={sortBy} onChange={setSortBy} ariaLabel="排序方式" searchPlaceholder="搜索排序方式" options={[{ value: "sales", label: "按销售净额" }, { value: "profit", label: "按订单毛利" }, { value: "margin", label: "按毛利率" }, { value: "refund", label: "按退货率" }]} /></div>
+          <div className="filter-row product-filter-row"><div className="search-box compact product-multi-query">⌕ <textarea rows={1} maxLength={PRODUCT_SUMMARY_QUERY_MAX_LENGTH} value={draft.query} onChange={(event) => setDraft({ ...draft, query: event.target.value })} placeholder="输入或粘贴货品规格代码、名称或规格（空格、逗号或换行分隔，最多1000字符）" aria-label="搜索一个或多个货品规格代码、名称、品牌、供应商、规格或品类" /></div><fieldset disabled={!filterOptions} className="product-dependent-filters" aria-label="依赖数据的筛选"><legend>{filterOptions ? "销售范围筛选" : overviewError ? "筛选选项加载失败" : error && !overviewLoading ? "请先恢复明细快照" : "筛选选项正在加载"}</legend><MultiFilterSelect label="品类" allLabel="全部品类" ariaLabel="商品品类" options={categories} selected={draft.categoryFilters} onChange={values => setDraft({ ...draft, categoryFilters: values })} /><MultiFilterSelect label="平台" allLabel="全部平台" ariaLabel="销售平台" options={platformOptions} selected={draft.platformFilters} onChange={changeDraftPlatforms} /><MultiFilterSelect label="店铺" allLabel="全部店铺" ariaLabel="销售店铺" options={shopOptions} selected={draft.shopFilters} onChange={values => setDraft({ ...draft, shopFilters: values })} /></fieldset><SearchableMultiSelect className="filter-select" values={draft.marginFilters} onChange={values => setDraft({ ...draft, marginFilters: values as ProductMarginFilter[] })} ariaLabel="实际大毛利率区间" allLabel="全部毛利" searchPlaceholder="搜索毛利率区间" options={["低于35%", "35%-40%", "40%-45%", "45%以上", "暂无有效毛利率"].map((value) => ({ value, label: value }))} /><SearchableSelect className="filter-select" value={sortBy} onChange={setSortBy} ariaLabel="排序方式" searchPlaceholder="搜索排序方式" options={[{ value: "sales", label: "按销售净额" }, { value: "profit", label: "按订单毛利" }, { value: "margin", label: "按毛利率" }, { value: "refund", label: "按退货率" }]} /></div>
+          <div className="product-filter-apply"><button type="button" className="secondary-button" onClick={() => setDraft({ query: "", categoryFilters: [], platformFilters: [], shopFilters: [], marginFilters: [] })}>恢复默认</button><FilterDraftActions pending={pending} onApply={applyFilters} onDiscard={discard} /></div>
           {error && <div className="inventory-feedback inventory-feedback-error" role="alert"><div><strong>商品明细刷新失败</strong><p>{error}{summary ? " · 保留上次成功明细" : ""}</p></div><button className="row-action" disabled={loading} onClick={() => void loadSummary(!summary)}>重试明细</button></div>}
           {(loading || query.trim() !== debouncedProductQuery.trim()) && <p role="status" className="product-list-progress">{query.trim() !== debouncedProductQuery.trim() ? "搜索条件正在应用；当前显示上次成功范围。" : summary ? `正在更新明细；当前保留上次成功第 ${summary.pagination.page} 页（${productSortLabels[summary.sort.by]}）` : "正在加载当前范围的商品明细…"}</p>}
           <div className="data-table-wrap data-refresh-region product-list-region" aria-busy={loading}><table className="data-table product-live-table"><thead><tr><th>货品 / 规格代码</th><th>品牌</th><th>供应商</th><th>品类</th><th>{rangeLabel}销量</th><th>销售净额</th><th>均价 / 均成本</th><th>订单毛利</th><th>实际毛利率</th><th>退货率</th><th>快递费率</th><th>操作</th></tr></thead><tbody>

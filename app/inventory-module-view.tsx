@@ -4,7 +4,7 @@ import { inventoryWarehouseCategoryLabel } from "@/lib/inventory/warehouse-class
 
 import { useAiPageDetails } from "./ai-page-context-provider";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { InventoryKpiCard } from "./module-view-business-ui";
 import GuangdongInventoryView from "./inventory-guangdong-view";
@@ -1439,7 +1439,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     else if (usesInboundMonitor) void loadInboundMonitor(section);
     else void loadOverview(section);
   }} />;
-  const sharedFilterBar = <>{regionNotice}<InventoryFilterBar
+  const sharedFilterBar = <Fragment key="inventory-shared-filters">{regionNotice}<InventoryFilterBar
     activeTab={activeTab}
     filters={filters}
     options={sharedFilterOptions}
@@ -1447,7 +1447,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     extraFilterActive={usesInventoryAgeAnalysis ? Boolean(ageCard) : usesInboundMonitor && Boolean(inboundCard)}
     onResetExtra={() => { if (usesInventoryAgeAnalysis) setAgeCard(""); if (usesInboundMonitor) setInboundCard(""); }}
     onChange={updateFilters}
-  /></>;
+  /></Fragment>;
 
   const subnav = (
     <div className="subnav inventory-subnav" role="tablist" aria-label="库存管理子版块">

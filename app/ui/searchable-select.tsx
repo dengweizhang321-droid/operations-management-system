@@ -106,6 +106,7 @@ export function SearchableMultiSelect({
   emptyLabel = "没有匹配项",
   disabled = false,
   maxSelections,
+  menuAriaLabel,
 }: {
   values: string[];
   onChange: (values: string[]) => void;
@@ -117,6 +118,7 @@ export function SearchableMultiSelect({
   emptyLabel?: string;
   disabled?: boolean;
   maxSelections?: number;
+  menuAriaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -131,11 +133,11 @@ export function SearchableMultiSelect({
     if (!normalizedQuery) return true;
     return `${option.label} ${option.searchText ?? ""}`.toLocaleLowerCase("zh-CN").includes(normalizedQuery);
   });
-  const summary = selectedOptions.length === 0
+  const summary = selectedValues.size === 0
     ? allLabel
-    : selectedOptions.length === 1
-      ? selectedOptions[0].label
-      : `已选 ${formatSearchableCount(selectedOptions.length)} 项`;
+    : selectedValues.size === 1
+      ? selectedOptions[0]?.label ?? values[0]
+      : `已选 ${formatSearchableCount(selectedValues.size)} 项`;
 
   useEffect(() => {
     if (!open) return;
@@ -164,12 +166,12 @@ export function SearchableMultiSelect({
     <button type="button" className="searchable-select-trigger" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} disabled={disabled} onClick={() => { if (!disabled) { setOpen((current) => !current); setQuery(""); } }}>
       <span title={summary}>{summary}</span><i aria-hidden="true">⌄</i>
     </button>
-    {open && <div className="searchable-select-menu" role="listbox" aria-label={`${ariaLabel}选项`} aria-multiselectable="true">
-      <div className="searchable-select-menu-head"><strong>{ariaLabel}</strong><span><button type="button" onClick={selectAll} disabled={availableOptions.length === 0 || selectedOptions.length === availableOptions.length || allValues === null} title={allValues === null ? `最多可显式选择 ${maxSelections} 项；“${allLabel}”无需逐项全选。` : undefined}>全选</button><button type="button" onClick={() => onChange([])} disabled={selectedOptions.length === 0}>清空</button></span></div>
+    {open && <div className="searchable-select-menu" role="listbox" aria-label={menuAriaLabel ?? `${ariaLabel}选项`} aria-multiselectable="true" onMouseDown={event => { if ((event.target as HTMLElement).closest("button")) event.preventDefault(); }}>
+      <div className="searchable-select-menu-head"><strong>{ariaLabel}</strong><span><button type="button" onClick={selectAll} disabled={availableOptions.length === 0 || selectedOptions.length === availableOptions.length || allValues === null} title={allValues === null ? `最多可显式选择 ${maxSelections} 项；“${allLabel}”无需逐项全选。` : undefined}>全选</button><button type="button" onClick={() => onChange([])} disabled={selectedValues.size === 0}>清空</button></span></div>
       <label className="searchable-select-search"><span aria-hidden="true">⌕</span><input autoFocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={searchPlaceholder} aria-label={`搜索${ariaLabel}`} /></label>
       <div className="searchable-select-options searchable-multi-select-options">
-        <button type="button" className={selectedOptions.length === 0 ? "selected" : ""} role="option" aria-selected={selectedOptions.length === 0} onClick={() => onChange([])}><span className="searchable-multi-check" aria-hidden="true">{selectedOptions.length === 0 ? "✓" : ""}</span><span title={allLabel}>{allLabel}</span></button>
-        {visibleOptions.map((option) => { const selected = selectedValues.has(option.value); const optionDisabled = option.disabled || (selectionLimitReached && !selected); return <button type="button" key={`${option.value}-${option.label}`} className={selected ? "selected" : ""} role="option" aria-selected={selected} disabled={optionDisabled} title={optionDisabled && !option.disabled ? `最多可选择 ${maxSelections} 项` : undefined} onClick={() => toggle(option.value)}><span className="searchable-multi-check" aria-hidden="true">{selected ? "✓" : ""}</span><span title={option.label}>{option.label}</span></button>; })}
+        <button type="button" className={selectedValues.size === 0 ? "selected" : ""} role="option" aria-selected={selectedValues.size === 0} onClick={() => onChange([])}><span className="searchable-multi-check" aria-hidden="true">{selectedValues.size === 0 ? "✓" : ""}</span><span title={allLabel}>{allLabel}</span></button>
+        {visibleOptions.map((option) => { const selected = selectedValues.has(option.value); const optionDisabled = option.disabled || (selectionLimitReached && !selected); return <button type="button" key={option.value} className={selected ? "selected" : ""} role="option" aria-selected={selected} disabled={optionDisabled} title={optionDisabled && !option.disabled ? `最多可选择 ${maxSelections} 项` : undefined} onClick={() => toggle(option.value)}><span className="searchable-multi-check" aria-hidden="true">{selected ? "✓" : ""}</span><span title={option.label}>{option.label}</span></button>; })}
         {visibleOptions.length === 0 && <p>{emptyLabel}</p>}
       </div>
     </div>}

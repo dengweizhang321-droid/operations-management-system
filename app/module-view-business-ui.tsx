@@ -10,16 +10,14 @@ import {
   formatRate,
 } from "./module-view-shared";
 
+import { SearchableMultiSelect } from "./ui/searchable-select";
+
 type MultiFilterOption = string | { value: string; label: string };
 
 export function MultiFilterSelect({ label, allLabel, ariaLabel, options, selected, onChange }: { label: string; allLabel: string; ariaLabel: string; options: MultiFilterOption[]; selected: string[]; onChange: (next: string[]) => void }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const normalizedOptions = options.map((option) => typeof option === "string" ? { value: option, label: option } : option);
-  const visibleOptions = normalizedOptions.filter((option) => option.label.toLowerCase().includes(search.trim().toLowerCase()));
-  const toggleOption = (option: string) => onChange(selected.includes(option) ? selected.filter((item) => item !== option) : [...selected, option]);
-  const summary = selected.length === 0 ? allLabel : `已选 ${formatCount(selected.length)} 个${label}`;
-  return <div className={`multi-filter-select ${open ? "open" : ""}`}><button type="button" className="multi-filter-trigger" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} onClick={() => { setOpen((value) => !value); setSearch(""); }}><span title={summary}>{summary}</span><i>⌄</i></button>{open && <div className="multi-filter-menu" role="listbox" aria-label={`${ariaLabel}多选`} aria-multiselectable="true"><div className="multi-filter-menu-head"><strong>{label}筛选</strong><button type="button" onClick={() => onChange([])} disabled={selected.length === 0}>清空</button></div><label className="multi-filter-search">⌕<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`搜索${label}`} aria-label={`搜索${label}`} /></label><button type="button" className={selected.length === 0 ? "selected" : ""} role="option" aria-selected={selected.length === 0} onClick={() => onChange([])}><i>{selected.length === 0 ? "✓" : ""}</i>{allLabel}</button>{visibleOptions.map((option) => <button type="button" key={option.value} className={selected.includes(option.value) ? "selected" : ""} role="option" aria-selected={selected.includes(option.value)} onClick={() => toggleOption(option.value)}><i>{selected.includes(option.value) ? "✓" : ""}</i><span title={option.label}>{option.label}</span></button>)}{visibleOptions.length === 0 && <p className="multi-filter-menu-empty">没有匹配项</p>}</div>}</div>;
+  return <SearchableMultiSelect className="multi-filter-select" ariaLabel={ariaLabel}
+    menuAriaLabel={`${ariaLabel}多选`} allLabel={allLabel} values={selected} onChange={onChange}
+    searchPlaceholder={`搜索${label}`} options={options.map(option => typeof option === "string" ? { value: option, label: option } : option)} />;
 }
 
 export function InventoryKpiCard({
