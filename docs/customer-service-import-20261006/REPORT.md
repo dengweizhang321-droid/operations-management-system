@@ -36,3 +36,5 @@
 跨发布协调复用公共筛选的最终恢复点作为维护前点：`daily-20261006T160534Z-90b9d4aab0c7` / manifest `db5dc881`，原独立恢复和本轮Verify通过，完整manifest/profile淘汰前已另行保全。本轮后点`daily-20261006T173239Z-ddbfce4946c1` / manifest `e30d858ba07b813692629d198c0af94f01b2e3c239bbf61e15fec229fc066866`，dump `258502e5`，Backup/Verify/E55886独立恢复真实exit0；expected/restored content `51dc2573`一致、profileRestoreVerified=true、productionDatabaseTouched/serviceStateChanged=false、isolated_data_removed。
 
 前后角色、catalog与140迁移清单严格相同；全库内容不同，包含客服授权导入及期间ERP/库存/销售/市场/运营等变化，不将范围外变化自动归因于本次维护。原三份/两保护策略已淘汰本轮未保护前点，不引用其目录为现存恢复点。保留首次总控BI探针未就绪样本、元数据默认GBK解码失败及未完成自然任务采集样本，不改失败记录为成功；最终状态另以完成回查记录为准。
+
+最终独立总控回查Running/Ready/exact_release，全部12组件就绪。两个不同自然任务在上海01:55和01:57已完成，采集时Ready/LastTaskResult=0，对应12组件及四个实际探针健康、supervisorHealth=healthy。首次收尾总控BI未就绪样本保留，后续真实BI健康200与原总控重读通过，没有据此重启后端或放宽探针。
