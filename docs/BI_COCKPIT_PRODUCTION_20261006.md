@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-用户明确“合并 main 和发布上线”，随后明确“允许协调”。已与“优化各板块打开速度”完成交接，基于其已采用的五项性能源码 `2f46e1a9` 顺序追加 BI。当前已采用 Django、Worker 包及唯一 ERP 目标迁移，仍在本轮维护内；后备份独立恢复、Finalize、Exit/Start及实际页面验收尚未完成，不能称正式使用已经恢复。
+用户明确“合并 main 和发布上线”，随后明确“允许协调”。已与“优化各板块打开速度”完成交接，基于其已采用的五项性能源码 `2f46e1a9` 顺序追加 BI。首次后备份独立恢复、Finalize、Exit/Start已实控exit0完成，正式系统恢复12组件Running；真实BI组合验收发现固定HTTP传输白名单阻断新四项拥有方GET，目标/运营/库存显示不可用，不能称BI业务验收完成。最小修复 `498b7b18` 已合main并准备后继包，正进行发布前在线备份与恢复，尚未采用此修复。
 
 | 对象 | 实际绑定 |
 | --- | --- |
@@ -26,7 +26,13 @@ main 已合并并推送业务和维护代码。main 后续文档提交不作为�
 
 后备份 `daily-20261006T020717Z-8e9eb83e2472` / manifest `45e486c21ef2c48b606cec608dedd80e54178f2a1309e94d5ff6ebdd91713c8b`，原 Backup/Verify 实控 exit0。完整前后 manifest/sidecar 在轮换前保全于 `E:\codex-artifacts\bi-production-20261006`，没有复制大型 dump 绕过原三份/两保护策略；前 dump 已由原策略淘汰，不能引用其目录作现存恢复点。
 
-冻结前后完整比较通过：294 原业务表行数与内容摘要一致；唯一变化的原表为 django_migrations（仅增加该一步），新增 finance_erp_targets 为0行。49现有角色属性/设置/成员关系保持；各权威和业务修订保持。目录仅 columns/constraints/indexes/relations/triggers 变化，与新增表、五项约束、三个索引及同事务修订触发器对应；其余目录部分保持。后独立恢复和最终收尾仍须完成。
+冻结前后完整比较通过：294 原业务表行数与内容摘要一致；唯一变化的原表为 django_migrations（仅增加该一步），新增 finance_erp_targets 为0行。49现有角色属性/设置/成员关系保持；各权威和业务修订保持。目录仅 columns/constraints/indexes/relations/triggers 变化，与新增表、五项约束、三个索引及同事务修订触发器对应；其余目录部分保持。后E55897独立恢复实控exit0，完整content与profile一致、临时data移除。原Finalize/Exit/唯一Start均exit0；17正式资源逐字节一致，首次新接口ERP200但其三所属来源不可用，失败样本保留。
+
+## 四拥有方GET传输闭合修复
+
+真实来源不可用的确切原因是BI复用的HTTP helper只接原两个POST消费者及运营records GET，模拟opener测试和所属函数投影没有覆盖这个真实路径准入接缝。没有将源失败改成零值或伪称已通过。新独立BI传输入口仅接精确finance8011/workflow8061/inventory8051/netshop8021的四个既有签名GET，HTTP loopback、无body、无proxy/redirect及同一8秒deadline保持；原消费者白名单没有扩展。
+
+修复后77项私有PG与原有传输回归通过，新增真实准入测试覆盖四路径、错误端口/来源/方法及旧入口仍拒绝BI GET。前台用真实已认证本人及仅内存现有HMAC对四个实际reader签名GET，目标、运营、库存和流量均ready，各次仍≤8秒；只保存来源/修订/耗时，不读数据库、不落凭据、不修改业务。后继Prepared `4381a581a87749ceab09be81907f70dc` / receipt `7811d133db69429d7dce253c25398d364c3b7fd2e882b2dfd3cdcd61269b3cfb` / manifest `d7394a0e9736eb7378d20f8d1080abfde17ba4aec02981a887a8d7bc97b2464e`。该后继仅改源码，不新增或重复任何140迁移/配置/缓存，Worker94与各保护回执保留。材料在 `E:\codex-artifacts\bi-transport-production-20261006`；后续维护、采用、前后恢复和业务验收仍待完成。
 
 ## 验证边界与失败记录
 
