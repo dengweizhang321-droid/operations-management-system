@@ -6,7 +6,7 @@ import { build } from "esbuild";
 import { chromium } from "playwright-core";
 
 const chrome = "C:/Program Files/Google/Chrome/Application/chrome.exe";
-test("shared filter draft preserves search, scroll and focus, applies once, resets across scopes", {
+test("shared filter draft preserves search, scroll and focus, auto-applies dimensions, confirms text by Enter and resets across scopes", {
   skip: !existsSync(chrome), timeout: 30_000,
 }, async () => {
   const bundle = await build({ stdin: { contents: `
@@ -38,36 +38,49 @@ test("shared filter draft preserves search, scroll and focus, applies once, rese
     const scroll = menu.locator(".searchable-select-options");
     await scroll.evaluate(el => el.scrollTop = 1800);
     const position = await scroll.evaluate(el => el.scrollTop);
+    assert.equal(await page.getByRole("button", { name: "应用筛选", exact: true }).count(), 0);
     await menu.getByRole("option", { name: "分类60", exact: true }).click();
     await menu.getByRole("option", { name: "分类61", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('output[aria-label="应用次数"]')?.textContent === "1");
     assert.equal(await scroll.evaluate(el => el.scrollTop), position);
     assert.equal(await search.inputValue(), "分类");
     assert.equal(await search.evaluate(el => el === document.activeElement), true);
     await menu.getByRole("option", { name: "分类62", exact: true }).click();
     assert.equal(await menu.getByRole("option", { name: "分类63", exact: true }).isDisabled(), true);
     await menu.getByRole("option", { name: "分类61", exact: true }).click();
-    assert.equal(await menu.getByRole("option", { name: "分类63", exact: true }).isDisabled(), false);
-    assert.equal(await page.getByLabel("应用次数").innerText(), "0");
-    await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "应用筛选", exact: true }).click();
-    await page.waitForFunction(() => document.querySelector('output[aria-label="应用次数"]')?.textContent === "1");
-    assert.equal(await page.getByLabel("应用次数").innerText(), "1");
+    await page.waitForFunction(() => document.querySelector('output[aria-label="应用次数"]')?.textContent === "2");
     assert.deepEqual(JSON.parse(await page.getByLabel("已应用条件").innerText()).categories, ["分类60", "分类62"]);
-    await page.getByRole("button", { name: "恢复默认", exact: true }).click();
-    assert.equal(await page.getByLabel("应用次数").innerText(), "1");
-    await page.getByRole("button", { name: "撤销修改", exact: true }).click();
-    assert.equal(await page.getByRole("button", { name: "应用筛选", exact: true }).isDisabled(), true);
+    await page.keyboard.press("Escape");
     const input = page.getByRole("textbox", { name: "销售分析货品编码或名称" });
-    await input.fill("尚未应用");
-    await page.getByRole("button", { name: "切换范围", exact: true }).click();
-    assert.equal(await input.inputValue(), "");
+    await input.fill("尚未确认");await page.waitForTimeout(750);
+    assert.equal(await page.getByLabel("应用次数").innerText(), "2");
+    await page.getByRole("button", { name: "销售分析平台", exact: true }).click();
+    await page.getByRole("listbox", { name: "销售分析平台选项" }).getByRole("option", { name: "京东", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('output[aria-label="应用次数"]')?.textContent === "3");
+    assert.equal(JSON.parse(await page.getByLabel("已应用条件").innerText()).productQuery, "");
+    assert.equal(await input.inputValue(), "尚未确认");
+    await input.press("Enter");
+    await page.waitForFunction(() => document.querySelector('output[aria-label="应用次数"]')?.textContent === "4");
+    assert.equal(JSON.parse(await page.getByLabel("已应用条件").innerText()).productQuery, "尚未确认");
+    await input.dispatchEvent("compositionstart");await input.fill("商用");await input.press("Enter");
+    await page.waitForTimeout(750);assert.equal(await page.getByLabel("应用次数").innerText(), "4");
+    await input.dispatchEvent("compositionend");
+    // Synthetic composition has no OS candidate engine to consume Enter;
+    // restore the committed word before testing the post-composition key.
+    await input.fill("商用");
+    await input.dispatchEvent("keydown", { key: "Enter", keyCode: 229 });
+    assert.equal(await page.getByLabel("应用次数").innerText(), "4");
+    await input.press("Enter");await page.waitForFunction(() => document.querySelector('output[aria-label="应用次数"]')?.textContent === "5");
+    await input.fill("取消的编辑");await page.getByRole("button", { name: "切换范围", exact: true }).click();
+    await page.waitForTimeout(750);assert.equal(await input.inputValue(), "商用");
     await page.getByRole("button", { name: "隐藏候选元数据", exact: true }).click();
     assert.match(await page.getByRole("button", { name: "销售分析品类", exact: true }).innerText(), /已选 2 项/);
     await page.getByRole("button", { name: "销售分析品类", exact: true }).click();
-    assert.equal(await menu.getByRole("option", { selected: true }).count(), 0, "metadata absence must not imply all");
+    assert.equal(await menu.getByRole("option", { selected: true }).count(), 0);
     await menu.getByRole("button", { name: "清空", exact: true }).click();
-    assert.equal(await menu.getByRole("option", { selected: true }).count(), 1);
-    await page.getByRole("button", { name: "切换范围", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('output[aria-label="应用次数"]')?.textContent === "6");
+    await page.keyboard.press("Escape");await page.getByRole("button", { name: "恢复默认", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('output[aria-label="应用次数"]')?.textContent === "7");
     assert.equal(await input.inputValue(), "");
   } finally { await browser.close(); }
 });

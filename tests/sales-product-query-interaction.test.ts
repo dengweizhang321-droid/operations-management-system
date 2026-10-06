@@ -42,8 +42,8 @@ test("sales overview preserves multiline code paste, sends all codes and restore
     const pasted = codes.join(",\n");
     const sent = page.waitForRequest(request => new URL(request.url()).searchParams.get("productQuery")?.split(",").length === 100);
     await field.fill(pasted);
-    // Typing stays local; one explicit application submits the complete list.
-    await page.getByRole("button", { name: "应用筛选", exact: true }).click();
+    // Typing stays local; Enter submits the complete list.
+    await field.press("Enter");
     const filteredRequest = await sent;
     assert.deepEqual(new URL(filteredRequest.url()).searchParams.getAll("productQuery"), [codes.join(",")]);
     assert.ok([...new URL(filteredRequest.url()).searchParams].length < 100);
@@ -56,10 +56,15 @@ test("sales overview preserves multiline code paste, sends all codes and restore
     const beforeInvalid = requests.length;
     await field.fill(`${pasted}\nSKU-101`);
     await page.getByRole("alert").filter({ hasText: "最多 100 项" }).waitFor();
-    // Invalid drafts never submit; explicitly applying the clear resets scope.
+    await field.press("Enter");
+    assert.equal(requests.length, beforeInvalid, "invalid Enter must not query");
+    // Invalid drafts never submit; Enter confirms the clear.
     const cleared = page.waitForResponse(response => new URL(response.url()).pathname === "/api/sales/summary" && !new URL(response.url()).searchParams.has("productQuery"));
     await field.fill("");
-    await page.getByRole("button", { name: "应用筛选", exact: true }).click();
+    await field.press("Shift+Enter");
+    assert.equal(await field.inputValue(), "\n", "Shift+Enter keeps multiline editing");
+    assert.equal(requests.length, beforeInvalid);
+    await field.press("Enter");
     await cleared;
     assert.equal(requests.length, beforeInvalid + 1);
     assert.deepEqual(errors, []);

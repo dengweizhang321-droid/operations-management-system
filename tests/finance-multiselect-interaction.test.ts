@@ -42,7 +42,7 @@ test("finance filters preserve search and multiple selections through loading, e
   assert.equal(validFinanceAnalysis(payload), true, "the interaction fixture must satisfy the unchanged business response guard");
   const browser = await chromium.launch({ executablePath: chromePath, headless: true });
   try {
-    const page = await browser.newPage();
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     const errors: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.route("**/*", route => route.fulfill({ contentType: "text/html", body: '<div id="root"></div>' }));
@@ -82,6 +82,7 @@ test("finance filters preserve search and multiple selections through loading, e
         return new Promise<Response>(resolve => pending.push({ url: String(input), resolve }));
       };
     }, payload);
+    await page.addStyleTag({ content: "html{scroll-behavior:auto}" });
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
     await page.getByText(/[¥￥]12,345$/, { exact: true }).first().waitFor();
     const settle = async (status: number, body: unknown) => {
@@ -98,23 +99,37 @@ test("finance filters preserve search and multiple selections through loading, e
         pending.at(-1)!.settled = true;
         pending.at(-1)!.resolve(Response.json(status === 200 ? state.financeShapeResponse(pending.at(-1)!.url, body) : body, { status }));
       }, { status, body });
+      if (status === 200) await page.locator('.finance-analysis-page > .stable-read-content[aria-busy="false"]').waitFor();
     };
     for (let index = 0; index < 2; index++) {
       await page.getByRole("button", { name: "月份多选", exact: true }).nth(index).click();
       const search = page.getByRole("searchbox", { name: "搜索月份", exact: true });
       await search.fill("2026");
       assert.ok((await page.getByRole("option").allTextContents()).some(text => text.includes("2026年8月")), JSON.stringify({ index, errors, body: await page.locator("body").innerText() }));
+      await page.getByRole("option", { name: /2026年8月$/ }).scrollIntoViewIfNeeded();
+      const before = await page.getByRole("button", { name: "月份多选", exact: true }).nth(index).boundingBox();
+      const beforeScroll = await page.evaluate(() => window.scrollY);
+      const beforeDiagnostic = await page.evaluate(() => ({scroll:window.scrollY, height:document.documentElement.scrollHeight,all:[...document.querySelectorAll("#root > *, .finance-analysis-page > *")].map(el=>({c:el.className,y:el.getBoundingClientRect().y,h:el.getBoundingClientRect().height})), blocks:[...document.querySelectorAll(".finance-analysis-page > .stable-read-content")].map(el=>({height:el.getBoundingClientRect().height,bodyHeight:el.firstElementChild?.getBoundingClientRect().height,style:el.getAttribute("style")}))}));
       await page.getByRole("option", { name: /2026年8月$/ }).click();
+      await page.waitForTimeout(50);
+      assert.equal((await page.getByRole("button", { name: "月份多选", exact: true }).nth(index).boundingBox())!.y, before!.y, JSON.stringify({index,before:beforeDiagnostic,after:await page.evaluate(() => ({scroll:window.scrollY,height:document.documentElement.scrollHeight,all:[...document.querySelectorAll("#root > *, .finance-analysis-page > *")].map(el=>({c:el.className,y:el.getBoundingClientRect().y,h:el.getBoundingClientRect().height})),blocks:[...document.querySelectorAll(".finance-analysis-page > .stable-read-content")].map(el=>({height:el.getBoundingClientRect().height,bodyHeight:el.firstElementChild?.getBoundingClientRect().height,style:el.getAttribute("style")}))}))}));
+      assert.equal(await page.evaluate(() => window.scrollY), beforeScroll);
       assert.equal(await search.inputValue(), "2026");
       assert.equal(await page.getByRole("listbox", { name: "月份多选", exact: true }).count(), 1);
-      assert.equal(await page.getByText(/[¥￥]12,345$/, { exact: true }).count(), 0);
+      assert.ok(await page.locator('.stable-read-content[data-retained-read="true"]').getByText(/[¥￥]12,345$/, { exact: true }).count() > 0);
+      assert.equal(await page.locator('.finance-analysis-page > .stable-read-content .stable-read-body').getAttribute("inert"), "");
       await settle(200, payload);
       await page.getByText(/[¥￥]12,345$/, { exact: true }).first().waitFor();
       assert.equal(await search.inputValue(), "2026");
+      await page.getByRole("option", { name: /2026年7月$/ }).scrollIntoViewIfNeeded();
+      const beforeFailure = await page.getByRole("button", { name: "月份多选", exact: true }).nth(index).boundingBox();
+      const beforeFailureScroll = await page.evaluate(() => window.scrollY);
       await page.getByRole("option", { name: /2026年7月$/ }).click();
       assert.equal(await search.inputValue(), "2026");
       await settle(503, { error: "测试读取失败" });
       await page.getByRole("alert").waitFor();
+      assert.equal((await page.getByRole("button", { name: "月份多选", exact: true }).nth(index).boundingBox())!.y, beforeFailure!.y);
+      assert.equal(await page.evaluate(() => window.scrollY), beforeFailureScroll);
       assert.equal(await search.inputValue(), "2026");
       await page.getByRole("button", { name: "重新加载", exact: true }).click();
       await settle(200, payload);
@@ -130,11 +145,8 @@ test("finance filters preserve search and multiple selections through loading, e
     assert.equal(await shopSearch.inputValue(), "旗舰店");
     await page.getByRole("option", { name: "京东 · 乙旗舰店", exact: true }).click();
     assert.equal(await page.getByRole("option", { selected: true }).count(), 2);
-    await page.getByRole("button", { name: "应用筛选", exact: true }).click();
     await settle(200, payload);
     await page.getByText(/[¥￥]12,345$/, { exact: true }).first().waitFor();
-    await page.getByRole("button", { name: "销售分析店铺", exact: true }).click();
-    await shopSearch.fill("旗舰店");
     await page.evaluate(() => {
       const pending = (window as unknown as { financePending: Array<{ resolve: (response: Response) => void }> }).financePending;
       for (const request of pending.slice(0, -1)) request.resolve(Response.json({ error: "迟到的旧错误" }, { status: 503 }));
@@ -142,11 +154,8 @@ test("finance filters preserve search and multiple selections through loading, e
     assert.equal(await shopSearch.inputValue(), "旗舰店");
     assert.equal(await page.getByRole("alert").count(), 0);
     await page.getByRole("option", { name: "京东 · 乙旗舰店", exact: true }).click();
-    await page.getByRole("button", { name: "应用筛选", exact: true }).click();
     await settle(200, { ...payload, hasData: false, selectedMonth: null, selectedMonths: [] });
     await page.getByText("当前筛选没有月度财报数据", { exact: true }).waitFor();
-    await page.getByRole("button", { name: "销售分析店铺", exact: true }).click();
-    await shopSearch.fill("旗舰店");
     assert.equal(await shopSearch.inputValue(), "旗舰店");
     assert.equal(await page.getByRole("option", { selected: true }).count(), 1);
     assert.equal(await page.getByText(/[¥￥]12,345$/, { exact: true }).count(), 0);

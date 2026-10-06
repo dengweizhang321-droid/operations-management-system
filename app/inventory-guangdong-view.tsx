@@ -8,6 +8,7 @@ import { formatCount, formatRate, useDebouncedValue } from "./module-view-shared
 import type { GuangdongIdentity, GuangdongItem, GuangdongMonitor, GuangdongPreview, GuangdongWatchRow } from "@/lib/inventory/guangdong-contract";
 import styles from "./inventory-guangdong.module.css";
 
+import { StableReadContent } from "./ui/stable-read-content";
 import InventoryRegionNotice from "./inventory-region-notice";
 import { readInventoryRegions, mergeInventoryRegion, type InventoryRegionState, type InventoryReadSection } from "@/lib/inventory/read-regions";
 
@@ -26,9 +27,9 @@ async function jsonRequest<T>(path: string, init?: RequestInit): Promise<T> {
 }
 const jsonBody = (value: unknown, method = "POST") => ({ method, headers: { "content-type": "application/json" }, body: JSON.stringify(value) });
 
-export default function GuangdongInventoryView({ canManage, filters, onFiltersChange, onAskAi, onCreatePlan, planActionId = "", planSaving = false, refreshKey = 0 }: {
+export default function GuangdongInventoryView({ identity, canManage, filters, onFiltersChange, onAskAi, onCreatePlan, planActionId = "", planSaving = false, refreshKey = 0 }: {
   onCreatePlan?: (productCode: string) => void; planActionId?: string; planSaving?: boolean; refreshKey?: number;
-  canManage: boolean; filters: InventorySharedFilters; onFiltersChange: (value: InventorySharedFilters) => void; onAskAi: (prompt: string) => void;
+  identity?: unknown; canManage: boolean; filters: InventorySharedFilters; onFiltersChange: (value: InventorySharedFilters) => void; onAskAi: (prompt: string) => void;
 }) {
   const [dataState, setDataState] = useState<InventoryRegionState<GuangdongMonitor> | null>(null);
   const [regionErrors, setRegionErrors] = useState<Partial<Record<InventoryReadSection, string>>>({});
@@ -176,9 +177,11 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
     {error && <div className="inventory-feedback inventory-feedback-error" role="alert">{error}<button className="row-action" onClick={() => { setRetrySection(undefined); setRefresh((value) => value + 1); }}>重新读取</button></div>}
     {notice && <p role="status">{notice}</p>}
     <InventoryFilterBar activeTab="guangdong" filters={filters} onChange={onFiltersChange} updating={loading} options={{ warehouses: ["广东仓"], brands: data?.filters.brands ?? [], categories: data?.filters.categories ?? [], suppliers: data?.filters.suppliers ?? [], ageBuckets: [] }} />
+    <StableReadContent notice={false} preserveViewport={false} owner="guangdong" identity={identity} pending={loading || !data || !dataState?.summary || !dataState?.detail} complete={Boolean(data && dataState?.summary && dataState?.detail)} error={Boolean(error || Object.values(regionErrors).some(Boolean))}>
     <InventoryRegionNotice summary={Boolean(data && dataState?.summary)} detail={Boolean(data && dataState?.detail)} errors={regionErrors} onRetry={section => { setRetrySection({ query, section }); setRefresh(v => v + 1); }} />
     {data?.sync.inventoryStale && <p className={styles.warning}>库存快照待更新：风险与建议下单日期是基于所示快照的估算。</p>}
     {!data && !error && <section className="panel data-state" role="status">正在读取广东仓监控数据…</section>}
+    </StableReadContent>
     {panel && <section className={`panel ${styles.management}`} aria-label={panel === "watchlist" ? "监控清单管理" : "供应商周期管理"}>
       <div className={styles.heading}><h3>{panel === "watchlist" ? "监控清单管理" : "供应商备货周期"}</h3><button className="row-action" onClick={() => { setPanel(null); managementGeneration.current++; }}>收起</button></div>
       {panel === "watchlist" ? <>
@@ -203,6 +206,7 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
         <div className="data-table-wrap"><table className="data-table"><thead><tr><th>编码 / 品名</th><th>状态</th><th>备注</th><th>操作</th></tr></thead><tbody>{visibleList.slice((listPage - 1) * 50, listPage * 50).map((row) => <tr key={`${row.productCode}:${list?.version}`}><td>{row.productCode}<small className="cell-note">{row.productName}</small></td><td>{row.active ? "启用" : "暂停"}</td><td colSpan={2}><form className={styles.actions} onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); void run(() => prepare([{ productCode: row.productCode, active: row.active, notes: String(form.get("notes") ?? "") }])); }}><input name="notes" aria-label={`${row.productCode}备注`} defaultValue={row.notes} maxLength={1000} disabled={!canManage || busy} />{canManage && <><button className="row-action" disabled={busy}>预览备注</button><button type="button" className="row-action" disabled={busy} onClick={() => void run(() => prepare([{ productCode: row.productCode, active: !row.active, notes: row.notes }]))}>{row.active ? "暂停" : "恢复"}</button></>}</form></td></tr>)}</tbody></table></div><div className={styles.actions}><span>共 {visibleList.length} 个型号</span><button className="row-action" disabled={listPage <= 1} onClick={() => setListPage((v) => v - 1)}>上一页</button><button className="row-action" disabled={listPage * 50 >= visibleList.length} onClick={() => setListPage((v) => v + 1)}>下一页</button></div>
       </> : <><p>填写从下单到可用入库的完整生产周期。同一供应商共用设置，安全天数默认7天。</p>{cycles?.items.length === 0 && <p>清单暂无已映射供应商，请先添加型号并补齐ERP供应商。</p>}<div className="data-table-wrap"><table className="data-table"><thead><tr><th>供应商</th><th>生产周期 / 安全天数</th></tr></thead><tbody>{cycles?.items.map((item) => <tr key={`${item.supplier}:${cycles.version}`}><td>{item.supplier}</td><td><form className={styles.actions} onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); void run(async () => { await jsonRequest("/suppliers", jsonBody({ action: "supplier", supplier: item.supplier, leadDays: Number(form.get("lead")), bufferDays: Number(form.get("buffer")), version: cycles.version }, "PATCH")); setNotice("供应商周期已保存并回查。"); await loadManagement("suppliers"); setRetrySection(undefined); setRefresh((value) => value + 1); }); }}><input name="lead" aria-label={`${item.supplier}生产周期`} type="number" min={1} max={365} step={1} required defaultValue={item.leadDays ?? ""} placeholder="待设置" disabled={!canManage || busy} /><input name="buffer" aria-label={`${item.supplier}安全天数`} type="number" min={0} max={365} step={1} required defaultValue={item.bufferDays} disabled={!canManage || busy} />{canManage && <button className="primary-button" disabled={busy}>保存</button>}</form></td></tr>)}</tbody></table></div></>}
     </section>}
+    <StableReadContent owner="guangdong" identity={identity} pending={loading || !data || !dataState?.summary || !dataState?.detail} complete={Boolean(data && dataState?.summary && dataState?.detail)} error={Boolean(error || Object.values(regionErrors).some(Boolean))}>
     {data && <>
       {data.watchCount === 0 ? <section className="panel data-state"><h3>还没有启用的监控型号</h3><p>添加吉客云货品编码后，将自动关联广东仓库存、出库和供应商。</p><button className="primary-button" onClick={() => openPanel("watchlist")}>{canManage ? "添加或导入监控型号" : "查看监控清单"}</button></section> : <>
         <section hidden={!dataState?.summary} style={dataState?.summary ? undefined : { display: "none" }} className={`panel ${styles.healthPanel}`}><div className={styles.heading}><div><h3>风险库存健康分布</h3><p>按搜索、品牌、品类及供应商统计；点击分类查看明细。</p></div><button className="row-action" onClick={() => changeRisk("")}>全部风险</button></div>
@@ -239,6 +243,7 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
         </tr>)}{data.items.length === 0 && <tr><td colSpan={14}>当前筛选没有监控结果。</td></tr>}</tbody></table></div><footer className="jd-sku-pagination"><button className="row-action" disabled={page <= 1 || loading} onClick={() => setPageState({ scope, page: page - 1 })}>上一页</button><button className="row-action" disabled={page >= data.pagination.totalPages || loading} onClick={() => setPageState({ scope, page: page + 1 })}>下一页</button></footer></section>
       </>}
     </>}
+    </StableReadContent>
 
   </div>;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { SearchableMultiSelect } from "./ui/searchable-select";
-import { FilterDraftActions, useFilterDraft } from "./ui/filter-draft";
+import { AutomaticFilterFeedback, confirmFilterText, useAutomaticFilter, useFilterDraft } from "./ui/filter-draft";
 import { parseProductQueriesStrict, SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH } from "@/lib/sales/read-contract";
 
 export type SalesSharedFilters = {
@@ -201,6 +201,7 @@ export default function SalesFilterBar({
   updating = false,
   scopeLabel = "销售分析",
   maxSelectionsPerDimension = MAX_SALES_SHARED_FILTER_SELECTIONS,
+  scopeKey = "",
   onChange,
 }: {
   filters: SalesSharedFilters;
@@ -209,21 +210,27 @@ export default function SalesFilterBar({
   updating?: boolean;
   scopeLabel?: string;
   maxSelectionsPerDimension?: number;
+  scopeKey?: string;
   onChange: (filters: SalesSharedFilters) => void;
 }) {
-  const { draft: filters, setDraft, pending, discard } = useFilterDraft(appliedFilters, JSON.stringify([scopeLabel, capabilities]));
+  const scope = JSON.stringify([scopeKey, scopeLabel, capabilities]);
+  const { draft: dimensions, setDraft, pending, key } = useFilterDraft(appliedFilters, scope);
+  const text = useFilterDraft(appliedFilters.productQuery, scope);
+  const filters = { ...dimensions, productQuery: text.draft };
   const visibleShops = filters.platforms.length
     ? options.shops.filter((shop) => filters.platforms.includes(shop.platform))
     : options.shops;
   let productQueryError = "";
   try { parseProductQueriesStrict(filters.productQuery); }
   catch (error) { productQueryError = error instanceof Error ? error.message : "货品筛选无效"; }
+  const automatic = useAutomaticFilter({ draft: dimensions, pending, scope: key,
+    onApply: () => onChange({ ...dimensions, productQuery: appliedFilters.productQuery }) });
   const hasApplicableFilter = filters.platforms.length > 0
     || filters.outletKeys.length > 0
     || (capabilities.categories !== false && filters.categories.length > 0)
     || (capabilities.channels && filters.channels.length > 0)
     || (capabilities.product !== false && Boolean(filters.productQuery.trim()));
-  const patch = (next: Partial<SalesSharedFilters>) => setDraft({ ...filters, ...next });
+  const patch = (next: Partial<SalesSharedFilters>) => setDraft({ ...dimensions, ...next });
   const updatePlatforms = (platforms: string[]) => {
     patch({
       platforms,
@@ -232,29 +239,34 @@ export default function SalesFilterBar({
       outletKeys: filters.outletKeys.filter(shopKey => !platforms.length || platforms.includes(shopKey.split("\u001f")[0])),
     });
   };
-  const resetApplicable = () => patch({
-    platforms: [],
-    outletKeys: [],
-    ...(capabilities.categories !== false ? { categories: [] } : {}),
-    ...(capabilities.channels ? { channels: [] } : {}),
-    ...(capabilities.product !== false ? { productQuery: "" } : {}),
-  });
+  const resetApplicable = () => {
+    const defaults = { ...dimensions,
+      platforms: [],
+      outletKeys: [],
+      ...(capabilities.categories !== false ? { categories: [] } : {}),
+      ...(capabilities.channels ? { channels: [] } : {}),
+      ...(capabilities.product !== false ? { productQuery: "" } : {}),
+    };
+    setDraft(defaults);
+    text.setDraft(defaults.productQuery);
+    onChange(defaults);
+  };
 
-  return <section className="panel sales-overview-filter-panel sales-shared-filter-panel" aria-label={`${scopeLabel}公共筛选`} aria-busy={updating}>
+  return <section className="panel sales-overview-filter-panel sales-shared-filter-panel" aria-label={`${scopeLabel}公共筛选`} aria-busy={updating} {...automatic.compositionHandlers}>
     <div className="sales-overview-filter-heading">
-      <div><span className="eyebrow">SHARED SALES SCOPE</span><h2>销售分析公共筛选</h2><p>连续选择后点击“应用筛选”；已应用条件保存在链接中并由其他页签继承。切换页签会撤销未应用修改。</p></div>
+      <div><span className="eyebrow">SHARED SALES SCOPE</span><h2>销售分析公共筛选</h2><p>下拉选择自动更新；货品文本按 Enter 确认，Shift+Enter 换行。切页继承已生效条件，取消未确认的编辑。</p></div>
       <div className="sales-overview-filter-controls">
         <label><span>平台</span><SearchableMultiSelect values={filters.platforms} onChange={updatePlatforms} ariaLabel="销售分析平台" allLabel="全部平台" searchPlaceholder="搜索平台" maxSelections={maxSelectionsPerDimension} options={options.platforms.map((platform) => ({ value: platform, label: platform }))} /></label>
         <label><span>店铺</span><SearchableMultiSelect values={filters.outletKeys} onChange={(outletKeys) => patch({ outletKeys })} ariaLabel="销售分析店铺" allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" maxSelections={maxSelectionsPerDimension} options={visibleShops.map((shop) => ({ value: shop.key, label: shop.platform === "未分类" ? shop.name : `${shop.platform} · ${shop.name}`, searchText: `${shop.platform} ${shop.name}` }))} /></label>
         {capabilities.categories !== false && <label><span>品类</span><SearchableMultiSelect values={filters.categories} onChange={(categories) => patch({ categories })} ariaLabel="销售分析品类" allLabel="全部品类" searchPlaceholder="搜索品类" maxSelections={maxSelectionsPerDimension} options={options.categories.map((category) => ({ value: category, label: category }))} /></label>}
         {capabilities.channels && <label><span>渠道</span><SearchableMultiSelect values={filters.channels} onChange={(channels) => patch({ channels })} ariaLabel="销售分析渠道" allLabel="全部渠道" searchPlaceholder="搜索渠道" maxSelections={maxSelectionsPerDimension} options={(options.channels ?? []).map((channel) => ({ value: channel, label: channel }))} /></label>}
-        {capabilities.product !== false && <label className="sales-shared-product-query"><span>货品编码或名称</span><textarea rows={2} maxLength={SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH} value={filters.productQuery} onChange={(event) => patch({ productQuery: event.target.value })} placeholder="粘贴多个代码，用逗号或换行分隔（最多1000字符、100项）" aria-label="销售分析货品编码或名称" aria-invalid={Boolean(productQueryError)} />{productQueryError && <small role="alert">{productQueryError}</small>}</label>}
+        {capabilities.product !== false && <label className="sales-shared-product-query"><span>货品编码或名称</span><textarea rows={2} maxLength={SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH} value={filters.productQuery} onChange={event => text.setDraft(event.target.value)} onKeyDown={event => confirmFilterText(event, { composing: automatic.isComposing(), invalid: Boolean(productQueryError), onConfirm: () => onChange({ ...dimensions, productQuery: text.draft }) })} placeholder="粘贴多个代码，用逗号或换行分隔（最多1000字符、100项）；Enter确认" aria-label="销售分析货品编码或名称" aria-invalid={Boolean(productQueryError)} />{productQueryError && <small role="alert">{productQueryError}</small>}</label>}
         <button type="button" className="secondary-button sales-overview-filter-reset" disabled={!hasApplicableFilter} onClick={resetApplicable}>恢复默认</button>
       </div>
     </div>
-    <FilterDraftActions pending={pending} invalid={Boolean(productQueryError)} onApply={() => onChange(filters)} onDiscard={discard} />
+    <AutomaticFilterFeedback pending={pending} textPending={text.pending} composing={automatic.composing} invalid={Boolean(productQueryError)} />
     <small role={updating ? "status" : undefined} aria-live="polite">{updating
       ? `正在按公共筛选更新${scopeLabel}…`
-      : `${pending ? "待选" : "当前"}范围：${countLabel(filters.platforms.length, "平台", "全部平台")}、${countLabel(filters.outletKeys.length, "店铺", "全部店铺")}${capabilities.categories !== false ? `、${countLabel(filters.categories.length, "品类", "全部品类")}` : ""}${capabilities.channels ? `、${countLabel(filters.channels.length, "渠道", "全部渠道")}` : ""}${capabilities.product !== false && filters.productQuery.trim() ? "、已筛选货品" : ""}。`}</small>
+      : `${pending || text.pending ? "待确认" : "当前"}范围：${countLabel(filters.platforms.length, "平台", "全部平台")}、${countLabel(filters.outletKeys.length, "店铺", "全部店铺")}${capabilities.categories !== false ? `、${countLabel(filters.categories.length, "品类", "全部品类")}` : ""}${capabilities.channels ? `、${countLabel(filters.channels.length, "渠道", "全部渠道")}` : ""}${capabilities.product !== false && filters.productQuery.trim() ? "、已筛选货品" : ""}。`}</small>
   </section>;
 }
