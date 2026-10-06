@@ -1480,6 +1480,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   }} />;
   const sharedFilterBar = <Fragment key="inventory-shared-filters">{regionNotice}<InventoryFilterBar
     activeTab={activeTab}
+    scopeKey={JSON.stringify([principalKey, customStartDate, customEndDate])}
     filters={filters}
     options={sharedFilterOptions}
     updating={usesInventoryAgeAnalysis ? ageLoading : usesInboundMonitor ? inboundLoading : loading}
