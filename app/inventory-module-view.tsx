@@ -4,6 +4,8 @@ import { inventoryWarehouseCategoryLabel } from "@/lib/inventory/warehouse-class
 
 import { useAiPageDetails } from "./ai-page-context-provider";
 
+import { StableReadContent } from "./ui/stable-read-content";
+import type { ReactNode } from "react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { InventoryKpiCard } from "./module-view-business-ui";
@@ -1439,7 +1441,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     else if (usesInboundMonitor) void loadInboundMonitor(section);
     else void loadOverview(section);
   }} />;
-  const sharedFilterBar = <Fragment key="inventory-shared-filters">{regionNotice}<InventoryFilterBar
+  const sharedFilterBar = <Fragment key="inventory-shared-filters"><InventoryFilterBar
     activeTab={activeTab}
     scopeKey={JSON.stringify([principalKey, customStartDate, customEndDate])}
     filters={filters}
@@ -1461,7 +1463,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     </div>
   );
 
-  if (activeTab === "guangdong") return <>{subnav}<GuangdongInventoryView key={principalKey} canManage={currentUser?.role === "operator" || currentUser?.role === "admin"} filters={filters} onFiltersChange={updateFilters} onAskAi={onAskAi} /></>;
+  if (activeTab === "guangdong") return <>{subnav}<GuangdongInventoryView identity={currentUser} key={principalKey} canManage={currentUser?.role === "operator" || currentUser?.role === "admin"} filters={filters} onFiltersChange={updateFilters} onAskAi={onAskAi} /></>;
 
   const activeInventoryHasData = usesInventoryAgeAnalysis ? ageAnalysis?.hasInventory : usesInboundMonitor ? inboundMonitor?.hasInventory : overview?.hasInventory;
   const activeInventoryAsOf = usesInventoryAgeAnalysis ? ageAnalysis?.sync.inventoryAsOf : usesInboundMonitor ? inboundMonitor?.sync.inventoryAsOf : overview?.sync.inventoryAsOf;
@@ -1498,38 +1500,47 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const ageRefreshError = usesInventoryAgeAnalysis && ageError && ageAnalysis && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>库龄数据刷新失败</strong><p>{ageError}；当前仍显示上一次成功结果。</p></div><button className="row-action" onClick={() => setAgeRetryKey((key) => key + 1)}>重试</button></section>;
   const inboundRefreshError = usesInboundMonitor && inboundError && inboundMonitor && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>京东入仓监控刷新失败</strong><p>{inboundError}；当前仍显示上一次成功结果。</p></div><button className="row-action" onClick={() => setInboundRetryKey((key) => key + 1)}>重试</button></section>;
 
+  const viewOwner = JSON.stringify([activeTab, principalKey, customStartDate, customEndDate]);
+  const viewPending = (usesInventoryAgeAnalysis ? ageLoading : usesInboundMonitor ? inboundLoading : loading) || !summaryReady || !detailReady;
+  const viewComplete = Boolean((usesInventoryAgeAnalysis ? ageAnalysis : usesInboundMonitor ? inboundMonitor : overview) && summaryReady && detailReady);
+  const viewError = Boolean((usesInventoryAgeAnalysis ? ageError : usesInboundMonitor ? inboundError : error) || Object.values(activeRegionErrors).some(Boolean));
+  const withInventoryContent = (content: ReactNode, overlays?: ReactNode) => <>{subnav}<StableReadContent owner={viewOwner} identity={currentUser}
+    pending={viewPending} complete={viewComplete} error={viewError} notice={false} preserveViewport={false} preserveBlockHeight>{syncBar}</StableReadContent>
+    {feedback}{sharedFilterBar}<StableReadContent owner={viewOwner} identity={currentUser} pending={viewPending}
+      complete={viewComplete} error={viewError}>{regionNotice}{refreshError}{ageRefreshError}{inboundRefreshError}{content}</StableReadContent>{overlays}</>;
+
   if (usesInventoryAgeAnalysis && !ageAnalysis) {
     if (!ageLoading && (ageError || Object.values(activeRegionErrors).some(Boolean))) {
-      return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>库龄数据加载失败</strong><p>{ageError || "请重试未就绪区域。"}</p><button className="secondary-button" onClick={() => setAgeRetryKey((key) => key + 1)}>重新加载</button></section></>;
+      return withInventoryContent(<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>库龄数据加载失败</strong><p>{ageError || "请重试未就绪区域。"}</p><button className="secondary-button" onClick={() => setAgeRetryKey((key) => key + 1)}>重新加载</button></section>);
     }
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总库龄与动销数据</strong><p>正在读取最新库存快照中的库龄、前 7 天与前 30 天销量…</p></section></>;
+    return withInventoryContent(<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总库龄与动销数据</strong><p>正在读取最新库存快照中的库龄、前 7 天与前 30 天销量…</p></section>);
   }
 
   if (usesInventoryAgeAnalysis && ageAnalysis && !ageAnalysis.hasInventory) {
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">龄</span><strong>还没有可分析的库存快照</strong><p>请同步包含库龄字段的库存报表后再查看库龄分析和滞销清理。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
+    return withInventoryContent(<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">龄</span><strong>还没有可分析的库存快照</strong><p>请同步包含库龄字段的库存报表后再查看库龄分析和滞销清理。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section>);
   }
 
   if (usesInboundMonitor && !inboundMonitor) {
     if (!inboundLoading && (inboundError || Object.values(activeRegionErrors).some(Boolean))) {
-      return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>京东入仓监控加载失败</strong><p>{inboundError || "请重试未就绪区域。"}</p><button className="secondary-button" onClick={() => setInboundRetryKey((key) => key + 1)}>重新加载</button></section></>;
+      return withInventoryContent(<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>京东入仓监控加载失败</strong><p>{inboundError || "请重试未就绪区域。"}</p><button className="secondary-button" onClick={() => setInboundRetryKey((key) => key + 1)}>重新加载</button></section>);
     }
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总京东入仓库存</strong><p>正在关联 RDC / DC 库存、供应商和近 7/30/90 日正向出库…</p></section></>;
+    return withInventoryContent(<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总京东入仓库存</strong><p>正在关联 RDC / DC 库存、供应商和近 7/30/90 日正向出库…</p></section>);
   }
 
   if (usesInboundMonitor && inboundMonitor && !inboundMonitor.hasInventory) {
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">仓</span><strong>暂无京东入仓库存</strong><p>当前快照中没有京东 RDC / DC 或可识别的京东区域平台仓。请核对仓名规则并同步最新库存。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
+    return withInventoryContent(<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">仓</span><strong>暂无京东入仓库存</strong><p>当前快照中没有京东 RDC / DC 或可识别的京东区域平台仓。请核对仓名规则并同步最新库存。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section>);
   }
 
   if (usesInventoryOverview && loading && !overview) {
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在同步库存健康数据</strong><p>正在关联最新库存快照与近30天正向销售明细…</p></section></>;
+    return withInventoryContent(<section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在同步库存健康数据</strong><p>正在关联最新库存快照与近30天正向销售明细…</p></section>);
   }
 
   if (usesInventoryOverview && !overview) {
-    return <>{subnav}{syncBar}{feedback}{sharedFilterBar}<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>库存数据加载失败</strong><p>{error || "暂时无法读取库存数据"}</p><button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button></section></>;
+    return withInventoryContent(<section className="panel data-state inventory-data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>库存数据加载失败</strong><p>{error || "暂时无法读取库存数据"}</p><button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button></section>);
   }
 
   if (usesInventoryOverview && overview && !overview.hasInventory) {
-    return <>{subnav}{syncBar}{feedback}{refreshError}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">库</span><strong>还没有库存快照</strong><p>请上传吉客云“分仓库存查询” .xlsx 报表。系统会保留批次、自动读取实盘库存与成本，并联动销售生成备货建议。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
+    return withInventoryContent(<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">库</span><strong>还没有库存快照</strong><p>请上传吉客云“分仓库存查询” .xlsx 报表。系统会保留批次、自动读取实盘库存与成本，并联动销售生成备货建议。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section>);
   }
 
   const totalHealth = Math.max(1, overview ? overview.health.noStock + overview.health.urgent
@@ -1539,15 +1550,8 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const ageDistribution = ageAnalysis?.fineDistribution ?? [];
   const hasKnownAgeDistribution = ageDistribution.some((bucket) => bucket.quantity > 0);
 
-  return (
+  return withInventoryContent(
     <>
-      {subnav}
-      {syncBar}
-      {feedback}
-      {refreshError}
-      {ageRefreshError}
-      {inboundRefreshError}
-      {sharedFilterBar}
       {activeTab === "overview" && overview ? <>
         <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="inventory-diagnosis-grid">
           <article className="panel inventory-health-panel">
@@ -1705,6 +1709,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
         </>}
       </>}
+    </>, <>
       {groupPreview && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !groupMessageLoading) setGroupPreview(null); }}>
         <section className="inventory-work-item-modal inventory-dingtalk-group-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-dingtalk-group-title">
           <header><div><small>发送前确认</small><h2 id="inventory-dingtalk-group-title">钉钉备货群消息</h2><p>备货计划群与机器人已完成动态精确匹配</p></div><button type="button" aria-label="关闭" disabled={groupMessageLoading} onClick={() => setGroupPreview(null)}>×</button></header>

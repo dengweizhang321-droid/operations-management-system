@@ -5,6 +5,8 @@ import { useAiPageDetails } from "./ai-page-context-provider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import { validCategoryAnalysis, validCategoryDetail } from "@/lib/sales/category-response";
+import { StableReadContent } from "./ui/stable-read-content";
+import type { ReactNode } from "react";
 import Dialog from "./ui/dialog";
 import type { SalesSharedFilters, SalesSharedFilterOptions } from "./sales-filter-bar";
 
@@ -315,7 +317,7 @@ const sortableColumns: Array<{ key: CategorySortKey; label: string }> = [
   { key: "weekOverWeekRate", label: "环比上周" },
 ];
 
-export default function SalesCategoryView({ startDate, endDate, filters, onFiltersChange, onFilterOptionsChange }: { startDate: string; endDate: string; filters: SalesSharedFilters; onFiltersChange: (filters: SalesSharedFilters) => void; onFilterOptionsChange?: (options: SalesSharedFilterOptions) => void }) {
+export default function SalesCategoryView({ identity, startDate, endDate, filters, onFiltersChange, onFilterOptionsChange }: { identity?: unknown; startDate: string; endDate: string; filters: SalesSharedFilters; onFiltersChange: (filters: SalesSharedFilters) => void; onFilterOptionsChange?: (options: SalesSharedFilterOptions) => void }) {
   const [urlState, setUrlState] = useState<CategoryUrlState>(readCategoryUrl);
   const [result, setResult] = useState<{ key: string; payload: CategoryAnalysisResponse } | null>(null);
   const requestKey = JSON.stringify([startDate, endDate, filters, urlState]);
@@ -459,14 +461,14 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
   const drawer = detailCategory && <CategoryOutletDrawer category={detailCategory} data={visibleDetailData}
     loading={detailLoading || (!visibleDetailData && !detailError)} error={detailError}
     onClose={closeCategoryDetail} onRetry={() => setDetailRetry((value) => value + 1)} />;
-  if (!data) return <div className="sales-category-view">{settingsPanel}<section className="panel data-state sales-data-state" role={error ? "alert" : "status"}>
+  const withContent = (content: ReactNode) => <div className="sales-category-view">{settingsPanel}<StableReadContent owner={JSON.stringify([startDate, endDate])} identity={identity} pending={loading || !data} complete={Boolean(data)} error={Boolean(error)}>{content}</StableReadContent>{drawer}</div>;
+  if (!data) return withContent(<section className="panel data-state sales-data-state" role={error ? "alert" : "status"}>
     <strong>{error ? "品类分析加载失败" : "正在汇总品类经营数据"}</strong><p>{error || "正在按当前范围汇总销售、退款和毛利…"}</p>
     {error && <button className="secondary-button" onClick={() => setRetryKey((value) => value + 1)}>重新加载</button>}
-  </section>{drawer}</div>;
+  </section>);
   const summary = data.summary;
   const maxRankingSales = Math.max(1, ...data.ranking.map((item) => Math.max(0, item.netSalesCents)));
-  return <div className="sales-category-view data-refresh-region" aria-busy={loading}>
-    {settingsPanel}
+  return withContent(<>
     <section className="category-kpi-grid">
       <article><span>品类净销售额</span><strong>{formatCurrency(summary.netSalesCents)}</strong><small>销售额扣除退款，退款以负值参与</small></article>
       <article><span>正向销量</span><strong>{formatCount(summary.positiveQuantity)}</strong><small>仅数量大于 0 的销售行</small></article>
@@ -490,6 +492,5 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
       </section>
     </>}
     <section className="category-source-note"><strong>数据来源与口径</strong><span>品类：ERP 商品主数据优先，销售明细品类兜底，以商品编码关联；未命中归“未分类”。</span><span>销售：吉客云销售单明细账，排除“刷刷仓”；净销量沿用销售总览口径，排除配件、赠品配件、补差价专用和销售行未分类，退货率 = 退款金额 / 正向销售额。</span><span>同比：{data.comparisonPeriods.yearAgo.startDate} 至 {data.comparisonPeriods.yearAgo.endDate}；环比上周：近 7 天 {data.comparisonPeriods.weekOverWeek.current.startDate} 至 {data.comparisonPeriods.weekOverWeek.current.endDate}，对比此前 7 天 {data.comparisonPeriods.weekOverWeek.previous.startDate} 至 {data.comparisonPeriods.weekOverWeek.previous.endDate}。</span><span>品类趋势：按当前{data.details.trend.granularity === "day" ? "日" : data.details.trend.granularity === "week" ? "周" : "月"}粒度展示最近 {data.details.trend.periodLimit} 个有数据周期；数据截止 {data.dataCutoffDate ?? "暂无"}。</span></section>
-    {drawer}
-  </div>;
+  </>);
 }
