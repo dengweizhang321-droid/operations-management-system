@@ -1,0 +1,388 @@
+{
+  "base": "c00edc8df8a04f16fe5a26c4654a45c0bd15f9e8",
+  "release": "20261006T014342Z-94be344898f54a4b",
+  "manifest": "6cc16d73391aeef3ca5028b7334474e0b3d29fe48fb9514edd0e52f53f8d9504",
+  "baselineFilesMatchDeployedSnapshot": [
+    "app/ui/searchable-select.tsx",
+    "app/sales-module-view.tsx",
+    "app/inventory-module-view.tsx",
+    "app/product-module-view.tsx"
+  ],
+  "before": {
+    "results": [
+      {
+        "module": "sales",
+        "label": "销售分析平台",
+        "options": [
+          "✓全部平台",
+          "京东",
+          "天猫"
+        ],
+        "before": {
+          "x": 612,
+          "y": 253.796875,
+          "width": 164,
+          "height": 32
+        },
+        "during": {
+          "sameTrigger": false,
+          "sameMenu": false,
+          "open": "true",
+          "focus": null,
+          "disabled": false
+        },
+        "after": {
+          "x": 527,
+          "y": 253.796875,
+          "width": 164,
+          "height": 32
+        },
+        "requests": [
+          {
+            "path": "/api/sales/summary",
+            "query": "?range=month&platform=%E4%BA%AC%E4%B8%9C&view=core",
+            "method": "GET"
+          },
+          {
+            "path": "/api/sales/summary",
+            "query": "?range=month&platform=%E4%BA%AC%E4%B8%9C&expectedRevision=1%3A1",
+            "method": "GET"
+          }
+        ],
+        "url": "http://127.0.0.1:3781/?module=sales&salesPlatform=%E4%BA%AC%E4%B8%9C"
+      },
+      {
+        "module": "inventory",
+        "label": "库存公共仓库",
+        "options": [
+          "✓全部仓库",
+          "广东仓"
+        ],
+        "before": {
+          "x": 765,
+          "y": 276.796875,
+          "width": 150,
+          "height": 32
+        },
+        "during": {
+          "sameTrigger": false,
+          "sameMenu": false,
+          "open": "true",
+          "focus": null,
+          "disabled": false
+        },
+        "after": {
+          "x": 765,
+          "y": 276.796875,
+          "width": 150,
+          "height": 32
+        },
+        "requests": [
+          {
+            "path": "/api/inventory/overview",
+            "query": "?view=overview&warehouse=%E5%B9%BF%E4%B8%9C%E4%BB%93&page=1&pageSize=50&section=summary",
+            "method": "GET"
+          },
+          {
+            "path": "/api/inventory/overview",
+            "query": "?view=overview&warehouse=%E5%B9%BF%E4%B8%9C%E4%BB%93&page=1&pageSize=50&section=detail",
+            "method": "GET"
+          }
+        ],
+        "url": "http://127.0.0.1:3781/?module=inventory&inventoryWarehouse=%E5%B9%BF%E4%B8%9C%E4%BB%93"
+      },
+      {
+        "module": "product",
+        "label": "销售平台",
+        "options": [
+          "✓全部平台",
+          "京东",
+          "天猫"
+        ],
+        "before": {
+          "x": 883,
+          "y": 580.96875,
+          "width": 122,
+          "height": 34
+        },
+        "during": {
+          "sameTrigger": true,
+          "sameMenu": true,
+          "open": "true",
+          "focus": null,
+          "disabled": true
+        },
+        "after": {
+          "x": 883,
+          "y": 580.96875,
+          "width": 122,
+          "height": 34
+        },
+        "requests": [
+          {
+            "path": "/api/products/summary",
+            "query": "?range=custom&startDate=2026-10-01&endDate=2026-10-06&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E4%BA%AC%E4%B8%9C&view=initial-page",
+            "method": "GET"
+          },
+          {
+            "path": "/api/products/summary",
+            "query": "?range=custom&startDate=2026-10-01&endDate=2026-10-06&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E4%BA%AC%E4%B8%9C&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+            "method": "GET"
+          }
+        ],
+        "url": "http://127.0.0.1:3781/?module=product"
+      }
+    ],
+    "errors": []
+  },
+  "inputBefore": {
+    "pin": "c00edc8df8a04f16fe5a26c4654a45c0bd15f9e8",
+    "before": {
+      "x": 426,
+      "y": 276.796875,
+      "width": 330,
+      "height": 32
+    },
+    "during": {
+      "originalConnected": false,
+      "focused": null,
+      "value": "D",
+      "caret": 1
+    },
+    "after": {
+      "x": 426,
+      "y": 276.796875,
+      "width": 330,
+      "height": 32
+    },
+    "requests": [
+      "http://127.0.0.1:57730/api/inventory/overview?view=overview&q=D&page=1&pageSize=50&section=summary",
+      "http://127.0.0.1:57730/api/inventory/overview?view=overview&q=D&page=1&pageSize=50&section=detail"
+    ],
+    "syntheticOnly": true
+  },
+  "checks": [
+    "销售连续多选/取消/搜索焦点/不请求/不移动",
+    "统一应用携带两个平台/真实后端结果范围",
+    "平台店铺联动只移除失效店铺/清空与撤销/恢复默认",
+    "库存货品连续输入/光标/中文IME/粘贴/删除/清空无请求",
+    "库存慢请求中继续输入/请求完成不覆盖草稿/组件不卸载",
+    "商品连续多选/搜索稳定/应用带完整平台/单选排序",
+    "快速应用/忽略abort的迟到旧响应不能覆盖新范围/失败重试",
+    "库存六页签/销售三页签输入不触发请求/切页撤销草稿且继承已应用条件",
+    "库存健康状态多值请求由后端完整过滤",
+    "日期仍独立确认/取消不改变已应用周期/公共筛选面板保持可用"
+  ],
+  "runtimeErrors": [],
+  "requestMethods": [
+    "GET"
+  ],
+  "queries": [
+    {
+      "path": "sales/summary?range=month&view=core",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&expectedRevision=1%3A1",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&platform=%E5%A4%A9%E7%8C%AB&platform=%E4%BA%AC%E4%B8%9C&view=core",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&platform=%E5%A4%A9%E7%8C%AB&platform=%E4%BA%AC%E4%B8%9C&expectedRevision=1%3A1",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&view=core",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&expectedRevision=1%3A1",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&page=1&pageSize=50&section=summary",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&page=1&pageSize=50&section=detail",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&q=DEMO-001&page=1&pageSize=50&section=detail",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&q=DEMO-001&page=1&pageSize=50&section=summary",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&q=DEMO-002&page=1&pageSize=50&section=detail",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&q=DEMO-002&page=1&pageSize=50&section=summary",
+      "status": 200
+    },
+    {
+      "path": "products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-06&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=initial-page",
+      "status": 200
+    },
+    {
+      "path": "products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-06&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "status": 200
+    },
+    {
+      "path": "products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-06&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&view=initial-page",
+      "status": 200
+    },
+    {
+      "path": "products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-06&page=1&pageSize=50&sortBy=netSalesCents&direction=desc&platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&view=overview&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "status": 200
+    },
+    {
+      "path": "products/summary?range=custom&startDate=2026-10-01&endDate=2026-10-06&page=1&pageSize=50&sortBy=grossProfitCents&direction=desc&platform=%E4%BA%AC%E4%B8%9C&platform=%E5%A4%A9%E7%8C%AB&view=page&snapshotToken=cd42c33432371bda060b87d62a729c0e242f71be69ead49a27067eac5ec636e5",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&view=core",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&expectedRevision=1%3A1",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&productQuery=NO-SUCH-CODE&view=core",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&productQuery=NO-SUCH-CODE&expectedRevision=1%3A1",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&productQuery=DEMO-002&view=core",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&productQuery=DEMO-002&expectedRevision=1%3A1",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&productQuery=DEMO-003&view=core",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&productQuery=DEMO-003&expectedRevision=1%3A1",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&page=1&pageSize=50&section=summary",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&page=1&pageSize=50&section=detail",
+      "status": 200
+    },
+    {
+      "path": "inventory/age-analysis?page=1&pageSize=50&section=summary",
+      "status": 200
+    },
+    {
+      "path": "inventory/age-analysis?page=1&pageSize=50&section=detail",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=plan&planPage=1&planPageSize=50&section=summary",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=plan&planPage=1&planPageSize=50&section=detail",
+      "status": 200
+    },
+    {
+      "path": "inventory/age-analysis?page=1&pageSize=50&status=stagnant&status=slow&status=aged&section=summary",
+      "status": 200
+    },
+    {
+      "path": "inventory/age-analysis?page=1&pageSize=50&status=stagnant&status=slow&status=aged&section=detail",
+      "status": 200
+    },
+    {
+      "path": "inventory/inbound-monitor?page=1&pageSize=50&section=summary",
+      "status": 200
+    },
+    {
+      "path": "inventory/inbound-monitor?page=1&pageSize=50&section=detail",
+      "status": 200
+    },
+    {
+      "path": "inventory/guangdong-monitor?page=1&section=summary",
+      "status": 200
+    },
+    {
+      "path": "inventory/guangdong-monitor?page=1&section=detail",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&page=1&pageSize=50&section=summary",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&page=1&pageSize=50&section=detail",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&view=core",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&expectedRevision=1%3A1",
+      "status": 200
+    },
+    {
+      "path": "sales/category-analysis?startDate=2026-10-01&endDate=2026-10-06&level=1&granularity=day&sortBy=netSalesCents&direction=desc&page=1&pageSize=20",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&view=core",
+      "status": 200
+    },
+    {
+      "path": "sales/summary?range=month&expectedRevision=1%3A1",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&page=1&pageSize=50&section=summary",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&page=1&pageSize=50&section=detail",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&page=1&pageSize=50&status=no_stock&status=urgent&section=summary",
+      "status": 200
+    },
+    {
+      "path": "inventory/overview?view=overview&page=1&pageSize=50&status=no_stock&status=urgent&section=detail",
+      "status": 200
+    }
+  ],
+  "sourceHashes": {
+    "app/ui/filter-draft.tsx": "b88c6b37daa1e873fe5a2db3c043691241ac015feed4f3ef3ebcefc556317bf7",
+    "app/ui/searchable-select.tsx": "893ad2ad7858092740c9927d752ac35daa8f08bd9d4a7396f7b982d92d99689d",
+    "app/sales-filter-bar.tsx": "769e475b096d2aa484ee34a6ce363b5f9210be0d67bbf452d4abbcab3a4052fe",
+    "app/inventory-filter-bar.tsx": "3a714c32dc4b2751dc8a65f35f1666ea15deebf085c3b4da666d05fd81008bd7",
+    "app/sales-module-view.tsx": "0a2c23de8c46087bc8187c63ba4863dba2a38edbab094c8ed220957e117d7395",
+    "app/inventory-module-view.tsx": "0a8fe99c471a6e71e2464401df19bd4f45483ad2cacab6d5ea5721de2509c717",
+    "app/product-module-view.tsx": "e2ad645f4a72425e747decf5d236c6c06fc1f4969e248f6a8dd7fe8ee450cb56",
+    "app/module-view-business-ui.tsx": "ece3abf0e85d858d2f9e2157db4e1454cf65b370ab5e6372d2ecefb90293e44b",
+    "app/page.tsx": "02bdc8902077cbd9ae05b01d944254c4745de107239184916ccf2ad77c40e812",
+    "app/globals.css": "f6b573fe1704d1f55133a340121d27025b4a4a45ff5b58fe100b18d11006f5aa"
+  },
+  "syntheticOnly": true,
+  "rawLocalEvidence": "D:\\.codex\\worktrees\\077e\\运营管理系统\\.runtime\\shared-filter-evidence\\after-1791297125342"
+}

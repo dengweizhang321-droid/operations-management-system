@@ -3342,3 +3342,9 @@ body { font-size: var(--font-size-body); line-height: var(--line-height-body); }
 .product-list-region { min-height: 320px; }
 .product-list-progress { font-size: 13px; color: var(--color-text-muted, #64748b); min-height: 20px; }
 .product-margin-kpi:disabled { cursor: default; opacity: .8; }
+
+/* Reserve action slots so selecting the first value does not move controls. */
+.filter-draft-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; min-height: 36px; }
+.filter-draft-actions > small { flex: 1 1 280px; color: var(--color-text-secondary); }
+.product-filter-apply { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.product-filter-apply .filter-draft-actions { flex: 1; margin-top: 0; }

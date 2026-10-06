@@ -1,6 +1,8 @@
 "use client";
 
 import { SearchableMultiSelect, SearchableSelect, type SearchableSelectOption } from "./ui/searchable-select";
+import { useEffect, useState } from "react";
+import { FilterDraftActions, useFilterDraft } from "./ui/filter-draft";
 import type { InventoryAgeStatus, InventoryHealthStatus, ReplenishmentPlanItem } from "./module-view-shared";
 
 export type InventoryFilterTab = "overview" | "age" | "plan" | "stale" | "inbound" | "guangdong";
@@ -161,7 +163,7 @@ function countLabel(count: number, label: string, fallback: string) {
 
 export default function InventoryFilterBar({
   activeTab,
-  filters,
+  filters: appliedFilters,
   options,
   updating,
   onChange,
@@ -176,7 +178,10 @@ export default function InventoryFilterBar({
   extraFilterActive?: boolean;
   onResetExtra?: () => void;
 }) {
-  const patch = (next: Partial<InventorySharedFilters>) => onChange({ ...filters, ...next });
+  const { draft: filters, setDraft, pending, discard } = useFilterDraft(appliedFilters, activeTab);
+  const [resetExtra, setResetExtra] = useState(false);
+  useEffect(() => setResetExtra(false), [activeTab, appliedFilters]);
+  const patch = (next: Partial<InventorySharedFilters>) => setDraft({ ...filters, ...next });
   const usesAgeFilters = activeTab === "age" || activeTab === "stale";
   const ageBucketOptions = options.ageBuckets.length > 0 ? options.ageBuckets : defaultAgeBucketOptions;
   const applicableAgeStatuses = activeTab === "stale"
@@ -233,7 +238,7 @@ export default function InventoryFilterBar({
 
   return <section className="panel inventory-shared-filter-panel" aria-label={`${scopeLabel}公共筛选`} aria-busy={updating}>
     <div className="inventory-shared-filter-heading">
-      <div><span className="eyebrow">SHARED INVENTORY SCOPE</span><h2>库存管理公共筛选</h2><p>{activeTab === "guangdong" ? "广东监控固定使用广东仓；货品、品牌和品类沿用公共筛选，风险条件独立保存。" : "货品、仓库、品牌和品类会写入当前链接，并同步应用到所有库存 Tab；各页专属条件会独立保留。"}</p></div>
+      <div><span className="eyebrow">SHARED INVENTORY SCOPE</span><h2>库存管理公共筛选</h2><p>{activeTab === "guangdong" ? "广东监控固定使用广东仓；货品、品牌和品类沿用公共筛选，风险条件独立保存。" : "输入或连续选择后点击“应用筛选”；已应用条件写入链接并由其他页签继承，各页专属条件独立保留。"}切换页签会撤销未应用修改。</p></div>
       <div className="inventory-shared-filter-controls">
         <label className="inventory-shared-product-query"><span>货品编码或名称</span><input value={filters.productQuery} maxLength={100} onChange={(event) => patch({ productQuery: event.target.value.slice(0, 100) })} placeholder="支持空格、逗号或换行分隔" aria-label="库存公共货品搜索" /></label>
         {activeTab === "guangdong" ? <label><span>仓库</span><input value="广东仓" readOnly aria-label="广东监控固定仓库" /></label> : <label><span>仓库</span><SearchableMultiSelect values={filters.warehouses} onChange={(warehouses) => patch({ warehouses })} ariaLabel="库存公共仓库" allLabel="全部仓库" searchPlaceholder="搜索仓库" options={optionsWithSelections(options.warehouses, filters.warehouses)} /></label>}
@@ -247,7 +252,7 @@ export default function InventoryFilterBar({
         {activeTab === "inbound" && <label><span>供应商</span><SearchableMultiSelect values={filters.suppliers} onChange={(suppliers) => patch({ suppliers })} ariaLabel="京东入仓供应商" allLabel="全部供应商" searchPlaceholder="搜索供应商" options={optionsWithSelections(options.suppliers, filters.suppliers)} /></label>}
         {activeTab === "guangdong" && <label><span>供应商</span><SearchableMultiSelect values={filters.suppliers} onChange={(suppliers) => patch({ suppliers })} ariaLabel="广东入仓供应商" allLabel="全部供应商" searchPlaceholder="搜索供应商" options={optionsWithSelections(options.suppliers, filters.suppliers)} /></label>}
         {activeTab === "plan" && <label><span>计划状态</span><SearchableSelect value={filters.planStatus} onChange={(planStatus) => patch({ planStatus: planStatus as InventoryPlanStatus })} ariaLabel="备货计划状态" searchPlaceholder="搜索计划状态" options={planStatusOptions} /></label>}
-        {hasApplicableFilter && <button type="button" className="secondary-button inventory-shared-filter-reset" onClick={() => { resetApplicable(); onResetExtra?.(); }}>清空当前页筛选</button>}
+        <button type="button" className="secondary-button inventory-shared-filter-reset" disabled={!hasApplicableFilter} onClick={() => { resetApplicable(); setResetExtra(extraFilterActive); }}>恢复当前页默认</button>
       </div>
     </div>
     {usesAgeFilters && <div className="inventory-shared-age-buckets" role="group" aria-label="库龄区间多选">
@@ -256,8 +261,9 @@ export default function InventoryFilterBar({
         return <button type="button" key={bucket.value} className={selected ? "selected" : ""} aria-pressed={selected} onClick={() => patch({ ageBuckets: selected ? filters.ageBuckets.filter((value) => value !== bucket.value) : [...filters.ageBuckets, bucket.value] })}><i>{selected ? "✓" : ""}</i><span>{bucket.label}</span></button>;
       })}
     </div>}
+    <FilterDraftActions pending={pending || resetExtra} onApply={() => { onChange(filters); if (resetExtra) onResetExtra?.(); setResetExtra(false); }} onDiscard={() => { discard(); setResetExtra(false); }} />
     <small role={updating ? "status" : undefined} aria-live="polite">{updating
       ? `正在按公共筛选更新${scopeLabel}…`
-      : `当前范围：${filters.productQuery.trim() ? "已筛选货品" : "全部货品"}、${activeTab === "guangdong" ? "广东仓" : countLabel(filters.warehouses.length, "仓库", "全部仓库")}、${countLabel(filters.brands.length, "品牌", "全部品牌")}、${countLabel(filters.categories.length, "品类", "全部品类")}。`}</small>
+      : `${pending ? "待选" : "当前"}范围：${filters.productQuery.trim() ? "已筛选货品" : "全部货品"}、${activeTab === "guangdong" ? "广东仓" : countLabel(filters.warehouses.length, "仓库", "全部仓库")}、${countLabel(filters.brands.length, "品牌", "全部品牌")}、${countLabel(filters.categories.length, "品类", "全部品类")}。`}</small>
   </section>;
 }

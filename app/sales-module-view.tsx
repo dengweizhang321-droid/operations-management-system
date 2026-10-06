@@ -218,6 +218,11 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
     && core.payload.startDate === fullResult.payload.startDate && core.payload.endDate === fullResult.payload.endDate)) ? fullResult : null;
   const summary = full?.payload ?? core?.payload ?? null;
   const summaryComplete = !!full;
+  const filterMetadataKey = JSON.stringify([customStartDate, customEndDate, currentUser]);
+  const [filterMetadata, setFilterMetadata] = useState<{ key: string; options: SalesSharedFilterOptions } | null>(null);
+  useEffect(() => {
+    if (summary?.filterOptions) setFilterMetadata({ key: filterMetadataKey, options: summary.filterOptions });
+  }, [filterMetadataKey, summary?.filterOptions]);
   const productQueries = useMemo(() => parseProductQueries(debouncedProductQuery), [debouncedProductQuery]);
   useAiPageDetails("sales", {
     period: activeTab === "targets" ? null : { startDate: customStartDate, endDate: customEndDate },
@@ -344,7 +349,7 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
   const salesChannels = summary?.shops?.length ? summary.shops : channels;
   const platforms = summary?.platforms?.length ? summary.platforms : channels;
   const salesFilterOptions = activeTab === "category" && categoryOptions?.key === categoryOptionsKey
-    ? categoryOptions.payload : summary?.filterOptions ?? { platforms: [], shops: [], categories: [] };
+    ? categoryOptions.payload : summary?.filterOptions ?? (filterMetadata?.key === filterMetadataKey ? filterMetadata.options : { platforms: [], shops: [], categories: [] });
   const hasData = Boolean(current && (current.lineCount > 0 || current.orderCount > 0 || current.grossSalesCents !== 0 || current.netSalesCents !== 0));
   const donutBackground = useMemo(() => {
     if (!channels.length) return "#eef1f5";
@@ -358,7 +363,7 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
     return `conic-gradient(${stops.join(",")})`;
   }, [channels]);
   const salesSubnav = <SalesSubnav active={activeTab} onChange={changeSalesTab} />;
-  const sharedFilterBar = (capabilities?: { categories?: boolean; product?: boolean }, options: SalesSharedFilterOptions = salesFilterOptions) => <SalesFilterBar filters={filters} options={options} capabilities={capabilities} updating={usesSalesSummary && loading} scopeLabel={activeTab === "finance" ? "财报分析" : activeTab === "category" ? "品类分析" : activeTab === "channel" ? "渠道分析" : "销售总览"} onChange={updateFilters} />;
+  const sharedFilterBar = (capabilities?: { categories?: boolean; product?: boolean }, options: SalesSharedFilterOptions = salesFilterOptions) => <SalesFilterBar filters={filters} key="sales-shared-filters" options={options} capabilities={capabilities} updating={usesSalesSummary && loading} scopeLabel={activeTab === "finance" ? "财报分析" : activeTab === "category" ? "品类分析" : activeTab === "channel" ? "渠道分析" : "销售总览"} onChange={updateFilters} />;
 
   if (activeTab === "category") return <>{salesSubnav}{sharedFilterBar()}<Suspense fallback={<section className="panel data-state" role="status">正在打开品类分析…</section>}><SalesCategoryView key={JSON.stringify(currentUser)} startDate={customStartDate} endDate={customEndDate} filters={filters} onFiltersChange={updateFilters} onFilterOptionsChange={publishCategoryOptions} /></Suspense></>;
   if (activeTab === "finance") return <>{salesSubnav}{sharedFilterBar({ categories: false, product: false }, financeFilterOptions ?? salesFilterOptions)}<Suspense fallback={<section className="panel data-state" role="status">正在打开财报分析…</section>}><FinanceAnalysisView key={JSON.stringify(currentUser)} customStartDate={customStartDate} customEndDate={customEndDate} selectedPlatforms={filters.platforms} selectedShopKeys={filters.outletKeys} onDimensionFiltersChange={updateFinanceDimensionFilters} onFilterOptionsChange={setFinanceFilterOptions} /></Suspense></>;
@@ -408,12 +413,12 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
   return (
     <>
       {salesSubnav}
+      {sharedFilterBar()}
       <div className="sales-period-note">
         <span><Dot tone="green" />已加载真实明细</span>
         <strong>{rangeNote}</strong>
         {sourceNote && <small title={sourceNote}>{sourceNote}</small>}
       </div>
-      {sharedFilterBar()}
       <div className="sales-period-note" role="status" aria-live="polite"><span>{loading ? readStatus : error ? "更新未完成" : "全部区域已更新"}</span><button type="button" className="row-action" disabled={loading} onClick={() => setRetryKey((value) => value + 1)}>刷新销售数据</button></div>
       {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>销售数据刷新失败</strong><p>{error}；已成功的同范围区域仍保留。</p></div><button className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></section>}
       {activeTab === "channel" ? (
