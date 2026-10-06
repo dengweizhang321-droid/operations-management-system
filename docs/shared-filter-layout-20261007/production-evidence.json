@@ -1,0 +1,208 @@
+{
+  "deployed": true,
+  "source": "b3f3ad4fc5858fca5a9f1e7cad6afef858e10622",
+  "uiChecks": [
+    "sales text waits for Enter; dropdown auto-loads only confirmed text and keeps panel focus",
+    "inventory IME commit is not a query; Enter preserves caret and complete text; slow reads keep later edits",
+    "product code requires Enter; dropdowns retain unconfirmed code and auto-load complete multi-values",
+    "single selection auto-loads; pending dimension edits are canceled when reset or navigating",
+    "late reads and failed retry never overwrite later unconfirmed input"
+  ],
+  "uiErrors": [],
+  "layout": [
+    {
+      "module": "sales",
+      "tab": null,
+      "label": "销售分析平台",
+      "injectedRegionalFixture": false,
+      "first": {
+        "ms": 0.09999999403953552,
+        "scrollY": 130,
+        "height": 2261,
+        "triggerConnected": true,
+        "triggerY": 81.796875,
+        "menuConnected": true,
+        "menuY": 118.796875,
+        "retained": 0
+      },
+      "scroll": [
+        130,
+        130
+      ],
+      "height": [
+        1901,
+        2261
+      ],
+      "triggerY": [
+        81.796875,
+        81.796875
+      ],
+      "menuY": [
+        118.796875,
+        118.796875
+      ],
+      "allTriggerConnected": true,
+      "allMenuConnected": true,
+      "retainedFrames": 323
+    },
+    {
+      "module": "inventory",
+      "tab": null,
+      "label": "健康状态",
+      "injectedRegionalFixture": false,
+      "first": {
+        "ms": 0,
+        "scrollY": 130,
+        "height": 3884,
+        "triggerConnected": true,
+        "triggerY": 213.59375,
+        "menuConnected": true,
+        "menuY": 250.59375,
+        "retained": 0
+      },
+      "scroll": [
+        130,
+        130
+      ],
+      "height": [
+        3884,
+        3884
+      ],
+      "triggerY": [
+        213.59375,
+        213.59375
+      ],
+      "menuY": [
+        250.59375,
+        250.59375
+      ],
+      "allTriggerConnected": true,
+      "allMenuConnected": true,
+      "retainedFrames": 187
+    },
+    {
+      "module": "product",
+      "tab": null,
+      "label": "销售平台",
+      "injectedRegionalFixture": false,
+      "first": {
+        "ms": 0,
+        "scrollY": 130,
+        "height": 3816,
+        "triggerConnected": true,
+        "triggerY": 450.96875,
+        "menuConnected": true,
+        "menuY": 489.96875,
+        "retained": 0
+      },
+      "scroll": [
+        130,
+        130
+      ],
+      "height": [
+        1776,
+        3836
+      ],
+      "triggerY": [
+        450.96875,
+        450.96875
+      ],
+      "menuY": [
+        489.96875,
+        489.96875
+      ],
+      "allTriggerConnected": true,
+      "allMenuConnected": true,
+      "retainedFrames": 344
+    }
+  ],
+  "onlyReadCalls": true,
+  "browserCompositionVerified": true,
+  "nativeWindowsImeCandidateVerified": false,
+  "fullFixedBusinessBodiesAndHeadersEqual": 5,
+  "productionMultiPlatformRows": {
+    "京东": 923,
+    "天猫": 2026,
+    "combined": 2949
+  },
+  "postBackupAndRestorePending": false,
+  "release": "20261006T192701Z-49ae962c10d7658d",
+  "manifestSha256": "dff67c8af0222562ff23e8ad110beb84674dfe3f224e5eaa0a08e732da8d0241",
+  "helperBytesEqual": true,
+  "preservedBackendListeners": 26,
+  "targetedCompositionTests": {
+    "pass": 55,
+    "fail": 0,
+    "skip": 0
+  },
+  "additionalLivePages": [
+    {
+      "tab": "品类分析",
+      "scroll": 130,
+      "triggerY": 81.796875,
+      "panelStayedOpen": true,
+      "readOnly": true
+    },
+    {
+      "tab": "财报分析",
+      "scroll": 130,
+      "triggerY": 68.578125,
+      "panelStayedOpen": true,
+      "readOnly": true
+    }
+  ],
+  "backupMetadataComparison": {
+    "profileEqual": true,
+    "rolesEqual": true,
+    "catalogEqual": true,
+    "tableSetEqual": true,
+    "sequenceLowerBoundsEqual": true,
+    "migrationsEqual": true,
+    "profileTableCount": 296,
+    "rolesCount": 49,
+    "migrationCount": 140,
+    "allContentEqual": false,
+    "changedEvidenceTables": [
+      "market_import_attempts",
+      "market_write_request_receipts"
+    ],
+    "changesNotAutomaticallyAttributed": true
+  },
+  "naturalCompletedObservations": [
+    {
+      "file": "watchdog-20261006T200103Z.json",
+      "lastRunAtUtc": "2026-10-06T20:00:24.0000000Z",
+      "latestAtUtc": "2026-10-06T20:00:24.9992580+00:00",
+      "healthy": true,
+      "taskResult": 0,
+      "completed": true
+    },
+    {
+      "file": "watchdog-20261006T200337Z.json",
+      "lastRunAtUtc": "2026-10-06T20:03:24.0000000Z",
+      "latestAtUtc": "2026-10-06T20:02:25.2376985+00:00",
+      "healthy": true,
+      "taskResult": 0,
+      "completed": true
+    }
+  ],
+  "postRestoreVerified": true,
+  "preRestoreVerified": true,
+  "finalStatus": {
+    "state": "Running",
+    "componentsReady": 12,
+    "exactRelease": true,
+    "preservedListeners": 26,
+    "djangoManifestUnchanged": true,
+    "migrationCount": 140
+  },
+  "recoveryPoint": {
+    "id": "daily-20261006T200200Z-cf353918d62e",
+    "manifest": "b5c3854be37ace41bd9d67a0e2aeab2a2ebc97db0762e55c19323d56f957c58d",
+    "restoreContentSha256": "1ba0b1ac58963b2e948580dd9812594546a03f391ad9cafa3234caf6f92fef81",
+    "recoveryPoints": 3,
+    "protected": 2,
+    "unresolvedOperations": 0,
+    "preDumpRemovedByRetention": true
+  }
+}
