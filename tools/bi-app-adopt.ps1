@@ -43,7 +43,7 @@ Invoke-WithServiceMutex {
  if($biMaintenance.id -cne $biRequest.MaintenanceId -or -not (Test-MaintenanceKeepsPostgres $biMaintenance)){throw 'Exact KeepPostgres maintenance required'}
  $biSource=Get-CanonicalPath $biRequest.SourceRoot
  if(-not (Test-Path -LiteralPath (Join-Path $biSource '.git') -PathType Leaf)){throw 'BI source must be an isolated Git checkout'}
- $biGit=(Get-Command git -CommandType Application).Source
+ $biGit=(Get-Command git -CommandType Application | Select-Object -First 1).Source
  $biStatus=Invoke-BoundedNativeProcess $biGit @('-C',$biSource,'status','--porcelain=v1') $biSource
  if($biStatus.ExitCode -ne 0 -or @($biStatus.Output).Count -ne 0){throw 'BI source must be committed and clean'}
  $biTree=Invoke-BoundedNativeProcess $biGit @('-C',$biSource,'ls-tree','-r','HEAD') $biSource
