@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAiPageDetails } from "./ai-page-context-provider";
 import FinanceAnnualProgressView from "./finance-annual-progress-view";
+import { StableReadContent } from "./ui/stable-read-content";
 import { SearchableSelect } from "./ui/searchable-select";
 import { validFinanceAnalysis, validTargetList, validTargetOptions } from "@/lib/sales/view-response";
 import {
@@ -165,6 +166,7 @@ function isoMonthsBetween(startDate: string, endDate: string) {
 }
 
 export function FinanceAnalysisView({
+  identity,
   customStartDate,
   customEndDate,
   selectedPlatforms,
@@ -172,6 +174,7 @@ export function FinanceAnalysisView({
   onDimensionFiltersChange,
   onFilterOptionsChange,
 }: {
+  identity?: unknown;
   customStartDate: string;
   customEndDate: string;
   selectedPlatforms: string[];
@@ -380,15 +383,16 @@ export function FinanceAnalysisView({
     setSelectedMonths(globalMonths);
   };
 
-  return <div className="finance-analysis-page data-refresh-region" aria-busy={loading}>
+  const stableProps = { owner: JSON.stringify([customStartDate, customEndDate]), identity, pending: loading || !data, complete: Boolean(data), error: Boolean(error) };
+  return <div className="finance-analysis-page">
     <section className="finance-analysis-hero">
       <div><span className="eyebrow">FINANCIAL PERFORMANCE</span><h2>财报经营分析</h2><p>以月度财报与经营目标为口径，追踪销售、利润、毛利和动态费用异常。</p></div>
       <div className="finance-period-control"><div className="finance-hero-filter-row"><div className="finance-filter-field"><span>分析月份</span><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={selectMonthsStrictly} /></div></div><small>平台与店铺继承销售分析公共筛选 · 全局周期 {customStartDate} 至 {customEndDate} · 财报按涵盖月份汇总 · 数据截止 {data?.sync?.dataCutoffMonth ?? "—"}</small></div>
     </section>
+    <StableReadContent {...stableProps} preserveViewport={false} preserveBlockHeight>
     {resultState}
     {loading && data && <div className="inline-feedback" role="status">正在刷新当前财报范围，成功结果仍保留。</div>}
     {error && data && <div className="inline-feedback error" role="alert">财报刷新失败：{error}<button type="button" className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></div>}
-    <button type="button" className="row-action" disabled={loading} onClick={() => setRetryKey((key) => key + 1)}>刷新财报</button>
     {allowInitialMonthFallback && data?.selection?.fallbackApplied && <div className="inline-feedback warning" role="status"><strong>已显示最新可用财报</strong><span>全局月份 {data.selection.requestedMonths?.join("、") || globalMonths.join("、")} 尚未导入，已安全回退至 {data.selectedMonth}；手动选择月份后将严格按选择读取。</span></div>}
     {filterReconciliationNotice && <div className="inline-feedback warning" role="status"><strong>已调整财报筛选</strong><span>{filterReconciliationNotice}</span></div>}
     {data && data.selection?.truncated && <div className="inline-feedback warning" role="status"><strong>分析范围已设上限</strong><span>当前共有 {data.selection.availableMonthCount} 个可用月份，“全部月份”仅分析最近 {data.selection.months.length} 个月；如需更早月份，请在月份筛选中明确选择。</span></div>}
@@ -414,9 +418,12 @@ export function FinanceAnalysisView({
       <article className="panel finance-anomaly-panel"><div className="finance-panel-heading"><div><span className="eyebrow">EXCEPTION WATCH</span><h2>{selectedPeriodName}异常雷达</h2><p>按利润、目标差距及费用环比阈值自动识别。</p></div><span className="soft-tag">{data.anomalies.length} 项</span></div><div className="finance-anomaly-list">{data.anomalies.map((item, index) => <div className={`finance-anomaly ${item.level}`} key={`${item.title}-${index}`}><i>{item.level === "critical" ? "!" : item.level === "warning" ? "△" : "i"}</i><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}</div></article>
     </section>
     </>}
+    </StableReadContent>
+    <button type="button" className="row-action" disabled={loading} onClick={() => setRetryKey((key) => key + 1)}>刷新财报</button>
     <section className="panel finance-expense-panel">
       <div className="finance-panel-heading"><div><span className="eyebrow">DYNAMIC EXPENSES</span><h2>费用同环比与异常点</h2><p>字段直接来自金蝶科目名称；同名科目已合并，新增科目会自动出现。</p></div><span className="soft-tag">{expenseSearch.trim() ? `显示 ${expenseRows.length} / ${(data?.expenses.length ?? 0)} 项` : `共 ${expenseRows.length} 项`}</span></div>
       <div className="finance-expense-filter-bar" aria-label="费用明细筛选"><div><strong>费用筛选</strong><small>月份与上方公共平台、店铺筛选同步更新所有指标</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={selectMonthsStrictly} /><button type="button" className="finance-filter-reset" onClick={resetMonthsStrictly}>重置月份</button></div>
+      <StableReadContent {...stableProps}>
       {data?.hasData && <div className="data-table-wrap finance-expense-scroll">
         <table className="data-table finance-expense-table" data-column-filter-scope={data.expensePagination?.truncated === false ? "full" : "none"}>
           <thead><tr>
@@ -443,6 +450,7 @@ export function FinanceAnalysisView({
           </tr>)}</tbody>
         </table>
       </div>}
+      </StableReadContent>
     </section>
 
   </div>;

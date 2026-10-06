@@ -12,7 +12,7 @@ try{
  await context.route('**/*',async route=>{const u=new URL(route.request().url());if(u.origin!==origin)return route.abort();if(!u.pathname.startsWith('/api/')||u.pathname==='/api/auth/me')return route.continue();const wait=delay,failed=fail;fail=false;const response=await route.fetch();if(wait)await new Promise(r=>setTimeout(r,wait));if(failed)return route.fulfill({status:400,contentType:'application/json',body:'{"error":"synthetic read failure"}'});responses.push({url:route.request().url(),status:response.status(),payload:await response.json().catch(()=>null)});return route.fulfill({response});});
  const check=async(name,fn)=>{await fn();checks.push(name);console.log('PASS '+name)};
  async function open(module){await page.goto(origin+'/?module='+module);await page.waitForTimeout(1800);assert.equal(await page.getByRole('button',{name:'应用筛选',exact:true}).count(),0);}
- async function salesReady(){await page.waitForFunction(()=>document.querySelector('.sales-period-note[role=status]')?.textContent.includes('全部区域已更新'));}
+ async function salesReady(){await page.waitForFunction(()=>document.querySelector('.stable-read-content[aria-busy=false] .sales-period-note[role=status]')?.textContent.includes('全部区域已更新'));}
  await check('sales text waits for Enter; dropdown auto-loads only confirmed text and keeps panel focus',async()=>{
   await open('sales');await salesReady();const text=page.getByRole('textbox',{name:'销售分析货品编码或名称'});const mark=requests.length;
   await text.fill('DEMO-001');await page.waitForTimeout(850);assert.equal(requests.length,mark);
@@ -54,8 +54,12 @@ try{
  });
  await check('late reads and failed retry never overwrite later unconfirmed input',async()=>{
   await open('sales');await salesReady();await page.evaluate(()=>{const native=window.fetch;window.fetch=(url,init={})=>native(url,{...init,signal:undefined});});const text=page.getByRole('textbox',{name:'销售分析货品编码或名称'});
-  delay=1700;await text.fill('NO-SUCH-CODE');const waiting=page.waitForRequest(r=>new URL(r.url()).searchParams.get('productQuery')==='NO-SUCH-CODE');await text.press('Enter');await waiting;delay=0;await text.fill('DEMO-002');await text.press('Enter');await page.waitForTimeout(2300);await salesReady();assert.equal(await text.inputValue(),'DEMO-002');
+  await page.addStyleTag({content:'html{scroll-behavior:auto}'});await text.fill('NO-SUCH-CODE');
+  await page.evaluate(()=>{window.scrollTo(0,130);window.__readInput=document.querySelector('[aria-label="销售分析货品编码或名称"]');window.__readPositions=[];window.__readWatching=true;function tick(){window.__readPositions.push({scroll:scrollY,y:window.__readInput.getBoundingClientRect().y,connected:window.__readInput.isConnected});if(window.__readWatching)requestAnimationFrame(tick)}tick();});
+  delay=1700;const waiting=page.waitForRequest(r=>new URL(r.url()).searchParams.get('productQuery')==='NO-SUCH-CODE');await text.press('Enter');await waiting;delay=0;await text.fill('DEMO-002');await text.press('Enter');await page.waitForTimeout(2300);await salesReady();assert.equal(await text.inputValue(),'DEMO-002');
   fail=true;await text.fill('DEMO-003');await text.press('Enter');await page.getByText('销售数据加载失败',{exact:true}).waitFor();await text.fill('keep editing');await page.getByRole('button',{name:'重新加载',exact:true}).click();await salesReady();assert.equal(await text.inputValue(),'keep editing');
+  await page.evaluate(()=>window.__readWatching=false);const positions=await page.evaluate(()=>window.__readPositions);
+  assert(positions.every(p=>p.connected));assert(Math.max(...positions.map(p=>p.scroll))-Math.min(...positions.map(p=>p.scroll))<1);assert(Math.max(...positions.map(p=>p.y))-Math.min(...positions.map(p=>p.y))<1);
  });
  assert.deepEqual(errors,[]);await writeFile(output+'/result.json',JSON.stringify({checks,errors,requests,responses,syntheticOnly:true,nativeWindowsCandidateWindowVerified:false},null,2));console.log(JSON.stringify({output,checks}));
 }catch(e){await writeFile(output+'/failure.json',JSON.stringify({error:e.message,checks,errors,requests,responses},null,2));throw e}finally{await browser.close()}

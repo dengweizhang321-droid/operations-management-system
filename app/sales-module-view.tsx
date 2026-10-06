@@ -1,4 +1,6 @@
 "use client";
+import { StableReadContent } from "./ui/stable-read-content";
+import type { ReactNode } from "react";
 import { useAiPageDetails } from "./ai-page-context-provider";
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { fetchWithTransientRetry } from "@/lib/http/transient-retry";
@@ -365,38 +367,42 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
   const salesSubnav = <SalesSubnav active={activeTab} onChange={changeSalesTab} />;
   const sharedFilterBar = (capabilities?: { categories?: boolean; product?: boolean }, options: SalesSharedFilterOptions = salesFilterOptions) => <SalesFilterBar filters={filters} scopeKey={filterMetadataKey} key="sales-shared-filters" options={options} capabilities={capabilities} updating={usesSalesSummary && loading} scopeLabel={activeTab === "finance" ? "财报分析" : activeTab === "category" ? "品类分析" : activeTab === "channel" ? "渠道分析" : "销售总览"} onChange={updateFilters} />;
 
-  if (activeTab === "category") return <>{salesSubnav}{sharedFilterBar()}<Suspense fallback={<section className="panel data-state" role="status">正在打开品类分析…</section>}><SalesCategoryView key={JSON.stringify(currentUser)} startDate={customStartDate} endDate={customEndDate} filters={filters} onFiltersChange={updateFilters} onFilterOptionsChange={publishCategoryOptions} /></Suspense></>;
-  if (activeTab === "finance") return <>{salesSubnav}{sharedFilterBar({ categories: false, product: false }, financeFilterOptions ?? salesFilterOptions)}<Suspense fallback={<section className="panel data-state" role="status">正在打开财报分析…</section>}><FinanceAnalysisView key={JSON.stringify(currentUser)} customStartDate={customStartDate} customEndDate={customEndDate} selectedPlatforms={filters.platforms} selectedShopKeys={filters.outletKeys} onDimensionFiltersChange={updateFinanceDimensionFilters} onFilterOptionsChange={setFinanceFilterOptions} /></Suspense></>;
+  if (activeTab === "category") return <>{salesSubnav}{sharedFilterBar()}<Suspense fallback={<section className="panel data-state" role="status">正在打开品类分析…</section>}><SalesCategoryView identity={currentUser} key={JSON.stringify(currentUser)} startDate={customStartDate} endDate={customEndDate} filters={filters} onFiltersChange={updateFilters} onFilterOptionsChange={publishCategoryOptions} /></Suspense></>;
+  if (activeTab === "finance") return <>{salesSubnav}{sharedFilterBar({ categories: false, product: false }, financeFilterOptions ?? salesFilterOptions)}<Suspense fallback={<section className="panel data-state" role="status">正在打开财报分析…</section>}><FinanceAnalysisView identity={currentUser} key={JSON.stringify(currentUser)} customStartDate={customStartDate} customEndDate={customEndDate} selectedPlatforms={filters.platforms} selectedShopKeys={filters.outletKeys} onDimensionFiltersChange={updateFinanceDimensionFilters} onFilterOptionsChange={setFinanceFilterOptions} /></Suspense></>;
   if (activeTab === "targets") return <>{salesSubnav}<Suspense fallback={<section className="panel data-state" role="status">正在打开目标进度…</section>}><FinanceTargetSettingsView key={JSON.stringify(currentUser)} canManageTargets={canManageTargets} /></Suspense></>;
 
+  const withSalesContent = (content: ReactNode) => <>{salesSubnav}{sharedFilterBar()}<StableReadContent
+    owner={JSON.stringify([activeTab, customStartDate, customEndDate, currentUser])} identity={currentUser}
+    pending={loading || !summaryComplete} complete={summaryComplete} error={Boolean(error)}>{content}</StableReadContent></>;
+
   if (!summary && !error) {
-    return (
-      <>{salesSubnav}{sharedFilterBar()}<section className="panel data-state sales-data-state" role="status" aria-live="polite">
+    return withSalesContent(
+      <section className="panel data-state sales-data-state" role="status" aria-live="polite">
           <span className="state-spinner" aria-hidden="true" />
           <strong>正在读取{range}销售数据</strong>
           <p>{customStartDate} 至 {customEndDate} · {readStatus}</p>
-        </section></>
+        </section>
     );
   }
 
   if (error && !summary) {
-    return (
-      <>{salesSubnav}{sharedFilterBar()}<section className="panel data-state sales-data-state data-state-error" role="alert">
+    return withSalesContent(
+      <section className="panel data-state sales-data-state data-state-error" role="alert">
           <span className="state-symbol" aria-hidden="true">!</span>
           <strong>销售数据加载失败</strong>
           <p>{error}</p>
           <button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button>
-        </section></>
+        </section>
     );
   }
 
   if (!hasData || !current) {
-    return (
-      <>{salesSubnav}{sharedFilterBar()}<section className="panel data-state sales-data-state">
+    return withSalesContent(
+      <section className="panel data-state sales-data-state">
           <span className="state-symbol" aria-hidden="true">∅</span>
           <strong>{range}暂无销售数据</strong>
           <p>{productQueries.length > 0 ? "当前货品编码或名称在该统计周期内没有销售记录，可修改或清空下方查询。" : "请先在“数据导入”中上传吉客云销售单明细账，或切换其他统计周期。"}</p>
-        </section></>
+        </section>
     );
   }
 
@@ -410,10 +416,8 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
     .filter(Boolean)
     .join(" · ");
 
-  return (
+  return withSalesContent(
     <>
-      {salesSubnav}
-      {sharedFilterBar()}
       <div className="sales-period-note">
         <span><Dot tone="green" />已加载真实明细</span>
         <strong>{rangeNote}</strong>
