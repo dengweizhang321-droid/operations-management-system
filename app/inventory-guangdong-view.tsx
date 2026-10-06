@@ -26,7 +26,8 @@ async function jsonRequest<T>(path: string, init?: RequestInit): Promise<T> {
 }
 const jsonBody = (value: unknown, method = "POST") => ({ method, headers: { "content-type": "application/json" }, body: JSON.stringify(value) });
 
-export default function GuangdongInventoryView({ canManage, filters, onFiltersChange, onAskAi }: {
+export default function GuangdongInventoryView({ canManage, filters, onFiltersChange, onAskAi, onCreatePlan, planActionId = "", planSaving = false, refreshKey = 0 }: {
+  onCreatePlan?: (productCode: string) => void; planActionId?: string; planSaving?: boolean; refreshKey?: number;
   canManage: boolean; filters: InventorySharedFilters; onFiltersChange: (value: InventorySharedFilters) => void; onAskAi: (prompt: string) => void;
 }) {
   const [dataState, setDataState] = useState<InventoryRegionState<GuangdongMonitor> | null>(null);
@@ -89,7 +90,7 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
       }).finally(() => { if (!controller.signal.aborted && id === generation.current) setLoading(false); });
     }, 0);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [query, refresh, retrySection]);
+  }, [query, refresh, refreshKey, retrySection]);
   useEffect(() => {
     const restore = () => setRisk(new URL(window.location.href).searchParams.get("inventoryGuangdongRisk") || "");
     window.addEventListener("popstate", restore); return () => window.removeEventListener("popstate", restore);
@@ -176,7 +177,7 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
     {notice && <p role="status">{notice}</p>}
     <InventoryFilterBar activeTab="guangdong" filters={filters} onChange={onFiltersChange} updating={loading} options={{ warehouses: ["广东仓"], brands: data?.filters.brands ?? [], categories: data?.filters.categories ?? [], suppliers: data?.filters.suppliers ?? [], ageBuckets: [] }} />
     <InventoryRegionNotice summary={Boolean(data && dataState?.summary)} detail={Boolean(data && dataState?.detail)} errors={regionErrors} onRetry={section => { setRetrySection({ query, section }); setRefresh(v => v + 1); }} />
-    {data?.sync.inventoryStale && <p className={styles.warning}>库存快照待更新：风险与最晚下单日期是基于所示快照的估算。</p>}
+    {data?.sync.inventoryStale && <p className={styles.warning}>库存快照待更新：风险与建议下单日期是基于所示快照的估算。</p>}
     {!data && !error && <section className="panel data-state" role="status">正在读取广东仓监控数据…</section>}
     {panel && <section className={`panel ${styles.management}`} aria-label={panel === "watchlist" ? "监控清单管理" : "供应商周期管理"}>
       <div className={styles.heading}><h3>{panel === "watchlist" ? "监控清单管理" : "供应商备货周期"}</h3><button className="row-action" onClick={() => { setPanel(null); managementGeneration.current++; }}>收起</button></div>
@@ -220,7 +221,7 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
             <div className={styles.editorActions}><button className="primary-button" disabled={busy}>保存</button><small>周期留空继承供应商设置；负责人留空继承最新未取消备货计划；风险与原因都留空时恢复系统判定。</small></div>
           </form>
         </section>}
-        <section hidden={!dataState?.detail} style={dataState?.detail ? undefined : { display: "none" }} className="panel table-panel"><div className="table-toolbar"><h3>广东入仓型号明细</h3><span>{data.pagination.total} 条 · 第 {page} / {Math.max(1, data.pagination.totalPages)} 页</span></div><div className="data-table-wrap" aria-busy={loading}><table className="data-table"><thead><tr>{["商品", "规格编码", "供应商", "运营负责人", "采购负责人", "库存 / 在途", "7 / 15 / 30日出库", "销售周转 / 库龄", "生产周期 / 安全天数", "最晚下单", "备货数量 / 下单剩余库存", "风险及原因", "操作"].map((title) => <th key={title}>{title}</th>)}</tr></thead><tbody>{data.items.map((item) => <tr key={item.productCode}>
+        <section hidden={!dataState?.detail} style={dataState?.detail ? undefined : { display: "none" }} className="panel table-panel"><div className="table-toolbar"><h3>广东入仓型号明细</h3><span>{data.pagination.total} 条 · 第 {page} / {Math.max(1, data.pagination.totalPages)} 页</span></div><div className="data-table-wrap" aria-busy={loading}><table className="data-table"><thead><tr>{["商品", "规格编码", "供应商", "运营负责人", "采购负责人", "库存 / 在途", "7 / 15 / 30日出库", "销售周转 / 库龄", "生产周期 / 安全天数", "建议下单", "备货数量 / 下单剩余库存", "风险及原因", "创建备货计划", "操作"].map((title) => <th key={title}>{title}</th>)}</tr></thead><tbody>{data.items.map((item) => <tr key={item.productCode}>
           <td><strong>{item.productName}</strong></td>
           <td><strong>{item.productCode}</strong><small className="cell-note">{item.specification || "无规格"}</small></td>
           <td>{item.supplier}<small className="cell-note">{item.supplierSource}</small></td>
@@ -231,10 +232,11 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
           <td>{daysText(item.turnoverDays)}<small className="cell-note">库龄 {numberText(item.inventoryAgeDays)} 天</small></td>
           <td>{item.leadDays === null ? "待设置" : `${item.leadDays} 天`}<small className="cell-note">安全 {item.bufferDays} 天 · {item.cycleSource}</small></td>
           <td>{item.latestOrderDate ?? "—"}</td>
-          <td title={item.replenishmentRemainingReason || `下单日期 ${item.latestReplenishmentOrderDate ?? "—"}；下单后累计增库 ${numberText(item.replenishmentStockIncreaseQuantity)}；剩余=备货数量−累计增库`}>{numberText(item.replenishmentQuantity)}<small className="cell-note">剩余 {item.replenishmentRemainingQuantity == null ? "待核算" : numberText(item.replenishmentRemainingQuantity)}</small></td>
+          <td title={item.replenishmentRemainingReason || `下单日期 ${item.latestReplenishmentOrderDate ?? "—"}；下单后累计增库 ${numberText(item.replenishmentStockIncreaseQuantity)}；剩余=备货数量−累计增库`}>{numberText(item.replenishmentQuantity)}<small className="cell-note">下单时间 {item.latestReplenishmentOrderDate ?? "—"}</small><small className="cell-note">剩余 {item.replenishmentRemainingQuantity == null ? "待核算" : numberText(item.replenishmentRemainingQuantity)}</small></td>
           <td className={styles.reason}><strong>{item.riskLabel}</strong><small className="cell-note">{item.riskSource} · {item.riskReasons.join("；") || "可售天数充足"}</small></td>
+          <td>{canManage && onCreatePlan ? <button type="button" className="row-action" disabled={busy || planSaving || Boolean(planActionId)} onClick={() => onCreatePlan(item.productCode)}>{planActionId === item.productCode ? "正在读取…" : "创建备货计划"}</button> : "—"}</td>
           <td>{canManage ? <button className="row-action" aria-label={`${item.productCode}编辑型号设置`} disabled={busy} onClick={() => { setEditing(item); setEditingVersion(data.version); }}>编辑</button> : "—"}</td>
-        </tr>)}{data.items.length === 0 && <tr><td colSpan={13}>当前筛选没有监控结果。</td></tr>}</tbody></table></div><footer className="jd-sku-pagination"><button className="row-action" disabled={page <= 1 || loading} onClick={() => setPageState({ scope, page: page - 1 })}>上一页</button><button className="row-action" disabled={page >= data.pagination.totalPages || loading} onClick={() => setPageState({ scope, page: page + 1 })}>下一页</button></footer></section>
+        </tr>)}{data.items.length === 0 && <tr><td colSpan={14}>当前筛选没有监控结果。</td></tr>}</tbody></table></div><footer className="jd-sku-pagination"><button className="row-action" disabled={page <= 1 || loading} onClick={() => setPageState({ scope, page: page - 1 })}>上一页</button><button className="row-action" disabled={page >= data.pagination.totalPages || loading} onClick={() => setPageState({ scope, page: page + 1 })}>下一页</button></footer></section>
       </>}
     </>}
 

@@ -478,7 +478,11 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const [planActionId, setPlanActionId] = useState("");
   const [planQuantities, setPlanQuantities] = useState<Record<string, number>>({});
   const [planDraft, setPlanDraft] = useState<ReplenishmentPlanDraft | null>(null);
+  const [planDraftScope, setPlanDraftScope] = useState("");
   const [planSaving, setPlanSaving] = useState(false);
+  const [guangdongPlanSource, setGuangdongPlanSource] = useState<InventoryOverviewResponse | null>(null);
+  const [guangdongRefresh, setGuangdongRefresh] = useState(0);
+  const guangdongPlanController = useRef<AbortController | null>(null);
   const [selectedPlanIds, setSelectedPlanIds] = useState<Set<string>>(() => new Set());
   const [groupPreview, setGroupPreview] = useState<DingTalkGroupPreview | null>(null);
   const [groupMessageLoading, setGroupMessageLoading] = useState(false);
@@ -924,9 +928,10 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     }
   }, [canSyncInventory, refreshActiveInventoryTab, snapshotDate]);
 
+  const planSource = activeTab === "guangdong" ? guangdongPlanSource : overview;
   const planCandidates = useMemo(() => {
     const candidates = new Map<string, Parameters<typeof planDraftFromCandidate>[0]>();
-    for (const item of overview?.mapping.samples ?? []) {
+    for (const item of planSource?.mapping.samples ?? []) {
       candidates.set(item.productCode, {
         productCode: item.productCode,
         productName: item.productName,
@@ -937,7 +942,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         totalSalesQuantity: item.totalSalesQuantity,
       });
     }
-    for (const item of overview?.items ?? []) {
+    for (const item of planSource?.items ?? []) {
       const current = candidates.get(item.productCode);
       const option: InventoryPlanWarehouseOption = {
         key: item.key,
@@ -963,24 +968,57 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       });
     }
     return [...candidates.values()].sort((left, right) => left.productCode.localeCompare(right.productCode, "zh-CN"));
-  }, [overview]);
+  }, [planSource]);
 
   const openPlanModal = useCallback((productCode: string, preferredKey?: string) => {
     if (!canManageInventory) return;
     const candidate = planCandidates.find((item) => item.productCode === productCode);
     if (!candidate) return;
     setPlanDraft(planDraftFromCandidate(candidate, preferredKey));
+    setPlanDraftScope(`${principalKey}:${activeTab}`);
     setSyncFeedback(null);
-  }, [canManageInventory, planCandidates]);
+  }, [activeTab, canManageInventory, planCandidates, principalKey]);
+
+  useEffect(() => {
+    return () => { guangdongPlanController.current?.abort(); };
+  }, [principalKey, activeTab]);
+
+  const openGuangdongPlan = useCallback(async (productCode: string) => {
+    if (!canManageInventory || planSaving) return;
+    guangdongPlanController.current?.abort();
+    const controller = new AbortController();
+    guangdongPlanController.current = controller;
+    setPlanActionId(productCode);
+    setPlanDraft(null);
+    setGuangdongPlanSource(null);
+    setSyncFeedback(null);
+    try {
+      const params = new URLSearchParams({ view: "overview", q: productCode, pageSize: "100" });
+      const response = await fetch(`/api/inventory/overview?${params}`, { cache: "no-store", signal: controller.signal });
+      const payload = await response.json() as InventoryOverviewResponse & { error?: string };
+      if (controller.signal.aborted) return;
+      if (!response.ok) throw new Error(payload.error || "读取备货计划候选失败");
+      const candidate = payload.mapping.samples.find((item) => item.productCode === productCode);
+      const option = candidate?.warehouseOptions.find((item) => item.warehouse === "广东仓");
+      if (!candidate || !option) throw new Error("当前型号缺少可创建计划的广东仓库存记录，请先核对最新库存。");
+      setGuangdongPlanSource({ ...payload, mapping: { ...payload.mapping, samples: [candidate] }, items: payload.items.filter((item) => item.productCode === productCode) });
+      setPlanDraft(planDraftFromCandidate(candidate, option.key));
+      setPlanDraftScope(`${principalKey}:${activeTab}`);
+    } catch (requestError) {
+      if (!controller.signal.aborted) setSyncFeedback({ tone: "error", title: "备货计划未打开", message: requestError instanceof Error ? requestError.message : "请稍后重试" });
+    } finally {
+      if (guangdongPlanController.current === controller) setPlanActionId("");
+    }
+  }, [activeTab, canManageInventory, planSaving, principalKey]);
 
   const submitPlan = useCallback(async () => {
-    if (!planDraft || planSaving || !canManageInventory) return;
+    if (!planDraft || planDraftScope !== `${principalKey}:${activeTab}` || planSaving || !canManageInventory) return;
     if (!planDraft.key || planDraft.plannedQuantity < 1) {
       setSyncFeedback({ tone: "error", title: "备货计划未保存", message: "请选择入库库房，并填写大于 0 的备货数量。" });
       return;
     }
-    if (overview?.sync.inventoryStale) {
-      const confirmed = window.confirm(`库存快照日期为 ${overview.sync.inventoryAsOf ?? "未知"}，已超过 3 天。建议先同步最新库存；是否仍按当前快照保存备货计划？`);
+    if (planSource?.sync.inventoryStale) {
+      const confirmed = window.confirm(`库存快照日期为 ${planSource.sync.inventoryAsOf ?? "未知"}，已超过 3 天。建议先同步最新库存；是否仍按当前快照保存备货计划？`);
       if (!confirmed) return;
     }
     setPlanSaving(true);
@@ -994,7 +1032,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           key: planDraft.key,
           plannedQuantity: planDraft.plannedQuantity,
           manual: true,
-          acknowledgeStale: Boolean(overview?.sync.inventoryStale),
+          acknowledgeStale: Boolean(planSource?.sync.inventoryStale),
           buyer: planDraft.buyer,
           operatorName: planDraft.operatorName,
           department: planDraft.department,
@@ -1032,14 +1070,15 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         });
       }
       setPlanDraft(null);
-      await refreshActiveInventoryTab();
+      if (activeTab === "guangdong") setGuangdongRefresh((value) => value + 1);
+      else await refreshActiveInventoryTab();
     } catch (requestError) {
       setSyncFeedback({ tone: "error", title: "备货计划创建失败", message: requestError instanceof Error ? requestError.message : "请稍后重试" });
     } finally {
       setPlanSaving(false);
       setPlanActionId("");
     }
-  }, [canManageInventory, overview, planDraft, planSaving, refreshActiveInventoryTab]);
+  }, [activeTab, canManageInventory, planSource, planDraft, planDraftScope, planSaving, principalKey, refreshActiveInventoryTab]);
 
   const updatePlanStatus = useCallback(async (plan: ReplenishmentPlanItem, status: ReplenishmentPlanItem["status"]) => {
     if (!canManageInventory) return;
@@ -1460,7 +1499,42 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     </div>
   );
 
-  if (activeTab === "guangdong") return <>{subnav}<GuangdongInventoryView key={principalKey} canManage={currentUser?.role === "operator" || currentUser?.role === "admin"} filters={filters} onFiltersChange={updateFilters} onAskAi={onAskAi} /></>;
+  const planModal = planDraft && planDraftScope === `${principalKey}:${activeTab}` && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !planSaving) setPlanDraft(null); }}>
+        <form className="inventory-work-item-modal inventory-plan-create-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-plan-create-title" onSubmit={(event) => { event.preventDefault(); void submitPlan(); }}>
+          <header><div><h2 id="inventory-plan-create-title">创建备货计划</h2><p>库存来自所选入库库房，销量固定为货品近30天正向总销量；人工字段会随计划保存。</p></div><button type="button" aria-label="关闭" disabled={planSaving} onClick={() => setPlanDraft(null)}>×</button></header>
+          <div className="inventory-work-item-fields inventory-plan-create-fields">
+            <label><span className="required-field">货品编号</span><select required value={planDraft.productCode} onChange={(event) => { const candidate = planCandidates.find((item) => item.productCode === event.target.value); if (candidate) setPlanDraft(planDraftFromCandidate(candidate)); }}>{planCandidates.map((candidate) => <option key={candidate.productCode} value={candidate.productCode}>{candidate.productCode}</option>)}</select></label>
+            <label className="inventory-plan-name-field"><span>货品名称</span><input readOnly value={planDraft.productName} /></label>
+            <label><span>品牌</span><input readOnly value={planDraft.brand || "—"} /></label>
+            <label><span>供应商</span><input readOnly value={planDraft.supplier || "未映射供应商"} /></label>
+            <label><span>对应采购</span><input maxLength={200} value={planDraft.buyer} onChange={(event) => setPlanDraft((current) => current ? { ...current, buyer: event.target.value } : current)} placeholder="填写采购负责人" /></label>
+            <label><span className="required-field">入库库房</span><select required value={planDraft.warehouse} onChange={(event) => setPlanDraft((current) => {
+              if (!current) return current;
+              const option = current.warehouseOptions.find((item) => item.warehouse === event.target.value);
+              if (!option) return current;
+              const expectedConsumptionDays = current.sales30dQuantity !== null && current.sales30dQuantity > 0
+                ? Math.min(3650, Math.round((Math.max(0, option.availableQuantity) / (current.sales30dQuantity / 30)) * 10) / 10)
+                : null;
+              return { ...current, warehouse: option.warehouse, key: option.key, currentStockQuantity: option.availableQuantity, suggestedQuantity: option.suggestedQuantity, plannedQuantity: Math.max(0, option.suggestedQuantity ?? 0), expectedConsumptionDays };
+            })}><option value="" disabled>选择库房</option>{planDraft.warehouseOptions.map((option) => <option key={option.key} value={option.warehouse}>{option.warehouse}{option.inDraftPlan ? "（已有草稿）" : ""}</option>)}</select></label>
+            <label><span>现有库存</span><input readOnly value={formatCount(planDraft.currentStockQuantity)} /></label>
+            <label><span>近30天总销量</span><input readOnly value={planDraft.sales30dQuantity === null ? "—" : formatCount(planDraft.sales30dQuantity)} /></label>
+            <label><span className="required-field">备货数量</span><input required type="number" min={1} max={10000000} value={planDraft.plannedQuantity} onChange={(event) => setPlanDraft((current) => current ? { ...current, plannedQuantity: Math.max(0, Math.min(10000000, Math.trunc(Number(event.target.value) || 0))) } : current)} /></label>
+            <label><span>预计消耗周期(天)</span><div className="inventory-plan-unit-input"><input type="number" min={0} max={3650} step={0.1} value={planDraft.expectedConsumptionDays ?? ""} onChange={(event) => { const value = event.target.valueAsNumber; setPlanDraft((current) => current ? { ...current, expectedConsumptionDays: Number.isFinite(value) ? Math.max(0, Math.min(3650, Math.round(value * 10) / 10)) : null } : current); }} placeholder="可手工调整" /><em>天</em></div></label>
+            <label><span>下单日期</span><input type="date" value={planDraft.orderDate} onChange={(event) => setPlanDraft((current) => current ? { ...current, orderDate: event.target.value } : current)} /></label>
+            <label><span>备货类型</span><input maxLength={100} value={planDraft.planType} onChange={(event) => setPlanDraft((current) => current ? { ...current, planType: event.target.value } : current)} placeholder="如 常规/促销" /></label>
+            <label><span>对应运营</span><input maxLength={200} value={planDraft.operatorName} onChange={(event) => setPlanDraft((current) => current ? { ...current, operatorName: event.target.value } : current)} placeholder="填写运营负责人" /></label>
+            <label><span>部门（选填）</span><input maxLength={200} value={planDraft.department} onChange={(event) => setPlanDraft((current) => current ? { ...current, department: event.target.value } : current)} placeholder="默认志高项目组，可留空" /></label>
+            <label><span>预计到货日</span><input type="date" value={planDraft.expectedArrivalDate} onChange={(event) => setPlanDraft((current) => current ? { ...current, expectedArrivalDate: event.target.value } : current)} /></label>
+            <label><span>状态</span><select value={planDraft.status} onChange={(event) => setPlanDraft((current) => current ? { ...current, status: event.target.value as ReplenishmentPlanDraft["status"] } : current)}><option value="draft">草稿</option><option value="confirmed">已确认</option></select></label>
+            <label><span>是否验货</span><select value={planDraft.requiresInspection ? "yes" : "no"} onChange={(event) => setPlanDraft((current) => current ? { ...current, requiresInspection: event.target.value === "yes" } : current)}><option value="no">否</option><option value="yes">是</option></select></label>
+            <label className="inventory-work-item-notes"><span>备注</span><textarea rows={3} maxLength={1000} value={planDraft.notes} onChange={(event) => setPlanDraft((current) => current ? { ...current, notes: event.target.value } : current)} /></label>
+          </div>
+          <footer><span>{planDraft.suggestedQuantity === null || planDraft.suggestedQuantity <= 0 ? "当前无精确系统建议，可填写人工备货量并保留审计。" : `系统建议 ${formatCount(planDraft.suggestedQuantity)} 件；可按实际采购情况调整。`}</span><div><button type="button" className="secondary-button" disabled={planSaving} onClick={() => setPlanDraft(null)}>取消</button><button type="submit" className="primary-button" disabled={planSaving || !planDraft.key || planDraft.plannedQuantity < 1}>{planSaving ? (planDraft.status === "confirmed" ? "正在确认并提交…" : "正在保存…") : (planDraft.status === "confirmed" ? "确认并提交钉钉" : "保存草稿")}</button></div></footer>
+        </form>
+      </div>;
+
+  if (activeTab === "guangdong") return <>{subnav}<GuangdongInventoryView key={principalKey} canManage={currentUser?.role === "operator" || currentUser?.role === "admin"} filters={filters} onFiltersChange={updateFilters} onAskAi={onAskAi} onCreatePlan={openGuangdongPlan} planActionId={planActionId} planSaving={planSaving} refreshKey={guangdongRefresh} />{syncFeedback && <div className={`sync-feedback ${syncFeedback.tone}`} role="status"><strong>{syncFeedback.title}</strong><p>{syncFeedback.message}</p></div>}{planModal}</>;
 
   const activeInventoryHasData = usesInventoryAgeAnalysis ? ageAnalysis?.hasInventory : usesInboundMonitor ? inboundMonitor?.hasInventory : overview?.hasInventory;
   const activeInventoryAsOf = usesInventoryAgeAnalysis ? ageAnalysis?.sync.inventoryAsOf : usesInboundMonitor ? inboundMonitor?.sync.inventoryAsOf : overview?.sync.inventoryAsOf;
@@ -1713,40 +1787,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         </section>
       </div>}
 
-      {planDraft && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !planSaving) setPlanDraft(null); }}>
-        <form className="inventory-work-item-modal inventory-plan-create-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-plan-create-title" onSubmit={(event) => { event.preventDefault(); void submitPlan(); }}>
-          <header><div><h2 id="inventory-plan-create-title">创建备货计划</h2><p>库存来自所选入库库房，销量固定为货品近30天正向总销量；人工字段会随计划保存。</p></div><button type="button" aria-label="关闭" disabled={planSaving} onClick={() => setPlanDraft(null)}>×</button></header>
-          <div className="inventory-work-item-fields inventory-plan-create-fields">
-            <label><span className="required-field">货品编号</span><select required value={planDraft.productCode} onChange={(event) => { const candidate = planCandidates.find((item) => item.productCode === event.target.value); if (candidate) setPlanDraft(planDraftFromCandidate(candidate)); }}>{planCandidates.map((candidate) => <option key={candidate.productCode} value={candidate.productCode}>{candidate.productCode}</option>)}</select></label>
-            <label className="inventory-plan-name-field"><span>货品名称</span><input readOnly value={planDraft.productName} /></label>
-            <label><span>品牌</span><input readOnly value={planDraft.brand || "—"} /></label>
-            <label><span>供应商</span><input readOnly value={planDraft.supplier || "未映射供应商"} /></label>
-            <label><span>对应采购</span><input maxLength={200} value={planDraft.buyer} onChange={(event) => setPlanDraft((current) => current ? { ...current, buyer: event.target.value } : current)} placeholder="填写采购负责人" /></label>
-            <label><span className="required-field">入库库房</span><select required value={planDraft.warehouse} onChange={(event) => setPlanDraft((current) => {
-              if (!current) return current;
-              const option = current.warehouseOptions.find((item) => item.warehouse === event.target.value);
-              if (!option) return current;
-              const expectedConsumptionDays = current.sales30dQuantity !== null && current.sales30dQuantity > 0
-                ? Math.min(3650, Math.round((Math.max(0, option.availableQuantity) / (current.sales30dQuantity / 30)) * 10) / 10)
-                : null;
-              return { ...current, warehouse: option.warehouse, key: option.key, currentStockQuantity: option.availableQuantity, suggestedQuantity: option.suggestedQuantity, plannedQuantity: Math.max(0, option.suggestedQuantity ?? 0), expectedConsumptionDays };
-            })}><option value="" disabled>选择库房</option>{planDraft.warehouseOptions.map((option) => <option key={option.key} value={option.warehouse}>{option.warehouse}{option.inDraftPlan ? "（已有草稿）" : ""}</option>)}</select></label>
-            <label><span>现有库存</span><input readOnly value={formatCount(planDraft.currentStockQuantity)} /></label>
-            <label><span>近30天总销量</span><input readOnly value={planDraft.sales30dQuantity === null ? "—" : formatCount(planDraft.sales30dQuantity)} /></label>
-            <label><span className="required-field">备货数量</span><input required type="number" min={1} max={10000000} value={planDraft.plannedQuantity} onChange={(event) => setPlanDraft((current) => current ? { ...current, plannedQuantity: Math.max(0, Math.min(10000000, Math.trunc(Number(event.target.value) || 0))) } : current)} /></label>
-            <label><span>预计消耗周期(天)</span><div className="inventory-plan-unit-input"><input type="number" min={0} max={3650} step={0.1} value={planDraft.expectedConsumptionDays ?? ""} onChange={(event) => { const value = event.target.valueAsNumber; setPlanDraft((current) => current ? { ...current, expectedConsumptionDays: Number.isFinite(value) ? Math.max(0, Math.min(3650, Math.round(value * 10) / 10)) : null } : current); }} placeholder="可手工调整" /><em>天</em></div></label>
-            <label><span>下单日期</span><input type="date" value={planDraft.orderDate} onChange={(event) => setPlanDraft((current) => current ? { ...current, orderDate: event.target.value } : current)} /></label>
-            <label><span>备货类型</span><input maxLength={100} value={planDraft.planType} onChange={(event) => setPlanDraft((current) => current ? { ...current, planType: event.target.value } : current)} placeholder="如 常规/促销" /></label>
-            <label><span>对应运营</span><input maxLength={200} value={planDraft.operatorName} onChange={(event) => setPlanDraft((current) => current ? { ...current, operatorName: event.target.value } : current)} placeholder="填写运营负责人" /></label>
-            <label><span>部门（选填）</span><input maxLength={200} value={planDraft.department} onChange={(event) => setPlanDraft((current) => current ? { ...current, department: event.target.value } : current)} placeholder="默认志高项目组，可留空" /></label>
-            <label><span>预计到货日</span><input type="date" value={planDraft.expectedArrivalDate} onChange={(event) => setPlanDraft((current) => current ? { ...current, expectedArrivalDate: event.target.value } : current)} /></label>
-            <label><span>状态</span><select value={planDraft.status} onChange={(event) => setPlanDraft((current) => current ? { ...current, status: event.target.value as ReplenishmentPlanDraft["status"] } : current)}><option value="draft">草稿</option><option value="confirmed">已确认</option></select></label>
-            <label><span>是否验货</span><select value={planDraft.requiresInspection ? "yes" : "no"} onChange={(event) => setPlanDraft((current) => current ? { ...current, requiresInspection: event.target.value === "yes" } : current)}><option value="no">否</option><option value="yes">是</option></select></label>
-            <label className="inventory-work-item-notes"><span>备注</span><textarea rows={3} maxLength={1000} value={planDraft.notes} onChange={(event) => setPlanDraft((current) => current ? { ...current, notes: event.target.value } : current)} /></label>
-          </div>
-          <footer><span>{planDraft.suggestedQuantity === null || planDraft.suggestedQuantity <= 0 ? "当前无精确系统建议，可填写人工备货量并保留审计。" : `系统建议 ${formatCount(planDraft.suggestedQuantity)} 件；可按实际采购情况调整。`}</span><div><button type="button" className="secondary-button" disabled={planSaving} onClick={() => setPlanDraft(null)}>取消</button><button type="submit" className="primary-button" disabled={planSaving || !planDraft.key || planDraft.plannedQuantity < 1}>{planSaving ? (planDraft.status === "confirmed" ? "正在确认并提交…" : "正在保存…") : (planDraft.status === "confirmed" ? "确认并提交钉钉" : "保存草稿")}</button></div></footer>
-        </form>
-      </div>}
+      {planModal}
       {workItemDraft && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !workItemSaving) setWorkItemDraft(null); }}>
         <form className="inventory-work-item-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-work-item-title" onSubmit={(event) => { event.preventDefault(); void submitInventoryWorkItem(); }}>
           <header><div><small>{workItemDraft.kind === "procurement" ? "补货 → 采购执行" : "滞销 → 清理执行"}</small><h2 id="inventory-work-item-title">{workItemDraft.kind === "procurement" ? "创建采购备货任务" : "创建滞销清理事项"}</h2><p>{workItemDraft.label}</p></div><button type="button" aria-label="关闭" disabled={workItemSaving} onClick={() => setWorkItemDraft(null)}>×</button></header>
