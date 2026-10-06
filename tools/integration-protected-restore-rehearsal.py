@@ -39,7 +39,7 @@ def sha(value):
     return hashlib.sha256(packed(value)).hexdigest()
 
 
-def collect(db, port):
+def collect(db, port, expected_generation=138):
     identity = db.execute("SELECT current_database(),current_user,inet_server_addr()::text,"
         "inet_server_port(),pg_is_in_recovery()").fetchone()
     if identity != (DATABASE, ADMIN, "127.0.0.1/32", port, False) and identity != (
@@ -48,9 +48,11 @@ def collect(db, port):
     db.execute("SET LOCAL TIME ZONE 'UTC'")
     db.execute("SET LOCAL search_path=pg_catalog,public")
     receipts = db.execute("SELECT app,name FROM public.django_migrations ORDER BY app,name").fetchall()
-    if len(receipts) != 138 or ("ai_assistant", "0082_no_new_keys_profile") not in receipts:
+    if len(receipts) != expected_generation or ("ai_assistant", "0082_no_new_keys_profile") not in receipts:
         raise RuntimeError("integration receipt inventory is not the pinned generation")
     with db.cursor() as cursor:
+        if no_key_backup.verify_receipt_generation(cursor)!=expected_generation:
+            raise RuntimeError("synthetic restore catalogue differs from its exact generation")
         for app, migration in (
                 ("ai_assistant", "0079_business_market_v6_source_ticket"),
                 ("ai_assistant", "0074_business_market_v2_human_cap_approval"),
@@ -125,6 +127,7 @@ def main():
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--source-port", type=int, required=True)
     parser.add_argument("--target-port", type=int, required=True)
+    parser.add_argument("--expected-generation", type=int, choices=(138,140), default=138)
     args = parser.parse_args()
     if (ROOT == Path(r"D:\运营管理系统").resolve()
             or args.run_root.resolve().parent != (ROOT / ".runtime").resolve()
@@ -193,7 +196,7 @@ def main():
             " (key_id,secret,status,created_at) VALUES (%s,%s,'active',now())",
             ["synthetic-negative-row", b"synthetic-only-invalid-key-bytes-00"])
         try:
-            collect(source, args.source_port)
+            collect(source, args.source_port, args.expected_generation)
         except RuntimeError as error:
             if "private key material exists" not in str(error):
                 raise
@@ -205,7 +208,7 @@ def main():
             raise RuntimeError("rejected key material created an archive")
         source.execute("BEGIN ISOLATION LEVEL REPEATABLE READ")
         snapshot = source.execute("SELECT pg_export_snapshot()").fetchone()[0]
-        before = collect(source, args.source_port)
+        before = collect(source, args.source_port, args.expected_generation)
         production_profile_before = no_key_backup.collect(source)
         backup_payload = maintenance_call(maintenance_core.run_backup, {
             "profile": "no-new-keys", "pg_dump": str(BIN / "pg_dump.exe"),
@@ -259,7 +262,7 @@ def main():
                         sql.Identifier(name), sql.Literal(restored_passwords[name])))
         with connect(args.target_port, target_password) as target:
             target.execute("BEGIN ISOLATION LEVEL REPEATABLE READ")
-            after = collect(target, args.target_port)
+            after = collect(target, args.target_port, args.expected_generation)
             production_profile_after = no_key_backup.collect(target)
             no_key_backup.verify_restored(production_profile_before, production_profile_after)
             target.execute("ROLLBACK")
@@ -269,7 +272,7 @@ def main():
             target.execute("BEGIN")
             target.execute("GRANT SELECT ON " + KEY_TABLE + " TO " + OWNER)
             try:
-                collect(target, args.target_port)
+                collect(target, args.target_port, args.expected_generation)
             except RuntimeError:
                 pass
             else:

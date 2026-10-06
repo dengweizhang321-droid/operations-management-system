@@ -40,7 +40,11 @@ def directory(runtime,operation):
     return Path(runtime)/"bi-app-additions"/operation
 def migrations(root):
     from integration_migration_plan import python_source_sha256
-    return {p.relative_to(root).as_posix():python_source_sha256(p.read_bytes()) for p in (Path(root)/"backend").glob("*/migrations/[0-9][0-9][0-9][0-9]_*.py")}
+    result={}
+    for path in (Path(root)/"backend").glob("*/migrations/*.py"):
+        if any(p.is_symlink() or getattr(p,"is_junction",lambda:False)() for p in (path,*path.parents)) or not path.is_file() or path.stat().st_nlink!=1: raise ValueError("Unsafe migration source")
+        result[path.relative_to(root).as_posix()]=python_source_sha256(path.read_bytes())
+    return result
 def original_parent(runtime,root=None):
     import integration_release_gate as gate
     reference=gate.active_delta(runtime)
@@ -57,7 +61,7 @@ def source_delta(root,baseline):
     return digest(after)
 def maintenance(runtime,expected):
     data=read(Path(runtime)/"run/system-maintenance.json")
-    if data.get("id")!=expected or data.get("keepPostgres") is not True: raise ValueError("Addition maintenance binding changed")
+    if data.get("version")!="teruisi-system-maintenance-v1" or data.get("id")!=expected or data.get("keepPostgres") is not True: raise ValueError("Addition maintenance binding changed")
     return sha(Path(runtime)/"run/system-maintenance.json")
 def admission(root,runtime,evidence,evidence_sha):
     data=read(evidence,evidence_sha)
@@ -70,11 +74,11 @@ def verify_active(root,runtime,*,installed=False):
     pointer=read(Path(runtime)/ACTIVE)
     if set(pointer)!={"version","operationId","receiptSha256"} or pointer["version"]!=VERSION: raise ValueError("Invalid BI active pointer")
     folder=directory(runtime,pointer["operationId"])
-    result=read(folder/("installed.json" if installed else "finalized.json"), None if installed else pointer["receiptSha256"])
+    result=read(folder/("installed.json" if installed else "finalized.json"), pointer["receiptSha256"])
     plan=read(folder/"plan.json",result["planSha256"])
     original_parent(runtime,folder/"baseline")
     if sha(Path(runtime)/"integration-active-generation.json")!=plan["parentReferenceSha256"] or source_delta(root,folder/"baseline")!=plan["migrationSha256"]: raise ValueError("BI parent or migration generation changed")
-    if result["version"]!=VERSION or result["step"]!=STEP or result["migrationCount"]!=140: raise ValueError("BI installation record invalid")
+    if result["version"]!=VERSION or result["step"]!=STEP or result["migrationCount"]!=140 or result.get("migrationSha256")!=plan["migrationSha256"]: raise ValueError("BI installation record invalid")
     if not installed:
         if result.get("status")!="verified": raise ValueError("BI addition not finalized")
         checked_backup(folder/"after-backup.json",result["afterBackupSha256"],folder/"after-restore.json",result["afterRestoreSha256"],140)
@@ -90,12 +94,35 @@ def complete_database(root,runtime):
         if cursor.fetchone()!=("teruisi_sales","teruisi_sales_owner",5432): raise ValueError("Addition database identity changed")
     actual={".".join(x) for x in MigrationRecorder(connection).applied_migrations()}
     if actual!=base|{STEP} or MigrationExecutor(connection).migration_plan(MigrationExecutor(connection).loader.graph.leaf_nodes()): raise ValueError("Ordinary startup has pending or unknown migrations")
+    with connection.cursor() as cursor:
+        from postgres_no_key_backup import verify_receipt_generation
+        if verify_receipt_generation(cursor)!=140: raise ValueError("ERP-goal catalogue changed")
     return {"status":"complete","migrationCount":140}
 def checked_backup(manifest,manifest_sha,restore,restore_sha,count):
     from integration_release_gate import verify_backup_restore
     value=verify_backup_restore(manifest,manifest_sha,restore,restore_sha,protected=True)
     if value["profileEvidence"]["tables"]["django_migrations"]["rows"]!=count: raise ValueError("Addition backup catalogue differs")
     return value
+
+def apply_goal_step(connection,base):
+    """Exact atomic step; caller separately binds runtime and owner identity."""
+    from django.db import transaction
+    from django.db.migrations.executor import MigrationExecutor
+    from django.db.migrations.recorder import MigrationRecorder
+    if {".".join(x) for x in MigrationRecorder(connection).applied_migrations()}!=base: raise ValueError("Baseline receipts changed; no replay")
+    executor=MigrationExecutor(connection);step=tuple(STEP.split(".",1))
+    if [(".".join((migration.app_label,migration.name)),backward) for migration,backward in executor.migration_plan([step])]!=[(STEP,False)]: raise ValueError("Only ERP-goal migration may execute")
+    with transaction.atomic():
+        executor.migrate([step])
+        actual={".".join(x) for x in MigrationRecorder(connection).applied_migrations()}
+        if actual!=base|{STEP}: raise ValueError("Migration result differs")
+        with connection.cursor() as cursor:
+            cursor.execute("GRANT SELECT ON public.finance_erp_targets TO teruisi_finance_reader")
+            cursor.execute("GRANT SELECT, INSERT, UPDATE ON public.finance_erp_targets TO teruisi_finance_writer")
+            cursor.execute("SELECT COUNT(*) FROM public.finance_erp_targets")
+            if cursor.fetchone()[0]!=0: raise ValueError("New goals must start empty")
+            from postgres_no_key_backup import verify_receipt_generation
+            if verify_receipt_generation(cursor)!=140: raise ValueError("ERP-goal catalogue did not validate")
 def main(args):
     root=Path(args.root).absolute();runtime=Path(args.runtime).absolute()
     if runtime!=Path(r"D:\teruisi-runtime\django-sales"): raise ValueError("Addition fixed runtime required")
@@ -104,7 +131,7 @@ def main(args):
         return verify_active(root,runtime)[0]
     if args.command=="deployment":
         folder=directory(runtime,args.operation);plan=read(folder/"plan.json")
-        maintenance(runtime,plan["maintenanceId"])
+        if maintenance(runtime,plan["maintenanceId"])!=plan["maintenanceSha256"]: raise ValueError("Addition maintenance evidence changed")
         original_parent(runtime,folder/"baseline")
         if source_delta(root,folder/"baseline")!=plan["migrationSha256"] or sha(root/"deployment.json")!=plan["candidateManifestSha256"] or sha(runtime/"app/deployment.json")!=plan["predecessorSha256"]: raise ValueError("Addition deployment binding changed")
         checked_backup(folder/"before-backup.json",plan["beforeBackupSha256"],folder/"before-restore.json",plan["beforeRestoreSha256"],139)
@@ -127,6 +154,8 @@ def main(args):
     plan=read(folder/"plan.json")
     if maintenance(runtime,plan["maintenanceId"])!=plan["maintenanceSha256"] or source_delta(root,folder/"baseline")!=plan["migrationSha256"] or sha(runtime/"app/deployment.json")!=plan["candidateManifestSha256"]: raise ValueError("Addition adoption binding changed")
     if args.command=="install":
+        if (runtime/ACTIVE).exists() or (folder/"installed.json").exists(): raise ValueError("ERP-goal installation cannot replay")
+        checked_backup(folder/"before-backup.json",plan["beforeBackupSha256"],folder/"before-restore.json",plan["beforeRestoreSha256"],139)
         import os
         sys.path.insert(0,str(root/"backend"));os.environ["DJANGO_SETTINGS_MODULE"]="teruisi_backend.settings"
         import django;django.setup()
@@ -137,23 +166,14 @@ def main(args):
         with connection.cursor() as cursor:
             cursor.execute("SELECT current_database(),current_user,inet_server_port()")
             if cursor.fetchone()!=("teruisi_sales","teruisi_sales_owner",5432): raise ValueError("Migration owner identity changed")
-        if {".".join(x) for x in MigrationRecorder(connection).applied_migrations()}!=base: raise ValueError("Baseline receipts changed; no replay")
-        executor=MigrationExecutor(connection);step=tuple(STEP.split(".",1))
-        if [(".".join((migration.app_label,migration.name)),backward) for migration,backward in executor.migration_plan([step])]!=[(STEP,False)]: raise ValueError("Only ERP-goal migration may execute")
-        executor.migrate([step])
-        actual={".".join(x) for x in MigrationRecorder(connection).applied_migrations()}
-        if actual!=base|{STEP}: raise ValueError("Migration result differs")
-        with transaction.atomic(),connection.cursor() as cursor:
-            cursor.execute("GRANT SELECT ON public.finance_erp_targets TO teruisi_finance_reader")
-            cursor.execute("GRANT SELECT, INSERT, UPDATE ON public.finance_erp_targets TO teruisi_finance_writer")
-            cursor.execute("SELECT COUNT(*) FROM public.finance_erp_targets")
-            if cursor.fetchone()[0]!=0: raise ValueError("New goals must start empty")
-        result={"version":VERSION,"status":"schema_installed","step":STEP,"migrationCount":140,"planSha256":sha(folder/"plan.json")}
+        apply_goal_step(connection,base)
+        result={"version":VERSION,"status":"schema_installed","step":STEP,"migrationCount":140,"migrationSha256":plan["migrationSha256"],"planSha256":sha(folder/"plan.json")}
         write(folder/"installed.json",result)
         write(runtime/ACTIVE,{"version":VERSION,"operationId":args.operation,"receiptSha256":sha(folder/"installed.json")})
         return result
     if args.command=="finalize":
-        installed=read(folder/"installed.json")
+        installed,_,active_folder=verify_active(root,runtime,installed=True)
+        if active_folder!=folder: raise ValueError("Addition active operation differs")
         if installed["status"]!="schema_installed" or installed["planSha256"]!=sha(folder/"plan.json"): raise ValueError("Addition installation incomplete")
         after=checked_backup(args.backup,args.backup_sha,args.restore,args.restore_sha,140)
         if after["software"]["deploymentManifestSha256"]!=plan["candidateManifestSha256"]: raise ValueError("Post-backup candidate differs")
