@@ -117,14 +117,14 @@ class SourceTransportTests(TestCase):
         def opener(request, **kwargs):
             self.request = request
             yield self.response(raw, **headers)
-        with patch.dict(os.environ, {"TERUISI_DJANGO_FINANCE_READER_BASE_URL": "http://127.0.0.1:45678", "TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET}), patch("bi.source_reader.open_bounded_consumer_request", opener):
+        with patch.dict(os.environ, {"TERUISI_DJANGO_FINANCE_READER_BASE_URL": "http://127.0.0.1:8011", "TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET}), patch("bi.source_reader.open_bounded_bi_reader_request", opener):
             return read_source(PRINCIPAL, "targets", {"year": "2026", "month": "2026-10"}, deadline=time.monotonic()+10)
 
     def test_fixed_owning_origin_exact_scope_and_signed_real_actor(self):
         raw = json.dumps({"schemaVersion": "finance-erp-targets-v1", "year": "2026", "month": "2026-10", "basis": "erp_net_sales", "complete": True, "items": []}).encode()
         result = self.source(raw)
         self.assertEqual(result["status"], "ready")
-        self.assertEqual(self.request.full_url, "http://127.0.0.1:45678/api/finance/erp-targets?year=2026&month=2026-10")
+        self.assertEqual(self.request.full_url, "http://127.0.0.1:8011/api/finance/erp-targets?year=2026&month=2026-10")
         self.assertTrue(self.request.get_header("X-teruisi-signature").startswith("v1="))
 
     def test_duplicate_keys_wrong_scope_unsafe_money_and_body_length_fail_closed(self):

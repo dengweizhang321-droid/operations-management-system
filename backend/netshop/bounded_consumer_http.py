@@ -178,6 +178,29 @@ def open_bounded_consumer_request(request, *, deadline, timeout_cap=None):
     workflow_get = request.get_method() == "GET" and url.path == "/api/workflow/operations-records" and request.data is None
     if not (native_post or workflow_get) or url.scheme not in {"http", "https"} or not url.netloc or url.username or url.password or url.fragment or url.scheme == "http" and (url.hostname or "").lower() not in {"127.0.0.1", "localhost", "::1"}:
         raise ValueError("Consumer transport destination/method is not a fixed native reader")
+    with _open_bounded_transport(request, deadline=deadline, timeout_cap=timeout_cap) as response:
+        yield response
+
+
+@contextmanager
+def open_bounded_bi_reader_request(request, *, deadline):
+    """Only the four signed BI GETs on their owning fixed loopback ports."""
+    if not isinstance(request, urllib.request.Request):
+        raise ValueError("BI transport requires an already signed fixed Request")
+    url = urllib.parse.urlsplit(request.full_url)
+    ports = {"/api/finance/erp-targets": 8011, "/api/workflow/bi-status": 8061,
+             "/api/inventory/bi-cockpit": 8051, "/api/netshop/bi-flow": 8021}
+    if (request.get_method() != "GET" or request.data is not None or url.scheme != "http"
+            or url.hostname not in {"127.0.0.1", "localhost", "::1"}
+            or url.path not in ports or url.port != ports[url.path]
+            or url.username or url.password or url.fragment):
+        raise ValueError("BI transport destination/method is not its fixed owning reader")
+    with _open_bounded_transport(request, deadline=deadline, timeout_cap=None) as response:
+        yield response
+
+
+@contextmanager
+def _open_bounded_transport(request, *, deadline, timeout_cap):
     budget = _Budget(deadline, timeout_cap)
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _HTTPHandler(budget), _HTTPSHandler(budget), _NoRedirect())
     response = None
