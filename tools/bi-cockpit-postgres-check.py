@@ -33,7 +33,7 @@ try:
     with (RUN / "data/postgresql.conf").open("a", encoding="utf8") as config: config.write(f"\nport={port}\nlisten_addresses='127.0.0.1'\nmax_connections=32\nshared_buffers='32MB'\n")
     run([BIN / "pg_ctl.exe", "-D", RUN / "data", "-l", RUN / "postgres.log", "-w", "start"], "start", 45); started = True
     run([BIN / "createdb.exe", "-h", "127.0.0.1", "-p", port, "-U", "bi_fixture", "bi_fixture"], "database", 30)
-    run([sys.executable, "backend/manage.py", "test", "bi.tests.test_api", "bi.tests.test_cockpit", "bi.tests.test_sources", "bi.tests.test_cockpit_permissions", "finance.tests.test_api", "finance.tests.test_erp_targets", "netshop.tests.test_store_overview", "--settings=bi_cockpit_test_settings", "--noinput", "--verbosity=2"], "tests")
+    run([sys.executable, "backend/manage.py", "test", "bi.tests.test_api", "bi.tests.test_cockpit", "bi.tests.test_sources", "bi.tests.test_transport", "bi.tests.test_cockpit_permissions", "finance.tests.test_api", "finance.tests.test_erp_targets", "netshop.tests.test_store_overview", "netshop.tests.test_bounded_consumer_http", "--settings=bi_cockpit_test_settings", "--noinput", "--verbosity=2"], "tests")
 finally:
     if pwfile.exists(): pwfile.unlink()
     if started:

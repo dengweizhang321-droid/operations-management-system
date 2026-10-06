@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-from netshop.bounded_consumer_http import open_bounded_consumer_request
+from netshop.bounded_consumer_http import open_bounded_bi_reader_request
 
 from .errors import BiApiError
 
@@ -75,7 +75,7 @@ def _read_once(principal, source, params, *, deadline):
         "X-Teruisi-Request-Id": request_id, "X-Teruisi-Content-SHA256": empty, "X-Teruisi-Signature": "v1=" + signature,
     })
     try:
-        with open_bounded_consumer_request(request, deadline=end) as response:
+        with open_bounded_bi_reader_request(request, deadline=end) as response:
             if response.status != 200 or not re.match(r"^application/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|$)", response.headers.get("Content-Type", ""), re.I):
                 raise ValueError("content type")
             declared = response.headers.get("Content-Length")
