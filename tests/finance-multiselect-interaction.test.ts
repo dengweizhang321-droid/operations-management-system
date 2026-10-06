@@ -130,11 +130,8 @@ test("finance filters preserve search and multiple selections through loading, e
     assert.equal(await shopSearch.inputValue(), "旗舰店");
     await page.getByRole("option", { name: "京东 · 乙旗舰店", exact: true }).click();
     assert.equal(await page.getByRole("option", { selected: true }).count(), 2);
-    await page.getByRole("button", { name: "应用筛选", exact: true }).click();
     await settle(200, payload);
     await page.getByText(/[¥￥]12,345$/, { exact: true }).first().waitFor();
-    await page.getByRole("button", { name: "销售分析店铺", exact: true }).click();
-    await shopSearch.fill("旗舰店");
     await page.evaluate(() => {
       const pending = (window as unknown as { financePending: Array<{ resolve: (response: Response) => void }> }).financePending;
       for (const request of pending.slice(0, -1)) request.resolve(Response.json({ error: "迟到的旧错误" }, { status: 503 }));
@@ -142,11 +139,8 @@ test("finance filters preserve search and multiple selections through loading, e
     assert.equal(await shopSearch.inputValue(), "旗舰店");
     assert.equal(await page.getByRole("alert").count(), 0);
     await page.getByRole("option", { name: "京东 · 乙旗舰店", exact: true }).click();
-    await page.getByRole("button", { name: "应用筛选", exact: true }).click();
     await settle(200, { ...payload, hasData: false, selectedMonth: null, selectedMonths: [] });
     await page.getByText("当前筛选没有月度财报数据", { exact: true }).waitFor();
-    await page.getByRole("button", { name: "销售分析店铺", exact: true }).click();
-    await shopSearch.fill("旗舰店");
     assert.equal(await shopSearch.inputValue(), "旗舰店");
     assert.equal(await page.getByRole("option", { selected: true }).count(), 1);
     assert.equal(await page.getByText(/[¥￥]12,345$/, { exact: true }).count(), 0);
