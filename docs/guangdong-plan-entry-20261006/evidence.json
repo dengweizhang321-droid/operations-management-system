@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "synthetic": true,
+  "cases": [
+    "column order and order date",
+    "shared modal defaults and warehouse selection",
+    "manual draft and refresh",
+    "read failure",
+    "missing exact candidate",
+    "save failure preserves form",
+    "stale cancel and acknowledgement",
+    "confirmed DingTalk call mocked",
+    "permission change rejects late response"
+  ],
+  "writes": 4,
+  "dingTalkCalls": 1,
+  "date": "2026-10-06",
+  "source": "8073f74245bd5fc27faa25e26f27ea87f2fe1b30",
+  "unitTests": {
+    "passed": 37,
+    "failed": 0
+  },
+  "existingGuangdongUi": "passed",
+  "productionBuild": "passed",
+  "targetedLint": "passed",
+  "diffCheck": "passed",
+  "backendChanges": false,
+  "productionDeployed": false,
+  "actualBusinessWrites": false,
+  "actualDingTalkCalls": false,
+  "logSha256": {
+    "integrated-build.log": "82280f76c8062f5f81ae58463b93b0753c87ba38cb7667cabde0f1ced587a2ff",
+    "integrated-lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "integrated-unit.log": "ffc2ee1a5c431cff6e1ace967367b95dcca50f0e3ae0bf7569f8b026aac7689f"
+  }
+}
