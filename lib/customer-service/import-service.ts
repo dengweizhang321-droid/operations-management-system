@@ -117,7 +117,8 @@ function normalizeDateTime(value: unknown): string {
 
 function numberOrNull(value: unknown, field: string, rowNumber: number, integer = false): number | null {
   const text = asText(value);
-  if (!text) return null;
+  // JD exports an ASCII dash for unavailable metrics; it is not zero.
+  if (!text || text === "-") return null;
   const number = Number(text);
   if (!Number.isFinite(number) || number < 0 || (integer && !Number.isSafeInteger(number))) {
     throw new CustomerServiceImportError(`会话记录第 ${rowNumber} 行“${field}”必须是${integer ? "非负整数" : "非负数值"}`);
@@ -367,7 +368,14 @@ export function matchCustomerServiceRecords(sessions: CustomerServiceSession[], 
       ambiguousCount += 1;
       addWarning(`聊天会话 ${chat.startedAt}（${chat.customerAlias || "未知顾客"}）在两分钟内对应 ${candidates.length} 条会话记录，未自动拼接。`);
     }
-    conversations.push(chatOnlyConversation(chat));
+    const unmatched = chatOnlyConversation(chat);
+    // Ambiguous rows are an exclusive partition in the PostgreSQL import
+    // contract. Counting them again as chat_only makes totals inconsistent.
+    if (candidates.length > 1) {
+      unmatched.matchStatus = "ambiguous";
+      unmatched.matchConfidence = "review";
+    }
+    conversations.push(unmatched);
   }
 
   for (const session of sessions) {
