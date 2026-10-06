@@ -1,13 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as XLSX from "xlsx";
-import { parseCustomerServiceImport } from "../lib/customer-service/import-service";
+import { parseCustomerServiceImport, parseSessionWorkbook } from "../lib/customer-service/import-service";
 
 function workbookBytes(rows: unknown[][]) {
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(rows), "咨询会话查询");
   return XLSX.write(book, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
 }
+
+test("京东缺失指标短横线保留为null，零保持零，无效和负值仍拒绝", () => {
+  const make = (value: unknown) => new Uint8Array(workbookBytes([
+    ["咨询时间", "顾客", "新平均响应时间(S)", "会话时长(M)", "客户消息数", "客服消息数"],
+    ["2026-10-05 23:37:17", "synthetic", value, "-", "-", 0],
+  ]));
+  const row = parseSessionWorkbook(make("-"))[0];
+  assert.equal(row.responseSeconds, null);
+  assert.equal(row.durationMinutes, null);
+  assert.equal(row.customerMessageCount, null);
+  assert.equal(row.agentMessageCount, 0);
+  assert.equal(parseSessionWorkbook(make(0))[0].responseSeconds, 0);
+  for (const invalid of [-1, "--", "未知", "NaN"]) assert.throws(() => parseSessionWorkbook(make(invalid)));
+});
 
 test("客服导入按咨询时间和脱敏顾客标识匹配聊天记录", () => {
   const sessions = workbookBytes([
@@ -33,8 +47,11 @@ test("同一咨询时间存在多个候选时不强行匹配", () => {
   const log = `/*****************以下为一通会话************************************/\n客户 2026-07-21 21:50:11\n咨询\n`;
   const result = parseCustomerServiceImport(new Uint8Array(sessions), log);
   assert.equal(result.summary.ambiguousCount, 1);
-  assert.equal(result.summary.chatOnlyCount, 1);
+  assert.equal(result.summary.chatOnlyCount, 0);
   assert.equal(result.summary.sessionOnlyCount, 2);
+  assert.equal(result.conversations.filter(row => row.matchStatus === "ambiguous").length, 1);
+  assert.equal(result.conversations.length, result.summary.matchedCount + result.summary.timeOnlyMatchedCount
+    + result.summary.sessionOnlyCount + result.summary.chatOnlyCount + result.summary.ambiguousCount);
 });
 
 test("仅聊天记录的去重键不受导出顺序影响", () => {

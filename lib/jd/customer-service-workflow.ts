@@ -95,7 +95,9 @@ export function inspectCustomerServicePair(input: {
   const minimum = `${input.period.startDate} 00:00:00`;
   const maximum = `${input.period.endDate} 23:59:59`;
   for (const row of parsed.conversations) {
-    const times = [row.consultedAt, row.chatStartedAt, row.chatEndedAt, ...row.messages.map(message => message.sentAt)].filter(Boolean);
+    // JD filters by consultation start, but exports the complete conversation,
+    // including later replies. Do not drop/reject those replies at midnight.
+    const times = [row.consultedAt, row.chatStartedAt].filter(Boolean);
     if (!times.length || times.some(value => value < minimum || value > maximum)) reject("FILE_DATE_OUT_OF_SCOPE");
     // The existing interactive import infers another shop for this prefix.
     // An automated, explicitly bound shop must never take that fallback.

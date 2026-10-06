@@ -73,6 +73,13 @@ test("解析异常只产生固定错误码，不泄漏聊天内容或客户字�
   const input = fixture(); input.chatBytes = new Uint8Array([0xff, 0xff]);
   assert.throws(() => inspectCustomerServicePair(input), /^Error: PAIR_PARSE_REJECTED$/);
 });
+test("咨询日期在范围内时保留截止日之后的后续聊天", () => {
+  const input = fixture();
+  input.chatBytes = new TextEncoder().encode(new TextDecoder().decode(input.chatBytes)
+    + "志高亿用-测试 2026-10-06 09:00:00\n次日回复\n");
+  const parsed = inspectCustomerServicePair(input);
+  assert.equal(parsed.conversations[0].messages.at(-1)?.sentAt, "2026-10-06 09:00:00");
+});
 function ledger(): CustomerServiceFailureLedger { return { logicalRunId: "daily-20261006", period, failures: [] }; }
 test("第4次独立失败触发AI和本人通知，前三次仅允许零导出效果重试", () => {
   let state = ledger();
