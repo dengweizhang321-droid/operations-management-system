@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-07",
+  "status": "production_verified",
+  "source": "5cb94fd5e26597b838fb71309ba239a02aa947d9",
+  "baseSource": "b3f3ad4fc5858fca5a9f1e7cad6afef858e10622",
+  "predecessorRelease": "20261006T192701Z-49ae962c10d7658d",
+  "release": "20261006T203946Z-31618ba6b1ec1c5d",
+  "manifest": "777b49df22ba329e0df0972deb3044a53ad2d812eb71313102ed64f9ea0f1518",
+  "consumedPlan": "d15aec5490bdc17e635552bcfa99af9249db99c8817f7dae41e3206a070ebe1a",
+  "successor": "78aa3eb33fe149a6edf6385329fb2abb4c309c17ec9741441f1fe43abfb5e0fb",
+  "consumption": "c0a26527ce17126f66d0be40bb0cdaf29c1254bd0113b0ceacc1743125b890be",
+  "controllerExitCodes": {
+    "Stop": 0,
+    "apply": 0,
+    "Start": 0
+  },
+  "sourceFileCount": 4881,
+  "helperBusinessByteTreeIdentical": true,
+  "assetsVerified": 17,
+  "readyComponents": 12,
+  "preservedListenerIdentities": 26,
+  "djangoManifest": "d7394a0e9736eb7378d20f8d1080abfde17ba4aec02981a887a8d7bc97b2464e",
+  "migrations": 140,
+  "sourceTestsPassed": 38,
+  "syntheticUiPassed": true,
+  "realReadOnlyUiChecks": 6,
+  "fullInventoryResponsesEqual": 4,
+  "businessWritesPerformed": 0,
+  "actualTestMessagesSent": 0,
+  "backupCount": 3,
+  "protectedBackupCount": 2,
+  "unresolvedBackupOperations": 0,
+  "preBackup": {
+    "backupId": "daily-20261006T203911Z-e3efe56a75f3",
+    "manifestSha256": "70a099180f9321f072649338527687d07ea9077d0f79218e1e9530d61de55a68",
+    "contentSha256": "fb34b135c92be7628557273a79b3d615dc2fb1feceaba4c74a615ce1797b75e4"
+  },
+  "preDumpStillExists": false,
+  "postBackup": {
+    "backupId": "daily-20261006T213625Z-dfeac703a20e",
+    "manifestSha256": "a509ee86ed9192eb1afb7c620344ec7843d6ea5f76b15e21660d50763edca16c",
+    "contentSha256": "680a05656c47fb947eca3a459302f840c04e8027a389285fe993a3b85fa0188c"
+  },
+  "isolatedRestorePorts": [
+    55914,
+    55915
+  ],
+  "bothRestoresVerified": true,
+  "bothIsolatedEnvironmentsCleaned": true,
+  "profileTableCount": 296,
+  "rolesAndSettingsEqual": true,
+  "roleCount": 49,
+  "catalogEqual": true,
+  "sequenceLowerBoundsEqual": true,
+  "migrationListEqual": true,
+  "fullContentEqual": false,
+  "changedProfileTableNames": [
+    "market_import_attempts",
+    "market_write_request_receipts"
+  ],
+  "unchangedProfileTableCount": 294,
+  "noAutomaticChangeAttribution": true,
+  "naturalCompletedObservations": [
+    {
+      "file": "watchdog-20261006T215217Z.json",
+      "lastRunAtUtc": "2026-10-06T21:51:24.0000000Z",
+      "taskState": "Ready",
+      "lastTaskResult": 0,
+      "latestAt": "2026-10-06T21:51:25.3388623+00:00",
+      "healthy": true,
+      "supervisorHealth": "healthy"
+    },
+    {
+      "file": "watchdog-20261006T215359Z.json",
+      "lastRunAtUtc": "2026-10-06T21:53:24.0000000Z",
+      "taskState": "Ready",
+      "lastTaskResult": 0,
+      "latestAt": "2026-10-06T21:53:25.5153737+00:00",
+      "healthy": true,
+      "supervisorHealth": "healthy"
+    }
+  ],
+  "initialReadinessFluctuationsPreserved": true,
+  "noBackendDeploymentOrMigration": true,
+  "noN8nDefinitionOrServiceChange": true
+}
