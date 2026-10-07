@@ -20,6 +20,7 @@ import {
 } from "./tmall-product-master-export";
 import { assertTmallDirectMasterStore } from "./tmall-yijiu-direct-pm-contract";
 import { reportIsolatedHelperPhase } from "./tmall-isolated-helper";
+import { installPromotionNativeDialogGuard } from "./tmall-promotion-export";
 
 export const TMALL_MTOP_URL = "https://h5api.m.taobao.com/h5/mtop.tmall.sell.pc.manage.async/1.0/";
 export const TMALL_MTOP_API = "mtop.tmall.sell.pc.manage.async";
@@ -414,18 +415,20 @@ class TmallMtopClient {
   }
 }
 
-async function captureListTemplate(page: Page, store: TmallStore) {
+export async function captureTmallMtopListTemplate(page: Page, store: TmallStore) {
   reportIsolatedHelperPhase("master_template_capture");
   const requestPromise = page.waitForRequest((request) => parseTmallMtopListRequest({
     url: request.url(),
     postData: request.postData(),
-  }) !== null, { timeout: 60_000 });
+  }) !== null, { timeout: 60_000 }).then(request => ({ request }), error => ({ error }));
   reportIsolatedHelperPhase("master_template_navigation");
   await page.goto(TMALL_SELLER_ON_SALE_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
   reportIsolatedHelperPhase("master_template_identity");
   await ensureTmallSellerSession(page, store);
   reportIsolatedHelperPhase("master_template_wait");
-  const request = await requestPromise;
+  const captured = await requestPromise;
+  if ("error" in captured) throw captured.error;
+  const request = captured.request;
   const template = parseTmallMtopListRequest({ url: request.url(), postData: request.postData() });
   if (!template) throw new Error("未捕获千牛出售中页面的 MTOP 列表请求模板");
   return template;
@@ -675,16 +678,20 @@ export async function runTmallDirectProductMasterStage(options: {
   reportIsolatedHelperPhase("master_browser_connect");
   const browser = await connectPlaywrightBrowser(store.browser.debugPort);
   reportIsolatedHelperPhase("master_browser_connected");
+  let dialogGuard: ReturnType<typeof installPromotionNativeDialogGuard> | undefined;
   try {
     const context = browser.contexts()[0];
     if (!context) throw new Error(`${store.shopName} 独立 Chromium 没有可用上下文`);
     const pages = context.pages();
     const page = pages.find((candidate) => /myseller\.taobao\.com/i.test(candidate.url())) ?? await context.newPage();
     page.setDefaultTimeout(15_000);
-    const template = await captureListTemplate(page, store);
+    dialogGuard = installPromotionNativeDialogGuard(page, "货品");
+    const template = await captureTmallMtopListTemplate(page, store);
+    await dialogGuard.assertSafe();
     const client = new TmallMtopClient(context);
     reportIsolatedHelperPhase("master_list_read");
     const listed = await listAllItems(client, template);
+    await dialogGuard.assertSafe();
     reportIsolatedHelperPhase("master_list_ready");
     const batches = makeTmallDirectProductBatches(listed.items);
     const templateDigest = digest(template);
@@ -715,6 +722,7 @@ export async function runTmallDirectProductMasterStage(options: {
     }
     const pollDeadline = Date.now() + exportOverallTimeoutMs;
     for (const [index, batch] of batches.entries()) {
+      await dialogGuard.assertSafe();
       const saved = audit.batches[index]!;
       if (saved.stage === "downloaded" && saved.file) {
         const checked = await inspectBatchFile({
@@ -733,6 +741,7 @@ export async function runTmallDirectProductMasterStage(options: {
         if (new Set(baseline.map((record) => record.id)).size !== baseline.length) {
           throw new Error("天猫商品导出记录基线存在重复 id");
         }
+        await dialogGuard.assertSafe();
         saved.baselineRecordIds = baseline.map((record) => record.id);
         saved.submittedAt = new Date().toISOString();
         saved.stage = "submitting";
@@ -810,6 +819,7 @@ export async function runTmallDirectProductMasterStage(options: {
       }
       mergedFile = checked;
     }
+    await dialogGuard.assertSafe();
     audit.stage = "importing";
     await persistAudit(audit, auditDirectory);
     const imported = await importTmallProductMasterFile({
@@ -848,5 +858,6 @@ export async function runTmallDirectProductMasterStage(options: {
     throw error;
   } finally {
     await browser.close().catch(() => undefined);
+    await dialogGuard?.dispose();
   }
 }
