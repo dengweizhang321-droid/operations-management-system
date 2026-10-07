@@ -10,7 +10,7 @@ export const isolatedHelperTokenHeader = "x-teruisi-helper-slot-token";
 const storeHeader = "x-teruisi-tmall-store-key";
 const executionHeader = "x-teruisi-n8n-execution-id";
 const workflowHeader = "x-teruisi-workflow-key";
-const tmallRoutes = new Set(["/plan", "/plan-backfill", "/next-day", "/fetch", "/import", "/promotion", "/promotion-direct-v1", "/product-master", "/product-master-direct-v1"]);
+const tmallRoutes = new Set(["/plan", "/plan-backfill", "/plan-seven-day-backfill-v1", "/next-day", "/fetch", "/import", "/promotion", "/promotion-direct-v1", "/product-master", "/product-master-direct-v1"]);
 const legacyPrefixes = ["/jd/", "/jd-market/", "/jd-promotion/", "/jd-promotion-cut-meat/", "/jackyun/"];
 export type SlotIdentity = { key: string; storeKey: string | null; workflow: string; executionId: string; scheduledAt?: string };
 export type HelperSlot = { port: number; token: string; stop: () => Promise<unknown> };
