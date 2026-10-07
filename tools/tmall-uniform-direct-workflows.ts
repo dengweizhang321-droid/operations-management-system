@@ -64,7 +64,7 @@ export function adaptTmallUniformDirectWorkflow(source: WorkflowTemplate, storeK
   const loop = workflow.nodes.some(node => node.parameters?.url === origins + "/next-day");
   const note = workflow.nodes.find(node => node.name === "流程说明" && node.type === "n8n-nodes-base.stickyNote");
   if (note?.parameters) note.parameters.content = [
-    `## ${definition.shortName}：近七日查缺、P/M 直连、货品每日更新（待受控采用）`,
+    `## ${definition.shortName}：近七日查缺、P/M 直连、货品每日更新`,
     "A 核验登录与店铺身份，分别查询截止上海昨天的最近七个完整日期的商品日和推广日覆盖，优先选择最早缺失日；只补缺失的数据集。注册不足七天时从注册日开始。",
     loop ? "保留原有逐日循环和预算，重新核验同一固定范围后继续。" : "保留原 A→B→C→P→M，每轮最多补一个日期；没有缺口时商品日和推广无新增动作。",
     "P 使用同日商品+计划、四场景的受控直连接口，按唯一 taskId 续接；M 使用 MTOP 每20个商品分批串行导出、完整校验、合并后单次导入与回查。M 每日到期，成功才推进节奏，同日已完成不重复自动导出。",
