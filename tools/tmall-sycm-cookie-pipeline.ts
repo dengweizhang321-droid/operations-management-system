@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { customerServiceHelperError, planCustomerServiceRun, runCustomerServicePlan, verifyCustomerServicePlan, publicCustomerServicePlan, type CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline";
 import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
@@ -1300,6 +1301,7 @@ async function serveCommand(argv: string[]) {
   let jdPlan: JdN8nPlan | null = null;
   let jdMarketPlan: JdMarketDailyPlan | null = null;
   let jdPromotionPlan: JdPromotionN8nPlan | null = null;
+  let jdCustomerServicePlan: CustomerServiceN8nPlan | null = null;
   let claimedTmallExecutionId: string | null = null;
   let claimedTmallStoreKey: string | null = null;
   let tmallBrowserMayBeOpen = false;
@@ -1424,7 +1426,8 @@ async function serveCommand(argv: string[]) {
     ];
     const jackyunExportFirstRoutes = jackyunExportFirstActions.map(action => `${jackyunExportFirstPrefix}${action}`);
     const jackyunRoutes = ["/jackyun/plan", "/jackyun/run", "/jackyun/verify", ...jackyunExportFirstRoutes];
-    const jdRoutes = ["/jd/plan", "/jd/run", "/jd/verify"];
+    const jdCustomerServiceRoutes = ["/jd/customer-service/plan", "/jd/customer-service/run", "/jd/customer-service/verify"];
+    const jdRoutes = ["/jd/plan", "/jd/run", "/jd/verify", ...jdCustomerServiceRoutes];
     const jdMarketRoutes = ["/jd-market/plan", "/jd-market/run", "/jd-market/verify"];
     const jdPromotionRoutes = ["/jd-promotion/plan", "/jd-promotion-cut-meat/plan", "/jd-promotion/run", "/jd-promotion/verify"];
     if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes, ...jdRoutes, ...jdMarketRoutes, ...jdPromotionRoutes].includes(request.url ?? "")) {
@@ -1434,6 +1437,7 @@ async function serveCommand(argv: string[]) {
     const isJackyun = jackyunRoutes.includes(request.url ?? "");
     const isJackyunExportFirst = jackyunExportFirstRoutes.includes(request.url ?? "");
     const isJd = jdRoutes.includes(request.url ?? "");
+    const isJdCustomerService = jdCustomerServiceRoutes.includes(request.url ?? "");
     const isJdMarket = jdMarketRoutes.includes(request.url ?? "");
     const isJdPromotion = jdPromotionRoutes.includes(request.url ?? "");
     const workflow = isJackyun ? "jackyun" : isJd ? "jd" : isJdMarket ? "jd-market" : isJdPromotion ? "jd-promotion" : "tmall";
@@ -1446,7 +1450,9 @@ async function serveCommand(argv: string[]) {
     const requestTmallStoreKey = workflow === "tmall"
       ? normalizeTmallStoreKey(request.headers[tmallStoreKeyHeader])
       : null;
-    const requestStateError = isJackyunExportFirst
+    const requestStateError = isJdCustomerService
+      ? customerServiceHelperError(stage, busy, request.url!, requestExecutionId, claimedJdExecutionId)
+      : isJackyunExportFirst
       ? (!requestExecutionId ? { error: "missing_or_invalid_execution_id" }
         : !claimedJackyunExecutionId ? { error: "execution_not_claimed", expected: "/coordination/claim" }
           : requestExecutionId !== claimedJackyunExecutionId ? { error: "execution_mismatch" }
@@ -1487,7 +1493,28 @@ async function serveCommand(argv: string[]) {
     busy = true;
     let tmallBrowserClosure: Awaited<ReturnType<typeof closeTmallWorkflowBrowser>> | null = null;
     try {
-      if (isJackyunExportFirst) {
+      if (isJdCustomerService) {
+        if (request.url === "/jd/customer-service/plan") {
+          jdCustomerServicePlan = await planCustomerServiceRun(projectRoot, requestExecutionId!, planTime);
+          stage = "planned";
+          reply(200, publicCustomerServicePlan(jdCustomerServicePlan));
+          inactivityReaper?.arm();
+        } else {
+          if (!jdCustomerServicePlan) throw new Error("CUSTOMER_SERVICE_PLAN_MISSING_MANUAL_ACTION");
+          if (request.url === "/jd/customer-service/run") {
+            stage = "running";
+            const result = await runCustomerServicePlan(projectRoot, jdCustomerServicePlan);
+            stage = "executed";
+            reply(200, result);
+            inactivityReaper?.arm();
+          } else {
+            const result = await verifyCustomerServicePlan(projectRoot, jdCustomerServicePlan);
+            stage = "completed";
+            reply(200, result);
+            scheduleOneShotServerClose(server, 500);
+          }
+        }
+      } else if (isJackyunExportFirst) {
         const action = request.url!.slice(jackyunExportFirstPrefix.length);
         // Current inventory/age cannot be recreated for yesterday. Preserve the
         // original request as unresolved instead of relabelling today's capture.
