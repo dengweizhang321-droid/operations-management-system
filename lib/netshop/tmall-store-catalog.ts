@@ -1,4 +1,5 @@
 import registryData from "@/config/tmall-store-accounts.json" with { type: "json" };
+import { applyTmallDirectDailyPolicy } from "./tmall-direct-daily-policy";
 
 export type BundledTmallStore = {
   storeKey: string;
@@ -6,7 +7,7 @@ export type BundledTmallStore = {
   shopName: string;
   enabled: boolean;
   loginMode?: "manual" | "saved_browser_credentials" | "windows_dpapi_credentials";
-  productMasterExportMode?: "product_manager" | "on_sale_pagewise_excel";
+  productMasterExportMode?: "product_manager" | "on_sale_pagewise_excel" | "direct_mtop";
   productMasterCadence?: {
     intervalDays: number;
     initialDueDate: string;
@@ -24,7 +25,7 @@ export type BundledTmallStore = {
 };
 
 type BundledRegistry = { version: number; stores: BundledTmallStore[] };
-export const tmallStoreRegistryData = registryData as BundledRegistry;
+const rawRegistryData = registryData as BundledRegistry;
 
 function validIsoDate(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -44,17 +45,17 @@ function assertNoSecrets(value: unknown, location: string): void {
 }
 
 function validateBundledRegistry() {
-  assertNoSecrets(tmallStoreRegistryData, "registry");
-  if (tmallStoreRegistryData.version !== 1 || !Array.isArray(tmallStoreRegistryData.stores)) {
+  assertNoSecrets(rawRegistryData, "registry");
+  if (rawRegistryData.version !== 1 || !Array.isArray(rawRegistryData.stores)) {
     throw new Error("天猫店铺注册表格式无效");
   }
   const keys = new Set<string>();
   const shops = new Set<string>();
-  for (const [index, store] of tmallStoreRegistryData.stores.entries()) {
+  for (const [index, store] of rawRegistryData.stores.entries()) {
     if (!store.storeKey || !store.shopName || store.platform !== "天猫" || typeof store.enabled !== "boolean"
       || store.loginMode !== undefined && !["manual", "saved_browser_credentials", "windows_dpapi_credentials"].includes(store.loginMode)
       || store.productMasterExportMode !== undefined
-        && !["product_manager", "on_sale_pagewise_excel"].includes(store.productMasterExportMode)
+        && !["product_manager", "on_sale_pagewise_excel", "direct_mtop"].includes(store.productMasterExportMode)
       || store.productMasterCadence !== undefined && (
         !Number.isInteger(store.productMasterCadence.intervalDays)
         || store.productMasterCadence.intervalDays < 1 || store.productMasterCadence.intervalDays > 30
@@ -68,10 +69,13 @@ function validateBundledRegistry() {
     keys.add(store.storeKey);
     shops.add(store.shopName);
   }
-  return tmallStoreRegistryData.stores;
+  return rawRegistryData.stores;
 }
 
-const bundledStores = validateBundledRegistry();
+export const tmallStoreRegistryData: BundledRegistry = {
+  ...rawRegistryData, stores: applyTmallDirectDailyPolicy(validateBundledRegistry()),
+};
+const bundledStores = tmallStoreRegistryData.stores;
 
 export function enabledTmallStoreCatalog() {
   return bundledStores.filter((store) => store.enabled);

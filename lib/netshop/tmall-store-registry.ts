@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { tmallStoreRegistryData } from "@/lib/netshop/tmall-store-catalog";
+import { applyTmallDirectDailyPolicy } from "./tmall-direct-daily-policy";
 
 export type TmallStore = {
   storeKey: string;
@@ -9,7 +10,7 @@ export type TmallStore = {
   shopName: string;
   enabled: boolean;
   loginMode?: "manual" | "saved_browser_credentials" | "windows_dpapi_credentials";
-  productMasterExportMode?: "product_manager" | "on_sale_pagewise_excel";
+  productMasterExportMode?: "product_manager" | "on_sale_pagewise_excel" | "direct_mtop";
   productMasterCadence?: {
     intervalDays: number;
     initialDueDate: string;
@@ -86,7 +87,7 @@ export function validateTmallStoreRegistry(
       || store.platform !== "天猫" || !store.shopName?.trim() || typeof store.enabled !== "boolean"
       || store.loginMode !== undefined && !["manual", "saved_browser_credentials", "windows_dpapi_credentials"].includes(store.loginMode)
       || store.productMasterExportMode !== undefined
-        && !["product_manager", "on_sale_pagewise_excel"].includes(store.productMasterExportMode)
+        && !["product_manager", "on_sale_pagewise_excel", "direct_mtop"].includes(store.productMasterExportMode)
       || store.productMasterCadence !== undefined && (
         !Number.isInteger(store.productMasterCadence.intervalDays)
         || store.productMasterCadence.intervalDays < 1 || store.productMasterCadence.intervalDays > 30
@@ -148,7 +149,7 @@ export function resolveTmallBrowserLaunchTarget(store: TmallStore, fallbackExecu
 export async function loadTmallStores(): Promise<TmallStore[]> {
   const file = path.join(projectRoot, "config", "tmall-store-accounts.json");
   const parsed = JSON.parse(await readFile(file, "utf8")) as Registry;
-  return validateTmallStoreRegistry(parsed, projectRoot);
+  return applyTmallDirectDailyPolicy(validateTmallStoreRegistry(parsed, projectRoot));
 }
 
 export function bundledTmallStores(): TmallStore[] {

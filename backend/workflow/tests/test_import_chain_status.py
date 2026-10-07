@@ -138,6 +138,48 @@ class ImportChainStatusTests(SimpleTestCase):
         self.assertNotIn("never-project-this", json.dumps(response))
         self.assertEqual(hashlib.sha256(self.path.read_bytes()).hexdigest(), before)
 
+    def test_old_tmall_complete_manual_runs_survive_node_renaming(self):
+        catalog = json.loads(CATALOG.read_text(encoding="utf8"))
+        for workflow, contract in catalog["manualCompletion"].items():
+            if not any(node.get("aliases") for node in contract):
+                continue
+
+            def legacy(root, definition):
+                run = root["resultData"]["runData"]
+                for node in definition["nodes"]:
+                    if node.get("aliases"):
+                        original = node["name"]
+                        node["name"] = node["aliases"][0]
+                        run[node["name"]] = run.pop(original)
+
+            self.manual(workflow=workflow, mutate=legacy)
+            item = next(item for item in self.read()["items"] if item["workflowId"] == workflow)
+            self.assertTrue(item["completedToday"])
+            self.assertEqual(item["completedMode"], "manual")
+
+    def test_both_old_and_new_stage_nodes_or_unknown_names_cannot_mark_manual_success(self):
+        catalog = json.loads(CATALOG.read_text(encoding="utf8"))
+        workflow = next(key for key, contract in catalog["manualCompletion"].items()
+                        if any(node.get("aliases") for node in contract))
+
+        def ambiguous(root, definition):
+            node = next(node for node in definition["nodes"] if node.get("aliases"))
+            definition["nodes"].append({"name": node["aliases"][0], "type": node["type"]})
+
+        self.manual(workflow=workflow, mutate=ambiguous)
+        item = next(item for item in self.read()["items"] if item["workflowId"] == workflow)
+        self.assertFalse(item["completedToday"])
+
+        def unknown(root, definition):
+            node = next(node for node in definition["nodes"] if node.get("aliases"))
+            run = root["resultData"]["runData"]
+            run["unknown-stage"] = run.pop(node["name"])
+            node["name"] = "unknown-stage"
+
+        self.manual(workflow=workflow, mutate=unknown)
+        item = next(item for item in self.read()["items"] if item["workflowId"] == workflow)
+        self.assertFalse(item["completedToday"])
+
     def test_partial_pinned_cached_wrong_identity_and_failed_stage_are_excluded(self):
         def stage(root):
             return list(root["resultData"]["runData"].values())[-1][0]

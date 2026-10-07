@@ -123,7 +123,7 @@ type WorkflowNode = {
   };
 };
 
-type WorkflowTemplate = {
+export type WorkflowTemplate = {
   id: string;
   name: string;
   active: boolean;

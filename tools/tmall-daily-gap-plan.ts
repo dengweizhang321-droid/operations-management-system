@@ -1,3 +1,29 @@
+export const tmallDailyLookbackDays = 7;
+
+/** The supplied end date also anchors retries, so crossing midnight cannot move the window. */
+export function resolveTmallDailyPlanRange(input: {
+  initialStartDate: string | null;
+  latestAllowedDate: string;
+  startDate?: string;
+  endDate?: string;
+}) {
+  const valid = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && Number.isFinite(Date.parse(`${value}T00:00:00Z`))
+    && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+  const endDate = input.endDate ?? input.latestAllowedDate;
+  if (!input.initialStartDate || !valid(input.initialStartDate) || !valid(input.latestAllowedDate)
+    || !valid(endDate) || endDate > input.latestAllowedDate) {
+    throw new Error("目标导入日期必须位于店铺注册起始日至昨天之间");
+  }
+  const windowStart = new Date(Date.parse(`${endDate}T00:00:00Z`)
+    - (tmallDailyLookbackDays - 1) * 86400000).toISOString().slice(0, 10);
+  const startDate = input.startDate ?? (input.initialStartDate > windowStart ? input.initialStartDate : windowStart);
+  if (!valid(startDate) || startDate < input.initialStartDate || startDate > endDate) {
+    throw new Error("目标导入日期必须位于店铺注册起始日至昨天之间");
+  }
+  return { startDate, endDate };
+}
+
 /** Pure calendar planner. Coverage must come from the exact store's reader. */
 export function planTmallDailyGaps(input: {
   startDate: string;

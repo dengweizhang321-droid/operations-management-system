@@ -5,6 +5,10 @@ export const TMALL_LILI_DIRECT_M_PROTOCOL = "lili-direct-m-v1" as const;
 const directPmProtocols: Readonly<Record<string, string>> = Object.freeze({
   "tmall-yijiu": TMALL_YIJIU_DIRECT_PM_PROTOCOL,
   "tmall-yiyong": TMALL_YIYONG_DIRECT_PM_PROTOCOL,
+  "tmall-lili": "lili-direct-pm-v1",
+  "tmall-tuofeng": "tuofeng-direct-pm-v1",
+  "tmall-cuizhiwang": "cuizhiwang-direct-pm-v1",
+  "tmall-masitu": "masitu-direct-pm-v1",
 });
 
 export function tmallDirectPmProtocolForStore(storeKey: string | null): string | null {
@@ -14,7 +18,7 @@ export function tmallDirectPmProtocolForStore(storeKey: string | null): string |
 }
 
 export function assertTmallDirectPmStore(storeKey: string): void {
-  if (!tmallDirectPmProtocolForStore(storeKey)) throw new Error("天猫 P/M 直连只允许已批准的亿玖、亿用店铺");
+  if (!tmallDirectPmProtocolForStore(storeKey)) throw new Error("天猫 P/M 直连只允许已批准的六个店铺");
 }
 export function assertTmallDirectMasterStore(storeKey: string): void {
   if (storeKey !== "tmall-lili") assertTmallDirectPmStore(storeKey);
@@ -37,13 +41,14 @@ export function tmallDirectPmProtocolError(input: {
   protocol: string | string[] | undefined;
 }) {
   if (!isTmallDirectPmRoute(input.route)) return null;
-  const expectedProtocol = input.storeKey === "tmall-lili" && input.route === tmallDirectProductMasterRoute
-    ? TMALL_LILI_DIRECT_M_PROTOCOL
-    : tmallDirectPmProtocolForStore(input.storeKey);
+  const expectedProtocol = tmallDirectPmProtocolForStore(input.storeKey);
   if (!expectedProtocol) {
     return { error: "tmall_direct_pm_store_not_allowed" as const };
   }
-  if (input.protocol !== expectedProtocol) {
+  // Preserve the adopted Lili M protocol for in-flight/old live definitions only.
+  const legacyLiliMaster = input.storeKey === "tmall-lili" && input.route === tmallDirectProductMasterRoute
+    && input.protocol === TMALL_LILI_DIRECT_M_PROTOCOL;
+  if (input.protocol !== expectedProtocol && !legacyLiliMaster) {
     return { error: "missing_or_invalid_tmall_direct_pm_protocol" as const };
   }
   return null;
