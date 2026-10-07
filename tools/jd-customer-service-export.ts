@@ -13,6 +13,12 @@ export type CustomerServiceExportCheckpoint = {
   savedPath?: string; sha256?: string; sizeBytes?: number;
 };
 function reject(code: string): never { throw new JdCustomerServiceWorkflowError(code); }
+export async function openCustomerServicePage(page: Page, authenticate: () => Promise<unknown>) {
+  await page.goto("https://shop.jd.com/", { waitUntil: "domcontentloaded" });
+  await authenticate();
+  await page.goto(contract.entryUrl, { waitUntil: "domcontentloaded" });
+  return assertCustomerServiceShop(page, true);
+}
 export async function assertCustomerServiceShop(page: Page, allowInitialReload = false) {
   if (page.url() !== contract.entryUrl) reject("CHAT_PAGE_MISMATCH");
   const header = page.locator(".shop-menu-accountV1__right-account-top-name").filter({ visible: true });

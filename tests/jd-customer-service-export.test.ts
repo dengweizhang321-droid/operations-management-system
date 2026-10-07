@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertCustomerServiceShop, customerServiceDownloadKind, customerServiceExportCount } from "../tools/jd-customer-service-export";
+import { assertCustomerServiceShop, customerServiceDownloadKind, customerServiceExportCount, openCustomerServicePage } from "../tools/jd-customer-service-export";
 import type { Page } from "playwright-core";
 import { jdCustomerServiceWorkflow as contract } from "../lib/jd/customer-service-workflow";
 
@@ -30,6 +30,26 @@ test("客服身份只从唯一页头核验，正文同名不能代替身份", as
   const wrong = identityPage({ wrongTitle: true });
   await assert.rejects(assertCustomerServiceShop(wrong.page, true), /IDENTITY_MISMATCH/);
   assert.equal(wrong.reloads(), 0);
+});
+
+test("先从京麦首页确认原会话，再打开聊天记录，认证失败不能继续", async () => {
+  for (const fail of [false, true]) {
+    const current = identityPage();
+    const events: string[] = [];
+    let url = "about:blank";
+    const page = Object.assign(current.page, {
+      goto: async (target: string) => { events.push(target); url = target; },
+      url: () => url,
+    });
+    const authenticate = async () => { events.push("authenticate"); if (fail) throw new Error("LOGIN_GATE"); };
+    if (fail) {
+      await assert.rejects(openCustomerServicePage(page, authenticate), /LOGIN_GATE/);
+      assert.deepEqual(events, ["https://shop.jd.com/", "authenticate"]);
+    } else {
+      assert.deepEqual(await openCustomerServicePage(page, authenticate), { reloaded: false });
+      assert.deepEqual(events, ["https://shop.jd.com/", "authenticate", contract.entryUrl]);
+    }
+  }
 });
 
 test("初始空页头只允许无登录异常且控件齐全时刷新一次", async () => {
