@@ -335,10 +335,28 @@ class MarketApiContractTests(TestCase):
         resaved = copy.deepcopy(payload)
         resaved["rawFileHash"] = hashlib.sha256(b"resaved").hexdigest()
         resaved["fileName"] = "重新保存.xlsx"
+        resaved["fileSizeBytes"] = 2048
         duplicate = self.post_import(resaved, "market-import-2")
         self.assertEqual(duplicate.status_code, 200, duplicate.content)
         self.assertEqual(duplicate.json()["status"], "duplicate")
         self.assertEqual(MarketImportAttempt.objects.filter(outcome="duplicate").count(), 1)
+        original_batch = MarketImportBatch.objects.get()
+        receipt = duplicate.json()["importReceipt"]
+        self.assertEqual(receipt["batchId"], original_batch.id)
+        self.assertEqual(receipt["rawFileSha256"], resaved["rawFileHash"])
+        self.assertEqual(receipt["fileName"], resaved["fileName"])
+        self.assertEqual(receipt["fileSizeBytes"], resaved["fileSizeBytes"])
+        self.assertEqual(receipt["ranges"], resaved["scope"]["ranges"])
+        self.assertEqual(receipt["rowCount"], len(resaved["rows"]))
+        self.assertEqual(receipt["warningCount"], 0)
+        self.assertEqual(original_batch.raw_file_hash, payload["rawFileHash"])
+        self.assertEqual(original_batch.file_name, payload["fileName"])
+        self.assertEqual(original_batch.file_size_bytes, payload["fileSizeBytes"])
+        self.assertEqual(MarketRankingEntry.objects.count(), len(payload["rows"]))
+        duplicate_replay = self.post_import(resaved, "market-import-2")
+        self.assertEqual(duplicate_replay.status_code, 200)
+        self.assertEqual(duplicate_replay["X-Teruisi-Write-Replay"], "1")
+        self.assertEqual(duplicate_replay.json()["importReceipt"], receipt)
 
         collision = copy.deepcopy(payload)
         collision["rawFileHash"] = hashlib.sha256(b"collision").hexdigest()
