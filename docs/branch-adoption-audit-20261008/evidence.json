@@ -1,0 +1,1764 @@
+{
+  "baseline": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+  "checkedDate": "2026-10-08",
+  "auditSha256": "03D7AFF228E37BD0378FE3ECEAEFD4EAB3EDC2B840AD77B5D961373100AB9D92",
+  "branches": [
+    {
+      "branch": "codex/bi-cockpit-implementation",
+      "tip": "859c4787886a14a0935dcbb703aea4fa6fd5fe80",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 0,
+      "mergeTree": "48e8e453374fba01d53aabcfaeed365d73429ba2",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "859c4787886a14a0935dcbb703aea4fa6fd5fe80",
+          "equivalent": true,
+          "subject": "fix(bi): synchronize traffic platform when selecting a store",
+          "files": [
+            "app/bi-cockpit-view.tsx"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/bi-production-20261006",
+      "tip": "d4fda88fb02d9025b917580bfe5e114331b590c2",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 1,
+      "mergeTree": "241f45569f4647ee9e43c746dda853bbbb219744",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "5e093b0d2e4a181c1555c4dc23412677e43d2e6b",
+          "equivalent": false,
+          "subject": "build: reconstruct exact running application source for BI adoption",
+          "files": [
+            "AGENTS.md",
+            "README.md",
+            "backend/netshop/tests/test_store_overview.py",
+            "backend/sales/tests/test_consumers_api.py",
+            "docs/JACKYUN_5478_IMPORT_RECOVERY.md",
+            "docs/JACKYUN_SESSION_API_EXPORT.md",
+            "tests/django-netshop-service.test.ts",
+            "tests/fixtures/netshop-comparison-demo/verify-ui.cjs",
+            "tests/module-performance.test.ts",
+            "tests/product-summary-projection.test.ts",
+            "tools/integration_install.py",
+            "tools/jackyun-ware-export.ts",
+            "tools/jd-saved-login.ts"
+          ]
+        },
+        {
+          "sha": "70a1277f604d41102bda3645019e9859557c0418",
+          "equivalent": true,
+          "subject": "feat(bi): add ERP operating cockpit and audited trial",
+          "files": [
+            "app/api/bi/cockpit/route.ts",
+            "app/api/bi/erp-targets/route.ts",
+            "app/api/bi/flow/route.ts",
+            "app/bi-cockpit-view.module.css",
+            "app/bi-cockpit-view.tsx",
+            "app/dashboard-module-view.tsx",
+            "app/page.tsx",
+            "backend/bi/cockpit.py",
+            "backend/bi/cockpit_sales.py",
+            "backend/bi/source_reader.py",
+            "backend/bi/tests/test_cockpit.py",
+            "backend/bi/tests/test_cockpit_permissions.py",
+            "backend/bi/tests/test_sources.py",
+            "backend/bi/urls.py",
+            "backend/bi/views.py",
+            "backend/finance/erp_target_views.py",
+            "backend/finance/erp_targets.py",
+            "backend/finance/migrations/0007_finance_erp_targets.py",
+            "backend/finance/models.py",
+            "backend/finance/tests/test_erp_targets.py",
+            "backend/finance/urls.py",
+            "backend/inventory/bi_projection.py",
+            "backend/inventory/urls.py",
+            "backend/netshop/bi_flow.py",
+            "backend/netshop/store_overview.py",
+            "backend/netshop/tests/test_store_overview.py",
+            "backend/netshop/urls.py",
+            "backend/teruisi_backend/health.py",
+            "backend/teruisi_backend/read_budget.py",
+            "backend/workflow/bi_status.py",
+            "backend/workflow/urls.py",
+            "docs/BI_COCKPIT_IMPLEMENTATION.md",
+            "lib/ai/page-context.ts",
+            "lib/ai/tool-registry.ts",
+            "lib/bi/ai-tool.ts",
+            "lib/bi/cockpit-contract.ts",
+            "lib/django/bi-service.ts",
+            "lib/django/finance-service.ts",
+            "tests/bi-cockpit.test.ts",
+            "tests/django-bi-routing.test.ts",
+            "tests/filter-refresh-experience.test.ts",
+            "tests/frontend-foundation.test.ts",
+            "tests/frontend-unification.test.ts",
+            "tests/inventory-dashboard-projection.test.ts",
+            "tests/legacy/integration-catalog-projection.ts",
+            "tools/bi-cockpit-live-audit.ps1",
+            "tools/bi-cockpit-live-audit.py",
+            "tools/bi-cockpit-postgres-check.py",
+            "tools/bi-trial-compose.py",
+            "tools/bi-trial-server.mjs",
+            "tools/bi-trial/index.html",
+            "tools/bi-trial/main.tsx",
+            "tools/bi-trial/trial.css",
+            "tools/bi_cockpit_test_settings.py",
+            "tools/bi_cockpit_test_urls.py",
+            "tools/django-local-service.ps1"
+          ]
+        },
+        {
+          "sha": "62df91290accc0d73aa183a3d64c85c710312ff0",
+          "equivalent": true,
+          "subject": "feat(release): bind finite ERP goal append to verified 139 parent",
+          "files": [
+            "tools/bi-app-adopt.ps1",
+            "tools/bi_app_addition.py",
+            "tools/django-local-service.ps1",
+            "tools/integration_release_gate.py",
+            "tools/test_bi_app_addition.py"
+          ]
+        },
+        {
+          "sha": "d4fda88fb02d9025b917580bfe5e114331b590c2",
+          "equivalent": true,
+          "subject": "fix(backup): validate exact ERP goal 140 catalogue and guard",
+          "files": [
+            "tools/postgres_no_key_backup.py"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/bi-production-performance-20261006",
+      "tip": "498b7b18b3e4da29df6b6916493330a0972dfe82",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 1,
+      "mergeTree": "ea533d3a5645305b648629d731802d1ff55623f6",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "bf59c9ef5a176bd38b97b3b19979c800f4bda7e1",
+          "equivalent": true,
+          "subject": "feat(bi): add ERP operating cockpit and audited trial",
+          "files": [
+            "app/api/bi/cockpit/route.ts",
+            "app/api/bi/erp-targets/route.ts",
+            "app/api/bi/flow/route.ts",
+            "app/bi-cockpit-view.module.css",
+            "app/bi-cockpit-view.tsx",
+            "app/dashboard-module-view.tsx",
+            "app/page.tsx",
+            "backend/bi/cockpit.py",
+            "backend/bi/cockpit_sales.py",
+            "backend/bi/source_reader.py",
+            "backend/bi/tests/test_cockpit.py",
+            "backend/bi/tests/test_cockpit_permissions.py",
+            "backend/bi/tests/test_sources.py",
+            "backend/bi/urls.py",
+            "backend/bi/views.py",
+            "backend/finance/erp_target_views.py",
+            "backend/finance/erp_targets.py",
+            "backend/finance/migrations/0007_finance_erp_targets.py",
+            "backend/finance/models.py",
+            "backend/finance/tests/test_erp_targets.py",
+            "backend/finance/urls.py",
+            "backend/inventory/bi_projection.py",
+            "backend/inventory/urls.py",
+            "backend/netshop/bi_flow.py",
+            "backend/netshop/store_overview.py",
+            "backend/netshop/tests/test_store_overview.py",
+            "backend/netshop/urls.py",
+            "backend/teruisi_backend/health.py",
+            "backend/teruisi_backend/read_budget.py",
+            "backend/workflow/bi_status.py",
+            "backend/workflow/urls.py",
+            "docs/BI_COCKPIT_IMPLEMENTATION.md",
+            "lib/ai/page-context.ts",
+            "lib/ai/tool-registry.ts",
+            "lib/bi/ai-tool.ts",
+            "lib/bi/cockpit-contract.ts",
+            "lib/django/bi-service.ts",
+            "lib/django/finance-service.ts",
+            "tests/bi-cockpit.test.ts",
+            "tests/django-bi-routing.test.ts",
+            "tests/filter-refresh-experience.test.ts",
+            "tests/frontend-foundation.test.ts",
+            "tests/frontend-unification.test.ts",
+            "tests/inventory-dashboard-projection.test.ts",
+            "tests/legacy/integration-catalog-projection.ts",
+            "tools/bi-cockpit-live-audit.ps1",
+            "tools/bi-cockpit-live-audit.py",
+            "tools/bi-cockpit-postgres-check.py",
+            "tools/bi-trial-compose.py",
+            "tools/bi-trial-server.mjs",
+            "tools/bi-trial/index.html",
+            "tools/bi-trial/main.tsx",
+            "tools/bi-trial/trial.css",
+            "tools/bi_cockpit_test_settings.py",
+            "tools/bi_cockpit_test_urls.py",
+            "tools/django-local-service.ps1"
+          ]
+        },
+        {
+          "sha": "14df6517a64a6879fd6854bab524550b0b67745a",
+          "equivalent": true,
+          "subject": "feat(release): bind finite ERP goal append to verified 139 parent",
+          "files": [
+            "tools/bi-app-adopt.ps1",
+            "tools/bi_app_addition.py",
+            "tools/django-local-service.ps1",
+            "tools/integration_release_gate.py",
+            "tools/test_bi_app_addition.py"
+          ]
+        },
+        {
+          "sha": "b4f4bf7de09e7e4499f07d09985c1054fc0d1e7f",
+          "equivalent": true,
+          "subject": "fix(backup): validate exact ERP goal 140 catalogue and guard",
+          "files": [
+            "tools/postgres_no_key_backup.py"
+          ]
+        },
+        {
+          "sha": "d69e5d8cb5473fe6439d1c21a926d862711ec495",
+          "equivalent": true,
+          "subject": "fix(release): bind atomic ERP goal append and exact 140 recovery gates",
+          "files": [
+            "tools/bi-app-adopt.ps1",
+            "tools/bi-append-postgres-check.py",
+            "tools/bi_app_addition.py",
+            "tools/django-local-service.ps1",
+            "tools/django-postgres-maintenance.ps1",
+            "tools/integration-migration-role-rehearsal.py",
+            "tools/integration-protected-restore-rehearsal.py",
+            "tools/integration_release_gate.py",
+            "tools/postgres_no_key_backup.py",
+            "tools/test_bi_app_addition.py"
+          ]
+        },
+        {
+          "sha": "e2c76835e58140dc4f99ca8e92891579c0942bb8",
+          "equivalent": true,
+          "subject": "fix(bi): synchronize traffic platform when selecting a store",
+          "files": [
+            "app/bi-cockpit-view.tsx"
+          ]
+        },
+        {
+          "sha": "e79d5aeeb75ae34f8971e0201072855e18e66d88",
+          "equivalent": true,
+          "subject": "fix(release): resolve one existing Git application for BI admission",
+          "files": [
+            "tools/bi-app-adopt.ps1"
+          ]
+        },
+        {
+          "sha": "498b7b18b3e4da29df6b6916493330a0972dfe82",
+          "equivalent": true,
+          "subject": "fix(bi): admit only fixed owning reader GETs through bounded transport",
+          "files": [
+            "backend/bi/source_reader.py",
+            "backend/bi/tests/test_sources.py",
+            "backend/bi/tests/test_transport.py",
+            "backend/netshop/bounded_consumer_http.py",
+            "tools/bi-cockpit-postgres-check.py"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/netshop-comparison",
+      "tip": "6f67e4995e2b432475a2c49410f7298e25c9f467",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 0,
+      "mergeTree": "a2f0af009a88f2d79781a9e0dd6bcb98a22e2a48",
+      "mergeChanges": [
+        "M\tapp/netshop/comparison/HANDOFF.md"
+      ],
+      "commits": [
+        {
+          "sha": "505fd6fa57c4a411367de0af6e8094163ae34b9d",
+          "equivalent": true,
+          "subject": "test(netshop): restore the original viewer role after fixture flush",
+          "files": [
+            "backend/netshop/tests/test_comparison_signed.py"
+          ]
+        },
+        {
+          "sha": "908f0472221d2a287bd55e4a0c7f694231736981",
+          "equivalent": false,
+          "subject": "test(netshop): capture signed ascending comparison pages",
+          "files": [
+            "backend/netshop/tests/test_comparison_signed.py"
+          ]
+        },
+        {
+          "sha": "6db216e7b1a1ea2c87353b006fa3c50e4715d29d",
+          "equivalent": false,
+          "subject": "test(netshop): capture exact Home sort and owning topic drills",
+          "files": [
+            "backend/netshop/tests/test_comparison_signed.py"
+          ]
+        },
+        {
+          "sha": "6f67e4995e2b432475a2c49410f7298e25c9f467",
+          "equivalent": false,
+          "subject": "docs(comparison): record accepted M6 main and final independent qualification",
+          "files": [
+            "app/netshop/comparison/HANDOFF.md"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/netshop-comparison-date",
+      "tip": "63d75fc078382d0baa0d6396aae15115346edb57",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 1,
+      "mergeTree": "cb18b11d125001725c4708c90bb344ae7d9a2bbf",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "63d75fc078382d0baa0d6396aae15115346edb57",
+          "equivalent": true,
+          "subject": "feat(netshop): add comparison custom date dialog",
+          "files": [
+            "app/netshop/comparison/demo/date-picker.css",
+            "app/netshop/comparison/demo/date-picker.js"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/netshop-comparison-public-combo",
+      "tip": "26d076f33f5a82b7ff008128a137c7a0f7e3a68a",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 0,
+      "mergeTree": "48e8e453374fba01d53aabcfaeed365d73429ba2",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "64503d06bebe86e963e65eccc45c69871510f0f3",
+          "equivalent": true,
+          "subject": "test(netshop): prove signed comparison GET and owning bridges on one seed",
+          "files": [
+            "backend/netshop/tests/test_comparison_signed.py",
+            "tools/netshop-comparison-postgres-check.py",
+            "tools/netshop_comparison_signed_test_settings.py",
+            "tools/netshop_comparison_signed_urls.py"
+          ]
+        },
+        {
+          "sha": "d412ec8570c323ee3253c0abb948e5279336da5f",
+          "equivalent": true,
+          "subject": "test(netshop): verify registered capacity and outer deadline errors",
+          "files": [
+            "backend/netshop/tests/test_comparison_signed.py"
+          ]
+        },
+        {
+          "sha": "97299f8db6a98931b540745126957998cc18cf65",
+          "equivalent": true,
+          "subject": "test(netshop): preserve exact platform shop outlets in signed expansion",
+          "files": [
+            "backend/netshop/tests/test_comparison_signed.py"
+          ]
+        },
+        {
+          "sha": "a686c0a56035811143c370ebc4b4b6561a3e73a9",
+          "equivalent": true,
+          "subject": "test(netshop): restore the original viewer role after fixture flush",
+          "files": [
+            "backend/netshop/tests/test_comparison_signed.py"
+          ]
+        },
+        {
+          "sha": "6b7879a47256e96d823222fb3a298d68d6efa1c7",
+          "equivalent": false,
+          "subject": "test(netshop): capture signed ascending comparison pages",
+          "files": [
+            "backend/netshop/tests/test_comparison_signed.py"
+          ]
+        },
+        {
+          "sha": "26d076f33f5a82b7ff008128a137c7a0f7e3a68a",
+          "equivalent": false,
+          "subject": "test(netshop): capture exact Home sort and owning topic drills",
+          "files": [
+            "backend/netshop/tests/test_comparison_signed.py"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/netshop-comparison-ui",
+      "tip": "09f9982c29ab59fdc60cae556f276faa0db39d63",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 1,
+      "mergeTree": "b297a9e51ca1a7f8f6200c9eae0a96bc2a785d0b",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "0cf236f2bdeea3f3189fd8a0e1432279a00422c7",
+          "equivalent": true,
+          "subject": "feat(netshop-comparison): add five isolated interactive design demos",
+          "files": [
+            "app/netshop/comparison/demo/demo.css",
+            "app/netshop/comparison/demo/demo.js",
+            "app/netshop/comparison/demo/index.html"
+          ]
+        },
+        {
+          "sha": "f67e35d13a830f02192e326d2beb3ed919355950",
+          "equivalent": true,
+          "subject": "fix(netshop-comparison): gate synthetic same-product mapping by scope",
+          "files": [
+            "app/netshop/comparison/demo/demo.js"
+          ]
+        },
+        {
+          "sha": "568cb45d68ee24eb75f11e5660ce0598c00ac0d0",
+          "equivalent": true,
+          "subject": "fix(netshop-comparison): preserve scoped detail and metric semantics",
+          "files": [
+            "app/netshop/comparison/demo/demo.js"
+          ]
+        },
+        {
+          "sha": "09f9982c29ab59fdc60cae556f276faa0db39d63",
+          "equivalent": true,
+          "subject": "fix(netshop-comparison): identify missing comparison baselines explicitly",
+          "files": [
+            "app/netshop/comparison/demo/demo.js"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/netshop-finance-subset-review",
+      "tip": "e948335f6ff93df0f6e79d2ebceca0dd0cbeb380",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 0,
+      "mergeTree": "48e8e453374fba01d53aabcfaeed365d73429ba2",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "f20daf7f1134c9ad74adb8cb610e7cf2eec405a2",
+          "equivalent": false,
+          "subject": "fix(finance): preserve cancellation through the native reader",
+          "files": [
+            "backend/netshop/finance_netshop_client.py"
+          ]
+        },
+        {
+          "sha": "ee8d9c767c99386e68e414802d8fec1235770b4c",
+          "equivalent": false,
+          "subject": "fix(netshop): preserve cancellation before retries and expiry classification",
+          "files": [
+            "backend/netshop/bounded_consumer_http.py"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/netshop-finance-support",
+      "tip": "7761139ae0eb76e27cea8ee87c10a1d8ef1d3b45",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 1,
+      "mergeTree": "f809e3ddf85450a867764c7a02ea12eabd564d41",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "83c5c60b574e9919bdd8d8279176291e4313b936",
+          "equivalent": false,
+          "subject": "feat(netshop): wire the comparison candidate through the shared Home",
+          "files": [
+            "app/netshop/shared/module-slots.ts",
+            "backend/netshop/urls.py",
+            "backend/netshop/views.py",
+            "lib/django/netshop-service.ts"
+          ]
+        },
+        {
+          "sha": "5aec94510969975f8e014381dbd844a781474b06",
+          "equivalent": false,
+          "subject": "feat(netshop): wire panorama and preserve the original ERP analysis view",
+          "files": [
+            "app/netshop/shared/module-slots.ts",
+            "app/shell/shop-context.ts",
+            "app/shop-module-view.tsx",
+            "backend/netshop/urls.py",
+            "backend/netshop/views.py",
+            "lib/django/netshop-service.ts"
+          ]
+        },
+        {
+          "sha": "f88cd26bebbba887c915f8c464440bfd3f2e2ce2",
+          "equivalent": false,
+          "subject": "test(netshop): mount panorama and comparison in the real shared Home",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/bootstrap.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-fixtures.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/A-owning-view.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/P-owning-view.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/metadata.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/response-owning-jd.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/series-owning-view.json",
+            "tools/verify-netshop-integrated-shell-ui.mjs"
+          ]
+        },
+        {
+          "sha": "c2f7849766abaa6fec98d096e5668b96319c5b29",
+          "equivalent": true,
+          "subject": "fix(netshop): expose the shared return action from every column list",
+          "files": [
+            "app/shell/shop-comparison-prefs.ts",
+            "app/shop-module-view.tsx"
+          ]
+        },
+        {
+          "sha": "b264af68b041c7a1754d26aa694f6ad30bd57e70",
+          "equivalent": false,
+          "subject": "test(netshop): preserve the captured Home fixture bytes across checkouts",
+          "files": [
+            ".gitattributes"
+          ]
+        },
+        {
+          "sha": "41249f2da65d4b77cd0adabf25d8cecd15294cf5",
+          "equivalent": false,
+          "subject": "fix(git): retain the existing batch file newline policy",
+          "files": [
+            ".gitattributes"
+          ]
+        },
+        {
+          "sha": "3a01a4dc57b8ff7c153ff15b68ad535e3d76eb46",
+          "equivalent": false,
+          "subject": "test(netshop): record the original captured JSON bytes without newline conversion",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/metadata.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/response-owning-jd.json"
+          ]
+        },
+        {
+          "sha": "db69097a0108a3923fb3436fcdcca87b670eb317",
+          "equivalent": true,
+          "subject": "feat(finance): register the owned netshop month and annual read",
+          "files": [
+            "backend/finance/consumers.py",
+            "backend/finance/views.py"
+          ]
+        },
+        {
+          "sha": "dd6ecdf28f49c1f90783d6f97d2a8600f099dfa0",
+          "equivalent": true,
+          "subject": "fix(netshop): bound native consumer status headers and socket reads",
+          "files": [
+            "backend/netshop/bounded_consumer_http.py"
+          ]
+        },
+        {
+          "sha": "7761139ae0eb76e27cea8ee87c10a1d8ef1d3b45",
+          "equivalent": true,
+          "subject": "fix(finance): validate complete native contract and bounded registered reads",
+          "files": [
+            "backend/netshop/finance_netshop_client.py",
+            "backend/netshop/finance_netshop_contract.py",
+            "backend/netshop/tests/test_bounded_consumer_http.py",
+            "backend/netshop/tests/test_finance_netshop_client.py",
+            "backend/netshop/tests/test_finance_netshop_contract.py",
+            "backend/netshop/tests/test_finance_netshop_registered.py",
+            "docs/netshop-refactor/foundation/finance-netshop-read-v1.md",
+            "lib/netshop/finance-netshop-contract.ts",
+            "tests/netshop-finance-contract.test.ts",
+            "tools/netshop-finance-postgres-check.py",
+            "tools/netshop-finance-registered-decode.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/netshop-integration",
+      "tip": "38f28d6305d3cd13e92499258573eba42e94ff7e",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 1,
+      "mergeTree": "0d8967c985fc75cc3ac5f477003876e0955f8a6f",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "83c5c60b574e9919bdd8d8279176291e4313b936",
+          "equivalent": false,
+          "subject": "feat(netshop): wire the comparison candidate through the shared Home",
+          "files": [
+            "app/netshop/shared/module-slots.ts",
+            "backend/netshop/urls.py",
+            "backend/netshop/views.py",
+            "lib/django/netshop-service.ts"
+          ]
+        },
+        {
+          "sha": "5aec94510969975f8e014381dbd844a781474b06",
+          "equivalent": false,
+          "subject": "feat(netshop): wire panorama and preserve the original ERP analysis view",
+          "files": [
+            "app/netshop/shared/module-slots.ts",
+            "app/shell/shop-context.ts",
+            "app/shop-module-view.tsx",
+            "backend/netshop/urls.py",
+            "backend/netshop/views.py",
+            "lib/django/netshop-service.ts"
+          ]
+        },
+        {
+          "sha": "f88cd26bebbba887c915f8c464440bfd3f2e2ce2",
+          "equivalent": false,
+          "subject": "test(netshop): mount panorama and comparison in the real shared Home",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/bootstrap.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-fixtures.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/A-owning-view.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/P-owning-view.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/metadata.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/response-owning-jd.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/series-owning-view.json",
+            "tools/verify-netshop-integrated-shell-ui.mjs"
+          ]
+        },
+        {
+          "sha": "c2f7849766abaa6fec98d096e5668b96319c5b29",
+          "equivalent": false,
+          "subject": "fix(netshop): expose the shared return action from every column list",
+          "files": [
+            "app/shell/shop-comparison-prefs.ts",
+            "app/shop-module-view.tsx"
+          ]
+        },
+        {
+          "sha": "b264af68b041c7a1754d26aa694f6ad30bd57e70",
+          "equivalent": false,
+          "subject": "test(netshop): preserve the captured Home fixture bytes across checkouts",
+          "files": [
+            ".gitattributes"
+          ]
+        },
+        {
+          "sha": "41249f2da65d4b77cd0adabf25d8cecd15294cf5",
+          "equivalent": false,
+          "subject": "fix(git): retain the existing batch file newline policy",
+          "files": [
+            ".gitattributes"
+          ]
+        },
+        {
+          "sha": "3a01a4dc57b8ff7c153ff15b68ad535e3d76eb46",
+          "equivalent": false,
+          "subject": "test(netshop): record the original captured JSON bytes without newline conversion",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/metadata.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/response-owning-jd.json"
+          ]
+        },
+        {
+          "sha": "db69097a0108a3923fb3436fcdcca87b670eb317",
+          "equivalent": false,
+          "subject": "feat(finance): register the owned netshop month and annual read",
+          "files": [
+            "backend/finance/consumers.py",
+            "backend/finance/views.py"
+          ]
+        },
+        {
+          "sha": "ff4068713d2f9bcd8ae5f399ebce9d929ace1ac8",
+          "equivalent": false,
+          "subject": "test(netshop): verify visible panorama return and record wave three state",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs",
+            "tools/verify-netshop-integrated-shell-ui.mjs"
+          ]
+        },
+        {
+          "sha": "0298ad10743df5d327326589b4e0740be8e47cdc",
+          "equivalent": false,
+          "subject": "test(netshop): carry original ERP and workflow receipts through Home",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/bootstrap.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-fixtures.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs",
+            "tools/verify-netshop-integrated-shell-ui.mjs"
+          ]
+        },
+        {
+          "sha": "75d4cbc1da5cbb8704bc5a7a15b5c49be475de25",
+          "equivalent": false,
+          "subject": "fix(netshop): retain column scope in AI page context",
+          "files": [
+            "app/netshop/shared/page-context.ts",
+            "app/shop-module-view.tsx",
+            "backend/ai_assistant/page_context.py",
+            "lib/ai/page-context.ts",
+            "tests/netshop-column-page-context.test.ts"
+          ]
+        },
+        {
+          "sha": "d80feff9192f458d664261fed1fa28d16bf24de3",
+          "equivalent": false,
+          "subject": "fix(ai): label preserved comparison page selections",
+          "files": [
+            "lib/ai/page-context.ts"
+          ]
+        },
+        {
+          "sha": "dfff20e93a8e98626188b9c575b496c1c5953eb7",
+          "equivalent": false,
+          "subject": "test(ai): verify the actual panorama draft context",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs"
+          ]
+        },
+        {
+          "sha": "5e8510c1a224bc897948c68581f196ce278a35c7",
+          "equivalent": false,
+          "subject": "feat(sales): wire the owning temporal series through the signed SDK",
+          "files": [
+            "lib/django/sales-consumer-reader.ts",
+            "tests/netshop-sales-periods-sdk-wiring.test.ts"
+          ]
+        },
+        {
+          "sha": "ee1b2e5e92c149c964368ed07a78369d1f9f656e",
+          "equivalent": false,
+          "subject": "docs(netshop): record actual source handoffs and independent blockers",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md"
+          ]
+        },
+        {
+          "sha": "76cf9484fbea1712ca3b8a76d66944d7342337e2",
+          "equivalent": false,
+          "subject": "test(netshop): exercise native comparison captures in the actual Home",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/bootstrap.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/.gitattributes",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-a.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-erp-zero.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-erp.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-jd-shops.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-label-default.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-label.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-mixed.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-platform.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-two-chart.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/index.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/metadata.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-fixtures.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs",
+            "tools/verify-netshop-integrated-shell-ui.mjs"
+          ]
+        },
+        {
+          "sha": "b4c72640b92c9c246edb9b1f5ccf941ecf4d126d",
+          "equivalent": false,
+          "subject": "fix(netshop): bound native consumer status headers and socket reads",
+          "files": [
+            "backend/netshop/bounded_consumer_http.py"
+          ]
+        },
+        {
+          "sha": "839ed088100957fc525fd6d9d6a7c71b8cb03038",
+          "equivalent": false,
+          "subject": "fix(netshop): enforce the full signed consumer network deadline",
+          "files": [
+            "backend/netshop/bounded_consumer_http.py",
+            "backend/netshop/sales_client.py"
+          ]
+        },
+        {
+          "sha": "3344ad949433f86b8ddf39c99fc505cb40df6975",
+          "equivalent": false,
+          "subject": "fix(finance): validate complete native contract and bounded registered reads",
+          "files": [
+            "backend/netshop/finance_netshop_client.py",
+            "backend/netshop/finance_netshop_contract.py",
+            "backend/netshop/tests/test_bounded_consumer_http.py",
+            "backend/netshop/tests/test_finance_netshop_client.py",
+            "backend/netshop/tests/test_finance_netshop_contract.py",
+            "backend/netshop/tests/test_finance_netshop_registered.py",
+            "docs/netshop-refactor/foundation/finance-netshop-read-v1.md",
+            "lib/netshop/finance-netshop-contract.ts",
+            "tests/netshop-finance-contract.test.ts",
+            "tools/netshop-finance-postgres-check.py",
+            "tools/netshop-finance-registered-decode.ts"
+          ]
+        },
+        {
+          "sha": "7fdfc88e7a0b1d16af48b4c9a85aa58a8c5dc020",
+          "equivalent": false,
+          "subject": "test(sales): observe the bounded transport without weakening RPC assertions",
+          "files": [
+            "backend/netshop/tests/test_sales_periods_http.py"
+          ]
+        },
+        {
+          "sha": "6998f6235a395b1f8e246672ce0087f87fd7c191",
+          "equivalent": false,
+          "subject": "docs(netshop): record exact public repair qualification",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md"
+          ]
+        },
+        {
+          "sha": "df268f5aec990b76809d86b066dd3f28fc6d89e6",
+          "equivalent": false,
+          "subject": "docs(netshop): correct the integrated fixture source reference",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md"
+          ]
+        },
+        {
+          "sha": "e37d63a3f7f3c0ce4719e0e83ce4a2336863a6eb",
+          "equivalent": false,
+          "subject": "fix(netshop): keep one return control per column",
+          "files": [
+            "app/shop-module-view.tsx"
+          ]
+        },
+        {
+          "sha": "bc1276e720ae0d4a6a8c373b818b37c3ed9e28de",
+          "equivalent": false,
+          "subject": "docs(netshop): record actual support main and isolated M5 queue",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md"
+          ]
+        },
+        {
+          "sha": "0058b6e20df9fc36096de806af7fe55ecb63b12f",
+          "equivalent": false,
+          "subject": "fix(netshop): retain the shared deadline through TCP and TLS stages",
+          "files": [
+            "backend/netshop/bounded_consumer_http.py"
+          ]
+        },
+        {
+          "sha": "e411c437d9afa4406843edd077faab98c605817f",
+          "equivalent": false,
+          "subject": "fix(finance): preserve cancellation through the native reader",
+          "files": [
+            "backend/netshop/finance_netshop_client.py"
+          ]
+        },
+        {
+          "sha": "fbf96c5d363125e7e77264a72955fdcf986fa121",
+          "equivalent": false,
+          "subject": "fix(netshop): preserve cancellation before retries and expiry classification",
+          "files": [
+            "backend/netshop/bounded_consumer_http.py"
+          ]
+        },
+        {
+          "sha": "cdd84d180a29c56befe65f72b47ceef48e3de970",
+          "equivalent": false,
+          "subject": "fix(shell): limit the fixed period popup to the masthead",
+          "files": [
+            "app/shell/top-navigation.css"
+          ]
+        },
+        {
+          "sha": "c387ff867d7be141dceae58969ce9c15f964f5e3",
+          "equivalent": false,
+          "subject": "feat(sales): wire the owning platform series through the signed SDK",
+          "files": [
+            "lib/django/sales-consumer-reader.ts",
+            "tests/netshop-sales-periods-sdk-wiring.test.ts"
+          ]
+        },
+        {
+          "sha": "26a384f9a4da30b64b8c42edfec2c96e0c01ac55",
+          "equivalent": false,
+          "subject": "fix(netshop): require all RAW members for fully covered platform scope",
+          "files": [
+            "backend/netshop/sales_periods_client.py",
+            "backend/netshop/tests/test_sales_periods_platform_series.py",
+            "lib/netshop/sales-periods-contract.ts",
+            "tests/netshop-sales-platform-series-contract.test.ts"
+          ]
+        },
+        {
+          "sha": "034384501184c30b3f458e07d401e9a1e81d0327",
+          "equivalent": false,
+          "subject": "docs(netshop): record actual main and M5 platform review blockers",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md"
+          ]
+        },
+        {
+          "sha": "17af3db5638948c97a4bc4f86ad84eadf716bb61",
+          "equivalent": false,
+          "subject": "docs(netshop): record platform main and complete-platform owner reads",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md"
+          ]
+        },
+        {
+          "sha": "758729cee0772ea6e2c7fa9f327644b73d10dff5",
+          "equivalent": false,
+          "subject": "docs(netshop): record completed M5 and active M6 ownership",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md"
+          ]
+        },
+        {
+          "sha": "6dcbc7389cfd397ff28f32fae8db92f09efac1bd",
+          "equivalent": false,
+          "subject": "docs(netshop): freeze scope and record the M6 critical path",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "c1dafdd84d90bf91efdd9c4dd84de7be5ac8fbdc",
+          "equivalent": true,
+          "subject": "test(netshop): prepare pinned M6 Home verification tool",
+          "files": [
+            "tests/fixtures/netshop-m6-home/.gitattributes",
+            "tests/fixtures/netshop-m6-home/README.md",
+            "tests/fixtures/netshop-m6-home/bootstrap.mjs",
+            "tests/fixtures/netshop-m6-home/corpus.mjs",
+            "tests/fixtures/netshop-m6-home/manifest-stage-c22-c9.json",
+            "tests/fixtures/netshop-m6-home/scenarios.mjs",
+            "tools/verify-netshop-m6-home.mjs"
+          ]
+        },
+        {
+          "sha": "ec339a54e0804bf759070e066c87a6c98d146f05",
+          "equivalent": false,
+          "subject": "docs(netshop): close M6 signed capture gap and narrow remaining blockers",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "e74b31204b41f279b009c8ecb7f9522c273bdfa5",
+          "equivalent": false,
+          "subject": "docs(netshop): record qualified M8 and exact production admission blocker",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md",
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "e39ba5675528af501c5461f39b318461147a60c4",
+          "equivalent": false,
+          "subject": "docs(netshop): close exact pre-release isolated restore evidence",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md",
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "831e083b8e66e531b12724d32efb409c302ce4b1",
+          "equivalent": false,
+          "subject": "docs(netshop): seal remote M8 handoff and seventeenth qualified archive",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md"
+          ]
+        },
+        {
+          "sha": "e2bdc12cb16c254ea730047d2a22a918fd300584",
+          "equivalent": false,
+          "subject": "docs(netshop): align current cleanup count with owner closure",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "16f8fb19c46dac1e9cee4b649bd43c0160d70664",
+          "equivalent": false,
+          "subject": "docs(netshop): reconcile actual adoption and combined repair status",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "a28d8d63fd39e6cb8cea2e6cfc350ef5b190107b",
+          "equivalent": false,
+          "subject": "docs(netshop): track actual adoption failure and isolated recovery closure",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "e58e18d9ee1ba7ad4f883217c2dc2b27927b78a1",
+          "equivalent": false,
+          "subject": "docs(netshop): track reviewed presence main and prepared candidate",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "081412f90303d82e96cc4d7221ba841383070c33",
+          "equivalent": false,
+          "subject": "docs(netshop): close prepared review and twentieth qualified cleanup",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "205cac1c278c1fb9cb1a44374033c87990aa9a17",
+          "equivalent": false,
+          "subject": "docs(netshop): track adopted presence139 and live acceptance",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "121f48a272cb24443d36e52dc31b1a57c924564d",
+          "equivalent": false,
+          "subject": "docs(netshop): track finance compatibility candidate and remaining production gate",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "ebcfe98643b29f96fc325deb9bb9871c1e1b3f42",
+          "equivalent": false,
+          "subject": "docs(netshop): freeze reviewed successor delivery status",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "ddcfec9d10c521884b1f449c8acb71bd826df946",
+          "equivalent": false,
+          "subject": "docs(netshop): close authorized finance maintenance and original-scope recovery",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        },
+        {
+          "sha": "38f28d6305d3cd13e92499258573eba42e94ff7e",
+          "equivalent": false,
+          "subject": "docs(netshop): record final remote and accepted production scope",
+          "files": [
+            "docs/netshop-refactor/execution/remaining-blockers.md"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/netshop-presence-jsonpath",
+      "tip": "0be58e2189328c74e1753a606bf8e190331d68c3",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 1,
+      "mergeTree": "6edfc1b9131011241c6ca1fc41531421d4f9d0ae",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "0be58e2189328c74e1753a606bf8e190331d68c3",
+          "equivalent": false,
+          "subject": "perf(netshop): use ordered strict JSONPath presence filters",
+          "files": [
+            "backend/netshop/store_overview.py",
+            "backend/netshop/tests/test_numeric_metric_present_jsonpath.py"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/netshop-promotion-demos",
+      "tip": "43392781000f0d2a9071bc0fcd5064c65d2f1fcb",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 0,
+      "mergeTree": "9ccbb59195324b95ed93175e252c6f00643219a3",
+      "mergeChanges": [
+        "A\tdemos/netshop-promotion/README.md",
+        "A\tdemos/netshop-promotion/designs.css",
+        "A\tdemos/netshop-promotion/designs.js",
+        "A\tdemos/netshop-promotion/evidence/desktop-01.png",
+        "A\tdemos/netshop-promotion/evidence/desktop-02.png",
+        "A\tdemos/netshop-promotion/evidence/desktop-03.png",
+        "A\tdemos/netshop-promotion/evidence/desktop-04.png",
+        "A\tdemos/netshop-promotion/evidence/desktop-05.png",
+        "A\tdemos/netshop-promotion/evidence/mobile-01.png",
+        "A\tdemos/netshop-promotion/evidence/mobile-02.png",
+        "A\tdemos/netshop-promotion/evidence/mobile-03.png",
+        "A\tdemos/netshop-promotion/evidence/mobile-04.png",
+        "A\tdemos/netshop-promotion/evidence/mobile-05.png",
+        "A\tdemos/netshop-promotion/evidence/review.md",
+        "A\tdemos/netshop-promotion/evidence/selected-01/desktop.jpg",
+        "A\tdemos/netshop-promotion/evidence/selected-01/mobile-330.jpg",
+        "A\tdemos/netshop-promotion/evidence/selected-01/mobile-390.jpg",
+        "A\tdemos/netshop-promotion/evidence/selected-01/review.md",
+        "A\tdemos/netshop-promotion/evidence/selected-01/ui-checks.json",
+        "A\tdemos/netshop-promotion/evidence/ui-checks.json",
+        "A\tdemos/netshop-promotion/evidence/v2/desktop-01.jpg",
+        "A\tdemos/netshop-promotion/evidence/v2/desktop-02.jpg",
+        "A\tdemos/netshop-promotion/evidence/v2/desktop-03.jpg",
+        "A\tdemos/netshop-promotion/evidence/v2/desktop-04.jpg",
+        "A\tdemos/netshop-promotion/evidence/v2/desktop-05.jpg",
+        "A\tdemos/netshop-promotion/evidence/v2/mobile-01.jpg",
+        "A\tdemos/netshop-promotion/evidence/v2/mobile-02.jpg",
+        "A\tdemos/netshop-promotion/evidence/v2/mobile-03.jpg",
+        "A\tdemos/netshop-promotion/evidence/v2/mobile-04.jpg",
+        "A\tdemos/netshop-promotion/evidence/v2/mobile-05.jpg",
+        "A\tdemos/netshop-promotion/evidence/v2/pre-navigation-ui-checks.json",
+        "A\tdemos/netshop-promotion/evidence/v2/review.md",
+        "A\tdemos/netshop-promotion/evidence/v2/ui-checks.json",
+        "A\tdemos/netshop-promotion/evidence/verify-v1.mjs",
+        "A\tdemos/netshop-promotion/index.html",
+        "A\tdemos/netshop-promotion/navigation.css",
+        "A\tdemos/netshop-promotion/selected-01.css",
+        "A\tdemos/netshop-promotion/system-layout.css"
+      ],
+      "commits": [
+        {
+          "sha": "a569bfe5453671f239e6659b1d3e1e7a18605f1c",
+          "equivalent": false,
+          "subject": "design(netshop): add five promotion analysis demos",
+          "files": [
+            "demos/netshop-promotion/README.md",
+            "demos/netshop-promotion/designs.css",
+            "demos/netshop-promotion/designs.js",
+            "demos/netshop-promotion/evidence/desktop-01.png",
+            "demos/netshop-promotion/evidence/desktop-02.png",
+            "demos/netshop-promotion/evidence/desktop-03.png",
+            "demos/netshop-promotion/evidence/desktop-04.png",
+            "demos/netshop-promotion/evidence/desktop-05.png",
+            "demos/netshop-promotion/evidence/mobile-01.png",
+            "demos/netshop-promotion/evidence/mobile-02.png",
+            "demos/netshop-promotion/evidence/mobile-03.png",
+            "demos/netshop-promotion/evidence/mobile-04.png",
+            "demos/netshop-promotion/evidence/mobile-05.png",
+            "demos/netshop-promotion/evidence/review.md",
+            "demos/netshop-promotion/evidence/ui-checks.json",
+            "demos/netshop-promotion/index.html",
+            "demos/netshop-promotion/verify.mjs"
+          ]
+        },
+        {
+          "sha": "50be6d364cdb3ee506484d0fb848af5d18e0e231",
+          "equivalent": false,
+          "subject": "design(netshop): replace promotion layouts and add top navigation",
+          "files": [
+            "demos/netshop-promotion/README.md",
+            "demos/netshop-promotion/designs.js",
+            "demos/netshop-promotion/evidence/v2/desktop-01.jpg",
+            "demos/netshop-promotion/evidence/v2/desktop-02.jpg",
+            "demos/netshop-promotion/evidence/v2/desktop-03.jpg",
+            "demos/netshop-promotion/evidence/v2/desktop-04.jpg",
+            "demos/netshop-promotion/evidence/v2/desktop-05.jpg",
+            "demos/netshop-promotion/evidence/v2/mobile-01.jpg",
+            "demos/netshop-promotion/evidence/v2/mobile-02.jpg",
+            "demos/netshop-promotion/evidence/v2/mobile-03.jpg",
+            "demos/netshop-promotion/evidence/v2/mobile-04.jpg",
+            "demos/netshop-promotion/evidence/v2/mobile-05.jpg",
+            "demos/netshop-promotion/evidence/v2/pre-navigation-ui-checks.json",
+            "demos/netshop-promotion/evidence/v2/review.md",
+            "demos/netshop-promotion/evidence/v2/ui-checks.json",
+            "demos/netshop-promotion/evidence/verify-v1.mjs",
+            "demos/netshop-promotion/index.html",
+            "demos/netshop-promotion/navigation.css",
+            "demos/netshop-promotion/system-layout.css",
+            "demos/netshop-promotion/verify.mjs"
+          ]
+        },
+        {
+          "sha": "43392781000f0d2a9071bc0fcd5064c65d2f1fcb",
+          "equivalent": false,
+          "subject": "design(netshop): keep promotion dual-column preview and rename ROI",
+          "files": [
+            "demos/netshop-promotion/README.md",
+            "demos/netshop-promotion/designs.js",
+            "demos/netshop-promotion/evidence/selected-01/desktop.jpg",
+            "demos/netshop-promotion/evidence/selected-01/mobile-330.jpg",
+            "demos/netshop-promotion/evidence/selected-01/mobile-390.jpg",
+            "demos/netshop-promotion/evidence/selected-01/review.md",
+            "demos/netshop-promotion/evidence/selected-01/ui-checks.json",
+            "demos/netshop-promotion/index.html",
+            "demos/netshop-promotion/selected-01.css"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/netshop-temporal-review",
+      "tip": "b2af337e6a1decb6dc0e74aefb2991297691669a",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 0,
+      "mergeTree": "f9da2563578057b1985db678c03cefa1b8e769cc",
+      "mergeChanges": [
+        "A\tbackend/netshop/tests/test_temporal_independent_connect_smoke.py",
+        "A\tbackend/netshop/tests/test_temporal_independent_platform_review.py",
+        "A\tbackend/netshop/tests/test_temporal_independent_review.py",
+        "A\tbackend/netshop/tests/test_temporal_independent_transport.py",
+        "A\tdocs/netshop-refactor/reviews/connect-seam-independent-20261001.md",
+        "A\tdocs/netshop-refactor/reviews/platform-series-independent-20261001.md",
+        "A\tdocs/netshop-refactor/reviews/temporal-independent-20261001.md",
+        "A\ttests/netshop-platform-independent-contract.test.ts",
+        "A\ttests/netshop-platform-independent-live-sdk-probe.ts",
+        "A\ttests/netshop-temporal-independent-live-sdk-probe.ts",
+        "A\ttests/netshop-temporal-independent-mutation.test.ts",
+        "A\ttools/netshop-platform-independent-node-check.py",
+        "A\ttools/netshop-platform-independent-postgres-check.py",
+        "A\ttools/netshop-temporal-connect-seam-probe.py",
+        "A\ttools/netshop-temporal-independent-node-check.py",
+        "A\ttools/netshop-temporal-independent-postgres-check.py"
+      ],
+      "commits": [
+        {
+          "sha": "20717ae343c2bdb8fe8ab7444d73449bd4b9bf50",
+          "equivalent": false,
+          "subject": "test(netshop): independently review the owning temporal consumer",
+          "files": [
+            "backend/netshop/tests/test_temporal_independent_review.py",
+            "tests/netshop-temporal-independent-live-sdk-probe.ts",
+            "tests/netshop-temporal-independent-mutation.test.ts",
+            "tools/netshop-temporal-independent-postgres-check.py"
+          ]
+        },
+        {
+          "sha": "0b1a1369b2bf3c2ba0fe2924aa94d83e69464c7c",
+          "equivalent": false,
+          "subject": "test(netshop): assert independently clipped baseline week",
+          "files": [
+            "tests/netshop-temporal-independent-live-sdk-probe.ts"
+          ]
+        },
+        {
+          "sha": "ac9421bde324c79ef27a8be789965b7178a9122b",
+          "equivalent": false,
+          "subject": "test(netshop): keep independent mutation paths explicitly typed",
+          "files": [
+            "tests/netshop-temporal-independent-mutation.test.ts"
+          ]
+        },
+        {
+          "sha": "d46c06f473e2971e6fbba51dc6bb4cabac481c21",
+          "equivalent": false,
+          "subject": "test(netshop): independently verify temporal final fences and original mean",
+          "files": [
+            "backend/netshop/tests/test_temporal_independent_review.py"
+          ]
+        },
+        {
+          "sha": "9e6a0955dc4d542a6f01117b4ee523e7867ef227",
+          "equivalent": false,
+          "subject": "test(netshop): preserve nonbinary means and narrow private probe settings",
+          "files": [
+            "tests/netshop-temporal-independent-live-sdk-probe.ts",
+            "tests/netshop-temporal-independent-mutation.test.ts"
+          ]
+        },
+        {
+          "sha": "44b26e24280257764492449f1e0525d73d317816",
+          "equivalent": false,
+          "subject": "test(netshop): preserve independent Node and build evidence",
+          "files": [
+            "tools/netshop-temporal-independent-node-check.py"
+          ]
+        },
+        {
+          "sha": "da6f0ddde490fc49257cc933f7b39944ab0ef93d",
+          "equivalent": false,
+          "subject": "docs(netshop): record independent temporal proof and inherited deadline blocker",
+          "files": [
+            "docs/netshop-refactor/reviews/temporal-independent-20261001.md",
+            "tests/netshop-temporal-independent-mutation.test.ts",
+            "tools/netshop-temporal-independent-node-check.py",
+            "tools/netshop-temporal-independent-postgres-check.py"
+          ]
+        },
+        {
+          "sha": "79d17d1e8b88a97e1c897f41f08187c690ce52a5",
+          "equivalent": false,
+          "subject": "test(netshop): cover unsorted plot intent through actual signed SDK",
+          "files": [
+            "docs/netshop-refactor/reviews/temporal-independent-20261001.md",
+            "tests/netshop-temporal-independent-live-sdk-probe.ts"
+          ]
+        },
+        {
+          "sha": "85368ad70b527940ce87c7cd864049bb73997099",
+          "equivalent": false,
+          "subject": "test(netshop): independently verify the bounded signed temporal transport",
+          "files": [
+            "backend/netshop/tests/test_temporal_independent_review.py",
+            "backend/netshop/tests/test_temporal_independent_transport.py",
+            "tools/netshop-temporal-independent-postgres-check.py"
+          ]
+        },
+        {
+          "sha": "bd29fa238dc951ce2b9ae2e64b071a6d2685577a",
+          "equivalent": false,
+          "subject": "test(netshop): compare inherited diagnostics across TypeScript exit states",
+          "files": [
+            "tools/netshop-temporal-independent-node-check.py"
+          ]
+        },
+        {
+          "sha": "7ca23b7c5f88ca1fc3a01949cfae7cb90cb8fd45",
+          "equivalent": false,
+          "subject": "test(sales): observe the bounded transport without weakening RPC assertions",
+          "files": [
+            "backend/netshop/tests/test_sales_periods_http.py"
+          ]
+        },
+        {
+          "sha": "6a113751b3e8cfb086db7071831390a04c974fed",
+          "equivalent": false,
+          "subject": "docs(netshop): qualify the fully verified owning temporal subset",
+          "files": [
+            "docs/netshop-refactor/reviews/temporal-independent-20261001.md"
+          ]
+        },
+        {
+          "sha": "bdb92ba9d3a4b21a7a05969f8976218270d2853d",
+          "equivalent": false,
+          "subject": "test(netshop): probe connect-stage budget seams without network",
+          "files": [
+            "tools/netshop-temporal-connect-seam-probe.py"
+          ]
+        },
+        {
+          "sha": "16c93f9f74ba46a06bef06705031834931386faf",
+          "equivalent": false,
+          "subject": "test(netshop): honor per-stage socket limits in connect probes",
+          "files": [
+            "tools/netshop-temporal-connect-seam-probe.py"
+          ]
+        },
+        {
+          "sha": "49470c58e9265d26eef4af7c3b5658d12a9360b2",
+          "equivalent": false,
+          "subject": "docs(netshop): report mock-only connect-stage budget gap",
+          "files": [
+            "docs/netshop-refactor/reviews/connect-seam-independent-20261001.md"
+          ]
+        },
+        {
+          "sha": "286aadbcf9f23bad5cacbdf1e154c1558ce70b7d",
+          "equivalent": false,
+          "subject": "fix(netshop): retain the shared deadline through TCP and TLS stages",
+          "files": [
+            "backend/netshop/bounded_consumer_http.py"
+          ]
+        },
+        {
+          "sha": "691bbc5595bd700b2d9c625fc5ddd84c5f59c1fa",
+          "equivalent": false,
+          "subject": "test(netshop): replay the original connect seams against remaining-time repair",
+          "files": [
+            "tools/netshop-temporal-connect-seam-probe.py"
+          ]
+        },
+        {
+          "sha": "fcb3206e0f7886acdcd81ec535f27753c22eded8",
+          "equivalent": false,
+          "subject": "test(netshop): smoke signed loopback headers and body after connect repair",
+          "files": [
+            "backend/netshop/tests/test_temporal_independent_connect_smoke.py",
+            "tools/netshop-temporal-independent-postgres-check.py"
+          ]
+        },
+        {
+          "sha": "c9e3f5bdcb1b022f51f57b6b3e22e84087cdd994",
+          "equivalent": false,
+          "subject": "docs(netshop): qualify the pure connect-stage repair subset",
+          "files": [
+            "docs/netshop-refactor/reviews/connect-seam-independent-20261001.md"
+          ]
+        },
+        {
+          "sha": "afb2024651bcede56aa0773592ebe82e9b8bfae5",
+          "equivalent": false,
+          "subject": "test(netshop): independently verify whole-platform native unions and SDK",
+          "files": [
+            "backend/netshop/tests/test_temporal_independent_platform_review.py",
+            "tests/netshop-platform-independent-live-sdk-probe.ts",
+            "tools/netshop-platform-independent-postgres-check.py"
+          ]
+        },
+        {
+          "sha": "60a4284beffc752144f10d36cf72176e3b50fc0e",
+          "equivalent": false,
+          "subject": "test(netshop): avoid collecting an imported older review class",
+          "files": [
+            "backend/netshop/tests/test_temporal_independent_platform_review.py"
+          ]
+        },
+        {
+          "sha": "685775702adc0f8714b2b32b9b9bc5744f94bfc5",
+          "equivalent": false,
+          "subject": "test(netshop): independently reject platform protocol mutations and preserve checks",
+          "files": [
+            "tests/netshop-platform-independent-contract.test.ts",
+            "tools/netshop-platform-independent-node-check.py"
+          ]
+        },
+        {
+          "sha": "6085f37b9dc00b7fca39f4c180a34f79d2a35b38",
+          "equivalent": false,
+          "subject": "test(netshop): trace platform reads under one original SQL allowance",
+          "files": [
+            "backend/netshop/tests/test_temporal_independent_platform_review.py"
+          ]
+        },
+        {
+          "sha": "55f86796c03b811e8f9dd44bfae275f2e39b1461",
+          "equivalent": false,
+          "subject": "test(netshop): observe actual cursor timeout setters inside the budget wrapper",
+          "files": [
+            "backend/netshop/tests/test_temporal_independent_platform_review.py"
+          ]
+        },
+        {
+          "sha": "286f4e9c6634f5912692dd6bd791ac809e1cbbbf",
+          "equivalent": false,
+          "subject": "docs(netshop): qualify the strict complete platform-series public subset",
+          "files": [
+            "docs/netshop-refactor/reviews/platform-series-independent-20261001.md"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/netshop-wave2-review",
+      "tip": "76cf9484fbea1712ca3b8a76d66944d7342337e2",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 1,
+      "mergeTree": "6613ddd824f66f92304e8d5652ccdff05cdfd28f",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "83c5c60b574e9919bdd8d8279176291e4313b936",
+          "equivalent": false,
+          "subject": "feat(netshop): wire the comparison candidate through the shared Home",
+          "files": [
+            "app/netshop/shared/module-slots.ts",
+            "backend/netshop/urls.py",
+            "backend/netshop/views.py",
+            "lib/django/netshop-service.ts"
+          ]
+        },
+        {
+          "sha": "5aec94510969975f8e014381dbd844a781474b06",
+          "equivalent": false,
+          "subject": "feat(netshop): wire panorama and preserve the original ERP analysis view",
+          "files": [
+            "app/netshop/shared/module-slots.ts",
+            "app/shell/shop-context.ts",
+            "app/shop-module-view.tsx",
+            "backend/netshop/urls.py",
+            "backend/netshop/views.py",
+            "lib/django/netshop-service.ts"
+          ]
+        },
+        {
+          "sha": "f88cd26bebbba887c915f8c464440bfd3f2e2ce2",
+          "equivalent": false,
+          "subject": "test(netshop): mount panorama and comparison in the real shared Home",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/bootstrap.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-fixtures.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/A-owning-view.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/P-owning-view.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/metadata.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/response-owning-jd.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/series-owning-view.json",
+            "tools/verify-netshop-integrated-shell-ui.mjs"
+          ]
+        },
+        {
+          "sha": "c2f7849766abaa6fec98d096e5668b96319c5b29",
+          "equivalent": true,
+          "subject": "fix(netshop): expose the shared return action from every column list",
+          "files": [
+            "app/shell/shop-comparison-prefs.ts",
+            "app/shop-module-view.tsx"
+          ]
+        },
+        {
+          "sha": "b264af68b041c7a1754d26aa694f6ad30bd57e70",
+          "equivalent": false,
+          "subject": "test(netshop): preserve the captured Home fixture bytes across checkouts",
+          "files": [
+            ".gitattributes"
+          ]
+        },
+        {
+          "sha": "41249f2da65d4b77cd0adabf25d8cecd15294cf5",
+          "equivalent": false,
+          "subject": "fix(git): retain the existing batch file newline policy",
+          "files": [
+            ".gitattributes"
+          ]
+        },
+        {
+          "sha": "3a01a4dc57b8ff7c153ff15b68ad535e3d76eb46",
+          "equivalent": false,
+          "subject": "test(netshop): record the original captured JSON bytes without newline conversion",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/metadata.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-source/response-owning-jd.json"
+          ]
+        },
+        {
+          "sha": "db69097a0108a3923fb3436fcdcca87b670eb317",
+          "equivalent": true,
+          "subject": "feat(finance): register the owned netshop month and annual read",
+          "files": [
+            "backend/finance/consumers.py",
+            "backend/finance/views.py"
+          ]
+        },
+        {
+          "sha": "ff4068713d2f9bcd8ae5f399ebce9d929ace1ac8",
+          "equivalent": false,
+          "subject": "test(netshop): verify visible panorama return and record wave three state",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs",
+            "tools/verify-netshop-integrated-shell-ui.mjs"
+          ]
+        },
+        {
+          "sha": "0298ad10743df5d327326589b4e0740be8e47cdc",
+          "equivalent": false,
+          "subject": "test(netshop): carry original ERP and workflow receipts through Home",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/bootstrap.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-fixtures.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs",
+            "tools/verify-netshop-integrated-shell-ui.mjs"
+          ]
+        },
+        {
+          "sha": "75d4cbc1da5cbb8704bc5a7a15b5c49be475de25",
+          "equivalent": true,
+          "subject": "fix(netshop): retain column scope in AI page context",
+          "files": [
+            "app/netshop/shared/page-context.ts",
+            "app/shop-module-view.tsx",
+            "backend/ai_assistant/page_context.py",
+            "lib/ai/page-context.ts",
+            "tests/netshop-column-page-context.test.ts"
+          ]
+        },
+        {
+          "sha": "d80feff9192f458d664261fed1fa28d16bf24de3",
+          "equivalent": true,
+          "subject": "fix(ai): label preserved comparison page selections",
+          "files": [
+            "lib/ai/page-context.ts"
+          ]
+        },
+        {
+          "sha": "dfff20e93a8e98626188b9c575b496c1c5953eb7",
+          "equivalent": false,
+          "subject": "test(ai): verify the actual panorama draft context",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs"
+          ]
+        },
+        {
+          "sha": "5e8510c1a224bc897948c68581f196ce278a35c7",
+          "equivalent": true,
+          "subject": "feat(sales): wire the owning temporal series through the signed SDK",
+          "files": [
+            "lib/django/sales-consumer-reader.ts",
+            "tests/netshop-sales-periods-sdk-wiring.test.ts"
+          ]
+        },
+        {
+          "sha": "ee1b2e5e92c149c964368ed07a78369d1f9f656e",
+          "equivalent": false,
+          "subject": "docs(netshop): record actual source handoffs and independent blockers",
+          "files": [
+            "docs/netshop-refactor/execution/20261001-wave3-state.md"
+          ]
+        },
+        {
+          "sha": "76cf9484fbea1712ca3b8a76d66944d7342337e2",
+          "equivalent": false,
+          "subject": "test(netshop): exercise native comparison captures in the actual Home",
+          "files": [
+            "tests/fixtures/netshop-integrated-shell-ui/bootstrap.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/.gitattributes",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-a.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-erp-zero.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-erp.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-jd-shops.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-label-default.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-label.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-mixed.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-platform.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning-two-chart.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/actual-owning.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/index.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-C-source/metadata.json",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-fixtures.mjs",
+            "tests/fixtures/netshop-integrated-shell-ui/m5m6-scenarios.mjs",
+            "tools/verify-netshop-integrated-shell-ui.mjs"
+          ]
+        }
+      ]
+    },
+    {
+      "branch": "codex/product-overview-worker-candidate",
+      "tip": "b767499473f36eaceff080e7d04e37be8dfc4f64",
+      "main": "5274858b63c75b1b73dc2cf383636d6e9ef924fc",
+      "mergeExit": 1,
+      "mergeTree": "dbb1d783b58c8e409dc88fb49a6244b79106fa5b",
+      "mergeChanges": [],
+      "commits": [
+        {
+          "sha": "a7804b9c9af66473db8466fe147514913f2a8816",
+          "equivalent": true,
+          "subject": "fix(jackyun): add evidence-bound partial import recovery for 5478",
+          "files": [
+            "README.md",
+            "docs/JACKYUN_5478_IMPORT_RECOVERY.md",
+            "lib/jackyun/partial-import-recovery.ts",
+            "tests/jackyun-partial-import-recovery.test.ts",
+            "tools/jackyun-download-runner.ts",
+            "tools/jackyun-export-first-pipeline.ts",
+            "tools/jackyun-partial-import-recovery.ts"
+          ]
+        },
+        {
+          "sha": "7ced503b5745bf275d2039f1c35d803f520fbca2",
+          "equivalent": true,
+          "subject": "fix(jackyun): accept published plan-anchor sequence in API resume",
+          "files": [
+            "docs/JACKYUN_SESSION_API_EXPORT.md",
+            "lib/jackyun/api-execution-resume.ts",
+            "tests/jackyun-api-execution-resume.test.ts"
+          ]
+        },
+        {
+          "sha": "e4c3dae7936852fda723ccf049e1f18df6f9c39d",
+          "equivalent": false,
+          "subject": "perf(products): prepare reviewed overview subset on running worker source",
+          "files": [
+            "app/api/products/summary/route.ts",
+            "app/globals.css",
+            "app/product-module-view.tsx",
+            "lib/products/read-contract.ts",
+            "lib/products/summary.ts"
+          ]
+        },
+        {
+          "sha": "b767499473f36eaceff080e7d04e37be8dfc4f64",
+          "equivalent": false,
+          "subject": "fix(products): include independently reviewed region recovery",
+          "files": [
+            "app/product-module-view.tsx"
+          ]
+        }
+      ]
+    }
+  ],
+  "deletedMergedBranches": [
+    {
+      "branch": "codex/bi-cockpit-demos",
+      "localSha": "e358e4ec8a6307abe0030bfdc0d8ff039974a899",
+      "remoteSha": "e358e4ec8a6307abe0030bfdc0d8ff039974a899"
+    },
+    {
+      "branch": "codex/inventory-performance",
+      "localSha": "abebcee4114c69aee4ceb4afe7b54dff93401901",
+      "remoteSha": "abebcee4114c69aee4ceb4afe7b54dff93401901"
+    },
+    {
+      "branch": "codex/market-performance-complete",
+      "localSha": "de4d2c34fc92c5b71090ba7e014324aef09455f1",
+      "remoteSha": "de4d2c34fc92c5b71090ba7e014324aef09455f1"
+    },
+    {
+      "branch": "codex/netshop-comparison-query",
+      "localSha": "669ecfa3ed07af4d94301bc31db452aafd694779",
+      "remoteSha": null
+    },
+    {
+      "branch": "codex/netshop-context-sql",
+      "localSha": "bd96029bfb45207cc82599e2098daaebf8aa8513",
+      "remoteSha": "21d79ab19e3aef37e0b67df5755c779178859a90"
+    },
+    {
+      "branch": "codex/netshop-overview-01",
+      "localSha": "0f4b33719b27e06e51a94f87e2486b0d3660ed5c",
+      "remoteSha": "0f4b33719b27e06e51a94f87e2486b0d3660ed5c"
+    },
+    {
+      "branch": "codex/netshop-panorama",
+      "localSha": "3f7d30c1fee8fb4cc38cc43408697c10e239a62e",
+      "remoteSha": "3f7d30c1fee8fb4cc38cc43408697c10e239a62e"
+    },
+    {
+      "branch": "codex/netshop-panorama-core",
+      "localSha": "4acc439e1f407884f759b875218a89e6ddf4ec94",
+      "remoteSha": "72cc4138bc81b19a4c461ccc8f03ab66a9061376"
+    },
+    {
+      "branch": "codex/netshop-panorama-tests",
+      "localSha": "00dad2ddd7d1a66885dcda7d69e0311ec1f1ecd0",
+      "remoteSha": null
+    },
+    {
+      "branch": "codex/netshop-panorama-ui",
+      "localSha": "156589c8ee3b9b05f2f7d7058072c26419e6f7fe",
+      "remoteSha": null
+    },
+    {
+      "branch": "codex/netshop-platform-series-integration",
+      "localSha": "56e236e4c765fc7370fe88645b56eb81bd2352bd",
+      "remoteSha": null
+    },
+    {
+      "branch": "codex/product-overview-speed",
+      "localSha": "bab42d8ce836b4ee9acd82e80de085ff71f9f494",
+      "remoteSha": "e93383019a7b2bae39205dc0d9dbc46afc39f24b"
+    },
+    {
+      "branch": "codex/products-performance-complete",
+      "localSha": "4f613b2d58b045320c57a1a9e9ac170038a8b36b",
+      "remoteSha": "4f613b2d58b045320c57a1a9e9ac170038a8b36b"
+    },
+    {
+      "branch": "codex/shared-filter-interaction",
+      "localSha": "cf177ad49292a4fa5672736863b81cfc6f3b9121",
+      "remoteSha": "cf177ad49292a4fa5672736863b81cfc6f3b9121"
+    },
+    {
+      "branch": "codex/shared-filter-main-integration-20261007",
+      "localSha": "cf0233f62455d6b6b63330cf0ad04b684b924f4c",
+      "remoteSha": null
+    },
+    {
+      "branch": "codex/shared-filter-production-20261007",
+      "localSha": "b3f3ad4fc5858fca5a9f1e7cad6afef858e10622",
+      "remoteSha": "b3f3ad4fc5858fca5a9f1e7cad6afef858e10622"
+    },
+    {
+      "branch": "codex/netshop-production-record",
+      "localSha": "dfce9db2e319d35ce8fe1346d8547d13b968d734",
+      "remoteSha": null
+    },
+    {
+      "branch": "codex/netshop-m7-legacy-unit-baseline",
+      "localSha": "97811be24f8ae7de9414c4e31c76901a159ab710",
+      "remoteSha": null
+    }
+  ]
+}
