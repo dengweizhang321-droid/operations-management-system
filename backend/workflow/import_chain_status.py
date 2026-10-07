@@ -60,6 +60,7 @@ def _complete_manual_run(row, evidence, contract):
         if not started or not stopped or stopped < started:
             return False
         prior_index, prior_time = -1, started.timestamp() * 1000
+        optional_presence, repeated = [], {}
         for expected in contract:
             aliases = expected.get("aliases", [])
             if not isinstance(aliases, list) or len(aliases) > 1:
@@ -69,11 +70,20 @@ def _complete_manual_run(row, evidence, contract):
                     or len(set(names)) != len(names)):
                 return False
             nodes = [n for n in definition["nodes"] if n["name"] in names]
+            if expected.get("optional") is True:
+                optional_presence.append(bool(nodes))
+                if not nodes:
+                    if any(name in run for name in names):
+                        return False
+                    continue
             if (len(nodes) != 1 or nodes[0]["type"] != expected["type"] or nodes[0].get("disabled")
                     or nodes[0].get("continueOnFail") or nodes[0].get("onError", "stopWorkflow") != "stopWorkflow"):
                 return False
             attempts = ref(run[nodes[0]["name"]])
             if not isinstance(attempts, list) or not attempts:
+                return False
+            maximum = expected.get("maximumAttempts", 10000)
+            if type(maximum) is not int or not 1 <= maximum <= 10000 or len(attempts) > maximum:
                 return False
             # Every recorded attempt must be real and successful. Use the final
             # attempt for ordering; loops in other coordination nodes are allowed.
@@ -81,6 +91,9 @@ def _complete_manual_run(row, evidence, contract):
                 attempt = obj(attempt)
                 if ref(attempt.get("executionStatus")) != "success" or attempt.get("error"):
                     return False
+            group = expected.get("repeatGroup")
+            if group:
+                repeated.setdefault(group, []).append((attempts, prior_index, prior_time))
             last = obj(attempts[-1])
             index, stamp, duration = last["executionIndex"], last["startTime"], last["executionTime"]
             if (type(index) is not int or type(stamp) not in (int, float) or type(duration) not in (int, float)
@@ -89,6 +102,24 @@ def _complete_manual_run(row, evidence, contract):
                     or duration < 0 or stamp + duration > stopped.timestamp() * 1000):
                 return False
             prior_index, prior_time = index, stamp
+        if optional_presence and any(optional_presence) != all(optional_presence):
+            return False
+        if optional_presence and all(optional_presence):
+            for group in repeated.values():
+                count = len(group[0][0])
+                if len(group) != 4 or any(len(attempts) != count for attempts, _, _ in group):
+                    return False
+                index, stamp = group[0][1:]
+                for cycle in range(count):
+                    for attempts, _, _ in group:
+                        attempt = obj(attempts[cycle])
+                        next_index, next_stamp, duration = (attempt["executionIndex"], attempt["startTime"], attempt["executionTime"])
+                        if (type(next_index) is not int or type(next_stamp) not in (int, float)
+                                or type(duration) not in (int, float) or not math.isfinite(next_stamp)
+                                or not math.isfinite(duration) or next_index <= index or next_stamp < stamp
+                                or duration < 0 or next_stamp + duration > stopped.timestamp() * 1000):
+                            return False
+                        index, stamp = next_index, next_stamp + duration
         return True
     except (ValueError, TypeError, KeyError, IndexError, OverflowError, RecursionError):
         return False

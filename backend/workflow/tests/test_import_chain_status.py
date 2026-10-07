@@ -68,6 +68,57 @@ class ImportChainStatusTests(SimpleTestCase):
     def read(self):
         return read_today_status(now=self.now)
 
+    def loop_manual(self, *, cycles=7, mutate=None):
+        workflow = "TmallLiliDaily2026"
+        contract = json.loads(CATALOG.read_text(encoding="utf8"))["manualCompletion"][workflow]
+        def build(root, definition):
+            run = root["resultData"]["runData"]
+            template = next(iter(run.values()))[0]
+            start = template["startTime"]
+            run.clear()
+            group = [n for n in contract if n.get("repeatGroup")]
+            order = [*contract[:2], *[n for _ in range(cycles) for n in group], *contract[-2:]]
+            for index, node in enumerate(order):
+                run.setdefault(node["name"], []).append({**template, "startTime": start + index * 1000, "executionIndex": index})
+            if mutate:
+                mutate(root, definition)
+        return self.manual(workflow=workflow, mutate=build)
+
+    def test_complete_seven_date_loop_and_empty_preflight_are_real_manual_completions(self):
+        for cycles in (1, 7, 8):
+            with self.subTest(cycles=cycles):
+                self.loop_manual(cycles=cycles)
+                item = next(x for x in self.read()["items"] if x["workflowId"] == "TmallLiliDaily2026")
+                self.assertTrue(item["completedToday"])
+
+    def test_loop_rejects_missing_failed_or_reordered_cycles_and_repeated_master(self):
+        n = "N·复查缺口并计划下一日"
+        m = "M·MTOP 分批导出、合并校验并导入"
+        mutations = [
+            lambda r, d: r["resultData"]["runData"][n].pop(1),
+            lambda r, d: r["resultData"]["runData"][n][0].update(executionStatus="error"),
+            lambda r, d: r["resultData"]["runData"][n][0].update(executionIndex=0),
+            lambda r, d: r["resultData"]["runData"][m].append(dict(r["resultData"]["runData"][m][0])),
+            lambda r, d: d["nodes"].__setitem__(slice(None), [x for x in d["nodes"] if x["name"] != n]),
+            lambda r, d: r["resultData"]["runData"]["C·签收、导入并覆盖回查"][0].update(startTime=float("inf")),
+        ]
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                self.loop_manual(mutate=mutate)
+        self.loop_manual(cycles=9)
+        item = next(x for x in self.read()["items"] if x["workflowId"] == "TmallLiliDaily2026")
+        self.assertFalse(item["completedToday"])
+
+    def test_prior_single_date_manual_completion_remains_valid_without_loop_nodes(self):
+        optional = {"N·复查缺口并计划下一日", "全部缺失日已补齐？"}
+        def prior(root, definition):
+            definition["nodes"] = [n for n in definition["nodes"] if n["name"] not in optional]
+            for name in optional:
+                root["resultData"]["runData"].pop(name)
+        self.manual(workflow="TmallLiliDaily2026", mutate=prior)
+        item = next(x for x in self.read()["items"] if x["workflowId"] == "TmallLiliDaily2026")
+        self.assertTrue(item["completedToday"])
+
     def test_shanghai_midnight_cross_day_and_read_only_bytes(self):
         self.add(start="2026-09-09T15:00:00Z", stop="2026-09-09T16:00:00Z")
         self.add(stop="2026-09-09T15:59:59Z", workflow=self.ids[1])

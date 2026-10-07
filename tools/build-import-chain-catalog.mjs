@@ -17,7 +17,7 @@ export async function buildImportChainCatalog() {
     { key: "jd", label: "京东 · 商品数据", platform: "京东", modules: ["商品 SKU 主数据", "SKU 分天", "SPU 分天"], steps: ["固定日期与店铺", "逐店串行下载并导入", "批次与日期覆盖回查"] },
     { key: "jd_market", label: "京东商智 · 市场榜单", platform: "京东", modules: market.categories.map((c) => c.systemCategory), steps: ["计算榜单缺失日", "分块下载、校验并导入", "原目标日期覆盖回查"] },
     { key: "jd_promotion", label: "京准通 · AI 推广", platform: "京东", modules: ["推广商品日数据"], steps: ["固定店铺与日期", "生成并下载报表", "校验、导入与回查"] },
-    { key: "tmall", label: "天猫 · 商品、推广与主数据", platform: "天猫", modules: ["生意参谋商品日数据", "推广商品日数据", "店铺货品主数据"], steps: ["规划缺失日期", "商品日数据下载", "签收、导入并回查", "推广下载、导入并回查", "按周期更新主数据"] },
+    { key: "tmall", label: "天猫 · 商品、推广与主数据", platform: "天猫", modules: ["生意参谋商品日数据", "推广商品日数据", "店铺货品主数据"], steps: ["核查近7天缺口", "逐日下载缺失商品数据", "签收、导入并回查", "推广下载、导入并回查", "复查并继续下一缺失日", "每日货品更新与收尾"] },
   ];
   const rules = [];
   const add = async (chainKey, entityKeys, file, extra = {}) => {
@@ -34,7 +34,7 @@ export async function buildImportChainCatalog() {
   await add("jd_promotion", ["jd-yiyong-director"], "jd-promotion-daily");
   await add("jd_promotion", ["jd-maidehao-operator1"], "jd-promotion-cut-meat-20260813-14");
   for (const s of tmall) {
-    const file = `${s.storeKey}-seven-day-direct`;
+    const file = `${s.storeKey}-seven-day-gap-loop`;
     await add("tmall", [s.storeKey], file, { masterIntervalDays: 1 });
   }
   return { source: "repository_definitions", entities, chains, rules };
@@ -57,8 +57,20 @@ export async function buildManualCompletionContracts(catalog) {
       if (old[0] && old[0].name !== node.name) node.aliases = [old[0].name];
       return node;
     };
+    const loop = rule.chainKey === "tmall" && definition.nodes.some(n => n.name.startsWith("N·"));
+    const order = loop ? "ABCPNM" : stageOrder[rule.chainKey];
     const nodes = [unique(n => n.type === "n8n-nodes-base.manualTrigger"),
-      ...[...stageOrder[rule.chainKey]].map(stage => unique(n => n.name.startsWith(`${stage}·`) && n.type === "n8n-nodes-base.httpRequest"))];
+      ...[...order].map(stage => {
+        const node = unique(n => n.name.startsWith(`${stage}·`) && n.type === "n8n-nodes-base.httpRequest");
+        if (loop && "BCPN".includes(stage)) {
+          node.repeatGroup = "tmallDaily";
+          node.maximumAttempts = 8; // One empty preflight plus at most seven dates.
+        }
+        if (loop && stage === "N") node.optional = true; // Original single-day executions remain valid.
+        if (rule.chainKey === "tmall" && stage === "M") node.maximumAttempts = 1;
+        return node;
+      })];
+    if (loop) nodes.push({ ...unique(n => n.name === "全部缺失日已补齐？" && n.type === "n8n-nodes-base.if"), optional: true });
     return [rule.workflowId, nodes];
   })));
 }
