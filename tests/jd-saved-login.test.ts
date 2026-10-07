@@ -5,6 +5,20 @@ import type { Frame, Page } from "playwright-core";
 
 import { autoLoginJdWithWindowsDpapiCredential, inspectJdLoginPageState, jdAutomatedLoginFormWaitMs, jdSessionSurfaceDecision, waitForJdSessionSurface } from "../tools/jd-saved-login";
 
+test("客服登录识别要求精确京麦路径和完整业务控件，登录表单优先", () => {
+  const url = "https://shop.jd.com/jdm/kefu/kf-manage-lite/#/UtilsSetting/ChatLog";
+  const labels = ["聊天记录", "列表视图", "消息视图", "查询", "重置"];
+  assert.equal(jdSessionSurfaceDecision(url, labels.join(" "), false), "authenticated");
+  for (const missing of labels) {
+    assert.equal(jdSessionSurfaceDecision(url, labels.filter(label => label !== missing).join(" "), false), "pending");
+  }
+  for (const other of [url.replace("shop.jd.com", "shop.jd.com.invalid"), url.replace("ChatLog", "WaiterOverview"), url.replace("https:", "http:")]) {
+    assert.equal(jdSessionSurfaceDecision(other, labels.join(" "), false), "pending");
+  }
+  assert.equal(jdSessionSurfaceDecision(url, `${labels.join(" ")} 账号 登录`, true), "login");
+  assert.equal(jdSessionSurfaceDecision("https://passport.shop.jd.com/login", labels.join(" "), false), "login");
+});
+
 function secureLoginPage(options: { challenge?: boolean; forms?: number; controls?: number } = {}) {
   const filled = { account: "", password: "", clicked: false };
   const frames = Array.from({ length: options.forms ?? 1 }, () => {
