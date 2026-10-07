@@ -155,8 +155,11 @@
         "type": "n8n-nodes-base.httpRequest"
       },
       {
-        "name": "P·商品报表逐日下载、汇总导入并回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "name": "P·直连创建商品报表、下载、汇总导入并回查",
+        "type": "n8n-nodes-base.httpRequest",
+        "aliases": [
+          "P·商品报表逐日下载、汇总导入并回查"
+        ]
       },
       {
         "name": "M·MTOP 分批导出、合并校验并导入",
@@ -181,12 +184,18 @@
         "type": "n8n-nodes-base.httpRequest"
       },
       {
-        "name": "P·商品报表逐日下载、汇总导入并回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "name": "P·直连创建商品报表、下载、汇总导入并回查",
+        "type": "n8n-nodes-base.httpRequest",
+        "aliases": [
+          "P·商品报表逐日下载、汇总导入并回查"
+        ]
       },
       {
-        "name": "M·出售中逐页导出、合并校验并导入",
-        "type": "n8n-nodes-base.httpRequest"
+        "name": "M·MTOP 分批导出、合并校验并导入",
+        "type": "n8n-nodes-base.httpRequest",
+        "aliases": [
+          "M·出售中逐页导出、合并校验并导入"
+        ]
       }
     ],
     "TmallYiyongDaily2026": [
@@ -233,12 +242,18 @@
         "type": "n8n-nodes-base.httpRequest"
       },
       {
-        "name": "P·商品报表逐日下载、汇总导入并回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "name": "P·直连创建商品报表、下载、汇总导入并回查",
+        "type": "n8n-nodes-base.httpRequest",
+        "aliases": [
+          "P·商品报表逐日下载、汇总导入并回查"
+        ]
       },
       {
-        "name": "M·出售中逐页导出、合并校验并导入",
-        "type": "n8n-nodes-base.httpRequest"
+        "name": "M·MTOP 分批导出、合并校验并导入",
+        "type": "n8n-nodes-base.httpRequest",
+        "aliases": [
+          "M·出售中逐页导出、合并校验并导入"
+        ]
       }
     ],
     "TmallMasituDaily2026": [
@@ -259,12 +274,18 @@
         "type": "n8n-nodes-base.httpRequest"
       },
       {
-        "name": "P·商品报表逐日下载、汇总导入并回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "name": "P·直连创建商品报表、下载、汇总导入并回查",
+        "type": "n8n-nodes-base.httpRequest",
+        "aliases": [
+          "P·商品报表逐日下载、汇总导入并回查"
+        ]
       },
       {
-        "name": "M·出售中逐页导出、合并校验并导入",
-        "type": "n8n-nodes-base.httpRequest"
+        "name": "M·MTOP 分批导出、合并校验并导入",
+        "type": "n8n-nodes-base.httpRequest",
+        "aliases": [
+          "M·出售中逐页导出、合并校验并导入"
+        ]
       }
     ]
   }

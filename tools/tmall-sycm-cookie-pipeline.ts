@@ -39,7 +39,7 @@ import {
   tmallForceProductMasterHeader,
 } from "./tmall-product-master-cadence";
 import { fetchTmallPromotionCoverage, runTmallPromotionStage } from "./tmall-promotion-export";
-import { planTmallDailyGaps } from "./tmall-daily-gap-plan";
+import { planTmallDailyGaps, resolveTmallDailyPlanRange } from "./tmall-daily-gap-plan";
 import { beginTmallBackfill, advanceTmallBackfill, publicTmallBackfill, type TmallBackfillState } from "./tmall-daily-backfill";
 import { runTmallDirectPromotionStage } from "./tmall-direct-promotion-export";
 import {
@@ -559,12 +559,12 @@ async function getActualDates(baseUrl: string, store: TmallStore, startDate: str
 async function planCommand(argv: string[]) {
   const storeKey = cliValue(argv, "--store-key") ?? "tmall-yijiu";
   const store = await getTmallStore(storeKey);
-  const endDate = cliValue(argv, "--end-date") ?? shanghaiYesterday();
-  const startDate = cliValue(argv, "--start-date") ?? store.initialStartDate;
-  if (!startDate || !store.initialStartDate || startDate < store.initialStartDate
-    || !validDate(startDate) || !validDate(endDate) || startDate > endDate || endDate > shanghaiYesterday()) {
-    throw new Error("目标导入日期必须位于店铺注册起始日至昨天之间");
-  }
+  const { startDate, endDate } = resolveTmallDailyPlanRange({
+    initialStartDate: store.initialStartDate,
+    latestAllowedDate: shanghaiYesterday(),
+    startDate: cliValue(argv, "--start-date"),
+    endDate: cliValue(argv, "--end-date"),
+  });
   const requestedMaximum = Number(cliValue(argv, "--max-days") ?? maximumDaysPerRun);
   if (!Number.isInteger(requestedMaximum) || requestedMaximum < 1 || requestedMaximum > maximumDaysPerRun) {
     throw new Error(`--max-days 必须是 1..${maximumDaysPerRun} 的整数`);
@@ -1174,7 +1174,7 @@ export async function runTmallProductMasterTerminalStage(input: {
   const cadenceDecision = await getDecision({ store: input.store, forced: input.forced });
   let result: Record<string, unknown>;
   if (cadenceDecision.due) {
-    const productMasterResult = input.mode === "direct_mtop"
+    const productMasterResult = input.mode === "direct_mtop" || input.store.productMasterExportMode === "direct_mtop"
       ? await runDirect({ storeKey: input.store.storeKey })
       : input.store.productMasterExportMode === "on_sale_pagewise_excel"
         ? await runPagewise({ storeKey: input.store.storeKey })

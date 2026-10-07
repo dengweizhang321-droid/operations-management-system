@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { applyTmallDirectDailyPolicy } from "../lib/netshop/tmall-direct-daily-policy";
 import type { TmallStore } from "../lib/netshop/tmall-store-registry";
 import { buildTmallN8nWorkflow, buildTmallYiyongDirectPmCandidateWorkflow, tmallN8nWorkflowDefinitions } from "../tools/generate-tmall-n8n-workflows";
 import { assertNoLegacyMasterAction } from "../tools/tmall-direct-product-master-export";
@@ -21,9 +22,10 @@ test("亿用直连有独立协议，两条路由拒绝错店、错协议、空�
     assert.deepEqual(tmallDirectPmProtocolError({ route, storeKey: "tmall-yijiu", protocol: TMALL_YIYONG_DIRECT_PM_PROTOCOL }), { error: "missing_or_invalid_tmall_direct_pm_protocol" });
     for (const storeKey of [null, "tmall-lili", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu", "constructor", "__proto__"]) {
       assert.deepEqual(tmallDirectPmProtocolError({ route, storeKey, protocol: TMALL_YIYONG_DIRECT_PM_PROTOCOL }), {
-        error: storeKey === "tmall-lili" && route === "/product-master-direct-v1" ? "missing_or_invalid_tmall_direct_pm_protocol" : "tmall_direct_pm_store_not_allowed",
+        error: storeKey?.startsWith("tmall-") ? "missing_or_invalid_tmall_direct_pm_protocol" : "tmall_direct_pm_store_not_allowed",
       });
-      assert.throws(() => assertTmallDirectPmStore(storeKey ?? ""), /只允许/);
+      if (storeKey?.startsWith("tmall-")) assert.doesNotThrow(() => assertTmallDirectPmStore(storeKey));
+      else assert.throws(() => assertTmallDirectPmStore(storeKey ?? ""), /只允许/);
     }
   }
 });
@@ -63,9 +65,10 @@ test("亿用每日节奏迁移保留最后成功事实，重复迁移拒绝，�
   const root = await mkdtemp(path.join(tmpdir(), "tmall-yiyong-cadence-"));
   try {
     const registry = JSON.parse(await readFile(new URL("../config/tmall-store-accounts.json", import.meta.url), "utf8")) as { stores: TmallStore[] };
+    registry.stores = applyTmallDirectDailyPolicy(registry.stores);
     const store = registry.stores.find((item) => item.storeKey === "tmall-yiyong")!;
     assert.equal(store.productMasterCadence?.intervalDays, 1);
-    for (const item of registry.stores.filter((item) => item.enabled && !["tmall-yijiu", "tmall-yiyong", "tmall-lili"].includes(item.storeKey))) assert.equal(item.productMasterCadence?.intervalDays, 3);
+    for (const item of registry.stores.filter((item) => item.enabled)) assert.equal(item.productMasterCadence?.intervalDays, 1);
     const file = path.join(root, "tmall-yiyong.json");
     const old = { version: 1, storeKey: store.storeKey, intervalDays: 3, lastSuccessDate: "2026-08-26", lastSnapshotDate: "2026-08-26", nextDueDate: "2026-08-29", updatedAt: "2026-08-26T06:00:00Z" };
     await writeFile(file, JSON.stringify(old));
@@ -111,6 +114,7 @@ test("亿用旧管家已确认任务必须拦截直连，不能因换策略或�
 
 test("亿用直连 M 失败不推进节奏，不得退回管家/UI 导出；未到期只收尾", async () => {
   const registry = JSON.parse(await readFile(new URL("../config/tmall-store-accounts.json", import.meta.url), "utf8")) as { stores: TmallStore[] };
+  registry.stores = applyTmallDirectDailyPolicy(registry.stores);
   const store = registry.stores.find((item) => item.storeKey === "tmall-yiyong")!;
   let writes = 0;
   let closes = 0;

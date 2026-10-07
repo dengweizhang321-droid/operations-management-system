@@ -254,7 +254,7 @@ test("亿玖现行协议保持兼容，丽力不能使用亿玖协议", () => {
       route,
       storeKey: "tmall-lili",
       protocol: TMALL_YIJIU_DIRECT_PM_PROTOCOL,
-    }), { error: route === tmallDirectProductMasterRoute ? "missing_or_invalid_tmall_direct_pm_protocol" : "tmall_direct_pm_store_not_allowed" });
+    }), { error: "missing_or_invalid_tmall_direct_pm_protocol" });
   }
   assert.equal(tmallDirectPmProtocolError({ route: "/promotion", storeKey: "tmall-lili", protocol: undefined }), null);
 });
