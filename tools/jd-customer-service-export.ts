@@ -3,6 +3,7 @@ import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { Page } from "playwright-core";
 import { jdCustomerServiceWorkflow as contract, assertCustomerServicePeriod, JdCustomerServiceWorkflowError, type CustomerServicePeriod } from "../lib/jd/customer-service-workflow";
+import { inspectJdLoginPageState } from "./jd-saved-login";
 
 export type CustomerServiceExportCheckpoint = {
   view: "list" | "messages";
@@ -12,6 +13,35 @@ export type CustomerServiceExportCheckpoint = {
   savedPath?: string; sha256?: string; sizeBytes?: number;
 };
 function reject(code: string): never { throw new JdCustomerServiceWorkflowError(code); }
+export async function assertCustomerServiceShop(page: Page, allowInitialReload = false) {
+  if (page.url() !== contract.entryUrl) reject("CHAT_PAGE_MISMATCH");
+  const header = page.locator(".shop-menu-accountV1__right-account-top-name").filter({ visible: true });
+  let reloaded = false;
+  try { await header.waitFor({ state: "visible", timeout: 15_000 }); }
+  catch {
+    // A missing account widget was observed on an otherwise loaded ChatLog.
+    // Only the initial, pre-export navigation may reload once. A wrong visible
+    // account, login challenge or any later export stage must fail closed.
+    if (!allowInitialReload || await header.count() !== 0 || page.url() !== contract.entryUrl)
+      reject("PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION");
+    const state = await inspectJdLoginPageState(page);
+    if (state.challengePresent || state.credentialRejected || state.temporarilyLocked)
+      reject("LOGIN_GATE_MANUAL_ACTION");
+    for (const name of ["列表视图", "消息视图"]) {
+      if (await page.getByRole("tab", { name, exact: true }).count() !== 1)
+        reject("CHAT_PAGE_NOT_READY_MANUAL_ACTION");
+    }
+    await page.reload({ waitUntil: "domcontentloaded" });
+    reloaded = true;
+    try { await header.waitFor({ state: "visible", timeout: 30_000 }); }
+    catch { reject("PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION"); }
+  }
+  if (page.url() !== contract.entryUrl || await header.count() !== 1
+    || await header.getAttribute("title") !== contract.shopName
+    || (await header.innerText()).trim() !== contract.shopName)
+    reject("PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION");
+  return { reloaded };
+}
 export function customerServiceExportCount(text: string) {
   const match = /^导出数据共计([1-9]\d*)条，是否确认导出？$/.exec(text.trim());
   if (!match || !Number.isSafeInteger(Number(match[1])) || Number(match[1]) > 100_000) reject("EXPORT_COUNT_INVALID");
@@ -19,10 +49,11 @@ export function customerServiceExportCount(text: string) {
 }
 export function customerServiceDownloadKind(href: string, view: "list" | "messages") {
   let url: URL;
-  try { url = new URL(href); } catch { return reject("DOWNLOAD_LINK_INVALID"); }
+  try { url = new URL(href, contract.entryUrl); } catch { return reject("DOWNLOAD_LINK_INVALID"); }
   const extension = view === "list" ? ".xlsx" : ".log";
+  const prefix = view === "list" ? "/im-data-web.common/" : "/im-data-web.chatlog/";
   if (url.protocol !== "https:" || url.hostname !== "storage.jd.com" || url.port
-    || url.username || url.password || !url.pathname.startsWith("/im-data-web.common/")
+    || url.username || url.password || !url.pathname.startsWith(prefix)
     || !url.pathname.toLowerCase().endsWith(extension)) reject("DOWNLOAD_LINK_INVALID");
   return extension;
 }
@@ -61,7 +92,7 @@ export async function exportCustomerServiceView(input: {
   if (await page.getByRole("checkbox", { checked: true }).count()) reject("FILTER_NOT_EMPTY");
   await assertStore();
   await mkdir(input.downloadDirectory, { recursive: true });
-  const downloadLink = page.getByRole("link", { name: "下载", exact: true });
+  const downloadLink = page.locator("button.export-excel").getByRole("link", { name: "下载", exact: true });
   // The UI retains an older completed export after changing dates. Clicking
   // its link resets the button to Export. Keep that file as unbound evidence,
   // never use it as this run's paired input.

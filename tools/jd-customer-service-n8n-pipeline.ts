@@ -10,7 +10,7 @@ import { launchDedicatedChrome, closeChromeBrowser } from "../lib/jackyun/cdp-cl
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
 import { jdBrowserLaunchMode } from "../lib/jd/browser-mode";
 import { ensureJdStoreAuthenticatedSession } from "./jd-saved-login";
-import { exportCustomerServiceView, type CustomerServiceExportCheckpoint } from "./jd-customer-service-export";
+import { assertCustomerServiceShop, exportCustomerServiceView, type CustomerServiceExportCheckpoint } from "./jd-customer-service-export";
 import { buildCustomerServiceDailyFiles } from "./jd-customer-service-daily-files";
 import { importCustomerServiceDay, verifyCustomerServiceBatch, type CustomerServiceBatchProof } from "./jd-customer-service-import";
 
@@ -80,14 +80,12 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
         const contexts = browser.contexts();
         if (contexts.length !== 1) reject("BROWSER_CONTEXT_AMBIGUOUS_MANUAL_ACTION");
         const page = await contexts[0].newPage();
+        await page.setViewportSize({ width: 1920, height: 1080 });
         await page.goto(contract.entryUrl, { waitUntil: "domcontentloaded" });
         await ensureJdStoreAuthenticatedSession(page, store);
         if (page.url() !== contract.entryUrl) await page.goto(contract.entryUrl, { waitUntil: "domcontentloaded" });
-        const assertStore = async () => {
-          const identity = page.getByText(store.shopName, { exact: true }).filter({ visible: true });
-          await identity.waitFor({ state: "visible", timeout: 15_000 });
-          if (await identity.count() !== 1 || page.url() !== contract.entryUrl) reject("PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION");
-        };
+        await assertCustomerServiceShop(page, true);
+        const assertStore = async () => { await assertCustomerServiceShop(page); };
         for (const view of ["list", "messages"] as const) {
           await exportCustomerServiceView({ page, period: plan.period, view, downloadDirectory, assertStore,
             checkpoint: async checkpoint => { plan.source[view] = { ...checkpoint, observedAt: new Date().toISOString() }; await save(); } });
