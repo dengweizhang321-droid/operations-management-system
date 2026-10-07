@@ -139,7 +139,7 @@ test("新增五店完成首次登录后启用且继续使用独立 Chromium 根�
   assert.equal(selected.every((item) => item.loginMode === "windows_dpapi_credentials"), true);
   assert.equal(selected.every((item) => item.initialStartDate === "2026-08-01"), true);
   for (const item of selected) {
-    assert.equal(item.productMasterCadence?.intervalDays, ["tmall-yiyong", "tmall-lili"].includes(item.storeKey) ? 1 : 3);
+    assert.equal(item.productMasterCadence?.intervalDays, 1);
   }
   assert.deepEqual(
     ["tmall-yijiu", "tmall-lili", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu", "tmall-yiyong"]
@@ -157,10 +157,10 @@ test("新增五店完成首次登录后启用且继续使用独立 Chromium 根�
     ["tmall-yijiu", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu"].map(
       (storeKey) => resolveRegisteredTmallStore(stores, storeKey).productMasterExportMode,
     ),
-    ["on_sale_pagewise_excel", "on_sale_pagewise_excel", "on_sale_pagewise_excel", "on_sale_pagewise_excel"],
+    ["direct_mtop", "direct_mtop", "direct_mtop", "direct_mtop"],
   );
-  assert.equal(resolveRegisteredTmallStore(stores, "tmall-lili").productMasterExportMode, undefined);
-  assert.equal(resolveRegisteredTmallStore(stores, "tmall-yiyong").productMasterExportMode, undefined);
+  assert.equal(resolveRegisteredTmallStore(stores, "tmall-lili").productMasterExportMode, "direct_mtop");
+  assert.equal(resolveRegisteredTmallStore(stores, "tmall-yiyong").productMasterExportMode, "direct_mtop");
   assert.equal(selected.every((item) => item.browser.profileName === "Default"), true);
   assert.equal(new Set(selected.map((item) => item.browser.userDataDir?.toLowerCase())).size, selected.length);
   assert.equal(new Set(selected.map((item) => item.browser.debugPort)).size, selected.length);

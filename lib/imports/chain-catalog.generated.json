@@ -222,7 +222,7 @@
       "schedules": [
         "0 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-yijiu-direct-pm-candidate.workflow.json",
+      "definitionFile": "automation/n8n/tmall-yijiu-seven-day-direct.workflow.json",
       "masterIntervalDays": 1
     },
     {
@@ -236,7 +236,7 @@
       "schedules": [
         "10 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-lili-sycm-cookie-daily.workflow.json",
+      "definitionFile": "automation/n8n/tmall-lili-seven-day-direct.workflow.json",
       "masterIntervalDays": 1
     },
     {
@@ -250,8 +250,8 @@
       "schedules": [
         "20 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-tuofeng-sycm-cookie-daily.workflow.json",
-      "masterIntervalDays": 3
+      "definitionFile": "automation/n8n/tmall-tuofeng-seven-day-direct.workflow.json",
+      "masterIntervalDays": 1
     },
     {
       "chainKey": "tmall",
@@ -264,7 +264,7 @@
       "schedules": [
         "50 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-yiyong-direct-pm-candidate.workflow.json",
+      "definitionFile": "automation/n8n/tmall-yiyong-seven-day-direct.workflow.json",
       "masterIntervalDays": 1
     },
     {
@@ -278,8 +278,8 @@
       "schedules": [
         "30 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-cuizhiwang-sycm-cookie-daily.workflow.json",
-      "masterIntervalDays": 3
+      "definitionFile": "automation/n8n/tmall-cuizhiwang-seven-day-direct.workflow.json",
+      "masterIntervalDays": 1
     },
     {
       "chainKey": "tmall",
@@ -292,8 +292,8 @@
       "schedules": [
         "40 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-masitu-sycm-cookie-daily.workflow.json",
-      "masterIntervalDays": 3
+      "definitionFile": "automation/n8n/tmall-masitu-seven-day-direct.workflow.json",
+      "masterIntervalDays": 1
     }
   ]
 }

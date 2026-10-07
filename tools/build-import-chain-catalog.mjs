@@ -34,9 +34,8 @@ export async function buildImportChainCatalog() {
   await add("jd_promotion", ["jd-yiyong-director"], "jd-promotion-daily");
   await add("jd_promotion", ["jd-maidehao-operator1"], "jd-promotion-cut-meat-20260813-14");
   for (const s of tmall) {
-    const file = s.storeKey === "tmall-yijiu" || s.storeKey === "tmall-yiyong"
-      ? `${s.storeKey}-direct-pm-candidate` : `${s.storeKey}-sycm-cookie-daily`;
-    await add("tmall", [s.storeKey], file, { masterIntervalDays: s.productMasterCadence?.intervalDays });
+    const file = `${s.storeKey}-seven-day-direct`;
+    await add("tmall", [s.storeKey], file, { masterIntervalDays: 1 });
   }
   return { source: "repository_definitions", entities, chains, rules };
 }
@@ -46,10 +45,17 @@ export async function buildManualCompletionContracts(catalog) {
   const stageOrder = { jackyun: "ABCDE", jd: "ABC", jd_market: "ABC", jd_promotion: "ABC", tmall: "ABCPM" };
   return Object.fromEntries(await Promise.all(catalog.rules.map(async (rule) => {
     const definition = await read(rule.definitionFile);
+    const previous = rule.chainKey === "tmall" ? await read(`automation/n8n/${rule.entityKeys[0]}${
+      ["tmall-yijiu", "tmall-yiyong"].includes(rule.entityKeys[0]) ? "-direct-pm-candidate" : "-sycm-cookie-daily"
+    }.workflow.json`) : null;
     const unique = (predicate) => {
       const matches = definition.nodes.filter(predicate);
       if (matches.length !== 1 || matches[0].disabled || matches[0].continueOnFail) throw new Error(`Invalid completion contract: ${rule.workflowId}`);
-      return { name: matches[0].name, type: matches[0].type };
+      const node = { name: matches[0].name, type: matches[0].type };
+      const old = previous?.nodes.filter(predicate) ?? [];
+      if (previous && old.length !== 1) throw new Error(`Invalid historical completion contract: ${rule.workflowId}`);
+      if (old[0] && old[0].name !== node.name) node.aliases = [old[0].name];
+      return node;
     };
     const nodes = [unique(n => n.type === "n8n-nodes-base.manualTrigger"),
       ...[...stageOrder[rule.chainKey]].map(stage => unique(n => n.name.startsWith(`${stage}·`) && n.type === "n8n-nodes-base.httpRequest"))];

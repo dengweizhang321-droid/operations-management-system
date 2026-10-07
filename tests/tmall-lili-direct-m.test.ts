@@ -4,11 +4,11 @@ import test from "node:test";
 import { adaptLiliDirectMaster } from "../tools/generate-tmall-n8n-workflows";
 import { TMALL_LILI_DIRECT_M_PROTOCOL, assertTmallDirectMasterStore, assertTmallDirectPmStore, tmallDirectPmProtocolError } from "../tools/tmall-yijiu-direct-pm-contract";
 
-test("Lili allows only its independent M protocol, never promotion or another shop", () => {
+test("Lili retains its old M protocol while the new P/M protocol stays store-bound", () => {
   assert.doesNotThrow(() => assertTmallDirectMasterStore("tmall-lili"));
-  assert.throws(() => assertTmallDirectPmStore("tmall-lili"));
+  assert.doesNotThrow(() => assertTmallDirectPmStore("tmall-lili"));
   assert.equal(tmallDirectPmProtocolError({ route: "/product-master-direct-v1", storeKey: "tmall-lili", protocol: TMALL_LILI_DIRECT_M_PROTOCOL }), null);
-  assert.equal(tmallDirectPmProtocolError({ route: "/promotion-direct-v1", storeKey: "tmall-lili", protocol: TMALL_LILI_DIRECT_M_PROTOCOL })?.error, "tmall_direct_pm_store_not_allowed");
+  assert.equal(tmallDirectPmProtocolError({ route: "/promotion-direct-v1", storeKey: "tmall-lili", protocol: TMALL_LILI_DIRECT_M_PROTOCOL })?.error, "missing_or_invalid_tmall_direct_pm_protocol");
   for (const protocol of [undefined, "yijiu-direct-pm-v1", "yiyong-direct-pm-v1", [TMALL_LILI_DIRECT_M_PROTOCOL]]) {
     assert.equal(tmallDirectPmProtocolError({ route: "/product-master-direct-v1", storeKey: "tmall-lili", protocol })?.error, "missing_or_invalid_tmall_direct_pm_protocol");
   }

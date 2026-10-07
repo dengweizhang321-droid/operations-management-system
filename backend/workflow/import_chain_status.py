@@ -61,11 +61,18 @@ def _complete_manual_run(row, evidence, contract):
             return False
         prior_index, prior_time = -1, started.timestamp() * 1000
         for expected in contract:
-            nodes = [n for n in definition["nodes"] if n["name"] == expected["name"]]
+            aliases = expected.get("aliases", [])
+            if not isinstance(aliases, list) or len(aliases) > 1:
+                return False
+            names = [expected["name"], *aliases]
+            if (any(not isinstance(name, str) or not name or len(name) > 200 for name in names)
+                    or len(set(names)) != len(names)):
+                return False
+            nodes = [n for n in definition["nodes"] if n["name"] in names]
             if (len(nodes) != 1 or nodes[0]["type"] != expected["type"] or nodes[0].get("disabled")
                     or nodes[0].get("continueOnFail") or nodes[0].get("onError", "stopWorkflow") != "stopWorkflow"):
                 return False
-            attempts = ref(run[expected["name"]])
+            attempts = ref(run[nodes[0]["name"]])
             if not isinstance(attempts, list) or not attempts:
                 return False
             # Every recorded attempt must be real and successful. Use the final
