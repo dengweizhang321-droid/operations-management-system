@@ -35,6 +35,7 @@ const terminalFailurePatterns = [
   "source[_ -]?not[_ -]?ready|来源数据未就绪|数据源未就绪|日期.*disabled",
   "活动清单.*无法证明|manifest.*(?:mismatch|ambiguous|invalid)|owner.*conflict|owner.*冲突",
   "唯一商品数.*出售中总数|内容完整性错误|content completeness|内容校验失败|validation failed|日期覆盖.*(?:缺失|不一致)|date coverage.*(?:missing|mismatch)|空文件|零行业务|malformed workbook|批次.*(?:不匹配|回查失败)",
+  "逐页货品文件合计 \\d+ 个唯一商品，与出售中总数 \\d+ 不一致|市场榜单导入响应与签收文件、身份、日期或行数不一致",
   "需要人工|转人工|manual action|required human",
 ];
 

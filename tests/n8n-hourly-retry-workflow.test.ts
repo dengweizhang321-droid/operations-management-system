@@ -96,6 +96,8 @@ test("retry classification permits transient failures and stops unsafe or human-
     "source_not_ready: 日期 disabled",
     "browser owner conflict",
     "唯一商品数少于出售中总数，内容完整性错误需要人工确认",
+    "逐页货品文件合计 118 个唯一商品，与出售中总数 119 不一致",
+    "市场榜单导入响应与签收文件、身份、日期或行数不一致",
     "工作簿内容校验失败，日期覆盖缺失",
   ]) {
     assert.deepEqual(classifyHourlyRetryFailure(payload(message)), {
@@ -122,6 +124,22 @@ test("only an exact verified Jackyun preflight closure reaches the hourly retry"
   assert.equal(classifyHourlyRetryFailure({ ...payload, workflow: { id: hourlyRetryTargets[1]!.workflowId } }).retry, false);
   assert.equal(classifyHourlyRetryFailure({ ...payload, execution: { ...payload.execution, error: { ...payload.execution.error, message: "credential rejected" } } }).retry, false);
   assert.equal(classifyHourlyRetryFailure({ ...payload, execution: { ...payload.execution, error: { ...payload.execution.error, description: "JACKYUN_PREFLIGHT_RETRY_READY but uncertain" } } }).retry, false);
+});
+
+test("live market receipt and pagewise completeness errors stop in the emitted n8n classifier", () => {
+  const code = buildHourlyRetryErrorWorkflow().nodes.find(node => node.type === "n8n-nodes-base.code")!.parameters.jsCode;
+  const execute = new Function("$input", code);
+  for (const [workflowId, description] of [
+    ["TmallMasituDaily2026", "逐页货品文件合计 118 个唯一商品，与出售中总数 119 不一致"],
+    ["JdMarketSilentCopy2026", "市场榜单导入响应与签收文件、身份、日期或行数不一致"],
+  ]) {
+    const json = { workflow: { id: workflowId }, execution: { id: "6992", mode: "webhook",
+      error: { message: "The service was not able to process your request", description } } };
+    assert.equal(classifyHourlyRetryFailure(json).retry, false);
+    assert.deepEqual(execute({ all: () => [{ json }] }), []);
+    const transient = { ...json, execution: { ...json.execution, error: { description: "HTTP 503 service unavailable" } } };
+    assert.equal(execute({ all: () => [{ json: transient }] }).length, 1);
+  }
 });
 
 test("live 4605 login challenge and other waiting-login failures never dispatch a retry", () => {

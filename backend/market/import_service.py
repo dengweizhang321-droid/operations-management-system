@@ -683,12 +683,19 @@ def _create_image_job(batch_id: str, actor_email: str) -> MarketImageCacheJob:
     return job
 
 
-def _import_receipt(batch: MarketImportBatch, ranges: list[dict[str, str]]) -> dict[str, object]:
+def _import_receipt(
+    batch: MarketImportBatch,
+    ranges: list[dict[str, str]],
+    upload: dict[str, object],
+) -> dict[str, object]:
     return {
         "batchId": batch.id,
-        "rawFileSha256": batch.raw_file_hash,
-        "fileName": batch.file_name,
-        "fileSizeBytes": int(batch.file_size_bytes),
+        # A content duplicate reuses the published batch, but acknowledges the
+        # currently validated upload. Its workbook bytes may differ from the
+        # original batch's file; the batch's original provenance stays intact.
+        "rawFileSha256": upload["rawFileHash"],
+        "fileName": upload["fileName"],
+        "fileSizeBytes": int(upload["fileSizeBytes"]),
         "sourceType": batch.source_type,
         "rowCount": int(batch.row_count),
         "warningCount": int(batch.warning_count),
@@ -769,7 +776,7 @@ def import_market_payload(payload: object, actor_email: str) -> dict[str, object
                         "status": "duplicate",
                         "message": "全部标准化市场资料与当前范围一致，无需重复导入；图片缓存已交给后台任务",
                         "batch": batch_payload(existing),
-                        "importReceipt": _import_receipt(existing, ranges),
+                        "importReceipt": _import_receipt(existing, ranges, normalized),
                         "imageCacheJob": _image_job_payload(image_job),
                     }
             for head in heads:
@@ -928,7 +935,7 @@ def import_market_payload(payload: object, actor_email: str) -> dict[str, object
             "status": "imported",
             "message": f"成功导入 {batch.row_count} 条市场商品数据",
             "batch": batch_payload(batch),
-            "importReceipt": _import_receipt(batch, ranges),
+            "importReceipt": _import_receipt(batch, ranges, normalized),
             "imageCacheJob": _image_job_payload(image_job),
             "revision": revision,
         }
