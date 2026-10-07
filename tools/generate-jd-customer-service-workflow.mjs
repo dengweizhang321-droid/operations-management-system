@@ -1,6 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 const baseline = JSON.parse(await readFile(new URL("../automation/n8n/jd-promotion-daily.workflow.json", import.meta.url), "utf8"));
+const releaseMode = process.argv[2] === "--release";
+if (process.argv.length > 3 || (process.argv[2] && !releaseMode)) throw new Error("Only --release is supported");
 const renamed = new Map([
   ["手动补跑8月20日", "手动执行客服30天"], ["每天 10:40 执行", "每天 09:00 执行"],
   ["A·固化京准通目标日期与店铺", "A·固定客服店铺与30天范围"],
@@ -39,3 +41,11 @@ const candidate = { id: "JdCustomerService2026", name: "京东志高商用设备
   active: false, settings: { executionOrder: "v1", timezone: "Asia/Shanghai" },
   meta: { candidate: true, activationBlockers: ["dedicated_browser_end_to_end", "controlled_helper_and_parser_adoption", "failure_ai_and_owner_notification"] }, tags: [] };
 await writeFile(new URL("../automation/n8n/jd-customer-service-daily.candidate.workflow.json", import.meta.url), JSON.stringify(candidate, null, 2) + "\n");
+if (releaseMode) {
+  const release = structuredClone(candidate);
+  const note = release.nodes.find(node => node.id === "jd-cs-boundaries");
+  note.name = "客服执行与恢复规则";
+  note.parameters.content = "## 志高商用设备旗舰店客服聊天记录\n每天上海09:00，固定截至昨天的滚动30天；列表Excel和消息LOG配对，按自然日校验完整业务值、导入并精确回查。\n\n复用原京东helper和专用Profile；提交未决、验证码或店铺异常立即停止，不盲目重放。AI监控ai-2按同一逻辑任务第4次独立失败介入，需人工动作只通知本人。上线流程：受控采用helper → 完整手动验收 → 发布启用。";
+  release.meta = { releaseProcedure: "controlled_helper_then_complete_execution_then_publish", monitorAutomationId: "ai-2" };
+  await writeFile(new URL("../automation/n8n/jd-customer-service-daily.workflow.json", import.meta.url), JSON.stringify(release, null, 2) + "\n");
+}
