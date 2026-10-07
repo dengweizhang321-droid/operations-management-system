@@ -15,6 +15,7 @@ import {
   runTmallPromotionStage,
   verifyTmallPromotionCoverageAfterImport,
   waitForAlimamaIdentity,
+  installPromotionNativeDialogGuard,
   type PromotionDatePlan,
   type PromotionFileEvidence,
 } from "./tmall-promotion-export";
@@ -513,6 +514,7 @@ async function runDirectPromotionDate(options: {
       const connected = await openPromotionPage(store);
       browser = connected.browser;
       api = connected.context.request;
+      const dialogGuard = installPromotionNativeDialogGuard(connected.page);
       try {
         const identifiers = audit.taskId
           ? null
@@ -524,6 +526,7 @@ async function runDirectPromotionDate(options: {
           });
           await waitForAlimamaIdentity(connected.page, store);
         }
+        await dialogGuard.assertSafe();
         audit.stage = "session_ready";
         await persistAudit(audit, options.auditDirectory);
         if (!audit.taskId) {
@@ -536,6 +539,7 @@ async function runDirectPromotionDate(options: {
         }
         assertActive(signal);
         await apiWaitForTask(api, audit.taskId, audit.startedAt, signal);
+        await dialogGuard.assertSafe();
         audit.stage = "downloading";
         await persistAudit(audit, options.auditDirectory);
         const downloadUrl = await apiGetDownloadUrl(api, audit.taskId);
@@ -552,6 +556,7 @@ async function runDirectPromotionDate(options: {
         await persistAudit(audit, options.auditDirectory);
       } finally {
         await browser.close().catch(() => undefined);
+        await dialogGuard.dispose();
       }
     } else {
       const checked = await inspectTmallPromotionFile(file.filePath, store, plan);

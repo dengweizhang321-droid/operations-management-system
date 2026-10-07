@@ -515,7 +515,7 @@ export function isPromotionMetricSelectionState(state: PromotionMetricSelectionS
   ));
 }
 
-function installPromotionNativeDialogGuard(page: Page) {
+export function installPromotionNativeDialogGuard(page: Page, label: "推广" | "货品" = "推广") {
   const context = page.context();
   const attachedPages = new Set<Page>();
   let failure: Error | null = null;
@@ -524,12 +524,16 @@ function installPromotionNativeDialogGuard(page: Page) {
     const action = promotionNativeDialogAction({ type: dialog.type(), message: dialog.message() });
     if (action === "stop" && !failure) {
       const diagnostic = sanitizePromotionNativeDialogMessage(dialog.message());
-      failure = new Error(`推广页面出现未允许的 ${dialog.type()} 原生对话框（${diagnostic}），已停止本轮`);
+      failure = new Error(`${label}页面出现未允许的 ${dialog.type()} 原生对话框（${diagnostic}），已停止本轮`);
     }
     pending = pending.then(async () => {
-      await dialog.dismiss().catch(() => undefined);
+      await dialog.dismiss().catch(() => {
+        failure ??= new Error(`${label}页面原生对话框关闭结果未确认，已停止本轮`);
+      });
       const dialogPage = dialog.page();
       if (action === "stop" && dialogPage) await dialogPage.close({ runBeforeUnload: false }).catch(() => undefined);
+    }).catch(() => {
+      failure ??= new Error(`${label}页面原生对话框处理失败，已停止本轮`);
     });
   };
   const attach = (candidate: Page) => {
