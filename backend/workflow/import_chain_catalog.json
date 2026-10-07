@@ -122,19 +122,38 @@
       },
       {
         "name": "B·逐日下载并验证 XLS",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "C·签收、导入并覆盖回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "P·直连创建商品报表、下载、汇总导入并回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
+      },
+      {
+        "name": "N·复查缺口并计划下一日",
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8,
+        "optional": true
       },
       {
         "name": "M·MTOP 分批导出、合并校验并导入",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "maximumAttempts": 1
+      },
+      {
+        "name": "全部缺失日已补齐？",
+        "type": "n8n-nodes-base.if",
+        "optional": true
       }
     ],
     "TmallLiliDaily2026": [
@@ -148,22 +167,41 @@
       },
       {
         "name": "B·逐日下载并验证 XLS",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "C·签收、导入并覆盖回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "P·直连创建商品报表、下载、汇总导入并回查",
         "type": "n8n-nodes-base.httpRequest",
         "aliases": [
           "P·商品报表逐日下载、汇总导入并回查"
-        ]
+        ],
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
+      },
+      {
+        "name": "N·复查缺口并计划下一日",
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8,
+        "optional": true
       },
       {
         "name": "M·MTOP 分批导出、合并校验并导入",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "maximumAttempts": 1
+      },
+      {
+        "name": "全部缺失日已补齐？",
+        "type": "n8n-nodes-base.if",
+        "optional": true
       }
     ],
     "TmallTuofengDaily2026": [
@@ -177,25 +215,44 @@
       },
       {
         "name": "B·逐日下载并验证 XLS",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "C·签收、导入并覆盖回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "P·直连创建商品报表、下载、汇总导入并回查",
         "type": "n8n-nodes-base.httpRequest",
         "aliases": [
           "P·商品报表逐日下载、汇总导入并回查"
-        ]
+        ],
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
+      },
+      {
+        "name": "N·复查缺口并计划下一日",
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8,
+        "optional": true
       },
       {
         "name": "M·MTOP 分批导出、合并校验并导入",
         "type": "n8n-nodes-base.httpRequest",
         "aliases": [
           "M·出售中逐页导出、合并校验并导入"
-        ]
+        ],
+        "maximumAttempts": 1
+      },
+      {
+        "name": "全部缺失日已补齐？",
+        "type": "n8n-nodes-base.if",
+        "optional": true
       }
     ],
     "TmallYiyongDaily2026": [
@@ -209,19 +266,38 @@
       },
       {
         "name": "B·逐日下载并验证 XLS",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "C·签收、导入并覆盖回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "P·直连创建商品报表、下载、汇总导入并回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
+      },
+      {
+        "name": "N·复查缺口并计划下一日",
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8,
+        "optional": true
       },
       {
         "name": "M·MTOP 分批导出、合并校验并导入",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "maximumAttempts": 1
+      },
+      {
+        "name": "全部缺失日已补齐？",
+        "type": "n8n-nodes-base.if",
+        "optional": true
       }
     ],
     "TmallCuizhiwangDaily2026": [
@@ -235,25 +311,44 @@
       },
       {
         "name": "B·逐日下载并验证 XLS",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "C·签收、导入并覆盖回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "P·直连创建商品报表、下载、汇总导入并回查",
         "type": "n8n-nodes-base.httpRequest",
         "aliases": [
           "P·商品报表逐日下载、汇总导入并回查"
-        ]
+        ],
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
+      },
+      {
+        "name": "N·复查缺口并计划下一日",
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8,
+        "optional": true
       },
       {
         "name": "M·MTOP 分批导出、合并校验并导入",
         "type": "n8n-nodes-base.httpRequest",
         "aliases": [
           "M·出售中逐页导出、合并校验并导入"
-        ]
+        ],
+        "maximumAttempts": 1
+      },
+      {
+        "name": "全部缺失日已补齐？",
+        "type": "n8n-nodes-base.if",
+        "optional": true
       }
     ],
     "TmallMasituDaily2026": [
@@ -267,25 +362,44 @@
       },
       {
         "name": "B·逐日下载并验证 XLS",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "C·签收、导入并覆盖回查",
-        "type": "n8n-nodes-base.httpRequest"
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
       },
       {
         "name": "P·直连创建商品报表、下载、汇总导入并回查",
         "type": "n8n-nodes-base.httpRequest",
         "aliases": [
           "P·商品报表逐日下载、汇总导入并回查"
-        ]
+        ],
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8
+      },
+      {
+        "name": "N·复查缺口并计划下一日",
+        "type": "n8n-nodes-base.httpRequest",
+        "repeatGroup": "tmallDaily",
+        "maximumAttempts": 8,
+        "optional": true
       },
       {
         "name": "M·MTOP 分批导出、合并校验并导入",
         "type": "n8n-nodes-base.httpRequest",
         "aliases": [
           "M·出售中逐页导出、合并校验并导入"
-        ]
+        ],
+        "maximumAttempts": 1
+      },
+      {
+        "name": "全部缺失日已补齐？",
+        "type": "n8n-nodes-base.if",
+        "optional": true
       }
     ]
   }

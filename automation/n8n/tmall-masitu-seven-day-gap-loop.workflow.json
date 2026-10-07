@@ -1,0 +1,655 @@
+{
+  "id": "TmallMasituDaily2026",
+  "name": "天猫店铺数据导入-马思图",
+  "active": false,
+  "versionId": "5f9b08ac-f6ea-4926-9b44-36cdb0bb085f",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "6f5562ad-0edc-4dd9-b0e0-c68b3f7594b8",
+      "name": "手动完整运行（强制 M）",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -816,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst anchor = $('固定原执行计划时间').first().json;\nif ($runIndex >= 72) throw new Error('coordination_wait_expired_manual_action');\nlet response;\ntry {\n  response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/claim',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,\n    headers:{...{\"X-TERUISI-WORKFLOW-KEY\":\"tmall\",\"X-TERUISI-TMALL-STORE-KEY\":\"tmall-masitu\"},'X-TERUISI-N8N-EXECUTION-ID':String($execution.id),\n      'X-TERUISI-COORDINATION-ATTEMPT':String($runIndex),'X-TERUISI-SCHEDULED-AT':anchor.scheduledAt}});\n} catch (error) {\n  const status = Number(error.statusCode ?? error.response?.statusCode ?? error.httpCode ?? 0);\n  if (status >= 400 && status < 500) throw new Error('coordination_rejected_manual_action');\n  // This node has no business effect. Retry only this same claim/execution;\n  // never call A or replay any export/import/send on an uncertain response.\n  return [{json:{ok:true,coordinationStatus:'waiting',reason:'helper_unavailable_wait',...anchor}}];\n}\nconst status = Number(response.statusCode);\nif (status >= 400 && status < 500) throw new Error('coordination_rejected_manual_action');\nif (status >= 500) return [{json:{ok:true,coordinationStatus:'waiting',reason:'helper_unavailable_wait',...anchor}}];\nif (status !== 200) throw new Error('invalid_coordination_http_status_manual_action');\nconst result = response.body;\nif (!result || result.ok !== true || !['granted','waiting'].includes(result.coordinationStatus)) throw new Error('invalid_coordination_result_manual_action');\nreturn [{json:{...result,...anchor}}];"
+      },
+      "id": "89948ab3-2be8-4f02-85a2-8aba79578083",
+      "name": "领取共享 helper",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -624,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "89948ab3-2be8-4f02-85a2-8aba79578085",
+              "leftValue": "={{ $json.coordinationStatus }}",
+              "rightValue": "granted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "89948ab3-2be8-4f02-85a2-8aba79578084",
+      "name": "helper 领取成功？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -400,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "unit": "minutes"
+      },
+      "id": "89948ab3-2be8-4f02-85a2-8aba79578086",
+      "name": "等待前序流程释放 helper",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        208
+      ],
+      "webhookId": "ecdc9ef8-467b-45b6-912b-de6f94a19d5a"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/product-master-direct-v1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-TMALL-STORE-KEY",
+              "value": "tmall-masitu"
+            },
+            {
+              "name": "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
+              "value": "={{ $mode === 'manual' && $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}"
+            },
+            {
+              "name": "X-TERUISI-TMALL-CANDIDATE-PROTOCOL",
+              "value": "masitu-direct-pm-v1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 1800000
+        }
+      },
+      "id": "dc616bb1-dba8-47c7-aa95-aea5bc936d10",
+      "name": "M·MTOP 分批导出、合并校验并导入",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/plan-seven-day-backfill-v1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-TMALL-STORE-KEY",
+              "value": "tmall-masitu"
+            },
+            {
+              "name": "X-TERUISI-TMALL-PLAN-START-DATE",
+              "value": "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_START_DATE || '') : '' }}"
+            },
+            {
+              "name": "X-TERUISI-TMALL-PLAN-END-DATE",
+              "value": "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_END_DATE || '') : '' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "129e9444-0617-4c2a-9547-8f31b1a39dba",
+      "name": "A·计划目标日期",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -560,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/fetch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-TMALL-STORE-KEY",
+              "value": "tmall-masitu"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "a8dc198d-ea87-43c2-a61f-0b8a4e0e18b8",
+      "name": "B·逐日下载并验证 XLS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -224,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/import",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-TMALL-STORE-KEY",
+              "value": "tmall-masitu"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "7365f63a-7dd8-4d80-bb92-bb39119ab5bd",
+      "name": "C·签收、导入并覆盖回查",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        144,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/promotion-direct-v1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-TMALL-STORE-KEY",
+              "value": "tmall-masitu"
+            },
+            {
+              "name": "X-TERUISI-TMALL-CANDIDATE-PROTOCOL",
+              "value": "masitu-direct-pm-v1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 21600000
+        }
+      },
+      "id": "c6a5608d-f8ae-4d8c-b03f-c09b848fc325",
+      "name": "P·直连创建商品报表、下载、汇总导入并回查",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        512,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 店铺绑定\n本模板固定绑定 `天猫-志高马思图专卖店`（`tmall-masitu`）。工作流与店铺键不匹配时，helper 会在业务节点前失败关闭。\n定时执行仍每日完成 A→B→C→P；M 货品主数据按上海日期每日到期一次，初始到期日为 `2026-08-26`。未到期时 M 返回 `not_due`，只负责关闭本店浏览器并释放 helper；到期失败不推进下次日期，翌日完整流程继续补跑。手动完整运行明确强制执行 M。\n<!-- tmall-store-binding:end -->\n\n## 凭证边界\nCookie 内容和明文登录凭据都不写入工作流。A 先启动受控马思图店独立 Chromium：登录失效时仅由当前 Windows 用户解密该店 DPAPI 凭据，在唯一密码表单中填入并最多提交一次；验证码、短信、安全验证、凭据缺失/损坏或登录按钮歧义均失败关闭并要求人工处理。B 随后从同一会话读取适用于生意参谋的 Cookie，只在内存中使用；浏览器不可连接时才从 Git 已忽略的店铺专属 `.runtime/tmall-masitu-sycm-cookie-path.txt` 读取后备原文件路径。两种路径都用 `sn` 身份与受控店铺注册项交叉核验。",
+        "height": 190,
+        "width": 430,
+        "color": 3
+      },
+      "id": "00e063a9-4894-4345-b5ca-cc9bc4822a77",
+      "name": "凭证说明",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -816,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 马思图：近七日查缺、P/M 直连、货品每日更新\n\nA 核验登录与店铺身份，分别查询截止上海昨天的最近七个完整日期的商品日和推广日覆盖，优先选择最早缺失日；只补缺失的数据集。注册不足七天时从注册日开始。\n\n按日期从早到晚逐日补齐固定近七天的全部商品日/推广缺口；每完成一天由 N 重新回查两类覆盖，再处理下一缺失日。无缺口后 M 仅执行一次；不因旧30分钟预算留下已发现缺口。失败保留已完成事实和剩余日期，未知提交不重放。\n\nP 使用同日商品+计划、四场景的受控直连接口，按唯一 taskId 续接；M 使用 MTOP 每20个商品分批串行导出、完整校验、合并后单次导入与回查。M 每日到期，成功才推进节奏，同日已完成不重复自动导出。\n\n保留独立浏览器、execution与店铺绑定、共享协调门禁、原小时安全重试及资源收尾。旧页面任务保留原日期、任务和文件，不跨协议接管；未决提交、验证码、身份或完整性不符停止。",
+        "height": 220,
+        "width": 660,
+        "color": 4
+      },
+      "id": "b9fe2611-f616-46c3-84f8-f13ea1d10cc8",
+      "name": "流程说明",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "teruisi-hourly-retry-699bf7e42f83386073c4d5b40b5222c4a93b65ea",
+        "options": {}
+      },
+      "id": "ae876761-af86-4e80-9b8d-81c615c58e46",
+      "name": "失败后每小时安全重试入口",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -864,
+        368
+      ],
+      "webhookId": "1c9ad511-5c5b-42e4-8e7c-4ccaf8c7c1bd"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "40 11 * * *"
+            }
+          ]
+        }
+      },
+      "id": "89948ab3-2be8-4f02-85a2-8aba79578082",
+      "name": "每天 11:40 运行",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -816,
+        144
+      ]
+    },
+    {
+      "name": "固定原执行计划时间",
+      "id": "89948ab3-2be8-4f02-85a2-8aba79578083-anchor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -824,
+        -52
+      ],
+      "parameters": {
+        "jsCode": "\nconst input = $input.first().json;\n// Hourly descendants must carry the original anchor. Missing evidence stops;\n// a new execution must not silently recompute yesterday after downtime.\nif (input.body && (input.body.version !== 'teruisi-retry-context-v1' || input.body.workflowId !== \"TmallMasituDaily2026\"\n  || !/^[1-9]\\d{0,19}$/.test(input.body.failedExecutionId ?? '') || !/^[1-9]\\d{0,19}$/.test(input.body.originalExecutionId ?? '')\n  || !input.body.originalScheduledAt)) throw new Error('maintenance_retry_plan_anchor_missing_manual_action');\nconst scheduledAt = new Date(input.body?.originalScheduledAt ?? input.timestamp ?? Date.now()).toISOString();\nreturn [{json:{version:'teruisi-retry-context-v1',workflowId:\"TmallMasituDaily2026\",executionId:String($execution.id),\n  scheduledAt, originalExecutionId: String(input.body?.originalExecutionId ?? $execution.id)}}];"
+      }
+    },
+    {
+      "id": "d04c7fdd-7221-456b-b5ad-ecf18e1e89da",
+      "name": "N·复查缺口并计划下一日",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        740,
+        40
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/next-day",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-TMALL-STORE-KEY",
+              "value": "tmall-masitu"
+            },
+            {
+              "name": "X-TERUISI-TMALL-BACKFILL-CYCLE",
+              "value": "={{ $runIndex }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      }
+    },
+    {
+      "id": "67b02694-ecf1-4fa1-ba1e-6b1cbd580f74",
+      "name": "还有缺口？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cce8999b-408a-4e6e-9383-6b22a854eb87",
+              "leftValue": "={{ $json.continueBackfill }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b73a4d7c-c80d-4bd8-925a-61c2ca81c5a1",
+      "name": "全部缺失日已补齐？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1400,
+        40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5752f977-f0c9-441a-afd2-0aad8f77fad2",
+              "leftValue": "={{ $json.dailyBackfill.status === 'completed' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "cc2e7073-892d-4769-847f-f80840c70296",
+      "name": "补缺未完成·已释放店铺资源",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1620,
+        140
+      ],
+      "parameters": {
+        "errorMessage": "={{ '天猫近七日补缺尚未完成，M 和浏览器已收尾；剩余 ' + $json.dailyBackfill.remainingDates.length + ' 天：' + $json.dailyBackfill.remainingDates.join(', ') }}"
+      }
+    }
+  ],
+  "connections": {
+    "领取共享 helper": {
+      "main": [
+        [
+          {
+            "node": "helper 领取成功？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "helper 领取成功？": {
+      "main": [
+        [
+          {
+            "node": "A·计划目标日期",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "等待前序流程释放 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "等待前序流程释放 helper": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A·计划目标日期": {
+      "main": [
+        [
+          {
+            "node": "B·逐日下载并验证 XLS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B·逐日下载并验证 XLS": {
+      "main": [
+        [
+          {
+            "node": "C·签收、导入并覆盖回查",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C·签收、导入并覆盖回查": {
+      "main": [
+        [
+          {
+            "node": "P·直连创建商品报表、下载、汇总导入并回查",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P·直连创建商品报表、下载、汇总导入并回查": {
+      "main": [
+        [
+          {
+            "node": "N·复查缺口并计划下一日",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "手动完整运行（强制 M）": {
+      "main": [
+        [
+          {
+            "node": "固定原执行计划时间",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "失败后每小时安全重试入口": {
+      "main": [
+        [
+          {
+            "node": "固定原执行计划时间",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每天 11:40 运行": {
+      "main": [
+        [
+          {
+            "node": "固定原执行计划时间",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "固定原执行计划时间": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "N·复查缺口并计划下一日": {
+      "main": [
+        [
+          {
+            "node": "还有缺口？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "还有缺口？": {
+      "main": [
+        [
+          {
+            "node": "B·逐日下载并验证 XLS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "M·MTOP 分批导出、合并校验并导入",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "M·MTOP 分批导出、合并校验并导入": {
+      "main": [
+        [
+          {
+            "node": "全部缺失日已补齐？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "全部缺失日已补齐？": {
+      "main": [
+        [],
+        [
+          {
+            "node": "补缺未完成·已释放店铺资源",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai",
+    "binaryMode": "separate",
+    "errorWorkflow": "TeruisiHourlyRetry2026"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "hourlyRetryPolicy": {
+      "version": "2026-09-10.safe-hourly-retry.1",
+      "delayMinutes": 60,
+      "errorWorkflowId": "TeruisiHourlyRetry2026",
+      "webhookPath": "teruisi-hourly-retry-699bf7e42f83386073c4d5b40b5222c4a93b65ea"
+    },
+    "uniformDirectDaily": {
+      "version": 1,
+      "storeKey": "tmall-masitu",
+      "protocol": "masitu-direct-pm-v1",
+      "lookbackDays": 7,
+      "intervalDays": 1
+    },
+    "sevenDayGapLoop": {
+      "version": 1,
+      "policy": "seven-day-complete-v1",
+      "maximumDays": 7,
+      "maximumMinutes": null
+    }
+  }
+}

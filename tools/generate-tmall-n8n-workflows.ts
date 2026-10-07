@@ -296,13 +296,14 @@ export function buildTmallN8nWorkflow(
 export const tmallNextDayNode = "N·复查缺口并计划下一日";
 export const tmallContinueNode = "还有缺口且预算充足？";
 
-function addDailyBackfillLoop(workflow: WorkflowTemplate) {
-  const plan = workflow.nodes.find(node => ["http://127.0.0.1:5791/plan", "http://127.0.0.1:5791/plan-backfill"].includes(String(node.parameters?.url)));
+export function addDailyBackfillLoop(workflow: WorkflowTemplate, planRoute = "/plan-backfill") {
+  if (!["/plan-backfill", "/plan-seven-day-backfill-v1"].includes(planRoute)) throw new Error("天猫补缺规划路由无效");
+  const plan = workflow.nodes.find(node => ["http://127.0.0.1:5791/plan", "http://127.0.0.1:5791/plan-backfill", "http://127.0.0.1:5791/plan-seven-day-backfill-v1"].includes(String(node.parameters?.url)));
   const fetchNode = workflow.nodes.find(node => node.parameters?.url === "http://127.0.0.1:5791/fetch");
   const promotion = workflow.nodes.find(node => node.name.startsWith("P·"));
   const master = workflow.nodes.find(node => node.name.startsWith("M·"));
   if (!plan?.parameters || !fetchNode || !promotion || !master) throw new Error("天猫补缺循环缺少业务节点");
-  plan.parameters.url = "http://127.0.0.1:5791/plan-backfill";
+  plan.parameters.url = "http://127.0.0.1:5791" + planRoute;
   const headers = plan.parameters.headerParameters?.parameters ?? [];
   const edge = (node: string) => ({ node, type: "main", index: 0 });
   const ifNode = (name: string, expression: string, position: number[]): WorkflowNode => ({
@@ -315,22 +316,30 @@ function addDailyBackfillLoop(workflow: WorkflowTemplate) {
   });
   const complete = "全部缺失日已补齐？";
   const budget = "补缺未完成·已释放店铺资源";
+  const continueNode = planRoute === "/plan-seven-day-backfill-v1" ? "还有缺口？" : tmallContinueNode;
   // Rebuilding from the generated base must produce exactly one loop.
-  workflow.nodes = workflow.nodes.filter(node => ![tmallNextDayNode, tmallContinueNode, complete, budget].includes(node.name));
+  workflow.nodes = workflow.nodes.filter(node => ![tmallNextDayNode, tmallContinueNode, "还有缺口？", complete, budget].includes(node.name));
+  if (planRoute === "/plan-seven-day-backfill-v1") {
+    for (const name of [tmallNextDayNode, tmallContinueNode, "还有缺口？", master.name, complete, budget]) {
+      delete workflow.connections[name];
+    }
+  }
   workflow.nodes.push({
     id: stableUuid("tmall-backfill:next"), name: tmallNextDayNode, type: "n8n-nodes-base.httpRequest", typeVersion: 4.2,
     position: [740, 40], parameters: { method: "POST", url: "http://127.0.0.1:5791/next-day", sendHeaders: true,
       headerParameters: { parameters: [...headers.filter(header => ["X-TERUISI-N8N-EXECUTION-ID", "X-TERUISI-TMALL-STORE-KEY"].includes(header.name ?? "")),
         { name: "X-TERUISI-TMALL-BACKFILL-CYCLE", value: "={{ $runIndex }}" }] }, options: { timeout: 120000 } },
-  }, ifNode(tmallContinueNode, "={{ $json.continueBackfill }}", [960, 40]),
+  }, ifNode(continueNode, "={{ $json.continueBackfill }}", [960, 40]),
   ifNode(complete, "={{ $json.dailyBackfill.status === 'completed' }}", [1400, 40]), {
     id: stableUuid("tmall-backfill:budget"), name: budget, type: "n8n-nodes-base.stopAndError", typeVersion: 1,
-    position: [1620, 140], parameters: { errorMessage: "={{ '天猫补缺达到本轮预算，M 和浏览器已收尾；剩余 ' + $json.dailyBackfill.remainingDates.length + ' 天：' + $json.dailyBackfill.remainingDates.join(', ') }}" },
+    position: [1620, 140], parameters: { errorMessage: planRoute === "/plan-seven-day-backfill-v1"
+      ? "={{ '天猫近七日补缺尚未完成，M 和浏览器已收尾；剩余 ' + $json.dailyBackfill.remainingDates.length + ' 天：' + $json.dailyBackfill.remainingDates.join(', ') }}"
+      : "={{ '天猫补缺达到本轮预算，M 和浏览器已收尾；剩余 ' + $json.dailyBackfill.remainingDates.length + ' 天：' + $json.dailyBackfill.remainingDates.join(', ') }}" },
   });
   master.position = [1180, 40];
   workflow.connections[promotion.name] = { main: [[edge(tmallNextDayNode)]] };
-  workflow.connections[tmallNextDayNode] = { main: [[edge(tmallContinueNode)]] };
-  workflow.connections[tmallContinueNode] = { main: [[edge(fetchNode.name)], [edge(master.name)]] };
+  workflow.connections[tmallNextDayNode] = { main: [[edge(continueNode)]] };
+  workflow.connections[continueNode] = { main: [[edge(fetchNode.name)], [edge(master.name)]] };
   workflow.connections[master.name] = { main: [[edge(complete)]] };
   workflow.connections[complete] = { main: [[], [edge(budget)]] };
   const note = workflow.nodes.find(node => node.name === "流程说明");

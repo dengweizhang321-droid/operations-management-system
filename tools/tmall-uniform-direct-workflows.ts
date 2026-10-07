@@ -3,7 +3,8 @@ import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { tmallN8nWorkflowDefinitions, type WorkflowTemplate } from "./generate-tmall-n8n-workflows";
+import { addDailyBackfillLoop, tmallN8nWorkflowDefinitions, type WorkflowTemplate } from "./generate-tmall-n8n-workflows";
+import { tmallSevenDayBackfillRoute, tmallSevenDayBackfillPolicy } from "./tmall-daily-backfill";
 import { tmallDailyLookbackDays } from "./tmall-daily-gap-plan";
 import {
   tmallDirectPmProtocolForStore, tmallDirectPmProtocolHeader,
@@ -62,11 +63,13 @@ export function adaptTmallUniformDirectWorkflow(source: WorkflowTemplate, storeK
     .map(([key, value]) => [renames.get(key) ?? key, value]));
   renameEdges(workflow.connections);
   const loop = workflow.nodes.some(node => node.parameters?.url === origins + "/next-day");
+  const sevenDayLoop = workflow.nodes.some(node => node.parameters?.url === origins + tmallSevenDayBackfillRoute);
   const note = workflow.nodes.find(node => node.name === "流程说明" && node.type === "n8n-nodes-base.stickyNote");
   if (note?.parameters) note.parameters.content = [
     `## ${definition.shortName}：近七日查缺、P/M 直连、货品每日更新（待受控采用）`,
     "A 核验登录与店铺身份，分别查询截止上海昨天的最近七个完整日期的商品日和推广日覆盖，优先选择最早缺失日；只补缺失的数据集。注册不足七天时从注册日开始。",
-    loop ? "保留原有逐日循环和预算，重新核验同一固定范围后继续。" : "保留原 A→B→C→P→M，每轮最多补一个日期；没有缺口时商品日和推广无新增动作。",
+    sevenDayLoop ? "按日期从早到晚逐日补齐固定近七天的全部商品日/推广缺口；每完成一天由 N 重新回查两类覆盖，再处理下一缺失日。无缺口后 M 仅执行一次；不因旧30分钟预算留下已发现缺口。失败保留已完成事实和剩余日期，未知提交不重放。"
+      : loop ? "保留原有逐日循环和预算，重新核验同一固定范围后继续。" : "保留原 A→B→C→P→M，每轮最多补一个日期；没有缺口时商品日和推广无新增动作。",
     "P 使用同日商品+计划、四场景的受控直连接口，按唯一 taskId 续接；M 使用 MTOP 每20个商品分批串行导出、完整校验、合并后单次导入与回查。M 每日到期，成功才推进节奏，同日已完成不重复自动导出。",
     "保留独立浏览器、execution与店铺绑定、共享协调门禁、原小时安全重试及资源收尾。旧页面任务保留原日期、任务和文件，不跨协议接管；未决提交、验证码、身份或完整性不符停止。",
   ].join("\n\n");
@@ -89,21 +92,34 @@ export function buildTmallUniformDirectCandidate(source: WorkflowTemplate, store
   return candidate;
 }
 
+/** Upgrade each original direct/daily graph without importing legacy browser exporters. */
+export function buildTmallSevenDayGapLoopCandidate(source: WorkflowTemplate, storeKey: string) {
+  const workflow = adaptTmallUniformDirectWorkflow(source, storeKey);
+  addDailyBackfillLoop(workflow, tmallSevenDayBackfillRoute);
+  workflow.meta = { ...workflow.meta, sevenDayGapLoop: {
+    version: 1, policy: tmallSevenDayBackfillPolicy, maximumDays: 7, maximumMinutes: null,
+  } };
+  return buildTmallUniformDirectCandidate(workflow, storeKey);
+}
+
 // Offline preparation only. Inputs must be snapshots of each original published ID.
 async function main(argv: string[]) {
-  if (argv.length !== 4 || argv[0] !== "--source-dir" || argv[2] !== "--output-dir") {
-    throw new Error("需要 --source-dir <已发布定义快照目录> --output-dir <候选目录>");
+  const allGaps = argv.length === 5 && argv[4] === "--all-gaps";
+  if ((!allGaps && argv.length !== 4) || argv[0] !== "--source-dir" || argv[2] !== "--output-dir") {
+    throw new Error("需要 --source-dir <已发布定义快照目录> --output-dir <候选目录> [--all-gaps]");
   }
   const sourceDirectory = path.resolve(argv[1]!);
   const outputDirectory = path.resolve(argv[3]!);
   if (sourceDirectory === outputDirectory) throw new Error("候选目录不能覆盖来源快照");
   const candidates = await Promise.all(tmallN8nWorkflowDefinitions.map(async definition => {
     const source = JSON.parse(await readFile(path.join(sourceDirectory, `${definition.storeKey}.json`), "utf8")) as WorkflowTemplate;
-    return { storeKey: definition.storeKey, candidate: buildTmallUniformDirectCandidate(source, definition.storeKey) };
+    return { storeKey: definition.storeKey, candidate: allGaps
+      ? buildTmallSevenDayGapLoopCandidate(source, definition.storeKey)
+      : buildTmallUniformDirectCandidate(source, definition.storeKey) };
   }));
   await mkdir(outputDirectory, { recursive: true });
   for (const { storeKey, candidate } of candidates) {
-    await writeFile(path.join(outputDirectory, `${storeKey}-seven-day-direct.workflow.json`), `${JSON.stringify(candidate, null, 2)}\n`, "utf8");
+    await writeFile(path.join(outputDirectory, `${storeKey}-seven-day-${allGaps ? "gap-loop" : "direct"}.workflow.json`), `${JSON.stringify(candidate, null, 2)}\n`, "utf8");
   }
   process.stdout.write(`${JSON.stringify({ ok: true, generated: candidates.length, active: false })}\n`);
 }

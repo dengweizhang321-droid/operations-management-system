@@ -134,11 +134,12 @@
         "店铺货品主数据"
       ],
       "steps": [
-        "规划缺失日期",
-        "商品日数据下载",
+        "核查近7天缺口",
+        "逐日下载缺失商品数据",
         "签收、导入并回查",
         "推广下载、导入并回查",
-        "按周期更新主数据"
+        "复查并继续下一缺失日",
+        "每日货品更新与收尾"
       ]
     }
   ],
@@ -222,7 +223,7 @@
       "schedules": [
         "0 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-yijiu-seven-day-direct.workflow.json",
+      "definitionFile": "automation/n8n/tmall-yijiu-seven-day-gap-loop.workflow.json",
       "masterIntervalDays": 1
     },
     {
@@ -236,7 +237,7 @@
       "schedules": [
         "10 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-lili-seven-day-direct.workflow.json",
+      "definitionFile": "automation/n8n/tmall-lili-seven-day-gap-loop.workflow.json",
       "masterIntervalDays": 1
     },
     {
@@ -250,7 +251,7 @@
       "schedules": [
         "20 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-tuofeng-seven-day-direct.workflow.json",
+      "definitionFile": "automation/n8n/tmall-tuofeng-seven-day-gap-loop.workflow.json",
       "masterIntervalDays": 1
     },
     {
@@ -264,7 +265,7 @@
       "schedules": [
         "50 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-yiyong-seven-day-direct.workflow.json",
+      "definitionFile": "automation/n8n/tmall-yiyong-seven-day-gap-loop.workflow.json",
       "masterIntervalDays": 1
     },
     {
@@ -278,7 +279,7 @@
       "schedules": [
         "30 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-cuizhiwang-seven-day-direct.workflow.json",
+      "definitionFile": "automation/n8n/tmall-cuizhiwang-seven-day-gap-loop.workflow.json",
       "masterIntervalDays": 1
     },
     {
@@ -292,7 +293,7 @@
       "schedules": [
         "40 11 * * *"
       ],
-      "definitionFile": "automation/n8n/tmall-masitu-seven-day-direct.workflow.json",
+      "definitionFile": "automation/n8n/tmall-masitu-seven-day-gap-loop.workflow.json",
       "masterIntervalDays": 1
     }
   ]

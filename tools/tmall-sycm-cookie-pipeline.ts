@@ -40,7 +40,8 @@ import {
 } from "./tmall-product-master-cadence";
 import { fetchTmallPromotionCoverage, runTmallPromotionStage } from "./tmall-promotion-export";
 import { planTmallDailyGaps, resolveTmallDailyPlanRange } from "./tmall-daily-gap-plan";
-import { beginTmallBackfill, advanceTmallBackfill, publicTmallBackfill, type TmallBackfillState } from "./tmall-daily-backfill";
+import { beginTmallBackfill, beginTmallSevenDayBackfill, tmallSevenDayBackfillRoute,
+  advanceTmallBackfill, publicTmallBackfill, type TmallBackfillState } from "./tmall-daily-backfill";
 import { runTmallDirectPromotionStage } from "./tmall-direct-promotion-export";
 import {
   isTmallDirectPmRoute,
@@ -165,7 +166,7 @@ const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 
 type PipelineCommand = "master" | "plan" | "fetch" | "import" | "promotion" | "serve";
 export type HelperStage = "ready" | "planned" | "fetched" | "imported" | "promoted" | "running" | "executed" | "completed" | "failed";
-export type HelperRoute = "/plan" | "/plan-backfill" | "/next-day" | "/fetch" | "/import" | "/promotion" | "/product-master" | TmallDirectPmRoute;
+export type HelperRoute = "/plan" | "/plan-backfill" | typeof tmallSevenDayBackfillRoute | "/next-day" | "/fetch" | "/import" | "/promotion" | "/product-master" | TmallDirectPmRoute;
 export type CoordinatedWorkflow = "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion";
 export type CookieSourceStatus = "ready" | "missing" | "invalid";
 export type TmallProfileStatus = "ready" | "missing" | "invalid";
@@ -939,7 +940,7 @@ export function tmallStoreContextError(
 }
 
 export function tmallStageAfterRoute(route: HelperRoute): HelperStage {
-  if (route === "/plan" || route === "/plan-backfill") return "planned";
+  if (route === "/plan" || route === "/plan-backfill" || route === tmallSevenDayBackfillRoute) return "planned";
   if (route === "/fetch") return "fetched";
   if (route === "/import") return "imported";
   if (route === "/promotion" || route === tmallDirectPromotionRoute) return "promoted";
@@ -961,7 +962,7 @@ export function helperRequestError(
     return { error: "execution_not_claimed" as const, expected: "/coordination/claim" as const };
   }
   if (busy) return { error: "pipeline_busy" as const };
-  if (route === "/plan" || route === "/plan-backfill") {
+  if (route === "/plan" || route === "/plan-backfill" || route === tmallSevenDayBackfillRoute) {
     return stage === "ready"
       ? null
       : { error: "invalid_stage" as const, expected: "ready" as const, actual: stage };
@@ -1418,6 +1419,7 @@ async function serveCommand(argv: string[]) {
       tmallDirectProductMasterRoute,
       "/plan",
       "/plan-backfill",
+      tmallSevenDayBackfillRoute,
       "/next-day",
       "/fetch",
       "/import",
@@ -1652,7 +1654,7 @@ async function serveCommand(argv: string[]) {
         stage = continueBackfill ? "planned" : "promoted";
         reply(200, { ok: true, stage: "next_day", continueBackfill, dailyBackfill: publicTmallBackfill(advanced) });
         inactivityReaper?.arm();
-      } else if (request.url === "/plan" || request.url === "/plan-backfill") {
+      } else if (request.url === "/plan" || request.url === "/plan-backfill" || request.url === tmallSevenDayBackfillRoute) {
         const startedAt = Date.now();
         tmallBrowserMayBeOpen = true;
         const authentication = await ensureTmallStoreAuthenticatedSession(claimedTmallStoreKey!);
@@ -1664,8 +1666,9 @@ async function serveCommand(argv: string[]) {
         if (explicitDates) planArguments.push("--start-date", explicitDates.startDate, "--end-date", explicitDates.endDate);
         else if (planTime) planArguments.push("--end-date", shanghaiYesterday(planTime));
         const result = await planCommand(planArguments);
-        if (request.url === "/plan-backfill") {
-          const initial = beginTmallBackfill(requestExecutionId!, claimedTmallStoreKey!, result, startedAt);
+        if (request.url === "/plan-backfill" || request.url === tmallSevenDayBackfillRoute) {
+          const begin = request.url === tmallSevenDayBackfillRoute ? beginTmallSevenDayBackfill : beginTmallBackfill;
+          const initial = begin(requestExecutionId!, claimedTmallStoreKey!, result, startedAt);
           await persistBackfill(initial);
           tmallBackfill = initial;
         }
@@ -1732,6 +1735,7 @@ async function serveCommand(argv: string[]) {
         error: error instanceof Error ? error.message : String(error),
         ...(workflow === "tmall" ? {
           browserClosure: tmallBrowserClosure ?? { ok: false, status: "failed", error: tmallBrowserCloseError },
+          ...(tmallBackfill ? { dailyBackfill: publicTmallBackfill(tmallBackfill) } : {}),
         } : {}),
       });
       scheduleOneShotServerClose(server, 500);
