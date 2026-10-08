@@ -7,6 +7,7 @@ import type { JackyunExportTaskBinding } from "./export-task";
 import { jackyunWorkflowId, recoverySha, type PreflightEvidence } from "./preflight-recovery";
 import { jackyunCaptureDate, jackyunExportFirstPolicyVersion } from "./run-contract";
 import { jackyunSalesPeriod } from "./sales-period";
+import { isBoundDownloadResumeFailure } from "./download-failure";
 
 export type JackyunApiResumePermit = {
   version: 1;
@@ -75,7 +76,8 @@ export async function inspectJackyunApiResumePermit(root: string, executionId: s
   if (evidence.executionId !== executionId || evidence.workflowId !== jackyunWorkflowId || evidence.status !== "error"
     || evidence.activeExecutions !== 0 || evidence.retrySuccessId !== null || evidence.httpCode !== "500"
     || evidence.lastNode !== "B·接口校验与五表下载" || evidence.requestUrl !== "http://127.0.0.1:5791/jackyun/export-first/export-all"
-    || evidence.error !== (taskAlreadyBound ? "fetch failed" : "导出任务绑定条件无效。") || !/^[a-f0-9]{64}$/.test(evidence.executionDataSha256)
+    || !(taskAlreadyBound ? evidence.error === "fetch failed" || isBoundDownloadResumeFailure(evidence.error)
+      : evidence.error === "导出任务绑定条件无效。") || !/^[a-f0-9]{64}$/.test(evidence.executionDataSha256)
     || !validSequence
     || plan.executionId !== executionId || plan.runId !== `n8n-export-first-${executionId}` || plan.phase !== "exporting"
     || plan.exportTransport !== jackyunApiTransport || Object.keys(plan.exports ?? {}).length || plan.exportIntent !== "inventory"

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { isBoundDownloadResumeFailure } from "../lib/jackyun/download-failure";
 
 import {
   attachHourlyRetryTarget,
@@ -14,6 +15,32 @@ import {
 } from "../tools/n8n-hourly-retry-policy.mjs";
 
 const workflowDirectory = new URL("../automation/n8n/", import.meta.url);
+
+test("bound inventory download recovery agrees with emitted n8n code and never overrides terminal failures", () => {
+  const code = buildHourlyRetryErrorWorkflow().nodes.find(node => node.type === "n8n-nodes-base.code")!.parameters.jsCode;
+  assert.equal(typeof code, "string");
+  const execute = new Function("$input", code!);
+  const payload = (description: string, message = "HTTP 500", node = "B·接口校验与五表下载") => ({
+    workflow: { id: "J8kY2mQ5vR7sT4pN" }, execution: { id: "7380", mode: "trigger", lastNodeExecuted: node, error: { description, message } },
+  });
+  for (const cause of ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH", "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_SOCKET", "HTTP_408", "HTTP_429", "HTTP_500", "HTTP_502", "HTTP_503", "HTTP_504"]) {
+    const description = `JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=${cause} attempts=3`;
+    assert.equal(isBoundDownloadResumeFailure(description), true);
+    const p = payload(description);
+    assert.equal(classifyHourlyRetryFailure(p).reason, "bound_download_resume_required");
+    assert.equal(execute({ all: () => [{ json: p }] }).length, 1);
+  }
+  for (const p of [payload("fetch failed"), payload("JACKYUN_OSS_DOWNLOAD_RETRYABLE code=ECONNRESET attempts=3"),
+    payload("JACKYUN_API_RESUME_MANUAL_ACTION"), payload("JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=SECRET attempts=3"),
+    payload("JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=ECONNRESET attempts=4"),
+    payload("JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=ECONNRESET attempts=3", "challenge_present"),
+    payload("JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=ECONNRESET attempts=3", "export_submitting"),
+    payload("JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=ECONNRESET attempts=3", "HTTP 500", "D·导入")]) {
+    assert.equal(classifyHourlyRetryFailure(p).retry, false);
+    assert.deepEqual(execute({ all: () => [{ json: p }] }), []);
+  }
+});
 
 test("all registered data workflows route hourly retries through a new full execution", async () => {
   const paths = new Set<string>();

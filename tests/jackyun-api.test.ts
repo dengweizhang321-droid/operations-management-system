@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { readFile, mkdir, mkdtemp, writeFile, rm, readdir } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { apiSha, permissionCanonical, buildApiParameters, prepareApiExport, readApiScope, type ApiTemplates } from "../lib/jackyun/api-plan";
@@ -153,4 +153,41 @@ test("generated API n8n graph retains the validation barrier and disables automa
   assert.ok(JSON.stringify(http).includes("plan-api"));
   assert.ok(!JSON.stringify(http).includes("plan-direct-http"));
   assert.ok(http.every((node: { retryOnFail?: boolean }) => !node.retryOnFail));
+});
+
+test("real API exporter emits a recoverable bound-download error and resumes with exactly one inventory POST", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "jackyun-api-get-retry-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const options = { runId: "api-get-retry", runDate: today, asOfDate: yesterday, outputRoot: root,
+    eventRoot: path.join(root, "events"), downloadDirectory: path.join(root, "downloads"),
+    beforeModule: async (module: string) => { if (module !== "inventory") throw new Error("INVENTORY_VERIFIED_STOP"); } };
+  const base = fake(); let submissions = 0, downloads = 0, submittedAt = 0;
+  const request = base.http.request.bind(base.http);
+  base.http.request = (async (...args: Parameters<typeof request>) => {
+    if (args[0] === "submitExport") { submissions++; submittedAt = Math.floor(Date.now() / 1000) * 1000; return { data: null }; }
+    if (args[0] === "tasks" && submissions) return { data: [{ id: "101", gmtCreate: submittedAt,
+      taskTitle: "【成功】【导出任务-密文】分仓库存查询(25734条)", taskStatus: 4,
+      attachmentList: [{ attachmentUrl: "https://jackyun-shortterm.oss-cn-zhangjiakou.aliyuncs.com/inventory.xlsx?signature=fixture" }] }], pageInfo: { total: 1 } };
+    return request(...args);
+  }) as typeof base.http.request;
+  const deps = { http: base.http, tenantId: "fixture", templates, taskTimeoutMs: 100, pollIntervalMs: 1,
+    download: { request: async () => { downloads++; throw Object.assign(new Error("fetch failed"), { cause: { code: "ECONNRESET" } }); }, sleep: async () => {} } };
+  await assert.rejects(runApiExports(options, deps), /^Error: JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=ECONNRESET attempts=3$/);
+  assert.equal(submissions, 1); assert.equal(downloads, 3);
+  const statePath = path.join(root, options.runId, "api-controller-state.json");
+  const state = JSON.parse(await readFile(statePath, "utf8"));
+  assert.equal(state.modules.inventory.status, "submitted");
+  const binding = state.modules.inventory.binding;
+  assert.equal(binding.taskId, "sys-101");
+  assert.deepEqual(await readdir(path.join(options.downloadDirectory, "jackyun", options.runId, "inventory")), []);
+  // A failed resumed download is terminal, so it cannot enqueue unbounded
+  // cross-execution consumers of the same task.
+  await assert.rejects(runApiExports({ ...options, resumeTaskBinding: binding }, deps), /JACKYUN_OSS_DOWNLOAD_RETRYABLE/);
+  assert.equal(submissions, 1);
+  await assert.rejects(runApiExports({ ...options, resumeTaskBinding: binding }, { ...deps,
+    download: { request: async () => new Response(Buffer.from([0x50, 0x4b, 3, 4, 5, 6, 7, 8])), sleep: async () => {} } }), /INVENTORY_VERIFIED_STOP/);
+  assert.equal(submissions, 1);
+  const completed = JSON.parse(await readFile(statePath, "utf8"));
+  assert.equal(completed.modules.inventory.status, "handed_off");
+  assert.equal(completed.modules.inventory.binding.taskId, binding.taskId);
 });
