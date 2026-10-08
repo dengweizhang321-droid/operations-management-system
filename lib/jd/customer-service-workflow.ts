@@ -1,10 +1,10 @@
 import { parseCustomerServiceImport, validateCustomerServiceConversationMessages } from "../customer-service/import-service";
 
+import { customerServiceStore, jdCustomerServiceStores } from "./customer-service-stores";
+
 export const jdCustomerServiceWorkflow = Object.freeze({
   version: 1,
-  storeKey: "jd-yiyong-director",
-  shopId: "701455",
-  shopName: "志高商用设备旗舰店",
+  ...jdCustomerServiceStores[0],
   entryUrl: "https://shop.jd.com/jdm/kefu/kf-manage-lite/#/UtilsSetting/ChatLog",
   timezone: "Asia/Shanghai",
   cron: "0 9 * * *",
@@ -58,12 +58,13 @@ export type CustomerServiceExportEvidence = CustomerServicePeriod & {
   exportCompleted: boolean;
 };
 export function assertCustomerServiceExportEvidence(
-  actual: CustomerServiceExportEvidence, period: CustomerServicePeriod, view: "list" | "messages",
+  actual: CustomerServiceExportEvidence, period: CustomerServicePeriod, view: "list" | "messages", storeKey = jdCustomerServiceWorkflow.storeKey as string,
 ) {
   assertCustomerServicePeriod(period);
-  if (actual.storeKey !== jdCustomerServiceWorkflow.storeKey
-    || actual.shopId !== jdCustomerServiceWorkflow.shopId
-    || actual.shopName !== jdCustomerServiceWorkflow.shopName) reject("STORE_IDENTITY_MISMATCH");
+  const store = customerServiceStore(storeKey);
+  if (actual.storeKey !== store.storeKey
+    || actual.shopId !== store.shopId
+    || actual.shopName !== store.shopName) reject("STORE_IDENTITY_MISMATCH");
   if (actual.scheduledDate !== period.scheduledDate || actual.startDate !== period.startDate
     || actual.endDate !== period.endDate || actual.view !== view) reject("EXPORT_SCOPE_MISMATCH");
   if (actual.queryConfirmed !== true || actual.unfiltered !== true || actual.exportCompleted !== true)
@@ -72,12 +73,12 @@ export function assertCustomerServiceExportEvidence(
 
 const maxFileBytes = 25 * 1024 * 1024;
 export function inspectCustomerServicePair(input: {
-  period: CustomerServicePeriod;
+  period: CustomerServicePeriod; storeKey?: string;
   sessionBytes: Uint8Array; chatBytes: Uint8Array;
   sessionEvidence: CustomerServiceExportEvidence; chatEvidence: CustomerServiceExportEvidence;
 }) {
-  assertCustomerServiceExportEvidence(input.sessionEvidence, input.period, "list");
-  assertCustomerServiceExportEvidence(input.chatEvidence, input.period, "messages");
+  assertCustomerServiceExportEvidence(input.sessionEvidence, input.period, "list", input.storeKey);
+  assertCustomerServiceExportEvidence(input.chatEvidence, input.period, "messages", input.storeKey);
   for (const bytes of [input.sessionBytes, input.chatBytes]) {
     if (bytes.byteLength === 0 || bytes.byteLength > maxFileBytes) reject("INVALID_FILE_SIZE");
   }
@@ -101,7 +102,7 @@ export function inspectCustomerServicePair(input: {
     if (!times.length || times.some(value => value < minimum || value > maximum)) reject("FILE_DATE_OUT_OF_SCOPE");
     // The existing interactive import infers another shop for this prefix.
     // An automated, explicitly bound shop must never take that fallback.
-    if (row.agent.startsWith("志高厨电")) reject("IMPORT_SHOP_REWRITE_REJECTED");
+    if (input.storeKey === undefined && row.agent.startsWith("志高厨电")) reject("IMPORT_SHOP_REWRITE_REJECTED");
   }
   if (new TextEncoder().encode(JSON.stringify(parsed.conversations)).byteLength > 16 * 1024 * 1024)
     reject("NORMALIZED_PAYLOAD_TOO_LARGE");

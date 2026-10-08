@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { customerServiceStore, customerServiceStoreHeader, customerServiceStoreContextError } from "../lib/jd/customer-service-stores";
 import { customerServiceHelperError, planCustomerServiceRun, runCustomerServicePlan, verifyCustomerServicePlan, publicCustomerServicePlan, type CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline";
 import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
@@ -1474,7 +1475,9 @@ async function serveCommand(argv: string[]) {
           : isJdPromotion
             ? jdPromotionHelperRequestError(stage as "ready" | JdPromotionN8nStage, busy, route as JdPromotionHelperRoute, requestExecutionId, claimedJdPromotionExecutionId)
         : helperRequestError(stage, busy, route as HelperRoute, requestExecutionId, claimedTmallExecutionId);
-    const stateError = requestStateError ?? (workflow === "tmall"
+    const stateError = requestStateError ?? (isJdCustomerService
+      ? customerServiceStoreContextError(request.headers[customerServiceStoreHeader], jdCustomerServicePlan?.storeKey ?? (jdCustomerServicePlan ? "jd-yiyong-director" : undefined))
+      : null) ?? (workflow === "tmall"
       ? tmallStoreContextError(requestTmallStoreKey, claimedTmallStoreKey)
         ?? tmallDirectPmProtocolError({
           route: request.url ?? "",
@@ -1497,7 +1500,7 @@ async function serveCommand(argv: string[]) {
     try {
       if (isJdCustomerService) {
         if (request.url === "/jd/customer-service/plan") {
-          jdCustomerServicePlan = await planCustomerServiceRun(projectRoot, requestExecutionId!, planTime);
+          jdCustomerServicePlan = await planCustomerServiceRun(projectRoot, requestExecutionId!, planTime, customerServiceStore(request.headers[customerServiceStoreHeader]).storeKey);
           stage = "planned";
           reply(200, publicCustomerServicePlan(jdCustomerServicePlan));
           inactivityReaper?.arm();
