@@ -97,12 +97,22 @@ test("sales and inventory tabs only request the data source needed by the visibl
   assert.match(summaryEffect, /window\.clearTimeout\(timeout\); controller\.abort\(\)/);
 
   // Count automatic tab loading within its loader. The separate user-triggered
-  // CSV export legitimately calls the same reader and is not a second tab load.
+  // Guangdong plan action legitimately calls the same reader and is not a second tab load.
   const overviewLoaderStart = inventoryView.indexOf("const loadOverview = useCallback");
   const overviewLoaderEnd = inventoryView.indexOf("const loadAgeAnalysis = useCallback", overviewLoaderStart);
   assert.ok(overviewLoaderStart >= 0 && overviewLoaderEnd > overviewLoaderStart);
   const overviewLoader = inventoryView.slice(overviewLoaderStart, overviewLoaderEnd);
   assert.equal((overviewLoader.match(/\/api\/inventory\/overview/g) ?? []).length, 1);
+  // The ordinary tab reader and the explicit Guangdong plan action are
+  // separate entry points. Counting the whole file conflates them.
+  const manualPlanStart = inventoryView.indexOf("const openGuangdongPlan = useCallback");
+  assert.ok(manualPlanStart > 0);
+  const manualPlanEnd = inventoryView.indexOf("}, [activeTab, canManageInventory, planSaving, principalKey]);", manualPlanStart);
+  assert.ok(manualPlanEnd > manualPlanStart);
+  const manualPlan = inventoryView.slice(manualPlanStart, manualPlanEnd);
+  assert.match(manualPlan, /if \(!canManageInventory \|\| planSaving\) return;/);
+  assert.match(manualPlan, /new URLSearchParams\(\{ view: "overview", q: productCode, pageSize: "100" \}\)/);
+  assert.match(manualPlan, /fetch\(`\/api\/inventory\/overview\?\$\{params\}`, \{ cache: "no-store", signal: controller\.signal \}\)/);
   assert.equal((inventoryView.match(/\/api\/inventory\/age-analysis/g) ?? []).length, 1);
   assert.match(inventoryView, /const usesInventoryOverview = activeTab === "overview" \|\| activeTab === "plan"/);
   assert.match(inventoryView, /const projection = activeTab === "plan" \? "plan" : "overview"/);

@@ -1,0 +1,35 @@
+✔ market ranking limits candidate ids before expensive row enrichment (1.2316ms)
+✔ market ranking can page a small candidate window before expensive enrichment (0.2199ms)
+✔ market price-band ranking still filters before the bounded enrichment stage (0.2645ms)
+✔ market full analytics aggregates shared monthly rows without a section cross join (0.4291ms)
+✔ market read indexes cover ranking order and distinct image aggregation (18.783ms)
+✔ inventory APIs bound response rows while preserving totals and recommendations (6.3494ms)
+✖ sales and inventory tabs only request the data source needed by the visible tab (5.8762ms)
+✔ customer, sales, and product views avoid superseded or duplicate work (3.9411ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 661.762
+
+✖ failing tests:
+
+test at tests\module-performance.test.ts:1:4051
+✖ sales and inventory tabs only request the data source needed by the visible tab (5.8762ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  2 !== 1
+
+      at TestContext.<anonymous> (D:\.codex\worktrees\performance-experience-audit\运营管理系统\tests\module-performance.test.ts:99:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

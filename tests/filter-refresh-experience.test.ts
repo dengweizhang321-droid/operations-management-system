@@ -125,7 +125,9 @@ test("refresh errors retain already rendered business data", async () => {
   assert.match(dashboard, /当前仍显示本范围上一次成功结果/);
   assert.match(sales, /if \(error && !summary\)/);
   assert.match(sales, /销售数据刷新失败/);
-  assert.match(customer, /loading && !data && <tr>/);
+  assert.match(customer, /\(loading \|\| !error\) && !currentData && <tr>/);
+  assert.match(customer, /const sameScopeFailure = ownsRead\(readFailure\)/);
+  assert.match(customer, /同一查询范围上次成功的会话结果/);
   assert.doesNotMatch(customer, /\{loading && <tr>/);
   assert.match(operations, /loading && !loaded \? <DataState/);
   assert.match(operations, /operations-detail-body data-refresh-region" aria-busy=\{loading\}/);

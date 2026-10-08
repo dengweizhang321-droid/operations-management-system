@@ -53,7 +53,7 @@ test("分片导入四店精确绑定；无绑定、跨店重放及旧回执均�
       const receipt=await response.json();
       assert.equal(receipt.storeKey,store.storeKey);assert.equal(receipt.batch.shopName,store.shopName);
       assert.equal(fixture.writes.at(-1),store.shopName);
-      const writes=fixture.writes.length;
+      const writes: number = fixture.writes.length;
       assert.deepEqual(await (await route.POST(request(body))).json(),receipt);
       assert.equal(fixture.writes.length,writes);
       for(const other of jdCustomerServiceStores.filter(item=>item!==store)) {
@@ -72,7 +72,7 @@ test("分片导入四店精确绑定；无绑定、跨店重放及旧回执均�
     const body={shopName:first.shopName,storeKey:first.storeKey,sessionUploadId:"session-duplicate",chatUploadId:"chat-duplicate"};
     const duplicate=await route.POST(request(body));assert.equal(duplicate.status,200);
     assert.equal((await duplicate.json()).status,"duplicate");
-    const writes=fixture.writes.length;
+    const writes: number = fixture.writes.length;
     assert.equal((await route.POST(request(body))).status,200);assert.equal(fixture.writes.length,writes);
     assert.equal((await route.POST(request({...body,chatUploadId:"chat-new"}))).status,409);
     assert.ok(fixture.releases.includes("chat-new"));assert.equal(fixture.writes.length,writes);

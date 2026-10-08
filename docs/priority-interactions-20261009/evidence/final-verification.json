@@ -1,0 +1,81 @@
+{
+  "source": "9790e4a6",
+  "upstream": "fb798c14",
+  "uiMeasurementHead": "ae169f45c98d24586dde5adf380a432d35c30c5c",
+  "uiWorkingTreeIncludedMain": true,
+  "exactFourBusinessSources": [
+    {
+      "file": "app/page.tsx",
+      "sha256": "5fe99cda3d669fe91377bb1ca343a0974c747a94ffad515f7544a1b429fe68c7"
+    },
+    {
+      "file": "app/customer-service-view.tsx",
+      "sha256": "ba3ea6f5ecf4f941233f77318bdde162e279531ecc3dd6e1ae4082993367473d"
+    },
+    {
+      "file": "app/globals.css",
+      "sha256": "3ed42105d68be44b8af22b76ee71e5c4c57830bada875840fa35368a5dded79b"
+    },
+    {
+      "file": "app/ui/stable-read-content.tsx",
+      "sha256": "00c2f49b7eca2af7840753685fd6568ab21ed60e12a964adf96f5a97915cdf96"
+    }
+  ],
+  "fullUnitBeforeMerge": {
+    "total": 3418,
+    "pass": 3396,
+    "fail": 0,
+    "cancelled": 0,
+    "skip": 22
+  },
+  "mergedRelated": {
+    "total": 46,
+    "pass": 46,
+    "fail": 0,
+    "skip": 0
+  },
+  "mergedActualHome": {
+    "groups": 10,
+    "pass": 10,
+    "fail": 0
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 35
+  },
+  "boundary": {
+    "checkedModules": 650,
+    "violations": 0
+  },
+  "build": "passed",
+  "independentReview": "PASS, source only",
+  "productionDeployed": false,
+  "typescript": {
+    "baselineDiagnostics": 185,
+    "finalDiagnostics": 185,
+    "added": 0,
+    "removed": 0,
+    "status": "not green: existing diagnostics retained"
+  },
+  "postMergeBoundChunks": {
+    "tests": 1,
+    "pass": 1,
+    "fail": 0,
+    "note": "Re-run after explicit writes counter type annotation."
+  },
+  "latestMainIncremental": {
+    "ordinaryGlobalLock": {
+      "total": 103,
+      "pass": 101,
+      "fail": 2,
+      "reason": "Original host rotation pipe already occupied (EADDRINUSE); no holder interrupted"
+    },
+    "isolatedLockNamespace": {
+      "total": 103,
+      "pass": 103,
+      "fail": 0,
+      "skip": 0,
+      "scope": "Same tool implementation; only named-pipe namespace changed by test loader; no production lifecycle calls"
+    }
+  }
+}

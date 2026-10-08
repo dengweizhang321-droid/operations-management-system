@@ -50,12 +50,12 @@ import {
   type CurrentUser,
   type SalesRangeLabel,
   addIsoDays,
+  clampIsoDate,
   shanghaiIsoToday,
   selectedMonthPeriod,
   skuSalesPeriod,
   shellPeriodForRange,
   rangeForShellPeriod,
-  useDebouncedValue,
   previousYearPeriod,
 } from "./module-view-shared";
 export { canManageFinanceTargets, validateFinanceTargetDeletionReason } from "./module-view-shared";
@@ -215,7 +215,7 @@ export default function Home() {
   const globalSearchGroupGenerationRef = useRef(0);
   const globalSearchGroupControllerRef = useRef<AbortController | null>(null);
   const globalSearchGroupRequestKeyRef = useRef("");
-  const debouncedGlobalSearchQuery = useDebouncedValue(globalSearchQuery, 220);
+  const [globalSearchEditVersion, setGlobalSearchEditVersion] = useState(0);
   const customMaxDate = shanghaiIsoToday();
   const customMinDate = `${Number(customMaxDate.slice(0, 4)) - 1}-01-01`;
   const [customIntent, setCustomIntent] = useState<"rolling" | "quarter" | undefined>();
@@ -225,6 +225,8 @@ export default function Home() {
     () => skuSalesPeriod(range, customStartDate, customEndDate),
     [customEndDate, customStartDate, range],
   );
+  const pickerEndDate = clampIsoDate(globalPeriod.endDate, customMinDate, customMaxDate);
+  const pickerStartDate = clampIsoDate(globalPeriod.startDate, customMinDate, pickerEndDate);
   const shellPeriod = useMemo(
     () => { const p = shellPeriodForRange(range, selectedMonth, customStartDate, customEndDate); return p.kind === "custom" && customIntent ? { ...p, intent: customIntent } : p; },
     [customEndDate, customStartDate, range, selectedMonth, customIntent],
@@ -349,7 +351,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!searchOpen) return;
-    const query = debouncedGlobalSearchQuery.trim();
+    const query = globalSearchQuery.trim();
     if (Array.from(query).length < 2) return;
     const generation = globalSearchGenerationRef.current + 1;
     globalSearchGenerationRef.current = generation;
@@ -360,7 +362,9 @@ export default function Home() {
     globalSearchGroupRequestKeyRef.current = "";
     const controller = new AbortController();
     globalSearchControllerRef.current = controller;
-    void (async () => {
+    // Own the debounce and request together. Returning to the same text after
+    // cancellation must still schedule a replacement for this edit generation.
+    const timer = window.setTimeout(() => { void (async () => {
       setGlobalSearchLoading(true);
       setGlobalSearchLoadingGroup(null);
       setGlobalSearchGroupError("");
@@ -380,9 +384,9 @@ export default function Home() {
           if (globalSearchControllerRef.current === controller) globalSearchControllerRef.current = null;
         }
       }
-    })();
-    return () => controller.abort();
-  }, [debouncedGlobalSearchQuery, searchOpen]);
+    })(); }, 220);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [globalSearchQuery, globalSearchEditVersion, searchOpen]);
 
   const isAiChat = active === "ai" && activeModuleView === "assistant";
   const current = isAiChat ? { label: "AI 对话", description: "小特对话工作台" } : navItems.find((item) => item.key === active) ?? navItems[0];
@@ -562,6 +566,7 @@ export default function Home() {
   const updateGlobalSearchQuery = useCallback((value: string) => {
     cancelGlobalSearchRequests();
     setGlobalSearchQuery(value);
+    setGlobalSearchEditVersion((version) => version + 1);
     setGlobalSearchError("");
     setGlobalSearchGroupError("");
     setGlobalSearchLoading(Array.from(value.trim()).length >= 2);
@@ -593,8 +598,12 @@ export default function Home() {
   }, [closeGlobalSearch, selectModule]);
   const selectRange = (nextRange: SalesRangeLabel) => {
     if (nextRange === "去年同期" && range === "去年同期") return;
+    if (nextRange === "自定义") {
+      setStatPeriodPickerOpen(true);
+      return;
+    }
     setRange(nextRange);
-    setStatPeriodPickerOpen(nextRange === "自定义");
+    setStatPeriodPickerOpen(false);
     if (nextRange === "去年同期") {
       const period = previousYearPeriod(globalPeriod);
       setCustomStartDate(period.startDate);
@@ -605,11 +614,6 @@ export default function Home() {
       setCustomStartDate(period.startDate);
       setCustomEndDate(period.endDate > customMaxDate ? customMaxDate : period.endDate);
       replacePeriodUrl({ kind: "calendar_month", month: selectedMonth });
-    } else if (nextRange === "自定义") {
-      const endDate = customEndDate > customMaxDate ? customMaxDate : customEndDate < customMinDate ? customMinDate : customEndDate;
-      const startDate = customStartDate < customMinDate ? customMinDate : customStartDate > endDate ? endDate : customStartDate;
-      setCustomStartDate(startDate);
-      setCustomEndDate(endDate);
     } else {
       replacePeriodUrl(shellPeriodForRange(nextRange, selectedMonth, customStartDate, customEndDate));
     }
@@ -648,11 +652,11 @@ export default function Home() {
           onOpenMobile={() => setMobileMenu(true)}
           actions={<>
             {active !== "ai" && <button type="button" className="secondary-button ai-context-button" onClick={askAiAboutCurrentPage} aria-label={`让 AI 分析当前${current.label}页面`}>问当前页面</button>}
-            {active !== "n8n_workflows" && <div title={`${globalPeriod.startDate} 至 ${globalPeriod.endDate}`} className={`date-selector ${range === "月度" || (range === "自定义" && statPeriodPickerOpen) ? "date-selector-expanded" : ""}`}>
+            {active !== "n8n_workflows" && <div title={`${globalPeriod.startDate} 至 ${globalPeriod.endDate}`} className={`date-selector ${range === "月度" || statPeriodPickerOpen ? "date-selector-expanded" : ""}`}>
               <span>统计周期</span>
-              <SearchableSelect value={range} onChange={(value) => selectRange(value as SalesRangeLabel)} ariaLabel="统计周期" searchPlaceholder="搜索统计周期" options={["今日", "昨天", "近7天", "近15天", "近30天", "本月", "月度", "去年同期", "自定义"].map((value) => ({ value, label: value }))} />
-              {range === "月度" && <label className="month-selector"><span>选择月份</span><input type="month" value={selectedMonth} max={customMaxDate.slice(0, 7)} onChange={(event) => updateSelectedMonth(event.target.value)} aria-label="选择统计月份" /></label>}
-              {range === "自定义" && statPeriodPickerOpen && <StatisticalPeriodPicker onCancel={() => setStatPeriodPickerOpen(false)} periodIntent={customIntent} minDate={customMinDate} maxDate={customMaxDate} startDate={customStartDate} endDate={customEndDate} onApply={applyCustomPeriod} />}
+              <SearchableSelect value={statPeriodPickerOpen ? "自定义" : range} onChange={(value) => selectRange(value as SalesRangeLabel)} ariaLabel="统计周期" searchPlaceholder="搜索统计周期" options={["今日", "昨天", "近7天", "近15天", "近30天", "本月", "月度", "去年同期", "自定义"].map((value) => ({ value, label: value }))} />
+              {range === "月度" && !statPeriodPickerOpen && <label className="month-selector"><span>选择月份</span><input type="month" value={selectedMonth} max={customMaxDate.slice(0, 7)} onChange={(event) => updateSelectedMonth(event.target.value)} aria-label="选择统计月份" /></label>}
+              {statPeriodPickerOpen && <StatisticalPeriodPicker onCancel={() => setStatPeriodPickerOpen(false)} periodIntent={range === "自定义" ? customIntent : undefined} minDate={customMinDate} maxDate={customMaxDate} startDate={pickerStartDate} endDate={pickerEndDate} onApply={applyCustomPeriod} />}
             </div>}
             <div className="shell-account">
               <button ref={accountButtonRef} type="button" className="shell-account-avatar" popoverTarget="shell-account-actions" aria-label="打开账号操作" title="账号操作">章</button>
