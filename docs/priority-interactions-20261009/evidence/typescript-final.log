@@ -198,14 +198,14 @@ tests/market-read-request.test.ts(7,45): error TS7006: Parameter '_url' implicit
 tests/market-read-request.test.ts(7,51): error TS7006: Parameter 'init' implicitly has an 'any' type.
 tests/market-read-request.test.ts(18,45): error TS7006: Parameter '_url' implicitly has an 'any' type.
 tests/market-read-request.test.ts(18,51): error TS7006: Parameter 'init' implicitly has an 'any' type.
-tests/n8n-hourly-retry-workflow.test.ts(52,34): error TS2339: Property 'errorWorkflow' does not exist on type '{ executionOrder: string; timezone: string; callerPolicy: string; }'.
-tests/n8n-hourly-retry-workflow.test.ts(61,26): error TS2339: Property 'maxTries' does not exist on type '{ parameters: { method: string; url: string; sendBody: boolean; specifyBody: string; jsonBody: string; options: { timeout: number; }; mode?: undefined; jsCode?: undefined; resume?: undefined; amount?: undefined; ... 6 more ...; color?: undefined; }; ... 6 more ...; onError: string; }'.
-tests/n8n-hourly-retry-workflow.test.ts(131,42): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+tests/n8n-hourly-retry-workflow.test.ts(79,34): error TS2339: Property 'errorWorkflow' does not exist on type '{ executionOrder: string; timezone: string; callerPolicy: string; }'.
+tests/n8n-hourly-retry-workflow.test.ts(88,26): error TS2339: Property 'maxTries' does not exist on type '{ parameters: { method: string; url: string; sendBody: boolean; specifyBody: string; jsonBody: string; options: { timeout: number; }; mode?: undefined; jsCode?: undefined; resume?: undefined; amount?: undefined; ... 6 more ...; color?: undefined; }; ... 6 more ...; onError: string; }'.
+tests/n8n-hourly-retry-workflow.test.ts(158,42): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
   Type 'undefined' is not assignable to type 'string'.
-tests/n8n-hourly-retry-workflow.test.ts(148,42): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+tests/n8n-hourly-retry-workflow.test.ts(175,42): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
   Type 'undefined' is not assignable to type 'string'.
-tests/n8n-hourly-retry-workflow.test.ts(187,34): error TS2339: Property 'errorWorkflow' does not exist on type '{}'.
-tests/n8n-hourly-retry-workflow.test.ts(188,16): error TS7053: Element implicitly has an 'any' type because expression of type '"失败后每小时安全重试入口"' can't be used to index type '{}'.
+tests/n8n-hourly-retry-workflow.test.ts(214,34): error TS2339: Property 'errorWorkflow' does not exist on type '{}'.
+tests/n8n-hourly-retry-workflow.test.ts(215,16): error TS7053: Element implicitly has an 'any' type because expression of type '"失败后每小时安全重试入口"' can't be used to index type '{}'.
   Property '失败后每小时安全重试入口' does not exist on type '{}'.
 tests/sales-cutover-tools.test.ts(713,83): error TS1501: This regular expression flag is only available when targeting 'es2018' or later.
 tests/sales-local-cutover-rehearsal.test.ts(275,100): error TS1501: This regular expression flag is only available when targeting 'es2018' or later.

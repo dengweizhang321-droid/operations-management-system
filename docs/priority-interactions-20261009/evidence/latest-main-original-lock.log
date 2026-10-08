@@ -1,0 +1,146 @@
+✔ rolling API resume retains its frozen range and rejects a monthly controller (606.4417ms)
+✔ approved API resume preserves the submitted run and binds one full n8n execution (97.0653ms)
+✔ approved API resume reuses an already-bound task after download fetch failed before file creation (76.8254ms)
+✔ published plan-anchor sequence resumes the bound task and preserves every observed node (81.9246ms)
+✔ bound-task fetch recovery rejects an unbound task, changed failure or any partial download (56.2167ms)
+✔ API resume rejects changed evidence, extra effects and mismatched task identity (126.9126ms)
+✔ API resume permit expires, stays single-consumer and detects later artifact changes (54.3293ms)
+✔ hour-later full execution atomically claims the existing task without an expiring pre-issued permit (55.818ms)
+✔ automatic recovery supports the historical fetch failure only after the same strict proof (16.8789ms)
+✔ automatic recovery rejects effects, changed platform tasks, metadata races, unknown progress and expired inspection (161.8692ms)
+✔ automatic claim is create-only under concurrent attempts and cannot be replaced after interruption (26.3962ms)
+✔ automatic recovery leaves operator permits and unrelated failures on their existing paths (13.1048ms)
+✔ API metadata requires unique permissions, complete warehouses and the current tenant owner (15.2172ms)
+✔ API count and export scopes agree; shipment dates roll across month/leap-year boundaries (6.5769ms)
+✔ API totals fail before any submission for partial scopes, over-limit exports or combo image truncation (5.3423ms)
+✔ platform time calibration finds a new task one second behind local time without choosing the baseline (0.729ms)
+✔ platform task observations use the same clock when the server is ahead of the local host (0.3404ms)
+✔ submitted API task inspection binds the original completed task without another export POST (11.8708ms)
+✔ an uncertain API submission is durably fenced and resumes polling without replaying its POST (19.7285ms)
+✔ generated API n8n graph retains the validation barrier and disables automatic POST retries (2.2506ms)
+{"module":"inventory","status":"handed_off","rows":25734,"elapsedMs":42}
+✔ real API exporter emits a recoverable bound-download error and resumes with exactly one inventory POST (50.6033ms)
+✔ OSS transient GETs reuse exactly the same file, then persist only the complete XLSX (56.7502ms)
+✔ OSS retry exhaustion has bounded attempts and a sanitized cause (7.6534ms)
+✔ OSS stream failure discards partial bytes before retrying the same attachment (18.7742ms)
+✔ OSS HTTP, TLS and malformed-file terminal failures never retry (37.3919ms)
+✔ OSS 503 retries and redirected targets are validated on every hop (26.7359ms)
+✔ OSS deadline includes backoff and prevents starting a late GET (35.489ms)
+✔ OSS one deadline is shared across redirects and the response body (47.0557ms)
+✔ OSS body timeout removes the partial file and does not start another request after deadline (37.8686ms)
+✔ an elapsed deadline never promotes a known authorization rejection to a transient failure (32.1891ms)
+✔ bound inventory download recovery agrees with emitted n8n code and never overrides terminal failures (6.8215ms)
+✔ all registered data workflows route hourly retries through a new full execution (26.8584ms)
+✔ the shared error workflow waits exactly one hour and dispatches only to loopback (2.6123ms)
+✔ retry classification permits transient failures and stops unsafe or human-owned states (1.6026ms)
+✔ only an exact verified Jackyun preflight closure reaches the hourly retry (0.4184ms)
+✔ live market receipt and pagewise completeness errors stop in the emitted n8n classifier (1.1185ms)
+✔ live 4605 login challenge and other waiting-login failures never dispatch a retry (1.5074ms)
+✔ target attachment is deterministic and idempotent (0.4711ms)
+✔ the local n8n launcher binds retry webhooks to loopback (1.6778ms)
+✔ PS5 child uses its system modules, removes inherited library-only flags and preserves its parent (1.3885ms)
+✔ actual readonly admission caller uses the same safe native transport (787.5619ms)
+✔ Node and non-system shell commands retain their exact approved environment (0.4228ms)
+✔ PS5 transport binds File argv as data and rejects ambiguous parameter syntax (1.1477ms)
+✔ actual approved runner survives a PS7-polluted parent while original PS5 ACL command fails (1962.9501ms)
+✔ original nested lifecycle adapter also preserves Unicode through its native child (1259.0945ms)
+✔ literal display delta is proven across unchanged dependency closure (11.3872ms)
+✔ mixed high/unproven impact blocks display: backend/sales/migrations/9001.py (1.0579ms)
+✔ mixed high/unproven impact blocks display: lib/auth/permissions.ts (0.9522ms)
+✔ mixed high/unproven impact blocks display: tools/runtime.mjs (0.7209ms)
+✔ mixed high/unproven impact blocks display: config/runtime.json (0.8123ms)
+✔ mixed high/unproven impact blocks display: worker/index.ts (0.737ms)
+✔ mixed high/unproven impact blocks display: package-lock.json (0.9038ms)
+✔ mixed high/unproven impact blocks display: lib/read.ts (0.5922ms)
+✔ mixed high/unproven impact blocks display: app/view.tsx (1.6699ms)
+✔ business read change uses full safeguards; unresolved dependencies stay strict (0.5582ms)
+✔ empty/add/delete/malformed display and witness effect escalates (4.6255ms)
+✔ recent complete recovery with continuous daily backup permits reuse (1.2103ms)
+✔ recovery binding changed: manifestSha256 (0.5594ms)
+✔ recovery binding changed: dumpSha256 (0.4182ms)
+✔ recovery binding changed: environmentSha256 (0.4379ms)
+✔ recovery binding changed: schemaSha256 (0.5111ms)
+✔ recovery binding changed: rolesSha256 (0.5823ms)
+✔ recovery binding changed: operatorSha256 (0.4961ms)
+✔ recovery binding changed: retentionSha256 (0.42ms)
+✔ recovery binding changed: scheduleSha256 (0.3658ms)
+✔ recovery binding changed: backupId (0.4005ms)
+✔ invalid recovery prerequisite r=>r.current.schedule.active=false (0.4222ms)
+✔ invalid recovery prerequisite r=>r.current.schedule.lastResult='failed' (0.4186ms)
+✔ invalid recovery prerequisite r=>r.current.schedule.lastSuccessAt=new Date(now-backupMaxAgeMs-1).toISOString() (0.5432ms)
+✔ invalid recovery prerequisite r=>r.evidence.backupCompletedAt=new Date(now-backupMaxAgeMs-1).toISOString() (0.6597ms)
+✔ invalid recovery prerequisite r=>r.evidence.restoredAt=new Date(now-rehearsalMaxAgeMs-1).toISOString() (0.581ms)
+✔ invalid recovery prerequisite r=>r.evidence.restoredAt=new Date(now+1).toISOString() (0.4781ms)
+✔ invalid recovery prerequisite r=>r.evidence.restoreStatus='failed' (0.5338ms)
+✔ invalid recovery prerequisite r=>r.evidence.cleanupStatus='unknown' (0.4038ms)
+✔ invalid recovery prerequisite r=>r.current.pointExists=false (0.3929ms)
+✔ invalid recovery prerequisite r=>r.current.retained=false (0.3382ms)
+✔ invalid recovery prerequisite r=>r.current.verifyStatus='failed' (0.3571ms)
+✔ invalid recovery prerequisite r=>r.evidence[k]=false (0.361ms)
+✔ invalid recovery prerequisite r=>r.evidence[k]=false (0.323ms)
+✔ invalid recovery prerequisite r=>r.evidence[k]=false (0.9366ms)
+✔ invalid recovery prerequisite r=>r.evidence[k]=false (0.4624ms)
+✔ invalid recovery prerequisite r=>r.evidence[k]=false (0.3902ms)
+✔ strict/business releases never reuse recovery (0.1867ms)
+✔ exact binding changes block every executable release (354.958ms)
+✔ approval scope change and incomplete acceptance/tests reject (2.3007ms)
+✔ backup failure retains active ownership and safe resumption skips passed stages (307.8439ms)
+✔ unknown mutation is never replayed; independent exact reconciliation is required (341.5904ms)
+✔ crash after write-ahead started record blocks replay; damaged journal blocks (240.2822ms)
+✔ an actual subprocess exit after started retains unknown state and cannot replay (523.2536ms)
+✔ recovery invalidation immediately before switching blocks the fast batch (54.2387ms)
+✔ legacy plan/apply cannot claim a predecessor owned by another batch (8.9677ms)
+✖ real original rotation mutex serializes independent preparation chats (1.3571ms)
+✔ timing includes explicit approval, incomplete closeout does not declare completion (0.1276ms)
+✔ rehashing a hand edited batch cannot remove gates, forge impact or escape journals (5.0427ms)
+✔ a batch cannot apply another plan, change drain owner or restore another point (12.6941ms)
+✖ scheduled backup does nothing while paused; unknown result never gives reusable evidence (25.9629ms)
+✔ exact Windows OS PowerShell hash is usable while ordinary hard-linked tools stay forbidden (7.518ms)
+✔ PS5 child uses its system modules, removes inherited library-only flags and preserves its parent (0.8797ms)
+✔ actual readonly admission caller uses the same safe native transport (705.8552ms)
+✔ Node and non-system shell commands retain their exact approved environment (0.2167ms)
+✔ PS5 transport binds File argv as data and rejects ambiguous parameter syntax (0.6809ms)
+✔ actual approved runner survives a PS7-polluted parent while original PS5 ACL command fails (1837.0158ms)
+✔ original nested lifecycle adapter also preserves Unicode through its native child (1180.1391ms)
+ℹ tests 103
+ℹ suites 0
+ℹ pass 101
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16427.9332
+
+✖ failing tests:
+
+test at tests\release-wait-optimization.test.mjs:167:1
+✖ real original rotation mutex serializes independent preparation chats (1.3571ms)
+  Error: Worker rotation 唯一锁不可用：EADDRINUSE
+      at Server.<anonymous> (D:\.codex\worktrees\interaction-priority-fixes\运营管理系统\tools\worker-local-release-rotation.mjs:920:44)
+      at Object.onceWrapper (node:events:631:26)
+      at Server.emit (node:events:509:28)
+      at emitErrorNT (node:net:2045:8)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+
+test at tests\release-wait-optimization.test.mjs:198:1
+✖ scheduled backup does nothing while paused; unknown result never gives reusable evidence (25.9629ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /unresolved/. Input:
+
+  'Error: Worker rotation 唯一锁不可用：EADDRINUSE'
+
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/interaction-priority-fixes/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-wait-optimization.test.mjs:204:5)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: Worker rotation 唯一锁不可用：EADDRINUSE
+        at Server.<anonymous> (D:\.codex\worktrees\interaction-priority-fixes\运营管理系统\tools\worker-local-release-rotation.mjs:920:44)
+        at Object.onceWrapper (node:events:631:26)
+        at Server.emit (node:events:509:28)
+        at emitErrorNT (node:net:2045:8)
+        at process.processTicksAndRejections (node:internal/process/task_queues:90:21),
+    expected: /unresolved/,
+    operator: 'rejects',
+    diff: 'simple'
+  }

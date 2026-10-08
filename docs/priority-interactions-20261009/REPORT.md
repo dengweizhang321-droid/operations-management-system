@@ -50,6 +50,10 @@
 | TypeScript 与基线对照 | 基线和最终均185诊断；新增0、消失0 | [对照](evidence/type-comparison.json)、[最终日志](evidence/typescript-final.log)；该检查仍非全绿，不把既存问题记为通过 |
 | 独立源码复审 | PASS | [回执](evidence/independent-review.json)；复审为源码检查，未独立重复运行测试/构建 |
 
+最后推送前 main 又推进至 `fb798c14`，涉及聚水潭下载恢复及发布工具；已无冲突合并，提交 `9790e4a6`。上述四个业务文件逐字节未变。增量验证首次103项中101通过，2项因原主机发布互斥管道已被占用而失败（EADDRINUSE）；未终止持锁者、未释放原锁、未修改生产状态。[原回执](evidence/latest-main-original-lock.log)保留。随后用[测试专用 loader](evidence/isolated-rotation-loader.mjs)仅替换实际工具的管道命名空间，保留同一互斥实现及嵌套排他行为，103/103通过，[隔离回执](evidence/latest-main-isolated-lock.log)。这不证明原生产管道空闲；验证器初始加载守卫调试记录亦保留在外部原始证据中。
+
+最终合并再构建成功、lint为0错误/35警告、边界扫描650模块/0违规，见[构建](evidence/build-final.log)、[lint](evidence/lint-final.log)、[边界](evidence/boundary-final.log)。最终TypeScript仍185诊断，归一化行列变化后与基线一致，新增/消失均0。未再次声称最终合并全库3418项重跑，也未把主机锁占用列为四项前端修复缺陷。
+
 隔离预览已停止。上述回执不包含生产故障注入、真实写入、模型任务或上线验收；生产运行版本不会因推送源码自动改变。
 
 ## 首轮失败与测试维护

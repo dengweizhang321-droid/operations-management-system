@@ -1,6 +1,6 @@
 {
-  "source": "af1d6e42",
-  "upstream": "e10d5cab",
+  "source": "9790e4a6",
+  "upstream": "fb798c14",
   "uiMeasurementHead": "ae169f45c98d24586dde5adf380a432d35c30c5c",
   "uiWorkingTreeIncludedMain": true,
   "exactFourBusinessSources": [
@@ -44,7 +44,7 @@
     "warnings": 35
   },
   "boundary": {
-    "checkedModules": 648,
+    "checkedModules": 650,
     "violations": 0
   },
   "build": "passed",
@@ -62,5 +62,20 @@
     "pass": 1,
     "fail": 0,
     "note": "Re-run after explicit writes counter type annotation."
+  },
+  "latestMainIncremental": {
+    "ordinaryGlobalLock": {
+      "total": 103,
+      "pass": 101,
+      "fail": 2,
+      "reason": "Original host rotation pipe already occupied (EADDRINUSE); no holder interrupted"
+    },
+    "isolatedLockNamespace": {
+      "total": 103,
+      "pass": 103,
+      "fail": 0,
+      "skip": 0,
+      "scope": "Same tool implementation; only named-pipe namespace changed by test loader; no production lifecycle calls"
+    }
   }
 }
