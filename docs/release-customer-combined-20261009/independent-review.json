@@ -1,0 +1,891 @@
+{
+  "status": "passed",
+  "stage": "final-prepared-combination-review-awaiting-production-approval",
+  "independent": true,
+  "observedAt": "2026-10-08T17:29:53.002Z",
+  "productionActionsPerformed": [],
+  "heavyVerifyRepeatedByReviewer": false,
+  "batchSha256": "9a7bb676efb1c76d4d3daad3c1533e3690d000fa8b47a58946beb65afed58bd9",
+  "batchFileSha256": "5e55273063b6a72a968c777040c284979e58da33323e66e710a6f5a59b84b880",
+  "sourceGitCommit": "e44f1cbce9135d7327ce722416ea33a8e0f06004",
+  "sourceTree": {
+    "algorithm": "sha256-ordinal-path-length-content-v1",
+    "fileCount": 5038,
+    "sha256": "d5d37b8ffee5c1699d5b10d98b5ddc4230631e00353cf7fa07c9479e266c9f50"
+  },
+  "checks": {
+    "batchAPI": true,
+    "strictFull19": true,
+    "fullAdmissionPassed": true,
+    "allBindingsEqual": true,
+    "sourceCommit": true,
+    "sourceClean": true,
+    "sourceTree": true,
+    "workerManifest": true,
+    "workerPlan": true,
+    "workerPredecessor": true,
+    "djangoReceipt": true,
+    "preparedDjango": true,
+    "installedDjango": true,
+    "allFileBindings": true,
+    "oldBatchSuperseded": true,
+    "noProductionApproval": true
+  },
+  "fileChecks": [
+    {
+      "path": "C:\\Program Files\\nodejs\\node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\运营管理系统-sales-django-release\\tools\\release-batch-admission.mjs",
+      "sha256": "c79725fbec3e711fb0e4a587b74fb15cb3a06ce5c046848d02dcb06639a09f68",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\运营管理系统-sales-django-release\\tools\\release-batch.mjs",
+      "sha256": "481e4eca969b64ce5db01f25191f4ad88f7cb57ca661ae543cfb91f4c32cc193",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\运营管理系统-sales-django-release\\tools\\release-impact.mjs",
+      "sha256": "560c1713fc92dcaccd72da45cd63fa59cc56f5dba9aa5f46dec4a30fef22792c",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\运营管理系统-sales-django-release\\tools\\release-daily-backup.mjs",
+      "sha256": "dca9baac66a121699abcdbf8873873dafef8d6c59971038886819542578194e5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\运营管理系统-sales-django-release\\tools\\worker-local-release.mjs",
+      "sha256": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\运营管理系统-sales-django-release\\tools\\worker-local-release-rotation.mjs",
+      "sha256": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\candidate-tests.json",
+      "sha256": "6884d82aa2c66451f987d6d8076e2720429d09e856692f23316c3cb196b8fad6",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\validation-final.json",
+      "sha256": "ed6d28b02a844dba67cb5eb6f0536c86ba48552aff88577c2efda883f0da6e6e",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\source-audit.json",
+      "sha256": "c314c27da2bdc5d1928e6400fe908d9ac407564b11e2ffdf1252a7d6b565211b",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\django-reuse-verification.json",
+      "sha256": "51171a424593331c2f736a841bb82f36e94a866471e3e80f8330747195afaf0f",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\adapter-review.json",
+      "sha256": "7fe420c2885755058f239b874cc5ca89465a1ff7f24686f23b43e072e4082f78",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-combined-20261009/validation-logs/test-venv.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-combined-20261009/validation-logs/combined-tests.log",
+      "sha256": "cfae6a8e948cbe670ee88ad603b0997022985052302342ea0f6c0f3782c2f146",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-combined-20261009/validation-logs/boundary.log",
+      "sha256": "5ef5760c32a63a3ee4ca78c13c973fbcb9060228772e5e73be2c15e47ca9eb49",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-combined-20261009/validation-logs/targeted-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-combined-20261009/validation-logs/diff-check.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-combined-20261009/validation-logs/release-recovery-catalog.test.log",
+      "sha256": "fa51cb72365868738637ccdcd51945b7bb05958aedcaa21f3084c1e3aee30ed1",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-combined-20261009/validation-logs/test_postgres_no_key_backup.log",
+      "sha256": "acad4a0ec9079ae28bafb1cce23c0521cf836042f4677cc6bb542080e1b2be76",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-combined-20261009/validation-logs/postgres-consistent-backup.test.log",
+      "sha256": "0d409321dd837c52131a97c478301b251f12db8b7819f00ab70571107cb3ff5a",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-combined-20261009/validation-logs/isolated-customer-postgres.log",
+      "sha256": "639eed483befc1edb61df005f0d2f6568208047f4fbc4631c332e187d7b588da",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\isolated-postgres-cleanup.json",
+      "sha256": "cc5f857209275a93da9d0a5fae6f48eaecbeeb236735e67014761b0a6ad70d53",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\isolated-postgres\\tests.log",
+      "sha256": "72ff47088de476a1e2b36fbcf41abeb992478aa83d1c39f1ec72d474c943775e",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\validation-logs\\source-permissions-preflight.log",
+      "sha256": "2ae07089681f73b08786dc641cca250b145026e5f23adec937f24c66cb645094",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\validation-logs\\customer-readonly-preflight.log",
+      "sha256": "37e2fca02d4163e1dca1f9287f9186d79998b79e1cd40e745838bab22f1a38e4",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "sha256": "6849d2982038de9f9489a7b3858f3b785b7fec06a842c93c517281d21995c8ca",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\adoption-acceptance.mjs",
+      "sha256": "583e3a35457d5c4849958ccb6d58c087fd218cae8b03bf16940c51bc958f0e27",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\candidate-handoff.json",
+      "sha256": "7434f85c1b0205716f4f2c3d391464505881f15ba8cd7c09f13cffad9bf91e67",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\approved-worker-delta.json",
+      "sha256": "a9d05d112cce686d20cfa6b1d76b8e2d8e6c45c962563d5e442eb731ef0126cd",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\django-business-source-before.json",
+      "sha256": "235548025ed3bb6f5bf82f862e62377a4a9c940dbedda7869da2c619d81cea07",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\customer-readonly-before.json",
+      "sha256": "aec2d07076f090e85d6d40612c9e7dc85f94421f8becafe876ea25ac1beb0915",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\运营管理系统\\tools\\operations-system-control.ps1",
+      "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+      "sha256": "7c7af31f415e140fc24c8aa4d85cb2284ab5d06a33fee8d9c3eb1a2310c6ad08",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-d6c3fcad7380480896b1f972c84c4279\\tools\\django-postgres-maintenance.ps1",
+      "sha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T164956Z-d961fa92fe9b0ef5\\tools\\release-lifecycle-step.ps1",
+      "sha256": "af8e2352d990085fcd7def628ddc3589ff4bd6b1b17837a037a6ea5f3f1a7c95",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T164956Z-d961fa92fe9b0ef5\\tools\\release-lifecycle-step.ps1",
+      "sha256": "af8e2352d990085fcd7def628ddc3589ff4bd6b1b17837a037a6ea5f3f1a7c95",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T164956Z-d961fa92fe9b0ef5\\tools\\release-lifecycle-step.ps1",
+      "sha256": "af8e2352d990085fcd7def628ddc3589ff4bd6b1b17837a037a6ea5f3f1a7c95",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T164956Z-d961fa92fe9b0ef5\\tools\\release-lifecycle-step.ps1",
+      "sha256": "af8e2352d990085fcd7def628ddc3589ff4bd6b1b17837a037a6ea5f3f1a7c95",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T164956Z-d961fa92fe9b0ef5\\tools\\release-lifecycle-step.ps1",
+      "sha256": "af8e2352d990085fcd7def628ddc3589ff4bd6b1b17837a037a6ea5f3f1a7c95",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Program Files\\nodejs\\node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\adoption-acceptance.mjs",
+      "sha256": "583e3a35457d5c4849958ccb6d58c087fd218cae8b03bf16940c51bc958f0e27",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\candidate-handoff.json",
+      "sha256": "7434f85c1b0205716f4f2c3d391464505881f15ba8cd7c09f13cffad9bf91e67",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\validation-final.json",
+      "sha256": "ed6d28b02a844dba67cb5eb6f0536c86ba48552aff88577c2efda883f0da6e6e",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\django-business-source-before.json",
+      "sha256": "235548025ed3bb6f5bf82f862e62377a4a9c940dbedda7869da2c619d81cea07",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\approved-worker-delta.json",
+      "sha256": "a9d05d112cce686d20cfa6b1d76b8e2d8e6c45c962563d5e442eb731ef0126cd",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\customer-readonly-before.json",
+      "sha256": "aec2d07076f090e85d6d40612c9e7dc85f94421f8becafe876ea25ac1beb0915",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Program Files\\nodejs\\node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\adoption-acceptance.mjs",
+      "sha256": "583e3a35457d5c4849958ccb6d58c087fd218cae8b03bf16940c51bc958f0e27",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\candidate-handoff.json",
+      "sha256": "7434f85c1b0205716f4f2c3d391464505881f15ba8cd7c09f13cffad9bf91e67",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\validation-final.json",
+      "sha256": "ed6d28b02a844dba67cb5eb6f0536c86ba48552aff88577c2efda883f0da6e6e",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\django-business-source-before.json",
+      "sha256": "235548025ed3bb6f5bf82f862e62377a4a9c940dbedda7869da2c619d81cea07",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\approved-worker-delta.json",
+      "sha256": "a9d05d112cce686d20cfa6b1d76b8e2d8e6c45c962563d5e442eb731ef0126cd",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\customer-readonly-before.json",
+      "sha256": "aec2d07076f090e85d6d40612c9e7dc85f94421f8becafe876ea25ac1beb0915",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Program Files\\nodejs\\node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\adoption-acceptance.mjs",
+      "sha256": "583e3a35457d5c4849958ccb6d58c087fd218cae8b03bf16940c51bc958f0e27",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\candidate-handoff.json",
+      "sha256": "7434f85c1b0205716f4f2c3d391464505881f15ba8cd7c09f13cffad9bf91e67",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\validation-final.json",
+      "sha256": "ed6d28b02a844dba67cb5eb6f0536c86ba48552aff88577c2efda883f0da6e6e",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\django-business-source-before.json",
+      "sha256": "235548025ed3bb6f5bf82f862e62377a4a9c940dbedda7869da2c619d81cea07",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\approved-worker-delta.json",
+      "sha256": "a9d05d112cce686d20cfa6b1d76b8e2d8e6c45c962563d5e442eb731ef0126cd",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\customer-readonly-before.json",
+      "sha256": "aec2d07076f090e85d6d40612c9e7dc85f94421f8becafe876ea25ac1beb0915",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Program Files\\nodejs\\node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\adoption-acceptance.mjs",
+      "sha256": "583e3a35457d5c4849958ccb6d58c087fd218cae8b03bf16940c51bc958f0e27",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\candidate-handoff.json",
+      "sha256": "7434f85c1b0205716f4f2c3d391464505881f15ba8cd7c09f13cffad9bf91e67",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\validation-final.json",
+      "sha256": "ed6d28b02a844dba67cb5eb6f0536c86ba48552aff88577c2efda883f0da6e6e",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\django-business-source-before.json",
+      "sha256": "235548025ed3bb6f5bf82f862e62377a4a9c940dbedda7869da2c619d81cea07",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\approved-worker-delta.json",
+      "sha256": "a9d05d112cce686d20cfa6b1d76b8e2d8e6c45c962563d5e442eb731ef0126cd",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\customer-readonly-before.json",
+      "sha256": "aec2d07076f090e85d6d40612c9e7dc85f94421f8becafe876ea25ac1beb0915",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "sha256": "6849d2982038de9f9489a7b3858f3b785b7fec06a842c93c517281d21995c8ca",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T164956Z-d961fa92fe9b0ef5\\tools\\release-lifecycle-step.ps1",
+      "sha256": "af8e2352d990085fcd7def628ddc3589ff4bd6b1b17837a037a6ea5f3f1a7c95",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T164956Z-d961fa92fe9b0ef5\\tools\\release-lifecycle-step.ps1",
+      "sha256": "af8e2352d990085fcd7def628ddc3589ff4bd6b1b17837a037a6ea5f3f1a7c95",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Program Files\\nodejs\\node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\adoption-acceptance.mjs",
+      "sha256": "583e3a35457d5c4849958ccb6d58c087fd218cae8b03bf16940c51bc958f0e27",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\candidate-handoff.json",
+      "sha256": "7434f85c1b0205716f4f2c3d391464505881f15ba8cd7c09f13cffad9bf91e67",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\validation-final.json",
+      "sha256": "ed6d28b02a844dba67cb5eb6f0536c86ba48552aff88577c2efda883f0da6e6e",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\django-business-source-before.json",
+      "sha256": "235548025ed3bb6f5bf82f862e62377a4a9c940dbedda7869da2c619d81cea07",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\approved-worker-delta.json",
+      "sha256": "a9d05d112cce686d20cfa6b1d76b8e2d8e6c45c962563d5e442eb731ef0126cd",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-customer-combined-20261009\\customer-readonly-before.json",
+      "sha256": "aec2d07076f090e85d6d40612c9e7dc85f94421f8becafe876ea25ac1beb0915",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+      "sha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6",
+      "matched": true,
+      "expectedPostDeploy": true
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+      "sha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6",
+      "matched": true,
+      "expectedPostDeploy": true
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "matched": true,
+      "expectedPostDeploy": false
+    },
+    {
+      "path": "D:\\运营管理系统\\tools\\operations-system-control.ps1",
+      "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+      "matched": true,
+      "expectedPostDeploy": false
+    }
+  ],
+  "collectorFiles": 33,
+  "uniquePhysicalFilesHashed": 37,
+  "operationOrder": [
+    {
+      "id": "reuse-final-worker",
+      "phase": "prepare",
+      "kind": "worker-plan",
+      "step": null
+    },
+    {
+      "id": "op-backup-pre",
+      "phase": "backup-pre",
+      "kind": "backup",
+      "step": null
+    },
+    {
+      "id": "op-restore-pre",
+      "phase": "restore-pre",
+      "kind": "restore",
+      "step": null
+    },
+    {
+      "id": "step-entermaintenance",
+      "phase": "drain",
+      "kind": "lifecycle",
+      "step": "EnterMaintenance"
+    },
+    {
+      "id": "step-deployapp",
+      "phase": "switch",
+      "kind": "django-deploy",
+      "step": "DeployApp"
+    },
+    {
+      "id": "step-hardenacl",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "step": "HardenAcl"
+    },
+    {
+      "id": "apply-final-worker",
+      "phase": "switch",
+      "kind": "worker-apply",
+      "step": null
+    },
+    {
+      "id": "step-exitmaintenance",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "step": "ExitMaintenance"
+    },
+    {
+      "id": "step-startworker",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "step": "StartWorker"
+    },
+    {
+      "id": "check-live-resources",
+      "phase": "acceptance",
+      "kind": "command",
+      "step": null
+    },
+    {
+      "id": "check-unchanged-business-permissions",
+      "phase": "acceptance",
+      "kind": "command",
+      "step": null
+    },
+    {
+      "id": "customer-historical-query-preserved",
+      "phase": "acceptance",
+      "kind": "command",
+      "step": null
+    },
+    {
+      "id": "customer-four-shop-production-ui",
+      "phase": "acceptance",
+      "kind": "command",
+      "step": null
+    },
+    {
+      "id": "step-aggregatestatus",
+      "phase": "acceptance",
+      "kind": "lifecycle",
+      "step": "AggregateStatus"
+    },
+    {
+      "id": "step-verifystartup",
+      "phase": "acceptance",
+      "kind": "lifecycle",
+      "step": "VerifyStartup"
+    },
+    {
+      "id": "two-new-natural-watchdogs",
+      "phase": "acceptance",
+      "kind": "command",
+      "step": null
+    },
+    {
+      "id": "op-backup-post",
+      "phase": "backup-post",
+      "kind": "backup",
+      "step": null
+    },
+    {
+      "id": "op-restore-post",
+      "phase": "restore-post",
+      "kind": "restore",
+      "step": null
+    },
+    {
+      "id": "final-readiness-closeout",
+      "phase": "closeout",
+      "kind": "command",
+      "step": null
+    }
+  ],
+  "candidate": {
+    "releaseId": "20261008T164956Z-d961fa92fe9b0ef5",
+    "manifestSha256": "cb644fbbe6bd50fe7c01f3663f10b796f75a6f929b3685c2b32761b3357bf0c6",
+    "planSha256": "ba16cb94e1f4716dc9b6aaf77e87b2b7fb9427ae3f9160d2d709e784d8641400",
+    "djangoPreparedId": "d6c3fcad7380480896b1f972c84c4279",
+    "djangoReceiptSha256": "d51decd7abd141e3d853c5074396926f286c1a108da503841944edb846153b65",
+    "djangoCandidateManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9"
+  },
+  "validation": {
+    "combinedTests": {
+      "tests": 254,
+      "pass": 254,
+      "fail": 0,
+      "skip": 0,
+      "files": [
+        "customer-service-analysis.test.ts",
+        "customer-service-bound-chunks-route.test.ts",
+        "customer-service-import.test.ts",
+        "customer-service-store-selection-interaction.test.ts",
+        "django-customer-service-cutover.test.ts",
+        "django-local-service.test.ts",
+        "django-postgres-maintenance.test.ts",
+        "jd-customer-service-bound-import-route.test.ts",
+        "jd-customer-service-daily-files.test.ts",
+        "jd-customer-service-export.test.ts",
+        "jd-customer-service-import.test.ts",
+        "jd-customer-service-n8n-pipeline.test.ts",
+        "jd-customer-service-quality-recovery.test.ts",
+        "jd-customer-service-stores.test.ts",
+        "jd-customer-service-workflow.test.ts",
+        "module-performance.test.ts",
+        "release-wait-optimization.test.ts",
+        "release-worker-drain.test.ts",
+        "shared-filter-draft-interaction.test.ts",
+        "startup-release-optimization.test.ts",
+        "worker-local-release-rotation.test.ts",
+        "worker-local-release.test.ts"
+      ]
+    },
+    "pythonSmallTests": {
+      "catalog": 5,
+      "noKey": 7,
+      "consistent": 31
+    },
+    "actualPrivatePostgresTests": 11,
+    "cleanupChecked": true,
+    "previousFullUnit": {
+      "tests": 3459,
+      "pass": 3435,
+      "fail": 0,
+      "skip": 24,
+      "milliseconds": 977134.4621,
+      "scope": "Previous release implementation baseline; not a new full-suite execution on the combined candidate"
+    },
+    "originalAccountingAndPythonFailuresPreserved": true
+  },
+  "workerBusinessDelta": {
+    "count": 6,
+    "records": [
+      {
+        "relative": "app/api/customer-service/import/chunks/route.ts",
+        "before": "aeb5b57a51c9494086fdac0be884e73f4e96bb66c1655d9ced152db25ee313c8",
+        "after": "81c9f64b387019e11b92d08041326e54af50e1782419e9bc670c4156730eba90",
+        "gitBeforeMatches": true,
+        "gitAfterMatches": true,
+        "workerPredecessorMatches": true,
+        "workerCandidateMatches": true,
+        "finalSourceMatches": true
+      },
+      {
+        "relative": "app/api/customer-service/import/route.ts",
+        "before": "9d14edde6391a85db1632e77891d56572991833c3fdf982233531f7bd4969371",
+        "after": "480630dd9729e9de6be1b270acc03a66bf6e3cef05e92a6e24e9e24a8bc244eb",
+        "gitBeforeMatches": true,
+        "gitAfterMatches": true,
+        "workerPredecessorMatches": true,
+        "workerCandidateMatches": true,
+        "finalSourceMatches": true
+      },
+      {
+        "relative": "app/customer-service-import-card.tsx",
+        "before": "002bdd994ce31e3c5b6da3fd8775716bb722f69f4a155ea7bc449b525324c022",
+        "after": "ad58874943c8fa9e8f0e9d287979ecc178c4d7ab6197f468b4372706ea9359a3",
+        "gitBeforeMatches": true,
+        "gitAfterMatches": true,
+        "workerPredecessorMatches": true,
+        "workerCandidateMatches": true,
+        "finalSourceMatches": true
+      },
+      {
+        "relative": "app/customer-service-view.tsx",
+        "before": "84dd5f29fd42c7cafadd64b3549bf8377765167eeb2e30a4037cb383c2cd9a87",
+        "after": "4832b40826933d0949d27468c6831ba2fb5d64c31b1644159a1e8825e562a7a6",
+        "gitBeforeMatches": true,
+        "gitAfterMatches": true,
+        "workerPredecessorMatches": true,
+        "workerCandidateMatches": true,
+        "finalSourceMatches": true
+      },
+      {
+        "relative": "app/ui/searchable-select.tsx",
+        "before": "893ad2ad7858092740c9927d752ac35daa8f08bd9d4a7396f7b982d92d99689d",
+        "after": "3f60601102c6915468d1e2b43a47429528446f04fdcef448efccf6a4cf74bde9",
+        "gitBeforeMatches": true,
+        "gitAfterMatches": true,
+        "workerPredecessorMatches": true,
+        "workerCandidateMatches": true,
+        "finalSourceMatches": true
+      },
+      {
+        "relative": "lib/jd/customer-service-stores.ts",
+        "before": "cd02864655207eb97c96f8b788ea279fbae514dd3805d0eb6096863a1a4f9ba8",
+        "after": "18e1fc25e4351d224113551f9110dfed921699d1873ec46c35df9801cfe0bfda",
+        "gitBeforeMatches": true,
+        "gitAfterMatches": true,
+        "workerPredecessorMatches": true,
+        "workerCandidateMatches": true,
+        "finalSourceMatches": true
+      }
+    ],
+    "actualSymmetricDifferences": [
+      "app/api/customer-service/import/chunks/route.ts",
+      "app/api/customer-service/import/route.ts",
+      "app/customer-service-import-card.tsx",
+      "app/customer-service-view.tsx",
+      "app/ui/searchable-select.tsx",
+      "lib/jd/customer-service-stores.ts"
+    ]
+  },
+  "adapterReviewSha256": "7fe420c2885755058f239b874cc5ca89465a1ff7f24686f23b43e072e4082f78",
+  "admission": {
+    "sha256": "c8b4e0c3dd7b2ff93dc713d82ce9ffc9704e61db8a4de6940f6de8fcc9e34842",
+    "observedAt": "2026-10-08T17:28:18.733Z",
+    "exactBindingMatched": true,
+    "preapprovalSingleObservationMs": 194029.2697,
+    "recheckAfterApprovalMandatory": true,
+    "productionDowntimeMeasured": false
+  },
+  "productionStillPredecessor": {
+    "status": "resolved",
+    "version": "teruisi-local-worker-effective-release-v1",
+    "releaseId": "20261008T103219Z-f5d9b00e432df6c0",
+    "manifestPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261008T103219Z-f5d9b00e432df6c0\\deployment-manifest.json",
+    "manifestSha256": "91e392b28902df8ad3aaf966411eb9f39f2017ed4d899191c49573a320721915",
+    "guardReceiptSha256": "d55d1138de34928d21c207812c2c14d7f8fe7a588108001eaec933135ef4e045",
+    "successorCount": 215,
+    "chainStateSha256": "8973a0183d6118ed0cc638c336a6903a97f687eb157f83ad2caef1c684fb08e2"
+  },
+  "acceptanceScope": {
+    "sourcePermissions": "Exact six Worker modifications with full symmetric scope; actual owned Django baseline stays byte equal",
+    "customerHistory": "GET-only fixed per-row canonical four-store Oct 1-7 and positive legacy Jan 1-Jul 20 totals/shop sets",
+    "customerUI": "Two entrypoints; empty initial store, four canonical choices, no files or import click; same-origin GET only, other network methods/origins blocked",
+    "liveUIExecuted": false,
+    "liveAssetsExecuted": false,
+    "naturalWatchdogExecuted": false,
+    "productionBackupsExecuted": false,
+    "productionRestoreExecuted": false,
+    "realBusinessImportsApproved": false
+  },
+  "limitations": [
+    "This is preparation and independent review, not permission to deploy",
+    "Execute only after explicit user approval of this exact two-task scope and revalidated current tuple",
+    "Strict full pre/post backup and isolated restoration, KeepPostgres drain, old CAS/startup/permissions/unknown protections remain mandatory",
+    "The previous isolated timing and former full suite are accurately scoped historical evidence; no production fixed-latency promise",
+    "Actual task/live UI/assets/readiness/two natural watchdogs and closeout run only after production approval; no live POST customer import in this batch"
+  ],
+  "finalUpfrontClosure": {
+    "collectorFiles": 33,
+    "allActualShaMatched": true,
+    "includesChromeAndSystemShell": true,
+    "includesAcceptanceCodeAndAllMutableInputs": true,
+    "includesExternalOperationsController": true,
+    "actualFullAdmissionElapsedMs": 194029.2697,
+    "admissionTimingSha256": "1b004de5aee66177d1b34bc0b22d9fc88a6358f39814d249f1111838ca8eafb0",
+    "separateOriginalAssertBindingsPassed": true,
+    "supersededC152OperationsUnchanged": true,
+    "maintenanceOwnerAndRestoreIdsUnchanged": true,
+    "adapterFrozenSha256": "7fe420c2885755058f239b874cc5ca89465a1ff7f24686f23b43e072e4082f78"
+  }
+}
