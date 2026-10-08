@@ -1,0 +1,91 @@
+{
+  "sourceHead": "a37b5ffdbe9e6705cf4daa9545231e93b4378c5d",
+  "comparedRelease": "20261008T103219Z-f5d9b00e432df6c0",
+  "qualification": "source-snapshot byte equality only; running effective release verified by parent",
+  "files": [
+    {
+      "file": "app/page.tsx",
+      "sourceSha256": "86ab18f7f8e1da7d5c55c99c8b646bbd8392f1c5c007d5c418ca0f2e68992c50",
+      "releaseSha256": "86ab18f7f8e1da7d5c55c99c8b646bbd8392f1c5c007d5c418ca0f2e68992c50",
+      "equal": true
+    },
+    {
+      "file": "app/ui/searchable-select.tsx",
+      "sourceSha256": "893ad2ad7858092740c9927d752ac35daa8f08bd9d4a7396f7b982d92d99689d",
+      "releaseSha256": "893ad2ad7858092740c9927d752ac35daa8f08bd9d4a7396f7b982d92d99689d",
+      "equal": true
+    },
+    {
+      "file": "app/ui/filter-draft.tsx",
+      "sourceSha256": "cc666d3902b13aae9002ede747315aa3e50b7a8a4418f320cc393f64bd101f28",
+      "releaseSha256": "cc666d3902b13aae9002ede747315aa3e50b7a8a4418f320cc393f64bd101f28",
+      "equal": true
+    },
+    {
+      "file": "app/global-search-dialog.tsx",
+      "sourceSha256": "73cee2be53bacab97c54bc1e8288ad10ab416260b5015f3e70a08767db2f2a8c",
+      "releaseSha256": "73cee2be53bacab97c54bc1e8288ad10ab416260b5015f3e70a08767db2f2a8c",
+      "equal": true
+    },
+    {
+      "file": "app/module-view-shared.tsx",
+      "sourceSha256": "73333bc498d94521b2e07f4debc4bb7c0e71ff22e234379b688b6e1f8ef18461",
+      "releaseSha256": "73333bc498d94521b2e07f4debc4bb7c0e71ff22e234379b688b6e1f8ef18461",
+      "equal": true
+    },
+    {
+      "file": "app/ui/stable-read-content.tsx",
+      "sourceSha256": "8f64c9158749ebddb46205b0112a8836836f46b7f87a31c3b705356493ccdabb",
+      "releaseSha256": "8f64c9158749ebddb46205b0112a8836836f46b7f87a31c3b705356493ccdabb",
+      "equal": true
+    },
+    {
+      "file": "app/sales-module-view.tsx",
+      "sourceSha256": "a39975326a02f4658919a98651ba52fe0d7f6cf5cdf1ae2130438088d98521ce",
+      "releaseSha256": "a39975326a02f4658919a98651ba52fe0d7f6cf5cdf1ae2130438088d98521ce",
+      "equal": true
+    },
+    {
+      "file": "app/inventory-module-view.tsx",
+      "sourceSha256": "c451c3b7fcac47007beb826115b76ba0c7a277f082a4039945e39a2df81113d8",
+      "releaseSha256": "c451c3b7fcac47007beb826115b76ba0c7a277f082a4039945e39a2df81113d8",
+      "equal": true
+    },
+    {
+      "file": "app/product-module-view.tsx",
+      "sourceSha256": "90edff74c5c9b4b3a78246d4a547d6c8cd8501786801ed4e331efa1c85878f37",
+      "releaseSha256": "90edff74c5c9b4b3a78246d4a547d6c8cd8501786801ed4e331efa1c85878f37",
+      "equal": true
+    },
+    {
+      "file": "app/customer-service-view.tsx",
+      "sourceSha256": "84dd5f29fd42c7cafadd64b3549bf8377765167eeb2e30a4037cb383c2cd9a87",
+      "releaseSha256": "84dd5f29fd42c7cafadd64b3549bf8377765167eeb2e30a4037cb383c2cd9a87",
+      "equal": true
+    },
+    {
+      "file": "app/ai-module-view.tsx",
+      "sourceSha256": "09c46b3a6841c6ba2496bb26ea69a6b266761666fdadc2762661b811cee45664",
+      "releaseSha256": "09c46b3a6841c6ba2496bb26ea69a6b266761666fdadc2762661b811cee45664",
+      "equal": true
+    },
+    {
+      "file": "app/shell/reloadable-lazy.tsx",
+      "sourceSha256": "ab49fd36d8c3b28a0789b9dab0486aca1d10cf33c0a4535c6d263e6748fe0d0e",
+      "releaseSha256": "ab49fd36d8c3b28a0789b9dab0486aca1d10cf33c0a4535c6d263e6748fe0d0e",
+      "equal": true
+    },
+    {
+      "file": "app/shell/module-error-boundary.tsx",
+      "sourceSha256": "def7fdb5a0666e411aa212fd9158e3d20ad7d31b19a7d907209cdc961e29ac12",
+      "releaseSha256": "def7fdb5a0666e411aa212fd9158e3d20ad7d31b19a7d907209cdc961e29ac12",
+      "equal": true
+    },
+    {
+      "file": "app/shell/navigation-catalog.ts",
+      "sourceSha256": "233907ffce24db78bf437021bca87f8e9211bd1d2b33d00d176c8d5bfdc39943",
+      "releaseSha256": "233907ffce24db78bf437021bca87f8e9211bd1d2b33d00d176c8d5bfdc39943",
+      "equal": true
+    }
+  ]
+}

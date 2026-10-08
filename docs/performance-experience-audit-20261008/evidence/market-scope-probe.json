@@ -1,0 +1,62 @@
+{
+  "kind": "isolated-memory-orm-seam-negative-probe",
+  "utc": "2026-10-08T14:19:02.377268+00:00",
+  "reviewed_head": "a37b5ffdbe9e6705cf4daa9545231e93b4378c5d",
+  "sources": [
+    {
+      "path": "backend\\market\\query.py",
+      "sha256": "0fb1d2884fb8089387cbc2a311f4ced87826f872d982d73921e7860fcf6c74ec",
+      "functions": [
+        {
+          "name": "item_trend",
+          "first_line": 1519,
+          "last_line": 1576
+        }
+      ]
+    },
+    {
+      "path": "backend\\market\\admin.py",
+      "sha256": "c348b257b65b5c23b69431adf73a02bc17a86138471c4ea5d1b2eb53ec81fd92",
+      "functions": [
+        {
+          "name": "comparison",
+          "first_line": 569,
+          "last_line": 645
+        }
+      ]
+    }
+  ],
+  "scope_example": {
+    "source_records": 4,
+    "requested_dates": [
+      "2026-01-01",
+      "2026-01-31"
+    ],
+    "expected_gmv_cents_per_item": 100,
+    "actual_gmv_cents": [
+      1000,
+      1000
+    ],
+    "actual_trend_months_per_item": [
+      [
+        "2026-01",
+        "2026-02"
+      ],
+      [
+        "2026-01",
+        "2026-02"
+      ]
+    ]
+  },
+  "truncation_example": {
+    "source_records": 61,
+    "totalMonths": 2,
+    "returned_records": 60,
+    "returned_months": [
+      "2026-02"
+    ],
+    "actual_truncated": false,
+    "expected_truncated": true
+  },
+  "limitations": "Function-body proof with synthetic ORM seam; not an API, browser, PostgreSQL or production replay. No timing claim."
+}

@@ -1,0 +1,26 @@
+✔ regions preserve details only for an identical query and source (1.6908ms)
+✔ one failed region remains independently retryable; late aborted reads never publish (18.235ms)
+✔ a source change on local retry rebuilds both regions; repeated mismatch fails boundedly (2.2698ms)
+✔ overview: retrying early summary failure replaces its cancelled in-flight sibling (2.1575ms)
+✔ overview: retrying early detail failure replaces its cancelled in-flight sibling (1.0243ms)
+✔ plan: retrying early summary failure replaces its cancelled in-flight sibling (0.4758ms)
+✔ plan: retrying early detail failure replaces its cancelled in-flight sibling (0.3975ms)
+✔ age: retrying early summary failure replaces its cancelled in-flight sibling (0.5188ms)
+✔ age: retrying early detail failure replaces its cancelled in-flight sibling (0.4213ms)
+✔ stale: retrying early summary failure replaces its cancelled in-flight sibling (0.4276ms)
+✔ stale: retrying early detail failure replaces its cancelled in-flight sibling (0.4731ms)
+✔ inbound: retrying early summary failure replaces its cancelled in-flight sibling (0.4027ms)
+✔ inbound: retrying early detail failure replaces its cancelled in-flight sibling (0.3871ms)
+✔ guangdong: retrying early summary failure replaces its cancelled in-flight sibling (0.3605ms)
+✔ guangdong: retrying early detail failure replaces its cancelled in-flight sibling (0.3187ms)
+✔ local retry keeps an already-ready sibling and full refresh still reloads the pair (0.4846ms)
+✔ shared filter draft preserves search, scroll and focus, auto-applies dimensions, confirms text by Enter and resets across scopes (6402.7962ms)
+✔ retained presentation preserves geometry, blocks old actions and clears on failure, period or auth packet change (1796.1871ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10094.0245

@@ -1,0 +1,352 @@
+{
+  "confirmation": {
+    "checks": [
+      "sales text waits for Enter; dropdown auto-loads only confirmed text and keeps panel focus",
+      "inventory IME commit is not a query; Enter preserves caret and complete text; slow reads keep later edits",
+      "product code requires Enter; dropdowns retain unconfirmed code and auto-load complete multi-values",
+      "single selection auto-loads; pending dimension edits are canceled when reset or navigating",
+      "late reads and failed retry never overwrite later unconfirmed input"
+    ],
+    "errors": [],
+    "syntheticOnly": true,
+    "nativeWindowsCandidateWindowVerified": false
+  },
+  "layout": {
+    "errors": [],
+    "results": [
+      {
+        "module": "sales",
+        "tab": null,
+        "label": "销售分析平台",
+        "injectedRegionalFixture": false,
+        "first": {
+          "ms": 0,
+          "scrollY": 130,
+          "height": 1905,
+          "triggerConnected": true,
+          "triggerY": 81.796875,
+          "menuConnected": true,
+          "menuY": 118.796875,
+          "retained": 0
+        },
+        "scroll": [
+          130,
+          130
+        ],
+        "height": [
+          1901,
+          1905
+        ],
+        "triggerY": [
+          81.796875,
+          81.796875
+        ],
+        "menuY": [
+          118.796875,
+          118.796875
+        ],
+        "allTriggerConnected": true,
+        "allMenuConnected": true,
+        "retainedFrames": 1298,
+        "frameCount": 2099,
+        "requestCount": 4
+      },
+      {
+        "module": "sales",
+        "tab": "渠道分析",
+        "label": "销售分析平台",
+        "injectedRegionalFixture": false,
+        "first": {
+          "ms": 0,
+          "scrollY": 130,
+          "height": 1367,
+          "triggerConnected": true,
+          "triggerY": 81.796875,
+          "menuConnected": true,
+          "menuY": 118.796875,
+          "retained": 0
+        },
+        "scroll": [
+          130,
+          130
+        ],
+        "height": [
+          1367,
+          1367
+        ],
+        "triggerY": [
+          81.796875,
+          81.796875
+        ],
+        "menuY": [
+          118.796875,
+          118.796875
+        ],
+        "allTriggerConnected": true,
+        "allMenuConnected": true,
+        "retainedFrames": 1299,
+        "frameCount": 2109,
+        "requestCount": 4
+      },
+      {
+        "module": "sales",
+        "tab": "品类分析",
+        "label": "销售分析平台",
+        "injectedRegionalFixture": false,
+        "first": {
+          "ms": 0.10000002384185791,
+          "scrollY": 130,
+          "height": 1627,
+          "triggerConnected": true,
+          "triggerY": 81.796875,
+          "menuConnected": true,
+          "menuY": 118.796875,
+          "retained": 0
+        },
+        "scroll": [
+          130,
+          130
+        ],
+        "height": [
+          1627,
+          1660
+        ],
+        "triggerY": [
+          81.796875,
+          81.796875
+        ],
+        "menuY": [
+          118.796875,
+          118.796875
+        ],
+        "allTriggerConnected": true,
+        "allMenuConnected": true,
+        "retainedFrames": 648,
+        "frameCount": 2102,
+        "requestCount": 2
+      },
+      {
+        "module": "sales",
+        "tab": "财报分析",
+        "label": "销售分析平台",
+        "injectedRegionalFixture": false,
+        "first": {
+          "ms": 0.10000002384185791,
+          "scrollY": 130,
+          "height": 1634,
+          "triggerConnected": true,
+          "triggerY": 68.578125,
+          "menuConnected": true,
+          "menuY": 105.578125,
+          "retained": 0
+        },
+        "scroll": [
+          130,
+          130
+        ],
+        "height": [
+          1634,
+          1691
+        ],
+        "triggerY": [
+          68.578125,
+          68.578125
+        ],
+        "menuY": [
+          105.578125,
+          105.578125
+        ],
+        "allTriggerConnected": true,
+        "allMenuConnected": true,
+        "retainedFrames": 652,
+        "frameCount": 2108,
+        "requestCount": 2
+      },
+      {
+        "module": "inventory",
+        "tab": null,
+        "label": "健康状态",
+        "injectedRegionalFixture": false,
+        "first": {
+          "ms": 0.10000002384185791,
+          "scrollY": 130,
+          "height": 1376,
+          "triggerConnected": true,
+          "triggerY": 213.59375,
+          "menuConnected": true,
+          "menuY": 250.59375,
+          "retained": 0
+        },
+        "scroll": [
+          130,
+          130
+        ],
+        "height": [
+          1202,
+          1376
+        ],
+        "triggerY": [
+          213.59375,
+          213.59375
+        ],
+        "menuY": [
+          250.59375,
+          250.59375
+        ],
+        "allTriggerConnected": true,
+        "allMenuConnected": true,
+        "retainedFrames": 654,
+        "frameCount": 2093,
+        "requestCount": 4
+      },
+      {
+        "module": "inventory",
+        "tab": "备货计划",
+        "label": "备货计划状态",
+        "injectedRegionalFixture": false,
+        "first": {
+          "ms": 0,
+          "scrollY": 130,
+          "height": 1200,
+          "triggerConnected": true,
+          "triggerY": 213.59375,
+          "menuConnected": true,
+          "menuY": 250.59375,
+          "retained": 0
+        },
+        "scroll": [
+          130,
+          130
+        ],
+        "height": [
+          1200,
+          1202
+        ],
+        "triggerY": [
+          213.59375,
+          213.59375
+        ],
+        "menuY": [
+          0,
+          250.59375
+        ],
+        "allTriggerConnected": true,
+        "allMenuConnected": false,
+        "retainedFrames": 332,
+        "frameCount": 1063,
+        "requestCount": 2
+      },
+      {
+        "module": "inventory",
+        "tab": "库龄分析",
+        "label": "库龄风险状态",
+        "injectedRegionalFixture": false,
+        "first": {
+          "ms": 0,
+          "scrollY": 130,
+          "height": 2500,
+          "triggerConnected": true,
+          "triggerY": 213.59375,
+          "menuConnected": true,
+          "menuY": 250.59375,
+          "retained": 0
+        },
+        "scroll": [
+          130,
+          130
+        ],
+        "height": [
+          2272,
+          2500
+        ],
+        "triggerY": [
+          213.59375,
+          213.59375
+        ],
+        "menuY": [
+          250.59375,
+          250.59375
+        ],
+        "allTriggerConnected": true,
+        "allMenuConnected": true,
+        "retainedFrames": 657,
+        "frameCount": 2091,
+        "requestCount": 4
+      },
+      {
+        "module": "inventory",
+        "tab": "广东入仓监控",
+        "label": "库存公共品牌",
+        "injectedRegionalFixture": true,
+        "first": {
+          "ms": 0,
+          "scrollY": 89,
+          "height": 1089,
+          "triggerConnected": true,
+          "triggerY": 214.28125,
+          "menuConnected": true,
+          "menuY": 251.28125,
+          "retained": 0
+        },
+        "scroll": [
+          89,
+          89
+        ],
+        "height": [
+          1089,
+          1161
+        ],
+        "triggerY": [
+          214.28125,
+          214.28125
+        ],
+        "menuY": [
+          251.28125,
+          251.28125
+        ],
+        "allTriggerConnected": true,
+        "allMenuConnected": true,
+        "retainedFrames": 636,
+        "frameCount": 2114,
+        "requestCount": 4
+      },
+      {
+        "module": "product",
+        "tab": null,
+        "label": "销售平台",
+        "injectedRegionalFixture": false,
+        "first": {
+          "ms": 0.10000002384185791,
+          "scrollY": 130,
+          "height": 1176,
+          "triggerConnected": true,
+          "triggerY": 450.96875,
+          "menuConnected": true,
+          "menuY": 489.96875,
+          "retained": 0
+        },
+        "scroll": [
+          130,
+          130
+        ],
+        "height": [
+          1176,
+          1224
+        ],
+        "triggerY": [
+          450.96875,
+          450.96875
+        ],
+        "menuY": [
+          489.96875,
+          489.96875
+        ],
+        "allTriggerConnected": true,
+        "allMenuConnected": true,
+        "retainedFrames": 1281,
+        "frameCount": 2078,
+        "requestCount": 4
+      }
+    ]
+  }
+}

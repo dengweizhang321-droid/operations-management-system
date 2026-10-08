@@ -1,0 +1,32 @@
+[
+  {
+    "file": "app/globals.css",
+    "equal": true,
+    "sourceSha256": "a528209560bf29c4d18ffc8bd66cb614b2c9aef397ca83bfdaeec88a2f4e5d6a",
+    "releaseSha256": "a528209560bf29c4d18ffc8bd66cb614b2c9aef397ca83bfdaeec88a2f4e5d6a"
+  },
+  {
+    "file": "app/netshop/products/products.css",
+    "equal": true,
+    "sourceSha256": "11e0cf68f8d7862ca41820e830e688ed7f47abd9eac5498fd081be4ece81b190",
+    "releaseSha256": "11e0cf68f8d7862ca41820e830e688ed7f47abd9eac5498fd081be4ece81b190"
+  },
+  {
+    "file": "app/netshop/products/ProductsColumn.tsx",
+    "equal": true,
+    "sourceSha256": "cfc6e9c2a7b6ac06601d5d848ebec8d94d4e02a0f3a662d0f6058c36113df91d",
+    "releaseSha256": "cfc6e9c2a7b6ac06601d5d848ebec8d94d4e02a0f3a662d0f6058c36113df91d"
+  },
+  {
+    "file": "app/n8n-workflow-view.tsx",
+    "equal": true,
+    "sourceSha256": "aaf626a5b8652edc4d6008ac107dfadec7a1601e45b512d63f732a1c03ee47b3",
+    "releaseSha256": "aaf626a5b8652edc4d6008ac107dfadec7a1601e45b512d63f732a1c03ee47b3"
+  },
+  {
+    "file": "app/bi-cockpit-view.tsx",
+    "equal": true,
+    "sourceSha256": "a4e4396ba4a949f0ad2915add3b5dede85def1c2b5c24dedd46d856188fa932d",
+    "releaseSha256": "a4e4396ba4a949f0ad2915add3b5dede85def1c2b5c24dedd46d856188fa932d"
+  }
+]

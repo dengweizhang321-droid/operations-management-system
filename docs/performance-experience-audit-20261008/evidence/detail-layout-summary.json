@@ -1,0 +1,522 @@
+{
+  "sourceHead": "a37b5ffdbe9e6705cf4daa9545231e93b4378c5d",
+  "rawSource": ".runtime/detail-layout-audit-1791470060549/result.json",
+  "rawSha256": "0dbc9c4a8c241340476e5493f08ca90432be2f22d75308e9f16ce096bd9ff690",
+  "environment": "actual Home isolated 127.0.0.1:3781; synthetic data; Chrome 1440x1000 unless case states otherwise",
+  "product": {
+    "page2": "unavailable in isolated dataset; first-page detail used",
+    "before": [
+      {
+        "selector": ".product-detail-back",
+        "rect": {
+          "x": 47,
+          "y": 324,
+          "width": 58.390625,
+          "height": 12.796875,
+          "top": 324,
+          "bottom": 336.796875,
+          "left": 47,
+          "right": 105.390625
+        },
+        "styles": {
+          "position": "absolute",
+          "zIndex": "1",
+          "display": "block",
+          "paddingTop": "0px",
+          "fontSize": "8px",
+          "lineHeight": "12.8px",
+          "height": "12.7969px",
+          "minHeight": "0px",
+          "overflow": "visible",
+          "pointerEvents": "auto"
+        }
+      },
+      {
+        "selector": ".product-detail-heading-main",
+        "rect": {
+          "x": 53,
+          "y": 330,
+          "width": 171.078125,
+          "height": 80.78125,
+          "top": 330,
+          "bottom": 410.78125,
+          "left": 53,
+          "right": 224.078125
+        },
+        "styles": {
+          "position": "static",
+          "zIndex": "1",
+          "display": "flex",
+          "paddingTop": "13px",
+          "fontSize": "14px",
+          "lineHeight": "22.4px",
+          "height": "80.7812px",
+          "minHeight": "auto",
+          "overflow": "visible",
+          "pointerEvents": "auto"
+        }
+      },
+      {
+        "selector": ".shell-masthead",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 66,
+          "top": 0,
+          "bottom": 66,
+          "left": 0,
+          "right": 1440
+        },
+        "styles": {
+          "position": "sticky",
+          "zIndex": "40",
+          "display": "flex",
+          "paddingTop": "10px",
+          "fontSize": "14px",
+          "lineHeight": "22.4px",
+          "height": "66px",
+          "minHeight": "0px",
+          "overflow": "visible",
+          "pointerEvents": "auto"
+        }
+      }
+    ],
+    "centerHit": {
+      "x": 76.1953125,
+      "y": 330.3984375,
+      "hit": {
+        "tag": "DIV",
+        "className": "product-detail-heading-main"
+      },
+      "reachesBack": false
+    },
+    "hitCounts": [
+      {
+        "Name": "product-detail-back",
+        "Count": 3
+      },
+      {
+        "Name": "product-detail-heading-main",
+        "Count": 6
+      }
+    ],
+    "ordinaryClickFailed": true,
+    "ordinaryClickTimeoutMs": 6000,
+    "detailRemainsAfterVisibleCoordinateClick": true,
+    "detailRemainsAfterKeyboardEnter": false,
+    "finding": "Button center and lower sampled points are covered by heading-main even at scrollY=0; visible-coordinate center click also fails; keyboard Enter returns. Only 3/9 sampled points reach the 8px button. Not merely locator auto-scroll.",
+    "files": [
+      "app/product-module-view.tsx:62",
+      "app/globals.css:852"
+    ]
+  },
+  "netshopDate": [
+    {
+      "width": 1440,
+      "date": {
+        "x": 366.703125,
+        "y": 364.375,
+        "width": 266.859375,
+        "height": 38,
+        "top": 364.375,
+        "bottom": 402.375,
+        "left": 366.703125,
+        "right": 633.5625,
+        "display": "grid",
+        "cssHeight": "38px",
+        "padding": "0px 8px 0px 11px",
+        "lineHeight": "20.8px",
+        "fontSize": "13px"
+      },
+      "button": {
+        "x": 378.703125,
+        "y": 389.78125,
+        "width": 245.859375,
+        "height": 34.796875,
+        "top": 389.78125,
+        "bottom": 424.578125,
+        "left": 378.703125,
+        "right": 624.5625,
+        "display": "block",
+        "cssHeight": "34.7969px",
+        "padding": "6px 12px",
+        "lineHeight": "20.8px",
+        "fontSize": "13px"
+      },
+      "quality": {
+        "x": 69,
+        "y": 414.375,
+        "width": 1302,
+        "height": 58.796875,
+        "top": 414.375,
+        "bottom": 473.171875,
+        "left": 69,
+        "right": 1371,
+        "display": "grid",
+        "cssHeight": "58.7969px",
+        "padding": "0px",
+        "lineHeight": "20.8px",
+        "fontSize": "13px"
+      },
+      "buttonExceedsParentBottom": true,
+      "intersectsQuality": true,
+      "buttonCenterHit": {
+        "tag": "BUTTON",
+        "className": ""
+      }
+    },
+    {
+      "width": 1100,
+      "date": {
+        "x": 406.609375,
+        "y": 364.375,
+        "width": 286.796875,
+        "height": 38,
+        "top": 364.375,
+        "bottom": 402.375,
+        "left": 406.609375,
+        "right": 693.40625,
+        "display": "grid",
+        "cssHeight": "38px",
+        "padding": "0px 8px 0px 11px",
+        "lineHeight": "20.8px",
+        "fontSize": "13px"
+      },
+      "button": {
+        "x": 418.609375,
+        "y": 389.78125,
+        "width": 265.796875,
+        "height": 34.796875,
+        "top": 389.78125,
+        "bottom": 424.578125,
+        "left": 418.609375,
+        "right": 684.40625,
+        "display": "block",
+        "cssHeight": "34.7969px",
+        "padding": "6px 12px",
+        "lineHeight": "20.8px",
+        "fontSize": "13px"
+      },
+      "quality": {
+        "x": 765.671875,
+        "y": 414.375,
+        "width": 265.328125,
+        "height": 58.796875,
+        "top": 414.375,
+        "bottom": 473.171875,
+        "left": 765.671875,
+        "right": 1031,
+        "display": "grid",
+        "cssHeight": "58.7969px",
+        "padding": "0px",
+        "lineHeight": "20.8px",
+        "fontSize": "13px"
+      },
+      "buttonExceedsParentBottom": true,
+      "intersectsQuality": false,
+      "buttonCenterHit": {
+        "tag": "BUTTON",
+        "className": ""
+      }
+    },
+    {
+      "width": 900,
+      "date": {
+        "x": 391,
+        "y": 363.578125,
+        "width": 279,
+        "height": 38,
+        "top": 363.578125,
+        "bottom": 401.578125,
+        "left": 391,
+        "right": 670,
+        "display": "grid",
+        "cssHeight": "38px",
+        "padding": "0px 8px 0px 11px",
+        "lineHeight": "20.8px",
+        "fontSize": "13px"
+      },
+      "button": {
+        "x": 403,
+        "y": 388.984375,
+        "width": 258,
+        "height": 34.796875,
+        "top": 388.984375,
+        "bottom": 423.78125,
+        "left": 403,
+        "right": 661,
+        "display": "block",
+        "cssHeight": "34.7969px",
+        "padding": "6px 12px",
+        "lineHeight": "20.8px",
+        "fontSize": "13px"
+      },
+      "quality": {
+        "x": 685,
+        "y": 414.375,
+        "width": 146,
+        "height": 58.796875,
+        "top": 414.375,
+        "bottom": 473.171875,
+        "left": 685,
+        "right": 831,
+        "display": "grid",
+        "cssHeight": "58.7969px",
+        "padding": "0px",
+        "lineHeight": "20.8px",
+        "fontSize": "13px"
+      },
+      "buttonExceedsParentBottom": true,
+      "intersectsQuality": false,
+      "buttonCenterHit": {
+        "tag": "BUTTON",
+        "className": ""
+      }
+    }
+  ],
+  "netshopDateFinding": "Date button exceeds fixed 38px parent bottom by 22.203125px in all 3 widths; true quality-label overlap only at1440 (10.203125px), not1100/900.",
+  "netshopDateFiles": [
+    "app/netshop/products/ProductsColumn.tsx:70",
+    "app/netshop/products/products.css:20",
+    "app/globals.css:160"
+  ],
+  "overflows": [
+    {
+      "name": "market-ranking-root-overflow",
+      "viewportWidth": 1024,
+      "rootScrollWidth": 1612,
+      "overflowPx": 588,
+      "moduleGrid": {
+        "tag": "DIV",
+        "className": "market-module data-refresh-region",
+        "rect": {
+          "x": 30,
+          "y": 90,
+          "width": 964,
+          "height": 2292.78125,
+          "right": 994
+        },
+        "clientWidth": 964,
+        "scrollWidth": 1582,
+        "display": "grid",
+        "position": "relative",
+        "minWidth": "0px",
+        "width": "964px",
+        "gridTemplateColumns": "1582px",
+        "flexShrink": "1",
+        "whiteSpace": "normal",
+        "overflowX": "visible",
+        "overflowY": "visible"
+      },
+      "firstOverflowingChild": {
+        "tag": "NAV",
+        "className": "panel market-section-nav",
+        "rect": {
+          "x": 30,
+          "y": 90,
+          "width": 1582,
+          "height": 150.375,
+          "right": 1612
+        },
+        "clientWidth": 1580,
+        "scrollWidth": 1580,
+        "display": "grid",
+        "position": "sticky",
+        "minWidth": "auto",
+        "width": "1582px",
+        "gridTemplateColumns": "778px 778px",
+        "flexShrink": "1",
+        "whiteSpace": "normal",
+        "overflowX": "visible",
+        "overflowY": "visible"
+      },
+      "boundedByScrollableAncestor": false,
+      "nominalScrollContainers": [
+        {
+          "tag": "DIV",
+          "className": "data-table-wrap",
+          "rect": {
+            "x": 31,
+            "y": 610.546875,
+            "width": 1580,
+            "height": 1706.234375,
+            "right": 1611
+          },
+          "clientWidth": 1580,
+          "scrollWidth": 1580,
+          "display": "block",
+          "position": "static",
+          "minWidth": "0px",
+          "width": "1580px",
+          "gridTemplateColumns": "none",
+          "flexShrink": "1",
+          "whiteSpace": "normal",
+          "overflowX": "auto",
+          "overflowY": "auto"
+        }
+      ],
+      "qualification": "Root width is distinct from an intentionally bounded table scroller. Record overflowing ancestors before attribution. External n8n/helper iframe requests are blocked by the isolated same-origin GET-only policy; only shell/pipeline geometry is measured."
+    },
+    {
+      "name": "n8n-jackyun-root-overflow",
+      "viewportWidth": 1024,
+      "rootScrollWidth": 1630,
+      "overflowPx": 606,
+      "moduleGrid": {
+        "tag": "SECTION",
+        "className": "n8n-workflow-module",
+        "rect": {
+          "x": 30,
+          "y": 90,
+          "width": 964,
+          "height": 1667.296875,
+          "right": 994
+        },
+        "clientWidth": 964,
+        "scrollWidth": 1600,
+        "display": "grid",
+        "position": "static",
+        "minWidth": "0px",
+        "width": "964px",
+        "gridTemplateColumns": "1600px",
+        "flexShrink": "1",
+        "whiteSpace": "normal",
+        "overflowX": "visible",
+        "overflowY": "visible"
+      },
+      "firstOverflowingChild": {
+        "tag": "NAV",
+        "className": "n8n-workflow-switcher",
+        "rect": {
+          "x": 30,
+          "y": 90,
+          "width": 1600,
+          "height": 60,
+          "right": 1630
+        },
+        "clientWidth": 1598,
+        "scrollWidth": 1598,
+        "display": "flex",
+        "position": "static",
+        "minWidth": "auto",
+        "width": "1600px",
+        "gridTemplateColumns": "none",
+        "flexShrink": "1",
+        "whiteSpace": "normal",
+        "overflowX": "auto",
+        "overflowY": "auto"
+      },
+      "boundedByScrollableAncestor": false,
+      "nominalScrollContainers": [
+        {
+          "tag": "DIV",
+          "className": "n8n-pipeline-flow",
+          "rect": {
+            "x": 31,
+            "y": 632.71875,
+            "width": 1598,
+            "height": 182,
+            "right": 1629
+          },
+          "clientWidth": 1598,
+          "scrollWidth": 1598,
+          "display": "flex",
+          "position": "static",
+          "minWidth": "1120px",
+          "width": "1598px",
+          "gridTemplateColumns": "none",
+          "flexShrink": "1",
+          "whiteSpace": "normal",
+          "overflowX": "auto",
+          "overflowY": "auto"
+        }
+      ],
+      "qualification": "Root width is distinct from an intentionally bounded table scroller. Record overflowing ancestors before attribution. External n8n/helper iframe requests are blocked by the isolated same-origin GET-only policy; only shell/pipeline geometry is measured."
+    },
+    {
+      "name": "n8n-tmall-root-overflow",
+      "viewportWidth": 1024,
+      "rootScrollWidth": 1858,
+      "overflowPx": 834,
+      "moduleGrid": {
+        "tag": "SECTION",
+        "className": "n8n-workflow-module",
+        "rect": {
+          "x": 30,
+          "y": 90,
+          "width": 964,
+          "height": 1684.84375,
+          "right": 994
+        },
+        "clientWidth": 964,
+        "scrollWidth": 1828,
+        "display": "grid",
+        "position": "static",
+        "minWidth": "0px",
+        "width": "964px",
+        "gridTemplateColumns": "1828px",
+        "flexShrink": "1",
+        "whiteSpace": "normal",
+        "overflowX": "visible",
+        "overflowY": "visible"
+      },
+      "firstOverflowingChild": {
+        "tag": "NAV",
+        "className": "n8n-workflow-switcher",
+        "rect": {
+          "x": 30,
+          "y": 90,
+          "width": 1828,
+          "height": 60,
+          "right": 1858
+        },
+        "clientWidth": 1826,
+        "scrollWidth": 1826,
+        "display": "flex",
+        "position": "static",
+        "minWidth": "auto",
+        "width": "1828px",
+        "gridTemplateColumns": "none",
+        "flexShrink": "1",
+        "whiteSpace": "normal",
+        "overflowX": "auto",
+        "overflowY": "auto"
+      },
+      "boundedByScrollableAncestor": false,
+      "nominalScrollContainers": [
+        {
+          "tag": "DIV",
+          "className": "n8n-pipeline-flow",
+          "rect": {
+            "x": 31,
+            "y": 632.71875,
+            "width": 1826,
+            "height": 186.75,
+            "right": 1857
+          },
+          "clientWidth": 1826,
+          "scrollWidth": 1826,
+          "display": "flex",
+          "position": "static",
+          "minWidth": "1120px",
+          "width": "1826px",
+          "gridTemplateColumns": "none",
+          "flexShrink": "1",
+          "whiteSpace": "normal",
+          "overflowX": "auto",
+          "overflowY": "auto"
+        }
+      ],
+      "qualification": "Root width is distinct from an intentionally bounded table scroller. Record overflowing ancestors before attribution. External n8n/helper iframe requests are blocked by the isolated same-origin GET-only policy; only shell/pipeline geometry is measured."
+    }
+  ],
+  "overflowFinding": "At1024 module rect width964 but grid columns1582/1600/1828; table-wrap/pipeline auto scroll containers expand to content width, clientWidth==scrollWidth, so excess is root overflow, not bounded local table scrolling.",
+  "overflowFiles": [
+    "app/globals.css:1044",
+    "app/globals.css:1059",
+    "app/globals.css:1572",
+    "app/globals.css:1818",
+    "app/n8n-workflow-view.tsx:439"
+  ]
+}
