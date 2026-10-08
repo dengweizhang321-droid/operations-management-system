@@ -61,7 +61,7 @@ export async function inspectCustomerServiceRecovery(input: {
   if (!registered?.enabled || registered.shopName !== store.shopName || registered.shopId !== store.shopId) reject();
   const parentDirectory = path.join(registered.browser.downloadDir, "customer-service", previous.executionId);
   if (approval.kind === "pre_export_zero_effect") {
-    if (!["PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION", "CHAT_PAGE_NOT_READY_MANUAL_ACTION"].includes(approval.failureCode)
+    if (!["PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION", "CHAT_PAGE_NOT_READY_MANUAL_ACTION", "CUSTOMER_SERVICE_FAILED_MANUAL_ACTION"].includes(approval.failureCode)
       || Object.keys(previous.source).length || approval.expectedDurationAnomalies !== undefined
       || !isDeepStrictEqual(approval.identityWitness, { shopName: store.shopName, shopTitle: store.shopName,
         listTabs: 1, messageTabs: 1, challengePresent: false, credentialsSubmitted: false, exportSubmitted: false, importSubmitted: false })) reject();
