@@ -7,7 +7,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 
 2026-09-12 已受控采用丽力每日 MTOP 分批 M、指定旧任务归档、天猫不同店铺独立执行与各自安全小时重试，同店仍串行。遇到该任务须完整阅读 [独立执行门禁与验收](../../../docs/TMALL_STORE_ISOLATION.md)，并按实际 release/live 定义核验。不自动扩展 P 协议或带入未采用的逐日回填循环。发布就绪和并行运行证据不能代替各店导入终态证明。
 
-2026-10-08 本次六店近七日查缺、P/M 直连与每日货品已正式采用，当前契约及验收限制见 [生产记录](../../../docs/tmall-seven-day-direct-20261007/PRODUCTION.md)。下方历史三日节奏/仅两店P直连限定已被本次六店规则替代；原提交未决、身份/日期/文件/批次及完整执行门禁仍保持。
+2026-10-08 六店近七日全部缺口逐日循环、P/M直连与每日货品已正式采用，当前契约及验收限制见[生产记录](../../../docs/tmall-seven-day-gap-loop-20261008/PRODUCTION.md)。下方历史单日、三日节奏及仅两店P直连限定已被本次六店规则替代；原提交未决、身份/日期/文件/批次及完整执行门禁仍保持。实际日数据补齐和M货品成功须分别证明。
 
 ## 先读资料
 
@@ -25,7 +25,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 
 ## 必守契约
 
-- 当前五段顺序固定为 `A→B→C→P→M`；A/B/C/P 每日执行，M 作为每日安全终态入口。六个已启用店铺的持久货品节奏均为每日一次；只在本店节奏到期、存在未决货品活动清单或 n8n 手动完整运行明确强制时产生货品导出与导入动作。定时未到期返回 `status=not_due`，不创建货品任务、不推进节奏，但仍关闭本店 Chromium 并释放 helper；M 到期失败不得推进日期，下一次必须从新的完整 execution 补跑。定时和手动入口都必须先通过原子协调门禁领取 helper execution owner，未获授权时只在 A 前等待。天猫领取和五个业务节点还必须携带同一个 `X-TERUISI-TMALL-STORE-KEY`，helper 将 execution ID 与店铺键一并锁定。A 是唯一进入业务计划和浏览器阶段的入口。
+- 当前顺序固定为`A→(B→C→P→N)逐日循环→M→完成判断`；A固定近七日窗口，日节点按真实缺口执行，M作为每日安全终态入口。六个已启用店铺的持久货品节奏均为每日一次；只在本店节奏到期、存在未决货品活动清单或n8n手动完整运行明确强制时产生货品导出与导入动作。定时未到期返回`status=not_due`，不创建货品任务、不推进节奏，但仍关闭本店Chromium并释放helper；M到期失败不得推进日期，下一次必须从新的完整execution补跑。定时和手动入口都必须先通过原子协调门禁领取helper execution owner，未获授权时只在A前等待。天猫领取和全部业务节点必须携带同一个`X-TERUISI-TMALL-STORE-KEY`，helper将execution ID与店铺键一并锁定。A是唯一进入业务计划和浏览器阶段的入口。
 - 不直接调用 `127.0.0.1:5791` 的 `/plan`、`/fetch`、`/import`、`/promotion`、`/product-master` 或其他天猫业务接口，不直接运行天猫下载/导入脚本代替 n8n。只读 `/health` 可以用于状态核验。
 - 不单独重跑节点。任何恢复都从 n8n 正式页面或受控 n8n 能力创建新的完整 workflow execution，并使用新的 execution ID。
 - `export_submitted`、`export_confirmed`、`downloaded`、推广已提交等状态只能按原店铺、原业务日期和原任务续接；禁止删除清单、倒退阶段或重复业务点击。`export_submitting` 必须转人工核对。
@@ -44,13 +44,13 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 4. 区分“下载前失败、点击未决、任务已提交、文件已下载、事实已发布、仅回查失败”。不能因为节点红色就假设导入未发生。
 5. 源码或配置缺陷用 `apply_patch` 做聚焦修复，并补失败、重试、重复、跨店、日期覆盖、活动清单和回查的相关负向测试。
 6. 运行聚焦测试、`npm run test:unit`、`npm run lint`、`git diff --check`。保护用户已有改动；只暂存本任务文件并创建聚焦提交、推送。
-7. 需要恢复时只从对应店铺的 n8n 工作流启动新完整 execution，监控到终态，并逐项验证 A/B/C/P，以及 M 的 `imported/duplicate` 完成证据或未到期 `not_due + nextDueDate` 证据、文件、批次、行数、告警、日期覆盖和浏览器关闭；不得让恢复 execution 与该店尚未终止的定时 execution 并存。
+7. 需要恢复时只从对应店铺的n8n工作流启动新完整execution，监控到终态；验证一次A、每轮B/C/P/N的顺序/成功/日期、最终零缺口及唯一M终态，并核验M的`imported/duplicate`完成证据或未到期`not_due + nextDueDate`证据、文件、批次、行数、告警、日期覆盖和浏览器关闭。不得让恢复execution与该店尚未终止的定时execution并存；不能把一次C/P成功当全部循环完成。
 8. 按手册格式交付结果。下载成功、任务已创建或节点变绿都不是导入成功。
 
 ## 特殊判断
 
 - 商品日/推广日的下载计划与验收还须读取 [缺失日规划](../../../docs/天猫商品与推广缺失日规划.md)，先核验其中的本机采用状态。当前 A 分别核对截至上海昨天的近七个完整日期（不早于注册起始日）的商品日与推广日缺口，按并集选择最早一天；B/C 只补商品缺口，P 复核同日商品覆盖后只补推广缺口。`already_covered` 是无新增导入的正常结果，不是新批次完成；空日期计划必须复查覆盖仍完整且无未决推广活动清单。剩余缺口不授权监控绕过 n8n 或自动创建连续补跑。
-- 六店现行模板为各自 `tmall-<店铺>-seven-day-direct.workflow.json`，固定原 workflow ID。P/M 均使用各店独立 `<店铺>-direct-pm-v1` 协议（yijiu/yiyong/lili/tuofeng/cuizhiwang/masitu），不能跨店互换；旧 `lili-direct-m-v1` 仅保留本店历史M兼容。仓库模板的active=false及旧候选说明文字不代表实际未发布，须读 live active/current/published 与真实验收记录。
+- 六店现行模板为各自 `tmall-<店铺>-seven-day-gap-loop.workflow.json`，固定原workflow ID，顺序为`A→(B→C→P→N)逐日循环→M→完成判断`。新政策`seven-day-complete-v1`固定最多七个完整日期，不因旧30分钟预算停在仍有缺口的成功状态；每个节点仍有界、错误失败关闭。P/M均使用各店独立`<店铺>-direct-pm-v1`协议（yijiu/yiyong/lili/tuofeng/cuizhiwang/masitu），不能跨店互换；旧`lili-direct-m-v1`仅保留本店历史M兼容。仓库模板的active=false及旧候选说明文字不代表实际未发布，须读live active/current/published与真实验收记录。
 - C/P 的表现回查必须使用项目领域函数生成的复合 `outlet`（平台 + 店铺），不能使用旧的单独 `shop` 参数。
 - 若导入接口已发布 completed 批次但覆盖回查失败，保留已发布事实；修复回查后通过新完整 execution 让内容幂等返回 duplicate 或精确替换。
 - M 位于末段。未到期 `not_due` 且浏览器关闭属于预期成功，不得误报为跳过失败；到期 M 失败不会回滚已完成回查的商品日和推广事实，但整个 workflow 仍失败，节奏日期保持不变，通知必须写成部分成功和 M 的人工下一步/翌日补跑状态。每店只在完整 A→B→C→P→M 工作流达到契约终态、精确批次/覆盖回查及资源收尾通过后发送一条完成汇总；不得分别发送 C/P/M 完成或六店重复汇总。人工协助立即提醒，持续卡点达到统一规则的无进展条件时知会，同一故障不重复发送，恢复更换 execution 仍关联原逻辑运行防重。发送时机、阻塞条件和防重统一遵守 [工作流钉钉通知规则](../../../docs/WORKFLOW_DINGTALK_NOTIFICATIONS.md)。
