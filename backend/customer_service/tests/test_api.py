@@ -68,6 +68,27 @@ class CustomerServiceApiTests(TestCase):
         self.assertEqual(collision.json()["code"], "version_conflict")
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_four_shop_import_scopes_and_duplicates_remain_isolated(self) -> None:
+        # Identical source identities and shared agents must still belong to
+        # separate shop scopes, including when raw bytes change on a retry.
+        shops = ("志高商用设备旗舰店", "志高切肉机旗舰店", "志高商用厨电旗舰店", "志高商用洗碗机旗舰店")
+        for index, shop in enumerate(shops):
+            payload = body_for()
+            payload["shopName"] = shop
+            payload["conversations"][0]["agent"] = "志高厨电-共用合成客服"
+            first = self.post(payload, f"four-shop-{index}")
+            self.assertEqual(first.status_code, 201, first.content)
+            self.assertEqual(first.json()["batch"]["shopName"], shop)
+            payload["rawFileHash"] = hashlib.sha256(f"new-raw-{index}".encode()).hexdigest()
+            duplicate = self.post(payload, f"four-shop-duplicate-{index}")
+            self.assertEqual(duplicate.status_code, 200, duplicate.content)
+            self.assertEqual(duplicate.json()["status"], "duplicate")
+            self.assertEqual(duplicate.json()["batch"]["id"], first.json()["batch"]["id"])
+            self.assertEqual(CustomerServiceConversation.objects.filter(shop_name=shop).count(), 1)
+        self.assertEqual(CustomerServiceConversation.objects.count(), 4)
+        self.assertEqual(CustomerServiceImportCount(), 4)
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_query_uses_left_closed_right_open_dates_and_scope_denial(self) -> None:
         response = self.post(body_for(), "customer-import-query")
         self.assertEqual(response.status_code, 201, response.content)
