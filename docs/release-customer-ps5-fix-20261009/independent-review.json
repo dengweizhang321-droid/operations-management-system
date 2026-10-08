@@ -1,0 +1,81 @@
+{
+  "status": "passed",
+  "stage": "isolated-source-fix-review-not-production-adoption",
+  "independent": true,
+  "observedAt": "2026-10-08T18:22:23.3182903+00:00",
+  "worktree": "D:\\.codex\\worktrees\\release-customer-production-record\\运营管理系统",
+  "fileHashes": [
+    {
+      "relative": "tools\\release-batch.mjs",
+      "sha256": "899e16338b4e1e1b086125b37806e6c2c752bec21136a76675eff9f66cb4d7b4"
+    },
+    {
+      "relative": "tests\\release-batch-powershell-environment.test.mjs",
+      "sha256": "f8e7431ac00f0074740e2dae4a8e136018ad65d5130b222914106e7c0a2cc131"
+    },
+    {
+      "relative": "tests\\release-wait-optimization.test.ts",
+      "sha256": "cd142f14b00efa1fa7388611d89716249a9b7f3601bebb6da6e8e6bd28b65a04"
+    },
+    {
+      "relative": "tools\\release-batch-admission.mjs",
+      "sha256": "aca3c4aa594f9375afe345dee48b05c79cbb370bf73a7fcee79c3c84c5b2fdbc"
+    }
+  ],
+  "scope": {
+    "sourceChange": "PS5 exact system child-only environment and literal UTF8 named-parameter transport",
+    "parentEnvironmentUnchanged": true,
+    "nonSystemExecutablesUnchanged": true,
+    "originalScriptExecutableSHAChecksPreserved": true,
+    "serviceOwnershipOrPermissionGatesChanged": false,
+    "backupOrServiceActionsPerformed": false
+  },
+  "actualIndependentTests": {
+    "latestNativeTestFilePassed": 5,
+    "extraNativeAndNegativeChecks": 4,
+    "extraEvidencePath": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\independent-native-transport-check.json",
+    "pollutedBaselineActuallyFailedGetAcl": true,
+    "realOriginalRunnerUTF8AndExecuteSwitchPassed": true,
+    "realNestedOriginalLifecycleAdapterUTF8Passed": true,
+    "partialPassedReceiptThenThrowRejected": true,
+    "literalDollarBacktickQuoteInjectionDidNotExecute": true,
+    "validReceiptThenExit17Rejected": true,
+    "exactHostExit17MayNormalizeTo1ButNonzeroRejected": true,
+    "unboundFileRejected": true,
+    "unknownNoValueSwitchRejected": true,
+    "nativeReadonlyAdmissionFixturePassed": 1,
+    "latestTestFileContainsSixCases": true
+  },
+  "reviewFindings": {
+    "path": "Original reviewed -File prefix, absolute script path and exact file SHA binding required before EncodedCommand",
+    "parameters": "Named argument keys restricted to letters/digits, duplicate/case duplicate, positional or unsupported switch syntax fails closed; approved values are JSON UTF8/base64 data, not interpolated PowerShell code",
+    "switchCompatibility": "Execute/Json/KeepPostgres/ConfirmedIsolatedRestore/ConfirmedPrune transported as real Boolean named switches; string ID/SourceRoot/directory values remain literals",
+    "childEnv": "Clone parent only for fixed OS PS5, select that host system Modules, case-insensitively remove PSModulePath duplicates and two known Django library-only flags",
+    "unknown": "Native nonzero or malformed/failed receipt still throws to original batch started/unknown protocol; no result replay or active deletion introduced"
+  },
+  "oldBatchState": {
+    "batch9a7": "cancelled with original tool after independently verified zero-backup effects and no switch",
+    "mayResumeOldTuple": false,
+    "requiresNewSourceCandidateTestsBatch": true
+  },
+  "limits": [
+    "No production Backup/Restore/Stop/Start was called by the reviewer",
+    "No production candidate was patched or activated by this review",
+    "Larger build/restore/new exact candidate preparation remains with the primary agent",
+    "Prior real Unicode and parameter failure logs remain failure evidence, not relabeled as success"
+  ],
+  "readonlyCollectorFollowup": {
+    "status": "passed",
+    "changedCalls": [
+      "Original maintenance Verify/Status/ReleaseEvidence operator",
+      "Original complete system Status in acceptance/closeout"
+    ],
+    "sharedEnvironmentAndArgumentsHelpers": true,
+    "originalNodeManifestVerificationUnchanged": true,
+    "completeSystemReadyTwelveComponentsGateUnchanged": true,
+    "noNewProductionCommand": true,
+    "actualReadonlyTempPS5FixtureGetAclUnicodePassed": true,
+    "parentPSModulePathUnchanged": true,
+    "reviewerDidNotInvokeProductionStatusOrLifecycle": true
+  }
+}

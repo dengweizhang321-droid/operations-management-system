@@ -48,6 +48,8 @@
 
 参数可用 `{receipt:<已完成操作ID>:backupDirectory}`、`manifestSha256`、`maintenanceId` 引用已闭合的前一步输出。不能引用未知、未完成或其他批次。恢复操作还需 `backupOperationId`，输出必须对应该精确点。
 
+固定 Windows PowerShell 5 操作在复验原声明 argv、脚本及可执行文件摘要后，使用该系统主机自己的内置 Modules 子环境并清除继承的 Django library-only 标志。Node 父进程及非 PS5 命令的完整环境保持，不能改全局模块路径或换主机绕过已绑定的构建身份。原 `-File` 参数通过 UTF-8 JSON/base64 数据及有界命名参数转交，控制台输入输出固定 UTF-8，避免中文恢复点路径在 Node 管道中损坏；拒绝相对入口、重复／位置参数与未支持的开关，不把路径／值拼成可执行代码。模块加载失败发生在原 operator 审计之前时，也先保留 unknown，由独立只读零效果证明闭合；不能因没有新 dump 就自动重试。
+
 获得明确授权后才执行：
 
 ```powershell
