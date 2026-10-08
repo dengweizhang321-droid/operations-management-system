@@ -1,6 +1,8 @@
-# 京东志高商用设备旗舰店客服工作流
+# 京东志高四店客服工作流
 
-切肉机、商用厨电、商用洗碗机三店的同条件工作流及店铺隔离扩展已搭建为候选；定义、验证和采用步骤见[四店扩展报告](jd-customer-service-four-stores-20261008/REPORT.md)。三店尚未在正式 n8n 导入、发布或启用，以下设备店已采用状态不代表三店已采用。
+2026-10-08，切肉机、商用厨电、商用洗碗机三店已分别完成真实完整下载、30日导入和独立验收，再发布启用。正式ID为 `JdCustomerServiceCutMeat2026`、`JdCustomerServiceChudian2026`、`JdCustomerServiceDishwasher2026`；条件同设备店，首次自然计划为2026-10-09上海09:00。精确版本、异常和备份收尾见[四店生产验收](jd-customer-service-four-stores-20261008/PRODUCTION.md)，开发阶段见[扩展报告](jd-customer-service-four-stores-20261008/REPORT.md)。仓库模板仍默认inactive；现场启用以权威n8n回读为准。
+
+当前Worker/helper为 `20261008T064654Z-662c00f82cdea950`，下文10月7日版本与数量是设备店首次采用历史。设备店首次自然执行7186已于10月8日09:02完整通过；三家新增店铺尚未到首次自然调度，不能把手动验收写成自然触发通过。
 
 2026-10-07已正式发布并启用n8n `JdCustomerService2026`，每天上海09:00，固定截至昨天的滚动30天。发布版本为 `e3603c2c-b762-4d4d-97a0-2db190990203`，active/current/published一致；首个自然计划为2026-10-08 09:00。
 
@@ -9,7 +11,7 @@
 ## 入口与执行规则
 
 - n8n：[客服工作流](http://localhost:5678/workflow/JdCustomerService2026)。仓库定义为 `automation/n8n/jd-customer-service-daily.workflow.json`，文件保持inactive以便安全导入；实际启用状态以n8n元数据为准。
-- 店铺注册项固定 `jd-yiyong-director` / `701455` / 志高商用设备旗舰店 / Chromium Default Profile。先在京麦首页确认原会话，再打开 `https://shop.jd.com/jdm/kefu/kf-manage-lite/#/UtilsSetting/ChatLog`。
+- 设备店注册项固定 `jd-yiyong-director` / `701455` / 志高商用设备旗舰店 / Chromium Default Profile；切肉机固定 `jd-maidehao-operator1` / `745866` / Profile 2，商用厨电固定 `jd-chudian-weizhang` / `941935` / Profile 1，商用洗碗机固定 `jd-cuizhiwang-dengweizhang` / `711743` / Profile 3。各店使用原独立浏览器与下载目录，先在京麦首页确认原会话，再打开 `https://shop.jd.com/jdm/kefu/kf-manage-lite/#/UtilsSetting/ChatLog`。
 - 只从唯一可见页头的店铺名称与title核验身份，店铺编号来自原注册表，本次未宣称从页面独立读取编号。首次账户组件为空且无安全验证、客服控件齐全时可刷新一次；后续导出阶段禁止该恢复。
 - 手动和定时入口都先固定本轮时间，再领取原共享JD helper。A固定店铺和日期，B完成双视图导出、分天校验与导入，C独立复验文件和全部精确批次。没有固定测试数据或单节点验收替代。
 - 原helper槽、execution所有权、维护排空和全局Chromium锁保持；拒绝接管未知浏览器，只关闭本次创建的实例。
@@ -21,6 +23,8 @@
 旧“下载”链接不会随日期变化失效。旧文件只保留为unbound，不能作为新范围输入。确认创建任务前持久写入submitting，唯一点击后等待文件；未知结果不重新创建任务。
 
 原始Excel/LOG保留并记录SHA；按咨询自然日拆分后，逐条完整业务内容指纹必须与整段解析一致。每份仍遵守25MiB原文件和16MiB规范化资料限制，不提高预算。以咨询/聊天起始时间核验范围，完整会话后续消息允许超过截止日。
+
+自动流程中有限负数的“会话时长(M)”按用户明确批准仅在派生解析中记为缺失，保留原文件及异常行号/原值；不清零、不取绝对值、不丢会话。C重算完整业务值与异常清单，其他字段校验保持。参见[时长与单次恢复边界](jd-customer-service-four-stores-20261008/QUALITY-RECOVERY.md)。临时恢复许可仅用于指定失败的有界操作员恢复，正式日常定义不带恢复请求头。
 
 导入调用原客服API，每天写入前先保存importingDate；精确回执保存后再分页回查目标批次。成功还需源文件、派生文件、店铺、日期和实际行数核验。任何未决任务阻止新execution覆盖，不自动重放未知提交。
 
@@ -35,7 +39,9 @@
 ## 状态与故障监控
 
 - 业务计划：`D:\运营管理系统\outputs\jd-customer-service-pipeline\<executionId>.json`。
+- 三家新增店铺分别在上述目录下的 `<storeKey>\<executionId>.json`，店铺键依次为 `jd-maidehao-operator1`、`jd-chudian-weizhang`、`jd-cuizhiwang-dengweizhang`；设备店原路径保持。
 - AI监控沿用当前聊天 `ai-2`，每10分钟只读观察正式工作流；脱敏账本：`D:\运营管理系统\outputs\jd-customer-service-monitor\state.json`。
+- ai-2已扩展四店，新增店铺账本为同目录 `stores\<storeKey>.json`。失败次数按同店及固定日期范围独立计算，不跨店相加；未启用、未到期不计失败，发布前验收7247/7250/7263/7265/7266/7319排除正式计数，已成功任务不得重复导入。
 - 按同一逻辑任务和固定业务范围累计第4次独立失败后AI诊断、修复源码并通知本人；验证码、身份异常、提交未决或已有副作用立即停止盲目重试，必要时要求人工动作。未接入无条件小时重放，不能声称失败必定自动重试三次。
 - 通知前读取当前dws技能，动态核验本人及志高助手，只发本人钉钉单聊；同一卡点只提醒一次，投递未知不重发。源码修复不等于生产恢复，后续维护和采用仍遵守明确授权门禁。
 - 6941、6947是发布前验收，已作为基线排除；正式失败计数从发布后的自然/获准完整任务开始。
