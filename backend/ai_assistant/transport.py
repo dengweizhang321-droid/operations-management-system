@@ -28,9 +28,20 @@ _synthetic_network = ipaddress.ip_network("198.18.0.0/15")
 
 class ProviderHttpError(AiError):
     """Keep transport status for audit without disclosing an upstream body."""
-    def __init__(self, status):
-        super().__init__(f"服务返回 HTTP {status}",
-                         "provider_rate_limited" if status == 429 else "provider_error", 503)
+    def __init__(self, status, body=b""):
+        code = "provider_rate_limited" if status == 429 else "provider_error"
+        message = f"模型服务返回 HTTP {status}，请检查 AI 助理中的模型配置与服务状态。"
+        # Only a fixed code is interpreted; upstream prose may contain secrets
+        # or prompt content and must never reach UI, logs or audit diagnostics.
+        if status == 400 and len(body) <= 16384:
+            try:
+                error = json.loads(body).get("error")
+                if isinstance(error, dict) and error.get("code") == "InvalidSubscription":
+                    code = "provider_subscription_invalid"
+                    message = "当前模型的订阅校验未通过，请在 AI 助理中检查订阅、API 密钥与模型权限，或配置可用模型后重试。"
+            except (ValueError, TypeError, AttributeError, RecursionError):
+                pass
+        super().__init__(message, code, 503)
         self.diagnostics = {"httpStatus": status}
 
 
@@ -324,12 +335,21 @@ def _bounded_json(
         response = connection.getresponse()
         if 300 <= response.status < 400:
             raise AiError("拒绝重定向", "provider_redirect", 503)
+        if not 200 <= response.status < 300:
+            # The same bounded rejection handling applies to JSON and SSE.
+            rejected = bytearray()
+            while not response.isclosed() and len(rejected) <= 16384:
+                remaining_budget(timeout)
+                bounded_socket()
+                part = response.read1(16385 - len(rejected))
+                if not part:
+                    break
+                rejected.extend(part)
+            raise ProviderHttpError(response.status, bytes(rejected))
         length = response.getheader("Content-Length")
         if length and (not length.isdigit() or int(length) > maximum):
             raise AiError("响应超限", "response_too_large", 503)
         if stream_collector is not None:
-            if not 200 <= response.status < 300:
-                raise ProviderHttpError(response.status)
             if "text/event-stream" not in (response.getheader("Content-Type") or "").lower():
                 raise AiError("模型端点未返回 SSE，未自动重发请求", "invalid_provider_response", 503)
         chunks = []
@@ -352,8 +372,6 @@ def _bounded_json(
                 stream_collector.feed(part)
                 if stream_collector.done:
                     break
-        if not 200 <= response.status < 300:
-            raise ProviderHttpError(response.status)
         remaining_budget(timeout)
         value = (stream_collector.finish() if stream_collector is not None
                  else json.loads(b"".join(chunks).decode("utf-8")))

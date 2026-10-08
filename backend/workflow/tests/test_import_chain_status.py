@@ -68,6 +68,27 @@ class ImportChainStatusTests(SimpleTestCase):
     def read(self):
         return read_today_status(now=self.now)
 
+    def test_customer_service_four_stores_are_isolated_and_require_complete_manual_verification(self):
+        ids = [i for i in self.ids if i.startswith("JdCustomerService")]
+        self.assertEqual(len(ids), 4)
+        self.manual(workflow=ids[0])
+        def missing_verification(root, definition):
+            runs = root["resultData"]["runData"]
+            for name in list(runs):
+                if name.startswith("C·"):
+                    del runs[name]
+        self.manual(workflow=ids[1], mutate=missing_verification)
+        self.add(workflow=ids[2], status="error")
+        with closing(sqlite3.connect(self.path)) as conn, conn:
+            conn.execute('UPDATE workflow_entity SET active=0 WHERE id=?', [ids[3]])
+        results = {i["workflowId"]: i for i in self.read()["items"]}
+        self.assertTrue(results[ids[0]]["completedToday"])
+        self.assertEqual(results[ids[0]]["completedMode"], "manual")
+        self.assertFalse(results[ids[1]]["completedToday"])
+        self.assertEqual(results[ids[2]]["state"], "failed")
+        self.assertFalse(results[ids[3]]["active"])
+        self.assertFalse(results[ids[3]]["completedToday"])
+
     def loop_manual(self, *, cycles=7, mutate=None):
         workflow = "TmallLiliDaily2026"
         contract = json.loads(CATALOG.read_text(encoding="utf8"))["manualCompletion"][workflow]

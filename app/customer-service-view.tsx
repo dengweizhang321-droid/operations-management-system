@@ -326,7 +326,7 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
   };
 
   const analyze = async (ids: number[], marker: number | "batch") => {
-    if (!ids.length || !canAnnotate) return;
+    if (!ids.length || !canAnnotate || busyId !== null) return;
     setBusyId(marker); setError(""); setAnalysisNotice("");
     let analyzedCount = 0;
     let requestedCount = 0;
@@ -338,28 +338,32 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
         const batch = ids.slice(offset, offset + 8);
         setAnalysisProgress(`${Math.min(offset + batch.length, ids.length)}/${ids.length}`);
         const response = await fetch("/api/customer-service/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: batch }) });
-        const payload = await response.json().catch(() => null) as { analyzed?: number; requested?: number; conflicts?: number; failed?: number; incomplete?: boolean; results?: Array<{ id: number; status: "updated" | "conflict" | "not_found" | "failed" | "not_returned" }>; error?: string } | null;
+        const payload = await response.json().catch(() => null) as { analyzed?: number; requested?: number; conflicts?: number; failed?: number; incomplete?: number; results?: Array<{ id: number; status: "updated" | "conflict" | "not_found" | "failed" | "not_returned" }>; error?: string } | null;
         if (!response.ok || !payload || !Array.isArray(payload.results)) throw new Error(payload?.error || "AI 客服分析失败");
         analyzedCount += Number(payload.analyzed ?? 0);
         requestedCount += Number(payload.requested ?? batch.length);
         conflictCount += Number(payload.conflicts ?? payload.results.filter((item) => item.status === "conflict").length);
         failedCount += Number(payload.failed ?? payload.results.filter((item) => ["not_found", "failed", "not_returned"].includes(item.status)).length);
-        incomplete ||= payload.incomplete === true;
+        incomplete ||= Number(payload.incomplete ?? 0) > 0;
       }
-      await load();
+      await latestLoadRef.current();
       setAnalysisNotice(incomplete || conflictCount > 0 || failedCount > 0
         ? `AI 分析完成 ${analyzedCount}/${requestedCount}，冲突 ${conflictCount}、失败 ${failedCount}；列表已刷新，请重试未完成项。`
         : `AI 分析已完成 ${analyzedCount}/${requestedCount}，列表已刷新。`);
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "AI 客服分析失败";
       if (message.includes("尚未配置可用的文本模型")) setAnalysisReady(false);
-      setError(message);
+      // A later batch can fail after earlier annotations were committed.
+      // Refresh even when the failed response leaves its own result unknown.
+      await latestLoadRef.current();
+      setError((current) => [message, current].filter(Boolean).join("；"));
+      setAnalysisNotice(`本次已确认完成 ${analyzedCount}/${ids.length}；已刷新列表，请处理错误后重试未完成项。`);
     }
     finally { setBusyId(null); setAnalysisProgress(""); }
   };
 
   return <section className="customer-service-page">
-    <div className="customer-service-heading"><div><span className="eyebrow">网店分析 / 客服分析</span><h2>会话与聊天记录</h2><p>按时间和顾客标识关联会话，支持机器人、问题类型、订单转化、AI 服务质检和小结标注。</p></div><div className="customer-service-heading-actions">{canAnnotate && <button type="button" className="primary-button" onClick={() => void analyze((data?.items ?? []).filter((item) => !item.analyzedAt).map((item) => item.id), "batch")} disabled={analysisReady !== true || busyId !== null || !(data?.items ?? []).some((item) => !item.analyzedAt)}>{busyId === "batch" ? `AI分析中${analysisProgress ? ` ${analysisProgress}` : "…"}` : analysisReady === false ? "请先配置文本模型" : "AI分析本页未标注"}</button>}<button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新数据"}</button></div></div>
+    <div className="customer-service-heading"><div><span className="eyebrow">网店分析 / 客服分析</span><h2>会话与聊天记录</h2><p>按时间和顾客标识关联会话，支持机器人、问题类型、订单转化、AI 服务质检和小结标注。</p></div><div className="customer-service-heading-actions">{canAnnotate && <button type="button" className="primary-button" title="分析当前页未标注会话，每批最多8条" onClick={() => void analyze((data?.items ?? []).filter((item) => !item.analyzedAt).map((item) => item.id), "batch")} disabled={analysisReady !== true || busyId !== null || !(data?.items ?? []).some((item) => !item.analyzedAt)}>{busyId === "batch" ? `AI分析中${analysisProgress ? ` ${analysisProgress}` : "…"}` : analysisReady === false ? "请先配置文本模型" : "AI分析"}</button>}<button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>{loading ? "刷新中…" : "↻ 刷新数据"}</button></div></div>
     <CustomerServiceImportCard canImport={canImport} onCompleted={load} />
     <section className="customer-service-data-source panel"><strong>客服会话数据</strong><span>可在本页直接导入；「数据导入 → 客服会话」也保留相同入口。</span><div className="customer-service-shop-select"><span>店铺</span><SearchableMultiSelect values={shopNames} onChange={setShopNames} ariaLabel="客服店铺筛选" allLabel="全部店铺" searchPlaceholder="搜索店铺" options={(data?.shops ?? []).map((value) => ({ value, label: value }))} /></div></section>
     {analysisNotice && <section className="customer-service-feedback" role="status">{analysisNotice}</section>}

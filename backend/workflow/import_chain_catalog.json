@@ -5,6 +5,10 @@
     "JdMarketSilentCopy2026",
     "JdPromotionDaily2026",
     "JdPromotionCutMeat2026",
+    "JdCustomerService2026",
+    "JdCustomerServiceCutMeat2026",
+    "JdCustomerServiceChudian2026",
+    "JdCustomerServiceDishwasher2026",
     "M4xY8kQ2vR6sT9pC",
     "TmallLiliDaily2026",
     "TmallTuofengDaily2026",
@@ -108,6 +112,78 @@
       },
       {
         "name": "C·独立复验文件与精确批次",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "JdCustomerService2026": [
+      {
+        "name": "手动执行客服30天",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·固定客服店铺与30天范围",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·双视图导出按日导入",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·独立复验全部日批次",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "JdCustomerServiceCutMeat2026": [
+      {
+        "name": "手动执行客服30天",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·固定客服店铺与30天范围",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·双视图导出按日导入",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·独立复验全部日批次",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "JdCustomerServiceChudian2026": [
+      {
+        "name": "手动执行客服30天",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·固定客服店铺与30天范围",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·双视图导出按日导入",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·独立复验全部日批次",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "JdCustomerServiceDishwasher2026": [
+      {
+        "name": "手动执行客服30天",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·固定客服店铺与30天范围",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·双视图导出按日导入",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·独立复验全部日批次",
         "type": "n8n-nodes-base.httpRequest"
       }
     ],
