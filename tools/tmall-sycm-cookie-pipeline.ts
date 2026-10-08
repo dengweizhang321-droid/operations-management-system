@@ -1,3 +1,4 @@
+import { customerServiceRecoveryHeader, parseCustomerServiceRecoveryHeader } from "./jd-customer-service-source-recovery";
 import { createHash, randomUUID } from "node:crypto";
 import { customerServiceStore, customerServiceStoreHeader, customerServiceStoreContextError } from "../lib/jd/customer-service-stores";
 import { customerServiceHelperError, planCustomerServiceRun, runCustomerServicePlan, verifyCustomerServicePlan, publicCustomerServicePlan, type CustomerServiceN8nPlan } from "./jd-customer-service-n8n-pipeline";
@@ -1500,7 +1501,7 @@ async function serveCommand(argv: string[]) {
     try {
       if (isJdCustomerService) {
         if (request.url === "/jd/customer-service/plan") {
-          jdCustomerServicePlan = await planCustomerServiceRun(projectRoot, requestExecutionId!, planTime, customerServiceStore(request.headers[customerServiceStoreHeader]).storeKey);
+          jdCustomerServicePlan = await planCustomerServiceRun(projectRoot, requestExecutionId!, planTime, customerServiceStore(request.headers[customerServiceStoreHeader]).storeKey, parseCustomerServiceRecoveryHeader(request.headers[customerServiceRecoveryHeader]));
           stage = "planned";
           reply(200, publicCustomerServicePlan(jdCustomerServicePlan));
           inactivityReaper?.arm();

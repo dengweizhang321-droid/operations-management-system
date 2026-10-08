@@ -25,7 +25,7 @@ export async function assertCustomerServiceShop(page: Page, allowInitialReload =
   if (page.url() !== contract.entryUrl) reject("CHAT_PAGE_MISMATCH");
   const header = page.locator(".shop-menu-accountV1__right-account-top-name").filter({ visible: true });
   let reloaded = false;
-  try { await header.waitFor({ state: "visible", timeout: 15_000 }); }
+  try { await header.waitFor({ state: "visible", timeout: allowInitialReload ? 45_000 : 15_000 }); }
   catch {
     // A missing account widget was observed on an otherwise loaded ChatLog.
     // Only the initial, pre-export navigation may reload once. A wrong visible
