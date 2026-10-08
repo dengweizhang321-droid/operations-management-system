@@ -13,6 +13,7 @@ import {
 } from "../tools/tmall-direct-promotion-export";
 import type { Page, Request } from "playwright-core";
 import type { TmallStore } from "../lib/netshop/tmall-store-registry";
+import { TMALL_PROMOTION_DOWNLOAD_LIST_URL } from "../tools/tmall-promotion-export";
 import {
   TMALL_MTOP_API,
   TMALL_MTOP_EXPORT_PATH,
@@ -83,6 +84,7 @@ test("P 在首次导航前监听会话标识，登录身份通过后直接使用
   let fallbackWaits = 0;
   let detached = false;
   const page = {
+    url: () => "about:blank",
     on: (event: string, listener: (request: Request) => void) => {
       assert.equal(event, "request");
       requestListener = listener;
@@ -114,6 +116,67 @@ test("P 在首次导航前监听会话标识，登录身份通过后直接使用
   assert.equal(navigations, 1);
   assert.equal(fallbackWaits, 0);
   assert.equal(detached, true);
+});
+
+test("连续两日 P 在同一 hash 下载页取得本日新请求，不能沿用上一日标识", async () => {
+  let url = "about:blank";
+  let listener: ((request: Request) => void) | undefined;
+  let loads = 0;
+  let reloads = 0;
+  let identities = 0;
+  const emit = () => {
+    loads += 1;
+    listener?.({ url: () => `https://bpcommon.alimama.com/commonapi/report/async/findPage.json?csrfId=day-${loads}&loginPointId=store-session` } as Request);
+  };
+  const page = {
+    url: () => url,
+    on: (_event: string, next: typeof listener) => { listener = next; },
+    off: () => { listener = undefined; },
+    goto: async (target: string) => {
+      if (target === url) return; // Chromium can retain the same hash document.
+      url = target;
+      emit();
+    },
+    reload: async () => { reloads += 1; emit(); },
+    waitForRequest: async () => { throw new Error("Fresh list request must be captured"); },
+  } as unknown as Page;
+  const store = { storeKey: "tmall-tuofeng" } as TmallStore;
+  const options = { waitForIdentity: async () => { identities += 1; }, captureTimeoutMs: 1 };
+  assert.equal((await discoverTmallAlimamaIdentifiers(page, store, options)).csrfId, "day-1");
+  assert.equal((await discoverTmallAlimamaIdentifiers(page, store, options)).csrfId, "day-2");
+  assert.equal(url, TMALL_PROMOTION_DOWNLOAD_LIST_URL);
+  assert.equal(reloads, 1);
+  assert.equal(identities, 2);
+  assert.equal(listener, undefined);
+});
+
+test("首次下载页无列表请求时只重载一次，仍须通过身份守护且失败移除监听", async () => {
+  let url = "about:blank";
+  let listener: ((request: Request) => void) | undefined;
+  let resolveRequest: ((request: Request) => void) | undefined;
+  let reloads = 0;
+  let identities = 0;
+  const page = {
+    url: () => url,
+    on: (_event: string, next: typeof listener) => { listener = next; },
+    off: () => { listener = undefined; },
+    goto: async (target: string) => { url = target; },
+    waitForRequest: () => new Promise<Request>((resolve) => { resolveRequest = resolve; }),
+    reload: async () => {
+      reloads += 1;
+      assert.ok(resolveRequest, "Subscribe before reloading");
+      const request = { url: () => "https://bpcommon.alimama.com/commonapi/report/async/findPage.json?csrfId=fresh&loginPointId=store-session" } as Request;
+      listener?.(request);
+      resolveRequest?.(request);
+    },
+  } as unknown as Page;
+  await assert.rejects(discoverTmallAlimamaIdentifiers(page, { storeKey: "tmall-cuizhiwang" } as TmallStore, {
+    waitForIdentity: async () => { if (++identities === 2) throw new Error("store_identity_mismatch"); },
+    captureTimeoutMs: 1,
+  }), /store_identity_mismatch/);
+  assert.equal(reloads, 1);
+  assert.equal(identities, 2);
+  assert.equal(listener, undefined);
 });
 
 test("P/M 临时下载链接限制在 HTTPS 阿里云 OSS，且旧业务动作清单阻止协议切换", () => {
