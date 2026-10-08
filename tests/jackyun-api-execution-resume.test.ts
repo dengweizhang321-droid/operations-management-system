@@ -8,6 +8,7 @@ import { claimJackyunApiResumePermit, inspectJackyunApiResumePermit, publishJack
 import type { JackyunExportTaskBinding } from "../lib/jackyun/export-task";
 import { jackyunWorkflowId, recoverySha, type PreflightEvidence } from "../lib/jackyun/preflight-recovery";
 import { runJackyunExportFirstAction, type ExportFirstDependencies } from "../tools/jackyun-export-first-pipeline";
+import { claimAutomaticJackyunApiResume, type AutomaticApiResumeDependencies } from "../lib/jackyun/automatic-api-resume";
 
 const at = (second: number) => new Date(Date.UTC(2026, 8, 6, 13, 0, second)).toISOString();
 const evidence: PreflightEvidence = { executionId: "2285", workflowId: jackyunWorkflowId, status: "error", startedAt: at(0), stoppedAt: at(7),
@@ -168,4 +169,86 @@ test("API resume permit expires, stays single-consumer and detects later artifac
     await assert.rejects(claimJackyunApiResumePermit(f.root, "2285", "2300", "plan-api",
       fault === "expired" ? at(1900) : fault === "cross-day" ? "2026-09-06T16:00:00Z" : at(9)));
   }
+});
+
+async function automaticFixture() {
+  const f = await fixture();
+  Object.assign(f.controller.modules.inventory, { pendingTaskId: task.taskId, binding: task });
+  await writeFile(f.statePath, JSON.stringify(f.controller));
+  await mkdir(path.join(f.root, "downloads/jackyun", f.runId, "inventory"), { recursive: true });
+  const proof = { ...evidence, error: "JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=ECONNRESET attempts=3" };
+  let inspections = 0;
+  const deps: AutomaticApiResumeDependencies = {
+    readEvidence: (oldId, newId) => ({ evidence: { ...proof, executionId: oldId },
+      replacement: { executionId: newId, mode: "webhook", startedAt: at(3608) } }),
+    inspectTask: async binding => { inspections++; return binding; }, now: () => at(3610),
+  };
+  f.deps.now = () => new Date(at(3609));
+  f.deps.profileReady = async () => true;
+  f.deps.request = async () => new Response("{}", { status: 200 });
+  f.deps.resumePreviousApiTask = (oldId, newId, action, now) => claimAutomaticJackyunApiResume(f.root, oldId, newId, action, now, deps);
+  return { ...f, auto: deps, proof, inspections: () => inspections };
+}
+
+test("hour-later full execution atomically claims the existing task without an expiring pre-issued permit", async () => {
+  const f = await automaticFixture();
+  const before = await Promise.all([f.planPath, f.statePath, path.join(f.pipeline, "active.json")].map(p => readFile(p)));
+  const plan = await runJackyunExportFirstAction("plan-api", "2300", f.deps);
+  assert.equal(plan.runId, f.runId);
+  assert.deepEqual(await Promise.all([f.planPath, f.statePath, path.join(f.pipeline, "active.json")].map(p => readFile(p))), before);
+  await assert.rejects(runJackyunExportFirstAction("export-all", "2300", f.deps), /resumed API adapter reached/);
+  assert.deepEqual(f.passedBinding(), task); assert.equal(f.inspections(), 1);
+  await assert.rejects(runJackyunExportFirstAction("plan-api", "2301", f.deps), /JACKYUN_API_RESUME_MANUAL_ACTION/);
+  assert.equal(f.inspections(), 1);
+  const claim = JSON.parse(await readFile(path.join(f.pipeline, "api-automatic-resumptions", f.runId + ".json"), "utf8"));
+  assert.equal(claim.replacement.executionId, "2300"); assert.equal(claim.permit.task.taskId, task.taskId);
+});
+
+test("automatic recovery supports the historical fetch failure only after the same strict proof", async () => {
+  const f = await automaticFixture(); f.proof.error = "fetch failed";
+  assert.deepEqual(await claimAutomaticJackyunApiResume(f.root, "2285", "2300", "plan-api", at(3609), f.auto), task);
+});
+
+test("automatic recovery rejects effects, changed platform tasks, metadata races, unknown progress and expired inspection", async () => {
+  for (const fault of ["partial", "effects", "task", "metadata", "local-race", "in-flight", "unbound", "cross-day", "slow", "substep", "node", "scope"]) {
+    const f = await automaticFixture(); let phase = "plan-api", now = at(3609);
+    if (fault === "partial") await writeFile(path.join(f.root, "downloads/jackyun", f.runId, "inventory/partial.xlsx"), "x");
+    if (fault === "effects") await mkdir(path.join(f.root, "outputs/jackyun-export-first-validation", f.runId), { recursive: true });
+    if (fault === "task") f.auto.inspectTask = async () => ({ ...task, sourceUrlHash: "0".repeat(64) });
+    if (fault === "metadata") f.auto.inspectTask = async binding => { f.proof.executionDataSha256 = "0".repeat(64); return binding; };
+    if (fault === "local-race") f.auto.inspectTask = async binding => { await writeFile(f.planPath, JSON.stringify({ ...f.plan, changed: true })); return binding; };
+    if (fault === "in-flight") f.proof.activeExecutions = 1;
+    if (fault === "node") f.proof.lastNode = "D·导入";
+    if (fault === "scope") { f.plan.runDate = "2026-09-05"; await writeFile(f.planPath, JSON.stringify(f.plan)); }
+    if (fault === "unbound") { const controller = JSON.parse(await readFile(f.statePath, "utf8")); delete controller.modules.inventory.binding; await writeFile(f.statePath, JSON.stringify(controller)); }
+    if (fault === "cross-day") now = "2026-09-06T16:00:00.000Z";
+    if (fault === "slow") f.auto.now = () => at(6000);
+    if (fault === "substep") phase = "export-all";
+    await assert.rejects(claimAutomaticJackyunApiResume(f.root, "2285", "2300", phase, now, f.auto), /JACKYUN_API_RESUME_MANUAL_ACTION/, fault);
+    await assert.rejects(readFile(path.join(f.pipeline, "api-automatic-resumptions", f.runId + ".json")), /ENOENT/, fault);
+  }
+});
+
+test("automatic claim is create-only under concurrent attempts and cannot be replaced after interruption", async () => {
+  const f = await automaticFixture();
+  const attempts = await Promise.allSettled(["2300", "2301"].map(id => claimAutomaticJackyunApiResume(f.root, "2285", id, "plan-api", at(3609), f.auto)));
+  assert.equal(attempts.filter(result => result.status === "fulfilled").length, 1);
+  const claimPath = path.join(f.pipeline, "api-automatic-resumptions", f.runId + ".json");
+  const prior = await readFile(claimPath);
+  await assert.rejects(claimAutomaticJackyunApiResume(f.root, "2285", "2302", "plan-api", at(3609), f.auto));
+  assert.deepEqual(await readFile(claimPath), prior);
+  await writeFile(claimPath, "{interrupted");
+  await assert.rejects(claimAutomaticJackyunApiResume(f.root, "2285", "2302", "plan-api", at(3609), f.auto));
+});
+
+test("automatic recovery leaves operator permits and unrelated failures on their existing paths", async () => {
+  const f = await automaticFixture();
+  f.proof.error = "challenge_present";
+  assert.equal(await claimAutomaticJackyunApiResume(f.root, "2285", "2300", "plan-api", at(3609), f.auto), null);
+  assert.equal(f.inspections(), 0);
+  await mkdir(path.join(f.pipeline, "api-resume-permits"));
+  await writeFile(path.join(f.pipeline, "api-resume-permits", f.runId + ".json"), "{}");
+  f.proof.error = "fetch failed";
+  assert.equal(await claimAutomaticJackyunApiResume(f.root, "2285", "2300", "plan-api", at(3609), f.auto), null);
+  assert.equal(f.inspections(), 0);
 });

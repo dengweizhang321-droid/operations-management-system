@@ -21,6 +21,7 @@ export const hourlyRetryTargets = [
 ];
 
 const terminalFailurePatterns = [
+  "JACKYUN_OSS_DOWNLOAD_|JACKYUN_API_RESUME_MANUAL_ACTION|JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED",
   "maintenance_requires_plan_anchor|execution_plan_anchor_changed|coordination_wait_expired|manual_action|maintenance_wait",
   "challenge_present|waiting_login",
   "captcha|验证码|滑块|短信验证|安全验证|security verification|risk control|风控|\\b601\\b",
@@ -38,6 +39,8 @@ const terminalFailurePatterns = [
   "逐页货品文件合计 \\d+ 个唯一商品，与出售中总数 \\d+ 不一致|市场榜单导入响应与签收文件、身份、日期或行数不一致",
   "需要人工|转人工|manual action|required human",
 ];
+
+const boundDownloadFailurePattern = "^JACKYUN_BOUND_DOWNLOAD_RESUME_REQUIRED code=(?:ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH|UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT|UND_ERR_BODY_TIMEOUT|UND_ERR_SOCKET|HTTP_408|HTTP_429|HTTP_500|HTTP_502|HTTP_503|HTTP_504) attempts=[1-3]$";
 
 function stableUuid(seed) {
   const bytes = Buffer.from(createHash("sha256").update(seed).digest("hex").slice(0, 32), "hex");
@@ -78,6 +81,14 @@ export function classifyHourlyRetryFailure(payload) {
     return { retry: true, reason: "verified_preflight_retry", workflowId,
       retryUrl: `http://127.0.0.1:5678/webhook/${hourlyRetryWebhookPath(workflowId)}` };
   }
+  const downloadDescription = String(payload?.execution?.error?.description ?? "");
+  const jackyunDownloadNode = workflowId === "J8kY2mQ5vR7sT4pN" && payload?.execution?.lastNodeExecuted === "B·接口校验与五表下载";
+  if (jackyunDownloadNode && new RegExp(boundDownloadFailurePattern).test(downloadDescription)
+    && !terminalFailurePatterns.some(source => new RegExp(source, "iu").test(failureText.replaceAll(downloadDescription, "")))) {
+    return { retry: true, reason: "bound_download_resume_required", workflowId,
+      retryUrl: `http://127.0.0.1:5678/webhook/${hourlyRetryWebhookPath(workflowId)}` };
+  }
+  if (jackyunDownloadNode && /fetch failed/iu.test(failureText)) return { retry: false, reason: "download_stage_unverified" };
   if (terminalFailurePatterns.some((source) => new RegExp(source, "iu").test(failureText))) {
     return { retry: false, reason: "manual_intervention_required" };
   }
@@ -165,6 +176,7 @@ function retryClassifierCode() {
   return [
     `const targets = ${JSON.stringify(targets)};`,
     `const terminalPatterns = ${JSON.stringify(terminalFailurePatterns)}.map((source) => new RegExp(source, "iu"));`,
+    `const boundDownloadPattern = new RegExp(${JSON.stringify(boundDownloadFailurePattern)});`,
     "const collect = (value, output = []) => {",
     "  if (typeof value === 'string') output.push(value);",
     "  else if (Array.isArray(value)) for (const item of value) collect(item, output);",
@@ -182,6 +194,13 @@ function retryClassifierCode() {
     "    result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });",
     "    continue;",
     "  }",
+    "  const downloadDescription = String(payload.execution?.error?.description ?? '');",
+    "  const jackyunDownloadNode = workflowId === 'J8kY2mQ5vR7sT4pN' && payload.execution?.lastNodeExecuted === 'B·接口校验与五表下载';",
+    "  if (jackyunDownloadNode && boundDownloadPattern.test(downloadDescription) && !terminalPatterns.some(pattern => pattern.test(failureText.replaceAll(downloadDescription, '')))) {",
+    "    result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60, reason: 'bound_download_resume_required' }, failedExecutionId: String(payload.execution?.id ?? '') } });",
+    "    continue;",
+    "  }",
+    "  if (jackyunDownloadNode && /fetch failed/iu.test(failureText)) continue;",
     "  if (terminalPatterns.some((pattern) => pattern.test(failureText))) continue;",
     "  result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });",
     "}",
