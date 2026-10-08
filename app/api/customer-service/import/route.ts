@@ -3,6 +3,8 @@ import { CustomerServiceImportError, parseCustomerServiceImport } from "@/lib/cu
 import { planCustomerServiceImportPayloads, recordRejectedCustomerServiceImport, saveCustomerServiceImport } from "@/lib/customer-service/database";
 import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
 
+import { resolveCustomerServiceImportShop } from "@/lib/jd/customer-service-stores";
+
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 async function digest(bytes: Uint8Array) { const copy = new Uint8Array(bytes); const hash = await crypto.subtle.digest("SHA-256", copy.buffer as ArrayBuffer); return [...new Uint8Array(hash)].map((value) => value.toString(16).padStart(2, "0")).join(""); }
 
@@ -36,7 +38,12 @@ export async function POST(request: Request) {
       if (error instanceof CustomerServiceImportError) throw new PublicApiError(422, "invalid_request", message);
       throw error;
     }
-    const resolvedShopName = parsed.conversations.some((item) => item.agent.startsWith("志高厨电")) ? "志高厨电" : shopName;
+    let resolvedShopName: string;
+    try {
+      resolvedShopName = resolveCustomerServiceImportShop(shopName, parsed.conversations.map(item => item.agent), form.has("storeKey") ? form.get("storeKey") : undefined);
+    } catch {
+      throw new PublicApiError(422, "invalid_request", "客服自动导入店铺绑定不一致。");
+    }
     const fileHash = await digest(new TextEncoder().encode(`${resolvedShopName}:${await digest(sessionBytes)}:${await digest(chatBytes)}`));
     try {
       planCustomerServiceImportPayloads(resolvedShopName, parsed.conversations);
