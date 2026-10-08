@@ -4,7 +4,7 @@ import path from "node:path";
 import type { Page } from "playwright-core";
 import { jdCustomerServiceWorkflow as contract, assertCustomerServicePeriod, JdCustomerServiceWorkflowError, type CustomerServicePeriod } from "../lib/jd/customer-service-workflow";
 import { customerServiceStore } from "../lib/jd/customer-service-stores";
-import { inspectJdLoginPageState } from "./jd-saved-login";
+import { inspectJdLoginPageState, inspectJdSessionSurfaceCounts } from "./jd-saved-login";
 
 export type CustomerServiceExportCheckpoint = {
   view: "list" | "messages";
@@ -16,9 +16,41 @@ export type CustomerServiceExportCheckpoint = {
 function reject(code: string): never { throw new JdCustomerServiceWorkflowError(code); }
 export async function openCustomerServicePage(page: Page, authenticate: () => Promise<unknown>, storeKey = contract.storeKey as string) {
   await page.goto("https://shop.jd.com/", { waitUntil: "domcontentloaded" });
-  await authenticate();
+  try { await authenticate(); }
+  catch (error) {
+    // Some JD dashboards show only short "商品/客服" navigation labels. The
+    // generic product-page detector remains pending despite a fully loaded,
+    // authenticated vendor dashboard. Require stronger store-bound evidence
+    // here; never rescue explicit login, credentials, challenge or rejection.
+    if (!(error instanceof Error) || !/登录状态在有界等待后仍无法确认/.test(error.message)
+      || !await customerServiceHomeSessionEvidence(page, storeKey)) throw error;
+  }
   await page.goto(contract.entryUrl, { waitUntil: "domcontentloaded" });
   return assertCustomerServiceShop(page, true, storeKey);
+}
+export async function customerServiceHomeSessionEvidence(page: Page, storeKey: string) {
+  const store = customerServiceStore(storeKey);
+  if (page.url() !== "https://shop.jd.com/jdm/home") return false;
+  const state = await inspectJdLoginPageState(page);
+  if (state.challengePresent || state.credentialRejected || state.temporarilyLocked) return false;
+  const surfaces = await inspectJdSessionSurfaceCounts(page);
+  if (surfaces.mainSurface === "login" || surfaces.loginSubframeCount) return false;
+  for (const frame of page.frames()) {
+    if (await frame.locator('input[type="password"],#nloginpwd').filter({ visible: true }).count()) return false;
+  }
+  const header = page.locator(".shop-menu-accountV1__right-account-top-name").filter({ visible: true });
+  try { await header.waitFor({ state: "visible", timeout: 30_000 }); } catch { return false; }
+  if (page.url() !== "https://shop.jd.com/jdm/home" || await header.count() !== 1
+    || await header.getAttribute("title") !== store.shopName || (await header.innerText()).trim() !== store.shopName) return false;
+  // These must be visible dashboard controls, not hidden menu text, a generic
+  // URL, body mentions of a shop, or remembered profile identity.
+  for (const label of ["商品", "待办", "客服", "首页"]) {
+    if (!await page.getByText(label, { exact: false }).filter({ visible: true }).count()) return false;
+  }
+  const finalState = await inspectJdLoginPageState(page);
+  const finalSurfaces = await inspectJdSessionSurfaceCounts(page);
+  return page.url() === "https://shop.jd.com/jdm/home" && !finalState.challengePresent && !finalState.credentialRejected && !finalState.temporarilyLocked
+    && finalSurfaces.mainSurface !== "login" && finalSurfaces.loginSubframeCount === 0;
 }
 export async function assertCustomerServiceShop(page: Page, allowInitialReload = false, storeKey = contract.storeKey as string) {
   const store = customerServiceStore(storeKey);
