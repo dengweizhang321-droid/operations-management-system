@@ -1,3 +1,6 @@
+import { isDeepStrictEqual } from "node:util";
+import { inspectCustomerServiceRecovery, claimCustomerServiceRecovery, verifyCustomerServiceRecoveryClaim, type CustomerServiceSourceRecovery } from "./jd-customer-service-source-recovery";
+import type { CustomerServiceDurationAnomaly } from "./jd-customer-service-duration-normalization";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -21,6 +24,10 @@ export type CustomerServiceN8nPlan = {
   createdAt: string; updatedAt: string;
   stage: "planned" | "running" | "executed" | "completed" | "failed";
   source: Partial<Record<"list" | "messages", CustomerServiceExportCheckpoint>>;
+  sourceRecovery?: CustomerServiceSourceRecovery;
+  derivedDirectory?: string;
+  durationAnomalies?: CustomerServiceDurationAnomaly[];
+  normalizedSessionSha256?: string;
   importingDate?: string;
   proofs: CustomerServiceBatchProof[];
   sourceSessionSha256?: string; sourceChatSha256?: string;
@@ -43,7 +50,7 @@ export function customerServiceHelperError(stage: string, busy: boolean, route: 
   const expected = stage === "ready" ? "plan" : stage === "planned" ? "run" : stage === "executed" ? "verify" : null;
   return expected && route === `/jd/customer-service/${expected}` ? null : { error: "customer_service_stage_mismatch" };
 }
-export async function planCustomerServiceRun(root: string, executionId: string, now = new Date(), storeKey = contract.storeKey as string) {
+export async function planCustomerServiceRun(root: string, executionId: string, now = new Date(), storeKey = contract.storeKey as string, recoverySha256?: string) {
   const store = customerServiceStore(storeKey);
   const files = filePaths(root, executionId, store.storeKey);
   await mkdir(files.directory, { recursive: true });
@@ -51,15 +58,23 @@ export async function planCustomerServiceRun(root: string, executionId: string, 
     let active: { executionId?: string } | undefined;
     try { active = JSON.parse(await readFile(files.active, "utf8")); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") reject("ACTIVE_PLAN_INVALID_MANUAL_ACTION"); }
+    let recovered: Awaited<ReturnType<typeof inspectCustomerServiceRecovery>> | undefined;
+    let recovery: CustomerServiceSourceRecovery | undefined;
+    if (recoverySha256 && !active) reject("SOURCE_RECOVERY_REJECTED_MANUAL_ACTION");
     if (active) {
       if (typeof active.executionId !== "string") reject("ACTIVE_PLAN_INVALID_MANUAL_ACTION");
-      const previous = JSON.parse(await readFile(filePaths(root, active.executionId, store.storeKey).plan, "utf8")) as CustomerServiceN8nPlan;
+      const previousBytes = await readFile(filePaths(root, active.executionId, store.storeKey).plan);
+      const previous = JSON.parse(previousBytes.toString("utf8")) as CustomerServiceN8nPlan;
       if (previous.executionId !== active.executionId || previous.version !== 1) reject("ACTIVE_PLAN_INVALID_MANUAL_ACTION");
       assertCustomerServicePlanStore(previous, store.storeKey);
-      if (previous.stage !== "completed") reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
+      if (recoverySha256) {
+        recovered = await inspectCustomerServiceRecovery({ root, storeKey: store.storeKey, executionId, approvalSha256: recoverySha256, previous, previousBytes, period: customerServicePeriod(now) });
+        recovery = { approvalSha256: recoverySha256, originalExecutionId: previous.executionId, kind: recovered.approval.kind };
+        await claimCustomerServiceRecovery(root, recovery, store.storeKey, executionId);
+      } else if (previous.stage !== "completed") reject("PREVIOUS_RUN_UNRESOLVED_MANUAL_ACTION");
     }
     const createdAt = new Date().toISOString();
-    const plan: CustomerServiceN8nPlan = { version: 1, storeKey: store.storeKey, shopName: store.shopName, shopId: store.shopId, executionId, period: customerServicePeriod(now), createdAt, updatedAt: createdAt, stage: "planned", source: {}, proofs: [] };
+    const plan: CustomerServiceN8nPlan = { version: 1, storeKey: store.storeKey, shopName: store.shopName, shopId: store.shopId, executionId, period: customerServicePeriod(now), createdAt, updatedAt: createdAt, stage: "planned", source: recovered?.source ?? {}, proofs: [], ...(recovery ? { sourceRecovery: recovery } : {}) };
     await writeFile(files.plan, JSON.stringify(plan), { flag: "wx" });
     await writeJsonAtomic(files.active, { executionId });
     return plan;
@@ -75,8 +90,15 @@ export function assertCustomerServicePlanStore(plan: CustomerServiceN8nPlan, exp
 }
 export async function runCustomerServicePlan(root: string, plan: CustomerServiceN8nPlan) {
   const identity = assertCustomerServicePlanStore(plan);
-  if (plan.stage !== "planned" || plan.proofs.length || Object.keys(plan.source).length) reject("RUN_REPLAY_REQUIRES_RECONCILIATION_MANUAL_ACTION");
+  if (plan.stage !== "planned" || plan.proofs.length || (!plan.sourceRecovery && Object.keys(plan.source).length)) reject("RUN_REPLAY_REQUIRES_RECONCILIATION_MANUAL_ACTION");
   const files = filePaths(root, plan.executionId, identity.storeKey);
+  if (plan.sourceRecovery) {
+    await verifyCustomerServiceRecoveryClaim(root, plan.sourceRecovery, identity.storeKey, plan.executionId);
+    const previousBytes = await readFile(filePaths(root, plan.sourceRecovery.originalExecutionId, identity.storeKey).plan);
+    const previous = JSON.parse(previousBytes.toString("utf8")) as CustomerServiceN8nPlan;
+    const checked = await inspectCustomerServiceRecovery({ root, storeKey: identity.storeKey, executionId: plan.executionId, approvalSha256: plan.sourceRecovery.approvalSha256, previous, previousBytes, period: plan.period });
+    if (!isDeepStrictEqual(checked.source, plan.source)) reject("SOURCE_RECOVERY_REJECTED_MANUAL_ACTION");
+  }
   const save = () => { plan.updatedAt = new Date().toISOString(); return writeJsonAtomic(files.plan, plan); };
   plan.stage = "running"; await save();
   try {
@@ -85,6 +107,7 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
       const store = validateJdStoreRegistry(registry, root).find(item => item.storeKey === identity.storeKey);
       if (!store?.enabled || store.shopName !== identity.shopName || store.shopId !== identity.shopId) reject("STORE_REGISTRY_MISMATCH_MANUAL_ACTION");
       const downloadDirectory = path.join(store.browser.downloadDir, "customer-service", plan.executionId);
+      if (plan.sourceRecovery?.kind !== "downloaded_pair") {
       let ownsBrowser = false;
       let browser: Awaited<ReturnType<typeof connectPlaywrightBrowser>> | undefined;
       try {
@@ -107,13 +130,17 @@ export async function runCustomerServicePlan(root: string, plan: CustomerService
         try { await browser?.close(); }
         finally { if (ownsBrowser) await closeChromeBrowser(store.browser.debugPort); }
       }
+      }
       const sessions = plan.source.list; const chats = plan.source.messages;
       if (!sessions?.savedPath || !chats?.savedPath || sessions.phase !== "downloaded" || chats.phase !== "downloaded"
         || sessions.sourceCount !== chats.sourceCount) reject("PAIRED_EXPORT_EVIDENCE_MISMATCH_MANUAL_ACTION");
       const sourceSessionBytes = await readFile(sessions.savedPath); const sourceChatBytes = await readFile(chats.savedPath);
-      const daily = buildCustomerServiceDailyFiles(sourceSessionBytes, sourceChatBytes, plan.period, identity.storeKey);
+      const daily = buildCustomerServiceDailyFiles(sourceSessionBytes, sourceChatBytes, plan.period, identity.storeKey, { negativeDurationToMissing: true });
       if (daily.sourceSessionSha256 !== sessions.sha256 || daily.sourceChatSha256 !== chats.sha256
         || daily.summary.sessionCount !== sessions.sourceCount) reject("SOURCE_FILE_EVIDENCE_MISMATCH_MANUAL_ACTION");
+      plan.durationAnomalies = daily.durationAnomalies; plan.normalizedSessionSha256 = daily.normalizedSessionSha256;
+      if (plan.sourceRecovery?.kind === "downloaded_pair") plan.derivedDirectory = downloadDirectory;
+      await mkdir(downloadDirectory, { recursive: true });
       plan.sourceSessionSha256 = daily.sourceSessionSha256; plan.sourceChatSha256 = daily.sourceChatSha256;
       plan.sourceCounts = { listRows: daily.summary.sessionCount, logSessions: daily.summary.chatSessionCount, ambiguous: daily.summary.ambiguousCount };
       plan.dailyFiles = daily.files.map(({ date, sessionSha256, chatSha256, contentSha256, conversationCount }) => ({ date, sessionSha256, chatSha256, contentSha256, conversationCount }));
@@ -146,10 +173,14 @@ export async function verifyCustomerServicePlan(root: string, plan: CustomerServ
   if (!session?.savedPath || !chat?.savedPath) reject("SOURCE_FILES_MISSING_MANUAL_ACTION");
   const digest = async (file: string) => createHash("sha256").update(await readFile(file)).digest("hex");
   if (await digest(session.savedPath) !== plan.sourceSessionSha256 || await digest(chat.savedPath) !== plan.sourceChatSha256) reject("SOURCE_HASH_CHANGED_MANUAL_ACTION");
+  const reparse = buildCustomerServiceDailyFiles(await readFile(session.savedPath), await readFile(chat.savedPath), plan.period, identity.storeKey, { negativeDurationToMissing: true });
+  if (reparse.normalizedSessionSha256 !== (plan.normalizedSessionSha256 ?? plan.sourceSessionSha256)
+    || !isDeepStrictEqual(reparse.durationAnomalies, plan.durationAnomalies ?? [])
+    || !isDeepStrictEqual(reparse.files.map(({ date, sessionSha256, chatSha256, contentSha256, conversationCount }) => ({ date, sessionSha256, chatSha256, contentSha256, conversationCount })), plan.dailyFiles)) reject("DAILY_SOURCE_EQUIVALENCE_CHANGED_MANUAL_ACTION");
   for (let index = 0; index < plan.dailyFiles.length; index++) {
     const day = plan.dailyFiles[index]; const proof = plan.proofs[index];
     if (day.date !== proof.date || day.conversationCount !== proof.conversationCount) reject("DAILY_BATCH_SCOPE_MISMATCH_MANUAL_ACTION");
-    const directory = path.dirname(session.savedPath);
+    const directory = plan.derivedDirectory ?? path.dirname(session.savedPath);
     if (await digest(path.join(directory, `${day.date}.xlsx`)) !== day.sessionSha256
       || await digest(path.join(directory, `${day.date}.log`)) !== day.chatSha256) reject("DAILY_FILE_HASH_CHANGED_MANUAL_ACTION");
     await verifyCustomerServiceBatch(proof, "http://localhost:3000", fetch, identity.storeKey);
@@ -162,6 +193,8 @@ export function publicCustomerServicePlan(plan: CustomerServiceN8nPlan) {
   return { ok: true, stage: plan.stage, executionId: plan.executionId, storeKey: store.storeKey, shopName: store.shopName,
     period: plan.period, importedDays: plan.proofs.length,
     sourceCounts: plan.sourceCounts,
+    sourceDurationAnomalyCount: plan.durationAnomalies?.length ?? 0,
+    recoveredSourceExecutionId: plan.sourceRecovery?.originalExecutionId ?? null,
     conversationCount: plan.proofs.reduce((sum, proof) => sum + proof.conversationCount, 0),
     warningTotalCount: plan.proofs.reduce((sum, proof) => sum + proof.warningTotalCount, 0) };
 }
