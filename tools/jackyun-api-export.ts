@@ -1,4 +1,5 @@
 import { readFile, mkdir, stat } from "node:fs/promises";
+import { boundDownloadResumeMessage, JackyunDownloadFailure } from "../lib/jackyun/download-failure";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -112,7 +113,7 @@ export async function withJackyunApiSession<T>(callback: (http: JackyunHttpSessi
   }
 }
 
-export async function runApiExports(options: ApiExportOptions, deps: { http?: JackyunHttpSession; tenantId?: string; templates?: ApiTemplates; taskTimeoutMs?: number; pollIntervalMs?: number } = {}) {
+export async function runApiExports(options: ApiExportOptions, deps: { http?: JackyunHttpSession; tenantId?: string; templates?: ApiTemplates; taskTimeoutMs?: number; pollIntervalMs?: number; download?: Parameters<typeof downloadSignedOssExport>[1] } = {}) {
   const salesPeriod = jackyunSalesPeriod(options.asOfDate, options.salesStartDate);
   if (!/^[A-Za-z0-9._-]{1,96}$/.test(options.runId) || jackyunCaptureDate(new Date().toISOString()) !== options.runDate
     || new Date(Date.parse(options.runDate + "T00:00:00Z") - 86400000).toISOString().slice(0, 10) !== options.asOfDate) throw new Error("API_RUN_SCOPE_INVALID");
@@ -210,7 +211,15 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
       if (!selected) throw new Error("API_ORIGINAL_EXPORT_TASK_PENDING");
       entry.binding = selected.binding; await writeJsonAtomic(statePath, state);
       const downloaded = await downloadSignedOssExport({ url: selected.url, downloadDirectory: options.downloadDirectory, runId: options.runId, module: moduleKey,
-        policyVersion: jackyunExportFirstPolicyVersion, exportIntentAt: entry.exportIntentAt!, allowedHosts, timeoutMs: 300000 });
+        policyVersion: jackyunExportFirstPolicyVersion, exportIntentAt: entry.exportIntentAt!, allowedHosts, timeoutMs: 300000 }, deps.download).catch(error => {
+          // One cross-execution recovery is supported only for the first bound
+          // inventory task. Other phases retain their existing operator path.
+          if (error instanceof JackyunDownloadFailure && error.retryable && moduleKey === "inventory"
+            && !options.resumeTaskBinding && Object.keys(state.modules).length === 1) {
+            throw new Error(boundDownloadResumeMessage(error));
+          }
+          throw error;
+        });
       entry.filePath = downloaded.filePath; entry.provenance = downloaded.provenance;
       const snapshotEvidence: JackyunCurrentSnapshotEvidence | undefined = moduleKey === "inventory" || moduleKey === "inventory_age" ? {
         version: 1, module: moduleKey, runId: options.runId, source: "current_query", targetDate: options.runDate, queryIntentAt: entry.queryIntentAt,

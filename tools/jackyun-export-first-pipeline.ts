@@ -68,6 +68,7 @@ export type ExportFirstDependencies = {
   runApi?: typeof runApiExports;
   runDownload?: typeof runJackyunDownload;
   recoverPreviousPreflight?: (previousId: string, replacementId: string, at: string) => Promise<void>;
+  resumePreviousApiTask?: (previousId: string, replacementId: string, action: string, at: string) => Promise<import("../lib/jackyun/export-task").JackyunExportTaskBinding | null>;
   partialRecoveryEvidence?: typeof readN8nReplacementEvidence;
 };
 const sha = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
@@ -334,14 +335,18 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
               if (active.executionId === "5478" && ["importing", "imported"].includes(previous.phase)) {
                 importRecovery = await claimPartialImportRecovery(root, active.executionId, executionId, action, nowOf(deps), {
                   request: deps.request, replacementEvidence: deps.partialRecoveryEvidence ?? readN8nReplacementEvidence });
-              } else apiResumeTaskBinding = await claimJackyunApiResumePermit(root, active.executionId, executionId, action, nowOf(deps));
+              } else apiResumeTaskBinding = await deps.resumePreviousApiTask?.(active.executionId, executionId, action, nowOf(deps))
+                ?? await claimJackyunApiResumePermit(root, active.executionId, executionId, action, nowOf(deps));
             } else if (previous.exportTransport === jackyunDirectTransport) {
               if (["importing", "imported"].includes(previous.phase)) {
                 importRecovery = await claimImportRecovery(root, active.executionId, executionId, action, nowOf(deps));
               } else httpScopeRecovery = await claimHttpScopeRecovery(root, active.executionId, executionId, action, nowOf(deps));
             } else resumeTaskBinding = await claimJackyunResumePermit(root, active.executionId, executionId, action, nowOf(deps));
           }
-          catch { throw new Error(`原运行 ${active.runId} 尚未闭合，且当前执行没有有效续跑许可；禁止新建重复导出。`); }
+          catch (error) {
+            if (error instanceof Error && error.message.startsWith("JACKYUN_API_RESUME_MANUAL_ACTION：")) throw error;
+            throw new Error(`原运行 ${active.runId} 尚未闭合，且当前执行没有有效续跑许可；禁止新建重复导出。`);
+          }
           assertExportFirstAction(previous, active.executionId, action, Boolean(importRecovery));
           executionId = active.executionId; runId = active.runId;
         }

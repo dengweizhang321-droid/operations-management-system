@@ -14,6 +14,8 @@ import { isolatedHelperProtocol, isolatedHelperTokenHeader, isolatedRequestIdent
 import { closeChromeBrowser, connectChromeBrowser } from "../lib/jackyun/cdp-client";
 import { jackyunExportFirstActions, jackyunExportFirstPrefix, runJackyunExportFirstAction } from "./jackyun-export-first-pipeline";
 import { recoverPreviousJackyunPreflight } from "../lib/jackyun/automatic-preflight-recovery";
+import { claimAutomaticJackyunApiResume } from "../lib/jackyun/automatic-api-resume";
+import { inspectSubmittedApiTask } from "./jackyun-api-export";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { inspectTmallImportBytes } from "../lib/netshop/normalized-import";
 import {
@@ -1528,7 +1530,13 @@ async function serveCommand(argv: string[]) {
           throw new Error("原计划已跨日，当前库存快照不可补采，需要人工核查原 execution；禁止自动重建计划");
         }
         const result = await runJackyunExportFirstAction(action, requestExecutionId!, { root: projectRoot,
-          recoverPreviousPreflight: (previousId, replacementId, at) => recoverPreviousJackyunPreflight(projectRoot, previousId, replacementId, at) });
+          recoverPreviousPreflight: (previousId, replacementId, at) => recoverPreviousJackyunPreflight(projectRoot, previousId, replacementId, at),
+          resumePreviousApiTask: (previousId, replacementId, requestedAction, at) => claimAutomaticJackyunApiResume(projectRoot,
+            previousId, replacementId, requestedAction, at, { inspectTask: async binding => {
+              const policy = JSON.parse(await readFile(path.join(projectRoot, "config/jackyun-export-first-policy.json"), "utf8"));
+              return inspectSubmittedApiTask({ runId: `n8n-export-first-${previousId}`,
+                outputRoot: path.join(projectRoot, "outputs/jackyun-import-runs"), allowedHosts: policy.browser?.allowedDownloadHosts, binding });
+            } }) });
         stage = result.phase === "completed" ? "completed" : result.phase === "imported" ? "executed" : "planned";
         reply(200, result);
         if (stage === "completed") scheduleOneShotServerClose(server, 500);
