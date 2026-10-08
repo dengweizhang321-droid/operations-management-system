@@ -96,11 +96,17 @@ test("sales and inventory tabs only request the data source needed by the visibl
   assert.match(summaryEffect, /const live = \(\) => !controller\.signal\.aborted && generation === generationRef\.current/);
   assert.match(summaryEffect, /window\.clearTimeout\(timeout\); controller\.abort\(\)/);
 
+  // Count automatic tab loading within its loader. The separate user-triggered
+  // Guangdong plan action legitimately calls the same reader and is not a second tab load.
+  const overviewLoaderStart = inventoryView.indexOf("const loadOverview = useCallback");
+  const overviewLoaderEnd = inventoryView.indexOf("const loadAgeAnalysis = useCallback", overviewLoaderStart);
+  assert.ok(overviewLoaderStart >= 0 && overviewLoaderEnd > overviewLoaderStart);
+  const overviewLoader = inventoryView.slice(overviewLoaderStart, overviewLoaderEnd);
+  assert.equal((overviewLoader.match(/\/api\/inventory\/overview/g) ?? []).length, 1);
   // The ordinary tab reader and the explicit Guangdong plan action are
   // separate entry points. Counting the whole file conflates them.
   const manualPlanStart = inventoryView.indexOf("const openGuangdongPlan = useCallback");
   assert.ok(manualPlanStart > 0);
-  assert.equal((inventoryView.slice(0, manualPlanStart).match(/\/api\/inventory\/overview/g) ?? []).length, 1);
   const manualPlanEnd = inventoryView.indexOf("}, [activeTab, canManageInventory, planSaving, principalKey]);", manualPlanStart);
   assert.ok(manualPlanEnd > manualPlanStart);
   const manualPlan = inventoryView.slice(manualPlanStart, manualPlanEnd);

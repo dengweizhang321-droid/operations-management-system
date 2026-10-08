@@ -20,9 +20,9 @@
 test at tests\module-performance.test.ts:1:4051
 ✖ sales and inventory tabs only request the data source needed by the visible tab (5.8762ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   2 !== 1
-  
+
       at TestContext.<anonymous> (D:\.codex\worktrees\performance-experience-audit\运营管理系统\tests\module-performance.test.ts:99:10)
       at async Test.run (node:internal/test_runner/test:1332:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {

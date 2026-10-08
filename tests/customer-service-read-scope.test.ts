@@ -119,6 +119,8 @@ test("late customer detail cannot reopen after its date changes", { skip: !exist
 test("a late import completion refreshes the current scope without stranding its reader", { skip: !existsSync(chrome), timeout: 30_000 }, async () => {
   const { browser, page, errors } = await fixture();
   try {
+    await page.getByRole("button", { name: "客服导入店铺", exact: true }).click();
+    await page.getByRole("listbox", { name: "客服导入店铺选项", exact: true }).getByRole("option").first().click();
     const files = page.locator('input[type="file"]');
     assert.equal(await files.count(), 2);
     await files.nth(0).setInputFiles({ name: "synthetic.xlsx", mimeType: "application/octet-stream", buffer: Buffer.from("synthetic") });

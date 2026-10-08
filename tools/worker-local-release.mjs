@@ -244,12 +244,22 @@ export const workerReleaseBundledSourcePaths = Object.freeze([
   ...workerGuardEntrypointPaths,
   "package-lock.json",
   "tools/worker-local-runtime-supervisor.mjs",
+  "tools/release-batch.mjs",
+  "tools/release-impact.mjs",
+  "tools/release-batch-admission.mjs",
+  "tools/release-daily-backup.mjs",
+  "tools/release-lifecycle-step.ps1",
 ]);
 export const workerReleaseKeyFilePaths = Object.freeze([
   "dist/server/index.js",
   "dist/server/wrangler.json",
   ...workerGuardEntrypointPaths,
   "tools/worker-local-runtime-supervisor.mjs",
+  "tools/release-batch.mjs",
+  "tools/release-impact.mjs",
+  "tools/release-batch-admission.mjs",
+  "tools/release-daily-backup.mjs",
+  "tools/release-lifecycle-step.ps1",
   "helper/tmall-workflow-helper.mjs",
 ]);
 const modulePath = fileURLToPath(import.meta.url);
@@ -748,7 +758,7 @@ export async function runProcess(command, args, {
   });
 }
 
-async function listGitSourceFiles(sourceRoot) {
+export async function listGitSourceFiles(sourceRoot) {
   const { stdout } = await runProcess("git.exe", ["-C", sourceRoot, "ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
     label: "Git 源文件盘点",
   });
@@ -769,6 +779,34 @@ async function listGitSourceFiles(sourceRoot) {
     fail("源树缺少 package.json/package-lock.json");
   }
   return files;
+}
+
+// A prepared immutable release can be reused, never an arbitrary dist. Bind
+// the complete source inventory (including untracked source), exact executable,
+// bundled npm closure and inherited build configuration without logging values.
+export async function workerPreparationIdentity(sourceRoot, devVarsSource = workerDevVarsSource) {
+  const toolchain = await resolveBundledNpmToolchain();
+  await assertRegularFile(process.execPath, "preparation Node executable");
+  const externalNpmConfiguration = {};
+  for (const key of ["userconfig", "globalconfig"]) {
+    const result = await runProcess(toolchain.nodeExecutablePath, [toolchain.npmCliPath, "config", "get", key], { cwd: sourceRoot, label: "npm configuration identity" });
+    const target = path.resolve(sourceRoot, result.stdout.trim());
+    await assertNoReparsePoint(target, { allowMissingLeaf: true, label: "npm external configuration" });
+    externalNpmConfiguration[key] = { pathSha256: windowsPathSha256(target), contentSha256: await pathExists(target) ? sha256Bytes(await readStableRegularFile(target, "npm external configuration")) : null };
+  }
+  const sourceFiles = await listGitSourceFiles(sourceRoot);
+  const sourceInventory = {};
+  for (const name of sourceFiles) sourceInventory[name] = sha256Bytes(await readStableRegularFile(path.join(sourceRoot,...name.split('/')), "preparation source inventory"));
+  return {
+    version: "teruisi-worker-preparation-identity-v1",
+    sourceTree: await hashRelativeFiles(sourceRoot, sourceFiles),
+    sourceInventorySha256: sha256Canonical(sourceInventory),
+    nodeExecutableSha256: sha256Bytes(await readStableRegularFile(process.execPath, "preparation Node executable")),
+    runtimeConfigurationSha256: sha256Bytes(await readStableRegularFile(devVarsSource, "preparation runtime configuration")),
+    externalNpmConfiguration,
+    toolchain: toolchain.provenance,
+    environmentSha256: sha256Canonical(process.env),
+  };
 }
 
 export async function hashRelativeFiles(root, relativeFiles) {
@@ -2547,6 +2585,12 @@ async function validateHelperReceipt(manifest, releaseRoot) {
 
 export async function verifyWorkerRelease(options = {}) {
   return verifyWorkerReleaseInternal(options);
+}
+
+export async function verifyPreparedWorkerCandidate(options, verifyPreparationPredecessor) {
+  if (typeof verifyPreparationPredecessor !== "function") fail("Preparation requires an exact predecessor verifier");
+  const result = await verifyWorkerReleaseInternal({ ...options, writeSupervisorPrelaunchReceipt: false }, verifyPreparationPredecessor);
+  return { ...result, status: "preparation_only" };
 }
 
 // Only the candidate builder can substitute a fully verified predecessor for

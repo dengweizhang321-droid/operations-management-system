@@ -1,0 +1,26 @@
+{
+  "baseCommit": "a37b5ffdbe9e6705cf4daa9545231e93b4378c5d",
+  "relevantFiles": [
+    {
+      "path": "app/inventory-module-view.tsx",
+      "baselineExact": true,
+      "sha256": "c451c3b7fcac47007beb826115b76ba0c7a277f082a4039945e39a2df81113d8"
+    },
+    {
+      "path": "app/sales-module-view.tsx",
+      "baselineExact": true,
+      "sha256": "a39975326a02f4658919a98651ba52fe0d7f6cf5cdf1ae2130438088d98521ce"
+    },
+    {
+      "path": "tests/module-performance.test.ts",
+      "baselineExact": true,
+      "sha256": "665069e856e323f5ad5704df7334632179eaaa0cf7d9d86a5ccb77bbf6621600"
+    }
+  ],
+  "moduleTestResult": {
+    "pass": 7,
+    "fail": 1
+  },
+  "archiveUnicodeNamesWereNotFullyExtracted": true,
+  "onlyVerifiedAsciiPathsUsed": true
+}

@@ -1,0 +1,56 @@
+{
+  "version": "teruisi-release-wait-isolated-pair-v1",
+  "productionOperations": false,
+  "conditions": {
+    "runs": 1,
+    "sameAcceptance": true,
+    "sameCandidate": true,
+    "sameConfiguration": true,
+    "sameDependencies": true,
+    "sameFixtureRows": 5000,
+    "sameSource": true,
+    "sameToolchain": true,
+    "serializedHeavyOperations": true
+  },
+  "stagesMs": {
+    "baseline": {
+      "acceptance": 17.807399999990594,
+      "backup-post": 695.61599999998,
+      "backup-pre": 953.1793999999645,
+      "closeout": 3.089399999997113,
+      "prepare": 238553.157,
+      "restore-post": 6217.4671999999555,
+      "restore-pre": 7084.966400000034,
+      "switch": 4.039400000008754
+    },
+    "optimized": {
+      "acceptance": 13.464600000006612,
+      "closeout": 12.876000000047497,
+      "prepare": 47572.46529999998,
+      "recovery-revalidation": 1.2836000000243075,
+      "switch": 2.511999999987893
+    }
+  },
+  "totalAfterSyntheticApprovalMs": {
+    "baseline": 266803.9367,
+    "optimized": 47605.23790000001
+  },
+  "preapprovalWorkMs": 238553.157,
+  "privateHttpSwitchWindowMs": {
+    "baseline": 3.381200000003446,
+    "optimized": 1.9893000000156462
+  },
+  "limits": [
+    "Synthetic recovery catalogue/schedule evidence; not production fast-path admission",
+    "Private HTTP fixture switch, not real fixed-port Worker/Django downtime",
+    "Small synthetic database; not production backup size or throughput",
+    "One paired mechanism observation; build from baseline reused as optimized prepared package; no stable speed or SLA claim"
+  ],
+  "sourceFingerprint": "a4e35a2de020451cd571e639bb3b0e7a21555ab32bd19a76fa8f8164aafb02d1",
+  "candidateManifestSha256": "e984740cba967ebc88bcde22e44acb0733791a8184c793fef86f243d31c706fb",
+  "unallocatedMeasuredTotalMs": {
+    "baseline": 13274.614500000083,
+    "optimized": 2.6363999999593943
+  },
+  "latestSourceIsDifferent": true
+}

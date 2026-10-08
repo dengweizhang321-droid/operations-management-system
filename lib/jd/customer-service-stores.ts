@@ -21,12 +21,10 @@ export function customerServiceStoreContextError(value: unknown, expectedKey?: s
   } catch { return { error: "customer_service_store_invalid" }; }
 }
 
-// Preserve the legacy interactive inference; explicitly bound automation must
-// retain its canonical shop even when shared agents use the old prefix.
-export function resolveCustomerServiceImportShop(shopName: string, agents: readonly string[], storeKey?: unknown) {
-  if (storeKey !== undefined) {
-    if (customerServiceStore(storeKey).shopName !== shopName) throw new Error("CUSTOMER_SERVICE_IMPORT_STORE_MISMATCH");
-    return shopName;
-  }
-  return agents.some(agent => agent.startsWith("志高厨电")) ? "志高厨电" : shopName;
+// Shared agents are not shop identity. Both interactive and automated imports
+// must explicitly bind the registered key and its canonical name.
+export function resolveCustomerServiceImportShop(shopName: string, storeKey: unknown) {
+  if (typeof storeKey !== "string" || !storeKey) throw new Error("CUSTOMER_SERVICE_IMPORT_STORE_REQUIRED");
+  if (customerServiceStore(storeKey).shopName !== shopName) throw new Error("CUSTOMER_SERVICE_IMPORT_STORE_MISMATCH");
+  return shopName;
 }

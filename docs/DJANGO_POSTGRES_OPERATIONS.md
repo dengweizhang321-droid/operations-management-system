@@ -42,6 +42,8 @@ D:\teruisi-runtime\django-sales\backups\postgres-daily\daily-YYYYMMDDTHHMMSSZ-<1
 
 ## 3. 独立复验
 
+新增候选只读 `ReleaseEvidence` 复用原已部署身份、ACL 和 PostgreSQL 互斥，读取封闭 schema／目录／权限／角色指纹及 owned 序列下一值健康，不创建 dump 或启停服务。它不能代替 Verify、隔离恢复或业务内容比较。新 no-key 恢复探针保留原完整 profile／角色／权限／迁移／序列下界检查，并增加下一值大于现存最大 ID且未耗尽；不自动修复序列。采用及证据有效期见[发布批次协议](RELEASE_BATCH_WORKFLOW.md)。
+
 ```powershell
 $backup = "<精确 daily-* 备份目录>"
 $manifestSha = "<64 位小写 manifest SHA-256>"

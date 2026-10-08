@@ -1,0 +1,97 @@
+{
+  "version": "teruisi-release-evidence-audit-v1",
+  "observedAt": "2026-10-08T21:24:18+08:00",
+  "timezone": "Asia/Shanghai",
+  "scope": "read-only historical execution records, installed operator Status, schedule configuration, current recovery-point metadata and software hashes",
+  "productionActionsExecuted": [],
+  "historicalTiming": {
+    "sourceDirectory": "E:\\codex-artifacts\\shared-filter-auto-production-20261007",
+    "start": "2026-10-07T03:22:51.356405+08:00",
+    "end": "2026-10-07T04:26:04.274455+08:00",
+    "totalSeconds": 3792.91805,
+    "backupRestoreSumSeconds": 2556.401638,
+    "workerExecutionSpanSeconds": 362.682318,
+    "preciseDowntimeMeasured": false,
+    "userApprovalToCompletionMeasured": false,
+    "stablePerformancePromise": false,
+    "stages": [
+      {"name": "pre-backup", "seconds": 696.81093},
+      {"name": "pre-restore", "seconds": 618.259325},
+      {"name": "prepare-worker", "seconds": 550.054603, "overlapsBackup": true},
+      {"name": "stop-worker", "seconds": 8.997532},
+      {"name": "apply-worker", "seconds": 168.891719},
+      {"name": "start-worker", "seconds": 119.372478},
+      {"name": "post-backup", "seconds": 600.296224},
+      {"name": "post-restore", "seconds": 641.035159},
+      {"name": "final-status", "seconds": 30.72213}
+    ]
+  },
+  "dailyBackupSchedule": {
+    "source": "D:\\.codex\\automations\\e\\automation.toml",
+    "id": "e", "kind": "heartbeat", "time": "22:30 Asia/Shanghai", "status": "PAUSED",
+    "activeDailyContinuityProven": false,
+    "additionalTeruisiWindowsBackupTaskFound": false,
+    "changed": false
+  },
+  "retention": {
+    "maximumRecoveryPoints": 3,
+    "protectedCount": 2,
+    "actualRecoveryPoints": [
+      {"id": "daily-20260928T125351Z-31cb501bc72d", "protected": true},
+      {"id": "daily-20260929T012900Z-ad2817875f20", "protected": true},
+      {"id": "daily-20261008T111156Z-c3b19ee333fe", "protected": false}
+    ],
+    "historicalFilterPrePostRecoveryPointsStillPresent": false,
+    "latestRetentionAuditStatus": "completed",
+    "retainedVerification": "full-evidence"
+  },
+  "currentRecoveryPoint": {
+    "id": "daily-20261008T111156Z-c3b19ee333fe",
+    "completedAt": "2026-10-08T19:19:17.0059293+08:00",
+    "manifestSha256": "713737e7890f0d0441ab329380ffce38ed66a0f79e1c01c8c3ce67216ba47e7d",
+    "dumpSha256": "2cb211fcf200b3b274b96cfaa49cb6c60c614c5ec546a48de3244596cb71fd28",
+    "dumpSizeBytes": 924351626,
+    "contentSha256": "75821a3816b4eb8b68e5af30c026fc7fbb57cb63d00fdb52692cffb194a89a64",
+    "installedStatusCompleteArchiveVerification": true,
+    "operationHistoryUnresolvedCount": 0,
+    "softwareBindings": {
+      "deploymentManifestSha256": "121d805fc7d01f234b14304ee1db901c82485b84920328082574622211b90888",
+      "serviceConfigSha256": "6599d420567f31f56b07fc27c7e43ef11d0e34840e93f5aaa17466bdfe7cbcbd",
+      "serviceScriptSha256": "156da476c47af9d9b2c2ff01f1cfa84ae9e4b327abb02533e131ba23540e52f3",
+      "operatorScriptSha256": "7c7af31f415e140fc24c8aa4d85cb2284ab5d06a33fee8d9c3eb1a2310c6ad08",
+      "evidenceToolSha256": "f24b200af039b73043a469ef07b4b6c50607f84064a343c75e6766f4242488ca",
+      "pgDumpSha256": "ff766351cc88b0ea2bc7b6e365777cb51f792b16000688a378f64124810ffa88",
+      "pgRestoreSha256": "ae002028451e79240eaad9838d9eb0b644436a05decb3888468a529bf881ac6c"
+    },
+    "allSevenCurrentSoftwareHashesEqual": true,
+    "migrationCount": 140
+  },
+  "latestCompletedRestoreRehearsal": {
+    "auditId": "935358e4ca1546ad85cde3e0ff64d802",
+    "rehearsalId": "caaafe7b4728",
+    "operationStartedAt": "2026-10-08T19:25:47.0071436+08:00",
+    "operationCompletedAt": "2026-10-08T19:37:08.4268952+08:00",
+    "internalStartedAt": "2026-10-08T19:25:56.9129988+08:00",
+    "internalCompletedAt": "2026-10-08T19:37:08.3988970+08:00",
+    "backupId": "daily-20261008T111156Z-c3b19ee333fe",
+    "manifestAndDumpBindingMatchesCurrentRecoveryPoint": true,
+    "expectedAndRestoredContentEqual": true,
+    "profileRestoreVerified": true,
+    "profileContentSha256": "d6faa5479b19fe9d89414841b0a7cadd90fb72d88500aea269d4432ff38235a1",
+    "rolesOwnerAclCatalogStrictlyCompared": true,
+    "sequenceInventoryAndBackupLowerBoundsCompared": true,
+    "sequenceNextValueAboveTableMaximumProven": false,
+    "realNewInsertPathVerifiedByRehearsal": false,
+    "policySyntaxEquivalenceVerified": false,
+    "isolatedPort": 55485,
+    "productionDatabaseTouched": false,
+    "serviceStateChanged": false,
+    "cleanupStatus": "isolated_data_removed"
+  },
+  "fastPathEligibilityAtObservation": {
+    "eligible": false,
+    "reason": "daily backup heartbeat e is PAUSED; active daily continuity not proven",
+    "requiresFreshRevalidationBeforeUse": true,
+    "productionGateChanged": false
+  }
+}

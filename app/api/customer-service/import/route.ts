@@ -15,6 +15,13 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const sessionFile = form.get("sessionFile"); const chatFile = form.get("chatFile"); const shopName = String(form.get("shopName") ?? "").trim();
     if (!shopName || shopName.length > 100) return Response.json({ ok: false, message: "请填写客服数据所属店铺。" }, { status: 400, headers: { "cache-control": "no-store" } });
+    let resolvedShopName: string;
+    try {
+      if (form.getAll("shopName").length !== 1 || form.getAll("storeKey").length !== 1) throw new Error("ambiguous store identity");
+      resolvedShopName = resolveCustomerServiceImportShop(shopName, form.get("storeKey"));
+    } catch {
+      throw new PublicApiError(422, "invalid_request", "请选择有效的导入目标店铺，店铺标识与名称必须一致。");
+    }
     if (!(sessionFile instanceof File) || !(chatFile instanceof File)) return Response.json({ ok: false, message: "请同时选择会话记录 Excel 和聊天记录 LOG 文件。" }, { status: 400, headers: { "cache-control": "no-store" } });
     if (sessionFile.size === 0 || chatFile.size === 0 || sessionFile.size > MAX_FILE_BYTES || chatFile.size > MAX_FILE_BYTES) return Response.json({ ok: false, message: "文件不能为空且单个文件不得超过 25MB。" }, { status: 413, headers: { "cache-control": "no-store" } });
     if (!/\.xlsx$/i.test(sessionFile.name) || !/\.(log|txt)$/i.test(chatFile.name)) return Response.json({ ok: false, message: "会话记录必须为 .xlsx，聊天记录必须为 .log 或 .txt。" }, { status: 422, headers: { "cache-control": "no-store" } });
@@ -37,12 +44,6 @@ export async function POST(request: Request) {
       });
       if (error instanceof CustomerServiceImportError) throw new PublicApiError(422, "invalid_request", message);
       throw error;
-    }
-    let resolvedShopName: string;
-    try {
-      resolvedShopName = resolveCustomerServiceImportShop(shopName, parsed.conversations.map(item => item.agent), form.has("storeKey") ? form.get("storeKey") : undefined);
-    } catch {
-      throw new PublicApiError(422, "invalid_request", "客服自动导入店铺绑定不一致。");
     }
     const fileHash = await digest(new TextEncoder().encode(`${resolvedShopName}:${await digest(sessionBytes)}:${await digest(chatBytes)}`));
     try {

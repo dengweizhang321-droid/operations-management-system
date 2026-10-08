@@ -33,12 +33,12 @@ test("prepared maintenance helpers cannot create or prune production backups", {
     "$MaintenanceRequest.PreparedToolAppId='a'*32",
     "$MaintenanceRequest.PreparedToolAppSha256='b'*64",
     "$rejected=0",
-    "foreach($verb in @('Backup','Prune','Status','ProtectedAiPreflight')) {",
+    "foreach($verb in @('Backup','Prune','Status','ProtectedAiPreflight','ReleaseEvidence')) {",
     " $MaintenanceRequest.Action=$verb",
     " try { Assert-MaintenanceRuntimeContext; throw 'unexpected acceptance' }",
     " catch { if($_.Exception.Message -notlike '*limited to verification and isolated restoration*') { throw }; $rejected++ }",
     "}",
-    "if($rejected -ne 4) { throw 'missing rejection' }",
+    "if($rejected -ne 5) { throw 'missing rejection' }",
     "Write-Output 'prepared-actions-rejected'",
   ].join("\n");
   const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-EncodedCommand",
@@ -448,7 +448,7 @@ test("Python helper imports with the controlled runtime", async (t) => {
     windowsHide: true,
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /\{capacity,backup,probe,protected-preflight,no-key-preflight,restore\}/);
+  assert.match(result.stdout, /\{capacity,release-catalog,backup,probe,protected-preflight,no-key-preflight,restore\}/);
   assert.equal(result.stderr, "");
 });
 

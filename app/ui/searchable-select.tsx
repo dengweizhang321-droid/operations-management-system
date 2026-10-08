@@ -39,6 +39,7 @@ export function SearchableSelect({
   className = "",
   searchPlaceholder = "输入关键词搜索",
   emptyLabel = "没有匹配项",
+  placeholder = "请选择",
   disabled = false,
 }: {
   value: string;
@@ -48,6 +49,7 @@ export function SearchableSelect({
   className?: string;
   searchPlaceholder?: string;
   emptyLabel?: string;
+  placeholder?: string;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -84,7 +86,7 @@ export function SearchableSelect({
 
   return <div className={`searchable-select ${className} ${open ? "open" : ""}`} ref={rootRef}>
     <button type="button" className="searchable-select-trigger" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} disabled={disabled} onClick={() => { if (!disabled) { setOpen((current) => !current); setQuery(""); } }}>
-      <span title={selectedOption?.label ?? "请选择"}>{selectedOption?.label ?? "请选择"}</span><i aria-hidden="true">⌄</i>
+      <span title={selectedOption?.label ?? placeholder}>{selectedOption?.label ?? placeholder}</span><i aria-hidden="true">⌄</i>
     </button>
     {open && <div className="searchable-select-menu" role="listbox" aria-label={`${ariaLabel}选项`}>
       <label className="searchable-select-search"><span aria-hidden="true">⌕</span><input autoFocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && visibleOptions.length === 1 && !visibleOptions[0].disabled) { event.preventDefault(); choose(visibleOptions[0].value); } }} placeholder={searchPlaceholder} aria-label={`搜索${ariaLabel}`} /></label>
