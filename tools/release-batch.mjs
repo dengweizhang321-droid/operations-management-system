@@ -282,6 +282,49 @@ export async function reconcileOperation({ root, batch, approved, operationId, r
 
 // The command adapter is intentionally constrained to the reviewed operator
 // and exact argv/output assertions in the approval scope. No shell strings.
+export function productionCommandEnvironment(executable, parent = process.env) {
+  const systemHost = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+  if (path.resolve(executable).toLowerCase() !== path.resolve(systemHost).toLowerCase()) return parent;
+  // PS7's native Node child inherits its PSModulePath. PS5 cannot import PS7's
+  // Security assembly; select the pinned host's own built-in modules instead.
+  // This is a child-only environment, never a change to build identity/parent.
+  const env = { ...parent };
+  const excluded = new Set(['PSMODULEPATH', 'TERUISI_DJANGO_SERVICE_LIBRARY_ONLY',
+    'TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY']);
+  for (const key of Object.keys(env)) if (excluded.has(key.toUpperCase())) delete env[key];
+  env.PSModulePath = path.win32.join(path.win32.dirname(systemHost), 'Modules');
+  return env;
+}
+
+export function productionCommandArguments(executable, args) {
+  const systemHost = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+  if (path.resolve(executable).toLowerCase() !== path.resolve(systemHost).toLowerCase()) return args;
+  if (canonical(args.slice(0,3)) !== canonical(['-NoProfile','-NonInteractive','-File'])
+    || typeof args[3] !== 'string' || !path.win32.isAbsolute(args[3])) throw new Error('System PowerShell requires a reviewed File entrypoint');
+  const parameters = {}, seen = new Set();
+  const switches = new Set(['execute','json','keeppostgres','confirmedisolatedrestore','confirmedprune']);
+  for (let i=4;i<args.length;i++) {
+    const key=args[i];
+    if (!/^-[A-Za-z][A-Za-z0-9]*$/.test(key)||seen.has(key.toLowerCase())) throw new Error('Invalid or duplicate approved script parameter');
+    seen.add(key.toLowerCase());
+    const value=args[i+1];
+    if (switches.has(key.slice(1).toLowerCase())) parameters[key.slice(1)] = true;
+    else {
+      if (typeof value !== 'string' || value.startsWith('-')) throw new Error('Invalid approved script parameter value');
+      parameters[key.slice(1)] = args[++i];
+    }
+  }
+  // JSON/base64 carries exact Unicode values without interpolating any script
+  // path or argument as executable PowerShell text. Parameter keys are bounded.
+  const payload=Buffer.from(JSON.stringify({file:args[3],parameters}),'utf8').toString('base64');
+  const bootstrap=["$ErrorActionPreference='Stop'", "$utf8=[Text.UTF8Encoding]::new($false)",
+    '[Console]::InputEncoding=$utf8;[Console]::OutputEncoding=$utf8;$OutputEncoding=$utf8',
+    `$request=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}'))|ConvertFrom-Json`,
+    '$parameters=@{};foreach($p in $request.parameters.PSObject.Properties){$parameters[$p.Name]=$p.Value}',
+    '& ([string]$request.file) @parameters'].join('\n');
+  return ['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(bootstrap,'utf16le').toString('base64')];
+}
+
 export async function runApprovedOperation(op, { batch, lease, state }) {
   validateOperation(op);
   if (op.kind === 'worker-plan') {
@@ -325,7 +368,11 @@ export async function runApprovedOperation(op, { batch, lease, state }) {
     if (typeof value !== 'string' || !value) throw new Error('Missing exact earlier receipt field');
     return value;
   });
-  const result = await runProcess(op.command.executable, args, { cwd: op.command.cwd, label: `${batch.id}/${op.id}`, timeoutMs: op.command.timeoutMs });
+  if (path.resolve(op.command.executable).toLowerCase() === path.resolve('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe').toLowerCase()
+    && !op.command.files.some(f => f.path === args[3])) throw new Error('Unbound PowerShell script entrypoint');
+  const result = await runProcess(op.command.executable, productionCommandArguments(op.command.executable,args), { cwd: op.command.cwd,
+    env: productionCommandEnvironment(op.command.executable),
+    label: `${batch.id}/${op.id}`, timeoutMs: op.command.timeoutMs });
   const receipt = JSON.parse(result.stdout.trim());
   for (const assertion of op.assertions) {
     const actual = assertion.path.split('.').reduce((v,k) => v?.[k], receipt);

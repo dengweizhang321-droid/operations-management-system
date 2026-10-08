@@ -4,7 +4,7 @@ import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { safeRead, safeFileDigest, hash, canonical, readSourceTree, sourceInventory, sourceTreeDigest, requireHash } from './release-impact.mjs';
-import { verifyBatch, writeOnce, journalState } from './release-batch.mjs';
+import { verifyBatch, writeOnce, journalState, productionCommandArguments, productionCommandEnvironment } from './release-batch.mjs';
 import { resolveEffectiveReleaseChain } from './worker-local-release-rotation.mjs';
 import { workerPreparationIdentity, workerRuntimeRoot, workerSourceRoot, verifyPreparedWorkerCandidate, runProcess } from './worker-local-release.mjs';
 import { schedulePath, dailyProofRoot } from './release-daily-backup.mjs';
@@ -13,6 +13,11 @@ const djangoRoot='D:\\teruisi-runtime\\django-sales';
 const maintenance=path.join(djangoRoot,'app','tools','django-postgres-maintenance.ps1');
 const shell='C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 const archiveRoot='E:\\运营管理系统业务数据';
+export async function runReadOnlyPowerShell(script,args,label) {
+  const argv=['-NoProfile','-NonInteractive','-File',script,...args];
+  return runProcess(shell,productionCommandArguments(shell,argv),{
+    env:productionCommandEnvironment(shell),label});
+}
 async function verifyRestoreReceipt(target,expectedHash) {
   const parent=path.dirname(path.resolve(target));
   const permitted=[path.join(djangoRoot,'rehearsals','postgres-restore'),'E:\\TERUISI-Postgres-Rehearsals'];
@@ -25,7 +30,7 @@ async function verifyRestoreReceipt(target,expectedHash) {
   return {raw,receipt:JSON.parse(raw)};
 }
 async function operator(action,args=[]) {
-  const result=await runProcess(shell,['-NoProfile','-NonInteractive','-File',maintenance,'-Action',action,...args],{label:'original read-only release admission'});
+  const result=await runReadOnlyPowerShell(maintenance,['-Action',action,...args],'original read-only release admission');
   const receipt=JSON.parse(result.stdout.trim());
   if(receipt.status!=='completed'||receipt.serviceStateChanged!==false)throw new Error('Original admission operator did not pass');
   return receipt;
@@ -135,7 +140,7 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission') {
     return {status:'exact-predecessor-or-approved-successor'};
   });
   if(['acceptance','closeout'].includes(phase)) {
-    const result=await runProcess(shell,['-NoProfile','-NonInteractive','-File','D:\\运营管理系统\\tools\\operations-system-control.ps1','-Action','Status','-Json'],{label:'original complete system readiness'});
+    const result=await runReadOnlyPowerShell('D:\\运营管理系统\\tools\\operations-system-control.ps1',['-Action','Status','-Json'],'original complete system readiness');
     const status=JSON.parse(result.stdout.trim());
     if(status.state!=='Running'||status.backendState!=='Ready'||status.workerState!=='exact_release'||status.releaseId!==plan.candidate.releaseId
       ||Object.keys(status.components??{}).length!==12||Object.values(status.components).some(ready=>ready!==true))throw new Error('Complete original system readiness is not the approved successor');
