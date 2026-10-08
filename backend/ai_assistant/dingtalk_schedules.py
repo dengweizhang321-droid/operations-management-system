@@ -7,6 +7,7 @@ from django.utils import timezone
 from sales.auth import Principal
 
 from . import chat, dingtalk, dingtalk_settings, models as m, reports, scheduled_page_capture
+from .configuration import resolve_model
 from .policy import AiError, current_principal, fields, identifier, integer, mutation, text, uid, digest, canonical
 
 SHANGHAI = ZoneInfo("Asia/Shanghai")
@@ -200,7 +201,10 @@ def step(config_reader, sender, media_sender=None):
             live()
             return dingtalk.guard(session, config_reader())
         if row.content_type == "text":
+            # Schedules have no model selector: follow the current default on
+            # every run, even when their conversation retains an older model.
             answer = chat.answer({"clientRequestId": "ding-scheduled-" + run.id, "message": row.prompt,
+                "modelId": resolve_model().id,
                 "conversationId": session.conversation_id, "workspaceModule": "ai", "title": "志高助手 · 定时任务"},
                 principal, run.id, dingtalk_session=session, channel_guard=channel_guard, channel_time=run.scheduled_at)
             content = dingtalk.plain_reply(answer["reply"])

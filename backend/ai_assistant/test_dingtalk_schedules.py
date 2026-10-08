@@ -32,6 +32,31 @@ class DingTalkScheduleTests(TestCase):
         self.assertEqual(schedules.next_slot("monthly", 9, 0, 28, at).isoformat(), "2026-02-28T01:00:00+00:00")
         self.assertEqual(schedules.next_slot("weekly", 9, 0, 1, at).weekday(), 0)
 
+    def test_subscription_failure_is_recorded_without_send_or_automatic_replay(self):
+        from .transport import ProviderHttpError
+        item = schedules.save({**self.payload, "enabled": True}, ADMIN)["item"]
+        queued = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        sender = Mock()
+        failure = ProviderHttpError(400, b'{"error":{"code":"InvalidSubscription","message":"private"}}')
+        with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.chat, "answer", side_effect=failure) as answer:
+            self.assertTrue(schedules.step(lambda: dingtalk_settings.effective(self.config), sender))
+            self.assertFalse(schedules.step(lambda: dingtalk_settings.effective(self.config), sender))
+        sender.assert_not_called()
+        answer.assert_called_once()
+        run = m.AiDingTalkScheduleRun.objects.get(pk=queued["id"])
+        self.assertEqual((run.status, run.error_code), ("failed", "provider_subscription_invalid"))
+
+    def test_text_schedule_explicitly_resolves_default_instead_of_old_session_model(self):
+        item = schedules.save({**self.payload, "enabled": True}, ADMIN)["item"]
+        schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        sender = Mock()
+        with patch("ai_assistant.transport.edge", side_effect=background), \
+                patch.object(schedules, "resolve_model", return_value=SimpleNamespace(id="new-default")), \
+                patch.object(schedules.chat, "answer", return_value={"reply": "合成结果"}) as answer:
+            schedules.step(lambda: dingtalk_settings.effective(self.config), sender)
+        self.assertEqual(answer.call_args.args[0]["modelId"], "new-default")
+        sender.assert_called_once()
+
     def test_denies_unbound_person_target_bad_group_scope_and_conflict(self):
         for invalid in ({"targetId": "other"}, {"targetType": "group", "targetId": "unknown"}, {"day": 29}, {"hour": 24}):
             with self.assertRaises(AiError):

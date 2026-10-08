@@ -2,6 +2,21 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { importRunDuration, importRunStatus } from "../lib/imports/run-presentation";
+import { jdCustomerServiceStores } from "../lib/jd/customer-service-stores";
+import catalog from "../lib/imports/chain-catalog.generated.json";
+import { scheduleErrorLabel } from "../lib/ai/schedule-presentation";
+
+test("customer-service monitoring binds exactly one registered workflow to each store", () => {
+  const rules = catalog.rules.filter(rule => rule.chainKey === "jd_customer_service");
+  assert.equal(rules.length, 4);
+  for (const store of jdCustomerServiceStores) {
+    const rule = rules.find(rule => rule.workflowId === store.workflowId);
+    assert.deepEqual(rule?.entityKeys, [store.storeKey]);
+    assert.deepEqual(rule?.schedules, ["0 9 * * *"]);
+  }
+  assert.match(scheduleErrorLabel("provider_subscription_invalid"), /订阅.*密钥.*权限/);
+  assert.match(scheduleErrorLabel("provider_error"), /模型服务拒绝/);
+});
 import { normalizeShellLocation } from "../app/shell/navigation-contract";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
