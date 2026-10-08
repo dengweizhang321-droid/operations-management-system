@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { link, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { hash, canonical, sourceInventory, sourceTreeDigest, classifyImpact, backupReuseDecision, requirements, backupMaxAgeMs, rehearsalMaxAgeMs } from '../tools/release-impact.mjs';
+import { hash, canonical, safeFileDigest, sourceInventory, sourceTreeDigest, classifyImpact, backupReuseDecision, requirements, backupMaxAgeMs, rehearsalMaxAgeMs } from '../tools/release-impact.mjs';
 import { makeBatch, executeBatch, reconcileOperation, journalState, timingReport, verifyBatch } from '../tools/release-batch.mjs';
 import { assertActiveBatchOwnership, withRotationLock } from '../tools/worker-local-release-rotation.mjs';
 import { scheduledBackup } from '../tools/release-daily-backup.mjs';
@@ -203,5 +203,14 @@ test('scheduled backup does nothing while paused; unknown result never gives reu
     await writeFile(schedule,'status = "ACTIVE"\n');
     await assert.rejects(scheduledBackup({root:path.join(f.root,'daily'),schedule,run:async()=>{calls++;throw Error('lost response');}}),/unresolved/);assert.equal(calls,1);
     await assert.rejects(scheduledBackup({root:path.join(f.root,'daily'),schedule,run:async()=>{calls++;throw Error('lost response');}}),/unresolved/);assert.equal(calls,1);
+  }finally{await f.dispose();}
+});
+test('exact Windows OS PowerShell hash is usable while ordinary hard-linked tools stay forbidden',{skip:process.platform!=='win32'},async()=>{
+  const host='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe';
+  assert.equal(await safeFileDigest(host),hash(await readFile(host)));
+  const f=await fixture();try{
+    const source=path.join(f.root,'tool.mjs'),alias=path.join(f.root,'alias.mjs');
+    await writeFile(source,'export const synthetic = true;');await link(source,alias);
+    await assert.rejects(safeFileDigest(alias),/Unsafe executable/);
   }finally{await f.dispose();}
 });

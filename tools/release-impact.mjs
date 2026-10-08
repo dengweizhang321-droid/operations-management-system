@@ -40,11 +40,15 @@ export async function safeFileDigest(target) {
     if ((await lstat(cursor)).isSymbolicLink()) throw new Error('Redirected executable path');
   }
   const before = await lstat(absolute, { bigint: true });
-  if (!before.isFile() || before.nlink !== 1n) throw new Error('Unsafe executable');
+  // Windows Resource Protection legitimately hard-links this exact OS host
+  // into WinSxS. It is still pinned by its full byte digest and exact path;
+  // ordinary script/tool links remain forbidden.
+  const systemPowerShell = absolute.toLowerCase() === path.resolve('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe').toLowerCase();
+  if (!before.isFile() || (before.nlink !== 1n && !systemPowerShell)) throw new Error('Unsafe executable');
   const digest = createHash('sha256');
   for await (const chunk of createReadStream(absolute)) digest.update(chunk);
   const after = await lstat(absolute, { bigint: true });
-  if (['dev','ino','size','mtimeNs','ctimeNs'].some(k => before[k] !== after[k])) throw new Error('Executable changed while hashing');
+  if (['dev','ino','size','mtimeNs','ctimeNs','nlink'].some(k => before[k] !== after[k])) throw new Error('Executable changed while hashing');
   return digest.digest('hex');
 }
 

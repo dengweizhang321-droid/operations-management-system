@@ -103,3 +103,11 @@
 独立查读 `tests/module-performance.test.ts` 的修正，并运行该文件：**8/8 通过**。原全文件 `/api/inventory/overview` 字符串计数把手动导出请求也算成自动 tab 加载；当前测试只在 `loadOverview` 到 `loadAgeAnalysis` 的精确 loader 区间计数，仍保留可见 tab、projection、刷新、年龄分析和避免双源并行等原断言。独立从 `origin/main` 读取库存视图，确认 endpoint 字符串也有 2 处；当前库存业务源码未修改，所以不是为通过测试回退业务实现或把“2”改成许可。
 
 完整 unit 首轮失败及测试运行环境补齐由主执行记录保留；本独立专项通过不反推首轮全量成功，也不替代仍在进行的完整重跑结果。该两项收口无新增阻断，本轮未修改实现、执行生产动作或改变备份调度。
+
+## 2026-10-09 Windows 系统 PowerShell 硬链接兼容复审
+
+实际构造执行批次时，系统 `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` 的 Windows Resource Protection / WinSxS 合法硬链接被原 `nlink=1` 通用要求拒绝。独立查读本次两文件差异：只允许规范化后的该精确 OS 路径例外；所有祖先/叶子重解析点拒绝、完整流式字节摘要和读取前后 dev/ino/size/mtime/ctime 验证保留，并新增 nlink 稳定比较。普通脚本、临时普通硬链接和其他 executable 路径没有获得例外。
+
+独立实际运行 `node --test tests/release-wait-optimization.test.mjs`：**52/52 通过**。新增测试核对真正 OS executable 的流式摘要等于实际字节 SHA，并在 TEMP 创建普通 hardlink 验证拒绝；本机系统 executable 的 nlink 确实大于 1。`git diff --check` 通过。没有调用 OS host 执行业务动作、修改生产脚本或更改调度。
+
+本修复无新增阻断。此前基于旧源码准备的正式候选不得冒用新门禁/新测试证据；应重新准备并绑定最新源码、依赖、工具链、配置、前驱和收据。pair-3 依然是冻结历史源码的机制计时，不代表本次新文件完整 SHA 或最终正式批准批次。最终验收脚本、批次参数闭包与新的正式候选仍须独立核查。
