@@ -217,7 +217,7 @@ test("page consumes customer and finance bounded detail, pagination and CAS cont
   assert.match(customer, /messageTotalCount/);
   assert.match(customer, /messagesTruncated/);
   assert.match(customer, /expectedVersion: item\.version/);
-  assert.match(customer, /payload\.incomplete === true/);
+  assert.match(customer, /Number\(payload\.incomplete \?\? 0\) > 0/);
   assert.match(customer, /冲突 \$\{conflictCount\}、失败 \$\{failedCount\}/);
   assert.match(sales, /finance\/targets\?view=items&page=\$\{targetPage\}&pageSize=100/);
   assert.match(sales, /targetRequestGenerationRef/);

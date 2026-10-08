@@ -125,6 +125,21 @@
       ]
     },
     {
+      "key": "jd_customer_service",
+      "label": "京东 · 客服聊天记录",
+      "platform": "京东",
+      "modules": [
+        "客服会话 Excel",
+        "聊天记录 LOG",
+        "分天配对导入"
+      ],
+      "steps": [
+        "固定店铺与截至昨天30天",
+        "双文件下载、校验与分天导入",
+        "原文件、精确批次与实际归属回查"
+      ]
+    },
+    {
       "key": "tmall",
       "label": "天猫 · 商品、推广与主数据",
       "platform": "天猫",
@@ -211,6 +226,58 @@
         "50 10 * * *"
       ],
       "definitionFile": "automation/n8n/jd-promotion-cut-meat-20260813-14.workflow.json"
+    },
+    {
+      "chainKey": "jd_customer_service",
+      "entityKeys": [
+        "jd-yiyong-director"
+      ],
+      "workflowId": "JdCustomerService2026",
+      "name": "京东志高商用设备客服聊天记录下载导入（09:00，30天）",
+      "timezone": "Asia/Shanghai",
+      "schedules": [
+        "0 9 * * *"
+      ],
+      "definitionFile": "automation/n8n/jd-customer-service-daily.workflow.json"
+    },
+    {
+      "chainKey": "jd_customer_service",
+      "entityKeys": [
+        "jd-maidehao-operator1"
+      ],
+      "workflowId": "JdCustomerServiceCutMeat2026",
+      "name": "京东志高切肉机旗舰店客服聊天记录下载导入（09:00，30天）",
+      "timezone": "Asia/Shanghai",
+      "schedules": [
+        "0 9 * * *"
+      ],
+      "definitionFile": "automation/n8n/jd-customer-service-cut-meat-daily.candidate.workflow.json"
+    },
+    {
+      "chainKey": "jd_customer_service",
+      "entityKeys": [
+        "jd-chudian-weizhang"
+      ],
+      "workflowId": "JdCustomerServiceChudian2026",
+      "name": "京东志高商用厨电旗舰店客服聊天记录下载导入（09:00，30天）",
+      "timezone": "Asia/Shanghai",
+      "schedules": [
+        "0 9 * * *"
+      ],
+      "definitionFile": "automation/n8n/jd-customer-service-chudian-daily.candidate.workflow.json"
+    },
+    {
+      "chainKey": "jd_customer_service",
+      "entityKeys": [
+        "jd-cuizhiwang-dengweizhang"
+      ],
+      "workflowId": "JdCustomerServiceDishwasher2026",
+      "name": "京东志高商用洗碗机旗舰店客服聊天记录下载导入（09:00，30天）",
+      "timezone": "Asia/Shanghai",
+      "schedules": [
+        "0 9 * * *"
+      ],
+      "definitionFile": "automation/n8n/jd-customer-service-dishwasher-daily.candidate.workflow.json"
     },
     {
       "chainKey": "tmall",

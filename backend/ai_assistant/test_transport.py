@@ -259,6 +259,47 @@ class ModelDnsTests(SimpleTestCase):
         self.assertEqual(sock.connect.call_count, 1)
         connections[0].request.assert_not_called()
 
+    def test_subscription_rejection_is_actionable_for_json_and_stream_without_disclosing_body(self):
+        for streaming in (False, True):
+            with self.subTest(streaming=streaming):
+                _, _, connections = self.wire({"error": {"code": "InvalidSubscription", "message": "private-key-and-prompt"}})
+                response = connections[0].getresponse.return_value
+                response.status = 400
+                collector = MagicMock() if streaming else None
+                with patch.object(transport, "resolve_addresses", return_value=addresses("8.8.4.4")):
+                    with self.assertRaises(transport.ProviderHttpError) as caught:
+                        transport._bounded_json(URL, {}, {}, stream_collector=collector)
+                self.assertEqual(caught.exception.code, "provider_subscription_invalid")
+                self.assertIn("订阅", str(caught.exception))
+                self.assertNotIn("private-", str(caught.exception))
+                self.assertEqual(caught.exception.diagnostics, {"httpStatus": 400})
+                connections[0].request.assert_called_once()
+                if streaming:
+                    collector.feed.assert_not_called()
+
+    def test_only_exact_bounded_subscription_code_is_classified(self):
+        for body in (b'not json', b'[]', b'{"error":"InvalidSubscription"}',
+                     b'{"error":{"message":"InvalidSubscription"}}',
+                     b'{"error":{"code":"InvalidSubscription.private"}}',
+                     b'{"error":{"code":"InvalidSubscription"},"padding":"' + b'x' * 16384 + b'"}'):
+            error = transport.ProviderHttpError(400, body)
+            self.assertEqual(error.code, "provider_error")
+            self.assertNotIn("private", str(error))
+        error = transport.ProviderHttpError(429, b'{"error":{"code":"InvalidSubscription"}}')
+        self.assertEqual(error.code, "provider_rate_limited")
+
+    def test_oversized_error_body_stops_at_the_diagnostic_bound_without_retry(self):
+        _, _, connections = self.wire({})
+        response = connections[0].getresponse.return_value
+        response.status = 400
+        response.read1.side_effect = [b'x' * 16385]
+        with patch.object(transport, "resolve_addresses", return_value=addresses("8.8.4.4")):
+            with self.assertRaises(transport.ProviderHttpError) as caught:
+                transport.bounded_json(URL, {}, {})
+        response.read1.assert_called_once_with(16385)
+        self.assertEqual(caught.exception.code, "provider_error")
+        connections[0].request.assert_called_once()
+
     def test_model_turn_returns_reply_after_synthetic_dns_recovery(self):
         self.wire(
             dns_answer(1, "8.8.4.4"),
