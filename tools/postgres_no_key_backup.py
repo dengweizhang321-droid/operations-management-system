@@ -81,7 +81,7 @@ def verify_receipt_generation(cursor):
     raise RuntimeError("no-key backup migration catalogue is not a reviewed generation")
 
 
-def verify_closed_profile(db):
+def verify_closed_profile(db, *, lock=True):
     with db.cursor() as cursor:
         cursor.execute("SELECT rolsuper FROM pg_roles WHERE rolname=current_user")
         if cursor.fetchone() != (True,):
@@ -89,7 +89,8 @@ def verify_closed_profile(db):
         verify_receipt_generation(cursor)
         # Hold this lock until pg_dump exits. It blocks inserts/DDL even by an
         # administrator, closing the precheck-to-dump race for private keys.
-        cursor.execute("LOCK TABLE " + KEY_TABLE + " IN SHARE MODE")
+        if lock:
+            cursor.execute("LOCK TABLE " + KEY_TABLE + " IN SHARE MODE")
         import_module("ai_assistant.migrations." + GENERATION).verify_catalog(cursor)
         import_module("ai_assistant.migrations.0081_readiness_catalog_probe").verify_catalog(cursor)
         cursor.execute("SELECT has_table_privilege('teruisi_sales_owner',%s,'SELECT'),"
@@ -224,19 +225,50 @@ def read_policy_witness(path, approved_sha256):
     return value["policies"]
 
 
-def collect(db, *, legacy_catalog=False):
-    verify_closed_profile(db)
+def sequence_health(db, *, require_uncached=False):
+    rows = db.execute("SELECT ns.nspname,s.relname,nt.nspname,t.relname,a.attname,"
+        "ps.increment_by,ps.cycle,ps.max_value,ps.cache_size FROM pg_class s JOIN pg_namespace ns ON ns.oid=s.relnamespace "
+        "JOIN pg_depend d ON d.objid=s.oid AND d.classid='pg_class'::regclass "
+        "AND d.refclassid='pg_class'::regclass AND d.deptype IN ('a','i') "
+        "JOIN pg_class t ON t.oid=d.refobjid JOIN pg_namespace nt ON nt.oid=t.relnamespace "
+        "JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=d.refobjsubid "
+        "JOIN pg_sequences ps ON ps.schemaname=ns.nspname AND ps.sequencename=s.relname "
+        "WHERE ns.nspname='public' ORDER BY s.relname").fetchall()
+    if len(rows) > 512:
+        raise RuntimeError("sequence health inventory exceeds bound")
+    count = db.execute("SELECT count(*) FROM pg_sequences WHERE schemaname='public'").fetchone()[0]
+    if len(rows) != count or len({(row[0],row[1]) for row in rows}) != count:
+        raise RuntimeError("sequence ownership cannot be proved")
+    for schema, sequence, table_schema, table, column, increment, cycle, limit, cache in rows:
+        if increment <= 0 or cycle:
+            raise RuntimeError("sequence health requires increasing noncycling sequences")
+        if require_uncached and cache != 1:
+            raise RuntimeError("cached live sequence next value cannot be proved")
+        last, called = db.execute(sql.SQL("SELECT last_value,is_called FROM {}.{}").format(
+            sql.Identifier(schema),sql.Identifier(sequence))).fetchone()
+        maximum = db.execute(sql.SQL("SELECT max({}) FROM {}.{}").format(
+            sql.Identifier(column),sql.Identifier(table_schema),sql.Identifier(table))).fetchone()[0]
+        next_value = last + increment if called else last
+        if next_value > limit:
+            raise RuntimeError("sequence next value is exhausted")
+        if maximum is not None and next_value <= maximum:
+            raise RuntimeError("sequence next value does not exceed existing identifiers")
+    return True
+
+
+def release_catalog(db):
     db.execute("SET LOCAL TIME ZONE 'UTC'")
     db.execute("SET LOCAL search_path=pg_catalog,public")
     db.execute("SET LOCAL extra_float_digits=3")
-    schemas = db.execute("SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg_%' "
-        "AND nspname NOT IN ('public','information_schema')").fetchall()
-    if schemas or db.execute("SELECT count(*) FROM pg_largeobject_metadata").fetchone() != (0,):
-        raise RuntimeError("unreviewed schema or large objects in no-key backup")
-    roles = role_contract(db)
-    if db.execute("SELECT count(*) FROM pg_sequences WHERE schemaname='public' "
-            "AND (increment_by<=0 OR cycle)").fetchone() != (0,):
-        raise RuntimeError("sequence lower-bound recovery requires noncycling increasing sequences")
+    verify_closed_profile(db, lock=False)
+    verify_profile_scope(db)
+    catalog = collect_catalog(db)
+    migrations = db.execute("SELECT app,name FROM public.django_migrations ORDER BY app,name").fetchall()
+    return {"schemaSha256": digest({"catalog":catalog,"migrations":migrations}),
+        "rolesSha256":digest(role_contract(db)), "sequencesValid":sequence_health(db, require_uncached=True)}
+
+
+def collect_catalog(db, *, legacy_catalog=False):
     catalog = _catalog_roots(db, logical_restore=True, sequence_positions=False)["sections"]
     # Include properties omitted by the historical synthetic collector.
     details = {
@@ -263,6 +295,27 @@ def collect(db, *, legacy_catalog=False):
         # attributes must not overwrite it under the same section name.
         details["policies"] = normalized_policies(details["policies"])
     catalog.update({key: digest(rows) for key, rows in details.items()})
+    return catalog
+
+
+def verify_profile_scope(db):
+    schemas = db.execute("SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg_%' "
+        "AND nspname NOT IN ('public','information_schema')").fetchall()
+    if schemas or db.execute("SELECT count(*) FROM pg_largeobject_metadata").fetchone() != (0,):
+        raise RuntimeError("unreviewed schema or large objects in no-key backup")
+
+
+def collect(db, *, legacy_catalog=False):
+    verify_closed_profile(db)
+    db.execute("SET LOCAL TIME ZONE 'UTC'")
+    db.execute("SET LOCAL search_path=pg_catalog,public")
+    db.execute("SET LOCAL extra_float_digits=3")
+    verify_profile_scope(db)
+    roles = role_contract(db)
+    if db.execute("SELECT count(*) FROM pg_sequences WHERE schemaname='public' "
+            "AND (increment_by<=0 OR cycle)").fetchone() != (0,):
+        raise RuntimeError("sequence lower-bound recovery requires noncycling increasing sequences")
+    catalog = collect_catalog(db, legacy_catalog=legacy_catalog)
     tables = stream_table_roots(db)
     sequences = {}
     for (name,) in db.execute("SELECT sequencename FROM pg_sequences WHERE schemaname='public' "

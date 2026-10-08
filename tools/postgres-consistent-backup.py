@@ -2097,6 +2097,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             profile_evidence = postgres_no_key_backup.collect(connection,
                 legacy_catalog=expected is not None and "functionAttributes" not in expected["catalog"])
             restored_policies = postgres_no_key_backup.policy_rows(connection)
+            sequence_health_verified = postgres_no_key_backup.sequence_health(connection)
         evidence = collect_evidence(
             connection,
             expected_database=args.expected_database,
@@ -2110,6 +2111,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     }
     if no_keys:
         result["profileEvidence"] = profile_evidence
+        result["sequenceHealthVerified"] = sequence_health_verified
         if expected is not None:
             syntax_changed = expected["catalog"]["policies"] != profile_evidence["catalog"]["policies"]
             profile_evidence = postgres_no_key_backup.verify_restored(expected, profile_evidence,
@@ -2206,6 +2208,19 @@ def run_capacity(args: argparse.Namespace) -> dict[str, Any]:
         return {"status": "completed", "databaseBytes": row[4]}
 
 
+def run_release_catalog(args: argparse.Namespace) -> dict[str, Any]:
+    import postgres_no_key_backup
+    with psycopg.connect("") as connection:
+        connection.execute("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        identity = connection.execute("SELECT current_database(),current_user,inet_server_addr()::text,inet_server_port()").fetchone()
+        if (not identity or identity[:2] != (args.expected_database,args.expected_user)
+                or _canonical_loopback_address(identity[2]) != "127.0.0.1" or identity[3] != args.port):
+            raise RuntimeError("release catalog database identity mismatch")
+        catalog = postgres_no_key_backup.release_catalog(connection)
+        connection.rollback()
+    return {"status":"completed","readOnly":True,**catalog}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -2214,6 +2229,10 @@ def build_parser() -> argparse.ArgumentParser:
     capacity.add_argument("--expected-database", required=True)
     capacity.add_argument("--expected-user", required=True)
     capacity.add_argument("--port", required=True, type=int)
+    release_catalog = subparsers.add_parser("release-catalog")
+    release_catalog.add_argument("--expected-database",required=True)
+    release_catalog.add_argument("--expected-user",required=True)
+    release_catalog.add_argument("--port",required=True,type=int)
 
     backup = subparsers.add_parser("backup")
     backup.add_argument("--pg-dump", required=True)
@@ -2261,6 +2280,8 @@ def main() -> int:
     try:
         if args.command == "capacity":
             result = run_capacity(args)
+        elif args.command == "release-catalog":
+            result = run_release_catalog(args)
         elif args.command == "backup":
             result = run_backup(args)
         elif args.command == "restore":

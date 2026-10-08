@@ -4640,6 +4640,17 @@ function Complete-AutomationMaintenanceStop {
   Write-AtomicJson $MaintenancePath $record
 }
 
+function Begin-WorkerReleaseDrain {
+  if ($MaintenanceId -cnotmatch '^[a-f0-9]{32}$') { throw 'Exact Worker release operation ID required' }
+  Assert-DeployedApplication
+  Assert-RuntimeAclHardened
+  if (Read-SystemMaintenance) { throw 'System maintenance is already active' }
+  if (-not $KeepPostgres) { throw 'Worker-only drain must preserve PostgreSQL' }
+  Wait-AutomationDrain
+  Invoke-AutomationPgDrainFence { Invoke-BackupConsoleMaintenanceFence {} }
+  Write-LauncherEvent 'INFO' 'worker_release_drained' $MaintenanceId
+}
+
 function Begin-SystemMaintenance {
   if ($MaintenanceId -cnotmatch "^[0-9a-f]{32}$") { throw "MaintenanceId must be an explicit 32-character lowercase operation id" }
   Assert-DeployedApplication

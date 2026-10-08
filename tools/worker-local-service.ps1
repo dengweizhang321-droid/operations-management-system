@@ -1,5 +1,5 @@
 ﻿param(
-  [ValidateSet("Deploy", "Verify", "Start", "Restart", "RestartFull", "Stop", "Status", "InstallStartup", "VerifyStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance", "MaintenanceStatus", "CancelDrain")]
+  [ValidateSet("Deploy", "Verify", "Start", "Restart", "RestartFull", "Stop", "Status", "InstallStartup", "VerifyStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance", "MaintenanceStatus", "CancelDrain", "BeginWorkerDrain", "StopForRelease", "EndWorkerDrain")]
   [string]$Action = "Status",
   [string]$SourceRoot,
   [string]$RuntimeRoot = "D:\teruisi-runtime\teruisi-worker-sales",
@@ -51,7 +51,7 @@ $StartupShortcut = if ([string]::IsNullOrWhiteSpace($StartupShortcutPath)) {
   if (-not [System.IO.Path]::IsPathRooted($StartupShortcutPath)) { throw "StartupShortcutPath must be absolute" }
   [System.IO.Path]::GetFullPath($StartupShortcutPath)
 }
-$MutatingActions = @("Deploy", "Start", "Restart", "RestartFull", "Stop", "InstallStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance", "CancelDrain")
+$MutatingActions = @("Deploy", "Start", "Restart", "RestartFull", "Stop", "InstallStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance", "CancelDrain", "BeginWorkerDrain", "StopForRelease", "EndWorkerDrain")
 $ServiceMutex = $null
 
 if (-not ("Teruisi.NativeCommandLine" -as [type])) {
@@ -1613,12 +1613,21 @@ function Assert-WorkerMaintenanceInactive {
   if ($record) { throw "System maintenance is active: $($record.id). Start and restart are disabled until ExitMaintenance." }
 }
 
+function Assert-WorkerReleaseDrain([string]$OperationId) {
+  Assert-WorkerMaintenanceInactive
+  $gate = Read-WorkerAutomationDrain
+  if ($OperationId -cnotmatch '^[a-f0-9]{32}$' -or -not $gate -or $gate.id -cne $OperationId -or $gate.phase -cne 'requests' -or $gate.keepPostgres -cne $true) {
+    throw 'Exact Worker release drain is not confirmed; services remain unchanged'
+  }
+}
+
 function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$OperationId = "", [switch]$PreservePostgres) {
-  if ($ControlAction -in @("BeginMaintenance", "EndMaintenance", "CancelDrain", "CompleteDrain")) {
+  if ($ControlAction -in @("BeginMaintenance", "EndMaintenance", "CancelDrain", "CompleteDrain", "BeginWorkerDrain")) {
     if ($OperationId -cnotmatch "^[0-9a-f]{32}$") { throw "Invalid maintenance operation id" }
     # A reviewed source checkout can establish the gate for its first upgrade;
     # immutable Worker releases use the already-deployed Django controller.
     $maintenanceLibrary = Join-Path $PSScriptRoot "django-local-service.ps1"
+    if ($ControlAction -eq 'BeginWorkerDrain') { $maintenanceLibrary = $DjangoService }
     if (-not (Test-Path -LiteralPath $maintenanceLibrary -PathType Leaf)) { $maintenanceLibrary = $DjangoService }
     Assert-NoReparsePath $maintenanceLibrary
     # Keep both mutexes on this same thread: Worker -> Django. Maintenance
@@ -1637,6 +1646,7 @@ function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$Operation
         $Action = $maintenanceOperation
         Invoke-WithServiceMutex {
           if ($maintenanceOperation -eq "BeginMaintenance") { Begin-SystemMaintenance }
+          elseif ($maintenanceOperation -eq 'BeginWorkerDrain') { Begin-WorkerReleaseDrain }
           elseif ($maintenanceOperation -eq 'CancelDrain') { Cancel-AutomationDrain }
           elseif ($maintenanceOperation -eq 'CompleteDrain') { Complete-AutomationMaintenanceStop }
           else { End-SystemMaintenance }
@@ -1890,6 +1900,29 @@ try {
   }
 
   if ($Action -eq "Stop") { Write-Result (Invoke-WorkerSystemStop $identity -WithBackend:$IncludeBackend); exit 0 }
+  if ($Action -eq 'BeginWorkerDrain') {
+    Assert-WorkerMaintenanceInactive
+    Invoke-DjangoLifecycleAction 'BeginWorkerDrain' $MaintenanceId -PreservePostgres
+    Assert-WorkerReleaseDrain $MaintenanceId
+    Write-Result ([ordered]@{status='worker_drained';maintenanceId=$MaintenanceId;drainConfirmed=$true;backendStopped=$false})
+    exit 0
+  }
+  if ($Action -eq 'StopForRelease') {
+    if ($IncludeBackend) { throw 'Worker release drain cannot stop the backend' }
+    Assert-WorkerReleaseDrain $MaintenanceId
+    Write-Result (Stop-WorkerOnly $identity)
+    exit 0
+  }
+  if ($Action -eq 'EndWorkerDrain') {
+    Assert-WorkerReleaseDrain $MaintenanceId
+    if ((Get-WorkerStatusInternal $identity).State -cne 'exact_release') { throw 'Exact Worker must be running before ending its release drain' }
+    $helperHealth = Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:5791/health' -TimeoutSec 15
+    if ($helperHealth.ok -cne $true -or $helperHealth.drainProtocol -cne 'teruisi-automation-drain-v1' -or $helperHealth.drain.id -cne $MaintenanceId -or $helperHealth.busy -cne $false -or @($helperHealth.storeExecutions).Count -ne 0) { throw 'New helper did not acknowledge the retained exact drain' }
+    Invoke-DjangoLifecycleAction 'CancelDrain' $MaintenanceId
+    if (Read-WorkerAutomationDrain) { throw 'Worker release drain was not cleared' }
+    Write-Result ([ordered]@{status='worker_drain_ended';maintenanceId=$MaintenanceId})
+    exit 0
+  }
   if ($Action -eq "RestartFull") { Write-Result (Invoke-WorkerFullRestart $identity); exit 0 }
   if ($Action -eq "EnterMaintenance") {
     if (-not $MaintenanceId) { $MaintenanceId = [Guid]::NewGuid().ToString("N") }

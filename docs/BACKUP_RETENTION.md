@@ -4,6 +4,8 @@
 
 ## 日常规则
 
+发布备份／恢复是否可以复用，按[发布批次协议](RELEASE_BATCH_WORKFLOW.md)的实际影响与当前证据门禁判断。此候选规则不改变三份／两保护策略，也不授权自动启用日常调度；备份机制或生命周期修改的首次采用仍须完整前后备份与恢复。
+
 - Worker 完整发布包保留最近七个完整 24 小时。当前版本、最近两个前驱以及 `state/release-retention-protection.json` 中显式保护的版本保留完整包，即使超过七天。只对验证后的 successor 链内旧版本清理 `dist`、`helper`、`source-snapshot`、`node_modules`；其他清单、工具、guard、authority、successor 与审计材料保留，链外目录不自动清理。生产维护/发布与清理共用原生命周期锁，不以清理为由启停服务。
 - PostgreSQL 沿用原一致性快照与 custom dump，以及现有 v1/v2 归档的角色、权限和内容验证。每个恢复点包含 `teruisi-sales.dump`、`backup-manifest.json`、`backup-manifest.json.sha256` 三个文件，不新增备份密钥。
 - 正式恢复点在 `E:\运营管理系统业务数据`，最多三份。保护项占名额，最多保护两份以留下一个新备份位置，其余保留最新完成的备份。发布前后备份也计入。生成新备份时允许暂时第四份；先复制并验证所有保留项，再清理旧份和 D 盘重复件。磁盘空间不足、E 盘不可用、校验失败、保护项丢失或身份冲突时，不提前删除旧备份。

@@ -38,6 +38,8 @@ import {
   workerPort,
   workerRuntimeRoot,
   workerSourceRoot,
+  workerPreparationIdentity,
+  verifyPreparedWorkerCandidate,
 } from "./worker-local-release.mjs";
 
 export const rotationPlanVersion = "teruisi-local-worker-release-rotation-plan-v1";
@@ -58,6 +60,27 @@ const cutoverIdPattern = /^[A-Za-z0-9._:-]{8,128}$/;
 // See docs/WORKER_SUCCESSOR_CAPACITY.md. No environment/CLI override is allowed.
 const maximumSuccessors = 256;
 const rotationLockPipe = "\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1";
+const rotationLeases = new WeakSet();
+export async function withRotationLock(operation) {
+  const unlock = await acquireRotationLock();
+  const lease = {};
+  rotationLeases.add(lease);
+  try { return await operation(lease); }
+  finally { rotationLeases.delete(lease); await unlock(); }
+}
+async function lockForOperation(lease) {
+  if (lease !== undefined) {
+    if (!rotationLeases.has(lease)) fail("Invalid or expired rotation lease");
+    return async () => {};
+  }
+  return acquireRotationLock();
+}
+export async function assertActiveBatchOwnership(runtimeRoot, batchSha256) {
+  const target = path.join(runtimeRoot, "state", "release-batches", "active.json");
+  if (!(await exists(target))) return;
+  const active = await readCanonical(target, "active release batch");
+  if (!hex64.test(batchSha256 ?? "") || active.value.batchSha256 !== batchSha256) fail("Another release batch owns the predecessor; legacy preparation/apply blocked");
+}
 
 function fail(message) {
   throw new Error(message);
@@ -150,6 +173,7 @@ async function writeCreateOnly(target, raw) {
   const stateRoot = path.dirname(finalDirectory);
   const allowedFinalDirectories = new Set([
     successorDirectoryName, rotationPlanDirectoryName, rotationConsumptionDirectoryName,
+    "worker-prepared-builds",
   ]);
   if (path.basename(stateRoot).toLowerCase() !== "state"
       || !allowedFinalDirectories.has(path.basename(finalDirectory))
@@ -1019,11 +1043,13 @@ export async function verifyPreparationHeadUnchanged(before, after, verifyHead) 
   return { status: "preparation_only", predecessorBindingSha256: before.head.bindingSha256 };
 }
 
-export async function planWorkerReleaseRotation({ now = new Date(), allowTestRuntimeRoot = false, adoptD1ControlRetirement = false, prepareOnline = false } = {}) {
+export async function planWorkerReleaseRotation({ now = new Date(), allowTestRuntimeRoot = false, adoptD1ControlRetirement = false, prepareOnline = false, reusePlanSha256, rotationLease, batchSha256 } = {}) {
   if (prepareOnline && adoptD1ControlRetirement) fail("Initial retirement adoption still requires a stopped release");
-  const releaseLock = await acquireRotationLock();
+  if (reusePlanSha256 && (!prepareOnline || adoptD1ControlRetirement)) fail("Reuse requires online successor preparation");
+  const releaseLock = await lockForOperation(rotationLease);
   let serviceLock;
   try {
+    await assertActiveBatchOwnership(workerRuntimeRoot, batchSha256);
     serviceLock = await acquireWorkerServiceMutex();
     // A verifier update necessarily creates a short, stopped-only mixed state:
     // the source/protected copy can already be the candidate while the immutable
@@ -1064,7 +1090,48 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
           verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" }));
       } finally { await unlock(); }
     } : undefined;
-    const built = await buildWorkerReleaseCandidate({
+    const preparationIdentity = await workerPreparationIdentity(workerSourceRoot);
+    let built;
+    // Multiple chats asking for the same final composition converge on one
+    // exact immutable plan. A different source/configuration never reuses it.
+    if (prepareOnline && !reusePlanSha256 && !adoptD1ControlRetirement) {
+      const preparedRoot = path.join(workerRuntimeRoot, "state", "worker-prepared-builds");
+      if (await exists(preparedRoot)) {
+        await assertEntityDirectory(preparedRoot, "prepared builds root");
+        const entries = (await readdir(preparedRoot)).filter(name => /^[a-f0-9]{64}\.json$/.test(name)).sort();
+        if (entries.length > 4096) fail("Prepared build inventory exceeds reviewed bound");
+        for (const name of entries) {
+          const previousIdentity = await readCanonical(path.join(preparedRoot,name), "prepared build inventory");
+          if (canonicalJson(previousIdentity.value.identity) !== canonicalJson(preparationIdentity)) continue;
+          const possible = await loadApprovedPlan(workerRuntimeRoot,name.slice(0,-5),before.bootstrap);
+          if (possible.plan.predecessor.bindingSha256 === before.head.bindingSha256 && possible.plan.predecessorChainStateSha256 === before.chainStateSha256) {
+            reusePlanSha256 = possible.sha256; break;
+          }
+        }
+      }
+    }
+    if (reusePlanSha256) {
+      const previous = await loadApprovedPlan(workerRuntimeRoot, reusePlanSha256, before.bootstrap);
+      if (previous.plan.predecessor.bindingSha256 !== before.head.bindingSha256
+        || previous.plan.predecessorChainStateSha256 !== before.chainStateSha256) fail("Reusable plan predecessor changed");
+      const receipt = await readCanonical(path.join(workerRuntimeRoot, "state", "worker-prepared-builds", `${reusePlanSha256}.json`), "prepared build identity");
+      const receiptSidecar = await readFile(`${receiptPathForPlan(workerRuntimeRoot, reusePlanSha256)}.sha256`);
+      if (!receiptSidecar.equals(Buffer.from(`${receipt.sha256}\n`))) fail("Prepared identity sidecar mismatch");
+      if (receipt.value.version !== "teruisi-worker-prepared-build-v1"
+        || receipt.value.planSha256 !== reusePlanSha256
+        || receipt.value.candidateManifestSha256 !== previous.plan.candidate.manifestSha256
+        || canonicalJson(receipt.value.identity) !== canonicalJson(preparationIdentity)) fail("Prepared source/toolchain/configuration binding changed");
+      const reused = await readManifest(workerRuntimeRoot, previous.plan.candidate, "reusable candidate");
+      if (reused.manifest.source.sourceFingerprint !== preparationIdentity.sourceTree.sha256) fail("Prepared candidate source mismatch");
+      await verifyPreparedWorkerCandidate({ manifestPath: reused.manifestPath, approvedManifestSha256: reused.manifestSha256,
+        expectedSourceD1PathSha256: before.bootstrap.authority.sourceD1PathSha256, expectedPersistRootPathSha256: before.bootstrap.authority.persistRootPathSha256,
+        requireSalesRetiredCodeReceipt: true, allowTestRuntimeRoot }, verifyPreparationPredecessor);
+      if (canonicalJson(await workerPreparationIdentity(workerSourceRoot)) !== canonicalJson(preparationIdentity)) fail("Preparation inputs changed during reuse");
+      return { status: "planned", reused: true, planSha256: previous.sha256, planPath: previous.path,
+        predecessorReleaseId: previous.plan.predecessor.releaseId, candidateReleaseId: previous.plan.candidate.releaseId,
+        candidateManifestSha256: previous.plan.candidate.manifestSha256, candidateGuardReceiptSha256: previous.plan.candidate.guardReceiptSha256 };
+    }
+    built = await buildWorkerReleaseCandidate({
       sourceRoot: workerSourceRoot,
       runtimeRoot: workerRuntimeRoot,
       devVarsSource: workerDevVarsSource,
@@ -1075,6 +1142,7 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
       now,
       allowTestRuntimeRoot,
     });
+    if (canonicalJson(await workerPreparationIdentity(workerSourceRoot)) !== canonicalJson(preparationIdentity)) fail("Preparation inputs changed during build");
     if (prepareOnline) {
       serviceLock = await acquireWorkerServiceMutex();
       const current = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true });
@@ -1118,6 +1186,13 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
     };
     const plan = rotationPlanPayload({ createdAt: now.toISOString(), chain: before, candidate, lineage, protectedEntrypoints });
     const publication = await publishRotationPlan(workerRuntimeRoot, plan);
+    const preparedRoot = path.join(workerRuntimeRoot, "state", "worker-prepared-builds");
+    if (!(await exists(preparedRoot))) await mkdir(preparedRoot);
+    await assertEntityDirectory(preparedRoot, "prepared build identity root");
+    await publishCanonicalWithSidecar(path.join(workerRuntimeRoot, "state", "worker-prepared-builds", `${publication.planSha256}.json`), {
+      version: "teruisi-worker-prepared-build-v1", planSha256: publication.planSha256,
+      candidateManifestSha256: candidate.manifestSha256, identity: preparationIdentity,
+    }, "prepared build identity");
     return {
       status: "planned",
       version: rotationPlanVersion,
@@ -1136,6 +1211,10 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
       await releaseLock();
     }
   }
+}
+
+function receiptPathForPlan(runtimeRoot, planSha256) {
+  return path.join(runtimeRoot, "state", "worker-prepared-builds", `${planSha256}.json`);
 }
 
 const cutoverEvidenceFields = Object.freeze([
@@ -1315,11 +1394,12 @@ export async function applyApprovedRotationPlanForTest({
   });
 }
 
-export async function applyApprovedRotationPlan({ approvedPlanSha256, allowTestRuntimeRoot = false } = {}) {
+export async function applyApprovedRotationPlan({ approvedPlanSha256, allowTestRuntimeRoot = false, rotationLease, batchSha256 } = {}) {
   if (allowTestRuntimeRoot) fail("production apply 不接受 test runtime 覆盖");
-  const releaseLock = await acquireRotationLock();
+  const releaseLock = await lockForOperation(rotationLease);
   let serviceLock;
   try {
+    await assertActiveBatchOwnership(workerRuntimeRoot, batchSha256);
     serviceLock = await acquireWorkerServiceMutex();
     const dependencies = {
       readCurrentCutoverEvidence: readCutoverEvidence,
@@ -1383,8 +1463,8 @@ async function main() {
   if (command !== "plan" && flags.has("--prepare-online")) fail("Online preparation flag is plan-only");
   let result;
   if (command === "plan") {
-    if (values.size > 0 || allowTestRuntimeRoot) fail("production plan 不接受路径、命令或测试覆盖");
-    result = await planWorkerReleaseRotation({ adoptD1ControlRetirement: flags.has("--adopt-d1-control-retirement"), prepareOnline: flags.has("--prepare-online") });
+    if (values.size > (values.has("--reuse-plan-sha256") ? 1 : 0) || allowTestRuntimeRoot) fail("production plan 不接受路径、命令或测试覆盖");
+    result = await planWorkerReleaseRotation({ adoptD1ControlRetirement: flags.has("--adopt-d1-control-retirement"), prepareOnline: flags.has("--prepare-online"), reusePlanSha256: values.get("--reuse-plan-sha256") });
   } else if (command === "apply") {
     if (values.size !== 1 || !values.has("--approved-plan-sha256") || allowTestRuntimeRoot) {
       fail("production apply 只接受 --approved-plan-sha256");

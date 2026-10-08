@@ -96,7 +96,13 @@ test("sales and inventory tabs only request the data source needed by the visibl
   assert.match(summaryEffect, /const live = \(\) => !controller\.signal\.aborted && generation === generationRef\.current/);
   assert.match(summaryEffect, /window\.clearTimeout\(timeout\); controller\.abort\(\)/);
 
-  assert.equal((inventoryView.match(/\/api\/inventory\/overview/g) ?? []).length, 1);
+  // Count automatic tab loading within its loader. The separate user-triggered
+  // CSV export legitimately calls the same reader and is not a second tab load.
+  const overviewLoaderStart = inventoryView.indexOf("const loadOverview = useCallback");
+  const overviewLoaderEnd = inventoryView.indexOf("const loadAgeAnalysis = useCallback", overviewLoaderStart);
+  assert.ok(overviewLoaderStart >= 0 && overviewLoaderEnd > overviewLoaderStart);
+  const overviewLoader = inventoryView.slice(overviewLoaderStart, overviewLoaderEnd);
+  assert.equal((overviewLoader.match(/\/api\/inventory\/overview/g) ?? []).length, 1);
   assert.equal((inventoryView.match(/\/api\/inventory\/age-analysis/g) ?? []).length, 1);
   assert.match(inventoryView, /const usesInventoryOverview = activeTab === "overview" \|\| activeTab === "plan"/);
   assert.match(inventoryView, /const projection = activeTab === "plan" \? "plan" : "overview"/);

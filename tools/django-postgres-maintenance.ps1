@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-  [ValidateSet("Backup", "Verify", "RestoreRehearsal", "Prune", "Status", "ProtectedAiPreflight", "AdoptRetention", "Retain", "Protect", "Unprotect")]
+  [ValidateSet("Backup", "Verify", "RestoreRehearsal", "Prune", "Status", "ProtectedAiPreflight", "ReleaseEvidence", "AdoptRetention", "Retain", "Protect", "Unprotect")]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
   [string]$BackupDirectory = "",
@@ -1404,7 +1404,8 @@ function Invoke-MaintenanceBackup {
   }
 }
 
-function Invoke-MaintenanceNoKeyPreflight {
+function Invoke-MaintenanceNoKeyPreflight([switch]$ReleaseCatalog) {
+  if ($ReleaseCatalog -and $MaintenanceRequest.Execute) { throw 'ReleaseEvidence is read-only' }
   $evidenceTool = Assert-MaintenanceRuntimeContext
   Assert-PostgresListenerOwnership | Out-Null
   $credentials = Read-JsonFile $CredentialPath "Django 本机 DPAPI 凭据库"
@@ -1416,9 +1417,17 @@ function Invoke-MaintenanceNoKeyPreflight {
       PGAPPNAME = "teruisi_no_key_backup_preflight"
       PGOPTIONS = "-c statement_timeout=30000 -c idle_in_transaction_session_timeout=60000"
     } {
-      $run = Invoke-BoundedNativeProcess $Python @($evidenceTool, "no-key-preflight",
+      $command = if ($ReleaseCatalog) { 'release-catalog' } else { 'no-key-preflight' }
+      $run = Invoke-BoundedNativeProcess $Python @($evidenceTool, $command,
         "--expected-database", "teruisi_sales", "--expected-user", "postgres", "--port", "5432") $InstalledAppRoot
       ConvertFrom-UniqueNativeJson $run "无新增密钥备份预检"
+    }
+    if ($ReleaseCatalog) {
+      Assert-MaintenanceExactPropertySet $result @('status','readOnly','schemaSha256','rolesSha256','sequencesValid') 'Release catalog evidence'
+      if ($result.status -cne 'completed' -or $result.readOnly -cne $true -or $result.sequencesValid -cne $true -or
+          [string]$result.schemaSha256 -cnotmatch '^[a-f0-9]{64}$' -or [string]$result.rolesSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid release catalog evidence' }
+      $result | Add-Member -NotePropertyName serviceStateChanged -NotePropertyValue $false
+      return $result
     }
     Assert-MaintenanceExactPropertySet $result @("status", "profile", "privateKeyRows", "newRecoveryKeyGenerated") "无新增密钥备份预检"
     if ([string]$result.status -cne "admitted" -or [string]$result.profile -cne "teruisi-postgres-no-new-keys-v1" -or
@@ -1830,9 +1839,10 @@ function Invoke-MaintenanceRestoreRehearsal {
       return ConvertFrom-UniqueNativeJson $probeRun "读取隔离恢复证据"
     }
     $probeProperties = @("version", "status", "evidence")
-    if ($noKeys) { $probeProperties += @("profileEvidence", "profileRestoreVerified", "policySyntaxEquivalenceVerified", "policySyntaxWitnessSha256") }
+    if ($noKeys) { $probeProperties += @("profileEvidence", "profileRestoreVerified", "policySyntaxEquivalenceVerified", "policySyntaxWitnessSha256", "sequenceHealthVerified") }
     Assert-MaintenanceExactPropertySet $probe $probeProperties "隔离恢复探针结果"
     if ($noKeys -and $probe.profileRestoreVerified -cne $true) { throw "完整恢复内容、角色和权限未复验" }
+    if ($noKeys -and $probe.sequenceHealthVerified -cne $true) { throw 'Restored sequence health was not verified' }
     if ([string]$probe.version -cne "teruisi-postgres-consistent-backup-v1" -or
         [string]$probe.status -cne "completed") {
       throw "隔离恢复探针结果无效"
@@ -1878,6 +1888,7 @@ function Invoke-MaintenanceRestoreRehearsal {
     }
     if ($noKeys) {
       $result | Add-Member -NotePropertyName profileRestoreVerified -NotePropertyValue $true
+      $result | Add-Member -NotePropertyName sequenceHealthVerified -NotePropertyValue $true
       $result | Add-Member -NotePropertyName profileContentSha256 -NotePropertyValue ([string]$probe.profileEvidence.contentSha256)
       $result | Add-Member -NotePropertyName policySyntaxEquivalenceVerified -NotePropertyValue ([bool]$probe.policySyntaxEquivalenceVerified)
       $result | Add-Member -NotePropertyName policySyntaxWitnessSha256 -NotePropertyValue ([string]$probe.policySyntaxWitnessSha256)
@@ -2215,6 +2226,7 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
       }
       "RestoreRehearsal" { Invoke-MaintenanceRestoreRehearsal }
       "ProtectedAiPreflight" { Invoke-MaintenanceProtectedAiPreflight }
+      "ReleaseEvidence" { Invoke-MaintenanceNoKeyPreflight -ReleaseCatalog }
       "Prune" {
         if ($null -ne (Get-MaintenanceRetentionPolicy)) { Invoke-MaintenanceRetention }
         else { Invoke-MaintenancePrune }
