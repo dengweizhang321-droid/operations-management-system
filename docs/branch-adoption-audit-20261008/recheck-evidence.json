@@ -1,0 +1,232 @@
+{
+  "baseline": "17d7a55a7150cafff80cfbaf50051a622ce2e692",
+  "scope": "original seven merged branches",
+  "initial": [
+    {
+      "branch": "codex/bi-reference-redesign",
+      "tip": "e640832be1f12fb4eba7a01b5cf7a962116dc2b0",
+      "merged": true,
+      "root": "D:\\.codex\\worktrees\\bi-reference-redesign\\运营管理系统",
+      "exists": true,
+      "dirty": null,
+      "ignoredTop": [
+        ".wrangler/",
+        "dist/",
+        "node_modules/"
+      ],
+      "processes": [],
+      "tasks": [],
+      "automations": []
+    },
+    {
+      "branch": "codex/netshop-readiness-gates",
+      "tip": "bafcf83f144b71cac311e91b619f57cc75b04293",
+      "merged": true,
+      "root": "D:\\.codex\\worktrees\\netshop-readiness-gates\\运营管理系统",
+      "exists": true,
+      "dirty": null,
+      "ignoredTop": [
+        ".runtime/",
+        ".venv/",
+        ".wrangler/",
+        "dist/",
+        "node_modules/",
+        "tools/netshop-readiness/__pycache__/",
+        "tsconfig.tsbuildinfo"
+      ],
+      "processes": [],
+      "tasks": [],
+      "automations": []
+    },
+    {
+      "branch": "codex/performance-foundation-20261005",
+      "tip": "305d8bdc5d5705a614a645c5aa1b7b840ea0aa95",
+      "merged": true,
+      "root": "D:\\.codex\\worktrees\\performance-foundation\\运营管理系统",
+      "exists": true,
+      "dirty": null,
+      "ignoredTop": [
+        ".runtime/",
+        ".wrangler/",
+        "backend/ai_assistant/__pycache__/",
+        "backend/ai_assistant/migrations/__pycache__/",
+        "backend/business_analysis/__pycache__/",
+        "backend/market/__pycache__/",
+        "backend/sales/__pycache__/",
+        "dist/",
+        "node_modules/",
+        "tools/__pycache__/"
+      ],
+      "processes": [],
+      "tasks": [],
+      "automations": []
+    },
+    {
+      "branch": "codex/performance-integration-20261006",
+      "tip": "318ef311e388e4cc94989fb0ef4d8c26a48f6182",
+      "merged": true,
+      "root": "D:\\.codex\\worktrees\\performance-integration\\运营管理系统",
+      "exists": true,
+      "dirty": null,
+      "ignoredTop": [
+        ".runtime/",
+        ".wrangler/",
+        "backend/ai_assistant/__pycache__/",
+        "backend/ai_assistant/migrations/__pycache__/",
+        "backend/business_analysis/__pycache__/",
+        "backend/market/__pycache__/",
+        "backend/sales/__pycache__/",
+        "dist/",
+        "node_modules/",
+        "tools/__pycache__/",
+        "tsconfig.tsbuildinfo"
+      ],
+      "processes": [],
+      "tasks": [],
+      "automations": []
+    },
+    {
+      "branch": "codex/shared-filter-auto-apply",
+      "tip": "cf0233f62455d6b6b63330cf0ad04b684b924f4c",
+      "merged": true,
+      "root": "D:\\.codex\\worktrees\\077e\\运营管理系统",
+      "exists": true,
+      "dirty": null,
+      "ignoredTop": [
+        ".runtime/",
+        ".wrangler/",
+        "backend/ai_assistant/__pycache__/",
+        "backend/ai_assistant/migrations/__pycache__/",
+        "backend/business_analysis/__pycache__/",
+        "backend/market/__pycache__/",
+        "backend/sales/__pycache__/",
+        "dist/",
+        "node_modules/",
+        "tools/__pycache__/"
+      ],
+      "processes": [],
+      "tasks": [],
+      "automations": []
+    },
+    {
+      "branch": "codex/workflow-market-masitu-recovery-20261007",
+      "tip": "9721e55c6029487dd4f41eb27199d25ee36455d5",
+      "merged": true,
+      "root": "D:\\.codex\\worktrees\\cb54\\运营管理系统",
+      "exists": true,
+      "dirty": null,
+      "ignoredTop": [
+        ".runtime/",
+        ".wrangler/",
+        "backend/ai_assistant/__pycache__/",
+        "backend/ai_assistant/migrations/__pycache__/",
+        "backend/business_analysis/__pycache__/",
+        "backend/market/__pycache__/",
+        "backend/sales/__pycache__/",
+        "dist/",
+        "node_modules/",
+        "tools/__pycache__/"
+      ],
+      "processes": [],
+      "tasks": [],
+      "automations": []
+    },
+    {
+      "branch": "codex/sales-performance",
+      "tip": "3c6aa979e16fe4c262e187b41ae8b9a4ce0533cf",
+      "merged": true,
+      "root": "D:\\.codex\\worktrees\\sales-performance\\运营管理系统",
+      "exists": false,
+      "dirty": null,
+      "ignoredTop": null,
+      "processes": [],
+      "tasks": [],
+      "automations": []
+    }
+  ],
+  "salesCleanup": {
+    "branch": "codex/sales-performance",
+    "tip": "3c6aa979e16fe4c262e187b41ae8b9a4ce0533cf",
+    "localDeleted": true,
+    "remoteDeleted": true,
+    "main": "17d7a55a7150cafff80cfbaf50051a622ce2e692"
+  },
+  "archivedAndDeleted": [
+    {
+      "branch": "codex/bi-reference-redesign",
+      "tip": "e640832be1f12fb4eba7a01b5cf7a962116dc2b0",
+      "root": "D:\\.codex\\worktrees\\bi-reference-redesign\\运营管理系统",
+      "snapshotRefs": [
+        "refs/codex/snapshots/ad6b8d8e0d5e36792d7d7cad3bdd590d49ad21b6"
+      ]
+    },
+    {
+      "branch": "codex/netshop-readiness-gates",
+      "tip": "bafcf83f144b71cac311e91b619f57cc75b04293",
+      "root": "D:\\.codex\\worktrees\\netshop-readiness-gates\\运营管理系统",
+      "snapshotRefs": [
+        "refs/codex/snapshots/698ec4f01d7c46df6dd0f620864bc8dae1f7c3a1"
+      ]
+    },
+    {
+      "branch": "codex/performance-foundation-20261005",
+      "tip": "305d8bdc5d5705a614a645c5aa1b7b840ea0aa95",
+      "root": "D:\\.codex\\worktrees\\performance-foundation\\运营管理系统",
+      "snapshotRefs": [
+        "refs/codex/snapshots/67cc99844d7decc46ef6eebf4dc477fb3386b885"
+      ]
+    },
+    {
+      "branch": "codex/performance-integration-20261006",
+      "tip": "318ef311e388e4cc94989fb0ef4d8c26a48f6182",
+      "root": "D:\\.codex\\worktrees\\performance-integration\\运营管理系统",
+      "snapshotRefs": [
+        "refs/codex/snapshots/9f7d2ff4ecd0147e5172c057b4845e39b80981ce"
+      ]
+    }
+  ],
+  "preservation": [
+    {
+      "group": "foundation",
+      "manifest": "E:\\codex-artifacts\\branch-cleanup-seven-20261008\\foundation\\preserved-305d8bdc\\preservation-manifest.json",
+      "manifestSha256": "a00285eb416e995ab2786b7489f4052a0cdd173c84d656ccb3fe28c2ecac76fe",
+      "filesReverified": 65,
+      "bytes": 1307088
+    },
+    {
+      "group": "netshop",
+      "manifest": "E:\\codex-artifacts\\branch-cleanup-seven-20261008\\netshop\\readiness-gates\\prearchive-manifest.json",
+      "manifestSha256": "9b76d33fb98cea2e0b5935d95e3aaedf65accbed2e0395e2c4430c85d0e392a5",
+      "filesReverified": 5,
+      "bytes": 142573
+    },
+    {
+      "group": "filters",
+      "manifest": "E:\\codex-artifacts\\branch-cleanup-seven-20261008\\filters\\preserved-004546\\preservation.json",
+      "manifestSha256": "64e8c0506e25f73d9acd6b6330fd8feb0e687b5234ad64c10adfdcb78fbb8887",
+      "filesReverified": 147,
+      "bytes": 29433644
+    },
+    {
+      "group": "workflow",
+      "manifest": "E:\\codex-artifacts\\branch-cleanup-seven-20261008\\workflow\\preservation-manifest.json",
+      "manifestSha256": "9a735da1f858d7c549b5248c5403fe9778129e9a1113c8ce52aa701d8c3bf43d",
+      "filesReverified": 18,
+      "bytes": 66079
+    },
+    {
+      "group": "integration",
+      "manifest": "E:\\codex-artifacts\\branch-cleanup-seven-20261008\\integration\\preservation-manifest.json",
+      "manifestSha256": "8d9face71417e0ca69140de57b3a3f674a79a7685772255d2e0fc541eef4cab3",
+      "filesReverified": 145,
+      "bytes": 21558217
+    }
+  ],
+  "remainingProtection": [
+    "codex/shared-filter-auto-apply",
+    "codex/workflow-market-masitu-recovery-20261007"
+  ],
+  "protectionError": "The task's primary checkout cannot be removed.",
+  "pinnedOrderRestored": true,
+  "productionChanged": false
+}
