@@ -322,14 +322,23 @@ export async function discoverTmallAlimamaIdentifiers(
   // the store identity has passed the existing DPAPI-backed login guard.
   page.on("request", captureIdentifiers);
   try {
-    await page.goto(TMALL_PROMOTION_DOWNLOAD_LIST_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    // Re-entering the same hash route may be a same-document navigation and
+    // produce no fresh download-list request on the next backfill date.
+    const enterDownloadList = async () => {
+      if (page.url() === TMALL_PROMOTION_DOWNLOAD_LIST_URL) {
+        await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+      } else {
+        await page.goto(TMALL_PROMOTION_DOWNLOAD_LIST_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      }
+    };
+    await enterDownloadList();
     await waitForIdentity(page, store);
     if (!identifiers) {
       const requestPromise = page.waitForRequest(
         (request) => parseTmallAlimamaIdentifiers(request.url()) !== null,
         { timeout: captureTimeoutMs },
       ).catch(() => null);
-      await page.goto(TMALL_PROMOTION_DOWNLOAD_LIST_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      await enterDownloadList();
       const observed = await requestPromise;
       await waitForIdentity(page, store);
       identifiers = observed ? parseTmallAlimamaIdentifiers(observed.url()) : identifiers;
