@@ -1,0 +1,128 @@
+{
+  "results": [
+    {
+      "name": "market-page2",
+      "status": "observed",
+      "elapsed": 9852,
+      "state": {
+        "url": "http://127.0.0.1:3000/?module=market",
+        "dialogs": 0,
+        "selectedTabs": [
+          "01商品榜单TOP 商品、成交数据与单品趋势›"
+        ],
+        "rows": 20
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "at": 1791470980324,
+          "method": "GET",
+          "ms": 21,
+          "status": 200,
+          "end": 1791470980345
+        },
+        {
+          "path": "/api/market/filters",
+          "at": 1791470980640,
+          "method": "GET",
+          "ms": 4257,
+          "status": 200,
+          "end": 1791470984897
+        },
+        {
+          "path": "/api/market/overview",
+          "at": 1791470980687,
+          "method": "GET",
+          "ms": 7254,
+          "status": 200,
+          "end": 1791470987941
+        },
+        {
+          "path": "/api/market/overview",
+          "at": 1791470988322,
+          "method": "GET",
+          "ms": 914,
+          "status": 200,
+          "end": 1791470989236
+        }
+      ]
+    },
+    {
+      "name": "market-trend-open",
+      "status": "observed",
+      "elapsed": 578,
+      "state": {
+        "url": "http://127.0.0.1:3000/?module=market",
+        "dialogs": 1,
+        "selectedTabs": [
+          "01商品榜单TOP 商品、成交数据与单品趋势›"
+        ],
+        "rows": 80
+      },
+      "requests": [
+        {
+          "path": "/api/market/trend",
+          "at": 1791470989910,
+          "method": "GET",
+          "ms": 31,
+          "status": 200,
+          "end": 1791470989941
+        }
+      ]
+    },
+    {
+      "name": "market-trend-close",
+      "status": "observed",
+      "elapsed": 140,
+      "state": {
+        "url": "http://127.0.0.1:3000/?module=market",
+        "dialogs": 0,
+        "selectedTabs": [
+          "01商品榜单TOP 商品、成交数据与单品趋势›"
+        ],
+        "rows": 20
+      },
+      "requests": []
+    },
+    {
+      "name": "ai-sidebar-and-details",
+      "status": "observed",
+      "elapsed": 1128,
+      "state": {
+        "url": "http://127.0.0.1:3000/?module=ai",
+        "dialogs": 0,
+        "selectedTabs": [],
+        "rows": 0
+      },
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "at": 1791470990904,
+          "method": "GET",
+          "ms": 14,
+          "status": 200,
+          "end": 1791470990918
+        },
+        {
+          "path": "/api/ai/conversations",
+          "at": 1791470991227,
+          "method": "GET",
+          "ms": 43,
+          "status": 200,
+          "end": 1791470991270
+        },
+        {
+          "path": "/api/ai/chat",
+          "at": 1791470991304,
+          "method": "GET",
+          "ms": 47,
+          "status": 200,
+          "end": 1791470991351
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "blocked": [],
+  "readOnly": true
+}

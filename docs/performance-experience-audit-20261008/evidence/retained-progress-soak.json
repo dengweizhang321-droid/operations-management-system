@@ -1,0 +1,248 @@
+{
+  "syntheticOnly": true,
+  "source": "real Home",
+  "injectedFullDelayMs": 1800,
+  "soakQualification": "12 switches, short duration; no forced GC; cannot prove leak or long-use stability",
+  "checks": [
+    {
+      "name": "first-entry",
+      "start": 1791470155818,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:3781/api/sales/summary?range=month&view=core",
+          "method": "GET",
+          "start": 1791470157649,
+          "end": 1791470157707
+        },
+        {
+          "url": "http://127.0.0.1:3781/api/sales/summary?range=month&expectedRevision=1%3A1",
+          "method": "GET",
+          "start": 1791470157708,
+          "end": 1791470159581
+        }
+      ],
+      "firstNonRetainedVisibleMs": 2155,
+      "firstBusyMs": 2155,
+      "completeMs": 3813,
+      "frameCount": 389,
+      "observations": {
+        "retainedFrames": 0,
+        "newRangeCoreCompletedAt": 1791470157707
+      }
+    },
+    {
+      "name": "same-date-platform-change",
+      "start": 1791470159825,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:3781/api/sales/summary?range=month&platform=%E4%BA%AC%E4%B8%9C&view=core",
+          "method": "GET",
+          "start": 1791470160403,
+          "end": 1791470160450
+        },
+        {
+          "url": "http://127.0.0.1:3781/api/sales/summary?range=month&platform=%E4%BA%AC%E4%B8%9C&expectedRevision=1%3A1",
+          "method": "GET",
+          "start": 1791470160450,
+          "end": 1791470162307
+        }
+      ],
+      "firstNonRetainedVisibleMs": 2505,
+      "firstBusyMs": 579,
+      "completeMs": 2505,
+      "frameCount": 584,
+      "observations": {
+        "retainedFrames": 456,
+        "newRangeCoreCompletedAt": 1791470160450
+      }
+    },
+    {
+      "name": "after-unmount-read-idle",
+      "extraApiRequests": 0,
+      "pending": 0
+    }
+  ],
+  "soak": [
+    {
+      "i": 0,
+      "module": "sales",
+      "at": 1791470163148,
+      "ms": 714,
+      "Documents": 3,
+      "JSEventListeners": 565,
+      "Nodes": 1196,
+      "LayoutCount": 3,
+      "RecalcStyleCount": 10,
+      "JSHeapUsedSize": 12129932,
+      "JSHeapTotalSize": 20459520,
+      "dom": 457,
+      "pending": 0
+    },
+    {
+      "i": 1,
+      "module": "inventory",
+      "at": 1791470163855,
+      "ms": 703,
+      "Documents": 5,
+      "JSEventListeners": 748,
+      "Nodes": 2197,
+      "LayoutCount": 7,
+      "RecalcStyleCount": 61,
+      "JSHeapUsedSize": 13883868,
+      "JSHeapTotalSize": 26677248,
+      "dom": 714,
+      "pending": 0
+    },
+    {
+      "i": 2,
+      "module": "product",
+      "at": 1791470164574,
+      "ms": 717,
+      "Documents": 5,
+      "JSEventListeners": 923,
+      "Nodes": 2692,
+      "LayoutCount": 35,
+      "RecalcStyleCount": 151,
+      "JSHeapUsedSize": 19667948,
+      "JSHeapTotalSize": 31174656,
+      "dom": 497,
+      "pending": 0
+    },
+    {
+      "i": 3,
+      "module": "sales",
+      "at": 1791470165287,
+      "ms": 711,
+      "Documents": 5,
+      "JSEventListeners": 1073,
+      "Nodes": 3126,
+      "LayoutCount": 41,
+      "RecalcStyleCount": 219,
+      "JSHeapUsedSize": 15879712,
+      "JSHeapTotalSize": 33271808,
+      "dom": 458,
+      "pending": 0
+    },
+    {
+      "i": 4,
+      "module": "inventory",
+      "at": 1791470165996,
+      "ms": 708,
+      "Documents": 5,
+      "JSEventListeners": 1239,
+      "Nodes": 4111,
+      "LayoutCount": 45,
+      "RecalcStyleCount": 263,
+      "JSHeapUsedSize": 17342128,
+      "JSHeapTotalSize": 33271808,
+      "dom": 714,
+      "pending": 0
+    },
+    {
+      "i": 5,
+      "module": "product",
+      "at": 1791470166717,
+      "ms": 719,
+      "Documents": 2,
+      "JSEventListeners": 240,
+      "Nodes": 1205,
+      "LayoutCount": 73,
+      "RecalcStyleCount": 344,
+      "JSHeapUsedSize": 12012180,
+      "JSHeapTotalSize": 33009664,
+      "dom": 497,
+      "pending": 0
+    },
+    {
+      "i": 6,
+      "module": "sales",
+      "at": 1791470167444,
+      "ms": 725,
+      "Documents": 2,
+      "JSEventListeners": 390,
+      "Nodes": 1639,
+      "LayoutCount": 79,
+      "RecalcStyleCount": 412,
+      "JSHeapUsedSize": 20495372,
+      "JSHeapTotalSize": 33271808,
+      "dom": 458,
+      "pending": 0
+    },
+    {
+      "i": 7,
+      "module": "inventory",
+      "at": 1791470168150,
+      "ms": 704,
+      "Documents": 2,
+      "JSEventListeners": 562,
+      "Nodes": 2620,
+      "LayoutCount": 128,
+      "RecalcStyleCount": 504,
+      "JSHeapUsedSize": 14564876,
+      "JSHeapTotalSize": 41660416,
+      "dom": 714,
+      "pending": 0
+    },
+    {
+      "i": 8,
+      "module": "product",
+      "at": 1791470168890,
+      "ms": 737,
+      "Documents": 2,
+      "JSEventListeners": 737,
+      "Nodes": 3109,
+      "LayoutCount": 156,
+      "RecalcStyleCount": 587,
+      "JSHeapUsedSize": 14331520,
+      "JSHeapTotalSize": 46903296,
+      "dom": 497,
+      "pending": 0
+    },
+    {
+      "i": 9,
+      "module": "sales",
+      "at": 1791470169605,
+      "ms": 713,
+      "Documents": 2,
+      "JSEventListeners": 887,
+      "Nodes": 3543,
+      "LayoutCount": 162,
+      "RecalcStyleCount": 656,
+      "JSHeapUsedSize": 22768948,
+      "JSHeapTotalSize": 46903296,
+      "dom": 458,
+      "pending": 0
+    },
+    {
+      "i": 10,
+      "module": "inventory",
+      "at": 1791470170320,
+      "ms": 713,
+      "Documents": 2,
+      "JSEventListeners": 1053,
+      "Nodes": 4528,
+      "LayoutCount": 166,
+      "RecalcStyleCount": 701,
+      "JSHeapUsedSize": 17429104,
+      "JSHeapTotalSize": 46903296,
+      "dom": 714,
+      "pending": 0
+    },
+    {
+      "i": 11,
+      "module": "product",
+      "at": 1791470171042,
+      "ms": 720,
+      "Documents": 2,
+      "JSEventListeners": 1228,
+      "Nodes": 5017,
+      "LayoutCount": 194,
+      "RecalcStyleCount": 784,
+      "JSHeapUsedSize": 15197484,
+      "JSHeapTotalSize": 48738304,
+      "dom": 497,
+      "pending": 0
+    }
+  ],
+  "errors": []
+}

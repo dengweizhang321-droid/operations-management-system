@@ -1,0 +1,76 @@
+{
+  "kind": "actual callback/function execution with mocked hook storage; not a rendered Home/browser test",
+  "cases": [
+    {
+      "name": "single-select-actual-key-handler",
+      "nativeEvent": {
+        "isComposing": true,
+        "keyCode": 229
+      },
+      "selected": "draft",
+      "openAfter": false,
+      "prevented": true,
+      "existingProtectedTextConfirmed": false
+    },
+    {
+      "name": "single-select-actual-key-handler",
+      "nativeEvent": {
+        "isComposing": false,
+        "keyCode": 229
+      },
+      "selected": "draft",
+      "openAfter": false,
+      "prevented": true,
+      "existingProtectedTextConfirmed": false
+    },
+    {
+      "name": "single-select-actual-key-handler",
+      "nativeEvent": {
+        "isComposing": false,
+        "keyCode": 13
+      },
+      "selected": "draft",
+      "openAfter": false,
+      "prevented": true,
+      "existingProtectedTextConfirmed": true
+    },
+    {
+      "name": "search-result-scope-presentation",
+      "enteredQuery": "审查B",
+      "resultQuery": "审查A",
+      "presentation": {
+        "showGuide": false,
+        "showShortQuery": false,
+        "showLoading": true,
+        "showError": false,
+        "showResult": true
+      },
+      "note": "Actual search result buttons separately set disabled={loading}; not a click-through reproduction."
+    },
+    {
+      "name": "actual-home-date-handlers",
+      "before": {
+        "range": "本月",
+        "customStartDate": "2026-09-09",
+        "customEndDate": "2026-10-08",
+        "pickerOpen": false,
+        "urlPeriod": "current_month"
+      },
+      "beforeConfirm": {
+        "range": "自定义",
+        "customStartDate": "2026-09-09",
+        "customEndDate": "2026-10-08",
+        "pickerOpen": true,
+        "urlPeriod": "current_month"
+      },
+      "afterCancel": {
+        "range": "自定义",
+        "customStartDate": "2026-09-09",
+        "customEndDate": "2026-10-08",
+        "pickerOpen": false,
+        "urlPeriod": "current_month"
+      },
+      "note": "Mocks only setters; exact current callbacks executed, no React scheduling or browser network assertion."
+    }
+  ]
+}

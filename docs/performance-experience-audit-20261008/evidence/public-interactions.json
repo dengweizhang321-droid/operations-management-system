@@ -1,0 +1,387 @@
+[
+  {
+    "source": "actual app/page.tsx in isolated preview",
+    "sha256": "951962bb4074a485b8d89e2e8d78c5a5c9b8e52a61d16ac0d9e45bcfa58334fb",
+    "started": "2026-10-08T14:25:51.859Z",
+    "origin": "http://127.0.0.1:3781",
+    "syntheticSearchOnly": true,
+    "nativeWindowsImeVerified": false,
+    "groups": [
+      {
+        "name": "custom-date-cancel",
+        "started": "2026-10-08T14:25:52.516Z",
+        "status": "observed",
+        "requests": [
+          {
+            "at": 3505,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/auth/me"
+          },
+          {
+            "at": 3829,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/sales/summary?range=month&view=core"
+          },
+          {
+            "at": 3911,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/sales/summary?range=month&expectedRevision=1%3A1"
+          },
+          {
+            "at": 4496,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/sales/summary?range=custom&startDate=2026-09-09&endDate=2026-10-08&view=core"
+          },
+          {
+            "at": 4555,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/sales/summary?range=custom&startDate=2026-09-09&endDate=2026-10-08&expectedRevision=1%3A1"
+          },
+          {
+            "at": 5697,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/auth/me"
+          }
+        ],
+        "responses": [
+          {
+            "at": 3537,
+            "url": "http://127.0.0.1:3781/api/auth/me",
+            "status": 200
+          },
+          {
+            "at": 3910,
+            "url": "http://127.0.0.1:3781/api/sales/summary?range=month&view=core",
+            "status": 200
+          },
+          {
+            "at": 3987,
+            "url": "http://127.0.0.1:3781/api/sales/summary?range=month&expectedRevision=1%3A1",
+            "status": 200
+          },
+          {
+            "at": 4554,
+            "url": "http://127.0.0.1:3781/api/sales/summary?range=custom&startDate=2026-09-09&endDate=2026-10-08&view=core",
+            "status": 200
+          },
+          {
+            "at": 4633,
+            "url": "http://127.0.0.1:3781/api/sales/summary?range=custom&startDate=2026-09-09&endDate=2026-10-08&expectedRevision=1%3A1",
+            "status": 200
+          },
+          {
+            "at": 5737,
+            "url": "http://127.0.0.1:3781/api/auth/me",
+            "status": 200
+          }
+        ],
+        "pageErrors": [],
+        "observations": {
+          "before": {
+            "url": "http://127.0.0.1:3781/?module=sales",
+            "title": "☰销售分析利润与渠道表现 · 2026-10-01 至 2026-10-08",
+            "periodButton": "本月⌄",
+            "periodTitle": "2026-10-01 至 2026-10-08",
+            "pickerOpen": false
+          },
+          "openedBeforeConfirm": {
+            "url": "http://127.0.0.1:3781/?module=sales",
+            "title": "☰销售分析利润与渠道表现 · 2026-09-09 至 2026-10-08",
+            "periodButton": "自定义⌄",
+            "periodTitle": "2026-09-09 至 2026-10-08",
+            "pickerOpen": true
+          },
+          "requestsBeforeConfirm": [
+            {
+              "at": 4496,
+              "method": "GET",
+              "url": "http://127.0.0.1:3781/api/sales/summary?range=custom&startDate=2026-09-09&endDate=2026-10-08&view=core"
+            },
+            {
+              "at": 4555,
+              "method": "GET",
+              "url": "http://127.0.0.1:3781/api/sales/summary?range=custom&startDate=2026-09-09&endDate=2026-10-08&expectedRevision=1%3A1"
+            }
+          ],
+          "afterCancel": {
+            "url": "http://127.0.0.1:3781/?module=sales",
+            "title": "☰销售分析利润与渠道表现 · 2026-09-09 至 2026-10-08",
+            "periodButton": "自定义⌄",
+            "periodTitle": "2026-09-09 至 2026-10-08",
+            "pickerOpen": false
+          },
+          "afterReload": {
+            "url": "http://127.0.0.1:3781/?module=sales",
+            "title": "☰销售分析利润与渠道表现 · 2026-10-01 至 2026-10-08",
+            "periodButton": "本月⌄",
+            "periodTitle": "2026-10-01 至 2026-10-08",
+            "pickerOpen": false
+          },
+          "conditionChangedBeforeConfirm": true,
+          "cancelDidNotRestore": true,
+          "reloadDiffersFromCanceledState": true
+        },
+        "finished": "2026-10-08T14:25:57.452Z"
+      },
+      {
+        "name": "single-select-ime-enter",
+        "started": "2026-10-08T14:25:57.519Z",
+        "status": "observed",
+        "requests": [
+          {
+            "at": 6731,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/auth/me"
+          },
+          {
+            "at": 7057,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/inventory/overview?view=plan&planPage=1&planPageSize=50&section=summary"
+          },
+          {
+            "at": 7058,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/inventory/overview?view=plan&planPage=1&planPageSize=50&section=detail"
+          },
+          {
+            "at": 7917,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/inventory/overview?view=plan&planPage=1&planPageSize=50&planStatus=draft&section=summary"
+          },
+          {
+            "at": 7918,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/inventory/overview?view=plan&planPage=1&planPageSize=50&planStatus=draft&section=detail"
+          }
+        ],
+        "responses": [
+          {
+            "at": 6765,
+            "url": "http://127.0.0.1:3781/api/auth/me",
+            "status": 200
+          },
+          {
+            "at": 7153,
+            "url": "http://127.0.0.1:3781/api/inventory/overview?view=plan&planPage=1&planPageSize=50&section=summary",
+            "status": 200
+          },
+          {
+            "at": 7189,
+            "url": "http://127.0.0.1:3781/api/inventory/overview?view=plan&planPage=1&planPageSize=50&section=detail",
+            "status": 200
+          },
+          {
+            "at": 7968,
+            "url": "http://127.0.0.1:3781/api/inventory/overview?view=plan&planPage=1&planPageSize=50&planStatus=draft&section=summary",
+            "status": 200
+          },
+          {
+            "at": 7978,
+            "url": "http://127.0.0.1:3781/api/inventory/overview?view=plan&planPage=1&planPageSize=50&planStatus=draft&section=detail",
+            "status": 200
+          }
+        ],
+        "pageErrors": [],
+        "observations": {
+          "before": {
+            "url": "http://127.0.0.1:3781/?module=inventory&view=plan",
+            "trigger": "当前有效计划\n⌄",
+            "options": [
+              "待确认"
+            ]
+          },
+          "immediate": {
+            "url": "http://127.0.0.1:3781/?module=inventory&view=plan",
+            "trigger": "待确认\n⌄",
+            "menuOpen": false
+          },
+          "afterComposition": {
+            "url": "http://127.0.0.1:3781/?module=inventory&view=plan&inventoryPlanStatus=draft",
+            "trigger": "待确认\n⌄",
+            "requests": [
+              {
+                "at": 7917,
+                "method": "GET",
+                "url": "http://127.0.0.1:3781/api/inventory/overview?view=plan&planPage=1&planPageSize=50&planStatus=draft&section=summary"
+              },
+              {
+                "at": 7918,
+                "method": "GET",
+                "url": "http://127.0.0.1:3781/api/inventory/overview?view=plan&planPage=1&planPageSize=50&planStatus=draft&section=detail"
+              }
+            ]
+          },
+          "selectionChangedOnCompositionEnter": true
+        },
+        "finished": "2026-10-08T14:25:59.757Z"
+      }
+    ]
+  },
+  {
+    "source": "actual app/page.tsx in isolated preview",
+    "sha256": "5e1a224f2d54abbfaf671d6b4c08e8a10bc0b8ce33e89b81864b00137c9e9bca",
+    "started": "2026-10-08T14:30:32.717Z",
+    "origin": "http://127.0.0.1:3781",
+    "syntheticSearchOnly": true,
+    "nativeWindowsImeVerified": false,
+    "groups": [
+      {
+        "name": "global-search-return-to-pending-query",
+        "started": "2026-10-08T14:30:33.361Z",
+        "status": "observed",
+        "requests": [
+          {
+            "at": 3736,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/auth/me"
+          },
+          {
+            "at": 5501,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/search?q=%E5%AE%A1%E6%9F%A5A"
+          }
+        ],
+        "responses": [
+          {
+            "at": 3770,
+            "url": "http://127.0.0.1:3781/api/auth/me",
+            "status": 200
+          }
+        ],
+        "pageErrors": [],
+        "observations": {
+          "openMethod": "Control+k followed by DOM keydown on actual shell handler",
+          "beforeEdit": {
+            "input": "审查A",
+            "busy": "true",
+            "states": [
+              "正在按业务域搜索已接入数据…"
+            ],
+            "results": []
+          },
+          "editRoundTripMs": 56,
+          "afterOriginalWouldHaveCompleted": {
+            "input": "审查A",
+            "busy": "true",
+            "states": [
+              "正在按业务域搜索已接入数据…"
+            ],
+            "results": []
+          },
+          "searchRequests": [
+            {
+              "at": 5501,
+              "method": "GET",
+              "url": "http://127.0.0.1:3781/api/search?q=%E5%AE%A1%E6%9F%A5A"
+            }
+          ],
+          "busyWithoutReplacementRequest": true
+        },
+        "finished": "2026-10-08T14:30:39.782Z"
+      },
+      {
+        "name": "global-search-old-result-label",
+        "started": "2026-10-08T14:30:39.924Z",
+        "status": "observed",
+        "requests": [
+          {
+            "at": 8723,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/auth/me"
+          },
+          {
+            "at": 10424,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/search?q=%E5%AE%A1%E6%9F%A5A"
+          },
+          {
+            "at": 10777,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/search?q=%E5%AE%A1%E6%9F%A5B"
+          }
+        ],
+        "responses": [
+          {
+            "at": 8769,
+            "url": "http://127.0.0.1:3781/api/auth/me",
+            "status": 200
+          },
+          {
+            "at": 10466,
+            "url": "http://127.0.0.1:3781/api/search?q=%E5%AE%A1%E6%9F%A5A",
+            "status": 200
+          },
+          {
+            "at": 11994,
+            "url": "http://127.0.0.1:3781/api/search?q=%E5%AE%A1%E6%9F%A5B",
+            "status": 200
+          }
+        ],
+        "pageErrors": [],
+        "observations": {
+          "openMethod": "Control+k followed by DOM keydown on actual shell handler",
+          "successA": {
+            "input": "审查A",
+            "busy": "false",
+            "states": [],
+            "results": [
+              {
+                "text": "品仅属于审查A隔离审查合成结果",
+                "disabled": false
+              }
+            ]
+          },
+          "pendingB": {
+            "input": "审查B",
+            "busy": "true",
+            "states": [],
+            "results": [
+              {
+                "text": "品仅属于审查A隔离审查合成结果",
+                "disabled": true
+              }
+            ]
+          },
+          "successB": {
+            "input": "审查B",
+            "busy": "false",
+            "states": [],
+            "results": [
+              {
+                "text": "品仅属于审查B隔离审查合成结果",
+                "disabled": false
+              }
+            ]
+          },
+          "qualification": "Old buttons are disabled while loading; this case must not be reported as an old-row-click defect."
+        },
+        "finished": "2026-10-08T14:30:44.517Z"
+      },
+      {
+        "name": "ai-memory-chunk-retry",
+        "started": "2026-10-08T14:30:44.614Z",
+        "status": "probe_incomplete",
+        "requests": [
+          {
+            "at": 13062,
+            "method": "GET",
+            "url": "http://127.0.0.1:3781/api/auth/me"
+          }
+        ],
+        "responses": [
+          {
+            "at": 13094,
+            "url": "http://127.0.0.1:3781/api/auth/me",
+            "status": 200
+          }
+        ],
+        "pageErrors": [],
+        "observations": {
+          "failureBeforeRetry": 1
+        },
+        "error": "locator.click: Timeout 6000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: '重试当前模块', exact: true })\u001b[22m\n\u001b[2m    - locator resolved to <button type=\"button\" class=\"secondary-button\">重试当前模块</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div data-testid=\"vinext-dev-error-backdrop\">…</div> from <div id=\"__vinext_dev_error_overlay_root\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div data-testid=\"vinext-dev-error-backdrop\">…</div> from <div id=\"__vinext_dev_error_overlay_root\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    12 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <div data-testid=\"vinext-dev-error-backdrop\">…</div> from <div id=\"__vinext_dev_error_overlay_root\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\n    at D:\\.codex\\worktrees\\performance-experience-audit\\运营管理系统\\docs\\performance-experience-audit-20261008\\tools\\public-interaction-probe.mjs:188:19\n    at async caseRun (D:\\.codex\\worktrees\\performance-experience-audit\\运营管理系统\\docs\\performance-experience-audit-20261008\\tools\\public-interaction-probe.mjs:59:5)\n    at async file:///D:/.codex/worktrees/performance-experience-audit/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/performance-experience-audit-20261008/tools/public-interaction-probe.mjs:184:5",
+        "finished": "2026-10-08T14:30:51.883Z"
+      }
+    ]
+  }
+]
