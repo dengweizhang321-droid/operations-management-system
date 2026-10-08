@@ -4,7 +4,7 @@ import { build } from "esbuild";
 import * as XLSX from "xlsx";
 import { jdCustomerServiceStores } from "../lib/jd/customer-service-stores";
 
-test("实际客服POST保持显式四店绑定并拒绝矛盾身份，旧交互推断保持", async () => {
+test("实际客服POST保持显式四店绑定并拒绝矛盾身份，无店铺绑定的旧交互请求拒绝", async () => {
   const state = globalThis as typeof globalThis & { __boundCsSaved?: { shopName: string }; __boundCsWrites?: number };
   state.__boundCsWrites = 0;
   const bundled = await build({ entryPoints: ["app/api/customer-service/import/route.ts"], bundle: true, write: false,
@@ -40,7 +40,12 @@ test("实际客服POST保持显式四店绑定并拒绝矛盾身份，旧交互�
     const writes: number = state.__boundCsWrites ?? 0;
     for (const key of ["", "unknown", "../other"]) assert.equal((await route.POST(request(jdCustomerServiceStores[0].shopName, key))).status, 422);
     assert.equal(state.__boundCsWrites, writes);
-    assert.equal((await route.POST(request("旧交互店铺"))).status, 201);
-    assert.equal(state.__boundCsSaved?.shopName, "志高厨电");
+    assert.equal((await route.POST(request("旧交互店铺"))).status, 422);
+    assert.equal(state.__boundCsWrites, writes);
+    const repeated = request(jdCustomerServiceStores[0].shopName, jdCustomerServiceStores[0].storeKey);
+    const repeatedForm = await repeated.formData();
+    repeatedForm.append("storeKey", jdCustomerServiceStores[1].storeKey);
+    assert.equal((await route.POST(new Request(repeated.url, {method:"POST", body:repeatedForm}))).status, 422);
+    assert.equal(state.__boundCsWrites, writes);
   } finally { delete state.__boundCsSaved; delete state.__boundCsWrites; }
 });

@@ -11,6 +11,7 @@ import {
   releaseCustomerServiceUpload,
 } from "@/lib/customer-service/chunked-upload";
 import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
+import { resolveCustomerServiceImportShop } from "@/lib/jd/customer-service-stores";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -58,6 +59,13 @@ export async function POST(request: Request) {
       const chatFileName = typeof body.chatFileName === "string" ? body.chatFileName : "";
       const shopName = typeof body.shopName === "string" ? body.shopName.trim() : "";
       if (!sessionUploadId || !chatUploadId || !shopName || shopName.length > 100 || !/\.xlsx$/i.test(sessionFileName) || !/\.(log|txt)$/i.test(chatFileName)) return reject(400, "Missing shop or paired upload files");
+      let resolvedShopName: string;
+      try {
+        resolvedShopName = resolveCustomerServiceImportShop(shopName, body.storeKey);
+      } catch {
+        return reject(422, "请选择有效的导入目标店铺，店铺标识与名称必须一致。");
+      }
+      const storeKey = body.storeKey as string;
       const pairKey = await digest(new TextEncoder().encode(`${sessionUploadId}:${chatUploadId}`));
       const sessionClaim = await claimCustomerServiceUpload(principal, sessionUploadId);
       if (sessionClaim.upload.kind !== "session") {
@@ -81,9 +89,10 @@ export async function POST(request: Request) {
         if (sessionClaim.kind !== "completed" || chatClaim.kind !== "completed") {
           return reject(409, "Paired upload sessions are not from the same completed import; upload both files again");
         }
-        const sessionResult = sessionClaim.result as { ok?: boolean; status?: string; requestShopName?: string; pairKey?: string };
-        const chatResult = chatClaim.result as { ok?: boolean; status?: string; requestShopName?: string; pairKey?: string };
-        if (sessionResult.requestShopName !== shopName || sessionResult.pairKey !== pairKey
+        const sessionResult = sessionClaim.result as { ok?: boolean; status?: string; storeKey?: string; requestShopName?: string; pairKey?: string; batch?: { shopName?: string } };
+        const chatResult = chatClaim.result as typeof sessionResult;
+        if (sessionResult.storeKey !== storeKey || sessionResult.batch?.shopName !== resolvedShopName
+          || sessionResult.requestShopName !== shopName || sessionResult.pairKey !== pairKey
           || chatResult.pairKey !== pairKey || JSON.stringify(sessionResult) !== JSON.stringify(chatResult)) {
           return reject(409, "Completed paired upload result does not match this shop or file pair");
         }
@@ -111,7 +120,6 @@ export async function POST(request: Request) {
           if (error instanceof CustomerServiceImportError) throw new PublicApiError(422, "invalid_request", message);
           throw error;
         }
-        const resolvedShopName = parsed.conversations.some((item) => item.agent.startsWith("志高厨电")) ? "志高厨电" : shopName;
         const fileHash = await digest(new TextEncoder().encode(`${resolvedShopName}:${await digest(sessionBytes)}:${await digest(chatBytes)}`));
         try {
           planCustomerServiceImportPayloads(resolvedShopName, parsed.conversations);
@@ -128,7 +136,7 @@ export async function POST(request: Request) {
           throw error;
         }
         const saved = await saveCustomerServiceImport({ shopName: resolvedShopName, sessionFileName, chatFileName, fileHash, fileSizeBytes: sessionBytes.byteLength + chatBytes.byteLength, parsed }, principal);
-        const result = { ok: true, status: saved.status, requestShopName: shopName, pairKey, batch: saved.batch, summary: parsed.summary, ...saved.warningSummary, message: saved.status === "duplicate" ? "All normalized customer-service data matches the current facts; no rows were rewritten" : `Imported ${parsed.conversations.length} customer-service conversations` };
+        const result = { ok: true, status: saved.status, storeKey, requestShopName: shopName, pairKey, batch: saved.batch, summary: parsed.summary, ...saved.warningSummary, message: saved.status === "duplicate" ? "All normalized customer-service data matches the current facts; no rows were rewritten" : `Imported ${parsed.conversations.length} customer-service conversations` };
         await Promise.all([finishCustomerServiceUpload(principal, sessionUploadId, sessionClaim.ownerToken, result), finishCustomerServiceUpload(principal, chatUploadId, chatClaim.ownerToken, result)]);
         return Response.json(result, { status: saved.status === "imported" ? 201 : 200, headers: { "cache-control": "no-store" } });
       } catch (error) {

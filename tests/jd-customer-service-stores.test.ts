@@ -79,10 +79,10 @@ test("共用客服名称不改写显式店铺；每店导入及精确回查拒�
   const bytes = new Uint8Array(XLSX.write(book, { type: "array", bookType: "xlsx" }));
   const log = new TextEncoder().encode("/*****************以下为一通会话************************************/\nsynthetic 2026-10-07 10:00:00\n合成内容\n");
   const period = customerServicePeriod(new Date("2026-10-08T01:00:00Z"));
-  assert.equal(resolveCustomerServiceImportShop("旧交互店铺", ["志高厨电-合成"]), "志高厨电");
+  assert.throws(() => resolveCustomerServiceImportShop("旧交互店铺", undefined), /STORE_REQUIRED/);
   for (const store of jdCustomerServiceStores) {
-    assert.equal(resolveCustomerServiceImportShop(store.shopName, ["志高厨电-合成"], store.storeKey), store.shopName);
-    assert.throws(() => resolveCustomerServiceImportShop("另一店铺", [], store.storeKey));
+    assert.equal(resolveCustomerServiceImportShop(store.shopName, store.storeKey), store.shopName);
+    assert.throws(() => resolveCustomerServiceImportShop("另一店铺", store.storeKey));
     const day = buildCustomerServiceDailyFiles(bytes, log, period, store.storeKey).files[0];
     const batch = { id: `cs_${"a".repeat(64)}`, fileHash: "b".repeat(64), shopName: store.shopName,
       status: "completed", completedAt: "2026-10-08T01:00:00Z", conversationCount: day.conversationCount,
@@ -93,7 +93,7 @@ test("共用客服名称不改写显式店铺；每店导入及精确回查拒�
       calls++;
       const form = init?.body as FormData;
       assert.equal(form.get("storeKey"), store.storeKey);
-      assert.equal(resolveCustomerServiceImportShop(String(form.get("shopName")), ["志高厨电-合成"], form.get("storeKey")), store.shopName);
+      assert.equal(resolveCustomerServiceImportShop(String(form.get("shopName")), form.get("storeKey")), store.shopName);
       return Response.json({ ok: true, status: "imported", batch }, { status: 201 });
     }) as typeof fetch;
     const proof = await importCustomerServiceDay(day, "http://localhost:3000", request, store.storeKey);
