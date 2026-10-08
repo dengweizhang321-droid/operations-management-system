@@ -2,6 +2,8 @@
 
 2026-10-09，用户选择审查报告中的 B01/B02/B03/B04 开发修复。基线为远端 main `ca9622ec9cb6067f698b466fefede68e0845b9f9`，独立分支 `codex/interaction-priority-fixes-20261008`。本报告记录开发验证；生产发布须单独授权。
 
+问题影响、原始复现与证据见[全面审查报告](../performance-experience-audit-20261008/REPORT.md)。本次四项均已完成开发修复和隔离回归，其余问题保持原审查结论。
+
 ## 实现
 
 | 问题 | 修复后的行为 | 文件 |
@@ -31,6 +33,24 @@
 - 公共确认原5组通过；13项客服恢复/owner组合通过。更广验证、构建和复审的最终回执见本目录证据及最终交付状态。
 
 构建在本 worktree 的独立 dist 进行；3000监听进程明确不引用此树且使用不可变 runtime。未部署、迁移、重启生产或发送外部消息。
+
+### 最终验证回执
+
+业务修复提交 `ae169f45`；收尾合并后来推进的 main `e10d5cab`，合并提交 `af1d6e42`。保留该 main 中四店客服导入、精确绑定及发布工具改动。冲突只涉及客服筛选标签和库存测试断言；当前导入店铺选择规则、分片契约与本次列表归属门禁同时保留。新增上游分片测试的计数变量显式标注 `number`，解决其 TypeScript 推断诊断，不改业务代码。
+
+| 检查 | 结果 | 证据与边界 |
+| --- | --- | --- |
+| 合并 main 前全库测试，单并发 | 3418项：3396通过、22跳过、0失败、0取消 | [原始回执](evidence/full-unit-before-main-merge.log)；不将其描述为合并后全库重跑 |
+| 合并后受影响测试 | 46/46通过、0跳过 | [回执](evidence/merged-checks.log)，含四店导入/绑定、客服范围与保存恢复、搜索/日期/稳定展示和模块性能断言 |
+| 计数变量类型补充后分片路由重跑 | 1/1通过 | [回执](evidence/merged-chunks-type-fixed.log) |
+| 合并后真实 Home 交互 | 10/10组通过 | [结构化结果](evidence/actual-home-merged.json)；记录 HEAD 为 `ae169f45`，当时工作区已包含 `e10d5cab`；四个业务文件 SHA-256 与最终合并源码一致，见[汇总](evidence/final-verification.json) |
+| 公共确认及客服对抗恢复 | 原确认5组、客服13项通过 | [确认](evidence/shared-confirmation.log)、[客服](evidence/customer-owner-and-recovery.log)；包含乱序、权限拒绝、同范围回退与已接受保存 |
+| 合并后生产构建、边界扫描 | 构建成功；648模块、0边界违规 | [构建](evidence/build.log)、[边界](evidence/boundary.log) |
+| 合并后 lint | 0错误、35警告 | [回执](evidence/lint.log)；警告未宣称已清零 |
+| TypeScript 与基线对照 | 基线和最终均185诊断；新增0、消失0 | [对照](evidence/type-comparison.json)、[最终日志](evidence/typescript-final.log)；该检查仍非全绿，不把既存问题记为通过 |
+| 独立源码复审 | PASS | [回执](evidence/independent-review.json)；复审为源码检查，未独立重复运行测试/构建 |
+
+隔离预览已停止。上述回执不包含生产故障注入、真实写入、模型任务或上线验收；生产运行版本不会因推送源码自动改变。
 
 ## 首轮失败与测试维护
 
