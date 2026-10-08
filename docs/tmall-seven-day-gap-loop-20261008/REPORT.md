@@ -1,6 +1,6 @@
 # 天猫近七天全部缺口逐日补齐候选
 
-2026-10-08，用户追加要求取消“每次完整执行最多补一天”，改为发现缺口日期就弥补对应缺口。本次代码和发布候选已准备，**尚未正式采用或触发生产补数**；当前生产仍按前次[单日规则](../tmall-seven-day-direct-20261007/PRODUCTION.md)执行。
+2026-10-08，用户追加要求取消“每次完整执行最多补一天”，改为发现缺口日期就弥补对应缺口。本报告保存开发及准备阶段；用户随后明确“上线”，六店新循环已实际采用，正式版本、真实补数和未完成验收以[生产记录](PRODUCTION.md)为准。下文候选状态仅为历史阶段。
 
 ## 本次结果
 
@@ -30,7 +30,7 @@
 
 ## 准备与采用边界
 
-正式前驱Worker/helper `20261007T152206Z-00f6e36898869457` / manifest `fecd43d3`。本次独立编译主线发现一个既有、未采用的共享小时分类源码差异；组合候选从正式source-snapshot起，只覆盖`tmall-daily-backfill.ts`、`tmall-isolated-helper.ts`、`tmall-sycm-cookie-pipeline.ts`三文件，其他helper输入包括小时分类保持原字节。**准确组合helper SHA `da960f083c60f47b3327f725dc43a1aff90b5294a50b623ca3500342c5c1b4c0`**；主线9b647d包仅作开发证据，不用于正式采用。
+正式前驱Worker/helper `20261007T152206Z-00f6e36898869457` / manifest `fecd43d3`。本次独立编译主线发现一个既有、未采用的共享小时分类源码差异；组合候选从正式source-snapshot起，只覆盖`tmall-daily-backfill.ts`、`tmall-isolated-helper.ts`、`tmall-sycm-cookie-pipeline.ts`三文件，其他helper输入包括小时分类保持原字节。开发组合在工作树cwd编译得到`da960f083c60f47b3327f725dc43a1aff90b5294a50b623ca3500342c5c1b4c0`。正式准备发现esbuild模块诊断标签随cwd不同而变化；相同组合输入按正式cwd独立重编译与实际包逐字节相等，正式helper SHA为`9b647d000818e90666fc067bc050f29ef87035905fe246e78491786ccc4f4383`。以实际plan、完整输入比较和同cwd独立字节证明绑定，不能从旧SHA推断是否带入小时分类差异。
 
 Django Prepared `6d8382aad8374eb68879eeb25552a52c`，receipt `e5804a9efc27386b1ef5ffd834308ee32a127253fe21213bec4b06f8c9aa3f5e`，candidate fingerprint `02f42ed93c5444f164030508318bfc79e9c8ac2eb47991222a8820d608e11f20`，绑定现运行05fa4ba9。原Get-PreparedApplication独立复验通过。业务代码仅目录/识别器两文件改变；运行依赖版本、路径和文件字节保持，依赖清单仅两个包的列表顺序不同，R2隔离试验CF缓存仅TLS随机/握手和传输元数据变化。其他有效文件逐字节保持；不把这些准备元数据误称完全文件相等。无迁移或权限扩展，140迁移保持。
 
@@ -38,4 +38,4 @@ Django Prepared `6d8382aad8374eb68879eeb25552a52c`，receipt `e5804a9efc27386b1e
 
 正式采用须基于届时准确前驱，经原Worker在线候选plan、前备份/Verify/独立恢复和完整比较元数据保全，再走原KeepPostgres最小应用维护，采用准确Django Prepared和Worker/helper并恢复12Ready/绑定/17资源。六个原ID通过正式n8n机制发布；保全原时间/owner/settings/staticData/Webhook和版本历史，CLI时间明确UTC，独立回读active/current=published。仅从原n8n完整入口核验每个完成日的文件、精确批次/覆盖及唯一M终态和收尾；不能以本报告替代真实补齐证明。马思图先前导出记录响应卡点也不因本候选测试而视为已解决。
 
-当前无生产切换、n8n发布、真实补跑、数据库迁移/回填/扩权、修改凭据/profile、清理业务任务或外部消息。本次候选准备不授予未来生产操作。
+上述“未采用”和未触发业务说明仅适用于开发准备阶段。后续本轮授权已实际采用并核验，见[生产记录](PRODUCTION.md)；本记录不授予未来维护或新的业务补跑。
