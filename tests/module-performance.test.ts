@@ -96,7 +96,17 @@ test("sales and inventory tabs only request the data source needed by the visibl
   assert.match(summaryEffect, /const live = \(\) => !controller\.signal\.aborted && generation === generationRef\.current/);
   assert.match(summaryEffect, /window\.clearTimeout\(timeout\); controller\.abort\(\)/);
 
-  assert.equal((inventoryView.match(/\/api\/inventory\/overview/g) ?? []).length, 1);
+  // The ordinary tab reader and the explicit Guangdong plan action are
+  // separate entry points. Counting the whole file conflates them.
+  const manualPlanStart = inventoryView.indexOf("const openGuangdongPlan = useCallback");
+  assert.ok(manualPlanStart > 0);
+  assert.equal((inventoryView.slice(0, manualPlanStart).match(/\/api\/inventory\/overview/g) ?? []).length, 1);
+  const manualPlanEnd = inventoryView.indexOf("}, [activeTab, canManageInventory, planSaving, principalKey]);", manualPlanStart);
+  assert.ok(manualPlanEnd > manualPlanStart);
+  const manualPlan = inventoryView.slice(manualPlanStart, manualPlanEnd);
+  assert.match(manualPlan, /if \(!canManageInventory \|\| planSaving\) return;/);
+  assert.match(manualPlan, /new URLSearchParams\(\{ view: "overview", q: productCode, pageSize: "100" \}\)/);
+  assert.match(manualPlan, /fetch\(`\/api\/inventory\/overview\?\$\{params\}`, \{ cache: "no-store", signal: controller\.signal \}\)/);
   assert.equal((inventoryView.match(/\/api\/inventory\/age-analysis/g) ?? []).length, 1);
   assert.match(inventoryView, /const usesInventoryOverview = activeTab === "overview" \|\| activeTab === "plan"/);
   assert.match(inventoryView, /const projection = activeTab === "plan" \? "plan" : "overview"/);

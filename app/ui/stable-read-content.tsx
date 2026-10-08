@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 // and removed synchronously on errors or owning-scope changes.
 export function StableReadContent({ owner, identity, pending, complete, error = false, notice = true, preserveViewport = true, preserveBlockHeight = false, children }: {
   owner: string; identity?: unknown; pending: boolean; complete: boolean;
-  error?: boolean; notice?: boolean; preserveViewport?: boolean; preserveBlockHeight?: boolean; children: ReactNode;
+  error?: boolean; notice?: boolean | string; preserveViewport?: boolean; preserveBlockHeight?: boolean; children: ReactNode;
 }) {
   const body = useRef<HTMLDivElement>(null);
   const [snapshot, setSnapshot] = useState<{ owner: string; identity: unknown; view: ReactNode } | null>(null);
@@ -33,7 +33,7 @@ export function StableReadContent({ owner, identity, pending, complete, error = 
   }, [owner, identity, children, pending, complete, error, retaining, preserveViewport, preserveBlockHeight, ownsFloor, floor.height, ownsSnapshot, snapshot]);
   return <div className="stable-read-content" data-retained-read={retaining ? "true" : undefined}
     aria-busy={!error && (pending || !complete)} style={ownsFloor && floor.height > 0 ? { minHeight: floor.height } : undefined}>
-    {retaining && notice && <div className="stable-read-notice" role="status">正在更新筛选，下方暂时显示上次成功结果，仅供参考。</div>}
+    {retaining && notice && <div className="stable-read-notice" role="status">{typeof notice === "string" ? notice : "正在更新筛选，下方暂时显示上次成功结果，仅供参考。"}</div>}
     <div ref={body} className="stable-read-body" inert={retaining || undefined} aria-hidden={retaining || undefined}>
       {retaining ? snapshot!.view : children}
     </div>
