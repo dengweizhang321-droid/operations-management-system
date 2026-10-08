@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import * as XLSX from "xlsx";
 import { parseChatLog, parseCustomerServiceImport, parseSessionWorkbook, type CustomerServiceParseResult } from "../lib/customer-service/import-service";
+import { customerServiceStore } from "../lib/jd/customer-service-stores";
 import { assertCustomerServicePeriod, JdCustomerServiceWorkflowError, type CustomerServicePeriod } from "../lib/jd/customer-service-workflow";
 
 const separator = "/*****************以下为一通会话************************************/\n";
@@ -22,7 +23,8 @@ export type CustomerServiceDailyFile = {
 // Split only existing source material. Reparse every derived pair, then prove
 // that its complete business values equal the full-range parse. A midnight
 // match that changes under partitioning fails closed rather than being lost.
-export function buildCustomerServiceDailyFiles(sessionBytes: Uint8Array, chatBytes: Uint8Array, period: CustomerServicePeriod) {
+export function buildCustomerServiceDailyFiles(sessionBytes: Uint8Array, chatBytes: Uint8Array, period: CustomerServicePeriod, storeKey?: string) {
+  if (storeKey !== undefined) customerServiceStore(storeKey);
   assertCustomerServicePeriod(period);
   if ([sessionBytes, chatBytes].some(bytes => !bytes.length || bytes.length > 25 * 1024 * 1024)) reject("INVALID_FILE_SIZE");
   let chatText: string;
@@ -39,7 +41,7 @@ export function buildCustomerServiceDailyFiles(sessionBytes: Uint8Array, chatByt
   for (const session of sessions) {
     const day = session.consultedAt.slice(0, 10);
     if (day < period.startDate || day > period.endDate) reject("FILE_DATE_OUT_OF_SCOPE");
-    if (session.agent.startsWith("志高厨电")) reject("IMPORT_SHOP_REWRITE_REJECTED");
+    if (storeKey === undefined && session.agent.startsWith("志高厨电")) reject("IMPORT_SHOP_REWRITE_REJECTED");
     const group = rowsByDate.get(day) ?? [];
     group.push(matrix[session.sourceRowNumber - 1]); rowsByDate.set(day, group);
   }

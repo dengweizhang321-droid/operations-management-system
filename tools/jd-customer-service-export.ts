@@ -3,6 +3,7 @@ import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { Page } from "playwright-core";
 import { jdCustomerServiceWorkflow as contract, assertCustomerServicePeriod, JdCustomerServiceWorkflowError, type CustomerServicePeriod } from "../lib/jd/customer-service-workflow";
+import { customerServiceStore } from "../lib/jd/customer-service-stores";
 import { inspectJdLoginPageState } from "./jd-saved-login";
 
 export type CustomerServiceExportCheckpoint = {
@@ -13,13 +14,14 @@ export type CustomerServiceExportCheckpoint = {
   savedPath?: string; sha256?: string; sizeBytes?: number;
 };
 function reject(code: string): never { throw new JdCustomerServiceWorkflowError(code); }
-export async function openCustomerServicePage(page: Page, authenticate: () => Promise<unknown>) {
+export async function openCustomerServicePage(page: Page, authenticate: () => Promise<unknown>, storeKey = contract.storeKey as string) {
   await page.goto("https://shop.jd.com/", { waitUntil: "domcontentloaded" });
   await authenticate();
   await page.goto(contract.entryUrl, { waitUntil: "domcontentloaded" });
-  return assertCustomerServiceShop(page, true);
+  return assertCustomerServiceShop(page, true, storeKey);
 }
-export async function assertCustomerServiceShop(page: Page, allowInitialReload = false) {
+export async function assertCustomerServiceShop(page: Page, allowInitialReload = false, storeKey = contract.storeKey as string) {
+  const store = customerServiceStore(storeKey);
   if (page.url() !== contract.entryUrl) reject("CHAT_PAGE_MISMATCH");
   const header = page.locator(".shop-menu-accountV1__right-account-top-name").filter({ visible: true });
   let reloaded = false;
@@ -43,8 +45,8 @@ export async function assertCustomerServiceShop(page: Page, allowInitialReload =
     catch { reject("PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION"); }
   }
   if (page.url() !== contract.entryUrl || await header.count() !== 1
-    || await header.getAttribute("title") !== contract.shopName
-    || (await header.innerText()).trim() !== contract.shopName)
+    || await header.getAttribute("title") !== store.shopName
+    || (await header.innerText()).trim() !== store.shopName)
     reject("PAGE_STORE_IDENTITY_MISMATCH_MANUAL_ACTION");
   return { reloaded };
 }

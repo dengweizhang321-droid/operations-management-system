@@ -1,8 +1,9 @@
 import { jdCustomerServiceWorkflow as contract, JdCustomerServiceWorkflowError } from "../lib/jd/customer-service-workflow";
+import { customerServiceStore } from "../lib/jd/customer-service-stores";
 import type { CustomerServiceDailyFile } from "./jd-customer-service-daily-files";
 
 export type CustomerServiceBatchProof = {
-  date: string; batchId: string; fileHash: string; conversationCount: number;
+  storeKey?: string; date: string; batchId: string; fileHash: string; conversationCount: number;
   matchedCount: number; sessionOnlyCount: number; chatOnlyCount: number; ambiguousCount: number;
   warningTotalCount: number; status: "imported" | "duplicate";
 };
@@ -33,18 +34,21 @@ async function json(response: Response) {
   } catch { return reject("IMPORT_RESPONSE_INVALID"); }
   finally { await reader.cancel().catch(() => undefined); }
 }
-function assertBatch(batch: JsonObject, expected: Omit<CustomerServiceBatchProof, "batchId" | "fileHash" | "status">) {
-  if (batch.shopName !== contract.shopName || batch.status !== "completed" || typeof batch.completedAt !== "string"
+function assertBatch(batch: JsonObject, expected: Omit<CustomerServiceBatchProof, "batchId" | "fileHash" | "status">, storeKey: string) {
+  const store = customerServiceStore(storeKey);
+  if (batch.shopName !== store.shopName || batch.status !== "completed" || typeof batch.completedAt !== "string"
     || !Number.isFinite(Date.parse(batch.completedAt)) || typeof batch.id !== "string" || !/^cs_[a-f0-9]{64}$/.test(batch.id)
     || typeof batch.fileHash !== "string" || !/^[a-f0-9]{64}$/.test(batch.fileHash)) reject("IMPORT_BATCH_IDENTITY_MISMATCH");
   for (const key of ["conversationCount", "matchedCount", "sessionOnlyCount", "chatOnlyCount", "ambiguousCount"] as const)
     if (batch[key] !== expected[key]) reject("IMPORT_BATCH_COUNTS_MISMATCH");
   if (!Number.isSafeInteger(batch.warningTotalCount) || Number(batch.warningTotalCount) < 0) reject("IMPORT_WARNINGS_INVALID");
 }
-export async function importCustomerServiceDay(day: CustomerServiceDailyFile, baseUrl: string, request: typeof fetch = fetch) {
+export async function importCustomerServiceDay(day: CustomerServiceDailyFile, baseUrl: string, request: typeof fetch = fetch, storeKey = contract.storeKey as string) {
+  const store = customerServiceStore(storeKey);
   const origin = customerServiceLocalBaseUrl(baseUrl);
   const form = new FormData();
-  form.set("shopName", contract.shopName);
+  form.set("shopName", store.shopName);
+  form.set("storeKey", store.storeKey);
   form.set("sessionFile", new File([new Uint8Array(day.sessionBytes)], `jd-customer-service-${day.date}.xlsx`));
   form.set("chatFile", new File([new Uint8Array(day.chatBytes)], `jd-customer-service-${day.date}.log`));
   // No HTTP retry: the caller persists importing before invoking this method.
@@ -59,11 +63,13 @@ export async function importCustomerServiceDay(day: CustomerServiceDailyFile, ba
     matchedCount: day.summary.matchedCount + day.summary.timeOnlyMatchedCount,
     sessionOnlyCount: day.summary.sessionOnlyCount, chatOnlyCount: day.summary.chatOnlyCount,
     ambiguousCount: day.summary.ambiguousCount, warningTotalCount: Number(batch.warningTotalCount) };
-  assertBatch(batch, expected);
-  return { ...expected, batchId: String(batch.id), fileHash: String(batch.fileHash), status: payload.status } as CustomerServiceBatchProof;
+  assertBatch(batch, expected, store.storeKey);
+  return { ...expected, storeKey: store.storeKey, batchId: String(batch.id), fileHash: String(batch.fileHash), status: payload.status } as CustomerServiceBatchProof;
 }
-export async function verifyCustomerServiceBatch(proof: CustomerServiceBatchProof, baseUrl: string, request: typeof fetch = fetch) {
+export async function verifyCustomerServiceBatch(proof: CustomerServiceBatchProof, baseUrl: string, request: typeof fetch = fetch, storeKey = contract.storeKey as string) {
+  const store = customerServiceStore(storeKey);
   const origin = customerServiceLocalBaseUrl(baseUrl);
+  if (proof.storeKey && proof.storeKey !== store.storeKey) reject("IMPORT_BATCH_IDENTITY_MISMATCH");
   // Existing public API exposes paginated history. Never assume the newest
   // batch is this run's batch, and never treat truncated history as absence.
   for (let page = 1; page <= 100; page++) {
@@ -78,7 +84,7 @@ export async function verifyCustomerServiceBatch(proof: CustomerServiceBatchProo
     const matches = payload.items.map(object).filter(batch => batch.id === proof.batchId);
     if (matches.length > 1) reject("BATCH_READBACK_AMBIGUOUS");
     if (matches.length === 1) {
-      assertBatch(matches[0], proof);
+      assertBatch(matches[0], proof, store.storeKey);
       if (matches[0].fileHash !== proof.fileHash || matches[0].warningTotalCount !== proof.warningTotalCount) reject("BATCH_READBACK_MISMATCH");
       return;
     }

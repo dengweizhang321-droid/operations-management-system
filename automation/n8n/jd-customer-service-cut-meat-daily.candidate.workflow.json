@@ -1,0 +1,378 @@
+{
+  "id": "JdCustomerServiceCutMeat2026",
+  "name": "京东志高切肉机旗舰店客服聊天记录下载导入（09:00，30天）",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "9896e5067aa52e15fa44f25020b07f51",
+      "name": "手动执行客服30天",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        -80
+      ],
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "3424925ac6f122264dfb060763b3b4fe",
+      "name": "每天 09:00 执行",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -700,
+        100
+      ],
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/coordination/claim",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-COORDINATION-ATTEMPT",
+              "value": "={{ $runIndex }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "jd"
+            },
+            {
+              "name": "X-TERUISI-SCHEDULED-AT",
+              "value": "={{ $('固定本轮时间').first().json.scheduledAt }}"
+            },
+            {
+              "name": "X-TERUISI-JD-CUSTOMER-SERVICE-STORE-KEY",
+              "value": "jd-maidehao-operator1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "e49162268b1cb27c03fdc5a587b6ac14",
+      "name": "领取共享 helper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -300,
+        0
+      ],
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7a8b9c10-1112-4314-8516-171819202110",
+              "leftValue": "={{ $json.coordinationStatus }}",
+              "rightValue": "granted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c305811f3f121ff82095629af1341f00",
+      "name": "helper 领取成功？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -100,
+        0
+      ],
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "id": "05f14a2c40d3451212319e8409ce5874",
+      "name": "等待前序流程释放 helper",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -100,
+        170
+      ],
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd/customer-service/plan",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-SCHEDULED-AT",
+              "value": "={{ $('固定本轮时间').first().json.scheduledAt }}"
+            },
+            {
+              "name": "X-TERUISI-JD-CUSTOMER-SERVICE-STORE-KEY",
+              "value": "jd-maidehao-operator1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "d4031ca36ee18f6eb303a8e3da91bde6",
+      "name": "A·固定客服店铺与30天范围",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        120,
+        0
+      ],
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd/customer-service/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-SCHEDULED-AT",
+              "value": "={{ $('固定本轮时间').first().json.scheduledAt }}"
+            },
+            {
+              "name": "X-TERUISI-JD-CUSTOMER-SERVICE-STORE-KEY",
+              "value": "jd-maidehao-operator1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 1800000
+        }
+      },
+      "id": "548bef779ac1c1aa932041037c94e3c4",
+      "name": "B·双视图导出按日导入",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        0
+      ],
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd/customer-service/verify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-SCHEDULED-AT",
+              "value": "={{ $('固定本轮时间').first().json.scheduledAt }}"
+            },
+            {
+              "name": "X-TERUISI-JD-CUSTOMER-SERVICE-STORE-KEY",
+              "value": "jd-maidehao-operator1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "f63aa43958c5ccdc59a7bc0bc6344f05",
+      "name": "C·独立复验全部日批次",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        0
+      ],
+      "retryOnFail": false
+    },
+    {
+      "id": "88e856ae765b24cf96a26064bfd4cc0e",
+      "name": "固定本轮时间",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -510,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { scheduledAt: new Date().toISOString() } }];"
+      }
+    },
+    {
+      "id": "6bdf0feee0c6e7b29965fdcc448dcd2b",
+      "name": "店铺绑定与采用规则",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        340
+      ],
+      "parameters": {
+        "width": 700,
+        "height": 260,
+        "content": "## 志高切肉机旗舰店客服聊天记录（待采用）\n每天上海09:00，截至昨天滚动30天；共享helper等待5分钟、双视图导出、按日完整业务值等价、串行导入、精确批次复验均与设备店一致。\n\n固定店铺 jd-maidehao-operator1 / 745866；使用原注册Profile、独立下载与恢复状态。禁止跨店接管或重放未决提交。\n\n须先受控采用新版helper及显式店铺导入，逐店完整验收，再启用；第4次独立失败AI介入和本人单聊通知须将新增workflow ID纳入原监控。现有设备店ai-2并未自动扩容，不能直接启用。"
+      }
+    }
+  ],
+  "connections": {
+    "手动执行客服30天": {
+      "main": [
+        [
+          {
+            "node": "固定本轮时间",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每天 09:00 执行": {
+      "main": [
+        [
+          {
+            "node": "固定本轮时间",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "领取共享 helper": {
+      "main": [
+        [
+          {
+            "node": "helper 领取成功？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "helper 领取成功？": {
+      "main": [
+        [
+          {
+            "node": "A·固定客服店铺与30天范围",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "等待前序流程释放 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "等待前序流程释放 helper": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A·固定客服店铺与30天范围": {
+      "main": [
+        [
+          {
+            "node": "B·双视图导出按日导入",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B·双视图导出按日导入": {
+      "main": [
+        [
+          {
+            "node": "C·独立复验全部日批次",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "固定本轮时间": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai"
+  },
+  "meta": {
+    "candidate": true,
+    "storeKey": "jd-maidehao-operator1",
+    "activationBlockers": [
+      "controlled_helper_and_bound_import_adoption",
+      "dedicated_browser_end_to_end",
+      "store_scoped_failure_ai_and_owner_notification"
+    ],
+    "releaseProcedure": "controlled_helper_then_complete_execution_then_publish"
+  },
+  "tags": []
+}
