@@ -1,0 +1,60 @@
+✔ exact HTTPS loopback icon is blocked and classified (1.7265ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/assets/exact.js script (0.2416ms)
+✔ dangerous or unapproved request remains blocked: POST https://127.0.0.1:3000/favicon.svg other (0.1129ms)
+✔ dangerous or unapproved request remains blocked: GET https://other.invalid/favicon.svg image (0.1189ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3001/favicon.svg other (0.1147ms)
+✔ dangerous or unapproved request remains blocked: GET https://localhost:3000/favicon.svg other (0.1032ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/favicon.svg?x=1 other (0.2898ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/favicon.svg fetch (0.1051ms)
+✔ dangerous or unapproved request remains blocked: GET http://127.0.0.1:3000/api/import fetch (0.1062ms)
+✔ dangerous or unapproved request remains blocked: GET http://127.0.0.1:3000/assets/unapproved.js script (0.1722ms)
+✔ dangerous or unapproved request remains blocked: DELETE http://127.0.0.1:3000/api/customer-service/conversations fetch (0.0759ms)
+✔ normal candidate resource and exact reviewed business read stay allowed (0.1486ms)
+✔ blocked favicon needs HTTP bytes; mismatched normal asset never passes (0.8751ms)
+✖ real source four-shop component UI, read-only network, candidate SHA and viewer permission on isolated HTTP (2254.8215ms)
+✔ classified temporary reads retry at most four total; attempt time includes 53s queries (1.1342ms)
+✔ exhausted transient error preserves all four attempts (0.6324ms)
+✔ terminal status failure never retries: EACCES (0.2092ms)
+✔ terminal status failure never retries: EPERM (0.1063ms)
+✔ terminal status failure never retries: STATUS_IDENTITY_MISMATCH (0.0818ms)
+✔ terminal status failure never retries: ASSERTION_FAILED (0.0662ms)
+✔ terminal status failure never retries: INVALID_STATUS_JSON (0.1122ms)
+✔ terminal status failure never retries: STATUS_NOT_READY (0.071ms)
+✔ terminal status failure never retries: PROCESS_FAILED (0.0956ms)
+✔ unknown errors with timeout-looking sensitive text are terminal and redacted (0.3807ms)
+✔ one total deadline bounds slow successful queries and prevents another attempt (0.2217ms)
+✔ retry waits consume the same budget (0.1645ms)
+✔ complete readiness requires exact identity and all twelve components (0.2543ms)
+✔ retry declaration cannot target Start, backup, apply, generic GET or script flags (0.4008ms)
+✔ bounded native read-only runner covers inherited output EOF (192.2961ms)
+✔ timing unions overlaps, excludes nested retries, keeps coordination and document completion separate (0.742ms)
+✔ uncompleted batch never gets approval-to-complete or successful conclusion (0.2498ms)
+✔ offline report validates immutable journal, preserves unknown history and fails closed when steps missing (32.412ms)
+✔ domain history synthetic isolation regressions (297.8006ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 32
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3409.0716
+
+✖ failing tests:
+
+test at tests\release-acceptance-closeout.test.mjs:44:1
+✖ real source four-shop component UI, read-only network, candidate SHA and viewer permission on isolated HTTP (2254.8215ms)
+  AssertionError [ERR_ASSERTION]: {"status":"failed","productionWrites":0,"blockedIcons":4,"attemptedBusinessWrites":0,"attempts":[{"method":"GET","resourceType":"document","action":"continue","kind":"reviewed-read"},{"method":"GET","resourceType":"stylesheet","action":"continue","kind":"candidate-static","pathname":"/assets/style.css"},{"method":"GET","resourceType":"script","action":"continue","kind":"candidate-static","pathname":"/assets/card.js"},{"method":"GET","resourceType":"other","action":"abort","kind":"blocked-nonbusiness-icon"},{"method":"GET","resourceType":"document","action":"continue","kind":"reviewed-read"},{"method":"GET","resourceType":"stylesheet","action":"continue","kind":"candidate-static","pathname":"/assets/style.css"},{"method":"GET","resourceType":"script","action":"continue","kind":"candidate-static","pathname":"/assets/card.js"},{"method":"GET","resourceType":"other","action":"abort","kind":"blocked-nonbusiness-icon"},{"method":"GET","resourceType":"document","action":"continue","kind":"reviewed-read"},{"method":"GET","resourceType":"stylesheet","action":"continue","kind":"candidate-static","pathname":"/assets/style.css"},{"method":"GET","resourceType":"script","action":"continue","kind":"candidate-static","pathname":"/assets/card.js"},{"method":"GET","resourceType":"other","action":"abort","kind":"blocked-nonbusiness-icon"},{"method":"GET","resourceType":"document","action":"continue","kind":"reviewed-read"},{"method":"GET","resourceType":"stylesheet","action":"continue","kind":"candidate-static","pathname":"/assets/style.css"},{"method":"GET","resourceType":"script","action":"continue","kind":"candidate-static","pathname":"/assets/card.js"},{"method":"GET","resourceType":"other","action":"abort","kind":"blocked-nonbusiness-icon"}],"resourceEvidence":[{"pathname":"/assets/card.js","sha256":"b7578dc477d2e42fbcf8642d7ebe0258d01dc29fa7344c0a9586630133dd2d5c","bytes":1141344,"status":200},{"pathname":"/assets/card.js","sha256":"b7578dc477d2e42fbcf8642d7ebe0258d01dc29fa7344c0a9586630133dd2d5c","bytes":1141344,"status":200},{"pathname":"/assets/card.js","sha256":"b7578dc477d2e42fbcf8642d7ebe0258d01dc29fa7344c0a9586630133dd2d5c","bytes":1141344,"status":200},{"pathname":"/assets/card.js","sha256":"b7578dc477d2e42fbcf8642d7ebe0258d01dc29fa7344c0a9586630133dd2d5c","bytes":1141344,"status":200},{"pathname":"/favicon.svg","sha256":"900fbe934249ad120004bd24adf66aad8817d89586273c0cc50e187bddebb601","bytes":41,"status":200,"observation":"independent-http-icon-check"}],"dangerous":[],"failures":[{"pathname":"/assets/style.css","code":"RESOURCE_MISMATCH_OR_UNAVAILABLE"},{"pathname":"/assets/style.css","code":"RESOURCE_MISMATCH_OR_UNAVAILABLE"},{"pathname":"/assets/style.css","code":"RESOURCE_MISMATCH_OR_UNAVAILABLE"},{"pathname":"/assets/style.css","code":"RESOURCE_MISMATCH_OR_UNAVAILABLE"}],"missing":["/assets/style.css"]}
+  
+  'failed' !== 'passed'
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-acceptance-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-acceptance-closeout.test.mjs:74:49)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'failed',
+    expected: 'passed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

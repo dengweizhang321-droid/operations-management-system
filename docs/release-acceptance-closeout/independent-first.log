@@ -1,0 +1,122 @@
+Independent synthetic review. UTC 2026-10-09 16:20:38 UTC. Exit 1.
+✖ independent: completion interval cannot absorb work recorded after completion (3.1032ms)
+✖ independent: receipt whitelist rejects or removes unexpected sensitive field types (35.0861ms)
+✖ independent: incomplete batch timing remains uncompleted even with a stale closeout event (15.112ms)
+✖ independent: source/version projection cannot retain sensitive nested release identifiers (11.8931ms)
+✖ independent: total deadline includes persistent attempt evidence (0.8407ms)
+✔ independent: permanent identity mismatch does not retry after a transient query (0.5542ms)
+✔ independent: HTTP icon query, other HTTPS origin and static-suffix writes remain dangerous (0.439ms)
+✔ independent: allowed business GET network failure invalidates real UI audit (0.407ms)
+✖ independent: complete readiness requires the actual twelve domain names (0.3037ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 3
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 363.5414
+
+✖ failing tests:
+
+test at tests\release-closeout-independent.test.mjs:30:1
+✖ independent: completion interval cannot absorb work recorded after completion (3.1032ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1000 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-acceptance-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-closeout-independent.test.mjs:36:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1000,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\release-closeout-independent.test.mjs:40:1
+✖ independent: receipt whitelist rejects or removes unexpected sensitive field types (35.0861ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!JSON.stringify(report).includes(marker))
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-acceptance-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-closeout-independent.test.mjs:54:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-closeout-independent.test.mjs:59:1
+✖ independent: incomplete batch timing remains uncompleted even with a stale closeout event (15.112ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1000 !== null
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-acceptance-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-closeout-independent.test.mjs:68:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1000,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\release-closeout-independent.test.mjs:73:1
+✖ independent: source/version projection cannot retain sensitive nested release identifiers (11.8931ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!JSON.stringify(report).includes(marker))
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-acceptance-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-closeout-independent.test.mjs:83:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-closeout-independent.test.mjs:87:1
+✖ independent: total deadline includes persistent attempt evidence (0.8407ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-acceptance-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-closeout-independent.test.mjs:89:3)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-closeout-independent.test.mjs:121:1
+✖ independent: complete readiness requires the actual twelve domain names (0.3037ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-acceptance-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-closeout-independent.test.mjs:124:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /STATUS_NOT_READY|STATUS_IDENTITY_MISMATCH/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+

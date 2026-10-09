@@ -1,0 +1,19 @@
+Collecting Django==5.2.12
+  Downloading django-5.2.12-py3-none-any.whl.metadata (4.1 kB)
+Collecting asgiref>=3.8.1 (from Django==5.2.12)
+  Downloading asgiref-3.12.1-py3-none-any.whl.metadata (9.4 kB)
+Collecting sqlparse>=0.3.1 (from Django==5.2.12)
+  Downloading sqlparse-0.6.0-py3-none-any.whl.metadata (6.0 kB)
+Collecting tzdata (from Django==5.2.12)
+  Downloading tzdata-2026.5-py2.py3-none-any.whl.metadata (1.4 kB)
+Downloading django-5.2.12-py3-none-any.whl (8.3 MB)
+   ---------------------------------------- 8.3/8.3 MB 927.0 kB/s  0:00:08
+Downloading asgiref-3.12.1-py3-none-any.whl (25 kB)
+Downloading sqlparse-0.6.0-py3-none-any.whl (50 kB)
+Downloading tzdata-2026.5-py2.py3-none-any.whl (347 kB)
+Installing collected packages: tzdata, sqlparse, asgiref, Django
+
+Successfully installed Django-5.2.12 asgiref-3.12.1 sqlparse-0.6.0 tzdata-2026.5
+
+[notice] A new release of pip is available: 26.1.2 -> 26.2.1
+[notice] To update, run: D:\.codex\worktrees\release-acceptance-closeout\��Ӫ����ϵͳ\.runtime\test-venv\Scripts\python.exe -m pip install --upgrade pip
