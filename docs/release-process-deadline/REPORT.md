@@ -27,6 +27,8 @@
 
 `process-deadline.ps1` 统一 PowerShell 直接子进程传输。首版复用 Start-Process 重定向的真实试验发现转码及退出观察问题，因此底层改为 Windows CreateProcess：只允许继承 NUL/stdout文件/stderr文件三个句柄，隐藏窗口，保留创建时的内核进程句柄。文件共享删除权限允许读取固定长度快照并进行不等待的清理；保留原退出码，完全不等待服务后代 EOF。PS5/7 的 File 参数仍以 UTF-8 JSON/base64 数据转交，保留中文/引号/布尔开关和错误传播，系统 PS5 子环境仍固定自身 Modules 并清除 library-only 标志；父环境在 finally 恢复。
 
+新 helper 同时加入原 guard 入口，复用原 apply 的受保护安装、回读与半安装恢复；旧11入口前驱至新12入口候选已验证，候选缺 helper 或文件外来字节继续拒绝。
+
 Node 的原 `runProcess` 增加 `direct-exit-files` 协议和 preserve/direct/tree 清理策略；普通 pipe 使用仍要求 EOF，但到原期限返回明确失败。期限由入口确定并经 `TERUISI_PROCESS_DEADLINE_UNIX_MS` 传给嵌套调用，取较早值。直接退出、有限输出快照、JSON/断言、状态回查及清理均消费原预算，不新增超时后的等待期限。
 
 生命周期和可能写入的 operator 使用 preserve：过期只返回未知并保留精确 PID/退出观察和批次占用。明确只读 Status/维护状态/聚合查询和 watchdog 探针只可终止自己创建并由内核句柄固定的直接进程。普通构建/隔离测试继续使用 tree 清理；在原总预算内预留清理窗口，记录 taskkill 退出及未确认状态，截止以精确直接进程句柄终止兜底，不把此能力套到服务树。
@@ -47,11 +49,13 @@ StartWorker 成功需要同时满足：原 Start 实际 exit0 且完成 JSON 有
 - [全量单测原日志](unit-full.log) 保留缺失 `.runtime/test-venv` 的五个文件/七个测试失败。在本 worktree 以 [仓库锁定依赖](../../backend/requirements.txt) 建立独立虚拟环境后，[五文件复验](python-fixture-recheck.log) 49项通过；不改业务断言，不反推首次运行成功。
 - [watchdog 原回归](watchdog-regression.log) 36项、[无控制台回归](watchdog-no-console.log) 5项通过；[互斥期限](mutex-final.log)、[清理与通知替身](cleanup-and-notification.log) 均通过，真实外发为0。
 - [隔离生产构建](build.log) 完成。构建前核对3000由既有服务占用，构建仅写本专用 worktree 的 dist，未触碰主目录或不可变运行包。
-- [全仓 lint](lint.log) 0错误；最终修改文件 lint 与完整单测汇总在交付收据补充。所有初轮诊断及修正后日志保留。
+- [全仓 lint](lint.log) 0错误；最终修改文件 lint 0错误/0警告。所有初轮诊断及修正后日志保留。
 
 ## 计时与限制
 
-计时必须分成直接启动引擎、完整状态校验和额外外壳等待。新 receipt/WAL 的 `engineMs` 是原 Start 调用从创建到直接退出的耗时；`validationMs` 是随后原 Status/Control/维护状态回查的累计耗时；`adapterMs` 是适配器预算内总耗时。Node 外层 `elapsedMs` 还包含宿主启动、编译与消费；不能将差额全归为 EOF。
+计时必须分成直接启动引擎、完整状态校验和额外外壳等待。新 receipt/WAL 的 `engineMs` 是原 Start 调用从创建到直接退出的耗时；`validationMs` 是随后原 Status/Control/维护状态回查的累计耗时；`adapterMs` 是适配器预算内总耗时。准备环境指纹仅排除每次调用的保留预算标志，其他环境仍全部绑定；永久 supervisor 启动前清除此标志，并 finally 恢复控制器，避免完成调用的预算进入长期服务。
+
+Node 外层 `elapsedMs` 还包含宿主启动、编译与消费；不能将差额全归为 EOF。
 
 本轮合成嵌套样本可见 [全量日志](unit-full.log) 的 `ISOLATED_START_TIMING`：ready 约 engine980/validation2362/adapter3542/外层4543ms；drain 约 engine1095/validation2597/adapter3889/外层5043ms。配置后代60秒自然退出，在函数返回时实际确认仍活，随后由夹具精确清理；没有持续观察其持有60秒，也不是生产启动性能。
 
@@ -62,5 +66,11 @@ StartWorker 成功需要同时满足：原 Start 实际 exit0 且完成 JSON 有
 超时的生命周期主体可能仍在执行，必须通过原精确协调确认，不重新 Start，也不以页面健康取消批次占用。未决旧批次须保留其原固定代码/协调入口；新协议要求重新准备批次参数、依赖闭包与精确批准，不能改写既有 WAL 或借已合 main 授权生产采用。
 
 ## 集成与交付
+
+最终 [200项必要回归](final-required.log) 全部通过；[guard首引入/恢复](helper-guard-final.log) 8项、[晚到健康拒绝](watchdog-late-final.log)、[预算/环境身份](deadline-metadata-final.log) 与最终原 watchdog 36/无控制台5回归通过。[最终隔离构建](build-integrated-final.log) exit0，[最终修改文件lint](lint-integrated-final.log) exit0且空诊断。
+
+[组合全量](unit-integrated-final.log) 3578项：3555通过、21跳过、2失败。旧packer断言硬写11入口，在增加helper后正确失败，现补12入口期望；10秒单进程receipt writer在8534ms被普通tree预留窗截断，现为已证明不生成服务树的单进程写夹具使用direct清理，10秒时限和真实收据断言不变。[原条件两项复验](packer-and-receipt-final.log) 通过，随后包含这两项的最终200项也通过。不宣称本次全量一次全绿、不将争用归因为已测CPU瓶颈。
+
+产品源码已与任务B `c9586ab8` 合并：保留其严格只读重试/尝试审计，传输复用A共同期限；[A/B组合66项](ab-focused-final.log) 通过。旧B的真实EOF calibration保持，新直接文件协议的预期变成真实exit0/有限快照/后代仍活，先前期望超时的失败保存在 [组合初验](ab-integration-final.log)。
 
 见 [任务 D 说明](INTEGRATION_D.md)。任务 B 在开发期间进入远端 main；合并最新主线后必须保留其只读重试、验收和报告生成边界，同时复验共同期限。最终提交、合并、推送与全量状态写入交付收据，源码合并不代表已部署。

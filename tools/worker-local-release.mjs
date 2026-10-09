@@ -824,6 +824,11 @@ export async function listGitSourceFiles(sourceRoot) {
 // A prepared immutable release can be reused, never an arbitrary dist. Bind
 // the complete source inventory (including untracked source), exact executable,
 // bundled npm closure and inherited build configuration without logging values.
+export function preparationEnvironmentSha256(environment) {
+  // Transport metadata is per call, never a build/configuration input. All
+  // other inherited variables remain part of the original exact identity.
+  return sha256Canonical(Object.fromEntries(Object.entries(environment).filter(([key])=>key.toUpperCase() !== 'TERUISI_PROCESS_DEADLINE_UNIX_MS')));
+}
 export async function workerPreparationIdentity(sourceRoot, devVarsSource = workerDevVarsSource) {
   const toolchain = await resolveBundledNpmToolchain();
   await assertRegularFile(process.execPath, "preparation Node executable");
@@ -845,7 +850,7 @@ export async function workerPreparationIdentity(sourceRoot, devVarsSource = work
     runtimeConfigurationSha256: sha256Bytes(await readStableRegularFile(devVarsSource, "preparation runtime configuration")),
     externalNpmConfiguration,
     toolchain: toolchain.provenance,
-    environmentSha256: sha256Canonical(process.env),
+    environmentSha256: preparationEnvironmentSha256(process.env),
   };
 }
 

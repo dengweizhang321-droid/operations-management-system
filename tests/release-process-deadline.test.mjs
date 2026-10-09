@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { runProcess } from '../tools/worker-local-release.mjs';
+import { runProcess, preparationEnvironmentSha256 } from '../tools/worker-local-release.mjs';
 import { runApprovedOperation } from '../tools/release-batch.mjs';
 import { safeFileDigest } from '../tools/release-impact.mjs';
 
@@ -12,6 +12,12 @@ const child = path.resolve('tests/fixtures/release-process-child.mjs');
 const host = path.join(process.env.SystemRoot ?? 'C:/Windows','System32/WindowsPowerShell/v1.0/powershell.exe');
 const quote = s => s.replaceAll("'","''");
 const alive = pid => {try {process.kill(pid,0);return true;} catch {return false;}};
+test('transport deadline changes do not invalidate exact build environment identity',()=>{
+  const env={NODE_OPTIONS:'synthetic-build-flag',PSModulePath:'synthetic-modules'};
+  assert.equal(preparationEnvironmentSha256(env),preparationEnvironmentSha256({...env,TERUISI_PROCESS_DEADLINE_UNIX_MS:'100'}));
+  assert.equal(preparationEnvironmentSha256(env),preparationEnvironmentSha256({...env,teruisi_process_deadline_unix_ms:'200'}));
+  assert.notEqual(preparationEnvironmentSha256(env),preparationEnvironmentSha256({...env,NODE_OPTIONS:'different-build-flag'}));
+});
 async function fixture(fn) {
   const root=await mkdtemp(path.join(tmpdir(),'teruisi-deadline-test-'));
   try {await fn(root);} finally {
@@ -153,6 +159,17 @@ function Test-WatchHttp {$script:httpCalls++;@{ok=$true;status=200}}
 $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()+300)
 $clock=[Diagnostics.Stopwatch]::StartNew();$observed=Get-WatchSnapshot
 if(-not $observed.probeError -or $script:httpCalls -ne 0 -or $clock.ElapsedMilliseconds -gt 700){throw 'snapshot exceeded deadline or began a late probe'}
+# A synchronous port query may return late, but may never turn into late healthy.
+function Invoke-WatchScript($Path,$Arguments) {
+  if($Path -eq $SupervisorPath){return @{supervisorProcess='running';health='healthy'}}
+  $components=@{};@('core','finance','netshop','market','products','workflow','inventory','customerService','accessControl','erpReference','bi','ai')|ForEach-Object{$components[$_]=$true}
+  return [pscustomobject]@{state='Running';backendState='Ready';workerState='exact_release';components=[pscustomobject]$components;releaseId='synthetic';portProcessId=1;supervisorProcessId=2}
+}
+function Read-WatchJson {return @{updatedAt=[DateTimeOffset]::UtcNow.ToString('o')}}
+function Get-NetTCPConnection {Start-Sleep -Milliseconds 800}
+$env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()+300)
+$late=Get-WatchSnapshot
+if($late.healthy -or -not $late.probeError -or $late.processDiagnostic.code -cne 'process_deadline_exhausted'){throw 'late ports declared healthy'}
 [ordered]@{notification=$state.notification;mockSendCalls=$script:sendCalls;lateHttpCalls=$script:httpCalls;snapshotMs=$clock.ElapsedMilliseconds;productionTouched=$false}|ConvertTo-Json -Compress
 `,'utf8');
   const result=spawnSync('pwsh.exe',['-NoProfile','-NonInteractive','-File',script],{encoding:'utf8',windowsHide:true,timeout:15000});

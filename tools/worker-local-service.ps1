@@ -1469,14 +1469,16 @@ function Start-VerifiedWorkerSupervisor(
   $stdout = Join-Path $logRoot "worker-$stamp.stdout.log"
   $stderr = Join-Path $logRoot "worker-$stamp.stderr.log"
   $supervisorPath = Join-Path $Identity.ReleaseRoot "tools\worker-local-runtime-supervisor.mjs"
+  $savedProcessDeadline = $env:TERUISI_PROCESS_DEADLINE_UNIX_MS
   try {
+    $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = $null # A durable supervisor must not retain a completed invocation budget.
     $process = Start-Process -FilePath (Get-NodeExecutable) -ArgumentList @(
       "`"$supervisorPath`"", "--manifest", "`"$($Identity.Path)`"", "--approved-manifest-sha256", $Identity.Sha256
     ) -WorkingDirectory $Identity.ReleaseRoot -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
   } catch {
     Remove-ExactSupervisorPrelaunchVerificationReceipt $StartupVerificationReceiptSha256
     throw
-  }
+  } finally { $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = $savedProcessDeadline }
   $supervisor = $null
   for ($attempt = 0; $attempt -lt 20 -and -not $supervisor; $attempt++) {
     [void](Get-ProcessRemaining $WorkerOperationDeadline)

@@ -83,6 +83,7 @@ function Test-WatchHttp([string]$Url,[string]$Kind){
   try{
     [void]$request.Headers.TryAddWithoutValidation('x-teruisi-local-health','1')
     $response=$client.SendAsync($request,[Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+    [void](Get-ProcessRemaining $deadline)
     if([int]$response.StatusCode -ne 200){return @{ok=$false;status=[int]$response.StatusCode}}
     if($Kind -eq 'homepage'){return @{ok=$true;status=200}}
     $cts=[Threading.CancellationTokenSource]::new((Get-ProcessRemaining $deadline))
@@ -93,6 +94,7 @@ function Test-WatchHttp([string]$Url,[string]$Kind){
       $body=[Text.Encoding]::UTF8.GetString($bytes,0,$n)|ConvertFrom-Json
       $ok=$body.ok -eq $true
       if($Kind -in @('live','ready')){$ok=$ok -and $body.status -ceq $Kind}
+      [void](Get-ProcessRemaining $deadline)
       return @{ok=$ok;status=200}
     }finally{$cts.Dispose()}
   }catch{return @{ok=$false;status=0}}
@@ -127,6 +129,7 @@ function Get-WatchSnapshot {
     $snapshot.probes[$kind]=Test-WatchHttp $url $kind
   }
   if([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -lt [long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS){$snapshot.ports=@(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue|Where-Object LocalPort -in @(3000,5791,5432)|ForEach-Object {@{port=[int]$_.LocalPort;pid=[int]$_.OwningProcess}})}
+  if([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge [long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS){$snapshot.probeError=$true;$snapshot.processDiagnostic=@{stage='snapshot-final';code='process_deadline_exhausted';process=$null}}
   $snapshot.healthy=(-not $snapshot.probeError -and $snapshot.system -ceq 'Running' -and $snapshot.backend -ceq 'Ready' -and $snapshot.worker -ceq 'exact_release' -and $snapshot.supervisor -ceq 'running' -and $snapshot.supervisorHealth -ceq 'healthy' -and $snapshot.components.Count -ge 12 -and @($snapshot.components.Values|Where-Object {-not $_}).Count -eq 0 -and @($snapshot.probes.Values|Where-Object {-not $_.ok}).Count -eq 0)
   return $snapshot
   } finally {$env:TERUISI_PROCESS_DEADLINE_UNIX_MS=$savedDeadline}
