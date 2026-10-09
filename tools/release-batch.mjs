@@ -55,15 +55,12 @@ const requiredOperatorResults = {
   'restore-post': { kind: 'restore', assertions: { status: 'completed', serviceStateChanged: false, productionDatabaseTouched: false, cleanupStatus: 'isolated_data_removed', profileRestoreVerified: true, sequenceHealthVerified: true } },
 };
 export function validateOperation(op) {
-<<<<<<< HEAD
   if(op.step&&!['lifecycle','django-deploy'].includes(op.kind))throw new Error('Lifecycle step labels require an original lifecycle adapter');
-=======
   if (op.readOnlyRetry && (!isExactStatusOperation(op) || op.readOnlyRetry.version !== 'teruisi-status-retry-v1'
     || !Number.isSafeInteger(op.readOnlyRetry.totalTimeoutMs) || op.readOnlyRetry.totalTimeoutMs < 1
     || op.readOnlyRetry.totalTimeoutMs > 240_000)) throw new Error('Retry is restricted to the exact read-only Status operation');
   if (op.readOnlyRetry && ([['state','Running'],['backendState','Ready'],['workerState','exact_release']].some(([key,value])=>!op.assertions?.some(a=>a.path===key&&a.equals===value))
     || !op.assertions?.some(a=>a.path==='releaseId'&&typeof a.equals==='string'&&a.equals.length>0))) throw new Error('Read-only retry requires exact full readiness assertions');
->>>>>>> origin/main
   const requirement = requiredOperatorResults[op.phase];
   if (requirement) {
     if (op.kind !== requirement.kind || op.mutating !== true) throw new Error('Backup/restore phase cannot be substituted');
