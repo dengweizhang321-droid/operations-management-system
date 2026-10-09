@@ -6,7 +6,7 @@
 
 独立只读检查确认：原installed脚本及系统PS5字节仍匹配，BOM均存在，Backup/Execute参数没有被库加载覆盖；原备份audit、恢复点、retention没有当轮新增，原Status没有unresolved Backup，未发现pg_dump/restore或备份活进程。通过相同Node原runner仅执行Status，复现PS5继承PS7模块路径导致Microsoft.PowerShell.Security Get-Acl加载失败；该ACL admission先于StartMaintenanceRun和Backup body。由此完成精确零dump／归档／服务／生产数据效果证明。
 
-按原reconcileOperation将该步独立闭合为failed，未重放；随后按独立无drain／switch／business效果证明调用cancelUnswitchedBatch。active由原工具释放，全部原始journal、失败、核查和取消证据保留。UTC18:02:09.658安全取消，从首次明确上线至此25.0943分钟；入口1908次、客服固定查询636次采样均200（覆盖取消前后整个监测区间，不是全业务SLA）。没有执行切换，切换窗口尚未发生，而不是把未完成发布记作零秒发布。生产仍为Worker20261008T103219Z-f5d9b00e432df6c0及Django121d前驱，数据库恢复点仍原三点两保护，日备份调度仍PAUSED。
+按原reconcileOperation将该步独立闭合为failed，未重放；随后按独立无drain／switch／business效果证明调用cancelUnswitchedBatch。active由原工具释放，全部原始journal、失败、核查和取消证据保留。生产仍为Worker20261008T103219Z-f5d9b00e432df6c0及Django121d前驱，数据库恢复点仍原三点两保护，日备份调度仍PAUSED。
 
 证据根：E:/codex-artifacts/release-customer-combined-20261009/production。原批准时间及取消前所有校验、等待和故障核查计入原真实区间；将来修复候选上线时仍保留这次记录，不把首次明确上线时间重置为仅成功重试的开始。
 

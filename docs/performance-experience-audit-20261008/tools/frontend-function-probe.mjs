@@ -21,8 +21,8 @@ const hookMock = { ...actualReact,
   useState: value => { const index = cursor++; if (states[index] === undefined) states[index] = value; return [states[index], next => { states[index] = typeof next === 'function' ? next(states[index]) : next; }]; },
   useRef: value => ({ current: value }), useEffect: () => undefined,
 };
-const probeModule = { exports: {} };
-vm.runInNewContext(compiled.code, { module: probeModule, exports: probeModule.exports, require: name => name === 'react' ? hookMock : require(name) }, { filename: 'actual-searchable-select.cjs' });
+const module = { exports: {} };
+vm.runInNewContext(compiled.code, { module, exports: module.exports, require: name => name === 'react' ? hookMock : require(name) }, { filename: 'actual-searchable-select.cjs' });
 function findInput(node) {
   if (!node || typeof node !== 'object') return null;
   if (node.type === 'input') return node;
@@ -32,7 +32,7 @@ function findInput(node) {
 }
 for (const nativeEvent of [{ isComposing: true, keyCode: 229 }, { isComposing: false, keyCode: 229 }, { isComposing: false, keyCode: 13 }]) {
   cursor = 0; states = [true, '待确认']; let selected = null, prevented = false;
-  const element = probeModule.exports.SearchableSelect({ value: '', onChange: value => { selected = value; }, options: [{ value: '', label: '当前有效计划' }, { value: 'draft', label: '待确认' }], ariaLabel: '备货计划状态' });
+  const element = module.exports.SearchableSelect({ value: '', onChange: value => { selected = value; }, options: [{ value: '', label: '当前有效计划' }, { value: 'draft', label: '待确认' }], ariaLabel: '备货计划状态' });
   const input = findInput(element);
   if (!input?.props.onKeyDown) throw new Error('Actual search input callback was not found');
   input.props.onKeyDown({ key: 'Enter', nativeEvent, preventDefault: () => { prevented = true; } });

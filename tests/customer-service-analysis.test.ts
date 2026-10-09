@@ -44,7 +44,7 @@ test("customer-service imports scope file identity by shop", async () => {
 
 test("customer-service page keeps the paired-file import available beside analysis", async () => {
   const page = await readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8");
-  assert.match(page, /<CustomerServiceImportCard canImport=\{canImport\} onCompleted=\{refreshCurrentList\} \/>/);
+  assert.match(page, /<CustomerServiceImportCard canImport=\{canImport\} onCompleted=\{load\} \/>/);
   assert.match(page, /可在本页直接导入/);
 });
 

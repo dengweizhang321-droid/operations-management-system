@@ -21,10 +21,9 @@ test("customer save failures survive authoritative refresh; only a confirmed sav
     import { createRoot } from 'react-dom/client';
     import CustomerServiceView from './app/customer-service-view';
     const root=createRoot(document.getElementById('root'));
-    const currentUser={role:'admin',email:'fixture@example.invalid',displayName:'Fixture'};
     window.renderCustomer=(end='2026-09-15')=>root.render(<CustomerServiceView
       customStartDate="2026-09-01" customEndDate={end}
-      currentUser={currentUser} onNavigate={()=>{}} />);
+      currentUser={{role:'admin',email:'fixture@example.invalid',displayName:'Fixture'}} onNavigate={()=>{}} />);
     window.renderCustomer();`, loader: "tsx", resolveDir: fileURLToPath(new URL("../", import.meta.url)) },
     bundle:true,write:false,format:"iife",platform:"browser",jsx:"automatic",
     define:{"process.env.NODE_ENV":'"test"'},
