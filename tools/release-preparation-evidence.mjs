@@ -19,6 +19,7 @@ export function createPreparationEvidenceSession({ batchSha256, sourceRoot, devV
   const watchers=[];
   const watched=new Set();
   async function monitor(target,{recursive=false,source=false}={}) {
+    const treeScope=recursive;
     let directory=recursive?target:path.dirname(target);
     const intendedDirectory=directory;
     while(true) {
@@ -30,7 +31,12 @@ export function createPreparationEvidenceSession({ batchSha256, sourceRoot, devV
     const handle=watch(directory,{recursive,persistent:false},(_event,name)=>{
       const relative=name?.toString().replaceAll('\\','/');
       if(source&&relative&&/^(node_modules|dist|\.runtime|outputs|tmp)(\/|$)/.test(relative))return;
-      if(recursive||!relative||path.resolve(directory,relative).toLowerCase()===path.resolve(target).toLowerCase())changed=true;
+      if(!relative){changed=true;return;}
+      const eventPath=path.resolve(directory,relative).toLowerCase(),targetPath=path.resolve(target).toLowerCase();
+      // A missing parent requires recursive observation, but unrelated siblings
+      // of its nearest existing ancestor are not inputs. Creation/removal of
+      // any ancestor on the exact target path still invalidates the session.
+      if(treeScope||eventPath===targetPath||targetPath.startsWith(eventPath+path.sep)||eventPath.startsWith(targetPath+path.sep))changed=true;
     });
     handle.on('error',()=>{changed=true;});watchers.push(handle);watched.add(key);
   }
