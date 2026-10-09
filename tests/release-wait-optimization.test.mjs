@@ -29,9 +29,9 @@ function batch(mode='full', id='test-release-0001') {
   const {evidence,current} = recovery();
   if (mode === 'full') current.schedule.active = false;
   const tests = { status:'passed',sourceSha256:sourceTreeDigest(display),artifactSha256:h('b'),checks:requirements.display.tests };
-  const binding = { sourceSha256:sourceTreeDigest(display),predecessorSourceSha256:sourceTreeDigest(base),sourceInventorySha256:hash(sourceInventory(display)),predecessorInventorySha256:hash(sourceInventory(base)),dependencySha256:h('c'),configurationSha256:h('d'),toolchainSha256:h('e'),artifactSha256:h('b'),testsSha256:hash(tests),predecessorSha256:h('f'),workerPlanSha256:h('1'),maintenanceId:'a'.repeat(32) };
+  const binding = { sourceSha256:sourceTreeDigest(display),predecessorSourceSha256:sourceTreeDigest(base),sourceInventorySha256:hash(sourceInventory(display)),predecessorInventorySha256:hash(sourceInventory(base)),dependencySha256:h('c'),configurationSha256:h('d'),toolchainSha256:h('e'),artifactSha256:h('b'),testsSha256:hash(tests),predecessorSha256:h('f'),workerPlanSha256:h('1'),maintenanceId:'a'.repeat(32),djangoCandidateSha256:h('3'),djangoPredecessorSha256:h('3') };
   const names = ['prepare',...(mode==='full'?['backup-pre','restore-pre']:[]),'drain','switch','acceptance',...(mode==='full'?['backup-post','restore-post']:[]),'closeout'];
-  const life=(step,phase,id)=>({id,phase,kind:'lifecycle',step,mutating:true,command:{args:['-File','D:/isolated/tools/release-lifecycle-step.ps1','-Step',step,'-MaintenanceId','a'.repeat(32)],files:[{path:'D:/isolated/tools/release-lifecycle-step.ps1',sha256:h('a')}]},assertions:[{path:'drainConfirmed',equals:true}]});
+  const life=(step,phase,id)=>({id,phase,kind:'lifecycle',step,mutating:true,command:{args:['-File','D:/isolated/tools/release-lifecycle-step.ps1','-Step',step,'-MaintenanceId','a'.repeat(32),...(step==='StartWorker'?['-ExpectedWorkerManifestSha256',binding.artifactSha256,'-ExpectedDjangoManifestSha256',binding.djangoCandidateSha256,'-ExpectedDrainId',binding.maintenanceId]:[])],files:[{path:'D:/isolated/tools/release-lifecycle-step.ps1',sha256:h('a')},{path:'D:/isolated/tools/process-deadline.ps1',sha256:h('2')}]},assertions:[{path:'drainConfirmed',equals:true}]});
   return makeBatch({ id,binding,before:base,after:display,witness:witness(base,display),evidence,current,tests,acceptance:requirements[impact.level].acceptance,
     rollback:{application:'exact predecessor',compatibility:'same schema',failureState:'maintenance retained'},operations:names.flatMap(phase=>phase==='drain'?life('BeginWorkerDrain','drain','op-drain'):phase==='switch'?[life('StopWorker','switch','op-stop'),{id:'op-switch',phase,kind:'worker-apply',mutating:true,planSha256:h('1')},life('StartWorker','switch','op-start'),life('EndWorkerDrain','switch','op-end-drain')]:phase.startsWith('backup')||phase.startsWith('restore')?{
       id:`op-${phase}`,phase,mutating:true,kind:phase.startsWith('backup')?'backup':'restore',
@@ -47,6 +47,46 @@ async function fixture() {
 const fakeLock = async f => f({});
 const collect = b => async()=>({binding:b.binding,recovery:b.recoveryCurrent});
 const pass = async()=>({status:'passed',receiptSha256:h('0')});
+
+test('Start candidate/drain/dependency bindings reject at sealing before any operation',()=>{
+  for(const fault of ['worker','django','owner','duplicate-drain','transport']) {
+    const b=batch(), op=b.operations.find(o=>o.step==='StartWorker');
+    if(fault==='worker')op.command.args[op.command.args.indexOf('-ExpectedWorkerManifestSha256')+1]=h('9');
+    if(fault==='django')op.command.args[op.command.args.indexOf('-ExpectedDjangoManifestSha256')+1]=h('9');
+    if(fault==='owner')op.command.args[op.command.args.indexOf('-MaintenanceId')+1]='9'.repeat(32);
+    if(fault==='duplicate-drain')op.command.args.push('-expecteddrainid',b.binding.maintenanceId);
+    if(fault==='transport')op.command.files=op.command.files.filter(f=>!f.path.endsWith('process-deadline.ps1'));
+    const core={...b};delete core.batchSha256;b.batchSha256=hash(core);
+    assert.throws(()=>verifyBatch(b,b.batchSha256),/Start|transport/);
+  }
+});
+
+test('unknown operation retains exit/deadline metadata and cannot replay',async()=>{
+  const f=await fixture(),b=batch();let calls=0;
+  try {
+    const run=async op=>{
+      calls++;
+      if(op.kind==='worker-apply') {const e=new Error('private-body-not-for-journal');e.processEvidence={code:'process_timeout',stage:'direct-exit',exitCode:9,timeoutType:'direct-exit',stdoutBytes:12,stderrBytes:7};throw e;}
+      return pass();
+    };
+    await assert.rejects(executeBatch({batch:b,approved:b.batchSha256,root:f.root,lock:fakeLock,collectCurrent:collect(b),run}),/unknown/);
+    const state=await journalState(f.root,b),record=state.latest.get('op-switch');
+    assert.equal(record.processEvidence.exitCode,9);assert.equal(record.processEvidence.timeoutType,'direct-exit');assert.equal(record.reason,'process_timeout');
+    assert.doesNotMatch(JSON.stringify(record),/private-body/);
+    const before=calls;
+    await assert.rejects(executeBatch({batch:b,approved:b.batchSha256,root:f.root,lock:fakeLock,collectCurrent:collect(b),run}),/never replay/);assert.equal(calls,before);
+  } finally {await f.dispose();}
+});
+
+test('passed WAL retains bounded original engine completion and separate timings',async()=>{
+  const f=await fixture(),b=batch();
+  try {
+    const run=async op=>op.step==='StartWorker'?{status:'passed',receiptSha256:h('0'),processEvidence:{exitCode:0,engine:[{exitCode:0,code:'completed',stage:'completed',stdoutBytes:100,stderrBytes:0}]},timing:{engineMs:100,validationMs:20,adapterMs:125}}:pass();
+    await executeBatch({batch:b,approved:b.batchSha256,root:f.root,lock:fakeLock,collectCurrent:collect(b),run});
+    const record=(await journalState(f.root,b)).latest.get('op-start');
+    assert.equal(record.processEvidence.engine[0].exitCode,0);assert.deepEqual(record.timing,{engineMs:100,validationMs:20,adapterMs:125});
+  } finally {await f.dispose();}
+});
 
 test('literal display delta is proven across unchanged dependency closure',()=>{
   assert.equal(classify(base,display).level,'display');

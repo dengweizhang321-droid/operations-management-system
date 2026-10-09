@@ -9,7 +9,7 @@ import { classifyImpact, hash, canonical, sourceInventory, sourceTreeDigest, req
 import { makeBatch, executeBatch, verifyBatch, journalState } from '../tools/release-batch.mjs';
 import { createPreparationEvidenceSession } from '../tools/release-preparation-evidence.mjs';
 import { requiresCompleteAdmission } from '../tools/release-batch-admission.mjs';
-import { windowsPathSha256, hashTree, workerRuntimeRoot, workerReleaseBundledSourcePaths, workerReleaseKeyFilePaths } from '../tools/worker-local-release.mjs';
+import { windowsPathSha256, preparationEnvironmentSha256, hashTree, workerRuntimeRoot, workerReleaseBundledSourcePaths, workerReleaseKeyFilePaths } from '../tools/worker-local-release.mjs';
 import { admissionTimer } from '../tools/release-admission-timing.mjs';
 
 const h = c => c.repeat(64);
@@ -94,7 +94,7 @@ export function fixtureBatch(mode='reuse',id='fastpath-fixture-0001') {
   const current={...fields,pointExists:true,verifyStatus:'passed',retained:true,sequencesValid:true,softwareCompatible:true,schedule:{active:mode==='reuse',lastResult:'success',lastSuccessAt:new Date(now-1000).toISOString()}};
   const tests={status:'passed',sourceSha256:sourceTreeDigest(after),artifactSha256:h('b'),checks:requirements.display.tests};
   const binding={sourceSha256:sourceTreeDigest(after),predecessorSourceSha256:sourceTreeDigest(before),sourceInventorySha256:hash(sourceInventory(after)),predecessorInventorySha256:hash(sourceInventory(before)),dependencySha256:h('c'),configurationSha256:h('d'),toolchainSha256:h('e'),artifactSha256:h('b'),testsSha256:hash(tests),predecessorSha256:h('f'),workerPlanSha256:h('1'),maintenanceId:'a'.repeat(32),djangoPredecessorSha256:h('a'),djangoCandidateSha256:h('a')};
-  const life=(step,phase)=>({id:`op-${step.toLowerCase()}`,step,phase,kind:'lifecycle',mutating:true,command:{args:['-File','D:/isolated/tools/release-lifecycle-step.ps1','-Step',step,'-MaintenanceId',binding.maintenanceId],files:[{path:'D:/isolated/tools/release-lifecycle-step.ps1',sha256:h('a')}]},assertions:[{path:'drainConfirmed',equals:true}]});
+  const life=(step,phase)=>({id:`op-${step.toLowerCase()}`,step,phase,kind:'lifecycle',mutating:true,command:{args:['-File','D:/isolated/tools/release-lifecycle-step.ps1','-Step',step,'-MaintenanceId',binding.maintenanceId,...(step==='StartWorker'?['-ExpectedWorkerManifestSha256',binding.artifactSha256,'-ExpectedDjangoManifestSha256',binding.djangoCandidateSha256,'-ExpectedDrainId',binding.maintenanceId]:[])],files:[{path:'D:/isolated/tools/release-lifecycle-step.ps1',sha256:h('a')},{path:'D:/isolated/tools/process-deadline.ps1',sha256:h('a')}]},assertions:[{path:'drainConfirmed',equals:true}]});
   const database=suffix=>['backup','restore'].map(kind=>({id:`op-${kind}-${suffix}`,phase:`${kind}-${suffix}`,kind,mutating:true,...(kind==='restore'?{backupOperationId:`op-backup-${suffix}`}:{ }),
     command:{args:['-File','D:/isolated/tools/django-postgres-maintenance.ps1','-Action',kind==='backup'?'Backup':'RestoreRehearsal','-Execute',...(kind==='restore'?['-ConfirmedIsolatedRestore','-BackupDirectory',`{receipt:op-backup-${suffix}:backupDirectory}`,'-ApprovedManifestSha256',`{receipt:op-backup-${suffix}:manifestSha256}`]:[])],files:[{path:'D:/isolated/tools/django-postgres-maintenance.ps1',sha256:h('a')}]},
     assertions:[{path:'status',equals:'completed'},{path:'serviceStateChanged',equals:false},...(kind==='restore'?[{path:'productionDatabaseTouched',equals:false},{path:'cleanupStatus',equals:'isolated_data_removed'},{path:'profileRestoreVerified',equals:true},{path:'sequenceHealthVerified',equals:true}]:[])]}));
@@ -187,13 +187,17 @@ test('missing config parent creation invalidates; unrelated ancestor siblings do
     await mkdir(source);await writeFile(path.join(source,'view.tsx'),view);await writeFile(runtime,'SYNTHETIC=1');
     const identify=async()=>{const files=await readSourceTree(source);return {
       sourceTree:{sha256:sourceTreeDigest(files)},sourceInventorySha256:hash(sourceInventory(files)),nodeExecutableSha256:await safeFileDigest(process.execPath),
-      toolchain:{npmPackageTree:await hashTree(path.join(path.dirname(process.execPath),'node_modules','npm'))},runtimeConfigurationSha256:hash(await safeRead(runtime)),environmentSha256:hash(process.env),
+      toolchain:{npmPackageTree:await hashTree(path.join(path.dirname(process.execPath),'node_modules','npm'))},runtimeConfigurationSha256:hash(await safeRead(runtime)),environmentSha256:preparationEnvironmentSha256(process.env),
       externalNpmConfiguration:Object.fromEntries(Object.entries(targets).map(([key,target])=>[key,{pathSha256:windowsPathSha256(target),contentSha256:null}]))};};
     session=createPreparationEvidenceSession({batchSha256:h('1'),sourceRoot:source,devVarsSource:runtime,identify,execute:async(_exe,args)=>({stdout:targets[args.at(-1)]})});
     await session.collect({approvedBatchSha256:h('1')});await writeFile(path.join(root,'unrelated.txt'),'not an input');await new Promise(r=>setImmediate(r));
     await session.recheck();await mkdir(path.join(root,'absent'));await new Promise(r=>setTimeout(r,20));
     await assert.rejects(session.recheck(),/changed/);
   }finally{session?.dispose();await rm(root,{recursive:true,force:true});}
+});
+test('shared process deadline is transport metadata; other inherited configuration stays bound',()=>{
+  assert.equal(preparationEnvironmentSha256({SYNTHETIC:'same',TERUISI_PROCESS_DEADLINE_UNIX_MS:'1'}),preparationEnvironmentSha256({SYNTHETIC:'same',TERUISI_PROCESS_DEADLINE_UNIX_MS:'2'}));
+  assert.notEqual(preparationEnvironmentSha256({SYNTHETIC:'same'}),preparationEnvironmentSha256({SYNTHETIC:'changed'}));
 });
 test('timings are disjoint children and retain failure status without sensitive diagnostics',async()=>{
   const timer=admissionTimer();await timer.measure('classification','sealed-evidence',async()=>1);

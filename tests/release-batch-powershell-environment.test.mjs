@@ -103,6 +103,10 @@ $flags=[bool]($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -or $env:TERUISI_DJANGO_M
     const failed={...op,command:{...op.command,args:['-NoProfile','-NonInteractive','-File',failFile],
       files:[op.command.files[0],{path:failFile,sha256:await safeFileDigest(failFile)}]},assertions:[{path:'status',equals:'passed'}]};
     await assert.rejects(runApprovedOperation(failed,{batch:{id:'isolated-ps5-failure'},lease:null,state:{latest:new Map()}}),/exit=1/);
+    await writeFile(failFile,'\uFEFF'+`Write-Output '{"status":"passed"}'; exit 9\n`,'utf8');
+    failed.command.files[1].sha256=await safeFileDigest(failFile);
+    await assert.rejects(runApprovedOperation(failed,{batch:{id:'isolated-ps5-exit'},lease:null,state:{latest:new Map()}}),e=>e.processEvidence.exitCode===9);
+
   } finally {
     for(const key of ['PSModulePath','TERUISI_DJANGO_SERVICE_LIBRARY_ONLY','TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY']) {
       if(Object.hasOwn(original,key))process.env[key]=original[key];else delete process.env[key];
@@ -125,9 +129,10 @@ $null=Microsoft.PowerShell.Security\Get-Acl -LiteralPath $PSScriptRoot
     const source=await (await import('node:fs/promises')).readFile(new URL('../tools/release-lifecycle-step.ps1',import.meta.url),'utf8');
     const fixture=source.replace(/\$installedDjango='[^']*'/,`$installedDjango='${fake.replaceAll("'","''")}'`).replace(/\$deployment='[^']*'/,`$deployment='${manifest.replaceAll("'","''")}'`);
     await writeFile(wrapper,fixture,'utf8');
+    await writeFile(path.join(root,'process-deadline.ps1'),await (await import('node:fs/promises')).readFile(new URL('../tools/process-deadline.ps1',import.meta.url)));
     const op={id:'nested-ps5-lifecycle-fixture',kind:'lifecycle',phase:'acceptance',step:'AggregateStatus',mutating:false,covers:['components'],
       command:{executable:host,args:['-NoProfile','-NonInteractive','-File',wrapper,'-Step','AggregateStatus'],cwd:root,timeoutMs:30000,
-        files:[{path:host,sha256:await safeFileDigest(host)},{path:wrapper,sha256:await safeFileDigest(wrapper)}]},
+        files:[{path:host,sha256:await safeFileDigest(host)},{path:wrapper,sha256:await safeFileDigest(wrapper)},{path:path.join(root,'process-deadline.ps1'),sha256:await safeFileDigest(path.join(root,'process-deadline.ps1'))}]},
       assertions:[{path:'status',equals:'completed'},{path:'aggregate.label',equals:'运营管理系统'},{path:'aggregate.echoAction',equals:'AggregateStatus'}]};
     assert.equal((await runApprovedOperation(op,{batch:{id:'isolated-nested-ps5'},lease:null,state:{latest:new Map()}})).status,'passed');
   } finally {

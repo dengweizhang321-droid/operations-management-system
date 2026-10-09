@@ -2,7 +2,7 @@ import path from 'node:path';
 import { watch } from 'node:fs';
 import { lstat } from 'node:fs/promises';
 import { safeRead, safeFileDigest, readSourceTree, sourceInventory, sourceTreeDigest, hash, canonical, requireHash } from './release-impact.mjs';
-import { workerPreparationIdentity, hashTree, runProcess, workerDevVarsSource, windowsPathSha256 } from './worker-local-release.mjs';
+import { workerPreparationIdentity, preparationEnvironmentSha256, hashTree, runProcess, workerDevVarsSource, windowsPathSha256 } from './worker-local-release.mjs';
 
 const lifetimeMs = 10 * 60 * 1000;
 const maximumUses = 24;
@@ -66,7 +66,7 @@ export function createPreparationEvidenceSession({ batchSha256, sourceRoot, devV
       node:await safeFileDigest(process.execPath), npmPackageSha256:hash(await safeRead(path.join(npmRoot,'package.json'))), npm:await hashTree(npmRoot), version:process.version,
     }));
     const configuration = await measure('configuration-content','mutable-input',async()=>({
-      runtime:hash(await safeRead(devVarsSource)), environment:hash(process.env),
+      runtime:hash(await safeRead(devVarsSource)), environment:preparationEnvironmentSha256(process.env),
       projectNpmrc:await optionalDigest(path.join(sourceRoot,'.npmrc')),
       external:Object.fromEntries(await Promise.all(Object.entries(targets).map(async([k,p])=>[k,{path:p,sha256:await optionalDigest(p)}]))),
     }));

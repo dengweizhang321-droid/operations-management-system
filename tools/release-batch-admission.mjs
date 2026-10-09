@@ -19,7 +19,7 @@ const archiveRoot='E:\\运营管理系统业务数据';
 export async function runReadOnlyPowerShell(script,args,label,probeOptions) {
   const argv=['-NoProfile','-NonInteractive','-File',script,...args];
   return (probeOptions ? runReadOnlyProcess : runProcess)(shell,productionCommandArguments(shell,argv),{
-    env:productionCommandEnvironment(shell),label,...probeOptions});
+    env:productionCommandEnvironment(shell),label,...probeOptions,outputProtocol:'direct-exit-files',cleanup:'direct'});
 }
 async function verifyRestoreReceipt(target,expectedHash) {
   const parent=path.dirname(path.resolve(target));

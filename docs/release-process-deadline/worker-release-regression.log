@@ -1,0 +1,245 @@
+✔ release canonical JSON and Windows path identities are deterministic (4.429ms)
+✔ real release artifact packer carries every guarded entrypoint and binds each one as a key file (945.0207ms)
+✔ production manifest provenance accepts only the legacy predecessor or isolated successor source (3.8591ms)
+✖ Windows Node 24 runs its bundled npm CLI directly without cmd or shell (13501.3586ms)
+✔ PowerShell 5 outer capture is isolated from noisy children and preserves bounded failures (4435.6635ms)
+✔ helper builder accepts only exact unique import.meta contracts (1.7004ms)
+✔ source snapshot fingerprint detects a post-copy mutation (70.7382ms)
+✔ bounded parallel tree hashing preserves the legacy ordinal byte protocol (814.7331ms)
+✔ isolated source closure rejects build-added source files (15.1251ms)
+✔ isolated source closure compares complete flat ordinal paths instead of DFS order (53.2215ms)
+✔ isolated source closure reports bounded relative added and removed paths (155.5788ms)
+✔ isolated source closure diagnostics escape controls and cap long relative examples (17.9276ms)
+✔ isolated source closure still reports content changes after set equality (20.6518ms)
+✔ Vinext scratch fixture accepts only the real 74-byte config and restores exact source closure (72.0246ms)
+✔ Vinext scratch preflight rejects source conflicts and any pre-build .wrangler object (9.7972ms)
+✔ Vinext scratch rejects every unexpected sibling before deleting the verified config (69.4842ms)
+✔ Vinext scratch config is strict JSON with one exact byte representation and target (1157.0359ms)
+✔ Vinext scratch rejects a hard-linked config before deleting either name (286.6846ms)
+✔ Vinext scratch rejects a reparse-point .wrangler tree (25.4276ms)
+✔ immutable helper bundle keeps code immutable and mutable state at the protected root (9696.5578ms)
+✔ exclusive any-interface port probe rejects wildcard and IPv6 listeners (13.2262ms)
+✔ D1 retirement guard recognizes receipt or all exact tombstone views (141.9866ms)
+✔ immutable release completion requires views, shared guards, and completed receipt (115.3276ms)
+✔ partial or malformed D1 tombstone views fail closed (105.2473ms)
+✔ installed runtime without current guard receipt never lets legacy launcher fail open (4.6007ms)
+✔ authority first publication is create-only under competing tuples (214.614ms)
+✔ authority verification fails when current is deleted or tampered after publication (280.198ms)
+✔ ordinary Deploy is first-publication only and rejects authority or retirement (435.108ms)
+✔ concurrent first current publication has one winner and never removes it (42.7449ms)
+✔ trusted Django verifier refuses a different candidate verifier (61.1428ms)
+✔ local port probe detects an exact IPv4 loopback listener (21.9654ms)
+✔ release source fixes build closure, real contract tests, guard and authority protocols (530.0461ms)
+✔ supervisor prelaunch policy binds its own exact starting identity instead of asserting stopped (6.5295ms)
+✔ hot restart keeps the verified supervisor and helper while replacing only the Worker child (4.6258ms)
+✔ supervisor consumes one fresh full-verification receipt and rejects expired reuse (54.3769ms)
+✖ supervisor prelaunch waits for the real create-only receipt and rejects timeout or a forged PID (6081.2705ms)
+✔ immutable Worker keeps Miniflare cache outside node_modules across two starts and rejects unsafe cache objects (810.2137ms)
+✔ public entrypoints converge on the immutable Worker start engine (11.4747ms)
+✔ PowerShell 5 service contract is parseable and never claims an unknown port is stopped (15819.3249ms)
+✔ PowerShell startup ownership observation tolerates only a bounded transient anomaly (2505.6547ms)
+✔ PowerShell process tree rejects PID-reuse creation inversions and unreadable identities (2035.4198ms)
+✔ PowerShell Stop sweep follows a newly spawned exact helper lineage and rejects ambiguity (2238.7766ms)
+ℹ tests 42
+ℹ suites 0
+ℹ pass 40
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 63882.5912
+
+✖ failing tests:
+
+test at tests\worker-local-release.test.ts:2:4036
+✖ Windows Node 24 runs its bundled npm CLI directly without cmd or shell (13501.3586ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /shell: false/. Input:
+  
+  'import { spawn } from "node:child_process";\r\n' +
+    'import { mkdtempSync, openSync, closeSync, fstatSync, readSync, unlinkSync, rmdirSync } from "node:fs";\r\n' +
+    'import { tmpdir } from "node:os";\r\n' +
+    'import { createHash, randomUUID } from "node:crypto";\r\n' +
+    'import {\r\n' +
+    '  copyFile,\r\n' +
+    '  cp,\r\n' +
+    '  link,\r\n' +
+    '  lstat,\r\n' +
+    '  mkdir,\r\n' +
+    '  open,\r\n' +
+    '  readFile,\r\n' +
+    '  readdir,\r\n' +
+    '  realpath,\r\n' +
+    '  rename,\r\n' +
+    '  rmdir,\r\n' +
+    '  rm,\r\n' +
+    '  stat,\r\n' +
+    '  unlink,\r\n' +
+    '  writeFile,\r\n' +
+    '} from "node:fs/promises";\r\n' +
+    'import { createConnection, createServer } from "node:net";\r\n' +
+    'import path from "node:path";\r\n' +
+    'import { DatabaseSync } from "node:sqlite";\r\n' +
+    'import { fileURLToPath } from "node:url";\r\n' +
+    '// Keep the trusted verifier self-contained when Django deploys its exact file.\r\n' +
+    'export const d1ProofVersion = "teruisi-global-d1-retirement-proof-v1";\r\n' +
+    'export const d1ReceiptVersion = "teruisi-global-d1-retirement-binding-v1";\r\n' +
+    'export const d1ReceiptRelativePath = "audit/global-d1-retirement.json";\r\n' +
+    'export const d1RetiredDomains = Object.freeze([\r\n' +
+    '  "sales", "finance", "netshop", "market", "products", "inventory",\r\n' +
+    '  "workflow-launch", "workflow-operations", "customer-service", "erp-reference", "access-control", "ai-assistant",\r\n' +
+    ']);\r\n' +
+    'const hex = /^[0-9a-f]{64}$/;\r\n' +
+    'const proofReleaseIdPattern = /^\\d{8}T\\d{6}Z-[0-9a-f]{16}$/;\r\n' +
+    'export function canonicalProofJson(value) {\r\n' +
+    '  return canonicalJson(value);\r\n' +
+    '}\r\n' +
+    'export function proofHash(value) { return createHash("sha256").update(canonicalProofJson(value)).digest("hex"); }\r\n' +
+    'export function proofBytesHash(value) { return createHash("sha256").update(value).digest("hex"); }\r\n' +
+    'function keys(value, expected, label) {\r\n' +
+    '  if (!value || typeof value !== "object" || Array.isArray(value)\r\n' +
+    '      || canonicalProofJson(Object.keys(value).sort()) !== canonicalProofJson([...expected].sort())) {\r\n' +
+    '    throw new Error(`${label}: invalid fields`);\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function hashFields(value, fields) {\r\n' +
+    '  if (fields.some((field) => typeof value[field] !== "string" || !hex.test(value[field]))) throw new Error("D1 retirement proof: invalid digest");\r\n' +
+    '}\r\n' +
+    'function date(value) {\r\n' +
+    '  if (typeof value !== "string" || !/^\\d{4}-\\d\\d-\\d\\dT/.test(value)\r\n' +
+    '      || !Number.isFinite(Date.parse(value))) throw new Error("D1 retirement proof: invalid timestamp");\r\n' +
+    '}\r\n' +
+    'export function sealProof(value, field) { return { ...value, [field]: proofHash(value) }; }\r\n' +
+    'function selfHash(value, field) {\r\n' +
+    '  const { [field]: digest, ...core } = value;\r\n' +
+    '  if (!hex.test(digest ?? "") || digest !== proofHash(core)) throw new Error("D1 retirement proof: digest mismatch");\r\n' +
+    '}\r\n' +
+    'export function validateD1RetirementProof(proof, expected = {}) {\r\n' +
+    '  keys(proof, ["version", "verifiedAt", "runtimeRootPathSha256", "sourceD1PathSha256", "persistRootPathSha256",\r\n' +
+    '    "bootstrapAuthoritySha256", "adoptionPredecessorManifestSha256", "sourceSchemaSha256", "postgresEvidenceSha256",\r\n' +
+    '    "retainedEvidenceSha256", "domains", "proofSha256"], "D1 retirement proof");\r\n' +
+    '  selfHash(proof, "proofSha256");\r\n' +
+    '  if (proof.version !== d1ProofVersion) throw new Error("D1 retirement proof: unsupported version");\r\n' +
+    '  date(proof.verifiedAt);\r\n' +
+    '  hashFields(proof, ["runtimeRootPathSha256", "sourceD1PathSha256", "persistRootPathSha256", "bootstrapAuthoritySha256",\r\n' +
+    '    "adoptionPredecessorManifestSha256", "sourceSchemaSha256", "postgresEvidenceSha256", "retainedEvidenceSha256"]);\r\n' +
+    '  if (!Array.isArray(proof.domains) || canonicalProofJson(proof.domains.map((item) => item?.domain)) !== canonicalProofJson(d1RetiredDomains)) {\r\n' +
+    '    throw new Error("D1 retirement proof: incomplete or reordered domains");\r\n' +
+    '  }\r\n' +
+    '  for (const item of proof.domains) {\r\n' +
+    '    keys(item, ["domain", "cutoverId", "migrationSha256", "objectsSha256", "receiptSha256", "viewCount", "guardCount"], "D1 domain proof");\r\n' +
+    '    hashFields(item, ["migrationSha256", "objectsSha256", "receiptSha256"]);\r\n' +
+    '    if (typeof item.cutoverId !== "string" || !/^[A-Za-z0-9._:-]{8,128}$/.test(item.cutoverId)\r\n' +
+    '        || !Number.isSafeInteger(item.viewCount) || item.viewCount < 0\r\n' +
+    '        || !Number.isSafeInteger(item.guardCount) || item.guardCount < 0\r\n' +
+    '        || (item.domain === "finance" ? item.guardCount < 1 : item.viewCount < 1)) throw new Error("D1 retirement proof: invalid domain evidence");\r\n' +
+    '  }\r\n' +
+    '  for (const [field, value] of Object.entries(expected)) {\r\n' +
+    '    if (!Object.hasOwn(proof, field) || proof[field] !== value) throw new Error(`D1 retirement proof: ${field} binding mismatch`);\r\n' +
+    '  }\r\n' +
+    '  return proof;\r\n' +
+    '}\r\n' +
+    'export function createD1RetirementReceipt(proof, manifest) {\r\n' +
+    '  validateD1RetirementProof(proof, {\r\n' +
+    '    runtimeRootPathSha256: manifest.runtime.runtimeRootPathSha256,\r\n' +
+    '    sourceD1PathSha256: manifest.runtime.sourceD1PathSha256,\r\n' +
+    '    persistRootPathSha256: manifest.runtime.persistRootPathSha256,\r\n' +
+    '  });\r\n' +
+    '  return sealProof({ version: d1ReceiptVersion, releaseId: manifest.releaseId,\r\n' +
+    '    sourceFingerprint: manifest.source.sourceFingerprint, buildFingerprint: manifest.build.buildFingerprint, proof }, "receiptPayloadSha256");\r\n' +
+    '}\r\n' +
+    'export async function readD1RetirementReceipt(manifest, releaseRoot, expected = {}) {\r\n' +
+    '  const pointer = manifest.artifacts?.d1RetirementReceipt;\r\n' +
+    '  keys(pointer, ["version", "relativePath", "sha256"], "D1 retirement receipt pointer");\r\n' +
+    '  if (pointer.version !== d1ReceiptVersion || pointer.relativePath !== d1ReceiptRelativePath || !hex.test(pointer.sha256 ?? "")) {\r\n' +
+    '    throw new Error("D1 retirement proof is required for this release");\r\n' +
+    '  }\r\n' +
+    '  const target = path.resolve(releaseRoot, ...d1ReceiptRelativePath.split("/"));\r\n' +
+    '  let current = path.parse(target).root;\r\n' +
+    '  for (const part of target.slice(current.length).split(path.sep).filter(Boolean)) {\r\n' +
+    '    current = path.join(current, part);\r\n' +
+    '    if ((await lstat(current)).isSymbolicLink()) throw new Error("D1 retirement receipt: reparse path forbidden");\r\n' +
+    '  }\r\n' +
+    '  const info = await lstat(target);\r\n' +
+    '  if (!info.isFile() || info.nlink !== 1 || path.resolve(await realpath(target)).toLowerCase() !== target.toLowerCase()\r\n' +
+    '      || info.size > 64 * 1024) throw new Error("D1 retirement receipt: invalid file");\r\n' +
+    '  const raw = await readFile(target);\r\n' +
+    '  if (proofBytesHash(raw) !== pointer.sha256) throw new Error("D1 retirement receipt: file digest mismatch");\r\n' +
+    '  const receipt = JSON.parse(raw.toString("utf8"));\r\n' +
+    '  if (!raw.equals(Buffer.from(`${canonicalProofJson(receipt)}\\n`))) throw new Error("D1 retirement receipt: noncanonical bytes");\r\n' +
+    '  keys(receipt, ["version", "releaseId", "sourceFingerprint", "buildFingerprint", "proof", "receiptPayloadSha256"], "D1 retirement receipt");\r\n' +
+    '  selfHash(receipt, "receiptPayloadSha256");\r\n' +
+    '  hashFields(receipt, ["sourceFingerprint", "buildFingerprint"]);\r\n' +
+    '  if (receipt.version !== d1ReceiptVersion || !proofReleaseIdPattern.test(receipt.releaseId ?? "")\r\n' +
+    '      || receipt.releaseId !== manifest.releaseId || receipt.sourceFingerprint !== manifest.source.sourceFingerprint\r\n' +
+    '      || receipt.buildFingerprint !== manifest.build.buildFingerprint) throw new Error("D1 retirement receipt: release mismatch");\r\n' +
+    '  return validateD1RetirementProof(receipt.proof, {\r\n' +
+    '    runtimeRootPathSha256: manifest.runtime.runtimeRootPathSha256,\r\n' +
+    '    sourceD1PathSha256: manifest.runtime.sourceD1PathSha256,\r\n' +
+    '    persistRootPathSha256: manifest.runtime.persistRootPathSha256,\r\n' +
+    '    ...expected,\r\n' +
+    '  });\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    '\r\n' +
+    'export const workerRuntimeRoot = "D:\\\\teruisi-runtime\\\\teruisi-worker-sales";\r\n' +
+    '// Existing immutable releases retain the original combined-tree provenance.\r\n' +
+    '// New successors are built only from the clean integration worktree so the\r\n' +
+    "// user's live development tree never has to be edited or moved for a release.\r\n" +
+    'export const workerLegacySourceRoot = "D:\\\\运营管理系统-django-sales-combined";\r\n' +
+    'export const workerSourceRoot = "D:\\\\运营管理系统-sales-django-release";\r\n' +
+    'export const workerProtectedSourceRoot = "D:\\\\运营管理系统";\r\n' +
+    'export const workerPersistRoot = "D:\\\\运营管理系统\\\\.wrangler\\\\state";\r\n' +
+    'export const workerDevVarsSource = "D:\\\\运营管理系统\\\\.dev.vars";\r\n' +
+    'export const workerHost = "127.0.0.1";\r\n' +
+    'export const workerPort = 3000;\r\n' +
+    'export const workerHelperHost = "127.0.0.1";\r\n' +
+    'export const workerHelperPort = 5791;\r\n' +
+    'export const releaseVersion = "teruisi-local-worker-release-v1";\r\n' +
+    'export const verificationVersion = "teruisi-local-worker-release-verification-v1";\r\n' +
+    'export const contractReceiptVersion = "teruisi-sales-retired-code-receipt-v1";\r\n' +
+    'export const helperReceiptVersion = "teruisi-worker-helper-build-receipt-v1";\r\n' +
+    'export const processReceiptVersion = "teruisi-local-worker-process-v1";\r\n' +
+    'export const supervisorPrelaunchVerificationReceiptVersion = "teruisi-local-worker-supervisor-prelaunch-verification-v1";\r\n' +
+    'export const supervisorPrelaunchVerificationReceiptRelativePath = "state/worker-startup-verification.json";\r\n' +
+    'export const supervisorPrelaunchVerificationReceiptMaxAgeMs = 120_000;\r\n' +
+    'export const activationFenceVersion = "teruisi-local-worker-release-activation-fence-v1";\r\n' +
+    'export const activationFenceRelativePath = ".runtime/worker-release-activation-fence.json";\r\n' +
+    'export const treeHashAlgorithm = "sha256-ordinal-path-length-content-v1";\r\n' +
+    'export const treeHashMetadataConcurrency = 64;\r\n' +
+    'export const treeHashReadConcurrency = 16;\r\n' +
+    'export const treeHashReadBatchBytes = 32 * 1024 * 1024;\r\n' +
+    'export const npmCiArguments = Object.freeze(["ci", "--ignore-scripts=false", "--no-audit", "--no-fund"]);\r\n' +
+    'export const bundledNpmPackageRootRelativePath = "node_modules/npm";\r\n' +
+    'export const bundledNpmCliRelativePath = "node_modules/npm/bin/npm-cli.js";\r\n' +
+    'export const bundledNpmPackageJsonRelativePath = "node_modules/npm/package.json";\r\n' +
+    'export const salesRetirementMigrationSha256 = "f981a62efd0515a7f64dd9f174151b8cfeb0c4b071d8236c481b5459761a3b8f";\r\n' +
+    '// Updated only after the standalone helper builder has passed its closure,\r\n' +
+    '// mutable-root, resource and health tests.  The trusted Django verifier uses\r\n' +
+    '// this as the build-code trust root; the candidate cannot self-certify a\r\n' +
+    '// weakened bundle builder.\r\n' +
+    'export const trustedHelperBuilderSha256 = "ccf1e8252dce50b7cbe20fa84ea9dfa654b03ec689993d3504f469e7c366ad38";\r\n' +
+    '\r\n' +
+    'const salesContractTestFiles = Object.freeze([\r\n' +
+    '  "tests/sales-d1-retiremen'... 161487 more characters
+  
+      at TestContext.<anonymous> (D:\.codex\worktrees\release-process-deadline\运营管理系统\tests\worker-local-release.test.ts:390:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'import { spawn } from "node:child_process";\r\nimport { mkdtempSync, openSync, closeSync, fstatSync, readSync, unlinkSync, rmdirSync } from "node:fs";\r\nimport { tmpdir } from "node:os";\r\nimport { createHash, randomUUID } from "node:crypto";\r\nimport {\r\n  copyFile,\r\n  cp,\r\n  link,\r\n  lstat,\r\n  mkdir,\r\n  open,\r\n  readFile,\r\n  readdir,\r\n  realpath,\r\n  rename,\r\n  rmdir,\r\n  rm,\r\n  stat,\r\n  unlink,\r\n  writeFile,\r\n} from "node:fs/promises";\r\nimport { createConnection, createServer } from "node:net";\r\nimport path from "node:path";\r\nimport { DatabaseSync } from "node:sqlite";\r\nimport { fileURLToPath } from "node:url";\r\n// Keep the trusted verifier self-contained when Django deploys its exact file.\r\nexport const d1ProofVersion = "teruisi-global-d1-retirement-proof-v1";\r\nexport const d1ReceiptVersion = "teruisi-global-d1-retirement-binding-v1";\r\nexport const d1ReceiptRelativePath = "audit/global-d1-retirement.json";\r\nexport const d1RetiredDomains = Object.freeze([\r\n  "sales", "finance", "netshop", "market", "products", "inventory",\r\n  "workflow-launch", "workflow-operations", "customer-service", "erp-reference", "access-control", "ai-assistant",\r\n]);\r\nconst hex = /^[0-9a-f]{64}$/;\r\nconst proofReleaseIdPattern = /^\\d{8}T\\d{6}Z-[0-9a-f]{16}$/;\r\nexport function canonicalProofJson(value) {\r\n  return canonicalJson(value);\r\n}\r\nexport function proofHash(value) { return createHash("sha256").update(canonicalProofJson(value)).digest("hex"); }\r\nexport function proofBytesHash(value) { return createHash("sha256").update(value).digest("hex"); }\r\nfunction keys(value, expected, label) {\r\n  if (!value || typeof value !== "object" || Array.isArray(value)\r\n      || canonicalProofJson(Object.keys(value).sort()) !== canonicalProofJson([...expected].sort())) {\r\n    throw new Error(`${label}: invalid fields`);\r\n  }\r\n}\r\nfunction hashFields(value, fields) {\r\n  if (fields.some((field) => typeof value[field] !== "string" || !hex.test(value[field]))) throw new Error("D1 retirement proof: invalid digest");\r\n}\r\nfunction date(value) {\r\n  if (typeof value !== "string" || !/^\\d{4}-\\d\\d-\\d\\dT/.test(value)\r\n      || !Number.isFinite(Date.parse(value))) throw new Error("D1 retirement proof: invalid timestamp");\r\n}\r\nexport function sealProof(value, field) { return { ...value, [field]: proofHash(value) }; }\r\nfunction selfHash(value, field) {\r\n  const { [field]: digest, ...core } = value;\r\n  if (!hex.test(digest ?? "") || digest !== proofHash(core)) throw new Error("D1 retirement proof: digest mismatch");\r\n}\r\nexport function validateD1RetirementProof(proof, expected = {}) {\r\n  keys(proof, ["version", "verifiedAt", "runtimeRootPathSha256", "sourceD1PathSha256", "persistRootPathSha256",\r\n    "bootstrapAuthoritySha256", "adoptionPredecessorManifestSha256", "sourceSchemaSha256", "postgresEvidenceSha256",\r\n    "retainedEvidenceSha256", "domains", "proofSha256"], "D1 retirement proof");\r\n  selfHash(proof, "proofSha256");\r\n  if (proof.version !== d1ProofVersion) throw new Error("D1 retirement proof: unsupported version");\r\n  date(proof.verifiedAt);\r\n  hashFields(proof, ["runtimeRootPathSha256", "sourceD1PathSha256", "persistRootPathSha256", "bootstrapAuthoritySha256",\r\n    "adoptionPredecessorManifestSha256", "sourceSchemaSha256", "postgresEvidenceSha256", "retainedEvidenceSha256"]);\r\n  if (!Array.isArray(proof.domains) || canonicalProofJson(proof.domains.map((item) => item?.domain)) !== canonicalProofJson(d1RetiredDomains)) {\r\n    throw new Error("D1 retirement proof: incomplete or reordered domains");\r\n  }\r\n  for (const item of proof.domains) {\r\n    keys(item, ["domain", "cutoverId", "migrationSha256", "objectsSha256", "receiptSha256", "viewCount", "guardCount"], "D1 domain proof");\r\n    hashFields(item, ["migrationSha256", "objectsSha256", "receiptSha256"]);\r\n    if (typeof item.cutoverId !== "string" || !/^[A-Za-z0-9._:-]{8,128}$/.test(item.cutoverId)\r\n        || !Number.isSafeInteger(item.viewCount) || item.viewCount < 0\r\n        || !Number.isSafeInteger(item.guardCount) || item.guardCount < 0\r\n        || (item.domain === "finance" ? item.guardCount < 1 : item.viewCount < 1)) throw new Error("D1 retirement proof: invalid domain evidence");\r\n  }\r\n  for (const [field, value] of Object.entries(expected)) {\r\n    if (!Object.hasOwn(proof, field) || proof[field] !== value) throw new Error(`D1 retirement proof: ${field} binding mismatch`);\r\n  }\r\n  return proof;\r\n}\r\nexport function createD1RetirementReceipt(proof, manifest) {\r\n  validateD1RetirementProof(proof, {\r\n    runtimeRootPathSha256: manifest.runtime.runtimeRootPathSha256,\r\n    sourceD1PathSha256: manifest.runtime.sourceD1PathSha256,\r\n    persistRootPathSha256: manifest.runtime.persistRootPathSha256,\r\n  });\r\n  return sealProof({ version: d1ReceiptVersion, releaseId: manifest.releaseId,\r\n    sourceFingerprint: manifest.source.sourceFingerprint, buildFingerprint: manifest.build.buildFingerprint, proof }, "receiptPayloadSha256");\r\n}\r\nexport async function readD1RetirementReceipt(manifest, releaseRoot, expected = {}) {\r\n  const pointer = manifest.artifacts?.d1RetirementReceipt;\r\n  keys(pointer, ["version", "relativePath", "sha256"], "D1 retirement receipt pointer");\r\n  if (pointer.version !== d1ReceiptVersion || pointer.relativePath !== d1ReceiptRelativePath || !hex.test(pointer.sha256 ?? "")) {\r\n    throw new Error("D1 retirement proof is required for this release");\r\n  }\r\n  const target = path.resolve(releaseRoot, ...d1ReceiptRelativePath.split("/"));\r\n  let current = path.parse(target).root;\r\n  for (const part of target.slice(current.length).split(path.sep).filter(Boolean)) {\r\n    current = path.join(current, part);\r\n    if ((await lstat(current)).isSymbolicLink()) throw new Error("D1 retirement receipt: reparse path forbidden");\r\n  }\r\n  const info = await lstat(target);\r\n  if (!info.isFile() || info.nlink !== 1 || path.resolve(await realpath(target)).toLowerCase() !== target.toLowerCase()\r\n      || info.size > 64 * 1024) throw new Error("D1 retirement receipt: invalid file");\r\n  const raw = await readFile(target);\r\n  if (proofBytesHash(raw) !== pointer.sha256) throw new Error("D1 retirement receipt: file digest mismatch");\r\n  const receipt = JSON.parse(raw.toString("utf8"));\r\n  if (!raw.equals(Buffer.from(`${canonicalProofJson(receipt)}\\n`))) throw new Error("D1 retirement receipt: noncanonical bytes");\r\n  keys(receipt, ["version", "releaseId", "sourceFingerprint", "buildFingerprint", "proof", "receiptPayloadSha256"], "D1 retirement receipt");\r\n  selfHash(receipt, "receiptPayloadSha256");\r\n  hashFields(receipt, ["sourceFingerprint", "buildFingerprint"]);\r\n  if (receipt.version !== d1ReceiptVersion || !proofReleaseIdPattern.test(receipt.releaseId ?? "")\r\n      || receipt.releaseId !== manifest.releaseId || receipt.sourceFingerprint !== manifest.source.sourceFingerprint\r\n      || receipt.buildFingerprint !== manifest.build.buildFingerprint) throw new Error("D1 retirement receipt: release mismatch");\r\n  return validateD1RetirementProof(receipt.proof, {\r\n    runtimeRootPathSha256: manifest.runtime.runtimeRootPathSha256,\r\n    sourceD1PathSha256: manifest.runtime.sourceD1PathSha256,\r\n    persistRootPathSha256: manifest.runtime.persistRootPathSha256,\r\n    ...expected,\r\n  });\r\n}\r\n\r\n\r\nexport const workerRuntimeRoot = "D:\\\\teruisi-runtime\\\\teruisi-worker-sales";\r\n// Existing immutable releases retain the original combined-tree provenance.\r\n// New successors are built only from the clean integration worktree so the\r\n// user\'s live development tree never has to be edited or moved for a release.\r\nexport const workerLegacySourceRoot = "D:\\\\运营管理系统-django-sales-combined";\r\nexport const workerSourceRoot = "D:\\\\运营管理系统-sales-django-release";\r\nexport const workerProtectedSourceRoot = "D:\\\\运营管理系统";\r\nexport const workerPersistRoot = "D:\\\\运营管理系统\\\\.wrangler\\\\state";\r\nexport const workerDevVarsSource = "D:\\\\运营管理系统\\\\.dev.vars";\r\nexport const workerHost = "127.0.0.1";\r\nexport const workerPort = 3000;\r\nexport const workerHelperHost = "127.0.0.1";\r\nexport const workerHelperPort = 5791;\r\nexport const releaseVersion = "teruisi-local-worker-release-v1";\r\nexport const verificationVersion = "teruisi-local-worker-release-verification-v1";\r\nexport const contractReceiptVersion = "teruisi-sales-retired-code-receipt-v1";\r\nexport const helperReceiptVersion = "teruisi-worker-helper-build-receipt-v1";\r\nexport const processReceiptVersion = "teruisi-local-worker-process-v1";\r\nexport const supervisorPrelaunchVerificationReceiptVersion = "teruisi-local-worker-supervisor-prelaunch-verification-v1";\r\nexport const supervisorPrelaunchVerificationReceiptRelativePath = "state/worker-startup-verification.json";\r\nexport const supervisorPrelaunchVerificationReceiptMaxAgeMs = 120_000;\r\nexport const activationFenceVersion = "teruisi-local-worker-release-activation-fence-v1";\r\nexport const activationFenceRelativePath = ".runtime/worker-release-activation-fence.json";\r\nexport const treeHashAlgorithm = "sha256-ordinal-path-length-content-v1";\r\nexport const treeHashMetadataConcurrency = 64;\r\nexport const treeHashReadConcurrency = 16;\r\nexport const treeHashReadBatchBytes = 32 * 1024 * 1024;\r\nexport const npmCiArguments = Object.freeze(["ci", "--ignore-scripts=false", "--no-audit", "--no-fund"]);\r\nexport const bundledNpmPackageRootRelativePath = "node_modules/npm";\r\nexport const bundledNpmCliRelativePath = "node_modules/npm/bin/npm-cli.js";\r\nexport const bundledNpmPackageJsonRelativePath = "node_modules/npm/package.json";\r\nexport const salesRetirementMigrationSha256 = "f981a62efd0515a7f64dd9f174151b8cfeb0c4b071d8236c481b5459761a3b8f";\r\n// Updated only after the standalone helper builder has passed its closure,\r\n// mutable-root, resource and health tests.  The trusted Django verifier uses\r\n// this as the build-code trust root; the candidate cannot self-certify a\r\n// weakened bundle builder.\r\nexport const trustedHelperBuilderSha256 = "ccf1e8252dce50b7cbe20fa84ea9dfa654b03ec689993d3504f469e7c366ad38";\r\n\r\nconst salesContractTestFiles = Object.freeze([\r\n  "tests/sales-d1-retiremen'... 161487 more characters,
+    expected: /shell: false/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests\worker-local-release.test.ts:117:277
+✖ supervisor prelaunch waits for the real create-only receipt and rejects timeout or a forged PID (6081.2705ms)
+  Error: delayed real process receipt writer失败：超过 10000ms 时限
+      at finish (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/worker-local-release.mjs:716:23)
+      at ChildProcess.<anonymous> (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/worker-local-release.mjs:771:53)
+      at Object.onceWrapper (node:events:631:26)
+      at ChildProcess.emit (node:events:509:28)
+      at ChildProcess._handle.onexit (node:internal/child_process:295:12) {
+    processEvidence: { version: 1, code: 'process_timeout', stage: 'direct-exit', processId: 55264, exitCode: 1, signal: null, timeoutType: 'direct-exit', deadlineUnixMs: 1791563422041, elapsedMs: 6059, outputProtocol: 'eof', cleanup: 'tree', stdoutBytes: 0, stderrBytes: 0, treeCleanupExitCode: 0, treeCleanupPending: false, stdoutSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', stderrSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }
+  }

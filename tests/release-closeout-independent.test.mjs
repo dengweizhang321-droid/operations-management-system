@@ -172,13 +172,13 @@ test('independent: expired binding validation prevents starting another native p
   assert.equal(calls, 0);
 });
 
-test('independent: actual inherited output EOF remains inside native probe deadline', { skip: process.platform !== 'win32' }, async t => {
+test('independent: direct process completion returns while inherited output remains open', { skip: process.platform !== 'win32' }, async t => {
   // Windows Node/libuv does not retain its captured pipe when an intermediate
   // Node process exits, even with an IPC readiness handshake. Use the native
   // .NET inheritance path and first prove the exit/EOF gap instead of assuming it.
   const descendantArgs = `-e "process.stdout.write('DESC_READY');setTimeout(()=>{},1800)"`;
   const quote = value => `'${value.replaceAll("'", "''")}'`;
-  const script = `$p=New-Object Diagnostics.Process;$p.StartInfo.FileName=${quote(process.execPath)};$p.StartInfo.Arguments=${quote(descendantArgs)};$p.StartInfo.UseShellExecute=$false;$p.StartInfo.CreateNoWindow=$true;[void]$p.Start();Write-Output 'PARENT_READY'`;
+  const script = `$p=New-Object Diagnostics.Process;$p.StartInfo.FileName=${quote(process.execPath)};$p.StartInfo.Arguments=${quote(descendantArgs)};$p.StartInfo.UseShellExecute=$false;$p.StartInfo.CreateNoWindow=$true;[void]$p.Start();Write-Output ('PARENT_READY '+$p.Id)`;
   const executable = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
   const args = ['-NoProfile', '-NonInteractive', '-Command', script];
   const calibration = await new Promise((resolve, reject) => {
@@ -192,8 +192,10 @@ test('independent: actual inherited output EOF remains inside native probe deadl
   assert.ok(calibration.eofMs - calibration.exitMs >= 1200, 'fixture must establish real inherited EOF hold');
   t.diagnostic(JSON.stringify({ parentExitMs: calibration.exitMs, eofMs: calibration.eofMs, inheritedHoldMs: calibration.eofMs - calibration.exitMs }));
   const begun = performance.now();
-  await assert.rejects(runReadOnlyProcess(executable, args, { timeoutMs: 700 }), error => error.code === 'STATUS_TIMEOUT');
-  assert.ok(performance.now() - begun < 1700);
+  const result=await runReadOnlyProcess(executable,args,{timeoutMs:700});
+  assert.match(result.stdout,/PARENT_READY/);assert.equal(result.processEvidence.exitCode,0);
+  const descendant=Number(/PARENT_READY (\d+)/.exec(result.stdout)[1]);
+  try {process.kill(descendant,0);assert.ok(performance.now()-begun<1700);} finally {try{process.kill(descendant);}catch{}}
 });
 
 test('independent: permanent identity mismatch does not retry after a transient query', async () => {

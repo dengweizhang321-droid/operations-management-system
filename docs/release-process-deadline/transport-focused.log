@@ -1,0 +1,14 @@
+✔ Node direct exit files: hold does not wait for inherited stdout/stderr (406.311ms)
+✔ Node direct exit files: hold-stdout does not wait for inherited stdout/stderr (410.2494ms)
+✔ Node direct exit files: hold-stderr does not wait for inherited stdout/stderr (272.2724ms)
+✔ Node direct exit files: nonzero-hold does not wait for inherited stdout/stderr (349.4315ms)
+✔ EOF transport retains exit0 but fails within the same deadline while both streams are held (889.7845ms)
+✔ probe direct cleanup leaves its simulated service alive and no direct probe (375.9793ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3517.615
