@@ -18,4 +18,12 @@
 | DELIVERY.md | `2222ce772a456be29110c1a74be885fa30fed0d4ff4c72669934398238f36917` |
 | preparation-evidence.json | `555acd6578110647185e1bcd28cecffb7affe82f4f4a33e3c701e0d0a53487c1` |
 
-之后只补录DELIVERY行政收尾及本审查记录；五份方案正文与取证JSON保持上述被审字节。DELIVERY最终哈希不再冒充审查时哈希。原字节与Git日志转换以仓库属性为准，第二阶段对最终实现/制品另行绑定独立复审。
+初始文档交付时仅补录DELIVERY行政收尾及本审查记录，当时五份方案正文与取证JSON保持上述被审字节。DELIVERY后续哈希不冒充审查时哈希。原字节与Git日志转换以仓库属性为准，第二阶段对最终实现/制品另行绑定独立复审。
+
+后续C交接补充另行增加C_HANDOFF_RECEIPT/c-handoff-evidence，并在README/HANDOFF加新事实指引；上表仍是原准备审查时哈希，不冒充补充后字节。补充仍限定第一阶段只读取证，不修改验收断言或验证/发布方案。
+
+## C交接补充非作者只读复审
+
+`/root/preparation_review` 再次只读复审通过，无事实/范围/阶段门槛阻断。独立核对9份实现Git原字节SHA、12个冻结证据blob、3项祖先、44份保全大小/SHA与交付回执摘要，原日志计数和timing配对差值一致；正确保留C全量在A/B最后合入前、21.6～24.2秒仅C+B身份子阶段、新主线不等于D验收的限制。审查没有执行测试、安装、构建、集成或生产采集，未修改文件。
+
+补充被审时关键字节：C_HANDOFF_RECEIPT.md `a66476dc0a3679c9e961dcd458852e462b040a16b5ad434602a49dc4ea6ff91d`；c-handoff-evidence.json `60f33614aab7655a2e77e0abc400c1708c215767fd08ab387ee84f3697915ca7`；README.md `77d66f9149183053b3bc8049f4932c872cd34944cec895d9bce7d5c9ef0a9096`；HANDOFF.md `2d1a2832d237f42ec73fa16c6e0c5873fa812158986a86b26d0339e78c869f31`。这是审查时工作树原字节；Git文本属性转换另按blob核验。之后仅补录本审查与DELIVERY行政收尾，不修改上述被审事实文件。
