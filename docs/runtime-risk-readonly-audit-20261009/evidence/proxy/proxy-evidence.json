@@ -1,0 +1,427 @@
+{
+  "schema": "teruisi-readonly-proxy-risk-evidence-v1",
+  "observedAtUtc": "2026-10-09T13:27:15.471Z",
+  "scope": {
+    "analysisGitHead": "0b45017836dab43a85cedcbae7d80f0169c4484b",
+    "deployedSource": "01a0ea6de9bfc1237a761f927fff068eb55d6e41",
+    "current": "20261009T080026Z-d5fb5b62de630ae2",
+    "previous": "20261009T030646Z-9f93e52aa005de7c",
+    "productionMutations": 0,
+    "productionRequests": 0,
+    "experimentsRun": 0,
+    "customerRequestDataPersisted": false,
+    "method": "Read selected installed code, metadata and allowlisted log markers only; no Status/SQL/request/restart/build/test executed."
+  },
+  "receipt": {
+    "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-process.json",
+    "sha256": "74c4e04a121db44570109993280de8487c5b8f439299717da0d2ab54e6ff94a3",
+    "value": {
+      "version": "teruisi-local-worker-process-v1",
+      "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+      "releaseId": "20261009T080026Z-d5fb5b62de630ae2",
+      "supervisorCreationDate": "2026-10-09T10:46:05.7201520Z",
+      "supervisorPid": 32284
+    }
+  },
+  "source": [
+    {
+      "file": "node_modules/wrangler/package.json",
+      "same": true,
+      "values": [
+        {
+          "release": "20261009T080026Z-d5fb5b62de630ae2",
+          "sha256": "b659402d435053012c1843c226a701964abbeb4ce8a9a560d57c5be0ced4916d",
+          "bytes": 6002,
+          "version": "4.92.0"
+        },
+        {
+          "release": "20261009T030646Z-9f93e52aa005de7c",
+          "sha256": "b659402d435053012c1843c226a701964abbeb4ce8a9a560d57c5be0ced4916d",
+          "bytes": 6002,
+          "version": "4.92.0"
+        }
+      ]
+    },
+    {
+      "file": "node_modules/miniflare/package.json",
+      "same": true,
+      "values": [
+        {
+          "release": "20261009T080026Z-d5fb5b62de630ae2",
+          "sha256": "c3b5ee81d42c56d71e1fd448b134d38ee2d7e14f6418f1ab26d0cba400e163b2",
+          "bytes": 4015,
+          "version": "4.20260515.0"
+        },
+        {
+          "release": "20261009T030646Z-9f93e52aa005de7c",
+          "sha256": "c3b5ee81d42c56d71e1fd448b134d38ee2d7e14f6418f1ab26d0cba400e163b2",
+          "bytes": 4015,
+          "version": "4.20260515.0"
+        }
+      ]
+    },
+    {
+      "file": "node_modules/@cloudflare/workerd-windows-64/package.json",
+      "same": true,
+      "values": [
+        {
+          "release": "20261009T080026Z-d5fb5b62de630ae2",
+          "sha256": "5a2f39286e381c18fcb66c0692deaa49e6ca76464b18eb5786a1c41fd6b7fc16",
+          "bytes": 370,
+          "version": "1.20260515.1"
+        },
+        {
+          "release": "20261009T030646Z-9f93e52aa005de7c",
+          "sha256": "5a2f39286e381c18fcb66c0692deaa49e6ca76464b18eb5786a1c41fd6b7fc16",
+          "bytes": 370,
+          "version": "1.20260515.1"
+        }
+      ]
+    },
+    {
+      "file": "node_modules/wrangler/wrangler-dist/cli.js",
+      "same": true,
+      "values": [
+        {
+          "release": "20261009T080026Z-d5fb5b62de630ae2",
+          "sha256": "fc1aa72afc91906759a3555e76e6dae1b13504f71dec6d3bbfa0fe24c351ebd7",
+          "bytes": 12595865
+        },
+        {
+          "release": "20261009T030646Z-9f93e52aa005de7c",
+          "sha256": "fc1aa72afc91906759a3555e76e6dae1b13504f71dec6d3bbfa0fe24c351ebd7",
+          "bytes": 12595865
+        }
+      ]
+    },
+    {
+      "file": "node_modules/wrangler/wrangler-dist/ProxyWorker.js",
+      "same": true,
+      "values": [
+        {
+          "release": "20261009T080026Z-d5fb5b62de630ae2",
+          "sha256": "48d0fa9fc066b765b2cde5fa622333c8b91eb4357e4c0cb9efb8512e8318529c",
+          "bytes": 8473
+        },
+        {
+          "release": "20261009T030646Z-9f93e52aa005de7c",
+          "sha256": "48d0fa9fc066b765b2cde5fa622333c8b91eb4357e4c0cb9efb8512e8318529c",
+          "bytes": 8473
+        }
+      ]
+    },
+    {
+      "file": "node_modules/wrangler/wrangler-dist/InspectorProxyWorker.js",
+      "same": true,
+      "values": [
+        {
+          "release": "20261009T080026Z-d5fb5b62de630ae2",
+          "sha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+          "bytes": 17809
+        },
+        {
+          "release": "20261009T030646Z-9f93e52aa005de7c",
+          "sha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+          "bytes": 17809
+        }
+      ]
+    },
+    {
+      "file": "node_modules/wrangler/templates/startDevWorker/ProxyWorker.ts",
+      "same": true,
+      "values": [
+        {
+          "release": "20261009T080026Z-d5fb5b62de630ae2",
+          "sha256": "cb681ae63eec8d9fbab9ee9ab1b9d127fb781d9b04b453911a0811bb601d95c5",
+          "bytes": 11660
+        },
+        {
+          "release": "20261009T030646Z-9f93e52aa005de7c",
+          "sha256": "cb681ae63eec8d9fbab9ee9ab1b9d127fb781d9b04b453911a0811bb601d95c5",
+          "bytes": 11660
+        }
+      ]
+    },
+    {
+      "file": "node_modules/wrangler/bin/wrangler.js",
+      "same": true,
+      "values": [
+        {
+          "release": "20261009T080026Z-d5fb5b62de630ae2",
+          "sha256": "72d02815cbffc9ad14e1667188296e7126e13f0d90bfbb6046db8e6c4b6ff39a",
+          "bytes": 3120
+        },
+        {
+          "release": "20261009T030646Z-9f93e52aa005de7c",
+          "sha256": "72d02815cbffc9ad14e1667188296e7126e13f0d90bfbb6046db8e6c4b6ff39a",
+          "bytes": 3120
+        }
+      ]
+    },
+    {
+      "file": "tools/worker-local-runtime-supervisor.mjs",
+      "same": true,
+      "values": [
+        {
+          "release": "20261009T080026Z-d5fb5b62de630ae2",
+          "sha256": "cb34aec172c4f96d54043b12273e8dca8ac7f70fe8102212ccc7ba35aa18e3a8",
+          "bytes": 26690
+        },
+        {
+          "release": "20261009T030646Z-9f93e52aa005de7c",
+          "sha256": "cb34aec172c4f96d54043b12273e8dca8ac7f70fe8102212ccc7ba35aa18e3a8",
+          "bytes": 26690
+        }
+      ]
+    }
+  ],
+  "logScan": {
+    "filenameDateUtc": "2026-10-09",
+    "filesScanned": 235,
+    "matchedFiles": [
+      {
+        "file": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-09_10-46-13_474.log",
+        "bytesRead": 232057,
+        "sha256ReadSnapshot": "57425eb3342ff4119c0beed366841e75d21bcab43f102810a9e5d1cf98b7b360",
+        "linesRead": 6356,
+        "knownD5Reference": true,
+        "firstLogHeader": "2026-10-09T10:46:13.629Z",
+        "lastLogHeader": "2026-10-09T12:16:05.110Z",
+        "events": [
+          {
+            "class": "ProxyController.Error inside ProxyWorker",
+            "line": 6064,
+            "headerLine": 6063,
+            "time": "2026-10-09T12:16:05.079Z",
+            "level": "debug",
+            "causeName": "Error",
+            "causeMessage": "Network connection lost."
+          }
+        ],
+        "uncaughtErrorMarkerCount": 1
+      },
+      {
+        "file": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-09_12-16-13_393.log",
+        "bytesRead": 125579,
+        "sha256ReadSnapshot": "04dfbf126cf8a260b209e72a1fcf89adbedc18006fdbc3d72739451b8473495c",
+        "linesRead": 3403,
+        "knownD5Reference": true,
+        "firstLogHeader": "2026-10-09T12:16:13.821Z",
+        "lastLogHeader": "2026-10-09T13:27:13.241Z",
+        "events": [
+          {
+            "class": "InspectorProxyWorker.caught-control-request-failure",
+            "line": 2290,
+            "headerLine": 2289,
+            "time": "2026-10-09T12:44:13.314Z",
+            "level": "debug",
+            "causeMessage": "Network connection lost."
+          },
+          {
+            "class": "InspectorProxyWorker.caught-control-request-failure",
+            "line": 2299,
+            "headerLine": 2298,
+            "time": "2026-10-09T13:10:22.423Z",
+            "level": "debug",
+            "causeMessage": "Network connection lost."
+          }
+        ],
+        "uncaughtErrorMarkerCount": 0
+      }
+    ],
+    "limits": "Available retained local files only. Root task may concurrently observe the running service. Missing/rotated/deleted/other-user logs are outside this count; zero matches is not proof of universal absence."
+  },
+  "originalCause": {
+    "file": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-09_10-46-13_474.log",
+    "headerLine": 6063,
+    "errorLine": 6064,
+    "messageLine": 6075,
+    "emptyTopLevelErrorLine": 6321,
+    "emptyTopLevelStackLine": 6327,
+    "safeStack": [
+      {
+        "line": 6066,
+        "text": "at castErrorCause (D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261009T080026Z-d5fb5b62de630ae2\\node_modules\\wrangler\\wrangler-dist\\cli.js:65574:18)"
+      },
+      {
+        "line": 6067,
+        "text": "at ProxyController.emitErrorEvent (D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261009T080026Z-d5fb5b62de630ae2\\node_modules\\wrangler\\wrangler-dist\\cli.js:311747:20)"
+      },
+      {
+        "line": 6068,
+        "text": "at ProxyController.onProxyWorkerMessage (D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261009T080026Z-d5fb5b62de630ae2\\node_modules\\wrangler\\wrangler-dist\\cli.js:311631:18)"
+      },
+      {
+        "line": 6069,
+        "text": "at PROXY_CONTROLLER (D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261009T080026Z-d5fb5b62de630ae2\\node_modules\\wrangler\\wrangler-dist\\cli.js:311359:24)"
+      },
+      {
+        "line": 6070,
+        "text": "at process.processTicksAndRejections (node:internal/process/task_queues:104:5)"
+      },
+      {
+        "line": 6071,
+        "text": "at async #handleLoopbackCustomFetchService (D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261009T080026Z-d5fb5b62de630ae2\\node_modules\\miniflare\\dist\\src\\index.js:88266:22)"
+      },
+      {
+        "line": 6072,
+        "text": "at async #handleLoopback (D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261009T080026Z-d5fb5b62de630ae2\\node_modules\\miniflare\\dist\\src\\index.js:88500:20) {"
+      },
+      {
+        "line": 6074,
+        "text": "name: 'Error',"
+      },
+      {
+        "line": 6075,
+        "text": "message: 'Network connection lost.',"
+      },
+      {
+        "line": 6076,
+        "text": "stack: 'Error: Network connection lost.'"
+      }
+    ],
+    "block6064to6078LfSha256": "f0977eaeeff1dd21080274b657c8eef9986e358597f91b4c1bbe4e95f42d500e"
+  },
+  "lifecycle": {
+    "pid": 32284,
+    "recordsRead": 147,
+    "first": "2026-10-09T10:46:05.823Z",
+    "last": "2026-10-09T13:26:22.556Z",
+    "events": [
+      {
+        "file": "supervisor-lifecycle-0.jsonl",
+        "line": 126,
+        "at": "2026-10-09T10:46:09.519Z",
+        "sequence": 5,
+        "event": "launch_validation",
+        "pid": 32284,
+        "ppid": 24648,
+        "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+        "role": "worker"
+      },
+      {
+        "file": "supervisor-lifecycle-0.jsonl",
+        "line": 127,
+        "at": "2026-10-09T10:46:09.519Z",
+        "sequence": 6,
+        "event": "launch_validation",
+        "pid": 32284,
+        "ppid": 24648,
+        "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+        "role": "helper"
+      },
+      {
+        "file": "supervisor-lifecycle-0.jsonl",
+        "line": 128,
+        "at": "2026-10-09T10:46:12.926Z",
+        "sequence": 7,
+        "event": "child_spawn",
+        "pid": 32284,
+        "ppid": 24648,
+        "childPid": 66052,
+        "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+        "role": "helper"
+      },
+      {
+        "file": "supervisor-lifecycle-0.jsonl",
+        "line": 129,
+        "at": "2026-10-09T10:46:12.940Z",
+        "sequence": 8,
+        "event": "child_spawn",
+        "pid": 32284,
+        "ppid": 24648,
+        "childPid": 66080,
+        "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+        "role": "worker"
+      },
+      {
+        "file": "supervisor-lifecycle-0.jsonl",
+        "line": 219,
+        "at": "2026-10-09T12:16:06.179Z",
+        "sequence": 98,
+        "event": "child_exit",
+        "pid": 32284,
+        "ppid": 24648,
+        "childPid": 66080,
+        "code": 1,
+        "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+        "role": "worker"
+      },
+      {
+        "file": "supervisor-lifecycle-0.jsonl",
+        "line": 220,
+        "at": "2026-10-09T12:16:06.186Z",
+        "sequence": 99,
+        "event": "restart_scheduled",
+        "pid": 32284,
+        "ppid": 24648,
+        "delayMs": 1000,
+        "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+        "role": "worker"
+      },
+      {
+        "file": "supervisor-lifecycle-0.jsonl",
+        "line": 222,
+        "at": "2026-10-09T12:16:07.187Z",
+        "sequence": 101,
+        "event": "launch_validation",
+        "pid": 32284,
+        "ppid": 24648,
+        "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+        "role": "worker"
+      },
+      {
+        "file": "supervisor-lifecycle-0.jsonl",
+        "line": 223,
+        "at": "2026-10-09T12:16:12.531Z",
+        "sequence": 102,
+        "event": "child_spawn",
+        "pid": 32284,
+        "ppid": 24648,
+        "childPid": 21656,
+        "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+        "role": "worker"
+      }
+    ],
+    "files": [
+      {
+        "file": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+        "bytesRead": 91939,
+        "sha256ReadSnapshot": "18039382a7d44f0699f1f99215d309e9e1747ab8b939c014a7aea6900178522c"
+      },
+      {
+        "file": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-1.jsonl",
+        "bytesRead": 1048409,
+        "sha256ReadSnapshot": "5396d4e881978ac9a7c53f285d708c7794dd5b664b076272c8989e135167222b"
+      }
+    ]
+  },
+  "conclusions": {
+    "fatalErrorPropagation": "Confirmed installed-code mechanism; high-confidence match to observed debug→exit1→same-package restart, without runtime tracing.",
+    "trigger": "Unknown initial network disconnect trigger and request class; no URL/body/identity retained.",
+    "sameMessageNotSamePath": "Two subsequent InspectorProxyWorker failures were debug-caught control requests, not repetitions of the fatal ProxyController event.",
+    "notEstablished": [
+      "Client cancellation as trigger",
+      "WebSocket/SSE as trigger",
+      "Django or PostgreSQL failure as trigger",
+      "CPU/memory/backup/restore contention as trigger",
+      "Four UI changes as trigger",
+      "Any package upgrade as validated fix",
+      "Watchdog unprobed caused by this exit"
+    ]
+  },
+  "upstream": [
+    {
+      "url": "https://github.com/cloudflare/workers-sdk/issues/15317",
+      "qualification": "Reporter describes same empty wrapper/fatal classification in 4.125.0; not our 4.92.0 and not independent proof of our trigger."
+    },
+    {
+      "url": "https://github.com/cloudflare/workers-sdk/issues/15452",
+      "qualification": "Open issue: reporter 4.126.0 Linux WebSocket/cadence reproduction; hypothesis only, different version/platform."
+    },
+    {
+      "url": "https://nodejs.org/api/events.html#eventsonceemitter-name-options",
+      "qualification": "events.once waiting for another event rejects on error; latest docs not exact deployed-version test."
+    }
+  ]
+}

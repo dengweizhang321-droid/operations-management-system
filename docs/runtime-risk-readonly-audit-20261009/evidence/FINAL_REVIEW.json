@@ -1,0 +1,132 @@
+{
+  "schema": "teruisi-runtime-risk-final-readonly-review-v1",
+  "reviewedAtUtc": "2026-10-09T13:55:13.466Z",
+  "independent": true,
+  "deliverable": true,
+  "reviewDecision": "PASS_FOR_READONLY_INVESTIGATION_DELIVERY",
+  "reviewer": "frontend_state_audit sub-agent; independent reviewer of root-authored REPORT/WATCHDOG and two watchdog experiment methods; author of the separate PROXY investigation",
+  "mainBase": "0b45017836dab43a85cedcbae7d80f0169c4484b",
+  "scope": {
+    "purpose": "Review report accuracy, categories, causal limits, evidence consistency and absence of unverified pass/new-release claims.",
+    "checked": [
+      "REPORT.md and WATCHDOG.md factual/classification consistency against existing evidence",
+      "Two original-installed-function isolated methods and result interpretation",
+      "Selected installed/main watchdog, control and worker-service physical-byte equality",
+      "Safe metadata in reviewed report/evidence; no raw customer request payloads copied",
+      "Proxy fatal-path inference versus unknown initial disconnect trigger",
+      "PS5 versus PS7 and separate n=1 timing samples",
+      "No new release or completed runtime fix claimed"
+    ],
+    "productionRequests": 0,
+    "testsExecuted": 0,
+    "buildsExecuted": 0,
+    "lifecycleOperations": 0,
+    "sqlExecuted": 0,
+    "documentsModified": false,
+    "newFileWritten": "evidence/FINAL_REVIEW.json"
+  },
+  "artifacts": [
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/REPORT.md",
+      "sha256": "9ecaac99e1534f48e35add2f46de125f01114451614490c9c922443c0d86aa3c"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/WATCHDOG.md",
+      "sha256": "58e9aea6ac54d53b8298ebab39eae0f6934cc26f96e6cff571741156356cb0e6"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/PROXY.md",
+      "sha256": "fd78e71c410adb73843714ec3550802b54fa29834728923764b6edf2b9793f56"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/session-snapshot.json",
+      "sha256": "1f1cfc47178571584c18ad18f86aa3bd1befc0df428ffd2fc7f80cf11e62edb9"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/proxy/proxy-evidence.json",
+      "sha256": "e6a86ba3bd7793e9936ff8f428c34a778005f40ae27c9683b3dde667c4fec7a6"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/watchdog-state-retention-replay.json",
+      "sha256": "1e463134cb526f0e95db339aef26a342b780c0785d336e7220769baf52f35e46"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/watchdog-eof-replay.json",
+      "sha256": "0ddb82330fd0e99cea305a29c6ee27faf396d2049b0fec0d613e94483324eecb"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/controller-watchdog-stage-01.json",
+      "sha256": "73bce971d8ae3d402f0bfcd0eebf2d3e7b9ea557417d5d745566017e7fd60d0e"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/supervisor-watchdog-stage-01.json",
+      "sha256": "40b042808353424a134f63552e05db154acba830e67f75589e927e83f7afc233"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/supervisor-status-01.json",
+      "sha256": "9b028e4e2c46ca3e25e097f0fdf469300e999854a078c5e2662a032e872b5a8a"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/aggregate-status-01.json",
+      "sha256": "afc874106fe62f43491974a7cb6cfc1f2af8d02ce2925081d7316cbee4a0a450"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/worker-status-01.json",
+      "sha256": "a8f11f25af4a2a28e681c27f0d864c102be85d4d76206b0442d9a275475e2caf"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/probe-development-failures.json",
+      "sha256": "d10f12c71881da1f4ee80230e8b081e97555b7f273d93bddd14f8049ad6d45b9"
+    }
+  ],
+  "tools": [
+    {
+      "path": "tools/performance/runtime-watchdog-retention-replay.ps1",
+      "sha256": "21d4e2b5b28667568c44def94b8c13efcd5a433202c463c77490e5fa209a43ad"
+    },
+    {
+      "path": "tools/performance/runtime-watchdog-eof-replay.ps1",
+      "sha256": "2580a5e91aa46c8e6b4787739efb27f88db2f3a35b5a939114df22d6d6084425"
+    }
+  ],
+  "verifiedSource": {
+    "installedWatchdogSha256": "99593a800321569257bf8e31fdd64dda8b558f9bacdeed316ca7000a301c162a",
+    "controllerSha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638",
+    "workerServiceSha256": "bc98f84683dbf5da0769be5eb4e0533c5c5c7eb35252d26c87613f38440f6e15",
+    "selectedInstalledSourcesMatchMainPhysicalBytes": true
+  },
+  "checks": {
+    "categorySeparation": true,
+    "proxyCauseMessageAndFatalAmplificationSupported": true,
+    "initialDisconnectRootCauseNotClaimed": true,
+    "inspectorDebugErrorsNotCountedAsFatalRepetitions": true,
+    "supervisorFailureVersusMonitorFailureDifferentiated": true,
+    "eofTotal7157msNotPresentedAsSegmentTiming": true,
+    "ps7Supervisor2458msVersusPs5Supervisor2799msDifferentiated": true,
+    "separateSamplesNotSummedOrCalledP95": true,
+    "recoveryDecisionUsesPresetFailures2NotTwoCycles": true,
+    "failuresAndWmiDenialPreserved": true,
+    "noBusinessOrInstalledRuntimeFixClaimed": true,
+    "noNewProductionReleaseClaimed": true,
+    "remainingRisksExplicit": true
+  },
+  "rootCauseUnknown": {
+    "initialProxyNetworkDisconnect": true,
+    "historicalWatchdogFailureStageAndError": true,
+    "historicalProcessOrPipeWaitCause": true,
+    "isolatedCustomerServiceTimeoutBackendOutcome": true,
+    "resourceContentionAsCause": true
+  },
+  "mustFixFindings": [],
+  "limitations": [
+    "Deliverable=true applies only to investigation documents/tools/evidence; it is not approval for production changes or a repaired-system acceptance.",
+    "No new browser, production probe, pressure test, fault injection or recovery was performed by this review.",
+    "Original live report samples are single observations at separate times with different transports; no latency distribution or resource attribution was validated.",
+    "The EOF experiment measures total return time only; no direct-exit/EOF segment timings or historical pipe-ownership proof exists.",
+    "The state replay proves installed-function behavior under synthetic failures, not the cause of a particular old production probeError.",
+    "Windows denied the one process-stop-event subscription; exact newly observed natural exit statuses remain unavailable.",
+    "Review of existing evidence cannot recover stderr or error stages discarded by the old runtime.",
+    "The prior batch38 release remains completed; its operational risks remain unresolved.",
+    "This review is independent for root-authored reports and watchdog replay methods; PROXY.md was contributed by this reviewer, so its authorship is disclosed rather than described as a separate non-author review."
+  ]
+}

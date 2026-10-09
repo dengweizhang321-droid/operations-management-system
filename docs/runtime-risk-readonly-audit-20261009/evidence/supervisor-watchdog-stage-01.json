@@ -1,0 +1,24 @@
+{
+  "nativePowerShell": "C:\\Users\\86137\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+  "completedAt": "2026-10-09T13:19:48.6421229+00:00",
+  "defaultDeadlineSeconds": 60,
+  "watchdogCheckInvoked": false,
+  "scope": "Only installed FunctionsOnly and existing Status; no cycle, notifications, recovery or HTTP fault injection",
+  "installedScriptSha256": "99593a800321569257bf8e31fdd64dda8b558f9bacdeed316ca7000a301c162a",
+  "status": "returned",
+  "stage": "supervisor",
+  "readOnly": true,
+  "data": {
+    "status": "completed",
+    "desiredState": "running",
+    "supervisorProcess": "running",
+    "health": "healthy",
+    "code": "all_components_ready",
+    "lastHealthyAt": "10/09/2026 21:18:16",
+    "restartAttemptsInWindow": 1,
+    "pendingAlertCount": 302,
+    "serviceStateChanged": false
+  },
+  "elapsedMs": 2458.4305,
+  "startedAt": "2026-10-09T13:19:46.0627984+00:00"
+}

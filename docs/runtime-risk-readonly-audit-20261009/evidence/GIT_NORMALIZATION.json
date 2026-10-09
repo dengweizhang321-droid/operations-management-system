@@ -1,0 +1,195 @@
+{
+  "at": "2026-10-09T13:59:19.240Z",
+  "reviewReferences": "Original physical-byte hashes. Canonical Git blob hashes below explicitly account for CRLF->LF normalization. Physical originals will be preserved independently; no evidence values altered.",
+  "files": [
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/PROXY.md",
+      "physicalBytes": 12317,
+      "physicalSha256": "fd78e71c410adb73843714ec3550802b54fa29834728923764b6edf2b9793f56",
+      "gitBytes": 12317,
+      "gitSha256": "fd78e71c410adb73843714ec3550802b54fa29834728923764b6edf2b9793f56",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/REPORT.md",
+      "physicalBytes": 8613,
+      "physicalSha256": "9ecaac99e1534f48e35add2f46de125f01114451614490c9c922443c0d86aa3c",
+      "gitBytes": 8613,
+      "gitSha256": "9ecaac99e1534f48e35add2f46de125f01114451614490c9c922443c0d86aa3c",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/WATCHDOG.md",
+      "physicalBytes": 9185,
+      "physicalSha256": "58e9aea6ac54d53b8298ebab39eae0f6934cc26f96e6cff571741156356cb0e6",
+      "gitBytes": 9185,
+      "gitSha256": "58e9aea6ac54d53b8298ebab39eae0f6934cc26f96e6cff571741156356cb0e6",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/FINAL_REVIEW.json",
+      "physicalBytes": 6843,
+      "physicalSha256": "2280eac5b90d410eb64de6f43eeef6c0f5795f4a855073c8d6fc88001003857c",
+      "gitBytes": 6843,
+      "gitSha256": "2280eac5b90d410eb64de6f43eeef6c0f5795f4a855073c8d6fc88001003857c",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/aggregate-status-01.json",
+      "physicalBytes": 2826,
+      "physicalSha256": "afc874106fe62f43491974a7cb6cfc1f2af8d02ce2925081d7316cbee4a0a450",
+      "gitBytes": 2826,
+      "gitSha256": "afc874106fe62f43491974a7cb6cfc1f2af8d02ce2925081d7316cbee4a0a450",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/controller-watchdog-stage-01.json",
+      "physicalBytes": 1404,
+      "physicalSha256": "73bce971d8ae3d402f0bfcd0eebf2d3e7b9ea557417d5d745566017e7fd60d0e",
+      "gitBytes": 1365,
+      "gitSha256": "6018b78507c7943ce4c4239c663d203745c807009ffec1ffe7c0fc212e6869af",
+      "exactBytes": false,
+      "onlyCrlfToLf": true
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/deployment-manifest-digests.json",
+      "physicalBytes": 219,
+      "physicalSha256": "9b026fba94d324cfee81a57ea3b4be8b81eaeef18a596e3cfd7401f927c9dcd0",
+      "gitBytes": 215,
+      "gitSha256": "ca2e14fe6731b928fbedd04c53fd4064a079ac140abe61630968363297d921b6",
+      "exactBytes": false,
+      "onlyCrlfToLf": true
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/installed-watchdog-source.ps1",
+      "physicalBytes": 29814,
+      "physicalSha256": "99593a800321569257bf8e31fdd64dda8b558f9bacdeed316ca7000a301c162a",
+      "gitBytes": 29814,
+      "gitSha256": "99593a800321569257bf8e31fdd64dda8b558f9bacdeed316ca7000a301c162a",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/probe-development-failures.json",
+      "physicalBytes": 907,
+      "physicalSha256": "d10f12c71881da1f4ee80230e8b081e97555b7f273d93bddd14f8049ad6d45b9",
+      "gitBytes": 907,
+      "gitSha256": "d10f12c71881da1f4ee80230e8b081e97555b7f273d93bddd14f8049ad6d45b9",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/proxy/proxy-evidence.json",
+      "physicalBytes": 15434,
+      "physicalSha256": "e6a86ba3bd7793e9936ff8f428c34a778005f40ae27c9683b3dde667c4fec7a6",
+      "gitBytes": 15434,
+      "gitSha256": "e6a86ba3bd7793e9936ff8f428c34a778005f40ae27c9683b3dde667c4fec7a6",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/session-snapshot.json",
+      "physicalBytes": 6449,
+      "physicalSha256": "1f1cfc47178571584c18ad18f86aa3bd1befc0df428ffd2fc7f80cf11e62edb9",
+      "gitBytes": 6449,
+      "gitSha256": "1f1cfc47178571584c18ad18f86aa3bd1befc0df428ffd2fc7f80cf11e62edb9",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/supervisor-status-01.json",
+      "physicalBytes": 903,
+      "physicalSha256": "9b028e4e2c46ca3e25e097f0fdf469300e999854a078c5e2662a032e872b5a8a",
+      "gitBytes": 903,
+      "gitSha256": "9b028e4e2c46ca3e25e097f0fdf469300e999854a078c5e2662a032e872b5a8a",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/supervisor-watchdog-stage-01.json",
+      "physicalBytes": 954,
+      "physicalSha256": "40b042808353424a134f63552e05db154acba830e67f75589e927e83f7afc233",
+      "gitBytes": 931,
+      "gitSha256": "3bd5f843cbf4f0b538ea3e80dd0956d69692c950724b6a4f6dc804ef059a2050",
+      "exactBytes": false,
+      "onlyCrlfToLf": true
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/watchdog-eof-replay.json",
+      "physicalBytes": 630,
+      "physicalSha256": "0ddb82330fd0e99cea305a29c6ee27faf396d2049b0fec0d613e94483324eecb",
+      "gitBytes": 612,
+      "gitSha256": "e6e020fd8c90379c2ef2ea7a3e9e619e39ed1b1e44426295b40da4136b60c23f",
+      "exactBytes": false,
+      "onlyCrlfToLf": true
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/watchdog-state-retention-replay.json",
+      "physicalBytes": 2070,
+      "physicalSha256": "1e463134cb526f0e95db339aef26a342b780c0785d336e7220769baf52f35e46",
+      "gitBytes": 1998,
+      "gitSha256": "cd2cefa0a09fe82475295ca8ea5e31ba202f0414d49666f8dd2e35b79d9f2568",
+      "exactBytes": false,
+      "onlyCrlfToLf": true
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/evidence/worker-status-01.json",
+      "physicalBytes": 786,
+      "physicalSha256": "a8f11f25af4a2a28e681c27f0d864c102be85d4d76206b0442d9a275475e2caf",
+      "gitBytes": 786,
+      "gitSha256": "a8f11f25af4a2a28e681c27f0d864c102be85d4d76206b0442d9a275475e2caf",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "tools/performance/runtime-risk-evidence-snapshot.mjs",
+      "physicalBytes": 2678,
+      "physicalSha256": "cbe65a22f33d378f52c4627774d41ccc08de2e02a0ecffbfc2e88f4bc843028d",
+      "gitBytes": 2678,
+      "gitSha256": "cbe65a22f33d378f52c4627774d41ccc08de2e02a0ecffbfc2e88f4bc843028d",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "tools/performance/runtime-risk-readonly-probe.mjs",
+      "physicalBytes": 2737,
+      "physicalSha256": "6d9ad1fc6f57056fdfa97f1684560bd048b9d0bb4ee601cbceb49d761cfeb2d3",
+      "gitBytes": 2737,
+      "gitSha256": "6d9ad1fc6f57056fdfa97f1684560bd048b9d0bb4ee601cbceb49d761cfeb2d3",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "tools/performance/runtime-watchdog-eof-replay.ps1",
+      "physicalBytes": 2619,
+      "physicalSha256": "2580a5e91aa46c8e6b4787739efb27f88db2f3a35b5a939114df22d6d6084425",
+      "gitBytes": 2619,
+      "gitSha256": "2580a5e91aa46c8e6b4787739efb27f88db2f3a35b5a939114df22d6d6084425",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "tools/performance/runtime-watchdog-retention-replay.ps1",
+      "physicalBytes": 3912,
+      "physicalSha256": "21d4e2b5b28667568c44def94b8c13efcd5a433202c463c77490e5fa209a43ad",
+      "gitBytes": 3912,
+      "gitSha256": "21d4e2b5b28667568c44def94b8c13efcd5a433202c463c77490e5fa209a43ad",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    },
+    {
+      "path": "tools/performance/runtime-watchdog-stage-probe.ps1",
+      "physicalBytes": 1942,
+      "physicalSha256": "2641f120c370d9c1ce5fcea560d6efaba5c1613c167ac869bb9972cbf68fe5d5",
+      "gitBytes": 1942,
+      "gitSha256": "2641f120c370d9c1ce5fcea560d6efaba5c1613c167ac869bb9972cbf68fe5d5",
+      "exactBytes": true,
+      "onlyCrlfToLf": false
+    }
+  ]
+}
