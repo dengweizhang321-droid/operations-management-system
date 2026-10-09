@@ -5,11 +5,11 @@ import { tmpdir } from 'node:os';
 import { mkdtemp, mkdir, writeFile, rm, utimes } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { deflateSync } from 'node:zlib';
-import { classifyImpact, hash, canonical, sourceInventory, sourceTreeDigest, requirements, readSourceTree, safeRead } from '../tools/release-impact.mjs';
+import { classifyImpact, hash, canonical, sourceInventory, sourceTreeDigest, requirements, readSourceTree, safeRead, safeFileDigest } from '../tools/release-impact.mjs';
 import { makeBatch, executeBatch, verifyBatch, journalState } from '../tools/release-batch.mjs';
 import { createPreparationEvidenceSession } from '../tools/release-preparation-evidence.mjs';
 import { requiresCompleteAdmission } from '../tools/release-batch-admission.mjs';
-import { windowsPathSha256, workerRuntimeRoot, workerReleaseBundledSourcePaths, workerReleaseKeyFilePaths } from '../tools/worker-local-release.mjs';
+import { windowsPathSha256, hashTree, workerRuntimeRoot, workerReleaseBundledSourcePaths, workerReleaseKeyFilePaths } from '../tools/worker-local-release.mjs';
 import { admissionTimer } from '../tools/release-admission-timing.mjs';
 
 const h = c => c.repeat(64);
@@ -178,6 +178,22 @@ test('snapshot inventory includes environment examples and same-mtime tampering 
   const root=await mkdtemp(path.join(tmpdir(),'teruisi-source-fixture-'));
   try {await mkdir(path.join(root,'backend'));const target=path.join(root,'backend','.env.example');await writeFile(target,'EXAMPLE=1');const stamp=new Date(0);await utimes(target,stamp,stamp);const first=sourceTreeDigest(await readSourceTree(root));await writeFile(target,'EXAMPLE=2');await utimes(target,stamp,stamp);assert.notEqual(sourceTreeDigest(await readSourceTree(root)),first);assert.equal((await safeRead(target)).toString(),'EXAMPLE=2');}
   finally{await rm(root,{recursive:true,force:true});}
+});
+test('missing config parent creation invalidates; unrelated ancestor siblings do not',async()=>{
+  const root=await mkdtemp(path.join(tmpdir(),'teruisi-config-watch-')),source=path.join(root,'source'),runtime=path.join(root,'runtime.vars');
+  const targets={userconfig:path.join(root,'absent','user','npmrc'),globalconfig:path.join(root,'absent','global','npmrc')};
+  let session;
+  try {
+    await mkdir(source);await writeFile(path.join(source,'view.tsx'),view);await writeFile(runtime,'SYNTHETIC=1');
+    const identify=async()=>{const files=await readSourceTree(source);return {
+      sourceTree:{sha256:sourceTreeDigest(files)},sourceInventorySha256:hash(sourceInventory(files)),nodeExecutableSha256:await safeFileDigest(process.execPath),
+      toolchain:{npmPackageTree:await hashTree(path.join(path.dirname(process.execPath),'node_modules','npm'))},runtimeConfigurationSha256:hash(await safeRead(runtime)),environmentSha256:hash(process.env),
+      externalNpmConfiguration:Object.fromEntries(Object.entries(targets).map(([key,target])=>[key,{pathSha256:windowsPathSha256(target),contentSha256:null}]))};};
+    session=createPreparationEvidenceSession({batchSha256:h('1'),sourceRoot:source,devVarsSource:runtime,identify,execute:async(_exe,args)=>({stdout:targets[args.at(-1)]})});
+    await session.collect({approvedBatchSha256:h('1')});await writeFile(path.join(root,'unrelated.txt'),'not an input');await new Promise(r=>setImmediate(r));
+    await session.recheck();await mkdir(path.join(root,'absent'));await new Promise(r=>setTimeout(r,20));
+    await assert.rejects(session.recheck(),/changed/);
+  }finally{session?.dispose();await rm(root,{recursive:true,force:true});}
 });
 test('timings are disjoint children and retain failure status without sensitive diagnostics',async()=>{
   const timer=admissionTimer();await timer.measure('classification','sealed-evidence',async()=>1);
