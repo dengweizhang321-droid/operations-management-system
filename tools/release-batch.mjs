@@ -10,7 +10,7 @@ import { canonical, hash, requireHash, safeRead, safeFileDigest, readSourceTree,
 import { withRotationLock, applyApprovedRotationPlan, planWorkerReleaseRotation } from './worker-local-release-rotation.mjs';
 import { runProcess, workerRuntimeRoot } from './worker-local-release.mjs';
 
-export const batchVersion = 'teruisi-release-batch-v1';
+export const batchVersion = 'teruisi-release-batch-v2';
 const phases = ['queue', 'prepare', 'backup-pre', 'restore-pre', 'drain', 'switch', 'acceptance', 'business', 'backup-post', 'restore-post', 'closeout'];
 const terminal = new Set(['passed', 'skipped']);
 export function makeBatch({ id, binding, before, after, witness, evidence, current, tests, acceptance, rollback, operations, collector, now = Date.now() }) {
@@ -39,6 +39,7 @@ export function makeBatch({ id, binding, before, after, witness, evidence, curre
     if (!operations.some(o => o.phase === name)) throw new Error(`Missing ${name} phase`);
   }
   const core = { version: batchVersion, id, createdAt: new Date(now).toISOString(), binding, impact, recovery,
+    databaseOperations: { required: recovery.mode==='full', operationIds:operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id) },
     requirements: requirements[impact.level], tests, acceptance, rollback, operations,
     recoveryEvidence: evidence ?? null, recoveryCurrent: current ?? null, collectorSha256: collector ? hash(collector) : null, impactProof:makeImpactProof(before,after,witness) };
   const sealed = { ...core, batchSha256: hash(core) };
@@ -53,6 +54,7 @@ const requiredOperatorResults = {
   'restore-post': { kind: 'restore', assertions: { status: 'completed', serviceStateChanged: false, productionDatabaseTouched: false, cleanupStatus: 'isolated_data_removed', profileRestoreVerified: true, sequenceHealthVerified: true } },
 };
 export function validateOperation(op) {
+  if(op.step&&!['lifecycle','django-deploy'].includes(op.kind))throw new Error('Lifecycle step labels require an original lifecycle adapter');
   const requirement = requiredOperatorResults[op.phase];
   if (requirement) {
     if (op.kind !== requirement.kind || op.mutating !== true) throw new Error('Backup/restore phase cannot be substituted');
@@ -85,6 +87,7 @@ export function verifyBatch(batch, approved) {
   const recovery = backupReuseDecision({ impact, evidence:batch.recoveryEvidence, current:batch.recoveryCurrent, now:Date.parse(batch.createdAt) });
   if (canonical(impact) !== canonical(batch.impact) || canonical(recovery) !== canonical(batch.recovery)
     || canonical(requirements[impact.level]) !== canonical(batch.requirements)) throw new Error('Impact/recovery requirements were altered');
+  if(canonical(batch.databaseOperations)!==canonical({required:recovery.mode==='full',operationIds:batch.operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id)}))throw new Error('Sealed database operations changed');
   if (!batch.tests || batch.tests.status !== 'passed' || hash(batch.tests) !== batch.binding.testsSha256
     || batch.tests.sourceSha256 !== batch.binding.sourceSha256 || batch.tests.artifactSha256 !== batch.binding.artifactSha256
     || requirements[impact.level].tests.some(k => !batch.tests.checks?.includes(k))) throw new Error('Incomplete bound tests');
@@ -117,6 +120,16 @@ export function verifyBatch(batch, approved) {
     ||(batch.binding.djangoCandidateSha256&&batch.binding.djangoCandidateSha256!==batch.binding.djangoPredecessorSha256)))throw new Error('Display release must be Worker-only');
   if(batch.operations.filter(op=>op.kind==='worker-apply').length!==1)throw new Error('Exactly one approved Worker apply is required');
   if(impact.level==='display'&&!batch.operations.some(op=>op.step==='EndWorkerDrain'&&op.phase==='switch'))throw new Error('Worker drain must be explicitly closed after starting the successor');
+  if(impact.level==='display') {
+    for(const step of ['BeginWorkerDrain','StopWorker','StartWorker','EndWorkerDrain']) {
+      const matches=batch.operations.filter(op=>op.step===step);
+      if(matches.length!==1||matches[0].kind!=='lifecycle'||matches[0].mutating!==true
+        ||matches[0].phase!==(step==='BeginWorkerDrain'?'drain':'switch'))throw new Error('Exactly one original Worker-only lifecycle step is required');
+    }
+    if(batch.operations.some(op=>op.mutating && !['backup','restore','worker-apply','lifecycle'].includes(op.kind))
+      || batch.operations.some(op=>op.kind==='lifecycle' && !['BeginWorkerDrain','StopWorker','StartWorker','EndWorkerDrain','VerifyStartup','AggregateStatus'].includes(op.step))
+      || batch.operations.some(op=>op.kind==='lifecycle' && op.command.args.some(a=>/^-(IncludeBackend|KeepPostgres)$/i.test(a))))throw new Error('Display batch changed backend or admitted unproven writes');
+  }
   const position=step=>batch.operations.findIndex(op=>op.step===step);
   const applyPosition=batch.operations.findIndex(op=>op.kind==='worker-apply');
   if(impact.level==='display'&&!(position('BeginWorkerDrain')<position('StopWorker')&&position('StopWorker')>=0&&position('StopWorker')<applyPosition
@@ -200,8 +213,16 @@ export function timingReport(events) {
     switchExecutionMs: durationMs.switch, switchSpanMs: switchStart && switchEnd ? Date.parse(switchEnd.at) - Date.parse(switchStart.at) : null, completed: !!closed,
     waits: events.filter(e => e.reason).map(e => ({ phase: e.phase, reason: e.reason, durationMs: e.durationMs ?? 0 })) };
 }
+function admissionStages(value=[]) {
+  if(!Array.isArray(value)||value.length>128)throw new Error('Invalid bounded admission stages');
+  return value.map(stage=>{
+    if(!/^[a-z][a-z0-9-]{1,64}$/.test(stage.stage??'')||!['sealed-evidence','mutable-input','immutable-content','dynamic-state'].includes(stage.category)
+      ||!['passed','failed'].includes(stage.status)||!Number.isFinite(stage.durationMs)||stage.durationMs<0)throw new Error('Invalid admission timing record');
+    return {stage:stage.stage,category:stage.category,status:stage.status,durationMs:stage.durationMs};
+  });
+}
 
-export async function executeBatch({ batch, approved, root, collectCurrent, run, lock = withRotationLock, approvedAt = new Date().toISOString() }) {
+export async function executeBatch({ batch, approved, root, collectCurrent, run, beforeOperation, lock = withRotationLock, approvedAt = new Date().toISOString() }) {
   verifyBatch(batch, approved);
   if (!Number.isFinite(Date.parse(approvedAt)) || Date.parse(approvedAt) > Date.now()) throw new Error('Invalid explicit approval time');
   const queued = performance.now();
@@ -225,24 +246,33 @@ export async function executeBatch({ batch, approved, root, collectCurrent, run,
     if (!state.events.length) await append(state, batch, { phase: 'queue', status: 'approved', at: approvedAt, durationMs: performance.now() - queued });
     else await append(state, batch, { phase: 'queue', status: 'resumed', durationMs: performance.now() - queued });
     const admissionStart = performance.now();
-    const live = await collectCurrent(batch, lease);
+    async function collect(op) {
+      const started=performance.now();
+      try { return await collectCurrent(batch,lease,op,state); }
+      catch(error) {
+        await append(state,batch,{phase:op?.phase??'prepare',status:'admission-failed',durationMs:performance.now()-started,admissionStages:admissionStages(error.admissionStages),reason:'live-admission-failed'});
+        throw error;
+      }
+    }
+    const live = await collect();
     assertBindings(batch.binding, live.binding);
     if (batch.recovery.mode === 'reuse') {
       const decision = backupReuseDecision({ impact: batch.impact, evidence: batch.recoveryEvidence, current: live.recovery });
       if (decision.mode !== 'reuse') throw new Error(`Recovery evidence expired: rebuild full-flow batch (${decision.reasons.join(',')})`);
     }
-    await append(state, batch, { phase: 'prepare', status: 'admission', durationMs: performance.now() - admissionStart, reason: 'live-predecessor-and-integrity-revalidation' });
+    await append(state, batch, { phase: 'prepare', status: 'admission', durationMs: performance.now() - admissionStart, admissionStages:admissionStages(live.admissionStages), reason: 'live-predecessor-and-integrity-revalidation' });
     for (const op of batch.operations) {
       if (terminal.has(state.latest.get(op.id)?.status)) continue;
       // A new sample is required at every actual operation. The adapter must
       // revalidate the expected predecessor until switch, then the exact
       // approved successor; never rewrite the approved batch to follow main.
       const boundaryStart = performance.now();
-      const current = await collectCurrent(batch, lease, op, state);
+      const current = await collect(op);
       assertBindings(batch.binding, current.binding);
-      if (batch.recovery.mode === 'reuse' && ['switch','closeout'].includes(op.phase)
+      if (batch.recovery.mode === 'reuse'
         && backupReuseDecision({ impact: batch.impact, evidence: batch.recoveryEvidence, current: current.recovery }).mode !== 'reuse') throw new Error('Recovery point/evidence invalidated at operation boundary');
-      await append(state, batch, { phase: op.phase, status: 'admission', durationMs: performance.now() - boundaryStart, reason: 'operation-boundary-revalidation' });
+      await append(state, batch, { phase: op.phase, status: 'admission', durationMs: performance.now() - boundaryStart, admissionStages:admissionStages(current.admissionStages), reason: 'operation-boundary-revalidation' });
+      await beforeOperation?.(op);
       const start = performance.now();
       await append(state, batch, { operationId: op.id, phase: op.phase, status: 'started' });
       let result;
@@ -428,15 +458,38 @@ async function main() {
   // The live collector is an explicitly approved read-only task adapter; it
   // reuses installed Status/Verify/CAS and task-specific business observations.
   if (!spec.collector || spec.batch.collectorSha256 !== hash(spec.collector)) throw new Error('Collector is outside approved scope');
-  await executeBatch({ batch: spec.batch, approved, approvedAt, root: spec.journalRoot, run: runApprovedOperation,
+  let session=null,collectInProcess=null;
+  if(spec.collector.transport==='in-process-content-evidence-v1') {
+    const admissionPath=path.join(path.dirname(fileURLToPath(import.meta.url)),'release-batch-admission.mjs');
+    if(spec.collector.executable!==process.execPath || spec.collector.args.length!==4 || path.resolve(spec.collector.args[0])!==admissionPath
+      || spec.collector.args[1]!=='collect' || path.resolve(spec.collector.args[2])!==path.resolve(specPath))throw new Error('In-process evidence requires the exact standard collector');
+    if(spec.collector.cwd&&path.resolve(spec.collector.cwd)!==process.cwd())throw new Error('In-process collector cwd differs from its approved execution context');
+    // This is a new approved transport, not recognition of an arbitrary adapter.
+    // Pin the entire direct implementation closure, including existing engines.
+    for(const name of ['release-batch.mjs','release-batch-admission.mjs','release-impact.mjs','release-preparation-evidence.mjs','release-admission-timing.mjs','release-daily-backup.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','collect-d1-retirement-proof.mjs']) {
+      const target=path.join(path.dirname(admissionPath),name);
+      if(!spec.collector.files.some(f=>path.resolve(f.path)===target))throw new Error('Unbound in-process collector implementation');
+    }
+    const compiler=path.join(path.dirname(path.dirname(admissionPath)),'node_modules','typescript','lib','typescript.js');
+    if(!spec.collector.files.some(f=>path.resolve(f.path)===compiler))throw new Error('Unbound in-process impact parser');
+    const compilerPackage=path.join(path.dirname(path.dirname(compiler)),'package.json');
+    if(!spec.collector.files.some(f=>path.resolve(f.path)===compilerPackage))throw new Error('Unbound impact parser package resolution');
+    const {createPreparationEvidenceSession}=await import('./release-preparation-evidence.mjs');
+    const {workerSourceRoot}=await import('./worker-local-release.mjs');
+    ({collectBatchAdmission:collectInProcess}=await import('./release-batch-admission.mjs'));
+    session=createPreparationEvidenceSession({batchSha256:approved,sourceRoot:workerSourceRoot});
+  } else if(spec.collector.transport)throw new Error('Unknown collector transport');
+  try { await executeBatch({ batch: spec.batch, approved, approvedAt, root: spec.journalRoot,
+    run:(op,context)=>{session?.assertStable();return runApprovedOperation(op,context);},beforeOperation:()=>session?.assertStable(),
     collectCurrent: async (_,__,op) => {
       for (const file of spec.collector.files) if (await safeFileDigest(file.path) !== file.sha256) throw new Error('Live collector changed');
       if (!spec.collector.files.some(f => f.path === spec.collector.executable)) throw new Error('Unbound live collector executable');
-      const result = await runProcess(spec.collector.executable, [...spec.collector.args,'--phase',op?.phase??'admission'], { cwd: spec.collector.cwd, label: 'release live admission' });
-      const current = JSON.parse(result.stdout.trim());
+      const current=collectInProcess
+        ? await collectInProcess(spec.batch,spec.collector.args[3],op?.phase??'admission',{session,step:op?.step??op?.kind})
+        : JSON.parse((await runProcess(spec.collector.executable, [...spec.collector.args,'--phase',op?.phase??'admission'], { cwd: spec.collector.cwd, label: 'release live admission' })).stdout.trim());
       if (current.batchSha256 !== approved || !Number.isFinite(current.observedAtMs)
         || Math.abs(Date.now() - current.observedAtMs) > 5_000) throw new Error('Stale live admission');
       return current;
-    } });
+    } }); } finally { session?.dispose(); }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(error => { console.error(error.message); process.exitCode = 1; });
