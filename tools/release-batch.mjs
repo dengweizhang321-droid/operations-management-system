@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { canonical, hash, requireHash, safeRead, safeFileDigest, readSourceTree, sourceTreeDigest, sourceInventory, makeImpactProof, verifyImpactProof, classifyImpact, requirements, backupReuseDecision } from './release-impact.mjs';
 import { withRotationLock, applyApprovedRotationPlan, planWorkerReleaseRotation } from './worker-local-release-rotation.mjs';
 import { runProcess, processDeadline, safeProcessEvidence, workerRuntimeRoot } from './worker-local-release.mjs';
+import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError } from './release-readonly-retry.mjs';
 
 export const batchVersion = 'teruisi-release-batch-v1';
 const phases = ['queue', 'prepare', 'backup-pre', 'restore-pre', 'drain', 'switch', 'acceptance', 'business', 'backup-post', 'restore-post', 'closeout'];
@@ -53,6 +54,11 @@ const requiredOperatorResults = {
   'restore-post': { kind: 'restore', assertions: { status: 'completed', serviceStateChanged: false, productionDatabaseTouched: false, cleanupStatus: 'isolated_data_removed', profileRestoreVerified: true, sequenceHealthVerified: true } },
 };
 export function validateOperation(op) {
+  if (op.readOnlyRetry && (!isExactStatusOperation(op) || op.readOnlyRetry.version !== 'teruisi-status-retry-v1'
+    || !Number.isSafeInteger(op.readOnlyRetry.totalTimeoutMs) || op.readOnlyRetry.totalTimeoutMs < 1
+    || op.readOnlyRetry.totalTimeoutMs > 240_000)) throw new Error('Retry is restricted to the exact read-only Status operation');
+  if (op.readOnlyRetry && ([['state','Running'],['backendState','Ready'],['workerState','exact_release']].some(([key,value])=>!op.assertions?.some(a=>a.path===key&&a.equals===value))
+    || !op.assertions?.some(a=>a.path==='releaseId'&&typeof a.equals==='string'&&a.equals.length>0))) throw new Error('Read-only retry requires exact full readiness assertions');
   const requirement = requiredOperatorResults[op.phase];
   if (requirement) {
     if (op.kind !== requirement.kind || op.mutating !== true) throw new Error('Backup/restore phase cannot be substituted');
@@ -244,7 +250,13 @@ export async function executeBatch({ batch, approved, root, collectCurrent, run,
     if (!state.events.length) await append(state, batch, { phase: 'queue', status: 'approved', at: approvedAt, durationMs: performance.now() - queued });
     else await append(state, batch, { phase: 'queue', status: 'resumed', durationMs: performance.now() - queued });
     const admissionStart = performance.now();
-    const live = await collectCurrent(batch, lease);
+    let live;
+    try { live = await collectCurrent(batch, lease); }
+    catch (error) {
+      await append(state, batch, { phase: 'prepare', status: 'admission-failed', durationMs: performance.now() - admissionStart,
+        reason: 'operation-boundary-failed', error: safeObservationError(error) });
+      throw error;
+    }
     assertBindings(batch.binding, live.binding);
     if (batch.recovery.mode === 'reuse') {
       const decision = backupReuseDecision({ impact: batch.impact, evidence: batch.recoveryEvidence, current: live.recovery });
@@ -257,20 +269,28 @@ export async function executeBatch({ batch, approved, root, collectCurrent, run,
       // revalidate the expected predecessor until switch, then the exact
       // approved successor; never rewrite the approved batch to follow main.
       const boundaryStart = performance.now();
-      const current = await collectCurrent(batch, lease, op, state);
+      let current;
+      try { current = await collectCurrent(batch, lease, op, state); }
+      catch (error) {
+        await append(state, batch, { phase: op.phase, status: 'admission-failed', durationMs: performance.now() - boundaryStart,
+          reason: 'operation-boundary-failed', error: safeObservationError(error), observationAttempts: error.observationAttempts ?? [] });
+        throw error;
+      }
       assertBindings(batch.binding, current.binding);
       if (batch.recovery.mode === 'reuse' && ['switch','closeout'].includes(op.phase)
         && backupReuseDecision({ impact: batch.impact, evidence: batch.recoveryEvidence, current: current.recovery }).mode !== 'reuse') throw new Error('Recovery point/evidence invalidated at operation boundary');
-      await append(state, batch, { phase: op.phase, status: 'admission', durationMs: performance.now() - boundaryStart, reason: 'operation-boundary-revalidation' });
+      await append(state, batch, { phase: op.phase, status: 'admission', durationMs: performance.now() - boundaryStart, reason: 'operation-boundary-revalidation',
+        ...(current.statusObservation ? { observationAttempts: current.statusObservation.attempts } : {}) });
       const start = performance.now();
       await append(state, batch, { operationId: op.id, phase: op.phase, status: 'started' });
       let result;
       try { result = await run(op, { batch, lease, state }); }
-      catch (error) { result = { status: 'unknown', reason: error.processEvidence?.code ?? 'operator-failed-or-result-unavailable', processEvidence: error.processEvidence ?? null }; }
+      catch (error) { result = { status: 'unknown', reason: error.processEvidence?.code ?? 'operator-failed-or-result-unavailable', processEvidence: error.processEvidence ?? null, error: safeObservationError(error), observationAttempts: error.observationAttempts ?? [] }; }
       if (!['passed','failed','unknown','skipped'].includes(result?.status)) result = { status: 'unknown', reason: 'invalid-result' };
       if (result.status === 'skipped') throw new Error('Approved required operations cannot be skipped');
       await append(state, batch, { operationId: op.id, phase: op.phase, status: result.status,
-        durationMs: performance.now() - start, reason: result.reason ?? null, receiptSha256: result.receiptSha256 ?? null, outputs: result.outputs ?? null, processEvidence: result.processEvidence ?? null, timing: result.timing ?? null });
+        durationMs: performance.now() - start, reason: result.reason ?? null, receiptSha256: result.receiptSha256 ?? null, outputs: result.outputs ?? null, processEvidence: result.processEvidence ?? null, timing: result.timing ?? null,
+        ...(result.error ? {error:result.error} : {}), ...(result.observationAttempts ? {observationAttempts:result.observationAttempts} : {}) });
       if (result.status !== 'passed') throw new Error(`Release retained at ${op.id}: ${result.status}`);
     }
     await append(state, batch, { phase: 'closeout', status: 'completed' });
@@ -346,8 +366,9 @@ export function productionCommandArguments(executable, args) {
 }
 
 export async function runApprovedOperation(op, { batch, lease, state }) {
+  const observationStart=performance.now();
   validateOperation(op);
-  const deadlineUnixMs = processDeadline(op.command?.timeoutMs);
+  const deadlineUnixMs = processDeadline(op.readOnlyRetry?.totalTimeoutMs ?? op.command?.timeoutMs);
   if (op.kind === 'worker-plan') {
     const result = await planWorkerReleaseRotation({ prepareOnline: true, reusePlanSha256: op.planSha256, rotationLease: lease, batchSha256: batch.batchSha256 });
     if (result.planSha256 !== op.planSha256) throw new Error('Prepared plan changed');
@@ -392,10 +413,26 @@ export async function runApprovedOperation(op, { batch, lease, state }) {
   if (path.resolve(op.command.executable).toLowerCase() === path.resolve('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe').toLowerCase()
     && !op.command.files.some(f => f.path === args[3])) throw new Error('Unbound PowerShell script entrypoint');
   assertStartBinding(op, batch, args);
-  const result = await runProcess(op.command.executable, productionCommandArguments(op.command.executable,args), { cwd: op.command.cwd,
+  const invoke = timeoutMs => (op.readOnlyRetry ? runReadOnlyProcess : runProcess)(op.command.executable, productionCommandArguments(op.command.executable,args), { cwd: op.command.cwd,
     env: productionCommandEnvironment(op.command.executable), deadlineUnixMs,
     outputProtocol: 'direct-exit-files', cleanup: op.mutating ? 'preserve' : 'direct',
-    label: `${batch.id}/${op.id}`, timeoutMs: op.command.timeoutMs });
+    label: `${batch.id}/${op.id}`, timeoutMs });
+  let result, observationAttempts;
+  if (op.readOnlyRetry) {
+    const totalTimeoutMs=Math.floor(Math.min(deadlineUnixMs-Date.now(),op.readOnlyRetry.totalTimeoutMs-(performance.now()-observationStart)));
+    if(totalTimeoutMs<1)throw observationError('DEADLINE_EXCEEDED');
+    const observed = await retryReadOnlyObservation({ stage: `${op.phase}-status`, totalTimeoutMs,
+      onAttempt: record => append(state, batch, { phase: op.phase, status: 'observation-attempt', operationRef: op.id, observation: record }),
+      query: async ({ remaining }) => {
+        for (const file of op.command.files) { remaining(); if (await safeFileDigest(file.path) !== file.sha256) throw observationError('ASSERTION_FAILED'); remaining(); }
+        const value = await invoke(Math.min(remaining(), 60_000));
+        const status = parseStatus(value.stdout);
+        assertCompleteReadiness(status,op.assertions.find(a=>a.path==='releaseId').equals);
+        for (const assertion of op.assertions) if (canonical(assertion.path.split('.').reduce((v,k) => v?.[k], status)) !== canonical(assertion.equals)) throw observationError('ASSERTION_FAILED');
+        return value;
+      } });
+    result=observed.value;observationAttempts=observed.attempts;
+  } else result=await invoke(op.command.timeoutMs);
   let stage = 'result-parse';
   try {
   if (Date.now() >= deadlineUnixMs) throw new Error('deadline');
@@ -420,7 +457,7 @@ export async function runApprovedOperation(op, { batch, lease, state }) {
   const processEvidence = {...result.processEvidence};
   if (op.kind==='lifecycle' && Array.isArray(receipt.engineEvidence)) processEvidence.engine=receipt.engineEvidence.slice(0,8).map(safeProcessEvidence);
   const timing=Object.fromEntries(['engineMs','validationMs','adapterMs'].filter(k=>Number.isSafeInteger(receipt.timing?.[k])&&receipt.timing[k]>=0).map(k=>[k,receipt.timing[k]]));
-  return { timing, processEvidence, status: 'passed', receiptSha256: hash(receipt), outputs: Object.fromEntries(allowed.filter(k => typeof receipt[k] === 'string').map(k => [k,receipt[k]])) };
+  return { timing, processEvidence, ...(observationAttempts ? {observationAttempts} : {}), status: 'passed', receiptSha256: hash(receipt), outputs: Object.fromEntries(allowed.filter(k => typeof receipt[k] === 'string').map(k => [k,receipt[k]])) };
   } catch {
     const failure = new Error('Required operator result failed; exact reconciliation required');
     failure.processEvidence = {...result.processEvidence, code: Date.now() >= deadlineUnixMs ? 'process_timeout' : 'invalid_result', stage, timeoutType: Date.now() >= deadlineUnixMs ? stage : null};

@@ -1,0 +1,70 @@
+✔ exact HTTPS loopback icon is blocked and classified (2.7185ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/assets/exact.js script (0.3518ms)
+✔ dangerous or unapproved request remains blocked: POST https://127.0.0.1:3000/favicon.svg other (0.1551ms)
+✔ dangerous or unapproved request remains blocked: GET https://other.invalid/favicon.svg image (0.1514ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3001/favicon.svg other (0.1726ms)
+✔ dangerous or unapproved request remains blocked: GET https://localhost:3000/favicon.svg other (0.1545ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/favicon.svg?x=1 other (0.1968ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/favicon.svg fetch (0.1382ms)
+✔ dangerous or unapproved request remains blocked: GET http://127.0.0.1:3000/api/import fetch (0.191ms)
+✔ dangerous or unapproved request remains blocked: GET http://127.0.0.1:3000/assets/unapproved.js script (0.3394ms)
+✔ dangerous or unapproved request remains blocked: DELETE http://127.0.0.1:3000/api/customer-service/conversations fetch (0.1526ms)
+✔ normal candidate resource and exact reviewed business read stay allowed (0.2674ms)
+✔ blocked favicon needs HTTP bytes; mismatched normal asset never passes (1.5656ms)
+✔ real source four-shop component UI, read-only network, candidate SHA and viewer permission on isolated HTTP (13556.2533ms)
+✔ classified temporary reads retry at most four total; attempt time includes 53s queries (1.3831ms)
+✔ exhausted transient error preserves all four attempts (1.157ms)
+✔ terminal status failure never retries: EACCES (0.4123ms)
+✔ terminal status failure never retries: EPERM (0.1567ms)
+✔ terminal status failure never retries: STATUS_IDENTITY_MISMATCH (0.1654ms)
+✔ terminal status failure never retries: ASSERTION_FAILED (0.1241ms)
+✔ terminal status failure never retries: INVALID_STATUS_JSON (0.1113ms)
+✔ terminal status failure never retries: STATUS_NOT_READY (0.1765ms)
+✔ terminal status failure never retries: PROCESS_FAILED (0.119ms)
+✔ unknown errors with timeout-looking sensitive text are terminal and redacted (0.3392ms)
+✔ one total deadline bounds slow successful queries and prevents another attempt (1.1919ms)
+✔ retry waits consume the same budget (0.3381ms)
+✔ complete readiness requires exact identity and all twelve components (0.4879ms)
+✔ retry declaration cannot target Start, backup, apply, generic GET or script flags (0.7337ms)
+✔ bounded native read-only runner covers inherited output EOF (351.5709ms)
+✔ timing unions overlaps, excludes nested retries, keeps coordination and document completion separate (1.1981ms)
+✔ uncompleted batch never gets approval-to-complete or successful conclusion (0.2612ms)
+✔ offline report validates immutable journal, preserves unknown history and fails closed when steps missing (66.7976ms)
+✔ domain history synthetic isolation regressions (716.1016ms)
+✔ independent: completion interval cannot absorb work recorded after completion (2.7985ms)
+✔ independent: receipt whitelist rejects or removes unexpected sensitive field types (600.122ms)
+✔ independent: incomplete batch timing remains uncompleted even with a stale closeout event (869.2043ms)
+✔ independent: interrupted operation report preserves already fsynced attempt metadata (289.6878ms)
+✔ independent: source/version projection cannot retain sensitive nested release identifiers (218.469ms)
+✔ independent: independent runtime projection rejects sensitive nested identity fields (158.5418ms)
+✔ independent: total deadline includes persistent attempt evidence (5.1266ms)
+✔ independent: expired binding validation prevents starting another native probe (0.7449ms)
+✖ independent: output EOF held by a short-lived descendant remains inside native probe deadline (217.9307ms)
+✔ independent: permanent identity mismatch does not retry after a transient query (2.3667ms)
+✔ independent: HTTP icon query, other HTTPS origin and static-suffix writes remain dangerous (1.1807ms)
+✔ independent: allowed business GET network failure invalidates real UI audit (0.7455ms)
+✔ independent: complete readiness requires the actual twelve domain names (0.4975ms)
+ℹ tests 46
+ℹ suites 0
+ℹ pass 45
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16521.2598
+
+✖ failing tests:
+
+test at tests\release-closeout-independent.test.mjs:134:1
+✖ independent: output EOF held by a short-lived descendant remains inside native probe deadline (217.9307ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-acceptance-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-closeout-independent.test.mjs:137:3)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

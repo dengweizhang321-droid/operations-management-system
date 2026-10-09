@@ -1,0 +1,61 @@
+✔ exact HTTPS loopback icon is blocked and classified (1.8115ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/assets/exact.js script (0.2073ms)
+✔ dangerous or unapproved request remains blocked: POST https://127.0.0.1:3000/favicon.svg other (0.0962ms)
+✔ dangerous or unapproved request remains blocked: GET https://other.invalid/favicon.svg image (0.0941ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3001/favicon.svg other (0.1018ms)
+✔ dangerous or unapproved request remains blocked: GET https://localhost:3000/favicon.svg other (0.0824ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/favicon.svg?x=1 other (0.0987ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/favicon.svg fetch (0.0742ms)
+✔ dangerous or unapproved request remains blocked: GET http://127.0.0.1:3000/api/import fetch (0.0976ms)
+✔ dangerous or unapproved request remains blocked: GET http://127.0.0.1:3000/assets/unapproved.js script (0.1716ms)
+✔ dangerous or unapproved request remains blocked: DELETE http://127.0.0.1:3000/api/customer-service/conversations fetch (0.0873ms)
+✔ normal candidate resource and exact reviewed business read stay allowed (0.131ms)
+✔ blocked favicon needs HTTP bytes; mismatched normal asset never passes (0.8643ms)
+✖ real source four-shop component UI, read-only network, candidate SHA and viewer permission on isolated HTTP (110.4605ms)
+✔ classified temporary reads retry at most four total; attempt time includes 53s queries (2.4326ms)
+✔ exhausted transient error preserves all four attempts (0.6697ms)
+✔ terminal status failure never retries: EACCES (0.199ms)
+✔ terminal status failure never retries: EPERM (0.0926ms)
+✔ terminal status failure never retries: STATUS_IDENTITY_MISMATCH (0.1ms)
+✔ terminal status failure never retries: ASSERTION_FAILED (0.069ms)
+✔ terminal status failure never retries: INVALID_STATUS_JSON (0.0649ms)
+✔ terminal status failure never retries: STATUS_NOT_READY (0.0596ms)
+✔ terminal status failure never retries: PROCESS_FAILED (0.0546ms)
+✔ unknown errors with timeout-looking sensitive text are terminal and redacted (0.2201ms)
+✔ one total deadline bounds slow successful queries and prevents another attempt (0.1934ms)
+✔ retry waits consume the same budget (0.1666ms)
+✔ complete readiness requires exact identity and all twelve components (0.2868ms)
+✔ retry declaration cannot target Start, backup, apply, generic GET or script flags (0.3957ms)
+✔ bounded native read-only runner covers inherited output EOF (190.7045ms)
+✔ timing unions overlaps, excludes nested retries, keeps coordination and document completion separate (0.6683ms)
+✔ uncompleted batch never gets approval-to-complete or successful conclusion (0.1131ms)
+✔ offline report validates immutable journal, preserves unknown history and fails closed when steps missing (26.8572ms)
+✔ domain history synthetic isolation regressions (206.041ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 32
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1168.4673
+
+✖ failing tests:
+
+test at tests\release-acceptance-closeout.test.mjs:44:1
+✖ real source four-shop component UI, read-only network, candidate SHA and viewer permission on isolated HTTP (110.4605ms)
+  Error: Build failed with 1 error:
+  app/globals.css:2:8: ERROR: Could not resolve "tailwindcss"
+      at failureErrorWithLog (D:\.codex\worktrees\release-acceptance-closeout\运营管理系统\node_modules\esbuild\lib\main.js:1748:15)
+      at D:\.codex\worktrees\release-acceptance-closeout\运营管理系统\node_modules\esbuild\lib\main.js:1207:25
+      at D:\.codex\worktrees\release-acceptance-closeout\运营管理系统\node_modules\esbuild\lib\main.js:1159:52
+      at buildResponseToResult (D:\.codex\worktrees\release-acceptance-closeout\运营管理系统\node_modules\esbuild\lib\main.js:1205:7)
+      at D:\.codex\worktrees\release-acceptance-closeout\运营管理系统\node_modules\esbuild\lib\main.js:1232:16
+      at responseCallbacks.<computed> (D:\.codex\worktrees\release-acceptance-closeout\运营管理系统\node_modules\esbuild\lib\main.js:884:9)
+      at handleIncomingPacket (D:\.codex\worktrees\release-acceptance-closeout\运营管理系统\node_modules\esbuild\lib\main.js:939:12)
+      at Socket.readFromStdout (D:\.codex\worktrees\release-acceptance-closeout\运营管理系统\node_modules\esbuild\lib\main.js:862:7)
+      at Socket.emit (node:events:509:28)
+      at addChunk (node:internal/streams/readable:563:12) {
+    errors: [ { detail: undefined, id: '', location: [Object], notes: [Array], pluginName: '', text: 'Could not resolve "tailwindcss"' } ],
+    warnings: []
+  }

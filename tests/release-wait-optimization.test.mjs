@@ -78,6 +78,16 @@ test('unknown operation retains exit/deadline metadata and cannot replay',async(
   } finally {await f.dispose();}
 });
 
+test('passed WAL retains bounded original engine completion and separate timings',async()=>{
+  const f=await fixture(),b=batch();
+  try {
+    const run=async op=>op.step==='StartWorker'?{status:'passed',receiptSha256:h('0'),processEvidence:{exitCode:0,engine:[{exitCode:0,code:'completed',stage:'completed',stdoutBytes:100,stderrBytes:0}]},timing:{engineMs:100,validationMs:20,adapterMs:125}}:pass();
+    await executeBatch({batch:b,approved:b.batchSha256,root:f.root,lock:fakeLock,collectCurrent:collect(b),run});
+    const record=(await journalState(f.root,b)).latest.get('op-start');
+    assert.equal(record.processEvidence.engine[0].exitCode,0);assert.deepEqual(record.timing,{engineMs:100,validationMs:20,adapterMs:125});
+  } finally {await f.dispose();}
+});
+
 test('literal display delta is proven across unchanged dependency closure',()=>{
   assert.equal(classify(base,display).level,'display');
   assert.equal(classifyImpact({before:base,after:display}).level,'strict');

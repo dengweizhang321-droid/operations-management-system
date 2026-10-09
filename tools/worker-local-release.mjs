@@ -250,6 +250,7 @@ export const workerReleaseBundledSourcePaths = Object.freeze([
   "tools/release-batch.mjs",
   "tools/release-impact.mjs",
   "tools/release-batch-admission.mjs",
+  "tools/release-readonly-retry.mjs",
   "tools/release-daily-backup.mjs",
   "tools/release-lifecycle-step.ps1",
 ]);
@@ -261,6 +262,7 @@ export const workerReleaseKeyFilePaths = Object.freeze([
   "tools/release-batch.mjs",
   "tools/release-impact.mjs",
   "tools/release-batch-admission.mjs",
+  "tools/release-readonly-retry.mjs",
   "tools/release-daily-backup.mjs",
   "tools/release-lifecycle-step.ps1",
   "helper/tmall-workflow-helper.mjs",
@@ -643,7 +645,7 @@ export function safeProcessEvidence(value) {
   for (const key of ["version","processId","exitCode","deadlineUnixMs","elapsedMs","stdoutBytes","stderrBytes"]) {
     if (value[key] === null || Number.isSafeInteger(value[key])) result[key] = value[key];
   }
-  for (const key of ["code","stage","timeoutType","outputProtocol","cleanup"]) {
+  for (const key of ["code","stage","timeoutType","outputProtocol","cleanup","nativeCode"]) {
     if (typeof value[key] === "string" && /^[a-z][a-z0-9_-]{0,39}$/i.test(value[key])) result[key] = value[key];
   }
   for (const key of ["stdoutSha256","stderrSha256"]) if (/^[a-f0-9]{64}$/.test(value[key] ?? "")) result[key] = value[key];
@@ -666,13 +668,13 @@ export async function runProcess(command, args, {
   return new Promise((resolveRun, rejectRun) => {
     const stdout = [], stderr = [];
     let bytes = 0, chunks = 0, child, killer, timer, cleanupTimer, poll, root, handles = [];
-    let treeCleanupPending = false, treeCleanupExitCode = null;
+    let treeCleanupPending = false, treeCleanupExitCode = null, nativeCode = null;
     let settled = false, directExited = false, exitCode = null, exitSignal = null, forcedFailure = null;
     const evidence = (code, stage) => ({ version: 1, code, stage, processId: child?.pid ?? null, exitCode,
       signal: exitSignal, timeoutType: code === "process_timeout" ? stage : null,
       deadlineUnixMs: deadline, elapsedMs: Math.round(performance.now() - started), outputProtocol, cleanup,
       stdoutBytes: stdout.reduce((n,b)=>n+b.length,0), stderrBytes: stderr.reduce((n,b)=>n+b.length,0),
-      treeCleanupExitCode, treeCleanupPending,
+      treeCleanupExitCode, treeCleanupPending, nativeCode,
       stdoutSha256: sha256Bytes(Buffer.concat(stdout)), stderrSha256: sha256Bytes(Buffer.concat(stderr)) });
     const snapshot = () => {
       if (!handles.length) return;
@@ -765,7 +767,7 @@ export async function runProcess(command, args, {
     };
     child.stdout?.on("data",chunk=>collect(stdout,chunk));
     child.stderr?.on("data",chunk=>collect(stderr,chunk));
-    child.once("error",()=>finish("spawn_failed","启动失败","spawn"));
+    child.once("error",error=>{nativeCode=/^[A-Z][A-Z0-9_]{0,39}$/.test(error.code ?? "") ? error.code : null;finish("spawn_failed","启动失败","spawn");});
     child.once("exit",(code,signal)=>{
       directExited = true; exitCode = code; exitSignal = signal;
       if (forcedFailure) { if (!treeCleanupPending) finish(forcedFailure.code,forcedFailure.reason,forcedFailure.stage); return; }
