@@ -256,7 +256,7 @@ export async function executeBatch({ batch, approved, root, collectCurrent, run,
       const started=performance.now();
       try { return await collectCurrent(batch,lease,op,state); }
       catch(error) {
-        await append(state,batch,{phase:op?.phase??'prepare',status:'admission-failed',durationMs:performance.now()-started,admissionStages:admissionStages(error.admissionStages),reason:'live-admission-failed',error:safeObservationError(error),observationAttempts:error.observationAttempts??[]});
+        await append(state,batch,{phase:op?.phase??'prepare',status:'admission-failed',durationMs:performance.now()-started,admissionStages:admissionStages(error.admissionStages),reason:'operation-boundary-failed',error:safeObservationError(error),observationAttempts:error.observationAttempts??[]});
         throw error;
       }
     }

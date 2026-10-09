@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
-import { readSourceTree, sourceTreeDigest, sourceInventory, hash, canonical, classifyImpact, backupReuseDecision } from '../../tools/release-impact.mjs';
+import { readSourceTree, safeRead, sourceTreeDigest, sourceInventory, hash, canonical, classifyImpact, backupReuseDecision } from '../../tools/release-impact.mjs';
 import { workerPreparationIdentity, resolveBundledNpmToolchain, hashTree, runProcess } from '../../tools/worker-local-release.mjs';
 import { createPreparationEvidenceSession } from '../../tools/release-preparation-evidence.mjs';
 import { admissionTimer } from '../../tools/release-admission-timing.mjs';
@@ -25,18 +25,21 @@ try {
   }
   await writeFile(runtime,'TERUISI_RUNTIME_ENV=development\nSYNTHETIC_RELEASE_MEASUREMENT=1\n');
   await runProcess('git.exe',['init',source],{label:'private source fixture'});
+  await runProcess('git.exe',['-C',source,'add','--force','--all'],{label:'freeze complete private source inventory'});
   result.sourceSha256=sourceTreeDigest(files);result.sourceInventorySha256=hash(sourceInventory(files));result.fileCount=Object.keys(files).length;
   const timed=async(stage,action)=>{const start=performance.now();const value=await action();result.stages.push({stage,durationMs:performance.now()-start});return value;};
   const classification=await timed('classification',async()=>classifyImpact({before:files,after:{...files,'README.md':files['README.md']+'\n'}}));
   result.classification=classification.level;
-  await timed('source-content',()=>readSourceTree(source));
+  const ordered=Object.keys(files).sort();
+  await timed('source-content-sequential',async()=>{const read={};for(const name of ordered)read[name]=hash(await safeRead(path.join(source,...name.split('/'))));if(hash(read)!==result.sourceInventorySha256)throw Error('Sequential source content differs');});
+  await timed('source-content-bounded',async()=>{const read=await readSourceTree(source);if(hash(sourceInventory(read))!==result.sourceInventorySha256)throw Error('Bounded source content differs');});
   await timed('toolchain-content-and-version',()=>resolveBundledNpmToolchain());
   const artifact=await timed('build-and-dependencies-content',async()=>({dist:await hashTree(path.join(root,'dist')),dependencies:await hashTree(path.join(root,'node_modules'))}));
   result.buildPayloadSha256=hash(artifact);result.buildPayload=artifact;
   // Each path sees the same frozen source, actual Node/npm, synthetic runtime,
   // environment and artifact. Two paired runs reverse order to expose cache
   // warming; these measurements isolate identity, not full admission.
-  const phases=['admission','prepare','drain','stop','apply','start','end','acceptance','closeout'];
+  const phases=['admission','prepare','closeout'];result.identityPhases=phases;
   for(const order of [['baseline','optimized'],['optimized','baseline']]) {
     for(const mode of order) {
       const timer=admissionTimer(),start=performance.now();let identity;
