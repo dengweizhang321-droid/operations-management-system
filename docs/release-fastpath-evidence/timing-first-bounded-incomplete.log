@@ -1,0 +1,13 @@
+{"durationMs":101062.1218,"mode":"baseline","stage":"identity-pair"}
+{"durationMs":74124.2021,"mode":"optimized","stage":"identity-pair"}
+file:///D:/.codex/worktrees/release-fastpath-evidence/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/release-preparation-evidence.mjs:50
+    if(changed)throw new Error('Inputs changed while evidence session was held');
+                     ^
+
+Error: Inputs changed while evidence session was held
+    at assertStable (file:///D:/.codex/worktrees/release-fastpath-evidence/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/release-preparation-evidence.mjs:50:22)
+    at file:///D:/.codex/worktrees/release-fastpath-evidence/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/release-preparation-evidence.mjs:104:42
+    at async exclusive (file:///D:/.codex/worktrees/release-fastpath-evidence/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/release-preparation-evidence.mjs:88:24)
+    at async file:///D:/.codex/worktrees/release-fastpath-evidence/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-fastpath-evidence/measure.mjs:50:20
+
+Node.js v24.18.0
