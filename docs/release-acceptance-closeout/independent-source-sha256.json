@@ -1,0 +1,44 @@
+{
+  "review": "task-b-non-author-independent",
+  "checkedAtUtc": "2026-10-09 16:35:17 UTC",
+  "testedWith": "node --import tsx --test tests/release-closeout-independent.test.ts",
+  "sourceUnchangedSinceFinalValidation": true,
+  "files": [
+    {
+      "path": "tools/release-history-preservation.py",
+      "sha256": "7653551728c9f65e25af38fe8163a81f868c0c0af69c42434c6831583e94cc27"
+    },
+    {
+      "path": "tools/release-acceptance-ui.mjs",
+      "sha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348"
+    },
+    {
+      "path": "tools/release-readonly-retry.mjs",
+      "sha256": "455c71e008793245212090e0df423055771c7ca20eb56dbb2099f98877c43490"
+    },
+    {
+      "path": "tools/release-closeout-report.mjs",
+      "sha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021"
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "sha256": "0b84ef012f7b951ee81e683df618f0c283908dce803e6eec9f149115244bfe7e"
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "sha256": "a1843cbd9b5f0c103eec764501b7246c3a963a5a4170fa445e81780c2a414887"
+    },
+    {
+      "path": "tests/release-closeout-independent.test.mjs",
+      "sha256": "aa3b22bb055a149208a23489df46241e3246054417056fd104da8493d93b35ce"
+    },
+    {
+      "path": "tests/release-closeout-independent.test.py",
+      "sha256": "d57ed8ea7da452e60c347fe794bd0874028e7a9abbfa79e0b2c723baf02220a5"
+    },
+    {
+      "path": "tests/release-closeout-independent.test.ts",
+      "sha256": "383f2d4a91a8a592f83878c055ff7f76b34f66a4986661e586ab93fde3cc373e"
+    }
+  ]
+}
