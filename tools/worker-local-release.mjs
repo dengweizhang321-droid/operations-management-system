@@ -249,6 +249,7 @@ export const workerReleaseBundledSourcePaths = Object.freeze([
   "tools/release-batch-admission.mjs",
   "tools/release-admission-timing.mjs",
   "tools/release-preparation-evidence.mjs",
+  "tools/release-readonly-retry.mjs",
   "tools/release-daily-backup.mjs",
   "tools/release-lifecycle-step.ps1",
 ]);
@@ -262,6 +263,7 @@ export const workerReleaseKeyFilePaths = Object.freeze([
   "tools/release-batch-admission.mjs",
   "tools/release-admission-timing.mjs",
   "tools/release-preparation-evidence.mjs",
+  "tools/release-readonly-retry.mjs",
   "tools/release-daily-backup.mjs",
   "tools/release-lifecycle-step.ps1",
   "helper/tmall-workflow-helper.mjs",
