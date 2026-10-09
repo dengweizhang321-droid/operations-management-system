@@ -1,0 +1,11 @@
+✔ Windows Node 24 runs its bundled npm CLI directly without cmd or shell (3685.9177ms)
+✔ PowerShell 5 outer capture is isolated from noisy children and preserves bounded failures (6449.3549ms)
+✔ supervisor prelaunch waits for the real create-only receipt and rejects timeout or a forged PID (4329.7408ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15009.7405

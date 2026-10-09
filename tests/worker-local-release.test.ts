@@ -518,9 +518,9 @@ try {
     );
     await assert.rejects(
       runProcess(process.execPath, [childPath, "descendant"], {
-        cwd: fixtureRoot, label: "fixture descendant", maxOutputBytes: 1024, timeoutMs: 600,
+        cwd: fixtureRoot, label: "fixture descendant", maxOutputBytes: 1024, timeoutMs: 5600,
       }),
-      /超过 600ms 时限/,
+      /超过 5600ms 时限/,
     );
     const descendantPid = Number.parseInt(await readFile(path.join(fixtureRoot, "descendant.pid"), "utf8"), 10);
     let descendantAlive = true;

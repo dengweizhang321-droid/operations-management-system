@@ -9,6 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "process-deadline.ps1")
 Add-Type -AssemblyName System.Net.Http
 $UnifiedStartControlVersion = "teruisi-operations-system-control-v2"
 $SystemControlMutexName = "Local\TERUISI.Operations.SystemControl.v2"
@@ -151,8 +152,9 @@ function Invoke-JsonServiceAction {
   $serviceArguments = @(
     "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ScriptPath
   ) + $Arguments + @("-Json")
-  $serviceOutput = & $PowerShellExecutable @serviceArguments 2>&1
-  $serviceExitCode = $LASTEXITCODE
+  $capture = Invoke-DeadlineProcess -Executable $PowerShellExecutable -Arguments $serviceArguments -WorkingDirectory $ProjectRoot -Deadline (Get-ProcessDeadline) -Cleanup Direct
+  $serviceOutput = $capture.Stdout
+  $serviceExitCode = $capture.ExitCode
   if ($serviceExitCode -ne 0) {
     $serviceDetail = Get-BoundedText -Value $serviceOutput
     if ([string]::IsNullOrWhiteSpace($serviceDetail)) { $serviceDetail = "退出码 $serviceExitCode" }

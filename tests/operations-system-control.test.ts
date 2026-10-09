@@ -170,11 +170,12 @@ test("canonical engine waits only for the direct Django Start controller process
     workerService.indexOf("function Ensure-DjangoSystemReady"),
     workerService.indexOf("function Assert-NoReparsePath"),
   );
-  assert.match(invocationBlock, /Start-Process -FilePath \(Get-DjangoControlPowerShell\)/);
-  assert.match(invocationBlock, /-RedirectStandardOutput \$stdoutPath/);
-  assert.match(invocationBlock, /-RedirectStandardError \$stderrPath/);
-  assert.match(invocationBlock, /\$process\.WaitForExit\(\)/);
-  assert.match(invocationBlock, /direct process exit code authoritative/);
+  assert.match(invocationBlock, /Invoke-DeadlineProcess -Executable \(Get-DjangoControlPowerShell\)/);
+  assert.match(invocationBlock, /-Deadline \$WorkerOperationDeadline/);
+  const transport = readFileSync("tools/process-deadline.ps1", "utf8");
+  assert.match(transport, /\[Teruisi\.DeadlineProcess\]::Start/);
+  assert.match(transport, /\$process\.WaitForExit\(\[Math\]::Min/);
+  assert.doesNotMatch(transport, /\.WaitForExit\(\)/);
   assert.match(readinessBlock, /\$djangoStart = Invoke-DjangoStartProcess/);
   assert.doesNotMatch(readinessBlock, /@\(& \(Get-DjangoControlPowerShell\)[^\n]+-Action Start/);
   assert.equal((readinessBlock.match(/Get-DjangoSystemReadiness/g) ?? []).length, 1);

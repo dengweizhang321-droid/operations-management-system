@@ -17,6 +17,8 @@
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "process-deadline.ps1")
+$WorkerOperationDeadline = Get-ProcessDeadline
 $FixedRuntimeRoot = "D:\teruisi-runtime\teruisi-worker-sales"
 $FixedSourceRoot = "D:\运营管理系统-sales-django-release"
 $FixedProtectedRoot = "D:\运营管理系统"
@@ -103,9 +105,10 @@ function Enter-WorkerServiceMutex([ValidateRange(0, 900)][int]$StartWaitSeconds 
       if (-not $acquired -and $Action -ceq "Start") {
         $joined = $true
         if (-not $Json) { Write-Host "An existing lifecycle operation is running; waiting to verify its result" }
-        $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds($StartWaitSeconds))
+        $acquired = $mutex.WaitOne([Math]::Min($StartWaitSeconds * 1000, (Get-ProcessRemaining $WorkerOperationDeadline)))
       }
     } catch [System.Threading.AbandonedMutexException] { $acquired = $true }
+    [void](Get-ProcessRemaining $WorkerOperationDeadline)
     if (-not $acquired) { throw "Another Worker/system lifecycle operation is in progress; request rejected" }
     return [pscustomobject]@{ Mutex = $mutex; Joined = $joined }
   } catch {
@@ -139,6 +142,17 @@ function Get-NodeExecutable {
   return $node.Source
 }
 
+function Throw-WorkerProcessFailure([object]$Evidence, [string]$Code = 'nonzero_exit') {
+  $Evidence.code = $Code
+  $failure = [Exception]::new("Worker original process failed: exit=$($Evidence.exitCode); code=$Code")
+  $failure.Data['ProcessEvidence'] = $Evidence
+  throw $failure
+}
+function Get-WorkerHttpTimeoutSeconds([int]$Maximum) {
+  $seconds = [int][Math]::Floor((Get-ProcessRemaining $WorkerOperationDeadline) / 1000)
+  if ($seconds -lt 1) { throw 'process_deadline_exhausted' }
+  return [Math]::Min($Maximum, $seconds)
+}
 function Write-WorkerStartupTiming([string]$Stage, [string]$StartedAt, [long]$ElapsedMilliseconds, [string]$Outcome) {
   try {
     if ($Action -cnotin @('Start', 'Restart', 'RestartFull')) { return }
@@ -174,14 +188,9 @@ function Invoke-DjangoStatusJson([string]$ScriptPath, [string]$StatusAction, [st
   if (-not (Test-Path -LiteralPath $ScriptPath -PathType Leaf)) {
     throw "Missing installed Django controller for ${Label}: $ScriptPath"
   }
-  $djangoOutput = @(& (Get-DjangoControlPowerShell) -NoProfile -File $ScriptPath -Action $StatusAction -Json 2>&1)
-  $djangoExitCode = $LASTEXITCODE
-  $djangoText = (($djangoOutput | ForEach-Object { $_.ToString() }) -join "`n").Trim()
-  if ($djangoExitCode -ne 0) {
-    if ($djangoText.Length -gt 500) { $djangoText = $djangoText.Substring($djangoText.Length - 500, 500) }
-    throw "$Label failed: exit=$djangoExitCode; $djangoText"
-  }
-  try { return ($djangoText | ConvertFrom-Json -ErrorAction Stop) }
+  $capture = Invoke-DeadlineProcess -Executable (Get-DjangoControlPowerShell) -Arguments @('-NoProfile','-NonInteractive','-File',$ScriptPath,'-Action',$StatusAction,'-Json') -WorkingDirectory $DjangoRuntimeTools -Deadline $WorkerOperationDeadline -Cleanup Direct
+  if ($capture.ExitCode -ne 0) { Throw-WorkerProcessFailure $capture.Evidence }
+  try { return ($capture.Stdout.Trim() | ConvertFrom-Json -ErrorAction Stop) }
   catch { throw "$Label did not return valid JSON" }
 }
 
@@ -198,54 +207,20 @@ function Invoke-DjangoStartProcess(
     throw "Missing installed Django controller: $Controller"
   }
 
-  # Django Start creates durable PostgreSQL, Waitress, and ERP descendants.
-  # A native PowerShell pipeline can keep waiting on stdout/stderr handles that
-  # those descendants inherited after the direct controller has exited. Use
-  # file redirection and make the direct process exit code authoritative.
-  $invocationLogRoot = Join-Path $RuntimeRoot "logs"
-  [System.IO.Directory]::CreateDirectory($invocationLogRoot) | Out-Null
-  $invocationId = [Guid]::NewGuid().ToString("N")
-  $stdoutPath = Join-Path $invocationLogRoot "django-start-$invocationId.stdout.log"
-  $stderrPath = Join-Path $invocationLogRoot "django-start-$invocationId.stderr.log"
-  $arguments = @(
-    "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-    "-File", "`"$Controller`"", "-Action", $ControlAction,
-    "-RuntimeRoot", "`"$FixedDjangoRuntimeRoot`""
-  )
-  if ($PreservePostgres) { $arguments += "-KeepPostgres" }
-  $process = $null
-  $exitCode = $null
-  $stdoutTail = $null
-  $stderrTail = $null
-  try {
-    $process = Start-Process -FilePath (Get-DjangoControlPowerShell) -ArgumentList $arguments `
-      -WorkingDirectory $DjangoRuntimeTools -WindowStyle Hidden `
-      -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
-    $process.WaitForExit()
-    $exitCode = [int]$process.ExitCode
-    $stdoutTail = Get-BoundedLogTail $stdoutPath 800
-    $stderrTail = Get-BoundedLogTail $stderrPath 800
-  } finally {
-    if ($process) { $process.Dispose() }
-    foreach ($temporaryLog in @($stdoutPath, $stderrPath)) {
-      if (-not (Test-Path -LiteralPath $temporaryLog -PathType Leaf)) { continue }
-      try {
-        [System.IO.File]::Delete($temporaryLog)
-      } catch [System.IO.IOException] {
-        # A durable descendant may still hold the redirected handle. Leaving
-        # this bounded diagnostic is safer than converting a successful Start
-        # into a false failure.
-      } catch [System.UnauthorizedAccessException] {
-        # Runtime ACLs can also keep best-effort diagnostic cleanup pending.
-      }
-    }
-  }
-
+  # Reuse native file redirection, with a timed direct-exit wait and finite snapshot.
+  $arguments = @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$Controller,'-Action',$ControlAction,'-RuntimeRoot',$FixedDjangoRuntimeRoot)
+  if ($PreservePostgres) { $arguments += '-KeepPostgres' }
+  $capture = Invoke-DeadlineProcess -Executable (Get-DjangoControlPowerShell) -Arguments $arguments -WorkingDirectory $DjangoRuntimeTools -Deadline $WorkerOperationDeadline
+  $exitCode = $capture.ExitCode
+  # Persist only bounded metadata/hashes; raw engine output is consumed locally.
+  $stdoutTail = $capture.Evidence | ConvertTo-Json -Compress
+  $stderrTail = ''
   if ($exitCode -ne 0) { $startupPhaseOutcome = 'failed' }
   return [pscustomobject]@{
     ExitCode = $exitCode
     StdoutTail = $stdoutTail
     StderrTail = $stderrTail
+    ProcessEvidence = $capture.Evidence
   }
   } catch {
     $startupPhaseOutcome = 'failed'
@@ -266,7 +241,7 @@ function Start-SystemDingTalkReceiver {
   $controller = Join-Path $DjangoRuntimeTools "django-ai.ps1"
   Assert-NoReparsePath $startup
   Assert-NoReparsePath $controller
-  $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:3000/" -TimeoutSec 10 -MaximumRedirection 0
+  $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:3000/" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 10) -MaximumRedirection 0
   if ($page.StatusCode -ne 200) { throw "Worker HTTP is not ready for DingTalk automatic startup" }
   # The deployed AI operator owns configuration, authority, mutex and exact process identity.
   # Do not start from Django's pre-Worker phase: scheduled tools require the ready Worker.
@@ -433,7 +408,7 @@ function Ensure-DjangoSystemReady {
   }
   if ($djangoStartExitCode -ne 0) {
     if ([string]::IsNullOrWhiteSpace($djangoStartText)) { $djangoStartText = "no readable diagnostic" }
-    throw "Django/PostgreSQL full start failed: exit=$djangoStartExitCode; $djangoStartText"
+    Throw-WorkerProcessFailure $djangoStart.ProcessEvidence
   }
   # The installed Start controller does not exit successfully until every
   # enabled reader/writer, including ERP reference, has passed its own bounded
@@ -602,16 +577,9 @@ function Get-CurrentManifestPath {
   if ($AllowTestRuntimeRoot) {
     $resolveArgs += @("--allow-test-runtime-root", "--runtime-root", $RuntimeRoot)
   }
-  $outerErrorActionPreference = $ErrorActionPreference
-  try {
-    $ErrorActionPreference = "Continue"
-    $resolveOutput = @(& (Get-NodeExecutable) @resolveArgs 2>&1)
-    $resolveExitCode = $LASTEXITCODE
-  } finally {
-    $ErrorActionPreference = $outerErrorActionPreference
-  }
-  $resolveText = (($resolveOutput | ForEach-Object { $_.ToString() }) -join "`n").Trim()
-  if ($resolveExitCode -ne 0) { throw "Worker effective release resolution failed: exit=$resolveExitCode; $resolveText" }
+  $capture = Invoke-DeadlineProcess -Executable (Get-NodeExecutable) -Arguments $resolveArgs -WorkingDirectory (Split-Path -Parent $RotationTool) -Deadline $WorkerOperationDeadline -Cleanup Direct
+  $resolveText = $capture.Stdout.Trim()
+  if ($capture.ExitCode -ne 0) { Throw-WorkerProcessFailure $capture.Evidence }
   $resolution = ConvertFrom-ExactJson $resolveText "Worker effective release resolution"
   Assert-ExactProperties $resolution @(
     "status", "version", "releaseId", "manifestPath", "manifestSha256", "guardReceiptSha256",
@@ -692,9 +660,9 @@ function Invoke-ReleaseVerification(
   )
   if ($WriteSupervisorPrelaunchReceipt) { $args += "--write-supervisor-prelaunch-receipt" }
   if ($AllowTestRuntimeRoot) { $args += "--allow-test-runtime-root" }
-  $output = & $node @args 2>&1
-  if ($LASTEXITCODE -ne 0) { throw (($output | Out-String).Trim()) }
-  return (ConvertFrom-ExactJson (($output | Out-String).Trim()) "Worker release verification")
+  $capture = Invoke-DeadlineProcess -Executable $node -Arguments $args -WorkingDirectory (Split-Path -Parent $ReleaseTool) -Deadline $WorkerOperationDeadline
+  if ($capture.ExitCode -ne 0) { Throw-WorkerProcessFailure $capture.Evidence }
+  return (ConvertFrom-ExactJson $capture.Stdout.Trim() "Worker release verification")
   } catch {
     $startupPhaseOutcome = 'failed'
     throw
@@ -1262,6 +1230,7 @@ function Restart-ExactWorkerChild([object]$Internal, [datetime]$DeadlineUtc) {
     if (-not (Test-SameProcessIdentity $currentRoot $workerRoot)) {
       throw "Worker root PID was reused before the hot-restart fence completed"
     }
+    [void](Get-ProcessRemaining $WorkerOperationDeadline)
     Start-Sleep -Milliseconds 50
   }
   if (-not $workerRootStopped) { throw "Exact Worker root did not terminate within 2 seconds" }
@@ -1298,6 +1267,7 @@ function Restart-ExactWorkerChild([object]$Internal, [datetime]$DeadlineUtc) {
 
   $readyStatus = $null
   while ([DateTime]::UtcNow -lt $DeadlineUtc) {
+    [void](Get-ProcessRemaining $WorkerOperationDeadline)
     Start-Sleep -Milliseconds 250
     $candidate = Get-WorkerStatusInternal $Internal.Identity
     if ($candidate.Supervisor -and -not (Test-SameProcessIdentity $candidate.Supervisor $supervisor)) {
@@ -1373,6 +1343,7 @@ function Stop-ExactWorkerSnapshot([object]$Internal) {
     if (-not (Test-SameProcessIdentity $currentSupervisor $supervisor)) {
       throw "Supervisor PID was reused before the Stop fence completed"
     }
+    [void](Get-ProcessRemaining $WorkerOperationDeadline)
     Start-Sleep -Milliseconds 100
   }
   if (-not $supervisorStopped) { throw "Exact immutable Worker supervisor did not terminate within 5 seconds" }
@@ -1398,6 +1369,7 @@ function Stop-ExactWorkerSnapshot([object]$Internal) {
         Stop-ExactProcessIdentity $entry.Process
       }
     }
+    [void](Get-ProcessRemaining $WorkerOperationDeadline)
     Start-Sleep -Milliseconds 100
   }
   throw "Controlled immutable Worker/helper lineage did not quiesce within 10 seconds"
@@ -1474,6 +1446,7 @@ function Test-StartupShortcutExact([object]$Shell, [string]$Target, [string]$Arg
 }
 
 function Write-Result([object]$Value) {
+  [void](Get-ProcessRemaining $WorkerOperationDeadline)
   if ($Json) { Write-Output ($Value | ConvertTo-Json -Compress -Depth 8) }
   else { $Value | Format-List | Out-String | Write-Output }
 }
@@ -1506,6 +1479,7 @@ function Start-VerifiedWorkerSupervisor(
   }
   $supervisor = $null
   for ($attempt = 0; $attempt -lt 20 -and -not $supervisor; $attempt++) {
+    [void](Get-ProcessRemaining $WorkerOperationDeadline)
     Start-Sleep -Milliseconds 100
     $supervisor = Get-CimInstance Win32_Process -Filter "ProcessId = $($process.Id)" -ErrorAction SilentlyContinue
   }
@@ -1521,6 +1495,7 @@ function Start-VerifiedWorkerSupervisor(
     $readyStatus = $null
     $startupAnomalyAt = $null
     for ($attempt = 0; $attempt -lt 360; $attempt++) {
+      [void](Get-ProcessRemaining $WorkerOperationDeadline)
       Start-Sleep -Milliseconds 250
       $process.Refresh()
       if ($process.HasExited) { break }
@@ -1536,7 +1511,7 @@ function Start-VerifiedWorkerSupervisor(
       $process.Refresh()
       $logTail = Get-BoundedLogTail $stderr
       if ($process.HasExited) {
-        $process.WaitForExit()
+        [void]$process.WaitForExit(0)
         $exitCode = $process.ExitCode
         $detail = if ($logTail) { "; stderr=$logTail" } else { "; stderr log is empty: $stderr" }
         throw "Immutable Worker supervisor exited before readiness: exit=$exitCode$detail"
@@ -1546,7 +1521,7 @@ function Start-VerifiedWorkerSupervisor(
       $detail = if ($logTail) { "; stderr=$logTail" } else { "" }
       throw "Immutable Worker/helper did not establish stable exact 3000/5791 ownership: state=$state$reason$detail"
     }
-    $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec 15
+    $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 15)
     if (-not $helperHealth -or $helperHealth.ok -ne $true) { throw "Immutable helper /health did not report ready" }
     return [ordered]@{
       status = $ResultStatus
@@ -1557,6 +1532,7 @@ function Start-VerifiedWorkerSupervisor(
     }
   } catch {
     $startError = $_
+    if ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge $WorkerOperationDeadline) { throw $startError } # Retain receipts/unknown; no new cleanup probe after expiry.
     try { Remove-ExactSupervisorPrelaunchVerificationReceipt $StartupVerificationReceiptSha256 } catch {}
     try {
       $owned = Get-WorkerStatusInternal $Identity
@@ -1693,11 +1669,11 @@ function Get-JoinedWorkerStartResult([object]$identity) {
   if (-not $readiness.Ready) {
     throw "Concurrent startup did not make the full backend ready; missing=$($readiness.Missing -join ',')"
   }
-  $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:3000/" -TimeoutSec 10 -MaximumRedirection 0
+  $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:3000/" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 10) -MaximumRedirection 0
   if ($page.StatusCode -ne 200) { throw "Concurrent startup did not make the Worker homepage ready" }
-  $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec 15
+  $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec (Get-WorkerHttpTimeoutSeconds 15)
   if (-not $helperHealth -or $helperHealth.ok -ne $true) { throw "Concurrent startup did not make the helper ready" }
-  return ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
+  return ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256; supervisorProcessId = $status.Supervisor.ProcessId })
   } catch {
     $startupPhaseOutcome = 'failed'
     throw
@@ -1724,7 +1700,7 @@ function Invoke-WorkerSystemStart([object]$identity) {
     $status = Get-WorkerStatusInternal $identity
     if ($status.State -eq "exact_release") {
       Start-SystemDingTalkReceiver
-      return ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
+      return ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256; supervisorProcessId = $status.Supervisor.ProcessId })
     }
     if ($status.State -eq "starting_exact_release") { throw "The exact immutable Worker release is already starting" }
     $repairStaleReceipt = $status.State -eq "stale_or_invalid_receipt" -and -not $status.Supervisor -and $status.Receipt
@@ -1768,6 +1744,7 @@ function Stop-WorkerOnly([object]$identity) {
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
       if ((Get-PortProcessIds $WorkerPort $WorkerHost).Count -eq 0 -and
           (Get-PortProcessIds $HelperPort $HelperHost).Count -eq 0) { break }
+      [void](Get-ProcessRemaining $WorkerOperationDeadline)
       Start-Sleep -Milliseconds 250
     }
     if ((Get-PortProcessIds $WorkerPort $WorkerHost).Count -gt 0 -or
@@ -1916,7 +1893,7 @@ try {
   if ($Action -eq 'EndWorkerDrain') {
     Assert-WorkerReleaseDrain $MaintenanceId
     if ((Get-WorkerStatusInternal $identity).State -cne 'exact_release') { throw 'Exact Worker must be running before ending its release drain' }
-    $helperHealth = Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:5791/health' -TimeoutSec 15
+    $helperHealth = Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:5791/health' -TimeoutSec (Get-WorkerHttpTimeoutSeconds 15)
     if ($helperHealth.ok -cne $true -or $helperHealth.drainProtocol -cne 'teruisi-automation-drain-v1' -or $helperHealth.drain.id -cne $MaintenanceId -or $helperHealth.busy -cne $false -or @($helperHealth.storeExecutions).Count -ne 0) { throw 'New helper did not acknowledge the retained exact drain' }
     Invoke-DjangoLifecycleAction 'CancelDrain' $MaintenanceId
     if (Read-WorkerAutomationDrain) { throw 'Worker release drain was not cleared' }
@@ -1990,7 +1967,15 @@ try {
     exit 0
   }
 } catch {
-  [Console]::Error.WriteLine($_.Exception.Message)
+  if ($Json) {
+    $processEvidence = $_.Exception.Data['ProcessEvidence']
+    if (-not $processEvidence) {
+      $code = if ($_.Exception.Message -ceq 'process_deadline_exhausted') {'process_deadline_exhausted'} else {'worker_gate_failed'}
+      $processEvidence = @{stage=$Action;code=$code;processId=$PID;exitCode=$null;deadlineUnixMs=$WorkerOperationDeadline;timeoutType=$(if($code -eq 'process_deadline_exhausted'){$Action}else{$null})}
+    }
+    [Console]::Out.WriteLine((@{status='unknown';processEvidence=$processEvidence}|ConvertTo-Json -Depth 8 -Compress))
+    [Console]::Error.WriteLine('Worker lifecycle result requires exact reconciliation')
+  } else { [Console]::Error.WriteLine($_.Exception.Message) }
   exit 1
 } finally {
   if ($ServiceMutex -and $lockAcquired) { $ServiceMutex.ReleaseMutex(); $ServiceMutex.Dispose() }

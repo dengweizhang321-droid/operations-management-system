@@ -6,6 +6,7 @@ param(
   [switch]$FunctionsOnly
 )
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'process-deadline.ps1')
 $WatchdogVersion='teruisi-operations-watchdog-v2'
 $TaskName='TERUISI Operations Watchdog'
 $ProjectRoot='D:\运营管理系统'
@@ -38,20 +39,24 @@ function Write-WatchJson([string]$Path,[object]$Value) {
 }
 function Get-WatchHash([string]$Path){(Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()}
 function Invoke-WatchProcess([string]$Executable,[string[]]$Arguments,[int]$Seconds=60) {
-  # Only read operators / DWS run here. Service recovery runs in-process while holding its mutex.
-  $info=[Diagnostics.ProcessStartInfo]::new($Executable); $info.UseShellExecute=$false
-  $info.CreateNoWindow=$true; $info.RedirectStandardOutput=$true; $info.RedirectStandardError=$true
-  $info.WorkingDirectory=$WatchdogRoot
-  foreach($a in $Arguments){$info.ArgumentList.Add($a)}
-  $p=[Diagnostics.Process]::new(); $p.StartInfo=$info
-  try{
-    [void]$p.Start();$out=$p.StandardOutput.ReadToEndAsync();$err=$p.StandardError.ReadToEndAsync()
-    if(-not $p.WaitForExit($Seconds*1000)){$p.Kill($true);throw 'probe_timeout'}
-    if($p.ExitCode -ne 0){throw 'operator_failed'}
-    $text=$out.GetAwaiter().GetResult().Trim()
-    if($text.Length -gt 1048576){throw 'response_too_large'}
-    return $text|ConvertFrom-Json
-  }finally{$p.Dispose()}
+  # Only direct probe ownership is admitted. DWS unknown delivery is terminal.
+  $capture=Invoke-DeadlineProcess -Executable $Executable -Arguments $Arguments -WorkingDirectory $WatchdogRoot -Deadline (Get-ProcessDeadline ($Seconds*1000)) -Cleanup Direct
+  $evidence=$capture.Evidence
+  $evidence.stage='result-parse'
+  try {
+    if($capture.ExitCode -ne 0){$evidence.code='nonzero_exit';throw 'operator_failed'}
+    [void](Get-ProcessRemaining $evidence.deadlineUnixMs)
+    $result=$capture.Stdout.Trim()|ConvertFrom-Json -ErrorAction Stop
+    if($null -eq $result -or $result -is [array] -or $result -is [string] -or $result -is [ValueType]){throw 'invalid_result'}
+    [void](Get-ProcessRemaining $evidence.deadlineUnixMs)
+    return $result
+  } catch {
+    if($evidence.code -eq 'completed'){$evidence.code='invalid_result'}
+    if($_.Exception.Message -eq 'process_deadline_exhausted'){$evidence.code='process_deadline_exhausted';$evidence.timeoutType='result-parse'}
+    $failure=[Exception]::new(('probe_failure '+($evidence|ConvertTo-Json -Compress)))
+    $failure.Data['ProcessEvidence']=$evidence
+    throw $failure
+  }
 }
 function Invoke-WatchScript([string]$Path,[string[]]$Arguments){
   Invoke-WatchProcess $PowerShellPath (@('-NoProfile','-NonInteractive','-File',$Path)+$Arguments)
@@ -73,14 +78,14 @@ function Get-Admission {
 }
 function Test-WatchHttp([string]$Url,[string]$Kind){
   $handler=[Net.Http.HttpClientHandler]::new();$handler.UseProxy=$false;$handler.AllowAutoRedirect=$false
-  $client=[Net.Http.HttpClient]::new($handler);$client.Timeout=[TimeSpan]::FromSeconds(5)
+  $client=[Net.Http.HttpClient]::new($handler);$deadline=Get-ProcessDeadline 5000;$client.Timeout=[TimeSpan]::FromMilliseconds((Get-ProcessRemaining $deadline))
   $request=[Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get,$Url);$response=$null
   try{
     [void]$request.Headers.TryAddWithoutValidation('x-teruisi-local-health','1')
     $response=$client.SendAsync($request,[Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
     if([int]$response.StatusCode -ne 200){return @{ok=$false;status=[int]$response.StatusCode}}
     if($Kind -eq 'homepage'){return @{ok=$true;status=200}}
-    $cts=[Threading.CancellationTokenSource]::new(5000)
+    $cts=[Threading.CancellationTokenSource]::new((Get-ProcessRemaining $deadline))
     try{
       $stream=$response.Content.ReadAsStreamAsync().GetAwaiter().GetResult();$bytes=[byte[]]::new(8193);$n=0
       while($n -lt $bytes.Length){$read=$stream.ReadAsync($bytes,$n,$bytes.Length-$n,$cts.Token).GetAwaiter().GetResult();if($read -eq 0){break};$n+=$read}
@@ -95,26 +100,36 @@ function Test-WatchHttp([string]$Url,[string]$Kind){
 }
 function Get-WatchSnapshot {
   $admission=Get-Admission
-  $snapshot=@{at=[DateTimeOffset]::UtcNow.ToString('o');admission=$admission;system='unprobed';backend='unprobed';worker='unprobed';supervisor='unprobed';supervisorHealth='unprobed';components=@{};ports=@();probes=@{};healthy=$false;probeError=$false}
+  $snapshot=@{at=[DateTimeOffset]::UtcNow.ToString('o');admission=$admission;system='unprobed';backend='unprobed';worker='unprobed';supervisor='unprobed';supervisorHealth='unprobed';components=@{};ports=@();probes=@{};healthy=$false;probeError=$false;processDiagnostic=$null}
   # Planned shutdown is quiet, and a corrupt gate must never be treated as permission.
   if($admission.mode -ne 'running'){return $snapshot}
+  $savedDeadline=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
+  $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string](Get-ProcessDeadline 60000)
+  try {
+  $probeStage='control'
   try{
     $status=Invoke-WatchScript $ControlPath @('-Action','Status','-Json')
+    [void](Get-ProcessRemaining ([long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS))
+    $probeStage='supervisor'
     $supervisor=Invoke-WatchScript $SupervisorPath @('-Action','Status')
     $snapshot.system=[string]$status.state;$snapshot.backend=[string]$status.backendState;$snapshot.worker=[string]$status.workerState
     $snapshot.supervisor=[string]$supervisor.supervisorProcess;$snapshot.supervisorHealth=[string]$supervisor.health
+    [void](Get-ProcessRemaining ([long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS))
+    $probeStage='monitor'
     $monitor=Read-WatchJson (Join-Path $BackendRoot 'monitoring\django-runtime\state.json')
     if(-not $monitor -or ([DateTimeOffset]::UtcNow-[DateTimeOffset]$monitor.updatedAt).TotalMinutes -gt 7){$snapshot.supervisorHealth='stale'}
     foreach($p in $status.components.PSObject.Properties){$snapshot.components[$p.Name]=[bool]$p.Value}
     $snapshot.releaseId=[string]$status.releaseId;$snapshot.workerPid=$status.portProcessId;$snapshot.supervisorPid=$status.supervisorProcessId
-  }catch{$snapshot.probeError=$true}
+  }catch{$snapshot.probeError=$true;$snapshot.processDiagnostic=@{stage=$probeStage;code='probe_stage_failed';process=$_.Exception.Data['ProcessEvidence']}}
   foreach($kind in @('homepage','live','ready','helper')){
+    if([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge [long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS){$snapshot.probes[$kind]=@{ok=$false;status=0;reason='snapshot_deadline'};continue}
     $url=switch($kind){homepage{'http://127.0.0.1:3000/'} helper{'http://127.0.0.1:5791/health'} default{"http://127.0.0.1:3000/_teruisi/local/health/$kind"}}
     $snapshot.probes[$kind]=Test-WatchHttp $url $kind
   }
-  $snapshot.ports=@(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue|Where-Object LocalPort -in @(3000,5791,5432)|ForEach-Object {@{port=[int]$_.LocalPort;pid=[int]$_.OwningProcess}})
+  if([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -lt [long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS){$snapshot.ports=@(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue|Where-Object LocalPort -in @(3000,5791,5432)|ForEach-Object {@{port=[int]$_.LocalPort;pid=[int]$_.OwningProcess}})}
   $snapshot.healthy=(-not $snapshot.probeError -and $snapshot.system -ceq 'Running' -and $snapshot.backend -ceq 'Ready' -and $snapshot.worker -ceq 'exact_release' -and $snapshot.supervisor -ceq 'running' -and $snapshot.supervisorHealth -ceq 'healthy' -and $snapshot.components.Count -ge 12 -and @($snapshot.components.Values|Where-Object {-not $_}).Count -eq 0 -and @($snapshot.probes.Values|Where-Object {-not $_.ok}).Count -eq 0)
   return $snapshot
+  } finally {$env:TERUISI_PROCESS_DEADLINE_UNIX_MS=$savedDeadline}
 }
 function Get-WatchBusinessHealth {
   # Passive reader telemetry only: never create a full ranking scan every minute.
@@ -269,6 +284,8 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun){
     $State.notification=$alert.status
     $known=@('owner_profile_ambiguous','owner_ambiguous','owner_mismatch','owner_search_ambiguous','bot_ambiguous','dws_rejected','operator_failed','probe_timeout','delivery_unconfirmed')
     $code=if($_.Exception.Message -cin $known){$_.Exception.Message}else{'preflight_failed'}
+    $processDiagnostic=$_.Exception.Data['ProcessEvidence']
+    if($processDiagnostic){$alert.processDiagnostic=$processDiagnostic;$code=$processDiagnostic.code}
     $alert.reason="$stage`:$code";$State.notificationReason=$alert.reason
   }
   if(-not $DryRun){Write-WatchJson $alertPath $alert;Write-WatchJson $StatePath $State}
@@ -344,6 +361,10 @@ function Install-Watchdog {
   $target=Join-Path $root 'operations-system-watchdog.ps1'
   Copy-Item -LiteralPath $PSCommandPath -Destination $target -Force
   if((Get-WatchHash $target) -cne (Get-WatchHash $PSCommandPath)){throw 'installation_hash_mismatch'}
+  $transportSource=Join-Path $PSScriptRoot 'process-deadline.ps1'
+  $transportTarget=Join-Path $root 'process-deadline.ps1'
+  Copy-Item -LiteralPath $transportSource -Destination $transportTarget -Force
+  if((Get-WatchHash $transportSource) -cne (Get-WatchHash $transportTarget)){throw 'transport_installation_hash_mismatch'}
   $launcherSource=Join-Path $PSScriptRoot 'watchdog-launcher\NoConsoleLauncher.cs'
   $launcherSourceHash=Get-WatchHash $launcherSource
   $launcher=Join-Path $root ("Watchdog.NoConsole-"+$launcherSourceHash.Substring(0,16)+'.exe')
@@ -352,7 +373,7 @@ function Install-Watchdog {
     & $compiler /nologo /target:winexe /platform:anycpu /optimize+ "/out:$launcher" $launcherSource
     if($LASTEXITCODE -ne 0){throw 'watchdog_launcher_compile_failed'}
   }
-  $config=@{version=$WatchdogVersion;scriptSha256=Get-WatchHash $target;launcherSourceSha256=$launcherSourceHash;launcherSha256=Get-WatchHash $launcher;installedAt=[DateTimeOffset]::UtcNow.ToString('o')}
+  $config=@{version=$WatchdogVersion;scriptSha256=Get-WatchHash $target;transportSha256=Get-WatchHash $transportTarget;launcherSourceSha256=$launcherSourceHash;launcherSha256=Get-WatchHash $launcher;installedAt=[DateTimeOffset]::UtcNow.ToString('o')}
   Write-WatchJson (Join-Path $root 'installation.json') $config
   $taskAction=New-ScheduledTaskAction -Execute $launcher -WorkingDirectory $root -Argument "`"$PowerShellPath`" `"$target`""
   $user=[Security.Principal.WindowsIdentity]::GetCurrent().Name
@@ -388,7 +409,7 @@ try{
   if($Action -eq 'TestNotification'){Send-WatchAlert @{incident='preview';firstFailure='preview';notification=$null} @{system='preview';backend='preview';ports=@()} 'preview' -DryRun|ConvertTo-Json -Compress;return}
   if($Execute){
     $installation=Read-WatchJson (Join-Path $WatchdogRoot 'installation.json')
-    if(-not $installation -or $installation.scriptSha256 -cne (Get-WatchHash $PSCommandPath)){throw 'installed_watchdog_binding_invalid'}
+    if(-not $installation -or $installation.scriptSha256 -cne (Get-WatchHash $PSCommandPath) -or $installation.transportSha256 -cne (Get-WatchHash (Join-Path $PSScriptRoot 'process-deadline.ps1'))){throw 'installed_watchdog_binding_invalid'}
   }
   Invoke-WatchCycle -Recover:$Execute|ConvertTo-Json -Compress
 }finally{if($held){$mutex.ReleaseMutex()};$mutex.Dispose()}
