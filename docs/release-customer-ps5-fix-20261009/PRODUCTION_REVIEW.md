@@ -35,13 +35,13 @@
 | restore-post | 13.250 |
 | closeout | 3.320 |
 
-| 协调operation | started到独立passed/分钟 | 原duration未包含等待/分钟 |
+| 协调operation | started到独立passed/分钟 | 原duration未包含跨度/分钟 |
 | --- | ---: | ---: |
 | step-startworker | 18.952 | 18.952 |
 | customer-historical-query-preserved | 8.897 | 8.844 |
 | customer-four-shop-production-ui | 4.519 | 4.431 |
 | final-readiness-closeout | 4.957 | 4.339 |
 
-原duration累计104.104分钟、附加协调等待36.566分钟、事件间/未单独打点残差1.909分钟，均在墙钟总时间中。采样HTTP窗口在JSON（入口1秒/客服3秒、2秒timeout），不等于精确停服。隔离266.80→47.61秒/私有HTTP gap及历史63分钟非生产稳定承诺。
+原duration累计104.104分钟、附加未打点动作及协调跨度36.566分钟（其中原实际启动函数4.217分钟，其他适配/协调跨度32.349分钟）、事件间/未单独打点残差1.909分钟，均在墙钟总时间中。采样HTTP窗口在JSON（入口1秒/客服3秒、2秒timeout），不等于精确停服。隔离266.80→47.61秒/私有HTTP gap及历史63分钟非生产稳定承诺。
 
 本批严格保留完整前后备份/恢复，批准后未重复npm ci/构建；准备/构建/域测试前移，来源/制品/前驱/现场/排空/权限/完整性/自然健康/恢复继续等待。日备份暂停，本批没有纯展示快路径；实际未执行主动业务导入/补数、生产数据恢复或日常调度变更。

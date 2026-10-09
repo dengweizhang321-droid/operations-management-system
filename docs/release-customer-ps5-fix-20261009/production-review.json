@@ -719,7 +719,11 @@
     "remainingUnmeasuredOrInterEventMs": 114512.91739999875,
     "firstOriginalApprovalToOfficialCloseoutMs": 33976676,
     "independentReviewCompletedAt": "2026-10-09T03:17:22.578Z",
-    "secondApprovalToIndependentReviewMs": 9396578
+    "secondApprovalToIndependentReviewMs": 9396578,
+    "additionalUnrecordedOperationAndCoordinationSpanMs": 2193944,
+    "originalStartupFunctionExecutionMs": 252999,
+    "additionalAdapterAndCoordinationSpanExcludingStartupFunctionMs": 1940945,
+    "durationPartitionInterpretation": "Recorded6246219.0826 + original startup function252999 + other unrecorded adapter/coordination span1940945 + inter-event residual114512.9174 = official8554676ms. Startup whole wall1137117 includes original252999ms actual function; it is not all post-start investigation."
   },
   "availability": {
     "sha256": "adf7e4e386502d3643f6029544217841a2e0e57ecb097172f4d815f90af5c31a",
