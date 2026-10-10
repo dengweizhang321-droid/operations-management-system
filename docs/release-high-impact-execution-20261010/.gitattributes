@@ -1,0 +1,5 @@
+# Preserve original reviewer response bytes. Evidence is not reformatted.
+AGY_ROUND*.md -text whitespace=-blank-at-eol,-blank-at-eof
+ASTRA*.md -text whitespace=-blank-at-eol,-blank-at-eof
+# This exact instruction file is already pinned in the frozen offline package.
+COMPOSITION_TOOL.md -text whitespace=-blank-at-eol,-blank-at-eof

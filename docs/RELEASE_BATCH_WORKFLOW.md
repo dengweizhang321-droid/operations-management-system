@@ -32,6 +32,8 @@ impact v2 仍保守：除客户端 JSX 文本与普通字面 className 外，只
 
 确认上线之前完成最终组合源码、必要测试及独立复审、真实 immutable Worker 包、Django PrepareApp、发布／回滚计划和完整批次。先查当前生效谱系与组合范围，不顺带采用 main 内未获批准的其他功能。
 
+多个尚未执行的改动可先用 `node tools/release-composition-review.mjs <request.json>` 检查离线组合资料。输入须声明实际已采用 source-snapshot 的完整源码／库存摘要、每项完整候选、依赖、原验收与回退资料及组合源码；工具拒绝摘要漂移、不同前驱、缺依赖／循环、重叠路径及组合增删改遗漏或夹带。`ready-for-combined-review` 仅表示资料及字节集合可进入联合复审，状态是调用方声明，不能替代实际就绪、兼容性审查、原 plan／batch 准备或现场准入；`blocked` 返回退出码 2。没有两项同时就绪的真实机会就停止合批，不等待未就绪功能。输入格式与本次调查见[组合检查交付](release-high-impact-execution-20261010/REPORT.md)。
+
 原 `node tools/worker-local-release-rotation.mjs plan --prepare-online --json` 在原发布互斥内查找**相同完整源码、前驱和构建身份**的已验证候选，找到后完整复验并返回原 plan；没有匹配时沿用原 npm ci、构建、helper、合约与全部校验。可指定 `--reuse-plan-sha256 <精确摘要>`；指定绑定失效会拒绝，不能静默选择别的候选。
 
 准备收据绑定原 tree-hash、完整 inventory-hash、锁文件及全部源码／构建配置、Node 可执行文件字节、bundled npm 闭包、实际 user/global npmrc 字节、继承环境摘要、运行配置摘要，以及 candidate manifest、产物、helper、合约和 guard 证据。不会打印配置值。任意现成 dist 不被接受；旧没有新准备收据的候选不能直接获得复用资格。

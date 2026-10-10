@@ -1,0 +1,272 @@
+{
+  "sealedAtUtc": "2026-10-10T10:14:11.163Z",
+  "baseline": "bc1d830b6770bd2858c31aa4d861354da5ec433c",
+  "astra": {
+    "task": "/root/astra",
+    "dispatchedModel": "gpt-6-astra",
+    "reasoningEffort": "high"
+  },
+  "antigravity": {
+    "executable": "C:/Users/86137/AppData/Local/agy/bin/agy.exe",
+    "rounds": [
+      {
+        "round": 1,
+        "call": {
+          "startedAtUtc": "2026-10-10T09:55:26.2822323+00:00",
+          "endedAtUtc": "2026-10-10T10:00:24.5249765+00:00",
+          "durationSeconds": 298.2448612,
+          "exitCode": 0,
+          "executable": "C:/Users/86137/AppData/Local/agy/bin/agy.exe",
+          "conversation": "",
+          "promptFile": "E:\\codex-artifacts\\release-high-impact-execution-20261010\\agy-round1-prompt.txt",
+          "mode": "plan",
+          "outputFormat": "stream-json"
+        },
+        "conversationId": "111272d0-f535-4130-847a-4e1dc8f487db",
+        "status": "SUCCESS",
+        "responseCharacters": 3950,
+        "completedNativeTools": 21,
+        "errors": [
+          {
+            "conversation_id": "111272d0-f535-4130-847a-4e1dc8f487db",
+            "step_index": 30,
+            "state": "ERROR",
+            "step_type": "tool",
+            "tool_name": "view_file",
+            "duration_seconds": 0.0546948,
+            "tool_info": {
+              "name": "view_file",
+              "parameters": {
+                "AbsolutePath": "D:/.codex/worktrees/release-high-impact-execution/运营管理系统/docs/release-integration-review/PRODUCTION_SNAPSHOT.json"
+              },
+              "error": {
+                "type": "TOOL_ERROR",
+                "message": "declaring permissions: cortex tool view_file: convert tool call for permissions: model output error: invalid tool call error (invalid_args) failed to read file: GetFileAttributesEx D:/.codex/worktrees/release-high-impact-execution/运营管理系统/docs/release-integration-review/PRODUCTION_SNAPSHOT.json: The system cannot find the file specified."
+              }
+            }
+          }
+        ],
+        "deniedActionsFieldPresent": false,
+        "deniedActions": null
+      },
+      {
+        "round": 2,
+        "call": {
+          "startedAtUtc": "2026-10-10T10:01:47.8442889+00:00",
+          "endedAtUtc": "2026-10-10T10:05:03.2091496+00:00",
+          "durationSeconds": 195.3669031,
+          "exitCode": 0,
+          "executable": "C:/Users/86137/AppData/Local/agy/bin/agy.exe",
+          "conversation": "111272d0-f535-4130-847a-4e1dc8f487db",
+          "promptFile": "E:\\codex-artifacts\\release-high-impact-execution-20261010\\agy-round2-prompt.txt",
+          "mode": "plan",
+          "outputFormat": "stream-json"
+        },
+        "conversationId": "111272d0-f535-4130-847a-4e1dc8f487db",
+        "status": "SUCCESS",
+        "responseCharacters": 7866,
+        "completedNativeTools": 6,
+        "errors": [],
+        "deniedActionsFieldPresent": false,
+        "deniedActions": null
+      },
+      {
+        "round": 3,
+        "call": {
+          "startedAtUtc": "2026-10-10T10:07:23.7290809+00:00",
+          "endedAtUtc": "2026-10-10T10:09:33.7459839+00:00",
+          "durationSeconds": 130.0192169,
+          "exitCode": 0,
+          "executable": "C:/Users/86137/AppData/Local/agy/bin/agy.exe",
+          "conversation": "111272d0-f535-4130-847a-4e1dc8f487db",
+          "promptFile": "E:\\codex-artifacts\\release-high-impact-execution-20261010\\agy-round3-prompt.txt",
+          "mode": "plan",
+          "outputFormat": "stream-json"
+        },
+        "conversationId": "111272d0-f535-4130-847a-4e1dc8f487db",
+        "status": "SUCCESS",
+        "responseCharacters": 6863,
+        "completedNativeTools": 7,
+        "errors": [],
+        "deniedActionsFieldPresent": false,
+        "deniedActions": null
+      }
+    ]
+  },
+  "exchange": [
+    "Independent AGY1 and Astra1",
+    "Astra read AGY1 and wrote Astra2",
+    "Same AGY conversation read Astra1/2 and code for AGY2",
+    "AGY3 read final prototype proof implementation",
+    "Astra read AGY2/3 and wrote final corrections",
+    "Coordinator verified frozen package and source/evidence"
+  ],
+  "files": [
+    {
+      "name": "AGY_ROUND1_STREAM.ndjson",
+      "bytes": 119881,
+      "sha256": "a410561661893433e7576ca14aff17a98933d885f1c2a67df645e20c6314e450"
+    },
+    {
+      "name": "AGY_ROUND2_STREAM.ndjson",
+      "bytes": 160544,
+      "sha256": "14f4c89b7b6471c33537dfe102586262a2d2dfc055879d3e7156a34751b01ae4"
+    },
+    {
+      "name": "AGY_ROUND3_STREAM.ndjson",
+      "bytes": 134114,
+      "sha256": "a51ca2e1d65c35e99d058d18958a94284bd94db022145c27a196d37af7030caf"
+    },
+    {
+      "name": "AGY_ROUND1_RESULT.json",
+      "bytes": 7569,
+      "sha256": "0cb75ed0b660c88b3c4ce6dd31a1472e0d5a1dae545a12cf1be6720076a6edf7"
+    },
+    {
+      "name": "AGY_ROUND2_RESULT.json",
+      "bytes": 13843,
+      "sha256": "eb093504739cd667ed1bec6331b0ff3bab5d3ad9e4069593a9a1bb580b979eac"
+    },
+    {
+      "name": "AGY_ROUND3_RESULT.json",
+      "bytes": 11086,
+      "sha256": "edec0c6ff606d4748b3d5ad072bf85a805512f5090906f20f9ddf6306be2c9d2"
+    },
+    {
+      "name": "ASTRA_ROUND1.md",
+      "bytes": 2595,
+      "sha256": "33ff7134e562ef60c030e23b5d1a627f391d05d44061c12c032cbbbd99255d0d"
+    },
+    {
+      "name": "ASTRA_ROUND2.md",
+      "bytes": 4106,
+      "sha256": "10a1a0c80fd43640c82feb6b6457fa5c89b58ac47fad32ca50afdb593626a05f"
+    },
+    {
+      "name": "ASTRA_FINAL.md",
+      "bytes": 3951,
+      "sha256": "be3e1c2de2b9d283aff77c7b6528cee0d769fefc31ed5f74d3e2d08395375c92"
+    },
+    {
+      "name": "current-initial.json",
+      "bytes": 65705,
+      "sha256": "738fa8254da1e43602c2f5652c04d019c51ac1b2082f703379118b266712d049"
+    },
+    {
+      "name": "current-final.json",
+      "bytes": 65705,
+      "sha256": "0937c1dd14b73f5b14c00761470b92b52a2f9e636f502e1ef3bb744fbbbb1058"
+    },
+    {
+      "name": "source-deltas.json",
+      "bytes": 146241,
+      "sha256": "2050795f57a40e860e68008b20a062435a85d5445a4c6098729dbea127ce757f"
+    },
+    {
+      "name": "historical-source-coverage.json",
+      "bytes": 56407,
+      "sha256": "dbbbcea267c1cb5b026b998982593623e506deb6fe6a7b22293663364fd26185"
+    },
+    {
+      "name": "main-object-check.json",
+      "bytes": 565,
+      "sha256": "02bad58ff89c09560704ca75151614b490e80f3b7cb9ad1f973167a524a881bf"
+    },
+    {
+      "name": "c-composition-request.json",
+      "bytes": 2901,
+      "sha256": "d97b3674fcfefd8dee0561e14e62acfbec5ab14e2480efbfc9f791c8a2d8fa4a"
+    },
+    {
+      "name": "c-composition-report.json",
+      "bytes": 23736,
+      "sha256": "13861140253091f734996dece2ed1bb64bfae0007a0779f5ad09e6adb8234a61"
+    },
+    {
+      "name": "c-composition-cli-result.json",
+      "bytes": 91,
+      "sha256": "aa875ba472aa56d0f5b18ee557a20c29982c191ac88ec169926bc2d268866fec"
+    },
+    {
+      "name": "related-release-tests.log",
+      "bytes": 9699,
+      "sha256": "c9f726986c48d96f225c83ddad522fe9076d508b30eedfe61ef8a933d8e61329"
+    },
+    {
+      "name": "existing-watcher-isolated-recheck.log",
+      "bytes": 220,
+      "sha256": "4426a80e2b0de7bcab67e9397d85eb6c6d045b0f4b38d4307487240f9501774e"
+    },
+    {
+      "name": "related-release-tests-serial.log",
+      "bytes": 8569,
+      "sha256": "72b43e38d80ac69ba7d6b1626c37d3b9f837f58fd87dc6a8af128fde6bf8d689"
+    },
+    {
+      "name": "related-release-tests-final.log",
+      "bytes": 8769,
+      "sha256": "2393b4641afbabfcc3cbb8c8774e2d7ca598e8b8b96a4723b3984b9c5433007f"
+    },
+    {
+      "name": "related-release-tests-proof-final.log",
+      "bytes": 9105,
+      "sha256": "7a531397e5e39c6e6c152593250469f428e33df9246799a200aaf26b472b94b8"
+    },
+    {
+      "name": "prototype-proof-before-fix.log",
+      "bytes": 364,
+      "sha256": "f12c2163ce9fe6f7cd15f44d22aaee28c3a018e8a1edb30b5392b7b236691096"
+    },
+    {
+      "name": "implementation-source-manifest-proof-final.json",
+      "bytes": 666,
+      "sha256": "029dec909d0d6a7f23861a13bbd8d0437f6952e1681f5c9bb175176bca991c6c"
+    },
+    {
+      "name": "all-task-scripts-lint.log",
+      "bytes": 429,
+      "sha256": "d8291bcbf51a2eb299d7c1cdf81400c991e9fc7fae578e7decd4a81f09470571"
+    },
+    {
+      "name": "all-task-scripts-lint-final.log",
+      "bytes": 162,
+      "sha256": "8eba0167a66e27a81b2bdcdd36d78e781937d8f43a5c7e67dc10c84ee7dd1d6e"
+    },
+    {
+      "name": "python-closure-measured.json",
+      "bytes": 1437,
+      "sha256": "e9619c14a31213497c7813fe89b372b3e9e7391f751aac7a3cc8c29dd7be2cb9"
+    },
+    {
+      "name": "admission-observed.json",
+      "bytes": 9365,
+      "sha256": "a5d9fa4a17f72aa5c9f4a0ffdee8556f1725fd74f029a11156ae698824522eb2"
+    },
+    {
+      "name": "packaged-final-independent-tests.log",
+      "bytes": 1863,
+      "sha256": "1a81c57d5d1a624bac2bbca512a33ec9d01023780b034ba9343704451d894945"
+    },
+    {
+      "name": "offline-candidate-final-created.json",
+      "bytes": 284,
+      "sha256": "3310b1202097879fb4e0105898ca3cee5b03d5f3c46ae6a103ef0adae57fd419"
+    },
+    {
+      "name": "zip-verification.json",
+      "bytes": 312,
+      "sha256": "3a79cf3d41b37b4a2cfdaa23c6b0ca4c14f3a7b452d58ad58aaa4b18cc632412"
+    },
+    {
+      "name": "offline-candidate-final.zip",
+      "bytes": 4661544,
+      "sha256": "4b9b25d4176fe2d278849030b5c4281b7c43332deef27c5a97ef4b3b174594a5"
+    }
+  ],
+  "limitations": [
+    "Model agreement does not certify a production batch.",
+    "21 package tests repeat the same new cases inside the 99 relevant cases; not 120 unique cases.",
+    "Watcher initial failure cause remains unknown.",
+    "Offline candidate is not a Worker release; production plan/batch are blocked."
+  ]
+}

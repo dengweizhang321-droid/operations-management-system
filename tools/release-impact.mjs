@@ -243,9 +243,12 @@ export function sourceTreeDigest(files) {
 export function sourceInventory(files) {
   return Object.fromEntries(Object.entries(files).map(([k,v]) => [k,hash(v.startsWith('\u0000binary:') ? Buffer.from(v.slice(8),'base64') : v)]));
 }
+// Missing filenames must not resolve to inherited Object properties, including
+// after a JSON proof roundtrip has restored an ordinary object prototype.
+const sourceEntry = (files, name) => Object.hasOwn(files, name) ? files[name] : undefined;
 export function classifyImpact({ before, after, witness, inventory = { before:sourceInventory(before), after:sourceInventory(after) } }) {
-  const changed = [...new Set([...Object.keys(inventory.before), ...Object.keys(inventory.after)])].sort().filter(k => inventory.before[k] !== inventory.after[k]);
-  const deltaSha256 = hash(changed.map(name => ({ name, before: inventory.before[name] ?? null, after: inventory.after[name] ?? null })));
+  const changed = [...new Set([...Object.keys(inventory.before), ...Object.keys(inventory.after)])].sort().filter(k => sourceEntry(inventory.before,k) !== sourceEntry(inventory.after,k));
+  const deltaSha256 = hash(changed.map(name => ({ name, before: sourceEntry(inventory.before,name) ?? null, after: sourceEntry(inventory.after,name) ?? null })));
   const closureSha256 = hash(inventory);
   const bound = witness?.deltaSha256 === deltaSha256 && witness?.closureSha256 === closureSha256
     && witness?.independent === true && witness?.status === 'passed' && typeof witness?.reviewer === 'string' && witness.reviewer.length > 0
@@ -258,16 +261,17 @@ export function classifyImpact({ before, after, witness, inventory = { before:so
   let display = changed.length > 0;
   for (const name of changed) {
     if (name.startsWith('docs/') || name === 'README.md') continue;
-    if (before[name] == null || after[name] == null || strictPath.test(name)) { display = false; continue; }
+    const beforeEntry=sourceEntry(before,name),afterEntry=sourceEntry(after,name);
+    if (beforeEntry == null || afterEntry == null || strictPath.test(name)) { display = false; continue; }
     try {
       if (name.endsWith('.css')) {
-        if (cssDisplaySkeleton(before[name]) !== cssDisplaySkeleton(after[name])) display = false;
+        if (cssDisplaySkeleton(beforeEntry) !== cssDisplaySkeleton(afterEntry)) display = false;
       } else if (/^public\/.+\.png$/.test(name)) {
-        if (!validPng(before[name]) || !validPng(after[name])) display = false;
+        if (!validPng(beforeEntry) || !validPng(afterEntry)) display = false;
       } else if (name.endsWith('.tsx')) {
-        if (!/^\s*["']use client["'];/.test(before[name]) || !/^\s*["']use client["'];/.test(after[name])
-          || /["']use server["']|next\/server/.test(before[name]+after[name])
-          || displaySkeleton(before[name], name) !== displaySkeleton(after[name], name)) display = false;
+        if (!/^\s*["']use client["'];/.test(beforeEntry) || !/^\s*["']use client["'];/.test(afterEntry)
+          || /["']use server["']|next\/server/.test(beforeEntry+afterEntry)
+          || displaySkeleton(beforeEntry, name) !== displaySkeleton(afterEntry, name)) display = false;
       } else display = false;
     } catch { display = false; }
   }
@@ -275,7 +279,7 @@ export function classifyImpact({ before, after, witness, inventory = { before:so
     if (display && witness.kind === 'display') level = 'display';
     // A non-display business change never qualifies for backup reuse. Unknown
     // dependencies, protected surfaces or changed sensitive behavior stay strict.
-    else if (witness.kind === 'business' && changed.every(k => !sensitive.test(`${before[k] ?? ''}\n${after[k] ?? ''}`))) level = 'business';
+    else if (witness.kind === 'business' && changed.every(k => !sensitive.test(`${sourceEntry(before,k) ?? ''}\n${sourceEntry(after,k) ?? ''}`))) level = 'business';
   }
   if (level === 'strict' && !reasons.length) reasons.push('Executable or unproven impact');
   return { version: policyVersion, level, changed, deltaSha256, closureSha256, witnessSha256: witness ? hash(witness) : null, reasons };
@@ -285,8 +289,8 @@ export function makeImpactProof(before, after, witness) {
   const inventory = { before:sourceInventory(before), after:sourceInventory(after) };
   const changed = classifyImpact({ before, after, witness, inventory }).changed;
   return { inventory, witness: witness ?? null,
-    before:Object.fromEntries(changed.filter(k => before[k] != null).map(k => [k,before[k]])),
-    after:Object.fromEntries(changed.filter(k => after[k] != null).map(k => [k,after[k]])) };
+    before:Object.fromEntries(changed.filter(k => sourceEntry(before,k) != null).map(k => [k,sourceEntry(before,k)])),
+    after:Object.fromEntries(changed.filter(k => sourceEntry(after,k) != null).map(k => [k,sourceEntry(after,k)])) };
 }
 export function verifyImpactProof(proof, binding) {
   if (!proof?.inventory?.before || !proof?.inventory?.after) throw new Error('Missing full impact inventories');
@@ -295,10 +299,10 @@ export function verifyImpactProof(proof, binding) {
     if (path.posix.isAbsolute(name) || name.split('/').some(p => ['..','.'].includes(p)) || name.includes('\\')) throw new Error('Unsafe impact path');
   }
   if (hash(proof.inventory.after) !== binding.sourceInventorySha256 || hash(proof.inventory.before) !== binding.predecessorInventorySha256) throw new Error('Incomplete or changed impact closure');
-  const changed = [...new Set([...Object.keys(proof.inventory.before),...Object.keys(proof.inventory.after)])].filter(k => proof.inventory.before[k] !== proof.inventory.after[k]);
+  const changed = [...new Set([...Object.keys(proof.inventory.before),...Object.keys(proof.inventory.after)])].filter(k => sourceEntry(proof.inventory.before,k) !== sourceEntry(proof.inventory.after,k));
   for (const side of ['before','after']) {
     const actual = sourceInventory(proof[side]);
-    for (const name of changed) if ((actual[name] ?? null) !== (proof.inventory[side][name] ?? null)) throw new Error('Impact delta bytes changed');
+    for (const name of changed) if ((sourceEntry(actual,name) ?? null) !== (sourceEntry(proof.inventory[side],name) ?? null)) throw new Error('Impact delta bytes changed');
     if (Object.keys(actual).some(k => !changed.includes(k))) throw new Error('Extra impact delta');
   }
   return classifyImpact({ ...proof, inventory:proof.inventory });
@@ -335,7 +339,9 @@ export function backupReuseDecision({ impact, evidence, current, now = Date.now(
 }
 
 export async function readSourceTree(root) {
-  const files = {};
+  // Source filenames are data. A root file named __proto__ must be an own
+  // inventory entry rather than invoking Object.prototype's legacy setter.
+  const files = Object.create(null);
   const names=[];
   const decode = raw => {
     try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(raw); }
