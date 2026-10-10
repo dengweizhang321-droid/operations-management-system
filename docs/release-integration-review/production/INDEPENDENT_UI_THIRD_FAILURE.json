@@ -1,0 +1,197 @@
+{
+  "version": "task-d-independent-ui-third-failure-v1",
+  "observedAt": "2026-10-10T08:06:56.442Z",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "batchFileSha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+  "operationId": "actual-readonly-ui",
+  "thirdUnknown": {
+    "at": "2026-10-10T07:10:54.013Z",
+    "eventSha256": "e414c03dc2c89b553529cfe5afaf973cb4860688a82e1bd6f9ebe05b67117377",
+    "processEvidence": {
+      "cleanup": "direct",
+      "code": "nonzero_exit",
+      "deadlineUnixMs": 1791616827149,
+      "elapsedMs": 24494,
+      "exitCode": 1,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 23412,
+      "signal": null,
+      "stage": "output",
+      "stderrBytes": 468,
+      "stderrSha256": "48e80a5a9db6e80c111fc670d9e5033f792c337024efc37cee995bad937434c6",
+      "stdoutBytes": 0,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    }
+  },
+  "sourcePins": [
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\production-ui.mjs",
+      "sha256": "41434009a0f8f6cfe71f29ede31b3a8bc5a363c2b5ffa3ea2f9e9aa4b3698708"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\ui-audit.mjs",
+      "sha256": "904d57eece6d64283d8b8b1e1ecf10faf3f197b270f00d96facf6f1e234eed57"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\candidate-handoff.json",
+      "sha256": "a2ec59b6119a6f6382953c9f2c620345a3fdaaf1a3367773e7c6200ddd3f6e13"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\resource-inventory.json",
+      "sha256": "c8234a0aa8a43a4bb2b103f3f99b8c06b2f8edec32509844ce91f529b6e43d35"
+    }
+  ],
+  "sourceFixedGitHead": "5faac8151f59d66de72c3caead8cad916ea547da",
+  "sourceFixedGitClean": true,
+  "authorityAndCandidateUnchanged": true,
+  "currentManifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+  "currentRelease": "20261010T014638Z-97833d2f2b7e7bc9",
+  "currentDjangoOwner": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "activeBatch": {
+    "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "id": "integration-ab-v2-20261010-c22d8dd69a"
+  },
+  "maintenanceExited": true,
+  "automationDrainAbsent": true,
+  "processObservationSHA256": "c9de2a9eb1f4cf091495e33459fcdd80f1b78f0775c38c3552c6d7a84c284b5d",
+  "processObservation": {
+    "observedAt": "2026-10-10T08:05:16.2310334Z",
+    "node23412AndDirectChildren": [],
+    "ownedHeadlessChromeCreatedDuringUI": [],
+    "port3000OwnerPids": [
+      50704
+    ],
+    "workerAncestry": [
+      {
+        "pid": 50704,
+        "parentPid": 54540,
+        "name": "workerd.exe",
+        "createdUTC": "2026-10-10T06:26:39.6417760Z",
+        "candidatePathPresent": true
+      },
+      {
+        "pid": 54540,
+        "parentPid": 42728,
+        "name": "node.exe",
+        "createdUTC": "2026-10-10T06:26:37.5925330Z",
+        "candidatePathPresent": true
+      },
+      {
+        "pid": 42728,
+        "parentPid": 48744,
+        "name": "node.exe",
+        "createdUTC": "2026-10-10T06:26:37.5190700Z",
+        "candidatePathPresent": true
+      },
+      {
+        "pid": 48744,
+        "parentPid": 39420,
+        "name": "node.exe",
+        "createdUTC": "2026-10-10T06:26:26.7917950Z",
+        "candidatePathPresent": true
+      }
+    ],
+    "maintenanceFileExists": false,
+    "automationDrainExists": false,
+    "source": "Independent readonly CIM/TCP/FS snapshot, raw command lines not exposed"
+  },
+  "freshFailedAudit": {
+    "sha256": "c3cfdb960a342b2d01d2f3707d85024f3d37d2ced80b3cf1f3dda681689f13eb",
+    "bytes": 28261,
+    "mtimeUTC": "2026-10-10T07:10:51.635Z",
+    "status": "failed",
+    "attempts": 86,
+    "resourceObservations": 64,
+    "dangerous": 0,
+    "missing": 0,
+    "allObservedMethodsGET": true,
+    "productionWrites": 0,
+    "failures": [
+      {
+        "pathname": "/api/sales/summary",
+        "code": "EXPECTED_REQUEST_FAILED",
+        "errorCode": "net::ERR_ABORTED",
+        "createdDuringDeclaredWindow": true,
+        "windowCompleted": true
+      }
+    ]
+  },
+  "resultMissing": true,
+  "originalUiSucceeded": false,
+  "furtherOriginalRetryPermitted": false,
+  "noEffect": true,
+  "noEffectScope": "This failed readonly UI operation only: no production business-data write/lifecycle/deploy/scheduling-definition/manual send; ordinary reviewed GET observations and isolated browser/log artifacts may exist. Original global route rejects every non-GET before continue and service workers are blocked; only fixed normal HTTP favicon GET bypasses route.",
+  "pendingOperations11To21": [
+    "unsigned-reader-permission-denials",
+    "complete-component-readiness",
+    "verifystartup",
+    "install-reviewed-watchdog",
+    "two-natural-watchdogs",
+    "backup-post",
+    "restore-post",
+    "preserve-post-recovery",
+    "full-postgresql-deep-comparison",
+    "original-historical-audits-preserved",
+    "exact-final-readiness"
+  ],
+  "pendingOperationsStarted": false,
+  "confirmedPriorOperationsNotReplayed": [
+    {
+      "id": "reuse-reviewed-worker",
+      "starts": 1,
+      "passes": 1
+    },
+    {
+      "id": "backup-pre",
+      "starts": 1,
+      "passes": 1
+    },
+    {
+      "id": "restore-pre",
+      "starts": 1,
+      "passes": 1
+    },
+    {
+      "id": "entermaintenance",
+      "starts": 1,
+      "passes": 1
+    },
+    {
+      "id": "apply-reviewed-worker",
+      "starts": 1,
+      "passes": 1
+    },
+    {
+      "id": "exitmaintenance",
+      "starts": 1,
+      "passes": 1
+    },
+    {
+      "id": "startworker",
+      "starts": 1,
+      "passes": 1
+    },
+    {
+      "id": "preserve-pre-recovery",
+      "starts": 1,
+      "passes": 1
+    },
+    {
+      "id": "verify-all-resources",
+      "starts": 1,
+      "passes": 1
+    }
+  ],
+  "batchCompleted": false,
+  "CApproved": false,
+  "requiredNextStep": "Append failed-only reconciliation preserving original unknown and fresh failed audit; do not execute a fourth original UI or cancel/delete active9. Prepare independently reviewed exact readonly validation supplement and obtain its explicit approval before satisfying UI and continuing 11-21.",
+  "reviewerProductionOperations": 0,
+  "reviewerUiRuns": 0,
+  "reviewerSourceChanges": 0,
+  "limits": "Current process ancestry/release/absence of maintenance files read independently; no Status operator or heavy payload/dump scan. Kernel snapshot is time-bound. A source timing defect remains; no fourth green hunting and no sales abort exemption."
+}

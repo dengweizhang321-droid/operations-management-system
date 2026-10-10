@@ -1,0 +1,192 @@
+{
+  "version": "task-d-production-independent-switch-snapshot-v1",
+  "observedAt": "2026-10-10T06:47:28.744Z",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "workerActivated": true,
+  "workerStarted": true,
+  "batchCompleted": false,
+  "fourSteps": [
+    {
+      "id": "entermaintenance",
+      "status": "passed",
+      "at": "2026-10-10T06:16:26.798Z",
+      "durationMs": 264728.84569999995,
+      "eventSha256": "720bac949f1eb131a9e451e33125c5b01eb7749e3bd43ecc667bb62572a95273",
+      "receiptSha256": "7f9012d9d9226b3689908bbcc605f615d8d1228375930c6973e1369f5508857a"
+    },
+    {
+      "id": "apply-reviewed-worker",
+      "status": "passed",
+      "at": "2026-10-10T06:19:56.831Z",
+      "durationMs": 142539.28399999999,
+      "eventSha256": "b7fedb40062b891a39e8f057e66cf26ab34671c8be22298b8f5f6d2a18e774dd",
+      "receiptSha256": "5aa2362661d262c12b0c9b7443c1d62b16c2973360370fa9319b066fc29575a5"
+    },
+    {
+      "id": "exitmaintenance",
+      "status": "passed",
+      "at": "2026-10-10T06:21:35.712Z",
+      "durationMs": 43794.5083999997,
+      "eventSha256": "f6ddaaa63a8347a0e21ce6f015d2cc41e8efadd7df202bde6f98ed4ed486a68c",
+      "receiptSha256": "318d8a967fe6f525287b0450e8a5820a201a4871b67f44670b166d900d8f1e80"
+    },
+    {
+      "id": "startworker",
+      "status": "passed",
+      "at": "2026-10-10T06:29:21.667Z",
+      "durationMs": 405787.88560000015,
+      "eventSha256": "03f79238a372cacfed7210f505528d312b3f986b031e9366dc06000d150a5442",
+      "receiptSha256": "306454e6461747082378fcd6dd22741aabc09c584f0a79d1430a370cd7853e88"
+    }
+  ],
+  "journalEvents": 34,
+  "journalHashChainVerified": true,
+  "currentStarted": [],
+  "currentUnknown": [],
+  "startBothManifestReceiptCommitmentMatched": true,
+  "reconstructedStartReceiptHash": "306454e6461747082378fcd6dd22741aabc09c584f0a79d1430a370cd7853e88",
+  "reconstructionMethod": "Original frozen schema plus timeoutType=null omitted by safeProcessEvidence sanitizer; exact canonical receipt SHA matches. Original raw stdout is not claimed recovered.",
+  "engineDirectExits": [
+    {
+      "processId": 39420,
+      "exitCode": 0,
+      "deadlineUnixMs": 1791613964773,
+      "elapsedMs": 349854
+    },
+    {
+      "processId": 65864,
+      "exitCode": 0,
+      "deadlineUnixMs": 1791613964773,
+      "elapsedMs": 10560
+    },
+    {
+      "processId": 69604,
+      "exitCode": 0,
+      "deadlineUnixMs": 1791613964773,
+      "elapsedMs": 31541
+    },
+    {
+      "processId": 70356,
+      "exitCode": 0,
+      "deadlineUnixMs": 1791613964773,
+      "elapsedMs": 4703
+    }
+  ],
+  "effectiveHead": {
+    "bindingSha256": "094e10d4508986d62e5d90bf99041271fb7527f9a8b5d33f1dfb386529cee548",
+    "guardReceiptSha256": "672f80420f154969d4bf221f542dacfbab3dc0360ca25c95c3c686792be7f013",
+    "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "successorSequence": 219,
+  "successorRecordSha256": "977cf7c70001d005418cfe6de0dab0e74901a06292cff7e840a205391a85481e",
+  "successorSidecarValid": true,
+  "approvedPlanSha256": "266a8574000a90cbeb5baf12fcba7bc2f4a8a06f0262f3b47d4ad73b9d0ddaee",
+  "consumptionSha256": "615662ff02fe63f3c8e34cc2e0feb0a6608d54c827f80bcd14a78fdc7cbe5ef5",
+  "startupBinding": {
+    "bindingSha256": "cd17cf3a2182a24dbc99ad4cb67c9139d199ce180cabdaa58fe1316bd0399873",
+    "manifestPathSha256": "09fd2e30c1edffd228a87c9915e7811498d219c2d64b83e9fb89ae607a1b431f",
+    "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "serviceEntrypointSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+    "status": "verified"
+  },
+  "legacyActivatedAt": "2026-10-10T01:46:38.826Z",
+  "legacyTimestampLimit": "Immutable plan tuple timestamp, not actual apply time; use original journal times.",
+  "actualDjangoManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "historicalBootstrapDjangoLineage": "3a7c31479a1e47396014884e5e921ffe7e7342bf46fc3d55fb94a937ef7b0939",
+  "bootstrapLineageLimit": "Historical PostgreSQL cutover lineage is not current deployed Django owner.",
+  "protectedEntrypoints": [
+    {
+      "relativePath": "package.json",
+      "sha256": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890"
+    },
+    {
+      "relativePath": "运行项目.bat",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2"
+    },
+    {
+      "relativePath": "tools/operations-system-control.ps1",
+      "sha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810"
+    },
+    {
+      "relativePath": "tools/start-local-worker.mjs",
+      "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f"
+    },
+    {
+      "relativePath": "tools/worker-authority-guard.mjs",
+      "sha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210"
+    },
+    {
+      "relativePath": "tools/d1-retirement-proof.mjs",
+      "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+    },
+    {
+      "relativePath": "tools/collect-d1-retirement-proof.mjs",
+      "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295"
+    },
+    {
+      "relativePath": "tools/worker-local-release.mjs",
+      "sha256": "bba3e24da195576e991f162084159314652c7077f0c7f0a3647319911203c0fa"
+    },
+    {
+      "relativePath": "tools/worker-local-release-rotation.mjs",
+      "sha256": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe"
+    },
+    {
+      "relativePath": "tools/worker-local-service.ps1",
+      "sha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80"
+    },
+    {
+      "relativePath": ".runtime/worker-release-activation-fence.json",
+      "sha256": "d7c38840b6662dc5bc1b6f7ffbbd4fefa44671bd942699c37b78b2a49c6b779b"
+    },
+    {
+      "relativePath": "tools/process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    }
+  ],
+  "dirtyOriginalsStillPreserved": [
+    {
+      "relativePath": "tools/worker-local-release.mjs",
+      "archive": "primary-before-7.bin",
+      "originalSha256": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32"
+    },
+    {
+      "relativePath": "tools/worker-local-release-rotation.mjs",
+      "archive": "primary-before-8.bin",
+      "originalSha256": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd"
+    },
+    {
+      "relativePath": "tools/worker-local-service.ps1",
+      "archive": "primary-before-9.bin",
+      "originalSha256": "bc98f84683dbf5da0769be5eb4e0533c5c5c7eb35252d26c87613f38440f6e15"
+    }
+  ],
+  "workerProcessReceipt": {
+    "sha256": "a319e45850aaae5b2e65d0642e55603c31b23881c0ab8750045a23782dc4cc9b",
+    "supervisorPid": 48744,
+    "supervisorCreationDate": "2026-10-10T06:26:26.7917950Z",
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113"
+  },
+  "activeOwnerMatches": true,
+  "latestEntryObservation": {
+    "at": "2026-10-10T06:47:26.274Z",
+    "completedAt": "2026-10-10T06:47:26.283Z",
+    "latencyMs": 9,
+    "status": 200,
+    "html": true,
+    "available": true
+  },
+  "entryDowntimeInferredFromSwitchSpan": false,
+  "watchdogInstallationPassed": false,
+  "naturalWatchdogsPassed": false,
+  "postBackupPassed": false,
+  "CApproved": false,
+  "reviewerProductionMutations": 0,
+  "reviewerStatusOperatorCalls": 0,
+  "fullArtifactScanned": false,
+  "limits": "Only metadata and small protected source files read; no whole payload/history manifest scan, Status operator, new lifecycle or HTTP probe. Original Start receipt commitment binds expected Worker/Django and its original readiness/maintenance completion. Full acceptance/unknown reconciliation/watchdog/post backup/closeout remain separate."
+}

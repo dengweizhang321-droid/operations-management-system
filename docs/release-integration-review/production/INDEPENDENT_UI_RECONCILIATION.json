@@ -1,0 +1,111 @@
+{
+  "version": "task-d-production-independent-ui-reconciliation-v1",
+  "observedAt": "2026-10-10T06:50:03.127Z",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "originalUnknownPreserved": "e6c4030141133998e820b37c13bbfdb7a1590b861e4f51e6338b7aed6c987872",
+  "failedOnlyReconciliation": {
+    "at": "2026-10-10T06:45:45.754Z",
+    "eventSha256": "c6a2fe106d958b02baaf73e5487adff04c0494e90a4f8130c0cc52a30ea433d8",
+    "receiptSha256": "0075977fe8c4288c938a44cd17fdfdcc2db9a3542c8b3e09c2834e829fdeef59"
+  },
+  "proofSHA256": "0075977fe8c4288c938a44cd17fdfdcc2db9a3542c8b3e09c2834e829fdeef59",
+  "originalObservationsSHA256": "26040c2258214d1449a9b7ff649aa3a1e296b1f9818f7386908578c21f24a780",
+  "resolution": "failed-not-passed",
+  "migrationLedgerSHA256": "f95585019bb6982444b2119d2117ddc009ea9e1410d42ef2d3b49134b87b4b94",
+  "archivedOriginalOutputs": [
+    {
+      "name": "production-ui-audit.json",
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\production\\preapproval-ui\\production-ui-audit.json",
+      "sha256": "9ec3c1df1555dc69e1fc00e4b6782770f0a2b4b9aeff5adacd2ec2b005ed13cc"
+    },
+    {
+      "name": "production-ui-result.json",
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\production\\preapproval-ui\\production-ui-result.json",
+      "sha256": "f4022354ea807a1a121d89f09fec5a8ecf5ff3e5911509438936036bc40fd2ff"
+    }
+  ],
+  "scriptAndInputsUnchanged": true,
+  "passedOperationsNotReplayed": [
+    {
+      "id": "reuse-reviewed-worker",
+      "started": 1,
+      "passed": 1
+    },
+    {
+      "id": "backup-pre",
+      "started": 1,
+      "passed": 1
+    },
+    {
+      "id": "restore-pre",
+      "started": 1,
+      "passed": 1
+    },
+    {
+      "id": "entermaintenance",
+      "started": 1,
+      "passed": 1
+    },
+    {
+      "id": "apply-reviewed-worker",
+      "started": 1,
+      "passed": 1
+    },
+    {
+      "id": "exitmaintenance",
+      "started": 1,
+      "passed": 1
+    },
+    {
+      "id": "startworker",
+      "started": 1,
+      "passed": 1
+    },
+    {
+      "id": "preserve-pre-recovery",
+      "started": 1,
+      "passed": 1
+    },
+    {
+      "id": "verify-all-resources",
+      "started": 1,
+      "passed": 1
+    }
+  ],
+  "originalApproval": {
+    "at": "2026-10-10T05:28:51.000Z",
+    "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "durationMs": 14.485500000000002,
+    "eventSha256": "8526033f4f4eecda43605e313bb5759840927e87478b5d06db982de81d0c5c61",
+    "phase": "queue",
+    "previous": null,
+    "status": "approved"
+  },
+  "resumptionEvents": [
+    {
+      "at": "2026-10-10T06:46:26.690Z",
+      "eventSha256": "0d0b1507bfcdf85490cca3ad7cc715ca2b6383d41bff1ec1b9b5051f684beb17"
+    }
+  ],
+  "readonlyRetryState": [
+    {
+      "status": "started",
+      "at": "2026-10-10T06:34:33.837Z",
+      "eventSha256": "7920d1b7df358ddf5fe693531a94e08fabebcd0a35d8be67688097516a8f5187"
+    },
+    {
+      "status": "unknown",
+      "at": "2026-10-10T06:34:54.155Z",
+      "eventSha256": "e6c4030141133998e820b37c13bbfdb7a1590b861e4f51e6338b7aed6c987872"
+    },
+    {
+      "status": "failed",
+      "at": "2026-10-10T06:45:45.754Z",
+      "eventSha256": "c6a2fe106d958b02baaf73e5487adff04c0494e90a4f8130c0cc52a30ea433d8"
+    }
+  ],
+  "currentAssertionsStillAwaitFreshProof": true,
+  "reviewerProductionMutations": 0,
+  "reviewerUiReplays": 0,
+  "limits": "Read-only archival bytes and original append-only journal; no UI/Status/lifecycle invoked, no moved files by reviewer, no claim current GUI acceptance passed."
+}
