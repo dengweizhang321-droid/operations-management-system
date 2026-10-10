@@ -1,6 +1,6 @@
 # 第二阶段组合验收报告
 
-2026-10-10实际生产状态：唯一AB批次已获批准并切换、启动；0bcad05b补充已获真人批准且正式UI通过，原11–15均已确认通过。后Backup实际发布及轮转已发生，但原进程exit1/第16项unknown；17–21未执行，整批未闭合，C未采用。6张表的前后内容差异严格拒绝，原pre dump被轮转删除，不能宣称完整回滚资格或验收成功。15首时间分类失败及协调/有限原样复验保持。当前证据见 [真实续接记录](production/CONTINUATION_20261010.md)、[后备份独立效果复核](production/INDEPENDENT_POST_BACKUP_EFFECTS.md) 与 [生产记录](production/REPORT.md)。以下表格和准备证据保留为批准前交付快照。
+2026-10-10实际生产状态：AB已部分采用，0bca UI、7389补登记、原17后Restore及18保全均通过并独立核验；原19严格比较实际exit1/unknown，独立同输入复现为6表内容差异，20–21未开始，整批未闭合，C未采用。旧unknown/failed、pre dump删除及cleanup blocked保留，不能把恢复成功记为全批成功。当前证据见 [7389实际续接](production/METADATA_CONTINUATION_20261010.md)、[严格阻断独立复核](production/INDEPENDENT_STRICT_CLOSEOUT_BLOCK.md) 与 [生产记录](production/REPORT.md)。以下表格和准备证据保留为批准前交付快照。
 
 批准前四状态快照：
 

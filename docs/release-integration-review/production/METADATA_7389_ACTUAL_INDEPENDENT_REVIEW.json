@@ -1,0 +1,515 @@
+{
+  "version": "teruisi-metadata-7389-actual-independent-review-v1",
+  "status": "passed",
+  "verdict": "exact-approved-metadata-reconciliation-completed; original-AB-full-acceptance-remains-open",
+  "reviewer": "/root/preparation_review",
+  "reviewedAt": "2026-10-10T10:39:36.981Z",
+  "scope": "Non-author read-only actual-event review; no production APIs, locks, lifecycle, HTTP/PG or tail execution",
+  "approvedScope": {
+    "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-backup-metadata-20261010-1025-final\\metadata-scope.json",
+    "scopeSha256": "7389a4d45c9ac8356eae7a6cb50bf987ea647703fbd68ec8f63f83dbf949640c",
+    "rawFileSha256": "278733b22abb3ba77193bbcc4bb634774834bbeb9c5ec1c97ede49850319c514",
+    "apiSha256": "3fabc2009287d12088559f882e7b326903aeb8b0a1f8eb29cda6faf7f17b5865",
+    "callerSha256": "7b0e27fc5a0af121daa184366a186f972e569a0c05924255515f099c65b11105",
+    "sourceCommit": "a9f2bd327fc6cfbd7248ee4da7dd9f5488743fd3",
+    "sealedAt": "2026-10-10T10:25:53.660Z",
+    "frozenModulesRehashedUnchanged": true
+  },
+  "humanApproval": {
+    "rawSha256": "74eae212b0991cd59fc64c678022b6c838f783fc8f8563efea5d618c9585378b",
+    "approvedAt": "2026-10-10T10:34:17.000Z",
+    "userItemId": "01a12560-b472-7250-9b1a-63ca0079f774",
+    "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-backup-metadata-20261010-1025-final\\human-metadata-approval.json",
+    "explicitHumanApproval": true,
+    "exactScopeBound": true,
+    "newItemAndTimeVerified": true,
+    "oldABOrUIApprovalReused": false,
+    "timePrecision": "Trusted user turn start with seconds precision, not fabricated user-message milliseconds"
+  },
+  "newEvent": {
+    "eventSha256": "c61b37e251337abd6d520742c776add236845e91a52406cf948fb184cb5b1c05",
+    "rawSha256": "f4576e3cff58b3d4d5089439f7a9a0eda773993d44c5a9376dd6b7a7fb362ddc",
+    "at": "2026-10-10T10:37:17.677Z",
+    "receiptSha256": "afa87a175247037a6028c40c5992f028c8788f8d0e30e01156538c1313ab8687",
+    "outputs": {
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261010T093506Z-8a5a7107b3f6",
+      "backupId": "daily-20261010T093506Z-8a5a7107b3f6",
+      "manifestSha256": "4cc95143e5feffbd801388cb5de8dd59e269f099ce193afbdc4cfaba310e0f88",
+      "dumpSha256": "bd3c532a8f897eea2f09f3b60270543993abcda802bd2147c3937539dfc680c8",
+      "contentSha256": "b2a042fd4e5287ab30642180365d05a74694f7d07ed490c83454bd40f50cf6ce"
+    },
+    "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\integration-ab-v2-20261010-c22d8dd69a\\000075.json",
+    "status": "passed",
+    "reason": "independently-reconciled-completed-backup-with-outputs",
+    "previous": "420fd5e13e5b637c1a6d62f6fad1e16dccd19c8f1f2c26c8302db892c34fcd09",
+    "originalShellSucceeded": false,
+    "releaseRetentionStatus": "blocked",
+    "backupReplayed": false,
+    "exactlyFiveNativeAndProofOutputs": true,
+    "receiptDigestRecomputed": true
+  },
+  "historyEvidence": {
+    "events": 76,
+    "original75ChainHead": "420fd5e13e5b637c1a6d62f6fad1e16dccd19c8f1f2c26c8302db892c34fcd09",
+    "original75DeterministicSerializedBytesVerified": true,
+    "original75RawSnapshotBeforeCallAvailable": false,
+    "currentHead": "c61b37e251337abd6d520742c776add236845e91a52406cf948fb184cb5b1c05",
+    "exactlyOneNewCoordinatedEvent": true,
+    "prior15LatestPassed": true,
+    "tail17To21NotStarted": true,
+    "activeStillOriginal": {
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "id": "integration-ab-v2-20261010-c22d8dd69a"
+    },
+    "proofBasis": "Before-execution sealed independent review verified75-event hash chain ending420f; after-execution all75 original event hashes and previous links still terminate420f, and every original raw equals the pinned original engine's canonical(record)+LF representation",
+    "rawBeforeCallSnapshotAvailable": false,
+    "rawBeforeAfterIndependentSnapshotComparisonClaimed": false,
+    "originalWriteOnceSourceLines": "156–163",
+    "originalJournalValidationSourceLines": "183–203",
+    "afterExecutionRawHashesSampledAt": "2026-10-10T10:39:36.981Z",
+    "afterExecutionOriginal75RawHashes": [
+      {
+        "name": "000000.json",
+        "rawSha256": "92079dbf6a6c736268db5360db2fd1d104c574ea746ecd3cf4c1227ac7dfee7c",
+        "bytes": 280
+      },
+      {
+        "name": "000001.json",
+        "rawSha256": "bcf267c51c6c47f94a83a6fb81c36d43ebcd2f01b4fe8d5dfdd5b10783ea4794",
+        "bytes": 400
+      },
+      {
+        "name": "000002.json",
+        "rawSha256": "771a91de83abb13a78f42734cf173cceef52ab6228d2c7c758121a801d0bc414",
+        "bytes": 380
+      },
+      {
+        "name": "000003.json",
+        "rawSha256": "71e0be628c998d5da26a1108518c9b92ab74ef608c7b90c5aab5d6541b458d6e",
+        "bytes": 349
+      },
+      {
+        "name": "000004.json",
+        "rawSha256": "2be44dda5914c3f08a55d2350e124f4d9622116dd78b664cb09d5f9dfb8bbb16",
+        "bytes": 522
+      },
+      {
+        "name": "000005.json",
+        "rawSha256": "e6fc309ce13c9ae37662be64eac65aa93689eec2726811893a515a78767a1fcc",
+        "bytes": 383
+      },
+      {
+        "name": "000006.json",
+        "rawSha256": "664ee6bea95bc20f867f22309e6ccb96c25fa05f9966e4fc2f1105053cae1ecc",
+        "bytes": 341
+      },
+      {
+        "name": "000007.json",
+        "rawSha256": "fd440312da0dfb45083561790e51ee59bd1149c6eee32d9214a3496d31b4b146",
+        "bytes": 1396
+      },
+      {
+        "name": "000008.json",
+        "rawSha256": "ad3d40aae24fdf342eca2dc07b49ccc8316ef50052955dbce9707c64d95880b1",
+        "bytes": 391
+      },
+      {
+        "name": "000009.json",
+        "rawSha256": "9dd2fc0c6a448eb9770b685a53d5ddabe1d6c7bbd7eaa4083c5699f5acf18424",
+        "bytes": 343
+      },
+      {
+        "name": "000010.json",
+        "rawSha256": "f7af4723eb06ba00916c9d630afb18c5dac60fee7048a8dfa5ddb1755293a200",
+        "bytes": 1139
+      },
+      {
+        "name": "000011.json",
+        "rawSha256": "cb61dc0cfba38884cc473a522e0399f4a1002c0d507aac792037b459ca24a05c",
+        "bytes": 386
+      },
+      {
+        "name": "000012.json",
+        "rawSha256": "b31d67b81c317add4f5beeda5c38199b1db5d047533f2c557e02f9b55c9a2f1c",
+        "bytes": 342
+      },
+      {
+        "name": "000013.json",
+        "rawSha256": "1a6da8cd264f1a4427f812511e6f0d3e74fb2dae3e5a7a84e968738c209f3828",
+        "bytes": 1468
+      },
+      {
+        "name": "000014.json",
+        "rawSha256": "8e0a0bc7eef8dccbb77cca606c442c56b8d3c12a3e8952873f9d5acef6bb85a6",
+        "bytes": 386
+      },
+      {
+        "name": "000015.json",
+        "rawSha256": "7d3b5d87c33164693ebac07c269d68e0d1940f01ac0f9e0b3516867eb5e81034",
+        "bytes": 348
+      },
+      {
+        "name": "000016.json",
+        "rawSha256": "ad1d9c7d9008a6a511733ca19dfa4554b752e26c510dc42868ae9be9725ea437",
+        "bytes": 528
+      },
+      {
+        "name": "000017.json",
+        "rawSha256": "2ecdca8eff909081c99708d801757025d1c753e9cf11c831e8c82447c1422df8",
+        "bytes": 386
+      },
+      {
+        "name": "000018.json",
+        "rawSha256": "a4d41e5192c95800a97461ac6c2a51c08abc1bed5e6018acdce6d54d40a1d142",
+        "bytes": 342
+      },
+      {
+        "name": "000019.json",
+        "rawSha256": "d19d1a2297981c595f0c9a32855450d5557cd040782eba6c665b9fcdbe555c0d",
+        "bytes": 1464
+      },
+      {
+        "name": "000020.json",
+        "rawSha256": "31474b8fb7bf5a466eef6e8645003e4dc218b575d310529d375e425663a8969d",
+        "bytes": 386
+      },
+      {
+        "name": "000021.json",
+        "rawSha256": "5e081e666dfb864df84f8c8fb128f7419f6c9c2faec75ce266e3e81cbd1081bb",
+        "bytes": 338
+      },
+      {
+        "name": "000022.json",
+        "rawSha256": "f34b9bf18604ade8c7016256b379099e82c0f64ecfa769fda274eeb4e5e67a10",
+        "bytes": 2790
+      },
+      {
+        "name": "000023.json",
+        "rawSha256": "99b123238e6e1fa58c9309f802c2e1be57799955a58a6c629dc774524385e8a6",
+        "bytes": 554
+      },
+      {
+        "name": "000024.json",
+        "rawSha256": "dbe0f13917c77e93eae913b35efb9cdc81df583e330c6a99d424d9f4dc63fe78",
+        "bytes": 352
+      },
+      {
+        "name": "000025.json",
+        "rawSha256": "296dd65dd13fce9f5beb0d9f7b45746f51b154cfc393a5741294cbc1daf75600",
+        "bytes": 1013
+      },
+      {
+        "name": "000026.json",
+        "rawSha256": "c5cec6816c448aa8df7b02582a11af5c6167c6f277463330551a133b2c3e3f3a",
+        "bytes": 554
+      },
+      {
+        "name": "000027.json",
+        "rawSha256": "baf2ecd750c892071f3bafa63c45c87b4593ad7866ee45e5a0cec505a7a89102",
+        "bytes": 351
+      },
+      {
+        "name": "000028.json",
+        "rawSha256": "29e3ccbb971a30e03d139563523e151a7e2ab51cf33db068c8470f6cdfba7647",
+        "bytes": 1012
+      },
+      {
+        "name": "000029.json",
+        "rawSha256": "8f6ecc93f56c03a4f99d1454ff346afa1939fa75ef2cd7f8a8d46bd7ea1e4693",
+        "bytes": 552
+      },
+      {
+        "name": "000030.json",
+        "rawSha256": "ef49e7a519fe03be8d2fc28b0746811a287adbbc57c2ea9291907fd0df9275b9",
+        "bytes": 349
+      },
+      {
+        "name": "000031.json",
+        "rawSha256": "c1ea2ffaea1f4e580a7fcb870363e9eca3cacdb1090eb2824adbeee085f19282",
+        "bytes": 1466
+      },
+      {
+        "name": "000032.json",
+        "rawSha256": "af072abeb24613c78877eec9ffa7965cf9a56427a6a3e0200f48fc55d670128f",
+        "bytes": 467
+      },
+      {
+        "name": "000033.json",
+        "rawSha256": "fb38b7cebc3b17fe80464c0085922b885168b2293fc53c93e295a2618e5f0b5c",
+        "bytes": 340
+      },
+      {
+        "name": "000034.json",
+        "rawSha256": "0eaa9dad81432559e962f3e3ed02b25351c1e0ad44833903f25be060820940f9",
+        "bytes": 393
+      },
+      {
+        "name": "000035.json",
+        "rawSha256": "cb116be9fe94f58b694f166440f1392dd888dda67d11781b72ff2e245f7b77ae",
+        "bytes": 546
+      },
+      {
+        "name": "000036.json",
+        "rawSha256": "b21df21a342bd83b27c4c1287990cd92aff3a2ed7f0bd380c851326800b20fb4",
+        "bytes": 349
+      },
+      {
+        "name": "000037.json",
+        "rawSha256": "57b2ffb24f5d6d10fcc5dac39015819ac5bf95f9137005d04cc7796d2b3fd99c",
+        "bytes": 1465
+      },
+      {
+        "name": "000038.json",
+        "rawSha256": "a2349568066fda906ed43d4be4ede6cd83e89441b4a3122373f43d52f0291edc",
+        "bytes": 467
+      },
+      {
+        "name": "000039.json",
+        "rawSha256": "dc558b4565e45934f8efe8bd5e831b84c3065f311f287406fe26261390b9d8ac",
+        "bytes": 340
+      },
+      {
+        "name": "000040.json",
+        "rawSha256": "74965674f8e88d32bf64564294d7288e66fa007e9873f26fce133ea3a05e7177",
+        "bytes": 393
+      },
+      {
+        "name": "000041.json",
+        "rawSha256": "2d1eed8115c5b766174f853371a634bd39ef21a5e24f2f10b093dda030a542de",
+        "bytes": 562
+      },
+      {
+        "name": "000042.json",
+        "rawSha256": "75b12304e995fa3db1220cb0ef9222249225bc6aaaed604ed76df01f23a89f7d",
+        "bytes": 349
+      },
+      {
+        "name": "000043.json",
+        "rawSha256": "f0e924e6e0bfff3a549ceddf9d7dce661e4f1efe516b9736da27db58be52d71b",
+        "bytes": 1466
+      },
+      {
+        "name": "000044.json",
+        "rawSha256": "a41628c3cd5f770c9be955d8a066b7338349989afe0b40616c9959572a074e59",
+        "bytes": 467
+      },
+      {
+        "name": "000045.json",
+        "rawSha256": "75e0a39fac8e95dd81ddb83d7f7681472cbd1dc6c80353adb53d0108fc6a29cf",
+        "bytes": 341
+      },
+      {
+        "name": "000046.json",
+        "rawSha256": "d5be87fc559044418c52e46951ca8b1d84f8162c1b8d3b49ae5b2d3e0d5565b4",
+        "bytes": 393
+      },
+      {
+        "name": "000047.json",
+        "rawSha256": "e7a432663ab1e160ac52576c7f0c926923624381f48eaff46d3da85ad24a87a1",
+        "bytes": 547
+      },
+      {
+        "name": "000048.json",
+        "rawSha256": "69e74a86cc7ad94c1c141e23494597806591087953b685fa5f4b3842448d6a0c",
+        "bytes": 349
+      },
+      {
+        "name": "000049.json",
+        "rawSha256": "432afbd2dc302a4608994358063eb8b6a59f413cf54c5e3bffaa1077f4521253",
+        "bytes": 1059
+      },
+      {
+        "name": "000050.json",
+        "rawSha256": "4291cc25c3f08784cdc4662c75c185063a7fce5b23226d502f6659238b764f44",
+        "bytes": 554
+      },
+      {
+        "name": "000051.json",
+        "rawSha256": "efc792cb239257645b2b47ca4794fbbfb8c53ed23bb3b74a959d43fca47241d0",
+        "bytes": 365
+      },
+      {
+        "name": "000052.json",
+        "rawSha256": "8b6d9fec3471ba3012abec48d41676013155204f4d50075267d1f9f0942e51d4",
+        "bytes": 1025
+      },
+      {
+        "name": "000053.json",
+        "rawSha256": "7c0fb8fa389e4101212a64c26b14a00a13ba2a16126527ffaf5d86c1b3a89a77",
+        "bytes": 562
+      },
+      {
+        "name": "000054.json",
+        "rawSha256": "e4bfb9d19c395f447b6e72af81e58d9871d05de8c9a32b623bf1bb2a955a91bc",
+        "bytes": 359
+      },
+      {
+        "name": "000055.json",
+        "rawSha256": "7841ebe78b00761659dd465c092a6b9a31ef51b5ed3e04731801e3160791c135",
+        "bytes": 523
+      },
+      {
+        "name": "000056.json",
+        "rawSha256": "f690ee83fd42e208f0baaccd66d176195d877ec8064c9ce10833201e9a463e52",
+        "bytes": 1184
+      },
+      {
+        "name": "000057.json",
+        "rawSha256": "ad128ad4d136f0cc447ebb11bce2b9b6b0db8f5d7a8a9bfd06a7eab12aa5979e",
+        "bytes": 553
+      },
+      {
+        "name": "000058.json",
+        "rawSha256": "b8258a554ac0c1670799ffc09d8ab5ecdd9ecaa3b1cff72fae35a12a5df3895d",
+        "bytes": 344
+      },
+      {
+        "name": "000059.json",
+        "rawSha256": "5b69bc936b84f7860dcae0af27d97db343533b4506dcaa8ceb8daa60385edac9",
+        "bytes": 1413
+      },
+      {
+        "name": "000060.json",
+        "rawSha256": "e66a77f1146ca35f4e6a010547010a634b1d8bd776f2f808311217405e089a76",
+        "bytes": 554
+      },
+      {
+        "name": "000061.json",
+        "rawSha256": "5a35206c05720bbebaba9ac3ab96dd7a1c5f0fff70cc36b2bf05c99b320056f3",
+        "bytes": 356
+      },
+      {
+        "name": "000062.json",
+        "rawSha256": "bb79fdfbb1592429b7bc925f54bada50302f0cb76c47b4eac2fe53f0c6b13eb2",
+        "bytes": 1020
+      },
+      {
+        "name": "000063.json",
+        "rawSha256": "12126da69ed940c1c8a4dff7c428684bee80c39c69713acaf1616236866f7c64",
+        "bytes": 547
+      },
+      {
+        "name": "000064.json",
+        "rawSha256": "ceab8f051974a6a41ea0f45564f37d4aed759188b6b0ac60bb1a7c5aceb9ea31",
+        "bytes": 352
+      },
+      {
+        "name": "000065.json",
+        "rawSha256": "d4ca95255f138c1fb36b724358222af4901e1b504267c8b078e75e2ea3b6d5a1",
+        "bytes": 1459
+      },
+      {
+        "name": "000066.json",
+        "rawSha256": "296a1cf74cb284b51bfc1c73ecf9c305f589dedb6630d27b72c37076e1675168",
+        "bytes": 470
+      },
+      {
+        "name": "000067.json",
+        "rawSha256": "c49766db24599976a2f319089bae51fef443d20c40332b46ca6765b182a6b992",
+        "bytes": 341
+      },
+      {
+        "name": "000068.json",
+        "rawSha256": "bb5c0c98733b616b5c72298851b8ecbc175f4c19b70ed10e21a0fac4a66d37a6",
+        "bytes": 393
+      },
+      {
+        "name": "000069.json",
+        "rawSha256": "a988a6e16a1cbc95cf7d5ca3d00ab85938a5887a76ce4b1cded923b929e4e370",
+        "bytes": 562
+      },
+      {
+        "name": "000070.json",
+        "rawSha256": "2ddbc0c25a646f71d31970f8660685c776fab1d745c5d73e26d23db56221286b",
+        "bytes": 352
+      },
+      {
+        "name": "000071.json",
+        "rawSha256": "712a7ea2ab5f23c238b54d3971612b51cbd0f68e4410d50b12b4a65bb74a3cd3",
+        "bytes": 1016
+      },
+      {
+        "name": "000072.json",
+        "rawSha256": "2ed2e3f80b8156ac8204157c906af0af38bed0545f918e9b0c74680ebffa1df0",
+        "bytes": 391
+      },
+      {
+        "name": "000073.json",
+        "rawSha256": "de91869f73264807eb2af979048cf9dfe3b91cf883d5a0ccd3157af5b609ddc2",
+        "bytes": 343
+      },
+      {
+        "name": "000074.json",
+        "rawSha256": "4202abcffeeec1c6e213ff5187202271993647076dc6ac1ae2020d6b174b0c22",
+        "bytes": 1473
+      }
+    ],
+    "oldUnknownStatus": "unknown",
+    "oldUnknownExitCode": 1,
+    "oldUnknownRewritten": false
+  },
+  "processEvidence": {
+    "at": "2026-10-10T10:37:17.720Z",
+    "pid": 9376,
+    "exitCode": 0,
+    "signal": null,
+    "durationMs": 36458,
+    "exitReceiptRawSha256": "2149b367165a05a5d50f9273201e11f870357fd05510c477642473913a18dc99",
+    "invocationRawSha256": "73e164a664c831919200bbb88777ccea64f4ce8dfecb937b87b4602cd8dae65d",
+    "invocation": {
+      "at": "2026-10-10T10:36:41.258Z",
+      "executable": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "E:/codex-artifacts/release-integration-review-20261010/AB-backup-metadata-20261010-1025-final/execute-reconciliation.mjs",
+        "E:/codex-artifacts/release-integration-review-20261010/AB-backup-metadata-20261010-1025-final/metadata-scope.json",
+        "7389a4d45c9ac8356eae7a6cb50bf987ea647703fbd68ec8f63f83dbf949640c",
+        "E:/codex-artifacts/release-integration-review-20261010/AB-backup-metadata-20261010-1025-final/human-metadata-approval.json"
+      ],
+      "cwd": "D:\\运营管理系统-sales-django-release",
+      "callerSha256": "7b0e27fc5a0af121daa184366a186f972e569a0c05924255515f099c65b11105"
+    },
+    "stdoutSha256": "f4576e3cff58b3d4d5089439f7a9a0eda773993d44c5a9376dd6b7a7fb362ddc",
+    "stdoutBytes": 1318,
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 0
+  },
+  "verifiedBindings": {
+    "originalBatchRawSha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+    "originalBatchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "nativeAuditSha256": "d1da2813937a2dd5faf28b7b128e2cff773670a48c42429d733e4f20a1f7d459",
+    "proofSha256": "a3b5ea5c35676fd8db6eaab49027539b2a79269b45e9756f744be86b368f200b",
+    "candidateSource": "5faac8151f59d66de72c3caead8cad916ea547da",
+    "candidateRelease": "20261010T014638Z-97833d2f2b7e7bc9",
+    "workerManifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "noNewCandidateAdoption": true,
+    "noCRuntimeAdopted": true
+  },
+  "timing": {
+    "metadataApprovalToAppendMs": 180677,
+    "metadataApprovalToProcessExitMs": 180720,
+    "callerProcessDurationMs": 36458,
+    "originalABApprovedAt": "2026-10-10T05:28:51.000Z",
+    "necessaryAcceptanceClosedAt": null,
+    "fullBatchCompletedAt": null,
+    "originalABClockNotReset": true,
+    "childDurationNotAddedAgainToParentElapsed": true
+  },
+  "remaining": {
+    "fullBatchCompleted": false,
+    "strictSixProfileTableMismatchNotWaived": true,
+    "preRecoveryPayloadAvailable": false,
+    "releaseRetentionStatus": "blocked",
+    "postRestoreCompletedAtThisSnapshot": false,
+    "currentBackendHealthProvenByMetadata": false,
+    "newDynamicAdmissionRequiredForAnyOriginalTail": true,
+    "metadataCallerExecutesTail": false,
+    "productionDataRestoreAuthorizedByMetadataScope": false
+  },
+  "limitations": [
+    "No before-call per-file raw SHA inventory was retained. This report does not invent one or rename a post-call sample as a pre-call baseline. The preservation finding is source-plus-hash-chain-and-deterministic-serialized-byte evidence.",
+    "The process start/exit receipts were recorded by the original executing agent; the reviewer independently read and cross-bound those files, stdout and WAL, but did not witness the spawned process directly.",
+    "The unchanged guarded caller/API completion implies its prescribed pin/dump/recheck protocol completed; the reviewer intentionally did not repeat4539file or946874951byte dump hashing while production continuation was pending.",
+    "Owner and tail state are a snapshot at reviewedAt. Later authorized original-engine continuation is outside this review and must retain its original dynamic guards.",
+    "Completion concerns one metadata coordination only. Native shell exit1, cleanup blocked, six table differences, deleted pre payload, historical health anomalies and overall AB closure limits remain."
+  ]
+}
