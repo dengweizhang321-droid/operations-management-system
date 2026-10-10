@@ -1,0 +1,46 @@
+✔ independent quiet completion cannot report success after its common deadline (84.1274ms)
+✔ independent action wait itself is bounded by the same current read deadline (26.1664ms)
+✔ independent terminal failure cannot be replaced by a later successful matching read (1.5841ms)
+✖ independent action cannot start after the read deadline has already expired (65.8836ms)
+✖ independent DOM handoff cannot reset the selected read common deadline (72.3386ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 3
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 351.3909
+
+✖ failing tests:
+
+test at docs\release-integration-review\ui-continuation\request-completion-independent.test.mjs:33:1
+✖ independent action cannot start after the read deadline has already expired (65.8836ms)
+  AssertionError [ERR_ASSERTION]: Expired action still executed before the delayed timeout callback
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/ui-continuation/request-completion-independent.test.mjs:39:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\ui-continuation\request-completion-independent.test.mjs:41:1
+✖ independent DOM handoff cannot reset the selected read common deadline (72.3386ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/ui-continuation/request-completion-independent.test.mjs:50:3)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /deadline exceeded/,
+    operator: 'rejects',
+    diff: 'simple'
+  }

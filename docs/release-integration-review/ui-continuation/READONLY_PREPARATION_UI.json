@@ -1,0 +1,36 @@
+{
+  "observedAt": "2026-10-10T08:23:31.463Z",
+  "status": "passed",
+  "scope": "One readonly preparation check after non-author source review; does NOT close original batch or substitute new approved WAL attempt",
+  "root": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0825-readonly-check",
+  "uiSha256": "22f9351b323df7eb72e40f1cb6a9b24ee39475eb60f8eaff0cd693b25392d72f",
+  "helperSha256": "5055f2d5c80cbc5bd1e99cc951010cbc0aab587b3298a05ed0f8a90e0ef80f71",
+  "resultSha256": "23288d4d8b666140d6735a6790265987815c81352a362774b6ccbd767888e0c7",
+  "auditSha256": "6f309fc2f5db68feeca3b0290641cfd03ab193ffa93244be8b9050ca7b443a0f",
+  "differsFromFinalOnlyInPrivateOutputRoot": true,
+  "cases": [
+    {
+      "name": "three-date-cancellations",
+      "status": "passed"
+    },
+    {
+      "name": "search-cancel-clear-recovers",
+      "status": "passed"
+    },
+    {
+      "name": "customer-current-scope-and-readonly-detail",
+      "status": "passed"
+    },
+    {
+      "name": "product-back-four-viewports-keyboard",
+      "status": "passed"
+    }
+  ],
+  "requests": 86,
+  "allGet": true,
+  "failures": 0,
+  "dangerous": 0,
+  "missing": 0,
+  "productionWrites": 0,
+  "originalBatchCompleted": false
+}

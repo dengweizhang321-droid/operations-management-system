@@ -1,0 +1,11 @@
+✔ independent quiet completion cannot report success after its common deadline (83.7384ms)
+✔ independent action wait itself is bounded by the same current read deadline (34.4965ms)
+✔ independent terminal failure cannot be replaced by a later successful matching read (2.0071ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 282.7237

@@ -1,0 +1,140 @@
+{
+  "version": "task-d-independent-ui-second-failure-v1",
+  "observedAt": "2026-10-10T07:03:35.772Z",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "operationId": "actual-readonly-ui",
+  "secondUnknownEvent": {
+    "at": "2026-10-10T06:51:24.696Z",
+    "eventSha256": "aa968486f130adae1668d57de263a69a1eeed0f421a80f42f7efdd349c2ac1cf",
+    "processEvidence": {
+      "cleanup": "direct",
+      "code": "nonzero_exit",
+      "deadlineUnixMs": 1791615667993,
+      "elapsedMs": 14395,
+      "exitCode": 1,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 41260,
+      "signal": null,
+      "stage": "output",
+      "stderrBytes": 468,
+      "stderrSha256": "48e80a5a9db6e80c111fc670d9e5033f792c337024efc37cee995bad937434c6",
+      "stdoutBytes": 0,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    }
+  },
+  "freshFailedAudit": {
+    "sha256": "d53c875a32df6ed6fb02f8ae385f2c2c6b674f40d8fa2eb97499d55e6e519ac6",
+    "bytes": 28261,
+    "mtimeUTC": "2026-10-10T06:51:24.200Z",
+    "status": "failed",
+    "failures": [
+      {
+        "pathname": "/api/sales/summary",
+        "code": "EXPECTED_REQUEST_FAILED",
+        "errorCode": "net::ERR_ABORTED",
+        "createdDuringDeclaredWindow": true,
+        "windowCompleted": true
+      }
+    ],
+    "attempts": 86,
+    "resources": 64,
+    "dangerous": 0,
+    "missing": 0,
+    "productionWrites": 0,
+    "allObservedMethodsGET": true
+  },
+  "resultAbsent": true,
+  "sourceAndInputsUnchanged": [
+    {
+      "name": "production-ui.mjs",
+      "sha256": "41434009a0f8f6cfe71f29ede31b3a8bc5a363c2b5ffa3ea2f9e9aa4b3698708"
+    },
+    {
+      "name": "ui-audit.mjs",
+      "sha256": "904d57eece6d64283d8b8b1e1ecf10faf3f197b270f00d96facf6f1e234eed57"
+    },
+    {
+      "name": "candidate-handoff.json",
+      "sha256": "a2ec59b6119a6f6382953c9f2c620345a3fdaaf1a3367773e7c6200ddd3f6e13"
+    },
+    {
+      "name": "resource-inventory.json",
+      "sha256": "c8234a0aa8a43a4bb2b103f3f99b8c06b2f8edec32509844ce91f529b6e43d35"
+    }
+  ],
+  "appSourcesEqualD5": [
+    {
+      "path": "app/product-module-view.tsx",
+      "sha256": "90edff74c5c9b4b3a78246d4a547d6c8cd8501786801ed4e331efa1c85878f37"
+    },
+    {
+      "path": "app/sales-module-view.tsx",
+      "sha256": "a39975326a02f4658919a98651ba52fe0d7f6cf5cdf1ae2130438088d98521ce"
+    },
+    {
+      "path": "app/page.tsx",
+      "sha256": "5fe99cda3d669fe91377bb1ca343a0974c747a94ffad515f7544a1b429fe68c7"
+    },
+    {
+      "path": "app/global-search-dialog.tsx",
+      "sha256": "73cee2be53bacab97c54bc1e8288ad10ab416260b5015f3e70a08767db2f2a8c"
+    },
+    {
+      "path": "app/ai-page-context-provider.tsx",
+      "sha256": "fce5f6009c164f0825260ca926df60f8a857ba1d31f4022186510582f17081e7"
+    },
+    {
+      "path": "app/shell/use-module-view-state.ts",
+      "sha256": "052112362a85d4f8903dd18ba001a6cd74c0bfadcbe6205998704e01769c5d23"
+    }
+  ],
+  "diagnostic": {
+    "root": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\production\\ui-diagnosis-184ff4aea8",
+    "traceSHA256": "0b28af019814a950aeb6bddd0612c8e53aac3c706153a3e01a7b40296709ce79",
+    "detailRequest": [
+      {
+        "event": "request",
+        "id": 86,
+        "at": "2026-10-10T06:55:16.587Z",
+        "phase": "product-navigation",
+        "method": "GET",
+        "type": "fetch",
+        "path": "/api/sales/summary",
+        "loopback": true,
+        "port": "3000",
+        "queryPresent": true
+      },
+      {
+        "event": "finished",
+        "id": 86,
+        "at": "2026-10-10T06:55:16.606Z",
+        "phase": "product-navigation",
+        "method": "GET",
+        "type": "fetch",
+        "path": "/api/sales/summary",
+        "loopback": true,
+        "port": "3000",
+        "queryPresent": true
+      }
+    ],
+    "originalAuditPassed": true,
+    "notOriginalOperationSuccess": true
+  },
+  "sourceCause": "Product detail itself reads /api/sales/summary at product-module-view.tsx:330-369; closing detail aborts the controller in effect cleanup at 375-380. Original test does not wait detail readiness before Back. Existing Playwright loadstate networkidle can return from historical state and cannot prove later detail request closed.",
+  "metadataCaution": "createdDuringDeclaredWindow is only createdAt>=window.startedAt in failure diagnostics, with no upper/completedAt bound; it does not locate the request inside synthetic search editing.",
+  "noEffect": true,
+  "noEffectScope": "Only this readonly UI attempt: fresh audit observed GET only, no business writes/dangerous paths; unchanged guard blocks all non-GET and service workers. No production lifecycle/deploy/scheduling definition or manual send. Ordinary reads/logs/isolated browser artifacts may exist.",
+  "currentUiStatus": "failed-not-passed",
+  "retryDecision": "Permit exactly one unchanged original script retry after current data/cache is stable, based on the same-source full-assert diagnostic and a source-supported timing hypothesis. It must itself pass all original assertions and audit; no sales abort exception. A third original failure keeps blocking and requires a concrete revised/pinned acceptance plan, not repeated green hunting.",
+  "requiredArchive": "Create-only preserve the fresh failed audit bytes and SHA under a second-attempt phase archive, record missing result and original stderr hash/full captured logs where available, atomically move only the unpinned audit to free the original slot; inputs/source/flags/old failures unchanged.",
+  "noReplay": true,
+  "reviewerUiRuns": 0,
+  "reviewerProductionMutations": 0,
+  "reviewerSourcePatches": 0,
+  "limits": "Static exact deployed-source review and existing original metadata/one diagnostic trace only. Diagnosis phase labels do not prove exact DOM action time; warm pass does not fix timing gap or retroactively change failures."
+}

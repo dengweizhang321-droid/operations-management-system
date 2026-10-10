@@ -1,0 +1,16 @@
+✔ isolated valid supplement uses the adopted ABI intent before UI, preserves failed audit and executes only original tail (315.0437ms)
+✔ new UI failure remains unknown and cannot run original tail (77.4779ms)
+✔ exact failed event is required and a stale unknown or other unresolved operation cannot dispatch (203.2012ms)
+✔ reusing the original approval time is rejected for a supplement after the failed attempt (49.9469ms)
+✔ rehashed target/contract/closure mutations still cannot broaden the approved supplement (253.5973ms)
+✔ missing or reused old human approval cannot dispatch a new read-only supplement (302.0245ms)
+✔ changed bound helper bytes fail before UI or tail and an occupied intent cannot replay (115.6296ms)
+✔ manifest failedAt must equal the exact anchored failed journal event rather than a caller supplied earlier time (64.278ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1629.1167

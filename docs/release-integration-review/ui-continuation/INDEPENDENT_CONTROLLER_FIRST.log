@@ -1,0 +1,57 @@
+✖ isolated valid supplement uses the adopted ABI intent before UI, preserves failed audit and executes only original tail (73.6795ms)
+✖ new UI failure remains unknown and cannot run original tail (50.0232ms)
+✔ exact failed event is required and a stale unknown or other unresolved operation cannot dispatch (209.509ms)
+✔ reusing the original approval time is rejected for a supplement after the failed attempt (78.0007ms)
+✔ rehashed target/contract/closure mutations still cannot broaden the approved supplement (357.1847ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 3
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 997.2201
+
+✖ failing tests:
+
+test at docs\release-integration-review\ui-continuation\supplement-controller.independent.test.mjs:119:1
+✖ isolated valid supplement uses the adopted ABI intent before UI, preserves failed audit and executes only original tail (73.6795ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(Number.isFinite(Date.parse(supplement.failedAt)) && Number.isFinite(Date.parse(supplement.sealedAt)) && Date.parse(supplement.sealedAt) >= Date.parse(supplement.failedAt))
+  
+      at validateSupplement (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/ui-continuation/supplement-controller.mjs:27:10)
+      at executeSupplement (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/ui-continuation/supplement-controller.mjs:79:22)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/ui-continuation/supplement-controller.independent.test.mjs:121:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\ui-continuation\supplement-controller.independent.test.mjs:129:1
+✖ new UI failure remains unknown and cannot run original tail (50.0232ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'actual-readonly-ui'
+  - ]
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/ui-continuation/supplement-controller.independent.test.mjs:132:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'actual-readonly-ui' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

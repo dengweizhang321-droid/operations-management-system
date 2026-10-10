@@ -1,0 +1,11 @@
+{
+  "status": "independent-reader-reconstruction-failed",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "reviewerAssumption": "Sanitized engine evidence in journal was identical to raw original engineEvidence",
+  "actualReconstructedSHA256": "7b3f051aade9511899f6d674d3944c0386abcf7e9b89aae832e5edd69c253ab6",
+  "journalReceiptSHA256": "306454e6461747082378fcd6dd22741aabc09c584f0a79d1430a370cd7853e88",
+  "sourceFinding": "safeProcessEvidence removes null timeoutType; original process-deadline.ps1 evidence initializes timeoutType=null",
+  "operationReplayed": false,
+  "implementationModified": false,
+  "productionMutations": 0
+}

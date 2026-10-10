@@ -1,0 +1,41 @@
+{
+  "observedAt": "2026-10-10T08:05:16.2310334Z",
+  "node23412AndDirectChildren": [],
+  "ownedHeadlessChromeCreatedDuringUI": [],
+  "port3000OwnerPids": [
+    50704
+  ],
+  "workerAncestry": [
+    {
+      "pid": 50704,
+      "parentPid": 54540,
+      "name": "workerd.exe",
+      "createdUTC": "2026-10-10T06:26:39.6417760Z",
+      "candidatePathPresent": true
+    },
+    {
+      "pid": 54540,
+      "parentPid": 42728,
+      "name": "node.exe",
+      "createdUTC": "2026-10-10T06:26:37.5925330Z",
+      "candidatePathPresent": true
+    },
+    {
+      "pid": 42728,
+      "parentPid": 48744,
+      "name": "node.exe",
+      "createdUTC": "2026-10-10T06:26:37.5190700Z",
+      "candidatePathPresent": true
+    },
+    {
+      "pid": 48744,
+      "parentPid": 39420,
+      "name": "node.exe",
+      "createdUTC": "2026-10-10T06:26:26.7917950Z",
+      "candidatePathPresent": true
+    }
+  ],
+  "maintenanceFileExists": false,
+  "automationDrainExists": false,
+  "source": "Independent readonly CIM/TCP/FS snapshot, raw command lines not exposed"
+}

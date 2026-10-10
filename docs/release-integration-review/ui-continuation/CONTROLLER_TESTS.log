@@ -1,0 +1,25 @@
+✔ supplement scope rejects a changed digest and old approval (24.7824ms)
+✔ another operation even if resealed (1.7489ms)
+✔ changed source binding even if resealed (2.4616ms)
+✔ weaker assertions even if resealed (2.6449ms)
+✔ missing coverage (2.6864ms)
+✔ unreviewed new script (12.5065ms)
+✔ missing helper pin (9.6409ms)
+✔ duplicate file alias (10.5921ms)
+✔ production output directory (9.7969ms)
+✔ approval before final sealed evidence (1.4368ms)
+✔ unresolved unknown refuses replay (1.5972ms)
+✔ changed active owner (1.299ms)
+✔ another failed event (0.8666ms)
+✔ prior lifecycle not confirmed (0.8604ms)
+✔ tail already started (0.8683ms)
+✔ new failed attempt cannot be replayed under old supplement (0.842ms)
+✔ adopted engine ABI: preserve failures, skip prior nine, new UI once, then exact original tail (752.955ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1248.525

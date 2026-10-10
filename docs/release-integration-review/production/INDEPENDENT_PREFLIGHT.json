@@ -1,0 +1,486 @@
+{
+  "version": "task-d-production-independent-preflight-v1",
+  "observedAt": "2026-10-10T05:32:20.294Z",
+  "humanApproval": {
+    "scope": "AB exact batch, as explicitly relayed by parent from current user turn",
+    "turnStartedAtUnixSeconds": 1791610131,
+    "approvedAt": "2026-10-10T05:28:51.000Z",
+    "CApproved": false
+  },
+  "root": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2",
+  "batchId": "integration-ab-v2-20261010-c22d8dd69a",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "batchFileSha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+  "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+  "workerPlanSha256": "266a8574000a90cbeb5baf12fcba7bc2f4a8a06f0262f3b47d4ad73b9d0ddaee",
+  "operations": 21,
+  "impact": "strict",
+  "recovery": "full",
+  "journalRoot": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches",
+  "currentJournal": {
+    "id": "integration-ab-v2-20261010-c22d8dd69a",
+    "events": 0,
+    "latestStatuses": [],
+    "last": null
+  },
+  "currentUnresolved": [],
+  "active": {
+    "exists": false
+  },
+  "anotherActiveOwner": false,
+  "historicalJournalSummary": [
+    {
+      "id": "integration-ab-v2-20261010-d58fd8e4bf",
+      "events": 0,
+      "latestStatuses": [],
+      "last": null
+    },
+    {
+      "id": "integration-ab-v2-20261010-ef9e36f978",
+      "events": 0,
+      "latestStatuses": [],
+      "last": null
+    },
+    {
+      "id": "jackyun-download-recovery-20261009",
+      "events": 6,
+      "latestStatuses": [
+        {
+          "operationId": "reuse-jackyun-worker",
+          "status": "failed",
+          "phase": "prepare",
+          "at": "2026-10-09T03:34:38.846Z",
+          "eventSha256": "9dbc7cb8b5c31ffbdc6adfca2111ae5c20e54f6822e73162ec775b2a466572fb"
+        }
+      ],
+      "last": {
+        "status": "cancelled",
+        "phase": "closeout",
+        "at": "2026-10-09T03:34:38.910Z",
+        "eventSha256": "040548c2584d31eda1240ed3f27aa289ef96fc50148a44f0d10e6e005bb2631d"
+      }
+    },
+    {
+      "id": "jackyun-download-recovery-v2-20261009",
+      "events": 53,
+      "latestStatuses": [
+        {
+          "operationId": "reuse-jackyun-worker",
+          "status": "passed",
+          "phase": "prepare",
+          "at": "2026-10-09T03:49:21.048Z",
+          "eventSha256": "9511d8a34be6cbcbf8eead7707c8db456e24e59b0a7edebef7733507056d8828"
+        },
+        {
+          "operationId": "op-backup-pre",
+          "status": "passed",
+          "phase": "backup-pre",
+          "at": "2026-10-09T04:02:20.333Z",
+          "eventSha256": "83fa772cac1d659b70214213beaeff3b044dc5d1539765e415ad715c5acba530"
+        },
+        {
+          "operationId": "op-restore-pre",
+          "status": "passed",
+          "phase": "restore-pre",
+          "at": "2026-10-09T04:15:02.538Z",
+          "eventSha256": "ff4ccbf04b22da4ca497c99e1838a6a2ab510a556eabcbcb98c6cb1f5e8192a0"
+        },
+        {
+          "operationId": "step-entermaintenance",
+          "status": "passed",
+          "phase": "drain",
+          "at": "2026-10-09T04:22:47.011Z",
+          "eventSha256": "dd053eac43c150620fed70611f23cade3c100aab209985711654f4bf49569b65"
+        },
+        {
+          "operationId": "apply-jackyun-worker",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T04:25:33.215Z",
+          "eventSha256": "879a4d49e5da5755d46afc2c5c77c3d401495b91fa4c38a8c5be6a1537a6fb3d"
+        },
+        {
+          "operationId": "confirm-classifier-publication",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T04:26:34.050Z",
+          "eventSha256": "d89b4f8c0e24cc642e447832b9d8b0ef60fad7032640b55445a5ca48720f1e8a"
+        },
+        {
+          "operationId": "step-exitmaintenance",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T04:27:41.391Z",
+          "eventSha256": "7916461cbedd4ce739b2b3ca2a54feef405308f4b3cdfc422b0172d5d8647798"
+        },
+        {
+          "operationId": "step-startworker",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T04:39:46.714Z",
+          "eventSha256": "6df5781c2c3ede297105182f9752341f23adfe82687fb34577c79aad486dde4a"
+        },
+        {
+          "operationId": "jackyun-source-and-assets",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T04:43:22.727Z",
+          "eventSha256": "1a1738c41768b2b11b00df666edc1d6766afcea183d90bfa8f6db784316ad4e1"
+        },
+        {
+          "operationId": "step-aggregatestatus",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T04:44:51.280Z",
+          "eventSha256": "922132a84d9349b273c927013ab470b81bbeabebdb207575db0f2b776a9d63fe"
+        },
+        {
+          "operationId": "step-verifystartup",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T04:46:09.379Z",
+          "eventSha256": "82f2dc846f651c54e4ffc369f26780f8bcad4f846a201be997b25eb501d6b2d9"
+        },
+        {
+          "operationId": "natural-watchdogs",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T04:49:16.857Z",
+          "eventSha256": "feecaeeb6f71485c11e9c36d3943d5c21c2aa07e5236aa160d9839202f9c36b4"
+        },
+        {
+          "operationId": "op-backup-post",
+          "status": "passed",
+          "phase": "backup-post",
+          "at": "2026-10-09T05:01:38.291Z",
+          "eventSha256": "19a213c93ac557effcc130bd4c1e6c102df91654ff15e7fccec44263b272a82a"
+        },
+        {
+          "operationId": "op-restore-post",
+          "status": "passed",
+          "phase": "restore-post",
+          "at": "2026-10-09T05:14:12.135Z",
+          "eventSha256": "e251bec0671f775527cf19afacd23ac804580aac647b5dc7ed1b9aab38880003"
+        },
+        {
+          "operationId": "preserve-post-recovery",
+          "status": "passed",
+          "phase": "closeout",
+          "at": "2026-10-09T05:16:53.818Z",
+          "eventSha256": "c8f2949b42a88d85b647a79f637563588baf92284eb28cba8f8dc7590fe429e5"
+        },
+        {
+          "operationId": "readiness-closeout",
+          "status": "passed",
+          "phase": "closeout",
+          "at": "2026-10-09T05:18:52.560Z",
+          "eventSha256": "a98656999757be09a1d82736d82a5d48789a1a63cb251f4b9219f26c964a343d"
+        }
+      ],
+      "last": {
+        "status": "completed",
+        "phase": "closeout",
+        "at": "2026-10-09T05:18:52.563Z",
+        "eventSha256": "f2d3097eef4ecfe3b4de61e60ae41e8a1c85c13e46359ba0c2aa141cf84cf65e"
+      }
+    },
+    {
+      "id": "priority-interactions-20261009",
+      "events": 65,
+      "latestStatuses": [
+        {
+          "operationId": "reuse-priority-worker",
+          "status": "passed",
+          "phase": "prepare",
+          "at": "2026-10-09T09:33:38.930Z",
+          "eventSha256": "06459dd1d9f9e12114a46a946c680339f28381fa5cb27618f3208b844d0167ee"
+        },
+        {
+          "operationId": "op-backup-pre",
+          "status": "passed",
+          "phase": "backup-pre",
+          "at": "2026-10-09T09:46:25.158Z",
+          "eventSha256": "db366d3ec04d8a5214751c5ad63d2e8f8cf2769a8c20e09401802927b83873b1"
+        },
+        {
+          "operationId": "op-restore-pre",
+          "status": "passed",
+          "phase": "restore-pre",
+          "at": "2026-10-09T09:59:41.875Z",
+          "eventSha256": "27d21d239553bdf4802b048fa9532dfc01a741c2eaab6e6744cd7d9b77475a91"
+        },
+        {
+          "operationId": "step-entermaintenance",
+          "status": "passed",
+          "phase": "drain",
+          "at": "2026-10-09T10:38:54.313Z",
+          "eventSha256": "415f0da0ee5751ee47e32da940c8ccd3cc9ef7199560f2e4163d070c799e8763"
+        },
+        {
+          "operationId": "apply-priority-worker",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T10:41:47.036Z",
+          "eventSha256": "1c2e2ef5bc821a68412b0e0f2f7a63885385fb70ea5c3343a481651277613b92"
+        },
+        {
+          "operationId": "step-exitmaintenance",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T10:42:53.016Z",
+          "eventSha256": "64c3ba7ae4de40580843b6ece1b65a2821f734ee4d894e0a488a1e546e4e637d"
+        },
+        {
+          "operationId": "step-startworker",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T11:18:51.126Z",
+          "eventSha256": "2534e3a2dc13955129bfabcd8204123273dd771871984a4459bf74eaf23107d7"
+        },
+        {
+          "operationId": "priority-source-assets",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T11:22:14.067Z",
+          "eventSha256": "91888bbc66aefb8f886e29216dfb6c226bfbdcc8773a29e96a6630e504c352e1"
+        },
+        {
+          "operationId": "priority-production-ui",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T11:32:48.503Z",
+          "eventSha256": "6bae83a0e780ca27d4f34211b6719963f289a08dfbc83b8b2880246c6643ae2d"
+        },
+        {
+          "operationId": "step-aggregatestatus",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T11:36:33.240Z",
+          "eventSha256": "5ea1e081412dd0d0574fb821746a36f5a9ad520432a5fade854bc60fa599412c"
+        },
+        {
+          "operationId": "step-verifystartup",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T11:37:55.027Z",
+          "eventSha256": "b75ab467a9da7fc50325cbd0be08030d0b47f6e19aad4e73a1bfd3a16df84e19"
+        },
+        {
+          "operationId": "natural-watchdogs",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T11:41:11.156Z",
+          "eventSha256": "edd58b380e9de0106dfb6e2ff60664aa64269ee14b7c23634e3a4238f3bd258d"
+        },
+        {
+          "operationId": "op-backup-post",
+          "status": "passed",
+          "phase": "backup-post",
+          "at": "2026-10-09T11:54:10.516Z",
+          "eventSha256": "d6d5e67ae008deacff5901b2139c2f4c977d6d3688397433c9d0a6b51cd1cda7"
+        },
+        {
+          "operationId": "op-restore-post",
+          "status": "passed",
+          "phase": "restore-post",
+          "at": "2026-10-09T12:08:20.504Z",
+          "eventSha256": "cbe14db6f90f122b14882c7500547b8dac8d05659f8c91ebd7ce33323a0103a1"
+        },
+        {
+          "operationId": "preserve-post-recovery",
+          "status": "passed",
+          "phase": "closeout",
+          "at": "2026-10-09T12:21:34.358Z",
+          "eventSha256": "5f4c0275e94db3f6e7b896eae2b0c57bd032546277027908ae35a3165794d522"
+        },
+        {
+          "operationId": "readiness-closeout",
+          "status": "passed",
+          "phase": "closeout",
+          "at": "2026-10-09T12:26:02.674Z",
+          "eventSha256": "658479aaea58bbd12c892d3f2cb67ef4a573a963d0ce410ccf19d5c076ee2787"
+        }
+      ],
+      "last": {
+        "status": "completed",
+        "phase": "closeout",
+        "at": "2026-10-09T12:26:02.677Z",
+        "eventSha256": "637086161ff547664972c8fc48a319d56ef30e4b52d2e8b1ff56e0644db2cb4d"
+      }
+    },
+    {
+      "id": "release-customer-combined-20261009",
+      "events": 10,
+      "latestStatuses": [
+        {
+          "operationId": "reuse-final-worker",
+          "status": "passed",
+          "phase": "prepare",
+          "at": "2026-10-08T17:45:21.781Z",
+          "eventSha256": "c3dea6c7931d20ac8ee7aaf8e92228e2d5253dd774158934eb9b1f5443db25c7"
+        },
+        {
+          "operationId": "op-backup-pre",
+          "status": "failed",
+          "phase": "backup-pre",
+          "at": "2026-10-08T17:59:23.087Z",
+          "eventSha256": "396e89637bc7dc1cdb976c0bc5e7d92a304f270256a2fdda3776b93319ef2952"
+        }
+      ],
+      "last": {
+        "status": "cancelled",
+        "phase": "closeout",
+        "at": "2026-10-08T18:02:09.658Z",
+        "eventSha256": "ddf210ea1b4ec0710dad166d691677313120cd84aafa141956c0adc036204f2d"
+      }
+    },
+    {
+      "id": "release-customer-ps5-fixed-20261009",
+      "events": 71,
+      "latestStatuses": [
+        {
+          "operationId": "reuse-final-worker",
+          "status": "passed",
+          "phase": "prepare",
+          "at": "2026-10-09T00:51:00.107Z",
+          "eventSha256": "cd928b6151ec5fc28fd764d20e2903cf400e357d90e1cbd1a9a09a2839edf4a7"
+        },
+        {
+          "operationId": "op-backup-pre",
+          "status": "passed",
+          "phase": "backup-pre",
+          "at": "2026-10-09T01:06:19.458Z",
+          "eventSha256": "6de2009bb05eb012138cc9d586238044ed8077ee61523a4f124a7c617659201d"
+        },
+        {
+          "operationId": "op-restore-pre",
+          "status": "passed",
+          "phase": "restore-pre",
+          "at": "2026-10-09T01:20:48.523Z",
+          "eventSha256": "357132e912de9a2d8a9640ea4cd4e39f397e3cf5fd9425e34f181366036498c4"
+        },
+        {
+          "operationId": "step-entermaintenance",
+          "status": "passed",
+          "phase": "drain",
+          "at": "2026-10-09T01:29:01.712Z",
+          "eventSha256": "a9205c28a5f19ef884b2c82b05b6f1695eb8e01007556c7d404506a8fbfdad26"
+        },
+        {
+          "operationId": "step-deployapp",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T01:31:00.040Z",
+          "eventSha256": "683183fcb58f0e5a6e277cd9c7278bf7cfacb100a58fc88fc52c9becabc69bd9"
+        },
+        {
+          "operationId": "step-hardenacl",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T01:31:58.044Z",
+          "eventSha256": "3ad77c4f7350fac56703d8e984366fc30591b48db9f9e5def1ed2ab8802731f4"
+        },
+        {
+          "operationId": "apply-final-worker",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T01:34:44.004Z",
+          "eventSha256": "5ffcd8500874b24aa038586cc9d6c0e2aea6203034bdbd4aeab91adff67ec96d"
+        },
+        {
+          "operationId": "step-exitmaintenance",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T01:35:56.375Z",
+          "eventSha256": "5913e8c4e6fd2effcfc6e89ba655d76c2103a8fda41e029cb255e57c80fda55a"
+        },
+        {
+          "operationId": "step-startworker",
+          "status": "passed",
+          "phase": "switch",
+          "at": "2026-10-09T01:55:26.086Z",
+          "eventSha256": "aa570981f50bc35c60757e336ce531bd6f70880801d8aa04574ad95c04468d1a"
+        },
+        {
+          "operationId": "check-live-resources",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T01:59:11.086Z",
+          "eventSha256": "c03d19560ff16274739ee8433eaeefbf240dbec515f7de6df0f4fa84c99f8129"
+        },
+        {
+          "operationId": "check-unchanged-business-permissions",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T02:00:26.287Z",
+          "eventSha256": "fff246dd9c2fe3abe884d3d02a4fc21045238b3d96456754eb880d73c816639d"
+        },
+        {
+          "operationId": "customer-historical-query-preserved",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T02:10:53.274Z",
+          "eventSha256": "f4f4f230cce1bceb795b3aaee0b97b662e663fc5e1530bbfb92cf351f7a2d373"
+        },
+        {
+          "operationId": "customer-four-shop-production-ui",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T02:18:41.546Z",
+          "eventSha256": "73a5893dd1adc1c58d09b3deaa0451599dabea1c2f54eed17dd952e13cb5d29a"
+        },
+        {
+          "operationId": "step-aggregatestatus",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T02:22:26.501Z",
+          "eventSha256": "310be46120843753d7d2c30c8e43bfd2ca795ed8e30f2e24a96f6c14ccbd63d3"
+        },
+        {
+          "operationId": "step-verifystartup",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T02:23:45.803Z",
+          "eventSha256": "10d3b771e317002b5e735cb59bb992621ff05bfdee77cc9573ca2bc87acdb321"
+        },
+        {
+          "operationId": "two-new-natural-watchdogs",
+          "status": "passed",
+          "phase": "acceptance",
+          "at": "2026-10-09T02:27:13.439Z",
+          "eventSha256": "a9db177f4ba773d2b2cd933670664da18c0ec25aaf512468271cee7eae70b39e"
+        },
+        {
+          "operationId": "op-backup-post",
+          "status": "passed",
+          "phase": "backup-post",
+          "at": "2026-10-09T02:39:33.904Z",
+          "eventSha256": "55f6d6f2280f42377f52ec5cf0534abe458413488c20488b56b5fe2a3836a580"
+        },
+        {
+          "operationId": "op-restore-post",
+          "status": "passed",
+          "phase": "restore-post",
+          "at": "2026-10-09T02:52:48.893Z",
+          "eventSha256": "7fd286ff2e463e48e22a0992a4cd6133c968fc8f3be6651ebac50ebca1af8a06"
+        },
+        {
+          "operationId": "final-readiness-closeout",
+          "status": "passed",
+          "phase": "closeout",
+          "at": "2026-10-09T03:00:28.432Z",
+          "eventSha256": "3cd7b7b0a0774eff7229bb9a6cb244954fd57422acfe3dceed9355c82ca5bcbc"
+        }
+      ],
+      "last": {
+        "status": "completed",
+        "phase": "closeout",
+        "at": "2026-10-09T03:03:20.676Z",
+        "eventSha256": "c12e6522f4aacb94e9e1ea2e7490b62a85b5dbea221c79ac20a07b2bfe39a717"
+      }
+    }
+  ],
+  "reviewerProductionMutations": 0,
+  "reviewerCollectorOperatorCalls": 0,
+  "limits": "Read-only point-in-time JSON/files snapshot; no lock claimed and no guarantee against subsequent concurrent changes. Original engine must repeat ownership/admission checks."
+}

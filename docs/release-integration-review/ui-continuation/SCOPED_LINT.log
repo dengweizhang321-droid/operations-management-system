@@ -1,0 +1,10 @@
+Warning: React version was set to "detect" in eslint-plugin-react settings, but the "react" package is not installed. Assuming latest React version for linting.
+
+D:\.codex\worktrees\release-ab-ui-acceptance\运营管理系统\docs\release-integration-review\ui-continuation\supplement-controller.independent.test.mjs
+  16:29  warning  '_old' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\.codex\worktrees\release-ab-ui-acceptance\运营管理系统\docs\release-integration-review\ui-continuation\supplement-controller.test.mjs
+  14:33  warning  'supplementSha256' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 2 problems (0 errors, 2 warnings)
+
