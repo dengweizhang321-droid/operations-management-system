@@ -1,0 +1,13 @@
+{
+  "startedAt": "2026-10-10T18:54:57.188Z",
+  "processId": 32008,
+  "executable": "C:/Program Files/nodejs/node.exe",
+  "args": [
+    "D:\\.codex\\worktrees\\release-ab-ui-acceptance\\运营管理系统\\docs\\release-integration-review\\final-readiness-supplement\\prepare.mjs",
+    "E:/codex-artifacts/release-integration-review-20261010/AB-final-readiness-20261011-verified-final",
+    "D:\\.codex\\worktrees\\release-ab-ui-acceptance\\运营管理系统\\docs\\release-integration-review\\final-readiness-supplement\\INDEPENDENT_REVIEW.json"
+  ],
+  "cwd": "D:/运营管理系统-sales-django-release",
+  "sealerSha256": "7254587f79705f994cb82ffb059f0f5cbdcffd99a9d1eda3b13ae87852296a16",
+  "productionExecuted": false
+}
