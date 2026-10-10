@@ -178,12 +178,14 @@ export async function readSourceTree(root) {
     try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(raw); }
     catch { return `\u0000binary:${raw.toString('base64')}`; }
   };
-  try {
-    await lstat(path.join(root,'.git'));
+  let gitTree = true;
+  try { await lstat(path.join(root,'.git')); }
+  catch (error) { if (error.code === 'ENOENT') gitTree = false; else throw error; }
+  if (gitTree) {
     const { listGitSourceFiles } = await import('./worker-local-release.mjs');
     for (const name of await listGitSourceFiles(root)) files[name]=decode(await safeRead(path.join(root,...name.split('/'))));
     return files;
-  } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
   async function walk(dir, prefix = '') {
     if ((await lstat(dir)).isSymbolicLink()) throw new Error('Redirected source tree');
     for (const entry of await readdir(dir, { withFileTypes: true })) {
