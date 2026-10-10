@@ -1,0 +1,6 @@
+{
+  "path": "config/inventory-warehouse-mapping.json",
+  "sha256": "9477a78438132377ca76d3aa766083974283252fa8ddd14470bf0a4e95e96980",
+  "source": "exact-installed-owner",
+  "rawContentsPersistedInGit": false
+}

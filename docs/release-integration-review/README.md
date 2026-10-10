@@ -1,5 +1,8 @@
 # TERUISI 发布优化任务 D
 
+2026-10-10追加：默认AB精确STRICT/FULL 21步批次已封存，未批准/执行/采用；以 [最后批准方案](EXACT_AB_BATCH_PLAN.md)、[机器记录](evidence/final-ab-batch.json) 与 [v2非作者终审](BATCH_V2_FINAL_INDEPENDENT_REVIEW.md) 为当前状态。下文原“未封存/P01–P06待闭合”及旧Git状态是此前交付历史快照，不能覆盖本追加。ABC替代尚未封存，C快路径资格仍拒绝。原main改动保持；另任务最新main ccf87212仅并入D开发交付，不进入AB/ABC限定候选。
+
+
 2026-10-10，Asia/Shanghai。用户已明确通知“ABC 已全部交付，开始集成验收”。**组合源码与隔离验收通过，AB及ABC替代候选已准备；发布执行仍有门槛，尚无已封存的engine batch或生产批准，未实际采用。**
 
 - [组合验收报告](REPORT.md)：精确交付、修复、联合回归、实恢复、四类状态和计时限制。

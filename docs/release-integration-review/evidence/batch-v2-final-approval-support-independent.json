@@ -1,0 +1,87 @@
+{
+  "version": "task-d-independent-final-approval-binding-v1",
+  "root": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-13756685c1cd191c",
+  "batchSha256": "0fc66a5f7ad209a6c1f5772c7582470a4fb262f4e40c013c5b7ff063ab75756a",
+  "extra": [
+    {
+      "name": "collector.mjs",
+      "sha256": "4147f5267f35a24fe025b5ad92b89f4eda1b7a078aedb1d45de3383a1dfc929f",
+      "bytes": 1952
+    },
+    {
+      "name": "python-closure.mjs",
+      "sha256": "6dee00c17e11898459e03d8910ae943b5ec8e67ac248e0358e4e7a2ea501b6f6",
+      "bytes": 1660
+    },
+    {
+      "name": "python-closure.json",
+      "sha256": "55080419e7f9746f2b4f49a9debacfb44938e3b5b53c02a350eda8c20e3d912b",
+      "bytes": 2094614
+    },
+    {
+      "name": "primary-entrypoint-preservation.json",
+      "sha256": "c7e4cdd3d220bafdf42700d570192594e66f13c30a4dfa756f253827dac441e4",
+      "bytes": 4350
+    }
+  ],
+  "sourceSupportFiles": 21,
+  "sourceSupportBytesAllMatch": true,
+  "pythonInventoryFiles": 7918,
+  "primaryProtectedPaths": 12,
+  "primaryChangedExistingArchived": 6,
+  "primaryNewHelper": 1,
+  "primaryArchived": [
+    {
+      "relativePath": "tools/operations-system-control.ps1",
+      "archive": "primary-before-2.bin",
+      "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638"
+    },
+    {
+      "relativePath": "tools/worker-authority-guard.mjs",
+      "archive": "primary-before-4.bin",
+      "sha256": "1bb5adea6d6c72ad0eceab30af17f2511e086ad0b2c40cb6845c0be8dc6aab6e"
+    },
+    {
+      "relativePath": "tools/worker-local-release.mjs",
+      "archive": "primary-before-7.bin",
+      "sha256": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32"
+    },
+    {
+      "relativePath": "tools/worker-local-release-rotation.mjs",
+      "archive": "primary-before-8.bin",
+      "sha256": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd"
+    },
+    {
+      "relativePath": "tools/worker-local-service.ps1",
+      "archive": "primary-before-9.bin",
+      "sha256": "bc98f84683dbf5da0769be5eb4e0533c5c5c7eb35252d26c87613f38440f6e15"
+    },
+    {
+      "relativePath": ".runtime/worker-release-activation-fence.json",
+      "archive": "primary-before-10.bin",
+      "sha256": "b4200aa85d551f0e9c63123437dbd15cb18cb45ad4976dcb65b8d0d0aa6f72df"
+    }
+  ],
+  "primaryFilesStillOriginal": true,
+  "dws": {
+    "path": "C:\\Users\\86137\\AppData\\Roaming\\npm\\node_modules\\dingtalk-workspace-cli\\vendor\\dws.exe",
+    "sha256": "52e31332acadb06a34110c90ec3ac5cd9779fde705d9848497af1f3923fcaeab",
+    "executed": false
+  },
+  "startupConfigs": [
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\config\\dingtalk-startup.json",
+      "sha256": "b2b36b75ac9efe8448b6233a12dd0f29b19eef41ea0e8291780818c8b4174710",
+      "contentsExposed": false
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\config\\dingtalk-ask.json",
+      "sha256": "a1b213df72f503b25cb7ad635d67cfdf5b61d47c5f0fe7bacc7dd25f508d9c25",
+      "contentsExposed": false
+    }
+  ],
+  "managedAfterPresentInWatchdog": true,
+  "phaseSafety": "Future managedAfter bindings are operation-specific, not pre-admission global file hashes",
+  "productionApproved": false,
+  "productionOperationsPerformed": 0
+}

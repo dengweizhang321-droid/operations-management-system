@@ -1,0 +1,13 @@
+✔ independent v2: incomplete software identity cannot use only the Django manifest label (3.9943ms)
+✔ independent v2: profile content checksum must bind its actual roles/tables/catalog (0.6177ms)
+✔ independent v2: digest catalogue cannot be replaced by arbitrary matching arrays (0.984ms)
+✔ independent v2: historical files cannot claim an undeclared audit root (0.5165ms)
+✔ independent v2: natural health needs the original named probes, not four arbitrary true keys (1.0427ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 122.1357

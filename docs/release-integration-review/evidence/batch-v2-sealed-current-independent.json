@@ -1,0 +1,71 @@
+{
+  "version": "task-d-independent-sealed-structure-v1",
+  "root": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2",
+  "scope": "AB",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "batchFileSha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+  "specBytes": 12854217,
+  "sourceCommit": "5faac8151f59d66de72c3caead8cad916ea547da",
+  "candidate": "20261010T014638Z-97833d2f2b7e7bc9",
+  "manifest": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+  "workerPlan": "266a8574000a90cbeb5baf12fcba7bc2f4a8a06f0262f3b47d4ad73b9d0ddaee",
+  "operations": 21,
+  "collectorFiles": 4502,
+  "uiFiles": 390,
+  "backupFiles": 4048,
+  "exactComponents": 12,
+  "pinnedSupport": [
+    {
+      "name": "candidate-handoff.json",
+      "sha256": "a2ec59b6119a6f6382953c9f2c620345a3fdaaf1a3367773e7c6200ddd3f6e13"
+    },
+    {
+      "name": "adapter.mjs",
+      "sha256": "8d5f3f1f705c5b0264683b546b731eeddb9dbff3ff5102bea7ed5042d28ed714"
+    },
+    {
+      "name": "validators.mjs",
+      "sha256": "7ada759aa35fabc1cf12ba22e51d4b517b2c7dae5c83315feb485188c33b3f2e"
+    },
+    {
+      "name": "read-watchdog-task.ps1",
+      "sha256": "60c797bc4845f2324fa2406a9314a8d9f36b96d5b5bb42df1256dcfa099280bd"
+    },
+    {
+      "name": "resource-inventory.json",
+      "sha256": "c8234a0aa8a43a4bb2b103f3f99b8c06b2f8edec32509844ce91f529b6e43d35"
+    },
+    {
+      "name": "production-ui.mjs",
+      "sha256": "41434009a0f8f6cfe71f29ede31b3a8bc5a363c2b5ffa3ea2f9e9aa4b3698708"
+    },
+    {
+      "name": "ui-audit.mjs",
+      "sha256": "904d57eece6d64283d8b8b1e1ecf10faf3f197b270f00d96facf6f1e234eed57"
+    },
+    {
+      "name": "ui-icon-witness.json",
+      "sha256": "045a993ddd52021580ebc2b77764c0f8769909224eb482fc00e307c305afad14"
+    },
+    {
+      "name": "ui-scope.json",
+      "sha256": "64a60a70b95632d3792aaddf2e3a3110f6c14ca7ec3f918b57be7d6ea0facc3f"
+    },
+    {
+      "name": "candidate-tests.json",
+      "sha256": "d6f0ca8b2bdb4126705b88cdf1604bccf3234e8f52ce26c35d1b9d0798308e17"
+    },
+    {
+      "name": "historical-audit-sha.json",
+      "sha256": "e976365ead5f127127060cff471d34ff837ac6e08d5b3c99fc78259e8adb6efd"
+    }
+  ],
+  "strict": true,
+  "fullRecovery": true,
+  "productionApproved": false,
+  "productionAdopted": false,
+  "nativeSchedulerLatest": "unknown",
+  "recoveryFastPathEligible": false,
+  "operatorOrCollectorCallsPerformed": 0,
+  "coverage": "Structure and listed private-file digests; not production acceptance and not future dynamic admission"
+}

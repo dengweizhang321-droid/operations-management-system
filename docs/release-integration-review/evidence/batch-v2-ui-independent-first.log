@@ -1,0 +1,42 @@
+✔ independent natural malformed JSON is rejected with original bytes preserved (20.0681ms)
+✔ independent natural invalid-at cannot be skipped while hunting two healthy records (10.558ms)
+✔ independent natural missing-at cannot be skipped while hunting two healthy records (10.3157ms)
+✔ independent natural fresh unhealthy record is retained and rejected (10.3083ms)
+✔ independent create-only recovery preservation refuses replacement and retains original (8.6848ms)
+✔ independent UI icon exception binds exact version/origin/type and always aborts (1.1429ms)
+✖ independent UI synthetic cancellation requires original time/window/error/path (0.9615ms)
+✔ independent UI blocked icon needs independent normal HTTP bytes (2.0691ms)
+✔ independent UI late pre-window success cannot prove cancellation recovery (4.3011ms)
+✔ independent UI network failure never becomes an expected synthetic abort (0.5838ms)
+✔ independent UI actual POST attempt fails even when aborted with no production write (0.612ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 366.2357
+
+✖ failing tests:
+
+test at docs\release-integration-review\batch-v2\ui-audit-independent.test.mjs:31:1
+✖ independent UI synthetic cancellation requires original time/window/error/path (0.9615ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/batch-v2/ui-audit-independent.test.mjs:34:500)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

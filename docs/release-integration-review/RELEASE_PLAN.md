@@ -1,5 +1,8 @@
 # 发布方案索引与第一阶段模板
 
+2026-10-10当前追加：默认AB已形成唯一STRICT/FULL 21步批次；精确batch与批准范围以 [EXACT_AB_BATCH_PLAN](EXACT_AB_BATCH_PLAN.md) 和 [final-ab-batch.json](evidence/final-ab-batch.json) 为准。下文此前未封存/阻断陈述为历史快照。生产批准false、执行/采用false；ABC替代尚未封存，C第二批需新实际前驱，恢复快路径仍拒绝。
+
+
 **第二阶段当前方案见[FINAL_RELEASE_PLAN](FINAL_RELEASE_PLAN.md)。** 已准备AB与ABC替代候选；engine batch仍未封存，未生产批准/采用。以下“尚无候选”及未填字段仅保留第一阶段历史快照，不代表当前状态。
 
 本文件不含可执行生产批准范围。最终组合提交、Worker release/manifest/plan、Django manifest、前驱和batch SHA尚未形成；不能把阶段一基线或A/B/C观察tip当发布候选。

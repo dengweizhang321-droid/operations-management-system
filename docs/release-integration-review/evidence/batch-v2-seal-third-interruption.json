@@ -1,0 +1,7 @@
+{
+  "processId": 34800,
+  "creation": "2026-10-10T12:00:49.316858+08:00",
+  "action": "terminated-only-owned-readonly-sealer",
+  "productionLifecyclePerformed": false,
+  "reason": "Historical audit scope included unrelated multi-GB D1 payloads"
+}

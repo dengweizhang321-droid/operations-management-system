@@ -1,0 +1,204 @@
+Creating test database for alias 'default'...
+
+EEEEE.EEEEEEEE..
+======================================================================
+ERROR: test_api (unittest.loader._FailedTest.test_api)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_api
+Traceback (most recent call last):
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_api.py", line 12, in <module>
+    from sales.tests.factories import TEST_SECRET, signed_headers
+ModuleNotFoundError: No module named 'sales.tests'
+
+
+======================================================================
+ERROR: test_apply_rejects_changed_source_after_dry_run (access_control.tests.test_migration.AccessControlMigrationTests.test_apply_rejects_changed_source_after_dry_run)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 137, in test_apply_rejects_changed_source_after_dry_run
+    with _source_fixture() as source_path:
+         ^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 61, in _source_fixture
+    _create_source(source_path)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 28, in _create_source
+    with sqlite3.connect(path) as source:
+         ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_authority_handoff_and_terminal_d1_guards (access_control.tests.test_migration.AccessControlMigrationTests.test_authority_handoff_and_terminal_d1_guards)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 155, in test_authority_handoff_and_terminal_d1_guards
+    with _source_fixture() as source_path:
+         ^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 61, in _source_fixture
+    _create_source(source_path)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 28, in _create_source
+    with sqlite3.connect(path) as source:
+         ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_controlled_retirement_preserves_unrelated_facts_and_fences_plan (access_control.tests.test_migration.AccessControlMigrationTests.test_controlled_retirement_preserves_unrelated_facts_and_fences_plan)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 74, in test_controlled_retirement_preserves_unrelated_facts_and_fences_plan
+    with _source_fixture() as source_path:
+         ^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 61, in _source_fixture
+    _create_source(source_path)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 28, in _create_source
+    with sqlite3.connect(path) as source:
+         ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_exact_dry_run_apply_and_verify_only (access_control.tests.test_migration.AccessControlMigrationTests.test_exact_dry_run_apply_and_verify_only)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 105, in test_exact_dry_run_apply_and_verify_only
+    with _source_fixture() as source_path:
+         ^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 61, in _source_fixture
+    _create_source(source_path)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 28, in _create_source
+    with sqlite3.connect(path) as source:
+         ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_apply_rejects_changed_frozen_source (customer_service.tests.test_migration.CustomerServiceMigrationTests.test_apply_rejects_changed_frozen_source)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 134, in setUp
+    create_source(self.source)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 95, in create_source
+    connection = sqlite3.connect(path)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_authority_prepare_blocks_d1_and_activate_is_terminal (customer_service.tests.test_migration.CustomerServiceMigrationTests.test_authority_prepare_blocks_d1_and_activate_is_terminal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 134, in setUp
+    create_source(self.source)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 95, in create_source
+    connection = sqlite3.connect(path)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_migration_preserves_legacy_messages_above_online_import_limit (customer_service.tests.test_migration.CustomerServiceMigrationTests.test_migration_preserves_legacy_messages_above_online_import_limit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 134, in setUp
+    create_source(self.source)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 95, in create_source
+    connection = sqlite3.connect(path)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_plan_apply_verify_preserves_facts_and_versions (customer_service.tests.test_migration.CustomerServiceMigrationTests.test_plan_apply_verify_preserves_facts_and_versions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 134, in setUp
+    create_source(self.source)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 95, in create_source
+    connection = sqlite3.connect(path)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_plan_preserves_historical_batch_count_after_conversation_reimport (customer_service.tests.test_migration.CustomerServiceMigrationTests.test_plan_preserves_historical_batch_count_after_conversation_reimport)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 134, in setUp
+    create_source(self.source)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 95, in create_source
+    connection = sqlite3.connect(path)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_authority_installer_fences_legacy_shared_uploads (customer_service.tests.test_retirement.CustomerServiceRetirementTests.test_authority_installer_fences_legacy_shared_uploads)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_retirement.py", line 38, in setUp
+    create_source(self.source)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 95, in create_source
+    connection = sqlite3.connect(path)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_r2_evidence_requires_the_entire_retired_prefix_to_be_empty (customer_service.tests.test_retirement.CustomerServiceRetirementTests.test_r2_evidence_requires_the_entire_retired_prefix_to_be_empty)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_retirement.py", line 38, in setUp
+    create_source(self.source)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 95, in create_source
+    connection = sqlite3.connect(path)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_terminal_retirement_binds_r2_evidence_and_preserves_shared_rows (customer_service.tests.test_retirement.CustomerServiceRetirementTests.test_terminal_retirement_binds_r2_evidence_and_preserves_shared_rows)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+Found 16 test(s).
+System check identified no issues (0 silenced).
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_retirement.py", line 38, in setUp
+    create_source(self.source)
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 95, in create_source
+    connection = sqlite3.connect(path)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 36, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.077s
+
+FAILED (errors=13)
+Destroying test database for alias 'default'...
+

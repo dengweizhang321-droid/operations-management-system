@@ -1,0 +1,14 @@
+[
+  {
+    "path": "drizzle/0107_customer_service_write_authority.sql",
+    "sha256": "a95c83c0ca6f38e7e5af6acda8b6c4002af38e21011dd0521332e91d5769136e",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0111_access_control_write_authority.sql",
+    "sha256": "1d08ab3ffa0ee699c60db6dcefb1de261444b087a97580a42f815217b2ed0305",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  }
+]

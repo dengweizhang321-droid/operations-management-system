@@ -1,5 +1,19 @@
 # 第二阶段组合验收报告
 
+当前四状态：
+
+| 范围 | 源码完成 | 隔离验证 | 生产候选 | 实际采用 |
+| --- | --- | --- | --- | --- |
+| ABC＋D核心 | 完成，58bce3f7核心／96aaf018入口收尾 | 联合307及439文件覆盖，原失败保留 | AB/ABC各精确候选已准备 | 否 |
+| 默认AB | 5faac8151f59d66de72c3caead8cad916ea547da | 限定158/61、拥有方25、guard6、v2独立负例通过 | 21步严格batch 9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15封存；同root只读UI4通过 | 否、未批准／执行 |
+| ABC替代／后续C | ABC9d41ce4fa2c7ee4d47ba1bfda0f0967d7727be9c已准备；C第二批未生成 | 原核心／限定源证据；未来C新前驱验证未做 | ABC engine未封存；C第二批无新实际前驱；fast path拒绝 | 否 |
+
+新增只读证据：75公开资源逐HTTP摘要通过，两个401仅未签名边界；完整1256拥有方源＋8测试与2shared在SQLite私有根25项通过，6隔离接口负例通过。独立pure validator新增5、adapter/natural5、UI与adapter合12、Python库存2分别通过，不合计成单次full suite。完整Python7918库存＋真实Playwright/Chrome闭包和原task/DWS/native metadata绑定；新的生产前／后完整Backup/Restore、真切换后的全验收均待批准。原首UI失败、setup五失败、初guard/validator/adapter负例失败、错误/中止seal和第8批次sales导航abort均保留；第9只增加正常读取收尾等待，不放宽API异常。__pycache__不新做密码学验证，沿用原缓存失效及可信OS边界。
+
+
+2026-10-10追加：默认AB精确STRICT/FULL 21步批次已封存，未批准/执行/采用；以 [最后批准方案](EXACT_AB_BATCH_PLAN.md)、[机器记录](evidence/final-ab-batch.json) 与 [v2非作者终审](BATCH_V2_FINAL_INDEPENDENT_REVIEW.md) 为当前状态。下文原“未封存/P01–P06待闭合”及旧Git状态是此前交付历史快照，不能覆盖本追加。ABC替代尚未封存，C快路径资格仍拒绝。原main改动保持；另任务最新main ccf87212仅并入D开发交付，不进入AB/ABC限定候选。
+
+
 2026-10-10，Asia/Shanghai。用户通知已保留在[交付门禁](evidence/handoff-gate.json)。**源码、必要隔离验证及独立复审闭合；已准备两份限定范围Worker候选。发布方案可以审查，执行仍被阻断，不能据此执行生产采用。**
 
 ## 精确交付与修复

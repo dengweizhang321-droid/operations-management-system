@@ -1,5 +1,8 @@
 # 任务 D 交付记录
 
+2026-10-10追加：默认AB精确STRICT/FULL 21步批次已封存，未批准/执行/采用；以 [最后批准方案](EXACT_AB_BATCH_PLAN.md)、[机器记录](evidence/final-ab-batch.json) 与 [v2非作者终审](BATCH_V2_FINAL_INDEPENDENT_REVIEW.md) 为当前状态。下文原“未封存/P01–P06待闭合”及旧Git状态是此前交付历史快照，不能覆盖本追加。ABC替代尚未封存，C快路径资格仍拒绝。原main改动保持；另任务最新main ccf87212仅并入D开发交付，不进入AB/ABC限定候选。
+
+
 ## 第二阶段当前交付
 
 - 已收到用户“ABC 已全部交付，开始集成验收”；ABC交接、源码组合、日备份必要修复及非作者复审完成，19份实现字节、联合307通过、439文件拆分覆盖、AB限定158及盘点61通过、lint/边界/构建和现存完整点隔离恢复见[REPORT](REPORT.md)。

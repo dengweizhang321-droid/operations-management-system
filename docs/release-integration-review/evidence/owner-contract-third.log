@@ -1,0 +1,278 @@
+Creating test database for alias 'default'...
+
+2026-10-10 11:07:22,755 level=WARNING logger=django.request message=Conflict: /api/access-control/users
+.2026-10-10 11:07:22,760 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/authorize-background
+.2026-10-10 11:07:22,765 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/resolve
+.2026-10-10 11:07:22,767 level=WARNING logger=django.request message=Unauthorized: /api/access-control/users
+2026-10-10 11:07:22,771 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+2026-10-10 11:07:22,772 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/resolve
+.2026-10-10 11:07:22,775 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+2026-10-10 11:07:22,776 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+2026-10-10 11:07:22,779 level=WARNING logger=django.request message=Conflict: /api/access-control/users
+.2026-10-10 11:07:22,784 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+.2026-10-10 11:07:22,788 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+2026-10-10 11:07:22,790 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+.EEEE..2026-10-10 11:07:23,093 level=WARNING logger=django.request message=Conflict: /api/customer-service/imports
+.2026-10-10 11:07:23,106 level=WARNING logger=django.request message=Bad Request: /api/customer-service/imports
+2026-10-10 11:07:23,106 level=WARNING logger=django.request message=Forbidden: /api/customer-service/conversations
+.EEEEEFFE..
+======================================================================
+ERROR: test_apply_rejects_changed_source_after_dry_run (access_control.tests.test_migration.AccessControlMigrationTests.test_apply_rejects_changed_source_after_dry_run)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 138, in test_apply_rejects_changed_source_after_dry_run
+    dry_run = _command(
+              ^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 48, in _command
+    call_command(name, stdout=output, **options)
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\migrate_access_control_from_d1.py", line 159, in handle
+    source_snapshot = _source_snapshot(path)
+                      ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\migrate_access_control_from_d1.py", line 58, in _source_snapshot
+    source = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 41, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_authority_handoff_and_terminal_d1_guards (access_control.tests.test_migration.AccessControlMigrationTests.test_authority_handoff_and_terminal_d1_guards)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 156, in test_authority_handoff_and_terminal_d1_guards
+    dry_run = _command(
+              ^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 48, in _command
+    call_command(name, stdout=output, **options)
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\migrate_access_control_from_d1.py", line 159, in handle
+    source_snapshot = _source_snapshot(path)
+                      ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\migrate_access_control_from_d1.py", line 58, in _source_snapshot
+    source = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 41, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_controlled_retirement_preserves_unrelated_facts_and_fences_plan (access_control.tests.test_migration.AccessControlMigrationTests.test_controlled_retirement_preserves_unrelated_facts_and_fences_plan)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 75, in test_controlled_retirement_preserves_unrelated_facts_and_fences_plan
+    _command("access_control_cutover_check", source=str(source_path), action="install-authority", output=str(source_path.with_suffix(".installed.json")))
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 48, in _command
+    call_command(name, stdout=output, **options)
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\access_control_cutover_check.py", line 129, in handle
+    source_digest = sha256_json(_source_snapshot(path))
+                                ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\migrate_access_control_from_d1.py", line 58, in _source_snapshot
+    source = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 41, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_exact_dry_run_apply_and_verify_only (access_control.tests.test_migration.AccessControlMigrationTests.test_exact_dry_run_apply_and_verify_only)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 106, in test_exact_dry_run_apply_and_verify_only
+    dry_run = _command(
+              ^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 48, in _command
+    call_command(name, stdout=output, **options)
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\migrate_access_control_from_d1.py", line 159, in handle
+    source_snapshot = _source_snapshot(path)
+                      ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\migrate_access_control_from_d1.py", line 58, in _source_snapshot
+    source = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 41, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_apply_rejects_changed_frozen_source (customer_service.tests.test_migration.CustomerServiceMigrationTests.test_apply_rejects_changed_frozen_source)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 163, in test_apply_rejects_changed_frozen_source
+    call_command("migrate_customer_service_from_d1", source=str(self.source), plan=True, stdout=planned)
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 468, in handle
+    snapshot = _source_snapshot(path)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 128, in _source_snapshot
+    source = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 41, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_authority_prepare_blocks_d1_and_activate_is_terminal (customer_service.tests.test_migration.CustomerServiceMigrationTests.test_authority_prepare_blocks_d1_and_activate_is_terminal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 226, in test_authority_prepare_blocks_d1_and_activate_is_terminal
+    call_command("migrate_customer_service_from_d1", source=str(self.source), plan=True, stdout=planned)
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 468, in handle
+    snapshot = _source_snapshot(path)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 128, in _source_snapshot
+    source = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 41, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_migration_preserves_legacy_messages_above_online_import_limit (customer_service.tests.test_migration.CustomerServiceMigrationTests.test_migration_preserves_legacy_messages_above_online_import_limit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 207, in test_migration_preserves_legacy_messages_above_online_import_limit
+    call_command(
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 468, in handle
+    snapshot = _source_snapshot(path)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 128, in _source_snapshot
+    source = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 41, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_plan_apply_verify_preserves_facts_and_versions (customer_service.tests.test_migration.CustomerServiceMigrationTests.test_plan_apply_verify_preserves_facts_and_versions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 138, in test_plan_apply_verify_preserves_facts_and_versions
+    call_command("migrate_customer_service_from_d1", source=str(self.source), plan=True, stdout=planned)
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 468, in handle
+    snapshot = _source_snapshot(path)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 128, in _source_snapshot
+    source = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 41, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_plan_preserves_historical_batch_count_after_conversation_reimport (customer_service.tests.test_migration.CustomerServiceMigrationTests.test_plan_preserves_historical_batch_count_after_conversation_reimport)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 183, in test_plan_preserves_historical_batch_count_after_conversation_reimport
+    call_command(
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 468, in handle
+    snapshot = _source_snapshot(path)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 128, in _source_snapshot
+    source = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 41, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+ERROR: test_terminal_retirement_binds_r2_evidence_and_preserves_shared_rows (customer_service.tests.test_retirement.CustomerServiceRetirementTests.test_terminal_retirement_binds_r2_evidence_and_preserves_shared_rows)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_retirement.py", line 145, in test_terminal_retirement_binds_r2_evidence_and_preserves_shared_rows
+    run_id, source_digest, cutover_id = self._migrate_and_activate()
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_retirement.py", line 69, in _migrate_and_activate
+    call_command(
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 468, in handle
+    snapshot = _source_snapshot(path)
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\migrate_customer_service_from_d1.py", line 128, in _source_snapshot
+    source = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\docs\release-integration-review\batch-v2\owner-isolated-tests.py", line 41, in isolated_sqlite_connect
+    raise RuntimeError("SQLite escaped owned test root")
+RuntimeError: SQLite escaped owned test root
+
+======================================================================
+FAIL: test_authority_installer_fences_legacy_shared_uploads (customer_service.tests.test_retirement.CustomerServiceRetirementTests.test_authority_installer_fences_legacy_shared_uploads)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_retirement.py", line 61, in test_authority_installer_fences_legacy_shared_uploads
+    self.assertEqual(result.returncode, 0, result.stderr)
+AssertionError: 2 != 0 : C:\Users\86137\AppData\Local\Programs\Python\Python312\python.exe: can't open file 'D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\.runtime\\owner-acceptance\\tools\\customer-service-d1-authority-install.py': [Errno 2] No such file or directory
+
+
+======================================================================
+FAIL: test_r2_evidence_requires_the_entire_retired_prefix_to_be_empty (customer_service.tests.test_retirement.CustomerServiceRetirementTests.test_r2_evidence_requires_the_entire_retired_prefix_to_be_empty)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_retirement.py", line 288, in test_r2_evidence_requires_the_entire_retired_prefix_to_be_empty
+    self.assertEqual(passed.returncode, 0, passed.stderr)
+AssertionError: 2 != 0 : C:\Users\86137\AppData\Local\Programs\Python\Python312\python.exe: can't open file 'D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\.runtime\\owner-acceptance\\tools\\customer-service-r2-retirement-evidence.py': [Errno 2] No such file or directory
+
+
+----------------------------------------------------------------------
+Ran 25 tests in 0.845s
+
+FAILED (failures=2, errors=10)
+Destroying test database for alias 'default'...
+
+Found 25 test(s).
+System check identified no issues (0 silenced).

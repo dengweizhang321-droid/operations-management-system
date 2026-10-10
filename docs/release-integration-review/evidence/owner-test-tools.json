@@ -1,0 +1,14 @@
+[
+  {
+    "path": "tools/customer-service-d1-authority-install.py",
+    "sha256": "d08f4037f0d1735385a4c7d4a540c2fccc49595c96d084f29513b1f486ab6ba1",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "tools/customer-service-r2-retirement-evidence.py",
+    "sha256": "beba34c76ba50f5413ce63eecac2a1592792bb440f7d19807a85517ed88db0d4",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  }
+]

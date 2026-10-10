@@ -1,0 +1,63 @@
+✖ independent natural malformed JSON is rejected with original bytes preserved (7.6337ms)
+✖ independent natural invalid-at cannot be skipped while hunting two healthy records (13.3581ms)
+✖ independent natural missing-at cannot be skipped while hunting two healthy records (10.0399ms)
+✔ independent natural fresh unhealthy record is retained and rejected (8.2488ms)
+✔ independent create-only recovery preservation refuses replacement and retains original (8.4097ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 2
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 182.2143
+
+✖ failing tests:
+
+test at docs\release-integration-review\batch-v2\adapter-independent.test.mjs:37:1
+✖ independent natural malformed JSON is rejected with original bytes preserved (7.6337ms)
+  AssertionError [ERR_ASSERTION]: Observed malformed raw must survive the failure
+      at file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/batch-v2/adapter-independent.test.mjs:39:74
+      at async fixture (file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/batch-v2/adapter-independent.test.mjs:34:8)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/batch-v2/adapter-independent.test.mjs:39:3)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\batch-v2\adapter-independent.test.mjs:42:3
+✖ independent natural invalid-at cannot be skipped while hunting two healthy records (13.3581ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/batch-v2/adapter-independent.test.mjs:45:7
+      at async fixture (file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/batch-v2/adapter-independent.test.mjs:34:8)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/batch-v2/adapter-independent.test.mjs:44:5)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\batch-v2\adapter-independent.test.mjs:42:3
+✖ independent natural missing-at cannot be skipped while hunting two healthy records (10.0399ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/batch-v2/adapter-independent.test.mjs:45:7
+      at async fixture (file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/batch-v2/adapter-independent.test.mjs:34:8)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/batch-v2/adapter-independent.test.mjs:44:5)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

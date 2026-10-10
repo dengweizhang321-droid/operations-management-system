@@ -1,0 +1,23 @@
+{
+  "version": "task-d-independent-current-readonly-receipts-v1",
+  "root": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "collectorReceiptSHA256": "4c5fd88aa6b2d5b71548e95e7aec7d973f91e77c1524358cbe1d90acf723e64e",
+  "collectorBindingMatchesExactBatch": true,
+  "observedAtMs": 1791607396869,
+  "uiResultSHA256": "f4022354ea807a1a121d89f09fec5a8ecf5ff3e5911509438936036bc40fd2ff",
+  "uiAuditSHA256": "9ec3c1df1555dc69e1fc00e4b6782770f0a2b4b9aeff5adacd2ec2b005ed13cc",
+  "uiCases": 4,
+  "uiRequests": 86,
+  "uiResourceObservations": 64,
+  "blockedExactIcons": 6,
+  "witnessedSyntheticCancellations": 1,
+  "dangerous": 0,
+  "failed": 0,
+  "missing": 0,
+  "productionWrites": 0,
+  "actualObservedService": "Existing D5, not applied AB candidate",
+  "approval": false,
+  "adoption": false,
+  "operatorOrCollectorReranByReviewer": false
+}

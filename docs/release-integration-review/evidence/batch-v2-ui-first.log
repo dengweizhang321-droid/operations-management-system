@@ -1,0 +1,18 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: All actual read/resource requests must pass
+
+'failed' !== 'passed'
+
+    at file:///E:/codex-artifacts/release-integration-review-20261010/AB-v2-fbec23e85f7fb149/production-ui.mjs:50:142 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'failed',
+  expected: 'passed',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.18.0

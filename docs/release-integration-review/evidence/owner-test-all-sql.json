@@ -1,0 +1,152 @@
+[
+  {
+    "path": "drizzle/0090_sales_write_authority.sql",
+    "sha256": "d631d70b077bca10f78bc08414da9c2e2e61ace8b39f18aaa021cc45fa93d44b",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0091_erp_reference_projection.sql",
+    "sha256": "a9b4749a0bf2019f564f3a37ab9971dce38d8df3317cff99b45b0e83beedb65c",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0092_sales_domain_retirement.sql",
+    "sha256": "f981a62efd0515a7f64dd9f174151b8cfeb0c4b071d8236c481b5459761a3b8f",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0093_finance_write_authority.sql",
+    "sha256": "f46d62435367f661d644887b7dd501b65237cba861904e0754500ec5230b456d",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0094_netshop_write_authority.sql",
+    "sha256": "9966ab22a37a10c48a53b1692bec8b1b8322b6028284581328e68f2e1cd5ecae",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0095_market_netshop_projection.sql",
+    "sha256": "0bc6a97504a233afe470419069c635b077df64d544179ade70b9e1f97f81a9d5",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0096_netshop_domain_retirement.sql",
+    "sha256": "6aec29e7d7e320401694c39bb82a60bbfeafdb4fbbf003e20c41b9f691625305",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0097_market_write_authority.sql",
+    "sha256": "3bfdeaa6c06289a5a8c60ab137f8d6c159a53ac5bcaebd0743d27f50b699b880",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0098_market_domain_retirement.sql",
+    "sha256": "a17f6522bf6fa462b98e962bb5489e83a4bea2daf05406bae00d003e82fe561d",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0099_product_write_authority.sql",
+    "sha256": "d3c76630cd9a0eaaf42a156d6f3253c87f5c88e209107fdcdc7583b949a10018",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0100_product_domain_retirement.sql",
+    "sha256": "42a0beb1f0c9e93564e38976d435cffc4a0c75cfe3d0e981b07f52525b1a755b",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0101_inventory_write_authority.sql",
+    "sha256": "81d330b46798daaed900a7c985c682d1042f030b73af8c604e90c0a74eff64b8",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0102_inventory_domain_retirement.sql",
+    "sha256": "66e4e70f4ad6677b0f67ed737d6409ce79b879df3fd5ed76995583873510c29b",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0103_workflow_launch_write_authority.sql",
+    "sha256": "6482b1b5ea60481ed070c3839d841756735a0b26436b4ed4997129aec9b67a6e",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0104_workflow_launch_domain_retirement.sql",
+    "sha256": "5761bd7cdcf302000e62260adffad5c91856cd7dd16825e069be81b0136ead64",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0105_workflow_operations_write_authority.sql",
+    "sha256": "a913439056ec2aa7478b612dd7c9b3a9c15061682f3d2f43f812d4e32a627ecd",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0106_workflow_operations_domain_retirement.sql",
+    "sha256": "b65112f2585436c8feec64ee820fa8d0704eb5e5603e3c56e58383031c32b2a2",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0107_customer_service_write_authority.sql",
+    "sha256": "a95c83c0ca6f38e7e5af6acda8b6c4002af38e21011dd0521332e91d5769136e",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0108_customer_service_domain_retirement.sql",
+    "sha256": "56cbce190bc7e60b2654bbd369399e0b4025c4fceb319087ba34ac7dfa140498",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0109_erp_reference_write_authority.sql",
+    "sha256": "7f89b6eedffa082ad801b336526772f6fdb12854ff2a99f519523686520f6598",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0110_erp_reference_domain_retirement.sql",
+    "sha256": "ca20485f79ad2b434a12d14072fd744a8b33fe450b5ffddc35979925cb20a97f",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0111_access_control_write_authority.sql",
+    "sha256": "1d08ab3ffa0ee699c60db6dcefb1de261444b087a97580a42f815217b2ed0305",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0112_access_control_domain_retirement.sql",
+    "sha256": "a6733ff6ea772f5da5f6f6cd8a441213e21d33fbc29ab68077bc426d472d1496",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0113_ai_write_authority.sql",
+    "sha256": "2e6901e87253aeda78a356805b454acce7e0bcde1386fa6a8c18ad6709ad6f1e",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  },
+  {
+    "path": "drizzle/0114_ai_domain_retirement.sql",
+    "sha256": "47e8d5903edebcf86b932f5f4f670045765e4311e20c02c46395cc638187f736",
+    "source": "exact-installed-owner",
+    "productionInvocation": false
+  }
+]

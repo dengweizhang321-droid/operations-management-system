@@ -1,0 +1,25 @@
+✔ v2 exact canonical PS entrypoint must be the pinned physical path (2.0874ms)
+✔ v2 complete components cannot be replaced by completed/not-ready wrapper (2.3388ms)
+✔ v2 complete original recovery bytes and both sidecars bind exact point (0.7813ms)
+✔ v2 recovery rejects wrong-original-restore-sidecar (0.5556ms)
+✔ v2 recovery rejects wrong-original-manifest-sidecar (0.9779ms)
+✔ v2 recovery rejects wrong-backup-id (0.4318ms)
+✔ v2 recovery rejects wrong-rehearsal-id (0.4569ms)
+✔ v2 recovery rejects wrong-isolated-port (0.4799ms)
+✔ v2 recovery rejects wrong-original-dump (0.4156ms)
+✔ v2 recovery rejects fake-equal-content-labels (0.663ms)
+✔ v2 recovery rejects wrong-original-full-profile (0.5663ms)
+✔ v2 recovery rejects missing-original-table (0.5301ms)
+✔ v2 two NEW full snapshots compare every table, role, catalog and migration (1.6852ms)
+✔ v2 complete old audits retain unknown/failed bytes and record additions (0.5128ms)
+✔ v2 empty/partial/wrong-byte historical baselines cannot claim full preservation (11.8969ms)
+✔ v2 all observed natural bytes, same fence and process identity are required (1.4296ms)
+✔ v2 missing/changed/running original watchdog task is rejected before installer (0.4372ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 148.7621

@@ -1,5 +1,8 @@
 # 第二阶段精确发布方案
 
+2026-10-10追加：默认AB精确STRICT/FULL 21步批次已封存，未批准/执行/采用；以 [最后批准方案](EXACT_AB_BATCH_PLAN.md)、[机器记录](evidence/final-ab-batch.json) 与 [v2非作者终审](BATCH_V2_FINAL_INDEPENDENT_REVIEW.md) 为当前状态。下文原“未封存/P01–P06待闭合”及旧Git状态是此前交付历史快照，不能覆盖本追加。ABC替代尚未封存，C快路径资格仍拒绝。原main改动保持；另任务最新main ccf87212仅并入D开发交付，不进入AB/ABC限定候选。
+
+
 2026-10-10。两份候选已prepare-online。**本文为可审查的非执行方案；engine batch未封存，P01–P06尚未闭合，不能将scope文档SHA或Worker plan SHA当最终生产批准。**
 
 ## 精确候选与实际前驱

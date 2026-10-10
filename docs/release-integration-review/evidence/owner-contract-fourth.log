@@ -1,0 +1,114 @@
+Creating test database for alias 'default'...
+
+2026-10-10 11:11:43,301 level=WARNING logger=django.request message=Conflict: /api/access-control/users
+.2026-10-10 11:11:43,305 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/authorize-background
+.2026-10-10 11:11:43,309 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/resolve
+.2026-10-10 11:11:43,312 level=WARNING logger=django.request message=Unauthorized: /api/access-control/users
+2026-10-10 11:11:43,316 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+2026-10-10 11:11:43,317 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/resolve
+.2026-10-10 11:11:43,320 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+2026-10-10 11:11:43,320 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+2026-10-10 11:11:43,324 level=WARNING logger=django.request message=Conflict: /api/access-control/users
+.2026-10-10 11:11:43,329 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+.2026-10-10 11:11:43,333 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+2026-10-10 11:11:43,335 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+..EE...2026-10-10 11:11:43,675 level=WARNING logger=django.request message=Conflict: /api/customer-service/imports
+.2026-10-10 11:11:43,688 level=WARNING logger=django.request message=Bad Request: /api/customer-service/imports
+2026-10-10 11:11:43,688 level=WARNING logger=django.request message=Forbidden: /api/customer-service/conversations
+..E...F.E..
+======================================================================
+ERROR: test_authority_handoff_and_terminal_d1_guards (access_control.tests.test_migration.AccessControlMigrationTests.test_authority_handoff_and_terminal_d1_guards)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 164, in test_authority_handoff_and_terminal_d1_guards
+    for statement in _statements("0111_access_control_write_authority.sql"):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 53, in _statements
+    source = (Path(__file__).resolve().parents[3] / "drizzle" / name).read_text(encoding="utf-8")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\.runtime\\owner-acceptance\\drizzle\\0111_access_control_write_authority.sql'
+
+======================================================================
+ERROR: test_controlled_retirement_preserves_unrelated_facts_and_fences_plan (access_control.tests.test_migration.AccessControlMigrationTests.test_controlled_retirement_preserves_unrelated_facts_and_fences_plan)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 75, in test_controlled_retirement_preserves_unrelated_facts_and_fences_plan
+    _command("access_control_cutover_check", source=str(source_path), action="install-authority", output=str(source_path.with_suffix(".installed.json")))
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 48, in _command
+    call_command(name, stdout=output, **options)
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\access_control_cutover_check.py", line 130, in handle
+    raw, statements = _sql("0111_access_control_write_authority.sql")
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\access_control_cutover_check.py", line 59, in _sql
+    raw = (Path(settings.BASE_DIR).parent / "drizzle" / name).read_bytes()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1019, in read_bytes
+    with self.open(mode='rb') as f:
+         ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\.runtime\\owner-acceptance\\drizzle\\0111_access_control_write_authority.sql'
+
+======================================================================
+ERROR: test_authority_prepare_blocks_d1_and_activate_is_terminal (customer_service.tests.test_migration.CustomerServiceMigrationTests.test_authority_prepare_blocks_d1_and_activate_is_terminal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_migration.py", line 234, in test_authority_prepare_blocks_d1_and_activate_is_terminal
+    for statement in sql_path.read_text(encoding="utf-8").split("--> statement-breakpoint"):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\.runtime\\owner-acceptance\\drizzle\\0107_customer_service_write_authority.sql'
+
+======================================================================
+ERROR: test_terminal_retirement_binds_r2_evidence_and_preserves_shared_rows (customer_service.tests.test_retirement.CustomerServiceRetirementTests.test_terminal_retirement_binds_r2_evidence_and_preserves_shared_rows)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_retirement.py", line 145, in test_terminal_retirement_binds_r2_evidence_and_preserves_shared_rows
+    run_id, source_digest, cutover_id = self._migrate_and_activate()
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_retirement.py", line 95, in _migrate_and_activate
+    for statement in authority_sql.read_text(encoding="utf-8").split(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\.runtime\\owner-acceptance\\drizzle\\0107_customer_service_write_authority.sql'
+
+======================================================================
+FAIL: test_authority_installer_fences_legacy_shared_uploads (customer_service.tests.test_retirement.CustomerServiceRetirementTests.test_authority_installer_fences_legacy_shared_uploads)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_retirement.py", line 61, in test_authority_installer_fences_legacy_shared_uploads
+    self.assertEqual(result.returncode, 0, result.stderr)
+AssertionError: 1 != 0 : {"status":"failed","error":"RuntimeError","message":"customer-service authority SQL is missing"}
+
+
+----------------------------------------------------------------------
+Ran 25 tests in 1.239s
+
+FAILED (failures=1, errors=4)
+Destroying test database for alias 'default'...
+
+Found 25 test(s).
+System check identified no issues (0 silenced).

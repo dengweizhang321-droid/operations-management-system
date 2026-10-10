@@ -1,0 +1,26 @@
+Creating test database for alias 'default'...
+
+2026-10-10 11:32:40,978 level=WARNING logger=django.request message=Conflict: /api/access-control/users
+.2026-10-10 11:32:40,982 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/authorize-background
+.2026-10-10 11:32:40,986 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/resolve
+.2026-10-10 11:32:40,989 level=WARNING logger=django.request message=Unauthorized: /api/access-control/users
+2026-10-10 11:32:40,993 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+2026-10-10 11:32:40,994 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/resolve
+.2026-10-10 11:32:40,998 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+2026-10-10 11:32:40,999 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+2026-10-10 11:32:41,002 level=WARNING logger=django.request message=Conflict: /api/access-control/users
+.2026-10-10 11:32:41,005 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+.2026-10-10 11:32:41,011 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+2026-10-10 11:32:41,014 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+.......2026-10-10 11:32:41,546 level=WARNING logger=django.request message=Conflict: /api/customer-service/imports
+.2026-10-10 11:32:41,560 level=WARNING logger=django.request message=Bad Request: /api/customer-service/imports
+2026-10-10 11:32:41,560 level=WARNING logger=django.request message=Forbidden: /api/customer-service/conversations
+...........
+----------------------------------------------------------------------
+Ran 25 tests in 2.604s
+
+OK
+Destroying test database for alias 'default'...
+
+Found 25 test(s).
+System check identified no issues (0 silenced).

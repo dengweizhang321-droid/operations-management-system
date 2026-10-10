@@ -1,0 +1,95 @@
+Creating test database for alias 'default'...
+
+2026-10-10 11:15:36,815 level=WARNING logger=django.request message=Conflict: /api/access-control/users
+.2026-10-10 11:15:36,820 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/authorize-background
+.2026-10-10 11:15:36,825 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/resolve
+.2026-10-10 11:15:36,828 level=WARNING logger=django.request message=Unauthorized: /api/access-control/users
+2026-10-10 11:15:36,832 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+2026-10-10 11:15:36,833 level=WARNING logger=django.request message=Forbidden: /api/access-control/principal/resolve
+.2026-10-10 11:15:36,836 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+2026-10-10 11:15:36,837 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+2026-10-10 11:15:36,841 level=WARNING logger=django.request message=Conflict: /api/access-control/users
+.2026-10-10 11:15:36,845 level=WARNING logger=django.request message=Forbidden: /api/access-control/users
+.2026-10-10 11:15:36,850 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+2026-10-10 11:15:36,852 level=WARNING logger=django.request message=Bad Request: /api/access-control/users
+..EE...2026-10-10 11:15:37,336 level=WARNING logger=django.request message=Conflict: /api/customer-service/imports
+.2026-10-10 11:15:37,349 level=WARNING logger=django.request message=Bad Request: /api/customer-service/imports
+2026-10-10 11:15:37,350 level=WARNING logger=django.request message=Forbidden: /api/customer-service/conversations
+........E..
+======================================================================
+ERROR: test_authority_handoff_and_terminal_d1_guards (access_control.tests.test_migration.AccessControlMigrationTests.test_authority_handoff_and_terminal_d1_guards)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 191, in test_authority_handoff_and_terminal_d1_guards
+    retirement = _statements("0112_access_control_domain_retirement.sql")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 53, in _statements
+    source = (Path(__file__).resolve().parents[3] / "drizzle" / name).read_text(encoding="utf-8")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\.runtime\\owner-acceptance\\drizzle\\0112_access_control_domain_retirement.sql'
+
+======================================================================
+ERROR: test_controlled_retirement_preserves_unrelated_facts_and_fences_plan (access_control.tests.test_migration.AccessControlMigrationTests.test_controlled_retirement_preserves_unrelated_facts_and_fences_plan)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 91, in test_controlled_retirement_preserves_unrelated_facts_and_fences_plan
+    plan = _command("access_control_cutover_check", **options, action="retirement-plan", output=str(source_path.with_suffix(".plan.json")))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\tests\test_migration.py", line 48, in _command
+    call_command(name, stdout=output, **options)
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\access_control_cutover_check.py", line 181, in handle
+    raw, statements = _sql("0112_access_control_domain_retirement.sql")
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\access_control\management\commands\access_control_cutover_check.py", line 59, in _sql
+    raw = (Path(settings.BASE_DIR).parent / "drizzle" / name).read_bytes()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1019, in read_bytes
+    with self.open(mode='rb') as f:
+         ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\.runtime\\owner-acceptance\\drizzle\\0112_access_control_domain_retirement.sql'
+
+======================================================================
+ERROR: test_terminal_retirement_binds_r2_evidence_and_preserves_shared_rows (customer_service.tests.test_retirement.CustomerServiceRetirementTests.test_terminal_retirement_binds_r2_evidence_and_preserves_shared_rows)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\tests\test_retirement.py", line 185, in test_terminal_retirement_binds_r2_evidence_and_preserves_shared_rows
+    call_command(
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+Found 25 test(s).
+System check identified no issues (0 silenced).
+    return command.execute(*args, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\teruisi-runtime\django-sales\venv\Lib\site-packages\django\core\management\base.py", line 464, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\retire_customer_service_d1.py", line 569, in handle
+    plan = _build_plan(
+           ^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\retire_customer_service_d1.py", line 329, in _build_plan
+    migration = _migration_path().read_bytes()
+                ^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\release-integration-review\运营管理系统\.runtime\owner-acceptance\backend\customer_service\management\commands\retire_customer_service_d1.py", line 189, in _migration_path
+    raise CommandError("缺少受控 D1 客服退役迁移。")
+django.core.management.base.CommandError: 缺少受控 D1 客服退役迁移。
+
+----------------------------------------------------------------------
+Ran 25 tests in 1.857s
+
+FAILED (errors=3)
+Destroying test database for alias 'default'...
+

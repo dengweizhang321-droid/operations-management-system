@@ -1,0 +1,13 @@
+✔ independent natural malformed JSON is rejected with original bytes preserved (16.7457ms)
+✔ independent natural invalid-at cannot be skipped while hunting two healthy records (11.8589ms)
+✔ independent natural missing-at cannot be skipped while hunting two healthy records (9.6565ms)
+✔ independent natural fresh unhealthy record is retained and rejected (9.7937ms)
+✔ independent create-only recovery preservation refuses replacement and retains original (8.2463ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 181.5649

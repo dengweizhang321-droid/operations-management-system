@@ -1,0 +1,12 @@
+[
+  {
+    "path": "backend/sales/tests/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "kind": "current-isolated-test-only"
+  },
+  {
+    "path": "backend/sales/tests/factories.py",
+    "sha256": "2e772902f26ec601efd13aa57223f85bd1380dab9e45ba6872b76a541dbbc448",
+    "kind": "current-isolated-test-only"
+  }
+]

@@ -1,0 +1,14 @@
+<anonymous_script>:2
+<!doctype html>
+^
+
+SyntaxError: Unexpected token '<', "
+<!doctype "... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at parseJSONFromBytes (node:internal/deps/undici/undici:4387:19)
+    at successSteps (node:internal/deps/undici/undici:7041:27)
+    at readAllBytes (node:internal/deps/undici/undici:5958:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+Node.js v24.18.0
+Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94

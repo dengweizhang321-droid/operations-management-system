@@ -1,0 +1,8 @@
+test_relative_connect_cannot_create_a_database_in_another_cwd (__main__.IndependentGuardTests.test_relative_connect_cannot_create_a_database_in_another_cwd) ... ok
+test_relative_constructor_cannot_create_a_database_in_another_cwd (__main__.IndependentGuardTests.test_relative_constructor_cannot_create_a_database_in_another_cwd) ... ok
+test_relative_uri_cannot_create_a_database_in_another_cwd (__main__.IndependentGuardTests.test_relative_uri_cannot_create_a_database_in_another_cwd) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.005s
+
+OK
