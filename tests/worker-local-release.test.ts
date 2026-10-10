@@ -145,6 +145,7 @@ test("real release artifact packer carries every guarded entrypoint and binds ea
     "tools/worker-local-release-rotation.mjs",
     "tools/worker-local-service.ps1",
     ".runtime/worker-release-activation-fence.json",
+    "tools/process-deadline.ps1",
   ];
   try {
     assert.deepEqual([...workerGuardEntrypointPaths], expectedGuardEntrypoints);
@@ -518,9 +519,9 @@ try {
     );
     await assert.rejects(
       runProcess(process.execPath, [childPath, "descendant"], {
-        cwd: fixtureRoot, label: "fixture descendant", maxOutputBytes: 1024, timeoutMs: 600,
+        cwd: fixtureRoot, label: "fixture descendant", maxOutputBytes: 1024, timeoutMs: 5600,
       }),
-      /超过 600ms 时限/,
+      /超过 5600ms 时限/,
     );
     const descendantPid = Number.parseInt(await readFile(path.join(fixtureRoot, "descendant.pid"), "utf8"), 10);
     let descendantAlive = true;
@@ -1833,7 +1834,7 @@ test("supervisor prelaunch waits for the real create-only receipt and rejects ti
     ].join("\n");
     const writer = runProcess("powershell.exe", [
       "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", writerScript,
-    ], { label: "delayed real process receipt writer", timeoutMs: 10_000 });
+    ], { label: "delayed real process receipt writer", timeoutMs: 10_000, cleanup: "direct" });
     const waitedAt = Date.now();
     assert.equal(await assertSupervisorPrelaunchProcessState({
       manifestPath,

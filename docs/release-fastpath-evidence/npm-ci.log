@@ -1,0 +1,43 @@
+npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+npm warn cleanup Failed to remove some directories [
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\D:\\.codex\\worktrees\\release-fastpath-evidence\\运营管理系统\\node_modules\\@vitejs\\plugin-rsc',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'D:\.codex\worktrees\release-fastpath-evidence\运营管理系统\node_modules\@vitejs\plugin-rsc'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'D:\\.codex\\worktrees\\release-fastpath-evidence\\运营管理系统\\node_modules\\@vitejs\\plugin-rsc'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\D:\\.codex\\worktrees\\release-fastpath-evidence\\运营管理系统\\node_modules\\next',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'D:\.codex\worktrees\release-fastpath-evidence\运营管理系统\node_modules\next\dist\compiled\@babel\runtime'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'D:\\.codex\\worktrees\\release-fastpath-evidence\\运营管理系统\\node_modules\\next\\dist\\compiled\\@babel\\runtime'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\D:\\.codex\\worktrees\\release-fastpath-evidence\\运营管理系统\\node_modules',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'D:\.codex\worktrees\release-fastpath-evidence\运营管理系统\node_modules\next\dist\esm\server\route-modules\pages'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'D:\\.codex\\worktrees\\release-fastpath-evidence\\运营管理系统\\node_modules\\next\\dist\\esm\\server\\route-modules\\pages'
+npm warn cleanup     }
+npm warn cleanup   ]
+npm warn cleanup ]
+npm error code ECONNRESET
+npm error network aborted
+npm error network This is a problem related to network connectivity.
+npm error network In most cases you are behind a proxy or have bad network settings.
+npm error network
+npm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'
+npm notice
+npm notice New major version of npm available! 11.16.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+npm error A complete log of this run can be found in: C:\Users\86137\AppData\Local\npm-cache\_logs\2026-10-09T16_04_38_459Z-debug-0.log

@@ -1,0 +1,101 @@
+✔ Node direct exit files: hold does not wait for inherited stdout/stderr (118.8769ms)
+✔ Node direct exit files: nonzero-hold does not wait for inherited stdout/stderr (87.5895ms)
+✔ EOF transport retains exit0 but fails within the same deadline while both streams are held (819.4205ms)
+✔ probe direct cleanup leaves its simulated service alive and no direct probe (820.0288ms)
+✔ an exhausted inherited deadline starts no child (2.293ms)
+✔ approved runner rejects invalid and retains bounded diagnostics (589.9977ms)
+✔ approved runner rejects nonzero and retains bounded diagnostics (302.2162ms)
+✔ approved runner rejects flood and retains bounded diagnostics (288.365ms)
+✔ powershell.exe: shared transport and watchdog hold both streams without a late EOF wait (3189.7396ms)
+✔ pwsh.exe: shared transport and watchdog hold both streams without a late EOF wait (5036.2151ms)
+✖ original nested PS5 adapter: ready (10257.1793ms)
+✔ original nested PS5 adapter: engine-failed (3991.6131ms)
+✔ original nested PS5 adapter: wrong-version (6071.5154ms)
+✖ original nested PS5 adapter: incomplete (8971.2303ms)
+✔ original nested PS5 adapter: bad-json (4817.6412ms)
+✖ original nested PS5 adapter: maintenance (9939.6993ms)
+✖ original nested PS5 adapter: deadline (8072.623ms)
+✖ original nested PS5 adapter: drain (11194.9203ms)
+✔ original nested PS5 adapter: missing-identity (4371.8647ms)
+✔ original nested PS5 adapter: fake-components (7487.5197ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 15
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 86850.5503
+
+✖ failing tests:
+
+test at tests\release-process-deadline.test.mjs:88:160
+✖ original nested PS5 adapter: ready (10257.1793ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(performance.now()-at<(scenario==='deadline'?3100:8500))
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:140:10
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:88:160
+✖ original nested PS5 adapter: incomplete (8971.2303ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(performance.now()-at<(scenario==='deadline'?3100:8500))
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:140:10
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:88:160
+✖ original nested PS5 adapter: maintenance (9939.6993ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(performance.now()-at<(scenario==='deadline'?3100:8500))
+  
+      at file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:140:10
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async fixture (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:17:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:88:160
+✖ original nested PS5 adapter: deadline (8072.623ms)
+  [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-90lmip'] { errno: -4082, code: 'EBUSY', syscall: 'rmdir', path: 'C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-deadline-test-90lmip' }
+
+test at tests\release-process-deadline.test.mjs:88:160
+✖ original nested PS5 adapter: drain (11194.9203ms)
+  Error: isolated-start/isolated-start失败：超过 10000ms 时限 (stderr=#< CLIXML; stdout=)
+      at finish (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/worker-local-release.mjs:714:23)
+      at Timeout.<anonymous> (file:///D:/.codex/worktrees/release-process-deadline/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/worker-local-release.mjs:782:43)
+      at listOnTimeout (node:internal/timers:605:17)
+      at process.processTimers (node:internal/timers:541:7) {
+    processEvidence: { version: 1, code: 'process_timeout', stage: 'direct-exit', processId: 50272, exitCode: null, signal: null, timeoutType: 'direct-exit', deadlineUnixMs: 1791563031064, elapsedMs: 10011, outputProtocol: 'direct-exit-files', cleanup: 'preserve', stdoutBytes: 0, stderrBytes: 11, stdoutSha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', stderrSha256: '3e2f777239e8875796a6a61feebd144090ede865f96db1df16a9bbcefd597d90' }
+  }

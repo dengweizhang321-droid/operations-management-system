@@ -1,5 +1,5 @@
 // Retry only a classified read-only observation, never a lifecycle action.
-import { spawn } from 'node:child_process';
+import { runProcess, safeProcessEvidence } from './worker-local-release.mjs';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 
@@ -11,7 +11,7 @@ export function observationError(code) { return Object.assign(new Error(code), {
 export function safeObservationError(error) {
   // Never persist stderr, stdout, URLs, argv, customer text, or arbitrary messages.
   return { code: known.has(error?.code) ? error.code : 'UNCLASSIFIED_FAILURE',
-    messageSha256: null, retryable: transient.has(error?.code) };
+    messageSha256: null, retryable: transient.has(error?.code), ...(error?.processEvidence ? {process:safeProcessEvidence(error.processEvidence)} : {}) };
 }
 export async function retryReadOnlyObservation({ query, stage, totalTimeoutMs = 240_000,
   now = () => performance.now(), sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), onAttempt = async () => {} }) {
@@ -47,28 +47,16 @@ export async function retryReadOnlyObservation({ query, stage, totalTimeoutMs = 
 
 // This runner owns only its read-only probe child. Its deadline covers output
 // EOF too. No taskkill /T, service termination, or raw process diagnostics.
-export async function runReadOnlyProcess(executable, args, { cwd, env, timeoutMs, maxOutputBytes = 2 * 1024 * 1024 } = {}) {
+export async function runReadOnlyProcess(executable, args, { timeoutMs, maxOutputBytes = 2 * 1024 * 1024, ...options } = {}) {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 240_000) throw new Error('Invalid probe timeout');
-  return new Promise((resolve, reject) => {
-    const stdout = [], stderr = []; let bytes = 0, settled = false, timer;
-    const child = spawn(executable, args, { cwd, env, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    const finish = (error, value) => {
-      if (settled) return; settled = true; clearTimeout(timer);
-      child.stdout.destroy(); child.stderr.destroy();
-      if (error) { child.kill(); reject(error); } else resolve(value);
-    };
-    for (const [stream, chunks] of [[child.stdout, stdout], [child.stderr, stderr]]) stream.on('data', data => {
-      bytes += data.length;
-      if (bytes > maxOutputBytes) finish(observationError('OUTPUT_LIMIT'));
-      else chunks.push(data);
-    });
-    child.once('error', error => finish(observationError(known.has(error.code) ? error.code : 'PROCESS_FAILED')));
-    child.once('close', (code, signal) => {
-      if (code !== 0 || signal) finish(observationError('PROCESS_FAILED'));
-      else finish(null, { stdout: Buffer.concat(stdout).toString('utf8') });
-    });
-    timer = setTimeout(() => finish(observationError('STATUS_TIMEOUT')), timeoutMs);
-  });
+  try {
+    return await runProcess(executable,args,{...options,timeoutMs,maxOutputBytes,outputProtocol:'direct-exit-files',cleanup:'direct'});
+  } catch (error) {
+    const code=error.processEvidence?.code;
+    const mapped=observationError(code==='process_timeout' ? 'STATUS_TIMEOUT' : code==='output_limit' ? 'OUTPUT_LIMIT' : known.has(error.processEvidence?.nativeCode) ? error.processEvidence.nativeCode : 'PROCESS_FAILED');
+    mapped.processEvidence=error.processEvidence;
+    throw mapped;
+  }
 }
 export function parseStatus(stdout) {
   try { const value = JSON.parse(stdout.trim()); if (!value || typeof value !== 'object') throw new Error(); return value; }

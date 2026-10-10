@@ -12,6 +12,7 @@ import {
   sha256Canonical,
   workerGuardCheckNames,
   workerGuardEntrypointPaths,
+  workerLegacyGuardEntrypointPaths,
   workerGuardForbiddenScans,
   workerRuntimeRoot,
   windowsPathSha256,
@@ -199,7 +200,9 @@ async function readAndVerifyGuardReceipt(current) {
   exactKeys(receipt.checks, workerGuardCheckNames, "legacy Worker guard checks");
   if (Object.values(receipt.checks).some((value) => value !== true)) fail("legacy Worker guard checks 未全部通过");
   if (!Array.isArray(receipt.entrypoints)
-    || canonicalJson(receipt.entrypoints.map((item) => item?.relativePath)) !== canonicalJson([...workerGuardEntrypointPaths])) {
+    || (canonicalJson(receipt.entrypoints.map((item) => item?.relativePath)) !== canonicalJson([...workerGuardEntrypointPaths])
+      && (canonicalJson(receipt.entrypoints.map((item) => item?.relativePath)) !== canonicalJson([...workerLegacyGuardEntrypointPaths])
+        || current.manifest.artifacts.keyFiles.some(item=>item.relativePath === "tools/process-deadline.ps1")))) {
     fail("legacy Worker guard entrypoints 无效");
   }
   if (canonicalJson(receipt.forbiddenLegacyDirectCommands) !== canonicalJson(workerGuardForbiddenScans)) {

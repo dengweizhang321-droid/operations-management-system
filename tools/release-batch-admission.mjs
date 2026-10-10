@@ -7,8 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { safeRead, safeFileDigest, hash, canonical, readSourceTree, sourceInventory, sourceTreeDigest, requireHash } from './release-impact.mjs';
 import { verifyBatch, writeOnce, journalState, productionCommandArguments, productionCommandEnvironment } from './release-batch.mjs';
 import { resolveEffectiveReleaseChain } from './worker-local-release-rotation.mjs';
-import { workerPreparationIdentity, workerRuntimeRoot, workerSourceRoot, verifyPreparedWorkerCandidate, runProcess } from './worker-local-release.mjs';
+import { workerPreparationIdentity, workerRuntimeRoot, workerSourceRoot, verifyPreparedWorkerCandidate, verifyWorkerReleaseProcessState, runProcess } from './worker-local-release.mjs';
 import { schedulePath, dailyProofRoot } from './release-daily-backup.mjs';
+import { admissionTimer } from './release-admission-timing.mjs';
 import { retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness } from './release-readonly-retry.mjs';
 
 const djangoRoot='D:\\teruisi-runtime\\django-sales';
@@ -18,7 +19,7 @@ const archiveRoot='E:\\运营管理系统业务数据';
 export async function runReadOnlyPowerShell(script,args,label,probeOptions) {
   const argv=['-NoProfile','-NonInteractive','-File',script,...args];
   return (probeOptions ? runReadOnlyProcess : runProcess)(shell,productionCommandArguments(shell,argv),{
-    env:productionCommandEnvironment(shell),label,...probeOptions});
+    env:productionCommandEnvironment(shell),label,...probeOptions,outputProtocol:'direct-exit-files',cleanup:'direct'});
 }
 async function verifyRestoreReceipt(target,expectedHash) {
   const parent=path.dirname(path.resolve(target));
@@ -93,12 +94,21 @@ export async function makeRecoveryEvidence(backupDirectory,restorePath) {
   return evidence;
 }
 
-export async function collectBatchAdmission(batch,testsPath,phase='admission', { onStatusAttempt = async () => {} } = {}) {
-  verifyBatch(batch,batch.batchSha256);
+export function requiresCompleteAdmission(phase,step) {
+  return ['admission','drain','closeout'].includes(phase) || (phase==='switch' && (!step || ['worker-apply','StartWorker'].includes(step)));
+}
+export function requiresCompleteArtifact(phase,step) {
+  return ['admission','drain','closeout'].includes(phase)||(phase==='switch'&&(!step||step==='worker-apply'));
+}
+export async function collectBatchAdmission(batch,testsPath,phase='admission',{session,step,onStatusAttempt=async()=>{}}={}) {
+  const timer=admissionTimer();
+  const measure=(stage,category,action)=>timer.measure(stage,category,action);
+  try {
+  await measure('classification','sealed-evidence',async()=>verifyBatch(batch,batch.batchSha256));
   requireHash(batch.binding.djangoPredecessorSha256,'Django predecessor');
   requireHash(batch.binding.djangoCandidateSha256,'Django candidate');
-  const djangoCurrent=await safeFileDigest(path.join(djangoRoot,'app','deployment.json'));
-  const state=await journalState(path.join(workerRuntimeRoot,'state','release-batches'),batch);
+  const djangoCurrent=await measure('django-identity','dynamic-state',()=>safeFileDigest(path.join(djangoRoot,'app','deployment.json')));
+  const state=await measure('journal','dynamic-state',()=>journalState(path.join(workerRuntimeRoot,'state','release-batches'),batch));
   const djangoSwitched=batch.operations.some(op=>op.kind==='django-deploy'&&state.latest.get(op.id)?.status==='passed');
   if(djangoCurrent!==(djangoSwitched?batch.binding.djangoCandidateSha256:batch.binding.djangoPredecessorSha256))throw new Error('Approved Django predecessor/candidate changed');
   if(batch.binding.djangoCandidateSha256!==batch.binding.djangoPredecessorSha256&&!djangoSwitched) {
@@ -112,7 +122,7 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission', {
   const planRaw=await safeRead(path.join(workerRuntimeRoot,'state','worker-release-rotation-plans',`${batch.binding.workerPlanSha256}.json`));
   if(hash(planRaw)!==batch.binding.workerPlanSha256)throw new Error('Worker plan changed');
   const plan=JSON.parse(planRaw);
-  const chain=await resolveEffectiveReleaseChain({verifyInstalledHead:true});
+  const chain=await measure('effective-chain-and-guards','dynamic-state',()=>resolveEffectiveReleaseChain({verifyInstalledHead:true}));
   const predecessor=chain.head.bindingSha256===plan.predecessor.bindingSha256&&chain.chainStateSha256===plan.predecessorChainStateSha256;
   const successor=chain.head.bindingSha256===plan.candidate.bindingSha256&&chain.records.at(-1)?.value.approvedPlanSha256===batch.binding.workerPlanSha256;
   if(!predecessor&&!successor)throw new Error('Current production predecessor/successor is outside approved batch');
@@ -124,35 +134,44 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission', {
   const manifestRaw=await safeRead(manifestPath);
   if(hash(manifestRaw)!==batch.binding.artifactSha256)throw new Error('Candidate manifest changed');
   const manifest=JSON.parse(manifestRaw);
-  const identity=await workerPreparationIdentity(workerSourceRoot);
+  const complete=requiresCompleteAdmission(phase,step);
+  const identity=session
+    ? await session.collect({approvedBatchSha256:batch.batchSha256,full:complete,measure})
+    : await measure('source-and-toolchain-initial','mutable-input',()=>workerPreparationIdentity(workerSourceRoot));
   if(manifest.source.sourceFingerprint!==identity.sourceTree.sha256
     ||canonical(manifest.source.tree)!==canonical(identity.sourceTree))throw new Error('Prepared artifact does not belong to the current final source');
   const predecessorRoot=path.join(workerRuntimeRoot,'releases',plan.predecessor.releaseId,'source-snapshot');
-  const before=await readSourceTree(predecessorRoot);
-  const tests=JSON.parse(await safeRead(testsPath));
+  const before=await measure('predecessor-source','immutable-content',()=>readSourceTree(predecessorRoot));
+  const tests=await measure('tests-evidence','sealed-evidence',async()=>JSON.parse(await safeRead(testsPath)));
   const binding={...batch.binding,sourceSha256:identity.sourceTree.sha256,sourceInventorySha256:identity.sourceInventorySha256,
     predecessorSourceSha256:sourceTreeDigest(before),predecessorInventorySha256:hash(sourceInventory(before)),dependencySha256:manifest.source.packageLockSha256,
     toolchainSha256:hash({node:identity.nodeExecutableSha256,toolchain:identity.toolchain}),configurationSha256:hash({environment:identity.environmentSha256,runtime:identity.runtimeConfigurationSha256,npm:identity.externalNpmConfiguration}),testsSha256:hash(tests)};
-  if(['admission','drain','closeout'].includes(phase))await verifyPreparedWorkerCandidate({manifestPath,approvedManifestSha256:batch.binding.artifactSha256,
+  await measure('worker-helper-process-identity','dynamic-state',()=>verifyWorkerReleaseProcessState({processPolicy:'stopped-or-exact-release',runtimeRoot:workerRuntimeRoot,manifestPath:chain.headManifestPath,releaseRoot:path.dirname(chain.headManifestPath)}));
+  // Retain original admission/drain/closeout validation, plus actual apply.
+  // No artifact check is removed or credited as a new cache saving. Original
+  // apply/Start also enforce their own full payload/ACL/guard/receipt gates.
+  if(requiresCompleteArtifact(phase,step))await measure('complete-artifact-and-head','immutable-content',()=>verifyPreparedWorkerCandidate({manifestPath,approvedManifestSha256:batch.binding.artifactSha256,
     expectedSourceD1PathSha256:chain.bootstrap.authority.sourceD1PathSha256,expectedPersistRootPathSha256:chain.bootstrap.authority.persistRootPathSha256,requireSalesRetiredCodeReceipt:true},async()=>{
     const ownVerifier=path.join(path.dirname(chain.headManifestPath),'tools','worker-local-release.mjs');
     await runProcess(process.execPath,[ownVerifier,'verify','--manifest',chain.headManifestPath,'--approved-manifest-sha256',chain.head.manifestSha256,
       '--expected-source-d1-path-sha256',chain.bootstrap.authority.sourceD1PathSha256,'--expected-persist-root-path-sha256',chain.bootstrap.authority.persistRootPathSha256,
       '--require-sales-retired-code-receipt','--process-policy','stopped-or-exact-release','--json'],{label:'exact immutable production head'});
     return {status:'exact-predecessor-or-approved-successor'};
-  });
+  }));
   let statusObservation=null;
   if(['acceptance','closeout'].includes(phase)) {
-    statusObservation=await retryReadOnlyObservation({stage:`${phase}-admission-status`,onAttempt:onStatusAttempt,
+    statusObservation=await measure('complete-status','dynamic-state',()=>retryReadOnlyObservation({stage:`${phase}-admission-status`,onAttempt:onStatusAttempt,
       query:async({remaining})=>{
         const result=await runReadOnlyPowerShell('D:\\运营管理系统\\tools\\operations-system-control.ps1',['-Action','Status','-Json'],'original complete system readiness',{timeoutMs:Math.min(remaining(),60_000)});
         assertCompleteReadiness(parseStatus(result.stdout),plan.candidate.releaseId);
         return {releaseId:plan.candidate.releaseId,ready:true};
-      }});
+      }}));
   }
-  const recovery=batch.recovery.mode==='reuse'?await collectRecoveryCurrent(batch.recoveryEvidence):null;
-  if(canonical(identity)!==canonical(await workerPreparationIdentity(workerSourceRoot)))throw new Error('Source/configuration/toolchain changed during live admission');
-  return {batchSha256:batch.batchSha256,observedAtMs:Date.now(),binding,recovery,statusObservation};
+  const recovery=batch.recovery.mode==='reuse'?await measure('recovery-eligibility','dynamic-state',()=>collectRecoveryCurrent(batch.recoveryEvidence)):null;
+  if(session)await session.recheck({measure});
+  else if(canonical(identity)!==canonical(await measure('source-and-toolchain-final','mutable-input',()=>workerPreparationIdentity(workerSourceRoot))))throw new Error('Source/configuration/toolchain changed during live admission');
+  return {batchSha256:batch.batchSha256,observedAtMs:Date.now(),binding,recovery,admissionStages:timer.result(),statusObservation};
+  } catch(error) { error.admissionStages=timer.result();throw error; }
 }
 async function main(){
   const [command,...args]=process.argv.slice(2);

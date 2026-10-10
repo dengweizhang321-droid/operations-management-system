@@ -1,0 +1,10 @@
+✔ real release artifact packer carries every guarded entrypoint and binds each one as a key file (207.2321ms)
+✔ supervisor prelaunch waits for the real create-only receipt and rejects timeout or a forged PID (4512.4506ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5424.3375

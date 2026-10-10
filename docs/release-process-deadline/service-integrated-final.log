@@ -1,0 +1,27 @@
+✔ unified controller stays parseable by Windows PowerShell when Chinese text is present (1.9291ms)
+✔ all system page actions explicitly use Google Chrome instead of the Windows default browser (0.2913ms)
+✔ Django domain controllers and operators retain a UTF-8 BOM for Windows PowerShell 5.1 (5.1771ms)
+✔ all public start modes share one nonblocking system mutex (0.417ms)
+✔ controller checks every authoritative Django PostgreSQL domain (0.4616ms)
+✔ controller delegates mutation to one start engine and performs final health gates (0.1951ms)
+✔ controller waits only for the direct start-engine process instead of a durable child pipeline (0.196ms)
+✔ canonical start engine enforces Django readiness before Worker verification (0.3584ms)
+✔ canonical engine waits only for the direct Django Start controller process (0.4637ms)
+✔ concurrent-start wait reuses a ten-second exact status result (0.3388ms)
+✔ canonical engine clears only an exact validated stale receipt (0.2574ms)
+✔ controller verifies Worker liveness, readiness and helper health without proxying (0.2288ms)
+✔ desktop panel launches the same controller instead of a lower-level service (0.2424ms)
+✔ pause remains narrowly scoped to the exact immutable Worker (0.2786ms)
+✔ controller never invokes legacy build or development launchers (0.3545ms)
+✔ PowerShell hot restart replaces only the exact Worker child and preserves its supervisor (2728.9587ms)
+✔ Django Start capture returns when only an inherited descendant log handle remains (2378.011ms)
+✔ PowerShell 5 and pwsh preserve ISO JSON strings and enforce canonical bytes (2603.0314ms)
+✔ PowerShell 5 and pwsh Status parse an ISO-dated canonical manifest without recursion (7164.6801ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15167.2268

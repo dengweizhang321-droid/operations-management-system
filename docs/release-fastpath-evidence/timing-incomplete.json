@@ -1,0 +1,10 @@
+{
+  "completed": false,
+  "scope": "first isolated timing before bounded source IO",
+  "completedSubSample": {"mode": "baseline", "identityPhases": 9, "durationMs": 354372.14949999994},
+  "reason": "Optimized identity observation was still running with sequential safeRead; stopped only owned isolated measurement processes before changing to bounded IO.",
+  "productionOperatorCalls": 0,
+  "cleanup": "incomplete; original forced recursive cleanup rejected by automatic approval review: blocked by policy",
+  "retainedFixture": "C:/Users/86137/AppData/Local/Temp/teruisi-fastpath-measure-AZ78bE",
+  "limitations": ["No optimized paired result", "No successful timing conclusion", "No production effect or lifecycle replay"]
+}
