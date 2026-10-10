@@ -1,0 +1,34 @@
+✔ one distinct validation leaves both original unknowns and closes only after physical owner absence (413.216ms)
+✔ a valid response with missing capture is blocked but the actual returned receipt/process survives (367.7479ms)
+✔ capture with foreign native PID does not stand in for actual returned process (376.2229ms)
+✔ capture with a different actual stdout SHA is refused without declaring original21 passed (355.878ms)
+✔ diagnostic projection false core cannot close owner even when original result says passed (350.2952ms)
+✔ diagnostic projection false finance cannot close owner even when original result says passed (356.2979ms)
+✔ diagnostic projection false netshop cannot close owner even when original result says passed (351.3463ms)
+✔ diagnostic projection false market cannot close owner even when original result says passed (385.5404ms)
+✔ diagnostic projection false products cannot close owner even when original result says passed (369.9549ms)
+✔ diagnostic projection false workflow cannot close owner even when original result says passed (360.2295ms)
+✔ diagnostic projection false inventory cannot close owner even when original result says passed (350.7921ms)
+✔ diagnostic projection false customerService cannot close owner even when original result says passed (351.0496ms)
+✔ diagnostic projection false accessControl cannot close owner even when original result says passed (352.1068ms)
+✔ diagnostic projection false erpReference cannot close owner even when original result says passed (371.2964ms)
+✔ diagnostic projection false bi cannot close owner even when original result says passed (344.1065ms)
+✔ diagnostic projection false ai cannot close owner even when original result says passed (336.4833ms)
+✔ snapshot release identity false and missing component each remain strict blocks (698.0257ms)
+✔ failed release acknowledgement cannot make pending event a necessary completion (359.1426ms)
+✔ pending owner CAS/write failure after a genuine passed response preserves receipt/process/snapshot for the caller (334.308ms)
+✔ post-release completion and failure WAL I/O errors preserve confirmed physical release in safe error (358.3216ms)
+✔ actual namespace/cyclic imports initialize without invocation or legacy CLI execution (243.0449ms)
+✔ bounded actual tmp file persists before wrong identity assertions and does not contain raw PII (13.8171ms)
+✔ invalid JSON tmp capture keeps only output hashes and no fabricated parsed value (5.5849ms)
+✔ ENOSPC capture refuses the response without continuing any assertion stage (2.0203ms)
+✔ strict byte hash/parse consistency cannot accept a labeled successful snapshot with different stdout (0.6672ms)
+✔ legacy projection donor is exactly commit257 and all other imports target old immutable module paths (70.7828ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8197.0004

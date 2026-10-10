@@ -1,0 +1,48 @@
+✔ limited copies reproduce mechanically with original argv/assertions/root/phase unchanged (12.3472ms)
+✔ metadata fixture exactly binds original9/295/442 human bytes (18.6404ms)
+✔ one synthetic distinct readiness closes owner while original19/21 remain unknown and20/source88 never replay (418.0712ms)
+✔ old442 approval refused without owner release (224.1963ms)
+✔ newscope does not preserve21 refused without owner release (226.4345ms)
+✔ head drift refused without owner release (309.0345ms)
+✔ old20 receipt lost refused without owner release (356.2513ms)
+✔ old21 falsely passed refused without owner release (305.5489ms)
+✔ source88 proof changed refused without owner release (328.2095ms)
+✔ originalcollector changed refused without owner release (206.9097ms)
+✔ diagnosticcollector extra behavior refused without owner release (333.592ms)
+✔ physical pin drift refused without owner release (303.7975ms)
+✔ missing old4718 pin refused without owner release (372.9988ms)
+✔ bad dynamic binding refused without owner release (345.5615ms)
+✔ stale sample refused without owner release (392.8152ms)
+✔ marker-only result refused without owner release (361.3666ms)
+✔ missing persisted native snapshot refused without owner release (376.0499ms)
+✔ extended child deadline refused without owner release (374.1155ms)
+✔ late response refused without owner release (378.2271ms)
+✔ no-op owner release refused without owner release (362.8096ms)
+✔ foreign append does not overwrite another WAL record (347.2569ms)
+✔ one shared deadline refuses operation if original full retry budget no longer fits (341.3809ms)
+✔ NotReady admission evidence and nonretry policy remain when WAL also fails (381.8778ms)
+✔ passed append failure retains response receipt/process/status evidence without modifying original21 (399.1938ms)
+✔ two concurrent invocations allow one distinct operation only (565.6881ms)
+✔ actual response to completion performs no large pin scan (397.6868ms)
+✔ caller privacy refuses fake/oversized stack source locations (0.4181ms)
+✔ native unready backend snapshot persists before original unchanged assertion rejects (2.0681ms)
+✔ native wrong release snapshot persists before original unchanged assertion rejects (0.3959ms)
+✔ native missing12 component snapshot persists before original unchanged assertion rejects (0.3204ms)
+✔ native extra private component snapshot persists before original unchanged assertion rejects (0.4762ms)
+✔ native false component snapshot persists before original unchanged assertion rejects (0.3581ms)
+✔ invalid JSON response has durable parse-failed record and cannot pass (0.6204ms)
+✔ snapshot persistence failure blocks a valid native response and retains its process (0.2699ms)
+✔ mismatched actual stdout SHA/bytes cannot be labeled actual native response (0.4512ms)
+✔ private temp native evidence has exact create-only fsync record bytes, no status body (12.4608ms)
+✔ projection/process double sanitization is idempotent and preserves safe failure truth (1.0852ms)
+✔ metadata failure after a real returned result keeps its receipt/process/captured evidence in unknown (346.6378ms)
+✔ only physical owner absence can close necessary acceptance; release failure never preclaims completion (359.3106ms)
+✔ ownership absence time is the observed ENOENT point rather than later WAL persistence (342.5475ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10291.7138
