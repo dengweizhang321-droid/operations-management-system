@@ -1,0 +1,78 @@
+// Seal a NEW exact reviewable batch. Never calls execute/apply/lifecycle.
+import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { randomBytes } from 'node:crypto';
+const scope=process.argv[2];if(!['AB','ABC'].includes(scope))throw Error('Exact AB/ABC scope required');
+const root=`E:/codex-artifacts/release-integration-review-20261010/${scope}`;
+const source='D:/运营管理系统-sales-django-release',runtime='D:/teruisi-runtime/teruisi-worker-sales';
+const h=JSON.parse(await readFile(root+'/candidate-handoff.json'));
+const candidate=h.immutableCandidateRoot;
+const {makeBatch}=await import(pathToFileURL(candidate+'/tools/release-batch.mjs'));
+const {readSourceTree,sourceTreeDigest,sourceInventory,hash,safeFileDigest,requirements,canonical}=await import(pathToFileURL(candidate+'/tools/release-impact.mjs'));
+const {workerPreparationIdentity}=await import(pathToFileURL(candidate+'/tools/worker-local-release.mjs'));
+const manifest=JSON.parse(await readFile(candidate+'/deployment-manifest.json'));
+const before=await readSourceTree(runtime+'/releases/'+h.predecessor.releaseId+'/source-snapshot'),after=await readSourceTree(source);
+const identity=await workerPreparationIdentity(source);
+if(sourceTreeDigest(before)!=='8662394ff24c116685c1342ed6b8b9fa5dd58d8ffa7c0bb869be31e49e5e0646'
+  ||identity.sourceTree.sha256!==manifest.source.sourceFingerprint||sourceTreeDigest(after)!==identity.sourceTree.sha256)throw Error('Complete actual source/predecessor changed');
+const bi=sourceInventory(before),ai=sourceInventory(after),changed=[...new Set([...Object.keys(bi),...Object.keys(ai)])].filter(name=>bi[name]!==ai[name]).sort();
+const business=changed.filter(name=>/^(app|backend|lib|worker)\//.test(name));
+const dependencies=changed.filter(name=>/^package(?:-lock)?\.json$/.test(name));
+if(business.length||dependencies.length||changed.some(name=>!/^(tools|tests|docs)\//.test(name)))throw Error('Unapproved business/dependency/source path in candidate');
+const proof={scope,sourceCommit:h.sourceGitCommit,candidateSourceSha256:identity.sourceTree.sha256,
+  predecessorSourceSha256:sourceTreeDigest(before),changes:Object.fromEntries(changed.map(name=>[name,{before:bi[name]??null,after:ai[name]??null}])),businessSourceChanges:business,dependencyChanges:dependencies};
+await writeFile(root+'/approved-delta.json',canonical(proof)+'\n',{flag:'wx'});
+const file=async name=>({path:path.resolve(name),sha256:await safeFileDigest(name)});
+const evidence=path.join(path.dirname(fileURLToPath(import.meta.url)),'evidence');
+const evidenceNames=['joint-and-lifecycle-final.log','unit-remaining-final.log','full-unit-coverage.json','ab-scoped-regression.log','ab-inventory-negative.log','ab-full-predecessor-inventory.json','ab-inventory-regression-final.log','build-main-final.json','static-final.json','restorerehearsal-existing-point.json','restore-closeout.json','restore-syntax-limitation.json','independent-reviewed-source-final.json','independent-existing-mirror-review.json'];
+const tests={status:'passed',sourceSha256:identity.sourceTree.sha256,artifactSha256:h.workerPlan.candidateManifestSha256,checks:requirements.strict.tests,
+  exactScope:scope,implementationEvidence:'D core/negative/lifecycle plus complete 439 unit-file coverage; scoped production source and build separately bound',
+  backupRecovery:'Existing retained real point full independent-cluster rehearsal; new production pre/post backups/restores remain REQUIRED after approval',
+  permissionsAndBusiness:'Original application/authority/dependencies unchanged from actual adopted D5; isolated current permission/contract/negative regressions passed; production normal UI/current readiness remain required',
+  limits:['Native latest schedule evidence unavailable: recovery fast path denied','Existing point rehearsal is not a new pre/post release backup','Optional policy syntax witness was not supplied','No production adoption/approval or production timing guarantee'],
+  evidence:await Promise.all(evidenceNames.map(name=>file(path.join(evidence,name))))};
+const testsPath=root+'/candidate-tests.json';await writeFile(testsPath,canonical(tests)+'\n',{flag:'wx'});
+const node=process.execPath,shell='C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',owner=randomBytes(16).toString('hex');
+const nodeFile=await file(node),shellFile=await file(shell),wrap=candidate+'/tools/release-lifecycle-step.ps1';
+const adapter=root+'/acceptance-adapter.mjs',ui=root+'/production-ui.mjs',batchPath=root+'/approved-batch.json';
+const toolNames=['release-batch','release-batch-admission','release-impact','release-daily-backup','release-readonly-retry','worker-local-release','worker-local-release-rotation','d1-retirement-proof','collect-d1-retirement-proof'];
+if(scope==='ABC')toolNames.push('release-preparation-evidence','release-admission-timing');
+const collector={executable:node,args:[path.resolve(candidate+'/tools/release-batch-admission.mjs'),'collect',path.resolve(batchPath),path.resolve(testsPath)],cwd:source,
+  files:[nodeFile,...await Promise.all(toolNames.map(name=>file(candidate+'/tools/'+name+'.mjs'))),await file(candidate+'/node_modules/typescript/lib/typescript.js'),await file(candidate+'/node_modules/typescript/package.json'),
+    await file(testsPath),...tests.evidence,await file(root+'/candidate-handoff.json'),await file(root+'/approved-delta.json'),await file(adapter),await file(ui),await file(root+'/resource-inventory.json'),await file(root+'/historical-audit-sha.json'),await file(h.watchdog.powerShellPath),await file(h.watchdog.compilerPath),await file(h.browserPath)]};
+// Subprocess is retained for both first strict adoptions. It does not silently
+// activate C's in-process reuse or claim its performance in this batch.
+const binding={sourceSha256:identity.sourceTree.sha256,predecessorSourceSha256:sourceTreeDigest(before),sourceInventorySha256:hash(ai),predecessorInventorySha256:hash(bi),dependencySha256:manifest.source.packageLockSha256,
+  toolchainSha256:hash({node:identity.nodeExecutableSha256,toolchain:identity.toolchain}),configurationSha256:hash({environment:identity.environmentSha256,runtime:identity.runtimeConfigurationSha256,npm:identity.externalNpmConfiguration}),
+  artifactSha256:h.workerPlan.candidateManifestSha256,testsSha256:hash(tests),predecessorSha256:h.predecessor.bindingSha256,workerPlanSha256:h.workerPlan.planSha256,maintenanceId:owner,djangoPredecessorSha256:h.djangoManifestSha256,djangoCandidateSha256:h.djangoManifestSha256};
+const a=(key,equals)=>({path:key,equals}),ops=[{id:'reuse-reviewed-worker',phase:'prepare',kind:'worker-plan',mutating:false,planSha256:binding.workerPlanSha256}];
+const op='D:/teruisi-runtime/django-sales/app/tools/django-postgres-maintenance.ps1';
+const nativeFiles=[shellFile,...await Promise.all(['django-postgres-maintenance.ps1','postgres-backup-retention.ps1','postgres-backup-continuity.ps1','postgres_no_key_backup.py'].map(name=>file(path.dirname(op)+'/'+name)))];
+const rehearsalIds={pre:randomBytes(6).toString('hex'),post:randomBytes(6).toString('hex')};
+function backup(phase){ops.push({id:'op-'+phase,phase,kind:'backup',mutating:true,command:{executable:shell,args:['-NoProfile','-NonInteractive','-File',op,'-Action','Backup','-Execute'],cwd:source,timeoutMs:1800000,files:nativeFiles},assertions:[a('status','completed'),a('serviceStateChanged',false)]});}
+function restore(phase,label,port){ops.push({id:'op-'+phase,phase,kind:'restore',mutating:true,backupOperationId:'op-backup-'+label,command:{executable:shell,args:['-NoProfile','-NonInteractive','-File',op,'-Action','RestoreRehearsal','-Execute','-ConfirmedIsolatedRestore','-BackupDirectory',`{receipt:op-backup-${label}:backupDirectory}`,'-ApprovedManifestSha256',`{receipt:op-backup-${label}:manifestSha256}`,'-RehearsalId',rehearsalIds[label],'-RehearsalPort',String(port),'-RehearsalDrive','E'],cwd:source,timeoutMs:1800000,files:nativeFiles},assertions:[a('status','completed'),a('serviceStateChanged',false),a('productionDatabaseTouched',false),a('cleanupStatus','isolated_data_removed'),a('profileRestoreVerified',true),a('sequenceHealthVerified',true)]});}
+const lifecycleFiles=[shellFile,await file(wrap),await file(candidate+'/tools/process-deadline.ps1')];
+function lifecycle(step,phase,extra=[],covers=[]){ops.push({id:'step-'+step.toLowerCase(),phase,kind:'lifecycle',step,mutating:!['VerifyStartup','AggregateStatus'].includes(step),covers,command:{executable:shell,args:['-NoProfile','-NonInteractive','-File',wrap,'-Step',step,...extra],cwd:source,timeoutMs:1800000,files:lifecycleFiles},assertions:[a('status','completed'),...(phase==='drain'?[a('drainConfirmed',true)]:[])]});}
+async function command(id,phase,action,extra,assertions,covers=[],mutating=false){ops.push({id,phase,kind:'command',mutating,covers,command:{executable:node,args:[adapter,action,root,...extra],cwd:source,timeoutMs:600000,files:[nodeFile,await file(adapter),await file(root+'/candidate-handoff.json'),await file(root+'/approved-delta.json'),await file(root+'/historical-audit-sha.json')]},assertions});}
+backup('backup-pre');restore('restore-pre','pre',55592);
+lifecycle('EnterMaintenance','drain',['-MaintenanceId',owner,'-KeepPostgres']);
+ops.push({id:'apply-reviewed-worker',phase:'switch',kind:'worker-apply',mutating:true,planSha256:binding.workerPlanSha256});
+lifecycle('ExitMaintenance','switch',['-MaintenanceId',owner]);
+lifecycle('StartWorker','switch',['-MaintenanceId',owner,'-ExpectedWorkerManifestSha256',binding.artifactSha256,'-ExpectedDjangoManifestSha256',h.djangoManifestSha256]);
+await command('preserve-pre-recovery','acceptance','preserve-recovery',['pre','{receipt:op-backup-pre:backupDirectory}','{receipt:op-backup-pre:manifestSha256}',rehearsalIds.pre],[a('status','passed'),a('fullRecoveryMetadataPreserved',true)]);
+await command('source-and-assets','acceptance','source-assets',[],[a('status','passed'),a('resourcesVerified',true),a('completeApprovedSource',true),a('unchangedBusinessPermissionsMigrationsAndWriteImplementation',true),a('unchangedDjango',true),a('productionBusinessWrites',0)],['resources','business','permissions','migrations','writes','task-specific']);
+ops.push({id:'actual-readonly-ui',phase:'acceptance',kind:'command',mutating:false,covers:['task-specific'],command:{executable:node,args:[ui],cwd:source,timeoutMs:600000,files:[nodeFile,await file(ui),await file(root+'/candidate-handoff.json'),await file(root+'/resource-inventory.json'),await file(candidate+'/tools/release-acceptance-ui.mjs')]},assertions:[a('status','passed'),a('fourFixesProductionUi',true),a('productionWrites',0),a('cases',4)]});
+lifecycle('AggregateStatus','acceptance',[],['components']);lifecycle('VerifyStartup','acceptance',[],['startup']);
+await command('install-reviewed-watchdog','acceptance','watchdog-install',[],[a('status','passed'),a('originalWatchdogInstallationBound',true),a('existingTaskActionUpdatedAndStarted',true)],[],true);
+await command('two-natural-watchdogs','acceptance','natural-watchdog',[],[a('status','passed'),a('twoNaturalHealthy',true)],['natural-watchdog']);
+backup('backup-post');restore('restore-post','post',55593);
+await command('preserve-post-recovery','closeout','preserve-recovery',['post','{receipt:op-backup-post:backupDirectory}','{receipt:op-backup-post:manifestSha256}',rehearsalIds.post],[a('status','passed'),a('fullRecoveryMetadataPreserved',true)]);
+await command('historical-audit-preserved','closeout','historical-audits',[],[a('status','passed'),a('originalAuditBytesPreserved',true)]);
+const control='D:\\运营管理系统\\tools\\operations-system-control.ps1';
+ops.push({id:'readiness-closeout',phase:'closeout',kind:'command',mutating:false,readOnlyRetry:{version:'teruisi-status-retry-v1',totalTimeoutMs:240000},command:{executable:shell,args:['-NoProfile','-NonInteractive','-File',control,'-Action','Status','-Json'],cwd:source,timeoutMs:240000,files:[shellFile,{path:control,sha256:await safeFileDigest(candidate+'/tools/operations-system-control.ps1')},await file(candidate+'/tools/process-deadline.ps1')]},assertions:[a('state','Running'),a('backendState','Ready'),a('workerState','exact_release'),a('releaseId',h.workerPlan.candidateReleaseId)]});
+const batch=makeBatch({id:`release-integration-${scope.toLowerCase()}-20261010`,binding,before,after,witness:null,evidence:null,current:null,tests,acceptance:requirements.strict.acceptance,
+  rollback:{application:'Original controlled compatible predecessor '+h.predecessor.releaseId+'; preserve immutable package and append-only successor history',compatibility:'No app/backend/lib/worker/dependency change; Django exactly 237f remains; no DeployApp/new migration. Separate explicit approval required for any production data restore.',failureState:'Retain maintenance/drain owner and all started/unknown/failed and original audits. Independently reconcile exact operation without replay; no hand removal of active, fences or errors.'},operations:ops,collector});
+await writeFile(batchPath,canonical({batch,collector,journalRoot:path.resolve(runtime+'/state/release-batches')})+'\n',{flag:'wx'});
+await writeFile(root+'/adoption-plan.json',JSON.stringify({status:'sealed-not-approved',batchSha256:batch.batchSha256,scope,sourceCommit:h.sourceGitCommit,predecessor:h.predecessor.releaseId,candidate:h.workerPlan.candidateReleaseId,manifest:h.workerPlan.candidateManifestSha256,plan:h.workerPlan.planSha256,maintenanceId:owner,django:h.djangoManifestSha256,djangoDeploy:false,impact:batch.impact.level,recovery:batch.recovery.mode,rehearsalIds,steps:ops.map(value=>({id:value.id,phase:value.phase,mutating:value.mutating})),watchdogTaskScope:'Explicitly updates/enables/starts the existing known task via original installer; no TestNotification; user must approve this task scope',productionApproval:false,nativeRecoveryFastPath:false},null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({status:'sealed-not-approved',scope,batchSha256:batch.batchSha256,operations:ops.length,impact:batch.impact.level,recovery:batch.recovery.mode}));

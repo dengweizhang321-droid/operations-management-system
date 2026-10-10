@@ -1,0 +1,19 @@
+✔ D independent: scheduled mutation uses direct-exit file evidence and preserves lifecycle descendants (51.8088ms)
+✔ D independent: pause while acquiring the lock prevents any Backup invocation (25.0227ms)
+✔ D independent: a newer lock failure cannot leave only an old successful daily proof (44.4384ms)
+✔ D independent: exhausted inherited deadline prevents a new scheduled mutation (17.3332ms)
+✔ D independent: late direct success cannot become a successful daily receipt (116.7112ms)
+✔ D independent: retained late-failure marker blocks the next scheduled mutation (60.9917ms)
+✔ D independent: newer failed lock observation rejects an older successful daily result (66.1087ms)
+✔ D independent: exact ownership mismatch retains original success bytes plus an unknown marker (58.7897ms)
+✔ D independent: operator failure retains fixed process evidence and never its raw diagnostic (41.0425ms)
+✔ D independent: result persistence failure cannot release ownership or replay the unknown mutation (44.1944ms)
+✔ D independent: wrapper success alone cannot establish latest native schedule coverage (40.2323ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 987.2908

@@ -1,0 +1,15 @@
+node:internal/fs/promises:640
+  return new FileHandle(await PromisePrototypeThen(
+                        ^
+
+Error: ENOENT: no such file or directory, open 'E:\codex-artifacts\release-integration-review-20261010\ABC\candidate-handoff.json'
+    at async open (node:internal/fs/promises:640:25)
+    at async writeFile (node:internal/fs/promises:1260:14)
+    at async file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/review-candidates.mjs:70:5 {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'E:\\codex-artifacts\\release-integration-review-20261010\\ABC\\candidate-handoff.json'
+}
+
+Node.js v24.18.0

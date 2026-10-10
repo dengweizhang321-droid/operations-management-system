@@ -1,0 +1,4 @@
+*.json -text whitespace=cr-at-eol
+*.sha256 -text
+evidence/** -text -diff
+*.mjs text eol=lf

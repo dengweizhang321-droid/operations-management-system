@@ -1,0 +1,34 @@
+import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+const scope=process.argv[2];if(!['AB','ABC'].includes(scope))throw Error('Exact scope required');
+const root=`E:/codex-artifacts/release-integration-review-20261010/${scope}`;
+const h=JSON.parse(await readFile(root+'/candidate-handoff.json'));
+const candidate=h.immutableCandidateRoot,sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+const own=path.dirname(fileURLToPath(import.meta.url));
+const {candidateResourceInventory}=await import(pathToFileURL(candidate+'/tools/release-acceptance-ui.mjs'));
+const names=[];async function walk(dir,prefix=''){for(const entry of await readdir(dir,{withFileTypes:true})){if(entry.isDirectory())await walk(path.join(dir,entry.name),prefix+entry.name+'/');else names.push('/'+prefix+entry.name);}}
+await walk(candidate+'/dist/client');
+const inventory=await candidateResourceInventory(candidate+'/dist/client',names);
+await writeFile(root+'/resource-inventory.json',JSON.stringify(inventory,null,2)+'\n',{flag:'wx'});
+await writeFile(root+'/acceptance-adapter.mjs',await readFile(path.join(own,'acceptance-adapter.mjs')),{flag:'wx'});
+const uiBase='E:/codex-artifacts/priority-interactions-production-20261009/production-ui.mjs';
+let ui=await readFile(uiBase,'utf8');
+ui=ui.replace("const root='E:/codex-artifacts/priority-interactions-production-20261009';",`const root=${JSON.stringify(root)};`);
+const oldRoute=/ await context\.route\('\*\*\/\*',async route=>\{[\s\S]*?\n \}\);/;
+if(!oldRoute.test(ui))throw Error('Original audited UI routing interface changed');
+const readPaths=['/api/auth/me','/api/auth/principal','/api/access-control/principal','/api/sales/overview','/api/sales/summary','/api/sales/options','/api/sales/period-note','/api/sales/data-health','/api/sales/trends','/api/sales/categories','/api/sales/shops','/api/sales/freshness','/api/sales/returns','/api/global-search','/api/search','/api/products','/api/products/summary','/api/products/options','/api/products/details','/api/products/sku','/api/customer-service/conversations','/api/customer-service/options','/api/customer-service/stats','/api/customer-service/detail','/api/customer-service/import/options','/api/ai/status','/api/ai/models','/api/ai/workflows','/api/permissions','/api/system/status'];
+ui=ui.replace(oldRoute,` const {installUiRequestAudit}=await import(pathToFileURL(candidate+'/tools/release-acceptance-ui.mjs'));\n const audit=await installUiRequestAudit(context,{origin,resources:JSON.parse(await readFile(root+'/resource-inventory.json')),readPaths:${JSON.stringify(readPaths)}});`);
+ui=ui.replace(" assert.equal(blocked.filter(x=>x.method!=='GET').length,0,'UI attempted a write');"," const audited=await audit.finish();assert.equal(audited.status,'passed','Exact UI request/resource audit must pass');");
+await writeFile(root+'/production-ui.mjs',ui,{flag:'wx'});
+const journal='D:/teruisi-runtime/teruisi-worker-sales/state/release-batches',files=[];
+async function history(dir){for(const entry of await readdir(dir,{withFileTypes:true})){if(entry.isDirectory()){if(entry.name.startsWith('_'))continue;await history(path.join(dir,entry.name));}else if(entry.name!=='active.json')files.push({path:path.join(dir,entry.name),sha256:sha(await readFile(path.join(dir,entry.name)))});}}
+await history(journal);await writeFile(root+'/historical-audit-sha.json',JSON.stringify({scope:'Completed historical release records only; no current/new batch or mutable observations',files},null,2)+'\n',{flag:'wx'});
+const watch='D:/teruisi-runtime/operations-watchdog/installation.json',installed=JSON.parse(await readFile(watch));
+h.watchdog={powerShellPath:'C:/Users/86137/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe',compilerPath:'C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe',scriptSha256:sha(await readFile(candidate+'/source-snapshot/tools/operations-system-watchdog.ps1')),transportSha256:sha(await readFile(candidate+'/source-snapshot/tools/process-deadline.ps1')),launcherSourceSha256:sha(await readFile(candidate+'/source-snapshot/tools/watchdog-launcher/NoConsoleLauncher.cs')),launcherSha256:installed.launcherSha256};
+if(h.watchdog.launcherSourceSha256!==installed.launcherSourceSha256)throw Error('Watchdog launcher source changed; independent compiler evidence required');
+h.browserPath='C:/Program Files/Google/Chrome/Application/chrome.exe';
+await writeFile(root+'/candidate-handoff.json',JSON.stringify(h,null,2)+'\n');
+await writeFile(root+'/acceptance-preparation.json',JSON.stringify({status:'prepared-not-executed',resources:names.length,historicalFiles:files.length,readPaths,uiSourceSha256:sha(await readFile(uiBase)),manualExternalSending:false,watchdogProductionTaskActionsRequireApproval:true},null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({status:'prepared-not-executed',scope,resources:names.length,historicalFiles:files.length}));

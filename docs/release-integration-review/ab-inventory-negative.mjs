@@ -1,0 +1,32 @@
+import { mkdtemp, mkdir, writeFile, utimes, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
+import { createRequire, syncBuiltinESMExports } from 'node:module';
+import { execFileSync } from 'node:child_process';
+const source='D:\\运营管理系统-sales-django-release';
+const {readSourceTree,sourceTreeDigest,sourceInventory,hash}=await import(pathToFileURL(path.join(source,'tools/release-impact.mjs')));
+const root=await mkdtemp(path.join(tmpdir(),'teruisi-ab-inventory-'));
+await mkdir(path.join(root,'backend'));
+for(const [name,value] of Object.entries({'.env.example':'PUBLIC=1','.env.sample':'PUBLIC=2','.env':'SYNTHETIC=excluded','.env.production':'SYNTHETIC=excluded','.dev.vars':'SYNTHETIC=excluded','backend/.env.example':'PUBLIC=3'}))await writeFile(path.join(root,name),value);
+const fixtureTime=new Date('2026-01-01T00:00:00Z');
+await utimes(path.join(root,'.env.example'),fixtureTime,fixtureTime);
+const beforeMtime=(await stat(path.join(root,'.env.example'))).mtimeMs;
+const before=await readSourceTree(root);
+assert.deepEqual(Object.keys(before).sort(),['.env.example','.env.sample','backend/.env.example']);
+await writeFile(path.join(root,'.env.example'),'PUBLIC=9');await utimes(path.join(root,'.env.example'),fixtureTime,fixtureTime);
+const afterMtime=(await stat(path.join(root,'.env.example'))).mtimeMs;
+assert.equal(beforeMtime,afterMtime);
+const after=await readSourceTree(root);
+assert.notEqual(sourceTreeDigest(before),sourceTreeDigest(after));assert.notEqual(hash(sourceInventory(before)),hash(sourceInventory(after)));
+const gitRoot=await mkdtemp(path.join(tmpdir(),'teruisi-ab-selected-'));
+for(const name of ['package.json','package-lock.json','selected.txt'])await writeFile(path.join(gitRoot,name),'{}');
+execFileSync('git',['init','-q',gitRoot],{windowsHide:true});execFileSync('git',['-C',gitRoot,'add','.'],{windowsHide:true});
+const require=createRequire(import.meta.url),fs=require('node:fs'),original=fs.promises.readFile;
+const selected=path.join(gitRoot,'selected.txt');let triggered=false;
+fs.promises.readFile=async function(file,...args){if(path.resolve(String(file))===selected){triggered=true;fs.unlinkSync(selected);throw Object.assign(Error('synthetic selected file disappeared'),{code:'ENOENT'});}return original.call(this,file,...args);};
+syncBuiltinESMExports();
+try {await assert.rejects(readSourceTree(gitRoot),error=>error.code==='ENOENT');assert.equal(triggered,true);}
+finally {fs.promises.readFile=original;syncBuiltinESMExports();}
+console.log(JSON.stringify({status:'passed',publicSamplesIncluded:true,privateEnvironmentExcluded:true,sameMtimeByteChangeDetected:true,beforeMtime,afterMtime,selectedFileFailureCannotShrinkInventory:true,productionWrites:false}));

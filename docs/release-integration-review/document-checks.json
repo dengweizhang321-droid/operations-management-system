@@ -1,0 +1,37 @@
+{
+  "version": "task-d-stage1-document-check-v1",
+  "checkedAtUtc": "2026-10-10T01:45:56.6844999+08:00",
+  "markdownFiles": 6,
+  "relativeLinksChecked": 9,
+  "existingCommandEntryPathsChecked": 12,
+  "futureCommandEntryPathsChecked": 2,
+  "issues": [],
+  "status": "passed",
+  "jointTestsExecuted": false,
+  "buildsExecuted": false,
+  "productionOperationsExecuted": false,
+  "limits": [
+    "Command paths checked; no integration or execution",
+    "Independent preparation review recorded separately",
+    "Not source/runtime acceptance"
+  ],
+  "finalAdministrativeCheck": {
+    "checkedAtUtc": "2026-10-10T01:49:40.9471087+08:00",
+    "markdownFiles": 7,
+    "relativeLinksChecked": 10,
+    "issues": [],
+    "status": "passed",
+    "independentPreparationReview": "passed-no-blockers",
+    "integrationAcceptance": false
+  },
+  "cSupplementCheck": {
+    "checkedAtUtc": "2026-10-10T02:30:14.2352925+08:00",
+    "markdownFiles": 8,
+    "relativeLinksChecked": 13,
+    "issues": [],
+    "status": "passed",
+    "testsExecuted": false,
+    "integrationPerformed": false,
+    "independentFactReview": "passed-no-blockers"
+  }
+}

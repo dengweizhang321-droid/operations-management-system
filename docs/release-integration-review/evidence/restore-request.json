@@ -1,0 +1,18 @@
+{
+  "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261009T114230Z-7117da1c1055",
+  "manifestSha256": "c3def80e40bf8ebad3e0d3e3a2c09a64b2d4d99bd6cf95d48c41b7b12ff62400",
+  "operatorPath": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+  "operatorSha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6",
+  "rehearsalId": "4088f7ed4793",
+  "rehearsalPort": 55591,
+  "drive": "E",
+  "productionBefore": [
+    {
+      "pid": 4080,
+      "created": "2026-10-04T14:26:47.0957370Z"
+    }
+  ],
+  "noNewProductionBackup": true,
+  "executionAuthorized": "isolated restore verification only; separate cluster, production data/service untouched",
+  "executed": false
+}

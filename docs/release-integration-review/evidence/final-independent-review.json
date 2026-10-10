@@ -1,0 +1,282 @@
+{
+  "version": "task-d-final-non-author-review-v1",
+  "scopeDocumentSha256": "99c96bafc789d80b5bb52c8683f4ef14282f6e455cbe6e87bebc4b6408a7b506",
+  "scopeSidecarMatches": true,
+  "candidateChecks": [
+    {
+      "scope": "AB",
+      "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+      "planShaMatches": true,
+      "manifestShaMatches": true,
+      "manifestSourceTreeMatches": true,
+      "coreChecks": [
+        {
+          "path": "tools/process-deadline.ps1",
+          "expectedSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+          "actualSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+          "matches": true
+        },
+        {
+          "path": "tools/release-lifecycle-step.ps1",
+          "expectedSha256": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+          "actualSha256": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+          "matches": true
+        },
+        {
+          "path": "tools/worker-local-release.mjs",
+          "expectedSha256": "bba3e24da195576e991f162084159314652c7077f0c7f0a3647319911203c0fa",
+          "actualSha256": "bba3e24da195576e991f162084159314652c7077f0c7f0a3647319911203c0fa",
+          "matches": true
+        },
+        {
+          "path": "tools/worker-local-release-rotation.mjs",
+          "expectedSha256": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe",
+          "actualSha256": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe",
+          "matches": true
+        },
+        {
+          "path": "tools/worker-authority-guard.mjs",
+          "expectedSha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+          "actualSha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+          "matches": true
+        },
+        {
+          "path": "tools/worker-local-service.ps1",
+          "expectedSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+          "actualSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+          "matches": true
+        },
+        {
+          "path": "tools/operations-system-control.ps1",
+          "expectedSha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+          "actualSha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+          "matches": true
+        },
+        {
+          "path": "tools/operations-system-watchdog.ps1",
+          "expectedSha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b",
+          "actualSha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b",
+          "matches": true
+        },
+        {
+          "path": "tools/release-batch.mjs",
+          "expectedSha256": "0b2eb39f495fa7ec92f598c24d2c2d585bf6fe9c8a4eef6278e14a71eb21c944",
+          "actualSha256": "0b2eb39f495fa7ec92f598c24d2c2d585bf6fe9c8a4eef6278e14a71eb21c944",
+          "matches": true
+        },
+        {
+          "path": "tools/release-batch-admission.mjs",
+          "expectedSha256": "1bb6dc999e7b0b0e3e091505288574e93b4a22287435e226e97369734a2a92c6",
+          "actualSha256": "1bb6dc999e7b0b0e3e091505288574e93b4a22287435e226e97369734a2a92c6",
+          "matches": true
+        },
+        {
+          "path": "tools/release-readonly-retry.mjs",
+          "expectedSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+          "actualSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+          "matches": true
+        },
+        {
+          "path": "tools/release-impact.mjs",
+          "expectedSha256": "ad101d63a295ca79ee53c601cbe44c1525de47870505e2059947ba676b5c0944",
+          "actualSha256": "ad101d63a295ca79ee53c601cbe44c1525de47870505e2059947ba676b5c0944",
+          "matches": true
+        },
+        {
+          "path": "tools/release-preparation-evidence.mjs",
+          "exists": false,
+          "expectedAbsent": true,
+          "matches": true
+        },
+        {
+          "path": "tools/release-admission-timing.mjs",
+          "exists": false,
+          "expectedAbsent": true,
+          "matches": true
+        },
+        {
+          "path": "tools/release-daily-backup.mjs",
+          "expectedSha256": "4b77088b234734fcfedeb658c81c489771d26f320b0a66a1a5286417a7857705",
+          "actualSha256": "4b77088b234734fcfedeb658c81c489771d26f320b0a66a1a5286417a7857705",
+          "matches": true
+        },
+        {
+          "path": "tools/release-closeout-report.mjs",
+          "expectedSha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021",
+          "actualSha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021",
+          "matches": true
+        },
+        {
+          "path": "tools/release-acceptance-ui.mjs",
+          "expectedSha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348",
+          "actualSha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348",
+          "matches": true
+        },
+        {
+          "path": "tools/release-history-preservation.py",
+          "expectedSha256": "7653551728c9f65e25af38fe8163a81f868c0c0af69c42434c6831583e94cc27",
+          "actualSha256": "7653551728c9f65e25af38fe8163a81f868c0c0af69c42434c6831583e94cc27",
+          "matches": true
+        },
+        {
+          "path": "tools/postgres_no_key_backup.py",
+          "expectedSha256": "ee86b4a48eff411616256556c83734cd5aa282f7fc75551facf0d691336de8b8",
+          "actualSha256": "ee86b4a48eff411616256556c83734cd5aa282f7fc75551facf0d691336de8b8",
+          "matches": true
+        }
+      ],
+      "allCoreMatches": true,
+      "keyFileCount": 22,
+      "allKeyFileHashesMatch": true,
+      "receiptCount": 4,
+      "allReceiptHashesMatch": true,
+      "independentlyRehashedEntireDependencyTree": false
+    },
+    {
+      "scope": "ABC",
+      "releaseId": "20261010T015810Z-ec9a7dfc12336d52",
+      "planShaMatches": true,
+      "manifestShaMatches": true,
+      "manifestSourceTreeMatches": true,
+      "coreChecks": [
+        {
+          "path": "tools/process-deadline.ps1",
+          "expectedSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+          "actualSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+          "matches": true
+        },
+        {
+          "path": "tools/release-lifecycle-step.ps1",
+          "expectedSha256": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+          "actualSha256": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+          "matches": true
+        },
+        {
+          "path": "tools/worker-local-release.mjs",
+          "expectedSha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d",
+          "actualSha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d",
+          "matches": true
+        },
+        {
+          "path": "tools/worker-local-release-rotation.mjs",
+          "expectedSha256": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe",
+          "actualSha256": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe",
+          "matches": true
+        },
+        {
+          "path": "tools/worker-authority-guard.mjs",
+          "expectedSha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+          "actualSha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+          "matches": true
+        },
+        {
+          "path": "tools/worker-local-service.ps1",
+          "expectedSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+          "actualSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+          "matches": true
+        },
+        {
+          "path": "tools/operations-system-control.ps1",
+          "expectedSha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+          "actualSha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+          "matches": true
+        },
+        {
+          "path": "tools/operations-system-watchdog.ps1",
+          "expectedSha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b",
+          "actualSha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b",
+          "matches": true
+        },
+        {
+          "path": "tools/release-batch.mjs",
+          "expectedSha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14",
+          "actualSha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14",
+          "matches": true
+        },
+        {
+          "path": "tools/release-batch-admission.mjs",
+          "expectedSha256": "c154c9bee0f9b5cc45e4af6a56377045799959a55e8aff752cff86edf73a1c8f",
+          "actualSha256": "c154c9bee0f9b5cc45e4af6a56377045799959a55e8aff752cff86edf73a1c8f",
+          "matches": true
+        },
+        {
+          "path": "tools/release-readonly-retry.mjs",
+          "expectedSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+          "actualSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+          "matches": true
+        },
+        {
+          "path": "tools/release-impact.mjs",
+          "expectedSha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe",
+          "actualSha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe",
+          "matches": true
+        },
+        {
+          "path": "tools/release-preparation-evidence.mjs",
+          "expectedSha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5",
+          "actualSha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5",
+          "matches": true
+        },
+        {
+          "path": "tools/release-admission-timing.mjs",
+          "expectedSha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66",
+          "actualSha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66",
+          "matches": true
+        },
+        {
+          "path": "tools/release-daily-backup.mjs",
+          "expectedSha256": "4b77088b234734fcfedeb658c81c489771d26f320b0a66a1a5286417a7857705",
+          "actualSha256": "4b77088b234734fcfedeb658c81c489771d26f320b0a66a1a5286417a7857705",
+          "matches": true
+        },
+        {
+          "path": "tools/release-closeout-report.mjs",
+          "expectedSha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021",
+          "actualSha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021",
+          "matches": true
+        },
+        {
+          "path": "tools/release-acceptance-ui.mjs",
+          "expectedSha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348",
+          "actualSha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348",
+          "matches": true
+        },
+        {
+          "path": "tools/release-history-preservation.py",
+          "expectedSha256": "7653551728c9f65e25af38fe8163a81f868c0c0af69c42434c6831583e94cc27",
+          "actualSha256": "7653551728c9f65e25af38fe8163a81f868c0c0af69c42434c6831583e94cc27",
+          "matches": true
+        },
+        {
+          "path": "tools/postgres_no_key_backup.py",
+          "expectedSha256": "ee86b4a48eff411616256556c83734cd5aa282f7fc75551facf0d691336de8b8",
+          "actualSha256": "ee86b4a48eff411616256556c83734cd5aa282f7fc75551facf0d691336de8b8",
+          "matches": true
+        }
+      ],
+      "allCoreMatches": true,
+      "keyFileCount": 24,
+      "allKeyFileHashesMatch": true,
+      "receiptCount": 4,
+      "allReceiptHashesMatch": true,
+      "independentlyRehashedEntireDependencyTree": false
+    }
+  ],
+  "unitCoverage": {
+    "previousFiles": 13,
+    "remainingFiles": 426,
+    "unionFiles": 439,
+    "actualRootUnitFiles": 439,
+    "missing": [],
+    "extra": [],
+    "fileOverlap": [],
+    "testsResultsNotAddedAsDefaultRun": true
+  },
+  "engineBatchSha256": null,
+  "productionApproval": false,
+  "productionAdopted": false,
+  "recoveryFastPathEligible": false,
+  "nativeScheduleLatest": "unknown",
+  "productionOperatorCalls": 0,
+  "newTestsBuildOrRestoreExecuted": false
+}

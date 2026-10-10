@@ -1,6 +1,5 @@
 // Read-only production admission and recovery-evidence producer. No credentials
 // are handled here: database access stays inside the installed original operator.
-import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -8,7 +7,7 @@ import { safeRead, safeFileDigest, hash, canonical, readSourceTree, sourceInvent
 import { verifyBatch, writeOnce, journalState, productionCommandArguments, productionCommandEnvironment } from './release-batch.mjs';
 import { resolveEffectiveReleaseChain } from './worker-local-release-rotation.mjs';
 import { workerPreparationIdentity, workerRuntimeRoot, workerSourceRoot, verifyPreparedWorkerCandidate, verifyWorkerReleaseProcessState, runProcess } from './worker-local-release.mjs';
-import { schedulePath, dailyProofRoot } from './release-daily-backup.mjs';
+import { readScheduledBackupStatus } from './release-daily-backup.mjs';
 import { admissionTimer } from './release-admission-timing.mjs';
 import { retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness } from './release-readonly-retry.mjs';
 
@@ -44,17 +43,7 @@ async function softwareIdentity() {
   return identity;
 }
 async function dailyStatus() {
-  const config=await safeRead(schedulePath);
-  const active=/^status\s*=\s*"ACTIVE"\s*$/m.test(config.toString('utf8'));
-  let proof=null;
-  try {
-    const names=(await readdir(dailyProofRoot)).sort();
-    if(names.length>10000)throw new Error('Daily proof inventory exceeds bound');
-    const latest=names.at(-1);
-    if(latest&&!/^\d{8}T\d{9}Z-[a-f0-9-]{36}$/.test(latest))throw new Error('Invalid daily proof path');
-    if(latest)proof=JSON.parse(await safeRead(path.join(dailyProofRoot,latest,'result.json')));
-  }catch(error){if(error.code!=='ENOENT')throw error;}
-  return {scheduleSha256:hash(config),schedule:{active,lastResult:proof?.status??'unknown',lastSuccessAt:proof?.status==='success'?proof.completedAt:null},proof};
+  return readScheduledBackupStatus();
 }
 export async function collectRecoveryCurrent(evidence) {
   await verifyRestoreReceipt(evidence.restorePath,evidence.restoreReceiptSha256);

@@ -1,0 +1,15 @@
+node:internal/fs/promises:1029
+  const result = await PromisePrototypeThen(
+                 ^
+
+Error: ENOENT: no such file or directory, lstat 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261010T014638Z-97833d2f2b7e7bc9\source-snapshot\tools\release-preparation-evidence.mjs'
+    at async lstat (node:internal/fs/promises:1029:18)
+    at async safeFileDigest (file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/release-impact.mjs:41:10)
+    at async file:///D:/.codex/worktrees/release-integration-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/review-candidates.mjs:42:20 {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'lstat',
+  path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261010T014638Z-97833d2f2b7e7bc9\\source-snapshot\\tools\\release-preparation-evidence.mjs'
+}
+
+Node.js v24.18.0

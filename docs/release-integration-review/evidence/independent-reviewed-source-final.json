@@ -1,0 +1,122 @@
+{
+  "version": "task-d-independent-source-review-v1",
+  "reviewedGitHead": "58bce3f7709f36b5eb8c61f324d34facb65f4e67",
+  "implementationFiles": [
+    {
+      "path": "tools/process-deadline.ps1",
+      "beforeSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "afterSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "matches": true
+    },
+    {
+      "path": "tools/release-lifecycle-step.ps1",
+      "beforeSha256": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+      "afterSha256": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+      "matches": true
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "beforeSha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d",
+      "afterSha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d",
+      "matches": true
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "beforeSha256": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe",
+      "afterSha256": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe",
+      "matches": true
+    },
+    {
+      "path": "tools/worker-authority-guard.mjs",
+      "beforeSha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+      "afterSha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+      "matches": true
+    },
+    {
+      "path": "tools/worker-local-service.ps1",
+      "beforeSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "afterSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "matches": true
+    },
+    {
+      "path": "tools/operations-system-control.ps1",
+      "beforeSha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "afterSha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "matches": true
+    },
+    {
+      "path": "tools/operations-system-watchdog.ps1",
+      "beforeSha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b",
+      "afterSha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b",
+      "matches": true
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "beforeSha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14",
+      "afterSha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14",
+      "matches": true
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "beforeSha256": "c154c9bee0f9b5cc45e4af6a56377045799959a55e8aff752cff86edf73a1c8f",
+      "afterSha256": "c154c9bee0f9b5cc45e4af6a56377045799959a55e8aff752cff86edf73a1c8f",
+      "matches": true
+    },
+    {
+      "path": "tools/release-readonly-retry.mjs",
+      "beforeSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+      "afterSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+      "matches": true
+    },
+    {
+      "path": "tools/release-impact.mjs",
+      "beforeSha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe",
+      "afterSha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe",
+      "matches": true
+    },
+    {
+      "path": "tools/release-preparation-evidence.mjs",
+      "beforeSha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5",
+      "afterSha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5",
+      "matches": true
+    },
+    {
+      "path": "tools/release-admission-timing.mjs",
+      "beforeSha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66",
+      "afterSha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66",
+      "matches": true
+    },
+    {
+      "path": "tools/release-daily-backup.mjs",
+      "beforeSha256": "4b77088b234734fcfedeb658c81c489771d26f320b0a66a1a5286417a7857705",
+      "afterSha256": "4b77088b234734fcfedeb658c81c489771d26f320b0a66a1a5286417a7857705",
+      "matches": true
+    },
+    {
+      "path": "tools/release-closeout-report.mjs",
+      "beforeSha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021",
+      "afterSha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021",
+      "matches": true
+    },
+    {
+      "path": "tools/release-acceptance-ui.mjs",
+      "beforeSha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348",
+      "afterSha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348",
+      "matches": true
+    },
+    {
+      "path": "tools/release-history-preservation.py",
+      "beforeSha256": "7653551728c9f65e25af38fe8163a81f868c0c0af69c42434c6831583e94cc27",
+      "afterSha256": "7653551728c9f65e25af38fe8163a81f868c0c0af69c42434c6831583e94cc27",
+      "matches": true
+    },
+    {
+      "path": "tools/postgres_no_key_backup.py",
+      "beforeSha256": "ee86b4a48eff411616256556c83734cd5aa282f7fc75551facf0d691336de8b8",
+      "afterSha256": "ee86b4a48eff411616256556c83734cd5aa282f7fc75551facf0d691336de8b8",
+      "matches": true
+    }
+  ],
+  "allImplementationBytesStable": true,
+  "independentFinalLogSha256": "43ae58b15ece1405a26abb3b5f06d0cfd6d2b321ec04359e44ac9734312c5343"
+}

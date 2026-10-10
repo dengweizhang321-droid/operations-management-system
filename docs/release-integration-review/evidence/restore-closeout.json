@@ -1,0 +1,21 @@
+{
+  "rehearsalId": "4088f7ed4793",
+  "executed": true,
+  "productionBefore": [
+    {
+      "pid": 4080,
+      "created": "2026-10-04T14:26:47.0957370Z"
+    }
+  ],
+  "productionAfter": [
+    {
+      "pid": 4080,
+      "created": "2026-10-04T14:26:47.0957370Z"
+    }
+  ],
+  "productionIdentitySame": true,
+  "privatePortClosed": true,
+  "privateDataRemoved": true,
+  "initialRawJsonComparison": "rejected by formatting difference; ISO strings auto-converted by PS7; original command failure retained",
+  "correctedComparison": "DateKind String and exact PID plus UTC ticks; no original operator receipt changed"
+}

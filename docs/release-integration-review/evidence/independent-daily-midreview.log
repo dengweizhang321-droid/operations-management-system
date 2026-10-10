@@ -1,0 +1,15 @@
+✔ D independent: scheduled mutation uses direct-exit file evidence and preserves lifecycle descendants (36.8876ms)
+✔ D independent: pause while acquiring the lock prevents any Backup invocation (20.5071ms)
+✔ D independent: a newer lock failure cannot leave only an old successful daily proof (36.8025ms)
+✔ D independent: exhausted inherited deadline prevents a new scheduled mutation (13.3987ms)
+✔ D independent: late direct success cannot become a successful daily receipt (97.3713ms)
+✔ D independent: retained late-failure marker blocks the next scheduled mutation (41.944ms)
+✔ D independent: newer failed lock observation rejects an older successful daily result (42.5156ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 633.5993

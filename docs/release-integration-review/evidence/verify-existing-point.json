@@ -1,0 +1,26 @@
+{
+  "action": "Verify",
+  "elapsedMs": 3167.7967,
+  "process": {
+    "version": 1,
+    "processId": 36616,
+    "exitCode": 0,
+    "deadlineUnixMs": 1791597609788,
+    "elapsedMs": 3166,
+    "stdoutBytes": 348,
+    "stderrBytes": 616,
+    "code": "completed",
+    "stage": "completed",
+    "outputProtocol": "direct-exit-files",
+    "cleanup": "preserve",
+    "stdoutSha256": "e68d07693ab7c44153dd703203ad89fbb8ab5d09b57819dd264cb18f2c3aa9a6",
+    "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4"
+  },
+  "receiptSha256": "e68d07693ab7c44153dd703203ad89fbb8ab5d09b57819dd264cb18f2c3aa9a6",
+  "result": {
+    "status": "completed",
+    "backupId": "daily-20261009T114230Z-7117da1c1055",
+    "dumpSha256": "c58c008b90079bf1ac9612a6f16bff3f6899ff854fe265f31c94c85acdc8ed49",
+    "serviceStateChanged": false
+  }
+}

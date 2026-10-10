@@ -1,0 +1,319 @@
+{
+  "version": "task-d-stage1-preparation-v1",
+  "capturedAtUtc": "2026-10-10T01:43:02.7031045+08:00",
+  "stage": "preparation-awaiting-explicit-user-notice",
+  "approvedToIntegrate": false,
+  "baseCommit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+  "branch": "codex/release-integration-review",
+  "worktree": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统",
+  "remoteTrackingMainAtCapture": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+  "primaryCheckout": {
+    "path": "D:\\运营管理系统",
+    "head": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+    "status": [
+      " M docs/JD_CUSTOMER_SERVICE_WORKFLOW.md",
+      " M tools/worker-local-release-rotation.mjs",
+      " M tools/worker-local-release.mjs",
+      " M tools/worker-local-service.ps1",
+      "?? docs/jd-customer-service-four-stores-20261008/PRODUCTION.md",
+      "?? docs/performance-review-20261008/"
+    ],
+    "modifiedByD": false
+  },
+  "frozenReports": [
+    {
+      "commit": "65c7b8a9560d7143e77f992a6728d42461aead69",
+      "path": "docs/release-process-deadline/REPORT.md",
+      "gitBlob": "fddcc02b8f0735320abecc51d80bf383dfc7f465"
+    },
+    {
+      "commit": "65c7b8a9560d7143e77f992a6728d42461aead69",
+      "path": "docs/release-process-deadline/INDEPENDENT_REVIEW.md",
+      "gitBlob": "215992d305ca30da6d3af97f454ef8261593c9e5"
+    },
+    {
+      "commit": "65c7b8a9560d7143e77f992a6728d42461aead69",
+      "path": "docs/release-process-deadline/INTEGRATION_D.md",
+      "gitBlob": "312b1cfd4d48867cbcc8832ffd8334da4d1528be"
+    },
+    {
+      "commit": "f11db8a11ad07ebc346a86b8062226d1289419a5",
+      "path": "docs/release-fastpath-evidence/DESIGN.md",
+      "gitBlob": "47d90bc0987b4667720c7c4e6584e3663540bef8"
+    },
+    {
+      "commit": "f11db8a11ad07ebc346a86b8062226d1289419a5",
+      "path": "docs/release-fastpath-evidence/DAILY_BACKUP_ADOPTION.md",
+      "gitBlob": "341daa8099782e0ab9e5b7b74855182bd2e048bb"
+    },
+    {
+      "commit": "67622d61ee326dc610c498356e518ec2ec7fdd81",
+      "path": "docs/release-process-deadline/REPORT.md",
+      "gitBlob": "e07dd821968fbf9b69a9d28ada405671d017fe7f"
+    },
+    {
+      "commit": "67622d61ee326dc610c498356e518ec2ec7fdd81",
+      "path": "docs/release-process-deadline/INDEPENDENT_REVIEW.md",
+      "gitBlob": "215992d305ca30da6d3af97f454ef8261593c9e5"
+    },
+    {
+      "commit": "67622d61ee326dc610c498356e518ec2ec7fdd81",
+      "path": "docs/release-process-deadline/source-sha256-final.json",
+      "gitBlob": "c7b4717edf8a1811d1ac13f7c1b943c2c8e914d8"
+    }
+  ],
+  "workingObservations": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-process-deadline\\运营管理系统",
+      "branch": "codex/release-process-deadline",
+      "headBefore": "67622d61ee326dc610c498356e518ec2ec7fdd81",
+      "headAfter": "67622d61ee326dc610c498356e518ec2ec7fdd81",
+      "headStable": true,
+      "status": [
+        " M docs/release-process-deadline/INDEPENDENT_REVIEW.md"
+      ],
+      "definitiveDelivery": false
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-fastpath-evidence\\运营管理系统",
+      "branch": "codex/release-fastpath-evidence",
+      "headBefore": "ab37558793201d68c377e7a3fc9ef25008460369",
+      "headAfter": "ab37558793201d68c377e7a3fc9ef25008460369",
+      "headStable": true,
+      "status": [
+        " M tests/release-fastpath-evidence.test.mjs",
+        "?? docs/release-fastpath-evidence/INDEPENDENT_PROBES.log",
+        "?? docs/release-fastpath-evidence/INDEPENDENT_PROBES.mjs",
+        "?? docs/release-fastpath-evidence/INDEPENDENT_REVIEW.md",
+        "?? docs/release-fastpath-evidence/timing-first-bounded-incomplete.json",
+        "?? docs/release-fastpath-evidence/timing-incomplete.json",
+        "?? docs/release-fastpath-evidence/timing.json"
+      ],
+      "definitiveDelivery": false
+    }
+  ],
+  "b": {
+    "implementationCommit": "9b9c76d4cab19283005a86b267d673bce7168130",
+    "mergeCommit": "850e40a89ea1dcc7dc2ff035fd06b0f4ef047c18",
+    "mergeParents": [
+      "99eaa0b90149a860d3e286c678ea4b2ab0a27160",
+      "9b9c76d4cab19283005a86b267d673bce7168130"
+    ],
+    "deliveryCommit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+    "reviewedFiles": [
+      {
+        "path": "tools/release-history-preservation.py",
+        "reviewedSha256": "7653551728c9f65e25af38fe8163a81f868c0c0af69c42434c6831583e94cc27",
+        "observedSha256": "7653551728c9f65e25af38fe8163a81f868c0c0af69c42434c6831583e94cc27",
+        "matches": true
+      },
+      {
+        "path": "tools/release-acceptance-ui.mjs",
+        "reviewedSha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348",
+        "observedSha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348",
+        "matches": true
+      },
+      {
+        "path": "tools/release-readonly-retry.mjs",
+        "reviewedSha256": "455c71e008793245212090e0df423055771c7ca20eb56dbb2099f98877c43490",
+        "observedSha256": "455c71e008793245212090e0df423055771c7ca20eb56dbb2099f98877c43490",
+        "matches": true
+      },
+      {
+        "path": "tools/release-closeout-report.mjs",
+        "reviewedSha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021",
+        "observedSha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021",
+        "matches": true
+      },
+      {
+        "path": "tools/release-batch.mjs",
+        "reviewedSha256": "0b84ef012f7b951ee81e683df618f0c283908dce803e6eec9f149115244bfe7e",
+        "observedSha256": "0b84ef012f7b951ee81e683df618f0c283908dce803e6eec9f149115244bfe7e",
+        "matches": true
+      },
+      {
+        "path": "tools/release-batch-admission.mjs",
+        "reviewedSha256": "a1843cbd9b5f0c103eec764501b7246c3a963a5a4170fa445e81780c2a414887",
+        "observedSha256": "a1843cbd9b5f0c103eec764501b7246c3a963a5a4170fa445e81780c2a414887",
+        "matches": true
+      },
+      {
+        "path": "tests/release-closeout-independent.test.mjs",
+        "reviewedSha256": "aa3b22bb055a149208a23489df46241e3246054417056fd104da8493d93b35ce",
+        "observedSha256": "aa3b22bb055a149208a23489df46241e3246054417056fd104da8493d93b35ce",
+        "matches": true
+      },
+      {
+        "path": "tests/release-closeout-independent.test.py",
+        "reviewedSha256": "d57ed8ea7da452e60c347fe794bd0874028e7a9abbfa79e0b2c723baf02220a5",
+        "observedSha256": "d57ed8ea7da452e60c347fe794bd0874028e7a9abbfa79e0b2c723baf02220a5",
+        "matches": true
+      },
+      {
+        "path": "tests/release-closeout-independent.test.ts",
+        "reviewedSha256": "383f2d4a91a8a592f83878c055ff7f76b34f66a4986661e586ab93fde3cc373e",
+        "observedSha256": "383f2d4a91a8a592f83878c055ff7f76b34f66a4986661e586ab93fde3cc373e",
+        "matches": true
+      }
+    ],
+    "archiveRoot": "E:\\codex-artifacts\\release-acceptance-closeout-20261010",
+    "archiveManifestSha256": "d0a432c6af04f5ecba6fccc0c96dcb6ba0614bd1e8f67836bc302c4b477136cb",
+    "preservedExpected": 59,
+    "preservedVerified": 59,
+    "preservationFailures": [],
+    "deliveryReceiptSha256": "5fecdf9dc4cc81071cb62bd68580472bc61ce2cce2a55a17012d9b3b3c9eb01f",
+    "logsRerunByD": false
+  },
+  "inputEvidence": [
+    {
+      "path": "docs/release-acceptance-closeout/DELIVERY.md",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "1d7396e82eade3ee6a0eef5343b1aa0dcbe84be8",
+      "worktreeSha256": "e83e886e135826274a104da0c02f1feb469de4626f0b57bd0c50ac1653054aed"
+    },
+    {
+      "path": "docs/release-acceptance-closeout/INDEPENDENT_REVIEW.md",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "776b8b3cb24207010182614056094c5b1e43207f",
+      "worktreeSha256": "6e376734bf83bd7b0c2eaf0476ee82e841a1f829f498e4bdf6798a87617cbba4"
+    },
+    {
+      "path": "docs/release-acceptance-closeout/REPORT.md",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "c4c2a21553af76113071dde66348488656ba0118",
+      "worktreeSha256": "6424b90fc6542950ae2e4c0da833f030d6d04ac9b9951271197be4519fb30c58"
+    },
+    {
+      "path": "docs/release-acceptance-closeout/INTEGRATION_D.md",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "fed215c4882e8119c1d18f64822bed482012f1d6",
+      "worktreeSha256": "62c798342bf8a63fdc283d6535115b6f695c078927285513009d8109c392b475"
+    },
+    {
+      "path": "docs/release-acceptance-closeout/final-release-entrypoint.log",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "2627fee5d2869a165245f5bcfbc2ea886a349116",
+      "worktreeSha256": "993efa9f473d95e429642eee6d49708a167cba98496939f62870834dd29f777b"
+    },
+    {
+      "path": "docs/release-acceptance-closeout/independent-final.log",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "f8d7e74ac1ddbc0cff9b78e6eae538fc7a6b6407",
+      "worktreeSha256": "496a4f05650aefe5bb80848db6d6851f0f0e6e8eb54d6be2cd2da93a5e1e0bd9"
+    },
+    {
+      "path": "docs/release-acceptance-closeout/unit-all.log",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "bc2ef7ab16badc6a524ced3c197ce622cf8bddc8",
+      "worktreeSha256": "de7e6a21a37e75195d93417859b860fa7d1d8fd252e6108e0703fdf141ab1f37"
+    },
+    {
+      "path": "docs/release-acceptance-closeout/customer-file-final.log",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "e01d4557f43312d61bfd9a352ad134bcc1c30672",
+      "worktreeSha256": "2eae7d3220546ce4c4c06c55577a33a97191d83b7318f86995840edb6e5a7786"
+    },
+    {
+      "path": "docs/release-acceptance-closeout/python-contract-rerun.log",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "0fd34baefa778519c4ff191ad22928d2ef372237",
+      "worktreeSha256": "c76badd95b39892bb924039f46ee523467e769a25749701de11c346565cde3ac"
+    },
+    {
+      "path": "docs/release-acceptance-closeout/full-failures-rerun.log",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "0ceaa5237c176a6aec2f47b84da1232de6e99f3c",
+      "worktreeSha256": "4e91d567000267f922547babfecc50269bf1b5bf63469c334206fb67cfd492e4"
+    },
+    {
+      "path": "docs/release-customer-ps5-fix-20261009/PRODUCTION.md",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "dab00d47160a520f440dba84825149e6dcb4ba77",
+      "worktreeSha256": "89d463e9bc83a8a62e803f4d2110ffb7d46a9fc26c1cb958efdaf229a45f545e"
+    },
+    {
+      "path": "docs/release-customer-ps5-fix-20261009/PRODUCTION_REVIEW.md",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "a2e497cf8535af65355d7ab7df01b5a905814d98",
+      "worktreeSha256": "28bfa7482a489b55248eead6b42cd58e2d37fac7a2608d435c34a2a3000fb619"
+    },
+    {
+      "path": "docs/jackyun-download-recovery-20261009/PRODUCTION.md",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "442bae039bd16d3bc12fb1aa56578605e8b587fc",
+      "worktreeSha256": "044f99c63d1e6eea4ed6f15046cdd9e107b6d09abc6adf323fb18c35036b0464"
+    },
+    {
+      "path": "docs/priority-interactions-20261009/PRODUCTION.md",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "0679a228c027b32f6d12f65497e29ee43baee672",
+      "worktreeSha256": "b40a88874bb26fdd7a029da0e75d6ac77b38ca1f21f29649766d50b6f4adee75"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/REPORT.md",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "ca7c90ded56c12717d371b56876e9bdb7aecb744",
+      "worktreeSha256": "9ecaac99e1534f48e35add2f46de125f01114451614490c9c922443c0d86aa3c"
+    },
+    {
+      "path": "docs/runtime-risk-readonly-audit-20261009/WATCHDOG.md",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "c2237010fd434597fe46ed1b98365d8a4d14dcf7",
+      "worktreeSha256": "58e9aea6ac54d53b8298ebab39eae0f6934cc26f96e6cff571741156356cb0e6"
+    },
+    {
+      "path": "docs/RELEASE_BATCH_WORKFLOW.md",
+      "commit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "gitBlob": "9fc2f75580bbf30a9eaacfeb58b0ab0c8876d11d",
+      "worktreeSha256": "d286ba1d9e8d72f27acaa1d6b9a5194657904475ea22e21c7721fab6d608bf7e"
+    }
+  ],
+  "integrationCommit": null,
+  "productionCandidate": null,
+  "productionAdoption": null,
+  "productionStateRechecked": false,
+  "performedChecks": [
+    "Read project/memory/release evidence",
+    "Read Git objects, ancestry and original logs",
+    "Recompute 9 B reviewed source/test SHA256",
+    "Recompute 59 B preservation file SHA256 and sizes"
+  ],
+  "unperformed": [
+    "ABC integration or repairs",
+    "ABC merge by D",
+    "Dependency install or joint test execution",
+    "Build or production candidate preparation",
+    "Production lifecycle, deployment, scheduling, data writes, backup generation or external sending"
+  ],
+  "estimates": {
+    "qualifiedUiMinutes": [
+      30,
+      60
+    ],
+    "strictMinutes": [
+      80,
+      120
+    ],
+    "status": "unverified-engineering-budgets"
+  },
+  "ancestryToPreparationBase": [
+    {
+      "task": "B",
+      "commit": "9b9c76d4cab19283005a86b267d673bce7168130",
+      "baseCommit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "isAncestor": true
+    },
+    {
+      "task": "A-observation",
+      "commit": "67622d61ee326dc610c498356e518ec2ec7fdd81",
+      "baseCommit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "isAncestor": false
+    },
+    {
+      "task": "C-observation",
+      "commit": "ab37558793201d68c377e7a3fc9ef25008460369",
+      "baseCommit": "c9586ab864dabe3a22e5abac0b17b3a9250ea27c",
+      "isAncestor": false
+    }
+  ]
+}

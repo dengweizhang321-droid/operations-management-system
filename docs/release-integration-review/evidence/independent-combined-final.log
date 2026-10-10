@@ -1,0 +1,25 @@
+✔ D independent: scheduled mutation uses direct-exit file evidence and preserves lifecycle descendants (42.9875ms)
+✔ D independent: pause while acquiring the lock prevents any Backup invocation (21.298ms)
+✔ D independent: a newer lock failure cannot leave only an old successful daily proof (52.2286ms)
+✔ D independent: exhausted inherited deadline prevents a new scheduled mutation (13.2253ms)
+✔ D independent: late direct success cannot become a successful daily receipt (101.4776ms)
+✔ D independent: retained late-failure marker blocks the next scheduled mutation (50.1052ms)
+✔ D independent: newer failed lock observation rejects an older successful daily result (52.1388ms)
+✔ D independent: exact ownership mismatch retains original success bytes plus an unknown marker (50.7321ms)
+✔ D independent: operator failure retains fixed process evidence and never its raw diagnostic (37.7845ms)
+✔ D independent: result persistence failure cannot release ownership or replay the unknown mutation (42.9163ms)
+✔ D independent: wrapper success alone cannot establish latest native schedule coverage (37.4268ms)
+✔ D independent: calibrated inherited EOF does not postpone mutation completion (5264.6448ms)
+ℹ {"calibration":{"code":0,"exitMs":303.13879999999995,"eofMs":2549.6186,"output":"D_PARENT_READY 44068\r\n"}}
+ℹ {"result":{"version":1,"code":"completed","stage":"completed","processId":28220,"exitCode":0,"signal":null,"timeoutType":null,"deadlineUnixMs":1791593767415,"elapsedMs":299,"outputProtocol":"direct-exit-files","cleanup":"preserve","stdoutBytes":22,"stderrBytes":0,"treeCleanupExitCode":null,"treeCleanupPending":false,"nativeCode":null,"stdoutSha256":"178f56f81d0b495a9d9d2bf6f3e3e5250916fd6742eb7e54e6e36b0d399eeeb0","stderrSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},"descendantAliveAtDirectCompletion":true}
+✔ D independent: read-only timeout ends only the probe and preserves its bounded service-like descendant (3485.8354ms)
+ℹ {"failure":{"version":1,"code":"process_timeout","stage":"direct-exit","processId":29464,"exitCode":null,"signal":"SIGKILL","timeoutType":"direct-exit","deadlineUnixMs":1791593769632,"elapsedMs":1072,"outputProtocol":"direct-exit-files","cleanup":"direct","stdoutBytes":22,"stderrBytes":0,"treeCleanupExitCode":null,"treeCleanupPending":false,"nativeCode":null,"stdoutSha256":"b434e73d9013999925afd42b17f9cbdc93eeb6d2215558c74f58459f6d0ff582","stderrSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},"descendantAliveAfterProbeTimeout":true}
+✔ D independent: retry attempt persistence cannot turn an exhausted common deadline into success (1.1252ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10376.3986
