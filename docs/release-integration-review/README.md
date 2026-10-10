@@ -6,6 +6,7 @@
 - [发布方案](RELEASE_PLAN.md)：默认两批与合并替代、精确版本、严格步骤、回滚和执行阻断。
 - [不可执行的精确候选范围](candidate-scope.json)：完整前驱/候选盘点、制品/plan SHA及明确未通过的项目。此文件的SHA不是engine batch SHA，也不是生产批准。
 - [非作者源码复审](COMBINED_INDEPENDENT_REVIEW.md)、[范围与镜像证据复审](SCOPED_SOURCE_REVIEW.md)、[执行草稿失败审查](BATCH_DRAFT_REVIEW.md)。最后草稿已撤下，只保留文本证据；不能执行。
+- [最终非作者交付复审](FINAL_INDEPENDENT_REVIEW.md)：两实际候选关键字节与439文件覆盖独立复验通过；P01–P06仍阻断生产执行。
 - [联合清单](ACCEPTANCE.md)、[交接清单](HANDOFF.md)、[验证方案](VALIDATION.md)、[Git交付](DELIVERY.md)。
 
 以下第一阶段正文是当时历史快照，当前状态以上述第二阶段报告为准。原Git提交、preparation-evidence.json及C_HANDOFF_RECEIPT等历史材料保持。D:/运营管理系统的原改动保持。本次通知只授权集成验收；须先闭合执行阻断，再由用户另行批准最终精确批次。

@@ -7,7 +7,10 @@
 - 限定生产来源：AB5faac8151f59d66de72c3caead8cad916ea547da及ABC9d41ce4fa2c7ee4d47ba1bfda0f0967d7727be9c。对应不可变候选/精确manifest/plan/tree/工具字节在[candidate-scope.json](candidate-scope.json)。旧采用底座的限定分支不合开发main，避免把主线其他功能删退；单独保全/推送。
 - 实际生产采用false。无生产维护、启停、部署、调度变更、业务写入、新生产Backup/Prune或外发；现存点仅Verify/独立RestoreRehearsal，隔离数据已清理，生产PID创建身份保持。
 - 最终[非执行发布方案](FINAL_RELEASE_PLAN.md)列P01–P06：engine batch未封存，撤下草稿未修复通过，native latest未知，恢复快路径拒绝。具体操作/验收/工具和task通知边界闭合及最后非作者复审后，才请用户另行批准精确批次。
-- Git本轮报告提交、主线合并/推送及远端核验在本文件后续补记；最终回复提供收尾后的精确HEAD，避免自引用提交哈希。只暂存本任务文件，原主检出改动保持。
+- Git：源码/原始证据/方案报告提交1effd6314b15a43ccf3e1b04d1c7f3b0bf12febe已普通原子推送origin/main与origin/codex/release-integration-review；远端main从2b1b7016正常快进，ls-remote两ref均返回该40位SHA。它包含组合433b41ad、补修58bce3f7及入口96aaf018，未强推/改历史。原主检出本地main2f55c396保持，原4修改/2组未跟踪材料保持。只暂存本任务文件，没有切换/更新脏主检出。
+- 两限定生产分支亦普通原子推送GitHub并ls-remote精确核验：codex/release-integration-ab-candidate=5faac8151f59d66de72c3caead8cad916ea547da，codex/release-integration-abc-candidate=9d41ce4fa2c7ee4d47ba1bfda0f0967d7727be9c，未合入开发main。其来源clone的origin是本地主仓，本次使用已配置GitHub URL明确推送，没有误向脏主检出更新分支。
+- [最终非作者交付复审](FINAL_INDEPENDENT_REVIEW.md)通过，原文件SHA765d7187a67ff4496b97f07047c442c49f61b17db597bdae5ceec58537f03893、JSON证据SHAf1e93cdc45192429e88681eabec639742ad868e12139a46e2ececd06829692e5。该复审及本段为随后仅文档收尾，最终回复提供收尾后的精确HEAD，避免自引用提交哈希。生产阻断未关闭。
+- 共享记忆已保存共同期限/错误保留、完整前驱盘点、独立watchdog/task/通知边界和两批重绑结论；未验证分钟数仍在Inbox，不写成达标状态。
 - D专用worktree和AB准备来源仍供具体批次准备/候选证据使用，当前不清理。C第二批须AB采用后新实际前驱重建；没有清理其他在用任务。
 
 ## 第一阶段文档历史记录
