@@ -1,0 +1,24 @@
+{
+  "independent": true,
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "operationId": "two-natural-watchdogs",
+  "observationsSha256": "038ae0c524e2376439516ab9a9ed1348579bcca1ac193318117aae6bf1576099",
+  "noReplay": true,
+  "noEffect": true,
+  "requestedResolution": "failed",
+  "completed": false,
+  "observationPath": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\production\\INDEPENDENT_NATURAL_FAILURE.json",
+  "unknownEventSha256": "820c48abe81018f38dfc4d6942b3d63429cece85e5e3168bb491363db66c2389",
+  "startedEventSha256": "d306d03e028e464472fc479695db4677da8e36b713b8ac6c0c4162e0e7271e67",
+  "allowedOriginalRetryCount": 1,
+  "noEffectScope": "Only the exact failed nonmutating natural-observation adapter; excludes ordinary FS reads/private evidence and previously authorized independent watchdog cycles",
+  "restrictions": [
+    "Preserve original unknown, raw snapshots, sidecars, seen records and initial baseline classification",
+    "Append failed only; neither snapshot counts as a fresh healthy observation and business unknown stays unknown",
+    "Verify and archive exactly seven unpinned output-slot files before one unchanged original observer retry",
+    "Use original engine/CLI, source, arguments, timeout, after rule, collector freshness and all assertions unchanged",
+    "Quiet-window scheduling budget is not a measured guarantee; no extra run waiting or collector changes in the selected plan",
+    "If the sole retry fails retain the blocker and stop; no green hunting, stale exceptions or further original retries",
+    "No reinstall, lifecycle/backup replay, active deletion, switched-batch cancellation or reentry of the single-use UI controller"
+  ]
+}

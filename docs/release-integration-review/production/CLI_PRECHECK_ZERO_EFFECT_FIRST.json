@@ -1,0 +1,319 @@
+{
+  "version": "teruisi-supplement-cli-precheck-zero-effect-independent-v1",
+  "observedAt": "2026-10-10T08:50:24.344Z",
+  "status": "confirmed-no-new-execution-step",
+  "scope": "initial standalone controller CLI precheck failure only; no conclusion about subsequent separately reviewed API invocation",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "supplementSha256": "0bcad05b44a127e63bb0c38ad16046d282eb529e47cf0c7d9022fac248f6cac2",
+  "supplementApprovedAt": "2026-10-10T08:41:31.000Z",
+  "approvalUserItemId": "01a124f9-78a0-75b3-bd46-c484e6734b12",
+  "cliFailure": {
+    "sessionIdReportedByRoot": 4534,
+    "exitCodeReportedByRoot": 1,
+    "rawStderrFileAvailableAtReview": false,
+    "codeLocation": "supplement-controller.mjs:71/149",
+    "condition": "before.nlink === 1n rejects exact System32 PowerShell host with nlink2 before original engine import/lock/run/approval write",
+    "independentlyVerified": true
+  },
+  "systemPowerShell": {
+    "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+    "bytes": 454656,
+    "nlink": 2,
+    "allPathComponentsNoRedirect": true,
+    "stableBeforeAfter": true,
+    "pinnedInOriginalBatch": true,
+    "existingAdoptedGuardException": "exact resolved System32 WindowsPowerShell v1.0 powershell.exe path only; full byte SHA and metadata stability remain mandatory; no exception for ordinary tools/scripts"
+  },
+  "authorityFileSha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+  "manifestFileSha256": "9776837c7ce7ac271848659217135c58b9df85563f13a13b77ad8b44e4ef3dda",
+  "sealedFilesVerified": 22,
+  "sealedClosure": [
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\production-ui.mjs",
+      "sha256": "2ae444e2bc6f337c6940a7f15a37b5d569257aeed76b3c98058955fe8ddb6118",
+      "bytes": 8805
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\request-completion.mjs",
+      "sha256": "5055f2d5c80cbc5bd1e99cc951010cbc0aab587b3298a05ed0f8a90e0ef80f71",
+      "bytes": 6006
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\supplement-controller.mjs",
+      "sha256": "97e66370260154a38387b77f3d852112d9583d51f0682b37a9080deaa9032570",
+      "bytes": 15705
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\preparation.json",
+      "sha256": "cb88bcf73c28de9cf02224eadcfd589ed3fa5c2b9f0aa0cb644ef6c5551b6e32",
+      "bytes": 875
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\independent-review.json",
+      "sha256": "289f01c2ab209a615f5f8d454ff117e95188b5756d728346f04162b84b07d4d5",
+      "bytes": 681
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\UI_FINAL_REVIEW.json",
+      "sha256": "eee24f1475caa6a23115fc9df8b07467e0dbe9b19b0d2b31c698eb32320a0c2d",
+      "bytes": 4818
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\UI_FINAL_REVIEW.md",
+      "sha256": "529acab78b6a48e54dd13a6818424e744a06558d2c7efa9d72f6dac272b9918e",
+      "bytes": 3148
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\CONTROLLER_FINAL_REVIEW.json",
+      "sha256": "3266c338a25c45b47552370652a26096460d6da26b112ea7a06fb494097b4939",
+      "bytes": 2967
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\CONTROLLER_FINAL_REVIEW.md",
+      "sha256": "37cdbcd589568f9da414827b171939a7d9a953a03a24b4d2170f7e025c7efae0",
+      "bytes": 4602
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\PROTOCOL_REVIEW.md",
+      "sha256": "fd085edb2d5269a694db220af026f7cc9307acb5fb2ce2f7f34dcb1f58fdc22f",
+      "bytes": 15432
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\UI_FINAL_TESTS.log",
+      "sha256": "99066f2cc21c1d74cd682e1d3994636ed92c0042ab2ba84c2d27d72f9f3e4c88",
+      "bytes": 1588
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\independent-deadline-final.log",
+      "sha256": "b39ac9c508ff136e00aab136b58978d4da589fcd378ea88ad86e5b1f12b17a34",
+      "bytes": 587
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\CONTROLLER_FINAL_TESTS.log",
+      "sha256": "1af6ac6089dc17e238b126330a520d48db416f0f8e289a395d377525ae62ff2f",
+      "bytes": 997
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\INDEPENDENT_CONTROLLER_SECOND.log",
+      "sha256": "4ebbe8e874fb2e2e1f0d68382c82da4fa223b125d4a4493903104078c30fc00f",
+      "bytes": 995
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\request-completion.test.mjs",
+      "sha256": "ffc5ba85eb686e69649113d3e9d9eb8656f50fb5d5f42c5807cfc3b421eba7c1",
+      "bytes": 6167
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\request-completion-independent.test.mjs",
+      "sha256": "359be1ff0e97bf013c13f873d422987b8904c4a5079d1f6ea44cc461bba6fb88",
+      "bytes": 3925
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\supplement-controller.test.mjs",
+      "sha256": "696cb8406caaae2d9db249ab7ffd438e00db0f8104355c2ebd01e096a1ef0850",
+      "bytes": 10077
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\supplement-controller.independent.test.mjs",
+      "sha256": "053d034d8770858fd727e44a655dbfcb12a558c5d55d333a9f638b9acad6f6dd",
+      "bytes": 14550
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\prepare-ui-supplement.mjs",
+      "sha256": "0d00692d14fceb70bcec154ed7c999e1716504d6b526144c4b947ffdeede6463",
+      "bytes": 4630
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-ui-supplement-20261010-0820-final\\seal-supplement.mjs",
+      "sha256": "d12cb1275d4686d0b8880a780313dc3b1f1c99605e66aad1991799ad7a90f14d",
+      "bytes": 6932
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\production\\INDEPENDENT_UI_THIRD_FAILED_PROOF.json",
+      "sha256": "dd58294f47b4a1f093e352a551c171b7a5e162ff234fa2639419d3ae906a5db3",
+      "bytes": 1039
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\production\\INDEPENDENT_UI_THIRD_FAILURE.json",
+      "sha256": "278d136b85303cb31b85839b7ffee055f3ae6ad5cc379c80ef2403274c8d9e8e",
+      "bytes": 6867
+    }
+  ],
+  "journal": {
+    "active": {
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "id": "integration-ab-v2-20261010-c22d8dd69a"
+    },
+    "records": 45,
+    "head": "b68be115be0dc4061a1aca79df78eaabf2ed858e76e2c1bdb96c8c178e507556",
+    "oldUnknownAndFailedPreserved": true,
+    "originalUiStartedAttempts": 3,
+    "originalUiPassedAttempts": 0,
+    "newStartedSinceOldHead": 0,
+    "chainAndCanonicalRawBytesVerified": true,
+    "operations": [
+      {
+        "id": "reuse-reviewed-worker",
+        "status": "passed",
+        "started": 1
+      },
+      {
+        "id": "backup-pre",
+        "status": "passed",
+        "started": 1
+      },
+      {
+        "id": "restore-pre",
+        "status": "passed",
+        "started": 1
+      },
+      {
+        "id": "entermaintenance",
+        "status": "passed",
+        "started": 1
+      },
+      {
+        "id": "apply-reviewed-worker",
+        "status": "passed",
+        "started": 1
+      },
+      {
+        "id": "exitmaintenance",
+        "status": "passed",
+        "started": 1
+      },
+      {
+        "id": "startworker",
+        "status": "passed",
+        "started": 1
+      },
+      {
+        "id": "preserve-pre-recovery",
+        "status": "passed",
+        "started": 1
+      },
+      {
+        "id": "verify-all-resources",
+        "status": "passed",
+        "started": 1
+      },
+      {
+        "id": "actual-readonly-ui",
+        "status": "failed",
+        "started": 3
+      },
+      {
+        "id": "unsigned-reader-permission-denials",
+        "status": "not-started",
+        "started": 0
+      },
+      {
+        "id": "complete-component-readiness",
+        "status": "not-started",
+        "started": 0
+      },
+      {
+        "id": "verifystartup",
+        "status": "not-started",
+        "started": 0
+      },
+      {
+        "id": "install-reviewed-watchdog",
+        "status": "not-started",
+        "started": 0
+      },
+      {
+        "id": "two-natural-watchdogs",
+        "status": "not-started",
+        "started": 0
+      },
+      {
+        "id": "backup-post",
+        "status": "not-started",
+        "started": 0
+      },
+      {
+        "id": "restore-post",
+        "status": "not-started",
+        "started": 0
+      },
+      {
+        "id": "preserve-post-recovery",
+        "status": "not-started",
+        "started": 0
+      },
+      {
+        "id": "full-postgresql-deep-comparison",
+        "status": "not-started",
+        "started": 0
+      },
+      {
+        "id": "original-historical-audits-preserved",
+        "status": "not-started",
+        "started": 0
+      },
+      {
+        "id": "exact-final-readiness",
+        "status": "not-started",
+        "started": 0
+      }
+    ]
+  },
+  "privateExecutionOutputsAbsent": [
+    "supplement-approval.json",
+    "supplement-intent.json",
+    "supplement-started.json",
+    "supplement-result.json",
+    "production-ui-audit.json",
+    "production-ui-result.json"
+  ],
+  "noEffect": true,
+  "noReplay": true,
+  "originalOperationPassed": false,
+  "productionBatchComplete": false,
+  "additionalProductionOperationsByReviewer": 0,
+  "limits": [
+    "CLI exit/stderr were reported by the parent tool; no full raw stderr file was available during this capture, so no invented stderr hash or text.",
+    "Human approval metadata and standalone readonly observer are separate from engine execution; approval now exists but was not written as controller supplement-approval.",
+    "This readonly report does not approve a new runtime invocation or relax the immutable manifest; that API boundary is reviewed separately.",
+    "No assertion that ordinary OS/file observation creates no logs, and no new Status/UI/Backup/Start/Install occurred in this reviewer."
+  ],
+  "sources": [
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/approved-batch.json",
+      "bytes": 12854217,
+      "sha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-ui-supplement-20261010-0820-final/supplement.json",
+      "bytes": 9954,
+      "sha256": "9776837c7ce7ac271848659217135c58b9df85563f13a13b77ad8b44e4ef3dda"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-ui-supplement-20261010-0820-final/human-supplement-approval.json",
+      "bytes": 628,
+      "sha256": "61ec02e82578d8f8e8ed5157117434fba01509049bcb7dca0d3517654d02c000"
+    },
+    {
+      "path": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+      "bytes": 454656,
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/active.json",
+      "bytes": 128,
+      "sha256": "7c5af7f44a5aa80579bc9ac2a5038ad5ab757a90dc837de4977513d8be7b0cbf"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-ui-supplement-20261010-0820-final/supplement-controller.mjs",
+      "bytes": 15705,
+      "sha256": "97e66370260154a38387b77f3d852112d9583d51f0682b37a9080deaa9032570"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/tools/release-impact.mjs",
+      "bytes": 14246,
+      "sha256": "ad101d63a295ca79ee53c601cbe44c1525de47870505e2059947ba676b5c0944"
+    }
+  ]
+}

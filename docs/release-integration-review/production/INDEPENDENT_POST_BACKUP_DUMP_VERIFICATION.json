@@ -1,0 +1,157 @@
+{
+  "version": "teruisi-post-backup-independent-streamed-verification-v1",
+  "startedAt": "2026-10-10T09:52:02.542Z",
+  "completedAt": "2026-10-10T09:52:03.214Z",
+  "status": "exact-published-container-and-full-metadata-verified",
+  "dump": {
+    "path": "E:\\运营管理系统业务数据\\daily-20261010T093506Z-8a5a7107b3f6\\teruisi-sales.dump",
+    "bytesRead": 946874951,
+    "sha256": "bd3c532a8f897eea2f09f3b60270543993abcda802bd2147c3937539dfc680c8",
+    "elapsedMs": 658.7035999999999,
+    "formatHeader": "PGDMP",
+    "stableBeforeAfter": true,
+    "noPathRedirect": true,
+    "nlink": 1,
+    "verificationRuns": 1
+  },
+  "manifest": {
+    "path": "E:/运营管理系统业务数据/daily-20261010T093506Z-8a5a7107b3f6/backup-manifest.json",
+    "rawSha256": "4cc95143e5feffbd801388cb5de8dd59e269f099ce193afbdc4cfaba310e0f88",
+    "sidecarSha256": "5bfa00de8bfa2e03e6eb46cde7cd0c13f85018bc6085a29dbadeaf5fbb59aaf8",
+    "backupId": "daily-20261010T093506Z-8a5a7107b3f6",
+    "contentSha256": "b2a042fd4e5287ab30642180365d05a74694f7d07ed490c83454bd40f50cf6ce",
+    "profileSha256": "2e1375d4a4a0c2a2670291f291d1a116ed68fcaa40a1207d240e0a529bf7a443",
+    "recomputedProfileSha256": "2e1375d4a4a0c2a2670291f291d1a116ed68fcaa40a1207d240e0a529bf7a443",
+    "evidenceTables": 295,
+    "profileTables": 296,
+    "softwareTupleKeys": [
+      "deploymentManifestSha256",
+      "serviceConfigSha256",
+      "serviceScriptSha256",
+      "operatorScriptSha256",
+      "evidenceToolSha256",
+      "pgDumpSha256",
+      "pgRestoreSha256"
+    ],
+    "fullContractPassed": true
+  },
+  "preManifest": {
+    "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/pre-backup-manifest.json",
+    "sha256": "aa5f8b30c910223d726e573560fba32933701f4b28831bfcf42cb54e5d7509df",
+    "backupId": "daily-20261010T054420Z-3f75a3055cf6",
+    "contentSha256": "f5d70989427467cbd63cf44117854be2c14cd6f738c991dc353bdc91038b6af2"
+  },
+  "originalAudit": {
+    "path": "D:/teruisi-runtime/django-sales/audits/postgres-operations/420adb985efc496a8c6d861a7c717046.json",
+    "sha256": "d1da2813937a2dd5faf28b7b128e2cff773670a48c42429d733e4f20a1f7d459"
+  },
+  "fullComparison": {
+    "status": "strict-comparison-rejected",
+    "code": "ERR_ASSERTION",
+    "messageFirstLine": "Expected values to be strictly deep-equal:"
+  },
+  "differences": [
+    {
+      "layer": "evidence",
+      "name": "market_write_request_receipts",
+      "before": 180759,
+      "after": 180952
+    },
+    {
+      "layer": "evidence",
+      "name": "workflow_task_activity_logs",
+      "before": 198,
+      "after": 202
+    },
+    {
+      "layer": "evidence",
+      "name": "workflow_task_comments",
+      "before": 9,
+      "after": 10
+    },
+    {
+      "layer": "evidence",
+      "name": "workflow_write_request_receipts",
+      "before": 59,
+      "after": 63
+    },
+    {
+      "layer": "profileEvidence",
+      "name": "market_write_request_receipts",
+      "before": {
+        "rows": 180759,
+        "sha256": "f6c1cd26c0d0268d372f340417febcc5b62be21ddd7c0003778dd9b0664699c9"
+      },
+      "after": {
+        "rows": 180952,
+        "sha256": "bd7c379c7d18370f03f16ba7fcbca0393988312e4e083e971a401970717ffe74"
+      }
+    },
+    {
+      "layer": "profileEvidence",
+      "name": "workflow_data_revisions",
+      "before": {
+        "rows": 1,
+        "sha256": "ca27f5ad337de852d363bd2ea3a628c9d62e339dce235db8253fd7d69c602608"
+      },
+      "after": {
+        "rows": 1,
+        "sha256": "06eac209e0d2b490b2934a70ffe8e5352731d509bd4527152eaf07b611702e6e"
+      }
+    },
+    {
+      "layer": "profileEvidence",
+      "name": "workflow_task_activity_logs",
+      "before": {
+        "rows": 198,
+        "sha256": "7342f5d5e90b68e3f132edeff13be03fdc35783802428f257ba004af8b87e666"
+      },
+      "after": {
+        "rows": 202,
+        "sha256": "1421f1012b91ab225a8240da06434d7754e6eb8c44f05e511695762565cf3ec4"
+      }
+    },
+    {
+      "layer": "profileEvidence",
+      "name": "workflow_task_comments",
+      "before": {
+        "rows": 9,
+        "sha256": "b1c0065e15d0b736d7c47417bf2357c420126a1c807c650dbe4eac4448693d09"
+      },
+      "after": {
+        "rows": 10,
+        "sha256": "1dccdb1989536d8cf142fab8820a83ca79c5e2e6aea1ef2750d996ee2121fc25"
+      }
+    },
+    {
+      "layer": "profileEvidence",
+      "name": "workflow_tasks",
+      "before": {
+        "rows": 90,
+        "sha256": "92924de089751466251f2a2fd6627951e224a1398fb27b9a82bb8fcf25a85818"
+      },
+      "after": {
+        "rows": 90,
+        "sha256": "ccf2064720312be0061186aa324caeb6ef0f1a7f90b7473a07611c6dbb40012e"
+      }
+    },
+    {
+      "layer": "profileEvidence",
+      "name": "workflow_write_request_receipts",
+      "before": {
+        "rows": 59,
+        "sha256": "b17b39588158577f5e436648fb3fc00dadf51b47be9a418c54d4332c88c8f2e9"
+      },
+      "after": {
+        "rows": 63,
+        "sha256": "b594654bddb8ea4be6a91c658bb260c1ea1dec172f0c47d80c5c33eb2685d6ad"
+      }
+    }
+  ],
+  "rolesEqual": true,
+  "catalogEqual": true,
+  "migrationsEqual": true,
+  "softwareEqual": true,
+  "restoreRehearsalExecutedByReviewer": false,
+  "wholeCandidateOrOtherPayloadScan": false
+}

@@ -1,0 +1,38 @@
+{
+  "observedAt": "2026-10-10T09:10:36.1678004+00:00",
+  "applicationStatus": "no-matching-events",
+  "applicationEvents": [],
+  "processes": [
+    {
+      "ProcessId": 48744,
+      "ParentProcessId": 39420,
+      "Name": "node.exe",
+      "creationUtc": "2026-10-10T06:26:26.7917950Z"
+    },
+    {
+      "ProcessId": 44348,
+      "ParentProcessId": 48744,
+      "Name": "node.exe",
+      "creationUtc": "2026-10-10T09:06:21.3578880Z"
+    },
+    {
+      "ProcessId": 26892,
+      "ParentProcessId": 44348,
+      "Name": "node.exe",
+      "creationUtc": "2026-10-10T09:06:21.4138690Z"
+    },
+    {
+      "ProcessId": 18720,
+      "ParentProcessId": 26892,
+      "Name": "workerd.exe",
+      "creationUtc": "2026-10-10T09:06:25.2088070Z"
+    }
+  ],
+  "listeners": [
+    {
+      "LocalAddress": "127.0.0.1",
+      "LocalPort": 3000,
+      "OwningProcess": 18720
+    }
+  ]
+}

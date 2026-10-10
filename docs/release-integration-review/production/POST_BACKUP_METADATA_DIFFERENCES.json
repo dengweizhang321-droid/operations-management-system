@@ -1,0 +1,104 @@
+{
+  "at": "2026-10-10T09:48:20.005Z",
+  "scope": "Readonly metadata-only comparison; does not run approved full comparison or close any operation",
+  "preManifestSha256": "aa5f8b30c910223d726e573560fba32933701f4b28831bfcf42cb54e5d7509df",
+  "postManifestSha256": "4cc95143e5feffbd801388cb5de8dd59e269f099ce193afbdc4cfaba310e0f88",
+  "differences": [
+    {
+      "category": "evidence",
+      "table": "market_write_request_receipts",
+      "before": 180759,
+      "after": 180952
+    },
+    {
+      "category": "evidence",
+      "table": "workflow_task_activity_logs",
+      "before": 198,
+      "after": 202
+    },
+    {
+      "category": "evidence",
+      "table": "workflow_task_comments",
+      "before": 9,
+      "after": 10
+    },
+    {
+      "category": "evidence",
+      "table": "workflow_write_request_receipts",
+      "before": 59,
+      "after": 63
+    },
+    {
+      "category": "profileEvidence",
+      "table": "market_write_request_receipts",
+      "before": {
+        "rows": 180759,
+        "sha256": "f6c1cd26c0d0268d372f340417febcc5b62be21ddd7c0003778dd9b0664699c9"
+      },
+      "after": {
+        "rows": 180952,
+        "sha256": "bd7c379c7d18370f03f16ba7fcbca0393988312e4e083e971a401970717ffe74"
+      }
+    },
+    {
+      "category": "profileEvidence",
+      "table": "workflow_data_revisions",
+      "before": {
+        "rows": 1,
+        "sha256": "ca27f5ad337de852d363bd2ea3a628c9d62e339dce235db8253fd7d69c602608"
+      },
+      "after": {
+        "rows": 1,
+        "sha256": "06eac209e0d2b490b2934a70ffe8e5352731d509bd4527152eaf07b611702e6e"
+      }
+    },
+    {
+      "category": "profileEvidence",
+      "table": "workflow_task_activity_logs",
+      "before": {
+        "rows": 198,
+        "sha256": "7342f5d5e90b68e3f132edeff13be03fdc35783802428f257ba004af8b87e666"
+      },
+      "after": {
+        "rows": 202,
+        "sha256": "1421f1012b91ab225a8240da06434d7754e6eb8c44f05e511695762565cf3ec4"
+      }
+    },
+    {
+      "category": "profileEvidence",
+      "table": "workflow_task_comments",
+      "before": {
+        "rows": 9,
+        "sha256": "b1c0065e15d0b736d7c47417bf2357c420126a1c807c650dbe4eac4448693d09"
+      },
+      "after": {
+        "rows": 10,
+        "sha256": "1dccdb1989536d8cf142fab8820a83ca79c5e2e6aea1ef2750d996ee2121fc25"
+      }
+    },
+    {
+      "category": "profileEvidence",
+      "table": "workflow_tasks",
+      "before": {
+        "rows": 90,
+        "sha256": "92924de089751466251f2a2fd6627951e224a1398fb27b9a82bb8fcf25a85818"
+      },
+      "after": {
+        "rows": 90,
+        "sha256": "ccf2064720312be0061186aa324caeb6ef0f1a7f90b7473a07611c6dbb40012e"
+      }
+    },
+    {
+      "category": "profileEvidence",
+      "table": "workflow_write_request_receipts",
+      "before": {
+        "rows": 59,
+        "sha256": "b17b39588158577f5e436648fb3fc00dadf51b47be9a418c54d4332c88c8f2e9"
+      },
+      "after": {
+        "rows": 63,
+        "sha256": "b594654bddb8ea4be6a91c658bb260c1ea1dec172f0c47d80c5c33eb2685d6ad"
+      }
+    }
+  ]
+}

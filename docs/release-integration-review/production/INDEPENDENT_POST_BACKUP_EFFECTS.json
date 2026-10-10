@@ -1,0 +1,302 @@
+{
+  "version": "teruisi-post-backup-effects-independent-v1",
+  "observedAt": "2026-10-10T09:55:05.091Z",
+  "status": "backup-and-archive-effects-verified-original-operation-remains-unknown",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "operationId": "backup-post",
+  "unknownEvent": {
+    "file": "000074.json",
+    "at": "2026-10-10T09:44:11.721Z",
+    "eventSha256": "420fd5e13e5b637c1a6d62f6fad1e16dccd19c8f1f2c26c8302db892c34fcd09",
+    "processEvidence": {
+      "cleanup": "preserve",
+      "code": "nonzero_exit",
+      "deadlineUnixMs": 1791626667045,
+      "elapsedMs": 574658,
+      "exitCode": 1,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 69376,
+      "signal": null,
+      "stage": "output",
+      "stderrBytes": 2428,
+      "stderrSha256": "d3bea73cde7a844806baa4ff1a08185e1aa84c8c490d3b7947b68eb121ce50b0",
+      "stdoutBytes": 1319,
+      "stdoutSha256": "49b85219faffedc5c185f8257f2f401ae2eb8f08d53bf6cfa9f9eb7d5a0202d8",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    }
+  },
+  "originalNative": {
+    "path": "D:/teruisi-runtime/django-sales/audits/postgres-operations/420adb985efc496a8c6d861a7c717046.json",
+    "status": "completed",
+    "phase": "release_retention",
+    "resultStatus": "completed",
+    "backupStatus": "completed",
+    "failure": null,
+    "startedAt": "2026-10-10T09:34:45.0754596+00:00",
+    "updatedAt": "2026-10-10T09:44:11.6637834+00:00"
+  },
+  "verifiedOutputCandidate": {
+    "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261010T093506Z-8a5a7107b3f6",
+    "backupId": "daily-20261010T093506Z-8a5a7107b3f6",
+    "manifestSha256": "4cc95143e5feffbd801388cb5de8dd59e269f099ce193afbdc4cfaba310e0f88",
+    "dumpSha256": "bd3c532a8f897eea2f09f3b60270543993abcda802bd2147c3937539dfc680c8",
+    "contentSha256": "b2a042fd4e5287ab30642180365d05a74694f7d07ed490c83454bd40f50cf6ce"
+  },
+  "parsedOriginalAssertionsPassed": [
+    {
+      "equals": "completed",
+      "path": "status"
+    },
+    {
+      "equals": false,
+      "path": "serviceStateChanged"
+    }
+  ],
+  "additionalBackupArchiveRetentionInvariantPassed": true,
+  "computedStdoutVerification": {
+    "description": "Pure calculation JSON.stringify(parsed native audit.result)+CRLF exactly equals retained1319bytes/SHA. This is not preservation/reconstruction of an original stdout file.",
+    "bytes": 1319,
+    "sha256": "49b85219faffedc5c185f8257f2f401ae2eb8f08d53bf6cfa9f9eb7d5a0202d8",
+    "matchesOriginalWalBytesAndSha": true,
+    "originalStdoutFileAvailable": false,
+    "originalStderrFileAvailable": false,
+    "originalStderrKnownBytes": 2428,
+    "originalStderrKnownSha256": "d3bea73cde7a844806baa4ff1a08185e1aa84c8c490d3b7947b68eb121ce50b0",
+    "stderrCauseDetail": "Original underlying planner stderr unavailable; no invented full error text."
+  },
+  "dumpAndManifestVerification": {
+    "evidenceFile": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/INDEPENDENT_POST_BACKUP_DUMP_VERIFICATION.json",
+    "sha256": "8fd3b90cb8ef9bc4fdc1fbe0947314bbf9b245f77cf36c066fede6900b629590",
+    "dumpBytes": 946874951,
+    "dumpSha256": "bd3c532a8f897eea2f09f3b60270543993abcda802bd2147c3937539dfc680c8",
+    "manifestSha256": "4cc95143e5feffbd801388cb5de8dd59e269f099ce193afbdc4cfaba310e0f88",
+    "profileSha256": "2e1375d4a4a0c2a2670291f291d1a116ed68fcaa40a1207d240e0a529bf7a443",
+    "fullMetadataInventoryPassed": true,
+    "evidenceTables": 295,
+    "profileTables": 296,
+    "restorePostNotRun": true
+  },
+  "backupRetention": {
+    "status": "completed",
+    "retained": [
+      "daily-20261010T093506Z-8a5a7107b3f6",
+      "daily-20260929T012900Z-ad2817875f20",
+      "daily-20260928T125351Z-31cb501bc72d"
+    ],
+    "removed": [
+      "daily-20261010T054420Z-3f75a3055cf6"
+    ],
+    "originalAudit": "D:/teruisi-runtime/django-sales/audits/postgres-retention/4f0dcf0883fe4f18ba48c22d99dad2f0.jsonl",
+    "events": [
+      {
+        "plan": {
+          "version": "teruisi-backup-retention-plan-v2",
+          "maximumRecoveryPoints": 3,
+          "retainedVerification": "full-evidence",
+          "discardedVerification": "container-integrity",
+          "retained": [
+            "daily-20261010T093506Z-8a5a7107b3f6",
+            "daily-20260929T012900Z-ad2817875f20",
+            "daily-20260928T125351Z-31cb501bc72d"
+          ],
+          "removed": [
+            "daily-20261010T054420Z-3f75a3055cf6"
+          ],
+          "serviceStateChanged": false
+        },
+        "event": "plan",
+        "at": "2026-10-10T09:42:51.4560252+00:00"
+      },
+      {
+        "backupId": "daily-20261010T093506Z-8a5a7107b3f6",
+        "path": "D:\\teruisi-runtime\\django-sales\\backups\\postgres-daily\\daily-20261010T093506Z-8a5a7107b3f6",
+        "manifestSha256": "4cc95143e5feffbd801388cb5de8dd59e269f099ce193afbdc4cfaba310e0f88",
+        "event": "delete-reserved"
+      },
+      {
+        "backupId": "daily-20261010T093506Z-8a5a7107b3f6",
+        "path": "D:\\teruisi-runtime\\django-sales\\backups\\postgres-daily\\daily-20261010T093506Z-8a5a7107b3f6",
+        "event": "deleted"
+      },
+      {
+        "backupId": "daily-20261010T054420Z-3f75a3055cf6",
+        "path": "E:\\运营管理系统业务数据\\daily-20261010T054420Z-3f75a3055cf6",
+        "manifestSha256": "aa5f8b30c910223d726e573560fba32933701f4b28831bfcf42cb54e5d7509df",
+        "event": "delete-reserved"
+      },
+      {
+        "backupId": "daily-20261010T054420Z-3f75a3055cf6",
+        "path": "E:\\运营管理系统业务数据\\daily-20261010T054420Z-3f75a3055cf6",
+        "event": "deleted"
+      },
+      {
+        "event": "completed",
+        "plan": {
+          "version": "teruisi-backup-retention-plan-v2",
+          "maximumRecoveryPoints": 3,
+          "retainedVerification": "full-evidence",
+          "discardedVerification": "container-integrity",
+          "retained": [
+            "daily-20261010T093506Z-8a5a7107b3f6",
+            "daily-20260929T012900Z-ad2817875f20",
+            "daily-20260928T125351Z-31cb501bc72d"
+          ],
+          "removed": [
+            "daily-20261010T054420Z-3f75a3055cf6"
+          ],
+          "serviceStateChanged": false
+        }
+      }
+    ],
+    "observedAbsentPaths": [
+      "E:/运营管理系统业务数据/daily-20261010T054420Z-3f75a3055cf6",
+      "D:/teruisi-runtime/django-sales/backups/postgres-daily/daily-20261010T093506Z-8a5a7107b3f6"
+    ],
+    "preManifestOriginalPreservedSha256": "aa5f8b30c910223d726e573560fba32933701f4b28831bfcf42cb54e5d7509df",
+    "oldPreRecoveryDumpAvailable": false,
+    "manifestOnlyIsNotRecoveryPoint": true
+  },
+  "releasePayloadRetention": {
+    "status": "blocked",
+    "stage": "release_plan",
+    "errorCode": "operation_failed",
+    "reason": "Release retention preflight failed",
+    "hresult": -2146233087,
+    "exceptionType": "System.Management.Automation.RuntimeException",
+    "reasonSha256": "d707a053790242fed8902a36d323f690c2526a2ed91d5c0a89a9c95b993b8860",
+    "requiredBytes": null,
+    "availableBytes": null,
+    "errorId": "redacted",
+    "sourceFile": "release-payload-retention.ps1",
+    "sourceLine": 57,
+    "releasePayloadDeletionByThisFailedCall": false,
+    "justification": "Original source failed at line57 before audit creation/deletion loop; preflight planner takes no execute argument and is read-only. This blocked stage is not converted into completed."
+  },
+  "exitPropagation": {
+    "originalExit1Preserved": true,
+    "sourcePath": "release-payload-retention.ps1:56–57 child Node nonzero -> throw; django-postgres-maintenance.ps1:2241–2251 catches stage and writes completed Backup result; release-batch.mjs:363–364 bridge propagates global LASTEXITCODE",
+    "conclusion": "Source route and observed bytes match completed database effects plus blocked cleanup/nonzero wrapper exit. The low-level planner error text/cause remains unverified; no claim the complete original process succeeded."
+  },
+  "noEffect": false,
+  "noReplay": true,
+  "failedOnlyZeroEffectProofAvailable": false,
+  "reconcileOperationInvoked": false,
+  "originalApiContinuation": {
+    "blocked": true,
+    "source": "release-batch.mjs:308–320 reconcileOperation / 400–410 outputsFor",
+    "problem": "reconcileOperation(passed) appends status/reason/receiptSha256 only, omitting outputs; Restore/Preserve/Deep require confirmed backup-post outputs. Existing API cannot carry these exact observed effects through original receipt tokens.",
+    "prohibitedWorkarounds": [
+      "Mark unknown failed with zero-effects proof and replayBackup",
+      "Pretend original process exit0",
+      "Directly edit/delete WAL, active owner or receipt",
+      "Inject in-memory output fields without an append-only persisted evidence binding",
+      "Rewrite releaseRetention blocked or exempt changed profile tables"
+    ],
+    "minimalFutureBoundary": "A separately reviewed explicitly approved append-only completion/outputs acknowledgment, bound to this exact unknown event/native audit/manifest/dump/current active9, preserving exit1 and blocked releaseRetention, no Backup/re-prune/lifecycle replay; still does not resolve strict business-content differences."
+  },
+  "strictFullComparison": {
+    "status": "known-blocker-on-fixed-original-inputs",
+    "actualEngineOperationExecuted": false,
+    "pureFrozenComparatorRejected": true,
+    "evidenceDifferences": 4,
+    "profileDifferences": 6,
+    "totalLayerDifferences": 10,
+    "rolesEqual": true,
+    "catalogEqual": true,
+    "migrationsEqual": true,
+    "softwareEqual": true,
+    "contentEquality": false,
+    "sourceWitnessRequired": true,
+    "limits": "No observed customer/business rows were queried or persisted by this reviewer, and no actor or legal/unauthorized change attribution is inferred."
+  },
+  "journal": {
+    "records": 75,
+    "head": "420fd5e13e5b637c1a6d62f6fad1e16dccd19c8f1f2c26c8302db892c34fcd09",
+    "active": {
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "id": "integration-ab-v2-20261010-c22d8dd69a"
+    },
+    "backupPostStartedAttempts": 1,
+    "operations17to21NotStarted": true,
+    "chainVerified": true
+  },
+  "originalBatchComplete": false,
+  "reviewerProductionMutations": 0,
+  "limits": [
+    "This confirms backup publication and retention effects, not a successful original command or completed fullAB batch.",
+    "Full stream hash proves exact archive bytes/header and full metadata contract; isolated postRestore remains unperformed.",
+    "Old pre05:44 point was deleted by original approved3point policy. Preserved JSON is evidence, not retained recovery eligibility.",
+    "One dump hash was serial while engine stopped; no Restore/Verify/Backup/Retain/deletion/lifecycle/Status/UI/external send was executed by this reviewer."
+  ],
+  "sources": [
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/approved-batch.json",
+      "bytes": 12854217,
+      "sha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347"
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/audits/postgres-operations/420adb985efc496a8c6d861a7c717046.json",
+      "bytes": 3241,
+      "sha256": "d1da2813937a2dd5faf28b7b128e2cff773670a48c42429d733e4f20a1f7d459"
+    },
+    {
+      "path": "E:/运营管理系统业务数据/daily-20261010T093506Z-8a5a7107b3f6/backup-manifest.json",
+      "bytes": 253843,
+      "sha256": "4cc95143e5feffbd801388cb5de8dd59e269f099ce193afbdc4cfaba310e0f88"
+    },
+    {
+      "path": "E:/运营管理系统业务数据/daily-20261010T093506Z-8a5a7107b3f6/backup-manifest.json.sha256",
+      "bytes": 66,
+      "sha256": "5bfa00de8bfa2e03e6eb46cde7cd0c13f85018bc6085a29dbadeaf5fbb59aaf8"
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/audits/postgres-retention/4f0dcf0883fe4f18ba48c22d99dad2f0.jsonl",
+      "bytes": 1652,
+      "sha256": "6da2cc5419308b852f2f55ab9c826796e32c007266bb92c7a029b4e67825d8e9"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-integration-review/运营管理系统/docs/release-integration-review/production/INDEPENDENT_POST_BACKUP_DUMP_VERIFICATION.json",
+      "bytes": 5164,
+      "sha256": "8fd3b90cb8ef9bc4fdc1fbe0947314bbf9b245f77cf36c066fede6900b629590"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/pre-backup-manifest.json",
+      "bytes": 253841,
+      "sha256": "aa5f8b30c910223d726e573560fba32933701f4b28831bfcf42cb54e5d7509df"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/production/original-pre-backup-manifest.json",
+      "bytes": 253841,
+      "sha256": "aa5f8b30c910223d726e573560fba32933701f4b28831bfcf42cb54e5d7509df"
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/app/tools/django-postgres-maintenance.ps1",
+      "bytes": 111624,
+      "sha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6"
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/app/tools/release-payload-retention.ps1",
+      "bytes": 6507,
+      "sha256": "e5bab569143c13a0021e2c57f6f832a58455eec421374bbd261b7b119d813f78"
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/app/tools/release-payload-retention.mjs",
+      "bytes": 6996,
+      "sha256": "d339fb1eaac511d66f05660c50ade8e6f1e45a525dedcc0be395ebd3636d7b6a"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/tools/release-batch.mjs",
+      "bytes": 42643,
+      "sha256": "0b2eb39f495fa7ec92f598c24d2c2d585bf6fe9c8a4eef6278e14a71eb21c944"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/active.json",
+      "bytes": 128,
+      "sha256": "7c5af7f44a5aa80579bc9ac2a5038ad5ab757a90dc837de4977513d8be7b0cbf"
+    }
+  ]
+}

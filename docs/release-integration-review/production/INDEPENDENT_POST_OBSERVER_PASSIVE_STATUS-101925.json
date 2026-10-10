@@ -1,0 +1,70 @@
+{
+  "probeError": false,
+  "system": "Running",
+  "components": {
+    "erpReference": true,
+    "core": true,
+    "finance": true,
+    "market": true,
+    "workflow": true,
+    "accessControl": true,
+    "customerService": true,
+    "inventory": true,
+    "products": true,
+    "ai": true,
+    "netshop": true,
+    "bi": true
+  },
+  "healthy": true,
+  "backend": "Ready",
+  "ports": [
+    {
+      "port": 5791,
+      "pid": 66488
+    },
+    {
+      "port": 5432,
+      "pid": 4080
+    },
+    {
+      "port": 3000,
+      "pid": 25236
+    }
+  ],
+  "at": "2026-10-10T10:19:25.5945706+00:00",
+  "probes": {
+    "helper": {
+      "status": 200,
+      "ok": true
+    },
+    "live": {
+      "status": 200,
+      "ok": true
+    },
+    "homepage": {
+      "status": 200,
+      "ok": true
+    },
+    "ready": {
+      "status": 200,
+      "ok": true
+    }
+  },
+  "supervisor": "running",
+  "admission": {
+    "mode": "running",
+    "fence": "d01e5b5f951b9c1d40ef2c26aa1a084402204f04a9c7f5924b58b213df39164b"
+  },
+  "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+  "worker": "exact_release",
+  "workerPid": 25236,
+  "supervisorPid": 48744,
+  "business": {
+    "status": "unknown",
+    "checkedAt": "2026-10-10T10:15:06.2631810+00:00",
+    "version": "market-read-probe-v1",
+    "reason": "no_confirmed_failure"
+  },
+  "supervisorHealth": "healthy",
+  "processDiagnostic": null
+}

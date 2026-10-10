@@ -1,5 +1,7 @@
 # AB 实际采用与阻断记录
 
+续接更新：0bcad05b已获08:41:31真人批准，正式UI09:00:42.362通过，原11–15通过；15首失败和唯一原样复验均保留。16后Backup已生成且轮转发生，但原进程exit1/unknown；17–21未执行，整批仍被输出续接、6表严格比较及恢复资格阻断。最新事实见 [真实续接记录](CONTINUATION_20261010.md)、[后备份独立复核](INDEPENDENT_POST_BACKUP_EFFECTS.md) 与 [冻结计时](backup-post-blocked-final.json)。以下保留此前第10步阻断快照，不回写原WAL或原恢复收据。
+
 2026-10-10。用户“批准 AB 批次”对应唯一 batch `9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15`，实际批准时间 `2026-10-10T05:28:51.000Z`（北京时间13:28:51）。机器快照见 [PRODUCTION_SNAPSHOT.json](PRODUCTION_SNAPSHOT.json)。本文件更新此前“尚未批准/未执行”的交付快照，不改写封存文件和历史记录。
 
 ## 四类状态
