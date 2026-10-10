@@ -1,0 +1,446 @@
+{
+  "version": "teruisi-readiness-supplement-actual-independent-report-v1",
+  "independent": true,
+  "observedAt": "2026-10-10T22:51:59.258Z",
+  "scopeSha256": "1cae786dfffa78b362e056ef2abffd889138106d6c3ce9d64add1f86b628aed7",
+  "humanApprovalSha256": "570dc8b6fcca40b8fcfa4aac64a1ef12ab7a6d3459138cc95eb1b6cf30a0aa7a",
+  "productionApproved": true,
+  "executed": true,
+  "status": "verified-actual-failure",
+  "necessaryAcceptanceConfirmed": false,
+  "fullDeliveryClosed": false,
+  "reviewerProductionCalls": 0,
+  "largeDumpOr4771Rehashed": false,
+  "journal": {
+    "records": 102,
+    "head": "ceb8ee2a73a3140ae427adc06ebf373eee785360b36a7a3b27f6d7da0a384e7c",
+    "old97PinsEqual": true,
+    "old89ArchiveBytesEqual": true,
+    "canonicalChainVerified": true,
+    "original19And21RemainUnknown": true,
+    "original20NotReplayed": true,
+    "acceptedSource88NotRepeated": true,
+    "newOperationStatus": "unknown"
+  },
+  "caller": {
+    "processId": 48772,
+    "startedAt": "2026-10-10T22:44:49.442Z",
+    "finishedAt": "2026-10-10T22:50:01.130Z",
+    "elapsedMs": 311687.5465,
+    "exitCode": 1,
+    "signal": null,
+    "stdoutBytes": 0,
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderrBytes": 3801,
+    "stderrSha256": "aa4475db92fd3fd6543fd7b3c9265ad2c3fdd16151d4ddeef79bb94cddd472dc"
+  },
+  "commonDeadlineUnixMs": 1791675589532,
+  "approvedMetadataEvent": {
+    "at": "2026-10-10T22:45:20.514Z",
+    "proofDurationMs": 13966.086,
+    "queueWaitMs": 2.533800000001065
+  },
+  "newOperation": {
+    "status": "unknown",
+    "at": "2026-10-10T22:50:00.925Z",
+    "receiptSha256": null,
+    "processEvidence": null,
+    "durationMs": 52403.66719999997
+  },
+  "captureCount": 2,
+  "captures": [
+    {
+      "sha256": "89bd333de183aa4099b917a2e41fb2fb4bdda417b4f73460dbf5b63b94d8d1d3",
+      "stage": "admission-status",
+      "at": "2026-10-10T22:48:53.332Z",
+      "parseSucceeded": true,
+      "readiness": {
+        "state": "Running",
+        "backendState": "Ready",
+        "workerState": "exact_release",
+        "releaseMatchesExpected": true,
+        "componentObject": true,
+        "componentCount": 12,
+        "unexpectedComponentCount": 0,
+        "missingComponents": [],
+        "components": {
+          "accessControl": true,
+          "ai": true,
+          "bi": true,
+          "core": true,
+          "customerService": true,
+          "erpReference": true,
+          "finance": true,
+          "inventory": true,
+          "market": true,
+          "netshop": true,
+          "products": true,
+          "workflow": true
+        }
+      },
+      "processEvidence": {
+        "version": 1,
+        "processId": 67748,
+        "code": "completed",
+        "stage": "completed",
+        "exitCode": 0,
+        "signal": null,
+        "timeoutType": null,
+        "deadlineUnixMs": 1791672557075,
+        "elapsedMs": 36217,
+        "cleanup": "direct",
+        "outputProtocol": "direct-exit-files",
+        "stdoutBytes": 518,
+        "stderrBytes": 616,
+        "stdoutSha256": "76642774c97363a7acd14ee0a5e615ef949feaec061704c22c3ce18a392674a2",
+        "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+        "treeCleanupPending": false
+      }
+    },
+    {
+      "sha256": "c0e6c1b1fe6dc25946a542314b909a4b7d650fc96d3d6c234c495c2bec6734dd",
+      "stage": "final-readiness-status",
+      "at": "2026-10-10T22:50:00.768Z",
+      "parseSucceeded": true,
+      "readiness": {
+        "state": "Unresponsive",
+        "backendState": "Ready",
+        "workerState": "exact_release",
+        "releaseMatchesExpected": true,
+        "componentObject": true,
+        "componentCount": 12,
+        "unexpectedComponentCount": 0,
+        "missingComponents": [],
+        "components": {
+          "accessControl": true,
+          "ai": true,
+          "bi": true,
+          "core": true,
+          "customerService": true,
+          "erpReference": true,
+          "finance": true,
+          "inventory": true,
+          "market": true,
+          "netshop": true,
+          "products": true,
+          "workflow": true
+        }
+      },
+      "processEvidence": {
+        "version": 1,
+        "processId": 71628,
+        "code": "completed",
+        "stage": "completed",
+        "exitCode": 0,
+        "signal": null,
+        "timeoutType": null,
+        "deadlineUnixMs": 1791672626162,
+        "elapsedMs": 34557,
+        "cleanup": "direct",
+        "outputProtocol": "direct-exit-files",
+        "stdoutBytes": 603,
+        "stderrBytes": 616,
+        "stdoutSha256": "707135c8d88aff9ebc06217bcaf573844871d70eaa51c20c1124d05428c59032",
+        "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+        "treeCleanupPending": false
+      }
+    }
+  ],
+  "attempts": [
+    {
+      "at": "2026-10-10T22:50:00.771Z",
+      "attempt": 1,
+      "status": "failed",
+      "errorCode": "STATUS_NOT_READY",
+      "retryable": false
+    }
+  ],
+  "pending": null,
+  "completion": null,
+  "active": {
+    "physicallyAbsent": false,
+    "remainingSameOwnerSha256": "7c5af7f44a5aa80579bc9ac2a5038ad5ab757a90dc837de4977513d8be7b0cbf",
+    "releaseConfirmed": false
+  },
+  "failures": [
+    {
+      "at": "2026-10-10T22:50:00.925Z",
+      "status": "unknown",
+      "operationId": "diagnostic-final-readiness-supplement",
+      "errorCode": "STATUS_NOT_READY",
+      "errorMessageSha256": "2010353e2b5176988a3ebd12a58c4c8e3873fe684826b17a5aa17a9185766598",
+      "readiness": {
+        "state": "Unresponsive",
+        "backendState": "Ready",
+        "workerState": "exact_release",
+        "releaseMatchesExpected": true,
+        "componentObject": true,
+        "componentCount": 12,
+        "unexpectedComponentCount": 0,
+        "missingComponents": [],
+        "components": {
+          "accessControl": true,
+          "ai": true,
+          "bi": true,
+          "core": true,
+          "customerService": true,
+          "erpReference": true,
+          "finance": true,
+          "inventory": true,
+          "market": true,
+          "netshop": true,
+          "products": true,
+          "workflow": true
+        }
+      },
+      "processEvidence": {
+        "version": 1,
+        "processId": 71628,
+        "code": "completed",
+        "stage": "completed",
+        "exitCode": 0,
+        "signal": null,
+        "timeoutType": null,
+        "deadlineUnixMs": 1791672626162,
+        "elapsedMs": 34557,
+        "cleanup": "direct",
+        "outputProtocol": "direct-exit-files",
+        "stdoutBytes": 603,
+        "stderrBytes": 616,
+        "stdoutSha256": "707135c8d88aff9ebc06217bcaf573844871d70eaa51c20c1124d05428c59032",
+        "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+        "treeCleanupPending": false
+      },
+      "statusEvidenceSha256": [
+        "c0e6c1b1fe6dc25946a542314b909a4b7d650fc96d3d6c234c495c2bec6734dd"
+      ],
+      "ownershipReleased": null
+    }
+  ],
+  "entry": {
+    "count": 161,
+    "failedSamples": 0,
+    "firstAt": "2026-10-10T22:44:33.468Z",
+    "lastAt": "2026-10-10T22:51:14.477Z",
+    "finishedAt": "2026-10-10T22:51:16.982Z",
+    "previousLastSampleAt": "2026-10-10T17:51:56.053Z",
+    "unobservedGapMs": 17557415,
+    "sha256": "d295098f568149a38b22514e7d5b58442355df056f4b9d566d96b23b5d340878",
+    "incidents": [],
+    "bodyPersisted": false,
+    "bodyHandling": "consume-and-discard",
+    "priorBodyHandling": "headers-then-cancel",
+    "noPairedPerformanceClaim": true,
+    "bodyCompletedSamples": 161,
+    "provesBackendReadiness": false
+  },
+  "timing": {
+    "originalApprovalAt": "2026-10-10T05:28:51.000Z",
+    "newApprovalAt": "2026-10-10T22:42:23.000Z",
+    "originalApprovalToNecessaryClosureMs": null,
+    "newApprovalToNecessaryClosureMs": null,
+    "originalApprovalToCallerTerminalMs": 62470130,
+    "newApprovalToCallerTerminalMs": 458130,
+    "fullDeliveryClosedAt": null,
+    "callerBudgetWasNotReset": true,
+    "newApprovalToCallerStartMs": 146442,
+    "proofPreparationMs": 13966.086,
+    "mutexQueueMs": 2.533800000001065,
+    "admissionMs": 227115.642,
+    "newValidationMs": 52403.66719999997,
+    "nativeFinalStatusMs": 34557,
+    "nativeFinalStatusIsSubsetOfValidation": true,
+    "accountedDisjointCallerStagesMs": 293487.92899999995,
+    "remainingCallerOverheadUnallocatedMs": 18199.61750000005,
+    "priorConfirmedPauseLowerBoundMs": 8412000,
+    "priorConfirmedPauseCheckpointAt": "2026-10-10T11:58:54.000Z",
+    "priorConfirmedResumeAt": "2026-10-10T14:19:06.000Z",
+    "priorPauseNotAddedAgainToElapsed": true,
+    "necessaryClosureAt": null,
+    "completeDeliveryAt": null,
+    "notes": [
+      "Original and new approval clocks remain distinct.",
+      "Pre-launch interval is not claimed as mutex queue.",
+      "Native duration is inside observation/validation; not added as another release stage.",
+      "Previous three supplements and previous phase costs remain in their original timing reports; they are not added twice here."
+    ]
+  },
+  "metadataSha256": {
+    "start": "fe4063496c195dae8648f00f26baaacf41b0a6b36573cd3ba0c14d34aa04c647",
+    "terminal": "0759823c5c595039eff96aa20450b6ad29de7f95fc8fca452c558cab588954a7",
+    "intent": "3d38a818905b6f15d17d67f98aa57cc8f081298fc1029532684f159c7295c2cf",
+    "resultPassed": null,
+    "resultFailed": "d231a6f3c3e8abc60255862148143d40681c77d70706415ce03db70a74d09491",
+    "observerStart": "f957bc66b843d4a9adfde215b7323c585e92407904fe9641ce17d5d4e409a858",
+    "observerEnd": "9e7858db0e991077ac2efa195b69268c6af0d48cc9203091169667871f15f1fd"
+  },
+  "notes": [
+    "Only new independent validation and confirmed physical owner absence can close necessary acceptance; old21 is never relabeled passed.",
+    "Diagnostic capture is before assertions and not itself success evidence.",
+    "HTTP/header observations and switch/owner intervals are not exact backend downtime."
+  ],
+  "reviewer": {
+    "role": "non-author independent actual evidence reviewer",
+    "agent": "/root/preparation_review"
+  },
+  "actualEvidenceVerified": true,
+  "acceptancePassed": false,
+  "candidateSourceCommit": "c060f4d6bf330797dce28241416f4a4d43125a8f",
+  "scopeRawSha256": "3cf7629ec1c472b9a5c85be997edd0fa85fe1a2f326974050b5b891871249a38",
+  "originalStrictEquality": false,
+  "originalBatchEngineCompleted": false,
+  "reviewScope": [
+    "Small sealed scope/code/approval/wrapper files",
+    "102 original and new raw canonical journal records and prefix byte comparisons",
+    "Two privacy bounded captured native responses and their retained process SHA/identity",
+    "Typed result absence and current owner bytes",
+    "Finished entry sample metadata and clock boundaries"
+  ],
+  "evidenceCheck": {
+    "checkerSourceSha256": "d2446d93cde19681e6192009ada066e11b915989874bba54bc95770b2939d04e",
+    "checkerLogSha256": "973a579360e7a1da8faa233a2ff295aa6782d37f23bdddb1f13b151c8a774ae5",
+    "checkerExitCode": 0,
+    "checkerStderrBytes": 0,
+    "checkerStderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "checkerExitMeans": "Verified actual failure evidence; not acceptance success",
+    "productionModulesImported": false,
+    "reviewerProductionCalls": 0,
+    "heavyHashRepeated": false
+  },
+  "actualProcessEvidenceLocation": {
+    "rawNewUnknownTopLevelProcessEvidence": null,
+    "retainedIn": "000101.json.error.processEvidence",
+    "nativeEvidenceRetained": true,
+    "processId": 71628,
+    "statusEvidenceSha256": "c0e6c1b1fe6dc25946a542314b909a4b7d650fc96d3d6c234c495c2bec6734dd",
+    "oldOriginal21EvidenceNotReconstructed": true
+  },
+  "blockingFindings": [
+    {
+      "id": "ACTUAL-READINESS-UNRESPONSIVE",
+      "operation": "diagnostic-final-readiness-supplement",
+      "captureSha256": "c0e6c1b1fe6dc25946a542314b909a4b7d650fc96d3d6c234c495c2bec6734dd",
+      "assertionFile": "E:/codex-artifacts/release-integration-review-20261010/AB-final-readiness-20261011-verified-final/legacy/release-readonly-retry.mjs",
+      "assertionLine": 109,
+      "condition": "state !== Running",
+      "errorCode": "STATUS_NOT_READY",
+      "retryable": false,
+      "requiredAction": "Retain failure and owner; establish exact cause using authorized evidence before any separately approved next execution. No automatic replay or weakened assertion."
+    }
+  ],
+  "failureScenario": {
+    "admission": {
+      "at": "2026-10-10T22:48:53.332Z",
+      "state": "Running",
+      "backendState": "Ready",
+      "all12ComponentsTrue": true,
+      "processId": 67748
+    },
+    "final": {
+      "at": "2026-10-10T22:50:00.768Z",
+      "state": "Unresponsive",
+      "backendState": "Ready",
+      "all12ComponentsTrue": true,
+      "workerState": "exact_release",
+      "releaseMatchesExpected": true,
+      "processId": 71628,
+      "exitCode": 0
+    },
+    "semanticConclusion": "Native command returned a valid response and exited zero; original overall Running assertion failed. Component and backend fields cannot override it.",
+    "specificFailedSubprobeIndependentlyDetermined": false,
+    "staticControl": {
+      "path": "D:/运营管理系统/tools/operations-system-control.ps1",
+      "sha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "healthStateLines": [
+        414,
+        448
+      ],
+      "stateCompositionLines": [
+        490,
+        503
+      ],
+      "conclusion": "Unresponsive is the default when the compound local liveness/helper/readiness conditions do not reach Running or the special BackendDegraded branch. Bounded stored status does not identify which condition failed."
+    }
+  },
+  "newStageEvidence": [
+    {
+      "index": 97,
+      "rawSha256": "19e347fb47a6db56f08621108cd2281be1950f1ae55b2dd813ce1e2fd06fdfb9",
+      "eventSha256": "b3c8a594e432e21c2565c81b819d29d31028e06c22c3c58cc115809f5d0596c3",
+      "status": "readiness-supplement-approved",
+      "at": "2026-10-10T22:45:20.514Z",
+      "durationMs": null,
+      "proofDurationMs": 13966.086,
+      "queueWaitMs": 2.533800000001065,
+      "boundaryAgeMs": null,
+      "observedAtMs": null,
+      "observationDurationMs": null
+    },
+    {
+      "index": 98,
+      "rawSha256": "f8070eeaef88ea298f04a972c313bef24ffb656d0d88074a833d514548f65ab7",
+      "eventSha256": "b797efaa6c8bd085667a76aeeb513b92e3943e701e5e9e846edec465aa953fb9",
+      "status": "readiness-supplement-admission",
+      "at": "2026-10-10T22:49:07.926Z",
+      "durationMs": 227115.642,
+      "proofDurationMs": null,
+      "queueWaitMs": null,
+      "boundaryAgeMs": null,
+      "observedAtMs": 1791672547684,
+      "observationDurationMs": null
+    },
+    {
+      "index": 99,
+      "rawSha256": "d2b1597bf6b25962841c0c7bb8ce244faf45d4fbcf59c922a985c1c860dad302",
+      "eventSha256": "25ed8f1b74d3e9b2e6cfaec4de366a3f09754e57b4edc71529b0914fa2f517b6",
+      "status": "started",
+      "at": "2026-10-10T22:49:08.222Z",
+      "durationMs": null,
+      "proofDurationMs": null,
+      "queueWaitMs": null,
+      "boundaryAgeMs": 388,
+      "observedAtMs": 1791672547684,
+      "observationDurationMs": null
+    },
+    {
+      "index": 100,
+      "rawSha256": "c6143badad548d94bf5e333006cb910d509d46c05e4f9f513e7a7c6b1fce6525",
+      "eventSha256": "45800e3dca65dc470329355c3ca31147f9c698fba445693f96a918b577cf0ea4",
+      "status": "observation-attempt",
+      "at": "2026-10-10T22:50:00.771Z",
+      "durationMs": null,
+      "proofDurationMs": null,
+      "queueWaitMs": null,
+      "boundaryAgeMs": null,
+      "observedAtMs": null,
+      "observationDurationMs": null
+    },
+    {
+      "index": 101,
+      "rawSha256": "f0c3dd674139bb2c89f14f117b87ac0a8b538e654b04f843284f58f195d81dfe",
+      "eventSha256": "ceb8ee2a73a3140ae427adc06ebf373eee785360b36a7a3b27f6d7da0a384e7c",
+      "status": "unknown",
+      "at": "2026-10-10T22:50:00.925Z",
+      "durationMs": 52403.66719999997,
+      "proofDurationMs": null,
+      "queueWaitMs": null,
+      "boundaryAgeMs": null,
+      "observedAtMs": null,
+      "observationDurationMs": null
+    }
+  ],
+  "limitations": [
+    "No raw private Status reason/body stored or reconstructed. Specific liveness/helper/readiness failing condition remains unproved.",
+    "Earlier and current HTTP entry observations have a 17557415 ms gap; the gap is not proven downtime.",
+    "All current 161 available HTTP/HTML body-completed samples describe the entry only, not backend readiness.",
+    "Current consume-and-discard observer differs from earlier headers-then-cancel observer; no paired timing claim or old worker exit attribution.",
+    "No new Status/HTTP/SQL/collector/lock/production operation was issued by reviewer. No repeated full closure or dump hash.",
+    "No necessary acceptance or full delivery closure timestamp exists; original 19/21 unknown and independent new unknown are preserved."
+  ],
+  "deliveryStates": {
+    "source": "c060f4d6 diagnostic supplement source reviewed",
+    "isolatedValidation": "previous reviewed fixture results preserved; not rerun",
+    "productionCandidate": "exact 1cae approved and executed once",
+    "actualAdoption": "Existing AB release manifest unchanged; supplemental necessary acceptance remains blocked; C and no-data policy not adopted"
+  }
+}

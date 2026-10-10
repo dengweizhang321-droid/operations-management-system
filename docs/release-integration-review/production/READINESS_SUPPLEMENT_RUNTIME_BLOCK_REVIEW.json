@@ -1,0 +1,698 @@
+{
+  "version": "teruisi-readiness-supplement-runtime-block-review-v1",
+  "observedAt": "2026-10-10T22:56:49.817Z",
+  "reviewer": "/root/combined_independent_review",
+  "independentRuntimeCauseReview": true,
+  "authoredReadinessSupplementProtocolReviewedOrApprovedHere": false,
+  "authoredCaptureCodeTruthAcceptanceDelegatedTo": "/root/preparation_review",
+  "scopeSha256": "1cae786dfffa78b362e056ef2abffd889138106d6c3ce9d64add1f86b628aed7",
+  "status": "actual-Unresponsive-preserved-three-probe-cause-unresolved",
+  "productionActionsByReviewer": 0,
+  "reviewerInvokedStatusHttpSqlLocksOrOperators": false,
+  "actualSnapshots": {
+    "admission": {
+      "at": "2026-10-10T22:48:53.332Z",
+      "snapshotSha256": "89bd333de183aa4099b917a2e41fb2fb4bdda417b4f73460dbf5b63b94d8d1d3",
+      "state": "Running",
+      "backendState": "Ready",
+      "workerState": "exact_release",
+      "all12True": true
+    },
+    "final": {
+      "at": "2026-10-10T22:50:00.768Z",
+      "snapshotSha256": "c0e6c1b1fe6dc25946a542314b909a4b7d650fc96d3d6c234c495c2bec6734dd",
+      "state": "Unresponsive",
+      "backendState": "Ready",
+      "workerState": "exact_release",
+      "all12True": true,
+      "missingComponents": [],
+      "unexpectedComponentCount": 0,
+      "releaseMatchesExpected": true,
+      "processId": 71628,
+      "exitCode": 0,
+      "elapsedMs": 34557,
+      "stdoutBytes": 603,
+      "stdoutSha256": "707135c8d88aff9ebc06217bcaf573844871d70eaa51c20c1124d05428c59032",
+      "originalRawStatusBodyAvailable": false,
+      "completeStatusDurationIsSingleProbeLatency": false
+    },
+    "attempt": {
+      "code": "STATUS_NOT_READY",
+      "retryable": false,
+      "attempts": 1,
+      "callerExitCode": 1,
+      "callerFinishedAt": "2026-10-10T22:50:01.130Z",
+      "callerElapsedMs": 311687.5465
+    }
+  },
+  "confirmedBranch": {
+    "file": "D:/运营管理系统/tools/operations-system-control.ps1",
+    "lines": [
+      414,
+      423,
+      424,
+      426,
+      428,
+      431,
+      435,
+      495,
+      503,
+      699
+    ],
+    "statusActionUsesRefresh": true,
+    "workerAndAggregateChecksPassedInReportedSnapshot": true,
+    "healthFailureBranch": "Get-SystemHealthState default Unresponsive survived; Running and exact django_unavailable 503 degrade were not observed",
+    "livenessRequired": {
+      "statusCode": 200,
+      "ok": true,
+      "status": "live"
+    },
+    "helperRequired": {
+      "statusCode": 200,
+      "ok": true
+    },
+    "readinessRequired": {
+      "statusCode": 200,
+      "ok": true,
+      "status": "ready"
+    },
+    "onlyDegradedAlternative": {
+      "statusCode": 503,
+      "ok": false,
+      "status": "degraded",
+      "code": "django_unavailable"
+    },
+    "failedProbe": "unknown",
+    "readinessProbeMayHaveBeenSkipped": true,
+    "whichProbeHttpCodeElapsedJsonOrErrorRetained": false
+  },
+  "existingLogs": {
+    "supervisorWindows": [
+      {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+        "events": [
+          {
+            "line": 2135,
+            "at": "2026-10-10T22:48:07.571Z",
+            "event": "heartbeat",
+            "supervisorPid": 48744,
+            "childPid": null,
+            "role": null,
+            "exitCode": null,
+            "recordSha256": "4eea189daabf6b0c0b056a473d7063ffc678131b0ecfd2537cf1145681047e9d"
+          },
+          {
+            "line": 2136,
+            "at": "2026-10-10T22:49:07.578Z",
+            "event": "heartbeat",
+            "supervisorPid": 48744,
+            "childPid": null,
+            "role": null,
+            "exitCode": null,
+            "recordSha256": "b7207e63060d72d47035d06294ea185accc47f6aabd54faafe2ef7404e1975c8"
+          },
+          {
+            "line": 2137,
+            "at": "2026-10-10T22:50:07.582Z",
+            "event": "heartbeat",
+            "supervisorPid": 48744,
+            "childPid": null,
+            "role": null,
+            "exitCode": null,
+            "recordSha256": "cf935c8e5b299654c33eea664e3bcd8dff3d1e3619846686ecd8283a181040a1"
+          }
+        ]
+      },
+      {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-1.jsonl",
+        "events": []
+      }
+    ],
+    "workerSupervisorPid": 48744,
+    "supervisorReceiptCreatedAt": "2026-10-10T06:26:26.7917950Z",
+    "receiptReleaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "receiptManifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "lastWorkerSpawnReceipt": {
+      "at": "2026-10-10T17:43:24.475Z",
+      "supervisorPid": 48744,
+      "childPid": 52084
+    },
+    "workerOrHelperExitRestartOrLivenessTerminationInWindow": false,
+    "liveProcessEnumerationPerformed": false,
+    "workerStderrLastWriteBeforeWindow": true,
+    "wrangler": {
+      "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_17-43-27_776.log",
+      "windowLines": 135,
+      "windowHeaders": [
+        {
+          "at": "2026-10-10T22:49:04.701Z",
+          "level": "debug",
+          "line": 20260
+        },
+        {
+          "at": "2026-10-10T22:49:04.702Z",
+          "level": "debug",
+          "line": 20264
+        },
+        {
+          "at": "2026-10-10T22:49:14.708Z",
+          "level": "debug",
+          "line": 20268
+        },
+        {
+          "at": "2026-10-10T22:49:14.708Z",
+          "level": "debug",
+          "line": 20272
+        },
+        {
+          "at": "2026-10-10T22:49:24.709Z",
+          "level": "debug",
+          "line": 20276
+        },
+        {
+          "at": "2026-10-10T22:49:24.709Z",
+          "level": "debug",
+          "line": 20280
+        },
+        {
+          "at": "2026-10-10T22:49:34.722Z",
+          "level": "debug",
+          "line": 20284
+        },
+        {
+          "at": "2026-10-10T22:49:34.722Z",
+          "level": "debug",
+          "line": 20288
+        },
+        {
+          "at": "2026-10-10T22:49:44.725Z",
+          "level": "debug",
+          "line": 20292
+        },
+        {
+          "at": "2026-10-10T22:49:44.725Z",
+          "level": "debug",
+          "line": 20296
+        },
+        {
+          "at": "2026-10-10T22:49:48.722Z",
+          "level": "error",
+          "line": 20300
+        },
+        {
+          "at": "2026-10-10T22:49:48.723Z",
+          "level": "debug",
+          "line": 20306
+        },
+        {
+          "at": "2026-10-10T22:49:54.737Z",
+          "level": "debug",
+          "line": 20319
+        },
+        {
+          "at": "2026-10-10T22:49:54.737Z",
+          "level": "debug",
+          "line": 20323
+        },
+        {
+          "at": "2026-10-10T22:50:04.741Z",
+          "level": "debug",
+          "line": 20327
+        },
+        {
+          "at": "2026-10-10T22:50:04.741Z",
+          "level": "debug",
+          "line": 20331
+        },
+        {
+          "at": "2026-10-10T22:50:14.742Z",
+          "level": "debug",
+          "line": 20335
+        },
+        {
+          "at": "2026-10-10T22:50:14.742Z",
+          "level": "debug",
+          "line": 20339
+        },
+        {
+          "at": "2026-10-10T22:50:24.743Z",
+          "level": "debug",
+          "line": 20343
+        },
+        {
+          "at": "2026-10-10T22:50:24.743Z",
+          "level": "debug",
+          "line": 20347
+        },
+        {
+          "at": "2026-10-10T22:50:34.753Z",
+          "level": "debug",
+          "line": 20351
+        },
+        {
+          "at": "2026-10-10T22:50:34.754Z",
+          "level": "debug",
+          "line": 20355
+        },
+        {
+          "at": "2026-10-10T22:50:44.764Z",
+          "level": "debug",
+          "line": 20359
+        },
+        {
+          "at": "2026-10-10T22:50:44.765Z",
+          "level": "debug",
+          "line": 20363
+        },
+        {
+          "at": "2026-10-10T22:50:54.766Z",
+          "level": "debug",
+          "line": 20367
+        },
+        {
+          "at": "2026-10-10T22:50:54.766Z",
+          "level": "debug",
+          "line": 20371
+        },
+        {
+          "at": "2026-10-10T22:50:56.130Z",
+          "level": "error",
+          "line": 20375
+        },
+        {
+          "at": "2026-10-10T22:50:56.131Z",
+          "level": "debug",
+          "line": 20381
+        }
+      ],
+      "healthEndpointRecordMatches": [],
+      "completeRequestLoggingProved": false,
+      "classifiedErrorBlocks": [
+        {
+          "at": "2026-10-10T22:49:48.722Z",
+          "blockSha256": "389ce384e87ae7573aba61a9f5a09be8a81bfc4c396e387f5fcf12c9fad0a8aa",
+          "chars": 121,
+          "fixedOperation": "market netshop projection scheduled runner failed",
+          "publicError": "当前范围查询超时，请稍后重新读取。",
+          "exactFixedLiteralsOnly": true,
+          "containsDynamicUserUrlOrSecret": false,
+          "operationIsHealthProbe": false,
+          "sourceDeclaredHttpStatus": 503,
+          "sourceDeclaredCode": "source_not_ready",
+          "sourceDeclaredException": "OperationalError/cause.sqlstate57014/statement timeout",
+          "insideFinalStatusWindow": true,
+          "provesGetSystemHealthFailureCause": false
+        },
+        {
+          "at": "2026-10-10T22:50:56.130Z",
+          "blockSha256": "5d7569d532aecebb0e536f789389f2877d2d9af4e4f66db52f650dcc66dbd0ff",
+          "chars": 121,
+          "fixedOperation": "market netshop projection scheduled runner failed",
+          "publicError": "当前范围查询超时，请稍后重新读取。",
+          "exactFixedLiteralsOnly": true,
+          "containsDynamicUserUrlOrSecret": false,
+          "operationIsHealthProbe": false,
+          "sourceDeclaredHttpStatus": 503,
+          "sourceDeclaredCode": "source_not_ready",
+          "sourceDeclaredException": "OperationalError/cause.sqlstate57014/statement timeout",
+          "insideFinalStatusWindow": false,
+          "provesGetSystemHealthFailureCause": false
+        }
+      ],
+      "knownNetworkOrProxyErrorMatches": []
+    }
+  },
+  "staticBudgetFinding": {
+    "confirmed": true,
+    "controlProbeDefaultMs": 3000,
+    "controlTimeoutLines": [
+      370,
+      373,
+      383
+    ],
+    "workerReadinessDefaultMs": 4000,
+    "workerReadinessTimeoutLines": [
+      30,
+      31,
+      32,
+      34,
+      48
+    ],
+    "workerReadinessServiceCount": 23,
+    "supervisorHealthProbeMs": 5000,
+    "supervisorTimeoutLines": [
+      27,
+      31
+    ],
+    "sources": [
+      "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/lib/django/backend-readiness.ts",
+      "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/worker/index.ts"
+    ],
+    "trigger": "An otherwise valid readiness response arriving after3s but before the configured4s inner budget is finished can be cut off by Control and collapsed to Unresponsive.",
+    "thisActualFailureCauseProved": false,
+    "noCpuOomConnectionLossResourceContentionOrObserverCauseInferred": true,
+    "workerReadinessParallelProbes": 6
+  },
+  "context": {
+    "homepageWindow": {
+      "firstAt": "2026-10-10T22:49:01.637Z",
+      "lastAt": "2026-10-10T22:50:59.434Z",
+      "samples": 48,
+      "http200": 48,
+      "target": "GET /, not health endpoints",
+      "provesHealth": false,
+      "observerBodyCancellationCauseProved": false
+    },
+    "laterExistingWatchdog": {
+      "at": "2026-10-10T22:55:27.4077646+00:00",
+      "system": "Running",
+      "probes": {
+        "ready": {
+          "ok": true,
+          "status": 200
+        },
+        "live": {
+          "ok": true,
+          "status": 200
+        },
+        "homepage": {
+          "ok": true,
+          "status": 200
+        },
+        "helper": {
+          "ok": true,
+          "status": 200
+        }
+      },
+      "isSameFailureInstant": false,
+      "overridesFailure": false,
+      "triggeredByReviewer": false
+    }
+  },
+  "repairRequirements": [
+    {
+      "id": "UB01",
+      "file": "D:/运营管理系统/tools/operations-system-control.ps1",
+      "lines": [
+        370,
+        414
+      ],
+      "requirement": "Persist a bounded per-probe status/parse/outcome/elapsed/timeout record before collapsing into Get-SystemHealthState. Use fixed endpoint enums only; retain native process/stdout hash, no reason/body/URLs/customer payload. Preserve live/helper/ready predicates and exact503django alternative.",
+      "requiresIsolatedTestsAndNonAuthorReview": true
+    },
+    {
+      "id": "UB02",
+      "file": "D:/运营管理系统/tools/operations-system-control.ps1",
+      "lines": [
+        373,
+        383
+      ],
+      "relatedSource": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/lib/django/backend-readiness.ts",
+      "requirement": "Make the chosen outer timeout contract consistent with the4s inner readiness budget plus bounded overhead, or explicitly reduce the inner budget with matching tests. Do not broaden readiness success or use homepage/aggregate success to hide a timed-out probe.",
+      "negativeCases": [
+        "well-formed readiness3.2-3.8s inside inner4s",
+        "outer and inherited total deadline exhaustion",
+        "live/helper failure",
+        "malformed/incorrect health payload",
+        "exact503django and other503 distinguish",
+        "wrong release and false/missing domain remain rejected"
+      ],
+      "thisReviewChangedCodeOrRanTests": false
+    }
+  ],
+  "limits": [
+    "Captured snapshots are read as bounded original artifacts; independent acceptance of this reviewer-authored capture/protocol is handled by preparation_review.",
+    "No per-probe record survives for the22:50 native call. Existing framework/supervisor logs cannot distinguish which of three health probes failed.",
+    "No child exit/restart was found in the selected window; that does not prove every external failure path was impossible or every A cleanup path safe.",
+    "Mutable log SHA identifies an exact read snapshot; original logs keep appending. No arbitrary log payload was printed or copied to Git.",
+    "Backend Ready/12 booleans, homepage200 and later watchdog Running do not erase Unresponsive or prove health at the failed instant.",
+    "No new approval/execution/retry/reconciliation/owner release is recommended or performed by this review.",
+    "The two error blocks were subsequently completely matched to fixed scheduled-netshop-runner and backend public timeout literals, with matching installed netshop-reader warning lines. A co-occurring SQL statement timeout is confirmed; no query text, request payload or business rows were inspected, and no causal link to a particular health probe is proven."
+  ],
+  "sources": [
+    {
+      "path": "D:/运营管理系统/tools/operations-system-control.ps1",
+      "bytes": 42443,
+      "sha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "lastWriteTimeUtc": "2026-10-10T06:19:36.817Z",
+      "snapshotAt": "2026-10-10T22:58:48.173Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/worker/index.ts",
+      "bytes": 8563,
+      "sha256": "f288ece19891d54d592354e6f4a44e8333898e6845e3e25f95fe859f4489239b",
+      "lastWriteTimeUtc": "2026-09-28T11:20:00.180Z",
+      "snapshotAt": "2026-10-10T22:58:48.174Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/lib/django/backend-readiness.ts",
+      "bytes": 3637,
+      "sha256": "675ca76ae0198002e15b2ba2ae1a72860d29ec8b43ece391649986ceabcf6298",
+      "lastWriteTimeUtc": "2026-09-28T11:19:59.738Z",
+      "snapshotAt": "2026-10-10T22:58:48.174Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/helper/tmall-workflow-helper.mjs",
+      "bytes": 1524126,
+      "sha256": "41f428a77b4919971402e29b1f1c2e581f48ec83e7f2ba02e25d1acbaf538cdd",
+      "lastWriteTimeUtc": "2026-10-10T01:48:25.703Z",
+      "snapshotAt": "2026-10-10T22:58:48.178Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/tools/start-local-worker.mjs",
+      "bytes": 25284,
+      "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f",
+      "lastWriteTimeUtc": "2026-09-28T11:20:00.157Z",
+      "snapshotAt": "2026-10-10T22:58:48.179Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/tools/worker-local-runtime-supervisor.mjs",
+      "bytes": 26690,
+      "sha256": "cb34aec172c4f96d54043b12273e8dca8ac7f70fe8102212ccc7ba35aa18e3a8",
+      "lastWriteTimeUtc": "2026-09-28T20:29:54.485Z",
+      "snapshotAt": "2026-10-10T22:58:48.179Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+      "bytes": 735749,
+      "sha256": "570b2e7f7ed286ca92ec9602835b344d9e63854781f6170cabf5ffa59ddb1d04",
+      "lastWriteTimeUtc": "2026-10-10T22:58:07.639Z",
+      "snapshotAt": "2026-10-10T22:58:48.181Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-1.jsonl",
+      "bytes": 1048409,
+      "sha256": "5396d4e881978ac9a7c53f285d708c7794dd5b664b076272c8989e135167222b",
+      "lastWriteTimeUtc": "2026-10-09T08:33:35.523Z",
+      "snapshotAt": "2026-10-10T22:58:48.185Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/worker-20261010-142626.stderr.log",
+      "bytes": 122236,
+      "sha256": "ab0940db111adefa871cac47e280a8f8894ccbd2246201aa8fae0a1b4680c0e9",
+      "lastWriteTimeUtc": "2026-10-10T22:57:41.252Z",
+      "snapshotAt": "2026-10-10T22:58:48.187Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-process.json",
+      "bytes": 534,
+      "sha256": "a319e45850aaae5b2e65d0642e55603c31b23881c0ab8750045a23782dc4cc9b",
+      "lastWriteTimeUtc": "2026-10-10T06:26:27.436Z",
+      "snapshotAt": "2026-10-10T22:58:48.187Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_17-43-27_776.log",
+      "bytes": 669476,
+      "sha256": "a512a4088051f2a56bb5b1f134e932bf501b66d1eb4df6181ef5e8255ecad535",
+      "lastWriteTimeUtc": "2026-10-10T22:58:45.063Z",
+      "snapshotAt": "2026-10-10T22:58:48.190Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-final-readiness-20261011-verified-final/production/status-evidence/48020-8332388f-5a07-435d-b37b-575da5ca4923.json",
+      "bytes": 1409,
+      "sha256": "89bd333de183aa4099b917a2e41fb2fb4bdda417b4f73460dbf5b63b94d8d1d3",
+      "lastWriteTimeUtc": "2026-10-10T22:48:53.335Z",
+      "snapshotAt": "2026-10-10T22:58:48.191Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-final-readiness-20261011-verified-final/production/status-evidence/48772-4bfb8187-860d-4f6b-a88a-d766501448cc.json",
+      "bytes": 1420,
+      "sha256": "c0e6c1b1fe6dc25946a542314b909a4b7d650fc96d3d6c234c495c2bec6734dd",
+      "lastWriteTimeUtc": "2026-10-10T22:50:00.770Z",
+      "snapshotAt": "2026-10-10T22:58:48.192Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-final-readiness-20261011-verified-final/production/result-failed.json",
+      "bytes": 3833,
+      "sha256": "d231a6f3c3e8abc60255862148143d40681c77d70706415ce03db70a74d09491",
+      "lastWriteTimeUtc": "2026-10-10T22:50:01.074Z",
+      "snapshotAt": "2026-10-10T22:58:48.192Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-final-readiness-20261011-verified-final/execution/finished.json",
+      "bytes": 390,
+      "sha256": "0759823c5c595039eff96aa20450b6ad29de7f95fc8fca452c558cab588954a7",
+      "lastWriteTimeUtc": "2026-10-10T22:50:01.131Z",
+      "snapshotAt": "2026-10-10T22:58:48.193Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-final-readiness-20261011-verified-final/entry-observation/samples.jsonl",
+      "bytes": 32038,
+      "sha256": "d295098f568149a38b22514e7d5b58442355df056f4b9d566d96b23b5d340878",
+      "lastWriteTimeUtc": "2026-10-10T22:51:14.489Z",
+      "snapshotAt": "2026-10-10T22:58:48.193Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/operations-watchdog/latest.json",
+      "bytes": 1438,
+      "sha256": "692c252feba41845e53a9bfd64aeaf095dcc38a96eeb1f6f2c03d851dfc07f9d",
+      "lastWriteTimeUtc": "2026-10-10T22:58:09.403Z",
+      "snapshotAt": "2026-10-10T22:58:48.194Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/logs/django-netshop-reader.20261010-142407-ebd29974.stderr.log",
+      "bytes": 174339,
+      "sha256": "aefafafaff2776815ff0ea6f3143264bb42743317e54ab60a040535c85996c6a",
+      "lastWriteTimeUtc": "2026-10-10T23:04:25.715Z",
+      "snapshotAt": "2026-10-10T23:05:12.329Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/app/backend/netshop/views.py",
+      "bytes": 30351,
+      "sha256": "af9205ae8c43fe405e164b418ab2d338396c8abedc5a053027ab7fc238f465bb",
+      "lastWriteTimeUtc": "2026-10-05T18:44:00.265Z",
+      "snapshotAt": "2026-10-10T23:05:12.329Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/app/backend/teruisi_backend/settings.py",
+      "bytes": 21645,
+      "sha256": "3d4a7f00d0eafdab86c58927ce1482eddc4436c8fbe4f01925e435c93e673180",
+      "lastWriteTimeUtc": "2026-09-28T20:29:54.416Z",
+      "snapshotAt": "2026-10-10T23:05:12.330Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/lib/market/django-netshop-projection-runner.ts",
+      "bytes": 4192,
+      "sha256": "1c6e0a503201439b0ad80261768b5973f3c87b28caf7b8d0114d8f4d42e41edc",
+      "lastWriteTimeUtc": "2026-09-28T11:19:59.797Z",
+      "snapshotAt": "2026-10-10T23:05:12.330Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/lib/django/netshop-service.ts",
+      "bytes": 13871,
+      "sha256": "855da1367eba65f4a812f3cbc6442c21cb554ac341a94292635425ec2930bd4c",
+      "lastWriteTimeUtc": "2026-10-01T16:39:35.372Z",
+      "snapshotAt": "2026-10-10T23:05:12.331Z",
+      "rawLogCopiedToGit": false
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/lib/django/netshop-consumer-reader.ts",
+      "bytes": 6130,
+      "sha256": "c5108d21884e9a940bbd084c3192c528a2f2ea4afb2bc2b77d2c9d3918e0d883",
+      "lastWriteTimeUtc": "2026-09-28T11:19:59.742Z",
+      "snapshotAt": "2026-10-10T23:05:12.331Z",
+      "rawLogCopiedToGit": false
+    }
+  ],
+  "backgroundQueryFailure": {
+    "confirmed": true,
+    "healthProbe": false,
+    "backendLog": "D:/teruisi-runtime/django-sales/logs/django-netshop-reader.20261010-142407-ebd29974.stderr.log",
+    "backendLogSnapshotSha256": "aefafafaff2776815ff0ea6f3143264bb42743317e54ab60a040535c85996c6a",
+    "facts": [
+      {
+        "localTimestamp": "2026-10-11 06:49:48",
+        "utcTimestamp": "2026-10-10T22:49:48Z",
+        "timeZone": "Asia/Shanghai from installed settings.py181",
+        "warning": "Netshop query exceeded statement timeout",
+        "warningLine": 1516,
+        "warningLineSha256": "4f4c76d9a530399767ea02d7d7994dbc1b9131183b4a4ddceec55c5df9c85fe3",
+        "nextLine": 1517,
+        "nextLineSha256": "d849f561bbb3fd4486585c3e636aa26c49646db264373948e6c0850b5ee33f84",
+        "knownConsumerPath": true,
+        "knownServiceUnavailable": true
+      },
+      {
+        "localTimestamp": "2026-10-11 06:50:56",
+        "utcTimestamp": "2026-10-10T22:50:56Z",
+        "timeZone": "Asia/Shanghai from installed settings.py181",
+        "warning": "Netshop query exceeded statement timeout",
+        "warningLine": 1518,
+        "warningLineSha256": "43079fceda7028cb87f41f53a0fe9b3b0ac35904929a2241b2761e8dbcff4c88",
+        "nextLine": 1519,
+        "nextLineSha256": "fa7587e9f11c108aca0988e8f3e40c3b6b849c2e13dd551c1938f65314e91222",
+        "knownConsumerPath": true,
+        "knownServiceUnavailable": true
+      }
+    ],
+    "sourceLocations": [
+      {
+        "path": "D:/teruisi-runtime/django-sales/app/backend/netshop/views.py",
+        "lines": [
+          209,
+          211,
+          212,
+          214,
+          215,
+          216
+        ]
+      },
+      {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/worker/index.ts",
+        "lines": [
+          45,
+          53,
+          54,
+          81,
+          82,
+          83
+        ]
+      },
+      {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/lib/market/django-netshop-projection-runner.ts",
+        "lines": [
+          76,
+          77,
+          84
+        ]
+      },
+      {
+        "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot/lib/django/netshop-service.ts",
+        "lines": [
+          93,
+          210,
+          212,
+          215,
+          217,
+          222
+        ]
+      }
+    ],
+    "queryTextOrRowsRead": false,
+    "newSqlExecuted": false,
+    "sameInstantAsFirstHealthWindow": true,
+    "actualCauseOfUnresponsiveProved": false
+  },
+  "lastSupplementedAt": "2026-10-10T23:05:12.331Z"
+}
