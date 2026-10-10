@@ -1,0 +1,60 @@
+{
+  "version": "teruisi-offline-copy-reader-independent-review-v1",
+  "status": "passed",
+  "scope": "Final source review and synthetic fixtures only; actual full six-table offline post authentication pending",
+  "reviewedAt": "2026-10-10T11:41:25.000Z",
+  "reviewer": "/root/preparation_review",
+  "parserSha256": "0d8bc1bc4f10abec8c5ac74c32144471647835cf3353da24b1a8777738f679de",
+  "readerSha256": "ee945fd704acf7e9fdc3bdf600448ac23c3daf0ad2465b43ad7b9111e6b640f8",
+  "originalProtocolSourceSha256": "ee86b4a48eff411616256556c83734cd5aa282f7fc75551facf0d691336de8b8",
+  "originalProtocol": "UTC row_to_json UTF8 ->32byte rowSHA ->binary sort with duplicates ->concatenated binary SHA256",
+  "independentTests": {
+    "unchangedOriginalFixtureSha256": "3d0a7baecbb48ba7d160a622568da201bfa083447059fb982fe0a07e2976a393",
+    "original10RerunPassed": 10,
+    "utcSupplementFixtureSha256": "8d516cea02910e1d35b299feadede70408c10e17a125aed248bb1d964b2d2407",
+    "utcSupplementPassed": 6,
+    "totalPassed": 16,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "durationMs": 136.5673,
+    "finalLogSha256": "db761f21fbee9be65a9c641fd80e5897f33bbf922a70d58cfef767bbf171c3db"
+  },
+  "firstEvidence": {
+    "reviewBytePreservedAs": "OFFLINE_READER_INDEPENDENT_REVIEW_FIRST.md",
+    "reviewRawSha256": "724fd91a53a379172d570049fcbb00a5bd8df08065fa77c28a2506bd06c73601",
+    "firstTestsPassed": 7,
+    "firstTestsFailed": 3,
+    "firstTestLogSha256": "477d54b291927d68695dac3e2dd0407afb7e011aa3803d1224f4bbd62b935c5a",
+    "firstActualExtractionRemainsFailed": true,
+    "firstActualStdoutBytes": 280594293,
+    "actualExtractionRerunByReviewer": false
+  },
+  "closedFindings": [
+    "Exact BigInt instant comparison and full cutoff text retain submillisecond and7digit.NETtick ordering",
+    "Response numeric identities HMACed; scalar types checked",
+    "Nested response date free text rejected by strictISO calendar validation",
+    "UTC timestamp reconstruction follows original collect session while preserving microseconds and fail-closed fullpost SHA"
+  ],
+  "boundaries": {
+    "allSixFullPostRootsStillMandatory": true,
+    "offlineFileOutputOnlyNoDbnameOrSqlExecution": true,
+    "pgEnvironmentCleared": true,
+    "rawRowsNotPersistedByReviewedCode": true,
+    "productionDatabaseConnectionByReviewer": false,
+    "realPgRestoreRunByReviewer": false,
+    "privateKeyOrRawCustomerDataReadByReviewer": false,
+    "authorImplementationChangedByReviewer": false,
+    "actualSixTablePostAuthenticatedByThisReview": false,
+    "beforePayloadRecovered": false,
+    "historicalAuthorizationProven": false,
+    "fullComparisonClosed": false,
+    "fullAbBatchClosed": false
+  },
+  "limitations": [
+    "Synthetic fixed bytes do not cover all actual PostgreSQL output forms; actual six post rows/root matches are still required.",
+    "No raw SQL/key/customer row or current production interface was read/called. First actual failure metadata only was read.",
+    "First root mismatch cause was not independently established from raw data; UTC protocol correction is justified by deployed collector310, not by relaxing expected root.",
+    "HMAC text correlation, time partition and partial prefix matches do not reconstruct mutable before values or historical authorization."
+  ]
+}

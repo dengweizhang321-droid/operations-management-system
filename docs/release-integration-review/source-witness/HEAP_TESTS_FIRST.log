@@ -1,0 +1,31 @@
+✔ Castagnoli CRC known vector and critical relation map (3.2563ms)
+✔ fixed catalogue identity and PG17 relation offsets (1.0821ms)
+✔ invalid page version, bounds, old format and arity refuse (4.1394ms)
+✖ short text/int8 µs decode is exact; not a visibility verdict (0.3137ms)
+✔ null bitmap consumes no bytes for NULL and retains varlena empty string (0.9963ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 102.2864
+
+✖ failing tests:
+
+test at docs\release-integration-review\source-witness\heap-layout.test.mjs:8:1
+✖ short text/int8 µs decode is exact; not a visibility verdict (0.3137ms)
+  RangeError [ERR_OUT_OF_RANGE]: The value of "offset" is out of range. It must be >= 0 and <= 112. Received 120
+      at boundsError (node:internal/buffer:92:9)
+      at checkBounds (node:internal/buffer:61:5)
+      at checkInt (node:internal/buffer:80:3)
+      at writeBigU_Int64LE (node:internal/buffer:585:3)
+      at Buffer.writeBigInt64LE (node:internal/buffer:637:10)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/heap-layout.test.mjs:8:348)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19) {
+    code: 'ERR_OUT_OF_RANGE'
+  }

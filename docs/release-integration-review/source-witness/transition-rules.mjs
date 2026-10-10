@@ -1,0 +1,36 @@
+// Exact transition rules; input must first match all frozen table roots.
+// This module proves byte/behavior consistency, not a lost historical signature.
+import assert from 'node:assert/strict';import {createHash} from 'node:crypto';
+import {timestamp,instantNs} from './copy-witness.mjs';
+const sha=v=>createHash('sha256').update(v).digest('hex');
+const same=(a,b)=>assert.deepEqual(a,b);
+const canonical=v=>{if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v))return '['+v.map(canonical).join(',')+']';return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';};
+const isoMs=v=>new Date(Number(instantNs(timestamp(v))/1000000n)).toISOString();
+const uuidHex=v=>assert.match(v,/^[a-f0-9]{12}4[a-f0-9]{3}[89ab][a-f0-9]{15}$/);
+const uuid=v=>assert.match(v,/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
+function between(at,start,end){assert.ok(instantNs(timestamp(at))>=instantNs(timestamp(start)));assert.ok(instantNs(timestamp(at))<=instantNs(timestamp(end)));}
+export function validateTransitions({beforeTasks,beforeRevision,rows,internalMarketActor}){
+  assert.equal(beforeTasks.length,90);assert.equal(rows.workflow_tasks.length,90);assert.equal(rows.workflow_data_revisions.length,1);
+  assert.equal(rows.market_write_request_receipts.length,193);assert.equal(rows.workflow_write_request_receipts.length,4);assert.equal(rows.workflow_task_comments.length,1);assert.equal(rows.workflow_task_activity_logs.length,4);
+  const old=new Map(beforeTasks.map(r=>[r.id,r])),now=new Map(rows.workflow_tasks.map(r=>[r.id,r]));assert.equal(old.size,90);assert.equal(now.size,90);same([...old.keys()].sort(),[...now.keys()].sort());
+  const changed=[];for(const r of now.values()){const b=old.get(r.id),fields=Object.keys(r).filter(n=>['created_at','updated_at','deleted_at'].includes(n)?timestamp(r[n])!==timestamp(b[n]):r[n]!==b[n]);
+    if(!fields.length)continue;assert.ok(fields.every(n=>['status','version','mutation_token','updated_by','updated_at'].includes(n)));for(const n of ['status','version','mutation_token','updated_at'])assert.ok(fields.includes(n));assert.equal(b.status,'工作中');assert.equal(r.status,'已完成');assert.equal(b.version,'2');assert.equal(r.version,'3');assert.equal(r.deleted_at,null);assert.equal(r.deleted_by,'');uuidHex(r.mutation_token);assert.notEqual(r.mutation_token,b.mutation_token);changed.push(r);
+  }assert.equal(changed.length,3);assert.equal(new Set(changed.map(r=>r.mutation_token)).size,3);
+  const requests=rows.workflow_write_request_receipts;assert.equal(new Set(requests.map(r=>r.request_id)).size,4);const patch=requests.filter(r=>r.method==='PATCH'),post=requests.filter(r=>r.method==='POST');assert.equal(patch.length,3);assert.equal(post.length,1);const actor=post[0].actor_email;assert.equal(actor,actor.trim().toLowerCase());assert.ok(actor.length>0);
+  for(const r of requests){assert.equal(r.actor_email,actor);assert.equal(r.status,'completed');assert.equal(timestamp(r.created_at),timestamp(r.updated_at));uuidHex(r.claim_token);assert.ok(instantNs(timestamp(r.expires_at))>instantNs(timestamp(r.created_at)));}
+  const seen=new Set(),events=[];
+  for(const req of patch){assert.equal(req.path,'/api/workflow/tasks');assert.equal(req.response_status,'200');const payload=JSON.parse(req.response_payload);same(Object.keys(payload),['item']);const item=payload.item,r=now.get(item.id);assert.ok(r&&changed.includes(r)&&!seen.has(r.id));seen.add(r.id);
+    assert.equal(req.query_sha256,sha('id='+encodeURIComponent(r.id)));assert.equal(req.body_sha256,sha(JSON.stringify({status:r.status,expectedVersion:Number(old.get(r.id).version)})));assert.equal(r.updated_by,actor);uuid(r.id);between(r.updated_at,req.created_at,req.expires_at);
+    same(item,{id:r.id,title:r.title,workContent:r.work_content,category:r.category,owner:r.owner,shopName:r.shop_name,startDate:r.start_date,due:r.due_date,status:r.status,priority:r.priority,source:r.created_by==='system'?'系统预置':'手动录入',version:Number(r.version),createdAt:isoMs(r.created_at),updatedAt:isoMs(r.updated_at),attachments:[]});
+    const logs=rows.workflow_task_activity_logs.filter(a=>a.task_id===r.id&&a.action==='task.status_changed');assert.equal(logs.length,1);const log=logs[0];uuid(log.id);assert.equal(log.actor_email,actor);assert.equal(log.summary,'更新了工作事项状态');same(JSON.parse(log.metadata),{changedFields:['status'],version:3,status:'已完成'});between(log.created_at,r.updated_at,req.expires_at);events.push({at:log.created_at,reason:{operation:'task_update',id:r.id,version:3}});
+  }
+  const c=rows.workflow_task_comments[0],req=post[0];uuid(c.id);assert.ok(now.has(c.task_id));assert.equal(c.created_by,actor);assert.equal(req.path,'/api/workflow/tasks/'+encodeURIComponent(c.task_id)+'/comments');assert.equal(req.query_sha256,sha(''));assert.equal(req.body_sha256,sha(JSON.stringify({content:c.content})));assert.equal(req.response_status,'201');assert.ok(c.content.length>0&&c.content.length<=2000&&c.content.trim()===c.content);between(c.created_at,req.created_at,req.expires_at);
+  same(JSON.parse(req.response_payload),{item:{id:c.id,taskId:c.task_id,content:c.content,createdBy:c.created_by,createdAt:isoMs(c.created_at)}});
+  const logs=rows.workflow_task_activity_logs.filter(a=>a.action==='comment.created');assert.equal(logs.length,1);const log=logs[0];uuid(log.id);assert.equal(log.task_id,c.task_id);assert.equal(log.actor_email,actor);assert.equal(log.summary,'添加了评论');same(JSON.parse(log.metadata),{commentId:c.id});between(log.created_at,c.created_at,req.expires_at);events.push({at:log.created_at,reason:{operation:'comment_create',id:c.id}});
+  const revision=rows.workflow_data_revisions[0];assert.equal(beforeRevision.domain,'workflow');assert.equal(revision.domain,'workflow');assert.equal(beforeRevision.revision,'360');assert.equal(revision.revision,'364');events.sort((a,b)=>instantNs(timestamp(a.at))<instantNs(timestamp(b.at))?-1:1);assert.equal(new Set(events.map(e=>timestamp(e.at))).size,4);
+  const final=events[3];assert.equal(revision.source_digest,sha(canonical({previous:363,reason:final.reason})));assert.ok(instantNs(timestamp(revision.updated_at))>=instantNs(timestamp(final.at)));
+  const finalReq=patch.find(r=>JSON.parse(r.response_payload).item.id===final.reason.id);assert.ok(finalReq);between(revision.updated_at,final.at,finalReq.expires_at);
+  const marketBody=JSON.stringify({contractVersion:'market-command-v1',domain:'images',command:{action:'claim_image_cache',jobId:'',limit:8}}),marketIds=new Set();
+  for(const r of rows.market_write_request_receipts){assert.ok(!marketIds.has(r.request_id));marketIds.add(r.request_id);assert.equal(r.actor_email,internalMarketActor);assert.equal(r.method,'POST');assert.equal(r.path,'/api/market/commands');assert.equal(r.body_sha256,sha(marketBody));assert.equal(r.query_sha256,sha(''));assert.equal(r.status,'completed');assert.equal(r.response_status,'200');same(JSON.parse(r.response_payload),{ok:true,result:{job:null,claims:[]}});assert.ok(instantNs(timestamp(r.completed_at))>=instantNs(timestamp(r.created_at)));}
+  return {byteTransitionsConsistent:true,workflowWrites:4,changedTasks:3,unchangedTasks:87,newComments:1,marketIdleClaims:193,historicalSignedEnvelopesRecovered:false,authorizationIndependentlyProved:false,originalStrictEquality:false};
+}

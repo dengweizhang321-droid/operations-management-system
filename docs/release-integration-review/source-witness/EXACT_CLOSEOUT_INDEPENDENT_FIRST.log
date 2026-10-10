@@ -1,0 +1,58 @@
+✔ independent healthy synthetic runtime preserves old19 and runs only exact20/21 (412.0924ms)
+✔ independent absent witness table market_write_request_receipts rejects (7.6561ms)
+✔ independent absent witness table workflow_write_request_receipts rejects (6.9668ms)
+✔ independent absent witness table workflow_task_comments rejects (8.4952ms)
+✔ independent absent witness table workflow_task_activity_logs rejects (15.7119ms)
+✔ independent surplus witness table rejects (6.8907ms)
+✔ independent altered original collector contract rejects before metadata append (140.6856ms)
+✔ independent marker-only passed result cannot close acceptance or release owner (272.6578ms)
+✔ independent receipt/process exit evidence missing fails closed (269.488ms)
+✔ independent owner changed during admission does not append acceptance (226.7028ms)
+✔ independent foreign journal append CAS rejects without source acceptance (228.2424ms)
+✖ independent source pin drift during final read does not complete or release (334.2042ms)
+✔ independent two concurrent invocations serialize and cannot replay readonly tail (430.2658ms)
+✖ independent no-op ownership callback must not be reported as released (309.0095ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 12
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2912.8361
+
+✖ failing tests:
+
+test at docs\release-integration-review\source-witness\exact-closeout-independent.test.mjs:44:1
+✖ independent source pin drift during final read does not complete or release (334.2042ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/exact-closeout-independent.test.mjs:44:326)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\source-witness\exact-closeout-independent.test.mjs:46:1
+✖ independent no-op ownership callback must not be reported as released (309.0095ms)
+  AssertionError [ERR_ASSERTION]: No-op metadata release was accepted
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/exact-closeout-independent.test.mjs:46:218)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

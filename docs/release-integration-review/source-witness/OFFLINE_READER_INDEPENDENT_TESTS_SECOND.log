@@ -1,0 +1,18 @@
+✔ manual PG row bytes retain physical key order, UTF8 strings, JSONB spaces and bigint tokens (1.6082ms)
+✔ 32-byte binary sort is independent of text hex and preserves repeated row hashes (0.5311ms)
+✔ COPY literal null, UTF8 byte octal and actual separator versus escape are distinct (0.9938ms)
+✔ physical column reordering cannot authenticate against unchanged original post root (3.6933ms)
+✔ one post hash mismatch prevents a successful six-table result (3.7547ms)
+✔ prefix agreement never declares mutable before or full comparison recovered (1.5833ms)
+✔ creation and mutation after cutoff within same millisecond must remain new/modified (2.1879ms)
+✔ a numeric response identity must be rejected or HMACed, never persisted literally (0.361ms)
+✔ a permissively parseable free-form date with private annotation must be rejected (0.3408ms)
+✔ duplicate request identity refuses even when caller constructs matching duplicate root (0.8866ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 120.4883

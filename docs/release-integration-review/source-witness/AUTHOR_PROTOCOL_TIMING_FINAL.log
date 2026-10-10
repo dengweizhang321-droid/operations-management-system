@@ -1,0 +1,23 @@
+✔ actual authenticated transition data passes pure typed rules, never old equality (28.3355ms)
+✔ in-memory success only runs20/21; old19 remains unknown; separate completion truth (282.7244ms)
+✔ missing new approval rejects without ownership release (58.2559ms)
+✔ old approval item rejects without ownership release (51.1003ms)
+✔ approval omits exact changes rejects without ownership release (46.5641ms)
+✔ scope hash tamper rejects without ownership release (46.7489ms)
+✔ wrong old journal head rejects without ownership release (113.9729ms)
+✔ tail already started rejects without ownership release (114.0592ms)
+✔ old required step missing rejects without ownership release (106.7726ms)
+✔ pin drift rejects without ownership release (94.9965ms)
+✔ stale dynamic admission rejects without ownership release (138.175ms)
+✔ wrong dynamic binding rejects without ownership release (143.753ms)
+✔ unknown first tail rejects without ownership release (179.2526ms)
+✔ second invocation cannot replay completed supplement (313.467ms)
+✔ current approval time never resets original approval (53.5437ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1986.5116

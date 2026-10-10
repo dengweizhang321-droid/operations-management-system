@@ -1,0 +1,89 @@
+✖ independent invalid external varlena tag is rejected rather than silently borrowed (2.7327ms)
+✖ independent compressed varlena shorter than compression metadata is rejected (0.3393ms)
+✖ independent duplicate normal line pointers are invalid page provenance (0.347ms)
+✖ independent unaligned normal tuple storage is rejected (0.3008ms)
+✔ independent fatal UTF8 and truncated long varlena refuse (10.2811ms)
+✔ independent negative microsecond timestamp preserves floor semantics (1.8378ms)
+✔ independent valid long varlena alignment and empty short text (0.2661ms)
+✔ independent actual original search refuses two accepted distinct synthetic datasets (9.7598ms)
+✔ independent actual original search bounds combinations and exposes no-match (16.0989ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 5
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 143.2499
+
+✖ failing tests:
+
+test at docs\release-integration-review\source-witness\heap-layout-independent.test.mjs:8:1
+✖ independent invalid external varlena tag is rejected rather than silently borrowed (2.7327ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/heap-layout-independent.test.mjs:8:140)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\source-witness\heap-layout-independent.test.mjs:9:1
+✖ independent compressed varlena shorter than compression metadata is rejected (0.3393ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/heap-layout-independent.test.mjs:9:147)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\source-witness\heap-layout-independent.test.mjs:10:1
+✖ independent duplicate normal line pointers are invalid page provenance (0.347ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/heap-layout-independent.test.mjs:10:127)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\source-witness\heap-layout-independent.test.mjs:11:1
+✖ independent unaligned normal tuple storage is rejected (0.3008ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/heap-layout-independent.test.mjs:11:203)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }

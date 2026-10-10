@@ -1,0 +1,29 @@
+✔ COPY null and literal backslash N differ; tabs/control/UTF8 octal and hex survive (3.3421ms)
+✔ invalid COPY escape/UTF8/NUL refuses "bad\\" (0.9039ms)
+✔ invalid COPY escape/UTF8/NUL refuses "\\x" (0.261ms)
+✔ invalid COPY escape/UTF8/NUL refuses "\\q" (0.1348ms)
+✔ invalid COPY escape/UTF8/NUL refuses "\\777" (5.493ms)
+✔ invalid COPY escape/UTF8/NUL refuses "\\x00" (0.2961ms)
+✔ invalid COPY escape/UTF8/NUL refuses "\\xff" (0.1692ms)
+✔ PG timestamp canonical rendering retains full microseconds and offset (0.5035ms)
+✔ PG physical order, raw JSONB formatting, null and exact integers have fixed JSON bytes (0.5694ms)
+✔ table root sorts binary digests and includes duplicates (1.5968ms)
+✔ redaction never persists actor, title/comment/body, private key names or path IDs (2.0561ms)
+✔ complete six-table fixture authenticates post profile and remains unclosed (3.2302ms)
+✔ tampered full post fingerprint (2.4102ms)
+✔ missing table (2.2549ms)
+✔ truncated COPY (1.978ms)
+✔ duplicate table section (2.0185ms)
+✔ unknown table (0.4318ms)
+✔ wrong physical column set (0.556ms)
+✔ wrong arity (0.4727ms)
+✔ duplicate row identity (0.8402ms)
+✔ row and line limits are enforced (0.7649ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 168.3274
