@@ -1,0 +1,294 @@
+{
+  "version": "teruisi-before-image-independent-review-v1",
+  "reviewedAt": "2026-10-10T14:55:59.864Z",
+  "independent": true,
+  "acceptedEvidence": true,
+  "productionExecutionApproved": false,
+  "blockingFindings": [],
+  "beforeTasksRootMatched": true,
+  "beforeRevisionRootMatched": true,
+  "status": "accepted-scoped-before-data-evidence-not-production-execution",
+  "scope": "Already-captured private heap/WAL-FPI and reconstructed90-task/1-control data; neither a production executable candidate nor a historical authorization assertion.",
+  "evidenceRoot": "E:/codex-artifacts/release-integration-review-20261010/AB-source-witness-20261010-1139-final",
+  "realVerificationPath": "D:\\.codex\\worktrees\\release-ab-ui-acceptance\\运营管理系统\\docs\\release-integration-review\\source-witness\\BEFORE_IMAGE_INDEPENDENT_REAL.json",
+  "realVerificationSha256": "e73423c505d4d12ccbd19fd739a8d6f72d6c8faa3f4dc34f2aea5e2e39dd1e8c",
+  "beforeTasksRoot": "92924de089751466251f2a2fd6627951e224a1398fb27b9a82bb8fcf25a85818",
+  "beforeRevisionRoot": "ca27f5ad337de852d363bd2ea3a628c9d62e339dce235db8253fd7d69c602608",
+  "afterTasksRoot": "ccf2064720312be0061186aa324caeb6ef0f1a7f90b7473a07611c6dbb40012e",
+  "afterRevisionRoot": "06eac209e0d2b490b2934a70ffe8e5352731d509bd4527152eaf07b611702e6e",
+  "tasks": 90,
+  "controlRows": 1,
+  "actualBeforeTasksFromNormalWalImages": 3,
+  "actualBorrowedPostFields": [
+    [],
+    [],
+    []
+  ],
+  "unchangedOther87Verified": true,
+  "candidateCounts": [
+    {
+      "idHmac": "1b784778c53ba640b5c3767ecf735607a1aa1dbc71aaaf04e23f48ad6d5d9993",
+      "count": 1
+    },
+    {
+      "idHmac": "2c3b6a285ea4880960a42c54434a99be268076139035eb90ea1b89e7f6d2c2c1",
+      "count": 1
+    },
+    {
+      "idHmac": "a7ad12711a6bd3f6aad218777235b9b5a7c514d9a8e3a01bcbd9624c12b0bb18",
+      "count": 1
+    }
+  ],
+  "matchingCombinations": 1,
+  "enumeratedCombinations": 1,
+  "sourceRows": [
+    {
+      "idHmac": "1b784778c53ba640b5c3767ecf735607a1aa1dbc71aaaf04e23f48ad6d5d9993",
+      "sourceImage": "00000001-0000002A-0C25FB78.1663.16386.3853473.1_main",
+      "line": 28,
+      "offset": 784,
+      "decodedColumns": 18,
+      "borrowedPostFields": [],
+      "beforeVersion": 2,
+      "fieldHmacChecksPassed": true
+    },
+    {
+      "idHmac": "2c3b6a285ea4880960a42c54434a99be268076139035eb90ea1b89e7f6d2c2c1",
+      "sourceImage": "00000001-0000002A-0C2505C8.1663.16386.3853473.3_main",
+      "line": 56,
+      "offset": 2440,
+      "decodedColumns": 18,
+      "borrowedPostFields": [],
+      "beforeVersion": 2,
+      "fieldHmacChecksPassed": true
+    },
+    {
+      "idHmac": "a7ad12711a6bd3f6aad218777235b9b5a7c514d9a8e3a01bcbd9624c12b0bb18",
+      "sourceImage": "00000001-0000002A-0C2505C8.1663.16386.3853473.3_main",
+      "line": 21,
+      "offset": 6800,
+      "decodedColumns": 18,
+      "borrowedPostFields": [],
+      "beforeVersion": 2,
+      "fieldHmacChecksPassed": true
+    }
+  ],
+  "sourceFieldChecks": "Every actual18-column old tuple matches the private accepted row; author HMAC fields match without exposing raw/key; old v2 and control360 verified.",
+  "independentAlgorithm": "Independent text/int8/UTC-microsecond row_to_json renderer, raw32B SHA row digests sorted bybinary byte value, concatenatedSHA. Verified both complete pre and post task/control roots; never trusted a single candidate flag alone.",
+  "negativeResults": {
+    "authorAndIndependentSynthetic": 14,
+    "passed": 14,
+    "failed": 0,
+    "firstProbePassed": 5,
+    "firstProbeFailed": 4,
+    "fixedDecoderIssues": [
+      "normal tuple alignment/page bounds",
+      "LP_NORMAL spans do not overlap",
+      "external only on-disk18 tag",
+      "compressed varlena minimum8bytes"
+    ],
+    "uniqueCandidateSearchActualOriginalFunctionSyntheticPassed": true,
+    "realMemoryMutationRejections": {
+      "alteredBeforeFieldRejected": true,
+      "borrowingDifferentAfterTokenRejected": true,
+      "modifyingOneOfOther87Rejected": true,
+      "afterRevisionTimestampCannotReplaceBefore": true
+    }
+  },
+  "privatePathChecks": [
+    {
+      "relativePath": "BEFORE_RECONSTRUCTION-wal.json",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "POST_SNAPSHOT_WITNESS.json",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "PHYSICAL_CANDIDATE_CAPTURE.json",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "WAL_PAGE_CANDIDATES.json",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "private/reconstructed-workflow-tasks-before-wal.json",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "private/reconstructed-workflow-revision-before-wal.json",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "private/transition-input-private.json",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "private/workflow_tasks-heap.bin",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "private/workflow_data_revisions-heap.bin",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "private/wal-evidence-20261010-resumed/000000010000002A0000000C",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "private/wal-evidence-20261010-resumed/images/00000001-0000002A-0C23CBD0.1663.16386.3853473.4_main",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "private/wal-evidence-20261010-resumed/images/00000001-0000002A-0C2505C8.1663.16386.3853473.3_main",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "private/wal-evidence-20261010-resumed/images/00000001-0000002A-0C25FB78.1663.16386.3853473.1_main",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    },
+    {
+      "relativePath": "private/fingerprint-key.bin",
+      "regularSingleLink": true,
+      "noReparseAncestors": true
+    }
+  ],
+  "cliReuseLimitations": [
+    {
+      "file": "capture-wal-images.mjs",
+      "trigger": "A future caller supplies redirected output/private ancestors or redirected live-source ancestors.",
+      "required": "Before mkdir/read/spawn, validate resolved ancestor chain and private-only destinations; leaf nlink check alone is insufficient.",
+      "currentEvidenceBlocking": false,
+      "reason": "Current accepted private input/directory chain independently checked normal/singlelink; no new capture was executed."
+    },
+    {
+      "file": "reconstruct-before.mjs",
+      "trigger": "A future pg_restore child stalls or a streaming/parse assertion fails.",
+      "required": "Absolute bounded deadline, cleanup of only owned child and sanitized outer catch; current child has no timeout/finally.",
+      "currentEvidenceBlocking": false,
+      "reason": "Independent verification used captured private JSON/heap/FPI only, no spawn/original dump read."
+    },
+    {
+      "file": "reconstruct-before.mjs search()",
+      "trigger": "Multiple accepted synthetic datasets cause assert.equal(matched,null).",
+      "required": "Use a boolean/constant diagnostic and sanitized outer catch; default AssertionError can display matched.rows raw data.",
+      "currentEvidenceBlocking": false,
+      "reason": "Current actual accepted dataset is unique; independent synthetic test uses fake rows and catches error, real checker has sanitized catch."
+    },
+    {
+      "file": "reconstruct-before.mjs",
+      "trigger": "No matched complete root, or revision candidate ambiguity.",
+      "required": "Acceptance caller must require both full-root flags, uniqueness of canonical datasets and coverage. Existence/exit0 is not acceptance; do not infer MVCC visibility.",
+      "currentEvidenceBlocking": false,
+      "reason": "Real root/unique-combination and independent negative proof are explicit in this review."
+    }
+  ],
+  "originalPreRecoveryPackageRevived": false,
+  "originalStrictOperationSucceeded": false,
+  "historicalAuthorizationEstablished": false,
+  "completeTransitionsAccepted": false,
+  "newSQLServerOrProductionCapture": false,
+  "privateKeyOutputOrGitCopy": false,
+  "rawBusinessRowsWrittenByReviewer": false,
+  "earlierGapClarification": "Earlier workflow schema review correctly found no full before image in receipts/activity. Newly captured historical WAL/heap is additional evidence and now supplies scoped before data; this does not restore original pre dump or authorize changes.",
+  "officialSources": [
+    {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/REL_17_11/src/include/access/htup_details.h",
+      "scope": "23-byte fixed heap header, null bitmap/hoff and natts masks, no visibility inference"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/REL_17_11/src/include/storage/itemid.h",
+      "scope": "15/2/15 offset/flags/length little-endian item fields"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/REL_17_11/src/include/varatt.h",
+      "scope": "short/4byte/external-on-disk18/compressed8 structures"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/REL_17_11/src/include/storage/bufpage.h",
+      "scope": "PageXLogRecPtr high/low32 and8KiB page layout"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/REL_17_11/src/backend/storage/page/bufpage.c",
+      "scope": "PageAddItem uses MAXALIGN storage"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/REL_17_11/src/backend/utils/cache/relmapper.c",
+      "scope": "fixed map format andCRC32C"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/REL_17_11/src/include/catalog/pg_class.h",
+      "scope": "catalogue fixed prefix field offsets"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/REL_17_11/src/bin/pg_waldump/pg_waldump.c",
+      "scope": "RestoreBlockImage saved page filenames include timeline/LSN/locator/block/fork"
+    }
+  ],
+  "sources": [
+    {
+      "name": "heap-layout.mjs",
+      "bytes": 5118,
+      "sha256": "2c34b1b321f1d9a88823cb6aa766447bfde53d6e582414358bfc5dfdd1a4a69a"
+    },
+    {
+      "name": "heap-layout-independent.test.mjs",
+      "bytes": 3954,
+      "sha256": "6e528efc35699bc54a2860ac0668bdb766eab17c7fedbc9f6344ef427284261f"
+    },
+    {
+      "name": "heap-layout.test.mjs",
+      "bytes": 2678,
+      "sha256": "a9b888d9f942ed2f772dfb396a562ab432c509b15318445abf7af51f6454c259"
+    },
+    {
+      "name": "capture-wal-images.mjs",
+      "bytes": 4003,
+      "sha256": "d3cbe126841cbd815aa0850764367fc7d468735ffdd07733652d5e3e57ecb2dd"
+    },
+    {
+      "name": "capture-heap-candidates.mjs",
+      "bytes": 5878,
+      "sha256": "46dd671b98a831cfb1c33406d28e86e64ed7385a84c550f6dd1563033317813f"
+    },
+    {
+      "name": "reconstruct-before.mjs",
+      "bytes": 9703,
+      "sha256": "221cc4cc6c01b827dd2cfaec76d3cba5fa45bb98d7a2e690c8a2585f0bdfc47c"
+    },
+    {
+      "name": "copy-witness.mjs",
+      "bytes": 12250,
+      "sha256": "0d8bc1bc4f10abec8c5ac74c32144471647835cf3353da24b1a8777738f679de"
+    },
+    {
+      "name": "before-image-independent.mjs",
+      "bytes": 11721,
+      "sha256": "0e891b5e3c6d9e7a064d28fe480dac2fd3fb1722ddeae4b3c81ee85da4a1366e"
+    },
+    {
+      "name": "BEFORE_IMAGE_INDEPENDENT_FIRST.log",
+      "bytes": 4934,
+      "sha256": "9762172da667658f9f76f31d262c64d740886641756b83b5cd82662e58bd91d8"
+    },
+    {
+      "name": "BEFORE_IMAGE_INDEPENDENT_FIXED.log",
+      "bytes": 1280,
+      "sha256": "5ca6155b484d37224f2fcaecb5979f36934ea161aeb91982e3b5537d6fbeb2b1"
+    }
+  ]
+}

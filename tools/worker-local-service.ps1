@@ -12,11 +12,14 @@
   [switch]$AllowTestRuntimeRoot,
   [switch]$IncludeBackend,
   [switch]$KeepPostgres,
+  [ValidateSet("EnsureReady", "RequireReady")]
+  [string]$BackendStartPolicy = "EnsureReady",
   [string]$MaintenanceId,
   [switch]$FunctionsOnly
 )
 
 $ErrorActionPreference = "Stop"
+if ($BackendStartPolicy -eq "RequireReady" -and $Action -ne "Start") { throw "BackendStartPolicy RequireReady is restricted to Start" }
 . (Join-Path $PSScriptRoot "process-deadline.ps1")
 $WorkerOperationDeadline = Get-ProcessDeadline
 $FixedRuntimeRoot = "D:\teruisi-runtime\teruisi-worker-sales"
@@ -382,7 +385,7 @@ function Get-DjangoSystemReadiness {
   }
 }
 
-function Ensure-DjangoSystemReady {
+function Ensure-DjangoSystemReady([switch]$RequireReadyBackend) {
   $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
   $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
   $startupPhaseOutcome = 'completed'
@@ -394,6 +397,9 @@ function Ensure-DjangoSystemReady {
     if (-not $Json) { Write-Host "Django/PostgreSQL full stack is already ready" }
     return
   }
+  # Worker-only releases must not invoke backend Start: it may migrate or
+  # reset database grants. Preserve the retained drain and fail before effects.
+  if ($RequireReadyBackend) { throw "Worker-only Start requires an already-ready backend; backend startup is forbidden" }
   if (-not $Json) {
     Write-Host "Starting Django/PostgreSQL full stack; missing=$($readiness.Missing -join ',')"
   }
@@ -1684,7 +1690,7 @@ function Get-JoinedWorkerStartResult([object]$identity) {
   }
 }
 
-function Invoke-WorkerSystemStart([object]$identity) {
+function Invoke-WorkerSystemStart([object]$identity, [switch]$RequireReadyBackend) {
   $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
   $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
   $startupPhaseOutcome = 'completed'
@@ -1697,11 +1703,13 @@ function Invoke-WorkerSystemStart([object]$identity) {
       throw "Port 3000/5791 or process receipt is unknown/ambiguous; refusing takeover"
     }
 
-    Ensure-DjangoSystemReady
+    Ensure-DjangoSystemReady -RequireReadyBackend:$RequireReadyBackend
 
     $status = Get-WorkerStatusInternal $identity
     if ($status.State -eq "exact_release") {
-      Start-SystemDingTalkReceiver
+      # Guarded release Start preserves the existing receiver; enabling one
+      # can consume messages and write data beyond a Worker-only switch.
+      if (-not $RequireReadyBackend) { Start-SystemDingTalkReceiver }
       return ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256; supervisorProcessId = $status.Supervisor.ProcessId })
     }
     if ($status.State -eq "starting_exact_release") { throw "The exact immutable Worker release is already starting" }
@@ -1722,7 +1730,7 @@ function Invoke-WorkerSystemStart([object]$identity) {
       throw "Worker full verification did not publish an exact supervisor prelaunch receipt"
     }
     $startResult = Start-VerifiedWorkerSupervisor $identity $startupVerificationReceiptSha256 "started"
-    Start-SystemDingTalkReceiver
+    if (-not $RequireReadyBackend) { Start-SystemDingTalkReceiver }
     return $startResult
   } catch {
     $startupPhaseOutcome = 'failed'
@@ -1821,7 +1829,7 @@ try {
   }
 
   if ($Action -eq "Start") {
-    $startResult = if ($JoinedConcurrentLifecycle) { Get-JoinedWorkerStartResult $identity } else { Invoke-WorkerSystemStart $identity }
+    $startResult = if ($JoinedConcurrentLifecycle) { Get-JoinedWorkerStartResult $identity } else { Invoke-WorkerSystemStart $identity -RequireReadyBackend:($BackendStartPolicy -eq "RequireReady") }
     Write-Result $startResult
     exit 0
   }

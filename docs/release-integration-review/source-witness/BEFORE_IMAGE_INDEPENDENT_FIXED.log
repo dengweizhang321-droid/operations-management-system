@@ -1,0 +1,22 @@
+✔ independent invalid external varlena tag is rejected rather than silently borrowed (2.9743ms)
+✔ independent compressed varlena shorter than compression metadata is rejected (0.3978ms)
+✔ independent duplicate normal line pointers are invalid page provenance (0.3865ms)
+✔ independent unaligned normal tuple storage is rejected (10.0074ms)
+✔ independent fatal UTF8 and truncated long varlena refuse (1.6333ms)
+✔ independent negative microsecond timestamp preserves floor semantics (1.4006ms)
+✔ independent valid long varlena alignment and empty short text (0.3208ms)
+✔ independent actual original search refuses two accepted distinct synthetic datasets (11.9279ms)
+✔ independent actual original search bounds combinations and exposes no-match (17.3126ms)
+✔ Castagnoli CRC known vector and critical relation map (3.2344ms)
+✔ fixed catalogue identity and PG17 relation offsets (1.4056ms)
+✔ invalid page version, bounds, old format and arity refuse (4.2921ms)
+✔ short text/int8 µs decode is exact; not a visibility verdict (0.9649ms)
+✔ null bitmap consumes no bytes for NULL and retains varlena empty string (0.845ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 165.4019

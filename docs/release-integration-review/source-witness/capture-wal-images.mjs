@@ -1,0 +1,20 @@
+// Copy one existing WAL segment read-only; pg_waldump reads the private copy.
+// Retains only scoped relation main-fork page images. No follow/server/recovery.
+import assert from 'node:assert/strict';import {readFile,lstat,mkdir,open,readdir} from 'node:fs/promises';import {spawnSync} from 'node:child_process';import {createHash} from 'node:crypto';import path from 'node:path';
+const out=path.resolve(process.argv[2]);assert.equal(path.dirname(out),path.resolve('E:/codex-artifacts/release-integration-review-20261010'));assert.match(path.basename(out),/^AB-source-witness-20261010-[a-z0-9-]+$/);
+const sha=b=>createHash('sha256').update(b).digest('hex'),privateRoot=path.join(out,'private'),walRoot=path.join(privateRoot,'wal-evidence-20261010-resumed');await mkdir(walRoot);
+const capture=JSON.parse(await readFile(path.join(out,'PHYSICAL_CANDIDATE_CAPTURE.json'))),relation=capture.relations.workflow_tasks.file;assert.equal(capture.databaseOid,16386);assert.equal(relation,3853473);
+const heap=await readFile(path.join(privateRoot,'workflow_tasks-heap.bin'));const source=capture.sources.find(s=>s.sha256===sha(heap));assert.ok(source);
+// PageXLogRecPtr is {xlogid,xrecoff}, not an on-disk uint64 endian cast.
+const refs=[1,3].map(block=>({block,hi:heap.readUInt32LE(block*8192),lo:heap.readUInt32LE(block*8192+4)}));const end=refs.sort((a,b)=>a.hi-b.hi||a.lo-b.lo).at(-1);const endLsn=end.hi.toString(16)+'/'+end.lo.toString(16);
+const segment='00000001'+end.hi.toString(16).toUpperCase().padStart(8,'0')+Math.floor(end.lo/16777216).toString(16).toUpperCase().padStart(8,'0');
+const live=path.join('D:/teruisi-runtime/django-sales/postgres-data/pg_wal',segment),first=await lstat(live,{bigint:true});assert.ok(first.isFile()&&!first.isSymbolicLink()&&first.nlink===1n&&first.size===16777216n);
+const a=await readFile(live),b=await readFile(live),last=await lstat(live,{bigint:true});assert.equal(sha(a),sha(b),'Active WAL copy race');for(const n of ['ino','size','mtimeNs','ctimeNs','nlink'])assert.equal(first[n],last[n]);
+const copy=path.join(walRoot,segment),h=await open(copy,'wx');try{await h.writeFile(a);await h.sync();}finally{await h.close();}
+const images=path.join(walRoot,'images');await mkdir(images);const exe='D:/teruisi-runtime/django-sales/postgresql-17.11/bin/pg_waldump.exe';const args=['--path='+walRoot,'--end='+endLsn,'--fork=main','--relation=1663/16386/3853473','--fullpage','--bkp-details','--limit=10000','--save-fullpage='+images,segment];
+const env={...process.env};for(const k of Object.keys(env))if(/^PG/i.test(k))delete env[k];
+const result=spawnSync(exe,args,{cwd:walRoot,env,windowsHide:true,timeout:60000,maxBuffer:8*1024*1024,encoding:'utf8'});
+const names=await readdir(images),files=[];for(const name of names){assert.match(name,/^00000001-[A-F0-9]{8}-[A-F0-9]{8}\.1663\.16386\.3853473\.\d+_main$/);const raw=await readFile(path.join(images,name));assert.equal(raw.length,8192);files.push({name,bytes:raw.length,sha256:sha(raw)});}
+const summary={version:'teruisi-readonly-private-wal-page-candidates-v1',at:new Date().toISOString(),liveSource:live,sourceSha256:sha(a),sourceBytes:a.length,stableDoubleRead:true,endLsn,heapEvidenceSha256:sha(heap),executable:exe,executableSha256:sha(await readFile(exe)),args,exitCode:result.status,signal:result.signal,errorCode:result.error?.code??null,stdoutSha256:sha(Buffer.from(result.stdout??'')),stderrSha256:sha(Buffer.from(result.stderr??'')),stderrBytes:Buffer.byteLength(result.stderr??''),recordsMetadata:result.status===0?result.stdout.split(/\r?\n/).filter(l=>l.trim()):[],images:files,serverConnected:false,SQLExecuted:false,productionFilesModified:false,candidatesNotAcceptedAsSnapshot:true,fullComparisonClosed:false};
+const j=await open(path.join(out,'WAL_PAGE_CANDIDATES.json'),'wx');try{await j.writeFile(JSON.stringify(summary,null,2)+'\n');await j.sync();}finally{await j.close();}
+console.log(JSON.stringify({endLsn,segment,exitCode:result.status,images:files.length,fullComparisonClosed:false}));

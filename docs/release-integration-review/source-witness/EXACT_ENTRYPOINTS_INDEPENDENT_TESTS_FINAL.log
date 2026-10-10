@@ -1,0 +1,31 @@
+✔ exact owner, final head and original unknown delete only the requested active path (3.0228ms)
+✔ another active owner (2.1839ms)
+✔ journal head changed (0.8162ms)
+✔ uncompleted acceptance (0.7359ms)
+✔ original comparison rewritten passed (1.0632ms)
+✔ original comparison event replaced (0.8064ms)
+✔ active identity changed during CAS (1.2086ms)
+✔ active bytes changed after status (1.3448ms)
+✔ an unlink that leaves active present cannot return a released acknowledgment (0.9753ms)
+✔ execute-exact-closeout.mjs normal deep assertion private values only produce a digest (9.5596ms)
+✔ execute-exact-closeout.mjs a filename-like private assertion message cannot become sourceLocation (1.7353ms)
+✔ execute-exact-closeout.mjs a private value in a deep diff line cannot imitate a real stack frame (2.0202ms)
+✔ seal-exact-scope.mjs normal deep assertion private values only produce a digest (2.0305ms)
+✔ seal-exact-scope.mjs a filename-like private assertion message cannot become sourceLocation (1.2663ms)
+✔ seal-exact-scope.mjs a private value in a deep diff line cannot imitate a real stack frame (1.0821ms)
+✔ execute-exact-closeout.mjs unknown type and nonstring fields never stringify private objects (6.2618ms)
+✔ execute-exact-closeout.mjs genuine frame emits only allowed basename and bounded digits (1.7481ms)
+✔ execute-exact-closeout.mjs null errors have fixed fallback shape (1.4533ms)
+✔ execute-exact-closeout.mjs oversized fake frame positions are rejected (1.2747ms)
+✔ seal-exact-scope.mjs unknown type and nonstring fields never stringify private objects (1.2718ms)
+✔ seal-exact-scope.mjs genuine frame emits only allowed basename and bounded digits (1.1286ms)
+✔ seal-exact-scope.mjs null errors have fixed fallback shape (1.1474ms)
+✔ seal-exact-scope.mjs oversized fake frame positions are rejected (1.0935ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 164.6411

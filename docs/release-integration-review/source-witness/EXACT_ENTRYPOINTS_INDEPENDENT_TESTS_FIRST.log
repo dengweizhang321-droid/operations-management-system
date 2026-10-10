@@ -1,0 +1,72 @@
+✔ execute-exact-closeout.mjs normal deep assertion private values only produce a digest (7.7723ms)
+✖ execute-exact-closeout.mjs a filename-like private assertion message cannot become sourceLocation (1.6535ms)
+✖ execute-exact-closeout.mjs a private value in a deep diff line cannot imitate a real stack frame (2.5295ms)
+✔ seal-exact-scope.mjs normal deep assertion private values only produce a digest (2.0847ms)
+✖ seal-exact-scope.mjs a filename-like private assertion message cannot become sourceLocation (1.4243ms)
+✖ seal-exact-scope.mjs a private value in a deep diff line cannot imitate a real stack frame (1.3797ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 2
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 110.2906
+
+✖ failing tests:
+
+test at docs\release-integration-review\source-witness\exact-entrypoints.independent.test.mjs:22:3
+✖ execute-exact-closeout.mjs a filename-like private assertion message cannot become sourceLocation (1.6535ms)
+  AssertionError [ERR_ASSERTION]: Unanchored frame selector exposed a private message
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/exact-entrypoints.independent.test.mjs:26:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\source-witness\exact-entrypoints.independent.test.mjs:29:3
+✖ execute-exact-closeout.mjs a private value in a deep diff line cannot imitate a real stack frame (2.5295ms)
+  AssertionError [ERR_ASSERTION]: Diff text was accepted as a source frame
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/exact-entrypoints.independent.test.mjs:33:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\source-witness\exact-entrypoints.independent.test.mjs:22:3
+✖ seal-exact-scope.mjs a filename-like private assertion message cannot become sourceLocation (1.4243ms)
+  AssertionError [ERR_ASSERTION]: Unanchored frame selector exposed a private message
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/exact-entrypoints.independent.test.mjs:26:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\source-witness\exact-entrypoints.independent.test.mjs:29:3
+✖ seal-exact-scope.mjs a private value in a deep diff line cannot imitate a real stack frame (1.3797ms)
+  AssertionError [ERR_ASSERTION]: Diff text was accepted as a source frame
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/source-witness/exact-entrypoints.independent.test.mjs:33:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

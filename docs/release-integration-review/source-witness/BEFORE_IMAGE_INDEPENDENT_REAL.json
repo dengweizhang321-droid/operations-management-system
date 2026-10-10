@@ -1,0 +1,180 @@
+{
+  "version": "teruisi-before-image-independent-real-v1",
+  "reviewedAt": "2026-10-10T14:47:15.020Z",
+  "status": "private-pre-and-post-full-roots-and-source-fields-verified",
+  "preTasksRoot": "92924de089751466251f2a2fd6627951e224a1398fb27b9a82bb8fcf25a85818",
+  "preControlRoot": "ca27f5ad337de852d363bd2ea3a628c9d62e339dce235db8253fd7d69c602608",
+  "postTasksRoot": "ccf2064720312be0061186aa324caeb6ef0f1a7f90b7473a07611c6dbb40012e",
+  "postControlRoot": "06eac209e0d2b490b2934a70ffe8e5352731d509bd4527152eaf07b611702e6e",
+  "beforeTasks": 90,
+  "afterTasks": 90,
+  "controlRows": 1,
+  "unchangedTasks": 87,
+  "changedTasks": [
+    {
+      "idHmac": "1b784778c53ba640b5c3767ecf735607a1aa1dbc71aaaf04e23f48ad6d5d9993",
+      "beforeVersion": 2,
+      "afterVersion": 3,
+      "changedColumns": [
+        "status",
+        "version",
+        "mutation_token",
+        "updated_at"
+      ]
+    },
+    {
+      "idHmac": "2c3b6a285ea4880960a42c54434a99be268076139035eb90ea1b89e7f6d2c2c1",
+      "beforeVersion": 2,
+      "afterVersion": 3,
+      "changedColumns": [
+        "status",
+        "version",
+        "mutation_token",
+        "updated_at"
+      ]
+    },
+    {
+      "idHmac": "a7ad12711a6bd3f6aad218777235b9b5a7c514d9a8e3a01bcbd9624c12b0bb18",
+      "beforeVersion": 2,
+      "afterVersion": 3,
+      "changedColumns": [
+        "status",
+        "version",
+        "mutation_token",
+        "updated_at"
+      ]
+    }
+  ],
+  "sourceRows": [
+    {
+      "idHmac": "1b784778c53ba640b5c3767ecf735607a1aa1dbc71aaaf04e23f48ad6d5d9993",
+      "sourceImage": "00000001-0000002A-0C25FB78.1663.16386.3853473.1_main",
+      "line": 28,
+      "offset": 784,
+      "decodedColumns": 18,
+      "borrowedPostFields": [],
+      "beforeVersion": 2,
+      "fieldHmacChecksPassed": true
+    },
+    {
+      "idHmac": "2c3b6a285ea4880960a42c54434a99be268076139035eb90ea1b89e7f6d2c2c1",
+      "sourceImage": "00000001-0000002A-0C2505C8.1663.16386.3853473.3_main",
+      "line": 56,
+      "offset": 2440,
+      "decodedColumns": 18,
+      "borrowedPostFields": [],
+      "beforeVersion": 2,
+      "fieldHmacChecksPassed": true
+    },
+    {
+      "idHmac": "a7ad12711a6bd3f6aad218777235b9b5a7c514d9a8e3a01bcbd9624c12b0bb18",
+      "sourceImage": "00000001-0000002A-0C2505C8.1663.16386.3853473.3_main",
+      "line": 21,
+      "offset": 6800,
+      "decodedColumns": 18,
+      "borrowedPostFields": [],
+      "beforeVersion": 2,
+      "fieldHmacChecksPassed": true
+    }
+  ],
+  "controlOldRevision": 360,
+  "completePreRootMatches": true,
+  "completePostRootMatches": true,
+  "uniqueMatchingDataset": true,
+  "combinations": 1,
+  "matches": 1,
+  "candidateCounts": [
+    {
+      "idHmac": "1b784778c53ba640b5c3767ecf735607a1aa1dbc71aaaf04e23f48ad6d5d9993",
+      "count": 1
+    },
+    {
+      "idHmac": "2c3b6a285ea4880960a42c54434a99be268076139035eb90ea1b89e7f6d2c2c1",
+      "count": 1
+    },
+    {
+      "idHmac": "a7ad12711a6bd3f6aad218777235b9b5a7c514d9a8e3a01bcbd9624c12b0bb18",
+      "count": 1
+    }
+  ],
+  "negativeChecks": {
+    "alteredBeforeFieldRejected": true,
+    "borrowingDifferentAfterTokenRejected": true,
+    "modifyingOneOfOther87Rejected": true,
+    "afterRevisionTimestampCannotReplaceBefore": true
+  },
+  "privateKeyConsumedInMemoryOnly": true,
+  "keyMaterialOrRawBusinessRowsWritten": false,
+  "newProductionCapture": false,
+  "newSQLOrServerConnection": false,
+  "originalPreRecoveryPackageRevived": false,
+  "originalStrictOperationPassed": false,
+  "historicalAuthorizationEstablished": false,
+  "sources": [
+    {
+      "relativePath": "BEFORE_RECONSTRUCTION-wal.json",
+      "bytes": 5029,
+      "sha256": "cef6c63131f19134b1612b4e6401d8e9f03dfde57c9b9a153ff8838da37c769d"
+    },
+    {
+      "relativePath": "POST_SNAPSHOT_WITNESS.json",
+      "bytes": 206008,
+      "sha256": "af96a9f2065af73ca5cad4b5328248d14b33d75b7812fc560275db24124b7860"
+    },
+    {
+      "relativePath": "PHYSICAL_CANDIDATE_CAPTURE.json",
+      "bytes": 59045,
+      "sha256": "bf123e54c9baafd2ebc604d234ef3f03dfe0d52b79040195501542e21e8c7e4a"
+    },
+    {
+      "relativePath": "WAL_PAGE_CANDIDATES.json",
+      "bytes": 2986,
+      "sha256": "9f6fbc82ec18053801ab2e5a8251dbb4e8bac86cef60d0e8de53f93f14dd21b3"
+    },
+    {
+      "relativePath": "private/reconstructed-workflow-tasks-before-wal.json",
+      "bytes": 59399,
+      "sha256": "1719698d2ad5a0e3d31ff6211f12477d824a88c53cb1cbe76c2cd73dcdd6064c"
+    },
+    {
+      "relativePath": "private/reconstructed-workflow-revision-before-wal.json",
+      "bytes": 165,
+      "sha256": "73edc1deb3f443c0a63840e412acb170a076d26ea590b4d13586c4c1acf99568"
+    },
+    {
+      "relativePath": "private/transition-input-private.json",
+      "bytes": 228304,
+      "sha256": "3a214c764366bb9b0bce5c929eb54b12d4d2a37941fa6b1bed39b565ca9a8b6a"
+    },
+    {
+      "relativePath": "private/workflow_tasks-heap.bin",
+      "bytes": 49152,
+      "sha256": "b343ea2c8d3476cfafb95acb1026652a89f94f5a0df1136ee18e2ab8557cb139"
+    },
+    {
+      "relativePath": "private/workflow_data_revisions-heap.bin",
+      "bytes": 8192,
+      "sha256": "fe2997fa10712c951772ab35f1a87a0f0eb9913c84c9a06585c7627b1ada16b3"
+    },
+    {
+      "relativePath": "private/wal-evidence-20261010-resumed/000000010000002A0000000C",
+      "bytes": 16777216,
+      "sha256": "3eaf6299ba9a348be96abf16cc6d5c9d0ecb1bde833f0b0a3cccdf118deace00"
+    },
+    {
+      "relativePath": "private/wal-evidence-20261010-resumed/images/00000001-0000002A-0C23CBD0.1663.16386.3853473.4_main",
+      "bytes": 8192,
+      "sha256": "6dbc240ee273ac693b3e790de76c0fa6f637420b2abb1958a1543285dbc53a8e"
+    },
+    {
+      "relativePath": "private/wal-evidence-20261010-resumed/images/00000001-0000002A-0C2505C8.1663.16386.3853473.3_main",
+      "bytes": 8192,
+      "sha256": "8388125584a1da7e040c02d160973a5c499509a4ad4d5c36819c6d662f81843a"
+    },
+    {
+      "relativePath": "private/wal-evidence-20261010-resumed/images/00000001-0000002A-0C25FB78.1663.16386.3853473.1_main",
+      "bytes": 8192,
+      "sha256": "3b73be7ff87b85700c85a23a1989fc507798b9b477aaa07bea5eb16c87b51fbe"
+    }
+  ]
+}

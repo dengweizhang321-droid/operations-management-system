@@ -1,0 +1,14 @@
+✔ execute-exact-closeout.mjs normal deep assertion private values only produce a digest (10.3964ms)
+✔ execute-exact-closeout.mjs a filename-like private assertion message cannot become sourceLocation (2.2944ms)
+✔ execute-exact-closeout.mjs a private value in a deep diff line cannot imitate a real stack frame (1.9912ms)
+✔ seal-exact-scope.mjs normal deep assertion private values only produce a digest (3.3897ms)
+✔ seal-exact-scope.mjs a filename-like private assertion message cannot become sourceLocation (2.4604ms)
+✔ seal-exact-scope.mjs a private value in a deep diff line cannot imitate a real stack frame (1.4195ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 159.1974

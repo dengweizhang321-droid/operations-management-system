@@ -1,0 +1,115 @@
+{
+  "scope": "original batch coordinator + actual full built before/after Worker and fixed display browser; lifecycle/permissions/watchdog are expressly isolated adapters, not original installed production operator",
+  "completedAt": "2026-10-10T14:50:03.696Z",
+  "batchSha256": "ce45f3fd559955275d4fcc173204b37e8fee13cea099ac811ac5282c4661f160",
+  "databaseOperations": {
+    "required": false,
+    "operationIds": []
+  },
+  "operations": 11,
+  "recoveryCalls": 0,
+  "flow": [
+    "op-prepare",
+    "op-beginworkerdrain",
+    "op-stopworker",
+    "op-apply",
+    "op-startworker",
+    "op-endworkerdrain",
+    "op-display",
+    "op-permissions",
+    "op-verifystartup",
+    "op-aggregatestatus",
+    "op-natural-watchdog"
+  ],
+  "source": "71d5964f4ce5cf1e7855f75607fde892291dc8f2232fb71ec3235f0381507793",
+  "artifact": "ea6fc5dcb625541a4806ae6afa34fd54734bfc5af955576bfd67847056f973e2",
+  "outcome": {
+    "durationMs": {
+      "queue": 2998.4609999999993,
+      "prepare": 13373.300300000003,
+      "backup-pre": 0,
+      "restore-pre": 0,
+      "drain": 6597.391899999999,
+      "switch": 22535.013899999998,
+      "acceptance": 19841.37630000001,
+      "business": 0,
+      "backup-post": 0,
+      "restore-post": 0,
+      "closeout": 4447.160999999993
+    },
+    "approvedToCompleteMs": 72494,
+    "elapsedSinceApprovalMs": 72494,
+    "switchExecutionMs": 22535.013899999998,
+    "switchSpanMs": 23237,
+    "completed": true,
+    "waits": [
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 7633.687700000002
+      },
+      {
+        "phase": "prepare",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 5735.1983
+      },
+      {
+        "phase": "drain",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 6592.954099999999
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 5528.288499999995
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 5859.3073
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 5561.081400000003
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 4658.5875000000015
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 4431.512800000004
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 4538.000500000009
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 4386.005300000004
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 4839.806999999986
+      },
+      {
+        "phase": "closeout",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 4442.512000000002
+      }
+    ]
+  },
+  "walEvents": 36,
+  "productionAcceptance": false,
+  "limitations": [
+    "No formal production rotation plan/manifest/ACL/drain/task readiness; live collector rejects private receipts outside protected provenance",
+    "Unsigned private denial and synthetic watchdog validator do not prove production role matrix or natural planned runs",
+    "Timing covers private mechanism only, no production paired benefit/downtime"
+  ]
+}

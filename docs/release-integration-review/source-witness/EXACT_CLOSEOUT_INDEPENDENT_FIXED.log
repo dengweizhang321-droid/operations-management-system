@@ -1,0 +1,24 @@
+✔ independent healthy synthetic runtime preserves old19 and runs only exact20/21 (490.1973ms)
+✔ independent absent witness table market_write_request_receipts rejects (8.7489ms)
+✔ independent absent witness table workflow_write_request_receipts rejects (7.5967ms)
+✔ independent absent witness table workflow_task_comments rejects (10.9037ms)
+✔ independent absent witness table workflow_task_activity_logs rejects (7.9341ms)
+✔ independent surplus witness table rejects (7.3178ms)
+✔ independent altered original collector contract rejects before metadata append (210.1238ms)
+✔ independent marker-only passed result cannot close acceptance or release owner (366.7141ms)
+✔ independent receipt/process exit evidence missing fails closed (361.7453ms)
+✔ independent owner changed during admission does not append acceptance (308.512ms)
+✔ independent foreign journal append CAS rejects without source acceptance (313.5164ms)
+✔ independent source physical digest drift during final read does not complete or release (463.9914ms)
+✔ independent signed expected pin cannot drift alongside physical provider during final read (419.893ms)
+✔ independent two concurrent invocations serialize and cannot replay readonly tail (602.2176ms)
+✔ independent no-op ownership callback must not be reported as released (392.1858ms)
+✔ independent foreign head after writeOnce cannot be adopted into this supplement chain (318.1309ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4975.8076

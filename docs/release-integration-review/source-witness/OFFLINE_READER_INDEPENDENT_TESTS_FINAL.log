@@ -1,0 +1,24 @@
+✔ manual PG row bytes retain physical key order, UTF8 strings, JSONB spaces and bigint tokens (1.7218ms)
+✔ 32-byte binary sort is independent of text hex and preserves repeated row hashes (0.5304ms)
+✔ COPY literal null, UTF8 byte octal and actual separator versus escape are distinct (1.1325ms)
+✔ physical column reordering cannot authenticate against unchanged original post root (4.7116ms)
+✔ one post hash mismatch prevents a successful six-table result (4.5425ms)
+✔ prefix agreement never declares mutable before or full comparison recovered (1.7524ms)
+✔ creation and mutation after cutoff within same millisecond must remain new/modified (1.846ms)
+✔ a numeric response identity must be rejected or HMACed, never persisted literally (0.5234ms)
+✔ a permissively parseable free-form date with private annotation must be rejected (0.4448ms)
+✔ duplicate request identity refuses even when caller constructs matching duplicate root (0.9002ms)
+✔ server plus08 normalizes to original UTC row bytes without losing microseconds (1.7293ms)
+✔ UTC conversion handles fractional-hour offsets and crossing midnight (0.1683ms)
+✔ PG UTC formatting trims trailing zero fractions without rounding the significant microsecond (0.1291ms)
+✔ a seven-digit .NET tick and timezone-equivalent instants retain exact ordering (0.152ms)
+✔ pre-epoch UTC conversion uses floor seconds instead of rounding negative fractions (0.2026ms)
+✔ strict calendar, response time and response scalar types reject unsupported representations (9.1457ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 136.5673

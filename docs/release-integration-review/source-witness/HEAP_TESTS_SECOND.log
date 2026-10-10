@@ -1,0 +1,13 @@
+✔ Castagnoli CRC known vector and critical relation map (4.7987ms)
+✔ fixed catalogue identity and PG17 relation offsets (2.1151ms)
+✔ invalid page version, bounds, old format and arity refuse (11.992ms)
+✔ short text/int8 µs decode is exact; not a visibility verdict (1.0306ms)
+✔ null bitmap consumes no bytes for NULL and retains varlena empty string (1.5507ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 170.3154

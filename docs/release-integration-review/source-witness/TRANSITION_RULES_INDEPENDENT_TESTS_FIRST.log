@@ -1,0 +1,32 @@
+{"privateInputSha256":"3a214c764366bb9b0bce5c929eb54b12d4d2a37941fa6b1bed39b565ca9a8b6a","rawRowsLogged":false,"privateKeyRead":false}
+✔ actual pinned private source evidence accepts with explicit historical limits (12.1983ms)
+✔ equivalent UTC timestamp representation is not a business field change (9.6228ms)
+✔ a fourth unrelated business title change (7.2726ms)
+✔ extra field on an intended status update (1.9727ms)
+✔ changed original creation timestamp (2.8252ms)
+✔ task deletion hidden in the same row count (1.9008ms)
+✔ task version jump beyond one (2.668ms)
+✔ new mutation token equals the before token (1.7823ms)
+✔ duplicated task identity (1.0421ms)
+✔ workflow actor differs on one request (3.0895ms)
+✔ workflow request ID duplication (3.2141ms)
+✔ PATCH body SHA differs (3.3468ms)
+✔ PATCH query points outside the exact task (3.4393ms)
+✔ completed receipt contains a mismatching full DTO (4.0985ms)
+✔ comment content differs from its body and response binding (4.3262ms)
+✔ activity refers to another task (4.5043ms)
+✔ activity metadata declares an unapproved field (3.1628ms)
+✔ revision final digest is invented (3.3843ms)
+✔ market actor differs from the immutable internal runner (3.4669ms)
+✔ market body uses a different claim scope (3.6461ms)
+✔ market result actually has a job (3.621ms)
+✔ market result has work claims (3.3978ms)
+✔ market duplicate request identity (4.123ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 210.3837
