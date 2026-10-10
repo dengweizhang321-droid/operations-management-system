@@ -1,0 +1,5 @@
+{"durationMs":96248.3259,"mode":"baseline","stage":"identity-pair"}
+{"durationMs":72081.77319999997,"mode":"optimized","stage":"identity-pair"}
+{"durationMs":75327.84510000004,"mode":"optimized","stage":"identity-pair"}
+{"durationMs":96941.99699999997,"mode":"baseline","stage":"identity-pair"}
+{"buildPayloadSha256":"ccc9f19ffb2b574ef048cb50de8b8e062e4b15303a8f22fcd22ec815752dcfd1","completed":true,"samples":[{"durationMs":96248.3259,"mode":"baseline"},{"durationMs":72081.77319999997,"mode":"optimized"},{"durationMs":75327.84510000004,"mode":"optimized"},{"durationMs":96941.99699999997,"mode":"baseline"}],"sourceSha256":"bf7d492e6b3cc9af184ec4771728c724ac16ec530deebb4dc24862ba33200da2","switchSamples":[{"backendPreserved":false,"durationMs":252.37870000000112,"mode":"full-fixture"},{"backendPreserved":true,"durationMs":109.53100000001723,"mode":"worker-only-fixture"},{"backendPreserved":true,"durationMs":108.67909999995027,"mode":"worker-only-fixture"},{"backendPreserved":false,"durationMs":212.95350000000326,"mode":"full-fixture"}]}

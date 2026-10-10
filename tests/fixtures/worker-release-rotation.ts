@@ -21,6 +21,7 @@ export async function makeRelease(
   entrypointText: string,
   {
     includeRotationEntrypoint = true,
+    includeProcessDeadlineEntrypoint = true,
     createdAt = "2026-08-30T00:00:00.000Z",
     sourceFingerprint = hex("1"),
     buildFingerprint = hex("6"),
@@ -31,8 +32,9 @@ export async function makeRelease(
   await mkdir(path.join(releaseRoot, "audit"), { recursive: true });
   await mkdir(path.join(releaseRoot, "tools"), { recursive: true });
   const entrypointPaths = includeRotationEntrypoint
-    ? [...workerGuardEntrypointPaths]
+    ? workerGuardEntrypointPaths.filter(relativePath => includeProcessDeadlineEntrypoint || relativePath !== "tools/process-deadline.ps1")
     : workerGuardEntrypointPaths.filter((relativePath) => ![
+      "tools/process-deadline.ps1",
       "tools/worker-local-release-rotation.mjs",
       "tools/d1-retirement-proof.mjs",
       "tools/collect-d1-retirement-proof.mjs",
@@ -155,7 +157,7 @@ export async function makeRelease(
   };
 }
 
-export async function fixture() {
+export async function fixture({ bootstrapWithRotation = false, bootstrapWithDeadline = false } = {}) {
   const runtime = await mkdtemp(path.join(tmpdir(), "teruisi-worker-rotation-"));
   const protectedRoot = path.join(runtime, "protected");
   await mkdir(path.join(runtime, "releases"));
@@ -168,7 +170,7 @@ export async function fixture() {
   }, "markerPayloadSha256"));
   const bootstrapRelease = await makeRelease(
     runtime, protectedRoot, "20260830T000000Z-1111111111111111", "bootstrap-service",
-    { includeRotationEntrypoint: false, createdAt: "2026-08-30T00:00:00.000Z", buildFingerprint: hex("6") },
+    { includeRotationEntrypoint: bootstrapWithRotation, includeProcessDeadlineEntrypoint: bootstrapWithDeadline, createdAt: "2026-08-30T00:00:00.000Z", buildFingerprint: hex("6") },
   );
   for (const [relativePath, raw] of bootstrapRelease.entrypointBytes) {
     const target = path.join(protectedRoot, ...relativePath.split("/"));

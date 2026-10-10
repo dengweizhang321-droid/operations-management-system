@@ -1,0 +1,140 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+null !== 0
+
+    at <anonymous> (D:\.codex\worktrees\release-fastpath-evidence\运营管理系统\tests\business-market-options-envelope.test.ts:52:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: null,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.18.0
+✖ tests\business-market-options-envelope.test.ts (343.8265ms)
+✔ owning market page and current-account envelope validate without changing old principal codec (19.1096ms)
+✖ actual Python contract hashes and Unicode casefold are accepted by the shared codec (4.7864ms)
+✔ exact query filters and raw price labels never infer aliases (3.5913ms)
+✔ unknown fields and false owning authority are rejected even after fresh page SHA (4.3686ms)
+✔ full page SHA, option key and query digest are independently checked (4.4211ms)
+✔ date envelopes stay valid historical bounds with no snapshot or coverage claim (5.8549ms)
+✔ Python code-point identity order rejects duplicates and UTF16 order mistakes (2.705ms)
+✔ continuation pins account, query, revision, generation, digest and strict previous identity (4.7419ms)
+✔ pagination is exact twenty and a progressing bounded signed cursor (10.644ms)
+✔ UTF8 38000 byte limit counts complete multibyte identities, never slices entries (4.5269ms)
+✔ untrusted getters/deep types and async caller mutation cannot change the validated snapshot (1.7909ms)
+✔ selection requires an unchanged current-account validated page and exact member (2.2227ms)
+✔ market merge preserves exact manual fields, deduplicates only whole identity and never exceeds seven (2.6653ms)
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+null !== 0
+
+    at <anonymous> (D:\.codex\worktrees\release-fastpath-evidence\运营管理系统\tests\business-sales-options-envelope.test.ts:53:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: null,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.18.0
+✖ tests\business-sales-options-envelope.test.ts (297.8879ms)
+✔ ERP exact page validates as an isolated copy with owning-only provenance (22.1656ms)
+✖ actual Python contract SHA and Unicode exact identities match TS (5.3269ms)
+✔ queries retain arbitrary exact platforms but reject aliases empty fields q and shop without platform (5.2298ms)
+✔ schema source authority and provenance are strict even after recomputing SHA (4.9867ms)
+✔ independent page query option and revision bindings reject tampering (7.982ms)
+✔ business dates cannot claim snapshot or complete period coverage (6.6533ms)
+✔ C collation uses Unicode code points and rejects duplicate or backwards keys (7.6059ms)
+✔ continuation pins account query revision directory generation and previous identity (5.0217ms)
+✔ pagination and full UTF8 capacity are checked without trimming records (12.7048ms)
+✔ getters and asynchronous mutation cannot alter validated snapshots (2.8703ms)
+✔ selection and merge require validated unchanged page and exact current-account choice (2.5101ms)
+✔ ERP merge adds only explicit channel and preserves other form data including budgets (2.5831ms)
+✔ pristine placeholder may be replaced but unfinished manual shops stay intact (1.3156ms)
+✔ 100-character planner limit rejects complete 101-200 character source identity without truncation (5.915ms)
+✔ merge refuses shop channel bounds and ambiguous duplicates without shrinking scope (1.8979ms)
+✔ new customer scope retains inert presentation, fences old handlers, and exposes only its own recovered rows (2318.3685ms)
+✔ failed customer scope cannot revive prior rows when returning to the previous filter (1945.5952ms)
+✔ an equal-looking identity packet clears customer presentation and requests fresh authorized options (2274.6958ms)
+✔ late customer detail cannot reopen after its date changes (2614.365ms)
+✔ a late import completion refreshes the current scope without stranding its reader (3969.3949ms)
+✔ an accepted detail save finishing under a new identity cannot overwrite its rows or reopen its detail (3309.258ms)
+✔ an accepted save may finish after leaving customer view without refreshing the unmounted instance (3107.4973ms)
+✔ a failed refresh preserves only its exact prior scope and cannot start AI; permission denial clears it (3077.1197ms)
+✔ detail permission denial clears old customer rows and ends the reading state (2732.6751ms)
+✔ opening and closing detail after a transient same-scope failure does not turn the list busy again (2945.3507ms)
+✔ a cancelled old detail denial cannot clear the restored scope's new successful rows (2477.5667ms)
+✔ current detail denial fences a parallel list reply and permits a fresh explicit recovery (2300.2213ms)
+ℹ tests 42
+ℹ suites 0
+ℹ pass 38
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35825.4249
+
+✖ failing tests:
+
+test at tests\business-market-options-envelope.test.ts:1:1
+✖ tests\business-market-options-envelope.test.ts (343.8265ms)
+  'test failed'
+
+test at tests\business-market-options.test.ts:1:2894
+✖ actual Python contract hashes and Unicode casefold are accepted by the shared codec (4.7864ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== 0
+  
+      at TestContext.<anonymous> (D:\.codex\worktrees\release-fastpath-evidence\运营管理系统\tests\business-market-options.test.ts:60:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\business-sales-options-envelope.test.ts:1:1
+✖ tests\business-sales-options-envelope.test.ts (297.8879ms)
+  'test failed'
+
+test at tests\business-sales-options.test.ts:1:2776
+✖ actual Python contract SHA and Unicode exact identities match TS (5.3269ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== 0
+  
+      at TestContext.<anonymous> (D:\.codex\worktrees\release-fastpath-evidence\运营管理系统\tests\business-sales-options.test.ts:60:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

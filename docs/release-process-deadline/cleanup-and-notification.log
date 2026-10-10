@@ -1,0 +1,10 @@
+✔ ordinary isolated tree cleanup retains no child or detached grandchild (2112.1986ms)
+✔ watchdog deadline, safe diagnostics and unknown notification delivery remain bounded (5193.6823ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7951.1828

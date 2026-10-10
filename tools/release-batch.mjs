@@ -8,9 +8,10 @@ import { performance } from 'node:perf_hooks';
 import { randomUUID } from 'node:crypto';
 import { canonical, hash, requireHash, safeRead, safeFileDigest, readSourceTree, sourceTreeDigest, sourceInventory, makeImpactProof, verifyImpactProof, classifyImpact, requirements, backupReuseDecision } from './release-impact.mjs';
 import { withRotationLock, applyApprovedRotationPlan, planWorkerReleaseRotation } from './worker-local-release-rotation.mjs';
-import { runProcess, workerRuntimeRoot } from './worker-local-release.mjs';
+import { runProcess, processDeadline, safeProcessEvidence, workerRuntimeRoot } from './worker-local-release.mjs';
+import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError } from './release-readonly-retry.mjs';
 
-export const batchVersion = 'teruisi-release-batch-v1';
+export const batchVersion = 'teruisi-release-batch-v2';
 const phases = ['queue', 'prepare', 'backup-pre', 'restore-pre', 'drain', 'switch', 'acceptance', 'business', 'backup-post', 'restore-post', 'closeout'];
 const terminal = new Set(['passed', 'skipped']);
 export function makeBatch({ id, binding, before, after, witness, evidence, current, tests, acceptance, rollback, operations, collector, now = Date.now() }) {
@@ -39,6 +40,7 @@ export function makeBatch({ id, binding, before, after, witness, evidence, curre
     if (!operations.some(o => o.phase === name)) throw new Error(`Missing ${name} phase`);
   }
   const core = { version: batchVersion, id, createdAt: new Date(now).toISOString(), binding, impact, recovery,
+    databaseOperations: { required: recovery.mode==='full', operationIds:operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id) },
     requirements: requirements[impact.level], tests, acceptance, rollback, operations,
     recoveryEvidence: evidence ?? null, recoveryCurrent: current ?? null, collectorSha256: collector ? hash(collector) : null, impactProof:makeImpactProof(before,after,witness) };
   const sealed = { ...core, batchSha256: hash(core) };
@@ -53,6 +55,12 @@ const requiredOperatorResults = {
   'restore-post': { kind: 'restore', assertions: { status: 'completed', serviceStateChanged: false, productionDatabaseTouched: false, cleanupStatus: 'isolated_data_removed', profileRestoreVerified: true, sequenceHealthVerified: true } },
 };
 export function validateOperation(op) {
+  if(op.step&&!['lifecycle','django-deploy'].includes(op.kind))throw new Error('Lifecycle step labels require an original lifecycle adapter');
+  if (op.readOnlyRetry && (!isExactStatusOperation(op) || op.readOnlyRetry.version !== 'teruisi-status-retry-v1'
+    || !Number.isSafeInteger(op.readOnlyRetry.totalTimeoutMs) || op.readOnlyRetry.totalTimeoutMs < 1
+    || op.readOnlyRetry.totalTimeoutMs > 240_000)) throw new Error('Retry is restricted to the exact read-only Status operation');
+  if (op.readOnlyRetry && ([['state','Running'],['backendState','Ready'],['workerState','exact_release']].some(([key,value])=>!op.assertions?.some(a=>a.path===key&&a.equals===value))
+    || !op.assertions?.some(a=>a.path==='releaseId'&&typeof a.equals==='string'&&a.equals.length>0))) throw new Error('Read-only retry requires exact full readiness assertions');
   const requirement = requiredOperatorResults[op.phase];
   if (requirement) {
     if (op.kind !== requirement.kind || op.mutating !== true) throw new Error('Backup/restore phase cannot be substituted');
@@ -71,8 +79,26 @@ export function validateOperation(op) {
       ||!op.command?.args||op.command.args[op.command.args.indexOf('-Step')+1]!==op.step
       ||!op.command.files?.some(f=>/[\\/]release-lifecycle-step\.ps1$/i.test(f.path)&&op.command.args.includes(f.path)))throw new Error('Lifecycle must call the bound original-engine adapter');
   }
+  if (['lifecycle','django-deploy'].includes(op.kind)) {
+    const adapter = op.command.files.find(f=>/[\\/]release-lifecycle-step\.ps1$/i.test(f.path));
+    const transport = path.join(path.dirname(adapter.path), 'process-deadline.ps1');
+    if (!op.command.files.some(f=>path.resolve(f.path) === path.resolve(transport) && /^[a-f0-9]{64}$/.test(f.sha256))) throw new Error('Lifecycle transport dependency must be bound');
+  }
   if(op.phase==='drain'&&(op.kind!=='lifecycle'||!['BeginWorkerDrain','EnterMaintenance'].includes(op.step)||op.mutating!==true
     ||!op.assertions?.some(a=>a.path==='drainConfirmed'&&a.equals===true)))throw new Error('Task drain must freeze admission and confirm original leases before switching');
+}
+function assertStartBinding(op, batch, args = op.command?.args) {
+  if (op.kind === 'lifecycle' && op.step === 'StartWorker') {
+    for (const key of ['-ExpectedWorkerManifestSha256','-ExpectedDjangoManifestSha256','-MaintenanceId']) if(args.filter(a=>a.toLowerCase()===key.toLowerCase()).length!==1) throw new Error('Start binding parameter is missing or duplicated');
+    if(args[args.indexOf('-MaintenanceId')+1]!==batch.binding?.maintenanceId) throw new Error('Start maintenance owner does not match batch');
+    requireHash(batch.binding?.djangoCandidateSha256,'Start Django candidate');
+    if(args[args.indexOf('-ExpectedDjangoManifestSha256')+1]!==batch.binding.djangoCandidateSha256) throw new Error('Start Django manifest does not match batch');
+    const expected = args[args.indexOf('-ExpectedWorkerManifestSha256')+1];
+    if (!args.includes('-ExpectedWorkerManifestSha256') || expected !== batch.binding?.artifactSha256) throw new Error('Start must bind this batch exact candidate manifest');
+    if(args.filter(a=>a.toLowerCase()==='-expecteddrainid').length!==(batch.impact?.level==='display'?1:0)) throw new Error('Start drain parameter is missing or duplicated');
+    const drain = args.includes('-ExpectedDrainId') ? args[args.indexOf('-ExpectedDrainId')+1] : null;
+    if (batch.impact?.level === 'display' ? drain !== batch.binding?.maintenanceId : drain !== null) throw new Error('Start maintenance expectation does not match the batch');
+  }
 }
 export function verifyBatch(batch, approved) {
   requireHash(approved, 'approved batch');
@@ -85,6 +111,7 @@ export function verifyBatch(batch, approved) {
   const recovery = backupReuseDecision({ impact, evidence:batch.recoveryEvidence, current:batch.recoveryCurrent, now:Date.parse(batch.createdAt) });
   if (canonical(impact) !== canonical(batch.impact) || canonical(recovery) !== canonical(batch.recovery)
     || canonical(requirements[impact.level]) !== canonical(batch.requirements)) throw new Error('Impact/recovery requirements were altered');
+  if(canonical(batch.databaseOperations)!==canonical({required:recovery.mode==='full',operationIds:batch.operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id)}))throw new Error('Sealed database operations changed');
   if (!batch.tests || batch.tests.status !== 'passed' || hash(batch.tests) !== batch.binding.testsSha256
     || batch.tests.sourceSha256 !== batch.binding.sourceSha256 || batch.tests.artifactSha256 !== batch.binding.artifactSha256
     || requirements[impact.level].tests.some(k => !batch.tests.checks?.includes(k))) throw new Error('Incomplete bound tests');
@@ -101,6 +128,7 @@ export function verifyBatch(batch, approved) {
   for (const op of batch.operations) {
     if (!/^[a-z0-9-]{3,80}$/.test(op.id ?? '') || typeof op.mutating !== 'boolean') throw new Error('Invalid operation identity/effect');
     validateOperation(op);
+    assertStartBinding(op, batch);
     if(['worker-plan','worker-apply'].includes(op.kind)&&op.planSha256!==batch.binding.workerPlanSha256)throw new Error('Operation would use another candidate plan');
     if(op.kind==='django-deploy'&&(op.command.args[op.command.args.indexOf('-PreparedAppId')+1]!==batch.binding.djangoPreparedAppId
       ||op.command.args[op.command.args.indexOf('-PreparedAppSha256')+1]!==batch.binding.djangoPreparedReceiptSha256))throw new Error('Operation would deploy another prepared app');
@@ -117,6 +145,16 @@ export function verifyBatch(batch, approved) {
     ||(batch.binding.djangoCandidateSha256&&batch.binding.djangoCandidateSha256!==batch.binding.djangoPredecessorSha256)))throw new Error('Display release must be Worker-only');
   if(batch.operations.filter(op=>op.kind==='worker-apply').length!==1)throw new Error('Exactly one approved Worker apply is required');
   if(impact.level==='display'&&!batch.operations.some(op=>op.step==='EndWorkerDrain'&&op.phase==='switch'))throw new Error('Worker drain must be explicitly closed after starting the successor');
+  if(impact.level==='display') {
+    for(const step of ['BeginWorkerDrain','StopWorker','StartWorker','EndWorkerDrain']) {
+      const matches=batch.operations.filter(op=>op.step===step);
+      if(matches.length!==1||matches[0].kind!=='lifecycle'||matches[0].mutating!==true
+        ||matches[0].phase!==(step==='BeginWorkerDrain'?'drain':'switch'))throw new Error('Exactly one original Worker-only lifecycle step is required');
+    }
+    if(batch.operations.some(op=>op.mutating && !['backup','restore','worker-apply','lifecycle'].includes(op.kind))
+      || batch.operations.some(op=>op.kind==='lifecycle' && !['BeginWorkerDrain','StopWorker','StartWorker','EndWorkerDrain','VerifyStartup','AggregateStatus'].includes(op.step))
+      || batch.operations.some(op=>op.kind==='lifecycle' && op.command.args.some(a=>/^-(IncludeBackend|KeepPostgres)$/i.test(a))))throw new Error('Display batch changed backend or admitted unproven writes');
+  }
   const position=step=>batch.operations.findIndex(op=>op.step===step);
   const applyPosition=batch.operations.findIndex(op=>op.kind==='worker-apply');
   if(impact.level==='display'&&!(position('BeginWorkerDrain')<position('StopWorker')&&position('StopWorker')>=0&&position('StopWorker')<applyPosition
@@ -200,8 +238,16 @@ export function timingReport(events) {
     switchExecutionMs: durationMs.switch, switchSpanMs: switchStart && switchEnd ? Date.parse(switchEnd.at) - Date.parse(switchStart.at) : null, completed: !!closed,
     waits: events.filter(e => e.reason).map(e => ({ phase: e.phase, reason: e.reason, durationMs: e.durationMs ?? 0 })) };
 }
+function admissionStages(value=[]) {
+  if(!Array.isArray(value)||value.length>128)throw new Error('Invalid bounded admission stages');
+  return value.map(stage=>{
+    if(!/^[a-z][a-z0-9-]{1,64}$/.test(stage.stage??'')||!['sealed-evidence','mutable-input','immutable-content','dynamic-state'].includes(stage.category)
+      ||!['passed','failed'].includes(stage.status)||!Number.isFinite(stage.durationMs)||stage.durationMs<0)throw new Error('Invalid admission timing record');
+    return {stage:stage.stage,category:stage.category,status:stage.status,durationMs:stage.durationMs};
+  });
+}
 
-export async function executeBatch({ batch, approved, root, collectCurrent, run, lock = withRotationLock, approvedAt = new Date().toISOString() }) {
+export async function executeBatch({ batch, approved, root, collectCurrent, run, beforeOperation, lock = withRotationLock, approvedAt = new Date().toISOString() }) {
   verifyBatch(batch, approved);
   if (!Number.isFinite(Date.parse(approvedAt)) || Date.parse(approvedAt) > Date.now()) throw new Error('Invalid explicit approval time');
   const queued = performance.now();
@@ -225,33 +271,43 @@ export async function executeBatch({ batch, approved, root, collectCurrent, run,
     if (!state.events.length) await append(state, batch, { phase: 'queue', status: 'approved', at: approvedAt, durationMs: performance.now() - queued });
     else await append(state, batch, { phase: 'queue', status: 'resumed', durationMs: performance.now() - queued });
     const admissionStart = performance.now();
-    const live = await collectCurrent(batch, lease);
+    async function collect(op) {
+      const started=performance.now();
+      try { return await collectCurrent(batch,lease,op,state); }
+      catch(error) {
+        await append(state,batch,{phase:op?.phase??'prepare',status:'admission-failed',durationMs:performance.now()-started,admissionStages:admissionStages(error.admissionStages),reason:'operation-boundary-failed',error:safeObservationError(error),observationAttempts:error.observationAttempts??[]});
+        throw error;
+      }
+    }
+    const live = await collect();
     assertBindings(batch.binding, live.binding);
     if (batch.recovery.mode === 'reuse') {
       const decision = backupReuseDecision({ impact: batch.impact, evidence: batch.recoveryEvidence, current: live.recovery });
       if (decision.mode !== 'reuse') throw new Error(`Recovery evidence expired: rebuild full-flow batch (${decision.reasons.join(',')})`);
     }
-    await append(state, batch, { phase: 'prepare', status: 'admission', durationMs: performance.now() - admissionStart, reason: 'live-predecessor-and-integrity-revalidation' });
+    await append(state, batch, { phase: 'prepare', status: 'admission', durationMs: performance.now() - admissionStart, admissionStages:admissionStages(live.admissionStages), reason: 'live-predecessor-and-integrity-revalidation' });
     for (const op of batch.operations) {
       if (terminal.has(state.latest.get(op.id)?.status)) continue;
       // A new sample is required at every actual operation. The adapter must
       // revalidate the expected predecessor until switch, then the exact
       // approved successor; never rewrite the approved batch to follow main.
       const boundaryStart = performance.now();
-      const current = await collectCurrent(batch, lease, op, state);
+      const current = await collect(op);
       assertBindings(batch.binding, current.binding);
-      if (batch.recovery.mode === 'reuse' && ['switch','closeout'].includes(op.phase)
+      if (batch.recovery.mode === 'reuse'
         && backupReuseDecision({ impact: batch.impact, evidence: batch.recoveryEvidence, current: current.recovery }).mode !== 'reuse') throw new Error('Recovery point/evidence invalidated at operation boundary');
-      await append(state, batch, { phase: op.phase, status: 'admission', durationMs: performance.now() - boundaryStart, reason: 'operation-boundary-revalidation' });
+      await append(state, batch, { phase: op.phase, status: 'admission', durationMs: performance.now() - boundaryStart, admissionStages:admissionStages(current.admissionStages), reason: 'operation-boundary-revalidation',...(current.statusObservation?{observationAttempts:current.statusObservation.attempts}:{}) });
+      await beforeOperation?.(op);
       const start = performance.now();
       await append(state, batch, { operationId: op.id, phase: op.phase, status: 'started' });
       let result;
       try { result = await run(op, { batch, lease, state }); }
-      catch { result = { status: 'unknown', reason: 'operator-failed-or-result-unavailable' }; }
+      catch (error) { result = { status: 'unknown', reason: error.processEvidence?.code ?? 'operator-failed-or-result-unavailable', processEvidence: error.processEvidence ?? null, error: safeObservationError(error), observationAttempts: error.observationAttempts ?? [] }; }
       if (!['passed','failed','unknown','skipped'].includes(result?.status)) result = { status: 'unknown', reason: 'invalid-result' };
       if (result.status === 'skipped') throw new Error('Approved required operations cannot be skipped');
       await append(state, batch, { operationId: op.id, phase: op.phase, status: result.status,
-        durationMs: performance.now() - start, reason: result.reason ?? null, receiptSha256: result.receiptSha256 ?? null, outputs: result.outputs ?? null });
+        durationMs: performance.now() - start, reason: result.reason ?? null, receiptSha256: result.receiptSha256 ?? null, outputs: result.outputs ?? null, processEvidence: result.processEvidence ?? null, timing: result.timing ?? null,
+        ...(result.error ? {error:result.error} : {}), ...(result.observationAttempts ? {observationAttempts:result.observationAttempts} : {}) });
       if (result.status !== 'passed') throw new Error(`Release retained at ${op.id}: ${result.status}`);
     }
     await append(state, batch, { phase: 'closeout', status: 'completed' });
@@ -321,12 +377,15 @@ export function productionCommandArguments(executable, args) {
     '[Console]::InputEncoding=$utf8;[Console]::OutputEncoding=$utf8;$OutputEncoding=$utf8',
     `$request=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}'))|ConvertFrom-Json`,
     '$parameters=@{};foreach($p in $request.parameters.PSObject.Properties){$parameters[$p.Name]=$p.Value}',
-    '& ([string]$request.file) @parameters'].join('\n');
+    '$global:LASTEXITCODE=0', '& ([string]$request.file) @parameters', '$invocationSucceeded=$?',
+    'if($global:LASTEXITCODE -ne 0){exit $global:LASTEXITCODE}', 'if(-not $invocationSucceeded){exit 1}', 'exit 0'].join('\n');
   return ['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(bootstrap,'utf16le').toString('base64')];
 }
 
 export async function runApprovedOperation(op, { batch, lease, state }) {
+  const observationStart=performance.now();
   validateOperation(op);
+  const deadlineUnixMs = processDeadline(op.readOnlyRetry?.totalTimeoutMs ?? op.command?.timeoutMs);
   if (op.kind === 'worker-plan') {
     const result = await planWorkerReleaseRotation({ prepareOnline: true, reusePlanSha256: op.planSha256, rotationLease: lease, batchSha256: batch.batchSha256 });
     if (result.planSha256 !== op.planSha256) throw new Error('Prepared plan changed');
@@ -370,10 +429,32 @@ export async function runApprovedOperation(op, { batch, lease, state }) {
   });
   if (path.resolve(op.command.executable).toLowerCase() === path.resolve('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe').toLowerCase()
     && !op.command.files.some(f => f.path === args[3])) throw new Error('Unbound PowerShell script entrypoint');
-  const result = await runProcess(op.command.executable, productionCommandArguments(op.command.executable,args), { cwd: op.command.cwd,
-    env: productionCommandEnvironment(op.command.executable),
-    label: `${batch.id}/${op.id}`, timeoutMs: op.command.timeoutMs });
+  assertStartBinding(op, batch, args);
+  const invoke = timeoutMs => (op.readOnlyRetry ? runReadOnlyProcess : runProcess)(op.command.executable, productionCommandArguments(op.command.executable,args), { cwd: op.command.cwd,
+    env: productionCommandEnvironment(op.command.executable), deadlineUnixMs,
+    outputProtocol: 'direct-exit-files', cleanup: op.mutating ? 'preserve' : 'direct',
+    label: `${batch.id}/${op.id}`, timeoutMs });
+  let result, observationAttempts;
+  if (op.readOnlyRetry) {
+    const totalTimeoutMs=Math.floor(Math.min(deadlineUnixMs-Date.now(),op.readOnlyRetry.totalTimeoutMs-(performance.now()-observationStart)));
+    if(totalTimeoutMs<1)throw observationError('DEADLINE_EXCEEDED');
+    const observed = await retryReadOnlyObservation({ stage: `${op.phase}-status`, totalTimeoutMs,
+      onAttempt: record => append(state, batch, { phase: op.phase, status: 'observation-attempt', operationRef: op.id, observation: record }),
+      query: async ({ remaining }) => {
+        for (const file of op.command.files) { remaining(); if (await safeFileDigest(file.path) !== file.sha256) throw observationError('ASSERTION_FAILED'); remaining(); }
+        const value = await invoke(Math.min(remaining(), 60_000));
+        const status = parseStatus(value.stdout);
+        assertCompleteReadiness(status,op.assertions.find(a=>a.path==='releaseId').equals);
+        for (const assertion of op.assertions) if (canonical(assertion.path.split('.').reduce((v,k) => v?.[k], status)) !== canonical(assertion.equals)) throw observationError('ASSERTION_FAILED');
+        return value;
+      } });
+    result=observed.value;observationAttempts=observed.attempts;
+  } else result=await invoke(op.command.timeoutMs);
+  let stage = 'result-parse';
+  try {
+  if (Date.now() >= deadlineUnixMs) throw new Error('deadline');
   const receipt = JSON.parse(result.stdout.trim());
+  stage = 'result-assertions';
   for (const assertion of op.assertions) {
     const actual = assertion.path.split('.').reduce((v,k) => v?.[k], receipt);
     if (canonical(actual) !== canonical(assertion.equals)) throw new Error('Required operator/acceptance assertion failed');
@@ -389,7 +470,16 @@ export async function runApprovedOperation(op, { batch, lease, state }) {
       || receipt.expectedContentSha256 !== backup.contentSha256 || receipt.restoredContentSha256 !== backup.contentSha256) throw new Error('Restore is not the confirmed exact backup or content changed');
   }
   const allowed = ['backupDirectory','backupId','manifestSha256','dumpSha256','contentSha256','maintenanceId'];
-  return { status: 'passed', receiptSha256: hash(receipt), outputs: Object.fromEntries(allowed.filter(k => typeof receipt[k] === 'string').map(k => [k,receipt[k]])) };
+  if (Date.now() >= deadlineUnixMs) throw new Error('deadline');
+  const processEvidence = {...result.processEvidence};
+  if (op.kind==='lifecycle' && Array.isArray(receipt.engineEvidence)) processEvidence.engine=receipt.engineEvidence.slice(0,8).map(safeProcessEvidence);
+  const timing=Object.fromEntries(['engineMs','validationMs','adapterMs'].filter(k=>Number.isSafeInteger(receipt.timing?.[k])&&receipt.timing[k]>=0).map(k=>[k,receipt.timing[k]]));
+  return { timing, processEvidence, ...(observationAttempts ? {observationAttempts} : {}), status: 'passed', receiptSha256: hash(receipt), outputs: Object.fromEntries(allowed.filter(k => typeof receipt[k] === 'string').map(k => [k,receipt[k]])) };
+  } catch {
+    const failure = new Error('Required operator result failed; exact reconciliation required');
+    failure.processEvidence = {...result.processEvidence, code: Date.now() >= deadlineUnixMs ? 'process_timeout' : 'invalid_result', stage, timeoutType: Date.now() >= deadlineUnixMs ? stage : null};
+    throw failure;
+  }
 }
 
 export async function cancelUnswitchedBatch({root,batch,approved,proof,lock=withRotationLock}) {
@@ -428,15 +518,40 @@ async function main() {
   // The live collector is an explicitly approved read-only task adapter; it
   // reuses installed Status/Verify/CAS and task-specific business observations.
   if (!spec.collector || spec.batch.collectorSha256 !== hash(spec.collector)) throw new Error('Collector is outside approved scope');
-  await executeBatch({ batch: spec.batch, approved, approvedAt, root: spec.journalRoot, run: runApprovedOperation,
+  let session=null,collectInProcess=null;
+  if(spec.collector.transport==='in-process-content-evidence-v1') {
+    const admissionPath=path.join(path.dirname(fileURLToPath(import.meta.url)),'release-batch-admission.mjs');
+    if(spec.collector.executable!==process.execPath || spec.collector.args.length!==4 || path.resolve(spec.collector.args[0])!==admissionPath
+      || spec.collector.args[1]!=='collect' || path.resolve(spec.collector.args[2])!==path.resolve(specPath))throw new Error('In-process evidence requires the exact standard collector');
+    if(spec.collector.cwd&&path.resolve(spec.collector.cwd)!==process.cwd())throw new Error('In-process collector cwd differs from its approved execution context');
+    // This is a new approved transport, not recognition of an arbitrary adapter.
+    // Pin the entire direct implementation closure, including existing engines.
+    for(const name of ['release-batch.mjs','release-batch-admission.mjs','release-impact.mjs','release-preparation-evidence.mjs','release-admission-timing.mjs','release-daily-backup.mjs','release-readonly-retry.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','collect-d1-retirement-proof.mjs']) {
+      const target=path.join(path.dirname(admissionPath),name);
+      if(!spec.collector.files.some(f=>path.resolve(f.path)===target))throw new Error('Unbound in-process collector implementation');
+    }
+    const compiler=path.join(path.dirname(path.dirname(admissionPath)),'node_modules','typescript','lib','typescript.js');
+    if(!spec.collector.files.some(f=>path.resolve(f.path)===compiler))throw new Error('Unbound in-process impact parser');
+    const compilerPackage=path.join(path.dirname(path.dirname(compiler)),'package.json');
+    if(!spec.collector.files.some(f=>path.resolve(f.path)===compilerPackage))throw new Error('Unbound impact parser package resolution');
+    const {createPreparationEvidenceSession}=await import('./release-preparation-evidence.mjs');
+    const {workerSourceRoot}=await import('./worker-local-release.mjs');
+    ({collectBatchAdmission:collectInProcess}=await import('./release-batch-admission.mjs'));
+    session=createPreparationEvidenceSession({batchSha256:approved,sourceRoot:workerSourceRoot});
+  } else if(spec.collector.transport)throw new Error('Unknown collector transport');
+  try { await executeBatch({ batch: spec.batch, approved, approvedAt, root: spec.journalRoot,
+    run:(op,context)=>{session?.assertStable();return runApprovedOperation(op,context);},beforeOperation:()=>session?.assertStable(),
     collectCurrent: async (_,__,op) => {
       for (const file of spec.collector.files) if (await safeFileDigest(file.path) !== file.sha256) throw new Error('Live collector changed');
       if (!spec.collector.files.some(f => f.path === spec.collector.executable)) throw new Error('Unbound live collector executable');
-      const result = await runProcess(spec.collector.executable, [...spec.collector.args,'--phase',op?.phase??'admission'], { cwd: spec.collector.cwd, label: 'release live admission' });
-      const current = JSON.parse(result.stdout.trim());
+      const attemptRoot=path.join(spec.journalRoot,'_observations',`${spec.batch.id}-${randomUUID()}`);
+      const current=collectInProcess
+        ? await collectInProcess(spec.batch,spec.collector.args[3],op?.phase??'admission',{session,step:op?.step??op?.kind,
+          onStatusAttempt:record=>writeOnce(path.join(attemptRoot,`${record.attempt}.json`),{version:'teruisi-status-attempt-v1',batchSha256:approved,observation:record})})
+        : JSON.parse((await runProcess(spec.collector.executable, [...spec.collector.args,'--phase',op?.phase??'admission'], { cwd: spec.collector.cwd, label: 'release live admission' })).stdout.trim());
       if (current.batchSha256 !== approved || !Number.isFinite(current.observedAtMs)
         || Math.abs(Date.now() - current.observedAtMs) > 5_000) throw new Error('Stale live admission');
       return current;
-    } });
+    } }); } finally { session?.dispose(); }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(error => { console.error(error.message); process.exitCode = 1; });

@@ -33,6 +33,39 @@ import { createD1RetirementReceipt, d1ReceiptRelativePath } from "../tools/d1-re
 
 const hex = (character: string) => character.repeat(64);
 
+test("first deadline helper upgrade is guarded, installed, read back and recoverable from an old eleven-entry predecessor", async () => {
+  const item = await fixture({ bootstrapWithRotation: true, bootstrapWithDeadline: false });
+  const helper = "tools/process-deadline.ps1";
+  try {
+    assert.equal(item.bootstrapRelease.entrypoints.length, 11);
+    assert.equal(item.bootstrapRelease.entrypoints.some(e => e.relativePath === helper), false);
+    const entries = await buildEntrypointPlan(await releaseManifestContext(item.bootstrapRelease), await releaseManifestContext(item.candidate));
+    assert.equal(entries.find(e => e.relativePath === helper)?.predecessorSha256, null);
+    const chain = await resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true });
+    const approved = await approvedTransition(item, chain);
+    await assert.rejects(applyApprovedRotationPlanForTest({runtimeRoot:item.runtime,approvedPlanSha256:approved.planSha256,cutoverEvidence:item.cutoverEvidence,
+      testDependencies:{afterEntrypointInstalled:async (entry: { relativePath?: string })=>{if(entry.relativePath===helper)throw new Error("helper installed, observation lost");}},
+    }),/helper installed, observation lost/);
+    const target=path.join(item.protectedRoot,...helper.split("/"));
+    assert.deepEqual(await readFile(target),await readFile(path.join(item.candidate.releaseRoot,...helper.split("/"))));
+    assert.deepEqual(await directoryNamesOrEmpty(path.join(item.runtime,"state",successorDirectoryName)),[]);
+    const resumed=await applyApprovedRotationPlanForTest({runtimeRoot:item.runtime,approvedPlanSha256:approved.planSha256,cutoverEvidence:item.cutoverEvidence});
+    assert.equal(resumed.status,"activated");
+    const after=await resolveEffectiveReleaseChain({runtimeRoot:item.runtime,allowTestRuntimeRoot:true,verifyInstalledHead:true});
+    assert.equal(after.head.releaseId,item.candidate.releaseId);
+  } finally {await rm(item.runtime,{recursive:true,force:true});}
+});
+
+test("new candidate cannot omit the helper guard or replace it with foreign bytes", async () => {
+  const item = await fixture({ bootstrapWithRotation: true });
+  try {
+    const candidate=await makeRelease(item.runtime,item.protectedRoot,"20260901T000000Z-3333333333333333","old-shape-candidate",{includeProcessDeadlineEntrypoint:false});
+    await assert.rejects(buildEntrypointPlan(await releaseManifestContext(item.bootstrapRelease),await releaseManifestContext(candidate)),/guard.*进程传输/);
+    await writeFile(path.join(item.candidate.releaseRoot,"tools/process-deadline.ps1"),"foreign-helper");
+    await assert.rejects(buildEntrypointPlan(await releaseManifestContext(item.bootstrapRelease),await releaseManifestContext(item.candidate)),/process-deadline|guard/);
+  } finally {await rm(item.runtime,{recursive:true,force:true});}
+});
+
 test("successor sequence remains bounded while allowing continued forward releases", () => {
   const predecessor = releaseBinding({
     releaseId: "20260903T000000Z-0000000000000001",

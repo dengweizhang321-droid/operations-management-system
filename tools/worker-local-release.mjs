@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { mkdtempSync, openSync, closeSync, fstatSync, readSync, unlinkSync, rmdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createHash, randomUUID } from "node:crypto";
 import {
   copyFile,
@@ -215,7 +217,7 @@ const requiredHelperResourceOutputPaths = Object.freeze([
   "jd-credential-vault.ps1",
   "tmall-credential-vault.ps1",
 ]);
-export const workerGuardEntrypointPaths = Object.freeze([
+export const workerLegacyGuardEntrypointPaths = Object.freeze([
   "package.json",
   "运行项目.bat",
   "tools/operations-system-control.ps1",
@@ -228,6 +230,7 @@ export const workerGuardEntrypointPaths = Object.freeze([
   "tools/worker-local-service.ps1",
   activationFenceRelativePath,
 ]);
+export const workerGuardEntrypointPaths = Object.freeze([...workerLegacyGuardEntrypointPaths, "tools/process-deadline.ps1"]);
 export const workerGuardCheckNames = Object.freeze([
   "packageScriptsControlled",
   "batchEntrypointControlled",
@@ -247,6 +250,9 @@ export const workerReleaseBundledSourcePaths = Object.freeze([
   "tools/release-batch.mjs",
   "tools/release-impact.mjs",
   "tools/release-batch-admission.mjs",
+  "tools/release-admission-timing.mjs",
+  "tools/release-preparation-evidence.mjs",
+  "tools/release-readonly-retry.mjs",
   "tools/release-daily-backup.mjs",
   "tools/release-lifecycle-step.ps1",
 ]);
@@ -258,6 +264,9 @@ export const workerReleaseKeyFilePaths = Object.freeze([
   "tools/release-batch.mjs",
   "tools/release-impact.mjs",
   "tools/release-batch-admission.mjs",
+  "tools/release-admission-timing.mjs",
+  "tools/release-preparation-evidence.mjs",
+  "tools/release-readonly-retry.mjs",
   "tools/release-daily-backup.mjs",
   "tools/release-lifecycle-step.ps1",
   "helper/tmall-workflow-helper.mjs",
@@ -634,127 +643,162 @@ function processDiagnosticExcerpt(buffer, cwd, env, command, args) {
   return `${sanitized.slice(0, side)}...[redacted/truncated]...${sanitized.slice(-side)}`;
 }
 
+export function safeProcessEvidence(value) {
+  if (!value || typeof value !== "object") return null;
+  const result = {};
+  for (const key of ["version","processId","exitCode","deadlineUnixMs","elapsedMs","stdoutBytes","stderrBytes"]) {
+    if (value[key] === null || Number.isSafeInteger(value[key])) result[key] = value[key];
+  }
+  for (const key of ["code","stage","timeoutType","outputProtocol","cleanup","nativeCode"]) {
+    if (typeof value[key] === "string" && /^[a-z][a-z0-9_-]{0,39}$/i.test(value[key])) result[key] = value[key];
+  }
+  for (const key of ["stdoutSha256","stderrSha256"]) if (/^[a-f0-9]{64}$/.test(value[key] ?? "")) result[key] = value[key];
+  return result;
+}
+export function processDeadline(timeoutMs = 600_000, inherited = process.env.TERUISI_PROCESS_DEADLINE_UNIX_MS) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 1_800_000) fail("子进程时限无效");
+  if (inherited !== undefined && (!/^\d+$/.test(String(inherited)) || !Number.isSafeInteger(Number(inherited)))) fail("子进程绝对期限无效");
+  return Math.min(Date.now() + timeoutMs, inherited === undefined ? Infinity : Number(inherited));
+}
 export async function runProcess(command, args, {
-  cwd,
-  env = process.env,
-  label = "进程",
-  maxOutputBytes = 16 * 1024 * 1024,
-  timeoutMs = 10 * 60 * 1000,
+  cwd, env = process.env, label = "进程", maxOutputBytes = 16 * 1024 * 1024,
+  timeoutMs = 600_000, deadlineUnixMs = processDeadline(timeoutMs, env.TERUISI_PROCESS_DEADLINE_UNIX_MS),
+  outputProtocol = "eof", cleanup = "tree",
 } = {}) {
-  if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1 || maxOutputBytes > 64 * 1024 * 1024) {
-    fail("子进程输出上限无效");
-  }
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30 * 60 * 1000) {
-    fail("子进程时限无效");
-  }
+  if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1 || maxOutputBytes > 64 * 1024 * 1024) fail("子进程输出上限无效");
+  if (!Number.isSafeInteger(deadlineUnixMs) || !["eof", "direct-exit-files"].includes(outputProtocol) || !["tree", "direct", "preserve"].includes(cleanup)) fail("子进程协议无效");
+  const deadline = Math.min(deadlineUnixMs, processDeadline(timeoutMs, env.TERUISI_PROCESS_DEADLINE_UNIX_MS));
+  const started = performance.now();
   return new Promise((resolveRun, rejectRun) => {
-    const stdout = [];
-    const stderr = [];
-    let outputBytes = 0;
-    let outputChunks = 0;
-    let forcedFailure = null;
-    let settled = false;
-    let child;
-    let timeout;
-    let killGrace;
-    const clearTimers = () => {
-      if (timeout) clearTimeout(timeout);
-      if (killGrace) clearTimeout(killGrace);
-    };
-    const failureError = (reason) => {
-      const stdoutBuffer = Buffer.concat(stdout);
-      const stderrBuffer = Buffer.concat(stderr);
-      const diagnostics = [];
-      if (stderrBuffer.length > 0) diagnostics.push(`stderr=${processDiagnosticExcerpt(stderrBuffer, cwd, env, command, args)}`);
-      if (stdoutBuffer.length > 0) diagnostics.push(`stdout=${processDiagnosticExcerpt(stdoutBuffer, cwd, env, command, args)}`);
-      return new Error(`${label}失败：${reason}${diagnostics.length > 0 ? ` (${diagnostics.join("; ")})` : ""}`);
-    };
-    const rejectOnce = (error) => {
-      if (settled) return;
-      settled = true;
-      clearTimers();
-      rejectRun(error);
-    };
-    const resolveOnce = (value) => {
-      if (settled) return;
-      settled = true;
-      clearTimers();
-      resolveRun(value);
-    };
-    try {
-      child = spawn(command, args, {
-        cwd,
-        env,
-        shell: false,
-        windowsHide: true,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-    } catch (error) {
-      const code = error && typeof error === "object" && typeof error.code === "string" ? error.code : "unknown";
-      rejectOnce(new Error(`${label}启动失败：code=${code}`));
-      return;
-    }
-    const terminateControlledTree = (reason) => {
-      if (!forcedFailure) forcedFailure = reason;
-      if (process.platform === "win32" && Number.isSafeInteger(child.pid) && child.pid > 0) {
-        try {
-          const killer = spawn("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], {
-            shell: false,
-            windowsHide: true,
-            stdio: "ignore",
-          });
-          killer.once("error", () => {
-            try { child.kill("SIGKILL"); } catch {}
-          });
-          killer.once("close", () => {
-            try { child.kill("SIGKILL"); } catch {}
-          });
-        } catch {
-          try { child.kill("SIGKILL"); } catch {}
+    const stdout = [], stderr = [];
+    let bytes = 0, chunks = 0, child, killer, timer, cleanupTimer, poll, root, handles = [];
+    let treeCleanupPending = false, treeCleanupExitCode = null, nativeCode = null;
+    let settled = false, directExited = false, exitCode = null, exitSignal = null, forcedFailure = null;
+    const evidence = (code, stage) => ({ version: 1, code, stage, processId: child?.pid ?? null, exitCode,
+      signal: exitSignal, timeoutType: code === "process_timeout" ? stage : null,
+      deadlineUnixMs: deadline, elapsedMs: Math.round(performance.now() - started), outputProtocol, cleanup,
+      stdoutBytes: stdout.reduce((n,b)=>n+b.length,0), stderrBytes: stderr.reduce((n,b)=>n+b.length,0),
+      treeCleanupExitCode, treeCleanupPending, nativeCode,
+      stdoutSha256: sha256Bytes(Buffer.concat(stdout)), stderrSha256: sha256Bytes(Buffer.concat(stderr)) });
+    const snapshot = () => {
+      if (!handles.length) return;
+      let total = 0;
+      for (const [i,fd] of handles.entries()) {
+        const length = fstatSync(fd).size;
+        total += length;
+        if (total > maxOutputBytes) throw new Error("output_limit");
+        const buffer = Buffer.alloc(length);
+        let offset = 0;
+        while (offset < length) {
+          const count = readSync(fd, buffer, offset, length-offset, offset);
+          if (!count) throw new Error("output_incomplete");
+          offset += count;
         }
-      } else {
-        try { child.kill("SIGKILL"); } catch {}
-      }
-      if (!killGrace) {
-        killGrace = setTimeout(() => {
-          child.stdout.destroy();
-          child.stderr.destroy();
-          rejectOnce(failureError(forcedFailure));
-        }, 5_000);
-        killGrace.unref();
+        (i === 0 ? stdout : stderr).push(buffer);
       }
     };
-    const collect = (chunks, chunk) => {
-      outputBytes += chunk.length;
-      outputChunks += 1;
-      if (outputBytes <= maxOutputBytes && outputChunks <= 8_192) chunks.push(chunk);
-      if (!forcedFailure && (outputBytes > maxOutputBytes || outputChunks > 8_192)) {
-        terminateControlledTree(outputBytes > maxOutputBytes
-          ? `输出超过 ${maxOutputBytes} 字节上限`
-          : "输出 chunk 数超过 8192 上限");
-      }
-    };
-    child.stdout.on("data", (chunk) => collect(stdout, chunk));
-    child.stderr.on("data", (chunk) => collect(stderr, chunk));
-    timeout = setTimeout(() => {
+    const finish = (code, reason, stage = directExited ? "output" : "direct-exit") => {
       if (settled) return;
-      terminateControlledTree(forcedFailure ?? `超过 ${timeoutMs}ms 时限`);
-    }, timeoutMs);
-    timeout.unref();
-    child.once("error", (error) => {
-      const code = error && typeof error === "object" && typeof error.code === "string" ? error.code : "unknown";
-      rejectOnce(new Error(`${label}启动失败：code=${code}`));
-    });
-    child.once("close", (code, signal) => {
-      const stdoutBuffer = Buffer.concat(stdout);
-      const stderrBuffer = Buffer.concat(stderr);
-      if (forcedFailure || code !== 0 || signal) {
-        const reason = forcedFailure ?? (signal ? `signal=${signal}` : `exit=${code ?? "unknown"}`);
-        rejectOnce(failureError(reason));
-        return;
+      settled = true;
+      clearTimeout(timer); clearTimeout(cleanupTimer); clearInterval(poll);
+      child?.stdout?.destroy(); child?.stderr?.destroy(); child?.unref();
+      // Never wait for cleanup/EOF after the original deadline. A cleanup helper
+      // is itself bounded by that same deadline, and lifecycle descendants survive.
+      if (Date.now() >= deadline) { try { killer?.kill(); } catch { /* already exited */ } }
+      try { snapshot(); } catch { code = "output_limit"; reason = `输出超过 ${maxOutputBytes} 字节上限或无法完整读取`; }
+      for (const fd of handles) { try { closeSync(fd); } catch {} }
+      handles = [];
+      if (root) {
+        for (const name of ["stdout", "stderr"]) { try { unlinkSync(path.join(root,name)); } catch {} }
+        try { rmdirSync(root); } catch {}
       }
-      resolveOnce({ stdout: stdoutBuffer.toString("utf8"), stderr: stderrBuffer.toString("utf8") });
+      if (!code && Date.now() >= deadline) { code = "process_timeout"; reason = `超过 ${timeoutMs}ms 时限`; stage = "output"; }
+      const processEvidence = evidence(code ?? "completed", stage);
+      if (code) {
+        const diagnostics = [];
+        if (stderr.length) diagnostics.push(`stderr=${processDiagnosticExcerpt(Buffer.concat(stderr),cwd,env,command,args)}`);
+        if (stdout.length) diagnostics.push(`stdout=${processDiagnosticExcerpt(Buffer.concat(stdout),cwd,env,command,args)}`);
+        const error = new Error(`${label}失败：${reason}${diagnostics.length ? ` (${diagnostics.join("; ")})` : ""}`);
+        // Only fixed metadata from the adapter failure receipt enters the WAL;
+        // stderr/URLs/configuration/body text stay out of durable diagnostics.
+        try {
+          const receipt = JSON.parse(Buffer.concat(stdout).toString("utf8"));
+          if (receipt.status === "unknown") {
+            if (/^[a-z][a-z0-9_-]{0,39}$/.test(receipt.failureCode ?? "")) processEvidence.completionCode = receipt.failureCode;
+            processEvidence.engine = (Array.isArray(receipt.engineEvidence) ? receipt.engineEvidence : []).slice(0,8).map(safeProcessEvidence);
+            processEvidence.engineFailure = safeProcessEvidence(receipt.processEvidence);
+            if (["engine","candidate-identity","full-readiness","maintenance","receipt"].includes(receipt.stage)) processEvidence.completionStage = receipt.stage;
+          }
+        } catch { /* No parseable machine failure receipt. */ }
+        error.processEvidence = processEvidence;
+        rejectRun(error);
+      } else resolveRun({ stdout: Buffer.concat(stdout).toString("utf8"), stderr: Buffer.concat(stderr).toString("utf8"), processEvidence });
+    };
+    const terminate = () => {
+      if (directExited || cleanup === "preserve" || treeCleanupPending) return;
+      if (cleanup === "tree" && process.platform === "win32" && child?.pid) {
+        try {
+          treeCleanupPending = true;
+          killer = spawn("taskkill.exe", ["/PID",String(child.pid),"/T","/F"], {windowsHide:true,stdio:"ignore"});
+          killer.unref();
+          const killerDeadline = setTimeout(()=>{ try { killer.kill(); } catch {} },Math.max(1,deadline-Date.now()));
+          killerDeadline.unref();
+          killer.once("close",(code)=>{
+            clearTimeout(killerDeadline); treeCleanupPending = false; treeCleanupExitCode = code;
+            if (directExited && forcedFailure) finish(forcedFailure.code,forcedFailure.reason,forcedFailure.stage);
+          });
+          killer.once("error", () => { treeCleanupPending = false; try { child.kill("SIGKILL"); } catch {} });
+        } catch { try { child.kill("SIGKILL"); } catch {} }
+      } else { try { child?.kill("SIGKILL"); } catch {} }
+    };
+    if (Date.now() >= deadline) { finish("process_timeout",`超过 ${timeoutMs}ms 时限`,"spawn"); return; }
+    try {
+      if (outputProtocol === "direct-exit-files") {
+        root = mkdtempSync(path.join(tmpdir(),"teruisi-process-"));
+        handles = [openSync(path.join(root,"stdout"),"wx+"), openSync(path.join(root,"stderr"),"wx+")];
+      }
+      child = spawn(command,args,{cwd,env:{...env,TERUISI_PROCESS_DEADLINE_UNIX_MS:String(deadline)},shell: false,windowsHide:true,
+        stdio:handles.length ? ["ignore",...handles] : ["ignore","pipe","pipe"]});
+    } catch { finish("spawn_failed","启动失败","spawn"); return; }
+    const collect = (target,chunk) => {
+      if (settled) return;
+      bytes += chunk.length; chunks++;
+      if (bytes <= maxOutputBytes && chunks <= 8192) target.push(chunk);
+      if (bytes > maxOutputBytes || chunks > 8192) {
+        forcedFailure = {code:"output_limit",reason:`输出超过 ${maxOutputBytes} 字节上限或 chunk 数超过 8192 上限`};
+        terminate();
+      }
+    };
+    child.stdout?.on("data",chunk=>collect(stdout,chunk));
+    child.stderr?.on("data",chunk=>collect(stderr,chunk));
+    child.once("error",error=>{nativeCode=/^[A-Z][A-Z0-9_]{0,39}$/.test(error.code ?? "") ? error.code : null;finish("spawn_failed","启动失败","spawn");});
+    child.once("exit",(code,signal)=>{
+      directExited = true; exitCode = code; exitSignal = signal;
+      if (forcedFailure) { if (!treeCleanupPending) finish(forcedFailure.code,forcedFailure.reason,forcedFailure.stage); return; }
+      if (code !== 0 || signal) { finish("nonzero_exit",signal ? `signal=${signal}` : `exit=${code ?? "unknown"}`); return; }
+      if (outputProtocol === "direct-exit-files") finish(null,null,"completed");
     });
+    child.once("close",(code,signal)=>{
+      if (settled || treeCleanupPending) return;
+      exitCode = code; exitSignal = signal;
+      finish(forcedFailure?.code ?? (code !== 0 || signal ? "nonzero_exit" : null),forcedFailure?.reason ?? `exit=${code ?? "unknown"}`,forcedFailure?.stage ?? "completed");
+    });
+    const remaining = Math.max(1,deadline-Date.now());
+    // Reserve a small part of the ORIGINAL budget for ordinary build/test tree
+    // cleanup; a lifecycle operation never receives that broad cleanup policy.
+    if (cleanup !== "preserve") cleanupTimer = setTimeout(()=>{
+      if (settled) return;
+      forcedFailure = {code:"process_timeout",reason:`超过 ${timeoutMs}ms 时限`,stage:directExited ? "output" : "direct-exit"};
+      terminate();
+    },Math.max(1,remaining-(cleanup === "direct" ? Math.min(50,Math.floor(remaining/20)) : Math.min(5000,Math.floor(remaining*(remaining>5000 ? 0.2 : 0.7))))));
+    timer = setTimeout(()=>{ if (!directExited && cleanup !== "preserve") { try { child.kill("SIGKILL"); } catch {} } finish("process_timeout",`超过 ${timeoutMs}ms 时限`,forcedFailure?.stage ?? (directExited ? "output" : "direct-exit")); },remaining);
+    if (handles.length) poll = setInterval(()=>{
+      try {
+        if (handles.reduce((n,fd)=>n+fstatSync(fd).size,0) > maxOutputBytes) {
+          terminate(); finish("output_limit",`输出超过 ${maxOutputBytes} 字节上限`);
+        }
+      } catch { finish("output_unavailable","输出快照不可读取"); }
+    },50);
   });
 }
 
@@ -784,6 +828,11 @@ export async function listGitSourceFiles(sourceRoot) {
 // A prepared immutable release can be reused, never an arbitrary dist. Bind
 // the complete source inventory (including untracked source), exact executable,
 // bundled npm closure and inherited build configuration without logging values.
+export function preparationEnvironmentSha256(environment) {
+  // Transport metadata is per call, never a build/configuration input. All
+  // other inherited variables remain part of the original exact identity.
+  return sha256Canonical(Object.fromEntries(Object.entries(environment).filter(([key])=>key.toUpperCase() !== 'TERUISI_PROCESS_DEADLINE_UNIX_MS')));
+}
 export async function workerPreparationIdentity(sourceRoot, devVarsSource = workerDevVarsSource) {
   const toolchain = await resolveBundledNpmToolchain();
   await assertRegularFile(process.execPath, "preparation Node executable");
@@ -805,7 +854,7 @@ export async function workerPreparationIdentity(sourceRoot, devVarsSource = work
     runtimeConfigurationSha256: sha256Bytes(await readStableRegularFile(devVarsSource, "preparation runtime configuration")),
     externalNpmConfiguration,
     toolchain: toolchain.provenance,
-    environmentSha256: sha256Canonical(process.env),
+    environmentSha256: preparationEnvironmentSha256(process.env),
   };
 }
 
