@@ -1,0 +1,29 @@
+✔ real completed backup produces five original outputs; shell/cleanup failures stay failures (7.0884ms)
+✔ wrong target unknown (4.1872ms)
+✔ wrong operation (0.493ms)
+✔ claim normal outer success (0.3767ms)
+✔ non-independent proof (0.3032ms)
+✔ wrong audit digest (0.8528ms)
+✔ changed dump (7.352ms)
+✔ bad manifest sidecar (1.4936ms)
+✔ wrong exact process stdout (3.4558ms)
+✔ native unresolved (1.2991ms)
+✔ missing result (1.1261ms)
+✔ unclosed retention (1.0061ms)
+✔ directory swap (0.9864ms)
+✔ launder cleanup blocker (0.9827ms)
+✔ guarded append stores real outputs once; historical unknown unchanged and no operator called (369.2422ms)
+✔ missing new approval (53.7983ms)
+✔ old UI approval reused (51.9372ms)
+✔ another unknown present (209.1805ms)
+✔ prior work not passed (200.7376ms)
+✔ tail already begun (152.1333ms)
+✔ source pin changed (113.4438ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1553.9134

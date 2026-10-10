@@ -1,0 +1,99 @@
+{
+  "version": "teruisi-completed-backup-reconciliation-independent-review-v1",
+  "status": "passed",
+  "reviewDate": "2026-10-10",
+  "timezone": "Asia/Shanghai",
+  "reviewer": "/root/preparation_review",
+  "scope": "Non-author source/caller review and isolated metadata protocol tests; no production reconciliation or native operation",
+  "apiSha256": "3fabc2009287d12088559f882e7b326903aeb8b0a1f8eb29cda6faf7f17b5865",
+  "callerSha256": "7b0e27fc5a0af121daa184366a186f972e569a0c05924255515f099c65b11105",
+  "implementationStableBeforeAfterIndependentTests": true,
+  "implementationModifiedByReviewer": false,
+  "independentTests": {
+    "file": "reconcile-completed-backup.independent.test.mjs",
+    "sha256": "228fbdbb6ae211213a213a432c7592848a3c0e97a0b9e8a7ceb980361f0bb7f1",
+    "passed": 15,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "durationMs": 10369.6473,
+    "log": "INDEPENDENT_TESTS_FINAL.log",
+    "logSha256": "8183cb23bfd8f05a28f49b750f3c38c6195ef907e734e7f3307298b193bb817c",
+    "effects": "Real native metadata is read only; journal/stream IO uses memory spies except two owned temporary journals using actual original journalState/writeOnce. No production dump scan or writes."
+  },
+  "originalRuntimeScope": {
+    "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "unknownEventSha256": "420fd5e13e5b637c1a6d62f6fad1e16dccd19c8f1f2c26c8302db892c34fcd09",
+    "nativeAuditId": "420adb985efc496a8c6d861a7c717046",
+    "backupId": "daily-20261010T093506Z-8a5a7107b3f6",
+    "candidateSourceUnchanged": true,
+    "cRuntimeNotUsed": true,
+    "currentClosure": "All original collector files plus original operations16–21 command dependencies",
+    "currentDeclaredPinEntries": 16667,
+    "currentUniquePinPaths": 4505,
+    "currentClosureConflicts": 0,
+    "originalEngineImpactRotationWorkerModulesCovered": true,
+    "prior15PassedRequiredAndNeverReplayed": true,
+    "historicalPreApplyPinsRemainArchivedEvidence": true
+  },
+  "guardCoverage": [
+    "Exact new scope/new human item and sealed time; old AB/UI approvals rejected",
+    "API self pin, unique absolute input pins, exact original contract/validator and current-phase closure",
+    "Actual original typed validator function identity; no-op validator rejected",
+    "Original rotation lock, active owner, exact unknown/head and prior/tail state",
+    "Native completed PG archive/three-slot result, real manifest/dump binding and exact nonzero process stdout",
+    "Five outputs match actual native result and independent verified output candidate",
+    "Changed proof/observation/audit/manifest/sidecar during simulated long dump verification rejected",
+    "Changed active owner/head and missing mandatory pins rejected before append",
+    "Real temporary canonical append using original journalState/writeOnce, old unknown bytes unchanged",
+    "Repeat refused; real temporary changed head with same unresolved backup refused",
+    "Original shell failure/blocked release cleanup preserved; no zero-effects retry permission",
+    "Caller authenticates new approval and required pins before importing API/runtime/validator"
+  ],
+  "typedEvidenceAndSchemaRequirements": {
+    "proofVersion": "teruisi-independent-post-backup-completed-effects-proof-v1",
+    "proofCompletedScope": "Exact published PG backup and original three-slot archive effects only",
+    "proofOriginalOperationPassed": false,
+    "proofOriginalShellSucceeded": false,
+    "proofNoEffectCannotBeTrue": true,
+    "inputLinks": "proof raw SHA -> observations raw SHA, exact native audit raw SHA, manifest/sidecar raw SHA, actual streaming dump SHA and immutable original profile contract",
+    "fiveOutputs": ["backupDirectory", "backupId", "manifestSha256", "dumpSha256", "contentSha256"],
+    "outputsCannotBeCallerSupplied": true,
+    "exactInputAndPayloadIdentityRechecksBeforeAppend": true,
+    "scopeAndCallerStillNeedConcreteSealReview": true
+  },
+  "closedIntermediateFindings": [
+    "Original validator/contract now fixed to original paths/pins and actual function identity",
+    "Long dump window now rechecks source/evidence/active/head and payload stat tokens",
+    "API self and mandatory inputs/current runtime closure now required",
+    "Full historical command pins conflicted with current primary scripts; corrected to collector plus actual remaining-stage dependencies, with archived pre-Apply evidence retained",
+    "Quadratic closure lookup replaced with normalized Map without reducing pin coverage",
+    "Caller now validates approval and mandatory module pins before imports"
+  ],
+  "preservedInitialRuns": {
+    "INDEPENDENT_TESTS_FIRST.log": "Initial 10 pass/1 fail run used a fixture missing newly added codePath; front-door rejection is not target negative evidence",
+    "INDEPENDENT_TESTS_SECOND.log": "Old quadratic/all-stage model run ended after first invalid positive; stopped at author request and log preserved, not counted as final validation",
+    "INDEPENDENT_TESTS_THIRD.log": "Updated correct-stage14/14 passed before adding the separate real temporary changed-head case"
+  },
+  "mustRemainOpen": {
+    "originalNonzeroAndUnknownHistory": true,
+    "releaseRetentionStatus": "blocked",
+    "sixTableStrictContentDifferenceNotWaived": true,
+    "wholeBatchCompleted": false,
+    "postRestoreNotAuthorizedByThisReview": true,
+    "productionDatabaseRestoreNotAuthorized": true,
+    "currentCoreHealthNotProvenByMetadataAppend": true,
+    "originalTailDynamicAdmissionAndFullComparisonMustStillRejectFailures": true
+  },
+  "remainingKnownSourceOrCallerBlockers": [],
+  "unverified": [
+    "Actual final proposal scope bytes and all pinned file hashes; scope not yet sealed",
+    "Future real human metadata approval and production API invocation",
+    "Production streaming dump verification in this API; isolated tests use the already observed digest",
+    "Remaining restore/comparison/health and complete AB closeout"
+  ],
+  "productionOperationsPerformedByReviewer": 0,
+  "nativeBackupRestoreLifecycleOrStatusCalledByReviewer": false,
+  "productionWalModifiedByReviewer": false,
+  "temporaryJournalsCleaned": true
+}
