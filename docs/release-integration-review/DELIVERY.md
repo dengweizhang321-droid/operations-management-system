@@ -1,5 +1,8 @@
 # 任务 D 交付记录
 
+本轮v2支持/验证/方案交付提交52a8a10e7e8545d6e69153906caae98a7e52b025。首次原子push因他任务main已前进775b5658被拒，未强推；普通fetch/merge后2983527309e250a1b0a25abcd3810b4c37d86f1d已原子推送D分支与main，ls-remote两ref逐SHA一致。新增main仅另一份截止12:22的耗时审查文档，不改变已封存support或AB/ABC候选。最后仅文档收尾HEAD在最终回复/远端核验记录，不自引用当前提交。9f79批次终审、同root只读UI4及原collector全binding通过；源码完成/隔离验证/候选封存/实际采用分别表达，生产批准和采用false。
+
+
 2026-10-10追加：默认AB精确STRICT/FULL 21步批次已封存，未批准/执行/采用；以 [最后批准方案](EXACT_AB_BATCH_PLAN.md)、[机器记录](evidence/final-ab-batch.json) 与 [v2非作者终审](BATCH_V2_FINAL_INDEPENDENT_REVIEW.md) 为当前状态。下文原“未封存/P01–P06待闭合”及旧Git状态是此前交付历史快照，不能覆盖本追加。ABC替代尚未封存，C快路径资格仍拒绝。原main改动保持；另任务最新main ccf87212仅并入D开发交付，不进入AB/ABC限定候选。
 
 
