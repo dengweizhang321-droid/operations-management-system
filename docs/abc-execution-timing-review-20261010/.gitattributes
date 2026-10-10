@@ -1,0 +1,5 @@
+# Preserve copied source evidence and the exact Antigravity response bytes.
+source-snapshots/* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+ANTIGRAVITY_RESULT.md -text
+AGY_RESULT.json -text
+AGY_TOOL_TRACE.json -text

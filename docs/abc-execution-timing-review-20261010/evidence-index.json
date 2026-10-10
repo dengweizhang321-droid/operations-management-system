@@ -1,0 +1,4341 @@
+{
+  "capturedAtUtc": "2026-10-10T04:22:02.019Z",
+  "timezone": "Asia/Shanghai",
+  "turns": [
+    {
+      "turnId": "01a123b2-e1f4-71a2-9d22-fc9a55ed62aa",
+      "startShanghai": "2026-10-10T10:44:48.000+08:00",
+      "endShanghai": "2026-10-10T12:22:02.019+08:00",
+      "status": "inProgress",
+      "wallClockMs": 5834019.0,
+      "activeTurnDurationMs": null,
+      "commands": [
+        {
+          "kind": "commandExecution",
+          "id": "exec-c1da07d8-fbf7-4ffd-9b7f-74d60228e175",
+          "durationMs": 682,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791600327157,
+          "endMs": 1791600327840,
+          "sessionOrdinal": 1790
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-bddb996c-0727-4726-b6b3-3947314b6090",
+          "durationMs": 679,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-batch.mjs",
+            "release-lifecycle-step.ps1",
+            "release-history-preservation.py",
+            "release-acceptance-ui.mjs"
+          ],
+          "startMs": 1791600362164,
+          "endMs": 1791600362843,
+          "sessionOrdinal": 1802
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-95535ed0-7901-4ba2-80b6-487ac442436c",
+          "durationMs": 518,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-impact.mjs",
+            "django-service.ps1",
+            "django-postgres-maintenance.ps1",
+            "production-ui.mjs",
+            "release-readonly-retry.mjs"
+          ],
+          "startMs": 1791600378387,
+          "endMs": 1791600378906,
+          "sessionOrdinal": 1809
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-0937603f-a6f4-4787-ae20-68be29979287",
+          "durationMs": 488,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-readonly-retry.mjs",
+            "release-lifecycle-step.ps1",
+            "django-postgres-maintenance.ps1",
+            "release-batch-admission.mjs"
+          ],
+          "startMs": 1791600403569,
+          "endMs": 1791600404059,
+          "sessionOrdinal": 1816
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1eafe9f3-85e4-43a1-9a84-eea352f6d413",
+          "durationMs": 916,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "django-local-service.ps1",
+            "django-postgres-maintenance.ps1",
+            "release-history-preservation.py",
+            "release-lifecycle-step.ps1"
+          ],
+          "startMs": 1791600466017,
+          "endMs": 1791600466934,
+          "sessionOrdinal": 1829
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e042f21c-218a-419e-953d-a11fd3e6992c",
+          "durationMs": 691,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "django-local-service.ps1",
+            "django-postgres-maintenance.ps1",
+            "settings.py"
+          ],
+          "startMs": 1791600480160,
+          "endMs": 1791600480853,
+          "sessionOrdinal": 1836
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-096765ee-8279-44e8-a5d0-1c9b3b67b5f6",
+          "durationMs": 917,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "backup-manifest.json",
+            "console.log",
+            "operations-system-watchdog.ps1",
+            "django-postgres-maintenance.ps1",
+            "postgres_no_key_backup.py"
+          ],
+          "startMs": 1791600567561,
+          "endMs": 1791600568479,
+          "sessionOrdinal": 1849
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-8b470293-5f59-42c5-ae32-a8b77fba2b53",
+          "durationMs": 618,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "operations-system-watchdog.ps1",
+            "backup-manifest.json",
+            "console.log",
+            "latest.json",
+            "release-batch.mjs"
+          ],
+          "startMs": 1791600675176,
+          "endMs": 1791600675795,
+          "sessionOrdinal": 1874
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-24537b13-1587-466a-88aa-db1639652832",
+          "durationMs": 522,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "backup-manifest.json",
+            "console.log",
+            "postgres_no_key_backup.py",
+            "operations-system-watchdog.ps1"
+          ],
+          "startMs": 1791600854256,
+          "endMs": 1791600854779,
+          "sessionOrdinal": 1902
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-205f27ce-2efa-48c7-badc-a77d1e989c21",
+          "durationMs": 854,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "test.mjs",
+            "batch-v2-validator-first.log"
+          ],
+          "startMs": 1791600928388,
+          "endMs": 1791600929243,
+          "sessionOrdinal": 1912
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-67de56dc-926a-4331-b624-e20710a92e11",
+          "durationMs": 679,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "settings.py",
+            "django-local-service.ps1"
+          ],
+          "startMs": 1791601067115,
+          "endMs": 1791601067794,
+          "sessionOrdinal": 1936
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-757f5f82-1d15-4620-97f1-d609a4487db0",
+          "durationMs": 492,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "deployment.json",
+            "console.log",
+            "isolated_test_runner.py",
+            "test_scope.py"
+          ],
+          "startMs": 1791601077404,
+          "endMs": 1791601077896,
+          "sessionOrdinal": 1943
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-d22528c7-22fb-4e24-b642-127113ef3f33",
+          "durationMs": 24115,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "prepare-owner-test-source.mjs",
+            "owner-test-prepare.log",
+            "owner-isolated-tests.py",
+            "owner-contract-first.log"
+          ],
+          "startMs": 1791601190534,
+          "endMs": 1791601214650,
+          "sessionOrdinal": 1961
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-43b83aa4-4a03-4781-889b-6526fedcf4a6",
+          "durationMs": 911,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "owner-contract-first.log",
+            "django-postgres-maintenance.ps1",
+            "release-batch.mjs",
+            "rehearsal-result.json",
+            "console.log",
+            "release-batch-admission.mjs"
+          ],
+          "startMs": 1791601272500,
+          "endMs": 1791601273411,
+          "sessionOrdinal": 1971
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e5e241cc-d059-44fa-9978-e0d4b361a218",
+          "durationMs": 18162,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "inventory-warehouse-mapping.json",
+            "owner-test-config.json",
+            "owner-isolated-tests.py",
+            "owner-contract-second.log"
+          ],
+          "startMs": 1791601328082,
+          "endMs": 1791601346245,
+          "sessionOrdinal": 1984
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-3f31da27-d2cd-45d6-bb62-3e9c8cc8b158",
+          "durationMs": 24952,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "owner-contract-second.log",
+            "test.mjs",
+            "batch-v2-validator-port.log",
+            "capture-readonly.mjs",
+            "batch-v2-readonly-first.log"
+          ],
+          "startMs": 1791601412197,
+          "endMs": 1791601437150,
+          "sessionOrdinal": 1996
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f4b4f25c-10c6-4854-8573-68281c505cd9",
+          "durationMs": 462,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "batch-v2-readonly-first.log",
+            "owner-contract-second.log",
+            "test_api.py",
+            "test_retirement.py"
+          ],
+          "startMs": 1791601564170,
+          "endMs": 1791601564633,
+          "sessionOrdinal": 2015
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-2893d0bd-ba8f-4593-b3ed-36001771452c",
+          "durationMs": 366,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "urls.py",
+            "owner-contract-second.log",
+            "test_api.py"
+          ],
+          "startMs": 1791601573150,
+          "endMs": 1791601573516,
+          "sessionOrdinal": 2022
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-624a7439-3aca-4577-98c5-4ffab2d701e1",
+          "durationMs": 18344,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "__init__.py",
+            "factories.py",
+            "owner-test-shared-fixtures.json",
+            "owner-isolated-tests.py",
+            "owner-contract-third.log"
+          ],
+          "startMs": 1791601625585,
+          "endMs": 1791601643929,
+          "sessionOrdinal": 2036
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-ff099648-7768-4330-a16c-6b466c8de387",
+          "durationMs": 519,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "owner-contract-third.log",
+            "urls.py",
+            "owner-test-prepare.log"
+          ],
+          "startMs": 1791601814067,
+          "endMs": 1791601814587,
+          "sessionOrdinal": 2061
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-c34b53c7-b321-46e3-a63e-93f0c3ffae14",
+          "durationMs": 433,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "owner-contract-third.log",
+            "test_policy.py",
+            "test_retirement.py",
+            "test_migration.py"
+          ],
+          "startMs": 1791601821250,
+          "endMs": 1791601821684,
+          "sessionOrdinal": 2068
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-8d0cfff8-6f27-4a74-bad8-e42b37326d9f",
+          "durationMs": 17931,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "customer-service-d1-authority-install.py",
+            "customer-service-r2-retirement-evidence.py",
+            "owner-test-tools.json",
+            "owner-isolated-tests.py",
+            "owner-contract-fourth.log"
+          ],
+          "startMs": 1791601887000,
+          "endMs": 1791601904931,
+          "sessionOrdinal": 2084
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-2dea2af0-79b5-45c4-859a-a010b5f4dada",
+          "durationMs": 428,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "owner-contract-fourth.log",
+            "customer-service-d1-authority-install.py",
+            "customer-service-r2-retirement-evidence.py"
+          ],
+          "startMs": 1791601987213,
+          "endMs": 1791601987642,
+          "sessionOrdinal": 2103
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-00a1ff7f-ec7c-4b4f-b8e6-2d40201f0b88",
+          "durationMs": 57676,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "owner-contract-fourth.log",
+            "release-batch.mjs",
+            "active.json",
+            "capture-readonly.mjs",
+            "batch-v2-readonly-second.log"
+          ],
+          "startMs": 1791601952341,
+          "endMs": 1791602010018,
+          "sessionOrdinal": 2106
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-b96f142a-0e7c-4a97-aa7d-1f3a27a78e88",
+          "durationMs": 19773,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "owner-test-sql.json",
+            "owner-isolated-tests.py",
+            "owner-contract-fifth.log"
+          ],
+          "startMs": 1791602119279,
+          "endMs": 1791602139052,
+          "sessionOrdinal": 2125
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-31cfb07a-1b31-4866-b0cc-16af612a5fac",
+          "durationMs": 588,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-readonly-second.log",
+            "batch-v2-readonly-preparation.json",
+            "console.log",
+            "owner-contract-fifth.log"
+          ],
+          "startMs": 1791602165452,
+          "endMs": 1791602166041,
+          "sessionOrdinal": 2132
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-7170c674-2ad9-4991-8757-e3b8a2b104b0",
+          "durationMs": 17338,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "owner-test-all-sql.json",
+            "owner-isolated-tests.py",
+            "owner-contract-sixth.log"
+          ],
+          "startMs": 1791602194308,
+          "endMs": 1791602211647,
+          "sessionOrdinal": 2141
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-220953b3-d2dc-4ef0-89ab-50783b8645e5",
+          "durationMs": 817,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "owner-contract-sixth.log",
+            "validators.mjs"
+          ],
+          "startMs": 1791602325235,
+          "endMs": 1791602326053,
+          "sessionOrdinal": 2158
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-ec1e593b-a9d6-4183-966c-3832d82f62c4",
+          "durationMs": 642,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "customer-service-d1-authority-install.py",
+            "customer-service-r2-retirement-evidence.py",
+            "test_retirement.py"
+          ],
+          "startMs": 1791602703735,
+          "endMs": 1791602704378,
+          "sessionOrdinal": 2216
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-df3aac4e-66f5-4d0b-84d7-28d76069bfde",
+          "durationMs": 1241,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "test.mjs",
+            "batch-v2-validator-checksum.log",
+            "validators.mjs",
+            "backup-manifest.json",
+            "console.log"
+          ],
+          "startMs": 1791602951295,
+          "endMs": 1791602952537,
+          "sessionOrdinal": 2254
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-8d076fe2-52f9-4d53-93e6-e624d1d42a40",
+          "durationMs": 1415,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "isolation_guards_test.py",
+            "owner-guard-negative.log",
+            "owner-isolated-tests.py",
+            "owner-contract-guarded-final.log"
+          ],
+          "startMs": 1791603038933,
+          "endMs": 1791603040349,
+          "sessionOrdinal": 2269
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-80b6204c-0f10-4657-bc5e-f2592457a68e",
+          "durationMs": 21032,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "isolation_guards_test.py",
+            "owner-guard-negative-final.log",
+            "owner-isolated-tests.py",
+            "owner-contract-guarded-final.log"
+          ],
+          "startMs": 1791603142784,
+          "endMs": 1791603163817,
+          "sessionOrdinal": 2288
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-0e950d0f-a8d9-476a-b001-2bf3aa0ce756",
+          "durationMs": 543,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "owner-contract-guarded-final.log",
+            "test.mjs",
+            "adapter.mjs"
+          ],
+          "startMs": 1791603304616,
+          "endMs": 1791603305160,
+          "sessionOrdinal": 2314
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-3a67d630-b62a-406d-b626-0d1b6f4cdf78",
+          "durationMs": 764,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "test.mjs",
+            "batch-v2-validator-independent-fixed.log",
+            "adapter.mjs"
+          ],
+          "startMs": 1791603402157,
+          "endMs": 1791603402922,
+          "sessionOrdinal": 2330
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-be858079-ffdd-4c2f-8dce-f9febe465b68",
+          "durationMs": 706,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-validator-independent-fixed.log"
+          ],
+          "startMs": 1791603718440,
+          "endMs": 1791603719147,
+          "sessionOrdinal": 2364
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-fcff3621-7a30-4956-92d7-70d67e3e4f14",
+          "durationMs": 592,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [],
+          "startMs": 1791603784461,
+          "endMs": 1791603785054,
+          "sessionOrdinal": 2375
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-c5a128c6-4d89-4610-889a-a62976dd6137",
+          "durationMs": 695,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791603827201,
+          "endMs": 1791603827897,
+          "sessionOrdinal": 2384
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f3eae415-caf8-4aa2-9964-336e99ea2547",
+          "durationMs": 648,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "seal.mjs",
+            "ui-setup.mjs",
+            "adapter.mjs"
+          ],
+          "startMs": 1791604125749,
+          "endMs": 1791604126398,
+          "sessionOrdinal": 2428
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1040711a-11c8-4504-a34a-b7e961668ac9",
+          "durationMs": 716,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-seal-first.log",
+            "seal.mjs"
+          ],
+          "startMs": 1791604239010,
+          "endMs": 1791604239727,
+          "sessionOrdinal": 2454
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-eea04450-25d6-4ede-a10d-76a7c7cb0315",
+          "durationMs": 51363,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "seal.mjs",
+            "batch-v2-seal-first.log"
+          ],
+          "startMs": 1791604191133,
+          "endMs": 1791604242497,
+          "sessionOrdinal": 2457
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-6406fb9b-4790-49a7-84a0-ea878bf2747e",
+          "durationMs": 1196,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "seal.mjs",
+            "read-watchdog-task.ps1"
+          ],
+          "startMs": 1791604246846,
+          "endMs": 1791604248042,
+          "sessionOrdinal": 2462
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-9e3f82cd-e288-4661-a198-3b116e1db2f7",
+          "durationMs": 449,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-seal-first.log",
+            "attempt-failure.json",
+            "candidate-handoff.json"
+          ],
+          "startMs": 1791604269673,
+          "endMs": 1791604270122,
+          "sessionOrdinal": 2469
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-24160c09-cefc-4324-ad2a-3f8c7ae755b8",
+          "durationMs": 739,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "console.log"
+          ],
+          "startMs": 1791604336834,
+          "endMs": 1791604337573,
+          "sessionOrdinal": 2482
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f452e37d-125d-4f87-bb65-2a9c86303daf",
+          "durationMs": 1352,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-impact.mjs",
+            "console.log"
+          ],
+          "startMs": 1791604387554,
+          "endMs": 1791604388907,
+          "sessionOrdinal": 2498
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-73ebcd0e-d1cf-495f-83a4-5544c63a1a34",
+          "durationMs": 1050,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-impact.mjs",
+            "console.log"
+          ],
+          "startMs": 1791604467294,
+          "endMs": 1791604468344,
+          "sessionOrdinal": 2511
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-027b5d00-bb24-4bb3-ac62-ae203175a647",
+          "durationMs": 730,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "django-postgres-maintenance.ps1",
+            "release-batch.mjs"
+          ],
+          "startMs": 1791604550393,
+          "endMs": 1791604551124,
+          "sessionOrdinal": 2528
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-5da41fae-4cc2-43ce-a7e6-544f659cfd0f",
+          "durationMs": 591,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "postgres-backup-continuity.ps1"
+          ],
+          "startMs": 1791604567602,
+          "endMs": 1791604568193,
+          "sessionOrdinal": 2535
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e85c275f-0920-42ff-9560-9bea46b61271",
+          "durationMs": 516,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "adapter.mjs"
+          ],
+          "startMs": 1791604653071,
+          "endMs": 1791604653588,
+          "sessionOrdinal": 2554
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-6e7eb955-5d29-454b-8d6c-e34557d247cb",
+          "durationMs": 38671,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "seal.mjs",
+            "batch-v2-seal-second.log"
+          ],
+          "startMs": 1791604725179,
+          "endMs": 1791604763851,
+          "sessionOrdinal": 2570
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-b3a3ae14-f03c-4f98-ac0b-54d2a51b76e1",
+          "durationMs": 451,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-seal-second.log"
+          ],
+          "startMs": 1791604811679,
+          "endMs": 1791604812130,
+          "sessionOrdinal": 2583
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1689392c-13cf-4521-bfb6-bd9269518d3a",
+          "durationMs": 548,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-seal-third.log",
+            "isolation_guards_test.py"
+          ],
+          "startMs": 1791604967251,
+          "endMs": 1791604967800,
+          "sessionOrdinal": 2611
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-8ce4289f-bd8a-4eca-998a-d9f0d8f6c176",
+          "durationMs": 1194,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "isolation_guards_test.py",
+            "owner-guard-relative-negative.log"
+          ],
+          "startMs": 1791604976634,
+          "endMs": 1791604977829,
+          "sessionOrdinal": 2619
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-bc0fe263-1a5f-4762-b992-742a09e7d270",
+          "durationMs": 635,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "approved-batch.json",
+            "attempt-failure.json",
+            "batch-v2-seal-third.log"
+          ],
+          "startMs": 1791605001084,
+          "endMs": 1791605001720,
+          "sessionOrdinal": 2628
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-02c74427-5a38-48af-a213-bb6530bb56d1",
+          "durationMs": 976,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "seal.mjs",
+            "batch-v2-seal-third-interruption.json",
+            "approved-batch.json",
+            "attempt-failure.json"
+          ],
+          "startMs": 1791605089091,
+          "endMs": 1791605090067,
+          "sessionOrdinal": 2645
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-742b8e54-d2bd-4d06-8c8b-984aacdca2e2",
+          "durationMs": 241350,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "seal.mjs",
+            "batch-v2-seal-third.log"
+          ],
+          "startMs": 1791604848824,
+          "endMs": 1791605090175,
+          "sessionOrdinal": 2646
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-9ba82048-8923-44c8-92dc-77a4ccd738d9",
+          "durationMs": 577,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-seal-fourth.log",
+            "owner-contract-relative-guard-final.log"
+          ],
+          "startMs": 1791605170010,
+          "endMs": 1791605170587,
+          "sessionOrdinal": 2664
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-0ba98606-8abd-4071-87ef-76c499854d27",
+          "durationMs": 67236,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "owner-isolated-tests.py",
+            "owner-contract-relative-guard-final.log",
+            "seal.mjs",
+            "batch-v2-seal-fourth.log"
+          ],
+          "startMs": 1791605118338,
+          "endMs": 1791605185575,
+          "sessionOrdinal": 2667
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-4362ecea-ecd1-4a33-b15f-8ae108285824",
+          "durationMs": 405,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-seal-fourth.log",
+            "owner-guard-relative-negative.log"
+          ],
+          "startMs": 1791605203027,
+          "endMs": 1791605203433,
+          "sessionOrdinal": 2674
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-799254f7-7939-48fb-a35f-844db2a122f4",
+          "durationMs": 18387,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "production-ui.mjs",
+            "batch-v2-ui-first.log"
+          ],
+          "startMs": 1791605234644,
+          "endMs": 1791605253032,
+          "sessionOrdinal": 2685
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-a3bb25a6-4765-4b4f-b88f-34dffd704305",
+          "durationMs": 394,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-ui-first.log",
+            "production-ui-audit.json"
+          ],
+          "startMs": 1791605288635,
+          "endMs": 1791605289030,
+          "sessionOrdinal": 2698
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-c265e0f0-ff0e-4fc6-b80f-9c09c097ef0f",
+          "durationMs": 591,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "production-ui-audit.json",
+            "console.log"
+          ],
+          "startMs": 1791605302321,
+          "endMs": 1791605302913,
+          "sessionOrdinal": 2705
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-3ae9e17e-c9cd-4ab5-adbd-6f0b910fd227",
+          "durationMs": 451,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-ui-diagnostic-preparation.json",
+            "request-diagnostic.json"
+          ],
+          "startMs": 1791605439967,
+          "endMs": 1791605440419,
+          "sessionOrdinal": 2733
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-4f44f87e-3c80-48f7-b7bb-bc3340065725",
+          "durationMs": 69783,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "diagnose-ui.mjs",
+            "batch-v2-ui-diagnostic-preparation.json",
+            "batch-v2-ui-diagnostic.log",
+            "batch-v2-ui-diagnostic-result.json"
+          ],
+          "startMs": 1791605396254,
+          "endMs": 1791605466038,
+          "sessionOrdinal": 2738
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-38cf4b76-5a24-4ccb-a9b7-cffd3b9bbe91",
+          "durationMs": 418,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-ui-diagnostic-preparation.json",
+            "request-diagnostic.json",
+            "batch-v2-ui-diagnostic.log"
+          ],
+          "startMs": 1791605491355,
+          "endMs": 1791605491774,
+          "sessionOrdinal": 2747
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-6bf24d14-79de-4d64-9a35-8bfaa5a63544",
+          "durationMs": 869,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "test.mjs",
+            "console.log",
+            "seal.mjs"
+          ],
+          "startMs": 1791605584115,
+          "endMs": 1791605584985,
+          "sessionOrdinal": 2770
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-24f689c2-72c3-429c-8d7f-c4ba1b922ad2",
+          "durationMs": 350,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791605733876,
+          "endMs": 1791605734226,
+          "sessionOrdinal": 2782
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-25f88813-6a40-4d98-ad74-a337c78a0fc7",
+          "durationMs": 466,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791605734740,
+          "endMs": 1791605735207,
+          "sessionOrdinal": 2783
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-c24783ee-65b5-403c-9a23-0ffee4a58177",
+          "durationMs": 584,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "adapter.mjs",
+            "ui-setup.mjs",
+            "test.mjs"
+          ],
+          "startMs": 1791605741005,
+          "endMs": 1791605741590,
+          "sessionOrdinal": 2796
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-5e1eb084-e17d-415f-8a0f-59428767c662",
+          "durationMs": 478,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "seal.mjs",
+            "release-acceptance-ui.mjs",
+            "production-ui.mjs"
+          ],
+          "startMs": 1791605745600,
+          "endMs": 1791605746080,
+          "sessionOrdinal": 2801
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-76684511-9e1c-4a5e-a7de-10f018031a2b",
+          "durationMs": 926,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "seal.mjs",
+            "validators.mjs"
+          ],
+          "startMs": 1791605759349,
+          "endMs": 1791605760275,
+          "sessionOrdinal": 2811
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-b00eb03a-9966-4057-8ca8-50ff4cb2b590",
+          "durationMs": 538,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "diagnose-ui.mjs"
+          ],
+          "startMs": 1791605760799,
+          "endMs": 1791605761338,
+          "sessionOrdinal": 2812
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e7febc3d-772b-4dc4-9c30-194334346897",
+          "durationMs": 841,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "test.mjs",
+            "batch-v2-adapter-independent-fixed.log",
+            "seal.mjs"
+          ],
+          "startMs": 1791605788653,
+          "endMs": 1791605789495,
+          "sessionOrdinal": 2825
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-459d00f2-9bf3-4e6c-affb-d0ba4510e452",
+          "durationMs": 483,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "postgres-consistent-backup.py",
+            "postgres_no_key_backup.py"
+          ],
+          "startMs": 1791605853324,
+          "endMs": 1791605853808,
+          "sessionOrdinal": 2844
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-51c88003-e85d-427b-b4ff-3a2dafcb5292",
+          "durationMs": 414,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "owner-test-source.json",
+            "test.mjs"
+          ],
+          "startMs": 1791605872866,
+          "endMs": 1791605873280,
+          "sessionOrdinal": 2858
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-3102da4f-9be9-469d-ab15-0e57fff7ff82",
+          "durationMs": 826,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ui-setup.mjs",
+            "candidate-scope.json",
+            "candidate-handoff.json",
+            "console.log",
+            "batch-v2-ui-fixed-preparation.json"
+          ],
+          "startMs": 1791605873766,
+          "endMs": 1791605874592,
+          "sessionOrdinal": 2859
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-8f7185d9-10a7-441e-8a8b-8abf5fbd5557",
+          "durationMs": 16163,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "production-ui.mjs",
+            "batch-v2-ui-fixed-first.log"
+          ],
+          "startMs": 1791605882620,
+          "endMs": 1791605898783,
+          "sessionOrdinal": 2869
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-44ca2cc1-cf73-4a62-af30-6f77cf07903f",
+          "durationMs": 961,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-ui-fixed-first.log"
+          ],
+          "startMs": 1791605909856,
+          "endMs": 1791605910817,
+          "sessionOrdinal": 2874
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-a0c8ec75-79df-4277-b724-e0c13238998d",
+          "durationMs": 423,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "production-ui-audit.json",
+            "console.log",
+            "validators.mjs"
+          ],
+          "startMs": 1791605915986,
+          "endMs": 1791605916409,
+          "sessionOrdinal": 2884
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-7d2b3459-52c7-40d9-be91-4fbcfa20a17a",
+          "durationMs": 11530,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ui-setup.mjs",
+            "candidate-scope.json",
+            "candidate-handoff.json",
+            "console.log",
+            "batch-v2-ui-final-preparation.json",
+            "batch-v2-ui-final.log"
+          ],
+          "startMs": 1791605938511,
+          "endMs": 1791605950042,
+          "sessionOrdinal": 2895
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-28e1588d-e3a2-4b3c-8815-4a035c3f42fd",
+          "durationMs": 350,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-ui-final.log",
+            "batch-v2-ui-final-preparation.json"
+          ],
+          "startMs": 1791605972368,
+          "endMs": 1791605972719,
+          "sessionOrdinal": 2907
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-4ee0e9a4-31bf-4fd2-ba39-b68ccee7fcb7",
+          "durationMs": 394,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "batch-v2-seal-fifth.log"
+          ],
+          "startMs": 1791606016851,
+          "endMs": 1791606017245,
+          "sessionOrdinal": 2931
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e6fc66d4-f57e-4ded-a035-c61c7544e94c",
+          "durationMs": 470,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791606018070,
+          "endMs": 1791606018541,
+          "sessionOrdinal": 2932
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-76b390c5-4d9b-4514-bfb3-d86c3922557e",
+          "durationMs": 403,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-batch-admission.mjs",
+            "batch-v2-seal-fifth.log"
+          ],
+          "startMs": 1791606030356,
+          "endMs": 1791606030759,
+          "sessionOrdinal": 2939
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e7d89c4b-a2e6-454a-aac4-e4470cc6ac44",
+          "durationMs": 64253,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "seal.mjs",
+            "batch-v2-seal-fifth.log"
+          ],
+          "startMs": 1791605990310,
+          "endMs": 1791606054564,
+          "sessionOrdinal": 2942
+        }
+      ],
+      "commandIntervalUnionMs": 834903,
+      "commandIntervalUnion": [
+        [
+          1791600327157,
+          1791600327840
+        ],
+        [
+          1791600362164,
+          1791600362843
+        ],
+        [
+          1791600378387,
+          1791600378906
+        ],
+        [
+          1791600403569,
+          1791600404059
+        ],
+        [
+          1791600466017,
+          1791600466934
+        ],
+        [
+          1791600480160,
+          1791600480853
+        ],
+        [
+          1791600567561,
+          1791600568479
+        ],
+        [
+          1791600675176,
+          1791600675795
+        ],
+        [
+          1791600854256,
+          1791600854779
+        ],
+        [
+          1791600928388,
+          1791600929243
+        ],
+        [
+          1791601067115,
+          1791601067794
+        ],
+        [
+          1791601077404,
+          1791601077896
+        ],
+        [
+          1791601190534,
+          1791601214650
+        ],
+        [
+          1791601272500,
+          1791601273411
+        ],
+        [
+          1791601328082,
+          1791601346245
+        ],
+        [
+          1791601412197,
+          1791601437150
+        ],
+        [
+          1791601564170,
+          1791601564633
+        ],
+        [
+          1791601573150,
+          1791601573516
+        ],
+        [
+          1791601625585,
+          1791601643929
+        ],
+        [
+          1791601814067,
+          1791601814587
+        ],
+        [
+          1791601821250,
+          1791601821684
+        ],
+        [
+          1791601887000,
+          1791601904931
+        ],
+        [
+          1791601952341,
+          1791602010018
+        ],
+        [
+          1791602119279,
+          1791602139052
+        ],
+        [
+          1791602165452,
+          1791602166041
+        ],
+        [
+          1791602194308,
+          1791602211647
+        ],
+        [
+          1791602325235,
+          1791602326053
+        ],
+        [
+          1791602703735,
+          1791602704378
+        ],
+        [
+          1791602951295,
+          1791602952537
+        ],
+        [
+          1791603038933,
+          1791603040349
+        ],
+        [
+          1791603142784,
+          1791603163817
+        ],
+        [
+          1791603304616,
+          1791603305160
+        ],
+        [
+          1791603402157,
+          1791603402922
+        ],
+        [
+          1791603718440,
+          1791603719147
+        ],
+        [
+          1791603784461,
+          1791603785054
+        ],
+        [
+          1791603827201,
+          1791603827897
+        ],
+        [
+          1791604125749,
+          1791604126398
+        ],
+        [
+          1791604191133,
+          1791604242497
+        ],
+        [
+          1791604246846,
+          1791604248042
+        ],
+        [
+          1791604269673,
+          1791604270122
+        ],
+        [
+          1791604336834,
+          1791604337573
+        ],
+        [
+          1791604387554,
+          1791604388907
+        ],
+        [
+          1791604467294,
+          1791604468344
+        ],
+        [
+          1791604550393,
+          1791604551124
+        ],
+        [
+          1791604567602,
+          1791604568193
+        ],
+        [
+          1791604653071,
+          1791604653588
+        ],
+        [
+          1791604725179,
+          1791604763851
+        ],
+        [
+          1791604811679,
+          1791604812130
+        ],
+        [
+          1791604848824,
+          1791605090175
+        ],
+        [
+          1791605118338,
+          1791605185575
+        ],
+        [
+          1791605203027,
+          1791605203433
+        ],
+        [
+          1791605234644,
+          1791605253032
+        ],
+        [
+          1791605288635,
+          1791605289030
+        ],
+        [
+          1791605302321,
+          1791605302913
+        ],
+        [
+          1791605396254,
+          1791605466038
+        ],
+        [
+          1791605491355,
+          1791605491774
+        ],
+        [
+          1791605584115,
+          1791605584985
+        ],
+        [
+          1791605733876,
+          1791605734226
+        ],
+        [
+          1791605734740,
+          1791605735207
+        ],
+        [
+          1791605741005,
+          1791605741590
+        ],
+        [
+          1791605745600,
+          1791605746080
+        ],
+        [
+          1791605759349,
+          1791605760275
+        ],
+        [
+          1791605760799,
+          1791605761338
+        ],
+        [
+          1791605788653,
+          1791605789495
+        ],
+        [
+          1791605853324,
+          1791605853808
+        ],
+        [
+          1791605872866,
+          1791605873280
+        ],
+        [
+          1791605873766,
+          1791605874592
+        ],
+        [
+          1791605882620,
+          1791605898783
+        ],
+        [
+          1791605909856,
+          1791605910817
+        ],
+        [
+          1791605915986,
+          1791605916409
+        ],
+        [
+          1791605938511,
+          1791605950042
+        ],
+        [
+          1791605972368,
+          1791605972719
+        ],
+        [
+          1791605990310,
+          1791606054564
+        ]
+      ],
+      "unattributedWallClockMs": 4999116.0,
+      "warning": "残差包含读写、推理、审查、协调和未打点活动，不是空闲。"
+    },
+    {
+      "turnId": "01a12344-1850-7392-b0b7-9492b15d0c39",
+      "startShanghai": "2026-10-10T08:43:47.000+08:00",
+      "endShanghai": "2026-10-10T10:29:23.000+08:00",
+      "status": "completed",
+      "wallClockMs": 6336000,
+      "activeTurnDurationMs": 6335492,
+      "commands": [
+        {
+          "kind": "commandExecution",
+          "id": "exec-e7866c5a-a766-4ed1-bf4f-4e2d536a61b6",
+          "durationMs": 327,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791593036677,
+          "endMs": 1791593037004,
+          "sessionOrdinal": 357
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-c5178525-9e98-445e-905b-138d6ec600f7",
+          "durationMs": 4935,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791593037588,
+          "endMs": 1791593042524,
+          "sessionOrdinal": 358
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-97b49511-a446-44d4-9e9c-9ead2aa15563",
+          "durationMs": 483,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791593063825,
+          "endMs": 1791593064309,
+          "sessionOrdinal": 365
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e920a3c9-9e17-4998-96a8-dd4278ac839a",
+          "durationMs": 739,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791593064161,
+          "endMs": 1791593064901,
+          "sessionOrdinal": 366
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-994caeca-3a48-4d3b-b7ee-9d8dad031746",
+          "durationMs": 859,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "source-sha256-final.json",
+            "DELIVERY.json"
+          ],
+          "startMs": 1791593064541,
+          "endMs": 1791593065400,
+          "sessionOrdinal": 367
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-5342d38f-82f1-4745-8298-53f40d5f04b4",
+          "durationMs": 829,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "worker-local-release-rotation.mjs"
+          ],
+          "startMs": 1791593083130,
+          "endMs": 1791593083959,
+          "sessionOrdinal": 374
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-67db2d24-8ca1-45ec-9295-ad4d5af801fb",
+          "durationMs": 2216,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "source-sha256-final.json",
+            "preservation-manifest.json",
+            "DELIVERY.json",
+            "handoff-gate.json"
+          ],
+          "startMs": 1791593116519,
+          "endMs": 1791593118735,
+          "sessionOrdinal": 381
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-6f45c000-2a84-438d-819f-83e504aa5898",
+          "durationMs": 39364,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "package.json",
+            "package-lock.json"
+          ],
+          "startMs": 1791593152837,
+          "endMs": 1791593192201,
+          "sessionOrdinal": 403
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-8a2e1811-897d-4cff-ae1a-f5185f93f184",
+          "durationMs": 567,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-wait-benchmark.mjs",
+            "release-wait-pg-fixture.py",
+            "release-daily-backup.mjs",
+            "worker-local-release.mjs",
+            "worker-local-release-rotation.mjs"
+          ],
+          "startMs": 1791593192496,
+          "endMs": 1791593193064,
+          "sessionOrdinal": 404
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f9902664-e6d3-4db3-b449-d18e5b1e8944",
+          "durationMs": 537,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "test.mjs",
+            "startup-speed-benchmark.ps1",
+            "test.ps1"
+          ],
+          "startMs": 1791593192822,
+          "endMs": 1791593193360,
+          "sessionOrdinal": 405
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e5de22c6-71a4-47b0-9eba-cbd98094c80b",
+          "durationMs": 501,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "worker-local-release.mjs",
+            "worker-local-release-rotation.mjs",
+            "current-deployment.json"
+          ],
+          "startMs": 1791593227920,
+          "endMs": 1791593228422,
+          "sessionOrdinal": 412
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-8a819af3-2dbe-48c7-95ab-490540bd451f",
+          "durationMs": 6654,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-batch.mjs",
+            "worker-local-release.mjs",
+            "release-readonly-retry.mjs",
+            "test.mjs",
+            "worker-local-release-rotation.mjs",
+            "current-predecessor-resolve.log"
+          ],
+          "startMs": 1791593263309,
+          "endMs": 1791593269964,
+          "sessionOrdinal": 424
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-286126e6-8fb5-4f88-96aa-383666e0913f",
+          "durationMs": 536,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-batch.mjs",
+            "worker-local-release.mjs",
+            "release-impact.mjs",
+            "release-batch-admission.mjs"
+          ],
+          "startMs": 1791593280665,
+          "endMs": 1791593281201,
+          "sessionOrdinal": 431
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-71aec383-994f-487a-9bcc-df65193ddf5f",
+          "durationMs": 702,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-batch.mjs",
+            "worker-local-release.mjs",
+            "release-batch-admission.mjs",
+            "test.mjs"
+          ],
+          "startMs": 1791593290489,
+          "endMs": 1791593291192,
+          "sessionOrdinal": 438
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-c9b78ee8-b5aa-40b7-9e53-f533a23df441",
+          "durationMs": 124243,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "python-setup.log",
+            "python-setup.json",
+            "joint-entrypoints.log",
+            "joint-entrypoints.json"
+          ],
+          "startMs": 1791593217457,
+          "endMs": 1791593341701,
+          "sessionOrdinal": 455
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-04550dd5-3b14-41ad-b453-02514e7054a6",
+          "durationMs": 692,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "joint-entrypoints.log",
+            "release-batch-admission.mjs",
+            "release-batch.mjs",
+            "worker-local-release.mjs"
+          ],
+          "startMs": 1791593352352,
+          "endMs": 1791593353045,
+          "sessionOrdinal": 462
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-64a9bc08-f2c6-4251-9862-ecbaae1d1ef6",
+          "durationMs": 385,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-integration-independent.mjs",
+            "release-batch-admission.mjs",
+            "release-batch.mjs",
+            "release-preparation-evidence.mjs"
+          ],
+          "startMs": 1791593449028,
+          "endMs": 1791593449414,
+          "sessionOrdinal": 486
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-38652976-3cfc-483a-bb08-b00d9fac8961",
+          "durationMs": 478,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-impact.mjs",
+            "test.mjs",
+            "release-preparation-evidence.mjs",
+            "joint-entrypoints.log"
+          ],
+          "startMs": 1791593549003,
+          "endMs": 1791593549482,
+          "sessionOrdinal": 507
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f5a641e1-0858-4bf8-94c2-4a75cb438117",
+          "durationMs": 2063,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "daily-repair-first.log"
+          ],
+          "startMs": 1791593622780,
+          "endMs": 1791593624844,
+          "sessionOrdinal": 524
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-450b2bcb-2c5b-4b2f-b0e1-b098c60c671f",
+          "durationMs": 1214,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "worker-local-release.mjs",
+            "deployment-manifest.json"
+          ],
+          "startMs": 1791593700096,
+          "endMs": 1791593701311,
+          "sessionOrdinal": 551
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-5546688f-61e8-45ec-a2ec-7bc45c2fe433",
+          "durationMs": 1363,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "django-local-service.ps1",
+            "package.json",
+            "package-lock.json",
+            "joint-and-lifecycle-final.log"
+          ],
+          "startMs": 1791593851950,
+          "endMs": 1791593853314,
+          "sessionOrdinal": 594
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-07a977d0-f7e3-460b-af74-0abf94b9f900",
+          "durationMs": 683,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "worker-local-release.mjs",
+            "postgres_no_key_backup.py",
+            "deployment.json",
+            "joint-and-lifecycle-final.log"
+          ],
+          "startMs": 1791593927324,
+          "endMs": 1791593928008,
+          "sessionOrdinal": 613
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-5ae24c4c-6b7f-48c0-9285-70bb2cf12af6",
+          "durationMs": 810,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "joint-and-lifecycle-final.log",
+            "django-postgres-maintenance.ps1"
+          ],
+          "startMs": 1791594013465,
+          "endMs": 1791594014276,
+          "sessionOrdinal": 630
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-28f5b79d-c78f-43c3-873d-f31f3c00a681",
+          "durationMs": 784,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "joint-and-lifecycle-final.log",
+            "backup-manifest.json",
+            "django-postgres-maintenance.ps1"
+          ],
+          "startMs": 1791594106159,
+          "endMs": 1791594106943,
+          "sessionOrdinal": 645
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-071d8cf6-eb12-4fe0-b30e-96ad4273a204",
+          "durationMs": 1387,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "joint-and-lifecycle-final.log"
+          ],
+          "startMs": 1791594132164,
+          "endMs": 1791594133551,
+          "sessionOrdinal": 654
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-744a779c-0161-48b4-b11c-91de28ca61b3",
+          "durationMs": 735,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791594151982,
+          "endMs": 1791594152717,
+          "sessionOrdinal": 661
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-76f5e048-1146-49a0-99a0-03024b55c9ff",
+          "durationMs": 504,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "joint-and-lifecycle-final.log",
+            "django-postgres-maintenance.ps1",
+            "worker-local-release.mjs"
+          ],
+          "startMs": 1791594200740,
+          "endMs": 1791594201244,
+          "sessionOrdinal": 674
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-22b26246-6524-42ef-a822-a156496f93f4",
+          "durationMs": 482052,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-daily-backup.mjs",
+            "release-batch-admission.mjs",
+            "test.mjs",
+            "release-integration-independent.mjs",
+            "release-integration-process-independent.mjs",
+            "release-integration-watch-diagnostic.mjs",
+            "joint-and-lifecycle-final.log",
+            "joint-and-lifecycle-final.json"
+          ],
+          "startMs": 1791593767785,
+          "endMs": 1791594249838,
+          "sessionOrdinal": 681
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-267eed99-97e9-41dc-bfae-e7fa7694bf1e",
+          "durationMs": 434,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "joint-and-lifecycle-final.log",
+            "django-postgres-maintenance.ps1",
+            "independent-reviewed-source-final.json"
+          ],
+          "startMs": 1791594281878,
+          "endMs": 1791594282312,
+          "sessionOrdinal": 690
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-bb3bb8ec-eb2f-4617-ad74-ae61f591c1b9",
+          "durationMs": 3583,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "deployment.json",
+            "scoped-source-baseline.json",
+            "release-daily-backup.mjs",
+            "release-batch-admission.mjs",
+            "test.mjs",
+            "release-integration-independent.mjs",
+            "release-integration-process-independent.mjs"
+          ],
+          "startMs": 1791594374156,
+          "endMs": 1791594377740,
+          "sessionOrdinal": 706
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-64a68252-ae23-4d41-b95c-5da1e478e20e",
+          "durationMs": 2437,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "release-batch-admission.mjs",
+            "release-daily-backup.mjs",
+            "test.mjs",
+            "release-integration-independent.mjs",
+            "release-integration-process-independent.mjs",
+            "scoped-source-baseline.json",
+            "unit-remaining-final.log"
+          ],
+          "startMs": 1791594415115,
+          "endMs": 1791594417553,
+          "sessionOrdinal": 715
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-cfdbc17c-c835-4c81-bdda-99255119c1ce",
+          "durationMs": 1014,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "scoped-source-baseline.json",
+            "unit-remaining-final.log"
+          ],
+          "startMs": 1791594437899,
+          "endMs": 1791594438914,
+          "sessionOrdinal": 722
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f92e7593-30e4-45b1-a49d-ebe6d597fe71",
+          "durationMs": 3436,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-daily-backup.mjs",
+            "release-batch-admission.mjs",
+            "test.mjs",
+            "release-integration-independent.mjs",
+            "release-integration-process-independent.mjs",
+            "scoped-source-baseline.json",
+            "unit-remaining-final.log"
+          ],
+          "startMs": 1791594504978,
+          "endMs": 1791594508414,
+          "sessionOrdinal": 733
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-9282cde9-3ec1-4ab2-a529-f0c71bfbf659",
+          "durationMs": 742,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "unit-remaining-final.log",
+            "full-unit-coverage.json"
+          ],
+          "startMs": 1791594635590,
+          "endMs": 1791594636333,
+          "sessionOrdinal": 755
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-500d627a-0d47-4644-a4e2-c15d2cef8dc3",
+          "durationMs": 675185,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "full-unit-coverage.json",
+            "unit-remaining-final.log",
+            "unit-remaining-final.json"
+          ],
+          "startMs": 1791594324630,
+          "endMs": 1791594999815,
+          "sessionOrdinal": 810
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f079eaa2-7c05-496e-aa67-a3f2f97420ed",
+          "durationMs": 578,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "unit-remaining-final.log",
+            "operations-system-watchdog.ps1",
+            "release-batch.mjs"
+          ],
+          "startMs": 1791595071924,
+          "endMs": 1791595072503,
+          "sessionOrdinal": 823
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-7aba6cae-8881-4fa6-b9f7-3adb6c692dbd",
+          "durationMs": 1295,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "lint-final.log",
+            "boundary-final.log",
+            "build-main-final.log",
+            "operations-system-watchdog.ps1"
+          ],
+          "startMs": 1791595231109,
+          "endMs": 1791595232404,
+          "sessionOrdinal": 846
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-000a7f5c-f6cc-468e-971d-5ab785ffd7cc",
+          "durationMs": 126108,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "lint-final.log",
+            "boundary-final.log",
+            "static-final.json",
+            "build-main-final.log",
+            "build-main-final.json"
+          ],
+          "startMs": 1791595139870,
+          "endMs": 1791595265978,
+          "sessionOrdinal": 851
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-9d0e9c08-d586-4b4d-bfa6-475906820bc6",
+          "durationMs": 1781,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "watchdog-installed-scope.json"
+          ],
+          "startMs": 1791595427807,
+          "endMs": 1791595429589,
+          "sessionOrdinal": 872
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-2e5d14e5-d6a2-4590-a338-e87eca6e38c2",
+          "durationMs": 82342,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ab-scoped-regression.log",
+            "ab-scoped-regression.json"
+          ],
+          "startMs": 1791595488896,
+          "endMs": 1791595571238,
+          "sessionOrdinal": 891
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1c1f7629-5e54-48cb-b935-b6ce5b237d04",
+          "durationMs": 396,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "backup-manifest.json",
+            "django-postgres-maintenance.ps1",
+            "restore-request.json",
+            "ab-scoped-regression.log"
+          ],
+          "startMs": 1791595575999,
+          "endMs": 1791595576395,
+          "sessionOrdinal": 894
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-73f560bc-763b-4706-9523-eaf27d670033",
+          "durationMs": 3770,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "backup-manifest.json",
+            "django-postgres-maintenance.ps1",
+            "restore-request.json",
+            "ab-scoped-regression.log"
+          ],
+          "startMs": 1791595603137,
+          "endMs": 1791595606907,
+          "sessionOrdinal": 901
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-4789c5b6-d450-423d-9475-ef5f48540602",
+          "durationMs": 535,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [],
+          "startMs": 1791595642104,
+          "endMs": 1791595642640,
+          "sessionOrdinal": 910
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e6d93a16-bfbe-46bd-af37-1d2fc5d1ef1e",
+          "durationMs": 3364,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "django-postgres-maintenance.ps1"
+          ],
+          "startMs": 1791595670111,
+          "endMs": 1791595673476,
+          "sessionOrdinal": 917
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-bacda2d6-4dca-44d5-8eed-ff904cd4c0ef",
+          "durationMs": 3700,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "backup-manifest.json",
+            "django-postgres-maintenance.ps1",
+            "restore-request.json"
+          ],
+          "startMs": 1791595804982,
+          "endMs": 1791595808683,
+          "sessionOrdinal": 934
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-91c4ecce-101a-44eb-a64b-bbcab0ba8bea",
+          "durationMs": 556,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "restore-request.json",
+            "verify-existing-point.json",
+            "release-batch.mjs",
+            "release-lifecycle-step.ps1",
+            "operations-system-watchdog.ps1"
+          ],
+          "startMs": 1791595863782,
+          "endMs": 1791595864339,
+          "sessionOrdinal": 946
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-9d6ceef8-8455-47c0-be95-ed6be1872efa",
+          "durationMs": 2213,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-impact.mjs",
+            "release-batch-admission.mjs",
+            "operations-system-watchdog.ps1",
+            "restore-existing-point-failure.json"
+          ],
+          "startMs": 1791595947649,
+          "endMs": 1791595949862,
+          "sessionOrdinal": 957
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-3da3fcf7-ba79-416b-8688-1dbf5ba432f6",
+          "durationMs": 584,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "create-batch.mjs",
+            "acceptance.mjs",
+            "admission-preflight.mjs",
+            "restorerehearsal-existing-point.json"
+          ],
+          "startMs": 1791596037214,
+          "endMs": 1791596037799,
+          "sessionOrdinal": 970
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-fe7071ad-bc26-469e-8740-cb32abeed28b",
+          "durationMs": 513,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-impact.mjs",
+            "deployment-manifest.json",
+            "create-batch.mjs",
+            "release-batch.mjs"
+          ],
+          "startMs": 1791596142818,
+          "endMs": 1791596143331,
+          "sessionOrdinal": 985
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-b06f1427-8173-4b35-8c22-633ba9965668",
+          "durationMs": 551,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "release-impact.mjs",
+            "create-batch.mjs",
+            "prepare.mjs",
+            "restorerehearsal-existing-point.json"
+          ],
+          "startMs": 1791596150834,
+          "endMs": 1791596151386,
+          "sessionOrdinal": 992
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-8603d810-aa39-4a3b-a317-4a5d8591e3e5",
+          "durationMs": 1421,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "release-impact.mjs",
+            "scoped-source-baseline.json",
+            "restorerehearsal-existing-point.json"
+          ],
+          "startMs": 1791596255408,
+          "endMs": 1791596256830,
+          "sessionOrdinal": 1010
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-83f47dd4-2e17-45a5-97e5-5f7090ccf4cf",
+          "durationMs": 416,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-impact.mjs",
+            "restorerehearsal-existing-point.json",
+            "postgres.log"
+          ],
+          "startMs": 1791596341139,
+          "endMs": 1791596341556,
+          "sessionOrdinal": 1032
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-87eb268a-3a21-43da-a2ba-fe9d1d934d30",
+          "durationMs": 1046,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-impact.mjs",
+            "worker-local-release.mjs",
+            "scoped-source-baseline.json"
+          ],
+          "startMs": 1791596432568,
+          "endMs": 1791596433614,
+          "sessionOrdinal": 1045
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-2bd79096-69af-42eb-94e4-4cb02374a66f",
+          "durationMs": 1125,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ab-inventory-negative.mjs",
+            "ab-inventory-negative.log"
+          ],
+          "startMs": 1791596434075,
+          "endMs": 1791596435201,
+          "sessionOrdinal": 1047
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1a8ec24a-d1b4-414e-b782-bfa40dae470c",
+          "durationMs": 710285,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "restore-existing-point.mjs"
+          ],
+          "startMs": 1791595809150,
+          "endMs": 1791596519435,
+          "sessionOrdinal": 1061
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-c2356edd-7603-4dc1-a68b-75eb7317d687",
+          "durationMs": 2193,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "restore-request.json",
+            "create-batch.mjs"
+          ],
+          "startMs": 1791596533830,
+          "endMs": 1791596536024,
+          "sessionOrdinal": 1068
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-332bfd3e-7963-4f2b-8cf9-edbf2f6c8629",
+          "durationMs": 16205,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "ab-inventory-negative.log",
+            "ab-inventory-negative-first.log",
+            "ab-inventory-negative.mjs",
+            "verify-ab-predecessor.mjs",
+            "restore-request.json",
+            "restorerehearsal-existing-point.json"
+          ],
+          "startMs": 1791596607726,
+          "endMs": 1791596623932,
+          "sessionOrdinal": 1088
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f1dd115b-3d58-41dc-a286-dade56c2fc71",
+          "durationMs": 500,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "restorerehearsal-existing-point.json",
+            "ab-full-predecessor-inventory.json"
+          ],
+          "startMs": 1791596719689,
+          "endMs": 1791596720190,
+          "sessionOrdinal": 1095
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-7d9dbf8d-a9ac-4775-8c81-e358c4a999fa",
+          "durationMs": 3448,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "restore-request.json",
+            "restore-closeout.json"
+          ],
+          "startMs": 1791596746656,
+          "endMs": 1791596750105,
+          "sessionOrdinal": 1104
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-99bf0f8b-c8c3-4ac8-9da6-d5e9ade8a9c5",
+          "durationMs": 575,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ab-online-prepare.log",
+            "rehearsal-result.json",
+            "restore-syntax-limitation.json"
+          ],
+          "startMs": 1791596912693,
+          "endMs": 1791596913268,
+          "sessionOrdinal": 1135
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-4ded3cba-416f-4fe7-9fbb-269b29d23aff",
+          "durationMs": 1108,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "worker-local-release-rotation.mjs",
+            "ab-online-prepare.json",
+            "release-batch-admission.mjs"
+          ],
+          "startMs": 1791596941846,
+          "endMs": 1791596942955,
+          "sessionOrdinal": 1144
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-07681562-03a8-4b13-90d3-b51ef093677f",
+          "durationMs": 385,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "installation.json",
+            "ab-online-prepare.log",
+            "scoped-source-baseline.json"
+          ],
+          "startMs": 1791596976340,
+          "endMs": 1791596976725,
+          "sessionOrdinal": 1151
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-08057850-d9df-41c1-ad6e-731a615f2ae2",
+          "durationMs": 643,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "production-ui.mjs",
+            "operations-system-watchdog.ps1",
+            "acceptance.mjs",
+            "ab-online-prepare.log"
+          ],
+          "startMs": 1791597036660,
+          "endMs": 1791597037304,
+          "sessionOrdinal": 1168
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-3c5a668c-6ec7-480e-8f64-7d3e53ac4845",
+          "durationMs": 445,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-acceptance-ui.mjs",
+            "operations-system-watchdog.ps1",
+            "production-ui.mjs"
+          ],
+          "startMs": 1791597064701,
+          "endMs": 1791597065147,
+          "sessionOrdinal": 1175
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-a9e7804d-774a-469e-bc43-0523b53de8de",
+          "durationMs": 605,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ab-online-prepare.log",
+            "release-acceptance-ui.mjs"
+          ],
+          "startMs": 1791597207237,
+          "endMs": 1791597207843,
+          "sessionOrdinal": 1196
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-738a7bb7-0a5c-45c5-9fb8-39aedcb64f12",
+          "durationMs": 1217,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [],
+          "startMs": 1791597245567,
+          "endMs": 1791597246785,
+          "sessionOrdinal": 1205
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-78c3b9df-4d2c-4b21-bf8e-bff45a4946c4",
+          "durationMs": 409,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ab-online-prepare.log"
+          ],
+          "startMs": 1791597277626,
+          "endMs": 1791597278035,
+          "sessionOrdinal": 1212
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-b7ce3022-83fa-4d83-8fab-7bbb884b8938",
+          "durationMs": 720,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "deployment-manifest.json",
+            "ab-online-prepare.json"
+          ],
+          "startMs": 1791597319754,
+          "endMs": 1791597320475,
+          "sessionOrdinal": 1223
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-9bef73f2-fbed-4d16-896d-24a1e737010d",
+          "durationMs": 565566,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ab-inventory-regression-final.log",
+            "ab-inventory-regression-final.json",
+            "worker-local-release-rotation.mjs",
+            "ab-online-prepare.log",
+            "ab-online-prepare.json"
+          ],
+          "startMs": 1791596789656,
+          "endMs": 1791597355223,
+          "sessionOrdinal": 1228
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-dd1188ef-b866-478b-b9aa-f34aeb921f7f",
+          "durationMs": 515,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ab-online-prepare.log",
+            "deployment-manifest.json"
+          ],
+          "startMs": 1791597430132,
+          "endMs": 1791597430647,
+          "sessionOrdinal": 1243
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-db818f1b-ae7e-4a56-9cc1-baec6037eaf3",
+          "durationMs": 953,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ab-online-prepare.log",
+            "candidate-handoff.json",
+            "worker-plan.json",
+            "deployment-manifest.json",
+            "worker-manifest.json",
+            "checkpoint.json"
+          ],
+          "startMs": 1791597488208,
+          "endMs": 1791597489162,
+          "sessionOrdinal": 1254
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-58ac7992-a387-44bb-abdc-e37eee6421ee",
+          "durationMs": 627,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-acceptance-ui.mjs",
+            "production-ui.mjs",
+            "abc-online-prepare.log"
+          ],
+          "startMs": 1791597703376,
+          "endMs": 1791597704004,
+          "sessionOrdinal": 1289
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-56c41dfc-e3bc-47bb-947a-e58f78129e60",
+          "durationMs": 637,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ui-customer-readonly-preflight.mjs",
+            "abc-online-prepare.log"
+          ],
+          "startMs": 1791597960402,
+          "endMs": 1791597961053,
+          "sessionOrdinal": 1342
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1ec6d8b4-c038-49a5-a36f-ceb4312cccf7",
+          "durationMs": 1063,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-lifecycle-step.ps1",
+            "abc-online-prepare.log",
+            "CLOSEOUT.json"
+          ],
+          "startMs": 1791598021362,
+          "endMs": 1791598022426,
+          "sessionOrdinal": 1358
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-903a86e0-0ed8-4b37-87f9-ecbac238e50a",
+          "durationMs": 601,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "seal-candidate.mjs",
+            "acceptance-adapter.mjs"
+          ],
+          "startMs": 1791598178600,
+          "endMs": 1791598179201,
+          "sessionOrdinal": 1377
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-efb7947e-effc-4b1e-b880-a14462b0dc15",
+          "durationMs": 695462,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "worker-local-release-rotation.mjs",
+            "abc-online-prepare.log",
+            "abc-online-prepare.json"
+          ],
+          "startMs": 1791597489607,
+          "endMs": 1791598185069,
+          "sessionOrdinal": 1380
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-4cdfb877-6b3a-4d43-88ae-35def5367b7d",
+          "durationMs": 407,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "prepare-acceptance-files.mjs",
+            "release-impact.mjs",
+            "checkpoint.json"
+          ],
+          "startMs": 1791598187270,
+          "endMs": 1791598187678,
+          "sessionOrdinal": 1385
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-6398b12a-b431-4466-8197-d703b08b509d",
+          "durationMs": 630,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "operations-system-control.ps1",
+            "release-lifecycle-step.ps1",
+            "restorerehearsal-existing-point.json"
+          ],
+          "startMs": 1791598188143,
+          "endMs": 1791598188773,
+          "sessionOrdinal": 1386
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e707c2b3-56fa-4437-8f5f-f515229f1673",
+          "durationMs": 460,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "ab-online-prepare.json",
+            "candidate-handoff.json"
+          ],
+          "startMs": 1791598218199,
+          "endMs": 1791598218660,
+          "sessionOrdinal": 1403
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-baf046b6-3869-47d7-b2f2-b037c2c3b095",
+          "durationMs": 436,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "abc-online-prepare.json",
+            "1b8cd3f26b9e0ed386a32518077ca3f836414b737f1a7026593c9e1ff3f44107.json",
+            "full-unit-coverage.json"
+          ],
+          "startMs": 1791598236538,
+          "endMs": 1791598236974,
+          "sessionOrdinal": 1410
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-9d0159d3-0e73-4146-aed6-44c3a28252be",
+          "durationMs": 701,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "worker-local-release-rotation.mjs",
+            "joint-and-lifecycle-final.json",
+            "unit-remaining-final.json"
+          ],
+          "startMs": 1791598255506,
+          "endMs": 1791598256208,
+          "sessionOrdinal": 1426
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-30f33610-d6cb-4638-b204-586d69d922e0",
+          "durationMs": 403,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "deployment-manifest.json",
+            "watchdog-installed-scope.json",
+            "independent-reviewed-source-final.json",
+            "scoped-source-object-inventory.json"
+          ],
+          "startMs": 1791598266516,
+          "endMs": 1791598266920,
+          "sessionOrdinal": 1435
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-148c4a5b-8cf7-4f4f-95e5-9744b8596950",
+          "durationMs": 1266,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "acceptance-adapter.mjs",
+            "seal-candidate.mjs",
+            "prepare-acceptance-files.mjs"
+          ],
+          "startMs": 1791598285634,
+          "endMs": 1791598286901,
+          "sessionOrdinal": 1442
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-a328604a-7a50-4240-b411-d79178db9b50",
+          "durationMs": 431,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-impact.mjs",
+            "review-candidates.mjs"
+          ],
+          "startMs": 1791598334200,
+          "endMs": 1791598334631,
+          "sessionOrdinal": 1454
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e717734c-14f5-4ec0-a84f-0cd74b24868b",
+          "durationMs": 8925,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "review-candidates.mjs",
+            "candidate-final-verify.log"
+          ],
+          "startMs": 1791598342783,
+          "endMs": 1791598351709,
+          "sessionOrdinal": 1462
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-c7c21cd2-e750-4523-ac7b-7c6851770b95",
+          "durationMs": 407,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "candidate-final-verify.log",
+            "handoff-gate.json"
+          ],
+          "startMs": 1791598355401,
+          "endMs": 1791598355808,
+          "sessionOrdinal": 1469
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-18dd08c6-69c9-4a46-8b9c-045550fb00df",
+          "durationMs": 12731,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "review-candidates.mjs",
+            "candidate-final-verify-2.log"
+          ],
+          "startMs": 1791598363754,
+          "endMs": 1791598376486,
+          "sessionOrdinal": 1479
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-c65c9f5f-a2a2-4fb1-8d37-56cd86149f03",
+          "durationMs": 471,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "operations-system-watchdog.ps1",
+            "ab-scoped-regression.json",
+            "static-final.json",
+            "candidate-final-verify-2.log"
+          ],
+          "startMs": 1791598395071,
+          "endMs": 1791598395543,
+          "sessionOrdinal": 1484
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f2571396-7a4c-4f19-a523-8d8e42d0c4c5",
+          "durationMs": 12710,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "review-candidates.mjs",
+            "candidate-final-verify-3.log"
+          ],
+          "startMs": 1791598401618,
+          "endMs": 1791598414328,
+          "sessionOrdinal": 1494
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-bc3ad854-6e42-4c9e-9167-e594590b88ad",
+          "durationMs": 630,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "candidate-scope.json",
+            "candidate-final-verify-3.log"
+          ],
+          "startMs": 1791598624585,
+          "endMs": 1791598625215,
+          "sessionOrdinal": 1518
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-256102b0-f1a3-4984-9d0a-7612e48c2f10",
+          "durationMs": 532,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "scoped-ab-inventory-repair-review.json",
+            "full-unit-coverage.json"
+          ],
+          "startMs": 1791598718836,
+          "endMs": 1791598719369,
+          "sessionOrdinal": 1536
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-dca09f50-7ad8-485f-ad1f-0e51b90111aa",
+          "durationMs": 348,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [],
+          "startMs": 1791598780734,
+          "endMs": 1791598781083,
+          "sessionOrdinal": 1556
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-225e49d8-b631-4fde-926d-ae8c4917a3a6",
+          "durationMs": 1059,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "candidate-scope.json",
+            "document-checks-stage2.json",
+            "review-candidates.mjs",
+            "ab-inventory-negative.mjs",
+            "verify-ab-predecessor.mjs",
+            "restore-existing-point.mjs"
+          ],
+          "startMs": 1791598821550,
+          "endMs": 1791598822610,
+          "sessionOrdinal": 1568
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-423ef65c-5041-4664-ba52-78de293eb591",
+          "durationMs": 3629,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791598823092,
+          "endMs": 1791598826721,
+          "sessionOrdinal": 1569
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-ac007f3e-2f86-48ed-bb65-f8390b879aea",
+          "durationMs": 7701,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "document-checks-stage2.json"
+          ],
+          "startMs": 1791598843831,
+          "endMs": 1791598851532,
+          "sessionOrdinal": 1576
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-bec5b3ac-de60-46cf-9d6b-acef7fc7f165",
+          "durationMs": 548,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "release-daily-backup.mjs",
+            "release-batch-admission.mjs",
+            "build-main-final.json",
+            "ab-inventory-regression-final.json",
+            "independent-reviewed-source-final.json",
+            "operations-system-watchdog.ps1"
+          ],
+          "startMs": 1791598874213,
+          "endMs": 1791598874762,
+          "sessionOrdinal": 1585
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-d08ac917-456a-4f6d-a9a1-d2b47dcf2f36",
+          "durationMs": 432,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791598875215,
+          "endMs": 1791598875649,
+          "sessionOrdinal": 1586
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1b09bfca-39eb-4584-adf4-5fe3dcfe804e",
+          "durationMs": 1522,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791598924989,
+          "endMs": 1791598926513,
+          "sessionOrdinal": 1600
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-052a96a9-0552-4e7e-8e21-ef9b63dc9530",
+          "durationMs": 582,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "d-integration-staged-check.log"
+          ],
+          "startMs": 1791598940636,
+          "endMs": 1791598941219,
+          "sessionOrdinal": 1608
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f1e3b5d7-5fbf-4624-b621-97de55bc5005",
+          "durationMs": 706,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "final-independent-review.json",
+            "release-daily-backup.mjs",
+            "release-batch-admission.mjs"
+          ],
+          "startMs": 1791598967897,
+          "endMs": 1791598968604,
+          "sessionOrdinal": 1622
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-0ba18b2d-9626-4898-b1ee-7c7f9ef95aab",
+          "durationMs": 342,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "final-independent-review.json"
+          ],
+          "startMs": 1791598972758,
+          "endMs": 1791598973101,
+          "sessionOrdinal": 1629
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-7c95fd42-b0bc-4cfe-81b6-0244946c3d01",
+          "durationMs": 477,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "independent-reviewed-source-final.json",
+            "console.log",
+            "joint-entrypoints.json",
+            "daily-repair-first.log"
+          ],
+          "startMs": 1791599024159,
+          "endMs": 1791599024636,
+          "sessionOrdinal": 1649
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-5a4f828f-e842-485f-ba19-2dfab1af7de2",
+          "durationMs": 482,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791599055903,
+          "endMs": 1791599056385,
+          "sessionOrdinal": 1663
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-04c6892d-9ee9-4387-acaf-fbbbd5f66eb9",
+          "durationMs": 692,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "candidate-scope.json",
+            "independent-daily-original.log"
+          ],
+          "startMs": 1791599102862,
+          "endMs": 1791599103555,
+          "sessionOrdinal": 1681
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1bb1367a-a242-4b39-861f-fd3ce01da961",
+          "durationMs": 442,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [
+            "independent-daily-original.log",
+            "candidate-scope.json"
+          ],
+          "startMs": 1791599158270,
+          "endMs": 1791599158712,
+          "sessionOrdinal": 1702
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-fb39ee0b-9c7d-44dd-9c1a-0d7e8ee8b990",
+          "durationMs": 1057,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "d-integration-staged-check-final.log"
+          ],
+          "startMs": 1791599178899,
+          "endMs": 1791599179956,
+          "sessionOrdinal": 1709
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1ed4a105-4575-4321-9a71-4f0b325bd11b",
+          "durationMs": 7339,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791599202702,
+          "endMs": 1791599210041,
+          "sessionOrdinal": 1717
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f7b0c1bb-0ac8-49e2-a738-0bfda7eae342",
+          "durationMs": 739,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791599215794,
+          "endMs": 1791599216533,
+          "sessionOrdinal": 1730
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-4945760e-74bb-47e7-b955-542e9dfd1718",
+          "durationMs": 1072,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "candidate-scope.json",
+            "document-checks-stage2-final.json"
+          ],
+          "startMs": 1791599254265,
+          "endMs": 1791599255338,
+          "sessionOrdinal": 1738
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-7f3b2fd0-f1e9-4762-a7b7-d796fbd232b9",
+          "durationMs": 5386,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791599274323,
+          "endMs": 1791599279710,
+          "sessionOrdinal": 1745
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-a812a501-55e1-4e7c-8447-2a263bef4eae",
+          "durationMs": 5234,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "PRESERVATION.json",
+            "worker-local-release-rotation.mjs"
+          ],
+          "startMs": 1791599308089,
+          "endMs": 1791599313324,
+          "sessionOrdinal": 1752
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e9e0d258-e6a6-4266-97bc-1dd1a8e08cce",
+          "durationMs": 1094,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "document-checks-stage2-final.json"
+          ],
+          "startMs": 1791599343425,
+          "endMs": 1791599344519,
+          "sessionOrdinal": 1767
+        }
+      ],
+      "commandIntervalUnionMs": 3636622,
+      "commandIntervalUnion": [
+        [
+          1791593036677,
+          1791593037004
+        ],
+        [
+          1791593037588,
+          1791593042524
+        ],
+        [
+          1791593063825,
+          1791593065400
+        ],
+        [
+          1791593083130,
+          1791593083959
+        ],
+        [
+          1791593116519,
+          1791593118735
+        ],
+        [
+          1791593152837,
+          1791593192201
+        ],
+        [
+          1791593192496,
+          1791593193360
+        ],
+        [
+          1791593217457,
+          1791593341701
+        ],
+        [
+          1791593352352,
+          1791593353045
+        ],
+        [
+          1791593449028,
+          1791593449414
+        ],
+        [
+          1791593549003,
+          1791593549482
+        ],
+        [
+          1791593622780,
+          1791593624844
+        ],
+        [
+          1791593700096,
+          1791593701311
+        ],
+        [
+          1791593767785,
+          1791594249838
+        ],
+        [
+          1791594281878,
+          1791594282312
+        ],
+        [
+          1791594324630,
+          1791594999815
+        ],
+        [
+          1791595071924,
+          1791595072503
+        ],
+        [
+          1791595139870,
+          1791595265978
+        ],
+        [
+          1791595427807,
+          1791595429589
+        ],
+        [
+          1791595488896,
+          1791595571238
+        ],
+        [
+          1791595575999,
+          1791595576395
+        ],
+        [
+          1791595603137,
+          1791595606907
+        ],
+        [
+          1791595642104,
+          1791595642640
+        ],
+        [
+          1791595670111,
+          1791595673476
+        ],
+        [
+          1791595804982,
+          1791595808683
+        ],
+        [
+          1791595809150,
+          1791596519435
+        ],
+        [
+          1791596533830,
+          1791596536024
+        ],
+        [
+          1791596607726,
+          1791596623932
+        ],
+        [
+          1791596719689,
+          1791596720190
+        ],
+        [
+          1791596746656,
+          1791596750105
+        ],
+        [
+          1791596789656,
+          1791597355223
+        ],
+        [
+          1791597430132,
+          1791597430647
+        ],
+        [
+          1791597488208,
+          1791597489162
+        ],
+        [
+          1791597489607,
+          1791598185069
+        ],
+        [
+          1791598187270,
+          1791598187678
+        ],
+        [
+          1791598188143,
+          1791598188773
+        ],
+        [
+          1791598218199,
+          1791598218660
+        ],
+        [
+          1791598236538,
+          1791598236974
+        ],
+        [
+          1791598255506,
+          1791598256208
+        ],
+        [
+          1791598266516,
+          1791598266920
+        ],
+        [
+          1791598285634,
+          1791598286901
+        ],
+        [
+          1791598334200,
+          1791598334631
+        ],
+        [
+          1791598342783,
+          1791598351709
+        ],
+        [
+          1791598355401,
+          1791598355808
+        ],
+        [
+          1791598363754,
+          1791598376486
+        ],
+        [
+          1791598395071,
+          1791598395543
+        ],
+        [
+          1791598401618,
+          1791598414328
+        ],
+        [
+          1791598624585,
+          1791598625215
+        ],
+        [
+          1791598718836,
+          1791598719369
+        ],
+        [
+          1791598780734,
+          1791598781083
+        ],
+        [
+          1791598821550,
+          1791598822610
+        ],
+        [
+          1791598823092,
+          1791598826721
+        ],
+        [
+          1791598843831,
+          1791598851532
+        ],
+        [
+          1791598874213,
+          1791598874762
+        ],
+        [
+          1791598875215,
+          1791598875649
+        ],
+        [
+          1791598924989,
+          1791598926513
+        ],
+        [
+          1791598940636,
+          1791598941219
+        ],
+        [
+          1791598967897,
+          1791598968604
+        ],
+        [
+          1791598972758,
+          1791598973101
+        ],
+        [
+          1791599024159,
+          1791599024636
+        ],
+        [
+          1791599055903,
+          1791599056385
+        ],
+        [
+          1791599102862,
+          1791599103555
+        ],
+        [
+          1791599158270,
+          1791599158712
+        ],
+        [
+          1791599178899,
+          1791599179956
+        ],
+        [
+          1791599202702,
+          1791599210041
+        ],
+        [
+          1791599215794,
+          1791599216533
+        ],
+        [
+          1791599254265,
+          1791599255338
+        ],
+        [
+          1791599274323,
+          1791599279710
+        ],
+        [
+          1791599308089,
+          1791599313324
+        ],
+        [
+          1791599343425,
+          1791599344519
+        ]
+      ],
+      "unattributedWallClockMs": 2699378,
+      "warning": "残差包含读写、推理、审查、协调和未打点活动，不是空闲。"
+    },
+    {
+      "turnId": "01a121ea-4077-75c1-b0ea-f4d08f9eaf6f",
+      "startShanghai": "2026-10-10T02:26:02.000+08:00",
+      "endShanghai": "2026-10-10T02:32:34.000+08:00",
+      "status": "completed",
+      "wallClockMs": 392000,
+      "activeTurnDurationMs": 392367,
+      "commands": [
+        {
+          "kind": "commandExecution",
+          "id": "exec-77556e10-f5ad-4dfb-9e13-295e58943348",
+          "durationMs": 2647,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791570391783,
+          "endMs": 1791570394431,
+          "sessionOrdinal": 258
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1c68f99b-4315-428f-9c23-8d201a09fc89",
+          "durationMs": 485,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791570413238,
+          "endMs": 1791570413724,
+          "sessionOrdinal": 265
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-85338361-ce56-4791-aebf-08d04cc15b91",
+          "durationMs": 515,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "INDEPENDENT_SOURCE_SHA256.json",
+            "DELIVERY.json"
+          ],
+          "startMs": 1791570413592,
+          "endMs": 1791570414108,
+          "sessionOrdinal": 266
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-c8731d20-8c00-4ef5-9cff-f23e69ad23ab",
+          "durationMs": 2028,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "INDEPENDENT_SOURCE_SHA256.json",
+            "DELIVERY.json",
+            "final-abc.log",
+            "INDEPENDENT_TESTS.log",
+            "INDEPENDENT_PROBES.log",
+            "unit-concurrency2.log",
+            "timing.json",
+            "build-final-abc.log",
+            "lint-final-abc.log",
+            "c-handoff-evidence.json"
+          ],
+          "startMs": 1791570467474,
+          "endMs": 1791570469502,
+          "sessionOrdinal": 273
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-8de38139-3bdd-4a80-8e45-2bb5e7c729de",
+          "durationMs": 649,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "c-handoff-evidence.json",
+            "document-checks.json"
+          ],
+          "startMs": 1791570613868,
+          "endMs": 1791570614518,
+          "sessionOrdinal": 296
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-fbbc7be9-2c03-49bc-9120-0bbb65ecdbf2",
+          "durationMs": 311,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791570615089,
+          "endMs": 1791570615401,
+          "sessionOrdinal": 297
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f90a7a79-556c-4896-8835-9fd7f9d512d5",
+          "durationMs": 400,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791570681242,
+          "endMs": 1791570681643,
+          "sessionOrdinal": 311
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e4e8d6ca-8b2d-443e-a7e6-781df6612170",
+          "durationMs": 4431,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "c-handoff-evidence.json",
+            "document-checks.json"
+          ],
+          "startMs": 1791570739717,
+          "endMs": 1791570744148,
+          "sessionOrdinal": 329
+        }
+      ],
+      "commandIntervalUnionMs": 11340,
+      "commandIntervalUnion": [
+        [
+          1791570391783,
+          1791570394431
+        ],
+        [
+          1791570413238,
+          1791570414108
+        ],
+        [
+          1791570467474,
+          1791570469502
+        ],
+        [
+          1791570613868,
+          1791570614518
+        ],
+        [
+          1791570615089,
+          1791570615401
+        ],
+        [
+          1791570681242,
+          1791570681643
+        ],
+        [
+          1791570739717,
+          1791570744148
+        ]
+      ],
+      "unattributedWallClockMs": 380660,
+      "warning": "残差包含读写、推理、审查、协调和未打点活动，不是空闲。"
+    },
+    {
+      "turnId": "01a121b9-af79-7e73-a4a1-51276b38a96e",
+      "startShanghai": "2026-10-10T01:32:59.000+08:00",
+      "endShanghai": "2026-10-10T01:50:06.000+08:00",
+      "status": "completed",
+      "wallClockMs": 1027000,
+      "activeTurnDurationMs": 1026991,
+      "commands": [
+        {
+          "kind": "commandExecution",
+          "id": "exec-1ed0f020-6469-4dea-a3bc-7a86288bf596",
+          "durationMs": 334,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567187504,
+          "endMs": 1791567187838,
+          "sessionOrdinal": 17
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-3f4ae71c-c3e5-4528-b8da-515d17204b89",
+          "durationMs": 370,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567197764,
+          "endMs": 1791567198134,
+          "sessionOrdinal": 22
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-942d4479-100e-421f-b106-998b7964c640",
+          "durationMs": 317,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567198048,
+          "endMs": 1791567198366,
+          "sessionOrdinal": 23
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1a79868e-d1ff-40d5-845b-9ed5db72b0fb",
+          "durationMs": 515,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567198339,
+          "endMs": 1791567198855,
+          "sessionOrdinal": 24
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e6a085db-b2e9-48a9-bed4-d680ad9311e4",
+          "durationMs": 303,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567213150,
+          "endMs": 1791567213453,
+          "sessionOrdinal": 32
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-29e716c7-32ef-4972-bd39-eae755fcc2e0",
+          "durationMs": 296,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567213926,
+          "endMs": 1791567214222,
+          "sessionOrdinal": 33
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-d641f01a-f6ff-49b9-9b83-778b29b61b4a",
+          "durationMs": 415,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567214692,
+          "endMs": 1791567215107,
+          "sessionOrdinal": 34
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-eb19d3dc-c8d5-45e3-808c-ae67515bbab6",
+          "durationMs": 345,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567226694,
+          "endMs": 1791567227040,
+          "sessionOrdinal": 39
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-35224f2f-dfc7-42d8-9aeb-f40e40683ad2",
+          "durationMs": 441,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567226994,
+          "endMs": 1791567227436,
+          "sessionOrdinal": 40
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-0da221f9-bb68-4e89-90be-509b20fcd24a",
+          "durationMs": 545,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567227658,
+          "endMs": 1791567228203,
+          "sessionOrdinal": 41
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-a690610d-e299-4a49-9ee9-884bfc5d65e7",
+          "durationMs": 277,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567245950,
+          "endMs": 1791567246228,
+          "sessionOrdinal": 51
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-39163377-88dd-459c-a270-4e3442510f16",
+          "durationMs": 376,
+          "exitCode": 1,
+          "status": "failed",
+          "evidenceNames": [],
+          "startMs": 1791567246676,
+          "endMs": 1791567247053,
+          "sessionOrdinal": 52
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-812ccb2c-b84a-4b3f-bb89-7200cb826564",
+          "durationMs": 1742,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567247508,
+          "endMs": 1791567249251,
+          "sessionOrdinal": 53
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-7930e681-5e74-47d6-88b8-a0f07afe37f5",
+          "durationMs": 355,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567262379,
+          "endMs": 1791567262735,
+          "sessionOrdinal": 60
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-dd74f998-3479-4327-b2b0-a35ed85fe9ca",
+          "durationMs": 543,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567263191,
+          "endMs": 1791567263734,
+          "sessionOrdinal": 61
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-a7f2725d-9558-40cf-817c-afe710e1b8e3",
+          "durationMs": 0,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567283746,
+          "endMs": 1791567284473,
+          "sessionOrdinal": 69
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-58235e22-719f-40ea-9be3-70c688d543a4",
+          "durationMs": 0,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567284034,
+          "endMs": 1791567284473,
+          "sessionOrdinal": 70
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-e3e05786-22d4-4b07-b125-5af94368c9b2",
+          "durationMs": 377,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567284315,
+          "endMs": 1791567284851,
+          "sessionOrdinal": 71
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1344474f-742f-48ed-9a0e-97994de2e8e0",
+          "durationMs": 520,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567284624,
+          "endMs": 1791567285145,
+          "sessionOrdinal": 72
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-c90e491e-3baf-4541-a5d0-872123667513",
+          "durationMs": 403,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567298229,
+          "endMs": 1791567298633,
+          "sessionOrdinal": 80
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-d420fe43-1a48-49cc-836f-a2c5048c6252",
+          "durationMs": 373,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567299103,
+          "endMs": 1791567299477,
+          "sessionOrdinal": 81
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-eda3aebc-ded0-48d7-8e72-1c12e668fcb0",
+          "durationMs": 788,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567316284,
+          "endMs": 1791567317073,
+          "sessionOrdinal": 88
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-935a927f-d99c-414c-8d4e-805e7062d155",
+          "durationMs": 297,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567317533,
+          "endMs": 1791567317831,
+          "sessionOrdinal": 89
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-39420b29-a9bc-40d7-b810-0dde52c82973",
+          "durationMs": 299,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567318291,
+          "endMs": 1791567318591,
+          "sessionOrdinal": 90
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-18dc08f7-a313-4197-889f-cab184f901fc",
+          "durationMs": 369,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567343524,
+          "endMs": 1791567343894,
+          "sessionOrdinal": 99
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-a631f921-e4f5-4e4d-9a6b-c7a827bef418",
+          "durationMs": 407,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "independent-source-sha256.json",
+            "final-release-entrypoint.log",
+            "independent-final.log",
+            "FINAL_DELIVERY.json"
+          ],
+          "startMs": 1791567344398,
+          "endMs": 1791567344805,
+          "sessionOrdinal": 100
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-4e4b47af-9d0b-421a-9661-67f287d8e6bc",
+          "durationMs": 433,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "package.json"
+          ],
+          "startMs": 1791567345308,
+          "endMs": 1791567345742,
+          "sessionOrdinal": 101
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-aaf9aade-0a4c-4c9f-bf6a-68f77e34cc3f",
+          "durationMs": 387,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "independent-final.log",
+            "customer-file-final.log",
+            "python-contract-rerun.log",
+            "full-failures-rerun.log"
+          ],
+          "startMs": 1791567379635,
+          "endMs": 1791567380023,
+          "sessionOrdinal": 108
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-52051de6-31c7-4e65-97b2-cb49fa16d0b2",
+          "durationMs": 521,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "independent-source-sha256.json"
+          ],
+          "startMs": 1791567380466,
+          "endMs": 1791567380988,
+          "sessionOrdinal": 109
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f65fab79-6a59-4292-9bf7-dd9476cac4c9",
+          "durationMs": 417,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "preservation-manifest.json",
+            "worker-local-release.mjs",
+            "release-readonly-retry.mjs"
+          ],
+          "startMs": 1791567392320,
+          "endMs": 1791567392737,
+          "sessionOrdinal": 115
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-d3e5f39e-154c-4334-b7b7-dc11f57973db",
+          "durationMs": 485,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "preservation-manifest.json"
+          ],
+          "startMs": 1791567421229,
+          "endMs": 1791567421715,
+          "sessionOrdinal": 123
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-0ea3f25b-acd0-4e47-9769-74fd51c427d4",
+          "durationMs": 2150,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "independent-source-sha256.json",
+            "preservation-manifest.json",
+            "final-release-entrypoint.log",
+            "independent-final.log",
+            "unit-all.log",
+            "customer-file-final.log",
+            "python-contract-rerun.log",
+            "full-failures-rerun.log",
+            "FINAL_DELIVERY.json",
+            "preparation-evidence.json"
+          ],
+          "startMs": 1791567781388,
+          "endMs": 1791567783539,
+          "sessionOrdinal": 146
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-ce53af9d-59aa-40d3-b1a8-443b9c974fcb",
+          "durationMs": 571,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567818572,
+          "endMs": 1791567819143,
+          "sessionOrdinal": 159
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-647dbce0-add8-4255-b4c5-412dbb209088",
+          "durationMs": 546,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567819603,
+          "endMs": 1791567820149,
+          "sessionOrdinal": 160
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f9b8b3dd-0437-4bd0-8cd2-021e65a1a9ec",
+          "durationMs": 587,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "preparation-evidence.json",
+            "source-sha256-final.json"
+          ],
+          "startMs": 1791567891559,
+          "endMs": 1791567892147,
+          "sessionOrdinal": 168
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-be0e891f-f1ab-4e7c-8659-a4b3153c124a",
+          "durationMs": 828,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "test.ps1",
+            "preparation-evidence.json",
+            "document-checks.json"
+          ],
+          "startMs": 1791567955937,
+          "endMs": 1791567956766,
+          "sessionOrdinal": 182
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-cac1feff-b302-4ea5-b829-61b9413db28d",
+          "durationMs": 392,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567957352,
+          "endMs": 1791567957745,
+          "sessionOrdinal": 183
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-36b362ed-64fc-4d05-8236-ad2230207cd0",
+          "durationMs": 464,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791567968466,
+          "endMs": 1791567968931,
+          "sessionOrdinal": 190
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-f8507d19-24bd-4b36-9ef8-2a0c462530fe",
+          "durationMs": 627,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791568007009,
+          "endMs": 1791568007636,
+          "sessionOrdinal": 199
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-8ba5a341-236c-47f8-aaf1-e4dac16f2939",
+          "durationMs": 332,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791568008147,
+          "endMs": 1791568008480,
+          "sessionOrdinal": 200
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-1f826c2d-2112-4c7d-87e6-bdbc2832df1f",
+          "durationMs": 837,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "preparation-evidence.json"
+          ],
+          "startMs": 1791568118931,
+          "endMs": 1791568119769,
+          "sessionOrdinal": 221
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-b8456801-99fe-467b-9e22-3d954e43b30c",
+          "durationMs": 3952,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [],
+          "startMs": 1791568133424,
+          "endMs": 1791568137377,
+          "sessionOrdinal": 228
+        },
+        {
+          "kind": "commandExecution",
+          "id": "exec-cb0cd76b-0762-4675-864c-dacdd2db7709",
+          "durationMs": 4187,
+          "exitCode": 0,
+          "status": "completed",
+          "evidenceNames": [
+            "document-checks.json"
+          ],
+          "startMs": 1791568180624,
+          "endMs": 1791568184812,
+          "sessionOrdinal": 236
+        }
+      ],
+      "commandIntervalUnionMs": 29093,
+      "commandIntervalUnion": [
+        [
+          1791567187504,
+          1791567187838
+        ],
+        [
+          1791567197764,
+          1791567198855
+        ],
+        [
+          1791567213150,
+          1791567213453
+        ],
+        [
+          1791567213926,
+          1791567214222
+        ],
+        [
+          1791567214692,
+          1791567215107
+        ],
+        [
+          1791567226694,
+          1791567227436
+        ],
+        [
+          1791567227658,
+          1791567228203
+        ],
+        [
+          1791567245950,
+          1791567246228
+        ],
+        [
+          1791567246676,
+          1791567247053
+        ],
+        [
+          1791567247508,
+          1791567249251
+        ],
+        [
+          1791567262379,
+          1791567262735
+        ],
+        [
+          1791567263191,
+          1791567263734
+        ],
+        [
+          1791567283746,
+          1791567285145
+        ],
+        [
+          1791567298229,
+          1791567298633
+        ],
+        [
+          1791567299103,
+          1791567299477
+        ],
+        [
+          1791567316284,
+          1791567317073
+        ],
+        [
+          1791567317533,
+          1791567317831
+        ],
+        [
+          1791567318291,
+          1791567318591
+        ],
+        [
+          1791567343524,
+          1791567343894
+        ],
+        [
+          1791567344398,
+          1791567344805
+        ],
+        [
+          1791567345308,
+          1791567345742
+        ],
+        [
+          1791567379635,
+          1791567380023
+        ],
+        [
+          1791567380466,
+          1791567380988
+        ],
+        [
+          1791567392320,
+          1791567392737
+        ],
+        [
+          1791567421229,
+          1791567421715
+        ],
+        [
+          1791567781388,
+          1791567783539
+        ],
+        [
+          1791567818572,
+          1791567819143
+        ],
+        [
+          1791567819603,
+          1791567820149
+        ],
+        [
+          1791567891559,
+          1791567892147
+        ],
+        [
+          1791567955937,
+          1791567956766
+        ],
+        [
+          1791567957352,
+          1791567957745
+        ],
+        [
+          1791567968466,
+          1791567968931
+        ],
+        [
+          1791568007009,
+          1791568007636
+        ],
+        [
+          1791568008147,
+          1791568008480
+        ],
+        [
+          1791568118931,
+          1791568119769
+        ],
+        [
+          1791568133424,
+          1791568137377
+        ],
+        [
+          1791568180624,
+          1791568184812
+        ]
+      ],
+      "unattributedWallClockMs": 997907,
+      "warning": "残差包含读写、推理、审查、协调和未打点活动，不是空闲。"
+    }
+  ],
+  "sourceSnapshots": [
+    {
+      "source": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\REPORT.md",
+      "snapshot": "source-snapshots\\REPORT.md",
+      "sha256": "a526ca48c67128eb020aad6c86e7037335777b0663c18c24ef44d22273cf10dd",
+      "capturedAtUtc": "2026-10-10T04:22:20.601480+00:00"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\BATCH_DRAFT_REVIEW.md",
+      "snapshot": "source-snapshots\\BATCH_DRAFT_REVIEW.md",
+      "sha256": "4c6f651485b27190d5a4a2372cdfbbcf76896389211f3894241c364ac4cabade",
+      "capturedAtUtc": "2026-10-10T04:22:20.602482+00:00"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\BATCH_V2_INDEPENDENT_REVIEW.md",
+      "snapshot": "source-snapshots\\BATCH_V2_INDEPENDENT_REVIEW.md",
+      "sha256": "e65387c66234d83c127e3bd636b2eb2f0ab2b577245a5e08d752eac149db0094",
+      "capturedAtUtc": "2026-10-10T04:22:20.603938+00:00"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\FINAL_INDEPENDENT_REVIEW.md",
+      "snapshot": "source-snapshots\\FINAL_INDEPENDENT_REVIEW.md",
+      "sha256": "765d7187a67ff4496b97f07047c442c49f61b17db597bdae5ceec58537f03893",
+      "capturedAtUtc": "2026-10-10T04:22:20.614547+00:00"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\COMBINED_INDEPENDENT_REVIEW.md",
+      "snapshot": "source-snapshots\\COMBINED_INDEPENDENT_REVIEW.md",
+      "sha256": "60e6a0189758d07a73b581efdcd94971116b10e08b137272f087435ba565aaec",
+      "capturedAtUtc": "2026-10-10T04:22:20.622791+00:00"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\FINAL_RELEASE_PLAN.md",
+      "snapshot": "source-snapshots\\FINAL_RELEASE_PLAN.md",
+      "sha256": "b72c1397928c9b2d56afa082eec335d2fa3a8975eb21de21de1c67324771e291",
+      "capturedAtUtc": "2026-10-10T04:22:20.624001+00:00"
+    }
+  ],
+  "limitations": [
+    "read_thread快照与session截取相隔少量时间，只按快照已完成命令计算",
+    "未解密正文；明文任务与状态来自授权read_thread",
+    "并集只属于母聊天命令，子智能体活动可能重叠；不是CPU占用或全团队命令总时长"
+  ]
+}
