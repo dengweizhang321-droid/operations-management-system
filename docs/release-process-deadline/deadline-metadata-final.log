@@ -1,0 +1,12 @@
+✔ transport deadline changes do not invalidate exact build environment identity (2.1359ms)
+✔ powershell.exe: concurrent lifecycle mutex obeys the original deadline (1237.0013ms)
+✔ pwsh.exe: concurrent lifecycle mutex obeys the original deadline (2035.7572ms)
+✔ watchdog deadline, safe diagnostics and unknown notification delivery remain bounded (3188.1612ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6763.1433

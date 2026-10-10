@@ -1,0 +1,14 @@
+✔ tests\customer-service-analysis.test.ts (253.1369ms)
+✔ tests\customer-service-bound-chunks-route.test.ts (638.6277ms)
+✔ tests\customer-service-import.test.ts (376.4075ms)
+✔ new customer scope retains inert presentation, fences old handlers, and exposes only its own recovered rows (2330.1971ms)
+✔ failed customer scope cannot revive prior rows when returning to the previous filter (1806.8898ms)
+✔ tests\customer-service-store-selection-interaction.test.ts (673.3095ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7501.0158

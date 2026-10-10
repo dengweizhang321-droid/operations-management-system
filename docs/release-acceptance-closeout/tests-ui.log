@@ -1,0 +1,54 @@
+✔ exact HTTPS loopback icon is blocked and classified (2.201ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/assets/exact.js script (0.2351ms)
+✔ dangerous or unapproved request remains blocked: POST https://127.0.0.1:3000/favicon.svg other (0.0935ms)
+✔ dangerous or unapproved request remains blocked: GET https://other.invalid/favicon.svg image (0.6849ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3001/favicon.svg other (0.107ms)
+✔ dangerous or unapproved request remains blocked: GET https://localhost:3000/favicon.svg other (0.0817ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/favicon.svg?x=1 other (0.102ms)
+✔ dangerous or unapproved request remains blocked: GET https://127.0.0.1:3000/favicon.svg fetch (0.0924ms)
+✔ dangerous or unapproved request remains blocked: GET http://127.0.0.1:3000/api/import fetch (0.0929ms)
+✔ dangerous or unapproved request remains blocked: GET http://127.0.0.1:3000/assets/unapproved.js script (0.1819ms)
+✔ dangerous or unapproved request remains blocked: DELETE http://127.0.0.1:3000/api/customer-service/conversations fetch (0.0952ms)
+✔ normal candidate resource and exact reviewed business read stay allowed (0.1975ms)
+✔ blocked favicon needs HTTP bytes; mismatched normal asset never passes (0.9288ms)
+✖ real source four-shop component UI, read-only network, candidate SHA and viewer permission on isolated HTTP (1381.8852ms)
+✔ classified temporary reads retry at most four total; attempt time includes 53s queries (6.2271ms)
+✔ exhausted transient error preserves all four attempts (0.6482ms)
+✔ terminal status failure never retries: EACCES (0.1786ms)
+✔ terminal status failure never retries: EPERM (0.0966ms)
+✔ terminal status failure never retries: STATUS_IDENTITY_MISMATCH (0.0979ms)
+✔ terminal status failure never retries: ASSERTION_FAILED (0.0724ms)
+✔ terminal status failure never retries: INVALID_STATUS_JSON (0.0751ms)
+✔ terminal status failure never retries: STATUS_NOT_READY (0.0636ms)
+✔ terminal status failure never retries: PROCESS_FAILED (0.0567ms)
+✔ unknown errors with timeout-looking sensitive text are terminal and redacted (0.2803ms)
+✔ one total deadline bounds slow successful queries and prevents another attempt (0.1504ms)
+✔ retry waits consume the same budget (0.1455ms)
+✔ complete readiness requires exact identity and all twelve components (0.2338ms)
+✔ retry declaration cannot target Start, backup, apply, generic GET or script flags (0.4046ms)
+✔ bounded native read-only runner covers inherited output EOF (179.5246ms)
+✔ timing unions overlaps, excludes nested retries, keeps coordination and document completion separate (0.6851ms)
+✔ uncompleted batch never gets approval-to-complete or successful conclusion (0.1236ms)
+✔ offline report validates immutable journal, preserves unknown history and fails closed when steps missing (24.9879ms)
+✔ domain history synthetic isolation regressions (316.8848ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 32
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2572.9225
+
+✖ failing tests:
+
+test at tests\release-acceptance-closeout.test.mjs:44:1
+✖ real source four-shop component UI, read-only network, candidate SHA and viewer permission on isolated HTTP (1381.8852ms)
+  page.goto: net::ERR_FAILED at http://127.0.0.1:59913/
+  Call log:
+  [2m  - navigating to "http://127.0.0.1:59913/", waiting until "load"[22m
+  
+      at TestContext.<anonymous> (D:\.codex\worktrees\release-acceptance-closeout\运营管理系统\tests\release-acceptance-closeout.test.mjs:66:54) {
+    name: 'Error',
+    log: [ '  - navigating to "http://127.0.0.1:59913/", waiting until "load"' ]
+  }

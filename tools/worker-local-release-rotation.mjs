@@ -702,6 +702,7 @@ async function entrypointPlanFromReceipts(predecessorManifest, candidateManifest
 
 async function verifyCandidateGuardPlanPreflight(candidateManifest) {
   const guard = await readGuardReceipt(candidateManifest, "candidate plan preflight");
+  if (!guard.receipt.entrypoints.some(item=>item.relativePath === "tools/process-deadline.ps1")) fail("candidate plan preflight guard 缺少进程传输入口");
   const keyFiles = candidateManifest.manifest.artifacts?.keyFiles;
   if (!Array.isArray(keyFiles)) fail("candidate plan preflight keyFiles 无效");
   const keyFilesByPath = new Map();

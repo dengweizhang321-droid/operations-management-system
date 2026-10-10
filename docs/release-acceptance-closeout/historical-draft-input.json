@@ -1,0 +1,92 @@
+{
+  "batchPath": "E:/codex-artifacts/release-customer-ps5-fix-20261009/approved-candidate-batch.json",
+  "approvedSha256": "8f6ed5eff8f63d088b5523d71a929856445db016d1c986396376390b470462af",
+  "journalDirectory": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/journal",
+  "receipts": [
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/pre-backup-evidence/original-operation-audit-completed.json",
+      "sha256": "ada85de139d7f00ec85406e89a5aa06d9870d17fd820a764b4e092ae095629dc",
+      "operationId": "op-backup-pre",
+      "format": "operator-audit-v1"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/post-backup-evidence/original-operation-audit-completed.json",
+      "sha256": "11271bcf08ce1820a8cc1192a1b900cbb65ffa42f2431107088f904957ea6c7a",
+      "operationId": "op-backup-post",
+      "format": "operator-audit-v1"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/pre-restore-evidence/rehearsal-result.json",
+      "sha256": "0e9546f2ce9ff20b84626dd3670144c38fddd17c9b10d36382430b7b602ce11d",
+      "operationId": "op-restore-pre"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/post-restore-evidence/rehearsal-result.json",
+      "sha256": "9e97793aecf0911b4fd26c13813168c74fa9e995337c261577e7efa25b254343",
+      "operationId": "op-restore-post"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/independent-start-completion-reconcile-proof.json",
+      "sha256": "60fd8d1d061873911d4a14a36131925bd5acaa17c54e542aa312c0505083b7d2",
+      "operationId": "step-startworker"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/customer-historical-independent-reconcile-proof.json",
+      "sha256": "836eec2982168bc2169a22709f973c4acaf588dc45414526a5b3c4c5125825bb",
+      "operationId": "customer-historical-query-preserved"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/customer-ui-independent-reconcile-proof.json",
+      "sha256": "66cf5db6be72beb5ec00f9b33c16624f64ea93cc03d165409288b83140faa073",
+      "operationId": "customer-four-shop-production-ui"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/independent-final-readiness-reconcile-proof.json",
+      "sha256": "4f3028c5a0f54471c439538597b3cd1fed4a24f93b211708fe8eb602b3166bdc",
+      "operationId": "final-readiness-closeout"
+    }
+  ],
+  "versionsEvidence": {
+    "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/candidate-handoff.json",
+    "sha256": "6bdfcaf8eab6f47caf6fa935b492e88ca35301a6e72790e996fed92d164deb54",
+    "format": "customer-handoff-v1"
+  },
+  "runtimeEvidence": {
+    "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/independent-final-readiness-status.json",
+    "sha256": "a38642a64af896a7f5ecbe62154dbe4c8176a6dda1d7aa4c4c66850444260713"
+  },
+  "deliveryEvidence": {
+    "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/DELIVERY_COMPLETED.json",
+    "sha256": "d0f2f693e011df2ba3476ea6449658677efa525762f6d8a155a627c904561681"
+  },
+  "unexecutedOrUncovered": [
+    "No new production acceptance was run by task B.",
+    "Historical aggregate baseline cannot prove primary-key or business-content preservation.",
+    "Real imports, business recovery, schedule changes and external sends were not executed by this release."
+  ],
+  "limitations": [
+    "Historical snapshot counts 3299 versus 3302 remain original evidence; no old row baseline was invented."
+  ],
+  "executionLogs": [
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/execute-01.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/execute-02-resume.log",
+      "sha256": "4d1ae2edd540b67e785bc5ffd4a8adb342aa83688d28ea5de2d672397b9bed18"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/execute-03-resume.log",
+      "sha256": "1e950e518450d140804f9f788c730cc6ffb916a4af989667c14a441e05ba7307"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/execute-04-resume.log",
+      "sha256": "b6cc20cfdb0a7f0d2d8417f8f7e659e2a2ac7279b270b7dbea982213649fbcf4"
+    },
+    {
+      "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/execute-05-closeout.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

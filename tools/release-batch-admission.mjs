@@ -1,22 +1,23 @@
 // Read-only production admission and recovery-evidence producer. No credentials
 // are handled here: database access stays inside the installed original operator.
-import { readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { safeRead, safeFileDigest, hash, canonical, readSourceTree, sourceInventory, sourceTreeDigest, requireHash } from './release-impact.mjs';
 import { verifyBatch, writeOnce, journalState, productionCommandArguments, productionCommandEnvironment } from './release-batch.mjs';
 import { resolveEffectiveReleaseChain } from './worker-local-release-rotation.mjs';
 import { workerPreparationIdentity, workerRuntimeRoot, workerSourceRoot, verifyPreparedWorkerCandidate, runProcess } from './worker-local-release.mjs';
-import { schedulePath, dailyProofRoot } from './release-daily-backup.mjs';
+import { readScheduledBackupStatus } from './release-daily-backup.mjs';
+import { retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness } from './release-readonly-retry.mjs';
 
 const djangoRoot='D:\\teruisi-runtime\\django-sales';
 const maintenance=path.join(djangoRoot,'app','tools','django-postgres-maintenance.ps1');
 const shell='C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 const archiveRoot='E:\\运营管理系统业务数据';
-export async function runReadOnlyPowerShell(script,args,label) {
+export async function runReadOnlyPowerShell(script,args,label,probeOptions) {
   const argv=['-NoProfile','-NonInteractive','-File',script,...args];
-  return runProcess(shell,productionCommandArguments(shell,argv),{
-    env:productionCommandEnvironment(shell),label});
+  return (probeOptions ? runReadOnlyProcess : runProcess)(shell,productionCommandArguments(shell,argv),{
+    env:productionCommandEnvironment(shell),label,...probeOptions,outputProtocol:'direct-exit-files',cleanup:'direct'});
 }
 async function verifyRestoreReceipt(target,expectedHash) {
   const parent=path.dirname(path.resolve(target));
@@ -41,17 +42,7 @@ async function softwareIdentity() {
   return identity;
 }
 async function dailyStatus() {
-  const config=await safeRead(schedulePath);
-  const active=/^status\s*=\s*"ACTIVE"\s*$/m.test(config.toString('utf8'));
-  let proof=null;
-  try {
-    const names=(await readdir(dailyProofRoot)).sort();
-    if(names.length>10000)throw new Error('Daily proof inventory exceeds bound');
-    const latest=names.at(-1);
-    if(latest&&!/^\d{8}T\d{9}Z-[a-f0-9-]{36}$/.test(latest))throw new Error('Invalid daily proof path');
-    if(latest)proof=JSON.parse(await safeRead(path.join(dailyProofRoot,latest,'result.json')));
-  }catch(error){if(error.code!=='ENOENT')throw error;}
-  return {scheduleSha256:hash(config),schedule:{active,lastResult:proof?.status??'unknown',lastSuccessAt:proof?.status==='success'?proof.completedAt:null},proof};
+  return readScheduledBackupStatus();
 }
 export async function collectRecoveryCurrent(evidence) {
   await verifyRestoreReceipt(evidence.restorePath,evidence.restoreReceiptSha256);
@@ -91,7 +82,7 @@ export async function makeRecoveryEvidence(backupDirectory,restorePath) {
   return evidence;
 }
 
-export async function collectBatchAdmission(batch,testsPath,phase='admission') {
+export async function collectBatchAdmission(batch,testsPath,phase='admission', { onStatusAttempt = async () => {} } = {}) {
   verifyBatch(batch,batch.batchSha256);
   requireHash(batch.binding.djangoPredecessorSha256,'Django predecessor');
   requireHash(batch.binding.djangoCandidateSha256,'Django candidate');
@@ -139,20 +130,32 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission') {
       '--require-sales-retired-code-receipt','--process-policy','stopped-or-exact-release','--json'],{label:'exact immutable production head'});
     return {status:'exact-predecessor-or-approved-successor'};
   });
+  let statusObservation=null;
   if(['acceptance','closeout'].includes(phase)) {
-    const result=await runReadOnlyPowerShell('D:\\运营管理系统\\tools\\operations-system-control.ps1',['-Action','Status','-Json'],'original complete system readiness');
-    const status=JSON.parse(result.stdout.trim());
-    if(status.state!=='Running'||status.backendState!=='Ready'||status.workerState!=='exact_release'||status.releaseId!==plan.candidate.releaseId
-      ||Object.keys(status.components??{}).length!==12||Object.values(status.components).some(ready=>ready!==true))throw new Error('Complete original system readiness is not the approved successor');
+    statusObservation=await retryReadOnlyObservation({stage:`${phase}-admission-status`,onAttempt:onStatusAttempt,
+      query:async({remaining})=>{
+        const result=await runReadOnlyPowerShell('D:\\运营管理系统\\tools\\operations-system-control.ps1',['-Action','Status','-Json'],'original complete system readiness',{timeoutMs:Math.min(remaining(),60_000)});
+        assertCompleteReadiness(parseStatus(result.stdout),plan.candidate.releaseId);
+        return {releaseId:plan.candidate.releaseId,ready:true};
+      }});
   }
   const recovery=batch.recovery.mode==='reuse'?await collectRecoveryCurrent(batch.recoveryEvidence):null;
   if(canonical(identity)!==canonical(await workerPreparationIdentity(workerSourceRoot)))throw new Error('Source/configuration/toolchain changed during live admission');
-  return {batchSha256:batch.batchSha256,observedAtMs:Date.now(),binding,recovery};
+  return {batchSha256:batch.batchSha256,observedAtMs:Date.now(),binding,recovery,statusObservation};
 }
 async function main(){
   const [command,...args]=process.argv.slice(2);
   if(command==='recovery') {const [backup,restore,output]=args;await writeOnce(output,await makeRecoveryEvidence(backup,restore));console.log(canonical({status:'prepared',output}));}
-  else if(command==='collect'){const [batchPath,testsPath,,phase]=args;const spec=JSON.parse(await safeRead(batchPath));console.log(canonical(await collectBatchAdmission(spec.batch??spec,testsPath,phase??'admission')));}
+  else if(command==='collect'){const [batchPath,testsPath,,phase]=args;const spec=JSON.parse(await safeRead(batchPath));
+    const batch=spec.batch??spec;
+    verifyBatch(batch,batch.batchSha256);
+    const attemptRoot=path.join(workerRuntimeRoot,'state','release-batches','_observations',`${batch.id}-${randomUUID()}`);
+    console.log(canonical(await collectBatchAdmission(batch,testsPath,phase??'admission',{
+    onStatusAttempt:async record=>{
+      await writeOnce(path.join(attemptRoot,`${record.attempt}.json`),{version:'teruisi-status-attempt-v1',batchSha256:batch.batchSha256,observation:record});
+      console.error(canonical({version:'teruisi-status-attempt-v1',observation:record}));
+    }
+  })));}
   else throw new Error('Usage: release-batch-admission.mjs recovery <backup-dir> <restore.json> <output.json> | collect <batch.json> <tests.json> [--phase <phase>]');
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(e=>{console.error(e.message);process.exitCode=1;});

@@ -1,0 +1,19 @@
+{
+  "baseline": "99eaa0b90149a860d3e286c678ea4b2ab0a27160",
+  "taskAInitialCommit": "05a78f85",
+  "taskBMain": "c9586ab8",
+  "compositionCommit": "65c7b8a9",
+  "files": {
+    "tools/process-deadline.ps1": "544f74179cb373a9d87e919cca8092ee27c4f162175fb02968cf7bd7afb38840",
+    "tools/release-lifecycle-step.ps1": "821a779c42e02be3e7d27bae9c74a8e73fd7da4b6e08af4f21de69ae5f76ba0d",
+    "tools/worker-local-release.mjs": "5e2d0acd886b8a5672f72e003b7fd902953af836a2fc2b296a005fc9712849be",
+    "tools/worker-local-release-rotation.mjs": "80cb7aff688119a3cebc0bad8b099a47fbb841fe51eae5e75d65d36baba4b45a",
+    "tools/worker-authority-guard.mjs": "bbe7547d641d9a9f29bb04c3960a5cd7024e5155d30d09067e2d84c70d54118f",
+    "tools/worker-local-service.ps1": "66abb7d816f9141a22e9d44bac168f7c46c1ce38d2fbd45df7e2caeb9de0a4be",
+    "tools/operations-system-control.ps1": "77e1fccb3d4dcdea2c809a3bfa905230afec1b1ab1a8e3e8931fe42e1ad003df",
+    "tools/operations-system-watchdog.ps1": "9b01d43a251817d047a4dd760fd58ec7e390ece6ba4657e7fb103c8463b473e0",
+    "tools/release-batch.mjs": "784d0116e641a4b2c9361e0b6925642b5e0d8cc8aefe32386f931c3cc753d6e2",
+    "tools/release-batch-admission.mjs": "a6bed5497f794026b2c97ab4562c336a5f43a2a2f1f205cff7958cf172274655",
+    "tools/release-readonly-retry.mjs": "39b8ad3589838c5984df33cfe375795049d9fd1382080d4ffdc6cf8eef8ce59b"
+  }
+}

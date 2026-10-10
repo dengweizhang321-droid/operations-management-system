@@ -114,18 +114,12 @@ test("controller waits only for the direct start-engine process instead of a dur
     panel.indexOf("function Invoke-VisibleServiceAction"),
     panel.indexOf("function Test-CoreDjangoReady"),
   );
-  assert.match(invocationBlock, /Start-Process -FilePath \$PowerShellExecutable/);
-  assert.match(invocationBlock, /-RedirectStandardOutput \$serviceStdoutPath/);
-  assert.match(invocationBlock, /-RedirectStandardError \$serviceStderrPath/);
-  assert.match(invocationBlock, /\$serviceProcess\.WaitForExit\(\)/);
-  assert.match(invocationBlock, /\[System\.IO\.File\]::ReadAllText/);
-  assert.match(invocationBlock, /\[System\.IO\.File\]::Delete\(\$temporaryLog\)/);
-  assert.match(invocationBlock, /catch \[System\.IO\.IOException\]/);
-  assert.match(invocationBlock, /direct service exit code remains authoritative/);
-  assert.match(invocationBlock, /failed service also left an unreadable diagnostic handle/);
-  assert.match(invocationBlock, /false failure during best-effort cleanup/);
-  assert.doesNotMatch(invocationBlock, /=\s*&\s*\$PowerShellExecutable/);
-  assert.ok(invocationBlock.indexOf("WaitForExit()") < invocationBlock.indexOf("ReadAllText"));
+  assert.match(invocationBlock, /Invoke-DeadlineProcess -Executable \$PowerShellExecutable/);
+  assert.match(invocationBlock, /-Deadline \(Get-ProcessDeadline\)/);
+  assert.match(invocationBlock, /\$capture\.ExitCode -ne 0/);
+  assert.match(invocationBlock, /exact reconciliation required/);
+  assert.doesNotMatch(invocationBlock, /WaitForExit\(\)|ReadAllText/);
+
 });
 
 test("canonical start engine enforces Django readiness before Worker verification", () => {
@@ -170,11 +164,12 @@ test("canonical engine waits only for the direct Django Start controller process
     workerService.indexOf("function Ensure-DjangoSystemReady"),
     workerService.indexOf("function Assert-NoReparsePath"),
   );
-  assert.match(invocationBlock, /Start-Process -FilePath \(Get-DjangoControlPowerShell\)/);
-  assert.match(invocationBlock, /-RedirectStandardOutput \$stdoutPath/);
-  assert.match(invocationBlock, /-RedirectStandardError \$stderrPath/);
-  assert.match(invocationBlock, /\$process\.WaitForExit\(\)/);
-  assert.match(invocationBlock, /direct process exit code authoritative/);
+  assert.match(invocationBlock, /Invoke-DeadlineProcess -Executable \(Get-DjangoControlPowerShell\)/);
+  assert.match(invocationBlock, /-Deadline \$WorkerOperationDeadline/);
+  const transport = readFileSync("tools/process-deadline.ps1", "utf8");
+  assert.match(transport, /\[Teruisi\.DeadlineProcess\]::Start/);
+  assert.match(transport, /\$process\.WaitForExit\(\[Math\]::Min/);
+  assert.doesNotMatch(transport, /\.WaitForExit\(\)/);
   assert.match(readinessBlock, /\$djangoStart = Invoke-DjangoStartProcess/);
   assert.doesNotMatch(readinessBlock, /@\(& \(Get-DjangoControlPowerShell\)[^\n]+-Action Start/);
   assert.equal((readinessBlock.match(/Get-DjangoSystemReadiness/g) ?? []).length, 1);

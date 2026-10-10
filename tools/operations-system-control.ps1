@@ -9,6 +9,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "process-deadline.ps1")
+if ($Action -cne "Panel") { $env:TERUISI_PROCESS_DEADLINE_UNIX_MS = [string](Get-ProcessDeadline) }
 Add-Type -AssemblyName System.Net.Http
 $UnifiedStartControlVersion = "teruisi-operations-system-control-v2"
 $SystemControlMutexName = "Local\TERUISI.Operations.SystemControl.v2"
@@ -151,8 +153,9 @@ function Invoke-JsonServiceAction {
   $serviceArguments = @(
     "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ScriptPath
   ) + $Arguments + @("-Json")
-  $serviceOutput = & $PowerShellExecutable @serviceArguments 2>&1
-  $serviceExitCode = $LASTEXITCODE
+  $capture = Invoke-DeadlineProcess -Executable $PowerShellExecutable -Arguments $serviceArguments -WorkingDirectory $ProjectRoot -Deadline (Get-ProcessDeadline) -Cleanup Direct
+  $serviceOutput = $capture.Stdout
+  $serviceExitCode = $capture.ExitCode
   if ($serviceExitCode -ne 0) {
     $serviceDetail = Get-BoundedText -Value $serviceOutput
     if ([string]::IsNullOrWhiteSpace($serviceDetail)) { $serviceDetail = "退出码 $serviceExitCode" }
@@ -176,71 +179,18 @@ function Invoke-VisibleServiceAction {
     [string]$Label
   )
 
-  $serviceArguments = @(
-    "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$ScriptPath`""
-  ) + $Arguments
-
-  # The Worker service intentionally launches a durable supervisor. Invoking it
-  # through PowerShell's native pipeline can keep the caller waiting on pipe
-  # handles inherited by that process tree even after the service process has
-  # exited. Redirect to exact files and wait only on the direct process object.
-  $invocationLogRoot = Join-Path $ProjectRoot "tmp"
-  [System.IO.Directory]::CreateDirectory($invocationLogRoot) | Out-Null
-  $invocationId = [Guid]::NewGuid().ToString("N")
-  $serviceStdoutPath = Join-Path $invocationLogRoot "system-control-service-$invocationId.stdout.log"
-  $serviceStderrPath = Join-Path $invocationLogRoot "system-control-service-$invocationId.stderr.log"
-  $serviceProcess = $null
-  $serviceStdout = ""
-  $serviceStderr = ""
-  $serviceExitCode = $null
-  try {
-    $serviceProcess = Start-Process -FilePath $PowerShellExecutable -ArgumentList $serviceArguments `
-      -WorkingDirectory $ProjectRoot -WindowStyle Hidden -RedirectStandardOutput $serviceStdoutPath `
-      -RedirectStandardError $serviceStderrPath -PassThru
-    $serviceProcess.WaitForExit()
-    $serviceExitCode = [int]$serviceProcess.ExitCode
-    if (Test-Path -LiteralPath $serviceStdoutPath -PathType Leaf) {
-      try {
-        $serviceStdout = [System.IO.File]::ReadAllText($serviceStdoutPath)
-      } catch [System.IO.IOException] {
-        # A successful durable child may retain the redirected handle. The
-        # direct service exit code remains authoritative; output is optional.
-      }
-    }
-    if (Test-Path -LiteralPath $serviceStderrPath -PathType Leaf) {
-      try {
-        $serviceStderr = [System.IO.File]::ReadAllText($serviceStderrPath)
-      } catch [System.IO.IOException] {
-        # Preserve the direct exit result and fall back to its numeric code if
-        # a failed service also left an unreadable diagnostic handle.
-      }
-    }
-  } finally {
-    if ($serviceProcess) { $serviceProcess.Dispose() }
-    foreach ($temporaryLog in @($serviceStdoutPath, $serviceStderrPath)) {
-      if (Test-Path -LiteralPath $temporaryLog -PathType Leaf) {
-        try {
-          [System.IO.File]::Delete($temporaryLog)
-        } catch [System.IO.IOException] {
-          # A durable Worker descendant may still hold the redirected file.
-          # Keep the bounded ignored diagnostic instead of turning a successful
-          # system start into a false failure during best-effort cleanup.
-        }
-      }
-    }
+  $serviceArguments = @('-NoProfile','-NonInteractive','-File',$ScriptPath) + $Arguments
+  $capture = Invoke-DeadlineProcess -Executable $PowerShellExecutable -Arguments $serviceArguments -WorkingDirectory $ProjectRoot -Deadline (Get-ProcessDeadline)
+  if (-not $Json) {
+    foreach ($text in @($capture.Stdout,$capture.Stderr)) { if (-not [string]::IsNullOrWhiteSpace($text)) { Write-Output $text.TrimEnd() } }
+  }
+  if ($null -eq $capture.ExitCode -or $capture.ExitCode -ne 0) {
+    $capture.Evidence.code='nonzero_exit'
+    $failure=[Exception]::new("$Label failed: exit=$($capture.ExitCode); exact reconciliation required")
+    $failure.Data['ProcessEvidence']=$capture.Evidence
+    throw $failure
   }
 
-  $serviceOutput = @($serviceStdout, $serviceStderr) | Where-Object {
-    -not [string]::IsNullOrWhiteSpace([string]$_)
-  }
-  if (-not $Json -and $serviceOutput.Count -gt 0) {
-    $serviceOutput | ForEach-Object { Write-Output (([string]$_).TrimEnd()) }
-  }
-  if ($null -eq $serviceExitCode -or $serviceExitCode -ne 0) {
-    $serviceDetail = Get-BoundedText -Value ($serviceOutput -join [Environment]::NewLine)
-    if ([string]::IsNullOrWhiteSpace($serviceDetail)) { $serviceDetail = "退出码 $serviceExitCode" }
-    throw "$Label 失败：$serviceDetail"
-  }
 }
 
 function Test-CoreDjangoReady {
