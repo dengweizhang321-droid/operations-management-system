@@ -1,0 +1,45 @@
+✔ NotReady retains actual successful probe process and only the failed component facts, no retry (4.0359ms)
+✔ wrong release remains nonretryable identity failure with actual process evidence (1.8043ms)
+✔ invalid JSON retains real output hash/process without retaining or inventing a parsed snapshot (0.5318ms)
+✔ an additional original assertion still rejects and retains the same actual probe (0.5855ms)
+✔ healthy original observation stays passed with original receipt and no failure snapshot (0.9066ms)
+✔ snapshot strips arbitrary fields, unknown strings and extra component names (0.1819ms)
+✔ snapshot counts missing, array and inherited components without treating them as observed booleans (0.1422ms)
+✔ all original readiness assertions still reject a missing or extra component (0.1885ms)
+✔ the actual admission query also retains its failed original Status probe (5.1296ms)
+✔ classified transient retry remains bounded and unknown errors remain nonretryable (0.6781ms)
+✔ thrown failures never expose the raw status and safe serialization is idempotent (0.8913ms)
+node:internal/modules/package_json_reader:301
+  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+        ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'typescript' imported from D:\.codex\worktrees\release-ab-ui-acceptance\运营管理系统\tools\release-impact.mjs
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:859:18)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+    at #resolve (node:internal/modules/esm/loader:683:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+Node.js v24.18.0
+✖ tests\release-batch-powershell-environment.test.mjs (116.1658ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 11
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 141.6604
+
+✖ failing tests:
+
+test at tests\release-batch-powershell-environment.test.mjs:1:1
+✖ tests\release-batch-powershell-environment.test.mjs (116.1658ms)
+  'test failed'

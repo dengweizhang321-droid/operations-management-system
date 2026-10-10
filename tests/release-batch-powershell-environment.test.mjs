@@ -94,7 +94,7 @@ $flags=[bool]($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -or $env:TERUISI_DJANGO_M
       command:{executable:host,args:['-NoProfile','-NonInteractive','-File',file,'-Value',literal,'-Execute'],cwd:root,timeoutMs:30000,
         files:[{path:host,sha256:await safeFileDigest(host)},{path:file,sha256:await safeFileDigest(file)}]},
       assertions:[{path:'status',equals:'passed'},{path:'psMajor',equals:5},{path:'libraryFlagsPresent',equals:false},{path:'label',equals:'运营管理系统'},{path:'value',equals:literal},{path:'execute',equals:true}]};
-    const result=await runApprovedOperation(op,{batch:{id:'isolated-ps5-environment'},lease:null,state:{latest:new Map()}});
+    const result=await runApprovedOperation(op,{batch:{id:'isolated-ps5-environment',recovery:{mode:'full'}},lease:null,state:{latest:new Map()}});
     assert.equal(result.status,'passed');
     assert.equal(process.env.PSModulePath,incompatible);
     assert.equal(process.env.TERUISI_DJANGO_SERVICE_LIBRARY_ONLY,'1');
@@ -102,10 +102,10 @@ $flags=[bool]($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -or $env:TERUISI_DJANGO_M
     await writeFile(failFile,'\uFEFF'+`Write-Output '{"status":"passed"}'; throw 'synthetic-script-failure'\n`,'utf8');
     const failed={...op,command:{...op.command,args:['-NoProfile','-NonInteractive','-File',failFile],
       files:[op.command.files[0],{path:failFile,sha256:await safeFileDigest(failFile)}]},assertions:[{path:'status',equals:'passed'}]};
-    await assert.rejects(runApprovedOperation(failed,{batch:{id:'isolated-ps5-failure'},lease:null,state:{latest:new Map()}}),/exit=1/);
+    await assert.rejects(runApprovedOperation(failed,{batch:{id:'isolated-ps5-failure',recovery:{mode:'full'}},lease:null,state:{latest:new Map()}}),/exit=1/);
     await writeFile(failFile,'\uFEFF'+`Write-Output '{"status":"passed"}'; exit 9\n`,'utf8');
     failed.command.files[1].sha256=await safeFileDigest(failFile);
-    await assert.rejects(runApprovedOperation(failed,{batch:{id:'isolated-ps5-exit'},lease:null,state:{latest:new Map()}}),e=>e.processEvidence.exitCode===9);
+    await assert.rejects(runApprovedOperation(failed,{batch:{id:'isolated-ps5-exit',recovery:{mode:'full'}},lease:null,state:{latest:new Map()}}),e=>e.processEvidence.exitCode===9);
 
   } finally {
     for(const key of ['PSModulePath','TERUISI_DJANGO_SERVICE_LIBRARY_ONLY','TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY']) {
@@ -134,7 +134,7 @@ $null=Microsoft.PowerShell.Security\Get-Acl -LiteralPath $PSScriptRoot
       command:{executable:host,args:['-NoProfile','-NonInteractive','-File',wrapper,'-Step','AggregateStatus'],cwd:root,timeoutMs:30000,
         files:[{path:host,sha256:await safeFileDigest(host)},{path:wrapper,sha256:await safeFileDigest(wrapper)},{path:path.join(root,'process-deadline.ps1'),sha256:await safeFileDigest(path.join(root,'process-deadline.ps1'))}]},
       assertions:[{path:'status',equals:'completed'},{path:'aggregate.label',equals:'运营管理系统'},{path:'aggregate.echoAction',equals:'AggregateStatus'}]};
-    assert.equal((await runApprovedOperation(op,{batch:{id:'isolated-nested-ps5'},lease:null,state:{latest:new Map()}})).status,'passed');
+    assert.equal((await runApprovedOperation(op,{batch:{id:'isolated-nested-ps5',recovery:{mode:'full'}},lease:null,state:{latest:new Map()}})).status,'passed');
   } finally {
     assert.equal(path.dirname(root),path.resolve(tmpdir()));
     assert.ok(path.basename(root).startsWith('teruisi-release-ps5-nested-'));

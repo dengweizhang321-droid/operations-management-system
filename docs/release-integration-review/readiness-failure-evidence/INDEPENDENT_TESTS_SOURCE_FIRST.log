@@ -1,0 +1,29 @@
+✔ each exact false component core rejects immediately with real returned probe facts (3.5939ms)
+✔ each exact false component finance rejects immediately with real returned probe facts (1.0357ms)
+✔ each exact false component netshop rejects immediately with real returned probe facts (0.3256ms)
+✔ each exact false component market rejects immediately with real returned probe facts (0.3221ms)
+✔ each exact false component products rejects immediately with real returned probe facts (0.7735ms)
+✔ each exact false component workflow rejects immediately with real returned probe facts (0.3249ms)
+✔ each exact false component inventory rejects immediately with real returned probe facts (0.3292ms)
+✔ each exact false component customerService rejects immediately with real returned probe facts (0.2899ms)
+✔ each exact false component accessControl rejects immediately with real returned probe facts (0.2969ms)
+✔ each exact false component erpReference rejects immediately with real returned probe facts (0.4066ms)
+✔ each exact false component bi rejects immediately with real returned probe facts (0.2569ms)
+✔ each exact false component ai rejects immediately with real returned probe facts (0.2468ms)
+✔ missing core is distinct from false and cannot be treated healthy (0.2875ms)
+✔ missing ai is distinct from false and cannot be treated healthy (0.1988ms)
+✔ public batch exception must not carry raw reason, extra field names or wrong release PII (0.2491ms)
+✔ admission exception also cannot carry a raw private status body (0.4072ms)
+✔ bounded snapshot survives repeated serialization without losing match/count/missing/inner process (1.3358ms)
+✔ invalid JSON keeps actual stdout hash and no fabricated parsed status (0.2762ms)
+✔ extra original op assertion still fails and never discloses asserted extra value (0.5558ms)
+✔ all four original transient classes remain capped at four and persist attempts before retry (1.6259ms)
+✔ same observation deadline prohibits a second transient query once budget is gone (0.2947ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 116.7489

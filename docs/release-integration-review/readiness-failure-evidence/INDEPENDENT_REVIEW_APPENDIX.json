@@ -1,0 +1,48 @@
+{
+  "version": "teruisi-readiness-evidence-dev-appendix-v1",
+  "independent": true,
+  "reviewer": "/root/preparation_review",
+  "reviewedAt": "2026-10-10T18:18:32.417Z",
+  "acceptedDevAdditions": true,
+  "productionExecutionApproved": false,
+  "blockingFindings": [],
+  "baseReviewSha256": "fd290ae16c97dc0ba6ff6cf8d5ebe2c70e89767411c0a1a8c2bfdef58de8fdf4",
+  "baseReviewMarkdownSha256": "c5a46bd0e03ebdae1691b29633af2d2568bfee66db6d55b156202542b42ad805",
+  "originalFourShaUnchanged": true,
+  "originalIndependent21Of21ConclusionUnchanged": true,
+  "reviewScope": "Read-only two development diffs and saved logs only; no native tests rerun",
+  "devFiles": {
+    "tests/release-batch-powershell-environment.test.mjs": "c35ef9fe30f2082b063ac6a74f2d864bb87d6ebc76bb203cd2d8a3241d82f0a7",
+    "test-dependency-loader.mjs": "ec9db9d028aea7b0803da4316a1f9d0896387d77b71f7532285738c0b23b3bd2"
+  },
+  "findings": {
+    "fixtureSchema": "Exactly four synthetic batch literals add recovery:{mode:'full'} to satisfy the preexisting main v3 mode access. No original PowerShell/assertion/environment behavior is removed or changed.",
+    "dependencyLoader": "Opt-in test resolve hook only redirects bare imports whose parentURL is within this one development worktree to an existing D worktree resolution anchor. Relative/node/file/#/drive imports are retained; no install/link/move/write logic.",
+    "nativeScopeReadFromSource": "Saved tests use controlled temporary scripts and directories; real native PS5/Unicode/throw/exit9 coverage targets synthetic scripts, not actual service/Status/production lifecycle."
+  },
+  "savedAuthorRelatedSuite": {
+    "tests": 17,
+    "pass": 17,
+    "fail": 0,
+    "durationMs": 5478.2183,
+    "readOnlyLogReviewed": true,
+    "logSha256": "cc1e5bf14f3744426c78fb3c82229b0e06884fc4a2dc2923785582b4a7b00fa5",
+    "composition": {
+      "captureTests": 11,
+      "relatedEnvironmentTests": 6
+    },
+    "capture11NotAddedAgain": true,
+    "authorEvidenceNotIndependentRerun": true
+  },
+  "preservedFailures": {
+    "dependencyLoaderFailureSha256": "5e8d73558f38ae2e863a58909edb6d02ea35f39ddb1176cdff418ac07946a3cc",
+    "fixture15Of17FailureSha256": "cb344f9f9d014b1f53628f358de506e600364b5f1830f5bb8f88c5cf22a3deb8",
+    "explanation": "Missing TypeScript resolution and preexisting four fixture mode omissions were preserved as failed runs; they do not prove old production readiness."
+  },
+  "countClarification": "The earlier base report's authorReportedTests:10 recorded the earlier author message. The newest saved combined log contains11 capture+6 environment tests=17. Independent21 remains separate; overlapping runs are not summed.",
+  "limitations": [
+    "The loader is local test plumbing tied to two existing worktrees; it does not prove clean-install or production dependency closure.",
+    "Experimental loader warnings remain in the saved log; no extra test execution was performed for this appendix.",
+    "Actual NotReady cause/readiness remains unconfirmed, original unknown21/E/production source unchanged, no deployment or retry authorized."
+  ]
+}
