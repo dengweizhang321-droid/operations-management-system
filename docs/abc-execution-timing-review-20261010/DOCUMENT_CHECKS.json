@@ -1,0 +1,12 @@
+{
+  "scope": "documentation-only, no tests or production operations rerun",
+  "reportLinksChecked": 12,
+  "missingReportLinks": [],
+  "jsonFilesParsedBeforeChecks": 5,
+  "sourceSnapshotShaChecked": 6,
+  "sourceSnapshotShaMismatches": [],
+  "independentTurnIntervalUnionRecalculation": "parent independently recomputed all turns, exact match",
+  "antigravityResultChecked": "SUCCESS, exit0, response nonempty, only view_file; no denied_actions field and no observed tool rejection",
+  "originalResponseCorrections": "incorrect timestamps, authorization, guessed wait cause, timeout/root-cause and unsupported savings excluded",
+  "gitDiffCheck": "passed before staging"
+}
