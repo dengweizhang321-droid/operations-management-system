@@ -1,0 +1,55 @@
+✔ real completed backup produces five original outputs; shell/cleanup failures stay failures (6.4486ms)
+✔ wrong target unknown (3.7576ms)
+✔ wrong operation (0.413ms)
+✔ claim normal outer success (0.3669ms)
+✔ non-independent proof (0.2621ms)
+✔ wrong audit digest (0.8253ms)
+✔ changed dump (6.0268ms)
+✔ bad manifest sidecar (1.3691ms)
+✔ wrong exact process stdout (2.8036ms)
+✔ native unresolved (1.1207ms)
+✔ missing result (1.115ms)
+✔ unclosed retention (0.9565ms)
+✔ directory swap (0.9431ms)
+✔ launder cleanup blocker (1.2468ms)
+✖ guarded append stores real outputs once; historical unknown unchanged and no operator called (172.5631ms)
+✔ missing new approval (106.3104ms)
+✔ old UI approval reused (92.0462ms)
+✔ another unknown present (133.8579ms)
+✔ prior work not passed (125.1742ms)
+✔ tail already begun (121.935ms)
+✔ source pin changed (123.6805ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 20
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1269.9256
+
+✖ failing tests:
+
+test at docs\release-integration-review\backup-reconciliation\reconcile-completed-backup.test.mjs:53:1
+✖ guarded append stores real outputs once; historical unknown unchanged and no operator called (172.5631ms)
+  AssertionError [ERR_ASSERTION]: Original execution closure pin missing
+  + actual - expected
+  
+  + '0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810'
+  - '6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638'
+  
+      at reconcileCompletedBackup (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/backup-reconciliation/reconcile-completed-backup.mjs:73:35)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/backup-reconciliation/reconcile-completed-backup.test.mjs:54:72)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810',
+    expected: '6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

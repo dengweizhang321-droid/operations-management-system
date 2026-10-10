@@ -1,0 +1,22 @@
+✔ independent valid typed native receipt creates one coordinated event with actual post content and no native action (623.9211ms)
+✔ real original full manifest validator cannot be replaced by a no-op (305.2257ms)
+✔ changed frozen input during long simulated dump verification is rejected: BACKUP_COMPLETED_PROOF.json (352.0228ms)
+✔ changed frozen input during long simulated dump verification is rejected: INDEPENDENT_POST_BACKUP_EFFECTS.json (324.0419ms)
+✔ changed frozen input during long simulated dump verification is rejected: 420adb985efc496a8c6d861a7c717046.json (334.5474ms)
+✔ changed frozen input during long simulated dump verification is rejected: backup-manifest.json (325.1623ms)
+✔ changed frozen input during long simulated dump verification is rejected: backup-manifest.json.sha256 (337.0367ms)
+✔ active owner or WAL head changes while verifying dump cannot append metadata (688.2272ms)
+✔ another unresolved action or started tail cannot be collapsed into this completed backup (648.2686ms)
+✔ backup facts may not become original shell success or zero-effects retry permission (15.7631ms)
+✔ new metadata approval cannot reuse old AB/UI human items or a different exact scope (350.9909ms)
+✔ missing API self, native/observation input or actual tail pin still rejects after scope rehash (1267.7784ms)
+✔ sealed head and original full contract cannot be replaced with caller metadata (255.976ms)
+✔ original journalState/writeOnce perform one real temporary canonical append, repeat and changed head refuse (1786.5751ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8061.4393

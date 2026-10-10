@@ -1,0 +1,15 @@
+✖ docs\release-integration-review\backup-reconciliation\reconcile-completed-backup.test.mjs (245236.1141ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 245247.1416
+
+✖ failing tests:
+
+test at docs\release-integration-review\backup-reconciliation\reconcile-completed-backup.test.mjs:1:1
+✖ docs\release-integration-review\backup-reconciliation\reconcile-completed-backup.test.mjs (245236.1141ms)
+  'test failed'

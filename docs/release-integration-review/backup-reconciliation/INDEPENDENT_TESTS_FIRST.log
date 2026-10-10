@@ -1,0 +1,32 @@
+✖ independent valid typed native receipt creates one coordinated event with actual post content and no native action (12.1503ms)
+✔ real original full manifest validator cannot be replaced by a no-op (14.876ms)
+✔ changed frozen input during long simulated dump verification is rejected: BACKUP_COMPLETED_PROOF.json (9.4686ms)
+✔ changed frozen input during long simulated dump verification is rejected: INDEPENDENT_POST_BACKUP_EFFECTS.json (8.5145ms)
+✔ changed frozen input during long simulated dump verification is rejected: 420adb985efc496a8c6d861a7c717046.json (8.85ms)
+✔ changed frozen input during long simulated dump verification is rejected: backup-manifest.json (7.1085ms)
+✔ changed frozen input during long simulated dump verification is rejected: backup-manifest.json.sha256 (8.6462ms)
+✔ active owner or WAL head changes while verifying dump cannot append metadata (15.5486ms)
+✔ another unresolved action or started tail cannot be collapsed into this completed backup (15.5161ms)
+✔ backup facts may not become original shell success or zero-effects retry permission (13.3177ms)
+✔ new metadata approval cannot reuse old AB/UI human items or a different exact scope (30.6949ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 318.3049
+
+✖ failing tests:
+
+test at docs\release-integration-review\backup-reconciliation\reconcile-completed-backup.independent.test.mjs:83:1
+✖ independent valid typed native receipt creates one coordinated event with actual post content and no native action (12.1503ms)
+  TypeError [ERR_INVALID_ARG_TYPE]: The "paths[0]" argument must be of type string. Received undefined
+      at Object.resolve (node:path:199:9)
+      at reconcileCompletedBackup (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/backup-reconciliation/reconcile-completed-backup.mjs:60:21)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/backup-reconciliation/reconcile-completed-backup.independent.test.mjs:84:81)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    code: 'ERR_INVALID_ARG_TYPE'
+  }
