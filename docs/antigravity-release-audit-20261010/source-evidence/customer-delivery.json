@@ -1,0 +1,16 @@
+{
+  "status": "fully-delivered",
+  "completedAt": "2026-10-09T03:27:47.6617309+00:00",
+  "approvedAt": "2026-10-09T00:40:46Z",
+  "approvedToAllDeliveryCloseoutMs": 10021661.7309,
+  "firstApprovalToAllDeliveryCloseoutMs": 35443661.7309,
+  "officialBatchCompletedAt": "2026-10-09T03:03:20.676Z",
+  "officialApprovedToBatchCompleteMs": 8554676,
+  "independentReview": "passed-with-four-independent-reconciliations",
+  "remoteMainCommit": "48792efb3d454e9f3355bef92efc5424b1429a13",
+  "developmentWorktreeArchived": true,
+  "localTaskBranchDeleted": true,
+  "runtimePackagesAndOtherCandidatePreserved": true,
+  "actualBusinessImportsByThisBatch": 0,
+  "backupScheduleStatus": "PAUSED"
+}

@@ -1,0 +1,503 @@
+{
+  "observedAtUtc": "2026-10-10T06:53:48.019Z",
+  "source": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/approved-batch.json",
+  "fileSha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+  "size": 12854217,
+  "id": "integration-ab-v2-20261010-c22d8dd69a",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "impact": "strict",
+  "recoveryMode": "full",
+  "operationCount": 21,
+  "operations": [
+    {
+      "id": "reuse-reviewed-worker",
+      "phase": "prepare",
+      "kind": "worker-plan"
+    },
+    {
+      "id": "backup-pre",
+      "phase": "backup-pre",
+      "kind": "backup",
+      "timeoutMs": 1800000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "completed"
+        },
+        {
+          "path": "serviceStateChanged",
+          "equals": false
+        }
+      ]
+    },
+    {
+      "id": "restore-pre",
+      "phase": "restore-pre",
+      "kind": "restore",
+      "timeoutMs": 1800000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "completed"
+        },
+        {
+          "path": "serviceStateChanged",
+          "equals": false
+        },
+        {
+          "path": "productionDatabaseTouched",
+          "equals": false
+        },
+        {
+          "path": "cleanupStatus",
+          "equals": "isolated_data_removed"
+        },
+        {
+          "path": "profileRestoreVerified",
+          "equals": true
+        },
+        {
+          "path": "sequenceHealthVerified",
+          "equals": true
+        }
+      ]
+    },
+    {
+      "id": "entermaintenance",
+      "phase": "drain",
+      "kind": "lifecycle",
+      "timeoutMs": 1800000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "completed"
+        },
+        {
+          "path": "drainConfirmed",
+          "equals": true
+        }
+      ]
+    },
+    {
+      "id": "apply-reviewed-worker",
+      "phase": "switch",
+      "kind": "worker-apply"
+    },
+    {
+      "id": "exitmaintenance",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "timeoutMs": 1800000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "completed"
+        }
+      ]
+    },
+    {
+      "id": "startworker",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "timeoutMs": 1800000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "completed"
+        }
+      ]
+    },
+    {
+      "id": "preserve-pre-recovery",
+      "phase": "acceptance",
+      "kind": "command",
+      "timeoutMs": 600000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "passed"
+        },
+        {
+          "path": "fullRecoveryMetadataPreserved",
+          "equals": true
+        }
+      ]
+    },
+    {
+      "id": "verify-all-resources",
+      "phase": "acceptance",
+      "kind": "command",
+      "timeoutMs": 600000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "passed"
+        },
+        {
+          "path": "resourcesVerified",
+          "equals": true
+        }
+      ]
+    },
+    {
+      "id": "actual-readonly-ui",
+      "phase": "acceptance",
+      "kind": "command",
+      "timeoutMs": 600000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "passed"
+        },
+        {
+          "path": "fourFixesProductionUi",
+          "equals": true
+        },
+        {
+          "path": "productionWrites",
+          "equals": 0
+        },
+        {
+          "path": "cases",
+          "equals": 4
+        }
+      ]
+    },
+    {
+      "id": "unsigned-reader-permission-denials",
+      "phase": "acceptance",
+      "kind": "command",
+      "timeoutMs": 600000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "passed"
+        },
+        {
+          "path": "liveUnsignedReaderGetDenied",
+          "equals": true
+        },
+        {
+          "path": "isolatedRoleAndScopeMatrixPassed",
+          "equals": true
+        },
+        {
+          "path": "originalOwnerManifestVerified",
+          "equals": true
+        }
+      ]
+    },
+    {
+      "id": "complete-component-readiness",
+      "phase": "acceptance",
+      "kind": "command",
+      "timeoutMs": 240000,
+      "assertions": [
+        {
+          "path": "state",
+          "equals": "Running"
+        },
+        {
+          "path": "backendState",
+          "equals": "Ready"
+        },
+        {
+          "path": "workerState",
+          "equals": "exact_release"
+        },
+        {
+          "path": "releaseId",
+          "equals": "20261010T014638Z-97833d2f2b7e7bc9"
+        },
+        {
+          "path": "components.core",
+          "equals": true
+        },
+        {
+          "path": "components.finance",
+          "equals": true
+        },
+        {
+          "path": "components.netshop",
+          "equals": true
+        },
+        {
+          "path": "components.market",
+          "equals": true
+        },
+        {
+          "path": "components.products",
+          "equals": true
+        },
+        {
+          "path": "components.workflow",
+          "equals": true
+        },
+        {
+          "path": "components.inventory",
+          "equals": true
+        },
+        {
+          "path": "components.customerService",
+          "equals": true
+        },
+        {
+          "path": "components.accessControl",
+          "equals": true
+        },
+        {
+          "path": "components.erpReference",
+          "equals": true
+        },
+        {
+          "path": "components.bi",
+          "equals": true
+        },
+        {
+          "path": "components.ai",
+          "equals": true
+        }
+      ]
+    },
+    {
+      "id": "verifystartup",
+      "phase": "acceptance",
+      "kind": "lifecycle",
+      "timeoutMs": 1800000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "completed"
+        }
+      ]
+    },
+    {
+      "id": "install-reviewed-watchdog",
+      "phase": "acceptance",
+      "kind": "command",
+      "timeoutMs": 600000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "passed"
+        },
+        {
+          "path": "originalWatchdogInstallationBound",
+          "equals": true
+        },
+        {
+          "path": "existingTaskActionUpdatedAndStarted",
+          "equals": true
+        }
+      ]
+    },
+    {
+      "id": "two-natural-watchdogs",
+      "phase": "acceptance",
+      "kind": "command",
+      "timeoutMs": 600000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "passed"
+        },
+        {
+          "path": "twoNaturalHealthy",
+          "equals": true
+        },
+        {
+          "path": "allFreshObservationsPreserved",
+          "equals": true
+        }
+      ]
+    },
+    {
+      "id": "backup-post",
+      "phase": "backup-post",
+      "kind": "backup",
+      "timeoutMs": 1800000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "completed"
+        },
+        {
+          "path": "serviceStateChanged",
+          "equals": false
+        }
+      ]
+    },
+    {
+      "id": "restore-post",
+      "phase": "restore-post",
+      "kind": "restore",
+      "timeoutMs": 1800000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "completed"
+        },
+        {
+          "path": "serviceStateChanged",
+          "equals": false
+        },
+        {
+          "path": "productionDatabaseTouched",
+          "equals": false
+        },
+        {
+          "path": "cleanupStatus",
+          "equals": "isolated_data_removed"
+        },
+        {
+          "path": "profileRestoreVerified",
+          "equals": true
+        },
+        {
+          "path": "sequenceHealthVerified",
+          "equals": true
+        }
+      ]
+    },
+    {
+      "id": "preserve-post-recovery",
+      "phase": "closeout",
+      "kind": "command",
+      "timeoutMs": 600000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "passed"
+        },
+        {
+          "path": "fullRecoveryMetadataPreserved",
+          "equals": true
+        }
+      ]
+    },
+    {
+      "id": "full-postgresql-deep-comparison",
+      "phase": "closeout",
+      "kind": "command",
+      "timeoutMs": 600000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "passed"
+        },
+        {
+          "path": "completeBusinessContentEqual",
+          "equals": true
+        },
+        {
+          "path": "migrationsEqual",
+          "equals": true
+        },
+        {
+          "path": "roleAndPermissionCatalogueEqual",
+          "equals": true
+        },
+        {
+          "path": "unauthorizedContentChanges",
+          "equals": 0
+        },
+        {
+          "path": "productionWriteTestPerformed",
+          "equals": false
+        }
+      ]
+    },
+    {
+      "id": "original-historical-audits-preserved",
+      "phase": "closeout",
+      "kind": "command",
+      "timeoutMs": 600000,
+      "assertions": [
+        {
+          "path": "status",
+          "equals": "passed"
+        },
+        {
+          "path": "originalAuditBytesPreserved",
+          "equals": true
+        }
+      ]
+    },
+    {
+      "id": "exact-final-readiness",
+      "phase": "closeout",
+      "kind": "command",
+      "timeoutMs": 240000,
+      "assertions": [
+        {
+          "path": "state",
+          "equals": "Running"
+        },
+        {
+          "path": "backendState",
+          "equals": "Ready"
+        },
+        {
+          "path": "workerState",
+          "equals": "exact_release"
+        },
+        {
+          "path": "releaseId",
+          "equals": "20261010T014638Z-97833d2f2b7e7bc9"
+        },
+        {
+          "path": "components.core",
+          "equals": true
+        },
+        {
+          "path": "components.finance",
+          "equals": true
+        },
+        {
+          "path": "components.netshop",
+          "equals": true
+        },
+        {
+          "path": "components.market",
+          "equals": true
+        },
+        {
+          "path": "components.products",
+          "equals": true
+        },
+        {
+          "path": "components.workflow",
+          "equals": true
+        },
+        {
+          "path": "components.inventory",
+          "equals": true
+        },
+        {
+          "path": "components.customerService",
+          "equals": true
+        },
+        {
+          "path": "components.accessControl",
+          "equals": true
+        },
+        {
+          "path": "components.erpReference",
+          "equals": true
+        },
+        {
+          "path": "components.bi",
+          "equals": true
+        },
+        {
+          "path": "components.ai",
+          "equals": true
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "Summary of actual sealed batch, not permission or execution",
+    "Does not verify every binding or current health"
+  ]
+}

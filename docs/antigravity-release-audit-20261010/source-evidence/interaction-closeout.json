@@ -1,0 +1,1074 @@
+{
+  "status": "completed",
+  "observedAt": "2026-10-09T12:27:05.498Z",
+  "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+  "approvedAt": "2026-10-09T09:19:39.000Z",
+  "closedAt": "2026-10-09T12:26:02.677Z",
+  "originalTiming": {
+    "durationMs": {
+      "queue": 299.36569999999983,
+      "prepare": 1094814.7399,
+      "backup-pre": 766222.5766,
+      "restore-pre": 796711.1958999997,
+      "drain": 845354.5045,
+      "switch": 2074613.1994000003,
+      "acceptance": 604551.0471000001,
+      "business": 0,
+      "backup-post": 779353.0258,
+      "restore-post": 849978.7712000001,
+      "closeout": 550686.4527999999
+    },
+    "approvedToCompleteMs": 11183677,
+    "elapsedSinceApprovalMs": 11183677,
+    "switchExecutionMs": 2074613.1994000003,
+    "switchSpanMs": 4422934,
+    "completed": true,
+    "waits": [
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 198407.773
+      },
+      {
+        "phase": "prepare",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 37193.458199999994
+      },
+      {
+        "phase": "backup-pre",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 37867.82170000003
+      },
+      {
+        "phase": "restore-pre",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 39976.206099999836
+      },
+      {
+        "phase": "drain",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 326307.8894
+      },
+      {
+        "phase": "drain",
+        "reason": "operator-failed-or-result-unavailable",
+        "durationMs": 36358.937200000044
+      },
+      {
+        "phase": "drain",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 203388.4605
+      },
+      {
+        "phase": "drain",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 191214.6136
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 34472.15490000008
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 30724.706000000006
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 30590.584100000095
+      },
+      {
+        "phase": "switch",
+        "reason": "operator-failed-or-result-unavailable",
+        "durationMs": 1805331.1869
+      },
+      {
+        "phase": "switch",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 124125.5325
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 77292.72510000001
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 76760.2125
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operator-failed-or-result-unavailable",
+        "durationMs": 72320.73980000004
+      },
+      {
+        "phase": "acceptance",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 123434.56839999999
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 77693.7106
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 76178.03079999998
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 75823.65050000005
+      },
+      {
+        "phase": "backup-post",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 40952.8861
+      },
+      {
+        "phase": "restore-post",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 44349.19839999988
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 172465.28089999998
+      },
+      {
+        "phase": "closeout",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 282104.07899999997
+      },
+      {
+        "phase": "closeout",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 220284.87969999993
+      }
+    ]
+  },
+  "operations": [
+    {
+      "id": "reuse-priority-worker",
+      "phase": "prepare",
+      "latest": {
+        "at": "2026-10-09T09:33:38.930Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 235799.6664,
+        "eventSha256": "06459dd1d9f9e12114a46a946c680339f28381fa5cb27618f3208b844d0167ee",
+        "operationId": "reuse-priority-worker",
+        "outputs": null,
+        "phase": "prepare",
+        "previous": "b42bc9b30b87b66044367bbed4b19e648bb0a06dfc21ffa97fb77298694ced96",
+        "reason": null,
+        "receiptSha256": "20ae8756d2d9c86503ec18157d25c94d3dbbc9fd067bf8ba66af35e265a9e70f",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T09:29:43.131Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "b42bc9b30b87b66044367bbed4b19e648bb0a06dfc21ffa97fb77298694ced96",
+          "operationId": "reuse-priority-worker",
+          "phase": "prepare",
+          "previous": "8072eb61960b3071d2de9d43c20e5a283fbe32f2705b5770844f56c993d41d49",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T09:33:38.930Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 235799.6664,
+          "eventSha256": "06459dd1d9f9e12114a46a946c680339f28381fa5cb27618f3208b844d0167ee",
+          "operationId": "reuse-priority-worker",
+          "outputs": null,
+          "phase": "prepare",
+          "previous": "b42bc9b30b87b66044367bbed4b19e648bb0a06dfc21ffa97fb77298694ced96",
+          "reason": null,
+          "receiptSha256": "20ae8756d2d9c86503ec18157d25c94d3dbbc9fd067bf8ba66af35e265a9e70f",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "op-backup-pre",
+      "phase": "backup-pre",
+      "latest": {
+        "at": "2026-10-09T09:46:25.158Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 728354.7549,
+        "eventSha256": "db366d3ec04d8a5214751c5ad63d2e8f8cf2769a8c20e09401802927b83873b1",
+        "operationId": "op-backup-pre",
+        "outputs": {
+          "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261009T093521Z-fad1f830c54f",
+          "backupId": "daily-20261009T093521Z-fad1f830c54f",
+          "contentSha256": "148cfb598270dbca802decfa553985d2ae650aac15e50e716bfcfab0a996a126",
+          "dumpSha256": "7c7f209bed454047e96129a15aec9d96d3dc7b51e39d8bf778fa59a178711dc0",
+          "manifestSha256": "c1095aec1a1a65f0eb3c3e761a46b2c97a5552b7a721230303d05a1f1cbeafd8"
+        },
+        "phase": "backup-pre",
+        "previous": "4c39f05387ab6dbb5bc80969bef4a9e1e3ede443ae5eaf67b1488d647b6e72d4",
+        "reason": null,
+        "receiptSha256": "e7623261a0d2930925d7320be062cfc0cd699873f8a0c594730a7c1fa44697fc",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T09:34:16.803Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "4c39f05387ab6dbb5bc80969bef4a9e1e3ede443ae5eaf67b1488d647b6e72d4",
+          "operationId": "op-backup-pre",
+          "phase": "backup-pre",
+          "previous": "fdac0b38a7009de2009483495bee933eba85a66f1077a536596b1922bab4a9e6",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T09:46:25.158Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 728354.7549,
+          "eventSha256": "db366d3ec04d8a5214751c5ad63d2e8f8cf2769a8c20e09401802927b83873b1",
+          "operationId": "op-backup-pre",
+          "outputs": {
+            "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261009T093521Z-fad1f830c54f",
+            "backupId": "daily-20261009T093521Z-fad1f830c54f",
+            "contentSha256": "148cfb598270dbca802decfa553985d2ae650aac15e50e716bfcfab0a996a126",
+            "dumpSha256": "7c7f209bed454047e96129a15aec9d96d3dc7b51e39d8bf778fa59a178711dc0",
+            "manifestSha256": "c1095aec1a1a65f0eb3c3e761a46b2c97a5552b7a721230303d05a1f1cbeafd8"
+          },
+          "phase": "backup-pre",
+          "previous": "4c39f05387ab6dbb5bc80969bef4a9e1e3ede443ae5eaf67b1488d647b6e72d4",
+          "reason": null,
+          "receiptSha256": "e7623261a0d2930925d7320be062cfc0cd699873f8a0c594730a7c1fa44697fc",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "op-restore-pre",
+      "phase": "restore-pre",
+      "latest": {
+        "at": "2026-10-09T09:59:41.875Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 756734.9897999999,
+        "eventSha256": "27d21d239553bdf4802b048fa9532dfc01a741c2eaab6e6744cd7d9b77475a91",
+        "operationId": "op-restore-pre",
+        "outputs": {
+          "backupId": "daily-20261009T093521Z-fad1f830c54f",
+          "dumpSha256": "7c7f209bed454047e96129a15aec9d96d3dc7b51e39d8bf778fa59a178711dc0"
+        },
+        "phase": "restore-pre",
+        "previous": "8d5d107b282b5a5acc2dabe94223426e53523c4f8259a87b714c957cac30d771",
+        "reason": null,
+        "receiptSha256": "cc58f252ea6bb5783fe743f9ba67b849678a06515189ac25939706d7a484b106",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T09:47:05.140Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "8d5d107b282b5a5acc2dabe94223426e53523c4f8259a87b714c957cac30d771",
+          "operationId": "op-restore-pre",
+          "phase": "restore-pre",
+          "previous": "3a3420cae77e64bb95a2abe3ac792214bb9488492c1b33162ceec4028132315e",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T09:59:41.875Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 756734.9897999999,
+          "eventSha256": "27d21d239553bdf4802b048fa9532dfc01a741c2eaab6e6744cd7d9b77475a91",
+          "operationId": "op-restore-pre",
+          "outputs": {
+            "backupId": "daily-20261009T093521Z-fad1f830c54f",
+            "dumpSha256": "7c7f209bed454047e96129a15aec9d96d3dc7b51e39d8bf778fa59a178711dc0"
+          },
+          "phase": "restore-pre",
+          "previous": "8d5d107b282b5a5acc2dabe94223426e53523c4f8259a87b714c957cac30d771",
+          "reason": null,
+          "receiptSha256": "cc58f252ea6bb5783fe743f9ba67b849678a06515189ac25939706d7a484b106",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "step-entermaintenance",
+      "phase": "drain",
+      "latest": {
+        "at": "2026-10-09T10:38:54.313Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 291473.0643,
+        "eventSha256": "415f0da0ee5751ee47e32da940c8ccd3cc9ef7199560f2e4163d070c799e8763",
+        "operationId": "step-entermaintenance",
+        "outputs": {
+          "maintenanceId": "121dafe085a485bb781938140358a926"
+        },
+        "phase": "drain",
+        "previous": "56ee02bbcc876d5281080ddc69ba4f31e5ae81ac41172e2b01b6d6ce9c4f149f",
+        "reason": null,
+        "receiptSha256": "edd7894afab3991fd27af5c70f5109aa59c7e4595b8dc5e17b211f5d0b5a11e1",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T10:05:08.192Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "4df3857816ef31cc3886bfe1f3b080a93a6b2edf1f05a6d7f84c82fb371f9b39",
+          "operationId": "step-entermaintenance",
+          "phase": "drain",
+          "previous": "e24bd3d5535d563ffdc801bc664a61c83e868823012201ffcb6958c0fc1514fc",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T10:05:44.551Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 36358.937200000044,
+          "eventSha256": "e774cfc5d5605f314bf4f9638802a1c9a4f3df28cc111d48fed06cc33d7908cb",
+          "operationId": "step-entermaintenance",
+          "outputs": null,
+          "phase": "drain",
+          "previous": "4df3857816ef31cc3886bfe1f3b080a93a6b2edf1f05a6d7f84c82fb371f9b39",
+          "reason": "operator-failed-or-result-unavailable",
+          "receiptSha256": null,
+          "status": "unknown"
+        },
+        {
+          "at": "2026-10-09T10:27:27.601Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "2e9403969ed3f1c5650aad6eca0ab1f4769f9b985a8efd63fb8221fcbc04be47",
+          "operationId": "step-entermaintenance",
+          "phase": "drain",
+          "previous": "e774cfc5d5605f314bf4f9638802a1c9a4f3df28cc111d48fed06cc33d7908cb",
+          "reason": "independently-reconciled",
+          "receiptSha256": "2fb8b84d1eb76958a013c64ca89f4ec76897124ff94ea6b713677c9f460bb8b4",
+          "status": "failed"
+        },
+        {
+          "at": "2026-10-09T10:34:02.840Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "56ee02bbcc876d5281080ddc69ba4f31e5ae81ac41172e2b01b6d6ce9c4f149f",
+          "operationId": "step-entermaintenance",
+          "phase": "drain",
+          "previous": "7833069442ac4929f4fc0a326e240a920f64f519ab9ea5d4c749786776395d93",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T10:38:54.313Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 291473.0643,
+          "eventSha256": "415f0da0ee5751ee47e32da940c8ccd3cc9ef7199560f2e4163d070c799e8763",
+          "operationId": "step-entermaintenance",
+          "outputs": {
+            "maintenanceId": "121dafe085a485bb781938140358a926"
+          },
+          "phase": "drain",
+          "previous": "56ee02bbcc876d5281080ddc69ba4f31e5ae81ac41172e2b01b6d6ce9c4f149f",
+          "reason": null,
+          "receiptSha256": "edd7894afab3991fd27af5c70f5109aa59c7e4595b8dc5e17b211f5d0b5a11e1",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "apply-priority-worker",
+      "phase": "switch",
+      "latest": {
+        "at": "2026-10-09T10:41:47.036Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 138245.74140000006,
+        "eventSha256": "1c2e2ef5bc821a68412b0e0f2f7a63885385fb70ea5c3343a481651277613b92",
+        "operationId": "apply-priority-worker",
+        "outputs": null,
+        "phase": "switch",
+        "previous": "70908ea03ded7fd898f5e10d8a7d9f61c65d700d2e798eb41a9341e36b837b69",
+        "reason": null,
+        "receiptSha256": "92f533807a8bb918c05024b09a1f6aed26b873e86fc5a59c32f6c602c72f2fcd",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T10:39:28.790Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "70908ea03ded7fd898f5e10d8a7d9f61c65d700d2e798eb41a9341e36b837b69",
+          "operationId": "apply-priority-worker",
+          "phase": "switch",
+          "previous": "a9967cb2f88b18aad75db4d18133a435a2b4e3e361d73427e4f10dc11c2295c8",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T10:41:47.036Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 138245.74140000006,
+          "eventSha256": "1c2e2ef5bc821a68412b0e0f2f7a63885385fb70ea5c3343a481651277613b92",
+          "operationId": "apply-priority-worker",
+          "outputs": null,
+          "phase": "switch",
+          "previous": "70908ea03ded7fd898f5e10d8a7d9f61c65d700d2e798eb41a9341e36b837b69",
+          "reason": null,
+          "receiptSha256": "92f533807a8bb918c05024b09a1f6aed26b873e86fc5a59c32f6c602c72f2fcd",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "step-exitmaintenance",
+      "phase": "switch",
+      "latest": {
+        "at": "2026-10-09T10:42:53.016Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 35248.826100000064,
+        "eventSha256": "64c3ba7ae4de40580843b6ece1b65a2821f734ee4d894e0a488a1e546e4e637d",
+        "operationId": "step-exitmaintenance",
+        "outputs": {
+          "maintenanceId": "121dafe085a485bb781938140358a926"
+        },
+        "phase": "switch",
+        "previous": "4ce5cd2368b8882244cf093d59b5ee69aad732a548cc0811b622193a2d2707e4",
+        "reason": null,
+        "receiptSha256": "f68166109ee7b8103d20c425aa5b9a940391fb103fe594fc0fdf9fcb3eec862d",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T10:42:17.767Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "4ce5cd2368b8882244cf093d59b5ee69aad732a548cc0811b622193a2d2707e4",
+          "operationId": "step-exitmaintenance",
+          "phase": "switch",
+          "previous": "9295ee58a7664d7ba2329bce52fb8f70e44c87dab1747ca63bf1884f55555448",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T10:42:53.016Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 35248.826100000064,
+          "eventSha256": "64c3ba7ae4de40580843b6ece1b65a2821f734ee4d894e0a488a1e546e4e637d",
+          "operationId": "step-exitmaintenance",
+          "outputs": {
+            "maintenanceId": "121dafe085a485bb781938140358a926"
+          },
+          "phase": "switch",
+          "previous": "4ce5cd2368b8882244cf093d59b5ee69aad732a548cc0811b622193a2d2707e4",
+          "reason": null,
+          "receiptSha256": "f68166109ee7b8103d20c425aa5b9a940391fb103fe594fc0fdf9fcb3eec862d",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "step-startworker",
+      "phase": "switch",
+      "latest": {
+        "at": "2026-10-09T11:18:51.126Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "eventSha256": "2534e3a2dc13955129bfabcd8204123273dd771871984a4459bf74eaf23107d7",
+        "operationId": "step-startworker",
+        "phase": "switch",
+        "previous": "3b6b999dca6a79d2374aa35140205a07e10cee7d95cd01627507435154b22513",
+        "reason": "independently-reconciled",
+        "receiptSha256": "60f677072c5d0bb4907cb121e518ff8121bb2ba96c6708e80dc8c964c7e31a60",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T10:43:23.612Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "4bb2a8f4b0e44b4d51607685788f9d4cfe34155215819932429430697cc75d61",
+          "operationId": "step-startworker",
+          "phase": "switch",
+          "previous": "a1bd76c437a6956aed95bad2d50580dbae84d31fe42a7ead1a04f64227dc487d",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T11:13:28.944Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 1805331.1869,
+          "eventSha256": "3b6b999dca6a79d2374aa35140205a07e10cee7d95cd01627507435154b22513",
+          "operationId": "step-startworker",
+          "outputs": null,
+          "phase": "switch",
+          "previous": "4bb2a8f4b0e44b4d51607685788f9d4cfe34155215819932429430697cc75d61",
+          "reason": "operator-failed-or-result-unavailable",
+          "receiptSha256": null,
+          "status": "unknown"
+        },
+        {
+          "at": "2026-10-09T11:18:51.126Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "2534e3a2dc13955129bfabcd8204123273dd771871984a4459bf74eaf23107d7",
+          "operationId": "step-startworker",
+          "phase": "switch",
+          "previous": "3b6b999dca6a79d2374aa35140205a07e10cee7d95cd01627507435154b22513",
+          "reason": "independently-reconciled",
+          "receiptSha256": "60f677072c5d0bb4907cb121e518ff8121bb2ba96c6708e80dc8c964c7e31a60",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "priority-source-assets",
+      "phase": "acceptance",
+      "latest": {
+        "at": "2026-10-09T11:22:14.067Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 865.7466999999888,
+        "eventSha256": "91888bbc66aefb8f886e29216dfb6c226bfbdcc8773a29e96a6630e504c352e1",
+        "operationId": "priority-source-assets",
+        "outputs": {},
+        "phase": "acceptance",
+        "previous": "41e484da00ed732b453e9430c0e623aaf079a49762eff7082aa29dc4f6ffbfdd",
+        "reason": null,
+        "receiptSha256": "11f3d1089c521972de39fd2f2b95e2fe0ef7415ab61e23c0f1ff83aa77e81a08",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T11:22:13.201Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "41e484da00ed732b453e9430c0e623aaf079a49762eff7082aa29dc4f6ffbfdd",
+          "operationId": "priority-source-assets",
+          "phase": "acceptance",
+          "previous": "87fd8875446df0c10f7caf656c81e5bcb5da144b0e6d74b2c4e3fdbbacef49b5",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T11:22:14.067Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 865.7466999999888,
+          "eventSha256": "91888bbc66aefb8f886e29216dfb6c226bfbdcc8773a29e96a6630e504c352e1",
+          "operationId": "priority-source-assets",
+          "outputs": {},
+          "phase": "acceptance",
+          "previous": "41e484da00ed732b453e9430c0e623aaf079a49762eff7082aa29dc4f6ffbfdd",
+          "reason": null,
+          "receiptSha256": "11f3d1089c521972de39fd2f2b95e2fe0ef7415ab61e23c0f1ff83aa77e81a08",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "priority-production-ui",
+      "phase": "acceptance",
+      "latest": {
+        "at": "2026-10-09T11:32:48.503Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "eventSha256": "6bae83a0e780ca27d4f34211b6719963f289a08dfbc83b8b2880246c6643ae2d",
+        "operationId": "priority-production-ui",
+        "phase": "acceptance",
+        "previous": "675a390002e382856bbef1ed8fac8a561407c6734cade630e04390b83b3b442e",
+        "reason": "independently-reconciled",
+        "receiptSha256": "91cd15519f83f73265fb68444a70ef50e54b9b7335750208c9b82fe7a7850b70",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T11:23:30.833Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "e3a6beb6afbf6a76e7fb085c20fc186b791cd6c80c377d490e2df6b2890fe8a9",
+          "operationId": "priority-production-ui",
+          "phase": "acceptance",
+          "previous": "ad6a77083d7612933b12e0e2f5b25ddc6bf2ba45c24094345f2453a92daaf4b2",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T11:24:43.154Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 72320.73980000004,
+          "eventSha256": "675a390002e382856bbef1ed8fac8a561407c6734cade630e04390b83b3b442e",
+          "operationId": "priority-production-ui",
+          "outputs": null,
+          "phase": "acceptance",
+          "previous": "e3a6beb6afbf6a76e7fb085c20fc186b791cd6c80c377d490e2df6b2890fe8a9",
+          "reason": "operator-failed-or-result-unavailable",
+          "receiptSha256": null,
+          "status": "unknown"
+        },
+        {
+          "at": "2026-10-09T11:32:48.503Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "6bae83a0e780ca27d4f34211b6719963f289a08dfbc83b8b2880246c6643ae2d",
+          "operationId": "priority-production-ui",
+          "phase": "acceptance",
+          "previous": "675a390002e382856bbef1ed8fac8a561407c6734cade630e04390b83b3b442e",
+          "reason": "independently-reconciled",
+          "receiptSha256": "91cd15519f83f73265fb68444a70ef50e54b9b7335750208c9b82fe7a7850b70",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "step-aggregatestatus",
+      "phase": "acceptance",
+      "latest": {
+        "at": "2026-10-09T11:36:33.240Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 21714.423499999975,
+        "eventSha256": "5ea1e081412dd0d0574fb821746a36f5a9ad520432a5fade854bc60fa599412c",
+        "operationId": "step-aggregatestatus",
+        "outputs": {},
+        "phase": "acceptance",
+        "previous": "8d61047494dafcb50908fedd51793658c5ad3a47cf48e996c87ab80fd9620dea",
+        "reason": null,
+        "receiptSha256": "e3107147a6d4ab39f4c07a42b2915c63b9b48e53eaca1b4074ddabd406350c4a",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T11:36:11.526Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "8d61047494dafcb50908fedd51793658c5ad3a47cf48e996c87ab80fd9620dea",
+          "operationId": "step-aggregatestatus",
+          "phase": "acceptance",
+          "previous": "46bb974ca05074a343677976da47d50ec780bcc25689e84f9fd165efc0cff755",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T11:36:33.240Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 21714.423499999975,
+          "eventSha256": "5ea1e081412dd0d0574fb821746a36f5a9ad520432a5fade854bc60fa599412c",
+          "operationId": "step-aggregatestatus",
+          "outputs": {},
+          "phase": "acceptance",
+          "previous": "8d61047494dafcb50908fedd51793658c5ad3a47cf48e996c87ab80fd9620dea",
+          "reason": null,
+          "receiptSha256": "e3107147a6d4ab39f4c07a42b2915c63b9b48e53eaca1b4074ddabd406350c4a",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "step-verifystartup",
+      "phase": "acceptance",
+      "latest": {
+        "at": "2026-10-09T11:37:55.027Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 5601.92690000002,
+        "eventSha256": "b75ab467a9da7fc50325cbd0be08030d0b47f6e19aad4e73a1bfd3a16df84e19",
+        "operationId": "step-verifystartup",
+        "outputs": {},
+        "phase": "acceptance",
+        "previous": "41a5a030cdd2a4aa7956c992f028ade0cac55e6af919f8dfdd2a471fa7231974",
+        "reason": null,
+        "receiptSha256": "d263ef5c413d61b26944a410c784ab1380233844a1ecf332f954798f752fa52e",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T11:37:49.425Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "41a5a030cdd2a4aa7956c992f028ade0cac55e6af919f8dfdd2a471fa7231974",
+          "operationId": "step-verifystartup",
+          "phase": "acceptance",
+          "previous": "410ab111913d0074e31c06f16052a6877b0ca7a8ce7596cf5e304f1160b03447",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T11:37:55.027Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 5601.92690000002,
+          "eventSha256": "b75ab467a9da7fc50325cbd0be08030d0b47f6e19aad4e73a1bfd3a16df84e19",
+          "operationId": "step-verifystartup",
+          "outputs": {},
+          "phase": "acceptance",
+          "previous": "41a5a030cdd2a4aa7956c992f028ade0cac55e6af919f8dfdd2a471fa7231974",
+          "reason": null,
+          "receiptSha256": "d263ef5c413d61b26944a410c784ab1380233844a1ecf332f954798f752fa52e",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "natural-watchdogs",
+      "phase": "acceptance",
+      "latest": {
+        "at": "2026-10-09T11:41:11.156Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 120299.88069999998,
+        "eventSha256": "edd58b380e9de0106dfb6e2ff60664aa64269ee14b7c23634e3a4238f3bd258d",
+        "operationId": "natural-watchdogs",
+        "outputs": {},
+        "phase": "acceptance",
+        "previous": "30924bdd489f9e14106a64b42a89aa56a351b84260f03f56114685d0f841ce4d",
+        "reason": null,
+        "receiptSha256": "9d9b7c024c32b023da0425349313aeb07e4a70462d4dee4e6bef9af0589d1d87",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T11:39:10.856Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "30924bdd489f9e14106a64b42a89aa56a351b84260f03f56114685d0f841ce4d",
+          "operationId": "natural-watchdogs",
+          "phase": "acceptance",
+          "previous": "8982158fb46a3ca5837e6a470c66853d2c8e5bffb77fce4e3cd00aa806bf3326",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T11:41:11.156Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 120299.88069999998,
+          "eventSha256": "edd58b380e9de0106dfb6e2ff60664aa64269ee14b7c23634e3a4238f3bd258d",
+          "operationId": "natural-watchdogs",
+          "outputs": {},
+          "phase": "acceptance",
+          "previous": "30924bdd489f9e14106a64b42a89aa56a351b84260f03f56114685d0f841ce4d",
+          "reason": null,
+          "receiptSha256": "9d9b7c024c32b023da0425349313aeb07e4a70462d4dee4e6bef9af0589d1d87",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "op-backup-post",
+      "phase": "backup-post",
+      "latest": {
+        "at": "2026-10-09T11:54:10.516Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 738400.1396999999,
+        "eventSha256": "d6d5e67ae008deacff5901b2139c2f4c977d6d3688397433c9d0a6b51cd1cda7",
+        "operationId": "op-backup-post",
+        "outputs": {
+          "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261009T114230Z-7117da1c1055",
+          "backupId": "daily-20261009T114230Z-7117da1c1055",
+          "contentSha256": "8c640b74691222c76176798d86e554e7c259f381a1f91dd81c361ac25d81f904",
+          "dumpSha256": "c58c008b90079bf1ac9612a6f16bff3f6899ff854fe265f31c94c85acdc8ed49",
+          "manifestSha256": "c3def80e40bf8ebad3e0d3e3a2c09a64b2d4d99bd6cf95d48c41b7b12ff62400"
+        },
+        "phase": "backup-post",
+        "previous": "7ce460b3ae0141cbf4f9bb5958680f340dc592a80c2907443533b27cdd48a561",
+        "reason": null,
+        "receiptSha256": "a714d063d660dc164ce3f523e258533377f9f928a6154f3125905344f9f9a042",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T11:41:52.116Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "7ce460b3ae0141cbf4f9bb5958680f340dc592a80c2907443533b27cdd48a561",
+          "operationId": "op-backup-post",
+          "phase": "backup-post",
+          "previous": "a654ff0379b7d9c6110517d0fd26223db2a963fa873a20b9a7ee463f196ea142",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T11:54:10.516Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 738400.1396999999,
+          "eventSha256": "d6d5e67ae008deacff5901b2139c2f4c977d6d3688397433c9d0a6b51cd1cda7",
+          "operationId": "op-backup-post",
+          "outputs": {
+            "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261009T114230Z-7117da1c1055",
+            "backupId": "daily-20261009T114230Z-7117da1c1055",
+            "contentSha256": "8c640b74691222c76176798d86e554e7c259f381a1f91dd81c361ac25d81f904",
+            "dumpSha256": "c58c008b90079bf1ac9612a6f16bff3f6899ff854fe265f31c94c85acdc8ed49",
+            "manifestSha256": "c3def80e40bf8ebad3e0d3e3a2c09a64b2d4d99bd6cf95d48c41b7b12ff62400"
+          },
+          "phase": "backup-post",
+          "previous": "7ce460b3ae0141cbf4f9bb5958680f340dc592a80c2907443533b27cdd48a561",
+          "reason": null,
+          "receiptSha256": "a714d063d660dc164ce3f523e258533377f9f928a6154f3125905344f9f9a042",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "op-restore-post",
+      "phase": "restore-post",
+      "latest": {
+        "at": "2026-10-09T12:08:20.504Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 805629.5728000002,
+        "eventSha256": "cbe14db6f90f122b14882c7500547b8dac8d05659f8c91ebd7ce33323a0103a1",
+        "operationId": "op-restore-post",
+        "outputs": {
+          "backupId": "daily-20261009T114230Z-7117da1c1055",
+          "dumpSha256": "c58c008b90079bf1ac9612a6f16bff3f6899ff854fe265f31c94c85acdc8ed49"
+        },
+        "phase": "restore-post",
+        "previous": "da81a3b4da41efef9a3f03a22653371a36143c188618f5c993719fa34f4177d3",
+        "reason": null,
+        "receiptSha256": "36a5d19c701de397dc8c4335cd2aa75db590a83a707dc9a549a3e361a52001ac",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T11:54:54.873Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "da81a3b4da41efef9a3f03a22653371a36143c188618f5c993719fa34f4177d3",
+          "operationId": "op-restore-post",
+          "phase": "restore-post",
+          "previous": "5edabb718d53b7d665bcf90881cb58663eb453cfbebea5c937fb4120a0429e70",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T12:08:20.504Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 805629.5728000002,
+          "eventSha256": "cbe14db6f90f122b14882c7500547b8dac8d05659f8c91ebd7ce33323a0103a1",
+          "operationId": "op-restore-post",
+          "outputs": {
+            "backupId": "daily-20261009T114230Z-7117da1c1055",
+            "dumpSha256": "c58c008b90079bf1ac9612a6f16bff3f6899ff854fe265f31c94c85acdc8ed49"
+          },
+          "phase": "restore-post",
+          "previous": "da81a3b4da41efef9a3f03a22653371a36143c188618f5c993719fa34f4177d3",
+          "reason": null,
+          "receiptSha256": "36a5d19c701de397dc8c4335cd2aa75db590a83a707dc9a549a3e361a52001ac",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "preserve-post-recovery",
+      "phase": "closeout",
+      "latest": {
+        "at": "2026-10-09T12:21:34.358Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 273.50699999998324,
+        "eventSha256": "5f4c0275e94db3f6e7b896eae2b0c57bd032546277027908ae35a3165794d522",
+        "operationId": "preserve-post-recovery",
+        "outputs": {},
+        "phase": "closeout",
+        "previous": "d7490b4a08e36cbe0fda124215f6856ba4573a484e5d640f881621f02036a337",
+        "reason": null,
+        "receiptSha256": "777442e75dc34cafd81e93119d3628c18e15a7808a1d8f9bd705396943137879",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T12:21:34.084Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "d7490b4a08e36cbe0fda124215f6856ba4573a484e5d640f881621f02036a337",
+          "operationId": "preserve-post-recovery",
+          "phase": "closeout",
+          "previous": "4f6c38b7c4ae1cb59c3635a452e3e15c1061ad1fef217c9b7835af06989f006e",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T12:21:34.358Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 273.50699999998324,
+          "eventSha256": "5f4c0275e94db3f6e7b896eae2b0c57bd032546277027908ae35a3165794d522",
+          "operationId": "preserve-post-recovery",
+          "outputs": {},
+          "phase": "closeout",
+          "previous": "d7490b4a08e36cbe0fda124215f6856ba4573a484e5d640f881621f02036a337",
+          "reason": null,
+          "receiptSha256": "777442e75dc34cafd81e93119d3628c18e15a7808a1d8f9bd705396943137879",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "readiness-closeout",
+      "phase": "closeout",
+      "latest": {
+        "at": "2026-10-09T12:26:02.674Z",
+        "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+        "durationMs": 48023.98710000003,
+        "eventSha256": "658479aaea58bbd12c892d3f2cb67ef4a573a963d0ce410ccf19d5c076ee2787",
+        "operationId": "readiness-closeout",
+        "outputs": {},
+        "phase": "closeout",
+        "previous": "31a32ed1a4730c01e93a38fa21d4bc718bc57ce3e120f3cffba5d5c973a93151",
+        "reason": null,
+        "receiptSha256": "4f88c0f95015ad5ea26644a9986d4b32ad763837418f2e5fc7ce645c52f82cac",
+        "status": "passed"
+      },
+      "attempts": [
+        {
+          "at": "2026-10-09T12:25:14.650Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "eventSha256": "31a32ed1a4730c01e93a38fa21d4bc718bc57ce3e120f3cffba5d5c973a93151",
+          "operationId": "readiness-closeout",
+          "phase": "closeout",
+          "previous": "57fd8e8d19da6876e1094f943af336305969e6d840e0b655e98d478b3745bdff",
+          "status": "started"
+        },
+        {
+          "at": "2026-10-09T12:26:02.674Z",
+          "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+          "durationMs": 48023.98710000003,
+          "eventSha256": "658479aaea58bbd12c892d3f2cb67ef4a573a963d0ce410ccf19d5c076ee2787",
+          "operationId": "readiness-closeout",
+          "outputs": {},
+          "phase": "closeout",
+          "previous": "31a32ed1a4730c01e93a38fa21d4bc718bc57ce3e120f3cffba5d5c973a93151",
+          "reason": null,
+          "receiptSha256": "4f88c0f95015ad5ea26644a9986d4b32ad763837418f2e5fc7ce645c52f82cac",
+          "status": "passed"
+        }
+      ]
+    }
+  ],
+  "historicalUnknown": [
+    {
+      "at": "2026-10-09T10:05:44.551Z",
+      "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+      "durationMs": 36358.937200000044,
+      "eventSha256": "e774cfc5d5605f314bf4f9638802a1c9a4f3df28cc111d48fed06cc33d7908cb",
+      "operationId": "step-entermaintenance",
+      "outputs": null,
+      "phase": "drain",
+      "previous": "4df3857816ef31cc3886bfe1f3b080a93a6b2edf1f05a6d7f84c82fb371f9b39",
+      "reason": "operator-failed-or-result-unavailable",
+      "receiptSha256": null,
+      "status": "unknown"
+    },
+    {
+      "at": "2026-10-09T11:13:28.944Z",
+      "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+      "durationMs": 1805331.1869,
+      "eventSha256": "3b6b999dca6a79d2374aa35140205a07e10cee7d95cd01627507435154b22513",
+      "operationId": "step-startworker",
+      "outputs": null,
+      "phase": "switch",
+      "previous": "4bb2a8f4b0e44b4d51607685788f9d4cfe34155215819932429430697cc75d61",
+      "reason": "operator-failed-or-result-unavailable",
+      "receiptSha256": null,
+      "status": "unknown"
+    },
+    {
+      "at": "2026-10-09T11:24:43.154Z",
+      "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+      "durationMs": 72320.73980000004,
+      "eventSha256": "675a390002e382856bbef1ed8fac8a561407c6734cade630e04390b83b3b442e",
+      "operationId": "priority-production-ui",
+      "outputs": null,
+      "phase": "acceptance",
+      "previous": "e3a6beb6afbf6a76e7fb085c20fc186b791cd6c80c377d490e2df6b2890fe8a9",
+      "reason": "operator-failed-or-result-unavailable",
+      "receiptSha256": null,
+      "status": "unknown"
+    }
+  ],
+  "recovery": {
+    "pre": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "1784b2dfdef6",
+      "startedAt": "2026-10-09T09:47:23.4886453+00:00",
+      "completedAt": "2026-10-09T09:59:41.7637531+00:00",
+      "backupId": "daily-20261009T093521Z-fad1f830c54f",
+      "backupManifestSha256": "c1095aec1a1a65f0eb3c3e761a46b2c97a5552b7a721230303d05a1f1cbeafd8",
+      "dumpSha256": "7c7f209bed454047e96129a15aec9d96d3dc7b51e39d8bf778fa59a178711dc0",
+      "expectedContentSha256": "148cfb598270dbca802decfa553985d2ae650aac15e50e716bfcfab0a996a126",
+      "restoredContentSha256": "148cfb598270dbca802decfa553985d2ae650aac15e50e716bfcfab0a996a126",
+      "isolatedPort": 55591,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "sequenceHealthVerified": true,
+      "profileContentSha256": "af59dfbf79f8b15e868452e3e4e8ab8605df72a9a6d7564519dfde6ef34ccb87",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    },
+    "post": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "cb75cb8eed5a",
+      "startedAt": "2026-10-09T11:55:54.0960263+00:00",
+      "completedAt": "2026-10-09T12:08:20.4086645+00:00",
+      "backupId": "daily-20261009T114230Z-7117da1c1055",
+      "backupManifestSha256": "c3def80e40bf8ebad3e0d3e3a2c09a64b2d4d99bd6cf95d48c41b7b12ff62400",
+      "dumpSha256": "c58c008b90079bf1ac9612a6f16bff3f6899ff854fe265f31c94c85acdc8ed49",
+      "expectedContentSha256": "8c640b74691222c76176798d86e554e7c259f381a1f91dd81c361ac25d81f904",
+      "restoredContentSha256": "8c640b74691222c76176798d86e554e7c259f381a1f91dd81c361ac25d81f904",
+      "isolatedPort": 55591,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "sequenceHealthVerified": true,
+      "profileContentSha256": "cc5c8cb6cf1d1e7753761282989f86be8a07ac6ceb5f6b25b206a1068292cecf",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    }
+  },
+  "retainedBackupDirectories": [
+    "daily-20260928T125351Z-31cb501bc72d",
+    "daily-20260929T012900Z-ad2817875f20",
+    "daily-20261009T114230Z-7117da1c1055"
+  ],
+  "availability": {
+    "monitor": {
+      "startedAt": "2026-10-09T09:25:57.280Z",
+      "endedAt": "2026-10-09T12:27:03.582Z",
+      "samples": 3614,
+      "readOnly": true,
+      "responseBodiesPersisted": false
+    },
+    "probes": {
+      "entry": {
+        "totalSamples": 3614,
+        "okSamples": 3390,
+        "failedSamples": 224,
+        "failureGroups": [
+          {
+            "lastSuccessBefore": "2026-10-09T10:35:10.940Z",
+            "firstFailedAt": "2026-10-09T10:35:13.942Z",
+            "lastFailedAt": "2026-10-09T10:46:12.057Z",
+            "failedSamples": 220,
+            "firstSuccessAfter": "2026-10-09T10:46:15.065Z",
+            "failedSampleSpanMs": 658115,
+            "bracketingSpanMs": 664125
+          },
+          {
+            "lastSuccessBefore": "2026-10-09T12:16:02.057Z",
+            "firstFailedAt": "2026-10-09T12:16:05.061Z",
+            "lastFailedAt": "2026-10-09T12:16:14.077Z",
+            "failedSamples": 4,
+            "firstSuccessAfter": "2026-10-09T12:16:17.089Z",
+            "failedSampleSpanMs": 9016,
+            "bracketingSpanMs": 15032
+          }
+        ]
+      },
+      "customer": {
+        "totalSamples": 723,
+        "okSamples": 677,
+        "failedSamples": 46,
+        "failureGroups": [
+          {
+            "lastSuccessBefore": "2026-10-09T10:34:52.887Z",
+            "firstFailedAt": "2026-10-09T10:35:07.930Z",
+            "lastFailedAt": "2026-10-09T10:46:09.054Z",
+            "failedSamples": 45,
+            "firstSuccessAfter": "2026-10-09T10:46:24.086Z",
+            "failedSampleSpanMs": 661124,
+            "bracketingSpanMs": 691199
+          },
+          {
+            "lastSuccessBefore": "2026-10-09T12:22:20.907Z",
+            "firstFailedAt": "2026-10-09T12:22:35.942Z",
+            "lastFailedAt": "2026-10-09T12:22:35.942Z",
+            "failedSamples": 1,
+            "firstSuccessAfter": "2026-10-09T12:22:50.996Z",
+            "failedSampleSpanMs": 0,
+            "bracketingSpanMs": 30089
+          }
+        ]
+      }
+    },
+    "limits": "HTTP 200 samples and 2s request deadlines only; probe starts recorded, not exact downtime or browser paint. Entry nominal 3s/customer 15s; no response bodies persisted."
+  }
+}

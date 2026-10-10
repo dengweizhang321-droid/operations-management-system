@@ -1,0 +1,16 @@
+你是真正的 Antigravity 独立评审。用户明确要你和GPT-6 Astra两个agent讨论“现在上线方案的合理性及后续优化方案”。这是第一轮独立立场，暂不读Astra的报告；第二轮将把对方观点交给你回应。
+
+仅用原生view_file，只访问本讨论worktree，不运行shell/测试/浏览器/生产operator、不修改任何文件、不读凭据/.env/.dev.vars/原始客户数据。上游已完成Obsidian Home及相关记忆启动协议并提供规则摘要，无需读取工作区外内容。不要申请绕过权限，也不读正在执行任务的外部文件。
+
+工作区 D:/.codex/worktrees/release-plan-agent-discussion-20261010/运营管理系统。必须先读 docs/release-plan-agent-discussion-20261010/REVIEW_CONTEXT.md、live-observation-start.json。机器文件稍晚于context初始观察，按其observedAt和latest认定截点。当前AB已批准/切换、验收还未闭合，UI重试又unknown；旧EXACT_AB_BATCH_PLAN中的“尚未批准/未执行”已经过时。不能建议执行中更换ABC、取消重发、改21步骤减免，也不能由UI失败猜故障根因或说AB全部失败。
+
+精读 docs/release-integration-review/EXACT_AB_BATCH_PLAN.md、docs/RELEASE_BATCH_WORKFLOW.md 与 docs/antigravity-release-audit-20261010/AGY_FACT_CHECK.md；另外选读 batch-v2/adapter.mjs、collector.mjs、validators.mjs、ui-audit.mjs，tools/release-batch.mjs、release-batch-admission.mjs，以及A/B/C报告中实际相关段落。最多约12次必要读取，不通读全系统或旧全部报告。
+
+输出完整但控制在约1600中文字：
+1. 现方案合理之处、不合理/可改善处、当前进行中边界；AB→C与原ABC组合的取舍。
+2. 未来P0/P1/P2优化，具体接口/文件或流程点、保留哪些保障、前置条件、如何测量/验收、已有候选能否复用。
+3. 向GPT-6 Astra提出3～5个具体质询，用于第二轮交叉讨论。你可以不同意上游，只需证据。
+
+重点审视两轮完整备份+隔离恢复、每步重算源/工具/权限/动态进程、Django包未变化却停启、watchdog安装/自然观察、在线正常写入下全PG深比较、UI与版本/环境噪声、文档收尾与队列。
+避免旧错误：阶段与准入子项重复相加、残差都叫空闲、历史EOF根因直接断定、状态失败当瞬态/超时、固定21点最佳、确定节省15～25分钟或纯前端总时长承诺。恢复流程是2次Backup+2次隔离Restore，不是4次dump；纯UI目录/manifest未变不足以display，旧四文件仍strict；数据库profile不覆盖R2/n8n。
+最终response必须包含正文，不写文件。建议只是后续新批次方案，不改变当前执行范围。

@@ -1,0 +1,111 @@
+{
+  "verifiedAtUtc": "2026-10-10T07:03:59.995Z",
+  "baseline": "36d6687bcc3e25dcd07cea8a0aeaaf7d9acfd5b3",
+  "scope": "read-only discussion and documentation, no implementation or production operation",
+  "astra": {
+    "taskPath": "/root/astra_release_review",
+    "dispatchedModel": "gpt-6-astra",
+    "reasoningEffort": "high",
+    "forkTurns": "none",
+    "reports": [
+      "ASTRA_ROUND1.md",
+      "ASTRA_ROUND2.md",
+      "ASTRA_FINAL.md"
+    ]
+  },
+  "antigravity": {
+    "actualExecutable": "C:/Users/86137/AppData/Local/agy/bin/agy.exe",
+    "rounds": [
+      {
+        "round": 1,
+        "status": "SUCCESS",
+        "conversationId": "617402ff-51b6-461e-958a-beeb970c5a11",
+        "completedToolCalls": 12,
+        "toolErrors": 1,
+        "call": {
+          "arguments": [
+            "-p",
+            "<agy-round1-prompt.txt>",
+            "--mode",
+            "plan",
+            "--output-format",
+            "stream-json",
+            "--print-timeout",
+            "6m"
+          ],
+          "durationSeconds": 155.6472335,
+          "exitCode": 0,
+          "endedAtUtc": "2026-10-10T06:54:54.0907318+00:00",
+          "executable": "C:/Users/86137/AppData/Local/agy/bin/agy.exe",
+          "startedAtUtc": "2026-10-10T06:52:18.4434983+00:00"
+        }
+      },
+      {
+        "round": 2,
+        "status": "SUCCESS",
+        "conversationId": "617402ff-51b6-461e-958a-beeb970c5a11",
+        "completedToolCalls": 8,
+        "toolErrors": 0,
+        "call": {
+          "endedAtUtc": "2026-10-10T07:00:00.4868344+00:00",
+          "startedAtUtc": "2026-10-10T06:57:43.4802983+00:00",
+          "conversation": "617402ff-51b6-461e-958a-beeb970c5a11",
+          "arguments": [
+            "--conversation",
+            "617402ff-51b6-461e-958a-beeb970c5a11",
+            "-p",
+            "<agy-round2-prompt.txt>",
+            "--mode",
+            "plan",
+            "--output-format",
+            "stream-json",
+            "--print-timeout",
+            "4m"
+          ],
+          "executable": "C:/Users/86137/AppData/Local/agy/bin/agy.exe",
+          "durationSeconds": 137.0065361,
+          "exitCode": 0
+        }
+      }
+    ]
+  },
+  "exchangeOrder": [
+    "Independent AGY and Astra round 1",
+    "Astra read AGY_ROUND1 and wrote ASTRA_ROUND2",
+    "Resumed AGY read both Astra reports and wrote AGY_ROUND2",
+    "Astra read AGY_ROUND2 and wrote ASTRA_FINAL",
+    "Coordinator verified source limits and combined FINAL_PLAN"
+  ],
+  "checks": {
+    "markdownLinks": 41,
+    "jsonValid": true,
+    "actualPeerReadInAgyTrace": true,
+    "rawResponseEquivalent": true
+  },
+  "reports": [
+    {
+      "path": "FINAL_PLAN.md",
+      "sha256": "89ab7e8c036e538555a51831a7e81f125ab5f9295ce4ad24b980a7086cd98bd1"
+    },
+    {
+      "path": "ASTRA_ROUND1.md",
+      "sha256": "ef4983e61904cf410cef296a101c6d025974392077fd2b5922c7b91a7bacc090"
+    },
+    {
+      "path": "ASTRA_ROUND2.md",
+      "sha256": "578b6569a6ae8ac72aa50bacfb2a3c2a7d4ab5f816f975abfcf523fa17737eb9"
+    },
+    {
+      "path": "ASTRA_FINAL.md",
+      "sha256": "a6ce1378d0ae327df3124bd7cf3519ab5577d2d7bf3803fd570e047268c35d65"
+    },
+    {
+      "path": "AGY_ROUND1.md",
+      "sha256": "9c418be07ea2503335a631af1af43811a81c7f0702f15fb254f297e5fc3a2224"
+    },
+    {
+      "path": "AGY_ROUND2.md",
+      "sha256": "4b8d8ea7546719cfc2c840b60b2c0672f4e354b3df09487c93d9e830f1476518"
+    }
+  ]
+}

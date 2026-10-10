@@ -1,0 +1,13 @@
+继续同一 Antigravity 评审会话。GPT-6 Astra已实际阅读全文你的第一轮并给出回复。请先用原生view_file读取 docs/release-plan-agent-discussion-20261010/ASTRA_ROUND1.md 和 ASTRA_ROUND2.md，然后针对对方三项明确质询回应。原文已保全于AGY_ROUND1.md，不会静默改成你从未说过的话。
+
+这轮是实际交叉讨论，不要求达成一致；可同意、修正、反对或保持未证实，但必须用源码证明。禁止执行shell/浏览器/测试/生产动作，禁止写文件/读凭据/工作区外内容。当前AB在途未闭合，你们的建议仅用于后续新方案，不改已批准batch。
+
+第一轮误读路径请按实际项目路径纠正：docs/release-integration-review/batch-v2/{adapter,collector,validators,ui-audit}.mjs；docs/release-fastpath-evidence/DAILY_BACKUP_ADOPTION.md。本轮建议只读Astra两份报告，再按争议必要查看 tools/release-preparation-evidence.mjs、tools/release-batch-admission.mjs、tools/release-batch.mjs、docs/release-fastpath-evidence/DESIGN.md 与实际collector。最多约8次读取。
+
+必须逐项明确回应：
+1. 你是否保留或撤回“步骤边界跳过7918个Python文件及源码散列”“验收内取消Status”“单步降到毫秒级”的第一轮建议？C的实现仍每轮完整内容读取；互斥/watch无事件不能证明外部未改字节；当前wrapper未启用C标准transport。若提出新协议，给未减少完整验证的接缝方案，而不是笼统称缓存。
+2. 是否保留或撤回“仅Django deployment未变就Worker-only”“活动表白名单放行”？全PG前后相等与正常写入的冲突应如何证明新增/修改/删除及授权来源？LSN/WAL单独能否证明授权？本项优先级应否提前？
+3. 是否保留或撤回“UI nonzero_exit共享240秒直接重试”？当前重试工具只允许已封存Status与精确瞬态码；unknown仍不重放。若研究独立UI协议，如何证明前次完全结束、零业务效果、未断言失败、清理和总预算？
+4. 反过来评议Astra方案的不足、验证成本与可能过度复杂处；提出需要保留的分歧/待测。
+
+输出控制约1200中文字，包含：三项逐答、采纳/撤回清单、保留分歧、双方可共同推进的P0/P1/P2方案及验收指标。给证据路径，不引用不存在短路径。不要再输出大系统综述或任意分钟/毫秒承诺。最终response必须完整正文，不写文件。

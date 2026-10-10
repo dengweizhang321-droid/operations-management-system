@@ -1,0 +1,278 @@
+{
+  "status": "completed",
+  "scope": [
+    "Jackyun helper recovery fix",
+    "existing n8n error classifier"
+  ],
+  "sourceFix": "f213e6090236ea8075e1e101c241580c438b92a2",
+  "sourceGitCommit": "224963800233a8b2ff06f66091217d39d204c1ea",
+  "releaseId": "20261009T030646Z-9f93e52aa005de7c",
+  "manifestSha256": "a083c4c2fe4d40cf4cefd1d0b24ea5662429ae9533ba313d279c5dbf651faa0f",
+  "helperSha256": "41f428a77b4919971402e29b1f1c2e581f48ec83e7f2ba02e25d1acbaf538cdd",
+  "djangoManifestUnchanged": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "batchSha256": "766b56d15fc86754a47e753701c6388a444d2d9b467127091a6d9ea9ebac281f",
+  "operationsPassed": 16,
+  "n8n": {
+    "status": "passed",
+    "classifierPublished": true,
+    "draftStored": false,
+    "onlyClassifierBehaviorChanged": true,
+    "editorMetadataNormalizations": [
+      {
+        "id": "3ecdf16a-d64e-4569-a1c7-7f1ed8ac4ccc",
+        "path": "parameters.mode",
+        "before": "runOnceForAllItems",
+        "after": "omitted-default"
+      },
+      {
+        "id": "10c36f4f-85d7-4854-be8b-64b1c277dcd9",
+        "path": "parameters.conditions.options.leftValue",
+        "before": "absent",
+        "after": ""
+      },
+      {
+        "id": "10c36f4f-85d7-4854-be8b-64b1c277dcd9",
+        "path": "position",
+        "before": [
+          380,
+          0
+        ],
+        "after": [
+          384,
+          0
+        ]
+      },
+      {
+        "id": "f778a31a-9171-4da9-8f28-b0a39cef5cfb",
+        "path": "position",
+        "before": [
+          420,
+          140
+        ],
+        "after": [
+          432,
+          144
+        ]
+      }
+    ],
+    "otherWorkflowsUnchanged": 21,
+    "ownersAndWebhooksPreserved": true,
+    "historyEvidencePreserved": true,
+    "liveHistoricalVersionsRetained": 27,
+    "archivedHistoricalVersions": 31,
+    "historyPresentOnlyInBackup": [
+      {
+        "workflowId": "JdCustomerServiceChudian2026",
+        "versionId": "d5ecb10b-6ac6-4bed-8576-889a3a3506ab"
+      },
+      {
+        "workflowId": "JdCustomerServiceCutMeat2026",
+        "versionId": "ebd9623b-0260-4282-98b9-9cdcd9af6aa9"
+      },
+      {
+        "workflowId": "JdCustomerServiceDishwasher2026",
+        "versionId": "318e2564-daec-46a1-b985-ac23a0055624"
+      },
+      {
+        "workflowId": "TeruisiHourlyRetry2026",
+        "versionId": "c9e44b00-e470-4400-8652-87c2b31d2489"
+      }
+    ],
+    "versionId": "b3f1527f-624f-4bb7-8612-371fcbb4e749",
+    "classifierSha256": "728c6022a31a953edca12137a3eb01a02ab048d0f49d169f890ee0535eb217c8",
+    "realBusinessExecutions": 0
+  },
+  "businessExecutionsTriggered": 0,
+  "jackyunRunsSinceApproval": [],
+  "preBackup": {
+    "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261009T035116Z-cbdbcfb037b2",
+    "backupId": "daily-20261009T035116Z-cbdbcfb037b2",
+    "contentSha256": "0a5b7674107f23c98ebc347517ffdfa4d07d2d76f1b8609e2ea59476ad3e6638",
+    "dumpSha256": "279d75b118c8b2a562d0c0b85428e3efb618a6dbf9bf584c6324d3e8fc8ef371",
+    "manifestSha256": "312e1bfcddf807acdf6500baad7a25c7d3741e80cbda21ee8b84ab8665cb4954"
+  },
+  "postBackup": {
+    "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261009T045029Z-c4be4df70bcf",
+    "backupId": "daily-20261009T045029Z-c4be4df70bcf",
+    "contentSha256": "a444148abd9f4ce5909a7bdd96fcc1088ca8e975e8eb243ef1f1f94b4548c631",
+    "dumpSha256": "2e8fe225e8b80dfdb590b7ec0cddb5d547786452b925afa052a7c1d3aa351571",
+    "manifestSha256": "a653eb9d992b719a914063edcf9450138ec07722b3416837cf739d6d3982f707"
+  },
+  "backupProfileComparison": {
+    "at": "2026-10-09T05:03:49.855Z",
+    "preManifest": "312e1bfcddf807acdf6500baad7a25c7d3741e80cbda21ee8b84ab8665cb4954",
+    "postManifest": "a653eb9d992b719a914063edcf9450138ec07722b3416837cf739d6d3982f707",
+    "profileTables": 296,
+    "changedTables": [
+      {
+        "table": "market_write_request_receipts",
+        "beforeRows": 178765,
+        "afterRows": 178808
+      },
+      {
+        "table": "netshop_data_revisions",
+        "beforeRows": 1,
+        "afterRows": 1
+      },
+      {
+        "table": "netshop_import_attempts",
+        "beforeRows": 2148,
+        "afterRows": 2149
+      },
+      {
+        "table": "netshop_import_batches",
+        "beforeRows": 2108,
+        "afterRows": 2109
+      },
+      {
+        "table": "netshop_import_fingerprints",
+        "beforeRows": 2108,
+        "afterRows": 2109
+      },
+      {
+        "table": "netshop_import_scope_heads",
+        "beforeRows": 38,
+        "afterRows": 38
+      },
+      {
+        "table": "netshop_rows",
+        "beforeRows": 2273294,
+        "afterRows": 2276308
+      },
+      {
+        "table": "netshop_write_request_receipts",
+        "beforeRows": 1159,
+        "afterRows": 1160
+      }
+    ],
+    "catalogEqual": true,
+    "rolesEqual": true,
+    "migrationsEqual": true,
+    "allContentEqual": false
+  },
+  "approvedAt": "2026-10-09T00:41:37.000Z",
+  "closedAt": "2026-10-09T05:18:52.563Z",
+  "totalApprovedToCloseoutMs": 16635563,
+  "otherBatchWaitToPreparationMs": 8706770,
+  "onlinePreparationMs": 623047,
+  "timing": {
+    "durationMs": {
+      "queue": 68.118,
+      "prepare": 623440.0291,
+      "backup-pre": 779279.6657,
+      "restore-pre": 762199.4565999999,
+      "drain": 464466.2270999998,
+      "switch": 327736.2283999999,
+      "acceptance": 426677.6038,
+      "business": 0,
+      "backup-post": 741428.3570999999,
+      "restore-post": 753836.7013999999,
+      "closeout": 280413.8786000002
+    },
+    "approvedToCompleteMs": 16635563,
+    "elapsedSinceApprovalMs": 16635563,
+    "switchExecutionMs": 327736.2283999999,
+    "switchSpanMs": 1291963,
+    "completed": true,
+    "waits": [
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 190272.0629
+      },
+      {
+        "phase": "prepare",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 38998.57620000001
+      },
+      {
+        "phase": "backup-pre",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 39955.06580000004
+      },
+      {
+        "phase": "restore-pre",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 39307.092399999965
+      },
+      {
+        "phase": "drain",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 192205.96959999995
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 33827.42749999976
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 30489.781399999745
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 30780.27960000001
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 33374.183000000194
+      },
+      {
+        "phase": "switch",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 142923.8223
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 71338.1261
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 66492.1042
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 72786.1423
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 67236.12919999997
+      },
+      {
+        "phase": "backup-post",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 38128.733099999954
+      },
+      {
+        "phase": "restore-post",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 38503.44179999991
+      },
+      {
+        "phase": "closeout",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 161037.0360999999
+      },
+      {
+        "phase": "closeout",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 88969.34400000004
+      }
+    ]
+  },
+  "startupReconciledWithoutReplay": true,
+  "originalFailuresPreserved": true,
+  "recordedAt": "2026-10-09T05:19:01.555Z"
+}

@@ -1,0 +1,587 @@
+{
+  "status": "production-batch-completed",
+  "sourceCommit": "e1f384e1e348b666da30d78e35d408aa882415b8",
+  "batchSha256": "8f6ed5eff8f63d088b5523d71a929856445db016d1c986396376390b470462af",
+  "workerReleaseId": "20261008T182600Z-f5d4b05177d17010",
+  "djangoManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "strictFullFlow": true,
+  "approvedAt": "2026-10-09T00:40:46.000Z",
+  "completedAt": "2026-10-09T03:03:20.676Z",
+  "timing": {
+    "durationMs": {
+      "queue": 396.9462000000002,
+      "prepare": 1066904.9208999998,
+      "backup-pre": 919343.545,
+      "restore-pre": 869058.8252000003,
+      "drain": 493183.07710000034,
+      "switch": 447227.02420000033,
+      "acceptance": 715460.9031,
+      "business": 0,
+      "backup-post": 740459.8031000001,
+      "restore-post": 794984.0386999999,
+      "closeout": 199199.9990999999
+    },
+    "approvedToCompleteMs": 8554676,
+    "elapsedSinceApprovalMs": 8554676,
+    "switchExecutionMs": 447227.02420000033,
+    "switchSpanMs": 1873645,
+    "completed": true,
+    "waits": [
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 218856.2173
+      },
+      {
+        "phase": "prepare",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 39922.68580000001
+      },
+      {
+        "phase": "backup-pre",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 40402.79330000002
+      },
+      {
+        "phase": "restore-pre",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 45470.42470000009
+      },
+      {
+        "phase": "drain",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 203911.32970000012
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 33395.7359000002
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 32840.64009999996
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 31340.74599999981
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 32394.04230000032
+      },
+      {
+        "phase": "switch",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 32587.78109999979
+      },
+      {
+        "phase": "switch",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 125461.1355
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 73766.6172
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 73081.17360000001
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 93142.51020000002
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operator-failed-or-result-unavailable",
+        "durationMs": 3191.0488999999943
+      },
+      {
+        "phase": "acceptance",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 109697.79250000001
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 76772.2244
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operator-failed-or-result-unavailable",
+        "durationMs": 5292.823699999979
+      },
+      {
+        "phase": "acceptance",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 114680.0515
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 77065.14550000001
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 73345.8744
+      },
+      {
+        "phase": "acceptance",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 72326.55900000001
+      },
+      {
+        "phase": "backup-post",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 38988.71799999999
+      },
+      {
+        "phase": "restore-post",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 43564.278099999996
+      },
+      {
+        "phase": "closeout",
+        "reason": "operation-boundary-revalidation",
+        "durationMs": 162112.3713
+      },
+      {
+        "phase": "closeout",
+        "reason": "operator-failed-or-result-unavailable",
+        "durationMs": 37087.6277999999
+      },
+      {
+        "phase": "closeout",
+        "reason": "independently-reconciled",
+        "durationMs": 0
+      },
+      {
+        "phase": "prepare",
+        "reason": "live-predecessor-and-integrity-revalidation",
+        "durationMs": 162768.6208
+      }
+    ]
+  },
+  "operations": [
+    {
+      "id": "reuse-final-worker",
+      "phase": "prepare",
+      "startedAt": "2026-10-09T00:46:04.589Z",
+      "passedAt": "2026-10-09T00:51:00.107Z",
+      "recordedExecutionMs": 295518.4175,
+      "wallSpanMs": 295518,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "c83b1eb85bb17244708018aab5e709bd91661f97a2b3d29cec293f8eca9bec52"
+    },
+    {
+      "id": "op-backup-pre",
+      "phase": "backup-pre",
+      "startedAt": "2026-10-09T00:51:40.517Z",
+      "passedAt": "2026-10-09T01:06:19.458Z",
+      "recordedExecutionMs": 878940.7517,
+      "wallSpanMs": 878941,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "5c30886de2d5053178ef85f4340b14e1c25b146fa1b97d43bc0c68738f75e420"
+    },
+    {
+      "id": "op-restore-pre",
+      "phase": "restore-pre",
+      "startedAt": "2026-10-09T01:07:04.935Z",
+      "passedAt": "2026-10-09T01:20:48.523Z",
+      "recordedExecutionMs": 823588.4005000002,
+      "wallSpanMs": 823588,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "164f0fdd699a75a4822ff85a8687fc38624dfd8cf37fde487f792201b9b3817e"
+    },
+    {
+      "id": "step-entermaintenance",
+      "phase": "drain",
+      "startedAt": "2026-10-09T01:24:12.441Z",
+      "passedAt": "2026-10-09T01:29:01.712Z",
+      "recordedExecutionMs": 289271.7474000002,
+      "wallSpanMs": 289271,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "c7802dd9eeaec8d54377d0cba936be282641091b115a76446019cabf1dc8f3dd"
+    },
+    {
+      "id": "step-deployapp",
+      "phase": "switch",
+      "startedAt": "2026-10-09T01:29:35.114Z",
+      "passedAt": "2026-10-09T01:31:00.040Z",
+      "recordedExecutionMs": 84927.14540000027,
+      "wallSpanMs": 84926,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "60995fd35418575c447625fa8d51c9564fffdf84a7f4baab9931ec887d6c85af"
+    },
+    {
+      "id": "step-hardenacl",
+      "phase": "switch",
+      "startedAt": "2026-10-09T01:31:32.887Z",
+      "passedAt": "2026-10-09T01:31:58.044Z",
+      "recordedExecutionMs": 25156.95269999979,
+      "wallSpanMs": 25157,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "ba3657c796c3f0767bf8c60bcc5ac7bb31e0e931748a140981362279a83d664e"
+    },
+    {
+      "id": "apply-final-worker",
+      "phase": "switch",
+      "startedAt": "2026-10-09T01:32:29.392Z",
+      "passedAt": "2026-10-09T01:34:44.004Z",
+      "recordedExecutionMs": 134612.9210000001,
+      "wallSpanMs": 134612,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "54af9f6635d85b0a33cd6f9d6f2f4ab1ef59379249649887fb05694e3ff3b5aa"
+    },
+    {
+      "id": "step-exitmaintenance",
+      "phase": "switch",
+      "startedAt": "2026-10-09T01:35:16.404Z",
+      "passedAt": "2026-10-09T01:35:56.375Z",
+      "recordedExecutionMs": 39971.0597000001,
+      "wallSpanMs": 39971,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "e163d9cf3d384133f2245caa0ef3552b04a68ec6fb960cc1a1e20b8d4e736a54"
+    },
+    {
+      "id": "step-startworker",
+      "phase": "switch",
+      "startedAt": "2026-10-09T01:36:28.969Z",
+      "passedAt": "2026-10-09T01:55:26.086Z",
+      "recordedExecutionMs": null,
+      "wallSpanMs": 1137117,
+      "unknownToResolutionMs": null,
+      "reconciled": true,
+      "receiptSha256": "c6cdf11247307879dd7f0874c0f8eb4c4b71f2ce463e8263efb169623f3a9697"
+    },
+    {
+      "id": "check-live-resources",
+      "phase": "acceptance",
+      "startedAt": "2026-10-09T01:59:10.199Z",
+      "passedAt": "2026-10-09T01:59:11.086Z",
+      "recordedExecutionMs": 886.233200000017,
+      "wallSpanMs": 887,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "cb63be8c3ebcc5c05ca657c99fcd5a74a3dc93b06e7eac6037925c3d6c23928c"
+    },
+    {
+      "id": "check-unchanged-business-permissions",
+      "phase": "acceptance",
+      "startedAt": "2026-10-09T02:00:24.173Z",
+      "passedAt": "2026-10-09T02:00:26.287Z",
+      "recordedExecutionMs": 2113.472999999998,
+      "wallSpanMs": 2114,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "97eed9d257cf82ab31b92dde44ed402fc8a198300ca4271bd927463bd2536d83"
+    },
+    {
+      "id": "customer-historical-query-preserved",
+      "phase": "acceptance",
+      "startedAt": "2026-10-09T02:01:59.437Z",
+      "unknownAt": "2026-10-09T02:02:02.628Z",
+      "passedAt": "2026-10-09T02:10:53.274Z",
+      "recordedExecutionMs": null,
+      "wallSpanMs": 533837,
+      "unknownToResolutionMs": 530646,
+      "reconciled": true,
+      "receiptSha256": "76ca2f453f715dd34d4286a04b7336f64ad5d227396715a0495743a4bc917199"
+    },
+    {
+      "id": "customer-four-shop-production-ui",
+      "phase": "acceptance",
+      "startedAt": "2026-10-09T02:14:10.404Z",
+      "unknownAt": "2026-10-09T02:14:15.697Z",
+      "passedAt": "2026-10-09T02:18:41.546Z",
+      "recordedExecutionMs": null,
+      "wallSpanMs": 271142,
+      "unknownToResolutionMs": 265849,
+      "reconciled": true,
+      "receiptSha256": "e26aa8883ddbcef518b1c0950e7097eddf072f224efbff69ff2c5a5c50978780"
+    },
+    {
+      "id": "step-aggregatestatus",
+      "phase": "acceptance",
+      "startedAt": "2026-10-09T02:22:03.276Z",
+      "passedAt": "2026-10-09T02:22:26.501Z",
+      "recordedExecutionMs": 23225.131999999983,
+      "wallSpanMs": 23225,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "4318bbd9af99367a8e3ab004b10354490acbf8e882334ddd9cdbf6a467956b0b"
+    },
+    {
+      "id": "step-verifystartup",
+      "phase": "acceptance",
+      "startedAt": "2026-10-09T02:23:39.853Z",
+      "passedAt": "2026-10-09T02:23:45.803Z",
+      "recordedExecutionMs": 5950.14380000002,
+      "wallSpanMs": 5950,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "d263ef5c413d61b26944a410c784ab1380233844a1ecf332f954798f752fa52e"
+    },
+    {
+      "id": "two-new-natural-watchdogs",
+      "phase": "acceptance",
+      "startedAt": "2026-10-09T02:24:58.137Z",
+      "passedAt": "2026-10-09T02:27:13.439Z",
+      "recordedExecutionMs": 135301.94420000003,
+      "wallSpanMs": 135302,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "db6ce8b13c6245e1c5cbebbefb3fc7b808fead6b1ae28b37cd53e775e23a6b40"
+    },
+    {
+      "id": "op-backup-post",
+      "phase": "backup-post",
+      "startedAt": "2026-10-09T02:27:52.433Z",
+      "passedAt": "2026-10-09T02:39:33.904Z",
+      "recordedExecutionMs": 701471.0851000001,
+      "wallSpanMs": 701471,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "e277936fa70088a65c786d3e1cd12bceaea22c98cdb044c9185516f9a995dd8b"
+    },
+    {
+      "id": "op-restore-post",
+      "phase": "restore-post",
+      "startedAt": "2026-10-09T02:40:17.472Z",
+      "passedAt": "2026-10-09T02:52:48.893Z",
+      "recordedExecutionMs": 751419.7605999999,
+      "wallSpanMs": 751421,
+      "unknownToResolutionMs": null,
+      "reconciled": false,
+      "receiptSha256": "37dd1bbeda1ac3a9bbe329ab2d2d7839e2543b494f376033a60ddf82904d0b14"
+    },
+    {
+      "id": "final-readiness-closeout",
+      "phase": "closeout",
+      "startedAt": "2026-10-09T02:55:31.012Z",
+      "unknownAt": "2026-10-09T02:56:08.100Z",
+      "passedAt": "2026-10-09T03:00:28.432Z",
+      "recordedExecutionMs": null,
+      "wallSpanMs": 297420,
+      "unknownToResolutionMs": 260332,
+      "reconciled": true,
+      "receiptSha256": "3ff3437aba9f45a11196e6f9dcb42acbb1586f6dea1f555bcb5cad6a94df03d4"
+    }
+  ],
+  "availability": {
+    "entry": {
+      "samples": 8512,
+      "successful": 7634,
+      "windows": [
+        {
+          "lastSuccessBefore": "2026-10-09T01:25:24.663Z",
+          "firstUnavailable": "2026-10-09T01:25:25.662Z",
+          "lastUnavailable": "2026-10-09T01:40:08.594Z",
+          "firstSuccessAfter": "2026-10-09T01:40:10.659Z",
+          "lowerBoundMs": 882932,
+          "upperBoundMs": 885996,
+          "unavailableSamples": 877
+        },
+        {
+          "lastSuccessBefore": "2026-10-09T02:40:39.450Z",
+          "firstUnavailable": "2026-10-09T02:40:40.456Z",
+          "lastUnavailable": "2026-10-09T02:40:40.456Z",
+          "firstSuccessAfter": "2026-10-09T02:40:42.536Z",
+          "lowerBoundMs": 0,
+          "upperBoundMs": 3086,
+          "unavailableSamples": 1
+        }
+      ],
+      "method": "Sequential GET status probes, approximately 1s entry / 3s customer, 2s request deadline; brackets are observation bounds, not exact downtime"
+    },
+    "customer": {
+      "samples": 2838,
+      "successful": 2544,
+      "windows": [
+        {
+          "lastSuccessBefore": "2026-10-09T01:25:18.634Z",
+          "firstUnavailable": "2026-10-09T01:25:21.654Z",
+          "lastUnavailable": "2026-10-09T01:40:07.592Z",
+          "firstSuccessAfter": "2026-10-09T01:40:11.662Z",
+          "lowerBoundMs": 885938,
+          "upperBoundMs": 893028,
+          "unavailableSamples": 294
+        }
+      ],
+      "method": "Sequential GET status probes, approximately 1s entry / 3s customer, 2s request deadline; brackets are observation bounds, not exact downtime"
+    }
+  },
+  "accounting": {
+    "firstApprovalAt": "2026-10-08T17:37:04.000Z",
+    "firstFailureToSafeCancelMs": 1505658,
+    "repairAndCandidateReadinessMs": 2772383,
+    "awaitingFreshApprovalMs": 21143959,
+    "freshApprovalToBatchCompleteMs": 8554676,
+    "firstApprovalToBatchCompleteMs": 33976676,
+    "reconciledStartSpanMs": 1137117,
+    "originalStartBodyMs": 252999,
+    "allWallTimeIncluded": true,
+    "recordedDurationsSumMs": 6246219.082600001,
+    "notIncludedInRecordedDurationSumsMs": 2308456.9173999988,
+    "reconciledOperations": [
+      {
+        "id": "step-startworker",
+        "wallSpanMs": 1137117,
+        "unknownToResolutionMs": null
+      },
+      {
+        "id": "customer-historical-query-preserved",
+        "wallSpanMs": 533837,
+        "unknownToResolutionMs": 530646
+      },
+      {
+        "id": "customer-four-shop-production-ui",
+        "wallSpanMs": 271142,
+        "unknownToResolutionMs": 265849
+      },
+      {
+        "id": "final-readiness-closeout",
+        "wallSpanMs": 297420,
+        "unknownToResolutionMs": 260332
+      }
+    ],
+    "durationSumLimit": "Phase duration sums omit reconciled wall spans and dispatch gaps. Full approval-to-closeout wall time includes all interruptions; operation wall spans are supplied separately and must not be added twice."
+  },
+  "backupAudits": [
+    {
+      "action": "Backup",
+      "status": "completed",
+      "operationId": "b00da0c6c5f0463685781a6246bd61ab",
+      "updatedAt": "2026-10-09T01:06:19.3872340+00:00",
+      "backupId": "daily-20261009T005225Z-4154918a77f9",
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261009T005225Z-4154918a77f9",
+      "retention": {
+        "version": "teruisi-backup-retention-plan-v2",
+        "maximumRecoveryPoints": 3,
+        "retainedVerification": "full-evidence",
+        "discardedVerification": "container-integrity",
+        "retained": [
+          "daily-20261009T005225Z-4154918a77f9",
+          "daily-20260929T012900Z-ad2817875f20",
+          "daily-20260928T125351Z-31cb501bc72d"
+        ],
+        "removed": [
+          "daily-20261008T111156Z-c3b19ee333fe"
+        ],
+        "serviceStateChanged": false,
+        "status": "completed"
+      }
+    },
+    {
+      "action": "Backup",
+      "status": "completed",
+      "operationId": "341aedbabc3b425880adc0f1d8a5af0e",
+      "updatedAt": "2026-10-09T02:39:33.8353221+00:00",
+      "backupId": "daily-20261009T022829Z-1b2230ebb792",
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261009T022829Z-1b2230ebb792",
+      "retention": {
+        "version": "teruisi-backup-retention-plan-v2",
+        "maximumRecoveryPoints": 3,
+        "retainedVerification": "full-evidence",
+        "discardedVerification": "container-integrity",
+        "retained": [
+          "daily-20261009T022829Z-1b2230ebb792",
+          "daily-20260929T012900Z-ad2817875f20",
+          "daily-20260928T125351Z-31cb501bc72d"
+        ],
+        "removed": [
+          "daily-20261009T005225Z-4154918a77f9"
+        ],
+        "serviceStateChanged": false,
+        "status": "completed"
+      }
+    }
+  ],
+  "restores": [
+    {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "987ee1f739cc",
+      "startedAt": "2026-10-09T01:08:31.3848330+00:00",
+      "completedAt": "2026-10-09T01:20:48.4061049+00:00",
+      "backupId": "daily-20261009T005225Z-4154918a77f9",
+      "backupManifestSha256": "3bd5da03fffc183a3148d171e997423a41d838fe5e786ca8073b764accb0a6be",
+      "dumpSha256": "b235736cd9d376c7031fd020a2d3809c4696ea9887658ef12883f157780fc2c9",
+      "expectedContentSha256": "395aba7701b133853b2795c51fa84dcdfe859f886a34cb12b4a61dd2ecf15948",
+      "restoredContentSha256": "395aba7701b133853b2795c51fa84dcdfe859f886a34cb12b4a61dd2ecf15948",
+      "isolatedPort": 55488,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "sequenceHealthVerified": true,
+      "profileContentSha256": "e60dc836060d5cf4dd08b0870cda152fd888994823d3c21273f743fca9410027",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    },
+    {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "536aa3f7cb7c",
+      "startedAt": "2026-10-09T02:41:02.3467545+00:00",
+      "completedAt": "2026-10-09T02:52:48.7811324+00:00",
+      "backupId": "daily-20261009T022829Z-1b2230ebb792",
+      "backupManifestSha256": "a8b2da3fc361e78748b7dc64dfbe4bc8a112d3d4a8bbe7d8d9760f6a9f6bbc65",
+      "dumpSha256": "ef11e20ac06f3e7d8a8af0846cd95206d6c23cf5eedb466070880ff759423fff",
+      "expectedContentSha256": "76528c84798b811bc67a8058b5af9c30c643bdaa0c70c276d5ade2599a1cc683",
+      "restoredContentSha256": "76528c84798b811bc67a8058b5af9c30c643bdaa0c70c276d5ade2599a1cc683",
+      "isolatedPort": 55488,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "sequenceHealthVerified": true,
+      "profileContentSha256": "099e85520a2949874fc449feca035e27bed6456164b5e8e9c752cb0b26eb2c75",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    }
+  ],
+  "unexecutedBusinessScope": [
+    "real-four-shop-import",
+    "historical-shop-renaming",
+    "data-recovery",
+    "backup-schedule-change",
+    "n8n-workflow-definition-change"
+  ],
+  "limits": [
+    "Current strict first adoption includes imports/lifecycle; no production fast path was used.",
+    "One observed deployment cannot establish stable latency; historical 63-minute deployment differs in scope/environment.",
+    "Start body completed; original exit zero was not observed. Independent exact live status/startup proof closed the started operation without replay.",
+    "Original timing duration sums omit reconciled operation duration; use explicit wall spans and approval-to-complete for full accounting."
+  ]
+}
