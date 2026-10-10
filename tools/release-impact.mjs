@@ -189,7 +189,7 @@ export async function readSourceTree(root) {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const relative = prefix + entry.name;
       if (['.git', 'node_modules', 'dist', '.venv', '__pycache__', '.runtime', '.wrangler', '.vite-sites-cache', '.next', 'tmp', 'outputs', 'work', '.codex-tmp'].includes(entry.name)) continue;
-      if (entry.name.startsWith('.env') || entry.name === '.dev.vars' || entry.name.endsWith('.pyc')) continue;
+      if ((entry.name.startsWith('.env') && !/\.(example|sample)$/.test(entry.name)) || entry.name === '.dev.vars' || entry.name.endsWith('.pyc')) continue;
       const target = path.join(dir, entry.name);
       if (entry.isDirectory()) await walk(target, `${relative}/`);
       else {
