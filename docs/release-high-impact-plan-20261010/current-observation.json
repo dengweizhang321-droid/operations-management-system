@@ -1,0 +1,75 @@
+{
+  "observedAtUtc": "2026-10-10T08:14:34.219Z",
+  "baseline": "3e08f02383693161312b359e1aad50e6c07a1b53",
+  "journalSource": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/integration-ab-v2-20261010-c22d8dd69a",
+  "eventCount": 45,
+  "firstAt": "2026-10-10T05:28:51.000Z",
+  "latest": {
+    "reuse-reviewed-worker": "passed",
+    "backup-pre": "passed",
+    "restore-pre": "passed",
+    "entermaintenance": "passed",
+    "apply-reviewed-worker": "passed",
+    "exitmaintenance": "passed",
+    "startworker": "passed",
+    "preserve-pre-recovery": "passed",
+    "verify-all-resources": "passed",
+    "actual-readonly-ui": "failed"
+  },
+  "lastEvents": [
+    {
+      "at": "2026-10-10T07:10:27.144Z",
+      "phase": "acceptance",
+      "status": "admission",
+      "reason": "operation-boundary-revalidation",
+      "durationMs": 109861.26690000002
+    },
+    {
+      "at": "2026-10-10T07:10:27.146Z",
+      "phase": "acceptance",
+      "status": "started",
+      "operationId": "actual-readonly-ui"
+    },
+    {
+      "at": "2026-10-10T07:10:54.013Z",
+      "phase": "acceptance",
+      "status": "unknown",
+      "reason": "nonzero_exit",
+      "operationId": "actual-readonly-ui",
+      "durationMs": 26866.651000000013
+    },
+    {
+      "at": "2026-10-10T08:08:11.698Z",
+      "phase": "acceptance",
+      "status": "failed",
+      "reason": "independently-reconciled",
+      "operationId": "actual-readonly-ui"
+    }
+  ],
+  "active": {
+    "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/active.json",
+    "sha256": "7c5af7f44a5aa80579bc9ac2a5038ad5ab757a90dc837de4977513d8be7b0cbf",
+    "value": {
+      "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+      "id": "integration-ab-v2-20261010-c22d8dd69a"
+    }
+  },
+  "receipt": {
+    "source": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-process.json",
+    "sha256": "a319e45850aaae5b2e65d0642e55603c31b23881c0ab8750045a23782dc4cc9b",
+    "value": {
+      "manifestPathSha256": "09fd2e30c1edffd228a87c9915e7811498d219c2d64b83e9fb89ae607a1b431f",
+      "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+      "receiptPayloadSha256": "d0ae50b944d2980dbcccdc378c497b27dfae452e29ce0644b7a922174a1b1bc8",
+      "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+      "supervisorCreationDate": "2026-10-10T06:26:26.7917950Z",
+      "supervisorEntrypointPathSha256": "23a79552d75939cd68edbf0a6b17391565178cc58731231a89fbc9f9c835bcb2",
+      "supervisorPid": 48744,
+      "version": "teruisi-local-worker-process-v1"
+    }
+  },
+  "limits": [
+    "Existing files only, no live Status or business health query",
+    "No claim of atomic global state or current safety, original execution continues independently"
+  ]
+}

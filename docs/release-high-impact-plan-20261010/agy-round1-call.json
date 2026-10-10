@@ -1,0 +1,17 @@
+{
+  "arguments": [
+    "-p",
+    "<agy-round1-prompt.txt>",
+    "--mode",
+    "plan",
+    "--output-format",
+    "stream-json",
+    "--print-timeout",
+    "4m"
+  ],
+  "durationSeconds": 207.0436345,
+  "exitCode": 0,
+  "endedAtUtc": "2026-10-10T08:19:59.9852359+00:00",
+  "startedAtUtc": "2026-10-10T08:16:32.9416014+00:00",
+  "executable": "C:/Users/86137/AppData/Local/agy/bin/agy.exe"
+}
