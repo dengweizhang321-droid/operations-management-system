@@ -1,0 +1,31 @@
+// Append only newly available metadata to this worktree review; no operators.
+import assert from 'node:assert/strict';
+import {readFile,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const dir=path.dirname(fileURLToPath(import.meta.url)),dest=path.join(dir,'EXACT_295D_ACTUAL_INDEPENDENT_REVIEW.json');
+const old=await readFile(dest),r=JSON.parse(old),sha=b=>createHash('sha256').update(b).digest('hex');
+await writeFile(path.join(dir,'EXACT_295D_ACTUAL_INDEPENDENT_REVIEW_FIRST.json'),old,{flag:'wx'});
+const sources=[];
+async function load(file){const raw=await readFile(file);sources.push({path:file,bytes:raw.length,sha256:sha(raw)});return raw;}
+const observations='D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/_observations';
+const first=JSON.parse(await load(path.join(observations,'integration-ab-v2-20261010-c22d8dd69a-ab0b0c76-a1f4-4ced-9344-d5931a1bc6d3/1.json')));
+const failed=JSON.parse(await load(path.join(observations,'integration-ab-v2-20261010-c22d8dd69a-795cf0fe-1590-432a-9047-64b3840ed049/1.json')));
+assert.equal(first.observation.status,'passed');assert.equal(failed.observation.status,'failed');assert.equal(failed.observation.error.code,'STATUS_NOT_READY');assert.equal(failed.observation.error.retryable,false);assert.equal(first.batchSha256,r.batchSha256);assert.equal(failed.batchSha256,r.batchSha256);
+const p='E:/codex-artifacts/release-integration-review-20261010/AB-exact-closeout-20261010-1530-final/production';
+const statusRaw=await load(path.join(p,'passive-status.stdout.json')),status=JSON.parse(statusRaw),process=JSON.parse(await load(path.join(p,'passive-status.process.json')));
+assert.equal(process.notOriginalOperation21,true);assert.equal(process.processEvidence.exitCode,0);assert.equal(process.processEvidence.code,'completed');assert.equal(statusRaw.length,process.processEvidence.stdoutBytes);assert.equal(sha(statusRaw),process.processEvidence.stdoutSha256);
+assert.equal(status.state,'Running');assert.equal(status.backendState,'Ready');assert.equal(status.workerState,'exact_release');assert.equal(status.releaseId,r.currentManifestMetadata.workerReleaseId);
+assert.deepEqual(Object.keys(status.components).sort(),['core','finance','netshop','market','products','workflow','inventory','customerService','accessControl','erpReference','bi','ai'].sort());assert.ok(Object.values(status.components).every(v=>v===true));
+const end=JSON.parse(await load(path.join(p,'observer-finished.json'))),stop=JSON.parse(await load(path.join(p,'observer-stop.json'))),entryRaw=await load(path.join(p,'entry-observations.jsonl'));
+assert.ok(entryRaw.toString().endsWith('\n'));const entries=entryRaw.toString().trim().split('\n').map(line=>JSON.parse(line));assert.equal(entries.length,end.count);
+r.supplementalObservedAt=new Date().toISOString();r.initialReportSha256=sha(old);
+r.originalAdmissionObservations={initialPassed:first,laterFailed:failed,failedComponentOrUnderlyingCause:'unknown',failedResultPreserved:true,laterReadyDoesNotOverrideFailure:true};
+r.laterSeparateDiagnosticStatus={...process,originalStdout:status,originalStdoutHashAndBytesMatched:true,notOriginalOperation21:true,notNewTailReceipt:true,priorNotReadyFailureStillBlocked:true};
+r.entryObservationSnapshot={startedAt:end.startedAt,finishedAt:end.finishedAt,samples:entries.length,unavailableSamples:entries.filter(v=>v.available!==true).length,firstSampleAt:entries[0].at,lastSampleAt:entries.at(-1).at,stopReason:stop.reason,rawSha256:sha(entryRaw),responseBodiesNotPersisted:true,wholePublicationDowntimeNotInferred:true,doesNotOverrideReadinessFailure:true};
+r.blockingFacts[3]='Original persisted admission observation establishes STATUS_NOT_READY/retryable=false. The failed component/trigger and its original child raw outputs/processEvidence remain unknown. The separate later diagnostic Ready result is not original21 and cannot override this failure.';
+r.limitations[1]='The failed admission did not append a boundary WAL event, but its original separate status-attempt record is preserved. It establishes STATUS_NOT_READY, not a specific component/cause. No original private error message, raw child output or receipt has been reconstructed.';
+r.sources.push(...sources);
+await writeFile(dest,JSON.stringify(r,null,2)+'\n');
+console.log(JSON.stringify({status:r.status,head:r.journal.head,oldFailurePreserved:true,actualAdmissionFailure:'STATUS_NOT_READY',laterDiagnostic:'Ready, separately observed, not operation21',entrySamples:entries.length,unavailableSamples:r.entryObservationSnapshot.unavailableSamples,reviewSha256:sha(await readFile(dest))}));
