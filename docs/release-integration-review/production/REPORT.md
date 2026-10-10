@@ -2,6 +2,8 @@
 
 2026-10-11 最新事实：用户批准的 `295d8923` 精确变化合同已实际接受为独立事件 `000088`，原第19步严格全等失败与 unknown 保持。之后第20步前的原状态准入返回 `STATUS_NOT_READY`，原20–21均未开始，active仍保留；AB必要验收与完整交付尚未闭合。后来一次只读Status为Ready，不能覆盖实际阻断。详见 [295d实际续接](EXACT_295D_CONTINUATION_20261011.md)、[独立效果复核](EXACT_295D_ACTUAL_INDEPENDENT_REVIEW.md) 和 [独立计时](EXACT_295D_TIMING_INDEPENDENT.md)。下文是此前阶段保留的历史快照。
 
+新的[精确尾部续接方案442bcb34](FINAL_TAIL_APPROVAL_PLAN.md)已完成33项作者、28项非作者模型回归及5＋2真实合成叶子测试，4,718文件最终物理复核通过。仅拟执行原20/21及日志/条件owner释放，绑定当前89条实际前驱；尚未新批准或执行。旧295d已消费，不能重入；新方案不改变AB应用源码/制品或原失败。
+
 续接更新：0bca UI、7389补登记、17后Restore及18保全均通过并独立核验；19严格比較实际exit1/unknown，已停止，20–21未开始。6表真实差异、pre dump缺失及payload cleanup blocked保持，整批仍未完成。最新事实见 [7389实际续接](METADATA_CONTINUATION_20261010.md)、[严格阻断独立复核](INDEPENDENT_STRICT_CLOSEOUT_BLOCK.md) 与 [最终冻结计时](strict-closeout-blocked-final.json)。以下保留此前第10步阻断快照，不回写原WAL或原恢复收据。
 
 2026-10-10。用户“批准 AB 批次”对应唯一 batch `9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15`，实际批准时间 `2026-10-10T05:28:51.000Z`（北京时间13:28:51）。机器快照见 [PRODUCTION_SNAPSHOT.json](PRODUCTION_SNAPSHOT.json)。本文件更新此前“尚未批准/未执行”的交付快照，不改写封存文件和历史记录。

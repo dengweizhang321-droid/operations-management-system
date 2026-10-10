@@ -1,0 +1,70 @@
+{
+  "independent": true,
+  "candidateAccepted": true,
+  "productionApproved": false,
+  "executed": false,
+  "blockingFindings": [],
+  "scopeSha256": "442bcb34d2734f5767e4b612cb1816dfd3ae3a1c25fa92b22d057041f8171c6d",
+  "scopeRawSha256": "13d1204ee1b2e3957f8043e280b63a835bd8efd1da892447c1eacdd96209457c",
+  "sourceCommit": "f4df84728fdc81a8b617d423dfff72be9e6a5871",
+  "sealedAt": "2026-10-10T17:23:19.332Z",
+  "startedAt": "2026-10-10T17:27:42.017Z",
+  "finishedAt": "2026-10-10T17:27:54.234Z",
+  "durationMs": 12216.0817,
+  "streamedHashDurationMs": 11495.7559,
+  "actualFiles": 4718,
+  "old4589Covered": true,
+  "current4505Covered": true,
+  "newFiles": 129,
+  "bytesVerified": 1810864137,
+  "precisePs5HardlinkExceptions": 1,
+  "codeSha256": {
+    "api": "2a8dded52b2cbeb1a3943ccbadf91d8b626340638835650e5f633d2c622826b0",
+    "caller": "646f52ebc2203a55d379e7764fb733b0f60418e74ee61fe7ec45649dd8b177cf",
+    "runtime": "cf8bebab7b6b2592095ff25dde672883ef0cb9d04fc6001b2b2254900f65b6c8",
+    "sealer": "fb7b5f878c01b70b0bfaa08e5f59260b8611b7afd73dd5a4c7d8ac5cea7961dd"
+  },
+  "independentSourceReviewSha256": "472dc34455dbc79c0cef8a5ebe914e1608c3f766a34dad6fbfbdaffd2b41ec31",
+  "actual89ReviewSha256": "55f121fc39471ce131c155572e77d4b24907da08b8a8f156b5f236793f63339a",
+  "journal": {
+    "records": 89,
+    "head": "ee784dfd718bc16aabcc2868667ac5b5d707bf3a582624a4f722019a050d7485",
+    "rawPrefixMatches": true,
+    "old87ArchivedMatches": true,
+    "accepted88Receipt": "73c0de244c7358a9c7031411dac86d1c028689bdd02efb5e14a0e7154d5c5f5f",
+    "old19Unknown": true,
+    "oldStrictEquality": false,
+    "first18Passed": true,
+    "tailNotStarted": true
+  },
+  "active": {
+    "sameExactOwner": true,
+    "unchangedAcrossVerification": true,
+    "rawSha256": "7c5af7f44a5aa80579bc9ac2a5038ad5ab757a90dc837de4977513d8be7b0cbf"
+  },
+  "newHumanApprovalFileAbsent": true,
+  "productionOutputDirectoryAbsent": true,
+  "privateValuesParsedOrPrintedOrCopied": false,
+  "productionModulesImported": false,
+  "productionCalls": 0,
+  "notes": [
+    "Hash time is evidence verification time, not production release duration.",
+    "Only approved metadata schemas were parsed; private pinned content was streamed into SHA and never parsed, printed or copied.",
+    "Final new human approval and actual tail execution remain pending."
+  ],
+  "reviewer": "/root/preparation_review",
+  "validationScriptSha256": "39d5bd61179df518f4ea1403a4021adb5e650df8c1d646e5ca3009061585b984",
+  "validationLogSha256": "a44ed520bf120ab09472e09192c609fcc6a3a61636b7d45fb1bd252f9569eb41",
+  "validationStderrBytes": 0,
+  "reportScope": "Physical sealed candidate verification only; not actual production acceptance",
+  "requiredBeforeExecution": [
+    "New explicit human approval binding this exact scope, newer user item and allowed ownership release.",
+    "Unchanged source and current dynamic original admission at each actual boundary.",
+    "Actual original20/21 success, immutable completion proof and independently confirmed exact ownership release."
+  ],
+  "originalFailurePreserved": true,
+  "originalNotReadyNotErasedByLaterDiagnostic": true,
+  "postBackupCleanupBlockedNotWaived": true,
+  "necessaryAcceptanceClosed": false,
+  "fullDeliveryClosed": false
+}
