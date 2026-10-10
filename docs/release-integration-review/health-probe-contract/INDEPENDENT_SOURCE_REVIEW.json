@@ -1,0 +1,254 @@
+{
+  "version": "teruisi-health-probe-contract-independent-source-review-v1",
+  "independent": true,
+  "reviewer": "/root/preparation_review",
+  "author": "/root",
+  "baseCommit": "3ea0271dc6ba711a5484e27eb9bd2bd33ddfa84f",
+  "branch": "codex/release-health-probe-contract",
+  "acceptedSourceCandidate": true,
+  "productionExecutionApproved": false,
+  "productionExecuted": false,
+  "blockingFindings": [],
+  "controlSha256": "37d329c1a9e5a06f5d04ffd2d73be415d327f1e9c5d66957197a189bd9c09529",
+  "retrySha256": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6",
+  "authorNativeTestSha256": "c5b9b5e1b795c34f272ef7e52febda95943d8f43014abec38eba7f6b896fba20",
+  "authorProjectionTestSha256": "2f1e5f3834fd01e2775d9f2a2552e6c04077b9257bbec0641d851b0fcf122df1",
+  "independentTestSha256": "e807316f2880a69cb13cb24bbf6afd9f72fc11b21ed91cc74b8d9feade32695f",
+  "controlEncoding": {
+    "utf8Bom": true,
+    "lineFeedOnly": true
+  },
+  "resolvedFindings": [
+    {
+      "id": "DEGRADED-SCALAR-TYPES",
+      "file": "tools/operations-system-control.ps1",
+      "lines": [
+        443,
+        444
+      ],
+      "condition": "Array-valued status/code could satisfy PowerShell -ceq and become BackendDegraded",
+      "fix": "Require string and exact case-sensitive scalar markers",
+      "independentVerification": "Array and wrong case rejected; exact scalar degraded recognized"
+    },
+    {
+      "id": "HEALTH-FINAL-DEADLINE",
+      "file": "tools/operations-system-control.ps1",
+      "lines": [
+        474,
+        496,
+        500
+      ],
+      "condition": "Post-response summary could cross inherited deadline before returning Running",
+      "fix": "Recheck cache deadline and same final deadline after preserving trace, before healthy cache update",
+      "independentVerification": "Controlled late summary rejects Running, preserves actual probe trace and leaves last state Unresponsive"
+    },
+    {
+      "id": "CLI-ERROR-TRACE",
+      "file": "tools/operations-system-control.ps1",
+      "line": 768,
+      "condition": "Final deadline trace was retained internally but omitted from CLI JSON exception response",
+      "fix": "Include existing bounded lastHealthEvidence in error JSON; retain original StatusError/exit1",
+      "independentVerification": "Sole final-source change mechanically verified by removing this one field to reproduce independently tested source SHA exactly; statically reviewed, no ControlMain execution"
+    }
+  ],
+  "tests": {
+    "independent": {
+      "cases": 10,
+      "passed": 10,
+      "failed": 0,
+      "realPs5Cases": 7,
+      "pureProjectionCases": 3,
+      "actualPs5Processes": 8,
+      "leafFacts": [
+        {
+          "privateFixture": true,
+          "mode": "summary",
+          "pid": 71076,
+          "exitCode": 0,
+          "ownPidAbsent": true,
+          "requestCount": 0,
+          "elapsedMs": null,
+          "state": null
+        },
+        {
+          "privateFixture": true,
+          "mode": "summary",
+          "pid": 59932,
+          "exitCode": 0,
+          "ownPidAbsent": true,
+          "requestCount": 0,
+          "elapsedMs": null,
+          "state": null
+        },
+        {
+          "privateFixture": true,
+          "mode": "summary",
+          "pid": 62748,
+          "exitCode": 0,
+          "ownPidAbsent": true,
+          "requestCount": 0,
+          "elapsedMs": null,
+          "state": null
+        },
+        {
+          "privateFixture": true,
+          "mode": "summary",
+          "pid": 68804,
+          "exitCode": 0,
+          "ownPidAbsent": true,
+          "requestCount": 0,
+          "elapsedMs": null,
+          "state": null
+        },
+        {
+          "privateFixture": true,
+          "mode": "normal",
+          "pid": 2424,
+          "exitCode": 0,
+          "ownPidAbsent": true,
+          "requestCount": 3,
+          "elapsedMs": 3475.2042,
+          "state": "Running"
+        },
+        {
+          "privateFixture": true,
+          "mode": "normal",
+          "pid": 35928,
+          "exitCode": 0,
+          "ownPidAbsent": true,
+          "requestCount": 3,
+          "elapsedMs": 1131.6219,
+          "state": null
+        },
+        {
+          "privateFixture": true,
+          "mode": "cache",
+          "pid": 33028,
+          "exitCode": 0,
+          "ownPidAbsent": true,
+          "requestCount": 6,
+          "elapsedMs": 211.3084,
+          "state": "Running"
+        },
+        {
+          "privateFixture": true,
+          "mode": "late-summary",
+          "pid": 40492,
+          "exitCode": 0,
+          "ownPidAbsent": true,
+          "requestCount": 3,
+          "elapsedMs": 1235.5502000000001,
+          "state": null
+        }
+      ],
+      "sourceBefore": {
+        "tools/operations-system-control.ps1": "dadd5ac892cdc0cecc8bf5fc00a7ddd4f6612525aebc405ff065720e4e83c9fe",
+        "tools/release-readonly-retry.mjs": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6",
+        "tests/operations-system-health-probe.test.mjs": "6eecea08507a6aaccfc174106a4b6afb176c77f762fe4da5781db5bdbf7ab7b5",
+        "tests/health-probe-evidence.test.mjs": "2f1e5f3834fd01e2775d9f2a2552e6c04077b9257bbec0641d851b0fcf122df1",
+        "docs/release-integration-review/health-probe-contract/independent-source.test.mjs": "e807316f2880a69cb13cb24bbf6afd9f72fc11b21ed91cc74b8d9feade32695f"
+      },
+      "sourceAfter": {
+        "tools/operations-system-control.ps1": "dadd5ac892cdc0cecc8bf5fc00a7ddd4f6612525aebc405ff065720e4e83c9fe",
+        "tools/release-readonly-retry.mjs": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6",
+        "tests/operations-system-health-probe.test.mjs": "6eecea08507a6aaccfc174106a4b6afb176c77f762fe4da5781db5bdbf7ab7b5",
+        "tests/health-probe-evidence.test.mjs": "2f1e5f3834fd01e2775d9f2a2552e6c04077b9257bbec0641d851b0fcf122df1",
+        "docs/release-integration-review/health-probe-contract/independent-source.test.mjs": "e807316f2880a69cb13cb24bbf6afd9f72fc11b21ed91cc74b8d9feade32695f"
+      },
+      "sourceBytesUnchangedDuringTest": true,
+      "startedAt": "2026-10-10T23:21:07.438Z",
+      "finishedAt": "2026-10-10T23:21:18.566Z",
+      "elapsedMs": 11127.4399,
+      "testRunnerProcessId": 60180,
+      "logSha256": "1d2894abe46637f5c8981b3d7e28e7742707e2b0c94808aae59da95ede21c6d2",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "metadataSha256": "bc0f02610710bedd0b870dfff88c2c4c97944b4832295f74212c011752efc638",
+      "controlMainExecuted": false,
+      "formalLifecycleActions": 0,
+      "productionCalls": 0,
+      "privateRandomLoopbackOnly": true,
+      "businessEnvironmentInherited": false,
+      "allOwnPidsObservedAbsent": true
+    },
+    "authorFinal": {
+      "cases": 23,
+      "passed": 23,
+      "failed": 0,
+      "startedAt": "2026-10-10T23:23:52.522Z",
+      "finishedAt": "2026-10-10T23:24:24.485Z",
+      "elapsedMs": 31962.3476,
+      "processId": 72552,
+      "exitCode": 0,
+      "sourceBefore": [
+        {
+          "path": "tools/operations-system-control.ps1",
+          "sha256": "37d329c1a9e5a06f5d04ffd2d73be415d327f1e9c5d66957197a189bd9c09529"
+        },
+        {
+          "path": "tools/release-readonly-retry.mjs",
+          "sha256": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6"
+        }
+      ],
+      "sourceAfter": [
+        {
+          "path": "tools/operations-system-control.ps1",
+          "sha256": "37d329c1a9e5a06f5d04ffd2d73be415d327f1e9c5d66957197a189bd9c09529"
+        },
+        {
+          "path": "tools/release-readonly-retry.mjs",
+          "sha256": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6"
+        }
+      ],
+      "logSha256": "0537ad701b07b604293cee102fcb9d3260a1a32c51ad5b5356d1b96ddd0bf056",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "metadataSha256": "1e8720ed2e772b9838e813045543ab375016c9e3d26a20d33b255a18c9bdba42",
+      "logHashAndCountsIndependentlyVerified": true,
+      "ranAfterIndependentNativeEnded": true
+    },
+    "coverageNotSummedAcrossOverlappingSuites": true
+  },
+  "finalStaticDelta": {
+    "independentlyTestedControlSha256": "dadd5ac892cdc0cecc8bf5fc00a7ddd4f6612525aebc405ff065720e4e83c9fe",
+    "finalControlSha256": "37d329c1a9e5a06f5d04ffd2d73be415d327f1e9c5d66957197a189bd9c09529",
+    "soleChange": "CLI JSON error payload healthEvidence field",
+    "mechanicalByteEqualityVerified": true,
+    "noAdditionalNativeNeededForPureJSONField": true,
+    "doesNotClaimIndependent10ExecutedAgainstFinalControlBytes": true
+  },
+  "firstFailure": {
+    "preserved": true,
+    "passed": 9,
+    "failed": 1,
+    "metadataSha256": "40f8a0ab8459ef8aaa91166ccaa98e4a9bd2550d62f769ef91028867414da413",
+    "logSha256": "a4b946fcdb1b3871084e47a17951990af1cbc43be4d9d491fada02de094beff1",
+    "sourceUnchangedBetweenIndependentRuns": true,
+    "explanation": "Independent fixture expected Unresponsive return after inherited expiry. New reviewed final deadline guard correctly throws and preserves trace, so only fixture adapted to assert caught=true/state=null and all probe facts; no source change.",
+    "strictFinalFixtureRequires": "Deadline caught, null return, no healthy cache update, live/helper actual pass, ready false/deadline, original trace preserved; controlled late summary cannot return Running"
+  },
+  "contract": {
+    "readyOuterTimeoutMs": 5000,
+    "liveOuterTimeoutMs": 3000,
+    "helperOuterTimeoutMs": 3000,
+    "workerInternalBackendMaxMs": 4000,
+    "absoluteDeadlineSharedAcrossProbes": true,
+    "completeBodyReadAndFinalStateDeadlineRechecked": true,
+    "cacheKeepsOriginalCheckedAt": true,
+    "formalStatusUsesRefresh": true,
+    "onlyKnownFixedProbeNames": true,
+    "privacyAndIdempotenceVerified": true,
+    "probeSummaryRawBodyOrUriOrReasonRetained": false,
+    "originalIdentityAnd12ComponentAssertionsUnchanged": true,
+    "original4TransientRetryClassesUnchanged": true,
+    "statusNotReadyStillNonRetryable": true,
+    "lifecycleLogicUnchanged": true,
+    "old102HistoryOrSealedPinsModified": false
+  },
+  "limitations": [
+    "Source and isolated fixtures only; no actual Status/HTTP/SQL/service/lock or new production approval/execution.",
+    "Demonstrated isolated 3s/5s budget mismatch does not prove actual 1cae Unresponsive root cause or production readiness.",
+    "CLI JSON error now includes bounded trace when available. Existing runReadOnlyProcess nonzero-exit transport retains native proof/stdout SHA without guaranteeing that body is parsed; future external candidate must explicitly capture failed native output before claiming end-to-end trace coverage. Killed child without output cannot fabricate trace.",
+    "Independent 10-case native source was dadd5ac8; final 37d329c1 adds only the statically verified JSON field. Author 23 exact-byte suite covers final source separately, with no duplicate summed coverage.",
+    "Normal five-second cache is not a fresh operation-boundary dynamic admission.",
+    "Original actual 102 chain remains blocked; this source review cannot close AB necessary acceptance."
+  ]
+}

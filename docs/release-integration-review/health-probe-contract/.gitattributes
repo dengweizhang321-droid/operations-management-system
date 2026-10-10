@@ -1,0 +1,4 @@
+*.log -text -diff
+*.stderr -text -diff
+*.mjs text eol=lf
+*.json -text

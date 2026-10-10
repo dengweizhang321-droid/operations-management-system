@@ -1,0 +1,33 @@
+{
+  "startedAt": "2026-10-10T23:23:52.522Z",
+  "finishedAt": "2026-10-10T23:24:24.485Z",
+  "elapsedMs": 31962.3476,
+  "exitCode": 0,
+  "processId": 72552,
+  "stdoutBytes": 2173,
+  "stdoutSha256": "0537ad701b07b604293cee102fcb9d3260a1a32c51ad5b5356d1b96ddd0bf056",
+  "stderrBytes": 0,
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "before": [
+    {
+      "path": "tools/operations-system-control.ps1",
+      "sha256": "37d329c1a9e5a06f5d04ffd2d73be415d327f1e9c5d66957197a189bd9c09529"
+    },
+    {
+      "path": "tools/release-readonly-retry.mjs",
+      "sha256": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6"
+    }
+  ],
+  "after": [
+    {
+      "path": "tools/operations-system-control.ps1",
+      "sha256": "37d329c1a9e5a06f5d04ffd2d73be415d327f1e9c5d66957197a189bd9c09529"
+    },
+    {
+      "path": "tools/release-readonly-retry.mjs",
+      "sha256": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6"
+    }
+  ],
+  "productionCalls": 0,
+  "formalLifecycleActions": 0
+}

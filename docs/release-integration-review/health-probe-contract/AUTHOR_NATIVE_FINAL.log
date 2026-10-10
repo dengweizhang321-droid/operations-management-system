@@ -1,0 +1,21 @@
+✔ same 3.5s ready response fails original 3s gate and passes bounded 5s gate (8360.9463ms)
+✔ helper HTTP500 preserves strict rejection and bounded probe evidence (793.0911ms)
+✔ live missing marker preserves strict rejection and bounded probe evidence (841.0316ms)
+✔ live JSON array preserves strict rejection and bounded probe evidence (794.1135ms)
+✔ helper string boolean preserves strict rejection and bounded probe evidence (798.584ms)
+✔ helper invalid JSON preserves strict rejection and bounded probe evidence (797.6871ms)
+✔ ready wrong marker preserves strict rejection and bounded probe evidence (810.5896ms)
+✔ ready exact Django degraded preserves strict rejection and bounded probe evidence (820.2196ms)
+✔ ready other503 preserves strict rejection and bounded probe evidence (813.9157ms)
+✔ live timeout preserves strict rejection and bounded probe evidence (3835.3194ms)
+✔ ready beyond5000 preserves strict rejection and bounded probe evidence (5877.9711ms)
+✔ inherited remaining deadline bounds all probes without renewal (1480.1433ms)
+✔ already expired deadline issues no fixture network request (759.246ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29041.9604

@@ -1,0 +1,97 @@
+TAP version 13
+# {"privateFixture":true,"mode":"summary","pid":1976,"exitCode":0,"ownPidAbsent":true,"requestCount":0,"elapsedMs":null,"state":null}
+# Subtest: degraded status array cannot satisfy exact scalar contract
+ok 1 - degraded status array cannot satisfy exact scalar contract
+  ---
+  duration_ms: 760.588
+  type: 'test'
+  ...
+# {"privateFixture":true,"mode":"summary","pid":72416,"exitCode":0,"ownPidAbsent":true,"requestCount":0,"elapsedMs":null,"state":null}
+# Subtest: degraded code array cannot satisfy exact scalar contract
+ok 2 - degraded code array cannot satisfy exact scalar contract
+  ---
+  duration_ms: 632.1159
+  type: 'test'
+  ...
+# {"privateFixture":true,"mode":"summary","pid":43220,"exitCode":0,"ownPidAbsent":true,"requestCount":0,"elapsedMs":null,"state":null}
+# {"privateFixture":true,"mode":"summary","pid":7324,"exitCode":0,"ownPidAbsent":true,"requestCount":0,"elapsedMs":null,"state":null}
+# Subtest: degraded is case sensitive while exact degraded scalar remains recognized
+ok 3 - degraded is case sensitive while exact degraded scalar remains recognized
+  ---
+  duration_ms: 1271.1151
+  type: 'test'
+  ...
+# {"privateFixture":true,"mode":"normal","pid":61448,"exitCode":0,"ownPidAbsent":true,"requestCount":3,"elapsedMs":3473.0282,"state":"Running"}
+# Subtest: complete HTTP body arriving after old 3s but before ready 5s is observed before success
+ok 4 - complete HTTP body arriving after old 3s but before ready 5s is observed before success
+  ---
+  duration_ms: 4051.6234
+  type: 'test'
+  ...
+# {"privateFixture":true,"mode":"normal","pid":37292,"exitCode":0,"ownPidAbsent":true,"requestCount":3,"elapsedMs":1158.2515,"state":null}
+# Subtest: live and helper consume inherited budget rather than renewing ready deadline
+not ok 5 - live and helper consume inherited budget rather than renewing ready deadline
+  ---
+  duration_ms: 1797.8505
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-contract\\independent-source.test.mjs:103:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + null
+    - 'Unresponsive'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'Unresponsive'
+  actual: ~
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-contract/independent-source.test.mjs:104:113)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async Test.run (node:internal/test_runner/test:1332:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# {"privateFixture":true,"mode":"cache","pid":45532,"exitCode":0,"ownPidAbsent":true,"requestCount":6,"elapsedMs":231.8861,"state":"Running"}
+# Subtest: health cache keeps the same state and trace without inventing fresh checkedAt
+ok 6 - health cache keeps the same state and trace without inventing fresh checkedAt
+  ---
+  duration_ms: 859.8531
+  type: 'test'
+  ...
+# {"privateFixture":true,"mode":"late-summary","pid":68316,"exitCode":0,"ownPidAbsent":true,"requestCount":3,"elapsedMs":1241.1462000000001,"state":null}
+# Subtest: post-response summary crossing inherited deadline cannot return late Running
+ok 7 - post-response summary crossing inherited deadline cannot return late Running
+  ---
+  duration_ms: 1866.8505
+  type: 'test'
+  ...
+# Subtest: bounded native probe failure facts survive all projection repetitions
+ok 8 - bounded native probe failure facts survive all projection repetitions
+  ---
+  duration_ms: 0.9013
+  type: 'test'
+  ...
+# Subtest: every unrecognized/private field is absent and invalid scalar types stay null
+ok 9 - every unrecognized/private field is absent and invalid scalar types stay null
+  ---
+  duration_ms: 0.3934
+  type: 'test'
+  ...
+# Subtest: readiness error idempotence retains one known trace and no old fabricated trace
+ok 10 - readiness error idempotence retains one known trace and no old fabricated trace
+  ---
+  duration_ms: 0.7232
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 9
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11361.2262

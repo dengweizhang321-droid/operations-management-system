@@ -47,6 +47,7 @@ $script:lastWorkerCheckAt = $null
 $script:lastWorkerStatus = $null
 $script:lastHealthCheckAt = $null
 $script:lastHealthState = "Unresponsive"
+$script:lastHealthEvidence = $null
 
 if ($Check -and $StopWorker) {
   throw "-Check 与 -StopWorker 不能同时使用"
@@ -370,31 +371,46 @@ function Get-WorkerReleaseStatus {
 function Invoke-SystemHealthProbe {
   param(
     [string]$Uri,
-    [int]$TimeoutSeconds = 3
+    [int]$TimeoutSeconds = 3,
+    [long]$Deadline = (Get-ProcessDeadline)
   )
-
   $httpClient = $null
   $httpRequest = $null
   $httpResponse = $null
+  $probeClock = [Diagnostics.Stopwatch]::StartNew()
+  $actualCode = $null
+  $actualContent = $null
+  $requested = $false
+  $effectiveTimeoutMs = 0
   try {
+    $effectiveTimeoutMs = [Math]::Min($TimeoutSeconds * 1000, (Get-ProcessRemaining $Deadline))
     $httpHandler = [System.Net.Http.HttpClientHandler]::new()
     $httpHandler.UseProxy = $false
     $httpClient = [System.Net.Http.HttpClient]::new($httpHandler)
-    $httpClient.Timeout = [TimeSpan]::FromSeconds($TimeoutSeconds)
+    $httpClient.Timeout = [TimeSpan]::FromMilliseconds($effectiveTimeoutMs)
     $httpRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get, $Uri)
     [void]$httpRequest.Headers.TryAddWithoutValidation("x-teruisi-local-health", "1")
+    $requested = $true
     $httpResponse = $httpClient.SendAsync($httpRequest).GetAwaiter().GetResult()
-    $responseContent = $httpResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+    $actualCode = [int]$httpResponse.StatusCode
+    $actualContent = $httpResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+    [void](Get-ProcessRemaining $Deadline)
     return [pscustomobject]@{
-      StatusCode = [int]$httpResponse.StatusCode
-      Content = $responseContent
-      Error = $null
+      StatusCode = $actualCode; Content = $actualContent; Error = $null
+      Requested = $requested; BeforeDeadline = $true
+      TimeoutMs = $TimeoutSeconds * 1000; EffectiveTimeoutMs = $effectiveTimeoutMs
+      ElapsedMs = [Math]::Round($probeClock.Elapsed.TotalMilliseconds, 3); ErrorKind = "none"
     }
   } catch {
+    $kind = "request-error"
+    if ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge $Deadline) { $kind = "deadline" }
+    elseif ($_.Exception.GetBaseException() -is [System.OperationCanceledException]) { $kind = "timeout" }
     return [pscustomobject]@{
-      StatusCode = $null
-      Content = $null
+      StatusCode = $actualCode; Content = $actualContent
       Error = Get-BoundedText -Value $_.Exception.Message -MaximumLength 200
+      Requested = $requested; BeforeDeadline = $false
+      TimeoutMs = $TimeoutSeconds * 1000; EffectiveTimeoutMs = $effectiveTimeoutMs
+      ElapsedMs = [Math]::Round($probeClock.Elapsed.TotalMilliseconds, 3); ErrorKind = $kind
     }
   } finally {
     if ($httpResponse) { $httpResponse.Dispose() }
@@ -407,43 +423,81 @@ function ConvertFrom-SystemHealthContent {
   param([object]$Probe)
 
   if (-not $Probe -or [string]::IsNullOrWhiteSpace([string]$Probe.Content)) { return $null }
+  # PowerShell enumerates a one-element JSON array into a scalar. Health is an object contract.
+  if (-not ([string]$Probe.Content).TrimStart().StartsWith("{")) { return $null }
   try { return ($Probe.Content | ConvertFrom-Json -ErrorAction Stop) }
   catch { return $null }
 }
 
+function Get-SystemProbeSummary {
+  param([object]$Probe, [object]$Payload,
+    [ValidateSet("live", "helper", "ready")][string]$Kind, [int]$TimeoutMs)
+  $called = $null -ne $Probe
+  $object = $Payload -is [System.Management.Automation.PSCustomObject]
+  $okTyped = $object -and $Payload.ok -is [bool]
+  $okTrue = $okTyped -and $Payload.ok -eq $true
+  $marker = $Kind -eq "helper" -or ($object -and $Payload.status -is [string] -and $Payload.status -ceq $Kind)
+  $passed = $called -and $Probe.BeforeDeadline -eq $true -and $Probe.StatusCode -eq 200 -and $okTrue -and $marker
+  $degraded = $Kind -eq "ready" -and $called -and $Probe.BeforeDeadline -eq $true -and
+    $Probe.StatusCode -eq 503 -and $okTyped -and $Payload.ok -eq $false -and
+    $Payload.status -is [string] -and $Payload.status -ceq "degraded" -and
+    $Payload.code -is [string] -and $Payload.code -ceq "django_unavailable"
+  $errorKind = "not-called"
+  if ($called) {
+    $errorKind = [string]$Probe.ErrorKind
+    if ($errorKind -eq "none") {
+      if ($passed) { $errorKind = "none" }
+      elseif ($degraded) { $errorKind = "backend-degraded" }
+      elseif ($Probe.StatusCode -ne 200) { $errorKind = "http-error" }
+      elseif (-not $object) { $errorKind = "invalid-json" }
+      else { $errorKind = "predicate" }
+    }
+  }
+  return [pscustomobject]@{
+    called = [bool]$called; requested = [bool]($called -and $Probe.Requested)
+    statusCode = $(if ($called) { $Probe.StatusCode } else { $null })
+    parsedObject = [bool]$object; okMatches = [bool]$okTrue; markerMatches = [bool]$marker
+    passed = [bool]$passed; degradedMatches = [bool]$degraded
+    beforeDeadline = [bool]($called -and $Probe.BeforeDeadline)
+    timeoutMs = $TimeoutMs
+    effectiveTimeoutMs = $(if ($called) { $Probe.EffectiveTimeoutMs } else { $null })
+    elapsedMs = $(if ($called) { $Probe.ElapsedMs } else { $null })
+    errorKind = $errorKind
+  }
+}
+
 function Get-SystemHealthState {
   param([switch]$Refresh)
-
   $checkTime = Get-Date
   if (-not $Refresh -and $script:lastHealthCheckAt -and
       (($checkTime - $script:lastHealthCheckAt).TotalSeconds -lt 5)) {
+    [void](Get-ProcessRemaining (Get-ProcessDeadline))
     return $script:lastHealthState
   }
-
   $healthState = "Unresponsive"
-  $livenessProbe = Invoke-SystemHealthProbe -Uri $LivenessUrl
+  $healthDeadline = Get-ProcessDeadline
+  $livenessProbe = Invoke-SystemHealthProbe -Uri $LivenessUrl -Deadline $healthDeadline
   $livenessPayload = ConvertFrom-SystemHealthContent -Probe $livenessProbe
-  $helperProbe = Invoke-SystemHealthProbe -Uri $HelperHealthUrl
+  $live = Get-SystemProbeSummary -Probe $livenessProbe -Payload $livenessPayload -Kind "live" -TimeoutMs 3000
+  $helperProbe = Invoke-SystemHealthProbe -Uri $HelperHealthUrl -Deadline $healthDeadline
   $helperPayload = ConvertFrom-SystemHealthContent -Probe $helperProbe
-  if ($livenessProbe.StatusCode -eq 200 -and $livenessPayload.ok -eq $true -and
-      $livenessPayload.status -eq "live" -and $helperProbe.StatusCode -eq 200 -and
-      $helperPayload.ok -eq $true) {
-    $readinessProbe = Invoke-SystemHealthProbe -Uri $ReadinessUrl
+  $helper = Get-SystemProbeSummary -Probe $helperProbe -Payload $helperPayload -Kind "helper" -TimeoutMs 3000
+  $ready = Get-SystemProbeSummary -Probe $null -Payload $null -Kind "ready" -TimeoutMs 5000
+  if ($live.passed -and $helper.passed) {
+    # Worker readiness itself has a 4000ms total backend budget; retain the
+    # supervisor's 5000ms outer bound without changing liveness/helper budgets.
+    $readinessProbe = Invoke-SystemHealthProbe -Uri $ReadinessUrl -TimeoutSeconds 5 -Deadline $healthDeadline
     $readinessPayload = ConvertFrom-SystemHealthContent -Probe $readinessProbe
-    if ($readinessProbe.StatusCode -eq 200 -and $readinessPayload.ok -eq $true -and
-        $readinessPayload.status -eq "ready") {
-      $healthState = "Running"
-    } elseif (
-      $readinessProbe.StatusCode -eq 503 -and
-      $readinessPayload.ok -eq $false -and
-      $readinessPayload.status -eq "degraded" -and
-      $readinessPayload.code -eq "django_unavailable"
-    ) {
-      $healthState = "BackendDegraded"
-    }
+    $ready = Get-SystemProbeSummary -Probe $readinessProbe -Payload $readinessPayload -Kind "ready" -TimeoutMs 5000
+    if ($ready.passed) { $healthState = "Running" }
+    elseif ($ready.degradedMatches) { $healthState = "BackendDegraded" }
   }
-
   $script:lastHealthCheckAt = $checkTime
+  $script:lastHealthEvidence = [pscustomobject]@{
+    version = 1; checkedAt = $checkTime.ToUniversalTime().ToString("o")
+    probes = [pscustomobject]@{ live = $live; helper = $helper; ready = $ready }
+  }
+  [void](Get-ProcessRemaining $healthDeadline)
   $script:lastHealthState = $healthState
   return $healthState
 }
@@ -455,6 +509,7 @@ function Get-SystemState {
   $workerStatus = Get-WorkerReleaseStatus -Refresh:$Refresh
   $combinedState = "StatusError"
   $combinedReason = $null
+  $healthEvidence = $null
 
   switch ([string]$workerStatus.State) {
     "foreign_or_ambiguous" {
@@ -496,6 +551,7 @@ function Get-SystemState {
         $combinedReason = [string]$backendState.Reason
       } else {
         $combinedState = Get-SystemHealthState -Refresh:$Refresh
+        $healthEvidence = $script:lastHealthEvidence
         if ($combinedState -eq "Unresponsive") {
           $combinedReason = "Worker 进程归属正确，但本地存活、就绪或辅助服务探针未通过"
         }
@@ -518,6 +574,7 @@ function Get-SystemState {
     url = $ServerUrl
     reason = $combinedReason
     components = $backendState.Components
+    healthEvidence = $healthEvidence
     checkedAt = (Get-Date).ToString("o")
   }
 }
@@ -529,6 +586,7 @@ function Reset-SystemStateCache {
   $script:lastWorkerStatus = $null
   $script:lastHealthCheckAt = $null
   $script:lastHealthState = "Unresponsive"
+  $script:lastHealthEvidence = $null
 }
 
 function Enter-SystemControlMutex {
@@ -707,6 +765,7 @@ if ($Action -ne "Panel") {
         version = $UnifiedStartControlVersion
         status = "failed"
         state = "StatusError"
+        healthEvidence = $script:lastHealthEvidence
         reason = $failureReason
         message = "唯一启动总控执行失败：$failureReason"
         checkedAt = (Get-Date).ToString("o")

@@ -30,8 +30,27 @@ function sanitizeReadinessFailure(value) {
     componentCount: count(value.componentCount),
     unexpectedComponentCount: count(value.unexpectedComponentCount),
     missingComponents: readinessComponents.filter(n => Array.isArray(value.missingComponents) && value.missingComponents.includes(n)),
-    components: Object.fromEntries(readinessComponents.map(n => [n, value.components && Object.hasOwn(value.components,n) && typeof value.components[n] === 'boolean' ? value.components[n] : null]))
+    components: Object.fromEntries(readinessComponents.map(n => [n, value.components && Object.hasOwn(value.components,n) && typeof value.components[n] === 'boolean' ? value.components[n] : null])),
+    ...(safeHealthEvidence(value.healthEvidence) ? {healthEvidence:safeHealthEvidence(value.healthEvidence)} : {})
   };
+}
+export function safeHealthEvidence(value) {
+  if (!value || value.version !== 1 || !value.probes || typeof value.probes !== 'object' || Array.isArray(value.probes)) return null;
+  const bool = v => typeof v === 'boolean' ? v : null;
+  const number = (v, min, max, integer = false) => Number.isFinite(v) && v >= min && v <= max && (!integer || Number.isSafeInteger(v)) ? v : null;
+  const at = typeof value.checkedAt === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?Z$/.test(value.checkedAt) && Number.isFinite(Date.parse(value.checkedAt)) ? new Date(value.checkedAt).toISOString() : null;
+  const kinds = ['none','not-called','timeout','deadline','request-error','http-error','invalid-json','predicate','backend-degraded','unrecognized'];
+  return {version:1,checkedAt:at,probes:Object.fromEntries(['live','helper','ready'].map(name => {
+    const v = value.probes[name];
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return [name,null];
+    return [name,{
+      called:bool(v.called),requested:bool(v.requested),statusCode:number(v.statusCode,100,599,true),
+      parsedObject:bool(v.parsedObject),okMatches:bool(v.okMatches),markerMatches:bool(v.markerMatches),
+      passed:bool(v.passed),degradedMatches:bool(v.degradedMatches),beforeDeadline:bool(v.beforeDeadline),
+      timeoutMs:number(v.timeoutMs,1,10000,true),effectiveTimeoutMs:number(v.effectiveTimeoutMs,1,10000,true),
+      elapsedMs:number(v.elapsedMs,0,600000),errorKind:kinds.includes(v.errorKind)?v.errorKind:'unrecognized'
+    }];
+  }))};
 }
 // A failed readiness assertion must retain the actual probe's bounded facts.
 // Never retain arbitrary reason text, URLs, extra field names or status bodies.
@@ -51,7 +70,8 @@ export function safeReadinessFailure(status, expectedReleaseId) {
     componentCount: keys.length,
     unexpectedComponentCount: keys.filter(name => !names.includes(name)).length,
     missingComponents: names.filter(name => !object || !Object.hasOwn(components,name)),
-    components: Object.fromEntries(names.map(name => [name, object && Object.hasOwn(components,name) && typeof components[name] === 'boolean' ? components[name] : null]))
+    components: Object.fromEntries(names.map(name => [name, object && Object.hasOwn(components,name) && typeof components[name] === 'boolean' ? components[name] : null])),
+    ...(safeHealthEvidence(status?.healthEvidence) ? {healthEvidence:safeHealthEvidence(status.healthEvidence)} : {})
   };
 }
 export async function retryReadOnlyObservation({ query, stage, totalTimeoutMs = 240_000,

@@ -1,0 +1,27 @@
+✔ three known bounded probes survive repeated readiness filtering exactly (3.3838ms)
+✔ old source status has unchanged snapshot shape and no fabricated health trace (0.1861ms)
+✔ unknown probe names, private values and all response bodies are discarded (0.1748ms)
+✔ missing and malformed probe fields stay null instead of becoming healthy (0.1811ms)
+✔ failure and no-request facts survive alongside completed native metadata (0.1884ms)
+✔ unknown version or invalid envelope cannot provide a valid diagnostic (0.1188ms)
+✔ same 3.5s ready response fails original 3s gate and passes bounded 5s gate (8240.1242ms)
+✔ helper HTTP500 preserves strict rejection and bounded probe evidence (823.1911ms)
+✔ live missing marker preserves strict rejection and bounded probe evidence (783.1449ms)
+✔ live JSON array preserves strict rejection and bounded probe evidence (819.7002ms)
+✔ helper string boolean preserves strict rejection and bounded probe evidence (812.2432ms)
+✔ helper invalid JSON preserves strict rejection and bounded probe evidence (841.5559ms)
+✔ ready wrong marker preserves strict rejection and bounded probe evidence (899.2724ms)
+✔ ready exact Django degraded preserves strict rejection and bounded probe evidence (848.5581ms)
+✔ ready other503 preserves strict rejection and bounded probe evidence (806.3719ms)
+✔ live timeout preserves strict rejection and bounded probe evidence (3799.1782ms)
+✔ ready beyond5000 preserves strict rejection and bounded probe evidence (5828.2683ms)
+✔ inherited remaining deadline bounds all probes without renewal (1357.4664ms)
+✔ already expired deadline issues no fixture network request (710.8883ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 28909.162

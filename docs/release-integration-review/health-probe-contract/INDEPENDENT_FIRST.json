@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "independent": true,
+  "startedAt": "2026-10-10T23:20:22.445Z",
+  "finishedAt": "2026-10-10T23:20:33.887Z",
+  "elapsedMs": 11441.8843,
+  "processId": 34148,
+  "exitCode": 1,
+  "signal": null,
+  "sourceBefore": {
+    "tools/operations-system-control.ps1": "dadd5ac892cdc0cecc8bf5fc00a7ddd4f6612525aebc405ff065720e4e83c9fe",
+    "tools/release-readonly-retry.mjs": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6",
+    "tests/operations-system-health-probe.test.mjs": "6eecea08507a6aaccfc174106a4b6afb176c77f762fe4da5781db5bdbf7ab7b5",
+    "tests/health-probe-evidence.test.mjs": "2f1e5f3834fd01e2775d9f2a2552e6c04077b9257bbec0641d851b0fcf122df1",
+    "docs/release-integration-review/health-probe-contract/independent-source.test.mjs": "de4082c0eaaf56d4d3209b9e880380e96d3cc37b015571265ff5742ebefba596"
+  },
+  "sourceAfter": {
+    "tools/operations-system-control.ps1": "dadd5ac892cdc0cecc8bf5fc00a7ddd4f6612525aebc405ff065720e4e83c9fe",
+    "tools/release-readonly-retry.mjs": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6",
+    "tests/operations-system-health-probe.test.mjs": "6eecea08507a6aaccfc174106a4b6afb176c77f762fe4da5781db5bdbf7ab7b5",
+    "tests/health-probe-evidence.test.mjs": "2f1e5f3834fd01e2775d9f2a2552e6c04077b9257bbec0641d851b0fcf122df1",
+    "docs/release-integration-review/health-probe-contract/independent-source.test.mjs": "de4082c0eaaf56d4d3209b9e880380e96d3cc37b015571265ff5742ebefba596"
+  },
+  "sourceBytesUnchanged": true,
+  "stdoutBytes": 4313,
+  "stdoutSha256": "a4b946fcdb1b3871084e47a17951990af1cbc43be4d9d491fada02de094beff1",
+  "stderrBytes": 0,
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "productionCalls": 0,
+  "formalLifecycleActions": 0,
+  "ownTemporaryLoopbackOnly": true
+}

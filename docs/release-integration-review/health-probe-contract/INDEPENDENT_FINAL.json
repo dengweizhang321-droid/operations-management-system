@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "independent": true,
+  "startedAt": "2026-10-10T23:21:07.438Z",
+  "finishedAt": "2026-10-10T23:21:18.566Z",
+  "elapsedMs": 11127.4399,
+  "processId": 60180,
+  "exitCode": 0,
+  "signal": null,
+  "sourceBefore": {
+    "tools/operations-system-control.ps1": "dadd5ac892cdc0cecc8bf5fc00a7ddd4f6612525aebc405ff065720e4e83c9fe",
+    "tools/release-readonly-retry.mjs": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6",
+    "tests/operations-system-health-probe.test.mjs": "6eecea08507a6aaccfc174106a4b6afb176c77f762fe4da5781db5bdbf7ab7b5",
+    "tests/health-probe-evidence.test.mjs": "2f1e5f3834fd01e2775d9f2a2552e6c04077b9257bbec0641d851b0fcf122df1",
+    "docs/release-integration-review/health-probe-contract/independent-source.test.mjs": "e807316f2880a69cb13cb24bbf6afd9f72fc11b21ed91cc74b8d9feade32695f"
+  },
+  "sourceAfter": {
+    "tools/operations-system-control.ps1": "dadd5ac892cdc0cecc8bf5fc00a7ddd4f6612525aebc405ff065720e4e83c9fe",
+    "tools/release-readonly-retry.mjs": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6",
+    "tests/operations-system-health-probe.test.mjs": "6eecea08507a6aaccfc174106a4b6afb176c77f762fe4da5781db5bdbf7ab7b5",
+    "tests/health-probe-evidence.test.mjs": "2f1e5f3834fd01e2775d9f2a2552e6c04077b9257bbec0641d851b0fcf122df1",
+    "docs/release-integration-review/health-probe-contract/independent-source.test.mjs": "e807316f2880a69cb13cb24bbf6afd9f72fc11b21ed91cc74b8d9feade32695f"
+  },
+  "sourceBytesUnchanged": true,
+  "firstFailurePreserved": true,
+  "firstFailureExplanation": "Independent fixture expected Unresponsive return after inherited expiry. New reviewed final deadline guard correctly throws and preserves trace, so only fixture adapted to assert caught=true/state=null and all probe facts; no source change.",
+  "stdoutBytes": 3405,
+  "stdoutSha256": "1d2894abe46637f5c8981b3d7e28e7742707e2b0c94808aae59da95ede21c6d2",
+  "stderrBytes": 0,
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "productionCalls": 0,
+  "formalLifecycleActions": 0,
+  "ownTemporaryLoopbackOnly": true
+}
