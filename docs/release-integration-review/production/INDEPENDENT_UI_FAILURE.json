@@ -1,0 +1,101 @@
+{
+  "version": "task-d-production-independent-ui-failure-v1",
+  "observedAt": "2026-10-10T06:44:55.834Z",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "operationId": "actual-readonly-ui",
+  "resolutionPermitted": "failed",
+  "observedUnknown": {
+    "at": "2026-10-10T06:34:54.155Z",
+    "eventSha256": "e6c4030141133998e820b37c13bbfdb7a1590b861e4f51e6338b7aed6c987872",
+    "processEvidence": {
+      "cleanup": "direct",
+      "code": "nonzero_exit",
+      "deadlineUnixMs": 1791614673839,
+      "elapsedMs": 18198,
+      "exitCode": 1,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 69648,
+      "signal": null,
+      "stage": "output",
+      "stderrBytes": 697,
+      "stderrSha256": "39278aaea026da102e3d667f8c88e0668ccb2d889ecf9d5edf81210fca4f04fc",
+      "stdoutBytes": 0,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    }
+  },
+  "sourceInputsStillPinned": [
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\production-ui.mjs",
+      "sha256": "41434009a0f8f6cfe71f29ede31b3a8bc5a363c2b5ffa3ea2f9e9aa4b3698708"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\ui-audit.mjs",
+      "sha256": "904d57eece6d64283d8b8b1e1ecf10faf3f197b270f00d96facf6f1e234eed57"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\candidate-handoff.json",
+      "sha256": "a2ec59b6119a6f6382953c9f2c620345a3fdaaf1a3367773e7c6200ddd3f6e13"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\resource-inventory.json",
+      "sha256": "c8234a0aa8a43a4bb2b103f3f99b8c06b2f8edec32509844ce91f529b6e43d35"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261010T014638Z-97833d2f2b7e7bc9\\source-snapshot\\tools\\release-acceptance-ui.mjs",
+      "sha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348"
+    }
+  ],
+  "originalOutputs": [
+    {
+      "name": "production-ui-audit.json",
+      "sha256": "9ec3c1df1555dc69e1fc00e4b6782770f0a2b4b9aeff5adacd2ec2b005ed13cc",
+      "bytes": 28053,
+      "observedAt": null,
+      "mtimeUTC": "2026-10-10T04:39:06.186Z",
+      "untouchedPreparationOutput": true,
+      "pinned": false
+    },
+    {
+      "name": "production-ui-result.json",
+      "sha256": "f4022354ea807a1a121d89f09fec5a8ecf5ff3e5911509438936036bc40fd2ff",
+      "bytes": 564,
+      "observedAt": "2026-10-10T04:39:06.186Z",
+      "mtimeUTC": "2026-10-10T04:39:06.186Z",
+      "untouchedPreparationOutput": true,
+      "pinned": false
+    }
+  ],
+  "currentUiAssertionsStatus": "not-proven",
+  "oldReportsAreNotCurrentSuccess": true,
+  "errorCauseFullyEstablished": false,
+  "knownOutputCollision": "Both create-only output slots already contain preapproval reports; reaching either wx write rejects, and finally can mask an earlier assertion.",
+  "stderrOriginalTextAvailable": false,
+  "stderrLimit": "Original temp stderr deleted by original finish; preserve SHA/bytes only, do not reconstruct or claim an exception message.",
+  "processReadObservation": {
+    "at": "2026-10-10T06:42:26.6183397Z",
+    "node69648AndDirectChildren": [],
+    "ownedHeadlessChromeCreatedBetween": "2026-10-10T06:34:30Z..06:35:05Z",
+    "matchingOwnedHeadlessChrome": [],
+    "source": "Independent read-only Win32_Process query; raw command lines not persisted"
+  },
+  "noEffect": true,
+  "noEffectScope": "This operation performed no production business-data write, lifecycle, deployment, scheduling-definition change, or manual external sending. Ordinary reviewed GET observations, logs and isolated browser/temp artifacts are not asserted absent; noEffect is scoped to the production effects being retried, not this already-switched batch.",
+  "basis": {
+    "script": "Only synthetic search/filter/navigation/viewport/scroll and readonly detail actions; no operator/CLI lifecycle or DB writer invocation",
+    "route": "Installed before page creation, serviceWorkers=block; original requestPolicy first rejects every method other than GET; reviewedDecision never converts a non-GET to continue",
+    "allowedNetwork": "Fixed loopback origin, candidate static resources and six explicitly reviewed GET paths. HTTPS exact favicon remains aborted; audit bypass is only fixed normal HTTP favicon GET/maxRedirects0",
+    "persistence": "Only these two private result/audit files are written by the UI script, with wx. Both retain exact original preapproval bytes.",
+    "nonClaim": "Request trace and current assertions are not recoverable from stale outputs; never infer four-case pass or zero attempted-but-blocked writes count"
+  },
+  "priorProductionEffects": "Maintenance/apply/exit/start/resource operations are already passed and must not be replayed. This proof is only for actual-readonly-ui; it cannot cancel the switched batch.",
+  "safeArtifactRemedy": "After preserving both original bytes create-only and verifying hashes, atomically move only these two unpinned private outputs to a phase archive, retain a migration ledger, and leave all source/inputs/flags/pins unchanged.",
+  "protocol": "Original reconcileOperation resolution=failed requires independent,batch,operation,observationsSha256,noReplay and noEffect; append proof, then resume unchanged original engine to retry only this failed readonly step and skip confirmed passed steps.",
+  "reviewerProductionMutations": 0,
+  "reviewerUiReplays": 0,
+  "reviewerFileMoves": 0
+}

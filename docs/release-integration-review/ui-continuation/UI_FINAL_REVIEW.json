@@ -1,0 +1,85 @@
+{
+  "version": "teruisi-ab-ui-independent-final-review-v1",
+  "reviewedAt": "2026-10-10T08:20:36.786Z",
+  "status": "passed",
+  "scope": "non-author static scope review and isolated fixtures; production validation not executed by this reviewer",
+  "originalBatchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "finalRoot": "E:/codex-artifacts/release-integration-review-20261010/AB-ui-supplement-20261010-0820-final",
+  "uiSha256": "2ae444e2bc6f337c6940a7f15a37b5d569257aeed76b3c98058955fe8ddb6118",
+  "helperSha256": "5055f2d5c80cbc5bd1e99cc951010cbc0aab587b3298a05ed0f8a90e0ef80f71",
+  "preparationSha256": "cb88bcf73c28de9cf02224eadcfd589ed3fa5c2b9f0aa0cb644ef6c5551b6e32",
+  "preparerSha256": "0d00692d14fceb70bcec154ed7c999e1716504d6b526144c4b947ffdeede6463",
+  "originalUiSha256": "41434009a0f8f6cfe71f29ede31b3a8bc5a363c2b5ffa3ea2f9e9aa4b3698708",
+  "listedDeltaReversesExactlyToOriginal": true,
+  "covered": [
+    "current request terminal lifetime instead of historical networkidle",
+    "exactly one new product detail GET, finished and HTTP200",
+    "current detail aria-busy=false, KPI DOM and no role=alert",
+    "single absolute deadline through action, read terminal and detail DOM; late action start rejected",
+    "all four original UI cases, viewport/back keyboard, retained inert rows and request/resource audit unchanged",
+    "all original request allowlist and nonGET abort unchanged; no broadened sales-abort exception",
+    "private create-only output namespace and unconditional browser.close finally",
+    "5 independent pure fixtures passed; author 8 real isolated Chrome subcases plus original 7 audit cases, 16 runner tests passed",
+    "first insufficient deadline results and handoff failures retained"
+  ],
+  "uncovered": [
+    "actual production execution and post-switch assertions of this supplement",
+    "supplement approval, append-only receipt acceptance and engine continuation API reviewed separately",
+    "ordinary readonly GET/server logs may exist; zero mutation is limited to reviewed UI effects",
+    "global OS/runtime sandbox and indefinitely quiet future asynchronous requests",
+    "06:06 old D5 Worker crash root cause under separate readonly incident review"
+  ],
+  "productionExecutedByReviewer": false,
+  "originalAuthorityChanged": false,
+  "originalFailedOperationPassed": false,
+  "thirdFailureRetryProhibited": true,
+  "testEvidence": [
+    {
+      "path": "D:/.codex/worktrees/release-ab-ui-acceptance/运营管理系统/docs/release-integration-review/ui-continuation/independent-deadline-first.log",
+      "bytes": 2194,
+      "sha256": "9416401682d5377030b5bafe12c30e6893c885f8a71c35945be6b5e6c979261f"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-ab-ui-acceptance/运营管理系统/docs/release-integration-review/ui-continuation/independent-deadline-handoff-first.log",
+      "bytes": 2294,
+      "sha256": "80d483ec3a29b4ac16038eb3767836f008d1c6ace6f409a4f9830832a16df751"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-ab-ui-acceptance/运营管理系统/docs/release-integration-review/ui-continuation/independent-deadline-final.log",
+      "bytes": 587,
+      "sha256": "b39ac9c508ff136e00aab136b58978d4da589fcd378ea88ad86e5b1f12b17a34"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-ab-ui-acceptance/运营管理系统/docs/release-integration-review/ui-continuation/UI_FINAL_TESTS.log",
+      "bytes": 1588,
+      "sha256": "99066f2cc21c1d74cd682e1d3994636ed92c0042ab2ba84c2d27d72f9f3e4c88"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-ab-ui-acceptance/运营管理系统/docs/release-integration-review/ui-continuation/request-completion-independent.test.mjs",
+      "bytes": 3925,
+      "sha256": "359be1ff0e97bf013c13f873d422987b8904c4a5079d1f6ea44cc461bba6fb88"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-ab-ui-acceptance/运营管理系统/docs/release-integration-review/ui-continuation/request-completion.test.mjs",
+      "bytes": 6167,
+      "sha256": "ffc5ba85eb686e69649113d3e9d9eb8656f50fb5d5f42c5807cfc3b421eba7c1"
+    }
+  ],
+  "originalInputs": [
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/ui-audit.mjs",
+      "bytes": 6479,
+      "sha256": "904d57eece6d64283d8b8b1e1ecf10faf3f197b270f00d96facf6f1e234eed57"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/candidate-handoff.json",
+      "bytes": 34394,
+      "sha256": "a2ec59b6119a6f6382953c9f2c620345a3fdaaf1a3367773e7c6200ddd3f6e13"
+    },
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/resource-inventory.json",
+      "bytes": 8201,
+      "sha256": "c8234a0aa8a43a4bb2b103f3f99b8c06b2f8edec32509844ce91f529b6e43d35"
+    }
+  ]
+}

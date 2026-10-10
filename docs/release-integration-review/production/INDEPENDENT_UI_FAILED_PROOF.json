@@ -1,0 +1,18 @@
+{
+  "independent": true,
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "operationId": "actual-readonly-ui",
+  "observationsSha256": "26040c2258214d1449a9b7ff649aa3a1e296b1f9818f7386908578c21f24a780",
+  "noReplay": true,
+  "noEffect": true,
+  "requestedResolution": "failed",
+  "completed": false,
+  "observationPath": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\production\\INDEPENDENT_UI_FAILURE.json",
+  "noEffectScope": "This operation performed no production business-data write, lifecycle, deployment, scheduling-definition change, or manual external sending. Ordinary reviewed GET observations, logs and isolated browser/temp artifacts are not asserted absent; noEffect is scoped to the production effects being retried, not this already-switched batch.",
+  "restrictions": [
+    "Do not mark passed or reuse stale UI reports",
+    "Preserve unknown/nonzero original event and two original reports",
+    "Only archive the two unpinned private outputs, keeping inputs/scripts/flags unchanged",
+    "Resume original exact approved batch, skip passed lifecycle and backup steps"
+  ]
+}

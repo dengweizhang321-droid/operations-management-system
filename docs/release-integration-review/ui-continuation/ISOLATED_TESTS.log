@@ -1,0 +1,25 @@
+✔ independent UI icon exception binds exact version/origin/type and always aborts (1.3797ms)
+✔ independent UI synthetic cancellation requires original time/window/error/path (0.3319ms)
+✔ independent UI delayed abort permits only an older declared request within five seconds (0.1429ms)
+✔ independent UI blocked icon needs independent normal HTTP bytes (2.1829ms)
+✔ independent UI late pre-window success cannot prove cancellation recovery (13.527ms)
+✔ independent UI network failure never becomes an expected synthetic abort (0.9454ms)
+✔ independent UI actual POST attempt fails even when aborted with no production write (0.5112ms)
+▶ request terminal and successful current DOM barriers with real isolated subprocess
+  ✔ slow body must finish before Back; old networkidle does not release the barrier (1280.2403ms)
+  ✔ current inflight GET blocks navigation even when page already had networkidle (1171.2085ms)
+  ✔ HTTP error cannot become successful detail (1045.9588ms)
+  ✔ legitimate Back cancellation still fails selected-read acceptance (833.3282ms)
+  ✔ 200 plus error DOM still fails (1075.9727ms)
+  ✔ no request is bounded failure, not empty success (893.8103ms)
+  ✔ previous completed request cannot satisfy a new action (1745.2326ms)
+  ✔ different query cannot satisfy exact product detail (1447.7759ms)
+✔ request terminal and successful current DOM barriers with real isolated subprocess (10526.9767ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11027.0049

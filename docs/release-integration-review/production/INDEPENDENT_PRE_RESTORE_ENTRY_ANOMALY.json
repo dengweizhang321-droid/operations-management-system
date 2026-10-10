@@ -1,0 +1,356 @@
+{
+  "version": "teruisi-pre-restore-entry-anomaly-independent-v1",
+  "observedAt": "2026-10-10T08:24:11.909Z",
+  "status": "confirmed-interruption-cause-unresolved",
+  "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "readonlyReview": true,
+  "additionalProductionRequests": 0,
+  "additionalRecoveryOrLifecycleOperations": 0,
+  "summary": "The old D5 Worker root exited with code1 and its existing supervisor automatically restarted it during restore-pre. A merely slow entry response or CPU contention alone is not an established cause.",
+  "observations": [
+    {
+      "at": "2026-10-10T06:06:04.083Z",
+      "completedAt": "2026-10-10T06:06:04.092Z",
+      "latencyMs": 9,
+      "status": 200,
+      "html": true,
+      "available": true
+    },
+    {
+      "at": "2026-10-10T06:06:06.592Z",
+      "completedAt": "2026-10-10T06:06:06.604Z",
+      "latencyMs": 12,
+      "status": 500,
+      "html": false,
+      "available": false
+    },
+    {
+      "at": "2026-10-10T06:06:09.094Z",
+      "completedAt": "2026-10-10T06:06:09.095Z",
+      "latencyMs": 1,
+      "available": false,
+      "errorCode": "ECONNREFUSED"
+    },
+    {
+      "at": "2026-10-10T06:06:11.598Z",
+      "completedAt": "2026-10-10T06:06:11.599Z",
+      "latencyMs": 1,
+      "available": false,
+      "errorCode": "ECONNREFUSED"
+    },
+    {
+      "at": "2026-10-10T06:06:14.107Z",
+      "completedAt": "2026-10-10T06:06:14.108Z",
+      "latencyMs": 1,
+      "available": false,
+      "errorCode": "ECONNREFUSED"
+    },
+    {
+      "at": "2026-10-10T06:06:16.613Z",
+      "completedAt": "2026-10-10T06:06:18.618Z",
+      "latencyMs": 2005,
+      "available": false,
+      "errorCode": "TimeoutError"
+    },
+    {
+      "at": "2026-10-10T06:06:19.127Z",
+      "completedAt": "2026-10-10T06:06:19.138Z",
+      "latencyMs": 11,
+      "status": 200,
+      "html": true,
+      "available": true
+    }
+  ],
+  "timeline": [
+    {
+      "line": 1249,
+      "version": 1,
+      "at": "2026-10-10T06:04:52.588Z",
+      "sequence": 268,
+      "pid": 2924,
+      "ppid": 27936,
+      "estimatedStartedAt": "2026-10-10T01:44:50.849Z",
+      "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+      "event": "heartbeat",
+      "uptimeMs": 15601739,
+      "rss": 76267520,
+      "heapUsed": 13582952,
+      "freeMemory": 2699997184,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1250,
+      "version": 1,
+      "at": "2026-10-10T06:05:52.600Z",
+      "sequence": 269,
+      "pid": 2924,
+      "ppid": 27936,
+      "estimatedStartedAt": "2026-10-10T01:44:50.849Z",
+      "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+      "event": "heartbeat",
+      "uptimeMs": 15661752,
+      "rss": 76648448,
+      "heapUsed": 14079664,
+      "freeMemory": 2385469440,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1251,
+      "version": 1,
+      "at": "2026-10-10T06:06:07.683Z",
+      "sequence": 270,
+      "pid": 2924,
+      "ppid": 27936,
+      "estimatedStartedAt": "2026-10-10T01:44:50.849Z",
+      "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+      "event": "child_exit",
+      "role": "worker",
+      "childPid": 64644,
+      "code": 1,
+      "uptimeMs": 15676834,
+      "rss": 76656640,
+      "heapUsed": 14232392,
+      "freeMemory": 4017283072,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1252,
+      "version": 1,
+      "at": "2026-10-10T06:06:07.688Z",
+      "sequence": 271,
+      "pid": 2924,
+      "ppid": 27936,
+      "estimatedStartedAt": "2026-10-10T01:44:50.849Z",
+      "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+      "event": "restart_scheduled",
+      "role": "worker",
+      "delayMs": 1000,
+      "uptimeMs": 15676839,
+      "rss": 76709888,
+      "heapUsed": 14308648,
+      "freeMemory": 4016472064,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1253,
+      "version": 1,
+      "at": "2026-10-10T06:06:08.690Z",
+      "sequence": 272,
+      "pid": 2924,
+      "ppid": 27936,
+      "estimatedStartedAt": "2026-10-10T01:44:50.849Z",
+      "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+      "event": "launch_validation",
+      "role": "worker",
+      "uptimeMs": 15677841,
+      "rss": 76709888,
+      "heapUsed": 13930448,
+      "freeMemory": 4043857920,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1254,
+      "version": 1,
+      "at": "2026-10-10T06:06:11.714Z",
+      "sequence": 273,
+      "pid": 2924,
+      "ppid": 27936,
+      "estimatedStartedAt": "2026-10-10T01:44:50.849Z",
+      "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+      "event": "child_spawn",
+      "role": "worker",
+      "childPid": 15520,
+      "uptimeMs": 15680865,
+      "rss": 86523904,
+      "heapUsed": 15647944,
+      "freeMemory": 3969318912,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1255,
+      "version": 1,
+      "at": "2026-10-10T06:06:52.604Z",
+      "sequence": 274,
+      "pid": 2924,
+      "ppid": 27936,
+      "estimatedStartedAt": "2026-10-10T01:44:50.849Z",
+      "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+      "event": "heartbeat",
+      "uptimeMs": 15721755,
+      "rss": 81391616,
+      "heapUsed": 13099488,
+      "freeMemory": 2601107456,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1256,
+      "version": 1,
+      "at": "2026-10-10T06:07:52.607Z",
+      "sequence": 275,
+      "pid": 2924,
+      "ppid": 27936,
+      "estimatedStartedAt": "2026-10-10T01:44:50.849Z",
+      "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+      "event": "heartbeat",
+      "uptimeMs": 15781758,
+      "rss": 81539072,
+      "heapUsed": 13963904,
+      "freeMemory": 2811834368,
+      "totalMemory": 34003079168
+    },
+    {
+      "line": 1257,
+      "version": 1,
+      "at": "2026-10-10T06:08:52.611Z",
+      "sequence": 276,
+      "pid": 2924,
+      "ppid": 27936,
+      "estimatedStartedAt": "2026-10-10T01:44:50.849Z",
+      "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+      "event": "heartbeat",
+      "uptimeMs": 15841763,
+      "rss": 81870848,
+      "heapUsed": 14813328,
+      "freeMemory": 3471233024,
+      "totalMemory": 34003079168
+    }
+  ],
+  "proxiedError": {
+    "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_01-44-59_259.log",
+    "line": 17871,
+    "at": "2026-10-10T06:06:06.606Z",
+    "outer": "Error inside ProxyWorker",
+    "cause": "Network connection lost.",
+    "stackScope": "Wrangler ProxyController/Miniflare loopback",
+    "exitEventAt": "2026-10-10T06:06:07.683Z"
+  },
+  "recovery": {
+    "supervisorPidUnchanged": 2924,
+    "oldWorkerRootPid": 64644,
+    "newWorkerRootPid": 15520,
+    "newRootSpawnAt": "2026-10-10T06:06:11.714Z",
+    "watchdogSnapshotAt": "2026-10-10T06:06:25.0956244+00:00",
+    "watchdogCapturedAt": "2026-10-10T06:07:52.9808959+00:00",
+    "port3000PidAfter": 59416,
+    "releaseIdAfter": "20261009T080026Z-d5fb5b62de630ae2",
+    "healthyAfter": true,
+    "databaseRecovery": []
+  },
+  "restoreReceipt": {
+    "startedAt": "2026-10-10T05:57:05.7714513+00:00",
+    "completedAt": "2026-10-10T06:08:24.5369247+00:00",
+    "isolatedPort": 55592,
+    "serviceStateChanged": false,
+    "productionDatabaseTouched": false,
+    "cleanupStatus": "isolated_data_removed"
+  },
+  "restoreEngineEvidence": {
+    "eventSha256": "67f0c947264ed1eed898f3faac72423e904d8e9da06e6284251f8a69ea27fbaa",
+    "at": "2026-10-10T06:08:24.641Z",
+    "processEvidence": {
+      "cleanup": "preserve",
+      "code": "completed",
+      "deadlineUnixMs": 1791613600308,
+      "elapsedMs": 694964,
+      "exitCode": 0,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 37096,
+      "signal": null,
+      "stage": "completed",
+      "stderrBytes": 2396,
+      "stderrSha256": "f1a8c0f706dbed13261e9f4e4dfec22bff4cd22512e4397897ff3719783850a3",
+      "stdoutBytes": 946,
+      "stdoutSha256": "9c9ebd393739e2581d26a081e061a93d630896e63801e5dcd736ee392a5ae68c",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    },
+    "interpretation": "This root process completed exit0 with direct-exit-files/preserve and no deadline/tree cleanup event. The reviewed restore root timeout cleanup was not invoked for this operation. This does not identify why the independent D5 workerd/proxy connection failed."
+  },
+  "isolatedPostgresShutdown": {
+    "atUtc": "2026-10-10T06:08:20.993Z",
+    "pid": 55020,
+    "mode": "fast",
+    "finishedUtc": "2026-10-10T06:08:21.498Z",
+    "relationToEntryFailure": "later than the 06:06 interruption"
+  },
+  "windowsApplicationEvents": {
+    "window": "2026-10-10T06:02:00Z..06:08:00Z",
+    "matched": [
+      {
+        "at": "2026-10-10T06:03:48.5108504Z",
+        "provider": "Application Error",
+        "id": 1000,
+        "application": "AlibabaProtect.exe",
+        "exceptionCode": "c0000409",
+        "processIdHex": "0xe2d0"
+      },
+      {
+        "at": "2026-10-10T06:03:51.9564145Z",
+        "provider": "Windows Error Reporting",
+        "id": 1001,
+        "application": "AlibabaProtect.exe",
+        "eventName": "BEX"
+      }
+    ],
+    "attribution": "These two watchdog-listed Windows events belong to a different application, not established evidence of Worker failure.",
+    "systemResourceExhaustionEvent2004Found": false
+  },
+  "limits": [
+    "No complete process termination/OS workerd event trace exists in the reviewed records; cannot conclusively rule out every external kill or identify native crash/resource root cause.",
+    "Resource contention during restore is temporally possible but not proved by these logs; no CPU or native memory crash sample was captured.",
+    "The original operator assigns serviceStateChanged=false in its receipt schema; it cannot override observed availability or child lifecycle records.",
+    "The exact unavailable duration is not measured: retain five failure samples and adjacent 200 bounds, separate from the later maintenance interval.",
+    "Original restore scope guards and successful preserve process evidence do not establish all formal-service-tree protection paths in production.",
+    "No extra Status/Verify/Restore/kill/restart/query or production UI was executed by this reviewer."
+  ],
+  "sources": [
+    {
+      "path": "E:/codex-artifacts/release-integration-review-20261010/AB-v2-555729fd8f1dedc2/production/entry-observations.jsonl",
+      "bytes": 483623,
+      "sha256": "9801c4e6f2f128c622b8263064c8b054c93e413a32fc91ac6d959e57e4e85ad7"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/supervisor-lifecycle-0.jsonl",
+      "bytes": 474863,
+      "sha256": "365afb16662d88ae764fb6bc683c2964990b072be1c5472e70bff2b363f48ddf"
+    },
+    {
+      "path": "C:/Users/86137/AppData/Roaming/xdg.config/.wrangler/logs/wrangler-2026-10-10_01-44-59_259.log",
+      "bytes": 592494,
+      "sha256": "c6987bac7d121ee6127c0af5a1d718d335c72ab50cae5c506c855f9d8b49e453"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/logs/worker-20261010-094450.stderr.log",
+      "bytes": 41623,
+      "sha256": "467446f4b89dd280b0c9d8c9216761624573104e2982d01b093886c71fcef186"
+    },
+    {
+      "path": "D:/teruisi-runtime/operations-watchdog/evidence/1c49f6db8c7d44708d68dfb40b52d36a-latest.json",
+      "bytes": 1909,
+      "sha256": "31ac3e651ee52e6412be1493a8f5edde96c6670717a396dafcdc78be3d2b986c"
+    },
+    {
+      "path": "E:/TERUISI-Postgres-Rehearsals/restore-4343c5618700/rehearsal-result.json",
+      "bytes": 1098,
+      "sha256": "e7b1853689df984338da716f0948171de5ed31e6820106534b0451d4aa77421d"
+    },
+    {
+      "path": "E:/TERUISI-Postgres-Rehearsals/restore-4343c5618700/postgres.log",
+      "bytes": 16046,
+      "sha256": "65959dba01ba7309f4af4ea2cb43a8c6f323528b9b7aace871b6c65524c2b10a"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/integration-ab-v2-20261010-c22d8dd69a/000010.json",
+      "bytes": 1139,
+      "sha256": "f7af4723eb06ba00916c9d630afb18c5dac60fee7048a8dfa5ddb1755293a200"
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/app/tools/django-postgres-maintenance.ps1",
+      "bytes": 111624,
+      "sha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6"
+    }
+  ]
+}
