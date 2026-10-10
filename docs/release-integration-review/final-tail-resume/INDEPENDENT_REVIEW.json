@@ -1,0 +1,158 @@
+{
+  "version": "teruisi-final-tail-non-author-independent-review-v1",
+  "reviewer": "/root/preparation_review",
+  "reviewedAt": "2026-10-10T17:18:43.086Z",
+  "independent": true,
+  "nonAuthor": true,
+  "acceptedResumeCandidate": true,
+  "productionExecutionApproved": false,
+  "productionExecutedByReviewer": false,
+  "blockingFindings": [],
+  "apiSha256": "2a8dded52b2cbeb1a3943ccbadf91d8b626340638835650e5f633d2c622826b0",
+  "callerSha256": "646f52ebc2203a55d379e7764fb733b0f60418e74ee61fe7ec45649dd8b177cf",
+  "runtimeSha256": "cf8bebab7b6b2592095ff25dde672883ef0cb9d04fc6001b2b2254900f65b6c8",
+  "sealerSha256": "fb7b5f878c01b70b0bfaa08e5f59260b8611b7afd73dd5a4c7d8ac5cea7961dd",
+  "allFourRuntimeModulesUnchangedDuringFinalTests": true,
+  "contract": {
+    "originalBatchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "expectedRecords": 89,
+    "expectedHeadSha256": "ee784dfd718bc16aabcc2868667ac5b5d707bf3a582624a4f722019a050d7485",
+    "acceptedSourceScopeSha256": "295d8923fb794079faf5cc9c74f92f12d8bd78a3ccbbce4b9dcbb19e00fcc458",
+    "acceptedSourceReceiptSha256": "73c0de244c7358a9c7031411dac86d1c028689bdd02efb5e14a0e7154d5c5f5f",
+    "sourceApprovalRawSha256": "c70ac58556ffca976c0d19c0abebf5858da545b034c3b09048dd82f7fe8a3970",
+    "operations": [
+      "original-historical-audits-preserved",
+      "exact-final-readiness"
+    ],
+    "original19RemainsUnknown": true,
+    "originalStrictEquality": false,
+    "sourceContractReappend": false,
+    "originalBatchEngineCompleted": false,
+    "newServiceActions": 0,
+    "newBackupOrRestore": 0,
+    "businessWrites": 0,
+    "CAdopted": false,
+    "noDataPolicyAdopted": false
+  },
+  "checks": {
+    "completeOld4589AndCurrent4505ClosureBeforeDynamicImports": true,
+    "newHumanApprovalAndTimestampRequired": true,
+    "oldApprovalItemsRejected": true,
+    "all89RawPrefixPinsAndAccepted88ReceiptBound": true,
+    "original18PassedAndNoExistingTailRequired": true,
+    "deepImmutableInputsAndCanonicalCasVerified": true,
+    "originalRetryStateMutationCompatible": true,
+    "originalNotReadyNonRetryable": true,
+    "returnedResultAndOriginalFailureEvidenceRetainedOnLedgerFailure": true,
+    "originalB14CodesAndInnerStatusProcessRetained": true,
+    "unknownLabelsUseIdempotentHashes": true,
+    "privateFramesAndPathsNotPrinted": true,
+    "commonInheritedDeadlineNotReset": true,
+    "fullScopeHashBeforeEachCollector": true,
+    "noColdHashBetweenSampleAndOriginalOperation": true,
+    "boundarySampleAgeRecordedAndOver5000MsRejected": true,
+    "noColdHashAfterFinalReadinessResult": true,
+    "readinessReturnToCompletionAndReleaseIntervalsRecorded": true,
+    "typedOwnerAcknowledgementAndPhysicalAbsenceRequired": true,
+    "missingOldJournalRejectedBeforeEnsure": true,
+    "sealerPrepareOnlyCreateOnce": true
+  },
+  "tests": {
+    "independentRegression": {
+      "tests": 28,
+      "pass": 28,
+      "fail": 0,
+      "durationMs": 17435.5044,
+      "log": "INDEPENDENT_TESTS_FINAL.log",
+      "sha256": "024e06546ac151d4d516df7699288d49a748493117181f3b7e3a73da9782e3a9",
+      "environment": "metadata plus memory; original adopted retry/append/journal functions with synthetic child seam and real temporary create-only WAL; actual runtime owner helper with temporary active file"
+    },
+    "independentNativeLeaf": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "durationMs": 745.1845,
+      "log": "INDEPENDENT_NATIVE_LEAF.log",
+      "sha256": "9d618caecb2b68959dc0a85f983300aee2c100fd1b15c43c3932718ca3049a05",
+      "evidence": "INDEPENDENT_NATIVE_LEAF.json",
+      "evidenceSha256": "bf8dca2f5b431da53e49066f77b63bec78843d33b29970c3aea214ee5d67f67d",
+      "realNodeOnlySubprocess": true,
+      "directCleanup": true,
+      "noDescendants": true,
+      "noBusinessEnvironment": true,
+      "processIds": [
+        68736,
+        59200
+      ],
+      "bothDirectChildrenConfirmedEsrchWithin5000Ms": true
+    },
+    "authorEvidenceReadOnlyReviewed": {
+      "regressionTests": 33,
+      "regressionPass": 33,
+      "durationMs": 8814.6024,
+      "logSha256": "5efd401a18236855945b90dfc96c789b19b3be0de0b499aa53019d3107acc3bd",
+      "nativeTests": 5,
+      "nativePass": 5,
+      "nativeLogSha256": "0a5b8d9ffbd70f371f90912efaad541c5dc0561ccd9e8d18924e390ddfefe1ca",
+      "nativeCases": [
+        "exit0",
+        "exit7",
+        "inherited timeout",
+        "expired deadline refuses spawn",
+        "true late exit0 remains rejected"
+      ],
+      "notAddedToIndependentCount": true
+    },
+    "countsNotSummedAcrossRepeatedOrOverlappingRuns": true
+  },
+  "resolvedFindings": [
+    {
+      "id": "F1",
+      "scope": "passed/unknown/admission WAL write or CAS failure",
+      "resolution": "Caller retains safe actual receipt/process/attempt and original cause evidence; no forced append onto a foreign head."
+    },
+    {
+      "id": "F2",
+      "scope": "caller stack frames and arbitrary metadata labels",
+      "resolution": "Only anchored allowlisted basename and bounded numeric line/column; unknown values retain SHA; original B14 and inner process are retained through repeated sanitization."
+    },
+    {
+      "id": "F3",
+      "scope": "cold scope hash after dynamic sample or final readiness",
+      "resolution": "Full coverage remains before each original collector, sample age checked before started; final readiness followed by small metadata/owner checks; intervals recorded without claiming freshness at unlink."
+    }
+  ],
+  "preservedFirstEvidence": {
+    "firstReview": "INDEPENDENT_REVIEW_FIRST.json",
+    "firstReviewSha256": "752fc51dc7d8aa68b0baf350a8a2e5ea3ddb1aa29e77bef3c389391626f8b6b1",
+    "firstTestLog": "INDEPENDENT_TESTS_FIRST.log",
+    "firstTestLogSha256": "1aac221f9b80026d9b340ddfb98b5e72e419524f70987c518e65efce4c55ceb1",
+    "firstCounts": {
+      "tests": 16,
+      "pass": 12,
+      "fail": 4
+    },
+    "fixtureCorrections": [
+      "First retry count included an original historical observation-attempt; final assertion counts only events after original89.",
+      "First owner helper test omitted injected assert; repaired fixture and explicitly require the actual deadline assertion for the refusal case."
+    ],
+    "laterFailureEvidence": [
+      "INDEPENDENT_FAILURE_RETENTION.log",
+      "INDEPENDENT_SAFE_OWNER.log"
+    ],
+    "afterCorrectionOwnerLogSha256": "6dc9bd88cd761df162ce41fdde819922c668d60c02754f6db02eadbbbe1ae87b"
+  },
+  "limitations": [
+    "No actual new scope has been sealed or approved by this review; complete final physical scope verification is still required.",
+    "No production caller/API, collector, Status, HTTP, SQL, backup, restore, lifecycle, lock or service tree operation was executed by this reviewer.",
+    "No private key or customer row data was read; no 943MB dump was rehashed here.",
+    "Temporary WAL tests use the unmodified adopted journal/retry/operation function text with a synthetic child seam; they are not production-tail execution.",
+    "Native leaf durations and fixture durations are test timings, not production release or availability measurements.",
+    "Original STATUS_NOT_READY, old unknown/failed history, cleanup blocked and false strict comparison remain; later Ready is not original21.",
+    "Necessary acceptance and complete delivery remain unclosed until the new exact scope is explicitly approved, actually executed and independently reviewed."
+  ],
+  "reviewArtifacts": {
+    "independentTestSha256": "35a9702adbe246eec8b039d67eda175d59d2bc3d5add2435f7246e51d105530d",
+    "independentNativeTestSha256": "808a2e2ff76f0ba371bf60388481e17cd65a0e9d5217c474dcda2336ed39e886"
+  }
+}

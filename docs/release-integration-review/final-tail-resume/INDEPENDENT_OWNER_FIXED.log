@@ -1,0 +1,10 @@
+✔ actual runtime owner helper releases only the isolated bound file and verifies physical ENOENT (138.8487ms)
+✔ actual runtime owner helper with exhausted deadline retains the isolated bound file (125.6092ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 723.7258

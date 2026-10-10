@@ -1,0 +1,7 @@
+Warning: React version was set to "detect" in eslint-plugin-react settings, but the "react" package is not installed. Assuming latest React version for linting.
+
+D:\.codex\worktrees\release-ab-ui-acceptance\运营管理系统\docs\release-integration-review\final-tail-resume\prepare.mjs
+  4:9  warning  'readFile' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 1 problem (0 errors, 1 warning)
+

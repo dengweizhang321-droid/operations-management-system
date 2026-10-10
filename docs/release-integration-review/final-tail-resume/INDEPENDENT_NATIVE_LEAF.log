@@ -1,0 +1,10 @@
+✔ real synthetic Node leaf completes with exact inherited minimum deadline and direct output evidence (145.1495ms)
+✔ real synthetic Node leaf expires on earlier inherited deadline and cleans only its direct PID (487.8156ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 745.1845

@@ -1,0 +1,13 @@
+{"isolatedCallerOnly":true}
+✔ original adopted retry/append ABI survives a transient observation with real temporary create-only WAL and CAS (4801.4392ms)
+✔ full caller checks inherited earlier deadline and all pins before imports, then restores only its environment (225.9177ms)
+✔ full caller refuses old human approval before any dynamic import or invocation output (127.1602ms)
+✔ full caller refuses changed runtime pin before any dynamic import or invocation output (234.8502ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5913.6136

@@ -1,0 +1,41 @@
+✔ metadata identities and real accepted88/source295 approval are exactly bound (12.6249ms)
+✔ mock success runs only20/21, preserves19 and never reappends accepted source (708.9453ms)
+✔ old295 approval cannot authorize new code is blocked without releasing owner (381.7577ms)
+✔ approval must explicitly release exact ownership is blocked without releasing owner (325.5049ms)
+✔ newhead drift is blocked without releasing owner (370.6763ms)
+✔ tail already started is blocked without releasing owner (270.4001ms)
+✔ old required operation lost is blocked without releasing owner (278.3062ms)
+✔ collector altered is blocked without releasing owner (161.0171ms)
+✔ physical pin drift is blocked without releasing owner (232.4442ms)
+✔ typed source proof changed is blocked without releasing owner (260.6432ms)
+✔ stale dynamic sample is blocked without releasing owner (310.1043ms)
+✔ binding mismatch is blocked without releasing owner (283.7559ms)
+✔ marker-only passed is blocked without releasing owner (310.8019ms)
+✔ deadline extended by engine result is blocked without releasing owner (335.3268ms)
+✔ NotReady original observation and process metadata persist before any tail started (325.9766ms)
+✔ safe error nonarray observations and private path never leak or mask the original error (0.2848ms)
+✔ owner changes during original admission is preserved as failure before running tail (319.2631ms)
+✔ common deadline exhaustion after source proof cannot begin tail or reset clock (262.9186ms)
+✔ late release cannot report success or falsely report release did not occur (317.6979ms)
+✔ no-op ownership callback is rejected (313.1273ms)
+✔ foreign event after writeOnce cannot become this protocol head (279.2268ms)
+✔ expected pin cannot follow drifting provider before the next full boundary check (325.077ms)
+✔ two simultaneous calls serialize with one tail execution and no replay (450.9456ms)
+✔ original supported processDeadline respects one inherited absolute deadline (7.7092ms)
+✔ missing old journal refuses without engine mkdir; ordinary hardlink is rejected (7.2555ms)
+✔ passed ledger EACCES keeps real receipt/process/observations on thrown error (317.1638ms)
+✔ unknown ledger EACCES preserves underlying nonzero process and original attempts (304.7467ms)
+✔ private fake/oversized frames rejected; only anchored actual bounded file frame emitted (0.4536ms)
+✔ unknown process/attempt labels retain only hashes and bad ISO is never printed (0.2274ms)
+✔ admission ledger EACCES still retains NotReady process, attempts and cause hash (309.3717ms)
+✔ double sanitization keeps unknown hashes and original B14 classes plus inner process (0.5238ms)
+✔ slow metadata after fresh collector refuses before starting original operation (290.9509ms)
+✔ no full pin hash is inserted after original21 result; closure interval is explicit (351.9081ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8814.6024

@@ -1,0 +1,27 @@
+{
+  "reviewer": "non-author",
+  "status": "blocked-first-review",
+  "tests": 16,
+  "pass": 12,
+  "fail": 4,
+  "fixtureIssue": "one failing count included original historical observation-attempt; corrected count will use slice(89)",
+  "findings": [
+    {
+      "file": "protocol.mjs",
+      "line": 107,
+      "issue": "Original completed result evidence lost when passed WAL append throws"
+    },
+    {
+      "file": "execute.mjs",
+      "line": 39,
+      "issue": "Unanchored fake stack frame and unbounded line/column can disclose message data"
+    }
+  ],
+  "productionExecutionApproved": false,
+  "protocol.mjsSha256": "2810917e184a26c5cc320f073d73854393b34014262c01f8e85bf25de89ff0a8",
+  "runtime.mjsSha256": "c6a208d62ef84457444e25be3e61f60c3fd9d72530f8d7f2c897a097962537b9",
+  "execute.mjsSha256": "9b47d37c5f0cc5c2a5b997fa95fa5c68c489dc3e86158dcfa9c0b7915c22c64c",
+  "prepare.mjsSha256": "fb7b5f878c01b70b0bfaa08e5f59260b8611b7afd73dd5a4c7d8ac5cea7961dd",
+  "INDEPENDENT_TESTS_FIRST.logSha256": "1aac221f9b80026d9b340ddfb98b5e72e419524f70987c518e65efce4c55ceb1",
+  "independent.test.mjsSha256": "f0e6e5050f51db41fc8329115c222de13c9b9a41552810cbc430d9214eee71fa"
+}

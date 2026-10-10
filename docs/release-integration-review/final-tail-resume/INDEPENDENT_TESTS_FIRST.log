@@ -1,0 +1,107 @@
+✔ independent success requires exactly the immutable two read-only tails, true process proof and real absence (579.4257ms)
+✔ approval before sealing rejects before an operator (373.4677ms)
+✔ future approval rejects before an operator (332.3092ms)
+✔ old approval flag cannot authorize new code rejects before an operator (326.9155ms)
+✔ accepted88 receipt splice rejects before an operator (376.2832ms)
+✔ complete89 prefix omission rejects before an operator (439.0254ms)
+✔ operation20 nested assertion drift rejects before an operator (244.5568ms)
+✔ copied deep-frozen scope refuses a later source provider pin swap (388.4179ms)
+✔ typed release true without physical absence is rejected (461.8078ms)
+✖ a failed passed-result WAL append still carries the returned original receipt/process/attempt evidence (451.2049ms)
+✖ caller never treats a private error message fake frame as code location (0.6314ms)
+✖ caller permits only a bounded actual stack frame location (0.2817ms)
+✔ independent safe failure keeps original NotReady and numeric source basename without private body/path (474.671ms)
+✖ original adopted retry/append ABI survives a transient observation with real temporary create-only WAL and CAS (4837.0196ms)
+✔ original adopted NotReady is nonretryable in real temporary WAL and never releases owner (3992.2837ms)
+✔ ordinary temp hardlink and deadline-expired digest reject without invoking any runtime method (4.9324ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 12
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13810.9202
+
+✖ failing tests:
+
+test at docs\release-integration-review\final-tail-resume\independent.test.mjs:54:1
+✖ a failed passed-result WAL append still carries the returned original receipt/process/attempt evidence (451.2049ms)
+  AssertionError [ERR_ASSERTION]: returned child proof was lost
+  
+  undefined !== 0
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/final-tail-resume/independent.test.mjs:54:419)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\final-tail-resume\independent.test.mjs:59:1
+✖ caller never treats a private error message fake frame as code location (0.6314ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'execute.mjs:98765432101234567890:4444'
+  - null
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/final-tail-resume/independent.test.mjs:59:195)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17)
+      at run (node:internal/test_runner/harness:396:12)
+      at test (node:internal/test_runner/harness:405:12)
+      at file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/final-tail-resume/independent.test.mjs:59:1 {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'execute.mjs:98765432101234567890:4444',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\final-tail-resume\independent.test.mjs:60:1
+✖ caller permits only a bounded actual stack frame location (0.2817ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'execute.mjs:12345678901234567890:3'
+  - null
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/final-tail-resume/independent.test.mjs:60:233)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'execute.mjs:12345678901234567890:3',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\final-tail-resume\independent.test.mjs:83:1
+✖ original adopted retry/append ABI survives a transient observation with real temporary create-only WAL and CAS (4837.0196ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 2
+  
+      at realTempRetry (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/final-tail-resume/independent.test.mjs:80:118)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

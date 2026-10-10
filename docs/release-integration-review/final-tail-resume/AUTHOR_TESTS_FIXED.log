@@ -1,0 +1,39 @@
+✔ metadata identities and real accepted88/source295 approval are exactly bound (10.19ms)
+✔ mock success runs only20/21, preserves19 and never reappends accepted source (417.5902ms)
+✔ old295 approval cannot authorize new code is blocked without releasing owner (228.9383ms)
+✔ approval must explicitly release exact ownership is blocked without releasing owner (175.6617ms)
+✔ newhead drift is blocked without releasing owner (232.2884ms)
+✔ tail already started is blocked without releasing owner (241.1339ms)
+✔ old required operation lost is blocked without releasing owner (242.2585ms)
+✔ collector altered is blocked without releasing owner (178.3616ms)
+✔ physical pin drift is blocked without releasing owner (261.7809ms)
+✔ typed source proof changed is blocked without releasing owner (252.2534ms)
+✔ stale dynamic sample is blocked without releasing owner (281.6348ms)
+✔ binding mismatch is blocked without releasing owner (267.2052ms)
+✔ marker-only passed is blocked without releasing owner (296.1619ms)
+✔ deadline extended by engine result is blocked without releasing owner (309.3866ms)
+✔ NotReady original observation and process metadata persist before any tail started (282.3598ms)
+✔ safe error nonarray observations and private path never leak or mask the original error (0.2883ms)
+✔ owner changes during original admission is preserved as failure before running tail (356.6234ms)
+✔ common deadline exhaustion after source proof cannot begin tail or reset clock (279.8135ms)
+✔ late release cannot report success or falsely report release did not occur (343.2803ms)
+✔ no-op ownership callback is rejected (336.2324ms)
+✔ foreign event after writeOnce cannot become this protocol head (281.4325ms)
+✔ expected pin cannot follow concurrently drifting provider (289.9501ms)
+✔ two simultaneous calls serialize with one tail execution and no replay (503.78ms)
+✔ original supported processDeadline respects one inherited absolute deadline (9.2974ms)
+✔ missing old journal refuses without engine mkdir; ordinary hardlink is rejected (6.0784ms)
+✔ passed ledger EACCES keeps real receipt/process/observations on thrown error (302.0612ms)
+✔ unknown ledger EACCES preserves underlying nonzero process and original attempts (290.0218ms)
+✔ private fake/oversized frames rejected; only anchored actual bounded file frame emitted (0.4621ms)
+✔ unknown process/attempt labels retain only hashes and bad ISO is never printed (0.1906ms)
+✔ admission ledger EACCES still retains NotReady process, attempts and cause hash (261.157ms)
+✔ double sanitization keeps unknown hashes and original B14 classes plus inner process (0.5301ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7258.1312

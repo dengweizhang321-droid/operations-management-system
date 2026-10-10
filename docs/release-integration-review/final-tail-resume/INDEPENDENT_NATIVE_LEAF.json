@@ -1,0 +1,80 @@
+{
+  "version": "teruisi-independent-synthetic-leaf-v1",
+  "productionActions": 0,
+  "records": [
+    {
+      "mode": "success",
+      "realSyntheticSubprocess": true,
+      "nodeOnly": true,
+      "childSpawnedDescendants": false,
+      "productionActions": 0,
+      "businessEnvironmentKeys": 0,
+      "processEvidence": {
+        "version": 1,
+        "processId": 68736,
+        "exitCode": 0,
+        "elapsedMs": 137,
+        "deadlineUnixMs": 1791652074289,
+        "stdoutBytes": 47,
+        "stderrBytes": 0,
+        "treeCleanupExitCode": null,
+        "code": "completed",
+        "stage": "completed",
+        "outputProtocol": "direct-exit-files",
+        "cleanup": "direct",
+        "timeoutType": null,
+        "signal": null,
+        "nativeCode": null,
+        "treeCleanupPending": false,
+        "stdoutSha256": "df6e8bce65c07a765c54ec7f6341f830da7a83091c07f706ffa73316405f645e",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "directChildAbsence": {
+        "processId": 68736,
+        "method": "process.kill(pid,0) read-only",
+        "status": "ESRCH",
+        "confirmedAbsent": true,
+        "confirmedAt": "2026-10-10T17:07:49.430Z",
+        "waitMs": 1,
+        "maximumWaitMs": 5000
+      }
+    },
+    {
+      "mode": "timeout",
+      "realSyntheticSubprocess": true,
+      "nodeOnly": true,
+      "childSpawnedDescendants": false,
+      "productionActions": 0,
+      "businessEnvironmentKeys": 0,
+      "processEvidence": {
+        "version": 1,
+        "processId": 59200,
+        "exitCode": null,
+        "elapsedMs": 486,
+        "deadlineUnixMs": 1791652069932,
+        "stdoutBytes": 0,
+        "stderrBytes": 0,
+        "treeCleanupExitCode": null,
+        "code": "process_timeout",
+        "stage": "direct-exit",
+        "outputProtocol": "direct-exit-files",
+        "cleanup": "direct",
+        "timeoutType": "direct-exit",
+        "signal": "SIGKILL",
+        "nativeCode": null,
+        "treeCleanupPending": false,
+        "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "directChildAbsence": {
+        "processId": 59200,
+        "method": "process.kill(pid,0) read-only",
+        "status": "ESRCH",
+        "confirmedAbsent": true,
+        "confirmedAt": "2026-10-10T17:07:49.919Z",
+        "waitMs": 0,
+        "maximumWaitMs": 5000
+      }
+    }
+  ]
+}

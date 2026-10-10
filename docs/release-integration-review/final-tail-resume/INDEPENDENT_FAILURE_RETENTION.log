@@ -1,0 +1,52 @@
+✖ a failed unknown-result WAL append still carries the original failed child and observation evidence (522.9376ms)
+✔ caller never treats a private error message fake frame as code location (0.8346ms)
+✔ caller permits only a bounded actual stack frame location (0.2418ms)
+✔ admission ledger failure does not hide original NotReady child or observation cause (452.1524ms)
+✖ safe process and attempt hashes remain intact through the two real sanitization layers (0.7892ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 3
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1834.6248
+
+✖ failing tests:
+
+test at docs\release-integration-review\final-tail-resume\independent.test.mjs:55:1
+✖ a failed unknown-result WAL append still carries the original failed child and observation evidence (522.9376ms)
+  AssertionError [ERR_ASSERTION]: failed original classification must survive through caller safe serialization
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/final-tail-resume/independent.test.mjs:55:950)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\final-tail-resume\independent.test.mjs:113:1
+✖ safe process and attempt hashes remain intact through the two real sanitization layers (0.7892ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - '416458f62fe14b308b504f1f0d53ed7e18d19b67a3652789a2cc499406b98581'
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/final-tail-resume/independent.test.mjs:113:398)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: '416458f62fe14b308b504f1f0d53ed7e18d19b67a3652789a2cc499406b98581',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

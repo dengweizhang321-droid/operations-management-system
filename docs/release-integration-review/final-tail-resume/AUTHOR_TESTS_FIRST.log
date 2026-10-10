@@ -1,0 +1,33 @@
+✔ metadata identities and real accepted88/source295 approval are exactly bound (11.1121ms)
+✔ mock success runs only20/21, preserves19 and never reappends accepted source (393.2843ms)
+✔ old295 approval cannot authorize new code is blocked without releasing owner (219.7929ms)
+✔ approval must explicitly release exact ownership is blocked without releasing owner (175.1886ms)
+✔ newhead drift is blocked without releasing owner (231.1134ms)
+✔ tail already started is blocked without releasing owner (219.6835ms)
+✔ old required operation lost is blocked without releasing owner (232.2085ms)
+✔ collector altered is blocked without releasing owner (153.3144ms)
+✔ physical pin drift is blocked without releasing owner (235.5311ms)
+✔ typed source proof changed is blocked without releasing owner (268.0514ms)
+✔ stale dynamic sample is blocked without releasing owner (249.5471ms)
+✔ binding mismatch is blocked without releasing owner (236.2237ms)
+✔ marker-only passed is blocked without releasing owner (259.3743ms)
+✔ deadline extended by engine result is blocked without releasing owner (262.819ms)
+✔ NotReady original observation and process metadata persist before any tail started (250.3698ms)
+✔ safe error nonarray observations and private path never leak or mask the original error (0.1649ms)
+✔ owner changes during original admission is preserved as failure before running tail (258.4225ms)
+✔ common deadline exhaustion after source proof cannot begin tail or reset clock (264.294ms)
+✔ late release cannot report success or falsely report release did not occur (302.2418ms)
+✔ no-op ownership callback is rejected (300.4302ms)
+✔ foreign event after writeOnce cannot become this protocol head (246.5104ms)
+✔ expected pin cannot follow concurrently drifting provider (280.7831ms)
+✔ two simultaneous calls serialize with one tail execution and no replay (438.4349ms)
+✔ original supported processDeadline respects one inherited absolute deadline (7.9424ms)
+✔ missing old journal refuses without engine mkdir; ordinary hardlink is rejected (37.8408ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5843.6556

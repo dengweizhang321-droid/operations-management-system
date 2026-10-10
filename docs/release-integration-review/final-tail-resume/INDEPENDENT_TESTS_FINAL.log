@@ -1,0 +1,37 @@
+✔ independent success requires exactly the immutable two read-only tails, true process proof and real absence (616.4055ms)
+✔ approval before sealing rejects before an operator (386.6951ms)
+✔ future approval rejects before an operator (357.1062ms)
+✔ old approval flag cannot authorize new code rejects before an operator (370.6521ms)
+✔ accepted88 receipt splice rejects before an operator (503.9034ms)
+✔ complete89 prefix omission rejects before an operator (419.5981ms)
+✔ operation20 nested assertion drift rejects before an operator (336.8815ms)
+✔ copied deep-frozen scope refuses a later source provider pin swap (447.3719ms)
+✔ typed release true without physical absence is rejected (505.9756ms)
+✔ a failed passed-result WAL append still carries the returned original receipt/process/attempt evidence (451.0419ms)
+✔ a failed unknown-result WAL append still carries the original failed child and observation evidence (416.4931ms)
+✔ caller never treats a private error message fake frame as code location (0.7426ms)
+✔ caller permits only a bounded actual stack frame location (0.1704ms)
+✔ independent safe failure keeps original NotReady and numeric source basename without private body/path (411.7048ms)
+✔ original adopted retry/append ABI survives a transient observation with real temporary create-only WAL and CAS (5591.1076ms)
+✔ original adopted NotReady is nonretryable in real temporary WAL and never releases owner (3845.5819ms)
+{"isolatedCallerOnly":true}
+✔ ordinary temp hardlink and deadline-expired digest reject without invoking any runtime method (4.9051ms)
+✔ full caller checks inherited earlier deadline and all pins before imports, then restores only its environment (222.4014ms)
+✔ full caller refuses old human approval before any dynamic import or invocation output (104.2033ms)
+✔ full caller refuses changed runtime pin before any dynamic import or invocation output (230.8178ms)
+✔ sealer snapshot refuses a missing original WAL before ensure/create behavior can run (4.113ms)
+✔ admission ledger failure does not hide original NotReady child or observation cause (398.0501ms)
+✔ safe process and attempt hashes remain intact through the two real sanitization layers (0.4116ms)
+✔ original inner Status process is retained distinctly from the outer collector through both safe layers (80.8072ms)
+✔ complete scope verification precedes each collector, without a cold scan between its freshness gate and operator or final owner release (527.5138ms)
+✔ a sample that ages while the admission WAL is committed cannot start the original operator (417.2863ms)
+✔ actual runtime owner helper releases only the isolated bound file and verifies physical ENOENT (98.9869ms)
+✔ actual runtime owner helper with exhausted deadline retains the isolated bound file (90.5236ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17435.5044
