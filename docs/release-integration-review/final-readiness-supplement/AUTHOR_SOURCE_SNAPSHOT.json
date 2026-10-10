@@ -1,0 +1,73 @@
+{
+  "independent": false,
+  "author": true,
+  "productionExecuted": false,
+  "productionExecutionApproved": false,
+  "files": [
+    {
+      "name": "protocol.mjs",
+      "sha256": "23a390da164b26801d9f8ddb12a7bec73ba3a4242225b3561b2d3a33812ed266",
+      "bytes": 29732,
+      "CR": false
+    },
+    {
+      "name": "runtime.mjs",
+      "sha256": "e765dcd0aeaf29cdde75090bb1358ba6be74eb5d1551d8a9327257add53e155f",
+      "bytes": 11858,
+      "CR": false
+    },
+    {
+      "name": "execute.mjs",
+      "sha256": "1a0867c0e1b96b5515a69322f18b8f7863118f896b31c3359c9b7bd916beef94",
+      "bytes": 11124,
+      "CR": false
+    },
+    {
+      "name": "prepare.mjs",
+      "sha256": "7254587f79705f994cb82ffb059f0f5cbdcffd99a9d1eda3b13ae87852296a16",
+      "bytes": 10141,
+      "CR": false
+    },
+    {
+      "name": "status-evidence.mjs",
+      "sha256": "750827647fcc2c17171f239c687da1e49c832dd967aa591e2b4f5b9923b8a68b",
+      "bytes": 5885,
+      "CR": false
+    },
+    {
+      "name": "legacy/release-readonly-retry.mjs",
+      "sha256": "529f8c6eab2b29c66fd6f1496f4743b7b789bc90684e9536e16bb51b7ffb00b2",
+      "bytes": 8512,
+      "CR": false
+    },
+    {
+      "name": "legacy/release-batch.mjs",
+      "sha256": "8f87aefdecb09700b672b00a5a54a3a217f586a7e8d78833d171d65fdb308f16",
+      "bytes": 43872,
+      "CR": false
+    },
+    {
+      "name": "legacy/release-batch-admission.mjs",
+      "sha256": "a55b143d353acf00709b55d00caac91a0298ac8c9fa979c054cabd638e9e9db4",
+      "bytes": 16000,
+      "CR": false
+    },
+    {
+      "name": "legacy/collector.mjs",
+      "sha256": "fc22fc4eff13205044764d7434c16fcbcf9bad10f254fbc465fc9564b14eae41",
+      "bytes": 2036,
+      "CR": false
+    }
+  ],
+  "tests": {
+    "log": "AUTHOR_FORMAT_FINAL.log",
+    "pass": 43,
+    "fail": 0
+  },
+  "formatOnlyChange": "protocol.mjs EOF reduced to one LF; runtime semantics unchanged",
+  "unverified": [
+    "production readiness root cause",
+    "new production execution",
+    "independent review pending"
+  ]
+}

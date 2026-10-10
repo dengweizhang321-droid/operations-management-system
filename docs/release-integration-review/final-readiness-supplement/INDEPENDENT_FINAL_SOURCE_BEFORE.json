@@ -1,0 +1,11 @@
+{
+  "protocol.mjs": "33dcfffb836500482b5b024658f1f38df4b522359fe07571650d36df8128d44d",
+  "runtime.mjs": "e765dcd0aeaf29cdde75090bb1358ba6be74eb5d1551d8a9327257add53e155f",
+  "execute.mjs": "1a0867c0e1b96b5515a69322f18b8f7863118f896b31c3359c9b7bd916beef94",
+  "prepare.mjs": "7254587f79705f994cb82ffb059f0f5cbdcffd99a9d1eda3b13ae87852296a16",
+  "status-evidence.mjs": "750827647fcc2c17171f239c687da1e49c832dd967aa591e2b4f5b9923b8a68b",
+  "legacy/release-batch.mjs": "8f87aefdecb09700b672b00a5a54a3a217f586a7e8d78833d171d65fdb308f16",
+  "legacy/release-batch-admission.mjs": "a55b143d353acf00709b55d00caac91a0298ac8c9fa979c054cabd638e9e9db4",
+  "legacy/release-readonly-retry.mjs": "529f8c6eab2b29c66fd6f1496f4743b7b789bc90684e9536e16bb51b7ffb00b2",
+  "legacy/collector.mjs": "fc22fc4eff13205044764d7434c16fcbcf9bad10f254fbc465fc9564b14eae41"
+}

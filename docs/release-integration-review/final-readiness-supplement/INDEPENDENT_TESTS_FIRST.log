@@ -1,0 +1,54 @@
+✔ one distinct validation leaves both original unknowns and closes only after physical owner absence (411.4821ms)
+✔ a valid response with missing capture is blocked but the actual returned receipt/process survives (401.1167ms)
+✔ capture with foreign native PID does not stand in for actual returned process (354.6904ms)
+✔ capture with a different actual stdout SHA is refused without declaring original21 passed (373.9507ms)
+✔ diagnostic projection false core cannot close owner even when original result says passed (334.3958ms)
+✔ diagnostic projection false finance cannot close owner even when original result says passed (345.537ms)
+✔ diagnostic projection false netshop cannot close owner even when original result says passed (337.6539ms)
+✔ diagnostic projection false market cannot close owner even when original result says passed (362.2584ms)
+✔ diagnostic projection false products cannot close owner even when original result says passed (326.4265ms)
+✔ diagnostic projection false workflow cannot close owner even when original result says passed (328.2046ms)
+✔ diagnostic projection false inventory cannot close owner even when original result says passed (320.9802ms)
+✔ diagnostic projection false customerService cannot close owner even when original result says passed (344.2077ms)
+✔ diagnostic projection false accessControl cannot close owner even when original result says passed (325.4509ms)
+✔ diagnostic projection false erpReference cannot close owner even when original result says passed (337.175ms)
+✔ diagnostic projection false bi cannot close owner even when original result says passed (337.686ms)
+✔ diagnostic projection false ai cannot close owner even when original result says passed (337.981ms)
+✔ snapshot release identity false and missing component each remain strict blocks (646.339ms)
+✔ failed release acknowledgement cannot make pending event a necessary completion (349.3593ms)
+✖ post-release completion and failure WAL I/O errors preserve confirmed physical release in safe error (332.5526ms)
+✔ actual namespace/cyclic imports initialize without invocation or legacy CLI execution (558.037ms)
+✔ bounded actual tmp file persists before wrong identity assertions and does not contain raw PII (32.853ms)
+✔ invalid JSON tmp capture keeps only output hashes and no fabricated parsed value (4.9499ms)
+✔ ENOSPC capture refuses the response without continuing any assertion stage (1.4947ms)
+✔ strict byte hash/parse consistency cannot accept a labeled successful snapshot with different stdout (0.5747ms)
+✔ legacy projection donor is exactly commit257 and all other imports target old immutable module paths (65.1954ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 24
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8342.4247
+
+✖ failing tests:
+
+test at docs\release-integration-review\final-readiness-supplement\independent.test.mjs:24:1
+✖ post-release completion and failure WAL I/O errors preserve confirmed physical release in safe error (332.5526ms)
+  AssertionError [ERR_ASSERTION]: actual acknowledged absence must not be lost when both ledger writes fail
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/final-readiness-supplement/independent.test.mjs:24:496)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
