@@ -6,25 +6,75 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { randomUUID } from 'node:crypto';
-import { canonical, hash, requireHash, safeRead, safeFileDigest, readSourceTree, sourceTreeDigest, sourceInventory, makeImpactProof, verifyImpactProof, classifyImpact, requirements, backupReuseDecision } from './release-impact.mjs';
+import { readFileSync } from 'node:fs';
+import { validateNoDataObservation, runNoDataObservation } from './release-no-data-observation.mjs';
+import { canonical, hash, requireHash, safeRead, safeFileDigest, readSourceTree, sourceTreeDigest, sourceInventory, makeImpactProof, verifyImpactProof, classifyImpact, classifyImpactV3, noDataPolicyVersion, policyVersion, requirementsForImpact, bindDeploymentImpact, recoveryDecision, backupReuseDecision } from './release-impact.mjs';
 import { withRotationLock, applyApprovedRotationPlan, planWorkerReleaseRotation } from './worker-local-release-rotation.mjs';
 import { runProcess, processDeadline, safeProcessEvidence, workerRuntimeRoot } from './worker-local-release.mjs';
 import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError } from './release-readonly-retry.mjs';
 
-export const batchVersion = 'teruisi-release-batch-v2';
+export const legacyBatchVersion = 'teruisi-release-batch-v2';
+export const batchVersion = 'teruisi-release-batch-v3';
+const ownTools=path.dirname(fileURLToPath(import.meta.url));
+export const noDataCollectorFiles = Object.freeze([
+  ...['release-batch.mjs','release-batch-admission.mjs','release-impact.mjs','release-no-data-observation.mjs','release-preparation-evidence.mjs','release-admission-timing.mjs','release-daily-backup.mjs','release-readonly-retry.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','collect-d1-retirement-proof.mjs'].map(name=>path.join(ownTools,name)),
+  path.join(ownTools,'../node_modules/typescript/lib/typescript.js'),path.join(ownTools,'../node_modules/typescript/package.json'),process.execPath,
+]);
+export function validateNoDataCollector(collector) {
+  const entry=path.join(ownTools,'release-batch-admission.mjs');
+  if(collector?.transport!=='in-process-content-evidence-v1'||collector.executable!==process.execPath
+    ||collector.args?.length!==4||collector.args[0]!==entry||collector.args[1]!=='collect')throw new Error('No-data requires the exact standard in-process collector');
+  if(collector.args.slice(2).some(value=>typeof value!=='string'||!path.isAbsolute(value)||!value.endsWith('.json')))throw new Error('No-data collector requires absolute batch/tests JSON paths');
+  if(!Array.isArray(collector.files)||new Set(collector.files.map(f=>f.path)).size!==collector.files.length
+    ||collector.files.some(f=>!noDataCollectorFiles.includes(f.path)&&f.path!==collector.args[3]))throw new Error('No-data collector file closure has unknown or duplicate members');
+  for(const target of noDataCollectorFiles) {
+    if(!collector.files?.some(f=>f.path===target&&f.sha256===hash(readFileSync(target))))throw new Error('No-data collector implementation differs from trusted bytes');
+  }
+}
+function validateNoDataOperations(batch) {
+  if(batch.recoveryEvidence!==null || batch.recoveryCurrent!==null)throw new Error('Not-required cannot carry recovery prerequisites');
+  requireHash(batch.binding.observationBrowserSha256,'No-data browser');
+  requireHash(batch.binding.observationLibrarySha256,'No-data browser library');
+  for(const op of batch.operations) {
+    if(['backup','restore','django-deploy'].includes(op.kind) || ['business','backup-pre','restore-pre','backup-post','restore-post'].includes(op.phase))throw new Error('No-data batch cannot contain data operations');
+    if(['worker-plan','worker-apply'].includes(op.kind)) {
+      if(Object.keys(op).some(key=>!['id','phase','kind','mutating','planSha256'].includes(key)))throw new Error('Built-in operations cannot carry commands or unknown inputs');
+      continue;
+    }
+    if(op.kind==='no-data-observation') { validateNoDataObservation(op);continue; }
+    if(op.kind!=='lifecycle')throw new Error('No-data requires a built-in observation or original lifecycle operation');
+    if(Object.keys(op).some(key=>!['id','phase','step','kind','mutating','command','assertions','covers'].includes(key))
+      ||Object.keys(op.command??{}).some(key=>!['executable','args','files','timeoutMs'].includes(key)))throw new Error('Unknown no-data lifecycle input');
+    const adapter=path.join(ownTools,'release-lifecycle-step.ps1'),transport=path.join(ownTools,'process-deadline.ps1');
+    const args=['-NoProfile','-NonInteractive','-File',adapter,'-Step',op.step];
+    if(['BeginWorkerDrain','StopWorker','StartWorker','EndWorkerDrain'].includes(op.step))args.push('-MaintenanceId',batch.binding.maintenanceId);
+    if(op.step==='StartWorker')args.push('-ExpectedWorkerManifestSha256',batch.binding.artifactSha256,'-ExpectedDjangoManifestSha256',batch.binding.djangoCandidateSha256,'-ExpectedDrainId',batch.binding.maintenanceId);
+    if(!['BeginWorkerDrain','StopWorker','StartWorker','EndWorkerDrain','VerifyStartup','AggregateStatus'].includes(op.step)
+      ||op.mutating!==!['VerifyStartup','AggregateStatus'].includes(op.step)
+      ||op.command.executable!=='C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+      ||canonical(op.command.args)!==canonical(args))throw new Error('No-data lifecycle vocabulary changed');
+    for(const target of [adapter,transport,op.command.executable])if(!op.command.files.some(f=>f.path===target && f.sha256===hash(readFileSync(target))))throw new Error('No-data lifecycle must bind the trusted adapter bytes');
+    if(!op.assertions?.some(a=>a.path==='status'&&a.equals==='completed'))throw new Error('No-data lifecycle must assert original completion');
+  }
+  for(const action of ['display','permissions','natural-watchdog'])if(!batch.operations.some(op=>op.kind==='no-data-observation'&&op.observation.action===action))throw new Error('Missing executable no-data acceptance');
+  for(const step of ['VerifyStartup','AggregateStatus'])if(!batch.operations.some(op=>op.step===step&&['acceptance','closeout'].includes(op.phase)))throw new Error('Missing original startup/component verification');
+}
 const phases = ['queue', 'prepare', 'backup-pre', 'restore-pre', 'drain', 'switch', 'acceptance', 'business', 'backup-post', 'restore-post', 'closeout'];
 const terminal = new Set(['passed', 'skipped']);
-export function makeBatch({ id, binding, before, after, witness, evidence, current, tests, acceptance, rollback, operations, collector, now = Date.now() }) {
+export function makeBatch({ version = batchVersion, id, binding, before, after, witness, evidence, current, tests, acceptance, rollback, operations, collector, deploymentProof, now = Date.now() }) {
   if (!/^[a-z0-9-]{8,80}$/.test(id ?? '')) throw new Error('Invalid batch ID');
   for (const k of ['sourceSha256', 'predecessorSourceSha256', 'sourceInventorySha256', 'predecessorInventorySha256', 'dependencySha256', 'configurationSha256', 'toolchainSha256', 'artifactSha256', 'testsSha256', 'predecessorSha256','workerPlanSha256']) requireHash(binding?.[k], k);
   if (sourceTreeDigest(after) !== binding.sourceSha256 || sourceTreeDigest(before) !== binding.predecessorSourceSha256) throw new Error('Impact inventory does not bind complete candidate/predecessor source');
   if (hash(sourceInventory(after)) !== binding.sourceInventorySha256 || hash(sourceInventory(before)) !== binding.predecessorInventorySha256) throw new Error('Impact inventory fingerprint changed');
-  const impact = classifyImpact({ before, after, witness });
-  const recovery = backupReuseDecision({ impact, evidence, current, now });
+  if (![legacyBatchVersion,batchVersion].includes(version)) throw new Error('Unknown batch protocol');
+  const impact = bindDeploymentImpact((version===batchVersion?classifyImpactV3:classifyImpact)({ before, after, witness }),deploymentProof,binding,witness);
+  const recovery = recoveryDecision({ impact, evidence, current, now });
+  const required = requirementsForImpact(impact);
+  if(recovery.mode==='not-required')validateNoDataCollector(collector);
   if (!tests || tests.status !== 'passed' || hash(tests) !== binding.testsSha256
     || tests.sourceSha256 !== binding.sourceSha256 || tests.artifactSha256 !== binding.artifactSha256
-    || requirements[impact.level].tests.some(k => !tests.checks?.includes(k))) throw new Error('Incomplete or unbound test evidence');
-  if (!Array.isArray(acceptance) || requirements[impact.level].acceptance.some(k => !acceptance.includes(k))) throw new Error('Incomplete task acceptance');
+    || required.tests.some(k => !tests.checks?.includes(k))) throw new Error('Incomplete or unbound test evidence');
+  if (!Array.isArray(acceptance) || required.acceptance.some(k => !acceptance.includes(k))) throw new Error('Incomplete task acceptance');
   if (!rollback || !rollback.application || !rollback.compatibility || !rollback.failureState) throw new Error('Missing concrete rollback');
   if (!Array.isArray(operations) || !operations.length || operations.some(o => !phases.includes(o.phase)
     || !/^[a-z0-9-]{3,80}$/.test(o.id ?? '') || typeof o.mutating !== 'boolean')) throw new Error('Invalid approved operations');
@@ -39,10 +89,10 @@ export function makeBatch({ id, binding, before, after, witness, evidence, curre
   for (const name of ['prepare', 'drain', 'switch', 'acceptance', 'closeout', ...(recovery.mode === 'full' ? ['backup-pre', 'restore-pre', 'backup-post', 'restore-post'] : [])]) {
     if (!operations.some(o => o.phase === name)) throw new Error(`Missing ${name} phase`);
   }
-  const core = { version: batchVersion, id, createdAt: new Date(now).toISOString(), binding, impact, recovery,
+  const core = { version, ...(version===batchVersion?{state:'SEALED',deploymentProof:deploymentProof??null}:{}), id, createdAt: new Date(now).toISOString(), binding, impact, recovery,
     databaseOperations: { required: recovery.mode==='full', operationIds:operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id) },
-    requirements: requirements[impact.level], tests, acceptance, rollback, operations,
-    recoveryEvidence: evidence ?? null, recoveryCurrent: current ?? null, collectorSha256: collector ? hash(collector) : null, impactProof:makeImpactProof(before,after,witness) };
+    requirements: required, tests, acceptance, rollback, operations,
+    recoveryEvidence: recovery.mode==='not-required'?null:evidence ?? null, recoveryCurrent: recovery.mode==='not-required'?null:current ?? null, collectorSha256: collector ? hash(collector) : null, impactProof:makeImpactProof(before,after,witness) };
   const sealed = { ...core, batchSha256: hash(core) };
   verifyBatch(sealed,sealed.batchSha256);
   return sealed;
@@ -101,21 +151,25 @@ function assertStartBinding(op, batch, args = op.command?.args) {
   }
 }
 export function verifyBatch(batch, approved) {
+  if(batch?.version==='teruisi-release-batch-v1')throw new Error('Legacy v1 must use its original adopted engine; never reinterpret approved operations');
   requireHash(approved, 'approved batch');
   if (!/^[a-z0-9-]{8,80}$/.test(batch?.id ?? '') || !Number.isFinite(Date.parse(batch.createdAt))) throw new Error('Invalid batch identity');
   for (const key of ['sourceSha256','predecessorSourceSha256','sourceInventorySha256','predecessorInventorySha256','dependencySha256','configurationSha256','toolchainSha256','artifactSha256','testsSha256','predecessorSha256','workerPlanSha256']) requireHash(batch.binding?.[key],key);
   if(!/^[a-f0-9]{32}$/.test(batch.binding.maintenanceId??''))throw new Error('Exact approved drain/maintenance owner required');
   const { batchSha256, ...core } = batch;
-  if (batch.version !== batchVersion || hash(core) !== batchSha256 || approved !== batchSha256) throw new Error('Batch scope changed');
-  const impact = verifyImpactProof(batch.impactProof,batch.binding);
-  const recovery = backupReuseDecision({ impact, evidence:batch.recoveryEvidence, current:batch.recoveryCurrent, now:Date.parse(batch.createdAt) });
+  if (![legacyBatchVersion,batchVersion].includes(batch.version) || hash(core) !== batchSha256 || approved !== batchSha256) throw new Error('Batch scope changed');
+  if(batch.version===batchVersion&&batch.state!=='SEALED')throw new Error('New batch must be sealed');
+  if(batch.version===batchVersion)for(const key of ['djangoCandidateSha256','djangoPredecessorSha256'])requireHash(batch.binding[key],`Django ${key}`);
+  const impact = bindDeploymentImpact(verifyImpactProof(batch.impactProof,batch.binding,batch.version===batchVersion?noDataPolicyVersion:policyVersion),batch.deploymentProof,batch.binding,batch.impactProof.witness);
+  const required = requirementsForImpact(impact);
+  const recovery = recoveryDecision({ impact, evidence:batch.recoveryEvidence, current:batch.recoveryCurrent, now:Date.parse(batch.createdAt) });
   if (canonical(impact) !== canonical(batch.impact) || canonical(recovery) !== canonical(batch.recovery)
-    || canonical(requirements[impact.level]) !== canonical(batch.requirements)) throw new Error('Impact/recovery requirements were altered');
+    || canonical(required) !== canonical(batch.requirements)) throw new Error('Impact/recovery requirements were altered');
   if(canonical(batch.databaseOperations)!==canonical({required:recovery.mode==='full',operationIds:batch.operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id)}))throw new Error('Sealed database operations changed');
   if (!batch.tests || batch.tests.status !== 'passed' || hash(batch.tests) !== batch.binding.testsSha256
     || batch.tests.sourceSha256 !== batch.binding.sourceSha256 || batch.tests.artifactSha256 !== batch.binding.artifactSha256
-    || requirements[impact.level].tests.some(k => !batch.tests.checks?.includes(k))) throw new Error('Incomplete bound tests');
-  if (!Array.isArray(batch.acceptance) || requirements[impact.level].acceptance.some(k => !batch.acceptance.includes(k))) throw new Error('Incomplete acceptance');
+    || required.tests.some(k => !batch.tests.checks?.includes(k))) throw new Error('Incomplete bound tests');
+  if (!Array.isArray(batch.acceptance) || required.acceptance.some(k => !batch.acceptance.includes(k))) throw new Error('Incomplete acceptance');
   const covered = new Set(batch.operations.filter(o=>['acceptance','business','closeout'].includes(o.phase)).flatMap(o=>o.covers??[]));
   if (batch.acceptance.some(k=>!covered.has(k))) throw new Error('Required acceptance has no executable operation');
   if (!batch.rollback?.application || !batch.rollback.compatibility || !batch.rollback.failureState) throw new Error('Incomplete rollback');
@@ -155,6 +209,7 @@ export function verifyBatch(batch, approved) {
       || batch.operations.some(op=>op.kind==='lifecycle' && !['BeginWorkerDrain','StopWorker','StartWorker','EndWorkerDrain','VerifyStartup','AggregateStatus'].includes(op.step))
       || batch.operations.some(op=>op.kind==='lifecycle' && op.command.args.some(a=>/^-(IncludeBackend|KeepPostgres)$/i.test(a))))throw new Error('Display batch changed backend or admitted unproven writes');
   }
+  if(recovery.mode==='not-required')validateNoDataOperations(batch);
   const position=step=>batch.operations.findIndex(op=>op.step===step);
   const applyPosition=batch.operations.findIndex(op=>op.kind==='worker-apply');
   if(impact.level==='display'&&!(position('BeginWorkerDrain')<position('StopWorker')&&position('StopWorker')>=0&&position('StopWorker')<applyPosition
@@ -386,6 +441,8 @@ export async function runApprovedOperation(op, { batch, lease, state }) {
   const observationStart=performance.now();
   validateOperation(op);
   const deadlineUnixMs = processDeadline(op.readOnlyRetry?.totalTimeoutMs ?? op.command?.timeoutMs);
+  if(batch.recovery.mode==='not-required')validateNoDataOperations(batch);
+  if(op.kind==='no-data-observation')return runNoDataObservation(op,{batch,state});
   if (op.kind === 'worker-plan') {
     const result = await planWorkerReleaseRotation({ prepareOnline: true, reusePlanSha256: op.planSha256, rotationLease: lease, batchSha256: batch.batchSha256 });
     if (result.planSha256 !== op.planSha256) throw new Error('Prepared plan changed');
@@ -518,6 +575,7 @@ async function main() {
   // The live collector is an explicitly approved read-only task adapter; it
   // reuses installed Status/Verify/CAS and task-specific business observations.
   if (!spec.collector || spec.batch.collectorSha256 !== hash(spec.collector)) throw new Error('Collector is outside approved scope');
+  if(spec.batch.recovery.mode==='not-required')validateNoDataCollector(spec.collector);
   let session=null,collectInProcess=null;
   if(spec.collector.transport==='in-process-content-evidence-v1') {
     const admissionPath=path.join(path.dirname(fileURLToPath(import.meta.url)),'release-batch-admission.mjs');
@@ -526,7 +584,7 @@ async function main() {
     if(spec.collector.cwd&&path.resolve(spec.collector.cwd)!==process.cwd())throw new Error('In-process collector cwd differs from its approved execution context');
     // This is a new approved transport, not recognition of an arbitrary adapter.
     // Pin the entire direct implementation closure, including existing engines.
-    for(const name of ['release-batch.mjs','release-batch-admission.mjs','release-impact.mjs','release-preparation-evidence.mjs','release-admission-timing.mjs','release-daily-backup.mjs','release-readonly-retry.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','collect-d1-retirement-proof.mjs']) {
+    for(const name of ['release-batch.mjs','release-batch-admission.mjs','release-impact.mjs',...(spec.batch.version===batchVersion?['release-no-data-observation.mjs']:[]),'release-preparation-evidence.mjs','release-admission-timing.mjs','release-daily-backup.mjs','release-readonly-retry.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','collect-d1-retirement-proof.mjs']) {
       const target=path.join(path.dirname(admissionPath),name);
       if(!spec.collector.files.some(f=>path.resolve(f.path)===target))throw new Error('Unbound in-process collector implementation');
     }

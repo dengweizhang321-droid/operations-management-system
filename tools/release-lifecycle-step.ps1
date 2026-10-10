@@ -44,7 +44,9 @@ switch($Step) {
     if($ExpectedWorkerManifestSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Exact approved Worker manifest required before Start' }
     if($ExpectedDjangoManifestSha256 -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash -LiteralPath $deployment -Algorithm SHA256).Hash.ToLowerInvariant() -cne $ExpectedDjangoManifestSha256) { throw 'Exact approved Django manifest required before Start' }
     [void](Get-ProcessRemaining $operationDeadline)
-    $engine=Invoke-OriginalEngine $worker @('-Action','Start','-Json') | ConvertFrom-Json
+    $startArguments=@('-Action','Start','-Json')
+    if($ExpectedDrainId) { $startArguments+=@('-BackendStartPolicy','RequireReady') }
+    $engine=Invoke-OriginalEngine $worker $startArguments | ConvertFrom-Json
     if($engine.status -cnotin @('started','already_running') -or $engine.manifestSha256 -cne $ExpectedWorkerManifestSha256) { throw 'Original Start completion does not match the approved candidate' }
     $completionStage='candidate-identity'
     if([string]::IsNullOrWhiteSpace([string]$engine.releaseId) -or -not (Test-CompletionPid $engine.supervisorProcessId)) { throw 'Original Start identity is incomplete' }

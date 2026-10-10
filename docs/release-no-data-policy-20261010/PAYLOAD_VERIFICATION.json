@@ -1,0 +1,48 @@
+{
+  "startedAt": "2026-10-10T14:48:48.217Z",
+  "completedAt": "2026-10-10T14:49:35.399Z",
+  "status": "passed",
+  "manifestSha256": "7459951bfa30d080d91f2cb09a4fdac44f2e71683ec3051c0e9d82761a45d092",
+  "sourceSha256": "37fea79ac440245de9e13153bffbb63b2ea8e5d9c50218cef93609725681dfd5",
+  "sourceFileCount": 5160,
+  "scope": [
+    {
+      "path": "tools/release-admission-timing.mjs",
+      "sha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66"
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "sha256": "eea31c0cfa8dfcdb9d689fc2ed1c8b72f555a92d60da5be2198a5b55f8658fe1"
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "sha256": "5d157bdc5916fe440646e5951eab9b2e0daac7d73d6525888b86e31d86f7e9d2"
+    },
+    {
+      "path": "tools/release-impact.mjs",
+      "sha256": "dd0fdafa3f464d7af253fcb475796feaefe8905b16af91eb805b66566867db26"
+    },
+    {
+      "path": "tools/release-lifecycle-step.ps1",
+      "sha256": "c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce"
+    },
+    {
+      "path": "tools/release-no-data-observation.mjs",
+      "sha256": "5dbeff46465554b038dcbc2c70aba3b4f618ffa6eb787ecfdcae0c3a8f4e50bc"
+    },
+    {
+      "path": "tools/release-preparation-evidence.mjs",
+      "sha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5"
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "sha256": "756b745f48f8f365d92834648bf0025981aabfc291f97a7eef0c5a114b45e456"
+    },
+    {
+      "path": "tools/worker-local-service.ps1",
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    }
+  ],
+  "completeSourceDistDependenciesHelperBundledVerified": true,
+  "productionAdmission": false
+}

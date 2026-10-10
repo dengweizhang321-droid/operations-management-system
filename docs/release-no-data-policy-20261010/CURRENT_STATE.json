@@ -1,0 +1,103 @@
+{
+  "startedAtUtc": "2026-10-10T14:51:02.815Z",
+  "observedAtUtc": "2026-10-10T14:51:02.893Z",
+  "active": {
+    "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "id": "integration-ab-v2-20261010-c22d8dd69a"
+  },
+  "activeSha256": "7c5af7f44a5aa80579bc9ac2a5038ad5ab757a90dc837de4977513d8be7b0cbf",
+  "manifestPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261010T014638Z-97833d2f2b7e7bc9\\deployment-manifest.json",
+  "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+  "sourceSnapshot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261010T014638Z-97833d2f2b7e7bc9\\source-snapshot",
+  "source": {
+    "packageLockSha256": "486154660ca7b1c32822078584c7938ae5de172a0dc8bcd47891100563af935e",
+    "rootPathSha256": "e6d71e9519eff95d117ebefaf7228f70df6f34fbd102b30d9465b8ca46c5e7dd",
+    "snapshotRoot": "source-snapshot",
+    "sourceFingerprint": "92c2656c064c6a202239f4f010f0d241e90ae19fb35638cd328727a7ac64973c",
+    "tree": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 5157,
+      "sha256": "92c2656c064c6a202239f4f010f0d241e90ae19fb35638cd328727a7ac64973c"
+    }
+  },
+  "djangoManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "eventCount": 87,
+  "chainCanonicalSequenceVerified": true,
+  "latest": {
+    "reuse-reviewed-worker": "passed",
+    "backup-pre": "passed",
+    "restore-pre": "passed",
+    "entermaintenance": "passed",
+    "apply-reviewed-worker": "passed",
+    "exitmaintenance": "passed",
+    "startworker": "passed",
+    "preserve-pre-recovery": "passed",
+    "verify-all-resources": "passed",
+    "actual-readonly-ui": "passed",
+    "unsigned-reader-permission-denials": "passed",
+    "complete-component-readiness": "passed",
+    "verifystartup": "passed",
+    "install-reviewed-watchdog": "passed",
+    "two-natural-watchdogs": "passed",
+    "backup-post": "passed",
+    "restore-post": "passed",
+    "preserve-post-recovery": "passed",
+    "full-postgresql-deep-comparison": "unknown"
+  },
+  "lastEvent": {
+    "at": "2026-10-10T11:03:09.704Z",
+    "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "durationMs": 402.66210000007413,
+    "error": {
+      "code": "UNCLASSIFIED_FAILURE",
+      "messageSha256": null,
+      "process": {
+        "cleanup": "direct",
+        "code": "nonzero_exit",
+        "deadlineUnixMs": 1791630789304,
+        "elapsedMs": 295,
+        "exitCode": 1,
+        "outputProtocol": "direct-exit-files",
+        "processId": 23196,
+        "stage": "output",
+        "stderrBytes": 50,
+        "stderrSha256": "89f830ac2a279106b931debec167604a4fe6bfe72dae915a0aaa2ade4af282b1",
+        "stdoutBytes": 0,
+        "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "version": 1
+      },
+      "retryable": false
+    },
+    "eventSha256": "316f341eafafe08c3366fc79ca2c36b96258d2b00fcd9767a82a32cd62f7ce7d",
+    "observationAttempts": [],
+    "operationId": "full-postgresql-deep-comparison",
+    "outputs": null,
+    "phase": "closeout",
+    "previous": "f4b4ad745a1d68c2ee3935e1f1a93f8623071e5fce05c1a3f760713bee4df105",
+    "processEvidence": {
+      "cleanup": "direct",
+      "code": "nonzero_exit",
+      "deadlineUnixMs": 1791630789304,
+      "elapsedMs": 295,
+      "exitCode": 1,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 23196,
+      "signal": null,
+      "stage": "output",
+      "stderrBytes": 50,
+      "stderrSha256": "89f830ac2a279106b931debec167604a4fe6bfe72dae915a0aaa2ade4af282b1",
+      "stdoutBytes": 0,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    },
+    "reason": "nonzero_exit",
+    "receiptSha256": null,
+    "status": "unknown",
+    "timing": null
+  },
+  "completed": false
+}
