@@ -1,0 +1,18 @@
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-Bp84Qf","event":"rename","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-Bp84Qf","event":"rename","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-Bp84Qf","event":"rename","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-Bp84Qf","event":"change","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-Bp84Qf","event":"change","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-Bp84Qf","event":"change","name":"unrelated.txt"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-Bp84Qf","event":"rename","name":"absent"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-Bp84Qf","event":"rename","name":"absent"}
+{"diagnostic":"D-watch-event","target":"C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-config-watch-Bp84Qf","event":"rename","name":"absent"}
+✔ missing config parent creation invalidates; unrelated ancestor siblings do not (2041.4463ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2347.0827

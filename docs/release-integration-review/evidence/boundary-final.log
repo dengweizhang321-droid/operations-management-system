@@ -1,0 +1,47 @@
+
+> teruisi-operations-frontend@0.1.0 check:backend-boundary
+> node tools/check-django-production-boundary.mjs
+
+{
+  "checkedModules": 650,
+  "operationalEntrypoints": [
+    "tools/tmall-sycm-cookie-pipeline.ts",
+    "tools/install-workerd-heap-patch.mjs",
+    "tools/preview/launcher.mjs",
+    "tools/preview/smoke.mjs",
+    "tools/django-dev-backend.mjs",
+    "tools/jackyun-download-runner.ts",
+    "tools/jackyun-automation-runner.ts",
+    "tools/jackyun-browser-controller.ts",
+    "tools/jackyun-browser-login.ts",
+    "tools/jackyun-credential.ts",
+    "tools/jackyun-ware-export.ts",
+    "tools/jackyun-day-sku-export.ts",
+    "tools/jdsz-product-detail-export.ts",
+    "tools/jd-multi-store-runner.ts",
+    "tools/jd-promotion-export.ts",
+    "tools/retired-d1-command.mjs",
+    "tools/tmall-download-receipt.ts",
+    "tools/tmall-multi-store-import-runner.ts",
+    "tools/tmall-product-master-export.ts",
+    "tools/generate-tmall-n8n-workflows.ts",
+    "tools/generate-n8n-hourly-retry-workflows.mjs",
+    "tools/market-annotation-runner.ts",
+    "tools/market-annotation-cloud-pump.ts",
+    "tools/jd-market-image-repair.ts",
+    "tools/jackyun-continue-helper.ts",
+    "tools/erp-sales-automation.ts",
+    "tools/sales-import-runner.ts",
+    "tools/dingtalk-custom-robot-send.ts",
+    "tools/drizzle-generate-guard.mjs"
+  ],
+  "violations": [],
+  "approvedMetadataReaders": [
+    {
+      "path": "lib/jackyun/n8n-preflight-evidence.ts",
+      "roots": [
+        "tools/tmall-sycm-cookie-pipeline.ts"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "stage": "stage2-source-validation-complete-candidates-in-progress",
+  "sourceCodeCommit": "58bce3f7709f36b5eb8c61f324d34facb65f4e67",
+  "developmentHead": "96aaf0183584de5f34b180ae398d936cb0f98e36",
+  "abSourceCommit": "5faac8151f59d66de72c3caead8cad916ea547da",
+  "abcSourceCommit": "9d41ce4fa2c7ee4d47ba1bfda0f0967d7727be9c",
+  "abPlanSha256": "266a8574000a90cbeb5baf12fcba7bc2f4a8a06f0262f3b47d4ad73b9d0ddaee",
+  "abCandidate": "20261010T014638Z-97833d2f2b7e7bc9",
+  "abManifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+  "sourceTests": {
+    "remainingFail": 0,
+    "abScope": 158,
+    "remainingPass": 3306,
+    "joint": 307,
+    "remainingSkip": 24,
+    "abInventoryRegression": 61,
+    "unitFiles": 439
+  },
+  "originalFirstJoint": {
+    "rootCause": "unknown watcher event; original assertion later passed",
+    "fail": 1,
+    "pass": 161
+  },
+  "isolatedExistingRestore": {
+    "productionPid4080Same": true,
+    "elapsedMs": 706423.0375,
+    "cleanup": true,
+    "id": "4088f7ed4793",
+    "port": 55591,
+    "complete": true,
+    "optionalPolicySyntaxWitness": false
+  },
+  "nativeLatestScheduleTrusted": false,
+  "fastPathQualification": "blocked",
+  "productionApproved": false,
+  "productionActions": [
+    "readonly resolve/task metadata",
+    "existing-point Verify plus independent-cluster RestoreRehearsal",
+    "online candidate preparation only"
+  ],
+  "notPerformed": [
+    "EnterMaintenance",
+    "Stop/Start/Deploy/Apply",
+    "Backup or retention changes",
+    "Scheduling changes",
+    "External sending"
+  ],
+  "next": [
+    "Prepare ABC alternative serially",
+    "Seal exact AB/ABC batches and acceptance/rollback adapters; pin watchdog separate installation and B tools",
+    "Preapproval original full admissions and final independent candidate/batch review",
+    "Reports/restore evidence syntax limitation; performance comparison honest limits",
+    "Commit source/docs; merge and push main via clean worktree without disturbing primary dirty checkout",
+    "Push scoped production branches separately; never merge their old adopted baseline into main"
+  ]
+}

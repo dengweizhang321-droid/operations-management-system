@@ -1,0 +1,18 @@
+✔ D: successful wrapper alone cannot prove the latest native scheduled run (44.8893ms)
+✔ D: later lock failure remains durable and cannot expose the earlier success (62.7428ms)
+✔ D: a late failure marker blocks new backup work even if an old result says success (51.5136ms)
+✔ D: original PS5 Unicode transport and child-only module environment are used (25.3377ms)
+✔ D: real direct child exits while service-like descendant holds both streams (111.778ms)
+✔ D independent: scheduled mutation uses direct-exit file evidence and preserves lifecycle descendants (22.8004ms)
+✔ D independent: pause while acquiring the lock prevents any Backup invocation (18.7781ms)
+✔ D independent: a newer lock failure cannot leave only an old successful daily proof (36.716ms)
+✔ D independent: exhausted inherited deadline prevents a new scheduled mutation (15.4801ms)
+✔ D independent: late direct success cannot become a successful daily receipt (94.974ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1559.7735

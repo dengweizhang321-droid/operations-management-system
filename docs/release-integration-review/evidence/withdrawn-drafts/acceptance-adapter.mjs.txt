@@ -1,0 +1,60 @@
+// Reviewed acceptance/metadata adapter; mutating watchdog installation is a
+// separate explicit batch operation, never part of candidate preparation.
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
+const [action,root,...args]=process.argv.slice(2);
+if(!root||!path.resolve(root).startsWith('E:\\codex-artifacts\\release-integration-review-20261010\\'))throw Error('Exact task evidence root required');
+const h=JSON.parse(await readFile(path.join(root,'candidate-handoff.json')));
+const candidate=h.immutableCandidateRoot;
+const hash=value=>createHash('sha256').update(value).digest('hex');
+const read=async name=>JSON.parse(await readFile(path.join(root,name)));
+async function save(name,bytes){try{await writeFile(path.join(root,name),bytes,{flag:'wx'});}catch(error){if(error.code!=='EEXIST')throw error;assert.deepEqual(await readFile(path.join(root,name)),bytes);}}
+async function recovery(phase,directory,sha,id){
+  assert.ok(['pre','post'].includes(phase)&&/^[a-f0-9]{64}$/.test(sha)&&/^[a-f0-9]{12}$/.test(id));
+  assert.equal(path.dirname(path.resolve(directory)), 'E:\\运营管理系统业务数据');
+  const raw=await readFile(path.join(directory,'backup-manifest.json')),sidecar=await readFile(path.join(directory,'backup-manifest.json.sha256'));
+  assert.equal(hash(raw),sha);assert.equal(sidecar.toString().trim(),sha);
+  const restorePath=`E:/TERUISI-Postgres-Rehearsals/restore-${id}/rehearsal-result.json`;
+  const restored=await readFile(restorePath),r=JSON.parse(restored);
+  assert.equal(r.status,'completed');assert.equal(r.backupManifestSha256,sha);assert.equal(r.profileRestoreVerified,true);assert.equal(r.sequenceHealthVerified,true);
+  assert.equal(r.productionDatabaseTouched,false);assert.equal(r.serviceStateChanged,false);assert.equal(r.cleanupStatus,'isolated_data_removed');assert.equal(r.expectedContentSha256,r.restoredContentSha256);
+  await save(`${phase}-backup-manifest.json`,raw);await save(`${phase}-backup-manifest.json.sha256`,sidecar);await save(`${phase}-restore.json`,restored);
+  const manifest=JSON.parse(raw);if(manifest.profileEvidence)await save(`${phase}-full-profile.json`,Buffer.from(JSON.stringify(manifest.profileEvidence)));
+}
+if(action==='preserve-recovery'){
+  await recovery(...args);console.log(JSON.stringify({status:'passed',fullRecoveryMetadataPreserved:true}));
+}else if(action==='source-assets'){
+  const proof=await read('approved-delta.json');
+  const {readSourceTree,sourceTreeDigest,sourceInventory}=await import(pathToFileURL(path.join(candidate,'tools/release-impact.mjs')));
+  const actual=await readSourceTree(path.join(candidate,'source-snapshot'));
+  assert.equal(sourceTreeDigest(actual),proof.candidateSourceSha256);
+  const inventory=sourceInventory(actual);
+  for(const [name,entry] of Object.entries(proof.changes))assert.equal(inventory[name]??null,entry.after);
+  assert.equal(hash(await readFile('D:/teruisi-runtime/django-sales/app/deployment.json')),h.djangoManifestSha256);
+  const response=await fetch('http://127.0.0.1:3000/',{signal:AbortSignal.timeout(20000)});assert.equal(response.status,200);
+  const html=await response.text(),resources=[...new Set([...html.matchAll(/(?:src|href)=["'](\/assets\/[^"']+)["']/g)].map(match=>match[1]))];
+  assert.ok(resources.length>=10);
+  for(const uri of resources){assert.ok(!uri.includes('..')&&!uri.includes('%'));const value=await fetch('http://127.0.0.1:3000'+uri,{signal:AbortSignal.timeout(20000)});assert.equal(value.status,200);assert.deepEqual(Buffer.from(await value.arrayBuffer()),await readFile(path.join(candidate,'dist/client',uri)));}
+  assert.equal(proof.businessSourceChanges.length,0);assert.equal(proof.dependencyChanges.length,0);
+  console.log(JSON.stringify({status:'passed',resourcesVerified:true,resourceCount:resources.length,completeApprovedSource:true,unchangedBusinessPermissionsMigrationsAndWriteImplementation:true,unchangedDjango:true,productionBusinessWrites:0}));
+}else if(action==='natural-watchdog'){
+  const started=Date.now(),seen=[];
+  while(Date.now()-started<300000&&seen.length<2){const r=JSON.parse(await readFile('D:/teruisi-runtime/operations-watchdog/latest.json'));if(r.healthy===true&&r.supervisorHealth==='healthy'&&r.releaseId===h.workerPlan.candidateReleaseId&&Date.parse(r.at)>started&&!seen.some(value=>value.at===r.at))seen.push({at:r.at,healthy:true,supervisorHealth:r.supervisorHealth});if(seen.length<2)await new Promise(resolve=>setTimeout(resolve,15000));}
+  assert.equal(seen.length,2);console.log(JSON.stringify({status:'passed',twoNaturalHealthy:true,observations:seen}));
+}else if(action==='historical-audits'){
+  const baseline=await read('historical-audit-sha.json');
+  for(const entry of baseline.files)assert.equal(hash(await readFile(entry.path)),entry.sha256);
+  console.log(JSON.stringify({status:'passed',originalAuditBytesPreserved:true,files:baseline.files.length}));
+}else if(action==='watchdog-install'){
+  // Only called as a sealed mutating command AFTER final production approval.
+  const {runProcess}=await import(pathToFileURL(path.join(candidate,'tools/worker-local-release.mjs')));
+  const program=h.watchdog.powerShellPath;
+  const response=await runProcess(program,['-NoProfile','-NonInteractive','-File',path.join(candidate,'source-snapshot/tools/operations-system-watchdog.ps1'),'-Action','Install'],{timeoutMs:600000,outputProtocol:'direct-exit-files',cleanup:'preserve',label:'explicit approved original watchdog installation'});
+  const result=JSON.parse(response.stdout);assert.equal(result.status,'installed');assert.equal(result.task,'TERUISI Operations Watchdog');
+  const installed=JSON.parse(await readFile('D:/teruisi-runtime/operations-watchdog/installation.json'));
+  assert.equal(installed.scriptSha256,h.watchdog.scriptSha256);assert.equal(installed.transportSha256,h.watchdog.transportSha256);assert.equal(installed.launcherSourceSha256,h.watchdog.launcherSourceSha256);assert.equal(installed.launcherSha256,h.watchdog.launcherSha256);
+  console.log(JSON.stringify({status:'passed',originalWatchdogInstallationBound:true,existingTaskActionUpdatedAndStarted:true,testNotificationCalled:false}));
+}else throw Error('Unknown reviewed acceptance action');

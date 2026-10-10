@@ -1,0 +1,14 @@
+✔ D independent: calibrated inherited EOF does not postpone mutation completion (5321.3598ms)
+ℹ {"calibration":{"code":0,"exitMs":318.3571,"eofMs":2554.0746,"output":"D_PARENT_READY 32980\r\n"}}
+ℹ {"result":{"version":1,"code":"completed","stage":"completed","processId":27588,"exitCode":0,"signal":null,"timeoutType":null,"deadlineUnixMs":1791593519849,"elapsedMs":363,"outputProtocol":"direct-exit-files","cleanup":"preserve","stdoutBytes":22,"stderrBytes":0,"treeCleanupExitCode":null,"treeCleanupPending":false,"nativeCode":null,"stdoutSha256":"0985e910410de290fa9791ca2e9869b4f37bb3318db6777542deacd1b2a42713","stderrSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},"descendantAliveAtDirectCompletion":true}
+✔ D independent: read-only timeout ends only the probe and preserves its bounded service-like descendant (3479.975ms)
+ℹ {"failure":{"version":1,"code":"process_timeout","stage":"direct-exit","processId":63340,"exitCode":null,"signal":"SIGKILL","timeoutType":"direct-exit","deadlineUnixMs":1791593522116,"elapsedMs":1069,"outputProtocol":"direct-exit-files","cleanup":"direct","stdoutBytes":22,"stderrBytes":0,"treeCleanupExitCode":null,"treeCleanupPending":false,"nativeCode":null,"stdoutSha256":"f0ae4ce3903e299b921aee23ce70727fae80f446bef8e23502a681d8d9e994a6","stderrSha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}
+✔ D independent: retry attempt persistence cannot turn an exhausted common deadline into success (1.5227ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8905.8162

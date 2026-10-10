@@ -1,0 +1,13 @@
+{
+  "sourceCommit": "96aaf0183584de5f34b180ae398d936cb0f98e36",
+  "exitCode": 0,
+  "elapsedMs": 20649.2013,
+  "productionProcessesUntouched": true,
+  "listeners": [
+    {
+      "pid": 46260,
+      "name": "workerd.exe",
+      "creation": "2026-10-09T23:29:05.866384+08:00"
+    }
+  ]
+}

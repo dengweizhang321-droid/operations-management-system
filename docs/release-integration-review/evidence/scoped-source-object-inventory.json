@@ -1,0 +1,1834 @@
+{
+  "version": "task-d-scoped-source-review-v1",
+  "mode": "read-only Git objects",
+  "base": "01a0ea6de9bfc1237a761f927fff068eb55d6e41",
+  "reviewedImplementation": "58bce3f7709f36b5eb8c61f324d34facb65f4e67",
+  "abCommit": "c117c60d1dd23e87ebd03a4b72f0edbe09654d61",
+  "abcCommit": "9d41ce4fa2c7ee4d47ba1bfda0f0967d7727be9c",
+  "ab": [
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/.gitattributes",
+      "category": "docs",
+      "afterBlob": "1fca0317e087344308143b389cef95e3e8828e93"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/DELIVERY.md",
+      "category": "docs",
+      "afterBlob": "1d7396e82eade3ee6a0eef5343b1aa0dcbe84be8"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/INDEPENDENT_REVIEW.md",
+      "category": "docs",
+      "afterBlob": "776b8b3cb24207010182614056094c5b1e43207f"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/INTEGRATION_D.md",
+      "category": "docs",
+      "afterBlob": "fed215c4882e8119c1d18f64822bed482012f1d6"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/PLAN.md",
+      "category": "docs",
+      "afterBlob": "167cab47e544befe6df85ac03b32fcd73e24998a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/REPORT.md",
+      "category": "docs",
+      "afterBlob": "c4c2a21553af76113071dde66348488656ba0118"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/boundary.log",
+      "category": "docs",
+      "afterBlob": "46d7aa794196aca254ef7887134000e8e45ebf3c"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/build.log",
+      "category": "docs",
+      "afterBlob": "61131c336f59bdc4773502fe519daee3b35f301d"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/customer-failures-rerun.log",
+      "category": "docs",
+      "afterBlob": "3f0c043958201dcc8d8486e56dd623dd63497309"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/customer-file-final.log",
+      "category": "docs",
+      "afterBlob": "e01d4557f43312d61bfd9a352ad134bcc1c30672"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/final-release-entrypoint.log",
+      "category": "docs",
+      "afterBlob": "2627fee5d2869a165245f5bcfbc2ea886a349116"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/full-failures-rerun.log",
+      "category": "docs",
+      "afterBlob": "0ceaa5237c176a6aec2f47b84da1232de6e99f3c"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/full-unit-fixture-cleanup.json",
+      "category": "docs",
+      "afterBlob": "c9f24c0a29aeeaf952acc82c46ce197d81b0e1fa"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-final-generation.log",
+      "category": "docs",
+      "afterBlob": "4e103cfe9764902ecd0b76fd4d4dfffd08a48460"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-final/REPORT.md",
+      "category": "docs",
+      "afterBlob": "607ac89a5ee68a0282e25d2422a0b7fe841c1016"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-final/evidence-manifest.json",
+      "category": "docs",
+      "afterBlob": "56a25ba52cbe7109f6fd68b15bb7eeb978248b74"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-final/report.json",
+      "category": "docs",
+      "afterBlob": "e03c5cdee7f213977c341dc6f679a95316a39d6e"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-generation.log",
+      "category": "docs",
+      "afterBlob": "9d4c02bf8f05db9899ee78edef2f2c54ef315ae1"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-input.json",
+      "category": "docs",
+      "afterBlob": "4aee56894259601716c4ab70cd5ce66060063daf"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft/REPORT.md",
+      "category": "docs",
+      "afterBlob": "768492e5fb57ed27abcf076f2d2f1c831299ff83"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft/evidence-manifest.json",
+      "category": "docs",
+      "afterBlob": "b2a65f96455a9b942c7ec9a889ae0651902c2f6b"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft/report.json",
+      "category": "docs",
+      "afterBlob": "7e4669513d19bb91694c18ac08a263f9c07ccfba"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/history-author-final.log",
+      "category": "docs",
+      "afterBlob": "2630ea07d16b4f2d2ff12ee6f984634acad186fb"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/history-independent.log",
+      "category": "docs",
+      "afterBlob": "31c86ef041b400db2ee8bd2bf29199f081c25312"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/independent-final.log",
+      "category": "docs",
+      "afterBlob": "f8d7e74ac1ddbc0cff9b78e6eae538fc7a6b6407"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/independent-first.log",
+      "category": "docs",
+      "afterBlob": "0a6ea4aaa0303ccbc38789ca300089d7a56dac87"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/independent-historical-fact-check.json",
+      "category": "docs",
+      "afterBlob": "c69130834ea995a1079bf07aac32bbaef7b7bf93"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/independent-source-sha256.json",
+      "category": "docs",
+      "afterBlob": "a0d0ec8df6e1871f2d8f0494f7b0caa8828447be"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/lint-all.log",
+      "category": "docs",
+      "afterBlob": "1dddda83c47b94cc0d78093412223b52facb7696"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/lint-changed-final.log",
+      "category": "docs",
+      "afterBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/lint-changed.log",
+      "category": "docs",
+      "afterBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/lint-final-all.log",
+      "category": "docs",
+      "afterBlob": "848d08717bc9db121dedc56767bfb664935baae6"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/lint-final-changed.log",
+      "category": "docs",
+      "afterBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/npm-ci-first-failed.log",
+      "category": "docs",
+      "afterBlob": "b6f44f856e63839b9c0defc9bbe76885bf1ec398"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/npm-ci-retry.log",
+      "category": "docs",
+      "afterBlob": "50d26d6ecaf1fe4166d3c0eba2d33902cb10dacc"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/python-contract-rerun.log",
+      "category": "docs",
+      "afterBlob": "0fd34baefa778519c4ff191ad22928d2ef372237"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/python-fixture-install.log",
+      "category": "docs",
+      "afterBlob": "0c108de07bcd4d785ef3d00752b4ee445d013727"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/report-generation-timing.json",
+      "category": "docs",
+      "afterBlob": "b7922a9db1c7d57df0518ea296c975f7beb5343e"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-author-final.log",
+      "category": "docs",
+      "afterBlob": "a92fd402a5cf7502acb782b291843e4af34382f6"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-first.log",
+      "category": "docs",
+      "afterBlob": "af97d1321796e1e66b555d1b2d9c4a985f7e1d7c"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-review-repairs-v2.log",
+      "category": "docs",
+      "afterBlob": "60bf39695e8321366174afb4e46d8dcba5440b9f"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-review-repairs.log",
+      "category": "docs",
+      "afterBlob": "38c943c5c7ff7c04e13099556bce2e8fbb02453a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-ui-final.log",
+      "category": "docs",
+      "afterBlob": "ff0427614358f0c5318b616322d99e7a6df186ad"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-ui-passed.log",
+      "category": "docs",
+      "afterBlob": "33b7448b5593d01ce9e6a55dd9f2bc9edcbaeb79"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-ui-rerun.log",
+      "category": "docs",
+      "afterBlob": "27a7f75f76751e3ec653ef2e8bbfe3ce54c60700"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-ui.log",
+      "category": "docs",
+      "afterBlob": "c20ac6ac96dd68c9d767a4c0704f4e994815dc87"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/unit-all.log",
+      "category": "docs",
+      "afterBlob": "bc2ef7ab16badc6a524ced3c197ce622cf8bddc8"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/.gitattributes",
+      "category": "docs",
+      "afterBlob": "b4b948321e14c07b36f1a639a6795b6973ae34a2"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/DELIVERY.md",
+      "category": "docs",
+      "afterBlob": "48567518f08fda7f2bb6e7d9f69fea40aa4ab7e2"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/INDEPENDENT_REVIEW.md",
+      "category": "docs",
+      "afterBlob": "04c8fb4181fce1bd2c2170af3022ee8f4de3761d"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/INTEGRATION_D.md",
+      "category": "docs",
+      "afterBlob": "49a0cadf19c3b26dc6a2df1cadf68c35c4eeea3b"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/REPORT.md",
+      "category": "docs",
+      "afterBlob": "e07dd821968fbf9b69a9d28ada405671d017fe7f"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/ab-focused-final.log",
+      "category": "docs",
+      "afterBlob": "3373b1abaf306f287a0cf26a24a9501def6452a2"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/ab-integration-final.log",
+      "category": "docs",
+      "afterBlob": "1cbf663d323ae022bdf8e5cfd1f021f545148065"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/batch-final.log",
+      "category": "docs",
+      "afterBlob": "95ca473ee11197bdb86914b37d6a9d74cca606ff"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/build-integrated-final.log",
+      "category": "docs",
+      "afterBlob": "7ab982d2a29ced0e99d133be6eb46fe8bb248950"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/build.log",
+      "category": "docs",
+      "afterBlob": "1671c2e7207fe361a04a067612d927681959db50"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/cleanup-and-notification.log",
+      "category": "docs",
+      "afterBlob": "b6eb1f25f3269f92e4e9e175d47348a3d3052f45"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/control-final.log",
+      "category": "docs",
+      "afterBlob": "62b6ed535b04614df68e9e08d194130d5a421cc6"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/deadline-metadata-final.log",
+      "category": "docs",
+      "afterBlob": "7963cfe9394992012712a3bff568112de44c6016"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/final-required.log",
+      "category": "docs",
+      "afterBlob": "5f76e8a87e4476151d8a8b6c48e5588211a50ea9"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/helper-guard-final.log",
+      "category": "docs",
+      "afterBlob": "17b0a8811d3411da24a3a4536793a444f323fa2d"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/lint-changed-final.log",
+      "category": "docs",
+      "afterBlob": "2eeec9038ce6818f018cee35f839d3507f7a1709"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/lint-integrated-final.log",
+      "category": "docs",
+      "afterBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/lint.log",
+      "category": "docs",
+      "afterBlob": "850c924eb1356eecb315fa1b4bc844ae4d8a8c3a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/mutex-final.log",
+      "category": "docs",
+      "afterBlob": "2c9d4d511248153512da11efd0a1839e485dd348"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/nested-positive-final.log",
+      "category": "docs",
+      "afterBlob": "43a082bb73c87fd3a4a6102ca434742152908cbb"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/packer-and-receipt-final.log",
+      "category": "docs",
+      "afterBlob": "ce6c44b96d2c46510b86495a4926d079287e1004"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/process-tests-initial.log",
+      "category": "docs",
+      "afterBlob": "04f5dc357ac6afd472a82cf5bbbb37fa8ccc86dd"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/process-tests-native.log",
+      "category": "docs",
+      "afterBlob": "bd9970bda289cdc74a6d9edde428e21951edc661"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/process-tests-v3.log",
+      "category": "docs",
+      "afterBlob": "d7b8e62f702fd8fd5cd432690a1522689405c8ea"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/python-fixture-recheck.log",
+      "category": "docs",
+      "afterBlob": "01ce3b8c193d5bc4ba97de6f3daf71573200164a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/release-and-process-tests.log",
+      "category": "docs",
+      "afterBlob": "c28d6a19f88acc8d5b5ac482517dbb18e1344627"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/service-integrated-final.log",
+      "category": "docs",
+      "afterBlob": "9de1957cffdc1b6560fed7ed6033b35c4624b969"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/service-regression.log",
+      "category": "docs",
+      "afterBlob": "ff6d635e65ba0f08776646949c0c4700b92dd31b"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/source-sha256-final.json",
+      "category": "docs",
+      "afterBlob": "c7b4717edf8a1811d1ac13f7c1b943c2c8e914d8"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/targeted-final.log",
+      "category": "docs",
+      "afterBlob": "9d4bd4df538cc01a94c664151f78da8533d54b55"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/test-python-setup.log",
+      "category": "docs",
+      "afterBlob": "184c991affc5942f469dfaca4ab35369e02bffe8"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/transport-focused.log",
+      "category": "docs",
+      "afterBlob": "f509343db96252007f0854cd7da94e6ebed76747"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/unit-full.log",
+      "category": "docs",
+      "afterBlob": "a7f985afd3cbae300dd79efad8bfed69ef29b3d7"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/unit-integrated-final.log",
+      "category": "docs",
+      "afterBlob": "33d2a3d0c50e48e8d4da5f4038270d63239d87a5"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/watchdog-late-final.log",
+      "category": "docs",
+      "afterBlob": "feb500dcbd1f4308dac5d52a1f547483b63eba02"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/watchdog-no-console-final.log",
+      "category": "docs",
+      "afterBlob": "d28f74d173fcb61457863f417d454efe31f768d4"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/watchdog-no-console.log",
+      "category": "docs",
+      "afterBlob": "5b58b0175abd6469c6730f16924f10ef77c10dc4"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/watchdog-regression-final.log",
+      "category": "docs",
+      "afterBlob": "13d58c3d7a53096b6d29e4cc2c277c1bb1f38900"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/watchdog-regression.log",
+      "category": "docs",
+      "afterBlob": "145ed2c2c40fa266ceb03f6872043d3049403859"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/worker-release-focused-final.log",
+      "category": "docs",
+      "afterBlob": "ba36a30a1d07d2475b9610072185ace9b1f054af"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/worker-release-regression.log",
+      "category": "docs",
+      "afterBlob": "0ef7d3c74e3fb1af1344452aa327035890c204eb"
+    },
+    {
+      "status": "A",
+      "path": "tests/fixtures/release-process-child.mjs",
+      "category": "tests",
+      "afterBlob": "28d452270007d9a2c9efc51b4ac97c8723026627"
+    },
+    {
+      "status": "M",
+      "path": "tests/fixtures/worker-release-rotation.ts",
+      "category": "tests",
+      "beforeBlob": "166c6e83194a03e8748a3e07cd3d53b2415d9e74",
+      "afterBlob": "8967c5021edf0566d5e58843585259f1709ed783"
+    },
+    {
+      "status": "M",
+      "path": "tests/operations-system-control.test.ts",
+      "category": "tests",
+      "beforeBlob": "8ffbc97a4b631eec4fe67746482bca92dcc3babc",
+      "afterBlob": "e74ef31101e4b293cfff655453f2587877d51e3c"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-acceptance-closeout.test.mjs",
+      "category": "tests",
+      "afterBlob": "39768556578249f1b543c4aa9e89c0579dd5fb48"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-acceptance-closeout.test.ts",
+      "category": "tests",
+      "afterBlob": "517def77b1f7aa6a23c9a0011cc974ac00218526"
+    },
+    {
+      "status": "M",
+      "path": "tests/release-batch-powershell-environment.test.mjs",
+      "category": "tests",
+      "beforeBlob": "27446d47217d0c3e60a21a13fcba250db042fab0",
+      "afterBlob": "3a27bb961922bfb846a8e916acd2cdabc0f3f420"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-closeout-independent.test.mjs",
+      "category": "tests",
+      "afterBlob": "11212ce0071ad95d6307abfa3e577f632d4b67c6"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-closeout-independent.test.py",
+      "category": "tests",
+      "afterBlob": "9f3f263d234f70772c6b3e4c0a8e5630c43642b1"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-closeout-independent.test.ts",
+      "category": "tests",
+      "afterBlob": "98bfc3d1ec88d68ee423a5bb602018cb60ec049f"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-history-preservation.test.py",
+      "category": "tests",
+      "afterBlob": "a736af2ab0c4f9ea2c4165e656d15643d1018a39"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-integration-daily-backup.test.mjs",
+      "category": "tests",
+      "afterBlob": "c6abcd812dc04ba36251121259576f6ce67e2272"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-integration-daily-backup.test.ts",
+      "category": "tests",
+      "afterBlob": "dc7f71a6e2cf416f15c1e24b4c72a4c8549c76bc"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-integration-independent.mjs",
+      "category": "tests",
+      "afterBlob": "68047b8e6f195a2616443bcbfe884478d4b24d04"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-integration-independent.test.ts",
+      "category": "tests",
+      "afterBlob": "7b235a082fceef6acf757dbaff127119fe47d991"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-integration-process-independent.mjs",
+      "category": "tests",
+      "afterBlob": "f397a6fdb5569432b482e156a5112c5f9de633d6"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-process-deadline.test.mjs",
+      "category": "tests",
+      "afterBlob": "843c5d8be905a2b61b538c2639412b9229d22823"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-process-deadline.test.ts",
+      "category": "tests",
+      "afterBlob": "53c706eece5865d74295ba59755aed045ab9c775"
+    },
+    {
+      "status": "M",
+      "path": "tests/release-wait-optimization.test.mjs",
+      "category": "tests",
+      "beforeBlob": "d4e8f7527c093653b2c04a40948e7d750432bd7e",
+      "afterBlob": "def00f94fd9ef6ba188147d8451a79fb5e10d725"
+    },
+    {
+      "status": "M",
+      "path": "tests/worker-local-release-rotation.test.ts",
+      "category": "tests",
+      "beforeBlob": "2d067753aa192042a559291a9ba94611ee10a424",
+      "afterBlob": "9a0b6d4b54b27505eeb6c0cfe8a6b3ab9673b20c"
+    },
+    {
+      "status": "M",
+      "path": "tests/worker-local-release.test.ts",
+      "category": "tests",
+      "beforeBlob": "5bc40a5fffdeecff3e3d8213be54cc86876a628d",
+      "afterBlob": "c789b2870b3a76a508d8e09a7816d9fb8cd0b8df"
+    },
+    {
+      "status": "M",
+      "path": "tools/operations-system-control.ps1",
+      "category": "tools",
+      "beforeBlob": "1b90c14e6e4325363b0e456a876462974afbfeed",
+      "afterBlob": "efd5db41eb69185e20f99da70cff2ac71acb2b28",
+      "gitBytesSha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/operations-system-watchdog.ps1",
+      "category": "tools",
+      "beforeBlob": "9697ad3d0057d10174abbfbbb1a79c5523a2a16f",
+      "afterBlob": "a1ea7dd471f322b5d4215c6df3802974fdedae71",
+      "gitBytesSha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "A",
+      "path": "tools/process-deadline.ps1",
+      "category": "tools",
+      "afterBlob": "ca90f2f5d767359e9f967ddfffa93d3a6dcce389",
+      "gitBytesSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "A",
+      "path": "tools/release-acceptance-ui.mjs",
+      "category": "tools",
+      "afterBlob": "d9de03a8789d04bef1794121b8e6be5a5b979475",
+      "gitBytesSha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/release-batch-admission.mjs",
+      "category": "tools",
+      "beforeBlob": "8a22c46f6c3e51f6c0d408010758ae4bf5205a40",
+      "afterBlob": "ff853b25c56059501de24ddb19af4913d709afad",
+      "gitBytesSha256": "1bb6dc999e7b0b0e3e091505288574e93b4a22287435e226e97369734a2a92c6"
+    },
+    {
+      "status": "M",
+      "path": "tools/release-batch.mjs",
+      "category": "tools",
+      "beforeBlob": "6476458d1eac0a9257c15f3cfa199cbd8e379378",
+      "afterBlob": "4bc7007e7b1f485ddc890fe0425322fffc37f0b8",
+      "gitBytesSha256": "0b2eb39f495fa7ec92f598c24d2c2d585bf6fe9c8a4eef6278e14a71eb21c944",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "A",
+      "path": "tools/release-closeout-report.mjs",
+      "category": "tools",
+      "afterBlob": "3aa9af507b4bb0ddf1e997e6815f92f9fe834f32",
+      "gitBytesSha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/release-daily-backup.mjs",
+      "category": "tools",
+      "beforeBlob": "53a14bd8169a3c16567b0aa76da81c4540b2f3b3",
+      "afterBlob": "66b32f6144be37242ae6370655c17c577abd6534",
+      "gitBytesSha256": "4b77088b234734fcfedeb658c81c489771d26f320b0a66a1a5286417a7857705"
+    },
+    {
+      "status": "A",
+      "path": "tools/release-history-preservation.py",
+      "category": "tools",
+      "afterBlob": "b7308144548ea188e0cdfcea6d12631c812aed63",
+      "gitBytesSha256": "7653551728c9f65e25af38fe8163a81f868c0c0af69c42434c6831583e94cc27",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/release-lifecycle-step.ps1",
+      "category": "tools",
+      "beforeBlob": "13b563b65a950c54673aa4a81832e0f85b75f4af",
+      "afterBlob": "4f6987d8220945e40d4cd74021ed0976e31525b8",
+      "gitBytesSha256": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "A",
+      "path": "tools/release-readonly-retry.mjs",
+      "category": "tools",
+      "afterBlob": "547503f3dba584a9fc32f3c7fe7168a57d074ed9",
+      "gitBytesSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/worker-authority-guard.mjs",
+      "category": "tools",
+      "beforeBlob": "2624acc353de1eebe301debbb31a5cef3945bf16",
+      "afterBlob": "84ade9317b5ec59a040267b3b986e1823c3eafb4",
+      "gitBytesSha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/worker-local-release-rotation.mjs",
+      "category": "tools",
+      "beforeBlob": "0a26e94bf777ee421917ee88384864e02121aaab",
+      "afterBlob": "e7c2be87fb7caa6a8d52336541803973764542e0",
+      "gitBytesSha256": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/worker-local-release.mjs",
+      "category": "tools",
+      "beforeBlob": "1b4f3722b2768babc9732551d5ea83ea746a3a58",
+      "afterBlob": "540af030b881da77756ce3d081764ada70030ba3",
+      "gitBytesSha256": "bba3e24da195576e991f162084159314652c7077f0c7f0a3647319911203c0fa",
+      "matchesOriginalAbDeliveryObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/worker-local-service.ps1",
+      "category": "tools",
+      "beforeBlob": "fe0e1389a61c4e2c750c6be7ade6c2e19cf41855",
+      "afterBlob": "2d29bda7863dc4aa7c403219411c16577c6220d7",
+      "gitBytesSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "matchesOriginalAbDeliveryObject": true
+    }
+  ],
+  "abc": [
+    {
+      "status": "M",
+      "path": "docs/RELEASE_BATCH_WORKFLOW.md",
+      "category": "docs",
+      "beforeBlob": "9fc2f75580bbf30a9eaacfeb58b0ab0c8876d11d",
+      "afterBlob": "8a183195f98fef9dee7a56afe331b526c045ec6a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/.gitattributes",
+      "category": "docs",
+      "afterBlob": "1fca0317e087344308143b389cef95e3e8828e93"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/DELIVERY.md",
+      "category": "docs",
+      "afterBlob": "1d7396e82eade3ee6a0eef5343b1aa0dcbe84be8"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/INDEPENDENT_REVIEW.md",
+      "category": "docs",
+      "afterBlob": "776b8b3cb24207010182614056094c5b1e43207f"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/INTEGRATION_D.md",
+      "category": "docs",
+      "afterBlob": "fed215c4882e8119c1d18f64822bed482012f1d6"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/PLAN.md",
+      "category": "docs",
+      "afterBlob": "167cab47e544befe6df85ac03b32fcd73e24998a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/REPORT.md",
+      "category": "docs",
+      "afterBlob": "c4c2a21553af76113071dde66348488656ba0118"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/boundary.log",
+      "category": "docs",
+      "afterBlob": "46d7aa794196aca254ef7887134000e8e45ebf3c"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/build.log",
+      "category": "docs",
+      "afterBlob": "61131c336f59bdc4773502fe519daee3b35f301d"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/customer-failures-rerun.log",
+      "category": "docs",
+      "afterBlob": "3f0c043958201dcc8d8486e56dd623dd63497309"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/customer-file-final.log",
+      "category": "docs",
+      "afterBlob": "e01d4557f43312d61bfd9a352ad134bcc1c30672"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/final-release-entrypoint.log",
+      "category": "docs",
+      "afterBlob": "2627fee5d2869a165245f5bcfbc2ea886a349116"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/full-failures-rerun.log",
+      "category": "docs",
+      "afterBlob": "0ceaa5237c176a6aec2f47b84da1232de6e99f3c"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/full-unit-fixture-cleanup.json",
+      "category": "docs",
+      "afterBlob": "c9f24c0a29aeeaf952acc82c46ce197d81b0e1fa"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-final-generation.log",
+      "category": "docs",
+      "afterBlob": "4e103cfe9764902ecd0b76fd4d4dfffd08a48460"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-final/REPORT.md",
+      "category": "docs",
+      "afterBlob": "607ac89a5ee68a0282e25d2422a0b7fe841c1016"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-final/evidence-manifest.json",
+      "category": "docs",
+      "afterBlob": "56a25ba52cbe7109f6fd68b15bb7eeb978248b74"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-final/report.json",
+      "category": "docs",
+      "afterBlob": "e03c5cdee7f213977c341dc6f679a95316a39d6e"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-generation.log",
+      "category": "docs",
+      "afterBlob": "9d4c02bf8f05db9899ee78edef2f2c54ef315ae1"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft-input.json",
+      "category": "docs",
+      "afterBlob": "4aee56894259601716c4ab70cd5ce66060063daf"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft/REPORT.md",
+      "category": "docs",
+      "afterBlob": "768492e5fb57ed27abcf076f2d2f1c831299ff83"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft/evidence-manifest.json",
+      "category": "docs",
+      "afterBlob": "b2a65f96455a9b942c7ec9a889ae0651902c2f6b"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/historical-draft/report.json",
+      "category": "docs",
+      "afterBlob": "7e4669513d19bb91694c18ac08a263f9c07ccfba"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/history-author-final.log",
+      "category": "docs",
+      "afterBlob": "2630ea07d16b4f2d2ff12ee6f984634acad186fb"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/history-independent.log",
+      "category": "docs",
+      "afterBlob": "31c86ef041b400db2ee8bd2bf29199f081c25312"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/independent-final.log",
+      "category": "docs",
+      "afterBlob": "f8d7e74ac1ddbc0cff9b78e6eae538fc7a6b6407"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/independent-first.log",
+      "category": "docs",
+      "afterBlob": "0a6ea4aaa0303ccbc38789ca300089d7a56dac87"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/independent-historical-fact-check.json",
+      "category": "docs",
+      "afterBlob": "c69130834ea995a1079bf07aac32bbaef7b7bf93"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/independent-source-sha256.json",
+      "category": "docs",
+      "afterBlob": "a0d0ec8df6e1871f2d8f0494f7b0caa8828447be"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/lint-all.log",
+      "category": "docs",
+      "afterBlob": "1dddda83c47b94cc0d78093412223b52facb7696"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/lint-changed-final.log",
+      "category": "docs",
+      "afterBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/lint-changed.log",
+      "category": "docs",
+      "afterBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/lint-final-all.log",
+      "category": "docs",
+      "afterBlob": "848d08717bc9db121dedc56767bfb664935baae6"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/lint-final-changed.log",
+      "category": "docs",
+      "afterBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/npm-ci-first-failed.log",
+      "category": "docs",
+      "afterBlob": "b6f44f856e63839b9c0defc9bbe76885bf1ec398"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/npm-ci-retry.log",
+      "category": "docs",
+      "afterBlob": "50d26d6ecaf1fe4166d3c0eba2d33902cb10dacc"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/python-contract-rerun.log",
+      "category": "docs",
+      "afterBlob": "0fd34baefa778519c4ff191ad22928d2ef372237"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/python-fixture-install.log",
+      "category": "docs",
+      "afterBlob": "0c108de07bcd4d785ef3d00752b4ee445d013727"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/report-generation-timing.json",
+      "category": "docs",
+      "afterBlob": "b7922a9db1c7d57df0518ea296c975f7beb5343e"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-author-final.log",
+      "category": "docs",
+      "afterBlob": "a92fd402a5cf7502acb782b291843e4af34382f6"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-first.log",
+      "category": "docs",
+      "afterBlob": "af97d1321796e1e66b555d1b2d9c4a985f7e1d7c"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-review-repairs-v2.log",
+      "category": "docs",
+      "afterBlob": "60bf39695e8321366174afb4e46d8dcba5440b9f"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-review-repairs.log",
+      "category": "docs",
+      "afterBlob": "38c943c5c7ff7c04e13099556bce2e8fbb02453a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-ui-final.log",
+      "category": "docs",
+      "afterBlob": "ff0427614358f0c5318b616322d99e7a6df186ad"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-ui-passed.log",
+      "category": "docs",
+      "afterBlob": "33b7448b5593d01ce9e6a55dd9f2bc9edcbaeb79"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-ui-rerun.log",
+      "category": "docs",
+      "afterBlob": "27a7f75f76751e3ec653ef2e8bbfe3ce54c60700"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/tests-ui.log",
+      "category": "docs",
+      "afterBlob": "c20ac6ac96dd68c9d767a4c0704f4e994815dc87"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-acceptance-closeout/unit-all.log",
+      "category": "docs",
+      "afterBlob": "bc2ef7ab16badc6a524ced3c197ce622cf8bddc8"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/.gitattributes",
+      "category": "docs",
+      "afterBlob": "bb7402cc5b41a51800a29a39c33f3ef3a5772287"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/DAILY_BACKUP_ADOPTION.md",
+      "category": "docs",
+      "afterBlob": "2295a6e2a23743361402d4c0c9e574c871bad860"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/DELIVERY.md",
+      "category": "docs",
+      "afterBlob": "effe1221e990fcc6925c065c658d04b72d69b0b5"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/DESIGN.md",
+      "category": "docs",
+      "afterBlob": "47d90bc0987b4667720c7c4e6584e3663540bef8"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/HANDOFF_D.md",
+      "category": "docs",
+      "afterBlob": "4c4e1064d90c6d2c02224c69a9a6dd83b42ed6ef"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_PROBES.log",
+      "category": "docs",
+      "afterBlob": "6d57700ea7f4288c7c14e049b7e52cd23145eb94"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_PROBES.mjs",
+      "category": "docs",
+      "afterBlob": "10d19f54e23586acc118653bd82d9cc2dc13f38a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_REVIEW.md",
+      "category": "docs",
+      "afterBlob": "9b07b26a9f222adb5f6570cd88c2ed4cbe41a59a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_SOURCE_SHA256.json",
+      "category": "docs",
+      "afterBlob": "2318b3c3236554c59ef756760458674d595d9dc8"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_TESTS.log",
+      "category": "docs",
+      "afterBlob": "35b8a1fa5eec10df07e4206c27f8594e0732f68c"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_TESTS_DURING_A_MERGE.log",
+      "category": "docs",
+      "afterBlob": "42582738add21e3eef5c6eca93e12071ab2125e9"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/REPORT.md",
+      "category": "docs",
+      "afterBlob": "4caf3e6b1cfe223b8abf133994f0cfd70bd09743"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/after-concurrency.log",
+      "category": "docs",
+      "afterBlob": "4225703637a025b67826824198610d116efe943d"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/baseline-tests.log",
+      "category": "docs",
+      "afterBlob": "13cc77147f67fd27a63d3526b5d44a6067faaf84"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/build-final-abc.log",
+      "category": "docs",
+      "afterBlob": "fbcc6a585cd90a542eec49b7053a0dd06536f6b7"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/build.log",
+      "category": "docs",
+      "afterBlob": "f6c77e25baf1be65048bab329ca37723fb4c6010"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/changed-lint-final2.log",
+      "category": "docs",
+      "afterBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/final-abc.log",
+      "category": "docs",
+      "afterBlob": "993ed9a7fe57d6b195415c8d77a600ad8385f3ec"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/lint-final-abc.log",
+      "category": "docs",
+      "afterBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/lint.log",
+      "category": "docs",
+      "afterBlob": "d34b8453fc16953fff368f302ac1b7c68ad0a8e4"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/measure.mjs",
+      "category": "docs",
+      "afterBlob": "542ed3ef57f60b2202bc6b64146d1d8dce3ce6b6"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/npm-ci-retry.log",
+      "category": "docs",
+      "afterBlob": "dd5f961c6a2bff462ff99b3c882995e5430b9d27"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/npm-ci.log",
+      "category": "docs",
+      "afterBlob": "c792fbd773e0da80af5d0ed51682e966bbef11a7"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/python-fixture-recheck.log",
+      "category": "docs",
+      "afterBlob": "754962e64aa6d00a5afedfcafd390e340f4f1f9e"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-aborted-processes.json",
+      "category": "docs",
+      "afterBlob": "b0b611c7f6c30ee18f49fff3e74c4369bf09c1a3"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-before-concurrency.log",
+      "category": "docs",
+      "afterBlob": "232aafd94142a002e16ec1075047522c95ca57e1"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-complete.log",
+      "category": "docs",
+      "afterBlob": "012e29c114dedc42bcd0399abaa2bffedf673047"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-first-bounded-incomplete.json",
+      "category": "docs",
+      "afterBlob": "a6a486700460af9e550e75252c4dbfcbef0a421a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-first-bounded-incomplete.log",
+      "category": "docs",
+      "afterBlob": "7e31fc2d4aec5e46299b02e90c5d06128fa19153"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-incomplete.json",
+      "category": "docs",
+      "afterBlob": "62962ad50706cd855e292b2b6c92fb20fed66dfa"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing.json",
+      "category": "docs",
+      "afterBlob": "4e51857263ebfc2c5063d38d8d001c1cf5387042"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/unit-cancel-processes.json",
+      "category": "docs",
+      "afterBlob": "c3972e4c0f3dec6fe5a338338e551edc70b34ef9"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/unit-concurrency2.log",
+      "category": "docs",
+      "afterBlob": "044b928363a85a4cf2ac353ba0a22be9c1c99277"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/unit-failed-files-recheck.log",
+      "category": "docs",
+      "afterBlob": "ee9edbba2ae6d86e600f007e63b326304c5abb25"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/unit.log",
+      "category": "docs",
+      "afterBlob": "b9f8ffb1ed679279f9ef3ef94b8fb4ea3fa8be69"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/.gitattributes",
+      "category": "docs",
+      "afterBlob": "b4b948321e14c07b36f1a639a6795b6973ae34a2"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/DELIVERY.md",
+      "category": "docs",
+      "afterBlob": "48567518f08fda7f2bb6e7d9f69fea40aa4ab7e2"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/INDEPENDENT_REVIEW.md",
+      "category": "docs",
+      "afterBlob": "04c8fb4181fce1bd2c2170af3022ee8f4de3761d"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/INTEGRATION_D.md",
+      "category": "docs",
+      "afterBlob": "49a0cadf19c3b26dc6a2df1cadf68c35c4eeea3b"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/REPORT.md",
+      "category": "docs",
+      "afterBlob": "e07dd821968fbf9b69a9d28ada405671d017fe7f"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/ab-focused-final.log",
+      "category": "docs",
+      "afterBlob": "3373b1abaf306f287a0cf26a24a9501def6452a2"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/ab-integration-final.log",
+      "category": "docs",
+      "afterBlob": "1cbf663d323ae022bdf8e5cfd1f021f545148065"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/batch-final.log",
+      "category": "docs",
+      "afterBlob": "95ca473ee11197bdb86914b37d6a9d74cca606ff"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/build-integrated-final.log",
+      "category": "docs",
+      "afterBlob": "7ab982d2a29ced0e99d133be6eb46fe8bb248950"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/build.log",
+      "category": "docs",
+      "afterBlob": "1671c2e7207fe361a04a067612d927681959db50"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/cleanup-and-notification.log",
+      "category": "docs",
+      "afterBlob": "b6eb1f25f3269f92e4e9e175d47348a3d3052f45"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/control-final.log",
+      "category": "docs",
+      "afterBlob": "62b6ed535b04614df68e9e08d194130d5a421cc6"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/deadline-metadata-final.log",
+      "category": "docs",
+      "afterBlob": "7963cfe9394992012712a3bff568112de44c6016"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/final-required.log",
+      "category": "docs",
+      "afterBlob": "5f76e8a87e4476151d8a8b6c48e5588211a50ea9"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/helper-guard-final.log",
+      "category": "docs",
+      "afterBlob": "17b0a8811d3411da24a3a4536793a444f323fa2d"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/lint-changed-final.log",
+      "category": "docs",
+      "afterBlob": "2eeec9038ce6818f018cee35f839d3507f7a1709"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/lint-integrated-final.log",
+      "category": "docs",
+      "afterBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/lint.log",
+      "category": "docs",
+      "afterBlob": "850c924eb1356eecb315fa1b4bc844ae4d8a8c3a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/mutex-final.log",
+      "category": "docs",
+      "afterBlob": "2c9d4d511248153512da11efd0a1839e485dd348"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/nested-positive-final.log",
+      "category": "docs",
+      "afterBlob": "43a082bb73c87fd3a4a6102ca434742152908cbb"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/packer-and-receipt-final.log",
+      "category": "docs",
+      "afterBlob": "ce6c44b96d2c46510b86495a4926d079287e1004"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/process-tests-initial.log",
+      "category": "docs",
+      "afterBlob": "04f5dc357ac6afd472a82cf5bbbb37fa8ccc86dd"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/process-tests-native.log",
+      "category": "docs",
+      "afterBlob": "bd9970bda289cdc74a6d9edde428e21951edc661"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/process-tests-v3.log",
+      "category": "docs",
+      "afterBlob": "d7b8e62f702fd8fd5cd432690a1522689405c8ea"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/python-fixture-recheck.log",
+      "category": "docs",
+      "afterBlob": "01ce3b8c193d5bc4ba97de6f3daf71573200164a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/release-and-process-tests.log",
+      "category": "docs",
+      "afterBlob": "c28d6a19f88acc8d5b5ac482517dbb18e1344627"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/service-integrated-final.log",
+      "category": "docs",
+      "afterBlob": "9de1957cffdc1b6560fed7ed6033b35c4624b969"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/service-regression.log",
+      "category": "docs",
+      "afterBlob": "ff6d635e65ba0f08776646949c0c4700b92dd31b"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/source-sha256-final.json",
+      "category": "docs",
+      "afterBlob": "c7b4717edf8a1811d1ac13f7c1b943c2c8e914d8"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/targeted-final.log",
+      "category": "docs",
+      "afterBlob": "9d4bd4df538cc01a94c664151f78da8533d54b55"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/test-python-setup.log",
+      "category": "docs",
+      "afterBlob": "184c991affc5942f469dfaca4ab35369e02bffe8"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/transport-focused.log",
+      "category": "docs",
+      "afterBlob": "f509343db96252007f0854cd7da94e6ebed76747"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/unit-full.log",
+      "category": "docs",
+      "afterBlob": "a7f985afd3cbae300dd79efad8bfed69ef29b3d7"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/unit-integrated-final.log",
+      "category": "docs",
+      "afterBlob": "33d2a3d0c50e48e8d4da5f4038270d63239d87a5"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/watchdog-late-final.log",
+      "category": "docs",
+      "afterBlob": "feb500dcbd1f4308dac5d52a1f547483b63eba02"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/watchdog-no-console-final.log",
+      "category": "docs",
+      "afterBlob": "d28f74d173fcb61457863f417d454efe31f768d4"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/watchdog-no-console.log",
+      "category": "docs",
+      "afterBlob": "5b58b0175abd6469c6730f16924f10ef77c10dc4"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/watchdog-regression-final.log",
+      "category": "docs",
+      "afterBlob": "13d58c3d7a53096b6d29e4cc2c277c1bb1f38900"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/watchdog-regression.log",
+      "category": "docs",
+      "afterBlob": "145ed2c2c40fa266ceb03f6872043d3049403859"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/worker-release-focused-final.log",
+      "category": "docs",
+      "afterBlob": "ba36a30a1d07d2475b9610072185ace9b1f054af"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-process-deadline/worker-release-regression.log",
+      "category": "docs",
+      "afterBlob": "0ef7d3c74e3fb1af1344452aa327035890c204eb"
+    },
+    {
+      "status": "A",
+      "path": "tests/fixtures/release-process-child.mjs",
+      "category": "tests",
+      "afterBlob": "28d452270007d9a2c9efc51b4ac97c8723026627"
+    },
+    {
+      "status": "M",
+      "path": "tests/fixtures/worker-release-rotation.ts",
+      "category": "tests",
+      "beforeBlob": "166c6e83194a03e8748a3e07cd3d53b2415d9e74",
+      "afterBlob": "8967c5021edf0566d5e58843585259f1709ed783"
+    },
+    {
+      "status": "M",
+      "path": "tests/operations-system-control.test.ts",
+      "category": "tests",
+      "beforeBlob": "8ffbc97a4b631eec4fe67746482bca92dcc3babc",
+      "afterBlob": "e74ef31101e4b293cfff655453f2587877d51e3c"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-acceptance-closeout.test.mjs",
+      "category": "tests",
+      "afterBlob": "39768556578249f1b543c4aa9e89c0579dd5fb48"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-acceptance-closeout.test.ts",
+      "category": "tests",
+      "afterBlob": "517def77b1f7aa6a23c9a0011cc974ac00218526"
+    },
+    {
+      "status": "M",
+      "path": "tests/release-batch-powershell-environment.test.mjs",
+      "category": "tests",
+      "beforeBlob": "27446d47217d0c3e60a21a13fcba250db042fab0",
+      "afterBlob": "3a27bb961922bfb846a8e916acd2cdabc0f3f420"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-closeout-independent.test.mjs",
+      "category": "tests",
+      "afterBlob": "11212ce0071ad95d6307abfa3e577f632d4b67c6"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-closeout-independent.test.py",
+      "category": "tests",
+      "afterBlob": "9f3f263d234f70772c6b3e4c0a8e5630c43642b1"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-closeout-independent.test.ts",
+      "category": "tests",
+      "afterBlob": "98bfc3d1ec88d68ee423a5bb602018cb60ec049f"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-fastpath-evidence.test.mjs",
+      "category": "tests",
+      "afterBlob": "81f8cf72541ce17a433430c7127f012ab16239d5"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-fastpath-evidence.test.ts",
+      "category": "tests",
+      "afterBlob": "2b906f6de478e17faccf7f7df5734a9ff8555ff3"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-history-preservation.test.py",
+      "category": "tests",
+      "afterBlob": "a736af2ab0c4f9ea2c4165e656d15643d1018a39"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-integration-daily-backup.test.mjs",
+      "category": "tests",
+      "afterBlob": "c6abcd812dc04ba36251121259576f6ce67e2272"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-integration-daily-backup.test.ts",
+      "category": "tests",
+      "afterBlob": "dc7f71a6e2cf416f15c1e24b4c72a4c8549c76bc"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-integration-independent.mjs",
+      "category": "tests",
+      "afterBlob": "68047b8e6f195a2616443bcbfe884478d4b24d04"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-integration-independent.test.ts",
+      "category": "tests",
+      "afterBlob": "7b235a082fceef6acf757dbaff127119fe47d991"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-integration-process-independent.mjs",
+      "category": "tests",
+      "afterBlob": "f397a6fdb5569432b482e156a5112c5f9de633d6"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-process-deadline.test.mjs",
+      "category": "tests",
+      "afterBlob": "843c5d8be905a2b61b538c2639412b9229d22823"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-process-deadline.test.ts",
+      "category": "tests",
+      "afterBlob": "53c706eece5865d74295ba59755aed045ab9c775"
+    },
+    {
+      "status": "M",
+      "path": "tests/release-wait-optimization.test.mjs",
+      "category": "tests",
+      "beforeBlob": "d4e8f7527c093653b2c04a40948e7d750432bd7e",
+      "afterBlob": "def00f94fd9ef6ba188147d8451a79fb5e10d725"
+    },
+    {
+      "status": "M",
+      "path": "tests/worker-local-release-rotation.test.ts",
+      "category": "tests",
+      "beforeBlob": "2d067753aa192042a559291a9ba94611ee10a424",
+      "afterBlob": "9a0b6d4b54b27505eeb6c0cfe8a6b3ab9673b20c"
+    },
+    {
+      "status": "M",
+      "path": "tests/worker-local-release.test.ts",
+      "category": "tests",
+      "beforeBlob": "5bc40a5fffdeecff3e3d8213be54cc86876a628d",
+      "afterBlob": "c789b2870b3a76a508d8e09a7816d9fb8cd0b8df"
+    },
+    {
+      "status": "M",
+      "path": "tools/operations-system-control.ps1",
+      "category": "tools",
+      "beforeBlob": "1b90c14e6e4325363b0e456a876462974afbfeed",
+      "afterBlob": "efd5db41eb69185e20f99da70cff2ac71acb2b28",
+      "gitBytesSha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/operations-system-watchdog.ps1",
+      "category": "tools",
+      "beforeBlob": "9697ad3d0057d10174abbfbbb1a79c5523a2a16f",
+      "afterBlob": "a1ea7dd471f322b5d4215c6df3802974fdedae71",
+      "gitBytesSha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "A",
+      "path": "tools/process-deadline.ps1",
+      "category": "tools",
+      "afterBlob": "ca90f2f5d767359e9f967ddfffa93d3a6dcce389",
+      "gitBytesSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "A",
+      "path": "tools/release-acceptance-ui.mjs",
+      "category": "tools",
+      "afterBlob": "d9de03a8789d04bef1794121b8e6be5a5b979475",
+      "gitBytesSha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "A",
+      "path": "tools/release-admission-timing.mjs",
+      "category": "tools",
+      "afterBlob": "22202e7d4c4d401a35c4c1259be53975b2bdc244",
+      "gitBytesSha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/release-batch-admission.mjs",
+      "category": "tools",
+      "beforeBlob": "8a22c46f6c3e51f6c0d408010758ae4bf5205a40",
+      "afterBlob": "28250080077a13f67e2beb846e8197c77b555dff",
+      "gitBytesSha256": "c154c9bee0f9b5cc45e4af6a56377045799959a55e8aff752cff86edf73a1c8f",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/release-batch.mjs",
+      "category": "tools",
+      "beforeBlob": "6476458d1eac0a9257c15f3cfa199cbd8e379378",
+      "afterBlob": "17e184784f1d53f15232b698c4d8044e21407ceb",
+      "gitBytesSha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "A",
+      "path": "tools/release-closeout-report.mjs",
+      "category": "tools",
+      "afterBlob": "3aa9af507b4bb0ddf1e997e6815f92f9fe834f32",
+      "gitBytesSha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/release-daily-backup.mjs",
+      "category": "tools",
+      "beforeBlob": "53a14bd8169a3c16567b0aa76da81c4540b2f3b3",
+      "afterBlob": "66b32f6144be37242ae6370655c17c577abd6534",
+      "gitBytesSha256": "4b77088b234734fcfedeb658c81c489771d26f320b0a66a1a5286417a7857705",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "A",
+      "path": "tools/release-history-preservation.py",
+      "category": "tools",
+      "afterBlob": "b7308144548ea188e0cdfcea6d12631c812aed63",
+      "gitBytesSha256": "7653551728c9f65e25af38fe8163a81f868c0c0af69c42434c6831583e94cc27",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/release-impact.mjs",
+      "category": "tools",
+      "beforeBlob": "b6390de02bbf3cf2f41466ef0dfe368af4e3dd5c",
+      "afterBlob": "bf795281372fb268422b8226a2b99d56e6db4cc4",
+      "gitBytesSha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/release-lifecycle-step.ps1",
+      "category": "tools",
+      "beforeBlob": "13b563b65a950c54673aa4a81832e0f85b75f4af",
+      "afterBlob": "4f6987d8220945e40d4cd74021ed0976e31525b8",
+      "gitBytesSha256": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "A",
+      "path": "tools/release-preparation-evidence.mjs",
+      "category": "tools",
+      "afterBlob": "248541b49dd30a89eeeab9a3ab93580770b3bc5b",
+      "gitBytesSha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "A",
+      "path": "tools/release-readonly-retry.mjs",
+      "category": "tools",
+      "afterBlob": "547503f3dba584a9fc32f3c7fe7168a57d074ed9",
+      "gitBytesSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/worker-authority-guard.mjs",
+      "category": "tools",
+      "beforeBlob": "2624acc353de1eebe301debbb31a5cef3945bf16",
+      "afterBlob": "84ade9317b5ec59a040267b3b986e1823c3eafb4",
+      "gitBytesSha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/worker-local-release-rotation.mjs",
+      "category": "tools",
+      "beforeBlob": "0a26e94bf777ee421917ee88384864e02121aaab",
+      "afterBlob": "e7c2be87fb7caa6a8d52336541803973764542e0",
+      "gitBytesSha256": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/worker-local-release.mjs",
+      "category": "tools",
+      "beforeBlob": "1b4f3722b2768babc9732551d5ea83ea746a3a58",
+      "afterBlob": "d5b7e82ac788c8ebc3891e88c6ecbc5d374f2704",
+      "gitBytesSha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d",
+      "matchesReviewedObject": true
+    },
+    {
+      "status": "M",
+      "path": "tools/worker-local-service.ps1",
+      "category": "tools",
+      "beforeBlob": "fe0e1389a61c4e2c750c6be7ade6c2e19cf41855",
+      "afterBlob": "2d29bda7863dc4aa7c403219411c16577c6220d7",
+      "gitBytesSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "matchesReviewedObject": true
+    }
+  ],
+  "productionCandidateVerified": false,
+  "productionAdoption": false
+}

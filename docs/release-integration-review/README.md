@@ -1,4 +1,16 @@
-# 发布优化任务 D：第一阶段准备
+# TERUISI 发布优化任务 D
+
+2026-10-10，Asia/Shanghai。用户已明确通知“ABC 已全部交付，开始集成验收”。**组合源码与隔离验收通过，AB及ABC替代候选已准备；发布执行仍有门槛，尚无已封存的engine batch或生产批准，未实际采用。**
+
+- [组合验收报告](REPORT.md)：精确交付、修复、联合回归、实恢复、四类状态和计时限制。
+- [发布方案](RELEASE_PLAN.md)：默认两批与合并替代、精确版本、严格步骤、回滚和执行阻断。
+- [不可执行的精确候选范围](candidate-scope.json)：完整前驱/候选盘点、制品/plan SHA及明确未通过的项目。此文件的SHA不是engine batch SHA，也不是生产批准。
+- [非作者源码复审](COMBINED_INDEPENDENT_REVIEW.md)、[范围与镜像证据复审](SCOPED_SOURCE_REVIEW.md)、[执行草稿失败审查](BATCH_DRAFT_REVIEW.md)。最后草稿已撤下，只保留文本证据；不能执行。
+- [联合清单](ACCEPTANCE.md)、[交接清单](HANDOFF.md)、[验证方案](VALIDATION.md)、[Git交付](DELIVERY.md)。
+
+以下第一阶段正文是当时历史快照，当前状态以上述第二阶段报告为准。原Git提交、preparation-evidence.json及C_HANDOFF_RECEIPT等历史材料保持。D:/运营管理系统的原改动保持。本次通知只授权集成验收；须先闭合执行阻断，再由用户另行批准最终精确批次。
+
+## 第一阶段准备历史正文
 
 日期：2026-10-10，Asia/Shanghai。状态：**准备完成后等待用户通知；尚未进行组合验收**。
 
