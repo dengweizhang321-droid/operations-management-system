@@ -9,7 +9,7 @@ import { resolveEffectiveReleaseChain } from './worker-local-release-rotation.mj
 import { workerPreparationIdentity, workerRuntimeRoot, workerSourceRoot, verifyPreparedWorkerCandidate, verifyWorkerReleaseProcessState, runProcess } from './worker-local-release.mjs';
 import { readScheduledBackupStatus } from './release-daily-backup.mjs';
 import { admissionTimer } from './release-admission-timing.mjs';
-import { retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness } from './release-readonly-retry.mjs';
+import { retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeReadinessFailure } from './release-readonly-retry.mjs';
 
 const djangoRoot='D:\\teruisi-runtime\\django-sales';
 const maintenance=path.join(djangoRoot,'app','tools','django-postgres-maintenance.ps1');
@@ -171,8 +171,16 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission',{s
     statusObservation=await measure('complete-status','dynamic-state',()=>retryReadOnlyObservation({stage:`${phase}-admission-status`,onAttempt:onStatusAttempt,
       query:async({remaining})=>{
         const result=await runReadOnlyPowerShell('D:\\运营管理系统\\tools\\operations-system-control.ps1',['-Action','Status','-Json'],'original complete system readiness',{timeoutMs:Math.min(remaining(),60_000)});
-        assertCompleteReadiness(parseStatus(result.stdout),plan.candidate.releaseId);
-        return {releaseId:plan.candidate.releaseId,ready:true};
+        let status;
+        try {
+          status=parseStatus(result.stdout);
+          assertCompleteReadiness(status,plan.candidate.releaseId);
+          return {releaseId:plan.candidate.releaseId,ready:true};
+        } catch(error) {
+          error.processEvidence ??= result.processEvidence;
+          if(status) error.readinessEvidence=safeReadinessFailure(status,plan.candidate.releaseId);
+          throw error;
+        }
       }}));
   }
   const recovery=batch.recovery.mode==='reuse'?await measure('recovery-eligibility','dynamic-state',()=>collectBatchRecovery(batch)):await collectBatchRecovery(batch);

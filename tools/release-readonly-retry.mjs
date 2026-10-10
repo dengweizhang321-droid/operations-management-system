@@ -10,8 +10,49 @@ const known = new Set([...transient, 'DEADLINE_EXCEEDED', 'STATUS_IDENTITY_MISMA
 export function observationError(code) { return Object.assign(new Error(code), { code }); }
 export function safeObservationError(error) {
   // Never persist stderr, stdout, URLs, argv, customer text, or arbitrary messages.
+  const process = error?.processEvidence ?? error?.process;
+  const readiness = sanitizeReadinessFailure(error?.readinessEvidence ?? error?.readiness);
   return { code: known.has(error?.code) ? error.code : 'UNCLASSIFIED_FAILURE',
-    messageSha256: null, retryable: transient.has(error?.code), ...(error?.processEvidence ? {process:safeProcessEvidence(error.processEvidence)} : {}) };
+    messageSha256: null, retryable: transient.has(error?.code), ...(process ? {process:safeProcessEvidence(process)} : {}),
+    ...(readiness ? {readiness} : {}) };
+}
+function sanitizeReadinessFailure(value) {
+  if (!value || value.version !== 1) return null;
+  const allow = (v, values) => values.includes(v) ? v : 'unrecognized';
+  const count = v => Number.isSafeInteger(v) && v >= 0 && v <= 2_000_000 ? v : null;
+  return {
+    version: 1,
+    state: allow(value.state, ['Running','BackendUnavailable','BackendDegraded','Unresponsive','StatusError','WorkerStopped','Stopped','Starting','StaleReceipt','PortInUse','Maintenance']),
+    backendState: allow(value.backendState, ['Ready','NotReady','Error']),
+    workerState: allow(value.workerState, ['exact_release','starting_exact_release','stale_or_invalid_receipt','foreign_or_ambiguous','status_error','stopped']),
+    releaseMatchesExpected: value.releaseMatchesExpected === true,
+    componentObject: value.componentObject === true,
+    componentCount: count(value.componentCount),
+    unexpectedComponentCount: count(value.unexpectedComponentCount),
+    missingComponents: readinessComponents.filter(n => Array.isArray(value.missingComponents) && value.missingComponents.includes(n)),
+    components: Object.fromEntries(readinessComponents.map(n => [n, value.components && Object.hasOwn(value.components,n) && typeof value.components[n] === 'boolean' ? value.components[n] : null]))
+  };
+}
+// A failed readiness assertion must retain the actual probe's bounded facts.
+// Never retain arbitrary reason text, URLs, extra field names or status bodies.
+export function safeReadinessFailure(status, expectedReleaseId) {
+  const allow = (value, values) => values.includes(value) ? value : 'unrecognized';
+  const names = ['core','finance','netshop','market','products','workflow','inventory','customerService','accessControl','erpReference','bi','ai'];
+  const components = status?.components;
+  const object = components !== null && typeof components === 'object' && !Array.isArray(components);
+  const keys = object ? Object.keys(components) : [];
+  return {
+    version: 1,
+    state: allow(status?.state, ['Running','BackendUnavailable','BackendDegraded','Unresponsive','StatusError','WorkerStopped','Stopped','Starting','StaleReceipt','PortInUse','Maintenance']),
+    backendState: allow(status?.backendState, ['Ready','NotReady','Error']),
+    workerState: allow(status?.workerState, ['exact_release','starting_exact_release','stale_or_invalid_receipt','foreign_or_ambiguous','status_error','stopped']),
+    releaseMatchesExpected: typeof expectedReleaseId === 'string' && expectedReleaseId.length > 0 && status?.releaseId === expectedReleaseId,
+    componentObject: object,
+    componentCount: keys.length,
+    unexpectedComponentCount: keys.filter(name => !names.includes(name)).length,
+    missingComponents: names.filter(name => !object || !Object.hasOwn(components,name)),
+    components: Object.fromEntries(names.map(name => [name, object && Object.hasOwn(components,name) && typeof components[name] === 'boolean' ? components[name] : null]))
+  };
 }
 export async function retryReadOnlyObservation({ query, stage, totalTimeoutMs = 240_000,
   now = () => performance.now(), sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), onAttempt = async () => {} }) {

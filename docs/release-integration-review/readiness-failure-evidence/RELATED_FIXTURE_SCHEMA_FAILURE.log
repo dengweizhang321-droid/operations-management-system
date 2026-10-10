@@ -1,0 +1,49 @@
+(node:57060) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("./docs/release-integration-review/readiness-failure-evidence/test-dependency-loader.mjs", pathToFileURL("./")); register("./docs/release-integration-review/readiness-failure-evidence/test-dependency-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ NotReady retains actual successful probe process and only the failed component facts, no retry (4.1888ms)
+✔ wrong release remains nonretryable identity failure with actual process evidence (2.0002ms)
+✔ invalid JSON retains real output hash/process without retaining or inventing a parsed snapshot (0.4435ms)
+✔ an additional original assertion still rejects and retains the same actual probe (0.4927ms)
+✔ healthy original observation stays passed with original receipt and no failure snapshot (0.8896ms)
+✔ snapshot strips arbitrary fields, unknown strings and extra component names (0.1773ms)
+✔ snapshot counts missing, array and inherited components without treating them as observed booleans (0.1375ms)
+✔ all original readiness assertions still reject a missing or extra component (0.2057ms)
+✔ the actual admission query also retains its failed original Status probe (4.1096ms)
+✔ classified transient retry remains bounded and unknown errors remain nonretryable (0.6888ms)
+✔ thrown failures never expose the raw status and safe serialization is idempotent (0.79ms)
+(node:57212) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("./docs/release-integration-review/readiness-failure-evidence/test-dependency-loader.mjs", pathToFileURL("./")); register("./docs/release-integration-review/readiness-failure-evidence/test-dependency-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PS5 child uses its system modules, removes inherited library-only flags and preserves its parent (2.0241ms)
+✔ actual readonly admission caller uses the same safe native transport (1533.6847ms)
+✔ Node and non-system shell commands retain their exact approved environment (0.314ms)
+✔ PS5 transport binds File argv as data and rejects ambiguous parameter syntax (0.8632ms)
+✖ actual approved runner survives a PS7-polluted parent while original PS5 ACL command fails (581.9302ms)
+✖ original nested lifecycle adapter also preserves Unicode through its native child (20.7788ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 15
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2742.2333
+
+✖ failing tests:
+
+test at tests\release-batch-powershell-environment.test.mjs:67:1
+✖ actual approved runner survives a PS7-polluted parent while original PS5 ACL command fails (581.9302ms)
+  TypeError: Cannot read properties of undefined (reading 'mode')
+      at runApprovedOperation (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/release-batch.mjs:444:21)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-batch-powershell-environment.test.mjs:97:24)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tests\release-batch-powershell-environment.test.mjs:119:1
+✖ original nested lifecycle adapter also preserves Unicode through its native child (20.7788ms)
+  TypeError: Cannot read properties of undefined (reading 'mode')
+      at runApprovedOperation (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tools/release-batch.mjs:444:21)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-ab-ui-acceptance/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-batch-powershell-environment.test.mjs:137:25)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)

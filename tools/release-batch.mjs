@@ -11,7 +11,7 @@ import { validateNoDataObservation, runNoDataObservation } from './release-no-da
 import { canonical, hash, requireHash, safeRead, safeFileDigest, readSourceTree, sourceTreeDigest, sourceInventory, makeImpactProof, verifyImpactProof, classifyImpact, classifyImpactV3, noDataPolicyVersion, policyVersion, requirementsForImpact, bindDeploymentImpact, recoveryDecision, backupReuseDecision } from './release-impact.mjs';
 import { withRotationLock, applyApprovedRotationPlan, planWorkerReleaseRotation } from './worker-local-release-rotation.mjs';
 import { runProcess, processDeadline, safeProcessEvidence, workerRuntimeRoot } from './worker-local-release.mjs';
-import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError } from './release-readonly-retry.mjs';
+import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError, safeReadinessFailure } from './release-readonly-retry.mjs';
 
 export const legacyBatchVersion = 'teruisi-release-batch-v2';
 export const batchVersion = 'teruisi-release-batch-v3';
@@ -500,10 +500,18 @@ export async function runApprovedOperation(op, { batch, lease, state }) {
       query: async ({ remaining }) => {
         for (const file of op.command.files) { remaining(); if (await safeFileDigest(file.path) !== file.sha256) throw observationError('ASSERTION_FAILED'); remaining(); }
         const value = await invoke(Math.min(remaining(), 60_000));
-        const status = parseStatus(value.stdout);
-        assertCompleteReadiness(status,op.assertions.find(a=>a.path==='releaseId').equals);
-        for (const assertion of op.assertions) if (canonical(assertion.path.split('.').reduce((v,k) => v?.[k], status)) !== canonical(assertion.equals)) throw observationError('ASSERTION_FAILED');
-        return value;
+        let status;
+        const expectedReleaseId=op.assertions.find(a=>a.path==='releaseId').equals;
+        try {
+          status = parseStatus(value.stdout);
+          assertCompleteReadiness(status,expectedReleaseId);
+          for (const assertion of op.assertions) if (canonical(assertion.path.split('.').reduce((v,k) => v?.[k], status)) !== canonical(assertion.equals)) throw observationError('ASSERTION_FAILED');
+          return value;
+        } catch(error) {
+          error.processEvidence ??= value.processEvidence;
+          if(status) error.readinessEvidence=safeReadinessFailure(status,expectedReleaseId);
+          throw error;
+        }
       } });
     result=observed.value;observationAttempts=observed.attempts;
   } else result=await invoke(op.command.timeoutMs);

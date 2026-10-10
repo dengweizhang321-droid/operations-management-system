@@ -1,0 +1,31 @@
+(node:67836) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("./docs/release-integration-review/readiness-failure-evidence/test-dependency-loader.mjs", pathToFileURL("./")); register("./docs/release-integration-review/readiness-failure-evidence/test-dependency-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ NotReady retains actual successful probe process and only the failed component facts, no retry (3.6465ms)
+✔ wrong release remains nonretryable identity failure with actual process evidence (1.6241ms)
+✔ invalid JSON retains real output hash/process without retaining or inventing a parsed snapshot (0.3948ms)
+✔ an additional original assertion still rejects and retains the same actual probe (0.4863ms)
+✔ healthy original observation stays passed with original receipt and no failure snapshot (0.5484ms)
+✔ snapshot strips arbitrary fields, unknown strings and extra component names (0.2204ms)
+✔ snapshot counts missing, array and inherited components without treating them as observed booleans (0.2371ms)
+✔ all original readiness assertions still reject a missing or extra component (0.2756ms)
+✔ the actual admission query also retains its failed original Status probe (5.1373ms)
+✔ classified transient retry remains bounded and unknown errors remain nonretryable (0.5499ms)
+✔ thrown failures never expose the raw status and safe serialization is idempotent (0.7819ms)
+(node:15012) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("./docs/release-integration-review/readiness-failure-evidence/test-dependency-loader.mjs", pathToFileURL("./")); register("./docs/release-integration-review/readiness-failure-evidence/test-dependency-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PS5 child uses its system modules, removes inherited library-only flags and preserves its parent (1.3445ms)
+✔ actual readonly admission caller uses the same safe native transport (732.4703ms)
+✔ Node and non-system shell commands retain their exact approved environment (0.3296ms)
+✔ PS5 transport binds File argv as data and rejects ambiguous parameter syntax (0.8456ms)
+✔ actual approved runner survives a PS7-polluted parent while original PS5 ACL command fails (2182.1341ms)
+✔ original nested lifecycle adapter also preserves Unicode through its native child (2033.6531ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5478.2183
