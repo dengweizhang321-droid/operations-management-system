@@ -1,0 +1,123 @@
+{
+  "version": "teruisi-readiness-failure-evidence-gap-static-review-v1",
+  "reviewer": "/root/preparation_review",
+  "independent": true,
+  "scope": "Static diagnosis and minimum proposed evidence fix only",
+  "confirmedGap": true,
+  "productionSourceModified": false,
+  "newStatusOrBusinessQueryExecuted": false,
+  "productionExecutionApproved": false,
+  "adoptedRelease": "20261010T014638Z-97833d2f2b7e7bc9",
+  "mainRef": "origin/main",
+  "mainCommit": "a3d41827995647e7cd368edf0bf83f44658a4eff",
+  "localMainRefNotUsed": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf (stale; did not contain these files)",
+  "files": [
+    {
+      "file": "release-batch.mjs",
+      "adoptedSha256": "0b2eb39f495fa7ec92f598c24d2c2d585bf6fe9c8a4eef6278e14a71eb21c944",
+      "mainSha256": "684359a553530d68433198ce3f1341302700f570a485fff269e3e9aa30aa0f75"
+    },
+    {
+      "file": "release-readonly-retry.mjs",
+      "adoptedSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+      "mainSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab"
+    }
+  ],
+  "locations": [
+    {
+      "file": "tools/release-batch.mjs",
+      "adoptedLines": [
+        426,
+        428,
+        429,
+        430,
+        431,
+        434,
+        437
+      ],
+      "mainLines": [
+        500,
+        502,
+        503,
+        504,
+        505,
+        508,
+        511
+      ],
+      "finding": "The successful invoke result is local to the retry query. parseStatus/readiness/extra assertion failures throw before observed.value/result assignment, outside the later result-parse try/catch, without attaching actual process evidence or a limited status snapshot."
+    },
+    {
+      "file": "tools/release-readonly-retry.mjs",
+      "adoptedLines": [
+        11,
+        14,
+        21,
+        35,
+        36,
+        39,
+        42,
+        66,
+        70
+      ],
+      "mainLines": [
+        11,
+        14,
+        21,
+        35,
+        36,
+        39,
+        42,
+        66,
+        70
+      ],
+      "finding": "safeObservationError can preserve process evidence only when the thrown error already has it; it has no sanitized status snapshot. The failed attempt is durably recorded and correctly stops on STATUS_NOT_READY, but the evidence lost by the query cannot be reconstructed here."
+    }
+  ],
+  "actualRelationship": {
+    "event96Head": "d60a34f1aebce3bf2629a1d2c9b7e1c7f451c40fd74e44b9ac67388ef5cfdf19",
+    "operation21Status": "unknown",
+    "errorCode": "STATUS_NOT_READY",
+    "attempt1Retryable": false,
+    "receiptMissing": true,
+    "processEvidenceMissing": true,
+    "particularFailedComponentNotProved": true,
+    "historicalStatusBodyRecoverableByThisFix": false
+  },
+  "minimumFix": {
+    "queryBoundary": "Catch only around invoke/parse/full readiness/all original op assertions. Keep value and parsed status in scope. If invoke returned an actual result, attach its existing processEvidence without changing exit/code/timeouts; attach the bounded snapshot only if JSON parsed. Rethrow the original classified error.",
+    "snapshot": "Versioned plain literal containing only enum state/backendState/workerState (unknown fallback), releaseMatchesExpected boolean, the 12 fixed component boolean-or-null values, fixed-name missing/invalid lists, and numeric actual/extra component counts. Never store unknown field names, arbitrary reason, URLs, argv, full stdout/stderr, or PII.",
+    "outputIntegrity": "Use actual process stdoutBytes/stdoutSha256 and stderrBytes/stderrSha256, with the existing safeProcessEvidence filter; never invent a success receipt or native PID.",
+    "retrySerializer": "safeObservationError additionally serializes only the validated bounded snapshot. Builder and re-sanitizer must preserve the same safe fields idempotently; malformed snapshots are omitted/marked invalid without printing their values.",
+    "propagation": "Keep the safe snapshot/process through observation-attempt and terminal unknown plus any wrapper sanitizer used by a future explicitly approved caller. Do not overwrite or upgrade old442/295/live modules or existing WAL."
+  },
+  "mustRemainUnchanged": {
+    "originalAllAssertions": true,
+    "identityReleaseCheck": true,
+    "full12ExactTrueAndNoExtraComponents": true,
+    "maxAttempts": 4,
+    "transientCodes": [
+      "STATUS_TIMEOUT",
+      "ECONNRESET",
+      "ETIMEDOUT",
+      "EAI_AGAIN"
+    ],
+    "notReadyRetryable": false,
+    "absoluteDeadlineAndAttemptBudget": true,
+    "originalCommandAndClosurePins": true,
+    "unknownReconciliationPolicy": true
+  },
+  "requiredIsolatedNegatives": [
+    "Successful transport with each of12 components false or absent retains the actual child proof and exact offending fixed key, rejects immediately as NotReady.",
+    "State/backend/worker mismatch and release identity mismatch retain bounded summary while keeping original error classifications.",
+    "Invalid JSON retains actual byte SHA/process but no fabricated parsed snapshot.",
+    "Unknown labels, nested objects, reason/customer fields, extra key names and PII never reach persisted JSON; extra component count remains visible.",
+    "Nonzero/timeout/spawn error keeps original underlying process proof without inventing a status body; only original four transient codes can retry up to4 under the same deadline.",
+    "Double snapshot/error serialization is idempotent and preserves inner Status PID/output SHA; attempt record is saved before further queries.",
+    "No successful receipt or passed status is manufactured from a diagnostic snapshot; old unknown remains untouched."
+  ],
+  "limitations": [
+    "This review ran no runtime assertion or production request and does not prove the actual missing21 child exit/PID or exact failing component.",
+    "Fixing main is development completion only; the immutable adopted B and old approved batches remain unchanged until separately approved exact adoption.",
+    "No retry/execution plan is proposed here."
+  ]
+}

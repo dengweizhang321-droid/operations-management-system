@@ -1,5 +1,7 @@
 # AB 实际采用与阻断记录
 
+2026-10-11 442b实际续接更新：原20历史审计真实通过，原21最终就绪一次 `STATUS_NOT_READY` 后保留unknown；97条链/head d60a34f1、active原9保持，AB必要验收和完整交付尚未闭合。原19严格失败与源88接受都不改写；当前只剩原21就绪事项，但它遇到了真实现场失败。详见 [实际续接](FINAL_TAIL_CONTINUATION_20261011.md)、[实际独立复核](FINAL_TAIL_ACTUAL_INDEPENDENT.md)、[两个故障窗口](FINAL_TAIL_RUNTIME_FAILURE_REVIEW.md) 与 [取证缺口](READINESS_FAILURE_EVIDENCE_GAP.md)。以下保留较早阶段快照。
+
 2026-10-11 最新事实：用户批准的 `295d8923` 精确变化合同已实际接受为独立事件 `000088`，原第19步严格全等失败与 unknown 保持。之后第20步前的原状态准入返回 `STATUS_NOT_READY`，原20–21均未开始，active仍保留；AB必要验收与完整交付尚未闭合。后来一次只读Status为Ready，不能覆盖实际阻断。详见 [295d实际续接](EXACT_295D_CONTINUATION_20261011.md)、[独立效果复核](EXACT_295D_ACTUAL_INDEPENDENT_REVIEW.md) 和 [独立计时](EXACT_295D_TIMING_INDEPENDENT.md)。下文是此前阶段保留的历史快照。
 
 新的[精确尾部续接方案442bcb34](FINAL_TAIL_APPROVAL_PLAN.md)已完成33项作者、28项非作者模型回归及5＋2真实合成叶子测试，4,718文件最终物理复核通过。仅拟执行原20/21及日志/条件owner释放，绑定当前89条实际前驱；尚未新批准或执行。旧295d已消费，不能重入；新方案不改变AB应用源码/制品或原失败。
