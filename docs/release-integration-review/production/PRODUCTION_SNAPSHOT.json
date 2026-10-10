@@ -1,0 +1,263 @@
+{
+  "version": "teruisi-ab-production-blocked-snapshot-v1",
+  "observedAt": "2026-10-10T08:14:16.155Z",
+  "approvedAt": "2026-10-10T05:28:51.000Z",
+  "originalBatchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+  "authorityFileSha256": "896d20483fea390636293c7952b4792b5ca2e1f64f76f60ec6e5c3a15381b347",
+  "sourceCommit": "5faac8151f59d66de72c3caead8cad916ea547da",
+  "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+  "workerManifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+  "djangoManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "journalRecords": 45,
+  "latestEventSha256": "b68be115be0dc4061a1aca79df78eaabf2ed858e76e2c1bdb96c8c178e507556",
+  "active": {
+    "batchSha256": "9f79a27a1b2ec47095c971780efde8379940366724e975ff31b9cf88b45dce15",
+    "id": "integration-ab-v2-20261010-c22d8dd69a"
+  },
+  "operations": [
+    {
+      "id": "reuse-reviewed-worker",
+      "phase": "prepare",
+      "status": "passed",
+      "at": "2026-10-10T05:41:51.322Z",
+      "attempts": 1,
+      "eventSha256": "e602cf9cba1c0a4eafc32bd2fe1dd6c14a2d9e671fefb9d12d6392b573cfe51e"
+    },
+    {
+      "id": "backup-pre",
+      "phase": "backup-pre",
+      "status": "passed",
+      "at": "2026-10-10T05:55:24.800Z",
+      "attempts": 1,
+      "eventSha256": "f6f601f54772dce042008f71b026ea75c68914fd2c1f29d3c3ca33bc89844ac7"
+    },
+    {
+      "id": "restore-pre",
+      "phase": "restore-pre",
+      "status": "passed",
+      "at": "2026-10-10T06:08:24.641Z",
+      "attempts": 1,
+      "eventSha256": "67f0c947264ed1eed898f3faac72423e904d8e9da06e6284251f8a69ea27fbaa"
+    },
+    {
+      "id": "entermaintenance",
+      "phase": "drain",
+      "status": "passed",
+      "at": "2026-10-10T06:16:26.798Z",
+      "attempts": 1,
+      "eventSha256": "720bac949f1eb131a9e451e33125c5b01eb7749e3bd43ecc667bb62572a95273"
+    },
+    {
+      "id": "apply-reviewed-worker",
+      "phase": "switch",
+      "status": "passed",
+      "at": "2026-10-10T06:19:56.831Z",
+      "attempts": 1,
+      "eventSha256": "b7fedb40062b891a39e8f057e66cf26ab34671c8be22298b8f5f6d2a18e774dd"
+    },
+    {
+      "id": "exitmaintenance",
+      "phase": "switch",
+      "status": "passed",
+      "at": "2026-10-10T06:21:35.712Z",
+      "attempts": 1,
+      "eventSha256": "f6ddaaa63a8347a0e21ce6f015d2cc41e8efadd7df202bde6f98ed4ed486a68c"
+    },
+    {
+      "id": "startworker",
+      "phase": "switch",
+      "status": "passed",
+      "at": "2026-10-10T06:29:21.667Z",
+      "attempts": 1,
+      "eventSha256": "03f79238a372cacfed7210f505528d312b3f986b031e9366dc06000d150a5442"
+    },
+    {
+      "id": "preserve-pre-recovery",
+      "phase": "acceptance",
+      "status": "passed",
+      "at": "2026-10-10T06:31:09.452Z",
+      "attempts": 1,
+      "eventSha256": "b18f6c1008813d3fd4f691a6aaa1df21b6d735539c7f7c5e748f00b3069d141f"
+    },
+    {
+      "id": "verify-all-resources",
+      "phase": "acceptance",
+      "status": "passed",
+      "at": "2026-10-10T06:32:56.378Z",
+      "attempts": 1,
+      "eventSha256": "fbfee11bc3b1568695b2bdbe15a164f9c4d3a70c4a15dbbd0e08bd86bec5b4f7"
+    },
+    {
+      "id": "actual-readonly-ui",
+      "phase": "acceptance",
+      "status": "failed",
+      "at": "2026-10-10T08:08:11.698Z",
+      "attempts": 3,
+      "eventSha256": "b68be115be0dc4061a1aca79df78eaabf2ed858e76e2c1bdb96c8c178e507556"
+    },
+    {
+      "id": "unsigned-reader-permission-denials",
+      "phase": "acceptance",
+      "status": "not-started",
+      "at": null,
+      "attempts": 0,
+      "eventSha256": null
+    },
+    {
+      "id": "complete-component-readiness",
+      "phase": "acceptance",
+      "status": "not-started",
+      "at": null,
+      "attempts": 0,
+      "eventSha256": null
+    },
+    {
+      "id": "verifystartup",
+      "phase": "acceptance",
+      "status": "not-started",
+      "at": null,
+      "attempts": 0,
+      "eventSha256": null
+    },
+    {
+      "id": "install-reviewed-watchdog",
+      "phase": "acceptance",
+      "status": "not-started",
+      "at": null,
+      "attempts": 0,
+      "eventSha256": null
+    },
+    {
+      "id": "two-natural-watchdogs",
+      "phase": "acceptance",
+      "status": "not-started",
+      "at": null,
+      "attempts": 0,
+      "eventSha256": null
+    },
+    {
+      "id": "backup-post",
+      "phase": "backup-post",
+      "status": "not-started",
+      "at": null,
+      "attempts": 0,
+      "eventSha256": null
+    },
+    {
+      "id": "restore-post",
+      "phase": "restore-post",
+      "status": "not-started",
+      "at": null,
+      "attempts": 0,
+      "eventSha256": null
+    },
+    {
+      "id": "preserve-post-recovery",
+      "phase": "closeout",
+      "status": "not-started",
+      "at": null,
+      "attempts": 0,
+      "eventSha256": null
+    },
+    {
+      "id": "full-postgresql-deep-comparison",
+      "phase": "closeout",
+      "status": "not-started",
+      "at": null,
+      "attempts": 0,
+      "eventSha256": null
+    },
+    {
+      "id": "original-historical-audits-preserved",
+      "phase": "closeout",
+      "status": "not-started",
+      "at": null,
+      "attempts": 0,
+      "eventSha256": null
+    },
+    {
+      "id": "exact-final-readiness",
+      "phase": "closeout",
+      "status": "not-started",
+      "at": null,
+      "attempts": 0,
+      "eventSha256": null
+    }
+  ],
+  "timing": {
+    "necessaryAcceptanceClosedAt": null,
+    "completeDeliveryAt": null,
+    "elapsedSinceApprovalMs": 9925164,
+    "phaseRecordedMs": {
+      "queue": 167.8957999999999,
+      "prepare": 894921.7234,
+      "backup-pre": 813470.5954999999,
+      "restore-pre": 779835.5447999998,
+      "drain": 482150.7729000002,
+      "switch": 774851.7892,
+      "acceptance": 603879.656
+    },
+    "approvalToLatestJournalMs": 9560698,
+    "uiFailedAttemptMs": 63890.36319999996,
+    "unallocatedWallMsThroughLatestJournal": 5211420.0224,
+    "calculation": "Parent WAL phase durations only; nested engine/child durations are diagnostic subdivisions, never added again. Unallocated wall time includes manual investigation, coordination and gaps; no invented attribution."
+  },
+  "availability": {
+    "method": "GET entry headers/status; body cancelled and not persisted",
+    "approvalToObserverStartUnobservedMs": 221966,
+    "startedAt": "2026-10-10T05:32:32.966Z",
+    "finishedAt": "2026-10-10T08:05:54.315Z",
+    "count": 3670,
+    "unavailableSamples": 322,
+    "maximumSampleGapMs": 2544,
+    "intervals": [
+      {
+        "firstUnavailable": "2026-10-10T06:06:06.592Z",
+        "lastUnavailable": "2026-10-10T06:06:16.613Z",
+        "lastAvailableBefore": "2026-10-10T06:06:04.083Z",
+        "firstAvailableAfter": "2026-10-10T06:06:19.127Z",
+        "unavailableSamples": 5,
+        "observedSpanMs": 10021,
+        "conservativeBoundMs": 15055,
+        "errors": [
+          "HTTP_500",
+          "ECONNREFUSED",
+          "TimeoutError"
+        ]
+      },
+      {
+        "firstUnavailable": "2026-10-10T06:13:25.250Z",
+        "lastUnavailable": "2026-10-10T06:26:37.489Z",
+        "lastAvailableBefore": "2026-10-10T06:13:22.739Z",
+        "firstAvailableAfter": "2026-10-10T06:26:39.995Z",
+        "unavailableSamples": 317,
+        "observedSpanMs": 792239,
+        "conservativeBoundMs": 798536,
+        "errors": [
+          "ECONNREFUSED"
+        ]
+      }
+    ],
+    "observationsSha256": "9801c4e6f2f128c622b8263064c8b054c93e413a32fc91ac6d959e57e4e85ad7",
+    "observationPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-v2-555729fd8f1dedc2\\production\\entry-observations.jsonl",
+    "limits": "Sample bounds only. Does not establish engine readiness, every request, user-visible rendering, intervals before/after sampling, or exact downtime."
+  },
+  "unresolvedScope": [
+    "original UI acceptance requires reviewed explicit supplement",
+    "unsigned-reader-permission-denials",
+    "complete-component-readiness",
+    "verifystartup",
+    "install-reviewed-watchdog",
+    "two-natural-watchdogs",
+    "backup-post",
+    "restore-post",
+    "preserve-post-recovery",
+    "full-postgresql-deep-comparison",
+    "original-historical-audits-preserved",
+    "exact-final-readiness"
+  ],
+  "productionBatchComplete": false,
+  "rollbackExecuted": false,
+  "productionDataRestoreApproved": false,
+  "cAdopted": false
+}

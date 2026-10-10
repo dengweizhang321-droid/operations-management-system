@@ -1,0 +1,13 @@
+✔ independent quiet completion cannot report success after its common deadline (84.3615ms)
+✔ independent action wait itself is bounded by the same current read deadline (29.8141ms)
+✔ independent terminal failure cannot be replaced by a later successful matching read (1.617ms)
+✔ independent action cannot start after the read deadline has already expired (65.716ms)
+✔ independent DOM handoff cannot reset the selected read common deadline (72.8346ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 357.2337
