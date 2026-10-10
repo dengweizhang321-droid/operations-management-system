@@ -2,6 +2,20 @@
 
 本协议是开发候选。只有对精确候选和首次严格采用范围取得明确上线授权后，才改变生产发布入口的使用方式。合并源码、生成请求和检查批次不授权维护、部署、调度或数据写入。旧已安装入口在采用之前继续执行原门禁。
 
+## v3 无数据影响批次
+
+新 `makeBatch` 默认生成 `teruisi-release-batch-v3`，状态 `SEALED`。先分别推导组件切换、持久数据／部署影响和备份机制三条轴，再决定数据库策略；验证强度没有作为备份开关。完整前驱/候选清单和所有增删改字节必须绑定实际 source-snapshot、候选及现场完整清单，不能只交一份自选文件列表。独立复审继续绑定完整 closure；`readOnly`、`noData`、`effects:false` 或 HTTP GET 声明不能替代机器证明。
+
+首版证明边界是既有 CSS 同选择器/属性/规则结构的受限展示值，以及完整静态被动、零参数、无导入/事件/表达式/自定义祖先的 `use client` TSX 组件中的原生被动标签文本、有限布局类字面值。另须比较实际前后原 preparation receipt 中全部非源码环境/运行配置/npmrc/工具链输入，并封存绑定精确制品/plan/closure 的独立副作用复审原报告，明确检查布局观察器、文本消费者、持久写入和启动/构建。CSS 语法本身不证明全应用既有观察器无副作用。自定义组件、局部事件改写、PNG、Markdown、查询/API、权限、迁移、依赖、启动钩子和备份工具变更尚无 v3 证明，返回逐路径缺口并保留 `full`。不能把某个目录或文件后缀本身视为无数据影响。
+
+合格批次为 `recovery.mode=not-required`，`databaseOperations={required:false,operationIds:[]}`，操作列表必须为零 Backup/Restore，恢复证据必须为空。它不查询日常备份调度、26 小时恢复点、7 天同点演练或目录/保留资格，日常 PAUSED 也不是其前置条件。它证明的是本次变化和封存动作没有新增持久数据效果，既有正常业务可继续自然写入，不要求发布前后全库内容静止。未知数据/部署效果或备份机制变化仍为 `full`，新 v3 不以 `reuse` 代替缺失证明。
+
+允许动作仅为原 worker-plan、排空、Stop、apply、Start、解除排空、原 VerifyStartup/AggregateStatus 和固定 no-data-observation；禁止任意外部命令标记 `mutating:false`。原生命周期适配器、系统 PowerShell、标准 in-process collector 及解析器完整直接闭包按精确路径和字节绑定，未支持参数和输入拒绝。观察器只接受候选 `dist/client/assets` 资源与声明式 DOM/样式断言；浏览器请求仅放行首页和精确资源 GET，其余 API/请求被阻断并记录，不把 GET 当无写证明。固定两个未签名 reader GET 必须返回鉴权拒绝。浏览器可执行文件及 Playwright 库也绑定；完整权限回归测试仍需绑定候选。自然 watchdog 只读两次新鲜健康观测并保全所有遇到的原记录，不触发任务。页面无法在该读取边界下验证时拒绝，不转用任意脚本。
+
+顺序保持 BeginWorkerDrain → StopWorker → apply → StartWorker → EndWorkerDrain → 全部验收／收尾；完整字节、路径、硬链接、重解析点、ACL、精确进程/ready、唯一 mutex、active 所有权、动作前复验和原 CAS/fence/启动绑定仍由原引擎执行。观察失败保存原证据与 unknown，不自动重放或回滚。新机制自身包含工具变化，首次采用必须由原严格流程承担 full；旧 v1/v2 已批准批次和 WAL 不升级、不删除阶段，仍由其精确采用版本续接。v2 构造需显式指定原版本，原验证/恢复资格语义保持。
+
+以下表格和恢复复用段落描述旧 v2 的保障，不是 v3 `not-required` 的日常备份前置条件。实现及隔离验证见[本次设计](release-no-data-policy-20261010/DESIGN.md)。
+
 ## 分类与保障
 
 分类依据**实际生产前驱 source-snapshot 与最终组合源码**的完整文件集合、字节摘要、依赖闭包和独立行为复审，不能以当前 main、某个聊天分支或目录名替代前驱。批次携带完整前后文件摘要清单及变更字节，现场重新绑定原 tree-hash 和 inventory-hash；篡改分类后重新计算批次摘要也不能绕过结构与影响门禁。

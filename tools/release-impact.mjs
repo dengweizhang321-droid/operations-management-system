@@ -292,7 +292,7 @@ export function makeImpactProof(before, after, witness) {
     before:Object.fromEntries(changed.filter(k => sourceEntry(before,k) != null).map(k => [k,sourceEntry(before,k)])),
     after:Object.fromEntries(changed.filter(k => sourceEntry(after,k) != null).map(k => [k,sourceEntry(after,k)])) };
 }
-export function verifyImpactProof(proof, binding) {
+export function verifyImpactProof(proof, binding, version = policyVersion) {
   if (!proof?.inventory?.before || !proof?.inventory?.after) throw new Error('Missing full impact inventories');
   for (const files of Object.values(proof.inventory)) for (const [name,digest] of Object.entries(files)) {
     requireHash(digest,'source inventory');
@@ -305,7 +305,135 @@ export function verifyImpactProof(proof, binding) {
     for (const name of changed) if ((sourceEntry(actual,name) ?? null) !== (sourceEntry(proof.inventory[side],name) ?? null)) throw new Error('Impact delta bytes changed');
     if (Object.keys(actual).some(k => !changed.includes(k))) throw new Error('Extra impact delta');
   }
-  return classifyImpact({ ...proof, inventory:proof.inventory });
+  if (version !== policyVersion && version !== noDataPolicyVersion) throw new Error('Unknown impact protocol');
+  return (version === noDataPolicyVersion ? classifyImpactV3 : classifyImpact)({ ...proof, inventory:proof.inventory });
+}
+
+export const noDataPolicyVersion = 'teruisi-release-impact-v3';
+// This deliberately does not normalize calls, hooks, imports, expressions,
+// event handlers, attributes on custom components or server render code.
+function intrinsicDisplaySkeleton(source, name) {
+  if (!/^\s*["']use client["'];/.test(source) || /["']use server["']|next\/server/.test(source)) throw new Error('Not a client display');
+  const file = ts.createSourceFile(name, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  if (file.parseDiagnostics.length) throw new Error('Invalid JSX');
+  // Intrinsic text is not passive inside an existing handler: e.g. a writer
+  // may branch on event.currentTarget.textContent. Accept only a whole static
+  // zero-argument component, with no custom ancestry/import/call/JSX expression.
+  const statements=file.statements.filter(node=>!(ts.isExpressionStatement(node)&&ts.isStringLiteral(node.expression)&&node.expression.text==='use client'));
+  if(statements.length!==1)throw new Error('text-needs-static-passive-component');
+  let component=statements[0];
+  if(ts.isExportAssignment(component))component=component.expression;
+  if(!(ts.isFunctionDeclaration(component)||ts.isArrowFunction(component))||component.parameters.length||!component.body)throw new Error('text-needs-static-passive-component');
+  let root=component.body;
+  if(ts.isBlock(root)) {
+    if(root.statements.length!==1||!ts.isReturnStatement(root.statements[0]))throw new Error('text-needs-static-passive-component');
+    root=root.statements[0].expression;
+  }
+  if(!root || !(ts.isJsxElement(root)||ts.isJsxSelfClosingElement(root)))throw new Error('text-needs-static-passive-component');
+  const spans = [];
+  const layoutClasses=value=>value.split(/\s+/).filter(Boolean).every(token=>/^(?:(?:sm|md|lg|xl|2xl):)*(?:(?:p[trblxy]?|m[trblxy]?|gap(?:-[xy])?)-(?:0|px|\d+)|text-(?:xs|sm|base|lg|xl|[2-9]xl)|font-(?:normal|medium|semibold|bold)|rounded(?:-(?:none|sm|md|lg|xl|full))?)$/.test(token));
+  const intrinsic = node => node && ts.isIdentifier(node.tagName) && /^(div|span|p|section|article|main|aside|header|footer|h[1-6]|ul|ol|li|strong|em|small|td|th)$/.test(node.tagName.text);
+  function passive(node) {
+    if(ts.isJsxExpression(node)||ts.isJsxSpreadAttribute(node))throw new Error('text-needs-static-passive-component');
+    if((ts.isJsxOpeningElement(node)||ts.isJsxSelfClosingElement(node))&&!intrinsic(node))throw new Error('text-needs-static-passive-component');
+    if(ts.isJsxAttribute(node)&&(!['className','title','aria-label','role'].includes(node.name.getText(file))||!ts.isStringLiteral(node.initializer??file)))throw new Error('text-needs-static-passive-component');
+    ts.forEachChild(node,passive);
+  }
+  passive(root);
+  function visit(node) {
+    if (ts.isJsxText(node) && ts.isJsxElement(node.parent) && intrinsic(node.parent.openingElement)) spans.push([node.pos,node.end,'<display-text>']);
+    else if (ts.isJsxAttribute(node) && node.name.getText(file) === 'className' && ts.isStringLiteral(node.initializer ?? file)
+      && intrinsic(node.parent.parent) && layoutClasses(node.initializer.text)) {
+      spans.push([node.initializer.getStart(file),node.initializer.end,'"<display-class>"']);
+    } else ts.forEachChild(node,visit);
+  }
+  visit(file);
+  for (const [start,end,replacement] of spans.sort((a,b)=>b[0]-a[0])) source=source.slice(0,start)+replacement+source.slice(end);
+  return source;
+}
+
+export function classifyImpactV3(input) {
+  const legacy = classifyImpact(input), { before, after, witness } = input;
+  const gaps = [], proven = [];
+  if (!legacy.changed.length) gaps.push({path:null,reason:'empty-release'});
+  for (const name of legacy.changed) {
+    const left=sourceEntry(before,name),right=sourceEntry(after,name);
+    let rule=null;
+    try {
+      if (left == null || right == null) throw new Error('addition-or-removal');
+      else if (strictPath.test(name)) throw new Error('protected-executable-or-deployment-surface');
+      else if (/^(app|components)\/.+\.css$/.test(name) && cssDisplaySkeleton(left)===cssDisplaySkeleton(right)) rule='same-css-structure-presentation-values';
+      else if (/^(app|components)\/.+\.tsx$/.test(name) && intrinsicDisplaySkeleton(left,name)===intrinsicDisplaySkeleton(right,name)) rule='same-client-executable-intrinsic-display';
+      else throw new Error('no-supported-no-data-proof');
+    } catch(error) { gaps.push({path:name,reason:error.message}); }
+    if(rule)proven.push({path:name,rule});
+  }
+  // A reviewer must bind the exact closure, but its effects booleans do not
+  // establish the proof. Even a forged all-false declaration cannot normalize
+  // executable bytes or omit an operation from the sealed vocabulary.
+  const reviewed = witness?.deltaSha256===legacy.deltaSha256 && witness?.closureSha256===legacy.closureSha256
+    && witness?.independent===true && witness?.status==='passed' && typeof witness?.reviewer==='string' && witness.reviewer.length>0;
+  if(!reviewed)gaps.push({path:null,reason:'missing-exact-independent-review'});
+  if(Object.values(witness?.effects??{}).some(value=>value===true))gaps.push({path:null,reason:'independent-review-reported-effects'});
+  const mechanism = legacy.changed.filter(name=>/^(tools|config|worker|build)\/|(^|\/)(package(-lock)?\.json|[^/]*config\.[^/]+|\.npmrc)$/.test(name));
+  const noData=gaps.length===0;
+  return {...legacy,version:noDataPolicyVersion,level:noData?'display':legacy.level==='business'?'business':'strict',
+    reasons:gaps.map(g=>`${g.path??'release'}: ${g.reason}`),
+    axes:{components:{worker:'replace',django:noData?'unchanged':'review-required'},
+      persistentData:{effect:noData?'none':'unproven',proofs:proven,gaps},
+      backupMechanism:{effect:mechanism.length?'changed-or-unproven':'unchanged',paths:mechanism}}};
+}
+
+export function recoveryDecision({impact,...input}) {
+  if(impact?.version!==noDataPolicyVersion)return backupReuseDecision({impact,...input});
+  const qualified=impact.axes?.persistentData.effect==='none' && impact.axes?.backupMechanism.effect==='unchanged'
+    && impact.axes?.components.django==='unchanged' && impact.axes?.persistentData.deploymentInputs?.effect==='unchanged';
+  return {mode:qualified?'not-required':'full',reasons:qualified?[]:impact.reasons.length?impact.reasons:['Missing complete deployment and effect-review evidence'],evidenceSha256:null};
+}
+
+export function requirementsForImpact(impact) {
+  const original=requirements[impact.level];
+  return impact.version===noDataPolicyVersion && impact.level==='display'
+    ? {...original,backup:recoveryDecision({impact}).mode==='not-required'?'not-required':'full-pre-and-post',tests:[...original.tests,'no-data-negative']} : original;
+}
+
+export const effectReviewSurfaces=Object.freeze(['dom-text-consumers','layout-observers','persistent-writes','startup-and-build-hooks','operation-vocabulary']);
+export function bindDeploymentImpact(impact,proof,binding,witness) {
+  if(impact.version!==noDataPolicyVersion)return impact;
+  const gaps=[];
+  try {
+    if(!proof || typeof proof.beforeRaw!=='string' || typeof proof.afterRaw!=='string')throw new Error('missing-predecessor-candidate-preparation-receipts');
+    const receipts={before:JSON.parse(proof.beforeRaw),after:JSON.parse(proof.afterRaw)};
+    for(const side of ['before','after']) {
+      const receipt=receipts[side],identity=receipt.identity;
+      const before=side==='before';
+      if(hash(proof[side+'Raw'])!==binding[before?'predecessorPreparationSha256':'candidatePreparationSha256'])throw new Error('preparation-receipt-bytes-changed');
+      if(receipt.version!=='teruisi-worker-prepared-build-v1'||identity?.version!=='teruisi-worker-preparation-identity-v1')throw new Error('unsupported-preparation-receipt');
+      if(receipt.planSha256!==binding[before?'predecessorWorkerPlanSha256':'workerPlanSha256']
+        ||receipt.candidateManifestSha256!==binding[before?'predecessorArtifactSha256':'artifactSha256'])throw new Error('preparation-release-identity-changed');
+      if(identity.sourceTree?.sha256!==binding[before?'predecessorSourceSha256':'sourceSha256']
+        ||identity.sourceInventorySha256!==binding[before?'predecessorInventorySha256':'sourceInventorySha256'])throw new Error('preparation-source-identity-changed');
+      for(const key of ['nodeExecutableSha256','runtimeConfigurationSha256','environmentSha256'])requireHash(identity[key],key);
+      if(!identity.toolchain || !identity.externalNpmConfiguration)throw new Error('incomplete-preparation-deployment-inputs');
+    }
+    const inputs=receipt=>Object.fromEntries(Object.entries(receipt.identity).filter(([key])=>!['sourceTree','sourceInventorySha256'].includes(key)));
+    if(canonical(inputs(receipts.before))!==canonical(inputs(receipts.after)))throw new Error('non-source-deployment-inputs-changed');
+    const current=receipts.after.identity;
+    if(hash({node:current.nodeExecutableSha256,toolchain:current.toolchain})!==binding.toolchainSha256
+      ||hash({environment:current.environmentSha256,runtime:current.runtimeConfigurationSha256,npm:current.externalNpmConfiguration})!==binding.configurationSha256)throw new Error('deployment-inputs-differ-from-batch');
+  } catch(error) {gaps.push({path:'deployment-inputs',reason:error.message});}
+  try {
+    if(typeof witness?.reportRaw!=='string'||hash(witness.reportRaw)!==binding.effectReviewSha256)throw new Error('missing-exact-effect-review-report');
+    const report=JSON.parse(witness.reportRaw);
+    if(report.version!=='teruisi-no-data-effect-review-v1'||report.reviewer!==witness.reviewer
+      ||report.conclusion!=='no-change-related-persistent-effects')throw new Error('effect-review-does-not-establish-scope');
+    for(const key of ['sourceSha256','predecessorSourceSha256','artifactSha256','workerPlanSha256'])if(report[key]!==binding[key])throw new Error('effect-review-candidate-binding-changed');
+    if(report.deltaSha256!==impact.deltaSha256||report.closureSha256!==impact.closureSha256)throw new Error('effect-review-source-closure-changed');
+    if(effectReviewSurfaces.some(key=>typeof report.findings?.[key]!=='string'||report.findings[key].trim().length<12))throw new Error('effect-review-surfaces-not-audited');
+  } catch(error) {gaps.push({path:'independent-effect-review',reason:error.message});}
+  if(!gaps.length)return {...impact,axes:{...impact.axes,persistentData:{...impact.axes.persistentData,deploymentInputs:{effect:'unchanged',predecessorPreparationSha256:binding.predecessorPreparationSha256,candidatePreparationSha256:binding.candidatePreparationSha256,effectReviewSha256:binding.effectReviewSha256}}}};
+  return {...impact,level:'strict',reasons:[...impact.reasons,...gaps.map(g=>`${g.path}: ${g.reason}`)],axes:{...impact.axes,
+    persistentData:{...impact.axes.persistentData,effect:'unproven',gaps:[...impact.axes.persistentData.gaps,...gaps],deploymentInputs:{effect:'unproven'}}}};
 }
 
 export const requirements = Object.freeze({

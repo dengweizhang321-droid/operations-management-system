@@ -89,6 +89,24 @@ export function requiresCompleteAdmission(phase,step) {
 export function requiresCompleteArtifact(phase,step) {
   return ['admission','drain','closeout'].includes(phase)||(phase==='switch'&&(!step||step==='worker-apply'));
 }
+export async function collectBatchRecovery(batch, collect=collectRecoveryCurrent) {
+  // A v3 not-required decision does not query daily scheduling, a restore
+  // point, archive retention, or 26-hour/7-day reuse eligibility.
+  if(batch.recovery.mode==='not-required'||batch.recovery.mode==='full')return null;
+  if(batch.recovery.mode!=='reuse')throw new Error('Unknown recovery policy');
+  return collect(batch.recoveryEvidence);
+}
+async function verifyNoDataDeploymentReceipts(batch,chain,plan) {
+  if(batch.recovery.mode!=='not-required')return;
+  const previous=chain.records.find(record=>record.value.successor.bindingSha256===plan.predecessor.bindingSha256);
+  if(!previous || previous.value.approvedPlanSha256!==batch.binding.predecessorWorkerPlanSha256
+    ||plan.predecessor.manifestSha256!==batch.binding.predecessorArtifactSha256)throw new Error('No-data predecessor has no exact adopted preparation identity');
+  for(const [side,planSha] of [['before',previous.value.approvedPlanSha256],['after',batch.binding.workerPlanSha256]]) {
+    const target=path.join(workerRuntimeRoot,'state','worker-prepared-builds',planSha+'.json');
+    const raw=await safeRead(target),sidecar=(await safeRead(target+'.sha256')).toString('ascii').trim();
+    if(sidecar!==hash(raw)||raw.toString('utf8')!==batch.deploymentProof[side+'Raw'])throw new Error('No-data actual preparation receipt changed or was fabricated');
+  }
+}
 export async function collectBatchAdmission(batch,testsPath,phase='admission',{session,step,onStatusAttempt=async()=>{}}={}) {
   const timer=admissionTimer();
   const measure=(stage,category,action)=>timer.measure(stage,category,action);
@@ -112,6 +130,7 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission',{s
   if(hash(planRaw)!==batch.binding.workerPlanSha256)throw new Error('Worker plan changed');
   const plan=JSON.parse(planRaw);
   const chain=await measure('effective-chain-and-guards','dynamic-state',()=>resolveEffectiveReleaseChain({verifyInstalledHead:true}));
+  await measure('no-data-deployment-inputs','immutable-content',()=>verifyNoDataDeploymentReceipts(batch,chain,plan));
   const predecessor=chain.head.bindingSha256===plan.predecessor.bindingSha256&&chain.chainStateSha256===plan.predecessorChainStateSha256;
   const successor=chain.head.bindingSha256===plan.candidate.bindingSha256&&chain.records.at(-1)?.value.approvedPlanSha256===batch.binding.workerPlanSha256;
   if(!predecessor&&!successor)throw new Error('Current production predecessor/successor is outside approved batch');
@@ -156,7 +175,7 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission',{s
         return {releaseId:plan.candidate.releaseId,ready:true};
       }}));
   }
-  const recovery=batch.recovery.mode==='reuse'?await measure('recovery-eligibility','dynamic-state',()=>collectRecoveryCurrent(batch.recoveryEvidence)):null;
+  const recovery=batch.recovery.mode==='reuse'?await measure('recovery-eligibility','dynamic-state',()=>collectBatchRecovery(batch)):await collectBatchRecovery(batch);
   if(session)await session.recheck({measure});
   else if(canonical(identity)!==canonical(await measure('source-and-toolchain-final','mutable-input',()=>workerPreparationIdentity(workerSourceRoot))))throw new Error('Source/configuration/toolchain changed during live admission');
   return {batchSha256:batch.batchSha256,observedAtMs:Date.now(),binding,recovery,admissionStages:timer.result(),statusObservation};
