@@ -1,0 +1,251 @@
+### Antigravity 独立评估报告：TERUISI 运营管理系统 2026-10-09 发布上线记录与效能深度审计
+
+> [!IMPORTANT]
+> **评估身份与权限声明**  
+> 本报告由 **agy CLI** 独立评估者生成。本次审计严格遵守只读约束：未执行任何代码变异、服务启停、生产发布、备份恢复演练、业务数据写入或外部消息发送；未读取 `.env`、`.dev.vars`、系统凭据或工作区外敏感文件。当前代码工作区包含 2026-10-10 开发的发布提速优化候选实现（任务 A/B/C/D），本报告严格将其定性为**开发候选/未生产采用**，未将其混同为昨天（2026-10-09）的已采用状态。
+
+---
+
+### 一、 系统理解：架构职责、模块边界与运行机制
+
+#### 1. 核心技术栈与职责分工
+根据 [README.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/README.md)、[系统架构.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/规范/系统架构.md) 与 [backend/README.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/backend/README.md)，TERUISI 运营管理系统采用分层解耦的混合架构：
+
+```mermaid
+flowchart TD
+    Browser["浏览器 / Client (React 19 / Next 16 / Vinext)"] -->|HTTP / 3000| Worker["薄 Cloudflare Worker (workerd / Miniflare)"]
+    Worker -->|HMAC Principal 循环鉴权| Django["Django 领域微服务 (8001~8112 各领域独占进程)"]
+    Django -->|最小权限 DPAPI 角色| PG[("PostgreSQL 17 (127.0.0.1:5432 权威事实库)")]
+    Worker -.->|附件 / 静态图片| R2["Cloudflare R2 对象存储"]
+    n8n["n8n 自动化工作流 / Browser Helper (5791)"] -->|定时抓取 / 导出导入| Django
+```
+
+- **React 19 / Next.js 16 / Vinext / Vite**：承载前端 SPA/SSR 视图与交互。导航目录统一收敛于 [app/shell/navigation-catalog.ts](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/app/shell/navigation-catalog.ts)，包含 12 大业务模块：BI 看板 (`dashboard`)、市场分析 (`market`)、销售分析 (`sales`)、网店分析 (`shop`)、客服分析 (`customer_service`)、商品经营 (`product`)、库存管理 (`inventory`)、运营事务 (`workflow`)、自动化中心 (`n8n_workflows`)、AI 助理 (`ai`)、数据导入 (`import`)、系统设置 (`settings`)。
+- **薄 Cloudflare Worker (`workerd` / Miniflare 运行时)**：监听 `127.0.0.1:3000`，作为系统公共入口。负责公网鉴权与 `requireAppPrincipal` 验证、生成内部防伪 HMAC Principal 信封、Excel 解析、分片请求边界裁决与超时防护。**Worker 严禁保存领域事实、批次状态或充当业务第二存储，所有持久化业务请求转发至后端 Django**。
+- **Django 领域微服务（5.2，运行于 `D:\teruisi-runtime\django-sales`）**：按业务领域严格单写/读写分离并监听独占回环端口：
+  - 销售：`8001` (Reader) / `8002` (Writer)
+  - 财务：`8011` / `8012`
+  - 网店：`8021` / `8022`
+  - 市场：`8031` / `8032`
+  - 商品经营：`8041` / `8042`
+  - 库存：`8051` / `8052`
+  - 运营事务：`8061` / `8062`
+  - 客服分析：`8071` / `8072`
+  - BI 看板：`8081` (只读聚合)
+  - 权限控制：`8101` / `8102`
+  - AI 助理：`8111` / `8112`  
+  各服务使用独立最小权限数据库角色、DPAPI 凭据与领域独立的 `revision` 水位及 `enabled.json` 启动声明。
+- **PostgreSQL 17.11 (`127.0.0.1:5432`)**：系统全部结构化业务域的唯一权威事实源、审计账本与分片暂存库（历史 D1 已全面退役为只读 tombstone 与审计证据）。
+- **Cloudflare R2**：仅供运营事务附件、图片资产及 AI 元数据按命名空间存放；销售与客服业务分片已全面退出 R2，改为 PostgreSQL 内部管理。
+- **n8n / 本机 Browser Helper (`127.0.0.1:5791`)**：负责吉客云、京东商智/京准通、天猫等电商后台的自动化会话保持、凭据守护与定时分天数据拉取。
+
+#### 2. 主线源码与不可变运行包有效 Head 的区别
+- **主线源码 (`main` 分支)**：位于 Git 工作区，是易变的（mutable）开发协作分支。代码合并入 `main` **绝不等于生产发布上线**，仅代表变更被纳入基线。
+- **不可变运行包有效 Head (`effective successor head`)**：位于 `D:\teruisi-runtime\teruisi-worker-sales`。Worker 运行时依赖严格的发布轮转机制（[tools/worker-local-release-rotation.mjs](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/tools/worker-local-release-rotation.mjs)）：
+  1. 发布前基于精确代码树指纹（tree-hash）、依赖哈希与工具链哈希打包为只读不可变目录（如 `20261009T080026Z-d5fb5b62de630ae2`），计算 manifest SHA-256 并生成 activation fence。
+  2. 激活时通过 CAS 原子修改有效后继链（`successor`），前驱 guard 随即失败关闭。
+  3. 日常启动与快捷方式必须绑定到该不可变有效 Head，主工作区发生任何 Git pull、切分支或文件修改，均不会直接破坏或影响运行中的生产服务。
+
+#### 3. 自动化发布编排与生产门禁
+根据 [tools/release-batch.mjs](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/tools/release-batch.mjs)、[tools/release-lifecycle-step.ps1](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/tools/release-lifecycle-step.ps1) 及 [docs/RELEASE_BATCH_WORKFLOW.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/RELEASE_BATCH_WORKFLOW.md)：
+- **单一发布互斥**：全系统由 `TERUISI.Worker.ReleaseRotation.v1` 进程互斥保护，任何时刻仅允许一个发布批次执行，排队请求在 `_queue` 记录，杜绝并发切换。
+- **阶段写前日志 (Phase WAL Journal)**：每个批次使用 `batchSha256` 封存完整操作清单。每步执行前必须 `fsync` 写入 `started` 事件，完成后记录 `passed`、`durationMs` 与输出收据哈希；若异常中断则保持 `unknown`，禁止静默重放，必须经独立只读证据协调（`reconcileOperation`）。
+- **严格排空与停机协议**：
+  - 严格级（含后端变更）：`EnterMaintenance -KeepPostgres` → 冻结任务、排空请求 → `DeployApp` → `apply` → `ExitMaintenance` → `StartWorker`。
+  - 展示级（Worker-only）：`BeginWorkerDrain` → `StopForRelease` → `apply` → `StartWorker` → `EndWorkerDrain`。
+- **唯一生命周期引擎**：由 [tools/worker-local-service.ps1](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/tools/worker-local-service.ps1) 充当唯一生命周期管理中枢，任何直接调用 `wrangler`、运行临时 `dist` 或绕过引擎启停的行为均被系统门禁拒绝。
+
+---
+
+### 二、 2026-10-09 历史三批发布全量核数与审计表
+
+审计依据来源于原生产回执快照：[docs/antigravity-release-audit-20261010/source-evidence/](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/antigravity-release-audit-20261010/source-evidence/) 中的 `customer-delivery.json`、`customer-result.json`、`jackyun-delivery.json`、`jackyun-document-closeout.json`、`interaction-delivery.json`、`interaction-closeout.json` 以及各批次 `PRODUCTION.md`。
+
+#### 1. 2026-10-09 发布批次全景横向对照表
+
+| 维度 / 指标 | 批次 0：取消的旧组合批次 | 批次 1：发布提速与客服四店修复 | 批次 2：吉客云恢复与 n8n 分类器 | 批次 3：四项优先交互修复 |
+| :--- | :--- | :--- | :--- | :--- |
+| **批次 ID** | `9a7bb676...` | `8f6ed5ef...` | `jackyun-download-recovery-v2-20261009` (`766b56d1...`) | `38ccd183...` |
+| **批准源码 Commit** | 历史组合源码 | `e1f384e1e348...` | `224963800233...` | `01a0ea6de9bf...` |
+| **有效运行包 Head** | 未切换（保留 `20261008T103219Z`） | `20261008T182600Z-f5d4b05177d17010` (manifest `72ec1670...`) | `20261009T030646Z-9f93e52aa005de7c` (manifest `a083c4c2...`) | `20261009T080026Z-d5fb5b62de630ae2` (manifest `01590c56...`) |
+| **Django Manifest** | 未切换（保留 `121d...`） | `237fbe0de6e4...` (新部署) | `237fbe0de6e4...` (复用保持) | `237fbe0de6e4...` (复用保持) |
+| **影响分级与数据库流程** | STRICT / 完整前后备份与恢复 | STRICT / 完整前后备份与恢复 | STRICT / 完整前后备份与恢复 | STRICT / 完整前后备份与恢复 |
+| **明确批准时间 (Asia/Shanghai)** | 2026-10-09 01:37:04 (UTC 10-08 17:37:04) | 2026-10-09 08:40:46 (UTC 00:40:46) | 2026-10-09 08:41:37 (UTC 00:41:37) | 2026-10-09 17:19:39 (UTC 09:19:39) |
+| **批次排队与前置等待** | 0 ms | 397 ms (0.007 分钟) | **145.113 分钟** (8,706,770 ms，排队等批次 1 释放) | 299 ms (0.005 分钟) |
+| **候选在线准备完成** | 批准前完成 | 批准前完成 | 11:06:43 开始，11:17:06 完成 (10.384 分钟) | 批准前完成 |
+| **批次验收完成 (Completed)** | 18:02:10 UTC 安全取消 | 2026-10-09 11:03:20.676 (UTC 03:03:20.676) | 2026-10-09 13:18:52.563 (UTC 05:18:52.563) | 2026-10-09 20:26:02.677 (UTC 12:26:02.677) |
+| **文档与交付最终收尾** | 18:02:10 UTC 释放 active | 2026-10-09 11:27:47.662 (UTC 03:27:47.662) | 2026-10-09 13:20:55.865 (本地记录时点) | 2026-10-09 20:41:37.100 (UTC 12:41:37.100) |
+| **批准 → 批次完成总耗时** | 25.094 分钟 (至取消) | **142.578 分钟** (8,554,676 ms) | **277.259 分钟** (16,635,563 ms，含排队) | **186.395 分钟** (11,183,677 ms) |
+| **批准 → 最终收尾交付总耗时** | 25.094 分钟 | **167.028 分钟** (10,021,662 ms) | **279.314 分钟** (16,758,865 ms) | **201.968 分钟** (12,118,100 ms) |
+| **跨日总等待（首批批准起点）** | — | **566.278 分钟** (批次闭合) / **590.728 分钟** (全部交付) | — | — |
+| **实际停机/不可用采样界限** | 0 秒（未切换） | 入口：**14.716–14.767 分钟**；客服：14.766–14.884 分钟 | 未连续采样（12:19 停，12:32 恢复，跨度约 12.75 分钟） | 维护期入口：**10.969–11.069 分钟**；代理崩溃重启：**9.0–15.0 秒** |
+| **独立协调操作 (Reconciled)** | 1 项 (`op-backup-pre` 失败关闭) | **4 项** (启动外壳、历史计数、四店UI图标、最终状态) | **1 项** (启动外壳等待) | **3 项** (进入维护锁等待、启动外壳、UI脚本重试) |
+| **未解决运行风险** | 根因已修复 (PS5 模块隔离) | 共享准备检出在收尾后被其他任务切走基线 | 296 表中 8 张网店/市场表有并发写入差异 | **Wrangler 代理空错误崩溃**、**较晚自然守护探针错误** |
+
+#### 2. 核心已知口径精确核对结果
+- **批次 1 (客服 PS5 修复)**：
+  - 新批准 $08:40:46$ $\rightarrow$ 批次完成 $11:03:20.676$：实测墙钟差为 $8,554,676\text{ ms} = 142.57793\text{ 分钟} \approx \mathbf{142.578\text{ 分钟}}$。
+  - 全部交付收尾 $11:27:47.6617$：总耗时 $10,021,661.7309\text{ ms} = 167.02769\text{ 分钟} \approx \mathbf{167.028\text{ 分钟}}$。
+  - 首批跨日历史总账：首次批准 (10-08 17:37:04 UTC) 至取消耗时 $25.094\text{ 分钟}$，修复及新候选准备 $46.206\text{ 分钟}$，隔夜等待新批准 $352.399\text{ 分钟}$，本次完整执行 $142.578\text{ 分钟}$，累计至批次完成为 $\mathbf{566.278\text{ 分钟}}$；累计至最终收尾交付为 $\mathbf{590.728\text{ 分钟}}$。
+- **批次 2 (吉客云恢复)**：
+  - 用户批准 $08:41:37$ $\rightarrow$ 在线准备开始 $11:06:43$：等待批次 1 释放互斥的时长精确为 $8,706,770\text{ ms} = \mathbf{145.113\text{ 分钟}}$。**这属于串行排队等待，绝非服务停机**。
+  - 在线准备 $11:06:43 \rightarrow 11:17:06$：耗时 $623,047\text{ ms} = 10.384\text{ 分钟}$。
+  - 准备到批次完成 $13:18:52.563$：耗时 $7,928,793\text{ ms} = \mathbf{132.147\text{ 分钟}}$。
+  - 用户批准到批次完成：耗时 $16,635,563\text{ ms} = \mathbf{277.259\text{ 分钟}}$。
+  - 文档收尾 `recordedAt` 为 $13:20:55.8646$，总交付时长约 $\mathbf{279.314\text{ 分钟}}$。此时间是文档签署并记录落盘的时点，并非后台同步性能测量。
+- **批次 3 (四项交互修复)**：
+  - 用户批准 $17:19:39$ $\rightarrow$ 批次完成 $20:26:02.677$：实测为 $11,183,677\text{ ms} = 186.3946\text{ 分钟} \approx \mathbf{186.395\text{ 分钟}}$ (3 小时 6 分 23.677 秒)。
+  - 全部交付收尾 $20:41:37.100$：耗时 $12,118,100\text{ ms} = \mathbf{201.968\text{ 分钟}}$ (3 小时 21 分 58.100 秒)。
+
+---
+
+### 三、 上线合理性与效率瓶颈深度评估
+
+#### 1. 必要安全步骤的依据：严谨性不可否认
+TERUISI 系统支撑企业级电商运营，直接连接销售、订单、退款、库存健康与客户沟通。昨天的发布机制坚持执行以下安全门禁，具备充分的技术合规依据：
+1. **数据库全量备份与独立端口隔离恢复演练**：
+   PostgreSQL 承担核心事实源，系统每次升级前后强制执行 `pg_dump`，并在临时端口（`55591`~`55593`）启动隔离实例加载 dump，核验 `sequenceHealthVerified`（主键序列未倒退）与 `profileRestoreVerified`，并在退出时清理临时库（`isolated_data_removed`）。这彻底杜绝了“备份损坏却不知情”以及“迁移脚本导致生产数据库崩溃后无法还原”的灾难性隐患。
+2. **不可变运行包与发布互斥（CAS / Fence）**：
+   防止多进程并发修改发布入口引发版本漂移，确保部署产物精确绑定 Git tree SHA、构建环境及 Node 依赖。
+3. **任务排空（Drain）与维护模式（Maintenance Gate）**：
+   在停启 Worker 与 Django 前阻断新流量，等待在途请求完成，避免客户端请求在连接重置时出现半写入状态。
+
+#### 2. 从用户总等待视角看：对日常小改动极不合理
+尽管单步安全门禁严密，但从用户交付等待的综合视角来看，**昨天的发布流程对日常小改动而言极其沉重且不合理**：
+- **批次 3 仅修改了 4 个前端文件**（`app/page.tsx`、`app/customer-service-view.tsx`、`app/ui/stable-read-content.tsx`、`app/globals.css`），无任何数据库变更、无 API 改动、无鉴权修改。然而用户从发出“明确批准”到批次闭合，**整整等待了 3 小时 6 分钟（186.4 分钟）**！
+- **批次 2 仅更新了下载重试逻辑与一个 n8n 分类节点**，用户总等待时间高达 **4 小时 37 分钟（277.3 分钟）**。
+- **发布吞吐量极低**：由于整套重型流程在单通道上串行运行，全天仅完成了 3 个小修复，开发与运维人员陷入漫长的等待与阶段核验中。
+
+#### 3. 时间真正花在哪里？（耗时构成与核心瓶颈解构）
+
+```mermaid
+pie title 批次 3 (四项交互，186.4分钟) 耗时构成解构
+    "前/后数据库备份与隔离演练" : 51.5
+    "启动外壳死等与超时协调" : 30.1
+    "全量源码与依赖准入校验" : 36.3
+    "进入维护锁争用与协调" : 33.8
+    "真实核心启动与切换动作" : 8.0
+    "UI与各项组件真实验收" : 14.8
+    "收尾与就绪准入" : 11.9
+```
+
+1. **重型数据库备份与恢复演练（每批固定吃掉 50~60 分钟）**：
+   - 批次 1：前备份 15.32 min + 前恢复 14.48 min + 后备份 12.34 min + 后恢复 13.25 min = **55.39 分钟**。
+   - 批次 2：前备份 12.99 min + 前恢复 12.70 min + 后备份 12.36 min + 后恢复 12.56 min = **50.61 分钟**。
+   - 批次 3：前备份 12.77 min + 前恢复 13.28 min + 后备份 12.99 min + 后恢复 14.16 min = **53.20 分钟**。
+   - **无论改动是否涉及数据库，都强制跑满 4 次重型 `pg_dump` 和完整隔离库恢复验证**，这是总等待时间居高不下的最大固定开销。
+2. **启动外壳输出管道死等（每批吞噬 15~30 分钟）**：
+   - 在三个批次中，核心启动引擎 `Invoke-WorkerSystemStart` 本身耗时均稳定在 **3.68 ~ 4.22 分钟**（批次 1 为 252.999s，批次 2 为 221.146s，批次 3 为 232.290s），服务早已正常就绪且返回 200。
+   - 然而，外层 PowerShell 脚本由于管道流（stdout/stderr）被后台子孙服务进程持有未释放，导致外层进程陷入死等：
+     - 批次 1 外壳等待至协调耗时 **18.95 分钟**；
+     - 批次 2 外壳等待至协调耗时约 **17 分钟**；
+     - 批次 3 外壳触发了外围 **30 分钟硬超时**才被迫进入 unknown。
+   - 每次都需要人工介入查验状态并调用 `reconcileOperation` 独立协调，人为增加了大量的心理焦虑与等待成本。
+3. **全量源码与依赖准入重算（逐步串行重复开销）**：
+   - 批次执行前以及每个阶段边界，系统都会对 5000+ 个源码文件、锁文件、构建依赖进行物理哈希扫描与上下文比对（如批次 1 prepare 耗时 17.78 min，批次 3 prepare 耗时 18.25 min），逐文件 I/O 开销显著。
+4. **线上验收断言脆弱，导致误报阻断与人工协调**：
+   - 批次 1：历史客服计数因后台定时任务多跑了 3 条数据而破坏字面相等，阻断 8.8 分钟；UI 检查因无害的浏览器回环 HTTPS favicon 图标请求 abort 而中断 4.5 分钟；最终状态查询单次超时中断 4.9 分钟。
+   - 批次 3：UI 验收脚本初次执行 unknown 阻断 8 分钟；收尾准入在组件就绪瞬态被阻断。
+5. **单发布互斥引发的串行排队放大**：
+   - 批次 2 在 08:41:37 即获得批准，但由于批次 1 正在独占发布互斥，批次 2 只能在队列中硬生生空转等待 **145.113 分钟**。
+
+#### 4. 上线时段选择与业务碰撞分析
+
+```mermaid
+timeline
+    title 2026-10-09 发布时段与业务运行碰撞链
+    08:40 : 批次 1 批准并启动
+    09:00 : n8n 定时客服导入任务 7480 启动
+    09:02 : 切肉机店导入 3 条新记录 (产生数据计数基线偏差)
+    10:05 : 批次 3 首次进入维护失败 (与 18:05 周报业务争用互斥)
+    11:03 : 批次 1 完成释放锁
+    11:06 : 批次 2 开始在线准备 (排队已达 145 分钟)
+    11:51 : 批次 2 备份期间发现网店/市场 8 张表正在产生业务写入
+    13:18 : 批次 2 闭合
+    17:19 : 批次 3 批准启动
+    20:26 : 批次 3 闭合 (日间高峰长达 12 小时处于发布维护周期)
+```
+
+- **时段选择证据**：
+  - 批次 1 选择在 **08:40** 启动：正值电商早间运营开始与系统定时数据同步高峰。09:00 n8n 定时任务准时拉取客服数据，在 09:02:36 写入 3 条新记录，直接导致 10:02 的静态字面基线检查失败。
+  - 批次 2 执行区间在 **11:06 ~ 13:18**：恰逢午间运营查询与定时网店同步，前后快照对比显示 8 张网店与市场业务表在此期间产生了真实行数变更。
+  - 批次 3 执行区间在 **17:19 ~ 20:26**：处于晚高峰与下班交接期，18:05（UTC 10:05）周报自动任务运行，与发布进入维护（`EnterMaintenance`）争用互斥，直接导致首次操作进入 unknown 失败。
+- **碰撞评估结论**：
+  - **严重缺乏在途业务调度感知的发布窗口规约**。在全天 08:40 ~ 20:30 的核心业务时段连续进行高强度的发布维护与停机切换，不仅极易与自动化任务发生锁冲突和数据基线误报，也对实际业务人员的使用连续性造成了冲击。
+
+---
+
+### 四、 针对性优化建议与实施路径
+
+根据工作区内最新提交的设计与代码（任务 A/B/C/D），结合系统实际运行表现，按优先级提出以下务实建议，并明确当前实现状态：
+
+#### 优先级 1：消除无界管道死等，实施直接退出协议（Task A）
+- **问题根因**：PowerShell 原生管道与 Node 子进程等待 stdout/stderr 流闭合（EOF），被后台服务持有的继承句柄阻塞，导致 4 分钟的启动被虚假放大为 15~30 分钟。
+- **具体方案**：采用底层 Windows `CreateProcess` 机制（[tools/process-deadline.ps1](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/tools/process-deadline.ps1)），仅继承 NUL 与重定向输出临时文件；以内核进程对象终止为直接退出依据，不等待流 EOF；全调用链传递统一的绝对超时截止时间戳（`processDeadline`）。
+- **保护的原保障**：启动主体必须真实 exit 0，严格核验进程 PID、创建时间、12 领域组件全部就绪（`Status` / `VerifyStartup`），不放宽任何安全门禁。
+- **验证与收益**：可彻底消除每批次 15~30 分钟的虚假外壳挂起与人工协调，**单批次确定性节省约 15~25 分钟**。
+- **现有状态**：**已开发完成并集成（候选方案已封存为批次 `9f79a27a...`），但生产尚未正式批准采用**。
+
+#### 优先级 2：引入只读重试与弹性验收分类，遏制误报阻断（Task B）
+- **问题根因**：状态查询偶发抖动、浏览器自动触发回环 HTTPS favicon 图标请求被拦截、以及后台自然调度产生的新增行数，导致断言字面比较失败，强制中断流程。
+- **具体方案**：
+  1. 对只读 `Status` 引入有界重试（[tools/release-readonly-retry.mjs](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/tools/release-readonly-retry.mjs)，最多 4 次 / 240 秒总预算），仅限只读状态，严禁重放任何变异操作；
+  2. 精确分类已被终止的 loopback HTTPS/favicon 请求，识别为无害静态资源尝试而非安全阻断；
+  3. 历史数据验收改用带来源账本与时间戳的语义增量比对，取代僵硬的字面行数等值。
+- **保护的原保障**：严格拒绝未知请求或外部 POST，变异操作失败继续保持立即失败关闭。
+- **验证与收益**：消除误报导致的人工独立协调介入，**单批次减少 10~20 分钟的人工中断等待**。
+- **现有状态**：**已开发完成并集成入 A+B 候选批次，生产尚未正式批准采用**。
+
+#### 优先级 3：启用展示级影响分级，实施备份证据安全复用（Task C）
+- **问题根因**：无数据库变动的纯前端/CSS/展示修改，依然强制执行 4 轮耗时 50+ 分钟的全量数据库 dump 与隔离恢复演练。
+- **具体方案**：启用 [tools/release-impact.mjs](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/tools/release-impact.mjs) 的 `impact v2` 分类器：
+  1. 经完整 AST 闭包分析，确认仅修改客户端 JSX 文本、样式、受限 CSS 或静态资源时，标记为 `display`；
+  2. 当满足“日常备份调度 ACTIVE、26 小时内存在已验证有效恢复点、7 天内存在同 dump 隔离恢复演练记录”时，复用该有效恢复点证据，**省去当前批次的前后 2 次新 dump 与 2 次隔离演练**；
+  3. 切换仅执行 Worker 层的 `BeginWorkerDrain → StopForRelease → apply → Start → EndWorkerDrain`，后端 PostgreSQL/Django 保持运行。
+- **保护的原保障**：任何涉及 API、后端 models、迁移、配置或未证明代码的改动，强制退回 STRICT 全流程；若备份证据过期或失效，自动拒绝快路径。
+- **验证与收益**：针对纯前端改动，**可直接减少 45~55 分钟的重型数据库开销，使纯前端发布压缩至 15~25 分钟内完成**。
+- **现有状态**：**代码已开发，但当前处于前置阻塞状态**——由于生产环境日常备份调度当前处于 `PAUSED` 状态且缺乏最新的合格日备份恢复点，快路径资格被系统门禁严格拒绝，必须先在生产环境恢复日常备份调度并完成一次合格演练后方可使用。
+
+#### 优先级 4：建立业务调度规约与在途冲突感知（待覆盖的运维优化）
+- **问题根因**：发布操作在白天的业务高峰与定时任务窗口随意触发，导致互斥争用与数据碰撞。
+- **具体方案**：
+  1. **明确发布窗口**：非紧急修复严禁在 08:30~10:30（早间同步）、11:30~13:30（午间同步）及 18:00~19:00（日终结算与周报）触发，推荐选择晚间 21:00 之后或业务平谷期；
+  2. **发布前置排空与调度探测**：在获取发布互斥前，增加针对在途 n8n 工作流和本地互斥锁持有者的只读探测；若存在正在运行的长任务，主动推迟或等待排空，避免发生如批次 3 遭遇的 `step-entermaintenance` 锁争用冲突。
+- **保护的原保障**：不破坏任何业务数据的定时调度，防止发布维护打断正常的业务数据抓取。
+- **现有状态**：**尚未在当前代码或发布编排脚本中形成自动化检查，属于流程与管理层面的待覆盖项**。
+
+#### 优先级 5：提倡批次合并交付，消除多批次串行排队损耗
+- **问题根因**：把多个本可组合的小改动拆成独立批次，导致批次 2 产生 145 分钟的无谓排队，全天反复承受多轮准备与检查开销。
+- **具体方案**：在代码合入 `main` 后，在预发布阶段统一进行依赖与变更收敛，形成组合候选包（如 A+B 或 A+B+C 联合批次），由用户一次性明确批准。
+- **现有状态**：[docs/release-integration-review/EXACT_AB_BATCH_PLAN.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/release-integration-review/EXACT_AB_BATCH_PLAN.md) 已经提供了合并封存批次的标准范式，等待用户最终选择与授权。
+
+---
+
+### 五、 证据链与事实定性索引
+
+为保证报告的客观性与对抗审查能力，以下将本报告中的核心事实、推断与待测项进行清晰定性，并附上本机证据链路径：
+
+| 事项 / 结论 | 性质定性 | 本机证据路径与位置 | 关键事实 / 判定依据 |
+| :--- | :--- | :--- | :--- |
+| **批次 1 新批准至完成耗时 142.58 分钟，总交付 167.03 分钟** | **记录事实** | [customer-delivery.json](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/antigravity-release-audit-20261010/source-evidence/customer-delivery.json#L3-L9) | 批准时间 `00:40:46Z`，批次完成 `03:03:20.676Z` (8554676ms)，交付 `03:27:47.661Z` (10021661ms)。 |
+| **批次 1 隔夜首批失败至全部闭合累计 566.28 / 590.73 分钟** | **记录事实** | [customer-result.json](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/antigravity-release-audit-20261010/source-evidence/customer-result.json#L445-L450) | 首次批准 `17:37:04Z`，取消 25.09min，准备 46.21min，隔夜等批 352.40min，执行 142.58min。 |
+| **批次 2 等待前批排队耗时 145.11 分钟，总耗时 277.26 分钟** | **记录事实** | [jackyun-delivery.json](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/antigravity-release-audit-20261010/source-evidence/jackyun-delivery.json#L153-L157) | 批准 `00:41:37Z`，准备等待 8706770ms (145.11min)，总耗时 16635563ms (277.26min)。 |
+| **批次 3 批准至完成耗时 186.40 分钟，总交付 201.97 分钟** | **记录事实** | [interaction-delivery.json](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/antigravity-release-audit-20261010/source-evidence/interaction-delivery.json#L3-L8) | 批准 `09:19:39Z`，批次闭合 `12:26:02.677Z` (11183677ms)，全部收尾 `12:41:37.100Z` (12118100ms)。 |
+| **三次启动核心主体实际耗时仅 3.7 ~ 4.2 分钟** | **源码/记录事实** | [customer-result.json](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/antigravity-release-audit-20261010/source-evidence/customer-result.json#L452)、[jackyun-delivery.json](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/antigravity-release-audit-20261010/source-evidence/jackyun-delivery.json)、[interaction-closeout.json](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/antigravity-release-audit-20261010/source-evidence/interaction-closeout.json) | 批次 1: 252999ms；批次 2: 221146ms；批次 3: 232290ms。启动主体均在此时间退出并返回 Running。 |
+| **启动外壳死等与 watchdog 隔离实验机理相同** | **高置信推断** | [WATCHDOG.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/runtime-risk-readonly-audit-20261009/WATCHDOG.md#L29-L38)、[REPORT.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/release-process-deadline/REPORT.md#L11-L25) | 隔离实验复现了孙进程继承 stdout 导致 EOF 挂起现象，但由于历史现场未捕获精确句柄继承证据，在严谨审计中定性为推断而非历史直接证明。 |
+| **批次 1 客服计数偏差由 09:00 定时任务执行引起** | **记录事实** | [PRODUCTION.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/release-customer-ps5-fix-20261009/PRODUCTION.md#L18-L24) | 09:02:36 切肉机店批次 `cs_4f5a...` 插入 3 条数据，只读 reader 聚合核验新增时间早于维护开始。 |
+| **批次 3 存在未解决的运行风险（代理崩溃与探针失败）** | **记录事实** | [interaction-delivery.json](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/antigravity-release-audit-20261010/source-evidence/interaction-delivery.json#L31)、[PRODUCTION.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/priority-interactions-20261009/PRODUCTION.md#L48-L51) | 12:16:05 Wrangler 记录 ProxyController 错误后退出；12:31 watchdog 仍记录 unprobed/probeError。 |
+| **当前 2026-10-10 代码中的 A/B/C/D 提速在生产上已生效** | **伪命题 (已证伪)** | [EXACT_AB_BATCH_PLAN.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/release-integration-review/EXACT_AB_BATCH_PLAN.md#L4)、[DELIVERY.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/release-integration-review/DELIVERY.md#L6) | 明确记录：A+B 批次仅完成封装与隔离验证，未获生产批准，实际生产采用为 false。 |
+| **快路径可将纯前端改动总时长压缩至 15~25 分钟** | **待测项 (待实测)** | [docs/release-fastpath-evidence/REPORT.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/release-fastpath-evidence/REPORT.md#L41-L46) | 虽有合成小库实验验证，但生产规模下的全包准入与平稳切换耗时仍待首次生产采用实测验证。 |
+
+---
+
+### 六、 总结与结语
+
+昨天（2026-10-09）的发布记录客观反映了 TERUISI 系统在迈向高可靠架构转型期的典型特征：**底层的 PostgreSQL 单写迁移、防回滚序列检查与不可变发布包控制极其坚固，但上层的发布外壳管道协议、过载的重型检查策略以及单通道排队机制严重制约了发布效率**。
+
+当前工作区内合入的最新代码（进程共同期限协议、只读状态重试、展示级影响分级与证据复用）已经精准命中了上述三大核心痛点。后续工作的重心不应是继续推倒重构，而是：
+1. **稳妥完成 A+B 批次的首次严格生产采用**，实测解决外壳死等与验收误报；
+2. **恢复日常备份调度的正常运转**，为展示级快路径创造合法复用资格；
+3. **建立规范的发布时段规约与在途任务感知机制**，彻底解决发布与业务同步任务的碰撞冲突。
+

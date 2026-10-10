@@ -1,0 +1,23 @@
+用户明确要求：派一下真正的 Antigravity，充分了解 TERUISI 系统，核查昨天（2026-10-09，Asia/Shanghai）的发布上线记录，评估上线耗时和选择的时段是否合理、优化建议与空间。你就是实际 agy CLI 的独立评估者，请完整输出中文报告。
+
+权限：本轮仅只读系统理解和历史发布评估，绝不实施修复、启停服务、生产发布、备份、恢复、调度变更、业务写入或外发。仅用原生 view_file 阅读当前工作区内以下资料和必要源码，不运行 shell、浏览器、测试或任何变异工具。不读取 .dev.vars、.env、凭据、用户profile、原始客户数据、生产数据库或workspace以外路径。上游已遵守用户共享记忆协议并阅读 Obsidian Home、Preferences、Long-term Goals、Workflows、项目笔记及现有 Daily Review；不用重复请求工作区外读取。记忆要点：用户关注明确说上线到全部收尾的总等待；保留原功能复用现有能力；记忆/历史授权不替代新生产授权；候选、合并、正式采用分开。
+
+工作区 D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统，基线 origin/main 0308adb9f4ab37b5012ac36ea9e65dafcbe648d0。当前源码包含10月10日尚未生产采用的发布优化，不得把源码合入当作昨天已采用。先理解 README.md、docs/规范/系统架构.md、docs/规范/开发与交付.md、docs/规范/验证与发布.md、docs/RELEASE_BATCH_WORKFLOW.md。查看 app/shell/navigation-catalog.ts 与 backend/config/urls.py（存在时）掌握模块与边界；查看 tools/release-batch.mjs、tools/release-lifecycle-step.ps1、tools/worker-local-service.ps1 及必要发布源码，说明实际系统组成、运行方式、自动化与生产门禁。
+
+三批历史资料必须分别阅读：
+1. docs/release-customer-ps5-fix-20261009/PRODUCTION.md 和 PRODUCTION_REVIEW.md；旧取消批次 docs/release-customer-combined-20261009/PRODUCTION.md。
+2. docs/jackyun-download-recovery-20261009/PRODUCTION.md。
+3. docs/priority-interactions-20261009/PRODUCTION.md。
+本次证据快照在 docs/antigravity-release-audit-20261010/source-evidence/，包含原交付JSON、结果计时、阶段及原journal的只读派生事件表（若存在）。原字节SHA/来源见 evidence-index.json。直接核数，不照抄某份旧复盘结论。
+结合 docs/runtime-risk-readonly-audit-20261009/WATCHDOG.md、docs/release-process-deadline/REPORT.md、docs/release-acceptance-closeout/REPORT.md、docs/release-fastpath-evidence/REPORT.md、docs/release-integration-review/EXACT_AB_BATCH_PLAN.md 和 DELIVERY.md，区分昨天现象与今天已开发但尚未采用的解决方向。不需要逐行通读巨大文件，仅精确读取必要区段并给证据路径。
+
+核验已知口径：新批准08:40:46→批次11:03:20.676→全部交付11:27:47.6617；吉客云批准08:41:37→准备11:06:43→批次13:18:52.563→文档收尾13:20:55.8646；四项交互17:19:39→批次20:26:02.677→全部交付20:41:37.100。独立计算分钟。吉客云前批等待约145.113分钟，不算停服；它的文档recordedAt是收尾记录时点，非严格同步测量。首批原旧批准跨日还包含新批准等待，不能藏掉失败，也不能全部归为机器执行。
+
+严禁：把阶段duration和其中准入子项重复相加；把三个重叠批准区间相加当整日独占工时/停服；把switchSpan或非连续两个HTTP观察点称精确停服；把未打点残差称空闲；把三次外壳等待与watchdog EOF实验断言为已证明同根因；把exit0、健康查询或批次闭合解释为所有业务功能/原失败数据已恢复；无测量不承诺省多少分钟、不虚构稳态P95或固定最佳发布时间。
+
+输出需包含：
+- 系统理解：业务模块、React/Vinext/Worker/Django/PostgreSQL/R2与n8n/browser helper的职责；主线与immutable运行包有效head的区别。
+- 完整三批表：准确日期/批准/可用性观察/批次验收/全部收尾/耗时/排队/失败与独立协调；确认必要步骤通过和仍未知的风险。
+- 合理性判断：必要安全步骤是否有依据；从用户总等待看是否适合日常小改动；时间真正花在哪里；上线时段与在途业务/调度碰撞的证据及不足。
+- 建议按优先级列出问题、具体方案、保护哪些原保障、适用条件、如何验证收益、现有实现是否已有候选/已采用/未覆盖。要提出充分且务实的建议，既关注启动输出协议、准入复用、数据/UI验收误报，也关注任务排期、风险分级、备份恢复资格、上线进度与交付收尾组织。
+- 明确哪些观点是源码/记录事实、推断、建议或待测，给本机证据路径。完整中文报告放在最终response，不写文件；不要只有状态SUCCESS没有正文。

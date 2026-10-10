@@ -1,0 +1,11 @@
+{
+  "recordedAt": "2026-10-09T13:20:55.8645630+08:00",
+  "productionStatus": "completed",
+  "reportCommit": "5558be4ea2b2dd6813b1a74e7094584946a528c4",
+  "remoteMainVerified": true,
+  "documentationWorktreeArchivedAndRemoved": true,
+  "documentationBranchDeleted": true,
+  "productionSourceWorktreeRetained": "D:\\.codex\\worktrees\\jackyun-production\\运营管理系统",
+  "reason": "Exact adopted source branch retained; not merged wholesale into main",
+  "unrelatedWorkingChangesPreserved": true
+}

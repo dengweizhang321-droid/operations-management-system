@@ -1,0 +1,39 @@
+{
+  "status": "release-and-delivery-completed-with-runtime-risks",
+  "completedAt": "2026-10-09T12:41:37.100Z",
+  "batchSha256": "38ccd1838ffe2fb6503a4c4fd067c4d090b4ba08a4333b529796d4dca64ad5dc",
+  "approvedAt": "2026-10-09T09:19:39.000Z",
+  "batchClosedAt": "2026-10-09T12:26:02.677Z",
+  "approvedToBatchCloseoutMs": 11183677,
+  "approvedToDeliveryCompleteMs": 12118100,
+  "releaseId": "20261009T080026Z-d5fb5b62de630ae2",
+  "manifestSha256": "01590c5698c6b68e996c7d2963b94cbf35b109205bd4e0e3993e5a6d991c4d78",
+  "sourceCommit": "01a0ea6de9bfc1237a761f927fff068eb55d6e41",
+  "documentationCommit": "0b45017836dab43a85cedcbae7d80f0169c4484b",
+  "remoteMainVerified": true,
+  "requiredOperationsPassed": 16,
+  "unresolvedOperations": 0,
+  "independentReviewSha256": "9c01ac281ed1c3d31bca4d4b4f4ee2a80b27fc4385a12518ac99f098fcf62f29",
+  "productionEvidenceManifestSha256": "86a3d8df7abdb71e5d673ba5d05cd031b444726c5aff41db07627337cd1c8ec1",
+  "evidenceFiles": 68,
+  "frozenPreparationFilesVerified": 56,
+  "canonicalDocumentsPreserved": 3,
+  "report": "E:/codex-artifacts/priority-interactions-production-20261009/production/PRODUCTION.md",
+  "primaryUserChangesUntouched": true,
+  "cleanup": {
+    "documentationWorktreeArchived": true,
+    "documentationBranchDeleted": true,
+    "documentationRemoteBranchWasAbsent": true,
+    "productionCompositionRetained": "D:/.codex/worktrees/priority-interactions-release-20261009/运营管理系统: not whole-tree merged into main, exact production provenance retained",
+    "officialSourceRetained": "D:/运营管理系统-sales-django-release: formal preparation/startup source binding",
+    "originalAuditRetained": "D:/.codex/worktrees/performance-experience-audit/运营管理系统: unique audit evidence retained"
+  },
+  "runtimeRiskStatus": "本次发布 required 验收闭合；运行监测与Wrangler代理退出风险仍未解决，不宣称全部正常无风险。",
+  "limits": [
+    "Native Windows IME candidates or actual OS/browser scaling",
+    "All modules full interaction chains or long-duration stability",
+    "Production fault/permission injection, SQL execution plans or controlled cache benchmarks",
+    "Database-wide pre/post equality",
+    "Original missing stderr/native exit0 for unresolved-history commands"
+  ]
+}
