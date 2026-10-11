@@ -1,0 +1,17 @@
+{
+  "sourceCommit": "9fa82567f9456ea7a81733e80d57218ad0ca5e00",
+  "mergeCommit": "95ce9be52df2e8d4f6499dfbd1d249742d15bbd2",
+  "remoteBefore": "2ce067df8d599fc17d51677d2e3147aa6d5e87e2",
+  "conflictsResolved": [
+    "tools/release-batch-admission.mjs",
+    "tests/release-admission-observation-age.test.mjs"
+  ],
+  "resolution": "Kept reviewed SourceBinding/scope/freshness-local collector and14cases; incoming C docs and remaining files retained; immutable limited candidate unchanged",
+  "firstPostMerge": "186/187 same preexisting missing-config-parent watcher failed; cause unestablished, raw log preserved; unchanged targeted1/1 and serialrecheck187/187 pass",
+  "finalPostMergePassed": 187,
+  "finalPostMergeFailed": 0,
+  "durationMs": 37966.4299,
+  "lintExitCode": 0,
+  "whitespaceException": "Five raw original AGY Markdown responses preserve original double-space linebreak/EOF; only these exact raw records excluded from diffcheck, all other new files pass; original E bytes remain authoritative",
+  "productionApproved": false
+}

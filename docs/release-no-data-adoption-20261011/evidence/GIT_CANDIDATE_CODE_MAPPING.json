@@ -1,0 +1,44 @@
+{
+  "sourceCommit": "9fa82567f9456ea7a81733e80d57218ad0ca5e00",
+  "mergeIncoming": "2ce067df8d599fc17d51677d2e3147aa6d5e87e2",
+  "sourceSha256": "ef5cc058391988586de4cf2b64289a13f0f3682a1a38db5569213f704323e1d1",
+  "files": [
+    {
+      "path": "tools/release-impact.mjs",
+      "gitBlobSha256": "24403c32b7788f53d585e51535c57fe870603e8f728ba1eb21c1c5b25cc5f548",
+      "candidateRawSha256": "24403c32b7788f53d585e51535c57fe870603e8f728ba1eb21c1c5b25cc5f548",
+      "identical": true
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "gitBlobSha256": "fe0ebc654c65c4072e36d2502a33c5d8ab430193f14d13d0d8acab569cb46b92",
+      "candidateRawSha256": "18f556319c7b14dbdcd32305584032f645abf1b3d6cb1827b9cee3b1ea6fa358",
+      "identical": false
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "gitBlobSha256": "10a783535add546ed8f3e28930bad416d8d9d27f7acbe126d48f393a47db7415",
+      "candidateRawSha256": "10a783535add546ed8f3e28930bad416d8d9d27f7acbe126d48f393a47db7415",
+      "identical": true
+    },
+    {
+      "path": "tools/release-no-data-observation.mjs",
+      "gitBlobSha256": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d",
+      "candidateRawSha256": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d",
+      "identical": true
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "gitBlobSha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "candidateRawSha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "identical": true
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "gitBlobSha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "candidateRawSha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "identical": true
+    }
+  ],
+  "singleRemainingDifference": "release-batch excludes already identified unadopted main health-capture increment; parent source delta verifier preserves exact original differences, not runtime hash normalization"
+}
