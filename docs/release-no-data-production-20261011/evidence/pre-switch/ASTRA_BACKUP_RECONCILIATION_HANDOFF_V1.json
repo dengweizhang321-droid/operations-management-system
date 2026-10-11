@@ -1,0 +1,36 @@
+{
+  "version": "astra-backup-reconciliation-handoff-v1",
+  "files": [
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/reconcile-backup-once.mjs",
+      "sha256": "33b23bd8a4b510ea53c8f2785e220cbc2f3745c7728467f8c36a9e2da8071e1d"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/backup-reconcile-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/reconcile-backup-once.test.mjs",
+      "sha256": "aa18458f00915605b16dfccaaf0456a4dc85d2c6e993deadd4193d81f6330324"
+    }
+  ],
+  "proof": {
+    "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_RECONCILIATION_PROOF_V1.json",
+    "sha256": "086378566509ddc2e427c45ca97bdd68410fb3f9fe75b82137db8d9b26179605"
+  },
+  "tests": {
+    "passed": 25,
+    "total": 25,
+    "log": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_RECONCILIATION_TEST_V1.log",
+    "logSha256": "eebe2679c44f28f3747516db18d6c74c0b6fec13898b25157e1cd7dbdd03cc24",
+    "actualOriginalJournalOnPrivateRoot": true,
+    "productionExecution": false
+  },
+  "notes": [
+    "Original batch/spec/source/package/owner/WAL untouched.",
+    "Append is exactly one passed event with five real outputs; maintenanceId excluded.",
+    "Root must pin and hold adapter, bootstrap, proof and evidence closure before actual invocation.",
+    "CLI performs original full bootstrap validation and rotation-lock protected CAS; never resumes entry itself.",
+    "Independent actual Verify was executed by Root; this agent only read existing records."
+  ]
+}

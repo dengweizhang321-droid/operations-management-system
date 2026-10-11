@@ -1,0 +1,13 @@
+{
+  "startedAt": "2026-10-11T15:31:10.132Z",
+  "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+  "argv": [
+    "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\fresh-adoption-entry-v2.mjs",
+    "execute",
+    "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+    "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "2026-10-11T15:25:28Z"
+  ],
+  "workingDirectory": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统",
+  "approvalSha256": "dfd9e3dc69b61c1fb7761fa058d5ee66a519782de1d8d830b28a57df29be835a"
+}

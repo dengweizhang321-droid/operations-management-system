@@ -1,0 +1,50 @@
+{
+  "version": "root-fixed-backup-reconciliation-v2",
+  "files": [
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/reconcile-backup-once.mjs",
+      "sha256": "87d1f9f233f7a4afaf6b1ef206f406b6f9c09e9f63547e35851302e9d8eb59f5"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/backup-reconcile-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_RECONCILIATION_PROOF_V2.json",
+      "sha256": "086378566509ddc2e427c45ca97bdd68410fb3f9fe75b82137db8d9b26179605"
+    },
+    {
+      "path": "C:/Program Files/nodejs/node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+      "sha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b"
+    },
+    {
+      "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs",
+      "sha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/APPROVAL.json",
+      "sha256": "dfd9e3dc69b61c1fb7761fa058d5ee66a519782de1d8d830b28a57df29be835a"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_VERIFY_RESULT.json",
+      "sha256": "bf44a9dcc86e39ca1a7f83de006e98ab95e645dd16aa091cebe201961d6578c0"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_VERIFY_STDOUT.json",
+      "sha256": "d37d3cfdf15c623881feddbe8b775a88ef740f4bf3c8ac222bb3d604195d98c5"
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/audits/postgres-operations/70abd23809cc4817a589d663e6635fc2.json",
+      "sha256": "a520fd1b96e5510701c05ebd077a60c8d5bd7f85d74d8890d9e8348ee568c26c"
+    }
+  ],
+  "runner": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/reconcile-backup-once.mjs",
+  "proof": {
+    "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_RECONCILIATION_PROOF_V2.json",
+    "sha256": "086378566509ddc2e427c45ca97bdd68410fb3f9fe75b82137db8d9b26179605"
+  }
+}

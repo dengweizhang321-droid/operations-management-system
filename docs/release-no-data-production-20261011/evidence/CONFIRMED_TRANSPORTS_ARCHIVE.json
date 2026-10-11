@@ -1,0 +1,79 @@
+{
+  "at": "2026-10-11T17:12:21.573Z",
+  "entries": [
+    {
+      "rel": "reconciliation/BINDING.json",
+      "sha256": "eb0dcfb1abbacb836e0c4fc07c96e68a57d9510b6844fe4b57419a925bd44a78",
+      "bytes": 2514
+    },
+    {
+      "rel": "reconciliation/BOOTSTRAP.ps1",
+      "sha256": "e8a85823dc16fbafdfa2e3c57affa5552d930743e8d258822800fb2a1ac5d49d",
+      "bytes": 1998
+    },
+    {
+      "rel": "reconciliation/BOOTSTRAP_BINDING.json",
+      "sha256": "250ac8c116635498f85ca7cf7e13436f79e0c80c027da2f6a650e0522cb19632",
+      "bytes": 179
+    },
+    {
+      "rel": "reconciliation-v3/BINDING.json",
+      "sha256": "8e17ef49bf22aa0f936dc11f97b58e89598d7b6078272804f48f1105a883ae00",
+      "bytes": 2929
+    },
+    {
+      "rel": "reconciliation-v3/BOOTSTRAP.ps1",
+      "sha256": "3e26e596f043fb65d9404d158eac5d27b1b77a623d39340faeccc8372277fff8",
+      "bytes": 1669
+    },
+    {
+      "rel": "reconciliation-v3/BOOTSTRAP_BINDING.json",
+      "sha256": "797b506463eb36936ae96657714bc88e6f1910f677d45192b83bb552a6964316",
+      "bytes": 196
+    },
+    {
+      "rel": "reconciliation-v3/STARTED.json",
+      "sha256": "2223be284e360936a9d929122fad7c42cc2df8113e757180dd8b4d3a7548c3dc",
+      "bytes": 133
+    },
+    {
+      "rel": "reconciliation-v3/DIRECT_PROCESS.json",
+      "sha256": "e987d598df47c9b826ba4c18c6875bdcaab067496f002107827055c21edf1cc3",
+      "bytes": 68
+    },
+    {
+      "rel": "resume2/WAIT_BINDING.json",
+      "sha256": "2a976db77797d57b2068124c6be92eac442378855ae3f5d63d7db8f38a0b667e",
+      "bytes": 3460
+    },
+    {
+      "rel": "resume2/WAIT_BOOTSTRAP.ps1",
+      "sha256": "27631c8004159860418c424bf9d642015e8f8090b0c3cf7da1329395f707217a",
+      "bytes": 1603
+    },
+    {
+      "rel": "resume2/WAIT_BOOTSTRAP_BINDING.json",
+      "sha256": "c331c2ede2f96d6c5d2ba8e9f9be2bf0d61485109590ea1183332c152dcd48a7",
+      "bytes": 196
+    },
+    {
+      "rel": "resume2/WAIT_STARTED.json",
+      "sha256": "6c254df1c8c56ccd1b0a2e7d4e5cac67008b8d40e431f239e0e573a7ee7c1816",
+      "bytes": 168
+    },
+    {
+      "rel": "resume2/LAUNCH_WAIT_UTF8.ps1",
+      "sha256": "0ebb3237efdb2bfc34d103930baf30006385bdfce13ed604e287f184cd9a08e5",
+      "bytes": 760
+    },
+    {
+      "rel": "resume2/CAPTURE_NORMAL.ps1",
+      "sha256": "09c6f87a633c8d201a2a8d5c137cacdaa669f7a933cc8bf50b537167d97e991e",
+      "bytes": 1481
+    }
+  ],
+  "environmentValuesArchived": false,
+  "cipherManifestArchived": false,
+  "cipherBytesArchived": false,
+  "productionAcceptanceClaimed": false
+}

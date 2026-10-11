@@ -1,0 +1,8 @@
+{
+  "exitCode": 1,
+  "errorCode": null,
+  "startedAt": "2026-10-11T16:11:34.374Z",
+  "finishedAt": "2026-10-11T16:39:08.023Z",
+  "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+  "status": "entry-failed-preserve-owner-gates-wal"
+}

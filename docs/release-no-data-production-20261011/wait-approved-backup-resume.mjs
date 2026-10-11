@@ -1,0 +1,13 @@
+// Fixed second administrator transport: wait only for the sealed one-shot reconciliation.
+import{readFile,writeFile}from'node:fs/promises';import{spawn}from'node:child_process';import{createHash}from'node:crypto';import{setTimeout as delay}from'node:timers/promises';import{fileURLToPath}from'node:url';import assert from'node:assert/strict';import{fixed,canonical}from'./reconcile-backup-once.mjs';
+const base=fixed.evidence,root=base+'resume2/',hash=b=>createHash('sha256').update(b).digest('hex');
+assert.equal(process.argv.length,3);assert.equal(process.argv[2],'f7d33310ff19b7d705a49abb56a6882de6707e61e06bef11fc20303c4184d8ea');assert.ok(!Object.keys(process.env).some(n=>/^NODE_/i.test(n)));
+await writeFile(root+'WAIT_STARTED.json',JSON.stringify({at:new Date().toISOString(),maximumWaitMs:1800000,reconciliationBindingSha256:'8e17ef49bf22aa0f936dc11f97b58e89598d7b6078272804f48f1105a883ae00'},null,2)+'\n',{flag:'wx'});
+const began=performance.now();let finished;
+while(performance.now()-began<1800000){try{finished=JSON.parse((await readFile(base+'reconciliation-v3/FINISHED.json','utf8')).replace(/^\uFEFF/,''));break;}catch(e){if(e.code!=='ENOENT')throw e;}await delay(1000);}
+assert.ok(finished,'Reconciliation wait expired; no resume');assert.equal(finished.exitCode,0);assert.equal(finished.errorCode,null);assert.equal(finished.bindingSha256,'8e17ef49bf22aa0f936dc11f97b58e89598d7b6078272804f48f1105a883ae00');
+const result=JSON.parse(await readFile(base+'reconciliation-v3/STDOUT.log','utf8'));assert.equal(result.status,'reconciled-only-not-resumed');assert.equal(result.batchSha256,fixed.batch);assert.equal(result.proofSha256,'086378566509ddc2e427c45ca97bdd68410fb3f9fe75b82137db8d9b26179605');
+const event=JSON.parse(await readFile(fixed.journal+'/first-adoption-live-guard-20261011/000010.json','utf8'));const{eventSha256,...core}=event;assert.equal(hash(canonical(core)),eventSha256);assert.equal(eventSha256,result.eventSha256);assert.equal(event.previous,fixed.head);assert.equal(event.operationId,'backup-pre');assert.equal(event.status,'passed');assert.deepEqual(event.outputs,result.outputs);
+await writeFile(root+'ACTUAL_RESUME_HEAD.json',JSON.stringify({head:eventSha256,reconciliationFinished:finished},null,2)+'\n',{flag:'wx'});
+const runner=fileURLToPath(new URL('./run-approved-backup-resume.mjs',import.meta.url));const child=spawn(process.execPath,[runner,process.argv[2],eventSha256],{windowsHide:true,stdio:'inherit'});
+const resultExit=await new Promise(resolve=>{child.once('error',e=>resolve({exitCode:null,errorCode:e.code??'spawn-error'}));child.once('close',exitCode=>resolve({exitCode,errorCode:null}));});process.exitCode=resultExit.exitCode??1;

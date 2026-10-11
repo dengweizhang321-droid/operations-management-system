@@ -1,0 +1,313 @@
+{
+  "version": "pre-switch-observation-v1",
+  "resourceSamples": 55,
+  "resourceFailures": 0,
+  "resourceWindow": {
+    "first": "2026-10-11T16:12:18.951Z",
+    "last": "2026-10-11T16:39:19.877Z"
+  },
+  "intervalMs": 30000,
+  "watchdogDistinctSnapshots": 19,
+  "watchdogHealthy": 13,
+  "watchdogNotHealthy": 6,
+  "limits": "Static resource only; sampled reachability does not bound all short outages or prove full business readiness. No paired production speed measurement.",
+  "entries": [
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_BACKUP_RECONCILIATION_CALL.json",
+      "target": "AGY_BACKUP_RECONCILIATION_CALL.json",
+      "bytes": 206,
+      "sha256": "b61aa2c4ba307c12e79ad735574eceecd53c6179639dfb39cb31e01a23cff4ae"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_BACKUP_RECONCILIATION_PROMPT.txt",
+      "target": "AGY_BACKUP_RECONCILIATION_PROMPT.txt",
+      "bytes": 2855,
+      "sha256": "8152a2a42b7ed7874655f5182743b94930bd74e52ddea26850fe250dcc9adaf9"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_BACKUP_RECONCILIATION_STDERR.log",
+      "target": "AGY_BACKUP_RECONCILIATION_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_BACKUP_RECONCILIATION_STREAM.ndjson",
+      "target": "AGY_BACKUP_RECONCILIATION_STREAM.ndjson",
+      "bytes": 16993,
+      "sha256": "7564481b334d9d03298ca563380a1a4e7c871342a453ac952153092b557abed4"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_BACKUP_RECONCILIATION_V2_CALL.json",
+      "target": "AGY_BACKUP_RECONCILIATION_V2_CALL.json",
+      "bytes": 206,
+      "sha256": "270e1a6abc2540a282f00cb217d5af6a22258d0cdf26faea283790c61e0b6c24"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_BACKUP_RECONCILIATION_V2_PROMPT.txt",
+      "target": "AGY_BACKUP_RECONCILIATION_V2_PROMPT.txt",
+      "bytes": 28793,
+      "sha256": "3948ca7c227e45781c56e6ed84ff2e305b946164ad3138deb56942c540729fba"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_BACKUP_RECONCILIATION_V2_RESULT.md",
+      "target": "AGY_BACKUP_RECONCILIATION_V2_RESULT.md",
+      "bytes": 2129,
+      "sha256": "a309c3c16248a1b9af4cb33f61ce5bdbb297283dbef9d1540c1a5192e9d20bba"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_BACKUP_RECONCILIATION_V2_STDERR.log",
+      "target": "AGY_BACKUP_RECONCILIATION_V2_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_BACKUP_RECONCILIATION_V2_STREAM.ndjson",
+      "target": "AGY_BACKUP_RECONCILIATION_V2_STREAM.ndjson",
+      "bytes": 24315,
+      "sha256": "7752dd8f1e58e62e228bdad2eb19093230e581e7a75a4d013e83e38018851b1a"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ASTRA_BACKUP_RECONCILIATION_HANDOFF_V1.json",
+      "target": "ASTRA_BACKUP_RECONCILIATION_HANDOFF_V1.json",
+      "bytes": 1861,
+      "sha256": "cac01294f923c308d8de144cf655be3dc780cf8502e0f47a88b7956553466df3"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ASTRA_BACKUP_RECONCILIATION_HANDOFF_V2.json",
+      "target": "ASTRA_BACKUP_RECONCILIATION_HANDOFF_V2.json",
+      "bytes": 2709,
+      "sha256": "f16146e153f9020495bd252b7ab530b4619c023d04189b39d156fdd359c193dc"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_RECONCILIATION_PROOF_V1.json",
+      "target": "BACKUP_RECONCILIATION_PROOF_V1.json",
+      "bytes": 1066,
+      "sha256": "086378566509ddc2e427c45ca97bdd68410fb3f9fe75b82137db8d9b26179605"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_RECONCILIATION_PROOF_V2.json",
+      "target": "BACKUP_RECONCILIATION_PROOF_V2.json",
+      "bytes": 1066,
+      "sha256": "086378566509ddc2e427c45ca97bdd68410fb3f9fe75b82137db8d9b26179605"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_RECONCILIATION_TEST_V1.log",
+      "target": "BACKUP_RECONCILIATION_TEST_V1.log",
+      "bytes": 1415,
+      "sha256": "eebe2679c44f28f3747516db18d6c74c0b6fec13898b25157e1cd7dbdd03cc24"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_RECONCILIATION_TEST_V2.log",
+      "target": "BACKUP_RECONCILIATION_TEST_V2.log",
+      "bytes": 1719,
+      "sha256": "03b75425ce4fdac87099b412af950c1b56ecea7fdd81c0477b701cedfb1c51bd"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_RESUME2_STATE_TEST_V1.log",
+      "target": "BACKUP_RESUME2_STATE_TEST_V1.log",
+      "bytes": 490,
+      "sha256": "923e70b8f2659f35855f875254d45c79124873fc82bb281198073a12c90b130e"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_VERIFY_RESULT.json",
+      "target": "BACKUP_VERIFY_RESULT.json",
+      "bytes": 1252,
+      "sha256": "bf44a9dcc86e39ca1a7f83de006e98ab95e645dd16aa091cebe201961d6578c0"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_VERIFY_STDERR.log",
+      "target": "BACKUP_VERIFY_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_VERIFY_STDOUT.json",
+      "target": "BACKUP_VERIFY_STDOUT.json",
+      "bytes": 348,
+      "sha256": "d37d3cfdf15c623881feddbe8b775a88ef740f4bf3c8ac222bb3d604195d98c5"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/RECONCILIATION_RUNAS_CANCELLED_V2.json",
+      "target": "RECONCILIATION_RUNAS_CANCELLED_V2.json",
+      "bytes": 695,
+      "sha256": "925ebe5f87f36288844ec1e52067ee2043b53e3e13f57f7a0d592076ebfd9ff8"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ROOT_FINAL_TRANSPORT_TEST.json",
+      "target": "ROOT_FINAL_TRANSPORT_TEST.json",
+      "bytes": 6173,
+      "sha256": "82fbfc7ecb9e2024bf1abcc4be009de0f507f9a83d3d551af341ee6502ab2384"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ROOT_FINAL_TRANSPORT_TEST.log",
+      "target": "ROOT_FINAL_TRANSPORT_TEST.log",
+      "bytes": 2578,
+      "sha256": "5bf6c2f6743908ff7ec8b13dfa36126b6454496b26a518ee483b85843c2775ef"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ROOT_FINAL_TRANSPORT_TEST.stderr",
+      "target": "ROOT_FINAL_TRANSPORT_TEST.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/V1-reconcile-backup-once.mjs",
+      "target": "V1-reconcile-backup-once.mjs",
+      "bytes": 12803,
+      "sha256": "33b23bd8a4b510ea53c8f2785e220cbc2f3745c7728467f8c36a9e2da8071e1d"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/V1-reconcile-backup-once.test.mjs",
+      "target": "V1-reconcile-backup-once.test.mjs",
+      "bytes": 4793,
+      "sha256": "aa18458f00915605b16dfccaaf0456a4dc85d2c6e993deadd4193d81f6330324"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/AVAILABILITY.ndjson",
+      "target": "resume1/AVAILABILITY.ndjson",
+      "bytes": 37160,
+      "sha256": "419c65c2eae676b38cf9a409512a35b1309a490f4e09f18cd637c82be85fab5f"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/AVAILABILITY_FINISHED.json",
+      "target": "resume1/AVAILABILITY_FINISHED.json",
+      "bytes": 149,
+      "sha256": "1a172a02f4e5437cc8f386860588af818911bc551b256353a24c06adfbcb0155"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/AVAILABILITY_STARTED.json",
+      "target": "resume1/AVAILABILITY_STARTED.json",
+      "bytes": 514,
+      "sha256": "f03b94ae1eac8f57f0d17fbe4462d073c8300abee13191bdb85eb9cd50c27596"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/BOOTSTRAP.ps1",
+      "target": "resume1/BOOTSTRAP.ps1",
+      "bytes": 1411,
+      "sha256": "b75e7e9d1ce962b299a685b06f49a91d4556082eed09403baab46dce62fe78a1"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/BOOTSTRAP_BINDING.json",
+      "target": "resume1/BOOTSTRAP_BINDING.json",
+      "bytes": 290,
+      "sha256": "dcb93eaebd383b96a9f07090d654d27e5abca22184f62a3f58ec154b13aba1ea"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/CAPTURE_NORMAL.ps1",
+      "target": "resume1/CAPTURE_NORMAL.ps1",
+      "bytes": 1489,
+      "sha256": "87769305dcb541bc994a680e69652171b13f8a2340b7dafe9f180714d0046642"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/DIRECT_PROCESS.json",
+      "target": "resume1/DIRECT_PROCESS.json",
+      "bytes": 146,
+      "sha256": "f6f1135b9a104669ce568452a08a80c089e6f57be9c2074cd604c6200a18e956"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/ENV_RESTORED.json",
+      "target": "resume1/ENV_RESTORED.json",
+      "bytes": 1059,
+      "sha256": "cdc361b8d918a84d60c0560959e3a0b88e8e199bd5c04943933d17d8583e3744"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/FINISHED.json",
+      "target": "resume1/FINISHED.json",
+      "bytes": 266,
+      "sha256": "c2f81483c9f27f0c05e763dee4725ad15dddd2f65a840a82b82aef462fa41d03"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/STARTED.json",
+      "target": "resume1/STARTED.json",
+      "bytes": 943,
+      "sha256": "de5a242d87ed287d5175f775dec61475f89536e207c91eb6031e461f4eeb892d"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/STDERR.log",
+      "target": "resume1/STDERR.log",
+      "bytes": 40,
+      "sha256": "4c47a390f9fde1ef0df2220b43c8349382b7001906f79b9a099efc555e31fc73"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/STDOUT.log",
+      "target": "resume1/STDOUT.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume1/TRANSPORT_BINDING.json",
+      "target": "resume1/TRANSPORT_BINDING.json",
+      "bytes": 3146,
+      "sha256": "522629ca7a49688c7bcdfc8b5ee7053d985be7085398df6d70b044c2e85d4273"
+    },
+    {
+      "source": "D:/teruisi-runtime/django-sales/audits/postgres-operations/70abd23809cc4817a589d663e6635fc2.json",
+      "target": "original-backup-audit.json",
+      "bytes": 3241,
+      "sha256": "a520fd1b96e5510701c05ebd077a60c8d5bd7f85d74d8890d9e8348ee568c26c"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000000.json",
+      "target": "wal-original/000000.json",
+      "bytes": 276,
+      "sha256": "0f9b044aa3cf504c42509606e3358eda83094016609dc89f3d230342857663f6"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000001.json",
+      "target": "wal-original/000001.json",
+      "bytes": 1289,
+      "sha256": "81e6cce0afbb8949a692367a03aba7689a065353a58225ff301acf3a201a97a2"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000002.json",
+      "target": "wal-original/000002.json",
+      "bytes": 341,
+      "sha256": "73e3bb2df739bb855f184f069ef6bb0ded103ae194c88e771b912a3a9bc62af6"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000003.json",
+      "target": "wal-original/000003.json",
+      "bytes": 2092,
+      "sha256": "4f01fc11f7d5d0fa98be325c8dc5c6c0e8a5cf17eef9b4abfebe65ef086ed04f"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000004.json",
+      "target": "wal-original/000004.json",
+      "bytes": 1957,
+      "sha256": "79724f784dfb862616fb7f6cb0eb81d0c5d60ca6bfeb532a0d56e215b59fb219"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000005.json",
+      "target": "wal-original/000005.json",
+      "bytes": 338,
+      "sha256": "56482df7442d0833b591e8494403bee2969bde92c7cce80f1417ad5f3bdafedb"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000006.json",
+      "target": "wal-original/000006.json",
+      "bytes": 518,
+      "sha256": "e4c911842abf19297c2e00aa9e35dd57e5fbde09444f3d335e3ac2b1b20436dc"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000007.json",
+      "target": "wal-original/000007.json",
+      "bytes": 1964,
+      "sha256": "2e509166b1a70dd7192d8c1cb0aef79652f44da7f840d0ff8a11f1646b013d30"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000008.json",
+      "target": "wal-original/000008.json",
+      "bytes": 341,
+      "sha256": "0491d19d6fb9da61fbc3ee512296924ca35664c810e8f6314036f23f98becdac"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000009.json",
+      "target": "wal-original/000009.json",
+      "bytes": 1465,
+      "sha256": "58d73d459afbb5c090f3cf593d10819aee42289bb23847166279ebc9d2dd36ca"
+    }
+  ],
+  "plaintextEnvironmentArchived": false,
+  "ciphertextArchived": false,
+  "dbRowsArchived": false
+}
