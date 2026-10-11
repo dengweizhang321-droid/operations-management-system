@@ -1,0 +1,67 @@
+{
+  "version": "teruisi-c-v4-installation-independent-review-v1",
+  "independent": true,
+  "sourceCommit": "030024542ef76be081f69023fefb0601dd4d06b5",
+  "status": "blocked-on-unknown-process-reference",
+  "acceptedInstallationCandidate": false,
+  "productionExecutionApproved": false,
+  "scope": "Only delivered V4 installation, rollback compatibility, old app.previous preservation and drive-qualified reference guard. Not a signature for the newly requested one-pre-backup/new-toolchain rehearsal policy or any future bytes/batch.",
+  "binding": {
+    "batchSha256": "65fc5338321efc2d79168764f7b2227002333199d038409dc6dd7277acaed8d2",
+    "batchRawSha256": "340e88afaa2dc3eb670f09a229442b5c42e153e3fa41a967403ab32a27822675",
+    "guardSha256": "04655a323af97453b7ae38670a6470e495226e85c337fb9b0a72684726a54edd",
+    "workerReleaseId": "20261011T051645Z-3032ae332a32f1a0",
+    "workerManifestSha256": "58cc236e09f097f2c7aec054af9699fc7c0aca3bda1cd79d1c47cbf06efd1a8f",
+    "workerPlanSha256": "3fb9b0fe083862da5a1a426b444a91365b2ec4fdecb0c4191c2c18f0a12ccb5b",
+    "sourceSha256": "ef5cc058391988586de4cf2b64289a13f0f3682a1a38db5569213f704323e1d1",
+    "djangoPreparedAppId": "1e1138feef7148fb851713c2b39a25d0",
+    "djangoPreparedReceiptSha256": "10db2364053ebfb90d85dd301914753453d02ad313cd02ff7312ca654ebdeb9b",
+    "djangoCandidateManifestSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09"
+  },
+  "passedStaticChecks": [
+    "Pure canonical batch/core, collector, SourceBinding, plan and manifest hashes agree with physical small files.",
+    "20 strict/full operations: Worker apply ordinal6, old-previous guard7, Django DeployApp8, HardenAcl9, ExitMaintenance10, exact double-manifest Start11. No Backup/Restore/retention is scheduled between component switches.",
+    "Django declared before/after inventories each2933 and exactly3 changes: two sourceBinding-aware Worker tools plus the specifically bounded CF cache. Worker and prepared Django tool bytes are equal and match Worker keyFiles and declared Django inventory.",
+    "Lifecycle command closure expects old fixed Worker for EnterMaintenance/StopWorker, new fixed Worker thereafter; installed Django tool pins switch from before to after for post-DeployApp operations.",
+    "V4 Backup and Restore use installed app/tools/django-postgres-maintenance.ps1. Prepared tool mode is only Verify/RestoreRehearsal, requires exact prepared receipt and retains installed app service-library admission; it does not authorize prepared Backup.",
+    "Old installed resolver rejects plans containing sourceBinding; prepared resolver validates that field and can preserve old no-sourceBinding plans. Rollback text requires a compatible new successor and paired control tools, not direct restoration of old resolver/history deletion.",
+    "Original/preserved app.previous deployment.json bytes match SHA121d805f; declared preservation tree3468/fa434f8e is pinned and rechecked by the action guard. This review did not independently rehash the complete tree.",
+    "The original16 VM source/log hashes and16pass/0fail/203.3251ms are preserved and verified. They cover cross-drive/short aliases/long junctions/spaces/nearest-existing ancestor/unknown drive and EACCES. These are implementation-agent synthetic maps, not a new native OS audit."
+  ],
+  "blockingFindings": [
+    {
+      "id": "IG04",
+      "priority": "P1",
+      "file": "docs/release-no-data-adoption-20261011/adapters/adoption-scope-guard-v4.mjs",
+      "line": 113,
+      "relatedLines": [71,108,114,116],
+      "trigger": "A relevant interpreter process has an unreadable/null CommandLine while ExecutablePath points to an unrelated system host. inspectReferences(null) returns false; resolving the host outside app.previous returns false, so the final references[] assertion can pass without ruling out that interpreter reading the previous package.",
+      "reproduced": true,
+      "counterexample": "guard-null-process-counterexample.test.mjs",
+      "counterexampleSha256": "4729b0150aec43856c7908ec6e648e1d25cea23d99250ea951eb715422acb596",
+      "rawLog": "guard-null-process-counterexample.log",
+      "rawLogSha256": "d37024a6e94285efc0daf140aeec8194c12935ccb64e8d5c4f7bad1ffd389822",
+      "result": {"passed":0,"failed":1,"durationMs":118.4421,"error":"Missing expected rejection"},
+      "minimumFix": "Capture enough typed process identity to define the bounded relevant interpreter/managed-process set; require necessary CommandLine/ExecutablePath fields for that set or emit unknown and block DeployApp. Do not treat null as no reference. Preserve narrow proof for demonstrably unrelated system processes rather than blanket-allowing unreadable interpreters. Add the missing-field negative test and independently review new guard/scope bytes.",
+      "notClaimed": "No actual current process with this gap was enumerated or proven to reference app.previous. This is a synthetic safety counterexample to the current guard, not proof of production damage."
+    }
+  ],
+  "evidence": {
+    "boundedAudit": "INSTALLATION_AUDIT.json",
+    "boundedAuditSha256": "48b73287643dec04b257a1326032b4574030a11eb0bb50541ead806d7d633d8e",
+    "auditCode": "installation-audit.mjs",
+    "auditCodeSha256": "ce76ba0c9a72bdaff24346e46608ecd489e07821b32f588a753761f5b4f47419",
+    "physicalSmallFilesChecked": 31,
+    "original16VMLogSha256": "fb6816c2f5670dbe446efa0db2327010bcf53c8be2c4ff940fea27e4493e8d06",
+    "oldDjangoResolverSha256": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+    "preparedAndWorkerResolverSha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+    "priorNativeSnapshot": "ALL_REFERENCES_V4.json at2026-10-11T06:18:14.473Z:1160 metadata/818 process/215 task, reported0 reference/0 unknown; not refreshed or independently enumerated here and cannot cure IG04."
+  },
+  "unverified": [
+    "UNC, relative/env/encoded indirection, arbitrary script interpretation and all-system open handles remain unsupported guard coverage.",
+    "No complete current native process/task audit or proof against references created after the guard snapshot.",
+    "No new full source/npm/dist/app.previous tree rehash, production adoption, actual compatible-successor rollback or PG recovery rehearsal.",
+    "User's latest one-pre-backup plus isolated new-toolchain exercise instruction was supplied by Root as trusted task context. V4 still contains four DB operations; new policy, bytes and scope require separate review and exact approval."
+  ],
+  "actions": {"productionCli":0,"status":0,"http":0,"sql":0,"locks":0,"processOrTaskEnumeration":0,"backupRestore":0,"maintenanceDeploy":0,"deletion":0,"sourceChanges":0,"privateVMTests":1}
+}
