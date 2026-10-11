@@ -1,12 +1,16 @@
 ﻿#requires -Version 7.0
 [CmdletBinding()]
 param(
-  [ValidateSet('Check','Install','Status','TestNotification')][string]$Action='Check',
+  [ValidateSet('Check','PlanInstall','Install','Status','TestNotification')][string]$Action='Check',
   [switch]$Execute,
-  [switch]$FunctionsOnly
+  [switch]$FunctionsOnly,
+  [string]$ApprovedInstallPlanId='',
+  [string]$PreparedLauncherPath='',
+  [string]$PreparedLauncherSha256=''
 )
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'process-deadline.ps1')
+. (Join-Path $PSScriptRoot 'watchdog-install.ps1')
 $WatchdogVersion='teruisi-operations-watchdog-v2'
 $TaskName='TERUISI Operations Watchdog'
 $ProjectRoot='D:\运营管理系统'
@@ -76,16 +80,21 @@ function Get-Admission {
     return @{mode=[string]$desired.desiredState;fence=Get-WatchHash $DesiredPath}
   }catch{return @{mode='invalid';fence=$null}}
 }
-function Test-WatchHttp([string]$Url,[string]$Kind){
-  $clock=[Diagnostics.Stopwatch]::StartNew()
+function Test-WatchHttp([string]$Url,[string]$Kind,$Pending){
+  $clock=if($Pending){$Pending.clock}else{[Diagnostics.Stopwatch]::StartNew()}
   $probe=@{ok=$false;status=0;reason='transport_error';elapsedMs=0}
-  $handler=[Net.Http.HttpClientHandler]::new();$handler.UseProxy=$false;$handler.AllowAutoRedirect=$false
-  $client=[Net.Http.HttpClient]::new($handler)
-  $request=[Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get,$Url);$response=$null
+  if($Pending){$client=$Pending.client;$request=$Pending.request}else{
+    $handler=[Net.Http.HttpClientHandler]::new();$handler.UseProxy=$false;$handler.AllowAutoRedirect=$false
+    $client=[Net.Http.HttpClient]::new($handler)
+    $request=[Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get,$Url)
+  }
+  $response=$null
   try{
-    $deadline=Get-ProcessDeadline 5000;$client.Timeout=[TimeSpan]::FromMilliseconds((Get-ProcessRemaining $deadline))
-    [void]$request.Headers.TryAddWithoutValidation('x-teruisi-local-health','1')
-    $response=$client.SendAsync($request,[Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+    if($Pending){$deadline=$Pending.deadline;$response=$Pending.task.GetAwaiter().GetResult()}else{
+      $deadline=Get-ProcessDeadline 5000;$client.Timeout=[TimeSpan]::FromMilliseconds((Get-ProcessRemaining $deadline))
+      [void]$request.Headers.TryAddWithoutValidation('x-teruisi-local-health','1')
+      $response=$client.SendAsync($request,[Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+    }
     [void](Get-ProcessRemaining $deadline)
     $probe.status=[int]$response.StatusCode
     if($probe.status -ne 200){$probe.reason='http_status';return $probe}
@@ -114,6 +123,41 @@ function Test-WatchHttp([string]$Url,[string]$Kind){
     return $probe
   }
   finally{$probe.elapsedMs=$clock.ElapsedMilliseconds;if($response){$response.Dispose()};$request.Dispose();$client.Dispose()}
+}
+function Get-WatchHttpProbes($Urls){
+  if(-not ('Teruisi.WatchResponseCleanup' -as [type])){
+    Add-Type -TypeDefinition 'namespace Teruisi { public static class WatchResponseCleanup { public static void Observe(System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage> task) { task.ContinueWith(t => { if(t.Status == System.Threading.Tasks.TaskStatus.RanToCompletion) t.Result.Dispose(); else if(t.IsFaulted) { var ignored = t.Exception; } }, System.Threading.CancellationToken.None, System.Threading.Tasks.TaskContinuationOptions.ExecuteSynchronously, System.Threading.Tasks.TaskScheduler.Default); } } }'
+  }
+  $result=@{};$pending=[Collections.Generic.List[object]]::new();$deadline=Get-ProcessDeadline 5000
+  try{
+    foreach($name in @('homepage','live','ready','helper')){
+      if([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge $deadline){$result[$name]=@{ok=$false;status=0;reason='snapshot_deadline';elapsedMs=0};continue}
+      $handler=[Net.Http.HttpClientHandler]::new();$handler.UseProxy=$false;$handler.AllowAutoRedirect=$false
+      $client=[Net.Http.HttpClient]::new($handler);$request=[Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get,$Urls[$name])
+      $job=@{name=$name;client=$client;request=$request;clock=[Diagnostics.Stopwatch]::StartNew();deadline=$deadline;task=$null;consumed=$false}
+      $pending.Add($job)
+      $client.Timeout=[TimeSpan]::FromMilliseconds((Get-ProcessRemaining $deadline))
+      [void]$request.Headers.TryAddWithoutValidation('x-teruisi-local-health','1')
+      $job.task=$client.SendAsync($request,[Net.Http.HttpCompletionOption]::ResponseHeadersRead)
+    }
+    while(@($pending|Where-Object {-not $_.consumed}).Count){
+      $jobs=@($pending|Where-Object {-not $_.consumed})
+      $completed=[Threading.Tasks.Task]::WhenAny([Threading.Tasks.Task[]]@($jobs|ForEach-Object {$_.task})).GetAwaiter().GetResult()
+      $job=$jobs|Where-Object {[object]::ReferenceEquals($_.task,$completed)}|Select-Object -First 1
+      $result[$job.name]=Test-WatchHttp $Urls[$job.name] $job.name $job;$job.consumed=$true
+    }
+  }catch{
+    foreach($name in @('homepage','live','ready','helper')){if(-not $result.ContainsKey($name)){$result[$name]=@{ok=$false;status=0;reason='snapshot_deadline';elapsedMs=0}}}
+  }finally{
+    foreach($job in $pending){
+      if(-not $job.consumed){
+        $job.client.CancelPendingRequests()
+        if($job.task){[Teruisi.WatchResponseCleanup]::Observe($job.task)}
+        $job.request.Dispose();$job.client.Dispose()
+      }
+    }
+  }
+  return $result
 }
 function Get-WatchCoreDiagnostic($Value){
   if(-not $Value){return $null}
@@ -165,6 +209,15 @@ function Get-WatchProcessDiagnostic($Value){
   }
   return $safe
 }
+function Resolve-WatchStatusControl {
+  $driver=Join-Path $PSScriptRoot 'watchdog-status-control.ps1'
+  if(-not(Test-Path -LiteralPath $driver)){return @{path=$ControlPath;mode='legacy';reason='driver_not_installed'}}
+  $binding=Read-WatchJson (Join-Path $PSScriptRoot 'driver-binding.json')
+  $sources=@{control=$ControlPath;worker=$WorkerPath;backend=(Join-Path $BackendRoot 'app\tools\django-local-service.ps1');transport=(Join-Path $ProjectRoot 'tools\process-deadline.ps1')}
+  if(-not $binding -or $binding.version -ne 1){throw 'invalid_diagnostic_binding'}
+  foreach($name in $sources.Keys){if((Get-WatchHash $sources[$name]) -cne $binding.assetHashes.$name){return @{path=$ControlPath;mode='legacy';reason='diagnostic_predecessor_changed'}}}
+  return @{path=$driver;mode='readonly_driver';reason='exact_predecessor'}
+}
 function Get-WatchSnapshot {
   $clock=[Diagnostics.Stopwatch]::StartNew()
   $admission=Get-Admission
@@ -177,13 +230,17 @@ function Get-WatchSnapshot {
   $probeStage='control'
   $stageClock=[Diagnostics.Stopwatch]::StartNew()
   try{
-    $status=Invoke-WatchScript $ControlPath @('-Action','Status','-Json')
+    $selected=Resolve-WatchStatusControl
+    $snapshot.diagnosticMode=$selected.mode;$snapshot.diagnosticReason=$selected.reason
+    $status=Invoke-WatchScript $selected.path @('-Action','Status','-Json')
     [void](Get-ProcessRemaining ([long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS))
     $snapshot.system=[string]$status.state;$snapshot.backend=[string]$status.backendState;$snapshot.worker=[string]$status.workerState
     foreach($name in @('core','finance','netshop','market','products','workflow','inventory','customerService','accessControl','erpReference','bi','ai')){
       $v=$status.components.$name;if($v -is [bool]){$snapshot.components[$name]=$v}
     }
     $snapshot.coreDiagnostics=Get-WatchCoreDiagnostic $status.coreDiagnostics
+    $snapshot.statusTimings=@{}
+    foreach($name in @('backendMs','workerMs','httpMs')){$n=$status.statusTimings.$name;if($n -is [ValueType] -and $n -isnot [bool] -and $n -ge 0 -and $n -le 3600000){$snapshot.statusTimings[$name]=$n}}
     $snapshot.controllerHealthEvidence=Get-WatchHealthDiagnostic $status.healthEvidence
     if($null -ne $status.healthEvidence){
       $snapshot.controllerHealthValid=($snapshot.controllerHealthEvidence -and $snapshot.controllerHealthEvidence.probes.Count -eq 3 -and @($snapshot.controllerHealthEvidence.probes.Values|Where-Object {$_.passed -ne $true}).Count -eq 0)
@@ -207,11 +264,7 @@ function Get-WatchSnapshot {
     $snapshot.stages[$probeStage]=@{status='failed';elapsedMs=$stageClock.ElapsedMilliseconds}
     $snapshot.processDiagnostic=@{stage=$probeStage;code=if($_.Exception.Message -eq 'process_deadline_exhausted'){'process_deadline_exhausted'}else{'probe_stage_failed'};process=Get-WatchProcessDiagnostic $_.Exception.Data['ProcessEvidence']}
   }
-  foreach($kind in @('homepage','live','ready','helper')){
-    if([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge [long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS){$snapshot.probes[$kind]=@{ok=$false;status=0;reason='snapshot_deadline'};continue}
-    $url=switch($kind){homepage{'http://127.0.0.1:3000/'} helper{'http://127.0.0.1:5791/health'} default{"http://127.0.0.1:3000/_teruisi/local/health/$kind"}}
-    $snapshot.probes[$kind]=Test-WatchHttp $url $kind
-  }
+  $snapshot.probes=Get-WatchHttpProbes @{homepage='http://127.0.0.1:3000/';live='http://127.0.0.1:3000/_teruisi/local/health/live';ready='http://127.0.0.1:3000/_teruisi/local/health/ready';helper='http://127.0.0.1:5791/health'}
   if([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -lt [long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS){
     $stageClock.Restart()
     try{
@@ -407,7 +460,8 @@ function Get-WatchMessage($State,$Snapshot,[string]$Outcome){
   $ports=Get-WatchPortText $Snapshot
   if($Outcome -eq 'recovered'){
     $completed=if($Snapshot.completedAt){$Snapshot.completedAt}else{$Snapshot.at}
-    return "运营管理系统恢复提醒。故障首次发现：$time（北京时间）。恢复确认：$(Get-WatchTimeText $completed)。已通过两轮健康检查。首页/后端状态：$($Snapshot.system)/$($Snapshot.backend)。端口：$ports。需要人工处理：否。"
+    $current=if($Snapshot.currentlyHealthy -eq $false){'当前另有异常，请查看最新运行提醒。'}else{'需要人工处理：否。'}
+    return "运营管理系统恢复提醒。故障首次发现：$time（北京时间）。该事件恢复确认：$(Get-WatchTimeText $completed)。确认时已通过两轮健康检查。确认时首页/后端状态：$($Snapshot.system)/$($Snapshot.backend)。确认时端口：$ports。$current"
   }
   $label=switch($Outcome){recovery_failed{'自动恢复未通过'} budget_exhausted{'已达到本轮自动恢复次数上限'} cooldown{'等待下一次有间隔的安全恢复'} alert_only{'已告警，未自动重启'} default{'健康检查未通过'}}
   $action=if($Snapshot.probeError){'待确认；如持续出现，请检查本机控制面板及本次监控记录。'}else{'是；请检查上述失败项，并在本机控制面板确认当前状态。'}
@@ -421,7 +475,7 @@ function Save-WatchFailureEvidence($State,$Snapshot){
   if(-not(Test-Path -LiteralPath $first)){Write-WatchJson $first $evidence}
   Write-WatchJson (Join-Path $WatchdogRoot "evidence\$($State.incident)-last-failure.json") $evidence
 }
-function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[switch]$Recovery){
+function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[switch]$Recovery,[string]$ReservationPath=$StatePath){
   $slot=if($Recovery){'recoveryNotification'}else{'notification'}
   $attemptSlot=if($Recovery){'recoveryIdentityAttempts'}else{'identityAttempts'}
   $timeSlot=if($Recovery){'lastRecoveryIdentityAttempt'}else{'lastIdentityAttempt'}
@@ -445,14 +499,14 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
   }
   $stage='identity'
   try{
-    if(-not $DryRun){$State[$attemptSlot]=[int]$State[$attemptSlot]+1;$State[$timeSlot]=[DateTimeOffset]::UtcNow.ToString('o');Write-WatchJson $StatePath $State}
+    if(-not $DryRun){$State[$attemptSlot]=[int]$State[$attemptSlot]+1;$State[$timeSlot]=[DateTimeOffset]::UtcNow.ToString('o');Write-WatchJson $ReservationPath $State}
     $recipient=Get-WatchRecipient
     $message=Get-WatchMessage $State $Snapshot $Outcome
     $arguments=@('chat','+messages-send','--as','bot','--profile',$recipient.profile,'--robot-code',$recipient.bot,'--users',$recipient.user,'--text',$message)
     if($DryRun){$preview=Invoke-WatchDws ($arguments+@('--dry-run'));if(-not $preview.dry_run -or $preview.executed){throw 'preview_invalid'};return @{status='dry_run_verified';executed=$false;targets=1}}
     # Persist BEFORE the non-idempotent remote call. Crashes/unknown delivery are never replayed.
     $alert.status='sending';Write-WatchJson $alertPath $alert
-    $State[$slot]='sending';Write-WatchJson $StatePath $State
+    $State[$slot]='sending';Write-WatchJson $ReservationPath $State
     $stage='delivery'
     $sent=Invoke-WatchDws ($arguments+@('--yes'))
     # Record only typed outcome metadata to diagnose CLI envelope drift later.
@@ -474,8 +528,51 @@ function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun,[swit
     if($processDiagnostic){$alert.processDiagnostic=Get-WatchProcessDiagnostic $processDiagnostic;if($alert.processDiagnostic.code){$code=$alert.processDiagnostic.code}}
     $alert.reason="$stage`:$code";$State[$reasonSlot]=$alert.reason
   }
-  if(-not $DryRun){Write-WatchJson $alertPath $alert;Write-WatchJson $StatePath $State}
+  if(-not $DryRun){Write-WatchJson $alertPath $alert;Write-WatchJson $ReservationPath $State}
   elseif($alert.status -ne 'pending_identity'){throw 'notification_preflight_failed'}
+}
+function Confirm-WatchRecovery($State,$Snapshot){
+  $path=Join-Path $WatchdogRoot "evidence\$($State.incident)-recovery-confirmed.json"
+  if(-not(Test-Path -LiteralPath $path)){Write-WatchJson $path (Get-WatchEvidence $Snapshot)}
+  if($State.notification -notin @('sent','sending','unknown')){return}
+  if($State.incident -cnotmatch '^[0-9a-f]{32}$'){throw 'invalid_recovery_incident'}
+  $pending=Join-Path $WatchdogRoot "recovery-outbox\$($State.incident).json"
+  $completed=Join-Path $WatchdogRoot "recovery-completed\$($State.incident).json"
+  if((Test-Path -LiteralPath $pending) -or (Test-Path -LiteralPath $completed)){return}
+  # Persist the new fact before the main incident is cleared. The outbox uses
+  # its own reservation file, never replacing the live monitoring state.
+  Write-WatchJson $pending @{version=$WatchdogVersion;incident=$State.incident;firstFailure=$State.firstFailure;notification=$State.notification;recoveryNotification=$null;recoveryIdentityAttempts=0;lastRecoveryIdentityAttempt=$null;recoveryNotificationReason=$null}
+}
+function Invoke-WatchRecoveryOutbox($CurrentSnapshot){
+  if($CurrentSnapshot.admission.mode -ne 'running'){return}
+  $root=Join-Path $WatchdogRoot 'recovery-outbox'
+  if(-not(Test-Path -LiteralPath $root)){return}
+  $files=@(Get-ChildItem -LiteralPath $root -Filter '*.json' -File|Sort-Object LastWriteTime|Select-Object -First 32)
+  foreach($file in $files){
+    if($file.BaseName -cnotmatch '^[0-9a-f]{32}$'){throw 'invalid_recovery_outbox_file'}
+    $record=Read-WatchJson $file.FullName
+    if(-not $record -or $record.version -cne $WatchdogVersion -or $record.incident -cne $file.BaseName){throw 'invalid_recovery_outbox_record'}
+    $record=$record|ConvertTo-Json -Depth 10|ConvertFrom-Json -AsHashtable
+    $terminal=$record.recoveryNotification -in @('sent','sending','unknown') -or [int]$record.recoveryIdentityAttempts -ge 3
+    if(-not $terminal){
+      if($record.lastRecoveryIdentityAttempt -and ([DateTimeOffset]::UtcNow-[DateTimeOffset]$record.lastRecoveryIdentityAttempt).TotalMinutes -lt 15){continue}
+      $confirmed=Read-WatchJson (Join-Path $WatchdogRoot "evidence\$($record.incident)-recovery-confirmed.json")
+      if(-not $confirmed.snapshot.healthy){throw 'invalid_recovery_confirmation'}
+      $snapshot=$confirmed.snapshot|ConvertTo-Json -Depth 16|ConvertFrom-Json -AsHashtable
+      $snapshot.currentlyHealthy=[bool]$CurrentSnapshot.healthy
+      Send-WatchAlert $record $snapshot 'recovered' -Recovery -ReservationPath $file.FullName
+      $terminal=$record.recoveryNotification -in @('sent','sending','unknown') -or [int]$record.recoveryIdentityAttempts -ge 3
+    }
+    if($terminal){
+      $done=Join-Path $WatchdogRoot "recovery-completed\$($record.incident).json"
+      Write-WatchJson $done $record
+      # Both absolute paths are fixed descendants of this task's state root.
+      $prefix=[IO.Path]::GetFullPath($WatchdogRoot).TrimEnd('\')+'\'
+      if(-not $file.FullName.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase) -or -not [IO.Path]::GetFullPath($done).StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)){throw 'invalid_recovery_archive_path'}
+      [IO.File]::Delete($file.FullName)
+    }
+    return
+  }
 }
 function Invoke-WatchCycle([switch]$Recover){
   $previous=Read-WatchJson $StatePath
@@ -538,80 +635,25 @@ function Invoke-WatchCycle([switch]$Recover){
   }
   if($state.incident){
     Write-WatchJson (Join-Path $WatchdogRoot "evidence\$($state.incident)-latest.json") (Get-WatchEvidence $snapshot)
-    if($Recover -and [int]$state.failures -ge 2 -and $decision -notin @('confirm_failure','verification_pending','healthy')){Send-WatchAlert $state $snapshot $decision}
-    if($decision -eq 'healthy'){
-      Write-WatchJson (Join-Path $WatchdogRoot "evidence\$($state.incident)-recovery-confirmed.json") (Get-WatchEvidence $snapshot)
-      # A recovery is a new fact, not a replay of an ambiguous failure message.
-      # Only incidents whose failure message may have reached the user need it.
-      if($Recover -and $state.notification -in @('sent','sending','unknown')){Send-WatchAlert $state $snapshot 'recovered' -Recovery}
-    }
+    if($Recover -and [int]$state.failures -ge 2 -and $decision -notin @('confirm_failure','verification_pending','healthy','recovered')){Send-WatchAlert $state $snapshot $decision}
+    if($decision -in @('healthy','recovered')){Confirm-WatchRecovery $state $snapshot}
   }
   if($decision -in @('healthy','recovered')){$state.failures=0;$state.lastHealthy=[DateTimeOffset]::UtcNow.ToString('o');$state.incident=$null;$state.notification=$null;$state.notificationReason=$null;$state.identityAttempts=0;$state.lastIdentityAttempt=$null}
   $state.lastMode=if($decision -eq 'verification_pending'){'verification_pending'}else{'running'}
   $state.lastFence=$snapshot.admission.fence;$state.decision=$decision
   Write-WatchJson $StatePath $state
   Write-WatchJson (Join-Path $WatchdogRoot 'latest.json') $snapshot
+  if($Recover){Invoke-WatchRecoveryOutbox $snapshot}
   return @{status=$decision;serviceChanged=($decision -eq 'recovered');checkedAt=$snapshot.at}
 }
-function Install-Watchdog {
-  if(-not $Execute){throw 'Install requires Execute'}
-  $root=[IO.Path]::GetFullPath($WatchdogRoot)
-  if($root -cne 'D:\teruisi-runtime\operations-watchdog'){throw 'invalid_install_root'}
-  New-Item -ItemType Directory -Path $root -Force|Out-Null
-  $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
-  $acl=[Security.AccessControl.DirectorySecurity]::new();$acl.SetAccessRuleProtection($true,$false);$acl.SetOwner($sid)
-  foreach($s in @($sid,[Security.Principal.SecurityIdentifier]::new('S-1-5-18'),[Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))){$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($s,'FullControl','ContainerInherit,ObjectInherit','None','Allow'))}
-  $existingAcl=Get-Acl -LiteralPath $root
-  $allowedSids=@($sid.Value,'S-1-5-18','S-1-5-32-544')
-  $unexpected=@($existingAcl.Access|Where-Object {$_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -notin $allowedSids})
-  if(-not $existingAcl.AreAccessRulesProtected -or $unexpected.Count -gt 0){Set-Acl -LiteralPath $root -AclObject $acl}
-  $verifiedAcl=Get-Acl -LiteralPath $root
-  if(-not $verifiedAcl.AreAccessRulesProtected -or @($verifiedAcl.Access|Where-Object {$_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -notin $allowedSids}).Count -gt 0){throw 'installation_acl_invalid'}
-  $target=Join-Path $root 'operations-system-watchdog.ps1'
-  Copy-Item -LiteralPath $PSCommandPath -Destination $target -Force
-  if((Get-WatchHash $target) -cne (Get-WatchHash $PSCommandPath)){throw 'installation_hash_mismatch'}
-  $transportSource=Join-Path $PSScriptRoot 'process-deadline.ps1'
-  $transportTarget=Join-Path $root 'process-deadline.ps1'
-  Copy-Item -LiteralPath $transportSource -Destination $transportTarget -Force
-  if((Get-WatchHash $transportSource) -cne (Get-WatchHash $transportTarget)){throw 'transport_installation_hash_mismatch'}
-  $launcherSource=Join-Path $PSScriptRoot 'watchdog-launcher\NoConsoleLauncher.cs'
-  $launcherSourceHash=Get-WatchHash $launcherSource
-  $launcher=Join-Path $root ("Watchdog.NoConsole-"+$launcherSourceHash.Substring(0,16)+'.exe')
-  if(-not(Test-Path -LiteralPath $launcher)){
-    $compiler=Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-    & $compiler /nologo /target:winexe /platform:anycpu /optimize+ "/out:$launcher" $launcherSource
-    if($LASTEXITCODE -ne 0){throw 'watchdog_launcher_compile_failed'}
-  }
-  $config=@{version=$WatchdogVersion;scriptSha256=Get-WatchHash $target;transportSha256=Get-WatchHash $transportTarget;launcherSourceSha256=$launcherSourceHash;launcherSha256=Get-WatchHash $launcher;installedAt=[DateTimeOffset]::UtcNow.ToString('o')}
-  Write-WatchJson (Join-Path $root 'installation.json') $config
-  $taskAction=New-ScheduledTaskAction -Execute $launcher -WorkingDirectory $root -Argument "`"$PowerShellPath`" `"$target`""
-  $user=[Security.Principal.WindowsIdentity]::GetCurrent().Name
-  $triggers=@((New-ScheduledTaskTrigger -AtLogOn -User $user),(New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)))
-  $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero)
-  $principal=New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
-  $existing=Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-  if($existing){
-    $expectedLegacy="-NoProfile -NonInteractive -WindowStyle Hidden -File `"$target`" -Action Check -Execute"
-    $knownLegacy=$existing.Actions.Execute -ceq $PowerShellPath -and $existing.Actions.Arguments -ceq $expectedLegacy
-    $knownLauncher=$existing.Actions.Execute -ceq $launcher -and $existing.Actions.Arguments -ceq $taskAction.Arguments
-    if(@($existing.Actions).Count -ne 1 -or -not($knownLegacy -or $knownLauncher) -or $existing.Actions.WorkingDirectory -cne $root){throw 'unrecognized_watchdog_task_action'}
-    if($existing.State -eq 'Running'){throw 'wait_for_existing_watchdog_check_to_finish'}
-    Set-ScheduledTask -TaskName $TaskName -Action $taskAction -ErrorAction Stop|Out-Null
-    Enable-ScheduledTask -TaskName $TaskName -ErrorAction Stop|Out-Null
-  }else{
-    Register-ScheduledTask -TaskName $TaskName -Action $taskAction -Trigger $triggers -Settings $settings -Principal $principal -ErrorAction Stop|Out-Null
-  }
-  $task=Get-ScheduledTask -TaskName $TaskName
-  if($task.Actions.Execute -cne $launcher -or $task.Actions.Arguments -cne $taskAction.Arguments -or $task.Triggers.Count -ne 2 -or $task.Triggers[1].Repetition.Interval -ne 'PT1M'){throw 'task_readback_mismatch'}
-  Start-ScheduledTask -TaskName $TaskName
-  return @{status='installed';cadence='independent_minutely_and_logon';task=$TaskName}
-}
+function Install-Watchdog { Install-WatchdogSafely $PSScriptRoot }
 if($FunctionsOnly){return}
 $env:PATH=(Split-Path $PowerShellPath)+[IO.Path]::PathSeparator+$env:PATH
+if($Action -eq 'PlanInstall'){Get-WatchInstallPlan|ConvertTo-Json -Depth 8;return}
 if($Action -eq 'Install'){Install-Watchdog|ConvertTo-Json -Compress;return}
 if($Action -eq 'Status'){@{task=[string](Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue).State;state=Read-WatchJson $StatePath}|ConvertTo-Json -Depth 8;return}
 if(-not(Test-Path -LiteralPath $WatchdogRoot)){New-Item -ItemType Directory -Path $WatchdogRoot|Out-Null}
-$mutex=[Threading.Mutex]::new($false,'Local\TERUISI.Operations.Watchdog.v2');$held=$false
+$mutex=[Threading.Mutex]::new($false,(Get-WatchdogMutexName));$held=$false
 try{
   try{$held=$mutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$held=$true}
   if(-not $held){@{status='busy'}|ConvertTo-Json;return}
@@ -619,6 +661,12 @@ try{
   if($Execute){
     $installation=Read-WatchJson (Join-Path $WatchdogRoot 'installation.json')
     if(-not $installation -or $installation.scriptSha256 -cne (Get-WatchHash $PSCommandPath) -or $installation.transportSha256 -cne (Get-WatchHash (Join-Path $PSScriptRoot 'process-deadline.ps1'))){throw 'installed_watchdog_binding_invalid'}
+    if($installation.layout -eq 'immutable-v1'){
+      $expectedDirectory=Join-Path $WatchdogRoot ('versions\'+$installation.bundleId)
+      if([IO.Path]::GetFullPath($PSScriptRoot) -ine [IO.Path]::GetFullPath($expectedDirectory)){throw 'installed_watchdog_path_invalid'}
+      Assert-WatchContainedDirectory $WatchdogRoot $expectedDirectory
+      Assert-WatchBundle $expectedDirectory $installation
+    }
   }
   Invoke-WatchCycle -Recover:$Execute|ConvertTo-Json -Compress
 }finally{if($held){$mutex.ReleaseMutex()};$mutex.Dispose()}

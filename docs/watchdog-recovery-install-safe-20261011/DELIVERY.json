@@ -1,0 +1,102 @@
+{
+  "installPlan": {
+    "predecessorTaskSha256": "23d9c262d28b7c0c18134afb8b9343e9d5e4d3b939adceab15d08243e0007a18",
+    "requiresProductionApproval": true,
+    "predecessorInstallationSha256": "555a5e28c0c53498679cf4900a1574d098b0309e6ef24a9f6a177d103b83f9cb",
+    "businessServicesRestarted": false,
+    "files": {
+      "operations-system-watchdog.ps1": "2d4c7b01b6eca973a54c0a2c210ff3fd93b166978d5c86b0c52888946b070390",
+      "process-deadline.ps1": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "watchdog-install.ps1": "253f3ff73abd108a2fc7e17e5e643af1014b2d74f0fdf6b20a5f75713dab8734",
+      "watchdog-launcher\\NoConsoleLauncher.cs": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7",
+      "watchdog-status-control.ps1": "4f4093c5b6ccbd2c48ad506682ebbf0e633482e2545860ea76819746a661cb4c",
+      "watchdog-status-backend.ps1": "196b737ae90ce6927257150efa88591c997c7c152762bc593725f5a0e8b5e85b",
+      "watchdog-core-overlay.ps1": "ce28f3015c48055d0bdd95235bad0d357852537e113463f64bd20c29c6056387",
+      "driver-binding.json": "37259254dab89d8c3f0ec6b71392954e88b08fd5b8818c1a03f095d1e3642d44",
+      "Watchdog.NoConsole.exe": "0bcb6079d8d47689141d6165fd3c2b0dbb009ed18fc1959d2e5800b73b554834"
+    },
+    "bundleId": "add91c4aa03f8b81ef4f26e89bf082bd9a8de9c2b7f0b08bcfa32c75d54f2a68",
+    "planId": "973f813cf5ab237816f9243c10a931642c209b73f082028dc1236da77a538808",
+    "version": 1
+  },
+  "remaining": [
+    "Underlying intermittent core failure not established",
+    "Whole business-day natural observation follows approved installation",
+    "No overall production speedup or P95 claim"
+  ],
+  "verification": {
+    "modifiedLint": "passed",
+    "diagnosticAssertions": 42,
+    "build": "passed",
+    "installAssertions": 18,
+    "candidateActualReadOnlyStatus": {
+      "elapsedMs": 39067,
+      "statusTimings": {
+        "workerMs": 8803,
+        "backendMs": 21452,
+        "httpMs": 1834
+      },
+      "healthy": true,
+      "diagnosticMode": "readonly_driver"
+    },
+    "targetedTests": 24,
+    "watchdogAssertions": 36,
+    "pairedHttpFixture": {
+      "fixture": true,
+      "productionServicesTouched": false,
+      "delayPerProbeMs": 350,
+      "serialMs": 1578,
+      "parallelMs": 517,
+      "maxInFlight": 4,
+      "checksPreserved": 4,
+      "expiredRequests": 0
+    },
+    "diff": "passed",
+    "driverTests": 1,
+    "outboxAssertions": 22
+  },
+  "baseSha": "c1d89b29347ce6868b6f86dd4276c06e226b5356",
+  "version": 1,
+  "candidateRoot": "E:\\codex-artifacts\\watchdog-recovery-install-safe-20261011\\candidate\\tools",
+  "sourceFiles": [
+    {
+      "path": "tools/operations-system-watchdog.ps1",
+      "sha256": "2d4c7b01b6eca973a54c0a2c210ff3fd93b166978d5c86b0c52888946b070390"
+    },
+    {
+      "path": "tools/watchdog-install.ps1",
+      "sha256": "253f3ff73abd108a2fc7e17e5e643af1014b2d74f0fdf6b20a5f75713dab8734"
+    },
+    {
+      "path": "tools/prepare-watchdog-status-driver.mjs",
+      "sha256": "b3330300478ee7e088761c870aaca7ef0e8825bc75e64b312a351eb948eadcbf"
+    },
+    {
+      "path": "tests/watchdog-diagnostics.test.ps1",
+      "sha256": "fc07845c6c487bfd6428bde36031d8bee9667568efe61efb62d13757f78d5df0"
+    },
+    {
+      "path": "tests/watchdog-install.test.ps1",
+      "sha256": "d9a66a41a5116e1d3f7933dcc8d10e4c5d43fc7d4eeedf2d8d4bc0c7750bc38d"
+    },
+    {
+      "path": "tests/watchdog-recovery-outbox.test.ps1",
+      "sha256": "2a38e73568ac53171916df0caf5f40f874175ceecaf8ea57a22f1ad48be4f9c1"
+    },
+    {
+      "path": "tests/watchdog-safe-upgrade.test.ts",
+      "sha256": "19f585c6b3149d010b659c9470eaba8f886c2c814d63ad8eb00665a5efc19b5b"
+    },
+    {
+      "path": "tests/watchdog-status-driver.test.mjs",
+      "sha256": "90fd43b1e79c6665b3359a7e6d3b82575bb9f88d7ae78f7c19df1eb039060795"
+    }
+  ],
+  "production": {
+    "installed": false,
+    "messagesSent": false,
+    "servicesRestarted": false,
+    "businessDataWritten": false,
+    "scheduledTasksModified": false
+  }
+}
