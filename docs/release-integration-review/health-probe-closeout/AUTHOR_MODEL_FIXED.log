@@ -1,0 +1,24 @@
+✔ limited derived/controller legacy transformations reproduce from exact independently reviewed bytes (14.4656ms)
+✔ 102 model preserves three original unknowns, no20/source88 replay and true physical owner-close order (464.8713ms)
+✔ admission missing producer blocks before started and retains captures (402.0231ms)
+✔ admission wrong PID producer blocks before started and retains captures (419.216ms)
+✔ admission duplicate producer blocks before started and retains captures (389.3491ms)
+✔ admission foreign scope producer blocks before started and retains captures (416.4643ms)
+✔ admission false health producer blocks before started and retains captures (392.2204ms)
+✔ final missing producer rejects and keeps real returned receipt/process (388.3455ms)
+✔ final wrong PID producer rejects and keeps real returned receipt/process (460.0077ms)
+✔ final too long probe producer rejects and keeps real returned receipt/process (366.6021ms)
+✔ final old checkedAt producer rejects and keeps real returned receipt/process (388.5407ms)
+✔ final raw body flag producer rejects and keeps real returned receipt/process (400.5029ms)
+✔ PSD UTC7 dates normalize to ms while immutable raw record hash and multilevel health remain (126.0394ms)
+✔ producer raw schema/flags reject hidden body or legacy missing proof rather than relabel no raw (121.2684ms)
+✔ elapsed/spans and native PID window all enforce measured timing without five-second positive slack (118.8506ms)
+✔ scoped nine argv accepts only own derived path/id/root; original seven argv stays valid (138.1419ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5365.7362

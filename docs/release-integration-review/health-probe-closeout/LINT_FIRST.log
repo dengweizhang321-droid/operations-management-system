@@ -1,0 +1,22 @@
+Warning: React version was set to "detect" in eslint-plugin-react settings, but the "react" package is not installed. Assuming latest React version for linting.
+
+D:\.codex\worktrees\release-health-probe-contract\运营管理系统\docs\release-integration-review\health-probe-closeout\copy-candidate.mjs
+  2:8  warning  'assert' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\.codex\worktrees\release-health-probe-contract\运营管理系统\docs\release-integration-review\health-probe-closeout\protocol.test.mjs
+   5:18  warning  'mkdtemp' is defined but never used                   @typescript-eslint/no-unused-vars
+   5:26  warning  'readdir' is defined but never used                   @typescript-eslint/no-unused-vars
+   5:34  warning  'unlink' is defined but never used                    @typescript-eslint/no-unused-vars
+   5:41  warning  'rmdir' is defined but never used                     @typescript-eslint/no-unused-vars
+   7:8   warning  'os' is defined but never used                        @typescript-eslint/no-unused-vars
+  10:30  warning  'assertCompleteReadiness' is defined but never used   @typescript-eslint/no-unused-vars
+  10:54  warning  'parseStatus' is defined but never used               @typescript-eslint/no-unused-vars
+  10:66  warning  'retryReadOnlyObservation' is defined but never used  @typescript-eslint/no-unused-vars
+  10:91  warning  'safeObservationError' is defined but never used      @typescript-eslint/no-unused-vars
+  11:26  warning  'makeStatusWriter' is defined but never used          @typescript-eslint/no-unused-vars
+  13:9   warning  'errorEnvelope' is defined but never used             @typescript-eslint/no-unused-vars
+  15:27  warning  'safeProducerReferences' is defined but never used    @typescript-eslint/no-unused-vars
+  15:72  warning  'readProducerEvidence' is defined but never used      @typescript-eslint/no-unused-vars
+  16:9   warning  'safeHealthEvidence' is defined but never used        @typescript-eslint/no-unused-vars
+
+✖ 15 problems (0 errors, 15 warnings)

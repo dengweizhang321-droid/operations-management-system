@@ -1,0 +1,100 @@
+TAP version 13
+# Subtest: producer flags and all unknown raw fields are rejected without private output
+ok 1 - producer flags and all unknown raw fields are rejected without private output
+  ---
+  duration_ms: 1.3571
+  type: 'test'
+  ...
+# Subtest: UTC ticks and repeated trace filtering are idempotent and do not rewrite raw proof hash
+ok 2 - UTC ticks and repeated trace filtering are idempotent and do not rewrite raw proof hash
+  ---
+  duration_ms: 1.6806
+  type: 'test'
+  ...
+# Subtest: unique PID and each exact authority identity are mandatory
+ok 3 - unique PID and each exact authority identity are mandatory
+  ---
+  duration_ms: 2.6253
+  type: 'test'
+  ...
+# Subtest: serial sum and complete observed interval must fit actual native elapsed
+ok 4 - serial sum and complete observed interval must fit actual native elapsed
+  ---
+  duration_ms: 0.52
+  type: 'test'
+  ...
+# Subtest: producer facts cannot substitute different parsed Status health facts
+ok 5 - producer facts cannot substitute different parsed Status health facts
+  ---
+  duration_ms: 1.8578
+  type: 'test'
+  ...
+# Subtest: a successful model preserves all three unknowns and runs only the new independent ID
+ok 6 - a successful model preserves all three unknowns and runs only the new independent ID
+  ---
+  duration_ms: 463.7302
+  type: 'test'
+  ...
+# Subtest: collector facts survive late binding rejection and failed failure-ledger append
+ok 7 - collector facts survive late binding rejection and failed failure-ledger append
+  ---
+  duration_ms: 420.9567
+  type: 'test'
+  ...
+# Subtest: foreign head at the pending boundary keeps returned native and owner without foreign append
+ok 8 - foreign head at the pending boundary keeps returned native and owner without foreign append
+  ---
+  duration_ms: 376.527
+  type: 'test'
+  ...
+# Subtest: late owner ack rejection and second WAL loss preserve known physical absence honestly
+ok 9 - late owner ack rejection and second WAL loss preserve known physical absence honestly
+  ---
+  duration_ms: 377.052
+  type: 'test'
+  ...
+# Subtest: post-return reader failure preserves actual native/receipt/window through repeated sanitization
+ok 10 - post-return reader failure preserves actual native/receipt/window through repeated sanitization
+  ---
+  duration_ms: 140.032
+  type: 'test'
+  ...
+# Subtest: nonzero native evidence and side trace never become successful stdout parse
+ok 11 - nonzero native evidence and side trace never become successful stdout parse
+  ---
+  duration_ms: 129.8956
+  type: 'test'
+  ...
+# Subtest: original seven args and new nine args accept only the fixed readonly identity
+ok 12 - original seven args and new nine args accept only the fixed readonly identity
+  ---
+  duration_ms: 38.4409
+  type: 'test'
+  ...
+# Subtest: even last old closure drift rejects prepare before a single dynamic import
+ok 13 - even last old closure drift rejects prepare before a single dynamic import
+  ---
+  duration_ms: 30.2752
+  type: 'test'
+  ...
+# Subtest: prepare verifies every declared old file and each new executable before import
+ok 14 - prepare verifies every declared old file and each new executable before import
+  ---
+  duration_ms: 62.1005
+  type: 'test'
+  ...
+# Subtest: exact owner source really unlinks private file only after matching CAS and confirms ENOENT
+ok 15 - exact owner source really unlinks private file only after matching CAS and confirms ENOENT
+  ---
+  duration_ms: 417.4035
+  type: 'test'
+  ...
+1..15
+# tests 15
+# suites 0
+# pass 15
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2775.6516

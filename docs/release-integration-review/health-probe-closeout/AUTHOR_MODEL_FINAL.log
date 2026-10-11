@@ -1,0 +1,28 @@
+✔ limited derived/controller legacy transformations reproduce from exact independently reviewed bytes (21.3837ms)
+✔ 102 model preserves three original unknowns, no20/source88 replay and true physical owner-close order (438.4862ms)
+✔ admission missing producer blocks before started and retains captures (427.634ms)
+✔ admission wrong PID producer blocks before started and retains captures (517.8614ms)
+✔ admission duplicate producer blocks before started and retains captures (510.8864ms)
+✔ admission foreign scope producer blocks before started and retains captures (412.009ms)
+✔ admission false health producer blocks before started and retains captures (353.1531ms)
+✔ final missing producer rejects and keeps real returned receipt/process (354.2951ms)
+✔ final wrong PID producer rejects and keeps real returned receipt/process (405.275ms)
+✔ final too long probe producer rejects and keeps real returned receipt/process (367.4838ms)
+✔ final old checkedAt producer rejects and keeps real returned receipt/process (358.4881ms)
+✔ final raw body flag producer rejects and keeps real returned receipt/process (458.9861ms)
+✔ PSD UTC7 dates normalize to ms while immutable raw record hash and multilevel health remain (135.5184ms)
+✔ producer raw schema/flags reject hidden body or legacy missing proof rather than relabel no raw (134.1409ms)
+✔ elapsed/spans and native PID window all enforce measured timing without five-second positive slack (152.9996ms)
+✔ scoped nine argv accepts only own derived path/id/root; original seven argv stays valid (170.767ms)
+✔ prepare builtin bootstrap refuses closure drift before importing any release/protocol module (25.2058ms)
+✔ admission returned facts survive producer/metadata rejection even if failure WAL also cannot persist (420.5632ms)
+✔ unknown nonzero error and native window/producer truth persist through two sanitizations (344.769ms)
+✔ post-result/pending and owner double-WAL failures retain honest process/receipt/producer and ownership tri-state (698.5134ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7049.1094

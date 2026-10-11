@@ -1,0 +1,32 @@
+✖ actual PS5 3.5s ready response yields strict measured producer proof with own exited PID (4785.4017ms)
+{"privateFixture":true,"mode":"late","pid":13872,"exitCode":7,"elapsedMs":4574,"childExitIndependentlyObserved":true,"networkRequests":3,"formalNetworkRequests":0,"functionReturned":false,"readyElapsedMs":3510.078,"traceRawSha256":"e6d36d60705167909de410aa2cf465557f55f7720e9c472d24da5fdc47c4891a","failedStdoutParsed":false}
+✔ actual PS5 nonzero after health final deadline still yields bounded producer trace; lost stdout is not parsed (4585.5351ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9499.5059
+
+✖ failing tests:
+
+test at docs\release-integration-review\health-probe-closeout\native-producer.test.mjs:48:1
+✖ actual PS5 3.5s ready response yields strict measured producer proof with own exited PID (4785.4017ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(value.checkedAt&&Number.isFinite(Date.parse(value.checkedAt)))
+  
+      at assertHealthyContract (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/health-contract.mjs:14:41)
+      at assertProducerSuccess (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/producer-evidence.mjs:27:281)
+      at leaf (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/native-producer.test.mjs:44:182)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

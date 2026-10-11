@@ -1,0 +1,29 @@
+✔ limited derived/controller legacy transformations reproduce from exact independently reviewed bytes (14.6171ms)
+✔ 102 model preserves three original unknowns, no20/source88 replay and true physical owner-close order (455.6031ms)
+✔ admission missing producer blocks before started and retains captures (368.7359ms)
+✔ admission wrong PID producer blocks before started and retains captures (391.6354ms)
+✔ admission duplicate producer blocks before started and retains captures (387.0767ms)
+✔ admission foreign scope producer blocks before started and retains captures (386.7235ms)
+✔ admission false health producer blocks before started and retains captures (380.8782ms)
+✔ final missing producer rejects and keeps real returned receipt/process (398.1541ms)
+✔ final wrong PID producer rejects and keeps real returned receipt/process (433.1356ms)
+✔ final too long probe producer rejects and keeps real returned receipt/process (375.487ms)
+✔ final old checkedAt producer rejects and keeps real returned receipt/process (397.8737ms)
+✔ final raw body flag producer rejects and keeps real returned receipt/process (393.6851ms)
+✔ PSD UTC7 dates normalize to ms while immutable raw record hash and multilevel health remain (119.6998ms)
+✔ producer raw schema/flags reject hidden body or legacy missing proof rather than relabel no raw (135.2136ms)
+✔ elapsed/spans and native PID window all enforce measured timing without five-second positive slack (125.3433ms)
+✔ scoped nine argv accepts only own derived path/id/root; original seven argv stays valid (140.1888ms)
+✔ prepare builtin bootstrap refuses closure drift before importing any release/protocol module (21.458ms)
+✔ admission returned facts survive producer/metadata rejection even if failure WAL also cannot persist (396.9339ms)
+✔ unknown nonzero error and native window/producer truth persist through two sanitizations (394.8751ms)
+✔ post-result/pending and owner double-WAL failures retain honest process/receipt/producer and ownership tri-state (747.0519ms)
+✔ runtime post-return producer read failure retains genuine returned receipt/native/status/attempts (129.9435ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6905.8568

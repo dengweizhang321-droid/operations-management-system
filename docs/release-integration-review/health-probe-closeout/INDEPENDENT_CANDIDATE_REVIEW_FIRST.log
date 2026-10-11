@@ -1,0 +1,232 @@
+TAP version 13
+# Subtest: producer flags and all unknown raw fields are rejected without private output
+ok 1 - producer flags and all unknown raw fields are rejected without private output
+  ---
+  duration_ms: 1.3316
+  type: 'test'
+  ...
+# Subtest: UTC ticks and repeated trace filtering are idempotent and do not rewrite raw proof hash
+ok 2 - UTC ticks and repeated trace filtering are idempotent and do not rewrite raw proof hash
+  ---
+  duration_ms: 2.0431
+  type: 'test'
+  ...
+# Subtest: unique PID and each exact authority identity are mandatory
+ok 3 - unique PID and each exact authority identity are mandatory
+  ---
+  duration_ms: 2.7142
+  type: 'test'
+  ...
+# Subtest: serial sum and complete observed interval must fit actual native elapsed
+ok 4 - serial sum and complete observed interval must fit actual native elapsed
+  ---
+  duration_ms: 0.6005
+  type: 'test'
+  ...
+# Subtest: producer facts cannot substitute different parsed Status health facts
+ok 5 - producer facts cannot substitute different parsed Status health facts
+  ---
+  duration_ms: 1.8557
+  type: 'test'
+  ...
+# Subtest: a successful model preserves all three unknowns and runs only the new independent ID
+not ok 6 - a successful model preserves all three unknowns and runs only the new independent ID
+  ---
+  duration_ms: 100.4287
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:68:1'
+  failureType: 'testCodeFailure'
+  error: 'sourceScriptRoot is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    makeDerivedOperation (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:21:28), <anonymous>:7:193)
+    fixture (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:66:15), <anonymous>:9:559)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:69:11)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.start (node:internal/test_runner/test:1191:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17)
+    run (node:internal/test_runner/harness:396:12)
+    test (node:internal/test_runner/harness:405:12)
+    file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:68:1
+  ...
+# Subtest: collector facts survive late binding rejection and failed failure-ledger append
+not ok 7 - collector facts survive late binding rejection and failed failure-ledger append
+  ---
+  duration_ms: 91.3712
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:71:1'
+  failureType: 'testCodeFailure'
+  error: 'sourceScriptRoot is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    makeDerivedOperation (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:21:28), <anonymous>:7:193)
+    fixture (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:66:15), <anonymous>:9:559)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:72:11)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3)
+  ...
+# Subtest: foreign head at the pending boundary keeps returned native and owner without foreign append
+not ok 8 - foreign head at the pending boundary keeps returned native and owner without foreign append
+  ---
+  duration_ms: 85.1542
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:74:1'
+  failureType: 'testCodeFailure'
+  error: 'sourceScriptRoot is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    makeDerivedOperation (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:21:28), <anonymous>:7:193)
+    fixture (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:66:15), <anonymous>:9:559)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:75:11)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: late owner ack rejection and second WAL loss preserve known physical absence honestly
+not ok 9 - late owner ack rejection and second WAL loss preserve known physical absence honestly
+  ---
+  duration_ms: 78.0921
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:77:1'
+  failureType: 'testCodeFailure'
+  error: 'sourceScriptRoot is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    makeDerivedOperation (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:21:28), <anonymous>:7:193)
+    fixture (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:66:15), <anonymous>:9:559)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:78:11)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: post-return reader failure preserves actual native/receipt/window through repeated sanitization
+not ok 10 - post-return reader failure preserves actual native/receipt/window through repeated sanitization
+  ---
+  duration_ms: 79.6454
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:80:1'
+  failureType: 'testCodeFailure'
+  error: 'sourceScriptRoot is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    makeDerivedOperation (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:21:28), <anonymous>:7:193)
+    fixture (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:66:15), <anonymous>:9:559)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:81:11)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: nonzero native evidence and side trace never become successful stdout parse
+not ok 11 - nonzero native evidence and side trace never become successful stdout parse
+  ---
+  duration_ms: 78.678
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:83:1'
+  failureType: 'testCodeFailure'
+  error: 'sourceScriptRoot is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    makeDerivedOperation (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:21:28), <anonymous>:7:193)
+    fixture (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:66:15), <anonymous>:9:559)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:84:11)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: original seven args and new nine args accept only the fixed readonly identity
+not ok 12 - original seven args and new nine args accept only the fixed readonly identity
+  ---
+  duration_ms: 5.9627
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:87:1'
+  failureType: 'testCodeFailure'
+  error: 'sourceScriptRoot is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    makeDerivedOperation (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:21:28), <anonymous>:7:193)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:90:58)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.start (node:internal/test_runner/test:1191:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17)
+    run (node:internal/test_runner/harness:396:12)
+    test (node:internal/test_runner/harness:405:12)
+    file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:87:1
+  ...
+# Subtest: even last old closure drift rejects prepare before a single dynamic import
+ok 13 - even last old closure drift rejects prepare before a single dynamic import
+  ---
+  duration_ms: 35.112
+  type: 'test'
+  ...
+# Subtest: prepare verifies every declared old file and each new executable before import
+ok 14 - prepare verifies every declared old file and each new executable before import
+  ---
+  duration_ms: 78.6454
+  type: 'test'
+  ...
+# Subtest: exact owner source really unlinks private file only after matching CAS and confirms ENOENT
+not ok 15 - exact owner source really unlinks private file only after matching CAS and confirms ENOENT
+  ---
+  duration_ms: 73.5338
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:115:1'
+  failureType: 'testCodeFailure'
+  error: 'sourceScriptRoot is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    makeDerivedOperation (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:21:28), <anonymous>:7:193)
+    fixture (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:66:15), <anonymous>:9:559)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:116:11)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# {"privateWriterLeaf":true,"pid":71996,"exitCode":0,"ownPidAbsent":true,"writeFault":false,"returned":"Running","caught":false,"noControlMain":true,"noHealthHttp":true}
+# Subtest: real PS writer finally creates one flushed bounded trace and never saves synthetic raw fields
+ok 16 - real PS writer finally creates one flushed bounded trace and never saves synthetic raw fields
+  ---
+  duration_ms: 754.3557
+  type: 'test'
+  ...
+# {"privateWriterLeaf":true,"pid":11472,"exitCode":0,"ownPidAbsent":true,"writeFault":true,"returned":null,"caught":true,"noControlMain":true,"noHealthHttp":true}
+# Subtest: real PS finally write failure blocks returned Running and creates no fake success trace
+ok 17 - real PS finally write failure blocks returned Running and creates no fake success trace
+  ---
+  duration_ms: 519.7105
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 9
+# fail 8
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2725.9969

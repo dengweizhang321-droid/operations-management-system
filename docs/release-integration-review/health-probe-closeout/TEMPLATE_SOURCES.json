@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "name": "protocol.mjs",
+      "originalPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-final-readiness-20261011-verified-final\\protocol.mjs",
+      "originalSha256": "23a390da164b26801d9f8ddb12a7bec73ba3a4242225b3561b2d3a33812ed266"
+    },
+    {
+      "name": "runtime.mjs",
+      "originalPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-final-readiness-20261011-verified-final\\runtime.mjs",
+      "originalSha256": "e765dcd0aeaf29cdde75090bb1358ba6be74eb5d1551d8a9327257add53e155f"
+    },
+    {
+      "name": "execute.mjs",
+      "originalPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-final-readiness-20261011-verified-final\\execute.mjs",
+      "originalSha256": "1a0867c0e1b96b5515a69322f18b8f7863118f896b31c3359c9b7bd916beef94"
+    },
+    {
+      "name": "prepare.mjs",
+      "originalPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-final-readiness-20261011-verified-final\\prepare.mjs",
+      "originalSha256": "7254587f79705f994cb82ffb059f0f5cbdcffd99a9d1eda3b13ae87852296a16"
+    },
+    {
+      "name": "status-evidence.mjs",
+      "originalPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-final-readiness-20261011-verified-final\\status-evidence.mjs",
+      "originalSha256": "750827647fcc2c17171f239c687da1e49c832dd967aa591e2b4f5b9923b8a68b"
+    },
+    {
+      "name": "copy-legacy.mjs",
+      "originalPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-final-readiness-20261011-verified-final\\copy-legacy.mjs",
+      "originalSha256": "fd727260fc27b4e351ac46d8bf7d138e0f058c0b6a922682d3ed68d4bdad884d"
+    },
+    {
+      "name": "legacy/release-readonly-retry.mjs",
+      "originalPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-final-readiness-20261011-verified-final\\legacy\\release-readonly-retry.mjs",
+      "originalSha256": "529f8c6eab2b29c66fd6f1496f4743b7b789bc90684e9536e16bb51b7ffb00b2"
+    },
+    {
+      "name": "legacy/release-batch.mjs",
+      "originalPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-final-readiness-20261011-verified-final\\legacy\\release-batch.mjs",
+      "originalSha256": "8f87aefdecb09700b672b00a5a54a3a217f586a7e8d78833d171d65fdb308f16"
+    },
+    {
+      "name": "legacy/release-batch-admission.mjs",
+      "originalPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-final-readiness-20261011-verified-final\\legacy\\release-batch-admission.mjs",
+      "originalSha256": "a55b143d353acf00709b55d00caac91a0298ac8c9fa979c054cabd638e9e9db4"
+    },
+    {
+      "name": "legacy/collector.mjs",
+      "originalPath": "E:\\codex-artifacts\\release-integration-review-20261010\\AB-final-readiness-20261011-verified-final\\legacy\\collector.mjs",
+      "originalSha256": "fc22fc4eff13205044764d7434c16fcbcf9bad10f254fbc465fc9564b14eae41"
+    }
+  ],
+  "productionExecuted": false
+}

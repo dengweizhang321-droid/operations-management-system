@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "reviewedControllerSha256": "37d329c1a9e5a06f5d04ffd2d73be415d327f1e9c5d66957197a189bd9c09529",
+  "reviewedRetrySha256": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6",
+  "derivedControllerSha256": "c33d9848887b076e8ad3b3b44cf656f67263025d772639179b1539bf84293524",
+  "producerFunctionsSha256": "13837a8165eb12e0437a911ae49e9d1dd5613d7d5d1babf0405ad872a648d07a",
+  "originalSourcePath": "D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\tools\\operations-system-control.ps1",
+  "allowedChanges": [
+    "mandatory literal SourceScriptRoot and Status+Json only guard",
+    "two root dependencies remapped to original literal tools",
+    "rename original health function once and wrapper finally safe trace",
+    "read-only trace context before Status dispatch"
+  ],
+  "originalStandardHealthFunctionBytesUnchanged": true,
+  "productionExecuted": false
+}

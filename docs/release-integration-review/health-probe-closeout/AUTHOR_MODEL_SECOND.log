@@ -1,0 +1,50 @@
+✔ limited derived/controller legacy transformations reproduce from exact independently reviewed bytes (14.4867ms)
+✔ 102 model preserves three original unknowns, no20/source88 replay and true physical owner-close order (536.7822ms)
+✔ admission missing producer blocks before started and retains captures (393.3487ms)
+✔ admission wrong PID producer blocks before started and retains captures (424.3923ms)
+✔ admission duplicate producer blocks before started and retains captures (402.4351ms)
+✔ admission foreign scope producer blocks before started and retains captures (367.6178ms)
+✔ admission false health producer blocks before started and retains captures (363.7847ms)
+✔ final missing producer rejects and keeps real returned receipt/process (365.6527ms)
+✔ final wrong PID producer rejects and keeps real returned receipt/process (399.8115ms)
+✔ final too long probe producer rejects and keeps real returned receipt/process (356.6462ms)
+✔ final old checkedAt producer rejects and keeps real returned receipt/process (373.7886ms)
+✔ final raw body flag producer rejects and keeps real returned receipt/process (366.0474ms)
+✔ PSD UTC7 dates normalize to ms while immutable raw record hash and multilevel health remain (126.4558ms)
+✔ producer raw schema/flags reject hidden body or legacy missing proof rather than relabel no raw (115.2267ms)
+✔ elapsed/spans and native PID window all enforce measured timing without five-second positive slack (140.5963ms)
+✖ scoped nine argv accepts only own derived path/id/root; original seven argv stays valid (126.7508ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 15
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5194.7506
+
+✖ failing tests:
+
+test at docs\release-integration-review\health-probe-closeout\protocol.test.mjs:47:1
+✖ scoped nine argv accepts only own derived path/id/root; original seven argv stays valid (126.7508ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'D:\\.codex\\worktrees\\release-health-probe-contract\\%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F\\docs\\release-integration-review\\health-probe-closeout\\readonly-control.ps1'
+  - 'E:\\codex-artifacts\\release-integration-review-20261010\\AB-health-probe-20261011-synthetic-fixture\\readonly-control.ps1'
+  
+      at makeDerivedOperation (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/health-contract.mjs:9:10)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/protocol.test.mjs:47:163)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'D:\\.codex\\worktrees\\release-health-probe-contract\\%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F\\docs\\release-integration-review\\health-probe-closeout\\readonly-control.ps1',
+    expected: 'E:\\codex-artifacts\\release-integration-review-20261010\\AB-health-probe-20261011-synthetic-fixture\\readonly-control.ps1',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,174 @@
+{
+  "version": "teruisi-health-probe-closeout-independent-candidate-review-v1",
+  "independent": true,
+  "reviewer": "/root/preparation_review",
+  "author": "/root/combined_independent_review",
+  "acceptedHealthProbeCandidate": true,
+  "productionExecutionApproved": false,
+  "productionExecuted": false,
+  "blockingFindings": [],
+  "apiSha256": "7c8bc128e328dff2e3ab7e32b4d26af91b84596b46455a1baeb70634f6ee05ce",
+  "callerSha256": "991f481e36ba18612f28f971712634e44d4b6308eec56fd00b1acc4617471f71",
+  "runtimeSha256": "281795c3082fffd4a3a5869c39e92f2937321615fb86dbd643306b2f230d75b8",
+  "sealerSha256": "85f8133fb2d517d82ac58618545bdae07b678da9880cdd7d79df3ede759ffdc2",
+  "statusEvidenceSha256": "57402b5d0f7fcfa4ffe945aedb16147c9ed61dd32bec2345a82b073e78c27d21",
+  "derivedControllerSha256": "c33d9848887b076e8ad3b3b44cf656f67263025d772639179b1539bf84293524",
+  "producerEvidenceSha256": "0063580a0f9940e8c77335f21c9773d6baa380d351994df139148b444993b376",
+  "healthContractSha256": "53bd6c9d47f3cc8c5cda96157624f79c7e0d19495174057a44eafaf915ad1ecc",
+  "derivationSha256": "fc7079bdf79475d9398f6e47d88b22fa3477e55e5d5be27d033912efd5137614",
+  "legacyGeneratorSha256": "e35e888190fa53acc2016a6eeef6d5a7326fc7f3ea9ecbbc79c9c428a54097c6",
+  "producerFunctionsSha256": "13837a8165eb12e0437a911ae49e9d1dd5613d7d5d1babf0405ad872a648d07a",
+  "legacySha256": {
+    "release-readonly-retry.mjs": "c72a5be90c2ae76d9fd28889170f53895636e6a3571e35b258e053357347bc79",
+    "release-batch.mjs": "21a021b5e7ac441fddd3013a7fb337dbace8ce19218feb28a0d575760d72e349",
+    "release-batch-admission.mjs": "3f39b9abf7acfeaed4eb1d15c8c04f2cf0f770cac95afe2fdb2d128221abd28d",
+    "collector.mjs": "fc22fc4eff13205044764d7434c16fcbcf9bad10f254fbc465fc9564b14eae41"
+  },
+  "standardControlSha256": "37d329c1a9e5a06f5d04ffd2d73be415d327f1e9c5d66957197a189bd9c09529",
+  "standardRetrySha256": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6",
+  "base": {
+    "records": 102,
+    "head": "ceb8ee2a73a3140ae427adc06ebf373eee785360b36a7a3b27f6d7da0a384e7c",
+    "unknownsPreserved": [
+      "full-postgresql-deep-comparison",
+      "exact-final-readiness",
+      "diagnostic-final-readiness-supplement"
+    ],
+    "originalStrictEquality": false,
+    "original20Replay": false,
+    "source88Reappend": false,
+    "CAdopted": false,
+    "noDataPolicyAdopted": false
+  },
+  "independentEvidence": {
+    "uniqueCoveredCases": 17,
+    "finalPureAndPrivateOwner": {
+      "passed": 15,
+      "failed": 0,
+      "startedAt": "2026-10-11T00:02:53.302Z",
+      "finishedAt": "2026-10-11T00:02:56.162Z",
+      "elapsedMs": 2860.0019,
+      "logSha256": "287a7d8f216b83683d8b9b42af8197f43f0525d456cf05b02dbc453e9ce1316a",
+      "metadataSha256": "6e490db7087fa00d34102f20fe720742a6d6a0eb1830bd751828fcd93413ab98",
+      "sourceBefore": {
+        "protocol.mjs": "7c8bc128e328dff2e3ab7e32b4d26af91b84596b46455a1baeb70634f6ee05ce",
+        "runtime.mjs": "281795c3082fffd4a3a5869c39e92f2937321615fb86dbd643306b2f230d75b8",
+        "execute.mjs": "991f481e36ba18612f28f971712634e44d4b6308eec56fd00b1acc4617471f71",
+        "prepare.mjs": "85f8133fb2d517d82ac58618545bdae07b678da9880cdd7d79df3ede759ffdc2",
+        "status-evidence.mjs": "57402b5d0f7fcfa4ffe945aedb16147c9ed61dd32bec2345a82b073e78c27d21",
+        "readonly-control.ps1": "c33d9848887b076e8ad3b3b44cf656f67263025d772639179b1539bf84293524",
+        "producer-evidence.mjs": "0063580a0f9940e8c77335f21c9773d6baa380d351994df139148b444993b376",
+        "health-contract.mjs": "53bd6c9d47f3cc8c5cda96157624f79c7e0d19495174057a44eafaf915ad1ecc",
+        "derive-control.mjs": "fc7079bdf79475d9398f6e47d88b22fa3477e55e5d5be27d033912efd5137614",
+        "copy-legacy.mjs": "e35e888190fa53acc2016a6eeef6d5a7326fc7f3ea9ecbbc79c9c428a54097c6",
+        "producer-functions.ps1": "13837a8165eb12e0437a911ae49e9d1dd5613d7d5d1babf0405ad872a648d07a",
+        "legacy/release-readonly-retry.mjs": "c72a5be90c2ae76d9fd28889170f53895636e6a3571e35b258e053357347bc79",
+        "legacy/release-batch.mjs": "21a021b5e7ac441fddd3013a7fb337dbace8ce19218feb28a0d575760d72e349",
+        "legacy/release-batch-admission.mjs": "3f39b9abf7acfeaed4eb1d15c8c04f2cf0f770cac95afe2fdb2d128221abd28d",
+        "legacy/collector.mjs": "fc22fc4eff13205044764d7434c16fcbcf9bad10f254fbc465fc9564b14eae41",
+        "INDEPENDENT_CANDIDATE_REVIEW.test.mjs": "d20397eb9d9cd33552c6dd9c0b9196122d5b958daf178e10663702e74db25a09"
+      },
+      "sourceAfter": {
+        "protocol.mjs": "7c8bc128e328dff2e3ab7e32b4d26af91b84596b46455a1baeb70634f6ee05ce",
+        "runtime.mjs": "281795c3082fffd4a3a5869c39e92f2937321615fb86dbd643306b2f230d75b8",
+        "execute.mjs": "991f481e36ba18612f28f971712634e44d4b6308eec56fd00b1acc4617471f71",
+        "prepare.mjs": "85f8133fb2d517d82ac58618545bdae07b678da9880cdd7d79df3ede759ffdc2",
+        "status-evidence.mjs": "57402b5d0f7fcfa4ffe945aedb16147c9ed61dd32bec2345a82b073e78c27d21",
+        "readonly-control.ps1": "c33d9848887b076e8ad3b3b44cf656f67263025d772639179b1539bf84293524",
+        "producer-evidence.mjs": "0063580a0f9940e8c77335f21c9773d6baa380d351994df139148b444993b376",
+        "health-contract.mjs": "53bd6c9d47f3cc8c5cda96157624f79c7e0d19495174057a44eafaf915ad1ecc",
+        "derive-control.mjs": "fc7079bdf79475d9398f6e47d88b22fa3477e55e5d5be27d033912efd5137614",
+        "copy-legacy.mjs": "e35e888190fa53acc2016a6eeef6d5a7326fc7f3ea9ecbbc79c9c428a54097c6",
+        "producer-functions.ps1": "13837a8165eb12e0437a911ae49e9d1dd5613d7d5d1babf0405ad872a648d07a",
+        "legacy/release-readonly-retry.mjs": "c72a5be90c2ae76d9fd28889170f53895636e6a3571e35b258e053357347bc79",
+        "legacy/release-batch.mjs": "21a021b5e7ac441fddd3013a7fb337dbace8ce19218feb28a0d575760d72e349",
+        "legacy/release-batch-admission.mjs": "3f39b9abf7acfeaed4eb1d15c8c04f2cf0f770cac95afe2fdb2d128221abd28d",
+        "legacy/collector.mjs": "fc22fc4eff13205044764d7434c16fcbcf9bad10f254fbc465fc9564b14eae41",
+        "INDEPENDENT_CANDIDATE_REVIEW.test.mjs": "d20397eb9d9cd33552c6dd9c0b9196122d5b958daf178e10663702e74db25a09"
+      }
+    },
+    "firstNativeWriterLeaves": {
+      "passed": 2,
+      "notRepeated": true,
+      "leafFacts": [
+        {
+          "privateWriterLeaf": true,
+          "pid": 71996,
+          "exitCode": 0,
+          "ownPidAbsent": true,
+          "writeFault": false,
+          "returned": "Running",
+          "caught": false,
+          "noControlMain": true,
+          "noHealthHttp": true
+        },
+        {
+          "privateWriterLeaf": true,
+          "pid": 11472,
+          "exitCode": 0,
+          "ownPidAbsent": true,
+          "writeFault": true,
+          "returned": null,
+          "caught": true,
+          "noControlMain": true,
+          "noHealthHttp": true
+        }
+      ],
+      "logSha256": "2528805ae17af28d4ad5ec1192279a7e5863157a64faf69a3328dc1c1aa83e0d",
+      "metadataSha256": "b4f0f74e552554467a3c2d092270d82e5a6e4a9167fa1148f709f2b428c27672",
+      "scope": "Actual private PS writer/finally only; synthetic context/health, no production authority or HTTP. Real PIDs exited and observed ESRCH."
+    },
+    "firstAndFixedFailureLogsPreserved": true,
+    "fixtureCorrections": [
+      "sourceScriptRoot constant missing from independent extracted function",
+      "Imported safeNativeWindow and exported protocol constants missing from independent extraction"
+    ],
+    "failedCasesBeforeCorrectionNotClaimedAsTargetValidation": true,
+    "authorFixtureUsedOnlyAsModelDataGenerator": true,
+    "authorTestCallbacksNotRun": true,
+    "productionModuleImports": 0,
+    "productionCalls": 0,
+    "largeDumpOr4771HashRepeated": false,
+    "privateOwnerPhysicalUnlinkAndENOENTVerified": true,
+    "foreignCASPreventsPrivateUnlink": true
+  },
+  "authorEvidence": {
+    "modelPassed": 21,
+    "modelLogSha256": "596769e112e12d07329efb9cc02069999d57dd22fea3371cd125668f212aa583",
+    "nativePassed": 2,
+    "nativeLogSha256": "5558ca050a2263e1df54bcf8ff9295fc4c3b7cdba2b7754124638ae6837835a5",
+    "nativePids": [
+      65696,
+      43096
+    ],
+    "countsAndRawLogHashesChecked": true,
+    "notSummedWithIndependentOverlappingCases": true
+  },
+  "resolvedBoundaries": [
+    "Admission and final require unique producer matching actual Status PID/scope/self/raw authority/health facts",
+    "Serial probe sum and complete health span fit actual native elapsed plus only 5ms resolution; per-invoke recorded window, no old5s positive slack",
+    "Builtin-only sealer streams entire old4771 and new executable closure before nonbuiltin imports; last-pin drift test caused zero loads",
+    "Returned current/result/native/receipt/window retained when producer/status reread, binding, WAL, CAS or owner metadata fails",
+    "Original 3 unknowns and source88 remain; original20 never replayed; pending necessaryClosed=false then typed owner ack+physical ENOENT then completed=true",
+    "Raw producer unknown keys/flags rejected, rather than dropped and falsely declared no raw",
+    "Derived Status+Json only, exact SourceScriptRoot and nine-argument/id/self-path recognizer; original seven-argument branch retained"
+  ],
+  "mechanicalVerification": {
+    "derivedBytesMatchReviewed37d3": true,
+    "originalStandardHealthFunctionBodyUnchanged": true,
+    "legacyFourCopiesReproduceExactOldF4E9Transforms": true,
+    "donorCommit": "fc84d723a8aca3b822f45ad3a7229cce8c58e112",
+    "legacyManifestSha256": "1112f185e72ed632d2863bdbc5ddf07c9fd15e5dc2182facad9eeb9dda8fb69f",
+    "derivedManifestSha256": "f5aad3190c5e1737e7d9dd1a59d7d80dea76ddb77b860e593a9cb7536874b953",
+    "copyGeneratorMetadataOnlyDeltaAfterFirstNative": true,
+    "readOnlyVerifierDidNotRunStatusOrWriteCopies": true
+  },
+  "limitations": [
+    "Source candidate accepted; physical sealed scope and source commit still require later independent review. No new production approval/execution exists.",
+    "Existing Status observation-attempt may pass original assertions while the stronger producer/measured-budget contract rejects admission or final acceptance; not all observation passed records mean new contract accepted.",
+    "Nonzero native stdout is unavailable after old transport cleanup. Only actual native proof/stdout SHA plus validated side producer trace may be reported; no fabricated stdout parse, no trace for killed/incomplete finally.",
+    "Independent native tests cover writer/finally semantics, not full ControlMain/production. Author private random loopback AST tests cover real health budgets. Neither proves actual1cae failure cause.",
+    "Actual artifact must match producer fixed AB-health-probe-20261011-* root. Full frozen physical review will check exact root/pins/102 bytes/owner and absence of new approval/output.",
+    "No release-minute performance claim; fixture timings are not production rollout times."
+  ]
+}

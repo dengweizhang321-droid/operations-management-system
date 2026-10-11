@@ -1,0 +1,30 @@
+node:internal/fs/promises:640
+  return new FileHandle(await PromisePrototypeThen(
+                        ^
+
+Error: ENOENT: no such file or directory, open 'E:\codex-artifacts\release-integration-review-20261010\AB-final-readiness-20261011-verified-final\final-tail-scope.json'
+    at async open (node:internal/fs/promises:640:25)
+    at async readFile (node:internal/fs/promises:1290:14)
+    at async file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/protocol.test.mjs:18:265 {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'E:\\codex-artifacts\\release-integration-review-20261010\\AB-final-readiness-20261011-verified-final\\final-tail-scope.json'
+}
+
+Node.js v24.18.0
+✖ docs\release-integration-review\health-probe-closeout\protocol.test.mjs (111.3297ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 122.3214
+
+✖ failing tests:
+
+test at docs\release-integration-review\health-probe-closeout\protocol.test.mjs:1:1
+✖ docs\release-integration-review\health-probe-closeout\protocol.test.mjs (111.3297ms)
+  'test failed'

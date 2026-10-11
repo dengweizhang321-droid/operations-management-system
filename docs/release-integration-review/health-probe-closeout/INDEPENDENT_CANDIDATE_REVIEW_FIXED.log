@@ -1,0 +1,198 @@
+TAP version 13
+# Subtest: producer flags and all unknown raw fields are rejected without private output
+ok 1 - producer flags and all unknown raw fields are rejected without private output
+  ---
+  duration_ms: 1.3882
+  type: 'test'
+  ...
+# Subtest: UTC ticks and repeated trace filtering are idempotent and do not rewrite raw proof hash
+ok 2 - UTC ticks and repeated trace filtering are idempotent and do not rewrite raw proof hash
+  ---
+  duration_ms: 1.6899
+  type: 'test'
+  ...
+# Subtest: unique PID and each exact authority identity are mandatory
+ok 3 - unique PID and each exact authority identity are mandatory
+  ---
+  duration_ms: 2.6611
+  type: 'test'
+  ...
+# Subtest: serial sum and complete observed interval must fit actual native elapsed
+ok 4 - serial sum and complete observed interval must fit actual native elapsed
+  ---
+  duration_ms: 0.5688
+  type: 'test'
+  ...
+# Subtest: producer facts cannot substitute different parsed Status health facts
+ok 5 - producer facts cannot substitute different parsed Status health facts
+  ---
+  duration_ms: 1.7352
+  type: 'test'
+  ...
+# Subtest: a successful model preserves all three unknowns and runs only the new independent ID
+not ok 6 - a successful model preserves all three unknowns and runs only the new independent ID
+  ---
+  duration_ms: 289.7919
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:68:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + undefined
+    - 'bf82070e60d613a169a059af7374dc3bca43862264b4f222c10e9c6d7412421b'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'bf82070e60d613a169a059af7374dc3bca43862264b4f222c10e9c6d7412421b'
+  operator: 'strictEqual'
+  stack: |-
+    Object.validateFinalReadiness (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:28:9), <anonymous>:99:115)
+    Object.execute (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:66:15), <anonymous>:19:198)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:69:58)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.start (node:internal/test_runner/test:1191:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17)
+    run (node:internal/test_runner/harness:396:12)
+    test (node:internal/test_runner/harness:405:12)
+    file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:68:1
+  ...
+# Subtest: collector facts survive late binding rejection and failed failure-ledger append
+not ok 7 - collector facts survive late binding rejection and failed failure-ledger append
+  ---
+  duration_ms: 264.6091
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:71:1'
+  failureType: 'testCodeFailure'
+  error: 'safeNativeWindow is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    Object.safeFailure (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:28:9), <anonymous>:67:888)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:72:578)
+    async Test.run (node:internal/test_runner/test:1332:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: foreign head at the pending boundary keeps returned native and owner without foreign append
+not ok 8 - foreign head at the pending boundary keeps returned native and owner without foreign append
+  ---
+  duration_ms: 237.3082
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:74:1'
+  failureType: 'testCodeFailure'
+  error: 'safeNativeWindow is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    Object.safeFailure (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:28:9), <anonymous>:67:888)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:75:278)
+    async Test.run (node:internal/test_runner/test:1332:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: late owner ack rejection and second WAL loss preserve known physical absence honestly
+not ok 9 - late owner ack rejection and second WAL loss preserve known physical absence honestly
+  ---
+  duration_ms: 256.3559
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:77:1'
+  failureType: 'testCodeFailure'
+  error: 'safeNativeWindow is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    Object.safeFailure (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:28:9), <anonymous>:67:888)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:78:297)
+    async Test.run (node:internal/test_runner/test:1332:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: post-return reader failure preserves actual native/receipt/window through repeated sanitization
+not ok 10 - post-return reader failure preserves actual native/receipt/window through repeated sanitization
+  ---
+  duration_ms: 135.0476
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:80:1'
+  failureType: 'testCodeFailure'
+  error: 'safeNativeWindow is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    Object.safeFailure (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:28:9), <anonymous>:67:888)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:81:285)
+    async Test.run (node:internal/test_runner/test:1332:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: nonzero native evidence and side trace never become successful stdout parse
+not ok 11 - nonzero native evidence and side trace never become successful stdout parse
+  ---
+  duration_ms: 138.2526
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:83:1'
+  failureType: 'testCodeFailure'
+  error: 'safeNativeWindow is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    Object.safeFailure (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:28:9), <anonymous>:67:888)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:84:49)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+    Test.postRun (node:internal/test_runner/test:1465:19)
+    Test.run (node:internal/test_runner/test:1390:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: original seven args and new nine args accept only the fixed readonly identity
+ok 12 - original seven args and new nine args accept only the fixed readonly identity
+  ---
+  duration_ms: 23.0133
+  type: 'test'
+  ...
+# Subtest: even last old closure drift rejects prepare before a single dynamic import
+ok 13 - even last old closure drift rejects prepare before a single dynamic import
+  ---
+  duration_ms: 31.5173
+  type: 'test'
+  ...
+# Subtest: prepare verifies every declared old file and each new executable before import
+ok 14 - prepare verifies every declared old file and each new executable before import
+  ---
+  duration_ms: 65.4988
+  type: 'test'
+  ...
+# Subtest: exact owner source really unlinks private file only after matching CAS and confirms ENOENT
+not ok 15 - exact owner source really unlinks private file only after matching CAS and confirms ENOENT
+  ---
+  duration_ms: 265.5982
+  type: 'test'
+  location: 'D:\\.codex\\worktrees\\release-health-probe-contract\\运营管理系统\\docs\\release-integration-review\\health-probe-closeout\\INDEPENDENT_CANDIDATE_REVIEW.test.mjs:115:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + undefined
+    - 'bf82070e60d613a169a059af7374dc3bca43862264b4f222c10e9c6d7412421b'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'bf82070e60d613a169a059af7374dc3bca43862264b4f222c10e9c6d7412421b'
+  operator: 'strictEqual'
+  stack: |-
+    Object.validateFinalReadiness (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:28:9), <anonymous>:99:115)
+    Object.execute (eval at <anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:66:15), <anonymous>:19:198)
+    TestContext.<anonymous> (file:///D:/.codex/worktrees/release-health-probe-contract/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/health-probe-closeout/INDEPENDENT_CANDIDATE_REVIEW.test.mjs:116:206)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1325:25)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+1..15
+# tests 15
+# suites 0
+# pass 8
+# fail 7
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2073.6537

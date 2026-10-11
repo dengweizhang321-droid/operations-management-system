@@ -1,0 +1,12 @@
+{"privateFixture":true,"mode":"healthy","pid":65696,"exitCode":0,"elapsedMs":4439,"childExitIndependentlyObserved":true,"networkRequests":3,"formalNetworkRequests":0,"functionReturned":true,"readyElapsedMs":3505.344,"traceRawSha256":"342d42b789a3c1ea45c99d3d8da6c0cf6b81c37d594b52316c54db2af4ba48e2","failedStdoutParsed":false}
+✔ actual PS5 3.5s ready response yields strict measured producer proof with own exited PID (4469.9236ms)
+{"privateFixture":true,"mode":"late","pid":43096,"exitCode":7,"elapsedMs":4422,"childExitIndependentlyObserved":true,"networkRequests":3,"formalNetworkRequests":0,"functionReturned":false,"readyElapsedMs":3508.109,"traceRawSha256":"0643d62de329708996c5edf19cf4f999211f4f1989378034f6b05ef636b1ef74","failedStdoutParsed":false}
+✔ actual PS5 nonzero after health final deadline still yields bounded producer trace; lost stdout is not parsed (4436.3136ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9038.9747
