@@ -1,0 +1,53 @@
+✖ candidate imports must occur only after builtin closure/binding validation (2.819ms)
+✖ stale assertion after actual collector return must preserve known stages/attempts on the thrown error (3.5595ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 109.9295
+
+✖ failing tests:
+
+test at docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-first.test.mjs:30:1
+✖ candidate imports must occur only after builtin closure/binding validation (2.819ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  4 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-c-final-independent-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/c-targeted-independent-20261011/fresh-entry-independent-first.test.mjs:31:33)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 4,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-first.test.mjs:33:1
+✖ stale assertion after actual collector return must preserve known stages/attempts on the thrown error (3.5595ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - [
+  -   {
+  -     durationMs: 42,
+  -     stage: 'complete-status'
+  -   }
+  - ]
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-c-final-independent-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/c-targeted-independent-20261011/fresh-entry-independent-first.test.mjs:36:9)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [ { stage: 'complete-status', durationMs: 42 } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

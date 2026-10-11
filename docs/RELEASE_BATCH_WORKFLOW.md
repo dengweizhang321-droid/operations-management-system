@@ -83,6 +83,14 @@ node tools/release-batch.mjs status '<同一 batch.json>' '<同一 SHA>'
 
 所有原任务验收与收尾操作都通过后，才写 completed 并释放所有权。后备份失败不能先宣布发布全部完成。回滚是批次的受控异常方案，仍调用原 rollback／兼容发布／另行批准的恢复入口，不自动重放 apply 或业务写入。
 
+## v4 首次工具采用的单次恢复范围
+
+显式选择 `teruisi-release-batch-v4` 才启用 `teruisi-first-adoption-targeted-v1`。默认仍为 v3；已批准 v2/v3 的 full 四阶段、reuse 和 not-required 不重解释。v4 保持严格分类，必须满足完整 tools-no-migration 双 Django 原始清单／库存及 Worker 精确十工具字节闭包；原 PG 操作器、业务、配置、迁移和依赖保持。人工布尔、删减步骤或重算 batch 摘要不能取得资格。
+
+本范围恰一次发布前 Backup、一次新已安装工具 RestoreRehearsal。顺序为前备份 → 原维护／停止 → Worker apply → Django DeployApp → HardenAcl → 新 installed 保留工具只读规划消费 → 同点隔离恢复 → ExitMaintenance → Start → 原完整验收／收尾。恢复必须绑定前 Backup 的真实 backupId、manifest、dump、内容，并通过原 profile、sequence、未触及生产库及隔离清理断言。
+
+固定内置 `recovery-consumer` 调用原已安装 release-payload-retention.mjs 无参数入口，前后核部署工具和新链，检查原返回结构，WAL 保存实际 head/chain。它不执行删除；原 Restore 本身不调用该规划器。失败／未知仍保留原 owner、WAL 和维护门禁，不自动回放或换回不兼容解析器。完整边界见[本次方案](release-first-adoption-targeted-20261011/DESIGN.md)。
+
 ## 计时口径
 
 从用户明确“上线”的实际时间开始记录总等待，包含排队、现场复验、阶段间等待、备份、恢复、切换、验收、业务执行及收尾。准备前移单独报告，不从原记录中删掉。每阶段记录执行耗时和等待原因；失败／续接仍保留最早批准时间。`switchSpanMs` 是该批切换操作跨度，不能冒充 HTTP 精确停服；真实不可用窗口需另做请求可用性采样。

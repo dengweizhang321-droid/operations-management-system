@@ -1,0 +1,516 @@
+diff --git a/tools/release-batch-admission.mjs b/tools/release-batch-admission.mjs
+index f7a2cbc..d946196 100644
+--- a/tools/release-batch-admission.mjs
++++ b/tools/release-batch-admission.mjs
+@@ -1,19 +1,19 @@
+ // Read-only production admission and recovery-evidence producer. No credentials
+ // are handled here: database access stays inside the installed original operator.
+ import path from 'node:path';
+ import { readdir,lstat } from 'node:fs/promises';
+ import { randomUUID } from 'node:crypto';
+ import { fileURLToPath } from 'node:url';
+-import { safeRead, safeFileDigest, hash, canonical, readSourceTree, sourceInventory, sourceTreeDigest, requireHash, validateToolsNoMigrationScope } from './release-impact.mjs';
++import { safeRead, safeFileDigest, hash, canonical, readSourceTree, sourceInventory, sourceTreeDigest, requireHash, validateToolsNoMigrationScope, targetedBatchVersion } from './release-impact.mjs';
+ import { verifyBatch, writeOnce, journalState, productionCommandArguments, productionCommandEnvironment } from './release-batch.mjs';
+ import { resolveEffectiveReleaseChain } from './worker-local-release-rotation.mjs';
+ import { workerPreparationIdentity, workerRuntimeRoot, workerSourceRootForBatch, validateWorkerSourceBinding, verifyBoundWorkerSource, assertWorkerSourceBindingTuple, verifyPreparedWorkerCandidate, verifyWorkerReleaseProcessState, runProcess, assertNoReparsePoint } from './worker-local-release.mjs';
+ import { readScheduledBackupStatus } from './release-daily-backup.mjs';
+ import { admissionTimer } from './release-admission-timing.mjs';
+ import { retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness } from './release-readonly-retry.mjs';
+ 
+ const djangoRoot='D:\\teruisi-runtime\\django-sales';
+ const maintenance=path.join(djangoRoot,'app','tools','django-postgres-maintenance.ps1');
+ const shell='C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+ const archiveRoot='E:\\运营管理系统业务数据';
+ export async function runReadOnlyPowerShell(script,args,label,probeOptions) {
+@@ -84,25 +84,25 @@ export async function makeRecoveryEvidence(backupDirectory,restorePath) {
+   return evidence;
+ }
+ 
+ export function requiresCompleteAdmission(phase,step) {
+   return ['admission','drain','closeout'].includes(phase) || (phase==='switch' && (!step || ['worker-apply','StartWorker'].includes(step)));
+ }
+ export function requiresCompleteArtifact(phase,step) {
+   return ['admission','drain','closeout'].includes(phase)||(phase==='switch'&&(!step||step==='worker-apply'));
+ }
+ export async function collectBatchRecovery(batch, collect=collectRecoveryCurrent) {
+   // A v3 not-required decision does not query daily scheduling, a restore
+   // point, archive retention, or 26-hour/7-day reuse eligibility.
+-  if(batch.recovery.mode==='not-required'||batch.recovery.mode==='full')return null;
++  if(batch.recovery.mode==='not-required'||batch.recovery.mode==='full'||batch.recovery.mode==='targeted-first-adoption')return null;
+   if(batch.recovery.mode!=='reuse')throw new Error('Unknown recovery policy');
+   return collect(batch.recoveryEvidence);
+ }
+ export async function readToolsScopeApplication(root) {
+   await assertNoReparsePoint(root,{label:'migration closure application root'});
+   const manifestRaw=(await safeRead(path.join(root,'deployment.json'))).toString('utf8'),inventory=Object.create(null);
+   async function walk(directory,prefix='') {
+     for(const entry of await readdir(directory,{withFileTypes:true})) {
+       const relative=prefix+entry.name,target=path.join(directory,entry.name);
+       if(['__pycache__','.pytest_cache','.mypy_cache'].includes(entry.name.toLowerCase())||/\.py[co]$/i.test(entry.name)||relative.toLowerCase()==='deployment.json')continue;
+       if((await lstat(target)).isSymbolicLink())throw new Error('Redirected migration closure application path');
+       if(entry.isDirectory())await walk(target,relative+'/');
+@@ -157,24 +157,25 @@ export function safeAdmissionReadinessFailure(status, expectedReleaseId) {
+ }
+ export async function collectBatchAdmission(batch,testsPath,phase='admission',{session,step,onStatusAttempt=async()=>{},now=Date.now}={}) {
+   const timer=admissionTimer();
+   const measure=(stage,category,action)=>timer.measure(stage,category,action);
+   try {
+   await measure('classification','sealed-evidence',async()=>verifyBatch(batch,batch.batchSha256));
+   requireHash(batch.binding.djangoPredecessorSha256,'Django predecessor');
+   requireHash(batch.binding.djangoCandidateSha256,'Django candidate');
+   const djangoCurrent=await measure('django-identity','dynamic-state',()=>safeFileDigest(path.join(djangoRoot,'app','deployment.json')));
+   const state=await measure('journal','dynamic-state',()=>journalState(path.join(workerRuntimeRoot,'state','release-batches'),batch));
+   const djangoSwitched=batch.operations.some(op=>op.kind==='django-deploy'&&state.latest.get(op.id)?.status==='passed');
+   if(djangoCurrent!==(djangoSwitched?batch.binding.djangoCandidateSha256:batch.binding.djangoPredecessorSha256))throw new Error('Approved Django predecessor/candidate changed');
++  if(batch.version===targetedBatchVersion&&['recovery-consumer','restore'].includes(step)&&!djangoSwitched)throw new Error('Targeted recovery requires the confirmed newly installed Django');
+   await measure('django-migration-closure','immutable-content',()=>verifyLiveToolsNoMigrationScope(batch,djangoSwitched));
+   if(batch.binding.djangoCandidateSha256!==batch.binding.djangoPredecessorSha256&&!djangoSwitched) {
+     if(!/^[a-f0-9]{32}$/.test(batch.binding.djangoPreparedAppId??''))throw new Error('Missing precise Django preparation ID');
+     const receiptRaw=await safeRead(path.join(djangoRoot,`app.prepare-${batch.binding.djangoPreparedAppId}.json`));
+     if(hash(receiptRaw)!==batch.binding.djangoPreparedReceiptSha256)throw new Error('Django preparation receipt changed');
+     const receipt=JSON.parse(receiptRaw);
+     if(receipt.predecessorManifestSha256!==batch.binding.djangoPredecessorSha256||receipt.candidateManifestSha256!==batch.binding.djangoCandidateSha256)throw new Error('Django preparation no longer binds the batch');
+   }
+   requireHash(batch.binding.workerPlanSha256,'worker plan');
+   const planRaw=await safeRead(path.join(workerRuntimeRoot,'state','worker-release-rotation-plans',`${batch.binding.workerPlanSha256}.json`));
+   if(hash(planRaw)!==batch.binding.workerPlanSha256)throw new Error('Worker plan changed');
+   const plan=JSON.parse(planRaw);
+diff --git a/tools/release-batch.mjs b/tools/release-batch.mjs
+index 35da40c..326f77f 100644
+--- a/tools/release-batch.mjs
++++ b/tools/release-batch.mjs
+@@ -1,24 +1,24 @@
+ // One approved batch, one rotation lock, a durable write-ahead phase journal.
+ // Production adapters call the existing lifecycle/backup operators. They do
+ // not implement service ownership, permissions, drain or rollback themselves.
+ import { mkdir, open, readdir } from 'node:fs/promises';
+ import path from 'node:path';
+ import { fileURLToPath } from 'node:url';
+ import { performance } from 'node:perf_hooks';
+ import { randomUUID } from 'node:crypto';
+ import { readFileSync } from 'node:fs';
+ import { validateNoDataObservation, runNoDataObservation } from './release-no-data-observation.mjs';
+-import { canonical, hash, requireHash, safeRead, safeFileDigest, readSourceTree, sourceTreeDigest, sourceInventory, makeImpactProof, verifyImpactProof, classifyImpact, classifyImpactV3, noDataPolicyVersion, policyVersion, requirementsForImpact, bindDeploymentImpact, recoveryDecision, backupReuseDecision } from './release-impact.mjs';
+-import { withRotationLock, applyApprovedRotationPlan, planWorkerReleaseRotation } from './worker-local-release-rotation.mjs';
++import { canonical, hash, requireHash, safeRead, safeFileDigest, readSourceTree, sourceTreeDigest, sourceInventory, makeImpactProof, verifyImpactProof, classifyImpact, classifyImpactV3, noDataPolicyVersion, policyVersion, requirementsForImpact, bindDeploymentImpact, recoveryDecision, backupReuseDecision, targetedBatchVersion, targetedRecoveryPolicy } from './release-impact.mjs';
++import { withRotationLock, applyApprovedRotationPlan, planWorkerReleaseRotation, resolveEffectiveReleaseChain } from './worker-local-release-rotation.mjs';
+ import { runProcess, processDeadline, safeProcessEvidence, workerRuntimeRoot, workerSourceRootForBatch } from './worker-local-release.mjs';
+ import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError } from './release-readonly-retry.mjs';
+ 
+ export const legacyBatchVersion = 'teruisi-release-batch-v2';
+ export const batchVersion = 'teruisi-release-batch-v3';
+ const ownTools=path.dirname(fileURLToPath(import.meta.url));
+ export const noDataCollectorFiles = Object.freeze([
+   ...['release-batch.mjs','release-batch-admission.mjs','release-impact.mjs','release-no-data-observation.mjs','release-preparation-evidence.mjs','release-admission-timing.mjs','release-daily-backup.mjs','release-readonly-retry.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','collect-d1-retirement-proof.mjs'].map(name=>path.join(ownTools,name)),
+   path.join(ownTools,'../node_modules/typescript/lib/typescript.js'),path.join(ownTools,'../node_modules/typescript/package.json'),process.execPath,
+ ]);
+ export function validateNoDataCollector(collector) {
+   const entry=path.join(ownTools,'release-batch-admission.mjs');
+@@ -57,57 +57,127 @@ function validateNoDataOperations(batch) {
+     if(!op.assertions?.some(a=>a.path==='status'&&a.equals==='completed'))throw new Error('No-data lifecycle must assert original completion');
+   }
+   for(const action of ['display','permissions','natural-watchdog'])if(!batch.operations.some(op=>op.kind==='no-data-observation'&&op.observation.action===action))throw new Error('Missing executable no-data acceptance');
+   for(const step of ['VerifyStartup','AggregateStatus'])if(!batch.operations.some(op=>op.step===step&&['acceptance','closeout'].includes(op.phase)))throw new Error('Missing original startup/component verification');
+ }
+ const phases = ['queue', 'prepare', 'backup-pre', 'restore-pre', 'drain', 'switch', 'acceptance', 'business', 'backup-post', 'restore-post', 'closeout'];
+ const terminal = new Set(['passed', 'skipped']);
+ export function makeBatch({ version = batchVersion, id, binding, before, after, witness, evidence, current, tests, acceptance, rollback, operations, collector, deploymentProof, sourceBinding, now = Date.now() }) {
+   if (!/^[a-z0-9-]{8,80}$/.test(id ?? '')) throw new Error('Invalid batch ID');
+   for (const k of ['sourceSha256', 'predecessorSourceSha256', 'sourceInventorySha256', 'predecessorInventorySha256', 'dependencySha256', 'configurationSha256', 'toolchainSha256', 'artifactSha256', 'testsSha256', 'predecessorSha256','workerPlanSha256']) requireHash(binding?.[k], k);
+   if (sourceTreeDigest(after) !== binding.sourceSha256 || sourceTreeDigest(before) !== binding.predecessorSourceSha256) throw new Error('Impact inventory does not bind complete candidate/predecessor source');
+   if (hash(sourceInventory(after)) !== binding.sourceInventorySha256 || hash(sourceInventory(before)) !== binding.predecessorInventorySha256) throw new Error('Impact inventory fingerprint changed');
+-  if (![legacyBatchVersion,batchVersion].includes(version)) throw new Error('Unknown batch protocol');
+-  const impact = bindDeploymentImpact((version===batchVersion?classifyImpactV3:classifyImpact)({ before, after, witness }),deploymentProof,binding,witness);
+-  const recovery = recoveryDecision({ impact, evidence, current, now });
++  if (![legacyBatchVersion,batchVersion,targetedBatchVersion].includes(version)) throw new Error('Unknown batch protocol');
++  const impact = bindDeploymentImpact((version!==legacyBatchVersion?classifyImpactV3:classifyImpact)({ before, after, witness }),deploymentProof,binding,witness);
+   const impactProof=makeImpactProof(before,after,witness);
++  const recovery = recoveryDecision({ impact, evidence, current, now,scopeValidation:tests?.scopeValidation,impactProof,binding,batchVersion:version });
+   const required = requirementsForImpact(impact,{scopeValidation:tests?.scopeValidation,impactProof,binding,batchVersion:version});
+-  if(recovery.mode==='not-required')validateNoDataCollector(collector);
++  if(recovery.mode==='not-required'||version===targetedBatchVersion)validateNoDataCollector(collector);
+   if (!tests || tests.status !== 'passed' || hash(tests) !== binding.testsSha256
+     || tests.sourceSha256 !== binding.sourceSha256 || tests.artifactSha256 !== binding.artifactSha256
+     || required.tests.some(k => !tests.checks?.includes(k))) throw new Error('Incomplete or unbound test evidence');
+   if (!Array.isArray(acceptance) || required.acceptance.some(k => !acceptance.includes(k))) throw new Error('Incomplete task acceptance');
+   if (!rollback || !rollback.application || !rollback.compatibility || !rollback.failureState) throw new Error('Missing concrete rollback');
+   if (!Array.isArray(operations) || !operations.length || operations.some(o => !phases.includes(o.phase)
+     || !/^[a-z0-9-]{3,80}$/.test(o.id ?? '') || typeof o.mutating !== 'boolean')) throw new Error('Invalid approved operations');
+   if (new Set(operations.map(o => o.id)).size !== operations.length) throw new Error('Duplicate operation IDs');
+   let position = -1;
+   for (const op of operations) {
+     const next = phases.indexOf(op.phase);
+     if (next < position) throw new Error('Phases out of order');
+     position = next;
+     validateOperation(op);
+   }
+   for (const name of ['prepare', 'drain', 'switch', 'acceptance', 'closeout', ...(recovery.mode === 'full' ? ['backup-pre', 'restore-pre', 'backup-post', 'restore-post'] : [])]) {
+     if (!operations.some(o => o.phase === name)) throw new Error(`Missing ${name} phase`);
+   }
+-  const core = { ...(sourceBinding?{sourceBinding}:{}), version, ...(version===batchVersion?{state:'SEALED',deploymentProof:deploymentProof??null}:{}), id, createdAt: new Date(now).toISOString(), binding, impact, recovery,
+-    databaseOperations: { required: recovery.mode==='full', operationIds:operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id) },
++  const core = { ...(sourceBinding?{sourceBinding}:{}), version, ...(version!==legacyBatchVersion?{state:'SEALED',deploymentProof:deploymentProof??null}:{}), id, createdAt: new Date(now).toISOString(), binding, impact, recovery,
++    databaseOperations: databaseOperationsFor(recovery,operations),
+     requirements: required, tests, acceptance, rollback, operations,
+     recoveryEvidence: recovery.mode==='not-required'?null:evidence ?? null, recoveryCurrent: recovery.mode==='not-required'?null:current ?? null, collectorSha256: collector ? hash(collector) : null, impactProof };
+   const sealed = { ...core, batchSha256: hash(core) };
+   verifyBatch(sealed,sealed.batchSha256);
+   return sealed;
+ }
+ 
++function databaseOperationsFor(recovery,operations) {
++  return {required:['full','targeted-first-adoption'].includes(recovery.mode),operationIds:operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id),
++    ...(recovery.mode==='targeted-first-adoption'?{policy:targetedRecoveryPolicy}:{})};
++}
++const installedRecoveryTools='D:\\teruisi-runtime\\django-sales\\app\\tools';
++const targetedConsumerFiles=['release-payload-retention.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs'];
++function validateTargetedOperations(batch) {
++  if(batch.version!==targetedBatchVersion||batch.recovery.mode!=='targeted-first-adoption'||batch.recovery.policy!==targetedRecoveryPolicy)throw new Error('Targeted recovery protocol changed');
++  requireHash(batch.collectorSha256,'Targeted standard collector');
++  const ops=batch.operations,one=predicate=>{const matches=ops.filter(predicate);if(matches.length!==1)throw new Error('Targeted first adoption requires exact single operations');return matches[0];};
++  const backup=one(o=>o.kind==='backup'),restore=one(o=>o.kind==='restore'),consumer=one(o=>o.kind==='recovery-consumer');
++  if(backup.phase!=='backup-pre'||restore.phase!=='switch'||restore.backupOperationId!==backup.id
++    ||ops.some(o=>['restore-pre','backup-post','restore-post'].includes(o.phase)))throw new Error('Targeted first adoption data phases changed');
++  validateOperation({...restore,phase:'restore-pre'});
++  if(canonical(Object.keys(consumer).sort())!==canonical(['id','phase','kind','mutating','covers'].sort())||consumer.phase!=='switch'||consumer.mutating!==false
++    ||canonical(consumer.covers)!==canonical(['installed-recovery-consumer']))throw new Error('Targeted consumer must be the fixed read-only installed planner');
++  const life=step=>one(o=>o.step===step);
++  const ordered=[backup,life('EnterMaintenance'),life('StopWorker'),one(o=>o.kind==='worker-apply'),one(o=>o.kind==='django-deploy'),life('HardenAcl'),consumer,restore,life('ExitMaintenance'),life('StartWorker')];
++  for(let i=1;i<ordered.length;i++)if(ops.indexOf(ordered[i-1])>=ops.indexOf(ordered[i]))throw new Error('Targeted installed-consumer recovery ordering changed');
++  for(const op of [backup,restore]) {
++    const args=op.command?.args??[],operator=path.join(installedRecoveryTools,'django-postgres-maintenance.ps1');
++    if(op.command.executable!=='C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
++      ||canonical(args.slice(0,4))!==canonical(['-NoProfile','-NonInteractive','-File',operator])
++      ||args.some(a=>/^-PreparedToolApp/i.test(a)))throw new Error('Targeted recovery must use the actual installed operator');
++  }
++  if(ops.some(o=>o.mutating&&!['backup','restore','worker-apply','django-deploy','lifecycle'].includes(o.kind))
++    ||ops.some(o=>o.kind==='lifecycle'&&!['EnterMaintenance','StopWorker','HardenAcl','ExitMaintenance','StartWorker','VerifyStartup','AggregateStatus'].includes(o.step)))throw new Error('Targeted scope contains additional write/lifecycle operations');
++  const inventory=batch.tests.scopeValidation.after.inventory;
++  for(const name of targetedConsumerFiles)requireHash(inventory['tools/'+name],'Installed recovery consumer closure');
++}
++export async function runTargetedRecoveryConsumer(batch,state,deadlineUnixMs) {
++  validateTargetedOperations(batch);
++  for(const test of [o=>o.kind==='worker-apply',o=>o.kind==='django-deploy',o=>o.step==='HardenAcl']) {
++    const op=batch.operations.find(test);if(state.latest.get(op.id)?.status!=='passed')throw new Error('New installed consumer requires confirmed apply/deploy/ACL');
++  }
++  const inventory=batch.tests.scopeValidation.after.inventory;
++  const verifyInstalled=async()=>{
++    if(await safeFileDigest(path.join(installedRecoveryTools,'../deployment.json'))!==batch.binding.djangoCandidateSha256)throw new Error('Installed recovery consumer Django identity changed');
++    for(const name of targetedConsumerFiles)if(await safeFileDigest(path.join(installedRecoveryTools,name))!==inventory['tools/'+name])throw new Error('Installed recovery consumer bytes changed');
++  };
++  await verifyInstalled();
++  const before=await resolveEffectiveReleaseChain({verifyInstalledHead:true});
++  if(before.head.manifestSha256!==batch.binding.artifactSha256||before.records.at(-1)?.value.approvedPlanSha256!==batch.binding.workerPlanSha256)throw new Error('Installed recovery consumer is not this approved successor');
++  const native=await runProcess(process.execPath,[path.join(installedRecoveryTools,'release-payload-retention.mjs')],{deadlineUnixMs,outputProtocol:'direct-exit-files',cleanup:'direct',maxOutputBytes:16*1024*1024,label:'new-installed-recovery-consumer'});
++  try {
++  const receipt=JSON.parse(native.stdout);
++  if(canonical(Object.keys(receipt).sort())!==canonical(['version','createdAt','chainStateSha256','headReleaseId','retainedReleaseIds','targets','retainedKeys','preservedMetadata'].sort())
++    ||receipt.version!=='teruisi-release-payload-retention-v1'||!Number.isFinite(Date.parse(receipt.createdAt))
++    ||receipt.chainStateSha256!==before.chainStateSha256||receipt.headReleaseId!==before.head.releaseId
++    ||!['retainedReleaseIds','targets','retainedKeys','preservedMetadata'].every(k=>Array.isArray(receipt[k]))||!receipt.retainedReleaseIds.includes(before.head.releaseId))throw new Error('Installed recovery planner receipt is not the exact new chain');
++  const releaseId=/^\d{8}T\d{6}Z-[a-f0-9]{16}$/;
++  if(receipt.retainedReleaseIds.some(id=>!releaseId.test(id))||new Set(receipt.retainedReleaseIds).size!==receipt.retainedReleaseIds.length)throw new Error('Invalid retained release identities');
++  for(const item of [...receipt.retainedKeys,...receipt.preservedMetadata]) {
++    if(canonical(Object.keys(item).sort())!==canonical(['path','sha256'])||typeof item.path!=='string'||!path.isAbsolute(item.path))throw new Error('Invalid recovery planner metadata');
++    requireHash(item.sha256,'Recovery planner file');
++  }
++  for(const item of receipt.targets) {
++    if(canonical(Object.keys(item).sort())!==canonical(['manifestSha256','name','path','releaseId'])||!releaseId.test(item.releaseId)
++      ||receipt.retainedReleaseIds.includes(item.releaseId)||!['dist','helper','source-snapshot','node_modules'].includes(item.name)
++      ||item.path!==path.join(workerRuntimeRoot,'releases',item.releaseId,item.name))throw new Error('Invalid recovery planner target');
++    requireHash(item.manifestSha256,'Recovery planner target');
++  }
++  await verifyInstalled();
++  const after=await resolveEffectiveReleaseChain({verifyInstalledHead:true});
++  if(after.chainStateSha256!==before.chainStateSha256||after.head.bindingSha256!==before.head.bindingSha256||after.headManifestPath!==before.headManifestPath)throw new Error('Recovery consumer chain changed');
++  if(Date.now()>=deadlineUnixMs)throw new Error('Recovery consumer deadline expired');
++  return {status:'passed',receiptSha256:hash(receipt),processEvidence:native.processEvidence,outputs:{recoveryConsumerVersion:receipt.version,headReleaseId:receipt.headReleaseId,chainStateSha256:receipt.chainStateSha256}};
++  } catch(error) { error.processEvidence={...native.processEvidence,code:'invalid_result',stage:'installed-recovery-consumer'};throw error; }
++}
++
+ const requiredOperatorResults = {
+   'backup-pre': { kind: 'backup', assertions: { status: 'completed', serviceStateChanged: false } },
+   'backup-post': { kind: 'backup', assertions: { status: 'completed', serviceStateChanged: false } },
+   'restore-pre': { kind: 'restore', assertions: { status: 'completed', serviceStateChanged: false, productionDatabaseTouched: false, cleanupStatus: 'isolated_data_removed', profileRestoreVerified: true, sequenceHealthVerified: true } },
+   'restore-post': { kind: 'restore', assertions: { status: 'completed', serviceStateChanged: false, productionDatabaseTouched: false, cleanupStatus: 'isolated_data_removed', profileRestoreVerified: true, sequenceHealthVerified: true } },
+ };
+ export function validateOperation(op) {
+   if(op.step&&!['lifecycle','django-deploy'].includes(op.kind))throw new Error('Lifecycle step labels require an original lifecycle adapter');
+   if (op.readOnlyRetry && (!isExactStatusOperation(op) || op.readOnlyRetry.version !== 'teruisi-status-retry-v1'
+     || !Number.isSafeInteger(op.readOnlyRetry.totalTimeoutMs) || op.readOnlyRetry.totalTimeoutMs < 1
+     || op.readOnlyRetry.totalTimeoutMs > 240_000)) throw new Error('Retry is restricted to the exact read-only Status operation');
+   if (op.readOnlyRetry && ([['state','Running'],['backendState','Ready'],['workerState','exact_release']].some(([key,value])=>!op.assertions?.some(a=>a.path===key&&a.equals===value))
+@@ -150,38 +220,38 @@ function assertStartBinding(op, batch, args = op.command?.args) {
+     const drain = args.includes('-ExpectedDrainId') ? args[args.indexOf('-ExpectedDrainId')+1] : null;
+     if (batch.impact?.level === 'display' ? drain !== batch.binding?.maintenanceId : drain !== null) throw new Error('Start maintenance expectation does not match the batch');
+   }
+ }
+ export function verifyBatch(batch, approved) {
+   if(batch?.version==='teruisi-release-batch-v1')throw new Error('Legacy v1 must use its original adopted engine; never reinterpret approved operations');
+   requireHash(approved, 'approved batch');
+   if (!/^[a-z0-9-]{8,80}$/.test(batch?.id ?? '') || !Number.isFinite(Date.parse(batch.createdAt))) throw new Error('Invalid batch identity');
+   for (const key of ['sourceSha256','predecessorSourceSha256','sourceInventorySha256','predecessorInventorySha256','dependencySha256','configurationSha256','toolchainSha256','artifactSha256','testsSha256','predecessorSha256','workerPlanSha256']) requireHash(batch.binding?.[key],key);
+   if(!/^[a-f0-9]{32}$/.test(batch.binding.maintenanceId??''))throw new Error('Exact approved drain/maintenance owner required');
+   workerSourceRootForBatch(batch);
+   const { batchSha256, ...core } = batch;
+-  if (![legacyBatchVersion,batchVersion].includes(batch.version) || hash(core) !== batchSha256 || approved !== batchSha256) throw new Error('Batch scope changed');
+-  if(batch.version===batchVersion&&batch.state!=='SEALED')throw new Error('New batch must be sealed');
+-  if(batch.version===batchVersion)for(const key of ['djangoCandidateSha256','djangoPredecessorSha256'])requireHash(batch.binding[key],`Django ${key}`);
+-  const impact = bindDeploymentImpact(verifyImpactProof(batch.impactProof,batch.binding,batch.version===batchVersion?noDataPolicyVersion:policyVersion),batch.deploymentProof,batch.binding,batch.impactProof.witness);
++  if (![legacyBatchVersion,batchVersion,targetedBatchVersion].includes(batch.version) || hash(core) !== batchSha256 || approved !== batchSha256) throw new Error('Batch scope changed');
++  if(batch.version!==legacyBatchVersion&&batch.state!=='SEALED')throw new Error('New batch must be sealed');
++  if(batch.version!==legacyBatchVersion)for(const key of ['djangoCandidateSha256','djangoPredecessorSha256'])requireHash(batch.binding[key],`Django ${key}`);
++  const impact = bindDeploymentImpact(verifyImpactProof(batch.impactProof,batch.binding,batch.version!==legacyBatchVersion?noDataPolicyVersion:policyVersion),batch.deploymentProof,batch.binding,batch.impactProof.witness);
+   const required = requirementsForImpact(impact,{scopeValidation:batch.tests?.scopeValidation,impactProof:batch.impactProof,binding:batch.binding,batchVersion:batch.version});
+-  const recovery = recoveryDecision({ impact, evidence:batch.recoveryEvidence, current:batch.recoveryCurrent, now:Date.parse(batch.createdAt) });
++  const recovery = recoveryDecision({ impact, evidence:batch.recoveryEvidence, current:batch.recoveryCurrent, now:Date.parse(batch.createdAt),scopeValidation:batch.tests?.scopeValidation,impactProof:batch.impactProof,binding:batch.binding,batchVersion:batch.version });
+   if (canonical(impact) !== canonical(batch.impact) || canonical(recovery) !== canonical(batch.recovery)
+     || canonical(required) !== canonical(batch.requirements)) throw new Error('Impact/recovery requirements were altered');
+-  if(canonical(batch.databaseOperations)!==canonical({required:recovery.mode==='full',operationIds:batch.operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id)}))throw new Error('Sealed database operations changed');
++  if(canonical(batch.databaseOperations)!==canonical(databaseOperationsFor(recovery,batch.operations)))throw new Error('Sealed database operations changed');
+   if (!batch.tests || batch.tests.status !== 'passed' || hash(batch.tests) !== batch.binding.testsSha256
+     || batch.tests.sourceSha256 !== batch.binding.sourceSha256 || batch.tests.artifactSha256 !== batch.binding.artifactSha256
+     || required.tests.some(k => !batch.tests.checks?.includes(k))) throw new Error('Incomplete bound tests');
+   if (!Array.isArray(batch.acceptance) || required.acceptance.some(k => !batch.acceptance.includes(k))) throw new Error('Incomplete acceptance');
+-  const covered = new Set(batch.operations.filter(o=>['acceptance','business','closeout'].includes(o.phase)).flatMap(o=>o.covers??[]));
++  const covered = new Set(batch.operations.filter(o=>['acceptance','business','closeout'].includes(o.phase)||(batch.version===targetedBatchVersion&&o.kind==='recovery-consumer')).flatMap(o=>o.covers??[]));
+   if (batch.acceptance.some(k=>!covered.has(k))) throw new Error('Required acceptance has no executable operation');
+   if (!batch.rollback?.application || !batch.rollback.compatibility || !batch.rollback.failureState) throw new Error('Incomplete rollback');
+   if (!batch.operations?.length || new Set(batch.operations.map(o => o.id)).size !== batch.operations.length) throw new Error('Missing/duplicate operations');
+   let order=-1;
+   for (const op of batch.operations) { const next=phases.indexOf(op.phase); if (next<order || next<0) throw new Error('Invalid phase ordering'); order=next; }
+   for (const name of ['prepare','drain','switch','acceptance','closeout',...(recovery.mode==='full'?['backup-pre','restore-pre','backup-post','restore-post']:[])]) {
+     if (!batch.operations.some(o=>o.phase===name)) throw new Error(`Missing ${name} phase`);
+   }
+   for (const op of batch.operations) {
+     if (!/^[a-z0-9-]{3,80}$/.test(op.id ?? '') || typeof op.mutating !== 'boolean') throw new Error('Invalid operation identity/effect');
+     validateOperation(op);
+     assertStartBinding(op, batch);
+@@ -203,24 +273,25 @@ export function verifyBatch(batch, approved) {
+   if(impact.level==='display'&&!batch.operations.some(op=>op.step==='EndWorkerDrain'&&op.phase==='switch'))throw new Error('Worker drain must be explicitly closed after starting the successor');
+   if(impact.level==='display') {
+     for(const step of ['BeginWorkerDrain','StopWorker','StartWorker','EndWorkerDrain']) {
+       const matches=batch.operations.filter(op=>op.step===step);
+       if(matches.length!==1||matches[0].kind!=='lifecycle'||matches[0].mutating!==true
+         ||matches[0].phase!==(step==='BeginWorkerDrain'?'drain':'switch'))throw new Error('Exactly one original Worker-only lifecycle step is required');
+     }
+     if(batch.operations.some(op=>op.mutating && !['backup','restore','worker-apply','lifecycle'].includes(op.kind))
+       || batch.operations.some(op=>op.kind==='lifecycle' && !['BeginWorkerDrain','StopWorker','StartWorker','EndWorkerDrain','VerifyStartup','AggregateStatus'].includes(op.step))
+       || batch.operations.some(op=>op.kind==='lifecycle' && op.command.args.some(a=>/^-(IncludeBackend|KeepPostgres)$/i.test(a))))throw new Error('Display batch changed backend or admitted unproven writes');
+   }
+   if(recovery.mode==='not-required')validateNoDataOperations(batch);
++  if(batch.version===targetedBatchVersion)validateTargetedOperations(batch);
+   const position=step=>batch.operations.findIndex(op=>op.step===step);
+   const applyPosition=batch.operations.findIndex(op=>op.kind==='worker-apply');
+   if(impact.level==='display'&&!(position('BeginWorkerDrain')<position('StopWorker')&&position('StopWorker')>=0&&position('StopWorker')<applyPosition
+     &&applyPosition<position('StartWorker')&&position('StartWorker')<position('EndWorkerDrain')))throw new Error('Worker-only freeze/stop/apply/start/unfreeze ordering changed');
+   if(impact.level!=='display'&&!(position('EnterMaintenance')>=0&&position('EnterMaintenance')<applyPosition
+     &&applyPosition<position('ExitMaintenance')&&position('ExitMaintenance')<position('StartWorker')))throw new Error('Full maintenance ordering changed');
+   return batch;
+ }
+ export function assertBindings(expected, actual) {
+   if (!actual || canonical(expected) !== canonical(actual)) throw new Error('Source/dependency/config/toolchain/artifact/tests/predecessor binding changed');
+ }
+ export async function writeOnce(target, value) {
+@@ -435,24 +506,30 @@ export function productionCommandArguments(executable, args) {
+     `$request=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}'))|ConvertFrom-Json`,
+     '$parameters=@{};foreach($p in $request.parameters.PSObject.Properties){$parameters[$p.Name]=$p.Value}',
+     '$global:LASTEXITCODE=0', '& ([string]$request.file) @parameters', '$invocationSucceeded=$?',
+     'if($global:LASTEXITCODE -ne 0){exit $global:LASTEXITCODE}', 'if(-not $invocationSucceeded){exit 1}', 'exit 0'].join('\n');
+   return ['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(bootstrap,'utf16le').toString('base64')];
+ }
+ 
+ export async function runApprovedOperation(op, { batch, lease, state }) {
+   const observationStart=performance.now();
+   validateOperation(op);
+   const deadlineUnixMs = processDeadline(op.readOnlyRetry?.totalTimeoutMs ?? op.command?.timeoutMs);
+   if(batch.recovery.mode==='not-required')validateNoDataOperations(batch);
++  if(batch.version===targetedBatchVersion)validateTargetedOperations(batch);
++  if(op.kind==='recovery-consumer')return runTargetedRecoveryConsumer(batch,state,deadlineUnixMs);
++  if(batch.version===targetedBatchVersion&&op.kind==='restore') {
++    const consumer=batch.operations.find(o=>o.kind==='recovery-consumer');
++    if(state.latest.get(consumer.id)?.status!=='passed')throw new Error('Restore requires confirmed new installed consumer evidence');
++  }
+   if(op.kind==='no-data-observation')return runNoDataObservation(op,{batch,state});
+   if (op.kind === 'worker-plan') {
+     const result = await planWorkerReleaseRotation({ prepareOnline: true, reusePlanSha256: op.planSha256, rotationLease: lease, batchSha256: batch.batchSha256 });
+     if (result.planSha256 !== op.planSha256) throw new Error('Prepared plan changed');
+     return { status: 'passed', receiptSha256: hash(result) };
+   }
+   if (op.kind === 'worker-apply') {
+     if (op.phase !== 'switch' || op.mutating !== true) throw new Error('Invalid apply phase');
+     const result = await applyApprovedRotationPlan({ approvedPlanSha256: op.planSha256, rotationLease: lease, batchSha256: batch.batchSha256 });
+     return { status: 'passed', receiptSha256: hash(result) };
+   }
+   if (!op.command || !Array.isArray(op.command.args) || !op.assertions?.length) throw new Error('Unbound operator or acceptance assertions');
+@@ -516,24 +593,25 @@ export async function runApprovedOperation(op, { batch, lease, state }) {
+   stage = 'result-assertions';
+   for (const assertion of op.assertions) {
+     const actual = assertion.path.split('.').reduce((v,k) => v?.[k], receipt);
+     if (canonical(actual) !== canonical(assertion.equals)) throw new Error('Required operator/acceptance assertion failed');
+   }
+   if (op.kind === 'backup') {
+     for (const k of ['manifestSha256','dumpSha256','contentSha256']) requireHash(receipt[k], `backup ${k}`);
+     if (typeof receipt.backupDirectory !== 'string' || !receipt.backupId) throw new Error('Missing actual recovery point');
+     if (receipt.retention?.status !== 'completed' || path.dirname(path.resolve(receipt.backupDirectory)) !== 'E:\\运营管理系统业务数据') throw new Error('Backup archive/retention is not closed; preserve the original recovery state');
+   }
+   if (op.kind === 'restore') {
+     const backup = outputsFor(op.backupOperationId);
++    if(batch.version===targetedBatchVersion&&(typeof receipt.backupId!=='string'||receipt.backupId!==backup.backupId))throw new Error('Targeted restore backup identity changed');
+     if (receipt.backupManifestSha256 !== backup.manifestSha256 || receipt.dumpSha256 !== backup.dumpSha256
+       || receipt.expectedContentSha256 !== backup.contentSha256 || receipt.restoredContentSha256 !== backup.contentSha256) throw new Error('Restore is not the confirmed exact backup or content changed');
+   }
+   const allowed = ['backupDirectory','backupId','manifestSha256','dumpSha256','contentSha256','maintenanceId'];
+   if (Date.now() >= deadlineUnixMs) throw new Error('deadline');
+   const processEvidence = {...result.processEvidence};
+   if (op.kind==='lifecycle' && Array.isArray(receipt.engineEvidence)) processEvidence.engine=receipt.engineEvidence.slice(0,8).map(safeProcessEvidence);
+   const timing=Object.fromEntries(['engineMs','validationMs','adapterMs'].filter(k=>Number.isSafeInteger(receipt.timing?.[k])&&receipt.timing[k]>=0).map(k=>[k,receipt.timing[k]]));
+   return { timing, processEvidence, ...(observationAttempts ? {observationAttempts} : {}), status: 'passed', receiptSha256: hash(receipt), outputs: Object.fromEntries(allowed.filter(k => typeof receipt[k] === 'string').map(k => [k,receipt[k]])) };
+   } catch {
+     const failure = new Error('Required operator result failed; exact reconciliation required');
+     failure.processEvidence = {...result.processEvidence, code: Date.now() >= deadlineUnixMs ? 'process_timeout' : 'invalid_result', stage, timeoutType: Date.now() >= deadlineUnixMs ? stage : null};
+@@ -568,34 +646,34 @@ async function main() {
+     console.log(canonical({status:'prepared',batchSha256:batch.batchSha256,path:approved,impact:batch.impact.level,recovery:batch.recovery.mode}));return;
+   }
+   if (!['inspect', 'execute', 'status'].includes(command) || !specPath || !approved) throw new Error('Usage: release-batch.mjs inspect|status|execute <batch.json> <approved-batch-sha256>');
+   const spec = JSON.parse(await safeRead(specPath));
+   verifyBatch(spec.batch, approved);
+   if (command === 'inspect') { console.log(canonical(spec.batch)); return; }
+   if (command === 'status') { const state = await journalState(spec.journalRoot, spec.batch); console.log(canonical({ unknown: state.unknown, ...timingReport(state.events) })); return; }
+   if (path.resolve(spec.journalRoot) !== path.join(workerRuntimeRoot, 'state', 'release-batches')) throw new Error('Production journal must use the shared fixed runtime root');
+   if (!approvedAt) throw new Error('Execution requires the actual explicit approval timestamp (ISO UTC)');
+   // The live collector is an explicitly approved read-only task adapter; it
+   // reuses installed Status/Verify/CAS and task-specific business observations.
+   if (!spec.collector || spec.batch.collectorSha256 !== hash(spec.collector)) throw new Error('Collector is outside approved scope');
+-  if(spec.batch.recovery.mode==='not-required')validateNoDataCollector(spec.collector);
++  if(spec.batch.recovery.mode==='not-required'||spec.batch.version===targetedBatchVersion)validateNoDataCollector(spec.collector);
+   let session=null,collectInProcess=null;
+   if(spec.collector.transport==='in-process-content-evidence-v1') {
+     const admissionPath=path.join(path.dirname(fileURLToPath(import.meta.url)),'release-batch-admission.mjs');
+     if(spec.collector.executable!==process.execPath || spec.collector.args.length!==4 || path.resolve(spec.collector.args[0])!==admissionPath
+       || spec.collector.args[1]!=='collect' || path.resolve(spec.collector.args[2])!==path.resolve(specPath))throw new Error('In-process evidence requires the exact standard collector');
+     if(spec.collector.cwd&&path.resolve(spec.collector.cwd)!==process.cwd())throw new Error('In-process collector cwd differs from its approved execution context');
+     // This is a new approved transport, not recognition of an arbitrary adapter.
+     // Pin the entire direct implementation closure, including existing engines.
+-    for(const name of ['release-batch.mjs','release-batch-admission.mjs','release-impact.mjs',...(spec.batch.version===batchVersion?['release-no-data-observation.mjs']:[]),'release-preparation-evidence.mjs','release-admission-timing.mjs','release-daily-backup.mjs','release-readonly-retry.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','collect-d1-retirement-proof.mjs']) {
++    for(const name of ['release-batch.mjs','release-batch-admission.mjs','release-impact.mjs',...(spec.batch.version!==legacyBatchVersion?['release-no-data-observation.mjs']:[]),'release-preparation-evidence.mjs','release-admission-timing.mjs','release-daily-backup.mjs','release-readonly-retry.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','collect-d1-retirement-proof.mjs']) {
+       const target=path.join(path.dirname(admissionPath),name);
+       if(!spec.collector.files.some(f=>path.resolve(f.path)===target))throw new Error('Unbound in-process collector implementation');
+     }
+     const compiler=path.join(path.dirname(path.dirname(admissionPath)),'node_modules','typescript','lib','typescript.js');
+     if(!spec.collector.files.some(f=>path.resolve(f.path)===compiler))throw new Error('Unbound in-process impact parser');
+     const compilerPackage=path.join(path.dirname(path.dirname(compiler)),'package.json');
+     if(!spec.collector.files.some(f=>path.resolve(f.path)===compilerPackage))throw new Error('Unbound impact parser package resolution');
+     const {createPreparationEvidenceSession}=await import('./release-preparation-evidence.mjs');
+     const sourceRoot=workerSourceRootForBatch(spec.batch);
+     ({collectBatchAdmission:collectInProcess}=await import('./release-batch-admission.mjs'));
+     session=createPreparationEvidenceSession({batchSha256:approved,sourceRoot});
+   } else if(spec.collector.transport)throw new Error('Unknown collector transport');
+diff --git a/tools/release-impact.mjs b/tools/release-impact.mjs
+index b055bb4..6cebe88 100644
+--- a/tools/release-impact.mjs
++++ b/tools/release-impact.mjs
+@@ -376,36 +376,47 @@ export function classifyImpactV3(input) {
+     && witness?.independent===true && witness?.status==='passed' && typeof witness?.reviewer==='string' && witness.reviewer.length>0;
+   if(!reviewed)gaps.push({path:null,reason:'missing-exact-independent-review'});
+   if(Object.values(witness?.effects??{}).some(value=>value===true))gaps.push({path:null,reason:'independent-review-reported-effects'});
+   const mechanism = legacy.changed.filter(name=>/^(tools|config|worker|build)\/|(^|\/)(package(-lock)?\.json|[^/]*config\.[^/]+|\.npmrc)$/.test(name));
+   const noData=gaps.length===0;
+   return {...legacy,version:noDataPolicyVersion,level:noData?'display':legacy.level==='business'?'business':'strict',
+     reasons:gaps.map(g=>`${g.path??'release'}: ${g.reason}`),
+     axes:{components:{worker:'replace',django:noData?'unchanged':'review-required'},
+       persistentData:{effect:noData?'none':'unproven',proofs:proven,gaps},
+       backupMechanism:{effect:mechanism.length?'changed-or-unproven':'unchanged',paths:mechanism}}};
+ }
+ 
++export const targetedBatchVersion='teruisi-release-batch-v4';
++export const targetedRecoveryPolicy='teruisi-first-adoption-targeted-v1';
+ export function recoveryDecision({impact,...input}) {
++  if(input.batchVersion===targetedBatchVersion) {
++    validateToolsNoMigrationScope({...input,impact});
++    if(input.evidence!=null||input.current!=null)throw new Error('Targeted first adoption cannot reuse prior recovery evidence');
++    return {mode:'targeted-first-adoption',policy:targetedRecoveryPolicy,reasons:[],evidenceSha256:null};
++  }
+   if(impact?.version!==noDataPolicyVersion)return backupReuseDecision({impact,...input});
+   const qualified=impact.axes?.persistentData.effect==='none' && impact.axes?.backupMechanism.effect==='unchanged'
+     && impact.axes?.components.django==='unchanged' && impact.axes?.persistentData.deploymentInputs?.effect==='unchanged';
+   return {mode:qualified?'not-required':'full',reasons:qualified?[]:impact.reasons.length?impact.reasons:['Missing complete deployment and effect-review evidence'],evidenceSha256:null};
+ }
+ 
+ export function requirementsForImpact(impact, qualification = {}) {
+   const original=requirements[impact.level];
++  if(qualification.batchVersion===targetedBatchVersion&&qualification.scopeValidation===undefined)throw new Error('Targeted first adoption requires complete migration closure');
+   if(qualification.scopeValidation!==undefined) {
+     validateToolsNoMigrationScope({...qualification,impact});
+-    return {...original,tests:original.tests.map(name=>name==='migration-rehearsal'?'migration-closure':name)};
++    const tests=original.tests.map(name=>name==='migration-rehearsal'?'migration-closure':name);
++    return qualification.batchVersion===targetedBatchVersion
++      ? {...original,backup:'pre-backup-and-installed-restore',tests:[...tests,'targeted-recovery-negative'],acceptance:[...original.acceptance,'installed-recovery-consumer']}
++      : {...original,tests};
+   }
+   return impact.version===noDataPolicyVersion && impact.level==='display'
+     ? {...original,backup:recoveryDecision({impact}).mode==='not-required'?'not-required':'full-pre-and-post',tests:[...original.tests,'no-data-negative']} : original;
+ }
+ 
+ export const toolsNoMigrationVersion='teruisi-tools-no-migration-v1';
+ export const toolsNoMigrationPaths=Object.freeze(['release-impact.mjs','release-batch.mjs','release-batch-admission.mjs','release-no-data-observation.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','worker-local-service.ps1','release-lifecycle-step.ps1','release-preparation-evidence.mjs','release-admission-timing.mjs'].map(name=>'tools/'+name).sort());
+ const qualifierTools=path.dirname(fileURLToPath(import.meta.url));
+ const djangoToolDelta=['tools/worker-local-release.mjs','tools/worker-local-release-rotation.mjs'].sort();
+ const cfCachePath='.wrangler/cache/cf.json';
+ const cfChangedPaths=new Set(['tlsClientRandom','tlsExportedAuthenticator.clientHandshake','tlsExportedAuthenticator.serverHandshake','tlsExportedAuthenticator.clientFinished','tlsExportedAuthenticator.serverFinished','edgeL4.deliveryRate']);
+ function exactQualificationKeys(value,keys,label) {
+@@ -425,25 +436,25 @@ export function applicationInventoryFingerprint(inventory) {
+ function verifyScopeApplication(proof,expected) {
+   exactQualificationKeys(proof,['manifestRaw','inventory'],'Django scope proof');
+   if(typeof proof.manifestRaw!=='string'||hash(proof.manifestRaw)!==expected)throw new Error('Django scope manifest binding changed');
+   const manifest=JSON.parse(proof.manifestRaw),fingerprint=applicationInventoryFingerprint(proof.inventory);
+   exactQualificationKeys(manifest,['version','deployedAt','sourceRoot','fingerprintAlgorithm','fileCount','appFingerprint'],'Django manifest');
+   if(manifest.version!==2||manifest.fingerprintAlgorithm!=='relative-path-file-sha256-ordinal-v2'
+     ||!Number.isFinite(Date.parse(manifest.deployedAt))||typeof manifest.sourceRoot!=='string'||!path.win32.isAbsolute(manifest.sourceRoot)
+     ||manifest.fileCount!==fingerprint.fileCount||manifest.appFingerprint!==fingerprint.appFingerprint)throw new Error('Complete Django inventory does not match original manifest fingerprint');
+   for(const prefix of ['backend/','config/','drizzle/','runtime-tools/node_modules/'])if(!Object.keys(proof.inventory).some(name=>name.startsWith(prefix)))throw new Error('Incomplete Django protected application closure');
+   for(const name of ['tools/django-local-service.ps1','tools/django-postgres-maintenance.ps1','tools/postgres-consistent-backup.py',...djangoToolDelta])if(!Object.hasOwn(proof.inventory,name))throw new Error('Missing original Django lifecycle/backup tools');
+ }
+ export function validateToolsNoMigrationScope({scopeValidation,impact,impactProof,binding,batchVersion,observedDjango,observedCf}) {
+-  if(batchVersion!=='teruisi-release-batch-v3'||impact?.version!==noDataPolicyVersion||impact.level!=='strict'||recoveryDecision({impact}).mode!=='full')throw new Error('Migration closure qualification is v3 strict/full only');
++  if(!['teruisi-release-batch-v3',targetedBatchVersion].includes(batchVersion)||impact?.version!==noDataPolicyVersion||impact.level!=='strict'||recoveryDecision({impact}).mode!=='full')throw new Error('Migration closure qualification requires v3/v4 strict underlying full impact');
+   exactQualificationKeys(scopeValidation,['version','before','after',...(scopeValidation?.cfCacheReview!==undefined?['cfCacheReview']:[])],'migration scope');
+   if(scopeValidation.version!==toolsNoMigrationVersion)throw new Error('Unknown migration scope qualification');
+   const verified=verifyImpactProof(impactProof,binding,noDataPolicyVersion);
+   if(canonical(verified.changed)!==canonical(toolsNoMigrationPaths))throw new Error('Migration closure requires the exact ten release-control source changes');
+   for(const name of toolsNoMigrationPaths) {
+     const actual=hash(readFileSync(path.join(qualifierTools,path.posix.basename(name))));
+     if(impactProof.inventory.after[name]!==actual)throw new Error('Release-control source differs from the executing reviewed tools');
+   }
+   verifyScopeApplication(scopeValidation.before,binding.djangoPredecessorSha256);
+   verifyScopeApplication(scopeValidation.after,binding.djangoCandidateSha256);
+   const before=scopeValidation.before.inventory,after=scopeValidation.after.inventory;
+   if(canonical(Object.keys(before).sort())!==canonical(Object.keys(after).sort()))throw new Error('Django file additions/removals cannot qualify for migration closure');
+@@ -472,25 +483,25 @@ export function validateToolsNoMigrationScope({scopeValidation,impact,impactProo
+       };
+       let beforeCf,afterCf;
+       try { beforeCf=JSON.parse(observedCf.beforeRaw);afterCf=JSON.parse(observedCf.afterRaw); }
+       catch { throw new Error('Generated cf cache is not valid JSON'); }
+       visit(beforeCf,afterCf);
+       if(canonical(changes.sort())!==canonical([...review.changedPaths].sort()))throw new Error('Generated cf cache leaf changes differ from sealed review');
+     }
+   } else if(scopeValidation.cfCacheReview!==undefined||observedCf)throw new Error('Unexpected cf cache waiver');
+   if(observedDjango)for(const side of ['before','after']) {
+     verifyScopeApplication(observedDjango[side],side==='before'?binding.djangoPredecessorSha256:binding.djangoCandidateSha256);
+     if(canonical(observedDjango[side])!==canonical(scopeValidation[side]))throw new Error('Live Django package differs from sealed migration closure');
+   }
+-  return {version:toolsNoMigrationVersion,check:'migration-closure',djangoChanged:changed,databaseOperations:'full-pre-and-post',qualificationSha256:hash(scopeValidation)};
++  return {version:toolsNoMigrationVersion,check:'migration-closure',djangoChanged:changed,databaseOperations:batchVersion===targetedBatchVersion?'pre-backup-and-installed-restore':'full-pre-and-post',qualificationSha256:hash(scopeValidation)};
+ }
+ 
+ export const effectReviewSurfaces=Object.freeze(['dom-text-consumers','layout-observers','persistent-writes','startup-and-build-hooks','operation-vocabulary']);
+ export function bindDeploymentImpact(impact,proof,binding,witness) {
+   if(impact.version!==noDataPolicyVersion)return impact;
+   const gaps=[];
+   try {
+     if(!proof || typeof proof.beforeRaw!=='string' || typeof proof.afterRaw!=='string')throw new Error('missing-predecessor-candidate-preparation-receipts');
+     const receipts={before:JSON.parse(proof.beforeRaw),after:JSON.parse(proof.afterRaw)};
+     for(const side of ['before','after']) {
+       const receipt=receipts[side],identity=receipt.identity;
+       const before=side==='before';

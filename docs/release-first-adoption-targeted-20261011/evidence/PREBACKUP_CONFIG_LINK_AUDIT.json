@@ -1,0 +1,12 @@
+{
+  "version": "teruisi-prebackup-config-link-metadata-audit-v1",
+  "at": "2026-10-11T08:35:37.307Z",
+  "chainStateSha256": "aaf62994c75c3ca46362328fed6acc76f812808a2e852566782e5e0ba897e0d9",
+  "headReleaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+  "retained": 23,
+  "candidates": 197,
+  "eligibleExistingConfigLinks": [],
+  "configurationValuesRead": false,
+  "scope": "Metadata eligibility and existence only; no full retention plan, no payload deletion or restoration. Original Backup performs its own complete verification and pruning policy.",
+  "productionActions": 0
+}

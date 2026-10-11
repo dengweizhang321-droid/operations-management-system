@@ -1,0 +1,16 @@
+TAP version 13
+# Subtest: native full identity/session collect and recheck support the private fixed hardlink, then reject mutation
+ok 1 - native full identity/session collect and recheck support the private fixed hardlink, then reject mutation
+  ---
+  duration_ms: 6682.7962
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 7021.5249

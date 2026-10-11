@@ -4,7 +4,7 @@ import path from 'node:path';
 import { readdir,lstat } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { safeRead, safeFileDigest, hash, canonical, readSourceTree, sourceInventory, sourceTreeDigest, requireHash, validateToolsNoMigrationScope } from './release-impact.mjs';
+import { safeRead, safeFileDigest, hash, canonical, readSourceTree, sourceInventory, sourceTreeDigest, requireHash, validateToolsNoMigrationScope, targetedBatchVersion } from './release-impact.mjs';
 import { verifyBatch, writeOnce, journalState, productionCommandArguments, productionCommandEnvironment } from './release-batch.mjs';
 import { resolveEffectiveReleaseChain } from './worker-local-release-rotation.mjs';
 import { workerPreparationIdentity, workerRuntimeRoot, workerSourceRootForBatch, validateWorkerSourceBinding, verifyBoundWorkerSource, assertWorkerSourceBindingTuple, verifyPreparedWorkerCandidate, verifyWorkerReleaseProcessState, runProcess, assertNoReparsePoint } from './worker-local-release.mjs';
@@ -93,7 +93,7 @@ export function requiresCompleteArtifact(phase,step) {
 export async function collectBatchRecovery(batch, collect=collectRecoveryCurrent) {
   // A v3 not-required decision does not query daily scheduling, a restore
   // point, archive retention, or 26-hour/7-day reuse eligibility.
-  if(batch.recovery.mode==='not-required'||batch.recovery.mode==='full')return null;
+  if(batch.recovery.mode==='not-required'||batch.recovery.mode==='full'||batch.recovery.mode==='targeted-first-adoption')return null;
   if(batch.recovery.mode!=='reuse')throw new Error('Unknown recovery policy');
   return collect(batch.recoveryEvidence);
 }
@@ -166,6 +166,7 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission',{s
   const state=await measure('journal','dynamic-state',()=>journalState(path.join(workerRuntimeRoot,'state','release-batches'),batch));
   const djangoSwitched=batch.operations.some(op=>op.kind==='django-deploy'&&state.latest.get(op.id)?.status==='passed');
   if(djangoCurrent!==(djangoSwitched?batch.binding.djangoCandidateSha256:batch.binding.djangoPredecessorSha256))throw new Error('Approved Django predecessor/candidate changed');
+  if(batch.version===targetedBatchVersion&&['recovery-consumer','restore'].includes(step)&&!djangoSwitched)throw new Error('Targeted recovery requires the confirmed newly installed Django');
   await measure('django-migration-closure','immutable-content',()=>verifyLiveToolsNoMigrationScope(batch,djangoSwitched));
   if(batch.binding.djangoCandidateSha256!==batch.binding.djangoPredecessorSha256&&!djangoSwitched) {
     if(!/^[a-f0-9]{32}$/.test(batch.binding.djangoPreparedAppId??''))throw new Error('Missing precise Django preparation ID');

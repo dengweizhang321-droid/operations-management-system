@@ -1,11 +1,37 @@
 import path from 'node:path';
-import { watch } from 'node:fs';
+import { watch, lstatSync, realpathSync, readFileSync } from 'node:fs';
 import { lstat } from 'node:fs/promises';
 import { safeRead, safeFileDigest, readSourceTree, sourceInventory, sourceTreeDigest, hash, canonical, requireHash } from './release-impact.mjs';
 import { workerPreparationIdentity, preparationEnvironmentSha256, hashTree, runProcess, workerDevVarsSource, windowsPathSha256 } from './worker-local-release.mjs';
 
 const lifetimeMs = 10 * 60 * 1000;
 const maximumUses = 24;
+// The original producer intentionally hard-links this one fixed source into
+// releases. Keep generic source/npm/config reads single-link-only. The full
+// artifact verifier still proves the source/release/Worker inode relationship.
+function readFixedRuntimeConfiguration() {
+  const target=path.resolve(workerDevVarsSource);
+  const assertPath=()=>{
+    let cursor=path.parse(target).root;
+    for(const part of target.slice(cursor.length).split(path.sep).filter(Boolean)) {
+      cursor=path.join(cursor,part);
+      if(lstatSync(cursor).isSymbolicLink()||path.resolve(realpathSync(cursor)).toLowerCase()!==cursor.toLowerCase())throw new Error('Redirected fixed runtime configuration');
+    }
+  };
+  assertPath();
+  const before=lstatSync(target,{bigint:true});
+  if(!before.isFile()||before.isSymbolicLink()||before.nlink<1n||before.size>16n*1024n*1024n)throw new Error('Unsafe fixed runtime configuration');
+  const raw=readFileSync(target);
+  assertPath();
+  const after=lstatSync(target,{bigint:true});
+  const fields=['dev','ino','nlink','size','mtimeNs','ctimeNs'];
+  if(!after.isFile()||after.isSymbolicLink()||BigInt(raw.length)!==before.size||fields.some(key=>before[key]!==after[key]))throw new Error('Fixed runtime configuration changed while reading');
+  return {runtime:hash(raw),runtimeFile:Object.fromEntries(fields.map(key=>[key,String(after[key])]))};
+}
+async function readSessionRuntimeConfiguration(target) {
+  return path.resolve(target).toLowerCase()===path.resolve(workerDevVarsSource).toLowerCase()
+    ? readFixedRuntimeConfiguration() : {runtime:hash(await safeRead(target)),runtimeFile:null};
+}
 // Only derived identity is reused. Every use reads complete source, Node,
 // bundled npm and configuration bytes afresh. Artifact/ACL/process/restore
 // checks are deliberately outside this context. No persistent cache input.
@@ -15,7 +41,8 @@ export function createPreparationEvidenceSession({ batchSha256, sourceRoot, devV
   const npmRoot = path.join(path.dirname(process.execPath),'node_modules','npm');
   const cli = path.join(npmRoot,'bin','npm-cli.js');
   let entry = null, busy = false, disposed = false;
-  let changed=false;
+  let changed=false,configurationPending=false,configurationBaseline=null;
+  const fixedConfiguration=path.resolve(devVarsSource).toLowerCase()===path.resolve(workerDevVarsSource).toLowerCase();
   const watchers=[];
   const watched=new Set();
   async function monitor(target,{recursive=false,source=false}={}) {
@@ -28,11 +55,19 @@ export function createPreparationEvidenceSession({ batchSha256, sourceRoot, devV
     if(directory!==intendedDirectory)recursive=true;
     const key=`${path.resolve(target).toLowerCase()}|${recursive}|${source}`;
     if(watched.has(key))return;
-    const handle=watch(directory,{recursive,persistent:false},(_event,name)=>{
+    const handle=watch(directory,{recursive,persistent:false},(event,name)=>{
       const relative=name?.toString().replaceAll('\\','/');
       if(source&&relative&&/^(node_modules|dist|\.runtime|outputs|tmp)(\/|$)/.test(relative))return;
       if(!relative){changed=true;return;}
       const eventPath=path.resolve(directory,relative).toLowerCase(),targetPath=path.resolve(target).toLowerCase();
+      // Access metadata may emit change on this one intentional hardlink.
+      // Pending never means valid: assertStable synchronously rechecks all
+      // bytes and non-access metadata against the immutable session baseline.
+      if(fixedConfiguration&&!source&&!treeScope&&event==='change'
+        &&targetPath===path.resolve(workerDevVarsSource).toLowerCase()
+        &&eventPath===targetPath&&relative.toLowerCase()===path.basename(workerDevVarsSource).toLowerCase()) {
+        configurationPending=true;return;
+      }
       // A missing parent requires recursive observation, but unrelated siblings
       // of its nearest existing ancestor are not inputs. Creation/removal of
       // any ancestor on the exact target path still invalidates the session.
@@ -44,6 +79,7 @@ export function createPreparationEvidenceSession({ batchSha256, sourceRoot, devV
     // Test observers are an isolated seam; production always watches actual
     // input trees. Watch events only invalidate; they never prove byte equality.
     if(observeInputs)return;
+    if(fixedConfiguration&&configurationBaseline===null)configurationBaseline=readFixedRuntimeConfiguration();
     if(!watchers.length) {
       await monitor(sourceRoot,{recursive:true,source:true});
       await monitor(npmRoot,{recursive:true});
@@ -51,9 +87,16 @@ export function createPreparationEvidenceSession({ batchSha256, sourceRoot, devV
     }
     for(const target of Object.values(targets))await monitor(target);
   }
+  function assertConfiguration(snapshot) {
+    if(configurationBaseline===null||canonical(snapshot)!==canonical(configurationBaseline)){changed=true;throw new Error('Fixed runtime configuration differs from session baseline');}
+  }
   function assertStable() {
     if(disposed)throw new Error('Evidence session disposed during observation');
     if(changed)throw new Error('Inputs changed while evidence session was held');
+    if(configurationPending) {
+      try {assertConfiguration(readFixedRuntimeConfiguration());configurationPending=false;}
+      catch(error){changed=true;throw error;}
+    }
     if(entry&&(clock()-entry.startedAt<0||clock()-entry.startedAt>lifetimeMs))throw new Error('Evidence session expired during observation');
   }
   async function optionalDigest(target) {
@@ -65,11 +108,14 @@ export function createPreparationEvidenceSession({ batchSha256, sourceRoot, devV
     const toolchain = await measure('toolchain-content','mutable-input',async()=>({
       node:await safeFileDigest(process.execPath), npmPackageSha256:hash(await safeRead(path.join(npmRoot,'package.json'))), npm:await hashTree(npmRoot), version:process.version,
     }));
-    const configuration = await measure('configuration-content','mutable-input',async()=>({
-      runtime:hash(await safeRead(devVarsSource)), environment:preparationEnvironmentSha256(process.env),
+    const configuration = await measure('configuration-content','mutable-input',async()=>{
+      let runtime;
+      try {runtime=await readSessionRuntimeConfiguration(devVarsSource);if(fixedConfiguration)assertConfiguration(runtime);}
+      catch(error){if(fixedConfiguration)changed=true;throw error;}
+      return {...runtime, environment:preparationEnvironmentSha256(process.env),
       projectNpmrc:await optionalDigest(path.join(sourceRoot,'.npmrc')),
       external:Object.fromEntries(await Promise.all(Object.entries(targets).map(async([k,p])=>[k,{path:p,sha256:await optionalDigest(p)}]))),
-    }));
+    };});
     // Git inventory selection is mutable too (linked-worktree indexes may be
     // outside sourceRoot). Bracket the tool/config observation with a complete
     // fresh inventory, instead of treating a watcher as completeness evidence.
@@ -129,6 +175,6 @@ export function createPreparationEvidenceSession({ batchSha256, sourceRoot, devV
       });
     },
     assertStable,
-    dispose() { entry=null; disposed=true;for(const watcher of watchers)watcher.close(); },
+    dispose() { entry=null; disposed=true;configurationBaseline=null;configurationPending=false;for(const watcher of watchers)watcher.close(); },
   });
 }

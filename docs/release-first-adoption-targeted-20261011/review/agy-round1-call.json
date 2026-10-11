@@ -1,0 +1,11 @@
+{
+  "startedAtUtc": "2026-10-11T07:13:51.1915047+00:00",
+  "endedAtUtc": "2026-10-11T07:15:34.9405273+00:00",
+  "durationSeconds": 103.7513631,
+  "exitCode": 0,
+  "executable": "C:/Users/86137/AppData/Local/agy/bin/agy.exe",
+  "conversation": "",
+  "promptFile": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round1-prompt.txt",
+  "mode": "plan",
+  "outputFormat": "stream-json"
+}

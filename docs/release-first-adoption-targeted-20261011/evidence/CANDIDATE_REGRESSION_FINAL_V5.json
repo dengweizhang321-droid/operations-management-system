@@ -1,0 +1,15 @@
+{
+  "version": "teruisi-final-candidate-regression-v1",
+  "startedAt": "2026-10-11T09:21:02.704Z",
+  "finishedAt": "2026-10-11T09:21:59.507Z",
+  "exitCode": 1,
+  "passed": 214,
+  "failed": 1,
+  "durationMs": 56689.8347,
+  "candidateManifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+  "sourceSha256": "dc1dbeeded593980c6712e7afabde0a053dfd13d8f6c4bb9375718330af2b8fb",
+  "harnessSha256": "7b2f50f2526eca0b7fb02ca08b9f75934400ac2bf4d2458847be447b21f7b8cd",
+  "stdoutSha256": "5ceeff899f2dc237840fb8f757946e84988767b796b80d968ca82b7b60556600",
+  "sourcePathRebasingOnly": true,
+  "productionActions": 0
+}

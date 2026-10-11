@@ -1,0 +1,18 @@
+✔ builtins bootstrap checks full small dependency tree before real private module import (225.7039ms)
+✔ bootstrap rejects module before any candidate code executes (28.8362ms)
+✔ bootstrap rejects manifest before any candidate code executes (61.0784ms)
+✔ bootstrap rejects extra-dependency before any candidate code executes (112.8511ms)
+✔ bootstrap rejects dependency-bytes before any candidate code executes (53.6982ms)
+✔ bootstrap rejects tests before any candidate code executes (23.4255ms)
+✔ bootstrap rejects unknown-member before any candidate code executes (17.9311ms)
+✔ early tree member changing after its read is rejected by final physical-identity enumeration (20.625ms)
+✔ hardlinked code and redirected ancestor are rejected without loading code (25.406ms)
+✔ path validation accepts normal JS paths but rejects escapes and alternate streams (13.5514ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 738.9852

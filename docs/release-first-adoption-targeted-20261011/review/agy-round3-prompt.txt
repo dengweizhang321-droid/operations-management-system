@@ -1,0 +1,118 @@
+你的第二轮给出的四项P1及三项P2，我逐项按完整原文件核验。三核心冻结未变化，不为模型同意改正确代码。零磁盘/工具/测试权限仍然，请据下面实际上下文纠正或提出具体可复现反例；零上下文diff未包含的unchanged import/局部变量不代表不存在。请不要把未给出的代码或字段含义断言为必然缺失。保留你的原始输出，本轮做差异处理记录。
+1 workerRuntimeRoot实际已从worker-local-release.mjs import，见全文件前15行，不是undefined：
+// One approved batch, one rotation lock, a durable write-ahead phase journal.
+// Production adapters call the existing lifecycle/backup operators. They do
+// not implement service ownership, permissions, drain or rollback themselves.
+import { mkdir, open, readdir } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { performance } from 'node:perf_hooks';
+import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { validateNoDataObservation, runNoDataObservation } from './release-no-data-observation.mjs';
+import { canonical, hash, requireHash, safeRead, safeFileDigest, readSourceTree, sourceTreeDigest, sourceInventory, makeImpactProof, verifyImpactProof, classifyImpact, classifyImpactV3, noDataPolicyVersion, policyVersion, requirementsForImpact, bindDeploymentImpact, recoveryDecision, backupReuseDecision, targetedBatchVersion, targetedRecoveryPolicy } from './release-impact.mjs';
+import { withRotationLock, applyApprovedRotationPlan, planWorkerReleaseRotation, resolveEffectiveReleaseChain } from './worker-local-release-rotation.mjs';
+import { runProcess, processDeadline, safeProcessEvidence, workerRuntimeRoot, workerSourceRootForBatch } from './worker-local-release.mjs';
+import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError, safeReadinessFailure } from './release-readonly-retry.mjs';
+
+2 guard实际target在函数定义前被path.resolve(...).toLowerCase()，case漏洞不存在：
+const target=path.resolve(record.source).toLowerCase();
+  const references=[];
+  const isReference=v=>typeof v==='string'&&/^[A-Za-z]:[\\/]/.test(v)&&!/[\r\n]/.test(v)&&
+    (path.resolve(v).toLowerCase()===target||path.resolve(v).toLowerCase().startsWith(target+path.sep));
+  const mentionsTarget=v=>typeof v==='string'&&v.replaceAll('/','\\').toLowerCase().includes(target);
+  const shortAlias=/(?:^|[\\
+3 restore实际局部 const backup=outputsFor(...) 紧邻新条件；原operator实有backupId，原代码不修改也会输出：
+if (op.kind === 'restore') {
+    const backup = outputsFor(op.backupOperationId);
+    if(batch.version===targetedBatchVersion&&(typeof receipt.backupId!=='string'||receipt.backupId!==backup.backupId))throw new Error('Targeted restore backup identity changed');
+    if (receipt.backupManifestSha256 !== backup.manifestSha256 || receipt.dumpSha256 !== backup.dumpSha256
+      || receipt.expectedContentSha256 !== backup.contentSha256 || receipt.restoredContentSha256 !== backup.contentSha256) throw new Error('Restore is not the confirmed exact backup or content changed');
+  }
+  const allowed = ['backupDirectory','backupId','manifestSha256','dumpSha256','contentSha256','maintenanceId'];
+  if (Date.now() >= deadlineUnixMs) throw new Error('deadline');
+  const processEvidence = {...result.processEvidence};
+  if (op.kind==='lifecycle' && Array.isArray(receipt.engineEvidence)) processEvidence.engine=receipt.en
+原Restore成功result完整片段：
+$result = [pscustomobject][ordered]@{
+      version = $MaintenanceRestoreVersion
+      status = "completed"
+      rehearsalId = $MaintenanceRequest.RehearsalId
+      startedAt = $startedAt.ToString("o")
+      completedAt = [DateTimeOffset]::UtcNow.ToString("o")
+      backupId = [string]$backup.Manifest.backupId
+      backupManifestSha256 = [string]$backup.ManifestSha256
+      dumpSha256 = [string]$backup.Manifest.dump.sha256
+      expectedContentSha256 = [string]$backup.Manifest.evidence.contentSha256
+      restoredContentSha256 = [string]$probe.evidence.contentSha256
+      isolatedPort = [int]$MaintenanceRequest.RehearsalPort
+      productionDatabaseTouched = $false
+      serviceStateChanged = $false
+      cleanupStatus = $cleanupStatus
+    }
+    if ($noKeys) {
+      $result | Add-Member -NotePropertyName profileRestoreVerified -NotePropertyValue $true
+      $result | Add-Member -NotePropertyName sequenceHealthVerified -NotePropertyValue $true
+      $result | Add-Member -NotePropertyName profileContentSha256 -NotePropertyValue ([string]$probe.profileEvidence.contentSha256)
+      $result | Add-Member -NotePropertyName policySyntaxEquivalenceVerified -NotePropertyValue ([bool]$probe.policySyntaxEquivalenceVerified)
+      $result | Add-Member -NotePropertyName policySyntaxWitnessSh
+4 djangoCandidateSha256本项目定义为deployment.json原字节SHA（不是2933文件总体treeSHA）。manifest85cf原清单里另有appFingerprint fc33df28及fileCount2933；原prepare receipt字段 candidateManifestSha256=85cf，部署前后deployment.json字节不变。独立fullinventory重算另外比manifest.appFingerprint，对全部2933，不用candidateManifest替代树。新binding字段就是原deployment.json/raw=85cf；模板与旧v3一致。原D prepared receipt实际不可变字段下面（不含私密正文）：
+{
+  "version": "teruisi-parent-prepared-django-scoped-verification-v2",
+  "verifiedAt": "2026-10-11T04:17:25.781Z",
+  "preparedAppId": "1e1138feef7148fb851713c2b39a25d0",
+  "preparedReceiptSha256": "10db2364053ebfb90d85dd301914753453d02ad313cd02ff7312ca654ebdeb9b",
+  "predecessorManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "candidateManifestSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+  "candidateRoot": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0",
+  "installedFiles": 2933,
+  "candidateFiles": 2933,
+  "changed": [
+    {
+      "path": ".wrangler/cache/cf.json",
+      "before": "a3807b705617b7968f9a023986dffd1be8f65731bb99747805af227d3f8688f2",
+      "after": "018ee581023eef90706fde6d5c555987cedc172adee81dc054a916e0ebecbc61"
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "before": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "after": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "before": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "after": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    }
+  ],
+  "backendConfigDrizzleUnchanged": true,
+  "runtimeDependenciesUnchanged": true,
+  "onlyTwoToolsChanged": false,
+  "productionDeployment": false,
+  "scopeAcceptedAt": "2026-10-11T04:45:21.562Z",
+  "onlyTwoIntentionalToolsChanged": true,
+  "generatedArtifactCacheIncludedExplicitly": true,
+  "exactPhysicalChangedFiles": [
+    ".wrangler/cache/cf.json",
+    "tools/worker-local-release-rotation.mjs",
+    "tools/worker-local-release.mjs"
+  ],
+  "cfCacheAuditSha256": "4c9b07cb0064fd8ce62e03b12094ee4cdd97b674d22a79780e4f0fe8cb94eedf",
+  "firstTwoFileAssumptionFailurePreserved": true,
+  "reviewer": "parent plus GPT-6 Astra independent readonly consumer review",
+  "productionValidation": false,
+  "hashDriftWaived": false
+}
+5 caller已显式 step:op?.step??op?.kind，consumer没有step仍传kind。原回调上下文：
+p
+t=path.join(spec.journalRoot,'_observations',`${spec.batch.id}-${randomUUID()}`);
+      const current=collectInProcess
+        ? await collectInProcess(spec.batch,spec.collector.args[3],op?.phase??'admission',{session,step:op?.step??op?.kind,
+          onStatusAttempt:record=>writeOnce(path.join(attemptRoot,`${record.attempt}.json`),{version:'teruisi-status-attempt-v1',batchSha256:approved,observation:record})})
+        : JSON.parse((await runProcess(spec.collector.executable, [...spec.collector.args,'--phase',op?.phase??'admission'], { cwd: spec.collector.cwd, label: 'release live admission' })).stdout.trim());
+      if (current.batchSha256 !== approved ||
+6 ValidateStartup closeout仍kind=lifecycle,step=VerifyStartup，已在白名单。watchdog kind=no-data-observation，不是lifecycle。固定19项里从未宣称watchdog lifecycle。你假设如果kind错误的情况原验证拒绝是正确；不需要扩白名单。
+7 validateOperation没有switch阶段deny；phase序由公共phases数组检查（switch合法），v4对其唯一restore暂套restore-pre来复用原全部operator断言，同时在validateTargetedOperations要求实际restore.phase===switch、先consumer/harden/安装后restore、restore后exit/start。不是运行时改原对象，旧v3要求四阶段仍原样；makeBatch/verifyBatch一致调用。若存在其他“未修改校验点”实际拒绝请指具体函数/原代码，勿猜测。
+8 当前真实native是194个ExecutablePath不可读，命令行多数同时不可读，但不是仅CommandLine194；特定47936两字段均null。unknown全保留，不发生产批准。系统不存在/不足权限不能当无引用。
+9 对productionDatabaseTouched再次坚持精确定义：隔离restore写目标独立55433/E目录；原operator仍会复验生产监听/状态，Backup必须读生产；不作生产“零新连接”承诺，不能把未写业务库等同零读/零连接。与本批业务代码/PG工具未变相结合，必要验证只是同点恢复忠实/权限/序列/清理，不要求发布前后生产全库完全相等。
+10 新原DB操作显式各3600000ms共同deadline上限（历史单Restore706.423s超过通用600s）；原helper deadline传播及失败unknown/preserve保持。这是每项操作允许上限而非承诺耗时，没有放宽测试timeout。新sealer参量Json移除、12hex固定新ID/55433/E，AST机械检查待新scope生成。没有生产操作。
+请对第二轮四项P1及三项P2逐条给出撤回/具体未解原因，列接受成本/未测验收即可。不要求事先在生产部署来验证；仍不能批准生产/Git。源码漏洞若是真的必须解决，模型错误也应如实保留。

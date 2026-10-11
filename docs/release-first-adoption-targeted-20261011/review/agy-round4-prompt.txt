@@ -1,0 +1,135 @@
+这是最终受限源码纠正复审，仍真实Antigravity零工具/磁盘/测试/生产/Git批准权。前三轮原始分歧全部保留。发现重要实际失败：前轮模型审查的是开发正确上下文，但U0补丁移植到原limited基线时把backupId行错放restore块外，生成V1 source0b5e/39ce manifest131c真实196/197，一项正向恢复失败。旧包源码均未修改且禁止采用。9负例因泛invalid_result能假阳性，正向用例才揭示真实问题。不能用前三轮认可开发代码证明这个错误包。
+现在新限定batch完整字节e0d2已把行放在restore块的const backup之后，三模块全文与意图开发全文比对，只扣已存在的精确两处未采用health改动（旧helper没有safeReadinessFailure，不引入第11文件），全部63函数/顶层AST位置一致。实际受限模块原恢复positive+8negative9/9通过，只底层nativeJSON受控、不称真实PG。根独立重读原始三模块hash+全文相同+restore局部行位置已通过。新source5160/c279cfb7为旧V1全部字节仅一file修正；原真实生产前驱5157/92c265与exact10tools范围仍保持。正在重新原prepare/build，未来新candidate要重新197相关并重新封scope，旧166/131c不能签新字节。
+源组合实际记录：{"version":"teruisi-worker-source-composition-v2","preparedAt":"2026-10-11T07:56:13.987Z","source":"D:/codex-isolated/release-first-adoption-targeted-20261011/adoption-source-v2","predecessorSourceRoot":"D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/source-snapshot","priorSourceRoot":"D:/codex-isolated/release-first-adoption-targeted-20261011/adoption-source-v1","sourceSha256":"c279cfb7f1cf6f7c4d72a1ef32f50be428956e6917a5e176d2126ce14da09ea1","sourceInventorySha256":"7df31e1196ae452f2d9c8caad366617ed301bb762a38d6049aa2c56ee2fdf09a","fileCount":5160,"correctedHandoffPath":"E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ASTRA_TARGETED_LIMITED_V2_FINAL_HANDOFF.json","correctedHandoffSha256":"fa282a6b477d39e5b3fd5d9ec425964ed71a75a0c22069d029d73b65398f1b11","changed":[{"path":"tools/release-admission-timing.mjs","sha256":"7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66"},{"path":"tools/release-batch-admission.mjs","sha256":"e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5"},{"path":"tools/release-batch.mjs","sha256":"e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc"},{"path":"tools/release-impact.mjs","sha256":"197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164"},{"path":"tools/release-lifecycle-step.ps1","sha256":"c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce"},{"path":"tools/release-no-data-observation.mjs","sha256":"ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d"},{"path":"tools/release-preparation-evidence.mjs","sha256":"6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5"},{"path":"tools/worker-local-release-rotation.mjs","sha256":"ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"},{"path":"tools/worker-local-release.mjs","sha256":"3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"},{"path":"tools/worker-local-service.ps1","sha256":"717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"}],"correctionChangedOnly":["tools/release-batch.mjs"],"semanticPlacementValidatedByAstra":true,"otherMainChangesExcluded":true}
+独立全文比对记录：{"version":"teruisi-primary-full-limited-transplant-verification-v2","at":"2026-10-11T07:54:24.187Z","status":"passed","bodyProofSha256":"a57cbf432b3b0deb36951e608482f794453552b05a13112f8deee14a893e0f42","records":[{"file":"tools/release-impact.mjs","rawSha256":"197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164","developmentRawSha256":"197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164","wholeIntendedTextEqual":true,"functionCount":23},{"file":"tools/release-batch.mjs","rawSha256":"e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc","developmentRawSha256":"90321df8978fa65d3650df7022c0be62dc005f7db1647943ee872a9bd091db88","wholeIntendedTextEqual":true,"functionCount":24},{"file":"tools/release-batch-admission.mjs","rawSha256":"e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5","developmentRawSha256":"85d3ff64f4cab6cd41ef9af5c09c1c943877402d0ea091c09ffaf19ef9f2449c","wholeIntendedTextEqual":true,"functionCount":16}],"preciseExistingExceptions":[{"file":"tools/release-batch.mjs","from":"import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError, safeReadinessFailure } from './release-readonly-retry.mjs';","to":"import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError } from './release-readonly-retry.mjs';"},{"file":"tools/release-batch.mjs","from":"        let status;\n        const expectedReleaseId=op.assertions.find(a=>a.path==='releaseId').equals;\n        try {\n          status = parseStatus(value.stdout);\n          assertCompleteReadiness(status,expectedReleaseId);\n          for (const assertion of op.assertions) if (canonical(assertion.path.split('.').reduce((v,k) => v?.[k], status)) !== canonical(assertion.equals)) throw observationError('ASSERTION_FAILED');\n          return value;\n        } catch(error) {\n          error.processEvidence ??= value.processEvidence;\n          if(status) error.readinessEvidence=safeReadinessFailure(status,expectedReleaseId);\n          throw error;\n        }","to":"        const status = parseStatus(value.stdout);\n        assertCompleteReadiness(status,op.assertions.find(a=>a.path==='releaseId').equals);\n        for (const assertion of op.assertions) if (canonical(assertion.path.split('.').reduce((v,k) => v?.[k], status)) !== canonical(assertion.equals)) throw observationError('ASSERTION_FAILED');\n        return value;"}],"sourceByteChecksUseRawDigests":true,"lfUsedOnlyForFullIntendedTextReview":true,"productionActions":0}
+Astrahandoff（实际新批次未生成，不能提前批准）：{"version":"astra-targeted-limited-v2-handoff","status":"limited-transplant-corrected-no-production-approval","patches":[{"kind":"correction","base":"E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-patch-check","path":"E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2-correction.patch","sha256":"a5ed4f0517d7fe50b0777c164b3a0753d0f5e319dea84ace1479b75eaef83665","applied":"E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2-correction-applied","contextLines":12},{"kind":"combined","base":"D:/codex-isolated/release-no-data-adoption-20261011/adoption-source-v3","path":"E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2-combined.patch","sha256":"463fd5597dbd35773e35b894a30bf5acd76b2c4cd8e70220372a222c27d04d3d","applied":"E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2-combined-applied","contextLines":12}],"sourceCheckRoot":"E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2","files":[{"path":"tools/release-impact.mjs","developmentSha256":"197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164","v1LimitedSha256":"197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164","v2LimitedSha256":"197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164"},{"path":"tools/release-batch.mjs","developmentSha256":"90321df8978fa65d3650df7022c0be62dc005f7db1647943ee872a9bd091db88","v1LimitedSha256":"677586a14190f0081c1dbea9a188ce78dd4bf2f1cdc76cfb0bfcdb8f30478c36","v2LimitedSha256":"e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc"},{"path":"tools/release-batch-admission.mjs","developmentSha256":"85d3ff64f4cab6cd41ef9af5c09c1c943877402d0ea091c09ffaf19ef9f2449c","v1LimitedSha256":"e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5","v2LimitedSha256":"e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5"}],"bodyVerification":{"path":"E:/codex-artifacts/release-first-adoption-targeted-20261011/ASTRA_LIMITED_V2_BODY_VERIFICATION.json","sha256":"a57cbf432b3b0deb36951e608482f794453552b05a13112f8deee14a893e0f42","functions":63,"wholeModules":true,"exceptions":"Exactly old safeReadinessFailure named import and old retry parse/assert block, both full texts retained in report"},"tests":{"restorePositiveAndEightNegative":{"passed":9,"failed":0,"log":"E:/codex-artifacts/release-first-adoption-targeted-20261011/ASTRA_LIMITED_V2_RESTORE_FINAL.log","logSha256":"2bdd42306f8b3fa1197ebfcc451858c7ebe1c12ef2617ecc1bfb456285b09227"},"source":"Unchanged test assertions; actual V2 module loading and original runApprovedOperation source function; low-level native response seam, no PG/production call","privateFixture":"Copied final39ce tool files and two TypeScript files; unchanged retention source fixture copied from candidate/source-snapshot. First missing retention fixture ENOENT log preserved separately."},"originalFailure":{"record":"E:/codex-artifacts/release-first-adoption-targeted-20261011/CANDIDATE_REGRESSION_FINAL_V2.json","sha256":"6f5f95e63d83939dc2889c059c7ae7337e11814276af48645c94b01f2715d155","passed":196,"failed":1,"cause":"U0 application shifted backupId assertion outside restore lexical backup declaration; syntax/hash-only validation missed semantic position. Not a fixture failure."},"developmentRuntimeUnchanged":true,"oldSourceAndCandidateUnchanged":true,"productionActions":0,"correctedBatchPath":"E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2/tools/release-batch.mjs","correctedBatchSha256":"e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc","priorHandoffSha256":"d5209ed8b41006b5a283a5ed1dfb2f54f4bd2c4e45191615eb9969d04c5fa497"}
+本次策略仍strict v4 targeted-first-adoption，19步恰一次原installed preBackup+一次新installed Restore（Wapply->DDeploy->HardenAcl->fixed noargs planner->Restore->Exit->Start），无postBackup/postRestore。原DB各3600000ms上限，planner保留通用600000ms，不扩大成所有操作1小时。仅同batch passed母回执展开与原结果实核；source/manifest/plan/receipt/工具/路径/ACL/ready/mutex/drain/CAS/hash全部保留。D85cf仍两兼容tools3c18/ec525及原CFcache6传输leaf，完整2933前后字节17.014s重新核通过，保留策略/调度不改。
+当前native unknown仍194，不通过删guard或口述放行；新候选静态封存/Git准备可继续，production0。无生产配对样本，所有批准到验收/交付/不可用未测，旧50-55min四DB毛池不能承诺净收益。AST脚本参量及原prepare/test必须批准前完成；真正新installed消费/恢复才批准后实际验收。第三轮对planner一小时/准备待批准的措辞已纠正。
+请以实际最终受限函数逐行核有没有真实阻断（特别作用域、新旧policy、same-point母收据、fail unknown无重放），不要再次凭未出现的unchanged import断言缺失；列复审范围与未测项。若无新具体漏洞，明确没有发现新源码阻断，不说100%/完备/授权。不要把新包尚未完成与不该提前做的生产演练写成已完成。
+完整前15行imports：
+// One approved batch, one rotation lock, a durable write-ahead phase journal.
+// Production adapters call the existing lifecycle/backup operators. They do
+// not implement service ownership, permissions, drain or rollback themselves.
+import { mkdir, open, readdir } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { performance } from 'node:perf_hooks';
+import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { validateNoDataObservation, runNoDataObservation } from './release-no-data-observation.mjs';
+import { canonical, hash, requireHash, safeRead, safeFileDigest, readSourceTree, sourceTreeDigest, sourceInventory, makeImpactProof, verifyImpactProof, classifyImpact, classifyImpactV3, noDataPolicyVersion, policyVersion, requirementsForImpact, bindDeploymentImpact, recoveryDecision, backupReuseDecision, targetedBatchVersion, targetedRecoveryPolicy } from './release-impact.mjs';
+import { withRotationLock, applyApprovedRotationPlan, planWorkerReleaseRotation, resolveEffectiveReleaseChain } from './worker-local-release-rotation.mjs';
+import { runProcess, processDeadline, safeProcessEvidence, workerRuntimeRoot, workerSourceRootForBatch } from './worker-local-release.mjs';
+import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError } from './release-readonly-retry.mjs';
+
+实际修正受限完整runApprovedOperation：
+export async function runApprovedOperation(op, { batch, lease, state }) {
+  const observationStart=performance.now();
+  validateOperation(op);
+  const deadlineUnixMs = processDeadline(op.readOnlyRetry?.totalTimeoutMs ?? op.command?.timeoutMs);
+  if(batch.recovery.mode==='not-required')validateNoDataOperations(batch);
+  if(batch.version===targetedBatchVersion)validateTargetedOperations(batch);
+  if(op.kind==='recovery-consumer')return runTargetedRecoveryConsumer(batch,state,deadlineUnixMs);
+  if(batch.version===targetedBatchVersion&&op.kind==='restore') {
+    const consumer=batch.operations.find(o=>o.kind==='recovery-consumer');
+    if(state.latest.get(consumer.id)?.status!=='passed')throw new Error('Restore requires confirmed new installed consumer evidence');
+  }
+  if(op.kind==='no-data-observation')return runNoDataObservation(op,{batch,state});
+  if (op.kind === 'worker-plan') {
+    const result = await planWorkerReleaseRotation({ prepareOnline: true, reusePlanSha256: op.planSha256, rotationLease: lease, batchSha256: batch.batchSha256 });
+    if (result.planSha256 !== op.planSha256) throw new Error('Prepared plan changed');
+    return { status: 'passed', receiptSha256: hash(result) };
+  }
+  if (op.kind === 'worker-apply') {
+    if (op.phase !== 'switch' || op.mutating !== true) throw new Error('Invalid apply phase');
+    const result = await applyApprovedRotationPlan({ approvedPlanSha256: op.planSha256, rotationLease: lease, batchSha256: batch.batchSha256 });
+    return { status: 'passed', receiptSha256: hash(result) };
+  }
+  if (!op.command || !Array.isArray(op.command.args) || !op.assertions?.length) throw new Error('Unbound operator or acceptance assertions');
+  if (['backup','restore'].includes(op.kind)) {
+    const installedOperator = 'D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1';
+    const requestedOperator=op.command.args[3];
+    const preparedOperator=/^[a-f0-9]{32}$/.test(batch.binding.djangoPreparedAppId??'')
+      ? path.join('D:\\teruisi-runtime\\django-sales',`app.deploy-${batch.binding.djangoPreparedAppId}`,'tools','django-postgres-maintenance.ps1'):null;
+    const originalOperator=requestedOperator===installedOperator||(op.kind==='restore'&&requestedOperator===preparedOperator
+      &&op.command.args[op.command.args.indexOf('-PreparedToolAppId')+1]===batch.binding.djangoPreparedAppId
+      &&op.command.args[op.command.args.indexOf('-PreparedToolAppSha256')+1]===batch.binding.djangoPreparedReceiptSha256);
+    if (!originalOperator
+      || path.resolve(op.command.executable) !== 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+      || canonical(op.command.args.slice(0,4))!==canonical(['-NoProfile','-NonInteractive','-File',requestedOperator])) throw new Error('Production backup/restore must use the original installed or exact read-only prepared operator');
+  }
+  for (const file of op.command.files ?? []) {
+    if (await safeFileDigest(file.path) !== file.sha256) throw new Error('Operator/acceptance code changed');
+  }
+  // Both the executable and every script/config dependency must be bound in
+  // command.files. Review verifies the closure; lifecycle keeps its own gates.
+  if (!(op.command.files ?? []).some(f => f.path === op.command.executable)) throw new Error('Unbound command executable');
+  const outputsFor = id => {
+    const previous = state.latest.get(id);
+    if (previous?.status !== 'passed' || !previous.outputs) throw new Error('Referenced earlier operation has no confirmed outputs');
+    return previous.outputs;
+  };
+  const args = op.command.args.map(arg => {
+    const token = /^\{receipt:([a-z0-9-]+):(backupDirectory|manifestSha256|maintenanceId)\}$/.exec(arg);
+    if (!token) return arg;
+    const value = outputsFor(token[1])[token[2]];
+    if (typeof value !== 'string' || !value) throw new Error('Missing exact earlier receipt field');
+    return value;
+  });
+  if (path.resolve(op.command.executable).toLowerCase() === path.resolve('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe').toLowerCase()
+    && !op.command.files.some(f => f.path === args[3])) throw new Error('Unbound PowerShell script entrypoint');
+  assertStartBinding(op, batch, args);
+  const invoke = timeoutMs => (op.readOnlyRetry ? runReadOnlyProcess : runProcess)(op.command.executable, productionCommandArguments(op.command.executable,args), { cwd: op.command.cwd,
+    env: productionCommandEnvironment(op.command.executable), deadlineUnixMs,
+    outputProtocol: 'direct-exit-files', cleanup: op.mutating ? 'preserve' : 'direct',
+    label: `${batch.id}/${op.id}`, timeoutMs });
+  let result, observationAttempts;
+  if (op.readOnlyRetry) {
+    const totalTimeoutMs=Math.floor(Math.min(deadlineUnixMs-Date.now(),op.readOnlyRetry.totalTimeoutMs-(performance.now()-observationStart)));
+    if(totalTimeoutMs<1)throw observationError('DEADLINE_EXCEEDED');
+    const observed = await retryReadOnlyObservation({ stage: `${op.phase}-status`, totalTimeoutMs,
+      onAttempt: record => append(state, batch, { phase: op.phase, status: 'observation-attempt', operationRef: op.id, observation: record }),
+      query: async ({ remaining }) => {
+        for (const file of op.command.files) { remaining(); if (await safeFileDigest(file.path) !== file.sha256) throw observationError('ASSERTION_FAILED'); remaining(); }
+        const value = await invoke(Math.min(remaining(), 60_000));
+        const status = parseStatus(value.stdout);
+        assertCompleteReadiness(status,op.assertions.find(a=>a.path==='releaseId').equals);
+        for (const assertion of op.assertions) if (canonical(assertion.path.split('.').reduce((v,k) => v?.[k], status)) !== canonical(assertion.equals)) throw observationError('ASSERTION_FAILED');
+        return value;
+      } });
+    result=observed.value;observationAttempts=observed.attempts;
+  } else result=await invoke(op.command.timeoutMs);
+  let stage = 'result-parse';
+  try {
+  if (Date.now() >= deadlineUnixMs) throw new Error('deadline');
+  const receipt = JSON.parse(result.stdout.trim());
+  stage = 'result-assertions';
+  for (const assertion of op.assertions) {
+    const actual = assertion.path.split('.').reduce((v,k) => v?.[k], receipt);
+    if (canonical(actual) !== canonical(assertion.equals)) throw new Error('Required operator/acceptance assertion failed');
+  }
+  if (op.kind === 'backup') {
+    for (const k of ['manifestSha256','dumpSha256','contentSha256']) requireHash(receipt[k], `backup ${k}`);
+    if (typeof receipt.backupDirectory !== 'string' || !receipt.backupId) throw new Error('Missing actual recovery point');
+    if (receipt.retention?.status !== 'completed' || path.dirname(path.resolve(receipt.backupDirectory)) !== 'E:\\运营管理系统业务数据') throw new Error('Backup archive/retention is not closed; preserve the original recovery state');
+  }
+  if (op.kind === 'restore') {
+    const backup = outputsFor(op.backupOperationId);
+    if(batch.version===targetedBatchVersion&&(typeof receipt.backupId!=='string'||receipt.backupId!==backup.backupId))throw new Error('Targeted restore backup identity changed');
+    if (receipt.backupManifestSha256 !== backup.manifestSha256 || receipt.dumpSha256 !== backup.dumpSha256
+      || receipt.expectedContentSha256 !== backup.contentSha256 || receipt.restoredContentSha256 !== backup.contentSha256) throw new Error('Restore is not the confirmed exact backup or content changed');
+  }
+  const allowed = ['backupDirectory','backupId','manifestSha256','dumpSha256','contentSha256','maintenanceId'];
+  if (Date.now() >= deadlineUnixMs) throw new Error('deadline');
+  const processEvidence = {...result.processEvidence};
+  if (op.kind==='lifecycle' && Array.isArray(receipt.engineEvidence)) processEvidence.engine=receipt.engineEvidence.slice(0,8).map(safeProcessEvidence);
+  const timing=Object.fromEntries(['engineMs','validationMs','adapterMs'].filter(k=>Number.isSafeInteger(receipt.timing?.[k])&&receipt.timing[k]>=0).map(k=>[k,receipt.timing[k]]));
+  return { timing, processEvidence, ...(observationAttempts ? {observationAttempts} : {}), status: 'passed', receiptSha256: hash(receipt), outputs: Object.fromEntries(allowed.filter(k => typeof receipt[k] === 'string').map(k => [k,receipt[k]])) };
+  } catch {
+    const failure = new Error('Required operator result failed; exact reconciliation required');
+    failure.processEvidence = {...result.processEvidence, code: Date.now() >= deadlineUnixMs ? 'process_timeout' : 'invalid_result', stage, timeoutType: Date.now() >= deadlineUnixMs ? stage : null};
+    throw failure;
+  }
+}
+
+

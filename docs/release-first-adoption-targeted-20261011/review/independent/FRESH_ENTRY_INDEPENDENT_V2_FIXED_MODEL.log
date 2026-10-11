@@ -1,0 +1,85 @@
+✖ bootstrap validates modeled closed bundle before imports and module drift rejects before imports (13.2959ms)
+✖ ordinary stale result retains actual returned stages/attempts and writes fixed evidence before throwing (8.0384ms)
+✖ freshness evidence write failure must preserve already returned collector metadata (5.6887ms)
+✖ beforeOperation input rejection follows already persisted admission, not total loss of sampling WAL (8.007ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 250.788
+
+✖ failing tests:
+
+test at docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-v2.test.mjs:40:1
+✖ bootstrap validates modeled closed bundle before imports and module drift rejects before imports (13.2959ms)
+  TypeError: Cannot read properties of null (reading 'main')
+      at bootstrapFreshEntry (evalmachine.<anonymous>:64:142)
+      at async Object.executeFreshAdoption [as execute] (evalmachine.<anonymous>:74:44)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-c-final-independent-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/c-targeted-independent-20261011/fresh-entry-independent-v2.test.mjs:41:33)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3)
+
+test at docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-v2.test.mjs:44:1
+✖ ordinary stale result retains actual returned stages/attempts and writes fixed evidence before throwing (8.0384ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'STALE_ADMISSION_SNAPSHOT'
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-c-final-independent-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/c-targeted-independent-20261011/fresh-entry-independent-v2.test.mjs:45:122)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'STALE_ADMISSION_SNAPSHOT',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-v2.test.mjs:47:1
+✖ freshness evidence write failure must preserve already returned collector metadata (5.6887ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'STALE_ADMISSION_SNAPSHOT'
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-c-final-independent-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/c-targeted-independent-20261011/fresh-entry-independent-v2.test.mjs:48:127)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'STALE_ADMISSION_SNAPSHOT',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at docs\release-integration-review\c-targeted-independent-20261011\fresh-entry-independent-v2.test.mjs:50:1
+✖ beforeOperation input rejection follows already persisted admission, not total loss of sampling WAL (8.007ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  TypeError: Cannot read properties of null (reading 'main')
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-c-final-independent-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/c-targeted-independent-20261011/fresh-entry-independent-v2.test.mjs:51:39)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: Cannot read properties of null (reading 'main')
+        at bootstrapFreshEntry (evalmachine.<anonymous>:64:142)
+        at async Object.executeFreshAdoption [as execute] (evalmachine.<anonymous>:74:44)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-c-final-independent-review/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-integration-review/c-targeted-independent-20261011/fresh-entry-independent-v2.test.mjs:51:39)
+        at async Test.run (node:internal/test_runner/test:1332:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:911:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }

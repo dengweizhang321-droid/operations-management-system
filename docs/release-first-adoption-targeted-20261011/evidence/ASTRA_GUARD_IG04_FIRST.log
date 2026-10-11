@@ -1,0 +1,42 @@
+✔ V3 gap reproduced then V4 rejected reference: C:\CROSS~1\run.ps1 (2.7818ms)
+✔ V3 gap reproduced then V4 rejected reference: C:\External Junction\run.ps1 (1.3553ms)
+✔ V3 gap reproduced then V4 rejected reference: D:\External Junction\run.ps1 (1.0463ms)
+✔ V3 gap reproduced then V4 rejected reference: C:\A Working Directory (1.069ms)
+✔ long canonical paths, slash and case remain detected (2.9849ms)
+✔ quoted command and arguments inspect full tokens on any drive (1.8499ms)
+✔ single Execute/ExecutablePath/WorkingDirectory path with spaces is not truncated (1.7166ms)
+✔ missing long child resolves through nearest cross-volume junction ancestor (0.768ms)
+✔ known long missing path outside package can be ruled out via real ancestor (0.7067ms)
+✔ unresolved short component below existing ancestor fails closed (1.4831ms)
+✔ resolved unrelated short alias and literal tilde name remain allowed (1.1903ms)
+✔ access denied never falls back to a parent (0.7091ms)
+✔ unresolvable drive root is unknown and blocks (0.6666ms)
+✔ extended DOS physical prefix is recognized (0.5593ms)
+✔ nested metadata uses complete single paths with spaces (1.0353ms)
+✔ non-path text and URLs are not arbitrary script parsing (0.6487ms)
+✔ actual V4 process loop reproduces IG04 null-command zero-reference gap (2.6861ms)
+✔ missing/invalid relevant process field rejects Namenull (0.4307ms)
+✔ missing/invalid relevant process field rejects Name42 (0.1517ms)
+✔ missing/invalid relevant process field rejects ExecutablePathnull (0.1509ms)
+✔ missing/invalid relevant process field rejects ExecutablePath[object Object] (0.1476ms)
+✔ missing/invalid relevant process field rejects CommandLine42 (0.1078ms)
+✔ missing/invalid relevant process field rejects CommandLine    (0.1715ms)
+✔ missing/invalid relevant process field rejects ProcessId47936 (0.1133ms)
+✔ missing/invalid relevant process field rejects SessionIdnull (0.8395ms)
+✔ Name/ExecutablePath disagreement is unknown even with a nonempty command line (0.2733ms)
+✔ physical managed native actor without command is unknown (0.2564ms)
+✔ complete interpreter identity still detects protected command path (0.2833ms)
+✔ complete unrelated native process remains inspectable without blanket rejection (0.4781ms)
+✔ missing vendor command is not declared unrelated solely from Program Files (0.1655ms)
+✔ only physically exact named Windows native processes get missing-command exception (0.2994ms)
+✔ kernel pseudo-process exception requires exact PID Name Session and no contradicting fields (0.2373ms)
+✔ unreadable executable identity remains unknown and never silently skips actor (0.1659ms)
+✔ query supplies Name and SessionId to the actual process loop (0.0675ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 218.4237

@@ -1,0 +1,31 @@
+{
+  "version": "astra-ig04-guard-handoff-v1",
+  "guard": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\adoption-scope-guard-ig04.mjs",
+  "source": "D:\\.codex\\worktrees\\release-first-adoption-targeted\\运营管理系统\\docs\\release-first-adoption-targeted-20261011\\adapters\\adoption-scope-guard.mjs",
+  "sha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd",
+  "oldGuardSha256": "04655a323af97453b7ae38670a6470e495226e85c337fb9b0a72684726a54edd",
+  "tests": {
+    "passed": 34,
+    "failed": 0,
+    "pathCases": 16,
+    "processCases": 18,
+    "durationMs": 218.4237,
+    "log": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ASTRA_GUARD_IG04_FIRST.log",
+    "logSha256": "532d0f64f6a0e905e31f763b0400f3dcfc2b22c47a3d3d0777e4d534ea263fb8"
+  },
+  "scripts": [
+    {
+      "path": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\guard-ig04-path-regression.test.mjs",
+      "sha256": "5a83fe4e8a551062e5a3d9877a2a64038489e88e18457b61725380c1c8713103"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\guard-ig04-process.test.mjs",
+      "sha256": "dba9b7df4f2d991b61edc1733a0df4fec15658e49504a8686362e8767cc06c49"
+    }
+  ],
+  "coreRuntimeUnchanged": true,
+  "productionRequests": 0,
+  "processesStopped": 0,
+  "nativeScanPerformed": false,
+  "limits": "Synthetic realpath resolver and controlled process DTO; actual original V4/new process loops executed. No independent signature, no arbitrary-script/encoded/relative dependency interpretation. Missing vendor command/name/executable remains unknown. Kernel PID0/4 require exact names/session0/no contradictory fields; native Windows missing-command exception requires exact name + supplied executable + physical System32/SysWOW64 path."
+}

@@ -1,0 +1,11 @@
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import path from 'node:path';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const raw=readFileSync('E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs'),sha=createHash('sha256').update(raw).digest('hex');
+assert.equal(sha,'69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99');
+const literal=/workerRuntimeRoot=(path\.resolve\('[^']*'\))/.exec(raw.toString('utf8'));
+assert.ok(literal);const actual=vm.runInNewContext(literal[1],{path});
+assert.equal(actual,path.resolve('D:/teruisi-runtime/teruisi-worker-sales'));assert.ok(path.isAbsolute(actual));assert.ok(!/[\x00-\x1f]/.test(actual));
+console.log(JSON.stringify({entrySha256:sha,isAbsolute:true,controlCharacterCount:0,equalsOriginalFixedRoot:true}));

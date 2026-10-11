@@ -1,0 +1,70 @@
+{
+  "status": "candidate-prepared-production-blocked",
+  "createdAt": "2026-10-11T10:25:47.327Z",
+  "records": [
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\FRESH_ENTRY_ACTUAL_QUALIFICATION.json",
+      "relative": "evidence/FRESH_ENTRY_ACTUAL_QUALIFICATION.json",
+      "sha256": "3e67a664bf654bbb34d1aa1ca3c7420b478a20f6b5e7b1c905c2e1c9245fffc0",
+      "bytes": 5869
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\FRESH_ENTRY_ACTUAL_QUALIFY_STDOUT.json",
+      "relative": "evidence/FRESH_ENTRY_ACTUAL_QUALIFY_STDOUT.json",
+      "sha256": "3253de13a89fedab1f79fb8d0f3569c186cb0247d1709a8ffd651c1ec0155ef0",
+      "bytes": 3514
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\FRESH_ENTRY_ACTUAL_QUALIFY_STDERR.log",
+      "relative": "evidence/FRESH_ENTRY_ACTUAL_QUALIFY_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AB_CLOSURE_BEFORE_GIT_DELIVERY.json",
+      "relative": "evidence/AB_CLOSURE_BEFORE_GIT_DELIVERY.json",
+      "sha256": "a9e48ad1cc4edfaa9ec85277be6d52a2583cb7ea6d1a78879d3b729cf6f00d3f",
+      "bytes": 2090
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\GIT_STAGED_RAW_ARCHIVES_VERIFIED.json",
+      "relative": "evidence/GIT_STAGED_RAW_ARCHIVES_VERIFIED.json",
+      "sha256": "7cea4a51148cc86b4df6da0a63ab85170c4ac067b7db9ee4c32280ae370cf5e9",
+      "bytes": 6407
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\NATIVE_IG04_AUDIT_20261011T102424707Z.json",
+      "relative": "evidence/NATIVE_IG04_AUDIT_20261011T102424707Z.json",
+      "sha256": "678eb8af730b4115187e1b47755734d946ba713dd039bcf6932b3928556307d3",
+      "bytes": 30306
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\INSTALLATION_FRESH_FINAL_AUDIT.json",
+      "relative": "review/independent/INSTALLATION_FRESH_FINAL_AUDIT.json",
+      "sha256": "971bf9c0cc6179e5e6bf17b4d54d210d0a31dae41db8115d1d227e9e04464b41",
+      "bytes": 11844
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\BATCH_BUDGET_AUDIT.json",
+      "relative": "review/independent/BATCH_BUDGET_AUDIT.json",
+      "sha256": "2a9bb7ad9b3da9ecf553e034d10ccac84e1fba0c96ace75e7f1abe924ee88aa3",
+      "bytes": 4227
+    }
+  ],
+  "qualification": {
+    "status": "passed",
+    "durationSeconds": 573.818,
+    "stageCount": 15,
+    "stageTotalSeconds": 268.9882463000001,
+    "statusObservation": null
+  },
+  "referenceGuard": {
+    "status": "blocked",
+    "at": "2026-10-11T10:24:24.706Z",
+    "processes": 833,
+    "tasks": 215,
+    "references": 0,
+    "unknown": 198
+  },
+  "productionActions": 0
+}

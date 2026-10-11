@@ -1,0 +1,1313 @@
+TAP version 13
+# Subtest: slow artifact, recovery and source checks precede final observations; persistence does not renew time
+ok 1 - slow artifact, recovery and source checks precede final observations; persistence does not renew time
+  ---
+  duration_ms: 5.1911
+  type: 'test'
+  ...
+# Subtest: session full content recheck also precedes both dynamic observations
+ok 2 - session full content recheck also precedes both dynamic observations
+  ---
+  duration_ms: 1.8128
+  type: 'test'
+  ...
+# Subtest: 5001ms post-query persistence rejects stale success and retains its attempts
+ok 3 - 5001ms post-query persistence rejects stale success and retains its attempts
+  ---
+  duration_ms: 2.2398
+  type: 'test'
+  ...
+# Subtest: 5000ms boundary remains accepted without resetting the actual clock
+ok 4 - 5000ms boundary remains accepted without resetting the actual clock
+  ---
+  duration_ms: 1.5973
+  type: 'test'
+  ...
+# Subtest: backward wall clock is rejected rather than treated as a fresh observation
+ok 5 - backward wall clock is rejected rather than treated as a fresh observation
+  ---
+  duration_ms: 2.0564
+  type: 'test'
+  ...
+# Subtest: non-health phase timestamps completed process identity, with no later slow recheck
+ok 6 - non-health phase timestamps completed process identity, with no later slow recheck
+  ---
+  duration_ms: 2.7546
+  type: 'test'
+  ...
+# Subtest: readiness failure keeps native and bounded diagnostics and is not converted to stale success
+ok 7 - readiness failure keeps native and bounded diagnostics and is not converted to stale success
+  ---
+  duration_ms: 2.8422
+  type: 'test'
+  ...
+# Subtest: changed source blocks before any dynamic probe
+ok 8 - changed source blocks before any dynamic probe
+  ---
+  duration_ms: 1.9802
+  type: 'test'
+  ...
+# Subtest: slow verification cannot hide djangoDrift
+ok 9 - slow verification cannot hide djangoDrift
+  ---
+  duration_ms: 1.397
+  type: 'test'
+  ...
+# Subtest: slow verification cannot hide journalDrift
+ok 10 - slow verification cannot hide journalDrift
+  ---
+  duration_ms: 1.5717
+  type: 'test'
+  ...
+# Subtest: slow verification cannot hide chainDrift
+ok 11 - slow verification cannot hide chainDrift
+  ---
+  duration_ms: 1.1808
+  type: 'test'
+  ...
+# Subtest: collector-local bounded readiness survives a legacy retry attempt serializer
+ok 12 - collector-local bounded readiness survives a legacy retry attempt serializer
+  ---
+  duration_ms: 1.389
+  type: 'test'
+  ...
+# Subtest: full migration closure remains before final dynamic observations
+ok 13 - full migration closure remains before final dynamic observations
+  ---
+  duration_ms: 2.5184
+  type: 'test'
+  ...
+# Subtest: bound source uses full bound sampler twice and drift rejects before observations
+ok 14 - bound source uses full bound sampler twice and drift rejects before observations
+  ---
+  duration_ms: 3.6903
+  type: 'test'
+  ...
+# Subtest: CSS values are proven; rules/resources/security properties remain byte-bound
+ok 15 - CSS values are proven; rules/resources/security properties remain byte-bound
+  ---
+  duration_ms: 7.806
+  type: 'test'
+  ...
+# Subtest: bounded static PNG replacement is allowed; SVG/new/deleted/redirected resource is rejected
+ok 16 - bounded static PNG replacement is allowed; SVG/new/deleted/redirected resource is rejected
+  ---
+  duration_ms: 2.8229
+  type: 'test'
+  ...
+# Subtest: pure local Boolean button toggle is proven, aliases/custom calls/server components are not
+ok 17 - pure local Boolean button toggle is proven, aliases/custom calls/server components are not
+  ---
+  duration_ms: 35.094
+  type: 'test'
+  ...
+# Subtest: API/server execution, frontend writes, permissions, dependencies, config and mixed changes stay strict
+ok 18 - API/server execution, frontend writes, permissions, dependencies, config and mixed changes stay strict
+  ---
+  duration_ms: 6.2911
+  type: 'test'
+  ...
+# Subtest: actual production predecessor snapshots bind the real four-file delta and reject its ownership/permission logic
+ok 19 - actual production predecessor snapshots bind the real four-file delta and reject its ownership/permission logic
+  ---
+  duration_ms: 8538.0743
+  type: 'test'
+  ...
+# {"afterFiles":5050,"afterSourceSha256":"8662394ff24c116685c1342ed6b8b9fa5dd58d8ffa7c0bb869be31e49e5e0646","beforeFiles":5050,"beforeSourceSha256":"70a562eadb2ee993ae3e80188f9a1e064f8605012a218507dba507a101aefa0e","changed":["app/customer-service-view.tsx","app/globals.css","app/page.tsx","app/ui/stable-read-content.tsx"],"completeSnapshots":true,"level":"strict","source":"immutable-source-snapshot"}
+# Subtest: new admission modules are copied and key-file bound in the immutable release
+ok 20 - new admission modules are copied and key-file bound in the immutable release
+  ---
+  duration_ms: 0.6956
+  type: 'test'
+  ...
+# Subtest: database decisions are sealed; rehashed omissions, duplicate lifecycles and arbitrary display writes fail
+ok 21 - database decisions are sealed; rehashed omissions, duplicate lifecycles and arbitrary display writes fail
+  ---
+  duration_ms: 13.4063
+  type: 'test'
+  ...
+# Subtest: unknown BeginWorkerDrain retains ownership and is never replayed
+ok 22 - unknown BeginWorkerDrain retains ownership and is never replayed
+  ---
+  duration_ms: 105.1802
+  type: 'test'
+  ...
+# Subtest: unknown EndWorkerDrain retains ownership and is never replayed
+ok 23 - unknown EndWorkerDrain retains ownership and is never replayed
+  ---
+  duration_ms: 187.0734
+  type: 'test'
+  ...
+# Subtest: recovery failure at any boundary blocks; sealed full DB steps cannot be skipped
+ok 24 - recovery failure at any boundary blocks; sealed full DB steps cannot be skipped
+  ---
+  duration_ms: 50.87
+  type: 'test'
+  ...
+# Subtest: same-batch content evidence is bounded, forced at switch barriers and cannot be mutated by callers
+ok 25 - same-batch content evidence is bounded, forced at switch barriers and cannot be mutated by callers
+  ---
+  duration_ms: 2.558
+  type: 'test'
+  ...
+# Subtest: content change invalidates sourceSha256 even with unchanged timestamps
+ok 26 - content change invalidates sourceSha256 even with unchanged timestamps
+  ---
+  duration_ms: 0.3497
+  type: 'test'
+  ...
+# Subtest: content change invalidates sourceInventorySha256 even with unchanged timestamps
+ok 27 - content change invalidates sourceInventorySha256 even with unchanged timestamps
+  ---
+  duration_ms: 0.2648
+  type: 'test'
+  ...
+# Subtest: content change invalidates toolchain even with unchanged timestamps
+ok 28 - content change invalidates toolchain even with unchanged timestamps
+  ---
+  duration_ms: 0.3239
+  type: 'test'
+  ...
+# Subtest: content change invalidates configuration even with unchanged timestamps
+ok 29 - content change invalidates configuration even with unchanged timestamps
+  ---
+  duration_ms: 0.2568
+  type: 'test'
+  ...
+# Subtest: evidence checked before work is rechecked after; other batches/concurrent use/disposal are refused
+ok 30 - evidence checked before work is rechecked after; other batches/concurrent use/disposal are refused
+  ---
+  duration_ms: 0.7813
+  type: 'test'
+  ...
+# Subtest: full verification observation race and unsuccessful result never seed reusable evidence
+ok 31 - full verification observation race and unsuccessful result never seed reusable evidence
+  ---
+  duration_ms: 0.32
+  type: 'test'
+  ...
+# Subtest: expiry covers the whole observation and source changes after admission block before WAL intent
+ok 32 - expiry covers the whole observation and source changes after admission block before WAL intent
+  ---
+  duration_ms: 47.1031
+  type: 'test'
+  ...
+# Subtest: snapshot inventory includes environment examples and same-mtime tampering is detected by bytes
+ok 33 - snapshot inventory includes environment examples and same-mtime tampering is detected by bytes
+  ---
+  duration_ms: 11.8995
+  type: 'test'
+  ...
+# Subtest: missing config parent creation invalidates; unrelated ancestor siblings do not
+ok 34 - missing config parent creation invalidates; unrelated ancestor siblings do not
+  ---
+  duration_ms: 2500.6441
+  type: 'test'
+  ...
+# Subtest: shared process deadline is transport metadata; other inherited configuration stays bound
+ok 35 - shared process deadline is transport metadata; other inherited configuration stays bound
+  ---
+  duration_ms: 0.271
+  type: 'test'
+  ...
+# Subtest: timings are disjoint children and retain failure status without sensitive diagnostics
+ok 36 - timings are disjoint children and retain failure status without sensitive diagnostics
+  ---
+  duration_ms: 0.3771
+  type: 'test'
+  ...
+# Subtest: failed live collector stages persist in the actual journal without error values
+ok 37 - failed live collector stages persist in the actual journal without error values
+  ---
+  duration_ms: 40.9091
+  type: 'test'
+  ...
+# Subtest: v4 binds one pre-backup and one new-installed restore without changing strict impact
+ok 38 - v4 binds one pre-backup and one new-installed restore without changing strict impact
+  ---
+  duration_ms: 313.9438
+  type: 'test'
+  ...
+# Subtest: default v3 retains full pre/post four stages
+ok 39 - default v3 retains full pre/post four stages
+  ---
+  duration_ms: 44.7781
+  type: 'test'
+  ...
+# Subtest: rehashing cannot replace targeted policy with full
+ok 40 - rehashing cannot replace targeted policy with full
+  ---
+  duration_ms: 308.1625
+  type: 'test'
+  ...
+# Subtest: rehashing cannot replace targeted policy with reuse
+ok 41 - rehashing cannot replace targeted policy with reuse
+  ---
+  duration_ms: 307.6794
+  type: 'test'
+  ...
+# Subtest: rehashing cannot replace targeted policy with not-required
+ok 42 - rehashing cannot replace targeted policy with not-required
+  ---
+  duration_ms: 311.9801
+  type: 'test'
+  ...
+# Subtest: policy, database list or protocol edits cannot grant targeted qualification
+ok 43 - policy, database list or protocol edits cannot grant targeted qualification
+  ---
+  duration_ms: 1228.3901
+  type: 'test'
+  ...
+# Subtest: no boolean/missing closure/prior recovery reuse or arbitrary collector grants v4
+ok 44 - no boolean/missing closure/prior recovery reuse or arbitrary collector grants v4
+  ---
+  duration_ms: 679.7249
+  type: 'test'
+  ...
+# Subtest: migration, dependency, backup operator or consumer inventory drift rejects even after manifest rehash
+ok 45 - migration, dependency, backup operator or consumer inventory drift rejects even after manifest rehash
+  ---
+  duration_ms: 552.8906
+  type: 'test'
+  ...
+# Subtest: missing or additional data/consumer steps cannot be hidden by rehash
+ok 46 - missing or additional data/consumer steps cannot be hidden by rehash
+  ---
+  duration_ms: 1231.6713
+  type: 'test'
+  ...
+# Subtest: new installed chain must precede restore and restore must precede exit/start
+ok 47 - new installed chain must precede restore and restore must precede exit/start
+  ---
+  duration_ms: 1500.6786
+  type: 'test'
+  ...
+# Subtest: prepared/old operator, another backup and missing isolated restore assertions reject
+ok 48 - prepared/old operator, another backup and missing isolated restore assertions reject
+  ---
+  duration_ms: 1612.7556
+  type: 'test'
+  ...
+# Subtest: consumer cannot be caller JS/command or an extra business write
+ok 49 - consumer cannot be caller JS/command or an extra business write
+  ---
+  duration_ms: 585.6686
+  type: 'test'
+  ...
+# Subtest: targeted recovery does not query daily/reuse qualification
+ok 50 - targeted recovery does not query daily/reuse qualification
+  ---
+  duration_ms: 389.3123
+  type: 'test'
+  ...
+# Subtest: actual consumer executor calls only installed original planner with no args and captures exact chain
+ok 51 - actual consumer executor calls only installed original planner with no args and captures exact chain
+  ---
+  duration_ms: 317.1028
+  type: 'test'
+  ...
+# Subtest: actual consumer executor rejects badHead
+ok 52 - actual consumer executor rejects badHead
+  ---
+  duration_ms: 322.4639
+  type: 'test'
+  ...
+# Subtest: actual consumer executor rejects badShape
+ok 53 - actual consumer executor rejects badShape
+  ---
+  duration_ms: 299.9079
+  type: 'test'
+  ...
+# Subtest: actual consumer executor rejects badArray
+ok 54 - actual consumer executor rejects badArray
+  ---
+  duration_ms: 305.6425
+  type: 'test'
+  ...
+# Subtest: actual consumer executor rejects badBytes
+ok 55 - actual consumer executor rejects badBytes
+  ---
+  duration_ms: 289.9878
+  type: 'test'
+  ...
+# Subtest: actual consumer executor rejects chainDrift
+ok 56 - actual consumer executor rejects chainDrift
+  ---
+  duration_ms: 301.3756
+  type: 'test'
+  ...
+# Subtest: actual consumer executor rejects unconfirmed
+ok 57 - actual consumer executor rejects unconfirmed
+  ---
+  duration_ms: 290.1088
+  type: 'test'
+  ...
+# Subtest: failed consumer leaves WAL unknown, prevents restore/start and cannot replay
+ok 58 - failed consumer leaves WAL unknown, prevents restore/start and cannot replay
+  ---
+  duration_ms: 621.7037
+  type: 'test'
+  ...
+# Subtest: actual original operation runner expands the same confirmed backup point for installed restore
+ok 59 - actual original operation runner expands the same confirmed backup point for installed restore
+  ---
+  duration_ms: 297.1523
+  type: 'test'
+  ...
+# Subtest: real result contract refuses backupId
+ok 60 - real result contract refuses backupId
+  ---
+  duration_ms: 285.6453
+  type: 'test'
+  ...
+# Subtest: real result contract refuses backupManifestSha256
+ok 61 - real result contract refuses backupManifestSha256
+  ---
+  duration_ms: 283.6979
+  type: 'test'
+  ...
+# Subtest: real result contract refuses dumpSha256
+ok 62 - real result contract refuses dumpSha256
+  ---
+  duration_ms: 298.8656
+  type: 'test'
+  ...
+# Subtest: real result contract refuses restoredContentSha256
+ok 63 - real result contract refuses restoredContentSha256
+  ---
+  duration_ms: 295.0005
+  type: 'test'
+  ...
+# Subtest: real result contract refuses productionDatabaseTouched
+ok 64 - real result contract refuses productionDatabaseTouched
+  ---
+  duration_ms: 308.593
+  type: 'test'
+  ...
+# Subtest: real result contract refuses profileRestoreVerified
+ok 65 - real result contract refuses profileRestoreVerified
+  ---
+  duration_ms: 296.1316
+  type: 'test'
+  ...
+# Subtest: real result contract refuses sequenceHealthVerified
+ok 66 - real result contract refuses sequenceHealthVerified
+  ---
+  duration_ms: 287.6142
+  type: 'test'
+  ...
+# Subtest: real result contract refuses cleanupStatus
+ok 67 - real result contract refuses cleanupStatus
+  ---
+  duration_ms: 290.9452
+  type: 'test'
+  ...
+# Subtest: installed restore refuses missing consumer evidence before invoking any native operator
+ok 68 - installed restore refuses missing consumer evidence before invoking any native operator
+  ---
+  duration_ms: 310.2979
+  type: 'test'
+  ...
+# Subtest: original backend-ready Start guard and adapter control flow (powershell.exe)
+ok 69 - original backend-ready Start guard and adapter control flow (powershell.exe)
+  ---
+  duration_ms: 2642.9054
+  type: 'test'
+  ...
+# Subtest: original backend-ready Start guard and adapter control flow (pwsh.exe)
+ok 70 - original backend-ready Start guard and adapter control flow (pwsh.exe)
+  ---
+  duration_ms: 3997.6479
+  type: 'test'
+  ...
+# Subtest: real browser consumes exact candidate CSS and asserts computed size
+ok 71 - real browser consumes exact candidate CSS and asserts computed size
+  ---
+  duration_ms: 1301.1598
+  type: 'test'
+  ...
+# Subtest: browser forbids a hidden writing GET even though HTTP method says read
+ok 72 - browser forbids a hidden writing GET even though HTTP method says read
+  ---
+  duration_ms: 951.9613
+  type: 'test'
+  ...
+# Subtest: browser fails on any attempted write before target style assertion
+ok 73 - browser fails on any attempted write before target style assertion
+  ---
+  duration_ms: 1205.1736
+  type: 'test'
+  ...
+# Subtest: browser refuses WebSocket writes without forwarding even the handshake
+ok 74 - browser refuses WebSocket writes without forwarding even the handshake
+  ---
+  duration_ms: 989.5479
+  type: 'test'
+  ...
+# Subtest: browser rejects altered resource bytes and wrong candidate style
+ok 75 - browser rejects altered resource bytes and wrong candidate style
+  ---
+  duration_ms: 1940.037
+  type: 'test'
+  ...
+# Subtest: browser refuses resource redirects without contacting redirected GET target
+ok 76 - browser refuses resource redirects without contacting redirected GET target
+  ---
+  duration_ms: 1102.0988
+  type: 'test'
+  ...
+# Subtest: unknown observation callbacks/properties and forged resource routes reject before browser launch
+ok 77 - unknown observation callbacks/properties and forged resource routes reject before browser launch
+  ---
+  duration_ms: 12.4181
+  type: 'test'
+  ...
+# Subtest: natural watchdog preserves full original AI/component/probe/fence contract
+ok 78 - natural watchdog preserves full original AI/component/probe/fence contract
+  ---
+  duration_ms: 2.6223
+  type: 'test'
+  ...
+# Subtest: v3 CSS candidate seals zero DB operations without any recovery/daily prerequisites
+ok 79 - v3 CSS candidate seals zero DB operations without any recovery/daily prerequisites
+  ---
+  duration_ms: 320.2412
+  type: 'test'
+  ...
+# Subtest: intrinsic client text/layout can prove no data; custom text and event changes cannot
+ok 80 - intrinsic client text/layout can prove no data; custom text and event changes cannot
+  ---
+  duration_ms: 15.1553
+  type: 'test'
+  ...
+# Subtest: unproven change cannot forge no-data: backend/read.py
+ok 81 - unproven change cannot forge no-data: backend/read.py
+  ---
+  duration_ms: 0.4722
+  type: 'test'
+  ...
+# Subtest: unproven change cannot forge no-data: backend/migrations/0002.py
+ok 82 - unproven change cannot forge no-data: backend/migrations/0002.py
+  ---
+  duration_ms: 0.2672
+  type: 'test'
+  ...
+# Subtest: unproven change cannot forge no-data: package.json
+ok 83 - unproven change cannot forge no-data: package.json
+  ---
+  duration_ms: 0.2774
+  type: 'test'
+  ...
+# Subtest: unproven change cannot forge no-data: tools/start.mjs
+ok 84 - unproven change cannot forge no-data: tools/start.mjs
+  ---
+  duration_ms: 0.2342
+  type: 'test'
+  ...
+# Subtest: unproven change cannot forge no-data: lib/auth.ts
+ok 85 - unproven change cannot forge no-data: lib/auth.ts
+  ---
+  duration_ms: 0.2512
+  type: 'test'
+  ...
+# Subtest: unproven change cannot forge no-data: app/api/read/route.ts
+ok 86 - unproven change cannot forge no-data: app/api/read/route.ts
+  ---
+  duration_ms: 0.2688
+  type: 'test'
+  ...
+# Subtest: unproven change cannot forge no-data: app/globals.css
+ok 87 - unproven change cannot forge no-data: app/globals.css
+  ---
+  duration_ms: 0.2721
+  type: 'test'
+  ...
+# Subtest: incomplete inventory, changed delta bytes and predecessor binding fail
+ok 88 - incomplete inventory, changed delta bytes and predecessor binding fail
+  ---
+  duration_ms: 251.2884
+  type: 'test'
+  ...
+# Subtest: independent-review alleged missing source bytes disproved by actual proof JSON roundtrip
+ok 89 - independent-review alleged missing source bytes disproved by actual proof JSON roundtrip
+  ---
+  duration_ms: 255.4266
+  type: 'test'
+  ...
+# Subtest: missing Django hash and moved pre-switch observations reject after digest recompute
+ok 90 - missing Django hash and moved pre-switch observations reject after digest recompute
+  ---
+  duration_ms: 974.0664
+  type: 'test'
+  ...
+# Subtest: digest recompute cannot waive policy
+ok 91 - digest recompute cannot waive policy
+  ---
+  duration_ms: 238.3087
+  type: 'test'
+  ...
+# Subtest: digest recompute cannot waive database
+ok 92 - digest recompute cannot waive database
+  ---
+  duration_ms: 249.0953
+  type: 'test'
+  ...
+# Subtest: digest recompute cannot waive permission
+ok 93 - digest recompute cannot waive permission
+  ---
+  duration_ms: 242.2803
+  type: 'test'
+  ...
+# Subtest: digest recompute cannot waive dataCommand
+ok 94 - digest recompute cannot waive dataCommand
+  ---
+  duration_ms: 247.633
+  type: 'test'
+  ...
+# Subtest: digest recompute cannot waive omittedPermission
+ok 95 - digest recompute cannot waive omittedPermission
+  ---
+  duration_ms: 244.3365
+  type: 'test'
+  ...
+# Subtest: digest recompute cannot waive forgedGet
+ok 96 - digest recompute cannot waive forgedGet
+  ---
+  duration_ms: 271.5088
+  type: 'test'
+  ...
+# Subtest: digest recompute cannot waive lifecycleArg
+ok 97 - digest recompute cannot waive lifecycleArg
+  ---
+  duration_ms: 264.4233
+  type: 'test'
+  ...
+# Subtest: digest recompute cannot waive arbitraryLifecycle
+ok 98 - digest recompute cannot waive arbitraryLifecycle
+  ---
+  duration_ms: 255.5377
+  type: 'test'
+  ...
+# Subtest: digest recompute cannot waive forgedReadOnly
+ok 99 - digest recompute cannot waive forgedReadOnly
+  ---
+  duration_ms: 248.2568
+  type: 'test'
+  ...
+# Subtest: digest recompute cannot waive backupInserted
+ok 100 - digest recompute cannot waive backupInserted
+  ---
+  duration_ms: 243.9851
+  type: 'test'
+  ...
+# Subtest: caller-controlled collector and trusted adapter hash forgery reject
+ok 101 - caller-controlled collector and trusted adapter hash forgery reject
+  ---
+  duration_ms: 257.8295
+  type: 'test'
+  ...
+# Subtest: configuration/toolchain/start hooks outside source cannot hide behind CSS-only delta
+ok 102 - configuration/toolchain/start hooks outside source cannot hide behind CSS-only delta
+  ---
+  duration_ms: 242.3045
+  type: 'test'
+  ...
+# Subtest: independent effect report is exact candidate evidence, not an effects=false checkbox
+ok 103 - independent effect report is exact candidate evidence, not an effects=false checkbox
+  ---
+  duration_ms: 259.1682
+  type: 'test'
+  ...
+# Subtest: original engine WAL runs no-data phases; any source/artifact/predecessor drift stops before actions
+ok 104 - original engine WAL runs no-data phases; any source/artifact/predecessor drift stops before actions
+  ---
+  duration_ms: 1544.5028
+  type: 'test'
+  ...
+# Subtest: complete content gates and negative permissions remain required
+ok 105 - complete content gates and negative permissions remain required
+  ---
+  duration_ms: 3.6405
+  type: 'test'
+  ...
+# Subtest: backend-not-ready Start failure retains unknown ownership and never unfreezes or replays
+ok 106 - backend-not-ready Start failure retains unknown ownership and never unfreezes or replays
+  ---
+  duration_ms: 619.5154
+  type: 'test'
+  ...
+# Subtest: fixed canonical source accepts real hardlinks with bracketed byte and inode identity
+ok 107 - fixed canonical source accepts real hardlinks with bracketed byte and inode identity
+  ---
+  duration_ms: 35.829
+  type: 'test'
+  ...
+# Subtest: ordinary source, npm and a different configuration hardlink remain rejected
+ok 108 - ordinary source, npm and a different configuration hardlink remain rejected
+  ---
+  duration_ms: 21.9535
+  type: 'test'
+  ...
+# Subtest: single-link test configuration uses original strict reader
+ok 109 - single-link test configuration uses original strict reader
+  ---
+  duration_ms: 12.5881
+  type: 'test'
+  ...
+# Subtest: fixed configuration under a real junction ancestor is rejected
+ok 110 - fixed configuration under a real junction ancestor is rejected
+  ---
+  duration_ms: 20.774
+  type: 'test'
+  ...
+# Subtest: fixed path must remain a regular file
+ok 111 - fixed path must remain a regular file
+  ---
+  duration_ms: 16.2731
+  type: 'test'
+  ...
+# Subtest: configuration write through sibling hardlink during read is rejected even with restored mtime
+ok 112 - configuration write through sibling hardlink during read is rejected even with restored mtime
+  ---
+  duration_ms: 21.2898
+  type: 'test'
+  ...
+# Subtest: same bytes with a replaced inode or changed link count cannot become the same snapshot
+ok 113 - same bytes with a replaced inode or changed link count cannot become the same snapshot
+  ---
+  duration_ms: 55.0699
+  type: 'test'
+  ...
+# Subtest: original helper policy does not authorize hardlinks on the production-named basename elsewhere
+ok 114 - original helper policy does not authorize hardlinks on the production-named basename elsewhere
+  ---
+  duration_ms: 10.7868
+  type: 'test'
+  ...
+# Subtest: native full identity/session collect and recheck support the private fixed hardlink, then reject mutation
+not ok 115 - native full identity/session collect and recheck support the private fixed hardlink, then reject mutation
+  ---
+  duration_ms: 6736.7098
+  type: 'test'
+  location: 'E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\candidate-regression-v4\\release-preparation-runtime-config.test.mjs:53:1'
+  failureType: 'testCodeFailure'
+  error: 'Inputs changed while evidence session was held'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    assertStable (eval at load (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v4/release-preparation-runtime-config.test.mjs:16:9), <anonymous>:92:22)
+    eval (eval at load (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v4/release-preparation-runtime-config.test.mjs:16:9), <anonymous>:153:42)
+    async exclusive (eval at load (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v4/release-preparation-runtime-config.test.mjs:16:9), <anonymous>:137:24)
+    async file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v4/release-preparation-runtime-config.test.mjs:57:22
+    async fixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v4/release-preparation-runtime-config.test.mjs:20:150)
+    async Test.run (node:internal/test_runner/test:1332:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+  ...
+# Subtest: exact fixed change remains synchronous and validates full bytes before clearing pending
+ok 116 - exact fixed change remains synchronous and validates full bytes before clearing pending
+  ---
+  duration_ms: 75.9704
+  type: 'test'
+  ...
+# Subtest: unqualified configuration event stays irreversible: rename/.dev.vars
+ok 117 - unqualified configuration event stays irreversible: rename/.dev.vars
+  ---
+  duration_ms: 46.7703
+  type: 'test'
+  ...
+# Subtest: unqualified configuration event stays irreversible: change/null
+ok 118 - unqualified configuration event stays irreversible: change/null
+  ---
+  duration_ms: 39.2897
+  type: 'test'
+  ...
+# Subtest: unqualified configuration event stays irreversible: change/.dev.vars/unknown
+ok 119 - unqualified configuration event stays irreversible: change/.dev.vars/unknown
+  ---
+  duration_ms: 37.7744
+  type: 'test'
+  ...
+# Subtest: sourceWatch invalidation cannot be cleared by valid configuration pending
+ok 120 - sourceWatch invalidation cannot be cleared by valid configuration pending
+  ---
+  duration_ms: 38.5503
+  type: 'test'
+  ...
+# Subtest: npm invalidation cannot be cleared by valid configuration pending
+ok 121 - npm invalidation cannot be cleared by valid configuration pending
+  ---
+  duration_ms: 34.6364
+  type: 'test'
+  ...
+# Subtest: changed config bytes cannot be accepted by pending or a new full collect in the same session
+ok 122 - changed config bytes cannot be accepted by pending or a new full collect in the same session
+  ---
+  duration_ms: 65.8391
+  type: 'test'
+  ...
+# Subtest: same bytes with changed inode or link count cannot clear pending
+ok 123 - same bytes with changed inode or link count cannot clear pending
+  ---
+  duration_ms: 84.4704
+  type: 'test'
+  ...
+# Subtest: watch errors remain sticky and dispose never refreshes baseline
+ok 124 - watch errors remain sticky and dispose never refreshes baseline
+  ---
+  duration_ms: 28.5007
+  type: 'test'
+  ...
+# Subtest: exact source binding preserves the complete original identity; optional absence remains legacy
+ok 125 - exact source binding preserves the complete original identity; optional absence remains legacy
+  ---
+  duration_ms: 5.0931
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: unknown
+ok 126 - rejects malformed/forged source contract: unknown
+  ---
+  duration_ms: 0.5821
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: missing
+ok 127 - rejects malformed/forged source contract: missing
+  ---
+  duration_ms: 0.5152
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: relative
+ok 128 - rejects malformed/forged source contract: relative
+  ---
+  duration_ms: 0.3466
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: parent
+ok 129 - rejects malformed/forged source contract: parent
+  ---
+  duration_ms: 0.5585
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: protected
+ok 130 - rejects malformed/forged source contract: protected
+  ---
+  duration_ms: 0.3838
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: ancestor
+ok 131 - rejects malformed/forged source contract: ancestor
+  ---
+  duration_ms: 0.3688
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: dot
+ok 132 - rejects malformed/forged source contract: dot
+  ---
+  duration_ms: 0.3415
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: rootSha
+ok 133 - rejects malformed/forged source contract: rootSha
+  ---
+  duration_ms: 0.4201
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: predecessor
+ok 134 - rejects malformed/forged source contract: predecessor
+  ---
+  duration_ms: 0.7576
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: inventory
+ok 135 - rejects malformed/forged source contract: inventory
+  ---
+  duration_ms: 0.6355
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: npmMissing
+ok 136 - rejects malformed/forged source contract: npmMissing
+  ---
+  duration_ms: 0.4682
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: identityExtra
+ok 137 - rejects malformed/forged source contract: identityExtra
+  ---
+  duration_ms: 0.404
+  type: 'test'
+  ...
+# Subtest: rejects malformed/forged source contract: circular
+ok 138 - rejects malformed/forged source contract: circular
+  ---
+  duration_ms: 1.0448
+  type: 'test'
+  ...
+# Subtest: separator-aware root exclusion admits a distinct same-prefix namespace
+ok 139 - separator-aware root exclusion admits a distinct same-prefix namespace
+  ---
+  duration_ms: 0.4656
+  type: 'test'
+  ...
+# Subtest: envelope byte and complete live identity/predecessor drift fail even when declared hashes are recomputed
+ok 140 - envelope byte and complete live identity/predecessor drift fail even when declared hashes are recomputed
+  ---
+  duration_ms: 2.4246
+  type: 'test'
+  ...
+# Subtest: manifest, plan, receipt and batch must select one identical source, never fallback
+ok 141 - manifest, plan, receipt and batch must select one identical source, never fallback
+  ---
+  duration_ms: 4.7261
+  type: 'test'
+  ...
+# Subtest: original file/path readers reject missing, changed, hard-linked or redirected binding inputs
+ok 142 - original file/path readers reject missing, changed, hard-linked or redirected binding inputs
+  ---
+  duration_ms: 332.921
+  type: 'test'
+  ...
+# Subtest: CLI rejects incomplete/path/test escape before preparation: --source-binding E:\\missing.json
+ok 143 - CLI rejects incomplete/path/test escape before preparation: --source-binding E:\\missing.json
+  ---
+  duration_ms: 127.1268
+  type: 'test'
+  ...
+# Subtest: CLI rejects incomplete/path/test escape before preparation: --source-binding-sha256 1111111111111111111111111111111111111111111111111111111111111111
+ok 144 - CLI rejects incomplete/path/test escape before preparation: --source-binding-sha256 1111111111111111111111111111111111111111111111111111111111111111
+  ---
+  duration_ms: 141.9349
+  type: 'test'
+  ...
+# Subtest: CLI rejects incomplete/path/test escape before preparation: --source-root E:\\candidate
+ok 145 - CLI rejects incomplete/path/test escape before preparation: --source-root E:\\candidate
+  ---
+  duration_ms: 128.1329
+  type: 'test'
+  ...
+# Subtest: CLI rejects incomplete/path/test escape before preparation: --source-binding bad
+ok 146 - CLI rejects incomplete/path/test escape before preparation: --source-binding bad
+  ---
+  duration_ms: 128.3212
+  type: 'test'
+  ...
+# Subtest: CLI rejects incomplete/path/test escape before preparation: --source-binding --allow-test-runtime-root
+ok 147 - CLI rejects incomplete/path/test escape before preparation: --source-binding --allow-test-runtime-root
+  ---
+  duration_ms: 133.7123
+  type: 'test'
+  ...
+# Subtest: exact tools/no-migration proof changes only one validation name and retains strict/full four DB stages
+ok 148 - exact tools/no-migration proof changes only one validation name and retains strict/full four DB stages
+  ---
+  duration_ms: 119.2911
+  type: 'test'
+  ...
+# Subtest: missing closure test, v2 qualifier, unknown version or caller boolean never qualifies
+ok 149 - missing closure test, v2 qualifier, unknown version or caller boolean never qualifies
+  ---
+  duration_ms: 86.4202
+  type: 'test'
+  ...
+# Subtest: recomputed manifest/proof cannot hide changed backend/domain/migrations/0001.py
+ok 150 - recomputed manifest/proof cannot hide changed backend/domain/migrations/0001.py
+  ---
+  duration_ms: 22.7549
+  type: 'test'
+  ...
+# Subtest: recomputed manifest/proof cannot hide changed config/business.json
+ok 151 - recomputed manifest/proof cannot hide changed config/business.json
+  ---
+  duration_ms: 22.7402
+  type: 'test'
+  ...
+# Subtest: recomputed manifest/proof cannot hide changed drizzle/retired.sql
+ok 152 - recomputed manifest/proof cannot hide changed drizzle/retired.sql
+  ---
+  duration_ms: 33.8817
+  type: 'test'
+  ...
+# Subtest: recomputed manifest/proof cannot hide changed runtime-tools/node_modules/miniflare/index.js
+ok 153 - recomputed manifest/proof cannot hide changed runtime-tools/node_modules/miniflare/index.js
+  ---
+  duration_ms: 27.8
+  type: 'test'
+  ...
+# Subtest: recomputed manifest/proof cannot hide changed tools/django-postgres-maintenance.ps1
+ok 154 - recomputed manifest/proof cannot hide changed tools/django-postgres-maintenance.ps1
+  ---
+  duration_ms: 25.1317
+  type: 'test'
+  ...
+# Subtest: omitted inventories, wrong manifest and unreviewed source bytes reject
+ok 155 - omitted inventories, wrong manifest and unreviewed source bytes reject
+  ---
+  duration_ms: 93.94
+  type: 'test'
+  ...
+# Subtest: coherently fabricated smaller manifests cannot match actual live package evidence
+ok 156 - coherently fabricated smaller manifests cannot match actual live package evidence
+  ---
+  duration_ms: 34.5754
+  type: 'test'
+  ...
+# Subtest: exact generated cache review binds both hashes; live comparison rejects other fields without recording private values
+ok 157 - exact generated cache review binds both hashes; live comparison rejects other fields without recording private values
+  ---
+  duration_ms: 141.2073
+  type: 'test'
+  ...
+# Subtest: qualified batch cannot rehash away required backup/restore operations
+ok 158 - qualified batch cannot rehash away required backup/restore operations
+  ---
+  duration_ms: 80.8581
+  type: 'test'
+  ...
+# Subtest: live inventory reader binds exact raw manifest and before/app.previous-after/app bytes
+ok 159 - live inventory reader binds exact raw manifest and before/app.previous-after/app bytes
+  ---
+  duration_ms: 70.0748
+  type: 'test'
+  ...
+# Subtest: actual failed observer saves evidence outside WAL and subsequent journal reads/unknown retention remain valid
+ok 160 - actual failed observer saves evidence outside WAL and subsequent journal reads/unknown retention remain valid
+  ---
+  duration_ms: 571.6255
+  type: 'test'
+  ...
+# Subtest: Start candidate/drain/dependency bindings reject at sealing before any operation
+ok 161 - Start candidate/drain/dependency bindings reject at sealing before any operation
+  ---
+  duration_ms: 46.0264
+  type: 'test'
+  ...
+# Subtest: unknown operation retains exit/deadline metadata and cannot replay
+ok 162 - unknown operation retains exit/deadline metadata and cannot replay
+  ---
+  duration_ms: 284.3727
+  type: 'test'
+  ...
+# Subtest: passed WAL retains bounded original engine completion and separate timings
+ok 163 - passed WAL retains bounded original engine completion and separate timings
+  ---
+  duration_ms: 314.8835
+  type: 'test'
+  ...
+# Subtest: literal display delta is proven across unchanged dependency closure
+ok 164 - literal display delta is proven across unchanged dependency closure
+  ---
+  duration_ms: 2.2909
+  type: 'test'
+  ...
+# Subtest: mixed high/unproven impact blocks display: backend/sales/migrations/9001.py
+ok 165 - mixed high/unproven impact blocks display: backend/sales/migrations/9001.py
+  ---
+  duration_ms: 1.1972
+  type: 'test'
+  ...
+# Subtest: mixed high/unproven impact blocks display: lib/auth/permissions.ts
+ok 166 - mixed high/unproven impact blocks display: lib/auth/permissions.ts
+  ---
+  duration_ms: 0.6809
+  type: 'test'
+  ...
+# Subtest: mixed high/unproven impact blocks display: tools/runtime.mjs
+ok 167 - mixed high/unproven impact blocks display: tools/runtime.mjs
+  ---
+  duration_ms: 0.4726
+  type: 'test'
+  ...
+# Subtest: mixed high/unproven impact blocks display: config/runtime.json
+ok 168 - mixed high/unproven impact blocks display: config/runtime.json
+  ---
+  duration_ms: 0.5515
+  type: 'test'
+  ...
+# Subtest: mixed high/unproven impact blocks display: worker/index.ts
+ok 169 - mixed high/unproven impact blocks display: worker/index.ts
+  ---
+  duration_ms: 1.0758
+  type: 'test'
+  ...
+# Subtest: mixed high/unproven impact blocks display: package-lock.json
+ok 170 - mixed high/unproven impact blocks display: package-lock.json
+  ---
+  duration_ms: 0.5961
+  type: 'test'
+  ...
+# Subtest: mixed high/unproven impact blocks display: lib/read.ts
+ok 171 - mixed high/unproven impact blocks display: lib/read.ts
+  ---
+  duration_ms: 0.8967
+  type: 'test'
+  ...
+# Subtest: mixed high/unproven impact blocks display: app/view.tsx
+ok 172 - mixed high/unproven impact blocks display: app/view.tsx
+  ---
+  duration_ms: 1.988
+  type: 'test'
+  ...
+# Subtest: business read change uses full safeguards; unresolved dependencies stay strict
+ok 173 - business read change uses full safeguards; unresolved dependencies stay strict
+  ---
+  duration_ms: 0.5278
+  type: 'test'
+  ...
+# Subtest: empty/add/delete/malformed display and witness effect escalates
+ok 174 - empty/add/delete/malformed display and witness effect escalates
+  ---
+  duration_ms: 6.6158
+  type: 'test'
+  ...
+# Subtest: recent complete recovery with continuous daily backup permits reuse
+ok 175 - recent complete recovery with continuous daily backup permits reuse
+  ---
+  duration_ms: 0.7561
+  type: 'test'
+  ...
+# Subtest: recovery binding changed: manifestSha256
+ok 176 - recovery binding changed: manifestSha256
+  ---
+  duration_ms: 0.7481
+  type: 'test'
+  ...
+# Subtest: recovery binding changed: dumpSha256
+ok 177 - recovery binding changed: dumpSha256
+  ---
+  duration_ms: 0.7436
+  type: 'test'
+  ...
+# Subtest: recovery binding changed: environmentSha256
+ok 178 - recovery binding changed: environmentSha256
+  ---
+  duration_ms: 0.5532
+  type: 'test'
+  ...
+# Subtest: recovery binding changed: schemaSha256
+ok 179 - recovery binding changed: schemaSha256
+  ---
+  duration_ms: 0.5269
+  type: 'test'
+  ...
+# Subtest: recovery binding changed: rolesSha256
+ok 180 - recovery binding changed: rolesSha256
+  ---
+  duration_ms: 0.8859
+  type: 'test'
+  ...
+# Subtest: recovery binding changed: operatorSha256
+ok 181 - recovery binding changed: operatorSha256
+  ---
+  duration_ms: 0.8046
+  type: 'test'
+  ...
+# Subtest: recovery binding changed: retentionSha256
+ok 182 - recovery binding changed: retentionSha256
+  ---
+  duration_ms: 1.2583
+  type: 'test'
+  ...
+# Subtest: recovery binding changed: scheduleSha256
+ok 183 - recovery binding changed: scheduleSha256
+  ---
+  duration_ms: 0.7432
+  type: 'test'
+  ...
+# Subtest: recovery binding changed: backupId
+ok 184 - recovery binding changed: backupId
+  ---
+  duration_ms: 0.6152
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.current.schedule.active=false
+ok 185 - invalid recovery prerequisite r=>r.current.schedule.active=false
+  ---
+  duration_ms: 0.4923
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.current.schedule.lastResult='failed'
+ok 186 - invalid recovery prerequisite r=>r.current.schedule.lastResult='failed'
+  ---
+  duration_ms: 0.3582
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.current.schedule.lastSuccessAt=new Date(now-backupMaxAgeMs-1).toISOString()
+ok 187 - invalid recovery prerequisite r=>r.current.schedule.lastSuccessAt=new Date(now-backupMaxAgeMs-1).toISOString()
+  ---
+  duration_ms: 0.4584
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.evidence.backupCompletedAt=new Date(now-backupMaxAgeMs-1).toISOString()
+ok 188 - invalid recovery prerequisite r=>r.evidence.backupCompletedAt=new Date(now-backupMaxAgeMs-1).toISOString()
+  ---
+  duration_ms: 0.3833
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.evidence.restoredAt=new Date(now-rehearsalMaxAgeMs-1).toISOString()
+ok 189 - invalid recovery prerequisite r=>r.evidence.restoredAt=new Date(now-rehearsalMaxAgeMs-1).toISOString()
+  ---
+  duration_ms: 0.6041
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.evidence.restoredAt=new Date(now+1).toISOString()
+ok 190 - invalid recovery prerequisite r=>r.evidence.restoredAt=new Date(now+1).toISOString()
+  ---
+  duration_ms: 0.4944
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.evidence.restoreStatus='failed'
+ok 191 - invalid recovery prerequisite r=>r.evidence.restoreStatus='failed'
+  ---
+  duration_ms: 0.355
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.evidence.cleanupStatus='unknown'
+ok 192 - invalid recovery prerequisite r=>r.evidence.cleanupStatus='unknown'
+  ---
+  duration_ms: 0.5191
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.current.pointExists=false
+ok 193 - invalid recovery prerequisite r=>r.current.pointExists=false
+  ---
+  duration_ms: 0.4593
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.current.retained=false
+ok 194 - invalid recovery prerequisite r=>r.current.retained=false
+  ---
+  duration_ms: 0.519
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.current.verifyStatus='failed'
+ok 195 - invalid recovery prerequisite r=>r.current.verifyStatus='failed'
+  ---
+  duration_ms: 0.926
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.evidence[k]=false
+ok 196 - invalid recovery prerequisite r=>r.evidence[k]=false
+  ---
+  duration_ms: 0.4115
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.evidence[k]=false
+ok 197 - invalid recovery prerequisite r=>r.evidence[k]=false
+  ---
+  duration_ms: 0.4742
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.evidence[k]=false
+ok 198 - invalid recovery prerequisite r=>r.evidence[k]=false
+  ---
+  duration_ms: 0.4104
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.evidence[k]=false
+ok 199 - invalid recovery prerequisite r=>r.evidence[k]=false
+  ---
+  duration_ms: 0.3977
+  type: 'test'
+  ...
+# Subtest: invalid recovery prerequisite r=>r.evidence[k]=false
+ok 200 - invalid recovery prerequisite r=>r.evidence[k]=false
+  ---
+  duration_ms: 0.3373
+  type: 'test'
+  ...
+# Subtest: strict/business releases never reuse recovery
+ok 201 - strict/business releases never reuse recovery
+  ---
+  duration_ms: 0.2342
+  type: 'test'
+  ...
+# Subtest: exact binding changes block every executable release
+ok 202 - exact binding changes block every executable release
+  ---
+  duration_ms: 524.9813
+  type: 'test'
+  ...
+# Subtest: approval scope change and incomplete acceptance/tests reject
+ok 203 - approval scope change and incomplete acceptance/tests reject
+  ---
+  duration_ms: 3.677
+  type: 'test'
+  ...
+# Subtest: backup failure retains active ownership and safe resumption skips passed stages
+ok 204 - backup failure retains active ownership and safe resumption skips passed stages
+  ---
+  duration_ms: 447.5925
+  type: 'test'
+  ...
+# Subtest: unknown mutation is never replayed; independent exact reconciliation is required
+ok 205 - unknown mutation is never replayed; independent exact reconciliation is required
+  ---
+  duration_ms: 399.034
+  type: 'test'
+  ...
+# Subtest: crash after write-ahead started record blocks replay; damaged journal blocks
+ok 206 - crash after write-ahead started record blocks replay; damaged journal blocks
+  ---
+  duration_ms: 278.665
+  type: 'test'
+  ...
+# Subtest: an actual subprocess exit after started retains unknown state and cannot replay
+ok 207 - an actual subprocess exit after started retains unknown state and cannot replay
+  ---
+  duration_ms: 536.8092
+  type: 'test'
+  ...
+# Subtest: recovery invalidation immediately before switching blocks the fast batch
+ok 208 - recovery invalidation immediately before switching blocks the fast batch
+  ---
+  duration_ms: 62.5868
+  type: 'test'
+  ...
+# Subtest: legacy plan/apply cannot claim a predecessor owned by another batch
+ok 209 - legacy plan/apply cannot claim a predecessor owned by another batch
+  ---
+  duration_ms: 8.9428
+  type: 'test'
+  ...
+# Subtest: real original rotation mutex serializes independent preparation chats
+ok 210 - real original rotation mutex serializes independent preparation chats
+  ---
+  duration_ms: 2.0595
+  type: 'test'
+  ...
+# Subtest: timing includes explicit approval, incomplete closeout does not declare completion
+ok 211 - timing includes explicit approval, incomplete closeout does not declare completion
+  ---
+  duration_ms: 0.1913
+  type: 'test'
+  ...
+# Subtest: rehashing a hand edited batch cannot remove gates, forge impact or escape journals
+ok 212 - rehashing a hand edited batch cannot remove gates, forge impact or escape journals
+  ---
+  duration_ms: 5.7183
+  type: 'test'
+  ...
+# Subtest: a batch cannot apply another plan, change drain owner or restore another point
+ok 213 - a batch cannot apply another plan, change drain owner or restore another point
+  ---
+  duration_ms: 10.5673
+  type: 'test'
+  ...
+# Subtest: scheduled backup does nothing while paused; unknown result never gives reusable evidence
+ok 214 - scheduled backup does nothing while paused; unknown result never gives reusable evidence
+  ---
+  duration_ms: 42.5356
+  type: 'test'
+  ...
+# Subtest: exact Windows OS PowerShell hash is usable while ordinary hard-linked tools stay forbidden
+ok 215 - exact Windows OS PowerShell hash is usable while ordinary hard-linked tools stay forbidden
+  ---
+  duration_ms: 8.9965
+  type: 'test'
+  ...
+1..215
+# tests 215
+# suites 0
+# pass 214
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 64898.0118

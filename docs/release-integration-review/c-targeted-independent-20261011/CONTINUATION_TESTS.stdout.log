@@ -1,0 +1,40 @@
+{
+  "independent": true,
+  "candidate": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T075658Z-aed7ddc1be340f5c",
+  "seedCommit": "0a1e1ad6342e457e75914d8c77c9d26c89a40721",
+  "seedRawSha256": "c79b960eb09343c0f4df96238e7e5544a8a1c12dfbcb2c57949711a07d4a256d",
+  "pinsBeforeAndAfter": {
+    "deployment-manifest.json": "306e92da4a0598e27746b7cba1b29d60fc8616564b6f644610540a343c5f8ce6",
+    "tools/release-batch-admission.mjs": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5",
+    "tools/release-batch.mjs": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc",
+    "tools/release-impact.mjs": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+    "tools/release-no-data-observation.mjs": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d",
+    "tools/worker-local-release.mjs": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+    "tools/worker-local-release-rotation.mjs": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+    "tools/release-readonly-retry.mjs": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab"
+  },
+  "objectsStable": true,
+  "cases": 3,
+  "pass": 3,
+  "fail": 0,
+  "elapsedMs": 12.35929999999999,
+  "productionImports": 0,
+  "productionActions": 0,
+  "networkRequests": 0,
+  "nativePayloadChildren": 0,
+  "metadataGitSubprocesses": 1,
+  "results": [
+    {
+      "case": "slow bound scan and post-attempt age preserve actual time/refuse late success",
+      "passed": true
+    },
+    {
+      "case": "final WAL drift still refuses before Status",
+      "passed": true
+    },
+    {
+      "case": "original complete readiness/nonretryable diagnostic gate retained",
+      "passed": true
+    }
+  ]
+}

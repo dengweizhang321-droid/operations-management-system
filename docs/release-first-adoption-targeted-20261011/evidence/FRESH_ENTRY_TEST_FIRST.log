@@ -1,0 +1,130 @@
+✖ qualification uses original verifier and fresh collector once, never reserves ownership or invokes engine operations (232.9133ms)
+✖ execute uses original engine/WAL, performs fresh collection at every boundary and closes private ownership (132.1054ms)
+✖ wrong/missing/duplicate entry declaration or self path/hash cannot enter the engine (129.0383ms)
+✖ deleting required in-process transport is rejected rather than selecting another caller (128.497ms)
+✖ actual original deadline rejects a 3600000ms declared DB budget before ownership (132.4301ms)
+✖ explicit approval timestamp is mandatory for execute (132.5547ms)
+✖ spec and raw tests drift after sampling are rejected before native action (135.2315ms)
+✖ entrypoint drift after sampling is rejected before native action (139.7095ms)
+✖ stale/future sample and post-sampling expiry never reach the native operator (136.1144ms)
+✖ unknown operation retains original WAL ownership and cannot replay (143.5004ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 0
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1820.9413
+
+✖ failing tests:
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\fresh-adoption-entry.test.mjs:42:1
+✖ qualification uses original verifier and fresh collector once, never reserves ownership or invokes engine operations (232.9133ms)
+  Error: Release-control source differs from the executing reviewed tools
+      at validateToolsNoMigrationScope (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:455:57)
+      at recoveryDecision (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:392:5)
+      at Module.makeBatch (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-batch.mjs:72:20)
+      at setup (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:27:21)
+      at async TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:43:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3)
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\fresh-adoption-entry.test.mjs:45:1
+✖ execute uses original engine/WAL, performs fresh collection at every boundary and closes private ownership (132.1054ms)
+  Error: Release-control source differs from the executing reviewed tools
+      at validateToolsNoMigrationScope (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:455:57)
+      at recoveryDecision (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:392:5)
+      at Module.makeBatch (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-batch.mjs:72:20)
+      at setup (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:27:21)
+      at async TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:46:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\fresh-adoption-entry.test.mjs:48:1
+✖ wrong/missing/duplicate entry declaration or self path/hash cannot enter the engine (129.0383ms)
+  Error: Release-control source differs from the executing reviewed tools
+      at validateToolsNoMigrationScope (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:455:57)
+      at recoveryDecision (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:392:5)
+      at Module.makeBatch (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-batch.mjs:72:20)
+      at setup (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:27:21)
+      at async TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:49:206)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\fresh-adoption-entry.test.mjs:51:1
+✖ deleting required in-process transport is rejected rather than selecting another caller (128.497ms)
+  Error: Release-control source differs from the executing reviewed tools
+      at validateToolsNoMigrationScope (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:455:57)
+      at recoveryDecision (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:392:5)
+      at Module.makeBatch (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-batch.mjs:72:20)
+      at setup (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:27:21)
+      at async TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:52:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\fresh-adoption-entry.test.mjs:54:1
+✖ actual original deadline rejects a 3600000ms declared DB budget before ownership (132.4301ms)
+  Error: Release-control source differs from the executing reviewed tools
+      at validateToolsNoMigrationScope (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:455:57)
+      at recoveryDecision (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:392:5)
+      at Module.makeBatch (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-batch.mjs:72:20)
+      at setup (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:27:21)
+      at async TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:55:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\fresh-adoption-entry.test.mjs:57:1
+✖ explicit approval timestamp is mandatory for execute (132.5547ms)
+  Error: Release-control source differs from the executing reviewed tools
+      at validateToolsNoMigrationScope (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:455:57)
+      at recoveryDecision (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:392:5)
+      at Module.makeBatch (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-batch.mjs:72:20)
+      at setup (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:27:21)
+      at async TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:58:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\fresh-adoption-entry.test.mjs:60:1
+✖ spec and raw tests drift after sampling are rejected before native action (135.2315ms)
+  Error: Release-control source differs from the executing reviewed tools
+      at validateToolsNoMigrationScope (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:455:57)
+      at recoveryDecision (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:392:5)
+      at Module.makeBatch (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-batch.mjs:72:20)
+      at setup (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:27:21)
+      at async TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:61:53)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\fresh-adoption-entry.test.mjs:63:1
+✖ entrypoint drift after sampling is rejected before native action (139.7095ms)
+  Error: Release-control source differs from the executing reviewed tools
+      at validateToolsNoMigrationScope (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:455:57)
+      at recoveryDecision (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:392:5)
+      at Module.makeBatch (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-batch.mjs:72:20)
+      at setup (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:27:21)
+      at async TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:64:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\fresh-adoption-entry.test.mjs:66:1
+✖ stale/future sample and post-sampling expiry never reach the native operator (136.1144ms)
+  Error: Release-control source differs from the executing reviewed tools
+      at validateToolsNoMigrationScope (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:455:57)
+      at recoveryDecision (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:392:5)
+      at Module.makeBatch (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-batch.mjs:72:20)
+      at setup (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:27:21)
+      at async TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:67:94)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\fresh-adoption-entry.test.mjs:69:1
+✖ unknown operation retains original WAL ownership and cannot replay (143.5004ms)
+  Error: Release-control source differs from the executing reviewed tools
+      at validateToolsNoMigrationScope (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:455:57)
+      at recoveryDecision (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-impact.mjs:392:5)
+      at Module.makeBatch (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/release-batch.mjs:72:20)
+      at setup (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:27:21)
+      at async TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.test.mjs:70:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)

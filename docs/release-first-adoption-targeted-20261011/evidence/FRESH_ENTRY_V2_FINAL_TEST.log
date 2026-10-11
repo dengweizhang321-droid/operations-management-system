@@ -1,0 +1,34 @@
+✔ builtins bootstrap checks full small dependency tree before real private module import (170.3521ms)
+✔ bootstrap rejects module before any candidate code executes (32.7627ms)
+✔ bootstrap rejects manifest before any candidate code executes (68.0824ms)
+✔ bootstrap rejects extra-dependency before any candidate code executes (106.0384ms)
+✔ bootstrap rejects dependency-bytes before any candidate code executes (52.9947ms)
+✔ bootstrap rejects tests before any candidate code executes (23.4031ms)
+✔ bootstrap rejects unknown-member before any candidate code executes (20.6788ms)
+✔ early tree member changing after its read is rejected by final physical-identity enumeration (23.9983ms)
+✔ hardlinked code and redirected ancestor are rejected without loading code (25.0049ms)
+✔ path validation accepts normal JS paths but rejects escapes and alternate streams (13.5925ms)
+✔ qualification uses original verifier and fresh collector once, never reserves ownership or invokes engine operations (688.7707ms)
+✔ execute uses original engine/WAL, performs fresh collection at every boundary and closes private ownership (913.8999ms)
+✔ wrong/missing/duplicate entry declaration or self path/hash cannot enter the engine (2508.3596ms)
+✔ deleting required in-process transport is rejected rather than selecting another caller (314.4166ms)
+✔ actual original deadline rejects a 3600000ms declared DB budget before ownership (442.8969ms)
+✔ explicit approval timestamp is mandatory for execute (291.0773ms)
+✔ spec and raw tests drift after sampling are rejected before native action (1209.7534ms)
+✔ entrypoint drift after sampling is rejected before native action (594.5917ms)
+✔ stale/future sample and post-sampling expiry never reach the native operator (1764.2454ms)
+✔ unknown operation retains original WAL ownership and cannot replay (921.7351ms)
+✔ stale returned observation retains stages/attempts even when its evidence save fails (561.7915ms)
+✔ normal stale snapshot creates bound failure evidence before rejection (562.6855ms)
+✔ entry uses exactly the original runner budget priority (0.1878ms)
+✔ retained 8bf literal actually decodes TAB and is not an absolute Windows path (0.7662ms)
+✔ V2 actual literal is the exact canonical original runtime root (0.2254ms)
+✔ V2 actual root accepts the actual original spec journal path without a context override (18.4335ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11941.2326

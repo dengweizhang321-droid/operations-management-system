@@ -1,0 +1,63 @@
+{
+  "version": "astra-config-session-fix-handoff-v1",
+  "status": "helper-frozen; native configuration passed; full old-source session rejected",
+  "developmentBase": "f8a207b7f01c640f67801b4788317557c488a8e4",
+  "helperPath": "E:/codex-artifacts/release-first-adoption-targeted-20261011/release-preparation-evidence-config-fixed.mjs",
+  "helperSha256": "b7355e8f36efe8be54dc1980334f87f109372b1bd743639160064d4034235bf6",
+  "patchPath": "E:/codex-artifacts/release-first-adoption-targeted-20261011/config-session-fix-context.patch",
+  "patchSha256": "d78bfc303b8ecefee9da1d58f102f26913eed32511f3663970494fda06f006e4",
+  "configTestCount": 18,
+  "relatedTestCount": 64,
+  "relatedPassed": 64,
+  "relatedDurationMs": 17708.4314,
+  "testPath": "tests/release-preparation-runtime-config.test.mjs",
+  "testSha256": "bc53b515c44157bf5079d1ea8101cbbe46cc78d580917c06cfcc0cba912c2dd8",
+  "testLog": "E:/codex-artifacts/release-first-adoption-targeted-20261011/ASTRA_CONFIG_PENDING_RELATED.log",
+  "testLogSha256": "c0a99493f932f79466a25b82ef84b5f2abf79aea6134d385ac20914318ba1986",
+  "lint": "PASS",
+  "syncFunctions": [
+    {
+      "name": "readFixedRuntimeConfiguration",
+      "bodySha256": "47ce84bef383ef228a314e2b3d97a45da817423f0d30911824077f08ab1a0d7b",
+      "awaits": 0
+    },
+    {
+      "name": "assertConfiguration",
+      "bodySha256": "d811895e4997d6e147d98decd296a77598edb2b242b1534c267ed1630b35e4ea",
+      "awaits": 0
+    },
+    {
+      "name": "assertStable",
+      "bodySha256": "25945c84f543c338a44140d4a7a959a06f8928486d0b75bcbb77233134fef104",
+      "awaits": 0
+    }
+  ],
+  "unchangedRuntimePins": {
+    "release-impact.mjs": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+    "release-batch.mjs": "90321df8978fa65d3650df7022c0be62dc005f7db1647943ee872a9bd091db88",
+    "release-batch-admission.mjs": "85d3ff64f4cab6cd41ef9af5c09c1c943877402d0ea091c09ffaf19ef9f2449c",
+    "worker-local-release.mjs": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+    "worker-local-release-rotation.mjs": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+  },
+  "native": {
+    "controlPath": "E:/codex-artifacts/release-first-adoption-targeted-20261011/ASTRA_NATIVE_CONFIG_READ_CONTROL.json",
+    "controlSha256": "64e8d65df9066e77ad97faaa2520fe205eb8fd80ad25f05d6cbc36a83e24bb29",
+    "configHardlinkRead": "E:/codex-artifacts/release-first-adoption-targeted-20261011/ASTRA_FIXED_CONFIG_NATIVE_READ.json",
+    "firstSession": "E:/codex-artifacts/release-first-adoption-targeted-20261011/ASTRA_NATIVE_FIXED_SESSION_RESULT.json",
+    "pendingSession": "E:/codex-artifacts/release-first-adoption-targeted-20261011/ASTRA_NATIVE_PENDING_SESSION_RESULT.json",
+    "pendingSessionSha256": "1d340ef4609fe7039482599bd833ac8b6e0c1b7fed54a6779bcbd65020d1f073",
+    "configurationContentPassed": true,
+    "fullSessionPassed": false,
+    "remainingBlocker": "5653 sourceRoot change events; ordinary source guard correctly rejects. No further c279 retries or widened exception."
+  },
+  "scope": "Only the fixed original configuration source permits hardlinks and exact change-event pending revalidation. Initial full byte/non-access metadata baseline is captured before monitors, never refreshed; assertStable is fully synchronous. Changed remains irreversible; all other guards preserved.",
+  "firstFailures": [
+    "File symlink creation EPERM: no privilege workaround; actual directory junction tested.",
+    "Initial private Git fixture lacked package manifests: corrected fixture.",
+    "Old missing-config watcher failed 54/55; unchanged targeted and 55/55 recheck passed, cause unproven.",
+    "First pending test expected old error wording; actual baseline refusal occurred, precise new wording added."
+  ],
+  "productionHttpRequests": 0,
+  "productionWrites": 0,
+  "candidateChanges": 0
+}
