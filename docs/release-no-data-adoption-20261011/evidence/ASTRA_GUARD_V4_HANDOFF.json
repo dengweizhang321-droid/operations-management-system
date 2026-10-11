@@ -1,0 +1,26 @@
+{
+  "version": "astra-guard-v4-handoff-v1",
+  "guard": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\adoption-scope-guard-v4.mjs",
+  "guardSha256": "04655a323af97453b7ae38670a6470e495226e85c337fb9b0a72684726a54edd",
+  "originalGuard": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\adoption-scope-guard.mjs",
+  "originalSha256": "72a9139e51badd044273c0718d940520fda0aee74869e8ae0345659777f1a99d",
+  "tests": {
+    "path": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\previous-reference-path-v4.test.mjs",
+    "sha256": "39893bf4a17150021733b33982308bb046d3c4c77e5a1d34944dadd5514e43bf",
+    "passed": 16,
+    "failed": 0,
+    "durationMs": 203.3251,
+    "log": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\astra-guard-v4-final.log",
+    "logSha256": "fb6816c2f5670dbe446efa0db2327010bcf53c8be2c4ff940fea27e4493e8d06"
+  },
+  "oldGapsReproduced": 4,
+  "diff": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\ASTRA_GUARD_V4.diff",
+  "diffSha256": "52a4611deff06d3ffab451ee13a27a85a9a0f438bb41170b6951714ca67571ce",
+  "preservedFirstFailure": "astra-guard-v4-first.log: fixture raw template ending in backslash caused syntax error; preserved first fixture, corrected test literal only",
+  "unchangedOutsideHelperAndExplicitCommandCallsites": true,
+  "limits": "Implementation-agent VM with synthetic realpath maps; no new independent signature, actual OS junction/process/task scan not performed. Drive-qualified path/token inspection only; not arbitrary script interpretation. Relative/encoded/UNC indirection not a complete dependency graph. Unknown drive-qualified resolution blocks; never terminates or cleans processes.",
+  "productionWrites": 0,
+  "runtimeModulesChanged": 0,
+  "candidateChanges": 0,
+  "builds": 0
+}

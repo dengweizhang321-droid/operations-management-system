@@ -40,6 +40,10 @@ import {
   workerSourceRoot,
   workerPreparationIdentity,
   verifyPreparedWorkerCandidate,
+  readWorkerSourceBinding,
+  validateWorkerSourceBinding,
+  verifyBoundWorkerSource,
+  assertWorkerSourceBindingTuple,
 } from "./worker-local-release.mjs";
 
 export const rotationPlanVersion = "teruisi-local-worker-release-rotation-plan-v1";
@@ -542,6 +546,7 @@ async function validateSuccessorTransition({ runtimeRoot, bootstrap, records, he
     fail("Worker successor 未绑定精确 approved plan/CAS tuple");
   }
   const successorManifest = await readManifest(runtimeRoot, record.successor, `successor ${record.sequence}`);
+  assertWorkerSourceBindingTuple({manifest:successorManifest.manifest,plan:approvedPlan.plan});
   const predecessorHasProof = Boolean(headManifest.manifest.artifacts.d1RetirementReceipt);
   const successorHasProof = Boolean(successorManifest.manifest.artifacts.d1RetirementReceipt);
   if (predecessorHasProof && !successorHasProof) fail("D1 retirement proof downgrade is forbidden");
@@ -745,7 +750,7 @@ export async function buildEntrypointPlan(predecessorManifest, candidateManifest
   return items;
 }
 
-export function rotationPlanPayload({ createdAt, chain, candidate, lineage, protectedEntrypoints }) {
+export function rotationPlanPayload({ createdAt, chain, candidate, lineage, protectedEntrypoints, sourceBinding }) {
   if (typeof createdAt !== "string" || Number.isNaN(Date.parse(createdAt))) fail("rotation plan createdAt 无效");
   validateBinding(chain.head, "rotation plan predecessor");
   validateBinding(candidate, "rotation plan candidate");
@@ -760,6 +765,7 @@ export function rotationPlanPayload({ createdAt, chain, candidate, lineage, prot
     predecessorChainStateSha256: chain.chainStateSha256,
     lineage,
     protectedEntrypoints,
+    ...(sourceBinding ? {sourceBinding} : {}),
   }, "payloadSha256");
 }
 
@@ -767,12 +773,14 @@ function validateRotationPlan(plan, bootstrap, label) {
   assertExactKeys(plan, [
     "version", "status", "createdAt", "predecessor", "candidate", "predecessorSequence",
     "predecessorChainStateSha256", "lineage", "protectedEntrypoints", "payloadSha256",
+    ...(plan.sourceBinding ? ["sourceBinding"] : []),
   ], label);
   validatePayload(plan, "payloadSha256", label);
   if (plan.version !== rotationPlanVersion || plan.status !== "candidate_verified"
     || typeof plan.createdAt !== "string" || Number.isNaN(Date.parse(plan.createdAt))
     || !Number.isSafeInteger(plan.predecessorSequence) || plan.predecessorSequence < 0
     || !hex64.test(plan.predecessorChainStateSha256 ?? "")) fail(`${label}身份无效`);
+  if(plan.sourceBinding)validateWorkerSourceBinding(plan.sourceBinding,{predecessor:plan.predecessor,predecessorChainStateSha256:plan.predecessorChainStateSha256});
   validateBinding(plan.predecessor, `${label} predecessor`);
   validateBinding(plan.candidate, `${label} candidate`);
   validateLineage(plan.lineage, bootstrap, `${label} lineage`);
@@ -1044,7 +1052,10 @@ export async function verifyPreparationHeadUnchanged(before, after, verifyHead) 
   return { status: "preparation_only", predecessorBindingSha256: before.head.bindingSha256 };
 }
 
-export async function planWorkerReleaseRotation({ now = new Date(), allowTestRuntimeRoot = false, adoptD1ControlRetirement = false, prepareOnline = false, reusePlanSha256, rotationLease, batchSha256 } = {}) {
+export async function planWorkerReleaseRotation({ now = new Date(), allowTestRuntimeRoot = false, adoptD1ControlRetirement = false, prepareOnline = false, reusePlanSha256, rotationLease, batchSha256, sourceBindingFile, sourceBindingSha256 } = {}) {
+  if ((sourceBindingFile === undefined) !== (sourceBindingSha256 === undefined)) fail("Source-binding file and digest must be supplied together");
+  if(sourceBindingFile!==undefined && (typeof sourceBindingFile!=="string"||!path.win32.isAbsolute(sourceBindingFile)||!hex64.test(sourceBindingSha256??"")))fail("Exact absolute source-binding file and SHA-256 required");
+  if (sourceBindingFile !== undefined && (!prepareOnline || allowTestRuntimeRoot || adoptD1ControlRetirement)) fail("Source binding requires original online successor preparation");
   if (prepareOnline && adoptD1ControlRetirement) fail("Initial retirement adoption still requires a stopped release");
   if (reusePlanSha256 && (!prepareOnline || adoptD1ControlRetirement)) fail("Reuse requires online successor preparation");
   const releaseLock = await lockForOperation(rotationLease);
@@ -1091,7 +1102,17 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
           verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" }));
       } finally { await unlock(); }
     } : undefined;
-    const preparationIdentity = await workerPreparationIdentity(workerSourceRoot);
+    const initialPlan = reusePlanSha256 ? await loadApprovedPlan(workerRuntimeRoot,reusePlanSha256,before.bootstrap) : null;
+    const sourceBinding = sourceBindingFile !== undefined
+      ? await readWorkerSourceBinding(sourceBindingFile,sourceBindingSha256) : initialPlan?.plan.sourceBinding;
+    if(sourceBinding && (!prepareOnline || allowTestRuntimeRoot))fail("Bound source cannot use stopped/test preparation");
+    const sourceContext={predecessor:before.head,predecessorChainStateSha256:before.chainStateSha256};
+    const sourceRoot=sourceBinding?validateWorkerSourceBinding(sourceBinding,sourceContext).sourceRoot:workerSourceRoot;
+    const sampleSource = async()=>{
+      if(sourceBindingFile!==undefined)await readWorkerSourceBinding(sourceBindingFile,sourceBindingSha256);
+      return sourceBinding?(await verifyBoundWorkerSource(sourceBinding,sourceContext)).identity:workerPreparationIdentity(sourceRoot);
+    };
+    const preparationIdentity = await sampleSource();
     let built;
     // Multiple chats asking for the same final composition converge on one
     // exact immutable plan. A different source/configuration never reuses it.
@@ -1105,7 +1126,8 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
           const previousIdentity = await readCanonical(path.join(preparedRoot,name), "prepared build inventory");
           if (canonicalJson(previousIdentity.value.identity) !== canonicalJson(preparationIdentity)) continue;
           const possible = await loadApprovedPlan(workerRuntimeRoot,name.slice(0,-5),before.bootstrap);
-          if (possible.plan.predecessor.bindingSha256 === before.head.bindingSha256 && possible.plan.predecessorChainStateSha256 === before.chainStateSha256) {
+          if (possible.plan.predecessor.bindingSha256 === before.head.bindingSha256 && possible.plan.predecessorChainStateSha256 === before.chainStateSha256
+            && canonicalJson(possible.plan.sourceBinding??null)===canonicalJson(sourceBinding??null)) {
             reusePlanSha256 = possible.sha256; break;
           }
         }
@@ -1123,17 +1145,19 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
         || receipt.value.candidateManifestSha256 !== previous.plan.candidate.manifestSha256
         || canonicalJson(receipt.value.identity) !== canonicalJson(preparationIdentity)) fail("Prepared source/toolchain/configuration binding changed");
       const reused = await readManifest(workerRuntimeRoot, previous.plan.candidate, "reusable candidate");
+      assertWorkerSourceBindingTuple({sourceBinding,manifest:reused.manifest,plan:previous.plan,receipt:receipt.value});
       if (reused.manifest.source.sourceFingerprint !== preparationIdentity.sourceTree.sha256) fail("Prepared candidate source mismatch");
       await verifyPreparedWorkerCandidate({ manifestPath: reused.manifestPath, approvedManifestSha256: reused.manifestSha256,
         expectedSourceD1PathSha256: before.bootstrap.authority.sourceD1PathSha256, expectedPersistRootPathSha256: before.bootstrap.authority.persistRootPathSha256,
         requireSalesRetiredCodeReceipt: true, allowTestRuntimeRoot }, verifyPreparationPredecessor);
-      if (canonicalJson(await workerPreparationIdentity(workerSourceRoot)) !== canonicalJson(preparationIdentity)) fail("Preparation inputs changed during reuse");
+      if (canonicalJson(await sampleSource()) !== canonicalJson(preparationIdentity)) fail("Preparation inputs changed during reuse");
       return { status: "planned", reused: true, planSha256: previous.sha256, planPath: previous.path,
         predecessorReleaseId: previous.plan.predecessor.releaseId, candidateReleaseId: previous.plan.candidate.releaseId,
         candidateManifestSha256: previous.plan.candidate.manifestSha256, candidateGuardReceiptSha256: previous.plan.candidate.guardReceiptSha256 };
     }
     built = await buildWorkerReleaseCandidate({
-      sourceRoot: workerSourceRoot,
+      sourceRoot,
+      ...(sourceBinding?{sourceBinding}:{}),
       runtimeRoot: workerRuntimeRoot,
       devVarsSource: workerDevVarsSource,
       persistRoot: workerPersistRoot,
@@ -1143,7 +1167,7 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
       now,
       allowTestRuntimeRoot,
     });
-    if (canonicalJson(await workerPreparationIdentity(workerSourceRoot)) !== canonicalJson(preparationIdentity)) fail("Preparation inputs changed during build");
+    if (canonicalJson(await sampleSource()) !== canonicalJson(preparationIdentity)) fail("Preparation inputs changed during build");
     if (prepareOnline) {
       serviceLock = await acquireWorkerServiceMutex();
       const current = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true });
@@ -1185,7 +1209,7 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
       predecessorContractReceiptSha256: predecessorManifestContext.manifest.artifacts.contractReceipt.sha256,
       successorContractReceiptSha256: candidateManifest.manifest.artifacts.contractReceipt.sha256,
     };
-    const plan = rotationPlanPayload({ createdAt: now.toISOString(), chain: before, candidate, lineage, protectedEntrypoints });
+    const plan = rotationPlanPayload({ createdAt: now.toISOString(), chain: before, candidate, lineage, protectedEntrypoints, sourceBinding });
     const publication = await publishRotationPlan(workerRuntimeRoot, plan);
     const preparedRoot = path.join(workerRuntimeRoot, "state", "worker-prepared-builds");
     if (!(await exists(preparedRoot))) await mkdir(preparedRoot);
@@ -1193,6 +1217,7 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
     await publishCanonicalWithSidecar(path.join(workerRuntimeRoot, "state", "worker-prepared-builds", `${publication.planSha256}.json`), {
       version: "teruisi-worker-prepared-build-v1", planSha256: publication.planSha256,
       candidateManifestSha256: candidate.manifestSha256, identity: preparationIdentity,
+      ...(sourceBinding?{sourceBinding}:{}),
     }, "prepared build identity");
     return {
       status: "planned",
@@ -1293,6 +1318,7 @@ async function validateApprovedRotationBeforeMutation({
     candidateManifest = transition.successorManifest;
     state = "pending";
   }
+  assertWorkerSourceBindingTuple({manifest:candidateManifest.manifest,plan:planRead.plan});
   return { bootstrap, planRead, record, successorPath, successorRead, chain, candidateManifest, state };
 }
 
@@ -1464,8 +1490,8 @@ async function main() {
   if (command !== "plan" && flags.has("--prepare-online")) fail("Online preparation flag is plan-only");
   let result;
   if (command === "plan") {
-    if (values.size > (values.has("--reuse-plan-sha256") ? 1 : 0) || allowTestRuntimeRoot) fail("production plan 不接受路径、命令或测试覆盖");
-    result = await planWorkerReleaseRotation({ adoptD1ControlRetirement: flags.has("--adopt-d1-control-retirement"), prepareOnline: flags.has("--prepare-online"), reusePlanSha256: values.get("--reuse-plan-sha256") });
+    if ([...values.keys()].some(key=>!["--reuse-plan-sha256","--source-binding","--source-binding-sha256"].includes(key)) || allowTestRuntimeRoot) fail("production plan 不接受路径、命令或测试覆盖");
+    result = await planWorkerReleaseRotation({ adoptD1ControlRetirement: flags.has("--adopt-d1-control-retirement"), prepareOnline: flags.has("--prepare-online"), reusePlanSha256: values.get("--reuse-plan-sha256"), sourceBindingFile:values.get("--source-binding"), sourceBindingSha256:values.get("--source-binding-sha256") });
   } else if (command === "apply") {
     if (values.size !== 1 || !values.has("--approved-plan-sha256") || allowTestRuntimeRoot) {
       fail("production apply 只接受 --approved-plan-sha256");

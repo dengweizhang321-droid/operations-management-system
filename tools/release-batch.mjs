@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { validateNoDataObservation, runNoDataObservation } from './release-no-data-observation.mjs';
 import { canonical, hash, requireHash, safeRead, safeFileDigest, readSourceTree, sourceTreeDigest, sourceInventory, makeImpactProof, verifyImpactProof, classifyImpact, classifyImpactV3, noDataPolicyVersion, policyVersion, requirementsForImpact, bindDeploymentImpact, recoveryDecision, backupReuseDecision } from './release-impact.mjs';
 import { withRotationLock, applyApprovedRotationPlan, planWorkerReleaseRotation } from './worker-local-release-rotation.mjs';
-import { runProcess, processDeadline, safeProcessEvidence, workerRuntimeRoot } from './worker-local-release.mjs';
+import { runProcess, processDeadline, safeProcessEvidence, workerRuntimeRoot, workerSourceRootForBatch } from './worker-local-release.mjs';
 import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError, safeReadinessFailure } from './release-readonly-retry.mjs';
 
 export const legacyBatchVersion = 'teruisi-release-batch-v2';
@@ -61,7 +61,7 @@ function validateNoDataOperations(batch) {
 }
 const phases = ['queue', 'prepare', 'backup-pre', 'restore-pre', 'drain', 'switch', 'acceptance', 'business', 'backup-post', 'restore-post', 'closeout'];
 const terminal = new Set(['passed', 'skipped']);
-export function makeBatch({ version = batchVersion, id, binding, before, after, witness, evidence, current, tests, acceptance, rollback, operations, collector, deploymentProof, now = Date.now() }) {
+export function makeBatch({ version = batchVersion, id, binding, before, after, witness, evidence, current, tests, acceptance, rollback, operations, collector, deploymentProof, sourceBinding, now = Date.now() }) {
   if (!/^[a-z0-9-]{8,80}$/.test(id ?? '')) throw new Error('Invalid batch ID');
   for (const k of ['sourceSha256', 'predecessorSourceSha256', 'sourceInventorySha256', 'predecessorInventorySha256', 'dependencySha256', 'configurationSha256', 'toolchainSha256', 'artifactSha256', 'testsSha256', 'predecessorSha256','workerPlanSha256']) requireHash(binding?.[k], k);
   if (sourceTreeDigest(after) !== binding.sourceSha256 || sourceTreeDigest(before) !== binding.predecessorSourceSha256) throw new Error('Impact inventory does not bind complete candidate/predecessor source');
@@ -69,7 +69,8 @@ export function makeBatch({ version = batchVersion, id, binding, before, after, 
   if (![legacyBatchVersion,batchVersion].includes(version)) throw new Error('Unknown batch protocol');
   const impact = bindDeploymentImpact((version===batchVersion?classifyImpactV3:classifyImpact)({ before, after, witness }),deploymentProof,binding,witness);
   const recovery = recoveryDecision({ impact, evidence, current, now });
-  const required = requirementsForImpact(impact);
+  const impactProof=makeImpactProof(before,after,witness);
+  const required = requirementsForImpact(impact,{scopeValidation:tests?.scopeValidation,impactProof,binding,batchVersion:version});
   if(recovery.mode==='not-required')validateNoDataCollector(collector);
   if (!tests || tests.status !== 'passed' || hash(tests) !== binding.testsSha256
     || tests.sourceSha256 !== binding.sourceSha256 || tests.artifactSha256 !== binding.artifactSha256
@@ -89,10 +90,10 @@ export function makeBatch({ version = batchVersion, id, binding, before, after, 
   for (const name of ['prepare', 'drain', 'switch', 'acceptance', 'closeout', ...(recovery.mode === 'full' ? ['backup-pre', 'restore-pre', 'backup-post', 'restore-post'] : [])]) {
     if (!operations.some(o => o.phase === name)) throw new Error(`Missing ${name} phase`);
   }
-  const core = { version, ...(version===batchVersion?{state:'SEALED',deploymentProof:deploymentProof??null}:{}), id, createdAt: new Date(now).toISOString(), binding, impact, recovery,
+  const core = { ...(sourceBinding?{sourceBinding}:{}), version, ...(version===batchVersion?{state:'SEALED',deploymentProof:deploymentProof??null}:{}), id, createdAt: new Date(now).toISOString(), binding, impact, recovery,
     databaseOperations: { required: recovery.mode==='full', operationIds:operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id) },
     requirements: required, tests, acceptance, rollback, operations,
-    recoveryEvidence: recovery.mode==='not-required'?null:evidence ?? null, recoveryCurrent: recovery.mode==='not-required'?null:current ?? null, collectorSha256: collector ? hash(collector) : null, impactProof:makeImpactProof(before,after,witness) };
+    recoveryEvidence: recovery.mode==='not-required'?null:evidence ?? null, recoveryCurrent: recovery.mode==='not-required'?null:current ?? null, collectorSha256: collector ? hash(collector) : null, impactProof };
   const sealed = { ...core, batchSha256: hash(core) };
   verifyBatch(sealed,sealed.batchSha256);
   return sealed;
@@ -156,12 +157,13 @@ export function verifyBatch(batch, approved) {
   if (!/^[a-z0-9-]{8,80}$/.test(batch?.id ?? '') || !Number.isFinite(Date.parse(batch.createdAt))) throw new Error('Invalid batch identity');
   for (const key of ['sourceSha256','predecessorSourceSha256','sourceInventorySha256','predecessorInventorySha256','dependencySha256','configurationSha256','toolchainSha256','artifactSha256','testsSha256','predecessorSha256','workerPlanSha256']) requireHash(batch.binding?.[key],key);
   if(!/^[a-f0-9]{32}$/.test(batch.binding.maintenanceId??''))throw new Error('Exact approved drain/maintenance owner required');
+  workerSourceRootForBatch(batch);
   const { batchSha256, ...core } = batch;
   if (![legacyBatchVersion,batchVersion].includes(batch.version) || hash(core) !== batchSha256 || approved !== batchSha256) throw new Error('Batch scope changed');
   if(batch.version===batchVersion&&batch.state!=='SEALED')throw new Error('New batch must be sealed');
   if(batch.version===batchVersion)for(const key of ['djangoCandidateSha256','djangoPredecessorSha256'])requireHash(batch.binding[key],`Django ${key}`);
   const impact = bindDeploymentImpact(verifyImpactProof(batch.impactProof,batch.binding,batch.version===batchVersion?noDataPolicyVersion:policyVersion),batch.deploymentProof,batch.binding,batch.impactProof.witness);
-  const required = requirementsForImpact(impact);
+  const required = requirementsForImpact(impact,{scopeValidation:batch.tests?.scopeValidation,impactProof:batch.impactProof,binding:batch.binding,batchVersion:batch.version});
   const recovery = recoveryDecision({ impact, evidence:batch.recoveryEvidence, current:batch.recoveryCurrent, now:Date.parse(batch.createdAt) });
   if (canonical(impact) !== canonical(batch.impact) || canonical(recovery) !== canonical(batch.recovery)
     || canonical(required) !== canonical(batch.requirements)) throw new Error('Impact/recovery requirements were altered');
@@ -601,9 +603,9 @@ async function main() {
     const compilerPackage=path.join(path.dirname(path.dirname(compiler)),'package.json');
     if(!spec.collector.files.some(f=>path.resolve(f.path)===compilerPackage))throw new Error('Unbound impact parser package resolution');
     const {createPreparationEvidenceSession}=await import('./release-preparation-evidence.mjs');
-    const {workerSourceRoot}=await import('./worker-local-release.mjs');
+    const sourceRoot=workerSourceRootForBatch(spec.batch);
     ({collectBatchAdmission:collectInProcess}=await import('./release-batch-admission.mjs'));
-    session=createPreparationEvidenceSession({batchSha256:approved,sourceRoot:workerSourceRoot});
+    session=createPreparationEvidenceSession({batchSha256:approved,sourceRoot});
   } else if(spec.collector.transport)throw new Error('Unknown collector transport');
   try { await executeBatch({ batch: spec.batch, approved, approvedAt, root: spec.journalRoot,
     run:(op,context)=>{session?.assertStable();return runApprovedOperation(op,context);},beforeOperation:()=>session?.assertStable(),

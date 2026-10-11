@@ -388,6 +388,112 @@ function isWithinWindowsPath(parent, child) {
   return childValue === parentValue || childValue.startsWith(`${parentValue}\\`);
 }
 
+export const workerSourceBindingVersion = "teruisi-worker-source-binding-v1";
+const sourceExcludedRoots=Object.freeze([workerRuntimeRoot,workerProtectedSourceRoot,workerPersistRoot,workerSourceRoot,workerLegacySourceRoot,"D:\\teruisi-runtime\\django-sales"]);
+export function validateWorkerSourceBinding(envelope, { predecessor, predecessorChainStateSha256, identity } = {}) {
+  assertExactKeys(envelope, ["raw", "sha256"], "source binding envelope");
+  if (typeof envelope.raw !== "string" || Buffer.byteLength(envelope.raw) > 1024 * 1024
+    || !hex64.test(envelope.sha256 ?? "") || sha256Bytes(Buffer.from(envelope.raw)) !== envelope.sha256) fail("Source binding bytes changed");
+  let value;
+  try { value = JSON.parse(envelope.raw); } catch { fail("Source binding is not JSON"); }
+  assertExactKeys(value, ["version", "sourceRoot", "sourceRootPathSha256", "predecessor", "predecessorChainStateSha256", "identity"], "source binding");
+  if (value.version !== workerSourceBindingVersion || envelope.raw !== `${canonicalJson(value)}\n`) fail("Source binding must be exact canonical v1 bytes");
+  if (typeof value.sourceRoot !== "string" || !path.win32.isAbsolute(value.sourceRoot)
+    || path.win32.normalize(value.sourceRoot) !== value.sourceRoot || value.sourceRoot.endsWith("\\")
+    || windowsPathSha256(value.sourceRoot) !== value.sourceRootPathSha256) fail("Source binding path is not canonical and bound");
+  for (const protectedRoot of sourceExcludedRoots) {
+    if (isWithinWindowsPath(protectedRoot, value.sourceRoot) || isWithinWindowsPath(value.sourceRoot, protectedRoot)) fail("Bound source overlaps an existing protected/runtime/source authority");
+  }
+  const prior = value.predecessor;
+  assertExactKeys(prior, ["version", "releaseId", "manifestSha256", "guardReceiptSha256", "bindingSha256"], "source predecessor");
+  const { bindingSha256, ...core } = prior;
+  if (prior.version !== "teruisi-local-worker-release-binding-v1" || !releaseIdPattern.test(prior.releaseId ?? "")
+    || ![prior.manifestSha256, prior.guardReceiptSha256, bindingSha256, value.predecessorChainStateSha256].every(v => hex64.test(v ?? ""))
+    || sha256Canonical(core) !== bindingSha256) fail("Source binding predecessor is invalid");
+  const inputs = value.identity;
+  assertExactKeys(inputs, ["version", "sourceTree", "sourceInventorySha256", "nodeExecutableSha256", "runtimeConfigurationSha256", "externalNpmConfiguration", "toolchain", "environmentSha256"], "source preparation identity");
+  assertExactKeys(inputs.sourceTree, ["algorithm", "fileCount", "sha256"], "source binding tree");
+  if (inputs.version !== "teruisi-worker-preparation-identity-v1" || inputs.sourceTree.algorithm !== treeHashAlgorithm
+    || !Number.isSafeInteger(inputs.sourceTree.fileCount) || inputs.sourceTree.fileCount < 1
+    || ![inputs.sourceTree.sha256,inputs.sourceInventorySha256,inputs.nodeExecutableSha256,inputs.runtimeConfigurationSha256,inputs.environmentSha256].every(v=>hex64.test(v??""))) fail("Incomplete source preparation identity");
+  assertExactKeys(inputs.externalNpmConfiguration,["userconfig","globalconfig"],"source npm configuration");
+  for(const item of Object.values(inputs.externalNpmConfiguration)) {
+    assertExactKeys(item,["pathSha256","contentSha256"],"source npm configuration item");
+    if(!hex64.test(item.pathSha256??"") || !(item.contentSha256===null||hex64.test(item.contentSha256??"")))fail("Invalid bound npm configuration");
+  }
+  assertExactKeys(inputs.toolchain,["nodeVersion","nodeExecutablePathSha256","npmVersion","npmPackageRootRelativePath","npmPackageRootPathSha256","npmCliRelativePath","npmCliPathSha256","npmCliSha256","npmPackageJsonRelativePath","npmPackageJsonPathSha256","npmPackageJsonSha256","npmPackageTree","npmCiArguments"],"source toolchain");
+  if (predecessor && canonicalJson(prior) !== canonicalJson(predecessor)) fail("Source binding actual predecessor changed");
+  if (predecessorChainStateSha256 && value.predecessorChainStateSha256 !== predecessorChainStateSha256) fail("Source binding predecessor chain changed");
+  if (identity && canonicalJson(inputs) !== canonicalJson(identity)) fail("Bound source/configuration/toolchain identity changed");
+  return value;
+}
+async function readBoundRegularFile(target, label) {
+  const before=await assertRegularFile(target,label);
+  if(before.nlink!==1)fail(`${label} must not be hard-linked`);
+  const raw=await readStableRegularFile(target,label),after=await assertRegularFile(target,label);
+  if(after.nlink!==1||before.ino!==after.ino||before.dev!==after.dev||before.ctimeMs!==after.ctimeMs)fail(`${label} changed while reading`);
+  return raw;
+}
+export async function assertBoundWorkerSourceLocation(sourceRoot) {
+  await assertNoReparsePoint(sourceRoot,{label:"bound source root"});
+  const physicalSource=await realpath(sourceRoot);
+  if(!(await lstat(sourceRoot)).isDirectory())fail("Bound source must be a directory");
+  for(const protectedRoot of sourceExcludedRoots) {
+    let existing=protectedRoot;
+    while(true) {
+      try { await lstat(existing);break; }
+      catch(error) { if(error.code!=="ENOENT")throw error;const parent=path.dirname(existing);if(parent===existing)throw error;existing=parent; }
+    }
+    await assertNoReparsePoint(existing,{label:"source excluded root ancestor"});
+    const physicalProtected=path.resolve(await realpath(existing),path.relative(existing,protectedRoot));
+    if(isWithinWindowsPath(physicalProtected,physicalSource)||isWithinWindowsPath(physicalSource,physicalProtected))fail("Bound source physically overlaps an existing authority");
+  }
+}
+export async function readWorkerSourceBinding(target, expectedSha256) {
+  if(typeof target!=="string"||!path.win32.isAbsolute(target)||!hex64.test(expectedSha256??""))fail("Exact absolute source-binding file and SHA-256 required");
+  if((await assertRegularFile(target,"source binding input")).size>1024*1024)fail("Source binding input exceeds bounded size");
+  const raw=(await readBoundRegularFile(target,"source binding input")).toString("utf8");
+  const envelope={raw,sha256:expectedSha256},value=validateWorkerSourceBinding(envelope);
+  if(isWithinWindowsPath(value.sourceRoot,target))fail("Source binding input must be outside its own source inventory");
+  await assertBoundWorkerSourceLocation(value.sourceRoot);
+  return envelope;
+}
+export async function verifyBoundWorkerSource(envelope, context={}) {
+  const value=validateWorkerSourceBinding(envelope,context);
+  await assertBoundWorkerSourceLocation(value.sourceRoot);
+  const files=await listGitSourceFiles(value.sourceRoot);
+  for(const name of files)await readBoundRegularFile(path.join(value.sourceRoot,...name.split("/")),"bound source file");
+  const identity=await workerPreparationIdentity(value.sourceRoot);
+  validateWorkerSourceBinding(envelope,{...context,identity});
+  return {sourceRoot:value.sourceRoot,identity};
+}
+export function assertWorkerSourceBindingTuple({sourceBinding,manifest,plan,receipt}) {
+  const envelope=sourceBinding??manifest?.source?.sourceBinding??plan?.sourceBinding;
+  if(!envelope) {
+    if(manifest?.source?.sourceBinding || plan?.sourceBinding || receipt?.sourceBinding)fail("Unexpected source binding tuple");
+    return workerSourceRoot;
+  }
+  const value=validateWorkerSourceBinding(envelope,plan?{predecessor:plan.predecessor,predecessorChainStateSha256:plan.predecessorChainStateSha256}:{});
+  for(const item of [manifest?.source,plan,receipt].filter(Boolean))if(canonicalJson(item.sourceBinding)!==canonicalJson(envelope))fail("Source binding tuple differs");
+  if(manifest && (manifest.source.rootPathSha256!==value.sourceRootPathSha256 || canonicalJson(manifest.source.tree)!==canonicalJson(value.identity.sourceTree)))fail("Manifest does not bind source input");
+  if(receipt && canonicalJson(receipt.identity)!==canonicalJson(value.identity))fail("Prepared receipt does not bind source identity");
+  return value.sourceRoot;
+}
+export function workerSourceRootForBatch(batch) {
+  if(!batch.sourceBinding) {
+    if(Object.hasOwn(batch.binding,"sourceBindingSha256"))fail("Batch source binding is missing");
+    return workerSourceRoot;
+  }
+  const value=validateWorkerSourceBinding(batch.sourceBinding);
+  if(batch.binding.sourceBindingSha256!==batch.sourceBinding.sha256
+    ||batch.binding.sourceSha256!==value.identity.sourceTree.sha256
+    ||batch.binding.sourceInventorySha256!==value.identity.sourceInventorySha256
+    ||batch.binding.predecessorSha256!==value.predecessor.bindingSha256
+    ||batch.binding.toolchainSha256!==sha256Canonical({node:value.identity.nodeExecutableSha256,toolchain:value.identity.toolchain})
+    ||batch.binding.configurationSha256!==sha256Canonical({environment:value.identity.environmentSha256,runtime:value.identity.runtimeConfigurationSha256,npm:value.identity.externalNpmConfiguration}))fail("Batch source binding identity differs");
+  return value.sourceRoot;
+}
+
 export function assertWorkerManifestProvenance(manifest, { allowTestRuntimeRoot = false } = {}) {
   const source = assertPlainObject(manifest?.source, "manifest source provenance");
   const build = assertPlainObject(manifest?.build, "manifest build provenance");
@@ -429,6 +535,12 @@ export function assertWorkerManifestProvenance(manifest, { allowTestRuntimeRoot 
     windowsPathSha256(workerLegacySourceRoot),
     windowsPathSha256(workerSourceRoot),
   ]);
+  if (source.sourceBinding) {
+    assertWorkerSourceBindingTuple({manifest});
+    const inputs=validateWorkerSourceBinding(source.sourceBinding).identity;
+    if(Object.entries(inputs.toolchain).some(([key,value])=>canonicalJson(build[key])!==canonicalJson(value)))fail("Manifest build differs from bound source toolchain");
+    acceptedProductionSourceRoots.add(source.rootPathSha256);
+  }
   if (!allowTestRuntimeRoot && (
     !acceptedProductionSourceRoots.has(source.rootPathSha256)
     || canonicalWindowsPath(runtime.protectedSourceRoot) !== canonicalWindowsPath(workerProtectedSourceRoot)
@@ -1725,6 +1837,7 @@ async function buildWorkerReleaseInternal({
   publicationMode,
   retirementProof,
   verifyPreparationPredecessor,
+  sourceBinding,
 } = {}) {
   if (!["first-deploy", "rotation-candidate"].includes(publicationMode)) fail("Worker release publication mode 无效");
   if (verifyPreparationPredecessor !== undefined &&
@@ -1740,7 +1853,13 @@ async function buildWorkerReleaseInternal({
   devVarsSource = path.resolve(devVarsSource);
   persistRoot = path.resolve(persistRoot);
   sourceD1Path = path.resolve(sourceD1Path);
-  if (!allowTestRuntimeRoot && canonicalWindowsPath(sourceRoot) !== canonicalWindowsPath(workerSourceRoot)) {
+  if (sourceBinding) {
+    if (allowTestRuntimeRoot || publicationMode !== "rotation-candidate" || !verifyPreparationPredecessor) fail("Bound source requires original online production candidate preparation");
+    const bound = validateWorkerSourceBinding(sourceBinding);
+    if (sourceRoot !== bound.sourceRoot) fail("Candidate source differs from exact source binding");
+    await verifyBoundWorkerSource(sourceBinding);
+  }
+  if (!allowTestRuntimeRoot && !sourceBinding && canonicalWindowsPath(sourceRoot) !== canonicalWindowsPath(workerSourceRoot)) {
     fail(`Worker 新发布源必须固定为隔离集成树 ${workerSourceRoot}`);
   }
   if (!allowTestRuntimeRoot && (canonicalWindowsPath(devVarsSource) !== canonicalWindowsPath(workerDevVarsSource)
@@ -1900,6 +2019,7 @@ async function buildWorkerReleaseInternal({
     const releaseRoot = path.join(runtimeRoot, "releases", releaseId);
     if (await pathExists(releaseRoot)) fail("目标 release 已存在，拒绝覆盖");
 
+    if(sourceBinding) await verifyBoundWorkerSource(sourceBinding);
     const keyFiles = await deploymentKeyFiles(releaseStage);
     await assertBundledNpmToolchainProvenance(npmToolchain.provenance);
     const manifestCore = {
@@ -1912,6 +2032,7 @@ async function buildWorkerReleaseInternal({
         sourceFingerprint,
         snapshotRoot: "source-snapshot",
         tree: sourceTree,
+        ...(sourceBinding ? {sourceBinding} : {}),
       },
       build: {
         ...npmToolchain.provenance,
@@ -2686,7 +2807,7 @@ async function verifyWorkerReleaseInternal({
   validatePayloadSha(manifest, "manifestPayloadSha256", "Worker release manifest");
   if (manifest.version !== releaseVersion || manifest.releaseId !== releaseId) fail("Worker release manifest 身份无效");
 
-  assertExactKeys(manifest.source, ["rootPathSha256", "packageLockSha256", "sourceFingerprint", "snapshotRoot", "tree"], "manifest source");
+  assertExactKeys(manifest.source, ["rootPathSha256", "packageLockSha256", "sourceFingerprint", "snapshotRoot", "tree", ...(manifest.source.sourceBinding ? ["sourceBinding"] : [])], "manifest source");
   assertExactKeys(manifest.build, [
     "nodeVersion", "nodeExecutablePathSha256", "npmVersion", "npmPackageRootRelativePath", "npmPackageRootPathSha256",
     "npmCliRelativePath", "npmCliPathSha256", "npmCliSha256",
@@ -2771,6 +2892,11 @@ async function verifyWorkerReleaseInternal({
   if (manifest.source.snapshotRoot !== "source-snapshot") fail("manifest source snapshot 路径无效");
   const sourceSnapshotRoot = path.join(releaseRoot, manifest.source.snapshotRoot);
   await validateTree(sourceSnapshotRoot, manifest.source.tree, "source snapshot");
+  if(manifest.source.sourceBinding) {
+    const inventory=Object.create(null);
+    for(const name of await listRegularTreeFiles(sourceSnapshotRoot))inventory[name]=sha256Bytes(await readBoundRegularFile(path.join(sourceSnapshotRoot,...name.split("/")),"bound source snapshot"));
+    if(sha256Canonical(inventory)!==validateWorkerSourceBinding(manifest.source.sourceBinding).identity.sourceInventorySha256)fail("Bound source snapshot inventory changed");
+  }
   const snapshotPackageLock = path.join(sourceSnapshotRoot, "package-lock.json");
   await assertRegularFile(snapshotPackageLock, "source snapshot package-lock.json");
   if (sha256Bytes(await readFile(snapshotPackageLock)) !== manifest.source.packageLockSha256) {

@@ -1,0 +1,13 @@
+{
+  "version": "teruisi-final-candidate-regression-v1",
+  "candidateReleaseId": "20261011T051645Z-3032ae332a32f1a0",
+  "candidateManifestSha256": "58cc236e09f097f2c7aec054af9699fc7c0aca3bda1cd79d1c47cbf06efd1a8f",
+  "sourceSha256": "ef5cc058391988586de4cf2b64289a13f0f3682a1a38db5569213f704323e1d1",
+  "passed": 166,
+  "failed": 0,
+  "durationMs": 38573.3785,
+  "logSha256": "be46b9a6dffae86665616cfbf6bf505cb48b07757a3474a39cc9d8f333bc58e3",
+  "harnessSha256": "6d7421840866315ad39826ca855dd98917186b9f357f7e1a5475b6ac6251e5f3",
+  "casesInUnshippedOfflineUtilityExcluded": 21,
+  "productionAcceptance": false
+}

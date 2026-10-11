@@ -1,0 +1,7 @@
+{
+  "status": "rejected-during-isolated-evidence-binding",
+  "reason": "Rebased helper still named original nine-file regression log; actual final166 log copied as candidate-v3.log",
+  "scriptSha256": "d0ceed1e65a40e8314e28ac29d904d925cc7cfcf8268fbd9a6932b9c50a4d871",
+  "batchCreated": false,
+  "productionActions": 0
+}

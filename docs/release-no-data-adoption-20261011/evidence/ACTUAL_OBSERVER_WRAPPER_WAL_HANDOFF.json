@@ -1,0 +1,20 @@
+{
+  "version": "actual-observer-wrapper-wal-handoff-v1",
+  "status": "2/2 passed",
+  "files": [
+    {
+      "path": "E:/codex-artifacts/release-no-data-adoption-20261011/actual-observer-wrapper-wal-v2.test.mjs",
+      "sha256": "6580fbed3015fc8db1b378d41b65445515d29750d6e1c20b2d20b8307300347d"
+    },
+    {
+      "path": "E:/codex-artifacts/release-no-data-adoption-20261011/ACTUAL_OBSERVER_WRAPPER_WAL_RESULT_V2.json",
+      "sha256": "0036a554f2fd3a1b4de4407f09f7eb6d6ae30965011ea5a8b6ec91d9b5070659"
+    },
+    {
+      "path": "E:/codex-artifacts/release-no-data-adoption-20261011/actual-observer-wrapper-wal-final.log",
+      "sha256": "69f46563516208c88b0a1b4df4a7b3ae3ee181dfba4229feb014f2a0f79d623a"
+    }
+  ],
+  "firstFailure": "VM realm array identity mismatch in strict validator before any fetch. Preserved original harness/log/empty result. Same-realm NewFunction loading fixes harness, no assertion or runtime changes.",
+  "scope": "Original final candidate58cc complete perform and wrapper; real writeOnce/journalState; two exact permission URLs redirected to private loopback. Actual production requests0. Private fixture plan is only handler hash evidence, not original typed plan or production admission."
+}

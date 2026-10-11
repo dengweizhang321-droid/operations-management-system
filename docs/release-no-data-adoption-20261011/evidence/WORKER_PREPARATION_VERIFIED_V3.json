@@ -1,0 +1,29 @@
+{
+  "version": "teruisi-parent-prepared-worker-verification-v1",
+  "verifiedAt": "2026-10-11T05:29:31.772Z",
+  "status": "typed-candidate-and-receipt-verified",
+  "sourceRoot": "D:\\codex-isolated\\release-no-data-adoption-20261011\\adoption-source-v3",
+  "sourceSha256": "ef5cc058391988586de4cf2b64289a13f0f3682a1a38db5569213f704323e1d1",
+  "sourceInventorySha256": "dd769ec44a9833f876326c0df4b858a91ee2a656a636c33d5b402a87c0335d20",
+  "sourceBindingSha256": "dc45c01f2c9ea7398fae6c55c10d6408e59fdc9177d45fc7e81fd3172f367912",
+  "candidateRoot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T051645Z-3032ae332a32f1a0",
+  "candidateReleaseId": "20261011T051645Z-3032ae332a32f1a0",
+  "candidateManifestSha256": "58cc236e09f097f2c7aec054af9699fc7c0aca3bda1cd79d1c47cbf06efd1a8f",
+  "workerPlanSha256": "3fb9b0fe083862da5a1a426b444a91365b2ec4fdecb0c4191c2c18f0a12ccb5b",
+  "preparedReceiptSha256": "6accd380f62dd6cfcae325f4460106fd166c34f99c578405b3a2098a22dc0af1",
+  "guardReceiptSha256": "dc1d63ce61e411a9eb67b79100a3f54adb4f8e63b89d7d0ce305bb6c4f22e515",
+  "predecessor": {
+    "bindingSha256": "094e10d4508986d62e5d90bf99041271fb7527f9a8b5d33f1dfb386529cee548",
+    "guardReceiptSha256": "672f80420f154969d4bf221f542dacfbab3dc0360ca25c95c3c686792be7f013",
+    "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "predecessorChainStateSha256": "aaf62994c75c3ca46362328fed6acc76f812808a2e852566782e5e0ba897e0d9",
+  "exactRuntimeFilesVerified": 10,
+  "activePhysicallyAbsent": true,
+  "fullPayloadValidationByOriginalProducer": true,
+  "independentFullPayloadRehash": false,
+  "productionSwitches": 0,
+  "productionBackupsOrRestores": 0
+}

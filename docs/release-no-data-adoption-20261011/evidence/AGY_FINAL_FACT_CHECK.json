@@ -1,0 +1,22 @@
+{
+  "version": "primary-agy-final-fact-check-v1",
+  "actualCliRound": 13,
+  "wallSeconds": 77.5570432,
+  "scope": "Text-only exact V4 guard and batch summary; no native/file/tests by AGY",
+  "accepted": [
+    "cross-drive and long-junction counterexamples invalidate previous same-drive assumption",
+    "physical resolver for drive-qualified path/token, spaces, missing ancestor and unknown hard block",
+    "20 operations and first strict/full four DB phases unchanged",
+    "gate/owner/WAL failure preservation and no model production authority"
+  ],
+  "corrected": [
+    "Guard uses async realpath and readFile, not invented realpathSync/existsSync algorithms",
+    "Guard invokes spawnSync for exact read-only PowerShell query; no destructive repair",
+    "Actual standard collector276s ran against real current runtime/source/artifacts, not VM; separate6counterexample tests used VM",
+    "Model fabricated full Worker receipt/Django manifest/PreparedApp digest expansions; authoritative actual tuple is WORKER_PREPARATION_VERIFIED_V3 and ADOPTION_BATCH_SEALED_V4; model fields are not inputs",
+    "PreparedApp id is32hex1e1138feef7148fb851713c2b39a25d0; fixed old95331 is executor path, target is runtime app.deploy/app, not that checkout",
+    "Old AB WAL109 is a historical/current predecessor verification; new batch journal semantics independent, not same WAL head for every future operation",
+    "Source6runtime and exact W/D bytes are unchanged; artifact hashes verified by actual original producers and primary actual CLI, not model mathematical assurance"
+  ],
+  "productionApproved": false
+}

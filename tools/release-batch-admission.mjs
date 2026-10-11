@@ -1,15 +1,16 @@
 // Read-only production admission and recovery-evidence producer. No credentials
 // are handled here: database access stays inside the installed original operator.
 import path from 'node:path';
+import { readdir,lstat } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { safeRead, safeFileDigest, hash, canonical, readSourceTree, sourceInventory, sourceTreeDigest, requireHash } from './release-impact.mjs';
+import { safeRead, safeFileDigest, hash, canonical, readSourceTree, sourceInventory, sourceTreeDigest, requireHash, validateToolsNoMigrationScope } from './release-impact.mjs';
 import { verifyBatch, writeOnce, journalState, productionCommandArguments, productionCommandEnvironment } from './release-batch.mjs';
 import { resolveEffectiveReleaseChain } from './worker-local-release-rotation.mjs';
-import { workerPreparationIdentity, workerRuntimeRoot, workerSourceRoot, verifyPreparedWorkerCandidate, verifyWorkerReleaseProcessState, runProcess } from './worker-local-release.mjs';
+import { workerPreparationIdentity, workerRuntimeRoot, workerSourceRootForBatch, validateWorkerSourceBinding, verifyBoundWorkerSource, assertWorkerSourceBindingTuple, verifyPreparedWorkerCandidate, verifyWorkerReleaseProcessState, runProcess, assertNoReparsePoint } from './worker-local-release.mjs';
 import { readScheduledBackupStatus } from './release-daily-backup.mjs';
 import { admissionTimer } from './release-admission-timing.mjs';
-import { retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeReadinessFailure } from './release-readonly-retry.mjs';
+import { retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness } from './release-readonly-retry.mjs';
 
 const djangoRoot='D:\\teruisi-runtime\\django-sales';
 const maintenance=path.join(djangoRoot,'app','tools','django-postgres-maintenance.ps1');
@@ -96,6 +97,34 @@ export async function collectBatchRecovery(batch, collect=collectRecoveryCurrent
   if(batch.recovery.mode!=='reuse')throw new Error('Unknown recovery policy');
   return collect(batch.recoveryEvidence);
 }
+export async function readToolsScopeApplication(root) {
+  await assertNoReparsePoint(root,{label:'migration closure application root'});
+  const manifestRaw=(await safeRead(path.join(root,'deployment.json'))).toString('utf8'),inventory=Object.create(null);
+  async function walk(directory,prefix='') {
+    for(const entry of await readdir(directory,{withFileTypes:true})) {
+      const relative=prefix+entry.name,target=path.join(directory,entry.name);
+      if(['__pycache__','.pytest_cache','.mypy_cache'].includes(entry.name.toLowerCase())||/\.py[co]$/i.test(entry.name)||relative.toLowerCase()==='deployment.json')continue;
+      if((await lstat(target)).isSymbolicLink())throw new Error('Redirected migration closure application path');
+      if(entry.isDirectory())await walk(target,relative+'/');
+      else inventory[relative]=await safeFileDigest(target);
+    }
+  }
+  await walk(root);
+  if((await safeRead(path.join(root,'deployment.json'))).toString('utf8')!==manifestRaw)throw new Error('Migration closure manifest changed during collection');
+  return {manifestRaw,inventory};
+}
+async function verifyLiveToolsNoMigrationScope(batch,djangoSwitched) {
+  if(batch.tests?.scopeValidation===undefined)return;
+  if(!/^[a-f0-9]{32}$/.test(batch.binding.djangoPreparedAppId??''))throw new Error('Migration closure needs the original prepared Django identity');
+  const receiptRaw=await safeRead(path.join(djangoRoot,`app.prepare-${batch.binding.djangoPreparedAppId}.json`)),receipt=JSON.parse(receiptRaw);
+  if(hash(receiptRaw)!==batch.binding.djangoPreparedReceiptSha256||receipt.version!=='teruisi-django-prepared-app-v1'||receipt.id!==batch.binding.djangoPreparedAppId
+    ||typeof receipt.runtimeRoot!=='string'||path.win32.normalize(receipt.runtimeRoot).toLowerCase()!==djangoRoot.toLowerCase()
+    ||receipt.predecessorManifestSha256!==batch.binding.djangoPredecessorSha256||receipt.candidateManifestSha256!==batch.binding.djangoCandidateSha256)throw new Error('Migration closure original Django receipt changed');
+  const beforeRoot=path.join(djangoRoot,djangoSwitched?'app.previous':'app'),afterRoot=path.join(djangoRoot,djangoSwitched?'app':`app.deploy-${batch.binding.djangoPreparedAppId}`);
+  const observedDjango={before:await readToolsScopeApplication(beforeRoot),after:await readToolsScopeApplication(afterRoot)};
+  const observedCf=batch.tests.scopeValidation.cfCacheReview?{beforeRaw:await safeRead(path.join(beforeRoot,'.wrangler','cache','cf.json')),afterRaw:await safeRead(path.join(afterRoot,'.wrangler','cache','cf.json'))}:undefined;
+  return validateToolsNoMigrationScope({scopeValidation:batch.tests.scopeValidation,impact:batch.impact,impactProof:batch.impactProof,binding:batch.binding,batchVersion:batch.version,observedDjango,observedCf});
+}
 async function verifyNoDataDeploymentReceipts(batch,chain,plan) {
   if(batch.recovery.mode!=='not-required')return;
   const previous=chain.records.find(record=>record.value.successor.bindingSha256===plan.predecessor.bindingSha256);
@@ -107,7 +136,26 @@ async function verifyNoDataDeploymentReceipts(batch,chain,plan) {
     if(sidecar!==hash(raw)||raw.toString('utf8')!==batch.deploymentProof[side+'Raw'])throw new Error('No-data actual preparation receipt changed or was fabricated');
   }
 }
-export async function collectBatchAdmission(batch,testsPath,phase='admission',{session,step,onStatusAttempt=async()=>{}}={}) {
+export function safeAdmissionReadinessFailure(status, expectedReleaseId) {
+  const allow = (value, values) => values.includes(value) ? value : 'unrecognized';
+  const names = ['core','finance','netshop','market','products','workflow','inventory','customerService','accessControl','erpReference','bi','ai'];
+  const components = status?.components;
+  const object = components !== null && typeof components === 'object' && !Array.isArray(components);
+  const keys = object ? Object.keys(components) : [];
+  return {
+    version: 1,
+    state: allow(status?.state, ['Running','BackendUnavailable','BackendDegraded','Unresponsive','StatusError','WorkerStopped','Stopped','Starting','StaleReceipt','PortInUse','Maintenance']),
+    backendState: allow(status?.backendState, ['Ready','NotReady','Error']),
+    workerState: allow(status?.workerState, ['exact_release','starting_exact_release','stale_or_invalid_receipt','foreign_or_ambiguous','status_error','stopped']),
+    releaseMatchesExpected: typeof expectedReleaseId === 'string' && expectedReleaseId.length > 0 && status?.releaseId === expectedReleaseId,
+    componentObject: object,
+    componentCount: keys.length,
+    unexpectedComponentCount: keys.filter(name => !names.includes(name)).length,
+    missingComponents: names.filter(name => !object || !Object.hasOwn(components,name)),
+    components: Object.fromEntries(names.map(name => [name, object && Object.hasOwn(components,name) && typeof components[name] === 'boolean' ? components[name] : null]))
+  };
+}
+export async function collectBatchAdmission(batch,testsPath,phase='admission',{session,step,onStatusAttempt=async()=>{},now=Date.now}={}) {
   const timer=admissionTimer();
   const measure=(stage,category,action)=>timer.measure(stage,category,action);
   try {
@@ -118,6 +166,7 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission',{s
   const state=await measure('journal','dynamic-state',()=>journalState(path.join(workerRuntimeRoot,'state','release-batches'),batch));
   const djangoSwitched=batch.operations.some(op=>op.kind==='django-deploy'&&state.latest.get(op.id)?.status==='passed');
   if(djangoCurrent!==(djangoSwitched?batch.binding.djangoCandidateSha256:batch.binding.djangoPredecessorSha256))throw new Error('Approved Django predecessor/candidate changed');
+  await measure('django-migration-closure','immutable-content',()=>verifyLiveToolsNoMigrationScope(batch,djangoSwitched));
   if(batch.binding.djangoCandidateSha256!==batch.binding.djangoPredecessorSha256&&!djangoSwitched) {
     if(!/^[a-f0-9]{32}$/.test(batch.binding.djangoPreparedAppId??''))throw new Error('Missing precise Django preparation ID');
     const receiptRaw=await safeRead(path.join(djangoRoot,`app.prepare-${batch.binding.djangoPreparedAppId}.json`));
@@ -142,10 +191,21 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission',{s
   const manifestRaw=await safeRead(manifestPath);
   if(hash(manifestRaw)!==batch.binding.artifactSha256)throw new Error('Candidate manifest changed');
   const manifest=JSON.parse(manifestRaw);
+  const sourceRoot=workerSourceRootForBatch(batch);
+  if(batch.sourceBinding||plan.sourceBinding||manifest.source.sourceBinding) {
+    if(!batch.sourceBinding)throw new Error('Prepared source binding is missing from approved batch');
+    const receiptPath=path.join(workerRuntimeRoot,'state','worker-prepared-builds',batch.binding.workerPlanSha256+'.json');
+    const raw=await safeRead(receiptPath),sidecar=await safeRead(receiptPath+'.sha256'),receipt=JSON.parse(raw);
+    if(!sidecar.equals(Buffer.from(hash(raw)+'\n'))||receipt.version!=='teruisi-worker-prepared-build-v1'
+      ||receipt.planSha256!==batch.binding.workerPlanSha256||receipt.candidateManifestSha256!==batch.binding.artifactSha256)throw new Error('Bound source original preparation receipt changed');
+    if(assertWorkerSourceBindingTuple({sourceBinding:batch.sourceBinding,manifest,plan,receipt})!==sourceRoot)throw new Error('Bound source collector selection changed');
+  }
+  const sampleSource=async()=>batch.sourceBinding?(await verifyBoundWorkerSource(batch.sourceBinding)).identity:workerPreparationIdentity(sourceRoot);
   const complete=requiresCompleteAdmission(phase,step);
   const identity=session
     ? await session.collect({approvedBatchSha256:batch.batchSha256,full:complete,measure})
-    : await measure('source-and-toolchain-initial','mutable-input',()=>workerPreparationIdentity(workerSourceRoot));
+    : await measure('source-and-toolchain-initial','mutable-input',sampleSource);
+  if(batch.sourceBinding)validateWorkerSourceBinding(batch.sourceBinding,{identity});
   if(manifest.source.sourceFingerprint!==identity.sourceTree.sha256
     ||canonical(manifest.source.tree)!==canonical(identity.sourceTree))throw new Error('Prepared artifact does not belong to the current final source');
   const predecessorRoot=path.join(workerRuntimeRoot,'releases',plan.predecessor.releaseId,'source-snapshot');
@@ -154,7 +214,6 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission',{s
   const binding={...batch.binding,sourceSha256:identity.sourceTree.sha256,sourceInventorySha256:identity.sourceInventorySha256,
     predecessorSourceSha256:sourceTreeDigest(before),predecessorInventorySha256:hash(sourceInventory(before)),dependencySha256:manifest.source.packageLockSha256,
     toolchainSha256:hash({node:identity.nodeExecutableSha256,toolchain:identity.toolchain}),configurationSha256:hash({environment:identity.environmentSha256,runtime:identity.runtimeConfigurationSha256,npm:identity.externalNpmConfiguration}),testsSha256:hash(tests)};
-  await measure('worker-helper-process-identity','dynamic-state',()=>verifyWorkerReleaseProcessState({processPolicy:'stopped-or-exact-release',runtimeRoot:workerRuntimeRoot,manifestPath:chain.headManifestPath,releaseRoot:path.dirname(chain.headManifestPath)}));
   // Retain original admission/drain/closeout validation, plus actual apply.
   // No artifact check is removed or credited as a new cache saving. Original
   // apply/Start also enforce their own full payload/ACL/guard/receipt gates.
@@ -166,27 +225,55 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission',{s
       '--require-sales-retired-code-receipt','--process-policy','stopped-or-exact-release','--json'],{label:'exact immutable production head'});
     return {status:'exact-predecessor-or-approved-successor'};
   }));
+  const recovery=batch.recovery.mode==='reuse'?await measure('recovery-eligibility','dynamic-state',()=>collectBatchRecovery(batch)):await collectBatchRecovery(batch);
+  if(session)await session.recheck({measure});
+  else if(canonical(identity)!==canonical(await measure('source-and-toolchain-final','mutable-input',sampleSource)))throw new Error('Source/configuration/toolchain changed during live admission');
+  await measure('effective-chain-final','dynamic-state',async()=>{
+    const current=await resolveEffectiveReleaseChain({verifyInstalledHead:true});
+    if(current.chainStateSha256!==chain.chainStateSha256||current.head.bindingSha256!==chain.head.bindingSha256||current.headManifestPath!==chain.headManifestPath)throw new Error('Effective release chain changed during live admission');
+  });
+  await measure('django-identity-final','dynamic-state',async()=>{
+    if(await safeFileDigest(path.join(djangoRoot,'app','deployment.json'))!==djangoCurrent)throw new Error('Django deployment changed during live admission');
+  });
+  await measure('journal-final','dynamic-state',async()=>{
+    const current=await journalState(path.join(workerRuntimeRoot,'state','release-batches'),batch);
+    if(current.previous!==state.previous||current.events?.length!==state.events?.length)throw new Error('Batch journal changed during live admission');
+  });
+  // Finish content/recovery work before the last dynamic observations. Their
+  // actual completion time must survive parsing and attempt persistence.
+  let dynamicObservedAtMs;
+  await measure('worker-helper-process-identity','dynamic-state',async()=>{
+    const result=await verifyWorkerReleaseProcessState({processPolicy:'stopped-or-exact-release',runtimeRoot:workerRuntimeRoot,manifestPath:chain.headManifestPath,releaseRoot:path.dirname(chain.headManifestPath)});
+    dynamicObservedAtMs=now();
+    return result;
+  });
   let statusObservation=null;
+  let failedReadiness=null;
   if(['acceptance','closeout'].includes(phase)) {
-    statusObservation=await measure('complete-status','dynamic-state',()=>retryReadOnlyObservation({stage:`${phase}-admission-status`,onAttempt:onStatusAttempt,
+    statusObservation=await measure('complete-status','dynamic-state',()=>retryReadOnlyObservation({stage:`${phase}-admission-status`,onAttempt:async record=>{
+      if(record.status==='failed'&&record.error&&failedReadiness)record.error.readiness=failedReadiness;
+      await onStatusAttempt(record);
+    },
       query:async({remaining})=>{
+        failedReadiness=null;
         const result=await runReadOnlyPowerShell('D:\\运营管理系统\\tools\\operations-system-control.ps1',['-Action','Status','-Json'],'original complete system readiness',{timeoutMs:Math.min(remaining(),60_000)});
+        const responseObservedAtMs=now();
         let status;
         try {
           status=parseStatus(result.stdout);
           assertCompleteReadiness(status,plan.candidate.releaseId);
+          dynamicObservedAtMs=responseObservedAtMs;
           return {releaseId:plan.candidate.releaseId,ready:true};
         } catch(error) {
           error.processEvidence ??= result.processEvidence;
-          if(status) error.readinessEvidence=safeReadinessFailure(status,plan.candidate.releaseId);
+          if(status)error.readinessEvidence=failedReadiness=safeAdmissionReadinessFailure(status,plan.candidate.releaseId);
           throw error;
         }
       }}));
   }
-  const recovery=batch.recovery.mode==='reuse'?await measure('recovery-eligibility','dynamic-state',()=>collectBatchRecovery(batch)):await collectBatchRecovery(batch);
-  if(session)await session.recheck({measure});
-  else if(canonical(identity)!==canonical(await measure('source-and-toolchain-final','mutable-input',()=>workerPreparationIdentity(workerSourceRoot))))throw new Error('Source/configuration/toolchain changed during live admission');
-  return {batchSha256:batch.batchSha256,observedAtMs:Date.now(),binding,recovery,admissionStages:timer.result(),statusObservation};
+  const ageMs=now()-dynamicObservedAtMs;
+  if(!Number.isSafeInteger(dynamicObservedAtMs)||!Number.isFinite(ageMs)||ageMs<0||ageMs>5000)throw Object.assign(new Error('Dynamic admission observation expired before collection completed'),{code:'STALE_ADMISSION_SNAPSHOT',observationAttempts:statusObservation?.attempts??[],statusObservation,observedAtMs:dynamicObservedAtMs,observationAgeMs:ageMs});
+  return {batchSha256:batch.batchSha256,observedAtMs:dynamicObservedAtMs,binding,recovery,admissionStages:timer.result(),statusObservation};
   } catch(error) { error.admissionStages=timer.result();throw error; }
 }
 async function main(){

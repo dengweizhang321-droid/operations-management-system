@@ -1,0 +1,13 @@
+{
+  "version": "teruisi-primary-native-reference-v4-audit-v1",
+  "at": "2026-10-11T06:18:14.473Z",
+  "guardSha256": "04655a323af97453b7ae38670a6470e495226e85c337fb9b0a72684726a54edd",
+  "filesScanned": 1160,
+  "status": "passed",
+  "processes": 818,
+  "scheduledTasks": 215,
+  "references": [],
+  "unknown": [],
+  "rawProcessOrTaskValuesPersisted": false,
+  "productionMutations": 0
+}

@@ -1,9 +1,10 @@
 import ts from 'typescript';
 import { createHash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
+import { createReadStream, readFileSync } from 'node:fs';
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { inflateSync } from 'node:zlib';
+import { fileURLToPath } from 'node:url';
 
 export const policyVersion = 'teruisi-release-impact-v2';
 export const hash = value => createHash('sha256').update(typeof value === 'string' || Buffer.isBuffer(value) ? value : canonical(value)).digest('hex');
@@ -391,10 +392,96 @@ export function recoveryDecision({impact,...input}) {
   return {mode:qualified?'not-required':'full',reasons:qualified?[]:impact.reasons.length?impact.reasons:['Missing complete deployment and effect-review evidence'],evidenceSha256:null};
 }
 
-export function requirementsForImpact(impact) {
+export function requirementsForImpact(impact, qualification = {}) {
   const original=requirements[impact.level];
+  if(qualification.scopeValidation!==undefined) {
+    validateToolsNoMigrationScope({...qualification,impact});
+    return {...original,tests:original.tests.map(name=>name==='migration-rehearsal'?'migration-closure':name)};
+  }
   return impact.version===noDataPolicyVersion && impact.level==='display'
     ? {...original,backup:recoveryDecision({impact}).mode==='not-required'?'not-required':'full-pre-and-post',tests:[...original.tests,'no-data-negative']} : original;
+}
+
+export const toolsNoMigrationVersion='teruisi-tools-no-migration-v1';
+export const toolsNoMigrationPaths=Object.freeze(['release-impact.mjs','release-batch.mjs','release-batch-admission.mjs','release-no-data-observation.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','worker-local-service.ps1','release-lifecycle-step.ps1','release-preparation-evidence.mjs','release-admission-timing.mjs'].map(name=>'tools/'+name).sort());
+const qualifierTools=path.dirname(fileURLToPath(import.meta.url));
+const djangoToolDelta=['tools/worker-local-release.mjs','tools/worker-local-release-rotation.mjs'].sort();
+const cfCachePath='.wrangler/cache/cf.json';
+const cfChangedPaths=new Set(['tlsClientRandom','tlsExportedAuthenticator.clientHandshake','tlsExportedAuthenticator.serverHandshake','tlsExportedAuthenticator.clientFinished','tlsExportedAuthenticator.serverFinished','edgeL4.deliveryRate']);
+function exactQualificationKeys(value,keys,label) {
+  if(!value||typeof value!=='object'||Array.isArray(value)||canonical(Object.keys(value).sort())!==canonical([...keys].sort()))throw new Error(`Invalid ${label} fields`);
+}
+export function applicationInventoryFingerprint(inventory) {
+  if(!inventory||typeof inventory!=='object'||Array.isArray(inventory)||!Object.keys(inventory).length)throw new Error('Missing complete Django inventory');
+  const names=new Set(),rows=[];
+  for(const [name,digest] of Object.entries(inventory)) {
+    if(!name||path.posix.isAbsolute(name)||/[\\:\x00-\x1f\x7f]/.test(name)||name.split('/').some(part=>!part||part==='.'||part==='..'||/[. ]$/.test(part))
+      ||name.toLowerCase()==='deployment.json'||name.split('/').some(part=>['__pycache__','.pytest_cache','.mypy_cache'].includes(part.toLowerCase()))||/\.py[co]$/i.test(name)
+      ||names.has(name.toLowerCase()))throw new Error('Unsafe/duplicate/excluded Django inventory path');
+    names.add(name.toLowerCase());requireHash(digest,'Django inventory');rows.push(name+'\n'+digest);
+  }
+  return {fileCount:rows.length,appFingerprint:hash(rows.sort().join('\n'))};
+}
+function verifyScopeApplication(proof,expected) {
+  exactQualificationKeys(proof,['manifestRaw','inventory'],'Django scope proof');
+  if(typeof proof.manifestRaw!=='string'||hash(proof.manifestRaw)!==expected)throw new Error('Django scope manifest binding changed');
+  const manifest=JSON.parse(proof.manifestRaw),fingerprint=applicationInventoryFingerprint(proof.inventory);
+  exactQualificationKeys(manifest,['version','deployedAt','sourceRoot','fingerprintAlgorithm','fileCount','appFingerprint'],'Django manifest');
+  if(manifest.version!==2||manifest.fingerprintAlgorithm!=='relative-path-file-sha256-ordinal-v2'
+    ||!Number.isFinite(Date.parse(manifest.deployedAt))||typeof manifest.sourceRoot!=='string'||!path.win32.isAbsolute(manifest.sourceRoot)
+    ||manifest.fileCount!==fingerprint.fileCount||manifest.appFingerprint!==fingerprint.appFingerprint)throw new Error('Complete Django inventory does not match original manifest fingerprint');
+  for(const prefix of ['backend/','config/','drizzle/','runtime-tools/node_modules/'])if(!Object.keys(proof.inventory).some(name=>name.startsWith(prefix)))throw new Error('Incomplete Django protected application closure');
+  for(const name of ['tools/django-local-service.ps1','tools/django-postgres-maintenance.ps1','tools/postgres-consistent-backup.py',...djangoToolDelta])if(!Object.hasOwn(proof.inventory,name))throw new Error('Missing original Django lifecycle/backup tools');
+}
+export function validateToolsNoMigrationScope({scopeValidation,impact,impactProof,binding,batchVersion,observedDjango,observedCf}) {
+  if(batchVersion!=='teruisi-release-batch-v3'||impact?.version!==noDataPolicyVersion||impact.level!=='strict'||recoveryDecision({impact}).mode!=='full')throw new Error('Migration closure qualification is v3 strict/full only');
+  exactQualificationKeys(scopeValidation,['version','before','after',...(scopeValidation?.cfCacheReview!==undefined?['cfCacheReview']:[])],'migration scope');
+  if(scopeValidation.version!==toolsNoMigrationVersion)throw new Error('Unknown migration scope qualification');
+  const verified=verifyImpactProof(impactProof,binding,noDataPolicyVersion);
+  if(canonical(verified.changed)!==canonical(toolsNoMigrationPaths))throw new Error('Migration closure requires the exact ten release-control source changes');
+  for(const name of toolsNoMigrationPaths) {
+    const actual=hash(readFileSync(path.join(qualifierTools,path.posix.basename(name))));
+    if(impactProof.inventory.after[name]!==actual)throw new Error('Release-control source differs from the executing reviewed tools');
+  }
+  verifyScopeApplication(scopeValidation.before,binding.djangoPredecessorSha256);
+  verifyScopeApplication(scopeValidation.after,binding.djangoCandidateSha256);
+  const before=scopeValidation.before.inventory,after=scopeValidation.after.inventory;
+  if(canonical(Object.keys(before).sort())!==canonical(Object.keys(after).sort()))throw new Error('Django file additions/removals cannot qualify for migration closure');
+  const changed=Object.keys(before).filter(name=>before[name]!==after[name]).sort(),cacheChanged=changed.includes(cfCachePath);
+  if(canonical(changed)!==canonical([...djangoToolDelta,...(cacheChanged?[cfCachePath]:[])].sort()))throw new Error('Django application/dependency/migration/operator bytes changed outside the two reviewed tools');
+  for(const name of djangoToolDelta)if(after[name]!==impactProof.inventory.after[name])throw new Error('Django tool does not match the exact Worker candidate');
+  if(cacheChanged) {
+    if(observedDjango&&!observedCf)throw new Error('Missing live generated cf cache contents');
+    const review=scopeValidation.cfCacheReview;
+    exactQualificationKeys(review,['version','beforeSha256','afterSha256','changedPaths','reviewEvidenceSha256'],'generated cf cache review');
+    requireHash(review.reviewEvidenceSha256,'cf cache review evidence');
+    if(review.version!=='teruisi-generated-request-cf-v1'||review.beforeSha256!==before[cfCachePath]||review.afterSha256!==after[cfCachePath]
+      ||!Array.isArray(review.changedPaths)||!review.changedPaths.length||new Set(review.changedPaths).size!==review.changedPaths.length||review.changedPaths.some(name=>!cfChangedPaths.has(name)))throw new Error('Generated cf cache is outside its sealed review');
+    if(observedCf) {
+      if(hash(observedCf.beforeRaw)!==review.beforeSha256||hash(observedCf.afterRaw)!==review.afterSha256)throw new Error('Observed cf cache bytes changed');
+      const changes=[];
+      const visit=(left,right,prefix='')=>{
+        if(left&&right&&typeof left==='object'&&typeof right==='object'&&!Array.isArray(left)&&!Array.isArray(right)) {
+          if(canonical(Object.keys(left).sort())!==canonical(Object.keys(right).sort()))throw new Error('Generated cf cache structure changed');
+          for(const key of Object.keys(left))visit(left[key],right[key],prefix?prefix+'.'+key:key);
+        } else if(canonical(left)!==canonical(right)) {
+          if(!cfChangedPaths.has(prefix)||typeof left!==typeof right||typeof left!==(prefix==='edgeL4.deliveryRate'?'number':'string')
+            ||(typeof left==='number'&&(!Number.isFinite(left)||!Number.isFinite(right))))throw new Error('Generated cf cache contains unreviewed field changes');
+          changes.push(prefix);
+        }
+      };
+      let beforeCf,afterCf;
+      try { beforeCf=JSON.parse(observedCf.beforeRaw);afterCf=JSON.parse(observedCf.afterRaw); }
+      catch { throw new Error('Generated cf cache is not valid JSON'); }
+      visit(beforeCf,afterCf);
+      if(canonical(changes.sort())!==canonical([...review.changedPaths].sort()))throw new Error('Generated cf cache leaf changes differ from sealed review');
+    }
+  } else if(scopeValidation.cfCacheReview!==undefined||observedCf)throw new Error('Unexpected cf cache waiver');
+  if(observedDjango)for(const side of ['before','after']) {
+    verifyScopeApplication(observedDjango[side],side==='before'?binding.djangoPredecessorSha256:binding.djangoCandidateSha256);
+    if(canonical(observedDjango[side])!==canonical(scopeValidation[side]))throw new Error('Live Django package differs from sealed migration closure');
+  }
+  return {version:toolsNoMigrationVersion,check:'migration-closure',djangoChanged:changed,databaseOperations:'full-pre-and-post',qualificationSha256:hash(scopeValidation)};
 }
 
 export const effectReviewSurfaces=Object.freeze(['dom-text-consumers','layout-observers','persistent-writes','startup-and-build-hooks','operation-vocabulary']);

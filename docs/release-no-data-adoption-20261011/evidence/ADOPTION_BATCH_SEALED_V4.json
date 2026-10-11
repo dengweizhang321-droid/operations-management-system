@@ -1,0 +1,131 @@
+{
+  "preparedAt": "2026-10-11T06:16:30.527Z",
+  "batchSha256": "65fc5338321efc2d79168764f7b2227002333199d038409dc6dd7277acaed8d2",
+  "specPath": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\ADOPTION_BATCH_V4.json",
+  "sourceSha256": "ef5cc058391988586de4cf2b64289a13f0f3682a1a38db5569213f704323e1d1",
+  "workerManifestSha256": "58cc236e09f097f2c7aec054af9699fc7c0aca3bda1cd79d1c47cbf06efd1a8f",
+  "workerPlanSha256": "3fb9b0fe083862da5a1a426b444a91365b2ec4fdecb0c4191c2c18f0a12ccb5b",
+  "djangoManifestSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+  "operations": [
+    {
+      "id": "op-prepare",
+      "phase": "prepare",
+      "kind": "worker-plan"
+    },
+    {
+      "id": "backup-pre",
+      "phase": "backup-pre",
+      "kind": "backup"
+    },
+    {
+      "id": "restore-pre",
+      "phase": "restore-pre",
+      "kind": "restore"
+    },
+    {
+      "id": "op-entermaintenance-drain",
+      "phase": "drain",
+      "kind": "lifecycle",
+      "step": "EnterMaintenance"
+    },
+    {
+      "id": "op-stopworker-switch",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "step": "StopWorker"
+    },
+    {
+      "id": "op-apply",
+      "phase": "switch",
+      "kind": "worker-apply"
+    },
+    {
+      "id": "previous-reference-guard",
+      "phase": "switch",
+      "kind": "task-acceptance"
+    },
+    {
+      "id": "op-deployapp-switch",
+      "phase": "switch",
+      "kind": "django-deploy",
+      "step": "DeployApp"
+    },
+    {
+      "id": "op-hardenacl-switch",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "step": "HardenAcl"
+    },
+    {
+      "id": "op-exitmaintenance-switch",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "step": "ExitMaintenance"
+    },
+    {
+      "id": "op-startworker-switch",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "step": "StartWorker"
+    },
+    {
+      "id": "observe-display",
+      "phase": "acceptance",
+      "kind": "no-data-observation"
+    },
+    {
+      "id": "observe-permissions",
+      "phase": "acceptance",
+      "kind": "no-data-observation"
+    },
+    {
+      "id": "unchanged-business-closure",
+      "phase": "acceptance",
+      "kind": "task-acceptance"
+    },
+    {
+      "id": "op-verifystartup-acceptance",
+      "phase": "acceptance",
+      "kind": "lifecycle",
+      "step": "VerifyStartup"
+    },
+    {
+      "id": "op-aggregatestatus-acceptance",
+      "phase": "acceptance",
+      "kind": "lifecycle",
+      "step": "AggregateStatus"
+    },
+    {
+      "id": "observe-natural-watchdog",
+      "phase": "acceptance",
+      "kind": "no-data-observation"
+    },
+    {
+      "id": "backup-post",
+      "phase": "backup-post",
+      "kind": "backup"
+    },
+    {
+      "id": "restore-post",
+      "phase": "restore-post",
+      "kind": "restore"
+    },
+    {
+      "id": "op-verifystartup-closeout",
+      "phase": "closeout",
+      "kind": "lifecycle",
+      "step": "VerifyStartup"
+    }
+  ],
+  "databaseOperations": {
+    "required": true,
+    "operationIds": [
+      "backup-pre",
+      "restore-pre",
+      "backup-post",
+      "restore-post"
+    ]
+  },
+  "productionApproved": false,
+  "productionActions": 0
+}

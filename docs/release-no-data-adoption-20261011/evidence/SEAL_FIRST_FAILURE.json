@@ -1,0 +1,7 @@
+{
+  "status": "rejected-before-batch-seal",
+  "reason": "Two VerifyStartup operations used identical operation IDs; makeBatch refused them",
+  "scriptSha256": "bb8bad344f00616263412b82cc2006e9ecf2f4c09e5911701dd07f9ee425eb30",
+  "candidateBytesChanged": false,
+  "productionActions": 0
+}

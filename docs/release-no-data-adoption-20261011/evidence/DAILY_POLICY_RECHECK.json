@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-11T06:13:33.334Z",
+  "schedule": {
+    "active": false,
+    "lastResult": "unknown",
+    "lastSuccessAt": null,
+    "wrapperLastResult": "unknown",
+    "latestAttemptCoverageVerified": false
+  },
+  "scheduleSha256": "fcb5fd0d4e5af58f31873ad5c373d4a7553661f38c6c377313f0a06da7b50148",
+  "productionChanges": 0
+}

@@ -101,7 +101,7 @@ export function validateNaturalNoDataObservation(value,{after,releaseId,fence}) 
 
 export async function runNoDataObservation(op,{batch,state}) {
   const {writeOnce}=await import('./release-batch.mjs');
-  const root=path.join(state.dir,'observations',`${op.id}-${randomUUID()}`);
+  const root=path.join(path.dirname(state.dir),'_observations',`${batch.id}-${op.id}-${randomUUID()}`);
   await writeOnce(path.join(root,'started.json'),{batchSha256:batch.batchSha256,operationId:op.id,at:new Date().toISOString()});
   try {
     const value=await performNoDataObservation(op,{batch,evidenceRoot:root});

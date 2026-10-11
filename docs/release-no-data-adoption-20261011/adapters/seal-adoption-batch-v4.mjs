@@ -1,0 +1,65 @@
+import {readFile,writeFile,readdir} from 'node:fs/promises';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+const evidence='E:/codex-artifacts/release-no-data-adoption-20261011';
+const worker=JSON.parse(await readFile(path.join(evidence,'WORKER_PREPARATION_VERIFIED_V3.json')));
+const tools=path.join(worker.candidateRoot,'tools');
+const impact=await import(pathToFileURL(path.join(tools,'release-impact.mjs')));
+const {hash,safeRead,safeFileDigest,readSourceTree,sourceTreeDigest,sourceInventory}=impact;
+const {makeBatch,verifyBatch,noDataCollectorFiles}=await import(pathToFileURL(path.join(tools,'release-batch.mjs')));
+const {hashTree,validateWorkerSourceBinding}=await import(pathToFileURL(path.join(tools,'worker-local-release.mjs')));
+const runtime='D:/teruisi-runtime/teruisi-worker-sales';
+const planRaw=await safeRead(path.join(runtime,'state/worker-release-rotation-plans',worker.workerPlanSha256+'.json')),plan=JSON.parse(planRaw);
+assert.equal(hash(planRaw),worker.workerPlanSha256);
+const sourceBinding={raw:(await safeRead(path.join(evidence,'WORKER_SOURCE_BINDING_V3.json'))).toString(),sha256:worker.sourceBindingSha256};
+const identity=validateWorkerSourceBinding(sourceBinding).identity;
+const before=await readSourceTree(path.join(runtime,'releases',worker.predecessor.releaseId,'source-snapshot'));
+const after=await readSourceTree(worker.sourceRoot);
+const d=JSON.parse(await safeRead(path.join(evidence,'DJANGO_VALIDATION_SCOPE_INPUTS.json')));
+const cfRaw=await safeRead(path.join(evidence,'CF_CACHE_SPECIFIC_AUDIT.json')),cf=JSON.parse(cfRaw);
+const binding={sourceSha256:sourceTreeDigest(after),sourceInventorySha256:hash(sourceInventory(after)),predecessorSourceSha256:sourceTreeDigest(before),predecessorInventorySha256:hash(sourceInventory(before)),dependencySha256:hash(await safeRead(path.join(worker.sourceRoot,'package-lock.json'))),toolchainSha256:hash({node:identity.nodeExecutableSha256,toolchain:identity.toolchain}),configurationSha256:hash({environment:identity.environmentSha256,runtime:identity.runtimeConfigurationSha256,npm:identity.externalNpmConfiguration}),artifactSha256:worker.candidateManifestSha256,predecessorSha256:worker.predecessor.bindingSha256,workerPlanSha256:worker.workerPlanSha256,maintenanceId:randomUUID().replaceAll('-',''),sourceBindingSha256:sourceBinding.sha256,djangoPredecessorSha256:'237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9',djangoCandidateSha256:'85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09',djangoPreparedAppId:'1e1138feef7148fb851713c2b39a25d0',djangoPreparedReceiptSha256:'10db2364053ebfb90d85dd301914753453d02ad313cd02ff7312ca654ebdeb9b'};
+const scopeValidation={version:impact.toolsNoMigrationVersion,before:{manifestRaw:d.beforeManifestRaw,inventory:d.beforeInventory},after:{manifestRaw:d.afterManifestRaw,inventory:d.afterInventory},cfCacheReview:{version:'teruisi-generated-request-cf-v1',beforeSha256:cf.beforeSha256,afterSha256:cf.afterSha256,changedPaths:cf.changed.map(v=>v.path),reviewEvidenceSha256:hash(cfRaw)}};
+const tests={status:'passed',sourceSha256:binding.sourceSha256,artifactSha256:binding.artifactSha256,checks:['domain','contract','negative','concurrency','permissions','migration-closure','lifecycle','backup-recovery','boundary','build'],scopeValidation,scope:'Exact immutable candidate regression and original preparation/build. backup-recovery means protocol/consumer and failure-contract validation; production PG Backup/Restore stages remain mandatory pending separately approved execution.',evidence:[]};
+for(const name of ['CANDIDATE_REGRESSION_FINAL_V3.json','WORKER_PREPARATION_VERIFIED_V3.json','SOURCE_DELTA_INDEPENDENT_V3.json','DJANGO_PREPARATION_VERIFIED_V2.json','CF_CACHE_SPECIFIC_AUDIT.json'])tests.evidence.push({path:path.join(evidence,name),sha256:await safeFileDigest(path.join(evidence,name))});
+const regression=JSON.parse(await safeRead(path.join(evidence,'CANDIDATE_REGRESSION_FINAL_V3.json')));
+assert.equal(regression.failed,0);assert.equal(regression.passed,166);assert.equal(regression.candidateManifestSha256,binding.artifactSha256);
+binding.testsSha256=hash(tests);
+const specPath=path.join(evidence,'ADOPTION_BATCH_V4.json'),testsPath=path.join(evidence,'ADOPTION_TESTS_V4.json');
+const pins=async files=>Promise.all([...new Set(files)].map(async file=>({path:path.resolve(file),sha256:await safeFileDigest(file)})));
+const collector={transport:'in-process-content-evidence-v1',executable:process.execPath,args:[path.join(tools,'release-batch-admission.mjs'),'collect',specPath,testsPath],files:await pins([...noDataCollectorFiles,testsPath].filter(f=>f!==testsPath))};
+// tests file is written create-only before it becomes part of collector closure.
+await writeFile(testsPath,JSON.stringify(tests,null,2)+'\n',{flag:'wx'});
+collector.files.push(...await pins([testsPath]));
+const ps='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe';
+const fixedWorker='D:/运营管理系统/tools/worker-local-service.ps1',control='D:/运营管理系统/tools/operations-system-control.ps1';
+const django='D:/teruisi-runtime/django-sales/app/tools',preparedDjango='D:/运营管理系统-sales-django-release/tools/django-local-service.ps1';
+async function applicationToolPins(post) {
+ const inventory=d.beforeInventory;
+ const files=await pins(Object.keys(inventory).filter(name=>name.startsWith('tools/')).map(name=>path.join('D:/teruisi-runtime/django-sales/app',name)));
+ if(post)for(const file of files){const name=path.relative('D:/teruisi-runtime/django-sales/app',file.path).replaceAll('\\','/');file.sha256=d.afterInventory[name];assert.match(file.sha256,/^[a-f0-9]{64}$/);}
+ return files;
+}
+const life=async(step,phase)=>{
+ const switched=!['EnterMaintenance','StopWorker'].includes(step);
+ const files=await pins([path.join(tools,'release-lifecycle-step.ps1'),path.join(tools,'process-deadline.ps1'),ps,control,fixedWorker,preparedDjango]);
+ files.push(...await applicationToolPins(!['EnterMaintenance','StopWorker','DeployApp'].includes(step)));
+ if(switched)files.find(f=>f.path===path.resolve(fixedWorker)).sha256=await safeFileDigest(path.join(tools,'worker-local-service.ps1'));
+ return {id:'op-'+step.toLowerCase()+'-'+phase,phase,step,kind:step==='DeployApp'?'django-deploy':'lifecycle',mutating:!['VerifyStartup','AggregateStatus'].includes(step),command:{executable:path.resolve(ps),args:['-NoProfile','-NonInteractive','-File',path.join(tools,'release-lifecycle-step.ps1'),'-Step',step,...(['VerifyStartup','AggregateStatus','HardenAcl','DeployApp'].includes(step)?[]:['-MaintenanceId',binding.maintenanceId]),...(step==='EnterMaintenance'?['-KeepPostgres']:[]),...(step==='DeployApp'?['-PreparedAppId',binding.djangoPreparedAppId,'-PreparedAppSha256',binding.djangoPreparedReceiptSha256]:[]),...(step==='StartWorker'?['-ExpectedWorkerManifestSha256',binding.artifactSha256,'-ExpectedDjangoManifestSha256',binding.djangoCandidateSha256]:[])],files},assertions:[{path:'status',equals:'completed'},...(step==='EnterMaintenance'?[{path:'drainConfirmed',equals:true}]:[])],covers:step==='VerifyStartup'?['startup']:step==='AggregateStatus'?['components']:[]};
+};
+const db=async(kind,phase,id,backupId)=>({id,phase,kind,mutating:true,...(backupId?{backupOperationId:backupId}:{}),command:{executable:path.resolve(ps),args:['-NoProfile','-NonInteractive','-File',path.resolve(django,'django-postgres-maintenance.ps1'),'-Action',kind==='backup'?'Backup':'RestoreRehearsal','-Execute','-Json',...(kind==='restore'?['-ConfirmedIsolatedRestore','-BackupDirectory',`{receipt:${backupId}:backupDirectory}`,'-ApprovedManifestSha256',`{receipt:${backupId}:manifestSha256}`]:[])],files:[...await pins([ps]),...await applicationToolPins(phase.endsWith('post'))]},assertions:[{path:'status',equals:'completed'},{path:'serviceStateChanged',equals:false},...(kind==='restore'?Object.entries({productionDatabaseTouched:false,cleanupStatus:'isolated_data_removed',profileRestoreVerified:true,sequenceHealthVerified:true}).map(([key,value])=>({path:key,equals:value})):[])],covers:[]});
+const guard=async(action,phase)=>({id:action==='pre-deploy'?'previous-reference-guard':'unchanged-business-closure',phase,kind:'task-acceptance',mutating:false,command:{executable:process.execPath,args:[path.join(evidence,'adoption-scope-guard-v4.mjs'),specPath,action,binding.workerPlanSha256,binding.artifactSha256],files:await pins([process.execPath,ps,path.join(evidence,'adoption-scope-guard-v4.mjs'),path.join(evidence,'APP_PREVIOUS_PRESERVED.json'),...collector.files.map(f=>f.path)])},assertions:[{path:'status',equals:'passed'},{path:'productionWrites',equals:0}],covers:action==='acceptance'?['business','migrations','writes','task-specific']:[]});
+const {observationBrowserPath,observationLibraryRoot}=await import(pathToFileURL(path.join(tools,'release-no-data-observation.mjs')));
+binding.observationBrowserSha256=await safeFileDigest(observationBrowserPath);binding.observationLibrarySha256=(await hashTree(observationLibraryRoot)).sha256;
+const assets=await readdir(path.join(worker.candidateRoot,'dist/client/assets'));
+const css=assets.filter(v=>v.endsWith('.css'));assert.ok(css.length&&css.length<=200);
+const observe=(action,phase='acceptance')=>({id:'observe-'+action,phase,kind:'no-data-observation',mutating:false,observation:action==='display'?{action,resources:css.map(v=>'/assets/'+v),assertions:[{selector:'.shell-account-avatar',property:'fontSize',equals:'14px'}]}:{action},covers:action==='display'?['behavior','resources','task-specific']:[action==='permissions'?'permissions':'natural-watchdog']});
+const operations=[{id:'op-prepare',phase:'prepare',kind:'worker-plan',mutating:false,planSha256:binding.workerPlanSha256},await db('backup','backup-pre','backup-pre'),await db('restore','restore-pre','restore-pre','backup-pre'),await life('EnterMaintenance','drain'),await life('StopWorker','switch'),{id:'op-apply',phase:'switch',kind:'worker-apply',mutating:true,planSha256:binding.workerPlanSha256},await guard('pre-deploy','switch'),await life('DeployApp','switch'),await life('HardenAcl','switch'),await life('ExitMaintenance','switch'),await life('StartWorker','switch'),observe('display'),observe('permissions'),await guard('acceptance','acceptance'),await life('VerifyStartup','acceptance'),await life('AggregateStatus','acceptance'),observe('natural-watchdog'),await db('backup','backup-post','backup-post'),await db('restore','restore-post','restore-post','backup-post'),await life('VerifyStartup','closeout')];
+const index=kind=>operations.findIndex(v=>v.kind===kind),deploy=operations.findIndex(v=>v.kind==='django-deploy');
+assert.ok(index('worker-apply')<deploy);assert.ok(!operations.slice(index('worker-apply')+1,deploy).some(v=>['backup','restore'].includes(v.kind)));
+const batch=makeBatch({id:'no-data-policy-first-adoption-20261011',binding,before,after,tests,acceptance:impact.requirements.strict.acceptance,rollback:{application:'Failure keeps exact gate, owner and WAL. Application rollback requires a new reviewed successor retaining sourceBinding-aware Worker/Django control tools; unchanged AB business code is already retained in this candidate.',compatibility:'Old AB resolver cannot read new sourceBinding history. Never reset history or directly reinstall old control tools; prepare compatible forward package under strict/full. Database restore requires separate precise approval.',failureState:'Unknowns require exact original reconciliation; no automatic retry, gate removal, replay or database rollback.'},operations,collector,sourceBinding});
+assert.equal(batch.recovery.mode,'full');assert.equal(batch.databaseOperations.operationIds.length,4);assert.ok(batch.tests.checks.includes('migration-closure'));verifyBatch(batch,batch.batchSha256);
+await writeFile(specPath,JSON.stringify({version:'teruisi-adoption-spec-v1',productionApproved:false,batch,collector},null,2)+'\n',{flag:'wx'});
+await writeFile(path.join(evidence,'ADOPTION_BATCH_SEALED_V4.json'),JSON.stringify({preparedAt:new Date().toISOString(),batchSha256:batch.batchSha256,specPath,sourceSha256:binding.sourceSha256,workerManifestSha256:binding.artifactSha256,workerPlanSha256:binding.workerPlanSha256,djangoManifestSha256:binding.djangoCandidateSha256,operations:operations.map(v=>({id:v.id,phase:v.phase,kind:v.kind,step:v.step})),databaseOperations:batch.databaseOperations,productionApproved:false,productionActions:0},null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({status:'sealed-for-review',batchSha256:batch.batchSha256,operations:operations.length,productionApproved:false}));

@@ -1,0 +1,39 @@
+{
+  "version": "actual-observer-wrapper-wal-test-v1",
+  "candidateManifestSha256": "58cc236e09f097f2c7aec054af9699fc7c0aca3bda1cd79d1c47cbf06efd1a8f",
+  "rawSourceHash": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d",
+  "transformedSourceHash": "a2c2e49e13222e8e6b056a7fd3a2d73f6fa7943f50dc297549e4252115f56b9c",
+  "modules": {
+    "release-no-data-observation.mjs": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d",
+    "release-batch.mjs": "18f556319c7b14dbdcd32305584032f645abf1b3d6cb1827b9cee3b1ea6fa358",
+    "release-impact.mjs": "24403c32b7788f53d585e51535c57fe870603e8f728ba1eb21c1c5b25cc5f548",
+    "worker-local-release.mjs": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+    "release-readonly-retry.mjs": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab"
+  },
+  "loader": "NewFunction same realm; first VM harness failed array-prototype identity before any fetch, first files/log retained. Assertions unchanged.",
+  "sourceTransform": "Removed static imports/export tokens; import.meta.url becomes exact original moduleURL; dynamic await import becomes bounded loadModule. Original wrapper and complete performer unmodified.",
+  "injection": "Actual final-candidate writeOnce/journalState/hash/validators; private workerRuntimeRoot, exact Django deployment safeRead mapping; only two fixed permission URLs remapped to isolated HTTP401 loopback. Every other fetch/read/module denied.",
+  "fixtureLimit": "Fixture plan is only for this handler internal SHA binding, not a typed production plan, complete admission or production permission acceptance.",
+  "cases": [
+    {
+      "case": "successful401",
+      "privateRoot": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\observer-wrapper-private-y1jCLA",
+      "observationDirectory": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\observer-wrapper-private-y1jCLA\\journals\\_observations\\observer-private-58154d3e-099f-448f-8c22-10ddcc1362ad-permission-observation-53f74295-bd25-4618-b401-5efed15f4a8c",
+      "receiptSha256": "fc07fca4cc07551131ba922c3276a4f0c297e49ff63e3666cbb3c2771330a0ed",
+      "walSha256": "73939e93e587b5de8f6d09c5591ee3cb6357321725132ba5b111a981c5d3d412",
+      "actualLoopbackRequests": 2,
+      "productionRequests": 0,
+      "walEventsAfter": 1
+    },
+    {
+      "case": "wrong401body",
+      "privateRoot": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\observer-wrapper-private-sX7S1Q",
+      "observationDirectory": "E:\\codex-artifacts\\release-no-data-adoption-20261011\\observer-wrapper-private-sX7S1Q\\journals\\_observations\\observer-private-c0d9b06b-7b4d-4bf4-ac7f-17606ab0ebbf-permission-observation-66d66add-a982-4076-9480-00901aa6ae4d",
+      "receiptSha256": "5a3bf653e99170113890ebd8c210cddef676a04c877e0acb2b8dbfffbb75fedb",
+      "walSha256": "b68545a46380aa5d51f51aa437aa883190267208d8a4b6a0c4825e2166401cbe",
+      "actualLoopbackRequests": 1,
+      "productionRequests": 0,
+      "walEventsAfter": 1
+    }
+  ]
+}

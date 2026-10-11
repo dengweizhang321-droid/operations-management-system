@@ -1,0 +1,6 @@
+{
+  "stage": "parent source delta semantic comparison",
+  "status": "failed",
+  "reason": "Different predecessor catch blocks yield different edit segmentation; final collector development and limited source normalized content are exactly equal. No candidate bytes accepted or changed. Corrected verifier uses full collector equality and exact known predecessor differences rather than comparing non-equivalent edit blocks.",
+  "originalVerifierSha256": "be3df6306fc30b797f4fd2ac4146105149c0526a4f15d3e33e70740229e6c343"
+}

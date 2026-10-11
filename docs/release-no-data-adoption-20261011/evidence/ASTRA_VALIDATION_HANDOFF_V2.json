@@ -1,0 +1,93 @@
+{
+  "version": "astra-validation-handoff-v2",
+  "developmentBase": "ba656eabbb93d17d6e2f57d51ea3d13b27d1f50d",
+  "status": "runtime-code-frozen",
+  "patch": "E:/codex-artifacts/release-no-data-adoption-20261011/validation-freshness-v2-main-zero-context.patch",
+  "patchSha256": "21ac4136e30dda7bf1d9baed6f4ab64ddc5c0f29993e80b9e532bfd2e833234a",
+  "limitedPatchCheck": "E:/codex-artifacts/release-no-data-adoption-20261011/validation-freshness-v2-apply-check",
+  "unrelatedMainHealthChangesIncluded": false,
+  "files": [
+    {
+      "path": "tools/worker-local-release.mjs",
+      "developmentSha256": "e9c9838a798cf56e2a02b87952802cf6bc7a40f7e78ab991bf33878d318364bf",
+      "limitedCandidateSha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "developmentSha256": "b2f6ba5365a0c3ef421dd4181e409733ee29a54d79663cfe404ab2ece91fb5c8",
+      "limitedCandidateSha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "developmentSha256": "ae1efefef4143d423074877ebb9bde447bbe74269751de531ef6c6b6a8eff2e7",
+      "limitedCandidateSha256": "18f556319c7b14dbdcd32305584032f645abf1b3d6cb1827b9cee3b1ea6fa358"
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "developmentSha256": "9699b4de10f162172adc7d11c6a9043f5f090b495e59514e820c009a6c559589",
+      "limitedCandidateSha256": "10a783535add546ed8f3e28930bad416d8d9d27f7acbe126d48f393a47db7415"
+    },
+    {
+      "path": "tools/release-impact.mjs",
+      "developmentSha256": "24403c32b7788f53d585e51535c57fe870603e8f728ba1eb21c1c5b25cc5f548",
+      "limitedCandidateSha256": "24403c32b7788f53d585e51535c57fe870603e8f728ba1eb21c1c5b25cc5f548"
+    },
+    {
+      "path": "tools/release-no-data-observation.mjs",
+      "developmentSha256": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d",
+      "limitedCandidateSha256": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d"
+    }
+  ],
+  "runtimeScope": [
+    "tools/release-impact.mjs",
+    "tools/release-batch.mjs",
+    "tools/release-batch-admission.mjs",
+    "tools/release-no-data-observation.mjs",
+    "tools/worker-local-release.mjs",
+    "tools/worker-local-release-rotation.mjs",
+    "tools/worker-local-service.ps1",
+    "tools/release-lifecycle-step.ps1",
+    "tools/release-preparation-evidence.mjs",
+    "tools/release-admission-timing.mjs"
+  ],
+  "tests": {
+    "finalSerial": {
+      "passed": 187,
+      "failed": 0,
+      "durationMs": 43017.2567,
+      "log": "E:/codex-artifacts/release-no-data-adoption-20261011/astra-freshness-related-final.log"
+    },
+    "qualification": 13,
+    "sourceBinding": 23,
+    "firstRelated": "172/173: historical missing-config watcher failed; unchanged targeted rerun and serial173 recheck passed; cause not established",
+    "lint": "PASS",
+    "diffCheck": "PASS",
+    "productionActions": false,
+    "freshness": 14,
+    "independentVM": "Author rerun of independent C design: six old gaps reproduced, six final corrective assertions passed; no new independent reviewer signature"
+  },
+  "testFiles": [
+    "tests/release-admission-observation-age.test.mjs",
+    "tests/release-tools-no-migration.test.mjs",
+    "tests/release-source-binding.test.mjs",
+    "tests/release-no-data-policy.test.mjs",
+    "tests/release-no-data-observation.test.mjs",
+    "tests/release-no-data-backend-start.test.mjs",
+    "tests/release-wait-optimization.test.mjs",
+    "tests/release-fastpath-evidence.test.mjs",
+    "tests/release-composition-review.test.mjs"
+  ],
+  "candidateHarnessNote": "166 candidate-bound cases plus21 offline composition cases; actual candidate module raw hashes must be used.",
+  "djangoVerifierRotationUnchanged": true,
+  "limitedPatch": "E:/codex-artifacts/release-no-data-adoption-20261011/validation-freshness-v2-limited-zero-context.patch",
+  "limitedPatchSha256": "46f23096ea436a75d87cdf85faaef9760090880b4e9544cde4ee147708de5a9c",
+  "compositionRule": "Use limited patch against original9; exact raw applied hashes below are authoritative. Main patch is development diff. Batch unrelated latest-main health remains excluded; collector now intentionally uses local bounded capture.",
+  "importException": {
+    "mainBaseLine": "import { retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeReadinessFailure } from './release-readonly-retry.mjs';",
+    "originalLimitedAndFinalLine": "import { retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness } from './release-readonly-retry.mjs';",
+    "reason": "Original limited helper lacks that export. Local bounded projection plus original attempt persistence needs no eleventh helper. Exact import deletion is already satisfied in limited base; main patch cannot be directly applied there.",
+    "lineEndingRecord": "E:/codex-artifacts/release-no-data-adoption-20261011/ASTRA_FRESHNESS_PATCH_RAW_MISMATCH.json"
+  },
+  "previousHandoffSha256": "45ed4beee3d471c6f0f0a8cae8a86657588325383909d7943a6a416842aca13f",
+  "cPatchSha256": "07a08b509170eeba00d2104de9d359c4e28f081c16181cceab03c4c85f028527"
+}
