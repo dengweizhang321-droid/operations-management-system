@@ -1,0 +1,202 @@
+{
+  "version": 1,
+  "authorization": "user_explicit_install",
+  "installedAt": "2026-10-11T19:26:52.7885012+08:00",
+  "planId": "973f813cf5ab237816f9243c10a931642c209b73f082028dc1236da77a538808",
+  "bundleId": "add91c4aa03f8b81ef4f26e89bf082bd9a8de9c2b7f0b08bcfa32c75d54f2a68",
+  "transactionPhase": "completed",
+  "files": [
+    {
+      "file": "operations-system-watchdog.ps1",
+      "sha256": "2d4c7b01b6eca973a54c0a2c210ff3fd93b166978d5c86b0c52888946b070390",
+      "matches": true
+    },
+    {
+      "file": "process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "matches": true
+    },
+    {
+      "file": "watchdog-install.ps1",
+      "sha256": "253f3ff73abd108a2fc7e17e5e643af1014b2d74f0fdf6b20a5f75713dab8734",
+      "matches": true
+    },
+    {
+      "file": "watchdog-launcher\\NoConsoleLauncher.cs",
+      "sha256": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7",
+      "matches": true
+    },
+    {
+      "file": "watchdog-status-control.ps1",
+      "sha256": "4f4093c5b6ccbd2c48ad506682ebbf0e633482e2545860ea76819746a661cb4c",
+      "matches": true
+    },
+    {
+      "file": "watchdog-status-backend.ps1",
+      "sha256": "196b737ae90ce6927257150efa88591c997c7c152762bc593725f5a0e8b5e85b",
+      "matches": true
+    },
+    {
+      "file": "watchdog-core-overlay.ps1",
+      "sha256": "ce28f3015c48055d0bdd95235bad0d357852537e113463f64bd20c29c6056387",
+      "matches": true
+    },
+    {
+      "file": "driver-binding.json",
+      "sha256": "37259254dab89d8c3f0ec6b71392954e88b08fd5b8818c1a03f095d1e3642d44",
+      "matches": true
+    },
+    {
+      "file": "Watchdog.NoConsole.exe",
+      "sha256": "0bcb6079d8d47689141d6165fd3c2b0dbb009ed18fc1959d2e5800b73b554834",
+      "matches": true
+    }
+  ],
+  "taskEntryMatches": true,
+  "taskEnabled": true,
+  "triggersPreserved": true,
+  "settingsPreserved": true,
+  "principalPreserved": true,
+  "oldRootScriptSha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b",
+  "oldInstallationBackupMatches": true,
+  "sourceBindingsAfter": [
+    {
+      "source": "control",
+      "sha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "unchanged": true
+    },
+    {
+      "source": "backend",
+      "sha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+      "unchanged": true
+    },
+    {
+      "source": "worker",
+      "sha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "unchanged": true
+    },
+    {
+      "source": "transport",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "unchanged": true
+    }
+  ],
+  "cycles": [
+    {
+      "cycle": 1,
+      "observedAt": "2026-10-11T19:28:39.3256629+08:00",
+      "at": "2026-10-11T19:27:26.2075208+08:00",
+      "completedAt": "2026-10-11T19:28:04.6995007+08:00",
+      "elapsedMs": 38497,
+      "healthy": true,
+      "system": "Running",
+      "backend": "Ready",
+      "diagnosticMode": "readonly_driver",
+      "componentCount": 12,
+      "allComponentsHealthy": true,
+      "probeCount": 4,
+      "allHttpProbesPassed": true,
+      "coreDiagnostics": {
+        "RuntimeAclVerification": "root_only_status",
+        "probes": {
+          "reader": {
+            "code": "none",
+            "statusCode": 200,
+            "timeoutMs": 2000,
+            "elapsedMs": 631
+          },
+          "writer": {
+            "code": "none",
+            "statusCode": 200,
+            "timeoutMs": 2000,
+            "elapsedMs": 625
+          }
+        },
+        "DjangoWriter": "running",
+        "elapsedMs": 4787,
+        "ReaderReadiness": "ready",
+        "RuntimeAcl": "root_hardened",
+        "WriterReadiness": "ready",
+        "DjangoReader": "running",
+        "PostgreSQL": "running"
+      },
+      "statusTimings": {
+        "workerMs": 8173,
+        "httpMs": 2261,
+        "backendMs": 21432
+      },
+      "stateDecision": "healthy",
+      "failures": 0,
+      "incident": null,
+      "lastCheck": "2026-10-11T19:28:04.7092835+08:00",
+      "lastHealthy": "2026-10-11T19:28:04.7271119+08:00"
+    },
+    {
+      "cycle": 2,
+      "observedAt": "2026-10-11T19:29:09.5402612+08:00",
+      "at": "2026-10-11T19:28:26.1372854+08:00",
+      "completedAt": "2026-10-11T19:29:07.6804037+08:00",
+      "elapsedMs": 41549,
+      "healthy": true,
+      "system": "Running",
+      "backend": "Ready",
+      "diagnosticMode": "readonly_driver",
+      "componentCount": 12,
+      "allComponentsHealthy": true,
+      "probeCount": 4,
+      "allHttpProbesPassed": true,
+      "coreDiagnostics": {
+        "PostgreSQL": "running",
+        "DjangoReader": "running",
+        "probes": {
+          "writer": {
+            "code": "none",
+            "elapsedMs": 623,
+            "timeoutMs": 2000,
+            "statusCode": 200
+          },
+          "reader": {
+            "code": "none",
+            "elapsedMs": 629,
+            "timeoutMs": 2000,
+            "statusCode": 200
+          }
+        },
+        "elapsedMs": 4740,
+        "RuntimeAclVerification": "root_only_status",
+        "ReaderReadiness": "ready",
+        "WriterReadiness": "ready",
+        "RuntimeAcl": "root_hardened",
+        "DjangoWriter": "running"
+      },
+      "statusTimings": {
+        "httpMs": 2268,
+        "workerMs": 10146,
+        "backendMs": 22721
+      },
+      "stateDecision": "healthy",
+      "failures": 0,
+      "incident": null,
+      "lastCheck": "2026-10-11T19:29:07.69029+08:00",
+      "lastHealthy": "2026-10-11T19:29:07.7977954+08:00"
+    }
+  ],
+  "acceptance": {
+    "checkedAt": "2026-10-11T19:29:09.8277991+08:00",
+    "status": "installed_and_two_natural_checks_accepted",
+    "bundleId": "add91c4aa03f8b81ef4f26e89bf082bd9a8de9c2b7f0b08bcfa32c75d54f2a68",
+    "cycleCount": 2,
+    "newAlertFiles": [],
+    "changedAlertFiles": [],
+    "healthyDuringObservedCycles": true,
+    "underlyingIntermittentRootCause": "unproven",
+    "fullBusinessDayObservation": "not_completed"
+  },
+  "manualCheckExecuted": false,
+  "manualNotificationExecuted": false,
+  "faultInjected": false,
+  "businessServicesActivelyRestarted": false,
+  "applicationDeployed": false,
+  "businessDataWritten": false,
+  "productionNotificationDeliveryExercised": false
+}
