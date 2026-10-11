@@ -1,0 +1,76 @@
+{
+  "version": "astra-fresh-entry-handoff-v2",
+  "status": "external-entry-frozen-not-production-approved",
+  "entrypointPath": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs",
+  "entrypointSha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99",
+  "sourcePath": "docs/release-first-adoption-targeted-20261011/adapters/fresh-adoption-entry-v2.mjs",
+  "mode": "fresh-no-reuse-v1",
+  "bindingRecord": {
+    "kind": "first-adoption-execution",
+    "mode": "fresh-no-reuse-v1",
+    "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs",
+    "sha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99"
+  },
+  "candidateRoot": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749",
+  "candidateManifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+  "workerPlanSha256": "0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881",
+  "bootstrap": {
+    "builtinImports": [
+      "node:assert/strict",
+      "node:path",
+      "node:url",
+      "node:crypto",
+      "node:fs",
+      "node:fs/promises"
+    ],
+    "fullDependencyTreeBeforeCandidateImport": true,
+    "allKeyFilesAndKnownClosure": true,
+    "perFileAndDirectoryIdentityComparedAfterTree": true,
+    "typescriptResolutionBound": true,
+    "scopeAndSelfDagBoundBeforeImport": true
+  },
+  "tests": {
+    "passed": 26,
+    "failed": 0,
+    "bootstrap": 10,
+    "engine": 13,
+    "durationMs": 11941.2326,
+    "log": "E:/codex-artifacts/release-first-adoption-targeted-20261011/FRESH_ENTRY_V2_FINAL_TEST.log",
+    "logSha256": "f02bd33777d29444a78f7a825b44c3e8b0eabd9dcb7ef3434b656de2455764b9",
+    "scripts": [
+      {
+        "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-entry-bootstrap-v2.test.mjs",
+        "sha256": "a8e3bb9cd695535635f7536bb9a66d1eecae1c223998c0b959f7fdf22a80ac7d"
+      },
+      {
+        "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-entry-engine-v2.test.mjs",
+        "sha256": "e22b945eb4f3c93a3cc2fd9c179bd507f6ab039052605972d30af7a1ed030f94"
+      },
+      {
+        "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-entry-v2-literal.test.mjs",
+        "sha256": "aec3e67cae5e636ff0ef1a6e9876cb0bd6a6e29b83015d449764fb1fa3a07ed7"
+      }
+    ],
+    "limits": "Bootstrap uses actual built-in filesystem checks on small private trees and real private module imports; engine wiring uses actual fixed-candidate verifyBatch/validateNoDataCollector/executeBatch with controlled live collector, native operations and accepted bootstrap result. Not an actual production full-tree qualification.",
+    "literal": 3
+  },
+  "commands": {
+    "qualify": "node \"E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs\" qualify \"<new exact spec.json>\" \"<new scope SHA>\"",
+    "execute": "node \"E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs\" execute \"<new exact spec.json>\" \"<human-approved new scope SHA>\" \"<actual explicit approval ISO UTC>\""
+  },
+  "authorization": "Only the explicitly approved entry argv is selected. Original cached CLI remains unchanged and does not enforce this external entry declaration; no claim of a new generic-engine enforced mode. Tests evidence binds entry mode/path/bytes to the new batch SHA, not a production approval.",
+  "failureEvidence": "Returned or late stale snapshots retain stages/attempts/statusObservation in create-only evidence; evidence-save failures attach a code without replacing the original stale error. Original collector failures remain unmodified. CLI catch prints only message; Root must retain raw CLI output or catch the export for typed qualification failure details.",
+  "firstFailures": [
+    "Initial draft imported candidate code before bootstrap; retained fresh-adoption-entry-prebootstrap-draft.mjs is superseded.",
+    "First wiring fixture read development tool bytes and was rejected by original candidate policy; rebased to actual candidate tool bytes without weakening assertions.",
+    "ENTRY03 old root literal rejected actual spec; V2 changes only the literal to path.resolve forward-slash path. Three tests evaluate actual old/new literal and real original spec journalRoot without injected root."
+  ],
+  "unadoptedCache": "One missing-parent cache fixture remains unresolved; no 215/215 claim. This entry never constructs or passes a preparation session.",
+  "runtimeSourceOrPackageChanged": false,
+  "productionActions": 0,
+  "supersedes": {
+    "entrypointPath": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.mjs",
+    "sha256": "8bf175c321401523955c4273a9ab5d29fd4c2ee81f0cdf32130a60886bf09f35",
+    "reason": "ENTRY03: old single-backslash Windows literal decoded TAB. Old 8bf preserved and unusable."
+  }
+}

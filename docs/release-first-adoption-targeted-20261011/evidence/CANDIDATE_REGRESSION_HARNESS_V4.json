@@ -1,0 +1,77 @@
+{
+  "version": "teruisi-candidate-regression-harness-v1",
+  "candidateRoot": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749",
+  "candidateManifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+  "root": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\candidate-regression-v4",
+  "pins": [
+    {
+      "name": "release-preparation-runtime-config.test.mjs",
+      "originalSha256": "bc53b515c44157bf5079d1ea8101cbbe46cc78d580917c06cfcc0cba912c2dd8",
+      "harnessSha256": "683bffef82f97fa2eff7e3f6a211a58a4817b7d809ba032a5e8d6a3778ecded5",
+      "changes": "Only source/library/script path rebasing; all assertions and fixture actions unchanged"
+    },
+    {
+      "name": "release-first-adoption-targeted.test.mjs",
+      "originalSha256": "25fa3f56ca359ec4f2ec972de3c75b936c60d18287da85ba7e6d003b552a94b3",
+      "harnessSha256": "66b8e8ec3bd12a615fe38c1fa9f43a1042ee84a99d31c20c85b6967ca7265ce8",
+      "changes": "Only source/library/script path rebasing; all assertions and fixture actions unchanged"
+    },
+    {
+      "name": "release-tools-no-migration.test.mjs",
+      "originalSha256": "06657151e6fd15888cb358281d9fb49cc1b7cc9c6197cc0b7fde2c27da4c1857",
+      "harnessSha256": "3282bd788e6931dbf25ab0192ae29a8e4ada856e42d1f98672eb81ad4ec1e3a6",
+      "changes": "Only source/library/script path rebasing; all assertions and fixture actions unchanged"
+    },
+    {
+      "name": "release-admission-observation-age.test.mjs",
+      "originalSha256": "9ffac006b1fd96eba7ac9404f9d46958802c6bc036bcacf0200ce2cc6fda9cfe",
+      "harnessSha256": "c01d3142f3fab771a0312e3cdb740449ebfb4eb8446311e20d86214e59c0b251",
+      "changes": "Only source/library/script path rebasing; all assertions and fixture actions unchanged"
+    },
+    {
+      "name": "release-source-binding.test.mjs",
+      "originalSha256": "0cbe77b501b72c2f3520b33841540420dac9ab0af2dea4589f6571ae69baf4a4",
+      "harnessSha256": "e756e3b50004b9a2b57a43098cfe5e7f8e69105515d55e5feb5dd557b6758f92",
+      "changes": "Only source/library/script path rebasing; all assertions and fixture actions unchanged"
+    },
+    {
+      "name": "release-no-data-policy.test.mjs",
+      "originalSha256": "c195d237dc64529e4a9ef51af565edc003feea2967db3a84890db0bed506c83a",
+      "harnessSha256": "a9c1e534e26fbfe6c34493104d71a3f84b77c17905d9f4a1c962f5770df22fba",
+      "changes": "Only source/library/script path rebasing; all assertions and fixture actions unchanged"
+    },
+    {
+      "name": "release-no-data-observation.test.mjs",
+      "originalSha256": "2fa5253edeb655730525f996887a675b79c06106593b3197b0200a23a91826bc",
+      "harnessSha256": "21b0a4e5fb55e90b2672a5dbfba0219e10d69b4fbf49e921f3ff9dcb61074fd8",
+      "changes": "Only source/library/script path rebasing; all assertions and fixture actions unchanged"
+    },
+    {
+      "name": "release-no-data-backend-start.test.mjs",
+      "originalSha256": "16af70eb3ebfbd231f531c8b5fe9009b4acc1a05d686b8634e4778aa3ea2d54a",
+      "harnessSha256": "616811ccd99b2d22db832863085bb3abe722eb3082b0185af07087cdd82a7d03",
+      "changes": "Only source/library/script path rebasing; all assertions and fixture actions unchanged"
+    },
+    {
+      "name": "release-wait-optimization.test.mjs",
+      "originalSha256": "5180773df85f15b846c797cd96f00ec4e5f601f670719b54f53ff4be388ff2bf",
+      "harnessSha256": "f9edc41bf4f06189ba989670b5634859bae33f35d78bd48e63a0ef73487a738c",
+      "changes": "Only source/library/script path rebasing; all assertions and fixture actions unchanged"
+    },
+    {
+      "name": "release-fastpath-evidence.test.mjs",
+      "originalSha256": "ac57c98d6c3429d204536480255f8be2a0dd726f1230b1e9f80077510ad19171",
+      "harnessSha256": "c690c614665dbe98ab2c7bdeb4c4460ad2d1a909b74fd5c1530fec3b4ec46d18",
+      "changes": "Only source/library/script path rebasing; all assertions and fixture actions unchanged"
+    },
+    {
+      "name": "release-no-data-backend-start.test.ps1",
+      "originalSha256": "61f82f51dbe6ddd420e6e33b098768c281eac51ff1d57374063582b1d8d24cc4",
+      "harnessSha256": "354343817b9b19cd4ff8d8fc41b979d23d5580438d5f2a84180fa58d58c21a1b",
+      "changes": "Only original candidate source path rebasing; PowerShell AST bodies/counters/assertions unchanged"
+    }
+  ],
+  "expectedTests": 215,
+  "externalOfflineComposition21NotClaimedShipped": true,
+  "commandWorkingDirectory": "D:/.codex/worktrees/release-first-adoption-targeted/运营管理系统"
+}

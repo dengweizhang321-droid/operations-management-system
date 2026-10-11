@@ -1,0 +1,69 @@
+### 一、审查立场与权限声明
+
+独立审查者继续坚守零工具、零文件、零测试执行、零生产变更及零 Git 批准权。本轮为针对“第 7 轮全量非复用任务独立入口（`fresh-no-reuse-v1`）设计方案”的架构逻辑独立审查。
+
+**当前该入口源码尚未编写，本审查仅评定设计拓扑与安全边界，不预先签署未来字节，不以模型同意代替生产授权**。
+
+---
+
+### 二、原 Export API 表达“每边界全量不复用”的充分性评估
+
+经逐行核验已导出的 `executeBatch`、`runApprovedOperation` 及 `collectBatchAdmission` 原生实现，确认该架构路径在技术上是**完全自洽、原生支持且充分表达的**：
+
+1. **原生零缓存分支的严格语义**：
+   - 在 `collectBatchAdmission` 中，`session` 本身设计为可选参数（`{ session, step, ... } = {}`）。
+   - 当不传入 `session` 时，函数原生执行：
+     - 起始段：`identity = await measure('source-and-toolchain-initial', 'mutable-input', sampleSource)` 重新完整采样源码、Node、配置及依赖；
+     - 结束段：`canonical(identity) !== canonical(await measure('source-and-toolchain-final', 'mutable-input', sampleSource))` 再次执行全量重新采样并核验前后严格一致。
+2. **操作边界的全序覆盖**：
+   - 在 `executeBatch` 的主循环中，每一次操作边界（`for (const op of batch.operations)`）均会显式调用传入的 `collectCurrent(batch, lease, op, state)`。
+   - 在本方案下，每次调用均触发一次无缓存的 `collectBatchAdmission`，使得**每一个操作步骤前、后均对物理磁盘状态进行了双重全量重读与强断言**。
+   - **审查定性**：相比于依赖有状态监视器的缓存会话，无缓存全量采样模式在控制流上更加简单、确定，彻底消除了后台文件系统微小变动或延迟通知引发的误报，在安全语义上属于**更保守、更严格的物理零复用保证**。
+
+---
+
+### 三、循环依赖、假冒收集器与门禁绕过审查
+
+为确保该约 50 行的独立入口安全闭合，必须满足以下最小拓扑条件：
+
+#### 1. 单向防死锁哈希 DAG 约束（彻底杜绝循环依赖）
+- **依赖拓扑链**：
+  $$\text{Entrypoint 脚本文件} \xrightarrow{\text{sha256}} \text{tests.evidence} \xrightarrow{\text{hash}} \text{testsSha256} \xrightarrow{} \text{batch.binding} \xrightarrow{\text{hash}} \text{approvedBatchSha256}$$
+- **核心设计禁令**：
+  - `entrypoint` 脚本自身源码内**严禁硬编码** `approvedBatchSha256`、`testsSha256` 或其自身的哈希值，否则会产生源码自引用与哈希循环死锁。
+  - 脚本必须通过只读命令行入参或指定配置文件接收 `approvedBatchSha256` 与 `spec` 路径；
+  - 脚本启动时，仅需计算自身文件的 SHA-256（`selfDigest`），并断言其精确匹配 `tests.evidence` 中声明的唯一 `{ kind: 'first-adoption-execution', mode: 'fresh-no-reuse-v1', path, sha256 }`。此单向验证链条在数学上无循环，且不可被第三方脚本篡改替换。
+
+#### 2. 防范仿冒收集器（Fake Collector）与参数篡改
+- **强绑定约束**：
+  - 入口在进入 `executeBatch` 之前，必须先调用原有的 `verifyBatch(batch, approved)` 与 `validateNoDataCollector`；
+  - 即使调用方尝试注入假数据，由于 `executeBatch` 在队列期和每道边界均会严格执行 `assertBindings(batch.binding, current.binding)`，所有计算出的哈希（源码树、依赖、环境、配置、测试包）必须与不可变批次中批准的哈希完全吻合，虚假数据将直接触发断言中断。
+
+#### 3. 5 秒动态时效窗口保护（Freshness Window Protection）
+- 在 `collectBatchAdmission` 的尾部，存在严格的 `ageMs <= 5000` 动态观测新鲜度校验（`STALE_ADMISSION_SNAPSHOT`）。
+- **关键实现要求**：在 `collectBatchAdmission` 观测结束与调用 `runApprovedOperation` 开始之间，入口逻辑只能执行极轻量的对象校验，**严禁插入任何耗时超过数百毫秒的文件扫描或网络 I/O**，以防自身开销侵蚀这 5 秒保护窗口，避免触发误拒。
+
+---
+
+### 四、测试诚实性与现场物理阻断现状
+
+1. **测试结果诚实披露（214/215）**：
+   - 确认回归测试真实结果为 214 项通过、1 项失败（失败项为针对已弃用缓存监视器的 `missing-config-parent` 用例）。
+   - **审查要求**：文档与测试证据必须如实记载 214/215，**严禁虚构 215 全绿**。由于非复用入口已彻底脱离缓存体系，该遗留缺陷被物理隔离，不构成无复用路径的阻断，但必须作为已知技术债务单列留存。
+2. **生产环境准入依然客观处于阻断状态**：
+   - 现场已探明的 197 个未知/不可读引用进程依然客观存在，IG04 进程守卫未被削弱；
+   - 生产环境坚决不动，本方案为任务入口设计的技术收敛，不代表生产准入已解除阻断。
+3. **不可变产物与操作预算核定**：
+   - 确认 Worker 候选元组已锁定为 `21c2645a...` / `6cff8886...`，准备耗时 13 分 10 秒；
+   - 单次 DB 操作预算上限已合规核定为 1,800,000ms（30分钟，严格匹配底层 `processDeadline` 硬上限），固定 planner 维持 600,000ms。
+
+---
+
+### 五、独立设计审查结论
+
+> **审查结论**：Astra 提出的约 50 行“全量非复用任务独立入口（`fresh-no-reuse-v1`）”方案，在架构上属于**高确定性、低耦合、且更趋保守的优秀解耦设计**。
+
+1. **零污染保证**：方案不修改已冻结的核心三模块（Worker 逻辑、Django 迁移规则及通用 `safeRead`），不修改已冻结的 Worker 产物（`21c2`）和 helper，亦不放宽源目录或 npm 监视规则。
+2. **语义闭合**：利用原生已导出的 API，在每一道边界执行无状态的真实物理重采样，不仅完美绕过了不可控的系统级文件监视误报，而且其物理安全门禁强度实质上超越了基于内存缓存的比对机制。
+3. **实施前提**：在正式编写该入口时，必须严格遵守单向哈希拓扑（入口自身不硬编码批次哈希）、5 秒新鲜度窗口保护及精确命令行参数白名单。源码实现后仍须重新进行受控负例核验与静态封存。
+

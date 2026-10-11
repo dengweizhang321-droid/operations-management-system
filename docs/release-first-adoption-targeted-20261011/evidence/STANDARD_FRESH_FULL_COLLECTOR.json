@@ -1,0 +1,131 @@
+{
+  "version": "teruisi-primary-standard-fresh-full-collector-v1",
+  "status": "passed",
+  "startedAt": "2026-10-11T08:18:20.993Z",
+  "finishedAt": "2026-10-11T08:22:41.902Z",
+  "batchSha256": "872d7e411d16ac974b0abd1404b7d41ed4c4707d99c2a01750ae182a73206df3",
+  "candidateManifestSha256": "306e92da4a0598e27746b7cba1b29d60fc8616564b6f644610540a343c5f8ce6",
+  "current": {
+    "batchSha256": "872d7e411d16ac974b0abd1404b7d41ed4c4707d99c2a01750ae182a73206df3",
+    "observedAtMs": 1791706961901,
+    "binding": {
+      "sourceSha256": "c279cfb7f1cf6f7c4d72a1ef32f50be428956e6917a5e176d2126ce14da09ea1",
+      "sourceInventorySha256": "7df31e1196ae452f2d9c8caad366617ed301bb762a38d6049aa2c56ee2fdf09a",
+      "predecessorSourceSha256": "92c2656c064c6a202239f4f010f0d241e90ae19fb35638cd328727a7ac64973c",
+      "predecessorInventorySha256": "23388a3be8055ef4673b8f0fe08330b396c9d662d711df193ba81e218ad71922",
+      "dependencySha256": "486154660ca7b1c32822078584c7938ae5de172a0dc8bcd47891100563af935e",
+      "toolchainSha256": "48587c6f8ec33de52c3b4d575735ef1ca2901dd6ca0cbbba95cc36cfef67b7d8",
+      "configurationSha256": "0aa8c45d6749b9ca15d14a76a4d30594224ce0b847782ebad0a663f7b1bf8143",
+      "artifactSha256": "306e92da4a0598e27746b7cba1b29d60fc8616564b6f644610540a343c5f8ce6",
+      "predecessorSha256": "094e10d4508986d62e5d90bf99041271fb7527f9a8b5d33f1dfb386529cee548",
+      "workerPlanSha256": "7e94dbb454693ae94ed515d26874d69a8fc045d4f2fed8c77a1478d9c42bb6c3",
+      "maintenanceId": "65aed4ca52994044a3f70f7a9c0025b6",
+      "sourceBindingSha256": "b6a17244c7534ae29be296b7d475fcb73802cd32e9826e0384647464aefb425f",
+      "djangoPredecessorSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+      "djangoCandidateSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+      "djangoPreparedAppId": "1e1138feef7148fb851713c2b39a25d0",
+      "djangoPreparedReceiptSha256": "10db2364053ebfb90d85dd301914753453d02ad313cd02ff7312ca654ebdeb9b",
+      "testsSha256": "54bfd86325cfc92fd4f59f553460f7ec553929e4870921bda35c9cd13fb13a67",
+      "observationBrowserSha256": "6849d2982038de9f9489a7b3858f3b785b7fec06a842c93c517281d21995c8ca",
+      "observationLibrarySha256": "b34ecdee884c9516334975445f7323682cac5fca10c9cfa2b9907469d1041b50"
+    },
+    "recovery": null,
+    "admissionStages": [
+      {
+        "stage": "classification",
+        "category": "sealed-evidence",
+        "status": "passed",
+        "durationMs": 253.12710000000004
+      },
+      {
+        "stage": "django-identity",
+        "category": "dynamic-state",
+        "status": "passed",
+        "durationMs": 4.975000000000023
+      },
+      {
+        "stage": "journal",
+        "category": "dynamic-state",
+        "status": "passed",
+        "durationMs": 3.1749000000000933
+      },
+      {
+        "stage": "django-migration-closure",
+        "category": "immutable-content",
+        "status": "passed",
+        "durationMs": 8882.153400000001
+      },
+      {
+        "stage": "effective-chain-and-guards",
+        "category": "dynamic-state",
+        "status": "passed",
+        "durationMs": 5112.108699999999
+      },
+      {
+        "stage": "no-data-deployment-inputs",
+        "category": "immutable-content",
+        "status": "passed",
+        "durationMs": 0.1790000000000873
+      },
+      {
+        "stage": "source-and-toolchain-initial",
+        "category": "mutable-input",
+        "status": "passed",
+        "durationMs": 31307.166299999997
+      },
+      {
+        "stage": "predecessor-source",
+        "category": "immutable-content",
+        "status": "passed",
+        "durationMs": 2597.2966000000015
+      },
+      {
+        "stage": "tests-evidence",
+        "category": "sealed-evidence",
+        "status": "passed",
+        "durationMs": 6.229800000000978
+      },
+      {
+        "stage": "complete-artifact-and-head",
+        "category": "immutable-content",
+        "status": "passed",
+        "durationMs": 167753.88050000003
+      },
+      {
+        "stage": "source-and-toolchain-final",
+        "category": "mutable-input",
+        "status": "passed",
+        "durationMs": 32561.112900000007
+      },
+      {
+        "stage": "effective-chain-final",
+        "category": "dynamic-state",
+        "status": "passed",
+        "durationMs": 3681.8970000000263
+      },
+      {
+        "stage": "django-identity-final",
+        "category": "dynamic-state",
+        "status": "passed",
+        "durationMs": 1.630700000008801
+      },
+      {
+        "stage": "journal-final",
+        "category": "dynamic-state",
+        "status": "passed",
+        "durationMs": 1.6859999999869615
+      },
+      {
+        "stage": "worker-helper-process-identity",
+        "category": "dynamic-state",
+        "status": "passed",
+        "durationMs": 8289.043200000015
+      }
+    ],
+    "statusObservation": null
+  },
+  "productionMaintenanceSwitchBackupRestore": 0,
+  "referenceGuardNotPassed": true,
+  "previousSessionRejectionNotWaived": true,
+  "scope": "Original supported no-session collector; complete source/toolchain/config identity re-read before and after, complete artifact/head validation. Does not clear original session invalidation or native reference unknowns for execution."
+}

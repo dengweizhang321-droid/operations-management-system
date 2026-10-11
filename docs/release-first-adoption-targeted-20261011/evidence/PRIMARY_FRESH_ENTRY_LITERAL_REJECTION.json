@@ -1,0 +1,10 @@
+{
+  "status": "rejected",
+  "code": "NRT-ENTRY03",
+  "entrySha256": "8bf175c321401523955c4273a9ab5d29fd4c2ee81f0cdf32130a60886bf09f35",
+  "literal": "'D:\\teruisi-runtime\\teruisi-worker-sales'",
+  "interpretedValue": "D:\teruisi-runtime\teruisi-worker-sales",
+  "absolute": false,
+  "actualFixedRoot": "D:/teruisi-runtime/teruisi-worker-sales",
+  "productionActions": 0
+}

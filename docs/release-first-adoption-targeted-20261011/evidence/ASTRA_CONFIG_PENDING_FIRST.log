@@ -1,0 +1,48 @@
+✔ fixed canonical source accepts real hardlinks with bracketed byte and inode identity (22.893ms)
+✔ ordinary source, npm and a different configuration hardlink remain rejected (13.5495ms)
+✔ single-link test configuration uses original strict reader (6.6752ms)
+✔ fixed configuration under a real junction ancestor is rejected (9.4039ms)
+✔ fixed path must remain a regular file (7.4184ms)
+✔ configuration write through sibling hardlink during read is rejected even with restored mtime (10.5426ms)
+✔ same bytes with a replaced inode or changed link count cannot become the same snapshot (23.1056ms)
+✔ original helper policy does not authorize hardlinks on the production-named basename elsewhere (5.8135ms)
+✖ native full identity/session collect and recheck support the private fixed hardlink, then reject mutation (6417.0981ms)
+✔ exact fixed change remains synchronous and validates full bytes before clearing pending (48.4775ms)
+✔ unqualified configuration event stays irreversible: rename/.dev.vars (25.3673ms)
+✔ unqualified configuration event stays irreversible: change/null (26.5449ms)
+✔ unqualified configuration event stays irreversible: change/.dev.vars/unknown (26.3134ms)
+✔ sourceWatch invalidation cannot be cleared by valid configuration pending (24.9271ms)
+✔ npm invalidation cannot be cleared by valid configuration pending (26.8093ms)
+✔ changed config bytes cannot be accepted by pending or a new full collect in the same session (32.9398ms)
+✔ same bytes with changed inode or link count cannot clear pending (65.7501ms)
+✔ watch errors remain sticky and dispose never refreshes baseline (25.6358ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 17
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7156.0282
+
+✖ failing tests:
+
+test at tests\release-preparation-runtime-config.test.mjs:53:1
+✖ native full identity/session collect and recheck support the private fixed hardlink, then reject mutation (6417.0981ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /changed|invalidated/. Input:
+  
+  'Error: Fixed runtime configuration differs from session baseline'
+  
+      at async file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-preparation-runtime-config.test.mjs:57:283
+      at async fixture (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-preparation-runtime-config.test.mjs:20:150)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: Fixed runtime configuration differs from session baseline
+        at assertConfiguration (eval at load (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-preparation-runtime-config.test.mjs:16:9), <anonymous>:88:113)
+        at eval (eval at load (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-preparation-runtime-config.test.mjs:16:9), <anonymous>:110:95),
+    expected: /changed|invalidated/,
+    operator: 'rejects',
+    diff: 'simple'
+  }

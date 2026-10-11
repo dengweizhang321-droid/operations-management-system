@@ -1,0 +1,56 @@
+{
+  "version": "astra-targeted-first-adoption-handoff-v1",
+  "status": "runtime-code-frozen",
+  "developmentBase": "030024542ef76be081f69023fefb0601dd4d06b5",
+  "patch": "E:/codex-artifacts/release-first-adoption-targeted-20261011/first-adoption-targeted-zero-context.patch",
+  "patchSha256": "7d611e793583f5cb4feef072ce138492254e0db8ac5768d15092cf5dced8979e",
+  "limitedSourceBase": "D:/codex-isolated/release-no-data-adoption-20261011/adoption-source-v3",
+  "limitedPatchCheck": "E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-patch-check",
+  "files": [
+    {
+      "path": "tools/release-impact.mjs",
+      "previousLimitedSha256": "24403c32b7788f53d585e51535c57fe870603e8f728ba1eb21c1c5b25cc5f548",
+      "developmentSha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+      "limitedCandidateSha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164"
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "previousLimitedSha256": "18f556319c7b14dbdcd32305584032f645abf1b3d6cb1827b9cee3b1ea6fa358",
+      "developmentSha256": "90321df8978fa65d3650df7022c0be62dc005f7db1647943ee872a9bd091db88",
+      "limitedCandidateSha256": "677586a14190f0081c1dbea9a188ce78dd4bf2f1cdc76cfb0bfcdb8f30478c36"
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "previousLimitedSha256": "10a783535add546ed8f3e28930bad416d8d9d27f7acbe126d48f393a47db7415",
+      "developmentSha256": "85d3ff64f4cab6cd41ef9af5c09c1c943877402d0ea091c09ffaf19ef9f2449c",
+      "limitedCandidateSha256": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5"
+    }
+  ],
+  "protocol": "teruisi-release-batch-v4",
+  "recoveryPolicy": "teruisi-first-adoption-targeted-v1",
+  "databaseOperations": "Exactly one backup-pre and one installed restore after W/D/HardenAcl, before ExitMaintenance/Start; fixed read-only installed retention consumer before restore",
+  "legacy": "Default v3 and existing v2/v3 recovery semantics unchanged",
+  "runtimeScopeCount": 10,
+  "djangoToolChanges": false,
+  "tests": {
+    "newTargeted": 31,
+    "totalRelated": 132,
+    "failed": 0,
+    "durationMs": 34660.2045,
+    "log": "E:/codex-artifacts/release-first-adoption-targeted-20261011/ASTRA_TARGETED_FINAL.log",
+    "lint": "PASS",
+    "diffCheck": "PASS",
+    "firstFailures": "Test source-loader export token omitted; later freshness VM missing new protocol constant. Original logs retained; no runtime assertion weakened."
+  },
+  "testFiles": [
+    "tests/release-first-adoption-targeted.test.mjs",
+    "tests/release-tools-no-migration.test.mjs",
+    "tests/release-no-data-policy.test.mjs",
+    "tests/release-fastpath-evidence.test.mjs",
+    "tests/release-source-binding.test.mjs",
+    "tests/release-admission-observation-age.test.mjs"
+  ],
+  "productionActions": 0,
+  "pgRestoreRuns": 0,
+  "builds": 0
+}

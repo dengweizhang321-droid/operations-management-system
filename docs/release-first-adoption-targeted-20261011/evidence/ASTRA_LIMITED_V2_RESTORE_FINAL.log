@@ -1,0 +1,17 @@
+✔ actual original operation runner expands the same confirmed backup point for installed restore (347.728ms)
+✔ real result contract refuses backupId (275.0496ms)
+✔ real result contract refuses backupManifestSha256 (282.2658ms)
+✔ real result contract refuses dumpSha256 (279.7571ms)
+✔ real result contract refuses restoredContentSha256 (288.1596ms)
+✔ real result contract refuses productionDatabaseTouched (270.7843ms)
+✔ real result contract refuses profileRestoreVerified (272.1309ms)
+✔ real result contract refuses sequenceHealthVerified (287.8045ms)
+✔ real result contract refuses cleanupStatus (268.5803ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2894.4711

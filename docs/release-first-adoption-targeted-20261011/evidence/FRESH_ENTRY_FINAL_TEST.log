@@ -1,0 +1,31 @@
+✔ builtins bootstrap checks full small dependency tree before real private module import (176.7789ms)
+✔ bootstrap rejects module before any candidate code executes (29.5578ms)
+✔ bootstrap rejects manifest before any candidate code executes (56.2155ms)
+✔ bootstrap rejects extra-dependency before any candidate code executes (101.1467ms)
+✔ bootstrap rejects dependency-bytes before any candidate code executes (49.0858ms)
+✔ bootstrap rejects tests before any candidate code executes (23.7148ms)
+✔ bootstrap rejects unknown-member before any candidate code executes (18.3677ms)
+✔ early tree member changing after its read is rejected by final physical-identity enumeration (20.3624ms)
+✔ hardlinked code and redirected ancestor are rejected without loading code (26.4793ms)
+✔ path validation accepts normal JS paths but rejects escapes and alternate streams (13.2617ms)
+✔ qualification uses original verifier and fresh collector once, never reserves ownership or invokes engine operations (691.4414ms)
+✔ execute uses original engine/WAL, performs fresh collection at every boundary and closes private ownership (933.3796ms)
+✔ wrong/missing/duplicate entry declaration or self path/hash cannot enter the engine (2249.8045ms)
+✔ deleting required in-process transport is rejected rather than selecting another caller (307.2212ms)
+✔ actual original deadline rejects a 3600000ms declared DB budget before ownership (407.8689ms)
+✔ explicit approval timestamp is mandatory for execute (286.2204ms)
+✔ spec and raw tests drift after sampling are rejected before native action (1241.4946ms)
+✔ entrypoint drift after sampling is rejected before native action (593.5657ms)
+✔ stale/future sample and post-sampling expiry never reach the native operator (1849.1824ms)
+✔ unknown operation retains original WAL ownership and cannot replay (952.9241ms)
+✔ stale returned observation retains stages/attempts even when its evidence save fails (572.4129ms)
+✔ normal stale snapshot creates bound failure evidence before rejection (590.7612ms)
+✔ entry uses exactly the original runner budget priority (0.2208ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11676.0268

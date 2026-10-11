@@ -1,0 +1,21 @@
+{
+  "version": "astra-fixed-runtime-config-native-read-v1",
+  "status": "passed",
+  "helperSourceSha256": "2035ac7a6f14a999e421d797b39edc323bba09c5b6ea6519a58180939eb9682d",
+  "originalWorkerModuleSha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+  "originalReaderMatches": true,
+  "genericSafeReadStillRejects": true,
+  "runtimeConfigurationSha256": "8dbec99ef562b52ad014e6877cd8bc97496eb567d28524974f010903b924c7ca",
+  "runtimeFile": {
+    "dev": "1722990852",
+    "ino": "1688849860718099",
+    "nlink": "283",
+    "size": "2402",
+    "mtimeNs": "1788618339743771900",
+    "ctimeNs": "1791705860665462000"
+  },
+  "rawConfigurationPersisted": false,
+  "productionHttpRequests": 0,
+  "productionWrites": 0,
+  "fullSessionPerformed": false
+}

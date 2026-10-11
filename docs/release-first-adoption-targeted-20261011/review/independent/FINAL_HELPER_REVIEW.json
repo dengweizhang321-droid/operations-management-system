@@ -1,0 +1,51 @@
+{
+  "version": "teruisi-final-config-session-helper-independent-review-v1",
+  "independent": true,
+  "acceptedHelperCandidate": true,
+  "acceptedCombinedBundleOrBatch": false,
+  "productionExecutionApproved": false,
+  "blockingFindings": [],
+  "scope": "Only frozen b735 configuration hardlink reader and event/session protocol; old616 approval is not reused as this signature.",
+  "helperPath": "D:/codex-isolated/release-first-adoption-targeted-20261011/adoption-source-v3/tools/release-preparation-evidence.mjs",
+  "helperSha256": "b7355e8f36efe8be54dc1980334f87f109372b1bd743639160064d4034235bf6",
+  "staticConclusions": [
+    {"line":12,"fact":"The reader always resolves fixed workerDevVarsSource; ancestors are non-symlink and physically equal both before and after read. Regular file, positive nlink,16MiB limit and raw length retained. dev/ino/nlink/size/mtimeNs/ctimeNs are compared before/after and recorded as immutable baseline fields; only atime is omitted."},
+    {"line":31,"fact":"Only path.resolve case-normalized equality with fixed runtime source selects this reader. Alias/other path falls back to generic safeRead single-link. Ordinary source/npmrc/evidence contracts and full artifact source/release/Worker hardlink identity proof are not changed."},
+    {"line":82,"fact":"Fixed configuration baseline is captured synchronously before first watcher installation and before full identify. It is not replaced by later observed bytes or TTL/refill."},
+    {"line":63,"fact":"Only fixed file exact basename, event change, non-source/nonrecursive watch marks configurationPending. Source/npm/rename/null/unknown and watcher errors keep irreversible changed invalidation."},
+    {"line":93,"fact":"assertStable refuses changed/disposed, synchronously re-reads all bytes/path/identity for pending and compares original baseline before clearing it. Drift sets changed and throws; a late notification after hash or collection is revalidated at the next boundary, not ignored."},
+    {"line":111,"fact":"Every observe independently compares fixed runtime read with baseline, keeps complete source bracket/Node/npm/environment/config comparisons, then assertsStable after yielding. Full/reuse/recheck, lifetime10min, maximum24 uses and exclusive failure entry clearing remain."}
+  ],
+  "independentTests": {
+    "passed": 7,
+    "failed": 0,
+    "durationMs": 1069.5223,
+    "test": "final-helper-independent.test.mjs",
+    "testSha256": "bcedfc53073f0b0ecbbef248e796785a8c73b283692db3dc1b7423c56cf9628c",
+    "stdout": "FINAL_HELPER_INDEPENDENT_FIRST.log",
+    "stdoutSha256": "17319de53ddf4aa1226a79f61b468ff5af62f04fc0478fc86c94d1911ae0aa32",
+    "stderr": "FINAL_HELPER_INDEPENDENT_FIRST.stderr",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cases": [
+      "Baseline-before-registration and matching configuration notification causes a real private synchronous re-read; full/reuse/recheck remain usable.",
+      "Injected late notification after runtime hash/source-final and after collect return remains pending; changed bytes then reject and cannot clear changed on later assertStable.",
+      "Same bytes/same nlink/new real inode rejects against original immutable baseline.",
+      "Source/npm/null-unknown/fixed rename events reject and remain invalidated.",
+      "One genuine OS fs.watch private Windows configuration change event was observed; rewriting identical bytes changes identity timestamps and is rejected.",
+      "Other same-inode hardlink path and external npmrc hardlink retain strict rejection.",
+      "With no watcher event, Node/source/npm/environment drift individually invalidates reused input snapshots."
+    ],
+    "seams": "Exact source evaluated in VM, actual Windows private file/link/stat/read/rename and one actual private fs.watch case. Other watch callbacks are explicitly injected; source inventory/full identity/npm transport are private fixtures. No observeInputs override or product module import. No formal config/npm values read.",
+    "privateRootsCreatedAndIdentityCheckedThenRemoved": 13,
+    "syntaxChecks": "Frozen helper and independent test node --check exit0.",
+    "helperRawSHAStableBeforeAndAfter": true
+  },
+  "limitations": [
+    "A private injected metadata-only notification is a model of a fixed-file change event, not proof that actual Windows notifications came from atime, another task or AV.",
+    "The genuine private watcher case proves only that a real notification with unchanged bytes but changed protected timestamps is rejected; it does not prove production access-event causality.",
+    "Original held-input-change/ordinary source/unknown notifications remain fail-closed and unresolved unless separately proved. No old failure is rewritten as success.",
+    "No actual production configuration/NPM/watch probe/collector/CLI, source fix or native lifecycle call was performed.",
+    "New complete source/artifact/helper/collector/batch byte binding and actual native in-process session require later separate verification. Old aed7/872d/616 signatures cannot be reused."
+  ],
+  "actions": {"productionConfigReads":0,"productionProbeOrCli":0,"npmExecution":0,"productionWatch":0,"productionSourceChanges":0,"productModuleImports":0,"privateTests":7,"actualPrivateWatchCases":1}
+}

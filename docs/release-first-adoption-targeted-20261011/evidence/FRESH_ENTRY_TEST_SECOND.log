@@ -1,0 +1,18 @@
+✔ qualification uses original verifier and fresh collector once, never reserves ownership or invokes engine operations (469.2577ms)
+✔ execute uses original engine/WAL, performs fresh collection at every boundary and closes private ownership (748.5554ms)
+✔ wrong/missing/duplicate entry declaration or self path/hash cannot enter the engine (2299.7092ms)
+✔ deleting required in-process transport is rejected rather than selecting another caller (318.1616ms)
+✔ actual original deadline rejects a 3600000ms declared DB budget before ownership (424.5381ms)
+✔ explicit approval timestamp is mandatory for execute (309.2536ms)
+✔ spec and raw tests drift after sampling are rejected before native action (1008.0456ms)
+✔ entrypoint drift after sampling is rejected before native action (529.7732ms)
+✔ stale/future sample and post-sampling expiry never reach the native operator (1482.3019ms)
+✔ unknown operation retains original WAL ownership and cannot replay (686.7841ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8636.632

@@ -1,0 +1,17 @@
+{
+  "startedAt": "2026-10-11T07:32:00.375Z",
+  "sourceBindingSha256": "50fa29961851c544238c1ad94c453fa7defe59055939797ce8089603923f82c9",
+  "sourceRoot": "D:\\codex-isolated\\release-first-adoption-targeted-20261011\\adoption-source-v1",
+  "predecessor": {
+    "bindingSha256": "094e10d4508986d62e5d90bf99041271fb7527f9a8b5d33f1dfb386529cee548",
+    "guardReceiptSha256": "672f80420f154969d4bf221f542dacfbab3dc0360ca25c95c3c686792be7f013",
+    "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "predecessorChainStateSha256": "aaf62994c75c3ca46362328fed6acc76f812808a2e852566782e5e0ba897e0d9",
+  "productionSwitches": 0,
+  "productionBackupsOrRestores": 0,
+  "finishedAt": "2026-10-11T07:43:47.089Z",
+  "exitCode": 0
+}

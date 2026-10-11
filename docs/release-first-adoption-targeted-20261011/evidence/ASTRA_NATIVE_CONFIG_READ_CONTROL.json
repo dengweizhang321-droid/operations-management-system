@@ -1,0 +1,99 @@
+{
+  "version": "astra-single-native-config-read-control-v1",
+  "startedAt": "2026-10-11T08:39:15.569Z",
+  "finishedAt": "2026-10-11T08:39:19.188Z",
+  "readerModuleSha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+  "sourcePath": "D:\\运营管理系统\\.dev.vars",
+  "samples": [
+    {
+      "phase": "before-control",
+      "metadata": {
+        "dev": "1722990852",
+        "ino": "1688849860718099",
+        "nlink": "283",
+        "size": "2402",
+        "mtimeNs": "1788618339743771900",
+        "ctimeNs": "1791705860665462000",
+        "atimeNs": "1791707695481683300"
+      }
+    },
+    {
+      "phase": "after-control",
+      "metadata": {
+        "dev": "1722990852",
+        "ino": "1688849860718099",
+        "nlink": "283",
+        "size": "2402",
+        "mtimeNs": "1788618339743771900",
+        "ctimeNs": "1791705860665462000",
+        "atimeNs": "1791707695481683300"
+      }
+    },
+    {
+      "phase": "immediate-read-1",
+      "metadata": {
+        "dev": "1722990852",
+        "ino": "1688849860718099",
+        "nlink": "283",
+        "size": "2402",
+        "mtimeNs": "1788618339743771900",
+        "ctimeNs": "1791705860665462000",
+        "atimeNs": "1791707956777407500"
+      }
+    },
+    {
+      "phase": "settled-read-1",
+      "metadata": {
+        "dev": "1722990852",
+        "ino": "1688849860718099",
+        "nlink": "283",
+        "size": "2402",
+        "mtimeNs": "1788618339743771900",
+        "ctimeNs": "1791705860665462000",
+        "atimeNs": "1791707956777407500"
+      }
+    },
+    {
+      "phase": "immediate-read-2",
+      "metadata": {
+        "dev": "1722990852",
+        "ino": "1688849860718099",
+        "nlink": "283",
+        "size": "2402",
+        "mtimeNs": "1788618339743771900",
+        "ctimeNs": "1791705860665462000",
+        "atimeNs": "1791707957980600200"
+      }
+    },
+    {
+      "phase": "settled-read-2",
+      "metadata": {
+        "dev": "1722990852",
+        "ino": "1688849860718099",
+        "nlink": "283",
+        "size": "2402",
+        "mtimeNs": "1788618339743771900",
+        "ctimeNs": "1791705860665462000",
+        "atimeNs": "1791707957980600200"
+      }
+    }
+  ],
+  "events": [
+    {
+      "elapsedMs": 1.391300000000001,
+      "phase": "control-no-content-read",
+      "event": "change",
+      "name": ".dev.vars"
+    }
+  ],
+  "beforeSha256": "8dbec99ef562b52ad014e6877cd8bc97496eb567d28524974f010903b924c7ca",
+  "afterSha256": "8dbec99ef562b52ad014e6877cd8bc97496eb567d28524974f010903b924c7ca",
+  "bytesEqual": true,
+  "changedMetadataFields": [
+    "atimeNs"
+  ],
+  "productionHttpRequests": 0,
+  "productionWrites": 0,
+  "rawConfigurationPersisted": false,
+  "limitation": "One native watch experiment with control window and two original reader calls. Event timing and metadata are observations, not attribution to another actor or a proof excluding every concurrent writer."
+}

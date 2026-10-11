@@ -1,0 +1,676 @@
+{
+  "version": "astra-limited-v2-semantic-verification-v1",
+  "v1": "E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-patch-check",
+  "v2": "E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2",
+  "records": [
+    {
+      "file": "tools/release-impact.mjs",
+      "v1Sha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+      "developmentSha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+      "v2Sha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+      "wholeModuleMatchesIntended": true,
+      "functionCount": 23,
+      "statements": [
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "2948024387391b149bf95db8466bc244e8c0bb1f158e0fbf6b9ba730c29aa67e"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "9d196a1875159c508cfac6bfb2060ff64a56d5d38cb28623767e3b75870fba67"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "05bb868cdf5c2f606eb36481902e8ac421a103b4abe323e15b8e988d4200e792"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "bbe538e5e63f17dd6d5932458ab5ce16cd7696b434f00110ba7cd53653a17faa"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "113f0af17fdf683cf360ab9d03b7eff1b572d3475e83119031d47ee4331621aa"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "2259ecdd55d4e1dfa320074ec29e3b4112849a86c06561032ff92b55d787ac41"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "c911664f1383262f472f293bf37442ecc966e75f7783f63641e87892a5d649c8"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "5704abb1db10b1ee3afb1af77ac156eaefbff0848b2faa48f320147f6420df55"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "6ee89de33c5837f777a6df8fcd80d7335040e142c3f212feecc190e60d2ba4f2"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "canonical",
+          "sha256": "ca3a01fad7debb49a9a5427be729728bf3c03a7f5df5c20cfe10580ed885518b"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "requireHash",
+          "sha256": "9ce7e6aa7edb67e8a3f175f39ccb30ad528bf5cee225c79ef94983ff19c14520"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "safeRead",
+          "sha256": "1da18b0ad31e5c864ee803fbf1d49cc598e9768d30b059d6961899138010efb0"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "safeFileDigest",
+          "sha256": "804b84759ca6682a59abb9b18e08586df67004c38d5fab9e0a65beb9273becba"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "displaySkeleton",
+          "sha256": "3c1c292c98802986ae6f629542ac00e30294b9ed69fe9787ca6942a0dad65c2d"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "4b216c3b0040ecac8b2ea507797f801ca7ab25b8059b75aaec676a21bce6ee1e"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "a2c18624f4ee76d98f23ad57ab0d8c7205aed03e3d6b6ac6de23c2affb944971"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "cssDisplaySkeleton",
+          "sha256": "364d04649cb6b173114639ca22b8f63dcb31e2197545ec5669c61e01fa361bda"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "validPng",
+          "sha256": "795d40d52f3a549be1ebe5f834d89389e19711acb2ef4ba03fc2ba8e933e6cfd"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "sourceTreeDigest",
+          "sha256": "73ed1ff208cc5a9f74accb2af47040c4fda7cc173dfeb11d78e36b6c71f97864"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "sourceInventory",
+          "sha256": "9c197100e1d5eabc8af2855310e6387b6afcb24733f961179197bd468344bbaf"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "c30e6ce3486c9457bc9c0cba4866e44c1b843d743a2a74cccd1f42ec4e1b1fd8"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "classifyImpact",
+          "sha256": "723d90fccfd8394d34b6a89383f5543a8f29716c5378c98ff29bc995ddf1ef09"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "makeImpactProof",
+          "sha256": "d9cc348c459270870f3edb2cc13cca6e676217d2fd01c4e9ff2a999f1e81c7d1"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "verifyImpactProof",
+          "sha256": "9f785b2dae185a32da4fb705c853ed825b93266d4d342345d8fcaad1715f514a"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "70ea957e516babe09bb4c82f7c82248b607f874e2d04f1bdaeaa1d0f223e4153"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "intrinsicDisplaySkeleton",
+          "sha256": "82455959cdbd943f400ae4e351cd20fed406b258517f15bab20597b22f773db5"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "classifyImpactV3",
+          "sha256": "aec926248480f51318f5bc0e6a71d9a3d04dc7416b8c088cda4a600f3ecfe2d7"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "609a98c766371a0d16a37248d9d8bf1c1d1b4aae58554d92bfafea5664a1c33c"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "2a2c1e14d9f78bc640b33302729ca0cf5776521da033211b257ecffdf12d869c"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "recoveryDecision",
+          "sha256": "0bab8e5c86d92855cc27f3fe8aa64f93470b77bd87e1a3787a96cf5e6bd01247"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "requirementsForImpact",
+          "sha256": "9f2ae7ed270c00140bfeab656ae1aaed25c129d3c26774800adf8c3426109caf"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "fae80d8e711a71abb3d3cb3cf60a325bf6d3f1f78c379bc079b57f6dad92cad8"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "2e4489c839f95c849afe33327365ce46aa671892b21a50ef524ed8db74c6a22a"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "3339f58f71ace9aaafd034c6c855faab669120747c64fe2265ae5ec48f82232b"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "c9c6b454fa10b478f37214b8a00aa388d13c5d807030f4e5ec21bc97fca261dc"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "426232bb195b80c69d4c84b3e6c9836a844b45da4a5921ddb3d3a39d0d0b23b8"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "917ea47c51f10e98b0d0cfa2f9379e3c71fc82de5dabf9648140bcf0cd9ff10a"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "exactQualificationKeys",
+          "sha256": "d6ee99be78f45cfca64afc26b8fb216df9f374ae90dbebf64c0ecf5624138923"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "applicationInventoryFingerprint",
+          "sha256": "3a7536e866a01bdcfab7a516d11fcfb57e3623cddde9f23afd5c575b51850aeb"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "verifyScopeApplication",
+          "sha256": "6504cd658a4b6213750f19c76b2da6b079faea54fb6e12e4dad370957328d2fe"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "validateToolsNoMigrationScope",
+          "sha256": "05b63be49e5a44bbed4ed3d9573c3526c2c5b526dd470f9d19f1ffd0ee45ebef"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "3913ea868395fa8d0cbac8c3d2de4051431187e331ee983e4b38a8170c6cf99b"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "bindDeploymentImpact",
+          "sha256": "fe401f6e9239686a34af2f1c9e6cbce43e04d6843c01bbfb53b9c6c2a15fbdab"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "53b4a8a83177760382300ce06375078e47cbec27e26bd251f3bb397d8af3a4d8"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "cb74a68cffe7232a8494785b9e731f369eb53d3d43f6e7d30ddcd43004e63486"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "2f36f79c5251b56d14b513d6755ed5bcb8c6b0cc7ed4ed7b4a032048c64314f6"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "backupReuseDecision",
+          "sha256": "2f5cfa7dfce3ec113176cbeca6681f3540ffc5364bc2ed8bff25fb38710180c0"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "readSourceTree",
+          "sha256": "ad4b0da7a21ecf0ab581907f73931d7971409dcf64d369e956f9512a0bfc521e"
+        }
+      ]
+    },
+    {
+      "file": "tools/release-batch.mjs",
+      "v1Sha256": "677586a14190f0081c1dbea9a188ce78dd4bf2f1cdc76cfb0bfcdb8f30478c36",
+      "developmentSha256": "90321df8978fa65d3650df7022c0be62dc005f7db1647943ee872a9bd091db88",
+      "v2Sha256": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc",
+      "wholeModuleMatchesIntended": true,
+      "functionCount": 24,
+      "statements": [
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "50bdd653a030b6f1e503840e8fd19c7f4d6513e7b332b108c78189ed0dd7a014"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "113f0af17fdf683cf360ab9d03b7eff1b572d3475e83119031d47ee4331621aa"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "c911664f1383262f472f293bf37442ecc966e75f7783f63641e87892a5d649c8"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "4a0d8464e84b36da7970928e0814cc4ad8ab5452aa2f95f5ea198cdb1a532da7"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "a21974a8af4b566f3342eb3732ac05b6918dacec0418353d1664c0a0b45f2e19"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "acdb187297667b502b21af95a1d232ab0b1e8950445003ecaa44631d7d1588b6"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "1c9c112d5c3d0c63bae49c6ca50c7a3d0f4443f36b315d01d8e228a179be1637"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "cc7892f145af518b691de895a078af95b92a239ddecab3f7ab28c73fb6678b26"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "34d62a7b99072a4834f621fa8227bf022b5e203b87f32120016aa4984b4f5484"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "c6cb013a6b772b096376e40f805c2186dd8690dcd2d6750aa4f841f9edd84a4c"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "bb57c0191b2007ee1e37fd973794a0ddc63d5d91894f65d5d1d7b53f1a437a18"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "4ed5c5e04472ff212b4fe044847de38a50a59a2ddf9196c6b57c3be8dbd0774a"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "0a65b96d8ff36f0028a788b18b2212c6eb23dd7b3963811811faad440692a088"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "d0a0deae1c2875592467cb40ea785f7cdceea2c076fb851b72b3efcea7352f06"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "ef3bfd6280385a5fb16951ddc7bfe690297ffe7e9e08942e940428e7c2e4efc2"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "validateNoDataCollector",
+          "sha256": "dad250c998d6df1e79720a1cc5638b0b33787c0d8bbe7e761d6c4d3f4317b15e"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "validateNoDataOperations",
+          "sha256": "2aa7a0dad394e68f6e8f54066b4b08ec164b965aa8fe6b07b5551d65fc03b20b"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "e835d615354f2608511b876966eb543c04791fa541914b830e9c0d6906bee0d9"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "04a284f0873aa209b1aee8ff0e9b40de11ba415f8fc7ce86b034f746e23fe92b"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "makeBatch",
+          "sha256": "1469e1fa405b730d2b65d1f21b53ea54e8f36f4cd55a124e204e58e9bda6d57a"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "databaseOperationsFor",
+          "sha256": "be294e2d0c9f0a1c1fa070108d54070a0bd577eb5622149191c0883fbf0d6593"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "d1a03f1aff933a1f9a5e82acbd891c17aa6780520b217d7181b1167b46825369"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "625d05ff14f2da97a97f7c8612af3ccb5f2b74085ea152998ad3721e1f094d2e"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "validateTargetedOperations",
+          "sha256": "43146c165bd59a868472974b24cbededbcea733614d385fc4e8551269f2d50da"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "runTargetedRecoveryConsumer",
+          "sha256": "b140ac009ad2c2e6f82687b7067081fb8754012cfe6cc73bec20e6fe19cd9aa1"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "f8d49a8dfbb7204e86986f5cea7cca7096f2f559d43eb5188da9d05ee4ec6983"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "validateOperation",
+          "sha256": "2ebd7abffdf1135693ea2d5b392d18ca6adc71048622a29df1da63204d10cf17"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "assertStartBinding",
+          "sha256": "de08000696ae0b1d6a15d472b11336971291c552744681724f872ce797a0f4e6"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "verifyBatch",
+          "sha256": "a41b8a5f65de28866d93a1597b47b0d0c64ac87b65e8b1f1d6029782bf7b7753"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "assertBindings",
+          "sha256": "6ed39b2c2bc23684b66d3a0f704c3b87ba8497b4009107128298b4523b61618c"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "writeOnce",
+          "sha256": "826af0e8d70312cf83d322a2cbcef3023f0732733c4d8490d2faacaabb00172e"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "ensureSafeDirectory",
+          "sha256": "c59b69057f65aebef255c6f59df5700b31134f3160b87605017617d52f48578d"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "safeDirectory",
+          "sha256": "5ced0e936f0df8e09fd0e4f3702656b7c58d5517e55f2892f8c4ab49aef57179"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "journalState",
+          "sha256": "035623a56ff99666473474237d47cb563287f4abd78785f2738b019592521a81"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "append",
+          "sha256": "32138d9a7e9d6e12b74d39202c94eb9016785904c5c56608e4e0bc94fe71c8c4"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "timingReport",
+          "sha256": "f81f1aec82db93f3e45e1671bc513f8dfa03d6027228cf6378f5b2978b20404a"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "admissionStages",
+          "sha256": "fd774fd5d0c773bae15c40573ee9b5fd961ccf124cf63f5385107e70dbe6db98"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "executeBatch",
+          "sha256": "d9f997092549f10069d17f1250322c4052c8dfa0db0654672a81fe43e1ff9adc"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "reconcileOperation",
+          "sha256": "a10bfc3a6b48c6347949541fca1903743570103d80b9901559a28f96d5918b68"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "productionCommandEnvironment",
+          "sha256": "434c9332f41615d105dd2bebeff54c3e2da09161770755fe2fbcde7e00cde0f0"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "productionCommandArguments",
+          "sha256": "22ed8868f045419ba255d396220d7cdcbe4d279795e22c610dfbf37e38f2f787"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "runApprovedOperation",
+          "sha256": "5aa1a8d58b8a3904a2b9841e7b469d834c0646846dff678af34176873b94317d"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "cancelUnswitchedBatch",
+          "sha256": "42accf7332c397c7e70b942b9a93f1193be63d10cc3844d6c212c4dbe53bd81a"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "main",
+          "sha256": "abb5812d8c029e2f2dd5a4239e6b73fd93d4e7c86ecd34854b7fd102dbacac7a"
+        },
+        {
+          "kind": "IfStatement",
+          "name": null,
+          "sha256": "7ab2ede6f822412cd9e16706b643587363ec71faf98e47d668c49fa4368fc6d3"
+        }
+      ]
+    },
+    {
+      "file": "tools/release-batch-admission.mjs",
+      "v1Sha256": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5",
+      "developmentSha256": "85d3ff64f4cab6cd41ef9af5c09c1c943877402d0ea091c09ffaf19ef9f2449c",
+      "v2Sha256": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5",
+      "wholeModuleMatchesIntended": true,
+      "functionCount": 16,
+      "statements": [
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "113f0af17fdf683cf360ab9d03b7eff1b572d3475e83119031d47ee4331621aa"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "66408aa96347c0b46a9c471339e4db1c80c9d23e196d43454700a54299694adb"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "a21974a8af4b566f3342eb3732ac05b6918dacec0418353d1664c0a0b45f2e19"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "c911664f1383262f472f293bf37442ecc966e75f7783f63641e87892a5d649c8"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "9565d867a44776cd49b61614c629fd019ada11b4ac828e359b03706327e458e7"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "4ed8784e39c39699c74e0931f6ddef4e89bbd9aa8f28eaaf29ed525c62a3488d"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "8c5618849bc34c5c149765b63897388a3f94c93076239d8daf51a2976e9859a6"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "6048cb02355605d924782a4a0cbe3c58bb2fd98a67a66b1c883ba18bdd8bbddc"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "712991cf52c194e85e470951af3af19a0f3abf0fe302c08229823c4bb64b0750"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "02b76ad0ddb42746f9a612fae786ba83bdb66c7e087968287128e1c8f11667fb"
+        },
+        {
+          "kind": "ImportDeclaration",
+          "name": null,
+          "sha256": "32bfd166aea792bff65eb5d17f846293201b7bb419d299a18c27d8d1f14d9073"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "f38b2b01d8fa6947f841ec7634caeba24cddd402151ef3ca3fcd5e9b097a50dd"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "689cf09731b507bce26df78d8e62acb2c4e96dfd85397fce9ccd23830a357453"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "b99673071ccb5281b499cc5312b3e5ac63c865de07915d70532d1cb6f10d72c8"
+        },
+        {
+          "kind": "FirstStatement",
+          "name": null,
+          "sha256": "5f5ff351b18443ff4b35ceaea9424cc5cd467263bbe6056470d9ae34df0e0bce"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "runReadOnlyPowerShell",
+          "sha256": "84c6742d00915079581173679ec30c83e11b9d95187045ccaed1f4bdef131ca3"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "verifyRestoreReceipt",
+          "sha256": "e95d44a540fc65986757752a168e7268bee04dd50c4b2b98a74b275aac0534b5"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "operator",
+          "sha256": "b6f4f943b2b3c912f850271c3fb54b1f140ce8b6e68a431fa18c010d25a4649a"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "softwareIdentity",
+          "sha256": "09cd876c635b558704467343b26742ad7a6569caa40dcaa9a30ae7ddeceddcc1"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "dailyStatus",
+          "sha256": "b4d5c544b4e2423bf0cf12ddd9131aa79befeb62f6e70a84f6d3e27f3cf03535"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "collectRecoveryCurrent",
+          "sha256": "2d25dbc71c74487fd09b3eb747a4b8b40e7797951f59df69631e5ac72502d2e3"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "makeRecoveryEvidence",
+          "sha256": "dc12108ce82806e005fa5f03672ad10683e2869f8b537b5deb88f121c2195f51"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "requiresCompleteAdmission",
+          "sha256": "dafc874c3e8a7106986f18ed8f27e51733e6d3ead9315f233a85e187fd35f977"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "requiresCompleteArtifact",
+          "sha256": "7c011e748c2d7ad7e113bd1480c833cdf14fd44cdd03f2342ccff13b17dcadeb"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "collectBatchRecovery",
+          "sha256": "6a052f97c86445e6b4762b6603ff5dd38d46bc2236d1998a3a2c511766d182ab"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "readToolsScopeApplication",
+          "sha256": "6bd568bf07c1847b043f15b466ea02b19baa71795ef729e85d85ac39c0c56e67"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "verifyLiveToolsNoMigrationScope",
+          "sha256": "c57d4491918874cd74f7f4462403860006f74dfa3e6b79e96dbde2fb657dc72f"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "verifyNoDataDeploymentReceipts",
+          "sha256": "ee829f825e48333e8e9ae945092a429f11d6487784830f6524e2afc4fc17d2cc"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "safeAdmissionReadinessFailure",
+          "sha256": "9d299c7892d273b3b8a80f6c179ce1d588644b8b93557fce613f05c05253416e"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "collectBatchAdmission",
+          "sha256": "ca6abe7b1537ffac40d1c65bcb0411a790a2b5840ddeeb16dce9e33ab4a03824"
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "name": "main",
+          "sha256": "5bbc70ab6df8ebd5d8325baef8e489bc982c11c8db3419fd9de0e15c516060ad"
+        },
+        {
+          "kind": "IfStatement",
+          "name": null,
+          "sha256": "21865ae84dd5d48e70cc75134b7685e84010121bd675e3da19715b784a4b3874"
+        }
+      ]
+    }
+  ],
+  "exceptions": [
+    {
+      "file": "tools/release-batch.mjs",
+      "from": "import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError, safeReadinessFailure } from './release-readonly-retry.mjs';",
+      "to": "import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError } from './release-readonly-retry.mjs';"
+    },
+    {
+      "file": "tools/release-batch.mjs",
+      "from": "        let status;\n        const expectedReleaseId=op.assertions.find(a=>a.path==='releaseId').equals;\n        try {\n          status = parseStatus(value.stdout);\n          assertCompleteReadiness(status,expectedReleaseId);\n          for (const assertion of op.assertions) if (canonical(assertion.path.split('.').reduce((v,k) => v?.[k], status)) !== canonical(assertion.equals)) throw observationError('ASSERTION_FAILED');\n          return value;\n        } catch(error) {\n          error.processEvidence ??= value.processEvidence;\n          if(status) error.readinessEvidence=safeReadinessFailure(status,expectedReleaseId);\n          throw error;\n        }",
+      "to": "        const status = parseStatus(value.stdout);\n        assertCompleteReadiness(status,op.assertions.find(a=>a.path==='releaseId').equals);\n        for (const assertion of op.assertions) if (canonical(assertion.path.split('.').reduce((v,k) => v?.[k], status)) !== canonical(assertion.equals)) throw observationError('ASSERTION_FAILED');\n        return value;"
+    }
+  ],
+  "backupIdGuard": "AST exact second statement inside the op.kind===restore block, after lexical const backup; one occurrence",
+  "scope": "Full module text after LF representation plus all top-level AST statement bodies; no arbitrary whitespace/unknown code exclusions. V1 source/package untouched."
+}
