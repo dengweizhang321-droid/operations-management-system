@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "independent": true,
+  "reviewer": "/root/preparation_review",
+  "author": "/root",
+  "acceptedPrepareCapture": true,
+  "executed": false,
+  "productionExecutionApproved": false,
+  "blockingFindings": [],
+  "sourcePath": "D:\\.codex\\worktrees\\release-integration-review\\运营管理系统\\docs\\release-integration-review\\production\\prepare-health-probe-capture.mjs",
+  "sourceSha256": "5e698ea8d89145bc50e94a4d6d03220eb9194ffb5b72130c98a152852e1181be",
+  "candidateReviewSha256": "0e420c9dddbe82841f2a3832b80e232e2904095dcb98ee5797f678a18b4e7b0e",
+  "candidateSourceCommit": "c719010f3dcf00687333e05be019dc4a5723f982",
+  "reviewScope": "Static exact prepare-only wrapper and small public source bytes; no wrapper/prepare/API invoked",
+  "fixed": {
+    "source": "D:/.codex/worktrees/release-health-probe-contract/运营管理系统/docs/release-integration-review/health-probe-closeout",
+    "executable": "C:/Program Files/nodejs/node.exe",
+    "cwd": "D:/运营管理系统-sales-django-release",
+    "artifact": "E:/codex-artifacts/release-integration-review-20261010/AB-health-probe-20261011-verified-final",
+    "audit": "E:/codex-artifacts/release-integration-review-20261010/AB-health-probe-prepare-20261011-audit",
+    "args": "prepare.mjs + exact artifact + INDEPENDENT_REVIEW.json"
+  },
+  "checks": {
+    "fifteenReviewedSourcesVerifiedBeforeSpawn": true,
+    "sourceBytesNowMatchReport": true,
+    "originalAuthorityNodeAndCwdMatch": true,
+    "artifactAndAuditMustBeAbsent": true,
+    "ancestorsRegularAndNoReparse": true,
+    "inputSingleLinkAndStatStable": true,
+    "logCreateOnlyAndFsync": true,
+    "parentChildPidAndExitMetadataCaptured": true,
+    "noStatusCollectorCallerLockOrLifecycleTarget": true,
+    "full4771BootstrapRemainsInsideSealer": true,
+    "staticOnlyNoChildProcessExecuted": true
+  },
+  "limits": [
+    "Driver does not prove preparation success; only actual finished exit0 and later independent full physical seal verification can do so.",
+    "Executable hash is recorded by wrapper; sealer verifies prior closed executable pin in its builtin bootstrap. Existing host/runtime trust is not replaced by this static review.",
+    "No new human production approval is granted by source acceptance or prepare capture."
+  ]
+}
