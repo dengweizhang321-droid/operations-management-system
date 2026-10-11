@@ -1,0 +1,46 @@
+{
+  "version": "astra-native-fixed-config-session-v1",
+  "status": "rejected",
+  "startedAt": "2026-10-11T08:34:40.311Z",
+  "finishedAt": "2026-10-11T08:34:55.931Z",
+  "helperSourceSha256": "2035ac7a6f14a999e421d797b39edc323bba09c5b6ea6519a58180939eb9682d",
+  "loadedDiagnosticSha256": "735c6839742cedaf056e340035b59d35eb3df8bc8a12b861ed6b0e94aab3b32e",
+  "sourceSha256": "c279cfb7f1cf6f7c4d72a1ef32f50be428956e6917a5e176d2126ce14da09ea1",
+  "batchIdentityKey": "872d7e411d16ac974b0abd1404b7d41ed4c4707d99c2a01750ae182a73206df3",
+  "identitySha256": null,
+  "fullCollectPassed": false,
+  "recheckPassed": false,
+  "failure": "Inputs changed while evidence session was held",
+  "nativeWatchEvents": [
+    {
+      "at": "2026-10-11T08:34:55.480Z",
+      "target": "D:\\运营管理系统",
+      "event": "change",
+      "name": ".dev.vars"
+    }
+  ],
+  "stages": [
+    {
+      "stage": "full-preparation-identity",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 15167.767699999999
+    },
+    {
+      "stage": "npm-config-resolution",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 221.6939000000002
+    },
+    {
+      "stage": "npm-config-resolution",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 225.04780000000028
+    }
+  ],
+  "scope": "One read-only diagnostic session using new unsealed helper and exact old candidate dependencies/source. Watch wrapper records then invokes original callback. Prior sealed scope is not executed or modified.",
+  "productionHttpRequests": 0,
+  "productionWrites": 0,
+  "rawConfigurationPersisted": false
+}

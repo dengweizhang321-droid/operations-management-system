@@ -1,0 +1,76 @@
+{
+  "version": "astra-native-pending-config-session-v1",
+  "status": "rejected",
+  "startedAt": "2026-10-11T08:54:15.972Z",
+  "finishedAt": "2026-10-11T08:54:37.449Z",
+  "helperSourceSha256": "b7355e8f36efe8be54dc1980334f87f109372b1bd743639160064d4034235bf6",
+  "loadedDiagnosticSha256": "e55edbd4bc490cf0bb82b0b726b7a35454714a87ad50a11321d37fd31803945e",
+  "sourceSha256": "c279cfb7f1cf6f7c4d72a1ef32f50be428956e6917a5e176d2126ce14da09ea1",
+  "batchIdentityKey": "872d7e411d16ac974b0abd1404b7d41ed4c4707d99c2a01750ae182a73206df3",
+  "identitySha256": null,
+  "fullCollectPassed": false,
+  "recheckPassed": false,
+  "failure": "Inputs changed while evidence session was held",
+  "stages": [
+    {
+      "stage": "full-preparation-identity",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 13468.118400000001
+    },
+    {
+      "stage": "npm-config-resolution",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 241.85429999999906
+    },
+    {
+      "stage": "npm-config-resolution",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 248.1810999999998
+    },
+    {
+      "stage": "source-content",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 3627.8009
+    },
+    {
+      "stage": "toolchain-content",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 400.88800000000265
+    },
+    {
+      "stage": "configuration-content",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 4.119099999999889
+    },
+    {
+      "stage": "source-content-final",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 2525.8935999999994
+    }
+  ],
+  "scope": "One read-only diagnostic session using new unsealed helper and exact old candidate dependencies/source. Watch wrapper records then invokes original callback. Prior sealed scope is not executed or modified.",
+  "productionHttpRequests": 0,
+  "productionWrites": 0,
+  "rawConfigurationPersisted": false,
+  "nativeWatchEventCount": 5653,
+  "firstNativeWatchEvent": {
+    "at": "2026-10-11T08:54:30.784Z",
+    "target": "D:\\codex-isolated\\release-first-adoption-targeted-20261011\\adoption-source-v2",
+    "event": "change",
+    "name": ".agents\\skills\\jd-multi-store-switch\\SKILL.md"
+  },
+  "lastNativeWatchEvent": {
+    "at": "2026-10-11T08:54:34.539Z",
+    "target": "D:\\codex-isolated\\release-first-adoption-targeted-20261011\\adoption-source-v2",
+    "event": "change",
+    "name": "账号"
+  },
+  "rawEventRecordRetainedAt": "E:/codex-artifacts/release-first-adoption-targeted-20261011/ASTRA_NATIVE_PENDING_SESSION_RESULT.json"
+}

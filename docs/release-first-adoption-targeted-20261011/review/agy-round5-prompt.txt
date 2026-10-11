@@ -1,0 +1,163 @@
+真实Antigravity第5轮：必要配置合同兼容修复及原生事件边界设计，零磁盘/工具/测试/Git/生产批准权限。此前final306e/aed7/c279已197/197、scope872 19ops含1Backup/1Restore，但真实CLI inprocess session必须闭合；原no-session标准full15stages260.909秒成功不冲销session拒绝。
+发现两个不同真实问题：原helper6dd的observe.runtime使用safeRead fixed .dev.vars；safeRead通用必须nlink1，而实际原固定配置nlink283、源/release/dist共享hardlinks按原producer合同支持。第一21行微改只prep-evidence（本来十文件之一），不动通用safeRead/worker3c/rotationec525/D2tools。仅canonical唯一workerDevVarsSource分支，原assertNoReparsePoint+完整前后bigint stats+全部bytesSHA；其他source/npm/错误config链接仍拒绝。 snapshot保存identity；全artifact原硬链接三元组验证保留。真实固定路径reader与原private readStableRegularFile字节SHA相同、通用safeRead仍拒绝。新私有9测试realhardlink/junction/错误path/npm/source/改bytes保mtime/samebytes换inode/加link等，相关55/55通过；叶symlinkEPERM诚实未测，不提升权限。
+真实新helper session随后却在15秒原identity及npm路径读取后，唯一原生watch event D:/运营管理系统 .dev.vars change，于configuration-content之前failclosed。Astra指定一次native read对照实际全部bytes及dev/ino/nlink283/size2402/mtimeNs/ctimeNs不变，仅atimeNs变；唯一事件在control窗1.39ms，不是read窗，因此只符合延迟访问元数据事件，不能断言每次读取立即触发或他人/AV根因。原事件拒绝日志保留。
+原生对照完整metadata（没有配置正文）：
+{"version":"astra-single-native-config-read-control-v1","startedAt":"2026-10-11T08:39:15.569Z","finishedAt":"2026-10-11T08:39:19.188Z","readerModuleSha256":"3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce","sourcePath":"D:\\运营管理系统\\.dev.vars","samples":[{"phase":"before-control","metadata":{"dev":"1722990852","ino":"1688849860718099","nlink":"283","size":"2402","mtimeNs":"1788618339743771900","ctimeNs":"1791705860665462000","atimeNs":"1791707695481683300"}},{"phase":"after-control","metadata":{"dev":"1722990852","ino":"1688849860718099","nlink":"283","size":"2402","mtimeNs":"1788618339743771900","ctimeNs":"1791705860665462000","atimeNs":"1791707695481683300"}},{"phase":"immediate-read-1","metadata":{"dev":"1722990852","ino":"1688849860718099","nlink":"283","size":"2402","mtimeNs":"1788618339743771900","ctimeNs":"1791705860665462000","atimeNs":"1791707956777407500"}},{"phase":"settled-read-1","metadata":{"dev":"1722990852","ino":"1688849860718099","nlink":"283","size":"2402","mtimeNs":"1788618339743771900","ctimeNs":"1791705860665462000","atimeNs":"1791707956777407500"}},{"phase":"immediate-read-2","metadata":{"dev":"1722990852","ino":"1688849860718099","nlink":"283","size":"2402","mtimeNs":"1788618339743771900","ctimeNs":"1791705860665462000","atimeNs":"1791707957980600200"}},{"phase":"settled-read-2","metadata":{"dev":"1722990852","ino":"1688849860718099","nlink":"283","size":"2402","mtimeNs":"1788618339743771900","ctimeNs":"1791705860665462000","atimeNs":"1791707957980600200"}}],"events":[{"elapsedMs":1.391300000000001,"phase":"control-no-content-read","event":"change","name":".dev.vars"}],"beforeSha256":"8dbec99ef562b52ad014e6877cd8bc97496eb567d28524974f010903b924c7ca","afterSha256":"8dbec99ef562b52ad014e6877cd8bc97496eb567d28524974f010903b924c7ca","bytesEqual":true,"changedMetadataFields":["atimeNs"],"productionHttpRequests":0,"productionWrites":0,"rawConfigurationPersisted":false,"limitation":"One native watch experiment with control window and two original reader calls. Event timing and metadata are observations, not attribution to another actor or a proof excluding every concurrent writer."}
+拟议第二个极小修改，尚未实施，先独立设计审：
+1 只固定配置监视target==canonical workerDevVarsSource、event==='change'、精确可读basename对应实际同一路径：记pending，不当作passed也不直接忽略。null/rename/其它文件/普通source/npm/未知事件仍原changed=true拒绝。
+2 初始monitor之前，固定配置capture完整bytesSHA +dev/ino/nlink/size/mtimeNs/ctimeNs基准（不含atime，访问时间不是构建输入）。不得更新baseline接受新字节，源绑定原configurationSHA仍必须匹配；原producer身份及后续artifact完整triplet都保留。
+3 每个同步assertStable遇pending，针对这个唯一2402B fixed文件做完整同步parent lstat/realpath/reparse/regular/boundedSize、前后stat及全部bytesSHA复核，与已捕获基准完全相等才清pending。任何bytes/inode/nlink/mtime/ctime、祖先或解析异常仍拒绝；未知名字不能被该分支代替。
+4 assertStable保持同步，原batch actions前后和observe/recheck原API不重写；只有同点元数据访问通知经实物全字节证据确认才恢复。不是TTL、人工flag、自动接受新SHA或泛化hardlink许可。不动globalNTFS atime设置、不写cfg/ACL、不杀进程。
+5 私有正负例必须包括：known cfg unchanged pending通过；写bytes同mtime仍拒绝；samebytes换inode/新增link/ctime变化拒绝；rename/null/wrongfile/source/npm拒绝；sync读取中途漂移/parentjunction拒绝；native真实fixed session collect/recheck同样原回调逻辑闭合。没生产配对收益/不可用，成本仅2KB完整读取；worker与D工具不变。
+6 Root只读metadata核219链：retained23/candidates197、eligible实际dist/server/.dev.vars link0，当前原preBackup retention不删除现存cfglink，留原清理合同保护，不藉此放松nlink检查。当前native引用未知197仍阻断生产；这个软件bug即便外部阻断仍必须正确修好、重新SourceV3/原prepare/build/新测试/newscope（不得改306e/aed7/872/旧WAL）。
+请审必要/充分边界、反例与同步读取竞态，特别不得将changed-and-reverted完全无法排除的总系统假设夸大成绝对证明；指出本次SourceBinding/不可变制品/固定config真实验证能保证与不能保证的范围。若设计有漏洞指具体可复现路径，否则只列有用必要实现要求，不要求全系统通用静态分析。模型赞同不能代替上述native/tests。输出简短设计结论，源码尚未第二小改，不能批准未来字节。
+当前原helper完整全文，第一微改但未pending：
+import path from 'node:path';
+import { watch } from 'node:fs';
+import { lstat, readFile } from 'node:fs/promises';
+import { safeRead, safeFileDigest, readSourceTree, sourceInventory, sourceTreeDigest, hash, canonical, requireHash } from './release-impact.mjs';
+import { workerPreparationIdentity, preparationEnvironmentSha256, hashTree, runProcess, workerDevVarsSource, windowsPathSha256, assertNoReparsePoint } from './worker-local-release.mjs';
+
+const lifetimeMs = 10 * 60 * 1000;
+const maximumUses = 24;
+// The original producer intentionally hard-links this one fixed source into
+// releases. Keep generic source/npm/config reads single-link-only. The full
+// artifact verifier still proves the source/release/Worker inode relationship.
+async function readSessionRuntimeConfiguration(target) {
+  if(path.resolve(target).toLowerCase()!==path.resolve(workerDevVarsSource).toLowerCase())return {runtime:hash(await safeRead(target)),runtimeFile:null};
+  await assertNoReparsePoint(target,{label:'preparation runtime configuration'});
+  const before=await lstat(target,{bigint:true});
+  if(!before.isFile()||before.isSymbolicLink()||before.nlink<1n||before.size>16n*1024n*1024n)throw new Error('Unsafe fixed runtime configuration');
+  const raw=await readFile(target);
+  await assertNoReparsePoint(target,{label:'preparation runtime configuration'});
+  const after=await lstat(target,{bigint:true});
+  const fields=['dev','ino','nlink','size','mtimeNs','ctimeNs'];
+  if(!after.isFile()||after.isSymbolicLink()||BigInt(raw.length)!==before.size||fields.some(key=>before[key]!==after[key]))throw new Error('Fixed runtime configuration changed while reading');
+  return {runtime:hash(raw),runtimeFile:Object.fromEntries(fields.map(key=>[key,String(after[key])]))};
+}
+// Only derived identity is reused. Every use reads complete source, Node,
+// bundled npm and configuration bytes afresh. Artifact/ACL/process/restore
+// checks are deliberately outside this context. No persistent cache input.
+export function createPreparationEvidenceSession({ batchSha256, sourceRoot, devVarsSource = workerDevVarsSource,
+  clock = () => performance.now(), identify = workerPreparationIdentity, execute = runProcess, observeInputs } = {}) {
+  requireHash(batchSha256, 'evidence session batch');
+  const npmRoot = path.join(path.dirname(process.execPath),'node_modules','npm');
+  const cli = path.join(npmRoot,'bin','npm-cli.js');
+  let entry = null, busy = false, disposed = false;
+  let changed=false;
+  const watchers=[];
+  const watched=new Set();
+  async function monitor(target,{recursive=false,source=false}={}) {
+    const treeScope=recursive;
+    let directory=recursive?target:path.dirname(target);
+    const intendedDirectory=directory;
+    while(true) {
+      try {await lstat(directory);break;}catch(e){if(e.code!=='ENOENT')throw e;const parent=path.dirname(directory);if(parent===directory)throw e;directory=parent;}
+    }
+    if(directory!==intendedDirectory)recursive=true;
+    const key=`${path.resolve(target).toLowerCase()}|${recursive}|${source}`;
+    if(watched.has(key))return;
+    const handle=watch(directory,{recursive,persistent:false},(_event,name)=>{
+      const relative=name?.toString().replaceAll('\\','/');
+      if(source&&relative&&/^(node_modules|dist|\.runtime|outputs|tmp)(\/|$)/.test(relative))return;
+      if(!relative){changed=true;return;}
+      const eventPath=path.resolve(directory,relative).toLowerCase(),targetPath=path.resolve(target).toLowerCase();
+      // A missing parent requires recursive observation, but unrelated siblings
+      // of its nearest existing ancestor are not inputs. Creation/removal of
+      // any ancestor on the exact target path still invalidates the session.
+      if(treeScope||eventPath===targetPath||targetPath.startsWith(eventPath+path.sep)||eventPath.startsWith(targetPath+path.sep))changed=true;
+    });
+    handle.on('error',()=>{changed=true;});watchers.push(handle);watched.add(key);
+  }
+  async function startMonitoring(targets) {
+    // Test observers are an isolated seam; production always watches actual
+    // input trees. Watch events only invalidate; they never prove byte equality.
+    if(observeInputs)return;
+    if(!watchers.length) {
+      await monitor(sourceRoot,{recursive:true,source:true});
+      await monitor(npmRoot,{recursive:true});
+      for(const target of [process.execPath,devVarsSource])await monitor(target);
+    }
+    for(const target of Object.values(targets))await monitor(target);
+  }
+  function assertStable() {
+    if(disposed)throw new Error('Evidence session disposed during observation');
+    if(changed)throw new Error('Inputs changed while evidence session was held');
+    if(entry&&(clock()-entry.startedAt<0||clock()-entry.startedAt>lifetimeMs))throw new Error('Evidence session expired during observation');
+  }
+  async function optionalDigest(target) {
+    try { return hash(await safeRead(target)); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+  }
+  async function observe(targets, measure) {
+    const source = await measure('source-content','mutable-input',()=>readSourceTree(sourceRoot));
+    const sourceSha256 = sourceTreeDigest(source), sourceInventorySha256 = hash(sourceInventory(source));
+    const toolchain = await measure('toolchain-content','mutable-input',async()=>({
+      node:await safeFileDigest(process.execPath), npmPackageSha256:hash(await safeRead(path.join(npmRoot,'package.json'))), npm:await hashTree(npmRoot), version:process.version,
+    }));
+    const configuration = await measure('configuration-content','mutable-input',async()=>({
+      ...await readSessionRuntimeConfiguration(devVarsSource), environment:preparationEnvironmentSha256(process.env),
+      projectNpmrc:await optionalDigest(path.join(sourceRoot,'.npmrc')),
+      external:Object.fromEntries(await Promise.all(Object.entries(targets).map(async([k,p])=>[k,{path:p,sha256:await optionalDigest(p)}]))),
+    }));
+    // Git inventory selection is mutable too (linked-worktree indexes may be
+    // outside sourceRoot). Bracket the tool/config observation with a complete
+    // fresh inventory, instead of treating a watcher as completeness evidence.
+    const finalSource=await measure('source-content-final','mutable-input',()=>readSourceTree(sourceRoot));
+    if(sourceTreeDigest(finalSource)!==sourceSha256||hash(sourceInventory(finalSource))!==sourceInventorySha256)throw new Error('Source inventory changed during input observation');
+    await new Promise(resolve=>setImmediate(resolve));assertStable();
+    return { sourceSha256, sourceInventorySha256, toolchain, configuration };
+  }
+  function matchIdentity(snapshot, identity) {
+    if (snapshot.sourceSha256!==identity.sourceTree.sha256 || snapshot.sourceInventorySha256!==identity.sourceInventorySha256
+      || snapshot.toolchain.node!==identity.nodeExecutableSha256 || canonical(snapshot.toolchain.npm)!==canonical(identity.toolchain.npmPackageTree)
+      || snapshot.configuration.runtime!==identity.runtimeConfigurationSha256 || snapshot.configuration.environment!==identity.environmentSha256
+      || Object.entries(snapshot.configuration.external).some(([k,v])=>v.sha256!==identity.externalNpmConfiguration[k]?.contentSha256
+        || windowsPathSha256(v.path)!==identity.externalNpmConfiguration[k]?.pathSha256)) {
+      throw new Error('Source/configuration/toolchain changed during full evidence verification');
+    }
+  }
+  const directMeasure = async(_stage,_category,action)=>action();
+  async function exclusive(action) {
+    if (disposed || busy) throw new Error('Evidence session is disposed or concurrently occupied');
+    busy = true;
+    try { const result=await action(); assertStable(); return result; }
+    catch (e) { entry=null; throw e; } finally { busy=false; }
+  }
+  return Object.freeze({
+    async collect({ approvedBatchSha256, full = false, measure = directMeasure } = {}) {
+      return exclusive(async()=>{
+        if (approvedBatchSha256!==batchSha256) throw new Error('Evidence belongs to another batch');
+        if (entry && (clock()-entry.startedAt < 0 || clock()-entry.startedAt > lifetimeMs || entry.uses >= maximumUses)) entry=null;
+        if (full || !entry) {
+          await startMonitoring({});assertStable();
+          const identity = await measure('full-preparation-identity','mutable-input',()=>identify(sourceRoot,devVarsSource));
+          const targets = {};
+          for (const k of ['userconfig','globalconfig']) {
+            const result = await measure('npm-config-resolution','mutable-input',()=>execute(process.execPath,[cli,'config','get',k],{cwd:sourceRoot,label:'release npm path identity'}));
+            targets[k]=path.resolve(sourceRoot,result.stdout.trim());
+          }
+          await startMonitoring(targets);assertStable();
+          const after = await (observeInputs??observe)(targets,measure);
+          matchIdentity(after,identity);
+          entry={identity:structuredClone(identity),snapshot:after,targets,startedAt:clock(),uses:0};
+        } else {
+          const current = await (observeInputs??observe)(entry.targets,measure);
+          if(disposed)throw new Error('Evidence session disposed during observation');
+          if (canonical(current)!==canonical(entry.snapshot)) throw new Error('Reused evidence invalidated by input content');
+        }
+        entry.uses++;
+        return structuredClone(entry.identity);
+      });
+    },
+    async recheck({measure=directMeasure}={}) {
+      return exclusive(async()=>{
+        if (!entry || clock()-entry.startedAt > lifetimeMs || clock()-entry.startedAt < 0) throw new Error('Evidence session expired');
+        const current=await (observeInputs??observe)(entry.targets,measure);
+        if(disposed)throw new Error('Evidence session disposed during observation');
+        if (canonical(current)!==canonical(entry.snapshot)) throw new Error('Inputs changed after admission check');
+      });
+    },
+    assertStable,
+    dispose() { entry=null; disposed=true;for(const watcher of watchers)watcher.close(); },
+  });
+}

@@ -1,0 +1,386 @@
+✖ slow artifact, recovery and source checks precede final observations; persistence does not renew time (5.2373ms)
+✖ session full content recheck also precedes both dynamic observations (1.2327ms)
+✖ 5001ms post-query persistence rejects stale success and retains its attempts (1.9903ms)
+✖ 5000ms boundary remains accepted without resetting the actual clock (1.2174ms)
+✖ backward wall clock is rejected rather than treated as a fresh observation (1.8523ms)
+✖ non-health phase timestamps completed process identity, with no later slow recheck (1.1247ms)
+✖ readiness failure keeps native and bounded diagnostics and is not converted to stale success (1.4792ms)
+✖ changed source blocks before any dynamic probe (1.2563ms)
+✖ slow verification cannot hide djangoDrift (1.8051ms)
+✖ slow verification cannot hide journalDrift (1.3566ms)
+✖ slow verification cannot hide chainDrift (1.1412ms)
+✖ collector-local bounded readiness survives a legacy retry attempt serializer (1.1931ms)
+✖ full migration closure remains before final dynamic observations (1.0623ms)
+✖ bound source uses full bound sampler twice and drift rejects before observations (1.0555ms)
+✔ CSS values are proven; rules/resources/security properties remain byte-bound (7.2677ms)
+✔ bounded static PNG replacement is allowed; SVG/new/deleted/redirected resource is rejected (2.6656ms)
+✔ pure local Boolean button toggle is proven, aliases/custom calls/server components are not (29.5608ms)
+✔ API/server execution, frontend writes, permissions, dependencies, config and mixed changes stay strict (5.3123ms)
+✔ actual production predecessor snapshots bind the real four-file delta and reject its ownership/permission logic (7786.5295ms)
+ℹ {"afterFiles":5050,"afterSourceSha256":"8662394ff24c116685c1342ed6b8b9fa5dd58d8ffa7c0bb869be31e49e5e0646","beforeFiles":5050,"beforeSourceSha256":"70a562eadb2ee993ae3e80188f9a1e064f8605012a218507dba507a101aefa0e","changed":["app/customer-service-view.tsx","app/globals.css","app/page.tsx","app/ui/stable-read-content.tsx"],"completeSnapshots":true,"level":"strict","source":"immutable-source-snapshot"}
+✔ new admission modules are copied and key-file bound in the immutable release (1.1726ms)
+✔ database decisions are sealed; rehashed omissions, duplicate lifecycles and arbitrary display writes fail (22.6169ms)
+✔ unknown BeginWorkerDrain retains ownership and is never replayed (128.3446ms)
+✔ unknown EndWorkerDrain retains ownership and is never replayed (206.9944ms)
+✔ recovery failure at any boundary blocks; sealed full DB steps cannot be skipped (55.1173ms)
+✔ same-batch content evidence is bounded, forced at switch barriers and cannot be mutated by callers (2.7911ms)
+✔ content change invalidates sourceSha256 even with unchanged timestamps (0.401ms)
+✔ content change invalidates sourceInventorySha256 even with unchanged timestamps (0.2664ms)
+✔ content change invalidates toolchain even with unchanged timestamps (0.3262ms)
+✔ content change invalidates configuration even with unchanged timestamps (0.2546ms)
+✔ evidence checked before work is rechecked after; other batches/concurrent use/disposal are refused (0.8028ms)
+✔ full verification observation race and unsuccessful result never seed reusable evidence (0.3502ms)
+✔ expiry covers the whole observation and source changes after admission block before WAL intent (50.9731ms)
+✔ snapshot inventory includes environment examples and same-mtime tampering is detected by bytes (13.0203ms)
+✔ missing config parent creation invalidates; unrelated ancestor siblings do not (2737.1282ms)
+✔ shared process deadline is transport metadata; other inherited configuration stays bound (0.3533ms)
+✔ timings are disjoint children and retain failure status without sensitive diagnostics (0.8522ms)
+✔ failed live collector stages persist in the actual journal without error values (44.1329ms)
+✔ v4 binds one pre-backup and one new-installed restore without changing strict impact (319.5603ms)
+✔ default v3 retains full pre/post four stages (38.3456ms)
+✔ rehashing cannot replace targeted policy with full (307.7364ms)
+✔ rehashing cannot replace targeted policy with reuse (303.6081ms)
+✔ rehashing cannot replace targeted policy with not-required (287.3061ms)
+✔ policy, database list or protocol edits cannot grant targeted qualification (1176.7143ms)
+✔ no boolean/missing closure/prior recovery reuse or arbitrary collector grants v4 (660.2633ms)
+✔ migration, dependency, backup operator or consumer inventory drift rejects even after manifest rehash (527.0317ms)
+✔ missing or additional data/consumer steps cannot be hidden by rehash (1152.164ms)
+✔ new installed chain must precede restore and restore must precede exit/start (1340.5454ms)
+✔ prepared/old operator, another backup and missing isolated restore assertions reject (1341.6972ms)
+✔ consumer cannot be caller JS/command or an extra business write (533.1112ms)
+✔ targeted recovery does not query daily/reuse qualification (268.4984ms)
+✔ actual consumer executor calls only installed original planner with no args and captures exact chain (268.4567ms)
+✔ actual consumer executor rejects badHead (271.0282ms)
+✔ actual consumer executor rejects badShape (290.4615ms)
+✔ actual consumer executor rejects badArray (273.6638ms)
+✔ actual consumer executor rejects badBytes (287.1925ms)
+✔ actual consumer executor rejects chainDrift (322.9033ms)
+✔ actual consumer executor rejects unconfirmed (647.1359ms)
+✔ failed consumer leaves WAL unknown, prevents restore/start and cannot replay (920.5058ms)
+✔ actual original operation runner expands the same confirmed backup point for installed restore (461.9935ms)
+✔ real result contract refuses backupManifestSha256 (325.3565ms)
+✔ real result contract refuses dumpSha256 (286.0783ms)
+✔ real result contract refuses restoredContentSha256 (288.3578ms)
+✔ real result contract refuses productionDatabaseTouched (265.3214ms)
+✔ real result contract refuses profileRestoreVerified (341.219ms)
+✔ real result contract refuses sequenceHealthVerified (427.6622ms)
+✔ real result contract refuses cleanupStatus (311.0923ms)
+✔ installed restore refuses missing consumer evidence before invoking any native operator (284.2335ms)
+✔ v3 CSS candidate seals zero DB operations without any recovery/daily prerequisites (266.6326ms)
+✔ intrinsic client text/layout can prove no data; custom text and event changes cannot (17.4988ms)
+✔ unproven change cannot forge no-data: backend/read.py (0.4131ms)
+✔ unproven change cannot forge no-data: backend/migrations/0002.py (0.3062ms)
+✔ unproven change cannot forge no-data: package.json (0.2546ms)
+✔ unproven change cannot forge no-data: tools/start.mjs (0.2283ms)
+✔ unproven change cannot forge no-data: lib/auth.ts (0.2375ms)
+✔ unproven change cannot forge no-data: app/api/read/route.ts (0.2561ms)
+✔ unproven change cannot forge no-data: app/globals.css (0.2599ms)
+✔ incomplete inventory, changed delta bytes and predecessor binding fail (268.8826ms)
+✔ independent-review alleged missing source bytes disproved by actual proof JSON roundtrip (282.2477ms)
+✔ missing Django hash and moved pre-switch observations reject after digest recompute (978.0092ms)
+✔ digest recompute cannot waive policy (249.8743ms)
+✔ digest recompute cannot waive database (245.1871ms)
+✔ digest recompute cannot waive permission (241.2093ms)
+✔ digest recompute cannot waive dataCommand (255.5451ms)
+✔ digest recompute cannot waive omittedPermission (242.4955ms)
+✔ digest recompute cannot waive forgedGet (257.4407ms)
+✔ digest recompute cannot waive lifecycleArg (244.7183ms)
+✔ digest recompute cannot waive arbitraryLifecycle (240.3369ms)
+✔ digest recompute cannot waive forgedReadOnly (263.2928ms)
+✔ digest recompute cannot waive backupInserted (251.3269ms)
+✔ caller-controlled collector and trusted adapter hash forgery reject (239.8969ms)
+✔ configuration/toolchain/start hooks outside source cannot hide behind CSS-only delta (248.5126ms)
+✔ independent effect report is exact candidate evidence, not an effects=false checkbox (244.5785ms)
+✔ original engine WAL runs no-data phases; any source/artifact/predecessor drift stops before actions (1382.6567ms)
+✔ complete content gates and negative permissions remain required (1.9956ms)
+✔ backend-not-ready Start failure retains unknown ownership and never unfreezes or replays (474.8785ms)
+✔ exact source binding preserves the complete original identity; optional absence remains legacy (3.2042ms)
+✔ rejects malformed/forged source contract: unknown (0.4942ms)
+✔ rejects malformed/forged source contract: missing (0.4047ms)
+✔ rejects malformed/forged source contract: relative (0.2465ms)
+✔ rejects malformed/forged source contract: parent (0.3412ms)
+✔ rejects malformed/forged source contract: protected (0.2587ms)
+✔ rejects malformed/forged source contract: ancestor (0.2646ms)
+✔ rejects malformed/forged source contract: dot (0.2359ms)
+✔ rejects malformed/forged source contract: rootSha (0.2725ms)
+✔ rejects malformed/forged source contract: predecessor (0.4681ms)
+✔ rejects malformed/forged source contract: inventory (0.4152ms)
+✔ rejects malformed/forged source contract: npmMissing (0.3245ms)
+✔ rejects malformed/forged source contract: identityExtra (0.2712ms)
+✔ rejects malformed/forged source contract: circular (0.6106ms)
+✔ separator-aware root exclusion admits a distinct same-prefix namespace (0.3051ms)
+✔ envelope byte and complete live identity/predecessor drift fail even when declared hashes are recomputed (1.8921ms)
+✔ manifest, plan, receipt and batch must select one identical source, never fallback (3.5003ms)
+✔ original file/path readers reject missing, changed, hard-linked or redirected binding inputs (373.8778ms)
+✔ CLI rejects incomplete/path/test escape before preparation: --source-binding E:\missing.json (102.6063ms)
+✔ CLI rejects incomplete/path/test escape before preparation: --source-binding-sha256 1111111111111111111111111111111111111111111111111111111111111111 (95.4619ms)
+✔ CLI rejects incomplete/path/test escape before preparation: --source-root E:\candidate (97.0616ms)
+✔ CLI rejects incomplete/path/test escape before preparation: --source-binding bad (92.6406ms)
+✔ CLI rejects incomplete/path/test escape before preparation: --source-binding --allow-test-runtime-root (95.416ms)
+✔ exact tools/no-migration proof changes only one validation name and retains strict/full four DB stages (88.2121ms)
+✔ missing closure test, v2 qualifier, unknown version or caller boolean never qualifies (65.333ms)
+✔ recomputed manifest/proof cannot hide changed backend/domain/migrations/0001.py (19.7258ms)
+✔ recomputed manifest/proof cannot hide changed config/business.json (19.7792ms)
+✔ recomputed manifest/proof cannot hide changed drizzle/retired.sql (19.4755ms)
+✔ recomputed manifest/proof cannot hide changed runtime-tools/node_modules/miniflare/index.js (21.6051ms)
+✔ recomputed manifest/proof cannot hide changed tools/django-postgres-maintenance.ps1 (18.4712ms)
+✔ omitted inventories, wrong manifest and unreviewed source bytes reject (67.164ms)
+✔ coherently fabricated smaller manifests cannot match actual live package evidence (25.8571ms)
+✔ exact generated cache review binds both hashes; live comparison rejects other fields without recording private values (101.3846ms)
+✔ qualified batch cannot rehash away required backup/restore operations (54.636ms)
+✔ live inventory reader binds exact raw manifest and before/app.previous-after/app bytes (50.3304ms)
+✔ actual failed observer saves evidence outside WAL and subsequent journal reads/unknown retention remain valid (347.7628ms)
+ℹ tests 131
+ℹ suites 0
+ℹ pass 117
+ℹ fail 14
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35990.121
+
+✖ failing tests:
+
+test at tests\release-admission-observation-age.test.mjs:56:1
+✖ slow artifact, recovery and source checks precede final observations; persistence does not renew time (5.2373ms)
+  ReferenceError: targetedBatchVersion is not defined
+      at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:57:28)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    admissionStages: [ { stage: 'classification', category: 'sealed-evidence', status: 'passed' }, { stage: 'django-identity', category: 'dynamic-state', status: 'passed' }, { stage: 'journal', category: 'dynamic-state', status: 'passed' } ]
+  }
+
+test at tests\release-admission-observation-age.test.mjs:64:1
+✖ session full content recheck also precedes both dynamic observations (1.2327ms)
+  ReferenceError: targetedBatchVersion is not defined
+      at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:65:42)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    admissionStages: [ { stage: 'classification', category: 'sealed-evidence', status: 'passed' }, { stage: 'django-identity', category: 'dynamic-state', status: 'passed' }, { stage: 'journal', category: 'dynamic-state', status: 'passed' } ]
+  }
+
+test at tests\release-admission-observation-age.test.mjs:70:1
+✖ 5001ms post-query persistence rejects stale success and retains its attempts (1.9903ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  ReferenceError: targetedBatchVersion is not defined
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:72:3)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: ReferenceError: targetedBatchVersion is not defined
+        at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:72:3)
+        at async Test.run (node:internal/test_runner/test:1332:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:911:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-admission-observation-age.test.mjs:74:1
+✖ 5000ms boundary remains accepted without resetting the actual clock (1.2174ms)
+  ReferenceError: targetedBatchVersion is not defined
+      at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:75:47)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    admissionStages: [ { stage: 'classification', category: 'sealed-evidence', status: 'passed' }, { stage: 'django-identity', category: 'dynamic-state', status: 'passed' }, { stage: 'journal', category: 'dynamic-state', status: 'passed' } ]
+  }
+
+test at tests\release-admission-observation-age.test.mjs:78:1
+✖ backward wall clock is rejected rather than treated as a fresh observation (1.8523ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  ReferenceError: targetedBatchVersion is not defined
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:80:3)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: ReferenceError: targetedBatchVersion is not defined
+        at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:80:3)
+        at async Test.run (node:internal/test_runner/test:1332:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:911:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-admission-observation-age.test.mjs:82:1
+✖ non-health phase timestamps completed process identity, with no later slow recheck (1.1247ms)
+  ReferenceError: targetedBatchVersion is not defined
+      at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:83:47)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    admissionStages: [ { stage: 'classification', category: 'sealed-evidence', status: 'passed' }, { stage: 'django-identity', category: 'dynamic-state', status: 'passed' }, { stage: 'journal', category: 'dynamic-state', status: 'passed' } ]
+  }
+
+test at tests\release-admission-observation-age.test.mjs:88:1
+✖ readiness failure keeps native and bounded diagnostics and is not converted to stale success (1.4792ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  ReferenceError: targetedBatchVersion is not defined
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:90:3)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: ReferenceError: targetedBatchVersion is not defined
+        at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:90:3)
+        at async Test.run (node:internal/test_runner/test:1332:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:911:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-admission-observation-age.test.mjs:93:1
+✖ changed source blocks before any dynamic probe (1.2563ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Source\/configuration\/toolchain changed/. Input:
+  
+  'ReferenceError: targetedBatchVersion is not defined'
+  
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:95:3)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: ReferenceError: targetedBatchVersion is not defined
+        at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:95:3)
+        at async Test.run (node:internal/test_runner/test:1332:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:911:7),
+    expected: /Source\/configuration\/toolchain changed/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-admission-observation-age.test.mjs:99:3
+✖ slow verification cannot hide djangoDrift (1.8051ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Django deployment changed/. Input:
+  
+  'ReferenceError: targetedBatchVersion is not defined'
+  
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:101:5)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: ReferenceError: targetedBatchVersion is not defined
+        at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:101:5)
+        at async Test.run (node:internal/test_runner/test:1332:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:911:7),
+    expected: /Django deployment changed/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-admission-observation-age.test.mjs:99:3
+✖ slow verification cannot hide journalDrift (1.3566ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Batch journal changed/. Input:
+  
+  'ReferenceError: targetedBatchVersion is not defined'
+  
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:101:5)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: ReferenceError: targetedBatchVersion is not defined
+        at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:101:5)
+        at async Test.run (node:internal/test_runner/test:1332:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:911:7),
+    expected: /Batch journal changed/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-admission-observation-age.test.mjs:99:3
+✖ slow verification cannot hide chainDrift (1.1412ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Effective release chain changed/. Input:
+  
+  'ReferenceError: targetedBatchVersion is not defined'
+  
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:101:5)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: ReferenceError: targetedBatchVersion is not defined
+        at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:101:5)
+        at async Test.run (node:internal/test_runner/test:1332:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:911:7),
+    expected: /Effective release chain changed/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-admission-observation-age.test.mjs:106:1
+✖ collector-local bounded readiness survives a legacy retry attempt serializer (1.1931ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  ReferenceError: targetedBatchVersion is not defined
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:108:3)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: ReferenceError: targetedBatchVersion is not defined
+        at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+        at async waitForActual (node:assert:646:5)
+        at async strict.rejects (node:assert:769:25)
+        at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:108:3)
+        at async Test.run (node:internal/test_runner/test:1332:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:911:7),
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tests\release-admission-observation-age.test.mjs:115:1
+✖ full migration closure remains before final dynamic observations (1.0623ms)
+  ReferenceError: targetedBatchVersion is not defined
+      at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:116:21)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    admissionStages: [ { stage: 'classification', category: 'sealed-evidence', status: 'passed' }, { stage: 'django-identity', category: 'dynamic-state', status: 'passed' }, { stage: 'journal', category: 'dynamic-state', status: 'passed' } ]
+  }
+
+test at tests\release-admission-observation-age.test.mjs:123:1
+✖ bound source uses full bound sampler twice and drift rejects before observations (1.0555ms)
+  ReferenceError: targetedBatchVersion is not defined
+      at collectBatchAdmission (evalmachine.<anonymous>:12:22)
+      at async TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-admission-observation-age.test.mjs:124:33)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    admissionStages: [ { stage: 'classification', category: 'sealed-evidence', status: 'passed' }, { stage: 'django-identity', category: 'dynamic-state', status: 'passed' }, { stage: 'journal', category: 'dynamic-state', status: 'passed' } ]
+  }

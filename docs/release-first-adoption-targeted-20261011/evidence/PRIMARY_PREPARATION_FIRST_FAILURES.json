@@ -1,0 +1,21 @@
+{
+  "version": "teruisi-primary-preparation-first-failures-v1",
+  "candidateManifestSha256": "131cde5c12e0e27c1c3363da0bcf86f1c423a742c6b1c65a868c01cff0261b7d",
+  "firstRegression": {
+    "counts": [
+      "ℹ tests 197",
+      "ℹ pass 167",
+      "ℹ fail 30",
+      "ℹ duration_ms 37081.5023"
+    ],
+    "exitCode": 1,
+    "aggregateV1Invalid": true,
+    "cause": "Only new fixture loads retention from W/tools, but original producer ships this D-only consumer under complete source-snapshot; runtime invokes installed D consumer. Rebase fixture path to actual candidate source-snapshot/tools, byte-equal to prepared D retention. Original assertions unchanged. TAP reporter declared for machine aggregation."
+  },
+  "firstDjangoRead": {
+    "code": "ERR_MODULE_NOT_FOUND",
+    "cause": "Private source has no node_modules by design. Use exact immutable prepared Worker tools for unchanged full physical Django inventory reader."
+  },
+  "runtimeSourceChanged": false,
+  "productionActions": 0
+}

@@ -1,0 +1,122 @@
+✔ v4 binds one pre-backup and one new-installed restore without changing strict impact (415.4137ms)
+✔ default v3 retains full pre/post four stages (39.6ms)
+✔ rehashing cannot replace targeted policy with full (320.984ms)
+✔ rehashing cannot replace targeted policy with reuse (331.1024ms)
+✔ rehashing cannot replace targeted policy with not-required (320.4769ms)
+✔ policy, database list or protocol edits cannot grant targeted qualification (1241.549ms)
+✔ no boolean/missing closure/prior recovery reuse or arbitrary collector grants v4 (701.2821ms)
+✔ migration, dependency, backup operator or consumer inventory drift rejects even after manifest rehash (572.4426ms)
+✔ missing or additional data/consumer steps cannot be hidden by rehash (1210.4906ms)
+✔ new installed chain must precede restore and restore must precede exit/start (1472.3751ms)
+✔ prepared/old operator, another backup and missing isolated restore assertions reject (1457.2811ms)
+✔ consumer cannot be caller JS/command or an extra business write (755.8745ms)
+✔ targeted recovery does not query daily/reuse qualification (374.152ms)
+✖ actual consumer executor calls only installed original planner with no args and captures exact chain (401.9929ms)
+✖ actual consumer executor rejects badHead (363.8887ms)
+✖ actual consumer executor rejects badShape (320.5691ms)
+✖ actual consumer executor rejects badArray (285.5743ms)
+✖ actual consumer executor rejects badBytes (292.2803ms)
+✖ actual consumer executor rejects chainDrift (302.6095ms)
+✖ actual consumer executor rejects unconfirmed (302.2407ms)
+✔ failed consumer leaves WAL unknown, prevents restore/start and cannot replay (636.0914ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 14
+ℹ fail 7
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12825.2046
+
+✖ failing tests:
+
+test at tests\release-first-adoption-targeted.test.mjs:87:1
+✖ actual consumer executor calls only installed original planner with no args and captures exact chain (401.9929ms)
+  SyntaxError: Unexpected token 'export'
+      at new Function (<anonymous>)
+      at consumerFixture (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:83:12)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:88:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tests\release-first-adoption-targeted.test.mjs:92:93
+✖ actual consumer executor rejects badHead (363.8887ms)
+  SyntaxError: Unexpected token 'export'
+      at new Function (<anonymous>)
+      at consumerFixture (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:83:12)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:93:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tests\release-first-adoption-targeted.test.mjs:92:93
+✖ actual consumer executor rejects badShape (320.5691ms)
+  SyntaxError: Unexpected token 'export'
+      at new Function (<anonymous>)
+      at consumerFixture (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:83:12)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:93:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tests\release-first-adoption-targeted.test.mjs:92:93
+✖ actual consumer executor rejects badArray (285.5743ms)
+  SyntaxError: Unexpected token 'export'
+      at new Function (<anonymous>)
+      at consumerFixture (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:83:12)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:93:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tests\release-first-adoption-targeted.test.mjs:92:93
+✖ actual consumer executor rejects badBytes (292.2803ms)
+  SyntaxError: Unexpected token 'export'
+      at new Function (<anonymous>)
+      at consumerFixture (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:83:12)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:93:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tests\release-first-adoption-targeted.test.mjs:92:93
+✖ actual consumer executor rejects chainDrift (302.6095ms)
+  SyntaxError: Unexpected token 'export'
+      at new Function (<anonymous>)
+      at consumerFixture (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:83:12)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:93:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tests\release-first-adoption-targeted.test.mjs:92:93
+✖ actual consumer executor rejects unconfirmed (302.2407ms)
+  SyntaxError: Unexpected token 'export'
+      at new Function (<anonymous>)
+      at consumerFixture (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:83:12)
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/release-first-adoption-targeted/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-first-adoption-targeted.test.mjs:93:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)

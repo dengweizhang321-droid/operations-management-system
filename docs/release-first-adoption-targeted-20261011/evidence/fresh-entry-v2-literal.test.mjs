@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import {readFileSync} from 'node:fs';
+const root='E:/codex-artifacts/release-first-adoption-targeted-20261011';
+const old=readFileSync(root+'/fresh-adoption-entry.mjs','utf8'),current=readFileSync(root+'/fresh-adoption-entry-v2.mjs','utf8');
+const actual=raw=>new Function('path','return '+/workerRuntimeRoot=([^;]+);/.exec(raw)[1]+';')(path);
+test('retained 8bf literal actually decodes TAB and is not an absolute Windows path',()=>{const value=actual(old);assert.equal(value.includes('\t'),true);assert.equal(path.win32.isAbsolute(value),false);});
+test('V2 actual literal is the exact canonical original runtime root',()=>{const value=actual(current);assert.equal(path.win32.isAbsolute(value),true);assert.equal(/[\x00-\x1f]/.test(value),false);assert.equal(value,path.resolve('D:/teruisi-runtime/teruisi-worker-sales'));});
+test('V2 actual root accepts the actual original spec journal path without a context override',()=>{const spec=JSON.parse(readFileSync(root+'/ADOPTION_BATCH_V2.json'));assert.equal(path.resolve(spec.journalRoot),path.join(actual(current),'state','release-batches'));});

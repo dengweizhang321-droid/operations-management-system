@@ -1,0 +1,1201 @@
+{
+  "version": "teruisi-primary-native-ig04-audit-v1",
+  "at": "2026-10-11T10:24:24.706Z",
+  "guardSha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd",
+  "status": "blocked",
+  "processes": 833,
+  "scheduledTasks": 215,
+  "references": [],
+  "unknown": [
+    {
+      "kind": "process-unknown",
+      "processId": 236,
+      "reason": "missing-or-invalid-executable",
+      "name": "Secure System"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 280,
+      "reason": "missing-or-invalid-executable",
+      "name": "Registry"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 916,
+      "reason": "missing-or-invalid-executable",
+      "name": "smss.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1420,
+      "reason": "missing-or-invalid-executable",
+      "name": "csrss.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1536,
+      "reason": "missing-or-invalid-executable",
+      "name": "wininit.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1544,
+      "reason": "missing-or-invalid-executable",
+      "name": "csrss.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1632,
+      "reason": "missing-or-invalid-executable",
+      "name": "winlogon.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1656,
+      "reason": "missing-or-invalid-executable",
+      "name": "services.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1700,
+      "reason": "missing-or-invalid-executable",
+      "name": "LsaIso.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1708,
+      "reason": "missing-or-invalid-executable",
+      "name": "lsass.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1864,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1892,
+      "reason": "missing-or-invalid-executable",
+      "name": "WUDFHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1916,
+      "reason": "missing-or-invalid-executable",
+      "name": "fontdrvhost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1924,
+      "reason": "missing-or-invalid-executable",
+      "name": "fontdrvhost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1032,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1180,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1720,
+      "reason": "missing-or-invalid-executable",
+      "name": "WUDFHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2092,
+      "reason": "missing-or-invalid-executable",
+      "name": "WUDFHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2148,
+      "reason": "missing-or-invalid-executable",
+      "name": "dwm.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2308,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2336,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2344,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2360,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2368,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2376,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2604,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2640,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2648,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2684,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2732,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2784,
+      "reason": "missing-or-invalid-executable",
+      "name": "IntelCpHDCPSvc.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2792,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2868,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2908,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2992,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3016,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3024,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3184,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3232,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3556,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3740,
+      "reason": "missing-or-invalid-executable",
+      "name": "NVDisplay.Container.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3804,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3872,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3904,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3912,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3984,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4024,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4088,
+      "reason": "missing-or-invalid-executable",
+      "name": "igfxCUIServiceN.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2964,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3288,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4136,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4144,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4288,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4324,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4380,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4456,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4484,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4524,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4556,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4652,
+      "reason": "missing-or-invalid-executable",
+      "name": "spoolsv.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4780,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4996,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5004,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5012,
+      "reason": "missing-or-invalid-executable",
+      "name": "clash-verge-service.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5020,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5028,
+      "reason": "missing-or-invalid-executable",
+      "name": "AlibabaProtect.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5036,
+      "reason": "missing-or-invalid-executable",
+      "name": "iCltPrintHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5044,
+      "reason": "missing-or-invalid-executable",
+      "name": "GameInputRedistService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5052,
+      "reason": "missing-or-invalid-executable",
+      "name": "iCltPrintHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5060,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5072,
+      "reason": "missing-or-invalid-executable",
+      "name": "JMCoreService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5096,
+      "reason": "missing-or-invalid-executable",
+      "name": "NahimicService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5104,
+      "reason": "missing-or-invalid-executable",
+      "name": "TbtP2pShortcutService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4224,
+      "reason": "missing-or-invalid-executable",
+      "name": "secbizsrv.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5128,
+      "reason": "missing-or-invalid-executable",
+      "name": "RtkAudUService64.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5124,
+      "reason": "missing-or-invalid-executable",
+      "name": "WMIRegistrationService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5152,
+      "reason": "missing-or-invalid-executable",
+      "name": "OfficeClickToRun.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5168,
+      "reason": "missing-or-invalid-executable",
+      "name": "jhi_service.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5188,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5196,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5204,
+      "reason": "missing-or-invalid-executable",
+      "name": "MpDefenderCoreService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5216,
+      "reason": "missing-or-invalid-executable",
+      "name": "RstMwService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5228,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5240,
+      "reason": "missing-or-invalid-executable",
+      "name": "pcas.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5264,
+      "reason": "missing-or-invalid-executable",
+      "name": "wslservice.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5296,
+      "reason": "missing-or-invalid-executable",
+      "name": "nvcontainer.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5308,
+      "reason": "missing-or-invalid-executable",
+      "name": "MsMpEng.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5332,
+      "reason": "missing-or-invalid-executable",
+      "name": "zerotier-one_x64.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5480,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5608,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5804,
+      "reason": "missing-or-invalid-executable",
+      "name": "esif_uf.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5964,
+      "reason": "missing-or-invalid-executable",
+      "name": "WUDFHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 6212,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 6548,
+      "reason": "missing-or-invalid-executable",
+      "name": "NgcIso.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 6800,
+      "reason": "missing-or-invalid-executable",
+      "name": "NVDisplay.Container.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 6612,
+      "reason": "missing-or-invalid-executable",
+      "name": "JdHostsafe.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 7328,
+      "reason": "missing-or-invalid-executable",
+      "name": "WmiPrvSE.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 7336,
+      "reason": "missing-or-invalid-executable",
+      "name": "WmiPrvSE.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 7924,
+      "reason": "missing-or-invalid-executable",
+      "name": "rundll32.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 8564,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 9140,
+      "reason": "missing-or-invalid-executable",
+      "name": "dasHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 8032,
+      "reason": "missing-or-invalid-executable",
+      "name": "WUDFHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3996,
+      "reason": "missing-or-invalid-executable",
+      "name": "WUDFHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 8796,
+      "reason": "missing-or-invalid-executable",
+      "name": "WUDFHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 8856,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 9300,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 9508,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 9516,
+      "reason": "missing-or-invalid-executable",
+      "name": "IntelGraphicsSoftware.Service.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 9668,
+      "reason": "missing-or-invalid-executable",
+      "name": "cowork-svc.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 9680,
+      "reason": "missing-or-invalid-executable",
+      "name": "gamingservicesnet.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 9688,
+      "reason": "missing-or-invalid-executable",
+      "name": "gamingservices.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 10112,
+      "reason": "missing-or-invalid-executable",
+      "name": "wlanext.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 10184,
+      "reason": "missing-or-invalid-executable",
+      "name": "Intel_PIE_Service.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 10360,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 10716,
+      "reason": "missing-or-invalid-executable",
+      "name": "AggregatorHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 11212,
+      "reason": "missing-or-invalid-executable",
+      "name": "PresentMonService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 11224,
+      "reason": "missing-or-invalid-executable",
+      "name": "conhost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 10784,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4936,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1820,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 11844,
+      "reason": "missing-or-invalid-executable",
+      "name": "vmcompute.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 11956,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 12036,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 12116,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 12196,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 12316,
+      "reason": "missing-or-invalid-executable",
+      "name": "NisSrv.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 12612,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 13032,
+      "reason": "missing-or-invalid-executable",
+      "name": "GameInputSvc.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 13064,
+      "reason": "missing-or-invalid-executable",
+      "name": "GameInputSvc.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 7156,
+      "reason": "missing-or-invalid-executable",
+      "name": "rundll32.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 8,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1732,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3764,
+      "reason": "missing-or-invalid-executable",
+      "name": "AcPowerNotification.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 5380,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 4828,
+      "reason": "missing-or-invalid-executable",
+      "name": "asus_framework.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 8680,
+      "reason": "missing-or-invalid-executable",
+      "name": "ArmourySocketServer.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 7280,
+      "reason": "missing-or-invalid-executable",
+      "name": "ArmouryHtmlDebugServer.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 10748,
+      "reason": "missing-or-invalid-executable",
+      "name": "readertray.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 6208,
+      "reason": "missing-or-invalid-executable",
+      "name": "PresentationFontCache.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 15076,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 15744,
+      "reason": "missing-or-invalid-executable",
+      "name": "RtkAudUService64.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 16608,
+      "reason": "missing-or-invalid-executable",
+      "name": "ctfmon.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 17308,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 17388,
+      "reason": "missing-or-invalid-executable",
+      "name": "ChsIME.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 17736,
+      "reason": "missing-or-invalid-executable",
+      "name": "unsecapp.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 18068,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 18200,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 19364,
+      "reason": "missing-or-invalid-executable",
+      "name": "asus_framework.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 19400,
+      "reason": "missing-or-invalid-executable",
+      "name": "asus_framework.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 18452,
+      "reason": "missing-or-invalid-executable",
+      "name": "msgchkcenter.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 20360,
+      "reason": "missing-or-invalid-executable",
+      "name": "ArmourySwAgent.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 22504,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 21636,
+      "reason": "missing-or-invalid-executable",
+      "name": "verge-mihomo.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 21408,
+      "reason": "missing-or-invalid-executable",
+      "name": "conhost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 7696,
+      "reason": "missing-or-invalid-executable",
+      "name": "SearchIndexer.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 19412,
+      "reason": "missing-or-invalid-executable",
+      "name": "DellSupportAssistRemedationService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 19996,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 9732,
+      "reason": "missing-or-invalid-executable",
+      "name": "ServiceShell.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 8352,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 23456,
+      "reason": "missing-or-invalid-executable",
+      "name": "KillerAnalyticsService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 19180,
+      "reason": "missing-or-invalid-executable",
+      "name": "KillerNetworkService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 23008,
+      "reason": "missing-or-invalid-executable",
+      "name": "KillerProviderDataHelperService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 22972,
+      "reason": "missing-or-invalid-executable",
+      "name": "KNDBWMService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 12592,
+      "reason": "missing-or-invalid-executable",
+      "name": "conhost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 19048,
+      "reason": "missing-or-invalid-executable",
+      "name": "KNDBWM.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3892,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 23748,
+      "reason": "missing-or-invalid-executable",
+      "name": "IntelNetworkHelperService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 24396,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 24512,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 3820,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 8236,
+      "reason": "missing-or-invalid-executable",
+      "name": "omni_zip_tray.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 15528,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 14448,
+      "reason": "missing-or-invalid-executable",
+      "name": "SecurityHealthService.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 35688,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 11656,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 27908,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 54248,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 37392,
+      "reason": "missing-or-invalid-executable",
+      "name": "WindowsTerminal.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 11788,
+      "reason": "missing-or-invalid-executable",
+      "name": "OpenConsole.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 47936,
+      "reason": "missing-or-invalid-executable",
+      "name": "powershell.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 43908,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 44916,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 47120,
+      "reason": "missing-or-invalid-executable",
+      "name": "taskhostw.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 31176,
+      "reason": "missing-or-invalid-executable",
+      "name": "asus_framework.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 63612,
+      "reason": "missing-or-invalid-executable",
+      "name": "WmiApSrv.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 2536,
+      "reason": "missing-or-invalid-executable",
+      "name": "codex-windows-sandbox-service.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 7788,
+      "reason": "missing-or-invalid-executable",
+      "name": "vmwp.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 53880,
+      "reason": "missing-or-invalid-executable",
+      "name": "vmmemWSL"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 13960,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 36956,
+      "reason": "missing-or-invalid-executable",
+      "name": "asus_framework.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 68704,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 49236,
+      "reason": "missing-or-invalid-executable",
+      "name": "SearchProtocolHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 56748,
+      "reason": "missing-or-invalid-executable",
+      "name": "SearchFilterHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 33444,
+      "reason": "missing-or-invalid-executable",
+      "name": "SearchFilterHost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 71876,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 48612,
+      "reason": "missing-or-invalid-executable",
+      "name": "svchost.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 31320,
+      "reason": "missing-or-invalid-executable",
+      "name": "WmiPrvSE.exe"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 72120,
+      "reason": "missing-or-invalid-executable",
+      "name": "audiodg.exe"
+    }
+  ],
+  "rawProcessOrTaskValuesPersisted": false,
+  "productionMutations": 0
+}

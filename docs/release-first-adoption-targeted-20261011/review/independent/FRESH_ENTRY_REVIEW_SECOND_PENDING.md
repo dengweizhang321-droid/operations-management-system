@@ -1,0 +1,9 @@
+# fresh 第二稿截点：等待最终冻结
+
+静态读取稿SHA为 `5649f6e300f4b9b14ce1e45e49b7bcc22ca2bc87346641880114603f6f7ef071`。测试前实际已变为 `fbebcb39e1df98e21a94ea1730a4302e58dcd635e091379f89a8106336e34a0a`，精确SHA门禁拒绝，[原日志](FRESH_ENTRY_INDEPENDENT_SECOND.log)保留；93.4899ms、**四个语义用例均未执行**，不能称任一稿通过或反例已实跑。
+
+5649结构上已将完整builtin闭包／manifest／keyFiles／依赖树／TS解析检查置于import前，普通stale拒绝也附current并保存固定证据。剩余静态接缝是freshness的writeOnce自身失败时，新ledgerError会遮蔽已构造staleError所带stages／attempts。需最终字节的虚拟写失败反例核验，不实际扫31k树。
+
+同时明确更正：原executeBatch427先保存current admission stages／attempts，428才beforeOperation。后验verifyInputs拒绝不等于旧采样WAL全部丢失；其throw附属诊断可补，但本轮不把该点升级成无据P1阻断。旧b7报告／0-2保持，最终freeze后另作精确复核。
+
+没有生产调用、qualify／execute／collector、完整树读取或实现修改。详情见[机器记录](FRESH_ENTRY_REVIEW_SECOND_PENDING.json)。

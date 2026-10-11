@@ -1,0 +1,200 @@
+独立复审第9号调用（第8号prompt仅生成未调用，原因是非作者发现旧8bf的根路径literal含TAB，实际正规spec拒绝，主任务VM原字面量独立证实，原8bf停止采用保留）。请真实审查下面修正冻结字节和受控结果；你不执行本机测试、不授Git或生产权。指出具体源码行/条件及反例，避免绝对保证。前轮设计认可不覆盖今轮字节。重点检查修正为明确绝对路径并验证原literal，不用私有fixture重定位掩盖实际固定root。
+对象：Worker21c2645a63247749，manifest6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4，plan0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881，source dc1dbeeded593980c6712e7afabde0a053dfd13d8f6c4bb9375718330af2b8fb。包不再修改。
+本轮精确首次采用v4 strict targeted-first-adoption 19操作：prepare、唯一preBackup、EnterMaintenance/KeepPg、StopWorker、Wapply、previous引用/保全guard、DDeployApp、HardenAcl、新installed无参readonly consumer、同batch Backup收据隔离Restore、ExitMaintenance、StartWorker双manifest、display、permissions、business-closure、VerifyStartup、AggregateStatus、natural-watchdog、VerifyStartupcloseout。原生命周期/备份/恢复引擎不重写，两DB声明各1800000ms，原processDeadline cap30min/planner默认600000。
+新普通CSS/passive TSX无数据路径另为v3 not-required，在封存时0DB。新首次采用不依赖自身未采用的免备份结论。
+最终215原回归214pass/1fail（旧缓存missing-config-parent原生watcher），针对仍失败，明确未闭合。只选fresh-no-reuse必要214项，不称215全绿。本入口不传session；每边界原collector内部initial/final完整source/node/npm/config两采样，与每个native动作结束立即全核或全时独占保证不同。不要说缓存全系统已弃用或误报彻底消除。
+原fixed config共享hardlink仅精确路径有raw bytes/非atime完整identity基准核验，普通source/npm仍严拒；不改变运行包通用规则。现场197unknown/PID47936未知仍生产阻断，不因模型认可解除，不会先跑Backup再等引用。生产actions0。
+首次入口草稿b7c...实际非作者0/2发现imports-before-bootstrap与collector返回前freshness error丢失stages/attempts，原草稿已保留停用。beforeOperation之前原engine已把current写WAL，不要误报该处全部丢失。现在要求：builtins-only先验证单向DAG/self/spec/tests、完整固定manifest keyFiles/module closure/完整node_modules原hash＋成员/身份复验＋TS解析pkg，然后才能import；核原运行器预算优先级；fresh stale和保存失败仍拒绝且保原current及保存错误；collect完成后仅轻量checks≤5sec。
+最终批准SHA将由self entry→tests evidence→testsSHA→batchSHA封存，源码不硬编码自身或最终tests/batchSHA，AGY9结果作为tests证据，故此轮评具体结构、元组与字节，不虚构未来batchSHA。封存后原validator/originaldeadline/原PS AST及真实qualify会由主任务执行，不执行execute。请检查危险反例与收益口径，明确未测试范围与残留条件。
+当前入口SHA=69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99
+HANDOFF（受控结果不是生产验收）:
+{
+  "version": "astra-fresh-entry-handoff-v2",
+  "status": "external-entry-frozen-not-production-approved",
+  "entrypointPath": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs",
+  "entrypointSha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99",
+  "sourcePath": "docs/release-first-adoption-targeted-20261011/adapters/fresh-adoption-entry-v2.mjs",
+  "mode": "fresh-no-reuse-v1",
+  "bindingRecord": {
+    "kind": "first-adoption-execution",
+    "mode": "fresh-no-reuse-v1",
+    "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs",
+    "sha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99"
+  },
+  "candidateRoot": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749",
+  "candidateManifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+  "workerPlanSha256": "0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881",
+  "bootstrap": {
+    "builtinImports": [
+      "node:assert/strict",
+      "node:path",
+      "node:url",
+      "node:crypto",
+      "node:fs",
+      "node:fs/promises"
+    ],
+    "fullDependencyTreeBeforeCandidateImport": true,
+    "allKeyFilesAndKnownClosure": true,
+    "perFileAndDirectoryIdentityComparedAfterTree": true,
+    "typescriptResolutionBound": true,
+    "scopeAndSelfDagBoundBeforeImport": true
+  },
+  "tests": {
+    "passed": 26,
+    "failed": 0,
+    "bootstrap": 10,
+    "engine": 13,
+    "durationMs": 11941.2326,
+    "log": "E:/codex-artifacts/release-first-adoption-targeted-20261011/FRESH_ENTRY_V2_FINAL_TEST.log",
+    "logSha256": "f02bd33777d29444a78f7a825b44c3e8b0eabd9dcb7ef3434b656de2455764b9",
+    "scripts": [
+      {
+        "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-entry-bootstrap-v2.test.mjs",
+        "sha256": "a8e3bb9cd695535635f7536bb9a66d1eecae1c223998c0b959f7fdf22a80ac7d"
+      },
+      {
+        "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-entry-engine-v2.test.mjs",
+        "sha256": "e22b945eb4f3c93a3cc2fd9c179bd507f6ab039052605972d30af7a1ed030f94"
+      },
+      {
+        "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-entry-v2-literal.test.mjs",
+        "sha256": "aec3e67cae5e636ff0ef1a6e9876cb0bd6a6e29b83015d449764fb1fa3a07ed7"
+      }
+    ],
+    "limits": "Bootstrap uses actual built-in filesystem checks on small private trees and real private module imports; engine wiring uses actual fixed-candidate verifyBatch/validateNoDataCollector/executeBatch with controlled live collector, native operations and accepted bootstrap result. Not an actual production full-tree qualification.",
+    "literal": 3
+  },
+  "commands": {
+    "qualify": "node \"E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs\" qualify \"<new exact spec.json>\" \"<new scope SHA>\"",
+    "execute": "node \"E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs\" execute \"<new exact spec.json>\" \"<human-approved new scope SHA>\" \"<actual explicit approval ISO UTC>\""
+  },
+  "authorization": "Only the explicitly approved entry argv is selected. Original cached CLI remains unchanged and does not enforce this external entry declaration; no claim of a new generic-engine enforced mode. Tests evidence binds entry mode/path/bytes to the new batch SHA, not a production approval.",
+  "failureEvidence": "Returned or late stale snapshots retain stages/attempts/statusObservation in create-only evidence; evidence-save failures attach a code without replacing the original stale error. Original collector failures remain unmodified. CLI catch prints only message; Root must retain raw CLI output or catch the export for typed qualification failure details.",
+  "firstFailures": [
+    "Initial draft imported candidate code before bootstrap; retained fresh-adoption-entry-prebootstrap-draft.mjs is superseded.",
+    "First wiring fixture read development tool bytes and was rejected by original candidate policy; rebased to actual candidate tool bytes without weakening assertions.",
+    "ENTRY03 old root literal rejected actual spec; V2 changes only the literal to path.resolve forward-slash path. Three tests evaluate actual old/new literal and real original spec journalRoot without injected root."
+  ],
+  "unadoptedCache": "One missing-parent cache fixture remains unresolved; no 215/215 claim. This entry never constructs or passes a preparation session.",
+  "runtimeSourceOrPackageChanged": false,
+  "productionActions": 0,
+  "supersedes": {
+    "entrypointPath": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry.mjs",
+    "sha256": "8bf175c321401523955c4273a9ab5d29fd4c2ee81f0cdf32130a60886bf09f35",
+    "reason": "ENTRY03: old single-backslash Windows literal decoded TAB. Old 8bf preserved and unusable."
+  }
+}
+
+FULL ENTRY:
+// Explicit first-adoption entry. Only built-ins execute before the pinned package is verified.
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {randomUUID,createHash} from 'node:crypto';
+import {createReadStream} from 'node:fs';
+import {lstat,readdir,realpath} from 'node:fs/promises';
+const candidate='D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749';
+const expectedManifest='6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4',expectedPlan='0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881';
+const self=fileURLToPath(import.meta.url),mode='fresh-no-reuse-v1',workerRuntimeRoot=path.resolve('D:/teruisi-runtime/teruisi-worker-sales');
+const moduleNames=['release-batch.mjs','release-batch-admission.mjs','release-impact.mjs','release-no-data-observation.mjs','release-preparation-evidence.mjs','release-admission-timing.mjs','release-daily-backup.mjs','release-readonly-retry.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','collect-d1-retirement-proof.mjs'];
+const canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(',')}]`:v&&typeof v==='object'?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`:JSON.stringify(v);
+const hash=v=>createHash('sha256').update(typeof v==='string'||Buffer.isBuffer(v)?v:canonical(v)).digest('hex');
+const digestPattern=/^[a-f0-9]{64}$/;
+async function physical(target) {
+  const absolute=path.resolve(target);let cursor=path.parse(absolute).root;
+  for(const part of absolute.slice(cursor.length).split(path.sep).filter(Boolean)){cursor=path.join(cursor,part);assert.equal((await lstat(cursor)).isSymbolicLink(),false,'Redirected bootstrap path');}
+  assert.equal(path.resolve(await realpath(absolute)).toLowerCase(),absolute.toLowerCase(),'Bootstrap physical path changed');
+}
+async function checkedFile(target,{collect=false,treeDigest,relative}={}) {
+  await physical(target);const before=await lstat(target,{bigint:true});assert.ok(before.isFile()&&before.nlink===1n,'Bootstrap requires a single-link regular file');
+  if(collect)assert.ok(before.size<=16n*1024n*1024n,'Bootstrap JSON/code input too large');
+  if(treeDigest){const name=Buffer.from(relative,'utf8'),n=Buffer.alloc(4),size=Buffer.alloc(8);n.writeUInt32BE(name.length);size.writeBigUInt64BE(before.size);treeDigest.update(n).update(name).update(size);}
+  const digest=createHash('sha256'),chunks=[];let length=0n;
+  for await(const chunk of createReadStream(target)){length+=BigInt(chunk.length);digest.update(chunk);treeDigest?.update(chunk);if(collect)chunks.push(chunk);}
+  await physical(target);const after=await lstat(target,{bigint:true});assert.equal(length,before.size);
+  for(const key of ['dev','ino','nlink','size','mtimeNs','ctimeNs'])assert.equal(after[key],before[key],'Bootstrap file changed');
+  return {sha256:digest.digest('hex'),raw:collect?Buffer.concat(chunks):null};
+}
+function relativePath(value) {assert.ok(typeof value==='string'&&!path.posix.isAbsolute(value)&&!/[\\:\x00-\x1f]/.test(value)&&value.split('/').every(p=>p&&p!=='.'&&p!=='..'),'Invalid bootstrap member');return value;}
+async function completeTree(root) {
+  const fields=['dev','ino','nlink','size','mtimeNs','ctimeNs'];
+  const enumerate=async()=>{
+    const files=[],identities=Object.create(null);
+    const record=(key,info)=>{identities[key]=Object.fromEntries(fields.map(k=>[k,String(info[k])]))};
+    async function walk(dir,prefix='') {
+      await physical(dir);const directory=await lstat(dir,{bigint:true});assert.ok(directory.isDirectory());record(prefix||'/',directory);
+      for(const item of await readdir(dir,{withFileTypes:true})) {
+        const rel=relativePath(prefix+item.name),full=path.join(dir,item.name),info=await lstat(full,{bigint:true});assert.equal(info.isSymbolicLink(),false);
+        if(info.isDirectory())await walk(full,rel+'/');else {assert.ok(info.isFile()&&info.nlink===1n);record(rel,info);files.push(rel);}
+      }
+    }
+    await walk(root);return {files:files.sort(),identities};
+  };
+  const before=await enumerate(),digest=createHash('sha256');
+  for(const relative of before.files)await checkedFile(path.join(root,...relative.split('/')),{treeDigest:digest,relative});
+  assert.deepEqual(await enumerate(),before,'Bootstrap tree membership or physical identity changed');
+  return {algorithm:'sha256-ordinal-path-length-content-v1',fileCount:before.files.length,sha256:digest.digest('hex')};
+}
+async function bootstrapFreshEntry(specPath,approved) {
+  assert.match(approved,digestPattern);const raw=(await checkedFile(specPath,{collect:true})).raw,spec=JSON.parse(raw),batch=spec.batch,collector=spec.collector;
+  const {batchSha256,...core}=batch;assert.equal(hash(core),approved);assert.equal(batchSha256,approved);assert.equal(batch.version,'teruisi-release-batch-v4');
+  assert.equal(batch.binding.artifactSha256,expectedManifest);assert.equal(batch.binding.workerPlanSha256,expectedPlan);assert.equal(hash(batch.tests),batch.binding.testsSha256);
+  assert.equal(path.resolve(spec.journalRoot),path.join(workerRuntimeRoot,'state','release-batches'));
+  assert.equal(hash(collector),batch.collectorSha256);assert.equal(collector.transport,'in-process-content-evidence-v1');assert.equal(collector.executable,process.execPath);
+  assert.equal(collector.args.length,4);assert.equal(collector.args[0],path.join(candidate,'tools','release-batch-admission.mjs'));assert.equal(collector.args[1],'collect');assert.equal(path.resolve(collector.args[2]),path.resolve(specPath));assert.ok(path.isAbsolute(collector.args[3]));
+  if(collector.cwd)assert.equal(path.resolve(collector.cwd),process.cwd());
+  assert.ok(Array.isArray(batch.tests.evidence));const entries=batch.tests.evidence.filter(e=>e.kind==='first-adoption-execution');assert.equal(entries.length,1);const entry=entries[0];
+  assert.deepEqual(Object.keys(entry).sort(),['kind','mode','path','sha256']);assert.equal(entry.mode,mode);assert.ok(path.isAbsolute(entry.path));assert.equal(path.resolve(entry.path),path.resolve(self));
+  const expectedFiles=[...moduleNames.map(n=>path.join(candidate,'tools',n)),path.join(candidate,'node_modules/typescript/lib/typescript.js'),path.join(candidate,'node_modules/typescript/package.json'),process.execPath,collector.args[3]];
+  assert.equal(new Set(collector.files.map(f=>f.path)).size,collector.files.length);assert.deepEqual(collector.files.map(f=>f.path).sort(),expectedFiles.sort());
+  for(const f of collector.files)assert.match(f.sha256,digestPattern);
+  const testsPin=collector.files.find(f=>f.path===collector.args[3]);
+  const verifyInputs=async()=>{assert.equal((await checkedFile(self)).sha256,entry.sha256,'Approved entrypoint bytes changed');assert.equal((await checkedFile(specPath)).sha256,hash(raw),'Approved spec bytes changed');assert.equal((await checkedFile(testsPin.path)).sha256,testsPin.sha256,'Tests evidence bytes changed');};
+  const verifyPins=async()=>{await verifyInputs();for(const f of collector.files)assert.equal((await checkedFile(f.path)).sha256,f.sha256,'Collector bytes changed');};
+  await verifyPins();assert.equal(hash(JSON.parse((await checkedFile(testsPin.path,{collect:true})).raw)),batch.binding.testsSha256);
+  const manifestBytes=await checkedFile(path.join(candidate,'deployment-manifest.json'),{collect:true});assert.equal(manifestBytes.sha256,expectedManifest);const manifest=JSON.parse(manifestBytes.raw);
+  const keys=new Map();for(const key of manifest.artifacts.keyFiles){relativePath(key.relativePath);assert.ok(!keys.has(key.relativePath));keys.set(key.relativePath,key.sha256);assert.equal((await checkedFile(path.join(candidate,...key.relativePath.split('/')))).sha256,key.sha256,'Candidate key file changed');}
+  for(const name of moduleNames)assert.equal(keys.get('tools/'+name),collector.files.find(f=>f.path===path.join(candidate,'tools',name)).sha256,'Import closure is outside manifest');
+  assert.deepEqual(await completeTree(path.join(candidate,'node_modules')),manifest.build.nodeModulesTree,'Candidate dependency tree changed');
+  const pkg=JSON.parse((await checkedFile(path.join(candidate,'node_modules/typescript/package.json'),{collect:true})).raw);assert.equal(pkg.main,'./lib/typescript.js');assert.equal(pkg.type,undefined);assert.equal(pkg.exports,undefined);assert.equal(pkg.imports,undefined);
+  await verifyPins();
+  const moduleAt=name=>pathToFileURL(path.join(candidate,'tools',name)).href;
+  const batchApi=await import(moduleAt('release-batch.mjs')),admission=await import(moduleAt('release-batch-admission.mjs')),worker=await import(moduleAt('worker-local-release.mjs'));
+  return {spec,verifyInputs,verifyPins,api:{...batchApi,collectBatchAdmission:admission.collectBatchAdmission,processDeadline:worker.processDeadline}};
+}
+export async function executeFreshAdoption(command,specPath,approved,approvedAt) {
+  assert.ok(['qualify','execute'].includes(command));assert.ok(path.isAbsolute(specPath));
+  if(command==='execute')assert.match(approvedAt??'',/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?Z$/,'Actual explicit approval timestamp required');
+  else assert.equal(approvedAt,undefined);
+  const {spec,verifyPins,verifyInputs,api}=await bootstrapFreshEntry(specPath,approved);
+  const {batch,collector}=spec;
+  const {verifyBatch,validateNoDataCollector,executeBatch,runApprovedOperation,writeOnce,collectBatchAdmission,processDeadline}=api;
+  verifyBatch(batch,approved);validateNoDataCollector(collector);
+  for(const op of batch.operations)processDeadline(op.readOnlyRetry?.totalTimeoutMs??op.command?.timeoutMs);
+  let lastAdmission=null,lastAttemptRoot=null;
+  const assertFresh=async(current,attemptRoot)=>{
+    const age=Date.now()-current?.observedAtMs;
+    if(current?.batchSha256===approved&&Number.isSafeInteger(current.observedAtMs)&&Number.isFinite(age)&&age>=0&&age<=5000)return;
+    const error=Object.assign(new Error('Stale live admission'),{code:'STALE_ADMISSION_SNAPSHOT',admissionStages:current?.admissionStages??[],observationAttempts:current?.statusObservation?.attempts??[],statusObservation:current?.statusObservation??null,observedAtMs:current?.observedAtMs??null,observationAgeMs:Number.isFinite(age)?age:null});
+    try {
+    await writeOnce(path.join(attemptRoot,`freshness-${randomUUID()}.json`),{version:'teruisi-fresh-entry-failure-v1',batchSha256:approved,code:error.code,admissionStages:error.admissionStages,observationAttempts:error.observationAttempts,statusObservation:error.statusObservation,observedAtMs:error.observedAtMs,observationAgeMs:error.observationAgeMs});
+    } catch(failure) {error.evidenceSaveFailure={code:typeof failure?.code==='string'?failure.code:'evidence-save-failed'};}
+    throw error;
+  };
+  const collectCurrent=async(_batch,_lease,op)=>{
+      await verifyPins();
+      const attemptRoot=path.join(spec.journalRoot,'_observations',`${batch.id}-${randomUUID()}`);
+      const current=await collectBatchAdmission(batch,collector.args[3],op?.phase??'admission',{step:op?.step??op?.kind,
+        onStatusAttempt:record=>writeOnce(path.join(attemptRoot,`${record.attempt}.json`),{version:'teruisi-status-attempt-v1',batchSha256:approved,observation:record})});
+      await assertFresh(current,attemptRoot);lastAdmission=current;lastAttemptRoot=attemptRoot;return current;
+  };
+  if(command==='qualify')return {executionMode:mode,...await collectCurrent()};
+  await verifyPins();
+  return executeBatch({batch,approved,approvedAt,root:spec.journalRoot,run:runApprovedOperation,collectCurrent,
+    beforeOperation:async()=>{await verifyInputs();await assertFresh(lastAdmission,lastAttemptRoot);}});
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===path.resolve(self)) {
+  assert.equal(process.argv.length,process.argv[2]==='execute'?6:5);
+  executeFreshAdoption(...process.argv.slice(2)).then(result=>console.log(canonical(result))).catch(error=>{console.error(error.message);process.exitCode=1;});
+}
+

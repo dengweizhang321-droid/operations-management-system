@@ -1,0 +1,776 @@
+✔ slow artifact, recovery and source checks precede final observations; persistence does not renew time (6.713ms)
+✔ session full content recheck also precedes both dynamic observations (1.9559ms)
+✔ 5001ms post-query persistence rejects stale success and retains its attempts (2.4144ms)
+✔ 5000ms boundary remains accepted without resetting the actual clock (1.6982ms)
+✔ backward wall clock is rejected rather than treated as a fresh observation (2.0772ms)
+✔ non-health phase timestamps completed process identity, with no later slow recheck (1.5064ms)
+✔ readiness failure keeps native and bounded diagnostics and is not converted to stale success (2.4968ms)
+✔ changed source blocks before any dynamic probe (1.2477ms)
+✔ slow verification cannot hide djangoDrift (1.5195ms)
+✔ slow verification cannot hide journalDrift (1.4898ms)
+✔ slow verification cannot hide chainDrift (1.1964ms)
+✔ collector-local bounded readiness survives a legacy retry attempt serializer (1.557ms)
+✔ full migration closure remains before final dynamic observations (2.463ms)
+✔ bound source uses full bound sampler twice and drift rejects before observations (3.421ms)
+✔ CSS values are proven; rules/resources/security properties remain byte-bound (6.6092ms)
+✔ bounded static PNG replacement is allowed; SVG/new/deleted/redirected resource is rejected (2.9071ms)
+✔ pure local Boolean button toggle is proven, aliases/custom calls/server components are not (28.091ms)
+✔ API/server execution, frontend writes, permissions, dependencies, config and mixed changes stay strict (5.2057ms)
+✔ actual production predecessor snapshots bind the real four-file delta and reject its ownership/permission logic (7456.3985ms)
+ℹ {"afterFiles":5050,"afterSourceSha256":"8662394ff24c116685c1342ed6b8b9fa5dd58d8ffa7c0bb869be31e49e5e0646","beforeFiles":5050,"beforeSourceSha256":"70a562eadb2ee993ae3e80188f9a1e064f8605012a218507dba507a101aefa0e","changed":["app/customer-service-view.tsx","app/globals.css","app/page.tsx","app/ui/stable-read-content.tsx"],"completeSnapshots":true,"level":"strict","source":"immutable-source-snapshot"}
+✔ new admission modules are copied and key-file bound in the immutable release (0.9383ms)
+✔ database decisions are sealed; rehashed omissions, duplicate lifecycles and arbitrary display writes fail (13.4719ms)
+✔ unknown BeginWorkerDrain retains ownership and is never replayed (112.3727ms)
+✔ unknown EndWorkerDrain retains ownership and is never replayed (195.5514ms)
+✔ recovery failure at any boundary blocks; sealed full DB steps cannot be skipped (52.6007ms)
+✔ same-batch content evidence is bounded, forced at switch barriers and cannot be mutated by callers (3.2785ms)
+✔ content change invalidates sourceSha256 even with unchanged timestamps (0.4086ms)
+✔ content change invalidates sourceInventorySha256 even with unchanged timestamps (0.5249ms)
+✔ content change invalidates toolchain even with unchanged timestamps (0.3828ms)
+✔ content change invalidates configuration even with unchanged timestamps (0.264ms)
+✔ evidence checked before work is rechecked after; other batches/concurrent use/disposal are refused (0.8729ms)
+✔ full verification observation race and unsuccessful result never seed reusable evidence (0.3482ms)
+✔ expiry covers the whole observation and source changes after admission block before WAL intent (45.2529ms)
+✔ snapshot inventory includes environment examples and same-mtime tampering is detected by bytes (11.8938ms)
+✔ missing config parent creation invalidates; unrelated ancestor siblings do not (2405.8087ms)
+✔ shared process deadline is transport metadata; other inherited configuration stays bound (0.2416ms)
+✔ timings are disjoint children and retain failure status without sensitive diagnostics (0.3564ms)
+✔ failed live collector stages persist in the actual journal without error values (36.7789ms)
+✖ v4 binds one pre-backup and one new-installed restore without changing strict impact (12.6394ms)
+✔ default v3 retains full pre/post four stages (48.9838ms)
+✖ rehashing cannot replace targeted policy with full (9.0422ms)
+✖ rehashing cannot replace targeted policy with reuse (9.1813ms)
+✖ rehashing cannot replace targeted policy with not-required (9.1101ms)
+✖ policy, database list or protocol edits cannot grant targeted qualification (9.9561ms)
+✖ no boolean/missing closure/prior recovery reuse or arbitrary collector grants v4 (9.6914ms)
+✖ migration, dependency, backup operator or consumer inventory drift rejects even after manifest rehash (9.3236ms)
+✖ missing or additional data/consumer steps cannot be hidden by rehash (11.1203ms)
+✖ new installed chain must precede restore and restore must precede exit/start (9.8063ms)
+✖ prepared/old operator, another backup and missing isolated restore assertions reject (8.7283ms)
+✖ consumer cannot be caller JS/command or an extra business write (9.5682ms)
+✖ targeted recovery does not query daily/reuse qualification (9.1278ms)
+✖ actual consumer executor calls only installed original planner with no args and captures exact chain (8.7145ms)
+✖ actual consumer executor rejects badHead (9.3049ms)
+✖ actual consumer executor rejects badShape (8.9411ms)
+✖ actual consumer executor rejects badArray (8.1403ms)
+✖ actual consumer executor rejects badBytes (8.2844ms)
+✖ actual consumer executor rejects chainDrift (8.6303ms)
+✖ actual consumer executor rejects unconfirmed (9.5845ms)
+✖ failed consumer leaves WAL unknown, prevents restore/start and cannot replay (12.4115ms)
+✖ actual original operation runner expands the same confirmed backup point for installed restore (8.9316ms)
+✖ real result contract refuses backupId (9.2892ms)
+✖ real result contract refuses backupManifestSha256 (9.0637ms)
+✖ real result contract refuses dumpSha256 (8.7173ms)
+✖ real result contract refuses restoredContentSha256 (7.8927ms)
+✖ real result contract refuses productionDatabaseTouched (8.7477ms)
+✖ real result contract refuses profileRestoreVerified (9.0496ms)
+✖ real result contract refuses sequenceHealthVerified (8.6178ms)
+✖ real result contract refuses cleanupStatus (9.069ms)
+✖ installed restore refuses missing consumer evidence before invoking any native operator (8.86ms)
+✔ original backend-ready Start guard and adapter control flow (powershell.exe) (2531.3758ms)
+✔ original backend-ready Start guard and adapter control flow (pwsh.exe) (2655.4367ms)
+✔ real browser consumes exact candidate CSS and asserts computed size (1229.1025ms)
+✔ browser forbids a hidden writing GET even though HTTP method says read (866.6341ms)
+✔ browser fails on any attempted write before target style assertion (909.3539ms)
+✔ browser refuses WebSocket writes without forwarding even the handshake (909.5727ms)
+✔ browser rejects altered resource bytes and wrong candidate style (1806.3112ms)
+✔ browser refuses resource redirects without contacting redirected GET target (932.0177ms)
+✔ unknown observation callbacks/properties and forged resource routes reject before browser launch (4.591ms)
+✔ natural watchdog preserves full original AI/component/probe/fence contract (1.3855ms)
+✔ v3 CSS candidate seals zero DB operations without any recovery/daily prerequisites (259.9568ms)
+✔ intrinsic client text/layout can prove no data; custom text and event changes cannot (15.2033ms)
+✔ unproven change cannot forge no-data: backend/read.py (0.4266ms)
+✔ unproven change cannot forge no-data: backend/migrations/0002.py (0.2675ms)
+✔ unproven change cannot forge no-data: package.json (0.2297ms)
+✔ unproven change cannot forge no-data: tools/start.mjs (0.2226ms)
+✔ unproven change cannot forge no-data: lib/auth.ts (0.2771ms)
+✔ unproven change cannot forge no-data: app/api/read/route.ts (0.4925ms)
+✔ unproven change cannot forge no-data: app/globals.css (0.3039ms)
+✔ incomplete inventory, changed delta bytes and predecessor binding fail (236.1824ms)
+✔ independent-review alleged missing source bytes disproved by actual proof JSON roundtrip (237.8008ms)
+✔ missing Django hash and moved pre-switch observations reject after digest recompute (913.0681ms)
+✔ digest recompute cannot waive policy (230.0339ms)
+✔ digest recompute cannot waive database (227.0645ms)
+✔ digest recompute cannot waive permission (228.5526ms)
+✔ digest recompute cannot waive dataCommand (234.4076ms)
+✔ digest recompute cannot waive omittedPermission (224.876ms)
+✔ digest recompute cannot waive forgedGet (239.1121ms)
+✔ digest recompute cannot waive lifecycleArg (240.7122ms)
+✔ digest recompute cannot waive arbitraryLifecycle (234.0905ms)
+✔ digest recompute cannot waive forgedReadOnly (241.4288ms)
+✔ digest recompute cannot waive backupInserted (243.1367ms)
+✔ caller-controlled collector and trusted adapter hash forgery reject (242.9005ms)
+✔ configuration/toolchain/start hooks outside source cannot hide behind CSS-only delta (245.7586ms)
+✔ independent effect report is exact candidate evidence, not an effects=false checkbox (244.7199ms)
+✔ original engine WAL runs no-data phases; any source/artifact/predecessor drift stops before actions (1282.4756ms)
+✔ complete content gates and negative permissions remain required (2.1185ms)
+✔ backend-not-ready Start failure retains unknown ownership and never unfreezes or replays (414.6865ms)
+✔ exact source binding preserves the complete original identity; optional absence remains legacy (3.1535ms)
+✔ rejects malformed/forged source contract: unknown (0.4588ms)
+✔ rejects malformed/forged source contract: missing (0.3921ms)
+✔ rejects malformed/forged source contract: relative (0.2411ms)
+✔ rejects malformed/forged source contract: parent (0.321ms)
+✔ rejects malformed/forged source contract: protected (0.2546ms)
+✔ rejects malformed/forged source contract: ancestor (0.2602ms)
+✔ rejects malformed/forged source contract: dot (0.2391ms)
+✔ rejects malformed/forged source contract: rootSha (0.2712ms)
+✔ rejects malformed/forged source contract: predecessor (0.4434ms)
+✔ rejects malformed/forged source contract: inventory (0.4542ms)
+✔ rejects malformed/forged source contract: npmMissing (0.3124ms)
+✔ rejects malformed/forged source contract: identityExtra (0.2672ms)
+✔ rejects malformed/forged source contract: circular (0.5705ms)
+✔ separator-aware root exclusion admits a distinct same-prefix namespace (0.3793ms)
+✔ envelope byte and complete live identity/predecessor drift fail even when declared hashes are recomputed (1.5786ms)
+✔ manifest, plan, receipt and batch must select one identical source, never fallback (3.0943ms)
+✔ original file/path readers reject missing, changed, hard-linked or redirected binding inputs (359.71ms)
+✔ CLI rejects incomplete/path/test escape before preparation: --source-binding E:\missing.json (103.7562ms)
+✔ CLI rejects incomplete/path/test escape before preparation: --source-binding-sha256 1111111111111111111111111111111111111111111111111111111111111111 (127.0653ms)
+✔ CLI rejects incomplete/path/test escape before preparation: --source-root E:\candidate (108.8121ms)
+✔ CLI rejects incomplete/path/test escape before preparation: --source-binding bad (107.5877ms)
+✔ CLI rejects incomplete/path/test escape before preparation: --source-binding --allow-test-runtime-root (90.3353ms)
+✔ exact tools/no-migration proof changes only one validation name and retains strict/full four DB stages (89.1426ms)
+✔ missing closure test, v2 qualifier, unknown version or caller boolean never qualifies (68.4554ms)
+✔ recomputed manifest/proof cannot hide changed backend/domain/migrations/0001.py (20.7917ms)
+✔ recomputed manifest/proof cannot hide changed config/business.json (20.0655ms)
+✔ recomputed manifest/proof cannot hide changed drizzle/retired.sql (19.948ms)
+✔ recomputed manifest/proof cannot hide changed runtime-tools/node_modules/miniflare/index.js (23.8964ms)
+✔ recomputed manifest/proof cannot hide changed tools/django-postgres-maintenance.ps1 (20.46ms)
+✔ omitted inventories, wrong manifest and unreviewed source bytes reject (72.3831ms)
+✔ coherently fabricated smaller manifests cannot match actual live package evidence (26.4785ms)
+✔ exact generated cache review binds both hashes; live comparison rejects other fields without recording private values (104.3446ms)
+✔ qualified batch cannot rehash away required backup/restore operations (55.2547ms)
+✔ live inventory reader binds exact raw manifest and before/app.previous-after/app bytes (42.7779ms)
+✔ actual failed observer saves evidence outside WAL and subsequent journal reads/unknown retention remain valid (388.8763ms)
+✔ Start candidate/drain/dependency bindings reject at sealing before any operation (36.2308ms)
+✔ unknown operation retains exit/deadline metadata and cannot replay (217.7596ms)
+✔ passed WAL retains bounded original engine completion and separate timings (252.822ms)
+✔ literal display delta is proven across unchanged dependency closure (1.9602ms)
+✔ mixed high/unproven impact blocks display: backend/sales/migrations/9001.py (0.694ms)
+✔ mixed high/unproven impact blocks display: lib/auth/permissions.ts (0.4368ms)
+✔ mixed high/unproven impact blocks display: tools/runtime.mjs (0.4408ms)
+✔ mixed high/unproven impact blocks display: config/runtime.json (0.5699ms)
+✔ mixed high/unproven impact blocks display: worker/index.ts (0.7688ms)
+✔ mixed high/unproven impact blocks display: package-lock.json (0.705ms)
+✔ mixed high/unproven impact blocks display: lib/read.ts (0.6277ms)
+✔ mixed high/unproven impact blocks display: app/view.tsx (1.8591ms)
+✔ business read change uses full safeguards; unresolved dependencies stay strict (0.3979ms)
+✔ empty/add/delete/malformed display and witness effect escalates (5.5574ms)
+✔ recent complete recovery with continuous daily backup permits reuse (0.5078ms)
+✔ recovery binding changed: manifestSha256 (0.4493ms)
+✔ recovery binding changed: dumpSha256 (0.4244ms)
+✔ recovery binding changed: environmentSha256 (0.3724ms)
+✔ recovery binding changed: schemaSha256 (0.4187ms)
+✔ recovery binding changed: rolesSha256 (0.4462ms)
+✔ recovery binding changed: operatorSha256 (0.4617ms)
+✔ recovery binding changed: retentionSha256 (0.6488ms)
+✔ recovery binding changed: scheduleSha256 (0.5238ms)
+✔ recovery binding changed: backupId (0.388ms)
+✔ invalid recovery prerequisite r=>r.current.schedule.active=false (0.4394ms)
+✔ invalid recovery prerequisite r=>r.current.schedule.lastResult='failed' (0.3387ms)
+✔ invalid recovery prerequisite r=>r.current.schedule.lastSuccessAt=new Date(now-backupMaxAgeMs-1).toISOString() (0.3425ms)
+✔ invalid recovery prerequisite r=>r.evidence.backupCompletedAt=new Date(now-backupMaxAgeMs-1).toISOString() (0.379ms)
+✔ invalid recovery prerequisite r=>r.evidence.restoredAt=new Date(now-rehearsalMaxAgeMs-1).toISOString() (0.3755ms)
+✔ invalid recovery prerequisite r=>r.evidence.restoredAt=new Date(now+1).toISOString() (0.3802ms)
+✔ invalid recovery prerequisite r=>r.evidence.restoreStatus='failed' (0.3245ms)
+✔ invalid recovery prerequisite r=>r.evidence.cleanupStatus='unknown' (0.3588ms)
+✔ invalid recovery prerequisite r=>r.current.pointExists=false (0.3617ms)
+✔ invalid recovery prerequisite r=>r.current.retained=false (0.396ms)
+✔ invalid recovery prerequisite r=>r.current.verifyStatus='failed' (0.6549ms)
+✔ invalid recovery prerequisite r=>r.evidence[k]=false (0.3633ms)
+✔ invalid recovery prerequisite r=>r.evidence[k]=false (0.3141ms)
+✔ invalid recovery prerequisite r=>r.evidence[k]=false (0.3521ms)
+✔ invalid recovery prerequisite r=>r.evidence[k]=false (0.3058ms)
+✔ invalid recovery prerequisite r=>r.evidence[k]=false (0.2935ms)
+✔ strict/business releases never reuse recovery (0.1515ms)
+✔ exact binding changes block every executable release (448.5363ms)
+✔ approval scope change and incomplete acceptance/tests reject (3.9787ms)
+✔ backup failure retains active ownership and safe resumption skips passed stages (370.4667ms)
+✔ unknown mutation is never replayed; independent exact reconciliation is required (365.1525ms)
+✔ crash after write-ahead started record blocks replay; damaged journal blocks (262.279ms)
+✔ an actual subprocess exit after started retains unknown state and cannot replay (629.0541ms)
+✔ recovery invalidation immediately before switching blocks the fast batch (63.3553ms)
+✔ legacy plan/apply cannot claim a predecessor owned by another batch (9.5846ms)
+✔ real original rotation mutex serializes independent preparation chats (2.0481ms)
+✔ timing includes explicit approval, incomplete closeout does not declare completion (0.1404ms)
+✔ rehashing a hand edited batch cannot remove gates, forge impact or escape journals (5.621ms)
+✔ a batch cannot apply another plan, change drain owner or restore another point (13.6647ms)
+✔ scheduled backup does nothing while paused; unknown result never gives reusable evidence (41.1279ms)
+✔ exact Windows OS PowerShell hash is usable while ordinary hard-linked tools stay forbidden (11.4951ms)
+ℹ tests 197
+ℹ suites 0
+ℹ pass 167
+ℹ fail 30
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 37081.5023
+
+✖ failing tests:
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:41:1
+✖ v4 binds one pre-backup and one new-installed restore without changing strict impact (12.6394ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:42:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:48:51
+✖ rehashing cannot replace targeted policy with full (9.0422ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:48:133)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:48:51
+✖ rehashing cannot replace targeted policy with reuse (9.1813ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:48:133)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:48:51
+✖ rehashing cannot replace targeted policy with not-required (9.1101ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:48:133)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:49:1
+✖ policy, database list or protocol edits cannot grant targeted qualification (9.9561ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:50:204)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:52:1
+✖ no boolean/missing closure/prior recovery reuse or arbitrary collector grants v4 (9.6914ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:53:200)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:55:1
+✖ migration, dependency, backup operator or consumer inventory drift rejects even after manifest rehash (9.3236ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:56:191)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:58:1
+✖ missing or additional data/consumer steps cannot be hidden by rehash (11.1203ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:59:80)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:62:1
+✖ new installed chain must precede restore and restore must precede exit/start (9.8063ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:63:111)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:65:1
+✖ prepared/old operator, another backup and missing isolated restore assertions reject (8.7283ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:66:346)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:68:1
+✖ consumer cannot be caller JS/command or an extra business write (9.5682ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:69:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:72:1
+✖ targeted recovery does not query daily/reuse qualification (9.1278ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:72:95)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:90:1
+✖ actual consumer executor calls only installed original planner with no args and captures exact chain (8.7145ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at consumerFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:77:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:91:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:95:93
+✖ actual consumer executor rejects badHead (9.3049ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at consumerFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:77:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:96:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:95:93
+✖ actual consumer executor rejects badShape (8.9411ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at consumerFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:77:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:96:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:95:93
+✖ actual consumer executor rejects badArray (8.1403ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at consumerFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:77:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:96:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:95:93
+✖ actual consumer executor rejects badBytes (8.2844ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at consumerFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:77:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:96:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:95:93
+✖ actual consumer executor rejects chainDrift (8.6303ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at consumerFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:77:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:96:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:95:93
+✖ actual consumer executor rejects unconfirmed (9.5845ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at consumerFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:77:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:96:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:98:1
+✖ failed consumer leaves WAL unknown, prevents restore/start and cannot replay (12.4115ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:99:24)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:118:1
+✖ actual original operation runner expands the same confirmed backup point for installed restore (8.9316ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at restoreFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:107:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:119:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:125:298
+✖ real result contract refuses backupId (9.2892ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at restoreFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:107:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:126:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:125:298
+✖ real result contract refuses backupManifestSha256 (9.0637ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at restoreFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:107:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:126:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:125:298
+✖ real result contract refuses dumpSha256 (8.7173ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at restoreFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:107:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:126:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:125:298
+✖ real result contract refuses restoredContentSha256 (7.8927ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at restoreFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:107:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:126:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:125:298
+✖ real result contract refuses productionDatabaseTouched (8.7477ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at restoreFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:107:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:126:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:125:298
+✖ real result contract refuses profileRestoreVerified (9.0496ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at restoreFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:107:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:126:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:125:298
+✖ real result contract refuses sequenceHealthVerified (8.6178ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at restoreFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:107:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:126:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:125:298
+✖ real result contract refuses cleanupStatus (9.069ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at restoreFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:107:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:126:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }
+
+test at E:\codex-artifacts\release-first-adoption-targeted-20261011\candidate-regression-v1\release-first-adoption-targeted.test.mjs:128:1
+✖ installed restore refuses missing consumer evidence before invoking any native operator (8.86ms)
+  Error: ENOENT: no such file or directory, open 'D:\teruisi-runtime\teruisi-worker-sales\releases\20261011T073200Z-39ce0a278c66e00f\tools\release-payload-retention.mjs'
+      at Object.openSync (node:fs:561:18)
+      at readFileSync (node:fs:445:35)
+      at input (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:22:177)
+      at restoreFixture (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:107:24)
+      at TestContext.<anonymous> (file:///E:/codex-artifacts/release-first-adoption-targeted-20261011/candidate-regression-v1/release-first-adoption-targeted.test.mjs:129:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T073200Z-39ce0a278c66e00f\\tools\\release-payload-retention.mjs'
+  }

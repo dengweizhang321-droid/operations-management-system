@@ -1,0 +1,14 @@
+{
+  "version": "teruisi-current-django-reuse-verification-v1",
+  "status": "passed",
+  "startedAt": "2026-10-11T07:46:54.143Z",
+  "finishedAt": "2026-10-11T07:47:11.157Z",
+  "beforeManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "afterManifestSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+  "beforeFiles": 2933,
+  "afterFiles": 2933,
+  "preparedReceiptSha256": "10db2364053ebfb90d85dd301914753453d02ad313cd02ff7312ca654ebdeb9b",
+  "fullInventoriesEqualOriginalScope": true,
+  "sourceToolBytesEqual": true,
+  "productionActions": 0
+}

@@ -1,0 +1,73 @@
+{
+  "version": "astra-targeted-limited-v2-handoff",
+  "status": "limited-transplant-corrected-no-production-approval",
+  "patches": [
+    {
+      "kind": "correction",
+      "base": "E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-patch-check",
+      "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2-correction.patch",
+      "sha256": "a5ed4f0517d7fe50b0777c164b3a0753d0f5e319dea84ace1479b75eaef83665",
+      "applied": "E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2-correction-applied",
+      "contextLines": 12
+    },
+    {
+      "kind": "combined",
+      "base": "D:/codex-isolated/release-no-data-adoption-20261011/adoption-source-v3",
+      "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2-combined.patch",
+      "sha256": "463fd5597dbd35773e35b894a30bf5acd76b2c4cd8e70220372a222c27d04d3d",
+      "applied": "E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2-combined-applied",
+      "contextLines": 12
+    }
+  ],
+  "sourceCheckRoot": "E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2",
+  "files": [
+    {
+      "path": "tools/release-impact.mjs",
+      "developmentSha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+      "v1LimitedSha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+      "v2LimitedSha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164"
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "developmentSha256": "90321df8978fa65d3650df7022c0be62dc005f7db1647943ee872a9bd091db88",
+      "v1LimitedSha256": "677586a14190f0081c1dbea9a188ce78dd4bf2f1cdc76cfb0bfcdb8f30478c36",
+      "v2LimitedSha256": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc"
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "developmentSha256": "85d3ff64f4cab6cd41ef9af5c09c1c943877402d0ea091c09ffaf19ef9f2449c",
+      "v1LimitedSha256": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5",
+      "v2LimitedSha256": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5"
+    }
+  ],
+  "bodyVerification": {
+    "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/ASTRA_LIMITED_V2_BODY_VERIFICATION.json",
+    "sha256": "a57cbf432b3b0deb36951e608482f794453552b05a13112f8deee14a893e0f42",
+    "functions": 63,
+    "wholeModules": true,
+    "exceptions": "Exactly old safeReadinessFailure named import and old retry parse/assert block, both full texts retained in report"
+  },
+  "tests": {
+    "restorePositiveAndEightNegative": {
+      "passed": 9,
+      "failed": 0,
+      "log": "E:/codex-artifacts/release-first-adoption-targeted-20261011/ASTRA_LIMITED_V2_RESTORE_FINAL.log",
+      "logSha256": "2bdd42306f8b3fa1197ebfcc451858c7ebe1c12ef2617ecc1bfb456285b09227"
+    },
+    "source": "Unchanged test assertions; actual V2 module loading and original runApprovedOperation source function; low-level native response seam, no PG/production call",
+    "privateFixture": "Copied final39ce tool files and two TypeScript files; unchanged retention source fixture copied from candidate/source-snapshot. First missing retention fixture ENOENT log preserved separately."
+  },
+  "originalFailure": {
+    "record": "E:/codex-artifacts/release-first-adoption-targeted-20261011/CANDIDATE_REGRESSION_FINAL_V2.json",
+    "sha256": "6f5f95e63d83939dc2889c059c7ae7337e11814276af48645c94b01f2715d155",
+    "passed": 196,
+    "failed": 1,
+    "cause": "U0 application shifted backupId assertion outside restore lexical backup declaration; syntax/hash-only validation missed semantic position. Not a fixture failure."
+  },
+  "developmentRuntimeUnchanged": true,
+  "oldSourceAndCandidateUnchanged": true,
+  "productionActions": 0,
+  "correctedBatchPath": "E:/codex-artifacts/release-first-adoption-targeted-20261011/targeted-limited-v2/tools/release-batch.mjs",
+  "correctedBatchSha256": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc",
+  "priorHandoffSha256": "d5209ed8b41006b5a283a5ed1dfb2f54f4bd2c4e45191615eb9969d04c5fa497"
+}

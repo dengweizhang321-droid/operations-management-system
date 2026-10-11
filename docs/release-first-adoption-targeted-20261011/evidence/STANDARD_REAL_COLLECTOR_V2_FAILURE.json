@@ -1,0 +1,63 @@
+{
+  "status": "failed",
+  "startedAt": "2026-10-11T08:13:16.511Z",
+  "finishedAt": "2026-10-11T08:13:48.772Z",
+  "message": "Inputs changed while evidence session was held",
+  "code": null,
+  "admissionStages": [
+    {
+      "stage": "classification",
+      "category": "sealed-evidence",
+      "status": "passed",
+      "durationMs": 242.77269999999993
+    },
+    {
+      "stage": "django-identity",
+      "category": "dynamic-state",
+      "status": "passed",
+      "durationMs": 3.2486999999999853
+    },
+    {
+      "stage": "journal",
+      "category": "dynamic-state",
+      "status": "passed",
+      "durationMs": 2.238899999999944
+    },
+    {
+      "stage": "django-migration-closure",
+      "category": "immutable-content",
+      "status": "passed",
+      "durationMs": 14243.6524
+    },
+    {
+      "stage": "effective-chain-and-guards",
+      "category": "dynamic-state",
+      "status": "passed",
+      "durationMs": 3523.4114999999983
+    },
+    {
+      "stage": "no-data-deployment-inputs",
+      "category": "immutable-content",
+      "status": "passed",
+      "durationMs": 0.16840000000229338
+    },
+    {
+      "stage": "full-preparation-identity",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 13763.8551
+    },
+    {
+      "stage": "npm-config-resolution",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 239.2412000000004
+    },
+    {
+      "stage": "npm-config-resolution",
+      "category": "mutable-input",
+      "status": "passed",
+      "durationMs": 223.20130000000063
+    }
+  ]
+}

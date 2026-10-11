@@ -1,0 +1,44 @@
+{
+  "version": "teruisi-primary-full-limited-transplant-verification-v2",
+  "at": "2026-10-11T07:54:24.187Z",
+  "status": "passed",
+  "bodyProofSha256": "a57cbf432b3b0deb36951e608482f794453552b05a13112f8deee14a893e0f42",
+  "records": [
+    {
+      "file": "tools/release-impact.mjs",
+      "rawSha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+      "developmentRawSha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+      "wholeIntendedTextEqual": true,
+      "functionCount": 23
+    },
+    {
+      "file": "tools/release-batch.mjs",
+      "rawSha256": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc",
+      "developmentRawSha256": "90321df8978fa65d3650df7022c0be62dc005f7db1647943ee872a9bd091db88",
+      "wholeIntendedTextEqual": true,
+      "functionCount": 24
+    },
+    {
+      "file": "tools/release-batch-admission.mjs",
+      "rawSha256": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5",
+      "developmentRawSha256": "85d3ff64f4cab6cd41ef9af5c09c1c943877402d0ea091c09ffaf19ef9f2449c",
+      "wholeIntendedTextEqual": true,
+      "functionCount": 16
+    }
+  ],
+  "preciseExistingExceptions": [
+    {
+      "file": "tools/release-batch.mjs",
+      "from": "import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError, safeReadinessFailure } from './release-readonly-retry.mjs';",
+      "to": "import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, parseStatus, assertCompleteReadiness, safeObservationError, observationError } from './release-readonly-retry.mjs';"
+    },
+    {
+      "file": "tools/release-batch.mjs",
+      "from": "        let status;\n        const expectedReleaseId=op.assertions.find(a=>a.path==='releaseId').equals;\n        try {\n          status = parseStatus(value.stdout);\n          assertCompleteReadiness(status,expectedReleaseId);\n          for (const assertion of op.assertions) if (canonical(assertion.path.split('.').reduce((v,k) => v?.[k], status)) !== canonical(assertion.equals)) throw observationError('ASSERTION_FAILED');\n          return value;\n        } catch(error) {\n          error.processEvidence ??= value.processEvidence;\n          if(status) error.readinessEvidence=safeReadinessFailure(status,expectedReleaseId);\n          throw error;\n        }",
+      "to": "        const status = parseStatus(value.stdout);\n        assertCompleteReadiness(status,op.assertions.find(a=>a.path==='releaseId').equals);\n        for (const assertion of op.assertions) if (canonical(assertion.path.split('.').reduce((v,k) => v?.[k], status)) !== canonical(assertion.equals)) throw observationError('ASSERTION_FAILED');\n        return value;"
+    }
+  ],
+  "sourceByteChecksUseRawDigests": true,
+  "lfUsedOnlyForFullIntendedTextReview": true,
+  "productionActions": 0
+}

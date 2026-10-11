@@ -1,0 +1,125 @@
+{
+  "version": "teruisi-original-process-deadline-actual-scope-audit-v1",
+  "batchSha256": "f0bb923070dc0741a6b76885b6fe08f54710928b0eda1398a9cab8452d1d6c9e",
+  "candidateReleaseId": "20261011T090355Z-21c2645a63247749",
+  "status": "passed",
+  "results": [
+    {
+      "operationId": "op-prepare",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "backup-pre",
+      "timeoutMs": 1800000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "op-entermaintenance-drain",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "op-stopworker-switch",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "op-apply",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "previous-reference-guard",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "op-deployapp-switch",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "op-hardenacl-switch",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "installed-recovery-consumer",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "restore-installed",
+      "timeoutMs": 1800000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "op-exitmaintenance-switch",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "op-startworker-switch",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "observe-display",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "observe-permissions",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "unchanged-business-closure",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "op-verifystartup-acceptance",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "op-aggregatestatus-acceptance",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "observe-natural-watchdog",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    },
+    {
+      "operationId": "op-verifystartup-closeout",
+      "timeoutMs": 600000,
+      "status": "passed",
+      "deadlineIsSafeInteger": true
+    }
+  ],
+  "originalProcessDeadlineUnmodified": true,
+  "nativeOperatorsExecuted": 0,
+  "productionActions": 0
+}

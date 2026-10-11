@@ -1,0 +1,128 @@
+{
+  "preparedAt": "2026-10-11T10:13:00.094Z",
+  "batchSha256": "f0bb923070dc0741a6b76885b6fe08f54710928b0eda1398a9cab8452d1d6c9e",
+  "specPath": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ADOPTION_BATCH_FRESH_V1.json",
+  "executionMode": "fresh-no-reuse-v1",
+  "entryPath": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\fresh-adoption-entry-v2.mjs",
+  "entrySha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99",
+  "sourceSha256": "dc1dbeeded593980c6712e7afabde0a053dfd13d8f6c4bb9375718330af2b8fb",
+  "workerManifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+  "workerPlanSha256": "0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881",
+  "djangoManifestSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+  "operations": [
+    {
+      "id": "op-prepare",
+      "phase": "prepare",
+      "kind": "worker-plan"
+    },
+    {
+      "id": "backup-pre",
+      "phase": "backup-pre",
+      "kind": "backup"
+    },
+    {
+      "id": "op-entermaintenance-drain",
+      "phase": "drain",
+      "kind": "lifecycle",
+      "step": "EnterMaintenance"
+    },
+    {
+      "id": "op-stopworker-switch",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "step": "StopWorker"
+    },
+    {
+      "id": "op-apply",
+      "phase": "switch",
+      "kind": "worker-apply"
+    },
+    {
+      "id": "previous-reference-guard",
+      "phase": "switch",
+      "kind": "task-acceptance"
+    },
+    {
+      "id": "op-deployapp-switch",
+      "phase": "switch",
+      "kind": "django-deploy",
+      "step": "DeployApp"
+    },
+    {
+      "id": "op-hardenacl-switch",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "step": "HardenAcl"
+    },
+    {
+      "id": "installed-recovery-consumer",
+      "phase": "switch",
+      "kind": "recovery-consumer"
+    },
+    {
+      "id": "restore-installed",
+      "phase": "switch",
+      "kind": "restore"
+    },
+    {
+      "id": "op-exitmaintenance-switch",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "step": "ExitMaintenance"
+    },
+    {
+      "id": "op-startworker-switch",
+      "phase": "switch",
+      "kind": "lifecycle",
+      "step": "StartWorker"
+    },
+    {
+      "id": "observe-display",
+      "phase": "acceptance",
+      "kind": "no-data-observation"
+    },
+    {
+      "id": "observe-permissions",
+      "phase": "acceptance",
+      "kind": "no-data-observation"
+    },
+    {
+      "id": "unchanged-business-closure",
+      "phase": "acceptance",
+      "kind": "task-acceptance"
+    },
+    {
+      "id": "op-verifystartup-acceptance",
+      "phase": "acceptance",
+      "kind": "lifecycle",
+      "step": "VerifyStartup"
+    },
+    {
+      "id": "op-aggregatestatus-acceptance",
+      "phase": "acceptance",
+      "kind": "lifecycle",
+      "step": "AggregateStatus"
+    },
+    {
+      "id": "observe-natural-watchdog",
+      "phase": "acceptance",
+      "kind": "no-data-observation"
+    },
+    {
+      "id": "op-verifystartup-closeout",
+      "phase": "closeout",
+      "kind": "lifecycle",
+      "step": "VerifyStartup"
+    }
+  ],
+  "databaseOperations": {
+    "required": true,
+    "operationIds": [
+      "backup-pre",
+      "restore-installed"
+    ],
+    "policy": "teruisi-first-adoption-targeted-v1"
+  },
+  "productionApproved": false,
+  "productionActions": 0
+}

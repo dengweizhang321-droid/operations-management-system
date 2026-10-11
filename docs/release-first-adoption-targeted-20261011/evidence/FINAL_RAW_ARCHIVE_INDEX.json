@@ -1,0 +1,781 @@
+{
+  "version": "teruisi-raw-final-review-archive-v1",
+  "createdAt": "2026-10-11T10:17:01.407Z",
+  "records": [
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ASTRA_FRESH_ENTRY_HANDOFF.json",
+      "relative": "evidence/ASTRA_FRESH_ENTRY_HANDOFF.json",
+      "bytes": 4160,
+      "sha256": "c176c6a72c5f39b02a42757918c5b4e9f279f6749ba697ad26b78bb42a66b26a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ASTRA_FRESH_ENTRY_HANDOFF_V2.json",
+      "relative": "evidence/ASTRA_FRESH_ENTRY_HANDOFF_V2.json",
+      "bytes": 4956,
+      "sha256": "eb49809771d041d33467750b7c99ac0fb31bda1ab08606e1a65040f73b65d33d"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\FRESH_BOOTSTRAP_FIRST.log",
+      "relative": "evidence/FRESH_BOOTSTRAP_FIRST.log",
+      "bytes": 1018,
+      "sha256": "f6a6ca0ccea6135f998efdc8140dec06ae903c223afa5787d493a745673c44d3"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\FRESH_ENTRY_TEST_FIRST.log",
+      "relative": "evidence/FRESH_ENTRY_TEST_FIRST.log",
+      "bytes": 12763,
+      "sha256": "937cf70029fcb09f5426f2a0303ff551314597037be5f6f886af0df4ad60f269"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\FRESH_ENTRY_TEST_SECOND.log",
+      "relative": "evidence/FRESH_ENTRY_TEST_SECOND.log",
+      "bytes": 1119,
+      "sha256": "aa5442e6d375f1068d69a99dca9379985a517e4effd373ea093534ad7cf0ae49"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\FRESH_ENTRY_FINAL_TEST.log",
+      "relative": "evidence/FRESH_ENTRY_FINAL_TEST.log",
+      "bytes": 2280,
+      "sha256": "3a9bfefafafa90e5b717919ad040142aa2d4b4f7d9f30595b8ee4c83a0a49ab7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\FRESH_ENTRY_V2_FINAL_TEST.log",
+      "relative": "evidence/FRESH_ENTRY_V2_FINAL_TEST.log",
+      "bytes": 2558,
+      "sha256": "f02bd33777d29444a78f7a825b44c3e8b0eabd9dcb7ef3434b656de2455764b9"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\PRIMARY_FRESH_ENTRY_LITERAL_REJECTION.json",
+      "relative": "evidence/PRIMARY_FRESH_ENTRY_LITERAL_REJECTION.json",
+      "bytes": 373,
+      "sha256": "38ff68f424ba675d44c842d6e02a6ce623f3d0239bdd48a55dfb5fdb23b01ea0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\FRESH_NONREUSE_REGRESSION_QUALIFICATION.json",
+      "relative": "evidence/FRESH_NONREUSE_REGRESSION_QUALIFICATION.json",
+      "bytes": 1298,
+      "sha256": "e13331c897f4fb6e9a0a853b647808435a9bcc17d2864b58372a01a5fcdb6915"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_HARNESS_V4.json",
+      "relative": "evidence/CANDIDATE_REGRESSION_HARNESS_V4.json",
+      "bytes": 4498,
+      "sha256": "7b2f50f2526eca0b7fb02ca08b9f75934400ac2bf4d2458847be447b21f7b8cd"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CONFIG_NATIVE_CASE_TARGETED.log",
+      "relative": "evidence/CONFIG_NATIVE_CASE_TARGETED.log",
+      "bytes": 400,
+      "sha256": "ee63fe1e4f54a2f981535bc6ae64eb783583d074b7718c6ab23fade6e31064a3"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\MISSING_PARENT_CASE_TARGETED.log",
+      "relative": "evidence/MISSING_PARENT_CASE_TARGETED.log",
+      "bytes": 1383,
+      "sha256": "4e7e6bbe272d14860fa32eaa5d1a0383a94cefd04497cc2042add0630cd728d7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\WORKER_PREPARATION_VERIFIED_V3.json",
+      "relative": "evidence/WORKER_PREPARATION_VERIFIED_V3.json",
+      "bytes": 1813,
+      "sha256": "82a750ac59f35235a4451d99f530abcfe35907bfddcc933436800e8b83e41c01"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\WORKER_PREPARATION_FINISHED_V1.json",
+      "relative": "evidence/WORKER_PREPARATION_FINISHED_V1.json",
+      "bytes": 872,
+      "sha256": "b2d86454bb8ff9cc3263456c5767a73b555c5e38744e6e1ea467e4d4cecc72ca"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\WORKER_PREPARATION_FINISHED_V2.json",
+      "relative": "evidence/WORKER_PREPARATION_FINISHED_V2.json",
+      "bytes": 872,
+      "sha256": "ff91ce6e07332944c67e7bcef33d15fe14bbf78cf121852e787739db2229598f"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\WORKER_PREPARATION_FINISHED_V3.json",
+      "relative": "evidence/WORKER_PREPARATION_FINISHED_V3.json",
+      "bytes": 872,
+      "sha256": "a5c6bf776ba15377db40b7af2985978e84320b2182d3056ed7011ac71838ef03"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\DJANGO_REUSE_REVERIFIED.json",
+      "relative": "evidence/DJANGO_REUSE_REVERIFIED.json",
+      "bytes": 603,
+      "sha256": "094fec53ca7c312a01065930182d66c0bb7bb966026a49fa9a7db4068c691893"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ADOPTION_BATCH_FRESH_V1.json",
+      "relative": "evidence/ADOPTION_BATCH_FRESH_V1.json",
+      "bytes": 3434405,
+      "sha256": "eec240464811a6e954f489d8504aa6b77880f99187340b5899509a2093a5d639"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ADOPTION_TESTS_FRESH_V1.json",
+      "relative": "evidence/ADOPTION_TESTS_FRESH_V1.json",
+      "bytes": 830043,
+      "sha256": "e8c44955e707f10d5957edced59b62764e1acb8b6a8f462d592a051e57329f68"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ADOPTION_BATCH_SEALED_FRESH_V1.json",
+      "relative": "evidence/ADOPTION_BATCH_SEALED_FRESH_V1.json",
+      "bytes": 3364,
+      "sha256": "dc262e70da94efb9e29c6db1b542a09e6f3b625e7637a5b6011f253cca4abb59"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\FRESH_SCOPE_ACTUAL_BUDGETS.json",
+      "relative": "evidence/FRESH_SCOPE_ACTUAL_BUDGETS.json",
+      "bytes": 3170,
+      "sha256": "844ff99da9aedd77a524811f70d6edc607847b0d348fa495a90941db8faa63ea"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\FRESH_SCOPE_NATIVE_OPERATOR_AST.json",
+      "relative": "evidence/FRESH_SCOPE_NATIVE_OPERATOR_AST.json",
+      "bytes": 2818,
+      "sha256": "d80b59b90cf701911d0b8da2fc0c15596b6a9d1b3aae77ac7b14f1337714bf6d"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V1.json",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V1.json",
+      "bytes": 635,
+      "sha256": "86bfb56c5a4f0eb7b1ff472bec953d21cda911951068549261a929074325c1c1"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V1.stdout.log",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V1.stdout.log",
+      "bytes": 60450,
+      "sha256": "580e61134a325c39a8be1c9855f741ba55623c4a1d5495dd92031a8a9dd32ece"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V1.stderr.log",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V1.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V2.json",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V2.json",
+      "bytes": 637,
+      "sha256": "6f5f95e63d83939dc2889c059c7ae7337e11814276af48645c94b01f2715d155"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V2.stdout.log",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V2.stdout.log",
+      "bytes": 42261,
+      "sha256": "f29c07168bbd654b14c03cb644543cbe34dc69756a8b3facfc953a0593e47a89"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V2.stderr.log",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V2.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V3.json",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V3.json",
+      "bytes": 637,
+      "sha256": "22964e612b4dd29c9fbd12ce6c53a58377ec3bad649b8103259bc45081ac576c"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V3.stdout.log",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V3.stdout.log",
+      "bytes": 41441,
+      "sha256": "470770493222b913812f15f8ad983e2f493e479819b58eb0e7de44908a100c75"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V3.stderr.log",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V3.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V4.json",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V4.json",
+      "bytes": 637,
+      "sha256": "06ba9365b5d7c5480143c8eb41ce165780433029756a55768059b4cc5943eff6"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V4.stdout.log",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V4.stdout.log",
+      "bytes": 46743,
+      "sha256": "ac943d585b1551c2f47593e75f52042e0618d0536e18b4356dee065eb754d1ab"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V4.stderr.log",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V4.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V5.json",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V5.json",
+      "bytes": 637,
+      "sha256": "dd1b45e308387860a9dffca3efa33fd8c94e582d61354ab1cb38176f3f232739"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V5.stdout.log",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V5.stdout.log",
+      "bytes": 46462,
+      "sha256": "5ceeff899f2dc237840fb8f757946e84988767b796b80d968ca82b7b60556600"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\CANDIDATE_REGRESSION_FINAL_V5.stderr.log",
+      "relative": "evidence/CANDIDATE_REGRESSION_FINAL_V5.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND1_RESULT.json",
+      "relative": "review/AGY_ROUND1_RESULT.json",
+      "bytes": 11608,
+      "sha256": "a51fd95e62f9c78e72c13ef7ff7800eab3a77af1f22fce99abd0081d2a09f3cf"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND1_RESULT.md",
+      "relative": "review/AGY_ROUND1_RESULT.md",
+      "bytes": 11200,
+      "sha256": "27dc1da575f00fd996a27a9cae0202d53c753977d687a1e8e4188b183eddc404"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND1_STREAM.ndjson",
+      "relative": "review/AGY_ROUND1_STREAM.ndjson",
+      "bytes": 132116,
+      "sha256": "603462ecce8cccb7743712ce21846b52adfbd4d616bdeaef47c001ae3632d825"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND1_STDERR.log",
+      "relative": "review/AGY_ROUND1_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round1-call.json",
+      "relative": "review/agy-round1-call.json",
+      "bytes": 414,
+      "sha256": "472acb164afcd91a4ca73b3645e9b5b4447f9513c51f418670fc27d016017cbe"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round1-prompt.txt",
+      "relative": "review/agy-round1-prompt.txt",
+      "bytes": 15912,
+      "sha256": "f5e04adab25c7615397179c2d564dca5c0e33b042ba03dd52e21f801713cf3da"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND2_RESULT.json",
+      "relative": "review/AGY_ROUND2_RESULT.json",
+      "bytes": 11508,
+      "sha256": "daa558015755c0a1fc7ea867cab92dbfe77d3b297496cb032c47f2b4f0500afe"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND2_RESULT.md",
+      "relative": "review/AGY_ROUND2_RESULT.md",
+      "bytes": 11067,
+      "sha256": "c142f1d362cdb2cf4838cf336bb6e3c4c135b435ba09bb19a7efb4ecb55f78c9"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND2_STREAM.ndjson",
+      "relative": "review/AGY_ROUND2_STREAM.ndjson",
+      "bytes": 123316,
+      "sha256": "7f801d23c55ff6dc4b4bc1b2977400747f31b2fb43e3cc3fc1e3a793ffddc3dc"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND2_STDERR.log",
+      "relative": "review/AGY_ROUND2_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round2-call.json",
+      "relative": "review/agy-round2-call.json",
+      "bytes": 449,
+      "sha256": "53a166a5fbbfc4ab07f683cde0c0852186700cf86acfcbb2d14927b461b1dd2c"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round2-prompt.txt",
+      "relative": "review/agy-round2-prompt.txt",
+      "bytes": 26774,
+      "sha256": "9709d186ad6fe059ff390c196c1c43737c61feb4f34d7ae3352f4ee2537b1aac"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND3_RESULT.json",
+      "relative": "review/AGY_ROUND3_RESULT.json",
+      "bytes": 7213,
+      "sha256": "64c43ed6ae61988537bab15a885f85cd4f1b5b9a6e796ce2846ecebdbbb77fed"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND3_RESULT.md",
+      "relative": "review/AGY_ROUND3_RESULT.md",
+      "bytes": 6827,
+      "sha256": "f73897aacd109f36734ca0cc615a228176449c69357730cdba5cdc9f16e9298b"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND3_STREAM.ndjson",
+      "relative": "review/AGY_ROUND3_STREAM.ndjson",
+      "bytes": 86413,
+      "sha256": "5a423bffbb04a2c43b34eb50adea5765a3fbe3046f540185846a9e7c16d23cc0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND3_STDERR.log",
+      "relative": "review/AGY_ROUND3_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round3-call.json",
+      "relative": "review/agy-round3-call.json",
+      "bytes": 448,
+      "sha256": "31d3e3d21f79d7ea6cf96f59c3a717ed5115f9ab3afd3ad0e496041878e387d0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round3-prompt.txt",
+      "relative": "review/agy-round3-prompt.txt",
+      "bytes": 10326,
+      "sha256": "f0a9243bc1828fe3c0950d284ed0c661b1746941297a824291cb66b027282009"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND4_RESULT.json",
+      "relative": "review/AGY_ROUND4_RESULT.json",
+      "bytes": 6095,
+      "sha256": "30bb1e4f73bed0314b32ea5af005d1a93fe037cec9cbbccdd3f746a0463becf2"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND4_RESULT.md",
+      "relative": "review/AGY_ROUND4_RESULT.md",
+      "bytes": 5719,
+      "sha256": "dd99123dfecd1d896733439b3de9f4adac042365a66b0a07094074c5246fb388"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND4_STREAM.ndjson",
+      "relative": "review/AGY_ROUND4_STREAM.ndjson",
+      "bytes": 74988,
+      "sha256": "2e9cc212fa8aa7b4401d20e8164bfd063de51a37c0aa3f03c95aafac7baec3c7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND4_STDERR.log",
+      "relative": "review/AGY_ROUND4_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round4-call.json",
+      "relative": "review/agy-round4-call.json",
+      "bytes": 449,
+      "sha256": "238d8aec083115d138f2cc6cbd1cbc8b3fb71e01fc452389133f82bf6cba007f"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round4-prompt.txt",
+      "relative": "review/agy-round4-prompt.txt",
+      "bytes": 21480,
+      "sha256": "57dc4c332e10a61b44480be768e6b016587185f8e6f6b156d99a2e07a6459e82"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND5_RESULT.json",
+      "relative": "review/AGY_ROUND5_RESULT.json",
+      "bytes": 6522,
+      "sha256": "03c406709edfe7dcce453b58e2a528f4fea2fade2c57330f73f97918a261b08e"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND5_RESULT.md",
+      "relative": "review/AGY_ROUND5_RESULT.md",
+      "bytes": 6146,
+      "sha256": "2fb27d9696adfa23b97c8e039029e643131496388fca364a5311b6390be0b635"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND5_STREAM.ndjson",
+      "relative": "review/AGY_ROUND5_STREAM.ndjson",
+      "bytes": 75815,
+      "sha256": "07e1c50a8d635181be66818d8e589868a4a8dc99891da306fa6f57fcc30dc1c5"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND5_STDERR.log",
+      "relative": "review/AGY_ROUND5_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round5-call.json",
+      "relative": "review/agy-round5-call.json",
+      "bytes": 449,
+      "sha256": "52ebf7758b46cd8da08801953b92c0d1aed5a5ca8dfa3b7ede507c9767754084"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round5-prompt.txt",
+      "relative": "review/agy-round5-prompt.txt",
+      "bytes": 16674,
+      "sha256": "e14bf8e337d313f4f551dbc3f8e67ab159df4055622532456b079b0a60fb7e33"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND6_RESULT.json",
+      "relative": "review/AGY_ROUND6_RESULT.json",
+      "bytes": 7358,
+      "sha256": "44319cc97e4d6d5f5f1fa73b85db7ea0aba9b7904d21e6422f9158ff0daa770d"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND6_RESULT.md",
+      "relative": "review/AGY_ROUND6_RESULT.md",
+      "bytes": 6972,
+      "sha256": "248ce4a1fd8d810145c9d83aecfc472a09bc31891a00c00a85a583c00fc91c42"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND6_STREAM.ndjson",
+      "relative": "review/AGY_ROUND6_STREAM.ndjson",
+      "bytes": 91733,
+      "sha256": "147894d6f32c537e3dd419eb69d49905913ec7963c3286e6f2df7b43b1592614"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND6_STDERR.log",
+      "relative": "review/AGY_ROUND6_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round6-call.json",
+      "relative": "review/agy-round6-call.json",
+      "bytes": 449,
+      "sha256": "1f2c48b29768d6226bc9759be20bc90a1886619477a13b15ecdb7e50b1b71449"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round6-prompt.txt",
+      "relative": "review/agy-round6-prompt.txt",
+      "bytes": 17297,
+      "sha256": "729e1cae464ef6c58dfe14a0531ad0e4d02d382a083d7a4637d8ee0fa5e543b0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND7_RESULT.json",
+      "relative": "review/AGY_ROUND7_RESULT.json",
+      "bytes": 6754,
+      "sha256": "1d97c069b3cce046ffbd7d754e6b7e6761a5598c368e500acbac78a6f7348b98"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND7_RESULT.md",
+      "relative": "review/AGY_ROUND7_RESULT.md",
+      "bytes": 6357,
+      "sha256": "6a50abe0668163aa5497c6e74286866b746f424df55a448296d83b0ac7ef2074"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND7_STREAM.ndjson",
+      "relative": "review/AGY_ROUND7_STREAM.ndjson",
+      "bytes": 84699,
+      "sha256": "ce7fadc6d4d23e0c0477f5384c35acd1ec5f2cc735a9ebc9e15f3a1a93247a33"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND7_STDERR.log",
+      "relative": "review/AGY_ROUND7_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round7-call.json",
+      "relative": "review/agy-round7-call.json",
+      "bytes": 449,
+      "sha256": "860e67f1da0ce9d816f3d1ae4b31078987e62056f34bd63d15d1d8609dbf5e32"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round7-prompt.txt",
+      "relative": "review/agy-round7-prompt.txt",
+      "bytes": 25379,
+      "sha256": "d8c0b1720c233fe702764f898997c5512150cb6ec1b27251871ffd5b5e68d647"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND9_RESULT.json",
+      "relative": "review/AGY_ROUND9_RESULT.json",
+      "bytes": 8270,
+      "sha256": "73d9884934b25d272a09e4e99f10ee1b63c9f4256949af78967438e7bb4c0956"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND9_RESULT.md",
+      "relative": "review/AGY_ROUND9_RESULT.md",
+      "bytes": 7860,
+      "sha256": "9380bb16b7f84e09a24218951db8b2cce10caf8057289a84762019d64a7e86ab"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND9_STREAM.ndjson",
+      "relative": "review/AGY_ROUND9_STREAM.ndjson",
+      "bytes": 91231,
+      "sha256": "6ddb310982a604543eafdbe166fc19fa60124af082c5e1a7fe7e6873f3909733"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\AGY_ROUND9_STDERR.log",
+      "relative": "review/AGY_ROUND9_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round9-call.json",
+      "relative": "review/agy-round9-call.json",
+      "bytes": 449,
+      "sha256": "3676d045b0bebc3ab6f8403bdd68949068e9ad2c7d0772e4241c73987e103322"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\agy-round9-prompt.txt",
+      "relative": "review/agy-round9-prompt.txt",
+      "bytes": 20440,
+      "sha256": "60b1491e68a6ee0508686d8c5cf5a47b69d02596c21f351daad38437a67353cb"
+    },
+    {
+      "source": "E:/codex-artifacts/release-first-adoption-targeted-20261011/agy-round8-prompt.txt",
+      "relative": "review/agy-round8-prompt-NOT-EXECUTED.txt",
+      "bytes": 19319,
+      "sha256": "ce4503cc67dbd1f9aede29c6e12397ef92155a76cc6ca128e44dc2346a4b8c86"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FINAL_HARNESS_AUDIT.json",
+      "relative": "review/independent/FINAL_HARNESS_AUDIT.json",
+      "bytes": 4496,
+      "sha256": "e656e73f3f896aa9fb76826dc7d1f20163cd166d9bfd554244a59b77b996b788"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FINAL_HELPER_REVIEW.json",
+      "relative": "review/independent/FINAL_HELPER_REVIEW.json",
+      "bytes": 5315,
+      "sha256": "34d9116b8a42f206a4856b00579c6c8fef61f2117cc4a9c86cd995b29b77983b"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FINAL_HELPER_REVIEW.md",
+      "relative": "review/independent/FINAL_HELPER_REVIEW.md",
+      "bytes": 2208,
+      "sha256": "2eae386e667cfa80341a9a393b9175dd87ac0754fbbca5e95c435d13e1ae8b96"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FINAL_PAYLOAD_AUDIT_V2.json",
+      "relative": "review/independent/FINAL_PAYLOAD_AUDIT_V2.json",
+      "bytes": 8798,
+      "sha256": "b54fad04d6d0001e7f02b67f2258084d92531e90171507d2c5b5cbfd5ca74f73"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FINAL_RECEIPT_AUDIT.json",
+      "relative": "review/independent/FINAL_RECEIPT_AUDIT.json",
+      "bytes": 1452,
+      "sha256": "085d2716807b43876d3e27993ae476810f4d0805507df083decf0e564d9525a1"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FIRST_PAYLOAD_AUDIT.json",
+      "relative": "review/independent/FIRST_PAYLOAD_AUDIT.json",
+      "bytes": 8386,
+      "sha256": "22f126fe2a11f7f836ef3066dd8c957a06e0e8a76c287cfeb45bf9dc7a1544ff"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\fresh-entry-independent-first.test.mjs",
+      "relative": "review/independent/fresh-entry-independent-first.test.mjs",
+      "bytes": 4320,
+      "sha256": "6ed9ada6c1cabad932cdcd400a0749e15fdc4cee011af09e0aaa01a138b5ec2e"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\fresh-entry-independent-second.test.mjs",
+      "relative": "review/independent/fresh-entry-independent-second.test.mjs",
+      "bytes": 7646,
+      "sha256": "2d94dcab771bbf52feee2ae14ea944925ac784a319c0d4c11569396299228a0e"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\fresh-entry-independent-third.test.mjs",
+      "relative": "review/independent/fresh-entry-independent-third.test.mjs",
+      "bytes": 7717,
+      "sha256": "a8e02412bfaa0cd46f57ede708ca2cd9424749a63c509143aacc38ebfc54d6c6"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\fresh-entry-independent-v2.test.mjs",
+      "relative": "review/independent/fresh-entry-independent-v2.test.mjs",
+      "bytes": 7891,
+      "sha256": "a8a2c8f77e7dc3e7048f31691b21e58a2d47adeb3c6ba8ce94a9d35f04eb4fa6"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\fresh-entry-reviewed-first.mjs.txt",
+      "relative": "review/independent/fresh-entry-reviewed-first.mjs.txt",
+      "bytes": 4753,
+      "sha256": "b7c1edb6b05da5dac5791e1474ca0e01047d216e8e9763c2aa80d05012ed72c2"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\fresh-entry-reviewed-third.mjs.txt",
+      "relative": "review/independent/fresh-entry-reviewed-third.mjs.txt",
+      "bytes": 12130,
+      "sha256": "8bf175c321401523955c4273a9ab5d29fd4c2ee81f0cdf32130a60886bf09f35"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\fresh-entry-reviewed-v2.mjs.txt",
+      "relative": "review/independent/fresh-entry-reviewed-v2.mjs.txt",
+      "bytes": 12144,
+      "sha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\fresh-entry-root-literal-check.mjs",
+      "relative": "review/independent/fresh-entry-root-literal-check.mjs",
+      "bytes": 870,
+      "sha256": "6794f195233cdf41fe676dbb0870362928f6f32b228d40a2037f84c21524cf4c"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\fresh-entry-v2-literal-check.mjs",
+      "relative": "review/independent/fresh-entry-v2-literal-check.mjs",
+      "bytes": 856,
+      "sha256": "36d06ade73ede61339a20fd169237b8722231b4077d1e595fbc3b1d2607d8168"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_FIRST.log",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_FIRST.log",
+      "bytes": 2229,
+      "sha256": "48f70aa7cde1542dcd617d0df26731c78adc799654687c11a5c2bf3837916b82"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_FIRST.stderr",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_FIRST.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_SECOND.log",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_SECOND.log",
+      "bytes": 1520,
+      "sha256": "a65937d1705a912b42ef1363b8e40f1d8d850fc67e8855efa191fba6a66a8177"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_SECOND.stderr",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_SECOND.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_THIRD.log",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_THIRD.log",
+      "bytes": 5871,
+      "sha256": "9b12db2a1c6e6cf7bdb4d6d84ca53defdb8e15fc1c5f7373dc33c1f0980f03b8"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_THIRD.stderr",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_THIRD.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_V2.log",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_V2.log",
+      "bytes": 5988,
+      "sha256": "05d14b49bf389a894b6d012be7458a055f4432d3ddb9145ef43f502c4c73703d"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_V2.stderr",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_V2.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_V2_FINAL.log",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_V2_FINAL.log",
+      "bytes": 558,
+      "sha256": "f8961226cac4cdee5c41cb9cbe751fab92b8e4b98b839e2ae46a81cbe172c681"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_V2_FINAL.stderr",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_V2_FINAL.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_V2_FIXED_MODEL.log",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_V2_FIXED_MODEL.log",
+      "bytes": 4999,
+      "sha256": "ca4a640a5441c989c8b0397fa487e3f6e784d84c87e5952d598ceda455836796"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_INDEPENDENT_V2_FIXED_MODEL.stderr",
+      "relative": "review/independent/FRESH_ENTRY_INDEPENDENT_V2_FIXED_MODEL.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_REVIEW_FIRST.json",
+      "relative": "review/independent/FRESH_ENTRY_REVIEW_FIRST.json",
+      "bytes": 4898,
+      "sha256": "ec5457f87d9a8b987822f9041146ed710e7fdf5a3d5786647f95d641aaa6f615"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_REVIEW_FIRST.md",
+      "relative": "review/independent/FRESH_ENTRY_REVIEW_FIRST.md",
+      "bytes": 2158,
+      "sha256": "9bd2432a0ac63441809703bfeeeafdd2e479462d83dae73c276204c560a75968"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_REVIEW_SECOND_PENDING.json",
+      "relative": "review/independent/FRESH_ENTRY_REVIEW_SECOND_PENDING.json",
+      "bytes": 2536,
+      "sha256": "079bfbb1d395f681a5eeb01843d710eb1c75fb1230137de309f7955c42a68530"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_REVIEW_SECOND_PENDING.md",
+      "relative": "review/independent/FRESH_ENTRY_REVIEW_SECOND_PENDING.md",
+      "bytes": 1230,
+      "sha256": "ae9b6af26390d9bc831c06fa70ec5333b2380f4003605ced7f218ab247ee83ed"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_REVIEW_THIRD.json",
+      "relative": "review/independent/FRESH_ENTRY_REVIEW_THIRD.json",
+      "bytes": 3528,
+      "sha256": "4d0be9776845c85b6f0a9d4a704f32bca6ccc1f27f4d51cfa3507148088f0c33"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_REVIEW_THIRD.md",
+      "relative": "review/independent/FRESH_ENTRY_REVIEW_THIRD.md",
+      "bytes": 1619,
+      "sha256": "7910d1ff2cdce4c977a960461b056af1e2c4138b3c34b9423b89b61a69346fae"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_ROOT_LITERAL.log",
+      "relative": "review/independent/FRESH_ENTRY_ROOT_LITERAL.log",
+      "bytes": 231,
+      "sha256": "7f696452f248cdb485d7fc566d40e971403522414563a836f3b8b54683a82e1e"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_V2_LITERAL.log",
+      "relative": "review/independent/FRESH_ENTRY_V2_LITERAL.log",
+      "bytes": 158,
+      "sha256": "338f9317b7a120259ca439f558a2b3c57532aade63cc1ae8b2420146108a93b8"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_V2_REVIEW.json",
+      "relative": "review/independent/FRESH_ENTRY_V2_REVIEW.json",
+      "bytes": 4439,
+      "sha256": "a61f259f070d1158d67042f18f9af86078005a839aa3c21ed4f4dfc9302d27c8"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\FRESH_ENTRY_V2_REVIEW.md",
+      "relative": "review/independent/FRESH_ENTRY_V2_REVIEW.md",
+      "bytes": 1920,
+      "sha256": "d9f5e1ffbaa2bebaf30a65d2abbf5fd2ca8d2db9c9522462f6c322cb69907428"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\NONREUSE_TRANSPORT_REVIEW.json",
+      "relative": "review/independent/NONREUSE_TRANSPORT_REVIEW.json",
+      "bytes": 6894,
+      "sha256": "174cd8c6abd90b9ab77c7faa25c648203dc416b1105bb364f9ce3c9d80883400"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\NONREUSE_TRANSPORT_REVIEW.md",
+      "relative": "review/independent/NONREUSE_TRANSPORT_REVIEW.md",
+      "bytes": 2702,
+      "sha256": "6443d89d85e671e7d05a9c948d147342e6a6a6e1a58e8d8d14cfd8af370b4dba"
+    },
+    {
+      "source": "D:\\.codex\\worktrees\\release-c-final-independent-review\\运营管理系统\\docs\\release-integration-review\\c-targeted-independent-20261011\\PAYLOAD_AUDIT_SCRIPT_REVIEW.md",
+      "relative": "review/independent/PAYLOAD_AUDIT_SCRIPT_REVIEW.md",
+      "bytes": 4526,
+      "sha256": "88da8a0c12ba04270cd49112f3e8f7a8b4a62b22d15ac44fa6e3776b00fb37aa"
+    },
+    {
+      "source": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-entry-bootstrap-v2.test.mjs",
+      "relative": "evidence/fresh-entry-bootstrap-v2.test.mjs",
+      "bytes": 7259,
+      "sha256": "a8e3bb9cd695535635f7536bb9a66d1eecae1c223998c0b959f7fdf22a80ac7d"
+    },
+    {
+      "source": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-entry-engine-v2.test.mjs",
+      "relative": "evidence/fresh-entry-engine-v2.test.mjs",
+      "bytes": 11303,
+      "sha256": "e22b945eb4f3c93a3cc2fd9c179bd507f6ab039052605972d30af7a1ed030f94"
+    },
+    {
+      "source": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-entry-v2-literal.test.mjs",
+      "relative": "evidence/fresh-entry-v2-literal.test.mjs",
+      "bytes": 1200,
+      "sha256": "aec3e67cae5e636ff0ef1a6e9876cb0bd6a6e29b83015d449764fb1fa3a07ed7"
+    }
+  ],
+  "productionActions": 0
+}

@@ -1,0 +1,4 @@
+evidence/** -text
+review/** -text
+adapters/fresh-adoption-entry-v2.mjs -text
+adapters/history/** -text
