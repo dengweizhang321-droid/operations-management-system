@@ -79,6 +79,9 @@ export function normalizeAiEndpointUrl(
     throw new Error("生产模型地址来源不在 AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST 白名单中");
   }
   if (url.hash) url.hash = "";
+  if (target === "model" && url.origin === "https://opencode.ai" && url.pathname.replace(/\/$/, "") === "/zen/go") {
+    url.pathname = "/zen/go/v1";
+  }
   return url.toString().replace(/\/$/, "");
 }
 
@@ -193,7 +196,7 @@ function approvedProductionModelOrigins(context: AiEndpointSecurityContext): Set
     ?? globalThis.process?.env?.AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST
     ?? "";
   const origins = configured.split(",").map((value) => canonicalHttpsOrigin(value.trim())).filter(Boolean) as string[];
-  return new Set(["https://api.openai.com", ...origins]);
+  return new Set(["https://api.openai.com", "https://opencode.ai", ...origins]);
 }
 
 function canonicalHttpsOrigin(value: string): string | null {

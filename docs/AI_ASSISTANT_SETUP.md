@@ -6,7 +6,9 @@
 
 1. AI 完整数据域通过 Django migrations 与受控采用工具部署，reader/writer 为 8111/8112。正式切换状态、备份恢复、停服批准、单写 authority 与 D1 退役顺序见 [`DJANGO_AI_ASSISTANT_MIGRATION.md`](DJANGO_AI_ASSISTANT_MIGRATION.md)。旧 Drizzle `0013–0087` 只用于历史恢复研究和测试，生产不再运行 AI runtime schema 自动建表；`0113/0114` 只允许受控 operator 使用，不进入普通 journal。
 2. 已有系统必须保留原 `AI_SECRET_ENCRYPTION_KEY`，由 `django-ai.ps1` 转存到独立 DPAPI 凭据库；不得为迁移重新生成密钥。全新隔离开发环境才可创建新的随机密钥。AI writer 保存/解密密文，启动前离线核验已有密文与模型 origin；Worker 仅因现行市场模型调用的兼容职责保留原密钥。读写端点和内部签名配置参见迁移文档。
-3. 生产环境仅允许 HTTPS 的模型地址和 Webhook 地址。模型来源默认只信任精确 origin `https://api.openai.com`；其他供应商必须通过 `AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST` 以英文逗号分隔加入精确 HTTPS origin（含非 443 端口），不能填写路径、查询参数或模糊域名。运行环境缺失或无法判断时按生产环境失败关闭。`AI_ALLOW_LOCAL_MODEL_ENDPOINTS=true` 只用于已明确验证为 development 的本机调试，不能用于生产。
+3. 生产环境仅允许 HTTPS 的模型地址和 Webhook 地址。模型来源默认信任精确 origin `https://api.openai.com` 和 `https://opencode.ai`；其他供应商必须通过 `AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST` 以英文逗号分隔加入精确 HTTPS origin（含非 443 端口），不能填写路径、查询参数或模糊域名。运行环境缺失或无法判断时按生产环境失败关闭。`AI_ALLOW_LOCAL_MODEL_ENDPOINTS=true` 只用于已明确验证为 development 的本机调试，不能用于生产。
+
+OpenCode Go 可填写 `https://opencode.ai/zen/go` 或 `https://opencode.ai/zen/go/v1`，系统统一保存为后者；例如 `deepseek-v4.1-flash` 使用 OpenAI 兼容协议，实际请求 `/zen/go/v1/chat/completions`。模型标识与协议以[供应商官方接口表](https://docs.opencode.ai/docs/go/#endpoints)为准；保存成功不代表账号权限或真实模型连接已验证。编辑同一来源可留空保留密钥，切换来源或协议仍须新密钥。历史生成参数中的 `includeStreamUsage` 数字 0/1 在读取时兼容为布尔值，新保存始终使用 JSON 布尔值，无需批量数据迁移。
 4. Worker 保留其他现行范围仍需的 `DB` D1 和私有 `SALES_IMPORT_FILES` R2 绑定。AI 空间图片字节继续在原私有 R2 命名空间，任务、校验摘要、对象身份和清理队列以 PostgreSQL 为唯一权威；AI 失败不回退 D1。
 5. 只有无数据范围限制的管理员能新增、编辑或删除模型、渠道和图片模板；普通用户不读取这些敏感配置。
 

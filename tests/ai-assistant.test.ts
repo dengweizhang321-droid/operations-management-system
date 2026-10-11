@@ -58,6 +58,21 @@ test("AI model endpoint accepts either a provider root or a complete request URL
   assert.equal(resolveAiModelEndpointUrl("https://api.example.com/v1", "anthropic"), "https://api.example.com/v1/messages");
 });
 
+test("OpenCode Go accepts the subscription root and retains exact production origin checks", () => {
+  const context = { runtimeEnvironment: "production", modelEndpointOriginAllowlist: "" };
+  for (const base of ["https://opencode.ai/zen/go", "https://opencode.ai/zen/go/", "https://opencode.ai/zen/go/v1"]) {
+    assert.equal(normalizeAiModelEndpointForStorage(base, context), "https://opencode.ai/zen/go/v1");
+    assert.equal(resolveAiModelEndpointUrl(base, "openai_compatible", context), "https://opencode.ai/zen/go/v1/chat/completions");
+    assert.equal(resolveAiModelEndpointUrl(base, "anthropic", context), "https://opencode.ai/zen/go/v1/messages");
+  }
+  for (const base of ["https://opencode.ai:8443/zen/go", "https://sub.opencode.ai/zen/go", "https://opencode.ai.evil.example/zen/go", "http://opencode.ai/zen/go", "https://opencode.ai@evil.example/zen/go", "https://opencode.ai/zen/go?api_key=fixture"]) {
+    assert.throws(() => normalizeAiModelEndpointForStorage(base, context));
+  }
+  assert.equal(normalizeAiEndpointUrl("https://opencode.ai/zen/go", "channel", context), "https://opencode.ai/zen/go");
+  assert.equal(normalizeAiModelEndpointForStorage("https://api.openai.com/v1", context), "https://api.openai.com/v1");
+  assert.equal(normalizeAiModelEndpointForStorage("https://models.example.com/zen/go", { ...context, modelEndpointOriginAllowlist: "https://models.example.com" }), "https://models.example.com/zen/go");
+});
+
 test("text and vision dispatch validate the runtime origin before touching model credentials", async () => {
   const mutableEnvironment = process.env as Record<string, string | undefined>;
   const previousNodeEnvironment = mutableEnvironment.NODE_ENV;

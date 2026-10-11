@@ -19,6 +19,10 @@ def options(model):
     try:
         value = json.loads(getattr(model, "generation_options_json", "{}"))
         if not isinstance(value, dict) or set(value) - set(DEFAULTS): raise ValueError()
+        # Older saves used the database boolean helper and persisted JSON 0/1.
+        # Normalize only that stored legacy representation, not request input.
+        if type(value.get("includeStreamUsage")) is int and value["includeStreamUsage"] in (0, 1):
+            value["includeStreamUsage"] = bool(value["includeStreamUsage"])
         return {**DEFAULTS, "taskTimeoutMs": 260000, **value}  # Preserve pre-option configurations.
     except (ValueError, TypeError) as error:
         raise AiError("模型生成参数损坏，请重新保存配置", "invalid_request", 400) from error
@@ -36,7 +40,7 @@ def validate(value, *, protocol, max_tokens, reasoning_mode):
     result["reasoningFormat"] = choice(result["reasoningFormat"], ["default", "thinking", "reasoning_effort", "anthropic_budget", "anthropic_adaptive"], "推理参数格式")
     result["reasoningEffort"] = choice(result["reasoningEffort"], ["default", "none", "minimal", "low", "medium", "high", "xhigh", "max"], "推理强度")
     result["thinkingBudgetTokens"] = integer(result["thinkingBudgetTokens"], "思考预算", 1024, 131071)
-    result["includeStreamUsage"] = boolean(result["includeStreamUsage"], "流式用量统计")
+    result["includeStreamUsage"] = bool(boolean(result["includeStreamUsage"], "流式用量统计"))
     result["systemPrompt"] = text(result["systemPrompt"], "附加系统提示词", 8000, empty=True)
     reserve = max(2048, math.ceil(result["contextWindowTokens"] * .05))
     if max_tokens + reserve + 1024 > result["contextWindowTokens"]:

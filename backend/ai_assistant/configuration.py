@@ -62,14 +62,18 @@ def endpoint(value):
         host.endswith((".local", ".localhost", ".internal")) or "." not in host
     ) and not (local and local_allowed):
         raise AiError("模型主机无效")
-    allowed = {"https://api.openai.com"} | {
+    allowed = {"https://api.openai.com", "https://opencode.ai"} | {
         v.strip()
         for v in os.getenv("AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST", "").split(",")
         if v.strip()
     }
     if not (local and local_allowed) and origin(raw) not in allowed:
-        raise AiError("模型来源未进入精确 origin 白名单")
-    return urlunsplit((url.scheme, url.netloc, url.path.rstrip("/"), "", ""))
+        raise AiError("模型来源未进入精确 origin 白名单，请由管理员在 AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST 中配置该 HTTPS 来源")
+    path = url.path.rstrip("/")
+    # OpenCode Go's subscription root is not itself the API base path.
+    if origin(raw) == "https://opencode.ai" and path == "/zen/go":
+        path += "/v1"
+    return urlunsplit((url.scheme, url.netloc, path, "", ""))
 
 
 # List ORM queries must not fetch model credential ciphertext.  The admin
