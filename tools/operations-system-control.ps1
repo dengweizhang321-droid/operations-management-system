@@ -247,6 +247,29 @@ function Test-DjangoAggregateStatusSupported {
     $source.Contains('teruisi-django-aggregate-status-v1')
 }
 
+function Get-CoreReadinessDiagnostic([object]$Status) {
+  $diagnostic = [ordered]@{}
+  $elapsed = $Status.ElapsedMilliseconds
+  $diagnostic.elapsedMs = if ($elapsed -is [ValueType] -and $elapsed -isnot [bool] -and $elapsed -ge 0 -and $elapsed -le 3600000) { $elapsed } else { $null }
+  foreach ($name in @('PostgreSQL','DjangoReader','DjangoWriter','ReaderReadiness','WriterReadiness','RuntimeAcl','RuntimeAclVerification')) {
+    $value = $Status.$name
+    $diagnostic[$name] = if ($value -is [string] -and $value -cin @('running','stopped','not_ready','ready','foreign_or_unverified','foreign_port_owner','ownership_error','root_hardened','not_hardened','root_only_status')) { $value } else { 'unknown' }
+  }
+  $diagnostic.probes = [ordered]@{}
+  foreach ($name in @('reader','writer')) {
+    $value = $Status.ReadinessEvidence.$name
+    if ($null -eq $value) { continue }
+    $probe = [ordered]@{}
+    $probe.code = if ($value.code -is [string] -and $value.code -cin @('none','http_status','transport_error','timeout')) { $value.code } else { 'unknown' }
+    foreach ($field in @('statusCode','timeoutMs','elapsedMs')) {
+      $number = $value.$field
+      $probe[$field] = if ($number -is [ValueType] -and $number -isnot [bool] -and $number -ge 0 -and $number -le 3600000) { $number } else { $null }
+    }
+    $diagnostic.probes[$name] = [pscustomobject]$probe
+  }
+  return [pscustomobject]$diagnostic
+}
+
 function Get-DjangoAggregateState {
   param([switch]$Refresh)
 
@@ -314,6 +337,7 @@ function Get-DjangoAggregateState {
       State = if ($notReadyComponents.Count -eq 0) { "Ready" } else { "NotReady" }
       Reason = if ($notReadyComponents.Count -eq 0) { $null } else { "未就绪组件：$($notReadyComponents -join ', ')" }
       Components = [pscustomobject]$componentReadiness
+      CoreDiagnostics = Get-CoreReadinessDiagnostic $coreStatus
       CheckedAt = (Get-Date).ToString("o")
     }
   } catch {
@@ -321,6 +345,7 @@ function Get-DjangoAggregateState {
       State = "Error"
       Reason = Get-BoundedText -Value $_.Exception.Message -MaximumLength 300
       Components = $null
+      CoreDiagnostics = $null
       CheckedAt = (Get-Date).ToString("o")
     }
   }
@@ -574,6 +599,7 @@ function Get-SystemState {
     url = $ServerUrl
     reason = $combinedReason
     components = $backendState.Components
+    coreDiagnostics = $backendState.CoreDiagnostics
     healthEvidence = $healthEvidence
     checkedAt = (Get-Date).ToString("o")
   }
