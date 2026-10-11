@@ -29,7 +29,7 @@ function fixture(options={}) {
   const receiptRaw=Buffer.from(JSON.stringify({version:'teruisi-worker-prepared-build-v1',planSha256:batch.binding.workerPlanSha256,candidateManifestSha256:batch.binding.artifactSha256}));
   let observedResponseAt;
   const advance=(name,ms)=>{calls.push(name);clock+=ms;};
-  const context={path,Buffer,Number,Math,Error,canonical,hash,djangoRoot:'/private/django',workerRuntimeRoot:'/private/worker',workerSourceRoot:'/private/source',
+  const context={path,Buffer,Number,Math,Error,canonical,hash,targetedBatchVersion:'teruisi-release-batch-v4',djangoRoot:'/private/django',workerRuntimeRoot:'/private/worker',workerSourceRoot:'/private/source',
     admissionTimer:()=>({measure:async(stage,category,action)=>{let status='failed';try{const value=await action();status='passed';return value;}finally{stages.push({stage,category,status});}},result:()=>[...stages]}),
     verifyBatch:()=>{},requireHash:value=>assert.match(value,/^[a-f0-9]{64}$/),safeFileDigest:async()=>{djangoReads++;return options.djangoDrift&&djangoReads>1?'e'.repeat(64):h;},
     journalState:async()=>{journalReads++;return{latest:new Map(),events:[],previous:options.journalDrift&&journalReads>1?'foreign':null};},safeRead:async p=>p.includes('worker-prepared-builds')?(p.endsWith('.sha256')?Buffer.from(hash(receiptRaw)+'\n'):receiptRaw):p.includes('worker-release-rotation-plans')?planRaw:p.endsWith('deployment-manifest.json')?manifestRaw:Buffer.from('{}'),

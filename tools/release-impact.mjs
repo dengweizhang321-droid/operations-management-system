@@ -385,7 +385,14 @@ export function classifyImpactV3(input) {
       backupMechanism:{effect:mechanism.length?'changed-or-unproven':'unchanged',paths:mechanism}}};
 }
 
+export const targetedBatchVersion='teruisi-release-batch-v4';
+export const targetedRecoveryPolicy='teruisi-first-adoption-targeted-v1';
 export function recoveryDecision({impact,...input}) {
+  if(input.batchVersion===targetedBatchVersion) {
+    validateToolsNoMigrationScope({...input,impact});
+    if(input.evidence!=null||input.current!=null)throw new Error('Targeted first adoption cannot reuse prior recovery evidence');
+    return {mode:'targeted-first-adoption',policy:targetedRecoveryPolicy,reasons:[],evidenceSha256:null};
+  }
   if(impact?.version!==noDataPolicyVersion)return backupReuseDecision({impact,...input});
   const qualified=impact.axes?.persistentData.effect==='none' && impact.axes?.backupMechanism.effect==='unchanged'
     && impact.axes?.components.django==='unchanged' && impact.axes?.persistentData.deploymentInputs?.effect==='unchanged';
@@ -394,9 +401,13 @@ export function recoveryDecision({impact,...input}) {
 
 export function requirementsForImpact(impact, qualification = {}) {
   const original=requirements[impact.level];
+  if(qualification.batchVersion===targetedBatchVersion&&qualification.scopeValidation===undefined)throw new Error('Targeted first adoption requires complete migration closure');
   if(qualification.scopeValidation!==undefined) {
     validateToolsNoMigrationScope({...qualification,impact});
-    return {...original,tests:original.tests.map(name=>name==='migration-rehearsal'?'migration-closure':name)};
+    const tests=original.tests.map(name=>name==='migration-rehearsal'?'migration-closure':name);
+    return qualification.batchVersion===targetedBatchVersion
+      ? {...original,backup:'pre-backup-and-installed-restore',tests:[...tests,'targeted-recovery-negative'],acceptance:[...original.acceptance,'installed-recovery-consumer']}
+      : {...original,tests};
   }
   return impact.version===noDataPolicyVersion && impact.level==='display'
     ? {...original,backup:recoveryDecision({impact}).mode==='not-required'?'not-required':'full-pre-and-post',tests:[...original.tests,'no-data-negative']} : original;
@@ -434,7 +445,7 @@ function verifyScopeApplication(proof,expected) {
   for(const name of ['tools/django-local-service.ps1','tools/django-postgres-maintenance.ps1','tools/postgres-consistent-backup.py',...djangoToolDelta])if(!Object.hasOwn(proof.inventory,name))throw new Error('Missing original Django lifecycle/backup tools');
 }
 export function validateToolsNoMigrationScope({scopeValidation,impact,impactProof,binding,batchVersion,observedDjango,observedCf}) {
-  if(batchVersion!=='teruisi-release-batch-v3'||impact?.version!==noDataPolicyVersion||impact.level!=='strict'||recoveryDecision({impact}).mode!=='full')throw new Error('Migration closure qualification is v3 strict/full only');
+  if(!['teruisi-release-batch-v3',targetedBatchVersion].includes(batchVersion)||impact?.version!==noDataPolicyVersion||impact.level!=='strict'||recoveryDecision({impact}).mode!=='full')throw new Error('Migration closure qualification requires v3/v4 strict underlying full impact');
   exactQualificationKeys(scopeValidation,['version','before','after',...(scopeValidation?.cfCacheReview!==undefined?['cfCacheReview']:[])],'migration scope');
   if(scopeValidation.version!==toolsNoMigrationVersion)throw new Error('Unknown migration scope qualification');
   const verified=verifyImpactProof(impactProof,binding,noDataPolicyVersion);
@@ -481,7 +492,7 @@ export function validateToolsNoMigrationScope({scopeValidation,impact,impactProo
     verifyScopeApplication(observedDjango[side],side==='before'?binding.djangoPredecessorSha256:binding.djangoCandidateSha256);
     if(canonical(observedDjango[side])!==canonical(scopeValidation[side]))throw new Error('Live Django package differs from sealed migration closure');
   }
-  return {version:toolsNoMigrationVersion,check:'migration-closure',djangoChanged:changed,databaseOperations:'full-pre-and-post',qualificationSha256:hash(scopeValidation)};
+  return {version:toolsNoMigrationVersion,check:'migration-closure',djangoChanged:changed,databaseOperations:batchVersion===targetedBatchVersion?'pre-backup-and-installed-restore':'full-pre-and-post',qualificationSha256:hash(scopeValidation)};
 }
 
 export const effectReviewSurfaces=Object.freeze(['dom-text-consumers','layout-observers','persistent-writes','startup-and-build-hooks','operation-vocabulary']);
