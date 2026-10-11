@@ -3,7 +3,7 @@ const hash=b=>createHash('sha256').update(b).digest('hex'),git=args=>{const r=sp
 const files=git(['diff','--cached','--name-only','-z']).toString().split('\0').filter(Boolean);
 for(const name of files){assert.ok(name.startsWith('docs/release-no-data-production-20261011/'),'Unrelated staged file');assert.equal(hash(git(['show',':'+name])),hash(await readFile(name)),name+' blob/source bytes differ');}
 const root='E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/';let evidence=0;
-for(const [manifest,base]of [['FIRST_ATTEMPT_ARCHIVE.json','evidence/first-attempt/'],['PRE_SWITCH_ARCHIVE.json','evidence/pre-switch/'],['CONFIRMED_TRANSPORTS_ARCHIVE.json','evidence/confirmed-transports/']]){
+for(const [manifest,base]of [['FIRST_ATTEMPT_ARCHIVE.json','evidence/first-attempt/'],['PRE_SWITCH_ARCHIVE.json','evidence/pre-switch/'],['CONFIRMED_TRANSPORTS_ARCHIVE.json','evidence/confirmed-transports/'],['STOP_BLOCKER_ARCHIVE.json','evidence/stop-blocker/']]){
  const m=JSON.parse(await readFile('docs/release-no-data-production-20261011/evidence/'+manifest));
  for(const entry of m.entries){const target=entry.target??entry.rel??entry.name,source=entry.source??root+(entry.rel??entry.name);assert.equal(hash(await readFile(source)),entry.sha256);assert.equal(hash(await readFile('docs/release-no-data-production-20261011/'+base+target)),entry.sha256);evidence++;}
 }

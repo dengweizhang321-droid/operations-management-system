@@ -1,0 +1,63 @@
+{
+  "version": "fixed-wait-original-f15-resume-v1",
+  "files": [
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/reconcile-backup-once.mjs",
+      "sha256": "87d1f9f233f7a4afaf6b1ef206f406b6f9c09e9f63547e35851302e9d8eb59f5"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/backup-reconcile-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/run-approved-backup-resume.mjs",
+      "sha256": "2bf424605592585ee7a20363c4a00fbfa1927cf8a7479360f68bf862ced298b0"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/resume-reconciled-backup-state.mjs",
+      "sha256": "0a761bda4debd38927bf2d315b4391611905fb122023921bf1828511b3c8ec46"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\exact-env-transport.mjs",
+      "sha256": "6129a0f6387b9606ab47bd09bfb43bbbde7ef7a5eee2235fdf6a779ead155252"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\env-dpapi.ps1",
+      "sha256": "2c4f64ef6efef9dfd087e151b135f04304172dcdafa8fadac4f6bb46b6a09f59"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/BACKUP_RECONCILIATION_PROOF_V2.json",
+      "sha256": "086378566509ddc2e427c45ca97bdd68410fb3f9fe75b82137db8d9b26179605"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\wait-approved-backup-resume.mjs",
+      "sha256": "b4da3ffbcaf727cd80643965785a764d9e8a45ccd69f3261b92610595fccf03b"
+    },
+    {
+      "path": "C:/Program Files/nodejs/node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/ENV_CIPHER_MANIFEST.json",
+      "sha256": "f7d33310ff19b7d705a49abb56a6882de6707e61e06bef11fc20303c4184d8ea"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/APPROVAL.json",
+      "sha256": "dfd9e3dc69b61c1fb7761fa058d5ee66a519782de1d8d830b28a57df29be835a"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+      "sha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b"
+    },
+    {
+      "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs",
+      "sha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/reconciliation-v3/BINDING.json",
+      "sha256": "8e17ef49bf22aa0f936dc11f97b58e89598d7b6078272804f48f1105a883ae00"
+    }
+  ],
+  "wrapper": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\wait-approved-backup-resume.mjs",
+  "cipherManifestSha256": "f7d33310ff19b7d705a49abb56a6882de6707e61e06bef11fc20303c4184d8ea"
+}

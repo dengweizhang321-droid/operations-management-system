@@ -1,0 +1,86 @@
+{
+  "version": "fixed-stop-and-original-resume3-v1",
+  "files": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\reconcile-stopped-worker-once.mjs",
+      "sha256": "add4446210d3855d2259bf18db1bf12ad62a6f6461a3ae3c2ef744d0bf8ed731"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\stop-reconciliation-state.mjs",
+      "sha256": "c7204aaed2a5ab8b715eb18901afa927ab5fd5680cf22696f8b7d831ccaa15cc"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\collect-stop-postcondition.mjs",
+      "sha256": "fd6527544e5fab2d0fc2782a85c7982dd5f866a9143986ed4f16b11137e26b73"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\backup-reconcile-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\exact-env-transport.mjs",
+      "sha256": "6129a0f6387b9606ab47bd09bfb43bbbde7ef7a5eee2235fdf6a779ead155252"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\env-dpapi.ps1",
+      "sha256": "2c4f64ef6efef9dfd087e151b135f04304172dcdafa8fadac4f6bb46b6a09f59"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\run-stop-chain.mjs",
+      "sha256": "a65082c1646ac70e5f108592b0aa2663398c6ef49edf25e30a054fee79060f81"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\run-approved-stop-resume.mjs",
+      "sha256": "63b91770e5c3f8dcdc7ff6f35554dbe54ad523924b46b7e7729df334aaff594c"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\resume-stopped-state.mjs",
+      "sha256": "2efdc9f98bb6ac56b1df40a024e9f3079ef1cddb7dd4d797bc2ea3a1c8e5602e"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\reconcile-backup-once.mjs",
+      "sha256": "87d1f9f233f7a4afaf6b1ef206f406b6f9c09e9f63547e35851302e9d8eb59f5"
+    },
+    {
+      "path": "C:/Program Files/nodejs/node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RECONCILIATION_INTENT_V2.json",
+      "sha256": "3f645b69942d5b77fff3d3ed368ee51a5b671b4a2f9e0a324ddd150896d029c6"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/ENV_CIPHER_MANIFEST.json",
+      "sha256": "1bf5ea4a3cf71256d81abdc4c8cc99d93f1e5098c147d09871f01b7df3a189d6"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/APPROVAL.json",
+      "sha256": "dfd9e3dc69b61c1fb7761fa058d5ee66a519782de1d8d830b28a57df29be835a"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+      "sha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b"
+    },
+    {
+      "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/fresh-adoption-entry-v2.mjs",
+      "sha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/FINISHED.json",
+      "sha256": "a6490b313fbf3ade9e08a5e6ee1db0a8e048ef7d716933559741385dd166bc62"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume2/DIRECT_PROCESS.json",
+      "sha256": "71b7cd5849f03ac66adcd54fcecf5509a748856b11eb063be0eed151c13f01f3"
+    }
+  ],
+  "reconcile": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\reconcile-stopped-worker-once.mjs",
+  "intent": {
+    "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RECONCILIATION_INTENT_V2.json",
+    "sha256": "3f645b69942d5b77fff3d3ed368ee51a5b671b4a2f9e0a324ddd150896d029c6"
+  },
+  "resume": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\run-approved-stop-resume.mjs",
+  "chain": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\run-stop-chain.mjs",
+  "cipherManifestSha256": "1bf5ea4a3cf71256d81abdc4c8cc99d93f1e5098c147d09871f01b7df3a189d6",
+  "cwd": "D:/.codex/worktrees/release-site-blockers/运营管理系统"
+}

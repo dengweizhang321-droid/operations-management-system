@@ -1,0 +1,35 @@
+✔ freshness uses native completion rather than later outer hashing timestamp (1.6673ms)
+✔ production wrapper takes a second native sample before original callback and validates its real timestamps (3.3265ms)
+✔ actual ordinary-role baseline cannot authorize reconciliation (0.5642ms)
+✔ controlled complete stopped postcondition accepted without claiming StopForRelease success (1.5167ms)
+✔ reject wrong head (0.6005ms)
+✔ reject extra event (0.3986ms)
+✔ reject wrong owner (0.6833ms)
+✔ reject maintenance failed (0.425ms)
+✔ reject worker running (0.4448ms)
+✔ reject port listener (0.4852ms)
+✔ reject receipt appeared (0.4097ms)
+✔ reject supervisor alive (0.526ms)
+✔ reject native access denied (0.4825ms)
+✔ reject PID substituted (0.3928ms)
+✔ reject PG stopped (1.1442ms)
+✔ reject reader running (0.3741ms)
+✔ reject gate missing stopped (0.328ms)
+✔ reject wrong maintenance (0.3056ms)
+✔ reject drain phase changed (0.3184ms)
+✔ reject old head changed (0.2985ms)
+✔ reject chain changed (0.3017ms)
+✔ reject Django changed (0.2822ms)
+✔ reject diagnostic alone cannot establish status (0.2654ms)
+✔ reject future receipt consumer introduced (0.2688ms)
+✔ normalizer rejects foreign SID, query failure, PG listener replacement and omitted native PID (1.1354ms)
+✔ physical evidence rejects wrong bytes, hardlinks and junction ancestors (25.8303ms)
+✔ original reconcileOperation appends exactly one no-output event on private WAL and second call rejects (906.2616ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1067.9455

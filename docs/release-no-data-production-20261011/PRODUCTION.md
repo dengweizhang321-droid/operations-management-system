@@ -71,3 +71,11 @@ Astra28项补证与7项resume2状态验证、主任务独立35/35通过。主任
 01:12:38.480实际一次补证成功，新000010链头 `1dece550efb4af55b792426714af4338b0f95a400a77b7789af55e455f89be49`，原0–9字节保留，真实五输出指向原49b点。原审计及Verify/全dump、固定两PID的CIM+native缺席断言在本次封存代码内实际通过，不外推连续或全系统保证。外层exit0时间01:12:38.537；它仅证明补证，非发布验收。proof原字节086378…与canonical receipt `6ae20e1b…`分别记录，不混为同一个摘要。
 
 01:12:42.210固定waiting自动启动原6989 execute入口，直接Node71332。原f15/960c和15:25:28Z批准时间不变；初始state11/head1dece，op-prepare与backup-pre两项passed，无unknown。完整环境仍bc79、未带旧deadline；主任务另核真实私有cipher路径已消失。实际原始回执见[evidence/actual-reconciliation](evidence/actual-reconciliation/)。后续仍须原完整准入、维护/切换、一次同点隔离Restore及所有必要验收；不由这一补证减免。
+
+## 当前停止门禁阻断，采用及验收未完成
+
+后续原15阶段现场准入于01:21:46通过，255.121秒。原EnterMaintenance于01:30:38.835完成，维护门自01:27:18.869建立并保留PostgreSQL；下一StopWorker在01:31:58.488因Worker-only入口拒绝完整维护而留unknown，原入口退出。前驱Worker/Django已维护停止，但候选未切换，Restore和最终验收未执行。原失败、有限补证准备、新Windows确认取消及永久源码修正详见[当前阻断与续接](STOP_BLOCKER.md)，此节更新此前“切换继续中”截点。
+
+最新19条WAL/head290394…、active-f15及A483维护/排空门保留。3项passed，Stop目标虽有真实只读诊断支持，管理员锁内补证尚未执行，第20条不存在。最新V3管理员启动请求被Windows取消，未生成Stop STARTED。不删除门/owner、不重放、不称上线完成；聊天授权不能代点Windows系统安全确认。
+
+本轮源码及执行证据已先交付f5b19c01。另独立永久选路修复最终97fa130…、54场景（2测试）通过并推远端main/分支070f2d61；只有工程源码采用到Git，未插入f15不可变候选或自动进行第二次发布。本任务的剩余补证/切换/演练/验收仍须原精确运行包按原协议完成。

@@ -1,0 +1,38 @@
+{
+  "version": "astra-stopped-postcondition-reconciliation-v2",
+  "files": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\reconcile-stopped-worker-once.mjs",
+      "sha256": "add4446210d3855d2259bf18db1bf12ad62a6f6461a3ae3c2ef744d0bf8ed731"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\stop-reconciliation-state.mjs",
+      "sha256": "c7204aaed2a5ab8b715eb18901afa927ab5fd5680cf22696f8b7d831ccaa15cc"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\collect-stop-postcondition.mjs",
+      "sha256": "fd6527544e5fab2d0fc2782a85c7982dd5f866a9143986ed4f16b11137e26b73"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\backup-reconcile-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    }
+  ],
+  "intent": {
+    "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RECONCILIATION_INTENT_V2.json",
+    "sha256": "3f645b69942d5b77fff3d3ed368ee51a5b671b4a2f9e0a324ddd150896d029c6"
+  },
+  "tests": {
+    "passed": 27,
+    "total": 27,
+    "log": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/STOP_RECONCILIATION_TEST_V2.log",
+    "sha256": "9914ed95d55c86e5d86d88bc43271e6e24d0c8b7a7b66319f4a1d195804a19d2"
+  },
+  "productionActions": 0,
+  "changes": [
+    "Second actual fixed native four-PID/ports query after static work under original lock.",
+    "5s measured from actual native.receipt.completedAt, ordering and invalid/future timestamps rejected; no outer timestamp laundering.",
+    "V1 source snapshots and intent/handoff retained."
+  ],
+  "baselineRole": "ordinary diagnostic only; elevated positive DTO remains synthetic test"
+}

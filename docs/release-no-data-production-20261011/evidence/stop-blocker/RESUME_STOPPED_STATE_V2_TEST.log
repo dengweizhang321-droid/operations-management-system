@@ -1,0 +1,18 @@
+✔ synthetic exact twenty-event state with four passed operations (5.0979ms)
+✔ reject missing one required PID (1.8572ms)
+✔ reject kernel absence denied (0.9444ms)
+✔ reject old Backup PID substituted (0.6031ms)
+✔ reject ordinary role (0.4435ms)
+✔ reject wrong PostgreSQL listener (0.5536ms)
+✔ reject observation content changed (0.4454ms)
+✔ reject unknown expected WAL head (1.2567ms)
+✔ both gates require exact versions and runtime roots (3.9881ms)
+✔ recomputed observation/proof/event cannot change fixed unknown predecessor or intent (1.1826ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 148.6263

@@ -1,0 +1,942 @@
+[
+  {
+    "at": "2026-10-11T15:25:28Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 14.903999999980442,
+    "eventSha256": "b4c170264066cff4ec5a70ec9852d1955e5323b3e9845eba71d7ac0efb80468d",
+    "phase": "queue",
+    "previous": null,
+    "status": "approved"
+  },
+  {
+    "admissionStages": [
+      {
+        "category": "sealed-evidence",
+        "durationMs": 227.29889999999432,
+        "stage": "classification",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 1.4782999999588355,
+        "stage": "django-identity",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3.240899999975227,
+        "stage": "journal",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 14954.290299999993,
+        "stage": "django-migration-closure",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3927.340099999972,
+        "stage": "effective-chain-and-guards",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 0.2604000000283122,
+        "stage": "no-data-deployment-inputs",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 32366.410499999998,
+        "stage": "source-and-toolchain-initial",
+        "status": "failed"
+      }
+    ],
+    "at": "2026-10-11T15:36:50.153Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 51630.62969999999,
+    "error": {
+      "code": "UNCLASSIFIED_FAILURE",
+      "messageSha256": null,
+      "retryable": false
+    },
+    "eventSha256": "d6335eaa2fc58aed0fa4dfb29203e2f0e442f0e13497d9f61a100e0f5585f887",
+    "observationAttempts": [],
+    "phase": "prepare",
+    "previous": "b4c170264066cff4ec5a70ec9852d1955e5323b3e9845eba71d7ac0efb80468d",
+    "reason": "operation-boundary-failed",
+    "status": "admission-failed"
+  },
+  {
+    "at": "2026-10-11T16:16:31.893Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 17.304100000008475,
+    "eventSha256": "179d3fb03dbe32e353c0fa85bd56ae8e1bdeae86c4f0b402043c7c97c2fb18cf",
+    "phase": "queue",
+    "previous": "d6335eaa2fc58aed0fa4dfb29203e2f0e442f0e13497d9f61a100e0f5585f887",
+    "status": "resumed"
+  },
+  {
+    "admissionStages": [
+      {
+        "category": "sealed-evidence",
+        "durationMs": 221.85440000001108,
+        "stage": "classification",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 1.2681999999913387,
+        "stage": "django-identity",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 5.5310000000172295,
+        "stage": "journal",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 15029.71279999998,
+        "stage": "django-migration-closure",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3912.7670999999973,
+        "stage": "effective-chain-and-guards",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 0.15649999998277053,
+        "stage": "no-data-deployment-inputs",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 32764.371600000013,
+        "stage": "source-and-toolchain-initial",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 2518.755999999994,
+        "stage": "predecessor-source",
+        "status": "passed"
+      },
+      {
+        "category": "sealed-evidence",
+        "durationMs": 4.727699999988545,
+        "stage": "tests-evidence",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 151987.43219999998,
+        "stage": "complete-artifact-and-head",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 30307.04389999999,
+        "stage": "source-and-toolchain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3252.5391999999993,
+        "stage": "effective-chain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 0.7641999999759719,
+        "stage": "django-identity-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 4.78249999997206,
+        "stage": "journal-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 8148.221400000039,
+        "stage": "worker-helper-process-identity",
+        "status": "passed"
+      }
+    ],
+    "at": "2026-10-11T16:20:40.644Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 248748.57280000002,
+    "eventSha256": "f6f7e4216e651f99302f1578d9640a0e9206658b7f82eaca43f54cd5b10cd865",
+    "phase": "prepare",
+    "previous": "179d3fb03dbe32e353c0fa85bd56ae8e1bdeae86c4f0b402043c7c97c2fb18cf",
+    "reason": "live-predecessor-and-integrity-revalidation",
+    "status": "admission"
+  },
+  {
+    "admissionStages": [
+      {
+        "category": "sealed-evidence",
+        "durationMs": 241.9360999999335,
+        "stage": "classification",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 1.081000000005588,
+        "stage": "django-identity",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 8.143999999971129,
+        "stage": "journal",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 14519.06660000002,
+        "stage": "django-migration-closure",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3975.353000000003,
+        "stage": "effective-chain-and-guards",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 0.05619999999180436,
+        "stage": "no-data-deployment-inputs",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 32046.609399999958,
+        "stage": "source-and-toolchain-initial",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 2732.735699999961,
+        "stage": "predecessor-source",
+        "status": "passed"
+      },
+      {
+        "category": "sealed-evidence",
+        "durationMs": 4.8739000000059605,
+        "stage": "tests-evidence",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 30361.264199999976,
+        "stage": "source-and-toolchain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3326.5109999999404,
+        "stage": "effective-chain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 0.7375000000465661,
+        "stage": "django-identity-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 6.288300000014715,
+        "stage": "journal-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 7628.089599999948,
+        "stage": "worker-helper-process-identity",
+        "status": "passed"
+      }
+    ],
+    "at": "2026-10-11T16:22:16.160Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 95513.3010000001,
+    "eventSha256": "5a94b8ecb4e073808a4300f849750179d1cc69136fc6d588c27609db37e7a270",
+    "phase": "prepare",
+    "previous": "f6f7e4216e651f99302f1578d9640a0e9206658b7f82eaca43f54cd5b10cd865",
+    "reason": "operation-boundary-revalidation",
+    "status": "admission"
+  },
+  {
+    "at": "2026-10-11T16:22:16.176Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "eventSha256": "728909b6208ea53bbe589ee4be8291f4b7153df26e26f4ac8de8cd1223f1f269",
+    "operationId": "op-prepare",
+    "phase": "prepare",
+    "previous": "5a94b8ecb4e073808a4300f849750179d1cc69136fc6d588c27609db37e7a270",
+    "status": "started"
+  },
+  {
+    "at": "2026-10-11T16:27:23.785Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 307608.32310000004,
+    "eventSha256": "249b4b9797b5ec4069e722d2f9f2ca725c7278af32ce3b8609ef46e9de198196",
+    "operationId": "op-prepare",
+    "outputs": null,
+    "phase": "prepare",
+    "previous": "728909b6208ea53bbe589ee4be8291f4b7153df26e26f4ac8de8cd1223f1f269",
+    "processEvidence": null,
+    "reason": null,
+    "receiptSha256": "b8ce097f25f740c522c9e16c4d3659a471661b2abaaaf2a232792f3bfbe01be1",
+    "status": "passed",
+    "timing": null
+  },
+  {
+    "admissionStages": [
+      {
+        "category": "sealed-evidence",
+        "durationMs": 218.9150999999838,
+        "stage": "classification",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 2.601200000033714,
+        "stage": "django-identity",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 17.23349999997299,
+        "stage": "journal",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 21587.022600000026,
+        "stage": "django-migration-closure",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3740.503299999982,
+        "stage": "effective-chain-and-guards",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 0.06030000001192093,
+        "stage": "no-data-deployment-inputs",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 30482.499700000044,
+        "stage": "source-and-toolchain-initial",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 2522.2565999999642,
+        "stage": "predecessor-source",
+        "status": "passed"
+      },
+      {
+        "category": "sealed-evidence",
+        "durationMs": 15.869900000048801,
+        "stage": "tests-evidence",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 31803.69849999994,
+        "stage": "source-and-toolchain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3829.7133000000613,
+        "stage": "effective-chain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 1.4516000000294298,
+        "stage": "django-identity-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 13.959900000016205,
+        "stage": "journal-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 8810.550900000031,
+        "stage": "worker-helper-process-identity",
+        "status": "passed"
+      }
+    ],
+    "at": "2026-10-11T16:29:07.831Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 104043.87659999996,
+    "eventSha256": "662e45cfee7bf598521f8af9bb6e2aa8304029315f24b9da9503aa94cea90de9",
+    "phase": "backup-pre",
+    "previous": "249b4b9797b5ec4069e722d2f9f2ca725c7278af32ce3b8609ef46e9de198196",
+    "reason": "operation-boundary-revalidation",
+    "status": "admission"
+  },
+  {
+    "at": "2026-10-11T16:29:07.853Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "eventSha256": "8a8ad38a02f4bfc9233beb0e34de2ff256a72dce5e198d37d3fbfe5d73ea2b64",
+    "operationId": "backup-pre",
+    "phase": "backup-pre",
+    "previous": "662e45cfee7bf598521f8af9bb6e2aa8304029315f24b9da9503aa94cea90de9",
+    "status": "started"
+  },
+  {
+    "at": "2026-10-11T16:39:07.994Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 600141.8923,
+    "error": {
+      "code": "UNCLASSIFIED_FAILURE",
+      "messageSha256": null,
+      "process": {
+        "cleanup": "preserve",
+        "code": "nonzero_exit",
+        "deadlineUnixMs": 1791737947855,
+        "elapsedMs": 600033,
+        "exitCode": 1,
+        "outputProtocol": "direct-exit-files",
+        "processId": 36576,
+        "stage": "output",
+        "stderrBytes": 2432,
+        "stderrSha256": "76fa35ebbe9d091a3489b03f77fffd38bf8e992021405f6ea226468d15ac717c",
+        "stdoutBytes": 1319,
+        "stdoutSha256": "114fc0d3c0574834a96adfe48db8248810c8eebe41e2d4d9f43816e8c665b3ad",
+        "version": 1
+      },
+      "retryable": false
+    },
+    "eventSha256": "f59b6598f16ba14290b80fc2a3dc22e0c6ff6c30a33bb61d82dc8759a571ca99",
+    "observationAttempts": [],
+    "operationId": "backup-pre",
+    "outputs": null,
+    "phase": "backup-pre",
+    "previous": "8a8ad38a02f4bfc9233beb0e34de2ff256a72dce5e198d37d3fbfe5d73ea2b64",
+    "processEvidence": {
+      "cleanup": "preserve",
+      "code": "nonzero_exit",
+      "deadlineUnixMs": 1791737947855,
+      "elapsedMs": 600033,
+      "exitCode": 1,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 36576,
+      "signal": null,
+      "stage": "output",
+      "stderrBytes": 2432,
+      "stderrSha256": "76fa35ebbe9d091a3489b03f77fffd38bf8e992021405f6ea226468d15ac717c",
+      "stdoutBytes": 1319,
+      "stdoutSha256": "114fc0d3c0574834a96adfe48db8248810c8eebe41e2d4d9f43816e8c665b3ad",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    },
+    "reason": "nonzero_exit",
+    "receiptSha256": null,
+    "status": "unknown",
+    "timing": null
+  },
+  {
+    "at": "2026-10-11T17:12:38.480Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "eventSha256": "1dece550efb4af55b792426714af4338b0f95a400a77b7789af55e455f89be49",
+    "operationId": "backup-pre",
+    "outputs": {
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20261011T162958Z-49bdf7f519aa",
+      "backupId": "daily-20261011T162958Z-49bdf7f519aa",
+      "contentSha256": "f261acde08c84455f4f8c75b99486130e4b17f26dbde6c9a29933a1940fc2c83",
+      "dumpSha256": "e88b7cbbae5b2aa30449373a21de7e3d7400912718132088d07e4166a169b148",
+      "manifestSha256": "a46097b7b68a3967527c4fc101063d557089fc97228012c3b0fe8f42e6d598ed"
+    },
+    "phase": "backup-pre",
+    "previous": "f59b6598f16ba14290b80fc2a3dc22e0c6ff6c30a33bb61d82dc8759a571ca99",
+    "reason": "independently-reconciled",
+    "receiptSha256": "6ae20e1bb36039330e3e0597f892dec3126eb1050581c7f1519324d160b51ff1",
+    "status": "passed"
+  },
+  {
+    "at": "2026-10-11T17:17:31.044Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 29.347899999993388,
+    "eventSha256": "14d53a8dd761a1d4c80125f3f28c083e9dfc2e73a16b311a30d77cee8ed2a7ec",
+    "phase": "queue",
+    "previous": "1dece550efb4af55b792426714af4338b0f95a400a77b7789af55e455f89be49",
+    "status": "resumed"
+  },
+  {
+    "admissionStages": [
+      {
+        "category": "sealed-evidence",
+        "durationMs": 218.13380000001052,
+        "stage": "classification",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 1.8535000000265427,
+        "stage": "django-identity",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 19.355299999995623,
+        "stage": "journal",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 16115.578600000008,
+        "stage": "django-migration-closure",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3871.412000000011,
+        "stage": "effective-chain-and-guards",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 0.1606000000028871,
+        "stage": "no-data-deployment-inputs",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 38176.46299999999,
+        "stage": "source-and-toolchain-initial",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 2734.8987000000197,
+        "stage": "predecessor-source",
+        "status": "passed"
+      },
+      {
+        "category": "sealed-evidence",
+        "durationMs": 5.540100000042003,
+        "stage": "tests-evidence",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 148587.7465,
+        "stage": "complete-artifact-and-head",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 33220.13200000004,
+        "stage": "source-and-toolchain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3407.414599999902,
+        "stage": "effective-chain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 1.157799999928102,
+        "stage": "django-identity-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 18.82590000005439,
+        "stage": "journal-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 8082.480299999937,
+        "stage": "worker-helper-process-identity",
+        "status": "passed"
+      }
+    ],
+    "at": "2026-10-11T17:21:46.167Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 255121.376,
+    "eventSha256": "5c4c806d3300649e71d505ddbed4b4d0977ffac18bc7806bdb6fe639a8adfcf8",
+    "phase": "prepare",
+    "previous": "14d53a8dd761a1d4c80125f3f28c083e9dfc2e73a16b311a30d77cee8ed2a7ec",
+    "reason": "live-predecessor-and-integrity-revalidation",
+    "status": "admission"
+  },
+  {
+    "admissionStages": [
+      {
+        "category": "sealed-evidence",
+        "durationMs": 215.74509999994189,
+        "stage": "classification",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 1.7877999999327585,
+        "stage": "django-identity",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 19.699399999924935,
+        "stage": "journal",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 19216.44849999994,
+        "stage": "django-migration-closure",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3235.138600000064,
+        "stage": "effective-chain-and-guards",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 0.05559999996330589,
+        "stage": "no-data-deployment-inputs",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 28810.20629999996,
+        "stage": "source-and-toolchain-initial",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 2410.435700000031,
+        "stage": "predecessor-source",
+        "status": "passed"
+      },
+      {
+        "category": "sealed-evidence",
+        "durationMs": 5.427999999956228,
+        "stage": "tests-evidence",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 170565.35380000004,
+        "stage": "complete-artifact-and-head",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 35581.494999999995,
+        "stage": "source-and-toolchain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3801.2316000000574,
+        "stage": "effective-chain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 1.873699999996461,
+        "stage": "django-identity-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 21.93880000000354,
+        "stage": "journal-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 7901.711899999995,
+        "stage": "worker-helper-process-identity",
+        "status": "passed"
+      }
+    ],
+    "at": "2026-10-11T17:26:18.905Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 272735.75419999997,
+    "eventSha256": "32b5b1e3de63e1fb92de4e3ddf9be12182d9a69e74eb3576c7cfdcff760d9071",
+    "phase": "drain",
+    "previous": "5c4c806d3300649e71d505ddbed4b4d0977ffac18bc7806bdb6fe639a8adfcf8",
+    "reason": "operation-boundary-revalidation",
+    "status": "admission"
+  },
+  {
+    "at": "2026-10-11T17:26:18.922Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "eventSha256": "b927834f25e9c02bddf7a5dc0dc1d9286d62ec927189e32326c8ff10acd44bf9",
+    "operationId": "op-entermaintenance-drain",
+    "phase": "drain",
+    "previous": "32b5b1e3de63e1fb92de4e3ddf9be12182d9a69e74eb3576c7cfdcff760d9071",
+    "status": "started"
+  },
+  {
+    "at": "2026-10-11T17:30:38.835Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 259911.07440000016,
+    "eventSha256": "8ddc0f29606ba1ea9a4cfd20b4bf93a265121efe05aa8abf5ed368ad2d608d31",
+    "operationId": "op-entermaintenance-drain",
+    "outputs": {
+      "maintenanceId": "a483894ad8d945298c866c74a06df6ff"
+    },
+    "phase": "drain",
+    "previous": "b927834f25e9c02bddf7a5dc0dc1d9286d62ec927189e32326c8ff10acd44bf9",
+    "processEvidence": {
+      "cleanup": "preserve",
+      "code": "completed",
+      "deadlineUnixMs": 1791740178925,
+      "elapsedMs": 259786,
+      "engine": [
+        {
+          "cleanup": "Preserve",
+          "code": "completed",
+          "deadlineUnixMs": 1791740178925,
+          "elapsedMs": 259033,
+          "exitCode": 0,
+          "outputProtocol": "direct-exit-file-snapshot",
+          "processId": 5988,
+          "stage": "completed",
+          "stderrBytes": 0,
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdoutBytes": 124,
+          "stdoutSha256": "975ebf7101d5699fca215241a4966746de04c1d2a213c4466167ef3aacb60003",
+          "version": 1
+        }
+      ],
+      "exitCode": 0,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 3256,
+      "signal": null,
+      "stage": "completed",
+      "stderrBytes": 618,
+      "stderrSha256": "f566a859b2b61507590e43af7243c40be20de68476fa55bd33df57cea526dbe0",
+      "stdoutBytes": 648,
+      "stdoutSha256": "4fdd41a290ea014a6ff4ae7078fd3e0ffbbaa44a60843ff6db2078a20984f7ee",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    },
+    "reason": null,
+    "receiptSha256": "848ef28f27a36dd465af44a561debbe237c631047cd13cac361b19296c02129a",
+    "status": "passed",
+    "timing": {}
+  },
+  {
+    "admissionStages": [
+      {
+        "category": "sealed-evidence",
+        "durationMs": 225.21810000017285,
+        "stage": "classification",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 2.3845999999903142,
+        "stage": "django-identity",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 22.984299999894574,
+        "stage": "journal",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 11792.5364000001,
+        "stage": "django-migration-closure",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 3020.0090999999084,
+        "stage": "effective-chain-and-guards",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 0.05660000001080334,
+        "stage": "no-data-deployment-inputs",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 26756.216500000097,
+        "stage": "source-and-toolchain-initial",
+        "status": "passed"
+      },
+      {
+        "category": "immutable-content",
+        "durationMs": 2315.7054000000935,
+        "stage": "predecessor-source",
+        "status": "passed"
+      },
+      {
+        "category": "sealed-evidence",
+        "durationMs": 4.349900000030175,
+        "stage": "tests-evidence",
+        "status": "passed"
+      },
+      {
+        "category": "mutable-input",
+        "durationMs": 25414.554999999935,
+        "stage": "source-and-toolchain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 2974.7069000001065,
+        "stage": "effective-chain-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 0.5461999999824911,
+        "stage": "django-identity-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 19.943100000033155,
+        "stage": "journal-final",
+        "status": "passed"
+      },
+      {
+        "category": "dynamic-state",
+        "durationMs": 565.7612999998964,
+        "stage": "worker-helper-process-identity",
+        "status": "passed"
+      }
+    ],
+    "at": "2026-10-11T17:31:53.109Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 74272.32920000004,
+    "eventSha256": "fb961d0240f43d37eb6a9aed19ed2c3555f82f46a6f25703a70d1a03b7094f10",
+    "phase": "switch",
+    "previous": "8ddc0f29606ba1ea9a4cfd20b4bf93a265121efe05aa8abf5ed368ad2d608d31",
+    "reason": "operation-boundary-revalidation",
+    "status": "admission"
+  },
+  {
+    "at": "2026-10-11T17:31:53.123Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "eventSha256": "9080f5a0ab0d7cd8a4bbde6aba93d4c3f78921193180562dcb9ebd312dc5fcbd",
+    "operationId": "op-stopworker-switch",
+    "phase": "switch",
+    "previous": "fb961d0240f43d37eb6a9aed19ed2c3555f82f46a6f25703a70d1a03b7094f10",
+    "status": "started"
+  },
+  {
+    "at": "2026-10-11T17:31:58.488Z",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "durationMs": 5365.306600000011,
+    "error": {
+      "code": "UNCLASSIFIED_FAILURE",
+      "messageSha256": null,
+      "process": {
+        "cleanup": "preserve",
+        "code": "nonzero_exit",
+        "deadlineUnixMs": 1791740513125,
+        "elapsedMs": 5311,
+        "exitCode": 1,
+        "outputProtocol": "direct-exit-files",
+        "processId": 11416,
+        "stage": "output",
+        "stderrBytes": 616,
+        "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+        "stdoutBytes": 692,
+        "stdoutSha256": "1ed36c41f37b88de7ae8be1ab350ac2a3214156033325dfadd2d494abc7d83b2",
+        "version": 1
+      },
+      "retryable": false
+    },
+    "eventSha256": "290394e394a67bd4e095c052caf9302702028435af8c799678db8a4d30af62c9",
+    "observationAttempts": [],
+    "operationId": "op-stopworker-switch",
+    "outputs": null,
+    "phase": "switch",
+    "previous": "9080f5a0ab0d7cd8a4bbde6aba93d4c3f78921193180562dcb9ebd312dc5fcbd",
+    "processEvidence": {
+      "cleanup": "preserve",
+      "code": "nonzero_exit",
+      "completionCode": "engine_nonzero_exit",
+      "completionStage": "engine",
+      "deadlineUnixMs": 1791740513125,
+      "elapsedMs": 5311,
+      "engine": [
+        {
+          "cleanup": "Preserve",
+          "code": "completed",
+          "deadlineUnixMs": 1791740513125,
+          "elapsedMs": 4677,
+          "exitCode": 1,
+          "outputProtocol": "direct-exit-file-snapshot",
+          "processId": 49472,
+          "stage": "completed",
+          "stderrBytes": 55,
+          "stderrSha256": "f1b8ea75e735de67929df56035a7f7eb0857564af75d8079b9fafcd06167524d",
+          "stdoutBytes": 179,
+          "stdoutSha256": "420ed2ad4ece17016c0ced212e3313f1a8bd0981660f59b62591cb96710fd256",
+          "version": 1
+        },
+        {
+          "code": "worker_gate_failed",
+          "deadlineUnixMs": 1791740513125,
+          "exitCode": null,
+          "processId": 49472,
+          "stage": "StopForRelease"
+        }
+      ],
+      "engineFailure": null,
+      "exitCode": 1,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 11416,
+      "signal": null,
+      "stage": "output",
+      "stderrBytes": 616,
+      "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+      "stdoutBytes": 692,
+      "stdoutSha256": "1ed36c41f37b88de7ae8be1ab350ac2a3214156033325dfadd2d494abc7d83b2",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    },
+    "reason": "nonzero_exit",
+    "receiptSha256": null,
+    "status": "unknown",
+    "timing": null
+  }
+]

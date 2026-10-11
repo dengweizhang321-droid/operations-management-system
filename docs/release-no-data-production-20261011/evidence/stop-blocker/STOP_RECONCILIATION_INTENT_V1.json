@@ -1,0 +1,21 @@
+{
+  "version": "fixed-f15-stopped-postcondition-intent-v1",
+  "files": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\reconcile-stopped-worker-once.mjs",
+      "sha256": "145ed27d5e3415700701d1f2c9997b95b58f80fffeed9928c686776ff1957109"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\stop-reconciliation-state.mjs",
+      "sha256": "eca8f9cc7a37edcb84af54f7130ec1c6c9c731c0df325cf09d666d1b908ecf70"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\collect-stop-postcondition.mjs",
+      "sha256": "89b752b1be12dc418d2f593332eabdad5e3ad5393ef4b06613a5b7d5f0690f1a"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\backup-reconcile-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    }
+  ]
+}
