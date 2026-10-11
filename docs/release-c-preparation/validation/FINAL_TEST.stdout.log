@@ -1,0 +1,19 @@
+✔ slow artifact, recovery and source checks precede final observations; persistence does not renew time (4.889ms)
+✔ session full content recheck also precedes both dynamic observations (1.3126ms)
+✔ 5001ms post-query persistence rejects stale success and retains its attempts (1.9249ms)
+✔ 5000ms boundary remains accepted without resetting the actual clock (1.3152ms)
+✔ backward wall clock is rejected rather than treated as a fresh observation (1.4401ms)
+✔ non-health phase timestamps completed process identity, with no later slow recheck (1.0951ms)
+✔ readiness failure keeps native and bounded diagnostics and is not converted to stale success (1.5856ms)
+✔ changed source blocks before any dynamic probe (0.9642ms)
+✔ slow verification cannot hide djangoDrift (0.9689ms)
+✔ slow verification cannot hide journalDrift (1.8572ms)
+✔ slow verification cannot hide chainDrift (0.7697ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 161.2025

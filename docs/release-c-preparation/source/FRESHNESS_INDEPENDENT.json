@@ -1,0 +1,82 @@
+{
+  "version": "teruisi-collector-freshness-independent-review-v1",
+  "reviewer": "/root/preparation_review",
+  "independent": true,
+  "nonAuthor": true,
+  "acceptedFreshnessSourceCandidate": true,
+  "productionExecutionApproved": false,
+  "blockingFindings": [],
+  "diffBaseCommit": "ba656eabbb93d17d6e2f57d51ea3d13b27d1f50d",
+  "sourcePath": "tools/release-batch-admission.mjs",
+  "sourceSha256": "6a7f8891a04daf7a52610505e940d1dfc46d879e63b11463a14bdb81092e6b6a",
+  "authorTestPath": "tests/release-admission-observation-age.test.mjs",
+  "authorTestSha256": "c79b960eb09343c0f4df96238e7e5544a8a1c12dfbcb2c57949711a07d4a256d",
+  "scope": "Precise ordering/timestamp diff in the common collector; static review plus actual complete collector function executed inside a VM with synthetic external reads/operator seams. No production module import or source edit by reviewer.",
+  "reviewedOrder": [
+    "Original classification, Django phase identity, journal, exact plan/chain and manifest binding",
+    "Original complete artifact/head, recovery qualification and full source/toolchain or session content recheck",
+    "Final original resolveEffectiveReleaseChain with verifyInstalledHead:true; exact chainStateSha256/head binding/headManifestPath equality",
+    "Final Django deployment digest equality with the original phase-validated digest",
+    "Final journal previous and event count equality",
+    "Final Worker/helper exact process identity; timestamp captured immediately on its completion",
+    "For acceptance/closeout, original complete Status/retry/assertions; timestamp captured immediately after actual native response returns and before parse/assert/persistence",
+    "Final age must be finite, nonnegative and <=5000ms, and actual observation timestamp a safe integer; collector return cannot renew it"
+  ],
+  "preserved": [
+    "Original complete source/artifact/plan/head/Python/operator and Django preparation checks were not removed",
+    "Original recovery collector and decisions remain, including strict/full and conservative latest-attempt rejection; no scheduling action",
+    "Original process policy, Status argv, exact release, full readiness assertions, four transient classifications, retry maximum/budget and inherited process deadline are unchanged",
+    "Status parse/assert failures still attach actual process and bounded readiness evidence",
+    "Stale post-response failure retains original observationAttempts/statusObservation and admissionStages; it cannot create a positive collector result",
+    "All newly added potentially slow provenance checks occur before the final dynamic observations",
+    "Original rotation lease/WAL/caller freshness gate remain; added checks do not grant a new scope or ownership"
+  ],
+  "firstIndependentRun": {
+    "sourceSha256": "a05885b723343a749182bdef67770c02d05bacc2cca88e9d36d6a3a369752eed",
+    "checks": 4,
+    "productionCalls": 0,
+    "result": "Two adjacent identity gaps reproduced; final process mismatch and nonfinite age rejection already correct. Four reviewer assertions succeeded, not four candidate safety passes.",
+    "reproducedFindings": [
+      { "id": "FRESH-DJANGO", "locationAtFirstRun": "tools/release-batch-admission.mjs:117", "trigger": "Deployment digest changes during final slow content/session verification", "observed": "One digest read; final Status could pass and collector returned success", "classification": "Pre-existing adjacent gap exposed during this review, not removal of an original guard" },
+      { "id": "FRESH-JOURNAL", "locationAtFirstRun": "tools/release-batch-admission.mjs:118", "trigger": "Journal head changes during slow verification in direct/outside-lease collector use", "observed": "One journal read; collector returned success", "classification": "Original lease protects legitimate engine writers; direct collector also needs its own drift refusal" }
+    ],
+    "authorFix": "Original complete chain re-resolve followed by Django raw digest and journal head/count comparisons, before final Worker/helper and Status"
+  },
+  "finalIndependentRun": {
+    "sourceSha256": "6a7f8891a04daf7a52610505e940d1dfc46d879e63b11463a14bdb81092e6b6a",
+    "sourceStableBeforeAfter": true,
+    "tests": 5,
+    "pass": 5,
+    "fail": 0,
+    "elapsedMs": 10.3751,
+    "exitCode": 0,
+    "productionCalls": 0,
+    "nativeChildren": 0,
+    "fixtureMethod": "Execute actual complete collector text. Use controlled fixture infrastructure from the author test as a seed, independently inject external digest/head/manifest-path mutations at final slow read completion, and add process-failure/nonfinite-time seams; no author test suite rerun.",
+    "results": [
+      { "case": "Django changes during final slow session content read", "rejected": true, "digestReads": 2, "beforeProcessAndStatus": true },
+      { "case": "Journal head changes during slow final identity read", "rejected": true, "journalReads": 2, "beforeStatus": true },
+      { "case": "Head manifest path changes while chain-state and binding strings remain equal", "rejected": true, "chainReads": 2, "beforeStatus": true },
+      { "case": "Final process identity invalid after slow checks", "rejected": true, "statusNotQueried": true },
+      { "case": "Nonfinite age after successful status persistence", "rejected": true, "attemptStatusAndStagesRetained": true }
+    ]
+  },
+  "authorReportedRun": {
+    "tests": 11,
+    "pass": 11,
+    "fail": 0,
+    "elapsedMsApproximate": 334,
+    "source": "Root handoff; final raw capture and lint administered separately by root",
+    "independentlyRerun": false,
+    "notAddedToIndependentCount": true
+  },
+  "limitations": [
+    "Source review and synthetic seam verification only; no native/network/SQL/production observation, candidate build or deployment",
+    "Common source currently derives from main v3; this approval concerns only the precise order/time/provenance patch. It does not approve v3/NoData or its adoption in C-only scope.",
+    "Unified preparation party must transplant the same guarded order into its SourceBindingCollector and independently bind/test the actual final code and closure",
+    "Timestamp proves native response/process verification completion; it is not the initial health probe instant or a guarantee of unchanged state forever afterward. Original final operation and its dynamic gates remain required.",
+    "Wall-clock seam defaults to Date.now; observed backwards/nonfinite post-sample age rejects, retry monotonic/shared absolute deadline behavior is unchanged",
+    "Complete final installed-head verification adds necessary cost; no cache time saving is claimed for that cost",
+    "This patch does not establish root cause or remediation of actual Worker exit/Unresponsive history"
+  ]
+}

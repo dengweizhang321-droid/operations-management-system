@@ -1,0 +1,123 @@
+{
+  "version": "teruisi-c-preparation-source-review-v1",
+  "reviewer": "/root/preparation_review",
+  "independent": true,
+  "nonAuthor": true,
+  "acceptedPreparationReview": true,
+  "acceptedProductionCandidate": false,
+  "productionExecutionApproved": false,
+  "scope": "Read-only Git/source/evidence review and validation design; no implementation edits, tests, build, installation, production preparation, lifecycle, database request or scheduler action",
+  "developmentBase": "ba656eabbb93d17d6e2f57d51ea3d13b27d1f50d",
+  "worktree": "D:/.codex/worktrees/release-c-stability-preparation/运营管理系统",
+  "sources": {
+    "cExactImplementation": "2b10f6021a0b5bda1f52424604bf697b17218e3c",
+    "oldLimitedAbc": "9d41ce4fa2c7ee4d47ba1bfda0f0967d7727be9c",
+    "actualAdoptedAbApplication": "5faac8151f59d66de72c3caead8cad916ea547da",
+    "workerReleaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "workerManifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "djangoManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+    "finalAbReceipt": "E:/codex-artifacts/release-integration-review-20261010/AB-health-probe-20261011-verified-final/FINAL_AB_DELIVERY.json",
+    "finalAbReceiptSha256ActuallyRead": "790313b4ab938a87bf5a32e09e2e2b2962ae834293c9e57c0c44b1a54a2f2792",
+    "finalAbReceiptFullDeliveryClosedAt": "2026-10-11T01:37:36.818Z",
+    "finalAbJournalRecords": 109,
+    "finalAbJournalHead": "5289afacafc13d0fe36e10c0b3df7ae7811e59616827f24565761b0079abd11f",
+    "historicalStrictComparisonPassed": false,
+    "historicalThreeUnknownsPreserved": true,
+    "cProductionAdopted": false,
+    "noDataProductionAdopted": false,
+    "livePredecessorResampledByReviewer": false
+  },
+  "cOnlyRuntimeDelta": [
+    { "path": "tools/release-admission-timing.mjs", "change": "added", "cGitRawSha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66", "limitedAbcGitRawSha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66" },
+    { "path": "tools/release-preparation-evidence.mjs", "change": "added", "cGitRawSha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5", "limitedAbcGitRawSha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5" },
+    { "path": "tools/release-batch.mjs", "change": "modified", "cGitRawSha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14", "limitedAbcGitRawSha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14" },
+    { "path": "tools/release-batch-admission.mjs", "change": "modified plus mandatory retained AB daily-reader seam", "cGitRawSha256": "64dc16dea8eb2720bdd8964c9fe13d5b03f8ebe38778f189f3fefa89a6050ce9", "limitedAbcGitRawSha256": "c154c9bee0f9b5cc45e4af6a56377045799959a55e8aff752cff86edf73a1c8f" },
+    { "path": "tools/release-impact.mjs", "change": "modified", "cGitRawSha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe", "limitedAbcGitRawSha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe" },
+    { "path": "tools/worker-local-release.mjs", "change": "only add two new modules to bundled and key-file path arrays", "cGitRawSha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d", "limitedAbcGitRawSha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d" }
+  ],
+  "requiredPreservedAbBehavior": [
+    "tools/release-daily-backup.mjs remains the adopted AB repaired attempt-v2 transport, shared absolute deadline, append-only failed/unknown records and conservative readScheduledBackupStatus",
+    "tools/release-batch-admission.mjs retains the 9d41 dailyStatus delegation to readScheduledBackupStatus; do not restore C original latest-wrapper-only reader",
+    "tools/release-impact.mjs includes public .env.example/.env.sample; only .git probe ENOENT may select filesystem walking, never ENOENT after Git file selection",
+    "C 2b10 impact already contains both inventory guards; verify them in the final assembled file rather than apply a duplicate patch",
+    "Actual A/B deadline, direct-exit-files/PS5 environment, lifecycle ownership, retry restrictions and complete assertions remain unchanged"
+  ],
+  "closureToBindBeyondSixDeltaFiles": [
+    "tools/release-daily-backup.mjs",
+    "tools/release-readonly-retry.mjs",
+    "tools/release-process-deadline.ps1",
+    "tools/release-lifecycle-step.ps1",
+    "tools/operations-system-control.ps1",
+    "tools/worker-local-release-rotation.mjs",
+    "tools/worker-local-service.ps1",
+    "tools/d1-retirement-proof.mjs",
+    "tools/collect-d1-retirement-proof.mjs",
+    "node_modules/typescript/package.json",
+    "node_modules/typescript/lib/typescript.js",
+    "Exact Node/npm/toolchain, installed operator/helper/control/watchdog, Python/validator and actual service closure required by the final original spec"
+  ],
+  "sourceOnlyDiagnosticRepairs": {
+    "readinessFailureEvidenceCommit": "257445088d6477613802c6c2be68aabc4f4cc5a5",
+    "readinessFailureEvidencePaths": ["tools/release-batch.mjs", "tools/release-batch-admission.mjs", "tools/release-readonly-retry.mjs"],
+    "healthProbeCommit": "fc84d723a8aca3b822f45ad3a7229cce8c58e112",
+    "healthProbePaths": ["tools/operations-system-control.ps1", "tools/release-readonly-retry.mjs"],
+    "healthControlSha256": "37d329c1a9e5a06f5d04ffd2d73be415d327f1e9c5d66957197a189bd9c09529",
+    "healthRetrySha256": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6",
+    "recommendation": "Explicitly preserve bounded capture and tested 5s readiness budget in the new limited composition; transplant precise patches onto v2/actual AB, not whole later main files. Root must select exact scope and obtain production approval separately.",
+    "formalInstalledControlAutomaticallyUpgraded": false,
+    "old12cExternalReadonlyProtocolReusableAsNewApproval": false,
+    "rootCauseOfUnexpectedWorkerExitProven": false,
+    "nonzeroTransportLimitation": "The original native transport keeps process/stdout SHA on nonzero exit; std control JSON trace alone does not prove end-to-end failure-body capture. Explicit producer/capture closure is required if claimed."
+  },
+  "preparationFindings": [
+    { "id": "C-SCOPE-01", "kind": "composition block", "location": "Git diff 5faac815..2b10f602 versus 5faac815..9d41ce4f", "trigger": "Use whole C delivery or current main as production source", "required": "Use actual AB base plus limited C six-file delta and declared repair patches; exclude unrelated customer-service/performance, NoData/v3, other business and old integration-test deletions" },
+    { "id": "C-DAILY-02", "kind": "mandatory preserved seam", "location": "2b10 tools/release-batch-admission.mjs:46-61; 9d41 same file:44-46; 5fa tools/release-daily-backup.mjs:103-125", "trigger": "Replace adopted daily reader with C original latest-wrapper reader", "required": "Keep readScheduledBackupStatus conservative unknown and all repaired daily failure/ownership/deadline evidence; no schedule modification" },
+    { "id": "C-FRESH-03", "kind": "new composition validation prerequisite", "location": "2b10 tools/release-batch-admission.mjs:160-179; tools/release-preparation-evidence.mjs:123-128", "trigger": "Treat collector return observedAtMs as timestamp of health sampled before recovery/session complete-content reread", "required": "Record and assert actual dynamic-sample age at operation boundary, perform expensive complete checks before final dynamic sampling or safely recheck dynamics afterward; add slow-IO/late sample negative. Static order is confirmed, actual expiry was not measured in this review." },
+    { "id": "C-ADOPT-04", "kind": "production preparation prerequisite", "location": "Final AB receipt and current actual predecessor", "trigger": "Reuse old D5-bound ABC plan, old backup/rehearsal or an old approval", "required": "Rebind current Worker f4e/Django237 and actual AB closure, full current source and precise artifact/spec; first C mechanism adoption strict/full; unknown/unavailable daily qualification refuses reuse" }
+  ],
+  "otherActiveWorkOverlap": {
+    "threadTitle": "拆分发布验证与备份门禁",
+    "threadId": "01a12589-35fb-7dc2-81c8-423849c6846f",
+    "observedStatus": "active",
+    "sourceCommit": "74ea55ef859d2115af5db80ac28d9b4cf5b1d76c",
+    "deliveryCommit": "4b11776e4ccac31b3c89e92f142772b79bb3b9ba",
+    "reportedProductionAdopted": false,
+    "sharedModifiedPaths": ["tools/release-batch.mjs", "tools/release-batch-admission.mjs", "tools/release-impact.mjs", "tools/worker-local-release.mjs"],
+    "sharedUnchangedDependencies": ["tools/release-admission-timing.mjs", "tools/release-preparation-evidence.mjs"],
+    "excludedNewPolicyPaths": ["tools/release-no-data-observation.mjs", "v3 changes in tools/release-lifecycle-step.ps1", "RequireReady changes in tools/worker-local-service.ps1"],
+    "decision": "Keep C-only source review separate from v3/not-required. Root relays that the user selected preparation/review only and unified later publishing; the other task is completing exact source binding and old Django validator compatibility. Do not duplicate that implementation or seal a separate production batch. Root only plans an isolated shared-collector slow-check/dynamic-sample order repair; final production candidate belongs to the unified preparation party.",
+    "latestCoordinationSource": "Root handoff during this review; the other active turn resumed at 03:06Z, so the earlier 00:59 worker exit must not be attributed to that turn",
+    "olderStateIsHistorical": "Its historical active/head87 state is superseded by AB109; any unified candidate must bind the new actual predecessor.",
+    "messageSentToOtherThread": false
+  },
+  "historicalEvidenceReusableWithScopeLimits": {
+    "cAuthorFinal": { "log": "docs/release-fastpath-evidence/final-abc.log", "pass": 206, "fail": 0, "durationMs": 49162.067 },
+    "cIndependentFinal": { "log": "docs/release-fastpath-evidence/INDEPENDENT_TESTS.log", "pass": 166, "fail": 0, "durationMs": 70075.6523 },
+    "cIndependentExtraProbes": { "log": "docs/release-fastpath-evidence/INDEPENDENT_PROBES.log", "declaredPass": 12 },
+    "cEarlierFullSuite": "3517 run preceded final A/B merges; not final composed full-suite evidence",
+    "abInventoryRegression": { "record": "docs/release-integration-review/evidence/ab-inventory-regression-final.json", "sourceCommit": "5faac8151f59d66de72c3caead8cad916ea547da", "exitCode": 0, "elapsedMs": 8860.3012, "reportedPass": 61 },
+    "diagnosticIndependentSynthetic": "257 review reports 21/21; source-seam coverage, no production request",
+    "healthBudget": "fc84 author 23/23 exact final bytes; independent 10/10 earlier bytes plus one final JSON-field static increment, not 10 final-byte native tests",
+    "limitedPerformance": "21.6-24.2 seconds is old C+B identity subphase before final A, not production release or final C-versus-AB paired performance",
+    "countsAddedTogether": false,
+    "testsExecutedInThisReview": 0
+  },
+  "newLimitedValidationRequired": [
+    "Exact six C deltas plus selected repair patches: Git/raw byte scope, helpers/TypeScript and all actual transitive pins, no business/v3/main additions",
+    "Real isolated child PS5/Node with explicit direct cleanup of own PID: shared absolute deadline, shell output/process retention, nonzero/parse/NotReady evidence and no second lifecycle invocation",
+    "Original four transient codes/attempts/deadline and nonretryable NotReady/identity/full 12-component negatives; health five-second ready budget and producer/process binding if selected",
+    "Impact classification against complete actual AB predecessor, mixed app/API/write/config/permission/dependency/rename/delete changes stay strict",
+    "Recovery rejects missing point, expired26h/7d, paused/unknown/native-attempt gap/latest failure/rotated point; preserved AB daily reader never promotes old success",
+    "In-process collector/session every-byte TOCTOU, same-mtime changes, config ancestor watcher, Git-index inventory, 10min/24-use expiry, concurrency/disposal, pre-WAL/pre-run recheck",
+    "Dynamic permissions, exact identities, maintenance/drain, source and restoration checks remain real every boundary; slow full IO cannot falsely refresh an old status sample",
+    "Unknown/failed histories, concurrent business transformations and audit evidence remain append-only; no original operation rewritten as normally passed",
+    "Strict/full first adoption, explicit restore rehearsal contract, exact rollback candidate and separate production-data restore approval; no scheduler enable",
+    "Heavy candidate build/full tests/database rehearsal serially; same source/artifact/data scale/acceptance range before-after measurement, parent-child time not double counted"
+  ],
+  "unverified": [
+    "No newly assembled final source SHA, candidate artifact, plan/batch or production adoption exists in this reviewer scope; current deliverable is a shared independent preparation/review package, not a standalone production batch",
+    "Current runtime source/manifest/process permissions and daily schedule/latest native result were not newly sampled by this reviewer; root must bind fresh metadata",
+    "No new tests/build/restoration; historical results do not validate a new composition",
+    "No minute-level production benefit or worker-exit root cause established"
+  ]
+}

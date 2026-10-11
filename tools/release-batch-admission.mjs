@@ -107,7 +107,7 @@ async function verifyNoDataDeploymentReceipts(batch,chain,plan) {
     if(sidecar!==hash(raw)||raw.toString('utf8')!==batch.deploymentProof[side+'Raw'])throw new Error('No-data actual preparation receipt changed or was fabricated');
   }
 }
-export async function collectBatchAdmission(batch,testsPath,phase='admission',{session,step,onStatusAttempt=async()=>{}}={}) {
+export async function collectBatchAdmission(batch,testsPath,phase='admission',{session,step,onStatusAttempt=async()=>{},now=Date.now}={}) {
   const timer=admissionTimer();
   const measure=(stage,category,action)=>timer.measure(stage,category,action);
   try {
@@ -154,7 +154,6 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission',{s
   const binding={...batch.binding,sourceSha256:identity.sourceTree.sha256,sourceInventorySha256:identity.sourceInventorySha256,
     predecessorSourceSha256:sourceTreeDigest(before),predecessorInventorySha256:hash(sourceInventory(before)),dependencySha256:manifest.source.packageLockSha256,
     toolchainSha256:hash({node:identity.nodeExecutableSha256,toolchain:identity.toolchain}),configurationSha256:hash({environment:identity.environmentSha256,runtime:identity.runtimeConfigurationSha256,npm:identity.externalNpmConfiguration}),testsSha256:hash(tests)};
-  await measure('worker-helper-process-identity','dynamic-state',()=>verifyWorkerReleaseProcessState({processPolicy:'stopped-or-exact-release',runtimeRoot:workerRuntimeRoot,manifestPath:chain.headManifestPath,releaseRoot:path.dirname(chain.headManifestPath)}));
   // Retain original admission/drain/closeout validation, plus actual apply.
   // No artifact check is removed or credited as a new cache saving. Original
   // apply/Start also enforce their own full payload/ACL/guard/receipt gates.
@@ -166,15 +165,39 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission',{s
       '--require-sales-retired-code-receipt','--process-policy','stopped-or-exact-release','--json'],{label:'exact immutable production head'});
     return {status:'exact-predecessor-or-approved-successor'};
   }));
+  const recovery=batch.recovery.mode==='reuse'?await measure('recovery-eligibility','dynamic-state',()=>collectBatchRecovery(batch)):await collectBatchRecovery(batch);
+  if(session)await session.recheck({measure});
+  else if(canonical(identity)!==canonical(await measure('source-and-toolchain-final','mutable-input',()=>workerPreparationIdentity(workerSourceRoot))))throw new Error('Source/configuration/toolchain changed during live admission');
+  await measure('effective-chain-final','dynamic-state',async()=>{
+    const current=await resolveEffectiveReleaseChain({verifyInstalledHead:true});
+    if(current.chainStateSha256!==chain.chainStateSha256||current.head.bindingSha256!==chain.head.bindingSha256||current.headManifestPath!==chain.headManifestPath)throw new Error('Effective release chain changed during live admission');
+  });
+  await measure('django-identity-final','dynamic-state',async()=>{
+    if(await safeFileDigest(path.join(djangoRoot,'app','deployment.json'))!==djangoCurrent)throw new Error('Django deployment changed during live admission');
+  });
+  await measure('journal-final','dynamic-state',async()=>{
+    const current=await journalState(path.join(workerRuntimeRoot,'state','release-batches'),batch);
+    if(current.previous!==state.previous||current.events?.length!==state.events?.length)throw new Error('Batch journal changed during live admission');
+  });
+  // Finish content/recovery work before the last dynamic observations. Their
+  // actual completion time must survive parsing and attempt persistence.
+  let dynamicObservedAtMs;
+  await measure('worker-helper-process-identity','dynamic-state',async()=>{
+    const result=await verifyWorkerReleaseProcessState({processPolicy:'stopped-or-exact-release',runtimeRoot:workerRuntimeRoot,manifestPath:chain.headManifestPath,releaseRoot:path.dirname(chain.headManifestPath)});
+    dynamicObservedAtMs=now();
+    return result;
+  });
   let statusObservation=null;
   if(['acceptance','closeout'].includes(phase)) {
     statusObservation=await measure('complete-status','dynamic-state',()=>retryReadOnlyObservation({stage:`${phase}-admission-status`,onAttempt:onStatusAttempt,
       query:async({remaining})=>{
         const result=await runReadOnlyPowerShell('D:\\运营管理系统\\tools\\operations-system-control.ps1',['-Action','Status','-Json'],'original complete system readiness',{timeoutMs:Math.min(remaining(),60_000)});
+        const responseObservedAtMs=now();
         let status;
         try {
           status=parseStatus(result.stdout);
           assertCompleteReadiness(status,plan.candidate.releaseId);
+          dynamicObservedAtMs=responseObservedAtMs;
           return {releaseId:plan.candidate.releaseId,ready:true};
         } catch(error) {
           error.processEvidence ??= result.processEvidence;
@@ -183,10 +206,9 @@ export async function collectBatchAdmission(batch,testsPath,phase='admission',{s
         }
       }}));
   }
-  const recovery=batch.recovery.mode==='reuse'?await measure('recovery-eligibility','dynamic-state',()=>collectBatchRecovery(batch)):await collectBatchRecovery(batch);
-  if(session)await session.recheck({measure});
-  else if(canonical(identity)!==canonical(await measure('source-and-toolchain-final','mutable-input',()=>workerPreparationIdentity(workerSourceRoot))))throw new Error('Source/configuration/toolchain changed during live admission');
-  return {batchSha256:batch.batchSha256,observedAtMs:Date.now(),binding,recovery,admissionStages:timer.result(),statusObservation};
+  const ageMs=now()-dynamicObservedAtMs;
+  if(!Number.isSafeInteger(dynamicObservedAtMs)||!Number.isFinite(ageMs)||ageMs<0||ageMs>5000)throw Object.assign(new Error('Dynamic admission observation expired before collection completed'),{code:'STALE_ADMISSION_SNAPSHOT',observationAttempts:statusObservation?.attempts??[],statusObservation,observedAtMs:dynamicObservedAtMs,observationAgeMs:ageMs});
+  return {batchSha256:batch.batchSha256,observedAtMs:dynamicObservedAtMs,binding,recovery,admissionStages:timer.result(),statusObservation};
   } catch(error) { error.admissionStages=timer.result();throw error; }
 }
 async function main(){
