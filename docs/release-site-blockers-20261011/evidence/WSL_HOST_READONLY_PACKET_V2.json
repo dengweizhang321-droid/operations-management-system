@@ -1,0 +1,21 @@
+{
+  "version": "teruisi-wsl-host-readonly-packet-v1",
+  "preparedAt": "2026-10-11T13:45:37.368Z",
+  "windowsSid": "S-1-5-21-815909789-107973518-1379257801-1001",
+  "productionApproved": false,
+  "requiresExistingAdministrator": true,
+  "originalPacketSha256": "bb861c8fecab8e5652029c6c509daba48b767344a0c494ea39bd281a83c4b0e0",
+  "baselineSha256": "0c0c0b4074403c8b7d1a53e9d4c4ffdbdb97802bed6827bcd13e70fb264cf4d6",
+  "script": {
+    "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Probe-WslHostAssociation.ps1",
+    "sha256": "4bce23bf0e09f05b26b3d24936111f8e0f8d68ff2ce985e6030e075b0dcfa0c1"
+  },
+  "outputPath": "E:/codex-artifacts/release-site-blockers-20261011/WSL_HOST_ASSOCIATION_ADMIN_V1.json",
+  "scope": [
+    "Existing HCS enumeration twice (query operation handles only, no VM handles or VM action)",
+    "Only fixed vmmem53880 and parentvmwp7788 process metadata, 0x1000; bound birth, actual image, command GUID shape in memory",
+    "Only exact System32 vmwp.exe pinned hash and Authenticode signature; platform trust/revocation may follow system settings",
+    "Create-only redacted E audit result, no raw command persistence",
+    "No Debug, remote memory, injection, process/service/WSL lifecycle, maintenance, batch execution, backup/restore, scheduler or business operation"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "version": "primary-preparation-failures-v1",
+  "productionActions": 0,
+  "failures": [
+    {
+      "stage": "final-regression-wrapper",
+      "message": "Number.isSafeInteger(count) assertion: default spec reporter not TAP; underlying log 128 pass 0 fail retained",
+      "correction": "Explicit TAP, final independently rerun 128/128"
+    },
+    {
+      "stage": "spec-generator-before-execution",
+      "message": "SyntaxError: Unexpected reserved word at await bytes(testsPath) in nonasync map",
+      "correction": "Await test digest before synchronous map; no spec produced by first attempt"
+    },
+    {
+      "stage": "fresh-wrapper-before-entry-launch",
+      "message": "deepStrictEqual argv path separator mismatch E:/ vs E:\\",
+      "correction": "Use declared sealed argv; separately assert path.resolve equality; sealed bytes unchanged"
+    }
+  ]
+}

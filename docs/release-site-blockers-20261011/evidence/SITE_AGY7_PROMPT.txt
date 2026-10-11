@@ -1,0 +1,128 @@
+独立最终边界复审（fresh conversation），不运行工具、不修改文件或生产，直接中文给具体意见最多700字。
+TERUISI首次采用19op候选仍生产未批准，一次前Backup/一次新consumer同点isolatedRestore，无后DB。旧f0/6989/pkg不变。管理员只读已原始采五native/唯一HCS→parent vmwp GUID→Linux guest，allbirth exact/原OS文件hash+MS签名; wrapper捕获/pin实际PS源码执行，拒旧JSON，不人填bool。
+新完整admin wrapper首跑7c6必须保留失败：16.202sec，core pins/nativeCIM/前HCS成功，但btime1791621407 vs冻结1791621408差1秒，boot_id/PID1start122/osrelease完全相同。Linux fs/proc/stat.c调用getboottime64, kernel/time/timekeeping.c明确这是walltime of boot/settimeofday会影响；不是稳定实例ID。现改身份严格boot_id+PID1start+osrelease，btime只有效正整数diagnostic before/after/changed，不用加大Windows100ns FILETIME/CIM/NT返回长度容差，也不猜这次具体时钟调整原因。
+另原采集changedDuringCapture4，对应4未知PID随后CIM不存在。不能说唯一btime或忽略unknown。拟新producer只对不稳行0x1000 kernel补证：OpenProcess失败87可证明这次PID不存在；error5/其他error仍unknown。成功handle必须GetProcessTimes出生与原CIM微秒绑定，GetExitCodeProcess查询成功且!=259才标departed；259(仍active)、失败、新birth/PID复用仍unknown并不豁免任何现存行/目录引用/原领域owner。没有杀任何生产进程，受控真实短命test只管自己的child。新actor未采/字段不可读照常失败关闭。不得以进程名/PID白名单或TTL填值。
+请特别检查：GetExitCodeProcess 259真实退出码歧义必须保守unknown；PID87→新Actor竞态不能吹连续全OS排他，仍批准范围内维护与原现场recheck；native tuple+role/provenance不得被自由JSON替代。已审known mount namespaces允许非空子集仅因原维护StopPandas会停owned service/container，集合必须完整覆盖本次全部pid/namespaces，rawmountbytes不变，无Windows盘；未知和无证nsfd拒。现场模型意见不当生产验收/恢复结果。
+是否有必须纠正的具体安全问题？任何跳过活进程或按名字放行的建议不可采。
+
+FILE live-wsl-policy.mjs
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+const hash=v=>createHash('sha256').update(v).digest('hex');
+const epoch=Object.freeze({bootId:'4a67b065-2648-48ef-8821-72f272ceb41d',pid1Start:'122',osrelease:'6.18.33.2-microsoft-standard-WSL2'});
+const mounts=Object.freeze({
+ 'mnt:[4026532219]':'e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188',
+ 'mnt:[4026532222]':'41902b8e2cf713bc967b3f644cc8f9a8b09a47f32a438eb57a29acc771879ee2',
+ 'mnt:[4026532224]':'c96dff9c35deba377ff3bf61838235f0239f4c3f7036482ef5d8ea1d8c38c97c',
+ 'mnt:[4026532225]':'60f46d9a2900b58e4fc84e0ca114b6d2edc09fad085d4c4fa1b63ea47f2783f1',
+ 'mnt:[4026532288]':'1b2ac6d15ff3f578a426c01c1cdd501a9256297090af8410c4d38b922bbb3df9',
+ 'mnt:[4026532230]':'79c1d0e33fffdbbd56182db9f6e1f031cbe97f882f322b73123b37dfef714057',
+ 'mnt:[4026532296]':'00a5c46107c834ab9c9cc90704a4a25e13593e6cb8a5d158e66d3955b4210cc5',
+ 'mnt:[4026532297]':'aaffa6b12395e736e7df967534404abad683bcde4cee816c44a0427c3b8b389e'
+});
+function ids(v){assert.ok(Array.isArray(v)&&v.length<=512);assert.ok(v.every(p=>Number.isSafeInteger(p)&&p>0));assert.equal(new Set(v).size,v.length);return [...v].sort((a,b)=>a-b);}
+function string(v){assert.equal(typeof v,'string');assert.ok(v.length<=1048576);assert.ok(!v.includes('\0'));return v;}
+function epochIdentity(sample){
+ assert.ok(sample&&typeof sample==='object'&&!Array.isArray(sample));
+ assert.deepEqual(Object.keys(sample).sort(),['bootId','btime','osrelease','pid1Start']);
+ // /proc/stat btime is wall-clock-derived Unix seconds, not a boot identity.
+ // Keep both observations as diagnostics; never use a time tolerance to accept
+ // changed boot_id/PID1/native Windows births.
+ assert.equal(typeof sample.btime,'string');assert.match(sample.btime,/^[1-9][0-9]{0,18}$/,'Invalid btime diagnostic');
+ return {bootId:sample.bootId,pid1Start:sample.pid1Start,osrelease:sample.osrelease};
+}
+export function validateLiveGuestShape(capture){
+ assert.equal(capture?.version,'teruisi-live-wsl-metadata-v1');assert.deepEqual(capture.errors,[]);
+ assert.deepEqual(epochIdentity(capture.before),epoch,'Unsupported guest epoch');assert.deepEqual(epochIdentity(capture.after),epoch,'Guest epoch changed');
+ const btimeDiagnostic={before:capture.before.btime,after:capture.after.btime,changed:capture.before.btime!==capture.after.btime};
+ assert.ok(Number.isSafeInteger(capture.selfPid)&&capture.selfPid>0);assert.ok(!capture.pidInventoryBefore.includes(capture.selfPid));
+ assert.deepEqual(ids(capture.pidInventoryBefore),ids(capture.pidInventoryAfter),'Process membership changed');
+ assert.ok(Array.isArray(capture.processes));assert.deepEqual(ids(capture.processes.map(p=>p.pid)),ids(capture.pidInventoryBefore),'Missing process evidence');
+ assert.ok(Array.isArray(capture.namespaces));assert.equal(new Set(capture.namespaces.map(n=>n.identity)).size,capture.namespaces.length);
+ const presentNamespaces=capture.namespaces.map(n=>n.identity).sort();
+ assert.ok(presentNamespaces.length>0&&presentNamespaces.length<=Object.keys(mounts).length,'Empty or oversized namespace set');
+ assert.ok(presentNamespaces.every(n=>Object.hasOwn(mounts,n)),'Unknown mount namespace');
+ assert.deepEqual(presentNamespaces,[...new Set(capture.processes.map(p=>p.namespaceBefore))].sort(),'Namespace evidence must exactly cover all captured processes');
+ for(const ns of capture.namespaces)assert.equal(hash(string(ns.mountinfo)),mounts[ns.identity],'Mount contents changed or unsupported');
+ const paths=[];
+ for(const p of capture.processes){
+  assert.match(p.startBefore,/^\d+$/);assert.equal(p.startBefore,p.startAfter);assert.equal(p.namespaceBefore,p.namespaceAfter);assert.ok(Object.hasOwn(mounts,p.namespaceBefore));
+  assert.ok(Number.isSafeInteger(p.flagsBefore)&&p.flagsBefore>=0&&p.flagsBefore<=0xffffffff);assert.equal(p.flagsBefore,p.flagsAfter,'Process flags changed');
+  const kernelThread=!!(p.flagsBefore&0x00200000);
+  assert.equal(p.mountSha256Before,mounts[p.namespaceBefore]);assert.equal(p.mountSha256After,p.mountSha256Before);
+  assert.deepEqual(p.linksBefore,p.linksAfter);assert.deepEqual(Object.keys(p.linksBefore).sort(),['cwd','exe','root']);
+  assert.deepEqual(p.argvBefore,p.argvAfter);assert.ok(Array.isArray(p.argvBefore)&&p.argvBefore.length<=4096);
+  if(kernelThread){assert.ok(p.argvBefore.every(v=>v===''),'Unexpected kernel command metadata');assert.equal(p.linksBefore.exe,null);}
+  else{assert.ok(p.argvBefore.length>0&&p.argvBefore.some(v=>typeof v==='string'&&v.trim().length>0),'Nonkernel argv is missing');assert.ok(typeof p.linksBefore.exe==='string'&&p.linksBefore.exe.startsWith('/')&&p.linksBefore.exe.length>1,'Nonkernel executable is missing');}
+  assert.deepEqual(p.fdsBefore,p.fdsAfter);assert.ok(p.fdsBefore&&typeof p.fdsBefore==='object'&&!Array.isArray(p.fdsBefore));assert.ok(Object.keys(p.fdsBefore).length<=4096);
+  for(const [kind,value] of Object.entries(p.linksBefore)){if(kernelThread&&value===null)continue;paths.push({pid:p.pid,kind,value:string(value)});}
+  for(const [fd,value] of Object.entries(p.fdsBefore)){assert.match(fd,/^\d+$/);string(value);if(/^mnt:\[\d+\]$/.test(value))assert.ok(presentNamespaces.includes(value),'Mount namespace fd lacks current process namespace evidence');paths.push({pid:p.pid,kind:'fd',value});}
+  for(const value of p.argvBefore)paths.push({pid:p.pid,kind:'argv',value:string(value)});
+ }
+ // This release supports only a nonempty subset of the exact inspected
+ // namespaces with no Windows drive mounts. Owned StopPandas may remove a
+ // namespace before capture; every remaining process must still be covered.
+ // It does not attempt general mount/bind/namespace translation.
+ // Windows-style metadata must still pass the original physical reference
+ // predicate; this function never labels a complete guest or VM "safe".
+ return {kind:'guest-shape-verified-requires-reference-check-and-hcs-association',epoch:{...epoch},btimeDiagnostic,paths,processCount:capture.processes.length};
+}
+
+// inspectReferences must be the original pinned guard predicate, supplied only
+// by the trusted wrapper (not by batch data or a caller-selected command).
+export async function checkGuestMetadataReferences(guest,inspectReferences){
+ assert.equal(guest.kind,'guest-shape-verified-requires-reference-check-and-hcs-association');
+ assert.equal(typeof inspectReferences,'function');const references=[];
+ for(const entry of guest.paths){
+  const value=string(entry.value);
+  if(/(?:[A-Za-z]:[\\/]|\/mnt\/[a-z](?:\/|$)|\\\\)/i.test(value))assert.ok(!/[\r\n]/.test(value),'Ambiguous Windows-related metadata');
+  // Windows absolute arguments, including a full single argument with spaces,
+  // use both the original full-path and bounded command-token interpretation.
+  if(await inspectReferences(value)||await inspectReferences(value,{commandLine:true})){references.push({pid:entry.pid,kind:entry.kind,sha256:hash(value)});continue;}
+  assert.ok(!value.includes('\\\\'),'Unsupported UNC or device-path metadata');
+  if(/\/mnt\/[a-z](?:\/|$)/i.test(value)){
+   // This is conservative handling of conventional drive-path text. No drive
+   // mount exists in the pinned namespaces; arbitrary namespace remapping is
+   // intentionally unsupported instead of guessed.
+   const match=/^(?:--[A-Za-z0-9_-]+=)?\/mnt\/([A-Za-z])(?:\/(.*))?$/.exec(value);
+   assert.ok(match,'Unsupported embedded host-drive argument');
+   const candidate=match[1].toUpperCase()+':\\'+(match[2]??'').replaceAll('/','\\');
+   if(await inspectReferences(candidate))references.push({pid:entry.pid,kind:entry.kind,sha256:hash(value)});
+  }
+ }
+ return {kind:'guest-references-checked-requires-hcs-association',references,epoch:guest.epoch,btimeDiagnostic:guest.btimeDiagnostic,processCount:guest.processCount};
+}
+
+FILE live-wsl-host-policy.mjs
+import assert from 'node:assert/strict';
+const GUID='3aaab424-3094-4bb0-a07a-652f47171ad7';
+const expectedSystem=Object.freeze({id:GUID.toUpperCase(),runtimeId:GUID,owner:'WSL',state:'Running',systemType:'VirtualMachine',runtimeOsType:null});
+const expectedEpoch=Object.freeze({bootId:'4a67b065-2648-48ef-8821-72f272ceb41d',pid1Start:'122',osrelease:'6.18.33.2-microsoft-standard-WSL2'});
+const commandShape=Object.freeze([
+ {kind:'absolute-drive-path',sha256:'12a1cbda27acdc5c1d6950e8dfd62f904c7f0567085ea28f78a14cfad77f4414'},
+ {kind:'guid',sha256:'3a1a7e7084e0217a11bda844855c183f8830920a56f9547bfe4f95f7555b8250'},
+ {kind:'opaque',sha256:'333516b481e0554d0c7cc6f85bf22c2a1fedbc578718df354546e335913f1f1f'}
+]);
+export const hostAssociationEvidenceSha256='f11f84beed8e8f6645c19929f74fdd7ee88a2827dea93e72b2d2286e836eb1c4';
+export function validateLiveWslHostFrame(frame,guestEpoch){
+ assert.equal(frame?.version,'teruisi-live-wsl-host-association-v1','Old diagnostic is not a live receipt');
+ assert.equal(frame.rawCommandPersisted,false);assert.equal(frame.debugPrivilegesEnabled,false);assert.equal(frame.remoteMemoryReads,0);assert.equal(frame.productionActionsRequested,0);
+ const r=frame.record;assert.equal(r?.status,'association-metadata-collected-not-admission');assert.equal(r.failure,null);
+ assert.equal(r.vmmemProcessId,53880);assert.equal(r.vmmemCreationFileTime,'134360870965622198');
+ assert.equal(r.parentProcessId,7788);assert.equal(r.parentCreationFileTime,'134360870964681909');assert.equal(r.parentCimCreationUtc,'2026-10-10T06:24:56.4681900Z');
+ assert.equal(r.accessMask,'0x1000');assert.equal(r.vmmemOpenError,null);assert.equal(r.parentOpenError,null);assert.equal(r.identityStable,true);
+ assert.equal(r.imagePath,'C:\\Windows\\System32\\vmwp.exe');assert.equal(r.imageSha256,'62814079cc5a896142fc28d1084b7c22e97b4e35d3816b4e45f51c5bb0a88b7c');
+ assert.equal(r.signatureStatus,'Valid');assert.equal(r.signerSubject,'CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US');
+ assert.equal(r.commandStatusFirst,0);assert.equal(r.commandStatusSecond,0);assert.equal(r.commandSha256,'37bc785ae86d5554ea64eeaa5afff05538d6ec48d3008d70c3aea62242b8d396');
+ assert.deepEqual(r.commandArgumentShape,commandShape);assert.deepEqual(r.runtimeGuidCandidates,[GUID]);assert.deepEqual(r.matchingRuntimeIds,[GUID]);
+ for(const hcs of [r.hcsBefore,r.hcsAfter]){assert.equal(hcs?.startStatus,0);assert.equal(hcs.completionStatus,0);assert.deepEqual(hcs.wslSystems,[expectedSystem]);}
+ // The observed HCS runtimeOsType is null. Linux identity comes from the fixed
+ // independently captured guest epoch, never a made-up HCS field or time guess.
+ assert.deepEqual(guestEpoch,expectedEpoch);
+ return {runtimeId:GUID,parentProcessId:7788,parentCreationFileTime:r.parentCreationFileTime,vmmemProcessId:53880,vmmemCreationFileTime:r.vmmemCreationFileTime,guestEpoch:{...expectedEpoch}};
+}
+export function validateLiveWslAssociation(before,after,guestEpoch){
+ const a=validateLiveWslHostFrame(before,guestEpoch),b=validateLiveWslHostFrame(after,guestEpoch);assert.deepEqual(a,b);
+ assert.deepEqual(before.record,after.record,'Host association changed across guest collection');
+ return {kind:'exact-live-host-guest-association',...a};
+}

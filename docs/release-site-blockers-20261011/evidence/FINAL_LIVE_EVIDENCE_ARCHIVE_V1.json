@@ -1,0 +1,945 @@
+{
+  "at": "2026-10-11T15:21:42.176Z",
+  "entries": [
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ADOPTION_BATCH_LIVE_SEALED_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ADOPTION_BATCH_LIVE_SEALED_V1.json",
+      "sha256": "d7287b4cc0dd96830127f2df2af6f3cb7f96784bc408426248ab9eab3f75ca25"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ADOPTION_BATCH_LIVE_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ADOPTION_BATCH_LIVE_V1.json",
+      "sha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ADOPTION_TESTS_LIVE_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ADOPTION_TESTS_LIVE_V1.json",
+      "sha256": "c2fa8aa636276af49fbedc5b272484c20c908998a6d4d1385cf83e99e44cd2a5"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_ADMIN_RECORD_CROSSCHECK_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_ADMIN_RECORD_CROSSCHECK_V1.json",
+      "sha256": "fb0f6b91e778cc5dab9813f5e7d28f0ed7657bc13a4b96185db97a30cfec5490"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_CWD_CONSUMER_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_CWD_CONSUMER_V1.json",
+      "sha256": "b33a4f3a4642e35e90722730b5ce47c62c0a08d6a8be64a1f267fdebf6e3a721"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_CWD_CONSUMER_V2.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_CWD_CONSUMER_V2.json",
+      "sha256": "8ff3c75dfa157931f89a819ed74f5b9a5ad3499d5dbb6183e5d9d657fe761308"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_EXACT_NINTH_NAMESPACE_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_EXACT_NINTH_NAMESPACE_TEST.log",
+      "sha256": "1d8d58d5d8592c6d766d1f8b2e0f022a73738470e493e106bb188958a09cb5d1"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_GUEST_DIAGNOSTIC_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_GUEST_DIAGNOSTIC_TEST.log",
+      "sha256": "fc411ce61fec0430e5805c90722892bf7bd609f955e29044d3a2142eb0e348ba"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_CORE_WRAPPER_FINAL_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_CORE_WRAPPER_FINAL_TEST.log",
+      "sha256": "229dfd4f841abf7eab457d8d9778d39c36430a2eba5f992dc1a9b7596c5e9d97"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_CORE_WRAPPER_FIRST_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_CORE_WRAPPER_FIRST_TEST.log",
+      "sha256": "bc9f4d43b2531d36479035005ef9778a1d8b37a8dce431b75f3f475942922e31"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_DEPARTURE_FINAL_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_DEPARTURE_FINAL_TEST.log",
+      "sha256": "f8814d4bc3a265494df0730564fa2306dac8e92e827dc7a1fe8dae9e04dbdaaf"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_GUARD_BTIME_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_GUARD_BTIME_TEST.log",
+      "sha256": "94bac9b68c908bb10d633de75b4e8d3d4d8db732aa5a44ecf1928e1d34521274"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V1.json",
+      "sha256": "d2b0442824f08976bd5db663e8dd99c9d493e6c4c7f11203a1bc52721dc77608"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V2.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V2.json",
+      "sha256": "be1f029d836c0391cadcf9a57f9aaefe60667e513a929fa23abc5bf879c69692"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V3.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V3.json",
+      "sha256": "e875e4715e15cec8dd15e6f2039adaf0ece553c6bc96d5f54546a5a1278ffbb8"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V4.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V4.json",
+      "sha256": "905e62daa30dbaf0d161636678895f798d8e1be53992c1cd5b338f18afb1df3c"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V5.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V5.json",
+      "sha256": "161fcf638473ffc59c0129f064a89a2c6e66f309b0a724c05ca5d978d14d3b76"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V6.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_GUARD_CORE_HANDOFF_V6.json",
+      "sha256": "41074be9c8a26b48fac1ea6fe25948b2ea0096d8200acfbd8d77b8f4c551cd7a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_GUARD_V2_FINAL_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_GUARD_V2_FINAL_TEST.log",
+      "sha256": "8d7e8bbf76450de78188717a3db5f12bd10b560cc8938ac21a1e3aedb32ddd9e"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_GUEST_FIRST_OBSERVATION.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_GUEST_FIRST_OBSERVATION.json",
+      "sha256": "5729c78148bfdcac5768c5f431ae6dd4faf56c7c8ae3bd380ce27b5ca3ca6fc7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_GUEST_FLAGS_OBSERVATION.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_GUEST_FLAGS_OBSERVATION.json",
+      "sha256": "f5df546525226278cfa2383df08d7dc0322e3868bda347a63082f66b821081a1"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_HCS_COMPILE_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_HCS_COMPILE_V1.json",
+      "sha256": "f403a49269fab0424d4a2f05baf19b3a219ac0234613b490262937ed0d849b16"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_HCS_SYSTEM_INTEGRATION_FIRST_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_HCS_SYSTEM_INTEGRATION_FIRST_TEST.log",
+      "sha256": "be1448bf9feaa725c8b5599fbfaac1a9ab61b6f98cb2f889581aaa1d57e6e676"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_NAMESPACE_LIFECYCLE_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_NAMESPACE_LIFECYCLE_TEST.log",
+      "sha256": "3fe70b69ee071ed3354ae5807ec89a18f0ba379c75083445aa3ff9a208e9e813"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_POLICIES_FIRST_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_POLICIES_FIRST_TEST.log",
+      "sha256": "1c9a3e4ba54a26aef6528efecf3fb345cf0c2da3fd6ee3a56dc0ee43b6a59ded"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_POLICIES_SECOND_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_POLICIES_SECOND_TEST.log",
+      "sha256": "80cfb8d8c83f24184237ad9f413eede0b100a2a837ac589a82f5de2d109e7e4b"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_WRAPPER_SID_TEST.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_WRAPPER_SID_TEST.log",
+      "sha256": "abd7098d346eaebee91f9ee18ac434bac2a3f663942cbbe678db4c61ec7a8921"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_WSL_NAMESPACES_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_WSL_NAMESPACES_V1.json",
+      "sha256": "00042a47c5b35cf73c1dca56d25dec8fe6deae88c30352ffc96152acccdceab0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_LIVE_WSL_SHAPE_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_LIVE_WSL_SHAPE_V1.json",
+      "sha256": "8c6fd9e04701ad452614a645e177078b906f5d1f0afc29b95d2458f92c65d916"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_NATIVE_DECODER_CONTROLLED_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_NATIVE_DECODER_CONTROLLED_V1.json",
+      "sha256": "bf0e3dadbdbb54fd116487b2eb0b755704a4fec76437bf6c22b70da23da21271"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_NATIVE_DECODER_CONTROLLED_V2.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_NATIVE_DECODER_CONTROLLED_V2.json",
+      "sha256": "7503683798f67dcee50b0ccb6217def1eb3a463f968aa1d074be33d3b99d713a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_NATIVE_DECODER_FIRST_LAUNCH_FAILURE.txt",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_NATIVE_DECODER_FIRST_LAUNCH_FAILURE.txt",
+      "sha256": "d35677e074929939382866170d00050f2e64fb6c81a3069c851afc6cb59e46cd"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_OWNED_PROCESS_DEPARTURE_FIRST_FAILURE.txt",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_OWNED_PROCESS_DEPARTURE_FIRST_FAILURE.txt",
+      "sha256": "2c6c3b3ce6155bd6eb6f1f2fa36426c755619c29edb945f5a549d078eda8e40d"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_OWNED_PROCESS_DEPARTURE_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_OWNED_PROCESS_DEPARTURE_V1.json",
+      "sha256": "3785c0fc12850f3398eabc67f17b41e3047f9267c686efffdb8fa1b484506f1e"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_RESIDUAL_ENTRY_V2_CHAIN_CHECK.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_RESIDUAL_ENTRY_V2_CHAIN_CHECK.json",
+      "sha256": "942d30fdd41a1e24a13b220b3265aac3c7a2312e67eea644dfe25fb08f281ccc"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_RESIDUAL_METADATA_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_RESIDUAL_METADATA_V1.json",
+      "sha256": "c6ce5d9d86a2f79a58169a48e3f5ede3401403999d09ba9bc465ba6088f9e465"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_RESIDUAL_V2_COMPILE.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_RESIDUAL_V2_COMPILE.json",
+      "sha256": "bc70c8cbbfad226d5566a284ee8213ab4355480ab9a7897fb44b76b9cbcead62"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_RESIDUAL_V2_RECORD_CROSSCHECK.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_RESIDUAL_V2_RECORD_CROSSCHECK.json",
+      "sha256": "8b08ce35916cdefc6658e9fdb34d93f366964278b720941b4e7a9ec07b998308"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_SELF_METADATA_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_SELF_METADATA_V1.json",
+      "sha256": "8703060900074b92ec1ce65a5cdd89800f70a1d634ccc83b983ce2568fc81e7f"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_WSL_HOST_ENTRY_CHAIN_CHECK_V2.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_WSL_HOST_ENTRY_CHAIN_CHECK_V2.json",
+      "sha256": "8e90415af2a8a95519daf089ffa205d7e8390c4ff09b3e384ef3aa7b56e9fc97"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_WSL_HOST_V1_STALE_SOURCE_REJECTION.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_WSL_HOST_V1_STALE_SOURCE_REJECTION.json",
+      "sha256": "6eb5f7a5d90feeacab95e2fcf09602906a10cef47be8a81b59f59d78d4f36461"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\ASTRA_WSL_HOST_V2_CHECKER_OUTPUT_NAME_FAILURE.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\ASTRA_WSL_HOST_V2_CHECKER_OUTPUT_NAME_FAILURE.json",
+      "sha256": "efe54f3a4e3a9b2a3efa624dc1be282a0f673bc1632b597b3f9e01a6dbc00d1e"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\CURRENT_RUNTIME_FINAL_PREPARATION.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\CURRENT_RUNTIME_FINAL_PREPARATION.json",
+      "sha256": "b4526752a4a6ac0fd66c88880626b760fe6790e944333d7c84ae0051a89b967c"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\EFFECTIVE_CHAIN_FINAL_PREPARATION.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\EFFECTIVE_CHAIN_FINAL_PREPARATION.json",
+      "sha256": "778873b4e5d8740a5a1d674ff3db9054e9f15b53eb11cad45387496b27149f42"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\FINAL_LIVE_GUARD_VALIDATION_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\FINAL_LIVE_GUARD_VALIDATION_V1.json",
+      "sha256": "88e039d7dfefa2e0ba93c6e4898f0de3519b7f57bdc55d7074ff06baf3d64dbb"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\FIRST_UNKNOWN_KERNEL_RECHECK_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\FIRST_UNKNOWN_KERNEL_RECHECK_V1.json",
+      "sha256": "b0dbad1693c1226d7ddbc0d918d813df5ae06dc68b802f64127647bed674e53a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\FRESH_LIVE_ACTUAL_QUALIFICATION.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\FRESH_LIVE_ACTUAL_QUALIFICATION.json",
+      "sha256": "048403298fbf044b9c899d763f61d12fbcf02fa879a7215564d75fdeaecb7e0f"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\FRESH_LIVE_ACTUAL_QUALIFY_STDERR.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\FRESH_LIVE_ACTUAL_QUALIFY_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\FRESH_LIVE_ACTUAL_QUALIFY_STDOUT.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\FRESH_LIVE_ACTUAL_QUALIFY_STDOUT.json",
+      "sha256": "83fb221c6b7e05959ce4b12d8d835a652fabba221a74dd8d3c53e8591951ee6b"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_BINDING_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_BINDING_V1.json",
+      "sha256": "7273274543a2f01d14d88a093c1f7823e54ab830f4281e7663d60dc59aa9bbc3"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_BINDING_V2.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_BINDING_V2.json",
+      "sha256": "081598bbd25cb0e63b268df59c12db5191ec3b6913fc5edc532bf645b3837b51"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_BINDING_V3.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_BINDING_V3.json",
+      "sha256": "38af3b0f255e0e0f9b3b2ddae75f265f6a2083c7086fdbd8d97b01ef4df95942"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_BINDING_V4.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_BINDING_V4.json",
+      "sha256": "35ff9235120fa79bf9cc7b18200660f1ca248c907be8d08621b0097d148b3cfb"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_BOOTSTRAP_V1.ps1",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_BOOTSTRAP_V1.ps1",
+      "sha256": "622e010358f196f84aa4c2be929e7b2b3e649d6fae62be4ff3cbebd81691b2c2"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_BOOTSTRAP_V2.ps1",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_BOOTSTRAP_V2.ps1",
+      "sha256": "d618649143a8f40aa792120cb207db977475ed82d31997d45c44d2475c240567"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_BOOTSTRAP_V3.ps1",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_BOOTSTRAP_V3.ps1",
+      "sha256": "f3062c2cff1671f6f34f2b263c807eaa824b3d230849e17ef5e66f908e0d475a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_BOOTSTRAP_V4.ps1",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_BOOTSTRAP_V4.ps1",
+      "sha256": "29878b922487a08903a31a958b162a3fa4327de3980227693d067c138175a4fa"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_QUALIFICATION_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_QUALIFICATION_V1.json",
+      "sha256": "35777b8ca55078675edb99e07aa756371d20eb776a320587f9359173427af0e5"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_QUALIFICATION_V2.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_QUALIFICATION_V2.json",
+      "sha256": "1d1b61e18a226fca6e946cdc8116ec3fecf5a0cbed1fe57fb0918ea027ad1627"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_QUALIFICATION_V3.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_QUALIFICATION_V3.json",
+      "sha256": "bc17fbd8fbe8a9c2e1af53e222702c9a8a6954e4e4120c27cf6aea3360903080"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\LIVE_REFERENCE_READONLY_QUALIFICATION_V4.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\LIVE_REFERENCE_READONLY_QUALIFICATION_V4.json",
+      "sha256": "de8900edfc9a3216791d59bb5a58a75fb2eac8d8a1186fd265f3e9fd3f66d785"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_ADMIN_WSL_NAMESPACES_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_ADMIN_WSL_NAMESPACES_V1.json",
+      "sha256": "bc969d234858aed26dda6518ceea523714b2c68ecb4807bace9524c14f51ae25"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_FINAL_DELIVERY_VALIDATION_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_FINAL_DELIVERY_VALIDATION_V1.json",
+      "sha256": "dfff55e2003deb589d74e02545752515ef709f6f062c851b97f7ec0e5175d4f8"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_FINAL_REGRESSION.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_FINAL_REGRESSION.json",
+      "sha256": "b9161a0089b4ee8a1c5ffa7acc1fd263c736756932e23836cd496db59b4583f4"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_FINAL_REGRESSION.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_FINAL_REGRESSION.log",
+      "sha256": "8b38c0a4aa863ebc6342f4cc41c2eb76269b260396ff1abf0505cc38a1462986"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_FINAL_REGRESSION_V2.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_FINAL_REGRESSION_V2.log",
+      "sha256": "bf243a7e36bb9edc2036be462387ff56df97e49aa19aa016b2822690c1087743"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_LIVE_REFERENCE_QUALIFICATION_FAILURE_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_LIVE_REFERENCE_QUALIFICATION_FAILURE_V1.json",
+      "sha256": "1cfde87072c8c2375c3405e88c77da7fa24c91dd6b905bbb1dd13021b90093eb"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_LIVE_REFERENCE_QUALIFICATION_FAILURE_V2.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_LIVE_REFERENCE_QUALIFICATION_FAILURE_V2.json",
+      "sha256": "c1de46bf7f3cdd52ca8f20e19c4d8573f36d92d9f3c5e909c20e0c44f2926ec8"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_LIVE_REFERENCE_QUALIFICATION_FAILURE_V3.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_LIVE_REFERENCE_QUALIFICATION_FAILURE_V3.json",
+      "sha256": "92dbfb54cfaf4cd1fca6a9c6cb72d7d2893f7e2c7c99a0c25d7640e2c4a3ce2c"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_LIVE_REFERENCE_QUALIFICATION_V4.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_LIVE_REFERENCE_QUALIFICATION_V4.json",
+      "sha256": "08ee56022567c737db5a270987701de5a9eeddf4618e17cad18f89c206c0f9c3"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_LIVE_WSL_NAMESPACES_SECOND_FAILURE.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_LIVE_WSL_NAMESPACES_SECOND_FAILURE.json",
+      "sha256": "00042a47c5b35cf73c1dca56d25dec8fe6deae88c30352ffc96152acccdceab0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_OPERATION_PIN_CHECK_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_OPERATION_PIN_CHECK_V1.json",
+      "sha256": "7858bdc3dca2d00c922e69fdb4af595e17b6e6caea415d21e9413159f001dc73"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_OPERATION_PIN_PHASE_REVIEW_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_OPERATION_PIN_PHASE_REVIEW_V1.json",
+      "sha256": "4c7344900b65d490587d75207b08e4b02b570cf620fbac469f9b4f93574e36d2"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_PREPARATION_FAILURES_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_PREPARATION_FAILURES_V1.json",
+      "sha256": "c54984148ef79175b8c6cca9d2440ad7f54fe6dddaf26a09393cde8cbc32d409"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\PRIMARY_WSL_HOST_OBSERVATION_CROSSCHECK_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\PRIMARY_WSL_HOST_OBSERVATION_CROSSCHECK_V1.json",
+      "sha256": "f27debc847f8709ebe92fa50e9fa3b006b9394ea4bac485d0d24c08b1cf652f0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY10_CALL.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY10_CALL.json",
+      "sha256": "7f23cf5a7c8e4323d1eae306b21846ebb6bd68d35bebf92e8e9c27116af1fb4d"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY10_PROMPT.txt",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY10_PROMPT.txt",
+      "sha256": "4aa68125cdfb80f54d9d4d97ab738c33175e269575211fd2abfcafca8dda95ea"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY10_STDERR.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY10_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY10_STREAM.ndjson",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY10_STREAM.ndjson",
+      "sha256": "e4b26c72a7b89d72664f7348f249f110662519caab50b6ce5f28dd3e800a379a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY8_CALL.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY8_CALL.json",
+      "sha256": "9cff349d1639be52b8d0120113933f4ea62d45f3c55927f975ed1612314f98b0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY8_PROMPT.txt",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY8_PROMPT.txt",
+      "sha256": "03f532fb80a5b42b904392fa54fd68a7a9ee2f073ebcfc24ddacb5e383075116"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY8_STDERR.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY8_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY8_STREAM.ndjson",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY8_STREAM.ndjson",
+      "sha256": "849bc1eff80a91420eb7c2bf651b9af7e658a4a6e871aaf121466fce0f4ccedc"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY9_CALL.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY9_CALL.json",
+      "sha256": "0dab668eb5c167d1a9d4b60a199435fd1d5bf0fd0ea506aeb9cac1c713171be2"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY9_PROMPT.txt",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY9_PROMPT.txt",
+      "sha256": "c5999d92bf9cc2cf0f51dc0fafcdb01b6a23c555275149b1f8f38e9dc8458e77"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY9_STDERR.log",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY9_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SITE_AGY9_STREAM.ndjson",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SITE_AGY9_STREAM.ndjson",
+      "sha256": "20587b33a1f26b29b65aac2843f8a8169857a4292cca6ac6c8886196a9b36672"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\SYSTEM_WSL_IDENTITY_V1.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\SYSTEM_WSL_IDENTITY_V1.json",
+      "sha256": "0979916bc362a459f8f2bd30aa807d985eaa4eeab9f9b6d203bce50debc77d69"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\037c7851-0799-469a-8768-50d58f8b0071-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\037c7851-0799-469a-8768-50d58f8b0071-failure.json",
+      "sha256": "4247e7351adb1dacbb13ee72b9217828851deb35eb0f629072eaca5851b52802"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\037c7851-0799-469a-8768-50d58f8b0071-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\037c7851-0799-469a-8768-50d58f8b0071-started.json",
+      "sha256": "21c8782fde46cb60121e1d41ac927cfa60af14719eadaec568bd3db5a85fc00e"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\06abce92-145d-4f2b-8d49-b790a93686fb-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\06abce92-145d-4f2b-8d49-b790a93686fb-failure.json",
+      "sha256": "0a575cb8ea032487fd20d5f4e7e5e8bed59da1bf8ece8f9e7a98063b6b177b06"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\06abce92-145d-4f2b-8d49-b790a93686fb-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\06abce92-145d-4f2b-8d49-b790a93686fb-started.json",
+      "sha256": "dbe11444c966919bb573aa5579c76895d436f689d7702f37eafd2e87e48b9435"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\076a475c-c70f-430a-8125-d210fad3207d-system-wsl.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\076a475c-c70f-430a-8125-d210fad3207d-system-wsl.json",
+      "sha256": "0979916bc362a459f8f2bd30aa807d985eaa4eeab9f9b6d203bce50debc77d69"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\11c9f440-c2b4-424f-95c3-d97f4eefbfe9-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\11c9f440-c2b4-424f-95c3-d97f4eefbfe9-failure.json",
+      "sha256": "9f25af2cbc03ce97bba00662bcfb9260d060aa2f1e3f0a5186e890f2a7cc6cfa"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\11c9f440-c2b4-424f-95c3-d97f4eefbfe9-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\11c9f440-c2b4-424f-95c3-d97f4eefbfe9-started.json",
+      "sha256": "e6554a3fca37f2e4dd1888f26e13ba244c5c15c06e7bc89098cd0d7b7eac5ef7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\124a5bc8-5179-49b3-9146-295a5aa32861-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\124a5bc8-5179-49b3-9146-295a5aa32861-failure.json",
+      "sha256": "4aaff45a4483910bae4e0439f531563da677fe53e32f8eb32c093b38b6177942"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\124a5bc8-5179-49b3-9146-295a5aa32861-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\124a5bc8-5179-49b3-9146-295a5aa32861-started.json",
+      "sha256": "2630d8e02f558c9b400d231ad8570a84abbb1c5563de80883bada1221308cdf7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\161ece1e-2edc-4012-9778-20008611583f-after-host.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\161ece1e-2edc-4012-9778-20008611583f-after-host.json",
+      "sha256": "8c028ffe8123df9183bd18c9d1db03698178952bfc29ad41e2a16e3352531c0f"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\161ece1e-2edc-4012-9778-20008611583f-before-host.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\161ece1e-2edc-4012-9778-20008611583f-before-host.json",
+      "sha256": "01710dbbd841421acf87e79429d64168bffc4981f2bbb8d7e091ffd78b4b81d7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\161ece1e-2edc-4012-9778-20008611583f-guest-observed.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\161ece1e-2edc-4012-9778-20008611583f-guest-observed.json",
+      "sha256": "f455f626a4cb391df4b887601f94f3fb06d3ef48698bbba2dd4a9e7a8b729263"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\161ece1e-2edc-4012-9778-20008611583f-inventory-summary.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\161ece1e-2edc-4012-9778-20008611583f-inventory-summary.json",
+      "sha256": "7b133816975180d7b72b040936698341df7f8cc24f06e0712048051b01bc6914"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\161ece1e-2edc-4012-9778-20008611583f-native.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\161ece1e-2edc-4012-9778-20008611583f-native.json",
+      "sha256": "4db381e9e9fc2f962739e86acfe8c539668da695cf32958ac32290f7692d9cd5"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\161ece1e-2edc-4012-9778-20008611583f-result.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\161ece1e-2edc-4012-9778-20008611583f-result.json",
+      "sha256": "649ce61ebb0ca8d091b4989e7eab3f964b1c740e2db576838001d1b22306ad80"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\161ece1e-2edc-4012-9778-20008611583f-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\161ece1e-2edc-4012-9778-20008611583f-started.json",
+      "sha256": "0ee712334b419d62e5aec955c0ffda8ac8ed05628d4470076a1e9fd3e094e1fa"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\1bc9e2a4-bfbe-4843-8c68-ce343d95a597-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\1bc9e2a4-bfbe-4843-8c68-ce343d95a597-failure.json",
+      "sha256": "0172a6c891b499e5c24ac9819be6a8550018dde6a1de95826b35faf0bd355818"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\1bc9e2a4-bfbe-4843-8c68-ce343d95a597-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\1bc9e2a4-bfbe-4843-8c68-ce343d95a597-started.json",
+      "sha256": "59c6b2f95b7611fad9fc0b2f04b19c6569de6634cf4de50f4df4df6bbe3904d1"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\22ea198c-7990-453d-8c32-0646b9644b02-system-wsl.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\22ea198c-7990-453d-8c32-0646b9644b02-system-wsl.json",
+      "sha256": "0979916bc362a459f8f2bd30aa807d985eaa4eeab9f9b6d203bce50debc77d69"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\26e8e404-787d-41a4-9390-8f45706b47e0-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\26e8e404-787d-41a4-9390-8f45706b47e0-failure.json",
+      "sha256": "47e9aaf91db3eb5b21f29e308166de7fe8c32d4ec72a97cde54ca8624b33925f"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\26e8e404-787d-41a4-9390-8f45706b47e0-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\26e8e404-787d-41a4-9390-8f45706b47e0-started.json",
+      "sha256": "559895932201c20ecc507edb0c9dc03844d4d31da531ecd3530695bda5a66d4f"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\279c9092-dbc7-49d3-84ae-a87568d689b8-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\279c9092-dbc7-49d3-84ae-a87568d689b8-failure.json",
+      "sha256": "57cb6b7b0b273076c35b1ad2c56844071b9af42bf5bc704bf68519d24c9fc7d5"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\279c9092-dbc7-49d3-84ae-a87568d689b8-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\279c9092-dbc7-49d3-84ae-a87568d689b8-started.json",
+      "sha256": "e29508b46c5d81d5f3fd02bcf6bed780359b50d35e3139d41b153f67f8e17e85"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\29d634d1-2def-406a-9056-5a3c3d010aec-system-wsl.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\29d634d1-2def-406a-9056-5a3c3d010aec-system-wsl.json",
+      "sha256": "0979916bc362a459f8f2bd30aa807d985eaa4eeab9f9b6d203bce50debc77d69"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\2acc7d72-6c0b-47b8-9ec0-68f2ca8e58fc-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\2acc7d72-6c0b-47b8-9ec0-68f2ca8e58fc-failure.json",
+      "sha256": "2fd51a0bb5fa82586470aa252ee961f29953221117f8783a15b0d6df38ab4484"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\2acc7d72-6c0b-47b8-9ec0-68f2ca8e58fc-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\2acc7d72-6c0b-47b8-9ec0-68f2ca8e58fc-started.json",
+      "sha256": "6d3d9744a5234738c231db2d870e50b1701128ea01d060d26f87ce6a12a5bb0e"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\2e59fff0-49e2-40b0-934a-25144ac9bc54-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\2e59fff0-49e2-40b0-934a-25144ac9bc54-failure.json",
+      "sha256": "adcd4fa1c77e228eee33809fe45048bea319c011596d5c2dba1e2995f149ca68"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\2e59fff0-49e2-40b0-934a-25144ac9bc54-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\2e59fff0-49e2-40b0-934a-25144ac9bc54-started.json",
+      "sha256": "2d409ed419983d0c131de9debc6f661f6e8db5e5e638a94032ce2941043c359e"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\345b6200-0078-4db1-a114-c693507aac1c-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\345b6200-0078-4db1-a114-c693507aac1c-failure.json",
+      "sha256": "c803eec316309730485261543e11ea195cfb34f761444a5976c2e95f4a4dac09"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\345b6200-0078-4db1-a114-c693507aac1c-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\345b6200-0078-4db1-a114-c693507aac1c-started.json",
+      "sha256": "9ee84ada695a4b057156e22cd9c374f6536377fe271d3e9683305741716f2ff4"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\363f8652-7b77-48f4-bc48-a25c648b928a-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\363f8652-7b77-48f4-bc48-a25c648b928a-failure.json",
+      "sha256": "f3732298c308a4d9e4ea38c6b715db389333757da36ddc316978fee061a954c5"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\363f8652-7b77-48f4-bc48-a25c648b928a-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\363f8652-7b77-48f4-bc48-a25c648b928a-started.json",
+      "sha256": "4fea5dda3f633bd48403b4073ceb5a4ebc5289ffc67d84beff52be7225f47e89"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\428db4d7-566b-4f69-bca9-f1e40fb09a3c-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\428db4d7-566b-4f69-bca9-f1e40fb09a3c-failure.json",
+      "sha256": "593b3d86e4b2273566edc7eccb0fec3117e39447d51ac8254fd3b0947ad72f15"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\428db4d7-566b-4f69-bca9-f1e40fb09a3c-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\428db4d7-566b-4f69-bca9-f1e40fb09a3c-started.json",
+      "sha256": "a4765669d1416eeae39896fdac70ac3c3e53083b0bcec93df48590aa5ed6eaa8"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\43fc5cd2-2c1f-4a5a-967f-1f88d3400a5c-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\43fc5cd2-2c1f-4a5a-967f-1f88d3400a5c-failure.json",
+      "sha256": "a73c78cbcffbd49de4f013b3668cb8be35460af40ad25b56828f57e1036044e9"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\43fc5cd2-2c1f-4a5a-967f-1f88d3400a5c-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\43fc5cd2-2c1f-4a5a-967f-1f88d3400a5c-started.json",
+      "sha256": "8d7d796f986e66ed1b059c401282bceccdc74b95b15dc356b666522432b438a3"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\590e1c57-2843-470f-86ea-569574e8699d-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\590e1c57-2843-470f-86ea-569574e8699d-failure.json",
+      "sha256": "477fcc7e38422de07d147c548ab7d3e3cbfce9a6566e6e2a754c34c70a30b849"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\590e1c57-2843-470f-86ea-569574e8699d-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\590e1c57-2843-470f-86ea-569574e8699d-started.json",
+      "sha256": "64a942440890143d53d9be7ddbcc6f98e07d97f9417a0fc57ffe5859e3da0ee2"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\5a69b0c2-a508-4dbb-8427-a66002c35141-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\5a69b0c2-a508-4dbb-8427-a66002c35141-failure.json",
+      "sha256": "234161a20a16fb8b23e334c71717e18ee8052c1888f8eb730ab63c55a46f1132"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\5a69b0c2-a508-4dbb-8427-a66002c35141-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\5a69b0c2-a508-4dbb-8427-a66002c35141-started.json",
+      "sha256": "633eff289e2cbd41556983f2062eaa29aef8b62c6f64830ec1657bc7bd10afe4"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\5db1b6ee-7de6-4128-9fbb-08940b60f806-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\5db1b6ee-7de6-4128-9fbb-08940b60f806-failure.json",
+      "sha256": "aac817bf57c67639327f2ff0e6d80aeaa81f1813fd11329522e81cd958136da6"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\5db1b6ee-7de6-4128-9fbb-08940b60f806-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\5db1b6ee-7de6-4128-9fbb-08940b60f806-started.json",
+      "sha256": "959507ba1dcc74a41c6bc97f790192f2e612c312a7b8ee8b7bfe0e46254bcf97"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\61d0d24e-ad59-4634-a889-d9ada9473921-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\61d0d24e-ad59-4634-a889-d9ada9473921-failure.json",
+      "sha256": "c11690bc4f15b1d53dc2a9dd6be1314042068a4d9fa50c641a89e734ef5deb5c"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\61d0d24e-ad59-4634-a889-d9ada9473921-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\61d0d24e-ad59-4634-a889-d9ada9473921-started.json",
+      "sha256": "5204ebfc79262a168272012b22617e0b66400b44b7a435c3895578fc26a1d17a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\6673e3cf-2945-477b-b6f7-7371b5662160-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\6673e3cf-2945-477b-b6f7-7371b5662160-failure.json",
+      "sha256": "6d8cb8e1bb45d64d02dca14819e055a9894a7d70c29bf5c25a26284dd4a2a3a3"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\6673e3cf-2945-477b-b6f7-7371b5662160-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\6673e3cf-2945-477b-b6f7-7371b5662160-started.json",
+      "sha256": "7d63e8cd885f25f0266ca3c98a50c34c4be083e77b1167b2d788a7ecf8d65365"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\719cc79b-5b98-44ba-84c2-c7be724c06ee-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\719cc79b-5b98-44ba-84c2-c7be724c06ee-failure.json",
+      "sha256": "489e8bba9764675319c42edf35e1c8ca33a6d8ded4a4fd7fe497672291cb1932"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\719cc79b-5b98-44ba-84c2-c7be724c06ee-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\719cc79b-5b98-44ba-84c2-c7be724c06ee-started.json",
+      "sha256": "75b145e83cdb526dda4fa75fe4837acfadbd58dd76190dcd78ff5b165a2bd195"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\7c6b889d-8d74-4538-b92b-8d2414e1b925-before-host.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\7c6b889d-8d74-4538-b92b-8d2414e1b925-before-host.json",
+      "sha256": "eddfb7d4abe3a967ff2f7a9ebbd51fdc1085baf32ab616c28a9a2f86004df9c9"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\7c6b889d-8d74-4538-b92b-8d2414e1b925-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\7c6b889d-8d74-4538-b92b-8d2414e1b925-failure.json",
+      "sha256": "5038703e739de70c5551f5f887365ebb99a4c9dfd62e51a119c68fe9adef8080"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\7c6b889d-8d74-4538-b92b-8d2414e1b925-inventory-summary.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\7c6b889d-8d74-4538-b92b-8d2414e1b925-inventory-summary.json",
+      "sha256": "a1de32f14aaaa445edeb6ac7a4a33dbe7d2b881ceb1d05817542281816020428"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\7c6b889d-8d74-4538-b92b-8d2414e1b925-native.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\7c6b889d-8d74-4538-b92b-8d2414e1b925-native.json",
+      "sha256": "dd8d305f84cf512bf812803cc86b71145a1bc5d5bd2a721fa239a7421e5f27a4"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\7c6b889d-8d74-4538-b92b-8d2414e1b925-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\7c6b889d-8d74-4538-b92b-8d2414e1b925-started.json",
+      "sha256": "10f1908b2d37e844750d49095e32951d32e07f3be9d1ad9a3debf60ca1366a96"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\8300db5c-15f1-47ca-a45f-12f31539d2b4-system-wsl.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\8300db5c-15f1-47ca-a45f-12f31539d2b4-system-wsl.json",
+      "sha256": "0979916bc362a459f8f2bd30aa807d985eaa4eeab9f9b6d203bce50debc77d69"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\8f37b090-11d3-471c-8a80-34599ee49e48-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\8f37b090-11d3-471c-8a80-34599ee49e48-failure.json",
+      "sha256": "7be100e56533082f422468babd99e793fd1588dd26b60abc92b8e90213b37a30"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\8f37b090-11d3-471c-8a80-34599ee49e48-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\8f37b090-11d3-471c-8a80-34599ee49e48-started.json",
+      "sha256": "dfc1d1c5a7631d6d5115411c1bff077d24d009d2a1fe8a76c01ba69e2886be59"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\982ad98a-a4c4-4e1a-a37d-596bdb610c90-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\982ad98a-a4c4-4e1a-a37d-596bdb610c90-failure.json",
+      "sha256": "fe84e1fd895d6e14d31ad334a74506a412d39e5afdb2a0106acb90f20642a1aa"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\982ad98a-a4c4-4e1a-a37d-596bdb610c90-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\982ad98a-a4c4-4e1a-a37d-596bdb610c90-started.json",
+      "sha256": "d7c11dba83fc37fb831279393334fd59fc31a1b34916e8d8f40616b78180c721"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\9b68edde-5807-43e0-99b0-4831e2c28cb7-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\9b68edde-5807-43e0-99b0-4831e2c28cb7-failure.json",
+      "sha256": "f1277f75910f0ebb8f825618a55cd75d452956b4b7d614f1c5ecdd28f87bbb88"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\9b68edde-5807-43e0-99b0-4831e2c28cb7-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\9b68edde-5807-43e0-99b0-4831e2c28cb7-started.json",
+      "sha256": "1f84cd3187f67b6185d039565a2b108f40e0246e73b6739e99f8642c7973eaa1"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-before-host.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-before-host.json",
+      "sha256": "614788603b65a7f22a85d2819564a9a2fcf080223150ee4f0fddcb09c1f30858"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-failure.json",
+      "sha256": "b05623a1f108db0858012465ecffb499c68941257bd304dea55c0271933bf1c4"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-guest-observed.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-guest-observed.json",
+      "sha256": "5183bd72bc60e6c0544a10f0af36e80de08370925be818ba57dc1305c5edbf84"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-inventory-summary.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-inventory-summary.json",
+      "sha256": "8aadd3df6d2b495eb856bffe87149457c89e1abeea0a6ac0a651a7aae2e09a8a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-native.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-native.json",
+      "sha256": "1db1b5fcf12448734a3e47f6eabcd57faf2804089ce31e3bf428f9de0bc2083a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\a0027b2c-7290-41bb-978c-de7ea4dc154c-started.json",
+      "sha256": "7064a2a6c7d7ac2a53bdf7b19b823dafb91a1a03ca2a608d594f60cd91b3ad03"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\a954903a-357b-4709-8f12-940b457032d4-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\a954903a-357b-4709-8f12-940b457032d4-failure.json",
+      "sha256": "beb31ac018934db0311bbbab7fb44c8fe90140e025616722978d4db8359f6581"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\a954903a-357b-4709-8f12-940b457032d4-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\a954903a-357b-4709-8f12-940b457032d4-started.json",
+      "sha256": "80a655ef0e8cb5673e9cdb7caa9f2f0efbb8a2faec3d511017334f7ef2c0f0d7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\af894285-7b6c-46c1-beb8-5f1bc65f7438-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\af894285-7b6c-46c1-beb8-5f1bc65f7438-failure.json",
+      "sha256": "c098bc1754ea075a4917443c1465fad61b83fa82ad0d1ba878e675ef265ee683"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\af894285-7b6c-46c1-beb8-5f1bc65f7438-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\af894285-7b6c-46c1-beb8-5f1bc65f7438-started.json",
+      "sha256": "78272ef8c6b2353ad2eb8bd06df3629d2256ffe50538992588574a812cdb1264"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\b2776b46-a93b-46b1-88f3-58dcca6f5fc8-before-host.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\b2776b46-a93b-46b1-88f3-58dcca6f5fc8-before-host.json",
+      "sha256": "56b46a4619cc7dec3e50c1539b32171a22cfba89e75f7f35d13a24880ba29c1b"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\b2776b46-a93b-46b1-88f3-58dcca6f5fc8-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\b2776b46-a93b-46b1-88f3-58dcca6f5fc8-failure.json",
+      "sha256": "e101c0441fe1b2bfd4354517bb894d5a14746f762e16be63e02da963c4cbeb88"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\b2776b46-a93b-46b1-88f3-58dcca6f5fc8-inventory-summary.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\b2776b46-a93b-46b1-88f3-58dcca6f5fc8-inventory-summary.json",
+      "sha256": "5acd238c9cffff5cecec06de399df32e3a9b0955d985e4e87b601235ac59fde0"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\b2776b46-a93b-46b1-88f3-58dcca6f5fc8-native.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\b2776b46-a93b-46b1-88f3-58dcca6f5fc8-native.json",
+      "sha256": "c32bef63a802b597b30bf9165aec088f062dfd484a1e02c0a346f03f0ef4e46c"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\b2776b46-a93b-46b1-88f3-58dcca6f5fc8-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\b2776b46-a93b-46b1-88f3-58dcca6f5fc8-started.json",
+      "sha256": "2065457f82ca1850574cf94f4ed2ac19a9bc5233b32bae82192bc1dd340fbcde"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\b5b29605-2112-44ab-b8f0-8ee9273ca2ed-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\b5b29605-2112-44ab-b8f0-8ee9273ca2ed-failure.json",
+      "sha256": "591a2ff084917a9ae598150003e7fb491d50423a13ff1e8dafdca566e5bf432b"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\b5b29605-2112-44ab-b8f0-8ee9273ca2ed-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\b5b29605-2112-44ab-b8f0-8ee9273ca2ed-started.json",
+      "sha256": "d4c55fe4fa72266bf264007058f46ecf150ab4fb75c14fc3569d53b4ace3db61"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\b5dfb987-6bf0-41f6-93ac-44bb9bf83721-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\b5dfb987-6bf0-41f6-93ac-44bb9bf83721-failure.json",
+      "sha256": "ff7c1386cb93d51a55a6321d05220bf360f7e9368d9ec8c73f1d18e4c131ce21"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\b5dfb987-6bf0-41f6-93ac-44bb9bf83721-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\b5dfb987-6bf0-41f6-93ac-44bb9bf83721-started.json",
+      "sha256": "d7b98609f450311eac2df800d57569aa490a23026b8c3635dfe70f1b62948c65"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\c036693d-3d8b-4faa-a2cb-7fc83e74f788-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\c036693d-3d8b-4faa-a2cb-7fc83e74f788-failure.json",
+      "sha256": "2d8b451c629eee124ebb2bb4af5987e6eb65d27be6c2b88dcf6a850c5de7e2aa"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\c036693d-3d8b-4faa-a2cb-7fc83e74f788-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\c036693d-3d8b-4faa-a2cb-7fc83e74f788-started.json",
+      "sha256": "b535ce90d1e8aa9118cfb51a1587e195338d396b44c047c69060f2e5d278852a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\c54c4384-5f0a-4cab-8eff-c2178e5f9e31-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\c54c4384-5f0a-4cab-8eff-c2178e5f9e31-failure.json",
+      "sha256": "e482d9b71bbe01b53d1113a1b37960415a77e4cb5aaa231f618cb5bc7dbe705b"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\c54c4384-5f0a-4cab-8eff-c2178e5f9e31-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\c54c4384-5f0a-4cab-8eff-c2178e5f9e31-started.json",
+      "sha256": "fd1a82a82c572552a408e0da04db243c5a194b3774eee60c9bb3a7b8f2383ed6"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\cbb0580c-0b31-4b20-b593-5e30309a1b88-system-wsl.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\cbb0580c-0b31-4b20-b593-5e30309a1b88-system-wsl.json",
+      "sha256": "0979916bc362a459f8f2bd30aa807d985eaa4eeab9f9b6d203bce50debc77d69"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\d003a5cd-4283-40ca-84d0-ccfaf48ba056-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\d003a5cd-4283-40ca-84d0-ccfaf48ba056-failure.json",
+      "sha256": "b263d129bb341acf8e81f3ba5373189acf1cdf6dbdb3108c273d70c787ab5d3a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\d003a5cd-4283-40ca-84d0-ccfaf48ba056-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\d003a5cd-4283-40ca-84d0-ccfaf48ba056-started.json",
+      "sha256": "a0a77c73f19d9837f7dd6916e6abc085f249cb94ec032fb0564c693ece31184a"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\da581b35-b60f-4f6a-8f50-a0c39b27043e-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\da581b35-b60f-4f6a-8f50-a0c39b27043e-failure.json",
+      "sha256": "8cc69f25401ca6fb1d83e39af335347571d6be78112f87585eeddd19608abc03"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\da581b35-b60f-4f6a-8f50-a0c39b27043e-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\da581b35-b60f-4f6a-8f50-a0c39b27043e-started.json",
+      "sha256": "5bc4774842ba4f6f00e1e231c47e60e39514561f108e8fe8d276476c7280a8c4"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\de527092-c67c-456a-a614-593e94faa3b3-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\de527092-c67c-456a-a614-593e94faa3b3-failure.json",
+      "sha256": "f9db04621928a56f32b45e043748a2043e5b15980c70cc13c423b654dee1a795"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\de527092-c67c-456a-a614-593e94faa3b3-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\de527092-c67c-456a-a614-593e94faa3b3-started.json",
+      "sha256": "b1f8a64971452965d5ac9ffe05c619be63598b1e73cb9f796f5bfc5cc9d35d2e"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\e1d37698-9be4-4a91-9bd1-8554596228e5-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\e1d37698-9be4-4a91-9bd1-8554596228e5-failure.json",
+      "sha256": "c83f841bc56868b2298fc67e865ea86d93d59a4aed7f8adc1594d9fb113993dc"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\e1d37698-9be4-4a91-9bd1-8554596228e5-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\e1d37698-9be4-4a91-9bd1-8554596228e5-started.json",
+      "sha256": "1401b9714e74697ba34ef70fbaa67ef6cb0961dcae1cddb3afd968133f26a446"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\e841de28-9451-4f24-978d-b945c905eab9-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\e841de28-9451-4f24-978d-b945c905eab9-failure.json",
+      "sha256": "636fce2e25a92ccd0f8a13dbe7dad453e2e659f9225781985fcefeb15d57d1a7"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\e841de28-9451-4f24-978d-b945c905eab9-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\e841de28-9451-4f24-978d-b945c905eab9-started.json",
+      "sha256": "e9bd4f85bb5c849d516b3d0f18cb301daba0147a51cbaabd4928f82be8088b29"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\ee2206d8-b17d-4c58-a92a-504425131bde-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\ee2206d8-b17d-4c58-a92a-504425131bde-failure.json",
+      "sha256": "645220bbefac4d70bc4f9afa5230ca45703db313eb14bd2f96540a5bde3b7914"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\ee2206d8-b17d-4c58-a92a-504425131bde-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\ee2206d8-b17d-4c58-a92a-504425131bde-started.json",
+      "sha256": "d35f231462b6c2d14227a6a1a8742c19dda7f60e5cc7bb0f74aed97440ca1460"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\faa9fefc-2693-4908-80a2-86ba46fcadf6-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\faa9fefc-2693-4908-80a2-86ba46fcadf6-failure.json",
+      "sha256": "cb3d146a84487ba18abae470f9daf0d09bbb836e06166190b3683dc9f741baa5"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\faa9fefc-2693-4908-80a2-86ba46fcadf6-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\faa9fefc-2693-4908-80a2-86ba46fcadf6-started.json",
+      "sha256": "c691b178207eff44d74e124fafe92fdf5bd9e51c54001a457ed9d26224872bbf"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\fd9594d8-30da-40f6-b223-39037d23dd6b-failure.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\fd9594d8-30da-40f6-b223-39037d23dd6b-failure.json",
+      "sha256": "84daf1b58a9c04ff90e2439c61ca3e8cd8c2fe6486657330e0a566ac24564845"
+    },
+    {
+      "source": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\fd9594d8-30da-40f6-b223-39037d23dd6b-started.json",
+      "target": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evidence\\live-observations\\fd9594d8-30da-40f6-b223-39037d23dd6b-started.json",
+      "sha256": "cab1712d33755c3279d379d1393bb051ab30c8ee0ab5dfb207d157c6de2ef50c"
+    }
+  ]
+}

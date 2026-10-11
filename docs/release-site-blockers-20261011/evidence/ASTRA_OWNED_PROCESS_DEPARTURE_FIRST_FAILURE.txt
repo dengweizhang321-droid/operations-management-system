@@ -1,0 +1,5 @@
+Actual first controlled PS5 test failed at: Released child absence not proven.
+It had already passed the alive-259, mismatched-native-birth-before-exit-query, and same-instance-exit0 checks, then assumed disposing the test owner's Process object must immediately make OpenProcess return87.
+The failing script did not persist the returned proof, so no exact alternative proof/cause is asserted here.
+Correct the test's over-specific disposal assumption: either exact same-instance terminated exit0 evidence or kernel87+CIMabsence is a valid departure result. Keep 259/permission/error/reuse unknown. No loop/retry until87 and no production process action.
+This first failure record is written after tool output, not claimed to be a preexisting captured log.

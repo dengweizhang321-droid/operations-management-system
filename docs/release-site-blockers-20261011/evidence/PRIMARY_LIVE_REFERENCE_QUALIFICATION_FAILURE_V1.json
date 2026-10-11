@@ -1,0 +1,19 @@
+{
+  "version": "primary-live-reference-qualification-failure-v1",
+  "startedAt": "2026-10-11T14:18:25.755Z",
+  "finishedAt": "2026-10-11T14:18:41.957Z",
+  "message": "Unsupported guest epoch\n\u001b[32m+ actual\u001b[39m \u001b[31m- expected\u001b[39m\n\n\u001b[39m  {\n\u001b[39m    bootId: '4a67b065-2648-48ef-8821-72f272ceb41d',\n\u001b[32m+\u001b[39m   btime: '1791621407',\n\u001b[31m-\u001b[39m   btime: '1791621408',\n\u001b[39m    osrelease: '6.18.33.2-microsoft-standard-WSL2',\n\u001b[39m    pid1Start: '122'\n\u001b[39m  }\n",
+  "liveAudit": {
+    "runId": "7c6b889d-8d74-4538-b92b-8d2414e1b925",
+    "stages": [
+      "implementation-closure-pinned",
+      "live-native-and-cim-collected"
+    ],
+    "failure": {
+      "name": "AssertionError",
+      "messageSha256": "48a14677f005d8529d3a1b3df07f2d41ade166af052d0b32759434be646c159b",
+      "captureFailure": null
+    }
+  },
+  "productionActions": 0
+}

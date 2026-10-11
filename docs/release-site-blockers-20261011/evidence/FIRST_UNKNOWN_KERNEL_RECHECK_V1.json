@@ -1,0 +1,70 @@
+{
+    "version":  "teruisi-readonly-limited-process-identity-probe-v1",
+    "at":  "2026-10-11T14:34:54.0684538+00:00",
+    "elevatedAdministrator":  false,
+    "records":  [
+                    {
+                        "processId":  50356,
+                        "name":  null,
+                        "sessionId":  null,
+                        "parentProcessId":  null,
+                        "creationDate":  null,
+                        "limitedAccessMask":  "0x1000",
+                        "openError":  87,
+                        "imagePath":  null,
+                        "queryError":  null,
+                        "identityStable":  false,
+                        "originalCimExecutableReadable":  false,
+                        "originalCimCommandReadable":  false,
+                        "commandLineValuesPersisted":  false
+                    },
+                    {
+                        "processId":  48348,
+                        "name":  null,
+                        "sessionId":  null,
+                        "parentProcessId":  null,
+                        "creationDate":  null,
+                        "limitedAccessMask":  "0x1000",
+                        "openError":  87,
+                        "imagePath":  null,
+                        "queryError":  null,
+                        "identityStable":  false,
+                        "originalCimExecutableReadable":  false,
+                        "originalCimCommandReadable":  false,
+                        "commandLineValuesPersisted":  false
+                    },
+                    {
+                        "processId":  38708,
+                        "name":  null,
+                        "sessionId":  null,
+                        "parentProcessId":  null,
+                        "creationDate":  null,
+                        "limitedAccessMask":  "0x1000",
+                        "openError":  87,
+                        "imagePath":  null,
+                        "queryError":  null,
+                        "identityStable":  false,
+                        "originalCimExecutableReadable":  false,
+                        "originalCimCommandReadable":  false,
+                        "commandLineValuesPersisted":  false
+                    },
+                    {
+                        "processId":  59360,
+                        "name":  null,
+                        "sessionId":  null,
+                        "parentProcessId":  null,
+                        "creationDate":  null,
+                        "limitedAccessMask":  "0x1000",
+                        "openError":  87,
+                        "imagePath":  null,
+                        "queryError":  null,
+                        "identityStable":  false,
+                        "originalCimExecutableReadable":  false,
+                        "originalCimCommandReadable":  false,
+                        "commandLineValuesPersisted":  false
+                    }
+                ],
+    "privilegesAdjusted":  false,
+    "processTerminations":  0,
+    "productionMutations":  0
+}

@@ -1,0 +1,12 @@
+{
+    "version":  "teruisi-system-wsl-identity-v1",
+    "path":  "C:\\Windows\\System32\\wsl.exe",
+    "sha256":  "7e9f5cee6d641481e5a942f0e08563bae9c17ee55f0aad888f9aa0be9a5d4757",
+    "signatureStatus":  "Valid",
+    "signerSubject":  "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+    "signerIssuer":  "CN=Microsoft Windows Production PCA 2011, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+    "signerThumbprint":  "DC91E564D5BC1E3A8E02D6A8508682ABEA8A2443",
+    "owner":  "NT SERVICE\\TrustedInstaller",
+    "productionActionsRequested":  0,
+    "scope":  "One exact Windows system executable hash/signature/owner under read sharing; no WSL command or service action. Not an application-artifact hardlink waiver."
+}

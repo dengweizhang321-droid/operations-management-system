@@ -1,0 +1,43 @@
+{
+    "version":  "teruisi-wsl-host-association-metadata-v1",
+    "at":  "2026-10-11T13:33:56.4326395+00:00",
+    "record":  {
+                   "status":  "unproven",
+                   "vmmemProcessId":  53880,
+                   "vmmemCreationFileTime":  null,
+                   "parentProcessId":  7788,
+                   "parentCreationFileTime":  null,
+                   "parentCimCreationUtc":  null,
+                   "accessMask":  "0x1000",
+                   "vmmemOpenError":  5,
+                   "parentOpenError":  null,
+                   "imagePath":  null,
+                   "imageSha256":  null,
+                   "signatureStatus":  null,
+                   "signerSubject":  null,
+                   "commandStatusFirst":  null,
+                   "commandStatusSecond":  null,
+                   "commandSha256":  null,
+                   "runtimeGuidCandidates":  [
+
+                                             ],
+                   "identityStable":  false,
+                   "hcsBefore":  {
+                                     "startStatus":  0,
+                                     "completionStatus":  -2143878885,
+                                     "wslSystems":  [
+
+                                                    ]
+                                 },
+                   "hcsAfter":  null,
+                   "matchingRuntimeIds":  [
+
+                                          ],
+                   "failure":  "vmmem handle unavailable"
+               },
+    "rawCommandPersisted":  false,
+    "debugPrivilegesEnabled":  false,
+    "remoteMemoryReads":  0,
+    "productionActionsRequested":  0,
+    "scope":  "Only existing HCS enumeration and two fixed process metadata handles; one exact System32 file hash/signature. No VM create/open/start/stop, services, filesystems, business or batch operation. Association does not itself prove guest references absent."
+}

@@ -1,0 +1,66 @@
+{
+  "version": "teruisi-proposed-live-reference-audit-v1",
+  "runId": "7c6b889d-8d74-4538-b92b-8d2414e1b925",
+  "at": "2026-10-11T14:18:25.759Z",
+  "status": "blocked",
+  "stages": [
+    "implementation-closure-pinned",
+    "live-native-and-cim-collected"
+  ],
+  "references": [],
+  "unknown": [
+    {
+      "kind": "process-unknown",
+      "processId": 50356,
+      "reasonSha256": "dfbefe69cf8a7e5c1ad84d1c27de396590c7efd3873338911b6411f7220adb05"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 48348,
+      "reasonSha256": "dfbefe69cf8a7e5c1ad84d1c27de396590c7efd3873338911b6411f7220adb05"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 38708,
+      "reasonSha256": "dfbefe69cf8a7e5c1ad84d1c27de396590c7efd3873338911b6411f7220adb05"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 59360,
+      "reasonSha256": "dfbefe69cf8a7e5c1ad84d1c27de396590c7efd3873338911b6411f7220adb05"
+    }
+  ],
+  "classified": [
+    {
+      "kind": "reviewed-system-instance",
+      "processId": 236,
+      "nativeCreationFileTime": "134355974016662550"
+    },
+    {
+      "kind": "reviewed-system-instance",
+      "processId": 280,
+      "nativeCreationFileTime": "134355974016977125"
+    },
+    {
+      "kind": "reviewed-ium-instance",
+      "processId": 1700,
+      "nativeCreationFileTime": "134355974136433726"
+    },
+    {
+      "kind": "reviewed-ium-instance",
+      "processId": 6548,
+      "nativeCreationFileTime": "134355974150851854"
+    }
+  ],
+  "productionActions": 0,
+  "rawProcessMetadataPersisted": false,
+  "systemWslIdentity": {
+    "sha256": "7e9f5cee6d641481e5a942f0e08563bae9c17ee55f0aad888f9aa0be9a5d4757",
+    "evidencePath": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\8300db5c-15f1-47ca-a45f-12f31539d2b4-system-wsl.json"
+  },
+  "failure": {
+    "name": "AssertionError",
+    "messageSha256": "48a14677f005d8529d3a1b3df07f2d41ade166af052d0b32759434be646c159b",
+    "captureFailure": null
+  }
+}

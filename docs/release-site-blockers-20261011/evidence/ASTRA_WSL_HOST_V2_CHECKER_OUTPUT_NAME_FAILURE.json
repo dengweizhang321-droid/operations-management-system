@@ -1,0 +1,10 @@
+{
+  "version": "astra-checker-correction-v1",
+  "status": "checker-assumption-failed-before-any-native-execution",
+  "expectedByInitialChecker": "WSL_HOST_ASSOCIATION_ADMIN_V2.json",
+  "actualPinnedPacketOutput": "WSL_HOST_ASSOCIATION_ADMIN_V1.json",
+  "reason": "The replacement checker incorrectly assumed the unused output filename changed with packet version. Packet V2 and its exact bootstrap still intentionally bind the existing create-only V1 output filename. Correct only the test expectation; no packet/source/entry changed.",
+  "nativeCalls": 0,
+  "productionActions": 0,
+  "provenance": "Saved after actual AssertionError; not a preexisting execution log."
+}

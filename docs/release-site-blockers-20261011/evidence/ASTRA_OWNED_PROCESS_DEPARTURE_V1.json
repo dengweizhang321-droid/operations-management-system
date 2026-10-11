@@ -1,0 +1,109 @@
+{
+    "version":  "astra-real-owned-windows-departure-test-v1",
+    "sourceSha256":  "280fa1cd5b4c22b73743736e1b2c6d4b50f0a106e36e8fd8b139682666903c12",
+    "hostVersion":  "5.1.26100.9168",
+    "cases":  [
+                  {
+                      "name":  "alive-259-rejected",
+                      "passed":  true,
+                      "proof":  {
+                                    "version":  "teruisi-kernel-process-departure-v1",
+                                    "processId":  56732,
+                                    "kind":  "unproven",
+                                    "accessMask":  "0x1000",
+                                    "originalCimCreationUtc":  "2026-10-11T14:39:07.3529090Z",
+                                    "originalNativeCreationFileTime":  "134362031473529096",
+                                    "openError":  null,
+                                    "nativeCreationBefore":  "134362031473529096",
+                                    "nativeCreationAfter":  "134362031473529096",
+                                    "exitQuerySucceeded":  true,
+                                    "exitCode":  259,
+                                    "finalCimState":  "not-queried",
+                                    "reason":  "active-or-ambiguous-exit-259"
+                                }
+                  },
+                  {
+                      "name":  "different-native-birth-rejected-before-exit-query",
+                      "passed":  true,
+                      "proof":  {
+                                    "version":  "teruisi-kernel-process-departure-v1",
+                                    "processId":  56732,
+                                    "kind":  "unproven",
+                                    "accessMask":  "0x1000",
+                                    "originalCimCreationUtc":  "2026-10-11T14:39:07.3529090Z",
+                                    "originalNativeCreationFileTime":  "134362031473529106",
+                                    "openError":  null,
+                                    "nativeCreationBefore":  "134362031473529096",
+                                    "nativeCreationAfter":  null,
+                                    "exitQuerySucceeded":  false,
+                                    "exitCode":  null,
+                                    "finalCimState":  "not-queried",
+                                    "reason":  "original-native-birth-missing-or-changed"
+                                }
+                  },
+                  {
+                      "name":  "same-instance-exit0-proven",
+                      "passed":  true,
+                      "proof":  {
+                                    "version":  "teruisi-kernel-process-departure-v1",
+                                    "processId":  56732,
+                                    "kind":  "same-instance-exited",
+                                    "accessMask":  "0x1000",
+                                    "originalCimCreationUtc":  "2026-10-11T14:39:07.3529090Z",
+                                    "originalNativeCreationFileTime":  "134362031473529096",
+                                    "openError":  null,
+                                    "nativeCreationBefore":  "134362031473529096",
+                                    "nativeCreationAfter":  "134362031473529096",
+                                    "exitQuerySucceeded":  true,
+                                    "exitCode":  0,
+                                    "finalCimState":  "absent",
+                                    "reason":  "successful-kernel-exit-query-non259"
+                                }
+                  },
+                  {
+                      "name":  "released-owned-child-still-requires-kernel-departure-proof",
+                      "passed":  true,
+                      "proof":  {
+                                    "version":  "teruisi-kernel-process-departure-v1",
+                                    "processId":  56732,
+                                    "kind":  "same-instance-exited",
+                                    "accessMask":  "0x1000",
+                                    "originalCimCreationUtc":  "2026-10-11T14:39:07.3529090Z",
+                                    "originalNativeCreationFileTime":  "134362031473529096",
+                                    "openError":  null,
+                                    "nativeCreationBefore":  "134362031473529096",
+                                    "nativeCreationAfter":  "134362031473529096",
+                                    "exitQuerySucceeded":  true,
+                                    "exitCode":  0,
+                                    "finalCimState":  "absent",
+                                    "reason":  "successful-kernel-exit-query-non259"
+                                }
+                  },
+                  {
+                      "name":  "actually-terminated-exit259-remains-unknown",
+                      "passed":  true,
+                      "proof":  {
+                                    "version":  "teruisi-kernel-process-departure-v1",
+                                    "processId":  41044,
+                                    "kind":  "unproven",
+                                    "accessMask":  "0x1000",
+                                    "originalCimCreationUtc":  "2026-10-11T14:39:09.0698100Z",
+                                    "originalNativeCreationFileTime":  "134362031490698100",
+                                    "openError":  null,
+                                    "nativeCreationBefore":  "134362031490698100",
+                                    "nativeCreationAfter":  "134362031490698100",
+                                    "exitQuerySucceeded":  true,
+                                    "exitCode":  259,
+                                    "finalCimState":  "not-queried",
+                                    "reason":  "active-or-ambiguous-exit-259"
+                                }
+                  }
+              ],
+    "passed":  5,
+    "processTerminations":  0,
+    "ownedChildNaturalExits":  2,
+    "existingApplicationProcessesMutated":  0,
+    "privilegesAdjusted":  false,
+    "productionActions":  0,
+    "scope":  "Actual extracted departure function and PInvoke; two private test children with stdin release barriers. No whole-system census, lifecycle action, or process kill."
+}

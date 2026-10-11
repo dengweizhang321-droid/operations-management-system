@@ -1,0 +1,78 @@
+继续AGY7/8真实交叉复审；仅文本审查，不用工具或改文件，不生产操作。你已撤回mandatory Wait概括，保留同句柄出生+GetExit成功非259，87仅当次缺失。
+最终实际只读QA4已PASS：830Windows进程（1变动已被0x1000 kernel87+末CIM不存在补证、1late新增仍纳入）、37WSL进程/9namespace完整前后覆盖、原引用谓词0引用/0未知、全部5固定native出生及HCS前后同唯一VM/parent出生/命令SHA+三tokens成立。原3实际失败保留，未追认通过；这不是全OS排他或生产验收。
+唯一新扩表：mnt:[4026532299]→9745f6ec4272c1c03e31c2e4c8d1ed5f6b42dfa5690cedf447268958527683dd。实际管理员元数据原JSONsha bc969d234858aed26dda6518ceea523714b2c68ecb4807bace9524c14f51ae25 的33条mount来源/root/mount/fs/superoptions多重集与原2219完全一致；只有已知Linux/dev/sdd/root、伪fs/knownoverlay及唯一9p drivers ro，没有DrvFS/Windows/UNC。没有保存mountID/parent/per-mountflags，未猜管理员IPC用途，不解释23字节差异；完整raw mountSHA实际重算硬匹配。任意新ID/第10ID/同ID不同SHA拒绝，process/ns/FD完整对应、bootID/PID1/kernel/native身份原规则不减。128/128最终源码隔离回归及真正readonlyQA通过，不称生产验收。
+另首次采用严格19ops，只1前Backup+1新installed consumer同点隔离Restore，没有后DB。新guard外部闭包11helpers+4诊断records必须exact绑定，不能savedJSON替代新live观察；新spec封存必须与最后测试handoff hash闭包完全一致，旧f0批次/源/package/WAL不变。请检查这一次最小扩表是否存在具体不充分，不提出通用OS账本/新权限；明确哪些仍需正式生产动作前复验。最多600中文字符。
+下面完整最终system verifier源码（此前没有完整附给你）及namespace边界review；只能依据本次材料，不臆造读了其他全文。
+// One fixed Windows component; never a generic artifact hardlink exception.
+import {readFile,lstat,realpath,mkdir} from 'node:fs/promises';
+import path from 'node:path';
+import {createHash,randomUUID} from 'node:crypto';
+import {spawnSync} from 'node:child_process';
+import assert from 'node:assert/strict';
+export const SYSTEM_WSL_PATH='C:\\Windows\\System32\\wsl.exe';
+const FILE_SHA='7e9f5cee6d641481e5a942f0e08563bae9c17ee55f0aad888f9aa0be9a5d4757';
+const RECORD_SHA='0979916bc362a459f8f2bd30aa807d985eaa4eeab9f9b6d203bce50debc77d69';
+const COLLECTOR_SHA='b74dea4831ec04acb0ab8ee7634d677073d67a374107a80583b05078306b9d34';
+const EVIDENCE='E:/codex-artifacts/release-site-blockers-20261011/_live-reference-observations';
+const sha=v=>createHash('sha256').update(v).digest('hex');
+export function fileIdentity(s){return [s.dev,s.ino,s.nlink,s.size,s.mtimeNs,s.ctimeNs].map(String).join(':');}
+async function physical(file){for(let at=path.resolve(file);;){assert.ok(!(await lstat(at)).isSymbolicLink(),'Redirected system-tool path');assert.equal((await realpath(at)).toLowerCase(),at.toLowerCase(),'System-tool path alias');const next=path.dirname(at);if(next===at)break;at=next;}}
+export async function readStrictPinnedFile(file,expected){await physical(file);const before=await lstat(file,{bigint:true});assert.ok(before.isFile()&&before.nlink===1n,'Ordinary source/evidence must have one link');const raw=await readFile(file);assert.equal(fileIdentity(await lstat(file,{bigint:true})),fileIdentity(before));assert.equal(sha(raw),expected);return raw;}
+export function validateSystemWslTuple({file,bytes,before,after,signature}){
+ assert.equal(file,SYSTEM_WSL_PATH,'The exception is only the exact system WSL binary');
+ assert.ok(before.isFile()&&after.isFile());assert.equal(before.nlink,2n);assert.equal(after.nlink,2n);assert.equal(fileIdentity(before),fileIdentity(after),'System tool identity changed');
+ assert.equal(sha(bytes),FILE_SHA,'System tool bytes changed');
+ assert.equal(signature.version,'teruisi-system-wsl-identity-v1');assert.equal(signature.path,SYSTEM_WSL_PATH);assert.equal(signature.sha256,FILE_SHA);
+ assert.equal(signature.signatureStatus,'Valid');assert.equal(signature.owner,'NT SERVICE\\TrustedInstaller');
+ assert.equal(signature.signerSubject,'CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US');
+ assert.equal(signature.signerIssuer,'CN=Microsoft Windows Production PCA 2011, O=Microsoft Corporation, L=Redmond, S=Washington, C=US');
+ assert.equal(signature.signerThumbprint,'DC91E564D5BC1E3A8E02D6A8508682ABEA8A2443');assert.equal(signature.productionActionsRequested,0);
+ return {path:SYSTEM_WSL_PATH,sha256:FILE_SHA,identity:fileIdentity(after)};
+}
+export async function verifyPinnedSystemWsl({recordPath,collectorPath}){
+ const expected=JSON.parse(await readStrictPinnedFile(recordPath,RECORD_SHA));
+ const collector=await readStrictPinnedFile(collectorPath,COLLECTOR_SHA);
+ await physical(SYSTEM_WSL_PATH);const before=await lstat(SYSTEM_WSL_PATH,{bigint:true});assert.ok(before.isFile());assert.equal(before.nlink,2n);
+ const bytes=await readFile(SYSTEM_WSL_PATH);assert.equal(sha(bytes),FILE_SHA);
+ await physical(path.dirname(EVIDENCE));await mkdir(EVIDENCE,{recursive:true});await physical(EVIDENCE);
+ const runId=randomUUID(),outputPath=path.join(EVIDENCE,runId+'-system-wsl.json');
+ const bootstrap=String.raw`$ErrorActionPreference='Stop';[Console]::InputEncoding=[Text.UTF8Encoding]::new($false);[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
+$p=[Console]::In.ReadToEnd()|ConvertFrom-Json;$b=[Convert]::FromBase64String($p.source)
+$s=[Security.Cryptography.SHA256]::Create();try{$h=([BitConverter]::ToString($s.ComputeHash($b))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()}
+if($h -cne 'b74dea4831ec04acb0ab8ee7634d677073d67a374107a80583b05078306b9d34'){throw 'System tool collector drift'}
+if($p.runId -notmatch '^[a-f0-9-]{36}$'){throw 'Evidence id rejected'}
+$dir='E:\codex-artifacts\release-site-blockers-20261011\_live-reference-observations';$at=$dir
+while($at){$i=Get-Item -LiteralPath $at -Force;if(($i.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Redirected evidence path'};$next=[IO.Path]::GetDirectoryName($at);if($next -eq $at){break};$at=$next}
+$env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules;C:\Program Files\WindowsPowerShell\Modules'
+& ([ScriptBlock]::Create([Text.Encoding]::UTF8.GetString($b))) -OutputPath (Join-Path $dir ($p.runId+'-system-wsl.json'))`;
+ const r=spawnSync('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(bootstrap,'utf16le').toString('base64')],{input:Buffer.from(JSON.stringify({runId,source:collector.toString('base64')})),windowsHide:true,timeout:30000,maxBuffer:1048576});
+ assert.equal(r.error,undefined);assert.equal(r.status,0,'System WSL identity collector failed');
+ const actual=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(r.stdout));assert.deepEqual(actual,expected,'Live signature/owner differs from the exact reviewed record');
+ await physical(SYSTEM_WSL_PATH);const after=await lstat(SYSTEM_WSL_PATH,{bigint:true});
+ return {...validateSystemWslTuple({file:SYSTEM_WSL_PATH,bytes,before,after,signature:actual}),evidencePath:outputPath};
+}
+export async function assertSystemWslUnchanged(lease){
+ assert.equal(lease.path,SYSTEM_WSL_PATH);assert.equal(lease.sha256,FILE_SHA);await physical(SYSTEM_WSL_PATH);
+ const before=await lstat(SYSTEM_WSL_PATH,{bigint:true});assert.equal(before.nlink,2n);assert.equal(fileIdentity(before),lease.identity);
+ assert.equal(sha(await readFile(SYSTEM_WSL_PATH)),FILE_SHA);const after=await lstat(SYSTEM_WSL_PATH,{bigint:true});assert.equal(fileIdentity(after),lease.identity);
+}
+
+# 第九个精确 namespace pair：V6 冻结
+
+2026-10-11。当前交接为 `E:/codex-artifacts/release-site-blockers-20261011/ASTRA_LIVE_GUARD_CORE_HANDOFF_V6.json`；代码到此冻结，不再编辑。原三次QA失败、旧source绑定/记录和运行包保持原样。
+
+已独立完整读取管理员观察 `PRIMARY_ADMIN_WSL_NAMESPACES_V1.json`，SHA256 `bc969d234858aed26dda6518ceea523714b2c68ecb4807bace9524c14f51ae25`。无采集错误，`mnt:[4026532299]` 稳定，raw mountinfo SHA为 `9745f6ec4272c1c03e31c2e4c8d1ed5f6b42dfa5690cedf447268958527683dd`，与QA3摘要相同。
+
+33条记录按完整现有字段（device/root/mount/fstype/source/superoptions）排序比较，与同次2219及历史2219逐项多重集完全相等，原排列不同。具体为已知Linux ext4 `/dev/sdd` 根及distro视图、rootfs `/init`、设备/内存/proc/sys/cgroup等伪文件系统和已审Linux overlay上下层；唯一9p是 `/usr/lib/wsl/drivers`、source=drivers、root=/、superoptions明确ro/aname=drivers。没有DrvFS、Windows驱动器/UNC或新增网络文件来源。
+
+没有保存的mount-id、parent-id、per-mount/propagation字段不用于猜测这23字节差异成因，也未据此判断其管理员/IPC用途。它们未在已审核路径来源字段中引入新的源路径；所有原始字节仍由完整9745…SHA在实际采集的mountinfo上重新计算并严格匹配。为这一有限路径来源判定，无需为了重建23字节再触发UAC。
+
+因此唯一改动是在原已审表增加：
+
+`mnt:[4026532299] → 9745f6ec4272c1c03e31c2e4c8d1ed5f6b42dfa5690cedf447268958527683dd`
+
+不是通用“最多9个即可”；仍必须每个ID都在封闭表内、raw hash精确相等、namespace集合与全部process证据精确对应，所有PID/start/flags、FD、mount前后、boot/PID1/kernel、native/HCS以及已有引用检查均不变。任意新ID、第10个ID或同ID不同hash仍拒。
+
+新增3例验证实际使用的pair绑定函数：精确已观察pair允许、同ID改变字节所得digest拒绝、其它新ID借用9745…也拒绝。正例仅证明pair绑定；原始新namespace完整文本未落盘，因此不伪造其文本fixture。实际validator仍自行hash整个capture.mountinfo，最终现场成功必须由下一轮实际QA证明。原“未知第9个”诊断测试仍拒绝，只把期望错误从容量门改为更具体的未知ID门。
+
+全部相关 **128/128通过**，日志 `ASTRA_EXACT_NINTH_NAMESPACE_TEST.log`。policy SHA `83c30ab48fe6768a13d8f8f3df91d694ad14aa21a0a4cea7d2db4bd52e128279`；wrapper SHA `984dbfdad743ad28cc106d60878ae4ea00cc5d68550fb0bc0256c0e246e87b64`。上层guard字节pin同步，collector未改，没有再次现场采集或生产动作。

@@ -1,0 +1,71 @@
+{
+  "version": "teruisi-final-live-guard-validation-v1",
+  "status": "passed-for-declared-live-guard",
+  "failed": 0,
+  "at": "2026-10-11T15:09:49.422Z",
+  "sourceSha256": "dc1dbeeded593980c6712e7afabde0a053dfd13d8f6c4bb9375718330af2b8fb",
+  "artifactSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+  "sourceHandoffSha256": "41074be9c8a26b48fac1ea6fe25948b2ea0096d8200acfbd8d77b8f4c551cd7a",
+  "guardFiles": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\adoption-scope-live-guard.mjs",
+      "sha256": "f6ace5378036d4eccc809505f4af5831ffc1800c5fcea2a1358cdd75d08c6984"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-reference-audit.mjs",
+      "sha256": "984dbfdad743ad28cc106d60878ae4ea00cc5d68550fb0bc0256c0e246e87b64"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-os-instance-policy.mjs",
+      "sha256": "ab2aaf2fbd51f480dc69ece07bd739bce26a6bd2873299f6eb0df28c73738b36"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-policy.mjs",
+      "sha256": "83c30ab48fe6768a13d8f8f3df91d694ad14aa21a0a4cea7d2db4bd52e128279"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-host-policy.mjs",
+      "sha256": "0abd0bc9b2b3af5bec26e5ccc924690ae75f68615ab8b9a3994d13fd74c4ecc8"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\system-wsl-verifier.mjs",
+      "sha256": "96a975a02c010e1b018f2c00c9b345b2a602ff2581b5e7916fab050e23ca8819"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\collect-live-wsl.py",
+      "sha256": "81c2d00aec02bdc303ccb530182216d441be4f8abc79dfc443882c7492eece5d"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-LiveProcessIdentity.ps1",
+      "sha256": "280fa1cd5b4c22b73743736e1b2c6d4b50f0a106e36e8fd8b139682666903c12"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Probe-ResidualProcessMetadataV2.ps1",
+      "sha256": "6cef0abc35f4c99300d9b36393add66191557715d14d3d4a930dc0627d0f3ff9"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-SystemWslIdentity.ps1",
+      "sha256": "b74dea4831ec04acb0ab8ee7634d677073d67a374107a80583b05078306b9d34"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-LiveWslHostAssociation.ps1",
+      "sha256": "667200760cbaea60ceeb75b20a328341889b293703c29541236d72e3e9a303f1"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/PRIMARY_FINAL_REGRESSION.json",
+      "sha256": "b9161a0089b4ee8a1c5ffa7acc1fd263c736756932e23836cd496db59b4583f4"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/PRIMARY_LIVE_REFERENCE_QUALIFICATION_V4.json",
+      "sha256": "08ee56022567c737db5a270987701de5a9eeddf4618e17cad18f89c206c0f9c3"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/LIVE_REFERENCE_READONLY_QUALIFICATION_V4.json",
+      "sha256": "de8900edfc9a3216791d59bb5a58a75fb2eac8d8a1186fd265f3e9fd3f66d785"
+    }
+  ],
+  "productionApproved": false,
+  "limits": "Read-only current reference qualification only; full guard executes after approved Worker apply with real WAL. No production acceptance or whole OS handle proof."
+}

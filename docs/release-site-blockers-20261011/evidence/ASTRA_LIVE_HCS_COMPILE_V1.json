@@ -1,0 +1,9 @@
+{
+    "version":  "astra-live-hcs-compile-v1",
+    "sourceSha256":  "667200760cbaea60ceeb75b20a328341889b293703c29541236d72e3e9a303f1",
+    "hostVersion":  "5.1.26100.9168",
+    "psAstPassed":  true,
+    "actualCSharpCompiled":  true,
+    "nativeCalls":  0,
+    "productionActions":  0
+}

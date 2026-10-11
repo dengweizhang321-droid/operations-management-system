@@ -1,0 +1,13 @@
+{
+    "version":  "teruisi-hcs-readonly-enumeration-v1",
+    "at":  "2026-10-11T13:28:34.4924629+00:00",
+    "startStatus":  0,
+    "completionStatus":  -2143878885,
+    "documentSha256":  null,
+    "systems":  [
+
+                ],
+    "rawDocumentPersisted":  false,
+    "productionActionsRequested":  0,
+    "scope":  "Existing HCS compute-system enumeration only; no create/open/start/stop/modify of a VM or distribution. Selected host identity metadata, not VM configuration or business data."
+}

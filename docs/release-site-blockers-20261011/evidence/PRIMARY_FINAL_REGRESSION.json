@@ -1,0 +1,99 @@
+{
+  "status": "passed",
+  "count": 128,
+  "passed": 128,
+  "failed": 0,
+  "exitCode": 0,
+  "startedAt": "2026-10-11T15:07:23.777Z",
+  "finishedAt": "2026-10-11T15:07:24.714Z",
+  "sourceHandoffSha256": "41074be9c8a26b48fac1ea6fe25948b2ea0096d8200acfbd8d77b8f4c551cd7a",
+  "files": [
+    {
+      "sha256": "f6ace5378036d4eccc809505f4af5831ffc1800c5fcea2a1358cdd75d08c6984",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\adoption-scope-live-guard.mjs",
+      "name": "adoption-scope-live-guard.mjs"
+    },
+    {
+      "sha256": "984dbfdad743ad28cc106d60878ae4ea00cc5d68550fb0bc0256c0e246e87b64",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-reference-audit.mjs",
+      "name": "live-reference-audit.mjs"
+    },
+    {
+      "sha256": "ab2aaf2fbd51f480dc69ece07bd739bce26a6bd2873299f6eb0df28c73738b36",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-os-instance-policy.mjs",
+      "name": "live-os-instance-policy.mjs"
+    },
+    {
+      "sha256": "83c30ab48fe6768a13d8f8f3df91d694ad14aa21a0a4cea7d2db4bd52e128279",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-policy.mjs",
+      "name": "live-wsl-policy.mjs"
+    },
+    {
+      "sha256": "0abd0bc9b2b3af5bec26e5ccc924690ae75f68615ab8b9a3994d13fd74c4ecc8",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-host-policy.mjs",
+      "name": "live-wsl-host-policy.mjs"
+    },
+    {
+      "sha256": "96a975a02c010e1b018f2c00c9b345b2a602ff2581b5e7916fab050e23ca8819",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\system-wsl-verifier.mjs",
+      "name": "system-wsl-verifier.mjs"
+    },
+    {
+      "sha256": "81c2d00aec02bdc303ccb530182216d441be4f8abc79dfc443882c7492eece5d",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\collect-live-wsl.py",
+      "name": "collect-live-wsl.py"
+    },
+    {
+      "sha256": "280fa1cd5b4c22b73743736e1b2c6d4b50f0a106e36e8fd8b139682666903c12",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-LiveProcessIdentity.ps1",
+      "name": "Collect-LiveProcessIdentity.ps1"
+    },
+    {
+      "sha256": "6cef0abc35f4c99300d9b36393add66191557715d14d3d4a930dc0627d0f3ff9",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Probe-ResidualProcessMetadataV2.ps1",
+      "name": "Probe-ResidualProcessMetadataV2.ps1"
+    },
+    {
+      "sha256": "b74dea4831ec04acb0ab8ee7634d677073d67a374107a80583b05078306b9d34",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-SystemWslIdentity.ps1",
+      "name": "Collect-SystemWslIdentity.ps1"
+    },
+    {
+      "sha256": "667200760cbaea60ceeb75b20a328341889b293703c29541236d72e3e9a303f1",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-LiveWslHostAssociation.ps1",
+      "name": "Collect-LiveWslHostAssociation.ps1"
+    }
+  ],
+  "testFiles": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-os-instance-policy.test.mjs",
+      "sha256": "faa8e2791f53770ce60101d7b4aca3ba028a3f79b12c1156c1cff844c8d4013b"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-policy.test.mjs",
+      "sha256": "ca989701e460fa8b8a3027d174cb8bb5bd37cf68e1e5202fc78627e4cecb4020"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-host-policy.test.mjs",
+      "sha256": "b08a4cc3d0639a01020a8219a8a66bacc5f10e30cf0ea80eb94507e0e5aa9eec"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-reference-audit.test.mjs",
+      "sha256": "b16f06dc57267c02a0ccb5a2e2084b3493f33d145fd2be80702995ddf4078e80"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\system-wsl-verifier.test.mjs",
+      "sha256": "ec94158d6f4260b1fe50a7b07181d9e64748df5ac4942bc13407861e1b9fa7fc"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-process-departure.test.mjs",
+      "sha256": "9059d8bb9d1ad4f19c8f24ba0975dc52d9a5ae58561a0118e80fb866b5af8177"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-guest-summary.test.mjs",
+      "sha256": "cb1e5249cdb96eebc92c7e3c74853fc37bdfa29e73d44558b3453e567e7b4ea3"
+    }
+  ],
+  "logSha256": "bf243a7e36bb9edc2036be462387ff56df97e49aa19aa016b2822690c1087743",
+  "productionActions": 0
+}

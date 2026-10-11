@@ -1,0 +1,94 @@
+{
+  "version": "astra-live-guard-core-handoff-v6",
+  "status": "source-frozen-pending-independent-live-qualification",
+  "files": [
+    {
+      "sha256": "f6ace5378036d4eccc809505f4af5831ffc1800c5fcea2a1358cdd75d08c6984",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\adoption-scope-live-guard.mjs",
+      "name": "adoption-scope-live-guard.mjs"
+    },
+    {
+      "sha256": "984dbfdad743ad28cc106d60878ae4ea00cc5d68550fb0bc0256c0e246e87b64",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-reference-audit.mjs",
+      "name": "live-reference-audit.mjs"
+    },
+    {
+      "sha256": "ab2aaf2fbd51f480dc69ece07bd739bce26a6bd2873299f6eb0df28c73738b36",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-os-instance-policy.mjs",
+      "name": "live-os-instance-policy.mjs"
+    },
+    {
+      "sha256": "83c30ab48fe6768a13d8f8f3df91d694ad14aa21a0a4cea7d2db4bd52e128279",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-policy.mjs",
+      "name": "live-wsl-policy.mjs"
+    },
+    {
+      "sha256": "0abd0bc9b2b3af5bec26e5ccc924690ae75f68615ab8b9a3994d13fd74c4ecc8",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-host-policy.mjs",
+      "name": "live-wsl-host-policy.mjs"
+    },
+    {
+      "sha256": "96a975a02c010e1b018f2c00c9b345b2a602ff2581b5e7916fab050e23ca8819",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\system-wsl-verifier.mjs",
+      "name": "system-wsl-verifier.mjs"
+    },
+    {
+      "sha256": "81c2d00aec02bdc303ccb530182216d441be4f8abc79dfc443882c7492eece5d",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\collect-live-wsl.py",
+      "name": "collect-live-wsl.py"
+    },
+    {
+      "sha256": "280fa1cd5b4c22b73743736e1b2c6d4b50f0a106e36e8fd8b139682666903c12",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-LiveProcessIdentity.ps1",
+      "name": "Collect-LiveProcessIdentity.ps1"
+    },
+    {
+      "sha256": "6cef0abc35f4c99300d9b36393add66191557715d14d3d4a930dc0627d0f3ff9",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Probe-ResidualProcessMetadataV2.ps1",
+      "name": "Probe-ResidualProcessMetadataV2.ps1"
+    },
+    {
+      "sha256": "b74dea4831ec04acb0ab8ee7634d677073d67a374107a80583b05078306b9d34",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-SystemWslIdentity.ps1",
+      "name": "Collect-SystemWslIdentity.ps1"
+    },
+    {
+      "sha256": "667200760cbaea60ceeb75b20a328341889b293703c29541236d72e3e9a303f1",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-LiveWslHostAssociation.ps1",
+      "name": "Collect-LiveWslHostAssociation.ps1"
+    }
+  ],
+  "testCount": 128,
+  "testLog": "E:/codex-artifacts/release-site-blockers-20261011/ASTRA_EXACT_NINTH_NAMESPACE_TEST.log",
+  "actualGuestObservation": "E:/codex-artifacts/release-site-blockers-20261011/ASTRA_LIVE_GUEST_FLAGS_OBSERVATION.json",
+  "administratorLiveAuditExecutedByAstra": false,
+  "sourcePackageChanged": false,
+  "oldBatchesChanged": false,
+  "productionActions": 0,
+  "note": "Only added exact observed namespace4026532299 with whole raw mount SHA9745f6...; unknown identities or hashes remain rejected and all coverage/epoch/native/HCS checks stay. Full related128 tests pass. No collector/production/package changes. Old three QA failures retained; final actual read-only qualification remains parent-owned.",
+  "tests": [
+    "live-os-instance-policy.test.mjs",
+    "live-process-departure.test.mjs",
+    "live-wsl-policy.test.mjs",
+    "live-guest-summary.test.mjs",
+    "live-reference-audit.test.mjs",
+    "system-wsl-verifier.test.mjs",
+    "live-wsl-host-policy.test.mjs"
+  ],
+  "originalFailure": {
+    "path": "E:/codex-artifacts/release-site-blockers-20261011/PRIMARY_LIVE_REFERENCE_QUALIFICATION_FAILURE_V1.json",
+    "sha256": "1cfde87072c8c2375c3405e88c77da7fa24c91dd6b905bbb1dd13021b90093eb"
+  },
+  "actualOwnedProcessTests": {
+    "sha256": "3785c0fc12850f3398eabc67f17b41e3047f9267c686efffdb8fa1b484506f1e",
+    "count": 5,
+    "path": "E:/codex-artifacts/release-site-blockers-20261011/ASTRA_OWNED_PROCESS_DEPARTURE_V1.json"
+  },
+  "namespaceEvidence": {
+    "sha256": "bc969d234858aed26dda6518ceea523714b2c68ecb4807bace9524c14f51ae25",
+    "path": "E:/codex-artifacts/release-site-blockers-20261011/PRIMARY_ADMIN_WSL_NAMESPACES_V1.json",
+    "review": "33 source/root/mount/fs/superoptions rows exactly match the known namespace2219 as a multiset; raw hash remains exact; purpose not inferred.",
+    "namespace": "mnt:[4026532299]",
+    "rawMountSha256": "9745f6ec4272c1c03e31c2e4c8d1ed5f6b42dfa5690cedf447268958527683dd"
+  }
+}

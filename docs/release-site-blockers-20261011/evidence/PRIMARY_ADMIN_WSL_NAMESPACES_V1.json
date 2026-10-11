@@ -1,0 +1,3277 @@
+{
+  "namespaces": [
+    {
+      "namespace": "mnt:[4026532219]",
+      "representativePid": "1",
+      "sha256": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+      "mounts": [
+        {
+          "device": "0:31",
+          "root": "/",
+          "mount": "/usr/lib/modules/6.18.33.2-microsoft-standard-WSL2",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/modules,upperdir=/lib/modules/6.18.33.2-microsoft-standard-WSL2/rw/upper,workdir=/lib/modules/6.18.33.2-microsoft-standard-WSL2/rw/work,uuid=on"
+        },
+        {
+          "device": "0:34",
+          "root": "/",
+          "mount": "/mnt/wsl",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:36",
+          "root": "/",
+          "mount": "/usr/lib/wsl/drivers",
+          "fstype": "9p",
+          "source": "drivers",
+          "options": "ro,aname=drivers;fmask=222;dmask=222,cache=0x5,access=client,msize=65536,trans=fd,rfd=8,wfd=8"
+        },
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:40",
+          "root": "/",
+          "mount": "/mnt/wslg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/mnt/wslg/distro",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:57",
+          "root": "/",
+          "mount": "/usr/lib/wsl/lib",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/gpu_lib_packaged:/gpu_lib_inbox,upperdir=/gpu_lib/rw/upper,workdir=/gpu_lib/rw/work,uuid=on"
+        },
+        {
+          "device": "0:2",
+          "root": "/init",
+          "mount": "/init",
+          "fstype": "rootfs",
+          "source": "rootfs",
+          "options": "rw,size=8094924k,nr_inodes=2023731"
+        },
+        {
+          "device": "0:6",
+          "root": "/",
+          "mount": "/dev",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:24",
+          "root": "/",
+          "mount": "/sys",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:61",
+          "root": "/",
+          "mount": "/proc",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:62",
+          "root": "/",
+          "mount": "/dev/pts",
+          "fstype": "devpts",
+          "source": "devpts",
+          "options": "rw,gid=5,mode=620,ptmxmode=000"
+        },
+        {
+          "device": "0:63",
+          "root": "/",
+          "mount": "/run",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:64",
+          "root": "/",
+          "mount": "/run/lock",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/run/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/dev/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:66",
+          "root": "/",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/",
+          "mount": "/sys/fs/cgroup",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:42",
+          "root": "/etc/versions.txt",
+          "mount": "/mnt/wslg/versions.txt",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:42",
+          "root": "/usr/share/doc",
+          "mount": "/mnt/wslg/doc",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:40",
+          "root": "/.X11-unix",
+          "mount": "/tmp/.X11-unix",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:40",
+          "root": "/run/user",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:39",
+          "root": "/",
+          "mount": "/dev/mqueue",
+          "fstype": "mqueue",
+          "source": "mqueue",
+          "options": "rw"
+        },
+        {
+          "device": "0:71",
+          "root": "/",
+          "mount": "/dev/hugepages",
+          "fstype": "hugetlbfs",
+          "source": "hugetlbfs",
+          "options": "rw,pagesize=2M"
+        },
+        {
+          "device": "0:8",
+          "root": "/",
+          "mount": "/sys/kernel/debug",
+          "fstype": "debugfs",
+          "source": "debugfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:13",
+          "root": "/",
+          "mount": "/sys/kernel/tracing",
+          "fstype": "tracefs",
+          "source": "tracefs",
+          "options": "rw"
+        },
+        {
+          "device": "0:72",
+          "root": "/",
+          "mount": "/sys/fs/fuse/connections",
+          "fstype": "fusectl",
+          "source": "fusectl",
+          "options": "rw"
+        },
+        {
+          "device": "0:22",
+          "root": "/",
+          "mount": "/sys/kernel/config",
+          "fstype": "configfs",
+          "source": "configfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        }
+      ],
+      "namespaceStable": true
+    },
+    {
+      "namespace": "mnt:[4026532222]",
+      "representativePid": "96",
+      "sha256": "41902b8e2cf713bc967b3f644cc8f9a8b09a47f32a438eb57a29acc771879ee2",
+      "mounts": [
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:2",
+          "root": "/init",
+          "mount": "/init",
+          "fstype": "rootfs",
+          "source": "rootfs",
+          "options": "rw,size=8094924k,nr_inodes=2023731"
+        },
+        {
+          "device": "0:6",
+          "root": "/",
+          "mount": "/dev",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:62",
+          "root": "/",
+          "mount": "/dev/pts",
+          "fstype": "devpts",
+          "source": "devpts",
+          "options": "rw,gid=5,mode=620,ptmxmode=000"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/dev/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:39",
+          "root": "/",
+          "mount": "/dev/mqueue",
+          "fstype": "mqueue",
+          "source": "mqueue",
+          "options": "rw"
+        },
+        {
+          "device": "0:71",
+          "root": "/",
+          "mount": "/dev/hugepages",
+          "fstype": "hugetlbfs",
+          "source": "hugetlbfs",
+          "options": "rw,pagesize=2M"
+        },
+        {
+          "device": "0:24",
+          "root": "/",
+          "mount": "/sys",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/",
+          "mount": "/sys/fs/cgroup",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:8",
+          "root": "/",
+          "mount": "/sys/kernel/debug",
+          "fstype": "debugfs",
+          "source": "debugfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:13",
+          "root": "/",
+          "mount": "/sys/kernel/tracing",
+          "fstype": "tracefs",
+          "source": "tracefs",
+          "options": "rw"
+        },
+        {
+          "device": "0:72",
+          "root": "/",
+          "mount": "/sys/fs/fuse/connections",
+          "fstype": "fusectl",
+          "source": "fusectl",
+          "options": "rw"
+        },
+        {
+          "device": "0:22",
+          "root": "/",
+          "mount": "/sys/kernel/config",
+          "fstype": "configfs",
+          "source": "configfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:61",
+          "root": "/",
+          "mount": "/proc",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/",
+          "mount": "/run",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:64",
+          "root": "/",
+          "mount": "/run/lock",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/run/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:66",
+          "root": "/",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:40",
+          "root": "/run/user",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:36",
+          "root": "/",
+          "mount": "/usr/lib/wsl/drivers",
+          "fstype": "9p",
+          "source": "drivers",
+          "options": "ro,aname=drivers;fmask=222;dmask=222,cache=0x5,access=client,msize=65536,trans=fd,rfd=8,wfd=8"
+        },
+        {
+          "device": "0:57",
+          "root": "/",
+          "mount": "/usr/lib/wsl/lib",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/gpu_lib_packaged:/gpu_lib_inbox,upperdir=/gpu_lib/rw/upper,workdir=/gpu_lib/rw/work,uuid=on"
+        },
+        {
+          "device": "0:34",
+          "root": "/",
+          "mount": "/mnt/wsl",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:40",
+          "root": "/",
+          "mount": "/mnt/wslg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/mnt/wslg/distro",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:42",
+          "root": "/etc/versions.txt",
+          "mount": "/mnt/wslg/versions.txt",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:42",
+          "root": "/usr/share/doc",
+          "mount": "/mnt/wslg/doc",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:40",
+          "root": "/.X11-unix",
+          "mount": "/tmp/.X11-unix",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:31",
+          "root": "/",
+          "mount": "/usr/lib/modules/6.18.33.2-microsoft-standard-WSL2",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/modules,upperdir=/lib/modules/6.18.33.2-microsoft-standard-WSL2/rw/upper,workdir=/lib/modules/6.18.33.2-microsoft-standard-WSL2/rw/work,uuid=on"
+        },
+        {
+          "device": "0:61",
+          "root": "/sys/kernel/domainname",
+          "mount": "/proc/sys/kernel/domainname",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:61",
+          "root": "/sys/kernel/hostname",
+          "mount": "/proc/sys/kernel/hostname",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/run/credentials",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/propagate/systemd-udevd.service",
+          "mount": "/run/systemd/incoming",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        }
+      ],
+      "namespaceStable": true
+    },
+    {
+      "namespace": "mnt:[4026532224]",
+      "representativePid": "142",
+      "sha256": "c96dff9c35deba377ff3bf61838235f0239f4c3f7036482ef5d8ea1d8c38c97c",
+      "mounts": [
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:2",
+          "root": "/init",
+          "mount": "/init",
+          "fstype": "rootfs",
+          "source": "rootfs",
+          "options": "rw,size=8094924k,nr_inodes=2023731"
+        },
+        {
+          "device": "0:24",
+          "root": "/",
+          "mount": "/sys",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/",
+          "mount": "/sys/fs/cgroup",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:8",
+          "root": "/",
+          "mount": "/sys/kernel/debug",
+          "fstype": "debugfs",
+          "source": "debugfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:13",
+          "root": "/",
+          "mount": "/sys/kernel/tracing",
+          "fstype": "tracefs",
+          "source": "tracefs",
+          "options": "rw"
+        },
+        {
+          "device": "0:72",
+          "root": "/",
+          "mount": "/sys/fs/fuse/connections",
+          "fstype": "fusectl",
+          "source": "fusectl",
+          "options": "rw"
+        },
+        {
+          "device": "0:22",
+          "root": "/",
+          "mount": "/sys/kernel/config",
+          "fstype": "configfs",
+          "source": "configfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/",
+          "mount": "/run",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:64",
+          "root": "/",
+          "mount": "/run/lock",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/run/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:36",
+          "root": "/",
+          "mount": "/usr/lib/wsl/drivers",
+          "fstype": "9p",
+          "source": "drivers",
+          "options": "ro,aname=drivers;fmask=222;dmask=222,cache=0x5,access=client,msize=65536,trans=fd,rfd=8,wfd=8"
+        },
+        {
+          "device": "0:57",
+          "root": "/",
+          "mount": "/usr/lib/wsl/lib",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/gpu_lib_packaged:/gpu_lib_inbox,upperdir=/gpu_lib/rw/upper,workdir=/gpu_lib/rw/work,uuid=on"
+        },
+        {
+          "device": "0:34",
+          "root": "/",
+          "mount": "/mnt/wsl",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:40",
+          "root": "/",
+          "mount": "/mnt/wslg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/mnt/wslg/distro",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:42",
+          "root": "/etc/versions.txt",
+          "mount": "/mnt/wslg/versions.txt",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:42",
+          "root": "/usr/share/doc",
+          "mount": "/mnt/wslg/doc",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:40",
+          "root": "/.X11-unix",
+          "mount": "/tmp/.X11-unix",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:73",
+          "root": "/",
+          "mount": "/dev",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=4096k,nr_inodes=65536,mode=755"
+        },
+        {
+          "device": "0:62",
+          "root": "/",
+          "mount": "/dev/pts",
+          "fstype": "devpts",
+          "source": "devpts",
+          "options": "rw,gid=5,mode=620,ptmxmode=000"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/dev/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:39",
+          "root": "/",
+          "mount": "/dev/mqueue",
+          "fstype": "mqueue",
+          "source": "mqueue",
+          "options": "rw"
+        },
+        {
+          "device": "0:71",
+          "root": "/",
+          "mount": "/dev/hugepages",
+          "fstype": "hugetlbfs",
+          "source": "hugetlbfs",
+          "options": "rw,pagesize=2M"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/home",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:75",
+          "root": "/",
+          "mount": "/proc",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:75",
+          "root": "/acpi",
+          "mount": "/proc/acpi",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:75",
+          "root": "/bus",
+          "mount": "/proc/bus",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:75",
+          "root": "/fs",
+          "mount": "/proc/fs",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:75",
+          "root": "/irq",
+          "mount": "/proc/irq",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/reg",
+          "mount": "/proc/kallsyms",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/reg",
+          "mount": "/proc/kcore",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/reg",
+          "mount": "/proc/kmsg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:75",
+          "root": "/latency_stats",
+          "mount": "/proc/latency_stats",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:75",
+          "root": "/mtrr",
+          "mount": "/proc/mtrr",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:75",
+          "root": "/scsi",
+          "mount": "/proc/scsi",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:75",
+          "root": "/sys",
+          "mount": "/proc/sys",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:75",
+          "root": "/sysrq-trigger",
+          "mount": "/proc/sysrq-trigger",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/root",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:77",
+          "root": "/",
+          "mount": "/run/credentials",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=4096k,nr_inodes=1024,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/propagate/systemd-resolved.service",
+          "mount": "/run/systemd/incoming",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/resolve",
+          "mount": "/run/systemd/resolve",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:24",
+          "root": "/fs/bpf",
+          "mount": "/sys/fs/bpf",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/system.slice/systemd-resolved.service/memory.pressure",
+          "mount": "/sys/fs/cgroup/system.slice/systemd-resolved.service/memory.pressure",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:24",
+          "root": "/fs/selinux",
+          "mount": "/sys/fs/selinux",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/tmp/systemd-private-4a67b065264848ef882172f272ceb41d-systemd-resolved.service-rnQ12D/tmp",
+          "mount": "/tmp",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/usr/lib/modules",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "8:48",
+          "root": "/var/tmp/systemd-private-4a67b065264848ef882172f272ceb41d-systemd-resolved.service-9cGLta/tmp",
+          "mount": "/var/tmp",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        }
+      ],
+      "namespaceStable": true
+    },
+    {
+      "namespace": "mnt:[4026532225]",
+      "representativePid": "145",
+      "sha256": "60f46d9a2900b58e4fc84e0ca114b6d2edc09fad085d4c4fa1b63ea47f2783f1",
+      "mounts": [
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:2",
+          "root": "/init",
+          "mount": "/init",
+          "fstype": "rootfs",
+          "source": "rootfs",
+          "options": "rw,size=8094924k,nr_inodes=2023731"
+        },
+        {
+          "device": "0:24",
+          "root": "/",
+          "mount": "/sys",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/",
+          "mount": "/sys/fs/cgroup",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:8",
+          "root": "/",
+          "mount": "/sys/kernel/debug",
+          "fstype": "debugfs",
+          "source": "debugfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:13",
+          "root": "/",
+          "mount": "/sys/kernel/tracing",
+          "fstype": "tracefs",
+          "source": "tracefs",
+          "options": "rw"
+        },
+        {
+          "device": "0:72",
+          "root": "/",
+          "mount": "/sys/fs/fuse/connections",
+          "fstype": "fusectl",
+          "source": "fusectl",
+          "options": "rw"
+        },
+        {
+          "device": "0:22",
+          "root": "/",
+          "mount": "/sys/kernel/config",
+          "fstype": "configfs",
+          "source": "configfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/",
+          "mount": "/run",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:64",
+          "root": "/",
+          "mount": "/run/lock",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/run/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:36",
+          "root": "/",
+          "mount": "/usr/lib/wsl/drivers",
+          "fstype": "9p",
+          "source": "drivers",
+          "options": "ro,aname=drivers;fmask=222;dmask=222,cache=0x5,access=client,msize=65536,trans=fd,rfd=8,wfd=8"
+        },
+        {
+          "device": "0:57",
+          "root": "/",
+          "mount": "/usr/lib/wsl/lib",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/gpu_lib_packaged:/gpu_lib_inbox,upperdir=/gpu_lib/rw/upper,workdir=/gpu_lib/rw/work,uuid=on"
+        },
+        {
+          "device": "0:34",
+          "root": "/",
+          "mount": "/mnt/wsl",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:40",
+          "root": "/",
+          "mount": "/mnt/wslg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/mnt/wslg/distro",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:42",
+          "root": "/etc/versions.txt",
+          "mount": "/mnt/wslg/versions.txt",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:42",
+          "root": "/usr/share/doc",
+          "mount": "/mnt/wslg/doc",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:40",
+          "root": "/.X11-unix",
+          "mount": "/tmp/.X11-unix",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:74",
+          "root": "/",
+          "mount": "/dev",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=4096k,nr_inodes=65536,mode=755"
+        },
+        {
+          "device": "0:62",
+          "root": "/",
+          "mount": "/dev/pts",
+          "fstype": "devpts",
+          "source": "devpts",
+          "options": "rw,gid=5,mode=620,ptmxmode=000"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/dev/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:39",
+          "root": "/",
+          "mount": "/dev/mqueue",
+          "fstype": "mqueue",
+          "source": "mqueue",
+          "options": "rw"
+        },
+        {
+          "device": "0:71",
+          "root": "/",
+          "mount": "/dev/hugepages",
+          "fstype": "hugetlbfs",
+          "source": "hugetlbfs",
+          "options": "rw,pagesize=2M"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/home",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:76",
+          "root": "/",
+          "mount": "/proc",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw,hidepid=invisible"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:76",
+          "root": "/acpi",
+          "mount": "/proc/acpi",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw,hidepid=invisible"
+        },
+        {
+          "device": "0:76",
+          "root": "/bus",
+          "mount": "/proc/bus",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw,hidepid=invisible"
+        },
+        {
+          "device": "0:76",
+          "root": "/fs",
+          "mount": "/proc/fs",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw,hidepid=invisible"
+        },
+        {
+          "device": "0:76",
+          "root": "/irq",
+          "mount": "/proc/irq",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw,hidepid=invisible"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/reg",
+          "mount": "/proc/kallsyms",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/reg",
+          "mount": "/proc/kcore",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/reg",
+          "mount": "/proc/kmsg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:76",
+          "root": "/latency_stats",
+          "mount": "/proc/latency_stats",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw,hidepid=invisible"
+        },
+        {
+          "device": "0:76",
+          "root": "/mtrr",
+          "mount": "/proc/mtrr",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw,hidepid=invisible"
+        },
+        {
+          "device": "0:76",
+          "root": "/scsi",
+          "mount": "/proc/scsi",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw,hidepid=invisible"
+        },
+        {
+          "device": "0:76",
+          "root": "/sys",
+          "mount": "/proc/sys",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw,hidepid=invisible"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:76",
+          "root": "/sysrq-trigger",
+          "mount": "/proc/sysrq-trigger",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw,hidepid=invisible"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/root",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/run/credentials",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/propagate/systemd-timesyncd.service",
+          "mount": "/run/systemd/incoming",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/timesync",
+          "mount": "/run/systemd/timesync",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:24",
+          "root": "/fs/bpf",
+          "mount": "/sys/fs/bpf",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/system.slice/systemd-timesyncd.service/memory.pressure",
+          "mount": "/sys/fs/cgroup/system.slice/systemd-timesyncd.service/memory.pressure",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:24",
+          "root": "/fs/selinux",
+          "mount": "/sys/fs/selinux",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/tmp/systemd-private-4a67b065264848ef882172f272ceb41d-systemd-timesyncd.service-5PaWQ1/tmp",
+          "mount": "/tmp",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/usr/lib/modules",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "8:48",
+          "root": "/var/lib/systemd/timesync",
+          "mount": "/var/lib/systemd/timesync",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "8:48",
+          "root": "/var/tmp/systemd-private-4a67b065264848ef882172f272ceb41d-systemd-timesyncd.service-fXQKep/tmp",
+          "mount": "/var/tmp",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        }
+      ],
+      "namespaceStable": true
+    },
+    {
+      "namespace": "mnt:[4026532288]",
+      "representativePid": "162",
+      "sha256": "1b2ac6d15ff3f578a426c01c1cdd501a9256297090af8410c4d38b922bbb3df9",
+      "mounts": [
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:2",
+          "root": "/init",
+          "mount": "/init",
+          "fstype": "rootfs",
+          "source": "rootfs",
+          "options": "rw,size=8094924k,nr_inodes=2023731"
+        },
+        {
+          "device": "0:6",
+          "root": "/",
+          "mount": "/dev",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:62",
+          "root": "/",
+          "mount": "/dev/pts",
+          "fstype": "devpts",
+          "source": "devpts",
+          "options": "rw,gid=5,mode=620,ptmxmode=000"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/dev/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:39",
+          "root": "/",
+          "mount": "/dev/mqueue",
+          "fstype": "mqueue",
+          "source": "mqueue",
+          "options": "rw"
+        },
+        {
+          "device": "0:71",
+          "root": "/",
+          "mount": "/dev/hugepages",
+          "fstype": "hugetlbfs",
+          "source": "hugetlbfs",
+          "options": "rw,pagesize=2M"
+        },
+        {
+          "device": "0:24",
+          "root": "/",
+          "mount": "/sys",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/",
+          "mount": "/sys/fs/cgroup",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:8",
+          "root": "/",
+          "mount": "/sys/kernel/debug",
+          "fstype": "debugfs",
+          "source": "debugfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:13",
+          "root": "/",
+          "mount": "/sys/kernel/tracing",
+          "fstype": "tracefs",
+          "source": "tracefs",
+          "options": "rw"
+        },
+        {
+          "device": "0:72",
+          "root": "/",
+          "mount": "/sys/fs/fuse/connections",
+          "fstype": "fusectl",
+          "source": "fusectl",
+          "options": "rw"
+        },
+        {
+          "device": "0:22",
+          "root": "/",
+          "mount": "/sys/kernel/config",
+          "fstype": "configfs",
+          "source": "configfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/",
+          "mount": "/run",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:64",
+          "root": "/",
+          "mount": "/run/lock",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/run/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:36",
+          "root": "/",
+          "mount": "/usr/lib/wsl/drivers",
+          "fstype": "9p",
+          "source": "drivers",
+          "options": "ro,aname=drivers;fmask=222;dmask=222,cache=0x5,access=client,msize=65536,trans=fd,rfd=8,wfd=8"
+        },
+        {
+          "device": "0:57",
+          "root": "/",
+          "mount": "/usr/lib/wsl/lib",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/gpu_lib_packaged:/gpu_lib_inbox,upperdir=/gpu_lib/rw/upper,workdir=/gpu_lib/rw/work,uuid=on"
+        },
+        {
+          "device": "0:34",
+          "root": "/",
+          "mount": "/mnt/wsl",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:40",
+          "root": "/",
+          "mount": "/mnt/wslg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/mnt/wslg/distro",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:42",
+          "root": "/etc/versions.txt",
+          "mount": "/mnt/wslg/versions.txt",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:42",
+          "root": "/usr/share/doc",
+          "mount": "/mnt/wslg/doc",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:40",
+          "root": "/.X11-unix",
+          "mount": "/tmp/.X11-unix",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/chr",
+          "mount": "/dev/kmsg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "8:48",
+          "root": "/etc",
+          "mount": "/etc",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/home",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:79",
+          "root": "/",
+          "mount": "/proc",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/reg",
+          "mount": "/proc/kmsg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:79",
+          "root": "/sys/kernel/domainname",
+          "mount": "/proc/sys/kernel/domainname",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:79",
+          "root": "/sys/kernel/hostname",
+          "mount": "/proc/sys/kernel/hostname",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/root",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/run/credentials",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/propagate/systemd-logind.service",
+          "mount": "/run/systemd/incoming",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inhibit",
+          "mount": "/run/systemd/inhibit",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/seats",
+          "mount": "/run/systemd/seats",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/sessions",
+          "mount": "/run/systemd/sessions",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/shutdown",
+          "mount": "/run/systemd/shutdown",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/users",
+          "mount": "/run/systemd/users",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:25",
+          "root": "/system.slice/systemd-logind.service/memory.pressure",
+          "mount": "/sys/fs/cgroup/system.slice/systemd-logind.service/memory.pressure",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "8:48",
+          "root": "/tmp/systemd-private-4a67b065264848ef882172f272ceb41d-systemd-logind.service-Y6UGKz/tmp",
+          "mount": "/tmp",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/usr/lib/modules",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "8:48",
+          "root": "/var/lib/systemd/linger",
+          "mount": "/var/lib/systemd/linger",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "8:48",
+          "root": "/var/tmp/systemd-private-4a67b065264848ef882172f272ceb41d-systemd-logind.service-Id4Yu4/tmp",
+          "mount": "/var/tmp",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        }
+      ],
+      "namespaceStable": true
+    },
+    {
+      "namespace": "mnt:[4026532230]",
+      "representativePid": "284",
+      "sha256": "79c1d0e33fffdbbd56182db9f6e1f031cbe97f882f322b73123b37dfef714057",
+      "mounts": [
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:2",
+          "root": "/init",
+          "mount": "/init",
+          "fstype": "rootfs",
+          "source": "rootfs",
+          "options": "rw,size=8094924k,nr_inodes=2023731"
+        },
+        {
+          "device": "0:6",
+          "root": "/",
+          "mount": "/dev",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:62",
+          "root": "/",
+          "mount": "/dev/pts",
+          "fstype": "devpts",
+          "source": "devpts",
+          "options": "rw,gid=5,mode=620,ptmxmode=000"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/dev/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:39",
+          "root": "/",
+          "mount": "/dev/mqueue",
+          "fstype": "mqueue",
+          "source": "mqueue",
+          "options": "rw"
+        },
+        {
+          "device": "0:71",
+          "root": "/",
+          "mount": "/dev/hugepages",
+          "fstype": "hugetlbfs",
+          "source": "hugetlbfs",
+          "options": "rw,pagesize=2M"
+        },
+        {
+          "device": "0:24",
+          "root": "/",
+          "mount": "/sys",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/",
+          "mount": "/sys/fs/cgroup",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:8",
+          "root": "/",
+          "mount": "/sys/kernel/debug",
+          "fstype": "debugfs",
+          "source": "debugfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:13",
+          "root": "/",
+          "mount": "/sys/kernel/tracing",
+          "fstype": "tracefs",
+          "source": "tracefs",
+          "options": "rw"
+        },
+        {
+          "device": "0:72",
+          "root": "/",
+          "mount": "/sys/fs/fuse/connections",
+          "fstype": "fusectl",
+          "source": "fusectl",
+          "options": "rw"
+        },
+        {
+          "device": "0:22",
+          "root": "/",
+          "mount": "/sys/kernel/config",
+          "fstype": "configfs",
+          "source": "configfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:61",
+          "root": "/",
+          "mount": "/proc",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/",
+          "mount": "/run",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:64",
+          "root": "/",
+          "mount": "/run/lock",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/run/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:66",
+          "root": "/",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:40",
+          "root": "/run/user",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:36",
+          "root": "/",
+          "mount": "/usr/lib/wsl/drivers",
+          "fstype": "9p",
+          "source": "drivers",
+          "options": "ro,aname=drivers;fmask=222;dmask=222,cache=0x5,access=client,msize=65536,trans=fd,rfd=8,wfd=8"
+        },
+        {
+          "device": "0:57",
+          "root": "/",
+          "mount": "/usr/lib/wsl/lib",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/gpu_lib_packaged:/gpu_lib_inbox,upperdir=/gpu_lib/rw/upper,workdir=/gpu_lib/rw/work,uuid=on"
+        },
+        {
+          "device": "0:34",
+          "root": "/",
+          "mount": "/mnt/wsl",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:40",
+          "root": "/",
+          "mount": "/mnt/wslg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/mnt/wslg/distro",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:42",
+          "root": "/etc/versions.txt",
+          "mount": "/mnt/wslg/versions.txt",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:42",
+          "root": "/usr/share/doc",
+          "mount": "/mnt/wslg/doc",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:40",
+          "root": "/.X11-unix",
+          "mount": "/tmp/.X11-unix",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:31",
+          "root": "/",
+          "mount": "/usr/lib/modules/6.18.33.2-microsoft-standard-WSL2",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/modules,upperdir=/lib/modules/6.18.33.2-microsoft-standard-WSL2/rw/upper,workdir=/lib/modules/6.18.33.2-microsoft-standard-WSL2/rw/work,uuid=on"
+        },
+        {
+          "device": "0:4",
+          "root": "net:[4026532231]",
+          "mount": "/run/user/1000/dockerd-rootless/netns",
+          "fstype": "nsfs",
+          "source": "nsfs",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/etc",
+          "mount": "/etc/.ro3545173849",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:81",
+          "root": "/",
+          "mount": "/etc",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:63",
+          "root": "/",
+          "mount": "/run/.ro241532945",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:64",
+          "root": "/",
+          "mount": "/run/.ro241532945/lock",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/run/.ro241532945/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:66",
+          "root": "/",
+          "mount": "/run/.ro241532945/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:40",
+          "root": "/run/user",
+          "mount": "/run/.ro241532945/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/run/.ro241532945/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:4",
+          "root": "net:[4026532231]",
+          "mount": "/run/.ro241532945/user/1000/dockerd-rootless/netns",
+          "fstype": "nsfs",
+          "source": "nsfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:82",
+          "root": "/",
+          "mount": "/run",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,uid=1000,gid=1000"
+        },
+        {
+          "device": "8:48",
+          "root": "/etc/ssl",
+          "mount": "/etc/ssl",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "8:48",
+          "root": "/home/teruisi-pandas/.local/share/docker",
+          "mount": "/home/teruisi-pandas/.local/share/docker",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/run/.ro241532945/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        }
+      ],
+      "namespaceStable": true
+    },
+    {
+      "namespace": "mnt:[4026532296]",
+      "representativePid": "702",
+      "sha256": "00a5c46107c834ab9c9cc90704a4a25e13593e6cb8a5d158e66d3955b4210cc5",
+      "mounts": [
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:2",
+          "root": "/init",
+          "mount": "/init",
+          "fstype": "rootfs",
+          "source": "rootfs",
+          "options": "rw,size=8094924k,nr_inodes=2023731"
+        },
+        {
+          "device": "0:6",
+          "root": "/",
+          "mount": "/dev",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:62",
+          "root": "/",
+          "mount": "/dev/pts",
+          "fstype": "devpts",
+          "source": "devpts",
+          "options": "rw,gid=5,mode=620,ptmxmode=000"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/dev/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:39",
+          "root": "/",
+          "mount": "/dev/mqueue",
+          "fstype": "mqueue",
+          "source": "mqueue",
+          "options": "rw"
+        },
+        {
+          "device": "0:71",
+          "root": "/",
+          "mount": "/dev/hugepages",
+          "fstype": "hugetlbfs",
+          "source": "hugetlbfs",
+          "options": "rw,pagesize=2M"
+        },
+        {
+          "device": "0:24",
+          "root": "/",
+          "mount": "/sys",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/",
+          "mount": "/sys/fs/cgroup",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:8",
+          "root": "/",
+          "mount": "/sys/kernel/debug",
+          "fstype": "debugfs",
+          "source": "debugfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:13",
+          "root": "/",
+          "mount": "/sys/kernel/tracing",
+          "fstype": "tracefs",
+          "source": "tracefs",
+          "options": "rw"
+        },
+        {
+          "device": "0:72",
+          "root": "/",
+          "mount": "/sys/fs/fuse/connections",
+          "fstype": "fusectl",
+          "source": "fusectl",
+          "options": "rw"
+        },
+        {
+          "device": "0:22",
+          "root": "/",
+          "mount": "/sys/kernel/config",
+          "fstype": "configfs",
+          "source": "configfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:61",
+          "root": "/",
+          "mount": "/proc",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/",
+          "mount": "/run",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:64",
+          "root": "/",
+          "mount": "/run/lock",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/run/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:66",
+          "root": "/",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:40",
+          "root": "/run/user",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:36",
+          "root": "/",
+          "mount": "/usr/lib/wsl/drivers",
+          "fstype": "9p",
+          "source": "drivers",
+          "options": "ro,aname=drivers;fmask=222;dmask=222,cache=0x5,access=client,msize=65536,trans=fd,rfd=8,wfd=8"
+        },
+        {
+          "device": "0:57",
+          "root": "/",
+          "mount": "/usr/lib/wsl/lib",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/gpu_lib_packaged:/gpu_lib_inbox,upperdir=/gpu_lib/rw/upper,workdir=/gpu_lib/rw/work,uuid=on"
+        },
+        {
+          "device": "0:34",
+          "root": "/",
+          "mount": "/mnt/wsl",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:40",
+          "root": "/",
+          "mount": "/mnt/wslg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/mnt/wslg/distro",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:42",
+          "root": "/etc/versions.txt",
+          "mount": "/mnt/wslg/versions.txt",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:42",
+          "root": "/usr/share/doc",
+          "mount": "/mnt/wslg/doc",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:40",
+          "root": "/.X11-unix",
+          "mount": "/tmp/.X11-unix",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:31",
+          "root": "/",
+          "mount": "/usr/lib/modules/6.18.33.2-microsoft-standard-WSL2",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/modules,upperdir=/lib/modules/6.18.33.2-microsoft-standard-WSL2/rw/upper,workdir=/lib/modules/6.18.33.2-microsoft-standard-WSL2/rw/work,uuid=on"
+        },
+        {
+          "device": "0:78",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/run/credentials",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "8:48",
+          "root": "/tmp/systemd-private-4a67b065264848ef882172f272ceb41d-teruisi-pandas.service-iiYnMB/tmp",
+          "mount": "/tmp",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "8:48",
+          "root": "/var/tmp/systemd-private-4a67b065264848ef882172f272ceb41d-teruisi-pandas.service-xRtCCn/tmp",
+          "mount": "/var/tmp",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        }
+      ],
+      "namespaceStable": true
+    },
+    {
+      "namespace": "mnt:[4026532297]",
+      "representativePid": "23514",
+      "sha256": "aaffa6b12395e736e7df967534404abad683bcde4cee816c44a0427c3b8b389e",
+      "mounts": [
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:2",
+          "root": "/init",
+          "mount": "/init",
+          "fstype": "rootfs",
+          "source": "rootfs",
+          "options": "rw,size=8094924k,nr_inodes=2023731"
+        },
+        {
+          "device": "0:24",
+          "root": "/",
+          "mount": "/sys",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/",
+          "mount": "/sys/fs/cgroup",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:8",
+          "root": "/",
+          "mount": "/sys/kernel/debug",
+          "fstype": "debugfs",
+          "source": "debugfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:13",
+          "root": "/",
+          "mount": "/sys/kernel/tracing",
+          "fstype": "tracefs",
+          "source": "tracefs",
+          "options": "rw"
+        },
+        {
+          "device": "0:72",
+          "root": "/",
+          "mount": "/sys/fs/fuse/connections",
+          "fstype": "fusectl",
+          "source": "fusectl",
+          "options": "rw"
+        },
+        {
+          "device": "0:22",
+          "root": "/",
+          "mount": "/sys/kernel/config",
+          "fstype": "configfs",
+          "source": "configfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/",
+          "mount": "/run",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:64",
+          "root": "/",
+          "mount": "/run/lock",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/run/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:36",
+          "root": "/",
+          "mount": "/usr/lib/wsl/drivers",
+          "fstype": "9p",
+          "source": "drivers",
+          "options": "ro,aname=drivers;fmask=222;dmask=222,cache=0x5,access=client,msize=65536,trans=fd,rfd=8,wfd=8"
+        },
+        {
+          "device": "0:57",
+          "root": "/",
+          "mount": "/usr/lib/wsl/lib",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/gpu_lib_packaged:/gpu_lib_inbox,upperdir=/gpu_lib/rw/upper,workdir=/gpu_lib/rw/work,uuid=on"
+        },
+        {
+          "device": "0:34",
+          "root": "/",
+          "mount": "/mnt/wsl",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:40",
+          "root": "/",
+          "mount": "/mnt/wslg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/mnt/wslg/distro",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:42",
+          "root": "/etc/versions.txt",
+          "mount": "/mnt/wslg/versions.txt",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:42",
+          "root": "/usr/share/doc",
+          "mount": "/mnt/wslg/doc",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:40",
+          "root": "/.X11-unix",
+          "mount": "/tmp/.X11-unix",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:80",
+          "root": "/",
+          "mount": "/dev",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=4096k,nr_inodes=65536,mode=755"
+        },
+        {
+          "device": "0:62",
+          "root": "/",
+          "mount": "/dev/pts",
+          "fstype": "devpts",
+          "source": "devpts",
+          "options": "rw,gid=5,mode=620,ptmxmode=000"
+        },
+        {
+          "device": "0:6",
+          "root": "/ptmx",
+          "mount": "/dev/ptmx",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/dev/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:39",
+          "root": "/",
+          "mount": "/dev/mqueue",
+          "fstype": "mqueue",
+          "source": "mqueue",
+          "options": "rw"
+        },
+        {
+          "device": "0:71",
+          "root": "/",
+          "mount": "/dev/hugepages",
+          "fstype": "hugetlbfs",
+          "source": "hugetlbfs",
+          "options": "rw,pagesize=2M"
+        },
+        {
+          "device": "0:6",
+          "root": "/null",
+          "mount": "/dev/null",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:6",
+          "root": "/zero",
+          "mount": "/dev/zero",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:6",
+          "root": "/full",
+          "mount": "/dev/full",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:6",
+          "root": "/random",
+          "mount": "/dev/random",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:6",
+          "root": "/urandom",
+          "mount": "/dev/urandom",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:6",
+          "root": "/tty",
+          "mount": "/dev/tty",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/home",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:83",
+          "root": "/",
+          "mount": "/proc",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:83",
+          "root": "/acpi",
+          "mount": "/proc/acpi",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:83",
+          "root": "/bus",
+          "mount": "/proc/bus",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:83",
+          "root": "/fs",
+          "mount": "/proc/fs",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:83",
+          "root": "/irq",
+          "mount": "/proc/irq",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/reg",
+          "mount": "/proc/kallsyms",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/reg",
+          "mount": "/proc/kcore",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/reg",
+          "mount": "/proc/kmsg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:83",
+          "root": "/latency_stats",
+          "mount": "/proc/latency_stats",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:83",
+          "root": "/mtrr",
+          "mount": "/proc/mtrr",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:83",
+          "root": "/scsi",
+          "mount": "/proc/scsi",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:83",
+          "root": "/sys",
+          "mount": "/proc/sys",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:83",
+          "root": "/sysrq-trigger",
+          "mount": "/proc/sysrq-trigger",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/root",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/run/credentials",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/propagate/polkit.service",
+          "mount": "/run/systemd/incoming",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:24",
+          "root": "/fs/bpf",
+          "mount": "/sys/fs/bpf",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/system.slice/polkit.service/memory.pressure",
+          "mount": "/sys/fs/cgroup/system.slice/polkit.service/memory.pressure",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:24",
+          "root": "/fs/selinux",
+          "mount": "/sys/fs/selinux",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/tmp/systemd-private-4a67b065264848ef882172f272ceb41d-polkit.service-7VhIvf/tmp",
+          "mount": "/tmp",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:63",
+          "root": "/systemd/inaccessible/dir",
+          "mount": "/usr/lib/modules",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "8:48",
+          "root": "/var/tmp/systemd-private-4a67b065264848ef882172f272ceb41d-polkit.service-pLDCu9/tmp",
+          "mount": "/var/tmp",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        }
+      ],
+      "namespaceStable": true
+    },
+    {
+      "namespace": "mnt:[4026532299]",
+      "representativePid": "129726",
+      "sha256": "9745f6ec4272c1c03e31c2e4c8d1ed5f6b42dfa5690cedf447268958527683dd",
+      "mounts": [
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:2",
+          "root": "/init",
+          "mount": "/init",
+          "fstype": "rootfs",
+          "source": "rootfs",
+          "options": "rw,size=8094924k,nr_inodes=2023731"
+        },
+        {
+          "device": "0:6",
+          "root": "/",
+          "mount": "/dev",
+          "fstype": "devtmpfs",
+          "source": "none",
+          "options": "rw,size=8094924k,nr_inodes=2023731,mode=755"
+        },
+        {
+          "device": "0:62",
+          "root": "/",
+          "mount": "/dev/pts",
+          "fstype": "devpts",
+          "source": "devpts",
+          "options": "rw,gid=5,mode=620,ptmxmode=000"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/dev/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:39",
+          "root": "/",
+          "mount": "/dev/mqueue",
+          "fstype": "mqueue",
+          "source": "mqueue",
+          "options": "rw"
+        },
+        {
+          "device": "0:71",
+          "root": "/",
+          "mount": "/dev/hugepages",
+          "fstype": "hugetlbfs",
+          "source": "hugetlbfs",
+          "options": "rw,pagesize=2M"
+        },
+        {
+          "device": "0:24",
+          "root": "/",
+          "mount": "/sys",
+          "fstype": "sysfs",
+          "source": "sysfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:25",
+          "root": "/",
+          "mount": "/sys/fs/cgroup",
+          "fstype": "cgroup2",
+          "source": "cgroup2",
+          "options": "rw,nsdelegate"
+        },
+        {
+          "device": "0:8",
+          "root": "/",
+          "mount": "/sys/kernel/debug",
+          "fstype": "debugfs",
+          "source": "debugfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:13",
+          "root": "/",
+          "mount": "/sys/kernel/tracing",
+          "fstype": "tracefs",
+          "source": "tracefs",
+          "options": "rw"
+        },
+        {
+          "device": "0:72",
+          "root": "/",
+          "mount": "/sys/fs/fuse/connections",
+          "fstype": "fusectl",
+          "source": "fusectl",
+          "options": "rw"
+        },
+        {
+          "device": "0:22",
+          "root": "/",
+          "mount": "/sys/kernel/config",
+          "fstype": "configfs",
+          "source": "configfs",
+          "options": "rw"
+        },
+        {
+          "device": "0:61",
+          "root": "/",
+          "mount": "/proc",
+          "fstype": "proc",
+          "source": "proc",
+          "options": "rw"
+        },
+        {
+          "device": "0:35",
+          "root": "/",
+          "mount": "/proc/sys/fs/binfmt_misc",
+          "fstype": "binfmt_misc",
+          "source": "binfmt_misc",
+          "options": "rw"
+        },
+        {
+          "device": "0:63",
+          "root": "/",
+          "mount": "/run",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:64",
+          "root": "/",
+          "mount": "/run/lock",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:65",
+          "root": "/",
+          "mount": "/run/shm",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:66",
+          "root": "/",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw,mode=755"
+        },
+        {
+          "device": "0:40",
+          "root": "/run/user",
+          "mount": "/run/user",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        },
+        {
+          "device": "0:36",
+          "root": "/",
+          "mount": "/usr/lib/wsl/drivers",
+          "fstype": "9p",
+          "source": "drivers",
+          "options": "ro,aname=drivers;fmask=222;dmask=222,cache=0x5,access=client,msize=65536,trans=fd,rfd=8,wfd=8"
+        },
+        {
+          "device": "0:57",
+          "root": "/",
+          "mount": "/usr/lib/wsl/lib",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/gpu_lib_packaged:/gpu_lib_inbox,upperdir=/gpu_lib/rw/upper,workdir=/gpu_lib/rw/work,uuid=on"
+        },
+        {
+          "device": "0:34",
+          "root": "/",
+          "mount": "/mnt/wsl",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:40",
+          "root": "/",
+          "mount": "/mnt/wslg",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "8:48",
+          "root": "/",
+          "mount": "/mnt/wslg/distro",
+          "fstype": "ext4",
+          "source": "/dev/sdd",
+          "options": "rw,discard,errors=remount-ro,data=ordered"
+        },
+        {
+          "device": "0:42",
+          "root": "/etc/versions.txt",
+          "mount": "/mnt/wslg/versions.txt",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:42",
+          "root": "/usr/share/doc",
+          "mount": "/mnt/wslg/doc",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/systemvhd,upperdir=/system/rw/upper,workdir=/system/rw/work,uuid=on"
+        },
+        {
+          "device": "0:78",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/1000",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700,uid=1000,gid=1000"
+        },
+        {
+          "device": "0:84",
+          "root": "/",
+          "mount": "/mnt/wslg/run/user/0",
+          "fstype": "tmpfs",
+          "source": "tmpfs",
+          "options": "rw,size=1620136k,nr_inodes=405034,mode=700"
+        },
+        {
+          "device": "0:40",
+          "root": "/.X11-unix",
+          "mount": "/tmp/.X11-unix",
+          "fstype": "tmpfs",
+          "source": "none",
+          "options": "rw"
+        },
+        {
+          "device": "0:31",
+          "root": "/",
+          "mount": "/usr/lib/modules/6.18.33.2-microsoft-standard-WSL2",
+          "fstype": "overlay",
+          "source": "none",
+          "options": "rw,lowerdir=/modules,upperdir=/lib/modules/6.18.33.2-microsoft-standard-WSL2/rw/upper,workdir=/lib/modules/6.18.33.2-microsoft-standard-WSL2/rw/work,uuid=on"
+        }
+      ],
+      "namespaceStable": true
+    }
+  ],
+  "errors": []
+}

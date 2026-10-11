@@ -1,0 +1,77 @@
+{
+    "version":  "teruisi-live-wsl-host-association-v1",
+    "at":  "2026-10-11T14:18:40.6349532+00:00",
+    "record":  {
+                   "status":  "association-metadata-collected-not-admission",
+                   "vmmemProcessId":  53880,
+                   "vmmemCreationFileTime":  "134360870965622198",
+                   "parentProcessId":  7788,
+                   "parentCreationFileTime":  "134360870964681909",
+                   "parentCimCreationUtc":  "2026-10-10T06:24:56.4681900Z",
+                   "accessMask":  "0x1000",
+                   "vmmemOpenError":  null,
+                   "parentOpenError":  null,
+                   "imagePath":  "C:\\Windows\\System32\\vmwp.exe",
+                   "imageSha256":  "62814079cc5a896142fc28d1084b7c22e97b4e35d3816b4e45f51c5bb0a88b7c",
+                   "signatureStatus":  "Valid",
+                   "signerSubject":  "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+                   "commandStatusFirst":  0,
+                   "commandStatusSecond":  0,
+                   "commandSha256":  "37bc785ae86d5554ea64eeaa5afff05538d6ec48d3008d70c3aea62242b8d396",
+                   "commandArgumentShape":  [
+                                                {
+                                                    "kind":  "absolute-drive-path",
+                                                    "sha256":  "12a1cbda27acdc5c1d6950e8dfd62f904c7f0567085ea28f78a14cfad77f4414"
+                                                },
+                                                {
+                                                    "kind":  "guid",
+                                                    "sha256":  "3a1a7e7084e0217a11bda844855c183f8830920a56f9547bfe4f95f7555b8250"
+                                                },
+                                                {
+                                                    "kind":  "opaque",
+                                                    "sha256":  "333516b481e0554d0c7cc6f85bf22c2a1fedbc578718df354546e335913f1f1f"
+                                                }
+                                            ],
+                   "runtimeGuidCandidates":  [
+                                                 "3aaab424-3094-4bb0-a07a-652f47171ad7"
+                                             ],
+                   "identityStable":  true,
+                   "hcsBefore":  {
+                                     "startStatus":  0,
+                                     "completionStatus":  0,
+                                     "wslSystems":  [
+                                                        {
+                                                            "id":  "3AAAB424-3094-4BB0-A07A-652F47171AD7",
+                                                            "runtimeId":  "3aaab424-3094-4bb0-a07a-652f47171ad7",
+                                                            "owner":  "WSL",
+                                                            "state":  "Running",
+                                                            "systemType":  "VirtualMachine",
+                                                            "runtimeOsType":  null
+                                                        }
+                                                    ]
+                                 },
+                   "hcsAfter":  {
+                                    "startStatus":  0,
+                                    "completionStatus":  0,
+                                    "wslSystems":  [
+                                                       {
+                                                           "id":  "3AAAB424-3094-4BB0-A07A-652F47171AD7",
+                                                           "runtimeId":  "3aaab424-3094-4bb0-a07a-652f47171ad7",
+                                                           "owner":  "WSL",
+                                                           "state":  "Running",
+                                                           "systemType":  "VirtualMachine",
+                                                           "runtimeOsType":  null
+                                                       }
+                                                   ]
+                                },
+                   "matchingRuntimeIds":  [
+                                              "3aaab424-3094-4bb0-a07a-652f47171ad7"
+                                          ],
+                   "failure":  null
+               },
+    "rawCommandPersisted":  false,
+    "debugPrivilegesEnabled":  false,
+    "remoteMemoryReads":  0,
+    "productionActionsRequested":  0,
+    "scope":  "Live exact-instance HCS association: two existing-system enumerations and two fixed 0x1000 process metadata handles; one exact System32 file hash/signature. No VM lifecycle, business filesystem or batch actions. Audit output only. Null HCS runtimeOsType is accepted only in the exact reviewed record; Linux/guest epoch must be separately verified."
+}

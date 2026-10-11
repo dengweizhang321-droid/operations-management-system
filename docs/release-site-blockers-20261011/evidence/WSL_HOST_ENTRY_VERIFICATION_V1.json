@@ -1,0 +1,10 @@
+{
+  "packetSha256": "0c7dfb0e4a865838dba0d13aac1d771022337031799295d1d2a32ee652402857",
+  "entrySha256": "895655c3eeb11ed0372a8a82878281bae992faafdbe8d36c97186e1cc27a798d",
+  "scriptSha256": "898b3332bf4f1f73f042a072b26f681e05d80068d7f5e01c0e78cfdf4b7b27e9",
+  "exactEncodedSource": true,
+  "ordinaryRoleRefused": true,
+  "outputAbsent": true,
+  "nativeCaptureInvocations": 0,
+  "productionActions": 0
+}
