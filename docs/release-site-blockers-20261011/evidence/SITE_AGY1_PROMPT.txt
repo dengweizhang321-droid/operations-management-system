@@ -1,0 +1,225 @@
+独立源码复审管理员只读现场采集包。真正AGY只做文本复审，不执行任何工具/测试/生产/文件修改；意见不等于事实验证或审批。
+人类授权核清现场阻断，生产最终必须另等本人精确批准。当前包不是上线：只读进程PID/session/name/creation/image/command及scheduled-task动作，0x1000查询；只对已知PID47936额外0x0410读取bounded x64 PEB/RTL元数据cwd（内部结构版本不保证；跨native image/command检查及实例/身份校验，非内存dump）。权限不启Debug，不杀进程，不注入，不执行batch/lifecycle/PG/tasks变更。只CreateNew写指定E诊断/完成记录，raw cmd及cwd仅内存/pipe，输出SHA/ref/错误。
+实际当前非admin，同user native读取补齐18项，833process/215task，剩179项均OpenProcess error5。原冻结guard eb01仍CIM-only，f0bb/6989 SourceV3/pkg21c不改。管理员采集不能承诺PPL/kernel unknown归零，也不自动让生产guard通过。所有cwd/handles/encoded/relative scripts不作全面证明。
+既有受控15 C# decoder/创建时间case通过；PS5原transport UTF8/argv通过，但V1继承NODE_V8_COVERAGE真实多写1文件；V2清所有NODE_*已实测多写0。现在持有Node FileShare.Read从hash到child结束、只检查输出父链时点reparse、capturedcollector通过ScriptBlock执行、capturedevaluator dataURL执行；父启动源码应由主agent持只读句柄并核packet中launcherSHA后调用，不将任意可变-File视根信任。Windows UAC仅只读管理员权限确认，不构成生产批准。
+首次cwd受控发现换行/错误identity未阻断，已要求PID47936、identityStable、同capture对应actor的CIMUTC、control字符及absolute drive，源码下方是修正版，最终小例验证另进行。请检查剩余具体漏洞/越权写入、PS5管道与wait输出、文件/identity边界、工作目录结构交叉检查及审批粒度；给触发条件/实际行或函数/最小修正。避免全时独占、100%或分钟承诺。
+
+FILE Collect-ProcessIdentity.ps1 SHA 764efb896666bac3656bbe7acc98833f98cf9babfbd2f20441803c368d84f50e
+param([Parameter(Mandatory=$true)][string]$OutputPath)
+$ErrorActionPreference='Stop'
+if([IntPtr]::Size -ne 8){throw 'Diagnostic requires a 64-bit host'}
+if(Test-Path -LiteralPath $OutputPath){throw 'Evidence is create-only'}
+Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public static class ReleaseSiteIdentityV1 {
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern IntPtr OpenProcess(uint access,bool inherit,uint pid);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool CloseHandle(IntPtr h);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool GetProcessTimes(IntPtr h,out long c,out long e,out long k,out long u);
+ [DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode)] public static extern bool QueryFullProcessImageName(IntPtr h,uint flags,StringBuilder b,ref uint n);
+ [DllImport("ntdll.dll")] public static extern int NtQueryInformationProcess(IntPtr h,int cl,IntPtr b,uint n,out uint required);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool IsWow64Process(IntPtr h,out bool wow);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool ReadProcessMemory(IntPtr h,IntPtr address,byte[] buffer,IntPtr size,out IntPtr read);
+ public static bool SameCreation(long native,long cim){return native/10==cim/10;}
+ public static string Command(IntPtr h,out int status){
+  uint n;status=NtQueryInformationProcess(h,60,IntPtr.Zero,0,out n);
+  if(n<16||n>65536+64)return null;
+  IntPtr b=Marshal.AllocHGlobal((int)n);
+  try{
+   uint allocated=n;status=NtQueryInformationProcess(h,60,b,allocated,out n);
+   if(status!=0||n<16||n>allocated)return null;
+   int length=(ushort)Marshal.ReadInt16(b),maximum=(ushort)Marshal.ReadInt16(b,2);
+   long p=Marshal.ReadIntPtr(b,8).ToInt64(),start=b.ToInt64();
+   if(length%2!=0||maximum%2!=0||length>maximum||p<start+16||p-start>allocated||maximum>allocated-(p-start)){status=unchecked((int)0xC000000D);return null;}
+   string value=Marshal.PtrToStringUni(new IntPtr(p),length/2);
+   return String.IsNullOrWhiteSpace(value)?null:value;
+  }finally{Marshal.FreeHGlobal(b);}
+ }
+ static byte[] Read(IntPtr h,long address,int length){
+  if(address<65536||length<0||length>65536||address>0x7fffffffffffL-length)throw new InvalidOperationException("Invalid metadata address");
+  byte[] bytes=new byte[length];IntPtr read;
+  if(!ReadProcessMemory(h,new IntPtr(address),bytes,new IntPtr(length),out read)||read.ToInt64()!=length)throw new InvalidOperationException("Metadata unreadable");
+  return bytes;
+ }
+ static string Text(IntPtr h,byte[] header,int offset){
+  int length=BitConverter.ToUInt16(header,offset),maximum=BitConverter.ToUInt16(header,offset+2);long address=BitConverter.ToInt64(header,offset+8);
+  if(length%2!=0||maximum%2!=0||length>maximum||maximum>65534)throw new InvalidOperationException("Unsupported string layout");
+  return Encoding.Unicode.GetString(Read(h,address,length));
+ }
+ public static string CurrentDirectoryMetadata(IntPtr h,uint pid,out string failure){
+  failure=null;IntPtr basic=IntPtr.Zero;
+  try{
+   bool wow;if(!IsWow64Process(h,out wow)||wow||IntPtr.Size!=8)throw new InvalidOperationException("Unsupported target architecture");
+   basic=Marshal.AllocHGlobal(48);uint returned;
+   if(NtQueryInformationProcess(h,0,basic,48,out returned)!=0||returned!=48||Marshal.ReadIntPtr(basic,32).ToInt64()!=pid)throw new InvalidOperationException("Basic process metadata mismatch");
+   long peb=Marshal.ReadIntPtr(basic,8).ToInt64(),parameters=BitConverter.ToInt64(Read(h,peb+32,8),0);
+   byte[] a=Read(h,parameters,128),b=Read(h,parameters,128);
+   string cwdA=Text(h,a,56),cwdB=Text(h,b,56),image=Text(h,b,96),cmd=Text(h,b,112);int status;
+   string kernelCmd=Command(h,out status);StringBuilder actualImage=new StringBuilder(32768);uint size=32768;
+   if(status!=0||kernelCmd==null||!String.Equals(cmd,kernelCmd,StringComparison.Ordinal)||!QueryFullProcessImageName(h,0,actualImage,ref size)||!String.Equals(image,actualImage.ToString(),StringComparison.OrdinalIgnoreCase)||!String.Equals(cwdA,cwdB,StringComparison.Ordinal)||String.IsNullOrWhiteSpace(cwdB))throw new InvalidOperationException("Process parameter layout or contents changed");
+   return cwdB;
+  }catch(InvalidOperationException error){failure=error.Message;return null;}
+  finally{if(basic!=IntPtr.Zero)Marshal.FreeHGlobal(basic);}
+ }
+}
+'@
+$before=@(Get-CimInstance Win32_Process | Select-Object ProcessId,SessionId,Name,ParentProcessId,CreationDate,ExecutablePath,CommandLine)
+$observations=@()
+foreach($item in $before){
+ $h=[IntPtr]::Zero;$openError=$null;$imageError=$null;$nativePath=$null;$nativeCommand=$null;$commandStatus=$null;$commandStatusFirst=$null;$nativeCreation=$null;$crossCreation=$false;$handleStable=$false;$contentsStable=$false
+ try{
+  if($item.ProcessId -gt 4 -and ($null -eq $item.ExecutablePath -or $null -eq $item.CommandLine)){
+   $h=[ReleaseSiteIdentityV1]::OpenProcess(0x1000,$false,[uint32]$item.ProcessId)
+   if($h -eq [IntPtr]::Zero){$openError=[Runtime.InteropServices.Marshal]::GetLastWin32Error()}
+   else{
+    $c1=0L;$c2=0L;$exit=0L;$kernel=0L;$user=0L
+    $t1=[ReleaseSiteIdentityV1]::GetProcessTimes($h,[ref]$c1,[ref]$exit,[ref]$kernel,[ref]$user)
+    $b=[Text.StringBuilder]::new(32768);$n=[uint32]32768
+    if([ReleaseSiteIdentityV1]::QueryFullProcessImageName($h,0,$b,[ref]$n)){$nativePath=$b.ToString()}else{$imageError=[Runtime.InteropServices.Marshal]::GetLastWin32Error()}
+    $s1=0;$s2=0;$cmd1=[ReleaseSiteIdentityV1]::Command($h,[ref]$s1);$cmd2=[ReleaseSiteIdentityV1]::Command($h,[ref]$s2)
+    $commandStatusFirst=$s1;$commandStatus=$s2;$contentsStable=$s1 -eq 0 -and $s2 -eq 0 -and $null -ne $cmd1 -and [string]::Equals($cmd1,$cmd2,[StringComparison]::Ordinal)
+    if($contentsStable){$nativeCommand=$cmd2}
+    $t2=[ReleaseSiteIdentityV1]::GetProcessTimes($h,[ref]$c2,[ref]$exit,[ref]$kernel,[ref]$user)
+    $handleStable=$t1 -and $t2 -and $c1 -eq $c2
+    if($handleStable){$nativeCreation=$c1.ToString([Globalization.CultureInfo]::InvariantCulture)}
+    if($handleStable -and $null -ne $item.CreationDate){$crossCreation=[ReleaseSiteIdentityV1]::SameCreation($c1,$item.CreationDate.ToUniversalTime().ToFileTimeUtc())}
+   }
+  }
+ }finally{if($h -ne [IntPtr]::Zero){[void][ReleaseSiteIdentityV1]::CloseHandle($h)}}
+ $observations+=[pscustomobject]@{original=$item;nativePath=$nativePath;nativeCommand=$nativeCommand;openError=$openError;imageError=$imageError;commandStatusFirst=$commandStatusFirst;commandStatus=$commandStatus;nativeCreation=$nativeCreation;crossCreation=$crossCreation;handleStable=$handleStable;contentsStable=$contentsStable}
+}
+$after=@{};Get-CimInstance Win32_Process | ForEach-Object{$after[[int]$_.ProcessId]=$_}
+$records=@()
+foreach($observation in $observations){
+ $p=$observation.original;$a=$after[[int]$p.ProcessId]
+ $kernel=($p.ProcessId -eq 0 -and $p.Name -eq 'System Idle Process' -and $p.SessionId -eq 0 -and $null -eq $p.ExecutablePath -and $null -eq $p.CommandLine)
+ $same=$null -ne $a -and ($kernel -or ($null -ne $p.CreationDate -and $null -ne $a.CreationDate -and $p.CreationDate -eq $a.CreationDate)) -and $p.Name -eq $a.Name -and $p.SessionId -eq $a.SessionId
+ $canFill=$same -and $observation.crossCreation -and $observation.handleStable
+ $exe=$p.ExecutablePath;$command=$p.CommandLine
+ if($canFill){if($null -eq $exe){$exe=$observation.nativePath};if($null -eq $command -and $observation.contentsStable){$command=$observation.nativeCommand}}
+ # Raw commands are returned only through the pipe to a pinned in-memory guard evaluator.
+ $records+=[pscustomobject]@{ProcessId=[int]$p.ProcessId;SessionId=[int]$p.SessionId;Name=$p.Name;ExecutablePath=$exe;CommandLine=$command;CreationDate=$p.CreationDate;cimCreationUtc=if($null -ne $p.CreationDate){$p.CreationDate.ToUniversalTime().ToString('o')}else{$null};nativeCreationFileTime=$observation.nativeCreation;identityStable=$same;crossCreation=$observation.crossCreation;nativeHandleStable=$observation.handleStable;nativeCommandStable=$observation.contentsStable;openError=$observation.openError;imageError=$observation.imageError;commandStatusFirst=$observation.commandStatusFirst;commandStatus=$observation.commandStatus;fallbackUsed=$canFill}
+}
+$tasks=@(Get-ScheduledTask | ForEach-Object{[pscustomobject]@{identity=$_.TaskPath+$_.TaskName;actions=@($_.Actions|Select-Object Execute,Arguments,WorkingDirectory)}})
+$selectedCwd=[ordered]@{processId=47936;readable=$false;openError=$null;failure=$null;CurrentDirectory=$null;identityStable=$false;nativeCreationFileTime=$null;cimCreationUtc=$null;accessMask='0x0410';scope='Bounded x64 process-parameter metadata for one known interpreter, cross-checked native image/command; no memory dump'}
+$cwdBefore=Get-CimInstance Win32_Process -Filter 'ProcessId=47936';$cwdHandle=[ReleaseSiteIdentityV1]::OpenProcess(0x0410,$false,47936)
+try{
+ if($cwdHandle -eq [IntPtr]::Zero){$selectedCwd.openError=[Runtime.InteropServices.Marshal]::GetLastWin32Error()}
+ else{
+  $cc1=0L;$cc2=0L;$ce=0L;$ck=0L;$cu=0L;$ct1=[ReleaseSiteIdentityV1]::GetProcessTimes($cwdHandle,[ref]$cc1,[ref]$ce,[ref]$ck,[ref]$cu)
+  $cf=$null;$cwdValue=[ReleaseSiteIdentityV1]::CurrentDirectoryMetadata($cwdHandle,47936,[ref]$cf)
+  $ct2=[ReleaseSiteIdentityV1]::GetProcessTimes($cwdHandle,[ref]$cc2,[ref]$ce,[ref]$ck,[ref]$cu);$cwdAfter=Get-CimInstance Win32_Process -Filter 'ProcessId=47936'
+  $selectedCwd.identityStable=$ct1 -and $ct2 -and $cc1 -eq $cc2 -and $null -ne $cwdBefore.CreationDate -and $null -ne $cwdAfter.CreationDate -and $cwdBefore.CreationDate -eq $cwdAfter.CreationDate -and [ReleaseSiteIdentityV1]::SameCreation($cc1,$cwdBefore.CreationDate.ToUniversalTime().ToFileTimeUtc())
+  $selectedCwd.failure=$cf
+  if($ct1){$selectedCwd.nativeCreationFileTime=$cc1.ToString([Globalization.CultureInfo]::InvariantCulture)}
+  if($null -ne $cwdBefore.CreationDate){$selectedCwd.cimCreationUtc=$cwdBefore.CreationDate.ToUniversalTime().ToString('o')}
+  if($selectedCwd.identityStable -and $null -ne $cwdValue){$selectedCwd.readable=$true;$selectedCwd.CurrentDirectory=$cwdValue}
+ }
+}finally{if($cwdHandle -ne [IntPtr]::Zero){[void][ReleaseSiteIdentityV1]::CloseHandle($cwdHandle)}}
+$summary=[ordered]@{version='teruisi-native-process-fallback-diagnostic-v1';at=[DateTimeOffset]::UtcNow.ToString('o');processes=$records.Count;fallbackUsed=@($records|Where-Object fallbackUsed).Count;missingImage=@($records|Where-Object {$null -eq $_.ExecutablePath}).Count;missingCommand=@($records|Where-Object {$null -eq $_.CommandLine}).Count;changedDuringCapture=@($records|Where-Object {-not $_.identityStable}).Count;rawCommandLinesPersisted=$false;privilegesAdjusted=$false;productionMutations=0}
+$stream=[IO.File]::Open($OutputPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+try{$bytes=[Text.UTF8Encoding]::new($false).GetBytes(($summary|ConvertTo-Json)+[Environment]::NewLine);$stream.Write($bytes,0,$bytes.Length)}finally{$stream.Dispose()}
+[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
+[pscustomobject]@{processes=$records;tasks=$tasks;selectedCwd=$selectedCwd;summary=$summary}|ConvertTo-Json -Depth 8 -Compress
+
+
+FILE evaluate-reference-capture.mjs SHA 0901f108929cd223fc14a3b6371319a1bc6115606f96b020e0c60167a84ac2ed
+import {readFile,writeFile,realpath} from 'node:fs/promises';
+import path from 'node:path';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+const evidence='E:/codex-artifacts/release-site-blockers-20261011';
+const output=path.resolve(process.argv.at(-1));
+assert.equal(output,path.resolve(evidence+'/ADMIN_REFERENCE_DIAGNOSTIC_V1.json'));
+const guardRaw=await readFile('E:/codex-artifacts/release-first-adoption-targeted-20261011/adoption-scope-guard-ig04.mjs'),code=guardRaw.toString();
+const hash=v=>createHash('sha256').update(v).digest('hex');assert.equal(hash(guardRaw),'eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd');
+const chunks=[];let size=0;for await(const chunk of process.stdin){size+=chunk.length;assert.ok(size<=8*1024*1024);chunks.push(chunk);}
+const capture=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));
+assert.ok(Array.isArray(capture.processes)&&capture.processes.length<=4096&&Array.isArray(capture.tasks)&&capture.tasks.length<=4096);
+const target=path.resolve('D:/teruisi-runtime/django-sales/app.previous').toLowerCase(),start=code.indexOf('  const isReference='),end=code.indexOf('  let scanned=',start);assert.ok(start>0&&end>start);
+const {inspectProcessReference,inspectReferences}=vm.runInNewContext(code.slice(start,end)+';({inspectProcessReference,inspectReferences})',{path,target,realpath,Error,Number,Set});
+const unknown=[],references=[];
+const selectedCwd={...capture.selectedCwd,CurrentDirectory:undefined};
+if(capture.selectedCwd?.readable===true){try{assert.equal(capture.selectedCwd.processId,47936);assert.equal(capture.selectedCwd.identityStable,true);const actor=capture.processes.find(p=>p.ProcessId===47936);assert.ok(actor&&actor.identityStable===true);assert.ok(typeof actor.cimCreationUtc==='string'&&actor.cimCreationUtc.length>0);assert.equal(capture.selectedCwd.cimCreationUtc,actor.cimCreationUtc);assert.match(capture.selectedCwd.CurrentDirectory,/^[A-Za-z]:[\\/]/);assert.ok(!/[\r\n\0]/.test(capture.selectedCwd.CurrentDirectory));selectedCwd.refersToPrevious=await inspectReferences(capture.selectedCwd.CurrentDirectory);selectedCwd.directorySha256=hash(capture.selectedCwd.CurrentDirectory);}catch{selectedCwd.failure='physical-directory-or-identity-unresolved';}}
+for(const p of capture.processes){let r;if(!p.identityStable)r={kind:'process-unknown',processId:p.ProcessId,reason:'process-changed-during-capture'};else try{r=await inspectProcessReference(p);}catch{r={kind:'process-unknown',processId:p.ProcessId,reason:'physical-path-unresolved'};}if(r)(r.kind==='process-unknown'?unknown:references).push({...r,name:p.Name,openError:p.openError,imageError:p.imageError,commandStatusFirst:p.commandStatusFirst,commandStatus:p.commandStatus,nativeCreationFileTime:p.nativeCreationFileTime,cimCreationUtc:p.cimCreationUtc});}
+for(const t of capture.tasks)for(const a of t.actions){try{if(await inspectReferences(a.Execute)||await inspectReferences(a.Arguments,{commandLine:true})||await inspectReferences(a.WorkingDirectory)){references.push({kind:'scheduled-task',identitySha256:hash(t.identity)});break;}}catch{unknown.push({kind:'scheduled-task-unknown',identitySha256:hash(t.identity)});break;}}
+const record={version:'teruisi-admin-readonly-reference-diagnostic-v1',at:new Date().toISOString(),status:unknown.length||references.length||selectedCwd.readable!==true||selectedCwd.failure||selectedCwd.refersToPrevious===true?'blocked':'diagnostic-no-reference-found',captureSummary:capture.summary,selectedCwd,originalGuardSha256:hash(guardRaw),unknown,references,rawCommandsNotPersisted:true,productionActions:0,scope:'Diagnostic only; no batch execution, no mutation, no automatic production admission. Only PID47936 cwd supplement; all handles/other cwd/encoded and relative scripts remain outside frozen predicate.'};
+await writeFile(output,JSON.stringify(record,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({status:record.status,unknown:unknown.length,references:references.length,productionActions:0}));
+
+
+FILE Start-ReadOnlyAdminAudit.ps1 SHA 59276d18da0eb6cee4cf3e1909e1759b4d7ffbfaa1df1be0893225c8ef2e6c05
+param([Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$PacketSha256,[switch]$Launch)
+$ErrorActionPreference='Stop'
+$packetPath='E:\codex-artifacts\release-site-blockers-20261011\ADMIN_READONLY_PACKET_V2.json'
+$packetRaw=[IO.File]::ReadAllBytes($packetPath)
+function Get-ByteHash([byte[]]$Bytes){$algorithm=[Security.Cryptography.SHA256]::Create();try{return ([BitConverter]::ToString($algorithm.ComputeHash($Bytes))).Replace('-','').ToLowerInvariant()}finally{$algorithm.Dispose()}}
+if((Get-ByteHash $packetRaw) -cne $PacketSha256){throw 'Approved readonly packet changed'}
+$packet=[Text.Encoding]::UTF8.GetString($packetRaw)|ConvertFrom-Json
+if($packet.version -cne 'teruisi-admin-readonly-packet-v1' -or $packet.productionApproved -isnot [bool] -or $packet.productionApproved -ne $false){throw 'Not a readonly packet'}
+if((Get-ByteHash ([IO.File]::ReadAllBytes($MyInvocation.MyCommand.Path))) -cne $packet.launcher.sha256){throw 'Readonly launcher drift'}
+if(-not $Launch){[pscustomobject]@{status='review-only';packetSha256=$PacketSha256;scope=$packet.scope;productionActions=0}|ConvertTo-Json;return}
+# This bootstrap runs as literal encoded source. It verifies and captures script bytes
+# before evaluating them; it never executes a mutable helper via -File.
+$bootstrap=@'
+$ErrorActionPreference='Stop'
+[Console]::OutputEncoding=New-Object Text.UTF8Encoding($false)
+function HashBytes([byte[]]$b){$s=[Security.Cryptography.SHA256]::Create();try{([BitConverter]::ToString($s.ComputeHash($b))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()}}
+$raw=[IO.File]::ReadAllBytes('E:\codex-artifacts\release-site-blockers-20261011\ADMIN_READONLY_PACKET_V2.json')
+if((HashBytes $raw) -cne '__PACKET_SHA__'){throw 'Readonly packet drift'}
+$p=[Text.Encoding]::UTF8.GetString($raw)|ConvertFrom-Json
+if($p.version -cne 'teruisi-admin-readonly-packet-v1' -or $p.productionApproved -isnot [bool] -or $p.productionApproved -ne $false){throw 'Wrong mode'}
+$identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+if($identity.User.Value -cne $p.windowsSid){throw 'Different Windows identity'}
+if(-not ([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Administrator readonly token required'}
+function AssertPhysical($path){
+ $cursor=[IO.Path]::GetFullPath([string]$path)
+ while($cursor){$item=Get-Item -LiteralPath $cursor -Force;if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Redirected pinned path'};$parent=[IO.Path]::GetDirectoryName($cursor);if($parent -eq $cursor){break};$cursor=$parent}
+}
+function ReadPinned($entry){
+ $full=[IO.Path]::GetFullPath([string]$entry.path);AssertPhysical $full
+ $bytes=[IO.File]::ReadAllBytes($full);if((HashBytes $bytes) -cne $entry.sha256){throw 'Readonly source drift'};return ,$bytes
+}
+foreach($target in @($p.captureSummaryPath,$p.resultPath,$p.completionPath)){
+ if([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath([string]$target)) -cne 'E:\codex-artifacts\release-site-blockers-20261011'){throw 'Output escaped fixed audit root'}
+ AssertPhysical ([IO.Path]::GetDirectoryName([string]$target));if(Test-Path -LiteralPath $target){throw 'Readonly output already exists'}
+}
+AssertPhysical $p.node.path
+$nodeFile=[IO.File]::Open([string]$p.node.path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+try{
+ $nodeHasher=[Security.Cryptography.SHA256]::Create()
+ try{$nodeHash=([BitConverter]::ToString($nodeHasher.ComputeHash($nodeFile))).Replace('-','').ToLowerInvariant()}finally{$nodeHasher.Dispose()}
+ if($nodeHash -cne $p.node.sha256){throw 'Readonly Node binary drift'}
+$collector=ReadPinned $p.collector
+$evaluator=ReadPinned $p.evaluator
+$PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules;C:\Program Files\WindowsPowerShell\Modules'
+$env:PSModulePath=$PSModulePath
+$capture=& ([ScriptBlock]::Create([Text.Encoding]::UTF8.GetString($collector))) -OutputPath $p.captureSummaryPath
+$captureText=[string]::Join([Environment]::NewLine,[string[]]$capture)
+if([Text.Encoding]::UTF8.GetByteCount($captureText) -gt 8388608){throw 'Capture too large'}
+$start=New-Object Diagnostics.ProcessStartInfo
+$start.FileName=[string]$p.node.path;$start.UseShellExecute=$false;$start.CreateNoWindow=$true
+$start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
+$start.StandardOutputEncoding=New-Object Text.UTF8Encoding($false)
+$start.StandardErrorEncoding=New-Object Text.UTF8Encoding($false)
+foreach($key in @($start.EnvironmentVariables.Keys|Where-Object {$_ -like 'NODE_*'})){$start.EnvironmentVariables.Remove([string]$key)}
+$source64=[Convert]::ToBase64String($evaluator)
+$start.Arguments='--input-type=module --eval "await import(''data:text/javascript;base64,''+process.argv[1]);" '+$source64+' "'+[string]$p.resultPath+'"'
+$child=[Diagnostics.Process]::Start($start)
+$stdout=$child.StandardOutput.ReadToEndAsync();$stderr=$child.StandardError.ReadToEndAsync()
+$stdinBytes=[Text.UTF8Encoding]::new($false).GetBytes($captureText)
+$child.StandardInput.BaseStream.Write($stdinBytes,0,$stdinBytes.Length);$child.StandardInput.BaseStream.Flush();$child.StandardInput.BaseStream.Close()
+if(-not $child.WaitForExit(60000)){throw 'Readonly evaluator timeout; process not terminated automatically'}
+$out=$stdout.GetAwaiter().GetResult();$err=$stderr.GetAwaiter().GetResult()
+if($child.ExitCode -ne 0){throw ('Readonly evaluator failed: '+$err)}
+$result=[ordered]@{version='teruisi-admin-readonly-completion-v1';at=[DateTimeOffset]::UtcNow.ToString('o');packetSha256='__PACKET_SHA__';status='completed-readonly';resultPath=$p.resultPath;productionActions=0;privilegesAdjusted=$false}
+$file=[IO.File]::Open([string]$p.completionPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+try{$b=[Text.UTF8Encoding]::new($false).GetBytes(($result|ConvertTo-Json)+[Environment]::NewLine);$file.Write($b,0,$b.Length)}finally{$file.Dispose()}
+}finally{$nodeFile.Dispose()}
+'@
+$bootstrap=$bootstrap.Replace('__PACKET_SHA__',$PacketSha256)
+$encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrap))
+Start-Process -FilePath 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' -Verb RunAs -WindowStyle Hidden -ArgumentList @('-NoProfile','-NonInteractive','-EncodedCommand',$encoded)
+[pscustomobject]@{status='Windows-admin-confirmation-requested';packetSha256=$PacketSha256;productionActions=0}|ConvertTo-Json
+

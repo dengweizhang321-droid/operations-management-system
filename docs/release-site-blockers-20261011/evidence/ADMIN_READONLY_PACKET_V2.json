@@ -1,0 +1,33 @@
+{
+  "version": "teruisi-admin-readonly-packet-v1",
+  "preparedAt": "2026-10-11T12:02:52.987Z",
+  "windowsSid": "S-1-5-21-815909789-107973518-1379257801-1001",
+  "node": {
+    "path": "C:\\Program Files\\nodejs\\node.exe",
+    "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+  },
+  "collector": {
+    "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-ProcessIdentity.ps1",
+    "sha256": "764efb896666bac3656bbe7acc98833f98cf9babfbd2f20441803c368d84f50e"
+  },
+  "evaluator": {
+    "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evaluate-reference-capture.mjs",
+    "sha256": "0901f108929cd223fc14a3b6371319a1bc6115606f96b020e0c60167a84ac2ed"
+  },
+  "launcher": {
+    "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Start-ReadOnlyAdminAudit.ps1",
+    "sha256": "59276d18da0eb6cee4cf3e1909e1759b4d7ffbfaa1df1be0893225c8ef2e6c05"
+  },
+  "captureSummaryPath": "E:/codex-artifacts/release-site-blockers-20261011/ADMIN_CAPTURE_SUMMARY_V1.json",
+  "resultPath": "E:/codex-artifacts/release-site-blockers-20261011/ADMIN_REFERENCE_DIAGNOSTIC_V1.json",
+  "completionPath": "E:/codex-artifacts/release-site-blockers-20261011/ADMIN_READONLY_COMPLETED_V1.json",
+  "frozenGuardSha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd",
+  "productionApproved": false,
+  "scope": [
+    "Read process PID/session/name/creation/image/command and scheduled-task action metadata",
+    "PROCESS_QUERY_LIMITED_INFORMATION(0x1000) for inventory; only known PID47936 additionally0x0410 QUERY_INFORMATION|VM_READ for bounded x64 cwd metadata. No Debug privileges, injection, memory dump or termination",
+    "Original frozen reference predicate used for diagnosis only; cwd/handles/encoded/relative inputs not fully covered",
+    "Write only create-only redacted audit records in this E evidence directory",
+    "No batch execute, maintenance, deployment, service start/stop, production backup/restore, business writes or task changes"
+  ]
+}

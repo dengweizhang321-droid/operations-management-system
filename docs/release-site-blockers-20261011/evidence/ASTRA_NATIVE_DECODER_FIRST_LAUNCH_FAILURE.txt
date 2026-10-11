@@ -1,0 +1,1 @@
+First launch failed before test execution: assumed C:\Program Files\PowerShell\7\pwsh.exe does not exist. No test assertion ran. Retrying in current PowerShell host.

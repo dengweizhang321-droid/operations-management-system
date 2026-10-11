@@ -1,0 +1,52 @@
+{
+  "version": "teruisi-readonly-command-query-diagnostic-v1",
+  "at": "2026-10-11T11:20:22.1757096+00:00",
+  "records": [
+    {
+      "processId": 47936,
+      "name": "powershell.exe",
+      "creationDate": "2026-10-06T08:51:18.567301+08:00",
+      "openError": 0,
+      "ntStatus": 0,
+      "commandReadable": true,
+      "unicodeBufferValid": true,
+      "commandSha256": "844ff0d342cb9a8b070b0b13da5eb6884bf9672afeceaba3524d2652eeeefb33",
+      "commandCharacters": 57,
+      "containsTargetLiteral": false,
+      "identityStable": true,
+      "rawCommandNotPersisted": true
+    },
+    {
+      "processId": 37392,
+      "name": "WindowsTerminal.exe",
+      "creationDate": "2026-10-06T08:51:18.083054+08:00",
+      "openError": 0,
+      "ntStatus": 0,
+      "commandReadable": true,
+      "unicodeBufferValid": true,
+      "commandSha256": "2ef8ee439d3c3771c0bc048112b7ee833bde95637fb470588fb72a11bae1667d",
+      "commandCharacters": 7,
+      "containsTargetLiteral": false,
+      "identityStable": true,
+      "rawCommandNotPersisted": true
+    },
+    {
+      "processId": 4424,
+      "name": "pwsh.exe",
+      "creationDate": "2026-10-11T19:20:18.536798+08:00",
+      "openError": 0,
+      "ntStatus": 0,
+      "commandReadable": true,
+      "unicodeBufferValid": true,
+      "commandSha256": "283d748baf8a1d5bcbb23791f9f4489e452b1d07b60d074fe2f97f414c3ec5b6",
+      "commandCharacters": 365,
+      "containsTargetLiteral": false,
+      "identityStable": true,
+      "rawCommandNotPersisted": true
+    }
+  ],
+  "privilegesAdjusted": false,
+  "processMutations": 0,
+  "productionMutations": 0,
+  "scope": "Diagnostic only. Does not replace physical path/token reference guard, inspect cwd/handles, or grant production admission."
+}

@@ -1,0 +1,34 @@
+{
+  "version": "teruisi-site-original-effective-chain-recheck-v1",
+  "at": "2026-10-11T12:21:06.083Z",
+  "head": {
+    "bindingSha256": "094e10d4508986d62e5d90bf99041271fb7527f9a8b5d33f1dfb386529cee548",
+    "guardReceiptSha256": "672f80420f154969d4bf221f542dacfbab3dc0360ca25c95c3c686792be7f013",
+    "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "chainStateSha256": "aaf62994c75c3ca46362328fed6acc76f812808a2e852566782e5e0ba897e0d9",
+  "records": 219,
+  "pins": [
+    {
+      "name": "worker-local-release-rotation.mjs",
+      "sha256": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd"
+    },
+    {
+      "name": "worker-local-release.mjs",
+      "sha256": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32"
+    },
+    {
+      "name": "d1-retirement-proof.mjs",
+      "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+    }
+  ],
+  "sourceTree": {
+    "algorithm": "sha256-ordinal-path-length-content-v1",
+    "fileCount": 5157,
+    "sha256": "92c2656c064c6a202239f4f010f0d241e90ae19fb35638cd328727a7ac64973c"
+  },
+  "productionActions": 0,
+  "scope": "Original installed metadata/guard/chain resolver; not whole payload, new restore or installed successor acceptance."
+}

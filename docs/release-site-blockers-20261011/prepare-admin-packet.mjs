@@ -1,0 +1,13 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
+import assert from 'node:assert/strict';
+const base=path.dirname(fileURLToPath(import.meta.url)),root='E:/codex-artifacts/release-site-blockers-20261011';
+const hash=v=>createHash('sha256').update(v).digest('hex');
+const pin=async file=>({path:path.resolve(file),sha256:hash(await readFile(file))});
+const sid=spawnSync('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',['-NoProfile','-NonInteractive','-Command','[Security.Principal.WindowsIdentity]::GetCurrent().User.Value'],{encoding:'utf8',windowsHide:true});assert.equal(sid.status,0);const windowsSid=sid.stdout.trim();assert.match(windowsSid,/^S-1-5-21-(\d+-){3}\d+$/);
+const packet={version:'teruisi-admin-readonly-packet-v1',preparedAt:new Date().toISOString(),windowsSid,node:await pin(process.execPath),collector:await pin(base+'/Collect-ProcessIdentity.ps1'),evaluator:await pin(base+'/evaluate-reference-capture.mjs'),launcher:await pin(base+'/Start-ReadOnlyAdminAudit.ps1'),captureSummaryPath:root+'/ADMIN_CAPTURE_SUMMARY_V1.json',resultPath:root+'/ADMIN_REFERENCE_DIAGNOSTIC_V1.json',completionPath:root+'/ADMIN_READONLY_COMPLETED_V1.json',frozenGuardSha256:'eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd',productionApproved:false,scope:['Read process PID/session/name/creation/image/command and scheduled-task action metadata','Only PROCESS_QUERY_LIMITED_INFORMATION(0x1000); no Debug privileges, injection or process termination','Original frozen reference predicate used for diagnosis only; cwd/handles/encoded/relative inputs not fully covered','Write only create-only redacted audit records in this E evidence directory','No batch execute, maintenance, deployment, service start/stop, production backup/restore, business writes or task changes']};
+packet.scope[1]='PROCESS_QUERY_LIMITED_INFORMATION(0x1000) for inventory; only known PID47936 additionally0x0410 QUERY_INFORMATION|VM_READ for bounded x64 cwd metadata. No Debug privileges, injection, memory dump or termination';
+const raw=Buffer.from(JSON.stringify(packet,null,2)+'\n');await writeFile(root+'/ADMIN_READONLY_PACKET_V2.json',raw,{flag:'wx'});await writeFile(root+'/ADMIN_READONLY_PACKET_V2.sha256',hash(raw)+'\n',{flag:'wx'});console.log(JSON.stringify({packetSha256:hash(raw),productionApproved:false}));
