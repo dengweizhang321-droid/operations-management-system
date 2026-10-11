@@ -1,0 +1,47 @@
+// Bounded metadata/byte comparison only; does not import or execute product tools.
+import {readFile,lstat,writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+const e='E:/codex-artifacts/release-first-adoption-targeted-20261011';
+const w='D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749';
+const d='D:/teruisi-runtime/django-sales';
+const h=s=>createHash('sha256').update(s).digest('hex');
+const canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(',')}]`:v&&typeof v==='object'?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`:JSON.stringify(v);
+const files=[];
+async function read(p){const a=await lstat(p);assert.ok(a.isFile()&&!a.isSymbolicLink()&&a.nlink===1&&a.size<6*1024*1024);const raw=await readFile(p),z=await lstat(p);assert.equal(a.size,z.size);assert.equal(a.mtimeMs,z.mtimeMs);files.push({path:p,bytes:raw.length,sha256:h(raw)});return raw;}
+const raw=await read(path.join(e,'ADOPTION_BATCH_FRESH_V1.json')),s=JSON.parse(raw),b=s.batch,{batchSha256,...core}=b;
+assert.equal(h(raw),'eec240464811a6e954f489d8504aa6b77880f99187340b5899509a2093a5d639');
+assert.equal(h(canonical(core)),batchSha256);assert.equal(batchSha256,'f0bb923070dc0741a6b76885b6fe08f54710928b0eda1398a9cab8452d1d6c9e');
+assert.equal(s.execution.mode,'fresh-no-reuse-v1');assert.equal(s.execution.entrySha256,'69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99');
+const entry=oneEntry();function oneEntry(){const entries=b.tests.evidence.filter(e=>e.kind==='first-adoption-execution');assert.equal(entries.length,1);return entries[0];}
+assert.equal(entry.mode,s.execution.mode);assert.equal(entry.path,s.execution.entryPath);assert.equal(entry.sha256,s.execution.entrySha256);assert.equal(h(await read(entry.path)),entry.sha256);
+assert.deepEqual(s.execution.qualifyArgs,[entry.path,'qualify',path.join(e,'ADOPTION_BATCH_FRESH_V1.json').replaceAll('/',path.sep),batchSha256]);
+assert.deepEqual(s.execution.executeArgs,[entry.path,'execute',path.join(e,'ADOPTION_BATCH_FRESH_V1.json').replaceAll('/',path.sep),batchSha256,'<explicit-approval-UTC-timestamp>']);
+assert.equal(h(canonical(s.collector)),b.collectorSha256);assert.equal(s.productionApproved,false);assert.equal(b.version,'teruisi-release-batch-v4');assert.equal(b.recovery.mode,'targeted-first-adoption');
+const guard=b.operations.find(op=>op.id==='previous-reference-guard'),guardPath=guard.command.args[0],g=await read(guardPath);
+assert.equal(h(g),'eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd');assert.ok(guard.command.files.some(f=>path.resolve(f.path)===path.resolve(guardPath)&&f.sha256===h(g)));
+const handoff=JSON.parse(await read(path.join(e,'ASTRA_GUARD_IG04_HANDOFF.json')));assert.equal(handoff.sha256,h(g));assert.ok(g.equals(await read(handoff.source)));
+for(const t of handoff.scripts)assert.equal(h(await read(t.path)),t.sha256);assert.equal(h(await read(handoff.tests.log)),handoff.tests.logSha256);
+const old=await read('E:/codex-artifacts/release-no-data-adoption-20261011/adoption-scope-guard-v4.mjs');
+const pathFns=(r,end)=>r.toString().replaceAll('\r\n','\n').slice(r.toString().replaceAll('\r\n','\n').indexOf('  const isReference='),r.toString().replaceAll('\r\n','\n').indexOf(end));
+assert.equal(pathFns(old,'  async function visitValue'),pathFns(g,'  // A missing command line'));
+const manifestRaw=await read(path.join(w,'deployment-manifest.json')),m=JSON.parse(manifestRaw);assert.equal(h(manifestRaw),b.binding.artifactSha256);assert.equal(m.source.tree.sha256,b.binding.sourceSha256);
+const planRaw=await read('D:/teruisi-runtime/teruisi-worker-sales/state/worker-release-rotation-plans/'+b.binding.workerPlanSha256+'.json'),p=JSON.parse(planRaw);assert.equal(h(planRaw),b.binding.workerPlanSha256);assert.deepEqual(p.sourceBinding,b.sourceBinding);assert.equal(h(b.sourceBinding.raw),b.binding.sourceBindingSha256);assert.equal(p.candidate.manifestSha256,b.binding.artifactSha256);
+const receiptRaw=await read('D:/teruisi-runtime/teruisi-worker-sales/state/worker-prepared-builds/'+b.binding.workerPlanSha256+'.json'),r=JSON.parse(receiptRaw);assert.equal(h(receiptRaw),'4e2ad957633171ae5e57e521e3d327cc311fc93e517285aed24d746e1af152f2');assert.equal(r.planSha256,b.binding.workerPlanSha256);assert.equal(r.candidateManifestSha256,b.binding.artifactSha256);
+const drRaw=await read(path.join(d,'app.prepare-'+b.binding.djangoPreparedAppId+'.json')),dr=JSON.parse(drRaw);assert.equal(h(drRaw),b.binding.djangoPreparedReceiptSha256);assert.equal(dr.candidateManifestSha256,b.binding.djangoCandidateSha256);
+assert.equal(h(await read(path.join(d,'app/deployment.json'))),b.binding.djangoPredecessorSha256);assert.equal(h(await read(path.join(d,'app.deploy-'+b.binding.djangoPreparedAppId,'deployment.json'))),b.binding.djangoCandidateSha256);
+const inv=b.tests.scopeValidation,changes=[...new Set([...Object.keys(inv.before.inventory),...Object.keys(inv.after.inventory)])].filter(k=>inv.before.inventory[k]!==inv.after.inventory[k]).sort();assert.deepEqual(changes,['.wrangler/cache/cf.json','tools/worker-local-release-rotation.mjs','tools/worker-local-release.mjs']);
+const tools={};for(const name of ['release-batch.mjs','release-impact.mjs','release-batch-admission.mjs','release-lifecycle-step.ps1','worker-local-service.ps1']){const bytes=await read(path.join(w,'tools',name));const key=m.artifacts.keyFiles.find(k=>k.relativePath==='tools/'+name);assert.equal(key.sha256,h(bytes));tools[name]=h(bytes);if(s.collector.files.some(f=>f.path===path.join(w,'tools',name)))assert.equal(s.collector.files.find(f=>f.path===path.join(w,'tools',name)).sha256,h(bytes));}
+assert.equal(tools['release-batch.mjs'],'e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc');
+const pair=[];for(const name of ['release-payload-retention.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs']){const z=await read(path.join(d,'app.deploy-'+b.binding.djangoPreparedAppId,'tools',name));assert.equal(h(z),inv.after.inventory['tools/'+name]);if(name.startsWith('worker-local'))assert.ok(z.equals(await read(path.join(w,'tools',name))));pair.push({name,sha256:h(z)});}
+for(const op of b.operations){const before=['EnterMaintenance','StopWorker','DeployApp'].includes(op.step)||op.kind==='backup';for(const f of op.command?.files??[]){const prefix='D:\\teruisi-runtime\\django-sales\\app\\';if(f.path.startsWith(prefix)){const rel=f.path.slice(prefix.length).replaceAll('\\','/');assert.equal(f.sha256,(before?inv.before.inventory:inv.after.inventory)[rel],op.id+' '+rel);}}}
+const one=f=>{const a=b.operations.filter(f);assert.equal(a.length,1);return a[0];};
+const backup=one(o=>o.kind==='backup'),restore=one(o=>o.kind==='restore'),consumer=one(o=>o.kind==='recovery-consumer');assert.equal(backup.phase,'backup-pre');assert.equal(restore.phase,'switch');assert.equal(restore.backupOperationId,backup.id);
+const ordered=[backup,one(o=>o.step==='EnterMaintenance'),one(o=>o.step==='StopWorker'),one(o=>o.kind==='worker-apply'),one(o=>o.kind==='django-deploy'),one(o=>o.step==='HardenAcl'),consumer,restore,one(o=>o.step==='ExitMaintenance'),one(o=>o.step==='StartWorker')];for(let i=1;i<ordered.length;i++)assert.ok(b.operations.indexOf(ordered[i-1])<b.operations.indexOf(ordered[i]));
+assert.equal(consumer.mutating,false);assert.ok(!consumer.command);for(const op of [backup,restore])assert.equal(op.command.args[3],'D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1');
+assert.equal(restore.command.args[restore.command.args.indexOf('-BackupDirectory')+1],'{receipt:backup-pre:backupDirectory}');assert.equal(restore.command.args[restore.command.args.indexOf('-ApprovedManifestSha256')+1],'{receipt:backup-pre:manifestSha256}');assert.deepEqual(b.databaseOperations.operationIds,['backup-pre','restore-installed']);assert.equal(b.operations.length,19);
+const report={version:'teruisi-targeted-installation-bounded-audit-v1',at:new Date().toISOString(),batchSha256,rawSha256:h(raw),guardSha256:h(g),binding:b.binding,exactModuleHashes:tools,checks:{canonicalBindings:true,originalPathHelperUnchangedExceptCRLF:true,original34SourceAndLogHashes:true,preparedReceiptSha256:h(receiptRaw),djangoInventoryCounts:[Object.keys(inv.before.inventory).length,Object.keys(inv.after.inventory).length],djangoChanges:changes,consumerInstalledTools:pair,orderedOperations:ordered.map(o=>({id:o.id,ordinal:b.operations.indexOf(o)+1})),oneBackupOneInstalledRestore:true,phaseToolPinsCorrect:true},physicalSmallFiles:files,productionActions:0,productModuleImports:0};
+assert.equal(h(await read(path.join(e,'ADOPTION_BATCH_FRESH_V1.json'))),h(raw));assert.equal(h(await read(entry.path)),entry.sha256);
+Object.assign(report,{version:'teruisi-fresh-targeted-installation-bounded-audit-v1',execution:{mode:entry.mode,path:entry.path,sha256:entry.sha256},collectorTransportUnchangedAndNoSessionModeExplicit:true,productionInheritedPermissionsNotCollected:true,fullPayloadNotRerun:true});
+await writeFile(new URL('./INSTALLATION_FRESH_FINAL_AUDIT.json',import.meta.url),JSON.stringify(report,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({status:'bounded-audit-passed',batchSha256,operations:b.operations.length,smallFiles:files.length,productionActions:0}));

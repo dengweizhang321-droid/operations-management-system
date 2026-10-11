@@ -1,0 +1,222 @@
+{
+  "version": "teruisi-c-final-targeted-independent-byte-audit-v1",
+  "startedAt": "2026-10-11T09:31:39.992Z",
+  "finishedAt": "2026-10-11T09:38:14.802Z",
+  "durationMs": 394810,
+  "status": "passed",
+  "releaseId": "20261011T090355Z-21c2645a63247749",
+  "manifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+  "planSha256": "0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881",
+  "preparedReceiptSha256": "4e2ad957633171ae5e57e521e3d327cc311fc93e517285aed24d746e1af152f2",
+  "sourceBindingSha256": "1168c06784a134da5390b7403e83de8af27d5f866ad239f92bd4c136c134b745",
+  "predecessor": {
+    "bindingSha256": "094e10d4508986d62e5d90bf99041271fb7527f9a8b5d33f1dfb386529cee548",
+    "guardReceiptSha256": "672f80420f154969d4bf221f542dacfbab3dc0360ca25c95c3c686792be7f013",
+    "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "predecessorChainStateSha256": "aaf62994c75c3ca46362328fed6acc76f812808a2e852566782e5e0ba897e0d9",
+  "source": {
+    "before": {
+      "fileCount": 5157,
+      "sha256": "92c2656c064c6a202239f4f010f0d241e90ae19fb35638cd328727a7ac64973c"
+    },
+    "after": {
+      "fileCount": 5160,
+      "sha256": "dc1dbeeded593980c6712e7afabde0a053dfd13d8f6c4bb9375718330af2b8fb",
+      "inventorySha256": "d1f39fc003f51c511d1ae26fce1aaadc223cb99db1475cff1f33316728afade1"
+    }
+  },
+  "changed": [
+    {
+      "path": "tools/release-admission-timing.mjs",
+      "before": null,
+      "after": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66"
+    },
+    {
+      "path": "tools/release-batch-admission.mjs",
+      "before": "1bb6dc999e7b0b0e3e091505288574e93b4a22287435e226e97369734a2a92c6",
+      "after": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5"
+    },
+    {
+      "path": "tools/release-batch.mjs",
+      "before": "0b2eb39f495fa7ec92f598c24d2c2d585bf6fe9c8a4eef6278e14a71eb21c944",
+      "after": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc"
+    },
+    {
+      "path": "tools/release-impact.mjs",
+      "before": "ad101d63a295ca79ee53c601cbe44c1525de47870505e2059947ba676b5c0944",
+      "after": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164"
+    },
+    {
+      "path": "tools/release-lifecycle-step.ps1",
+      "before": "f7f56eeab2eb854c6b9d29d61a56caa7f491a170f6bb6df69dd472f5d8858a65",
+      "after": "c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce"
+    },
+    {
+      "path": "tools/release-no-data-observation.mjs",
+      "before": null,
+      "after": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d"
+    },
+    {
+      "path": "tools/release-preparation-evidence.mjs",
+      "before": null,
+      "after": "b7355e8f36efe8be54dc1980334f87f109372b1bd743639160064d4034235bf6"
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "before": "4c12dedf527e68a372061bc2d0f78ded9083246b8d37596990d718c6500591fe",
+      "after": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "before": "bba3e24da195576e991f162084159314652c7077f0c7f0a3647319911203c0fa",
+      "after": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "path": "tools/worker-local-service.ps1",
+      "before": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "after": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    }
+  ],
+  "payload": [
+    {
+      "name": "dist",
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 164,
+      "sha256": "dbf54689006d2736ce9b783ab8a9d00b17bb363abebdd0209d6128e1afca1dcb",
+      "excluded": [
+        "server/.dev.vars"
+      ]
+    },
+    {
+      "name": "helper",
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 3,
+      "sha256": "cfb60da77dc101b6ada84497b5f97cd152ae674bac9496e7d2d58b336656c6a5",
+      "excluded": []
+    },
+    {
+      "name": "node_modules",
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 31248,
+      "sha256": "9fed34ef1096350805a458f75452c328c3c6fd2262f8d6960fafb5ccd4aee2eb",
+      "excluded": []
+    }
+  ],
+  "keyFiles": [
+    {
+      "relativePath": "dist/server/index.js",
+      "sha256": "3897a28641cfe0a65df72929b242a846cb0db92212aeecc79d4a0bff3de7fccc"
+    },
+    {
+      "relativePath": "dist/server/wrangler.json",
+      "sha256": "02d3aee3ea1f98b10ca47ab909227dd0d0cff4bd981e7dcf35a0e810963504ca"
+    },
+    {
+      "relativePath": "package.json",
+      "sha256": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890"
+    },
+    {
+      "relativePath": "运行项目.bat",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2"
+    },
+    {
+      "relativePath": "tools/operations-system-control.ps1",
+      "sha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810"
+    },
+    {
+      "relativePath": "tools/start-local-worker.mjs",
+      "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f"
+    },
+    {
+      "relativePath": "tools/worker-authority-guard.mjs",
+      "sha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210"
+    },
+    {
+      "relativePath": "tools/d1-retirement-proof.mjs",
+      "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+    },
+    {
+      "relativePath": "tools/collect-d1-retirement-proof.mjs",
+      "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295"
+    },
+    {
+      "relativePath": "tools/worker-local-release.mjs",
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "relativePath": "tools/worker-local-release-rotation.mjs",
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "relativePath": "tools/worker-local-service.ps1",
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    },
+    {
+      "relativePath": ".runtime/worker-release-activation-fence.json",
+      "sha256": "13dbb5eb35096fbd2ac0845b6bb77cb0fa8255da650a7641d661b42907a8e223"
+    },
+    {
+      "relativePath": "tools/process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "relativePath": "tools/worker-local-runtime-supervisor.mjs",
+      "sha256": "cb34aec172c4f96d54043b12273e8dca8ac7f70fe8102212ccc7ba35aa18e3a8"
+    },
+    {
+      "relativePath": "tools/release-batch.mjs",
+      "sha256": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc"
+    },
+    {
+      "relativePath": "tools/release-no-data-observation.mjs",
+      "sha256": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d"
+    },
+    {
+      "relativePath": "tools/release-impact.mjs",
+      "sha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164"
+    },
+    {
+      "relativePath": "tools/release-batch-admission.mjs",
+      "sha256": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5"
+    },
+    {
+      "relativePath": "tools/release-admission-timing.mjs",
+      "sha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66"
+    },
+    {
+      "relativePath": "tools/release-preparation-evidence.mjs",
+      "sha256": "b7355e8f36efe8be54dc1980334f87f109372b1bd743639160064d4034235bf6"
+    },
+    {
+      "relativePath": "tools/release-readonly-retry.mjs",
+      "sha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab"
+    },
+    {
+      "relativePath": "tools/release-daily-backup.mjs",
+      "sha256": "4b77088b234734fcfedeb658c81c489771d26f320b0a66a1a5286417a7857705"
+    },
+    {
+      "relativePath": "tools/release-lifecycle-step.ps1",
+      "sha256": "c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce"
+    },
+    {
+      "relativePath": "helper/tmall-workflow-helper.mjs",
+      "sha256": "41f428a77b4919971402e29b1f1c2e581f48ec83e7f2ba02e25d1acbaf538cdd"
+    }
+  ],
+  "configurationHardLinkIdentityVerifiedWithoutReadingValues": true,
+  "stableInputFiles": 41765,
+  "inputDrift": [],
+  "productionActions": 0,
+  "regressionAndLiveAdmissionAcceptedByThisAudit": false,
+  "originalPredecessorManifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+  "compositionEvidenceSha256": "84363b769c7de092efa02209511fa34108e1aefcd35cb750fdac3229f1c10ceb",
+  "stableDirectories": 4190,
+  "pathIdentities": 45970,
+  "rootAndAncestorReparseChecks": true,
+  "completeDirectoryMembershipClosure": true,
+  "configurationFileMetadataClosureWithoutReadingValues": true
+}

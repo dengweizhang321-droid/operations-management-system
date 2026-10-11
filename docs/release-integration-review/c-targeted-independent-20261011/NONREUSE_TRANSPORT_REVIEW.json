@@ -1,0 +1,54 @@
+{
+  "version": "teruisi-frozen-nonreuse-transport-static-review-v1",
+  "independent": true,
+  "status": "current-targeted-cli-nonreuse-selection-blocked",
+  "acceptedProposedNonreuseBatch": false,
+  "productionExecutionApproved": false,
+  "scope": "Static actual frozen21c transport dispatch/full collection/deadline/retry/replay/evidence only; no new spec was present at inspection.",
+  "binding": {
+    "releaseId": "20261011T090355Z-21c2645a63247749",
+    "manifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+    "batchModuleSha256": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc",
+    "admissionModuleSha256": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5",
+    "retryModuleSha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab",
+    "processModuleSha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+    "helperSha256": "b7355e8f36efe8be54dc1980334f87f109372b1bd743639160064d4034235bf6",
+    "listedSmallPhysicalSHAAgreeWithManifestKeyFiles": true
+  },
+  "blockingFindings": [
+    {
+      "id": "NRT01",
+      "type": "dispatch-compatibility",
+      "file": "tools/release-batch.mjs",
+      "line": 658,
+      "relatedLines": [25,26,679,689],
+      "trigger": "Targeted v4 execute invokes validateNoDataCollector unconditionally; that validator requires transport exactly in-process-content-evidence-v1. Omitting transport would select the existing no-session child branch later, but is rejected first. Any new truthy transport is also rejected by dispatch679.",
+      "evidence": "Exact source condition at658 plus25-26; no runtime or synthetic test required or performed.",
+      "minimumRequirement": "Prepare a narrowly supported, explicitly closed standard nonreuse transport rule and matching dispatch, freeze/review new bytes and new scope; or keep blocked. A new public-API external adapter must itself receive an exact independent protocol/closure review and new approval, not be described as unchanged CLI support. Do not silently bypass the current validator."
+    }
+  ],
+  "staticPropertiesRetained": [
+    {"file":"tools/release-batch.mjs","line":657,"fact":"Collector object is included in batch.collectorSha256; each actual collect checks every declared executable/file digest before call,683-684. Proposed future descriptor/closure has not been inspected."},
+    {"file":"tools/release-batch-admission.mjs","line":205,"fact":"Absent session uses fresh sampleSource, complete bound source identity/config/toolchain initially and again at231. No helper memory reuse and no observeInputs override. Original predecessor tree/tests/Django inventories/source-binding receipts remain required."},
+    {"file":"tools/release-batch-admission.mjs","line":87,"fact":"Standalone CLI supplies phase but no step. switch with undefined step performs complete admission/artifact checks; it costs more than the step-specific in-process path. Targeted step-specific early guard169 is not reached via CLI, but actual consumer/restore run still requires passed new apply/deploy/HardenAcl and consumer state. This is not identical control-flow or timing."},
+    {"file":"tools/release-batch-admission.mjs","line":229,"fact":"Recovery/source work completes before final effective-chain/Django/journal rechecks232-241, then final Worker/helper identity245-249 and acceptance/closeout Status253-273. Original actual observation completion time is retained; internal age must be nonnegative<=5000ms and parent checks child response age690-691. No response timestamp refresh is introduced."},
+    {"file":"tools/worker-local-release.mjs","line":772,"fact":"runProcess deadline is min(new per-process timeout,inherited absolute parent deadline), passes that same absolute value into child874 and rejects late output829. Standalone collector uses the existing default600000ms budget unless inherited deadline is earlier. No evidence of a whole-batch55min deadline is asserted."},
+    {"file":"tools/release-readonly-retry.mjs","line":6,"fact":"Only STATUS_TIMEOUT/ECONNRESET/ETIMEDOUT/EAI_AGAIN are retryable; STATUS_NOT_READY/identity/JSON/permission/unknown stay terminal. Retry has one total deadline and at most4 attempts, no timeout reset and persistence before another query."},
+    {"file":"tools/release-batch.mjs","line":397,"fact":"Unknown/interrupted state refuses any resume before operations. Every uncompleted operation gets fresh collect; started precedes run and nonpassed results retain unknown/failed and owner. Transport selection does not confer replay permission."}
+  ],
+  "failureEvidenceComparison": {
+    "sameUnderlyingStatusAssertionsAndClassification": true,
+    "notIdenticalToInprocessParentWAL": true,
+    "inprocess": "Direct collect rejection carries admissionStages and observationAttempts to parent admission-failed WAL. onStatusAttempt writes create-only fsynced _observations.",
+    "nonreuseChild": "CLI283-292 writes each actual Status attempt to its own fixed-root _observations with batchSha256 and emits its canonical fixed record to stderr. Classified failure/readiness/process metadata remains in those child-side records.",
+    "nonreuseParent": "Parent689 receives only runProcess success JSON or child process failure metadata; CLI catch295 outputs message then nonzero, not a structured full admission-error envelope. Parent admission-failed does not automatically regain child classification/admissionStages/observationAttempts; temporary raw streams are removed by runProcess825-827. Failed bytes/hash/PID alone cannot reconstruct original Status stdout or prove its components.",
+    "requiredForNewProposal": "Explicitly bind/retain actual child-side fixed attempts and stages in the new reviewable transport/caller evidence contract, or clearly disclose the missing parent-WAL detail and stop on failure. Do not fabricate raw output or claim evidence distribution is unchanged."
+  },
+  "sealedObjectStatus": {
+    "new21cAdoptionSpecPresentAtInspection": false,
+    "existingOnly": "E:/codex-artifacts/release-first-adoption-targeted-20261011/ADOPTION_BATCH_V2.json and SEALED_V2 still refer to old872d/aed7.",
+    "pending": "Actual new descriptor transport/args/cwd/full files closure/canonical binding/journalRoot/19operations and approval must be reviewed after it exists. No future object pre-signature."
+  },
+  "limitations": ["Old in-process214/215 failures and held-input/source notifications remain preserved; no standalone success proves that session path passed.","No actual nonreuse collector performance, C speed-up or minute saving measured.","No tests, complete collector, productionCLI/Status/HTTP/SQL, locks or full source/payload/dump scan performed. Static small files only; no source modified."],
+  "actions": {"productionCalls":0,"collectorExecution":0,"tests":0,"fullTreeOrPayloadScan":0,"sourceChanges":0}
+}

@@ -42,4 +42,8 @@ GPT-6 Astra负责实现与隔离验证；真正 `C:/Users/86137/AppData/Local/ag
 
 2026-10-11T10:24:22.776Z只读AB复核仍109条、原关闭收据与head一致、active不存在，原engine completed=false的历史事实保留。10:24:24.707Z引用核查833进程／215任务／0已知引用／198未知，含用途未明PowerShell PID47936，仍阻断生产。这是新采样，早期197值不当当前事实。
 
+2026-10-11 18:40（Asia/Shanghai）C对最终helper b735／SourceV3 dc1单次来源身份session探针，15.072秒，在首次identity返回前被`Inputs changed while evidence session was held`拒绝。没有到reuse、recheck或SourceBinding身份比较，record初值identityMatchingSourceBinding=false不能解读为已证明身份不符；亦不据此归因业务数据自然变化。仅source／Node／npm／Git输入，未做整包或完整准入／生命周期／数据库操作，不重复同字节探针求绿，不放宽watch拒绝。原始记录及脚本见evidence。
+
+因此状态必须区分：**限定非复用方案准备通过；整个C缓存现场验收尚未闭合；生产未批准／未采用。** 此探针不改已封f0bb／6989、原214/215或此前真实fresh资格。用户再次明确“最终等我批准才发布上线”；准备验收、模型复审和方向决定均不代替精确生产批准。
+
 源码／候选／批次与具体现场条件见 [CANDIDATES](CANDIDATES.md)，实际资格及原输出见 [DELIVERY_PROOF_INDEX](evidence/DELIVERY_PROOF_INDEX.json)，Git见[GIT_DELIVERY](GIT_DELIVERY.md)。不终止或搬移未知引用目录，不借完整保全副本批准原Deploy删除。全部被候选／collector／回退依赖的来源、工作树和制品保留。生产批准须在现场条件闭合后对最终精确元组申请。

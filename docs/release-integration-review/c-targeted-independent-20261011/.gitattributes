@@ -1,0 +1,2 @@
+# Preserve reviewed source snapshots, JSON, logs and report bytes exactly.
+* -text

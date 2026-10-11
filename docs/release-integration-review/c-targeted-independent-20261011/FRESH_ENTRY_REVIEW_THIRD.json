@@ -1,0 +1,40 @@
+{
+  "version":"teruisi-fresh-entry-8bf-independent-review-v1",
+  "independent":true,
+  "acceptedEntryCandidate":false,
+  "productionExecutionApproved":false,
+  "entrySha256":"8bf175c321401523955c4273a9ab5d29fd4c2ee81f0cdf32130a60886bf09f35",
+  "beforeAfterExactSHAMatched":true,
+  "snapshot":"fresh-entry-reviewed-third.mjs.txt",
+  "blockingFindings":[
+    {
+      "id":"NRT-ENTRY03",
+      "priority":"P1",
+      "line":10,
+      "kind":"fixed-root-contract-and-execution-availability",
+      "trigger":"workerRuntimeRoot ordinary JavaScript literal contains single backslashes before teruisi; both backslash-t sequences evaluate to TAB. The evaluated value is not an absolute Windows path and differs from the original fixed runtime root. A real correctly bound journalRoot is rejected by bootstrap before any reviewed stale/import path can finish.",
+      "independentConfirmation":{"pureLiteralEvaluation":true,"controlCharacters":2,"isAbsolute":false,"equalsOriginalFixedRoot":false},
+      "minimumFix":"Use D:/teruisi-runtime/teruisi-worker-sales and path.resolve, correctly escaped backslashes or String.raw; preserve original fixed-root assertion. Do not change a fixture/spec to the corrupted path. Freeze new SHA and rerun the existing small boundary suite."
+    }
+  ],
+  "staticOtherBoundaryReview":[
+    "Builtin bootstrap is structurally before candidate imports and checks exact collector/manifest/keyFiles/dependency tree/TypeScript resolution. No actual full dependency tree was read here.",
+    "Ordinary stale error carries returned stages/attempts; writeOnce catch now retains the original error and records evidenceSaveFailure.code. These repaired semantic branches were not reached by the current four-case suite due to the earlier real root mismatch.",
+    "Original executeBatch427 writes successful admission stages/attempts before428 beforeOperation; later verifyInputs failure does not erase that persisted WAL. No new P1 evidence-loss claim is made for beforeOperation."
+  ],
+  "isolatedResults":{
+    "boundaryTest":"fresh-entry-independent-third.test.mjs",
+    "testSha256":"a8e02412bfaa0cd46f57ede708ca2cd9424749a63c509143aacc38ebfc54d6c6",
+    "log":"FRESH_ENTRY_INDEPENDENT_THIRD.log",
+    "logSha256":"9b12db2a1c6e6cf7bdb4d6d84ca53defdb8e15fc1c5f7373dc33c1f0980f03b8",
+    "passed":0,"failed":4,"durationMs":123.5911,
+    "interpretation":"All four cases were blocked by the genuine bootstrap fixed-root mismatch, not an import/stale/writeOnce behavior verdict. The fixture correctly uses the original normal D runtime path.",
+    "literalChecker":"fresh-entry-root-literal-check.mjs",
+    "literalCheckerSha256":"6794f195233cdf41fe676dbb0870362928f6f32b228d40a2037f84c21524cf4c",
+    "literalLog":"FRESH_ENTRY_ROOT_LITERAL.log",
+    "literalLogSha256":"7f696452f248cdb485d7fc566d40e971403522414563a836f3b8b54683a82e1e",
+    "seams":"Only virtual builtin checkedFile/completeTree/hash/pins and fake API collectors; zero true package tree/collector/native imports. Separate pure evaluation of the actual root literal proves the defect without changing its source."
+  },
+  "limits":["Author10/10 cannot override this exact original-root counterexample.","No new spec or actual31k tree/closure qualification was inspected or inferred passed.","Old b7/5649 failures and source-drift gate remain original evidence; do not aggregate counts as independent successful validation."],
+  "actions":{"productionExecuteQualifyCollector":0,"nativeTreeScan":0,"productImports":0,"implementationModified":0}
+}

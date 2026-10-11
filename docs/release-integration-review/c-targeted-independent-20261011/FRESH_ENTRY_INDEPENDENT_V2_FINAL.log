@@ -1,0 +1,12 @@
+✔ bootstrap validates modeled closed bundle before imports and module drift rejects before imports (11.8383ms)
+✔ ordinary stale result retains actual returned stages/attempts and writes fixed evidence before throwing (3.6491ms)
+✔ freshness evidence write failure must preserve already returned collector metadata (3.5759ms)
+✔ beforeOperation input rejection follows already persisted admission, not total loss of sampling WAL (3.7455ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 133.4159

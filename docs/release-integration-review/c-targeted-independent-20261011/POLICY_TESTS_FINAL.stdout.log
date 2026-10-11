@@ -1,0 +1,57 @@
+{
+  "independent": true,
+  "candidate": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T075658Z-aed7ddc1be340f5c",
+  "specRawSha256": "b7555bd9c00ef050f744556220478e9ffaef0ab09042e9b0a4a9814ea069a1b2",
+  "batchSha256": "872d7e411d16ac974b0abd1404b7d41ed4c4707d99c2a01750ae182a73206df3",
+  "pinsBeforeAndAfter": {
+    "deployment-manifest.json": "306e92da4a0598e27746b7cba1b29d60fc8616564b6f644610540a343c5f8ce6",
+    "tools/release-impact.mjs": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+    "tools/release-batch.mjs": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc",
+    "tools/release-batch-admission.mjs": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5"
+  },
+  "objectsStable": true,
+  "cases": 8,
+  "pass": 8,
+  "fail": 0,
+  "elapsedMs": 5628.8159,
+  "productionImports": 0,
+  "productionActions": 0,
+  "pgDumpOrRestoreProcesses": 0,
+  "nativePayloadChildren": 0,
+  "results": [
+    {
+      "case": "actual872d spec accepted only under exact v4 qualification; v2/v3 strict defaults remain full",
+      "passed": true
+    },
+    {
+      "case": "rehashed omissions/duplicates/post/old-operator/consumer command cannot alter approved operation scope",
+      "passed": true
+    },
+    {
+      "case": "consumer/restore ordering and isolated restoration assertions cannot be removed by rehash",
+      "passed": true
+    },
+    {
+      "case": "v4 requires actual executing ten-tool bytes and complete dual Django inventories, not prior evidence or strict-label forgery",
+      "passed": true
+    },
+    {
+      "case": "actual installed consumer uses Node+one fixed script with no Execute and exact new-chain receipt",
+      "passed": true
+    },
+    {
+      "case": "unconfirmed Deploy/changed installed bytes/new-chain drift refuse consumer",
+      "passed": true
+    },
+    {
+      "case": "actual872d Backup/Restore3600000ms both rejected before native by original1800000ms cap",
+      "passed": true,
+      "candidateConfigurationBlocked": true
+    },
+    {
+      "case": "synthetic legal30000ms model confirms lexical backup/same-point argv; bad receipt or missing consumer rejects",
+      "passed": true,
+      "notActual872dExecution": true
+    }
+  ]
+}
