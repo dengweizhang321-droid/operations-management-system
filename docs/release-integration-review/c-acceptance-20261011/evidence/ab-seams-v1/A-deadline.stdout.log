@@ -1,0 +1,297 @@
+✔ transport deadline changes do not invalidate exact build environment identity (2.0009ms)
+✔ Node direct exit files: hold does not wait for inherited stdout/stderr (94.5666ms)
+✔ Node direct exit files: hold-stdout does not wait for inherited stdout/stderr (81.9988ms)
+✔ Node direct exit files: hold-stderr does not wait for inherited stdout/stderr (85.1618ms)
+✔ Node direct exit files: nonzero-hold does not wait for inherited stdout/stderr (91.7035ms)
+✔ EOF transport retains exit0 but fails within the same deadline while both streams are held (807.2456ms)
+✔ probe direct cleanup leaves its simulated service alive and no direct probe (978.7908ms)
+✔ an exhausted inherited deadline starts no child (2.1123ms)
+✔ ordinary isolated tree cleanup retains no child or detached grandchild (1363.3979ms)
+✖ approved runner rejects invalid and retains bounded diagnostics (418.9677ms)
+✖ approved runner rejects nonzero and retains bounded diagnostics (118.3448ms)
+✖ approved runner rejects flood and retains bounded diagnostics (123.6887ms)
+✔ powershell.exe: shared transport and watchdog hold both streams without a late EOF wait (2457.2754ms)
+✔ pwsh.exe: shared transport and watchdog hold both streams without a late EOF wait (3350.4429ms)
+✔ powershell.exe: concurrent lifecycle mutex obeys the original deadline (1250.4307ms)
+✔ pwsh.exe: concurrent lifecycle mutex obeys the original deadline (2011.6863ms)
+✔ watchdog deadline, safe diagnostics and unknown notification delivery remain bounded (3240.6023ms)
+✖ original nested PS5 adapter: ready (24.6521ms)
+✖ original nested PS5 adapter: engine-failed (18.1991ms)
+✖ original nested PS5 adapter: wrong-version (17.1861ms)
+✖ original nested PS5 adapter: incomplete (15.827ms)
+✖ original nested PS5 adapter: bad-json (15.7569ms)
+✖ original nested PS5 adapter: maintenance (15.9719ms)
+✖ original nested PS5 adapter: deadline (15.9299ms)
+✖ original nested PS5 adapter: drain (17.0472ms)
+✖ original nested PS5 adapter: missing-identity (15.698ms)
+✖ original nested PS5 adapter: fake-components (17.3689ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 14
+ℹ fail 13
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17278.2197
+
+✖ failing tests:
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:67:50
+✖ approved runner rejects invalid and retains bounded diagnostics (418.9677ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:72:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:71:3
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:67:50
+✖ approved runner rejects nonzero and retains bounded diagnostics (118.3448ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:72:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:71:3
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:67:50
+✖ approved runner rejects flood and retains bounded diagnostics (123.6887ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:72:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:71:3
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: ready (24.6521ms)
+  TypeError: Cannot read properties of undefined (reading 'mode')
+      at runApprovedOperation (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T034516Z-f308beaede528df7/tools/release-batch.mjs:445:21)
+      at file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:227:19
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: engine-failed (18.1991ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: wrong-version (17.1861ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: incomplete (15.827ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: bad-json (15.7569ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: maintenance (15.9719ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: deadline (15.9299ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: drain (17.0472ms)
+  TypeError: Cannot read properties of undefined (reading 'mode')
+      at runApprovedOperation (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T034516Z-f308beaede528df7/tools/release-batch.mjs:445:21)
+      at file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:227:19
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: missing-identity (15.698ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at E:\codex-artifacts\release-c-acceptance-20261011\ab-seams-v1\harness\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: fake-components (17.3689ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(e.processEvidence)
+  
+      at Object.<anonymous> (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///E:/codex-artifacts/release-c-acceptance-20261011/ab-seams-v1/harness/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

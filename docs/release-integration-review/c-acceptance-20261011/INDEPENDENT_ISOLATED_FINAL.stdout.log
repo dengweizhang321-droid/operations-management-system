@@ -1,0 +1,36 @@
+{
+  "independent": true,
+  "sourceSha256": {
+    "batch": "61ef80a834c48ecc1ec86e5b9787086e2477b98deee8836f57169bee1b33dc5a",
+    "observer": "5dbeff46465554b038dcbc2c70aba3b4f618ffa6eb787ecfdcae0c3a8f4e50bc",
+    "impact": "dd0fdafa3f464d7af253fcb475796feaefe8905b16af91eb805b66566867db26"
+  },
+  "sourceStable": true,
+  "checks": 3,
+  "expectedReviewerAssertionsPassed": 3,
+  "observerWalGapReproduced": true,
+  "recoveryNegativeChecks": 2,
+  "productionImports": 0,
+  "productionActions": 0,
+  "nativeChildren": 0,
+  "networkRequests": 0,
+  "tempRemoved": true,
+  "elapsedMs": 36.5471,
+  "results": [
+    {
+      "case": "Actual candidate observation receipt writes inside WAL directory",
+      "observerReturned": "passed",
+      "privateCreateOnlyFsyncReceipts": 2,
+      "journalReopenRejected": "Broken phase journal sequence",
+      "productionActions": 0
+    },
+    {
+      "case": "Unproven latest scheduler result cannot inherit old wrapper success",
+      "mode": "full"
+    },
+    {
+      "case": "Future scheduler success time cannot qualify display recovery reuse",
+      "mode": "full"
+    }
+  ]
+}

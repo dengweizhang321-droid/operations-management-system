@@ -1,0 +1,14 @@
+✔ PS5 child uses its system modules, removes inherited library-only flags and preserves its parent (1.8802ms)
+✔ actual readonly admission caller uses the same safe native transport (728.1834ms)
+✔ Node and non-system shell commands retain their exact approved environment (0.3439ms)
+✔ PS5 transport binds File argv as data and rejects ambiguous parameter syntax (0.8809ms)
+✔ actual approved runner survives a PS7-polluted parent while original PS5 ACL command fails (2383.7863ms)
+✔ original nested lifecycle adapter also preserves Unicode through its native child (2001.6484ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5452.3193

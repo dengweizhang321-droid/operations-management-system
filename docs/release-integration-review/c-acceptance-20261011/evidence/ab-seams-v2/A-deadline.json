@@ -1,0 +1,17 @@
+{
+  "exitCode": 0,
+  "signal": null,
+  "name": "A-deadline",
+  "startedAt": "2026-10-11T04:53:15.953Z",
+  "finishedAt": "2026-10-11T04:53:51.851Z",
+  "elapsedMs": 35897.4174,
+  "executable": "C:\\Program Files\\nodejs\\node.exe",
+  "args": [
+    "--test",
+    "--test-concurrency=1",
+    "--test-name-pattern",
+    "approved runner rejects|original nested PS5 adapter",
+    "E:\\codex-artifacts\\release-c-acceptance-20261011\\ab-seams-v2\\harness\\release-process-deadline.test.mjs"
+  ],
+  "cwd": "D:\\.codex\\worktrees\\release-c-stability-preparation\\运营管理系统"
+}

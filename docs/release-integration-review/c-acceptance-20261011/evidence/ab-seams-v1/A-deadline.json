@@ -1,0 +1,15 @@
+{
+  "exitCode": 1,
+  "signal": null,
+  "name": "A-deadline",
+  "startedAt": "2026-10-11T04:51:46.190Z",
+  "finishedAt": "2026-10-11T04:52:03.553Z",
+  "elapsedMs": 17362.318499999998,
+  "executable": "C:\\Program Files\\nodejs\\node.exe",
+  "args": [
+    "--test",
+    "--test-concurrency=1",
+    "E:\\codex-artifacts\\release-c-acceptance-20261011\\ab-seams-v1\\harness\\release-process-deadline.test.mjs"
+  ],
+  "cwd": "D:\\.codex\\worktrees\\release-c-stability-preparation\\运营管理系统"
+}

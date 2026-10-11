@@ -1,0 +1,26 @@
+✔ classified temporary reads retry at most four total; attempt time includes 53s queries (3.1485ms)
+✔ exhausted transient error preserves all four attempts (0.929ms)
+✔ terminal status failure never retries: EACCES (0.3282ms)
+✔ terminal status failure never retries: EPERM (0.2312ms)
+✔ terminal status failure never retries: STATUS_IDENTITY_MISMATCH (0.239ms)
+✔ terminal status failure never retries: ASSERTION_FAILED (0.1439ms)
+✔ terminal status failure never retries: INVALID_STATUS_JSON (0.1443ms)
+✔ terminal status failure never retries: STATUS_NOT_READY (0.1482ms)
+✔ terminal status failure never retries: PROCESS_FAILED (0.1479ms)
+✔ unknown errors with timeout-looking sensitive text are terminal and redacted (0.3061ms)
+✔ one total deadline bounds slow successful queries and prevents another attempt (0.1761ms)
+✔ retry waits consume the same budget (0.154ms)
+✔ complete readiness requires exact identity and all twelve components (0.2299ms)
+✔ retry declaration cannot target Start, backup, apply, generic GET or script flags (0.4699ms)
+✔ bounded native read-only runner covers inherited output EOF (173.3558ms)
+✔ timing unions overlaps, excludes nested retries, keeps coordination and document completion separate (0.6797ms)
+✔ uncompleted batch never gets approval-to-complete or successful conclusion (0.1276ms)
+✔ offline report validates immutable journal, preserves unknown history and fails closed when steps missing (28.4639ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1499.0105
