@@ -1,0 +1,241 @@
+{
+  "version": "teruisi-targeted-installation-bounded-audit-v1",
+  "at": "2026-10-11T08:28:58.721Z",
+  "batchSha256": "872d7e411d16ac974b0abd1404b7d41ed4c4707d99c2a01750ae182a73206df3",
+  "rawSha256": "b7555bd9c00ef050f744556220478e9ffaef0ab09042e9b0a4a9814ea069a1b2",
+  "guardSha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd",
+  "binding": {
+    "sourceSha256": "c279cfb7f1cf6f7c4d72a1ef32f50be428956e6917a5e176d2126ce14da09ea1",
+    "sourceInventorySha256": "7df31e1196ae452f2d9c8caad366617ed301bb762a38d6049aa2c56ee2fdf09a",
+    "predecessorSourceSha256": "92c2656c064c6a202239f4f010f0d241e90ae19fb35638cd328727a7ac64973c",
+    "predecessorInventorySha256": "23388a3be8055ef4673b8f0fe08330b396c9d662d711df193ba81e218ad71922",
+    "dependencySha256": "486154660ca7b1c32822078584c7938ae5de172a0dc8bcd47891100563af935e",
+    "toolchainSha256": "48587c6f8ec33de52c3b4d575735ef1ca2901dd6ca0cbbba95cc36cfef67b7d8",
+    "configurationSha256": "0aa8c45d6749b9ca15d14a76a4d30594224ce0b847782ebad0a663f7b1bf8143",
+    "artifactSha256": "306e92da4a0598e27746b7cba1b29d60fc8616564b6f644610540a343c5f8ce6",
+    "predecessorSha256": "094e10d4508986d62e5d90bf99041271fb7527f9a8b5d33f1dfb386529cee548",
+    "workerPlanSha256": "7e94dbb454693ae94ed515d26874d69a8fc045d4f2fed8c77a1478d9c42bb6c3",
+    "maintenanceId": "65aed4ca52994044a3f70f7a9c0025b6",
+    "sourceBindingSha256": "b6a17244c7534ae29be296b7d475fcb73802cd32e9826e0384647464aefb425f",
+    "djangoPredecessorSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+    "djangoCandidateSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+    "djangoPreparedAppId": "1e1138feef7148fb851713c2b39a25d0",
+    "djangoPreparedReceiptSha256": "10db2364053ebfb90d85dd301914753453d02ad313cd02ff7312ca654ebdeb9b",
+    "testsSha256": "54bfd86325cfc92fd4f59f553460f7ec553929e4870921bda35c9cd13fb13a67",
+    "observationBrowserSha256": "6849d2982038de9f9489a7b3858f3b785b7fec06a842c93c517281d21995c8ca",
+    "observationLibrarySha256": "b34ecdee884c9516334975445f7323682cac5fca10c9cfa2b9907469d1041b50"
+  },
+  "exactModuleHashes": {
+    "release-batch.mjs": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc",
+    "release-impact.mjs": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+    "release-batch-admission.mjs": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5",
+    "release-lifecycle-step.ps1": "c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce",
+    "worker-local-service.ps1": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+  },
+  "checks": {
+    "canonicalBindings": true,
+    "originalPathHelperUnchangedExceptCRLF": true,
+    "original34SourceAndLogHashes": true,
+    "preparedReceiptSha256": "9c3d2b5a46793d8186752f960cd47c6d71fb970ef055b2fc3fcf092bb5278c6c",
+    "djangoInventoryCounts": [
+      2933,
+      2933
+    ],
+    "djangoChanges": [
+      ".wrangler/cache/cf.json",
+      "tools/worker-local-release-rotation.mjs",
+      "tools/worker-local-release.mjs"
+    ],
+    "consumerInstalledTools": [
+      {
+        "name": "release-payload-retention.mjs",
+        "sha256": "d339fb1eaac511d66f05660c50ade8e6f1e45a525dedcc0be395ebd3636d7b6a"
+      },
+      {
+        "name": "worker-local-release.mjs",
+        "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+      },
+      {
+        "name": "worker-local-release-rotation.mjs",
+        "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+      },
+      {
+        "name": "d1-retirement-proof.mjs",
+        "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+      }
+    ],
+    "orderedOperations": [
+      {
+        "id": "backup-pre",
+        "ordinal": 2
+      },
+      {
+        "id": "op-entermaintenance-drain",
+        "ordinal": 3
+      },
+      {
+        "id": "op-stopworker-switch",
+        "ordinal": 4
+      },
+      {
+        "id": "op-apply",
+        "ordinal": 5
+      },
+      {
+        "id": "op-deployapp-switch",
+        "ordinal": 7
+      },
+      {
+        "id": "op-hardenacl-switch",
+        "ordinal": 8
+      },
+      {
+        "id": "installed-recovery-consumer",
+        "ordinal": 9
+      },
+      {
+        "id": "restore-installed",
+        "ordinal": 10
+      },
+      {
+        "id": "op-exitmaintenance-switch",
+        "ordinal": 11
+      },
+      {
+        "id": "op-startworker-switch",
+        "ordinal": 12
+      }
+    ],
+    "oneBackupOneInstalledRestore": true,
+    "phaseToolPinsCorrect": true
+  },
+  "physicalSmallFiles": [
+    {
+      "path": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ADOPTION_BATCH_V2.json",
+      "bytes": 3428358,
+      "sha256": "b7555bd9c00ef050f744556220478e9ffaef0ab09042e9b0a4a9814ea069a1b2"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\adoption-scope-guard-ig04.mjs",
+      "bytes": 12758,
+      "sha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ASTRA_GUARD_IG04_HANDOFF.json",
+      "bytes": 1842,
+      "sha256": "181383b04b5100e5e1cf0cc6512067a42cb9841fc71d3637fe405298a56c063e"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-first-adoption-targeted\\运营管理系统\\docs\\release-first-adoption-targeted-20261011\\adapters\\adoption-scope-guard.mjs",
+      "bytes": 12758,
+      "sha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\guard-ig04-path-regression.test.mjs",
+      "bytes": 4987,
+      "sha256": "5a83fe4e8a551062e5a3d9877a2a64038489e88e18457b61725380c1c8713103"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\guard-ig04-process.test.mjs",
+      "bytes": 5410,
+      "sha256": "dba9b7df4f2d991b61edc1733a0df4fec15658e49504a8686362e8767cc06c49"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\ASTRA_GUARD_IG04_FIRST.log",
+      "bytes": 2912,
+      "sha256": "532d0f64f6a0e905e31f763b0400f3dcfc2b22c47a3d3d0777e4d534ea263fb8"
+    },
+    {
+      "path": "E:/codex-artifacts/release-no-data-adoption-20261011/adoption-scope-guard-v4.mjs",
+      "bytes": 9580,
+      "sha256": "04655a323af97453b7ae38670a6470e495226e85c337fb9b0a72684726a54edd"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T075658Z-aed7ddc1be340f5c\\deployment-manifest.json",
+      "bytes": 11088,
+      "sha256": "306e92da4a0598e27746b7cba1b29d60fc8616564b6f644610540a343c5f8ce6"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-release-rotation-plans/7e94dbb454693ae94ed515d26874d69a8fc045d4f2fed8c77a1478d9c42bb6c3.json",
+      "bytes": 7706,
+      "sha256": "7e94dbb454693ae94ed515d26874d69a8fc045d4f2fed8c77a1478d9c42bb6c3"
+    },
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-prepared-builds/7e94dbb454693ae94ed515d26874d69a8fc045d4f2fed8c77a1478d9c42bb6c3.json",
+      "bytes": 4899,
+      "sha256": "9c3d2b5a46793d8186752f960cd47c6d71fb970ef055b2fc3fcf092bb5278c6c"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.prepare-1e1138feef7148fb851713c2b39a25d0.json",
+      "bytes": 364,
+      "sha256": "10db2364053ebfb90d85dd301914753453d02ad313cd02ff7312ca654ebdeb9b"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\deployment.json",
+      "bytes": 334,
+      "sha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0\\deployment.json",
+      "bytes": 367,
+      "sha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T075658Z-aed7ddc1be340f5c\\tools\\release-batch.mjs",
+      "bytes": 62768,
+      "sha256": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T075658Z-aed7ddc1be340f5c\\tools\\release-impact.mjs",
+      "bytes": 47308,
+      "sha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T075658Z-aed7ddc1be340f5c\\tools\\release-batch-admission.mjs",
+      "bytes": 26442,
+      "sha256": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T075658Z-aed7ddc1be340f5c\\tools\\release-lifecycle-step.ps1",
+      "bytes": 9383,
+      "sha256": "c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T075658Z-aed7ddc1be340f5c\\tools\\worker-local-service.ps1",
+      "bytes": 104852,
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0\\tools\\release-payload-retention.mjs",
+      "bytes": 6996,
+      "sha256": "d339fb1eaac511d66f05660c50ade8e6f1e45a525dedcc0be395ebd3636d7b6a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0\\tools\\worker-local-release.mjs",
+      "bytes": 183414,
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T075658Z-aed7ddc1be340f5c\\tools\\worker-local-release.mjs",
+      "bytes": 183414,
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0\\tools\\worker-local-release-rotation.mjs",
+      "bytes": 81611,
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T075658Z-aed7ddc1be340f5c\\tools\\worker-local-release-rotation.mjs",
+      "bytes": 81611,
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app.deploy-1e1138feef7148fb851713c2b39a25d0\\tools\\d1-retirement-proof.mjs",
+      "bytes": 416,
+      "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+    }
+  ],
+  "productionActions": 0,
+  "productModuleImports": 0
+}

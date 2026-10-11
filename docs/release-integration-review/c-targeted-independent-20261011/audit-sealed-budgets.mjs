@@ -1,0 +1,23 @@
+// Validate actual sealed operation budgets with the frozen A function only.
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+const hash=x=>createHash('sha256').update(x).digest('hex');
+const modulePath='D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/worker-local-release.mjs';
+const original=fs.readFileSync(modulePath);
+assert.equal(hash(original),'3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce');
+const functionText=original.toString().match(/export function processDeadline\([\s\S]*?\n\}/)?.[0];assert.ok(functionText);
+const processDeadline=new Function('fail','process','Date',functionText.replace(/^export /,'')+';return processDeadline;')(message=>{throw Error(message);},{env:{}},{now:()=>1000});
+const specPath=process.argv[2];assert.ok(specPath,'Pass the final create-only spec path');
+const expectedSpecSha256=process.argv[3];assert.match(expectedSpecSha256??'',/^[a-f0-9]{64}$/,'Bind the final reviewed raw spec SHA');
+const raw=fs.readFileSync(specPath);assert.equal(hash(raw),expectedSpecSha256);const spec=JSON.parse(raw);assert.equal(spec.version,'teruisi-adoption-spec-v1');assert.equal(spec.batch.version,'teruisi-release-batch-v4');
+assert.equal(spec.batch.binding.artifactSha256,'6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4');
+assert.equal(spec.productionApproved,false);assert.equal(spec.batch.operations.length,19);
+const operations=spec.batch.operations.map(op=>{const input=op.readOnlyRetry?.totalTimeoutMs??op.command?.timeoutMs;return{id:op.id,kind:op.kind,timeoutMs:input===undefined?600000:input,source:op.readOnlyRetry?.totalTimeoutMs!=null?'readOnlyRetry.totalTimeoutMs':op.command?.timeoutMs!==undefined?'command.timeoutMs':'original-default',syntheticDeadlineUnixMs:processDeadline(input)};});
+for(const op of operations)assert.equal(op.syntheticDeadlineUnixMs,1000+op.timeoutMs);
+assert.equal(processDeadline(1800000,'1001'),1001);
+for(const budget of [0,1800001,3600000,'1800000',NaN])assert.throws(()=>processDeadline(budget));
+assert.throws(()=>processDeadline(600000,'not-a-deadline'));
+assert.equal(hash(fs.readFileSync(modulePath)),hash(original));assert.equal(hash(fs.readFileSync(specPath)),hash(raw));
+const record={version:'teruisi-c-actual-sealed-operation-budget-audit-v1',at:new Date().toISOString(),status:'passed',specPath,specRawSha256:hash(raw),batchSha256:spec.batch.batchSha256,moduleSha256:hash(original),operations,originalMaximumTimeoutMs:1800000,inheritedDeadlineClampVerifiedWithSyntheticClock:true,productionInheritedEnvironmentNotSampled:true,noDeadlineCapRelaxation:true,nativeOperationsRun:0,productionActions:0};
+fs.writeFileSync(new URL('./BATCH_BUDGET_AUDIT.json',import.meta.url),JSON.stringify(record,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({batchSha256:record.batchSha256,operations:operations.length,status:record.status}));

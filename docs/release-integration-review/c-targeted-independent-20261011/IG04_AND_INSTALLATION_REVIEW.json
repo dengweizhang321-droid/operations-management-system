@@ -1,0 +1,66 @@
+{
+  "version": "teruisi-targeted-ig04-installation-independent-review-v1",
+  "independent": true,
+  "status": "scoped-source-and-installation-review-passed-production-gates-open",
+  "acceptedIG04Fix": true,
+  "acceptedInstallationSourceWithinScope": true,
+  "acceptedOverallPreparedCandidate": false,
+  "productionExecutionApproved": false,
+  "blockingSourceFindings": [],
+  "scope": "Exact frozen guard and targeted19-operation installation/consumer/rollback source only. Not actual installation, new PG rehearsal, fresh production admission or complete C candidate acceptance.",
+  "binding": {
+    "developmentCommit": "f8a207b7f01c640f67801b4788317557c488a8e4",
+    "batchSha256": "872d7e411d16ac974b0abd1404b7d41ed4c4707d99c2a01750ae182a73206df3",
+    "batchRawSha256": "b7555bd9c00ef050f744556220478e9ffaef0ab09042e9b0a4a9814ea069a1b2",
+    "guardSha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd",
+    "workerReleaseId": "20261011T075658Z-aed7ddc1be340f5c",
+    "workerManifestSha256": "306e92da4a0598e27746b7cba1b29d60fc8616564b6f644610540a343c5f8ce6",
+    "workerPlanSha256": "7e94dbb454693ae94ed515d26874d69a8fc045d4f2fed8c77a1478d9c42bb6c3",
+    "preparedReceiptSha256": "9c3d2b5a46793d8186752f960cd47c6d71fb970ef055b2fc3fcf092bb5278c6c",
+    "sourceSha256": "c279cfb7f1cf6f7c4d72a1ef32f50be428956e6917a5e176d2126ce14da09ea1",
+    "djangoPreparedAppId": "1e1138feef7148fb851713c2b39a25d0",
+    "djangoManifestSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+    "batchModuleSha256": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc",
+    "impactModuleSha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+    "admissionModuleSha256": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5"
+  },
+  "ig04": {
+    "originalFailureKept": true,
+    "originalReport": "../c-final-independent-20261011/INSTALLATION_REVIEW.json",
+    "newNullCommandOutcome": "process-unknown/related-command-unreadable, references[] assertion rejects",
+    "independentPrivateVM": {"passed":7,"failed":0,"durationMs":130.8712,"code":"ig04-independent.test.mjs","codeSha256":"405003a8286bc03197db155524151ad3da71ef646952e2e20077690cb262958f","log":"ig04-independent.log","logSha256":"fea138ecfc28afe66232cf5d9673353429e998b7ee39ec5d24afb71e5dc23440"},
+    "covered": ["Original exact old null-command zero-reference counterexample contrasted with exact new guard.","Relevant host missing/type-contradictory fields, managed physical redirection, unreadable executable and native-name spoof.","Exact Idle/System identities and physically exact Windows native missing-argv exceptions; complete harmless native and real reference branches."],
+    "originalPathHelper": "Exact source function body unchanged after CRLF normalization; original16 path coverage retained without rerun.",
+    "author34": {"passed":34,"failed":0,"durationMs":218.4237,"pathCases":16,"processCases":18,"logSha256":"532d0f64f6a0e905e31f763b0400f3dcfc2b22c47a3d3d0777e4d534ea263fb8","sourceAndLogHashesVerified":true,"rerunThisReview":false}
+  },
+  "installation": {
+    "canonicalBatchCollectorSourceBindingPlanManifestReceiptMatched": true,
+    "operations": 19,
+    "order": "Backup2 -> EnterMaintenance3 -> Stop4 -> apply5 -> previous guard6 -> Deploy7 -> HardenAcl8 -> fixed installed consumer9 -> same-point Restore10 -> Exit11 -> double-manifest Start12 -> acceptance13-18 -> closeout19",
+    "noPostBackupOrRestore": true,
+    "oldInstalledBackup": "Installed app/tools/django-postgres-maintenance.ps1, old app inventory pins; exact successful receipt outputs required before any Restore expansion.",
+    "newInstalledConsumer": "runTargetedRecoveryConsumer:132-169 requires passed apply/deploy/HardenAcl, exact D manifest and four installed tool hashes, exact approved new W plan/head; executes only node [installed app/tools/release-payload-retention.mjs] with no args/Execute, validates result and rechecks files/head/deadline. No deletion or retention mutation is inferred.",
+    "newInstalledRestore": "Only fixed installed operator; prepared-path requests are rejected by targeted validation. backupDirectory/manifest receipt tokens bind backup-pre; result backupId, manifest,dump,expected/restored content all bind the same confirmed point; original serviceStateChanged/productionDatabaseTouched/profile/sequence/cleanup assertions remain.",
+    "djangoInventoryCounts": [2933,2933],
+    "djangoChangedPaths": [".wrangler/cache/cf.json","tools/worker-local-release-rotation.mjs","tools/worker-local-release.mjs"],
+    "phaseToolPinsMatched": true,
+    "compatibleRollback": "Keep gate/owner/WAL and unknowns; prepare separately approved compatible new successor and paired resolver tools. No direct old resolver install/history deletion/automatic DB restore.",
+    "unknownReplayGuard": "executeBatch:397-398 refuses state.unknown before resume; only confirmed terminal operations can be skipped. Original/new unknowns and old failed attempts are not rewritten."
+  },
+  "evidence": {
+    "boundedAudit": "INSTALLATION_TARGETED_AUDIT.json",
+    "boundedAuditSha256": "1ecfa2e088e24db7600066adca42229965a7d0d701603cd9b3418a99284d5778",
+    "auditCode": "installation-targeted-audit.mjs",
+    "auditCodeSha256": "3bcec3f95fcbb940e2c5af8302ae5ee987db975f36d77b64470b644a97756290",
+    "smallFiles": 25,
+    "sourceTransplantCorrection": "LIMITED_TRANSPLANT_CORRECTION.md reviewed; actual e0d2 consumer/result code has backup const and targeted backupId assertion inside restore block:603-607, not the failed V1 position. No old failing run is changed into success.",
+    "candidateRegressionMetadata": "Original FINAL_V3 describes197/197,52,239.2269ms matching306e/c279; read as author evidence only, not rerun or added to the7 independent VM count."
+  },
+  "productionAdmissionAndPendingEvidence": [
+    {"type":"runtime-blocker","source":"Root task handoff","independentlyRequeried":false,"fact":"Runtime still contains unknown references. Correct new fail-close remains a production DeployApp blocker; it is not a new source correctness failure and has not been cleared here."},
+    {"type":"pending-independent-scope","fact":"Actual spec uses in-process-content-evidence-v1 session. The first source-session refusal and later no-session full success do not establish that exact session path; Root is separately checking it. This report does not certify overall C preparation acceptance."},
+    {"type":"human-approval","fact":"Batch remains productionApproved=false; precise new maintenance/switch/Backup/installed-planner/Restore/Start scope needs human approval before execution."}
+  ],
+  "limits": ["Drive-qualified path/token inspection only; UNC, relative/env/encoded/arbitrary-script/registry/DLL indirection and all-system handles are not proven.","Synthetic process DTO/realpath fixtures are not OS process/task enumeration or an actual deletion-reference proof.","No full source/build/dependency/previous-tree/dump rehash, PG exercise, installed planner or production adoption performed.","Signature applies only to the listed exact bytes, not later code/scope or prior65fc/failed39ce."],
+  "actions": {"productModuleImports":0,"productionQueries":0,"processTaskEnumeration":0,"cli":0,"locks":0,"backupRestore":0,"lifecycle":0,"deletion":0,"productionOrSourceChanges":0,"privateVMTests":7}
+}
