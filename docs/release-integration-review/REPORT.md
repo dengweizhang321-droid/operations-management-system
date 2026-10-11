@@ -1,5 +1,7 @@
 # 第二阶段组合验收报告
 
+2026-10-11 最新实际状态：AB 按已批准的具体变化和健康补充合同完成必要验收，原所有权已释放、独立物理 ENOENT 已确认；原严格 false 和三个历史 unknown 保留。完整行政交付以新 E 根 FINAL_AB_DELIVERY.json 的最终 Git/归档/独立收尾时点为准；C 未采用。本轮有 Worker 退出并自动恢复及11个入口不可用样本，根因未证，保留稳定性后续事项。最新 [实际收尾](production/HEALTH_PROBE_ACTUAL_CLOSEOUT.md)、[独立实物复核](production/HEALTH_PROBE_ACTUAL_INDEPENDENT.md) 与 [AGY辅审事实更正](production/AGY_AB_REVIEW_FACT_CHECK.md)。下文为此前准备/阻断历史快照。
+
 2026-10-10实际生产状态：AB已部分采用，0bca UI、7389补登记、原17后Restore及18保全均通过并独立核验；原19严格比较实际exit1/unknown，独立同输入复现为6表内容差异，20–21未开始，整批未闭合，C未采用。旧unknown/failed、pre dump删除及cleanup blocked保留，不能把恢复成功记为全批成功。当前证据见 [7389实际续接](production/METADATA_CONTINUATION_20261010.md)、[严格阻断独立复核](production/INDEPENDENT_STRICT_CLOSEOUT_BLOCK.md) 与 [生产记录](production/REPORT.md)。以下表格和准备证据保留为批准前交付快照。
 
 批准前四状态快照：

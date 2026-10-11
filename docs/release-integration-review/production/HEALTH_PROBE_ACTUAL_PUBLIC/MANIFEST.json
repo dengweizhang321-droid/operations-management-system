@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "publicBoundedEvidenceOnly": true,
+  "rawBodyOrReasonCopied": false,
+  "productionCredentialsOrRowDataCopied": false,
+  "files": [
+    {
+      "name": "ACTUAL_SUMMARY.json",
+      "sha256": "a5fd1093437eb73df5f40400f8a54655d340a6a3a5fc07292889a9bc2e739fef",
+      "bytes": 1783
+    },
+    {
+      "name": "actual-result.json",
+      "sha256": "322dc7cf3071929f5bf596a285f5e51d47473513ac20cdf94290d7b0a81634f1",
+      "bytes": 1940
+    },
+    {
+      "name": "entry-observation-finished.json",
+      "sha256": "9e9939af658cbb6d844bdf8074f1e6548ac6c31dfece53b92e3a6d6c0e2977d3",
+      "bytes": 117
+    },
+    {
+      "name": "entry-observation-started.json",
+      "sha256": "080848cde2ec2fb8a8eb0f6a2ca8db45f9d7fc883013431d308d2c43ce93c70c",
+      "bytes": 414
+    },
+    {
+      "name": "entry-samples.jsonl",
+      "sha256": "17a84c731c514d07e9ab813cc00c4b8939f83137641af05830649cd7f903daab",
+      "bytes": 28842
+    },
+    {
+      "name": "events/000102.json",
+      "sha256": "9c53c252b8cfc7a0441572218f303fbcd87679c38bf8f85c61af0c970c3d51b5",
+      "bytes": 1027
+    },
+    {
+      "name": "events/000103.json",
+      "sha256": "da961551906815300fa7f6bc1e56c8b1d86d1c366e011ecd7461b23fafb84c56",
+      "bytes": 5694
+    },
+    {
+      "name": "events/000104.json",
+      "sha256": "cf0e748614be458bf63c41e97076e0e48cf5b0ccd45f6c25000d5e62675b0dfc",
+      "bytes": 501
+    },
+    {
+      "name": "events/000105.json",
+      "sha256": "fae9fc1625258dcaadae6e92923e48ed6a2aece64fa3da3876df5fbe5c8bbab4",
+      "bytes": 532
+    },
+    {
+      "name": "events/000106.json",
+      "sha256": "e56d12ba0868e30986a9c555b936425304811dd86ad36678f855c05cce2656a1",
+      "bytes": 6130
+    },
+    {
+      "name": "events/000107.json",
+      "sha256": "ec93e65474f1d7fc9b6dfc03fb2b99b6f05902ed89646a8187aec2708326a49c",
+      "bytes": 1263
+    },
+    {
+      "name": "events/000108.json",
+      "sha256": "b9b042f26aa0f1a12742f7fc61635ecbc95c6670e779fa5b6dbef0bd9e7ffa1c",
+      "bytes": 1415
+    },
+    {
+      "name": "execution-finished.json",
+      "sha256": "b9c03636c9cbc813e164f0febf42049892d52b0bc8ecb9b870beaac4708290ab",
+      "bytes": 390
+    },
+    {
+      "name": "execution-started.json",
+      "sha256": "0fede7511216d16f9bd121a1b78dc807ef9d222e218e0ceb67adebbb25932cce",
+      "bytes": 764
+    },
+    {
+      "name": "health-probe-evidence/20340-0161d95d38fa41f48c06261338115853.json",
+      "sha256": "1277284b67645bbe206a2bb19c31bbfdaba14be544ccefe38610bcd8fcf5df75",
+      "bytes": 1314
+    },
+    {
+      "name": "health-probe-evidence/69812-2f46dd0fae364b8fadbf7c284788be5b.json",
+      "sha256": "aac11bd958dbdd7d610aa3048abff07f219826e123ce7f56b22d457d4f7329f1",
+      "bytes": 1314
+    },
+    {
+      "name": "human-approval.json",
+      "sha256": "e4a66322238c81f21df1bd3d1e304a0a21743f60677c48226e14f3f9d816fa50",
+      "bytes": 885
+    },
+    {
+      "name": "status-evidence/42380-a43fdce3-d5ab-4d5f-a35a-a9fd14894d4a.json",
+      "sha256": "b89cc88f1968bb8016a1fbf343e8c00abd13c62a28ecd4872a3787241c2a2f0c",
+      "bytes": 3783
+    },
+    {
+      "name": "status-evidence/61812-aa850507-5cd3-4615-be79-36a4b282062b.json",
+      "sha256": "cdfe82faba2d0c8f6647f43fada39198e52eb0a4f782115f52bc62df92352960",
+      "bytes": 3789
+    }
+  ],
+  "initialAdministrativeCopyError": {
+    "exitCode": 1,
+    "type": "ERR_INVALID_ARG_TYPE",
+    "cause": "Buffer.equals given a string after writing Root summary; raw copies were completed and the written summary remained valid. No production action failed or repeated."
+  }
+}

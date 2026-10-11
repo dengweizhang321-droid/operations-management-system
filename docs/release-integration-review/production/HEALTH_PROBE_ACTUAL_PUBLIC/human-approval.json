@@ -1,0 +1,18 @@
+{
+  "threadId": "01a121b9-a5c1-7032-add9-deae9f4bceb7",
+  "turnId": "01a12874-8c2a-78a3-b7e6-b55d14978230",
+  "userItemId": "01a12874-8c8d-7561-8ce6-db7cfb04d8b5",
+  "userText": "按照你的方案执行，直到整个AB完成",
+  "approvedAt": "2026-10-11T00:54:49.000Z",
+  "timeResolution": "turn-start-second",
+  "scopeSha256": "12c48446cf7896de39a665337ddde1dde89e0611a743b6b3287cfa1509597dc4",
+  "explicitHumanApproval": true,
+  "preserveOriginalStrictFailure": true,
+  "preserveOriginalReadinessFailure": true,
+  "preservePriorSupplementFailure": true,
+  "reuseAccepted295Contract": true,
+  "runOnlyHealthProbeFinalReadiness": true,
+  "noReplayOriginal20": true,
+  "releaseExactOwnership": true,
+  "scopeResolution": "The latest human instruction refers to the sole current 12c48446 plan identified in the preceding assistant answer; authorizes its execution and AB closeout."
+}

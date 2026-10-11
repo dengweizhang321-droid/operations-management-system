@@ -1,0 +1,18 @@
+{
+  "startedAt": "2026-10-11T01:09:08.190Z",
+  "processId": 55404,
+  "executable": "C:/Users/86137/AppData/Local/agy/bin/agy.exe",
+  "args": [
+    "--mode",
+    "plan",
+    "--print-timeout",
+    "240",
+    "--output-format",
+    "stream-json",
+    "-p",
+    "用户明确授权 Antigravity 协助 TERUISI AB 收尾。你是非作者第二审查者，仅只读核验。父任务已按 Home.md 加载共享记忆、AGENTS 和开发/发布规范：精确批准、完整健康断言、原失败保留、生产范围不扩张。请仅用 view_file 读取 docs/release-integration-review/production/AGY_AB_ACTUAL_INPUT.md、该文件指定的公共受限证据以及 HEALTH_PROBE_APPROVAL_PLAN.md / HEALTH_PROBE_SEALED_REVIEW.md。不要执行 shell/terminal、Status、HTTP、SQL、服务/调度/部署/锁/写文件、外部通信或读取工作区外凭据。若默认权限拒绝请保留拒绝且报告证据限制，不绕过。检查必要验收和完整交付是否分开、三个旧unknown与原严格false是否保留、真实native/producer/预算/PID证据是否支持结论、owner释放是否有真实ENOENT、是否把首页或模型测试冒充生产结果、计时是否重复或隐藏失败。结合本轮真人批准与计划的新独立合同判断，不能擅自改历史原操作为passed。输出中文：核验文件、支持与不支持的结论、精确阻断或非阻断提醒、计时更正；没有读取证据不能宣称实物验证。"
+  ],
+  "cwd": "D:\\.codex\\worktrees\\release-health-probe-actual-review\\运营管理系统",
+  "inputSha256": "462a98dae459bc826f5764b00f51c7f11b4e124e1b3705fe86ec02fc5ea37d26",
+  "productionExecutionDelegated": false
+}

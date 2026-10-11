@@ -1,0 +1,14 @@
+{
+  "startedAt": "2026-10-11T00:57:29.395Z",
+  "processId": 61812,
+  "executable": "C:\\Program Files\\nodejs\\node.exe",
+  "args": [
+    "E:/codex-artifacts/release-integration-review-20261010/AB-health-probe-20261011-verified-final/execute.mjs",
+    "E:/codex-artifacts/release-integration-review-20261010/AB-health-probe-20261011-verified-final/health-scope.json",
+    "12c48446cf7896de39a665337ddde1dde89e0611a743b6b3287cfa1509597dc4",
+    "E:/codex-artifacts/release-integration-review-20261010/AB-health-probe-20261011-verified-final/human-health-probe-approval.json"
+  ],
+  "cwd": "D:/运营管理系统-sales-django-release",
+  "scopeSha256": "12c48446cf7896de39a665337ddde1dde89e0611a743b6b3287cfa1509597dc4",
+  "approvedAt": "2026-10-11T00:54:49.000Z"
+}

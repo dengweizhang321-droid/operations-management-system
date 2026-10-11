@@ -1,0 +1,13 @@
+{
+  "startedAt": "2026-10-11T01:09:08.190Z",
+  "finishedAt": "2026-10-11T01:09:09.303Z",
+  "elapsedMs": 1112.3843,
+  "processId": 55404,
+  "exitCode": 2,
+  "signal": null,
+  "stdoutBytes": 0,
+  "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderrBytes": 2987,
+  "stderrSha256": "25ce0d9d2745d3892dbe1ac932911ccce10082397082791bf79ff85d3c0f1b73",
+  "productionExecutionDelegated": false
+}
