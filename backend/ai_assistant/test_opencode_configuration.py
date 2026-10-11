@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
 
-from . import configuration, model_capabilities, models as m, provider, tests as support
+from . import configuration, model_capabilities, models as m, provider, transport, tests as support
 from .policy import AiError, mutation
 
 
@@ -112,3 +112,34 @@ class OpenCodeModelSaveTests(TestCase):
             self.assertIs(saved["generationOptions"]["includeStreamUsage"], bool(stored))
             self.model.refresh_from_db()
             self.assertIs(model_capabilities.options(self.model)["includeStreamUsage"], bool(stored))
+
+    def test_large_custom_reasoning_values_survive_save_edit_and_provider_parameters(self):
+        body = self.body(maxTokens=384000, maxToolRounds=1000, maxTotalToolCalls=10000,
+                         timeoutMs=3_000_000_000, temperatureMilli=3500,
+                         generationOptions={"contextWindowTokens":4_000_000,
+                                            "taskTimeoutMs":3_000_000_000,
+                                            "reasoningFormat":"thinking", "reasoningEffort":"max"})
+        saved, _ = self.save(body)
+        edited, _ = self.save({**body, "id":saved["id"], "expectedVersion":saved["version"], "apiKey":""})
+        for key in ("maxTokens", "maxToolRounds", "maxTotalToolCalls", "timeoutMs", "temperatureMilli"):
+            self.assertEqual(edited[key], body[key])
+        row = m.AiModels.objects.get(id=saved["id"])
+        self.assertEqual(model_capabilities.options(row)["taskTimeoutMs"],3_000_000_000)
+        params = model_capabilities.provider_parameters(row)
+        self.assertEqual(params["max_tokens"],384000)
+        self.assertEqual(params["reasoning_effort"],"max")
+        self.assertEqual(params["thinking"],{"type":"enabled"})
+        self.assertEqual(params["temperature"],3.5)
+        with transport.request_budget(None):
+            transport.limit_request_budget(3_000_000)
+            self.assertGreater(transport.remaining_budget(3_000_000),model_capabilities.MAX_CHAT_SECONDS)
+
+    def test_existing_high_reasoning_configuration_is_preserved_on_edit(self):
+        body = self.body(maxTokens=65536,generationOptions={"contextWindowTokens":1_000_000,
+                                                         "taskTimeoutMs":1_800_000,"temperatureMode":"default"})
+        saved, _ = self.save(body)
+        edited, _ = self.save({**body,"id":saved["id"],"expectedVersion":saved["version"],"apiKey":""})
+        self.assertEqual(edited["maxTokens"],65536)
+        self.assertEqual(edited["generationOptions"]["contextWindowTokens"],1_000_000)
+        self.assertEqual(edited["generationOptions"]["taskTimeoutMs"],1_800_000)
+        self.assertNotIn("thinking",model_capabilities.provider_parameters(m.AiModels.objects.get(id=saved["id"])))

@@ -1,5 +1,7 @@
 export const MAX_AI_CHAT_SECONDS = 1_000_000;
-export const AI_CHAT_RELAY_TIMEOUT_MS = (MAX_AI_CHAT_SECONDS + 30) * 1000;
+// The owning Django request applies the saved model deadline; the relay must
+// not impose a second, smaller ceiling. Cancellation still propagates.
+export const AI_CHAT_RELAY_TIMEOUT_MS = null;
 export const MAX_AI_REPLY_CHARACTERS = 524288;
 export const MAX_AI_STREAM_BYTES = 32 * 1024 * 1024;
 export type AiGenerationOptions = {

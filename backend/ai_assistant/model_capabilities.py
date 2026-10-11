@@ -7,6 +7,7 @@ MAX_REPLY_CHARACTERS = 524288
 MAX_PROVIDER_BYTES = 8 * 1024 * 1024
 MAX_PROVIDER_STREAM_BYTES = 64 * 1024 * 1024  # SSE repeats protocol metadata per delta.
 MAX_CHAT_SECONDS = 1_000_000
+MAX_CONFIG_INTEGER = 2**53 - 1  # Lossless JSON/JavaScript numeric representation.
 DEFAULTS = {
     "contextWindowTokens": 128000, "taskTimeoutMs": MAX_CHAT_SECONDS * 1000,
     "outputTokenParameter": "max_tokens", "temperatureMode": "custom",
@@ -33,13 +34,13 @@ def validate(value, *, protocol, max_tokens, reasoning_mode):
         raise AiError("生成参数必须为对象")
     fields(value, set(DEFAULTS))
     result = {**DEFAULTS, **value}
-    result["contextWindowTokens"] = integer(result["contextWindowTokens"], "上下文窗口", 8192, 2000000)
-    result["taskTimeoutMs"] = integer(result["taskTimeoutMs"], "任务总时限", 30000, MAX_CHAT_SECONDS * 1000)
+    result["contextWindowTokens"] = integer(result["contextWindowTokens"], "上下文窗口")
+    result["taskTimeoutMs"] = integer(result["taskTimeoutMs"], "任务总时限")
     result["outputTokenParameter"] = choice(result["outputTokenParameter"], ["max_tokens", "max_completion_tokens"], "输出参数格式")
     result["temperatureMode"] = choice(result["temperatureMode"], ["default", "custom"], "温度模式")
     result["reasoningFormat"] = choice(result["reasoningFormat"], ["default", "thinking", "reasoning_effort", "anthropic_budget", "anthropic_adaptive"], "推理参数格式")
     result["reasoningEffort"] = choice(result["reasoningEffort"], ["default", "none", "minimal", "low", "medium", "high", "xhigh", "max"], "推理强度")
-    result["thinkingBudgetTokens"] = integer(result["thinkingBudgetTokens"], "思考预算", 1024, 131071)
+    result["thinkingBudgetTokens"] = integer(result["thinkingBudgetTokens"], "思考预算")
     result["includeStreamUsage"] = bool(boolean(result["includeStreamUsage"], "流式用量统计"))
     result["systemPrompt"] = text(result["systemPrompt"], "附加系统提示词", 8000, empty=True)
     reserve = max(2048, math.ceil(result["contextWindowTokens"] * .05))

@@ -48,8 +48,8 @@ class ProviderHttpError(AiError):
 @contextmanager
 def request_budget(seconds):
     parent = _deadline.get()
-    deadline = time.monotonic() + seconds
-    token = _deadline.set(min(parent, deadline) if parent is not None else deadline)
+    deadline = time.monotonic() + seconds if seconds is not None else parent
+    token = _deadline.set(min(parent, deadline) if parent is not None and deadline is not None else deadline)
     try:
         yield
     finally:

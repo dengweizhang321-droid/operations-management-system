@@ -92,17 +92,16 @@ def model_transport(raw_model):
         and 1 <= len(model["modelName"]) <= 120
         and type(model["version"]) is int and model["version"] >= 1
         and type(model["maxTokens"]) is int
-        and 128 <= model["maxTokens"] <= 131072
+        and 1 <= model["maxTokens"] <= 2**53 - 1
         and type(model["maxToolRounds"]) is int
-        and 1 <= model["maxToolRounds"] <= 62
+        and 1 <= model["maxToolRounds"] <= 2**53 - 1
         and type(model["maxTotalToolCalls"]) is int
-        and 1 <= model["maxTotalToolCalls"] <= 300
+        and 1 <= model["maxTotalToolCalls"] <= 2**53 - 1
         and type(model["timeoutMs"]) is int
-        and 3000 <= model["timeoutMs"] <= 600000
+        and 1 <= model["timeoutMs"] <= 2**53 - 1
         and model["reasoningMode"] in {"auto", "disabled"}
         and type(model["temperatureMilli"]) is int
-        and 0 <= model["temperatureMilli"] <=
-            (1000 if model["protocol"] == "anthropic" else 2000))
+        and 0 <= model["temperatureMilli"] <= 2**53 - 1)
     options_text = model["generationOptionsJson"]
     _need(type(options_text) is str
         and len(options_text.encode("utf-8")) <= 8192)

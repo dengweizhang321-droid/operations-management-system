@@ -157,10 +157,10 @@ def _append(frames, protocol, name, arguments, data, ordinal):
 def _measure(role_pages, budget_pages, reference, model, guidance, entries):
     _require(model.protocol in ("openai_compatible", "anthropic"), "词货模型协议不支持")
     cfg = model_capabilities.options(model)
-    _require(type(model.max_tokens) is int and 0 < model.max_tokens <= 131072
+    _require(type(model.max_tokens) is int and 0 < model.max_tokens <= model_capabilities.MAX_CONFIG_INTEGER
         and type(model.max_total_tool_calls) is int and model.max_total_tool_calls > 0
         and type(model.max_tool_rounds) is int and model.max_tool_rounds > 0
-        and type(cfg["contextWindowTokens"]) is int and 8192 <= cfg["contextWindowTokens"] <= 2000000,
+        and type(cfg["contextWindowTokens"]) is int and 1 <= cfg["contextWindowTokens"] <= model_capabilities.MAX_CONFIG_INTEGER,
         "词货模型上下文配置无效")
     calls_limit = min(model.max_total_tool_calls, old.MAX_TOOL_CALLS)
     rounds_limit = min(model.max_tool_rounds, old.MAX_TOOL_ROUNDS)

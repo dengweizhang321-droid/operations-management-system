@@ -193,7 +193,7 @@ def save_model(body, principal, *, image=False):
             body.get("status", "enabled"), ["enabled", "disabled"], "状态"
         ),
         "timeout_ms": integer(
-            body.get("timeoutMs", row.timeout_ms if row else 90000 if image else 60000), "timeoutMs", 3000, 120000 if image else 600000
+            body.get("timeoutMs", row.timeout_ms if row else 90000 if image else 60000), "timeoutMs", 3000 if image else 1, 120000 if image else capabilities.MAX_CONFIG_INTEGER
         ),
         "updated_at": timezone.now(),
         "version": row.version + 1 if row else 1,
@@ -206,18 +206,18 @@ def save_model(body, principal, *, image=False):
             is_default_text_model=boolean(
                 body.get("isDefaultTextModel", False), "isDefaultTextModel"
             ),
-            max_tokens=integer(body.get("maxTokens", row.max_tokens if row else 65536), "maxTokens", 128, 131072),
+            max_tokens=integer(body.get("maxTokens", row.max_tokens if row else 65536), "maxTokens"),
             reasoning_mode=choice(
                 body.get("reasoningMode", "auto"), ["auto", "disabled"], "推理模式"
             ),
             temperature_milli=integer(
-                body.get("temperatureMilli", 200), "temperatureMilli", 0, 1000 if protocol == "anthropic" else 2000
+                body.get("temperatureMilli", 200), "temperatureMilli", 0
             ),
             max_tool_rounds=integer(
-                body.get("maxToolRounds", 6), "maxToolRounds", 1, 62
+                body.get("maxToolRounds", 6), "maxToolRounds"
             ),
             max_total_tool_calls=integer(
-                body.get("maxTotalToolCalls", 12), "maxTotalToolCalls", 1, 300
+                body.get("maxTotalToolCalls", 12), "maxTotalToolCalls"
             ),
         )
         from .policy import canonical

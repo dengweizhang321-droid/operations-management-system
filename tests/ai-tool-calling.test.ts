@@ -708,10 +708,10 @@ test("configured model budgets can continue beyond the former six-round ceiling"
     defaultRounds: 6,
     defaultTotalCalls: 12,
     increaseBy: 50,
-    maximumRounds: 62,
-    maximumTotalCalls: 300,
+    maximumRounds: Number.MAX_SAFE_INTEGER,
+    maximumTotalCalls: Number.MAX_SAFE_INTEGER,
   });
-  assert.equal(AI_TOOL_RUNTIME_LIMITS.maxTotalCalls.maximum, 300);
+  assert.equal(AI_TOOL_RUNTIME_LIMITS.maxTotalCalls.maximum, Number.MAX_SAFE_INTEGER);
   let rounds = 0;
   const reply = await runOpenAiCompatibleToolLoop({
     messages: [{ role: "user", content: "需要多步检索" }],

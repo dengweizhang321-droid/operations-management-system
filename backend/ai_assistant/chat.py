@@ -696,7 +696,7 @@ def _artifacts(results, conv, message, principal):
     return assets
 
 
-@transport.request_budget(MAX_CHAT_SECONDS)
+@transport.request_budget(None)
 def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbounded_total=False,
            channel_guard=None, channel_time=None, on_event=None):
     started_at = time.monotonic()

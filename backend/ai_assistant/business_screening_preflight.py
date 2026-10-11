@@ -200,10 +200,10 @@ def _measure(role_pages, reference, *, model, entries, budget_pages, guidance=""
     _require(model is not None and getattr(model,"protocol",None) in ("openai_compatible","anthropic"))
     calls_limit = min(_integer(getattr(model,"max_total_tool_calls",None),1),contract.MAX_TOOL_CALLS)
     rounds_limit = min(_integer(getattr(model,"max_tool_rounds",None),1),contract.MAX_TOOL_ROUNDS)
-    _integer(getattr(model,"max_tokens",None),1,131072)
+    _integer(getattr(model,"max_tokens",None),1)
     _require(type(getattr(model,"generation_options_json","{}")) is str
         and len(getattr(model,"generation_options_json","{}").encode()) <= 32000)
-    cfg = options(model); _integer(cfg["contextWindowTokens"],8192,2000000)
+    cfg = options(model); _integer(cfg["contextWindowTokens"],1)
     system = provider.system_prompt(model,SYSTEM+guidance)
     graph = contract.graph(bool(budgets))
     nodes = []

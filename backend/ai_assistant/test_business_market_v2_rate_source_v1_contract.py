@@ -122,10 +122,10 @@ class MarketV2RateSourceContractTests(TestCase):
         changed["generationOptionsJson"] = '{ "temperature": 0.2 }'
         with self.assertRaises(AnalysisContractError):
             contract.model_transport(changed)
-        for field, value in (("timeoutMs", 2999),
-                ("timeoutMs", 600001), ("reasoningMode", "unbounded"),
-                ("temperatureMilli", 2001), ("maxTokens", 127),
-                ("maxToolRounds", 63), ("maxTotalToolCalls", 301)):
+        for field, value in (("timeoutMs", 0),
+                ("timeoutMs", 2**53), ("reasoningMode", "unbounded"),
+                ("temperatureMilli", -1), ("maxTokens", 0),
+                ("maxToolRounds", 2**53), ("maxTotalToolCalls", True)):
             changed = deepcopy(original)
             changed[field] = value
             with self.subTest(field=field, value=value), self.assertRaises(
@@ -133,9 +133,20 @@ class MarketV2RateSourceContractTests(TestCase):
                 contract.model_transport(changed)
         anthropic = deepcopy(original)
         anthropic["protocol"] = "anthropic"
-        anthropic["temperatureMilli"] = 1001
+        anthropic["temperatureMilli"] = 2**53
         with self.assertRaises(AnalysisContractError):
             contract.model_transport(anthropic)
+
+    def test_free_configured_values_change_model_fingerprint_without_old_caps(self):
+        original = model()
+        baseline = contract.model_transport(original)
+        for field, value in (("timeoutMs", 3_000_000_000), ("maxTokens", 384000),
+                             ("maxToolRounds", 1000), ("maxTotalToolCalls", 10000),
+                             ("temperatureMilli", 3500)):
+            changed = deepcopy(original)
+            changed[field] = value
+            with self.subTest(field=field):
+                self.assertNotEqual(contract.model_transport(changed), baseline)
 
     def test_official_claim_arbitrary_endpoint_and_billing_gap_reject(self):
         base = source()

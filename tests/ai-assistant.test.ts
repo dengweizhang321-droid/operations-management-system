@@ -271,7 +271,7 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(page, /AiMessageArtifacts/);
   assert.match(page, /下载 CSV/);
   assert.match(page, /maxToolRounds/);
-  assert.match(page, /AI_MODEL_TOOL_BUDGET_LIMITS\.maximumRounds/);
+  assert.doesNotMatch(page, /max=\{AI_MODEL_TOOL_BUDGET_LIMITS\./);
   assert.match(page, /reasoningMode/);
   assert.match(page, /关闭推理（端点须支持）/);
   assert.match(page, /modelBaseUrlDirty/);
@@ -314,8 +314,8 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(gateway, /max_tokens: model\.maxTokens/);
   assert.match(gateway, /thinking: \{ type: "disabled" \}/);
   assert.match(gateway, /signal/);
-  assert.match(toolBudget, /maximumRounds: 62/);
-  assert.match(toolBudget, /maximumTotalCalls: 300/);
+  assert.match(toolBudget, /maximumRounds: Number\.MAX_SAFE_INTEGER/);
+  assert.match(toolBudget, /maximumTotalCalls: Number\.MAX_SAFE_INTEGER/);
   assert.match(service, /DEFAULT_MODEL_TIMEOUT_MS = 60_000/);
   assert.match(service, /createRegisteredToolExecutionRuntime/);
   assert.match(service, /listAiArtifactsForConversation/);

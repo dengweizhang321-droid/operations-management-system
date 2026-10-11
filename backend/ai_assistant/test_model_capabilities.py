@@ -17,7 +17,7 @@ class CapabilityValidationTests(SimpleTestCase):
 
     def test_high_output_context_and_long_budget_are_explicit(self):
         self.assertEqual(self.validate({"contextWindowTokens":128000, "taskTimeoutMs":600000})["taskTimeoutMs"], 600000)
-        for value in [{"contextWindowTokens":65536}, {"taskTimeoutMs":29999}, {"contextWindowTokens":2000001}, {"taskTimeoutMs":1000000001}, {"unknown":1}, {"includeStreamUsage":1}]:
+        for value in [{"contextWindowTokens":65536}, {"taskTimeoutMs":0}, {"contextWindowTokens":2**53}, {"taskTimeoutMs":2**53}, {"unknown":1}, {"includeStreamUsage":1}]:
             with self.subTest(value=value), self.assertRaises(AiError): self.validate(value)
 
     def test_protocol_mismatch_and_incompatible_thinking_are_rejected(self):
@@ -92,7 +92,7 @@ class CapabilityChatTests(TestCase):
         self.assertEqual(self.model.max_tokens, legacy_tokens)
         self.assertEqual(c.options(self.model)["taskTimeoutMs"], 260000)
 
-    def test_model_tool_call_limit_accepts_300_and_rejects_301(self):
+    def test_model_tool_call_limit_is_freely_configured_beyond_300(self):
         admin = self.user("tool-budget-admin@example.invalid", "admin", None)
         body = {
             "id": self.model.id,
@@ -108,8 +108,11 @@ class CapabilityChatTests(TestCase):
             saved = save_model(body, admin)
         self.model.refresh_from_db()
         self.assertEqual(self.model.max_total_tool_calls, 300)
+        with mutation(admin):
+            saved = save_model({**body, "expectedVersion": saved["version"], "maxTotalToolCalls": 301}, admin)
+        self.assertEqual(saved["maxTotalToolCalls"], 301)
         with self.assertRaises(AiError), mutation(admin):
-            save_model({**body, "expectedVersion": saved["version"], "maxTotalToolCalls": 301}, admin)
+            save_model({**body, "expectedVersion": saved["version"], "maxTotalToolCalls": 2**53}, admin)
 
     def test_budget_migration_promotes_only_models_at_former_ceiling(self):
         self.model.max_total_tool_calls = 74
@@ -212,6 +215,17 @@ class CapabilityChatTests(TestCase):
         self.assertFalse(full["items"][0]["contentTruncated"])
         self.assertEqual(full["items"][0]["execution"],reply["execution"])
         with self.assertRaises(AiError): chat.messages({"conversationId":reply["conversationId"],"messageId":reply["assistantMessageId"]},self.other)
+
+    def test_signed_chat_uses_saved_large_deadline_without_outer_cap(self):
+        self.model.generation_options_json=canonical({"taskTimeoutMs":3_000_000_000})
+        self.model.save()
+        def turn(*args, **kwargs):
+            self.assertGreater(transport.remaining_budget(3_000_000),c.MAX_CHAT_SECONDS)
+            return {"text":"完成","calls":[],"frame":{"role":"assistant","content":"完成"},
+                    "usage":{},"stopReason":"stop","truncated":False}
+        with patch.object(chat.transport,"catalog",return_value=[]),patch.object(provider,"turn",side_effect=turn):
+            response=self.call("/api/ai/chat",{"clientRequestId":"large-deadline","message":"复杂分析"})
+        self.assertEqual(response.status_code,200,response.content)
 
     def test_more_than_twenty_history_messages_are_available_before_budgeting(self):
         conv=m.AiConversations.objects.create(id="history-budget",title="历史",created_by=self.owner.email)

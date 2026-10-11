@@ -1,3 +1,5 @@
+import { scheduleDeadlineTimer } from "@/lib/ai/deadline-timer";
+
 export const DEFAULT_MODEL_RESPONSE_LIMIT_BYTES = 2 * 1024 * 1024;
 
 export class BoundedFetchError extends Error {
@@ -14,7 +16,7 @@ export class BoundedFetchError extends Error {
 export async function fetchBoundedJson(input: {
   url: string;
   init: RequestInit;
-  timeoutMs: number;
+  timeoutMs: number | null;
   maxBytes?: number;
   fetcher?: typeof fetch;
   signal?: AbortSignal;
@@ -23,16 +25,15 @@ export async function fetchBoundedJson(input: {
 }): Promise<{ response: Response; data: unknown; responseBytes: number }> {
   const controller = new AbortController();
   const externalSignal = input.signal ?? input.init.signal ?? undefined;
-  const timeoutMs = Math.max(1, input.timeoutMs);
   const maxBytes = input.maxBytes ?? DEFAULT_MODEL_RESPONSE_LIMIT_BYTES;
   let timedOut = false;
   const abortFromExternal = () => controller.abort(externalSignal?.reason);
   if (externalSignal?.aborted) abortFromExternal();
   else externalSignal?.addEventListener("abort", abortFromExternal, { once: true });
-  const timer = setTimeout(() => {
+  const cancelTimer = scheduleDeadlineTimer(() => {
     timedOut = true;
     controller.abort(new Error("response_timeout"));
-  }, timeoutMs);
+  }, input.timeoutMs === null ? null : Math.max(1, input.timeoutMs));
   let response: Response | undefined;
   let bodyConsumed = false;
   try {
@@ -62,7 +63,7 @@ export async function fetchBoundedJson(input: {
     if (controller.signal.aborted) throw new BoundedFetchError("timeout", "连接超时，请检查平台地址和网络");
     throw error;
   } finally {
-    clearTimeout(timer);
+    cancelTimer();
     externalSignal?.removeEventListener("abort", abortFromExternal);
     if (!bodyConsumed) {
       // Header-level rejection must release the unread body as well as the
