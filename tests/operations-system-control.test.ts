@@ -209,7 +209,8 @@ test("controller verifies Worker liveness, readiness and helper health without p
   assert.match(panel, /127\.0\.0\.1:5791\/health/);
   assert.match(panel, /httpHandler\.UseProxy = \$false/);
   assert.match(panel, /TryAddWithoutValidation\("x-teruisi-local-health", "1"\)/);
-  assert.match(panel, /readinessPayload\.code -eq "django_unavailable"/);
+  assert.match(panel, /Payload\.code -is \[string\] -and \$Payload\.code -ceq "django_unavailable"/);
+  assert.match(panel, /elseif \(\$ready\.degradedMatches\)/);
   assert.equal(panel.match(/healthState = "BackendDegraded"/g)?.length, 1);
 });
 

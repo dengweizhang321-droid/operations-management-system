@@ -4135,7 +4135,33 @@ function Stop-FinanceStack {
   Write-Output "Django 财务 reader/writer 已停止；销售、ERP 与 PostgreSQL 未改变。"
 }
 
+function Get-CoreStatusReadinessProbe([string]$Uri, [string]$HostHeader) {
+  # Preserve the existing two-second/HTTP-200 contract. Only bounded metadata
+  # leaves this function; response bodies and exception text may contain secrets.
+  $clock = [Diagnostics.Stopwatch]::StartNew()
+  $probe = [ordered]@{ readiness = 'not_ready'; statusCode = $null; code = 'transport_error'; timeoutMs = 2000; elapsedMs = 0 }
+  try {
+    $response = Invoke-WebRequest -UseBasicParsing -Uri $Uri -TimeoutSec 2 -Headers @{ Host = $HostHeader }
+    $probe.statusCode = [int]$response.StatusCode
+    $probe.code = 'http_status'
+    if ($response.StatusCode -eq 200) { $probe.readiness = 'ready'; $probe.code = 'none' }
+  } catch {
+    $errorItem = $_.Exception
+    while ($errorItem) {
+      if ($errorItem -is [TimeoutException] -or $errorItem -is [OperationCanceledException] -or
+          ($errorItem -is [Net.WebException] -and $errorItem.Status -eq [Net.WebExceptionStatus]::Timeout)) { $probe.code = 'timeout' }
+      if ($errorItem.PSObject.Properties.Name -contains 'Response' -and $errorItem.Response -and
+          $errorItem.Response.PSObject.Properties.Name -contains 'StatusCode') {
+        $probe.statusCode = [int]$errorItem.Response.StatusCode; $probe.code = 'http_status'
+      }
+      $errorItem = $errorItem.InnerException
+    }
+  } finally { $probe.elapsedMs = $clock.ElapsedMilliseconds }
+  return [pscustomobject]$probe
+}
+
 function Show-ServiceStatus {
+  $statusClock = [Diagnostics.Stopwatch]::StartNew()
   $postgres = "stopped"
   if (@(Get-PortListeners 5432).Count -gt 0) {
     try {
@@ -4156,18 +4182,16 @@ function Show-ServiceStatus {
     elseif (@(Get-PortListeners 8002).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
+  $readerProbe = $null
   if ($reader -eq "running") {
-    try {
-      $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8001" }
-      if ($response.StatusCode -eq 200) { $readerReady = "ready" }
-    } catch {}
+    $readerProbe = Get-CoreStatusReadinessProbe $DjangoReaderHealthUrl '127.0.0.1:8001'
+    $readerReady = $readerProbe.readiness
   }
   $writerReady = "not_ready"
+  $writerProbe = $null
   if ($writer -eq "running") {
-    try {
-      $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8002" }
-      if ($response.StatusCode -eq 200) { $writerReady = "ready" }
-    } catch {}
+    $writerProbe = Get-CoreStatusReadinessProbe $DjangoWriterHealthUrl '127.0.0.1:8002'
+    $writerReady = $writerProbe.readiness
   }
   # Status must stay operationally bounded even when retained backup/rehearsal
   # evidence contains tens of thousands of files.  A complete descendant ACL
@@ -4183,11 +4207,13 @@ function Show-ServiceStatus {
     WriterReadiness = $writerReady
     RuntimeAcl = $acl
     RuntimeAclVerification = "root_only_status"
+    ReadinessEvidence = [pscustomobject]@{ reader = $readerProbe; writer = $writerProbe }
+    ElapsedMilliseconds = $statusClock.ElapsedMilliseconds
     Startup = if (Test-Path -LiteralPath $StartupShortcut) { "installed" } else { "not_installed" }
     CheckedAt = [DateTimeOffset]::UtcNow.ToString("o")
   }
   if ($Json.IsPresent) {
-    Write-Output ($status | ConvertTo-Json -Compress)
+    Write-Output ($status | ConvertTo-Json -Depth 5 -Compress)
   } else {
     $status | Format-List
   }

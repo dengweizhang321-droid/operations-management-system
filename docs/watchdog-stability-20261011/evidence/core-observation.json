@@ -1,0 +1,19 @@
+{
+  "result": {
+    "PostgreSQL": "running",
+    "DjangoReader": "running",
+    "DjangoWriter": "running",
+    "ReaderReadiness": "ready",
+    "WriterReadiness": "ready",
+    "RuntimeAcl": "root_hardened",
+    "RuntimeAclVerification": "root_only_status",
+    "Startup": "installed",
+    "CheckedAt": "2026-10-11T17:09:43.4375675+08:00"
+  },
+  "scriptSha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+  "elapsedMs": 7736,
+  "completedAt": "2026-10-11T09:09:43.6456414+00:00",
+  "startedAt": "2026-10-11T09:09:35.9087570+00:00",
+  "outcome": "returned",
+  "readOnly": true
+}

@@ -1,0 +1,29 @@
+{
+  "result": {
+    "workerState": "exact_release",
+    "components": {
+      "core": true,
+      "finance": true,
+      "netshop": true,
+      "market": true,
+      "products": true,
+      "workflow": true,
+      "inventory": true,
+      "customerService": true,
+      "accessControl": true,
+      "erpReference": true,
+      "bi": true,
+      "ai": true
+    },
+    "healthEvidence": null,
+    "backendState": "Ready",
+    "state": "Running"
+  },
+  "elapsedMs": 44915,
+  "completedAt": "2026-10-11T09:08:45.4514277+00:00",
+  "readOnly": true,
+  "startedAt": "2026-10-11T09:08:00.5357802+00:00",
+  "transportSha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+  "scriptSha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b",
+  "outcome": "returned"
+}
