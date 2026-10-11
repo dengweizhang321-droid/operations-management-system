@@ -1,0 +1,9 @@
+{
+  "packetSha256": "cea94364113ca5f7904313a15e10c3b73e59341fa1e257ba104f5ff8ba1b5d7e",
+  "check": "Ordinary-token native bootstrap intended to reach role refusal; failed earlier at packet hash",
+  "actualErrorId": "GetHistoryNoHistoryForId",
+  "reason": "H function shadowed by built-in h/Get-History alias",
+  "nativeTargetCalls": 0,
+  "evidenceKind": "Summary of original tool output; original generator/bootstrap/verification source archived, not a replayed raw stderr",
+  "correction": "Unique function names; separately frozen V2 packet and ordinary-token refusal verified"
+}

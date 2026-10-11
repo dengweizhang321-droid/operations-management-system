@@ -1,0 +1,12 @@
+{
+  "version": "residual-entry-verification-v1",
+  "packetSha256": "bb861c8fecab8e5652029c6c509daba48b767344a0c494ea39bd281a83c4b0e0",
+  "scriptSha256": "6cef0abc35f4c99300d9b36393add66191557715d14d3d4a930dc0627d0f3ff9",
+  "entrySha256": "8583c6c834d42ef3ed68ba066d8b8c95b34e18d7dd320d911f4cc3dd4cf84789",
+  "exactEncodedSource": true,
+  "ordinaryTokenRefused": true,
+  "diagnosticOutputAbsent": true,
+  "nativeTargetQueriesByBootstrap": 0,
+  "productionActions": 0,
+  "scope": "Real ordinary-token refusal before diagnostic invocation; not an administrator capture or a production gate test."
+}

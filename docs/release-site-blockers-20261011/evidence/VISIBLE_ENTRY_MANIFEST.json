@@ -1,0 +1,10 @@
+{
+  "version": "teruisi-user-visible-readonly-entry-v1",
+  "at": "2026-10-11T12:55:57.127Z",
+  "packetSha256": "9e906d1e53ee9acf67b909be0198520e137d9cc08d1b8fbc3aa5adf7f709df38",
+  "entrySha256": "4955c79668be8aa2c37162879320c57b6b619a090c2a7aa8b15940e347299ad3",
+  "bootstrapSha256": "3624aab0692c422070b1e1f67ee564654d0dd32b4c5d5058e3ce40c3bbf08b62",
+  "commandCharacters": 3121,
+  "scope": "Same approved packet; visible console and standard UAC only; no expanded operation permissions.",
+  "productionActions": 0
+}

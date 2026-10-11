@@ -1,5 +1,7 @@
 # 下一步所需确认
 
+**已更新**：9e包现已由用户执行成功，不能重放它。当前待执行的是[五对象补充只读范围](ADMIN_FOLLOWUP.md)（packet bb861c8f…，现有管理员窗口手工执行），不是上线范围。下方旧取消/尚未采集描述保留其历史截点。
+
 当前只读管理员包：`E:/codex-artifacts/release-site-blockers-20261011/ADMIN_READONLY_PACKET_V2.json`，SHA `9e906d1e53ee9acf67b909be0198520e137d9cc08d1b8fbc3aa5adf7f709df38`。
 
 它读取进程／任务动作元数据、仅PID47936的有界工作目录元数据，并在同一E证据根写脱敏审计。原始命令／cwd不落盘。不启Debug权限、不注入／杀进程、不改调度、不调用生产batch、维护、启停、切换、Backup、RestoreRehearsal或业务写入。Astra的受控解码15例、PS5管道与清环境、cwd消费者7例已留原失败及修正；两次真正AGY文本调用超时没有最终复审结论，不当作通过。

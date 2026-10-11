@@ -1,0 +1,706 @@
+{
+  "sourceSha256": "6558f31afb36788f2693eae33e156a402fe65fca2adb39c377eed7899559fac0",
+  "before": [
+    "TERUISI-Pandas"
+  ],
+  "after": [
+    "TERUISI-Pandas"
+  ],
+  "version": "running-wsl-reference-diagnostic-v1",
+  "at": "2026-10-11T13:05:30.264926+00:00",
+  "processesObserved": 33,
+  "references": [],
+  "metadataErrors": [
+    {
+      "processId": 1,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 1,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 1,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 1,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 2,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 2,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 2,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 2,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 5,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 5,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 5,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 5,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 45,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 45,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 45,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 45,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 96,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 96,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 96,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 96,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 142,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 142,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 142,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 142,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 145,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 145,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 145,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 145,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 154,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 154,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 154,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 154,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 155,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 155,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 155,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 155,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 162,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 162,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 162,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 162,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 172,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 172,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 172,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 172,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 174,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 174,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 174,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 174,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 191,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 191,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 191,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 191,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 225,
+      "kind": "fd",
+      "errno": 13
+    },
+    {
+      "processId": 243,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 243,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 243,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 243,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 521,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 521,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 521,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 521,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 523,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 523,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 523,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 523,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 530,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 530,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 530,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 530,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 23514,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 23514,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 23514,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 23514,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 121432,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 121432,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 121432,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 121432,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 121433,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 121433,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 121433,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 121433,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 121434,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 121434,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 121434,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 121434,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 121435,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 121435,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 121435,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 121435,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    },
+    {
+      "processId": 121436,
+      "kind": "cwd",
+      "errno": 13
+    },
+    {
+      "processId": 121436,
+      "kind": "exe",
+      "errno": 13
+    },
+    {
+      "processId": 121436,
+      "kind": "root",
+      "errno": 13
+    },
+    {
+      "processId": 121436,
+      "kind": "process",
+      "error": "PermissionError",
+      "errno": 13
+    }
+  ],
+  "productionActions": 0,
+  "rawMetadataPersisted": false,
+  "scope": "Only /proc metadata in an already-running distribution; no service lifecycle or business reads. Literal and proc-link checks do not prove arbitrary host aliases, all handles, or absence under concurrent change."
+}

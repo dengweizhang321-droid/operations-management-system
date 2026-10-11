@@ -1,0 +1,29 @@
+{
+  "version": "astra-residual-entry-v2-chain-check-v1",
+  "files": [
+    {
+      "name": "ADMIN_RESIDUAL_PACKET_V2.json",
+      "sha256": "bb861c8fecab8e5652029c6c509daba48b767344a0c494ea39bd281a83c4b0e0"
+    },
+    {
+      "name": "ADMIN_RESIDUAL_BOOTSTRAP_V2.ps1",
+      "sha256": "52b0f605b8907c989a97a639a6e0b59b2b1326b3cd1e5c40aa778b6249cb0e73"
+    },
+    {
+      "name": "RUN_READONLY_RESIDUAL_AUDIT_V2.cmd",
+      "sha256": "8583c6c834d42ef3ed68ba066d8b8c95b34e18d7dd320d911f4cc3dd4cf84789"
+    },
+    {
+      "name": "ADMIN_RESIDUAL_ENTRY_V2.json",
+      "sha256": "e2776cb0e325916e48b84306f0392e44731a224f27b58947507a7e36811c4b85"
+    }
+  ],
+  "scriptSha256": "6cef0abc35f4c99300d9b36393add66191557715d14d3d4a930dc0627d0f3ff9",
+  "decodedBootstrapExact": true,
+  "oldFunctionAliasesAbsent": true,
+  "encodedCommandCharacters": 5540,
+  "status": "byte-chain-verified-not-executed",
+  "administratorInvocations": 0,
+  "nativeCalls": 0,
+  "productionActions": 0
+}

@@ -1,0 +1,18 @@
+{
+  "sourceSha256": "6558f31afb36788f2693eae33e156a402fe65fca2adb39c377eed7899559fac0",
+  "metadataUser": "root",
+  "before": [
+    "TERUISI-Pandas"
+  ],
+  "after": [
+    "TERUISI-Pandas"
+  ],
+  "version": "running-wsl-reference-diagnostic-v1",
+  "at": "2026-10-11T13:06:16.250673+00:00",
+  "processesObserved": 38,
+  "references": [],
+  "metadataErrors": [],
+  "productionActions": 0,
+  "rawMetadataPersisted": false,
+  "scope": "Only /proc metadata in an already-running distribution; no service lifecycle or business reads. Literal and proc-link checks do not prove arbitrary host aliases, all handles, or absence under concurrent change."
+}

@@ -1,0 +1,9 @@
+{
+    "version":  "astra-residual-v2-compile-only-v1",
+    "sourceSha256":  "6cef0abc35f4c99300d9b36393add66191557715d14d3d4a930dc0627d0f3ff9",
+    "hostVersion":  "5.1.26100.9168",
+    "psAstPassed":  true,
+    "actualCSharpCompiled":  true,
+    "nativeCalls":  0,
+    "productionActions":  0
+}
