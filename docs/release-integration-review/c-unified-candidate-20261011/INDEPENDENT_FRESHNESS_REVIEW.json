@@ -1,0 +1,111 @@
+{
+  "version": "teruisi-unified-c-physical-candidate-freshness-review-v1",
+  "reviewer": "/root/preparation_review",
+  "independent": true,
+  "nonAuthor": true,
+  "acceptedCollectorCandidate": false,
+  "acceptedFinalCCandidate": false,
+  "productionExecutionApproved": false,
+  "candidateReleaseId": "20261011T034516Z-f308beaede528df7",
+  "actualReviewedPath": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T034516Z-f308beaede528df7/tools/release-batch-admission.mjs",
+  "actualSha256": "115fbf67bc52ed1d1ff7e85a7f2d78fed58a7a73f23383a3455c1c27d74a630e",
+  "actualBytes": 19435,
+  "actualRegularFile": true,
+  "actualNlink": 1,
+  "fileStatAndRawShaStableDuringReview": true,
+  "referenceCommit": "fcfe50aa59a5ccdf4a2b44c044e02cec8eb6aaba",
+  "referenceGitRawSha256ActuallyRecomputed": "6a7f8891a04daf7a52610505e940d1dfc46d879e63b11463a14bdb81092e6b6a",
+  "referenceReview": "../../release-c-preparation/source/FRESHNESS_INDEPENDENT.json",
+  "scope": "Actual candidate single-file freshness/order comparison and isolated complete-function VM regressions only. No candidate module import, production probe, network, database, lock, deployment, native child or edits to the other task/candidate.",
+  "blockingFindings": [
+    {
+      "id": "UCF-01",
+      "priority": "P1",
+      "file": "tools/release-batch-admission.mjs",
+      "lines": [168, 181, 184, 189, 190, 191, 192],
+      "trigger": "Worker/helper and Status pass, followed by slow recovery or source/session complete reread, or slow attempt persistence",
+      "finding": "Line192 returns observedAtMs:Date.now() after all later work, rather than the native response/process verification time. There is no finite/nonnegative/<=5000ms age refusal. Old observations are relabeled current.",
+      "required": "Port the reviewed guarded order: finish complete content/recovery work, final provenance rechecks, final Worker/helper and Status. Capture actual native-return/process-completion timestamp before parse/assert/persistence; retain it and reject invalid/negative/>5000ms age with original attempt/stage evidence. Never refresh timestamp at collector return."
+    },
+    {
+      "id": "UCF-02",
+      "priority": "P1",
+      "file": "tools/release-batch-admission.mjs",
+      "lines": [117, 118, 132, 190, 191, 192],
+      "trigger": "Django deployment, journal or effective head changes while slow content checks run",
+      "finding": "Only initial Django digest, journal and effective-chain reads exist. The candidate lacks reviewed effective-chain-final/Django-identity-final/journal-final guards; a later Ready observation does not prove the earlier phase identity remained bound.",
+      "required": "Before final dynamic sampling, use original verifyInstalledHead:true resolve and compare chain-state/head binding/manifestPath; reread phase-validated Django digest; compare journal previous and event count. Keep original lock and all assertions, not substitute source-binding or tests for actual provenance."
+    }
+  ],
+  "additionalVerifiedDiagnosticGap": {
+    "id": "UCF-DIAG",
+    "file": "tools/release-batch-admission.mjs",
+    "lines": [184, 185, 186],
+    "trigger": "Native invocation returns exit0 and processEvidence, but parse/assertCompleteReadiness fails",
+    "finding": "Query has no reviewed parse/assert catch attaching actual result.processEvidence and bounded readinessEvidence. NotReady still rejects, but the returned native evidence is lost from that error path.",
+    "required": "Preserve the already-reviewed 257/fcfe bounded capture seam, assertions and original nonretryable NotReady; do not store raw output/reason/PII."
+  },
+  "isolatedEvidence": {
+    "method": "Read actual candidate raw function and execute it in a VM with synthetic external reads/operators and controlled Date.now. Use existing test fixture infrastructure only as seed; independently inject slow reread and external dynamic-state mutations. Source-binding validators/real production environment were not exercised.",
+    "reviewerChecks": 6,
+    "expectedReviewerAssertionsPassed": 6,
+    "candidateSafetyPassClaimed": false,
+    "exitCodes": [0, 0],
+    "productionCalls": 0,
+    "nativeChildren": 0,
+    "executionCwd": "D:/.codex/worktrees/release-c-stability-preparation/运营管理系统",
+    "artifactPreservation": "Executed inline bodies copied to .cjs; original Node stdout text from tool returns saved after execution. Saving did not rerun the VM. These are not falsely claimed to be pre-existing disk capture files.",
+    "artifacts": [
+      { "path": "INDEPENDENT_VM_FIRST.cjs", "sha256": "08393404674e93a48382705edae4acdc6069a0fdeae3e85e8b656169d5ad6998", "checks": 5 },
+      { "path": "INDEPENDENT_VM_FIRST.stdout.log", "sha256": "3e490665edd778e7a435da0b3934ce10fe67bd7ebd0304329b2c0f012c01ca23" },
+      { "path": "INDEPENDENT_VM_FULL_MODE.cjs", "sha256": "18f3f1b529babb26582c289a201aa2e14c6b68a0d9951e093c0f144df49b4536", "checks": 1 },
+      { "path": "INDEPENDENT_VM_FULL_MODE.stdout.log", "sha256": "9605e6d3d0b852eb14029696549c327e307534f823b36a16fe5ad2fbfedd48c1" }
+    ],
+    "reproductions": [
+      { "case": "Slow synthetic recovery and final full reread", "collectorAccepted": true, "actualSyntheticStatusAgeMs": 302000, "claimedReturnAgeMs": 0, "note": "Synthetic seam delays, not measured production timing" },
+      { "case": "Full mode zero-delay recovery, only180000ms final source read plus2000ms attempt persistence", "collectorAccepted": true, "actualSyntheticStatusAgeMs": 182000, "claimedReturnAgeMs": 0, "note": "Confirms the defect without simulating recovery work in full mode" },
+      { "case": "Django digest mutation during final slow reread", "collectorAccepted": true, "djangoReads": 1 },
+      { "case": "Journal head mutation during final slow reread", "collectorAccepted": true, "journalReads": 1 },
+      { "case": "Effective manifest path mutation during final slow reread", "collectorAccepted": true, "chainReads": 1 },
+      { "case": "Native exit0 then complete-readiness assertion failure", "readinessRejected": true, "processEvidenceNotAttached": true, "boundedReadinessNotAttached": true }
+    ]
+  },
+  "documentConsistencyReview": {
+    "scope": "Static REPORT-versus-CANDIDATE_AUDIT field/link comparison; no repeat full source/dump/built-payload hash",
+    "auditRawSha256": "4943d5876fd135b0ded315db9156f18ac54b96282a54a7b32a9db9dcc08ab725",
+    "reportInitiallyReadSha256": "248d7759954680c23df2b2a0f4d50c744818ac153af2d6c33d060a69cc69fe9b",
+    "consistentFieldsChecked": "5157/5160 file counts,92c/ad21 trees,fd534 inventory,10 tools delta,19 tools keyFiles,C two original helpers/four merged cores,collector115fb,tuple hashes,9.667s static audit,unrehashed full built payload and no live readiness",
+    "allFiveReportMarkdownLinksExist": true,
+    "bindingLogActualSha256": "13c1b71ef41b7df4d8f37897725229f06dc2395910121e3c6bfe4f15ff391cc8",
+    "bindingLogActualPass": 23,
+    "bindingLogActualFail": 0,
+    "bindingTestsRerun": false,
+    "reportBoundariesAccurate": "Source tuple consistency is not final candidate acceptance; B01 and production/combined validation unknowns remain; old tests are cited, not counted as reviewer runs.",
+    "reportFinallyReadSha256": "e15588715bbbac273508cb46e7f138c216cd024728a40d41ec91b0b6e0f63ac6",
+    "allEightFinalReportMarkdownLinksExist": true,
+    "ucfDiagnosticGapExplicitInFinalReport": true,
+    "subsequentDjangoReceipt": "Final REPORT accurately records actual PrepareApp1e1138feef7148fb851713c2b39a25d0, receipt10db2364053ebfb90d85dd301914753453d02ad313cd02ff7312ca654ebdeb9b and candidate85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09; old missing-receipt wording is superseded, not treated as a current block.",
+    "djangoStaticAudit": {
+      "scriptSha256": "29e26cd208437f0e0fdb722b78ed508ec427664caaac5c07edf7d1e05c640674",
+      "auditSha256": "2cfcdd59d8e79d531ff9699c773f6aad430d3f32cba377d2bfd94fbf8264fdeb",
+      "firstFailureSha256": "88ef6d179bfa6b6e53c3d736dd0937f929a15921458dfc314483cf7b64dbf3cb",
+      "algorithmStaticComparison": "audit-django rows use normalized relative path + LF + lowercase raw-file SHA256, ordinal UTF16 sort, LF join and UTF8 SHA; agrees with original django-local-service.ps1 Get-ApplicationTreeFingerprintEvidence:1181-1210 for the audited actual path set and excludes deployment.json/pyc/pyo/cache folders",
+      "recordedBeforeAndAfterFileCount": 2933,
+      "actualDeltaPaths": [".wrangler/cache/cf.json", "tools/worker-local-release-rotation.mjs", "tools/worker-local-release.mjs"],
+      "reportMatchesAuditAndRetainsFirstFailure": true,
+      "cacheProvenanceIsClearlyInference": true,
+      "fullTreesRehashedByThisReviewer": false,
+      "consumerExecutionAndSwitchOrderVerified": false,
+      "staticRecordIsNotFreshReadiness": true
+    },
+    "finalConsistencyAcceptedWithinScope": true
+  },
+  "disposition": "This exact physical collector cannot serve as the final accepted C candidate. Unified owner should transplant the reviewed patch into its source-binding collector, verify actual final bytes/negative cases, then form a new immutable candidate and review scope; do not patch this frozen release in place.",
+  "unknownAndNotClaimed": [
+    "The other task's23 passing tests and exact coverage/log/source binding were not independently audited here; that count cannot establish this missing patch",
+    "Actual production Status age, runtime drift and any real incident caused by this code were not observed or measured",
+    "Source-binding/Django consumer execution compatibility and the remainder of the unified candidate were not accepted in this single-file task; audit script algorithm and report fields were only statically cross-checked",
+    "No production adoption or approval inferred from candidate existence",
+    "The diagnostic gap does not mean readiness assertions were weakened; they still reject in the tested failure seam"
+  ]
+}

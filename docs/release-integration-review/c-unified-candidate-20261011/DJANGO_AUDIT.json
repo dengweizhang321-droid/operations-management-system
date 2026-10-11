@@ -1,0 +1,44 @@
+{
+  "version": "teruisi-independent-django-prepared-tools-audit-v1",
+  "startedAt": "2026-10-11T04:17:05.477Z",
+  "finishedAt": "2026-10-11T04:17:08.120Z",
+  "preparedAppId": "1e1138feef7148fb851713c2b39a25d0",
+  "receiptSha256": "10db2364053ebfb90d85dd301914753453d02ad313cd02ff7312ca654ebdeb9b",
+  "predecessorManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "candidateManifestSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+  "before": {
+    "fileCount": 2933,
+    "appFingerprint": "c590089ea98e796b2372b9df193de85a76fd36fc04bf8b87959a104552aeaa97"
+  },
+  "after": {
+    "fileCount": 2933,
+    "appFingerprint": "fc33df2880e62e52415aa66655b1d380356023d779495c1d739324bf5fda55a1"
+  },
+  "changed": [
+    {
+      "path": ".wrangler/cache/cf.json",
+      "before": "a3807b705617b7968f9a023986dffd1be8f65731bb99747805af227d3f8688f2",
+      "after": "018ee581023eef90706fde6d5c555987cedc172adee81dc054a916e0ebecbc61"
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "before": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "after": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "before": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "after": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    }
+  ],
+  "fullManifestTreesIndependentlyRehashed": true,
+  "businessConfigDrizzleRuntimeDependenciesByteEqual": true,
+  "matchingWorkerTools": true,
+  "artifactCacheExtraChangeExplicitlyRecorded": true,
+  "cacheGenerationInference": "Original PrepareApp local R2 smoke uses unchanged Miniflare cache writer; specific write provenance was not separately instrumented",
+  "firstTwoFileAssertionFailurePreserved": "DJANGO_AUDIT_FAILURE.json",
+  "productionDeployments": 0,
+  "actualInstalledManifestStillPredecessor": true,
+  "consumerExecutionAndSwitchOrderVerified": false,
+  "metadataIsNotFreshReadiness": true
+}

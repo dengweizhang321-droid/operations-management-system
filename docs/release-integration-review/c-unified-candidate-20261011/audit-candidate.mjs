@@ -1,0 +1,42 @@
+// Read-only audit. Never imports runtime modules, probes services or writes production.
+import fs from 'node:fs';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+const startedAt=new Date().toISOString();
+const hash=raw=>createHash('sha256').update(raw).digest('hex');
+const canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(',')}]`:v&&typeof v==='object'?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`:JSON.stringify(v);
+function read(file){const stat=fs.lstatSync(file);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1)throw Error('Unsafe metadata: '+file);const raw=fs.readFileSync(file);return {raw,sha256:hash(raw),value:JSON.parse(raw)};}
+function inventory(root){const files=new Map();function walk(dir){for(const name of fs.readdirSync(dir)){const file=path.join(dir,name),stat=fs.lstatSync(file);if(stat.isSymbolicLink())throw Error('Redirected source: '+file);if(stat.isDirectory())walk(file);else if(stat.isFile()){if(stat.nlink!==1)throw Error('Linked source: '+file);const raw=fs.readFileSync(file);files.set(path.relative(root,file).split(path.sep).join('/'),{raw,sha256:hash(raw)});}else throw Error('Special source: '+file);}}walk(root);const digest=createHash('sha256'),shaInventory={};for(const name of [...files.keys()].sort()){const label=Buffer.from(name),raw=files.get(name).raw,a=Buffer.alloc(4),b=Buffer.alloc(8);a.writeUInt32BE(label.length);b.writeBigUInt64BE(BigInt(raw.length));digest.update(a).update(label).update(b).update(raw);shaInventory[name]=files.get(name).sha256;}return {files,fileCount:files.size,treeSha256:digest.digest('hex'),inventorySha256:hash(canonical(shaInventory))};}
+const runtime='D:/teruisi-runtime/teruisi-worker-sales';
+const releaseId='20261011T034516Z-f308beaede528df7';
+const root=path.join(runtime,'releases',releaseId);
+const evidence='E:/codex-artifacts/release-no-data-adoption-20261011';
+const repo='D:/.codex/worktrees/release-c-stability-preparation/运营管理系统';
+const planSha='38b26b941ae738995401795d0570fd7ef9ee6bf526a3582434b46c84af0f66da';
+const manifest=read(path.join(root,'deployment-manifest.json'));
+const planPath=path.join(runtime,'state/worker-release-rotation-plans',planSha+'.json'),plan=read(planPath);
+const receiptPath=path.join(runtime,'state/worker-prepared-builds',planSha+'.json'),receipt=read(receiptPath);
+if(plan.sha256!==planSha||!fs.readFileSync(planPath+'.sha256').equals(Buffer.from(planSha+'\n'))||!fs.readFileSync(receiptPath+'.sha256').equals(Buffer.from(receipt.sha256+'\n')))throw Error('Plan/receipt sidecar mismatch');
+if(plan.value.candidate.releaseId!==releaseId||plan.value.candidate.manifestSha256!==manifest.sha256||receipt.value.planSha256!==planSha||receipt.value.candidateManifestSha256!==manifest.sha256)throw Error('Candidate tuple mismatch');
+const envelope=manifest.value.source.sourceBinding;
+if(hash(envelope.raw)!==envelope.sha256||canonical(envelope)!==canonical(plan.value.sourceBinding)||canonical(envelope)!==canonical(receipt.value.sourceBinding)||!fs.readFileSync(path.join(evidence,'WORKER_SOURCE_BINDING.json')).equals(Buffer.from(envelope.raw)))throw Error('Source envelope mismatch');
+const sourceBinding=JSON.parse(envelope.raw);
+if(canonical(sourceBinding.identity)!==canonical(receipt.value.identity)||canonical(sourceBinding.predecessor)!==canonical(plan.value.predecessor)||sourceBinding.predecessorChainStateSha256!==plan.value.predecessorChainStateSha256)throw Error('Identity/predecessor binding mismatch');
+const before=inventory(path.join(runtime,'releases',plan.value.predecessor.releaseId,'source-snapshot'));
+const after=inventory(path.join(root,'source-snapshot'));
+if(after.treeSha256!==manifest.value.source.tree.sha256||after.fileCount!==manifest.value.source.tree.fileCount||after.inventorySha256!==receipt.value.identity.sourceInventorySha256)throw Error('Full source tree differs from original receipt');
+const changed=[...new Set([...before.files.keys(),...after.files.keys()])].sort().filter(p=>before.files.get(p)?.sha256!==after.files.get(p)?.sha256).map(p=>({path:p,before:before.files.get(p)?.sha256??null,after:after.files.get(p)?.sha256??null}));
+const composition=read(path.join(evidence,'WORKER_SOURCE_COMPOSITION_V2.json'));
+if(canonical(changed.map(p=>p.path))!==canonical(composition.value.changed.map(p=>p.path).sort()))throw Error('Full predecessor delta differs from advertised scope');
+const originalCPaths=['tools/release-admission-timing.mjs','tools/release-preparation-evidence.mjs','tools/release-batch.mjs','tools/release-batch-admission.mjs','tools/release-impact.mjs','tools/worker-local-release.mjs'];
+const CMap=originalCPaths.map(p=>{const original=execFileSync('git',['show','9d41ce4fa2c7ee4d47ba1bfda0f0967d7727be9c:'+p],{cwd:repo});const actual=fs.readFileSync(path.join(root,p));if(hash(actual)!==after.files.get(p)?.sha256)throw Error('Packaged source mismatch: '+p);return {path:p,limitedABCOriginalSha256:hash(original),candidateSha256:hash(actual),exactOriginalBytes:actual.equals(original),mergedBehaviorNeedsReview:!actual.equals(original)};});
+const keyFiles=manifest.value.artifacts.keyFiles.filter(pin=>pin.relativePath.startsWith('tools/')).map(pin=>{const actual=hash(fs.readFileSync(path.join(root,pin.relativePath)));if(actual!==pin.sha256)throw Error('Runtime key file mismatch: '+pin.relativePath);return {path:pin.relativePath,sha256:actual};});
+const currentDjango=read('D:/teruisi-runtime/django-sales/app/deployment.json');
+const collector=fs.readFileSync(path.join(root,'tools/release-batch-admission.mjs'),'utf8');
+const testLog=fs.readFileSync(path.join(evidence,'parent-candidate-source-binding-v2.log'));
+const record={version:'teruisi-independent-unified-candidate-audit-v1',startedAt,finishedAt:new Date().toISOString(),releaseId,manifestSha256:manifest.sha256,planSha256:plan.sha256,preparedReceiptSha256:receipt.sha256,sourceBindingSha256:envelope.sha256,predecessor:plan.value.predecessor,predecessorSequence:plan.value.predecessorSequence,predecessorChainStateSha256:plan.value.predecessorChainStateSha256,source:{before:{fileCount:before.fileCount,treeSha256:before.treeSha256},after:{fileCount:after.fileCount,treeSha256:after.treeSha256,inventorySha256:after.inventorySha256}},changed,CMap,keyFiles,sourceCompositionSha256:composition.sha256,bindingTupleAndSidecarsMatch:true,fullSourceDeltaRehashed:true,fullBuiltPayloadIndependentlyRehashed:false,currentDjangoManifestSha256:currentDjango.sha256,bindingTestLog:{sha256:hash(testLog),reportedPass23:/pass 23/.test(testLog.toString()),rerunByThisAudit:false},collector:{sha256:hash(Buffer.from(collector)),freshnessPatchPresent:collector.includes('STALE_ADMISSION_SNAPSHOT'),returnTimeRenewalPresent:collector.includes('observedAtMs:Date.now()')},finalUnifiedSourceCommit:null,finalUnifiedBatchSha256:null,finalCValidationAccepted:false,CAdopted:false,productionActions:0,metadataIsNotLiveReadiness:true};
+const output=path.join(path.dirname(fileURLToPath(import.meta.url)),'CANDIDATE_AUDIT.json');
+fs.writeFileSync(output,JSON.stringify(record,null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({output,manifestSha256:record.manifestSha256,source:record.source,changed:changed.map(x=>x.path),freshnessPatchPresent:record.collector.freshnessPatchPresent,finalCValidationAccepted:false}));
