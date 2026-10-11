@@ -1,0 +1,19 @@
+{
+  "startedAt": "2026-10-11T03:50:29.830Z",
+  "finishedAt": "2026-10-11T03:50:30.130Z",
+  "elapsedMs": 298.19719999999995,
+  "exitCode": 0,
+  "signal": null,
+  "before": {
+    "source": "6a7f8891a04daf7a52610505e940d1dfc46d879e63b11463a14bdb81092e6b6a",
+    "test": "c79b960eb09343c0f4df96238e7e5544a8a1c12dfbcb2c57949711a07d4a256d"
+  },
+  "after": {
+    "source": "6a7f8891a04daf7a52610505e940d1dfc46d879e63b11463a14bdb81092e6b6a",
+    "test": "c79b960eb09343c0f4df96238e7e5544a8a1c12dfbcb2c57949711a07d4a256d"
+  },
+  "stdoutSha256": "e5eac6c8bdaca3f52c4052bffdd87abbd3c3b97a8958b6ec9007be4faa3332b4",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "productionImports": 0,
+  "productionCalls": 0
+}

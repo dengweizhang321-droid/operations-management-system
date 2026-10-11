@@ -1,0 +1,23 @@
+✔ approved runner rejects invalid and retains bounded diagnostics (622.3097ms)
+✔ approved runner rejects nonzero and retains bounded diagnostics (325.8279ms)
+✔ approved runner rejects flood and retains bounded diagnostics (309.9396ms)
+ISOLATED_START_TIMING {"scenario":"ready","engineMs":1025,"validationMs":2291,"adapterMs":3525,"totalMs":5282,"descendantHeldMs":60000}
+✔ original nested PS5 adapter: ready (5415.1721ms)
+✔ original nested PS5 adapter: engine-failed (2224.4785ms)
+✔ original nested PS5 adapter: wrong-version (3024.2771ms)
+✔ original nested PS5 adapter: incomplete (3933.0298ms)
+✔ original nested PS5 adapter: bad-json (2320.5197ms)
+✔ original nested PS5 adapter: maintenance (4566.279ms)
+✔ original nested PS5 adapter: deadline (2542.6401ms)
+ISOLATED_START_TIMING {"scenario":"drain","engineMs":913,"validationMs":2183,"adapterMs":3265,"totalMs":4201,"descendantHeldMs":60000}
+✔ original nested PS5 adapter: drain (4324.8748ms)
+✔ original nested PS5 adapter: missing-identity (2117.1426ms)
+✔ original nested PS5 adapter: fake-components (3739.8499ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35815.1273

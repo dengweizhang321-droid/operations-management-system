@@ -1,0 +1,16 @@
+{
+  "exitCode": 0,
+  "command": "node <existing development eslint> --config <existing eslint.config.mjs> tools/release-batch-admission.mjs tests/release-admission-observation-age.test.mjs",
+  "workingDirectory": "release-c-stability-preparation repository",
+  "fileErrors": 0,
+  "fileWarnings": 0,
+  "setupWarning": "React package detection warning in a dependency-free worktree; pure Node files linted",
+  "priorAttempts": [
+    "Wrong config.js path; no lint performed",
+    "Correct config timed out at30s before result; status null/SIGTERM",
+    "Alternate cwd ignored files outside base; exit0/2 ignored warnings is not lint validation"
+  ],
+  "sourceSha256": "6a7f8891a04daf7a52610505e940d1dfc46d879e63b11463a14bdb81092e6b6a",
+  "testSha256": "c79b960eb09343c0f4df96238e7e5544a8a1c12dfbcb2c57949711a07d4a256d",
+  "productionCalls": 0
+}

@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "readOnly": true,
+  "allOperatorsEnumerated": false,
+  "specificUserIndicatedThreadIdentified": false,
+  "noMessagesSentToOtherTasks": true,
+  "timeZone": "UTC",
+  "windows": [
+    "2026-10-10T17:43:12.744Z",
+    "2026-10-11T00:59:19.502Z"
+  ],
+  "checked": [
+    {
+      "title": "拆分发布验证与备份门禁",
+      "id": "01a12589-35fb-7dc2-81c8-423849c6846f",
+      "lastPriorTurnEnded": "2026-10-10T15:47:47Z",
+      "nextTurnStarted": "2026-10-11T03:06:45Z",
+      "coversWindows": false,
+      "stopCommandFound": {
+        "target": "private Node freeze-bootstrap-payload.mjs",
+        "targetIsFormalWorker": false,
+        "creationTimeAndCommandVerified": true,
+        "period": "Earlier user pause turn on October10"
+      }
+    },
+    {
+      "title": "落地高收益发布优化方案",
+      "id": "01a1253b-14ab-7cf1-8555-9dd2d461ae2f",
+      "runPeriod": "2026-10-10T09:53–10:18Z",
+      "coversWindows": false
+    },
+    {
+      "title": "用 agy 审查前端",
+      "id": "01a1204d-e14c-7da0-b3ea-097f94cac2f8",
+      "actualTurn": "2026-10-09T10:55:40–11:10:50Z",
+      "coversWindows": false
+    },
+    {
+      "title": "记录钉钉群工作内容",
+      "id": "01a0054b-9f5b-7e60-8798-aabd68c2d9a6",
+      "actualTurn": "2026-10-11T01:02:42–01:03:55Z",
+      "coversWindows": false
+    }
+  ],
+  "limits": [
+    "Turn activity/time is not command-level kernel process evidence",
+    "Does not exclude background activity started previously, other sessions, API workloads or external kill",
+    "Sidebar updatedAt/status is not execution evidence",
+    "Hot child restart lacks complete append-only control history"
+  ],
+  "systemSecurityEventAuditQueried": false,
+  "userClarificationPending": true
+}

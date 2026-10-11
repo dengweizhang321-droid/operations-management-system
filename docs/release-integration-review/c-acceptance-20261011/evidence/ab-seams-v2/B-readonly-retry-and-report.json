@@ -1,0 +1,17 @@
+{
+  "exitCode": 0,
+  "signal": null,
+  "name": "B-readonly-retry-and-report",
+  "startedAt": "2026-10-11T04:53:57.380Z",
+  "finishedAt": "2026-10-11T04:53:58.977Z",
+  "elapsedMs": 1596.7724000000017,
+  "executable": "C:\\Program Files\\nodejs\\node.exe",
+  "args": [
+    "--test",
+    "--test-concurrency=1",
+    "--test-name-pattern",
+    "classified temporary|exhausted transient|terminal status|unknown errors|one total deadline|retry waits|complete readiness|retry declaration|bounded native|timing unions|uncompleted batch|offline report",
+    "E:\\codex-artifacts\\release-c-acceptance-20261011\\ab-seams-v2\\harness\\release-acceptance-closeout.test.mjs"
+  ],
+  "cwd": "D:\\.codex\\worktrees\\release-c-stability-preparation\\运营管理系统"
+}

@@ -1,0 +1,386 @@
+{
+  "version": 1,
+  "at": "2026-10-11T03:47:09.120Z",
+  "developmentBaseline": "ba656eabbb93d17d6e2f57d51ea3d13b27d1f50d",
+  "actualABSource": "5faac8151f59d66de72c3caead8cad916ea547da",
+  "originalLimitedABCSource": "9d41ce4fa2c7ee4d47ba1bfda0f0967d7727be9c",
+  "COriginalTestedCommit": "2b10f6021a0b5bda1f52424604bf697b17218e3c",
+  "physicalWorkerManifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+  "physicalDjangoManifestSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "workerProcessReceiptSha256": "a319e45850aaae5b2e65d0642e55603c31b23881c0ab8750045a23782dc4cc9b",
+  "ABFinalReceiptSha256": "790313b4ab938a87bf5a32e09e2e2b2962ae834293c9e57c0c44b1a54a2f2792",
+  "activeBatchPresent": false,
+  "productionStatusOrHttpQueried": false,
+  "fullProcessIdentityCollected": false,
+  "metadataIsNotFreshHealthAcceptance": true,
+  "CAdopted": false,
+  "newProductionCandidateCreated": false,
+  "newPlanSealed": false,
+  "firstCAdoptionPolicy": "strict/full",
+  "runtimeChanges": [
+    {
+      "status": "A",
+      "path": "tools/release-admission-timing.mjs",
+      "beforeBlobSha": null,
+      "afterBlobSha": "22202e7d4c4d401a35c4c1259be53975b2bdc244",
+      "afterRawSha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66"
+    },
+    {
+      "status": "M",
+      "path": "tools/release-batch-admission.mjs",
+      "beforeBlobSha": "ff853b25c56059501de24ddb19af4913d709afad",
+      "afterBlobSha": "28250080077a13f67e2beb846e8197c77b555dff",
+      "afterRawSha256": "c154c9bee0f9b5cc45e4af6a56377045799959a55e8aff752cff86edf73a1c8f"
+    },
+    {
+      "status": "M",
+      "path": "tools/release-batch.mjs",
+      "beforeBlobSha": "4bc7007e7b1f485ddc890fe0425322fffc37f0b8",
+      "afterBlobSha": "17e184784f1d53f15232b698c4d8044e21407ceb",
+      "afterRawSha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14"
+    },
+    {
+      "status": "M",
+      "path": "tools/release-impact.mjs",
+      "beforeBlobSha": "dfd8a390fb5df148b4c41f3b33b4530051497865",
+      "afterBlobSha": "bf795281372fb268422b8226a2b99d56e6db4cc4",
+      "afterRawSha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe"
+    },
+    {
+      "status": "A",
+      "path": "tools/release-preparation-evidence.mjs",
+      "beforeBlobSha": null,
+      "afterBlobSha": "248541b49dd30a89eeeab9a3ab93580770b3bc5b",
+      "afterRawSha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5"
+    },
+    {
+      "status": "M",
+      "path": "tools/worker-local-release.mjs",
+      "beforeBlobSha": "540af030b881da77756ce3d081764ada70030ba3",
+      "afterBlobSha": "d5b7e82ac788c8ebc3891e88c6ecbc5d374f2704",
+      "afterRawSha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d"
+    }
+  ],
+  "fullChanges": [
+    {
+      "status": "M",
+      "path": "docs/RELEASE_BATCH_WORKFLOW.md",
+      "beforeBlobSha": "9fc2f75580bbf30a9eaacfeb58b0ab0c8876d11d",
+      "afterBlobSha": "8a183195f98fef9dee7a56afe331b526c045ec6a",
+      "afterRawSha256": "ffc03c25c378523fabae5df085c3fb3370f57a887b2b5eb3e4bc34ac2220f9d4"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/.gitattributes",
+      "beforeBlobSha": null,
+      "afterBlobSha": "bb7402cc5b41a51800a29a39c33f3ef3a5772287",
+      "afterRawSha256": "423a5e5a8e98670d739a264347959c3e17ebaee0c1c96d24dee4474dac449106"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/DAILY_BACKUP_ADOPTION.md",
+      "beforeBlobSha": null,
+      "afterBlobSha": "2295a6e2a23743361402d4c0c9e574c871bad860",
+      "afterRawSha256": "cd84b10ec9024a24d15b659b703f084a3f98b160badaa38b4bfb5cea1f30d05e"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/DELIVERY.md",
+      "beforeBlobSha": null,
+      "afterBlobSha": "effe1221e990fcc6925c065c658d04b72d69b0b5",
+      "afterRawSha256": "205c10114a07e2a2732520f4ce126597546c6b7deb733e553bb5384e3ab766ee"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/DESIGN.md",
+      "beforeBlobSha": null,
+      "afterBlobSha": "47d90bc0987b4667720c7c4e6584e3663540bef8",
+      "afterRawSha256": "47080e8be2f63492514eb3dd8e709fbfd5c19d20a3494d372ccacc33a932630d"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/HANDOFF_D.md",
+      "beforeBlobSha": null,
+      "afterBlobSha": "4c4e1064d90c6d2c02224c69a9a6dd83b42ed6ef",
+      "afterRawSha256": "d12c1b9de53806a51a7cea2ef1e02a8b8bbe234a3cdd14a19a7f321f83f0743a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_PROBES.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "6d57700ea7f4288c7c14e049b7e52cd23145eb94",
+      "afterRawSha256": "5241d71a5c9c7fec7474d0094b9a8706f268ee40a50c1a77cad7ce87670751bc"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_PROBES.mjs",
+      "beforeBlobSha": null,
+      "afterBlobSha": "10d19f54e23586acc118653bd82d9cc2dc13f38a",
+      "afterRawSha256": "7cb2108e59dbc59fe3273a76bc597e977aad205720c1b48be8139bb935fb4a54"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_REVIEW.md",
+      "beforeBlobSha": null,
+      "afterBlobSha": "9b07b26a9f222adb5f6570cd88c2ed4cbe41a59a",
+      "afterRawSha256": "708ab141decb781550aa188aed929b20bd4982171df34be72de1af503e7f208e"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_SOURCE_SHA256.json",
+      "beforeBlobSha": null,
+      "afterBlobSha": "2318b3c3236554c59ef756760458674d595d9dc8",
+      "afterRawSha256": "cb0d23a70ed0bdd41084002f47b310f7962b79ffc1fce309b7ecf42dd8ebee79"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_TESTS.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "35b8a1fa5eec10df07e4206c27f8594e0732f68c",
+      "afterRawSha256": "8ebc3f7545f348f86b0dc9aca9cceaab4d6dd0dda6b393289178bfcadf76f74d"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/INDEPENDENT_TESTS_DURING_A_MERGE.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "42582738add21e3eef5c6eca93e12071ab2125e9",
+      "afterRawSha256": "31f04e7beb65993c32047f3d281d3b58593511532621384ce4b95f4aeb51f2aa"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/REPORT.md",
+      "beforeBlobSha": null,
+      "afterBlobSha": "4caf3e6b1cfe223b8abf133994f0cfd70bd09743",
+      "afterRawSha256": "9c79b13a10cbb0ef6a61b63c1a1904794de90119917220a65d19fe8727ee1f2d"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/after-concurrency.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "4225703637a025b67826824198610d116efe943d",
+      "afterRawSha256": "f3a34445c6439959c46f5a1b0a92dd57b55fd17bdb7e0e774b7c07988bcfde72"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/baseline-tests.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "13cc77147f67fd27a63d3526b5d44a6067faaf84",
+      "afterRawSha256": "cbf981f1dbcf9bcbd65c62a752f960b1fe5bbdf074f127048c5f153c8b2a3a69"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/build-final-abc.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "fbcc6a585cd90a542eec49b7053a0dd06536f6b7",
+      "afterRawSha256": "f498d4e225e9b87ccd6e1dc97c8d9033025e049a9f8e7abb6a10d33e7e5ebf4a"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/build.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "f6c77e25baf1be65048bab329ca37723fb4c6010",
+      "afterRawSha256": "b6749b3cb6dfd9c6b31636ddf87c5a15321abd747b72733b8183577fe23af65c"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/changed-lint-final2.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "afterRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/final-abc.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "993ed9a7fe57d6b195415c8d77a600ad8385f3ec",
+      "afterRawSha256": "5fd5dcd0314fc2e173c44562bfa8f9bf7c53f7fd2127ab265b0348dc79ca1bf0"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/lint-final-abc.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "afterRawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/lint.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "d34b8453fc16953fff368f302ac1b7c68ad0a8e4",
+      "afterRawSha256": "f27049fdaa3ef0861afdc2fe31226a72ca38b82ce34887e2ce345dad71924cf0"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/measure.mjs",
+      "beforeBlobSha": null,
+      "afterBlobSha": "542ed3ef57f60b2202bc6b64146d1d8dce3ce6b6",
+      "afterRawSha256": "d9e32e3eb75cc4866137de17832b1f7e2c67514c3ee30344300c6359dda2bb84"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/npm-ci-retry.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "dd5f961c6a2bff462ff99b3c882995e5430b9d27",
+      "afterRawSha256": "b529830690fb94237f4842dd166a5ee3885d169c930762e3dae7b5e4417fabbe"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/npm-ci.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "c792fbd773e0da80af5d0ed51682e966bbef11a7",
+      "afterRawSha256": "35a87526da5adf685e8f8237d45ca721928cea2aeca2de5056856756f93a3731"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/python-fixture-recheck.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "754962e64aa6d00a5afedfcafd390e340f4f1f9e",
+      "afterRawSha256": "4d250974889fa9714bed8bcf98f095f4a60ec3b6a7f7c20c85cb572748b91008"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-aborted-processes.json",
+      "beforeBlobSha": null,
+      "afterBlobSha": "b0b611c7f6c30ee18f49fff3e74c4369bf09c1a3",
+      "afterRawSha256": "72ceaf0a92763df7cb42fa64bccba71fc1c574b6268680064a68ee25d18f9900"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-before-concurrency.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "232aafd94142a002e16ec1075047522c95ca57e1",
+      "afterRawSha256": "9e672d19916778f587dc74f94db047e0ab05d998e271bf6cc5a55388f6a72641"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-complete.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "012e29c114dedc42bcd0399abaa2bffedf673047",
+      "afterRawSha256": "347c8b68e528fd38546aa75a5ed805bb13a152452938df02473f1b94f7e9f0e3"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-first-bounded-incomplete.json",
+      "beforeBlobSha": null,
+      "afterBlobSha": "a6a486700460af9e550e75252c4dbfcbef0a421a",
+      "afterRawSha256": "341d20fb33045c1cd399a78ce3bdf0c8be823cfbfcf53e774e4d9bf06b85730e"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-first-bounded-incomplete.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "7e31fc2d4aec5e46299b02e90c5d06128fa19153",
+      "afterRawSha256": "0bab22ab0f209bb7c2d8512f5ffc62b5caf4c3014343b93c257a45ca91182aa5"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing-incomplete.json",
+      "beforeBlobSha": null,
+      "afterBlobSha": "62962ad50706cd855e292b2b6c92fb20fed66dfa",
+      "afterRawSha256": "ea7dc5ef5641919dcab08bdb1152dfac72c14918a2f94b2510b953e995c91dd3"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/timing.json",
+      "beforeBlobSha": null,
+      "afterBlobSha": "4e51857263ebfc2c5063d38d8d001c1cf5387042",
+      "afterRawSha256": "e2adadbea08c6f997521319a027792c44e4c0b28d1b32769bd597b01e5933ad6"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/unit-cancel-processes.json",
+      "beforeBlobSha": null,
+      "afterBlobSha": "c3972e4c0f3dec6fe5a338338e551edc70b34ef9",
+      "afterRawSha256": "5ab0d9f5629868470aebc512018fb2f8bbfaf158ace437171f8a2f0d4527b4c2"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/unit-concurrency2.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "044b928363a85a4cf2ac353ba0a22be9c1c99277",
+      "afterRawSha256": "894689a13a4d765d77aae8832955da93bb88cedb7cd4f448b021cba83945788e"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/unit-failed-files-recheck.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "ee9edbba2ae6d86e600f007e63b326304c5abb25",
+      "afterRawSha256": "0182106bc8d8eca9fc4bb30fd1e051c1fa7f3e02d92d175555f058ae2cbdadc8"
+    },
+    {
+      "status": "A",
+      "path": "docs/release-fastpath-evidence/unit.log",
+      "beforeBlobSha": null,
+      "afterBlobSha": "b9f8ffb1ed679279f9ef3ef94b8fb4ea3fa8be69",
+      "afterRawSha256": "cd42648dad2ca0555a5f55b0e4e4132524d1175bd78145c9e49a93940ca552ec"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-fastpath-evidence.test.mjs",
+      "beforeBlobSha": null,
+      "afterBlobSha": "81f8cf72541ce17a433430c7127f012ab16239d5",
+      "afterRawSha256": "b6b45bcd7035e7d7b20bc74daf853bb1e7461b8b77e2fede7f41c63b33d188f2"
+    },
+    {
+      "status": "A",
+      "path": "tests/release-fastpath-evidence.test.ts",
+      "beforeBlobSha": null,
+      "afterBlobSha": "2b906f6de478e17faccf7f7df5734a9ff8555ff3",
+      "afterRawSha256": "47199f792ff7bf97151fb2ad5fd9585317fb75be9f7427af0407b5bbcdf30822"
+    },
+    {
+      "status": "A",
+      "path": "tools/release-admission-timing.mjs",
+      "beforeBlobSha": null,
+      "afterBlobSha": "22202e7d4c4d401a35c4c1259be53975b2bdc244",
+      "afterRawSha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66"
+    },
+    {
+      "status": "M",
+      "path": "tools/release-batch-admission.mjs",
+      "beforeBlobSha": "ff853b25c56059501de24ddb19af4913d709afad",
+      "afterBlobSha": "28250080077a13f67e2beb846e8197c77b555dff",
+      "afterRawSha256": "c154c9bee0f9b5cc45e4af6a56377045799959a55e8aff752cff86edf73a1c8f"
+    },
+    {
+      "status": "M",
+      "path": "tools/release-batch.mjs",
+      "beforeBlobSha": "4bc7007e7b1f485ddc890fe0425322fffc37f0b8",
+      "afterBlobSha": "17e184784f1d53f15232b698c4d8044e21407ceb",
+      "afterRawSha256": "5f343a31a5b3772df10f7f97927188802f7ffe367b61783721f5fad1f3277c14"
+    },
+    {
+      "status": "M",
+      "path": "tools/release-impact.mjs",
+      "beforeBlobSha": "dfd8a390fb5df148b4c41f3b33b4530051497865",
+      "afterBlobSha": "bf795281372fb268422b8226a2b99d56e6db4cc4",
+      "afterRawSha256": "d3e321a310156583d80aa7d7486f22e5bdfa2b997d611f1f2abc93c68f8217fe"
+    },
+    {
+      "status": "A",
+      "path": "tools/release-preparation-evidence.mjs",
+      "beforeBlobSha": null,
+      "afterBlobSha": "248541b49dd30a89eeeab9a3ab93580770b3bc5b",
+      "afterRawSha256": "6dd3c327b0b886e4484a3651d74393119d1e855e31e38d4d01ea3d47428897b5"
+    },
+    {
+      "status": "M",
+      "path": "tools/worker-local-release.mjs",
+      "beforeBlobSha": "540af030b881da77756ce3d081764ada70030ba3",
+      "afterBlobSha": "d5b7e82ac788c8ebc3891e88c6ecbc5d374f2704",
+      "afterRawSha256": "6cbc49a8fb050ad83e53932e9483304a53cdd6d9c3735037ea69a6e2322dcf7d"
+    }
+  ],
+  "scopeRule": "Full current main and original C complete tree excluded; unify with other task only by explicit chosen changes/review",
+  "productionPublishingCoordinatorThread": {
+    "id": "01a12589-35fb-7dc2-81c8-423849c6846f",
+    "title": "拆分发布验证与备份门禁",
+    "humanArrangement": "C只做准备与复审，统一安排发布"
+  },
+  "newSharedCollectorPatch": {
+    "file": "tools/release-batch-admission.mjs",
+    "sha256": "a05885b723343a749182bdef67770c02d05bacc2cca88e9d36d6a3a369752eed",
+    "productionAdopted": false,
+    "notACOnlyFullCandidate": true
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "version": "teruisi-candidate-ab-seams-harness-v1",
+  "at": "2026-10-11T04:53:15.952Z",
+  "candidateManifestSha256": "20855e01531d0a089cccfd01d5287aba774991cc2fe06747424a72a3ce1ff3ed",
+  "testSourceCommit": "0a1e1ad6342e457e75914d8c77c9d26c89a40721",
+  "cwd": "D:\\.codex\\worktrees\\release-c-stability-preparation\\运营管理系统",
+  "tests": [
+    {
+      "name": "release-process-deadline.test.mjs",
+      "file": "E:\\codex-artifacts\\release-c-acceptance-20261011\\ab-seams-v2\\harness\\release-process-deadline.test.mjs",
+      "originalTestSha256": "b74de8ce5bafee0254d4288adffd160359cdc941b9b539e5eb818f015d06bd1c",
+      "harnessSha256": "e2fe9d2b8ba9eec47d1e9f178fb1ff719d67f6d18e55ae16811a615e3535926c",
+      "assertionsChanged": false,
+      "pathRebasingOnly": false,
+      "fixtureRecoveryFieldsAdded": 2
+    },
+    {
+      "name": "release-batch-powershell-environment.test.mjs",
+      "file": "E:\\codex-artifacts\\release-c-acceptance-20261011\\ab-seams-v2\\harness\\release-batch-powershell-environment.test.mjs",
+      "originalTestSha256": "c35ef9fe30f2082b063ac6a74f2d864bb87d6ebc76bb203cd2d8a3241d82f0a7",
+      "harnessSha256": "ff906c34a9c65d95382852013b30324ef4fb4ae0bee0c69c208bfb8c133c3275",
+      "assertionsChanged": false,
+      "pathRebasingOnly": true,
+      "fixtureRecoveryFieldsAdded": 0
+    },
+    {
+      "name": "release-acceptance-closeout.test.mjs",
+      "file": "E:\\codex-artifacts\\release-c-acceptance-20261011\\ab-seams-v2\\harness\\release-acceptance-closeout.test.mjs",
+      "originalTestSha256": "7aa9425cc9ae953820206fad5a4d90b25a3fe7d7fa79664545d64e31ab33678d",
+      "harnessSha256": "1bad1f28019c7d894bec1977202e7926920c3a116ec5b597d97aed4e31584127",
+      "assertionsChanged": false,
+      "pathRebasingOnly": true,
+      "fixtureRecoveryFieldsAdded": 0
+    }
+  ],
+  "pins": [
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\tools\\worker-local-release.mjs",
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\tools\\release-batch.mjs",
+      "sha256": "61ef80a834c48ecc1ec86e5b9787086e2477b98deee8836f57169bee1b33dc5a"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\tools\\release-impact.mjs",
+      "sha256": "dd0fdafa3f464d7af253fcb475796feaefe8905b16af91eb805b66566867db26"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\source-snapshot\\tools\\operations-system-watchdog.ps1",
+      "sha256": "aefa5e6d85d9a28a3e84405b77b0dc89caa2b3c341fa8a088744ee6388a0111b"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\tools\\process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\tools\\worker-local-service.ps1",
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\tools\\release-lifecycle-step.ps1",
+      "sha256": "c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\source-snapshot\\tests\\fixtures\\release-process-child.mjs",
+      "sha256": "0efb3cd5774bbdcbd832bebccd808f1e91d114a56f6c5146dba0938730422d5e"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\tools\\release-batch-admission.mjs",
+      "sha256": "115fbf67bc52ed1d1ff7e85a7f2d78fed58a7a73f23383a3455c1c27d74a630e"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\tools\\release-readonly-retry.mjs",
+      "sha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\source-snapshot\\tools\\release-acceptance-ui.mjs",
+      "sha256": "1a513f01b1b78d868f36b6176c6d8be4551173dbfe9087dec6dd81cc6aae6348"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\source-snapshot\\tools\\release-closeout-report.mjs",
+      "sha256": "36079b8656f19c73c32255aa0eea894914a5a71d24ac288cd9bb50a350228021"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\node_modules\\esbuild\\lib\\main.js",
+      "sha256": "41abefec8704d24e069532fb38a418905d16f8fee4da88e54ecd65adc71f5507"
+    },
+    {
+      "file": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T034516Z-f308beaede528df7\\node_modules\\playwright-core\\index.mjs",
+      "sha256": "3d36e2132d3c8b62397d23f0bb4177336aaee503203ae2a2c90fbeb5bf3317dd"
+    }
+  ],
+  "controls": [
+    {
+      "name": "A-deadline",
+      "file": "E:\\codex-artifacts\\release-c-acceptance-20261011\\ab-seams-v2\\harness\\release-process-deadline.test.mjs",
+      "pattern": "approved runner rejects|original nested PS5 adapter"
+    },
+    {
+      "name": "AB-PS5-environment",
+      "file": "E:\\codex-artifacts\\release-c-acceptance-20261011\\ab-seams-v2\\harness\\release-batch-powershell-environment.test.mjs",
+      "pattern": null
+    },
+    {
+      "name": "B-readonly-retry-and-report",
+      "file": "E:\\codex-artifacts\\release-c-acceptance-20261011\\ab-seams-v2\\harness\\release-acceptance-closeout.test.mjs",
+      "pattern": "classified temporary|exhausted transient|terminal status|unknown errors|one total deadline|retry waits|complete readiness|retry declaration|bounded native|timing unions|uncompleted batch|offline report"
+    }
+  ],
+  "productionOperations": 0,
+  "uiBrowserAndPythonDomainTestsNotSelected": true,
+  "heavyBuildsAndDatabaseRestoreNotRun": true
+}

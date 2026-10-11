@@ -1,0 +1,7 @@
+
+const fs=require("node:fs"),vm=require("node:vm"),path=require("node:path"),assert=require("node:assert/strict"),{createHash}=require("node:crypto");
+const raw=fs.readFileSync("D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T034516Z-f308beaede528df7/tools/release-batch-admission.mjs","utf8");
+let seed=fs.readFileSync("tests/release-admission-observation-age.test.mjs","utf8");seed=seed.slice(seed.indexOf("const start="),seed.indexOf("\ntest("));
+seed=seed.replace("path,Buffer,Number,Math,Error,canonical","path,Buffer,Number,Math,Error,Date:{now:()=>clock},canonical").replace("verifyNoDataDeploymentReceipts:async()=>{},requiresCompleteAdmission","workerSourceRootForBatch:()=>'/private/source',verifyNoDataDeploymentReceipts:async()=>{},requiresCompleteAdmission").replace("collectBatchRecovery:async()=>{advance('recovery',120000);return null;}","collectBatchRecovery:async()=>{advance('recovery',0);return null;}");
+const fixture=vm.runInNewContext(seed+";fixture",{raw,vm,path,assert,Buffer,createHash});
+(async()=>{const f=fixture(),r=await f.run();assert.equal(f.getClock()-f.getResponseTime(),182000);assert.equal(r.observedAtMs,f.getClock());console.log(JSON.stringify({case:"Full mode with zero-delay recovery; only final source read180000ms plus attempt persistence2000ms",collectorAccepted:true,trueResponseAgeMs:182000,claimedReturnAgeMs:0,productionCalls:0,nativeChildren:0}));})().catch(e=>{console.error(e.name+":"+e.message);process.exitCode=1});

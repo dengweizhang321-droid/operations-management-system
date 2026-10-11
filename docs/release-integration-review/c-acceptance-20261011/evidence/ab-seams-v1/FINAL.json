@@ -1,0 +1,9 @@
+{
+  "at": "2026-10-11T04:52:03.560Z",
+  "candidateManifestSha256": "20855e01531d0a089cccfd01d5287aba774991cc2fe06747424a72a3ce1ff3ed",
+  "manifestStable": true,
+  "drift": [],
+  "processExitCode": 1,
+  "finalCAdoptionAccepted": false,
+  "productionOperations": 0
+}

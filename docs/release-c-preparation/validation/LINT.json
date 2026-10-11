@@ -1,0 +1,7 @@
+{
+  "exitCode": null,
+  "signal": "SIGTERM",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "initialSetupError": "Prior invocation used non-existing eslint.config.js; actual existing config is eslint.config.mjs, no lint ran on first invocation.",
+  "productionCalls": 0
+}

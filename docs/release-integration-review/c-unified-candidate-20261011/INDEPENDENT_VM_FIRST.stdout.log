@@ -1,0 +1,40 @@
+{
+  "candidateSha256": "115fbf67bc52ed1d1ff7e85a7f2d78fed58a7a73f23383a3455c1c27d74a630e",
+  "referenceSha256": "6a7f8891a04daf7a52610505e940d1dfc46d879e63b11463a14bdb81092e6b6a",
+  "referenceCommit": "fcfe50aa59a5ccdf4a2b44c044e02cec8eb6aaba",
+  "sourceStable": true,
+  "checks": 5,
+  "expectedReviewerAssertionsPass": 5,
+  "blockingGapsReproduced": 4,
+  "diagnosticGapReproduced": true,
+  "productionCalls": 0,
+  "nativeChildren": 0,
+  "results": [
+    {
+      "case": "Slow recovery and full reread after successful Status",
+      "collectorAccepted": true,
+      "trueResponseAgeMs": 302000,
+      "claimedReturnAgeMs": 0
+    },
+    {
+      "case": "Django changes during final slow content reread",
+      "collectorAccepted": true,
+      "identityReads": 1
+    },
+    {
+      "case": "Journal changes during final slow content reread",
+      "collectorAccepted": true,
+      "identityReads": 1
+    },
+    {
+      "case": "Effective manifest path changes during final slow content reread",
+      "collectorAccepted": true,
+      "identityReads": 1
+    },
+    {
+      "case": "Status exit0 then readiness assertion fails",
+      "readinessRejected": true,
+      "returnedNativeProcessNotAttached": true
+    }
+  ]
+}

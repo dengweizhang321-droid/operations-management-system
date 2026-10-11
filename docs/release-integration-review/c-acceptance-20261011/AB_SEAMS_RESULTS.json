@@ -1,0 +1,139 @@
+{
+  "version": "teruisi-c-ab-seams-validation-v1",
+  "at": "2026-10-11T04:55:18.036Z",
+  "candidateReleaseId": "20261011T034516Z-f308beaede528df7",
+  "candidateManifestSha256": "20855e01531d0a089cccfd01d5287aba774991cc2fe06747424a72a3ce1ff3ed",
+  "first": {
+    "tests": 27,
+    "passed": 14,
+    "failed": 13,
+    "cause": "Original A sparse fixture omitted required batch.recovery; candidate rejected before native runner",
+    "elapsedMs": 17362.318499999998,
+    "retained": true
+  },
+  "corrected": {
+    "AChangedFixtures": {
+      "tests": 13,
+      "passed": 13,
+      "fixtureRecoveryFieldsAdded": 2,
+      "mode": "full",
+      "assertionsChanged": false,
+      "previous14NotRerun": true
+    },
+    "PS5Transport": {
+      "tests": 6,
+      "passed": 6
+    },
+    "BRetryAndReport": {
+      "tests": 18,
+      "passed": 18
+    }
+  },
+  "distinctSeamCasesCoveredAcrossRuns": 51,
+  "oneFinal51TestRunClaimed": false,
+  "original139CountNotAdded": true,
+  "manifestStable": true,
+  "inputDrift": [],
+  "finalCAdoptionAccepted": false,
+  "productionOperations": 0,
+  "uiBrowserAndDomainPythonNotRun": true,
+  "fullProductionLifecycleAndRecoveryNotRun": true,
+  "evidence": [
+    {
+      "revision": "v1",
+      "name": "A-deadline.json",
+      "bytes": 499,
+      "sha256": "9ebb3352a0926cc01847275d9bbc7d321958c033185607e5500d867787e4896c"
+    },
+    {
+      "revision": "v1",
+      "name": "A-deadline.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "revision": "v1",
+      "name": "A-deadline.stdout.log",
+      "bytes": 16436,
+      "sha256": "d1cd5e10c4762702dd9b2a7df8fb6c8e46eced40f4370981d35ba4dcb7eb1da8"
+    },
+    {
+      "revision": "v1",
+      "name": "FINAL.json",
+      "bytes": 265,
+      "sha256": "a22dd7374d67c22e6af8ac978cc2c4899b67db2e99344210794dc066a493b035"
+    },
+    {
+      "revision": "v1",
+      "name": "HARNESS.json",
+      "bytes": 6034,
+      "sha256": "a26c5be92facbc9a7340420fc50f131331b52b0653f0f12699a17bc8c54c7a4e"
+    },
+    {
+      "revision": "v2",
+      "name": "A-deadline.json",
+      "bytes": 577,
+      "sha256": "bf84ebee66049dfa23a8afecf687a011eabfc2bb3485d78106adfc3c6ef4e2f7"
+    },
+    {
+      "revision": "v2",
+      "name": "A-deadline.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "revision": "v2",
+      "name": "A-deadline.stdout.log",
+      "bytes": 1212,
+      "sha256": "bd9c7b027142dfd04b260c488eb34636fa7f707e860bb096803fa9b989028fda"
+    },
+    {
+      "revision": "v2",
+      "name": "AB-PS5-environment.json",
+      "bytes": 510,
+      "sha256": "26814f80c16d0feb69beb48180b070cf056d78eb088d1d163311d56126151508"
+    },
+    {
+      "revision": "v2",
+      "name": "AB-PS5-environment.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "revision": "v2",
+      "name": "AB-PS5-environment.stdout.log",
+      "bytes": 703,
+      "sha256": "f6d1b439812e1325707c02749f1a08aa5e5af9b978e97471fd1f5ae5731da81c"
+    },
+    {
+      "revision": "v2",
+      "name": "B-readonly-retry-and-report.json",
+      "bytes": 755,
+      "sha256": "a5d1a5cd7c1ec6e5a110fe00a1e2cb660ba37bad260661d9e2b5d5cabdf9c2d1"
+    },
+    {
+      "revision": "v2",
+      "name": "B-readonly-retry-and-report.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "revision": "v2",
+      "name": "B-readonly-retry-and-report.stdout.log",
+      "bytes": 1592,
+      "sha256": "cb2414b17c223f83cee02aab2b5432ea47ea240737681d569bef27cbbf9f31b6"
+    },
+    {
+      "revision": "v2",
+      "name": "FINAL.json",
+      "bytes": 265,
+      "sha256": "64cbce6fd25f9a85b0d41e3fb7519a6f5151a4736ef1ef52d86cb54357591aa4"
+    },
+    {
+      "revision": "v2",
+      "name": "HARNESS.json",
+      "bytes": 6201,
+      "sha256": "6cbd873358cfd73e8c5d96477723de3fedc0f5fb8b633c83e2fb00d41ba844d2"
+    }
+  ]
+}
