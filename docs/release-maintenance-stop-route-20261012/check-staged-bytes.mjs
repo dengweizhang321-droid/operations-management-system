@@ -1,0 +1,5 @@
+import{spawnSync}from'node:child_process';import{readFile}from'node:fs/promises';import{createHash}from'node:crypto';import assert from'node:assert/strict';
+const sha=b=>createHash('sha256').update(b).digest('hex'),git=args=>{const r=spawnSync('git',args,{windowsHide:true,maxBuffer:16777216});assert.equal(r.status,0);return r.stdout;};
+const files=git(['diff','--cached','--name-only','-z']).toString().split('\0').filter(Boolean);for(const n of files){assert.ok(n==='tools/release-lifecycle-step.ps1'||n==='tests/release-maintenance-stop-route.test.mjs'||n.startsWith('docs/release-maintenance-stop-route-20261012/'));assert.equal(sha(git(['show',':'+n])),sha(await readFile(n)),n+' staged byte mismatch');}
+const manifest=JSON.parse(await readFile('docs/release-maintenance-stop-route-20261012/evidence/ARCHIVE.json'));for(const e of manifest.entries){assert.equal(sha(await readFile(e.source)),e.sha256);assert.equal(sha(await readFile('docs/release-maintenance-stop-route-20261012/evidence/'+e.target)),e.sha256);}
+console.log(JSON.stringify({stagedFiles:files.length,evidence:manifest.entries.length,allBytesExact:true}));

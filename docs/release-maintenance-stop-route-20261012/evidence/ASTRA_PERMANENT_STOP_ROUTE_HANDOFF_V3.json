@@ -1,0 +1,46 @@
+{
+  "version": "permanent-maintenance-stop-route-development-v3",
+  "root": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统",
+  "branch": "codex/release-maintenance-stop-route-20261012",
+  "base": "f5b19c01fc7bedc1750e96605924c54b58ab7cfd",
+  "files": [
+    {
+      "path": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统/tools/release-lifecycle-step.ps1",
+      "sha256": "97fa13025f47994b0305ef040eab8a09ae3f2cf6d461bdcf5967e83923e19bbd"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统/tests/release-maintenance-stop-route.test.mjs",
+      "sha256": "b6239db469e4f08ceb03ac3df77a6ba257c33ddd91f5a99d3bd69922905eed6f"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统/docs/release-maintenance-stop-route-20261012/REPORT.md",
+      "sha256": "8398d5e1f9b1ffb4529783017f82d455176a5d2ba1b851353795a8bb03abb360"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统/docs/release-maintenance-stop-route-20261012/AGY_REVIEW.md",
+      "sha256": "7bd5aeabcf7fd61a628530386971dd43410f70a395a626f1f6fb9152be7766f5"
+    }
+  ],
+  "tests": {
+    "passed": 2,
+    "total": 2,
+    "shells": [
+      "Windows PowerShell5",
+      "PowerShell7"
+    ],
+    "positiveRoutesPerShell": 2,
+    "negativeRoutesPerShell": 23,
+    "directTypeCasesPerShell": 2,
+    "log": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_TYPED_TEST_V3.log",
+    "logSha256": "28e20794d4c8a38be6c71d2a43cd2dda2e4278dbbae032de746945514ad56f8e"
+  },
+  "agy": {
+    "response": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_PERMANENT_STOP_ROUTE_V3_RESULT.md",
+    "sha256": "ac02573e3663cdb38b2ab163617244fef77d8f01bf77a60ef8b449aa78249e1d",
+    "earlierOverstatementExplicitlyWithdrawn": true
+  },
+  "preservedCounterexample": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_SCALAR_ARRAY_COUNTEREXAMPLE.log",
+  "productionAdopted": false,
+  "originalF15Changed": false,
+  "committed": false
+}

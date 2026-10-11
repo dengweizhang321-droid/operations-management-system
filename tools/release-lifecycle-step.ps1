@@ -35,11 +35,49 @@ function Invoke-OriginalEngine([string]$Script,[string[]]$Arguments) {
     throw "Original lifecycle operator failed: exit=$($capture.ExitCode); $($capture.Evidence | ConvertTo-Json -Compress); result requires exact reconciliation" }
   return $capture.Stdout.Trim()
 }
+function Get-ReleaseWorkerStopAction([object]$State, [string]$OperationId) {
+  if ($OperationId -cnotmatch '^[a-f0-9]{32}$' -or $State -isnot [pscustomobject] -or
+      @($State.PSObject.Properties).Count -ne 2 -or
+      -not $State.PSObject.Properties['maintenance'] -or -not $State.PSObject.Properties['automationDrain']) {
+    throw 'Exact maintenance/drain status required before release stop'
+  }
+  $drain = $State.automationDrain
+  if ($drain -isnot [pscustomobject] -or $drain.version -isnot [string] -or $drain.id -isnot [string] -or
+      $drain.runtimeRoot -isnot [string] -or $drain.phase -isnot [string] -or
+      $drain.version -cne 'teruisi-automation-drain-v1' -or
+      $drain.id -cne $OperationId -or $drain.runtimeRoot -cne 'D:\teruisi-runtime\django-sales' -or
+      $drain.phase -cne 'requests' -or $drain.keepPostgres -isnot [bool] -or -not $drain.keepPostgres) {
+    throw 'Exact completed release drain required before release stop'
+  }
+  if ($null -eq $State.maintenance) { return 'StopForRelease' }
+  $maintenance = $State.maintenance
+  if ($maintenance -isnot [pscustomobject] -or $maintenance.version -isnot [string] -or
+      $maintenance.id -isnot [string] -or $maintenance.runtimeRoot -isnot [string] -or
+      $maintenance.version -cne 'teruisi-system-maintenance-v1' -or $maintenance.id -cne $OperationId -or
+      $maintenance.runtimeRoot -cne 'D:\teruisi-runtime\django-sales' -or
+      $maintenance.keepPostgres -isnot [bool] -or -not $maintenance.keepPostgres -or
+      $maintenance.drainedStopped -isnot [bool] -or -not $maintenance.drainedStopped) {
+    throw 'Exact full maintenance stop is not complete'
+  }
+  # Full maintenance already stopped the backend. Use the original Worker-only Stop;
+  # StopForRelease intentionally rejects full maintenance and remains for Worker-only drains.
+  return 'Stop'
+}
 $adapterClock=[Diagnostics.Stopwatch]::StartNew()
 $completionStage='engine'
 try {
 switch($Step) {
-  'StopWorker' { Invoke-OriginalEngine $worker @('-Action','StopForRelease','-MaintenanceId',$MaintenanceId,'-Json') | Out-Null }
+  'StopWorker' {
+    $maintenanceRaw=Invoke-OriginalEngine $worker @('-Action','MaintenanceStatus','-Json')
+    # PS5 can enumerate a one-element root JSON array into one object. Reject
+    # non-object wire containers before parsing, then validate nested types.
+    if ($maintenanceRaw -isnot [string] -or -not $maintenanceRaw.TrimStart().StartsWith('{')) {
+      throw 'MaintenanceStatus must return a JSON object'
+    }
+    $maintenanceState=ConvertFrom-Json -InputObject $maintenanceRaw -ErrorAction Stop
+    $stopAction=Get-ReleaseWorkerStopAction $maintenanceState $MaintenanceId
+    Invoke-OriginalEngine $worker @('-Action',$stopAction,'-MaintenanceId',$MaintenanceId,'-Json') | Out-Null
+  }
   'StartWorker' {
     if($ExpectedWorkerManifestSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Exact approved Worker manifest required before Start' }
     if($ExpectedDjangoManifestSha256 -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash -LiteralPath $deployment -Algorithm SHA256).Hash.ToLowerInvariant() -cne $ExpectedDjangoManifestSha256) { throw 'Exact approved Django manifest required before Start' }

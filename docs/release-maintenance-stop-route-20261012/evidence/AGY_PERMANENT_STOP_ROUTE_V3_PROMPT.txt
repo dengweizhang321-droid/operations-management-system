@@ -1,0 +1,227 @@
+同conversation正式更正上一轮“未见可触发漏洞”：Astra随后实际PS5和PS7用原AST原StopWorker分支/同底层fixture复现maintenance.id=@($MaintenanceId)被553源码接受，执行了mock mutating engine；两壳反例都失败，日志PERMANENT_STOP_SCALAR_ARRAY_COUNTEREXAMPLE.log，553原source/tests保持。PowerShell -cne对数组返回筛选集合，单元素相等数组产生空集合，if判false，故PCO/typedbool防护并不等于所有标量字段typed。这是已观测事实，请明确撤回此前关于完整类型闭合的过强结论，不能用模型前一结论压过实际反例。
+现在只加必要string类型检查：drain.version/id/runtimeRoot/phase以及maintenance.version/id/runtimeRoot必须-is[string]，其余rawobject/PCO/typedbool/原routing不变。新实际PS5/PS7各2正路由+23负路由+2直接typecase，test runner2/2通过（54场景不是54个tests）。7新增反例都是identity/version/root/phase singletonarray，原未知外壳/arrays/bools保持。源SHA 97fa13025f47994b0305ef040eab8a09ae3f2cf6d461bdcf5967e83923e19bbd，testSHA b6239db469e4f08ceb03ac3df77a6ba257c33ddd91f5a99d3bd69922905eed6f。
+请只文本最终复审本次微小修正并交叉回应原错误，最多600字，不工具、不生产/UAC、不改文件。原f15候选/spec/19WAL未知Stop仍未采用此新source；本轮只Git源码，原最新有限补证和Admin待确认另行保留。不能宣称全OS连续锁或fixture等于生产。
+RUNTIME
+﻿[CmdletBinding()]
+param(
+  [Parameter(Mandatory=$true)]
+  [ValidateSet('StopWorker','StartWorker','EnterMaintenance','ExitMaintenance','DeployApp','HardenAcl','VerifyStartup','AggregateStatus','BeginWorkerDrain','EndWorkerDrain')]
+  [string]$Step,
+  [string]$MaintenanceId,
+  [string]$PreparedAppId,
+  [string]$PreparedAppSha256,
+  [string]$ExpectedWorkerManifestSha256,
+  [string]$ExpectedDjangoManifestSha256,
+  [string]$ExpectedDrainId,
+  [switch]$KeepPostgres
+)
+$ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'process-deadline.ps1')
+$operationDeadline=Get-ProcessDeadline
+$engineEvidence=[Collections.Generic.List[object]]::new()
+$aiEnabledPath='D:\teruisi-runtime\django-sales\ai-enabled.json'
+$control='D:\运营管理系统\tools\operations-system-control.ps1'
+$nativeShell=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$worker='D:\运营管理系统\tools\worker-local-service.ps1'
+$candidateDjango='D:\运营管理系统-sales-django-release\tools\django-local-service.ps1'
+$installedDjango='D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1'
+$deployment='D:\teruisi-runtime\django-sales\app\deployment.json'
+function Test-CompletionPid($Value) {
+  return (($Value -is [int] -or $Value -is [long]) -and $Value -gt 0 -and $Value -le 2147483647)
+}
+function Invoke-OriginalEngine([string]$Script,[string[]]$Arguments) {
+  $actionIndex=[Array]::IndexOf($Arguments,'-Action')
+  $cleanup=if($actionIndex -ge 0 -and $Arguments[$actionIndex+1] -cin @('Status','MaintenanceStatus','AggregateStatus')){'Direct'}else{'Preserve'}
+  $capture=Invoke-DeadlineProcess -Executable $nativeShell -Arguments (@('-NoProfile','-NonInteractive','-File',$Script)+$Arguments) -WorkingDirectory (Split-Path -Parent $Script) -Deadline $operationDeadline -Cleanup $cleanup
+  $engineEvidence.Add($capture.Evidence)
+  if($capture.ExitCode -ne 0) {
+    try {$nested=$capture.Stdout.Trim() | ConvertFrom-Json; if($nested.status -ceq 'unknown' -and $nested.processEvidence){$engineEvidence.Add($nested.processEvidence)}} catch {}
+    throw "Original lifecycle operator failed: exit=$($capture.ExitCode); $($capture.Evidence | ConvertTo-Json -Compress); result requires exact reconciliation" }
+  return $capture.Stdout.Trim()
+}
+function Get-ReleaseWorkerStopAction([object]$State, [string]$OperationId) {
+  if ($OperationId -cnotmatch '^[a-f0-9]{32}$' -or $State -isnot [pscustomobject] -or
+      @($State.PSObject.Properties).Count -ne 2 -or
+      -not $State.PSObject.Properties['maintenance'] -or -not $State.PSObject.Properties['automationDrain']) {
+    throw 'Exact maintenance/drain status required before release stop'
+  }
+  $drain = $State.automationDrain
+  if ($drain -isnot [pscustomobject] -or $drain.version -isnot [string] -or $drain.id -isnot [string] -or
+      $drain.runtimeRoot -isnot [string] -or $drain.phase -isnot [string] -or
+      $drain.version -cne 'teruisi-automation-drain-v1' -or
+      $drain.id -cne $OperationId -or $drain.runtimeRoot -cne 'D:\teruisi-runtime\django-sales' -or
+      $drain.phase -cne 'requests' -or $drain.keepPostgres -isnot [bool] -or -not $drain.keepPostgres) {
+    throw 'Exact completed release drain required before release stop'
+  }
+  if ($null -eq $State.maintenance) { return 'StopForRelease' }
+  $maintenance = $State.maintenance
+  if ($maintenance -isnot [pscustomobject] -or $maintenance.version -isnot [string] -or
+      $maintenance.id -isnot [string] -or $maintenance.runtimeRoot -isnot [string] -or
+      $maintenance.version -cne 'teruisi-system-maintenance-v1' -or $maintenance.id -cne $OperationId -or
+      $maintenance.runtimeRoot -cne 'D:\teruisi-runtime\django-sales' -or
+      $maintenance.keepPostgres -isnot [bool] -or -not $maintenance.keepPostgres -or
+      $maintenance.drainedStopped -isnot [bool] -or -not $maintenance.drainedStopped) {
+    throw 'Exact full maintenance stop is not complete'
+  }
+  # Full maintenance already stopped the backend. Use the original Worker-only Stop;
+  # StopForRelease intentionally rejects full maintenance and remains for Worker-only drains.
+  return 'Stop'
+}
+$adapterClock=[Diagnostics.Stopwatch]::StartNew()
+$completionStage='engine'
+try {
+switch($Step) {
+  'StopWorker' {
+    $maintenanceRaw=Invoke-OriginalEngine $worker @('-Action','MaintenanceStatus','-Json')
+    # PS5 can enumerate a one-element root JSON array into one object. Reject
+    # non-object wire containers before parsing, then validate nested types.
+    if ($maintenanceRaw -isnot [string] -or -not $maintenanceRaw.TrimStart().StartsWith('{')) {
+      throw 'MaintenanceStatus must return a JSON object'
+    }
+    $maintenanceState=ConvertFrom-Json -InputObject $maintenanceRaw -ErrorAction Stop
+    $stopAction=Get-ReleaseWorkerStopAction $maintenanceState $MaintenanceId
+    Invoke-OriginalEngine $worker @('-Action',$stopAction,'-MaintenanceId',$MaintenanceId,'-Json') | Out-Null
+  }
+  'StartWorker' {
+    if($ExpectedWorkerManifestSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Exact approved Worker manifest required before Start' }
+    if($ExpectedDjangoManifestSha256 -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash -LiteralPath $deployment -Algorithm SHA256).Hash.ToLowerInvariant() -cne $ExpectedDjangoManifestSha256) { throw 'Exact approved Django manifest required before Start' }
+    [void](Get-ProcessRemaining $operationDeadline)
+    $startArguments=@('-Action','Start','-Json')
+    if($ExpectedDrainId) { $startArguments+=@('-BackendStartPolicy','RequireReady') }
+    $engine=Invoke-OriginalEngine $worker $startArguments | ConvertFrom-Json
+    if($engine.status -cnotin @('started','already_running') -or $engine.manifestSha256 -cne $ExpectedWorkerManifestSha256) { throw 'Original Start completion does not match the approved candidate' }
+    $completionStage='candidate-identity'
+    if([string]::IsNullOrWhiteSpace([string]$engine.releaseId) -or -not (Test-CompletionPid $engine.supervisorProcessId)) { throw 'Original Start identity is incomplete' }
+    $status=Invoke-OriginalEngine $worker @('-Action','Status','-Json') | ConvertFrom-Json
+    if($status.version -cne 'teruisi-local-worker-status-v1' -or -not (Test-CompletionPid $status.portProcessId) -or -not (Test-CompletionPid $status.supervisorProcessId) -or $status.state -cne 'exact_release' -or $status.manifestSha256 -cne $ExpectedWorkerManifestSha256 -or $status.releaseId -cne $engine.releaseId -or $status.supervisorProcessId -ne $engine.supervisorProcessId) { throw 'Exact candidate process identity is not confirmed' }
+    $completionStage='full-readiness'
+    $ready=Invoke-OriginalEngine $control @('-Action','Status','-Json') | ConvertFrom-Json
+    $requiredComponents=@('core','finance','netshop','market','products','workflow','inventory','customerService','accessControl','erpReference','bi')
+    if(Test-Path -LiteralPath $aiEnabledPath -PathType Leaf){$requiredComponents+='ai'}
+    foreach($component in $requiredComponents){if($ready.components.PSObject.Properties[$component].Value -cne $true){throw 'Enabled component readiness is incomplete'}}
+    if(-not (Test-CompletionPid $ready.supervisorProcessId) -or -not (Test-CompletionPid $ready.portProcessId) -or $ready.version -cne 'teruisi-operations-system-control-v2' -or $ready.state -cne 'Running' -or $ready.backendState -cne 'Ready' -or $ready.workerState -cne 'exact_release' -or $ready.releaseId -cne $status.releaseId -or $ready.supervisorProcessId -ne $status.supervisorProcessId -or $ready.portProcessId -ne $status.portProcessId -or @($ready.components.PSObject.Properties).Count -lt $requiredComponents.Count -or @($ready.components.PSObject.Properties | Where-Object {$_.Value -cne $true}).Count -ne 0) { throw 'Complete candidate readiness is not confirmed' }
+    $completionStage='maintenance'
+    $maintenance=Invoke-OriginalEngine $worker @('-Action','MaintenanceStatus','-Json') | ConvertFrom-Json
+    if(-not $maintenance.PSObject.Properties['maintenance'] -or -not $maintenance.PSObject.Properties['automationDrain'] -or $null -ne $maintenance.maintenance) { throw 'Maintenance state is not confirmed inactive' }
+    if($ExpectedDrainId) {
+      if($ExpectedDrainId -cnotmatch '^[a-f0-9]{32}$' -or $ExpectedDrainId -cne $MaintenanceId -or $maintenance.automationDrain.id -cne $ExpectedDrainId -or $maintenance.automationDrain.phase -cne 'requests' -or $maintenance.automationDrain.keepPostgres -cne $true) { throw 'Exact retained release drain is not confirmed' }
+    } elseif($null -ne $maintenance.automationDrain) { throw 'Unexpected release drain remains active' }
+  }
+  'BeginWorkerDrain' { Invoke-OriginalEngine $worker @('-Action','BeginWorkerDrain','-MaintenanceId',$MaintenanceId,'-Json') | Out-Null }
+  'EndWorkerDrain' { Invoke-OriginalEngine $worker @('-Action','EndWorkerDrain','-MaintenanceId',$MaintenanceId,'-Json') | Out-Null }
+  'EnterMaintenance' {
+    if($MaintenanceId -cnotmatch '^[a-f0-9]{32}$') { throw 'Exact approved maintenance ID required' }
+    $arguments=@('-Action','EnterMaintenance','-MaintenanceId',$MaintenanceId,'-Json')
+    if($KeepPostgres) { $arguments+='-KeepPostgres' }
+    Invoke-OriginalEngine $worker $arguments | Out-Null
+  }
+  'ExitMaintenance' {
+    if($MaintenanceId -cnotmatch '^[a-f0-9]{32}$') { throw 'Exact approved maintenance ID required' }
+    Invoke-OriginalEngine $worker @('-Action','ExitMaintenance','-MaintenanceId',$MaintenanceId,'-Json') | Out-Null
+  }
+  'DeployApp' {
+    if($PreparedAppId -cnotmatch '^[a-f0-9]{32}$' -or $PreparedAppSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Exact approved prepared app required' }
+    Invoke-OriginalEngine $candidateDjango @('-Action','DeployApp','-PreparedAppId',$PreparedAppId,'-PreparedAppSha256',$PreparedAppSha256) | Out-Null
+  }
+  'HardenAcl' { Invoke-OriginalEngine $installedDjango @('-Action','HardenAcl') | Out-Null }
+  'VerifyStartup' { Invoke-OriginalEngine $worker @('-Action','VerifyStartup','-Json') | Out-Null }
+  'AggregateStatus' {
+    $raw=Invoke-OriginalEngine $installedDjango @('-Action','AggregateStatus','-Json')
+    $result=($raw -join "`n") | ConvertFrom-Json
+  }
+}
+$completionStage='receipt'
+[void](Get-ProcessRemaining $operationDeadline)
+$receipt=[ordered]@{status='completed';step=$Step;engineEvidence=@($engineEvidence.ToArray());djangoManifestSha256=(Get-FileHash -LiteralPath $deployment -Algorithm SHA256).Hash.ToLowerInvariant()}
+if($Step -eq 'StartWorker' -and $receipt.djangoManifestSha256 -cne $ExpectedDjangoManifestSha256){throw 'Django candidate changed during completion'}
+if($Step -eq 'StartWorker') { $receipt.timing=@{engineMs=$engineEvidence[0].elapsedMs;validationMs=@($engineEvidence.ToArray() | ForEach-Object {[pscustomobject]$_} | Select-Object -Skip 1 | Measure-Object -Property elapsedMs -Sum)[0].Sum;adapterMs=$adapterClock.ElapsedMilliseconds}; $receipt.manifestSha256=$ExpectedWorkerManifestSha256; $receipt.readiness='complete'; $receipt.maintenanceConfirmed=$true }
+if($Step -eq 'AggregateStatus') { $receipt.aggregate=$result }
+if($Step -in @('BeginWorkerDrain','EnterMaintenance')) { $receipt.drainConfirmed=$true }
+if($MaintenanceId) { $receipt.maintenanceId=$MaintenanceId }
+[void](Get-ProcessRemaining $operationDeadline)
+$receipt | ConvertTo-Json -Depth 12 -Compress
+} catch {
+  # A machine failure receipt preserves original exit codes, never an exit0 claim.
+  $failureCode=if($_.Exception.Data['ProcessEvidence']){$_.Exception.Data['ProcessEvidence'].code}elseif(@($engineEvidence.ToArray() | Where-Object {$_.exitCode -ne 0}).Count -gt 0){'engine_nonzero_exit'}else{'completion_gate_failed'}
+  $failure=[ordered]@{status='unknown';failureCode=$failureCode;step=$Step;stage=$completionStage;engineEvidence=@($engineEvidence.ToArray());processEvidence=$_.Exception.Data['ProcessEvidence']}
+  $failure | ConvertTo-Json -Depth 12 -Compress
+  exit 1
+}
+
+TEST
+import test from 'node:test';import assert from 'node:assert/strict';import {spawnSync} from 'node:child_process';import path from 'node:path';
+for(const shell of ['powershell.exe','pwsh.exe'])test(`release StopWorker uses the appropriate original engine in ${shell}`,()=>{
+ const file=path.resolve('tools/release-lifecycle-step.ps1').replaceAll("'","''"),worker=path.resolve('tools/worker-local-service.ps1').replaceAll("'","''");
+ const script=String.raw`
+$ErrorActionPreference='Stop'
+$tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile('__ADAPTER__',[ref]$tokens,[ref]$errors)
+if($errors.Count){throw 'parse failed'}
+$fn=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-ReleaseWorkerStopAction'},$true)
+Invoke-Expression $fn.Extent.Text
+$switch=$ast.Find({param($n) $n -is [Management.Automation.Language.SwitchStatementAst] -and $n.Condition.Extent.Text -eq '$Step'},$true)
+$clause=@($switch.Clauses|Where-Object {$_.Item1.Value -eq 'StopWorker'})[0].Item2
+$stopStep=[ScriptBlock]::Create($clause.Extent.Text.Substring(1,$clause.Extent.Text.Length-2))
+. '__WORKER__' -FunctionsOnly -AllowTestRuntimeRoot
+$MaintenanceId='a483894ad8d945298c866c74a06df6ff'
+$script:gate=[pscustomobject]@{maintenance=[pscustomobject]@{version='teruisi-system-maintenance-v1';id=$MaintenanceId;runtimeRoot='D:\teruisi-runtime\django-sales';keepPostgres=$true;drainedStopped=$true};automationDrain=[pscustomobject]@{version='teruisi-automation-drain-v1';id=$MaintenanceId;runtimeRoot='D:\teruisi-runtime\django-sales';phase='requests';keepPostgres=$true}}
+$script:calls=@();$script:workerStops=0;$script:backendStops=0;$script:rawOverride=$null
+function Read-WorkerSystemMaintenance{return $script:gate.maintenance}
+function Read-WorkerAutomationDrain{return $script:gate.automationDrain}
+function Stop-WorkerOnly([object]$Identity){$script:workerStops++;return @{status='already_stopped'}}
+function Invoke-DjangoLifecycleAction {$script:backendStops++;throw 'Backend stop forbidden'}
+function Invoke-OriginalEngine([string]$Script,[string[]]$Arguments){
+ $action=$Arguments[1];$script:calls+=,$Arguments
+ if($action -eq 'MaintenanceStatus'){if($null -ne $script:rawOverride){return $script:rawOverride};return ($script:gate|ConvertTo-Json -Depth 6 -Compress)}
+ if($Arguments -contains '-IncludeBackend'){throw 'Unexpected backend scope'}
+ if($action -eq 'StopForRelease'){Assert-WorkerReleaseDrain $MaintenanceId;return ((Stop-WorkerOnly @{})|ConvertTo-Json -Compress)}
+ if($action -eq 'Stop'){return ((Invoke-WorkerSystemStop @{})|ConvertTo-Json -Compress)}
+ throw 'Unexpected engine action'
+}
+$originalGateRejected=$false;try{Assert-WorkerReleaseDrain $MaintenanceId}catch{$originalGateRejected=$true}
+if(-not $originalGateRejected){throw 'Original full-maintenance incompatibility was not reproduced'}
+& $stopStep
+if($script:calls[-1][1] -cne 'Stop' -or $script:workerStops -ne 1 -or $script:backendStops -ne 0){throw 'Full-maintenance route wrong'}
+$full=$script:gate|ConvertTo-Json -Depth 5 -Compress
+$script:gate.maintenance=$null;& $stopStep
+if($script:calls[-1][1] -cne 'StopForRelease' -or $script:workerStops -ne 2){throw 'Worker-only route wrong'}
+$negativeCount=0
+foreach($case in @('wrong-id','not-drained','wrong-root','wrong-version','string-bool','drain-id','drain-phase','missing-status','root-array','root-array-space','drain-array','maintenance-array','drain-bool-array','maintenance-keep-array','maintenance-drained-array','unknown-status','drain-version-array','drain-id-array','drain-root-array','drain-phase-array','maintenance-version-array','maintenance-id-array','maintenance-root-array')){
+ $script:gate=$full|ConvertFrom-Json;$script:rawOverride=$null
+ switch($case){
+  'wrong-id'{$script:gate.maintenance.id='b'*32}
+  'not-drained'{$script:gate.maintenance.drainedStopped=$false}
+  'wrong-root'{$script:gate.maintenance.runtimeRoot='D:other'}
+  'wrong-version'{$script:gate.maintenance.version='other'}
+  'string-bool'{$script:gate.maintenance.drainedStopped='True'}
+  'drain-id'{$script:gate.automationDrain.id='b'*32}
+  'drain-phase'{$script:gate.automationDrain.phase='helpers'}
+  'missing-status'{$script:gate=[pscustomobject]@{}}
+  'root-array'{$script:rawOverride='['+$full+']'}
+  'root-array-space'{$script:rawOverride='  ['+$full+']'}
+  'drain-array'{$script:gate.automationDrain=@($script:gate.automationDrain)}
+  'maintenance-array'{$script:gate.maintenance=@($script:gate.maintenance)}
+  'drain-bool-array'{$script:gate.automationDrain.keepPostgres=@($true)}
+  'maintenance-keep-array'{$script:gate.maintenance.keepPostgres=@($true)}
+  'maintenance-drained-array'{$script:gate.maintenance.drainedStopped=@($true)}
+  'unknown-status'{$script:gate|Add-Member -NotePropertyName kind -NotePropertyValue 'unknownStatus'}
+  'drain-version-array'{$script:gate.automationDrain.version=@($script:gate.automationDrain.version)}
+  'drain-id-array'{$script:gate.automationDrain.id=@($MaintenanceId)}
+  'drain-root-array'{$script:gate.automationDrain.runtimeRoot=@($script:gate.automationDrain.runtimeRoot)}
+  'drain-phase-array'{$script:gate.automationDrain.phase=@('requests')}
+  'maintenance-version-array'{$script:gate.maintenance.version=@($script:gate.maintenance.version)}
+  'maintenance-id-array'{$script:gate.maintenance.id=@($MaintenanceId)}
+  'maintenance-root-array'{$script:gate.maintenance.runtimeRoot=@($script:gate.maintenance.runtimeRoot)}
+ }
+ $before=$script:workerStops;$refused=$false;try{& $stopStep}catch{$refused=$true}
+ if(-not $refused -or $script:workerStops -ne $before){throw "Invalid state invoked mutating engine: $case"};$negativeCount++
+}
+$good=$full|ConvertFrom-Json;$directTypeRejected=0
+foreach($bad in @(@($good),@{maintenance=$good.maintenance;automationDrain=$good.automationDrain})){
+ $refused=$false;try{Get-ReleaseWorkerStopAction $bad $MaintenanceId|Out-Null}catch{$refused=$true}
+ if(-not $refused){throw 'Non-PCO state accepted'};$directTypeRejected++
+}
+[pscustomobject]@{fullMaintenanceOriginalGateRejected=$originalGateRejected;positiveRoutes=2;negativeRoutes=$negativeCount;directTypeRejected=$directTypeRejected;workerStops=$script:workerStops;backendStops=$script:backendStops}|ConvertTo-Json -Compress
+`.replace('__ADAPTER__',file).replace('__WORKER__',worker);
+ const result=spawnSync(shell,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{encoding:'utf8',windowsHide:true,timeout:30000});
+ assert.equal(result.error,undefined);assert.equal(result.status,0,`${shell}: ${result.stdout}\n${result.stderr}`);assert.deepEqual(JSON.parse(result.stdout.trim()),{fullMaintenanceOriginalGateRejected:true,positiveRoutes:2,negativeRoutes:23,directTypeRejected:2,workerStops:2,backendStops:0});
+});
