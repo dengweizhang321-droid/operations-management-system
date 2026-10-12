@@ -12,6 +12,11 @@ import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
 
 if (process.platform !== "win32") { console.log(JSON.stringify({ skipped: true, reason: "Windows runtime fixture" })); process.exit(0); }
+const scenario = process.argv[2] ?? "page";
+assert(process.argv.length <= 3 && ["page", "browser-pid-manual", "browser-pid-trigger", "browser-pid-webhook"].includes(scenario), "Unknown synthetic scenario");
+const browserPidScenario = scenario.startsWith("browser-pid-");
+const replacementMode = browserPidScenario ? scenario.slice("browser-pid-".length) : "trigger";
+const expectedDenied = browserPidScenario && replacementMode !== "manual";
 const sourceRoot = process.cwd(), temp = await mkdtemp(path.join(tmpdir(), "jackyun-recovery-helper-"));
 const root = path.join(temp, "mirror"), n8nUserRoot = path.join(temp, "user"), profile = path.join(root, "profile");
 for (const p of [path.join(root, "config"), path.join(n8nUserRoot, ".n8n"), path.join(profile, "Default"), path.join(root, "outputs/jackyun-export-first")]) await mkdir(p, { recursive: true });
@@ -35,9 +40,9 @@ const database = path.join(n8nUserRoot, ".n8n/database.sqlite"), db = new Databa
 db.exec("CREATE TABLE execution_entity(id INTEGER PRIMARY KEY,workflowId TEXT,status TEXT,mode TEXT,startedAt TEXT,stoppedAt TEXT,retrySuccessId TEXT,deletedAt TEXT); CREATE TABLE execution_data(executionId INTEGER,data TEXT)");
 const insert = db.prepare("INSERT INTO execution_entity VALUES(?,?,?,?,?,?,?,?)");
 insert.run(99000, "J8kY2mQ5vR7sT4pN", "error", "trigger", sqliteTime(-130000), sqliteTime(-120000), null, null);
-insert.run(99001, "J8kY2mQ5vR7sT4pN", "running", "trigger", sqliteTime(-10000), null, null, null);
+insert.run(99001, "J8kY2mQ5vR7sT4pN", "running", replacementMode, sqliteTime(-10000), null, null, null);
 const nodes = ["每天本机时间 00:10", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"];
-db.prepare("INSERT INTO execution_data VALUES(?,?)").run(99000, JSON.stringify([{ resultData: "1" }, { error: "2", runData: "3", lastNodeExecuted: "4" }, { description: "5", httpCode: "6", node: "7" }, Object.fromEntries(nodes.map(n => [n, []])), nodes[4], "API_LOGIN_PAGE_NOT_UNIQUE: no_context", "500", { parameters: "8" }, { url: "9" }, "http://127.0.0.1:5791/jackyun/export-first/export-all"])); db.close();
+db.prepare("INSERT INTO execution_data VALUES(?,?)").run(99000, JSON.stringify([{ resultData: "1" }, { error: "2", runData: "3", lastNodeExecuted: "4" }, { description: "5", httpCode: "6", node: "7" }, Object.fromEntries(nodes.map(n => [n, []])), nodes[4], browserPidScenario ? "waiting_login：调试端口不属于本次启动的独立浏览器，已停止接管。" : "API_LOGIN_PAGE_NOT_UNIQUE: no_context", "500", { parameters: "8" }, { url: "9" }, "http://127.0.0.1:5791/jackyun/export-first/export-all"])); db.close();
 const beforeDb = await readFile(database), shim = path.join(temp, "mock-health.mjs"), counter = path.join(temp, "health-reads.txt");
 await writeFile(shim, `import {appendFileSync} from 'node:fs'; const original=globalThis.fetch; globalThis.fetch=async (input,options)=>{const u=new URL(typeof input==='string'?input:input.url??input); if(u.href==='http://localhost:3000/api/sales/data-health'){appendFileSync(${JSON.stringify(counter)},'health\\n');return Response.json({status:'available'});} if(u.hostname==='127.0.0.1'&&!['3000','5791','5678','5432'].includes(u.port)&&['/health','/coordination/claim','/jackyun/export-first/plan-api'].includes(u.pathname))return original(input,options);throw new Error('Synthetic smoke disallows other network access');};`);
 const bundle = path.join(temp, "helper.mjs");
@@ -52,10 +57,19 @@ try {
   const deadline = Date.now() + 30000;
   while (!output.includes('"stage":"serve"')) { if (child.exitCode !== null || Date.now() > deadline) throw new Error("Synthetic helper did not start"); await new Promise(resolve => setTimeout(resolve, 100)); }
   assert.equal((await call("/coordination/claim")).body.coordinationStatus, "granted");
-  const result = await call("/jackyun/export-first/plan-api"); assert.equal(result.status, 200, JSON.stringify(result.body)); assert.equal(result.body.runId, "n8n-export-first-99001");
-  const receipt = JSON.parse(await readFile(path.join(pipeline, "preflight-closures/n8n-export-first-99000.json"), "utf8"));
-  assert.equal(receipt.version, 3); assert.equal(receipt.replacementExecutionId, "99001");
+  const result = await call("/jackyun/export-first/plan-api");
+  const receiptPath = path.join(pipeline, "preflight-closures/n8n-export-first-99000.json");
+  if (expectedDenied) {
+    assert.equal(result.status, 500); assert.match(JSON.stringify(result.body), /需要人工/);
+    await assert.rejects(readFile(receiptPath), /ENOENT/);
+    assert.equal(JSON.parse(await readFile(path.join(pipeline, "active.json"), "utf8")).executionId, "99000");
+  } else {
+    assert.equal(result.status, 200, JSON.stringify(result.body)); assert.equal(result.body.runId, "n8n-export-first-99001");
+    const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+    assert.equal(receipt.version, 3); assert.equal(receipt.replacementExecutionId, "99001");
+    assert.equal(receipt.replacementMode, replacementMode);
+  }
   assert.equal(await readFile(path.join(pipeline, old.runId + ".json"), "utf8"), oldBytes); assert.deepEqual(await readFile(database), beforeDb);
   assert.equal((await readFile(counter, "utf8")).split("health").length - 1, 1);
-  console.log(JSON.stringify({ ok: true, realWorkerRecovery: true, syntheticN8nUnchanged: true, oldPlanUnchanged: true, healthReadMocked: true, businessActions: 0, helperSha256: createHash("sha256").update(await readFile(bundle)).digest("hex"), mirror: temp }));
+  console.log(JSON.stringify({ ok: true, scenario, expectedDenied, realWorkerRecovery: !expectedDenied, syntheticN8nUnchanged: true, oldPlanUnchanged: true, healthReadMocked: true, businessActions: 0, helperSha256: createHash("sha256").update(await readFile(bundle)).digest("hex"), mirror: temp }));
 } finally { child.kill(); await exited; }

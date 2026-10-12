@@ -8,11 +8,12 @@ import { DatabaseSync } from "node:sqlite";
 import { recoverPreviousJackyunPreflight } from "../lib/jackyun/automatic-preflight-recovery";
 import { readN8nReplacementEvidence } from "../lib/jackyun/n8n-preflight-evidence";
 import { classifyJackyunPreflightFailure } from "../lib/jackyun/preflight-failure";
-import { assertClosedPreflight, preflightClosurePath, jackyunWorkflowId } from "../lib/jackyun/preflight-recovery";
+import { assertClosedPreflight, preflightClosurePath, jackyunWorkflowId, inspectPreflightClosure, publishPreflightClosure, recoverySha } from "../lib/jackyun/preflight-recovery";
 import { runJackyunExportFirstAction } from "../tools/jackyun-export-first-pipeline";
 
 const missing = "waiting_login：吉客云 DPAPI 凭据配置或解密未完成（missing）。";
 const challenge = "waiting_login：吉客云登录已停止（challenge_present）。";
+const browserPidMismatch = "waiting_login：调试端口不属于本次启动的独立浏览器，已停止接管。";
 const at = "2026-09-28T01:00:02.000Z";
 const nodes = ["每天本机时间 00:10", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"];
 async function fixture(t: TestContext, error = missing, mode = "trigger") {
@@ -146,4 +147,65 @@ test("local page failures close only after zero-effect proof and then allow the 
   await assertClosedPreflight(f.root, "9001");
   await mkdir(path.join(f.root, "outputs/jackyun-import-runs/n8n-export-first-9001"), { recursive: true });
   await assert.rejects(assertClosedPreflight(f.root, "9001"));
+});
+
+test("browser PID mismatch recovers through a fresh manual A only and keeps old execution bytes", async t => {
+  assert.equal(classifyJackyunPreflightFailure(browserPidMismatch), "manual");
+  for (const mode of ["trigger", "webhook"]) {
+    const f = await fixture(t, browserPidMismatch, mode);
+    await assert.rejects(f.recover(), /需要人工/);
+    await assert.rejects(readFile(preflightClosurePath(f.root, "9000")), /ENOENT/);
+  }
+  const f = await fixture(t, browserPidMismatch, "manual");
+  const originalPlan = await readFile(f.planPath), originalDb = await readFile(f.database);
+  let exports = 0;
+  await runJackyunExportFirstAction("plan-api", "9001", { ...f.deps, runApi: async () => { exports++; throw new Error("must not export in A"); } });
+  const receipt = JSON.parse(await readFile(preflightClosurePath(f.root, "9000"), "utf8"));
+  assert.equal(receipt.proof.evidence.error, browserPidMismatch);
+  assert.equal(receipt.replacementMode, "manual");
+  assert.equal(receipt.replacementExecutionId, "9001");
+  assert.equal(JSON.parse(await readFile(f.activePath, "utf8")).executionId, "9001");
+  assert.equal(exports, 0);
+  assert.deepEqual(await readFile(f.planPath), originalPlan);
+  assert.deepEqual(await readFile(f.database), originalDb);
+  await assert.rejects(runJackyunExportFirstAction("export-all", "9000", f.deps));
+});
+
+test("browser PID operator closure is create-only, preserves the exact error and rejects late evidence", async t => {
+  const f = await fixture(t, browserPidMismatch, "manual");
+  const evidence = f.recovery.readEvidence("9000", "9001").evidence;
+  const originalPlan = await readFile(f.planPath), originalActive = await readFile(f.activePath);
+  const proposal = await inspectPreflightClosure(f.root, "9000", evidence, at);
+  const sha = recoverySha(JSON.stringify(proposal));
+  await assert.rejects(publishPreflightClosure(f.root, proposal, evidence, "0".repeat(64)), /摘要/);
+  await publishPreflightClosure(f.root, proposal, evidence, sha);
+  await assertClosedPreflight(f.root, "9000");
+  await assert.rejects(publishPreflightClosure(f.root, proposal, evidence, sha), /EEXIST/);
+  assert.deepEqual(await readFile(f.planPath), originalPlan);
+  assert.deepEqual(await readFile(f.activePath), originalActive);
+  await mkdir(path.join(f.download, "jackyun", f.plan.runId), { recursive: true });
+  await assert.rejects(assertClosedPreflight(f.root, "9000"), /禁止/);
+});
+
+test("browser PID recovery rejects any business effect, concurrent run, wrong stage or lookalike error", async t => {
+  for (const fault of ["intent", "export", "events", "imports", "validation", "downloads", "concurrent", "stage"]) {
+    const f = await fixture(t, browserPidMismatch, "manual");
+    const effects = { events: path.join(f.root, "outputs/jackyun-browser-events", f.plan.runId), imports: path.join(f.root, "outputs/jackyun-import-runs", f.plan.runId), validation: path.join(f.root, "outputs/jackyun-export-first-validation", f.plan.runId), downloads: path.join(f.download, "jackyun", f.plan.runId) };
+    if (fault === "intent") await writeFile(f.planPath, JSON.stringify({ ...f.plan, exportIntent: "inventory" }));
+    if (fault === "export") await writeFile(f.planPath, JSON.stringify({ ...f.plan, exports: { inventory: {} } }));
+    if (fault in effects) await mkdir(effects[fault as keyof typeof effects], { recursive: true });
+    if (fault === "concurrent") f.changeDb("INSERT INTO execution_entity VALUES(9002,'J8kY2mQ5vR7sT4pN','running','manual','2026-09-28 01:00:01.000',NULL,NULL,NULL)");
+    if (fault === "stage") {
+      const writer = new DatabaseSync(f.database);
+      try {
+        const row = writer.prepare("SELECT data FROM execution_data WHERE executionId=9000").get()!;
+        writer.prepare("UPDATE execution_data SET data=? WHERE executionId=9000").run(String(row.data).replaceAll(nodes[4], "D·统一导入运营管理系统"));
+      } finally { writer.close(); }
+    }
+    await assert.rejects(f.recover());
+    await assert.rejects(readFile(preflightClosurePath(f.root, "9000")), /ENOENT/);
+  }
+  for (const message of [browserPidMismatch + " extra", browserPidMismatch.replace("已停止接管", "已接管"), "waiting_login：专用浏览器进程和 Profile 身份验证未通过。", "fetch failed"]) {
+    assert.equal(classifyJackyunPreflightFailure(message), null);
+  }
 });
