@@ -380,7 +380,8 @@
       "group": "S0",
       "bytes": 320,
       "sha256": "d971f652b98bfdd8ece7e8a799041f0bdc1ba929a3dabc4285af276c2b04983c",
-      "origin": "This subset document review"
+      "origin": "This subset document review",
+      "candidateFileCommit": "8be3c7ee567844227b4d42bcb08f9cde3ff85729"
     },
     {
       "path": "docs/release-pipeline-optimization-20261012/evidence-subset/results.json",
