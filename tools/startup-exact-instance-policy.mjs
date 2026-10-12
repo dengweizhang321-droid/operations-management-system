@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';import {createHash} from 'node:crypto';
+export const startupEvidenceSha256='7174f4bdc0cd447313406268a1e535a4343a216157657587aabf12367c3e6146';
+export const startupLaunchEvidenceSha256='29fbbfec512d10444dbb202d913e6d233667ca7c7052cccda00e5b817a60383f';
+const digest=b=>createHash('sha256').update(b).digest('hex');
+const batch='f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f',head='1a614e58caf56a243ea8dead3ce1609993fd993c3ed39cac296bf83c64617bd4';
+function keys(v,names){assert.deepEqual(Object.keys(v).sort(),[...names].sort());}
+function pid(n){assert(Number.isSafeInteger(n)&&n>4&&n<=2147483647);}
+function identity(v){pid(v.processId);assert(Number.isSafeInteger(v.parentProcessId)&&v.parentProcessId>=0);assert.match(v.nativeCreationFileTime,/^[0-9]{17,20}$/);assert.match(v.imageSha256,/^[a-f0-9]{64}$/);assert.match(v.commandSha256,/^[a-f0-9]{64}$/);assert(Number.isSafeInteger(v.depth)&&v.depth>=0&&v.depth<=16);}
+function fileTime(text){const m=/^(.*T\d\d:\d\d:\d\d)(?:\.(\d{1,7}))?(Z|[+-]\d\d:\d\d)$/.exec(text);assert(m);const ms=Date.parse(m[1]+m[3]);assert(Number.isFinite(ms));return BigInt(ms)*10000n+BigInt((m[2]??'').padEnd(7,'0'))+116444736000000000n;}
+export function fixedStartupRoots(raw,launchRaw){
+ assert.equal(digest(raw),startupEvidenceSha256,'Exact administrator source evidence required');const e=JSON.parse(raw);
+ assert.equal(e.administrator,true);assert.equal(e.sid,'S-1-5-21-815909789-107973518-1379257801-1001');assert.equal(e.originalOwnershipEstablished,false);assert.equal(e.context.head,head);assert.equal(e.context.walCount,49);assert.deepEqual(e.context.owner,{batchSha256:batch,id:'first-adoption-live-guard-20261011'});assert.equal(e.context.specSha256,'960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b');assert.equal(e.context.workerManifestSha256,'6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4');assert.equal(e.context.djangoManifestSha256,'85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09');assert.equal(e.rows.length,25);
+ assert.equal(digest(launchRaw),startupLaunchEvidenceSha256);const launch=JSON.parse(launchRaw);assert.equal(launch.safeEvidenceSha256,startupEvidenceSha256);assert.equal(launch.intervals.length,23);
+ for(const row of e.rows.filter(r=>r.auditStartup)){const matches=launch.intervals.filter(x=>x.processId===row.processId);assert.equal(matches.length,1);const item=matches[0];assert.equal(item.service,row.service);assert.equal(item.nativeCreationFileTime,row.nativeCreationFileTime);assert.equal(item.launchPhase.runId,row.auditStartup.runId);assert.equal(digest(JSON.stringify(item.launchPhase)),item.launchRawSha256);const m=/^stage=launch-([^ ]+) startedAt=([^ ]+) elapsedMilliseconds=(\d+) outcome=completed processId=(\d+)$/.exec(item.launchPhase.message);assert(m);assert.equal(m[1],row.service);assert.equal(Number(m[4]),row.parentProcessId);const born=BigInt(row.nativeCreationFileTime),begin=fileTime(m[2]);assert(born>=begin&&born<=begin+BigInt(m[3])*10000n);}
+ const roots=e.rows.filter(r=>r.auditStartup).map(r=>{assert.equal(r.identityStable,true);assert.equal(r.commandStable,true);assert.equal(r.nativeCimBirthEqual,true);return{processId:r.processId,parentProcessId:r.parentProcessId,nativeCreationFileTime:r.nativeCreationFileTime,imageSha256:r.imageSha256,commandSha256:r.commandLineSha256,service:r.service,startupRawSha256:r.startupRawSha256,removalRawSha256:r.removalRawSha256,depth:0}});
+ assert.equal(roots.length,23);assert(!roots.some(r=>r.processId===43884||r.processId===3692));return roots;
+}
+export function assertStartupStopDeclaration(plan,raw,launchRaw){
+ keys(plan,['version','batchSha256','walHead','repairId','sourceEvidenceSha256','sourceLaunchEvidenceSha256','roots','descendants']);assert.equal(plan.version,'startup-exact-instance-stop-v1');assert.equal(plan.batchSha256,batch);assert.equal(plan.walHead,head);assert.equal(plan.repairId,'12c465652dbc4b5f9f54d0b0f30eeb3a');assert.equal(plan.sourceEvidenceSha256,startupEvidenceSha256);assert.equal(plan.sourceLaunchEvidenceSha256,startupLaunchEvidenceSha256);
+ const roots=fixedStartupRoots(raw,launchRaw);assert.deepEqual(plan.roots,roots,'Only the 23 recorded service roots are eligible');assert(Array.isArray(plan.descendants));assert(roots.length+plan.descendants.length<=128);
+ const byId=new Map();for(const r of roots){identity(r);byId.set(r.processId,r)}
+ for(const d of plan.descendants){keys(d,['processId','parentProcessId','nativeCreationFileTime','imageSha256','commandSha256','rootProcessId','depth']);identity(d);assert(d.depth>0);assert(!byId.has(d.processId));assert(roots.some(r=>r.processId===d.rootProcessId));byId.set(d.processId,d)}
+ for(const d of plan.descendants){const p=byId.get(d.parentProcessId);assert(p,'Every declared descendant must connect to a declared parent');assert.equal(d.depth,p.depth+1);assert.equal(d.rootProcessId,p.rootProcessId??p.processId);assert(BigInt(d.nativeCreationFileTime)>=BigInt(p.nativeCreationFileTime),'Child predates its declared parent')}
+ return [...roots,...plan.descendants].map(r=>({processId:r.processId,parentProcessId:r.parentProcessId,nativeCreationFileTime:r.nativeCreationFileTime,imageSha256:r.imageSha256,commandSha256:r.commandSha256,depth:r.depth})).sort((a,b)=>b.depth-a.depth||a.processId-b.processId);
+}
+// This policy is not a production entrypoint or an approval. A future wrapper
+// must bind this complete plan, fresh census/held handles, drain and mutex scope.

@@ -1,0 +1,114 @@
+✔ fixed 23 roots bind actual metadata and independently computed launch intervals (4.4783ms)
+✔ reject root-omission (3.3246ms)
+✔ reject worker-injection (2.5074ms)
+✔ reject root-birth (1.3889ms)
+✔ reject parent (1.9278ms)
+✔ reject depth (1.6542ms)
+✔ reject WAL (0.7281ms)
+✔ reject source (0.588ms)
+✔ reject launch-source (0.5261ms)
+✔ reject duplicate-root (1.6431ms)
+✔ descendant connection/depth/birth must be declared and coherent (5.1253ms)
+✖ exact stop mocked on powershell.exe (663.0205ms)
+✖ exact stop private on powershell.exe (421.6223ms)
+✔ exact stop mocked on pwsh.exe (1591.8789ms)
+✖ exact stop private on pwsh.exe (1612.6884ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 12
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4432.9591
+
+✖ failing tests:
+
+test at tests\startup-exact-instance-stop.test.mjs:9:89
+✖ exact stop mocked on powershell.exe (663.0205ms)
+  AssertionError [ERR_ASSERTION]: 
+  Get-FileHash : �޷�����Get-FileHash����ʶ��Ϊ cmdlet���������ű��ļ�������г�������ơ��������Ƶ�ƴд���������·������ȷ
+  ��·����ȷ��Ȼ������һ�Ρ�
+  ����λ�� D:\.codex\worktrees\startup-status-receipt-safety\��Ӫ����ϵͳ\tools\startup-exact-instance-stop.ps1:4 �ַ�: 5
+  + if((Get-FileHash -LiteralPath $nativePath -Algorithm SHA256).Hash.ToL ...
+  +     ~~~~~~~~~~~~
+      + CategoryInfo          : ObjectNotFound: (Get-FileHash:String) [], ParentContainsErrorRecordException
+      + FullyQualifiedErrorId : CommandNotFoundException
+   
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/startup-status-receipt-safety/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/startup-exact-instance-stop.test.mjs:9:471)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\startup-exact-instance-stop.test.mjs:9:89
+✖ exact stop private on powershell.exe (421.6223ms)
+  AssertionError [ERR_ASSERTION]: 
+  Get-FileHash : �޷�����Get-FileHash����ʶ��Ϊ cmdlet���������ű��ļ�������г�������ơ��������Ƶ�ƴд���������·������ȷ
+  ��·����ȷ��Ȼ������һ�Ρ�
+  ����λ�� D:\.codex\worktrees\startup-status-receipt-safety\��Ӫ����ϵͳ\tools\startup-exact-instance-stop.ps1:4 �ַ�: 5
+  + if((Get-FileHash -LiteralPath $nativePath -Algorithm SHA256).Hash.ToL ...
+  +     ~~~~~~~~~~~~
+      + CategoryInfo          : ObjectNotFound: (Get-FileHash:String) [], ParentContainsErrorRecordException
+      + FullyQualifiedErrorId : CommandNotFoundException
+   
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/startup-status-receipt-safety/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/startup-exact-instance-stop.test.mjs:9:471)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\startup-exact-instance-stop.test.mjs:9:89
+✖ exact stop private on pwsh.exe (1612.6884ms)
+  AssertionError [ERR_ASSERTION]: 
+  Get-ProcessDeadline: D:\.codex\worktrees\startup-status-receipt-safety\��Ӫ����ϵͳ\tools\watchdog-native-metadata.ps1:34
+  Line |
+    34 |    [void](Get-ProcessRemaining (Get-ProcessDeadline))
+       |                                 ~~~~~~~~~~~~~~~~~~~
+       | The term 'Get-ProcessDeadline' is not recognized as a name of a cmdlet, function, script file, or executable
+       | program. Check the spelling of the name, or if a path was included, verify that the path is correct and try
+       | again.
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/startup-status-receipt-safety/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/startup-exact-instance-stop.test.mjs:9:471)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

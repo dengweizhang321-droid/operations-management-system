@@ -1,0 +1,337 @@
+{
+  "version": "exact-stop-core-evidence-v2",
+  "productionStopExecuted": false,
+  "integratedRecoveryPackageReady": false,
+  "files": [
+    {
+      "name": "AGY_EXACT_STOP_CORE_CALL.json",
+      "bytes": 121,
+      "sha256": "25b5c79a9b4ec1cd2f9f7a7e141fb676d6af814c752cafbd711c7109f63a74bf",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\AGY_EXACT_STOP_CORE_CALL.json"
+    },
+    {
+      "name": "AGY_EXACT_STOP_CORE_PROMPT.txt",
+      "bytes": 17328,
+      "sha256": "b503bd269322db893b67e4581f0887b573e62705926d253c2465b7495be1202f",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\AGY_EXACT_STOP_CORE_PROMPT.txt"
+    },
+    {
+      "name": "AGY_EXACT_STOP_CORE_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\AGY_EXACT_STOP_CORE_STDERR.log"
+    },
+    {
+      "name": "AGY_EXACT_STOP_CORE_STREAM.ndjson",
+      "bytes": 15349,
+      "sha256": "a1898e5ab8901b26d0f824c1f10d2d7b95ee39fe4edeee08e17a6fa7f9fac881",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\AGY_EXACT_STOP_CORE_STREAM.ndjson"
+    },
+    {
+      "name": "AGY_EXACT_STOP_V2_CALL.json",
+      "bytes": 121,
+      "sha256": "24c7bcfed084544f641933aa5307750de5a6278d78878538480cc666ec1a3437",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\AGY_EXACT_STOP_V2_CALL.json"
+    },
+    {
+      "name": "AGY_EXACT_STOP_V2_PROMPT.txt",
+      "bytes": 4587,
+      "sha256": "0e54ee7cca8d174ad4456564911c3304bc0a63534c630fb298cf51e277d2197e",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\AGY_EXACT_STOP_V2_PROMPT.txt"
+    },
+    {
+      "name": "AGY_EXACT_STOP_V2_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\AGY_EXACT_STOP_V2_STDERR.log"
+    },
+    {
+      "name": "AGY_EXACT_STOP_V2_STREAM.ndjson",
+      "bytes": 5462,
+      "sha256": "59f46159eef7227f4d7bcb70fe5fc45c349e1856db839d8cc8adaec9152aac56",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\AGY_EXACT_STOP_V2_STREAM.ndjson"
+    },
+    {
+      "name": "EXACT_STOP_FINAL_TEST.log",
+      "bytes": 810,
+      "sha256": "93fe1b36f977df4052fd623d223900841f9f75ece982fb5862673882b4a500ae",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_FINAL_TEST.log"
+    },
+    {
+      "name": "EXACT_STOP_FIRST_TEST.log",
+      "bytes": 5582,
+      "sha256": "7481c27b310a006eb8220edb6a58dffa8ce893646ab1a4e14a9b6ac7c2d7ff52",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_FIRST_TEST.log"
+    },
+    {
+      "name": "EXACT_STOP_SECOND_TEST.log",
+      "bytes": 3595,
+      "sha256": "048da360c2e914133cef76b95cd97803dc02535ecf1412a1d884e291093f7c80",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_SECOND_TEST.log"
+    },
+    {
+      "name": "EXACT_STOP_THIRD_TEST.log",
+      "bytes": 812,
+      "sha256": "57e285908e1b82fa4f59dfd7c409991be2a8269f7eb5a7dcc49078718f6c516c",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_THIRD_TEST.log"
+    },
+    {
+      "name": "EXACT_STOP_V1_EXPIRY_REPRO_RESULT.json",
+      "bytes": 450,
+      "sha256": "728fabe9ed82ef25de8c8238ff69c9da4da4e705749f84e476a4b051b39d0258",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_V1_EXPIRY_REPRO_RESULT.json"
+    },
+    {
+      "name": "EXACT_STOP_V1_EXPIRY_REPRO.ps1.source.txt",
+      "bytes": 6674,
+      "sha256": "7d2ded9c528f6b0531bc8489435e977c04d61d45073fe95f9bb49637f558b789",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_V1_EXPIRY_REPRO.ps1"
+    },
+    {
+      "name": "EXACT_STOP_V2_TEST.log",
+      "bytes": 813,
+      "sha256": "3c1eb88fa26ba15b4a23b64d55d7bdddbd0dbf590827c4dc510b501a6a7c0167",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_V2_TEST.log"
+    },
+    {
+      "name": "final-source/startup-exact-instance-policy.mjs.source.txt",
+      "bytes": 5510,
+      "sha256": "0ab41f6eca96c4d60b5231508bf2abe455451cd5cb91f199b340add07ad9886c",
+      "source": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\tools\\startup-exact-instance-policy.mjs"
+    },
+    {
+      "name": "final-source/startup-exact-instance-stop.ps1.source.txt",
+      "bytes": 8491,
+      "sha256": "35a98102c9b76c8a95232f3f07584dcba932a819eae683f2391c4345297fb8a3",
+      "source": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\tools\\startup-exact-instance-stop.ps1"
+    },
+    {
+      "name": "final-source/startup-exact-instance-stop.test.mjs.source.txt",
+      "bytes": 3658,
+      "sha256": "49b389172ae344dac3b7159329ae2dc658f0f724bbfff67fe6d9515f236fcd4e",
+      "source": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\tests\\startup-exact-instance-stop.test.mjs"
+    },
+    {
+      "name": "final-source/startup-exact-stop-mocked.ps1.source.txt",
+      "bytes": 2945,
+      "sha256": "1b76cf0f74259ee2c6c77e8662b2cdcdbc5cb7e2ef0f8b8ace25683ba3c39f07",
+      "source": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\tests\\startup-exact-stop-mocked.ps1"
+    },
+    {
+      "name": "final-source/startup-exact-stop-private.ps1.source.txt",
+      "bytes": 2347,
+      "sha256": "760d4281dc4bfda63c9d66e6aa8e487226d511c47f9a58aaefb903cd22fcb2b7",
+      "source": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\tests\\startup-exact-stop-private.ps1"
+    },
+    {
+      "name": "ROOT_EXACT_STOP_REVIEW_V1.json",
+      "bytes": 1389,
+      "sha256": "192af5ebede35f822f18a5ddf7c2ed467897a95f500d35cedc421b51262155a1",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\ROOT_EXACT_STOP_REVIEW_V1.json"
+    },
+    {
+      "name": "ROOT_EXACT_STOP_REVIEW_V2.json",
+      "bytes": 1327,
+      "sha256": "31ff6e89047cdc38495c29f59a54465102c90511e5254d3341dcfc5cd617d5a0",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\ROOT_EXACT_STOP_REVIEW_V2.json"
+    },
+    {
+      "name": "ROOT_LEGACY_ACTOR_OBSERVATION_V1.json",
+      "bytes": 2064,
+      "sha256": "4ac9589897cbbe08af74c7d3942cca6a8194281a9873e181e0f8366e3e4ce72e",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\ROOT_LEGACY_ACTOR_OBSERVATION_V1.json"
+    },
+    {
+      "name": "ROOT_LEGACY_ACTOR_TRANSPORT_V1.json",
+      "bytes": 658,
+      "sha256": "8743912758b7bcbb79a3755dd63747a904f1a1298f233e4a464d4d8360474b92",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\ROOT_LEGACY_ACTOR_TRANSPORT_V1.json"
+    },
+    {
+      "name": "root-source/capture-legacy-actors.mjs.source.txt",
+      "bytes": 1822,
+      "sha256": "5dc20321098fce6f399abc03c6613627e2d6891925b0decb0b40891d0a757e55",
+      "source": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\capture-legacy-actors.mjs"
+    },
+    {
+      "name": "root-source/Observe-LegacyStatusActors.ps1.source.txt",
+      "bytes": 2255,
+      "sha256": "e4ded82918f906fe7d44fb72cc0b23a397e035a7a23c84571747e22d2e2e2f09",
+      "source": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\Observe-LegacyStatusActors.ps1"
+    },
+    {
+      "name": "v1-expiry-powershell.exe/duplicate.jsonl",
+      "bytes": 81,
+      "sha256": "a5ace5898184b461c47a113a28dc1fb2d2f7801c524820e98d8559433703572d",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-powershell.exe\\duplicate.jsonl"
+    },
+    {
+      "name": "v1-expiry-powershell.exe/expiry-during-census.jsonl",
+      "bytes": 383,
+      "sha256": "7d6717fafe9af137293f2947951716444cbb805c3083f54cc14cf19cb1cfa4a0",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-powershell.exe\\expiry-during-census.jsonl"
+    },
+    {
+      "name": "v1-expiry-powershell.exe/invalid-second.jsonl",
+      "bytes": 81,
+      "sha256": "e2a5b3c07d59ad4098eadcb3e94693fc1cd7e85fad1242a4e61fdb86e0af8d05",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-powershell.exe\\invalid-second.jsonl"
+    },
+    {
+      "name": "v1-expiry-powershell.exe/new-child-after-first.jsonl",
+      "bytes": 383,
+      "sha256": "c56c5ed29f6769be5a4bc474f2c6ba8bda48d4aa65e97418859873731e192bf9",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-powershell.exe\\new-child-after-first.jsonl"
+    },
+    {
+      "name": "v1-expiry-powershell.exe/second-stop-fails.jsonl",
+      "bytes": 513,
+      "sha256": "a4ffd441f1aff9e40a36cb04fe1fc40fb770426f4e7e7a6ed8b93b5738fa1c0b",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-powershell.exe\\second-stop-fails.jsonl"
+    },
+    {
+      "name": "v1-expiry-powershell.exe/stderr.log",
+      "bytes": 517,
+      "sha256": "a0dde9ec0908425da8c1cfde92336a59c1fededf24fb220057416256d541a4cf",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-powershell.exe\\stderr.log"
+    },
+    {
+      "name": "v1-expiry-powershell.exe/stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-powershell.exe\\stdout.log"
+    },
+    {
+      "name": "v1-expiry-powershell.exe/success.jsonl",
+      "bytes": 518,
+      "sha256": "91868e6a769443fdde1fce442e24fdc6e195183ed6347117544218d1182402bf",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-powershell.exe\\success.jsonl"
+    },
+    {
+      "name": "v1-expiry-powershell.exe/unknown-before.jsonl",
+      "bytes": 81,
+      "sha256": "e5bdaadc4e8879626119ab80b9584ade70aca4fe83835e421395f6dcd0b95c17",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-powershell.exe\\unknown-before.jsonl"
+    },
+    {
+      "name": "v1-expiry-pwsh.exe/duplicate.jsonl",
+      "bytes": 81,
+      "sha256": "e27590f0a7e1f704211637cf6a411cf56793e2190116e9f1b076784141276749",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-pwsh.exe\\duplicate.jsonl"
+    },
+    {
+      "name": "v1-expiry-pwsh.exe/expiry-during-census.jsonl",
+      "bytes": 383,
+      "sha256": "7928179dc28f159c8d7fcfc376928dc96a7f1f83113a86b7223f977111c3df44",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-pwsh.exe\\expiry-during-census.jsonl"
+    },
+    {
+      "name": "v1-expiry-pwsh.exe/invalid-second.jsonl",
+      "bytes": 81,
+      "sha256": "894758673bf55925a11a444bf3190ef744de1a3c698861702aafe8dfdd176d94",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-pwsh.exe\\invalid-second.jsonl"
+    },
+    {
+      "name": "v1-expiry-pwsh.exe/new-child-after-first.jsonl",
+      "bytes": 383,
+      "sha256": "d20059e4d970d63e20f8b8f8e227f855090f026a8dc2a8a3f214650ab0397c17",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-pwsh.exe\\new-child-after-first.jsonl"
+    },
+    {
+      "name": "v1-expiry-pwsh.exe/second-stop-fails.jsonl",
+      "bytes": 513,
+      "sha256": "b5f5c5dc87601430a23012b5e84d9eb306aff67c22dd0c42e76ae842ab138416",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-pwsh.exe\\second-stop-fails.jsonl"
+    },
+    {
+      "name": "v1-expiry-pwsh.exe/stderr.log",
+      "bytes": 327,
+      "sha256": "4bc20853052e49c5858fc8fdc8ceece23f644191dd11a2da32c29f366e0768b2",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-pwsh.exe\\stderr.log"
+    },
+    {
+      "name": "v1-expiry-pwsh.exe/stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-pwsh.exe\\stdout.log"
+    },
+    {
+      "name": "v1-expiry-pwsh.exe/success.jsonl",
+      "bytes": 518,
+      "sha256": "77a90cf5188d58f89836c49a6df60d257ce11824bba7aad6cd7c08a325deaba8",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-pwsh.exe\\success.jsonl"
+    },
+    {
+      "name": "v1-expiry-pwsh.exe/unknown-before.jsonl",
+      "bytes": 81,
+      "sha256": "27f2dbaefc9780a9ee658b41dc874587b2b035da3d836efbace8ad41e42e0f3a",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\v1-expiry-pwsh.exe\\unknown-before.jsonl"
+    },
+    {
+      "name": "v1-source/startup-exact-instance-policy.mjs.source.txt",
+      "bytes": 5510,
+      "sha256": "0ab41f6eca96c4d60b5231508bf2abe455451cd5cb91f199b340add07ad9886c",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_V1_SOURCE\\startup-exact-instance-policy.mjs"
+    },
+    {
+      "name": "v1-source/startup-exact-instance-stop.ps1.source.txt",
+      "bytes": 8316,
+      "sha256": "f26a1ec322ffd5aaeef42801db1d428cc766a69c60d57b464a0e960b3f040f73",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_V1_SOURCE\\startup-exact-instance-stop.ps1"
+    },
+    {
+      "name": "v1-source/startup-exact-instance-stop.test.mjs.source.txt",
+      "bytes": 3658,
+      "sha256": "2e05eb57cc6d6d29c1352d0558da94b5860643dfadda4032a28d43f965440721",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_V1_SOURCE\\startup-exact-instance-stop.test.mjs"
+    },
+    {
+      "name": "v1-source/startup-exact-stop-mocked.ps1.source.txt",
+      "bytes": 2566,
+      "sha256": "292e54ad034b104bc6e27ae75fd64fac3e8c562665551363f00f65541a5f74e1",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_V1_SOURCE\\startup-exact-stop-mocked.ps1"
+    },
+    {
+      "name": "v1-source/startup-exact-stop-private.ps1.source.txt",
+      "bytes": 2347,
+      "sha256": "760d4281dc4bfda63c9d66e6aa8e487226d511c47f9a58aaefb903cd22fcb2b7",
+      "source": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\EXACT_STOP_V1_SOURCE\\startup-exact-stop-private.ps1"
+    }
+  ],
+  "finalSources": [
+    {
+      "path": "tools/startup-exact-instance-policy.mjs",
+      "bytes": 5510,
+      "sha256": "0ab41f6eca96c4d60b5231508bf2abe455451cd5cb91f199b340add07ad9886c"
+    },
+    {
+      "path": "tools/startup-exact-instance-stop.ps1",
+      "bytes": 8491,
+      "sha256": "35a98102c9b76c8a95232f3f07584dcba932a819eae683f2391c4345297fb8a3"
+    },
+    {
+      "path": "tests/startup-exact-instance-stop.test.mjs",
+      "bytes": 3658,
+      "sha256": "49b389172ae344dac3b7159329ae2dc658f0f724bbfff67fe6d9515f236fcd4e"
+    },
+    {
+      "path": "tests/startup-exact-stop-mocked.ps1",
+      "bytes": 2945,
+      "sha256": "1b76cf0f74259ee2c6c77e8662b2cdcdbc5cb7e2ef0f8b8ace25683ba3c39f07"
+    },
+    {
+      "path": "tests/startup-exact-stop-private.ps1",
+      "bytes": 2347,
+      "sha256": "760d4281dc4bfda63c9d66e6aa8e487226d511c47f9a58aaefb903cd22fcb2b7"
+    }
+  ],
+  "tests": {
+    "nodeTests": 15,
+    "mockedCasesPerHost": 8,
+    "hosts": [
+      "Windows PowerShell 5",
+      "PowerShell 7"
+    ],
+    "actualTerminationScope": "Only newly spawned private disposable GUI child processes"
+  }
+}
