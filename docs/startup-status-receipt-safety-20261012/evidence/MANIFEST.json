@@ -1,0 +1,119 @@
+{
+  "files": [
+    {
+      "name": "ASTRA_FIRST_TEST.log",
+      "sha256": "45974fe92895a326bc9453a79e343f379a57a01d36521cf831a7c5adda7bc924",
+      "bytes": 2838
+    },
+    {
+      "name": "ASTRA_SECOND_TEST.log",
+      "sha256": "c32d5d5ec407c22b94ac35ce5d7444ed81a9c0cebf54a23000443dbe6ce81c83",
+      "bytes": 286
+    },
+    {
+      "name": "ASTRA_FINAL_TEST.log",
+      "sha256": "abd629218ea0a4bce9af488b00258c1b9a1b7197241c801c5498cbc538e3163b",
+      "bytes": 288
+    },
+    {
+      "name": "ASTRA_V2_TEST.log",
+      "sha256": "8388dd0564e0b2b5e3f1865a754df9ea066c17c87c71d256fbc1c1aa633ddb34",
+      "bytes": 288
+    },
+    {
+      "name": "ASTRA_BASELINE_REPRODUCTION.log",
+      "sha256": "357e1f64e897b7b1464a5227c42fe6c4331f9243f3f77259754d5a5d04764ead",
+      "bytes": 436
+    },
+    {
+      "name": "ASTRA_DRIVER_COMPATIBILITY.log",
+      "sha256": "5a1648ccf5478545ef158d2a261c3531335bd5ba774cddf7e456cb8937428bbe",
+      "bytes": 221
+    },
+    {
+      "name": "ASTRA_STATUS_BOUNDED.log",
+      "sha256": "ca419c49ff1c96f4bd1ae4fae5804e66695a831a306827df472e09ea599ad1b4",
+      "bytes": 87
+    },
+    {
+      "name": "ASTRA_SOURCE_FREEZE.json",
+      "sha256": "a3cc39fab35bec3749b7b9eafdbf424e31e8af66f14293de2e28969b4c7c4918",
+      "bytes": 1787
+    },
+    {
+      "name": "ASTRA_SOURCE_FREEZE_V2.json",
+      "sha256": "b1c35b386a2e34e27ca29d2fe650e44db6bb51aaf5eb30d4c605c9aacf78eed4",
+      "bytes": 1435
+    },
+    {
+      "name": "FINAL_RUNTIME_PATCH.diff",
+      "sha256": "efb6578cb673ddfb29cb29f01e0d199d63217a2230b7997e783fd2130481d4f2",
+      "bytes": 5356
+    },
+    {
+      "name": "FINAL_RUNTIME_PATCH_V2.diff",
+      "sha256": "d34b08b0a5550b7cf6c355cdbf9d0c97600a654cb8982e9dc7bcc1184f54c546",
+      "bytes": 5790
+    },
+    {
+      "name": "AGY_STATUS_SAFETY_PROMPT.txt",
+      "sha256": "4e0a9538fc5b470841d7060874eb395ac8eb56aba58900f781c58431e6585326",
+      "bytes": 27631
+    },
+    {
+      "name": "AGY_STATUS_SAFETY_STREAM.ndjson",
+      "sha256": "26db72130f747f398bcad51e3759a8ac7a396ca5cdec13efced1b9de318db946",
+      "bytes": 18626
+    },
+    {
+      "name": "AGY_STATUS_SAFETY_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "name": "AGY_STATUS_SAFETY_CALL.json",
+      "sha256": "9dd51014a1fbeb5499e69208c8fcc5aa1f844de96d17f5a68a35961c95d73a32",
+      "bytes": 268
+    },
+    {
+      "name": "AGY_CASE_DELTA_PROMPT.txt",
+      "sha256": "0a84d9d2bc0db80c195a747ea26b0d5bfbfb900733ae6b4aa3b74bf9e796fc24",
+      "bytes": 1073
+    },
+    {
+      "name": "AGY_CASE_DELTA_STREAM.ndjson",
+      "sha256": "e2d9d66846fbe59209f2051858d348f31b5210f72bc8620e9b37dde0c7d64ad8",
+      "bytes": 5553
+    },
+    {
+      "name": "AGY_CASE_DELTA_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "name": "AGY_CASE_DELTA_CALL.json",
+      "sha256": "84dcbe01dfb668b83e51597ad48a9ec1cd41ec34af0830e3a67d884d492ecf4d",
+      "bytes": 110
+    },
+    {
+      "name": "AGY_STARTUP_WAIT_V2_PROMPT.txt",
+      "sha256": "7b0eeb3a69881ed6eb353f3532e6394e629a9550385b68d7a2b88a1bdf7d1e9d",
+      "bytes": 2406
+    },
+    {
+      "name": "AGY_STARTUP_WAIT_V2_STREAM.ndjson",
+      "sha256": "8b85d8a97687c3cdd5e93e23e1f2681dae33c74adb8d42358ebbc3508c1ca680",
+      "bytes": 7165
+    },
+    {
+      "name": "AGY_STARTUP_WAIT_V2_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "name": "AGY_STARTUP_WAIT_V2_CALL.json",
+      "sha256": "f26806757cb7eaa750b39c020ba894c8eb0502fe033dc8d57100e058b7b79a49",
+      "bytes": 110
+    }
+  ]
+}

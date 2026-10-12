@@ -1,0 +1,521 @@
+{
+  "version": "fixed-startup-audit-labels-v1",
+  "source": "D:/teruisi-runtime/django-sales/logs/launcher.jsonl",
+  "entries": [
+    {
+      "service": "django-reader",
+      "processId": 9440,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:13.5007006+08:00",
+        "runId": "20261012-100031-9182436a",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-reader pid=9440"
+      },
+      "startupRawSha256": "88af607dbc05afbfa9d30b9f1b7d4fe3381ab8aa4969df1e18278742c5377db1",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:29.8125757+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-reader.pid.json"
+      },
+      "removalRawSha256": "11058a5aee2578d880ab42c479d28d53b9559219cde61b7e180ba2b46a6eefce"
+    },
+    {
+      "service": "django-writer",
+      "processId": 38400,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:14.3034784+08:00",
+        "runId": "20261012-100031-9182436a",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-writer pid=38400"
+      },
+      "startupRawSha256": "3490cfc4ee1476597ed9fd4cba339ce0f2f30aa7b0990f25f27468f08875383c",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:30.7339719+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-writer.pid.json"
+      },
+      "removalRawSha256": "19680e1d6f053263284c81e8d1cbbc81c0d152282d4e5494b601a68e7b9dda61"
+    },
+    {
+      "service": "django-finance-reader",
+      "processId": 52220,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:16.9865392+08:00",
+        "runId": "20261012-100031-9182436a",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-finance-reader pid=52220"
+      },
+      "startupRawSha256": "d0615cbee7edd4f4601c37f6662251c1ce43c5216f57892d950f2d2779513b42",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:31.6960780+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-finance-reader.pid.json"
+      },
+      "removalRawSha256": "7bacd5fccf500bc6fd7b35fccdad13259e1d255552bac1a3fa9d68aba24c34c6"
+    },
+    {
+      "service": "django-finance-writer",
+      "processId": 53960,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:18.8090168+08:00",
+        "runId": "20261012-100031-9182436a",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-finance-writer pid=53960"
+      },
+      "startupRawSha256": "627c477a015f8e02714ccc2584c04962e43dbcb916f3f7b17c8a7728d8fddd05",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:32.7190247+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-finance-writer.pid.json"
+      },
+      "removalRawSha256": "e82d10475d4ae5bee6eb11350dbe6dd25a03fc8b6a0a2e028ab6edf6f8529bdd"
+    },
+    {
+      "service": "django-netshop-reader",
+      "processId": 28016,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:22.9375121+08:00",
+        "runId": "20261012-100120-2329fe88",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-netshop-reader pid=28016"
+      },
+      "startupRawSha256": "871822221c10353a4608c51b99308f3623da02af065ff653a06f80a1554e4fdf",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:34.8235460+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-netshop-reader.pid.json"
+      },
+      "removalRawSha256": "7323380fbfea6d60ec7089488bf97c73df07f65dc53ca4f990c75b533743c4f3"
+    },
+    {
+      "service": "django-netshop-writer",
+      "processId": 62716,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:23.7213457+08:00",
+        "runId": "20261012-100120-2329fe88",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-netshop-writer pid=62716"
+      },
+      "startupRawSha256": "8ad525b71a7a504272ddd16f947ac8541dbdd4e1cde3d03933d06f20a80fb8b8",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:35.7201043+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-netshop-writer.pid.json"
+      },
+      "removalRawSha256": "a380423d0b176ca4cc8c60d5d10916d5d5fc70ae2332987ec075c53f9ba0ce9e"
+    },
+    {
+      "service": "django-market-reader",
+      "processId": 36644,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:27.6294788+08:00",
+        "runId": "20261012-100124-1b36300c",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-market-reader pid=36644"
+      },
+      "startupRawSha256": "a976b33e717aa8b1cce493504b3dc44a8997e7db41d69ae9f47e592a08f44ca3",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:36.6188464+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-market-reader.pid.json"
+      },
+      "removalRawSha256": "3d188a8bcdd4f5b5ea3e66f69b8e3b2f936f3244654afefbc79fd3572a8abc2f"
+    },
+    {
+      "service": "django-market-writer",
+      "processId": 52636,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:28.5170235+08:00",
+        "runId": "20261012-100124-1b36300c",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-market-writer pid=52636"
+      },
+      "startupRawSha256": "d1a1fa8b3c0b12c7102ade18d702a547a96ee9560cc0444ac175e27421627f5f",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:37.5154363+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-market-writer.pid.json"
+      },
+      "removalRawSha256": "b73fbbc463b07f5b4e4230f692a57d2202ea34ea1c424f3cc7168152b7ed9b98"
+    },
+    {
+      "service": "django-products-reader",
+      "processId": 72676,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:32.4775254+08:00",
+        "runId": "20261012-100129-4e86bf3a",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-products-reader pid=72676"
+      },
+      "startupRawSha256": "2d45f6d110e164c0a39e8b151a77f3f73f4712c6396b7115bc1c22dfe799770d",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:38.4578562+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-products-reader.pid.json"
+      },
+      "removalRawSha256": "80c7a17b1114a595128656ccea422dc496ef374fe04b92e172ad581d3e4c15ef"
+    },
+    {
+      "service": "django-products-writer",
+      "processId": 70032,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:33.3283153+08:00",
+        "runId": "20261012-100129-4e86bf3a",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-products-writer pid=70032"
+      },
+      "startupRawSha256": "ec9206755c640ee743306d5146ea263e5e9cbfa36919d224f5e93732027cd7ef",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:39.3715961+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-products-writer.pid.json"
+      },
+      "removalRawSha256": "244c05742ee91ef96c95acfbeaceb00ba61d17a2ce1f5405b6a67be677159161"
+    },
+    {
+      "service": "django-inventory-reader",
+      "processId": 62748,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:37.6325183+08:00",
+        "runId": "20261012-100134-7b77337b",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-inventory-reader pid=62748"
+      },
+      "startupRawSha256": "d3a6eaedb3ee0a6a905d1fea720ce4d713897138e8b1b1bb8695095fb86cc2c5",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:40.2442341+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-inventory-reader.pid.json"
+      },
+      "removalRawSha256": "72e9d48cdf048d152e3e890a295613a12204183aa4553da83403a5ced0d9464d"
+    },
+    {
+      "service": "django-inventory-writer",
+      "processId": 41596,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:38.5170512+08:00",
+        "runId": "20261012-100134-7b77337b",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-inventory-writer pid=41596"
+      },
+      "startupRawSha256": "3582fa110e9785a507482548b70f7e10e8be082c3f306e96a31f8103450c60ba",
+      "removal": {
+        "timestamp": "2026-10-12T10:01:41.1446202+08:00",
+        "runId": "20261012-100127-ffef52d2",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-inventory-writer.pid.json"
+      },
+      "removalRawSha256": "7107873530c51323e56891d2371d380f24051885dea85e4432c0106456445eb0"
+    },
+    {
+      "service": "django-workflow-reader",
+      "processId": 12556,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:43.4675941+08:00",
+        "runId": "20261012-100140-17af535b",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-workflow-reader pid=12556"
+      },
+      "startupRawSha256": "8455f689b3a1d10f63e132f9df3273570031fef57cf345dba6de3263752eec7a",
+      "removal": {
+        "timestamp": "2026-10-12T10:02:37.7793915+08:00",
+        "runId": "20261012-100227-d88f59f5",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-workflow-reader.pid.json"
+      },
+      "removalRawSha256": "6ef4659b66e36a3690c8fdf98b8c7217dc6dd87a6bf37e537767df0c98f16f73"
+    },
+    {
+      "service": "django-workflow-writer",
+      "processId": 31216,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:44.3261599+08:00",
+        "runId": "20261012-100140-17af535b",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-workflow-writer pid=31216"
+      },
+      "startupRawSha256": "5c6be8d1acb39d7ba6e7b46ecafe4f9ee95f6487ed788829e3572e6e6bb67b96",
+      "removal": {
+        "timestamp": "2026-10-12T10:02:38.9277601+08:00",
+        "runId": "20261012-100227-d88f59f5",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-workflow-writer.pid.json"
+      },
+      "removalRawSha256": "def8c80d845bbc991924984861883e7c7aff4244f0e44b78ab3f05c33a4fb4d3"
+    },
+    {
+      "service": "django-customer-service-reader",
+      "processId": 28748,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:48.1530637+08:00",
+        "runId": "20261012-100145-175db7b4",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-customer-service-reader pid=28748"
+      },
+      "startupRawSha256": "2bf7fd9f589dc7df19cdc8a5ad5d278e486059e879b73923cd5b2667d43d6c04",
+      "removal": {
+        "timestamp": "2026-10-12T10:02:39.8607221+08:00",
+        "runId": "20261012-100227-d88f59f5",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-customer-service-reader.pid.json"
+      },
+      "removalRawSha256": "be8abbfb9abf524b0d6a0619e0b72aec2f11c1521183c8a067b152ff497df3e3"
+    },
+    {
+      "service": "django-customer-service-writer",
+      "processId": 71524,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:48.9859353+08:00",
+        "runId": "20261012-100145-175db7b4",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-customer-service-writer pid=71524"
+      },
+      "startupRawSha256": "20a619cb6115275f2a08eec19cb5fd565fe52bf0b7b7ce01f11acf07d3d5af9f",
+      "removal": {
+        "timestamp": "2026-10-12T10:02:40.7647548+08:00",
+        "runId": "20261012-100227-d88f59f5",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-customer-service-writer.pid.json"
+      },
+      "removalRawSha256": "4bfa2845e631c3f8a69fe5a2198a9c458e60e890e9f9ab290637f95af6607a35"
+    },
+    {
+      "service": "django-access-control-reader",
+      "processId": 53104,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:53.1997329+08:00",
+        "runId": "20261012-100150-ba692dd5",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-access-control-reader pid=53104"
+      },
+      "startupRawSha256": "d074e6b9bc648aaac0c60c02ba183cacdcb5dca39604030b0127cb4968910ea2",
+      "removal": {
+        "timestamp": "2026-10-12T10:02:41.7424729+08:00",
+        "runId": "20261012-100227-d88f59f5",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-access-control-reader.pid.json"
+      },
+      "removalRawSha256": "a2652a806509b6297426d921b449fa7fdb3ee2ce5f17d921fd96a154792af65e"
+    },
+    {
+      "service": "django-access-control-writer",
+      "processId": 67196,
+      "startup": {
+        "timestamp": "2026-10-12T10:01:54.0040510+08:00",
+        "runId": "20261012-100150-ba692dd5",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-access-control-writer pid=67196"
+      },
+      "startupRawSha256": "23727c0241547a44e76a591cf921b19bb5faf0cb9f507632d6730128610045e8",
+      "removal": {
+        "timestamp": "2026-10-12T10:02:42.6854903+08:00",
+        "runId": "20261012-100227-d88f59f5",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-access-control-writer.pid.json"
+      },
+      "removalRawSha256": "1e1f10779d8b3565ccbb5f3f1672c6dc1d6cd0064c9da6a7ca2f1520fe2d6354"
+    },
+    {
+      "service": "django-erp-reference-reader",
+      "processId": 60408,
+      "startup": {
+        "timestamp": "2026-10-12T10:02:13.2468740+08:00",
+        "runId": "20261012-100210-a64885fd",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-erp-reference-reader pid=60408"
+      },
+      "startupRawSha256": "8f24a8251dc10d2b00ccee5631f47dafb6e1c01d4b232e1dbd39d26ac5e04f48",
+      "removal": {
+        "timestamp": "2026-10-12T10:02:43.6523499+08:00",
+        "runId": "20261012-100227-d88f59f5",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-erp-reference-reader.pid.json"
+      },
+      "removalRawSha256": "5d5ec5763111bc93ec4f77da5a19c62945a2dd141fb95aeedcc743b5ac5e177e"
+    },
+    {
+      "service": "django-erp-reference-writer",
+      "processId": 68280,
+      "startup": {
+        "timestamp": "2026-10-12T10:02:14.1020954+08:00",
+        "runId": "20261012-100210-a64885fd",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-erp-reference-writer pid=68280"
+      },
+      "startupRawSha256": "5879cb104e34ec13aeec87769d31018e36f7c8ff459ef2cc1b8d3a36fa0d7746",
+      "removal": {
+        "timestamp": "2026-10-12T10:02:44.6070864+08:00",
+        "runId": "20261012-100227-d88f59f5",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-erp-reference-writer.pid.json"
+      },
+      "removalRawSha256": "6610942b7c990057679572f39d4bc88362383792857c5a4ddc68f1a4efbd6515"
+    },
+    {
+      "service": "django-ai-reader",
+      "processId": 67472,
+      "startup": {
+        "timestamp": "2026-10-12T10:02:08.1725172+08:00",
+        "runId": "20261012-100155-afd9ead8",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-ai-reader pid=67472"
+      },
+      "startupRawSha256": "1043a3c0bfeadccaf2ce003099afb49a84857df011583b9f89f6b250b0d7993c",
+      "removal": {
+        "timestamp": "2026-10-12T10:02:45.6992958+08:00",
+        "runId": "20261012-100227-d88f59f5",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-ai-reader.pid.json"
+      },
+      "removalRawSha256": "25e50c9ad28635f819f5404c3d35ed24693c007ca4c35cd1b3c061ba4527fbd2"
+    },
+    {
+      "service": "django-ai-writer",
+      "processId": 10336,
+      "startup": {
+        "timestamp": "2026-10-12T10:02:08.9940096+08:00",
+        "runId": "20261012-100155-afd9ead8",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-ai-writer pid=10336"
+      },
+      "startupRawSha256": "56c99ed8b1d76fbe03e96f1d7f317e54fbb81ed31fed30e901e4da13cc6efba4",
+      "removal": {
+        "timestamp": "2026-10-12T10:02:46.6949322+08:00",
+        "runId": "20261012-100227-d88f59f5",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-ai-writer.pid.json"
+      },
+      "removalRawSha256": "1dd1661e31ebadea958dd90519994486c2c93b2567b9bb8abe1424791e176949"
+    },
+    {
+      "service": "django-bi-reader",
+      "processId": 48520,
+      "startup": {
+        "timestamp": "2026-10-12T10:02:18.7362113+08:00",
+        "runId": "20261012-100215-2cac22af",
+        "action": "Start",
+        "level": "INFO",
+        "event": "process_started",
+        "message": "django-bi-reader pid=48520"
+      },
+      "startupRawSha256": "7e386f85851cfc0d3c14bedfb48a31a40d211a42eac95892cb7934c0042ad682",
+      "removal": {
+        "timestamp": "2026-10-12T10:02:48.0325319+08:00",
+        "runId": "20261012-100227-d88f59f5",
+        "action": "AggregateStatus",
+        "level": "WARN",
+        "event": "stale_process_record_removed",
+        "message": "D:\\teruisi-runtime\\django-sales\\run\\django-bi-reader.pid.json"
+      },
+      "removalRawSha256": "cb6d73ef6d7a7762505c9c5d2dc926c64269bbb198471f5a392f4b1a992da7d3"
+    }
+  ],
+  "missingOriginalReceiptFields": [
+    "creationDate",
+    "executablePath",
+    "commandLine",
+    "arguments",
+    "configFingerprint",
+    "launcherPath"
+  ],
+  "ownershipRestorationApproved": false
+}

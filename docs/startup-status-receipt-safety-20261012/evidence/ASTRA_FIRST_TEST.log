@@ -1,0 +1,67 @@
+✖ actual source function contracts in powershell.exe: synthetic only (1842.2197ms)
+✖ actual source function contracts in pwsh.exe: synthetic only (1575.6822ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3541.1548
+
+✖ failing tests:
+
+test at tests\startup-status-receipt-safety.test.mjs:6:3
+✖ actual source function contracts in powershell.exe: synthetic only (1842.2197ms)
+  AssertionError [ERR_ASSERTION]: 
+  Join-Path : �޷��������󶨵�������Path������Ϊ�ò���Ϊ���ַ�����
+  ����λ�� ��:2 �ַ�: 21
+  +   $driver=Join-Path $PSScriptRoot 'watchdog-status-control.ps1'
+  +                     ~~~~~~~~~~~~~
+      + CategoryInfo          : InvalidData: (:) [Join-Path]��ParentContainsErrorRecordException
+      + FullyQualifiedErrorId : ParameterArgumentValidationErrorEmptyStringNotAllowed,Microsoft.PowerShell.Commands.Join 
+     PathCommand
+   
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/startup-status-receipt-safety/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/startup-status-receipt-safety.test.mjs:9:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\startup-status-receipt-safety.test.mjs:6:3
+✖ actual source function contracts in pwsh.exe: synthetic only (1575.6822ms)
+  AssertionError [ERR_ASSERTION]: 
+  Join-Path: 
+  Line |
+     2 |    $driver=Join-Path $PSScriptRoot 'watchdog-status-control.ps1'
+       |                      ~~~~~~~~~~~~~
+       | Cannot bind argument to parameter 'Path' because it is an empty string.
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/startup-status-receipt-safety/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/startup-status-receipt-safety.test.mjs:9:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

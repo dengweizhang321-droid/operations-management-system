@@ -211,11 +211,22 @@ function Get-WatchProcessDiagnostic($Value){
 }
 function Resolve-WatchStatusControl {
   $driver=Join-Path $PSScriptRoot 'watchdog-status-control.ps1'
-  if(-not(Test-Path -LiteralPath $driver)){return @{path=$ControlPath;mode='legacy';reason='driver_not_installed'}}
+  $driverNames=@('watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json')
+  $present=@($driverNames|Where-Object {Test-Path -LiteralPath (Join-Path $PSScriptRoot $_)})
+  $bundle=Read-WatchJson (Join-Path $PSScriptRoot 'bundle.json')
+  $declared=@()
+  if($null -ne $bundle){
+    if($bundle.version -ne 1 -or $null -eq $bundle.files){throw 'invalid_diagnostic_bundle'}
+    $names=if($bundle.files -is [Collections.IDictionary]){@($bundle.files.Keys)}else{@($bundle.files.PSObject.Properties.Name)}
+    $declared=@($driverNames|Where-Object {$_ -cin $names})
+  }
+  # Only a genuinely never-configured historical driver may use legacy status.
+  if($present.Count -eq 0 -and $declared.Count -eq 0){return @{path=$ControlPath;mode='legacy';reason='driver_not_installed'}}
+  if($present.Count -ne $driverNames.Count){throw 'diagnostic_driver_incomplete'}
   $binding=Read-WatchJson (Join-Path $PSScriptRoot 'driver-binding.json')
   $sources=@{control=$ControlPath;worker=$WorkerPath;backend=(Join-Path $BackendRoot 'app\tools\django-local-service.ps1');transport=(Join-Path $ProjectRoot 'tools\process-deadline.ps1')}
   if(-not $binding -or $binding.version -ne 1){throw 'invalid_diagnostic_binding'}
-  foreach($name in $sources.Keys){if((Get-WatchHash $sources[$name]) -cne $binding.assetHashes.$name){return @{path=$ControlPath;mode='legacy';reason='diagnostic_predecessor_changed'}}}
+  foreach($name in $sources.Keys){if((Get-WatchHash $sources[$name]) -cne $binding.assetHashes.$name){throw 'diagnostic_predecessor_changed'}}
   return @{path=$driver;mode='readonly_driver';reason='exact_predecessor'}
 }
 function Get-WatchSnapshot {
