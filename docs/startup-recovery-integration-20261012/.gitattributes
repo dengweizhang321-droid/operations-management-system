@@ -1,2 +1,4 @@
 # Preserve reviewed source and evidence bytes, including original CRLF.
-** -text
+** -text whitespace=cr-at-eol
+# Raw captures are byte evidence, not source-formatting input.
+evidence/** -diff
