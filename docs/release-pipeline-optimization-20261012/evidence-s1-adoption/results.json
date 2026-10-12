@@ -1,0 +1,89 @@
+{
+  "schema": "s1-isolated-adoption-verification-v1",
+  "root": "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-s1-adoption-mNkgY4",
+  "tests": [
+    {
+      "name": "single-file-atomic-adoption-bom-neighbor-and-exact-acl",
+      "status": "passed"
+    },
+    {
+      "name": "exact-predecessor-byte-restoration",
+      "status": "passed"
+    },
+    {
+      "name": "predecessor-cas-conflict-refused-before-write",
+      "status": "passed"
+    },
+    {
+      "name": "original-atomic-helper-source-drift-refused",
+      "status": "passed"
+    },
+    {
+      "name": "restore-refuses-third-party-modification",
+      "status": "passed"
+    },
+    {
+      "name": "other-target-refused",
+      "status": "passed"
+    },
+    {
+      "name": "hard-linked-target-refused",
+      "status": "passed"
+    },
+    {
+      "name": "junction-parent-refused-without-touching-referenced-file",
+      "status": "passed"
+    },
+    {
+      "name": "powershell.exe original S1 real process fixture",
+      "exitCode": 0,
+      "signal": null,
+      "elapsedMs": 8931,
+      "stdoutBase64": "UEFTUzogcmVhbCBleGl0MC85LzI1OSwgaW5oZXJpdGVkIGRlc2NlbmRhbnQgb3V0cHV0IHNlcGFyYXRpb24sIG1pc3NpbmcgZXhpdCBmYWlsdXJlIGNsb3N1cmUsIGFuZCBsb2NrIGV4Y2VwdGlvbiByZWxlYXNlOyBpc29sYXRlZCBvbmx5DQo=",
+      "stdoutSha256": "0bb6103644f313d01ab55a430d872a9ae38e44ab19c6c0f55c73d0af72c4737a",
+      "stderrBase64": "",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "pwsh.exe original S1 real process fixture",
+      "exitCode": 0,
+      "signal": null,
+      "elapsedMs": 7947,
+      "stdoutBase64": "UEFTUzogcmVhbCBleGl0MC85LzI1OSwgaW5oZXJpdGVkIGRlc2NlbmRhbnQgb3V0cHV0IHNlcGFyYXRpb24sIG1pc3NpbmcgZXhpdCBmYWlsdXJlIGNsb3N1cmUsIGFuZCBsb2NrIGV4Y2VwdGlvbiByZWxlYXNlOyBpc29sYXRlZCBvbmx5DQo=",
+      "stdoutSha256": "0bb6103644f313d01ab55a430d872a9ae38e44ab19c6c0f55c73d0af72c4737a",
+      "stderrBase64": "",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "operatorLibrary": [
+    {
+      "relativePath": "worker-local-release-rotation.mjs",
+      "readOnlyInstalledSourcePath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\tools\\worker-local-release-rotation.mjs",
+      "bytes": 81611,
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "relativePath": "collect-d1-retirement-proof.mjs",
+      "readOnlyInstalledSourcePath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\tools\\collect-d1-retirement-proof.mjs",
+      "bytes": 13885,
+      "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295"
+    },
+    {
+      "relativePath": "d1-retirement-proof.mjs",
+      "readOnlyInstalledSourcePath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\tools\\d1-retirement-proof.mjs",
+      "bytes": 416,
+      "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+    },
+    {
+      "relativePath": "worker-local-release.mjs",
+      "readOnlyInstalledSourcePath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\tools\\worker-local-release.mjs",
+      "bytes": 183414,
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    }
+  ],
+  "candidateSha256": "38b1e5b2de4e20c6a0e75a8a8ab400c738a7fb0bdfae64803cfe14d97d48e97d",
+  "oldSha256": "aff5a37974251422281e75d150292115b014f9265b5895747bdae05d9b028b6d",
+  "aclSha256": "c842d067b703b9083e4487fb51e4b894c0374997b3ceaf5a41fdf7e3760c40c4",
+  "noProductionWrites": true,
+  "qualification": "Private paths only. Existing atomic helper reused with explicit scope/single-link/CAS checks; actual source ACL replicated to private parent/file. Cooperative mutex + immediate hash preflight is not a kernel compare-and-swap against independent third-party renames. No application start, DB recovery or complete cold-start claim."
+}

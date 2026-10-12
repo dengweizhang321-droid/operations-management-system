@@ -1,0 +1,75 @@
+{
+  "observedAt": "2026-10-12T20:03:00.408Z",
+  "elapsedMs": 4389,
+  "status": "resolved",
+  "head": {
+    "bindingSha256": "aec72f36e2718e853c3ca8d9f9790ecb8d01a141b43e7851f8f42979605ca66c",
+    "guardReceiptSha256": "92eff2b54a9227f954a7f223a698f1c3c0e9d45168a7dc758188523311812e01",
+    "manifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+    "releaseId": "20261011T090355Z-21c2645a63247749",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "headManifestPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\deployment-manifest.json",
+  "chainStateSha256": "bc87c4d60408ecb9b8ca5855bdd2a39c684a39c2d3ec29dafef8434216aead6c",
+  "successorCount": 220,
+  "incompleteRecordCount": 0,
+  "protectedSourceRoot": "D:\\运营管理系统",
+  "sourceTree": {
+    "algorithm": "sha256-ordinal-path-length-content-v1",
+    "fileCount": 5160,
+    "sha256": "dc1dbeeded593980c6712e7afabde0a053dfd13d8f6c4bb9375718330af2b8fb"
+  },
+  "guardReceiptSha256": "92eff2b54a9227f954a7f223a698f1c3c0e9d45168a7dc758188523311812e01",
+  "protectedEntrypoints": [
+    {
+      "relativePath": "package.json",
+      "sha256": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890"
+    },
+    {
+      "relativePath": "运行项目.bat",
+      "sha256": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2"
+    },
+    {
+      "relativePath": "tools/operations-system-control.ps1",
+      "sha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810"
+    },
+    {
+      "relativePath": "tools/start-local-worker.mjs",
+      "sha256": "383351ab2ad69c7889a831e2e11646e6d3e8d4e43f87b02e0d5b53d13e1ed74f"
+    },
+    {
+      "relativePath": "tools/worker-authority-guard.mjs",
+      "sha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210"
+    },
+    {
+      "relativePath": "tools/d1-retirement-proof.mjs",
+      "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+    },
+    {
+      "relativePath": "tools/collect-d1-retirement-proof.mjs",
+      "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295"
+    },
+    {
+      "relativePath": "tools/worker-local-release.mjs",
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "relativePath": "tools/worker-local-release-rotation.mjs",
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "relativePath": "tools/worker-local-service.ps1",
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    },
+    {
+      "relativePath": ".runtime/worker-release-activation-fence.json",
+      "sha256": "13dbb5eb35096fbd2ac0845b6bb77cb0fa8255da650a7641d661b42907a8e223"
+    },
+    {
+      "relativePath": "tools/process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    }
+  ],
+  "s1IsGuardEntrypoint": false,
+  "qualification": "Existing read-only resolver plus exact installed guard byte verification. No service action, database, migration, candidate builder or deployment executed; not a complete readiness receipt."
+}

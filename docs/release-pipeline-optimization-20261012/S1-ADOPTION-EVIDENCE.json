@@ -1,0 +1,280 @@
+{
+  "schema": "s1-adoption-evidence-index-v1",
+  "recordedAt": "2026-10-12T20:59:15.069679+00:00",
+  "repositoryBaseSha": "565f7073f71691690039c1c83c757ec2f32d731f",
+  "candidateArtifactDirectory": "D:\\codex-artifacts\\release-s1-adoption-20261013\\candidate-v1",
+  "candidateManifestSha256": "5671c3a1cc5d50844d4393c1ceace064b0543c4cd9c9574345d06e91c1b1b201",
+  "records": [
+    {
+      "path": "effective-head.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 3202,
+      "sha256": "7515ce88f20a8d0e8d03e00df07889f635da22ac12aa2aa6b6117e6087aca2c5"
+    },
+    {
+      "path": "host-facts.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 10638,
+      "sha256": "fe767dd6e3dbd80bde76b9c8fc468719add786691599222730121cf4f44a5435"
+    },
+    {
+      "path": "native-completion-v2.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 5155,
+      "sha256": "bb86b868263ef3b10c583af438989546f513b014d383bf340836482f1b7a0577"
+    },
+    {
+      "path": "native-completion.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 5156,
+      "sha256": "d73bcaafd9ae9aedda8617a1cc637cd1b3a7f66beccb5d145afaa83df0d15ecb"
+    },
+    {
+      "path": "acl-restoration-final.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 269,
+      "sha256": "7843b3ec09ea5043c834bdd8e5729acc863cf84a105be2471b9dede985dd8d87"
+    },
+    {
+      "path": "acl-restoration-first-failure.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 296,
+      "sha256": "57deb99df155457d5e3d8580e9f074b48ee6724937f81bd2d70a99fdd8a0d789"
+    },
+    {
+      "path": "caller-branches-first-failure.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 1507,
+      "sha256": "9510706f39406c2eaf052aeca03a0a3a30b0d7a5e965763f934c090ae72f8b83"
+    },
+    {
+      "path": "caller-branches.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 6143,
+      "sha256": "ad67da9559b08155c47cd1aaf5a028c70a2ec93354be0dd1f7994c8e9a906a77"
+    },
+    {
+      "path": "exact-acl-first-failure.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 373,
+      "sha256": "b711a6d8b53d3daf6facb165ee3e07888a13d16f5148cf15323acbd3da4254f7"
+    },
+    {
+      "path": "exact-acl-second-model-failure.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 331,
+      "sha256": "1d0df6e7911d692b94ec0bd22f067cfad9cc0486686ba0aa041c9aedad37cc5d"
+    },
+    {
+      "path": "native-file-replace-observation-ps5.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 1121,
+      "sha256": "814145b50fc9721bc0cfa8faa9b667e7d4bd7bde1f59e222b6463199b3b7333c"
+    },
+    {
+      "path": "native-file-replace-observation-ps7.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 1076,
+      "sha256": "9a716aaa21681ad604781aa95fd6c8c90320bc00524d55c9239a1556e60e0b9d"
+    },
+    {
+      "path": "native-file-replace-ps5.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 1084,
+      "sha256": "a5dea2910f0982d31f9f8efa5003a273558e4de9520f1fcc95b68ef6a5f09f3b"
+    },
+    {
+      "path": "native-file-replace-ps7.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 1042,
+      "sha256": "c320a992e90c7035af992a3f12813f89d64700fa309091bbc1cdb25d8ef8a0bc"
+    },
+    {
+      "path": "native-model-owner-assignment-failure.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 362,
+      "sha256": "1037af30e2e57b6f0e39a7d55b10d0c43d521d5a60c7957ec1bd46fc35973aac"
+    },
+    {
+      "path": "native-replace-first-metadata-failure.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 387,
+      "sha256": "b0b897c0bc2145712653c0e633e1d17e83327a3e817faae756a2fe72c4e28908"
+    },
+    {
+      "path": "native-replace-second-model-failure.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 438,
+      "sha256": "0e94a378b126fac40b7c5220e838f83702b6f27a8ce79074c52c3e9f3d68d94f"
+    },
+    {
+      "path": "ordinary-policy.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 2091,
+      "sha256": "41dd207d2c4e5389e34778a9a3400da1ffa25ad2c617818d0ba938677e779042"
+    },
+    {
+      "path": "policy-first-import-failure.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 188,
+      "sha256": "2bcb9d96fe8f991aee35656e25410f662c15c4d9ffae9203b5ea4fd54cbdb28c"
+    },
+    {
+      "path": "policy-second-path-failure.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 214,
+      "sha256": "8ec8580e6cc0b0b01984618d81f721f0571d93d54f27799d9c7a45762dd3326e"
+    },
+    {
+      "path": "results.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 4038,
+      "sha256": "9a2b0aa45c87d7b4b8caf48dffb4613dbb27adf177d851481c1d4db9c4efdc84"
+    },
+    {
+      "path": "static-scope-first-failure.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 256,
+      "sha256": "2a72c8d988a9e9bdb2d238ffe51c045251f9b772fda1525a71a979333dda5d5b"
+    },
+    {
+      "path": "static-scope-ps5.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 338,
+      "sha256": "2341f945b54c93d94d1503c576ccfac3f666b7ad7adf7bf89cf42a17a4ec4173"
+    },
+    {
+      "path": "static-scope-ps7.json",
+      "type": "original-observation-or-check-record",
+      "bytes": 338,
+      "sha256": "493d31d1bcf0bb5dbe4644dab866982b30c43f34ec27fdaf0273df4e85e777a3"
+    },
+    {
+      "path": "verify-s1-installation.mjs.source.json",
+      "type": "driver-source-envelope",
+      "bytes": 10970,
+      "sha256": "57b2b0b09f9cdff5d18a80cc2fab6ad65bdcad01690058d1078a9b18b028cde3"
+    },
+    {
+      "path": "s1-caller-fixture.ps1.source.json",
+      "type": "driver-source-envelope",
+      "bytes": 4009,
+      "sha256": "f7e33ce2b3a8e106260798ce898d9f6e3c0fdb324e5d1f9bb9327269f3ba5d0b"
+    },
+    {
+      "path": "run-s1-callers.mjs.source.json",
+      "type": "driver-source-envelope",
+      "bytes": 3430,
+      "sha256": "45cd0ad5aa888784a5eb68ea23789188532c31389ee0089fe8bec43f4fd197ab"
+    },
+    {
+      "path": "ordinary-s1-policy.mjs.source.json",
+      "type": "driver-source-envelope",
+      "bytes": 2482,
+      "sha256": "9098497bcc33564f811d0ba961168d679a6f2a3dc513d098e9cf4425d86ee064"
+    },
+    {
+      "path": "s1-static-scope.ps1.source.json",
+      "type": "driver-source-envelope",
+      "bytes": 2559,
+      "sha256": "09158833f4dc0bb8bc63e482d2a5d0bc6695ccf6540aaa3297163ca0956e4f27"
+    },
+    {
+      "path": "resolve-current.mjs.source.json",
+      "type": "driver-source-envelope",
+      "bytes": 2455,
+      "sha256": "4cc7664aefa6361ff213210f0c7e514a28eda374953f760ad1fe0e346e1fdd4e"
+    },
+    {
+      "path": "collect-s1-facts.ps1.source.json",
+      "type": "driver-source-envelope",
+      "bytes": 7980,
+      "sha256": "61799226cfc7fc09386b68f778a5c02b22f1f25dcfaa4068b514929eb4db7749"
+    },
+    {
+      "path": "complete-native-s1.ps1.source.json",
+      "type": "driver-source-envelope",
+      "bytes": 4878,
+      "sha256": "eced2f782119dfaef6bac54a2227516dc6338dbe4305ad58bcabb5ddde8d3504"
+    },
+    {
+      "path": "prepare-s1-candidate.py.source.json",
+      "type": "driver-source-envelope",
+      "bytes": 5443,
+      "sha256": "0f4c4671c1973f264a99dea721f06a105376352876c153801ca4630d9a120f05"
+    },
+    {
+      "path": "verify-s1-exact-acl.mjs.source.json",
+      "type": "driver-source-envelope",
+      "bytes": 6403,
+      "sha256": "d39142329a9dd276616dca8871e5ca0fba6adf972ae3f050766227f59259f3d4"
+    },
+    {
+      "path": "s1-native-replace-fixture.ps1.source.json",
+      "type": "driver-source-envelope",
+      "bytes": 7313,
+      "sha256": "78b9850bbc56ddb020285ff81961ea22c2ef4d8597edd249c258f6b5e8b5ff9b"
+    },
+    {
+      "path": "caller-fixture-first.ps1.txt.source.json",
+      "type": "original-failed-helper-source-envelope",
+      "bytes": 3974,
+      "sha256": "7befe0a8dd19f315138df7b2b78bcd49c15118e4336d5a92638a76ffbff8f602"
+    },
+    {
+      "path": "static-scope-first-failure.ps1.txt.source.json",
+      "type": "original-failed-helper-source-envelope",
+      "bytes": 2528,
+      "sha256": "086777472d92f52e5485373eacd7ffed96b69e7df5a24533c76d0ed3b59cd5df"
+    },
+    {
+      "path": "candidate-manifest.json",
+      "type": "private-candidate-manifest-original",
+      "bytes": 5708,
+      "sha256": "5671c3a1cc5d50844d4393c1ceace064b0543c4cd9c9574345d06e91c1b1b201"
+    },
+    {
+      "path": "qualified-plan.json",
+      "type": "final-host-installation-qualification",
+      "bytes": 1110,
+      "sha256": "feca5a1efc2633970a1d3f4cb2bacbccac1fc62c79340a48aa23126a50c220f9"
+    }
+  ],
+  "results": {
+    "atomicAndRestorationNegativeCases": 8,
+    "originalRealExitFixtureShells": 2,
+    "realPrivateCallerCases": 42,
+    "staticScopeShells": 2,
+    "functionCount": 21,
+    "changedFunctionCount": 1,
+    "nativeSupplementRows": 8,
+    "nativeUnknownRowsAfterSupplement": 0,
+    "s1ReferenceRowsAfterSupplement": 0,
+    "protectedEntrypointsUnchanged": 12,
+    "oldHostS1StillInstalled": true,
+    "ordinaryApplicationImpact": "strict",
+    "ordinaryApplicationRecovery": "full",
+    "exactProductionDescriptorInstallationAndRestorationShells": 2
+  },
+  "auxiliaryFailuresRetained": [
+    "caller-branches-first-failure.json",
+    "policy-first-import-failure.json",
+    "policy-second-path-failure.json",
+    "static-scope-first-failure.json",
+    "native-completion.json"
+  ],
+  "productionWrites": false,
+  "s1HostAdopted": false,
+  "s2HookEnabled": false,
+  "fullCiExpanded": false,
+  "qualification": "Point-in-time source/identity facts and isolated scope tests; explicit approval required for proposed host-only installation. No ordinary policy exemption or full app/PG/cold-start claim.",
+  "qualifiedPlanSha256": "feca5a1efc2633970a1d3f4cb2bacbccac1fc62c79340a48aa23126a50c220f9",
+  "metadataModelFailuresRetained": [
+    "acl-restoration-first-failure.json",
+    "exact-acl-first-failure.json",
+    "exact-acl-second-model-failure.json",
+    "native-model-owner-assignment-failure.json",
+    "native-replace-first-metadata-failure.json",
+    "native-replace-second-model-failure.json"
+  ]
+}

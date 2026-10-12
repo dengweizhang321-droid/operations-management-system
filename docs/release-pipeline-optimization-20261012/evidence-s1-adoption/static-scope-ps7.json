@@ -1,0 +1,1 @@
+{"shellMajor":7,"cliSignatureUnchanged":true,"version":"s1-static-scope-v1","oldSha256":"aff5a37974251422281e75d150292115b014f9265b5895747bdae05d9b028b6d","newSha256":"38b1e5b2de4e20c6a0e75a8a8ab400c738a7fb0bdfae64803cfe14d97d48e97d","changedFunctions":["Invoke-ControlledScript"],"functionCount":21,"otherFunctionBodiesUnchanged":true}
