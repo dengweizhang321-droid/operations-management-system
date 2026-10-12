@@ -1,0 +1,920 @@
+{
+  "schema": "actual-validated-subset-v1",
+  "baselineSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+  "fullCandidateSha": "dc94e6492ce34457529581239f2b682bb6d36264",
+  "sourceAndScopeCommits": {
+    "S0": "279870fc09772aee7d3c7156fe2e164d30abef92",
+    "S1": "97282a6bced9752f32deb35ba346475e3a32a11c",
+    "S2": "da7f110f54fb67e069e767c1f91cf1584cd82847"
+  },
+  "notMerged": true,
+  "productionAdopted": false,
+  "sourceFileCount": 5,
+  "files": [
+    {
+      "path": "docs/RELEASE_BATCH_WORKFLOW.md",
+      "group": "S0",
+      "bytes": 10189,
+      "sha256": "794d23abe08d66d99353b023ccc62bc6c17ca98a9c0c7b03680620b2d75c3d2a",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/RELEASE_BATCH_WORKFLOW.md",
+        "sourceSha": "f03cf9395d2a8bc7e4c471a9f6f7877e550e74f3",
+        "blob": "0e46ba91a39e3a7f97ac99dcb06c85baa60d15e3",
+        "bytes": 10189,
+        "sha256": "794d23abe08d66d99353b023ccc62bc6c17ca98a9c0c7b03680620b2d75c3d2a"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/STARTUP_RELEASE_OPTIMIZATION.md",
+      "group": "S0",
+      "bytes": 11213,
+      "sha256": "3ad3a3f8bd9d899ac5222f005c3e557e0b7450112308824bc708d7667213db11",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/STARTUP_RELEASE_OPTIMIZATION.md",
+        "sourceSha": "f03cf9395d2a8bc7e4c471a9f6f7877e550e74f3",
+        "blob": "2be7c2c5b445e851089c73a1f46d18a4a9bf7cef",
+        "bytes": 11213,
+        "sha256": "3ad3a3f8bd9d899ac5222f005c3e557e0b7450112308824bc708d7667213db11"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/.gitattributes",
+      "group": "S0",
+      "bytes": 134,
+      "sha256": "401172e06ab94a7bfe7e4ee229596bc6bcdad4ff3457a6dc6f62a8459d282aec",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/.gitattributes",
+        "sourceSha": "4968baedd7ac3fa0948258cdc854fd25045fe8cd",
+        "blob": "91fd4d4ad860fed8a08c6e22174d467f7a775fc1",
+        "bytes": 134,
+        "sha256": "401172e06ab94a7bfe7e4ee229596bc6bcdad4ff3457a6dc6f62a8459d282aec"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/CONTINUATION-REPORT.md",
+      "group": "S0",
+      "bytes": 10846,
+      "sha256": "3b42818e747fdf1c21dff704011339bee65ce195790889e2787a1caec9a1ebda",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92",
+      "sourceReferenceSha": "dc94e6492ce34457529581239f2b682bb6d36264",
+      "sourceAndDerivedScope": "Copied dc94 exact scope material; proposal/continuation navigation and phased checklist subsequently derived in 279870fc"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/DELIVERIES.json",
+      "group": "S0",
+      "bytes": 10631,
+      "sha256": "ca0c96ea16631f862f2f0e5da1224f460870e6f73d065d3b8fc1d85e9d6f9a05",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/DELIVERIES.json",
+        "sourceSha": "7ccb0f111555912a1554d0d5ceabaa57265d8f1f",
+        "blob": "4d11cea6e8787cc732c07f6d1c7f3ab676bcc1ac",
+        "bytes": 10631,
+        "sha256": "ca0c96ea16631f862f2f0e5da1224f460870e6f73d065d3b8fc1d85e9d6f9a05"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/DELIVERY-TABLE.md",
+      "group": "S0",
+      "bytes": 3064,
+      "sha256": "c1a8d1130d27fa2854c3173b751319a91cbc7b5ef0db4558b16a966aa5f7c8c7",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/DELIVERY-TABLE.md",
+        "sourceSha": "7ccb0f111555912a1554d0d5ceabaa57265d8f1f",
+        "blob": "3a0c141f5aa127263cdc59da56dd72246a4c0f97",
+        "bytes": 3064,
+        "sha256": "c1a8d1130d27fa2854c3173b751319a91cbc7b5ef0db4558b16a966aa5f7c8c7"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/FINAL-SUBSET-REPORT.md",
+      "group": "S0",
+      "bytes": 9998,
+      "sha256": "e731c3190690a7c71d3341f9c17fef446b90eb1257b0ef0e069b6f62d454ddd5",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "2fa0520ca58124d600322a29f992fe455ca705ca"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/GIT-GOVERNANCE.json",
+      "group": "S0",
+      "bytes": 21179,
+      "sha256": "1fb1ef4fc3765753512021ff07db9b67cd8d6bc5229afd4387d78b688a0274b5",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/GIT-GOVERNANCE.json",
+        "sourceSha": "7ccb0f111555912a1554d0d5ceabaa57265d8f1f",
+        "blob": "8ccf30a86192c7a2c235a6901bb21cd8f1e3fd11",
+        "bytes": 21179,
+        "sha256": "1fb1ef4fc3765753512021ff07db9b67cd8d6bc5229afd4387d78b688a0274b5"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/HISTORICAL-SOURCES.json",
+      "group": "S0",
+      "bytes": 4943,
+      "sha256": "eae030cee1bca5f9aebfbfe298ef9fbe62341ad12ba91ee5744043eb7b09ca06",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/HISTORICAL-SOURCES.json",
+        "sourceSha": "f03cf9395d2a8bc7e4c471a9f6f7877e550e74f3",
+        "blob": "0f51efdd072f4231280c304e6c48c03870b5f530",
+        "bytes": 4943,
+        "sha256": "eae030cee1bca5f9aebfbfe298ef9fbe62341ad12ba91ee5744043eb7b09ca06"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/INTEGRATION-REPORT.md",
+      "group": "S0",
+      "bytes": 14643,
+      "sha256": "802ab5ec0d5e3398fb68f96115eaa40389460df7dd2e77152f6f94907c152d2d",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/INTEGRATION-REPORT.md",
+        "sourceSha": "7ccb0f111555912a1554d0d5ceabaa57265d8f1f",
+        "blob": "ef3904573f5b49991196f323a9700180e5f800ef",
+        "bytes": 14643,
+        "sha256": "802ab5ec0d5e3398fb68f96115eaa40389460df7dd2e77152f6f94907c152d2d"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/INTEGRATION-REVIEW.md",
+      "group": "S0",
+      "bytes": 3404,
+      "sha256": "548a9b068298f2245e55a6d9f899e565a512291793a0e85b5baff269156e41fc",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/INTEGRATION-REVIEW.md",
+        "sourceSha": "7ccb0f111555912a1554d0d5ceabaa57265d8f1f",
+        "blob": "4a089e02f3033d98d00349a2f5442e77280f5840",
+        "bytes": 3404,
+        "sha256": "548a9b068298f2245e55a6d9f899e565a512291793a0e85b5baff269156e41fc"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/L3-MINIMUM-CHECKLIST.md",
+      "group": "S0",
+      "bytes": 11223,
+      "sha256": "06977ebe73a579535956a4222923af831d4a5c4078600b782e276b9a8bf041f2",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92",
+      "sourceReferenceSha": "dc94e6492ce34457529581239f2b682bb6d36264",
+      "sourceAndDerivedScope": "Copied dc94 exact scope material; proposal/continuation navigation and phased checklist subsequently derived in 279870fc"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/REPORT-DEPENDENCIES.json",
+      "group": "S0",
+      "bytes": 1654,
+      "sha256": "d6b4d28f64606061e08d89d949a21ab9254f0c7641a776316b55a0339f0e6ae1",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92",
+      "sourceReferenceSha": "dc94e6492ce34457529581239f2b682bb6d36264",
+      "sourceAndDerivedScope": "Copied dc94 exact scope material; proposal/continuation navigation and phased checklist subsequently derived in 279870fc"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/SERVICE-DEPENDENCIES.json",
+      "group": "S0",
+      "bytes": 12738,
+      "sha256": "059f9c546b1cf2cc26891631cac6a04f391e5d938a798d667f8128066a7b4713",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92",
+      "sourceReferenceSha": "dc94e6492ce34457529581239f2b682bb6d36264",
+      "sourceAndDerivedScope": "Copied dc94 exact scope material; proposal/continuation navigation and phased checklist subsequently derived in 279870fc"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/SUBSET-DELIVERY-PROPOSAL.md",
+      "group": "S0",
+      "bytes": 16476,
+      "sha256": "3e96848f2e13a71d2cc2c3890032cf4d0752b6237ecccbfde74ca25f625188da",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92",
+      "sourceReferenceSha": "dc94e6492ce34457529581239f2b682bb6d36264",
+      "sourceAndDerivedScope": "Copied dc94 exact scope material; proposal/continuation navigation and phased checklist subsequently derived in 279870fc"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/SUBSET-FILES.json",
+      "group": "S0",
+      "bytes": 44095,
+      "sha256": "477428532c6e082d0960ef48572b3999bbd26eeadb5ebfd468a7aa2f4aca5c3e",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92",
+      "sourceReferenceSha": "dc94e6492ce34457529581239f2b682bb6d36264",
+      "sourceAndDerivedScope": "Copied dc94 exact scope material; proposal/continuation navigation and phased checklist subsequently derived in 279870fc"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/WP0-INVENTORY.md",
+      "group": "S0",
+      "bytes": 31619,
+      "sha256": "e3a29144bbc901f0318085d58c3c7d01a3f98efd6490e49a8d7e4971d38b614b",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/WP0-INVENTORY.md",
+        "sourceSha": "74c5e6330b88248c7ebcc778e32310c5b46631d3",
+        "blob": "e0a1c15eca509330298410d1ec074da3e117a3d0",
+        "bytes": 31619,
+        "sha256": "e3a29144bbc901f0318085d58c3c7d01a3f98efd6490e49a8d7e4971d38b614b"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/WP2-CLASSIFICATION-AUDIT.md",
+      "group": "S0",
+      "bytes": 14060,
+      "sha256": "53b924cc987e1d40f71bff3da18e752ac69c3e26e55db6fa5040e0a09a0b4711",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/WP2-CLASSIFICATION-AUDIT.md",
+        "sourceSha": "f03cf9395d2a8bc7e4c471a9f6f7877e550e74f3",
+        "blob": "60f0ced8e78930890da4dfd91ccdeffaf0318365",
+        "bytes": 14060,
+        "sha256": "53b924cc987e1d40f71bff3da18e752ac69c3e26e55db6fa5040e0a09a0b4711"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/WP3-EVIDENCE-REPORT.md",
+      "group": "S0",
+      "bytes": 14621,
+      "sha256": "890a151e301648e3f6eb71befcc25419dee50b0e43befb0ae3eb12a83f0b72c7",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/WP3-EVIDENCE-REPORT.md",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "5e582afa6c5dcb9843dda7c4e450e4fbdb414956",
+        "bytes": 14621,
+        "sha256": "890a151e301648e3f6eb71befcc25419dee50b0e43befb0ae3eb12a83f0b72c7"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/WP4-TIMING-ANALYSIS.md",
+      "group": "S0",
+      "bytes": 49630,
+      "sha256": "44c44b64c3b721ccff5f7a39fb4314388a69b63bade67fb6caf63eb54bad4e4c",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/WP4-TIMING-ANALYSIS.md",
+        "sourceSha": "39feb86c7c51b9b8c99232840bf55ad1b0027a02",
+        "blob": "9e9b98f1fa4208e2ab83c46b1923bdc85a054a37",
+        "bytes": 49630,
+        "sha256": "44c44b64c3b721ccff5f7a39fb4314388a69b63bade67fb6caf63eb54bad4e4c"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/WP4-TIMING-EVIDENCE.json",
+      "group": "S0",
+      "bytes": 95865,
+      "sha256": "8beb312c4ef1a07cf1dd75bed4f8cd496d30d8db30f7995fb99be7fb0990187e",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/WP4-TIMING-EVIDENCE.json",
+        "sourceSha": "39feb86c7c51b9b8c99232840bf55ad1b0027a02",
+        "blob": "da89b56d9726048b25d8e8c1cba6eb6e96d8eb17",
+        "bytes": 95865,
+        "sha256": "8beb312c4ef1a07cf1dd75bed4f8cd496d30d8db30f7995fb99be7fb0990187e"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/WP5-RELIABILITY-FIX.md",
+      "group": "S0",
+      "bytes": 5831,
+      "sha256": "03103e4f4c90ce291d2380b2c4460847fdf849557b6624f57f9dad79d0dc7c55",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/WP5-RELIABILITY-FIX.md",
+        "sourceSha": "4968baedd7ac3fa0948258cdc854fd25045fe8cd",
+        "blob": "482c9b2f18420b0c07dbc8b8b49e97859d3368c6",
+        "bytes": 5831,
+        "sha256": "03103e4f4c90ce291d2380b2c4460847fdf849557b6624f57f9dad79d0dc7c55"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/WP5-RELIABILITY-GAPS.md",
+      "group": "S0",
+      "bytes": 18369,
+      "sha256": "694bd791f21ba009e34174884b729280726e43ae860ee7280e2ca67eb0f9d20e",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/WP5-RELIABILITY-GAPS.md",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "544442bbc4bf6f11e26ab9e0e71abf4c589f2f9f",
+        "bytes": 18369,
+        "sha256": "694bd791f21ba009e34174884b729280726e43ae860ee7280e2ca67eb0f9d20e"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/WPB-BASELINE.md",
+      "group": "S0",
+      "bytes": 29528,
+      "sha256": "cef606644f88beb3470918c0653ac068c0317efc15ac3aed68cab1fecdead0d9",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/WPB-BASELINE.md",
+        "sourceSha": "74c5e6330b88248c7ebcc778e32310c5b46631d3",
+        "blob": "95384c6b963031fc8887f0bb30943092b69af1ee",
+        "bytes": 29528,
+        "sha256": "cef606644f88beb3470918c0653ac068c0317efc15ac3aed68cab1fecdead0d9"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-integration/local-ci--summary.json",
+      "group": "S0",
+      "bytes": 489,
+      "sha256": "a6e56fe00611b867d5398e75e774fb0cce30fc829763564103e5e388914f6a58",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-integration/local-ci--summary.json",
+        "sourceSha": "7ccb0f111555912a1554d0d5ceabaa57265d8f1f",
+        "blob": "ed4bd75a775251da32482f7c425ed2aa3bbf7092",
+        "bytes": 489,
+        "sha256": "a6e56fe00611b867d5398e75e774fb0cce30fc829763564103e5e388914f6a58"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-subset/changed-lint.json",
+      "group": "S0",
+      "bytes": 602,
+      "sha256": "744c40810d4f2c4103642b83b0119c2a9c556797fe508282555c7f02f8836c7c",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "8be3c7ee567844227b4d42bcb08f9cde3ff85729"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-subset/document-validation.json",
+      "group": "S0",
+      "bytes": 320,
+      "sha256": "d971f652b98bfdd8ece7e8a799041f0bdc1ba929a3dabc4285af276c2b04983c",
+      "origin": "This subset document review",
+      "candidateFileCommit": "8be3c7ee567844227b4d42bcb08f9cde3ff85729"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-subset/results.json",
+      "group": "S0",
+      "bytes": 911,
+      "sha256": "6c61b9028bfdbde1c0087f120bffbefb83e368c721008696b6c8a7ab2346ed74",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "8be3c7ee567844227b4d42bcb08f9cde3ff85729"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-subset/s1-lifecycle.json",
+      "group": "S0",
+      "bytes": 2939,
+      "sha256": "d0eb7b3e72cbeb15615fdb568bd2548ca44542a8b8ecea46e73a6013476fd7f0",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "8be3c7ee567844227b4d42bcb08f9cde3ff85729"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-subset/s2-fingerprints.json",
+      "group": "S0",
+      "bytes": 1502,
+      "sha256": "916efd3ea169d7c1411d23528b27b4466e97e6da868202f9d800dcfb973f7496",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "8be3c7ee567844227b4d42bcb08f9cde3ff85729"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-subset/s2-independent.json",
+      "group": "S0",
+      "bytes": 3365,
+      "sha256": "0ab45982532ad6de4f0db21d062afcc22ddbf18a2dea35606ee6191e28dd4842",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "8be3c7ee567844227b4d42bcb08f9cde3ff85729"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-subset/s2-timing.json",
+      "group": "S0",
+      "bytes": 1143,
+      "sha256": "48b5d53a0e6c42ee29803a9dce6064c9c3b12b30e3ad036d42565541595299cb",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "8be3c7ee567844227b4d42bcb08f9cde3ff85729"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-subset/scope-and-provenance.json",
+      "group": "S0",
+      "bytes": 31696,
+      "sha256": "8f7a2666c75789cdf3e4bb107e891765767e6a5f6923b045ec40153993bc70a2",
+      "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation",
+      "candidateFileCommit": "8be3c7ee567844227b4d42bcb08f9cde3ff85729"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/.gitattributes",
+      "group": "S0",
+      "bytes": 31,
+      "sha256": "fbce0c85268dba9a46323d6e454ab6b90d254750608a4713f610ff59d7186904",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/.gitattributes",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "5607c7f5b8870fbc1b052a2ee9004ccf12aebfa2",
+        "bytes": 31,
+        "sha256": "fbce0c85268dba9a46323d6e454ab6b90d254750608a4713f610ff59d7186904"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/baseline-tests-final.log",
+      "group": "S0",
+      "bytes": 9129,
+      "sha256": "925fc45227fb5763e63b72f4250288a8e6662909412415cb69b860d3a2a7e7a0",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/baseline-tests-final.log",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "7200caf54b5312bfe6c2174112f43f0ac39cfbc3",
+        "bytes": 9129,
+        "sha256": "925fc45227fb5763e63b72f4250288a8e6662909412415cb69b860d3a2a7e7a0"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/changed-lint.log",
+      "group": "S0",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/changed-lint.log",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/cli-create-only.json",
+      "group": "S0",
+      "bytes": 420,
+      "sha256": "24ddc5ec77ab2b71405d65736a014b037ec6bd4e05c1d1dac760a14ad3e5937e",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/cli-create-only.json",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "32fd3f78bcd177dabf7768e8704252e01bf95774",
+        "bytes": 420,
+        "sha256": "24ddc5ec77ab2b71405d65736a014b037ec6bd4e05c1d1dac760a14ad3e5937e"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/existing-closeout.log",
+      "group": "S0",
+      "bytes": 451,
+      "sha256": "4acf7847f6183591704966254338ba6c14a2120735debc4308ec02db3a089750",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/existing-closeout.log",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "a5bc886e342fc84f4e399c0fd197ea1f8c9f2a69",
+        "bytes": 451,
+        "sha256": "4acf7847f6183591704966254338ba6c14a2120735debc4308ec02db3a089750"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/first-adoption-f15-input.json",
+      "group": "S0",
+      "bytes": 1125,
+      "sha256": "6e3906c094bc18a499a7aaa1ed39e94fc453f72d90b21a51d162ba827ea1ab8d",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/first-adoption-f15-input.json",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "3baf89e3fcf829961f58d7ddd11c2495c1286e55",
+        "bytes": 1125,
+        "sha256": "6e3906c094bc18a499a7aaa1ed39e94fc453f72d90b21a51d162ba827ea1ab8d"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/first-fixture-failure.log",
+      "group": "S0",
+      "bytes": 2831,
+      "sha256": "7f0c55f7a22411e665089061d6973a253e5a14932abda6df843084f0a63c0ad7",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/first-fixture-failure.log",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "2d6fdac0749e2cedcd28ceb34e9aadf13a364f1f",
+        "bytes": 2831,
+        "sha256": "7f0c55f7a22411e665089061d6973a253e5a14932abda6df843084f0a63c0ad7"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/historical-1009-input.json",
+      "group": "S0",
+      "bytes": 5051,
+      "sha256": "133b0dd5ab650d88ed2e95088eb1baf4291fcaa1613c3df2b7a56498aa99fa0e",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/historical-1009-input.json",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "a842cbb1b933565490d20479380bf5bf1565a171",
+        "bytes": 5051,
+        "sha256": "133b0dd5ab650d88ed2e95088eb1baf4291fcaa1613c3df2b7a56498aa99fa0e"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/offline-verification.json",
+      "group": "S0",
+      "bytes": 71021,
+      "sha256": "a4715a15629e5dff55cfe2ef3aee8fc103b92c61b131f10bc12e55bbb8e03b8a",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/offline-verification.json",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "ab7fdec2e6a982144790a9265702884af2d81182",
+        "bytes": 71021,
+        "sha256": "a4715a15629e5dff55cfe2ef3aee8fc103b92c61b131f10bc12e55bbb8e03b8a"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/static-drift.log",
+      "group": "S0",
+      "bytes": 705,
+      "sha256": "43115afdb9a3e732ba25929a09e92c96ec540302308e9dfade87b6148b24ea6e",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/static-drift.log",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "ed3a2164787efee4960960d1c80232bb58a2eb69",
+        "bytes": 705,
+        "sha256": "43115afdb9a3e732ba25929a09e92c96ec540302308e9dfade87b6148b24ea6e"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/tests-final.log",
+      "group": "S0",
+      "bytes": 2063,
+      "sha256": "55ae2dbbb0f17926e8d1acebf3157c5ae6692e8f2b42456726351cdce74d8bec",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp3/tests-final.log",
+        "sourceSha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "6461b745d55d4f38577edff397c7f3614ed16acf",
+        "bytes": 2063,
+        "sha256": "55ae2dbbb0f17926e8d1acebf3157c5ae6692e8f2b42456726351cdce74d8bec"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/affected-regression.log",
+      "group": "S0",
+      "bytes": 1730,
+      "sha256": "18e07fedf049680ebedf9ced814333d535e42da4e1da6b396064867bd72e2405",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/affected-regression.log",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "73fb95bdbd1291a4cc23c2349f8761d3c1cd8b36",
+        "bytes": 1730,
+        "sha256": "18e07fedf049680ebedf9ced814333d535e42da4e1da6b396064867bd72e2405"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/after-ps5.json",
+      "group": "S0",
+      "bytes": 285,
+      "sha256": "70578274cff972ca224cc5a8758536d361df8959b89b935dc17c4dcfbcb27b57",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/after-ps5.json",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "cf090f35364f8db93ca5af44d378f333e9491f5f",
+        "bytes": 285,
+        "sha256": "70578274cff972ca224cc5a8758536d361df8959b89b935dc17c4dcfbcb27b57"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/after-ps7.json",
+      "group": "S0",
+      "bytes": 285,
+      "sha256": "c01064b61709dbcfc13eade763fe4c8c13dbf1728c9ac8951a6c1e37469a1506",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/after-ps7.json",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "8df21e45729c0adef5757250b2537c52e1b43209",
+        "bytes": 285,
+        "sha256": "c01064b61709dbcfc13eade763fe4c8c13dbf1728c9ac8951a6c1e37469a1506"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/baseline-failures.log",
+      "group": "S0",
+      "bytes": 16739,
+      "sha256": "e8d99ad9ed9badb78beb5aa9b40f8d0daecbc243b66410c117ff62c7dbb8b85b",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/baseline-failures.log",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "130046687516ed75b13e6a032f163a912cbe0f57",
+        "bytes": 16739,
+        "sha256": "e8d99ad9ed9badb78beb5aa9b40f8d0daecbc243b66410c117ff62c7dbb8b85b"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/before-ps5.json",
+      "group": "S0",
+      "bytes": 105,
+      "sha256": "424e08b2da88a25e2527301e2d65657aad1f2960437011ae987518e154eaf89b",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/before-ps5.json",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "b708ccf0b8712ba026f65ab40d87374cfcc46d97",
+        "bytes": 105,
+        "sha256": "424e08b2da88a25e2527301e2d65657aad1f2960437011ae987518e154eaf89b"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/before-ps7.json",
+      "group": "S0",
+      "bytes": 268,
+      "sha256": "5cdf9027b3911f14047186ce3a4a5303cc8adcb8e6b7fa907ff213876964ec3a",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/before-ps7.json",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "76e4193d7a93f4aa4b1fab186f0927e0fa7cc0b1",
+        "bytes": 268,
+        "sha256": "5cdf9027b3911f14047186ce3a4a5303cc8adcb8e6b7fa907ff213876964ec3a"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/changed-lint.log",
+      "group": "S0",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/changed-lint.log",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/deadline-safe.log",
+      "group": "S0",
+      "bytes": 1310,
+      "sha256": "5b2fbe3520f5672370a7ccc8da2911a9137000974d45d5c5169ebb39fae72ef2",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/deadline-safe.log",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "e8b3e6b409e5e7727a215f5ef064f58794ac488e",
+        "bytes": 1310,
+        "sha256": "5b2fbe3520f5672370a7ccc8da2911a9137000974d45d5c5169ebb39fae72ef2"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/django-ps5.log",
+      "group": "S0",
+      "bytes": 171,
+      "sha256": "9f09eb8a3c67a2783487af69e4e4422b79c76c35243f3dc1792f346b116c79e6",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/django-ps5.log",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "d2328be665b96d84ee934e5bdae5fc049220cf50",
+        "bytes": 171,
+        "sha256": "9f09eb8a3c67a2783487af69e4e4422b79c76c35243f3dc1792f346b116c79e6"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/django-ps7.log",
+      "group": "S0",
+      "bytes": 171,
+      "sha256": "9f09eb8a3c67a2783487af69e4e4422b79c76c35243f3dc1792f346b116c79e6",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/django-ps7.log",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "d2328be665b96d84ee934e5bdae5fc049220cf50",
+        "bytes": 171,
+        "sha256": "9f09eb8a3c67a2783487af69e4e4422b79c76c35243f3dc1792f346b116c79e6"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/first-regression.log",
+      "group": "S0",
+      "bytes": 19235,
+      "sha256": "e456703e89f19df8bc9fbc1a2a83fb13bdf654234fa185bf4027c53d9d7162b5",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/first-regression.log",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "96b2ad25b65fe165401629e584eb5090620e8826",
+        "bytes": 19235,
+        "sha256": "e456703e89f19df8bc9fbc1a2a83fb13bdf654234fa185bf4027c53d9d7162b5"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/lint.log",
+      "group": "S0",
+      "bytes": 31703,
+      "sha256": "98403865344f031ab275e6106db293e9dc5af8b8f9b481676061bb0b9353eb12",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/release-pipeline-optimization-20261012/evidence-wp5/lint.log",
+        "sourceSha": "f1b086bbfd9872ae9b1cef7e0ceb62d30ae69db5",
+        "blob": "130a0cd5241cb7cf0deb672bb4baa8857764b4cb",
+        "bytes": 31703,
+        "sha256": "98403865344f031ab275e6106db293e9dc5af8b8f9b481676061bb0b9353eb12"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/规范/数据存储与迁移.md",
+      "group": "S0",
+      "bytes": 3193,
+      "sha256": "72c52efeb4fea4f5656767dd508b34403a1f6d37ea18d4d8aa4ccb4503bb2dda",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/规范/数据存储与迁移.md",
+        "sourceSha": "f03cf9395d2a8bc7e4c471a9f6f7877e550e74f3",
+        "blob": "927d6b0c2ec53a10083a96dbb0fcd5fad28bdd15",
+        "bytes": 3193,
+        "sha256": "72c52efeb4fea4f5656767dd508b34403a1f6d37ea18d4d8aa4ccb4503bb2dda"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "docs/规范/验证与发布.md",
+      "group": "S0",
+      "bytes": 18211,
+      "sha256": "01450903136d487e98aad20becdba6cbdcb2b86cdb716d0ff62bd9f47b568f81",
+      "originalSource": {
+        "group": "S0-docs",
+        "path": "docs/规范/验证与发布.md",
+        "sourceSha": "f03cf9395d2a8bc7e4c471a9f6f7877e550e74f3",
+        "blob": "b6546bfe9aadf3bc43a64b2ed5566cd9c3be1600",
+        "bytes": 17378,
+        "sha256": "16253b1b9d537a9605f7c2ed5c37169e54c80e379118f78fbd428b8e976f7057"
+      },
+      "matchesOriginalBytes": false,
+      "candidateFileCommit": "279870fc09772aee7d3c7156fe2e164d30abef92"
+    },
+    {
+      "path": "tests/operations-system-service-exit.test.ps1",
+      "group": "S1",
+      "bytes": 4889,
+      "sha256": "540c664ef41f9d6a4371db5aeb5123f080ae7298fdf5ca506f82d2388ff82969",
+      "originalSource": {
+        "group": "S1-service",
+        "path": "tests/operations-system-service-exit.test.ps1",
+        "deliverySha": "4968baedd7ac3fa0948258cdc854fd25045fe8cd",
+        "blob": "0013940c5b443e09d231154c79bbe03d5139962f",
+        "bytes": 4889,
+        "sha256": "540c664ef41f9d6a4371db5aeb5123f080ae7298fdf5ca506f82d2388ff82969"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "97282a6bced9752f32deb35ba346475e3a32a11c"
+    },
+    {
+      "path": "tests/operations-system-service.test.ts",
+      "group": "S1",
+      "bytes": 9466,
+      "sha256": "98f322f4284753937fd998328d29eeb466b6ac3b81c95aa2dd798423d4189fb6",
+      "originalSource": {
+        "group": "S1-service",
+        "path": "tests/operations-system-service.test.ts",
+        "deliverySha": "4968baedd7ac3fa0948258cdc854fd25045fe8cd",
+        "blob": "447ce5077eb885228e109c333766b65bd9063f87",
+        "bytes": 9466,
+        "sha256": "98f322f4284753937fd998328d29eeb466b6ac3b81c95aa2dd798423d4189fb6"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "97282a6bced9752f32deb35ba346475e3a32a11c"
+    },
+    {
+      "path": "tests/release-closeout-independent.test.mjs",
+      "group": "S2",
+      "bytes": 23438,
+      "sha256": "38ea3853fc5b81b6427ba4f0d15e078b80c704a172205078d345501ae802c5d1",
+      "originalSource": {
+        "group": "S2-report",
+        "path": "tests/release-closeout-independent.test.mjs",
+        "deliverySha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "af3a7f5b79367119b42765121268049c775093dc",
+        "bytes": 23438,
+        "sha256": "38ea3853fc5b81b6427ba4f0d15e078b80c704a172205078d345501ae802c5d1"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "da7f110f54fb67e069e767c1f91cf1584cd82847"
+    },
+    {
+      "path": "tools/operations-system-service.ps1",
+      "group": "S1",
+      "bytes": 23456,
+      "sha256": "38b1e5b2de4e20c6a0e75a8a8ab400c738a7fb0bdfae64803cfe14d97d48e97d",
+      "originalSource": {
+        "group": "S1-service",
+        "path": "tools/operations-system-service.ps1",
+        "deliverySha": "4968baedd7ac3fa0948258cdc854fd25045fe8cd",
+        "blob": "94b4d6c83a3051a4916b496a777d662d743609df",
+        "bytes": 23456,
+        "sha256": "38b1e5b2de4e20c6a0e75a8a8ab400c738a7fb0bdfae64803cfe14d97d48e97d"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "97282a6bced9752f32deb35ba346475e3a32a11c"
+    },
+    {
+      "path": "tools/release-closeout-report.mjs",
+      "group": "S2",
+      "bytes": 28125,
+      "sha256": "4fa19af7f938018a52df30d626e1159b87ad6973d7c9ad750a2be2d6214ea668",
+      "originalSource": {
+        "group": "S2-report",
+        "path": "tools/release-closeout-report.mjs",
+        "deliverySha": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+        "blob": "65ac8e485f2b5abddc08eebd660b7a7bbb06b1ca",
+        "bytes": 28125,
+        "sha256": "4fa19af7f938018a52df30d626e1159b87ad6973d7c9ad750a2be2d6214ea668"
+      },
+      "matchesOriginalBytes": true,
+      "candidateFileCommit": "da7f110f54fb67e069e767c1f91cf1584cd82847"
+    }
+  ],
+  "manifestSelfHashExcluded": true,
+  "fileCountIncludingManifestAndDocumentValidation": 64,
+  "manifestSelfPath": "docs/release-pipeline-optimization-20261012/SUBSET-ACTUAL-FILES.json",
+  "byteIdentity": "Git/canonical file bytes; generated review files use explicit LF. Raw test stdout/stderr remain base64 with their original hashes.",
+  "manifestSelfCommitBinding": "Final pushed HEAD and this manifest hash are bound by the external create-only review receipt; this file cannot contain its own commit/hash."
+}

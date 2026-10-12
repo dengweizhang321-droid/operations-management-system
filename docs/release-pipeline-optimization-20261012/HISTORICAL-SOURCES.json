@@ -1,0 +1,142 @@
+[
+  {
+    "path": "docs/AI_PROMOTION_CHAT_PAUSE_HANDOFF_20260927.md",
+    "bytes": 5353,
+    "sha256": "0e0e64a9fdce4cc01ecef79dbde07e88120e62ef7663b49dc011a62c9e912bf0"
+  },
+  {
+    "path": "docs/BACKUP_RETENTION.md",
+    "bytes": 10051,
+    "sha256": "e134f6500ee42b57b91b4c1cde421e7ae7189eca0edd848a0f557663bd40b86d"
+  },
+  {
+    "path": "docs/BI_COCKPIT_PRODUCTION_20261006.md",
+    "bytes": 9669,
+    "sha256": "13561f7657a63bfa4f800b98ed49d1d93c65de867b85a775e862dd28a9898334"
+  },
+  {
+    "path": "docs/JACKYUN_5478_PRODUCTION_20261005.md",
+    "bytes": 5497,
+    "sha256": "c8a00ca973367b3c65381fdb91a8069b4bdc2db371bc7f64612b4f73411ca66d"
+  },
+  {
+    "path": "docs/JACKYUN_OCT4_RECOVERY_PRODUCTION_20261005.md",
+    "bytes": 6811,
+    "sha256": "b2aeada00a804f63016fe12c8fe7bfb75f9d9fd22f8356f2b9f284b03c16523d"
+  },
+  {
+    "path": "docs/JD_CUSTOMER_SERVICE_RELEASE_20261007.md",
+    "bytes": 9204,
+    "sha256": "c918053b3e7a463d96580bc800967c30a5290519bbe1efd538e080d89eab015a"
+  },
+  {
+    "path": "docs/JD_QUERY_SOURCE_ADOPTION_20261004.md",
+    "bytes": 6845,
+    "sha256": "99d80e17db2941fddb54e0ba6fabd6073ac5eb51288cdb39d081d1919d493e32"
+  },
+  {
+    "path": "docs/OPTIMIZATION_PRODUCTION_20260929.md",
+    "bytes": 10061,
+    "sha256": "c1e519e45bd8981b4a570631c79f5ab648da6b2c27bc8bf1ebb2bf33ad4204a8"
+  },
+  {
+    "path": "docs/PERFORMANCE_FIVE_PRODUCTION_20261006.md",
+    "bytes": 13388,
+    "sha256": "950236cd31d76f03d2b2bcfb5e49567c8f058d99c353d98100244315b2e75b93"
+  },
+  {
+    "path": "docs/PRODUCT_OVERVIEW_SPEED_PRODUCTION_20261005.md",
+    "bytes": 12195,
+    "sha256": "35f856bbe2741dd35a592fbb540dbb5c92de1efcca74970e39d9dcbe483f616e"
+  },
+  {
+    "path": "docs/ai-customer-inventory-chain-20261008/PRODUCTION.md",
+    "bytes": 6709,
+    "sha256": "bca6c9d66fcd842d2d29f0409e24aa1c4ff6d2f22b9052bc41e6c839c9502358"
+  },
+  {
+    "path": "docs/evidence/integration-production-20260928.json",
+    "bytes": 13240,
+    "sha256": "a66317f7a6ed82c1dfd76f5dc708ff64bce543ea856f631477495cdebaa51e9a"
+  },
+  {
+    "path": "docs/evidence/jackyun-4163-recovery-production-20260925.json",
+    "bytes": 5591,
+    "sha256": "d2a0b36736b42c2ed61422a8291bb29a004aa30630a25be5d2aa8e24c3d10ab9"
+  },
+  {
+    "path": "docs/evidence/jackyun-4726-production-20260927.json",
+    "bytes": 13341,
+    "sha256": "e46b1aa7f504d3d77018451e0c4b3273718d248a1af7faa96b47243c036f6663"
+  },
+  {
+    "path": "docs/evidence/jackyun-5400-zero-cost-production-20260930.json",
+    "bytes": 4269,
+    "sha256": "8882999db06d1905be85a76bfb765f966bbfd03d0f172c3f2d3b76bfc03314ed"
+  },
+  {
+    "path": "docs/evidence/jackyun-dpapi-retry-production-20260926.json",
+    "bytes": 6792,
+    "sha256": "60d2d4f9f6ade666f8af44ea66895f3701cb06cdd2433ceded0dc0d6386b9aa6"
+  },
+  {
+    "path": "docs/evidence/jackyun-safe-recovery-production-20260927.json",
+    "bytes": 5338,
+    "sha256": "76c9cd496607e724c93657d82c11f070cfa42a6fceeb668a3c6a19a769ee5bdd"
+  },
+  {
+    "path": "docs/guangdong-plan-entry-20261006/PRODUCTION_20261007.md",
+    "bytes": 4960,
+    "sha256": "0e6cf1c09e1b7fba9d8ffa54422c8aa552ed4e341ad73e033b16693e39e08fce"
+  },
+  {
+    "path": "docs/jd-customer-service-four-stores-20261008/PRODUCTION.md",
+    "bytes": 10849,
+    "sha256": "c26a64a21157c13161020479d6f5602da8a3a98cad80af71a9c183987a51a28f"
+  },
+  {
+    "path": "docs/netshop-refactor/execution/20261002-production-adoption.md",
+    "bytes": 7430,
+    "sha256": "bb810794df0fdacb05eea29e5b6407e8a8eaf1d7fb706e71a99f178dc4f0c7eb"
+  },
+  {
+    "path": "docs/netshop-refactor/execution/20261003-combined-sql-production.md",
+    "bytes": 20095,
+    "sha256": "0bf3459f0c0fe4f69361a4452ecd0799c7af388c571bbea8f018e7ca34c29b79"
+  },
+  {
+    "path": "docs/netshop-refactor/execution/20261003-finance-edge-production.md",
+    "bytes": 12225,
+    "sha256": "8249a3c13dc4fe819c2274987d00f2fa4ed1b0a12049c17415558d857d650c31"
+  },
+  {
+    "path": "docs/netshop-refactor/execution/20261003-presence-production.md",
+    "bytes": 11054,
+    "sha256": "4c9f401f86c732df3e242957a98f26c72768705d83edca8d9b0ddae66f63da43"
+  },
+  {
+    "path": "docs/netshop-refactor/execution/20261004-all-shops-production.md",
+    "bytes": 7046,
+    "sha256": "005c7e9b64dd388b05a4bd14a2c38ac546a1963257d731fe4ed0e8b711402800"
+  },
+  {
+    "path": "docs/release-final-closeout-20261012/FINAL_REPORT.md",
+    "bytes": 9236,
+    "sha256": "54b6135e23d16924f05b0a9a46d6bcc02673b897fbcbb01649bc77680b93e4dd"
+  },
+  {
+    "path": "docs/shared-filter-20261006/PRODUCTION.md",
+    "bytes": 7396,
+    "sha256": "d02ec46d99a33396c3f8eaa56e977c653e94b66315e6c66d1bfe37a62657b073"
+  },
+  {
+    "path": "docs/tmall-seven-day-gap-loop-20261008/PRODUCTION.md",
+    "bytes": 15200,
+    "sha256": "6f8520e533b1f929bb263ec9cfa74560c2dd85641517f718f7e761e4ac375438"
+  },
+  {
+    "path": "docs/规范/验证与发布.md",
+    "bytes": 17378,
+    "sha256": "16253b1b9d537a9605f7c2ed5c37169e54c80e379118f78fbd428b8e976f7057"
+  }
+]

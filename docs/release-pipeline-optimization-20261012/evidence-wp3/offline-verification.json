@@ -1,0 +1,1543 @@
+{
+  "version": "wp3-offline-evidence-v1",
+  "originalFinalManifestSha256": "c9e171a605e87262c9ef981d42b88399aafdbb12c4987ebd33241ad0d1081e4d",
+  "originalFinalFilesVerified": 112,
+  "originalsUnchangedAfterGeneration": true,
+  "productionInterfaceInvoked": false,
+  "summaries": [
+    {
+      "name": "historical-1009",
+      "baseline": {
+        "status": "journal-completed-review-required",
+        "acceptancePassed": null,
+        "approvedToDeliveryMs": 10021661
+      },
+      "batchSha256": "8f6ed5eff8f63d088b5523d71a929856445db016d1c986396376390b470462af",
+      "journalHead": "c12e6522f4aacb94e9e1ea2e7490b62a85b5dbea221c79ac20a07b2bfe39a717",
+      "operations": 19,
+      "failures": [
+        {
+          "operationId": "customer-historical-query-preserved",
+          "status": "unknown",
+          "processEvidence": null
+        },
+        {
+          "operationId": "customer-four-shop-production-ui",
+          "status": "unknown",
+          "processEvidence": null
+        },
+        {
+          "operationId": "final-readiness-closeout",
+          "status": "unknown",
+          "processEvidence": null
+        }
+      ],
+      "acceptancePassed": null,
+      "status": "journal-completed-review-required",
+      "timing": {
+        "approvedAt": "2026-10-09T00:40:46.000Z",
+        "completedAt": "2026-10-09T03:03:20.676Z",
+        "approvedToCompleteMs": 8554676,
+        "observedApprovalSpanMs": 8554676,
+        "recordedByPhase": {
+          "queue": 396.9462000000002,
+          "prepare": 1066904.9208999998,
+          "backup-pre": 919343.545,
+          "restore-pre": 869058.8252000003,
+          "drain": 493183.07710000034,
+          "switch": 447227.02420000033,
+          "acceptance": 715460.9031,
+          "backup-post": 740459.8031000001,
+          "restore-post": 794984.0386999999,
+          "closeout": 199199.9990999999
+        },
+        "recordedExecutionSumMs": 6246219.082600001,
+        "executionCoveredMs": 6246206.4091796875,
+        "waitingOrUninstrumentedMs": 2308469.5908203125,
+        "documentCloseoutMs": 1466985,
+        "approvedToDeliveryMs": 10021661,
+        "reconciliations": [
+          {
+            "operationId": "step-startworker",
+            "resolution": "passed",
+            "startedToResolutionMs": 1137117,
+            "unknownToResolutionMs": null
+          },
+          {
+            "operationId": "customer-historical-query-preserved",
+            "resolution": "passed",
+            "startedToResolutionMs": 533837,
+            "unknownToResolutionMs": 530646
+          },
+          {
+            "operationId": "customer-four-shop-production-ui",
+            "resolution": "passed",
+            "startedToResolutionMs": 271142,
+            "unknownToResolutionMs": 265849
+          },
+          {
+            "operationId": "final-readiness-closeout",
+            "resolution": "passed",
+            "startedToResolutionMs": 297420,
+            "unknownToResolutionMs": 260332
+          }
+        ],
+        "qualification": "Durations are recorded execution; interval union prevents overlap. Residual includes coordination, waits and uninstrumented work; it is not all idle time. Coordination spans and document closeout are separate, never added twice."
+      },
+      "evidenceGaps": [
+        "missing-test-predecessor-binding",
+        "missing-test-validator-version",
+        "delivery-receipt-lacks-batch-digest",
+        "runtime-observation-not-fresh-at-report-generation"
+      ],
+      "verification": {
+        "batchVersion": "teruisi-release-batch-v1",
+        "testValidatorVersion": null,
+        "collector": {
+          "sha256": "96b7f892eb50923817959f290f6854282e58973014ce69e2eb495e4cb705bdad",
+          "files": [
+            {
+              "name": "node.exe",
+              "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+            },
+            {
+              "name": "release-batch-admission.mjs",
+              "sha256": "aca3c4aa594f9375afe345dee48b05c79cbb370bf73a7fcee79c3c84c5b2fdbc"
+            },
+            {
+              "name": "release-batch.mjs",
+              "sha256": "899e16338b4e1e1b086125b37806e6c2c752bec21136a76675eff9f66cb4d7b4"
+            },
+            {
+              "name": "release-impact.mjs",
+              "sha256": "560c1713fc92dcaccd72da45cd63fa59cc56f5dba9aa5f46dec4a30fef22792c"
+            },
+            {
+              "name": "release-daily-backup.mjs",
+              "sha256": "dca9baac66a121699abcdbf8873873dafef8d6c59971038886819542578194e5"
+            },
+            {
+              "name": "worker-local-release.mjs",
+              "sha256": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32"
+            },
+            {
+              "name": "worker-local-release-rotation.mjs",
+              "sha256": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd"
+            },
+            {
+              "name": "candidate-tests.json",
+              "sha256": "a08006d37e0020a1cee3a84379632f61b96a3958c27de46c7c1e3332410a0cb4"
+            },
+            {
+              "name": "validation-final.json",
+              "sha256": "3be5a3a8987bad19200029bad7a7cfebd0520859cc6307f67ee1a142a8b0e6c3"
+            },
+            {
+              "name": "INDEPENDENT_FIX_REVIEW.json",
+              "sha256": "733af426136ab3535af3c9875c887b9ff49f3523d693523ec226313028779e4b"
+            },
+            {
+              "name": "input-closure-proof.json",
+              "sha256": "3faa89a4aa3701de56ce78bd66b3ca41df58f15856079ff7900d7cd80e7ec380"
+            },
+            {
+              "name": "django-reuse-verification.json",
+              "sha256": "51171a424593331c2f736a841bb82f36e94a866471e3e80f8330747195afaf0f"
+            },
+            {
+              "name": "unit-entrypoint-admission.log",
+              "sha256": "713d99eaee2e28c0e324446e57270e84e813a4c0a87ef3be37e809bf1db3975c"
+            },
+            {
+              "name": "lint-admission.log",
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            {
+              "name": "INDEPENDENT_FIX_REVIEW.json",
+              "sha256": "733af426136ab3535af3c9875c887b9ff49f3523d693523ec226313028779e4b"
+            },
+            {
+              "name": "validation-final.json",
+              "sha256": "ed6d28b02a844dba67cb5eb6f0536c86ba48552aff88577c2efda883f0da6e6e"
+            },
+            {
+              "name": "combined-tests.log",
+              "sha256": "cfae6a8e948cbe670ee88ad603b0997022985052302342ea0f6c0f3782c2f146"
+            },
+            {
+              "name": "release-recovery-catalog.test.log",
+              "sha256": "fa51cb72365868738637ccdcd51945b7bb05958aedcaa21f3084c1e3aee30ed1"
+            },
+            {
+              "name": "test_postgres_no_key_backup.log",
+              "sha256": "acad4a0ec9079ae28bafb1cce23c0521cf836042f4677cc6bb542080e1b2be76"
+            },
+            {
+              "name": "postgres-consistent-backup.test.log",
+              "sha256": "0d409321dd837c52131a97c478301b251f12db8b7819f00ab70571107cb3ff5a"
+            },
+            {
+              "name": "tests.log",
+              "sha256": "72ff47088de476a1e2b36fbcf41abeb992478aa83d1c39f1ec72d474c943775e"
+            },
+            {
+              "name": "isolated-postgres-cleanup.json",
+              "sha256": "cc5f857209275a93da9d0a5fae6f48eaecbeeb236735e67014761b0a6ad70d53"
+            },
+            {
+              "name": "tests.log",
+              "sha256": "72ff47088de476a1e2b36fbcf41abeb992478aa83d1c39f1ec72d474c943775e"
+            },
+            {
+              "name": "source-permissions-preflight.log",
+              "sha256": "2ae07089681f73b08786dc641cca250b145026e5f23adec937f24c66cb645094"
+            },
+            {
+              "name": "customer-readonly-preflight.log",
+              "sha256": "37e2fca02d4163e1dca1f9287f9186d79998b79e1cd40e745838bab22f1a38e4"
+            },
+            {
+              "name": "chrome.exe",
+              "sha256": "6849d2982038de9f9489a7b3858f3b785b7fec06a842c93c517281d21995c8ca"
+            },
+            {
+              "name": "adoption-acceptance.mjs",
+              "sha256": "32a874f9df03a1849e8787e974afe8d11b85e23776c4636fb23488c4a2707455"
+            },
+            {
+              "name": "candidate-handoff.json",
+              "sha256": "6bdfcaf8eab6f47caf6fa935b492e88ca35301a6e72790e996fed92d164deb54"
+            },
+            {
+              "name": "approved-worker-delta.json",
+              "sha256": "ca08b37ef14186e119ed951579a32adf1e82856c58281228b606132ac511451a"
+            },
+            {
+              "name": "django-business-source-before.json",
+              "sha256": "235548025ed3bb6f5bf82f862e62377a4a9c940dbedda7869da2c619d81cea07"
+            },
+            {
+              "name": "customer-readonly-before.json",
+              "sha256": "aec2d07076f090e85d6d40612c9e7dc85f94421f8becafe876ea25ac1beb0915"
+            },
+            {
+              "name": "operations-system-control.ps1",
+              "sha256": "6037eb6357b4c98bf4a0fa6d03ae8f533671c03f1c8b6db1335dacb556bf7638"
+            },
+            {
+              "name": "powershell.exe",
+              "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5"
+            }
+          ]
+        },
+        "testsSha256": "f97a000e6ea7ac6979e76924cff31f37a8d555e12421448c93462dd2a8d838f9",
+        "testPredecessorBound": false,
+        "requiredChecks": [
+          "domain",
+          "contract",
+          "negative",
+          "concurrency",
+          "permissions",
+          "migration-rehearsal",
+          "lifecycle",
+          "backup-recovery",
+          "boundary",
+          "build"
+        ],
+        "recordedChecks": [
+          "domain",
+          "contract",
+          "negative",
+          "concurrency",
+          "permissions",
+          "migration-rehearsal",
+          "lifecycle",
+          "backup-recovery",
+          "boundary",
+          "build"
+        ],
+        "missingRequiredChecks": [],
+        "checkInventoryComplete": true,
+        "qualification": "Sealed check declarations and pinned validator bytes only; no tests rerun or independent verification of the declared requirement policy."
+      },
+      "planIdentity": {
+        "candidateReleaseId": "20261008T182600Z-f5d4b05177d17010",
+        "candidateManifestSha256": "72ec1670ec9c092329dc4d9712461af3ed9d78df04a32b32400b3fd150af9818",
+        "predecessorReleaseId": "20261008T103219Z-f5d9b00e432df6c0",
+        "predecessorManifestSha256": "91e392b28902df8ad3aaf966411eb9f39f2017ed4d899191c49573a320721915"
+      },
+      "observedRuntime": {
+        "checkedAt": "2026-10-09T10:58:37.6545287+08:00",
+        "releaseId": "20261008T182600Z-f5d4b05177d17010",
+        "state": "Running",
+        "backendState": "Ready",
+        "workerState": "exact_release",
+        "componentsReady": 12,
+        "componentCount": 12,
+        "freshness": {
+          "assessedAt": "2026-10-12T15:12:33.943Z",
+          "ageMs": 303236289,
+          "maxAgeMs": 5000,
+          "status": "expired",
+          "scope": "historical-observation-only",
+          "establishesCurrentReadiness": false
+        }
+      },
+      "delivery": null,
+      "inputFile": "historical-1009-input.json",
+      "inputSha256": "133b0dd5ab650d88ed2e95088eb1baf4291fcaa1613c3df2b7a56498aa99fa0e",
+      "originalPins": [
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/approved-candidate-batch.json",
+          "bytes": 7419591,
+          "sha256": "064970d91f84e6dd2ce85b9cbf910258f24016b7aedd2317d4a225e624ac68f0"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000000.json",
+          "bytes": 280,
+          "sha256": "84c8fb752cc261bf6d4aefa9d57df2ccf6ee03b0b350cd6b7f88a97a72ece55c"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000001.json",
+          "bytes": 393,
+          "sha256": "12b12cbbcbe56995260891c7244789dff8f83e415872fdb312cf0058844c78d8"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000002.json",
+          "bytes": 387,
+          "sha256": "61f3cbb1586a8ec0dc2ae1c1f9a6cb74d452cdc2713ee2c3ac55b5b667eba2a1"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000003.json",
+          "bytes": 346,
+          "sha256": "34a43afc3ba4b7279646e49e3d798037098662df23b4cbb263bfd04d6d8917b1"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000004.json",
+          "bytes": 482,
+          "sha256": "e94b49f1b914d876e6b7cc952b02338d3feaaca1f00790e92e383f0e1213c266"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000005.json",
+          "bytes": 390,
+          "sha256": "2943a62afdb07e89de1b2bc5a597a29feb55df3d712e6773e74ea05aacef8898"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000006.json",
+          "bytes": 344,
+          "sha256": "5fec0bb67d21dcee19891460b1cde5cfe261ccc673af20b91d141c24640b7ac3"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000007.json",
+          "bytes": 865,
+          "sha256": "281825051bac5a6473957949592362d20713262cc655e06ca02e7f0f35fcfaa0"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000008.json",
+          "bytes": 391,
+          "sha256": "4b46caf1344ad66ae53754973cf43b04a1ed88f36dcb8af2fdc4dfbbe7f5c6eb"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000009.json",
+          "bytes": 346,
+          "sha256": "e5ac9f684184cd5bffedd76cbc9f611510e66dbebcffa68489bb9180b4d524ef"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000010.json",
+          "bytes": 614,
+          "sha256": "c0839e8999af54673d55109657783faf090d468699b6c9c255cb6e20d06ec1c6"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000011.json",
+          "bytes": 386,
+          "sha256": "04bb6984af071cfd69bd3e44c0c0131cd0aa3489bde47fa86f80e16d8acb37d1"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000012.json",
+          "bytes": 347,
+          "sha256": "d8ef6e60e9afb2e785828833557bc38db5ddcdef2894510584da8d1e7af1e8ba"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000013.json",
+          "bytes": 537,
+          "sha256": "fa8ef50bc5cd9254dfcf9b90c001c16cff198ad9fafefab2945628f9dd223eeb"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000014.json",
+          "bytes": 385,
+          "sha256": "f9171c1b7515fcbc4fe3cb128ecd6f110fa7e811ecf9bd453e1c8601bb26ae02"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000015.json",
+          "bytes": 341,
+          "sha256": "8184900304eaeb48252192c7ec0b9f52a13dc40a7826ca98f48e077789d15042"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000016.json",
+          "bytes": 481,
+          "sha256": "4da4f61bb8a0ecefe9f2e54790071bccd279cc7a8f76f8756bc42c9a37c7085e"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000017.json",
+          "bytes": 386,
+          "sha256": "5faebfc2269e04d6afcb50a3999bd48fe600074c87b04d2f1a0a513aec1836d9"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000018.json",
+          "bytes": 341,
+          "sha256": "c9e7a044838140652c2da290fce73241d7e8bc2060668f98e021ba02b916dc2d"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000019.json",
+          "bytes": 481,
+          "sha256": "4b1095f20bad81a1be6e8d58b3c90b3030235dc9047a7c5da725ee1e4ad6fe0c"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000020.json",
+          "bytes": 386,
+          "sha256": "f2d26025c12f4ecab95ab654d53611bd8276a4258006f5e006797ae20be535fe"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000021.json",
+          "bytes": 345,
+          "sha256": "9f45f08b1e996e5d8f640bda65fe5a609f3c07bb40415e070d3d4ccd919584cd"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000022.json",
+          "bytes": 487,
+          "sha256": "9d645830515bb636f1ebba08f2799c0a91577c71bc57e3a3f4f26e9456c6738f"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000023.json",
+          "bytes": 386,
+          "sha256": "4d36e7ef685e2a6d0d7949afff48fcb729f925acb99b91b49ce8f4f7240deb89"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000024.json",
+          "bytes": 347,
+          "sha256": "db45b2bd1ad60fb39ed32286646445ec089f387e69d4090d6018fd56d50dd477"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000025.json",
+          "bytes": 536,
+          "sha256": "588102cdd1edabe7f05c87a5615ac85f32c0b15660a03942ad1d7fd35a1d7288"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000026.json",
+          "bytes": 386,
+          "sha256": "968bb293056ba119acb7aa683236d0c696800b43cc1558ee696c7dea6cdcefd6"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000027.json",
+          "bytes": 343,
+          "sha256": "012f430d4a93214d5d146e75718dd38c2df8b0e5df8f4fffb522022443f816ad"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000028.json",
+          "bytes": 461,
+          "sha256": "073d6455350f9b98720c7721633932eb1a758c069545e63911e76129d4453cdc"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000029.json",
+          "bytes": 340,
+          "sha256": "b9c74388f25251e6be36c5d44a865a6e3e93b7f818ecb0dab517835970b2e890"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000030.json",
+          "bytes": 393,
+          "sha256": "723d75ac093efe162e2ddec5d925962476563f29f68feeb61cfba5b42550c33a"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000031.json",
+          "bytes": 383,
+          "sha256": "ec699d253f135a20e2b3ad4a5546127e740e86bf8d05102dd1c48a6fa04c1cc2"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000032.json",
+          "bytes": 351,
+          "sha256": "05c7386ceff3475c3ac064078f92ab191d0bdd7e53a3b0e1de578aae9360a896"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000033.json",
+          "bytes": 490,
+          "sha256": "416c2feeab191ed980189c279af481a43138e1341ce1ab88f31bbe3bd83b8f24"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000034.json",
+          "bytes": 390,
+          "sha256": "b901a827a7696455db76105d811d9f40d0171efddfb32fbc636627591c5e25f0"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000035.json",
+          "bytes": 367,
+          "sha256": "2a63d7918d34a21596e85d80a85aa57341a00532343cbd36cdab6dbf5e6d161e"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000036.json",
+          "bytes": 507,
+          "sha256": "aabce0ae3cb6ff7cab494004468d9fb09bd6f82827795fabaffb29ecc4e06f26"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000037.json",
+          "bytes": 390,
+          "sha256": "b8fc68ff6623d77a3a1c50750c0a80c6b547fb496a08e949c8036bb8dc052e94"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000038.json",
+          "bytes": 366,
+          "sha256": "803f412e3f35bfb9cc4ed31b898c8407cb23b6b49eaa834ab5a208f32478b4f4"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000039.json",
+          "bytes": 483,
+          "sha256": "dc9e392fd2cb2ba7e64a9c7e95c46939f00535335bb46e38e8acc40e235030f3"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000040.json",
+          "bytes": 484,
+          "sha256": "9bbfffa387376b2159d41f2f01d8bfaf9a3760f5065f1f0a929e60fdb7101ce0"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000041.json",
+          "bytes": 340,
+          "sha256": "de397dc15a80dcf28b0f62ddeab5bd0e9a178e7e35af3009bf47a80e93491a40"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000042.json",
+          "bytes": 400,
+          "sha256": "f162bf9e11e3f7d69a76280497b3799f8db8dfac978f90c512c9508cbaccfd5f"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000043.json",
+          "bytes": 383,
+          "sha256": "f7d549d5037bc9a50caffe4ec0860b43a403e97fca8bbe6f0646908773f0597c"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000044.json",
+          "bytes": 363,
+          "sha256": "7a6b1c8cad5c7b625864be3165d0f5278602ea88ca7f30ce6b6031041928e945"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000045.json",
+          "bytes": 479,
+          "sha256": "7e40346a90512d287499892d290e52e979289b1e52ee658e7f6363a845838e90"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000046.json",
+          "bytes": 481,
+          "sha256": "b7dd169deeec15582a102f49768ca46bff42115d65d46f942d08c3b9917c4138"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000047.json",
+          "bytes": 340,
+          "sha256": "2f2d23bd0bd90ac25dc0f845810811e4eb672b223d35d007e9ea729c90eb0fe0"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000048.json",
+          "bytes": 393,
+          "sha256": "9dfa8fc6ef7875a837ba06f519924a2a7d0c480b83c2b7680512832dfead19b7"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000049.json",
+          "bytes": 390,
+          "sha256": "9243c2c6cfdfa9f56639e6b19c1333789297331f9d2ab1c9784d75e94e164334"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000050.json",
+          "bytes": 351,
+          "sha256": "60c1e33598d2a2aea4736cec4b8631b95adb80679904796334335c2fe5ac496d"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000051.json",
+          "bytes": 492,
+          "sha256": "c96e0a0ebeaaa56f33258e8d3fc5a2478aa7e46988c0f5ad9c6a604cef072061"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000052.json",
+          "bytes": 383,
+          "sha256": "303c65354d581b7fc7146310d408ade70e4577e075bbd62f552c810d784a6a98"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000053.json",
+          "bytes": 349,
+          "sha256": "326405dd932fe910f6793b891352ec3a51036aeccc05ba658d312579c43cf696"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000054.json",
+          "bytes": 488,
+          "sha256": "5b51161509ffa0ca1b249d081036d596239c6107b549268f6cc9028d200dd94e"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000055.json",
+          "bytes": 390,
+          "sha256": "cadccad563fd2bff62d7f235b6b517804627235efd925ab3ce63c39630962d8c"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000056.json",
+          "bytes": 356,
+          "sha256": "ac17305a19f7426627e7dde40b2c7ba272157076975b8755c6eadefca5dd8bed"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000057.json",
+          "bytes": 497,
+          "sha256": "68cccbdfb4b3518480c5d45e67439811af7fb06db95018433f86772ff1956872"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000058.json",
+          "bytes": 391,
+          "sha256": "16e97f93b128cfce5eb9ba06d7a1665f2d27977b7a2c5d192e4afc37c7ffc3a5"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000059.json",
+          "bytes": 346,
+          "sha256": "a11ff52eae6fea05dbba0760859d61637c17a1ff000752eabc2b63a353366816"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000060.json",
+          "bytes": 873,
+          "sha256": "fc2e1aeceff8b1ae341ec8e92cca2e38cbf74c76f7d69a0891a2f7e1e9abbd4a"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000061.json",
+          "bytes": 393,
+          "sha256": "d371bd8716cccbe5e2c5bc380b8e0c5c64683667c69681428a00c690e5291b33"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000062.json",
+          "bytes": 348,
+          "sha256": "f871cbf0e0f3f63d1bbc92e1132d0d9a20eda2e5be084657f3050b64689edcbc"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000063.json",
+          "bytes": 616,
+          "sha256": "535f867995bfa93eeb125454724df8a74ac2e5e56c19e36fdec05054720f085f"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000064.json",
+          "bytes": 382,
+          "sha256": "aa68178fa97a4c910c6a8462413f69c59fbb3aff741ddba2cca273dc4b55ab1b"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000065.json",
+          "bytes": 353,
+          "sha256": "cb2cdb844f5c224073f855ff50f87a0ff4b9c106ab749143f147b49a54582b8d"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000066.json",
+          "bytes": 468,
+          "sha256": "3125ec4567a9a3b3ec84ebe5504b3f4df61d1073f27c2d1dd0d24bd49aef10e0"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000067.json",
+          "bytes": 471,
+          "sha256": "409885a80a433791809b17dc02a69d389d938fa733088fb072adf354788afead"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000068.json",
+          "bytes": 341,
+          "sha256": "70875ea2db46295b5ffece4b819f8864ce45307c4c66c4c1f444a97cbb0c1470"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000069.json",
+          "bytes": 393,
+          "sha256": "8eb49cac59c33001208d55dce2ec4592c9877ec7986465500845f24d5c0d81ab"
+        },
+        {
+          "path": "E:\\codex-artifacts\\release-customer-ps5-fix-20261009\\production\\journal\\000070.json",
+          "bytes": 314,
+          "sha256": "b76e0b3df4e0b17dfdfc7388d5677068c84ebdc48a08a1cdac2876d4a623b695"
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/execute-01.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/execute-02-resume.log",
+          "sha256": "4d1ae2edd540b67e785bc5ffd4a8adb342aa83688d28ea5de2d672397b9bed18",
+          "bytes": 66
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/execute-03-resume.log",
+          "sha256": "1e950e518450d140804f9f788c730cc6ffb916a4af989667c14a441e05ba7307",
+          "bytes": 63
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/execute-04-resume.log",
+          "sha256": "b6cc20cfdb0a7f0d2d8417f8f7e659e2a2ac7279b270b7dbea982213649fbcf4",
+          "bytes": 55
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/execute-05-closeout.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/pre-backup-evidence/original-operation-audit-completed.json",
+          "bytes": 2555,
+          "sha256": "ada85de139d7f00ec85406e89a5aa06d9870d17fd820a764b4e092ae095629dc"
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/post-backup-evidence/original-operation-audit-completed.json",
+          "bytes": 2555,
+          "sha256": "11271bcf08ce1820a8cc1192a1b900cbb65ffa42f2431107088f904957ea6c7a"
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/pre-restore-evidence/rehearsal-result.json",
+          "bytes": 1098,
+          "sha256": "0e9546f2ce9ff20b84626dd3670144c38fddd17c9b10d36382430b7b602ce11d"
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/post-restore-evidence/rehearsal-result.json",
+          "bytes": 1098,
+          "sha256": "9e97793aecf0911b4fd26c13813168c74fa9e995337c261577e7efa25b254343"
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/independent-start-completion-reconcile-proof.json",
+          "bytes": 801,
+          "sha256": "60fd8d1d061873911d4a14a36131925bd5acaa17c54e542aa312c0505083b7d2"
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/customer-historical-independent-reconcile-proof.json",
+          "bytes": 913,
+          "sha256": "836eec2982168bc2169a22709f973c4acaf588dc45414526a5b3c4c5125825bb"
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/customer-ui-independent-reconcile-proof.json",
+          "bytes": 923,
+          "sha256": "66cf5db6be72beb5ec00f9b33c16624f64ea93cc03d165409288b83140faa073"
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/independent-final-readiness-reconcile-proof.json",
+          "bytes": 595,
+          "sha256": "4f3028c5a0f54471c439538597b3cd1fed4a24f93b211708fe8eb602b3166bdc"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\043feb797593ffa7b47a3cd25f561744bb8687f9ba234477ee0136b51f844d4d.json",
+          "sha256": "043feb797593ffa7b47a3cd25f561744bb8687f9ba234477ee0136b51f844d4d",
+          "bytes": 4664
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/candidate-handoff.json",
+          "sha256": "6bdfcaf8eab6f47caf6fa935b492e88ca35301a6e72790e996fed92d164deb54",
+          "bytes": 2564
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/independent-final-readiness-status.json",
+          "sha256": "a38642a64af896a7f5ecbe62154dbe4c8176a6dda1d7aa4c4c66850444260713",
+          "bytes": 518
+        },
+        {
+          "path": "E:/codex-artifacts/release-customer-ps5-fix-20261009/production/DELIVERY_COMPLETED.json",
+          "sha256": "d0f2f693e011df2ba3476ea6449658677efa525762f6d8a155a627c904561681",
+          "bytes": 699
+        }
+      ],
+      "localOutput": {
+        "directory": "D:\\codex-isolated\\release-wp3-receipts-20261012\\运营管理系统\\tmp\\wp3\\historical-1009-delivered",
+        "reportSha256": "96465df401a2f41ae42fca5eb2b571b333bd40cbf555eec9718621261f55445a",
+        "markdownSha256": "f63c090960a0af4d9b42f6dddb8e0d9386321a23712ab76d85882f88c92a2b2a"
+      }
+    },
+    {
+      "name": "first-adoption-f15",
+      "baseline": {
+        "status": "journal-completed-review-required",
+        "acceptancePassed": null,
+        "approvedToDeliveryMs": null
+      },
+      "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+      "journalHead": "0f15cef55c6f108e45cf8b7c45d8d9f365d0d0d5ca750131a8d7cff9e9daf8b5",
+      "operations": 19,
+      "failures": [
+        {
+          "operationId": null,
+          "status": "admission-failed",
+          "processEvidence": null
+        },
+        {
+          "operationId": "backup-pre",
+          "status": "unknown",
+          "processEvidence": {
+            "version": 1,
+            "processId": 36576,
+            "exitCode": 1,
+            "deadlineUnixMs": 1791737947855,
+            "elapsedMs": 600033,
+            "stdoutBytes": 1319,
+            "stderrBytes": 2432,
+            "code": "nonzero_exit",
+            "stage": "output",
+            "outputProtocol": "direct-exit-files",
+            "cleanup": "preserve",
+            "stdoutSha256": "114fc0d3c0574834a96adfe48db8248810c8eebe41e2d4d9f43816e8c665b3ad",
+            "stderrSha256": "76fa35ebbe9d091a3489b03f77fffd38bf8e992021405f6ea226468d15ac717c",
+            "timeoutType": null
+          }
+        },
+        {
+          "operationId": "op-stopworker-switch",
+          "status": "unknown",
+          "processEvidence": {
+            "version": 1,
+            "processId": 11416,
+            "exitCode": 1,
+            "deadlineUnixMs": 1791740513125,
+            "elapsedMs": 5311,
+            "stdoutBytes": 692,
+            "stderrBytes": 616,
+            "code": "nonzero_exit",
+            "stage": "output",
+            "outputProtocol": "direct-exit-files",
+            "cleanup": "preserve",
+            "stdoutSha256": "1ed36c41f37b88de7ae8be1ab350ac2a3214156033325dfadd2d494abc7d83b2",
+            "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+            "timeoutType": null,
+            "engine": [
+              {
+                "version": 1,
+                "processId": 49472,
+                "exitCode": 1,
+                "deadlineUnixMs": 1791740513125,
+                "elapsedMs": 4677,
+                "stdoutBytes": 179,
+                "stderrBytes": 55,
+                "code": "completed",
+                "stage": "completed",
+                "outputProtocol": "direct-exit-file-snapshot",
+                "cleanup": "Preserve",
+                "stdoutSha256": "420ed2ad4ece17016c0ced212e3313f1a8bd0981660f59b62591cb96710fd256",
+                "stderrSha256": "f1b8ea75e735de67929df56035a7f7eb0857564af75d8079b9fafcd06167524d"
+              },
+              {
+                "processId": 49472,
+                "exitCode": null,
+                "deadlineUnixMs": 1791740513125,
+                "code": "worker_gate_failed",
+                "stage": "StopForRelease"
+              }
+            ]
+          }
+        },
+        {
+          "operationId": "previous-reference-guard",
+          "status": "unknown",
+          "processEvidence": {
+            "version": 1,
+            "processId": 24828,
+            "exitCode": 1,
+            "deadlineUnixMs": 1791766966318,
+            "elapsedMs": 21809,
+            "stdoutBytes": 0,
+            "stderrBytes": 20951,
+            "code": "nonzero_exit",
+            "stage": "output",
+            "outputProtocol": "direct-exit-files",
+            "cleanup": "direct",
+            "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderrSha256": "29c2f1f204f43d2f06cf997f0ac213acd18e7f5e2253f742300feb1ecd7cfb10",
+            "timeoutType": null
+          }
+        },
+        {
+          "operationId": "op-startworker-switch",
+          "status": "unknown",
+          "processEvidence": {
+            "version": 1,
+            "processId": 13572,
+            "exitCode": 1,
+            "deadlineUnixMs": 1791771006685,
+            "elapsedMs": 348467,
+            "stdoutBytes": 1394,
+            "stderrBytes": 616,
+            "code": "nonzero_exit",
+            "stage": "output",
+            "outputProtocol": "direct-exit-files",
+            "cleanup": "preserve",
+            "stdoutSha256": "62cc7f125fe73f560cb931443785f4217cd5ea88ed182517a0c35c482ae894c1",
+            "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+            "timeoutType": null,
+            "engine": [
+              {
+                "version": 1,
+                "processId": 26580,
+                "exitCode": 0,
+                "deadlineUnixMs": 1791771006685,
+                "elapsedMs": 296454,
+                "stdoutBytes": 225,
+                "stderrBytes": 0,
+                "code": "completed",
+                "stage": "completed",
+                "outputProtocol": "direct-exit-file-snapshot",
+                "cleanup": "Preserve",
+                "stdoutSha256": "b2c7aa9b8d9dd824603f02d896d269ccdd698e4600827e7c51e112c6e47f3890",
+                "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "version": 1,
+                "processId": 52448,
+                "exitCode": 0,
+                "deadlineUnixMs": 1791771006685,
+                "elapsedMs": 10673,
+                "stdoutBytes": 265,
+                "stderrBytes": 0,
+                "code": "completed",
+                "stage": "completed",
+                "outputProtocol": "direct-exit-file-snapshot",
+                "cleanup": "Direct",
+                "stdoutSha256": "4ad622f47b58517a3fb863e2a8277591c8296b9c78f57523c25c76bdfd9f0291",
+                "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              {
+                "version": 1,
+                "processId": 26112,
+                "exitCode": 0,
+                "deadlineUnixMs": 1791771006685,
+                "elapsedMs": 40391,
+                "stdoutBytes": 674,
+                "stderrBytes": 0,
+                "code": "completed",
+                "stage": "completed",
+                "outputProtocol": "direct-exit-file-snapshot",
+                "cleanup": "Direct",
+                "stdoutSha256": "a40c6bd3a59fe7f8774927e923e20d59f4e4fc890927e657c47876c2b3dde59e",
+                "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            ]
+          }
+        },
+        {
+          "operationId": "observe-display",
+          "status": "unknown",
+          "processEvidence": {
+            "code": "no-data-observation-failed",
+            "stage": "display"
+          }
+        },
+        {
+          "operationId": "observe-natural-watchdog",
+          "status": "unknown",
+          "processEvidence": {
+            "code": "no-data-observation-failed",
+            "stage": "natural-watchdog"
+          }
+        }
+      ],
+      "acceptancePassed": null,
+      "status": "journal-completed-review-required",
+      "timing": {
+        "approvedAt": "2026-10-11T15:25:28Z",
+        "completedAt": "2026-10-12T11:08:10.976Z",
+        "approvedToCompleteMs": 70962976,
+        "observedApprovalSpanMs": 70962976,
+        "recordedByPhase": {
+          "queue": 361.2207000000053,
+          "prepare": 1892663.7653,
+          "backup-pre": 704185.7688999999,
+          "drain": 532646.8286000001,
+          "switch": 2145648.4549000002,
+          "acceptance": 958510.8450999998,
+          "closeout": 191327.59400000004
+        },
+        "recordedExecutionSumMs": 6425344.477499999,
+        "executionCoveredMs": 6425329.5732421875,
+        "waitingOrUninstrumentedMs": 64537646.42675781,
+        "documentCloseoutMs": 562184,
+        "approvedToDeliveryMs": 71525160,
+        "reconciliations": [
+          {
+            "operationId": "backup-pre",
+            "resolution": "passed",
+            "startedToResolutionMs": 2610627,
+            "unknownToResolutionMs": 2010486
+          },
+          {
+            "operationId": "op-stopworker-switch",
+            "resolution": "passed",
+            "startedToResolutionMs": 25963955,
+            "unknownToResolutionMs": 25958590
+          },
+          {
+            "operationId": "previous-reference-guard",
+            "resolution": "passed",
+            "startedToResolutionMs": 2410492,
+            "unknownToResolutionMs": 2388290
+          },
+          {
+            "operationId": "op-startworker-switch",
+            "resolution": "passed",
+            "startedToResolutionMs": 19323874,
+            "unknownToResolutionMs": 18975340
+          },
+          {
+            "operationId": "observe-display",
+            "resolution": "passed",
+            "startedToResolutionMs": 1955733,
+            "unknownToResolutionMs": 1953944
+          },
+          {
+            "operationId": "observe-natural-watchdog",
+            "resolution": "passed",
+            "startedToResolutionMs": 9041685,
+            "unknownToResolutionMs": 8906420
+          }
+        ],
+        "qualification": "Durations are recorded execution; interval union prevents overlap. Residual includes coordination, waits and uninstrumented work; it is not all idle time. Coordination spans and document closeout are separate, never added twice."
+      },
+      "evidenceGaps": [
+        "missing-test-predecessor-binding",
+        "missing-test-validator-version",
+        "missing-original-receipt:backup-pre",
+        "missing-original-receipt:restore-installed",
+        "missing-exact-source-commit-and-release-versions",
+        "missing-independent-running-version-observation",
+        "delivery-receipt-lacks-batch-digest"
+      ],
+      "verification": {
+        "batchVersion": "teruisi-release-batch-v4",
+        "testValidatorVersion": null,
+        "collector": {
+          "sha256": "899f7602c0e2826b3df6d755d327c0abaa5e0329df4bc3033014d49adde32393",
+          "transport": "in-process-content-evidence-v1",
+          "files": [
+            {
+              "name": "release-batch.mjs",
+              "sha256": "e0d2e1d38e0416fca6bb4a61eb42ccf07baabb363493796dd54f3b8e50bf2ccc"
+            },
+            {
+              "name": "release-batch-admission.mjs",
+              "sha256": "e877cbf80bd305d98c1d475dc835ea455cba66dcc8f0b12280f914a4532c7ea5"
+            },
+            {
+              "name": "release-impact.mjs",
+              "sha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164"
+            },
+            {
+              "name": "release-no-data-observation.mjs",
+              "sha256": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d"
+            },
+            {
+              "name": "release-preparation-evidence.mjs",
+              "sha256": "b7355e8f36efe8be54dc1980334f87f109372b1bd743639160064d4034235bf6"
+            },
+            {
+              "name": "release-admission-timing.mjs",
+              "sha256": "7b14e75d7d7b6cbf726d2199330a1e99366e202d5c36becb99287ae9b3060e66"
+            },
+            {
+              "name": "release-daily-backup.mjs",
+              "sha256": "4b77088b234734fcfedeb658c81c489771d26f320b0a66a1a5286417a7857705"
+            },
+            {
+              "name": "release-readonly-retry.mjs",
+              "sha256": "c520faf92035fa0aa6e2feb7429b3941ebd20fae9fa2234ff35ff1c9ef9cc5ab"
+            },
+            {
+              "name": "worker-local-release.mjs",
+              "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+            },
+            {
+              "name": "worker-local-release-rotation.mjs",
+              "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+            },
+            {
+              "name": "d1-retirement-proof.mjs",
+              "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+            },
+            {
+              "name": "collect-d1-retirement-proof.mjs",
+              "sha256": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295"
+            },
+            {
+              "name": "typescript.js",
+              "sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675"
+            },
+            {
+              "name": "package.json",
+              "sha256": "822ef7ca6452205657b6288b066481ecf508bfbf43455d715cf7d3ec457561e6"
+            },
+            {
+              "name": "node.exe",
+              "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+            },
+            {
+              "name": "ADOPTION_TESTS_LIVE_V1.json",
+              "sha256": "c2fa8aa636276af49fbedc5b272484c20c908998a6d4d1385cf83e99e44cd2a5"
+            }
+          ]
+        },
+        "testsSha256": "1f2e141e8a0d501563b2969995ca0ebe9f137ee95f2f3725ae5feb88bedcf80c",
+        "testPredecessorBound": false,
+        "requiredChecks": [
+          "domain",
+          "contract",
+          "negative",
+          "concurrency",
+          "permissions",
+          "migration-closure",
+          "lifecycle",
+          "backup-recovery",
+          "boundary",
+          "build",
+          "targeted-recovery-negative"
+        ],
+        "recordedChecks": [
+          "domain",
+          "contract",
+          "negative",
+          "concurrency",
+          "permissions",
+          "migration-closure",
+          "lifecycle",
+          "backup-recovery",
+          "boundary",
+          "build",
+          "targeted-recovery-negative"
+        ],
+        "missingRequiredChecks": [],
+        "checkInventoryComplete": true,
+        "qualification": "Sealed check declarations and pinned validator bytes only; no tests rerun or independent verification of the declared requirement policy."
+      },
+      "planIdentity": {
+        "candidateReleaseId": "20261011T090355Z-21c2645a63247749",
+        "candidateManifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+        "predecessorReleaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+        "predecessorManifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113"
+      },
+      "observedRuntime": null,
+      "delivery": {
+        "version": "release-final-delivery-receipt-v2",
+        "deliveredAt": "2026-10-12T11:17:33.160Z",
+        "approvalAt": "2026-10-11T15:25:28Z",
+        "productionCompletedAt": "2026-10-12T11:08:10.976Z",
+        "necessaryAcceptanceAt": "2026-10-12T11:08:10.973Z",
+        "supersedes": "FINAL_DELIVERY_RECEIPT_V1.json",
+        "qualification": "Matched historical approval/completion/counts; not a new batch-specific acceptance or current runtime observation."
+      },
+      "inputFile": "first-adoption-f15-input.json",
+      "inputSha256": "6e3906c094bc18a499a7aaa1ed39e94fc453f72d90b21a51d162ba827ea1ab8d",
+      "originalPins": [
+        {
+          "path": "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+          "bytes": 3442280,
+          "sha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000000.json",
+          "bytes": 276,
+          "sha256": "0f9b044aa3cf504c42509606e3358eda83094016609dc89f3d230342857663f6"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000001.json",
+          "bytes": 1289,
+          "sha256": "81e6cce0afbb8949a692367a03aba7689a065353a58225ff301acf3a201a97a2"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000002.json",
+          "bytes": 341,
+          "sha256": "73e3bb2df739bb855f184f069ef6bb0ded103ae194c88e771b912a3a9bc62af6"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000003.json",
+          "bytes": 2092,
+          "sha256": "4f01fc11f7d5d0fa98be325c8dc5c6c0e8a5cf17eef9b4abfebe65ef086ed04f"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000004.json",
+          "bytes": 1957,
+          "sha256": "79724f784dfb862616fb7f6cb0eb81d0c5d60ca6bfeb532a0d56e215b59fb219"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000005.json",
+          "bytes": 338,
+          "sha256": "56482df7442d0833b591e8494403bee2969bde92c7cce80f1417ad5f3bdafedb"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000006.json",
+          "bytes": 518,
+          "sha256": "e4c911842abf19297c2e00aa9e35dd57e5fbde09444f3d335e3ac2b1b20436dc"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000007.json",
+          "bytes": 1964,
+          "sha256": "2e509166b1a70dd7192d8c1cb0aef79652f44da7f840d0ff8a11f1646b013d30"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000008.json",
+          "bytes": 341,
+          "sha256": "0491d19d6fb9da61fbc3ee512296924ca35664c810e8f6314036f23f98becdac"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000009.json",
+          "bytes": 1465,
+          "sha256": "58d73d459afbb5c090f3cf593d10819aee42289bb23847166279ebc9d2dd36ca"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000010.json",
+          "bytes": 859,
+          "sha256": "f5ed9adcca75869cd6db9cb3678b903b5ef3cb3a9be8512a35dd55d9e79a4607"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000011.json",
+          "bytes": 341,
+          "sha256": "ec2fde65dccca20e05ea6c5c86de080de94f8d8a7b07cdd50674851757f111b7"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000012.json",
+          "bytes": 2075,
+          "sha256": "9a55d11d36a9216490eebd0ec2f32cf17a70d36293eeb46a94439163d62ee028"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000013.json",
+          "bytes": 2077,
+          "sha256": "467fd44fc005eb2d3ac6375c77e7349401cf17a95321872bcf79d345dddcb26f"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000014.json",
+          "bytes": 351,
+          "sha256": "361d0e3fa43793a9f331ab857e1a8a8e74398acf083a0e75d7c2318b5d43485a"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000015.json",
+          "bytes": 1476,
+          "sha256": "7cc254aaef62183150949a3aa9ebc7a6cf4704b94c621d0b7b5e937bf6359ed7"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000016.json",
+          "bytes": 1961,
+          "sha256": "f436db0cdd041daa34e294290f717d1c34b2f584997518d810cba32c6398c6a8"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000017.json",
+          "bytes": 347,
+          "sha256": "def4bd27652b0bd5ecefb0f4aeec0cec61154cf210534b48b71a5531f26aa76d"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000018.json",
+          "bytes": 2084,
+          "sha256": "541e7d274f997d3ce083bee04486f72c76a115c036872e2155a4652b6a60e14f"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000019.json",
+          "bytes": 465,
+          "sha256": "f81900d324bd1807962630cc1fc70441fd71515d113f74fa5ccc8966d690160c"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000020.json",
+          "bytes": 340,
+          "sha256": "1cbe3026754b153d6bb7a36fd855c821bbb4f51b52146492a75ffaaa6731b699"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000021.json",
+          "bytes": 2065,
+          "sha256": "773f41a6c09edada7aeb83fdb438dc6e0c1fbb1a49de118b6a5cf8fca3b6f74a"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000022.json",
+          "bytes": 2064,
+          "sha256": "21a1d57e6aac330253bd24b256a2fe5c5e2e1877d1c10ad04471693bdad8e31b"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000023.json",
+          "bytes": 335,
+          "sha256": "0c2a6969b53d82e225e29b95808b60b6bd9a3d8297bd95ed6453a7ad446a1758"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000024.json",
+          "bytes": 515,
+          "sha256": "a4298a9caccdc39386f13e6f1d7303c2730f350c2e76377a105c1c6f6fc46d77"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000025.json",
+          "bytes": 1948,
+          "sha256": "7aeaf8cc31707c47863e122b4dd8aae030dbc39fa14101961a02bab77eb6e9f5"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000026.json",
+          "bytes": 351,
+          "sha256": "7bd5474c3f643e336b76d20b6c8fb8027fce160b3d1474cf70d783ceea6d282a"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000027.json",
+          "bytes": 1463,
+          "sha256": "031bcac0a4b50a84c0a6239167b6b77038af1450446d0810a925306d8b2cf708"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000028.json",
+          "bytes": 469,
+          "sha256": "c7f5718b7843c51ea98e01135c0070d2f1b77beba2299d19ecee5b9985f17b2c"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000029.json",
+          "bytes": 341,
+          "sha256": "980fa68b8d825f97af0fc4c8e4da11582260762e741568a4a23b9e245802198a"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000030.json",
+          "bytes": 2084,
+          "sha256": "383e137e1d66a1f4c246dd1a36fb65c3ccb1a269c24061ceae03a429ea79ba37"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000031.json",
+          "bytes": 1957,
+          "sha256": "f4410e620910396fa3f59ec8cb5cff924e4247daf0135ac4bddabd65b2e0b7e9"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000032.json",
+          "bytes": 346,
+          "sha256": "f9bc1a63bde16c2f4afc9c87c14dad9825049cd982487f53c8614d6cd186ffdf"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000033.json",
+          "bytes": 1012,
+          "sha256": "49b20e5b9a02750575d1b6352b9f8747e70a4ef7bf322057d6bccf3b740bf6f4"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000034.json",
+          "bytes": 1952,
+          "sha256": "aad1ab51b267d64db449aab4846923866811df037ca46b53718dfa8aceaca0f9"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000035.json",
+          "bytes": 346,
+          "sha256": "cf688efa0741fc7f8466e7d4eb913b9228d368be71311f5b1eaf15ff409d3ce7"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000036.json",
+          "bytes": 1419,
+          "sha256": "f60e3a5f75758ab1571b0ccd7088d9bf83d11782da3243b042d1dfe1dc70f887"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000037.json",
+          "bytes": 1957,
+          "sha256": "3cbe9583039393c362cf165865b44464a5a8544cc2b4f0af3c23e6da991e9b56"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000038.json",
+          "bytes": 354,
+          "sha256": "151a2a9fe2e4831135699549cd23f4233875e79f8ca43b3c5805d7fdb2041341"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000039.json",
+          "bytes": 1225,
+          "sha256": "cc9ea872202d9ce9d18497b9c6fd316014bdf5b8d808d91135bf3fec233702ce"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000040.json",
+          "bytes": 1957,
+          "sha256": "4de88f7621b3daada06668a50e16ec9e70abe5f97fd1481880ef7bc0d6ea3460"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000041.json",
+          "bytes": 344,
+          "sha256": "6f8fd301ac55e8e9714714c4ccbfa5e3993e1ff8e499b95aeba681582914c528"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000042.json",
+          "bytes": 1140,
+          "sha256": "30515054f93174dd7ea653be86348fc5664c9d123cc37e617fbc8099aa8751d2"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000043.json",
+          "bytes": 1958,
+          "sha256": "5be793c04230da83d4108c876b2c0f23f177737094156223d3297b3a6625de62"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000044.json",
+          "bytes": 352,
+          "sha256": "07e426e2a30da146bb716014e21b663532d3f1bdecb6e8b5afe97cd177ecdf21"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000045.json",
+          "bytes": 1475,
+          "sha256": "e9550386b59522acef2568b7851a06f10c49259efb2dd9876bf427af04313ebd"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000046.json",
+          "bytes": 1958,
+          "sha256": "41d348a7657788708bcb003434f7029172cd41016e1aeaf7fa6ff59ec3a3a992"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000047.json",
+          "bytes": 348,
+          "sha256": "ead9c365ae408550e79e1cdf88085a482d40ef9bd13ea7fd2b6a340398e47dd3"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000048.json",
+          "bytes": 2774,
+          "sha256": "8b4913ba70361e35087b09453a0ff200a662e9065aba795869d30da9492740d2"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000049.json",
+          "bytes": 466,
+          "sha256": "7b73c171530765e786ee1c9d9ceb26ec63d3ded92f34a1b73c7d10535b4d8797"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000050.json",
+          "bytes": 341,
+          "sha256": "4004e5036dd7a36b975fc96777464bdcbfebd30fc74ad3dbd1a9f873ab62fe5a"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000051.json",
+          "bytes": 2077,
+          "sha256": "fdaf2ff69b2e1118c3aa485647d440cb10848ea9db0a5da9dec3f998a5b71272"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000052.json",
+          "bytes": 2236,
+          "sha256": "441d14b0536c259e89b4c29926059780e4832379d5989796ecdfe2be56cb6d8b"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000053.json",
+          "bytes": 346,
+          "sha256": "b994e97d4cd21f5fe3d3629e486444cd4ff38ae9358abef49154dd8b796af97c"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000054.json",
+          "bytes": 708,
+          "sha256": "04c4dfa96fb0f626f7cecde11d83b26706bea2d8e7abd149dff95827336d2351"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000055.json",
+          "bytes": 464,
+          "sha256": "dbc9de0501b116706b937fff97ac6fda6f5aa678685af563d73c3a2151a1ad8f"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000056.json",
+          "bytes": 340,
+          "sha256": "a6c6095b9475099d1e68ff54c2e71373b6ac326e58b1b4b358c0557e49f0aa23"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000057.json",
+          "bytes": 2092,
+          "sha256": "a686696eb6fe76f7d965cc8ec89f8a96fa32a7ec638bed48c0847923d1956be6"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000058.json",
+          "bytes": 2239,
+          "sha256": "d22574521a602e35370073de7882cdeb204bace82f8850207c26fab061ec056a"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000059.json",
+          "bytes": 350,
+          "sha256": "93f611cd31e549b4572917224459972a176280f794f88a9f98a925fb9fea2115"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000060.json",
+          "bytes": 812,
+          "sha256": "b65c2cbfdc08fe4d8e0a7588db61eeb5a31ac78b9a41bc684191e00b85589555"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000061.json",
+          "bytes": 2237,
+          "sha256": "7aa7fd09c8179ec54fa9537817f6470977f50ccfb1e36a58ff393296ac9cdd09"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000062.json",
+          "bytes": 357,
+          "sha256": "979e9efca706d65a8edf10e185b2cdff20725fa5479c97382c711f64125b5ecb"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000063.json",
+          "bytes": 1020,
+          "sha256": "06571a1250e8c0463fbe26b87318ff815afc914815a59c3d32640f9e4c1b44c5"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000064.json",
+          "bytes": 2229,
+          "sha256": "257356a0204c56aaf4b2ecbc71375432c0d816fd10c098d1a9499f2e27bfcc1f"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000065.json",
+          "bytes": 358,
+          "sha256": "ad9ffd47fa128568ef27d5c6f21c651200c7aba17b31dd511cf0825e84aed81e"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000066.json",
+          "bytes": 1428,
+          "sha256": "ff121b388d42ef54273e0c04ffe9f5a5d3fa252991126bb17e4daf0754f97c6c"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000067.json",
+          "bytes": 2240,
+          "sha256": "43bb72a707e7229706b68891e62524ad8660478f77e024a16d6b45851c009f88"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000068.json",
+          "bytes": 360,
+          "sha256": "9d26196cbc69ea33604a1d4ac05cbdf049687407139d75493540498048159dfd"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000069.json",
+          "bytes": 1431,
+          "sha256": "065c401f5e66e187d6d2eeb441c91bd5a00a4742c0440b24debd03a2f9911ef4"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000070.json",
+          "bytes": 2237,
+          "sha256": "94dea6a96f6fb77a5b78e28aa62cc0c5d6ef5c321fb1ef99c677c526b8f9f5be"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000071.json",
+          "bytes": 355,
+          "sha256": "c3ca0147438bde904dd101d0bc25e2932d3cbe2a0365324346eefb71cb2cfca4"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000072.json",
+          "bytes": 737,
+          "sha256": "05e84bd2ab0564d12c56d53ebd27598e5b42902b87c6c4b00cc26f4ebd51ec5b"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000073.json",
+          "bytes": 473,
+          "sha256": "9c79d764274d4166b75e78a5570a7986e75b92d3267d139c0b7acfce9012a16c"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000074.json",
+          "bytes": 339,
+          "sha256": "60c208a1adad761060e6572a56f82f134a58c5302c0b1764913527e1d07515c0"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000075.json",
+          "bytes": 2090,
+          "sha256": "e5a98819e6408a061cc45413ace0e0c68c4ed6a288fdc087926d610cd52ca897"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000076.json",
+          "bytes": 2338,
+          "sha256": "7343884dead374df74d4511f0835f0d7387cb24cafaff2f002c50f7e12742d0c"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000077.json",
+          "bytes": 354,
+          "sha256": "ff676177dcc3e1383eb51ae30342ba1deb152733ad1668b3c4e372c6cae8f952"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000078.json",
+          "bytes": 1424,
+          "sha256": "5500cebd63961d58f641a413a171c8400b87d886fd46e39d1356226264e44702"
+        },
+        {
+          "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000079.json",
+          "bytes": 314,
+          "sha256": "e85326c6d0bef4da2a4f8bf16ba3240463aeb14ecced5ef4c0cf9421e7a5ed1c"
+        },
+        {
+          "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-release-rotation-plans/0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881.json",
+          "sha256": "0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881",
+          "bytes": 7706
+        },
+        {
+          "path": "E:/codex-artifacts/watchdog-native-census-20261012/FINAL_DELIVERY_RECEIPT_V2.json",
+          "sha256": "d9134646c97d75fe9f94b5adff7be474142bd4cc29854c36f07f96988ee9b394",
+          "bytes": 945
+        }
+      ],
+      "localOutput": {
+        "directory": "D:\\codex-isolated\\release-wp3-receipts-20261012\\运营管理系统\\tmp\\wp3\\first-adoption-f15-delivered",
+        "reportSha256": "1a0b32ea87d58223aafdce771cce9f377c15ec573dff2cdac59d25a4cbecaa78",
+        "markdownSha256": "bbe6aa2656e4dde59411543ff50a837ae1a5be2e362cb45d8934158c9f654980"
+      }
+    }
+  ]
+}

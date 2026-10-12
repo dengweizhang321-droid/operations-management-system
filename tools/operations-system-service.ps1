@@ -153,10 +153,14 @@ function Invoke-ControlledScript(
     -WindowStyle Hidden -RedirectStandardOutput $logs.Stdout -RedirectStandardError $logs.Stderr -PassThru
   $forwarded = 0
   try {
+    # Pin the original native identity before exit, as the Supervisor does.
+    # Windows PowerShell 5 can otherwise expose null, which [int] turns into 0.
+    $nativeHandle = $process.Handle
     while (-not $process.WaitForExit(500)) {
       if (-not $CaptureJson -and -not $Json) { $forwarded = Copy-NewOutput $logs.Stdout $forwarded }
     }
     if (-not $CaptureJson -and -not $Json) { $forwarded = Copy-NewOutput $logs.Stdout $forwarded }
+    if ($null -eq $process.ExitCode) { throw 'controlled_script_exit_unavailable' }
     $exitCode = [int]$process.ExitCode
   } finally {
     $process.Dispose()
@@ -166,7 +170,7 @@ function Invoke-ControlledScript(
   if ($exitCode -ne 0) {
     $detail = @($stderr, $stdout) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "退出码 $exitCode" }
-    throw "$Label 失败：$detail（日志：$($logs.Stdout)）"
+    throw "$Label 失败（退出码 $exitCode）：$detail（日志：$($logs.Stdout)）"
   }
   if ($CaptureJson) {
     if ([string]::IsNullOrWhiteSpace($stdout)) { throw "$Label 未返回 JSON" }

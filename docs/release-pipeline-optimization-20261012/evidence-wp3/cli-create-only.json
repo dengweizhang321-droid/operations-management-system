@@ -1,0 +1,10 @@
+{
+  "createExit": 0,
+  "existingOutputExit": 1,
+  "existingBytesUnchanged": true,
+  "outputs": {
+    "tmp/wp3/cli-f15/report.json": "7E14A4189ECA2338EFC958DBBE13703A9F1CB71E6583406D5F7D9760E09A1AA7",
+    "tmp/wp3/cli-f15/REPORT.md": "BBE6AA2656E4DDE59411543FF50A837AE1A5BE2E362CB45D8934158C9F654980",
+    "tmp/wp3/cli-f15/evidence-manifest.json": "223637AD4751CD40FFFCE4FAF86F703FA3EADED7C6A548C73434E7A2ACF6DE10"
+  }
+}

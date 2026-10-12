@@ -1,0 +1,266 @@
+{
+  "repositoryDependencyInventory": [
+    {
+      "path": "package-lock.json",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "486154660ca7b1c32822078584c7938ae5de172a0dc8bcd47891100563af935e",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "package.json",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-access-control-cutover.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "67c7d7988027d7c0cdca57c494103c8bfe17d93d70e87942047d0eacf939e158",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-access-control.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "509b9fbd64250cdf7dd24ac6a246381e959363ce64b83890920bd0ef80c05488",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-ai-cutover.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "4a4b6c84b899432b3039c6cd04a6ef3454c3ecf0f2d4e86619714a71f79b6513",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-ai.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "7e641a213668dcf0810870a6075bbc7dbb7c781c75970d38566d7253713e8a26",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-bi-service.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "b23b95c3c9a876b7411f5572ad4545f50cf1aa95a358552dc1aa81bdb4845769",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-customer-service-cutover.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "85c42c14880def4b1cbd2c510bc9a2cd26a3f6672426cb5c73fcfd2093580da7",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-customer-service.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "2cf726fc820cf950e7eb03f2273882e2ce80d543305e05d56a99bd23cd6b3b92",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-erp-reference-cutover.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "a0aaf08ae9f96fce49ccd8b1d1cfa44156351612dc13cae5e722baace30d593c",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-erp-reference.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "84e16fda6dc03ed5bd6eb972fbe8fe59ef5c75439216039edafd379f2e347074",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-finance-cutover.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "a2ef3abdb000acf6d36b67f3429a6d922e78a89e40e6c82576e5f42f5823c8d2",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-integration-install.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "c0f5ca005af79da9beccf52eeb7ffd3e1d89c6e66041805d228065837d71e2ec",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-inventory-cutover.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "5b64e817b0868e66f67f45e0d499f5bd577fc14add2c5595049e6a079e462b1d",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-inventory-service.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "79bafaeb10678aae4791384fe55b1631bb787d55aacf5d4192ec7ac96018050d",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-local-service.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "c38963671a02a224e3e537a9e13f70005e85e0e65a8616423c8e1f5fbed019af",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-market-service.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "0c26d6078577b0360076732145072e3e00f8a9d37cf98b771b614b288476cc32",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-netshop-service.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "7424266ecb82e4ba87274bde4b19ece3db560bfa9752ff0c9450fdce935f8f93",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-postgres-maintenance.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-products-service.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "f3adc6012f7aac411e3f972325d4ad436159ad22103a7a69da0ee810dd3dc303",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-runtime-supervisor.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "85d2bdd121a415ff3a2e3e0c1edf208fc0ba2304444d7d3cc69cb71bcb533a11",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-workflow-cutover.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "6fa22f99ff6280646a9a0658064b226906e8338cef27a391f6f4f6fe4c35393d",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-workflow-operations-cutover.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "3ac57594d6d1640625e53533fe45ab155c81890f709ba249b732da4eb431ca7b",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/django-workflow-service.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "acf1a2a68af554a4158f3d8df1e21982850a4b6addefa6bb4f897986ee18b49a",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/integration_release_gate.py",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "2a6645215e529539a10589ef72ffa7a5e90df4649cdabd84cb84ba978541cbc8",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/operations-system-control.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "b7acd2bc6c9c92dc80eb9f4730fd8037ba83df6b3bc951769f9d368d15252b6d",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/postgres-consistent-backup.py",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "0a1449b329a4afe0261c662236a6aacae60a6e7a4120801fb42eea2322368483",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/process-deadline.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/worker-authority-guard.mjs",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "tools/worker-local-service.ps1",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "运营系统.bat",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "78b06df70f852ebcdfa215f5bb36f310331c98f116d2b2e4caaf7d9a1492f603",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    },
+    {
+      "path": "运行项目.bat",
+      "baseSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+      "sha256": "274ec927a7de565da987d148730c2704b05fe6b07d5557ab5bbd514fcf7844d6",
+      "changedByS1": false,
+      "role": "Existing dependency or dormant surrounding lifecycle; not all invoked by each action"
+    }
+  ],
+  "executionEdges": {
+    "Start": [
+      "WindowsPS5 -> operations-system-control Start -> worker-local-service unique Start -> original installed Django/PG and immutable Worker engines"
+    ],
+    "Stop": [
+      "WindowsPS5 -> worker-local-service Stop; IncludeBackend unless KeepBackend -> original installed Django Stop"
+    ],
+    "Restart": [
+      "WindowsPS5 -> worker Restart or RestartFull under original mutex"
+    ],
+    "Status": [
+      "WindowsPS5 -> control Status; old ordinary installed route remains prohibited for live diagnosis"
+    ],
+    "Background": [
+      "Same original wrapper in its own PS5 with original log/receipt identity; no independent new lifecycle engine"
+    ]
+  },
+  "externalRuntimeInputs": [
+    "Exact Windows PS5/pwsh/Node toolchain",
+    "Effective head/successor/authority/activation fence/manifest and startup binding",
+    "Installed Django full inventory/23 enabled readers-writers/PG identity, synthetic vs production realm",
+    "Runtime ACL/DPAPI caller identity and original role/config/maintenance/drain/desired state/lease contracts"
+  ],
+  "qualification": "Repository dependency bytes only; current production installation bindings not replaced or revalidated as Ready; adoption requires separate exact candidate"
+}
