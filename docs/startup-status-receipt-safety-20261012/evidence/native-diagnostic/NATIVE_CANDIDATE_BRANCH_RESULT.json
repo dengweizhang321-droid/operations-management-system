@@ -1,0 +1,11 @@
+{
+  "version": "actual-generated-native-driver-branches-v1",
+  "candidateBundleId": "d0e9ebb640794e9680f978167354bb6f89b4917c96712c2cb638eb8dbfeb2554",
+  "checks": 16,
+  "hosts": [
+    "PS5",
+    "PS7"
+  ],
+  "actualStatusInvocations": 0,
+  "productionActions": 0
+}
