@@ -14,6 +14,8 @@
 
 本报告、实际文件manifest及evidence-subset是附加资料，纳入最终审查提交；manifest逐项列其摘要/来源范围。原SUBSET-FILES和私有拟树是历史方案，不能冒充最终分支。43份原材料中的旧“本轮/目前/未合main”和失败是各自原截点；除了规范纠正，不改写这些历史正文。CONTINUATION和方案仅加当前报告导航，保旧测量/决定。原43文件中42份仍为原来源逐字节相同。
 
+资料初始提交8be3c7ee中的新生成清单按Windows写入换行计算，Git归一化后部分容器文件摘要不一致；最终复核将这批新资料显式固定LF并按Git字节重绑清单，保留8be原截点。五产品/测试文件、原历史日志、base64中的原stdout/stderr及其摘要均未变，不借换行处理修改失败证据。
+
 ## 完整依赖与为何这个拆分不减免同一改动
 
 S0只依赖固定来源、main已有规范/历史资料及被链接的30份证据；没有运行依赖。CI资料另以[完整候选固定材料](https://github.com/dengweizhang321-droid/operations-management-system/tree/dc94e6492ce34457529581239f2b682bb6d36264/docs/release-pipeline-optimization-20261012)为准，包含全量evidence-continuation及清单；本子集没有复制CI实现。

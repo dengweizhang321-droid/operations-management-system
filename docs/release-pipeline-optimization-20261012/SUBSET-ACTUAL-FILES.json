@@ -96,8 +96,8 @@
     {
       "path": "docs/release-pipeline-optimization-20261012/FINAL-SUBSET-REPORT.md",
       "group": "S0",
-      "bytes": 9694,
-      "sha256": "178a3a3b941fe9b5be7c66325d1ef0a6fcfec905e33479be27e74b2855be46ad",
+      "bytes": 9998,
+      "sha256": "e731c3190690a7c71d3341f9c17fef446b90eb1257b0ef0e069b6f62d454ddd5",
       "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation"
     },
     {
@@ -340,15 +340,15 @@
     {
       "path": "docs/release-pipeline-optimization-20261012/evidence-subset/document-validation.json",
       "group": "S0",
-      "bytes": 329,
-      "sha256": "685d08845a48949ec39dfcb96290fa9c445c480ac0068e5efbd141d3e2cc7d89",
+      "bytes": 320,
+      "sha256": "d971f652b98bfdd8ece7e8a799041f0bdc1ba929a3dabc4285af276c2b04983c",
       "origin": "This subset document review"
     },
     {
       "path": "docs/release-pipeline-optimization-20261012/evidence-subset/results.json",
       "group": "S0",
-      "bytes": 951,
-      "sha256": "cbfd5a7e964e7bc28bfe10fc25a4405d0aad4adb22f85d9ed658c6df06df48d2",
+      "bytes": 911,
+      "sha256": "6c61b9028bfdbde1c0087f120bffbefb83e368c721008696b6c8a7ab2346ed74",
       "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation"
     },
     {
@@ -382,8 +382,8 @@
     {
       "path": "docs/release-pipeline-optimization-20261012/evidence-subset/scope-and-provenance.json",
       "group": "S0",
-      "bytes": 32331,
-      "sha256": "47974b31e1a9289114a379fa247fa74a24a2429262e8ec55b6f2725735f309aa",
+      "bytes": 31696,
+      "sha256": "8f7a2666c75789cdf3e4bb107e891765767e6a5f6923b045ec40153993bc70a2",
       "origin": "dc94 scope materials or this subset-specific review/evidence; no new runtime implementation"
     },
     {
@@ -839,5 +839,6 @@
   ],
   "manifestSelfHashExcluded": true,
   "fileCountIncludingManifestAndDocumentValidation": 64,
-  "manifestSelfPath": "docs/release-pipeline-optimization-20261012/SUBSET-ACTUAL-FILES.json"
+  "manifestSelfPath": "docs/release-pipeline-optimization-20261012/SUBSET-ACTUAL-FILES.json",
+  "byteIdentity": "Git/canonical file bytes; generated review files use explicit LF. Raw test stdout/stderr remain base64 with their original hashes."
 }
