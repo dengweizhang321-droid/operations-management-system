@@ -1,0 +1,89 @@
+同conversation最终成对maintenance intent创建/撤销文本复审，禁止工具/native/生产/文件修改。请先正式纠正前轮4点：1目前只有开发授权，写生产marker尚未人类批准，不是“本次授权仅限写入”。2五秒只行动新鲜性上限，不能防篡改，精确字节/物理/ACL另校验。3normalize仅修已证双分隔符导致D953字符串拒绝，不是消除所有路径混用。4必须补足原未审影响：backend automation_drain.py在system-maintenance存在时，除/health/live与/health/ready外所有新业务HTTP503 RetryAfter300，不止写请求；protected background及新backupjob拒。已在途请求/诊断不终止，无drained证据。不应在退出未知时批准无限维护。
+创建端原完整源码已审且未变：JS7ecf1359026f7cf811744857ab3afd4602705da8267595fefecf3742c1908e68/actorfad11931a88a2a80af22f44eaf7e4af634ed954633c4981e229ba9f657aeafdc/原bootstrap13e；intentdea1da5a…，精确marker8cd56417…。创建只一个新id12c465652dbc4b5f9f54d0b0f30eeb3a，keepPGtrue/drainedStoppedfalse，不其它门或WAL。下面增加已冻结同tuple abort-only退出：同originalrotation mutex/full13e bootstrap/spec/WAL49head1a/owner/desired1cfe/6cff/85cf/无drain不变、sameSIDAdmin/原ACLhelper，精确校验markerraw/hash/id/intentsha后持有对象删除，不是普通ExitMaintenance（原Exit要求stopped）。CreateFileW GENERIC_READ|DELETE、FILE_SHARE_READ、OPEN_EXISTING|OPEN_REPARSE_POINT，singlelink/handlepath/reparse/hash/identity精确核，SetFileInformationByHandle disposition，仅删打开的同一对象，实际lstat absent再接受；绝不RemoveItem/path unlink或shareDelete。前后仍同tuple，任意漂移拒，未知保留证据，不自动清其它门/owner或恢复旧配置。删除能回到此前无门的退化状态，不是健康修复；若条件变了则拒绝，非无条件退出保证。
+首次PS7 FileSystemRights FileStream构造缺失真实失败已保存；改SafeFileHandle/CreateFile方案后PS5/PS7实际私有文件正例+wrongSHA/hardlink负例均通过。Root和作者当前创建30+退出8=38/38通过，包括三个原消费者PS5/PS7、旧双分隔符D拒绝。无实际生产gate创建/撤销。成对intent exit70f205c5991decd3a497b9d60d4719222bfcd060cf8577973ebb3d9214e494c6，pairb57bb5a9…。
+业务包已切换，原f15仍未完整验收Startunknown，不是生产未上线。新native diagnostic9file尚未采用，TaskAction未改。原Install requireshealthy且maintenance使unprobedfalse，围栏不自动解安装健康环；23历史fingerprint不能补造，原Stop缺receipt也不会停，受控同instance停止/原生命周期重新产生receipt仍待独立精确开发审批，无此执行包。请500字内仅审paired源码具体阻断与正式纠正，禁止无限全OS证明/自动提权或默认生产通过。
+
+FILE docs/startup-status-receipt-safety-20261012/retract-startup-repair-fence.mjs SHA f4e590a709e6a666b0d53b8cbbede31807c021f51ac67846ef092979a7d465ba
+// Abort-only retraction of the exact new intent marker. No ordinary maintenance
+// exit, receipt adoption, task change, lifecycle, WAL or owner mutation.
+import fs from 'node:fs/promises';import path from 'node:path';import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import {spawnSync} from 'node:child_process';import {fileURLToPath,pathToFileURL} from 'node:url';
+const own=path.dirname(fileURLToPath(import.meta.url)),root='E:/codex-artifacts/startup-status-receipt-safety-20261012',marker='D:/teruisi-runtime/django-sales/run/system-maintenance.json';
+const createSha='dea1da5a29e1ecc0f6b226e150f16f0d7e16b68485334aef11a3247ffcafe095',markerSha='8cd56417937b8f8fbb82f7404dc52d8d7fd38aa4256e0c0b46d6b65344873572';
+const specPath='E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json',journal='D:/teruisi-runtime/teruisi-worker-sales/state/release-batches',ps='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',psSha='7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5';
+const sha=b=>createHash('sha256').update(b).digest('hex');
+async function physical(p){p=path.resolve(p);const ids=[];for(let q=p;;q=path.dirname(q)){const s=await fs.lstat(q,{bigint:true});assert(!s.isSymbolicLink());assert.equal((await fs.realpath(q)).toLowerCase(),q.toLowerCase());ids.push([q,String(s.dev),String(s.ino)]);if(q===path.dirname(q))return ids;}}
+async function checked(p,expected){const parents=await physical(p),a=await fs.lstat(p,{bigint:true});assert(a.isFile());assert.equal(a.nlink,path.resolve(p).toLowerCase()===path.resolve(ps).toLowerCase()?2n:1n);const raw=await fs.readFile(p),b=await fs.lstat(p,{bigint:true});for(const k of ['dev','ino','nlink','size','mtimeNs','ctimeNs'])assert.equal(a[k],b[k]);assert.deepEqual(await physical(p),parents);if(expected)assert.equal(sha(raw),expected);return raw;}
+async function absent(p){try{await fs.lstat(p);return false}catch(e){if(e.code==='ENOENT')return true;throw e}}
+export function assertRetractionReceipt(value){assert.equal(value.version,'exact-repair-fence-removal-v1');assert.equal(value.sid,'S-1-5-21-815909789-107973518-1379257801-1001');assert.equal(value.administrator,true);assert.equal(value.result.markerSha256,markerSha);assert.equal(value.result.deleteDispositionSet,true);assert.equal(typeof value.result.fileIdentity,'string');assert(value.result.fileIdentity.length>0);}
+export async function retractStartupRepairFence(intentPath,intentSha){
+ assert(!Object.keys(process.env).some(k=>/^NODE_/i.test(k)));assert.match(intentSha,/^[a-f0-9]{64}$/);const intent=JSON.parse(await checked(intentPath,intentSha));assert.deepEqual(Object.keys(intent).sort(),['createIntentSha256','expectedMarkerSha256','files','version']);assert.equal(intent.version,'startup-repair-fence-retract-intent-v1');assert.equal(intent.createIntentSha256,createSha);assert.equal(intent.expectedMarkerSha256,markerSha);
+ const names=['retract-startup-repair-fence.mjs','Remove-ExactRepairFence.ps1','create-startup-repair-fence.mjs','Read-RepairFenceActorAcl.ps1','fence-original-bootstrap.mjs'];assert.deepEqual(intent.files.map(x=>path.resolve(x.path)).sort(),names.map(n=>path.resolve(own,n)).sort());assert.equal(new Set(intent.files.map(x=>path.resolve(x.path))).size,5);
+ async function pins(){await checked(intentPath,intentSha);for(const f of intent.files){assert.deepEqual(Object.keys(f).sort(),['path','sha256']);await checked(f.path,f.sha256);}await checked(root+'/REPAIR_FENCE_INTENT_V1.json',createSha);await checked(ps,psSha);await checked('D:/teruisi-runtime/django-sales/app/tools/django-local-service.ps1','95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c');}
+ await pins();await checked(path.join(own,'fence-original-bootstrap.mjs'),'13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25');await checked(specPath,'960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b');
+ const create=await import(pathToFileURL(path.join(own,'create-startup-repair-fence.mjs'))),{fenceFixed,canonical,assertFenceContext,assertFenceActor,assertFenceMarker,publishCreateOnly}=create;
+ const {bootstrapReconciliation}=await import(pathToFileURL(path.join(own,'fence-original-bootstrap.mjs'))),{api,spec,verifyPins}=await bootstrapReconciliation(specPath,fenceFixed.batch);
+ const actorBytes=await checked(path.join(own,'Read-RepairFenceActorAcl.ps1'),intent.files.find(f=>path.basename(f.path)==='Read-RepairFenceActorAcl.ps1').sha256),deleteBytes=await checked(path.join(own,'Remove-ExactRepairFence.ps1'),intent.files.find(f=>path.basename(f.path)==='Remove-ExactRepairFence.ps1').sha256);
+ async function context(){const state=await api.journalState(journal,spec.batch),d=await checked('D:/teruisi-runtime/django-sales/run/django-supervisor-desired-state.json',fenceFixed.desired);return {count:state.events.length,head:state.previous,owner:JSON.parse(await checked(journal+'/active.json')),unknown:state.unknown.map(x=>x.operationId),startStatus:state.latest.get('op-startworker-switch')?.status,startHead:state.latest.get('op-startworker-switch')?.eventSha256,passed:spec.batch.operations.filter(o=>state.latest.get(o.id)?.status==='passed').map(o=>o.id),worker:sha(await checked('D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/deployment-manifest.json',fenceFixed.worker)),django:sha(await checked('D:/teruisi-runtime/django-sales/app/deployment.json',fenceFixed.django)),desiredSha256:sha(d),desired:JSON.parse(d),drainAbsent:await absent('D:/teruisi-runtime/django-sales/run/automation-drain.json')};}
+ async function run(source,phase){await checked(ps,psSha);const raw=Buffer.from(source.toString('utf8').replace(/^\ufeff/,'')),code=`& ([scriptblock]::Create([Text.UTF8Encoding]::new($false,$true).GetString([Convert]::FromBase64String('${raw.toString('base64')}'))))${phase?" -Phase '"+phase+"'":''}`;const env={...process.env};for(const k of Object.keys(env))if(['PSMODULEPATH','TERUISI_DJANGO_SERVICE_LIBRARY_ONLY','TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY'].includes(k.toUpperCase()))delete env[k];env.PSModulePath=path.win32.normalize('C:/Windows/System32/WindowsPowerShell/v1.0/Modules');const r=spawnSync(ps,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')],{encoding:'utf8',windowsHide:true,timeout:30000,maxBuffer:1048576,env});await checked(ps,psSha);assert.equal(r.error,undefined);assert.equal(r.status,0,'Exact retraction helper failed');return {value:JSON.parse(r.stdout),stdoutSha256:sha(r.stdout),stderrSha256:sha(r.stderr),stderrBytes:Buffer.byteLength(r.stderr)};}
+ return api.withRotationLock(async()=>{
+  await verifyPins();await pins();const before=await context();assertFenceContext(before);assertFenceMarker(JSON.parse(await checked(marker,markerSha)),createSha);const actor=await run(actorBytes,'After');assertFenceActor(actor.value,'After');assert.deepEqual(await context(),before);await checked(marker,markerSha);assertFenceActor(actor.value,'After');
+  await publishCreateOnly(root+'/repair-fence-v1/RETRACT_BEFORE.json',Buffer.from(canonical({intentSha256:intentSha,createIntentSha256:createSha,before,actor})+'\n'));
+  try{
+   assert.deepEqual(await context(),before);await checked(marker,markerSha);assertFenceActor(actor.value,'After');const deleted=await run(deleteBytes);assertRetractionReceipt(deleted.value);assert(await absent(marker),'Marker still present');
+   await verifyPins();await pins();const afterActor=await run(actorBytes,'Before');assertFenceActor(afterActor.value,'Before');const after=await context();assertFenceContext(after);assert.deepEqual(after,before);assert(await absent(marker));
+   const result={status:'exact-repair-intent-retracted-only',intentSha256:intentSha,createIntentSha256:createSha,markerSha256:markerSha,before,after,deleted,afterActor,readinessEstablished:false,originalOwnershipRestored:false,walChanged:false,taskChanged:false};await publishCreateOnly(root+'/repair-fence-v1/RETRACT_RESULT.json',Buffer.from(canonical(result)+'\n'));return result;
+  }catch(e){try{await publishCreateOnly(root+'/repair-fence-v1/RETRACT_FAILURE.json',Buffer.from(canonical({status:'unknown',intentSha256:intentSha,errorType:e.name,messageSha256:sha(e.message),markerMayBeAbsent:true,noOtherGateCleanup:true})+'\n'));}catch(save){e.saveFailure={code:save.code??null,messageSha256:sha(save.message)}}throw e;}
+ });
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){assert.equal(process.argv.length,4);retractStartupRepairFence(...process.argv.slice(2)).then(x=>console.log(JSON.stringify(x))).catch(e=>{console.error(JSON.stringify({status:'failed',errorType:e.name,messageSha256:sha(e.message),saveFailure:e.saveFailure??null}));process.exitCode=1;});}
+
+
+FILE docs/startup-status-receipt-safety-20261012/Remove-ExactRepairFence.ps1 SHA 472d5b01e811cc63f891c7681fd96e6025c2f1f03944c6f19e2a6a5a80ec0fa0
+﻿param([switch]$FunctionsOnly)
+$ErrorActionPreference='Stop'
+if(-not ('RepairFenceFile' -as [type])){Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.IO;
+using System.ComponentModel;
+using Microsoft.Win32.SafeHandles;
+using System.Runtime.InteropServices;
+public static class RepairFenceFile {
+ [StructLayout(LayoutKind.Sequential)] public struct Info { public uint Attributes; public uint CreationLow,CreationHigh,AccessLow,AccessHigh,WriteLow,WriteHigh,Volume,SizeHigh,SizeLow,Links,IndexHigh,IndexLow; }
+ [StructLayout(LayoutKind.Sequential)] public struct Basic { public long Creation,Access,Write,Change; public uint Attributes; }
+ [StructLayout(LayoutKind.Sequential)] public struct Disposition { [MarshalAs(UnmanagedType.U1)] public bool Delete; }
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool GetFileInformationByHandle(IntPtr h,out Info info);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool GetFileInformationByHandleEx(IntPtr h,int cl,out Basic info,uint n);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool SetFileInformationByHandle(IntPtr h,int cl,ref Disposition info,uint n);
+ [DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode)] public static extern uint GetFinalPathNameByHandle(IntPtr h,StringBuilder path,uint length,uint flags);
+ [DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode)] static extern SafeFileHandle CreateFile(string path,uint access,uint share,IntPtr security,uint disposition,uint flags,IntPtr template);
+ public static FileStream OpenReadDelete(string path) { var h=CreateFile(path,0x80010000,1,IntPtr.Zero,3,0x00200080,IntPtr.Zero);if(h.IsInvalid){int error=Marshal.GetLastWin32Error();h.Dispose();throw new Win32Exception(error);}try{return new FileStream(h,FileAccess.Read,4096,false);}catch{h.Dispose();throw;} }
+ public static string Identity(IntPtr h) { Info i;Basic b;if(!GetFileInformationByHandle(h,out i)||!GetFileInformationByHandleEx(h,0,out b,40)||i.Links!=1||(i.Attributes&0x400)!=0)throw new Exception("identity");return String.Join(":",i.Volume,((ulong)i.IndexHigh<<32)|i.IndexLow,i.Links,((ulong)i.SizeHigh<<32)|i.SizeLow,b.Creation,b.Write,b.Change,b.Attributes); }
+ public static void DeleteOwned(IntPtr h) { var d=new Disposition{Delete=true};if(!SetFileInformationByHandle(h,4,ref d,1))throw new Exception("delete"); }
+}
+'@}
+function Get-RepairFileHash([byte[]]$Bytes){$sha=[Security.Cryptography.SHA256]::Create();try{return ([BitConverter]::ToString($sha.ComputeHash($Bytes))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}}
+function Remove-ExactOwnedRepairMarker([string]$Path,[string]$ExpectedSha256){
+ if($ExpectedSha256 -cnotmatch '^[a-f0-9]{64}$'){throw 'Expected hash required'}
+ $absolute=[IO.Path]::GetFullPath($Path);$cursor=$absolute
+ while($cursor){$item=Get-Item -LiteralPath $cursor -Force;if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Redirected marker'};$next=[IO.Path]::GetDirectoryName($cursor);if($next -eq $cursor){break};$cursor=$next}
+ $hold=[RepairFenceFile]::OpenReadDelete($absolute)
+ try{
+  $handle=$hold.SafeFileHandle.DangerousGetHandle();$identity=[RepairFenceFile]::Identity($handle)
+  if($hold.Length -gt 4096){throw 'Marker too large'}
+  $resolved=[Text.StringBuilder]::new(32768);$n=[RepairFenceFile]::GetFinalPathNameByHandle($handle,$resolved,32768,0)
+  if($n -eq 0 -or $n -ge 32768){throw 'Handle path unavailable'}
+  $actual=$resolved.ToString();if($actual.StartsWith('\\?\')){$actual=$actual.Substring(4)}
+  if(-not $actual.Equals($absolute,[StringComparison]::OrdinalIgnoreCase)){throw 'Handle path mismatch'}
+  $bytes=[byte[]]::new([int]$hold.Length);$read=0;while($read -lt $bytes.Length){$count=$hold.Read($bytes,$read,$bytes.Length-$read);if($count -eq 0){throw 'Incomplete marker'};$read+=$count}
+  if((Get-RepairFileHash $bytes) -cne $ExpectedSha256 -or [RepairFenceFile]::Identity($handle) -cne $identity){throw 'Exact marker changed'}
+  [RepairFenceFile]::DeleteOwned($handle)
+  return [pscustomobject]@{markerSha256=$ExpectedSha256;fileIdentity=$identity;deleteDispositionSet=$true}
+ }finally{$hold.Dispose()}
+}
+if($FunctionsOnly){return}
+$actor=[Security.Principal.WindowsIdentity]::GetCurrent()
+if($actor.User.Value -cne 'S-1-5-21-815909789-107973518-1379257801-1001' -or -not ([Security.Principal.WindowsPrincipal]::new($actor)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Approved administrator required'}
+$result=Remove-ExactOwnedRepairMarker 'D:\teruisi-runtime\django-sales\run\system-maintenance.json' '8cd56417937b8f8fbb82f7404dc52d8d7fd38aa4256e0c0b46d6b65344873572'
+[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
+[pscustomobject]@{version='exact-repair-fence-removal-v1';sid=$actor.User.Value;administrator=$true;result=$result;observedAt=[DateTimeOffset]::UtcNow.ToString('o')}|ConvertTo-Json -Depth 4 -Compress

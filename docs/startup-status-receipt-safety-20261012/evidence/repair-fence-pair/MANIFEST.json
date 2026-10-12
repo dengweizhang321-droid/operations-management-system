@@ -1,0 +1,134 @@
+{
+  "entries": [
+    {
+      "name": "FENCE_FIRST_TEST.log",
+      "sha256": "0451ef6dc41fe77d775b7e2eda330b5b6108fc9f68f9387d7fed9d779d53e9f9",
+      "bytes": 4823
+    },
+    {
+      "name": "FENCE_SECOND_TEST.log",
+      "sha256": "584e8f657ebddfc7c27587ae5cdd18f3b7cc1c201fa1ce6aba08629131a1d963",
+      "bytes": 1514
+    },
+    {
+      "name": "FENCE_THREE_CONSUMER_TEST.log",
+      "sha256": "2507457d430db23c729d98dc426bcd6cb1dba98d01f32e6cbbe57a703e89896b",
+      "bytes": 1741
+    },
+    {
+      "name": "FENCE_RETRACTION_FIRST_TEST.log",
+      "sha256": "4038c6ae3a16ec0383a0e0a7fc9037c7c00c28ea464cdfe2db7da2ebe1bfce80",
+      "bytes": 2729
+    },
+    {
+      "name": "FENCE_RETRACTION_FINAL_TEST.log",
+      "sha256": "0166267346e40ef080102d74ffae1660a53cd097c36c9fdb0e543dd9f3e2cde2",
+      "bytes": 690
+    },
+    {
+      "name": "FENCE_RETRACTION_REPARSE_TEST.log",
+      "sha256": "8d48cd23ef9e850f61452cc04b1fe1b3e912a95092e81843ba2ce3c8ad5c2ee3",
+      "bytes": 689
+    },
+    {
+      "name": "REPAIR_FENCE_INTENT_V1.json",
+      "sha256": "dea1da5a29e1ecc0f6b226e150f16f0d7e16b68485334aef11a3247ffcafe095",
+      "bytes": 1377
+    },
+    {
+      "name": "REPAIR_FENCE_EXPECTED_MARKER_V1.json",
+      "sha256": "8cd56417937b8f8fbb82f7404dc52d8d7fd38aa4256e0c0b46d6b65344873572",
+      "bytes": 346
+    },
+    {
+      "name": "ASTRA_REPAIR_FENCE_HANDOFF_V1.json",
+      "sha256": "f627b363ab806a76bf192786f97b2d0802ee444869aaf5dd4cced1535e2c214d",
+      "bytes": 2402
+    },
+    {
+      "name": "REPAIR_FENCE_RETRACT_INTENT_V1.json",
+      "sha256": "70f205c5991decd3a497b9d60d4719222bfcd060cf8577973ebb3d9214e494c6",
+      "bytes": 1427
+    },
+    {
+      "name": "ASTRA_REPAIR_FENCE_PAIR_V1.json",
+      "sha256": "b57bb5a982c73f5c39c07060d364cd4ef733c3305031ae9dfed71491d7acd6ff",
+      "bytes": 5532
+    },
+    {
+      "name": "ROOT_REPAIR_FENCE_PAIR_REVIEW_V1.json",
+      "sha256": "dfcb75df27938d78b75f06b50442b6131f1fa503e9479349efe5a467409e58ba",
+      "bytes": 546
+    },
+    {
+      "name": "Remove-ExactRepairFence.DRAFT_V1.ps1",
+      "sha256": "21bfe1a5dbadf8318dba6f9b59e53a66ab8416388882b9c9257e8286627f75ab",
+      "bytes": 4535
+    },
+    {
+      "name": "AGY_REPAIR_FENCE_PROMPT.txt",
+      "sha256": "4bbda5ee3f6e1caaadec956aa434feb08235c13eae92708e47a983f3d6ed2a26",
+      "bytes": 18105
+    },
+    {
+      "name": "AGY_REPAIR_FENCE_STREAM.ndjson",
+      "sha256": "9ad16f7a174be7b65f456b1f724e726209f51e0db8bbf6c2db587ae2e6c732d6",
+      "bytes": 16182
+    },
+    {
+      "name": "AGY_REPAIR_FENCE_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "name": "AGY_REPAIR_FENCE_CALL.json",
+      "sha256": "37f511776b726c336887de4bcaaa263372f821a006e16c1b72396685bbc1551d",
+      "bytes": 121
+    },
+    {
+      "name": "AGY_REPAIR_FENCE_PAIR_PROMPT.txt",
+      "sha256": "35ed812056a3774ab7f8ae134f1b2ea9e4d0c59c9e7e218a5180681f0ccd5672",
+      "bytes": 16905
+    },
+    {
+      "name": "AGY_REPAIR_FENCE_PAIR_STREAM.ndjson",
+      "sha256": "fa559514e802a5812da0b803c3ca6fd248c656416dcaf339971acfa89e54d331",
+      "bytes": 15870
+    },
+    {
+      "name": "AGY_REPAIR_FENCE_PAIR_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "name": "AGY_REPAIR_FENCE_PAIR_CALL.json",
+      "sha256": "8d0faa57751d0ef1e2c1f47855fab1632ba9c24a01027203dbc23b86a965be7b",
+      "bytes": 121
+    },
+    {
+      "name": "DRAFT_V1-create-startup-repair-fence.mjs",
+      "sha256": "a0f50a1ffecaa62fe5eff59f6c4178c7cf02b20eca17bf12b618b546a66b3c89",
+      "bytes": 11115
+    },
+    {
+      "name": "DRAFT_V1-Read-RepairFenceActorAcl.ps1",
+      "sha256": "fad11931a88a2a80af22f44eaf7e4af634ed954633c4981e229ba9f657aeafdc",
+      "bytes": 2538
+    },
+    {
+      "name": "DRAFT_V1-startup-repair-fence.test.mjs",
+      "sha256": "8f88c31b9d61f00ca9092cfc44c7ab55004a53096825f40dbbd2dd8f170d0306",
+      "bytes": 5452
+    },
+    {
+      "name": "AGY_REPAIR_FENCE_RESULT.json",
+      "sha256": "8d37b172f44c166acffb560fa7806aa457d15c0e0120f7270a4551a191614ab4",
+      "bytes": 1635
+    },
+    {
+      "name": "AGY_REPAIR_FENCE_PAIR_RESULT.json",
+      "sha256": "8ea5445a57b90e2e1a3be080eeca44a890c002df93ee84d56371d5a758b0eeb9",
+      "bytes": 1654
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+✔ exact synthetic context and maintenance intention accepted without stopped claim (3.4695ms)
+✔ context rejects count (1.4325ms)
+✔ context rejects head (0.6027ms)
+✔ context rejects owner-batch (0.738ms)
+✔ context rejects owner-id (0.5102ms)
+✔ context rejects unknown (0.3822ms)
+✔ context rejects start-status (0.2914ms)
+✔ context rejects start-head (0.3685ms)
+✔ context rejects passed (0.4877ms)
+✔ context rejects worker (0.4604ms)
+✔ context rejects django (0.3687ms)
+✔ context rejects desired-hash (0.2734ms)
+✔ context rejects desired-version (0.2044ms)
+✔ context rejects desired-stopped (0.2154ms)
+✔ context rejects desired-source (0.2044ms)
+✔ context rejects drain-present (0.2327ms)
+✔ actor rejects sid (0.2698ms)
+✔ actor rejects role (0.2037ms)
+✔ actor rejects root-acl (0.1609ms)
+✔ actor rejects parent-acl (0.1808ms)
+✔ actor rejects expired (0.215ms)
+✔ marker rejects keep-postgres (0.5778ms)
+✔ marker rejects false-stopped-claim (0.2983ms)
+✔ marker rejects repair-id (0.2988ms)
+✔ marker rejects intent (0.3184ms)
+✔ create-only rejects existing synthetic marker and preserves exact bytes (52.9358ms)
+✔ original admission sees intent as maintenance and executes zero probes in powershell.exe (864.2178ms)
+✔ original admission sees intent as maintenance and executes zero probes in pwsh.exe (1139.8113ms)
+✔ original Worker and Django marker readers plus old double-separator rejection in powershell.exe (1303.5473ms)
+✔ original Worker and Django marker readers plus old double-separator rejection in pwsh.exe (1538.7092ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5054.897
