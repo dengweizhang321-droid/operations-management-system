@@ -1,0 +1,2 @@
+# Preserve the original PowerShell observation/check JSON bytes and hashes.
+*.json -text
