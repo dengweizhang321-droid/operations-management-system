@@ -1,0 +1,11 @@
+✔ approval binds exact plan, actor, scope; malformed and future decisions reject (14.1748ms)
+✔ source bytes and generic hardlinks reject; a normal private file succeeds (16.0461ms)
+✔ ASCII bootstrap parses on PS5 and PS7; it holds source handles through direct execution (1108.8453ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1254.8415

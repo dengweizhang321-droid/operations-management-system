@@ -45,6 +45,15 @@ function Open-ExactStopLease([object]$Target){
  return [pscustomobject]@{Target=$Target;Handle=$h}
 }
 function Close-ExactStopLease([object]$Lease){[void][Teruisi.ReadonlyProcessMetadata]::CloseHandle($Lease.Handle)}
+function Test-ExactHeldExited([object]$Lease){
+ # Only called by the loop AFTER all leases passed the original live identity
+ # validation. The retained kernel handle cannot refer to a reused PID.
+ $a=0L;$b=0L;$e=0L;$k=0L;$u=0L
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($Lease.Handle,[ref]$a,[ref]$e,[ref]$k,[ref]$u)){throw 'Held exit creation unavailable'}
+ $wait=[Teruisi.ExactStop]::WaitForSingleObject($Lease.Handle,0)
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($Lease.Handle,[ref]$b,[ref]$e,[ref]$k,[ref]$u) -or $a -ne $b -or $a.ToString([Globalization.CultureInfo]::InvariantCulture) -cne $Lease.Target.nativeCreationFileTime){throw 'Held exit creation changed'}
+ if($wait -eq 0){return $true};if($wait -eq 258){return $false};throw 'Held exit state unknown'
+}
 function Stop-ExactHeldInstance([object]$Lease,[long]$Deadline){
  [void](Get-ProcessRemaining $Deadline)
  if(-not [Teruisi.ExactStop]::TerminateProcess($Lease.Handle,1)){throw 'Held termination failed'}
@@ -62,14 +71,21 @@ function Invoke-ExactInstanceStop([object[]]$Targets,[string]$EvidencePath,[long
   foreach($lease in $leases){Assert-ExactStopLease $lease $rows}
   Record-ExactStop @{stage='all-targets-validated';count=$Targets.Count;at=[DateTimeOffset]::UtcNow.ToString('o')}
   foreach($lease in @($leases|Sort-Object {$_.Target.depth} -Descending)){
-   [void](Get-ProcessRemaining $Deadline);$rows=@(Read-ExactStopCensus);Assert-ExactStopClosure $Targets $rows;Assert-ExactStopLease $lease $rows
+   [void](Get-ProcessRemaining $Deadline);$rows=@(Read-ExactStopCensus);Assert-ExactStopClosure $Targets $rows
+   [void](Get-ProcessRemaining $Deadline)
+   if(Test-ExactHeldExited $lease){
+    [void](Get-ProcessRemaining $Deadline)
+    Record-ExactStop @{stage='exit-confirmed';mode='observed-exit';processId=$lease.Target.processId;nativeCreationFileTime=$lease.Target.nativeCreationFileTime;at=[DateTimeOffset]::UtcNow.ToString('o')}
+    continue
+   }
+   Assert-ExactStopLease $lease $rows
    Record-ExactStop @{stage='stop-started';processId=$lease.Target.processId;nativeCreationFileTime=$lease.Target.nativeCreationFileTime;at=[DateTimeOffset]::UtcNow.ToString('o')}
    [void](Get-ProcessRemaining $Deadline)
    Stop-ExactHeldInstance $lease $Deadline
-   Record-ExactStop @{stage='exit-confirmed';processId=$lease.Target.processId;at=[DateTimeOffset]::UtcNow.ToString('o')}
+   Record-ExactStop @{stage='exit-confirmed';mode='terminated';processId=$lease.Target.processId;at=[DateTimeOffset]::UtcNow.ToString('o')}
   }
   Assert-ExactStopClosure $Targets @(Read-ExactStopCensus)
-  return [pscustomobject]@{status='declared-instances-exited';count=$Targets.Count;events=$events.ToArray()}
+  return [pscustomobject]@{status='declared-instances-exited';count=$Targets.Count;terminatedCount=@($events|Where-Object {$_.stage -eq 'exit-confirmed' -and $_.mode -eq 'terminated'}).Count;observedExitCount=@($events|Where-Object {$_.stage -eq 'exit-confirmed' -and $_.mode -eq 'observed-exit'}).Count;events=$events.ToArray()}
  }catch{
   $failure=$_;try{Record-ExactStop @{stage='unknown';confirmedExits=@($events|Where-Object {$_.stage -eq 'exit-confirmed'}).Count;at=[DateTimeOffset]::UtcNow.ToString('o')}}catch{$failure.Exception.Data['EvidenceSaveFailed']=$true}
   $failure.Exception.Data['StopEvents']=$events.ToArray();throw $failure

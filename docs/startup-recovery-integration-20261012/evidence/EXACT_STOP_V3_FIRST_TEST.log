@@ -1,0 +1,25 @@
+✔ fixed 23 roots bind actual metadata and independently computed launch intervals (4.4352ms)
+✔ reject root-omission (3.5674ms)
+✔ reject worker-injection (2.2763ms)
+✔ reject root-birth (1.3534ms)
+✔ reject parent (1.8128ms)
+✔ reject depth (1.6412ms)
+✔ reject WAL (0.8234ms)
+✔ reject source (0.5094ms)
+✔ reject launch-source (0.5178ms)
+✔ reject duplicate-root (2.0704ms)
+✔ descendant connection/depth/birth must be declared and coherent (3.8749ms)
+✔ exact stop mocked on powershell.exe (2030.5761ms)
+✔ exact stop private on powershell.exe (3275.1311ms)
+✔ exact stop mocked on pwsh.exe (1723.9617ms)
+✔ exact stop private on pwsh.exe (3271.4779ms)
+✔ same held parent naturally exits after declared child on powershell.exe (3706.8191ms)
+✔ same held parent naturally exits after declared child on pwsh.exe (4378.3795ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18522.8067

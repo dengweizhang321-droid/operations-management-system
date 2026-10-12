@@ -1,0 +1,20 @@
+{
+  "originalSha256": "2e7ff4873d0e1cf978194196735145dab095740390ef82da403d29fd71177b2d",
+  "generatedSha256": "7ce794849395a61d6b642756271320e5d83a8e7652761b35d3be1543db66c9ba",
+  "reversedExact": true,
+  "edits": [
+    [
+      "function Restore-WatchSupervisor {",
+      "function Restore-RecoverySupervisor {"
+    ],
+    [
+      "    Start-Process -FilePath \"$env:SystemRoot\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -WindowStyle Hidden -WorkingDirectory $BackendRoot -ArgumentList @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$SupervisorPath,'-Action','Run','-Execute') -RedirectStandardOutput (Join-Path $WatchdogRoot \"supervisor-$id.out.log\") -RedirectStandardError (Join-Path $WatchdogRoot \"supervisor-$id.err.log\")|Out-Null",
+      "    [void](Get-ProcessRemaining $RecoverySupervisorDeadline)\n    $savedSupervisorTransportDeadline=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS\n    try {\n      [Environment]::SetEnvironmentVariable('TERUISI_PROCESS_DEADLINE_UNIX_MS',$null,'Process')\n    Start-Process -FilePath \"$env:SystemRoot\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -WindowStyle Hidden -WorkingDirectory $BackendRoot -ArgumentList @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$SupervisorPath,'-Action','Run','-Execute') -RedirectStandardOutput (Join-Path $WatchdogRoot \"supervisor-$id.out.log\") -RedirectStandardError (Join-Path $WatchdogRoot \"supervisor-$id.err.log\")|Out-Null\n    } finally { [Environment]::SetEnvironmentVariable('TERUISI_PROCESS_DEADLINE_UNIX_MS',$savedSupervisorTransportDeadline,'Process') }"
+    ],
+    [
+      "(Join-Path $PSScriptRoot 'watchdog-status-backend.ps1')",
+      "'E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-status-backend.ps1'"
+    ]
+  ],
+  "longRunningDeadlineExcludedOnlyDuringSpawn": true
+}

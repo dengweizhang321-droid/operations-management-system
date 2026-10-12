@@ -1,0 +1,13 @@
+✔ approval binds exact plan, actor, scope; malformed and future decisions reject (13.588ms)
+✔ source bytes and generic hardlinks reject; a normal private file succeeds (16.1423ms)
+✔ ASCII bootstrap parses on PS5 and PS7; it holds source handles through direct execution (1048.5982ms)
+✔ actual held-file primitive and link refusal powershell.exe (1674.4759ms)
+✔ actual held-file primitive and link refusal pwsh.exe (2196.9056ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5058.4205

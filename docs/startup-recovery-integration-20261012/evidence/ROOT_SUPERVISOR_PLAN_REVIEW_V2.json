@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-10-12T04:37:42.260Z",
+  "recordSha256": "6a53f53381ce2d03e3d1a3f71c0f67dd8bb5e265075e45c27f25537e48a48df3",
+  "planId": "39e6df7e0608e78c641bb8941a84a6eb5a837ce85dc9fdd10b7d0cd3d5123097",
+  "bundleId": "3e46d2454ddb0879c36ead3b27305d5f128e6bacc40f245d0404324b21e07280",
+  "candidateNineFilesExact": true,
+  "originalPlanFormulaMatched": true,
+  "installationStillExact": true,
+  "independentSupervisorTests": 3,
+  "independentRecoverySupervisorTests": 2,
+  "productionActions": 0,
+  "integratedRecoveryNotYetQualified": true
+}

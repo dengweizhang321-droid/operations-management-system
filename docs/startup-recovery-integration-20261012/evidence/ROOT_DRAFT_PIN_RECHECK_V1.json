@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-12T04:46:05.404Z",
+  "draftSha256": "40b174d4aa1a6244983c3b01e9d7aa16e9b051f7ad2e4595f4aea746f002192b",
+  "declaredPins": 106,
+  "drift": [
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\Invoke-ApprovedStartupRecovery.ps1",
+      "expected": "51ca05be12290c64c38442d8921b7f5c6705f8733ac634d4b6a57b092ea61d86",
+      "actual": "a5a8fc7942efadb490e70a583fb6f84104e0d173c4e75143ef7fe5494eefbe01"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\run-startup-recovery.mjs",
+      "expected": "ce3b89dc79fc671922e12b7a2418c8216b991f97ccce90908ee1940146de3810",
+      "actual": "0b87d282cb8dd79d194ecf89f60371cc975908bf2083fee14405bea1e9868204"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\startup-recovery-operations.psm1",
+      "expected": "df8e9957dad18f7bd90883c3b9620f180d38eafd30ab1e199d915854c35fbe89",
+      "actual": "e5d24a1491cfb1137f188520d0f18c3188079e0d5789d732e5d5bd532a005c66"
+    }
+  ],
+  "productionExecuted": false,
+  "currentDraftQualified": false,
+  "note": "Development-only draft; drift requires a new create-only final plan, not acceptance of changed bytes."
+}

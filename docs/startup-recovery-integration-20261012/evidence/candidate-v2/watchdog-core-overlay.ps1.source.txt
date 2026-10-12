@@ -1,0 +1,324 @@
+﻿function Get-CoreStatusReadinessProbe([string]$Uri, [string]$HostHeader) {
+  # Preserve the existing two-second/HTTP-200 contract. Only bounded metadata
+  # leaves this function; response bodies and exception text may contain secrets.
+  $clock = [Diagnostics.Stopwatch]::StartNew()
+  $probe = [ordered]@{ readiness = 'not_ready'; statusCode = $null; code = 'transport_error'; timeoutMs = 2000; elapsedMs = 0 }
+  try {
+    $response = Invoke-WebRequest -UseBasicParsing -Uri $Uri -TimeoutSec 2 -Headers @{ Host = $HostHeader }
+    $probe.statusCode = [int]$response.StatusCode
+    $probe.code = 'http_status'
+    if ($response.StatusCode -eq 200) { $probe.readiness = 'ready'; $probe.code = 'none' }
+  } catch {
+    $errorItem = $_.Exception
+    while ($errorItem) {
+      if ($errorItem -is [TimeoutException] -or $errorItem -is [OperationCanceledException] -or
+          ($errorItem -is [Net.WebException] -and $errorItem.Status -eq [Net.WebExceptionStatus]::Timeout)) { $probe.code = 'timeout' }
+      if ($errorItem.PSObject.Properties.Name -contains 'Response' -and $errorItem.Response -and
+          $errorItem.Response.PSObject.Properties.Name -contains 'StatusCode') {
+        $probe.statusCode = [int]$errorItem.Response.StatusCode; $probe.code = 'http_status'
+      }
+      $errorItem = $errorItem.InnerException
+    }
+  } finally { $probe.elapsedMs = $clock.ElapsedMilliseconds }
+  return [pscustomobject]$probe
+}
+
+function Show-ServiceStatus {
+  $statusClock = [Diagnostics.Stopwatch]::StartNew()
+  $postgres = "stopped"
+  if (@(Get-PortListeners 5432).Count -gt 0) {
+    try {
+      Assert-PostgresListenerOwnership | Out-Null
+      $postgres = if (Test-PostgresReady) { "running" } else { "not_ready" }
+    } catch {
+      $postgres = "foreign_or_unverified"
+    }
+  }
+  $reader = "stopped"
+  try {
+    if (Resolve-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
+    elseif (@(Get-PortListeners 8001).Count -gt 0) { $reader = "foreign_port_owner" }
+  } catch { $reader = "ownership_error" }
+  $writer = "stopped"
+  try {
+    if (Resolve-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress -ReadOnly) { $writer = "running" }
+    elseif (@(Get-PortListeners 8002).Count -gt 0) { $writer = "foreign_port_owner" }
+  } catch { $writer = "ownership_error" }
+  $readerReady = "not_ready"
+  $readerProbe = $null
+  if ($reader -eq "running") {
+    $readerProbe = Get-CoreStatusReadinessProbe $DjangoReaderHealthUrl '127.0.0.1:8001'
+    $readerReady = $readerProbe.readiness
+  }
+  $writerReady = "not_ready"
+  $writerProbe = $null
+  if ($writer -eq "running") {
+    $writerProbe = Get-CoreStatusReadinessProbe $DjangoWriterHealthUrl '127.0.0.1:8002'
+    $writerReady = $writerProbe.readiness
+  }
+  # Status must stay operationally bounded even when retained backup/rehearsal
+  # evidence contains tens of thousands of files.  A complete descendant ACL
+  # audit remains mandatory in HardenAcl and every sensitive lifecycle action;
+  # the read-only status path reports its deliberately narrower root contract.
+  $acl = "not_hardened"
+  try { Assert-RuntimeRootAclHardened; $acl = "root_hardened" } catch {}
+  $status = [pscustomobject][ordered]@{
+    PostgreSQL = $postgres
+    DjangoReader = $reader
+    DjangoWriter = $writer
+    ReaderReadiness = $readerReady
+    WriterReadiness = $writerReady
+    RuntimeAcl = $acl
+    RuntimeAclVerification = "root_only_status"
+    ReadinessEvidence = [pscustomobject]@{ reader = $readerProbe; writer = $writerProbe }
+    ElapsedMilliseconds = $statusClock.ElapsedMilliseconds
+    Startup = if (Test-Path -LiteralPath $StartupShortcut) { "installed" } else { "not_installed" }
+    CheckedAt = [DateTimeOffset]::UtcNow.ToString("o")
+  }
+  if ($Json.IsPresent) {
+    Write-Output ($status | ConvertTo-Json -Depth 5 -Compress)
+  } else {
+    $status | Format-List
+  }
+}
+
+
+# Diagnostic-only metadata supplementation. No receipt writes, process control,
+# privilege adjustment or VM_READ. Invoked only by the generated status wrappers.
+if (-not ('Teruisi.ReadonlyProcessMetadata' -as [type])) {
+  Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+namespace Teruisi { public static class ReadonlyProcessMetadata {
+ public static bool SameCreation(long native,long cim){return native/10==cim/10;}
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern IntPtr OpenProcess(uint access,bool inherit,uint pid);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool CloseHandle(IntPtr h);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool GetProcessTimes(IntPtr h,out long c,out long e,out long k,out long u);
+ [DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode)] public static extern bool QueryFullProcessImageName(IntPtr h,uint flags,StringBuilder b,ref uint n);
+ [DllImport("ntdll.dll")] public static extern int NtQueryInformationProcess(IntPtr h,int cl,IntPtr b,uint n,out uint required);
+ public static string Command(IntPtr h,out int status){
+  uint n;status=NtQueryInformationProcess(h,60,IntPtr.Zero,0,out n);
+  if(n<16||n>65536+64)return null;
+  IntPtr b=Marshal.AllocHGlobal((int)n);
+  try{
+   uint allocated=n;status=NtQueryInformationProcess(h,60,b,allocated,out n);
+   if(status!=0||n<16||n>allocated)return null;
+   int length=(ushort)Marshal.ReadInt16(b),maximum=(ushort)Marshal.ReadInt16(b,2);
+   long p=Marshal.ReadIntPtr(b,8).ToInt64(),start=b.ToInt64();
+   if(length%2!=0||maximum%2!=0||length>maximum||p<start+16||p-start>allocated||maximum>allocated-(p-start)){status=unchecked((int)0xC000000D);return null;}
+   string value=Marshal.PtrToStringUni(new IntPtr(p),length/2);
+   return String.IsNullOrWhiteSpace(value)?null:value;
+  }finally{Marshal.FreeHGlobal(b);}
+ }
+}}
+'@
+}
+function Get-ReadonlyNativeProcessFields([int]$ProcessId) {
+  if([IntPtr]::Size -ne 8 -or $ProcessId -le 4){throw 'diagnostic_native_target_invalid'}
+  [void](Get-ProcessRemaining (Get-ProcessDeadline))
+  $h=[Teruisi.ReadonlyProcessMetadata]::OpenProcess(0x1000,$false,[uint32]$ProcessId)
+  if($h -eq [IntPtr]::Zero){throw ('diagnostic_native_open_'+[Runtime.InteropServices.Marshal]::GetLastWin32Error())}
+  try{
+    $c1=0L;$c2=0L;$e=0L;$k=0L;$u=0L
+    if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($h,[ref]$c1,[ref]$e,[ref]$k,[ref]$u)){throw 'diagnostic_native_times_unavailable'}
+    $image1=[Text.StringBuilder]::new(32768);$n1=[uint32]32768
+    if(-not [Teruisi.ReadonlyProcessMetadata]::QueryFullProcessImageName($h,0,$image1,[ref]$n1)){throw 'diagnostic_native_image_unavailable'}
+    $s1=0;$s2=0;$cmd1=[Teruisi.ReadonlyProcessMetadata]::Command($h,[ref]$s1);$cmd2=[Teruisi.ReadonlyProcessMetadata]::Command($h,[ref]$s2)
+    $image2=[Text.StringBuilder]::new(32768);$n2=[uint32]32768
+    if(-not [Teruisi.ReadonlyProcessMetadata]::QueryFullProcessImageName($h,0,$image2,[ref]$n2)){throw 'diagnostic_native_image_unavailable'}
+    if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($h,[ref]$c2,[ref]$e,[ref]$k,[ref]$u)){throw 'diagnostic_native_times_unavailable'}
+    if($c1 -ne $c2 -or $s1 -ne 0 -or $s2 -ne 0 -or [string]::IsNullOrWhiteSpace($cmd1) -or
+       -not [string]::Equals($cmd1,$cmd2,[StringComparison]::Ordinal) -or
+       -not [string]::Equals($image1.ToString(),$image2.ToString(),[StringComparison]::OrdinalIgnoreCase)){throw 'diagnostic_native_identity_changed'}
+    [void](Get-ProcessRemaining (Get-ProcessDeadline))
+    return [pscustomobject]@{CreationFileTime=$c1;ExecutablePath=$image2.ToString();CommandLine=$cmd2}
+  }finally{[void][Teruisi.ReadonlyProcessMetadata]::CloseHandle($h)}
+}
+function Read-ReadonlyCimProcess([int]$ProcessId) {
+  return @(CimCmdlets\Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop)
+}
+function Complete-ReadonlyProcessMetadata([object]$Process) {
+  if(-not [string]::IsNullOrWhiteSpace([string]$Process.ExecutablePath) -and
+     -not [string]::IsNullOrWhiteSpace([string]$Process.CommandLine)){return $Process}
+  if($Process.ProcessId -le 4 -or $Process.CreationDate -isnot [datetime]){throw 'diagnostic_cim_identity_missing'}
+  $native=Get-ReadonlyNativeProcessFields ([int]$Process.ProcessId)
+  $after=@(Read-ReadonlyCimProcess ([int]$Process.ProcessId))
+  if($after.Count -ne 1 -or $after[0].CreationDate -isnot [datetime] -or
+     $Process.CreationDate -ne $after[0].CreationDate -or
+     -not [Teruisi.ReadonlyProcessMetadata]::SameCreation([long]$native.CreationFileTime,$Process.CreationDate.ToUniversalTime().ToFileTimeUtc()) -or
+     $Process.Name -cne $after[0].Name -or $Process.SessionId -ne $after[0].SessionId -or $Process.ParentProcessId -ne $after[0].ParentProcessId){throw 'diagnostic_cim_native_identity_changed'}
+  foreach($row in @($Process,$after[0])){
+    if(-not [string]::IsNullOrWhiteSpace([string]$row.ExecutablePath) -and
+       -not [string]::Equals([string]$row.ExecutablePath,[string]$native.ExecutablePath,[StringComparison]::OrdinalIgnoreCase)){throw 'diagnostic_image_disagrees'}
+    if(-not [string]::IsNullOrWhiteSpace([string]$row.CommandLine) -and
+       -not [string]::Equals([string]$row.CommandLine,[string]$native.CommandLine,[StringComparison]::Ordinal)){throw 'diagnostic_command_disagrees'}
+  }
+  $copy=$Process|Select-Object *
+  $copy.ExecutablePath=$native.ExecutablePath;$copy.CommandLine=$native.CommandLine
+  return $copy
+}
+function Get-ReadonlyDiagnosticSnapshot([int]$ProcessId,[int]$Attempts=20) {
+  for($attempt=1;$attempt -le $Attempts;$attempt++){
+    $rows=@(Read-ReadonlyCimProcess $ProcessId)
+    if($rows.Count -gt 1){throw 'diagnostic_cim_ambiguous'}
+    if($rows.Count -eq 1){
+      $p=Complete-ReadonlyProcessMetadata $rows[0]
+      if($null -eq $p.CreationDate){throw 'diagnostic_cim_identity_missing'}
+      return [pscustomobject]@{Process=$p;ProcessId=[int]$p.ProcessId;CreationDate=Get-ProcessCreation $p;ExecutablePath=Get-CanonicalPath ([string]$p.ExecutablePath);CommandLine=[string]$p.CommandLine}
+    }
+    Start-Sleep -Milliseconds 100
+  }
+  return $null
+}
+function Get-ReadonlyWorkerCensus([object]$Identity) {
+  $receipt=Read-ProcessReceipt $Identity
+  $rows=@(Read-ReadonlyWorkerCimCensus)
+  if($null -eq $receipt){return $rows}
+  $tree=@(Get-ProcessTree ([int]$receipt.supervisorPid) $rows)
+  if($tree.Count -gt 512){throw 'diagnostic_worker_tree_limit'}
+  $targets=[Collections.Generic.HashSet[int]]::new();[void]$targets.Add([int]$receipt.supervisorPid)
+  foreach($item in $tree){[void]$targets.Add([int]$item.Process.ProcessId)}
+  return @($rows|ForEach-Object {if($targets.Contains([int]$_.ProcessId)){Complete-ReadonlyProcessMetadata $_}else{$_}})
+}
+function Read-ReadonlyWorkerCimCensus {
+  return @(CimCmdlets\Get-CimInstance Win32_Process -ErrorAction Stop)
+}
+
+function Resolve-OwnedProcess(
+  [string]$Service,
+  [string]$PidPath,
+  [string]$ExpectedLauncher,
+  [string[]]$ExpectedArguments = $null,
+  [string]$ExpectedFingerprint = "",
+  [switch]$ReadOnly
+) {
+  if (-not (Test-Path -LiteralPath $PidPath -PathType Leaf)) { return $null }
+  $record = Read-JsonFile $PidPath "进程所有权记录"
+  $processId = 0
+  if (
+    [int]$record.version -ne 2 -or
+    [string]$record.service -cne $Service -or
+    -not [int]::TryParse([string]$record.processId, [ref]$processId) -or
+    -not ([string]$record.configFingerprint -match "^[0-9a-f]{64}$") -or
+    [string]::IsNullOrWhiteSpace([string]$record.launcherPath)
+  ) {
+    throw "进程所有权记录格式无效：$PidPath"
+  }
+  $recordCreationDate = ConvertTo-CanonicalCreationDate $record.creationDate
+  $snapshot = Get-ReadonlyDiagnosticSnapshot $processId 1
+  if ($null -eq $snapshot) {
+    # Diagnostic absence never deletes the ownership record.
+    return $null
+  }
+  $recordArguments = @($record.arguments | ForEach-Object { [string]$_ })
+  $matches = (
+    $snapshot.CreationDate -ceq $recordCreationDate -and
+    $snapshot.ExecutablePath -ieq (Get-CanonicalPath ([string]$record.executablePath)) -and
+    (Get-CanonicalPath ([string]$record.launcherPath)) -ieq (Get-CanonicalPath $ExpectedLauncher) -and
+    $snapshot.CommandLine -ceq [string]$record.commandLine -and
+    (Test-CommandLineReferencesPath $snapshot.CommandLine $ExpectedLauncher)
+  )
+  if ($null -ne $ExpectedArguments) { $matches = $matches -and (Test-ExactStringArray $recordArguments $ExpectedArguments) }
+  if ($ExpectedFingerprint) { $matches = $matches -and ([string]$record.configFingerprint -ceq $ExpectedFingerprint) }
+  if (-not $matches) {
+    # Diagnostic mismatch never invokes previous-boot cleanup.
+    throw "PID 已复用或进程身份与所有权记录不一致；拒绝接管或终止：$PidPath"
+  }
+  return $snapshot
+}
+
+function Get-WorkerStatusInternal([object]$Identity) {
+  $workerPortIds = @(Get-PortProcessIds $WorkerPort $WorkerHost)
+  $helperPortIds = @(Get-PortProcessIds $HelperPort $HelperHost)
+  $portsPresent = $workerPortIds.Count -gt 0 -or $helperPortIds.Count -gt 0
+  $empty = [pscustomobject]@{
+    State = $(if ($portsPresent) { "foreign_or_ambiguous" } else { "stopped" })
+    Identity = $Identity; Supervisor = $null; Tree = @(); PortIds = $workerPortIds; HelperPortIds = $helperPortIds
+    Helper = $null; Receipt = $null; Reason = $null
+  }
+  if (-not $Identity) { return $empty }
+  try { $receipt = Read-ProcessReceipt $Identity } catch {
+    $empty.State = $(if ($portsPresent) { "foreign_or_ambiguous" } else { "stale_or_invalid_receipt" })
+    $empty.Reason = "Worker process receipt could not be validated"
+    return $empty
+  }
+  if (-not $receipt) { return $empty }
+  $empty.Receipt = $receipt
+  $processes = @(Get-ReadonlyWorkerCensus $Identity)
+  $supervisor = Get-UniqueProcess ([int]$receipt.supervisorPid) $processes
+  if (-not $supervisor -or (Get-CreationIdentity $supervisor) -cne $receipt.supervisorCreationDate -or
+      -not (Test-AllowedTreeProcess $supervisor $Identity ([int]$receipt.supervisorPid))) {
+    $empty.State = $(if ($portsPresent) { "foreign_or_ambiguous" } else { "stale_or_invalid_receipt" })
+    $empty.Reason = "Exact supervisor creation identity is unavailable or changed"
+    return $empty
+  }
+  $tree = @(Get-ProcessTree ([int]$receipt.supervisorPid) $processes)
+  $helperContext = Get-HelperOwnershipContext $tree $Identity ([int]$receipt.supervisorPid)
+  $rejectedTreeProcesses = @($tree | Where-Object {
+      -not (Test-AllowedTreeProcess $_.Process $Identity ([int]$receipt.supervisorPid) $helperContext)
+    })
+  if ($tree.Count -lt 1 -or $rejectedTreeProcesses.Count -gt 0) {
+    $empty.State = $(if ($portsPresent) { "foreign_or_ambiguous" } else { "stale_or_invalid_receipt" })
+    if ($rejectedTreeProcesses.Count -gt 0) {
+      $rejected = $rejectedTreeProcesses[0].Process
+      $empty.Reason = "Unapproved or not-yet-stable supervisor descendant: name=$([string]$rejected.Name), pid=$([int]$rejected.ProcessId)"
+    } else {
+      $empty.Reason = "Exact supervisor process tree is temporarily unavailable"
+    }
+    return $empty
+  }
+  $workerOwned = $true
+  foreach ($portId in $workerPortIds) {
+    if ($helperContext.DescendantIds.Contains([int]$portId) -or
+        -not (Test-MonotonicAncestor ([int]$portId) ([int]$receipt.supervisorPid) $processes)) { $workerOwned = $false }
+  }
+  $helperOwned = $helperPortIds.Count -eq 0 -or (
+    $helperPortIds.Count -eq 1 -and $helperContext.Helper -and
+    [int]$helperPortIds[0] -eq [int]$helperContext.Helper.ProcessId -and
+    (Test-MonotonicAncestor ([int]$helperPortIds[0]) ([int]$receipt.supervisorPid) $processes)
+  )
+  if (-not $workerOwned -or -not $helperOwned) {
+    return [pscustomobject]@{
+      State = "foreign_or_ambiguous"; Identity = $Identity; Supervisor = $null; Tree = @(); PortIds = $workerPortIds
+      HelperPortIds = $helperPortIds; Helper = $null; Receipt = $receipt; Reason = "Port ownership does not match the exact supervisor lineage"
+    }
+  }
+  $state = if ($workerPortIds.Count -gt 0 -and $helperPortIds.Count -gt 0) { "exact_release" } else { "starting_exact_release" }
+  return [pscustomobject]@{
+    State = $state; Identity = $Identity; Supervisor = $supervisor; Tree = $tree; PortIds = $workerPortIds
+    HelperPortIds = $helperPortIds; Helper = $helperContext.Helper; Receipt = $receipt; Reason = $null
+  }
+}
+
+
+function Resolve-SupervisorProcess {
+  if (-not (Test-Path -LiteralPath $SupervisorPidPath -PathType Leaf)) { return $null }
+  $receipt = Read-JsonFile $SupervisorPidPath "Django supervisor process receipt"
+  Assert-SupervisorExactPropertySet $receipt @(
+    "version", "processId", "creationDate", "executablePath", "commandLine",
+    "scriptPathSha256", "scriptSha256", "startedAt"
+  ) "Django supervisor process receipt"
+  if ([string]$receipt.version -cne $SupervisorReceiptVersion -or
+      [string]$receipt.scriptPathSha256 -cne (
+        Get-Sha256Text (Get-SupervisorCanonicalPath $SupervisorScriptPath)
+      ) -or
+      [string]$receipt.scriptSha256 -cne (Get-FileSha256 $SupervisorScriptPath)) {
+    throw "Django supervisor process receipt 与当前 operator 不一致"
+  }
+  $snapshot = Get-ReadonlyDiagnosticSnapshot ([int]$receipt.processId) 1
+  if ($null -eq $snapshot) {
+    # A read-only missing snapshot never deletes the supervisor receipt.
+    return $null
+  }
+  $creation = ConvertTo-CanonicalCreationDate $receipt.creationDate
+  if ([string]$snapshot.CreationDate -cne $creation -or
+      [string]$snapshot.ExecutablePath -ine [string]$receipt.executablePath -or
+      [string]$snapshot.CommandLine -cne [string]$receipt.commandLine -or
+      -not (Test-CommandLineReferencesPath $snapshot.CommandLine $SupervisorScriptPath)) {
+    # A read-only identity mismatch never performs previous-boot cleanup.
+    throw "Django supervisor PID 已复用或进程身份不一致"
+  }
+  return $snapshot
+}
+

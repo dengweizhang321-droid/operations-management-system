@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-10-12T04:32:23.174Z",
+  "recordSha256": "105bcf14074b2938bc1534276002f322bd651c4f9b832dc1a6ddb86e22bab03f",
+  "planId": "6d3962f2e1a8f083ce0f51d8a57d771dc59d20fd22895dc440d220f45b8d0bd6",
+  "originalPlanFormulaMatched": true,
+  "installationBytesStillExact": true,
+  "candidateNinePinsExact": true,
+  "productionActions": 0,
+  "note": "This plan binds d0e9 only; the newly found supervisor-status cleanup gap still requires a revised candidate and new original plan before production."
+}

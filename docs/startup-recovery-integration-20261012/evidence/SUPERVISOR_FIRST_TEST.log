@@ -1,0 +1,11 @@
+✔ supervisor resolver reverses exact original predicates; only native sample and two cleanups differ (1.277ms)
+✔ supervisor readonly identity on powershell.exe (944.3392ms)
+✔ supervisor readonly identity on pwsh.exe (553.7979ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1610.8956

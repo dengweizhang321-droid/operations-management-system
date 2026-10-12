@@ -8,6 +8,7 @@ if($LASTEXITCODE -ne 0){throw 'Private disposable compilation failed'}
 $info=[Diagnostics.ProcessStartInfo]::new($fixtureExe)
 $info.UseShellExecute=$false;$info.CreateNoWindow=$true
 $child=[Diagnostics.Process]::Start($info)
+$extraLease=$null
 try{
  $row=$null;for($i=0;$i -lt 20;$i++){$row=Get-CimInstance Win32_Process -Filter "ProcessId=$($child.Id)";if($row -and $row.CreationDate){break};Start-Sleep -Milliseconds 100}
  if(-not $row){throw 'Private child absent'}
@@ -19,7 +20,17 @@ try{
  try{Invoke-ExactInstanceStop @($target) (Join-Path $EvidenceDirectory 'wrong-hash.jsonl')|Out-Null}catch{$refused=$true}
  $child.Refresh();if(-not $refused -or $child.HasExited){throw 'Bad declaration terminated child'}
  $target.commandSha256=$correct
+ $extraLease=Open-ExactStopLease $target
+ if(Test-ExactHeldExited $extraLease){throw 'Live private child reported exited'}
+ $wrongBirth=$target.PSObject.Copy();$wrongBirth.nativeCreationFileTime=([long]$target.nativeCreationFileTime+1L).ToString()
+ $birthRefused=$false;try{Test-ExactHeldExited ([pscustomobject]@{Handle=$extraLease.Handle;Target=$wrongBirth})|Out-Null}catch{$birthRefused=$true};if(-not $birthRefused){throw 'Changed held birth accepted'}
+ $query=[Teruisi.ReadonlyProcessMetadata]::OpenProcess(0x1000,$false,[uint32]$child.Id)
+ if($query -eq [IntPtr]::Zero){throw 'Private query-only handle unavailable'}
+ try{$waitRefused=$false;try{Test-ExactHeldExited ([pscustomobject]@{Handle=$query;Target=$target})|Out-Null}catch{if($_.Exception.Message -ceq 'Held exit state unknown'){$waitRefused=$true}else{throw}};if(-not $waitRefused){throw 'Unknown kernel wait accepted'}}finally{[void][Teruisi.ReadonlyProcessMetadata]::CloseHandle($query)}
  $result=Invoke-ExactInstanceStop @($target) (Join-Path $EvidenceDirectory 'actual-stop.jsonl')
  if(-not $child.WaitForExit(5000) -or $result.status -ne 'declared-instances-exited'){throw 'Actual held stop unconfirmed'}
- [pscustomobject]@{privateChild=$child.Id;wrongHashRefused=$true;heldStopConfirmed=$true;productionTargetsTouched=0}|ConvertTo-Json -Compress
-}finally{if(-not $child.HasExited){$child.Kill();$child.WaitForExit(5000)|Out-Null};$child.Dispose()}
+ if(-not(Test-ExactHeldExited $extraLease)){throw 'Same held exited child not confirmed'}
+ $initialDeadRefused=$false;try{Invoke-ExactInstanceStop @($target) (Join-Path $EvidenceDirectory 'initial-dead.jsonl')|Out-Null}catch{$initialDeadRefused=$true};if(-not $initialDeadRefused){throw 'Already-dead initial target bypassed live validation'}
+ $deadEvents=@(Get-Content -LiteralPath (Join-Path $EvidenceDirectory 'initial-dead.jsonl')|ForEach-Object {$_|ConvertFrom-Json});if(@($deadEvents|Where-Object {$_.stage -in @('all-targets-validated','exit-confirmed','stop-started')}).Count){throw 'Initial dead target advanced'}
+ [pscustomobject]@{privateChild=$child.Id;wrongHashRefused=$true;heldStopConfirmed=$true;changedBirthRefused=$birthRefused;unknownWaitRefused=$waitRefused;initialDeadRefused=$initialDeadRefused;productionTargetsTouched=0}|ConvertTo-Json -Compress
+}finally{if($extraLease){Close-ExactStopLease $extraLease};if(-not $child.HasExited){$child.Kill();$child.WaitForExit(5000)|Out-Null};$child.Dispose()}

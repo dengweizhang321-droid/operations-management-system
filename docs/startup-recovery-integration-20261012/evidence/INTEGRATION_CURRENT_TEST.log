@@ -1,0 +1,26 @@
+✔ recovery supervisor preserves original predicates and pins the new diagnostic route (1.0768ms)
+✔ actual PS7 function: expiry, spawn error, restore env and ownership gates (2808.2448ms)
+✔ gate phase transition follows original stopped maintenance and preserves unknown Start (1.6573ms)
+✔ reject own marker foreign-owner (2.0923ms)
+✔ reject own marker wrong-intent (0.323ms)
+✔ reject own marker fake-drained (0.3015ms)
+✔ reject own marker array-bool (0.6368ms)
+✔ reject own marker runtime-root (0.2378ms)
+✔ reject own marker unknown-field (0.1998ms)
+✔ failure containment permits only own extant gate, never treats missing gate as stopped (9.0862ms)
+✔ start and install refuse leftover admission; typed service binding remains fixed (0.6793ms)
+✔ fixed recovery order and failure containment: C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe (1004.0622ms)
+✔ fixed recovery order and failure containment: pwsh.exe (887.7586ms)
+✔ original fixed stage predicate powershell.exe (607.8754ms)
+✔ original fixed stage predicate pwsh.exe (682.0584ms)
+✔ supervisor resolver reverses exact original predicates; only native sample and two cleanups differ (1.162ms)
+✔ supervisor readonly identity on powershell.exe (411.4511ms)
+✔ supervisor readonly identity on pwsh.exe (555.6994ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7458.5381

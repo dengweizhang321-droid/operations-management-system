@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "assetHashes": {
+    "control": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+    "backend": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+    "worker": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+    "transport": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+    "supervisor": "85d2bdd121a415ff3a2e3e0c1edf208fc0ba2304444d7d3cc69cb71bcb533a11"
+  }
+}

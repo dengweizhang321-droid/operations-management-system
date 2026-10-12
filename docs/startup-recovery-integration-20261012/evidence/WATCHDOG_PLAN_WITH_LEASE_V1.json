@@ -1,0 +1,30 @@
+{
+  "taskWrites": 0,
+  "processTerminations": 0,
+  "status": "original-plan-prepared",
+  "attempts": 1,
+  "maintenanceWrites": 0,
+  "startedAt": "2026-10-12T04:23:39.8432925+00:00",
+  "leaseMaySkipConcurrentChecks": true,
+  "plan": {
+    "bundleId": "d0e9ebb640794e9680f978167354bb6f89b4917c96712c2cb638eb8dbfeb2554",
+    "predecessorTaskSha256": "86d748614c8d41c5c7e85f8f1f189ae241acfd23e9eb737c5d90481cb8c38b72",
+    "requiresProductionApproval": true,
+    "businessServicesRestarted": false,
+    "files": {
+      "operations-system-watchdog.ps1": "c8a635e3ea80b41251033c5f209d2f8b3ed5b0ad95f252f7dc6ec35482fabd2b",
+      "process-deadline.ps1": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "watchdog-install.ps1": "253f3ff73abd108a2fc7e17e5e643af1014b2d74f0fdf6b20a5f75713dab8734",
+      "watchdog-launcher\\NoConsoleLauncher.cs": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7",
+      "watchdog-status-control.ps1": "effae9851b920e36f6b28e128dc83d01eafb607c146e7248ed24b55bd69481b3",
+      "watchdog-status-backend.ps1": "194ccb2f5f15c1a302fc654f1b8a263350b9bc5bbbc1215c0abac98958c8c912",
+      "watchdog-core-overlay.ps1": "34a8077992e170cfc4663a4eff5bfd9c459bd46952a651a7bff30855921c8925",
+      "driver-binding.json": "eb69f34cfdd9146737a92aabd63fff6e9766721a17d53cd3257d9e6c858814fa",
+      "Watchdog.NoConsole.exe": "0bcb6079d8d47689141d6165fd3c2b0dbb009ed18fc1959d2e5800b73b554834"
+    },
+    "predecessorInstallationSha256": "c17fc866ad899f74cd87cdac211d74727b78413c96d6b33da0ccacfa4a29bc98",
+    "planId": "6d3962f2e1a8f083ce0f51d8a57d771dc59d20fd22895dc440d220f45b8d0bd6",
+    "version": 1
+  },
+  "completedAt": "2026-10-12T04:24:12.3557600+00:00"
+}

@@ -7,6 +7,7 @@ function Get-ProcessRemaining([long]$Deadline){if($script:expired){throw 'proces
 function Open-ExactStopLease($Target){$script:opened++;return [pscustomobject]@{Target=$Target;Handle=[IntPtr]$Target.processId}}
 function Close-ExactStopLease($Lease){$script:closed++}
 function Assert-ExactStopLease($Lease,$Rows){if($script:case -eq 'invalid-second' -and $Lease.Target.processId -eq 1002){throw 'bad second target'};if($script:case -eq 'expiry-during-validation' -and $script:reads -ge 2){$script:expired=$true}}
+function Test-ExactHeldExited($Lease){if($script:case -in @('unknown-exit','changed-exit')){throw 'held exit not established'};return ($script:case -eq 'observed-second' -and $script:stops.Count -eq 1)}
 function Stop-ExactHeldInstance($Lease){if($script:opened -ne 2){throw 'Not all handles opened'};if($script:case -eq 'second-stop-fails' -and $script:stops.Count -eq 1){throw 'native stop failure'};$script:stops+=$Lease.Target.processId}
 function Read-ExactStopCensus {
  $script:reads++;$rows=@($script:targets|Where-Object {$_.processId -notin $script:stops}|ForEach-Object {[pscustomobject]@{ProcessId=$_.processId;ParentProcessId=$_.parentProcessId;CreationDate=$script:born}})
@@ -16,15 +17,16 @@ function Read-ExactStopCensus {
  return $rows
 }
 $results=@()
-foreach($case in @('success','invalid-second','unknown-before','duplicate','new-child-after-first','second-stop-fails','expiry-during-census','expiry-during-validation')){
+foreach($case in @('success','invalid-second','unknown-before','duplicate','new-child-after-first','second-stop-fails','expiry-during-census','expiry-during-validation','observed-second','unknown-exit','changed-exit')){
  Reset $case;$failed=$false;$file=Join-Path $EvidenceDirectory "$case.jsonl"
  try{$r=Invoke-ExactInstanceStop $script:targets $file}catch{$failed=$true}
  if($script:closed -ne 2){throw 'Lease leak'}
- $expected=if($case -eq 'success'){2}elseif($case -in @('new-child-after-first','second-stop-fails')){1}else{0}
- if($script:stops.Count -ne $expected -or $failed -ne ($case -ne 'success')){throw "Wrong effect count: $case"}
+ $expected=if($case -eq 'success'){2}elseif($case -in @('new-child-after-first','second-stop-fails','observed-second')){1}else{0}
+ if($script:stops.Count -ne $expected -or $failed -ne ($case -notin @('success','observed-second'))){throw "Wrong effect count: $case"}
  $events=@(Get-Content -LiteralPath $file|ForEach-Object {$_|ConvertFrom-Json})
  if($failed -and $events[-1].stage -ne 'unknown'){throw 'Partial failure not persisted'}
- if(@($events|Where-Object {$_.stage -eq 'exit-confirmed'}).Count -ne $expected){throw 'Incorrect persisted exits'}
+ $exits=if($case -eq 'observed-second'){2}else{$expected}
+ if(@($events|Where-Object {$_.stage -eq 'exit-confirmed'}).Count -ne $exits){throw 'Incorrect persisted exits'}
  $results+=[pscustomobject]@{case=$case;stops=$expected;failure=$failed}
 }
 [pscustomobject]@{cases=$results;productionActions=0}|ConvertTo-Json -Depth 5 -Compress

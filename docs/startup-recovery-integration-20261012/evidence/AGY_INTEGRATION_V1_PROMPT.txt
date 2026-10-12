@@ -1,0 +1,624 @@
+同conversation完整新恢复包一次独立代码审查。仅以下文本，不调用工具、不读取文件、不操作生产。请找确定具体阻断并给文件/函数；不要把fixture等同生产批准/已验收，不说完美/绝对安全。此前你对stop V1漏deadline已撤回，V2保持原件；这次必须审新V3+新SupervisorV2+整合+transport。
+现场原f15批49WAL/head1a614e、Start unknown，Worker6cff/Django85cf已切换，1Backup和1新消费Restore已真实通过，不再做DB Backup/Restore。23服务原PID records被旧普通角色Status误删，不能伪造historical configfingerprint。Admin717及launch29f固定23原根。普通0x1000只读现场新捕获发现69后代，总92：每对象native双birth/image/argv摘要，before/after CIM树稳定，unknown0，原23完整匹配717；30s首采样82完整/10仅deadline耗尽保留，单次60s纯读补齐；动作时仍所有92held重新验证，不按name资格，容量128不提高。采样不证明连续全OS排他。
+停止库V3变化有真实私有GUI父等待子结束反例：V2实际两者已exit但只确认1并抛missing CIM；V3只有初始全体live身份全部验证且一直held后，loop先原closure，再same kernel handle Wait0==signaled+双GetTimes原birth相同才能observed-exit，不Terminate。不靠当前CIMabsence。initial-dead仍拒；当前PID复用/新后代/unknownWait/changedbirth都拒；期限真正Terminate前仍两道，Wait按remaining。两host真实私有chain/实际query-only无SYNCH Wait拒/changedbirth/initialdead负例作者与Root17/17。未知晚退出仍可保守partial，不自动扩杀。
+原新9file候选d0e9只覆盖backend/Worker不够：Root发现Supervisor.Status里的Resolve也删receipt。新9file3e46仅增加同现有backend wrapper TargetSupervisor，Resolver只native采样+去2cleanup，原argv/exe/birth等判词逆变exact，原Status块完整保留；原Watch两处Supervisor Status都路由，原Run实际正式85d2源不改。新原PlanInstall已经同原mutex等自然Idle真通过plan39e6、oldtask86d7/oldinstallc17，Task写0，无维护。旧d0e9/6d计划保留且不可视作覆盖新版。新Supervisor-only普通实际调用成功，原receipt前后absent，状态stopped，pending356仅本地outbox，不是会发送356条。原naturalWatch自身原通知治理不额外手工触发。
+整合持原watchdog同PS线程mutex+原rotation锁，preflight固定49/owner/W/D/源码/原plan/旧缺23receipt仍缺+现有有限legacyactor摘要(不是全OSabsence)。新marker让所有新非health业务HTTP503/新protected背景和consolejob拒，已有请求不会终止；然后原WaitAutomationDrain真实等待，23+69 exact stop，原Worker EnterMaintenance KeepPG停其它合法receipt Worker/AI附属及CompleteDrain，原全stopped Exit，再原Start生成新record(原正常启动配置/权限/迁移语义保留，不伪旧指纹)。随后恢复原Supervisor Run，原生命周期代码不改；专用函数从新V2原Restore派生，仅rename、Status固定candidate绝对路径、真正spawn前共同deadline检查、spawn期间移除运输deadline后还原(长期Run不能继承30分钟)，原predicate逆变exact，PS7实际mock6例过期0spawn/异常env还原。Run会本地监控/outbox和原自动恢复，不手工触发wholeCheckRecover。
+最后原full snapshot healthy+原Install同线程重入健康门、只更新Action/immutable bundle/installation/transaction，triggers/principal/RunLevel不变；仍待自然2healthy和原Start有限reconcile/剩余7验收closeout。当前尚未任何新生产动作/新scope批准。失败在Exit调用前就标可能已清门，即使clear后error也同固定marker create-only恢复；不删foreign gate，不自动继续Stop/Start，不改WAL/owner。失败围栏单独30s预算需明确批准，不能因为主deadline耗尽跳过；若写失败如实containmentfailure，非OS-wide锁保证。
+已真实module FunctionsOnly隔离/同线程unique mutex重入，D变量污染synthetic无dispatch。同批规格/实际包/SourceBinding不改。transport批准后生成ASCIIboot，同SIDAdmin、NODE及library-only env拒、held file finalpath/nlink1(仅原SystemPS7600精确2)、字节identity双查、全闭包Readshare持到子结束、wx日志，不RunAs自批。真正启动器仍须先pin boot本身再请求用户OS确认；这里尚未执行，不可推断生产批准。
+请审下完整当前源码，特别参数传递/作用域、source closure、phase result/失败、共享deadline及继承环境。只报告具体可复现缺口或有界无新增阻断，600字内。
+
+FILE tools/startup-recovery-sequence.ps1 SHA256 df6178d74ec8e8744b364d7f5b71cfea63316a104967d7d42ae87c53d49765f3
+# Library only: fixed recovery order. Production bindings are supplied by the
+# separately reviewed startup-recovery-operations module, never callback input.
+function Invoke-StartupRecoverySequence([object]$Plan,[string]$EvidencePath,[long]$Deadline) {
+  if ($Plan.version -cne 'startup-recovery-integration-v1') { throw 'Unsupported recovery plan' }
+  $stages=@('preflight','create-intent','await-drain','stop-declared-instances','enter-stopped-maintenance','exit-stopped-maintenance','start-original-stack','restore-supervisor','verify-ready','install-diagnostic','verify-installation')
+  $stream=[IO.File]::Open($EvidencePath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+  $lease=$null;$held=$false;$mutationAttempted=$false;$maintenanceExited=$false;$completed=$false;$stage='acquire-watchdog-mutex'
+  function Record-RecoveryStage([string]$Kind,[string]$Name,[object]$Details) {
+    $b=[Text.UTF8Encoding]::new($false).GetBytes((@{version=1;kind=$Kind;stage=$Name;at=[DateTimeOffset]::UtcNow.ToString('o');details=$Details}|ConvertTo-Json -Depth 12 -Compress)+[Environment]::NewLine)
+    $stream.Write($b,0,$b.Length);$stream.Flush($true)
+  }
+  try {
+    $lease=New-StartupRecoveryLease
+    $held=Enter-StartupRecoveryLease $lease
+    if ($held -cne $true) { throw 'Recovery watchdog lease unavailable' }
+    Record-RecoveryStage 'passed' $stage $null
+    foreach($stage in $stages) {
+      [void](Get-ProcessRemaining $Deadline)
+      Assert-StartupRecoveryLease $lease
+      Assert-StartupRecoveryContext $Plan $stage
+      Record-RecoveryStage 'started' $stage $null
+      [void](Get-ProcessRemaining $Deadline)
+      if($stage -cne 'preflight'){$mutationAttempted=$true}
+      # Mark exit BEFORE dispatch: a child can clear the gate and then fail.
+      if($stage -ceq 'exit-stopped-maintenance'){$maintenanceExited=$true}
+      $result=Invoke-StartupRecoveryBoundStage $stage $Plan $Deadline
+      Assert-StartupRecoveryStageResult $stage $result $Plan
+      Assert-StartupRecoveryLease $lease
+      Record-RecoveryStage 'passed' $stage $result
+    }
+    $completed=$true
+    return [pscustomobject]@{status='recovery-installation-completed';naturalAcceptancePending=$true;batchReconciled=$false;productionBatchClosed=$false}
+  } catch {
+    $original=$_;$containment=$null
+    if($mutationAttempted){
+      try {
+        # This is a fixed create-or-verify own marker operation. It never
+        # clears admission or stops another process, even after partial stop.
+        $containment=Confirm-StartupRecoveryFailureFence $Plan $maintenanceExited
+      } catch { $original.Exception.Data['ContainmentFailure']=$_.Exception.Message }
+    }
+    try { Record-RecoveryStage 'failed' $stage @{error=$original.Exception.Message;mutationAttempted=$mutationAttempted;maintenanceExitAttempted=$maintenanceExited;containment=$containment;noAutomaticRestart=$true;noAutomaticGateRemoval=$true} }
+    catch {$original.Exception.Data['EvidenceSaveFailure']=$_.Exception.Message}
+    throw $original
+  } finally {
+    if($held){Exit-StartupRecoveryLease $lease}
+    if($null -ne $lease){Close-StartupRecoveryLease $lease}
+    $stream.Dispose()
+  }
+}
+
+
+FILE tools/startup-exact-instance-stop.ps1 SHA256 701e496ffb9715403a1aa670cb0583b60ba9cafde444a56b7f1603c3b4fa9cbb
+# Library only. No top-level stop or production CLI. A future approved wrapper
+# must validate the fixed 23-root policy and maintenance/drain/owner before use.
+function Read-ExactStopLibrary([string]$Path,[string]$Expected){
+ $held=[IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+ try{if($held.Length -gt 1048576){throw 'Library too large'};$memory=[IO.MemoryStream]::new();$held.CopyTo($memory);$raw=$memory.ToArray();$memory.Dispose();$s=[Security.Cryptography.SHA256]::Create();try{$actual=([BitConverter]::ToString($s.ComputeHash($raw))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()};if($actual -cne $Expected){throw 'Pinned library drift'};return [scriptblock]::Create(([Text.UTF8Encoding]::new($false,$true).GetString($raw)).TrimStart([char]0xFEFF))}finally{$held.Dispose()}
+}
+$deadlinePath=Join-Path $PSScriptRoot 'process-deadline.ps1'
+. (Read-ExactStopLibrary $deadlinePath '5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd')
+$nativePath=Join-Path $PSScriptRoot 'watchdog-native-metadata.ps1'
+. (Read-ExactStopLibrary $nativePath 'd8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449')
+if(-not ('Teruisi.ExactStop' -as [type])){Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace Teruisi { public static class ExactStop {
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool TerminateProcess(IntPtr h,uint code);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern uint WaitForSingleObject(IntPtr h,uint milliseconds);
+}}
+'@}
+function Get-StopTextHash([string]$Text){$s=[Security.Cryptography.SHA256]::Create();try{return ([BitConverter]::ToString($s.ComputeHash([Text.Encoding]::UTF8.GetBytes($Text)))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()}}
+function Read-ExactStopCensus {return @(CimCmdlets\Get-CimInstance Win32_Process -ErrorAction Stop|Select-Object ProcessId,ParentProcessId,CreationDate)}
+function Assert-ExactStopClosure([object[]]$Targets,[object[]]$Rows){
+ $ids=[Collections.Generic.HashSet[int]]::new();$byId=@{};foreach($target in $Targets){if(-not $ids.Add([int]$target.processId)){throw 'Duplicate stop PID'};$byId[[int]$target.processId]=$target}
+ foreach($target in $Targets){$parent=$byId[[int]$target.parentProcessId];if($null -ne $parent){if([int]$target.depth -ne [int]$parent.depth+1 -or [long]$target.nativeCreationFileTime -lt [long]$parent.nativeCreationFileTime){throw 'Declared depth or parent creation is invalid'}}elseif([int]$target.depth -ne 0){throw 'Unconnected descendant'}}
+ $seen=[Collections.Generic.HashSet[int]]::new();foreach($row in $Rows){if(-not $seen.Add([int]$row.ProcessId)){throw 'Duplicate census PID'};if($ids.Contains([int]$row.ProcessId)){$t=$byId[[int]$row.ProcessId];if($row.CreationDate -isnot [datetime] -or [int]$row.ParentProcessId -ne [int]$t.parentProcessId -or -not [Teruisi.ReadonlyProcessMetadata]::SameCreation([long]$t.nativeCreationFileTime,$row.CreationDate.ToUniversalTime().ToFileTimeUtc())){throw 'Census target identity changed'}}}
+ foreach($row in $Rows){if($ids.Contains([int]$row.ParentProcessId) -and -not $ids.Contains([int]$row.ProcessId)){throw 'Unapproved descendant; no automatic expansion'}}
+}
+function Assert-ExactStopLease([object]$Lease,[object[]]$Rows){
+ $target=$Lease.Target;$row=@($Rows|Where-Object {[int]$_.ProcessId -eq [int]$target.processId})
+ if($row.Count -ne 1 -or $row[0].CreationDate -isnot [datetime] -or [int]$row[0].ParentProcessId -ne [int]$target.parentProcessId){throw 'Current CIM identity unavailable or changed'}
+ $c1=0L;$c2=0L;$e=0L;$k=0L;$u=0L;$h=$Lease.Handle
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($h,[ref]$c1,[ref]$e,[ref]$k,[ref]$u)){throw 'Held creation unavailable'}
+ $image=[Text.StringBuilder]::new(32768);$n=[uint32]32768
+ if(-not [Teruisi.ReadonlyProcessMetadata]::QueryFullProcessImageName($h,0,$image,[ref]$n)){throw 'Held image unavailable'}
+ $s1=0;$s2=0;$cmd1=[Teruisi.ReadonlyProcessMetadata]::Command($h,[ref]$s1);$cmd2=[Teruisi.ReadonlyProcessMetadata]::Command($h,[ref]$s2)
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($h,[ref]$c2,[ref]$e,[ref]$k,[ref]$u)){throw 'Held creation unavailable'}
+ if($c1 -ne $c2 -or $c1.ToString([Globalization.CultureInfo]::InvariantCulture) -cne [string]$target.nativeCreationFileTime -or
+    -not [Teruisi.ReadonlyProcessMetadata]::SameCreation($c1,$row[0].CreationDate.ToUniversalTime().ToFileTimeUtc()) -or $s1 -ne 0 -or $s2 -ne 0 -or
+    [string]::IsNullOrWhiteSpace($cmd1) -or -not [string]::Equals($cmd1,$cmd2,[StringComparison]::Ordinal) -or
+    (Get-StopTextHash $cmd2) -cne $target.commandSha256 -or (Get-StopTextHash $image.ToString()) -cne $target.imageSha256){throw 'Held process does not match exact declaration'}
+ if([Teruisi.ExactStop]::WaitForSingleObject($h,0) -ne 258){throw 'Target is not confirmed live'}
+}
+function Open-ExactStopLease([object]$Target){
+ $h=[Teruisi.ReadonlyProcessMetadata]::OpenProcess(0x101001,$false,[uint32]$Target.processId)
+ if($h -eq [IntPtr]::Zero){throw ('Stop handle denied: '+[Runtime.InteropServices.Marshal]::GetLastWin32Error())}
+ return [pscustomobject]@{Target=$Target;Handle=$h}
+}
+function Close-ExactStopLease([object]$Lease){[void][Teruisi.ReadonlyProcessMetadata]::CloseHandle($Lease.Handle)}
+function Test-ExactHeldExited([object]$Lease){
+ # Only called by the loop AFTER all leases passed the original live identity
+ # validation. The retained kernel handle cannot refer to a reused PID.
+ $a=0L;$b=0L;$e=0L;$k=0L;$u=0L
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($Lease.Handle,[ref]$a,[ref]$e,[ref]$k,[ref]$u)){throw 'Held exit creation unavailable'}
+ $wait=[Teruisi.ExactStop]::WaitForSingleObject($Lease.Handle,0)
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($Lease.Handle,[ref]$b,[ref]$e,[ref]$k,[ref]$u) -or $a -ne $b -or $a.ToString([Globalization.CultureInfo]::InvariantCulture) -cne $Lease.Target.nativeCreationFileTime){throw 'Held exit creation changed'}
+ if($wait -eq 0){return $true};if($wait -eq 258){return $false};throw 'Held exit state unknown'
+}
+function Stop-ExactHeldInstance([object]$Lease,[long]$Deadline){
+ [void](Get-ProcessRemaining $Deadline)
+ if(-not [Teruisi.ExactStop]::TerminateProcess($Lease.Handle,1)){throw 'Held termination failed'}
+ $wait=[uint32][Math]::Min(10000,(Get-ProcessRemaining $Deadline))
+ if([Teruisi.ExactStop]::WaitForSingleObject($Lease.Handle,$wait) -ne 0){throw 'Held process exit not confirmed'}
+}
+function Invoke-ExactInstanceStop([object[]]$Targets,[string]$EvidencePath,[long]$Deadline=(Get-ProcessDeadline)){
+ if($Targets.Count -lt 1 -or $Targets.Count -gt 128){throw 'Stop set size invalid'}
+ foreach($t in $Targets){if(($t.processId -isnot [int] -and $t.processId -isnot [long]) -or [int]$t.processId -le 4 -or ($t.parentProcessId -isnot [int] -and $t.parentProcessId -isnot [long]) -or [int]$t.parentProcessId -lt 0 -or $t.depth -isnot [int] -or $t.depth -lt 0 -or $t.depth -gt 16 -or $t.nativeCreationFileTime -isnot [string] -or $t.nativeCreationFileTime -cnotmatch '^[0-9]{17,20}$' -or $t.commandSha256 -isnot [string] -or $t.commandSha256 -cnotmatch '^[a-f0-9]{64}$' -or $t.imageSha256 -isnot [string] -or $t.imageSha256 -cnotmatch '^[a-f0-9]{64}$'){throw 'Invalid exact stop declaration'}}
+ $leases=[Collections.Generic.List[object]]::new();$events=[Collections.Generic.List[object]]::new();$stream=[IO.File]::Open($EvidencePath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+ function Record-ExactStop([object]$Event){$events.Add($Event);$b=[Text.UTF8Encoding]::new($false).GetBytes(($Event|ConvertTo-Json -Compress -Depth 5)+[Environment]::NewLine);$stream.Write($b,0,$b.Length);$stream.Flush($true)}
+ try{
+  foreach($t in $Targets){[void](Get-ProcessRemaining $Deadline);$leases.Add((Open-ExactStopLease $t))}
+  $rows=@(Read-ExactStopCensus);Assert-ExactStopClosure $Targets $rows
+  foreach($lease in $leases){Assert-ExactStopLease $lease $rows}
+  Record-ExactStop @{stage='all-targets-validated';count=$Targets.Count;at=[DateTimeOffset]::UtcNow.ToString('o')}
+  foreach($lease in @($leases|Sort-Object {$_.Target.depth} -Descending)){
+   [void](Get-ProcessRemaining $Deadline);$rows=@(Read-ExactStopCensus);Assert-ExactStopClosure $Targets $rows
+   [void](Get-ProcessRemaining $Deadline)
+   if(Test-ExactHeldExited $lease){
+    [void](Get-ProcessRemaining $Deadline)
+    Record-ExactStop @{stage='exit-confirmed';mode='observed-exit';processId=$lease.Target.processId;nativeCreationFileTime=$lease.Target.nativeCreationFileTime;at=[DateTimeOffset]::UtcNow.ToString('o')}
+    continue
+   }
+   Assert-ExactStopLease $lease $rows
+   Record-ExactStop @{stage='stop-started';processId=$lease.Target.processId;nativeCreationFileTime=$lease.Target.nativeCreationFileTime;at=[DateTimeOffset]::UtcNow.ToString('o')}
+   [void](Get-ProcessRemaining $Deadline)
+   Stop-ExactHeldInstance $lease $Deadline
+   Record-ExactStop @{stage='exit-confirmed';mode='terminated';processId=$lease.Target.processId;at=[DateTimeOffset]::UtcNow.ToString('o')}
+  }
+  Assert-ExactStopClosure $Targets @(Read-ExactStopCensus)
+  return [pscustomobject]@{status='declared-instances-exited';count=$Targets.Count;terminatedCount=@($events|Where-Object {$_.stage -eq 'exit-confirmed' -and $_.mode -eq 'terminated'}).Count;observedExitCount=@($events|Where-Object {$_.stage -eq 'exit-confirmed' -and $_.mode -eq 'observed-exit'}).Count;events=$events.ToArray()}
+ }catch{
+  $failure=$_;try{Record-ExactStop @{stage='unknown';confirmedExits=@($events|Where-Object {$_.stage -eq 'exit-confirmed'}).Count;at=[DateTimeOffset]::UtcNow.ToString('o')}}catch{$failure.Exception.Data['EvidenceSaveFailed']=$true}
+  $failure.Exception.Data['StopEvents']=$events.ToArray();throw $failure
+ }finally{foreach($lease in $leases){Close-ExactStopLease $lease};$stream.Dispose()}
+}
+
+
+FILE tools/prepare-watchdog-supervisor-status-driver.mjs SHA256 8e3125f6205f2d5ce64fa9947ba3144ee9f4d9fc5e5dcba63ff5cbdb78d558dc
+import fs from 'node:fs/promises';import path from 'node:path';import {createHash} from 'node:crypto';
+import {prepareNativeStatusDriver} from './prepare-watchdog-native-status-driver.mjs';
+const hash=b=>createHash('sha256').update(b).digest('hex'),quote=s=>"'"+s.replaceAll("'","''")+"'";
+function once(text,from,to){if(text.indexOf(from)<0||text.indexOf(from)!==text.lastIndexOf(from))throw Error('supervisor_diagnostic_source_shape_changed');return text.replace(from,()=>to);}
+export function readonlySupervisor(source){
+ const start=source.indexOf('function Resolve-SupervisorProcess {'),end=source.indexOf('\nfunction ',start+1);if(start<0||end<0)throw Error('supervisor_resolver_missing');
+ const original=source.slice(start,end),nl=original.includes('\r\n')?'\r\n':'\n';
+ const edits=[['$snapshot = Get-ProcessSnapshot ([int]$receipt.processId) 1','$snapshot = Get-ReadonlyDiagnosticSnapshot ([int]$receipt.processId) 1'],['    Remove-Item -LiteralPath $SupervisorPidPath -Force'+nl,'    # A read-only missing snapshot never deletes the supervisor receipt.'+nl],['    if (Remove-PreviousBootProcessRecordIfSafe `'+nl+'          $SupervisorPidPath $receipt.creationDate $receipt.startedAt) {'+nl+'      return $null'+nl+'    }','    # A read-only identity mismatch never performs previous-boot cleanup.']];
+ let generated=original;for(const [a,b]of edits)generated=once(generated,a,b);let reversed=generated;for(const [a,b]of [...edits].reverse())reversed=once(reversed,b,a);if(reversed!==original)throw Error('Supervisor ownership predicate changed');
+ const statusStart=source.indexOf('    "Status" {\n')>=0?source.indexOf('    "Status" {\n'):source.indexOf('    "Status" {\r\n');
+ const statusEnd=source.indexOf(nl+'    }'+nl+'  }'+nl+'  if ($SupervisorRequest.Action',statusStart);if(statusStart<0||statusEnd<0)throw Error('supervisor_status_block_missing');
+ const status=source.slice(statusStart+'    "Status" {'.length,statusEnd);
+ return{generated,status,proof:{originalSha256:hash(original),generatedSha256:hash(generated),statusBodySha256:hash(status),edits,reversedExact:true}};
+}
+export async function prepareSupervisorStatusDriver(options){
+ const result=await prepareNativeStatusDriver(options),source=await fs.readFile(options.supervisorFile,'utf8'),parts=readonlySupervisor(source),out=options.outputDirectory;
+ const binding={...result.binding,assetHashes:{...result.binding.assetHashes,supervisor:hash(Buffer.from(source))}};
+ let wrapper=await fs.readFile(path.join(out,'watchdog-status-backend.ps1'),'utf8');
+ wrapper=once(wrapper,"[ValidateSet('Backend','Worker')]","[ValidateSet('Backend','Worker','Supervisor')]");
+ wrapper=once(wrapper,"if($DiagnosticTarget -eq 'Worker' -and $Action -ne 'Status')","if($DiagnosticTarget -in @('Worker','Supervisor') -and $Action -ne 'Status')");
+ wrapper=once(wrapper,'$diagnosticBinding=Get-Content',`$diagnosticSupervisor=${quote(options.supervisorFile)}\n$diagnosticBinding=Get-Content`);
+ wrapper=once(wrapper,"-cne $diagnosticBinding.assetHashes.worker){throw",`-cne $diagnosticBinding.assetHashes.worker -or\n    (Get-FileHash -LiteralPath $diagnosticSupervisor -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.supervisor){throw`);
+ const branch=`if($DiagnosticTarget -eq 'Supervisor'){
+ $savedBackend=$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
+ $savedSupervisor=$env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY
+ try{
+  $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';$env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY='1'
+  . $diagnosticBackend -Action Status -RuntimeRoot $diagnosticRoot -Json
+  . $diagnosticSupervisor -Action Status -RuntimeRoot $diagnosticRoot
+ }finally{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY=$savedBackend;$env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY=$savedSupervisor}
+ . (Join-Path $PSScriptRoot 'watchdog-core-overlay.ps1')
+ $canonicalRuntime=Get-SupervisorCanonicalPath $diagnosticRoot
+ if($canonicalRuntime -ine $SupervisorFixedRuntimeRoot){throw 'supervisor_runtime_changed'}
+ $ServiceScriptPath=$diagnosticBackend;$SupervisorScriptPath=$diagnosticSupervisor
+ $SupervisorMonitorDirectory=Assert-RuntimeChildPath (Join-Path $canonicalRuntime 'monitoring\\django-runtime')
+ $SupervisorAlertDirectory=Assert-RuntimeChildPath (Join-Path $SupervisorMonitorDirectory 'alerts\\pending')
+ $SupervisorStatePath=Assert-RuntimeChildPath (Join-Path $SupervisorMonitorDirectory 'state.json')
+ $SupervisorPidPath=Assert-RuntimeChildPath (Join-Path $RunDirectory 'django-supervisor.pid.json')
+ $diagnosticResult=& {${parts.status}
+ }
+ Assert-NativeDiagnosticSources
+ $diagnosticResult|ConvertTo-Json -Depth 10 -Compress
+}elseif($DiagnosticTarget -eq 'Worker'){`;
+ wrapper=once(wrapper,"if($DiagnosticTarget -eq 'Worker'){",branch);
+ await fs.writeFile(path.join(out,'watchdog-status-backend.ps1'),wrapper);
+ await fs.appendFile(path.join(out,'watchdog-core-overlay.ps1'),'\n'+parts.generated+'\n');
+ await fs.writeFile(path.join(out,'driver-binding.json'),JSON.stringify(binding,null,2));
+ let watchdog=await fs.readFile(options.watchdogTemplateFile,'utf8');
+ const from="Invoke-WatchScript $SupervisorPath @('-Action','Status')",to="Invoke-WatchScript (Join-Path $PSScriptRoot 'watchdog-status-backend.ps1') @('-Action','Status','-DiagnosticTarget','Supervisor')";
+ if(watchdog.split(from).length!==3)throw Error('Expected exactly two original supervisor Status calls');
+ watchdog=watchdog.replaceAll(from,to);
+ // Original Run path is deliberately unchanged: no lifecycle wrapper is used.
+ await fs.writeFile(path.join(out,'operations-system-watchdog.ps1'),watchdog);
+ return{...result,binding,proof:{...result.proof,supervisor:parts.proof,supervisorSourceSha256:hash(Buffer.from(source)),watchdogRouting:{count:2,from,to,runUnchanged:true}}};
+}
+
+
+FILE tools/prepare-recovery-supervisor.mjs SHA256 a36e10415ec226eb7413eb3e2f28a6c319339fdc9906bfffdf9b475656740069
+import {createHash} from 'node:crypto';
+import path from 'node:path';
+const hash=x=>createHash('sha256').update(x).digest('hex');
+export function recoverySupervisor(source,{candidateDirectory}){
+ if(!path.isAbsolute(candidateDirectory))throw Error('Exact candidate directory required');
+ const begin=source.indexOf('function Restore-WatchSupervisor {'),end=source.indexOf('\nfunction ',begin+1);if(begin<0||end<0)throw Error('Original supervisor recovery function missing');
+ const original=source.slice(begin,end),line=original.split(/\r?\n/).find(x=>x.trimStart().startsWith('Start-Process -FilePath '));if(!line||original.indexOf(line)!==original.lastIndexOf(line))throw Error('Exact original supervisor spawn required');
+ const nl=original.includes('\r\n')?'\r\n':'\n';
+ const replacement=["    [void](Get-ProcessRemaining $RecoverySupervisorDeadline)","    $savedSupervisorTransportDeadline=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS","    try {","      [Environment]::SetEnvironmentVariable('TERUISI_PROCESS_DEADLINE_UNIX_MS',$null,'Process')",line,"    } finally { [Environment]::SetEnvironmentVariable('TERUISI_PROCESS_DEADLINE_UNIX_MS',$savedSupervisorTransportDeadline,'Process') }"].join(nl);
+ const route="(Join-Path $PSScriptRoot 'watchdog-status-backend.ps1')",absolute="'"+path.join(candidateDirectory,'watchdog-status-backend.ps1').replaceAll("'","''")+"'";
+ if(original.split(route).length!==2)throw Error('Recovery must derive from the supervisor-safe candidate');
+ const generated=original.replace('function Restore-WatchSupervisor {','function Restore-RecoverySupervisor {').replace(line,()=>replacement).replace(route,()=>absolute);
+ const reversed=generated.replace('function Restore-RecoverySupervisor {','function Restore-WatchSupervisor {').replace(replacement,()=>line).replace(absolute,()=>route);if(reversed!==original)throw Error('Recovery supervisor predicate changed');
+ return {generated,proof:{originalSha256:hash(original),generatedSha256:hash(generated),reversedExact:true,edits:[['function Restore-WatchSupervisor {','function Restore-RecoverySupervisor {'],[line,replacement],[route,absolute]],longRunningDeadlineExcludedOnlyDuringSpawn:true}};
+}
+
+
+FILE docs/startup-recovery-integration-20261012/startup-recovery-operations.psm1 SHA256 e5d24a1491cfb1137f188520d0f18c3188079e0d5789d732e5d5bd532a005c66
+# Fixed operations module. Load only after the approved plan and complete source
+# closure are verified/held by the external bootstrap. No dispatch on import.
+Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot '../../tools/startup-exact-instance-stop.ps1')
+. (Join-Path $PSScriptRoot '../../tools/startup-recovery-sequence.ps1')
+$script:recovery=$null
+function Initialize-StartupRecoveryOperations([object]$Plan,[string]$PlanPath,[string]$PlanSha256) {
+ if($null -ne $script:recovery){throw 'One recovery per process'}
+ $id=[Security.Principal.WindowsIdentity]::GetCurrent()
+ if($id.User.Value -cne 'S-1-5-21-815909789-107973518-1379257801-1001' -or -not ([Security.Principal.WindowsPrincipal]::new($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Exact approved administrator required'}
+ if($PSVersionTable.PSVersion.Major -lt 7){throw 'Original watchdog requires PowerShell 7'}
+ $candidate='E:\codex-artifacts\startup-recovery-integration-20261012\native-watchdog-source-v2'
+ $django='D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1'
+ $script:recovery=@{plan=$Plan;path=$PlanPath;sha=$PlanSha256;candidate=$candidate;django=$django;thread=[Threading.Thread]::CurrentThread.ManagedThreadId;node='C:\Program Files\nodejs\node.exe';ps='C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe';worker='D:\运营管理系统\tools\worker-local-service.ps1';context=Join-Path $PSScriptRoot 'recovery-context.mjs';completed=@{}}
+ # Scope isolation is essential: both original scripts define Action/Execute.
+ $script:recovery.watch=New-Module -ArgumentList $candidate,$Plan.watchdogPlan.planId,(Join-Path $PSScriptRoot 'Restore-RecoverySupervisorV2.ps1') -ScriptBlock {
+  param($dir,$approved,$supplement)
+  Set-StrictMode -Off
+  . (Join-Path $dir 'operations-system-watchdog.ps1') -FunctionsOnly
+  . $supplement
+  $script:Execute=$true;$script:ApprovedInstallPlanId=$approved
+ }
+ $saved=$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
+ try{
+  $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1'
+  $script:recovery.backend=New-Module -ArgumentList $django -ScriptBlock {
+   param($source)
+   Set-StrictMode -Off
+   . $source -Action Status -RuntimeRoot 'D:\teruisi-runtime\django-sales' -MaintenanceId '12c465652dbc4b5f9f54d0b0f30eeb3a' -KeepPostgres
+  }
+ }finally{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY=$saved}
+ foreach($name in @('Invoke-StartupRecoverySequence','Get-ProcessRemaining','Invoke-DeadlineProcess','Invoke-ExactInstanceStop')){
+  if(-not(Get-Command $name -CommandType Function -ErrorAction SilentlyContinue)){throw 'Required original library unavailable'}
+ }
+}
+function New-StartupRecoveryLease { [pscustomobject]@{mutex=[Threading.Mutex]::new($false,'Local\TERUISI.Operations.Watchdog.v2');thread=[Threading.Thread]::CurrentThread.ManagedThreadId;owned=$false} }
+function Enter-StartupRecoveryLease($l){try{$l.owned=$l.mutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$l.owned=$true;$l.mutex.ReleaseMutex();$l.owned=$false;throw 'Abandoned watchdog lease requires inspection'};return $l.owned}
+function Assert-StartupRecoveryLease($l){if(-not $l.owned -or $l.thread -ne [Threading.Thread]::CurrentThread.ManagedThreadId -or $script:recovery.thread -ne $l.thread){throw 'Recovery thread/lease changed'}}
+function Exit-StartupRecoveryLease($l){$l.mutex.ReleaseMutex();$l.owned=$false}
+function Close-StartupRecoveryLease($l){$l.mutex.Dispose()}
+function Invoke-RecoveryCapture([string]$Executable,[string[]]$Arguments,[long]$Deadline,[string]$Label){
+ $r=Invoke-DeadlineProcess -Executable $Executable -Arguments $Arguments -WorkingDirectory $script:recovery.plan.evidenceRoot -Deadline $Deadline -Cleanup Preserve -MaxOutputBytes 2097152
+ $safe=@{label=$Label;process=$r.Evidence;stdoutSha256=Get-StopTextHash $r.Stdout;stderrSha256=Get-StopTextHash $r.Stderr}
+ $name=Join-Path $script:recovery.plan.evidenceRoot ($Label+'-'+[guid]::NewGuid().ToString('N')+'.json')
+ $f=[IO.File]::Open($name,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+ try{$b=[Text.UTF8Encoding]::new($false).GetBytes(($safe|ConvertTo-Json -Depth 10 -Compress));$f.Write($b,0,$b.Length);$f.Flush($true)}finally{$f.Dispose()}
+ if($r.ExitCode -ne 0){throw "Original operation rejected: $Label"}
+ if(-not $r.Stdout.TrimStart().StartsWith('{')){throw "Non-object original output: $Label"}
+ $value=$r.Stdout|ConvertFrom-Json -DateKind String -ErrorAction Stop
+ if($value -isnot [pscustomobject]){throw "Invalid original output: $Label"}
+ return $value
+}
+function Assert-StartupRecoveryContext($Plan,[string]$Stage){
+ $deadline=[Math]::Min((Get-ProcessDeadline),[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()+30000)
+ $null=Invoke-RecoveryCapture $script:recovery.node @($script:recovery.context,'inspect',$script:recovery.path,$script:recovery.sha,$Stage) $deadline ('context-'+$Stage)
+ & $script:recovery.backend {Assert-RuntimeRootAclHardened}
+}
+function Invoke-RecoveryWorker([string]$Action,[long]$Deadline){
+ $a=@('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$script:recovery.worker,'-Action',$Action,'-Json')
+ if($Action -cin @('EnterMaintenance','ExitMaintenance')){$a+=@('-MaintenanceId','12c465652dbc4b5f9f54d0b0f30eeb3a')}
+ if($Action -ceq 'EnterMaintenance'){$a+='-KeepPostgres'}
+ $oldModules=$env:PSModulePath
+ try{$env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules';Invoke-RecoveryCapture $script:recovery.ps $a $Deadline ('worker-'+$Action)}finally{$env:PSModulePath=$oldModules}
+}
+function Convert-ApprovedStopTargets([object[]]$Targets){
+ foreach($t in $Targets){
+  if(($t.depth -isnot [int] -and $t.depth -isnot [long]) -or $t.depth -lt 0 -or $t.depth -gt 16){throw 'Non-integer or out-of-range JSON stop depth'}
+  # PS7 JSON uses Int64. Normalize only this already validated scalar; never
+  # coerce strings, booleans, floating values or arrays into the core contract.
+  $t.depth=[int]$t.depth
+ }
+ return ,$Targets
+}
+function Assert-RecoveryServiceReadiness($r){
+ if($r.probeError -isnot [bool] -or $r.probeError -cne $false -or $r.system -cne 'Running' -or $r.backend -cne 'Ready' -or $r.worker -cne 'exact_release' -or $r.controllerHealthValid -ceq $false -or $r.components.Count -ne 12 -or @($r.components.Values|Where-Object {$_ -isnot [bool] -or $_ -cne $true}).Count -ne 0 -or $r.probes.Count -ne 4 -or @($r.probes.Values|Where-Object {$_.ok -isnot [bool] -or $_.ok -cne $true}).Count -ne 0){throw 'Application must be ready before restoring its supervisor'}
+}
+function Invoke-StartupRecoveryBoundStage([string]$Stage,$Plan,[long]$Deadline){
+ switch -CaseSensitive ($Stage){
+  'preflight' {
+   & $script:recovery.backend {Assert-DeployedApplication;Assert-RuntimeAclHardened}
+   $declared=Invoke-RecoveryCapture $script:recovery.node @($script:recovery.context,'targets',$script:recovery.path,$script:recovery.sha,$Stage) $Deadline 'stop-declaration'
+   $script:recovery.targets=Convert-ApprovedStopTargets @($declared.targets)
+   $actorPath='D:\.codex\worktrees\startup-status-receipt-safety\运营管理系统\docs\startup-status-receipt-safety-20261012\Observe-LegacyStatusActors.ps1'
+   $savedModules=$env:PSModulePath
+   try{$env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules';$actors=Invoke-RecoveryCapture $script:recovery.ps @('-NoProfile','-NonInteractive','-File',$actorPath) $Deadline 'legacy-actors'}finally{$env:PSModulePath=$savedModules}
+   if($actors.version -cne 'ordinary-legacy-actor-observation-v1' -or $actors.unknown -ne 0 -or @($actors.rows|Where-Object {$_.identityComplete -cne $true -or $_.controllerReferenced -or $_.supervisorReferenced -or $_.explicitStatusOrPanel}).Count -ne 0){throw 'Observed legacy status actor or unknown metadata blocks recovery'}
+   # This bounded observer does not establish absence of encoded or other
+   # executable actors; the approval scope must retain that limitation.
+   $p=& $script:recovery.watch {Get-WatchInstallPlan}
+   if($p.planId -cne $Plan.watchdogPlan.planId -or $p.bundleId -cne $Plan.fixed.bundleId){throw 'Actual install plan changed'}
+   return @{stage=$Stage;planId=$p.planId;actors=$actors;continuousActorExclusion=$false}
+  }
+  'create-intent' {
+   return Invoke-RecoveryCapture $script:recovery.node @($script:recovery.context,'create',$script:recovery.path,$script:recovery.sha,$Stage) $Deadline $Stage
+  }
+  'await-drain' {
+   $seconds=[int][Math]::Min(900,[Math]::Floor((Get-ProcessRemaining $Deadline)/1000))
+   if($seconds -lt 1){throw 'Insufficient common deadline for original drain'}
+   return & $script:recovery.backend {
+    param([int]$BudgetSeconds)
+    Invoke-WithServiceMutex {
+     Assert-DeployedApplication;Assert-RuntimeAclHardened
+     $record=Read-SystemMaintenance
+     if(-not $record -or $record.id -cne $MaintenanceId -or $record.keepPostgres -cne $true){throw 'Own maintenance intent missing'}
+     Wait-AutomationDrain -TimeoutSeconds $BudgetSeconds
+     Invoke-AutomationPgDrainFence {Invoke-BackupConsoleMaintenanceFence {}}
+     $gate=Read-AutomationDrain
+     if(-not $gate -or $gate.id -cne $MaintenanceId -or $gate.phase -cne 'requests'){throw 'Original drain did not close admission'}
+     @{stage='await-drain';id=$gate.id;phase=$gate.phase;keepPostgres=$gate.keepPostgres}
+    }
+   } $seconds
+  }
+  'stop-declared-instances' {return Invoke-ExactInstanceStop $script:recovery.targets (Join-Path $Plan.evidenceRoot 'EXACT_STOP.jsonl') $Deadline}
+  'enter-stopped-maintenance' {return Invoke-RecoveryWorker 'EnterMaintenance' $Deadline}
+  'exit-stopped-maintenance' {return Invoke-RecoveryWorker 'ExitMaintenance' $Deadline}
+  'start-original-stack' {return Invoke-RecoveryWorker 'Start' $Deadline}
+  'restore-supervisor' {
+   $services=& $script:recovery.watch {Get-WatchSnapshot}
+   Assert-RecoveryServiceReadiness $services
+   & $script:recovery.watch {param([long]$d);$RecoverySupervisorDeadline=$d;Restore-RecoverySupervisor} $Deadline
+   return @{status='supervisor-restoration-requested';readinessPending=$true;originalRunSemanticsPreserved=$true}
+  }
+  'verify-ready' {return & $script:recovery.watch {Get-WatchSnapshot}}
+  'install-diagnostic' {return & $script:recovery.watch {param($dir);Install-WatchdogSafely $dir} $script:recovery.candidate}
+  'verify-installation' {
+   return & $script:recovery.watch {
+    $i=Read-WatchJson (Join-Path $WatchdogRoot 'installation.json')
+    if($i.bundleId -cne '3e46d2454ddb0879c36ead3b27305d5f128e6bacc40f245d0404324b21e07280'){throw 'Installed diagnostic differs'}
+    $dir=Join-Path $WatchdogRoot ('versions\'+$i.bundleId);Assert-WatchBundle $dir $i
+    $task=Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+    $argv='"'+$PowerShellPath+'" "'+(Join-Path $dir 'operations-system-watchdog.ps1')+'"'
+    if(-not(Test-WatchTaskAction $task (Join-Path $dir 'Watchdog.NoConsole.exe') $argv $WatchdogRoot)){throw 'Installed task action differs'}
+    @{status='diagnostic-installation-verified';bundleId=$i.bundleId;naturalAcceptancePending=$true}
+   }
+  }
+  default {throw 'Unknown fixed recovery stage'}
+ }
+}
+function Assert-StartupRecoveryStageResult([string]$Stage,$Result,$Plan){
+ if($null -eq $Result -or ($Result -isnot [pscustomobject] -and $Result -isnot [Collections.IDictionary]) -or $Result -is [array]){throw 'Missing/ambiguous stage result'}
+ switch -CaseSensitive($Stage){
+  'preflight' {if($Result.planId -cne $Plan.watchdogPlan.planId){throw 'Plan mismatch'}}
+  'create-intent' {if($Result.status -cne 'own-maintenance-created' -or $Result.drainedStopped -isnot [bool] -or $Result.drainedStopped -cne $false){throw 'Intent mismatch'}}
+  'await-drain' {if($Result.phase -cne 'requests' -or $Result.id -cne $Plan.fixed.repairId -or $Result.keepPostgres -isnot [bool] -or $Result.keepPostgres -cne $true){throw 'Drain mismatch'}}
+  'stop-declared-instances' {if($Result.status -cne 'declared-instances-exited' -or ($Result.count -isnot [int] -and $Result.count -isnot [long]) -or $Result.count -ne $script:recovery.targets.Count){throw 'Declared stop incomplete'}}
+  'enter-stopped-maintenance' {if($Result.status -cne 'maintenance' -or $Result.maintenanceId -cne $Plan.fixed.repairId -or $Result.backendStopped -isnot [bool] -or $Result.postgresPreserved -isnot [bool] -or $Result.backendStopped -cne $true -or $Result.postgresPreserved -cne $true){throw 'Stopped maintenance incomplete'}}
+  'exit-stopped-maintenance' {if($Result.status -cne 'maintenance_ended' -or $Result.maintenanceId -cne $Plan.fixed.repairId){throw 'Exit incomplete'}}
+  'start-original-stack' {if($Result.status -cne 'started' -or $Result.manifestSha256 -cne $Plan.fixed.workerSha256){throw 'Original fresh start incomplete'}}
+  'restore-supervisor' {if($Result.status -cne 'supervisor-restoration-requested' -or $Result.readinessPending -isnot [bool] -or $Result.readinessPending -cne $true){throw 'Supervisor restoration request incomplete'}}
+  'verify-ready' {if($Result.healthy -isnot [bool] -or $Result.healthy -cne $true -or $Result.diagnosticMode -cne 'readonly_driver'){throw 'New diagnostic readiness incomplete'}}
+  'install-diagnostic' {if($Result.status -cne 'installed' -or $Result.planId -cne $Plan.watchdogPlan.planId -or $Result.bundleId -cne $Plan.fixed.bundleId){throw 'Install incomplete'}}
+  'verify-installation' {if($Result.status -cne 'diagnostic-installation-verified' -or $Result.bundleId -cne $Plan.fixed.bundleId){throw 'Installation readback incomplete'}}
+  default {throw 'Unknown stage result'}
+ }
+}
+function Confirm-StartupRecoveryFailureFence($Plan,[bool]$MaintenanceExited){
+ # Fresh bounded containment independent of an exhausted normal-operation clock.
+ $deadline=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()+30000
+ $saved=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
+ try{
+  $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string]$deadline
+  & $script:recovery.backend {Assert-RuntimeRootAclHardened}
+  Invoke-RecoveryCapture $script:recovery.node @($script:recovery.context,'contain',$script:recovery.path,$script:recovery.sha,'failure-containment') $deadline 'failure-containment'
+ }finally{$env:TERUISI_PROCESS_DEADLINE_UNIX_MS=$saved}
+}
+function Invoke-InitializedStartupRecovery {
+ if($null -eq $script:recovery){throw 'Approved recovery has not been initialized'}
+ Invoke-StartupRecoverySequence $script:recovery.plan (Join-Path $script:recovery.plan.evidenceRoot 'RECOVERY_STAGES.jsonl') (Get-ProcessDeadline $script:recovery.plan.deadlineMs)
+}
+Export-ModuleMember -Function Initialize-StartupRecoveryOperations,Invoke-InitializedStartupRecovery
+
+
+FILE docs/startup-recovery-integration-20261012/recovery-context.mjs SHA256 0c4ce937fda877cce98d3da153d52cd7564a02c4c8725405fece3937480312b0
+// Fixed f15 recovery context and ONE own marker. No lifecycle, scheduler,
+// process termination, arbitrary paths, WAL mutation or gate removal.
+import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import {fileURLToPath} from 'node:url';
+import {assertStartupStopDeclaration,startupEvidenceSha256,startupLaunchEvidenceSha256} from '../../tools/startup-exact-instance-policy.mjs';
+export const fixed=Object.freeze({batchSha256:'f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f',batchId:'first-adoption-live-guard-20261011',walHead:'1a614e58caf56a243ea8dead3ce1609993fd993c3ed39cac296bf83c64617bd4',walCount:49,workerSha256:'6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4',djangoSha256:'85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09',serviceSha256:'95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c',desiredSha256:'1cfe7abb6b6b4d16bba5745dc440e02068a8ddfe744ca8e96d5e5452345a9fc4',repairId:'12c465652dbc4b5f9f54d0b0f30eeb3a',bundleId:'3e46d2454ddb0879c36ead3b27305d5f128e6bacc40f245d0404324b21e07280',sid:'S-1-5-21-815909789-107973518-1379257801-1001'});
+const root='D:/teruisi-runtime/django-sales',journal='D:/teruisi-runtime/teruisi-worker-sales/state/release-batches',wal=journal+'/'+fixed.batchId;
+const paths={marker:root+'/run/system-maintenance.json',drain:root+'/run/automation-drain.json',desired:root+'/run/django-supervisor-desired-state.json',worker:'D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/deployment-manifest.json',django:root+'/app/deployment.json'};
+export const canonical=v=>v===null||typeof v!=='object'?JSON.stringify(v):Array.isArray(v)?'['+v.map(canonical).join(',')+']':'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';
+export const hash=v=>createHash('sha256').update(v).digest('hex');
+function ancestors(p){const out=[];for(let q=path.resolve(p);;q=path.dirname(q)){const s=fs.lstatSync(q,{bigint:true});assert(!s.isSymbolicLink());assert.equal(fs.realpathSync(q).toLowerCase(),q.toLowerCase());out.push([q,String(s.dev),String(s.ino)]);if(q===path.dirname(q))return out;}}
+export function readStable(p,expected){const chain=ancestors(p),a=fs.lstatSync(p,{bigint:true});assert(a.isFile());const system=path.resolve(p).toLowerCase()===path.resolve('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe').toLowerCase();assert.equal(a.nlink,system?2n:1n);if(system)assert.equal(expected,'7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5');const b=fs.readFileSync(p),z=fs.lstatSync(p,{bigint:true});for(const k of ['dev','ino','size','nlink','mtimeNs','ctimeNs'])assert.equal(a[k],z[k]);assert.deepEqual(ancestors(p),chain);if(expected)assert.equal(hash(b),expected);return b;}
+function optional(p){try{return JSON.parse(readStable(p));}catch(e){if(e.code==='ENOENT')return null;throw e;}}
+function exactKeys(v,keys){assert.deepEqual(Object.keys(v).sort(),[...keys].sort());}
+export function assertRecoveryPlan(p){
+ exactKeys(p,['version','fixed','createdAt','watchdogPlan','stopDeclaration','descendantEvidence','pins','walPins','evidenceRoot','deadlineMs']);assert.equal(p.version,'startup-recovery-integration-v1');assert.deepEqual(p.fixed,fixed);assert(Number.isFinite(Date.parse(p.createdAt)));assert.equal(p.deadlineMs,1800000);
+ exactKeys(p.descendantEvidence,['path','sha256']);assert.equal(path.resolve(p.descendantEvidence.path),path.resolve('E:/codex-artifacts/startup-recovery-integration-20261012/RECOVERY_DESCENDANTS_V2.json'));assert.match(p.descendantEvidence.sha256,/^[a-f0-9]{64}$/);
+ assert.equal(p.watchdogPlan.bundleId,fixed.bundleId);assert.match(p.watchdogPlan.planId,/^[a-f0-9]{64}$/);assert.match(p.watchdogPlan.predecessorInstallationSha256,/^[a-f0-9]{64}$/);assert.match(p.watchdogPlan.predecessorTaskSha256,/^[a-f0-9]{64}$/);
+ assert.equal(path.resolve(p.evidenceRoot),path.resolve('E:/codex-artifacts/startup-recovery-integration-20261012/approved-recovery-v1'));
+ assert.equal(p.walPins.length,49);for(let i=0;i<49;i++){exactKeys(p.walPins[i],['name','sha256']);assert.equal(p.walPins[i].name,String(i).padStart(6,'0')+'.json');assert.match(p.walPins[i].sha256,/^[a-f0-9]{64}$/);}
+ assert(Array.isArray(p.pins)&&p.pins.length>0);const seen=new Set();for(const f of p.pins){exactKeys(f,['path','sha256']);assert(path.isAbsolute(f.path));assert(!seen.has(path.resolve(f.path).toLowerCase()));seen.add(path.resolve(f.path).toLowerCase());assert.match(f.sha256,/^[a-f0-9]{64}$/);}
+ return p;
+}
+export function assertDescendantEvidence(plan,raw){
+ assert.equal(hash(raw),plan.descendantEvidence.sha256);const capture=JSON.parse(raw);assert.equal(capture.exitCode,0);assert.equal(capture.spawnErrorCode,null);const e=capture.observation;
+ const collectors=plan.pins.filter(x=>path.basename(x.path)==='Collect-RecoveryDescendants.ps1');assert.equal(collectors.length,1);assert.equal(capture.sourceSha256,collectors[0].sha256);
+ assert.equal(e.version,'recovery-descendant-metadata-v1');assert.equal(e.sid,fixed.sid);assert.equal(e.roots,23);assert.equal(e.treeStableAtSamples,true);assert.deepEqual(e.unknown,[]);assert.equal(e.records.length,92);assert.equal(e.rawCommandsPersisted,false);assert.equal(e.terminateHandlesOpened,0);assert.equal(e.productionStops,0);
+ const seen=new Set();for(const r of e.records){assert(!seen.has(r.processId));seen.add(r.processId);assert.equal(r.identityStable,true);}
+ const descendants=e.records.filter(r=>r.depth>0).map(({processId,parentProcessId,nativeCreationFileTime,imageSha256,commandSha256,rootProcessId,depth})=>({processId,parentProcessId,nativeCreationFileTime,imageSha256,commandSha256,rootProcessId,depth}));assert.equal(descendants.length,69);assert.deepEqual(plan.stopDeclaration.descendants,descendants);
+ const roots=e.records.filter(r=>r.depth===0);assert.equal(roots.length,23);for(const r of roots){const expected=plan.stopDeclaration.roots.find(x=>x.processId===r.processId);assert(expected);for(const k of ['parentProcessId','nativeCreationFileTime','imageSha256','commandSha256','depth'])assert.equal(r[k],expected[k]);assert.equal(r.rootProcessId,r.processId);}
+ return e;
+}
+export function validatedStopTargets(plan){const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../startup-status-receipt-safety-20261012/evidence/actual-admin-metadata');assertDescendantEvidence(plan,readStable(plan.descendantEvidence.path,plan.descendantEvidence.sha256));return assertStartupStopDeclaration(plan.stopDeclaration,readStable(path.join(base,'ADMIN_STARTUP_IDENTITY_V1.json'),startupEvidenceSha256),readStable(path.join(base,'ASTRA_ACTUAL_READBACK.json'),startupLaunchEvidenceSha256));}
+export function assertMissingOriginalReceipts(plan){validatedStopTargets(plan);ancestors(root+'/run');for(const r of plan.stopDeclaration.roots){assert.match(r.service,/^django-[a-z-]+$/);const target=path.join(root,'run',r.service+'.pid.json');try{fs.lstatSync(target);assert.fail('A previously missing service receipt has reappeared: '+r.service);}catch(e){if(e.code!=='ENOENT')throw e;}}}
+export function makeRecoveryMarker(planSha){assert.match(planSha,/^[a-f0-9]{64}$/);return {version:'teruisi-system-maintenance-v1',id:fixed.repairId,runtimeRoot:path.win32.normalize(root),keepPostgres:true,drainedStopped:false,repairIntentSha256:planSha,batchSha256:fixed.batchSha256};}
+export function assertOwnGates(marker,drain,sha){if(marker){exactKeys(marker,Object.keys(makeRecoveryMarker(sha)));assert.deepEqual({...marker,drainedStopped:false},makeRecoveryMarker(sha));assert.equal(typeof marker.drainedStopped,'boolean');}if(drain){assert.equal(drain.version,'teruisi-automation-drain-v1');assert.equal(drain.id,fixed.repairId);assert.equal(drain.runtimeRoot,path.win32.normalize(root));assert.equal(drain.keepPostgres,true);assert(['helpers','requests'].includes(drain.phase));}}
+export function assertRecoveryStageContext(stage,v,sha){
+ assertOwnGates(v.marker,v.drain,sha);
+ assert.equal(v.desired.version,'teruisi-django-supervisor-desired-state-v1');assert.equal(v.desired.serviceScriptSha256,fixed.serviceSha256);assert(['running','stopped'].includes(v.desired.desiredState));
+ if(['preflight','create-intent'].includes(stage)){assert.equal(v.marker,null);assert.equal(v.drain,null);assert.equal(v.desiredSha256,fixed.desiredSha256);}
+ else if(['await-drain','stop-declared-instances','enter-stopped-maintenance'].includes(stage)){assert(v.marker);assert.equal(v.marker.drainedStopped,false);if(stage!=='await-drain'){assert(v.drain);assert.equal(v.drain.phase,'requests');}}
+ else if(stage==='exit-stopped-maintenance'){assert(v.marker);assert.equal(v.marker.drainedStopped,true);assert(v.drain);assert.equal(v.drain.phase,'requests');assert.equal(v.desired.desiredState,'stopped');}
+ else if(['start-original-stack','restore-supervisor','verify-ready','install-diagnostic','verify-installation'].includes(stage)){assert.equal(v.marker,null);assert.equal(v.drain,null);assert.equal(v.desired.desiredState,stage==='start-original-stack'?'stopped':'running');}
+ else assert.equal(stage,'failure-containment');
+}
+export function observeRecoveryContext(plan,planSha,stage){
+ assertRecoveryPlan(plan);for(const f of plan.pins)readStable(f.path,f.sha256);
+ if(['preflight','create-intent','await-drain','stop-declared-instances'].includes(stage))assertMissingOriginalReceipts(plan);
+ assert.deepEqual(fs.readdirSync(wal).sort(),plan.walPins.map(f=>f.name));for(const f of plan.walPins)readStable(path.join(wal,f.name),f.sha256);
+ const last=JSON.parse(readStable(path.join(wal,'000048.json')));assert.equal(last.eventSha256,fixed.walHead);
+ assert.deepEqual(JSON.parse(readStable(journal+'/active.json')),{batchSha256:fixed.batchSha256,id:fixed.batchId});readStable(paths.worker,fixed.workerSha256);readStable(paths.django,fixed.djangoSha256);
+ const desiredRaw=readStable(paths.desired);const v={marker:optional(paths.marker),drain:optional(paths.drain),desired:JSON.parse(desiredRaw),desiredSha256:hash(desiredRaw)};assertRecoveryStageContext(stage,v,planSha);return v;
+}
+export function createRecoveryMarker(plan,sha,failure=false){
+ const before=observeRecoveryContext(plan,sha,failure?'failure-containment':'create-intent');
+ if(before.marker){assert(failure);return {status:'own-maintenance-retained',drainedStopped:before.marker.drainedStopped};}
+ const chain=ancestors(path.dirname(paths.marker)),bytes=Buffer.from(canonical(makeRecoveryMarker(sha))+'\n');
+ const fd=fs.openSync(paths.marker,'wx');try{fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+ assert.deepEqual(ancestors(path.dirname(paths.marker)),chain);readStable(paths.marker,hash(bytes));
+ return {status:'own-maintenance-created',markerSha256:hash(bytes),drainedStopped:false};
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+ try{assert.equal(process.argv.length,6);const [mode,file,sha,stage]=process.argv.slice(2);assert(['inspect','create','contain','targets'].includes(mode));const p=assertRecoveryPlan(JSON.parse(readStable(file,sha)));const r=mode==='targets'?{targets:validatedStopTargets(p)}:mode==='inspect'?observeRecoveryContext(p,sha,stage):createRecoveryMarker(p,sha,mode==='contain');console.log(JSON.stringify(r));}catch(e){console.error(JSON.stringify({status:'rejected',errorType:e.name,message:e.message}));process.exitCode=1;}
+}
+
+
+FILE docs/startup-recovery-integration-20261012/Invoke-ApprovedStartupRecovery.ps1 SHA256 a5a8fc7942efadb490e70a583fb6f84104e0d173c4e75143ef7fe5494eefbe01
+param([Parameter(Mandatory)][string]$PlanPath,[Parameter(Mandatory)][string]$PlanSha256)
+$ErrorActionPreference='Stop'
+$id=[Security.Principal.WindowsIdentity]::GetCurrent()
+if($id.User.Value -cne 'S-1-5-21-815909789-107973518-1379257801-1001' -or -not ([Security.Principal.WindowsPrincipal]::new($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Exact administrator required'}
+if($PlanSha256 -cnotmatch '^[a-f0-9]{64}$'){throw 'Exact plan hash required'}
+if((Get-FileHash -LiteralPath $PlanPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $PlanSha256){throw 'Plan bytes changed'}
+$raw=[IO.File]::ReadAllText($PlanPath,[Text.UTF8Encoding]::new($false,$true))
+if(-not $raw.TrimStart().StartsWith('{')){throw 'Plan must be one JSON object'}
+$plan=$raw|ConvertFrom-Json -DateKind String
+$module=Import-Module (Join-Path $PSScriptRoot 'startup-recovery-operations.psm1') -PassThru -Force
+Initialize-StartupRecoveryOperations -Plan $plan -PlanPath $PlanPath -PlanSha256 $PlanSha256
+$result=Invoke-InitializedStartupRecovery
+$result|ConvertTo-Json -Depth 10 -Compress
+
+
+FILE docs/startup-recovery-integration-20261012/run-startup-recovery.mjs SHA256 03169d39d12cc0afe27590f8096fc45829a1867151ac6a79d6b9227bd7053a7c
+// Invoked only by a reviewed same-SID Administrator bootstrap holding all plan
+// code/executable pins FileShare.Read. Built-ins run before any candidate import.
+import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import {spawn} from 'node:child_process';import {fileURLToPath,pathToFileURL} from 'node:url';
+const own=path.dirname(fileURLToPath(import.meta.url));const sha=b=>createHash('sha256').update(b).digest('hex');
+function bytes(p,expected){const a=fs.lstatSync(p,{bigint:true});assert(a.isFile()&&!a.isSymbolicLink());const system=path.resolve(p).toLowerCase()===path.resolve('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe').toLowerCase();assert.equal(a.nlink,system?2n:1n);if(system)assert.equal(expected,'7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5');const chain=[];for(let q=path.resolve(p);;q=path.dirname(q)){const s=fs.lstatSync(q,{bigint:true});assert(!s.isSymbolicLink());assert.equal(fs.realpathSync(q).toLowerCase(),q.toLowerCase());chain.push([q,s.dev,s.ino]);if(q===path.dirname(q))break;}const b=fs.readFileSync(p),z=fs.lstatSync(p,{bigint:true});for(const k of ['dev','ino','size','nlink','mtimeNs','ctimeNs'])assert.equal(a[k],z[k]);for(const [q,dev,ino]of chain){const s=fs.lstatSync(q,{bigint:true});assert(!s.isSymbolicLink());assert.equal(s.dev,dev);assert.equal(s.ino,ino);assert.equal(fs.realpathSync(q).toLowerCase(),q.toLowerCase());}assert.equal(sha(b),expected);return b;}
+assert.equal(process.argv.length,4);const [planFile,planSha]=process.argv.slice(2);assert.match(planSha,/^[a-f0-9]{64}$/);assert(!Object.keys(process.env).some(k=>/^NODE_/i.test(k)));
+assert(!Object.keys(process.env).some(k=>/^TERUISI_.*(?:LIBRARY_ONLY|FUNCTIONS_ONLY)$/i.test(k)),'Inherited library-only flags rejected');
+const p=JSON.parse(bytes(planFile,planSha));assert(Array.isArray(p.pins));for(const f of p.pins)bytes(f.path,f.sha256);
+function mustPin(needed,expected){const found=p.pins.filter(f=>path.resolve(f.path).toLowerCase()===path.resolve(needed).toLowerCase());assert.equal(found.length,1,'Missing or repeated source pin: '+needed);if(expected)assert.equal(found[0].sha256,expected);}
+for(const name of ['recovery-context.mjs','startup-recovery-operations.psm1','Invoke-ApprovedStartupRecovery.ps1','run-startup-recovery.mjs','Restore-RecoverySupervisorV2.ps1','recovery-transport.mjs','prepare-approved-recovery-transport.mjs'])mustPin(path.join(own,name));
+for(const name of ['startup-recovery-sequence.ps1','startup-exact-instance-stop.ps1','watchdog-native-metadata.ps1','process-deadline.ps1'])mustPin(path.resolve(own,'../../tools',name));
+mustPin(path.resolve(own,'../../tools/startup-exact-instance-policy.mjs'),'0ab41f6eca96c4d60b5231508bf2abe455451cd5cb91f199b340add07ad9886c');
+mustPin('D:/teruisi-runtime/django-sales/app/tools/django-local-service.ps1','95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c');
+mustPin('D:/teruisi-runtime/django-sales/app/tools/django-runtime-supervisor.ps1','85d2bdd121a415ff3a2e3e0c1edf208fc0ba2304444d7d3cc69cb71bcb533a11');
+const context=await import(pathToFileURL(path.join(own,'recovery-context.mjs')));context.assertRecoveryPlan(p);context.validatedStopTargets(p);context.observeRecoveryContext(p,planSha,'preflight');
+const boot=path.resolve(own,'../startup-status-receipt-safety-20261012/fence-original-bootstrap.mjs');const bootRaw=bytes(boot,'13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25');
+const {bootstrapReconciliation}=await import('data:text/javascript;base64,'+bootRaw.toString('base64'));
+const spec='E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json';bytes(spec,'960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b');
+const {api,verifyPins,spec:approvedSpec}=await bootstrapReconciliation(spec,context.fixed.batchSha256);
+for(const f of approvedSpec.batch.operations.find(o=>o.id==='op-startworker-switch').command.files)mustPin(f.path,f.sha256);
+const host='C:/Users/86137/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe';bytes(host,'362a356ce7f0940ec74f73a8fc2c990a2cc24a38a11c90bbd8eca947110ad139');
+await api.withRotationLock(async()=>{
+ await verifyPins();context.observeRecoveryContext(p,planSha,'preflight');
+ const root=p.evidenceRoot;const stdout=fs.openSync(path.join(root,'RECOVERY_STDOUT.json'),'wx'),stderr=fs.openSync(path.join(root,'RECOVERY_STDERR.log'),'wx');
+ try{
+  const argv=['-NoProfile','-NonInteractive','-File',path.join(own,'Invoke-ApprovedStartupRecovery.ps1'),'-PlanPath',planFile,'-PlanSha256',planSha];
+  const env={...process.env,TERUISI_PROCESS_DEADLINE_UNIX_MS:String(Date.now()+p.deadlineMs)};
+  const child=spawn(host,argv,{cwd:root,env,windowsHide:true,stdio:['ignore',stdout,stderr]});
+  const completion=new Promise(resolve=>{child.once('error',e=>resolve({exitCode:null,errorCode:e.code??'SPAWN_ERROR'}));child.once('close',(code,signal)=>resolve({exitCode:code,signal}));});
+  fs.writeFileSync(path.join(root,'RECOVERY_STARTED.json'),JSON.stringify({at:new Date().toISOString(),processId:child.pid??null,planSha256:planSha,argv,originalBatchUnchanged:true})+'\n',{flag:'wx'});
+  const result=await completion;
+  fs.writeFileSync(path.join(root,'RECOVERY_FINISHED.json'),JSON.stringify({at:new Date().toISOString(),planSha256:planSha,...result,stdoutSha256:sha(fs.readFileSync(path.join(root,'RECOVERY_STDOUT.json'))),stderrSha256:sha(fs.readFileSync(path.join(root,'RECOVERY_STDERR.log')))})+'\n',{flag:'wx'});
+  if(result.exitCode!==0)process.exitCode=1;
+ }finally{fs.closeSync(stdout);fs.closeSync(stderr);}
+});
+
+
+FILE docs/startup-recovery-integration-20261012/recovery-transport.mjs SHA256 e7afda902a07ab2c8ba5600994377687dfdb5c359e8e370e55fcfb7966c9c72f
+import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';
+import {fixed,hash,readStable,assertRecoveryPlan} from './recovery-context.mjs';
+export function assertRecoveryApproval(a,planSha){assert.deepEqual(Object.keys(a).sort(),['approvedAt','kind','planSha256','scope','sid'].sort());assert.equal(a.kind,'explicit-startup-recovery-approval-v1');assert.equal(a.planSha256,planSha);assert.equal(a.sid,fixed.sid);assert.equal(a.scope,'fixed23-roots69-descendants-original-drain-stop-start-supervisor-diagnostic-action');assert(Number.isFinite(Date.parse(a.approvedAt))&&Date.parse(a.approvedAt)<=Date.now());}
+export function buildRecoveryTransport(planPath,planSha,approvalPath,approvalSha){
+ const plan=assertRecoveryPlan(JSON.parse(readStable(planPath,planSha)));assertRecoveryApproval(JSON.parse(readStable(approvalPath,approvalSha)),planSha);
+ const node='C:/Program Files/nodejs/node.exe',nodeSha='9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de';
+ const matches=plan.pins.filter(f=>path.basename(f.path)==='run-startup-recovery.mjs');assert.equal(matches.length,1);const runner=matches[0];
+ const files=[...plan.pins,{path:path.resolve(planPath),sha256:planSha},{path:path.resolve(approvalPath),sha256:approvalSha}];for(const f of files)readStable(f.path,f.sha256);assert(files.some(f=>path.resolve(f.path).toLowerCase()===path.resolve(node).toLowerCase()&&f.sha256===nodeSha));
+ return{version:'startup-recovery-transport-v1',sid:fixed.sid,planPath:path.resolve(planPath),planSha256:planSha,approvalPath:path.resolve(approvalPath),approvalSha256:approvalSha,executable:node,executableSha256:nodeSha,runnerPath:runner.path,runnerSha256:runner.sha256,files,outputRoot:plan.evidenceRoot};
+}
+export function recoveryBootstrap(bindingPath,bindingSha){
+ assert.match(bindingSha,/^[a-f0-9]{64}$/);const encoded=Buffer.from(path.resolve(bindingPath)).toString('base64');
+ return `$ErrorActionPreference='Stop'
+$bindingPath=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encoded}'))
+Add-Type -TypeDefinition @'
+using System;using System.Text;using System.Runtime.InteropServices;using Microsoft.Win32.SafeHandles;
+namespace Teruisi {public static class RecoveryTransportFile {
+ [StructLayout(LayoutKind.Sequential)] public struct Info {public uint attributes,creationLow,creationHigh,accessLow,accessHigh,writeLow,writeHigh,volume,sizeHigh,sizeLow,links,indexHigh,indexLow;}
+ [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetFileInformationByHandle(SafeFileHandle h,out Info i);
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern uint GetFinalPathNameByHandle(SafeFileHandle h,StringBuilder text,uint size,uint flags);
+ public static string Identity(SafeFileHandle h){Info i;if(!GetFileInformationByHandle(h,out i))throw new System.ComponentModel.Win32Exception();var s=new StringBuilder(32768);uint n=GetFinalPathNameByHandle(h,s,32768,0);if(n==0||n>=32768)throw new System.ComponentModel.Win32Exception();return i.volume+":"+i.indexHigh+":"+i.indexLow+":"+i.links+":"+i.sizeHigh+":"+i.sizeLow+":"+i.creationHigh+":"+i.creationLow+":"+i.writeHigh+":"+i.writeLow+"|"+s.ToString();}
+}}
+'@
+function Assert-RecoveryTransportPhysical([string]$Path){
+ $full=[IO.Path]::GetFullPath($Path)
+ for($q=$full;$q;$q=[IO.Path]::GetDirectoryName($q)){
+  if((Get-Item -LiteralPath $q -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Reparse path rejected'}
+ }
+}
+function Get-RecoveryTransportHash([IO.Stream]$Stream){$s=[Security.Cryptography.SHA256]::Create();try{return ([BitConverter]::ToString($s.ComputeHash($Stream))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()}}
+function Assert-RecoveryHeldFile([IO.FileStream]$Stream,[string]$Path,[string]$Hash){
+ $identity=[Teruisi.RecoveryTransportFile]::Identity($Stream.SafeFileHandle);$parts=$identity.Split('|');$canonical=$parts[1]
+ if($canonical.StartsWith('\\\\?\\')){$canonical=$canonical.Substring(4)}
+ if($canonical -ine [IO.Path]::GetFullPath($Path)){throw 'Physical path alias rejected'}
+ $expectedLinks=1
+ if([IO.Path]::GetFullPath($Path) -ieq 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'){
+  if($Hash -cne '7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5'){throw 'System PowerShell binding changed'};$expectedLinks=2
+ }
+ if([uint32]$parts[0].Split(':')[3] -ne $expectedLinks){throw 'Unexpected hardlink count'}
+ $Stream.Position=0;if((Get-RecoveryTransportHash $Stream) -cne $Hash){throw 'Held bytes changed'}
+ if([Teruisi.RecoveryTransportFile]::Identity($Stream.SafeFileHandle) -cne $identity){throw 'Held identity changed'}
+ return $identity
+}
+$holds=[Collections.Generic.List[object]]::new()
+try{
+ Assert-RecoveryTransportPhysical $bindingPath
+ $bound=[IO.File]::Open($bindingPath,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read);$holds.Add($bound)
+ $null=Assert-RecoveryHeldFile $bound $bindingPath '${bindingSha}'
+ $bound.Position=0;$reader=[IO.StreamReader]::new($bound,[Text.UTF8Encoding]::new($false,$true),$true,4096,$true);try{$raw=$reader.ReadToEnd()}finally{$reader.Dispose()}
+ if(-not $raw.TrimStart().StartsWith('{')){throw 'Binding must be a JSON object'}
+ $b=$raw|ConvertFrom-Json
+ if($b.version -cne 'startup-recovery-transport-v1'){throw 'Transport version changed'}
+ $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+ if($identity.User.Value -cne $b.sid -or $b.sid -cne '${fixed.sid}' -or -not ([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Exact same-SID administrator required'}
+ if(@(Get-ChildItem Env:|Where-Object {$_.Name -match '^NODE_'}).Count){throw 'NODE environment rejected'}
+ if(@(Get-ChildItem Env:|Where-Object {$_.Name -match '^TERUISI_.*(?:LIBRARY_ONLY|FUNCTIONS_ONLY)$'}).Count){throw 'Inherited library-only environment rejected'}
+ $identities=[Collections.Generic.List[object]]::new()
+ foreach($pin in $b.files){Assert-RecoveryTransportPhysical $pin.path;$f=[IO.File]::Open($pin.path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read);$holds.Add($f);$identity=Assert-RecoveryHeldFile $f $pin.path $pin.sha256;$identities.Add(@{handle=$f;identity=$identity;path=$pin.path})}
+ foreach($item in $identities){Assert-RecoveryTransportPhysical $item.path;if([Teruisi.RecoveryTransportFile]::Identity($item.handle.SafeFileHandle) -cne $item.identity){throw 'Closure member changed'}}
+ Assert-RecoveryTransportPhysical $b.outputRoot
+ $started=[IO.File]::Open((Join-Path $b.outputRoot 'TRANSPORT_STARTED.json'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+ try{$bytes=[Text.UTF8Encoding]::new($false).GetBytes((@{at=[DateTimeOffset]::UtcNow.ToString('o');processId=$PID;bindingSha256='${bindingSha}';planSha256=$b.planSha256}|ConvertTo-Json -Compress));$started.Write($bytes,0,$bytes.Length);$started.Flush($true)}finally{$started.Dispose()}
+ & $b.executable $b.runnerPath $b.planPath $b.planSha256
+ $code=$LASTEXITCODE
+ $finished=[IO.File]::Open((Join-Path $b.outputRoot 'TRANSPORT_FINISHED.json'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+ try{$bytes=[Text.UTF8Encoding]::new($false).GetBytes((@{at=[DateTimeOffset]::UtcNow.ToString('o');bindingSha256='${bindingSha}';exitCode=$code}|ConvertTo-Json -Compress));$finished.Write($bytes,0,$bytes.Length);$finished.Flush($true)}finally{$finished.Dispose()}
+ exit $code
+}finally{foreach($f in $holds){$f.Dispose()}}
+`;
+}
+
+
+FILE docs/startup-recovery-integration-20261012/Restore-RecoverySupervisorV2.ps1 SHA256 b4d0b755a481621385b6359d724e7ba453d6416f47765b747531ba289a979b01
+﻿function Restore-RecoverySupervisor {
+  $name='Local\TERUISI-DjangoSales-'+([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($BackendRoot))).ToLowerInvariant()).Substring(0,24)
+  $guard=[Threading.Mutex]::new($false,$name);$locked=$false
+  try {
+  try{$locked=$guard.WaitOne(0)}catch [Threading.AbandonedMutexException]{$locked=$true}
+  if(-not $locked){throw 'django_lifecycle_busy'}
+  $admission=Get-Admission;if($admission.mode -ne 'running'){throw 'supervisor_start_fenced'}
+  $status=Invoke-WatchScript 'E:\codex-artifacts\startup-recovery-integration-20261012\native-watchdog-source-v2\watchdog-status-backend.ps1' @('-Action','Status','-DiagnosticTarget','Supervisor')
+  if($status.supervisorProcess -eq 'running'){return}
+  if($status.supervisorProcess -ne 'stopped'){throw 'supervisor_ownership_error'}
+  $old=$env:PSModulePath
+  try{
+    $env:PSModulePath=[Environment]::GetEnvironmentVariable('PSModulePath','Machine')
+    $id=[guid]::NewGuid().ToString('N')
+    [void](Get-ProcessRemaining $RecoverySupervisorDeadline)
+    $savedSupervisorTransportDeadline=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
+    try {
+      [Environment]::SetEnvironmentVariable('TERUISI_PROCESS_DEADLINE_UNIX_MS',$null,'Process')
+    Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -WindowStyle Hidden -WorkingDirectory $BackendRoot -ArgumentList @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$SupervisorPath,'-Action','Run','-Execute') -RedirectStandardOutput (Join-Path $WatchdogRoot "supervisor-$id.out.log") -RedirectStandardError (Join-Path $WatchdogRoot "supervisor-$id.err.log")|Out-Null
+    } finally { [Environment]::SetEnvironmentVariable('TERUISI_PROCESS_DEADLINE_UNIX_MS',$savedSupervisorTransportDeadline,'Process') }
+  }finally{$env:PSModulePath=$old}
+  } finally {if($locked){$guard.ReleaseMutex()};$guard.Dispose()}
+}
