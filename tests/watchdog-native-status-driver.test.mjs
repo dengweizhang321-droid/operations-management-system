@@ -1,0 +1,12 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {spawnSync} from 'node:child_process';
+import {readonlyBodies} from '../tools/prepare-watchdog-native-status-driver.mjs';
+const source=file=>{const r=spawnSync('git',['show',`65b98cb233743ab4a80f30176c9a9acf0c30acd8:tools/${file}`]);assert.equal(r.status,0);return r.stdout.toString('utf8')};
+const backend=source('django-local-service.ps1'),worker=source('worker-local-service.ps1');
+const generated=readonlyBodies(backend,worker);
+test('original ownership predicates revert exactly after only enumerated observation edits',()=>{assert.equal(generated.proof.backend.revertedExact,true);assert.equal(generated.proof.worker.revertedExact,true);assert.equal(generated.proof.backend.edits.length,4);assert.equal(generated.proof.worker.edits.length,1);assert(!generated.readResolver.includes('Remove-Item'));assert(!generated.readResolver.includes('Remove-PreviousBootProcessRecordIfSafe'));assert.throws(()=>readonlyBodies(backend.replaceAll('Remove-Item -LiteralPath $PidPath -Force','Remove-Item -Path elsewhere'),worker));assert.throws(()=>readonlyBodies(backend,worker.replaceAll('$processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)','$processes = arbitrary')));});
+for(const shell of ['powershell.exe','pwsh.exe'])test('native metadata observation contracts in '+shell,()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'teruisi-native-status-'));
+ try{const predicates=path.join(dir,'predicates.ps1');fs.writeFileSync(predicates,'\ufeff'+generated.readResolver+'\n'+generated.readWorker,{flag:'wx'});
+ const r=spawnSync(shell,['-NoProfile','-NonInteractive','-File',path.resolve('tests/watchdog-native-status.fixture.ps1'),'-NativeSource',path.resolve('tools/watchdog-native-metadata.ps1'),'-PredicateSource',predicates],{windowsHide:true,encoding:'utf8',timeout:30000});assert.equal(r.status,0,r.stdout+'\n'+r.stderr);const v=JSON.parse(r.stdout.trim());assert(v.checks>=25);assert.equal(v.receiptDeletes,0);assert.equal(v.previousBootCleanupCalls,0);assert.equal(v.productionActions,0);
+ }finally{assert.equal(path.dirname(dir),os.tmpdir());assert(path.basename(dir).startsWith('teruisi-native-status-'));fs.rmSync(dir,{recursive:true,force:true});}
+});

@@ -1,0 +1,11 @@
+✔ original ownership predicates revert exactly after only enumerated observation edits (1.3962ms)
+✔ native metadata observation contracts in powershell.exe (838.936ms)
+✔ native metadata observation contracts in pwsh.exe (1356.9135ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2443.2699

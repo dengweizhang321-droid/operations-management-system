@@ -1,0 +1,21 @@
+{
+  "exitCode": 0,
+  "errorCode": null,
+  "sourceSha256": "d8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449",
+  "stderrSha256": "821020161208f807e91b67ba4add7b4b0a659459c070046085d1bfed51bda719",
+  "stderrBytes": 404,
+  "stdoutSha256": "09e1a5cce9422dcb79e54cd14d217e7d2ab94a5ee6584aa118db7c562621f217",
+  "receipt": {
+    "version": "native-driver-fixed-prototype-v1",
+    "administrator": false,
+    "processId": 43884,
+    "creationUtc": "2026-10-12T02:03:52.0254110Z",
+    "inputImageMissing": true,
+    "inputCommandMissing": true,
+    "imageSha256": "9fc98d629f2c0874ab3eb8d89d492417a2a0b86a41510a7bb810f62ffca18290",
+    "commandSha256": "8c54ed4b38dac4c16ae17e6cc7eacbec9f5e8b0f8c8cc0f8f59bf0764cdf9bde",
+    "sourceSha256": "d8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449",
+    "readinessEstablished": false,
+    "productionActions": 0
+  }
+}
