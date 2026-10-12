@@ -1,0 +1,16 @@
+{
+  "schema": "s1-host-qualified-plan-v1",
+  "originalPayloadManifestSha256": "5671c3a1cc5d50844d4393c1ceace064b0543c4cd9c9574345d06e91c1b1b201",
+  "approvedPersistentTargetCount": 1,
+  "installationStrategy": "Same-volume File.Replace(stage,target,uniqueBackup,false), then restore original same-file DACL with SetFileSecurity(...,4,originalDescriptor) and require exact owner/group/DACL equality; no owner/group setting or privilege adjustment",
+  "aclRestorationNeedsExplicitApproval": true,
+  "expectedOriginalAclSha256": "5dd22c94c50ddb891a9197e085dae5ac86abb7d17cde20b482384bf5bad5a6cf",
+  "exactMetadataModels": {
+    "ps5": "a5dea2910f0982d31f9f8efa5003a273558e4de9520f1fcc95b68ef6a5f09f3b",
+    "ps7": "c320a992e90c7035af992a3f12813f89d64700fa309091bbc1cdb25d8ef8a0bc"
+  },
+  "comparisonOnlyOperatorLibrary": "Original v1 atomicInstallFile library copies are for comparison/negative boundary evidence; not the final ACL-preserving installation primitive",
+  "noProductionApplyScriptExecuted": true,
+  "productionAdopted": false,
+  "requiresFreshSourceBindingCallerOccupancyAclAndGuardRecheck": true
+}

@@ -1,0 +1,70 @@
+{
+  "sourcePolicyPath": "D:\\codex-isolated\\release-validated-subset-20261013\\运营管理系统\\tools\\release-impact.mjs",
+  "sourcePolicySha256": "197f570c641922bb5ea96e053e2f37497586fa4a86c1fa6f4a1367b29c3a4164",
+  "impact": {
+    "version": "teruisi-release-impact-v2",
+    "level": "strict",
+    "changed": [
+      "tools/operations-system-service.ps1"
+    ],
+    "deltaSha256": "2c8c49d549c0c3d170d490c062f9b69dc0364bab44643cf8fbd8b23f4906d635",
+    "closureSha256": "350d08ef8b644b571cee536c800007e32ddac5edba8d0f8d87971e974f6c0be8",
+    "witnessSha256": null,
+    "reasons": [
+      "Missing or stale independent dependency/behavior witness",
+      "Protected lifecycle/data/dependency surface"
+    ]
+  },
+  "recovery": {
+    "mode": "full",
+    "reasons": [
+      "impact",
+      "version",
+      "daily-backup-not-continuous",
+      "backup-expired",
+      "restore-expired",
+      "incomplete-restore",
+      "point-unavailable",
+      "current-environment-invalid",
+      "changed-manifestSha256",
+      "changed-dumpSha256",
+      "changed-environmentSha256",
+      "changed-schemaSha256",
+      "changed-rolesSha256",
+      "changed-operatorSha256",
+      "changed-retentionSha256",
+      "changed-scheduleSha256",
+      "point-identity"
+    ],
+    "evidenceSha256": null
+  },
+  "requirements": {
+    "tests": [
+      "domain",
+      "contract",
+      "negative",
+      "concurrency",
+      "permissions",
+      "migration-rehearsal",
+      "lifecycle",
+      "backup-recovery",
+      "boundary",
+      "build"
+    ],
+    "backup": "full-pre-and-post",
+    "switch": "reviewed-maintenance-scope",
+    "rollback": "reviewed-forward-or-approved-data-restore",
+    "acceptance": [
+      "resources",
+      "business",
+      "permissions",
+      "migrations",
+      "writes",
+      "components",
+      "startup",
+      "natural-watchdog",
+      "task-specific"
+    ]
+  },
+  "qualification": "Ordinary application release projection only: strict/full remains. Not a complete application plan or exemption. Proposed one-time host installation needs explicit separate approval."
+}

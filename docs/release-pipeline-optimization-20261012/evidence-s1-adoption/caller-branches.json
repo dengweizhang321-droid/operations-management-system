@@ -1,0 +1,44 @@
+{
+  "root": "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-s1-callers-NUuDW1",
+  "results": [
+    {
+      "shell": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-File",
+        "tmp/s1-caller-fixture.ps1",
+        "-Payload",
+        "D:\\codex-artifacts\\release-s1-adoption-20261013\\candidate-v1\\payload\\operations-system-service.ps1",
+        "-FixtureRoot",
+        "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-s1-callers-NUuDW1\\powershell.exe"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 12498,
+      "stdoutBase64": "WzA0OjE3OjM2XSDNqLn9zqjSu9fcv9jG9Lav1MvTqrncwO3Ptc2zo6hEamFuZ28vUG9zdGdyZVNRTCAtPiBXb3JrZXKjqaOszerV+9DU0KPR6b/JxNzQ6NKqvc+zpMqxvOShraGtCiAgICB7InN0YXR1cyI6InN0YXJ0ZWQiLCJzdGF0ZSI6IlJ1bm5pbmcifQpbMDQ6MTc6MzddIM2ouf3OqNK719y/2Mb0tq/Uy9OqudzA7c+1zbOjqERqYW5nby9Qb3N0Z3JlU1FMIC0+IFdvcmtlcqOpo6zN6tX70NTQo9Hpv8nE3NDo0qq9z7OkyrG85KGtoa0KICAgIHsic3RhdHVzIjoic3RhcnRlZCIsInN0YXRlIjoiUnVubmluZyJ9ClswNDoxNzozN10gzai5/c6o0rvX3L/YxvS2r9TL06q53MDtz7XNs6OoRGphbmdvL1Bvc3RncmVTUUwgLT4gV29ya2Vyo6mjrM3q1fvQ1NCj0em/ycTc0OjSqr3Ps6TKsbzkoa2hrQogICAgeyJzdGF0dXMiOiJzdGFydGVkIiwic3RhdGUiOiJSdW5uaW5nIn0KW3sib3V0Y29tZSI6ImFjY2VwdGVkIiwiY2FzZSI6IlN0YXJ0SnNvbiIsImNoaWxkRXhpdCI6MH0seyJvdXRjb21lIjoicmVqZWN0ZWQiLCJjYXNlIjoiU3RhcnRKc29uIiwiY2hpbGRFeGl0Ijo5fSx7Im91dGNvbWUiOiJyZWplY3RlZCIsImNhc2UiOiJTdGFydEpzb24iLCJjaGlsZEV4aXQiOjI1OX0seyJvdXRjb21lIjoiYWNjZXB0ZWQiLCJjYXNlIjoiU3RhcnRUZXh0IiwiY2hpbGRFeGl0IjowfSx7Im91dGNvbWUiOiJyZWplY3RlZCIsImNhc2UiOiJTdGFydFRleHQiLCJjaGlsZEV4aXQiOjl9LHsib3V0Y29tZSI6InJlamVjdGVkIiwiY2FzZSI6IlN0YXJ0VGV4dCIsImNoaWxkRXhpdCI6MjU5fSx7Im91dGNvbWUiOiJhY2NlcHRlZCIsImNhc2UiOiJTdG9wQWxsIiwiY2hpbGRFeGl0IjowfSx7Im91dGNvbWUiOiJyZWplY3RlZCIsImNhc2UiOiJTdG9wQWxsIiwiY2hpbGRFeGl0Ijo5fSx7Im91dGNvbWUiOiJyZWplY3RlZCIsImNhc2UiOiJTdG9wQWxsIiwiY2hpbGRFeGl0IjoyNTl9LHsib3V0Y29tZSI6ImFjY2VwdGVkIiwiY2FzZSI6IlN0b3BXb3JrZXIiLCJjaGlsZEV4aXQiOjB9LHsib3V0Y29tZSI6InJlamVjdGVkIiwiY2FzZSI6IlN0b3BXb3JrZXIiLCJjaGlsZEV4aXQiOjl9LHsib3V0Y29tZSI6InJlamVjdGVkIiwiY2FzZSI6IlN0b3BXb3JrZXIiLCJjaGlsZEV4aXQiOjI1OX0seyJvdXRjb21lIjoiYWNjZXB0ZWQiLCJjYXNlIjoiUmVzdGFydEhvdCIsImNoaWxkRXhpdCI6MH0seyJvdXRjb21lIjoicmVqZWN0ZWQiLCJjYXNlIjoiUmVzdGFydEhvdCIsImNoaWxkRXhpdCI6OX0seyJvdXRjb21lIjoicmVqZWN0ZWQiLCJjYXNlIjoiUmVzdGFydEhvdCIsImNoaWxkRXhpdCI6MjU5fSx7Im91dGNvbWUiOiJhY2NlcHRlZCIsImNhc2UiOiJSZXN0YXJ0RnVsbCIsImNoaWxkRXhpdCI6MH0seyJvdXRjb21lIjoicmVqZWN0ZWQiLCJjYXNlIjoiUmVzdGFydEZ1bGwiLCJjaGlsZEV4aXQiOjl9LHsib3V0Y29tZSI6InJlamVjdGVkIiwiY2FzZSI6IlJlc3RhcnRGdWxsIiwiY2hpbGRFeGl0IjoyNTl9LHsib3V0Y29tZSI6ImFjY2VwdGVkIiwiY2FzZSI6IlN0YXR1cyIsImNoaWxkRXhpdCI6MH0seyJvdXRjb21lIjoicmVqZWN0ZWQiLCJjYXNlIjoiU3RhdHVzIiwiY2hpbGRFeGl0Ijo5fSx7Im91dGNvbWUiOiJyZWplY3RlZCIsImNhc2UiOiJTdGF0dXMiLCJjaGlsZEV4aXQiOjI1OX1dDQpQQVNTOiAyMSBwcml2YXRlIHJlYWwtY2hpbGQgY2FsbGVyIGJyYW5jaGVzOyBubyBwcm9kdWN0aW9uIHNlcnZpY2UsIGJyb3dzZXIsIEhUVFAgb3IgREIgb3BlcmF0aW9uDQo=",
+      "stdoutSha256": "c66aa58a23c37ea072ef4d5848dd6bd956a2bdb6c77050382cfa6d31b1d8c9d1",
+      "stderrBase64": "",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "shell": "pwsh.exe",
+      "args": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-File",
+        "tmp/s1-caller-fixture.ps1",
+        "-Payload",
+        "D:\\codex-artifacts\\release-s1-adoption-20261013\\candidate-v1\\payload\\operations-system-service.ps1",
+        "-FixtureRoot",
+        "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-s1-callers-NUuDW1\\pwsh.exe"
+      ],
+      "exitCode": 0,
+      "elapsedMs": 10702,
+      "stdoutBase64": "WzA0OjE3OjQ4XSDNqLn9zqjSu9fcv9jG9Lav1MvTqrncwO3Ptc2zo6hEamFuZ28vUG9zdGdyZVNRTCAtPiBXb3JrZXKjqaOszerV+9DU0KPR6b/JxNzQ6NKqvc+zpMqxvOShraGtDQogICAgeyJzdGF0dXMiOiJzdGFydGVkIiwic3RhdGUiOiJSdW5uaW5nIn0NClswNDoxNzo0OV0gzai5/c6o0rvX3L/YxvS2r9TL06q53MDtz7XNs6OoRGphbmdvL1Bvc3RncmVTUUwgLT4gV29ya2Vyo6mjrM3q1fvQ1NCj0em/ycTc0OjSqr3Ps6TKsbzkoa2hrQ0KICAgIHsic3RhdHVzIjoic3RhcnRlZCIsInN0YXRlIjoiUnVubmluZyJ9DQpbMDQ6MTc6NDldIM2ouf3OqNK719y/2Mb0tq/Uy9OqudzA7c+1zbOjqERqYW5nby9Qb3N0Z3JlU1FMIC0+IFdvcmtlcqOpo6zN6tX70NTQo9Hpv8nE3NDo0qq9z7OkyrG85KGtoa0NCiAgICB7InN0YXR1cyI6InN0YXJ0ZWQiLCJzdGF0ZSI6IlJ1bm5pbmcifQ0KW3siY2hpbGRFeGl0IjowLCJjYXNlIjoiU3RhcnRKc29uIiwib3V0Y29tZSI6ImFjY2VwdGVkIn0seyJjaGlsZEV4aXQiOjksImNhc2UiOiJTdGFydEpzb24iLCJvdXRjb21lIjoicmVqZWN0ZWQifSx7ImNoaWxkRXhpdCI6MjU5LCJjYXNlIjoiU3RhcnRKc29uIiwib3V0Y29tZSI6InJlamVjdGVkIn0seyJjaGlsZEV4aXQiOjAsImNhc2UiOiJTdGFydFRleHQiLCJvdXRjb21lIjoiYWNjZXB0ZWQifSx7ImNoaWxkRXhpdCI6OSwiY2FzZSI6IlN0YXJ0VGV4dCIsIm91dGNvbWUiOiJyZWplY3RlZCJ9LHsiY2hpbGRFeGl0IjoyNTksImNhc2UiOiJTdGFydFRleHQiLCJvdXRjb21lIjoicmVqZWN0ZWQifSx7ImNoaWxkRXhpdCI6MCwiY2FzZSI6IlN0b3BBbGwiLCJvdXRjb21lIjoiYWNjZXB0ZWQifSx7ImNoaWxkRXhpdCI6OSwiY2FzZSI6IlN0b3BBbGwiLCJvdXRjb21lIjoicmVqZWN0ZWQifSx7ImNoaWxkRXhpdCI6MjU5LCJjYXNlIjoiU3RvcEFsbCIsIm91dGNvbWUiOiJyZWplY3RlZCJ9LHsiY2hpbGRFeGl0IjowLCJjYXNlIjoiU3RvcFdvcmtlciIsIm91dGNvbWUiOiJhY2NlcHRlZCJ9LHsiY2hpbGRFeGl0Ijo5LCJjYXNlIjoiU3RvcFdvcmtlciIsIm91dGNvbWUiOiJyZWplY3RlZCJ9LHsiY2hpbGRFeGl0IjoyNTksImNhc2UiOiJTdG9wV29ya2VyIiwib3V0Y29tZSI6InJlamVjdGVkIn0seyJjaGlsZEV4aXQiOjAsImNhc2UiOiJSZXN0YXJ0SG90Iiwib3V0Y29tZSI6ImFjY2VwdGVkIn0seyJjaGlsZEV4aXQiOjksImNhc2UiOiJSZXN0YXJ0SG90Iiwib3V0Y29tZSI6InJlamVjdGVkIn0seyJjaGlsZEV4aXQiOjI1OSwiY2FzZSI6IlJlc3RhcnRIb3QiLCJvdXRjb21lIjoicmVqZWN0ZWQifSx7ImNoaWxkRXhpdCI6MCwiY2FzZSI6IlJlc3RhcnRGdWxsIiwib3V0Y29tZSI6ImFjY2VwdGVkIn0seyJjaGlsZEV4aXQiOjksImNhc2UiOiJSZXN0YXJ0RnVsbCIsIm91dGNvbWUiOiJyZWplY3RlZCJ9LHsiY2hpbGRFeGl0IjoyNTksImNhc2UiOiJSZXN0YXJ0RnVsbCIsIm91dGNvbWUiOiJyZWplY3RlZCJ9LHsiY2hpbGRFeGl0IjowLCJjYXNlIjoiU3RhdHVzIiwib3V0Y29tZSI6ImFjY2VwdGVkIn0seyJjaGlsZEV4aXQiOjksImNhc2UiOiJTdGF0dXMiLCJvdXRjb21lIjoicmVqZWN0ZWQifSx7ImNoaWxkRXhpdCI6MjU5LCJjYXNlIjoiU3RhdHVzIiwib3V0Y29tZSI6InJlamVjdGVkIn1dDQpQQVNTOiAyMSBwcml2YXRlIHJlYWwtY2hpbGQgY2FsbGVyIGJyYW5jaGVzOyBubyBwcm9kdWN0aW9uIHNlcnZpY2UsIGJyb3dzZXIsIEhUVFAgb3IgREIgb3BlcmF0aW9uDQo=",
+      "stdoutSha256": "875f460265fa6c03841cb35f6c50eeebbd852e41d419ac39187ef7a584966775",
+      "stderrBase64": "",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "productionOperations": false
+}

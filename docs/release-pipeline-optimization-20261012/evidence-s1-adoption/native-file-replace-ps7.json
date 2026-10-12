@@ -1,0 +1,16 @@
+{
+  "exactActualSddlSha256": "5dd22c94c50ddb891a9197e085dae5ac86abb7d17cde20b482384bf5bad5a6cf",
+  "transientAutoInheritanceFlagRestored": true,
+  "qualification": "Native ACL copy used only to reproduce private test metadata. Proposed host installation requires explicit same-file original security-descriptor restoration approval; no permission/owner/principal widening. Final descriptor equality mandatory; no production operation run.",
+  "productionWrites": false,
+  "shellMajor": 7,
+  "exactRestoredAfterMatchesActual": true,
+  "exactInstalledAfterMatchesActual": true,
+  "schema": "s1-native-file-replace-exact-model-v1",
+  "exactPrivateBeforeMatchesActual": true,
+  "oldBackupVerified": true,
+  "stageDescriptorWasDifferent": true,
+  "root": "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-s1-native-replace-10110940451d4f32bd56afcfd6f9740c",
+  "candidateBackupVerified": true,
+  "replacement": "System.IO.File.Replace(stage,target,uniqueBackup,false) plus exact original DACL restoration with owner/group unchanged"
+}

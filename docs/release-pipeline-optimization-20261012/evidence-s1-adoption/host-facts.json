@@ -1,0 +1,239 @@
+{
+  "observedAt": "2026-10-12T20:04:15.3872882Z",
+  "scope": "Read-only native/file/shortcut/task metadata only; no public Status/Panel or service/HTTP/database action",
+  "files": [
+    {
+      "relativePath": "tools\\operations-system-service.ps1",
+      "path": "D:\\运营管理系统\\tools\\operations-system-service.ps1",
+      "bytes": 23155,
+      "sha256": "aff5a37974251422281e75d150292115b014f9265b5895747bdae05d9b028b6d",
+      "attributes": "Archive",
+      "linkType": null,
+      "aclSddlSha256": "5dd22c94c50ddb891a9197e085dae5ac86abb7d17cde20b482384bf5bad5a6cf",
+      "aclInheritanceProtected": false
+    },
+    {
+      "relativePath": "运营系统.bat",
+      "path": "D:\\运营管理系统\\运营系统.bat",
+      "bytes": 2236,
+      "sha256": "27c3a7160ad99bea8ac5ca21e8c84be4c6ada261a284c90ea03c1ce9d1e55881",
+      "attributes": "Archive",
+      "linkType": null,
+      "aclSddlSha256": "5dd22c94c50ddb891a9197e085dae5ac86abb7d17cde20b482384bf5bad5a6cf",
+      "aclInheritanceProtected": false
+    },
+    {
+      "relativePath": "package.json",
+      "path": "D:\\运营管理系统\\package.json",
+      "bytes": 5902,
+      "sha256": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890",
+      "attributes": "Archive",
+      "linkType": null,
+      "aclSddlSha256": "5dd22c94c50ddb891a9197e085dae5ac86abb7d17cde20b482384bf5bad5a6cf",
+      "aclInheritanceProtected": false
+    },
+    {
+      "relativePath": "tools\\operations-system-control.ps1",
+      "path": "D:\\运营管理系统\\tools\\operations-system-control.ps1",
+      "bytes": 42443,
+      "sha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "attributes": "Archive",
+      "linkType": null,
+      "aclSddlSha256": "5dd22c94c50ddb891a9197e085dae5ac86abb7d17cde20b482384bf5bad5a6cf",
+      "aclInheritanceProtected": false
+    },
+    {
+      "relativePath": "tools\\worker-local-service.ps1",
+      "path": "D:\\运营管理系统\\tools\\worker-local-service.ps1",
+      "bytes": 104852,
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+      "attributes": "Archive",
+      "linkType": null,
+      "aclSddlSha256": "bcbf364117252a4c31bfb9b6cb9a94f2e5fb5d70aa5ed2d5d98958b1b56dd4ea",
+      "aclInheritanceProtected": false
+    },
+    {
+      "relativePath": "tools\\worker-authority-guard.mjs",
+      "path": "D:\\运营管理系统\\tools\\worker-authority-guard.mjs",
+      "bytes": 18129,
+      "sha256": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+      "attributes": "Archive",
+      "linkType": null,
+      "aclSddlSha256": "5dd22c94c50ddb891a9197e085dae5ac86abb7d17cde20b482384bf5bad5a6cf",
+      "aclInheritanceProtected": false
+    },
+    {
+      "relativePath": "tools\\worker-local-release.mjs",
+      "path": "D:\\运营管理系统\\tools\\worker-local-release.mjs",
+      "bytes": 183414,
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "attributes": "Archive",
+      "linkType": null,
+      "aclSddlSha256": "bcbf364117252a4c31bfb9b6cb9a94f2e5fb5d70aa5ed2d5d98958b1b56dd4ea",
+      "aclInheritanceProtected": false
+    },
+    {
+      "relativePath": "tools\\worker-local-release-rotation.mjs",
+      "path": "D:\\运营管理系统\\tools\\worker-local-release-rotation.mjs",
+      "bytes": 81611,
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "attributes": "Archive",
+      "linkType": null,
+      "aclSddlSha256": "bcbf364117252a4c31bfb9b6cb9a94f2e5fb5d70aa5ed2d5d98958b1b56dd4ea",
+      "aclInheritanceProtected": false
+    },
+    {
+      "relativePath": "tools\\process-deadline.ps1",
+      "path": "D:\\运营管理系统\\tools\\process-deadline.ps1",
+      "bytes": 13723,
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "attributes": "Archive",
+      "linkType": null,
+      "aclSddlSha256": "5dd22c94c50ddb891a9197e085dae5ac86abb7d17cde20b482384bf5bad5a6cf",
+      "aclInheritanceProtected": false
+    }
+  ],
+  "shortcuts": [
+    {
+      "sha256": "84fd81209ef6d0565f74202dff8f81b276ee832b496493bbd0e5c34907a824a0",
+      "arguments": "",
+      "path": "E:\\微软文件\\OneDrive\\桌面\\运营管理系统.lnk",
+      "target": "C:\\Users\\86137\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\TERUISI\\Launcher\\运营管理系统.exe",
+      "workingDirectory": "C:\\Users\\86137\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\TERUISI\\Launcher"
+    },
+    {
+      "sha256": "1d586f6dd2046f84b3fd170dc1079a12fc02217c4881c054156e20f6c30d4a77",
+      "arguments": "",
+      "path": "C:\\Users\\86137\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\运营管理系统.lnk",
+      "target": "C:\\Users\\86137\\AppData\\Local\\TERUISI\\Launcher\\运营管理系统.exe",
+      "workingDirectory": "C:\\Users\\86137\\AppData\\Local\\TERUISI\\Launcher"
+    },
+    {
+      "sha256": "f730b50b8312efad0dd68040e18bcc4e253657cc8fdeb5faeeaf962ec58b8b8e",
+      "arguments": "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File \"D:\\teruisi-runtime\\django-sales\\app\\tools\\django-runtime-supervisor.ps1\" -Action Run -RuntimeRoot \"D:\\teruisi-runtime\\django-sales\" -Execute",
+      "path": "C:\\Users\\86137\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\TERUISI Django Sales.lnk",
+      "target": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "workingDirectory": "D:\\teruisi-runtime\\django-sales\\app"
+    },
+    {
+      "sha256": "3dcaa1f5943b04a31e938d2b21261930c071f98e4549064d2a793e41e20f092d",
+      "arguments": "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\tools\\worker-local-service.ps1\" -Action Start -ManifestPath \"D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\deployment-manifest.json\"",
+      "path": "C:\\Users\\86137\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\TERUISI Operations Worker.lnk",
+      "target": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "workingDirectory": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749"
+    }
+  ],
+  "launcher": {
+    "sha256": "623353a0cc6d9ae869bfd41afee02f73747b18142410c5fcf3aa5a1b1d1a479f",
+    "controllerPath": "D:\\运营管理系统\\tools\\operations-system-control.ps1",
+    "powerShellPath": "C:\\Users\\86137\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+    "configurationPath": "C:\\Users\\86137\\AppData\\Local\\TERUISI\\Launcher\\launcher.json"
+  },
+  "watchdog": {
+    "actions": [
+      {
+        "execute": "D:\\teruisi-runtime\\operations-watchdog\\versions\\e0330d7aea1e17395cf56214c8c62e8d54c2e46359d30cce9296800c8802760c\\Watchdog.NoConsole.exe",
+        "workingDirectory": "D:\\teruisi-runtime\\operations-watchdog",
+        "arguments": "\"C:\\Users\\86137\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe\" \"D:\\teruisi-runtime\\operations-watchdog\\versions\\e0330d7aea1e17395cf56214c8c62e8d54c2e46359d30cce9296800c8802760c\\operations-system-watchdog.ps1\""
+      }
+    ],
+    "taskName": "TERUISI Operations Watchdog",
+    "state": "Ready"
+  },
+  "workerReceiptNative": {
+    "nativeCreationDate": "2026-10-12T05:50:55.3639870Z",
+    "releaseId": "20261011T090355Z-21c2645a63247749",
+    "manifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+    "supervisorPid": 36568,
+    "receiptCreationDate": "10/12/2026 05:50:55",
+    "nativeCommandHasExactRelease": false,
+    "nativeCommandSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "nativeFound": true
+  },
+  "runtimeProcessObservations": [
+    {
+      "workerReleaseId": null,
+      "createdAt": "2026-10-04T14:26:47.0796190Z",
+      "isReceiptSupervisor": false,
+      "name": "cmd.exe",
+      "commandLineSha256": "c8d873baba321afd48d60fa71e316ca1241f9be42f4a2cd73c49a220ec9cf83c",
+      "pid": 29368,
+      "parentPid": 5712,
+      "executablePath": "C:\\WINDOWS\\system32\\cmd.exe"
+    }
+  ],
+  "listeningPorts": [
+    {
+      "port": 5791,
+      "owningProcess": 23536,
+      "address": "127.0.0.1"
+    },
+    {
+      "port": 3000,
+      "owningProcess": 17184,
+      "address": "127.0.0.1"
+    }
+  ],
+  "activeServiceWrappers": [],
+  "unknownInterpreterProcesses": [
+    {
+      "name": "powershell.exe",
+      "executablePath": null,
+      "pid": 47936,
+      "qualification": "command line unavailable; classify before adoption"
+    },
+    {
+      "name": "cmd.exe",
+      "executablePath": null,
+      "pid": 29124,
+      "qualification": "command line unavailable; classify before adoption"
+    },
+    {
+      "name": "node.exe",
+      "executablePath": null,
+      "pid": 36568,
+      "qualification": "command line unavailable; classify before adoption"
+    },
+    {
+      "name": "node.exe",
+      "executablePath": null,
+      "pid": 23536,
+      "qualification": "command line unavailable; classify before adoption"
+    },
+    {
+      "name": "node.exe",
+      "executablePath": null,
+      "pid": 21256,
+      "qualification": "command line unavailable; classify before adoption"
+    },
+    {
+      "name": "node.exe",
+      "executablePath": null,
+      "pid": 28992,
+      "qualification": "command line unavailable; classify before adoption"
+    },
+    {
+      "name": "powershell.exe",
+      "executablePath": null,
+      "pid": 48004,
+      "qualification": "command line unavailable; classify before adoption"
+    }
+  ],
+  "djangoDeployment": {
+    "appFingerprint": "fc33df2880e62e52415aa66655b1d380356023d779495c1d739324bf5fda55a1",
+    "sourceFingerprint": null,
+    "sha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+    "path": "D:\\teruisi-runtime\\django-sales\\app\\deployment.json",
+    "version": 2,
+    "keys": [
+      "version",
+      "deployedAt",
+      "sourceRoot",
+      "fingerprintAlgorithm",
+      "fileCount",
+      "appFingerprint"
+    ],
+    "deployedAt": "2026-10-11T12:11:50.8280836+08:00"
+  },
+  "qualification": "Point-in-time identity/port observation; not a health or continuous availability receipt"
+}

@@ -1,0 +1,25 @@
+{
+  "root": "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-s1-callers-GL5sO9",
+  "results": [
+    {
+      "shell": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-File",
+        "tmp/s1-caller-fixture.ps1",
+        "-Payload",
+        "D:\\codex-artifacts\\release-s1-adoption-20261013\\candidate-v1\\payload\\operations-system-service.ps1",
+        "-FixtureRoot",
+        "C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-s1-callers-GL5sO9\\powershell.exe"
+      ],
+      "exitCode": 1,
+      "elapsedMs": 1979,
+      "stdoutBase64": "",
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrBase64": "bm9uemVybyBuYXRpdmUgZXhpdCBsb3N0IGluIFN0YXJ0SnNvbiA5DQrL+dTazrvWwyBEOlxjb2RleC1pc29sYXRlZFxyZWxlYXNlLXMxLWFkb3B0aW9uLXBsYW4tMjAyNjEwMTNc1MvTqrncwO3Ptc2zXHRtcFxzMS1jYWxsZXItZml4dHVyZS5wczE6Mzkg19a3+zogODANCisgLi4uILrnoIEgJyskY29kZSkpKXt0aHJvdyAoJ25vbnplcm8gbmF0aXZlIGV4aXQgbG9zdCBpbiAnKyRjYXNlKycgJyskY29kZSl9DQorICAgICAgICAgICAgICAgICAgIH5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+fg0KICAgICsgQ2F0ZWdvcnlJbmZvICAgICAgICAgIDogT3BlcmF0aW9uU3RvcHBlZDogKG5vbnplcm8gbmF0aXZlIGV4aXQgbG9zdCBpbiBTdGFydEpzb24gOTpTdHJpbmcpIFtdLCBSdW50aW1lRXhjZXB0aW9uDQogICAgKyBGdWxseVF1YWxpZmllZEVycm9ySWQgOiBub256ZXJvIG5hdGl2ZSBleGl0IGxvc3QgaW4gU3RhcnRKc29uIDkNCiANCg==",
+      "stderrSha256": "9b9a178fc37d4c69366ae26bf10dc3e72abe3d8d882578597cc71e5033c06445"
+    }
+  ],
+  "productionOperations": false
+}

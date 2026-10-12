@@ -1,0 +1,1 @@
+{"status":"private-model-setup-failed","code":"win32_error_5","cause":"An unnecessary owner/group/DACL combined setter required extra owner permissions. Owner/group already equal, so final tested procedure sets DACL only and strictly verifies complete owner/group/DACL equality afterwards. No owner/group or privilege adjustment is part of production proposal"}
