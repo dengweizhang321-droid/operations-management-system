@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-12T09:54:49.1923920Z",
+  "approvedIntent": "4601d0bc81a61f273a4294e6e863671cdc91abe1adc18779621bd5d0351286fb",
+  "reconciliationFinishedAt": "2026-10-12T09:53:02.522Z",
+  "exitCode": 1,
+  "actualError": "Fixed output required at Install-CensusVersion.ps1 line 4",
+  "nativeGetFullPathPreservesTrailingSeparator": true,
+  "installStartedExists": false,
+  "taskBeforeExists": false,
+  "installationSha256": "d1d3e7d1814509eec5091f4416a3b6694dc3af890451cc831a774a2afd09a73a",
+  "installationUnchanged": true,
+  "taskActionStillOriginal0b": true,
+  "walCount": 73,
+  "approvedNewBundle": "e0330d7aea1e17395cf56214c8c62e8d54c2e46359d30cce9296800c8802760c",
+  "newBundleInstalled": false,
+  "nextCorrection": "Normalize only fixed output-root argument; retain original candidate, plan, failure, sealed V1 and exact approval."
+}

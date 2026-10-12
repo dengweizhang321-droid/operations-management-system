@@ -1,0 +1,7 @@
+{
+  "version": "fixed-census-reconciliation-original-closeout-v1",
+  "startIntentPath": "E:/codex-artifacts/watchdog-native-census-20261012/CENSUS_INSTALL_INTENT_V1.json",
+  "startIntentSha256": "4601d0bc81a61f273a4294e6e863671cdc91abe1adc18779621bd5d0351286fb",
+  "envManifestPath": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/ENV_CIPHER_MANIFEST.json",
+  "envManifestSha256": "c6c6cc4db2375020ab49bd6e4373c835749ef5bee507a9da63fd648111aa58a5"
+}
