@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-12T07:01:02.438Z",
+  "bundleId": "0b8566624e19e44bdc4f556fb9f0baa541d3f35dbf695c00d06b00ba16de9abb",
+  "installedNineBytesExact": true,
+  "remainingRecoveryPassed": [
+    "before-context",
+    "new-owned-stack",
+    "remove-exact-own-failure-marker",
+    "restore-supervisor",
+    "verify-ready",
+    "install-diagnostic",
+    "verify-installation"
+  ],
+  "maintenanceAbsent": true,
+  "drainAbsent": true,
+  "originalBatchClosed": false
+}

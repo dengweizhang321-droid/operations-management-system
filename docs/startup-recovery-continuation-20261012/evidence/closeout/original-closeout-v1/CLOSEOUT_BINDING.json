@@ -1,0 +1,7 @@
+{
+  "version": "fixed-start-reconciliation-original-closeout-v1",
+  "startIntentPath": "E:/codex-artifacts/startup-recovery-continuation-20261012/START_DECISION_INTENT_V1.json",
+  "startIntentSha256": "52c2478ad8a0bd61d8468a723c203ae5655e9a04d4a750e1045c52b2b34d6cfe",
+  "envManifestPath": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/ENV_CIPHER_MANIFEST.json",
+  "envManifestSha256": "725dbeb8ffcb6e9fc9b0c0cdee0c57c333ba033a17eadcca8d2e4d25f0edee0f"
+}

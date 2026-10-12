@@ -1,0 +1,10 @@
+{
+  "version": "explicit-recovery-diagnostic-version-update-v1",
+  "packageSha256": "e9d4ca56d1488e3a37435cedeac07642e06dadb3d90bee8e32cca05ec69713ed",
+  "originalRecoveryPlanSha256": "dc4f2de71423097a53f26b37e4a10bdd6ee541f9aef3c8b9005c068239a7a5c2",
+  "bundleId": "0b8566624e19e44bdc4f556fb9f0baa541d3f35dbf695c00d06b00ba16de9abb",
+  "planId": "50999d5e653050d95cb860484538050c89a21819dcec8d14beecb80f07814bae",
+  "approvedAt": "2026-10-12T06:49:04.652Z",
+  "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+  "scope": "diagnostic-v3-only-four-stage-continuation-no-prefix-replay"
+}

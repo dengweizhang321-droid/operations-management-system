@@ -1,0 +1,105 @@
+{
+  "workerPid": 3692,
+  "diagnosticReason": "diagnostic_predecessor_changed",
+  "worker": "foreign_or_ambiguous",
+  "probes": {
+    "homepage": {
+      "ok": true,
+      "reason": "none",
+      "status": 200,
+      "elapsedMs": 199
+    },
+    "helper": {
+      "ok": true,
+      "reason": "none",
+      "status": 200,
+      "elapsedMs": 165
+    },
+    "live": {
+      "ok": true,
+      "reason": "none",
+      "status": 200,
+      "elapsedMs": 184
+    },
+    "ready": {
+      "ok": true,
+      "reason": "none",
+      "status": 200,
+      "elapsedMs": 2172
+    }
+  },
+  "supervisorPid": null,
+  "completedAt": "2026-10-12T05:43:14.4145307+00:00",
+  "processDiagnostic": null,
+  "portsObservation": {
+    "status": "complete",
+    "reason": "none",
+    "at": "2026-10-12T05:43:14.4122558+00:00",
+    "elapsedMs": 1692
+  },
+  "ports": [
+    {
+      "port": 5791,
+      "pid": 69260
+    },
+    {
+      "port": 5432,
+      "pid": 4080
+    },
+    {
+      "port": 3000,
+      "pid": 3692
+    }
+  ],
+  "healthy": false,
+  "controllerHealthEvidence": null,
+  "elapsedMs": 47398,
+  "admission": {
+    "fence": "1cfe7abb6b6b4d16bba5745dc440e02068a8ddfe744ca8e96d5e5452345a9fc4",
+    "mode": "running"
+  },
+  "diagnosticMode": "legacy",
+  "system": "PortInUse",
+  "releaseId": "20261011T090355Z-21c2645a63247749",
+  "coreDiagnostics": null,
+  "at": "2026-10-12T05:42:27.0232207+00:00",
+  "business": {
+    "status": "unknown",
+    "reason": "no_confirmed_failure",
+    "checkedAt": "2026-10-12T05:43:14.4209361+00:00",
+    "version": "market-read-probe-v1"
+  },
+  "statusTimings": {},
+  "supervisor": "stopped",
+  "backend": "NotReady",
+  "components": {
+    "products": false,
+    "finance": false,
+    "customerService": false,
+    "market": false,
+    "workflow": false,
+    "core": false,
+    "accessControl": false,
+    "ai": false,
+    "inventory": false,
+    "erpReference": false,
+    "bi": false,
+    "netshop": false
+  },
+  "probeError": false,
+  "supervisorHealth": "stale",
+  "stages": {
+    "monitor": {
+      "status": "completed",
+      "elapsedMs": 361
+    },
+    "control": {
+      "status": "completed",
+      "elapsedMs": 39413
+    },
+    "supervisor": {
+      "status": "completed",
+      "elapsedMs": 1585
+    }
+  }
+}

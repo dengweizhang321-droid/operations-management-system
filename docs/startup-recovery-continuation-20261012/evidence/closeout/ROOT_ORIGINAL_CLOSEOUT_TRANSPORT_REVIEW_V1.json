@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-12T07:12:51.807Z",
+  "transportSha256": "f606e098321a646dc280b3d922281a941af8a7333301c48b46f38175753abb22",
+  "bootstrapSha256": "afd6dd9eddf0f8a9ecfc5542939feb2400bf5a19e0381967a5dc26ad3612ba2c",
+  "chainBindingSha256": "7bbf6e202b53c8c4b2287b3df0d8a5485a592b23196a454562709d8849d48f5b",
+  "filesExact": 215,
+  "templateExact": true,
+  "originalEnvironmentSha256": "bc79f88a7e7b963179fe029dccf2f605f1bad855ad29873b58d43dfb96aac609",
+  "plaintextPersisted": false,
+  "productionLaunched": false
+}

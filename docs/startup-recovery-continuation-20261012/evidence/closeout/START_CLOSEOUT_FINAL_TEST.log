@@ -1,0 +1,20 @@
+✔ synthetic one-event successor with original 49 raw events is accepted (38.6478ms)
+✔ reject resume wronghead (26.0789ms)
+✔ reject resume proofchange (22.5454ms)
+✔ reject resume obschange (23.6579ms)
+✔ reject resume gate (25.6506ms)
+✔ reject resume drain (24.6924ms)
+✔ reject resume owner (24.7223ms)
+✔ reject resume eventchange (23.9086ms)
+✔ reject resume extra (23.6291ms)
+✔ actual completed continuation has four stages, no replay (6.6513ms)
+✔ synthetic exact unresolved state and wrong owner/head/resolved/extra unknown refuse (0.9956ms)
+✔ synthetic actual original predicate shape rejects role/types/gates/PIDs/manifest changes (13.3678ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 349.0649
