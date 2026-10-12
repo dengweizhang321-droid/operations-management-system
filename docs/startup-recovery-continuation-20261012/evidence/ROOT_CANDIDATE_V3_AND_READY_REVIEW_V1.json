@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-12T06:24:32.015Z",
+  "actualRecordSha256": "b58cd19794b421752258ffbdcc6fac9c72e3005300096494180659dc08b16051",
+  "readOnlyControllerRunning": true,
+  "backendReady": true,
+  "workerExact": true,
+  "workerSupervisorPid": 36568,
+  "componentsReady": 12,
+  "receiptsUnchanged": 28,
+  "bundleId": "0b8566624e19e44bdc4f556fb9f0baa541d3f35dbf695c00d06b00ba16de9abb",
+  "planId": "50999d5e653050d95cb860484538050c89a21819dcec8d14beecb80f07814bae",
+  "candidateNineFilesAndPlanFormulaMatched": true,
+  "productionAdopted": false
+}

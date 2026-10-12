@@ -9,11 +9,11 @@ function Initialize-StartupRecoveryOperations([object]$Plan,[string]$PlanPath,[s
  $id=[Security.Principal.WindowsIdentity]::GetCurrent()
  if($id.User.Value -cne 'S-1-5-21-815909789-107973518-1379257801-1001' -or -not ([Security.Principal.WindowsPrincipal]::new($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Exact approved administrator required'}
  if($PSVersionTable.PSVersion.Major -lt 7){throw 'Original watchdog requires PowerShell 7'}
- $candidate='E:\codex-artifacts\startup-recovery-integration-20261012\native-watchdog-source-v2'
+ $candidate='E:\codex-artifacts\startup-recovery-continuation-20261012\native-watchdog-source-v3'
  $django='D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1'
  $script:recovery=@{plan=$Plan;path=$PlanPath;sha=$PlanSha256;candidate=$candidate;django=$django;thread=[Threading.Thread]::CurrentThread.ManagedThreadId;node='C:\Program Files\nodejs\node.exe';ps='C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe';worker='D:\运营管理系统\tools\worker-local-service.ps1';context=Join-Path $PSScriptRoot 'recovery-context.mjs';completed=@{}}
  # Scope isolation is essential: both original scripts define Action/Execute.
- $script:recovery.watch=New-Module -ArgumentList $candidate,$Plan.watchdogPlan.planId,(Join-Path $PSScriptRoot 'Restore-RecoverySupervisorV2.ps1') -ScriptBlock {
+ $script:recovery.watch=New-Module -ArgumentList $candidate,$Plan.watchdogPlan.planId,(Join-Path $PSScriptRoot '../startup-recovery-continuation-20261012/Restore-RecoverySupervisorV3.ps1') -ScriptBlock {
   param($dir,$approved,$supplement)
   Set-StrictMode -Off
   . (Join-Path $dir 'operations-system-watchdog.ps1') -FunctionsOnly
@@ -72,7 +72,13 @@ function Convert-ApprovedStopTargets([object[]]$Targets){
  return ,$Targets
 }
 function Assert-RecoveryServiceReadiness($r){
- if($r.probeError -isnot [bool] -or $r.probeError -cne $false -or $r.system -cne 'Running' -or $r.backend -cne 'Ready' -or $r.worker -cne 'exact_release' -or $r.controllerHealthValid -ceq $false -or $r.components.Count -ne 12 -or @($r.components.Values|Where-Object {$_ -isnot [bool] -or $_ -cne $true}).Count -ne 0 -or $r.probes.Count -ne 4 -or @($r.probes.Values|Where-Object {$_.ok -isnot [bool] -or $_.ok -cne $true}).Count -ne 0){throw 'Application must be ready before restoring its supervisor'}
+ $controllerHealth=$null
+ $controllerHealthPresent=$false
+ if($r -is [Collections.IDictionary]){if($r.Contains('controllerHealthValid')){$controllerHealthPresent=$true;$controllerHealth=$r['controllerHealthValid']}}
+ elseif($r -is [pscustomobject]){$property=$r.PSObject.Properties['controllerHealthValid'];if($null -ne $property){$controllerHealthPresent=$true;$controllerHealth=$property.Value}}
+ else{throw 'Application readiness must be an object'}
+ if($controllerHealthPresent -and $controllerHealth -isnot [bool]){throw 'Optional controller health must be a boolean'}
+ if($r.probeError -isnot [bool] -or $r.probeError -cne $false -or $r.system -cne 'Running' -or $r.backend -cne 'Ready' -or $r.worker -cne 'exact_release' -or $controllerHealth -ceq $false -or $r.components.Count -ne 12 -or @($r.components.Values|Where-Object {$_ -isnot [bool] -or $_ -cne $true}).Count -ne 0 -or $r.probes.Count -ne 4 -or @($r.probes.Values|Where-Object {$_.ok -isnot [bool] -or $_.ok -cne $true}).Count -ne 0){throw 'Application must be ready before restoring its supervisor'}
 }
 function Invoke-StartupRecoveryBoundStage([string]$Stage,$Plan,[long]$Deadline){
  switch -CaseSensitive ($Stage){
@@ -125,7 +131,7 @@ function Invoke-StartupRecoveryBoundStage([string]$Stage,$Plan,[long]$Deadline){
   'verify-installation' {
    return & $script:recovery.watch {
     $i=Read-WatchJson (Join-Path $WatchdogRoot 'installation.json')
-    if($i.bundleId -cne '3e46d2454ddb0879c36ead3b27305d5f128e6bacc40f245d0404324b21e07280'){throw 'Installed diagnostic differs'}
+    if($i.bundleId -cne '0b8566624e19e44bdc4f556fb9f0baa541d3f35dbf695c00d06b00ba16de9abb'){throw 'Installed diagnostic differs'}
     $dir=Join-Path $WatchdogRoot ('versions\'+$i.bundleId);Assert-WatchBundle $dir $i
     $task=Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
     $argv='"'+$PowerShellPath+'" "'+(Join-Path $dir 'operations-system-watchdog.ps1')+'"'

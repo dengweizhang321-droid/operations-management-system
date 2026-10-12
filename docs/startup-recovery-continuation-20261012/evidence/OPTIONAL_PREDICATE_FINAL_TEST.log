@@ -1,0 +1,10 @@
+✔ actual optional readiness predicate StrictLatest powershell.exe (491.5144ms)
+✔ actual optional readiness predicate StrictLatest pwsh.exe (722.3684ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1304.3077

@@ -1,0 +1,30 @@
+{
+  "at": "2026-10-12T06:09:42.779Z",
+  "elapsedMs": 34378,
+  "code": 0,
+  "signal": null,
+  "stdoutSha256": "cd1582bdb704c126e83f25e575f9f070829e75fd6d457ec849a2fa6ac835c703",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "ordinaryToken": true,
+  "observation": {
+    "state": "BackendUnavailable",
+    "backendState": "NotReady",
+    "workerState": "exact_release",
+    "supervisorProcessId": 36568,
+    "releaseId": "20261011T090355Z-21c2645a63247749",
+    "components": {
+      "core": false,
+      "finance": false,
+      "netshop": false,
+      "market": false,
+      "products": false,
+      "workflow": false,
+      "inventory": false,
+      "customerService": false,
+      "accessControl": false,
+      "erpReference": false,
+      "bi": false,
+      "ai": false
+    }
+  }
+}

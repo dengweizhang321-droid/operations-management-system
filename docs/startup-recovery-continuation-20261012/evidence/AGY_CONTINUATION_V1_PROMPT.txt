@@ -1,0 +1,457 @@
+请同conversation对本次有限续接做一次真实独立文本源码审查。禁止工具、生产操作。报告确定阻断或有界未发现新增阻断，不把fixture/模型意见当实机验收或授权。原dc4f/112文件不改；原f15仍49WAL Start unknown。实际新恢复92对象已退出、原Enter/Exit/Start都passed，新Worker36568/6cff、D85cf；restore-supervisor因StrictLatest读取可选controllerHealthValid缺属性而失败，实际自身a23维护marker恢复、drainabsent，非health业务503。不能重放已通过8prefix。
+修正1：missing optional允许，present必须真正bool、false/null/string/array拒，其他fullReady/12components/4probe原要求全保。PS5/7实际函数StrictLatest各16case；续接prefix/schema/四stage合计13 Node测试作者与Root独立通过。修正2：新9file候选V3只在Backend/Sup wrapper加载已经在9file内的5ae process-deadline库（3行、hash校验）；旧V2真实错误Get-ProcessDeadline不存在导致ownership_error，不能称真实服务死。新0b8569file/原新Plan50999已经真实ordinary新controller在own维护下Running/backendReady/workerexact36568/12true，28receipt before==after，无记录写；Root独立核。原D953/Worker717不改。旧3e/39e批准不能自动采用新0b/5099，源码/Git后仍需用户精确版本更新确认与真实新UAC。
+续接绑定实际完整17stage记录+原finished1/transport1+workerreceipt/desired、同49owner/package/source、owna23/drainabsent、闭合134pins。原rotation+同PS线程watchdogmutex；强Ready当前身份验证后held精确ownmarker删除，只执行restore-supervisor,verify-ready,install-diagnostic,verify-installation。after-remove失败只能create-only恢复sameownmarker，不清外部门、不变WAL、不重放stop/start、不新增Backup/Restore。originalInstall仍healthy/原Plan/TaskXML检查；Action/immutablebundle/installjson按批准版本，Triggers/Principal/RunLevel不改。原6989续7与Start补证尚未执行。这里尚未新生产执行。请审作用域/参数/保守失败/闭包，600字内，不扩成通用OS框架。
+
+FILE docs/startup-recovery-continuation-20261012/continuation-context.mjs SHA 9d8fc75c965294a7c8a4b6b33bef9cdb024f21b6757ab0363be48412a00d527a
+import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';import {fileURLToPath} from 'node:url';
+import {fixed,hash,readStable,observeRecoveryContext,makeRecoveryMarker,canonical} from '../startup-recovery-integration-20261012/recovery-context.mjs';
+export const originalPlan='E:/codex-artifacts/startup-recovery-integration-20261012/RECOVERY_PLAN_FINAL_V1.json',originalSha='dc4f2de71423097a53f26b37e4a10bdd6ee541f9aef3c8b9005c068239a7a5c2',originalEvidence='E:/codex-artifacts/startup-recovery-integration-20261012/approved-recovery-v1';
+export const marker='D:/teruisi-runtime/django-sales/run/system-maintenance.json',receipt='D:/teruisi-runtime/teruisi-worker-sales/state/worker-process.json';
+export const prefix=['acquire-watchdog-mutex','preflight','create-intent','await-drain','stop-declared-instances','enter-stopped-maintenance','exit-stopped-maintenance','start-original-stack'];
+export function assertCompletedPrefix(stages,finished,transport){
+ const expected=[['acquire-watchdog-mutex','passed'],...prefix.slice(1).flatMap(n=>[[n,'started'],[n,'passed']]),['restore-supervisor','started'],['restore-supervisor','failed']];assert.deepEqual(stages.map(x=>[x.stage,x.kind]),expected);
+ assert.deepEqual(stages.filter(x=>x.kind==='passed').map(x=>x.stage),prefix);assert.equal(stages.filter(x=>x.kind==='failed').length,1);const failed=stages.at(-1);assert.equal(failed.kind,'failed');assert.equal(failed.stage,'restore-supervisor');assert.equal(failed.details.error,"The property 'controllerHealthValid' cannot be found on this object. Verify that the property exists.");
+ assert.equal(failed.details.containment.status,'own-maintenance-created');assert.equal(failed.details.containment.markerSha256,'a23fb062130f2a65f3ee127f7eb666d5545ae92e59c2c18fc5a6a5996b4b645e');assert.equal(failed.details.containment.drainedStopped,false);
+ const stopped=stages.find(x=>x.kind==='passed'&&x.stage==='stop-declared-instances').details;assert.equal(stopped.count,92);assert.equal(stopped.terminatedCount,23);assert.equal(stopped.observedExitCount,69);assert.equal(new Set(stopped.events.filter(x=>x.stage==='exit-confirmed').map(x=>x.processId)).size,92);
+ const started=stages.find(x=>x.kind==='passed'&&x.stage==='start-original-stack').details;assert.equal(started.status,'started');assert.equal(started.manifestSha256,fixed.workerSha256);assert.equal(started.supervisorProcessId,36568);
+ assert.equal(finished.exitCode,1);assert.equal(finished.planSha256,originalSha);assert.equal(transport.exitCode,1);assert.equal(transport.bindingSha256,'ca1374b8617301e17665ee75e3230bdd0babaa8e035f45db14fe248767e13d0f');
+}
+export function validateContinuation(b){
+ assert.deepEqual(Object.keys(b).sort(),['version','originalPlanSha256','markerSha256','completed','workerReceiptSha256','desiredSha256','remaining','pins','outputRoot','diagnosticPlan'].sort());
+ assert.equal(b.version,'startup-recovery-continuation-v1');assert.equal(b.originalPlanSha256,originalSha);assert.equal(b.markerSha256,'a23fb062130f2a65f3ee127f7eb666d5545ae92e59c2c18fc5a6a5996b4b645e');assert.deepEqual(b.remaining,['restore-supervisor','verify-ready','install-diagnostic','verify-installation']);
+ const expected=['RECOVERY_STAGES.jsonl','RECOVERY_FINISHED.json','TRANSPORT_FINISHED.json'];assert.deepEqual(Object.keys(b.completed).sort(),expected.sort());for(const n of expected)assert.match(b.completed[n],/^[a-f0-9]{64}$/);assert.match(b.workerReceiptSha256,/^[a-f0-9]{64}$/);assert.match(b.desiredSha256,/^[a-f0-9]{64}$/);assert(Array.isArray(b.pins));
+ assert.equal(path.resolve(b.outputRoot),path.resolve('E:/codex-artifacts/startup-recovery-continuation-20261012/approved-continuation-v1'));
+ assert.equal(b.diagnosticPlan.bundleId,'0b8566624e19e44bdc4f556fb9f0baa541d3f35dbf695c00d06b00ba16de9abb');assert.equal(b.diagnosticPlan.planId,'50999d5e653050d95cb860484538050c89a21819dcec8d14beecb80f07814bae');
+ const seen=new Set();for(const f of b.pins){assert.deepEqual(Object.keys(f).sort(),['path','sha256']);assert(path.isAbsolute(f.path));assert.match(f.sha256,/^[a-f0-9]{64}$/);const k=path.resolve(f.path).toLowerCase();assert(!seen.has(k));seen.add(k);}
+ const own=path.dirname(fileURLToPath(import.meta.url)),prior=JSON.parse(readStable(originalPlan,originalSha));
+ const additions=['continuation-context.mjs','Invoke-RecoveryContinuation.ps1','Restore-RecoverySupervisorV3.ps1','run-continuation.mjs','prepare-continuation-package.mjs'].map(n=>path.join(own,n));
+ additions.push(...['startup-recovery-operations.psm1','recovery-context.mjs'].map(n=>path.resolve(own,'../startup-recovery-integration-20261012',n)),path.resolve(own,'../startup-status-receipt-safety-20261012/Remove-ExactRepairFence.ps1'));
+ additions.push(...['startup-exact-instance-policy.mjs','startup-exact-instance-stop.ps1','startup-recovery-sequence.ps1','watchdog-native-metadata.ps1','process-deadline.ps1'].map(n=>path.resolve(own,'../../tools',n)));
+ additions.push(...Object.keys(b.diagnosticPlan.files).map(n=>path.join('E:/codex-artifacts/startup-recovery-continuation-20261012/native-watchdog-source-v3',n)));
+ const exact=[...new Set([...prior.pins.map(f=>f.path),...additions].map(p=>path.resolve(p).toLowerCase()))].sort();assert.deepEqual([...seen].sort(),exact,'Closed continuation code closure required');
+}
+export function observeContinuation(b,phase){
+ validateContinuation(b);for(const f of b.pins)readStable(f.path,f.sha256);const prior=JSON.parse(readStable(originalPlan,originalSha));
+ const records=Object.fromEntries(Object.entries(b.completed).map(([n,h])=>[n,readStable(path.join(originalEvidence,n),h)]));assertCompletedPrefix(records['RECOVERY_STAGES.jsonl'].toString().trim().split('\n').map(JSON.parse),JSON.parse(records['RECOVERY_FINISHED.json']),JSON.parse(records['TRANSPORT_FINISHED.json']));
+ const current=observeRecoveryContext(prior,originalSha,'failure-containment');assert.equal(current.drain,null);assert.equal(current.desiredSha256,b.desiredSha256);assert.equal(current.desired.desiredState,'running');
+ const worker=JSON.parse(readStable(receipt,b.workerReceiptSha256));assert.equal(worker.supervisorPid,36568);assert.equal(worker.supervisorCreationDate,'2026-10-12T05:50:55.3639870Z');assert.equal(worker.manifestSha256,fixed.workerSha256);
+ if(phase==='before-remove'){assert.deepEqual(current.marker,makeRecoveryMarker(originalSha));readStable(marker,b.markerSha256);}else if(phase==='after-remove'){assert.equal(current.marker,null);}else assert.equal(phase,'failure');
+ return{status:'exact-continuation-context',phase,workerSupervisorPid:worker.supervisorPid,workerReceiptSha256:b.workerReceiptSha256,originalWalCount:49,originalWalHead:fixed.walHead,markerPresent:current.marker!==null,drainAbsent:true};
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){try{assert.equal(process.argv.length,5);const [file,sha,phase]=process.argv.slice(2);const b=JSON.parse(readStable(file,sha));console.log(JSON.stringify(observeContinuation(b,phase)))}catch(e){console.error(JSON.stringify({status:'rejected',error:e.message}));process.exitCode=1;}}
+
+
+FILE docs/startup-recovery-continuation-20261012/Invoke-RecoveryContinuation.ps1 SHA 4d5cdbf6be8a5f10c1d9a6feffb38300373c78ddc7429e379602576e1d124afa
+param([string]$BindingPath,[string]$BindingSha256)
+$ErrorActionPreference='Stop';Set-StrictMode -Version Latest
+$bindingRaw=[IO.File]::ReadAllBytes($BindingPath);$h=[Security.Cryptography.SHA256]::Create();try{$digest=([BitConverter]::ToString($h.ComputeHash($bindingRaw))).Replace('-','').ToLowerInvariant()}finally{$h.Dispose()};if($digest -cne $BindingSha256){throw 'Continuation binding changed'}
+$binding=[Text.UTF8Encoding]::new($false,$true).GetString($bindingRaw)|ConvertFrom-Json -DateKind String
+$originalPath='E:\codex-artifacts\startup-recovery-integration-20261012\RECOVERY_PLAN_FINAL_V1.json'
+$old=[IO.File]::ReadAllText($originalPath)|ConvertFrom-Json -DateKind String
+# The old plan bytes remain unchanged. This operational view selects only the
+# separately approved corrected diagnostic candidate, never a new stop prefix.
+$old.fixed.bundleId=$binding.diagnosticPlan.bundleId;$old.watchdogPlan=$binding.diagnosticPlan
+$module=Import-Module (Join-Path $PSScriptRoot '../startup-recovery-integration-20261012/startup-recovery-operations.psm1') -PassThru -Force
+Initialize-StartupRecoveryOperations $old $originalPath 'dc4f2de71423097a53f26b37e4a10bdd6ee541f9aef3c8b9005c068239a7a5c2'
+& $module {
+ param($binding,$bindingPath,$bindingSha,$contextPath,$removePath)
+ . $removePath -FunctionsOnly
+ $lease=$null;$owned=$false;$removed=$false;$stage='context';$deadline=Get-ProcessDeadline 1800000
+ $log=[IO.File]::Open((Join-Path $binding.outputRoot 'CONTINUATION_STAGES.jsonl'),'CreateNew','Write','Read')
+ function Record-Continuation($kind,$stage,$value){$b=[Text.UTF8Encoding]::new($false).GetBytes((@{kind=$kind;stage=$stage;at=[DateTimeOffset]::UtcNow.ToString('o');details=$value}|ConvertTo-Json -Depth 12 -Compress)+[Environment]::NewLine);$log.Write($b,0,$b.Length);$log.Flush($true)}
+ function Assert-ContinuationContext($phase){Invoke-RecoveryCapture $script:recovery.node @($contextPath,$bindingPath,$bindingSha,$phase) $deadline ('continuation-context-'+$phase)}
+ try{
+  $lease=New-StartupRecoveryLease;$owned=Enter-StartupRecoveryLease $lease;if(-not $owned){throw 'Watchdog recovery busy'};Assert-StartupRecoveryLease $lease
+  $before=Assert-ContinuationContext 'before-remove';Record-Continuation 'passed' 'before-context' $before
+  & $script:recovery.backend {Assert-RuntimeRootAclHardened}
+  # The new driver preserves original backend/Worker ownership predicates. An
+  # own maintenance gate may suppress HTTP readiness; it does not authorize
+  # clearing unknown process ownership or missing component receipts.
+  $status=& $script:recovery.watch {$selected=Resolve-WatchStatusControl;Invoke-WatchScript $selected.path @('-Action','Status','-Json')}
+  if($status.backendState -cne 'Ready' -or $status.workerState -cne 'exact_release' -or $status.supervisorProcessId -ne 36568 -or $status.releaseId -cne '20261011T090355Z-21c2645a63247749'){throw 'Current original-start ownership not ready'}
+  $names=@('core','finance','netshop','market','products','workflow','inventory','customerService','accessControl','erpReference','bi','ai');if(@($status.components.PSObject.Properties).Count -ne 12){throw 'Missing components'};foreach($n in $names){if($status.components.$n -isnot [bool] -or $status.components.$n -cne $true){throw 'Current component not ready'}}
+  Record-Continuation 'passed' 'new-owned-stack' $status
+  $null=Assert-ContinuationContext 'before-remove';Assert-StartupRecoveryLease $lease;[void](Get-ProcessRemaining $deadline)
+  $stage='remove-exact-own-failure-marker';$removed=$true
+  $result=Remove-ExactOwnedRepairMarker 'D:\teruisi-runtime\django-sales\run\system-maintenance.json' $binding.markerSha256
+  if(Test-Path -LiteralPath 'D:\teruisi-runtime\django-sales\run\system-maintenance.json'){throw 'Own marker did not disappear'}
+  $null=Assert-ContinuationContext 'after-remove';Record-Continuation 'passed' $stage $result
+  foreach($stage in @('restore-supervisor','verify-ready','install-diagnostic','verify-installation')){
+   [void](Get-ProcessRemaining $deadline);Assert-StartupRecoveryLease $lease;$null=Assert-ContinuationContext 'after-remove';Record-Continuation 'started' $stage $null
+   $value=Invoke-StartupRecoveryBoundStage $stage $script:recovery.plan $deadline;Assert-StartupRecoveryStageResult $stage $value $script:recovery.plan;Record-Continuation 'passed' $stage $value
+  }
+  @{status='remaining-recovery-completed';prefixReplayed=$false;naturalAcceptancePending=$true;batchReconciled=$false}|ConvertTo-Json -Compress
+ }catch{
+  $original=$_;$containment=$null;if($removed){try{$containment=Confirm-StartupRecoveryFailureFence $script:recovery.plan $true}catch{$original.Exception.Data['ContainmentFailure']=$_.Exception.Message}}
+  try{Record-Continuation 'failed' $stage @{error=$original.Exception.Message;containment=$containment;noPrefixReplay=$true}}catch{$original.Exception.Data['EvidenceSaveFailure']=$_.Exception.Message};throw $original
+ }finally{if($owned){Exit-StartupRecoveryLease $lease};if($lease){Close-StartupRecoveryLease $lease};$log.Dispose()}
+} $binding $BindingPath $BindingSha256 (Join-Path $PSScriptRoot 'continuation-context.mjs') (Join-Path $PSScriptRoot '../startup-status-receipt-safety-20261012/Remove-ExactRepairFence.ps1')
+
+
+FILE docs/startup-recovery-continuation-20261012/run-continuation.mjs SHA 081c053a6036a821030fb82dc64793c57133fa0130495c202292b011cffd7a05
+import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import {spawn} from 'node:child_process';import {fileURLToPath,pathToFileURL} from 'node:url';
+const own=path.dirname(fileURLToPath(import.meta.url)),hash=b=>createHash('sha256').update(b).digest('hex');function read(p,h){const a=fs.lstatSync(p,{bigint:true});assert(a.isFile()&&!a.isSymbolicLink());const special=path.resolve(p).toLowerCase()===path.resolve('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe').toLowerCase();assert.equal(a.nlink,special?2n:1n);if(special)assert.equal(h,'7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5');for(let q=path.resolve(p);;q=path.dirname(q)){assert(!fs.lstatSync(q).isSymbolicLink());assert.equal(fs.realpathSync(q).toLowerCase(),q.toLowerCase());if(q===path.dirname(q))break;}const b=fs.readFileSync(p),z=fs.lstatSync(p,{bigint:true});for(const k of ['dev','ino','nlink','size','mtimeNs','ctimeNs'])assert.equal(a[k],z[k]);assert.equal(hash(b),h);return b;}
+assert.equal(process.argv.length,4);assert(!Object.keys(process.env).some(k=>/^NODE_|^TERUISI_.*(?:LIBRARY_ONLY|FUNCTIONS_ONLY)$/i.test(k)));const [file,sha]=process.argv.slice(2),b=JSON.parse(read(file,sha));for(const f of b.pins)read(f.path,f.sha256);
+const context=await import(pathToFileURL(path.join(own,'continuation-context.mjs')));context.observeContinuation(b,'before-remove');
+const boot='D:/.codex/worktrees/startup-recovery-integration/运营管理系统/docs/startup-status-receipt-safety-20261012/fence-original-bootstrap.mjs';const raw=read(boot,'13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25');const {bootstrapReconciliation}=await import('data:text/javascript;base64,'+raw.toString('base64'));const {api,verifyPins}=await bootstrapReconciliation('E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json','f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f');
+await api.withRotationLock(async()=>{await verifyPins();context.observeContinuation(b,'before-remove');const out=fs.openSync(b.outputRoot+'/CONTINUATION_STDOUT.json','wx'),err=fs.openSync(b.outputRoot+'/CONTINUATION_STDERR.log','wx');try{const host='C:/Users/86137/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe';read(host,'362a356ce7f0940ec74f73a8fc2c990a2cc24a38a11c90bbd8eca947110ad139');const argv=['-NoProfile','-NonInteractive','-File',path.join(own,'Invoke-RecoveryContinuation.ps1'),'-BindingPath',file,'-BindingSha256',sha];const child=spawn(host,argv,{cwd:b.outputRoot,windowsHide:true,env:{...process.env,TERUISI_PROCESS_DEADLINE_UNIX_MS:String(Date.now()+1800000)},stdio:['ignore',out,err]});const done=new Promise(resolve=>{child.once('error',e=>resolve({exitCode:null,errorCode:e.code}));child.once('close',(exitCode,signal)=>resolve({exitCode,signal}))});fs.writeFileSync(b.outputRoot+'/CONTINUATION_STARTED.json',JSON.stringify({at:new Date().toISOString(),processId:child.pid,bindingSha256:sha,originalPlanSha256:context.originalSha,prefixReplay:false})+'\n',{flag:'wx'});const result=await done;fs.writeFileSync(b.outputRoot+'/CONTINUATION_FINISHED.json',JSON.stringify({at:new Date().toISOString(),...result,stdoutSha256:hash(fs.readFileSync(b.outputRoot+'/CONTINUATION_STDOUT.json')),stderrSha256:hash(fs.readFileSync(b.outputRoot+'/CONTINUATION_STDERR.log'))})+'\n',{flag:'wx'});if(result.exitCode!==0)process.exitCode=1;}finally{fs.closeSync(out);fs.closeSync(err);}});
+
+
+FILE docs/startup-recovery-continuation-20261012/prepare-continuation-package.mjs SHA c27c6c894d05c94550e46aba1de6906ecf76d28efd39755bdae5a098f28bd91a
+import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import assert from 'node:assert/strict';
+import {hash,readStable} from '../startup-recovery-integration-20261012/recovery-context.mjs';import {originalPlan,originalSha,originalEvidence,receipt,assertCompletedPrefix,observeContinuation} from './continuation-context.mjs';
+const own=path.dirname(fileURLToPath(import.meta.url)),e='E:/codex-artifacts/startup-recovery-continuation-20261012';const prior=JSON.parse(readStable(originalPlan,originalSha));const currentPlan=JSON.parse(readStable(e+'/WATCHDOG_PLAN_V3.json'));assert.equal(currentPlan.status,'original-plan-prepared');
+const completed=Object.fromEntries(['RECOVERY_STAGES.jsonl','RECOVERY_FINISHED.json','TRANSPORT_FINISHED.json'].map(n=>[n,hash(readStable(path.join(originalEvidence,n)))]));
+assertCompletedPrefix(JSON.parse('['+readStable(originalEvidence+'/RECOVERY_STAGES.jsonl').toString().trim().split('\n').join(',')+']'),JSON.parse(readStable(originalEvidence+'/RECOVERY_FINISHED.json')),JSON.parse(readStable(originalEvidence+'/TRANSPORT_FINISHED.json')));
+const map=new Map();function add(p,h){p=path.resolve(p);const actual=hash(readStable(p,h));const k=p.toLowerCase();if(map.has(k))assert.equal(map.get(k).sha256,actual);map.set(k,{path:p,sha256:actual});}for(const p of prior.pins)add(p.path,p.sha256);
+for(const n of ['continuation-context.mjs','Invoke-RecoveryContinuation.ps1','Restore-RecoverySupervisorV3.ps1','run-continuation.mjs','prepare-continuation-package.mjs'])add(path.join(own,n));
+for(const n of ['startup-recovery-operations.psm1','recovery-context.mjs'])add(path.resolve(own,'../startup-recovery-integration-20261012',n));add(path.resolve(own,'../startup-status-receipt-safety-20261012/Remove-ExactRepairFence.ps1'),'472d5b01e811cc63f891c7681fd96e6025c2f1f03944c6f19e2a6a5a80ec0fa0');
+for(const n of ['startup-exact-instance-policy.mjs','startup-exact-instance-stop.ps1','startup-recovery-sequence.ps1','watchdog-native-metadata.ps1','process-deadline.ps1'])add(path.resolve(own,'../../tools',n));for(const [n,h]of Object.entries(currentPlan.plan.files))add(path.join(e,'native-watchdog-source-v3',n),h);
+const b={version:'startup-recovery-continuation-v1',originalPlanSha256:originalSha,markerSha256:'a23fb062130f2a65f3ee127f7eb666d5545ae92e59c2c18fc5a6a5996b4b645e',completed,workerReceiptSha256:hash(readStable(receipt)),desiredSha256:hash(readStable('D:/teruisi-runtime/django-sales/run/django-supervisor-desired-state.json')),remaining:['restore-supervisor','verify-ready','install-diagnostic','verify-installation'],pins:[...map.values()].sort((a,b)=>a.path.localeCompare(b.path)),outputRoot:e+'/approved-continuation-v1',diagnosticPlan:currentPlan.plan};observeContinuation(b,'before-remove');const raw=Buffer.from(JSON.stringify(b,null,2)+'\n');fs.writeFileSync(e+'/CONTINUATION_PACKAGE_V1.json',raw,{flag:'wx'});console.log(JSON.stringify({sha256:hash(raw),pins:b.pins.length,remaining:b.remaining,productionApproved:false,oldPlanUnchanged:true}));
+
+
+FILE docs/startup-recovery-continuation-20261012/Restore-RecoverySupervisorV3.ps1 SHA 00d3398eb4c105c038518a091d4a8b1db181d68bdc9cd5999c65e0f6309bfdd9
+﻿function Restore-RecoverySupervisor {
+  $name='Local\TERUISI-DjangoSales-'+([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($BackendRoot))).ToLowerInvariant()).Substring(0,24)
+  $guard=[Threading.Mutex]::new($false,$name);$locked=$false
+  try {
+  try{$locked=$guard.WaitOne(0)}catch [Threading.AbandonedMutexException]{$locked=$true}
+  if(-not $locked){throw 'django_lifecycle_busy'}
+  $admission=Get-Admission;if($admission.mode -ne 'running'){throw 'supervisor_start_fenced'}
+  $status=Invoke-WatchScript 'E:\codex-artifacts\startup-recovery-continuation-20261012\native-watchdog-source-v3\watchdog-status-backend.ps1' @('-Action','Status','-DiagnosticTarget','Supervisor')
+  if($status.supervisorProcess -eq 'running'){return}
+  if($status.supervisorProcess -ne 'stopped'){throw 'supervisor_ownership_error'}
+  $old=$env:PSModulePath
+  try{
+    $env:PSModulePath=[Environment]::GetEnvironmentVariable('PSModulePath','Machine')
+    $id=[guid]::NewGuid().ToString('N')
+    [void](Get-ProcessRemaining $RecoverySupervisorDeadline)
+    $savedSupervisorTransportDeadline=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
+    try {
+      [Environment]::SetEnvironmentVariable('TERUISI_PROCESS_DEADLINE_UNIX_MS',$null,'Process')
+    Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -WindowStyle Hidden -WorkingDirectory $BackendRoot -ArgumentList @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$SupervisorPath,'-Action','Run','-Execute') -RedirectStandardOutput (Join-Path $WatchdogRoot "supervisor-$id.out.log") -RedirectStandardError (Join-Path $WatchdogRoot "supervisor-$id.err.log")|Out-Null
+    } finally { [Environment]::SetEnvironmentVariable('TERUISI_PROCESS_DEADLINE_UNIX_MS',$savedSupervisorTransportDeadline,'Process') }
+  }finally{$env:PSModulePath=$old}
+  } finally {if($locked){$guard.ReleaseMutex()};$guard.Dispose()}
+}
+
+FILE docs/startup-recovery-integration-20261012/startup-recovery-operations.psm1 SHA 9a30b4a23001ad7e634af84058338cc25ae877154bd3011003e854a950ed606a
+# Fixed operations module. Load only after the approved plan and complete source
+# closure are verified/held by the external bootstrap. No dispatch on import.
+Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot '../../tools/startup-exact-instance-stop.ps1')
+. (Join-Path $PSScriptRoot '../../tools/startup-recovery-sequence.ps1')
+$script:recovery=$null
+function Initialize-StartupRecoveryOperations([object]$Plan,[string]$PlanPath,[string]$PlanSha256) {
+ if($null -ne $script:recovery){throw 'One recovery per process'}
+ $id=[Security.Principal.WindowsIdentity]::GetCurrent()
+ if($id.User.Value -cne 'S-1-5-21-815909789-107973518-1379257801-1001' -or -not ([Security.Principal.WindowsPrincipal]::new($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Exact approved administrator required'}
+ if($PSVersionTable.PSVersion.Major -lt 7){throw 'Original watchdog requires PowerShell 7'}
+ $candidate='E:\codex-artifacts\startup-recovery-continuation-20261012\native-watchdog-source-v3'
+ $django='D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1'
+ $script:recovery=@{plan=$Plan;path=$PlanPath;sha=$PlanSha256;candidate=$candidate;django=$django;thread=[Threading.Thread]::CurrentThread.ManagedThreadId;node='C:\Program Files\nodejs\node.exe';ps='C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe';worker='D:\运营管理系统\tools\worker-local-service.ps1';context=Join-Path $PSScriptRoot 'recovery-context.mjs';completed=@{}}
+ # Scope isolation is essential: both original scripts define Action/Execute.
+ $script:recovery.watch=New-Module -ArgumentList $candidate,$Plan.watchdogPlan.planId,(Join-Path $PSScriptRoot '../startup-recovery-continuation-20261012/Restore-RecoverySupervisorV3.ps1') -ScriptBlock {
+  param($dir,$approved,$supplement)
+  Set-StrictMode -Off
+  . (Join-Path $dir 'operations-system-watchdog.ps1') -FunctionsOnly
+  . $supplement
+  $script:Execute=$true;$script:ApprovedInstallPlanId=$approved
+ }
+ $saved=$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
+ try{
+  $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1'
+  $script:recovery.backend=New-Module -ArgumentList $django -ScriptBlock {
+   param($source)
+   Set-StrictMode -Off
+   . $source -Action Status -RuntimeRoot 'D:\teruisi-runtime\django-sales' -MaintenanceId '12c465652dbc4b5f9f54d0b0f30eeb3a' -KeepPostgres
+  }
+ }finally{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY=$saved}
+ foreach($name in @('Invoke-StartupRecoverySequence','Get-ProcessRemaining','Invoke-DeadlineProcess','Invoke-ExactInstanceStop')){
+  if(-not(Get-Command $name -CommandType Function -ErrorAction SilentlyContinue)){throw 'Required original library unavailable'}
+ }
+}
+function New-StartupRecoveryLease { [pscustomobject]@{mutex=[Threading.Mutex]::new($false,'Local\TERUISI.Operations.Watchdog.v2');thread=[Threading.Thread]::CurrentThread.ManagedThreadId;owned=$false} }
+function Enter-StartupRecoveryLease($l){try{$l.owned=$l.mutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$l.owned=$true;$l.mutex.ReleaseMutex();$l.owned=$false;throw 'Abandoned watchdog lease requires inspection'};return $l.owned}
+function Assert-StartupRecoveryLease($l){if(-not $l.owned -or $l.thread -ne [Threading.Thread]::CurrentThread.ManagedThreadId -or $script:recovery.thread -ne $l.thread){throw 'Recovery thread/lease changed'}}
+function Exit-StartupRecoveryLease($l){$l.mutex.ReleaseMutex();$l.owned=$false}
+function Close-StartupRecoveryLease($l){$l.mutex.Dispose()}
+function Invoke-RecoveryCapture([string]$Executable,[string[]]$Arguments,[long]$Deadline,[string]$Label){
+ $r=Invoke-DeadlineProcess -Executable $Executable -Arguments $Arguments -WorkingDirectory $script:recovery.plan.evidenceRoot -Deadline $Deadline -Cleanup Preserve -MaxOutputBytes 2097152
+ $safe=@{label=$Label;process=$r.Evidence;stdoutSha256=Get-StopTextHash $r.Stdout;stderrSha256=Get-StopTextHash $r.Stderr}
+ $name=Join-Path $script:recovery.plan.evidenceRoot ($Label+'-'+[guid]::NewGuid().ToString('N')+'.json')
+ $f=[IO.File]::Open($name,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+ try{$b=[Text.UTF8Encoding]::new($false).GetBytes(($safe|ConvertTo-Json -Depth 10 -Compress));$f.Write($b,0,$b.Length);$f.Flush($true)}finally{$f.Dispose()}
+ if($r.ExitCode -ne 0){throw "Original operation rejected: $Label"}
+ if(-not $r.Stdout.TrimStart().StartsWith('{')){throw "Non-object original output: $Label"}
+ $value=$r.Stdout|ConvertFrom-Json -DateKind String -ErrorAction Stop
+ if($value -isnot [pscustomobject]){throw "Invalid original output: $Label"}
+ return $value
+}
+function Assert-StartupRecoveryContext($Plan,[string]$Stage){
+ $deadline=[Math]::Min((Get-ProcessDeadline),[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()+30000)
+ $null=Invoke-RecoveryCapture $script:recovery.node @($script:recovery.context,'inspect',$script:recovery.path,$script:recovery.sha,$Stage) $deadline ('context-'+$Stage)
+ & $script:recovery.backend {Assert-RuntimeRootAclHardened}
+}
+function Invoke-RecoveryWorker([string]$Action,[long]$Deadline){
+ $a=@('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$script:recovery.worker,'-Action',$Action,'-Json')
+ if($Action -cin @('EnterMaintenance','ExitMaintenance')){$a+=@('-MaintenanceId','12c465652dbc4b5f9f54d0b0f30eeb3a')}
+ if($Action -ceq 'EnterMaintenance'){$a+='-KeepPostgres'}
+ $oldModules=$env:PSModulePath
+ try{$env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules';Invoke-RecoveryCapture $script:recovery.ps $a $Deadline ('worker-'+$Action)}finally{$env:PSModulePath=$oldModules}
+}
+function Convert-ApprovedStopTargets([object[]]$Targets){
+ foreach($t in $Targets){
+  if(($t.depth -isnot [int] -and $t.depth -isnot [long]) -or $t.depth -lt 0 -or $t.depth -gt 16){throw 'Non-integer or out-of-range JSON stop depth'}
+  # PS7 JSON uses Int64. Normalize only this already validated scalar; never
+  # coerce strings, booleans, floating values or arrays into the core contract.
+  $t.depth=[int]$t.depth
+ }
+ return ,$Targets
+}
+function Assert-RecoveryServiceReadiness($r){
+ $controllerHealth=$null
+ $controllerHealthPresent=$false
+ if($r -is [Collections.IDictionary]){if($r.Contains('controllerHealthValid')){$controllerHealthPresent=$true;$controllerHealth=$r['controllerHealthValid']}}
+ elseif($r -is [pscustomobject]){$property=$r.PSObject.Properties['controllerHealthValid'];if($null -ne $property){$controllerHealthPresent=$true;$controllerHealth=$property.Value}}
+ else{throw 'Application readiness must be an object'}
+ if($controllerHealthPresent -and $controllerHealth -isnot [bool]){throw 'Optional controller health must be a boolean'}
+ if($r.probeError -isnot [bool] -or $r.probeError -cne $false -or $r.system -cne 'Running' -or $r.backend -cne 'Ready' -or $r.worker -cne 'exact_release' -or $controllerHealth -ceq $false -or $r.components.Count -ne 12 -or @($r.components.Values|Where-Object {$_ -isnot [bool] -or $_ -cne $true}).Count -ne 0 -or $r.probes.Count -ne 4 -or @($r.probes.Values|Where-Object {$_.ok -isnot [bool] -or $_.ok -cne $true}).Count -ne 0){throw 'Application must be ready before restoring its supervisor'}
+}
+function Invoke-StartupRecoveryBoundStage([string]$Stage,$Plan,[long]$Deadline){
+ switch -CaseSensitive ($Stage){
+  'preflight' {
+   & $script:recovery.backend {Assert-DeployedApplication;Assert-RuntimeAclHardened}
+   $declared=Invoke-RecoveryCapture $script:recovery.node @($script:recovery.context,'targets',$script:recovery.path,$script:recovery.sha,$Stage) $Deadline 'stop-declaration'
+   $script:recovery.targets=Convert-ApprovedStopTargets @($declared.targets)
+   $actorPath='D:\.codex\worktrees\startup-status-receipt-safety\运营管理系统\docs\startup-status-receipt-safety-20261012\Observe-LegacyStatusActors.ps1'
+   $savedModules=$env:PSModulePath
+   try{$env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules';$actors=Invoke-RecoveryCapture $script:recovery.ps @('-NoProfile','-NonInteractive','-File',$actorPath) $Deadline 'legacy-actors'}finally{$env:PSModulePath=$savedModules}
+   if($actors.version -cne 'ordinary-legacy-actor-observation-v1' -or $actors.unknown -ne 0 -or @($actors.rows|Where-Object {$_.identityComplete -cne $true -or $_.controllerReferenced -or $_.supervisorReferenced -or $_.explicitStatusOrPanel}).Count -ne 0){throw 'Observed legacy status actor or unknown metadata blocks recovery'}
+   # This bounded observer does not establish absence of encoded or other
+   # executable actors; the approval scope must retain that limitation.
+   $p=& $script:recovery.watch {Get-WatchInstallPlan}
+   if($p.planId -cne $Plan.watchdogPlan.planId -or $p.bundleId -cne $Plan.fixed.bundleId){throw 'Actual install plan changed'}
+   return @{stage=$Stage;planId=$p.planId;actors=$actors;continuousActorExclusion=$false}
+  }
+  'create-intent' {
+   return Invoke-RecoveryCapture $script:recovery.node @($script:recovery.context,'create',$script:recovery.path,$script:recovery.sha,$Stage) $Deadline $Stage
+  }
+  'await-drain' {
+   $seconds=[int][Math]::Min(900,[Math]::Floor((Get-ProcessRemaining $Deadline)/1000))
+   if($seconds -lt 1){throw 'Insufficient common deadline for original drain'}
+   return & $script:recovery.backend {
+    param([int]$BudgetSeconds)
+    Invoke-WithServiceMutex {
+     Assert-DeployedApplication;Assert-RuntimeAclHardened
+     $record=Read-SystemMaintenance
+     if(-not $record -or $record.id -cne $MaintenanceId -or $record.keepPostgres -cne $true){throw 'Own maintenance intent missing'}
+     Wait-AutomationDrain -TimeoutSeconds $BudgetSeconds
+     Invoke-AutomationPgDrainFence {Invoke-BackupConsoleMaintenanceFence {}}
+     $gate=Read-AutomationDrain
+     if(-not $gate -or $gate.id -cne $MaintenanceId -or $gate.phase -cne 'requests'){throw 'Original drain did not close admission'}
+     @{stage='await-drain';id=$gate.id;phase=$gate.phase;keepPostgres=$gate.keepPostgres}
+    }
+   } $seconds
+  }
+  'stop-declared-instances' {return Invoke-ExactInstanceStop $script:recovery.targets (Join-Path $Plan.evidenceRoot 'EXACT_STOP.jsonl') $Deadline}
+  'enter-stopped-maintenance' {return Invoke-RecoveryWorker 'EnterMaintenance' $Deadline}
+  'exit-stopped-maintenance' {return Invoke-RecoveryWorker 'ExitMaintenance' $Deadline}
+  'start-original-stack' {return Invoke-RecoveryWorker 'Start' $Deadline}
+  'restore-supervisor' {
+   $services=& $script:recovery.watch {Get-WatchSnapshot}
+   Assert-RecoveryServiceReadiness $services
+   & $script:recovery.watch {param([long]$d);$RecoverySupervisorDeadline=$d;Restore-RecoverySupervisor} $Deadline
+   return @{status='supervisor-restoration-requested';readinessPending=$true;originalRunSemanticsPreserved=$true}
+  }
+  'verify-ready' {return & $script:recovery.watch {Get-WatchSnapshot}}
+  'install-diagnostic' {return & $script:recovery.watch {param($dir);Install-WatchdogSafely $dir} $script:recovery.candidate}
+  'verify-installation' {
+   return & $script:recovery.watch {
+    $i=Read-WatchJson (Join-Path $WatchdogRoot 'installation.json')
+    if($i.bundleId -cne '0b8566624e19e44bdc4f556fb9f0baa541d3f35dbf695c00d06b00ba16de9abb'){throw 'Installed diagnostic differs'}
+    $dir=Join-Path $WatchdogRoot ('versions\'+$i.bundleId);Assert-WatchBundle $dir $i
+    $task=Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+    $argv='"'+$PowerShellPath+'" "'+(Join-Path $dir 'operations-system-watchdog.ps1')+'"'
+    if(-not(Test-WatchTaskAction $task (Join-Path $dir 'Watchdog.NoConsole.exe') $argv $WatchdogRoot)){throw 'Installed task action differs'}
+    @{status='diagnostic-installation-verified';bundleId=$i.bundleId;naturalAcceptancePending=$true}
+   }
+  }
+  default {throw 'Unknown fixed recovery stage'}
+ }
+}
+function Assert-StartupRecoveryStageResult([string]$Stage,$Result,$Plan){
+ if($null -eq $Result -or ($Result -isnot [pscustomobject] -and $Result -isnot [Collections.IDictionary]) -or $Result -is [array]){throw 'Missing/ambiguous stage result'}
+ switch -CaseSensitive($Stage){
+  'preflight' {if($Result.planId -cne $Plan.watchdogPlan.planId){throw 'Plan mismatch'}}
+  'create-intent' {if($Result.status -cne 'own-maintenance-created' -or $Result.drainedStopped -isnot [bool] -or $Result.drainedStopped -cne $false){throw 'Intent mismatch'}}
+  'await-drain' {if($Result.phase -cne 'requests' -or $Result.id -cne $Plan.fixed.repairId -or $Result.keepPostgres -isnot [bool] -or $Result.keepPostgres -cne $true){throw 'Drain mismatch'}}
+  'stop-declared-instances' {if($Result.status -cne 'declared-instances-exited' -or ($Result.count -isnot [int] -and $Result.count -isnot [long]) -or $Result.count -ne $script:recovery.targets.Count){throw 'Declared stop incomplete'}}
+  'enter-stopped-maintenance' {if($Result.status -cne 'maintenance' -or $Result.maintenanceId -cne $Plan.fixed.repairId -or $Result.backendStopped -isnot [bool] -or $Result.postgresPreserved -isnot [bool] -or $Result.backendStopped -cne $true -or $Result.postgresPreserved -cne $true){throw 'Stopped maintenance incomplete'}}
+  'exit-stopped-maintenance' {if($Result.status -cne 'maintenance_ended' -or $Result.maintenanceId -cne $Plan.fixed.repairId){throw 'Exit incomplete'}}
+  'start-original-stack' {if($Result.status -cne 'started' -or $Result.manifestSha256 -cne $Plan.fixed.workerSha256){throw 'Original fresh start incomplete'}}
+  'restore-supervisor' {if($Result.status -cne 'supervisor-restoration-requested' -or $Result.readinessPending -isnot [bool] -or $Result.readinessPending -cne $true){throw 'Supervisor restoration request incomplete'}}
+  'verify-ready' {if($Result.healthy -isnot [bool] -or $Result.healthy -cne $true -or $Result.diagnosticMode -cne 'readonly_driver'){throw 'New diagnostic readiness incomplete'}}
+  'install-diagnostic' {if($Result.status -cne 'installed' -or $Result.planId -cne $Plan.watchdogPlan.planId -or $Result.bundleId -cne $Plan.fixed.bundleId){throw 'Install incomplete'}}
+  'verify-installation' {if($Result.status -cne 'diagnostic-installation-verified' -or $Result.bundleId -cne $Plan.fixed.bundleId){throw 'Installation readback incomplete'}}
+  default {throw 'Unknown stage result'}
+ }
+}
+function Confirm-StartupRecoveryFailureFence($Plan,[bool]$MaintenanceExited){
+ # Fresh bounded containment independent of an exhausted normal-operation clock.
+ $deadline=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()+30000
+ $saved=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
+ try{
+  $env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string]$deadline
+  & $script:recovery.backend {Assert-RuntimeRootAclHardened}
+  Invoke-RecoveryCapture $script:recovery.node @($script:recovery.context,'contain',$script:recovery.path,$script:recovery.sha,'failure-containment') $deadline 'failure-containment'
+ }finally{$env:TERUISI_PROCESS_DEADLINE_UNIX_MS=$saved}
+}
+function Invoke-InitializedStartupRecovery {
+ if($null -eq $script:recovery){throw 'Approved recovery has not been initialized'}
+ Invoke-StartupRecoverySequence $script:recovery.plan (Join-Path $script:recovery.plan.evidenceRoot 'RECOVERY_STAGES.jsonl') (Get-ProcessDeadline $script:recovery.plan.deadlineMs)
+}
+Export-ModuleMember -Function Initialize-StartupRecoveryOperations,Invoke-InitializedStartupRecovery
+
+
+FILE tools/prepare-watchdog-native-status-driver.mjs SHA e17567e2a2eb29c060043b110d08f01eac538486834b34ba256e7e5eeae2366e
+import {readFile,writeFile} from 'node:fs/promises';
+import path from 'node:path';import {fileURLToPath} from 'node:url';import {createHash} from 'node:crypto';
+import {prepareStatusDriver} from './prepare-watchdog-status-driver.mjs';
+const hash=x=>createHash('sha256').update(x).digest('hex');
+const quote=x=>"'"+x.replaceAll("'","''")+"'";
+function once(text,from,to){if(!text.includes(from)||text.indexOf(from)!==text.lastIndexOf(from))throw Error('native_diagnostic_source_shape_changed');return text.replace(from,()=>to);}
+export function body(text,name){const at=text.indexOf('function '+name+'(');if(at<0)throw Error('missing_function_'+name);const end=text.indexOf('\nfunction ',at+1);if(end<0)throw Error('unbounded_function_'+name);return text.slice(at,end);}
+export function readonlyBodies(backend,worker){
+ const resolver=body(backend,'Resolve-OwnedProcess'),workerStatus=body(worker,'Get-WorkerStatusInternal');
+ const newline=resolver.includes('\r\n')?'\r\n':'\n';
+ const edits=[
+  ['  [string]$ExpectedFingerprint = ""','  [string]$ExpectedFingerprint = "",'+newline+'  [switch]$ReadOnly'],
+  ['  $snapshot = Get-ProcessSnapshot $processId 1','  $snapshot = Get-ReadonlyDiagnosticSnapshot $processId 1'],
+  ['    Remove-Item -LiteralPath $PidPath -Force'+newline+'    Write-LauncherEvent "WARN" "stale_process_record_removed" $PidPath','    # Diagnostic absence never deletes the ownership record.'],
+  ['    if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt) {'+newline+'      return $null'+newline+'    }','    # Diagnostic mismatch never invokes previous-boot cleanup.'],
+ ];
+ let readResolver=resolver;for(const [from,to]of edits)readResolver=once(readResolver,from,to);
+ const workerFrom='$processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)',workerTo='$processes = @(Get-ReadonlyWorkerCensus $Identity)';
+ const readWorker=once(workerStatus,workerFrom,workerTo);
+ let reverted=readResolver;for(const [from,to]of [...edits].reverse())reverted=once(reverted,to,from);
+ if(reverted!==resolver||once(readWorker,workerTo,workerFrom)!==workerStatus)throw Error('original_predicate_changed');
+ return {readResolver,readWorker,proof:{backend:{originalBodySha256:hash(resolver),generatedBodySha256:hash(readResolver),revertedExact:true,edits},worker:{originalBodySha256:hash(workerStatus),generatedBodySha256:hash(readWorker),revertedExact:true,edits:[[workerFrom,workerTo]]}}};
+}
+export async function prepareNativeStatusDriver(options){
+ const [backend,worker,native]=await Promise.all([readFile(options.backendFile,'utf8'),readFile(options.workerFile,'utf8'),readFile(options.nativeTemplateFile??new URL('./watchdog-native-metadata.ps1',import.meta.url),'utf8')]);
+ const bodies=readonlyBodies(backend,worker);
+ const binding=await prepareStatusDriver(options);
+ const output=options.outputDirectory,controlPath=path.join(output,'watchdog-status-control.ps1'),overlayPath=path.join(output,'watchdog-core-overlay.ps1');
+ let control=await readFile(controlPath,'utf8');
+ control=once(control,'$releaseStatus = Invoke-JsonServiceAction -ScriptPath $LocalWorkerStarter -Arguments @("-Action", "Status") -Label',
+  '$releaseStatus = Invoke-JsonServiceAction -ScriptPath (Join-Path $PSScriptRoot "watchdog-status-backend.ps1") -Arguments @("-Action", "Status", "-DiagnosticTarget", "Worker") -Label');
+ const overlay=(await readFile(overlayPath,'utf8'))+'\n'+native.replace(/^\ufeff/,'')+'\n'+bodies.readResolver+'\n'+bodies.readWorker+'\n';
+ const wrapper=`[CmdletBinding()]
+param([ValidateSet('Status','AggregateStatus')][string]$Action='Status',[switch]$Json,[ValidateSet('Backend','Worker')][string]$DiagnosticTarget='Backend')
+$ErrorActionPreference='Stop'
+$diagnosticRequestedAction=$Action
+if($DiagnosticTarget -eq 'Worker' -and $Action -ne 'Status'){throw 'readonly_worker_status_only'}
+$diagnosticBackend=${quote(options.backendFile)}
+$diagnosticWorker=${quote(options.workerFile)}
+$diagnosticRoot=${quote(path.dirname(path.dirname(path.dirname(options.backendFile))))}
+$diagnosticBinding=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'driver-binding.json') -Raw|ConvertFrom-Json
+function Assert-NativeDiagnosticSources {
+ if((Get-FileHash -LiteralPath $diagnosticBackend -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.backend -or
+    (Get-FileHash -LiteralPath $diagnosticWorker -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.worker){throw 'diagnostic_predecessor_changed'}
+}
+Assert-NativeDiagnosticSources
+$diagnosticTransport=Join-Path $PSScriptRoot 'process-deadline.ps1'
+if((Get-FileHash -LiteralPath $diagnosticTransport -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.transport){throw 'diagnostic_transport_changed'}
+. $diagnosticTransport
+if($DiagnosticTarget -eq 'Worker'){
+ . $diagnosticWorker -Action Status -FunctionsOnly -Json
+ . (Join-Path $PSScriptRoot 'watchdog-core-overlay.ps1')
+ $diagnosticManifest=Get-CurrentManifestPath
+ $diagnosticIdentity=if($diagnosticManifest){Get-ManifestIdentity $diagnosticManifest}else{$null}
+ $diagnosticResult=Get-PublicStatus (Get-WorkerStatusInternal $diagnosticIdentity)
+ Assert-NativeDiagnosticSources
+ $diagnosticResult|ConvertTo-Json -Depth 8 -Compress
+}else{
+ $savedLibrary=$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
+ try{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';. $diagnosticBackend -Action Status -RuntimeRoot $diagnosticRoot -Json}finally{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY=$savedLibrary}
+ . (Join-Path $PSScriptRoot 'watchdog-core-overlay.ps1')
+ # Capability markers required by the original controller:
+ # "AggregateStatus" { Show-AggregateServiceStatus }
+ # teruisi-django-aggregate-status-v1
+ $script:Json=[switch]$true
+ $diagnosticResult=if($diagnosticRequestedAction -eq 'AggregateStatus'){Show-AggregateServiceStatus}else{Show-ServiceStatus}
+ Assert-NativeDiagnosticSources
+ $diagnosticResult
+}
+`;
+ await writeFile(controlPath,control);
+ await writeFile(overlayPath,overlay);
+ await writeFile(path.join(output,'watchdog-status-backend.ps1'),'\ufeff'+wrapper);
+ return {binding,proof:{...bodies.proof,backendSourceSha256:hash(Buffer.from(backend)),workerSourceSha256:hash(Buffer.from(worker)),nativeTemplateSha256:hash(Buffer.from(native)),controlRouting:'one fixed Worker Status target replacement; other controller predicates unchanged'},files:await Promise.all(['watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json'].map(async name=>({name,sha256:hash(await readFile(path.join(output,name)))})))};
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+ if(process.argv.length!==3)throw Error('Exact options file required');
+ console.log(JSON.stringify(await prepareNativeStatusDriver(JSON.parse(await readFile(process.argv[2],'utf8')))));
+}
+
+
+FILE tests/recovery-continuation.test.mjs SHA f04b4e9cf01bf8a89cc62d3b6d5505b329abd597cd8092cebc26deaaa5eb5a1d
+import fs from 'node:fs';import test from 'node:test';import assert from 'node:assert/strict';import {assertCompletedPrefix,validateContinuation} from '../docs/startup-recovery-continuation-20261012/continuation-context.mjs';
+const e='docs/startup-recovery-continuation-20261012/evidence/',stages=fs.readFileSync(e+'RECOVERY_STAGES.jsonl','utf8').trim().split('\n').map(JSON.parse),finished=JSON.parse(fs.readFileSync(e+'RECOVERY_FINISHED.json')),transport=JSON.parse(fs.readFileSync(e+'TRANSPORT_FINISHED.json'));
+test('actual immutable completed prefix permits only remaining continuation',()=>assertCompletedPrefix(stages,finished,transport));
+for(const [name,change]of [['omit-start',s=>s.splice(s.findIndex(x=>x.stage==='start-original-stack'&&x.kind==='passed'),1)],['extra-stop',s=>s.splice(-1,0,{stage:'stop-declared-instances',kind:'started'})],['wrong-worker',s=>s.find(x=>x.stage==='start-original-stack'&&x.kind==='passed').details.supervisorProcessId=1],['wrong-manifest',s=>s.find(x=>x.stage==='start-original-stack'&&x.kind==='passed').details.manifestSha256='0'.repeat(64)],['wrong-fence',s=>s.at(-1).details.containment.markerSha256='0'.repeat(64)],['other-failure',s=>s.at(-1).details.error='unknown'],['wrong-exit-count',s=>s.find(x=>x.stage==='stop-declared-instances'&&x.kind==='passed').details.observedExitCount=68]])test('reject prefix '+name,()=>{const copy=structuredClone(stages);change(copy);assert.throws(()=>assertCompletedPrefix(copy,finished,transport))});
+test('failed original process must really have ended, not merely started',()=>{assert.throws(()=>assertCompletedPrefix(stages,{...finished,exitCode:null},transport));assert.throws(()=>assertCompletedPrefix(stages,finished,{...transport,exitCode:0}));});
+test('closed package forbids expanded stages, foreign marker and missing source pin',()=>{const b=JSON.parse(fs.readFileSync('E:/codex-artifacts/startup-recovery-continuation-20261012/CONTINUATION_PACKAGE_V1.json'));validateContinuation(b);for(const change of [x=>x.remaining.unshift('start-original-stack'),x=>x.markerSha256='0'.repeat(64),x=>x.pins.pop(),x=>x.pins.push(x.pins[0]),x=>x.extra=true]){const x=structuredClone(b);change(x);assert.throws(()=>validateContinuation(x));}});
+
+
+FILE tests/recovery-continuation-flow.fixture.ps1 SHA 660b5da76db9eaacb32908eba267eedf339673746c0df6968d9b9c4ee7d1fbb8
+param([string]$Source,[string]$Directory)
+$ErrorActionPreference='Stop'
+$text=[IO.File]::ReadAllText($Source);$start=$text.IndexOf('& $module {')+('& $module {').Length;$end=$text.IndexOf("`n} `$binding",$start);if($start -lt 12 -or $end -lt $start){throw 'Actual flow source shape changed'};$flow=[scriptblock]::Create($text.Substring($start,$end-$start))
+function New-StartupRecoveryLease {return @{owned=$true}}
+function Enter-StartupRecoveryLease($l){return $true}
+function Assert-StartupRecoveryLease($l){}
+function Exit-StartupRecoveryLease($l){$script:released++}
+function Close-StartupRecoveryLease($l){}
+function Get-ProcessDeadline {return 10000}
+function Get-ProcessRemaining($d){return 9000}
+function Invoke-RecoveryCapture($node,$args,$deadline,$label){if($script:case -ceq 'foreign-before' -and $label -ceq 'continuation-context-before-remove'){throw 'foreign-context'};return @{phase=$label}}
+function Test-Path {return (-not $script:removed)}
+function Invoke-StartupRecoveryBoundStage($stage,$plan,$deadline){$script:called.Add($stage);if($stage -ceq $script:case){throw 'synthetic-stage-failure'};return @{stage=$stage}}
+function Assert-StartupRecoveryStageResult($stage,$value,$plan){if($stage -cne $value.stage){throw 'bad-result'}}
+function Confirm-StartupRecoveryFailureFence($p,$exited){$script:refenced++;return @{ownFenceVerified=$true}}
+$dummy=Join-Path $Directory 'remove.ps1';[IO.File]::WriteAllText($dummy,"param([switch]`$FunctionsOnly)`nfunction Remove-ExactOwnedRepairMarker {`$script:removed=`$true;return @{deleteDispositionSet=`$true}}")
+$watch=New-Module {function Resolve-WatchStatusControl{return @{path='synthetic'}};function Invoke-WatchScript {$c=[ordered]@{};foreach($n in @('core','finance','netshop','market','products','workflow','inventory','customerService','accessControl','erpReference','bi','ai')){$c[$n]=$true};return [pscustomobject]@{backendState='Ready';workerState='exact_release';supervisorProcessId=36568;releaseId='20261011T090355Z-21c2645a63247749';components=[pscustomobject]$c}}}
+$backend=New-Module {function Assert-RuntimeRootAclHardened{}}
+$script:recovery=@{node='synthetic';watch=$watch;backend=$backend;plan=@{}}
+$cases=0
+foreach($case in @('success','foreign-before','restore-supervisor','verify-ready','install-diagnostic','verify-installation')){
+ $script:case=$case;$script:removed=$false;$script:refenced=0;$script:released=0;$script:called=[Collections.Generic.List[string]]::new();$sub=Join-Path $Directory $case;[IO.Directory]::CreateDirectory($sub)|Out-Null;$b=@{outputRoot=$sub;markerSha256=('a'*64)};$caught=$false
+ try{& $flow $b 'synthetic' ('b'*64) 'context' $dummy|Out-Null}catch{$caught=$true}
+ if($script:released -ne 1){throw 'Lease not released'}
+ if($case -ceq 'success'){if($caught -or ($script:called -join ',') -cne 'restore-supervisor,verify-ready,install-diagnostic,verify-installation' -or $script:refenced){throw 'Wrong continuation order'}}
+ elseif($case -ceq 'foreign-before'){if(-not $caught -or $script:removed -or $script:called.Count -ne 0 -or $script:refenced){throw 'Foreign context changed'}}
+ else{if(-not $caught -or -not $script:removed -or $script:refenced -ne 1 -or $script:called[-1] -cne $case){throw 'Failure continued or lost fence'}}
+ if(@($script:called|Where-Object {$_ -match 'stop|start|enter|exit'}).Count){throw 'Completed prefix replayed'};$cases++
+}
+@{cases=$cases;allEffectsSynthetic=$true;productionActions=0}|ConvertTo-Json -Compress
+
+
+FILE tests/recovery-optional-readiness.fixture.ps1 SHA 8cb2dcfc723a1634826dd15a357b0a7d9f6aac4a5c77d30cbb99e15e84619d46
+param([string]$Source)
+$ErrorActionPreference='Stop';Set-StrictMode -Version Latest
+$t=$null;$e=$null;$a=[Management.Automation.Language.Parser]::ParseFile($Source,[ref]$t,[ref]$e);if($e.Count){throw($e|Out-String)}
+$f=$a.FindAll({param($x)$x -is [Management.Automation.Language.FunctionDefinitionAst] -and $x.Name -ceq 'Assert-RecoveryServiceReadiness'},$true);if($f.Count -ne 1){throw 'Actual predicate missing'};. ([scriptblock]::Create($f[0].Extent.Text))
+function New-Snapshot { $x=@{probeError=$false;system='Running';backend='Ready';worker='exact_release';components=@{};probes=@{}};1..12|ForEach-Object{$x.components[[string]$_]=$true};1..4|ForEach-Object{$x.probes[[string]$_]=@{ok=$true}};return $x }
+$count=0
+foreach($shape in @('dictionary','object')){
+ foreach($case in @('missing','true','false','string','array','null','component-false','probe-false')){
+  $x=New-Snapshot
+  switch($case){'true'{$x.controllerHealthValid=$true};'false'{$x.controllerHealthValid=$false};'string'{$x.controllerHealthValid='True'};'array'{$x.controllerHealthValid=@($true)};'null'{$x.controllerHealthValid=('{"value":null}'|ConvertFrom-Json).value};'component-false'{$x.components['1']=$false};'probe-false'{$x.probes['1'].ok=$false}}
+  $value=if($shape -ceq 'object'){[pscustomobject]$x}else{$x};$caught=$false
+  try{Assert-RecoveryServiceReadiness $value}catch{$caught=$true}
+  if($caught -ne ($case -notin @('missing','true'))){throw ('Wrong result '+$shape+'/'+$case)};$count++
+ }
+}
+@{cases=$count;strictLatest=$true;productionActions=0}|ConvertTo-Json -Compress

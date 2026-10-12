@@ -1,0 +1,21 @@
+✔ actual continuation flow orders only four remaining stages and restores own fence on failure (908.17ms)
+✔ actual immutable completed prefix permits only remaining continuation (1.796ms)
+✔ reject prefix omit-start (1.8547ms)
+✔ reject prefix extra-stop (0.51ms)
+✔ reject prefix wrong-worker (0.4345ms)
+✔ reject prefix wrong-manifest (0.4775ms)
+✔ reject prefix wrong-fence (0.3128ms)
+✔ reject prefix other-failure (0.3556ms)
+✔ reject prefix wrong-exit-count (0.3161ms)
+✔ failed original process must really have ended, not merely started (0.3479ms)
+✔ closed package forbids expanded stages, foreign marker and missing source pin (20.9582ms)
+✔ actual optional readiness predicate StrictLatest powershell.exe (685.3664ms)
+✔ actual optional readiness predicate StrictLatest pwsh.exe (690.6882ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1493.9252

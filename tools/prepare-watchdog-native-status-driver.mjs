@@ -44,6 +44,9 @@ function Assert-NativeDiagnosticSources {
     (Get-FileHash -LiteralPath $diagnosticWorker -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.worker){throw 'diagnostic_predecessor_changed'}
 }
 Assert-NativeDiagnosticSources
+$diagnosticTransport=Join-Path $PSScriptRoot 'process-deadline.ps1'
+if((Get-FileHash -LiteralPath $diagnosticTransport -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.transport){throw 'diagnostic_transport_changed'}
+. $diagnosticTransport
 if($DiagnosticTarget -eq 'Worker'){
  . $diagnosticWorker -Action Status -FunctionsOnly -Json
  . (Join-Path $PSScriptRoot 'watchdog-core-overlay.ps1')

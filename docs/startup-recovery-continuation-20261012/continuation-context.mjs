@@ -1,0 +1,36 @@
+import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';import {fileURLToPath} from 'node:url';
+import {fixed,hash,readStable,observeRecoveryContext,makeRecoveryMarker,canonical} from '../startup-recovery-integration-20261012/recovery-context.mjs';
+export const originalPlan='E:/codex-artifacts/startup-recovery-integration-20261012/RECOVERY_PLAN_FINAL_V1.json',originalSha='dc4f2de71423097a53f26b37e4a10bdd6ee541f9aef3c8b9005c068239a7a5c2',originalEvidence='E:/codex-artifacts/startup-recovery-integration-20261012/approved-recovery-v1';
+export const marker='D:/teruisi-runtime/django-sales/run/system-maintenance.json',receipt='D:/teruisi-runtime/teruisi-worker-sales/state/worker-process.json';
+export const prefix=['acquire-watchdog-mutex','preflight','create-intent','await-drain','stop-declared-instances','enter-stopped-maintenance','exit-stopped-maintenance','start-original-stack'];
+export function assertCompletedPrefix(stages,finished,transport){
+ const expected=[['acquire-watchdog-mutex','passed'],...prefix.slice(1).flatMap(n=>[[n,'started'],[n,'passed']]),['restore-supervisor','started'],['restore-supervisor','failed']];assert.deepEqual(stages.map(x=>[x.stage,x.kind]),expected);
+ assert.deepEqual(stages.filter(x=>x.kind==='passed').map(x=>x.stage),prefix);assert.equal(stages.filter(x=>x.kind==='failed').length,1);const failed=stages.at(-1);assert.equal(failed.kind,'failed');assert.equal(failed.stage,'restore-supervisor');assert.equal(failed.details.error,"The property 'controllerHealthValid' cannot be found on this object. Verify that the property exists.");
+ assert.equal(failed.details.containment.status,'own-maintenance-created');assert.equal(failed.details.containment.markerSha256,'a23fb062130f2a65f3ee127f7eb666d5545ae92e59c2c18fc5a6a5996b4b645e');assert.equal(failed.details.containment.drainedStopped,false);
+ const stopped=stages.find(x=>x.kind==='passed'&&x.stage==='stop-declared-instances').details;assert.equal(stopped.count,92);assert.equal(stopped.terminatedCount,23);assert.equal(stopped.observedExitCount,69);assert.equal(new Set(stopped.events.filter(x=>x.stage==='exit-confirmed').map(x=>x.processId)).size,92);
+ const started=stages.find(x=>x.kind==='passed'&&x.stage==='start-original-stack').details;assert.equal(started.status,'started');assert.equal(started.manifestSha256,fixed.workerSha256);assert.equal(started.supervisorProcessId,36568);
+ assert.equal(finished.exitCode,1);assert.equal(finished.planSha256,originalSha);assert.equal(transport.exitCode,1);assert.equal(transport.bindingSha256,'ca1374b8617301e17665ee75e3230bdd0babaa8e035f45db14fe248767e13d0f');
+}
+export function validateContinuation(b){
+ assert.deepEqual(Object.keys(b).sort(),['version','originalPlanSha256','markerSha256','completed','workerReceiptSha256','desiredSha256','remaining','pins','outputRoot','diagnosticPlan'].sort());
+ assert.equal(b.version,'startup-recovery-continuation-v1');assert.equal(b.originalPlanSha256,originalSha);assert.equal(b.markerSha256,'a23fb062130f2a65f3ee127f7eb666d5545ae92e59c2c18fc5a6a5996b4b645e');assert.deepEqual(b.remaining,['restore-supervisor','verify-ready','install-diagnostic','verify-installation']);
+ const expected=['RECOVERY_STAGES.jsonl','RECOVERY_FINISHED.json','TRANSPORT_FINISHED.json'];assert.deepEqual(Object.keys(b.completed).sort(),expected.sort());for(const n of expected)assert.match(b.completed[n],/^[a-f0-9]{64}$/);assert.match(b.workerReceiptSha256,/^[a-f0-9]{64}$/);assert.match(b.desiredSha256,/^[a-f0-9]{64}$/);assert(Array.isArray(b.pins));
+ assert.equal(path.resolve(b.outputRoot),path.resolve('E:/codex-artifacts/startup-recovery-continuation-20261012/approved-continuation-v1'));
+ assert.equal(b.diagnosticPlan.bundleId,'0b8566624e19e44bdc4f556fb9f0baa541d3f35dbf695c00d06b00ba16de9abb');assert.equal(b.diagnosticPlan.planId,'50999d5e653050d95cb860484538050c89a21819dcec8d14beecb80f07814bae');
+ const seen=new Set();for(const f of b.pins){assert.deepEqual(Object.keys(f).sort(),['path','sha256']);assert(path.isAbsolute(f.path));assert.match(f.sha256,/^[a-f0-9]{64}$/);const k=path.resolve(f.path).toLowerCase();assert(!seen.has(k));seen.add(k);}
+ const own=path.dirname(fileURLToPath(import.meta.url)),prior=JSON.parse(readStable(originalPlan,originalSha));
+ const additions=['continuation-context.mjs','Invoke-RecoveryContinuation.ps1','Restore-RecoverySupervisorV3.ps1','run-continuation.mjs','prepare-continuation-package.mjs','continuation-transport.mjs','prepare-continuation-transport.mjs'].map(n=>path.join(own,n));
+ additions.push(...['startup-recovery-operations.psm1','recovery-context.mjs','recovery-transport.mjs'].map(n=>path.resolve(own,'../startup-recovery-integration-20261012',n)),path.resolve(own,'../startup-status-receipt-safety-20261012/Remove-ExactRepairFence.ps1'));
+ additions.push(...['startup-exact-instance-policy.mjs','startup-exact-instance-stop.ps1','startup-recovery-sequence.ps1','watchdog-native-metadata.ps1','process-deadline.ps1'].map(n=>path.resolve(own,'../../tools',n)));
+ additions.push(...Object.keys(b.diagnosticPlan.files).map(n=>path.join('E:/codex-artifacts/startup-recovery-continuation-20261012/native-watchdog-source-v3',n)));
+ const exact=[...new Set([...prior.pins.map(f=>f.path),...additions].map(p=>path.resolve(p).toLowerCase()))].sort();assert.deepEqual([...seen].sort(),exact,'Closed continuation code closure required');
+}
+export function observeContinuation(b,phase){
+ validateContinuation(b);for(const f of b.pins)readStable(f.path,f.sha256);const prior=JSON.parse(readStable(originalPlan,originalSha));
+ const records=Object.fromEntries(Object.entries(b.completed).map(([n,h])=>[n,readStable(path.join(originalEvidence,n),h)]));assertCompletedPrefix(records['RECOVERY_STAGES.jsonl'].toString().trim().split('\n').map(JSON.parse),JSON.parse(records['RECOVERY_FINISHED.json']),JSON.parse(records['TRANSPORT_FINISHED.json']));
+ const current=observeRecoveryContext(prior,originalSha,'failure-containment');assert.equal(current.drain,null);assert.equal(current.desiredSha256,b.desiredSha256);assert.equal(current.desired.desiredState,'running');
+ const worker=JSON.parse(readStable(receipt,b.workerReceiptSha256));assert.equal(worker.supervisorPid,36568);assert.equal(worker.supervisorCreationDate,'2026-10-12T05:50:55.3639870Z');assert.equal(worker.manifestSha256,fixed.workerSha256);
+ if(phase==='before-remove'){assert.deepEqual(current.marker,makeRecoveryMarker(originalSha));readStable(marker,b.markerSha256);}else if(phase==='after-remove'){assert.equal(current.marker,null);}else assert.equal(phase,'failure');
+ return{status:'exact-continuation-context',phase,workerSupervisorPid:worker.supervisorPid,workerReceiptSha256:b.workerReceiptSha256,originalWalCount:49,originalWalHead:fixed.walHead,markerPresent:current.marker!==null,drainAbsent:true};
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){try{assert.equal(process.argv.length,5);const [file,sha,phase]=process.argv.slice(2);const b=JSON.parse(readStable(file,sha));console.log(JSON.stringify(observeContinuation(b,phase)))}catch(e){console.error(JSON.stringify({status:'rejected',error:e.message}));process.exitCode=1;}}
