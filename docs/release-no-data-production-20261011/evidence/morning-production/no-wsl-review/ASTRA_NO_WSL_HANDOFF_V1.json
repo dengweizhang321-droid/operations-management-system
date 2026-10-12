@@ -1,0 +1,71 @@
+{
+  "version": "astra-no-running-wsl-guard-handoff-v1",
+  "intent": {
+    "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/NO_WSL_GUARD_INTENT_V1.json",
+    "sha256": "3cfd185f92d4bb3bb220dec721409f5e48d02462363d29d0e6341f6047dc7f74"
+  },
+  "files": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\reconcile-no-wsl-guard-once.mjs",
+      "sha256": "fa8764621062f77772630d3c7e818ec7071396076414170814966f7bf0fc994a"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\previous-no-wsl-receiver.mjs",
+      "sha256": "207e74b95f800c7f67c8f8dd5660b1f64fe31ab8b7e79426740bf38141076b89"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\live-reference-no-wsl-audit.mjs",
+      "sha256": "da587881279137d896fe7a3a5051aa9bf42bec8dbfbe5ec9a2d7f43997283d46"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\no-running-wsl-policy.mjs",
+      "sha256": "9e8619db80dc1e9fb8b10a33630546f890f19ce0e4e7ef182a2a20c4de1809b1"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\Collect-NoRunningWsl.ps1",
+      "sha256": "eda06c7e5ad29140858426285b430a00d7de1bdec65487e5c3a61d0752e74d29"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\backup-reconcile-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    }
+  ],
+  "resumeState": {
+    "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\resume-no-wsl-state.mjs",
+    "sha256": "d0bafdc74ff312dbda013c96fe89d488514eb60cdee2ed8a92e37fe093132683"
+  },
+  "tests": {
+    "passed": 43,
+    "total": 43,
+    "log": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/NO_WSL_FINAL_TEST_V1.log",
+    "sha256": "2d81f2d110b75492618e6cce9be7f7ae43efee1f080739c609f380c95f5593f5",
+    "files": [
+      {
+        "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\no-running-wsl-policy.test.mjs",
+        "sha256": "d7c18426e29c90b6cbed475c3393191f6b8cc5948286cd417edba92252a7c267"
+      },
+      {
+        "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\no-wsl-guard-state.test.mjs",
+        "sha256": "208bc7000f2b9d02a3524b81b798702e7626cf1d02f5e4d0539a680587d5e20f"
+      }
+    ],
+    "actualNativeQueries": 0,
+    "actualHcsQueries": 0
+  },
+  "predicateBodyProof": {
+    "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/NO_WSL_PREDICATE_BODY_PROOF_V1.json",
+    "sha256": "30ade9522fb11e120deace2348724dd0f22a0cf056949c8961a55e8a356f58ea",
+    "identicalDeclarations": 12
+  },
+  "fixedContext": {
+    "eventCount": 28,
+    "head": "a40e765dddd23ea17f5f5edd6eab068bf56c12d58a70d03115c96b1070f84fbc",
+    "workerSequence": 220,
+    "workerManifest": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+    "sourceSha256": "dc1dbeeded593980c6712e7afabde0a053dfd13d8f6c4bb9375718330af2b8fb",
+    "djangoManifest": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9"
+  },
+  "productionExecutedByAuthor": false,
+  "realNoVmQualification": "not-yet-executed; source/fixture evidence only",
+  "oldGuardAndBatchUnchanged": true
+}

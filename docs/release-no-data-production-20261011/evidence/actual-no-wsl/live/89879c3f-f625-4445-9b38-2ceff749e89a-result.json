@@ -1,0 +1,170 @@
+{
+  "version": "teruisi-no-running-wsl-reference-audit-v1",
+  "runId": "89879c3f-f625-4445-9b38-2ceff749e89a",
+  "at": "2026-10-12T01:32:44.376Z",
+  "status": "passed",
+  "stages": [
+    "implementation-closure-pinned",
+    "no-running-wsl-before",
+    "live-native-and-cim-collected",
+    "complete-no-running-wsl-boundary-checked"
+  ],
+  "references": [],
+  "unknown": [],
+  "classified": [
+    {
+      "kind": "reviewed-system-instance",
+      "processId": 236,
+      "nativeCreationFileTime": "134355974016662550"
+    },
+    {
+      "kind": "reviewed-system-instance",
+      "processId": 280,
+      "nativeCreationFileTime": "134355974016977125"
+    },
+    {
+      "kind": "reviewed-ium-instance",
+      "processId": 1700,
+      "nativeCreationFileTime": "134355974136433726"
+    },
+    {
+      "kind": "reviewed-ium-instance",
+      "processId": 6548,
+      "nativeCreationFileTime": "134355974150851854"
+    },
+    {
+      "kind": "kernel-confirmed-stopped-wsl",
+      "processId": 53880
+    }
+  ],
+  "departed": [
+    {
+      "kind": "kernel-confirmed-departure",
+      "processId": 50272,
+      "proof": {
+        "version": "teruisi-kernel-process-departure-v1",
+        "processId": 50272,
+        "kind": "pid-absent",
+        "accessMask": "0x1000",
+        "originalCimCreationUtc": "2026-10-12T01:32:49.4692490Z",
+        "originalNativeCreationFileTime": "",
+        "openError": 87,
+        "nativeCreationBefore": null,
+        "nativeCreationAfter": null,
+        "exitQuerySucceeded": false,
+        "exitCode": null,
+        "finalCimState": "absent",
+        "reason": "kernel-invalid-pid-and-cim-absent"
+      }
+    }
+  ],
+  "productionActions": 0,
+  "rawProcessMetadataPersisted": false,
+  "noWslBefore": {
+    "version": "fixed-no-running-wsl-boundary-v1",
+    "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+    "administrator": true,
+    "startedAt": "2026-10-12T01:32:47.3425330Z",
+    "nativeCompletedAt": "2026-10-12T01:32:48.3546628Z",
+    "at": "2026-10-12T01:32:48.3825439Z",
+    "hcs": {
+      "startStatus": 0,
+      "completionStatus": 0,
+      "completedAt": "2026-10-12T01:32:48.3781687Z",
+      "documentPresent": true,
+      "arrayVerified": true,
+      "systemCount": 0,
+      "systems": [],
+      "rawSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "vmNameRows": [],
+    "oldVm": {
+      "processId": 53880,
+      "cimAbsent": true,
+      "openSucceeded": false,
+      "openError": 87
+    },
+    "selected": {
+      "processId": 47936,
+      "cimAbsent": false,
+      "openSucceeded": true,
+      "openError": null,
+      "cimCreationUtc": "2026-10-06T00:51:18.5673010Z",
+      "nativeCreationFileTime": "134357214785673015",
+      "identityStable": true
+    },
+    "productionActions": 0,
+    "debugPrivilegeEnabled": false,
+    "guestInvocations": 0,
+    "runningDistros": [],
+    "runningExitCode": 0,
+    "runningFinishedAt": "2026-10-12T01:32:48.486Z",
+    "runningStdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "inventorySummary": {
+    "version": "teruisi-live-process-identity-v1",
+    "at": "2026-10-12T01:32:51.7786642+00:00",
+    "processes": 565,
+    "fallbackUsed": 17,
+    "missingImage": 4,
+    "missingCommand": 6,
+    "changedDuringCapture": 1,
+    "kernelConfirmedDepartures": 1,
+    "lateRows": 1,
+    "rawCommandLinesPersisted": false,
+    "privilegesAdjusted": false,
+    "productionMutations": 0
+  },
+  "noWslAfter": {
+    "version": "fixed-no-running-wsl-boundary-v1",
+    "sid": "S-1-5-21-815909789-107973518-1379257801-1001",
+    "administrator": true,
+    "startedAt": "2026-10-12T01:32:55.5676327Z",
+    "nativeCompletedAt": "2026-10-12T01:32:56.5157627Z",
+    "at": "2026-10-12T01:32:56.5400522Z",
+    "hcs": {
+      "startStatus": 0,
+      "completionStatus": 0,
+      "completedAt": "2026-10-12T01:32:56.5343923Z",
+      "documentPresent": true,
+      "arrayVerified": true,
+      "systemCount": 0,
+      "systems": [],
+      "rawSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "vmNameRows": [],
+    "oldVm": {
+      "processId": 53880,
+      "cimAbsent": true,
+      "openSucceeded": false,
+      "openError": 87
+    },
+    "selected": {
+      "processId": 47936,
+      "cimAbsent": false,
+      "openSucceeded": true,
+      "openError": null,
+      "cimCreationUtc": "2026-10-06T00:51:18.5673010Z",
+      "nativeCreationFileTime": "134357214785673015",
+      "identityStable": true
+    },
+    "productionActions": 0,
+    "debugPrivilegeEnabled": false,
+    "guestInvocations": 0,
+    "runningDistros": [],
+    "runningExitCode": 0,
+    "runningFinishedAt": "2026-10-12T01:32:56.636Z",
+    "runningStdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "noWslDecision": {
+    "mode": "no-running-wsl",
+    "guestInvocations": 0,
+    "oldVmProcessId": 53880
+  },
+  "selectedCwd": {
+    "mode": "live-cwd-required",
+    "processId": 47936,
+    "directorySha256": "43c50205e5d7b880551b68eb1d690c6dcd5a696c6c69f23fedb1920fbfb88ddf"
+  },
+  "observedAtMs": 1791768776515
+}

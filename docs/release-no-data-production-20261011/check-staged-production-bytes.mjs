@@ -7,4 +7,8 @@ for(const [manifest,base]of [['FIRST_ATTEMPT_ARCHIVE.json','evidence/first-attem
  const m=JSON.parse(await readFile('docs/release-no-data-production-20261011/evidence/'+manifest));
  for(const entry of m.entries){const target=entry.target??entry.rel??entry.name,source=entry.source??root+(entry.rel??entry.name);assert.equal(hash(await readFile(source)),entry.sha256);assert.equal(hash(await readFile('docs/release-no-data-production-20261011/'+base+target)),entry.sha256);evidence++;}
 }
+for(const [manifest,base]of [['evidence/ACTUAL_STOP_ARCHIVE.json','evidence/actual-stop-reconciliation/'],['evidence/actual-no-wsl/MANIFEST.json','evidence/actual-no-wsl/'],['evidence/actual-restore/MANIFEST.json','evidence/actual-restore/'],['evidence/morning-production/MANIFEST.json','evidence/morning-production/']]){
+ const m=JSON.parse(await readFile('docs/release-no-data-production-20261011/'+manifest));
+ for(const e of m.entries){if(/^[A-Za-z]:[\\/]/.test(e.source))assert.equal(hash(await readFile(e.source)),e.sha256);else assert.ok(manifest==='evidence/actual-restore/MANIFEST.json'&&e.name==='READBACK.json'&&e.source==='This read-only script','Unknown generated evidence source');assert.equal(hash(await readFile('docs/release-no-data-production-20261011/'+base+(e.target??e.name))),e.sha256);evidence++;}
+}
 console.log(JSON.stringify({stagedFiles:files.length,allStagedBlobBytesMatch:true,archivedEvidenceBytesMatch:evidence,productionAcceptanceClaimed:false}));

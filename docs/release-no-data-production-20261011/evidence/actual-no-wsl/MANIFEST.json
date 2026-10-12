@@ -1,0 +1,116 @@
+{
+  "version": "actual-no-wsl-reconciliation-archive-v1",
+  "entries": [
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/no-wsl-guard/STARTED.json",
+      "target": "no-wsl-guard/STARTED.json",
+      "bytes": 133,
+      "sha256": "4a28a8202f6f6a87f17b11c65745ef604239adef8d404390c16ce892c5ffffd6"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/no-wsl-guard/DIRECT_PROCESS.json",
+      "target": "no-wsl-guard/DIRECT_PROCESS.json",
+      "bytes": 68,
+      "sha256": "593ea9e6fcc2a60a6dcb07050df64acc7bcc4f376b8b35c02655501d8176c32f"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/no-wsl-guard/FINISHED.json",
+      "target": "no-wsl-guard/FINISHED.json",
+      "bytes": 128,
+      "sha256": "00e1237af2b7b787fba982bd630bff52d1b0e1bb4a0ce64081d220db5eff25b7"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/no-wsl-guard/STDOUT.log",
+      "target": "no-wsl-guard/STDOUT.log",
+      "bytes": 426,
+      "sha256": "f5b62fedfdb1c8f2c785f36901da2c87010f3b3fd13c15a6fdc18cb11a53821c"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/no-wsl-guard/STDERR.log",
+      "target": "no-wsl-guard/STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/no-wsl-guard/OBSERVATIONS.json",
+      "target": "no-wsl-guard/OBSERVATIONS.json",
+      "bytes": 4788,
+      "sha256": "8a35262ec01275bb6b893ac5c9ed2b2ac560659f29f67b9e8d4eba3ec6ef2183"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/no-wsl-guard/PROOF.json",
+      "target": "no-wsl-guard/PROOF.json",
+      "bytes": 443,
+      "sha256": "e0d50e89a2a9aef691a08f10b3cbd9e54cf632a3bf08bb6a753565842c3ed0f6"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/STARTED.json",
+      "target": "resume4/STARTED.json",
+      "bytes": 1042,
+      "sha256": "a34e0affc90dfd9a368d3910b55a514bb1f18130799171cb277f83156ff05b2a"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/DIRECT_PROCESS.json",
+      "target": "resume4/DIRECT_PROCESS.json",
+      "bytes": 146,
+      "sha256": "e05f05f1e0b0a31ab8715aa40f3448abb009d7351c4cccbc7ff9a76db4c5c6b1"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/ENV_RESTORED.json",
+      "target": "resume4/ENV_RESTORED.json",
+      "bytes": 1059,
+      "sha256": "cdc361b8d918a84d60c0560959e3a0b88e8e199bd5c04943933d17d8583e3744"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ASTRA_ACTUAL_NO_WSL_READBACK_V1.json",
+      "target": "ASTRA_ACTUAL_NO_WSL_READBACK_V1.json",
+      "bytes": 828,
+      "sha256": "efb011571e99b2719bde9313938dd63eb024bb4b678fecd82fab131df39761e1"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000028.json",
+      "target": "000028.json",
+      "bytes": 469,
+      "sha256": "c7f5718b7843c51ea98e01135c0070d2f1b77beba2299d19ecee5b9985f17b2c"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/_live-reference-observations/89879c3f-f625-4445-9b38-2ceff749e89a-after-no-wsl.json",
+      "target": "live/89879c3f-f625-4445-9b38-2ceff749e89a-after-no-wsl.json",
+      "bytes": 1235,
+      "sha256": "2b65ef59e26c3241c00b01335e5f2d0f1062f02ac744f70450f992c81458d22d"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/_live-reference-observations/89879c3f-f625-4445-9b38-2ceff749e89a-before-no-wsl.json",
+      "target": "live/89879c3f-f625-4445-9b38-2ceff749e89a-before-no-wsl.json",
+      "bytes": 1235,
+      "sha256": "d7a0c186edd4fe4405d72435c234d588af11fb1c3597eff0241cc78c50befe66"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/_live-reference-observations/89879c3f-f625-4445-9b38-2ceff749e89a-inventory-summary.json",
+      "target": "live/89879c3f-f625-4445-9b38-2ceff749e89a-inventory-summary.json",
+      "bytes": 409,
+      "sha256": "e65429678aafeb5179c5b8d9e69bc44e4bd1305e51285ebedef264883a79affb"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/_live-reference-observations/89879c3f-f625-4445-9b38-2ceff749e89a-native.json",
+      "target": "live/89879c3f-f625-4445-9b38-2ceff749e89a-native.json",
+      "bytes": 10657,
+      "sha256": "fe860de78bf34c8acfd750f8ca09ff580ac503df96c1cb9a281556ba19c76ab0"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/_live-reference-observations/89879c3f-f625-4445-9b38-2ceff749e89a-result.json",
+      "target": "live/89879c3f-f625-4445-9b38-2ceff749e89a-result.json",
+      "bytes": 5100,
+      "sha256": "b7bb9db8304598f61f524782158d49c81d93b74fa7540570c7cf8247de17f07c"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/_live-reference-observations/89879c3f-f625-4445-9b38-2ceff749e89a-started.json",
+      "target": "live/89879c3f-f625-4445-9b38-2ceff749e89a-started.json",
+      "bytes": 328,
+      "sha256": "88a10b0c549ab8376a0393d07ecc00c2e5f0ea64ac9ed53ad9bc63fd3b0452f6"
+    }
+  ],
+  "encryptedOrPlaintextEnvironmentIncluded": false,
+  "rawProcessCommandLinesIncluded": false,
+  "copyTime": "2026-10-12T01:42:48.444Z"
+}

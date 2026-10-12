@@ -1,0 +1,8 @@
+{
+  "at": "2026-10-12T01:27:27.8460261Z",
+  "status": "windows-elevation-cancelled",
+  "bootstrapSha256": "683f7319b0cc77e2837123d85209b681c321ae261e4b32199a744bc2a9d27372",
+  "bindingSha256": "e97351a1c23183bde4c34e1f10d21c24fc19d141c468522cd5e262b654a8b0b6",
+  "administratorProcessStarted": false,
+  "reason": "Start-Process -Verb RunAs returned 操作已被用户取消"
+}

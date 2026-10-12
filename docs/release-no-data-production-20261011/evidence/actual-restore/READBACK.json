@@ -1,0 +1,1014 @@
+{
+  "version": "astra-actual-restore-readback-v1",
+  "checkedAt": "2026-10-12T02:02:54.503Z",
+  "status": "passed",
+  "specSha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b",
+  "auditSha256": "58f819b7aa9b0fb1116fb1a6d0767bd792ddbb1d6019869fb524a2f9595c4b72",
+  "resultSha256": "0ab553b56878aadf67d1e7b0aa118ea2e74b8dee8b6f0ce76b392993e9631f1d",
+  "receiptSha256": "45bd52d2e4edb7c1b3d47da534dc563e664fa2a0f39eb7cdd1624b3c08386342",
+  "walEventSha256": "c0b89f1c2589eb03c7b2106cbe98d020547a7f87f154452de760b9eeb68b3d3b",
+  "reconstructedStdout": {
+    "bytes": 946,
+    "sha256": "cca4a387e69e91b2a6024e99915661f28623499437828d4160b4fb293d13d79b",
+    "matchesOriginalCapturedDigest": true,
+    "rawOriginalStdoutRecovered": false
+  },
+  "result": {
+    "version": "teruisi-postgres-restore-rehearsal-v1",
+    "status": "completed",
+    "rehearsalId": "0d2c8cfba17c",
+    "startedAt": "2026-10-12T01:46:14.2419094+00:00",
+    "completedAt": "2026-10-12T01:56:55.9417664+00:00",
+    "backupId": "daily-20261011T162958Z-49bdf7f519aa",
+    "backupManifestSha256": "a46097b7b68a3967527c4fc101063d557089fc97228012c3b0fe8f42e6d598ed",
+    "dumpSha256": "e88b7cbbae5b2aa30449373a21de7e3d7400912718132088d07e4166a169b148",
+    "expectedContentSha256": "f261acde08c84455f4f8c75b99486130e4b17f26dbde6c9a29933a1940fc2c83",
+    "restoredContentSha256": "f261acde08c84455f4f8c75b99486130e4b17f26dbde6c9a29933a1940fc2c83",
+    "isolatedPort": 55433,
+    "productionDatabaseTouched": false,
+    "serviceStateChanged": false,
+    "cleanupStatus": "isolated_data_removed",
+    "profileRestoreVerified": true,
+    "sequenceHealthVerified": true,
+    "profileContentSha256": "bf54fe9cf644ae3c1e3ee62e5b895cc9db61282a5d41435dd954e964087c62d4",
+    "policySyntaxEquivalenceVerified": false,
+    "policySyntaxWitnessSha256": ""
+  },
+  "cleanupPathMetadata": {
+    "data": "absent",
+    ".postgres-password.tmp": "absent"
+  },
+  "installedFileCount": 74,
+  "installedClosure": [
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+      "size": 454656,
+      "identity": {
+        "dev": "1791229382",
+        "ino": "11258999069100817",
+        "nlink": "2",
+        "size": "454656",
+        "mtimeNs": "1784085889480273700",
+        "ctimeNs": "1787912658171312100"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\ai-domain-snapshot.py",
+      "sha256": "59891d1ef4cecffd04f2ebda755ec3a5d68ad99ec5ddabfce89d27554ec6b88a",
+      "size": 4458,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348520",
+        "nlink": "1",
+        "size": "4458",
+        "mtimeNs": "1790594400032443100",
+        "ctimeNs": "1790594400032443100"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\bi-app-adopt.ps1",
+      "sha256": "0661b0812ca7c27a7b3b3d838cfb03b6509ac9ee4b9ac8e24b506dcf9c44867d",
+      "size": 6651,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348561",
+        "nlink": "1",
+        "size": "6651",
+        "mtimeNs": "1791251543798269500",
+        "ctimeNs": "1791251543798269500"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\bi_app_addition.py",
+      "sha256": "bd45ecbf8e9d6aefb8492cbaf50ad389f816757d48ad5cb72464e8dd2573bf46",
+      "size": 14935,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348560",
+        "nlink": "1",
+        "size": "14935",
+        "mtimeNs": "1791248807330665400",
+        "ctimeNs": "1791248807330665400"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-consumer-smoke.ts",
+      "sha256": "dd3c66cbf096535504f1b8f239773f811305a4bb0bb4452609a628a545770379",
+      "size": 1365,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348527",
+        "nlink": "1",
+        "size": "1365",
+        "mtimeNs": "1790594400076450600",
+        "ctimeNs": "1790594400076450600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-d1-authority-install.py",
+      "sha256": "d08f4037f0d1735385a4c7d4a540c2fccc49595c96d084f29513b1f486ab6ba1",
+      "size": 9919,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348552",
+        "nlink": "1",
+        "size": "9919",
+        "mtimeNs": "1790594400076450600",
+        "ctimeNs": "1790594400076450600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-d1-rejection-smoke.py",
+      "sha256": "3e57b3c4376fe1b39567eb028b4baf6147c9420139df5e52175ff9873ee7f6c6",
+      "size": 2769,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348528",
+        "nlink": "1",
+        "size": "2769",
+        "mtimeNs": "1790594400076450600",
+        "ctimeNs": "1790594400076450600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-d1-snapshot.py",
+      "sha256": "6e12d797ce09c7bec03d84e7e50d49f239e250fb1f71a2e30a1b367590b28f47",
+      "size": 4741,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348554",
+        "nlink": "1",
+        "size": "4741",
+        "mtimeNs": "1790594400077452600",
+        "ctimeNs": "1790594400077452600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-production-smoke.ps1",
+      "sha256": "b61eb4f4ce84c74c50ca31711014e67e4722b4e6c50631ca41a6cd4e3ec43db1",
+      "size": 10368,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348526",
+        "nlink": "1",
+        "size": "10368",
+        "mtimeNs": "1790594400077452600",
+        "ctimeNs": "1790594400077452600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-r2-retirement-evidence.py",
+      "sha256": "beba34c76ba50f5413ce63eecac2a1592792bb440f7d19807a85517ed88db0d4",
+      "size": 5084,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348529",
+        "nlink": "1",
+        "size": "5084",
+        "mtimeNs": "1790594400077452600",
+        "ctimeNs": "1790594400077452600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\d1-retirement-proof.mjs",
+      "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+      "size": 416,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348542",
+        "nlink": "1",
+        "size": "416",
+        "mtimeNs": "1790594400078450900",
+        "ctimeNs": "1790594400078450900"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-access-control-cutover.ps1",
+      "sha256": "67c7d7988027d7c0cdca57c494103c8bfe17d93d70e87942047d0eacf939e158",
+      "size": 6853,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348521",
+        "nlink": "1",
+        "size": "6853",
+        "mtimeNs": "1790594400080452100",
+        "ctimeNs": "1790594400080452100"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-access-control.ps1",
+      "sha256": "509b9fbd64250cdf7dd24ac6a246381e959363ce64b83890920bd0ef80c05488",
+      "size": 24059,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348517",
+        "nlink": "1",
+        "size": "24059",
+        "mtimeNs": "1790627394460964000",
+        "ctimeNs": "1790627394460964000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-ai-cutover.ps1",
+      "sha256": "4a4b6c84b899432b3039c6cd04a6ef3454c3ecf0f2d4e86619714a71f79b6513",
+      "size": 9231,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348519",
+        "nlink": "1",
+        "size": "9231",
+        "mtimeNs": "1790594400081450200",
+        "ctimeNs": "1790594400081450200"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-ai.ps1",
+      "sha256": "7e641a213668dcf0810870a6075bbc7dbb7c781c75970d38566d7253713e8a26",
+      "size": 41559,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348518",
+        "nlink": "1",
+        "size": "41559",
+        "mtimeNs": "1790627394461470600",
+        "ctimeNs": "1790627394461470600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-bi-service.ps1",
+      "sha256": "b23b95c3c9a876b7411f5572ad4545f50cf1aa95a358552dc1aa81bdb4845769",
+      "size": 19420,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348523",
+        "nlink": "1",
+        "size": "19420",
+        "mtimeNs": "1790627394462478600",
+        "ctimeNs": "1790627394462478600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-customer-service-cutover.ps1",
+      "sha256": "85c42c14880def4b1cbd2c510bc9a2cd26a3f6672426cb5c73fcfd2093580da7",
+      "size": 14356,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348524",
+        "nlink": "1",
+        "size": "14356",
+        "mtimeNs": "1790594400082451000",
+        "ctimeNs": "1790594400082451000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-customer-service.ps1",
+      "sha256": "2cf726fc820cf950e7eb03f2273882e2ce80d543305e05d56a99bd23cd6b3b92",
+      "size": 25180,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348516",
+        "nlink": "1",
+        "size": "25180",
+        "mtimeNs": "1790627394463478300",
+        "ctimeNs": "1790627394463478300"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-erp-reference-cutover.ps1",
+      "sha256": "a0aaf08ae9f96fce49ccd8b1d1cfa44156351612dc13cae5e722baace30d593c",
+      "size": 15457,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348525",
+        "nlink": "1",
+        "size": "15457",
+        "mtimeNs": "1790594400084450900",
+        "ctimeNs": "1790594400084450900"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-erp-reference.ps1",
+      "sha256": "84e16fda6dc03ed5bd6eb972fbe8fe59ef5c75439216039edafd379f2e347074",
+      "size": 25933,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348522",
+        "nlink": "1",
+        "size": "25933",
+        "mtimeNs": "1790627394464895800",
+        "ctimeNs": "1790627394464895800"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-finance-cutover.ps1",
+      "sha256": "a2ef3abdb000acf6d36b67f3429a6d922e78a89e40e6c82576e5f42f5823c8d2",
+      "size": 9714,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2814749769769816",
+        "nlink": "1",
+        "size": "9714",
+        "mtimeNs": "1790594400084450900",
+        "ctimeNs": "1790594400084450900"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-integration-install.ps1",
+      "sha256": "c0f5ca005af79da9beccf52eeb7ffd3e1d89c6e66041805d228065837d71e2ec",
+      "size": 14754,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348564",
+        "nlink": "1",
+        "size": "14754",
+        "mtimeNs": "1791225840550452300",
+        "ctimeNs": "1791225840550452300"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-inventory-cutover.ps1",
+      "sha256": "5b64e817b0868e66f67f45e0d499f5bd577fc14add2c5595049e6a079e462b1d",
+      "size": 11545,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348535",
+        "nlink": "1",
+        "size": "11545",
+        "mtimeNs": "1790594400085956500",
+        "ctimeNs": "1790594400085956500"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-inventory-service.ps1",
+      "sha256": "79bafaeb10678aae4791384fe55b1631bb787d55aacf5d4192ec7ac96018050d",
+      "size": 28763,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348515",
+        "nlink": "1",
+        "size": "28763",
+        "mtimeNs": "1790627394465942200",
+        "ctimeNs": "1790627394465942200"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-local-service.ps1",
+      "sha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+      "size": 235956,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348492",
+        "nlink": "1",
+        "size": "235956",
+        "mtimeNs": "1791473924885885800",
+        "ctimeNs": "1791473924885885800"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-market-service.ps1",
+      "sha256": "0c26d6078577b0360076732145072e3e00f8a9d37cf98b771b614b288476cc32",
+      "size": 28944,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348507",
+        "nlink": "1",
+        "size": "28944",
+        "mtimeNs": "1790627394468571200",
+        "ctimeNs": "1790627394468571200"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-netshop-service.ps1",
+      "sha256": "7424266ecb82e4ba87274bde4b19ece3db560bfa9752ff0c9450fdce935f8f93",
+      "size": 26695,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348506",
+        "nlink": "1",
+        "size": "26695",
+        "mtimeNs": "1790627394469629200",
+        "ctimeNs": "1790627394469629200"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+      "sha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6",
+      "size": 111624,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348536",
+        "nlink": "1",
+        "size": "111624",
+        "mtimeNs": "1791473924886886000",
+        "ctimeNs": "1791473924886886000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-products-service.ps1",
+      "sha256": "f3adc6012f7aac411e3f972325d4ad436159ad22103a7a69da0ee810dd3dc303",
+      "size": 28132,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348508",
+        "nlink": "1",
+        "size": "28132",
+        "mtimeNs": "1790627394471837900",
+        "ctimeNs": "1790627394471837900"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-runtime-supervisor.ps1",
+      "sha256": "85d2bdd121a415ff3a2e3e0c1edf208fc0ba2304444d7d3cc69cb71bcb533a11",
+      "size": 40653,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348505",
+        "nlink": "1",
+        "size": "40653",
+        "mtimeNs": "1790594400103280100",
+        "ctimeNs": "1790594400103280100"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-workflow-cutover.ps1",
+      "sha256": "6fa22f99ff6280646a9a0658064b226906e8338cef27a391f6f4f6fe4c35393d",
+      "size": 14432,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348510",
+        "nlink": "1",
+        "size": "14432",
+        "mtimeNs": "1790594400104283700",
+        "ctimeNs": "1790594400104283700"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-workflow-operations-cutover.ps1",
+      "sha256": "3ac57594d6d1640625e53533fe45ab155c81890f709ba249b732da4eb431ca7b",
+      "size": 13508,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348511",
+        "nlink": "1",
+        "size": "13508",
+        "mtimeNs": "1790594400104283700",
+        "ctimeNs": "1790594400104283700"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-workflow-service.ps1",
+      "sha256": "acf1a2a68af554a4158f3d8df1e21982850a4b6addefa6bb4f897986ee18b49a",
+      "size": 34048,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348509",
+        "nlink": "1",
+        "size": "34048",
+        "mtimeNs": "1790627394472883600",
+        "ctimeNs": "1790627394472883600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-consumer-smoke.ts",
+      "sha256": "c0fd17d50ce3fa2cd877c2b2f3c125e6706f9693ccba48e376e9ff28cad2ecab",
+      "size": 1391,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348531",
+        "nlink": "1",
+        "size": "1391",
+        "mtimeNs": "1790594400106284600",
+        "ctimeNs": "1790594400106284600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-d1-authority-install.py",
+      "sha256": "120a8d356dccaa5c17eae4c48284e564f8f33c67ea5cd2b1b15e83bda3434dac",
+      "size": 9457,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348553",
+        "nlink": "1",
+        "size": "9457",
+        "mtimeNs": "1790594400106284600",
+        "ctimeNs": "1790594400106284600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-d1-rejection-smoke.py",
+      "sha256": "e422d0af479392e2d82a40c17c66af2a66a70d3e85292db0d1c4f3e5a43ec69e",
+      "size": 2743,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348532",
+        "nlink": "1",
+        "size": "2743",
+        "mtimeNs": "1790594400106284600",
+        "ctimeNs": "1790594400106284600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-d1-snapshot.py",
+      "sha256": "0be1f988bc2ef06ceec49c56a1e27973bf08f681e938131ce4ba69ca080a7088",
+      "size": 4682,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348534",
+        "nlink": "1",
+        "size": "4682",
+        "mtimeNs": "1790594400106284600",
+        "ctimeNs": "1790594400106284600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-production-smoke.ps1",
+      "sha256": "0e251c58a525309372eec3e116e017ae65b0ef3c5c7d44c36cd76e88cac96067",
+      "size": 10272,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348530",
+        "nlink": "1",
+        "size": "10272",
+        "mtimeNs": "1790594400107284000",
+        "ctimeNs": "1790594400107284000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-r2-retirement-evidence.py",
+      "sha256": "18f732aa691957b7266be762e70f1977898e778ab3f994e93a1575f3262b8993",
+      "size": 5074,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348533",
+        "nlink": "1",
+        "size": "5074",
+        "mtimeNs": "1790594400107284000",
+        "ctimeNs": "1790594400107284000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\finance-d1-authority-install.py",
+      "sha256": "43f9007627604452cdfed05d25a6db2c70818e01d0e8e8eac25b8a9bab3cabba",
+      "size": 9126,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348543",
+        "nlink": "1",
+        "size": "9126",
+        "mtimeNs": "1790594400109284200",
+        "ctimeNs": "1790594400109284200"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\finance_d1_rehearsal_snapshot.py",
+      "sha256": "deb448c98b2962b2abf9a42dfd3df9b9107249c0145cb5e83265a39952facc81",
+      "size": 11040,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348544",
+        "nlink": "1",
+        "size": "11040",
+        "mtimeNs": "1790594400110284800",
+        "ctimeNs": "1790594400110284800"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\integration_migration_journal.py",
+      "sha256": "cd8b857c90ef113f264b8fcbdf024ce88e7a48b75265e0b70bf776c5b02bf8be",
+      "size": 9054,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348563",
+        "nlink": "1",
+        "size": "9054",
+        "mtimeNs": "1791225840553469300",
+        "ctimeNs": "1791225840553469300"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\integration_migration_plan.py",
+      "sha256": "94893e1cd60fb2ad693948e8b2d1e686882bc14664310acf7c6b24b8f53a74ec",
+      "size": 12812,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348562",
+        "nlink": "1",
+        "size": "12812",
+        "mtimeNs": "1791225840554476200",
+        "ctimeNs": "1791225840554476200"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\integration_release_gate.py",
+      "sha256": "2a6645215e529539a10589ef72ffa7a5e90df4649cdabd84cb84ba978541cbc8",
+      "size": 26581,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348559",
+        "nlink": "1",
+        "size": "26581",
+        "mtimeNs": "1791248807335666500",
+        "ctimeNs": "1791248807335666500"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\inventory-d1-authority-install.py",
+      "sha256": "d5f17b9fe71ea10fdae8b1e32051f37362f0368ad1e1655bd490c377877feace",
+      "size": 11003,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348550",
+        "nlink": "1",
+        "size": "11003",
+        "mtimeNs": "1790594400116284300",
+        "ctimeNs": "1790594400116284300"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\inventory-r2-retirement-evidence.py",
+      "sha256": "373bb48f66fcec3a68e5d0d25f2631d03306ce68c8addd4b2ae16a66ff7d27a7",
+      "size": 4681,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348551",
+        "nlink": "1",
+        "size": "4681",
+        "mtimeNs": "1790594400117287300",
+        "ctimeNs": "1790594400117287300"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres-backup-continuity.ps1",
+      "sha256": "cd63b772bcfd9a3470cf6737d1e02097a79d69230a962393eff2e09fe4aba6ed",
+      "size": 6870,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348538",
+        "nlink": "1",
+        "size": "6870",
+        "mtimeNs": "1790627394477041600",
+        "ctimeNs": "1790627394477041600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres-backup-retention.ps1",
+      "sha256": "6a9de32ef4d204a8bcc7cecb57df03f97f45c26b36379bc062505d7134691287",
+      "size": 12409,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348537",
+        "nlink": "1",
+        "size": "12409",
+        "mtimeNs": "1790627394477041600",
+        "ctimeNs": "1790627394477041600"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres-consistent-backup.py",
+      "sha256": "0a1449b329a4afe0261c662236a6aacae60a6e7a4120801fb42eea2322368483",
+      "size": 130459,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348555",
+        "nlink": "1",
+        "size": "130459",
+        "mtimeNs": "1791473924889886700",
+        "ctimeNs": "1791473924889886700"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres_no_key_backup.py",
+      "sha256": "ee86b4a48eff411616256556c83734cd5aa282f7fc75551facf0d691336de8b8",
+      "size": 25168,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348556",
+        "nlink": "1",
+        "size": "25168",
+        "mtimeNs": "1791473924889886700",
+        "ctimeNs": "1791473924889886700"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres_restore_semantics.py",
+      "sha256": "66dd0f5a2ab62ff819a73af76538430b74f511675a651a8100175d06082a3f57",
+      "size": 4342,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348558",
+        "nlink": "1",
+        "size": "4342",
+        "mtimeNs": "1790594400140415300",
+        "ctimeNs": "1790594400140415300"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\protected_ai_shadow_evidence_0073.py",
+      "sha256": "8a542612c00061c71246d889f4f9c3a35d4dd8fa2d22e136ffcf13288cff985f",
+      "size": 16725,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348557",
+        "nlink": "1",
+        "size": "16725",
+        "mtimeNs": "1790594400147447000",
+        "ctimeNs": "1790594400147447000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\release-payload-retention.mjs",
+      "sha256": "d339fb1eaac511d66f05660c50ade8e6f1e45a525dedcc0be395ebd3636d7b6a",
+      "size": 6996,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348540",
+        "nlink": "1",
+        "size": "6996",
+        "mtimeNs": "1790606813991694000",
+        "ctimeNs": "1790606813991694000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\release-payload-retention.ps1",
+      "sha256": "e5bab569143c13a0021e2c57f6f832a58455eec421374bbd261b7b119d813f78",
+      "size": 6507,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348539",
+        "nlink": "1",
+        "size": "6507",
+        "mtimeNs": "1790627394480043300",
+        "ctimeNs": "1790627394480043300"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-cutover-snapshot-gate.py",
+      "sha256": "cb82a9b352eb9160bcb347724217ca29554f5af087b1f77d9496785f9e6e65ee",
+      "size": 19451,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348499",
+        "nlink": "1",
+        "size": "19451",
+        "mtimeNs": "1790594400151068200",
+        "ctimeNs": "1790594400151068200"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-d1-retirement.ts",
+      "sha256": "337d3a7baee77229b48e4541bcd3f7ca452834e68d778d78f8fb3c2ca1041f65",
+      "size": 102608,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348493",
+        "nlink": "1",
+        "size": "102608",
+        "mtimeNs": "1790594400151068200",
+        "ctimeNs": "1790594400151068200"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-d1-write-authority.ts",
+      "sha256": "04f02a8bd83113ee6ed7e49f2af8a0f852d36e97aeb04bfc3ca83dc24e8d69b7",
+      "size": 8644,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348494",
+        "nlink": "1",
+        "size": "8644",
+        "mtimeNs": "1790594400152070800",
+        "ctimeNs": "1790594400152070800"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-legacy-r2-cleanup.ts",
+      "sha256": "eadd4598024bc42c95f6ee589a8f9d38a97765055eee0f7303f08b0e887418e7",
+      "size": 38423,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348495",
+        "nlink": "1",
+        "size": "38423",
+        "mtimeNs": "1790594400153067700",
+        "ctimeNs": "1790594400153067700"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-backup-prune.ps1",
+      "sha256": "87ecbec697321783bebf4b96825e26645d32291612295ddc17e6cfbcefda94b6",
+      "size": 34698,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348503",
+        "nlink": "1",
+        "size": "34698",
+        "mtimeNs": "1790594400153067700",
+        "ctimeNs": "1790594400153067700"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-backup.ps1",
+      "sha256": "5d9081022671cb5c68c3a880d672cd122a50c92a94e3c725c7b93a2b617e54d1",
+      "size": 21085,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348502",
+        "nlink": "1",
+        "size": "21085",
+        "mtimeNs": "1790594400154068300",
+        "ctimeNs": "1790594400154068300"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-operator.ps1",
+      "sha256": "bd23777261feb418693a4f8c08932d90e2e643b10fe2c8a09b44c6ec77413f1e",
+      "size": 55292,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348497",
+        "nlink": "1",
+        "size": "55292",
+        "mtimeNs": "1790594400154068300",
+        "ctimeNs": "1790594400154068300"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-rehearsal.ps1",
+      "sha256": "7160e24153fbb84c9038db77ff765fea15478e31d1a3bed3ceedd1f99fc4dc3e",
+      "size": 133527,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348498",
+        "nlink": "1",
+        "size": "133527",
+        "mtimeNs": "1790594400155068000",
+        "ctimeNs": "1790594400155068000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover.ts",
+      "sha256": "36a7fa792aff020ac152a42cfc68da1fab2bb149f85ee55d93b5116b060168fc",
+      "size": 53884,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348496",
+        "nlink": "1",
+        "size": "53884",
+        "mtimeNs": "1790594400155068000",
+        "ctimeNs": "1790594400155068000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sqlite-consistent-backup.py",
+      "sha256": "deeecabcd2c63eb96123d7d58ac1f104423f014bd9409eadb454bc3b23ac4bca",
+      "size": 4812,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348501",
+        "nlink": "1",
+        "size": "4812",
+        "mtimeNs": "1790594400157067700",
+        "ctimeNs": "1790594400157067700"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release-rotation.mjs",
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "size": 81611,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348541",
+        "nlink": "1",
+        "size": "81611",
+        "mtimeNs": "1791691550832187300",
+        "ctimeNs": "1791691550832187300"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release.mjs",
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "size": 183414,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348500",
+        "nlink": "1",
+        "size": "183414",
+        "mtimeNs": "1791691550831616200",
+        "ctimeNs": "1791691550831616200"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-d1-authority-install.py",
+      "sha256": "c1db7f139216fbf1bb5185a321c1fac8e8a0e671d50e4abad69ae92580d99480",
+      "size": 7928,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348545",
+        "nlink": "1",
+        "size": "7928",
+        "mtimeNs": "1790594400175073800",
+        "ctimeNs": "1790594400175073800"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-d1-snapshot.py",
+      "sha256": "d58d8d840e1da9403f8afff6ae3a52f3001c5b24b543fd8bc2b7a4643df4c66e",
+      "size": 8388,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348546",
+        "nlink": "1",
+        "size": "8388",
+        "mtimeNs": "1790594400176068000",
+        "ctimeNs": "1790594400176068000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-launch-r2-retirement-evidence.py",
+      "sha256": "8c0511f25ac4be21b534d3ae341c57ce0b57a630f581bb826de52d6217c3a285",
+      "size": 4832,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348547",
+        "nlink": "1",
+        "size": "4832",
+        "mtimeNs": "1790594400176068000",
+        "ctimeNs": "1790594400176068000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-consumer-smoke.ts",
+      "sha256": "5b41843192c321df842971e26964f53f3d91225590826e2a0a31bda9da09e138",
+      "size": 2960,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348513",
+        "nlink": "1",
+        "size": "2960",
+        "mtimeNs": "1790594400176068000",
+        "ctimeNs": "1790594400176068000"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-d1-authority-install.py",
+      "sha256": "fa63dd78a90eb4be9466a55eb8a404ba7009a844bcb63e5ce910d5e4ea62934a",
+      "size": 10272,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348548",
+        "nlink": "1",
+        "size": "10272",
+        "mtimeNs": "1790594400177068100",
+        "ctimeNs": "1790594400177068100"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-d1-rejection-smoke.py",
+      "sha256": "25259757bfd0213c8c0e3fcf324deef1657eb8956a3020a6e761d41212fea43e",
+      "size": 2723,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348514",
+        "nlink": "1",
+        "size": "2723",
+        "mtimeNs": "1790594400177068100",
+        "ctimeNs": "1790594400177068100"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-d1-snapshot.py",
+      "sha256": "8092277f4d20714990ccc42bdd176807cc452806f351d9f62fa3b7acca503640",
+      "size": 7987,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348549",
+        "nlink": "1",
+        "size": "7987",
+        "mtimeNs": "1790594400178068400",
+        "ctimeNs": "1790594400178068400"
+      }
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-production-smoke.ps1",
+      "sha256": "ccb9bf4e336b57d364e07e67bbc714d58ecf33eafbc8df19ee05a6df71374c6b",
+      "size": 17668,
+      "identity": {
+        "dev": "1722990852",
+        "ino": "2251799816348512",
+        "nlink": "1",
+        "size": "17668",
+        "mtimeNs": "1790594400178068400",
+        "ctimeNs": "1790594400178068400"
+      }
+    }
+  ],
+  "consumerReceiptSha256": "1619a67cdc577c51b2a2dc1607357ddb429baa0d89e1b837de6dbe6afea4697b",
+  "limitations": [
+    "No new SQL/native/process/port query or restore executed",
+    "No full source/dependency/dump scan",
+    "Optional policy syntax equivalence is false and is not established",
+    "Read-only retention planner success is not payload cleanup execution",
+    "Final nineteen-operation acceptance is outside this receipt readback"
+  ]
+}

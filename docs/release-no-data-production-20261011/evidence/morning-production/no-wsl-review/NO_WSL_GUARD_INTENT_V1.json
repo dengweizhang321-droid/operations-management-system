@@ -1,0 +1,29 @@
+{
+  "version": "fixed-no-wsl-guard-intent-v1",
+  "files": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\reconcile-no-wsl-guard-once.mjs",
+      "sha256": "fa8764621062f77772630d3c7e818ec7071396076414170814966f7bf0fc994a"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\previous-no-wsl-receiver.mjs",
+      "sha256": "207e74b95f800c7f67c8f8dd5660b1f64fe31ab8b7e79426740bf38141076b89"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\live-reference-no-wsl-audit.mjs",
+      "sha256": "da587881279137d896fe7a3a5051aa9bf42bec8dbfbe5ec9a2d7f43997283d46"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\no-running-wsl-policy.mjs",
+      "sha256": "9e8619db80dc1e9fb8b10a33630546f890f19ce0e4e7ef182a2a20c4de1809b1"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\Collect-NoRunningWsl.ps1",
+      "sha256": "eda06c7e5ad29140858426285b430a00d7de1bdec65487e5c3a61d0752e74d29"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\backup-reconcile-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    }
+  ]
+}

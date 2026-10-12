@@ -1,0 +1,96 @@
+{
+  "version": "no-wsl-source-review-artifact-index-v1",
+  "entries": [
+    {
+      "name": "NO_WSL_GUARD_INTENT_V1.json",
+      "bytes": 1602,
+      "sha256": "3cfd185f92d4bb3bb220dec721409f5e48d02462363d29d0e6341f6047dc7f74"
+    },
+    {
+      "name": "ASTRA_NO_WSL_HANDOFF_V1.json",
+      "bytes": 3769,
+      "sha256": "f6d886e8e00a2b922aa396cfbf8ee26a86998d337ae274a95826f624e0929f21"
+    },
+    {
+      "name": "NO_WSL_PREDICATE_BODY_PROOF_V1.json",
+      "bytes": 3747,
+      "sha256": "30ade9522fb11e120deace2348724dd0f22a0cf056949c8961a55e8a356f58ea"
+    },
+    {
+      "name": "NO_RUNNING_WSL_TEST_V1.log",
+      "bytes": 2033,
+      "sha256": "d0c596a048eedfce2b3bed70c136f009b60128cee6fba5d4eb093fbe673a5b57"
+    },
+    {
+      "name": "NO_RUNNING_WSL_TEST_V2.log",
+      "bytes": 1553,
+      "sha256": "620aed92bd10a4e3348d68df55fde5563c938459d5f120c7560ba7d0721226d6"
+    },
+    {
+      "name": "NO_WSL_FINAL_TEST_V1.log",
+      "bytes": 2556,
+      "sha256": "2d81f2d110b75492618e6cce9be7f7ae43efee1f080739c609f380c95f5593f5"
+    },
+    {
+      "name": "AGY_NO_RUNNING_WSL_PROMPT.txt",
+      "bytes": 2626,
+      "sha256": "1a2042f3d133e69d5922befddbb6d9a8b1deed540a54a88289cbe07f07ef0afe"
+    },
+    {
+      "name": "AGY_NO_RUNNING_WSL_STREAM.ndjson",
+      "bytes": 20938,
+      "sha256": "31af6124071e2aaa3d1e5480fc8f9b52695f5435ae5acce53258020c4960f072"
+    },
+    {
+      "name": "AGY_NO_RUNNING_WSL_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "AGY_NO_RUNNING_WSL_CALL.json",
+      "bytes": 206,
+      "sha256": "aca6619015a010faf8d5119a66e012b2c3fe5cd23105655610bfff513e0162e2"
+    },
+    {
+      "name": "AGY_NO_RUNNING_WSL_RESULT.md",
+      "bytes": 1838,
+      "sha256": "ea93a85bc6928a4b26622a2ed39d7acfda038a7c7b695d08b7aeda280dd277c9"
+    },
+    {
+      "name": "AGY_NO_RUNNING_WSL_FINAL_PROMPT.txt",
+      "bytes": 30188,
+      "sha256": "66f19b2f096f2d97db526de2f440a30b7c10849ebe00c2e10fce6df5d9d11c86"
+    },
+    {
+      "name": "AGY_NO_RUNNING_WSL_FINAL_STREAM.ndjson",
+      "bytes": 20104,
+      "sha256": "f0ab153dac6d3503b884668d6ef11fe5bf61085a674394af1a49d5749a9ee06b"
+    },
+    {
+      "name": "AGY_NO_RUNNING_WSL_FINAL_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "AGY_NO_RUNNING_WSL_FINAL_CALL.json",
+      "bytes": 206,
+      "sha256": "f4ec05bcc38606162f75f36653d52a6d65b2a49236d17d273a91a110509a1bc8"
+    },
+    {
+      "name": "AGY_NO_RUNNING_WSL_FINAL_RESULT.md",
+      "bytes": 1672,
+      "sha256": "0f7972da1d27e2c7c2b7598224dd13c44f6e3c852a4e7bb57d0f7640cbb4405e"
+    }
+  ],
+  "actualNoVmQualification": "not-established-by-this-source-review",
+  "fixtureTestCount": 43,
+  "originalOperationCount": 19,
+  "remainingAfterGuard": 13,
+  "knownDevelopmentFailures": [
+    "First test source had escaped double quotes outside a string; parse failed before test/native execution. Corrected test source then passed.",
+    "First receiver generator used an LF-only final marker on CRLF original source and refused before creating receiver. Corrected boundary selection retained original function text."
+  ],
+  "productionActionsByReviewer": 0,
+  "plaintextOrCipherArchived": false,
+  "cfValuesArchived": false
+}

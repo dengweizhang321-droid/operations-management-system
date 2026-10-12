@@ -79,3 +79,37 @@ Astra28项补证与7项resume2状态验证、主任务独立35/35通过。主任
 最新19条WAL/head290394…、active-f15及A483维护/排空门保留。3项passed，Stop目标虽有真实只读诊断支持，管理员锁内补证尚未执行，第20条不存在。最新V3管理员启动请求被Windows取消，未生成Stop STARTED。不删除门/owner、不重放、不称上线完成；聊天授权不能代点Windows系统安全确认。
 
 本轮源码及执行证据已先交付f5b19c01。另独立永久选路修复最终97fa130…、54场景（2测试）通过并推远端main/分支070f2d61；只有工程源码采用到Git，未插入f15不可变候选或自动进行第二次发布。本任务的剩余补证/切换/演练/验收仍须原精确运行包按原协议完成。
+
+## 08:39实际管理员续接，更新原停止截点
+
+用户明确要求打开最新管理员执行包，08:39:46实际确认返回管理员launcher27476，08:39:47.723 V3封包启动有限补证Node52472。旧取消记录保持；此处更新当前执行状态，不把旧取消当作仍未确认。
+
+08:44:37.078真正原reconcileOperation追加唯一000019，head `8a3a82a6c226b21bac6219a515db9227bffba31d0acbdc6fd262ae27f8dc9d4e`。原0–18逐字节未变，旧StopForRelease失败仍保留，目标由本批原已通过维护及当前停止状态确认，未重放Stop。proof canonical `7cd05e8f…`、observations canonical `7d0eee7d…`与事件/真实stdout互相绑定；锁内末native样本真实Admin/同SID、四PID均CIM缺席+Open87、唯一原5432/PID4080，距追加125ms。原门/旧Worker和Django清单相符，last-stop仅旁证，root_only_status不冒称完整ACL验收。Astra的[实际独立复审](ASTRA_ACTUAL_STOP_RECONCILIATION_REVIEW.md)与[原始存证](evidence/ACTUAL_STOP_ARCHIVE.json)分别留存。
+
+08:44:41.695原6989/f15/960c/原15:25:28Z批准参数恢复执行，直接Node47844，state20、4项passed、无unknown，完整环境原bc79。私有环境密文实际已消失，未进Git。08:45:57原队列resumed，继续原完整现场准入及剩余15项；此时新候选切换、同点隔离Restore和最终验收仍未完成。原恢复点manifest本日再次只读匹配a46097，dump大小959949050不变；不是仅凭size代替完整dump复验。
+
+原维护自01:27持续到本次续接，期间01:32至08:40没有连续静态资源采样；早/晚状态与保持的门不外推成逐秒测量。新资源观察在resume3单独开启，最终必须分别记录批准到验收/全部交付、协调/待确认、机器步骤及真实采样窗口，不将夜间等待隐藏或把历史50～55分钟毛池算净节省。
+
+## 09:27实际确认，有限 NoVM 后置检查及原批次续接
+
+08:51:37.457 Worker apply 通过，实际链为 sequence220、新候选 `20261011T090355Z-21c2645a63247749` / manifest6cff。08:53:08.518 原 previous-reference-guard 留 unknown，队列退出。09:00 已授权的管理员只读诊断独立重现：旧守卫在完整进程/任务循环前要求已经退出的固定 VM 实例仍存在；未据 stderr 长度推测原失败内容。旧守卫、spec、运行包和失败记录保持。
+
+新增的有限接收器保留原 Django/CF、保全树、运行状态、所有进程/任务与物理引用检查，只支持本 f15 当前 28 条 WAL/head a40e、Worker220 和尚未切换的旧 Django237。两端完整 HCS 必须成功返回词法空数组，系统 WSL running 列表必须为空，旧 VM 具体 PID 须同时得到 CIM 和内核缺席证明；新实例、重用、读取拒绝或未知系统均阻断。现存解释器仍做原同出生实例及真实 CWD 检查。43 项隔离测试通过，真实 Astra/AGY 复审及分歧纠正见 [独立复审](ASTRA_NO_WSL_FINAL_REVIEW.md)；这些不代替实机检查。
+
+09:27 首次 Windows 提升请求取消，未启动生产执行；用户明确要求再发后，09:27:41 实际确认，09:27:42.715 有限接收器启动。09:32:56.808 通过真正原 rotation lock / reconcileOperation 追加000028，head `c7dfd925caa08213507d7903abd700b2e0b1373cec472c2ccbe265cd3767cd75`，旧000027 unknown 保留。proof canonical `1480d10f…` / observations `32dda5ab…`与真实事件关联；两端 HCS 为完整 `[]`，运行 distro 为空，565 个进程中1个退出有内核证明，1183 状态文件扫描，引用和未知均0。现存解释器 CWD 检查保留。末 native 到事件约292.2373ms，末 HCS 到事件约273.6077ms；早先内部消息的“<250ms”已纠正。接收器 exit0 只确认该后置目标。
+
+09:33:03.167 原6989/f15/960c/原批准时间及完整 bc79 环境恢复执行，实际 Node60880；初始29条 WAL、6项通过、无最新 unknown。09:36:24 初始15项准入全部通过（127815.9047ms）。09:38:46.599 Django 部署通过，Root 只读核实际 app/deployment.json 为批准85cf、app.previous 为原237。09:40:21.892 权限加固通过；新安装恢复消费链正在核验。此截点仍未完成隔离 Restore、服务启动和最终验收，不称全部上线完成。
+
+本轮原不可变依赖共51项，固定 chain binding `e97351a1…`、ASCII bootstrap `683f7319…`，全程持有只读共享句柄。先前0–27与捕获 canonical 内容一致；源、制品、门禁和批准没有自动换绑。新采样从09:25:53开始，08:53至此没有连续采样，不回填；旧自然看门狗快照不当作当前健康。
+
+## 10:05 完整启动门未通过，当前发布仍未完成
+
+09:44:40.269 新 installed 消费链通过，实际为新应用中的只读 payload-retention planner，未执行清理。09:56:55.9417664 隔离 Restore 完成，09:56:56.034 原队列确认000042 passed（666825.6435ms），同49b/a460/e88/f261点；55433、生产数据库未触及、隔离数据清理、权限配置及序列健康均按原断言通过。Root 核真实 result 字节与 sidecar 同为 `0ab553b5…`。Astra [实机独立复审](ASTRA_ACTUAL_RESTORE_REVIEW.md)核74个执行文件及 audit/result/stdout摘要/WAL关联，归档见 evidence/actual-restore。可选 policySyntaxEquivalence=false，未建立完整 RLS 语法等价证明；非空 stderr 仅摘要可用，未恢复原临时正文。
+
+09:58:57.974 本批 ExitMaintenance 通过，维护与排空门正常解除，active-f15保留。10:00:06.682 StartWorker开始。10:05:55.216 返回 unknown，49条WAL/head `1a614e58caf56a243ea8dead3ce1609993fd993c3ed39cac296bf83c64617bd4`；原入口10:05:55.352 exit1。真正 Start engine exit0、随后候选身份 Status通过，但完整 control 状态门未通过；此为非零退出/完成门错误，非超时。10:04:24.545 静态资源首次实测200/字节匹配，不能代替完整就绪与最终验收。
+
+源码和日志随后揭示新的关联边界：本次批准的0afd rotation plan显式将 protected worker入口4c315更新为717408，旧978包、新21c包、当前主入口及安装链吻合。既有 watchdog 的不可变 add91…绑定仍为4c315；其它control/backend/transport三项实算匹配，但worker不符后它选择legacy而非拒绝。Root实际只读Task查询确认既有任务RunLevel0（普通角色），未修改任务、版本或绑定。
+
+原 Django Get-ProcessSnapshot 会在image/cmd不可读时返回null；原 Resolve-OwnedProcess则删除该PID记录。日志真实有23条stale_process_record_removed，发生10:01/10:02启动期间；当前run目录23个域PID记录缺席。调用者与各进程当时活性不能只凭日志断定。Root10:07后曾调用普通角色原Status，10:09:26返回Supervisor创建身份不可读/改变、foreign_or_ambiguous，已保存原输出并停止再次调用；该原接口并非严格零文件写，不能继续以“只读”掩盖元数据清理风险。此前23条删除早于这次诊断，不归因于它，也不从674字节旧摘要反推具体组件。
+
+原失败、实机输出、驱动绑定变化和独立复审见 [完整就绪失败](ASTRA_START_READINESS_FAILURE_REVIEW.md)、[角色与元数据边界](ASTRA_START_HOST_ROLE_REVIEW.md)、[watchdog绑定失配](ASTRA_WATCHDOG_BINDING_FAILURE_REVIEW.md)。当前不重放Start、不补填未知所有权、不改旧绑定/运行包/调度，不称发布完成。必要源码收严从最新origin/main65b建立独立 codex/startup-status-receipt-safety-20261012 工作树；生产修复须先形成精确现场与范围。既有1次Backup/1次Restore已完成，不机械重做。

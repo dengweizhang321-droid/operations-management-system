@@ -1,0 +1,20 @@
+// One administrator process: finite guard reconciliation, then the original approved entry.
+import {readFile,writeFile,open} from 'node:fs/promises';
+import {spawn} from 'node:child_process';
+import {createHash} from 'node:crypto';
+import assert from 'node:assert/strict';
+const base='E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/',sha=b=>createHash('sha256').update(b).digest('hex');
+assert.equal(process.argv.length,4);assert.ok(!Object.keys(process.env).some(n=>/^NODE_/i.test(n)));
+const raw=await readFile(process.argv[2]);assert.equal(sha(raw),process.argv[3]);const p=JSON.parse(raw);assert.equal(p.version,'fixed-no-wsl-and-original-resume4-v1');
+const out=await open(base+'no-wsl-guard/STDOUT.log','wx'),err=await open(base+'no-wsl-guard/STDERR.log','wx'),startedAt=new Date().toISOString();
+await writeFile(base+'no-wsl-guard/STARTED.json',JSON.stringify({startedAt,bindingSha256:process.argv[3]},null,2)+'\n',{flag:'wx'});
+const child=spawn(process.execPath,[p.reconcile,'reconcile',p.intent.path,p.intent.sha256],{windowsHide:true,stdio:['ignore',out.fd,err.fd]});
+const ended=new Promise(resolve=>{child.once('error',e=>resolve({exitCode:null,errorCode:e.code??'spawn-error'}));child.once('close',exitCode=>resolve({exitCode,errorCode:null}));});
+await writeFile(base+'no-wsl-guard/DIRECT_PROCESS.json',JSON.stringify({processId:child.pid,startedAt},null,2)+'\n',{flag:'wx'});
+const result=await ended;await out.close();await err.close();await writeFile(base+'no-wsl-guard/FINISHED.json',JSON.stringify({...result,startedAt,finishedAt:new Date().toISOString()},null,2)+'\n',{flag:'wx'});
+assert.equal(result.exitCode,0,'Fresh full guard postcondition was not confirmed; no resume');
+const output=JSON.parse(await readFile(base+'no-wsl-guard/STDOUT.log','utf8'));
+assert.equal(output.status,'readonly-guard-postcondition-reconciled-only');assert.equal(output.batchSha256,'f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f');assert.equal(output.originalGuardFailurePreserved,true);assert.match(output.eventSha256,/^[a-f0-9]{64}$/);
+const next=spawn(process.execPath,[p.resume,p.cipherManifestSha256,output.eventSha256],{windowsHide:true,stdio:'inherit'});
+const nextResult=await new Promise(resolve=>{next.once('error',e=>resolve({exitCode:null,errorCode:e.code??'spawn-error'}));next.once('close',exitCode=>resolve({exitCode,errorCode:null}));});
+await writeFile(base+'resume4/CHAIN_FINISHED.json',JSON.stringify({...nextResult,finishedAt:new Date().toISOString()},null,2)+'\n',{flag:'wx'});process.exitCode=nextResult.exitCode??1;
