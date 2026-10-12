@@ -1,0 +1,10 @@
+{
+  "at": "2026-10-12T07:24:08.411Z",
+  "oldWalFilesUnchanged": 49,
+  "newEvent": "5062ef203bb96318e437be820eb86ec5964644405b21215375a2ad11ba294e46",
+  "proofSha256": "35c3e52723dbc6d643ea2d95c3e6b5304484f3b4e4018713379221651af73394",
+  "observationSha256": "fc12582cfb0eb45076461e46568748fceb9ce7ba6474de6987444450d849ca9e",
+  "originalStartNotReplayed": true,
+  "environmentRestoredExact": true,
+  "originalSevenAcceptanceStillPending": true
+}

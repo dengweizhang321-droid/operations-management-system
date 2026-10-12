@@ -1,0 +1,7 @@
+{
+  "version": "fixed-display-reconciliation-original-closeout-v1",
+  "startIntentPath": "E:/codex-artifacts/startup-recovery-continuation-20261012/DISPLAY_DECISION_INTENT_V2.json",
+  "startIntentSha256": "c22f2464059120c823bf01a4a0e92e04f87bd89a7be9ec5f9bdeb63a605d5ff4",
+  "envManifestPath": "E:/codex-artifacts/startup-recovery-continuation-20261012/display-closeout-v1/ENV_CIPHER_MANIFEST.json",
+  "envManifestSha256": "ab124714ac57cbfe993839a88f791a90fde8309b7b42bd7d9bebb34b7084c820"
+}

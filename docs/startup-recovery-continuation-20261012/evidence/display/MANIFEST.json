@@ -1,0 +1,362 @@
+[
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_DISPLAY_POSTCONDITION_V1_CALL.json",
+    "name": "AGY_DISPLAY_POSTCONDITION_V1_CALL.json",
+    "bytes": 104,
+    "sha256": "6829ba8c875e2073623eb3b353ed11fc5a82bb15f318e14d55b0fa92316f0ff0"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_DISPLAY_POSTCONDITION_V1_PROMPT.txt",
+    "name": "AGY_DISPLAY_POSTCONDITION_V1_PROMPT.txt",
+    "bytes": 25004,
+    "sha256": "ecd4b4ad956da8da2bb41ea794ed82a87130e0774198f0cbba9eb79e41f635f6"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_DISPLAY_POSTCONDITION_V1_STDERR.log",
+    "name": "AGY_DISPLAY_POSTCONDITION_V1_STDERR.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_DISPLAY_POSTCONDITION_V1_STREAM.ndjson",
+    "name": "AGY_DISPLAY_POSTCONDITION_V1_STREAM.ndjson",
+    "bytes": 67435,
+    "sha256": "03c90a6a7eb5da0820040f11505bbe8f6896e58acd4671f393ccf0b39dc1f862"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_DISPLAY_POSTCONDITION_V2_CALL.json",
+    "name": "AGY_DISPLAY_POSTCONDITION_V2_CALL.json",
+    "bytes": 104,
+    "sha256": "0db7700a5c9dcef22d37af47d83b6f471dc0cb4aa7da97e1084d296b0bfe3a53"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_DISPLAY_POSTCONDITION_V2_PROMPT.txt",
+    "name": "AGY_DISPLAY_POSTCONDITION_V2_PROMPT.txt",
+    "bytes": 12336,
+    "sha256": "f52fb2f393ecf0e2a9ae72c83d7e39fe97a4e17498a0424da916a5d316eefbb6"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_DISPLAY_POSTCONDITION_V2_STDERR.log",
+    "name": "AGY_DISPLAY_POSTCONDITION_V2_STDERR.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_DISPLAY_POSTCONDITION_V2_STREAM.ndjson",
+    "name": "AGY_DISPLAY_POSTCONDITION_V2_STREAM.ndjson",
+    "bytes": 8364,
+    "sha256": "439f3f76efde381ff69c894a103f9306c4651d0121fc6fa6b5315603f9fdec9b"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/DISPLAY_CLOSEOUT_STATE_FIRST_TEST.log",
+    "name": "DISPLAY_CLOSEOUT_STATE_FIRST_TEST.log",
+    "bytes": 514,
+    "sha256": "28ce2ae764459263bceb25690aff44cd80a195bbba200bee0b20db927d92b212"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/DISPLAY_DECISION_INTENT_V1.json",
+    "name": "DISPLAY_DECISION_INTENT_V1.json",
+    "bytes": 48947,
+    "sha256": "6fa547c154436172d0d7856371a9dadbcbde54cba4dd1a2a500a572b0e5a4293"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/DISPLAY_DECISION_INTENT_V2.json",
+    "name": "DISPLAY_DECISION_INTENT_V2.json",
+    "bytes": 48947,
+    "sha256": "c22f2464059120c823bf01a4a0e92e04f87bd89a7be9ec5f9bdeb63a605d5ff4"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/DISPLAY_EXACT_DIAGNOSTIC_V1.json",
+    "name": "DISPLAY_EXACT_DIAGNOSTIC_V1.json",
+    "bytes": 2164,
+    "sha256": "3f3b2ce7d30e84b21fedb05f11c6c888a5a291f9092a89c990efe445d53dead3"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/DISPLAY_POSTCONDITION_FINAL_TEST.log",
+    "name": "DISPLAY_POSTCONDITION_FINAL_TEST.log",
+    "bytes": 1990,
+    "sha256": "0fef338fa4738540c80a1f02f23b915c9b1318fca57f1d676297f70b937c6f33"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/DISPLAY_POSTCONDITION_FIRST_TEST.log",
+    "name": "DISPLAY_POSTCONDITION_FIRST_TEST.log",
+    "bytes": 402,
+    "sha256": "9b71cc44a4a8c87f063cef775fd1a3ec8e3b70dc9306fd1de6cbc6ba2926a2fa"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/DISPLAY_POSTCONDITION_V2_TEST.log",
+    "name": "DISPLAY_POSTCONDITION_V2_TEST.log",
+    "bytes": 693,
+    "sha256": "8778ec50698c184635dc75fd7f6e9622ef0261431e55d834590369e5360c4e16"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/DISPLAY_POSTCONDITION_V3_TEST.log",
+    "name": "DISPLAY_POSTCONDITION_V3_TEST.log",
+    "bytes": 692,
+    "sha256": "30ee0697d5f4d5e59fb3ecb9046374d23d580987a81cd5b3ed6825e766a90ae4"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/DISPLAY_SPLIT_DIAGNOSTIC_V1.json",
+    "name": "DISPLAY_SPLIT_DIAGNOSTIC_V1.json",
+    "bytes": 3853,
+    "sha256": "109008fedec8a583fc7af8a82c89f5605632e72ee634b0614cbf557887034ef9"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/DISPLAY_WORKER_ROLE_FIRST_TEST.log",
+    "name": "DISPLAY_WORKER_ROLE_FIRST_TEST.log",
+    "bytes": 290,
+    "sha256": "7beec43a8a338c703672f139e61cd11788510f1a0ce5c02cec79f6b52796bf71"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/NATURAL_AFTER_TWO_HEALTHY_TIMEOUT_V1.json",
+    "name": "NATURAL_AFTER_TWO_HEALTHY_TIMEOUT_V1.json",
+    "bytes": 1931,
+    "sha256": "b10914cd7e79496d381ac317beccd8b3014295d2ec6b20ceb3d690deacb5e161"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/ROOT_ACTUAL_START_RECONCILIATION_REVIEW_V1.json",
+    "name": "ROOT_ACTUAL_START_RECONCILIATION_REVIEW_V1.json",
+    "bytes": 446,
+    "sha256": "79ecaede3b8a1eb50abc7ca1b31a24f1463eeccdf85a883bcca8a2ede8b353f0"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/ROOT_DISPLAY_SCOPE_REVIEW_V1.json",
+    "name": "ROOT_DISPLAY_SCOPE_REVIEW_V1.json",
+    "bytes": 1048,
+    "sha256": "cd75b5ff88b89f5082e2894b2fafa873afe2c41862a58b75141426f4f740683a"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/ROOT_NATURAL_HEALTH_REVIEW_V1.json",
+    "name": "ROOT_NATURAL_HEALTH_REVIEW_V1.json",
+    "bytes": 897,
+    "sha256": "701db2e66218ad5ec91519fdf295b89fdd12ddb3dc5d202d1db53572cf88a8ea"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/CAPTURE_RESULT.json",
+    "name": "original-start-postcondition-v1/CAPTURE_RESULT.json",
+    "bytes": 2212,
+    "sha256": "04903fee414fe16ed96cd98c80e2e679ae7aa214edbef3f31a144593b174c36a"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/control.process.json",
+    "name": "original-start-postcondition-v1/control.process.json",
+    "bytes": 413,
+    "sha256": "141a8f7de83190c711575bcb8cbba530131fd1b19ce7b6a286655c6d26c9e569"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/control.stderr.log",
+    "name": "original-start-postcondition-v1/control.stderr.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/control.stdout.json",
+    "name": "original-start-postcondition-v1/control.stdout.json",
+    "bytes": 518,
+    "sha256": "31347340cc5023f88e8e58237a538c2c931d619d0ad54d13b0043f305957e6db"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/DECISION.json",
+    "name": "original-start-postcondition-v1/DECISION.json",
+    "bytes": 557,
+    "sha256": "1e2a23564fbe074c4f266a95c707f3c629b6c51a4f7f40748c81cf8617168f99"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/maintenance.process.json",
+    "name": "original-start-postcondition-v1/maintenance.process.json",
+    "bytes": 411,
+    "sha256": "1206c69937bafa03893604c109d1563babd8793652261392c970399eeabe647d"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/maintenance.stderr.log",
+    "name": "original-start-postcondition-v1/maintenance.stderr.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/maintenance.stdout.json",
+    "name": "original-start-postcondition-v1/maintenance.stdout.json",
+    "bytes": 45,
+    "sha256": "663b4a14ad3e88925834b4a421b82e7fcc31b7f005fb976457685549d772d3f8"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/OBSERVATIONS.json",
+    "name": "original-start-postcondition-v1/OBSERVATIONS.json",
+    "bytes": 3610,
+    "sha256": "84d254981a19331517e74f1b4fa1408adcb35fe35c8033deeaaa2986567ec7de"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/PROOF.json",
+    "name": "original-start-postcondition-v1/PROOF.json",
+    "bytes": 478,
+    "sha256": "287bb09963f40b724b06d55897a876e5796cdf660d7247ba0100a57af06d3da2"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/worker.process.json",
+    "name": "original-start-postcondition-v1/worker.process.json",
+    "bytes": 411,
+    "sha256": "f16d4324e018f419470e5cdd4f46e9f7f68b89db3ed1a9efc59a9fda2f4388c9"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/worker.stderr.log",
+    "name": "original-start-postcondition-v1/worker.stderr.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-start-postcondition-v1/worker.stdout.json",
+    "name": "original-start-postcondition-v1/worker.stdout.json",
+    "bytes": 266,
+    "sha256": "d51c823c53a8eaedfdf35a6e37728ccce82b83b2515ccd4141fd868b24b5d7fb"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/BOOTSTRAP.ps1",
+    "name": "original-closeout-v1/BOOTSTRAP.ps1",
+    "bytes": 5869,
+    "sha256": "afd6dd9eddf0f8a9ecfc5542939feb2400bf5a19e0381967a5dc26ad3612ba2c"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/CLOSEOUT_BINDING.json",
+    "name": "original-closeout-v1/CLOSEOUT_BINDING.json",
+    "bytes": 489,
+    "sha256": "7bbf6e202b53c8c4b2287b3df0d8a5485a592b23196a454562709d8849d48f5b"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/ENV_RESTORED.json",
+    "name": "original-closeout-v1/ENV_RESTORED.json",
+    "bytes": 1079,
+    "sha256": "ea0645945b2c4191ec0ee1b97a70e91054db23bbbffbec74ea3259e478d505d2"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/LAUNCH_HELD_BOOTSTRAP_V1.ps1",
+    "name": "original-closeout-v1/LAUNCH_HELD_BOOTSTRAP_V1.ps1",
+    "bytes": 4070,
+    "sha256": "66e032f807fb8468705a84827fd3a0561c24922d43604b2b05266c72de69da01"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/ORIGINAL_ENTRY.FINISHED.json",
+    "name": "original-closeout-v1/ORIGINAL_ENTRY.FINISHED.json",
+    "bytes": 246,
+    "sha256": "434b1985710cca8cd2fca84603ca5c1dcb7e099fa01ec7612350b05330b8ff1e"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/ORIGINAL_ENTRY.STARTED.json",
+    "name": "original-closeout-v1/ORIGINAL_ENTRY.STARTED.json",
+    "bytes": 460,
+    "sha256": "182d20594b39978d23d785e76a54575cda43c6331f7ba0abca6b7e6c3d3eb033"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/ORIGINAL_ENTRY.stderr.log",
+    "name": "original-closeout-v1/ORIGINAL_ENTRY.stderr.log",
+    "bytes": 45,
+    "sha256": "a2c91b5fd247bcaa40c4175d77b00ddc7d76be3ac667ee5f1f2871d453ce58ef"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/ORIGINAL_ENTRY.stdout.log",
+    "name": "original-closeout-v1/ORIGINAL_ENTRY.stdout.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/RECONCILIATION.FINISHED.json",
+    "name": "original-closeout-v1/RECONCILIATION.FINISHED.json",
+    "bytes": 246,
+    "sha256": "8ff4e1461fdb5d0f3ce438816af0df9c325b707d4c86a2b4b2ffdb0831bcfb9e"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/RECONCILIATION.STARTED.json",
+    "name": "original-closeout-v1/RECONCILIATION.STARTED.json",
+    "bytes": 490,
+    "sha256": "75ede8ee0034f3d5ced65c9288f982b444e46a5cb25a0d9bd84585893923c0bf"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/RECONCILIATION.stderr.log",
+    "name": "original-closeout-v1/RECONCILIATION.stderr.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/RECONCILIATION.stdout.log",
+    "name": "original-closeout-v1/RECONCILIATION.stdout.log",
+    "bytes": 245,
+    "sha256": "9c3e36d1fdf164a6621bf97e64b20710a9d28b90e91186b38ea3f6f3a1c2c2c4"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/TRANSPORT_BINDING.json",
+    "name": "original-closeout-v1/TRANSPORT_BINDING.json",
+    "bytes": 47881,
+    "sha256": "f606e098321a646dc280b3d922281a941af8a7333301c48b46f38175753abb22"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/TRANSPORT_FINISHED.json",
+    "name": "original-closeout-v1/TRANSPORT_FINISHED.json",
+    "bytes": 138,
+    "sha256": "10243769f6b97c0f3f8497da2ddf64c24f6a1263106eeb9967d9123d5edee1e9"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/TRANSPORT_STARTED.json",
+    "name": "original-closeout-v1/TRANSPORT_STARTED.json",
+    "bytes": 223,
+    "sha256": "421c0ea6684a85b680b1987118a65d238c9e68732c2c21aab13e93ae3fd31a74"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/UAC_REQUESTED_V1.json",
+    "name": "original-closeout-v1/UAC_REQUESTED_V1.json",
+    "bytes": 372,
+    "sha256": "e0ee575ed5b08ffcd02e64c1b452cf8a6bd0b268266ee24f72cd71f25b7db00d"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/UAC_TRANSPORT_V1.finished.json",
+    "name": "original-closeout-v1/UAC_TRANSPORT_V1.finished.json",
+    "bytes": 61,
+    "sha256": "57740d20bb97202bb6ae371ce2a9e648af42650fc3fed0fe9251004c19a0b5a5"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/UAC_TRANSPORT_V1.stderr.log",
+    "name": "original-closeout-v1/UAC_TRANSPORT_V1.stderr.log",
+    "bytes": 616,
+    "sha256": "2ce70d6c8c9ad6726c794690c8b14a2b83673648cac88edf4ff1acc50ec46348"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/original-closeout-v1/UAC_TRANSPORT_V1.stdout.ndjson",
+    "name": "original-closeout-v1/UAC_TRANSPORT_V1.stdout.ndjson",
+    "bytes": 167,
+    "sha256": "80b07c137a02d8542ec2b30ce6d74b2ba65c61d304b277ad6aee63d53de412fa"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/display-closeout-v1/BOOTSTRAP.ps1",
+    "name": "display-closeout-v1/BOOTSTRAP.ps1",
+    "bytes": 5869,
+    "sha256": "94af72d8bc6a6f1cfb563d6c48f24aa670c1db464415d3cefbe6631b5b3ae403"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/display-closeout-v1/CLOSEOUT_BINDING.json",
+    "name": "display-closeout-v1/CLOSEOUT_BINDING.json",
+    "bytes": 492,
+    "sha256": "4d653fa4747bdb16183cb424b02c0c26b495d546c0efa0e79c43c6406b900034"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/display-closeout-v1/LAUNCH_HELD_BOOTSTRAP_V1.ps1",
+    "name": "display-closeout-v1/LAUNCH_HELD_BOOTSTRAP_V1.ps1",
+    "bytes": 4069,
+    "sha256": "3c8890281e435e563c32397472bceca6edc5611fce0f0f0820dca228ba9cf47f"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/display-closeout-v1/TRANSPORT_BINDING.json",
+    "name": "display-closeout-v1/TRANSPORT_BINDING.json",
+    "bytes": 52423,
+    "sha256": "0ef066b72c905f2b36f0f55b35fbead10a17224cf0bd5857f35467c96a704985"
+  },
+  {
+    "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/_observations/first-adoption-live-guard-20261011-observe-display-53b44d9c-2e37-4953-8cd0-b1d652c83223/started.json",
+    "name": "original-display/started.json",
+    "bytes": 147,
+    "sha256": "fc8687ac5417369dc0cf84943894a755780fcb8e8143b88b351154bb9d60d534"
+  },
+  {
+    "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/_observations/first-adoption-live-guard-20261011-observe-display-53b44d9c-2e37-4953-8cd0-b1d652c83223/failure.json",
+    "name": "original-display/failure.json",
+    "bytes": 1248,
+    "sha256": "9b7e08f9f722058bf0fd921d60a2a622848c1b8170799cb1130a7bb1f866a079"
+  }
+]

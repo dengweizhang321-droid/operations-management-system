@@ -1,0 +1,14 @@
+✔ actual sealed source inventory is exactly ten tools; UI change rejects (41.9789ms)
+✔ actual55/head display unknown and wrong-head/owner/resolved/omission negatives (33.8897ms)
+✔ actual fixed HTTP function streams under cap, rejects oversized/redirect without following (10.0055ms)
+✔ fixed sealed operation rejects changed font/resources or write classification (4.2092ms)
+✔ private HTTP eight GET resources succeed, mismatch and redirect reject (122.7868ms)
+✔ page keeps original observer input 14px and does not pretend lazy styles consumed (1.119ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 304.332
