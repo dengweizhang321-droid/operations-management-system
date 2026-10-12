@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "base": "65b98cb233743ab4a80f30176c9a9acf0c30acd8",
+  "files": [
+    {
+      "path": "tools/django-local-service.ps1",
+      "sha256": "d2ceae6d62671eb21ebaef51d2658018eed0f20f6a3d0b343d9957b4de56bd01",
+      "bytes": 238140,
+      "utf8Bom": true
+    },
+    {
+      "path": "tools/operations-system-watchdog.ps1",
+      "sha256": "c8a635e3ea80b41251033c5f209d2f8b3ed5b0ad95f252f7dc6ec35482fabd2b",
+      "bytes": 49567,
+      "utf8Bom": true
+    },
+    {
+      "path": "tests/startup-status-receipt-safety.fixture.ps1",
+      "sha256": "62b4a75af78cbbe7b5e2b767dc9a589e221a1291049a957a8b259e4a1c814632",
+      "bytes": 11454,
+      "utf8Bom": false
+    },
+    {
+      "path": "tests/startup-status-receipt-safety.test.mjs",
+      "sha256": "9cb9ba88179910f585103eb08b639df7d9142a4b44b922d13e112e0ea7aba774",
+      "bytes": 895,
+      "utf8Bom": false
+    },
+    {
+      "path": "tests/startup-status-baseline-reproduction.mjs",
+      "sha256": "84ce670d51053b0c2ae1a0a13789842a3ae1dd00da15d1652e5f10fcb828bb23",
+      "bytes": 3414,
+      "utf8Bom": false
+    }
+  ],
+  "patchSha256": "efb6578cb673ddfb29cb29f01e0d199d63217a2230b7997e783fd2130481d4f2",
+  "tests": {
+    "casesPerHost": 43,
+    "hosts": [
+      "Windows PowerShell5",
+      "PowerShell7"
+    ],
+    "nodeTestsPassed": 2,
+    "finalTestLog": "E:/codex-artifacts/startup-status-receipt-safety-20261012/ASTRA_FINAL_TEST.log",
+    "baselineReproduction": "E:/codex-artifacts/startup-status-receipt-safety-20261012/ASTRA_BASELINE_REPRODUCTION.log",
+    "driverCompatibility": "E:/codex-artifacts/startup-status-receipt-safety-20261012/ASTRA_DRIVER_COMPATIBILITY.log",
+    "boundedStatus": "E:/codex-artifacts/startup-status-receipt-safety-20261012/ASTRA_STATUS_BOUNDED.log"
+  },
+  "productionActions": 0
+}

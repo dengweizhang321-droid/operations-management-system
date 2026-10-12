@@ -1,0 +1,8 @@
+{
+  "startedAt": "2026-10-12T02:27:17.994Z",
+  "finishedAt": "2026-10-12T02:28:03.188Z",
+  "code": 0,
+  "signal": null,
+  "promptSha256": "4e0a9538fc5b470841d7060874eb395ac8eb56aba58900f781c58431e6585326",
+  "scope": "text-only source review; no production actions"
+}
