@@ -1,0 +1,15 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import crypto from 'node:crypto';import {spawnSync} from 'node:child_process';
+import {assertRetractionReceipt} from '../docs/startup-status-receipt-safety-20261012/retract-startup-repair-fence.mjs';
+const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+for(const shell of ['powershell.exe','pwsh.exe'])test('held-object deletion and exact-byte rejection in private files on '+shell,()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'teruisi-retract-'));try{
+  const good=path.join(dir,'owned.json'),wrong=path.join(dir,'changed.json'),linked=path.join(dir,'linked.json'),alias=path.join(dir,'second-link.json');
+  fs.writeFileSync(good,'owned');fs.writeFileSync(wrong,'changed');fs.writeFileSync(linked,'owned');fs.linkSync(linked,alias);
+  const helper=path.resolve('docs/startup-status-receipt-safety-20261012/Remove-ExactRepairFence.ps1').replaceAll("'","''");
+  const code=`$ErrorActionPreference='Stop';. '${helper}' -FunctionsOnly;$rejected=0;foreach($file in @('${wrong.replaceAll("'","''")}','${linked.replaceAll("'","''")}')){$no=$false;try{Remove-ExactOwnedRepairMarker $file '${sha('owned')}'|Out-Null}catch{$no=$true};if(!$no -or -not (Test-Path -LiteralPath $file)){throw 'Unsafe negative deletion'};$rejected++};$result=Remove-ExactOwnedRepairMarker '${good.replaceAll("'","''")}' '${sha('owned')}';if(!$result.deleteDispositionSet -or (Test-Path -LiteralPath '${good.replaceAll("'","''")}')){throw 'Owned file still present'};[pscustomobject]@{removedOwnedOnly=$true;negativeCases=$rejected}|ConvertTo-Json -Compress`;
+  const r=spawnSync(shell,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')],{encoding:'utf8',windowsHide:true,timeout:15000});assert.equal(r.status,0,r.stderr);assert.deepEqual(JSON.parse(r.stdout.trim()),{removedOwnedOnly:true,negativeCases:2});assert.equal(fs.existsSync(good),false);assert.equal(fs.readFileSync(wrong,'utf8'),'changed');assert.equal(fs.readFileSync(linked,'utf8'),'owned');
+ }finally{assert.equal(path.dirname(dir),os.tmpdir());assert(path.basename(dir).startsWith('teruisi-retract-'));fs.rmSync(dir,{recursive:true,force:true});}
+});
+function receipt(){return{version:'exact-repair-fence-removal-v1',sid:'S-1-5-21-815909789-107973518-1379257801-1001',administrator:true,result:{markerSha256:'8cd56417937b8f8fbb82f7404dc52d8d7fd38aa4256e0c0b46d6b65344873572',fileIdentity:'synthetic',deleteDispositionSet:true}}}
+test('exact synthetic removal receipt accepted but not treated as filesystem absence',()=>assertRetractionReceipt(receipt()));
+for(const[name,mutate]of [['wrong-hash',x=>x.result.markerSha256='b'.repeat(64)],['wrong-role',x=>x.administrator=false],['wrong-SID',x=>x.sid='other'],['no-disposition',x=>x.result.deleteDispositionSet=false],['missing-identity',x=>x.result.fileIdentity='']])test('retraction receipt rejects '+name,()=>{const v=receipt();mutate(v);assert.throws(()=>assertRetractionReceipt(v));});
