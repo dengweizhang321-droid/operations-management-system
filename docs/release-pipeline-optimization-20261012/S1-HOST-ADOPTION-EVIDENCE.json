@@ -1,0 +1,187 @@
+{
+  "schema": "s1-approved-host-adoption-evidence-v1",
+  "approval": "Human explicitly approved A in current chat",
+  "baseSha": "8fbaa34b0262fda9c61bd953577b338e08aeadaa",
+  "executionDirectory": "D:\\codex-artifacts\\release-s1-adoption-20261013\\execution-20261012T221328Z",
+  "records": [
+    {
+      "path": "01-pre-replace.raw.json",
+      "bytes": 806,
+      "sha256": "0966b30e41bba5a3fc369b849a635d73b53be5993b585cb9967852edea5040f0",
+      "originalBytes": 468,
+      "originalSha256": "8b958d56efb7efb113d950b9f7e99c105279ab7f12dbb7b1a4085d0bc0449126"
+    },
+    {
+      "path": "02-replaced.raw.json",
+      "bytes": 603,
+      "sha256": "0ea7fd4d45bfbb7253e47613d70ab90ac84afd6a2cdddf36be923899b062ef99",
+      "originalBytes": 316,
+      "originalSha256": "3091cd5305ec511b9f30c204883142b27072ca0b23c6f5921ae7f8363bee0bc0"
+    },
+    {
+      "path": "03-installed-verified.raw.json",
+      "bytes": 1165,
+      "sha256": "57654b5e3ddde75a6ccfd3a064364a51dfe6fd06431e238a086ce6a6fafeb3f6",
+      "originalBytes": 730,
+      "originalSha256": "77d820ec5d9cb5ce5c0af547d91f556624d6235e2021f3393321b904c185fc8b"
+    },
+    {
+      "path": "after-effective-head.raw.json",
+      "bytes": 4461,
+      "sha256": "25c3a6abc5e89d540c6ae3134694aec671d3b8afb50547d07dea620cb64344b3",
+      "originalBytes": 3202,
+      "originalSha256": "3c4688b2f604d02afd57284936d8f584339517f8af0fe5bbd14f3b2a2db9e480"
+    },
+    {
+      "path": "before-effective-head.raw.json",
+      "bytes": 4462,
+      "sha256": "613174cf64b66eebfa578d1a54634cc98f2e9d4711560bd87c303023716cbb5e",
+      "originalBytes": 3202,
+      "originalSha256": "648a8e322b6915e42df9189e1fc9ad546bcc450552dba761cb59dbf23e88404d"
+    },
+    {
+      "path": "before-host-facts.raw.json",
+      "bytes": 15615,
+      "sha256": "40dc2b1e07cc2f4260ac76aa1d167df157598092f39ed8cee7e99ab889d89add",
+      "originalBytes": 11570,
+      "originalSha256": "2409aba1ab98b88fad0a25ddbc3251a3f547e39d2f056b97e10f18624fdbe723"
+    },
+    {
+      "path": "before-native-completion-v2.raw.json",
+      "bytes": 7072,
+      "sha256": "75279a9d54960f419facb771f6517e17b69077c9cd06dc077a3d3082cd744c36",
+      "originalBytes": 5155,
+      "originalSha256": "0a6dc535bbd0d50705331bd9f6e242708ec3cc72f80c661dfdaf5f804ed96ea6"
+    },
+    {
+      "path": "final-host-facts.raw.json",
+      "bytes": 15614,
+      "sha256": "64f1715ce9786c269422f984e215c37600bc4d2b03ecc155b17dfea394a88a20",
+      "originalBytes": 11570,
+      "originalSha256": "4299831ededadd8c0a011a194f27bed5ef5ad41e709a1c06d5e24e97f834dd6d"
+    },
+    {
+      "path": "final-native-completion.raw.json",
+      "bytes": 7068,
+      "sha256": "d1e56c06254b6f2a9341b142984018fbc1d8086e5c71399f6dc4c5d7882976f0",
+      "originalBytes": 5155,
+      "originalSha256": "c3f29453e821cab5defa13b25ec0f25965fdbfbafadc19cea081b13ef8ab7be5"
+    },
+    {
+      "path": "FINAL-RESULT.raw.json",
+      "bytes": 3093,
+      "sha256": "d7f980637b35adb6ef126fd4f9d93cf429edf706c882f16025ec755a45752c6c",
+      "originalBytes": 2182,
+      "originalSha256": "8f65b0c6b8fb9d809dc561197f77604f8953f5be997e72a0731eb8fd0b689961"
+    },
+    {
+      "path": "first-after-effective-head.raw.json",
+      "bytes": 4467,
+      "sha256": "fdc0b2782d3c4e4d3e75cbd96ea02a4d3e4f4593bd6531775641bb82567850b9",
+      "originalBytes": 3202,
+      "originalSha256": "3c4688b2f604d02afd57284936d8f584339517f8af0fe5bbd14f3b2a2db9e480"
+    },
+    {
+      "path": "first-after-host-facts.raw.json",
+      "bytes": 14612,
+      "sha256": "b4baa9e7b4d3141fe3a58c69980fd046e0786478db31b6dfbd0d0cc774515d60",
+      "originalBytes": 10815,
+      "originalSha256": "1ce51cc094d425fce0539bc29d0ed171f543121668b3845e19593ddae16ec620"
+    },
+    {
+      "path": "first-after-native-completion.raw.json",
+      "bytes": 7222,
+      "sha256": "64a991aea02e27b28cf08d7d84fc5fcbd368b3fe59ec1c3a4e6feb3b7e4d9809",
+      "originalBytes": 5268,
+      "originalSha256": "d6ca9c38d88e923f499309a7fd3c55e34aff4cabfe8a39840261339e8c815e3a"
+    },
+    {
+      "path": "installed-caller-acceptance.raw.json",
+      "bytes": 8272,
+      "sha256": "7924aa415abd8a9aba9f7460ad16d8606657d955c073fff5dcb8f723c5c873a1",
+      "originalBytes": 6056,
+      "originalSha256": "8ca6cf3d559f6e907fcc28c2353a42b19503a5a06c5bc7cf6d82b9726d48a994"
+    },
+    {
+      "path": "installed-exit-acceptance.raw.json",
+      "bytes": 2014,
+      "sha256": "b893c5a9d194bae264dea4fd2bfdfeeb7e8df745f12308f434357d5d511ee07a",
+      "originalBytes": 1363,
+      "originalSha256": "77f49537ea41ed1755bf7144c5e326f283efa9638a45630f030f354c0482e6f2"
+    },
+    {
+      "path": "execute-s1-install.ps1.source.json",
+      "bytes": 12256,
+      "sha256": "f8b9d4dadbcf130af2d98b354778de907456e6e0f654eaa7ba453b2e3ed9c43d",
+      "originalBytes": 8964,
+      "originalSha256": "dfe14d94716f970720884815497f2bf0e156760eb23d320314e730c56df6789b"
+    },
+    {
+      "path": "run-installed-s1-callers.mjs.source.json",
+      "bytes": 3434,
+      "sha256": "4b069429a6323425f594f9bd60f95f73185072551e9a7e644610301a7c82ae64",
+      "originalBytes": 2341,
+      "originalSha256": "73dba6e02c96e41a26e66650975cccf99b66cc3efc7cef94a90f5aed0e54634b"
+    },
+    {
+      "path": "installed-s1-exit-fixture.ps1.source.json",
+      "bytes": 6827,
+      "sha256": "96a8560a49281957c7332dff3c72107a38295e8ae574432e935bd236e4347e02",
+      "originalBytes": 4885,
+      "originalSha256": "ae0af8e3f46c952bf64ade6cdeac3f9cf094aaa6aa490a4e8a6763a555b4686d"
+    },
+    {
+      "path": "s1-caller-fixture.ps1.source.json",
+      "bytes": 3987,
+      "sha256": "702a28fdd74182e046c29178488973d7b7038e0212a2ad25850af0e0a0f8fdfd",
+      "originalBytes": 2761,
+      "originalSha256": "ca01f7eff151aa00903b7207db5816a06fdcc17f3654f514b2e2d2e3af4d7213"
+    }
+  ],
+  "finalResult": {
+    "schema": "s1-approved-host-adoption-result-v1",
+    "completedAt": "2026-10-12T22:21:46.368440+00:00",
+    "authorizedBy": "User explicit approved A in current chat",
+    "target": "D:/运营管理系统/tools/operations-system-service.ps1",
+    "oldSha256": "aff5a37974251422281e75d150292115b014f9265b5895747bdae05d9b028b6d",
+    "adoptedSha256": "38b1e5b2de4e20c6a0e75a8a8ab400c738a7fb0bdfae64803cfe14d97d48e97d",
+    "ownerGroupDaclExact": true,
+    "aclSha256": "5dd22c94c50ddb891a9197e085dae5ac86abb7d17cde20b482384bf5bad5a6cf",
+    "installedHostFileAcceptance": {
+      "callerCases": 42,
+      "originalRealExitFixtureShells": 2,
+      "failures": 0,
+      "sourceLoaded": "Actual adopted host file in library-only mode with private resources"
+    },
+    "workerEffectiveHeadUnchanged": {
+      "bindingSha256": "aec72f36e2718e853c3ca8d9f9790ecb8d01a141b43e7851f8f42979605ca66c",
+      "guardReceiptSha256": "92eff2b54a9227f954a7f223a698f1c3c0e9d45168a7dc758188523311812e01",
+      "manifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+      "releaseId": "20261011T090355Z-21c2645a63247749",
+      "version": "teruisi-local-worker-release-binding-v1"
+    },
+    "djangoManifestUnchanged": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+    "protectedEntrypointsUnchanged": 12,
+    "startupDesktopWatchdogBindingsUnchanged": true,
+    "supervisorBirthAndPortsUnchanged": true,
+    "servicesOperated": false,
+    "databaseOperated": false,
+    "s2HookEnabled": false,
+    "fullCiExpanded": false,
+    "rollbackExecuted": false,
+    "mainCheckoutHead": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+    "mainCheckoutSynced": false,
+    "executionDirectory": "D:\\codex-artifacts\\release-s1-adoption-20261013\\execution-20261012T221328Z",
+    "postObservationOriginalUnknownRetained": "First post native census PID66784 exited during collection; original unknown retained, later CIM found no PID and a fresh complete census passed. Not an installation/caller test failure or retroactive classification.",
+    "qualification": "Only S1 host file adopted. Existing application runtime identity/ports preserved; not a full application release/cold-start/business readiness or SLO receipt."
+  },
+  "privateOriginalDescriptor": {
+    "path": "D:\\codex-artifacts\\release-s1-adoption-20261013\\execution-20261012T221328Z\\original-descriptor.bin",
+    "bytes": 172,
+    "sha256": "1c35654a73045dfab1f63d3ad8d1bd413982be92f9572e4fa5b3ce011182b2a4",
+    "contentsNotCommitted": true
+  },
+  "actualOldBackupSha256": "aff5a37974251422281e75d150292115b014f9265b5895747bdae05d9b028b6d",
+  "readinessNotDeclared": true,
+  "sourceCodeDelta": 0
+}
