@@ -1,0 +1,21 @@
+✔ transport deadline changes do not invalidate exact build environment identity (1.5227ms)
+✔ Node direct exit files: hold does not wait for inherited stdout/stderr (87.7428ms)
+✔ Node direct exit files: hold-stdout does not wait for inherited stdout/stderr (83.2802ms)
+✔ Node direct exit files: hold-stderr does not wait for inherited stdout/stderr (90.3013ms)
+✔ Node direct exit files: nonzero-hold does not wait for inherited stdout/stderr (108.1458ms)
+✔ EOF transport retains exit0 but fails within the same deadline while both streams are held (811.7276ms)
+✔ probe direct cleanup leaves its simulated service alive and no direct probe (970.9548ms)
+✔ an exhausted inherited deadline starts no child (2.2487ms)
+✔ ordinary isolated tree cleanup retains no child or detached grandchild (1398.2428ms)
+✔ powershell.exe: shared transport and watchdog hold both streams without a late EOF wait (2006.8656ms)
+✔ pwsh.exe: shared transport and watchdog hold both streams without a late EOF wait (2405.213ms)
+✔ powershell.exe: concurrent lifecycle mutex obeys the original deadline (1091.574ms)
+✔ pwsh.exe: concurrent lifecycle mutex obeys the original deadline (1379.8554ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10746.6249

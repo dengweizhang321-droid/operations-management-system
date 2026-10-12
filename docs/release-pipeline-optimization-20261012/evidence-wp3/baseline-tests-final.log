@@ -1,0 +1,172 @@
+✖ WP3: failure, not-executed, unknown and independent reconciliation remain separate with original exit1 (38.2728ms)
+✖ WP3: matching fingerprint cannot hide a missing required check (25.1751ms)
+✖ WP3: recomputed test hash cannot hide sourceSha256 drift (23.6382ms)
+✖ WP3: recomputed test hash cannot hide artifactSha256 drift (23.0474ms)
+✖ WP3: recomputed test hash cannot hide predecessorSourceSha256 drift (21.9816ms)
+✖ WP3: validator version or byte closure must match its sealed digest (21.6589ms)
+✖ WP3: exact plan rejects changed candidateReleaseId (21.708ms)
+✖ WP3: exact plan rejects changed predecessorReleaseId (22.5006ms)
+✖ WP3: exact plan rejects changed predecessorManifestSha256 (19.6835ms)
+✖ WP3: changed plan bytes and batch bytes are rejected (22.0705ms)
+✖ WP3: runtime freshness is separate from static completeness, including unknown and future (21.7475ms)
+✖ WP3: final V2 delivery preserves supersession and separates necessary, completed and delivery times (28.513ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 0
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 608.1225
+
+✖ failing tests:
+
+test at tmp\wp3\baseline-tests.mjs:61:1
+✖ WP3: failure, not-executed, unknown and independent reconciliation remain separate with original exit1 (38.2728ms)
+  TypeError: Cannot read properties of undefined (reading 'exitCode')
+      at TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:71:53)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3)
+
+test at tmp\wp3\baseline-tests.mjs:79:1
+✖ WP3: matching fingerprint cannot hide a missing required check (25.1751ms)
+  TypeError: Cannot read properties of undefined (reading 'missingRequiredChecks')
+      at TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:82:37)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tmp\wp3\baseline-tests.mjs:86:80
+✖ WP3: recomputed test hash cannot hide sourceSha256 drift (23.6382ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:88:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /test (evidence|predecessor) binding/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tmp\wp3\baseline-tests.mjs:86:80
+✖ WP3: recomputed test hash cannot hide artifactSha256 drift (23.0474ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:88:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /test (evidence|predecessor) binding/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tmp\wp3\baseline-tests.mjs:86:80
+✖ WP3: recomputed test hash cannot hide predecessorSourceSha256 drift (21.9816ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:88:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /test (evidence|predecessor) binding/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tmp\wp3\baseline-tests.mjs:90:1
+✖ WP3: validator version or byte closure must match its sealed digest (21.6589ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:93:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /validator binding/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tmp\wp3\baseline-tests.mjs:96:94
+✖ WP3: exact plan rejects changed candidateReleaseId (21.708ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:98:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /candidate\/predecessor/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tmp\wp3\baseline-tests.mjs:96:94
+✖ WP3: exact plan rejects changed predecessorReleaseId (22.5006ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:98:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /candidate\/predecessor/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tmp\wp3\baseline-tests.mjs:96:94
+✖ WP3: exact plan rejects changed predecessorManifestSha256 (19.6835ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:98:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /candidate\/predecessor/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tmp\wp3\baseline-tests.mjs:100:1
+✖ WP3: changed plan bytes and batch bytes are rejected (22.0705ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:103:53)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /plan bytes/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at tmp\wp3\baseline-tests.mjs:107:1
+✖ WP3: runtime freshness is separate from static completeness, including unknown and future (21.7475ms)
+  TypeError: Cannot read properties of undefined (reading 'checkInventoryComplete')
+      at TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:113:35)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tmp\wp3\baseline-tests.mjs:119:1
+✖ WP3: final V2 delivery preserves supersession and separates necessary, completed and delivery times (28.513ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  null !== 6000
+  
+      at TestContext.<anonymous> (file:///D:/codex-isolated/release-wp3-receipts-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tmp/wp3/baseline-tests.mjs:125:57)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 6000,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

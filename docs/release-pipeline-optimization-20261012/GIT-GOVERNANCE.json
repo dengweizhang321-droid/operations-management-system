@@ -1,0 +1,571 @@
+{
+  "worktrees": [
+    {
+      "taskReferences": [
+        "\\TERUISI-JD-Resume-20260831",
+        "\\TERUISI-n8n-Service"
+      ],
+      "status": [
+        " M docs/JD_CUSTOMER_SERVICE_WORKFLOW.md",
+        " M tools/operations-system-control.ps1",
+        " M tools/worker-authority-guard.mjs",
+        " M tools/worker-local-release-rotation.mjs",
+        " M tools/worker-local-release.mjs",
+        " M tools/worker-local-service.ps1",
+        "?? docs/jd-customer-service-four-stores-20261008/PRODUCTION.md",
+        "?? docs/performance-review-20261008/REPORT.md",
+        "?? docs/release-pipeline-optimization-20261012/PLAN-REVISED.md",
+        "?? docs/release-pipeline-optimization-20261012/PLAN-V3.md",
+        "?? docs/release-pipeline-optimization-20261012/PLAN.md",
+        "?? tools/process-deadline.ps1"
+      ],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [
+        {
+          "created": "2026-10-07T11:03:25.8286220Z",
+          "pid": 55808
+        }
+      ],
+      "containedInIntegration": true,
+      "head": "2f55c3965e60b139381b6cc31ed868bcfe99a7bf",
+      "containedInOriginMain": true,
+      "reason": "user explicitly retains; dirty and production bindings",
+      "path": "D:/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "bc9eb01f2cab31767e7569d5f971626956f10cc0",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/0757/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "c24c8abf06ba5f684d3970614444bff2b1965849",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/161c/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "b3c6018cca6c2b2b5c8fa6c5b52e376f3a84f354",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/195b/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "f0752ec27c3fb266802c6af96881222ff8c6ca5d",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/1a40/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "c00edc8df8a04f16fe5a26c4654a45c0bd15f9e8",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/1c0f/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "cb007f05152bccaf884e60b8cdeaad0c2077557d",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/34b4/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "bc1d830b6770bd2858c31aa4d861354da5ec433c",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/4d2e/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "6a715362c420e48f2f4c41b84c636e5ad1a1cf41",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/5d78/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "c6d1fad1acfe188e0262a8e3f40b3295fec33f2b",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/79d8/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "bc9eb01f2cab31767e7569d5f971626956f10cc0",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/81e5/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [
+        " M README.md",
+        " M app/ai-agent-workflow-view.tsx",
+        " M app/ai-module-view.tsx",
+        " M app/ai-report-workbench-view.tsx",
+        " M app/ai-report-workbench.css",
+        " M backend/ai_assistant/report_library.py",
+        "?? backend/ai_assistant/test_report_recommendations_review.py",
+        "?? backend/ai_assistant/test_workflow_presets.py",
+        "?? backend/ai_assistant/workflow_presets.py",
+        "?? docs/AI_OPERATIONS_WORKFLOWS.md",
+        "?? docs/ai-agent-workflows-20261009/INDEPENDENT_REVIEW.md",
+        "?? docs/ai-agent-workflows-20261009/RENDERED_BASELINE_REVIEW.md",
+        "?? docs/ai-agent-workflows-20261009/postgres-review.json",
+        "?? docs/ai-agent-workflows-20261009/rendered-baseline-review.json",
+        "?? lib/ai/report-workflow-period.ts",
+        "?? tests/report-workflow-period.test.ts",
+        "?? tools/verify-ai-workflow-recommendations-ui.mjs"
+      ],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "da0d62bdd92bef118f617d0ce592a8e60682c231",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/ai-agent-workflows/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": false,
+      "head": "88ece24fb48d8e2534ee12ad6c5a476cb2be5555",
+      "containedInOriginMain": false,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/ai-model-origin-fix/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": false,
+      "head": "8b121267c797d19f2c28478f6ddc79b689baa64f",
+      "containedInOriginMain": false,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/ai-repairs-production-20261008/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "aeb2fc6590c3d306623d80f483eca554292d393f",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/bf14/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "18d0cae647ad92414f5e36574c2068d31ccdd147",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/c198/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "18d0cae647ad92414f5e36574c2068d31ccdd147",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/ccf9/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "f08b34884fdc83813e4d2c8f3ec86b8ed2a795fe",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/cd65/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "c1d89b29347ce6868b6f86dd4276c06e226b5356",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/de9b/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "6a715362c420e48f2f4c41b84c636e5ad1a1cf41",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/dfb4/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": false,
+      "head": "09f9982c29ab59fdc60cae556f276faa0db39d63",
+      "containedInOriginMain": false,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/netshop-comparison-ui/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": false,
+      "head": "0be58e2189328c74e1753a606bf8e190331d68c3",
+      "containedInOriginMain": false,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/netshop-presence-jsonpath/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "ca9622ec9cb6067f698b466fefede68e0845b9f9",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/performance-experience-audit/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": false,
+      "head": "3f5cfb7e275d67b688f18a115c5584d619dc1346",
+      "containedInOriginMain": false,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/release-c-native-evidence-repair/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "ba656eabbb93d17d6e2f57d51ea3d13b27d1f50d",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/release-integration-review/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [
+        "?? docs/startup-recovery-continuation-20261012/CURRENT_RELEASE_REPORT.md",
+        "?? docs/startup-recovery-continuation-20261012/prepare-readonly-native-profile.mjs",
+        "?? docs/startup-recovery-continuation-20261012/run-readonly-native-profile.mjs"
+      ],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "adedaeb2d2cf0c2999aea6a474b4c8c45ede25d0",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/startup-recovery-continuation/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [
+        "?? docs/startup-recovery-integration-20261012/request-approved-recovery.mjs",
+        "?? docs/startup-recovery-integration-20261012/sample-recovery-availability-v2.mjs"
+      ],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "423437cc8b5cb2da2df56733d19feea226f2979f",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/startup-recovery-integration/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [
+        "?? docs/watchdog-native-census-20261012/request-census-closeout.mjs"
+      ],
+      "gitMetadataFiles": [
+        "codex-thread.json"
+      ],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "18d0cae647ad92414f5e36574c2068d31ccdd147",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/.codex/worktrees/watchdog-native-census/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "3228421c6d60fceef7d49d1f632bc69f61527e30",
+      "containedInOriginMain": true,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/codex-artifacts/workflow-main-baseline-20261007",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": false,
+      "head": "e948335f6ff93df0f6e79d2ebceca0dd0cbeb380",
+      "containedInOriginMain": false,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/codex-isolated/netshop-finance-subset-review/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": false,
+      "head": "b2af337e6a1decb6dc0e74aefb2991297691669a",
+      "containedInOriginMain": false,
+      "reason": "identity, purpose or ignored evidence not fully established; no deletion",
+      "path": "D:/codex-isolated/netshop-temporal-review/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [
+        {
+          "created": "2026-10-12T15:48:36.4825670Z",
+          "pid": 69324
+        }
+      ],
+      "containedInIntegration": true,
+      "head": "529a1b11af92283a20d093d0c758dbce37a6aa01",
+      "containedInOriginMain": false,
+      "reason": "unmerged candidate; integration verification blocked; evidence still needed",
+      "path": "D:/codex-isolated/release-pipeline-integration-20261012/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "3558ba18ca9eed8971bf67e7e54220519596dc80",
+      "containedInOriginMain": false,
+      "reason": "unmerged candidate; integration verification blocked; evidence still needed",
+      "path": "D:/codex-isolated/release-wp1-ci-20261012/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "2538b8d5b51824a23bfc58f511d120c9c7cb8d2d",
+      "containedInOriginMain": false,
+      "reason": "unmerged candidate; integration verification blocked; evidence still needed",
+      "path": "D:/codex-isolated/release-wp3-receipts-20261012/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "39feb86c7c51b9b8c99232840bf55ad1b0027a02",
+      "containedInOriginMain": false,
+      "reason": "unmerged candidate; integration verification blocked; evidence still needed",
+      "path": "D:/codex-isolated/release-wp4-timing-20261012/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "4968baedd7ac3fa0948258cdc854fd25045fe8cd",
+      "containedInOriginMain": false,
+      "reason": "unmerged candidate; integration verification blocked; evidence still needed",
+      "path": "D:/codex-isolated/release-wp5-reliability-20261012/运营管理系统",
+      "decision": "retain"
+    },
+    {
+      "taskReferences": [],
+      "status": [],
+      "gitMetadataFiles": [],
+      "visibleProcessReferences": [],
+      "containedInIntegration": true,
+      "head": "74c5e6330b88248c7ebcc778e32310c5b46631d3",
+      "containedInOriginMain": false,
+      "reason": "unmerged candidate; integration verification blocked; evidence still needed",
+      "path": "D:/codex-isolated/release-wpb-baseline-20261012/运营管理系统",
+      "decision": "retain"
+    }
+  ],
+  "bindings": [
+    {
+      "sha256": "a9d4de405578f6205eff2be570fff6e95227c44fd17fa90b0967ad13d6bf2846",
+      "path": "D:/teruisi-runtime/operations-watchdog/versions/e0330d7aea1e17395cf56214c8c62e8d54c2e46359d30cce9296800c8802760c/driver-binding.json"
+    },
+    {
+      "sha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "path": "D:/运营管理系统/tools/operations-system-control.ps1"
+    },
+    {
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+      "path": "D:/运营管理系统/tools/worker-local-service.ps1"
+    },
+    {
+      "sha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+      "path": "D:/teruisi-runtime/django-sales/app/deployment.json"
+    }
+  ],
+  "schema": "integration-git-census-v1",
+  "mainUserDecision": "original tasks retain responsibility; leave checkout as-is",
+  "archives": 0,
+  "completedAt": "2026-10-12T15:48:57.5830704Z",
+  "missingCommandLines": 320,
+  "scope": "visible CIM metadata and task references only; no full OS handles/cwd proof; no service commands",
+  "deletions": 0,
+  "startedAt": "2026-10-12T15:48:40.0839448Z"
+}
