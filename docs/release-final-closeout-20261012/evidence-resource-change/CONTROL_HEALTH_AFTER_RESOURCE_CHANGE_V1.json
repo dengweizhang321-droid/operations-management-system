@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-12T10:45:00.169Z",
+  "finishedAt": "2026-10-12T10:45:03.495Z",
+  "exitCode": 0,
+  "errorCode": null,
+  "sourceSha256": "2378a18ec5673f6182c71ed3667ea6f5b9fd652b5f69f46ef69bfc198e4b00e6",
+  "sourceUnchanged": true,
+  "stdoutSha256": "f2cb2a75a9ad3697c6deb61ea0b12c9845eb04a53f13227583867a1650add11a",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "userReportedUnusedApplicationsClosed": true
+}

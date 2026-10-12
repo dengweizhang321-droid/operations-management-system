@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-12T10:44:50.8522405Z",
+  "memory": {
+    "AvailableMBytes": 3688,
+    "PagesPersec": 7,
+    "PageReadsPersec": 7,
+    "CommittedBytes": 62602571776,
+    "CommitLimit": 71394443264,
+    "PercentCommittedBytesInUse": 87
+  },
+  "cpu": {
+    "PercentProcessorTime": 16
+  },
+  "userReportedUnusedApplicationsClosed": true
+}

@@ -1,0 +1,18 @@
+{
+  "at": "2026-10-12T10:41:42.7776399Z",
+  "memory": {
+    "AvailableMBytes": 1154,
+    "PagesPersec": 87426,
+    "PageReadsPersec": 2915,
+    "PageWritesPersec": 0,
+    "CommittedBytes": 66470727680,
+    "CommitLimit": 71394443264,
+    "PercentCommittedBytesInUse": 93
+  },
+  "pageFile": {
+    "AllocatedBaseSize": 35659,
+    "CurrentUsage": 19057,
+    "PeakUsage": 21916
+  },
+  "limitations": "Single pressure sample; no causal attribution."
+}

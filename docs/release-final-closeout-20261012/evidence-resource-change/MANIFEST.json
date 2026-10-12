@@ -1,0 +1,110 @@
+[
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/natural-only-v1/natural/STARTED.json",
+    "file": "natural-only-v1--natural--STARTED.json",
+    "bytes": 317,
+    "sha256": "769b9820ff46597b1c80030180cdd6ac51cf1aede8bbb2bceedbcaecef37e195"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/natural-only-v1/natural/FAILURE.json",
+    "file": "natural-only-v1--natural--FAILURE.json",
+    "bytes": 278,
+    "sha256": "7f4538ea4a941ec2f8fb8b662a0d91bf4dbcbb7afc8b346ba74c0c5605eabad4"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/natural-only-v1/natural/natural-1.json",
+    "file": "natural-only-v1--natural--natural-1.json",
+    "bytes": 2948,
+    "sha256": "ede3798f5ea6f48de6766f6e498c96e2a001ac1d3a1ef81b890b3a1ebcb52723"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/natural-only-v1/natural/natural-2.json",
+    "file": "natural-only-v1--natural--natural-2.json",
+    "bytes": 3128,
+    "sha256": "30aa3b06bbe5503b99351233346d8e89cae797f57d38fdac6084c1905f153a85"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/natural-only-v1/natural/natural-3.json",
+    "file": "natural-only-v1--natural--natural-3.json",
+    "bytes": 3135,
+    "sha256": "96816f65f2dea4b702a53598d1278fa068899f77452126606005748614c49037"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v3/RECONCILIATION.FINISHED.json",
+    "file": "final-closeout-v3--RECONCILIATION.FINISHED.json",
+    "bytes": 246,
+    "sha256": "a93e99de351df31e82dee05865d3891f9c2427b45f2793f5373bc65f46c0d4c7"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v3/RECONCILIATION.stderr.log",
+    "file": "final-closeout-v3--RECONCILIATION.stderr.log",
+    "bytes": 1553,
+    "sha256": "d9950b3bd9805baf5a3dcf7d303a69c2c966af01555b298c6ef977d9e6449d70"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v3/TRANSPORT_FINISHED.json",
+    "file": "final-closeout-v3--TRANSPORT_FINISHED.json",
+    "bytes": 138,
+    "sha256": "bf4e239484627f08412f08bba1fbbd8efec5fd8eba5896554958ffdcb37af3a4"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/CONTROL_HTTP_PROFILE_FIRST_FAILURE.source.txt",
+    "file": "CONTROL_HTTP_PROFILE_FIRST_FAILURE.source.txt",
+    "bytes": 4784,
+    "sha256": "e998cdea3fd3e1cea99e9df30bad531f1cee9c9676076d957e1c93fac0bb0602"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/CONTROL_HTTP_PROFILE_FIRST_FAILURE.json",
+    "file": "CONTROL_HTTP_PROFILE_FIRST_FAILURE.json",
+    "bytes": 195,
+    "sha256": "0f55df45791bed62b69849aad4a781dbaa0d823d45f877d117b5e13ed75edc82"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/CONTROL_HTTP_PROFILE_V1.json",
+    "file": "CONTROL_HTTP_PROFILE_V1.json",
+    "bytes": 11464,
+    "sha256": "e360c027fc5948691f324b3e2ea53a81974cfb254813fc1aedbe6c0f1f45bb24"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/CONTROL_HEALTH_AFTER_RESOURCE_CHANGE_V1.json",
+    "file": "CONTROL_HEALTH_AFTER_RESOURCE_CHANGE_V1.json",
+    "bytes": 454,
+    "sha256": "8632a7ac5db900b5c7107e540796032cb228df5968d612219ff8bdd6818482b6"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/CONTROL_HEALTH_AFTER_RESOURCE_CHANGE_V1.stdout.json",
+    "file": "CONTROL_HEALTH_AFTER_RESOURCE_CHANGE_V1.stdout.json",
+    "bytes": 718,
+    "sha256": "f2cb2a75a9ad3697c6deb61ea0b12c9845eb04a53f13227583867a1650add11a"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/CONTROL_HEALTH_AFTER_RESOURCE_CHANGE_V1.stderr.log",
+    "file": "CONTROL_HEALTH_AFTER_RESOURCE_CHANGE_V1.stderr.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/ROOT_BOUNDED_RESOURCE_SAMPLE_V1.json",
+    "file": "ROOT_BOUNDED_RESOURCE_SAMPLE_V1.json",
+    "bytes": 2158,
+    "sha256": "befba4e330f49589ee9c7c10c37a93b17d046b6046721221dbb8580970f6f225"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/ROOT_MEMORY_PRESSURE_SAMPLE_V1.json",
+    "file": "ROOT_MEMORY_PRESSURE_SAMPLE_V1.json",
+    "bytes": 465,
+    "sha256": "dfa4f1dda429e3be055165b058fc1bc4c8bd3867f9ef3855c860c2014e3f4360"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/ROOT_RESOURCE_AFTER_USER_ACTION_V1.json",
+    "file": "ROOT_RESOURCE_AFTER_USER_ACTION_V1.json",
+    "bytes": 353,
+    "sha256": "6781598295be0c5fd28ddd2eb8acc7d0814082c948ddef04af4140aae3c9bf76"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/NATURAL_AFTER_RESOURCE_CHANGE_V1.json",
+    "file": "NATURAL_AFTER_RESOURCE_CHANGE_V1.json",
+    "bytes": 2118,
+    "sha256": "b4115c659eb0df7c3fb7336121ba0f4ac44bba2e2a233daa7386ad824283ff50"
+  }
+]

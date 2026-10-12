@@ -1,0 +1,129 @@
+{
+  "completedAt": "2026-10-12T10:39:31.6729565+00:00",
+  "statusTimings": {
+    "httpMs": 16420,
+    "backendMs": 19086,
+    "workerMs": 17976
+  },
+  "supervisorHealth": "unprobed",
+  "processDiagnostic": {
+    "process": {
+      "processId": 38636,
+      "stage": "direct-exit",
+      "outputProtocol": "direct-exit-file-snapshot",
+      "cleanup": "Direct",
+      "timeoutType": "direct-exit",
+      "deadlineUnixMs": 1791801562885,
+      "elapsedMs": 11723,
+      "stdoutBytes": 0,
+      "stderrBytes": 0,
+      "code": "process_deadline_exhausted"
+    },
+    "code": "probe_stage_failed",
+    "stage": "supervisor"
+  },
+  "business": {
+    "status": "unknown",
+    "version": "market-read-probe-v1",
+    "checkedAt": "2026-10-12T10:38:10.6589167+00:00",
+    "reason": "no_confirmed_failure"
+  },
+  "portsObservation": {
+    "reason": "not_checked",
+    "status": "unknown"
+  },
+  "workerPid": 17184,
+  "supervisorPid": 36568,
+  "deadlineExceeded": true,
+  "controllerHealthEvidence": null,
+  "probeError": true,
+  "diagnosticMode": "readonly_driver",
+  "coreDiagnostics": {
+    "WriterReadiness": "ready",
+    "DjangoWriter": "running",
+    "RuntimeAcl": "root_hardened",
+    "DjangoReader": "running",
+    "elapsedMs": 5237,
+    "ReaderReadiness": "ready",
+    "RuntimeAclVerification": "root_only_status",
+    "probes": {
+      "writer": {
+        "timeoutMs": 2000,
+        "code": "none",
+        "statusCode": 200,
+        "elapsedMs": 620
+      },
+      "reader": {
+        "timeoutMs": 2000,
+        "code": "none",
+        "statusCode": 200,
+        "elapsedMs": 635
+      }
+    },
+    "PostgreSQL": "running"
+  },
+  "components": {
+    "products": true,
+    "inventory": true,
+    "market": true,
+    "workflow": true,
+    "core": true,
+    "customerService": true,
+    "ai": true,
+    "accessControl": true,
+    "bi": true,
+    "finance": true,
+    "netshop": true,
+    "erpReference": true
+  },
+  "system": "Unresponsive",
+  "stages": {
+    "control": {
+      "elapsedMs": 56664,
+      "status": "completed"
+    },
+    "supervisor": {
+      "elapsedMs": 11934,
+      "status": "failed"
+    }
+  },
+  "elapsedMs": 69152,
+  "releaseId": "20261011T090355Z-21c2645a63247749",
+  "supervisor": "unprobed",
+  "probes": {
+    "helper": {
+      "elapsedMs": 0,
+      "status": 0,
+      "reason": "snapshot_deadline",
+      "ok": false
+    },
+    "homepage": {
+      "elapsedMs": 0,
+      "status": 0,
+      "reason": "snapshot_deadline",
+      "ok": false
+    },
+    "ready": {
+      "elapsedMs": 0,
+      "status": 0,
+      "reason": "snapshot_deadline",
+      "ok": false
+    },
+    "live": {
+      "elapsedMs": 0,
+      "status": 0,
+      "reason": "snapshot_deadline",
+      "ok": false
+    }
+  },
+  "worker": "exact_release",
+  "admission": {
+    "fence": "3ab3aadc1893a024c894671943dd12875c02c32617188fcc2b64abc5917b27b1",
+    "mode": "running"
+  },
+  "diagnosticReason": "exact_predecessor",
+  "at": "2026-10-12T10:38:22.8643088+00:00",
+  "ports": [],
+  "healthy": false,
+  "backend": "Ready"
+}
