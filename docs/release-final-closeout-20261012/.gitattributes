@@ -1,0 +1,3 @@
+evidence/** -text
+*.mjs -text
+*.ps1 -text

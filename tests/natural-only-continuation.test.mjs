@@ -1,0 +1,17 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import test from 'node:test';import vm from 'node:vm';
+import path from 'node:path';
+const source=fs.readFileSync(new URL('../docs/release-final-closeout-20261012/run-natural-only.mjs',import.meta.url),'utf8'),E='E:/codex-artifacts/watchdog-native-census-20261012/';
+const fn=source.slice(source.indexOf('function installedEvidence()'),source.indexOf('function verifyInstalledTask()'));
+const B={bundle:'e0330d7aea1e17395cf56214c8c62e8d54c2e46359d30cce9296800c8802760c',plan:'7458df1fe403453129cfd982c2c88b492a0842d48f2c98b34fcbff49a4fd67aa'};
+function run(change){const values=new Map();for(const n of ['approved-install-v1/INSTALL_RESULT.json','approved-install-attempt-v2/INSTALL_FINISHED.json','final-closeout-v2/RECONCILIATION.FINISHED.json','final-closeout-v2/TRANSPORT_FINISHED.json'])values.set(E+n,JSON.parse(fs.readFileSync(E+n)));if(change)change(values);let reads=0;const ctx={assert,E,B,read:(p,h)=>{assert.match(h,/^[a-f0-9]{64}$/);reads++;},json:p=>values.get(p)};vm.runInNewContext(fn+';result=installedEvidence()',ctx);return{result:ctx.result,reads};}
+test('actual installed receipt shape accepted in synthetic IO seam',()=>{const r=run();assert.equal(r.result.bundleId,B.bundle);assert.equal(r.reads,8);});
+for(const [name,change] of [
+ ['wrong bundle',m=>m.get(E+'approved-install-v1/INSTALL_RESULT.json').bundleId='other'],
+ ['wrong plan',m=>m.get(E+'approved-install-v1/INSTALL_RESULT.json').planId='other'],
+ ['changed triggers flag',m=>m.get(E+'approved-install-v1/INSTALL_RESULT.json').triggersPrincipalSettingsUnchanged='true'],
+ ['installation failed',m=>m.get(E+'approved-install-attempt-v2/INSTALL_FINISHED.json').exitCode=1],
+ ['prior receiver not ended as failure',m=>m.get(E+'final-closeout-v2/RECONCILIATION.FINISHED.json').exitCode=null],
+ ['prior transport not ended',m=>m.get(E+'final-closeout-v2/TRANSPORT_FINISHED.json').exitCode=null]
+])test('reject '+name,()=>assert.throws(()=>run(change)));
+test('receiver has no installer invocation and preserves bounded new natural collection',()=>{assert(!source.includes('async function install('));assert(!source.includes('spawn(host,'));assert(!source.includes('await install('));assert(source.includes('observeTwoFreshNatural({after:observationAfter'));assert(source.includes('Date.parse(observationAfter)>Date.parse'));assert(source.includes('<=5000'));assert(source.includes('taskBeforeNatural.task.sha256,taskAfterNatural.task.sha256'));assert(source.includes('after.events.length,74'));});
+test('actual collector output guard accepts only new exact path before any IO',()=>{const text=fs.readFileSync(new URL('../docs/release-final-closeout-20261012/bounded-two-natural.mjs',import.meta.url),'utf8');const old=fs.readFileSync('D:/.codex/worktrees/watchdog-native-census/运营管理系统/docs/watchdog-native-census-20261012/bounded-two-natural.mjs','utf8');assert.equal(text.replace('natural-only-v1/natural','approved-install-v1/natural'),old);const body=text.slice(text.indexOf('assert.equal(path.resolve(outputRoot)'),text.indexOf('fs.mkdirSync(outputRoot)'));const check=(outputRoot,after=new Date().toISOString())=>vm.runInNewContext(body,{assert,path,outputRoot,after,Date,Number});check(E+'natural-only-v1/natural');assert.throws(()=>check(E+'approved-install-v1/natural'));assert.throws(()=>check(E+'foreign'));assert.throws(()=>check(E+'natural-only-v1/natural','bad'));});

@@ -1,0 +1,152 @@
+[
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/AGY_NATURAL_ONLY_V1_PROMPT.txt",
+    "file": "AGY_NATURAL_ONLY_V1_PROMPT.txt",
+    "bytes": 14808,
+    "sha256": "c597a0607db13bc805dd2ad1bd8948c60a706aee2a2167ec2bed324fca27e3dc"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/AGY_NATURAL_ONLY_V1_STREAM.ndjson",
+    "file": "AGY_NATURAL_ONLY_V1_STREAM.ndjson",
+    "bytes": 32541,
+    "sha256": "33367053689fc497d8a24625d5fdc1bc6a1ad1a0d9cd25e410b993ac522d4648"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/AGY_NATURAL_ONLY_V1_CALL.json",
+    "file": "AGY_NATURAL_ONLY_V1_CALL.json",
+    "bytes": 104,
+    "sha256": "8692853ad9fe52c39519fae9eeb47c80e245cce3d83d9d54d2afc8b2e579a659"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/AGY_NATURAL_ONLY_V1_STDERR.log",
+    "file": "AGY_NATURAL_ONLY_V1_STDERR.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/CONTROL_HEALTH_DIAGNOSTIC_V1.json",
+    "file": "CONTROL_HEALTH_DIAGNOSTIC_V1.json",
+    "bytes": 405,
+    "sha256": "c8d938867ea3a55a0d058c84f1d21ecdaf8d041bd83348699039cc5a7300e5d5"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/CONTROL_HEALTH_DIAGNOSTIC_V1.stdout.json",
+    "file": "CONTROL_HEALTH_DIAGNOSTIC_V1.stdout.json",
+    "bytes": 718,
+    "sha256": "be5b83238ad26bcc555064da0934337acdd20850098dac65f197b4c1492d445b"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/CONTROL_HEALTH_DIAGNOSTIC_V1.stderr.log",
+    "file": "CONTROL_HEALTH_DIAGNOSTIC_V1.stderr.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/NATURAL_ONLY_FIRST_PARSE_FAILURE.source.txt",
+    "file": "NATURAL_ONLY_FIRST_PARSE_FAILURE.source.txt",
+    "bytes": 9089,
+    "sha256": "560d1719d85b0178f0e63d08aea232c15b9983bf02d3f98b996a3e34e2865570"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/NATURAL_ONLY_DERIVATION_V1.json",
+    "file": "NATURAL_ONLY_DERIVATION_V1.json",
+    "bytes": 2285,
+    "sha256": "87cea148ea5f512dd04c922d4804e177f02316a8481a4ef49973c17306527084"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/NATURAL_ONLY_DERIVATION_V2.json",
+    "file": "NATURAL_ONLY_DERIVATION_V2.json",
+    "bytes": 2383,
+    "sha256": "10fe74b50db9ba5500568edd5cab74bb0cd40c72f21cc7ff96cc46552cca83bc"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/NATURAL_ONLY_DERIVATION_V3.json",
+    "file": "NATURAL_ONLY_DERIVATION_V3.json",
+    "bytes": 3078,
+    "sha256": "6ac5d3e5f9003c7127a23737608804b72d80d49561950bd69b2cffe178783324"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/INSTALL_RESULT.json",
+    "file": "approved-install-v1--INSTALL_RESULT.json",
+    "bytes": 648,
+    "sha256": "96befe9557794723e28ba37c6f90a8250e371dbca471f36aa230725094905742"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/TASK_BEFORE.json",
+    "file": "approved-install-v1--TASK_BEFORE.json",
+    "bytes": 2136,
+    "sha256": "776dd0fd83ce1eac3ab82ef8282d8e3b17d632ce0869b1ab892aa3d1c5064d9a"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/TASK_AFTER.json",
+    "file": "approved-install-v1--TASK_AFTER.json",
+    "bytes": 2136,
+    "sha256": "82d5c9cdd88f990786996a84db4f6c9913ebca77445deae6670468b0394c223f"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/natural/STARTED.json",
+    "file": "approved-install-v1--natural--STARTED.json",
+    "bytes": 317,
+    "sha256": "914a213dc7864fc2484052553334c7c86b9975a578af2f6c3e3c5e5f29060c57"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/natural/FAILURE.json",
+    "file": "approved-install-v1--natural--FAILURE.json",
+    "bytes": 278,
+    "sha256": "df40b4c06629ce4b8407614ec832bb99a381d93427f1b9fbbac09288abc29737"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/natural/natural-1.json",
+    "file": "approved-install-v1--natural--natural-1.json",
+    "bytes": 1931,
+    "sha256": "f22e118a0d368089372991fac749020dd62b92cfb57b8a5ef6ce73236be120a2"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/natural/natural-2.json",
+    "file": "approved-install-v1--natural--natural-2.json",
+    "bytes": 2952,
+    "sha256": "2cc106eec604f59a1f401c1fe9e0c382bb3d2ffee37d54fd3e30f036106792f9"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-attempt-v2/INSTALL_PROCESS.json",
+    "file": "approved-install-attempt-v2--INSTALL_PROCESS.json",
+    "bytes": 107,
+    "sha256": "4d474e35e9cd731033f87ac844554b9b3efa177b49bb2a10578ec78e200eaedf"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-attempt-v2/INSTALL_FINISHED.json",
+    "file": "approved-install-attempt-v2--INSTALL_FINISHED.json",
+    "bytes": 246,
+    "sha256": "952d96f3f2aca7de1f1e151d540e5d222c781a6537a1e62a3d507c23a2f21861"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-attempt-v2/INSTALL.stdout.json",
+    "file": "approved-install-attempt-v2--INSTALL.stdout.json",
+    "bytes": 650,
+    "sha256": "9399f3003423b9aefd87a529a4951734e5af8d5ba1a4ef30d3923b3f4cb9edca"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-attempt-v2/INSTALL.stderr.log",
+    "file": "approved-install-attempt-v2--INSTALL.stderr.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v2/RECONCILIATION.FINISHED.json",
+    "file": "final-closeout-v2--RECONCILIATION.FINISHED.json",
+    "bytes": 246,
+    "sha256": "cc9ff841834927854249295c8b0101e425b374dba345c540ebfdecb08a605545"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v2/RECONCILIATION.stderr.log",
+    "file": "final-closeout-v2--RECONCILIATION.stderr.log",
+    "bytes": 1589,
+    "sha256": "4a8addbb89f2512e18c784e07e216b19160ad0e2dd268208abc0c0f834e4b0ec"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v2/TRANSPORT_FINISHED.json",
+    "file": "final-closeout-v2--TRANSPORT_FINISHED.json",
+    "bytes": 138,
+    "sha256": "b3785a7ab9b6eb48b04e7c39d2b2d0426c8d905e48911e7302bdf0afa9ae25f4"
+  }
+]

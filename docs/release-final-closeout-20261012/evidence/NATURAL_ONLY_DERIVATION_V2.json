@@ -1,0 +1,44 @@
+{
+  "version": "already-installed-natural-only-derivation-v1",
+  "parentRunner": "D:/.codex/worktrees/watchdog-census-transport/运营管理系统/docs/watchdog-census-transport-20261012/run-census-install-corrected.mjs",
+  "parentRunnerSha256": "779127c4ed4177ffca1d09e5f9169ac6569f5518912025149f4e04562f6d09d6",
+  "receiver": {
+    "path": "D:\\.codex\\worktrees\\release-final-closeout\\运营管理系统\\docs\\release-final-closeout-20261012\\run-natural-only.mjs",
+    "sha256": "9f78c43994838f8799f5125d9a6b4996049934369f118f3a2fd77856e0d4fc41"
+  },
+  "evidence": [
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/INSTALL_RESULT.json",
+      "sha256": "96befe9557794723e28ba37c6f90a8250e371dbca471f36aa230725094905742"
+    },
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/TASK_AFTER.json",
+      "sha256": "82d5c9cdd88f990786996a84db4f6c9913ebca77445deae6670468b0394c223f"
+    },
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-attempt-v2/INSTALL_FINISHED.json",
+      "sha256": "952d96f3f2aca7de1f1e151d540e5d222c781a6537a1e62a3d507c23a2f21861"
+    },
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/natural/FAILURE.json",
+      "sha256": "df40b4c06629ce4b8407614ec832bb99a381d93427f1b9fbbac09288abc29737"
+    },
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/natural/natural-2.json",
+      "sha256": "2cc106eec604f59a1f401c1fe9e0c382bb3d2ffee37d54fd3e30f036106792f9"
+    },
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v2/RECONCILIATION.FINISHED.json",
+      "sha256": "cc9ff841834927854249295c8b0101e425b374dba345c540ebfdecb08a605545"
+    },
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v2/TRANSPORT_FINISHED.json",
+      "sha256": "b3785a7ab9b6eb48b04e7c39d2b2d0426c8d905e48911e7302bdf0afa9ae25f4"
+    }
+  ],
+  "currentInstallationSha256": "9ab04fa60f75a78358ee5ea69d4b9c885f13723b798c0672bfbebef32121a0db",
+  "installationRepeated": false,
+  "changedBusinessScope": false,
+  "parentApprovalSha256": "ae4def90ff770d86c9bb18899bac464f2b9acec26ee3327dc134e47611723754",
+  "firstParseFailure": "duplicate lexical after binding, before all execution; preserved source"
+}
