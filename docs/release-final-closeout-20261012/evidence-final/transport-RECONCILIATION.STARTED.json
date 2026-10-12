@@ -1,0 +1,10 @@
+{
+  "at": "2026-10-12T10:49:24.830Z",
+  "processId": 50080,
+  "args": [
+    "D:\\.codex\\worktrees\\release-final-closeout\\运营管理系统\\docs\\release-final-closeout-20261012\\run-natural-only-v2.mjs",
+    "E:/codex-artifacts/watchdog-native-census-20261012/CENSUS_INSTALL_INTENT_V1.json",
+    "4601d0bc81a61f273a4294e6e863671cdc91abe1adc18779621bd5d0351286fb"
+  ],
+  "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f"
+}

@@ -2,3 +2,4 @@ evidence/** -text
 *.mjs -text
 *.ps1 -text
 evidence-resource-change/** -text
+evidence-final/** -text

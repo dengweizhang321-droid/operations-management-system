@@ -1,0 +1,132 @@
+{
+  "system": "Running",
+  "supervisorHealth": "healthy",
+  "supervisor": "running",
+  "elapsedMs": 34615,
+  "diagnosticMode": "readonly_driver",
+  "processDiagnostic": null,
+  "completedAt": "2026-10-12T10:56:00.9450578+00:00",
+  "statusTimings": {
+    "workerMs": 10651,
+    "httpMs": 1999,
+    "backendMs": 14537
+  },
+  "probes": {
+    "homepage": {
+      "ok": true,
+      "elapsedMs": 120,
+      "reason": "none",
+      "status": 200
+    },
+    "live": {
+      "ok": true,
+      "elapsedMs": 118,
+      "reason": "none",
+      "status": 200
+    },
+    "ready": {
+      "ok": true,
+      "elapsedMs": 1755,
+      "reason": "none",
+      "status": 200
+    },
+    "helper": {
+      "ok": true,
+      "elapsedMs": 97,
+      "reason": "none",
+      "status": 200
+    }
+  },
+  "controllerHealthEvidence": null,
+  "healthy": true,
+  "business": {
+    "status": "unknown",
+    "reason": "no_confirmed_failure",
+    "version": "market-read-probe-v1",
+    "checkedAt": "2026-10-12T10:56:00.9569562+00:00"
+  },
+  "backend": "Ready",
+  "supervisorPid": 36568,
+  "probeError": false,
+  "releaseId": "20261011T090355Z-21c2645a63247749",
+  "worker": "exact_release",
+  "components": {
+    "netshop": true,
+    "bi": true,
+    "products": true,
+    "workflow": true,
+    "finance": true,
+    "customerService": true,
+    "market": true,
+    "erpReference": true,
+    "accessControl": true,
+    "inventory": true,
+    "core": true,
+    "ai": true
+  },
+  "coreDiagnostics": {
+    "DjangoWriter": "running",
+    "elapsedMs": 4548,
+    "RuntimeAclVerification": "root_only_status",
+    "WriterReadiness": "ready",
+    "PostgreSQL": "running",
+    "probes": {
+      "writer": {
+        "code": "none",
+        "elapsedMs": 473,
+        "statusCode": 200,
+        "timeoutMs": 2000
+      },
+      "reader": {
+        "code": "none",
+        "elapsedMs": 621,
+        "statusCode": 200,
+        "timeoutMs": 2000
+      }
+    },
+    "DjangoReader": "running",
+    "RuntimeAcl": "root_hardened",
+    "ReaderReadiness": "ready"
+  },
+  "stages": {
+    "monitor": {
+      "elapsedMs": 6,
+      "status": "completed"
+    },
+    "supervisor": {
+      "elapsedMs": 2602,
+      "status": "completed"
+    },
+    "control": {
+      "elapsedMs": 28643,
+      "status": "completed"
+    }
+  },
+  "at": "2026-10-12T10:55:26.3363422+00:00",
+  "workerPid": 17184,
+  "portsObservation": {
+    "status": "complete",
+    "elapsedMs": 1435,
+    "reason": "none",
+    "at": "2026-10-12T10:56:00.9434156+00:00"
+  },
+  "admission": {
+    "fence": "3ab3aadc1893a024c894671943dd12875c02c32617188fcc2b64abc5917b27b1",
+    "mode": "running"
+  },
+  "ports": [
+    {
+      "port": 5791,
+      "pid": 23536
+    },
+    {
+      "port": 5432,
+      "pid": 4080
+    },
+    {
+      "port": 3000,
+      "pid": 17184
+    }
+  ],
+  "diagnosticReason": "exact_predecessor"
+}

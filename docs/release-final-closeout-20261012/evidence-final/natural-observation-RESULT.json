@@ -1,0 +1,28 @@
+{
+  "status": "two-fresh-natural-healthy",
+  "expected": {
+    "after": 1791802466829,
+    "fence": "3ab3aadc1893a024c894671943dd12875c02c32617188fcc2b64abc5917b27b1",
+    "releaseId": "20261011T090355Z-21c2645a63247749"
+  },
+  "observations": [
+    {
+      "at": 1791802526336,
+      "completedAt": "2026-10-12T10:56:00.9450578+00:00",
+      "workerPid": 17184,
+      "supervisorPid": 36568,
+      "sha256": "53dca03165be0aaf88f22a09336ab29e4eadaf36738679d30b49983f0656d4d6"
+    },
+    {
+      "at": 1791802585767,
+      "completedAt": "2026-10-12T10:56:58.8393082+00:00",
+      "workerPid": 17184,
+      "supervisorPid": 36568,
+      "sha256": "f1676d00bc4b0d490968e7c72709c0378fa450d11efabe9b7f9681b36a46e9ce"
+    }
+  ],
+  "completedAt": "2026-10-12T10:56:58.8393082+00:00",
+  "captureCompletedAt": "2026-10-12T10:56:59.024Z",
+  "originalSourceSha256": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d",
+  "ignoredOlderFrames": 2
+}
