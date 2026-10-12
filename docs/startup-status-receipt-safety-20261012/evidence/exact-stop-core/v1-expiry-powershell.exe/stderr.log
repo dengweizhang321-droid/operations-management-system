@@ -1,0 +1,7 @@
+Wrong effect count: expiry-during-census
+����λ�� E:\codex-artifacts\startup-status-receipt-safety-20261012\EXACT_STOP_V1_EXPIRY_REPRO.ps1:25 �ַ�: 78
++ ... $failed -ne ($case -ne 'success')){throw "Wrong effect count: $case"}
++                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Wrong effect count: expiry-during-census:String) [], RuntimeException
+    + FullyQualifiedErrorId : Wrong effect count: expiry-during-census
+ 

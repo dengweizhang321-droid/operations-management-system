@@ -1,0 +1,21 @@
+{
+  "results": [
+    {
+      "shell": "powershell.exe",
+      "expectedStops": 0,
+      "actualSimulatedStops": 1,
+      "fixtureExitCode": 1,
+      "productionStops": 0,
+      "allProcessOperationsMocked": true
+    },
+    {
+      "shell": "pwsh.exe",
+      "expectedStops": 0,
+      "actualSimulatedStops": 1,
+      "fixtureExitCode": 1,
+      "productionStops": 0,
+      "allProcessOperationsMocked": true
+    }
+  ],
+  "oldSourceUnchanged": true
+}

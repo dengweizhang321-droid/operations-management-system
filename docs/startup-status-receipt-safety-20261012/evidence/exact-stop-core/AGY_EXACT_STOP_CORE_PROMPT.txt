@@ -1,0 +1,112 @@
+同conversation单次最终same-instance-stop核心源码复审，仅文本，禁止任何工具/native/生产/修改。当前只有开发，没有生产stop CLI或整合恢复包，不能把库函数当授权。正式D953/Worker717/f15/WAL49head1a不变，23原fingerprint缺失不伪造。人类未批准新维护/TaskAction/stop范围。
+新JS policy硬钉真实Admin25安全记录SHA7174…（选23服务根，严格排除Worker43884/3692），独立launch区间报告29f…并重算每一native birth在原sourceStart interval与sameParent56560内。严格f15/49/spec960c/W6cff/D85cf/owner/SID、全部rootbirth/command/image/source审计SHA，后代只能显式declared并全parent连接/derived depth/childbirth>=parent，不能任意布尔扩权。尚未采生产后代声明，所以没有可执行生产stop计划。
+PS是library-only无默认执行入口。普通测试可以调用底层primitive处理自己新建进程，未来生产wrapper必须先真实调用JS固定23policy并校liveCAS/Role/mutex/drain/全部sourcepins，此wrapper未实现。权利固定0x1000|SYNCHRONIZE|TERMINATE，无VMREAD/debug。全体handle打开、whole declaredclosure/CIM/eachheld native校验完之前不准首stop；leaf depth从声明+actualparent/nativebirth核定，unknownchild或duplicateCIM拒。每项stop前全新Census/closedset及同held handle双birth+command/imageSHA验证；kernelTerminate+Wait确认，partial failure真实create-only journal+fsync，已确认exit数量保留，finallyclose全部handle。没有Jobobject接管，没有自动扩unknowndescendant或重放。新child可在最后检查后竞态出现，postCensus只能报告其采样时可见情况，不证明全OS原子闭包。提前自然退出可能保守unknown，不能冒已恢复。
+Native d874与deadline5ae9从FileShareRead持有读取、hash校验后只执行捕获ScriptBlock，不再hash→dotSource可变文件。C#NT60/SameCreation原方法已前轮机械一致。
+最终作者及Root15/15实际通过：固定roots/出生/parent/depth/更改WAL/原件hash/根遗漏/Worker注入负例；PS5/7每host6个mockcases包括所有验证先于首stop、second invalid0stop、未知新child0/partial、二次stop失败partial且持久化；真实PS5/7各spawn一个独立临时GUI Thread.Sleep进程，错误cmdSHA不得停，正确held handle Stop确认退出；无productionPID被stop。首失败：PS5继承PS7 module path与缺deadline库，已保并修局部载入；Console fixture有未声明后代被安全拒，未放宽closure，改真正无子进程的private GUI fixture后过。native完整库5source最终Rootreview已写。
+Root另ordinary只读legacyactor采样最后8个PS/watchdog候选unknown0/reference0，原cmd不落，absenceEstablished=false；这不排除encodedcommand/其它进程/未来actor，不是生产全面排他。其它旧D953 supervisor/Panel状态链仍风险，完整恢复需单独核定。以后持watchdog原mutex同PS线程、原drain真实await、明确服务/Worker停止、原Exit/Start/newrecord、healthy原Install与失败退路均未整合；无新Backup/Restore。请500字内只指出本有限核心具体源码阻断或有界审查结论，务必区分已测试库与未实现授权wrapper，不说可直接上线/彻底安全。
+
+FILE tools/startup-exact-instance-policy.mjs SHA 0ab41f6eca96c4d60b5231508bf2abe455451cd5cb91f199b340add07ad9886c
+import assert from 'node:assert/strict';import {createHash} from 'node:crypto';
+export const startupEvidenceSha256='7174f4bdc0cd447313406268a1e535a4343a216157657587aabf12367c3e6146';
+export const startupLaunchEvidenceSha256='29fbbfec512d10444dbb202d913e6d233667ca7c7052cccda00e5b817a60383f';
+const digest=b=>createHash('sha256').update(b).digest('hex');
+const batch='f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f',head='1a614e58caf56a243ea8dead3ce1609993fd993c3ed39cac296bf83c64617bd4';
+function keys(v,names){assert.deepEqual(Object.keys(v).sort(),[...names].sort());}
+function pid(n){assert(Number.isSafeInteger(n)&&n>4&&n<=2147483647);}
+function identity(v){pid(v.processId);assert(Number.isSafeInteger(v.parentProcessId)&&v.parentProcessId>=0);assert.match(v.nativeCreationFileTime,/^[0-9]{17,20}$/);assert.match(v.imageSha256,/^[a-f0-9]{64}$/);assert.match(v.commandSha256,/^[a-f0-9]{64}$/);assert(Number.isSafeInteger(v.depth)&&v.depth>=0&&v.depth<=16);}
+function fileTime(text){const m=/^(.*T\d\d:\d\d:\d\d)(?:\.(\d{1,7}))?(Z|[+-]\d\d:\d\d)$/.exec(text);assert(m);const ms=Date.parse(m[1]+m[3]);assert(Number.isFinite(ms));return BigInt(ms)*10000n+BigInt((m[2]??'').padEnd(7,'0'))+116444736000000000n;}
+export function fixedStartupRoots(raw,launchRaw){
+ assert.equal(digest(raw),startupEvidenceSha256,'Exact administrator source evidence required');const e=JSON.parse(raw);
+ assert.equal(e.administrator,true);assert.equal(e.sid,'S-1-5-21-815909789-107973518-1379257801-1001');assert.equal(e.originalOwnershipEstablished,false);assert.equal(e.context.head,head);assert.equal(e.context.walCount,49);assert.deepEqual(e.context.owner,{batchSha256:batch,id:'first-adoption-live-guard-20261011'});assert.equal(e.context.specSha256,'960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b');assert.equal(e.context.workerManifestSha256,'6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4');assert.equal(e.context.djangoManifestSha256,'85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09');assert.equal(e.rows.length,25);
+ assert.equal(digest(launchRaw),startupLaunchEvidenceSha256);const launch=JSON.parse(launchRaw);assert.equal(launch.safeEvidenceSha256,startupEvidenceSha256);assert.equal(launch.intervals.length,23);
+ for(const row of e.rows.filter(r=>r.auditStartup)){const matches=launch.intervals.filter(x=>x.processId===row.processId);assert.equal(matches.length,1);const item=matches[0];assert.equal(item.service,row.service);assert.equal(item.nativeCreationFileTime,row.nativeCreationFileTime);assert.equal(item.launchPhase.runId,row.auditStartup.runId);assert.equal(digest(JSON.stringify(item.launchPhase)),item.launchRawSha256);const m=/^stage=launch-([^ ]+) startedAt=([^ ]+) elapsedMilliseconds=(\d+) outcome=completed processId=(\d+)$/.exec(item.launchPhase.message);assert(m);assert.equal(m[1],row.service);assert.equal(Number(m[4]),row.parentProcessId);const born=BigInt(row.nativeCreationFileTime),begin=fileTime(m[2]);assert(born>=begin&&born<=begin+BigInt(m[3])*10000n);}
+ const roots=e.rows.filter(r=>r.auditStartup).map(r=>{assert.equal(r.identityStable,true);assert.equal(r.commandStable,true);assert.equal(r.nativeCimBirthEqual,true);return{processId:r.processId,parentProcessId:r.parentProcessId,nativeCreationFileTime:r.nativeCreationFileTime,imageSha256:r.imageSha256,commandSha256:r.commandLineSha256,service:r.service,startupRawSha256:r.startupRawSha256,removalRawSha256:r.removalRawSha256,depth:0}});
+ assert.equal(roots.length,23);assert(!roots.some(r=>r.processId===43884||r.processId===3692));return roots;
+}
+export function assertStartupStopDeclaration(plan,raw,launchRaw){
+ keys(plan,['version','batchSha256','walHead','repairId','sourceEvidenceSha256','sourceLaunchEvidenceSha256','roots','descendants']);assert.equal(plan.version,'startup-exact-instance-stop-v1');assert.equal(plan.batchSha256,batch);assert.equal(plan.walHead,head);assert.equal(plan.repairId,'12c465652dbc4b5f9f54d0b0f30eeb3a');assert.equal(plan.sourceEvidenceSha256,startupEvidenceSha256);assert.equal(plan.sourceLaunchEvidenceSha256,startupLaunchEvidenceSha256);
+ const roots=fixedStartupRoots(raw,launchRaw);assert.deepEqual(plan.roots,roots,'Only the 23 recorded service roots are eligible');assert(Array.isArray(plan.descendants));assert(roots.length+plan.descendants.length<=128);
+ const byId=new Map();for(const r of roots){identity(r);byId.set(r.processId,r)}
+ for(const d of plan.descendants){keys(d,['processId','parentProcessId','nativeCreationFileTime','imageSha256','commandSha256','rootProcessId','depth']);identity(d);assert(d.depth>0);assert(!byId.has(d.processId));assert(roots.some(r=>r.processId===d.rootProcessId));byId.set(d.processId,d)}
+ for(const d of plan.descendants){const p=byId.get(d.parentProcessId);assert(p,'Every declared descendant must connect to a declared parent');assert.equal(d.depth,p.depth+1);assert.equal(d.rootProcessId,p.rootProcessId??p.processId);assert(BigInt(d.nativeCreationFileTime)>=BigInt(p.nativeCreationFileTime),'Child predates its declared parent')}
+ return [...roots,...plan.descendants].map(r=>({processId:r.processId,parentProcessId:r.parentProcessId,nativeCreationFileTime:r.nativeCreationFileTime,imageSha256:r.imageSha256,commandSha256:r.commandSha256,depth:r.depth})).sort((a,b)=>b.depth-a.depth||a.processId-b.processId);
+}
+// This policy is not a production entrypoint or an approval. A future wrapper
+// must bind this complete plan, fresh census/held handles, drain and mutex scope.
+
+
+FILE tools/startup-exact-instance-stop.ps1 SHA f26a1ec322ffd5aaeef42801db1d428cc766a69c60d57b464a0e960b3f040f73
+# Library only. No top-level stop or production CLI. A future approved wrapper
+# must validate the fixed 23-root policy and maintenance/drain/owner before use.
+function Read-ExactStopLibrary([string]$Path,[string]$Expected){
+ $held=[IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+ try{if($held.Length -gt 1048576){throw 'Library too large'};$memory=[IO.MemoryStream]::new();$held.CopyTo($memory);$raw=$memory.ToArray();$memory.Dispose();$s=[Security.Cryptography.SHA256]::Create();try{$actual=([BitConverter]::ToString($s.ComputeHash($raw))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()};if($actual -cne $Expected){throw 'Pinned library drift'};return [scriptblock]::Create(([Text.UTF8Encoding]::new($false,$true).GetString($raw)).TrimStart([char]0xFEFF))}finally{$held.Dispose()}
+}
+$deadlinePath=Join-Path $PSScriptRoot 'process-deadline.ps1'
+. (Read-ExactStopLibrary $deadlinePath '5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd')
+$nativePath=Join-Path $PSScriptRoot 'watchdog-native-metadata.ps1'
+. (Read-ExactStopLibrary $nativePath 'd8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449')
+if(-not ('Teruisi.ExactStop' -as [type])){Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace Teruisi { public static class ExactStop {
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool TerminateProcess(IntPtr h,uint code);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern uint WaitForSingleObject(IntPtr h,uint milliseconds);
+}}
+'@}
+function Get-StopTextHash([string]$Text){$s=[Security.Cryptography.SHA256]::Create();try{return ([BitConverter]::ToString($s.ComputeHash([Text.Encoding]::UTF8.GetBytes($Text)))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()}}
+function Read-ExactStopCensus {return @(CimCmdlets\Get-CimInstance Win32_Process -ErrorAction Stop|Select-Object ProcessId,ParentProcessId,CreationDate)}
+function Assert-ExactStopClosure([object[]]$Targets,[object[]]$Rows){
+ $ids=[Collections.Generic.HashSet[int]]::new();$byId=@{};foreach($target in $Targets){if(-not $ids.Add([int]$target.processId)){throw 'Duplicate stop PID'};$byId[[int]$target.processId]=$target}
+ foreach($target in $Targets){$parent=$byId[[int]$target.parentProcessId];if($null -ne $parent){if([int]$target.depth -ne [int]$parent.depth+1 -or [long]$target.nativeCreationFileTime -lt [long]$parent.nativeCreationFileTime){throw 'Declared depth or parent creation is invalid'}}elseif([int]$target.depth -ne 0){throw 'Unconnected descendant'}}
+ $seen=[Collections.Generic.HashSet[int]]::new();foreach($row in $Rows){if(-not $seen.Add([int]$row.ProcessId)){throw 'Duplicate census PID'};if($ids.Contains([int]$row.ProcessId)){$t=$byId[[int]$row.ProcessId];if($row.CreationDate -isnot [datetime] -or [int]$row.ParentProcessId -ne [int]$t.parentProcessId -or -not [Teruisi.ReadonlyProcessMetadata]::SameCreation([long]$t.nativeCreationFileTime,$row.CreationDate.ToUniversalTime().ToFileTimeUtc())){throw 'Census target identity changed'}}}
+ foreach($row in $Rows){if($ids.Contains([int]$row.ParentProcessId) -and -not $ids.Contains([int]$row.ProcessId)){throw 'Unapproved descendant; no automatic expansion'}}
+}
+function Assert-ExactStopLease([object]$Lease,[object[]]$Rows){
+ $target=$Lease.Target;$row=@($Rows|Where-Object {[int]$_.ProcessId -eq [int]$target.processId})
+ if($row.Count -ne 1 -or $row[0].CreationDate -isnot [datetime] -or [int]$row[0].ParentProcessId -ne [int]$target.parentProcessId){throw 'Current CIM identity unavailable or changed'}
+ $c1=0L;$c2=0L;$e=0L;$k=0L;$u=0L;$h=$Lease.Handle
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($h,[ref]$c1,[ref]$e,[ref]$k,[ref]$u)){throw 'Held creation unavailable'}
+ $image=[Text.StringBuilder]::new(32768);$n=[uint32]32768
+ if(-not [Teruisi.ReadonlyProcessMetadata]::QueryFullProcessImageName($h,0,$image,[ref]$n)){throw 'Held image unavailable'}
+ $s1=0;$s2=0;$cmd1=[Teruisi.ReadonlyProcessMetadata]::Command($h,[ref]$s1);$cmd2=[Teruisi.ReadonlyProcessMetadata]::Command($h,[ref]$s2)
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($h,[ref]$c2,[ref]$e,[ref]$k,[ref]$u)){throw 'Held creation unavailable'}
+ if($c1 -ne $c2 -or $c1.ToString([Globalization.CultureInfo]::InvariantCulture) -cne [string]$target.nativeCreationFileTime -or
+    -not [Teruisi.ReadonlyProcessMetadata]::SameCreation($c1,$row[0].CreationDate.ToUniversalTime().ToFileTimeUtc()) -or $s1 -ne 0 -or $s2 -ne 0 -or
+    [string]::IsNullOrWhiteSpace($cmd1) -or -not [string]::Equals($cmd1,$cmd2,[StringComparison]::Ordinal) -or
+    (Get-StopTextHash $cmd2) -cne $target.commandSha256 -or (Get-StopTextHash $image.ToString()) -cne $target.imageSha256){throw 'Held process does not match exact declaration'}
+ if([Teruisi.ExactStop]::WaitForSingleObject($h,0) -ne 258){throw 'Target is not confirmed live'}
+}
+function Open-ExactStopLease([object]$Target){
+ $h=[Teruisi.ReadonlyProcessMetadata]::OpenProcess(0x101001,$false,[uint32]$Target.processId)
+ if($h -eq [IntPtr]::Zero){throw ('Stop handle denied: '+[Runtime.InteropServices.Marshal]::GetLastWin32Error())}
+ return [pscustomobject]@{Target=$Target;Handle=$h}
+}
+function Close-ExactStopLease([object]$Lease){[void][Teruisi.ReadonlyProcessMetadata]::CloseHandle($Lease.Handle)}
+function Stop-ExactHeldInstance([object]$Lease){
+ if(-not [Teruisi.ExactStop]::TerminateProcess($Lease.Handle,1)){throw 'Held termination failed'}
+ if([Teruisi.ExactStop]::WaitForSingleObject($Lease.Handle,10000) -ne 0){throw 'Held process exit not confirmed'}
+}
+function Invoke-ExactInstanceStop([object[]]$Targets,[string]$EvidencePath,[long]$Deadline=(Get-ProcessDeadline)){
+ if($Targets.Count -lt 1 -or $Targets.Count -gt 128){throw 'Stop set size invalid'}
+ foreach($t in $Targets){if(($t.processId -isnot [int] -and $t.processId -isnot [long]) -or [int]$t.processId -le 4 -or ($t.parentProcessId -isnot [int] -and $t.parentProcessId -isnot [long]) -or [int]$t.parentProcessId -lt 0 -or $t.depth -isnot [int] -or $t.depth -lt 0 -or $t.depth -gt 16 -or $t.nativeCreationFileTime -isnot [string] -or $t.nativeCreationFileTime -cnotmatch '^[0-9]{17,20}$' -or $t.commandSha256 -isnot [string] -or $t.commandSha256 -cnotmatch '^[a-f0-9]{64}$' -or $t.imageSha256 -isnot [string] -or $t.imageSha256 -cnotmatch '^[a-f0-9]{64}$'){throw 'Invalid exact stop declaration'}}
+ $leases=[Collections.Generic.List[object]]::new();$events=[Collections.Generic.List[object]]::new();$stream=[IO.File]::Open($EvidencePath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+ function Record-ExactStop([object]$Event){$events.Add($Event);$b=[Text.UTF8Encoding]::new($false).GetBytes(($Event|ConvertTo-Json -Compress -Depth 5)+[Environment]::NewLine);$stream.Write($b,0,$b.Length);$stream.Flush($true)}
+ try{
+  foreach($t in $Targets){[void](Get-ProcessRemaining $Deadline);$leases.Add((Open-ExactStopLease $t))}
+  $rows=@(Read-ExactStopCensus);Assert-ExactStopClosure $Targets $rows
+  foreach($lease in $leases){Assert-ExactStopLease $lease $rows}
+  Record-ExactStop @{stage='all-targets-validated';count=$Targets.Count;at=[DateTimeOffset]::UtcNow.ToString('o')}
+  foreach($lease in @($leases|Sort-Object {$_.Target.depth} -Descending)){
+   [void](Get-ProcessRemaining $Deadline);$rows=@(Read-ExactStopCensus);Assert-ExactStopClosure $Targets $rows;Assert-ExactStopLease $lease $rows
+   Record-ExactStop @{stage='stop-started';processId=$lease.Target.processId;nativeCreationFileTime=$lease.Target.nativeCreationFileTime;at=[DateTimeOffset]::UtcNow.ToString('o')}
+   Stop-ExactHeldInstance $lease
+   Record-ExactStop @{stage='exit-confirmed';processId=$lease.Target.processId;at=[DateTimeOffset]::UtcNow.ToString('o')}
+  }
+  Assert-ExactStopClosure $Targets @(Read-ExactStopCensus)
+  return [pscustomobject]@{status='declared-instances-exited';count=$Targets.Count;events=$events.ToArray()}
+ }catch{
+  $failure=$_;try{Record-ExactStop @{stage='unknown';confirmedExits=@($events|Where-Object {$_.stage -eq 'exit-confirmed'}).Count;at=[DateTimeOffset]::UtcNow.ToString('o')}}catch{$failure.Exception.Data['EvidenceSaveFailed']=$true}
+  $failure.Exception.Data['StopEvents']=$events.ToArray();throw $failure
+ }finally{foreach($lease in $leases){Close-ExactStopLease $lease};$stream.Dispose()}
+}

@@ -1,0 +1,4 @@
+{"at":"2026-10-12T04:11:11.0685188+00:00","stage":"all-targets-validated","count":2}
+{"at":"2026-10-12T04:11:11.0702527+00:00","nativeCreationFileTime":"134362368000000000","stage":"stop-started","processId":1001}
+{"at":"2026-10-12T04:11:11.0712011+00:00","stage":"exit-confirmed","processId":1001}
+{"confirmedExits":1,"stage":"unknown","at":"2026-10-12T04:11:11.0725627+00:00"}

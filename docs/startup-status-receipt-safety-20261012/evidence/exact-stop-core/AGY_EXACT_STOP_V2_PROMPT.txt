@@ -1,0 +1,33 @@
+同conversation必要V2补审，仅文本，禁止工具/native/生产。Root在你认可V1后发现真实共同deadline缺口：loop开始check后Census/validation/fsync可耗完时间，却仍Terminate。原V1五源已保，实际把V1Invoke函数AST放入新全mock expiry fixture，两host都复现expected0但simulatedStops1，生产stop0；日志与原源完整保留，不能只靠模型背书。V2新增RecordStopStarted之后的GetRemaining、StopExactHeldInstance内部真正Terminate前GetRemaining，WaitExit=min(10000,remaining)，不增TTL。两个expiryDuringCensus/validation均零stop；作者/RootV2仍Node15/15，mock每host由6增8，真实privateGUI子进程终止PS5/7通过，生产PIDs未执行。最终coreSHA 35a98102c9b76c8a95232f3f07584dcba932a819eae683f2391c4345297fb8a3。
+policy0ab41…仍硬钉Admin717+launch29f的23根，excludeWorker2，declared后代闭包/亲缘/出生/depth、完整heldhandle验证先于首stop。无productionCLI、无整合drain/mutex/owner/source/role/新恢复包，不是可直接执行批准。完整Census采样非OS排他，最后核后新后代竞态不能杜绝；当前根/parent在过程中自然提前退出也可能保守unknown，不能自动扩杀或伪Ready。请正式撤回前轮遗漏deadline的过强结论、“杜绝误杀”缩为同句柄针对PID复用的有限保证，200字内仅审本delta有无具体阻断。
+FINAL RELEVANT SOURCE
+function Stop-ExactHeldInstance([object]$Lease,[long]$Deadline){
+ [void](Get-ProcessRemaining $Deadline)
+ if(-not [Teruisi.ExactStop]::TerminateProcess($Lease.Handle,1)){throw 'Held termination failed'}
+ $wait=[uint32][Math]::Min(10000,(Get-ProcessRemaining $Deadline))
+ if([Teruisi.ExactStop]::WaitForSingleObject($Lease.Handle,$wait) -ne 0){throw 'Held process exit not confirmed'}
+}
+function Invoke-ExactInstanceStop([object[]]$Targets,[string]$EvidencePath,[long]$Deadline=(Get-ProcessDeadline)){
+ if($Targets.Count -lt 1 -or $Targets.Count -gt 128){throw 'Stop set size invalid'}
+ foreach($t in $Targets){if(($t.processId -isnot [int] -and $t.processId -isnot [long]) -or [int]$t.processId -le 4 -or ($t.parentProcessId -isnot [int] -and $t.parentProcessId -isnot [long]) -or [int]$t.parentProcessId -lt 0 -or $t.depth -isnot [int] -or $t.depth -lt 0 -or $t.depth -gt 16 -or $t.nativeCreationFileTime -isnot [string] -or $t.nativeCreationFileTime -cnotmatch '^[0-9]{17,20}$' -or $t.commandSha256 -isnot [string] -or $t.commandSha256 -cnotmatch '^[a-f0-9]{64}$' -or $t.imageSha256 -isnot [string] -or $t.imageSha256 -cnotmatch '^[a-f0-9]{64}$'){throw 'Invalid exact stop declaration'}}
+ $leases=[Collections.Generic.List[object]]::new();$events=[Collections.Generic.List[object]]::new();$stream=[IO.File]::Open($EvidencePath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+ function Record-ExactStop([object]$Event){$events.Add($Event);$b=[Text.UTF8Encoding]::new($false).GetBytes(($Event|ConvertTo-Json -Compress -Depth 5)+[Environment]::NewLine);$stream.Write($b,0,$b.Length);$stream.Flush($true)}
+ try{
+  foreach($t in $Targets){[void](Get-ProcessRemaining $Deadline);$leases.Add((Open-ExactStopLease $t))}
+  $rows=@(Read-ExactStopCensus);Assert-ExactStopClosure $Targets $rows
+  foreach($lease in $leases){Assert-ExactStopLease $lease $rows}
+  Record-ExactStop @{stage='all-targets-validated';count=$Targets.Count;at=[DateTimeOffset]::UtcNow.ToString('o')}
+  foreach($lease in @($leases|Sort-Object {$_.Target.depth} -Descending)){
+   [void](Get-ProcessRemaining $Deadline);$rows=@(Read-ExactStopCensus);Assert-ExactStopClosure $Targets $rows;Assert-ExactStopLease $lease $rows
+   Record-ExactStop @{stage='stop-started';processId=$lease.Target.processId;nativeCreationFileTime=$lease.Target.nativeCreationFileTime;at=[DateTimeOffset]::UtcNow.ToString('o')}
+   [void](Get-ProcessRemaining $Deadline)
+   Stop-ExactHeldInstance $lease $Deadline
+   Record-ExactStop @{stage='exit-confirmed';processId=$lease.Target.processId;at=[DateTimeOffset]::UtcNow.ToString('o')}
+  }
+  Assert-ExactStopClosure $Targets @(Read-ExactStopCensus)
+  return [pscustomobject]@{status='declared-instances-exited';count=$Targets.Count;events=$events.ToArray()}
+ }catch{
+  $failure=$_;try{Record-ExactStop @{stage='unknown';confirmedExits=@($events|Where-Object {$_.stage -eq 'exit-confirmed'}).Count;at=[DateTimeOffset]::UtcNow.ToString('o')}}catch{$failure.Exception.Data['EvidenceSaveFailed']=$true}
+  $failure.Exception.Data['StopEvents']=$events.ToArray();throw $failure
+ }finally{foreach($lease in $leases){Close-ExactStopLease $lease};$stream.Dispose()}
+}

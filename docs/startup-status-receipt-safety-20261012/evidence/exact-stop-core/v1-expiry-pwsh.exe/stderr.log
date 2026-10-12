@@ -1,0 +1,5 @@
+Exception: E:\codex-artifacts\startup-status-receipt-safety-20261012\EXACT_STOP_V1_EXPIRY_REPRO.ps1:25
+Line |
+  25 |  �� $failed -ne ($case -ne 'success')){throw "Wrong effect count: $case"}
+     |                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Wrong effect count: expiry-during-census

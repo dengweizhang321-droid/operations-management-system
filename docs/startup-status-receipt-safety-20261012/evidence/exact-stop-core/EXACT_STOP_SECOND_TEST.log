@@ -1,0 +1,82 @@
+✔ fixed 23 roots bind actual metadata and independently computed launch intervals (4.8267ms)
+✔ reject root-omission (3.5818ms)
+✔ reject worker-injection (2.1836ms)
+✔ reject root-birth (1.3205ms)
+✔ reject parent (2.0552ms)
+✔ reject depth (1.5907ms)
+✔ reject WAL (0.7618ms)
+✔ reject source (0.5524ms)
+✔ reject launch-source (0.52ms)
+✔ reject duplicate-root (2.3542ms)
+✔ descendant connection/depth/birth must be declared and coherent (6.39ms)
+✔ exact stop mocked on powershell.exe (1479.2249ms)
+✖ exact stop private on powershell.exe (2503.323ms)
+✔ exact stop mocked on pwsh.exe (1674.3544ms)
+✖ exact stop private on pwsh.exe (2541.7202ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 13
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8352.8572
+
+✖ failing tests:
+
+test at tests\startup-exact-instance-stop.test.mjs:9:89
+✖ exact stop private on powershell.exe (2503.323ms)
+  AssertionError [ERR_ASSERTION]: 
+  Unapproved descendant; no automatic expansion
+  ����λ�� D:\.codex\worktrees\startup-status-receipt-safety\��Ӫ����ϵͳ\tools\startup-exact-instance-stop.ps1:23 �ַ�: 
+  115
+  + ... w.ProcessId)){throw 'Unapproved descendant; no automatic expansion'}}
+  +                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : OperationStopped: (Unapproved desc...matic expansion:String) [], RuntimeException
+      + FullyQualifiedErrorId : Unapproved descendant; no automatic expansion
+   
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/startup-status-receipt-safety/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/startup-exact-instance-stop.test.mjs:9:763)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\startup-exact-instance-stop.test.mjs:9:89
+✖ exact stop private on pwsh.exe (2541.7202ms)
+  AssertionError [ERR_ASSERTION]: 
+  Exception: D:\.codex\worktrees\startup-status-receipt-safety\��Ӫ����ϵͳ\tools\startup-exact-instance-stop.ps1:23
+  Line |
+    23 |  �� w.ProcessId)){throw 'Unapproved descendant; no automatic expansion'}}
+       |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       | Unapproved descendant; no automatic expansion
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/startup-status-receipt-safety/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/startup-exact-instance-stop.test.mjs:9:763)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
