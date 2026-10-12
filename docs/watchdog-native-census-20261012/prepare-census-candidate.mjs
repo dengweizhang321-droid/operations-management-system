@@ -1,0 +1,17 @@
+import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import assert from 'node:assert/strict';
+import {prepareSupervisorStatusDriver} from '../../tools/prepare-watchdog-supervisor-status-driver.mjs';
+import {hash,readStable} from '../startup-recovery-integration-20261012/recovery-context.mjs';
+const own=path.dirname(fileURLToPath(import.meta.url)),repo=path.resolve(own,'../..'),e='E:/codex-artifacts/watchdog-native-census-20261012',out=e+'/candidate-v1';
+assert(!fs.existsSync(out),'New immutable candidate only');
+const spec=JSON.parse(readStable('E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json','960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b'));
+const originalFiles=spec.batch.operations.find(o=>o.id==='op-startworker-switch').command.files;
+const options={outputDirectory:out,controlFile:'D:/运营管理系统/tools/operations-system-control.ps1',backendFile:'D:/teruisi-runtime/django-sales/app/tools/django-local-service.ps1',workerFile:'D:/运营管理系统/tools/worker-local-service.ps1',transportFile:'D:/运营管理系统/tools/process-deadline.ps1',supervisorFile:'D:/teruisi-runtime/django-sales/app/tools/django-runtime-supervisor.ps1',coreTemplateFile:repo+'/tools/django-local-service.ps1',controlTemplateFile:repo+'/tools/operations-system-control.ps1',nativeTemplateFile:repo+'/tools/watchdog-native-metadata.ps1',watchdogTemplateFile:repo+'/tools/operations-system-watchdog.ps1'};
+for(const k of ['controlFile','backendFile','workerFile','supervisorFile']){const item=originalFiles.find(f=>path.resolve(f.path).toLowerCase()===path.resolve(options[k]).toLowerCase());assert(item,'Original operation file pin missing: '+k);readStable(options[k],item.sha256);}
+readStable(options.transportFile,'5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd');
+readStable(options.watchdogTemplateFile,'c8a635e3ea80b41251033c5f209d2f8b3ed5b0ad95f252f7dc6ec35482fabd2b');
+const generated=await prepareSupervisorStatusDriver(options);
+const old='E:/codex-artifacts/startup-status-receipt-safety-20261012/native-watchdog-source-v1',oldPacket=JSON.parse(fs.readFileSync('E:/codex-artifacts/startup-status-receipt-safety-20261012/NATIVE_WATCHDOG_CANDIDATE_V1.json'));
+fs.mkdirSync(out+'/watchdog-launcher');for(const n of ['process-deadline.ps1','watchdog-install.ps1','watchdog-launcher/NoConsoleLauncher.cs','Watchdog.NoConsole.exe']){const b=readStable(path.join(old,n),oldPacket.files[n.replaceAll('/','\\')]);fs.writeFileSync(path.join(out,n),b,{flag:'wx'});}
+const names=['operations-system-watchdog.ps1','process-deadline.ps1','watchdog-install.ps1','watchdog-launcher\\NoConsoleLauncher.cs','watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json','Watchdog.NoConsole.exe'];const files=Object.fromEntries(names.map(n=>[n,hash(readStable(path.join(out,n)))]));const bundleId=hash(Object.entries(files).map(([k,v])=>k+'='+v).join('\n'));
+const packet={version:'native-readonly-watchdog-census-candidate-v1',outputDirectory:out,bundleId,files,binding:generated.binding,proof:generated.proof,productionInstalled:false,actualPlanId:null,priorCandidatePreserved:oldPacket.bundleId};
+fs.writeFileSync(e+'/CENSUS_CANDIDATE_V1.json',JSON.stringify(packet,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({bundleId,files:9,supervisorSourceSha256:generated.proof.supervisorSourceSha256,productionInstalled:false}));

@@ -36,7 +36,7 @@ export async function prepareSupervisorStatusDriver(options){
  $SupervisorAlertDirectory=Assert-RuntimeChildPath (Join-Path $SupervisorMonitorDirectory 'alerts\\pending')
  $SupervisorStatePath=Assert-RuntimeChildPath (Join-Path $SupervisorMonitorDirectory 'state.json')
  $SupervisorPidPath=Assert-RuntimeChildPath (Join-Path $RunDirectory 'django-supervisor.pid.json')
- $diagnosticResult=& {${parts.status}
+ $diagnosticResult=Invoke-ReadonlyMetadataObservation {${parts.status}
  }
  Assert-NativeDiagnosticSources
  $diagnosticResult|ConvertTo-Json -Depth 10 -Compress

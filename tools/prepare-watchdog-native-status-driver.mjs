@@ -52,7 +52,7 @@ if($DiagnosticTarget -eq 'Worker'){
  . (Join-Path $PSScriptRoot 'watchdog-core-overlay.ps1')
  $diagnosticManifest=Get-CurrentManifestPath
  $diagnosticIdentity=if($diagnosticManifest){Get-ManifestIdentity $diagnosticManifest}else{$null}
- $diagnosticResult=Get-PublicStatus (Get-WorkerStatusInternal $diagnosticIdentity)
+ $diagnosticResult=Invoke-ReadonlyMetadataObservation { Get-PublicStatus (Get-WorkerStatusInternal $diagnosticIdentity) }
  Assert-NativeDiagnosticSources
  $diagnosticResult|ConvertTo-Json -Depth 8 -Compress
 }else{
@@ -63,7 +63,7 @@ if($DiagnosticTarget -eq 'Worker'){
  # "AggregateStatus" { Show-AggregateServiceStatus }
  # teruisi-django-aggregate-status-v1
  $script:Json=[switch]$true
- $diagnosticResult=if($diagnosticRequestedAction -eq 'AggregateStatus'){Show-AggregateServiceStatus}else{Show-ServiceStatus}
+ $diagnosticResult=Invoke-ReadonlyMetadataObservation { if($diagnosticRequestedAction -eq 'AggregateStatus'){Show-AggregateServiceStatus}else{Show-ServiceStatus} }
  Assert-NativeDiagnosticSources
  $diagnosticResult
 }

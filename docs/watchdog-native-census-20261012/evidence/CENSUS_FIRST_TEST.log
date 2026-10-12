@@ -1,0 +1,10 @@
+✔ same-observation census and held identity powershell.exe (944.7523ms)
+✔ same-observation census and held identity pwsh.exe (1643.2181ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2684.9794

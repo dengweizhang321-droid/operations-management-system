@@ -1,0 +1,29 @@
+{
+  "at": "2026-10-12T09:03:03.9405731Z",
+  "candidate": "e0330d7aea1e17395cf56214c8c62e8d54c2e46359d30cce9296800c8802760c",
+  "filesVerified": 9,
+  "fileHashMismatches": 0,
+  "changedFromInstalled": [
+    "watchdog-status-backend.ps1",
+    "watchdog-core-overlay.ps1"
+  ],
+  "focusedGeneratedAndCensusTests": 8,
+  "realNativeTests": 2,
+  "failures": 0,
+  "actualReadOnlyPreview": {
+    "receiptInventoryCount": 29,
+    "backendMs": 15814,
+    "httpMs": 1936,
+    "receiptBytesUnchanged": true,
+    "probes": 4,
+    "elapsedMs": 38073,
+    "components": 12,
+    "exitCode": 0,
+    "workerMs": 10495,
+    "healthy": true,
+    "probeError": false
+  },
+  "productionInstalled": false,
+  "naturalScheduledAcceptance": false,
+  "limitations": "One manual FunctionsOnly snapshot, not scheduled natural pair or guarantee of future duration. Original common 60-second deadline and full identity predicates retained."
+}

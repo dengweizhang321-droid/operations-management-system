@@ -1,0 +1,13 @@
+✔ same-observation census and held identity powershell.exe (976.1888ms)
+✔ same-observation census and held identity pwsh.exe (1058.1716ms)
+✔ original ownership predicates revert exactly after only enumerated observation edits (1.4936ms)
+✔ native metadata observation contracts in powershell.exe (816.3423ms)
+✔ native metadata observation contracts in pwsh.exe (1075.9586ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2183.9561
