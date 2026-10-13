@@ -177,6 +177,12 @@ def _handle_post_read(
 
 
 @require_GET
+def import_recovery(request: HttpRequest) -> JsonResponse:
+    from .recovery import read_recovery
+    return _handle_get(lambda principal: read_recovery(request.GET, principal.email), request, {"admin"})
+
+
+@require_GET
 def imports(request: HttpRequest) -> JsonResponse:
     def execute(_principal_value: Principal) -> dict[str, object]:
         try:

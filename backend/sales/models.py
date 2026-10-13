@@ -424,6 +424,8 @@ class SalesWriteRequestReceipt(models.Model):
 
 
 class SalesImportAttempt(models.Model):
+    raw_upload_id = models.CharField(max_length=36, default="", blank=True)
+    upload_fingerprint = models.CharField(max_length=255, default="", blank=True, db_index=True)
     """Append-only, sanitized audit for every normalized import attempt."""
 
     id = models.CharField(primary_key=True, max_length=64)
@@ -503,6 +505,7 @@ class SalesImportFingerprint(models.Model):
 
 
 class SalesRawUploadSession(models.Model):
+    publication_baseline = models.JSONField(default=dict)
     """PostgreSQL authority for resumable raw XLSX uploads."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

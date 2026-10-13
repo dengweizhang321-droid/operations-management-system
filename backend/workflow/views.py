@@ -116,6 +116,21 @@ def _consistent_read(loader: Callable[[], dict[str, object] | None]) -> tuple[di
     raise WorkflowApiError("运营事务数据版本持续变化，请稍后重试", code="service_unavailable", status=503)
 
 
+@require_http_methods(["GET", "POST"])
+def jackyun_recovery_authority(request: HttpRequest) -> JsonResponse:
+    try:
+        principal = _principal(request, {"admin"})
+        from .jackyun_recovery_authority import authorize, read_authority
+        if request.method == "GET":
+            if set(request.GET) != {"authorizationId"} or len(request.GET.getlist("authorizationId")) != 1:
+                raise WorkflowApiError("人工恢复授权查询字段无效")
+            return _json(read_authority(request.GET["authorizationId"]))
+        payload = _body(request)
+        return _replay_write(request, principal, lambda: (authorize(payload, request.headers.get("X-Teruisi-Request-Id", "")), 200))
+    except Exception as error:
+        return _error(error, "人工恢复授权无法确认")
+
+
 def _replay_write(
     request: HttpRequest,
     principal: Principal,

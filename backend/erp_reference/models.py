@@ -170,6 +170,8 @@ class ErpReferenceImportFingerprint(models.Model):
 
 
 class ErpReferenceImportAttempt(models.Model):
+    raw_upload_id = models.CharField(max_length=36, default="", blank=True)
+    upload_fingerprint = models.CharField(max_length=255, default="", blank=True, db_index=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     batch_id = models.CharField(max_length=128, default="")
     source_key = models.CharField(max_length=16, default="")

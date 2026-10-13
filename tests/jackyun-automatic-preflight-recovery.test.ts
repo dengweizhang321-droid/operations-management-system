@@ -10,12 +10,25 @@ import { readN8nReplacementEvidence } from "../lib/jackyun/n8n-preflight-evidenc
 import { classifyJackyunPreflightFailure } from "../lib/jackyun/preflight-failure";
 import { assertClosedPreflight, preflightClosurePath, jackyunWorkflowId, inspectPreflightClosure, publishPreflightClosure, recoverySha } from "../lib/jackyun/preflight-recovery";
 import { runJackyunExportFirstAction } from "../tools/jackyun-export-first-pipeline";
+import { readRecoveryControl, recoveryProtocol, type RecoveryRequest } from "../lib/jackyun/recovery-control";
+import { importRecoveryScope } from "../lib/jackyun/publication-baseline";
 
 const missing = "waiting_login：吉客云 DPAPI 凭据配置或解密未完成（missing）。";
 const challenge = "waiting_login：吉客云登录已停止（challenge_present）。";
 const browserPidMismatch = "waiting_login：调试端口不属于本次启动的独立浏览器，已停止接管。";
 const at = "2026-09-28T01:00:02.000Z";
 const nodes = ["每天本机时间 00:10", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"];
+function baselineRequest(): typeof fetch {
+  return (async url => {
+    const query = new URL(String(url)).searchParams;
+    if (query.has("module")) {
+      const moduleKey = query.get("module") as "products" | "inventory" | "inventory_age" | "sales" | "combos";
+      const plan = { runDate: "2026-09-28", asOfDate: "2026-09-27", salesStartDate: "2026-08-14" };
+      return Response.json({ ok: true, version: "import-recovery-query-v1", status: "ready", stateToken: "1".repeat(64), rulesDigest: "9".repeat(64), scope: importRecoveryScope(moduleKey, plan) });
+    }
+    return new Response("{}");
+  }) as typeof fetch;
+}
 async function fixture(t: TestContext, error = missing, mode = "trigger") {
   const root = await mkdtemp(path.join(tmpdir(), "jackyun-auto-preflight-"));
   t.after(async () => { assert(path.resolve(root).startsWith(path.resolve(tmpdir()) + path.sep)); assert(path.basename(root).startsWith("jackyun-auto-preflight-")); await rm(root, { recursive: true, force: true }); });
@@ -68,6 +81,37 @@ test("all full-run modes recover an arbitrary proven zero-effect credential fail
     assert.equal(fresh.runDate, "2026-09-28"); assert.equal(fresh.asOfDate, "2026-09-27"); assert.equal(fresh.salesStartDate, "2026-08-14");
     await assert.rejects(runJackyunExportFirstAction("export-all", "9000", f.deps));
   }
+});
+
+test("bound complete retry adopts a new collection under the original logical run and repeats after another zero-effect failure", async t => {
+  const f = await fixture(t, browserPidMismatch, "manual");
+  const request: Extract<RecoveryRequest, { kind: "retry" }> = { version: recoveryProtocol, kind: "retry", logicalExecutionId: "9000", failedExecutionId: "9000" };
+  const readOwnerState = (id: string) => {
+    const db = new DatabaseSync(f.database, { readOnly: true });
+    try { return String(db.prepare("SELECT status FROM execution_entity WHERE id=?").get(id)?.status); } finally { db.close(); }
+  };
+  const deps = { ...f.deps, recoveryRequest: request, recoveryEvidence: f.recovery.readEvidence, readOwnerState, request: baselineRequest() };
+  const first = await runJackyunExportFirstAction("plan-api", "9001", deps);
+  assert.equal(first.runId, "n8n-export-first-9001");
+  const record = await readRecoveryControl(f.root, "9000");
+  assert.equal(record?.record.attemptExecutionId, "9001"); assert.equal(record?.record.sourceExecutionId, "9001");
+  const bytes = await readFile(f.planPath), firstClosure = await readFile(preflightClosurePath(f.root, "9000"));
+  const writer = new DatabaseSync(f.database);
+  try {
+    const raw = writer.prepare("SELECT data FROM execution_data WHERE executionId=9000").get()!.data;
+    writer.prepare("UPDATE execution_entity SET status='error', stoppedAt='2026-09-28 01:00:10.000' WHERE id=9001").run();
+    writer.prepare("INSERT INTO execution_data VALUES(?,?)").run(9001, raw);
+    writer.exec("INSERT INTO execution_entity VALUES(9002,'J8kY2mQ5vR7sT4pN','running','manual','2026-09-28 01:01:00.000',NULL,NULL,NULL)");
+  } finally { writer.close(); }
+  const next = await runJackyunExportFirstAction("plan-api", "9002", { ...deps, now: () => new Date("2026-09-28T01:01:02.000Z"),
+    recoveryRequest: { ...request, failedExecutionId: "9001" } });
+  assert.equal(next.runId, "n8n-export-first-9002");
+  const after = await readRecoveryControl(f.root, "9000");
+  assert.equal(after?.record.generation, 2); assert.equal(after?.record.attemptExecutionId, "9002");
+  assert.deepEqual(await readFile(f.planPath), bytes); assert.deepEqual(await readFile(preflightClosurePath(f.root, "9000")), firstClosure);
+  const competing = await runJackyunExportFirstAction("plan-api", "9003", deps);
+  assert.equal("recoveryDecision" in competing ? competing.recoveryDecision : null, "wait");
+  await assert.rejects(readFile(path.join(f.pipeline, "n8n-export-first-9003.json")), /ENOENT/);
 });
 
 test("replacement authorization is one execution only, create-only and rechecks live n8n state", async t => {

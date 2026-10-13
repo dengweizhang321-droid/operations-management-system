@@ -10,8 +10,10 @@ import {
 } from "../lib/imports/xlsx";
 import { createXlsxWorkbookBytes } from "../lib/imports/xlsx-write";
 import { normalizeSalesLedgerDate } from "../lib/imports/sales-ledger";
-import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { readJsonFileOr, writeJsonDurable as writeJsonAtomic } from "../lib/jackyun/json-file";
 import { jackyunSalesPeriod } from "../lib/jackyun/sales-period";
+import { recoveryUploadFingerprint } from "../lib/jackyun/publication-baseline";
+import { coordinateWorkbookImport } from "../lib/jackyun/import-coordination";
 
 type Policy = {
   version: string;
@@ -115,6 +117,12 @@ function wrapSalesImportError(
 }
 
 export type SalesImportRunOptions = Omit<CliOptions, "downloadPath" | "costSourcePath"> & {
+  assertOwned?: () => Promise<void>;
+  recoveryRunId?: string;
+  expectedStateToken?: string;
+  collectionDate?: string;
+  recoveryAttempt?: boolean;
+  importCheckpointPath?: string;
   downloadPath: string;
   costSourcePath?: string | null;
   downloadBytes?: Uint8Array;
@@ -480,10 +488,13 @@ export function findMissingPreviouslyLoadedChannels(
   return [...grouped.values()].sort((left, right) => left.channel.localeCompare(right.channel, "zh-CN"));
 }
 
-async function uploadInChunks(baseUrl: string, bytes: Uint8Array, fileName: string, fingerprint: string, period: Pick<Period, "startDate" | "endDate">) {
+async function uploadInChunks(baseUrl: string, bytes: Uint8Array, fileName: string, fingerprint: string, period: Pick<Period, "startDate" | "endDate">, assertOwned?: () => Promise<void>, beforeComplete: (id: string) => Promise<void> = async () => undefined) {
+  const request = async (input: string, init: RequestInit, timeoutMs?: number) => {
+    await assertOwned?.(); const response = await fetchWithTimeout(input, init, timeoutMs); await assertOwned?.(); return response;
+  };
   const chunkSizeBytes = 2 * 1024 * 1024;
   const chunkCount = Math.ceil(bytes.byteLength / chunkSizeBytes);
-  const init = await fetchWithTimeout(`${baseUrl}/api/imports/sales/chunks`, {
+  const init = await request(`${baseUrl}/api/imports/sales/chunks`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action: "init", fileName, fileSizeBytes: bytes.byteLength, chunkCount, fingerprint, expectedStartDate: period.startDate, expectedEndDate: period.endDate }),
@@ -503,7 +514,7 @@ async function uploadInChunks(baseUrl: string, bytes: Uint8Array, fileName: stri
     await Promise.all(batch.map((index) => {
       const start = index * chunkSizeBytes;
       const end = Math.min(start + chunkSizeBytes, bytes.byteLength);
-      return fetchWithTimeout(`${baseUrl}/api/imports/sales/chunks`, {
+      return request(`${baseUrl}/api/imports/sales/chunks`, {
         method: "PUT",
         headers: {
           "content-type": "application/octet-stream",
@@ -517,7 +528,8 @@ async function uploadInChunks(baseUrl: string, bytes: Uint8Array, fileName: stri
       });
     }));
   }
-  const complete = await fetchWithTimeout(`${baseUrl}/api/imports/sales/chunks`, {
+  await beforeComplete(uploadId);
+  const complete = await request(`${baseUrl}/api/imports/sales/chunks`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action: "complete", uploadId: initBody.upload.id, expectedStartDate: period.startDate, expectedEndDate: period.endDate }),
@@ -528,6 +540,7 @@ async function uploadInChunks(baseUrl: string, bytes: Uint8Array, fileName: stri
 }
 
 export async function runSalesImport(options: SalesImportRunOptions): Promise<SalesImportRunResult> {
+  await options.assertOwned?.();
   if (!Number.isSafeInteger(options.expectedSourceRows) || Number(options.expectedSourceRows) <= 0) {
     throw new SalesImportError(
       "FILE_VALIDATION_FAILED",
@@ -969,6 +982,7 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
   ]);
   const processedHash = sha256(processedBytes);
   const outputPath = path.join(runDir, `销售单明细账_${period.startDate}_${period.endDate}_已筛选并匹配成本.xlsx`);
+  await options.assertOwned?.();
   await writeFile(outputPath, processedBytes);
 
   // Single-pass post-processing check: replaces 5 separate filter() calls that each
@@ -1064,7 +1078,16 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
 
   let imported: Awaited<ReturnType<typeof uploadInChunks>>;
   try {
-    imported = await uploadInChunks(options.baseUrl, processedBytes, path.basename(outputPath), processedHash, period);
+    const fingerprint = options.expectedStateToken && options.recoveryRunId
+      ? recoveryUploadFingerprint(options.recoveryRunId, "sales", processedHash, options.expectedStateToken) : processedHash;
+    const perform = (beforeComplete: (id: string) => Promise<void>) => uploadInChunks(options.baseUrl, processedBytes, path.basename(outputPath), fingerprint, period, options.assertOwned, beforeComplete);
+    imported = options.expectedStateToken && options.recoveryRunId && options.collectionDate && options.assertOwned
+      ? await coordinateWorkbookImport({ checkpointPath: options.importCheckpointPath ?? path.join(runDir, "import-checkpoint.json"), module: "sales", runId: options.recoveryRunId,
+        runDate: options.collectionDate, asOfDate: period.endDate, salesStartDate: period.startDate, fileName: path.basename(outputPath),
+        fileSizeBytes: processedBytes.byteLength, rawFileHash: processedHash, fingerprint, baseUrl: options.baseUrl,
+        isRecovery: options.recoveryAttempt === true, assertOwned: options.assertOwned, perform }) as typeof imported
+      : await perform(async () => undefined);
+    await options.assertOwned?.();
   } catch (error) {
     const failure = wrapSalesImportError(error, "IMPORT_FAILED", "chunk_upload_and_import");
     audit.ok = false;

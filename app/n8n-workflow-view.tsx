@@ -8,6 +8,7 @@ import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily
 import jdPromotionWorkflowDefinition from "@/automation/n8n/jd-promotion-daily.workflow.json";
 import jdPromotionCutMeatWorkflowDefinition from "@/automation/n8n/jd-promotion-cut-meat-20260813-14.workflow.json";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
+import { JackyunRecoveryControls } from "./jackyun-recovery-controls";
 
 type AppRole = "viewer" | "analyst" | "operator" | "admin";
 type WorkflowKey = "jackyun" | "tmall" | "jd" | "jd_market" | "jd_promotion" | "jd_promotion_cut_meat";
@@ -437,6 +438,7 @@ export default function N8nWorkflowView({ currentUser, moduleView, onModuleViewC
       </nav>
 
       <div role="tabpanel" id={`n8n-workflow-panel-${selectedWorkflowKey}`} aria-labelledby={`n8n-workflow-tab-${selectedWorkflowKey}`}>
+      {selectedWorkflowKey === "jackyun" && currentUser?.role === "admin" && <JackyunRecoveryControls />}
 
       <section className="n8n-workflow-hero">
         <div className="n8n-workflow-hero-copy">

@@ -638,6 +638,8 @@ def begin_raw_upload(payload: Mapping[str, object], actor_email: str) -> dict[st
                 )
             return _raw_upload_payload(existing)
         session = SalesRawUploadSession.objects.create(
+            publication_baseline={"stateToken": (SalesImportScopeHead.objects.filter(scope_key=_scope_key()).first().state_token
+                if SalesImportScopeHead.objects.filter(scope_key=_scope_key()).exists() else "initial")},
             client_fingerprint=fingerprint,
             actor_email=actor_email,
             file_name=file_name,
@@ -1897,6 +1899,12 @@ def _stored_line_content_row(line: SalesOrderLine) -> dict[str, object]:
     }
 
 
+def _prepared_upload_trace(prepared: PreparedImport):
+    session = SalesStagedImportSession.objects.select_related("raw_upload").get(id=prepared.session_id)
+    raw = session.raw_upload
+    return {"raw_upload_id": str(raw.id) if raw else "", "upload_fingerprint": raw.client_fingerprint if raw else ""}
+
+
 def _locked_scope_head(scope_key: str) -> SalesImportScopeHead:
     try:
         # Keep a concurrent unique-key loss inside its own savepoint; catching
@@ -1968,6 +1976,7 @@ def _reserve_scope(prepared: PreparedImport, session_owner: str) -> ScopeReserva
         if current_batch:
             attempt_id = uuid.uuid4().hex
             SalesImportAttempt.objects.create(
+                **_prepared_upload_trace(prepared),
                 id=attempt_id,
                 session_id=prepared.session_id,
                 batch_id=current_batch.id,
@@ -2110,6 +2119,7 @@ def _reserve_scope(prepared: PreparedImport, session_owner: str) -> ScopeReserva
                     current_batch.save(update_fields=updates)
             attempt_id = uuid.uuid4().hex
             SalesImportAttempt.objects.create(
+                **_prepared_upload_trace(prepared),
                 id=attempt_id,
                 session_id=prepared.session_id,
                 batch_id=current_batch.id,
@@ -2163,6 +2173,7 @@ def _reserve_scope(prepared: PreparedImport, session_owner: str) -> ScopeReserva
         attempt_id = uuid.uuid4().hex
         batch_id = _attempt_hash(prepared.scope_key, prepared.content_hash, head.state_token)
         SalesImportAttempt.objects.create(
+            **_prepared_upload_trace(prepared),
             id=attempt_id,
             session_id=prepared.session_id,
             batch_id=batch_id,
@@ -2342,6 +2353,16 @@ def _publish_import(
         session = SalesStagedImportSession.objects.select_for_update().get(id=prepared.session_id)
         _verify_staged_raw_owner(session)
         head = SalesImportScopeHead.objects.select_for_update().get(scope_key=prepared.scope_key)
+        if session.raw_upload_id is not None:
+            from common.import_recovery import fingerprint_baseline, assert_scope_baseline
+            raw = SalesRawUploadSession.objects.select_for_update().get(id=session.raw_upload_id, actor_email=session.actor_email)
+            try:
+                expected = fingerprint_baseline(raw.client_fingerprint, "sales", prepared.raw_file_hash)
+                if expected is None:
+                    expected = raw.publication_baseline.get("stateToken", "unproven")
+                assert_scope_baseline(expected, reservation.previous_state_token)
+            except ValueError as error:
+                raise SalesImportServiceError(str(error), code="conflict", status=409) from error
         if (
             session.status != "processing"
             or session.owner_token != session_owner

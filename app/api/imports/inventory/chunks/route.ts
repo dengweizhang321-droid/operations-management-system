@@ -72,6 +72,7 @@ export async function POST(request: Request) {
           fileName: claim.session.fileName,
           fileSizeBytes: claim.session.fileSizeBytes,
           snapshotDateOverride: snapshotDate,
+          publicationGuard: { uploadId, ownerToken: claim.ownerToken, ownerGeneration: claim.session.ownerGeneration },
         }, { signal: request.signal });
         const result = imported.ok
           ? { ...imported, inventoryProjection: await syncLatestInventoryProjection(principal, { signal: request.signal }) }

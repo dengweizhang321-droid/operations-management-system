@@ -23,7 +23,7 @@ import {
   type JackyunWorkbookModule,
 } from "../lib/jackyun/post-download";
 import { runSalesImport, salesSourceRowCountSemantic } from "./sales-import-runner";
-import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { readJsonFile, readJsonFileOr, writeJsonDurable as writeJsonAtomic } from "../lib/jackyun/json-file";
 import { jackyunSalesPeriod } from "../lib/jackyun/sales-period";
 import {
   assertBoundDownloadProvenance,
@@ -37,6 +37,9 @@ import { jackyunExportFirstPolicyVersion } from "../lib/jackyun/run-contract";
 import { auditedComboNameRejection, isAuditedComboNameRepair } from "../lib/jackyun/combo-name-recovery";
 import { assertExactFailedImportRetry, type ImportRecoveryBinding } from "../lib/jackyun/import-recovery";
 import { assertPartialFailedImportRetry, isPartialImportRecovery } from "../lib/jackyun/partial-import-recovery";
+import { recoveryUploadFingerprint } from "../lib/jackyun/publication-baseline";
+import { coordinateWorkbookImport, verifyRecordedWorkbookPublication } from "../lib/jackyun/import-coordination";
+import { writeJsonDurable } from "../lib/jackyun/json-file";
 
 type CliOptions = {
   module: JackyunModule;
@@ -60,6 +63,11 @@ type CliOptions = {
   sourceRowCountCorrection?: JackyunSourceRowCountCorrection;
   importRecovery?: ImportRecoveryBinding;
   dryRun: boolean;
+  assertOwned?: () => Promise<void>;
+  expectedStateToken?: string;
+  collectionDate?: string;
+  collectionSalesEndDate?: string;
+  recoveryAttempt?: boolean;
 };
 
 export type JackyunDownloadRunOptions = CliOptions;
@@ -501,8 +509,10 @@ async function responseJson(response: Response) {
   return body;
 }
 
-function fetchWithTimeout(input: string | URL | Request, init: RequestInit = {}, timeoutMs = 60_000) {
-  return fetch(input, { ...init, signal: init.signal ?? AbortSignal.timeout(timeoutMs) });
+async function fetchWithTimeout(input: string | URL | Request, init: RequestInit = {}, timeoutMs = 60_000, assertOwned?: () => Promise<void>) {
+  await assertOwned?.();
+  const response = await fetch(input, { ...init, signal: init.signal ?? AbortSignal.timeout(timeoutMs) });
+  await assertOwned?.(); return response;
 }
 
 async function verifyComboRelationBaseline(options: CliOptions, currentRowCount: number) {
@@ -534,7 +544,7 @@ async function verifyComboRelationBaseline(options: CliOptions, currentRowCount:
   };
 }
 
-async function uploadWorkbook(options: CliOptions, module: JackyunWorkbookModule, bytes: Uint8Array, fileName: string, fingerprint: string) {
+async function performWorkbookUpload(options: CliOptions, module: JackyunWorkbookModule, bytes: Uint8Array, fileName: string, fingerprint: string, beforeComplete: (uploadId: string) => Promise<void>) {
   const isInventory = module === "inventory";
   const endpoint = `${options.baseUrl}/api/imports/${isInventory ? "inventory" : "erp"}/chunks`;
   const source = isInventory ? undefined : module;
@@ -549,10 +559,10 @@ async function uploadWorkbook(options: CliOptions, module: JackyunWorkbookModule
       fileName,
       fileSizeBytes: bytes.byteLength,
       chunkCount,
-      fingerprint: `${module}:${fingerprint}`,
+      fingerprint: options.expectedStateToken ? recoveryUploadFingerprint(options.runId, module, fingerprint, options.expectedStateToken) : `${module}:${fingerprint}`,
       ...(options.snapshotDate ? { snapshotDate: options.snapshotDate } : {}),
     }),
-  }));
+  }, 60_000, options.assertOwned));
   const upload = initBody.upload as { id?: string; receivedChunkIndexes?: number[] } | undefined;
   if (!upload?.id) throw new Error("初始化分片上传后未返回 upload id。");
   const received = new Set(upload.receivedChunkIndexes ?? []);
@@ -579,9 +589,10 @@ async function uploadWorkbook(options: CliOptions, module: JackyunWorkbookModule
           "x-chunk-index": String(index),
         },
         body: chunk.buffer,
-      }));
+      }, 60_000, options.assertOwned));
     }));
   }
+  await beforeComplete(uploadId);
   return responseJson(await fetchWithTimeout(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -591,7 +602,18 @@ async function uploadWorkbook(options: CliOptions, module: JackyunWorkbookModule
       uploadId: upload.id,
       ...(options.snapshotDate ? { snapshotDate: options.snapshotDate } : {}),
     }),
-  }, 10 * 60_000));
+  }, 10 * 60_000, options.assertOwned));
+}
+
+async function uploadWorkbook(options: CliOptions, module: JackyunWorkbookModule, bytes: Uint8Array, fileName: string, fingerprint: string) {
+  const perform = (beforeComplete: (uploadId: string) => Promise<void>) => performWorkbookUpload(options, module, bytes, fileName, fingerprint, beforeComplete);
+  if (!options.expectedStateToken) return perform(async () => undefined);
+  if (!options.collectionDate || !options.collectionSalesEndDate || !options.assertOwned) throw new Error("恢复导入缺少原采集范围及 owner 证明。");
+  return coordinateWorkbookImport({ checkpointPath: path.join(options.outputRoot, options.runId, "import-checkpoints", `${module}.json`),
+    module, runId: options.runId, runDate: options.collectionDate, asOfDate: options.collectionSalesEndDate, salesStartDate: options.salesStartDate,
+    fileName, fileSizeBytes: bytes.byteLength, rawFileHash: fingerprint,
+    fingerprint: recoveryUploadFingerprint(options.runId, module, fingerprint, options.expectedStateToken),
+    baseUrl: options.baseUrl, isRecovery: options.recoveryAttempt === true, assertOwned: options.assertOwned, perform });
 }
 
 function summarizeBatch(batch: Record<string, unknown>): BatchSummary {
@@ -663,10 +685,16 @@ async function processSales(
     auditRootPath: path.join(options.outputRoot, options.runId, "sales"),
     baseUrl: options.baseUrl,
     dryRun: options.dryRun,
+    assertOwned: options.assertOwned,
+    recoveryAttempt: options.recoveryAttempt,
+    collectionDate: options.collectionDate,
+    importCheckpointPath: path.join(options.outputRoot, options.runId, "import-checkpoints", "sales.json"),
+    ...(options.expectedStateToken ? { recoveryRunId: options.runId, expectedStateToken: options.expectedStateToken } : {}),
   });
 }
 
 export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
+  await options.assertOwned?.();
   const startedAt = new Date().toISOString();
   const runDirectory = path.join(options.outputRoot, options.runId);
   const rawDirectory = path.join(runDirectory, "raw");
@@ -744,6 +772,12 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
     };
     inputContractHash = createJackyunInputContractHash(inputContract);
     const existing = manifest.modules[options.module];
+    // A resumed five-table execution may reach modules that it never started.
+    // The publication baseline admits the new coordinator protocol; its local
+    // checkpoint precedes every upload POST and is reconciled even when the
+    // module has no final audit. Only an existing module needs recovery of a
+    // prior attempt. Do not treat untouched later modules as unknown commits.
+    options = { ...options, recoveryAttempt: options.recoveryAttempt === true && Boolean(existing) };
     if (existing) {
       assertNoJackyunPreparedPromotion(existing.status, options.dryRun);
       if (existing.sourceSha256 === rawHash
@@ -759,6 +793,10 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
           allowedDownloadHosts: options.allowedDownloadHosts,
           manifestModule: existing,
           expectedStatus: existing.status,
+        });
+        if (!options.dryRun && options.expectedStateToken && options.assertOwned) await verifyRecordedWorkbookPublication({
+          checkpointPath: path.join(runDirectory, "import-checkpoints", `${options.module}.json`), module: options.module,
+          runId: options.runId, outputSha256: existing.outputSha256!, baseUrl: options.baseUrl, assertOwned: options.assertOwned,
         });
         const result = { status: "duplicate_ignored", runId: options.runId, module: options.module, auditPath, manifestPath, existing };
         return result;
@@ -782,7 +820,14 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         priorModule: existing as unknown as Record<string, unknown>,
         failedAudit,
       });
-      if (!options.dryRun && options.importRecovery) {
+      if (options.recoveryAttempt && existing.status === "failed" && existing.sourceSha256 === rawHash
+        && existing.inputContractHash === inputContractHash && (options.dryRun || options.expectedStateToken)) {
+        const priorAudit = await readFile(auditPath);
+        const preserved = path.join(runDirectory, "recovery-audits", `${options.module}-${sha256(priorAudit)}.json`);
+        await options.assertOwned?.();
+        await writeJsonDurable(preserved, { version: 1, originalManifestModule: existing,
+          originalAudit: JSON.parse(priorAudit.toString("utf8")), reason: "verified_bound_complete_retry" }, true);
+      } else if (!options.dryRun && options.importRecovery) {
         const retryInput = { runId: options.runId, module: options.module,
           sourceSha256: rawHash, inputContractHash, prior: existing, auditRaw: await readFile(auditPath) };
         if (isPartialImportRecovery(options.importRecovery)) {
@@ -970,6 +1015,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
       },
     };
     moveToStage("write_success_audit");
+    await options.assertOwned?.();
     await writeJsonAtomic(auditPath, audit);
     manifest.modules[options.module] = {
       module: options.module,
@@ -987,6 +1033,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
     };
     manifest.updatedAt = completedAt;
     moveToStage("write_run_manifest");
+    await options.assertOwned?.();
     await writeJsonAtomic(manifestPath, manifest);
     return {
       status,
@@ -1029,6 +1076,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
       await writeJsonAtomic(attemptAuditPath, { ...failedAudit, priorModulePreserved: true });
       throw error;
     }
+    await options.assertOwned?.();
     await writeJsonAtomic(auditPath, failedAudit);
     manifest.modules[options.module] = {
       module: options.module,
@@ -1041,6 +1089,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
       error: message,
     };
     manifest.updatedAt = failedAt;
+    await options.assertOwned?.();
     await writeJsonAtomic(manifestPath, manifest);
     throw error;
   }

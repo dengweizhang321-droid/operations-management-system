@@ -143,6 +143,17 @@ def _positive(value: str | None, fallback: int, label: str, maximum: int) -> int
     return int(value)
 
 
+@require_http_methods(["GET"])
+def import_recovery(request: HttpRequest) -> JsonResponse:
+    try:
+        principal = _principal(request, {"admin"})
+        from .recovery import read_recovery
+        payload, revision = _consistent_read(lambda: read_recovery(request.GET, principal.email.strip().lower()))
+        return _json(payload, revision=revision)
+    except Exception as error:
+        return _error(error, "ERP 导入恢复状态无法确认")
+
+
 @require_http_methods(["GET", "POST"])
 def imports(request: HttpRequest) -> JsonResponse:
     try:

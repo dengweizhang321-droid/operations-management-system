@@ -7,13 +7,18 @@ import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/
 import { createServer, type Server } from "node:http";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { promisify } from "node:util";
+import { isDeepStrictEqual, promisify } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import { isolatedHelperProtocol, isolatedHelperTokenHeader, isolatedRequestIdentity, serveIsolatedHelper, type SlotIdentity } from "./tmall-isolated-helper";
 
 import { closeChromeBrowser, connectChromeBrowser } from "../lib/jackyun/cdp-client";
 import { jackyunExportFirstActions, jackyunExportFirstPrefix, runJackyunExportFirstAction } from "./jackyun-export-first-pipeline";
 import { recoverPreviousJackyunPreflight } from "../lib/jackyun/automatic-preflight-recovery";
+import { readN8nJackyunRecoveryEntry, assertN8nJackyunAAdmission, n8nJackyunRequiresRecoveryHeader, readN8nJackyunAutomaticDispatch } from "../lib/jackyun/n8n-preflight-evidence";
+import { claimJackyunAutomaticDispatch } from "../lib/jackyun/retry-budget";
+import { parseRecoveryRequest } from "../lib/jackyun/recovery-control";
+import { readHumanRetryAuthority, claimHumanRetryAuthority } from "../lib/jackyun/human-retry";
+import { repairOriginalApiFile } from "./jackyun-api-export";
 import { claimAutomaticJackyunApiResume } from "../lib/jackyun/automatic-api-resume";
 import { inspectSubmittedApiTask } from "./jackyun-api-export";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
@@ -1526,20 +1531,40 @@ async function serveCommand(argv: string[]) {
         const action = request.url!.slice(jackyunExportFirstPrefix.length);
         // Current inventory/age cannot be recreated for yesterday. Preserve the
         // original request as unresolved instead of relabelling today's capture.
-        if (action.startsWith("plan") && planTime && shanghaiYesterday(planTime) !== shanghaiYesterday()) {
+        const recoveryHeader = request.headers["x-teruisi-jackyun-recovery"];
+        if (n8nJackyunRequiresRecoveryHeader(requestExecutionId!) && typeof recoveryHeader !== "string") throw new Error("JACKYUN_ENTRY_MANUAL_ACTION：当前完整入口必须提供原恢复绑定，禁止降级到旧计划路径。");
+        const recoveryRequest = typeof recoveryHeader === "string" ? parseRecoveryRequest(recoveryHeader) : undefined;
+        let failureRetryAttempt: number | undefined;
+        if (recoveryRequest && !isDeepStrictEqual(recoveryRequest, readN8nJackyunRecoveryEntry(requestExecutionId!))) throw new Error("完整恢复请求与原入口证据不一致。");
+        if (recoveryRequest) {
+          const automatic = readN8nJackyunAutomaticDispatch(requestExecutionId!);
+          if (automatic) failureRetryAttempt = (await claimJackyunAutomaticDispatch(projectRoot, { workflowId: "J8kY2mQ5vR7sT4pN",
+            originalExecutionId: automatic.request.logicalExecutionId, failedExecutionId: automatic.request.failedExecutionId,
+            originalScheduledAt: automatic.originalScheduledAt }, automatic.dispatcherExecutionId, requestExecutionId!)).failureAttempts;
+        }
+        if (recoveryRequest && action !== "plan-api") assertN8nJackyunAAdmission(requestExecutionId!);
+        const humanId = request.headers["x-teruisi-jackyun-human-authority-id"];
+        let humanAuthority: Awaited<ReturnType<typeof claimHumanRetryAuthority>> | undefined;
+        if (humanId) {
+          if (typeof humanId !== "string" || !recoveryRequest) throw new Error("人工恢复授权身份无效。");
+          readN8nJackyunRecoveryEntry(requestExecutionId!, { humanAuthorizationId: humanId });
+          humanAuthority = await claimHumanRetryAuthority(projectRoot, await readHumanRetryAuthority(humanId), requestExecutionId!, recoveryRequest);
+        }
+        if (!recoveryRequest && action.startsWith("plan") && planTime && shanghaiYesterday(planTime) !== shanghaiYesterday()) {
           throw new Error("原计划已跨日，当前库存快照不可补采，需要人工核查原 execution；禁止自动重建计划");
         }
         const result = await runJackyunExportFirstAction(action, requestExecutionId!, { root: projectRoot,
-          recoverPreviousPreflight: (previousId, replacementId, at) => recoverPreviousJackyunPreflight(projectRoot, previousId, replacementId, at),
+          recoveryRequest, humanAuthority, failureRetryAttempt, repairApiFile: repairOriginalApiFile,
+          recoverPreviousPreflight: (previousId, replacementId, at) => recoverPreviousJackyunPreflight(projectRoot, previousId, replacementId, at, { humanAuthority }),
           resumePreviousApiTask: (previousId, replacementId, requestedAction, at) => claimAutomaticJackyunApiResume(projectRoot,
             previousId, replacementId, requestedAction, at, { inspectTask: async binding => {
               const policy = JSON.parse(await readFile(path.join(projectRoot, "config/jackyun-export-first-policy.json"), "utf8"));
               return inspectSubmittedApiTask({ runId: `n8n-export-first-${previousId}`,
                 outputRoot: path.join(projectRoot, "outputs/jackyun-import-runs"), allowedHosts: policy.browser?.allowedDownloadHosts, binding });
             } }) });
-        stage = result.phase === "completed" ? "completed" : result.phase === "imported" ? "executed" : "planned";
+        stage = action === "verify" && result.phase === "completed" ? "completed" : result.phase === "imported" ? "executed" : "planned";
         reply(200, result);
-        if (stage === "completed") scheduleOneShotServerClose(server, 500);
+        if (stage === "completed" || "recoveryDecision" in result && result.recoveryDecision === "wait") scheduleOneShotServerClose(server, 500);
         else inactivityReaper?.arm();
       } else if (request.url === "/jd-promotion/plan" || request.url === "/jd-promotion-cut-meat/plan") {
         jdPromotionPlan = await planJdPromotionN8nRun({

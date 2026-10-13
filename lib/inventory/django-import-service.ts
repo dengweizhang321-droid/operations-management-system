@@ -112,6 +112,7 @@ export type InventoryImportExecution = {
 export async function importInventoryStockToDjango(
   input: {
     principal: AppPrincipal;
+    publicationGuard?: { uploadId: string; ownerToken: string; ownerGeneration: number };
     bytes: Uint8Array;
     fileName: string;
     fileSizeBytes: number;
@@ -228,6 +229,7 @@ export async function importInventoryStockToDjango(
     service: "writer",
     payload: {
       dataset: "stock",
+      ...(input.publicationGuard ? { publicationGuard: input.publicationGuard } : {}),
       file: { name: fileName, sizeBytes: input.fileSizeBytes, rawFileHash, sheetName: parsed.sheetName },
       snapshotDate,
       sourceRowCount: parsed.totals.sourceRowCount,

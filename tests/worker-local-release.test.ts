@@ -955,7 +955,7 @@ test("immutable helper bundle keeps code immutable and mutable state at the prot
       resourceOutputFiles: Array<{ relativePath: string; sha256: string }>;
       outputSha256: string;
     };
-    assert.equal(evidence.version, "teruisi-worker-helper-build-v1");
+    assert.equal(evidence.version, "teruisi-worker-helper-build-v2");
     assert.equal(
       sha256Bytes(await readFile("tools/build-worker-helper.mjs")),
       trustedHelperBuilderSha256,
@@ -1018,20 +1018,24 @@ test("immutable helper bundle keeps code immutable and mutable state at the prot
       "tools/tmall-promotion-export.ts",
     ]);
     assert.deepEqual(evidence.immutableResourceUrlPaths, [
+      "lib/jackyun/json-file.ts",
       "tools/jd-secure-credential.ts",
       "tools/tmall-secure-credential.ts",
     ]);
     assert.deepEqual(evidence.resourceInputFiles.map((item) => item.relativePath), [
+      "tools/jackyun-json-publish.ps1",
       "tools/jd-credential-vault.ps1",
       "tools/tmall-credential-vault.ps1",
     ]);
     assert.deepEqual(evidence.resourceOutputFiles.map((item) => item.relativePath), [
+      "jackyun-json-publish.ps1",
       "jd-credential-vault.ps1",
       "tmall-credential-vault.ps1",
     ]);
     for (const item of evidence.resourceOutputFiles) {
       const content = await readFile(path.join(buildOutput, item.relativePath), "utf8");
-      assert.match(content, /TERUISI_HELPER_MUTABLE_ROOT/);
+      if (item.relativePath === "jackyun-json-publish.ps1") assert.match(content, /MoveFileExW/);
+      else assert.match(content, /TERUISI_HELPER_MUTABLE_ROOT/);
       assert.doesNotMatch(content, /Split-Path -Parent \$PSScriptRoot.*(?:\.runtime|config)/);
     }
     assert.equal(sha256Bytes(await readFile(output)), evidence.outputSha256);
@@ -1042,6 +1046,7 @@ test("immutable helper bundle keeps code immutable and mutable state at the prot
     await mkdir(runtimeProbeRoot);
     for (const relativePath of [
       "tmall-workflow-helper.mjs",
+      "jackyun-json-publish.ps1",
       "jd-credential-vault.ps1",
       "tmall-credential-vault.ps1",
     ]) await copyFile(path.join(buildOutput, relativePath), path.join(runtimeProbeRoot, relativePath));

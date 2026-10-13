@@ -2,8 +2,10 @@ import { randomBytes } from "node:crypto";
 import { createServer, request as httpRequest, type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
 import { automationDrainProtocol, readAutomationDrain } from "./automation-drain";
-import { readN8nRetryContext } from "../lib/jackyun/n8n-preflight-evidence";
+import { readN8nRetryContext, readN8nJackyunRecoveryEntry, readJackyunFailedStoppedAt, readAcceptedJackyunDispatch, n8nJackyunRequiresRecoveryHeader } from "../lib/jackyun/n8n-preflight-evidence";
 import { reserveRetryDispatch } from "../lib/jackyun/retry-dispatch-reservation";
+import { reserveJackyunFailureRetry } from "../lib/jackyun/retry-budget";
+import { readJackyunRecoveryTarget, dispatchHumanJackyunRetry } from "../lib/jackyun/human-retry";
 
 export const isolatedHelperProtocol = "tmall-store-isolation-v1";
 export const isolatedHelperTokenHeader = "x-teruisi-helper-slot-token";
@@ -262,6 +264,28 @@ export async function serveIsolatedHelper(options: {
           drainProtocol: automationDrainProtocol, drain: readAutomationDrain() }, cors);
         return;
       }
+      if (request.method === "GET" && (route === "/coordination/jackyun-recovery-target" || route.startsWith("/coordination/jackyun-recovery-target?"))) {
+        const query = new URL(request.url!, "http://127.0.0.1").searchParams;
+        if ([...query.keys()].some(key => key !== "logicalExecutionId") || query.getAll("logicalExecutionId").length > 1
+          || query.has("logicalExecutionId") && !/^[1-9]\d{0,19}$/.test(query.get("logicalExecutionId") ?? "")) {
+          reply(response, 400, { ok: false, error: "invalid_recovery_target_query" }); return;
+        }
+        reply(response, 200, await readJackyunRecoveryTarget(options.mutableRoot, query.get("logicalExecutionId") ?? undefined)); return;
+      }
+      if (request.method === "POST" && route === "/coordination/jackyun-recovery-dispatch") {
+        if (readAutomationDrain() !== null) { reply(response, 409, { ok: false, error: "maintenance_wait" }); return; }
+        if (!request.headers["content-type"]?.startsWith("application/json") || Number(request.headers["content-length"] ?? 0) > 512) {
+          reply(response, 400, { ok: false, error: "invalid_human_dispatch_request" }); return;
+        }
+        const parts: Buffer[] = []; let size = 0;
+        for await (const part of request) { size += part.length; if (size > 512) throw new Error("human_dispatch_request_too_large"); parts.push(Buffer.from(part)); }
+        const raw = Buffer.concat(parts).toString("utf8");
+        if (!/^\s*\{\s*"authorizationId"\s*:\s*"[a-f0-9-]{36}"\s*\}\s*$/.test(raw)) {
+          reply(response, 400, { ok: false, error: "invalid_human_dispatch_identity" }); return;
+        }
+        const value = JSON.parse(raw) as { authorizationId: string };
+        reply(response, 200, await dispatchHumanJackyunRetry(options.mutableRoot, value.authorizationId)); return;
+      }
       if (request.method === "POST" && ["/coordination/retry-context", "/coordination/reserve-retry"].includes(route)) {
         if (request.headers["transfer-encoding"] !== undefined || Number(request.headers["content-length"] ?? 0) !== 0) {
           reply(response, 400, { ok: false, error: "invalid_retry_context_request" }); return;
@@ -270,7 +294,18 @@ export async function serveIsolatedHelper(options: {
           const reserve = route === "/coordination/reserve-retry";
           const retryExecutionId = scalar(request.headers, "x-teruisi-retry-execution-id") ?? "";
           const context = readN8nRetryContext(scalar(request.headers, "x-teruisi-source-workflow-id") ?? "", scalar(request.headers, "x-teruisi-failed-execution-id") ?? "", reserve ? retryExecutionId : undefined);
-          reply(response, 200, reserve ? reserveRetryDispatch(options.mutableRoot, context, retryExecutionId) : { ok: true, ...context });
+          let newJackyunProtocol = false;
+          if (context.workflowId === "J8kY2mQ5vR7sT4pN") {
+            newJackyunProtocol = n8nJackyunRequiresRecoveryHeader(context.failedExecutionId, true);
+            if (newJackyunProtocol) readN8nJackyunRecoveryEntry(context.failedExecutionId, { allowTerminal: true });
+          }
+          if (reserve && newJackyunProtocol) {
+            const result = await reserveJackyunFailureRetry(options.mutableRoot, { workflowId: context.workflowId, failedExecutionId: context.failedExecutionId,
+              originalExecutionId: context.originalExecutionId, originalScheduledAt: context.originalScheduledAt }, retryExecutionId,
+              { failedStoppedAt: readJackyunFailedStoppedAt(context.failedExecutionId), acceptance: async intent =>
+                readAcceptedJackyunDispatch(intent.context.originalExecutionId, intent.context.failedExecutionId, intent.dispatcherExecutionId) });
+            reply(response, 200, result);
+          } else reply(response, 200, reserve ? reserveRetryDispatch(options.mutableRoot, context, retryExecutionId) : { ok: true, ...context });
         } catch { reply(response, 409, { ok: false, error: "retry_context_unverified_manual_action" }); }
         return;
       }

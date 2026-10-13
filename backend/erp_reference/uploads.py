@@ -10,7 +10,7 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 
 from .errors import ErpReferenceApiError
-from .models import ErpReferenceRawUploadChunk, ErpReferenceRawUploadSession
+from .models import ErpReferenceRawUploadChunk, ErpReferenceRawUploadSession, ErpReferenceImportScopeHead
 from .write_requests import lock_active_authority
 
 
@@ -111,6 +111,7 @@ def begin_upload(payload: dict[str, object], actor_email: str) -> dict[str, obje
                 raise _error("上传指纹已绑定另一份文件", code="version_conflict", status=409)
             return {"upload": _session_payload(session)}
         session = ErpReferenceRawUploadSession.objects.create(
+            result_payload={"_publicationBaseline": {"stateToken": ErpReferenceImportScopeHead.objects.get(source_key=source).state_token}},
             fingerprint=normalized, source_key=str(source), actor_email=actor_email[:320],
             file_name=file_name, file_size_bytes=file_size, chunk_size_bytes=CHUNK_SIZE_BYTES,
             chunk_count=chunk_count, expires_at=timezone.now() + UPLOAD_TTL,
@@ -165,12 +166,7 @@ def claim_upload(payload: dict[str, object], actor_email: str) -> dict[str, obje
         if session.status == "uploading":
             raise _error("仍有分片尚未上传完成", code="conflict", status=409)
         if session.status == "processing" and session.updated_at > timezone.now() - PROCESSING_STALE_AGE:
-            if not session.owner_token:
-                raise _error("文件处理所有权记录无效", code="version_conflict", status=409)
-            return {"kind": "claimed", "ownerToken": session.owner_token,
-                    "upload": _session_payload(session), "chunks": list(
-                        session.chunks.order_by("chunk_index").values("chunk_index", "size_bytes", "sha256")
-                    )}
+            raise _error("原上传会话仍在处理，请只读核验原结果后等待；不能共享同一 owner token", code="conflict", status=409)
         if session.status not in {"ready", "processing"}:
             raise _error("上传会话状态无效", code="conflict", status=409)
         if session.chunks.count() != int(session.chunk_count) or int(session.received_bytes) != int(session.file_size_bytes):

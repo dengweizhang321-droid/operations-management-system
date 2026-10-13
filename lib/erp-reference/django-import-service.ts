@@ -54,6 +54,7 @@ function issue(value: ErpReferenceIssue) {
 export async function importErpReferenceToDjango(
   input: {
     principal: AppPrincipal;
+    publicationGuard?: { uploadId: string; ownerToken: string; ownerGeneration: number };
     source: ErpReferenceDjangoSource;
     bytes: Uint8Array;
     fileName: string;
@@ -123,6 +124,7 @@ export async function importErpReferenceToDjango(
     path: ERP_REFERENCE_IMPORTS_PATH,
     service: "writer",
     payload: {
+      ...(input.publicationGuard ? { publicationGuard: input.publicationGuard } : {}),
       version: CONTRACT_VERSION,
       source: input.source,
       fileName,

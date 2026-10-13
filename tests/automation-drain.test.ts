@@ -9,6 +9,17 @@ import { withMaintenanceCoordination, anchorNodeName } from "../tools/n8n-mainte
 import { classifyHourlyRetryFailure } from "../tools/n8n-hourly-retry-policy.mjs";
 import { hourlyRetryTargets } from "../tools/n8n-hourly-retry-policy.mjs";
 
+// The unified Jackyun template already carries the reviewed plan anchor and
+// code-based claim. Other templates still need the candidate transformation.
+function coordinatedCandidate(source: { id: string; nodes: { name: string; type: string }[] }) {
+  if (!source.nodes.some(n => n.name === anchorNodeName)) return withMaintenanceCoordination(source);
+  assert.equal(source.id, "J8kY2mQ5vR7sT4pN");
+  assert.equal(source.nodes.filter(n => n.name === anchorNodeName).length, 1);
+  assert.equal(source.nodes.find(n => n.name === "领取共享 helper")?.type, "n8n-nodes-base.code");
+  assert.throws(() => withMaintenanceCoordination(source), /candidate_already_transformed/);
+  return structuredClone(source);
+}
+
 test("drain preserves admitted execution, rejects a changed anchor, and never spawns waiting work", async () => {
   let draining = false, starts = 0;
   let finish!: (clean: boolean) => void;
@@ -71,7 +82,7 @@ test("maintenance uncertainty and expired waiting never create a new hourly exec
 test("all candidate definitions preserve identities, triggers and business nodes", () => {
   for (const target of hourlyRetryTargets) {
     const source = JSON.parse(readFileSync(new URL(`../automation/n8n/${target.fileName}`, import.meta.url), "utf8"));
-    const candidate = withMaintenanceCoordination(source);
+    const candidate = coordinatedCandidate(source);
     assert.equal(candidate.id, source.id);
     assert.equal(candidate.active, source.active);
     for (const node of source.nodes.filter(n => n.parameters?.url !== "http://127.0.0.1:5791/coordination/claim")) {
@@ -83,8 +94,8 @@ test("all candidate definitions preserve identities, triggers and business nodes
 test("every trigger path reaches the plan anchor before claim, including an initial Wait", () => {
   for (const target of hourlyRetryTargets) {
     const source = JSON.parse(readFileSync(new URL(`../automation/n8n/${target.fileName}`, import.meta.url), "utf8"));
-    const candidate = withMaintenanceCoordination(source);
-    const claim = source.nodes.find(n => n.parameters?.url === "http://127.0.0.1:5791/coordination/claim");
+    const candidate = coordinatedCandidate(source);
+    const claim = source.nodes.find(n => n.parameters?.url === "http://127.0.0.1:5791/coordination/claim" || n.name === "领取共享 helper");
     for (const trigger of source.nodes.filter(n => n.type.endsWith("Trigger") || n.type === "n8n-nodes-base.webhook")) {
       const pending: string[] = [trigger.name], seen = new Set<string>();
       while (pending.length) {

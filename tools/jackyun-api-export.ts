@@ -1,6 +1,6 @@
-import { readFile, mkdir, stat } from "node:fs/promises";
+import { readFile, mkdir, lstat, realpath, stat, open } from "node:fs/promises";
 import { boundDownloadResumeMessage, JackyunDownloadFailure } from "../lib/jackyun/download-failure";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
@@ -11,7 +11,8 @@ import { inspectJackyunLoginSurface, submitJackyunDpapiLogin, verifyJackyunBrows
 import { createDirectSession, readDirectTasks } from "../lib/jackyun/direct-export";
 import { apiTaskWindowObserved, apiTaskWindowStart } from "../lib/jackyun/api-clock";
 import type { JackyunServerClock, JackyunHttpSession } from "../lib/jackyun/direct-http";
-import { apiSha, jackyunApiTransport, readApiScope, prepareApiExport, type ApiTemplates } from "../lib/jackyun/api-plan";
+import { apiSha, jackyunApiTransport, readApiScope, prepareApiExport, buildApiParameters, type ApiTemplates } from "../lib/jackyun/api-plan";
+import { validateDirectExportPayload } from "../lib/jackyun/direct-export";
 import { selectNewWebSessionTask } from "../lib/jackyun/web-session-export";
 import { downloadSignedOssExport } from "../lib/jackyun/oss-download";
 import { assertBoundDownloadProvenance, type JackyunDownloadProvenance } from "../lib/jackyun/download-provenance";
@@ -19,18 +20,21 @@ import type { JackyunExportTaskBinding } from "../lib/jackyun/export-task";
 import { jackyunCaptureDate, jackyunExportFirstPolicyVersion, jackyunExportOrder, type JackyunCurrentSnapshotEvidence } from "../lib/jackyun/run-contract";
 import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-download";
 import calibratedTemplates from "../config/jackyun-api-templates.json";
-import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { readJsonDurableOr as readJsonFileOr, writeJsonDurable as writeJsonAtomic, publishDurableFile } from "../lib/jackyun/json-file";
 import type { BrowserHandoff } from "./jackyun-daily-runner";
 import { jackyunSalesPeriod } from "../lib/jackyun/sales-period";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 type ModuleState = { status: "prepared" | "submit_intent" | "submitted" | "handed_off"; preflightStartedAt: string; queryIntentAt: string; queryCompletedAt: string;
   sourceRows: number; payloadSha256: string; querySha256: string; permissionSha256: string; templateSha256: string; baselineIds: string[];
-  serverClock?: JackyunServerClock; exportIntentAt?: string; pendingTaskId?: string; binding?: JackyunExportTaskBinding; filePath?: string; provenance?: JackyunDownloadProvenance; handoffSha256?: string };
-type ApiState = { version: 1; runId: string; tenantId?: string; transport: typeof jackyunApiTransport; runDate: string; asOfDate: string; salesStartDate?: string; templateSha256: string; modules: Partial<Record<JackyunModule, ModuleState>> };
+  serverClock?: JackyunServerClock; exportIntentAt?: string; pendingTaskId?: string; binding?: JackyunExportTaskBinding; filePath?: string; provenance?: JackyunDownloadProvenance; handoffSha256?: string;
+  attachmentObjectSha256?: string; readyObservedAt?: string; refreshedBindings?: JackyunExportTaskBinding[] };
+type ApiState = { version: 1 | 2; runId: string; tenantId?: string; transport: typeof jackyunApiTransport; runDate: string; asOfDate: string; salesStartDate?: string; templateSha256: string; modules: Partial<Record<JackyunModule, ModuleState>> };
 export type ApiExportOptions = { runId: string; runDate: string; asOfDate: string; outputRoot: string; eventRoot: string; downloadDirectory: string;
   salesStartDate?: string;
-  beforeModule?: (module: JackyunModule) => Promise<void>; afterModule?: (module: JackyunModule) => Promise<void>; signal?: AbortSignal;
+  assertOwned?: () => Promise<void>;
+  controllerVersion?: 2;
+  beforeModule?: (module: JackyunModule, continuationOnly?: boolean) => Promise<void>; afterModule?: (module: JackyunModule) => Promise<void>; signal?: AbortSignal;
   resumeTaskBinding?: JackyunExportTaskBinding };
 
 type LoginPage = { url(): string };
@@ -115,17 +119,25 @@ export async function withJackyunApiSession<T>(callback: (http: JackyunHttpSessi
 
 export async function runApiExports(options: ApiExportOptions, deps: { http?: JackyunHttpSession; tenantId?: string; templates?: ApiTemplates; taskTimeoutMs?: number; pollIntervalMs?: number; download?: Parameters<typeof downloadSignedOssExport>[1] } = {}) {
   const salesPeriod = jackyunSalesPeriod(options.asOfDate, options.salesStartDate);
-  if (!/^[A-Za-z0-9._-]{1,96}$/.test(options.runId) || jackyunCaptureDate(new Date().toISOString()) !== options.runDate
+  if (!/^[A-Za-z0-9._-]{1,96}$/.test(options.runId)
     || new Date(Date.parse(options.runDate + "T00:00:00Z") - 86400000).toISOString().slice(0, 10) !== options.asOfDate) throw new Error("API_RUN_SCOPE_INVALID");
   const templates = deps.templates ?? calibratedTemplates as ApiTemplates;
   const templateSha256 = apiSha(JSON.stringify(templates));
   const runDirectory = path.join(options.outputRoot, options.runId), eventDirectory = path.join(options.eventRoot, options.runId);
   const statePath = path.join(runDirectory, "api-controller-state.json");
-  const state = await readJsonFileOr<ApiState>(statePath, { version: 1, runId: options.runId, transport: jackyunApiTransport, runDate: options.runDate, asOfDate: options.asOfDate, ...(options.salesStartDate !== undefined ? { salesStartDate: options.salesStartDate } : {}), templateSha256, modules: {} });
-  if (state.version !== 1 || state.runId !== options.runId || state.transport !== jackyunApiTransport || state.templateSha256 !== templateSha256
+  const state = await readJsonFileOr<ApiState>(statePath, { version: options.controllerVersion ?? 1, runId: options.runId, transport: jackyunApiTransport, runDate: options.runDate, asOfDate: options.asOfDate, ...(options.salesStartDate !== undefined ? { salesStartDate: options.salesStartDate } : {}), templateSha256, modules: {} });
+  if (![1, 2].includes(state.version) || state.runId !== options.runId || state.transport !== jackyunApiTransport || state.templateSha256 !== templateSha256
     || state.runDate !== options.runDate || state.asOfDate !== options.asOfDate || state.salesStartDate !== options.salesStartDate) throw new Error("API_RUN_BINDING_CHANGED");
   const allowedHosts = ["jackyun-shortterm.oss-cn-zhangjiakou.aliyuncs.com"];
-  const execute = async (http: JackyunHttpSession, tenantId: string) => {
+  const assertOwned = options.assertOwned ?? (async () => undefined);
+  await assertOwned();
+  const persist = async (target: string, value: unknown) => { await assertOwned(); await writeJsonAtomic(target, value); await assertOwned(); };
+  const execute = async (session: JackyunHttpSession, tenantId: string) => {
+    // Preserve the session object/private fields while fencing every local HTTP
+    // action and its returned result. A late former owner cannot write progress.
+    const http = { get serverClock() { return session.serverClock; }, request: async (...args: Parameters<JackyunHttpSession["request"]>) => {
+      await assertOwned(); const result = await session.request(...args); await assertOwned(); return result;
+    } } as unknown as JackyunHttpSession;
     if (state.tenantId !== undefined ? state.tenantId !== tenantId : Object.keys(state.modules).length > 0) throw new Error("API_TENANT_BINDING_CHANGED");
     state.tenantId = tenantId;
     const scope = await readApiScope(http, templates, tenantId);
@@ -143,6 +155,11 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
         || !Array.isArray(entry.baselineIds) || new Set(entry.baselineIds).size !== entry.baselineIds.length || !entry.baselineIds.every(value => /^sys-\d{1,20}$/.test(value))
         || entry.status !== "prepared" && !entry.exportIntentAt) throw new Error("API_STATE_EVIDENCE_INVALID");
       if (entry.exportIntentAt) apiTaskWindowStart(entry.serverClock, entry.exportIntentAt);
+      if (state.version === 1 && ["attachmentObjectSha256", "readyObservedAt", "refreshedBindings"].some(field => Object.hasOwn(entry, field))) throw new Error("API_LEGACY_STATE_SCHEMA_CHANGED");
+      const currentParameters = buildApiParameters(key as JackyunModule, templates.modules[key as JackyunModule], scope, options.asOfDate, options.salesStartDate);
+      currentParameters.data.exportTotal = String(entry.sourceRows);
+      const payload = validateDirectExportPayload(key as JackyunModule, new URLSearchParams(currentParameters.data).toString(), currentParameters.moduleCode, options.asOfDate, options.salesStartDate);
+      if (payload.payloadSha256 !== entry.payloadSha256 || apiSha(JSON.stringify(currentParameters.query)) !== entry.querySha256) throw new Error("JACKYUN_API_SCOPE_MANUAL_ACTION：原模块参数或授权范围变化，禁止混合新旧文件。");
     }
     if (options.resumeTaskBinding) {
       const firstIncomplete = jackyunExportOrder.find(moduleKey => state.modules[moduleKey]?.status !== "handed_off");
@@ -159,8 +176,14 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
     }
     for (const moduleKey of jackyunExportOrder) {
       options.signal?.throwIfAborted();
-      if (jackyunCaptureDate(new Date().toISOString()) !== options.runDate) throw new Error("API_CAPTURE_DATE_CHANGED");
-      await options.beforeModule?.(moduleKey);
+      const stored = state.modules[moduleKey];
+      const readyAt = stored?.readyObservedAt ?? (stored?.binding && stored.serverClock
+        ? new Date(Date.parse(stored.binding.observedAt) - Date.parse(stored.serverClock.serverDate) + Date.parse(stored.serverClock.receivedAt)).toISOString() : undefined);
+      const continuationOnly = stored?.status === "handed_off" || Boolean(stored?.binding && readyAt && jackyunCaptureDate(readyAt) === options.runDate)
+        || moduleKey === "sales" && Boolean(stored?.exportIntentAt);
+      if (jackyunCaptureDate(new Date().toISOString()) !== options.runDate && !continuationOnly) throw new Error("JACKYUN_CAPTURE_GENERATION_REQUIRED_MANUAL_ACTION：旧任务没有原采集日的完成附件证明；须协调旧请求后建立新实际采集日计划，不能标成旧快照。");
+      if (state.version === 2 && stored?.status === "submit_intent" && !stored.pendingTaskId && !stored.binding) throw new Error("JACKYUN_SUBMIT_UNKNOWN_MANUAL_ACTION：原导出提交缺少受理回执和唯一任务绑定，需核查原请求；空列表或任务暂不可见均不能证明未执行。");
+      await options.beforeModule?.(moduleKey, continuationOnly);
       const eventPath = path.join(eventDirectory, `${String(jackyunModuleOrder.indexOf(moduleKey) + 1).padStart(2, "0")}-${moduleKey}.json`);
       let entry = state.modules[moduleKey];
       if (entry?.status === "handed_off") {
@@ -173,6 +196,7 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
         await options.afterModule?.(moduleKey); continue;
       }
       if (!entry?.exportIntentAt) {
+        if (jackyunCaptureDate(new Date().toISOString()) !== options.runDate) throw new Error("API_CAPTURE_DATE_CHANGED");
         const preflightStartedAt = new Date().toISOString();
         const prepared = await prepareApiExport(http, templates, scope, moduleKey, options.runDate, options.asOfDate, options.salesStartDate);
         const validationData = { ...prepared.data }; delete validationData.isSyn;
@@ -184,15 +208,15 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
           payloadSha256: prepared.payloadSha256, querySha256: prepared.querySha256, permissionSha256: scope.permissionSha256, templateSha256, baselineIds: baseline.records.map(row => row.taskId) };
         state.modules[moduleKey] = entry;
         await mkdir(runDirectory, { recursive: true });
-        await writeJsonAtomic(statePath, state);
+        await persist(statePath, state);
         if (jackyunCaptureDate(new Date().toISOString()) !== options.runDate) throw new Error("API_CAPTURE_DATE_CHANGED");
         entry.status = "submit_intent"; entry.exportIntentAt = new Date().toISOString();
         apiTaskWindowStart(entry.serverClock, entry.exportIntentAt);
-        await writeJsonAtomic(statePath, state);
+        await persist(statePath, state);
         // Never replay this POST, including after an uncertain response/process restart.
         await http.request("submitExport", prepared.data, prepared.moduleCode);
         entry.status = "submitted";
-        await writeJsonAtomic(statePath, state);
+        await persist(statePath, state);
       }
       const taskWindowStartAt = apiTaskWindowStart(entry.serverClock, entry.exportIntentAt!);
       const deadline = Date.now() + (deps.taskTimeoutMs ?? 300000);
@@ -203,15 +227,32 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
         const resumed = options.resumeTaskBinding?.module === moduleKey ? options.resumeTaskBinding : undefined;
         const task = selectNewWebSessionTask(snapshot, { module: moduleKey, sourceRows: entry.sourceRows, exportIntentAt: taskWindowStartAt,
           observedAt: apiTaskWindowObserved(entry.serverClock, new Date().toISOString()), allowedHosts,
-          baselineIds: entry.baselineIds, pendingTaskId: entry.pendingTaskId ?? resumed?.taskId, binding: entry.binding ?? resumed });
-        if (task.taskId && !entry.pendingTaskId) { entry.pendingTaskId = task.taskId; await writeJsonAtomic(statePath, state); }
-        if (task.result) { selected = task.result; break; }
+          baselineIds: entry.baselineIds, pendingTaskId: entry.pendingTaskId ?? resumed?.taskId,
+          binding: state.version === 2 && entry.attachmentObjectSha256 ? undefined : entry.binding ?? resumed });
+        if (task.taskId && !entry.pendingTaskId) { entry.pendingTaskId = task.taskId; await persist(statePath, state); }
+        if (task.result) {
+          if (state.version === 2) {
+            const object = new URL(task.result.url), objectSha = apiSha(object.origin + object.pathname);
+            if (entry.attachmentObjectSha256 && entry.attachmentObjectSha256 !== objectSha
+              || entry.binding && ["taskId", "label", "createdAt", "module", "sourceRows"].some(key => entry.binding![key as keyof JackyunExportTaskBinding] !== task.result!.binding[key as keyof JackyunExportTaskBinding])) {
+              throw new Error("JACKYUN_ATTACHMENT_CHANGED_MANUAL_ACTION：原任务附件对象或身份变化，禁止拼入原校验集合。");
+            }
+            if (entry.binding && entry.binding.sourceUrlHash !== task.result.binding.sourceUrlHash) {
+              const history = entry.refreshedBindings ?? [];
+              if (history.length >= 8) throw new Error("原附件链接刷新预算已用尽，需要人工核查。");
+              entry.refreshedBindings = [...history, entry.binding];
+            }
+            entry.attachmentObjectSha256 = objectSha;
+            entry.readyObservedAt ??= new Date().toISOString();
+          }
+          selected = task.result; break;
+        }
         await new Promise(resolve => setTimeout(resolve, deps.pollIntervalMs ?? 1500));
       }
       if (!selected) throw new Error("API_ORIGINAL_EXPORT_TASK_PENDING");
-      entry.binding = selected.binding; await writeJsonAtomic(statePath, state);
+      entry.binding = selected.binding; await persist(statePath, state);
       const downloaded = await downloadSignedOssExport({ url: selected.url, downloadDirectory: options.downloadDirectory, runId: options.runId, module: moduleKey,
-        policyVersion: jackyunExportFirstPolicyVersion, exportIntentAt: entry.exportIntentAt!, allowedHosts, timeoutMs: 300000 }, deps.download).catch(error => {
+        policyVersion: jackyunExportFirstPolicyVersion, exportIntentAt: entry.exportIntentAt!, allowedHosts, timeoutMs: 300000, assertOwned }, deps.download).catch(error => {
           // One cross-execution recovery is supported only for the first bound
           // inventory task. Other phases retain their existing operator path.
           if (error instanceof JackyunDownloadFailure && error.retryable && moduleKey === "inventory"
@@ -237,14 +278,99 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
           apiPreflightStartedAt: entry.preflightStartedAt, apiQueryCompletedAt: entry.queryCompletedAt, apiQuerySha256: entry.querySha256,
           serverClock: entry.serverClock, permissionSha256: entry.permissionSha256, templateSha256, sourceUrlHash: downloaded.provenance.sourceUrlHash, exportTaskBinding: selected.binding },
       };
-      await mkdir(eventDirectory, { recursive: true }); await writeJsonAtomic(eventPath, handoff);
-      entry.handoffSha256 = apiSha(await readFile(eventPath, "utf8")); entry.status = "handed_off"; await writeJsonAtomic(statePath, state);
+      await assertOwned();
+      await mkdir(eventDirectory, { recursive: true }); await persist(eventPath, handoff);
+      entry.handoffSha256 = apiSha(await readFile(eventPath, "utf8")); entry.status = "handed_off"; await persist(statePath, state);
       await options.afterModule?.(moduleKey);
       console.log(JSON.stringify({ module: moduleKey, status: "handed_off", rows: entry.sourceRows, elapsedMs: Date.now() - Date.parse(entry.preflightStartedAt) }));
     }
     return { status: "exported" as const, runId: options.runId, transport: jackyunApiTransport, statePath };
   };
   return deps.http && deps.tenantId ? execute(deps.http, deps.tenantId) : withJackyunApiSession(execute);
+}
+
+/** Pure file continuation, including after midnight. All five original atomic
+ * handoffs and the controller must agree; no orphan XLSX is adopted. */
+export async function verifyCompletedApiLocalFiles(options: Pick<ApiExportOptions, "runId" | "runDate" | "asOfDate" | "salesStartDate" | "outputRoot" | "eventRoot" | "downloadDirectory">) {
+  const file = path.join(options.outputRoot, options.runId, "api-controller-state.json");
+  const info = await lstat(file).catch(error => { if (error.code === "ENOENT") return null; throw error; });
+  if (!info) return false;
+  if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1 || info.size > 1048576) throw new Error("API_ARCHIVE_IDENTITY_INVALID");
+  const state = await readJsonFileOr<ApiState | null>(file, null);
+  if (!state || ![1, 2].includes(state.version) || state.runId !== options.runId || state.runDate !== options.runDate || state.asOfDate !== options.asOfDate
+    || state.salesStartDate !== options.salesStartDate || state.transport !== jackyunApiTransport
+    || state.templateSha256 !== apiSha(JSON.stringify(calibratedTemplates)) || !state.modules || !state.tenantId) throw new Error("API_RUN_BINDING_CHANGED");
+  if (jackyunExportOrder.some(key => state.modules[key]?.status !== "handed_off")) return false;
+  if (Object.keys(state.modules).length !== 5) throw new Error("API_ARCHIVE_EVIDENCE_INVALID");
+  for (const moduleKey of jackyunExportOrder) {
+    const entry = state.modules[moduleKey]!;
+    if (!entry.filePath || !entry.provenance || !entry.handoffSha256 || !entry.binding || entry.pendingTaskId !== entry.binding.taskId
+      || entry.templateSha256 !== state.templateSha256 || entry.permissionSha256 !== calibratedTemplates.permissionFieldsSha256) throw new Error("API_ARCHIVE_INCOMPLETE");
+    const event = path.join(options.eventRoot, options.runId, `${String(jackyunModuleOrder.indexOf(moduleKey) + 1).padStart(2, "0")}-${moduleKey}.json`);
+    const eventInfo = await lstat(event), dataInfo = await lstat(entry.filePath);
+    if (![eventInfo, dataInfo].every(i => i.isFile() && !i.isSymbolicLink() && i.nlink === 1)
+      || path.dirname(path.resolve(entry.filePath)) !== path.resolve(options.downloadDirectory, "jackyun", options.runId, moduleKey)
+      || path.resolve(await realpath(entry.filePath)) !== path.resolve(entry.filePath)) throw new Error("API_ARCHIVE_IDENTITY_INVALID");
+    const raw = await readFile(event), handoff = JSON.parse(raw.toString("utf8")) as BrowserHandoff;
+    if (apiSha(raw) !== entry.handoffSha256 || handoff.runId !== state.runId || handoff.module !== moduleKey
+      || handoff.filePath !== entry.filePath || !isDeepStrictEqual(handoff.downloadProvenance, entry.provenance)
+      || !isDeepStrictEqual(handoff.evidence?.exportTaskBinding, entry.binding) || handoff.expectedSourceRows !== entry.sourceRows
+      || handoff.evidence?.directPayloadSha256 !== entry.payloadSha256) throw new Error("API_ARCHIVE_CHANGED");
+    const bytes = await readFile(entry.filePath);
+    if (apiSha(bytes) !== entry.provenance.sha256 || bytes.length !== entry.provenance.bytes) throw new Error("API_ARCHIVE_CHANGED");
+  }
+  return true;
+}
+
+export async function repairOriginalApiFile(options: Pick<ApiExportOptions, "runId" | "runDate" | "asOfDate" | "salesStartDate" | "outputRoot" | "eventRoot" | "downloadDirectory" | "assertOwned"> & { module: JackyunModule },
+  deps: { http?: JackyunHttpSession; tenantId?: string; download?: Parameters<typeof downloadSignedOssExport>[1] } = {}) {
+  const state = await readJsonFileOr<ApiState | null>(path.join(options.outputRoot, options.runId, "api-controller-state.json"), null);
+  const entry = state?.modules[options.module];
+  if (!state || ![1, 2].includes(state.version) || state.runId !== options.runId || state.runDate !== options.runDate || state.asOfDate !== options.asOfDate
+    || state.salesStartDate !== options.salesStartDate || state.templateSha256 !== apiSha(JSON.stringify(calibratedTemplates))
+    || entry?.status !== "handed_off" || !entry.binding || !entry.filePath || !entry.provenance || !entry.handoffSha256) return false;
+  const originalProvenance = entry.provenance;
+  const eventPath = path.join(options.eventRoot, options.runId, `${String(jackyunModuleOrder.indexOf(options.module) + 1).padStart(2, "0")}-${options.module}.json`);
+  const eventRaw = await readFile(eventPath), handoff = JSON.parse(eventRaw.toString("utf8")) as BrowserHandoff;
+  if (apiSha(eventRaw) !== entry.handoffSha256 || handoff.filePath !== entry.filePath || !isDeepStrictEqual(handoff.downloadProvenance, entry.provenance)
+    || !isDeepStrictEqual(handoff.evidence?.exportTaskBinding, entry.binding)
+    || path.dirname(path.resolve(entry.filePath)) !== path.resolve(options.downloadDirectory, "jackyun", options.runId, options.module)) throw new Error("JACKYUN_FILE_REPAIR_MANUAL_ACTION：原任务和交接记录无法证明文件身份，禁止认领孤立文件。");
+  const info = await lstat(entry.filePath).catch(error => { if (error.code === "ENOENT") return null; throw error; });
+  if (info && (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1 || info.size > 512 * 1024 * 1024)) throw new Error("原文件身份异常，需要人工核查，禁止覆盖。");
+  const corrupt = info ? await readFile(entry.filePath) : null;
+  if (corrupt && apiSha(corrupt) === entry.provenance.sha256 && corrupt.length === entry.provenance.bytes) return false;
+  const assertOwned = options.assertOwned ?? (async () => undefined);
+  await assertOwned();
+  const repairDir = path.join(options.outputRoot, options.runId, "file-repairs", options.module, randomUUID()); await mkdir(repairDir, { recursive: true });
+  if (corrupt) { const fd = await open(path.join(repairDir, "corrupt-original.xlsx"), "wx"); try { await fd.writeFile(corrupt); await fd.sync(); } finally { await fd.close(); } }
+  await writeJsonAtomic(path.join(repairDir, "intent.json"), { version: "jackyun-exact-file-repair-v1", runId: options.runId, module: options.module,
+    originalHandoffSha256: entry.handoffSha256, originalFileSha256: entry.provenance.sha256, originalBytes: entry.provenance.bytes,
+    observedCorruptSha256: corrupt ? apiSha(corrupt) : null, originalTask: entry.binding }, true);
+  const recover = async (http: JackyunHttpSession, tenantId: string) => {
+    if (state.tenantId !== tenantId) throw new Error("API_TENANT_BINDING_CHANGED");
+    await assertOwned();
+    const scope = await readApiScope(http, calibratedTemplates as ApiTemplates, tenantId);
+    if (scope.permissionSha256 !== entry.permissionSha256) throw new Error("API_FIELD_PERMISSIONS_CHANGED_RECALIBRATE");
+    const params = buildApiParameters(options.module, (calibratedTemplates as ApiTemplates).modules[options.module], scope, options.asOfDate, options.salesStartDate);
+    if (apiSha(JSON.stringify(params.query)) !== entry.querySha256) throw new Error("原附件参数或授权范围变化，需要人工核查。");
+    const snapshot = await readDirectTasks(http, options.module, apiTaskWindowStart(entry.serverClock, entry.exportIntentAt!));
+    await assertOwned();
+    const selected = selectNewWebSessionTask(snapshot, { module: options.module, sourceRows: entry.sourceRows, exportIntentAt: apiTaskWindowStart(entry.serverClock, entry.exportIntentAt!),
+      observedAt: apiTaskWindowObserved(entry.serverClock, new Date().toISOString()), baselineIds: entry.baselineIds, pendingTaskId: entry.binding!.taskId,
+      allowedHosts: ["jackyun-shortterm.oss-cn-zhangjiakou.aliyuncs.com"] });
+    if (!selected.result || ["taskId", "module", "label", "createdAt", "sourceRows"].some(k => selected.result!.binding[k as keyof JackyunExportTaskBinding] !== entry.binding![k as keyof JackyunExportTaskBinding])) throw new Error("原附件尚未确认有效，需要核查唯一 taskId；禁止重新导出。");
+    const downloaded = await downloadSignedOssExport({ url: selected.result.url, downloadDirectory: options.downloadDirectory, runId: options.runId, module: options.module,
+      policyVersion: jackyunExportFirstPolicyVersion, exportIntentAt: entry.exportIntentAt!, allowedHosts: ["jackyun-shortterm.oss-cn-zhangjiakou.aliyuncs.com"], assertOwned }, deps.download);
+    if (downloaded.provenance.sha256 !== originalProvenance.sha256 || downloaded.provenance.bytes !== originalProvenance.bytes) throw new Error("原任务附件内容变化，已保留新旧证据，禁止混入原校验集合。");
+    await assertOwned();
+    const temp = `${entry.filePath}.${randomUUID()}.tmp`, fd = await open(temp, "wx");
+    try { await fd.writeFile(await readFile(downloaded.filePath)); await fd.sync(); } finally { await fd.close(); }
+    await publishDurableFile(temp, entry.filePath!); await assertOwned();
+    await writeJsonAtomic(path.join(repairDir, "restored.json"), { version: "jackyun-exact-file-repair-v1", restoredOriginalBytes: true,
+      originalFileSha256: originalProvenance.sha256, originalHandoffSha256: entry.handoffSha256, freshTaskBinding: selected.result.binding, download: downloaded.provenance }, true);
+    return true;
+  };
+  return deps.http && deps.tenantId ? recover(deps.http, deps.tenantId) : withJackyunApiSession(recover);
 }
 
 export async function inspectSubmittedApiTask(options: { runId: string; outputRoot: string; allowedHosts: string[]; binding?: JackyunExportTaskBinding },
