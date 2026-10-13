@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {mkdtemp,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import * as impact from '../tools/release-impact.mjs';
-import {makeBatch,verifyBatch,executeBatch,journalState,validateOperation,noDataCollectorFiles} from '../tools/release-batch.mjs';
+import {makeBatch,verifyBatch,executeBatch,journalState,validateOperation,noDataCollectorFiles,auditBatchVersion} from '../tools/release-batch.mjs';
 import {performance} from 'node:perf_hooks';
 import {processDeadline,safeProcessEvidence} from '../tools/worker-local-release.mjs';
 import {productionCommandArguments,productionCommandEnvironment} from '../tools/release-batch.mjs';
@@ -109,7 +109,7 @@ function restoreFixture(change={}) {
  const receipt={backupId:backup.backupId,status:'completed',serviceStateChanged:false,productionDatabaseTouched:false,cleanupStatus:'isolated_data_removed',profileRestoreVerified:true,sequenceHealthVerified:true,
   backupManifestSha256:backup.manifestSha256,dumpSha256:backup.dumpSha256,expectedContentSha256:backup.contentSha256,restoredContentSha256:backup.contentSha256,...change};
  const state={latest:new Map(batch.operations.map(o=>[o.id,{status:'passed',...(o.kind==='backup'?{outputs:backup}:{})}]))};
- const context={path,canonical,requireHash,targetedBatchVersion,targetedRecoveryPolicy,hash,validateOperation,Date,process,performance,processDeadline,safeProcessEvidence,productionCommandArguments,productionCommandEnvironment,
+ const context={path,canonical,requireHash,targetedBatchVersion,targetedRecoveryPolicy,auditBatchVersion,hash,validateOperation,Date,process,performance,processDeadline,safeProcessEvidence,productionCommandArguments,productionCommandEnvironment,
   assertStartBinding:()=>{},safeFileDigest:async p=>op.command.files.find(f=>f.path===p)?.sha256,
   runProcess:async(executable,args)=>{calls.push({executable,args});return{stdout:JSON.stringify(receipt),processEvidence:{processId:321,exitCode:0}};}};
  const run=new Function(...Object.keys(context),helperSource.replace(/^export /gm,'')+operationSource+';return runApprovedOperation;')(...Object.values(context));

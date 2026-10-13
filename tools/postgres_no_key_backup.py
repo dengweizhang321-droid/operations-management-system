@@ -40,7 +40,7 @@ def digest(value):
 
 
 def verify_receipt_generation(cursor):
-    """Two exact catalogues, never a row-count-based admission shortcut."""
+    """Exact closed catalogues and schema, never a row-count admission shortcut."""
     from integration_migration_plan import load_policy, LEGACY_CATALOGUE_SHA256, DELTA_STEP
     policy = load_policy(Path(__file__).resolve().parents[1] / "config/integration-migration-policy-v3.json")
     baseline = sorted(policy.baseline + policy.steps)
@@ -48,7 +48,9 @@ def verify_receipt_generation(cursor):
         raise RuntimeError("reviewed baseline migration catalogue changed")
     cursor.execute("SELECT app,name FROM public.django_migrations ORDER BY app,name")
     receipts = [".".join(row) for row in cursor.fetchall()]
+    from jackyun_audit_catalog import STEPS as audit_steps, verify_catalog as verify_audit_catalog
     if receipts == baseline:
+        verify_audit_catalog(cursor, installed=False)
         # A 138 receipt set with partial/unrecorded cache schema is not legacy.
         cursor.execute("SELECT count(*) FROM pg_attribute WHERE attrelid=to_regclass('public.netshop_rows') "
                        "AND NOT attisdropped AND attname=ANY(%s)", [[
@@ -62,10 +64,14 @@ def verify_receipt_generation(cursor):
             raise RuntimeError("legacy generation contains unrecorded cache invalidator")
         return 138
     if receipts == sorted([*baseline, DELTA_STEP]):
+        verify_audit_catalog(cursor, installed=False)
         from netshop.promotion_presence import verify_cache_catalog
         verify_cache_catalog(cursor)
         return 139
-    if receipts == sorted([*baseline, DELTA_STEP, "finance.0007_finance_erp_targets"]):
+    parent140 = sorted([*baseline, DELTA_STEP, "finance.0007_finance_erp_targets"])
+    if receipts in (parent140, sorted([*parent140, *audit_steps])):
+        audit_installed = receipts != parent140
+        verify_audit_catalog(cursor, installed=audit_installed)
         from netshop.promotion_presence import verify_cache_catalog
         verify_cache_catalog(cursor)
         cursor.execute("SELECT attname FROM pg_attribute WHERE attrelid=to_regclass('public.finance_erp_targets') AND attnum>0 AND NOT attisdropped ORDER BY attname")
@@ -77,7 +83,7 @@ def verify_receipt_generation(cursor):
         cursor.execute("SELECT t.tgtype,p.proname,t.tgenabled FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid=to_regclass('public.finance_erp_targets') AND t.tgname='finance_erp_target_revision_required' AND NOT t.tgisinternal")
         if cursor.fetchall()!=[(30,"finance_source_mark_revision_required","O")]:
             raise RuntimeError("ERP-goal addition revision guard differs")
-        return 140
+        return 142 if audit_installed else 140
     raise RuntimeError("no-key backup migration catalogue is not a reviewed generation")
 
 

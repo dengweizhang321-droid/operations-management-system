@@ -1749,6 +1749,21 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  $auditGate = Join-Path $candidateRoot 'tools\jackyun_audit_addition.py'
+  $auditDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('jackyun-audit-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -cin @('teruisi-jackyun-audit-addition-v1','teruisi-jackyun-audit-addition-no-new-backup-v1') -or
+      $auditDeployment -or (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'jackyun-audit-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $auditGate -PathType Leaf)) { throw 'Jackyun audit generation requires its original verifier' }
+    $auditCommand = if ($Operation -ceq 'PrepareApp') { if ($null -ne $biEvidence) {'admission'} else {'successor'} } elseif ($Operation -ceq 'DeployApp') { if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'} } elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported audit addition lifecycle operation'}
+    $auditArgs = @($auditGate,$auditCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if($auditCommand -ceq 'admission'){$auditArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if($auditCommand -ceq 'deployment'){$auditArgs += @('--operation',$IntegrationOperationId)}
+    $auditRun = Invoke-BoundedNativeProcess $Python $auditArgs $candidateRoot
+    $auditProof = ConvertFrom-UniqueNativeJson $auditRun 'Verify finite Jackyun audit addition'
+    if([string]$auditProof.status -cne 'verified'){throw 'Jackyun audit addition gate refused'}
+    return
+  }
   if ((Test-Path -LiteralPath $biAdditionGate) -and
       ([string]$biEvidence.version -ceq 'teruisi-bi-erp-goal-addition-v1' -or
        (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'bi-app-addition-active.json')))) {
@@ -1966,6 +1981,8 @@ function Prepare-Application {
       "tools\postgres_restore_semantics.py",
       "tools\integration_release_gate.py",
       "tools\bi_app_addition.py",
+      "tools\jackyun_audit_addition.py",
+      "tools\jackyun_audit_catalog.py",
       "tools\bi-app-adopt.ps1",
       "tools\integration_migration_plan.py",
       "tools\integration_migration_journal.py",

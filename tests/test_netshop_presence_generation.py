@@ -1,10 +1,13 @@
 """Exact generation/source/journal boundaries; no service or database access."""
 from dataclasses import replace
 import hashlib
+import io
 import json
 from pathlib import Path
 import sys
 import tempfile
+import subprocess
+import zipfile
 import unittest
 from unittest.mock import patch
 
@@ -24,6 +27,8 @@ class ReceiptCursor:
     def execute(self, sql, params=None):
         if "SELECT app,name" in sql:
             self.rows = [tuple(item.split(".", 1)) for item in sorted(self.receipts)]
+        elif "a.attname,format_type" in sql:
+            self.rows = []  # Legacy generations have no Jackyun audit columns.
         elif "FROM pg_attribute" in sql:
             self.rows = [(self.columns,)]
         elif "FROM pg_trigger" in sql:
@@ -37,6 +42,21 @@ class ReceiptCursor:
 
 
 class NetshopPresenceGenerationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # The 139 contract pins its entire Python tree. Later finite successors
+        # must not make the current tree a positive fixture for that old policy.
+        cls.frozen = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.frozen.cleanup)
+        cls.source = Path(cls.frozen.name)
+        policy = plans.load_policy(ROOT / gate.DELTA_POLICY)
+        wanted = {name for name, _ in policy.files} | set(gate.CONTROLS) | {gate.DELTA_POLICY}
+        archive = subprocess.check_output(['git','archive','--format=zip','00c6f642fb4228f1c91a2e03844a1140a8fd6fd0'], cwd=ROOT)
+        with zipfile.ZipFile(io.BytesIO(archive)) as files:
+            for name in wanted:
+                file = cls.source / name; file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_bytes(files.read(name))
+        policy.verify_source(cls.source)
     def setUp(self):
         self.policy = plans.load_policy(ROOT / gate.DELTA_POLICY)
         self.baseline = list(self.policy.baseline)
@@ -85,15 +105,16 @@ class NetshopPresenceGenerationTests(unittest.TestCase):
             corrupt.verify_source(ROOT)
 
     def test_actual_source_inventory_and_one_exact_pending_step(self):
-        self.policy.verify_source(ROOT)
+        self.policy.verify_source(self.source)
+        with self.assertRaises(plans.PlanBlocked): self.policy.verify_source(ROOT)
         applied = [tuple(key.split(".", 1)) for key in self.baseline]
-        before = plans.build_plan(self.policy, ROOT, applied, [("netshop", "0004_promotion_presence_cache", False)], "b" * 64)
-        after = plans.build_plan(self.policy, ROOT, [*applied, ("netshop", "0004_promotion_presence_cache")], [], "b" * 64)
+        before = plans.build_plan(self.policy, self.source, applied, [("netshop", "0004_promotion_presence_cache", False)], "b" * 64)
+        after = plans.build_plan(self.policy, self.source, [*applied, ("netshop", "0004_promotion_presence_cache")], [], "b" * 64)
         self.assertTrue(plans.confirm_single_step(before, after))
         for pending in [[], [("netshop", "0004_promotion_presence_cache", True)],
                         [("netshop", "0004_promotion_presence_cache", False), ("netshop", "0005_extra", False)]]:
             with self.assertRaises(plans.PlanBlocked):
-                plans.build_plan(self.policy, ROOT, applied, pending, "b" * 64)
+                plans.build_plan(self.policy, self.source, applied, pending, "b" * 64)
 
     def test_independent_delta_journal_cannot_borrow_legacy_operation_or_change_witness(self):
         before = plans.Plan(self.policy.sha256, "a" * 64, "b" * 64, (), (plans.DELTA_STEP,), plans.DELTA_VERSION)
@@ -137,7 +158,7 @@ class NetshopPresenceGenerationTests(unittest.TestCase):
             "cacheSchemaAndInvalidatorVerified": True, "protectedAiCatalogueUnchanged": True,
             "productionWrites": False, "productionInstalled": False,
             "sourcePolicySha256": self.policy.sha256,
-            "controlsSha256": {name: plans.python_source_sha256((ROOT / name).read_bytes()) for name in gate.CONTROLS},
+            "controlsSha256": {name: plans.python_source_sha256((self.source / name).read_bytes()) for name in gate.CONTROLS},
             "migration": {"status": "delta_completed", "baselineReceiptCount": 138, "finalReceiptCount": 139,
                 "journalCommittedSteps": 1, "steps": [plans.DELTA_STEP], "journalSha256": "a" * 64,
                 "productionInstallerEngineVerified": True, "pinnedBaselineRuntimeGrants": True,
@@ -155,7 +176,7 @@ class NetshopPresenceGenerationTests(unittest.TestCase):
             def verify(value):
                 raw = json.dumps(value).encode()
                 path.write_bytes(raw)
-                return gate.verify_candidate(ROOT, path, hashlib.sha256(raw).hexdigest())
+                return gate.verify_candidate(self.source, path, hashlib.sha256(raw).hexdigest())
             self.assertEqual(verify(self.candidate_evidence())["generation"], plans.DELTA_VERSION)
             cases = [dict(self.candidate_evidence(), generation="unknown"),
                      dict(self.candidate_evidence(), baselineWitnessScope="production"),
