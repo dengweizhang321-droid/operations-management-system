@@ -169,4 +169,3 @@ class ManagementControlsTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertTrue(response.json()["item"]["isDefaultTextModel"])
         self.assertEqual(config.resolve_model().id, response.json()["item"]["id"])
-
