@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { mkdtemp, mkdir, writeFile, rm, utimes } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { deflateSync } from 'node:zlib';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { classifyImpact, hash, canonical, sourceInventory, sourceTreeDigest, requirements, readSourceTree, safeRead, safeFileDigest } from '../tools/release-impact.mjs';
 import { makeBatch, executeBatch, verifyBatch, journalState } from '../tools/release-batch.mjs';
 import { createPreparationEvidenceSession } from '../tools/release-preparation-evidence.mjs';
@@ -179,9 +181,27 @@ test('snapshot inventory includes environment examples and same-mtime tampering 
   try {await mkdir(path.join(root,'backend'));const target=path.join(root,'backend','.env.example');await writeFile(target,'EXAMPLE=1');const stamp=new Date(0);await utimes(target,stamp,stamp);const first=sourceTreeDigest(await readSourceTree(root));await writeFile(target,'EXAMPLE=2');await utimes(target,stamp,stamp);assert.notEqual(sourceTreeDigest(await readSourceTree(root)),first);assert.equal((await safeRead(target)).toString(),'EXAMPLE=2');}
   finally{await rm(root,{recursive:true,force:true});}
 });
-test('missing config parent creation invalidates; unrelated ancestor siblings do not',async()=>{
+test('missing config parent creation invalidates; unrelated ancestor siblings do not',async t=>{
   const root=await mkdtemp(path.join(tmpdir(),'teruisi-config-watch-')),source=path.join(root,'source'),runtime=path.join(root,'runtime.vars');
   const targets={userconfig:path.join(root,'absent','user','npmrc'),globalconfig:path.join(root,'absent','global','npmrc')};
+  // Synchronize with the real native watcher, rather than assuming a 20ms
+  // sleep delivers its event under every load. The original listener executes
+  // first, so this hook observes invalidation and cannot grant cache validity.
+  const originalWatch=fs.watch,waiters=new Map();
+  t.mock.method(fs,'watch',(directory,options,listener)=>originalWatch(directory,options,(event,name)=>{
+    listener(event,name);
+    if(path.resolve(directory)===root&&name)waiters.get(name.toString())?.();
+  }));
+  syncBuiltinESMExports();
+  t.after(()=>{t.mock.restoreAll();syncBuiltinESMExports();});
+  async function afterObserved(name,action){
+    let timer;
+    const observed=new Promise((resolve,reject)=>{
+      waiters.set(name,resolve);
+      timer=setTimeout(()=>reject(new Error(`Native watcher did not observe ${name}`)),5000);
+    });
+    try{await action();await observed;}finally{clearTimeout(timer);waiters.delete(name);}
+  }
   let session;
   try {
     await mkdir(source);await writeFile(path.join(source,'view.tsx'),view);await writeFile(runtime,'SYNTHETIC=1');
@@ -190,8 +210,8 @@ test('missing config parent creation invalidates; unrelated ancestor siblings do
       toolchain:{npmPackageTree:await hashTree(path.join(path.dirname(process.execPath),'node_modules','npm'))},runtimeConfigurationSha256:hash(await safeRead(runtime)),environmentSha256:preparationEnvironmentSha256(process.env),
       externalNpmConfiguration:Object.fromEntries(Object.entries(targets).map(([key,target])=>[key,{pathSha256:windowsPathSha256(target),contentSha256:null}]))};};
     session=createPreparationEvidenceSession({batchSha256:h('1'),sourceRoot:source,devVarsSource:runtime,identify,execute:async(_exe,args)=>({stdout:targets[args.at(-1)]})});
-    await session.collect({approvedBatchSha256:h('1')});await writeFile(path.join(root,'unrelated.txt'),'not an input');await new Promise(r=>setImmediate(r));
-    await session.recheck();await mkdir(path.join(root,'absent'));await new Promise(r=>setTimeout(r,20));
+    await session.collect({approvedBatchSha256:h('1')});await afterObserved('unrelated.txt',()=>writeFile(path.join(root,'unrelated.txt'),'not an input'));
+    await session.recheck();await afterObserved('absent',()=>mkdir(path.join(root,'absent')));
     await assert.rejects(session.recheck(),/changed/);
   }finally{session?.dispose();await rm(root,{recursive:true,force:true});}
 });

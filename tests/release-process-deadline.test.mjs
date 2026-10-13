@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { runProcess, preparationEnvironmentSha256 } from '../tools/worker-local-release.mjs';
-import { runApprovedOperation } from '../tools/release-batch.mjs';
+import { runApprovedOperation, batchVersion } from '../tools/release-batch.mjs';
 import { safeFileDigest } from '../tools/release-impact.mjs';
 
 const child = path.resolve('tests/fixtures/release-process-child.mjs');
@@ -68,7 +68,7 @@ for(const mode of ['invalid','nonzero','flood']) test(`approved runner rejects $
   const op={id:'isolated-negative',kind:'command',phase:'acceptance',mutating:false,
     command:{executable:process.execPath,args:[child,mode],cwd:root,timeoutMs:3000,files:[{path:process.execPath,sha256:await safeFileDigest(process.execPath)},{path:child,sha256:await safeFileDigest(child)}]},
     assertions:[{path:'status',equals:'completed'}]};
-  await assert.rejects(runApprovedOperation(op,{batch:{id:'isolated-negative'},state:{latest:new Map()}}),e=>{
+  await assert.rejects(runApprovedOperation(op,{batch:{id:'isolated-negative',version:batchVersion,recovery:{mode:'full'}},state:{latest:new Map()}}),e=>{
     assert.ok(e.processEvidence);if(mode!=='flood')assert.equal(e.processEvidence.exitCode,mode==='nonzero'?9:0);assert.ok(JSON.stringify(e.processEvidence).length<1800);return true;
   });
 }));
@@ -152,6 +152,7 @@ if(($alert|ConvertTo-Json -Depth 8) -match 'synthetic-secret|example.invalid|tok
 # The second process and HTTP/ports may not get a fresh budget after expiry.
 $script:httpCalls=0
 function Get-Admission {@{mode='running';fence='synthetic'}}
+function Resolve-WatchStatusControl {@{path='synthetic-control';mode='legacy';reason='isolated_fixture'}}
 function Invoke-WatchScript {
   Invoke-DeadlineProcess -Executable '${quote(process.execPath)}' -Arguments @('${quote(child)}','hang') -WorkingDirectory $WatchdogRoot -Deadline (Get-ProcessDeadline) -Cleanup Direct|Out-Null
 }
@@ -221,7 +222,7 @@ exit $LASTEXITCODE
   if(scenario==='drain')args.push('-ExpectedDrainId','b'.repeat(32));
   const op={id:'isolated-start',kind:'lifecycle',step:'StartWorker',phase:'switch',mutating:true,
     command:{executable:host,args,cwd:root,timeoutMs:scenario==='deadline'?2400:30000,files:[{path:host,sha256:await safeFileDigest(host)},{path:wrapper,sha256:await safeFileDigest(wrapper)},{path:path.join(root,'process-deadline.ps1'),sha256:await safeFileDigest(path.join(root,'process-deadline.ps1'))}]},assertions:[{path:'status',equals:'completed'},{path:'readiness',equals:'complete'},{path:'manifestSha256',equals:'a'.repeat(64)}]};
-  const batch={id:'isolated-start',binding:{artifactSha256:'a'.repeat(64),djangoCandidateSha256:await safeFileDigest(path.join(root,'deployment.json')),maintenanceId:'b'.repeat(32)},impact:{level:scenario==='drain'?'display':'strict'}};
+  const batch={id:'isolated-start',version:batchVersion,recovery:{mode:'full'},binding:{artifactSha256:'a'.repeat(64),djangoCandidateSha256:await safeFileDigest(path.join(root,'deployment.json')),maintenanceId:'b'.repeat(32)},impact:{level:scenario==='drain'?'display':'strict'}};
   const at=performance.now();
   if(['ready','drain'].includes(scenario)) {
     const r=await runApprovedOperation(op,{batch,state:{latest:new Map()}});assert.equal(r.status,'passed');assert.equal(r.processEvidence.exitCode,0);assert.equal(r.processEvidence.engine.length,4);assert.ok(r.timing.engineMs>0);assert.ok(r.timing.validationMs>0);

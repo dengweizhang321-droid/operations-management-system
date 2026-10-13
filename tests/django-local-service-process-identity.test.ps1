@@ -25,7 +25,10 @@ $DescendantSnapshots = @()
 $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = "1"
 
 try {
-  . $ServiceScript -RuntimeRoot $TestRoot
+  # This fixture intentionally creates/stops only its private owned process.
+  # Status now enforces read-only receipt handling, so load the explicit write
+  # context while library-only prevents dispatching any lifecycle action.
+  . $ServiceScript -Action Start -RuntimeRoot $TestRoot
   New-Item -ItemType Directory -Path $TestRoot, $LogRoot, $RunRoot -Force | Out-Null
   # No-listener is a normal result, while CIM failures must still fail closed.
   [void]@(Get-PortListeners 65534)
