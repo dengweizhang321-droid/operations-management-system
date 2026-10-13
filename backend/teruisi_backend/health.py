@@ -788,7 +788,7 @@ REQUIRED_ERP_REFERENCE_WRITER_COLUMNS = {
     "erp_reference_import_attempts": {
         "id", "batch_id", "source_key", "scope_key", "scope_json", "import_hash",
         "raw_file_hash", "content_hash", "row_count", "outcome", "error_code",
-        "migration_generation",
+        "migration_generation", "raw_upload_id", "upload_fingerprint",
     },
     "erp_reference_write_request_receipts": {
         "request_id", "actor_email", "method", "path", "body_sha256", "query_sha256",
@@ -866,7 +866,7 @@ REQUIRED_WRITER_COLUMNS = {
         "owner_token",
         "generation",
     },
-    "sales_import_attempts": {"id", "scope_key", "outcome", "error_code"},
+    "sales_import_attempts": {"id", "scope_key", "outcome", "error_code", "raw_upload_id", "upload_fingerprint"},
     "sales_import_fingerprints": {
         "domain",
         "batch_id",
@@ -880,6 +880,7 @@ REQUIRED_WRITER_COLUMNS = {
         "owner_generation",
         "result_batch_id",
         "expires_at",
+        "publication_baseline",
     },
     "sales_raw_upload_chunks": {
         "session_id", "chunk_index", "object_key", "sha256", "payload",

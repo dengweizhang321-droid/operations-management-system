@@ -8,6 +8,7 @@ import {
 import { PublicApiError } from "@/lib/http/api-error";
 
 export const ERP_REFERENCE_IMPORTS_PATH = "/api/erp-reference/imports";
+export const ERP_REFERENCE_IMPORT_RECOVERY_PATH = "/api/erp-reference/imports/recovery";
 export const ERP_REFERENCE_CONSUMER_QUERY_PATH = "/api/erp-reference/consumers/query";
 export const ERP_REFERENCE_UPLOADS_PATH = "/api/erp-reference/uploads";
 export const ERP_REFERENCE_UPLOAD_CHUNK_PATH = "/api/erp-reference/uploads/chunk";
@@ -17,6 +18,7 @@ const readerMethods = new Set([
   `POST ${ERP_REFERENCE_CONSUMER_QUERY_PATH}`,
 ]);
 const writerMethods = new Set([
+  `GET ${ERP_REFERENCE_IMPORT_RECOVERY_PATH}`,
   `POST ${ERP_REFERENCE_IMPORTS_PATH}`,
   `POST ${ERP_REFERENCE_UPLOADS_PATH}`,
   `GET ${ERP_REFERENCE_UPLOAD_CHUNK_PATH}`,

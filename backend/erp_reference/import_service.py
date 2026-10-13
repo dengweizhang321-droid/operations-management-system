@@ -276,9 +276,10 @@ def _record_attempt(
     *, source: str, raw_file_hash: str, outcome: str, actor_email: str,
     file_name: str = "", file_size_bytes: int = 0, content: str = "",
     row_count: int = 0, batch_id: str = "", import_hash: str = "",
-    warnings: list[dict[str, object]] | None = None, error_code: str = "",
+    warnings: list[dict[str, object]] | None = None, error_code: str = "", raw_upload_id: str = "", upload_fingerprint: str = "",
 ) -> None:
     ErpReferenceImportAttempt.objects.create(
+        raw_upload_id=raw_upload_id, upload_fingerprint=upload_fingerprint,
         source_key=source,
         scope_key=SOURCE_SCOPE_KEYS.get(source, ""),
         scope_json=SOURCE_SCOPES.get(source, {}),
@@ -332,6 +333,9 @@ def _restore_sales_category_fallback(lines) -> None:
 
 
 def import_payload(payload: dict[str, object], actor_email: str) -> dict[str, object]:
+    publication_guard = payload.get("publicationGuard")
+    if "publicationGuard" in payload:
+        payload = {key: value for key, value in payload.items() if key != "publicationGuard"}
     if payload.get("kind") == "rejection":
         return record_rejection(payload, actor_email)
     allowed = {
@@ -369,6 +373,13 @@ def import_payload(payload: dict[str, object], actor_email: str) -> dict[str, ob
             head = ErpReferenceImportScopeHead.objects.select_for_update().get(
                 scope_key=scope_key, source_key=source
             )
+            from common.import_recovery import lock_upload_guard, assert_scope_baseline, upload_trace
+            from .models import ErpReferenceRawUploadSession
+            try:
+                expected = lock_upload_guard(publication_guard, ErpReferenceRawUploadSession, actor_email, source, raw_hash)
+                trace = upload_trace(publication_guard, ErpReferenceRawUploadSession, actor_email)
+            except (ValueError, TypeError) as error:
+                raise _error(str(error), code="version_conflict", status=409) from error
             current_rows = product_rows_from_database() if source == "products" else combo_rows_from_database()
             current_digest = content_hash(source, current_rows)
             current_batch = ErpReferenceImportBatch.objects.filter(
@@ -380,6 +391,7 @@ def import_payload(payload: dict[str, object], actor_email: str) -> dict[str, ob
                     actor_email=actor_email, file_name=file_name, file_size_bytes=file_size,
                     content=digest, row_count=len(rows), batch_id=current_batch.id,
                     import_hash=current_batch.file_hash, warnings=warnings,
+                    **trace,
                 )
                 return {
                     "ok": True, "status": "duplicate",
@@ -387,6 +399,10 @@ def import_payload(payload: dict[str, object], actor_email: str) -> dict[str, ob
                     "batch": _batch_payload(current_batch), "warnings": warnings,
                 }
             previous = head.state_token
+            try:
+                assert_scope_baseline(expected, previous)
+            except ValueError as error:
+                raise _error(str(error), code="version_conflict", status=409) from error
             import_hash = _sha(f"erp-import-attempt-v1\n{scope_key}\n{digest}\n{previous}")
             batch_id = f"{source}:{import_hash}"
             published = _sha(
@@ -418,6 +434,7 @@ def import_payload(payload: dict[str, object], actor_email: str) -> dict[str, ob
             )
             attempt_started = True
             ErpReferenceImportAttempt.objects.create(
+                **trace,
                 id=attempt_id, batch_id=batch_id, source_key=source, scope_key=scope_key,
                 scope_json=SOURCE_SCOPES[source], import_hash=import_hash,
                 raw_file_hash=raw_hash, content_hash=digest, row_count=len(rows),

@@ -165,3 +165,46 @@ test("actual download runner retries the same failed product contract and reuses
     assert.deepEqual(await readFile(path.join(root, "original-failure.json")), auditRaw);
   } finally { globalThis.fetch = priorFetch; }
 });
+
+test("unified recovery starts an untouched later module and reconciles its lost completion without another POST", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "jackyun-unstarted-module-"));
+  const runId = "n8n-export-first-8556", downloadDirectory = path.join(root, "downloads"), outputRoot = path.join(root, "runs");
+  const filePath = path.join(downloadDirectory, "jackyun", runId, "products", "synthetic.xlsx");
+  const raw = createXlsxWorkbookBytes([{ name: "货品", rows: [["货品编号", "货品名称", "固定成本价", "基础单位"],
+    ...Array.from({ length: 5000 }, (_, index) => [`SKU-${index}`, "合成测试货品", 10, "台"])] }]);
+  await mkdir(path.dirname(filePath), { recursive: true }); await writeFile(filePath, raw);
+  const rawHash = recoverySha(raw), fixtureStart = Date.now() - 60_000;
+  const at = (second: number) => new Date(fixtureStart + second * 1000).toISOString();
+  const options: JackyunDownloadRunOptions = { module: "products", filePath, runId, outputRoot, downloadDirectory,
+    policyVersion: jackyunExportFirstPolicyVersion, exportStart: at(4), expectedSourceRows: 5000, baseUrl: "http://localhost:3000", dryRun: false,
+    collectionDate: "2026-10-13", collectionSalesEndDate: "2026-10-12", expectedStateToken: "initial",
+    recoveryAttempt: true, assertOwned: async () => undefined,
+    handoffEvidence: { navigationIntentAt: at(1), queryIntentAt: at(2), tableStableAt: at(3), exportIntentAt: at(4), downloadEventAt: at(5) },
+    downloadProvenance: { runId, module: "products", policyVersion: jackyunExportFirstPolicyVersion,
+      method: "browser_event", downloadId: "synthetic-products", originalFileName: "synthetic.xlsx", completedAt: at(5), sha256: rawHash, bytes: raw.length } };
+  const priorFetch = globalThis.fetch; let completes = 0, reads = 0, finishes = 0;
+  const batch = { id: "synthetic-current", sourceKey: "products", status: "completed", rowCount: 5000,
+    snapshotDate: null, totals: { rawFileHash: rawHash, contentHash: "d".repeat(64) } };
+  globalThis.fetch = async (url, init) => {
+    const parsed = new URL(String(url));
+    assert.equal(parsed.origin, "http://localhost:3000", "fixture never accesses real network");
+    if (parsed.pathname === "/api/imports/recovery") {
+      reads++; assert.equal(completes, 1); assert.equal(parsed.searchParams.get("uploadId"), "12345678-1234-1234-1234-123456789000");
+      return Response.json({ ok: true, version: "import-recovery-query-v1", status: "committed_current", scope: { source: "products" }, batch });
+    }
+    if (parsed.pathname === "/api/imports/recovery/finish") {
+      finishes++; return Response.json({ ok: true, status: "duplicate", batch });
+    }
+    assert.equal(parsed.pathname, "/api/imports/erp/chunks");
+    if (init?.method === "PUT") return Response.json({ ok: true });
+    const payload = JSON.parse(String(init?.body));
+    if (payload.action === "init") return Response.json({ upload: { id: "12345678-1234-1234-1234-123456789000", receivedChunkIndexes: [] } });
+    assert.equal(payload.action, "complete"); completes++;
+    throw new Error("synthetic response lost after publication");
+  };
+  t.after(() => { globalThis.fetch = priorFetch; });
+  await assert.rejects(runJackyunDownload(options), /synthetic response lost/);
+  assert.equal(completes, 1); assert.equal(reads, 0, "untouched module starts with its original publication baseline");
+  assert.equal((await runJackyunDownload(options)).status, "completed");
+  assert.equal(completes, 1, "lost response never repeats complete"); assert.equal(reads, 1); assert.equal(finishes, 1);
+});

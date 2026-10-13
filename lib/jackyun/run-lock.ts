@@ -5,6 +5,7 @@ import { createServer } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { jackyunPublicationFence } from "./ownership-context";
 
 export function resolveJackyunRunLockProjectRoot(input: {
   moduleUrl?: string;
@@ -40,6 +41,7 @@ export type JackyunRunLockOwner = {
 
 export type JackyunRunLock = JackyunRunLockOwner & {
   lockDirectory: string;
+  assertOwned: () => Promise<void>;
   release: () => Promise<void>;
 };
 
@@ -300,6 +302,14 @@ export async function acquireJackyunRunLock(options: AcquireOptions): Promise<Ja
       return {
         ...owner,
         lockDirectory,
+        assertOwned: async () => {
+          const current = await readOwner(lockDirectory);
+          if (released || !current || current.ownerToken !== owner.ownerToken
+            || current.pid !== owner.pid || current.processIdentity !== owner.processIdentity
+            || current.runId !== owner.runId || current.purpose !== owner.purpose) {
+            throw new Error("吉客云执行锁所有权已变化，禁止业务动作或迟到回执落盘。");
+          }
+        },
         release: async () => {
           if (released) return;
           const current = await readOwner(lockDirectory);
@@ -335,7 +345,7 @@ export async function acquireJackyunRunLock(options: AcquireOptions): Promise<Ja
 export async function withJackyunRunLock<T>(options: AcquireOptions, operation: (lock: JackyunRunLock) => Promise<T>) {
   const lock = await acquireJackyunRunLock(options);
   try {
-    return await operation(lock);
+    return await jackyunPublicationFence.run(lock, () => operation(lock));
   } finally {
     await lock.release();
   }

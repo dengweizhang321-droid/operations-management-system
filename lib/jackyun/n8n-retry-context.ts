@@ -18,6 +18,14 @@ export function decodeN8nRetryContext(row: Record<string, unknown>, raw: string)
     || row.deletedAt !== null || row.retrySuccessId !== null || raw.length > 1048576) throw new Error("retry_context_not_terminal_manual_action");
   const started = n8nEvidenceTime(row.startedAt), stopped = n8nEvidenceTime(row.stoppedAt);
   if (stopped < started) throw new Error("retry_context_time_manual_action");
+  return decodeN8nFixedPlanContext(row, raw);
+}
+
+/** Shared fixed-anchor decoder. Callers separately verify the real execution
+ * mode/status; manual rows are never relabeled as automatic retry evidence. */
+export function decodeN8nFixedPlanContext(row: Record<string, unknown>, raw: string) {
+  assertRetryContextIdentity(String(row.workflowId), String(row.id));
+  const stopped = n8nEvidenceTime(row.stoppedAt);
   const values = JSON.parse(raw) as unknown[];
   if (!Array.isArray(values) || !values.length || values.length > 10000) throw new Error("retry_context_format_manual_action");
   const deref = (v: unknown): unknown => typeof v === "string" && /^\d+$/.test(v) ? values[Number(v)] : v;

@@ -102,6 +102,7 @@ export async function POST(request: Request) {
             bytes,
             fileName: claim.session.fileName,
             fileSizeBytes: claim.session.fileSizeBytes,
+            publicationGuard: { uploadId, ownerToken: claim.ownerToken, ownerGeneration: claim.session.ownerGeneration },
             snapshotDate: scope.snapshotDate,
           }, { signal: request.signal });
           await finishDjangoInventoryUpload(principal, uploadId, claim.ownerToken, result, request.signal);
@@ -146,6 +147,7 @@ export async function POST(request: Request) {
           bytes,
           fileName: claim.session.fileName,
           fileSizeBytes: claim.session.fileSizeBytes,
+          publicationGuard: { uploadId: claim.session.id, ownerToken: claim.ownerToken, ownerGeneration: claim.session.ownerGeneration },
         }, { signal: request.signal });
         const productBatchId = (imported as { batch?: { id?: unknown } }).batch?.id;
         const result = body.source === "products"

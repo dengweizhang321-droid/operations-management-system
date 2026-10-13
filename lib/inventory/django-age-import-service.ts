@@ -44,6 +44,7 @@ function issue(value: ErpReferenceIssue) {
 export async function importInventoryAgeToDjango(
   input: {
     principal: AppPrincipal;
+    publicationGuard?: { uploadId: string; ownerToken: string; ownerGeneration: number };
     bytes: Uint8Array;
     fileName: string;
     fileSizeBytes: number;
@@ -110,6 +111,7 @@ export async function importInventoryAgeToDjango(
     service: "writer",
     payload: {
       dataset: "age",
+      ...(input.publicationGuard ? { publicationGuard: input.publicationGuard } : {}),
       file: { name: fileName, sizeBytes: input.fileSizeBytes, rawFileHash, sheetName: parsed.sheetName },
       snapshotDate: input.snapshotDate,
       sourceRowCount,

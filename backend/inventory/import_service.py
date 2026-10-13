@@ -563,6 +563,9 @@ def record_edge_rejection(payload: object, actor_email: str) -> dict[str, object
 
 
 def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, object]:
+    publication_guard = payload.get("publicationGuard") if isinstance(payload, dict) else None
+    if isinstance(payload, dict) and "publicationGuard" in payload:
+        payload = {key: value for key, value in payload.items() if key != "publicationGuard"}
     try:
         data = _normalized_payload(payload)
     except InventoryApiError as error:
@@ -616,6 +619,15 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
             warnings.append(discovery_warning)
             discovery_warnings.append(discovery_warning)
         head = _lock_scope(dataset)
+        from common.import_recovery import lock_upload_guard, assert_scope_baseline, upload_trace
+        from .models import InventoryRawUploadSession
+        try:
+            expected = lock_upload_guard(publication_guard, InventoryRawUploadSession, actor_email,
+                "inventory" if dataset == "stock" else "inventory_age", str(file_value["rawFileHash"]))
+            trace = upload_trace(publication_guard, InventoryRawUploadSession, actor_email)
+            audit_trace = {"rawUploadId": trace["raw_upload_id"], "uploadFingerprint": trace["upload_fingerprint"]}
+        except (ValueError, TypeError) as error:
+            raise _error(str(error), code="version_conflict", status=409) from error
         previous = head.state_token
         current = (
             InventoryImportBatch.objects.filter(id=head.current_batch_id).first()
@@ -674,7 +686,7 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
                 row_count=len(rows),
                 outcome="duplicate",
                 actor_email=actor_email[:320],
-                metadata={"fileName": file_value["name"]},
+                metadata={"fileName": file_value["name"], "fileSizeBytes": file_value["sizeBytes"], **audit_trace},
                 completed_at=now,
             )
             if discovered_warehouses:
@@ -693,6 +705,10 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
         attempt_hash = _sha(
             f"inventory-attempt-v1\n{dataset}\n{snapshot_date.isoformat()}\n{content_hash}\n{previous}"
         )
+        try:
+            assert_scope_baseline(expected, previous)
+        except ValueError as error:
+            raise _error(str(error), code="version_conflict", status=409) from error
         batch_id = _batch_id(dataset, attempt_hash)
         owner_token = uuid.uuid4().hex
         head.status = "processing"
@@ -714,7 +730,7 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
             excluded_count=int(data["excludedCount"]),
             outcome="processing",
             actor_email=actor_email[:320],
-            metadata={"fileName": file_value["name"]},
+            metadata={"fileName": file_value["name"], "fileSizeBytes": file_value["sizeBytes"], **audit_trace},
         )
         next_state = _state_token(previous, batch_id, content_hash, len(rows))
         batch = InventoryImportBatch.objects.create(

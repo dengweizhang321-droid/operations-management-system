@@ -23,6 +23,7 @@ read_patterns = [
     path("consumers/query", views.consumer_query, name="inventory-consumer-query"),
 ]
 write_patterns = [
+    path("imports/recovery", views.import_recovery, name="inventory-import-recovery"),
     path("guangdong-monitor/import", gd.imports),
     path("guangdong-monitor/items", gd.items),
     path("guangdong-monitor/suppliers", gd.suppliers),

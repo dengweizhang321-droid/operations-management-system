@@ -11,7 +11,7 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 
 from .errors import InventoryApiError
-from .models import InventoryRawUploadChunk, InventoryRawUploadSession
+from .models import InventoryRawUploadChunk, InventoryRawUploadSession, InventoryImportScopeHead
 from .write_requests import lock_active_authority
 
 
@@ -122,6 +122,7 @@ def begin_upload(payload: dict[str, object], actor_email: str) -> dict[str, obje
                 raise _error("上传指纹已绑定另一份文件", code="version_conflict", status=409)
             return {"upload": _session_payload(session)}
         session = InventoryRawUploadSession.objects.create(
+            result_payload={"_publicationBaseline": {"stateToken": InventoryImportScopeHead.objects.get(dataset=dataset).state_token}},
             fingerprint=normalized_fingerprint,
             dataset=str(dataset),
             snapshot_date=snapshot_date,
@@ -178,7 +179,7 @@ def claim_upload(payload: dict[str, object], actor_email: str) -> dict[str, obje
         if session.status == "uploading":
             raise _error("仍有分片尚未上传完成", code="conflict", status=409)
         if session.status == "processing" and session.updated_at > timezone.now() - PROCESSING_STALE_AGE:
-            return {"kind": "claimed", "ownerToken": session.owner_token, "upload": _session_payload(session), "chunks": list(session.chunks.order_by("chunk_index").values("chunk_index", "size_bytes", "sha256"))}
+            raise _error("原上传会话仍在处理，请只读核验原结果后等待；不能共享同一 owner token", code="conflict", status=409)
         if session.status not in {"ready", "processing"} or session.chunks.count() != int(session.chunk_count) or int(session.received_bytes) != int(session.file_size_bytes):
             raise _error("上传分片集合不完整", code="conflict", status=409)
         owner_token = secrets.token_urlsafe(32)

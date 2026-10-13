@@ -105,6 +105,7 @@ function edge(node) {
 }
 
 export function attachHourlyRetryTarget(workflow, { entryNodeName = "领取共享 helper" } = {}) {
+  if (workflow.id === "J8kY2mQ5vR7sT4pN" && workflow.meta?.jackyunRecovery === "jackyun-recovery-control-v1") entryNodeName = "固定原执行计划时间";
   if (!workflow || typeof workflow !== "object" || typeof workflow.id !== "string") throw new Error("工作流定义缺少 id");
   const entryNodes = workflow.nodes?.filter((node) => node.name === entryNodeName) ?? [];
   if (entryNodes.length !== 1) throw new Error(`${workflow.id} 必须且只能包含一个重试入口节点 ${entryNodeName}`);
@@ -190,6 +191,7 @@ function retryClassifierCode() {
     "  const mode = String(payload.execution?.mode ?? payload.trigger?.mode ?? '');",
     "  if (!targets[workflowId] || !['trigger', 'webhook'].includes(mode)) continue;",
     "  const failureText = collect({ error: payload.execution?.error ?? payload.trigger?.error, lastNodeExecuted: payload.execution?.lastNodeExecuted });",
+    "  if (workflowId === 'J8kY2mQ5vR7sT4pN' && /API_(?:RUN_BINDING_CHANGED|STATE_EVIDENCE_INVALID|ARCHIVE_(?:CHANGED|INCOMPLETE|IDENTITY_INVALID)|TENANT_BINDING_CHANGED|FIELD_PERMISSIONS_CHANGED_RECALIBRATE|LEGACY_STATE_SCHEMA_CHANGED)/u.test(failureText)) continue;",
     "  if (workflowId === 'J8kY2mQ5vR7sT4pN' && payload.execution?.lastNodeExecuted === 'B·接口校验与五表下载' && payload.execution?.error?.description === 'JACKYUN_PREFLIGHT_RETRY_READY' && !terminalPatterns.some((pattern) => pattern.test(failureText.replaceAll('JACKYUN_PREFLIGHT_RETRY_READY', '')))) {",
     "    result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });",
     "    continue;",
@@ -269,6 +271,10 @@ try {
   reservation = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/reserve-retry',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
     headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId,'X-TERUISI-RETRY-EXECUTION-ID':String($execution.id)}});
 } catch { throw new Error('retry_reservation_result_unknown_manual_action'); }
+if(pending.retryPolicy.workflowId === 'J8kY2mQ5vR7sT4pN' && reservation.statusCode === 200) {
+  if(['completed','accepted'].includes(reservation.body?.reservationStatus)) return [];
+  if(reservation.body?.reservationStatus === 'waiting') return [{json:{...pending,contextStatus:'waiting',nextRetryDelayMinutes:reservation.body.nextRetryDelayMinutes}}];
+}
 if(reservation.statusCode !== 200 || reservation.body?.reservationStatus !== 'reserved'
   || reservation.body.failedExecutionId !== pending.failedExecutionId || reservation.body.retryExecutionId !== String($execution.id)) throw new Error('retry_already_reserved_or_unverified_manual_action');
 return [{json:{...pending,...context,contextStatus:'verified'}}];` },
@@ -286,7 +292,7 @@ return [{json:{...pending,...context,contextStatus:'verified'}}];` },
           method: "POST",
           url: "={{ $json.retryPolicy.retryUrl }}",
           sendBody: true, specifyBody: "json",
-          jsonBody: "={{ {version:$json.version,workflowId:$json.workflowId,failedExecutionId:$json.failedExecutionId,originalScheduledAt:$json.originalScheduledAt,originalExecutionId:$json.originalExecutionId} }}",
+          jsonBody: "={{ {version:$json.version,workflowId:$json.workflowId,failedExecutionId:$json.failedExecutionId,originalScheduledAt:$json.originalScheduledAt,originalExecutionId:$json.originalExecutionId,...($json.retryPolicy.workflowId === 'J8kY2mQ5vR7sT4pN' ? {retryDispatchExecutionId:String($execution.id)} : {})} }}",
           options: { timeout: 10000 },
         },
         id: stableUuid("teruisi-hourly-retry:dispatch"),
@@ -304,6 +310,17 @@ return [{json:{...pending,...context,contextStatus:'verified'}}];` },
         type: "n8n-nodes-base.stopAndError",
         typeVersion: 1,
         position: [420, 140],
+      },
+      {
+        parameters: { conditions: { options: { caseSensitive: true, typeValidation: "strict", version: 2 }, conditions: [{
+          id: stableUuid("teruisi-hourly-retry:jackyun-backoff-condition"),
+          leftValue: "={{ $json.retryPolicy?.workflowId === 'J8kY2mQ5vR7sT4pN' && Number.isInteger($json.nextRetryDelayMinutes) && $json.nextRetryDelayMinutes > 0 && $json.nextRetryDelayMinutes <= 240 }}",
+          rightValue: true, operator: { type: "boolean", operation: "equals" } }], combinator: "and" }, options: {} },
+        id: stableUuid("teruisi-hourly-retry:jackyun-backoff-condition"), name: "吉客云需要继续退避？", type: "n8n-nodes-base.if", typeVersion: 2.2, position: [380, 220],
+      },
+      {
+        parameters: { resume: "timeInterval", amount: "={{ $json.nextRetryDelayMinutes }}", unit: "minutes" },
+        id: stableUuid("teruisi-hourly-retry:jackyun-backoff"), name: "等待吉客云下一次允许时间", type: "n8n-nodes-base.wait", typeVersion: 1.1, position: [600, 220],
       },
       {
         parameters: {
@@ -324,7 +341,9 @@ return [{json:{...pending,...context,contextStatus:'verified'}}];` },
       [classifyName]: { main: [[edge(waitName)]] },
       [waitName]: { main: [[edge(contextName)]] },
       [contextName]: { main: [[edge(contextReadyName)]] },
-      [contextReadyName]: { main: [[edge(dispatchName)], [edge(waitName)]] },
+      [contextReadyName]: { main: [[edge(dispatchName)], [edge("吉客云需要继续退避？")]] },
+      ["吉客云需要继续退避？"]: { main: [[edge("等待吉客云下一次允许时间")], [edge(waitName)]] },
+      ["等待吉客云下一次允许时间"]: { main: [[edge(contextName)]] },
       [dispatchName]: { main: [[], [edge(unknownName)]] },
     },
     pinData: {},

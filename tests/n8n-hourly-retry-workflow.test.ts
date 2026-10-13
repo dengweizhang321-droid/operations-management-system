@@ -65,7 +65,9 @@ test("all registered data workflows route hourly retries through a new full exec
     assert.equal(webhookPath, hourlyRetryWebhookPath(target.workflowId), target.fileName);
     assert.equal(paths.has(webhookPath!), false, target.fileName);
     paths.add(webhookPath!);
-    assert.equal(workflow.connections[hourlyRetryTriggerName]?.main?.[0]?.[0]?.node, "领取共享 helper", target.fileName);
+    const boundJackyun = target.workflowId === "J8kY2mQ5vR7sT4pN" && (workflow.meta as Record<string, unknown>)?.jackyunRecovery === "jackyun-recovery-control-v1";
+    assert.equal(workflow.connections[hourlyRetryTriggerName]?.main?.[0]?.[0]?.node, boundJackyun ? "固定原执行计划时间" : "领取共享 helper", target.fileName);
+    if (boundJackyun) assert.equal(workflow.connections["固定原执行计划时间"]?.main?.[0]?.[0]?.node, "领取共享 helper", target.fileName);
     assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.executeWorkflowTrigger"), false, target.fileName);
   }
   assert.equal(paths.size, hourlyRetryTargets.length);

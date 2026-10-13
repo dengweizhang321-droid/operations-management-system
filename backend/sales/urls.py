@@ -25,6 +25,7 @@ reader_import_patterns = [
 ]
 
 write_patterns = [
+    path("imports/recovery", write_views.import_recovery, name="sales-import-recovery"),
     path("imports", write_views.imports, name="sales-imports"),
     path("imports/uploads", write_views.raw_uploads, name="sales-raw-uploads"),
     path(

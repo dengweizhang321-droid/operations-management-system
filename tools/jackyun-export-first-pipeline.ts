@@ -1,10 +1,12 @@
 import { apiTaskWindowObserved, apiTaskWindowStart } from "../lib/jackyun/api-clock";
 import type { JackyunServerClock } from "../lib/jackyun/direct-http";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { readJsonFile, readJsonDurableOr as readJsonFileOr, writeJsonDurable as writeJsonAtomic } from "../lib/jackyun/json-file";
+import { appendRecoveryControl, controlDigest, readRecoveryControl, type RecoveryRequest } from "../lib/jackyun/recovery-control";
+import { collectionPublicationBaseline } from "../lib/jackyun/publication-baseline";
 import { assertBoundDownloadProvenance } from "../lib/jackyun/download-provenance";
 import { assertJackyunHandoffEvidence, assertJackyunSnapshotEvidence, jackyunCaptureDate,
   jackyunExportFirstPolicyVersion, jackyunExportOrder } from "../lib/jackyun/run-contract";
@@ -19,14 +21,20 @@ import { claimWebConfirmationRecovery } from "../lib/jackyun/web-session-recover
 import { claimHttpScopeRecovery } from "../lib/jackyun/http-scope-recovery";
 import { claimImportRecovery, type ImportRecoveryBinding } from "../lib/jackyun/import-recovery";
 import { claimPartialImportRecovery, isPartialImportRecovery, verifyPartialImportGate } from "../lib/jackyun/partial-import-recovery";
-import { readN8nReplacementEvidence } from "../lib/jackyun/n8n-preflight-evidence";
+import { readN8nReplacementEvidence, readN8nJackyunOwnerState } from "../lib/jackyun/n8n-preflight-evidence";
+import { recordJackyunSafeWait } from "../lib/jackyun/recovery-wait";
+import { inspectAutomaticPreflightReplacement } from "../lib/jackyun/automatic-preflight-recovery";
+import { publishReplacementPreflightClosure, publishHumanPreflightClosure } from "../lib/jackyun/preflight-recovery";
+import type { BoundHumanAuthority } from "../lib/jackyun/human-retry";
+import { inspectPlanOnlyRecovery, publishPlanOnlyClosure } from "../lib/jackyun/plan-only-recovery";
+import { inspectCaptureRetirement, publishCaptureRetirement, type CaptureRetirement } from "../lib/jackyun/capture-retirement";
 import { claimJackyunApiResumePermit } from "../lib/jackyun/api-execution-resume";
 import { claimValidationRecovery } from "../lib/jackyun/validation-recovery";
 import { runController } from "./jackyun-browser-controller";
 import { jackyunWebSessionTransport } from "../lib/jackyun/web-session-export";
 import { jackyunDirectTransport } from "../lib/jackyun/direct-export";
 import { jackyunApiTransport } from "../lib/jackyun/api-plan";
-import { runApiExports } from "./jackyun-api-export";
+import { runApiExports, verifyCompletedApiLocalFiles, repairOriginalApiFile } from "./jackyun-api-export";
 import { runJackyunDownload, type JackyunDownloadRunOptions } from "./jackyun-download-runner";
 import type { BrowserHandoff } from "./jackyun-daily-runner";
 import { getJackyunProfileStatus, normalizeJackyunLocalBaseUrl, verifyPublishedJackyunBatches } from "./jackyun-n8n-pipeline";
@@ -59,6 +67,7 @@ type Policy = {
   browser: { downloadDirectory: string; allowedDownloadHosts: string[]; controller: { profileDirectory: string } };
 };
 export type ExportFirstDependencies = {
+  failureRetryAttempt?: number;
   root: string;
   lockDirectory?: string;
   now?: () => Date;
@@ -70,6 +79,13 @@ export type ExportFirstDependencies = {
   recoverPreviousPreflight?: (previousId: string, replacementId: string, at: string) => Promise<void>;
   resumePreviousApiTask?: (previousId: string, replacementId: string, action: string, at: string) => Promise<import("../lib/jackyun/export-task").JackyunExportTaskBinding | null>;
   partialRecoveryEvidence?: typeof readN8nReplacementEvidence;
+  recoveryRequest?: RecoveryRequest;
+  recoveryEvidence?: typeof readN8nReplacementEvidence;
+  assertOwned?: () => Promise<void>;
+  recoverIncompleteModules?: boolean;
+  readOwnerState?: typeof readN8nJackyunOwnerState;
+  humanAuthority?: BoundHumanAuthority;
+  repairApiFile?: typeof repairOriginalApiFile;
 };
 const sha = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 const nowOf = (deps: ExportFirstDependencies) => (deps.now?.() ?? new Date()).toISOString();
@@ -80,6 +96,16 @@ function paths(root: string) {
     pipelineRoot: path.join(root, "outputs", "jackyun-export-first"),
     validationRoot: path.join(root, "outputs", "jackyun-export-first-validation"),
   };
+}
+function createExportFirstPlan(executionId: string, action: string, createdAt: string): JackyunExportFirstPlan {
+  const runDate = jackyunCaptureDate(createdAt), yesterday = new Date(`${runDate}T00:00:00Z`);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const asOfDate = yesterday.toISOString().slice(0, 10);
+  return { version: action === "plan-api" ? 2 : 1, protocol: jackyunExportFirstPolicyVersion, executionId, runId: `n8n-export-first-${executionId}`,
+    runDate, asOfDate, baseUrl: normalizeJackyunLocalBaseUrl("http://localhost:3000"), createdAt, phase: "exporting", exports: {},
+    ...(action === "plan-api" ? { salesStartDate: rollingJackyunSalesStartDate(asOfDate) } : {}),
+    ...(action === "plan-web-session" ? { exportTransport: jackyunWebSessionTransport } : action === "plan-direct-http" ? { exportTransport: jackyunDirectTransport }
+      : action === "plan-api" ? { exportTransport: jackyunApiTransport } : {}) };
 }
 function handoffPath(root: string, plan: JackyunExportFirstPlan, module: JackyunModule) {
   return path.join(paths(root).eventRoot, plan.runId, `${String(jackyunModuleOrder.indexOf(module) + 1).padStart(2, "0")}-${module}.json`);
@@ -211,7 +237,11 @@ async function runImports(root: string, plan: JackyunExportFirstPlan, policy: Po
   for (const moduleKey of jackyunExportOrder) bound.set(moduleKey, (await readBoundHandoff(root, plan, policy, moduleKey)).handoff);
   const outputRoot = dryRun ? paths(root).validationRoot : paths(root).outputRoot;
   let costSourcePath: string | undefined;
+  const baseline = deps.recoveryRequest && !dryRun ? await collectionPublicationBaseline(root, plan, {
+    allowCapture: false, request: deps.request ?? fetch, baseUrl: plan.baseUrl, assertOwned: deps.assertOwned!, at: nowOf(deps),
+  }) : null;
   for (const moduleKey of jackyunModuleOrder) {
+    await deps.assertOwned?.();
     const handoff = bound.get(moduleKey)!;
     const options: JackyunDownloadRunOptions = {
       module: moduleKey, filePath: handoff.filePath, runId: plan.runId, policyVersion: plan.protocol,
@@ -225,9 +255,17 @@ async function runImports(root: string, plan: JackyunExportFirstPlan, policy: Po
         navigationIntentAt: handoff.navigationIntentAt, queryIntentAt: handoff.queryIntentAt,
         tableStableAt: handoff.tableStableAt, exportIntentAt: handoff.exportIntentAt, downloadEventAt: handoff.downloadEventAt,
       }, allowedDownloadHosts: policy.browser.allowedDownloadHosts, dryRun,
+      assertOwned: deps.assertOwned,
+      ...(baseline ? { expectedStateToken: baseline.tokens[moduleKey] } : {}),
+      collectionDate: plan.runDate, collectionSalesEndDate: plan.asOfDate,
+      recoveryAttempt: deps.recoverIncompleteModules,
       ...(!dryRun && importRecovery && (isPartialImportRecovery(importRecovery) ? moduleKey === "sales" : moduleKey === "products") ? { importRecovery } : {}),
     };
-    const result = await (deps.runDownload ?? runJackyunDownload)(options);
+    const result = await (deps.runDownload ?? runJackyunDownload)(options).catch(error => {
+      if (error instanceof Error && error.message === "JACKYUN_IMPORT_PROCESSING_WAIT") throw new Error(`JACKYUN_IMPORT_PROCESSING_WAIT_${moduleKey}`);
+      throw error;
+    });
+    await deps.assertOwned?.();
     if (!(dryRun ? ["prepared", "duplicate_ignored"] : ["completed", "duplicate_ignored"]).includes(result.status)) {
       throw new Error(`${moduleKey} 导入或校验未完成。`);
     }
@@ -278,7 +316,10 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
   const root = path.resolve(deps.root);
   let runId = `n8n-export-first-${executionId}`;
   return withJackyunRunLock({ runId, purpose: "n8n_export_first",
-    ...(deps.lockDirectory ? { lockDirectory: deps.lockDirectory } : {}) }, async () => {
+    ...(deps.lockDirectory ? { lockDirectory: deps.lockDirectory } : {}) }, async lock => {
+    await lock.assertOwned();
+    const assertOwned = lock.assertOwned;
+    deps = { ...deps, assertOwned };
     const policy = await readJsonFile<Policy>(path.join(root, "config", "jackyun-export-first-policy.json"));
     if (policy.version !== jackyunExportFirstPolicyVersion) throw new Error("导出策略版本不一致。");
     let newPlanReady = false;
@@ -296,8 +337,98 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
     let httpScopeRecovery: Awaited<ReturnType<typeof claimHttpScopeRecovery>> | undefined;
     let importRecovery: ImportRecoveryBinding | undefined;
     const activePath = path.join(paths(root).pipelineRoot, "active.json");
-    const active = await readJsonFileOr<{ runId: string; executionId: string } | null>(activePath, null);
-    if (active && active.executionId !== executionId) {
+    let active = await readJsonFileOr<{ runId: string; executionId: string } | null>(activePath, null);
+    let unifiedResume = false;
+    let collectionRetirement: CaptureRetirement | null = null;
+    let control = deps.recoveryRequest ? await readRecoveryControl(root,
+      deps.recoveryRequest.kind === "retry" ? deps.recoveryRequest.logicalExecutionId : executionId) : null;
+    const attemptExecutionId = executionId;
+    const logicalExecutionId = deps.recoveryRequest?.kind === "retry" ? deps.recoveryRequest.logicalExecutionId : executionId;
+    if (deps.failureRetryAttempt !== undefined && (!Number.isSafeInteger(deps.failureRetryAttempt) || deps.failureRetryAttempt < 1 || deps.failureRetryAttempt > 3)) throw new Error("重试预算审计身份无效。");
+    const failureAttempts = Math.max(control?.record.failureAttempts ?? 0, deps.failureRetryAttempt ?? 0);
+    if (deps.recoveryRequest?.kind === "retry") {
+      const request = deps.recoveryRequest;
+      const sourceId = control?.record.sourceExecutionId ?? request.logicalExecutionId;
+      const sourcePath = path.join(paths(root).pipelineRoot, `n8n-export-first-${sourceId}.json`);
+      const source = await readJsonFile<JackyunExportFirstPlan>(sourcePath);
+      checkPlan(source, sourceId);
+      if (control && active?.executionId !== sourceId && control.record.decision !== "completed") {
+        const reservation = await readJsonFileOr<{ version: string; sourceExecutionId: string; previousExecutionId: string; newPlanSha256: string;
+          inspected: Awaited<ReturnType<typeof inspectAutomaticPreflightReplacement>>; humanAuthority: BoundHumanAuthority | null;
+          planOnly: Awaited<ReturnType<typeof inspectPlanOnlyRecovery>> | null; retirement?: CaptureRetirement | null } | null>(
+          path.join(paths(root).pipelineRoot, "collection-reservations", logicalExecutionId, `${sourceId}.json`), null);
+        if (!reservation || controlDigest(reservation) !== control.record.proofDigest || reservation.version !== "jackyun-collection-reservation-v1"
+          || reservation.sourceExecutionId !== sourceId || reservation.previousExecutionId !== active?.executionId
+          || sha(await readFile(sourcePath)) !== reservation.newPlanSha256 || source.phase !== "exporting" || Object.keys(source.exports).length || source.exportIntent) {
+          throw new Error("恢复记录已提交但 active 未推进，预备证据未通过复验；保留原记录，需要人工核查。");
+        }
+        const target = preflightClosurePath(root, reservation.previousExecutionId);
+        if (!await stat(target).then(() => true, error => { if (error.code === "ENOENT") return false; throw error; })) {
+          if (reservation.retirement) await publishCaptureRetirement(root, reservation.retirement, sourceId);
+          else if (reservation.planOnly) await publishPlanOnlyClosure(root, reservation.previousExecutionId, reservation.inspected.context.replacement,
+            reservation.planOnly, reservation.humanAuthority ?? undefined);
+          else if (reservation.humanAuthority) await publishHumanPreflightClosure(root, reservation.inspected.proof, sourceId, reservation.humanAuthority, reservation.inspected.credentialReadinessVerified);
+          else await publishReplacementPreflightClosure(root, reservation.inspected.proof, reservation.inspected.context.replacement, reservation.inspected.credentialReadinessVerified);
+        }
+        await assertClosedPreflight(root, reservation.previousExecutionId, sourceId);
+        await assertOwned(); await writeJsonAtomic(activePath, { executionId: sourceId, runId: source.runId });
+        active = { executionId: sourceId, runId: source.runId };
+      }
+      if (control && control.record.attemptExecutionId !== executionId && control.record.decision !== "completed") {
+        const ownerState = (deps.readOwnerState ?? readN8nJackyunOwnerState)(control.record.attemptExecutionId);
+        if (["running", "waiting"].includes(ownerState)) {
+          const wait = await recordJackyunSafeWait({ root, runId: source.runId, reason: "business_owner", at: nowOf(deps), assertOwned });
+          return { ...publicExportFirstPlan(source), ...wait };
+        }
+      }
+      if (control && control.record.attemptExecutionId !== executionId
+        && control.record.decision !== "completed" && control.record.attemptExecutionId !== request.failedExecutionId) {
+        throw new Error("重试目标已被另一 execution 接续，请等待并刷新原逻辑运行状态。");
+      }
+      const hasApiCheckpoint = await stat(path.join(paths(root).outputRoot, source.runId, "api-controller-state.json")).then(() => true, error => {
+        if (error.code === "ENOENT") return false; throw error;
+      });
+      if (action === "plan-api" && source.runDate !== jackyunCaptureDate(nowOf(deps)) && source.phase === "exporting") {
+        const context = (deps.recoveryEvidence ?? readN8nReplacementEvidence)(request.failedExecutionId, executionId);
+        if (context.evidence.status !== "error" || context.evidence.retrySuccessId !== null || context.evidence.activeExecutions !== 0) throw new Error("旧采集 owner 或在途任务无法确认，请等待或核查。");
+        collectionRetirement = await inspectCaptureRetirement(root, source, nowOf(deps));
+        if (collectionRetirement) for (const moduleKey of jackyunExportOrder) if (source.exports[moduleKey]) await readBoundHandoff(root, source, policy, moduleKey);
+      }
+      if (!collectionRetirement && (control?.record.attemptExecutionId === executionId || source.phase === "completed"
+        || ["exported", "validating", "validated", "importing", "imported"].includes(source.phase)
+        || source.phase === "exporting" && hasApiCheckpoint && source.exportTransport === jackyunApiTransport)) {
+        if (!control || control.record.attemptExecutionId !== executionId) {
+          if (action !== "plan-api") throw new Error("恢复必须从完整 A 入口领取，禁止单节点接管。");
+          if (source.phase !== "completed") {
+            const evidence = (deps.recoveryEvidence ?? readN8nReplacementEvidence)(request.failedExecutionId, executionId);
+            if (evidence.evidence.activeExecutions !== 0 || evidence.evidence.status !== "error"
+              || evidence.evidence.retrySuccessId !== null || evidence.replacement.executionId !== executionId) throw new Error("原业务 owner 尚在运行或恢复身份不明，请等待或核查。");
+          }
+          for (const moduleKey of jackyunExportOrder) if (source.exports[moduleKey]) {
+            try { await readBoundHandoff(root, source, policy, moduleKey); }
+            catch (error) {
+              if (!deps.repairApiFile || !await deps.repairApiFile({ runId: source.runId, runDate: source.runDate, asOfDate: source.asOfDate,
+                salesStartDate: source.salesStartDate, module: moduleKey, outputRoot: paths(root).outputRoot, eventRoot: paths(root).eventRoot,
+                downloadDirectory: policy.browser.downloadDirectory, assertOwned })) throw error;
+              await readBoundHandoff(root, source, policy, moduleKey);
+            }
+          }
+          if (source.phase === "validated") await verifyJackyunPreparedImports(root, source, policy);
+          if (["imported", "completed"].includes(source.phase)) await verifyImports(root, source, policy, deps);
+          control = await appendRecoveryControl(root, { version: "jackyun-recovery-control-v1", logicalExecutionId,
+            sourceExecutionId: sourceId, attemptExecutionId: executionId, ownerToken: lock.ownerToken,
+            generation: control?.record.generation ?? 1, decision: source.phase === "completed" ? "completed" : "resume",
+            proofDigest: controlDigest({ source, failedExecutionId: request.failedExecutionId }), at: nowOf(deps),
+            failureAttempts, nextAllowedAt: null }, control?.digest ?? null, assertOwned);
+        }
+        executionId = sourceId; runId = source.runId; unifiedResume = true;
+      } else {
+        // Zero-effect closure remains the original strict proof (including the
+        // real failed execution, request, intent and four effect paths).
+        if (!collectionRetirement && sourceId !== request.failedExecutionId || active?.executionId !== sourceId) throw new Error("原失败与采集计划不一致，缺少充分证据；请核查指定逻辑运行。");
+      }
+    }
+    if (!unifiedResume && active && active.executionId !== executionId) {
       if (!/^n8n-export-first-[1-9]\d{0,19}$/.test(active.runId)) throw new Error("活动运行编号无效。");
       const previous = await readJsonFile<JackyunExportFirstPlan>(path.join(paths(root).pipelineRoot, `${active.runId}.json`));
       if (active.runId !== `n8n-export-first-${active.executionId}`) throw new Error("活动运行身份不一致。");
@@ -317,6 +448,38 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
           executionId = active.executionId; runId = active.runId;
         }
       } else if (previous.phase !== "completed") {
+        if (deps.recoveryRequest && action === "plan-api" && previous.exportTransport === jackyunApiTransport
+          && previous.phase === "exporting" && (collectionRetirement || Object.keys(previous.exports).length === 0 && !previous.exportIntent)) {
+          await ensureNewPlanReady();
+          const context = (deps.recoveryEvidence ?? readN8nReplacementEvidence)(deps.recoveryRequest.kind === "retry" ? deps.recoveryRequest.failedExecutionId : active.executionId, executionId);
+          const planOnly = !collectionRetirement && context.evidence.lastNode === "A·固定采集日和销售日期"
+            ? await inspectPlanOnlyRecovery(root, active.executionId, context.evidence, nowOf(deps)) : null;
+          if (planOnly && context.replacement.mode !== "manual" && !deps.humanAuthority) throw new Error("A 服务或身份障碍需要处理后从系统页面人工完整重试。");
+          const inspected = collectionRetirement ? null : planOnly ? { proof: planOnly.proof, context, credentialReadinessVerified: false }
+            : await inspectAutomaticPreflightReplacement(root, active.executionId, executionId, nowOf(deps), {
+              readEvidence: deps.recoveryEvidence, humanAuthority: deps.humanAuthority,
+            });
+          const fresh = createExportFirstPlan(executionId, action, nowOf(deps));
+          const freshPath = path.join(paths(root).pipelineRoot, `${fresh.runId}.json`);
+          const saved = await readJsonFileOr<JackyunExportFirstPlan | null>(freshPath, null);
+          if (saved && !isDeepStrictEqual(saved, fresh)) throw new Error("预备采集计划已存在且身份变化，请核查原 A；禁止覆盖。");
+          if (!saved) await writeJsonAtomic(freshPath, fresh, true);
+          const reservation = { version: "jackyun-collection-reservation-v1", logicalExecutionId, sourceExecutionId: executionId,
+            previousExecutionId: active.executionId, newPlanSha256: sha(`${JSON.stringify(fresh, null, 2)}\n`), inspected,
+            humanAuthority: deps.humanAuthority ?? null, planOnly, retirement: collectionRetirement };
+          await writeJsonAtomic(path.join(paths(root).pipelineRoot, "collection-reservations", logicalExecutionId, `${executionId}.json`), reservation, true);
+          control = await appendRecoveryControl(root, { version: "jackyun-recovery-control-v1", logicalExecutionId, sourceExecutionId: executionId,
+            attemptExecutionId: executionId, ownerToken: lock.ownerToken, generation: (control?.record.generation ?? 0) + 1,
+            decision: "collect", proofDigest: controlDigest(reservation), at: nowOf(deps), failureAttempts,
+            nextAllowedAt: null }, control?.digest ?? null, assertOwned);
+          if (collectionRetirement) await publishCaptureRetirement(root, collectionRetirement, executionId);
+          else if (planOnly) await publishPlanOnlyClosure(root, active.executionId, inspected!.context.replacement, planOnly, deps.humanAuthority);
+          else if (deps.humanAuthority) await publishHumanPreflightClosure(root, inspected!.proof as Awaited<ReturnType<typeof inspectAutomaticPreflightReplacement>>["proof"], executionId, deps.humanAuthority, inspected!.credentialReadinessVerified);
+          else await publishReplacementPreflightClosure(root, inspected!.proof as Awaited<ReturnType<typeof inspectAutomaticPreflightReplacement>>["proof"], inspected!.context.replacement, inspected!.credentialReadinessVerified);
+          await assertOwned();
+          await writeJsonAtomic(activePath, { runId: fresh.runId, executionId });
+          active = { runId: fresh.runId, executionId }; runId = fresh.runId;
+        } else {
         const partialImportOnly = active.executionId === "5478" && ["importing", "imported"].includes(previous.phase);
         if (!partialImportOnly && action === "plan-api" && previous.exportTransport === jackyunApiTransport && deps.recoverPreviousPreflight) {
           await ensureNewPlanReady();
@@ -350,6 +513,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
           assertExportFirstAction(previous, active.executionId, action, Boolean(importRecovery));
           executionId = active.executionId; runId = active.runId;
         }
+        }
       }
     }
     const planPath = path.join(paths(root).pipelineRoot, `${runId}.json`);
@@ -360,21 +524,51 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
     if (!plan) {
       if (!["plan", "plan-web-session", "plan-direct-http", "plan-api"].includes(action)) throw new Error("缺少本 execution 的计划，禁止单节点执行。");
       await ensureNewPlanReady();
-      const baseUrl = normalizeJackyunLocalBaseUrl("http://localhost:3000");
-      const createdAt = nowOf(deps);
-      const runDate = jackyunCaptureDate(createdAt);
-      const yesterday = new Date(`${runDate}T00:00:00Z`);
-      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-      plan = { version: action === "plan-api" ? 2 : 1, protocol: jackyunExportFirstPolicyVersion, executionId, runId, runDate,
-        asOfDate: yesterday.toISOString().slice(0, 10), baseUrl, createdAt, phase: "exporting", exports: {},
-        ...(action === "plan-api" ? { salesStartDate: rollingJackyunSalesStartDate(yesterday.toISOString().slice(0, 10)) } : {}),
-        ...(action === "plan-web-session" ? { exportTransport: jackyunWebSessionTransport } : action === "plan-direct-http" ? { exportTransport: jackyunDirectTransport } : action === "plan-api" ? { exportTransport: jackyunApiTransport } : {}) };
+      plan = createExportFirstPlan(executionId, action, nowOf(deps));
       await mkdir(path.dirname(planPath), { recursive: true });
-      await writeFile(planPath, `${JSON.stringify(plan, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+      await assertOwned();
+      await writeJsonAtomic(planPath, plan, true);
       await writeJsonAtomic(activePath, { runId, executionId });
     }
-    assertExportFirstAction(plan, executionId, action, Boolean(importRecovery));
-    if (action === "plan" || action === "plan-web-session" || action === "plan-direct-http" || action === "plan-api") return publicExportFirstPlan(plan);
+    if (deps.recoveryRequest && (!control || !unifiedResume && control.record.attemptExecutionId !== attemptExecutionId)) {
+      control = await appendRecoveryControl(root, { version: "jackyun-recovery-control-v1", logicalExecutionId,
+        sourceExecutionId: executionId, attemptExecutionId, ownerToken: lock.ownerToken, generation: (control?.record.generation ?? 0) + 1,
+        decision: "collect", proofDigest: controlDigest(plan), at: nowOf(deps), failureAttempts,
+        nextAllowedAt: null }, control?.digest ?? null, assertOwned);
+    }
+    await assertOwned();
+    if (control && control.record.attemptExecutionId !== attemptExecutionId) throw new Error("恢复 owner 已变化。");
+    if (deps.recoveryRequest && plan.exportTransport === jackyunApiTransport && ["plan-api", "export-all"].includes(action)) {
+      for (const moduleKey of jackyunExportOrder) if (plan.exports[moduleKey]) {
+        try { await readBoundHandoff(root, plan, policy, moduleKey); }
+        catch (error) {
+          const repaired = deps.repairApiFile ? await deps.repairApiFile({ runId: plan.runId, runDate: plan.runDate, asOfDate: plan.asOfDate,
+            salesStartDate: plan.salesStartDate, module: moduleKey, outputRoot: paths(root).outputRoot, eventRoot: paths(root).eventRoot,
+            downloadDirectory: policy.browser.downloadDirectory, assertOwned }) : false;
+          if (!repaired) throw error;
+          await readBoundHandoff(root, plan, policy, moduleKey);
+        }
+      }
+    }
+    if (deps.recoveryRequest && !["imported", "completed"].includes(plan.phase)
+      && ["plan-api", "export-all", "validate", "import"].includes(action)) await collectionPublicationBaseline(root, plan, {
+      allowCapture: action === "plan-api" && plan.phase === "exporting" && Object.keys(plan.exports).length === 0 && !plan.exportIntent,
+      request: deps.request ?? fetch, baseUrl: plan.baseUrl, assertOwned, at: nowOf(deps),
+    });
+    if (!unifiedResume) assertExportFirstAction(plan, executionId, action, Boolean(importRecovery));
+    else if (!["plan-api", "export-all", "validate", "import", "verify"].includes(action)) throw new Error("恢复只支持原五表完整入口。");
+    if (action === "plan" || action === "plan-web-session" || action === "plan-direct-http" || action === "plan-api") return { ...publicExportFirstPlan(plan),
+      ...(collectionRetirement ? { oldUncompletedCaptureDate: collectionRetirement.oldCaptureDate, recoveryDecision: "collect" as const } : {}) };
+    if (unifiedResume && ["exported", "validating", "validated", "importing", "imported", "completed"].includes(plan.phase)
+      && (action === "export-all" || action === "validate" && ["validated", "importing", "imported", "completed"].includes(plan.phase)
+        || action === "import" && ["imported", "completed"].includes(plan.phase))) {
+      for (const moduleKey of jackyunExportOrder) await readBoundHandoff(root, plan, policy, moduleKey);
+      if (action !== "export-all") await verifyJackyunPreparedImports(root, plan, policy);
+      if (["imported", "completed"].includes(plan.phase)) await verifyImports(root, plan, policy, deps);
+      await assertOwned();
+      return { ...publicExportFirstPlan(plan), reused: true, logicalExecutionId, attemptExecutionId };
+    }
+    if (unifiedResume) assertExportFirstAction(plan, executionId, action, Boolean(importRecovery));
     if (importRecovery && ["export-all", "validate"].includes(action)) {
       // Revalidate original dry-run evidence without replaying the browser,
       // producing replacement workbooks, or rewinding the import phase.
@@ -384,16 +578,26 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
     if (action === "export-all") {
       for (const moduleKey of jackyunExportOrder) if (plan.exports[moduleKey]) await readBoundHandoff(root, plan, policy, moduleKey);
       if (plan.phase === "exported") return publicExportFirstPlan(plan);
-      if (plan.runDate !== jackyunCaptureDate(nowOf(deps))) throw new Error("采集过程已跨日，禁止启动浏览器采集旧日期。");
+      if (deps.recoveryRequest && plan.exportTransport === jackyunApiTransport && await verifyCompletedApiLocalFiles({ runId, runDate: plan.runDate,
+        asOfDate: plan.asOfDate, salesStartDate: plan.salesStartDate, outputRoot: paths(root).outputRoot, eventRoot: paths(root).eventRoot,
+        downloadDirectory: policy.browser.downloadDirectory })) {
+        for (const moduleKey of jackyunExportOrder) plan.exports[moduleKey] = (await readBoundHandoff(root, plan, policy, moduleKey)).receipt;
+        await assertOwned(); delete plan.exportIntent; plan.phase = "exported";
+        await writeJsonAtomic(planPath, plan);
+        return { ...publicExportFirstPlan(plan), reused: true };
+      }
+      if (plan.runDate !== jackyunCaptureDate(nowOf(deps)) && !(deps.recoveryRequest && plan.exportTransport === jackyunApiTransport)) throw new Error("采集过程已跨日，禁止启动浏览器采集旧日期。");
       const currentPlan = plan;
       const callbacks = {
-        beforeModule: async (module: JackyunModule) => {
+        beforeModule: async (module: JackyunModule, continuationOnly = false) => {
+          await assertOwned();
           if (currentPlan.exports[module]) { await readBoundHandoff(root, currentPlan, policy, module); return; }
-          if (currentPlan.runDate !== jackyunCaptureDate(nowOf(deps))) throw new Error("采集跨日。");
+          if (currentPlan.runDate !== jackyunCaptureDate(nowOf(deps)) && !continuationOnly) throw new Error("采集跨日。");
           if (jackyunExportOrder.find(key => !currentPlan.exports[key]) !== module || currentPlan.exportIntent && currentPlan.exportIntent !== module) throw new Error("导出模块乱序。");
           currentPlan.exportIntent = module; await writeJsonAtomic(planPath, currentPlan);
         },
         afterModule: async (module: JackyunModule) => {
+          await assertOwned();
           if (!currentPlan.exports[module] && currentPlan.exportIntent !== module) throw new Error("缺少本轮导出意图。");
           currentPlan.exports[module] = (await readBoundHandoff(root, currentPlan, policy, module)).receipt;
           delete currentPlan.exportIntent; await writeJsonAtomic(planPath, currentPlan);
@@ -403,7 +607,8 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       try {
         result = plan.exportTransport === jackyunApiTransport ? await (deps.runApi ?? runApiExports)({
         runId, runDate: plan.runDate, asOfDate: plan.asOfDate, salesStartDate: plan.salesStartDate, eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
-        downloadDirectory: policy.browser.downloadDirectory, resumeTaskBinding: apiResumeTaskBinding, ...callbacks,
+        downloadDirectory: policy.browser.downloadDirectory, resumeTaskBinding: apiResumeTaskBinding, assertOwned,
+        ...(deps.recoveryRequest ? { controllerVersion: 2 as const } : {}), ...callbacks,
       }) : await (deps.runBrowser ?? runController)({
         runId, snapshotDate: plan.runDate, asOfDate: plan.asOfDate,
         eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
@@ -428,6 +633,10 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
         },
         });
       } catch (error) {
+        if (deps.recoveryRequest && error instanceof Error && error.message === "API_ORIGINAL_EXPORT_TASK_PENDING") {
+          const wait = await recordJackyunSafeWait({ root, runId, reason: `export_${plan.exportIntent ?? "unknown"}`, at: nowOf(deps), assertOwned });
+          return { ...publicExportFirstPlan(plan), ...wait };
+        }
         const pageFailure = error instanceof Error && classifyJackyunPreflightFailure(error.message) === "automatic";
         if (plan.exportTransport !== jackyunApiTransport || (!isRetryableJackyunCredentialPreparationFailure(error) && !pageFailure)) throw error;
         // The browser/session has already unwound. While still holding the
@@ -464,6 +673,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       if (jackyunExportOrder.every(item => plan!.exports[item])) plan.phase = "exported";
     } else if (action === "validate") {
       if (plan.phase !== "validated") {
+        deps = { ...deps, recoverIncompleteModules: Boolean(deps.recoveryRequest) && plan.phase === "validating" };
         plan.phase = "validating";
         await writeJsonAtomic(planPath, plan);
         await runImports(root, plan, policy, true, deps);
@@ -471,20 +681,33 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       }
     } else if (action === "import") {
       if (plan.phase !== "imported") {
+        deps = { ...deps, recoverIncompleteModules: Boolean(deps.recoveryRequest) && plan.phase === "importing" };
         if (importRecovery && isPartialImportRecovery(importRecovery)) await verifyPartialImportGate(root, importRecovery, { request: deps.request });
         plan.phase = "importing";
         await writeJsonAtomic(planPath, plan);
         if (importRecovery) await verifyJackyunPreparedImports(root, plan, policy);
-        await runImports(root, plan, policy, false, deps, importRecovery);
+        try { await runImports(root, plan, policy, false, deps, importRecovery); }
+        catch (error) {
+          if (deps.recoveryRequest && error instanceof Error && /^JACKYUN_IMPORT_PROCESSING_WAIT_(products|inventory|inventory_age|sales|combos)$/.test(error.message)) {
+            const wait = await recordJackyunSafeWait({ root, runId, reason: `import_${error.message.slice("JACKYUN_IMPORT_PROCESSING_WAIT_".length)}`, at: nowOf(deps), assertOwned });
+            return { ...publicExportFirstPlan(plan), ...wait };
+          }
+          throw error;
+        }
         plan.phase = "imported";
       }
     } else if (action === "verify") {
       const result = await verifyImports(root, plan, policy, deps);
+      await assertOwned();
       plan.phase = "completed";
-      plan.completedAt = nowOf(deps);
+      plan.completedAt ??= nowOf(deps);
       await writeJsonAtomic(planPath, plan);
+      if (control && control.record.decision !== "completed") await appendRecoveryControl(root, {
+        ...control.record, decision: "completed", proofDigest: controlDigest(result), at: nowOf(deps), nextAllowedAt: null,
+      }, control.digest, assertOwned);
       return { ...publicExportFirstPlan(plan), results: result.modules };
     }
+    await assertOwned();
     await writeJsonAtomic(planPath, plan);
     return publicExportFirstPlan(plan);
   });

@@ -22,7 +22,7 @@ export function permissionCanonical(value: unknown): string {
     ? value.map(item => JSON.parse(permissionCanonical(item))).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
     : Object.fromEntries(Object.keys(value).sort().map(key => [key, JSON.parse(permissionCanonical((value as Record<string, unknown>)[key]))])) : value);
 }
-export const apiSha = (value: string) => createHash("sha256").update(value).digest("hex");
+export const apiSha = (value: string | Uint8Array) => createHash("sha256").update(value).digest("hex");
 function record(value: unknown): Record<string, unknown> {
   if (!value || Array.isArray(value) || typeof value !== "object") throw new Error("API_RESPONSE_SCHEMA_CHANGED");
   return value as Record<string, unknown>;

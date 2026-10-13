@@ -35,40 +35,16 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "http://127.0.0.1:5791/coordination/claim",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-TERUISI-N8N-EXECUTION-ID",
-              "value": "={{ $execution.id }}"
-            },
-            {
-              "name": "X-TERUISI-COORDINATION-ATTEMPT",
-              "value": "={{ $runIndex }}"
-            },
-            {
-              "name": "X-TERUISI-WORKFLOW-KEY",
-              "value": "jackyun"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 10000
-        }
+        "jsCode": "\nconst anchor = $('固定原执行计划时间').first().json;\n\nconst previousQueue = $input.first().json.helperQueue;\nconst helperQueue = previousQueue ?? {polls:0,startedAt:new Date().toISOString()};\nif(!Number.isInteger(helperQueue.polls) || helperQueue.polls < 0 || helperQueue.polls >= 72\n  || !Number.isFinite(Date.parse(helperQueue.startedAt)) || Date.now() < Date.parse(helperQueue.startedAt)\n  || Date.now() - Date.parse(helperQueue.startedAt) > 6*60*60*1000) throw new Error('coordination_wait_expired_manual_action');\nconst nextHelperQueue = {polls:helperQueue.polls+1,startedAt:helperQueue.startedAt};\nlet response;\ntry {\n  response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/claim',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,\n    headers:{...{\"X-TERUISI-WORKFLOW-KEY\":\"jackyun\"},'X-TERUISI-N8N-EXECUTION-ID':String($execution.id),\n      'X-TERUISI-COORDINATION-ATTEMPT':String(helperQueue.polls),'X-TERUISI-SCHEDULED-AT':anchor.scheduledAt}});\n} catch (error) {\n  const status = Number(error.statusCode ?? error.response?.statusCode ?? error.httpCode ?? 0);\n  if (status >= 400 && status < 500) throw new Error('coordination_rejected_manual_action');\n  // This node has no business effect. Retry only this same claim/execution;\n  // never call A or replay any export/import/send on an uncertain response.\n  return [{json:{ok:true,coordinationStatus:'waiting',helperQueue:nextHelperQueue,reason:'helper_unavailable_wait',...anchor}}];\n}\nconst status = Number(response.statusCode);\nif (status >= 400 && status < 500) throw new Error('coordination_rejected_manual_action');\nif (status >= 500) return [{json:{ok:true,coordinationStatus:'waiting',helperQueue:nextHelperQueue,reason:'helper_unavailable_wait',...anchor}}];\nif (status !== 200) throw new Error('invalid_coordination_http_status_manual_action');\nconst result = response.body;\nif (!result || result.ok !== true || !['granted','waiting'].includes(result.coordinationStatus)) throw new Error('invalid_coordination_result_manual_action');\nreturn [{json:{...result,...anchor,...(result.coordinationStatus === 'waiting' ? {helperQueue:nextHelperQueue} : {})}}];"
       },
       "id": "a0c83e83c41ca10531952f14c8c801fb",
       "name": "领取共享 helper",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         -540,
         0
-      ],
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 5000
+      ]
     },
     {
       "parameters": {
@@ -136,13 +112,22 @@
             {
               "name": "X-TERUISI-N8N-EXECUTION-ID",
               "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-JACKYUN-RECOVERY",
+              "value": "={{ JSON.stringify($('固定原执行计划时间').first().json.jackyunRecovery) }}"
+            },
+            {
+              "name": "X-TERUISI-JACKYUN-HUMAN-AUTHORITY-ID",
+              "value": "={{ $('固定原执行计划时间').first().json.humanAuthorizationId ?? '' }}"
             }
           ]
         },
         "options": {
           "timeout": 120000
         }
-      }
+      },
+      "retryOnFail": false
     },
     {
       "id": "fb6028846f14fb982282281d2d8d4432",
@@ -162,13 +147,22 @@
             {
               "name": "X-TERUISI-N8N-EXECUTION-ID",
               "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-JACKYUN-RECOVERY",
+              "value": "={{ JSON.stringify($('固定原执行计划时间').first().json.jackyunRecovery) }}"
+            },
+            {
+              "name": "X-TERUISI-JACKYUN-HUMAN-AUTHORITY-ID",
+              "value": "={{ $('固定原执行计划时间').first().json.humanAuthorizationId ?? '' }}"
             }
           ]
         },
         "options": {
           "timeout": 1800000
         }
-      }
+      },
+      "retryOnFail": false
     },
     {
       "id": "46831fd7e8668d9cc85c10ae92c721d9",
@@ -188,13 +182,22 @@
             {
               "name": "X-TERUISI-N8N-EXECUTION-ID",
               "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-JACKYUN-RECOVERY",
+              "value": "={{ JSON.stringify($('固定原执行计划时间').first().json.jackyunRecovery) }}"
+            },
+            {
+              "name": "X-TERUISI-JACKYUN-HUMAN-AUTHORITY-ID",
+              "value": "={{ $('固定原执行计划时间').first().json.humanAuthorizationId ?? '' }}"
             }
           ]
         },
         "options": {
           "timeout": 1800000
         }
-      }
+      },
+      "retryOnFail": false
     },
     {
       "id": "366a4fc139ed556417dca4f17feb7a7e",
@@ -214,13 +217,22 @@
             {
               "name": "X-TERUISI-N8N-EXECUTION-ID",
               "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-JACKYUN-RECOVERY",
+              "value": "={{ JSON.stringify($('固定原执行计划时间').first().json.jackyunRecovery) }}"
+            },
+            {
+              "name": "X-TERUISI-JACKYUN-HUMAN-AUTHORITY-ID",
+              "value": "={{ $('固定原执行计划时间').first().json.humanAuthorizationId ?? '' }}"
             }
           ]
         },
         "options": {
           "timeout": 5400000
         }
-      }
+      },
+      "retryOnFail": false
     },
     {
       "id": "e2d15d0604985fa8550747ad0cf37bdf",
@@ -240,13 +252,22 @@
             {
               "name": "X-TERUISI-N8N-EXECUTION-ID",
               "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-JACKYUN-RECOVERY",
+              "value": "={{ JSON.stringify($('固定原执行计划时间').first().json.jackyunRecovery) }}"
+            },
+            {
+              "name": "X-TERUISI-JACKYUN-HUMAN-AUTHORITY-ID",
+              "value": "={{ $('固定原执行计划时间').first().json.humanAuthorizationId ?? '' }}"
             }
           ]
         },
         "options": {
           "timeout": 300000
         }
-      }
+      },
+      "retryOnFail": false
     },
     {
       "id": "a7519c3d2953453e143d341da5cfed45",
@@ -296,6 +317,207 @@
         320
       ],
       "webhookId": "c2f4cf0c-dd9e-4d33-94f2-378fe248e68c"
+    },
+    {
+      "name": "固定原执行计划时间",
+      "id": "a0c83e83c41ca10531952f14c8c801fb-anchor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -740,
+        -100
+      ],
+      "parameters": {
+        "jsCode": "\nconst input = $input.first().json;\n// Hourly descendants must carry the original anchor. Missing evidence stops;\n// a new execution must not silently recompute yesterday after downtime.\nif (input.body && input.body.version !== 'jackyun-human-retry-authority-v1' && (input.body.version !== 'teruisi-retry-context-v1' || input.body.workflowId !== \"J8kY2mQ5vR7sT4pN\"\n  || !/^[1-9]\\d{0,19}$/.test(input.body.failedExecutionId ?? '') || !/^[1-9]\\d{0,19}$/.test(input.body.originalExecutionId ?? '')\n  || !input.body.originalScheduledAt)) throw new Error('maintenance_retry_plan_anchor_missing_manual_action');\nconst humanRecovery = input.body?.version === 'jackyun-human-retry-authority-v1';\nif(humanRecovery && !/^[a-f0-9-]{36}$/.test(input.body.authorizationId ?? '')) throw new Error('jackyun_human_authority_missing_manual_action');\nconst jackyunRecovery = humanRecovery ? input.body.jackyunRecovery : input.body ? {\n  version:'jackyun-recovery-control-v1',kind:'retry',logicalExecutionId:String(input.body.originalExecutionId),failedExecutionId:String(input.body.failedExecutionId)\n} : input.jackyunRecovery ?? {version:'jackyun-recovery-control-v1',kind:'new'};\nif(jackyunRecovery.version !== 'jackyun-recovery-control-v1' || !['new','retry'].includes(jackyunRecovery.kind)\n  || jackyunRecovery.kind === 'retry' && (!/^[1-9]\\d{0,19}$/.test(jackyunRecovery.logicalExecutionId ?? '')\n    || !/^[1-9]\\d{0,19}$/.test(jackyunRecovery.failedExecutionId ?? ''))) throw new Error('jackyun_retry_target_missing_manual_action');\n\nlet inheritedAt = input.body?.originalScheduledAt ?? input.originalScheduledAt;\nif (jackyunRecovery.kind === 'retry') {\n  let target;\n  try { target = await this.helpers.httpRequest({method:'GET',url:'http://127.0.0.1:5791/coordination/jackyun-recovery-target?logicalExecutionId='+encodeURIComponent(jackyunRecovery.logicalExecutionId),json:true,timeout:10000}); }\n  catch { throw new Error('jackyun_retry_target_unverified_manual_action'); }\n  if(target?.ok !== true || target.logicalExecutionId !== jackyunRecovery.logicalExecutionId || typeof target.originalScheduledAt !== 'string'\n    || inheritedAt !== undefined && inheritedAt !== target.originalScheduledAt) throw new Error('jackyun_original_anchor_changed_manual_action');\n  inheritedAt = target.originalScheduledAt;\n}\nconst scheduledAt = new Date(inheritedAt ?? input.timestamp ?? Date.now()).toISOString();\nreturn [{json:{version:'teruisi-retry-context-v1',workflowId:\"J8kY2mQ5vR7sT4pN\",executionId:String($execution.id),\n  jackyunRecovery, humanAuthorizationId: humanRecovery ? input.body.authorizationId : null, retryDispatchExecutionId: input.body?.retryDispatchExecutionId ?? null, scheduledAt, originalExecutionId: String(jackyunRecovery.kind === 'retry' ? jackyunRecovery.logicalExecutionId : $execution.id)}}];"
+      }
+    },
+    {
+      "id": "cd9bc55504ac79692146426e0c463ea0-recovery-check",
+      "name": "A·固定采集日和销售日期·恢复等待？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        50,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cd9bc55504ac79692146426e0c463ea0-wait-condition",
+              "leftValue": "={{ $json.recoveryDecision ?? '' }}",
+              "rightValue": "wait",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "cd9bc55504ac79692146426e0c463ea0-recovery-wait",
+      "name": "A·固定采集日和销售日期·等待原任务",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        50,
+        240
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.waitMinutes ?? 5 }}",
+        "unit": "minutes"
+      }
+    },
+    {
+      "id": "fb6028846f14fb982282281d2d8d4432-recovery-check",
+      "name": "B·接口校验与五表下载·恢复等待？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        390,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fb6028846f14fb982282281d2d8d4432-wait-condition",
+              "leftValue": "={{ $json.recoveryDecision ?? '' }}",
+              "rightValue": "wait",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "fb6028846f14fb982282281d2d8d4432-recovery-wait",
+      "name": "B·接口校验与五表下载·等待原任务",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        390,
+        240
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.waitMinutes ?? 5 }}",
+        "unit": "minutes"
+      }
+    },
+    {
+      "id": "46831fd7e8668d9cc85c10ae92c721d9-recovery-check",
+      "name": "C·五表完整校验和导入演练·恢复等待？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        730,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "46831fd7e8668d9cc85c10ae92c721d9-wait-condition",
+              "leftValue": "={{ $json.recoveryDecision ?? '' }}",
+              "rightValue": "wait",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "46831fd7e8668d9cc85c10ae92c721d9-recovery-wait",
+      "name": "C·五表完整校验和导入演练·等待原任务",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        730,
+        240
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.waitMinutes ?? 5 }}",
+        "unit": "minutes"
+      }
+    },
+    {
+      "id": "366a4fc139ed556417dca4f17feb7a7e-recovery-check",
+      "name": "D·统一导入运营管理系统·恢复等待？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1070,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "366a4fc139ed556417dca4f17feb7a7e-wait-condition",
+              "leftValue": "={{ $json.recoveryDecision ?? '' }}",
+              "rightValue": "wait",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "366a4fc139ed556417dca4f17feb7a7e-recovery-wait",
+      "name": "D·统一导入运营管理系统·等待原任务",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1070,
+        240
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.waitMinutes ?? 5 }}",
+        "unit": "minutes"
+      }
     }
   ],
   "connections": {
@@ -303,7 +525,7 @@
       "main": [
         [
           {
-            "node": "领取共享 helper",
+            "node": "固定原执行计划时间",
             "type": "main",
             "index": 0
           }
@@ -354,7 +576,7 @@
       "main": [
         [
           {
-            "node": "B·接口校验与五表下载",
+            "node": "A·固定采集日和销售日期·恢复等待？",
             "type": "main",
             "index": 0
           }
@@ -365,7 +587,7 @@
       "main": [
         [
           {
-            "node": "C·五表完整校验和导入演练",
+            "node": "B·接口校验与五表下载·恢复等待？",
             "type": "main",
             "index": 0
           }
@@ -376,7 +598,7 @@
       "main": [
         [
           {
-            "node": "D·统一导入运营管理系统",
+            "node": "C·五表完整校验和导入演练·恢复等待？",
             "type": "main",
             "index": 0
           }
@@ -387,7 +609,7 @@
       "main": [
         [
           {
-            "node": "E·独立核验五类精确批次",
+            "node": "D·统一导入运营管理系统·恢复等待？",
             "type": "main",
             "index": 0
           }
@@ -398,7 +620,7 @@
       "main": [
         [
           {
-            "node": "领取共享 helper",
+            "node": "固定原执行计划时间",
             "type": "main",
             "index": 0
           }
@@ -406,6 +628,133 @@
       ]
     },
     "失败后每小时安全重试入口": {
+      "main": [
+        [
+          {
+            "node": "固定原执行计划时间",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "固定原执行计划时间": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A·固定采集日和销售日期·恢复等待？": {
+      "main": [
+        [
+          {
+            "node": "A·固定采集日和销售日期·等待原任务",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "B·接口校验与五表下载",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A·固定采集日和销售日期·等待原任务": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B·接口校验与五表下载·恢复等待？": {
+      "main": [
+        [
+          {
+            "node": "B·接口校验与五表下载·等待原任务",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "C·五表完整校验和导入演练",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B·接口校验与五表下载·等待原任务": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C·五表完整校验和导入演练·恢复等待？": {
+      "main": [
+        [
+          {
+            "node": "C·五表完整校验和导入演练·等待原任务",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "D·统一导入运营管理系统",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C·五表完整校验和导入演练·等待原任务": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D·统一导入运营管理系统·恢复等待？": {
+      "main": [
+        [
+          {
+            "node": "D·统一导入运营管理系统·等待原任务",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "E·独立核验五类精确批次",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D·统一导入运营管理系统·等待原任务": {
       "main": [
         [
           {
@@ -422,7 +771,8 @@
   "settings": {
     "executionOrder": "v1",
     "timezone": "Asia/Shanghai",
-    "errorWorkflow": "TeruisiHourlyRetry2026"
+    "errorWorkflow": "TeruisiHourlyRetry2026",
+    "saveExecutionProgress": true
   },
   "tags": [],
   "meta": {
@@ -431,6 +781,9 @@
       "delayMinutes": 60,
       "errorWorkflowId": "TeruisiHourlyRetry2026",
       "webhookPath": "teruisi-hourly-retry-fc753414409a49c05026b800c1eced5bf3875b69"
-    }
+    },
+    "maintenanceCoordination": "candidate-v1",
+    "jackyunRecovery": "jackyun-recovery-control-v1",
+    "jackyunEntryBinding": "fixed-logical-anchor-v1"
   }
 }

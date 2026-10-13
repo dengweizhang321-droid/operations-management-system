@@ -160,7 +160,11 @@ export const salesRetirementMigrationSha256 = "f981a62efd0515a7f64dd9f174151b8cf
 // mutable-root, resource and health tests.  The trusted Django verifier uses
 // this as the build-code trust root; the candidate cannot self-certify a
 // weakened bundle builder.
-export const trustedHelperBuilderSha256 = "ccf1e8252dce50b7cbe20fa84ea9dfa654b03ec689993d3504f469e7c366ad38";
+export const trustedHelperBuilderSha256 = "d92131f6bf5dbc5eb22c7d3b6925f31e22eff971859d80019a5921c7a0987d09";
+const trustedHelperBuilderByVersion = Object.freeze({
+  "teruisi-worker-helper-build-v1": "ccf1e8252dce50b7cbe20fa84ea9dfa654b03ec689993d3504f469e7c366ad38",
+  "teruisi-worker-helper-build-v2": trustedHelperBuilderSha256,
+});
 
 const salesContractTestFiles = Object.freeze([
   "tests/sales-d1-retirement.test.ts",
@@ -1407,11 +1411,14 @@ export function helperPathContainsMutableState(relativePath) {
 }
 
 export async function validateHelperBuilderEvidence(evidence, sourceRoot, helperRoot) {
+  const builderText = await readFile(path.join(sourceRoot, "tools/build-worker-helper.mjs"), "utf8");
+  const declaredBuilderVersion = /^const version = "(teruisi-worker-helper-build-v[12])";$/m.exec(builderText)?.[1];
+  if (!declaredBuilderVersion || declaredBuilderVersion !== evidence?.version) fail("helper builder evidence 版本与精确源码不一致");
   assertExactKeys(evidence, [
     "version", "entryRelativePath", "inputFiles", "mutableRootRewritePaths", "importMetaNeutralizedPaths",
     "immutableResourceUrlPaths", "mutableConfigPaths", "resourceInputFiles", "resourceOutputFiles", "outputSha256",
   ], "helper builder evidence");
-  if (evidence.version !== "teruisi-worker-helper-build-v1"
+  if (!["teruisi-worker-helper-build-v1", "teruisi-worker-helper-build-v2"].includes(evidence.version)
     || evidence.entryRelativePath !== "tools/tmall-sycm-cookie-pipeline.ts"
     || !hex64.test(evidence.outputSha256 ?? "") || !Array.isArray(evidence.inputFiles)
     || evidence.inputFiles.length < 1 || !Array.isArray(evidence.mutableRootRewritePaths)
@@ -1476,7 +1483,7 @@ export async function validateHelperBuilderEvidence(evidence, sourceRoot, helper
   );
   assertExactSortedPaths(
     evidence.immutableResourceUrlPaths,
-    requiredHelperImmutableResourceUrlPaths,
+    evidence.version === "teruisi-worker-helper-build-v2" ? ["lib/jackyun/json-file.ts", ...requiredHelperImmutableResourceUrlPaths] : requiredHelperImmutableResourceUrlPaths,
     "helper immutable resource URL",
   );
   assertExactSortedPaths(
@@ -1497,15 +1504,16 @@ export async function validateHelperBuilderEvidence(evidence, sourceRoot, helper
     }
     if (canonicalJson(paths) !== canonicalJson([...expectedPaths])) fail(`${label}集合无效`);
   };
+  const atomicPublisher = evidence.version === "teruisi-worker-helper-build-v2";
   await validateResourceFiles(
     evidence.resourceInputFiles,
-    requiredHelperResourceInputPaths,
+    atomicPublisher ? ["tools/jackyun-json-publish.ps1", ...requiredHelperResourceInputPaths] : requiredHelperResourceInputPaths,
     sourceRoot,
     "helper immutable resource input",
   );
   await validateResourceFiles(
     evidence.resourceOutputFiles,
-    requiredHelperResourceOutputPaths,
+    atomicPublisher ? ["jackyun-json-publish.ps1", ...requiredHelperResourceOutputPaths] : requiredHelperResourceOutputPaths,
     helperRoot,
     "helper immutable resource output",
   );
@@ -2722,8 +2730,10 @@ async function validateContractTests(contractTests, manifest, releaseRoot) {
 async function validateHelperReceipt(manifest, releaseRoot) {
   const trustedBuilderPath = path.join(releaseRoot, manifest.source.snapshotRoot, "tools", "build-worker-helper.mjs");
   await assertRegularFile(trustedBuilderPath, "trusted immutable helper builder source");
-  if (!hex64.test(trustedHelperBuilderSha256)
-    || sha256Bytes(await readFile(trustedBuilderPath)) !== trustedHelperBuilderSha256) {
+  const trustedBuilderRaw = await readFile(trustedBuilderPath);
+  const exactVersion = /^const version = "(teruisi-worker-helper-build-v[12])";$/m.exec(trustedBuilderRaw.toString("utf8"))?.[1];
+  const trustedDigest = trustedHelperBuilderByVersion[exactVersion];
+  if (!hex64.test(trustedDigest ?? "") || sha256Bytes(trustedBuilderRaw) !== trustedDigest) {
     fail("immutable helper builder 未匹配 Django trusted verifier 固定 SHA-256");
   }
   const pointer = manifest.artifacts.helperReceipt;

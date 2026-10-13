@@ -2,14 +2,37 @@ import { readFile, stat } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import { readN8nReplacementEvidence } from "./n8n-preflight-evidence";
 import { classifyJackyunPreflightFailure } from "./preflight-failure";
-import { assertClosedPreflight, inspectPreflightClosure, preflightClosurePath, publishReplacementPreflightClosure } from "./preflight-recovery";
+import { assertClosedPreflight, inspectPreflightClosure, preflightClosurePath, publishReplacementPreflightClosure, publishHumanPreflightClosure } from "./preflight-recovery";
+import type { BoundHumanAuthority } from "./human-retry";
 import { manageJackyunCredential, readJackyunLoginConfig } from "./windows-dpapi";
 
 type RecoveryEvidence = ReturnType<typeof readN8nReplacementEvidence>;
 export type AutomaticPreflightDependencies = {
   readEvidence?: (previousId: string, replacementId: string) => RecoveryEvidence;
   credentialReady?: () => Promise<boolean>;
+  humanAuthority?: BoundHumanAuthority;
 };
+
+export async function inspectAutomaticPreflightReplacement(root: string, previousId: string, replacementId: string, closedAt: string,
+  deps: AutomaticPreflightDependencies = {}) {
+  const readEvidence = deps.readEvidence ?? readN8nReplacementEvidence;
+  const context = readEvidence(previousId, replacementId);
+  const policy = classifyJackyunPreflightFailure(context.evidence.error);
+  if (!policy) throw new Error("原失败不属于已证明的零业务效果前置失败，请核查原请求和效果证据。");
+  if (context.replacement.executionId !== replacementId || Date.parse(context.replacement.startedAt) > Date.parse(closedAt)
+    || policy === "manual" && context.replacement.mode !== "manual" && !deps.humanAuthority) throw new Error("原身份或登录障碍须处理后从系统页面人工完整重试。");
+  const proof = await inspectPreflightClosure(root, previousId, context.evidence, closedAt);
+  let credentialReadinessVerified = false;
+  if (policy === "credential_ready") {
+    credentialReadinessVerified = await (deps.credentialReady ?? (async () => {
+      const status = await manageJackyunCredential("status", await readJackyunLoginConfig(root));
+      return status.ok && status.ready && status.status === "ready";
+    }))().catch(() => false);
+    if (!credentialReadinessVerified) throw new Error("吉客云凭据仍未就绪，需要人工处理；保留旧任务。");
+  }
+  if (!isDeepStrictEqual(readEvidence(previousId, replacementId), context)) throw new Error("前置恢复执行证据已变化。");
+  return { proof, context, credentialReadinessVerified };
+}
 
 /** Only called from a fresh plan-api entry while holding the original global run lock. */
 export async function recoverPreviousJackyunPreflight(root: string, previousId: string, replacementId: string, closedAt: string,
@@ -35,7 +58,7 @@ export async function recoverPreviousJackyunPreflight(root: string, previousId: 
   if (!policy) return;
   if (context.replacement.executionId !== replacementId) throw new Error("新完整执行身份不一致。");
   if (!Number.isFinite(Date.parse(closedAt)) || Date.parse(context.replacement.startedAt) > Date.parse(closedAt)) throw new Error("恢复执行时间不一致。");
-  if (policy === "manual" && context.replacement.mode !== "manual") throw new Error("旧任务登录验证或身份异常，需要人工处理后手动完整运行；不自动重试。");
+  if (policy === "manual" && context.replacement.mode !== "manual" && !deps.humanAuthority) throw new Error("旧任务登录验证或身份异常，需要人工处理后手动完整运行；不自动重试。");
   const proof = await inspectPreflightClosure(root, previousId, context.evidence, closedAt);
   let credentialReadinessVerified = false;
   if (policy === "credential_ready") {
@@ -48,5 +71,8 @@ export async function recoverPreviousJackyunPreflight(root: string, previousId: 
     if (!credentialReadinessVerified) throw new Error("吉客云凭据仍未就绪，需要人工处理；保留旧任务。");
   }
   if (!isDeepStrictEqual(readEvidence(previousId, replacementId), context)) throw new Error("恢复期间 n8n 执行证据变化，需要人工核查。");
-  await publishReplacementPreflightClosure(root, proof, context.replacement, credentialReadinessVerified);
+  if (deps.humanAuthority) {
+    if (context.replacement.mode !== "webhook") throw new Error("系统页面的人工恢复必须绑定原 Webhook 完整执行。");
+    await publishHumanPreflightClosure(root, proof, replacementId, deps.humanAuthority, credentialReadinessVerified);
+  } else await publishReplacementPreflightClosure(root, proof, context.replacement, credentialReadinessVerified);
 }

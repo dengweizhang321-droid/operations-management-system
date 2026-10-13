@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { apiSha, permissionCanonical, buildApiParameters, prepareApiExport, readApiScope, type ApiTemplates } from "../lib/jackyun/api-plan";
 import { apiTaskWindowObserved, apiTaskWindowStart } from "../lib/jackyun/api-clock";
 import { JackyunHttpSession } from "../lib/jackyun/direct-http";
-import { inspectSubmittedApiTask, runApiExports } from "../tools/jackyun-api-export";
+import { inspectSubmittedApiTask, runApiExports, repairOriginalApiFile } from "../tools/jackyun-api-export";
 import { selectNewWebSessionTask } from "../lib/jackyun/web-session-export";
 import { jackyunCaptureDate } from "../lib/jackyun/run-contract";
 
@@ -190,4 +190,15 @@ test("real API exporter emits a recoverable bound-download error and resumes wit
   const completed = JSON.parse(await readFile(statePath, "utf8"));
   assert.equal(completed.modules.inventory.status, "handed_off");
   assert.equal(completed.modules.inventory.binding.taskId, binding.taskId);
+  const original = Buffer.from([0x50, 0x4b, 3, 4, 5, 6, 7, 8]);
+  const entry = completed.modules.inventory;
+  const eventPath = path.join(options.eventRoot, options.runId, "02-inventory.json"), originalEvent = await readFile(eventPath);
+  await writeFile(entry.filePath, "corrupt-workbook-evidence");
+  const repaired = await repairOriginalApiFile({ ...options, module: "inventory" }, { http: base.http, tenantId: "fixture",
+    download: { request: async () => new Response(original), sleep: async () => {} } });
+  assert.equal(repaired, true); assert.deepEqual(await readFile(entry.filePath), original);
+  assert.deepEqual(await readFile(eventPath), originalEvent); assert.equal(submissions, 1);
+  const repairs = await readdir(path.join(root, options.runId, "file-repairs/inventory"));
+  assert.equal(repairs.length, 1);
+  assert.equal(await readFile(path.join(root, options.runId, "file-repairs/inventory", repairs[0], "corrupt-original.xlsx"), "utf8"), "corrupt-workbook-evidence");
 });

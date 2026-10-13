@@ -5,6 +5,8 @@ import { isDeepStrictEqual } from "node:util";
 import { jackyunCaptureDate, jackyunExportFirstPolicyVersion } from "./run-contract";
 import { jackyunSalesPeriod } from "./sales-period";
 import { classifyJackyunPreflightFailure } from "./preflight-failure";
+import { writeJsonDurable } from "./json-file";
+import type { BoundHumanAuthority } from "./human-retry";
 
 export const jackyunWorkflowId = "J8kY2mQ5vR7sT4pN";
 const failedNode = "1·分仓库存：筛选并导出所有页";
@@ -159,7 +161,7 @@ type AutomatedCredentialClosure = {
 };
 
 type PreflightZeroEffectProof = Omit<AutomatedCredentialClosure, "version" | "reason">;
-async function inspectPreflightZeroEffects(root: string, executionId: string, closedAt: string): Promise<PreflightZeroEffectProof> {
+export async function inspectPreflightZeroEffects(root: string, executionId: string, closedAt: string): Promise<PreflightZeroEffectProof> {
   preflightClosurePath(root, executionId);
   const directory = path.join(root, "outputs", "jackyun-export-first");
   const planRaw = await readRegular(path.join(directory, `n8n-export-first-${executionId}.json`));
@@ -195,7 +197,7 @@ export async function publishAutomatedCredentialClosure(root: string, executionI
   const target = preflightClosurePath(root, executionId);
   await mkdir(path.dirname(target), { recursive: true });
   await assertEntityPath(path.dirname(target));
-  await writeFile(target, `${canonical(receipt)}\n`, { encoding: "utf8", flag: "wx" });
+  await writeJsonDurable(target, receipt, true);
   return { status: receipt.status, receiptSha256: recoverySha(await readRegular(target)) };
 }
 
@@ -211,7 +213,7 @@ export async function publishAutomatedPageClosure(root: string, executionId: str
   const receipt = { version: 4, reason: "verified_transient_page_preflight_without_business_effects", error, proof };
   const target = preflightClosurePath(root, executionId);
   await mkdir(path.dirname(target), { recursive: true }); await assertEntityPath(path.dirname(target));
-  await writeFile(target, `${canonical(receipt)}\n`, { encoding: "utf8", flag: "wx" });
+  await writeJsonDurable(target, receipt, true);
   return { status: proof.status, receiptSha256: recoverySha(await readRegular(target)) };
 }
 async function assertEntityPath(target: string, allowMissing = false) {
@@ -433,6 +435,36 @@ type ReplacementClosure = {
   credentialReadinessVerified: boolean; proof: PreflightClosure;
 };
 
+type HumanPreflightClosure = { version: 5; reason: "verified_human_preflight_for_fresh_execution";
+  replacementExecutionId: string; replacementMode: "webhook"; credentialReadinessVerified: boolean;
+  humanAuthority: BoundHumanAuthority; proof: PreflightClosure };
+
+function assertHumanPreflightAuthority(receipt: HumanPreflightClosure, previousId: string, replacementId: string) {
+  const human = receipt.humanAuthority, authority = human?.authority;
+  const policy = classifyJackyunPreflightFailure(receipt.proof?.evidence?.error ?? "");
+  if (!policy || receipt.version !== 5 || receipt.reason !== "verified_human_preflight_for_fresh_execution"
+    || receipt.replacementExecutionId !== replacementId || receipt.replacementMode !== "webhook"
+    || receipt.proof.executionId !== previousId || human?.executionId !== replacementId
+    || authority?.version !== "jackyun-human-retry-authority-v1" || authority.kind !== "retry"
+    || authority.failedExecutionId !== previousId || authority.workflowId !== jackyunWorkflowId
+    || !/^[a-f0-9-]{36}$/.test(authority.authorizationId) || human.proofDigest !== recoverySha(JSON.stringify(authority))
+    || typeof receipt.credentialReadinessVerified !== "boolean" || policy === "credential_ready" && receipt.credentialReadinessVerified !== true
+    || !Number.isFinite(Date.parse(authority.createdAt)) || !Number.isFinite(Date.parse(authority.expiresAt))
+    || Date.parse(authority.createdAt) > Date.parse(receipt.proof.closedAt) || Date.parse(authority.expiresAt) <= Date.parse(receipt.proof.closedAt)) {
+    throw new Error("人工恢复授权、精确失败或唯一消费执行不一致。");
+  }
+}
+
+export async function publishHumanPreflightClosure(root: string, proof: PreflightClosure, replacementId: string,
+  humanAuthority: BoundHumanAuthority, credentialReadinessVerified: boolean) {
+  const receipt: HumanPreflightClosure = { version: 5, reason: "verified_human_preflight_for_fresh_execution", proof,
+    replacementExecutionId: replacementId, replacementMode: "webhook", humanAuthority, credentialReadinessVerified };
+  assertHumanPreflightAuthority(receipt, proof.executionId, replacementId);
+  if (!isDeepStrictEqual(await inspectPreflightClosure(root, proof.executionId, proof.evidence, proof.closedAt), proof)) throw new Error("人工恢复零效果证据已变化。");
+  await writeJsonDurable(preflightClosurePath(root, proof.executionId), receipt, true);
+  await assertClosedPreflight(root, proof.executionId, replacementId);
+}
+
 /** The run-lock owner has verified the failed and replacement n8n executions. */
 export async function publishReplacementPreflightClosure(root: string, proof: PreflightClosure,
   replacement: { executionId: string; mode: ReplacementClosure["replacementMode"] }, credentialReadinessVerified: boolean) {
@@ -446,7 +478,7 @@ export async function publishReplacementPreflightClosure(root: string, proof: Pr
     replacementExecutionId: replacement.executionId, replacementMode: replacement.mode, credentialReadinessVerified, proof };
   const target = preflightClosurePath(root, proof.executionId);
   await mkdir(path.dirname(target), { recursive: true }); await assertEntityPath(path.dirname(target));
-  await writeFile(target, `${canonical(receipt)}\n`, { encoding: "utf8", flag: "wx" });
+  await writeJsonDurable(target, receipt, true);
   await assertClosedPreflight(root, proof.executionId, replacement.executionId);
   return { status: "closed_before_business", receiptSha256: recoverySha(await readRegular(target)) };
 }
@@ -454,6 +486,15 @@ export async function publishReplacementPreflightClosure(root: string, proof: Pr
 export async function assertClosedPreflight(root: string, executionId: string, replacementExecutionId?: string) {
   const raw = await readRegular(preflightClosurePath(root, executionId));
   const pageFailure = parse<{ version: number; reason: string; error: string; proof: PreflightZeroEffectProof }>(raw);
+  if (pageFailure.version === 6) {
+    const { assertPlanOnlyClosure } = await import("./plan-only-recovery");
+    await assertPlanOnlyClosure(root, executionId, replacementExecutionId);
+    return;
+  }
+  if (pageFailure.version === 7) {
+    const { assertCaptureRetired } = await import("./capture-retirement");
+    await assertCaptureRetired(root, executionId, replacementExecutionId); return;
+  }
   if (pageFailure.version === 4) {
     if (pageFailure.reason !== "verified_transient_page_preflight_without_business_effects"
       || classifyJackyunPreflightFailure(pageFailure.error) !== "automatic" || pageFailure.proof?.executionId !== executionId
@@ -461,7 +502,15 @@ export async function assertClosedPreflight(root: string, executionId: string, r
       || !isDeepStrictEqual(pageFailure.proof, await inspectPreflightZeroEffects(root, executionId, pageFailure.proof.closedAt))) throw new Error("页面失败闭合证据已变化。");
     return;
   }
-  const replacement = parse<ReplacementClosure>(raw);
+  const replacement = parse<ReplacementClosure | HumanPreflightClosure>(raw);
+  if (replacement.version === 5) {
+    if (!replacementExecutionId) throw new Error("人工恢复只允许绑定的新完整执行消费。");
+    const human = parse<HumanPreflightClosure>(raw);
+    assertHumanPreflightAuthority(human, executionId, replacementExecutionId);
+    if (!isDeepStrictEqual(Object.keys(human).sort(), ["version", "reason", "proof", "replacementExecutionId", "replacementMode", "humanAuthority", "credentialReadinessVerified"].sort())
+      || !isDeepStrictEqual(human.proof, await inspectPreflightClosure(root, executionId, human.proof.evidence, human.proof.closedAt))) throw new Error("人工恢复证明已变化。");
+    return;
+  }
   if (replacement.version === 3) {
     const policy = classifyJackyunPreflightFailure(replacement.proof?.evidence?.error ?? "");
     if (replacement.reason !== "verified_preflight_for_fresh_execution" || !policy || !replacementExecutionId

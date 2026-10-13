@@ -21,6 +21,7 @@ type DownloadOptions = {
   exportIntentAt: string;
   allowedHosts?: readonly string[];
   timeoutMs?: number;
+  assertOwned?: () => Promise<void>;
 };
 
 function safeBaseName(value: string) {
@@ -81,7 +82,9 @@ export async function downloadSignedOssExport(options: DownloadOptions, deps: {
     const hash = createHash("sha256");
     let bytes = 0;
     try {
+      await options.assertOwned?.();
       const { response, finalUrl } = await fetchAllowed(requestedUrl, allowedHosts, signal, deps.request ?? fetch);
+      await options.assertOwned?.();
       const hashStream = new Transform({
         transform(chunk: Buffer, _encoding, callback) {
           hash.update(chunk);
@@ -99,7 +102,9 @@ export async function downloadSignedOssExport(options: DownloadOptions, deps: {
       } finally {
         await handle.close();
       }
+      await options.assertOwned?.();
       await rename(partialPath, finalPath);
+      await options.assertOwned?.();
       const provenance: JackyunDownloadProvenance = {
         runId: options.runId,
         module: options.module,

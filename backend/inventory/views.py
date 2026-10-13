@@ -292,6 +292,17 @@ def inbound_monitor(request: HttpRequest) -> JsonResponse:
         return _error(error, "读取京东入仓库存监控失败")
 
 
+@require_http_methods(["GET"])
+def import_recovery(request: HttpRequest) -> JsonResponse:
+    try:
+        principal = _principal(request, {"admin"})
+        from .recovery import read_recovery
+        payload, revision = _consistent_read(lambda: read_recovery(request.GET, principal.email.strip().lower()))
+        return _json(payload, revision=revision)
+    except Exception as error:
+        return _error(error, "库存导入恢复状态无法确认")
+
+
 @require_http_methods(["GET", "POST"])
 def imports(request: HttpRequest) -> JsonResponse:
     try:

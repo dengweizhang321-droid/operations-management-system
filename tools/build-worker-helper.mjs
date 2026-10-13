@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
 
-const version = "teruisi-worker-helper-build-v1";
+const version = "teruisi-worker-helper-build-v2";
 const entryRelativePath = "tools/tmall-sycm-cookie-pipeline.ts";
 const pathResolvedCliGuard = 'path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))';
 const fileUrlCliGuard = "process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href";
@@ -24,6 +24,7 @@ const directCliGuards = new Map([
   ["tools/tmall-promotion-export.ts", fileUrlCliGuard],
 ]);
 const immutableResourceUrlDeclarations = new Map([
+  ["lib/jackyun/json-file.ts", 'const nativePublisherScript = fileURLToPath(new URL("../../tools/jackyun-json-publish.ps1", import.meta.url));'],
   ["tools/jd-secure-credential.ts", 'const credentialScript = fileURLToPath(new URL("./jd-credential-vault.ps1", import.meta.url));'],
   ["tools/tmall-secure-credential.ts", 'const credentialScript = fileURLToPath(new URL("./tmall-credential-vault.ps1", import.meta.url));'],
 ]);
@@ -51,6 +52,7 @@ const mutableRootDeclarations = new Map([
 ]);
 const immutableResourceUrlPaths = new Set(immutableResourceUrlDeclarations.keys());
 const immutablePowerShellResources = Object.freeze([
+  { sourceRelativePath: "tools/jackyun-json-publish.ps1", outputRelativePath: "jackyun-json-publish.ps1" },
   { sourceRelativePath: "tools/jd-credential-vault.ps1", outputRelativePath: "jd-credential-vault.ps1" },
   { sourceRelativePath: "tools/tmall-credential-vault.ps1", outputRelativePath: "tmall-credential-vault.ps1" },
 ]);
@@ -130,7 +132,8 @@ export function rewriteControlledImportMeta(source, relativePath) {
     if (uses !== 1 || countExact(source, resourceDeclaration) !== 1) {
       fail(`immutable helper resource URL must be one exact sibling declaration: ${relativePath}`);
     }
-    return { source, neutralized: false };
+    return { source: relativePath === "lib/jackyun/json-file.ts"
+      ? source.replace(resourceDeclaration, 'const nativePublisherScript = fileURLToPath(new URL("./jackyun-json-publish.ps1", import.meta.url));') : source, neutralized: false };
   }
   const cliGuard = directCliGuards.get(relativePath);
   if (cliGuard) {
@@ -144,6 +147,10 @@ export function rewriteControlledImportMeta(source, relativePath) {
 }
 
 function rewritePowerShellMutableRoot(source, relativePath) {
+  if (relativePath === "tools/jackyun-json-publish.ps1") {
+    if (!source.includes("[JackyunAtomicJson]::MoveFileExW") || !source.includes("$FenceBase64")) fail("atomic JSON publisher resource contract missing");
+    return source;
+  }
   const preamble = `$projectRoot = [Environment]::GetEnvironmentVariable("TERUISI_HELPER_MUTABLE_ROOT")
 if ([string]::IsNullOrWhiteSpace($projectRoot) -or -not [System.IO.Path]::IsPathRooted($projectRoot)) {
   throw "TERUISI_HELPER_MUTABLE_ROOT must be an absolute protected path"

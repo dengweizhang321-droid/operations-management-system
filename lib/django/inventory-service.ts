@@ -12,6 +12,7 @@ export const INVENTORY_AGE_ANALYSIS_PATH = "/api/inventory/age-analysis";
 export const INVENTORY_INBOUND_MONITOR_PATH = "/api/inventory/inbound-monitor";
 export const INVENTORY_GUANGDONG_PATH = "/api/inventory/guangdong-monitor";
 export const INVENTORY_IMPORTS_PATH = "/api/inventory/imports";
+export const INVENTORY_IMPORT_RECOVERY_PATH = "/api/inventory/imports/recovery";
 export const INVENTORY_REPLENISHMENT_PATH = "/api/inventory/replenishment";
 export const INVENTORY_REPLENISHMENT_IMPORT_PATH = "/api/inventory/replenishment/import";
 export const INVENTORY_REPLENISHMENT_DINGTALK_PATH = "/api/inventory/replenishment/dingtalk";
@@ -39,6 +40,7 @@ const readerMethods = new Set([
   `POST ${INVENTORY_CONSUMER_QUERY_PATH}`,
 ]);
 const writerMethods = new Set([
+  `GET ${INVENTORY_IMPORT_RECOVERY_PATH}`,
   `POST ${INVENTORY_GUANGDONG_PATH}/import`,
   `PATCH ${INVENTORY_GUANGDONG_PATH}/suppliers`,
   `PATCH ${INVENTORY_GUANGDONG_PATH}/items`,
