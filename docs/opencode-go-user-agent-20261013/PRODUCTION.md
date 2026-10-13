@@ -20,3 +20,11 @@
 未调用真实 OpenCode 推理接口，不能将安装和健康验收表述为真实供应商 HTTP 400 已消失。生产模型连接需要用已保存的实际模型执行独立连接验收，结果尚未验证。
 
 复验原件保存在 `D:/codex-artifacts/opencode-go-user-agent-20261013/production-installation-verification.json` 与 `production-health-verification.json`。本记录仅关闭本次请求头修复的生产采用状态，不延伸其他候选或历史生产授权。
+
+## 18:35 用户授权的真实模型连接测试
+
+用户随后要求测试，并询问是否需要重新配对。通过原公开 `POST /api/ai/models`、同源保护和已保存的 OpenCode Go 配置执行一次 `action=test`，未读取或输出明文密钥、未编辑模型参数。上海 18:35:13 发起，18:35:16 完成，耗时 3536 毫秒：公开接口 HTTP 503，脱敏错误为“模型服务返回 HTTP 400，请检查 AI 助理中的模型配置与服务状态。”没有自动重试，`lastTestResult` / `lastTestedAt` 仍为空。因此请求头已安装与真实连接成功必须分开，当前实际连接仍失败。
+
+只读核对配置：模型 `deepseek-v4.1-flash`、API 根 `https://opencode.ai/zen/go/v1`，与[官方 Go 接口表](https://opencode.ai/docs/go/)一致。官方同时说明每个对话应发送稳定 `x-opencode-session`；当前已安装 provider/transport 没有发送此头。这是后续兼容性诊断线索，尚未通过供应商原错误码或只改变该头的对照请求确认它就是本次 HTTP 400 根因。API 的脱敏错误也不能证明已有密钥/订阅有效或失效，暂不要求用户重新配对或替换密钥。
+
+本轮没有追加供应商请求、修改配置、实施新代码或再次上线。原始脱敏回执保存在 `D:/codex-artifacts/opencode-go-user-agent-20261013/live-provider-test.json`。尚需定位供应商拒绝原因；此节取代上一节“真实连接未测试”的当前状态，保留此前时间点记录。
