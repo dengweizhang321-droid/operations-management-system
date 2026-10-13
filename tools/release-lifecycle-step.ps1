@@ -6,6 +6,8 @@ param(
   [string]$MaintenanceId,
   [string]$PreparedAppId,
   [string]$PreparedAppSha256,
+  [string]$CandidateSourceRoot,
+  [string]$IntegrationOperationId,
   [string]$ExpectedWorkerManifestSha256,
   [string]$ExpectedDjangoManifestSha256,
   [string]$ExpectedDrainId,
@@ -20,6 +22,12 @@ $control='D:\运营管理系统\tools\operations-system-control.ps1'
 $nativeShell=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $worker='D:\运营管理系统\tools\worker-local-service.ps1'
 $candidateDjango='D:\运营管理系统-sales-django-release\tools\django-local-service.ps1'
+if ($CandidateSourceRoot -or $IntegrationOperationId) {
+  if ($Step -cne 'DeployApp' -or $IntegrationOperationId -cnotmatch '^[a-f0-9]{32}$' -or
+      [string]::IsNullOrWhiteSpace($CandidateSourceRoot) -or -not [IO.Path]::IsPathRooted($CandidateSourceRoot) -or
+      [IO.Path]::GetFullPath($CandidateSourceRoot) -cne $CandidateSourceRoot) { throw 'Exact source-bound migration deployment required' }
+  $candidateDjango=Join-Path $CandidateSourceRoot 'tools\django-local-service.ps1'
+}
 $installedDjango='D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1'
 $deployment='D:\teruisi-runtime\django-sales\app\deployment.json'
 function Test-CompletionPid($Value) {
@@ -117,7 +125,9 @@ switch($Step) {
   }
   'DeployApp' {
     if($PreparedAppId -cnotmatch '^[a-f0-9]{32}$' -or $PreparedAppSha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Exact approved prepared app required' }
-    Invoke-OriginalEngine $candidateDjango @('-Action','DeployApp','-PreparedAppId',$PreparedAppId,'-PreparedAppSha256',$PreparedAppSha256) | Out-Null
+    $deployArguments=@('-Action','DeployApp','-PreparedAppId',$PreparedAppId,'-PreparedAppSha256',$PreparedAppSha256)
+    if($IntegrationOperationId){$deployArguments+=@('-IntegrationOperationId',$IntegrationOperationId)}
+    Invoke-OriginalEngine $candidateDjango $deployArguments | Out-Null
   }
   'HardenAcl' { Invoke-OriginalEngine $installedDjango @('-Action','HardenAcl') | Out-Null }
   'VerifyStartup' { Invoke-OriginalEngine $worker @('-Action','VerifyStartup','-Json') | Out-Null }

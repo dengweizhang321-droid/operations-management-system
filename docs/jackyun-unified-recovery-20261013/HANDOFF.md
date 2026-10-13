@@ -31,3 +31,12 @@
 - 整体退出 1：Django PrepareApp 被 `bi_app_addition.py successor` 拒绝。只读重现为 `BI append changes another migration or the reviewed step`；对照已部署 app，仅新增 ERP 0003、sales 0011，无旧迁移变更/删除。
 - 当前剩余是迁移治理兼容性缺口，不是 Windows 权限：既有 BI gate 只接受原 140 目录，须为两个新审计迁移补严格准入/安装/恢复/后继协议，再做隔离验证和重新准备。不得修改计数、删 active、伪造原证据或跳过 guard。独立 PG 57 项不代替生产迁移谱系证明。
 - 证据仍在 `D:/codex-artifacts/jackyun-unified-recovery-resume-20261013/online-admin-20261013-v1*`，及 `bi-successor-readonly.json`、`migration-preparation-gap.json`。无在途进程；旧候选/日志保留。任何新源变化须绑定新的准备身份。
+
+## 当前步骤 1–3 检查点（2026-10-13 18:20）
+
+- 复用同一隔离目录；当前分支 `codex/jackyun-migration-adoption-20261013`，起点 `72da6acb`。远端 main 已前进到 `07d32e24`，尚未合入当前未提交工作。
+- 原统一恢复源码 `e511a5a8` 已合并；目前补 140→142 两个审计迁移的有限准入、原父谱系核验、原子安装/不确定结果回查及备份消费兼容。当前工作未提交，不能当作生产可采用。
+- 本阶段证据 `D:/codex-artifacts/jackyun-migration-adoption-20261013`：unit-first 8/8；postgres-first 首次失败保留，因 SQL JSONB 返回字符串而测试预期类型不符，修正为数据库布尔比较；postgres-second 62/62、退出 0，独立 140/142 原 profile dump/restore 成功，集群停止、密码删除。测试根 `.codex-tmp/jackyun-recovery-postgres-f0tql2v9`。没有在途测试进程。
+- 仍需完成发布步骤顺序/动态备份回执绑定测试、门禁中断负例、最终验证清单、审查和 Git 交付。
+- 17:26 只读现场：Worker `20261013T034151Z-1513c2b267930390`；Django manifest `2f4115e6ad55f08a6fde4cacd24f68636e27e1214909485663e860a5d840e885`。此前 `21c2645a` 前驱的旧候选/plan 保留作证据，不再可直接采用。新包必须重核实际前驱并保护已部署其他修复；不得把尚未采用的全部 main 混入。
+- 下一步：定向完成迁移采用适配与验证，冻结源码，再构建新候选并执行原在线 plan/PrepareApp；只做步骤 1–3。尚未进行任何生产部署、维护启停、迁移、n8n 修改或真实补跑。

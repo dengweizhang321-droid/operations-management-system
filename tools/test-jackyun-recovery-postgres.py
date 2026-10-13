@@ -14,6 +14,11 @@ if ROOT == Path(r"D:\运营管理系统"):
     raise RuntimeError("Require isolated worktree")
 scratch = ROOT / ".codex-tmp"
 scratch.mkdir(exist_ok=True)
+sys.path.insert(0, str(ROOT / 'tools'))
+import jackyun_audit_addition as audit
+import bi_app_addition as audit_parent
+validation_code = audit.code_digest(ROOT)
+validation_migrations = audit_parent.digest(audit_parent.migrations(ROOT))
 RUN = Path(tempfile.mkdtemp(prefix="jackyun-recovery-postgres-", dir=scratch))
 PORT = next((port for port in range(55910, 55925) if subprocess.run(
     [sys.executable, "-c", "import socket,sys;s=socket.socket();s.bind(('127.0.0.1',int(sys.argv[1])));s.close()", str(port)],
@@ -30,6 +35,7 @@ environment.update(PGHOST="127.0.0.1", PGPORT=str(PORT), PGUSER="jackyun_fixture
     TERUISI_DJANGO_PROCESS_ROLE="development", TERUISI_DJANGO_ENVIRONMENT="test",
     TERUISI_DJANGO_INTERNAL_SECRET=secrets.token_hex(32), DJANGO_SECRET_KEY=secrets.token_hex(32),
     PYTHONPATH=str(RUN) + os.pathsep + str(ROOT / "backend"))
+environment["JACKYUN_PRIVATE_EVIDENCE_DIR"] = str(RUN)
 (RUN / "sitecustomize.py").write_text('''import socket
 _connect=socket.socket.connect
 def connect(sock,address):
@@ -59,12 +65,21 @@ try:
     # production Provision or credentials are involved.
     run([BIN / "psql.exe", "-d", "teruisi_ai_rehearsal", "-v", "ON_ERROR_STOP=1", "-c",
          "CREATE ROLE teruisi_ai_seal_writer NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"], "seal-role")
-    for role in ("teruisi_ai_reader", "teruisi_ai_writer", "teruisi_finance_reader", "teruisi_finance_writer", "teruisi_netshop_reader", "teruisi_netshop_writer"):
+    for role in ("teruisi_sales_owner", "teruisi_ai_reader", "teruisi_ai_writer", "teruisi_finance_reader", "teruisi_finance_writer", "teruisi_netshop_reader", "teruisi_netshop_writer"):
         login = "LOGIN" if role.startswith("teruisi_ai_") else "NOLOGIN"
         run([BIN / "psql.exe", "-d", "teruisi_ai_rehearsal", "-v", "ON_ERROR_STOP=1", "-c",
              f"CREATE ROLE {role} {login} NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"], role)
     print(json.dumps({"phase": "tests", "port": PORT}), flush=True)
-    run([sys.executable, ROOT / "backend/manage.py", "test", "erp_reference.tests.test_api", "erp_reference.tests.test_recovery", "erp_reference.tests.test_recovery_migrations", "inventory.tests.test_imports", "inventory.tests.test_recovery", "sales.tests.test_write_api", "sales.tests.test_write_service", "sales.tests.test_recovery", "workflow.tests.test_jackyun_recovery_authority", "--noinput", "--verbosity", "2"], "tests", 600)
+    run([sys.executable, ROOT / "backend/manage.py", "test", "erp_reference.tests.test_api", "erp_reference.tests.test_recovery", "erp_reference.tests.test_recovery_migrations", "erp_reference.tests.test_audit_adoption", "inventory.tests.test_imports", "inventory.tests.test_recovery", "sales.tests.test_write_api", "sales.tests.test_write_service", "sales.tests.test_recovery", "workflow.tests.test_jackyun_recovery_authority", "--noinput", "--verbosity", "2"], "tests", 600)
+    print(json.dumps({"phase": "independent_dump_restore", "port": PORT}), flush=True)
+    run([sys.executable, ROOT / "tools/jackyun_audit_private_rehearsal.py"], "private-rehearsal", 600)
+    if audit.code_digest(ROOT) != validation_code or audit_parent.digest(audit_parent.migrations(ROOT)) != validation_migrations:
+        raise RuntimeError('Tested source changed during isolated validation')
+    proof = {'version': 'jackyun-audit-private-postgres-v1', 'status': 'passed', 'productionTouched': False,
+             'steps': list(audit.STEPS), 'codeSha256': validation_code, 'migrationSha256': validation_migrations,
+             'checks': ['atomic-upgrade','preserved-rows','negative-catalogues','legacy-140','dump-restore-142','rollback','permissions'],
+             'logs': {name: audit_parent.sha(RUN / name) for name in ['tests.log','private-rehearsal.log','private-restore.json']}}
+    (RUN / 'audit-validation.json').write_text(json.dumps(proof, indent=2), encoding='utf8')
     result = {"status": "passed", "port": PORT, "productionTouched": False, "externalEffects": False, "directory": str(RUN)}
     (RUN / "evidence.json").write_text(json.dumps(result, indent=2), encoding="utf8")
     print(json.dumps(result), flush=True)

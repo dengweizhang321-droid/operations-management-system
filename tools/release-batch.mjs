@@ -15,6 +15,7 @@ import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, p
 
 export const legacyBatchVersion = 'teruisi-release-batch-v2';
 export const batchVersion = 'teruisi-release-batch-v3';
+export const auditBatchVersion = 'teruisi-release-batch-jackyun-audit-v1';
 const ownTools=path.dirname(fileURLToPath(import.meta.url));
 export const noDataCollectorFiles = Object.freeze([
   ...['release-batch.mjs','release-batch-admission.mjs','release-impact.mjs','release-no-data-observation.mjs','release-preparation-evidence.mjs','release-admission-timing.mjs','release-daily-backup.mjs','release-readonly-retry.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','collect-d1-retirement-proof.mjs'].map(name=>path.join(ownTools,name)),
@@ -60,13 +61,15 @@ function validateNoDataOperations(batch) {
   for(const step of ['VerifyStartup','AggregateStatus'])if(!batch.operations.some(op=>op.step===step&&['acceptance','closeout'].includes(op.phase)))throw new Error('Missing original startup/component verification');
 }
 const phases = ['queue', 'prepare', 'backup-pre', 'restore-pre', 'drain', 'switch', 'acceptance', 'business', 'backup-post', 'restore-post', 'closeout'];
+const auditPhases = ['queue','prepare','drain','quiesce','backup-pre','restore-pre','switch','backup-post','restore-post','migration-finalize','acceptance','business','closeout'];
+const phasesFor = version => version===auditBatchVersion ? auditPhases : phases;
 const terminal = new Set(['passed', 'skipped']);
 export function makeBatch({ version = batchVersion, id, binding, before, after, witness, evidence, current, tests, acceptance, rollback, operations, collector, deploymentProof, sourceBinding, now = Date.now() }) {
   if (!/^[a-z0-9-]{8,80}$/.test(id ?? '')) throw new Error('Invalid batch ID');
   for (const k of ['sourceSha256', 'predecessorSourceSha256', 'sourceInventorySha256', 'predecessorInventorySha256', 'dependencySha256', 'configurationSha256', 'toolchainSha256', 'artifactSha256', 'testsSha256', 'predecessorSha256','workerPlanSha256']) requireHash(binding?.[k], k);
   if (sourceTreeDigest(after) !== binding.sourceSha256 || sourceTreeDigest(before) !== binding.predecessorSourceSha256) throw new Error('Impact inventory does not bind complete candidate/predecessor source');
   if (hash(sourceInventory(after)) !== binding.sourceInventorySha256 || hash(sourceInventory(before)) !== binding.predecessorInventorySha256) throw new Error('Impact inventory fingerprint changed');
-  if (![legacyBatchVersion,batchVersion,targetedBatchVersion].includes(version)) throw new Error('Unknown batch protocol');
+  if (![legacyBatchVersion,batchVersion,targetedBatchVersion,auditBatchVersion].includes(version)) throw new Error('Unknown batch protocol');
   const impact = bindDeploymentImpact((version!==legacyBatchVersion?classifyImpactV3:classifyImpact)({ before, after, witness }),deploymentProof,binding,witness);
   const impactProof=makeImpactProof(before,after,witness);
   const recovery = recoveryDecision({ impact, evidence, current, now,scopeValidation:tests?.scopeValidation,impactProof,binding,batchVersion:version });
@@ -77,12 +80,12 @@ export function makeBatch({ version = batchVersion, id, binding, before, after, 
     || required.tests.some(k => !tests.checks?.includes(k))) throw new Error('Incomplete or unbound test evidence');
   if (!Array.isArray(acceptance) || required.acceptance.some(k => !acceptance.includes(k))) throw new Error('Incomplete task acceptance');
   if (!rollback || !rollback.application || !rollback.compatibility || !rollback.failureState) throw new Error('Missing concrete rollback');
-  if (!Array.isArray(operations) || !operations.length || operations.some(o => !phases.includes(o.phase)
+  if (!Array.isArray(operations) || !operations.length || operations.some(o => !phasesFor(version).includes(o.phase)
     || !/^[a-z0-9-]{3,80}$/.test(o.id ?? '') || typeof o.mutating !== 'boolean')) throw new Error('Invalid approved operations');
   if (new Set(operations.map(o => o.id)).size !== operations.length) throw new Error('Duplicate operation IDs');
   let position = -1;
   for (const op of operations) {
-    const next = phases.indexOf(op.phase);
+    const next = phasesFor(version).indexOf(op.phase);
     if (next < position) throw new Error('Phases out of order');
     position = next;
     validateOperation(op);
@@ -176,6 +179,8 @@ const requiredOperatorResults = {
   'restore-post': { kind: 'restore', assertions: { status: 'completed', serviceStateChanged: false, productionDatabaseTouched: false, cleanupStatus: 'isolated_data_removed', profileRestoreVerified: true, sequenceHealthVerified: true } },
 };
 export function validateOperation(op) {
+  if(op.kind==='migration-addition' && (op.phase!=='switch'&&op.phase!=='migration-finalize' || op.mutating!==true
+    || !op.command?.files?.some(f=>/[\\/]bi-app-adopt\.ps1$/i.test(f.path)&&op.command.args.includes(f.path))))throw new Error('Finite migration must use the bound original adoption adapter');
   if(op.step&&!['lifecycle','django-deploy'].includes(op.kind))throw new Error('Lifecycle step labels require an original lifecycle adapter');
   if (op.readOnlyRetry && (!isExactStatusOperation(op) || op.readOnlyRetry.version !== 'teruisi-status-retry-v1'
     || !Number.isSafeInteger(op.readOnlyRetry.totalTimeoutMs) || op.readOnlyRetry.totalTimeoutMs < 1
@@ -229,7 +234,7 @@ export function verifyBatch(batch, approved) {
   if(!/^[a-f0-9]{32}$/.test(batch.binding.maintenanceId??''))throw new Error('Exact approved drain/maintenance owner required');
   workerSourceRootForBatch(batch);
   const { batchSha256, ...core } = batch;
-  if (![legacyBatchVersion,batchVersion,targetedBatchVersion].includes(batch.version) || hash(core) !== batchSha256 || approved !== batchSha256) throw new Error('Batch scope changed');
+  if (![legacyBatchVersion,batchVersion,targetedBatchVersion,auditBatchVersion].includes(batch.version) || hash(core) !== batchSha256 || approved !== batchSha256) throw new Error('Batch scope changed');
   if(batch.version!==legacyBatchVersion&&batch.state!=='SEALED')throw new Error('New batch must be sealed');
   if(batch.version!==legacyBatchVersion)for(const key of ['djangoCandidateSha256','djangoPredecessorSha256'])requireHash(batch.binding[key],`Django ${key}`);
   const impact = bindDeploymentImpact(verifyImpactProof(batch.impactProof,batch.binding,batch.version!==legacyBatchVersion?noDataPolicyVersion:policyVersion),batch.deploymentProof,batch.binding,batch.impactProof.witness);
@@ -247,13 +252,14 @@ export function verifyBatch(batch, approved) {
   if (!batch.rollback?.application || !batch.rollback.compatibility || !batch.rollback.failureState) throw new Error('Incomplete rollback');
   if (!batch.operations?.length || new Set(batch.operations.map(o => o.id)).size !== batch.operations.length) throw new Error('Missing/duplicate operations');
   let order=-1;
-  for (const op of batch.operations) { const next=phases.indexOf(op.phase); if (next<order || next<0) throw new Error('Invalid phase ordering'); order=next; }
+  for (const op of batch.operations) { const next=phasesFor(batch.version).indexOf(op.phase); if (next<order || next<0) throw new Error('Invalid phase ordering'); order=next; }
   for (const name of ['prepare','drain','switch','acceptance','closeout',...(recovery.mode==='full'?['backup-pre','restore-pre','backup-post','restore-post']:[])]) {
     if (!batch.operations.some(o=>o.phase===name)) throw new Error(`Missing ${name} phase`);
   }
   for (const op of batch.operations) {
     if (!/^[a-z0-9-]{3,80}$/.test(op.id ?? '') || typeof op.mutating !== 'boolean') throw new Error('Invalid operation identity/effect');
     validateOperation(op);
+    assertAuditAdoptionBinding(op,batch);
     assertStartBinding(op, batch);
     if(['worker-plan','worker-apply'].includes(op.kind)&&op.planSha256!==batch.binding.workerPlanSha256)throw new Error('Operation would use another candidate plan');
     if(op.kind==='django-deploy'&&(op.command.args[op.command.args.indexOf('-PreparedAppId')+1]!==batch.binding.djangoPreparedAppId
@@ -283,6 +289,7 @@ export function verifyBatch(batch, approved) {
   }
   if(recovery.mode==='not-required')validateNoDataOperations(batch);
   if(batch.version===targetedBatchVersion)validateTargetedOperations(batch);
+  validateAuditOperations(batch);
   const position=step=>batch.operations.findIndex(op=>op.step===step);
   const applyPosition=batch.operations.findIndex(op=>op.kind==='worker-apply');
   if(impact.level==='display'&&!(position('BeginWorkerDrain')<position('StopWorker')&&position('StopWorker')>=0&&position('StopWorker')<applyPosition
@@ -290,6 +297,52 @@ export function verifyBatch(batch, approved) {
   if(impact.level!=='display'&&!(position('EnterMaintenance')>=0&&position('EnterMaintenance')<applyPosition
     &&applyPosition<position('ExitMaintenance')&&position('ExitMaintenance')<position('StartWorker')))throw new Error('Full maintenance ordering changed');
   return batch;
+}
+
+export function assertAuditAdoptionBinding(op,batch) {
+  const operation=batch.binding?.jackyunAuditOperationId;
+  if(!operation) {
+    if(batch.version===auditBatchVersion||op.kind==='migration-addition'||op.command?.args?.some(a=>['jackyunaudit','-candidatesourceroot'].includes(a.toLowerCase())))throw new Error('Migration adoption requires an explicit batch identity');
+    return;
+  }
+  if(batch.version!==auditBatchVersion||!/^[a-f0-9]{32}$/.test(operation))throw new Error('Invalid audit adoption identity');
+  const value=name=>{
+    const indexes=(op.command?.args??[]).flatMap((a,i)=>a.toLowerCase()===name.toLowerCase()?[i]:[]);
+    if(indexes.length!==1||typeof op.command.args[indexes[0]+1]!=='string')throw new Error('Missing or duplicated audit adoption argument');
+    return op.command.args[indexes[0]+1];
+  };
+  if(op.kind==='django-deploy') {
+    if(value('-IntegrationOperationId')!==operation||value('-CandidateSourceRoot')!==workerSourceRootForBatch(batch))throw new Error('Django adoption source or operation differs from the approved batch');
+  }
+  if(op.kind==='migration-addition') {
+    if(value('-AdditionKind')!=='JackyunAudit'||value('-OperationId')!==operation||value('-MaintenanceId')!==batch.binding.maintenanceId
+      ||value('-SourceRoot')!==workerSourceRootForBatch(batch)||!op.command.args.includes('-Execute'))throw new Error('Audit migration arguments differ from the approved batch');
+    const action=value('-Action');
+      if(!['Plan','Install','Finalize'].includes(action)|| (action==='Finalize')!==(op.phase==='migration-finalize'))throw new Error('Audit migration phase differs');
+    if(action==='Plan'&&(value('-PreparedAppId')!==batch.binding.djangoPreparedAppId||value('-PreparedAppSha256')!==batch.binding.djangoPreparedReceiptSha256))throw new Error('Audit migration uses another prepared application');
+  }
+}
+export function validateAuditOperations(batch) {
+  if(batch.version!==auditBatchVersion) {
+    if(batch.binding?.jackyunAuditOperationId)throw new Error('Audit adoption requires its explicit protocol');
+    return;
+  }
+  if(batch.impact.level!=='strict'||batch.recovery.mode!=='full')throw new Error('Audit adoption requires strict/full');
+  const ops=batch.operations, arg=(op,name)=>op.command?.args?.[op.command.args.indexOf(name)+1];
+  const one=predicate=>{const found=ops.filter(predicate);if(found.length!==1)throw new Error('Audit adoption requires each exact step once');return found[0];};
+  const step=name=>one(o=>o.step===name), phase=name=>one(o=>o.phase===name), action=name=>one(o=>o.kind==='migration-addition'&&arg(o,'-Action')===name);
+  const enter=step('EnterMaintenance'), stop=step('StopWorker'), plan=action('Plan'), install=action('Install'), finalize=action('Finalize'), deploy=step('DeployApp'), harden=step('HardenAcl');
+  const pre=phase('backup-pre'), preRestore=phase('restore-pre'), post=phase('backup-post'), postRestore=phase('restore-post');
+  const ordered=[enter,stop,pre,preRestore,plan,one(o=>o.kind==='worker-apply'),deploy,harden,install,post,postRestore,finalize,step('ExitMaintenance'),step('StartWorker')];
+  if(ordered.some((o,i)=>i>0&&ops.indexOf(o)<=ops.indexOf(ordered[i-1]))||!enter.command.args.includes('-KeepPostgres'))throw new Error('Audit maintenance/backup/install/finalize/start order changed');
+  for(const [op,backup,restore] of [[plan,pre,preRestore],[finalize,post,postRestore]]) {
+    if(arg(op,'-BackupDirectory')!==`{receipt:${backup.id}:backupDirectory}`||arg(op,'-BackupManifestSha256')!==`{receipt:${backup.id}:manifestSha256}`
+      ||arg(op,'-RestoreResultPath')!==`{receipt:${restore.id}:restoreResultPath}`||arg(op,'-RestoreResultSha256')!==`{receipt:${restore.id}:restoreResultSha256}`)throw new Error('Audit proof must bind the exact preceding backup and restore');
+  }
+  for(const op of ops) {
+    assertAuditAdoptionBinding(op,batch);
+    if(op.kind!=='migration-addition'&&arg(op,'-AdditionKind')==='JackyunAudit')throw new Error('Audit adoption cannot masquerade as another operation');
+  }
 }
 export function assertBindings(expected, actual) {
   if (!actual || canonical(expected) !== canonical(actual)) throw new Error('Source/dependency/config/toolchain/artifact/tests/predecessor binding changed');
@@ -352,7 +405,7 @@ async function append(state, batch, record) {
   return event;
 }
 export function timingReport(events) {
-  const durationMs = Object.fromEntries(phases.map(p => [p,0]));
+  const durationMs = Object.fromEntries([...new Set([...phases,...auditPhases])].map(p => [p,0]));
   for (const event of events) if (Number.isFinite(event.durationMs)) durationMs[event.phase] += event.durationMs;
   const approved = events.find(e => e.status === 'approved');
   const closed = events.findLast(e => e.phase === 'closeout' && e.status === 'completed');
@@ -557,7 +610,7 @@ export async function runApprovedOperation(op, { batch, lease, state }) {
     return previous.outputs;
   };
   const args = op.command.args.map(arg => {
-    const token = /^\{receipt:([a-z0-9-]+):(backupDirectory|manifestSha256|maintenanceId)\}$/.exec(arg);
+    const token = /^\{receipt:([a-z0-9-]+):(backupDirectory|manifestSha256|maintenanceId|restoreResultPath|restoreResultSha256)\}$/.exec(arg);
     if (!token) return arg;
     const value = outputsFor(token[1])[token[2]];
     if (typeof value !== 'string' || !value) throw new Error('Missing exact earlier receipt field');
@@ -613,8 +666,18 @@ export async function runApprovedOperation(op, { batch, lease, state }) {
     if(batch.version===targetedBatchVersion&&(typeof receipt.backupId!=='string'||receipt.backupId!==backup.backupId))throw new Error('Targeted restore backup identity changed');
     if (receipt.backupManifestSha256 !== backup.manifestSha256 || receipt.dumpSha256 !== backup.dumpSha256
       || receipt.expectedContentSha256 !== backup.contentSha256 || receipt.restoredContentSha256 !== backup.contentSha256) throw new Error('Restore is not the confirmed exact backup or content changed');
+    if(batch.version===auditBatchVersion) {
+      const id=args[args.indexOf('-RehearsalId')+1];
+      if(!/^[a-f0-9]{12}$/.test(id)||receipt.rehearsalId!==id)throw new Error('Audit restore identity differs');
+      const drive=args.includes('-RehearsalDrive')?args[args.indexOf('-RehearsalDrive')+1]:'D';
+      if(!['D','E'].includes(drive))throw new Error('Unknown audit restore drive');
+      const file=path.join(drive==='E'?'E:\\TERUISI-Postgres-Rehearsals':'D:\\teruisi-runtime\\django-sales\\rehearsals\\postgres-restore',`restore-${id}`,'rehearsal-result.json');
+      const persisted=await safeRead(file);
+      if(canonical(JSON.parse(persisted))!==canonical(receipt))throw new Error('Persisted restore result differs');
+      receipt.restoreResultPath=file;receipt.restoreResultSha256=await safeFileDigest(file);
+    }
   }
-  const allowed = ['backupDirectory','backupId','manifestSha256','dumpSha256','contentSha256','maintenanceId'];
+  const allowed = ['backupDirectory','backupId','manifestSha256','dumpSha256','contentSha256','maintenanceId',...(batch.version===auditBatchVersion?['restoreResultPath','restoreResultSha256']:[])];
   if (Date.now() >= deadlineUnixMs) throw new Error('deadline');
   const processEvidence = {...result.processEvidence};
   if (op.kind==='lifecycle' && Array.isArray(receipt.engineEvidence)) processEvidence.engine=receipt.engineEvidence.slice(0,8).map(safeProcessEvidence);
