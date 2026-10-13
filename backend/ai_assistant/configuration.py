@@ -3,6 +3,7 @@ import ipaddress
 import os
 from urllib.parse import urlsplit, urlunsplit
 from django.conf import settings
+from django.db.models import F
 from django.utils import timezone
 from . import models as m
 from .policy import (
@@ -124,6 +125,48 @@ def resolve_model(model_id=None):
     return row
 
 
+def model_has_active_execution(model_ids):
+    return (
+        m.AiAgentJobs.objects.filter(model_id__in=model_ids,
+            status__in=["queued", "running", "paused"]).exists()
+        or m.AiWorkflowRuns.objects.filter(model_id__in=model_ids,
+            status__in=["queued", "running", "paused", "waiting_review"]).exists()
+        or m.AiChatRequestReceipts.objects.filter(model_id__in=model_ids,
+            status__in=["processing", "dispatched"]).exists()
+    )
+
+
+def clear_other_defaults(model_id):
+    # Configuration writes hold the AI domain mutation lock, serializing
+    # default selection for both text and vision models. The existing partial
+    # unique index additionally protects text defaults.
+    others = m.AiModels.objects.filter(is_default_text_model=1).exclude(id=model_id)
+    if model_has_active_execution(others.values_list("id", flat=True)):
+        raise AiError("当前默认模型仍有活动任务，请等待或取消后再切换", "conflict", 409)
+    others.update(is_default_text_model=0, version=F("version") + 1,
+                  updated_at=timezone.now())
+
+
+def set_default_model(body, principal):
+    current_principal(principal, write=True, admin=True)
+    fields(body, {"action", "id", "expectedVersion"}, {"action", "id", "expectedVersion"})
+    row = m.AiModels.objects.filter(id=identifier(body["id"])).first()
+    if not row:
+        raise AiError("配置不存在", "not_found", 404)
+    cas(row, body["expectedVersion"])
+    if row.status != "enabled" or row.model_type not in {"text", "vision"}:
+        raise AiError("默认对话模型必须启用且支持文本或视觉对话")
+    if not row.is_default_text_model:
+        if model_has_active_execution([row.id]):
+            raise AiError("模型仍有活动任务，请等待或取消后再切换", "conflict", 409)
+        clear_other_defaults(row.id)
+        row.is_default_text_model = 1
+        row.version += 1
+        row.updated_at = timezone.now()
+        row.save(update_fields=["is_default_text_model", "version", "updated_at"])
+    return model_record(row)
+
+
 def save_model(body, principal, *, image=False):
     current_principal(principal, write=True, admin=True)
     allowed = {
@@ -163,9 +206,7 @@ def save_model(body, principal, *, image=False):
                 model_profile_id=row.id, status__in=["queued", "running"]
             ).exists()
             if image
-            else m.AiAgentJobs.objects.filter(
-                model_id=row.id, status__in=["queued", "running", "paused"]
-            ).exists()
+            else model_has_active_execution([row.id])
         )
         if active:
             raise AiError("模型仍有活动任务，请等待或取消后再修改", "conflict", 409)
@@ -225,11 +266,9 @@ def save_model(body, principal, *, image=False):
             body.get("generationOptions", capabilities.options(row) if row else {}),
             protocol=protocol, max_tokens=values["max_tokens"], reasoning_mode=values["reasoning_mode"]))
         if values["is_default_text_model"]:
-            if values["status"] != "enabled" or values["model_type"] != "text":
-                raise AiError("默认文本模型必须启用且为文本能力")
-            m.AiModels.objects.filter(is_default_text_model=1).exclude(
-                id=row.id if row else ""
-            ).update(is_default_text_model=0)
+            if values["status"] != "enabled" or values["model_type"] not in {"text", "vision"}:
+                raise AiError("默认对话模型必须启用且支持文本或视觉对话")
+            clear_other_defaults(row.id if row else "")
     if row:
         for k, v in values.items():
             setattr(row, k, v)
@@ -264,20 +303,18 @@ def delete_model(params, principal, *, image=False):
     if isinstance(version, str) and version.isdigit():
         version = int(version)
     cas(row, version)
-    # Existing records reference model identities, including immutable execution ledgers.
+    # Historical model identities are not credential foreign keys. Keep the
+    # conversations and immutable ledgers when removing a finished model.
     if image:
         used = (
             m.AiSpaceJobs.objects.filter(model_profile_id=row.id).exists()
             or m.AiSpaceTemplates.objects.filter(model_profile_id=row.id).exists()
         )
     else:
-        used = (
-            m.AiAgentJobs.objects.filter(model_id=row.id).exists()
-            or m.AiConversations.objects.filter(model_id=row.id).exists()
-            or m.AiWorkflowRuns.objects.filter(model_id=row.id).exists()
-        )
+        used = model_has_active_execution([row.id])
     if used:
-        raise AiError("配置仍被历史或活动记录引用，可将其停用", "conflict", 409)
+        raise AiError("配置仍被历史或活动记录引用，可将其停用" if image else
+                      "模型仍有活动任务，请等待或取消后再删除", "conflict", 409)
     if image:
         from .space import admin_audit
 
