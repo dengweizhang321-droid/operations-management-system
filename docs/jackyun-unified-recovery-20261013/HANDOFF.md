@@ -40,3 +40,35 @@
 - 仍需完成发布步骤顺序/动态备份回执绑定测试、门禁中断负例、最终验证清单、审查和 Git 交付。
 - 17:26 只读现场：Worker `20261013T034151Z-1513c2b267930390`；Django manifest `2f4115e6ad55f08a6fde4cacd24f68636e27e1214909485663e860a5d840e885`。此前 `21c2645a` 前驱的旧候选/plan 保留作证据，不再可直接采用。新包必须重核实际前驱并保护已部署其他修复；不得把尚未采用的全部 main 混入。
 - 下一步：定向完成迁移采用适配与验证，冻结源码，再构建新候选并执行原在线 plan/PrepareApp；只做步骤 1–3。尚未进行任何生产部署、维护启停、迁移、n8n 修改或真实补跑。
+
+## 18:35 接续
+
+- 源码提交 `cacfa78c` 已推 `origin/codex/jackyun-migration-adoption-20261013`；已快进包含 `07d32e24`。尚未合并 main，等待实际候选构建/准备。
+- 最终 PostgreSQL 62/62 及 140/142 独立恢复退出 0，目录 `.codex-tmp/jackyun-recovery-postgres-eh5g6oph`，有绑定当前源码的 `audit-validation.json`。所有隔离 PG 已停、密码已删。
+- 发布回归 `release-final.log` 109/109；`fastpath-private-final.log` 23/23；新增 Python gate 10/10；旧 139 冻结源码测试 10/10；lint 0 错误/112 警告；backend boundary 通过。
+- 原 watcher 的失败经真实监听事件证明为全局 npm 目录发生变更事件；保存 `watcher-diagnostic.log`。原断言在复制 Node + 两文件合成 npm 的私有运行目录通过，不修改生产监听门禁。首次 PostgreSQL JSON 类型断言失败、提取执行器夹具漏绑定常量等失败证据均保留。
+- 新候选工作目录 `D:/codex-isolated/jackyun-audit-adoption-20261013/source`，历史表示仓库同父目录 `history`。基于实际 `87896631` 快照，108 个任务文件（测试脚本在生产不存在是预期新增），其他修改前源码均匹配；构建程序 `D:/codex-artifacts/jackyun-migration-adoption-20261013/compose-candidate.py` 正在完成逐字节校验与 Git 封存。首次独立仓库缺作者身份失败已保留，复制项目现有 Codex 作者设置后在同目录无覆盖续接。不要再次从头复制。
+- 新有限采用批次保持 strict/full：维护和停稳→140 备份/恢复→Plan→Worker apply→DeployApp/HardenAcl→Install→142 备份/恢复→Finalize→ExitMaintenance/Start→验收。旧批次不换绑或重解释。详见 MIGRATION_ADOPTION.md。
+- 下一步在封存完成后，以新外部 `prepare-online-admin.mjs` 和 `prepare-admission.py` 的精确 SHA、正常 RunAs 临时管理员、固定日志执行原在线 plan/PrepareApp；尚未启动本轮提权准备。禁止执行任何 switch、生产迁移、正式 n8n 更新和真实补跑。
+
+## 用户暂停条件（2026-10-13 19:15 后）
+
+用户明确要求：待“OpenCode Go 添加请求头”发布完成，再继续本任务。停止当前开发与准备，不接管另一维护窗口。
+
+- 关联聊天实际标题 `为 OpenCode Go 添加请求头`，ID `01a1348d-c304-7e12-8139-6bb3cc854836`。最新 wait cursor `5a51e67e-857a-4993-9749-cebe9bd648d6:2`；对方正在处理管理员进程缺 PowerShell 7 路径后的同一维护续接。不得据聊天 idle 判定发布成功，须核实其采用结果、维护退出和实际正式状态。
+- 外部维护 ID `db9caa954a6b412f83074d6b9a40bce0`，19:07 仍存在；Worker receipt 暂时不存在。不是本聊天创建或执行的维护。
+- 本任务源码 `cacfa78c` 已推开发分支，未合并 main。origin/main 已到 `a7423963`；新 AI chat/provider/workflows 变化尚未合入本开发分支。主目录仍须保护。
+- 冻结组合源码 `D:/codex-isolated/jackyun-audit-adoption-20261013/source`，Git 表示基线 `63c78c19725efa851dd753928e2dfbc06e2adf31`、候选 `b59f2ff31b27820c33e68954e978e410a370d0b3`，8265 文件、107 实际差异；scope plan SHA `035294878b69b8c2ef28ee3e5ed599acab8caa578e1531173f8205181f487ce0`。
+- Worker 在线准备已成功：candidate `20261013T103744Z-8aeaf22fa1596826`，manifest `e036d923788a5c645fcbb52beb577ef7c268873ac79af045d3ca01599ec227bf`，plan `2e53458196da8d9f7b16132a7bc128dddf117339163e7807fb21578439585500`。helper 与既有真实隔离 n8n 证据完全相同 `16acb5a0...`；75 个恢复运行文件逐字节相同，见 recovery-evidence-reuse.json。
+- Django 18:58 首次 PrepareApp 通过新有限审计准入，因候选源缺 Wrangler CLI 而失败。已从同一已验证 Worker 制品复用 34 个包/1573 文件的精确 Wrangler 闭包至候选 node_modules，无 junction、不重装或重建 Worker；wrangler-dependency-reuse.json 记录逐文件摘要。
+- Django 19:03 第二次准备在 driver 的 Worker 前驱回执检查处失败（外部维护已移除 receipt），尚未调用 PrepareApp。两个管理员 launcher PID 46872/43972 均退出 1；无本聊天在途进程。不要盲目重跑整套 Worker 准备。
+- 正式父谱系准入 evidence `admission.json` SHA `b12483473c02b0e3b5971c6d385a86511b04ba57a0685c0d6a95cc9e988703d7` 绑定当时 Django manifest `52f0d18a6f0f9c5b9bf78f98fd8bc55747eb83f6f86e6bfd599d0a105db8de12`；外部 Django-only 发布后必须重核，不换绑旧证据。Worker source-snapshot 与实际 Django app 可能形成混合前驱，须保留对方新发布 backend 内容，不能用旧 Worker 快照回退 AI 修复。
+- 当前额外未提交文件：任务 HANDOFF 追加、`docs/jackyun-unified-recovery-20261013/adoption-checks.mjs`、`tests/jackyun-adoption-checks.test.mjs`。只读验收和 n8n 已发布版本观察器已做 3 项负向测试及定向 lint（均通过）。尚未生成完整可批准 batch，不请求抽象上线批准。
+- 观察器 n8n-publication 只读轮询正式 SQLite；需要获批操作者通过原 n8n 编辑器发布精确两流程。保存草稿不足以通过；已发布前驱/图/设置/在途异常保留失败并停；观察器本身不发布、不写 SQLite。
+- 恢复后先重新核查维护和完整生产前驱，再决定现有 Worker plan 是否仍有效。若实际 backend 已更新，需重新组合并绑定新候选，不能把旧 plan 冒充同一制品有效。完成必要审查、提交合并推送和完整采用包；本任务生产部署、迁移、正式 n8n 更新、调度及真实补跑仍需完整包后的一次明确批准。
+
+- 已创建当前聊天条件检查 heartbeat：ID opencode，每 5 分钟只读检查上述发布状态；未满足时安静等待，满足后先暂停该自动检查再恢复步骤 1–3。
+
+## 明确暂停（2026-10-13）
+用户最新明确要求‘暂停’。当前任务和条件检查 automation opencode 均已暂停（工具确认 PAUSED）。原‘等待 OpenCode 发布后自动恢复’规则已被本次暂停覆盖；即使 OpenCode 发布完成，也必须等用户明确恢复后才继续。全部源码、候选和未提交内容保持。
+
