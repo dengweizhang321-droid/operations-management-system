@@ -18,7 +18,7 @@ n8n 使用安装版本的官方 `import:workflow` / `publish:workflow`，在原�
 
 ## 已有结果及按用户指令停止的范围
 
-原批次 `jackyun-direct-d3c0172c6400`，SHA `639f410937aae7aa05d6a2418bf4050f6ee21a7a91ca03df806860916efa6d7f`。原维护 ID `cde028eac067f6d17536710c21e5940f`，审计迁移 operation `59c901fae2b94400b197578e7bac7638`。实际切换、后端部署、ACL、迁移安装/finalize、退出维护、完整 Start 均有原 passed 回执。完整 Start 于 00:40 完成，原 VerifyStartup 于 01:18:06 通过。01:21 只读监听快照仍显示 3000、5791、5678 正常监听。
+原批次 `jackyun-direct-d3c0172c6400`，SHA `639f410937aae7aa05d6a2418bf4050f6ee21a7a91ca03df806860916efa6d7f`。原维护 ID `cde028eac067f6d17536710c21e5940f`，审计迁移 operation `59c901fae2b94400b197578e7bac7638`。实际切换、后端部署、ACL、迁移安装/finalize、退出维护、完整 Start 均有原 passed 回执。完整 Start 于 00:40 完成，原 VerifyStartup 于 01:18:06 通过。停止验收后的只读监听快照仍显示 3000、5791、5678 正常监听。
 
 此前已经完成权限、迁移、业务接口契约及正式 n8n 发布图核对。业务接口核对只证明当前接口状态，不等于五表导入成功。资源检查原失败完整保留：生成的清单把 `.assetsignore`、`_headers` 两个部署控制文件当作公开下载文件。独立核对全部 76 个真实公开资源的 HTTP 与精确摘要、私有控制文件行为及静态缓存规则后，使用原 reconcile API 记录实际资源目标通过；没有把原失败脚本改写为成功。
 
