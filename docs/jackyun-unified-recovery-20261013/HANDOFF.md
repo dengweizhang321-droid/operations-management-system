@@ -89,3 +89,43 @@
 - 新限定协议如实记录没有新备份/演练；旧 v1 和 BI/139 历史证明语义保持。两迁移源码、数据库事务/锁、原表摘要、身份/目录/互斥及未知结果回查保持；新增路径先静态审查、语法检查，复用此前与未改函数绑定的隔离证据，不再运行发布演练。
 - 原两次私有 n8n 发布演练失败证据及脚本保留。静态读取安装版发现 Wait webhookId 自动生成会改变发布图，正式提案须显式固定这些字段，保留原节点已有 ID；不放宽发布后精确图比对。
 - 本聊天截至该记录没有生产维护、服务启停、迁移、工作流写入或补跑。在途验证/演练均已结束；后续按用户授权执行发布。
+
+## 最终静态修正与候选（22:49 后）
+
+- 远端 main / 开发分支已为 `4807ac54b5fecde767ff61500fcbd51dfd132a7f`，包含原有限采用 `cacfa78c`、验收观察器、OpenCode 后端修复及本次显式省略新备份/演练协议。
+- 静态复核补齐原参数封包 `withoutnewbackup` 布尔开关。只停止本聊天未切换的准备 Node 32780；原失败/取消及 `direct-publication` 候选保留，没有停生产或清理旧锁。
+- 最终源 `D:/codex-isolated/jackyun-audit-adoption-20261013/source-user-directed-final`，表示提交 `178df20ec32298fe84ec503654b1380d0c36f1f4`，8265 文件；原 `ea3508e4` 只改变四个采用工具。准入 `f90210dec25031b9a144cb2667fd3d9039a0d7efd8e80d50cb4fbf8f6874b38e`。原数据库/锁/事务等七函数 AST 和两迁移保持，旧 PG 隔离证明绑定静态代码差异，不宣称新演练。
+- 当前 exec session `55854`：普通用户原 PrepareApp 后顺序原 Worker plan；输出 `D:/codex-artifacts/jackyun-migration-adoption-20261013/direct-publication-final/`。不要同时重建。读取该目录 django-result / worker-plan / preparation-result 后运行该目录 `seal.mjs`（仅封包），再按当前用户已授权执行原 release-batch。
+- 正式 n8n `http://localhost:5678` 的现有 Chrome 会话可用；工具 tab ID `1879263037`，当前在吉客云原 ID，Actions 菜单已只读查看，未导入/保存/发布。`127.0.0.1` 是另一未登录 cookie 来源，不需用户凭据。恢复 CUA 先 rewriteDocumentation，再取得该 tab。
+- n8n 提案与两个文件在 `direct-publication`，保留原已有 webhookId，为新 Wait 节点固定 ID；当前两发布前驱仍 `0821abae…` / `b3f1527f…`，调度/时区原样、无在途。正式更新须在新 helper/后端就绪后经原界面导入原 ID 并发布；观察器只读核验实际 activeVersion/history 图，不是保存草稿即通过。
+- 待生成 batch 仍调用原轮换锁/WAL、维护/停稳、Plan/apply/Deploy/ACL/Install/Finalize/Exit/普通 Start。不执行 Backup、RestoreRehearsal、保护点轮换、真实业务补跑或手工外发。
+
+## 当前在途正式批次（23:28 检查点，必须复用）
+
+- 最终候选已完成：Worker `20261013T145450Z-fe391dce49a258cf`，manifest `51aefd56a68ae84df34e606db2c508092511b1ae24d118fd50cca33333016c6d`，plan `f8a48e36c452044e6676d63a8c48caa2be5c751ad9cc6453bd5b0388a08042b0`；helper 仍是 `16acb5a0…`。Django prepare `dceea1ea35c541a586c3163afac08047` / receipt `85eccac64a47ef6956389b49ea951d1cb86829d483bfea70bb4d5e0728a5e21f` / manifest `4fb134f17cd22018045b87a2852ea874d5d9f3e3c36900a3e8750dc0e572e321`。
+- `direct-publication-final/approved-batch.json` 已封存 19 原操作，batch ID `jackyun-direct-d3c0172c6400`，SHA `639f410937aae7aa05d6a2418bf4050f6ee21a7a91ca03df806860916efa6d7f`；maintenance `cde028eac067f6d17536710c21e5940f`，audit operation `59c901fae2b94400b197578e7bac7638`。严禁新建第二批、重建候选、修改封包或接管 active。
+- 用户批准原文与实际人类消息 UUIDv7 时间在 authorization-source.json：明确无备份/演练为 14:24:16.721Z；最后“代码检查后直接发布” 14:28:20.232Z。原 CLI 使用这个实际 approvedAt，未再问批准。
+- 第一个外部 execute.mjs 在 spawn 前因自填 1 小时超过原 runProcess 时限而失败；没有原 WAL/生产动作，failure 保留。随后直接原 CLI 启动，exec session `65905`；`execution-direct.log` 和 `execution-direct-exit.json` 保存原退出。现在原 fixed WAL 已 active，首次 admission 完成，最后阶段 prepare/started（复用精确 plan），维护尚未创建。不要重跑调用器或删除 active。
+- 原 WAL 路径 `D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/jackyun-direct-d3c0172c6400`。观察最新事件和实际状态；未知须按原精确效果回查/协调，不能盲目重放。所有生产操作仍归本批原引擎，普通用户/固定 PS5 modules/PS7 路径；三个 PS1 的 UTF8 BOM已静态核验。
+- 接下来当 StartWorker 和迁移通过、batch 等待 check-n8n-publication 时，在已登录 localhost:5678 Chrome 原 tab 1879263037，经 Actions → Import from file 导入 direct-publication 下 J8kY2mQ5vR7sT4pN.workflow.json，保持原 ID/名字，Save/Publish；再对 TeruisiHourlyRetry2026 同样发布。不点击 Execute。同目录 n8n-proposal.json 的 Wait webhookId 已固定，调度/时区不改；原只读观察器会核实际已发布历史全图，不以草稿或 UI按钮状态冒充。
+- 自然看门狗只观察两轮，既有 task/bundle/通知政策不变。正式业务未补跑；候选和源码成功不代表真实五表恢复。完成后更新生产报告、交接和共享项目记忆，按规范仅提交本任务文档/必要修复，远端再次回读。主目录 Git HEAD/其他改动继续保护。
+
+## 当前正式采用中（2026-10-14 00:23，优先本段）
+
+- 原 in-process 可选长持有输入缓存监听失败，停止在维护前。两次完整 workerPreparationIdentity 与封存身份一致；input-diagnosis.json 实录 npm 目录 change、旧 mtime/ctime 和新 atime（记录上限 500，不声称覆盖每个事件），原错误保留。
+- 没有改源码、封包、批准 SHA、制品、身份或断言。改用原公开 executeBatch + 原标准 collectBatchAdmission **默认逐次完整 initial/final 读取路径**（不传可选 session）续接同批；同 transport、原 collector 代码/argv/file SHA 校验。外部调用器 `direct-publication-final/resume-with-fresh-observation.mjs`，exec session **78490** 在途。第一个调用器路径分隔符字面断言失败发生在调用引擎前并保留；corrected.log 是当前 stdout，不要重跑源码准备/已通过操作。
+- maintenance `cde028eac067f6d17536710c21e5940f` 于 00:02:39 正式创建，KeepPostgres=true；EnterMaintenance、StopWorker、audit-plan、apply-exact-worker、DeployApp 已 passed。Worker 当前 fe391dce，Django 当前 4fb134f1；剩余 HardenAcl、Install/Finalize、Exit/Start 和验收。查看原固定 WAL 最新事件，不据本段推定后续成功。
+- Chrome 文件 chooser API 超时并重置；两次恢复请求头策略失败。未发生浏览器导入或保存。之后使用**安装版本官方 CLI import:workflow/publish:workflow**，原 TERUISI-n8n-Service 普通任务 Stop/Start，未改 task/action/schedule/权限。n8n CLI exec **49873** 已完成，结果 published_and_original_service_restarted / healthz200。
+- 两原 ID 已严格匹配全部 nodes/connections/settings：J8kY2mQ5vR7sT4pN activeVersion **80ea7e87-679f-42b6-a9ab-c990c92ecf5d**，图 SHA a9f37ecb…；TeruisiHourlyRetry2026 activeVersion **6c6482e0-2937-4117-9fbc-e31a716354e7**，图 SHA 9151a99f…。其他 20 流程定义、调度/时区、空 pinData 保持；旧 history 保留。逐条回执 n8n-published-*.json 及总结果 n8n-cli-publication-result.json。
+- 00:10 的原自然执行 **8841** 在维护中等待领取，已读原 flatted runData 证明仅 cron/anchor/claim/if/wait 五节点，未进入 A—E。scheduled-wait-8841.json。此执行及旧 pinned history 保留，没有手工停止/取消/重跑。n8n 重启会正常恢复其等待；业务不算本任务手工补跑。后续只读更新其实际状态，不宣称成功。
+- check-n8n-publication 原验收仍要求两流程无 running/waiting/new；可能需等 8841 自然终态。不能删除此断言、篡改执行或把已发布当无在途。后续若观察失败保留原失败，只按实际结果观察协调，不重装已采用组件。
+- 本次没有 Backup/RestoreRehearsal/新发布演练/真实人工补跑/手工外发。正式维护已在途，必须持续推进到恢复正常与收尾；不要停在“准备完成”或另开维护。
+
+## 最新用户范围与上线事实（2026-10-14，优先本段）
+
+- 用户最新明确“无需验收收尾，直接发布上线”，覆盖上文继续验收收尾的计划。Worker fe391dce、Django 4fb134f1、两项审计迁移及两条原 n8n 流程均已正式采用；完整 Start 与 VerifyStartup passed，维护已退出。详见 [PRODUCTION.md](PRODUCTION.md)。
+- 资源原失败保留，经全部 76 个公开资源、两个部署控制文件及缓存规则独立核对后，原 reconcile API 记录资源目标 passed。不要声称旧脚本全部通过，也不要修改原封包或失败证据。
+- exec 4040 / Node 2556 的后续只读验收于 01:18:39 按指令停止，未启停正式服务。停止时 VerifyStartup 已 passed；AggregateStatus 与自然看门狗两帧没有执行。无本任务在途进程，不要重跑验收、重装或真实补跑。
+- 原固定 WAL 尚无 completed，release-batches/active.json 保留；它不是业务 active，也不是仍在维护。今后发布必须明确处理本次取消的剩余收尾范围，不允许删除标识、伪造 passed 或直接重放已安装动作。此次没有新增绕过原协调器的代码。
+- 自然旧版本执行 8841 失败于 A 的旧登录/身份障碍，未到 B/C/D/E。生产上线不等于五表业务恢复；需处理障碍后走新完整重试入口，不需额外人工闭合旧任务。未获人工真实补跑授权。
+- 主目录 HEAD 与无关改动、59 份旧测试日志、未提交 rehearse-publication.mjs 均保留。仅提交本任务上线记录/交接；新 main 的无关改动不换绑已采用候选。条件检查 automation opencode 保持 PAUSED。
