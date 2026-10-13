@@ -124,7 +124,7 @@ def jackyun_recovery_authority(request: HttpRequest) -> JsonResponse:
         if request.method == "GET":
             if set(request.GET) != {"authorizationId"} or len(request.GET.getlist("authorizationId")) != 1:
                 raise WorkflowApiError("人工恢复授权查询字段无效")
-            return _json(read_authority(request.GET["authorizationId"]))
+            return _json(read_authority(request.GET["authorizationId"]), revision=revision_value())
         payload = _body(request)
         return _replay_write(request, principal, lambda: (authorize(payload, request.headers.get("X-Teruisi-Request-Id", "")), 200))
     except Exception as error:

@@ -32,6 +32,8 @@ class JackyunRecoveryAuthorityTests(TestCase):
         before = list(WorkflowWriteRequestReceipt.objects.values())
         response = self.client.get(url, headers=signed_headers(url))
         self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["authorizationId"], request_id)
+        self.assertRegex(response.headers["X-Workflow-Data-Revision"], r"^\d+:[0-9a-f]{12}$")
         self.assertEqual(list(WorkflowWriteRequestReceipt.objects.values()), before)
         self.assertEqual(self.client.get(url, headers=signed_headers(url, role="operator")).status_code, 403)
         WorkflowWriteRequestReceipt.objects.filter(request_id=request_id).update(expires_at=timezone.now())
