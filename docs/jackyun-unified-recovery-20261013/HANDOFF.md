@@ -20,3 +20,14 @@
 - Git 已交付：源码 `e511a5a8`，合并 `11235a61` 已推 main 并回读包含源码；随后仅文档收尾。运行验证与失败边界见 REPORT。原树和所有旧日志继续保留，不从头开发或重跑已完成检查。
 - 下一步仅为生产准备阻断的解除：取得合法管理员身份预检能力，重核正式前驱/两个 n8n 发布版本，再用原在线 plan/PrepareApp 封存精确批次。完整采用包达到可执行状态后，按用户要求一次性确认对应生产范围；未获该授权不启停、不更新、不补跑。权限缺口不通过反复普通权限调用解决，不绕过保护。
 - 禁止提前生产部署、启停、正式 n8n 更新、调度变更或真实补跑。既有源码构建、合成网关五表和生产验收分别记录。
+
+## 12:00 后 Windows 权限接续
+
+- 用户要求由当前会话处理实际 Windows 权限。正常 `Start-Process -Verb RunAs` 只读检查已成功：管理员进程可读 3000/5791 路径及命令行；见外部 `admin-identity-probe-1f5764f907d3496fac5c1cf753ef7896.json`。这是一次临时提权，未改 UAC/ACL/服务，未授予部署或补跑。
+- 文档接续分支 `codex/jackyun-online-preparation-20261013` 从最新 main `5acd61af` 建立，复用原工作树并保留 59 个日志。
+- 候选源码字节不变，新增独立 Git 索引以符合原工具源清单要求；只移除原 node_modules junction，目标依赖未删。候选内独立 `npm ci` 成功，原 postinstall 补丁执行；首次离线源/dist ZIP 保持原字节。
+- 临时管理员进程 PID 48180、Node 37940 已结束；只运行已核 SHA 并持打开句柄的外部 `prepare-online-admin.mjs`。同一 Node 顺序执行原 Worker 在线准备和原 Django PrepareApp，没有 apply/DeployApp/Start/Stop/工作流写入/补跑。
+- Worker 成功：plan `305a355a…ee3654b`，候选 `20261013T040853Z-8517af2a5fa7310f`，manifest `f6c589d7…acdd9ec`，42 原合约通过。完整值见 ONLINE_PREPARATION.md，不重复 Worker 准备。
+- 整体退出 1：Django PrepareApp 被 `bi_app_addition.py successor` 拒绝。只读重现为 `BI append changes another migration or the reviewed step`；对照已部署 app，仅新增 ERP 0003、sales 0011，无旧迁移变更/删除。
+- 当前剩余是迁移治理兼容性缺口，不是 Windows 权限：既有 BI gate 只接受原 140 目录，须为两个新审计迁移补严格准入/安装/恢复/后继协议，再做隔离验证和重新准备。不得修改计数、删 active、伪造原证据或跳过 guard。独立 PG 57 项不代替生产迁移谱系证明。
+- 证据仍在 `D:/codex-artifacts/jackyun-unified-recovery-resume-20261013/online-admin-20261013-v1*`，及 `bi-successor-readonly.json`、`migration-preparation-gap.json`。无在途进程；旧候选/日志保留。任何新源变化须绑定新的准备身份。
