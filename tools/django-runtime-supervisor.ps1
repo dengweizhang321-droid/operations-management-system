@@ -289,6 +289,14 @@ function Read-SupervisorState {
     "lastRestartAttemptAt", "lastAlertAt", "lastAlertKey",
     "supervisorProcessId", "supervisorScriptSha256"
   ) "Django supervisor state"
+  $currentSupervisorSha256 = Get-FileSha256 $SupervisorScriptPath
+  $installedAppRoot = Split-Path (Split-Path $SupervisorScriptPath -Parent) -Parent
+  $runtimeRootForState = Split-Path $installedAppRoot -Parent
+  $previousSupervisorPath = Join-Path $runtimeRootForState "app.previous\tools\django-runtime-supervisor.ps1"
+  $acceptedSupervisorHashes = @($currentSupervisorSha256)
+  if (Test-Path -LiteralPath $previousSupervisorPath -PathType Leaf) {
+    $acceptedSupervisorHashes += Get-FileSha256 $previousSupervisorPath
+  }
   if ([string]$state.version -cne $SupervisorStateVersion -or
       [string]$state.desiredState -notin @("running", "stopped") -or
       [string]$state.health -notin @("unknown", "healthy", "unhealthy", "stopped") -or
@@ -310,7 +318,7 @@ function Read-SupervisorState {
       -not (Test-SupervisorOptionalTimestamp ([string]$state.lastHealthyAt)) -or
       -not (Test-SupervisorOptionalTimestamp ([string]$state.lastRestartAttemptAt)) -or
       -not (Test-SupervisorOptionalTimestamp ([string]$state.lastAlertAt)) -or
-      [string]$state.supervisorScriptSha256 -cne (Get-FileSha256 $SupervisorScriptPath)) {
+      [string]$state.supervisorScriptSha256 -cnotin $acceptedSupervisorHashes) {
     throw "Django supervisor state 版本或脚本摘要无效"
   }
   return $state

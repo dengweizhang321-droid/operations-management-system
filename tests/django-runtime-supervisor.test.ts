@@ -113,6 +113,8 @@ test("supervisor process ownership and login replacement are fail-closed", async
   assert.match(script, /现有 Django 登录启动项不是受控 one-shot 或 supervisor；拒绝覆盖/);
   assert.match(script, /Arguments -cne \$expectedArguments/);
   assert.match(script, /RestoreOneShotStartup/);
+  assert.match(script, /app\.previous\\tools\\django-runtime-supervisor\.ps1/);
+  assert.match(script, /acceptedSupervisorHashes/);
   assert.match(script, /恢复 one-shot 登录启动项前必须先 Disarm supervisor/);
   assert.match(script, /恢复 one-shot 登录启动项前必须等待 supervisor 进程退出/);
   assert.match(script, /existingSnapshot/);
