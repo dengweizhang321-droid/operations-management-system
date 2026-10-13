@@ -1,0 +1,122 @@
+[
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_CONTINUATION_V1_CALL.json",
+    "name": "AGY_CONTINUATION_V1_CALL.json",
+    "bytes": 104,
+    "sha256": "28e6bcfa5ae96b4e185ec6c6e9db94b909779caab9df4ce95fcd9917682d3c84"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_CONTINUATION_V1_PROMPT.txt",
+    "name": "AGY_CONTINUATION_V1_PROMPT.txt",
+    "bytes": 53532,
+    "sha256": "c1cd005badf89185d02b38485e60b600d179396a03d01cceb3617bc0f21b29b0"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_CONTINUATION_V1_STDERR.log",
+    "name": "AGY_CONTINUATION_V1_STDERR.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/AGY_CONTINUATION_V1_STREAM.ndjson",
+    "name": "AGY_CONTINUATION_V1_STREAM.ndjson",
+    "bytes": 17662,
+    "sha256": "dcabb5e3d8a5c87d051b133cbe35c3b01d26f0cb57a509309e2ff2247ca13c0c"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/BACKEND_NATIVE_DEPENDENCY_PROBE_V1.json",
+    "name": "BACKEND_NATIVE_DEPENDENCY_PROBE_V1.json",
+    "bytes": 377,
+    "sha256": "0ab83e25fdf6135b25cab7cdb8bb14765ceae0c59d45514b5a7ff24b1dd0e77f"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/CONTINUATION_FINAL_TEST.log",
+    "name": "CONTINUATION_FINAL_TEST.log",
+    "bytes": 1151,
+    "sha256": "0e9cf01489d06fb24742ff11dffe40305217032e31aed74a62d1387235a09949"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/CONTINUATION_FIRST_TEST.log",
+    "name": "CONTINUATION_FIRST_TEST.log",
+    "bytes": 955,
+    "sha256": "c38aeaa730e846401dd12a9683d638705d51deedfeb98486269ae88943fff995"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/CONTINUATION_PACKAGE_V1.json",
+    "name": "CONTINUATION_PACKAGE_V1.json",
+    "bytes": 30642,
+    "sha256": "0c188f355d70b0eac283c11b827f097265025bcb967d22693d8ba37bfe6c2ce2"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/CONTINUATION_PACKAGE_V2.json",
+    "name": "CONTINUATION_PACKAGE_V2.json",
+    "bytes": 31425,
+    "sha256": "e9d4ca56d1488e3a37435cedeac07642e06dadb3d90bee8e32cca05ec69713ed"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/GENERATED_DEPENDENCY_FINAL_TEST.log",
+    "name": "GENERATED_DEPENDENCY_FINAL_TEST.log",
+    "bytes": 2334,
+    "sha256": "ad046dd288f8fbfe850322f9deb8ae83adc2573b0c2b00ad89c14c4c7815689f"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/GENERATED_DEPENDENCY_FIRST_TEST.log",
+    "name": "GENERATED_DEPENDENCY_FIRST_TEST.log",
+    "bytes": 4382,
+    "sha256": "a82646aeefb85b08819b4a1b604350a2f0cd5312a2a1b271849528bfd8677220"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/GENERATED_DEPENDENCY_V3_TEST.log",
+    "name": "GENERATED_DEPENDENCY_V3_TEST.log",
+    "bytes": 263,
+    "sha256": "b80123f2c6e05d2851a2eafcb0deb323e7e69c228b6265f19eecc8b8d68a4443"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/NATIVE_WATCHDOG_CANDIDATE_V3.json",
+    "name": "NATIVE_WATCHDOG_CANDIDATE_V3.json",
+    "bytes": 5078,
+    "sha256": "53fca5d896a279e40ab49fbc8d5c611a07090e5fbe682ee2b82c7d53e53ef62c"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/OPTIONAL_PREDICATE_FINAL_TEST.log",
+    "name": "OPTIONAL_PREDICATE_FINAL_TEST.log",
+    "bytes": 280,
+    "sha256": "a387124ae06175f45a7224b26970814a924737db311b90b7161c512ee13e9dc1"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/OPTIONAL_PREDICATE_FIRST_TEST.log",
+    "name": "OPTIONAL_PREDICATE_FIRST_TEST.log",
+    "bytes": 278,
+    "sha256": "358a2a677917d1628e9109919f05e5c22db70a2e6f80584aa0623ea2d61b0ad1"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/OWN_FENCE_BACKEND_FULL_V1.json",
+    "name": "OWN_FENCE_BACKEND_FULL_V1.json",
+    "bytes": 9557,
+    "sha256": "713c4c4a623a1b964111c7e478ff3c60805df5d01e57dc6d88319a90aa113040"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/OWN_FENCE_CONTROL_V3.json",
+    "name": "OWN_FENCE_CONTROL_V3.json",
+    "bytes": 7670,
+    "sha256": "b58cd19794b421752258ffbdcc6fac9c72e3005300096494180659dc08b16051"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/OWN_FENCE_READONLY_CONTROL_V1.json",
+    "name": "OWN_FENCE_READONLY_CONTROL_V1.json",
+    "bytes": 826,
+    "sha256": "0eefa8550cdf612f25b1e2f2ad2653f352ff4831171e9a3542cce4faea8fef91"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/ROOT_CANDIDATE_V3_AND_READY_REVIEW_V1.json",
+    "name": "ROOT_CANDIDATE_V3_AND_READY_REVIEW_V1.json",
+    "bytes": 542,
+    "sha256": "5f704553cdc744dc0c93e90ea1cfe4e9bba14b2385abb1e52392202656957bb1"
+  },
+  {
+    "source": "E:/codex-artifacts/startup-recovery-continuation-20261012/WATCHDOG_PLAN_V3.json",
+    "name": "WATCHDOG_PLAN_V3.json",
+    "bytes": 1741,
+    "sha256": "ca10079205a03f00144d3cfa11c6f41529c2da357d77ae66002f458dad53754f"
+  }
+]

@@ -1,0 +1,23 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+false !== true
+
+    at validateNaturalNoDataObservation (eval at originalNaturalValidator (file:///D:/.codex/worktrees/release-final-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-final-closeout-20261012/bounded-two-natural.mjs:4:308), <anonymous>:7:190)
+    at acceptFreshNatural (file:///D:/.codex/worktrees/release-final-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-final-closeout-20261012/bounded-two-natural.mjs:5:178)
+    at observeTwoFreshNatural (file:///D:/.codex/worktrees/release-final-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-final-closeout-20261012/bounded-two-natural.mjs:6:1190)
+    at async file:///D:/.codex/worktrees/release-final-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-final-closeout-20261012/run-natural-only.mjs:13:618
+    at async Object.withRotationLock (file:///D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/worker-local-release-rotation.mjs:72:16)
+    at async file:///D:/.codex/worktrees/release-final-closeout/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/docs/release-final-closeout-20261012/run-natural-only.mjs:13:13 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.18.0

@@ -1,0 +1,10 @@
+{
+  "at": "2026-10-12T09:48:01.255Z",
+  "processId": 68616,
+  "args": [
+    "D:\\.codex\\worktrees\\watchdog-native-census\\运营管理系统\\docs\\watchdog-native-census-20261012\\run-census-install.mjs",
+    "E:/codex-artifacts/watchdog-native-census-20261012/CENSUS_INSTALL_INTENT_V1.json",
+    "4601d0bc81a61f273a4294e6e863671cdc91abe1adc18779621bd5d0351286fb"
+  ],
+  "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f"
+}

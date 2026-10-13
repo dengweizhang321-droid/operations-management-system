@@ -1,0 +1,705 @@
+{
+  "version": "teruisi-release-site-readonly-runtime-recheck-v1",
+  "at": "2026-10-11T15:10:48.092Z",
+  "batchSha256": "f0bb923070dc0741a6b76885b6fe08f54710928b0eda1398a9cab8452d1d6c9e",
+  "originalAB": {
+    "receiptSha256": "790313b4ab938a87bf5a32e09e2e2b2962ae834293c9e57c0c44b1a54a2f2792",
+    "records": 109,
+    "journalHead": "5289afacafc13d0fe36e10c0b3df7ae7811e59616827f24565761b0079abd11f",
+    "originalEngineCompleted": false
+  },
+  "djangoPredecessorSha256": "237fbe0de6e4fbab6b80389298ba1b8a5951b5aaf213c250ad3ee9f590010ab9",
+  "workerPredecessor": {
+    "bindingSha256": "094e10d4508986d62e5d90bf99041271fb7527f9a8b5d33f1dfb386529cee548",
+    "guardReceiptSha256": "672f80420f154969d4bf221f542dacfbab3dc0360ca25c95c3c686792be7f013",
+    "manifestSha256": "f4e537eb20dfa60127cf588db0ed911223c0b59c44fc8b839e5df196428e7113",
+    "releaseId": "20261010T014638Z-97833d2f2b7e7bc9",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "workerCandidate": {
+    "bindingSha256": "aec72f36e2718e853c3ca8d9f9790ecb8d01a141b43e7851f8f42979605ca66c",
+    "guardReceiptSha256": "92eff2b54a9227f954a7f223a698f1c3c0e9d45168a7dc758188523311812e01",
+    "manifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+    "releaseId": "20261011T090355Z-21c2645a63247749",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "workerProcessReceiptSha256": "a319e45850aaae5b2e65d0642e55603c31b23881c0ab8750045a23782dc4cc9b",
+  "workerProcessReceiptKeys": [
+    "manifestPathSha256",
+    "manifestSha256",
+    "receiptPayloadSha256",
+    "releaseId",
+    "supervisorCreationDate",
+    "supervisorEntrypointPathSha256",
+    "supervisorPid",
+    "version"
+  ],
+  "states": [
+    {
+      "path": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/active.json",
+      "present": false
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/run/system-maintenance.json",
+      "present": false
+    },
+    {
+      "path": "D:/teruisi-runtime/django-sales/run/automation-drain.json",
+      "present": false
+    }
+  ],
+  "observedDatabaseWorkerProcesses": [
+    {
+      "ProcessId": 4080,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791124007095)/"
+    },
+    {
+      "ProcessId": 28080,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791124007216)/"
+    },
+    {
+      "ProcessId": 22904,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791124007243)/"
+    },
+    {
+      "ProcessId": 5148,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791124007247)/"
+    },
+    {
+      "ProcessId": 25028,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791124013098)/"
+    },
+    {
+      "ProcessId": 27840,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791124013103)/"
+    },
+    {
+      "ProcessId": 25044,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791124013108)/"
+    },
+    {
+      "ProcessId": 64248,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791613692125)/"
+    },
+    {
+      "ProcessId": 28252,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791613692181)/"
+    },
+    {
+      "ProcessId": 16360,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791613715474)/"
+    },
+    {
+      "ProcessId": 57920,
+      "Name": "workerd.exe",
+      "CreationDate": "/Date(1791680384476)/"
+    },
+    {
+      "ProcessId": 68196,
+      "Name": "workerd.exe",
+      "CreationDate": "/Date(1791680385569)/"
+    },
+    {
+      "ProcessId": 66024,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791699146466)/"
+    },
+    {
+      "ProcessId": 31652,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731325398)/"
+    },
+    {
+      "ProcessId": 71124,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731328780)/"
+    },
+    {
+      "ProcessId": 54380,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731338559)/"
+    },
+    {
+      "ProcessId": 66368,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731338753)/"
+    },
+    {
+      "ProcessId": 39720,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731338844)/"
+    },
+    {
+      "ProcessId": 67116,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731339000)/"
+    },
+    {
+      "ProcessId": 46924,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731339281)/"
+    },
+    {
+      "ProcessId": 52732,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731339418)/"
+    },
+    {
+      "ProcessId": 58356,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731339531)/"
+    },
+    {
+      "ProcessId": 12328,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731339800)/"
+    },
+    {
+      "ProcessId": 46320,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731341785)/"
+    },
+    {
+      "ProcessId": 45784,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731344837)/"
+    },
+    {
+      "ProcessId": 57536,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731345088)/"
+    },
+    {
+      "ProcessId": 11340,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731345201)/"
+    },
+    {
+      "ProcessId": 50524,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731345327)/"
+    },
+    {
+      "ProcessId": 10296,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731345615)/"
+    },
+    {
+      "ProcessId": 68488,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731345751)/"
+    },
+    {
+      "ProcessId": 43420,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731345900)/"
+    },
+    {
+      "ProcessId": 40744,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731345908)/"
+    },
+    {
+      "ProcessId": 8300,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731346146)/"
+    },
+    {
+      "ProcessId": 66308,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731348479)/"
+    },
+    {
+      "ProcessId": 2624,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731348565)/"
+    },
+    {
+      "ProcessId": 52644,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731355404)/"
+    },
+    {
+      "ProcessId": 24920,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731372125)/"
+    },
+    {
+      "ProcessId": 55580,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731374049)/"
+    },
+    {
+      "ProcessId": 26404,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731374177)/"
+    },
+    {
+      "ProcessId": 14276,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731374862)/"
+    },
+    {
+      "ProcessId": 37776,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731375570)/"
+    },
+    {
+      "ProcessId": 31628,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731376750)/"
+    },
+    {
+      "ProcessId": 39284,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731376889)/"
+    },
+    {
+      "ProcessId": 19164,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731377761)/"
+    },
+    {
+      "ProcessId": 26508,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731377919)/"
+    },
+    {
+      "ProcessId": 42936,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731378777)/"
+    },
+    {
+      "ProcessId": 49728,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731379329)/"
+    },
+    {
+      "ProcessId": 72412,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731380111)/"
+    },
+    {
+      "ProcessId": 38256,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731380817)/"
+    },
+    {
+      "ProcessId": 46892,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731382101)/"
+    },
+    {
+      "ProcessId": 66380,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731382411)/"
+    },
+    {
+      "ProcessId": 60640,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731383288)/"
+    },
+    {
+      "ProcessId": 42684,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731383412)/"
+    },
+    {
+      "ProcessId": 66084,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731384171)/"
+    },
+    {
+      "ProcessId": 64580,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731384285)/"
+    },
+    {
+      "ProcessId": 37088,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731385182)/"
+    },
+    {
+      "ProcessId": 24684,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731385699)/"
+    },
+    {
+      "ProcessId": 68416,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731388232)/"
+    },
+    {
+      "ProcessId": 70956,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731396896)/"
+    },
+    {
+      "ProcessId": 9540,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731397951)/"
+    },
+    {
+      "ProcessId": 23164,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731397954)/"
+    },
+    {
+      "ProcessId": 70964,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731397958)/"
+    },
+    {
+      "ProcessId": 69208,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731397962)/"
+    },
+    {
+      "ProcessId": 47424,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731397968)/"
+    },
+    {
+      "ProcessId": 64832,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731397974)/"
+    },
+    {
+      "ProcessId": 70228,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731398164)/"
+    },
+    {
+      "ProcessId": 70432,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731398209)/"
+    },
+    {
+      "ProcessId": 48712,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731398267)/"
+    },
+    {
+      "ProcessId": 47004,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731398289)/"
+    },
+    {
+      "ProcessId": 37188,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731398356)/"
+    },
+    {
+      "ProcessId": 41296,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731398477)/"
+    },
+    {
+      "ProcessId": 57528,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731398749)/"
+    },
+    {
+      "ProcessId": 47924,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731398801)/"
+    },
+    {
+      "ProcessId": 27936,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731398860)/"
+    },
+    {
+      "ProcessId": 25500,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731398939)/"
+    },
+    {
+      "ProcessId": 19152,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731399058)/"
+    },
+    {
+      "ProcessId": 27568,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731399063)/"
+    },
+    {
+      "ProcessId": 53264,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731399067)/"
+    },
+    {
+      "ProcessId": 36860,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731399222)/"
+    },
+    {
+      "ProcessId": 67528,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731399232)/"
+    },
+    {
+      "ProcessId": 62656,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731399564)/"
+    },
+    {
+      "ProcessId": 70112,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731401661)/"
+    },
+    {
+      "ProcessId": 68408,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731401665)/"
+    },
+    {
+      "ProcessId": 41740,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731401669)/"
+    },
+    {
+      "ProcessId": 56716,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731401675)/"
+    },
+    {
+      "ProcessId": 17856,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731401681)/"
+    },
+    {
+      "ProcessId": 54396,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731401686)/"
+    },
+    {
+      "ProcessId": 28452,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731401897)/"
+    },
+    {
+      "ProcessId": 55760,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731401943)/"
+    },
+    {
+      "ProcessId": 72012,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731402051)/"
+    },
+    {
+      "ProcessId": 10664,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731402117)/"
+    },
+    {
+      "ProcessId": 72644,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731402157)/"
+    },
+    {
+      "ProcessId": 52460,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731402285)/"
+    },
+    {
+      "ProcessId": 35148,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731402584)/"
+    },
+    {
+      "ProcessId": 36300,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731402635)/"
+    },
+    {
+      "ProcessId": 30916,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731402696)/"
+    },
+    {
+      "ProcessId": 7344,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731402782)/"
+    },
+    {
+      "ProcessId": 36824,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731402853)/"
+    },
+    {
+      "ProcessId": 54288,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731402934)/"
+    },
+    {
+      "ProcessId": 53084,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731403050)/"
+    },
+    {
+      "ProcessId": 72700,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731403102)/"
+    },
+    {
+      "ProcessId": 38492,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731403148)/"
+    },
+    {
+      "ProcessId": 52256,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731406902)/"
+    },
+    {
+      "ProcessId": 44432,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731408652)/"
+    },
+    {
+      "ProcessId": 47872,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731408712)/"
+    },
+    {
+      "ProcessId": 40872,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731413831)/"
+    },
+    {
+      "ProcessId": 65500,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731413917)/"
+    },
+    {
+      "ProcessId": 45800,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731418961)/"
+    },
+    {
+      "ProcessId": 71548,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731420788)/"
+    },
+    {
+      "ProcessId": 8428,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731433113)/"
+    },
+    {
+      "ProcessId": 60944,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731433767)/"
+    },
+    {
+      "ProcessId": 43072,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731435143)/"
+    },
+    {
+      "ProcessId": 43368,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731435269)/"
+    },
+    {
+      "ProcessId": 38132,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731438389)/"
+    },
+    {
+      "ProcessId": 60692,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731438539)/"
+    },
+    {
+      "ProcessId": 67404,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731439435)/"
+    },
+    {
+      "ProcessId": 53052,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731439614)/"
+    },
+    {
+      "ProcessId": 69588,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731440632)/"
+    },
+    {
+      "ProcessId": 8812,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731441009)/"
+    },
+    {
+      "ProcessId": 48776,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731441264)/"
+    },
+    {
+      "ProcessId": 42296,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731442114)/"
+    },
+    {
+      "ProcessId": 53212,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731442778)/"
+    },
+    {
+      "ProcessId": 25236,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731443055)/"
+    },
+    {
+      "ProcessId": 7668,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731443491)/"
+    },
+    {
+      "ProcessId": 63500,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731444322)/"
+    },
+    {
+      "ProcessId": 37596,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731444570)/"
+    },
+    {
+      "ProcessId": 36688,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731445539)/"
+    },
+    {
+      "ProcessId": 53484,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731445640)/"
+    },
+    {
+      "ProcessId": 56796,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731446815)/"
+    },
+    {
+      "ProcessId": 66524,
+      "Name": "postgres.exe",
+      "CreationDate": "/Date(1791731446934)/"
+    }
+  ],
+  "productionActions": 0,
+  "scope": "Pinned metadata/current gates and process census; not whole artifact/ready/ACL qualification or lock acquisition."
+}

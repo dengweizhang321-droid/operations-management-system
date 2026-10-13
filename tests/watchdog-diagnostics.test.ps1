@@ -16,6 +16,7 @@ try {
   # The actual snapshot runs, with every external operation replaced before it is called.
   $script:case='healthy';$script:control=Fixture-Control
   function Get-Admission {@{mode='running';fence='a'*64}}
+  function Resolve-WatchStatusControl {@{path=$ControlPath;mode='fixture';reason='isolated'}}
   function Invoke-WatchScript($Path,$Arguments){
     if($Path -eq $ControlPath){
       if($script:case -eq 'control-timeout'){
@@ -36,6 +37,9 @@ try {
     & $realRead $Path
   }
   function Test-WatchHttp {return @{ok=$true;status=200}}
+  function Get-WatchHttpProbes {
+    $v=@{};foreach($name in @('homepage','live','ready','helper')){$v[$name]=if([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge [long]$env:TERUISI_PROCESS_DEADLINE_UNIX_MS){@{ok=$false;status=0;reason='snapshot_deadline'}}else{@{ok=$true;status=200}}};return $v
+  }
   function Get-NetTCPConnection {
     if($script:case -eq 'port-error'){throw 'PRIVATE_SECRET'}
     if($script:case -eq 'port-late'){$env:TERUISI_PROCESS_DEADLINE_UNIX_MS='1'}
@@ -129,8 +133,8 @@ try {
   function Get-WatchBusinessHealth {@{status='unknown'}}
   function Start-Sleep {}
   function Invoke-WatchRecovery {throw 'test must never recover healthy fixture'}
-  function Send-WatchAlert($State,$Snapshot,$Outcome,[switch]$Recovery){$script:outcomes+=@{outcome=$Outcome;recovery=[bool]$Recovery}}
-  $state=New-WatchState;$state.incident='fixture-cycle';$state.firstFailure='2026-10-11T05:36:28Z';$state.notification='unknown';$state.failures=2
+  function Send-WatchAlert($State,$Snapshot,$Outcome,[switch]$Recovery,$ReservationPath){$script:outcomes+=@{outcome=$Outcome;recovery=[bool]$Recovery};$State.recoveryNotification='sent';Write-WatchJson $ReservationPath $State}
+  $state=New-WatchState;$state.incident=('c'*32);$state.firstFailure='2026-10-11T05:36:28Z';$state.notification='unknown';$state.failures=2
   Write-WatchJson $StatePath $state;$script:secondFails=$true
   $r=Invoke-WatchCycle -Recover
   Assert-Diagnostic ($r.status -eq 'verification_pending' -and $script:outcomes.Count -eq 0 -and (Read-WatchJson $StatePath).incident) 'one healthy observation sent premature recovery'

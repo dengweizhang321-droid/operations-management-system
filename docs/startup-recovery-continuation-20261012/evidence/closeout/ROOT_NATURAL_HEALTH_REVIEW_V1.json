@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-12T07:05:06.038Z",
+  "originalSourceSha256": "ab29843bca7c9afa7ad328fb6ba33d2f330f0c49dbb59fe50965d7a041508d4d",
+  "originalPurePredicateExact": true,
+  "observations": [
+    {
+      "at": "2026-10-12T07:00:26.9252615+00:00",
+      "sha256": "e7bee0fd90ad509af21ab24e923d8df279b6eba2ef882e21a491c29b6a97e4d1",
+      "workerPid": 17184,
+      "supervisorPid": 36568
+    },
+    {
+      "at": "2026-10-12T07:02:26.0189782+00:00",
+      "sha256": "53b717074527c2557c4c6c7073c623c50b3a9876d787543d45c52564986fc3e2",
+      "workerPid": 17184,
+      "supervisorPid": 36568
+    }
+  ],
+  "expected": {
+    "after": 1791788333568,
+    "releaseId": "20261011T090355Z-21c2645a63247749",
+    "fence": "3ab3aadc1893a024c894671943dd12875c02c32617188fcc2b64abc5917b27b1"
+  },
+  "desiredFenceStillExact": true,
+  "manualChecksTriggered": 0,
+  "originalBatchNaturalOperationStillPending": true
+}

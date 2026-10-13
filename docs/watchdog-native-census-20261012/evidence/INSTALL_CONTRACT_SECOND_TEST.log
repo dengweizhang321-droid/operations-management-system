@@ -1,0 +1,12 @@
+✔ exact actual unresolved census tuple and mutation negatives (86.1628ms)
+✔ approval is typed and binds exact scope and source (10.1624ms)
+✔ closed source set rejects missing and duplicated members (41.5535ms)
+✔ exact original natural predicate rejects new unhealthy, identity/fence/clock and accepts only fresh frames (9.4807ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 256.0881

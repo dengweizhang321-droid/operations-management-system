@@ -1,0 +1,129 @@
+{
+  "healthy": false,
+  "processDiagnostic": {
+    "stage": "supervisor",
+    "process": {
+      "stdoutBytes": 0,
+      "timeoutType": "direct-exit",
+      "deadlineUnixMs": 1791801388003,
+      "processId": 38328,
+      "elapsedMs": 4035,
+      "stderrBytes": 0,
+      "code": "process_deadline_exhausted",
+      "cleanup": "Direct",
+      "stage": "direct-exit",
+      "outputProtocol": "direct-exit-file-snapshot"
+    },
+    "code": "probe_stage_failed"
+  },
+  "system": "Running",
+  "elapsedMs": 60562,
+  "supervisorPid": 36568,
+  "business": {
+    "reason": "no_confirmed_failure",
+    "checkedAt": "2026-10-12T10:33:09.8504345+00:00",
+    "version": "market-read-probe-v1",
+    "status": "unknown"
+  },
+  "admission": {
+    "fence": "3ab3aadc1893a024c894671943dd12875c02c32617188fcc2b64abc5917b27b1",
+    "mode": "running"
+  },
+  "releaseId": "20261011T090355Z-21c2645a63247749",
+  "controllerHealthEvidence": null,
+  "supervisor": "unprobed",
+  "coreDiagnostics": {
+    "probes": {
+      "reader": {
+        "elapsedMs": 1285,
+        "timeoutMs": 2000,
+        "statusCode": 200,
+        "code": "none"
+      },
+      "writer": {
+        "elapsedMs": 506,
+        "timeoutMs": 2000,
+        "statusCode": 200,
+        "code": "none"
+      }
+    },
+    "WriterReadiness": "ready",
+    "elapsedMs": 7242,
+    "RuntimeAclVerification": "root_only_status",
+    "DjangoWriter": "running",
+    "PostgreSQL": "running",
+    "DjangoReader": "running",
+    "ReaderReadiness": "ready",
+    "RuntimeAcl": "root_hardened"
+  },
+  "diagnosticReason": "exact_predecessor",
+  "worker": "exact_release",
+  "supervisorHealth": "unprobed",
+  "components": {
+    "finance": true,
+    "netshop": true,
+    "ai": true,
+    "erpReference": true,
+    "core": true,
+    "workflow": true,
+    "accessControl": true,
+    "market": true,
+    "products": true,
+    "inventory": true,
+    "customerService": true,
+    "bi": true
+  },
+  "at": "2026-10-12T10:35:27.9799666+00:00",
+  "backend": "Ready",
+  "workerPid": 17184,
+  "completedAt": "2026-10-12T10:36:28.4504069+00:00",
+  "probes": {
+    "helper": {
+      "elapsedMs": 0,
+      "reason": "snapshot_deadline",
+      "status": 0,
+      "ok": false
+    },
+    "homepage": {
+      "elapsedMs": 0,
+      "reason": "snapshot_deadline",
+      "status": 0,
+      "ok": false
+    },
+    "ready": {
+      "elapsedMs": 0,
+      "reason": "snapshot_deadline",
+      "status": 0,
+      "ok": false
+    },
+    "live": {
+      "elapsedMs": 0,
+      "reason": "snapshot_deadline",
+      "status": 0,
+      "ok": false
+    }
+  },
+  "deadlineExceeded": true,
+  "portsObservation": {
+    "status": "unknown",
+    "reason": "not_checked"
+  },
+  "ports": [],
+  "probeError": true,
+  "stages": {
+    "control": {
+      "status": "completed",
+      "elapsedMs": 56003
+    },
+    "supervisor": {
+      "status": "failed",
+      "elapsedMs": 4060
+    }
+  },
+  "statusTimings": {
+    "backendMs": 21456,
+    "httpMs": 2283,
+    "workerMs": 28829
+  },
+  "diagnosticMode": "readonly_driver"
+}

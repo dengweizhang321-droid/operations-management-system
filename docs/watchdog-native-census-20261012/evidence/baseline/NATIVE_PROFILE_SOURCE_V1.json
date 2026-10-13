@@ -1,0 +1,16 @@
+{
+  "version": "private-readonly-native-timing-copy-v1",
+  "originalBundle": "0b8566624e19e44bdc4f556fb9f0baa541d3f35dbf695c00d06b00ba16de9abb",
+  "sourceWrapperSha256": "1c21be8a132a1e57482b05ee51e0795ecd2a346bd736b51994fdb74d5768a410",
+  "instrumentedWrapperSha256": "cb255609a03d4af9b50af2e955ae9fd60a49f1316e0811948f366f4bd130eaa3",
+  "hooksSha256": "225116c05e6a54f77381110d2630c50acd57adc8cf58738bb484a8a6bd5051f1",
+  "fields": [
+    "function",
+    "at",
+    "elapsedMs",
+    "outcome"
+  ],
+  "noStatusPredicateChanged": true,
+  "notInstallCandidate": true,
+  "noRawProcessFieldsPersisted": true
+}

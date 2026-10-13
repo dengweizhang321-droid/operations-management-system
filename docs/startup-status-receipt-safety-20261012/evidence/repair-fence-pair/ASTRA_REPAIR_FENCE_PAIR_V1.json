@@ -1,0 +1,108 @@
+{
+  "version": "repair-fence-paired-development-scope-v1",
+  "creation": {
+    "version": "repair-fence-development-handoff-v1",
+    "intentPath": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\REPAIR_FENCE_INTENT_V1.json",
+    "intentSha256": "dea1da5a29e1ecc0f6b226e150f16f0d7e16b68485334aef11a3247ffcafe095",
+    "repairId": "12c465652dbc4b5f9f54d0b0f30eeb3a",
+    "files": [
+      {
+        "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\create-startup-repair-fence.mjs",
+        "sha256": "7ecf1359026f7cf811744857ab3afd4602705da8267595fefecf3742c1908e68"
+      },
+      {
+        "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\Read-RepairFenceActorAcl.ps1",
+        "sha256": "fad11931a88a2a80af22f44eaf7e4af634ed954633c4981e229ba9f657aeafdc"
+      },
+      {
+        "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\fence-original-bootstrap.mjs",
+        "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+      }
+    ],
+    "target": "D:/teruisi-runtime/django-sales/run/system-maintenance.json",
+    "expectedMarkerSha256": "8cd56417937b8f8fbb82f7404dc52d8d7fd38aa4256e0c0b46d6b65344873572",
+    "marker": {
+      "version": "teruisi-system-maintenance-v1",
+      "id": "12c465652dbc4b5f9f54d0b0f30eeb3a",
+      "runtimeRoot": "D:\\teruisi-runtime\\django-sales",
+      "keepPostgres": true,
+      "drainedStopped": false,
+      "repairIntentSha256": "dea1da5a29e1ecc0f6b226e150f16f0d7e16b68485334aef11a3247ffcafe095",
+      "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f"
+    },
+    "executeArgv": [
+      "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\create-startup-repair-fence.mjs",
+      "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\REPAIR_FENCE_INTENT_V1.json",
+      "dea1da5a29e1ecc0f6b226e150f16f0d7e16b68485334aef11a3247ffcafe095"
+    ],
+    "testLog": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\FENCE_THREE_CONSUMER_TEST.log",
+    "testsPassed": 30,
+    "baseNegativeCases": 25,
+    "productionExecuted": false,
+    "scope": "Create exactly one maintenance intention marker plus task evidence; no Stop/Start/Status/SQL/WAL/owner/drain/task/schedule changes",
+    "alreadyRunningDiagnosticsEnded": false
+  },
+  "retraction": {
+    "intentPath": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\REPAIR_FENCE_RETRACT_INTENT_V1.json",
+    "intentSha256": "70f205c5991decd3a497b9d60d4719222bfcd060cf8577973ebb3d9214e494c6",
+    "files": [
+      {
+        "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\retract-startup-repair-fence.mjs",
+        "sha256": "f4e590a709e6a666b0d53b8cbbede31807c021f51ac67846ef092979a7d465ba"
+      },
+      {
+        "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\Remove-ExactRepairFence.ps1",
+        "sha256": "472d5b01e811cc63f891c7681fd96e6025c2f1f03944c6f19e2a6a5a80ec0fa0"
+      },
+      {
+        "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\create-startup-repair-fence.mjs",
+        "sha256": "7ecf1359026f7cf811744857ab3afd4602705da8267595fefecf3742c1908e68"
+      },
+      {
+        "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\Read-RepairFenceActorAcl.ps1",
+        "sha256": "fad11931a88a2a80af22f44eaf7e4af634ed954633c4981e229ba9f657aeafdc"
+      },
+      {
+        "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\fence-original-bootstrap.mjs",
+        "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+      }
+    ],
+    "executeArgv": [
+      "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\retract-startup-repair-fence.mjs",
+      "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\REPAIR_FENCE_RETRACT_INTENT_V1.json",
+      "70f205c5991decd3a497b9d60d4719222bfcd060cf8577973ebb3d9214e494c6"
+    ],
+    "scope": "Abort-only deletion of the same exact marker under unchanged49-event tuple; not original ExitMaintenance"
+  },
+  "impact": {
+    "newNonHealthBusinessHttp": "503 Retry-After300 until exact retraction",
+    "protectedBackground": "new protected work rejected",
+    "newBackupJobs": "rejected",
+    "inFlightRequestsStopped": false,
+    "existingDiagnosticsTerminated": false,
+    "servicesStopped": false,
+    "readinessRestored": false
+  },
+  "approval": {
+    "productionWriteApproved": false,
+    "productionExecuted": false,
+    "requiresExplicitPairedMaintenanceApproval": true
+  },
+  "excluded": [
+    "TaskAction/schedule/RunLevel changes",
+    "Stop/restart23 instances",
+    "PID receipt reconstruction",
+    "WAL/owner/drain changes",
+    "Backup/Restore",
+    "Automatic recovery success claims"
+  ],
+  "tests": {
+    "creation": 30,
+    "retraction": 8,
+    "retractionHosts": [
+      "PS5",
+      "PS7"
+    ],
+    "scope": "Private filesystem and synthetic contexts only"
+  }
+}

@@ -1,0 +1,1 @@
+{"phase":"module-resolution-before-candidate-creation","exitCode":1,"code":"ERR_MODULE_NOT_FOUND","message":"Task-local preparation script used ../../../tools instead of ../../tools; module resolution failed before its body executed.","recordSource":"Recorded from actual exec tool result d8bd2c; no candidate source had been created and no production action ran."}

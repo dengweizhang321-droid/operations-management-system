@@ -1,0 +1,36 @@
+{
+  "observedAt": "2026-10-12T04:10:21.761Z",
+  "files": [
+    {
+      "path": "tools/startup-exact-instance-stop.ps1",
+      "sha256": "35a98102c9b76c8a95232f3f07584dcba932a819eae683f2391c4345297fb8a3"
+    },
+    {
+      "path": "tools/startup-exact-instance-policy.mjs",
+      "sha256": "0ab41f6eca96c4d60b5231508bf2abe455451cd5cb91f199b340add07ad9886c"
+    },
+    {
+      "path": "tests/startup-exact-instance-stop.test.mjs",
+      "sha256": "49b389172ae344dac3b7159329ae2dc658f0f724bbfff67fe6d9515f236fcd4e"
+    },
+    {
+      "path": "tests/startup-exact-stop-mocked.ps1",
+      "sha256": "1b76cf0f74259ee2c6c77e8662b2cdcdbc5cb7e2ef0f8b8ace25683ba3c39f07"
+    },
+    {
+      "path": "tests/startup-exact-stop-private.ps1",
+      "sha256": "760d4281dc4bfda63c9d66e6aa8e487226d511c47f9a58aaefb903cd22fcb2b7"
+    }
+  ],
+  "independentTests": 15,
+  "mockedCasesPerHost": 8,
+  "hosts": [
+    "PS5",
+    "PS7"
+  ],
+  "v1DeadlineGap": "A census/validation could exhaust the common deadline after its only pre-census check and still start termination.",
+  "v2Delta": "Recheck after evidence recording and immediately before TerminateProcess; bound exit wait by remaining budget.",
+  "expiryDuringCensusOrValidation": "Zero mock stops in both hosts.",
+  "productionStopExecuted": false,
+  "integratedRecoveryPackageReady": false
+}

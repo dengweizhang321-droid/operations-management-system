@@ -1,0 +1,16 @@
+✔ held-object deletion and exact-byte rejection in private files on powershell.exe (1095.468ms)
+✔ held-object deletion and exact-byte rejection in private files on pwsh.exe (1755.7958ms)
+✔ exact synthetic removal receipt accepted but not treated as filesystem absence (0.2418ms)
+✔ retraction receipt rejects wrong-hash (1.0762ms)
+✔ retraction receipt rejects wrong-role (0.2616ms)
+✔ retraction receipt rejects wrong-SID (0.1669ms)
+✔ retraction receipt rejects no-disposition (0.1708ms)
+✔ retraction receipt rejects missing-identity (3.6812ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2961.3649

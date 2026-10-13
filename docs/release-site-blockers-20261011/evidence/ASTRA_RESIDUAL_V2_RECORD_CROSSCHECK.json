@@ -1,0 +1,24 @@
+{
+  "version": "astra-residual-v2-record-crosscheck-v1",
+  "files": [
+    {
+      "name": "ADMIN_RESIDUAL_PACKET_V2.json",
+      "sha256": "bb861c8fecab8e5652029c6c509daba48b767344a0c494ea39bd281a83c4b0e0"
+    },
+    {
+      "name": "ADMIN_RESIDUAL_METADATA_V2.json",
+      "sha256": "0c0c0b4074403c8b7d1a53e9d4c4ffdbdb97802bed6827bcd13e70fb264cf4d6"
+    },
+    {
+      "name": "ADMIN_REFERENCE_DIAGNOSTIC_V1.json",
+      "sha256": "4e964f0ec062f07115728dc5cb09ec05a3a794a09a29f865494927dd8b3dbd69"
+    }
+  ],
+  "sourceSha256": "6cef0abc35f4c99300d9b36393add66191557715d14d3d4a930dc0627d0f3ff9",
+  "instancesMatched": 5,
+  "systemImagesMatched": 2,
+  "status": "record-consistent-not-admission",
+  "nativeCalls": 0,
+  "productionActions": 0,
+  "limitations": "Saved facts match pinned source/baseline; no live requery, no proof of all future or guest references, and no frozen-guard exemption."
+}

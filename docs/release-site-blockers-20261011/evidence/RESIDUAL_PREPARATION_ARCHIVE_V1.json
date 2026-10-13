@@ -1,0 +1,82 @@
+[
+  {
+    "name": "ADMIN_RESIDUAL_PACKET_V1.json",
+    "sha256": "cea94364113ca5f7904313a15e10c3b73e59341fa1e257ba104f5ff8ba1b5d7e",
+    "bytes": 1266
+  },
+  {
+    "name": "ADMIN_RESIDUAL_PACKET_V2.json",
+    "sha256": "bb861c8fecab8e5652029c6c509daba48b767344a0c494ea39bd281a83c4b0e0",
+    "bytes": 1266
+  },
+  {
+    "name": "ADMIN_RESIDUAL_BOOTSTRAP_V1.ps1",
+    "sha256": "ca89ca2c1dda455817bfa835b25990793b4a9f2d7187ad3a307c0172b6873c06",
+    "bytes": 1894
+  },
+  {
+    "name": "ADMIN_RESIDUAL_BOOTSTRAP_V2.ps1",
+    "sha256": "52b0f605b8907c989a97a639a6e0b59b2b1326b3cd1e5c40aa778b6249cb0e73",
+    "bytes": 2038
+  },
+  {
+    "name": "ADMIN_RESIDUAL_ENTRY_V1.json",
+    "sha256": "d9b5ee5c334548d017deba80f0e581bfef0ccfe9b3b13540e3aa086ea0bfd2bb",
+    "bytes": 446
+  },
+  {
+    "name": "ADMIN_RESIDUAL_ENTRY_V2.json",
+    "sha256": "e2776cb0e325916e48b84306f0392e44731a224f27b58947507a7e36811c4b85",
+    "bytes": 446
+  },
+  {
+    "name": "RUN_READONLY_RESIDUAL_AUDIT.cmd",
+    "sha256": "5a2f31c3e93b181f90e6a3a923af947a725faa8fb35ea46470b0286a5713f40f",
+    "bytes": 5447
+  },
+  {
+    "name": "RUN_READONLY_RESIDUAL_AUDIT_V2.cmd",
+    "sha256": "8583c6c834d42ef3ed68ba066d8b8c95b34e18d7dd320d911f4cc3dd4cf84789",
+    "bytes": 5831
+  },
+  {
+    "name": "ADMIN_RESIDUAL_ENTRY_VERIFICATION_V2.json",
+    "sha256": "fcd35bb15cc8ede1a30c5eda601a2f1c0c962cfcbf81068653c04de0ac8fec7b",
+    "bytes": 596
+  },
+  {
+    "name": "ASTRA_RESIDUAL_V2_COMPILE.json",
+    "sha256": "bc70c8cbbfad226d5566a284ee8213ab4355480ab9a7897fb44b76b9cbcead62",
+    "bytes": 305
+  },
+  {
+    "name": "ASTRA_RESIDUAL_ENTRY_V2_CHAIN_CHECK.json",
+    "sha256": "942d30fdd41a1e24a13b220b3265aac3c7a2312e67eea644dfe25fb08f281ccc",
+    "bytes": 971
+  },
+  {
+    "name": "SITE_AGY4_PROMPT.txt",
+    "sha256": "2535bffeeb450e9448e07161dd8d88c3d4253b6969da09f6efff03fe041d897a",
+    "bytes": 21238
+  },
+  {
+    "name": "SITE_AGY4_STREAM.ndjson",
+    "sha256": "af0db5f134449e34b900eea82feb937e8879155ee1d07b4ade34c6d14951d0c0",
+    "bytes": 2021
+  },
+  {
+    "name": "SITE_AGY4_STDERR.log",
+    "sha256": "078d3dde90db18533ce8bd9615789c4b64c45d524ff9576688c8ad348deb24ad",
+    "bytes": 80
+  },
+  {
+    "name": "SITE_AGY4_CALL.json",
+    "sha256": "f32934625c18e425b0a8d3a4ba0a4f7db3461de7711fe7d827f75bb81e22d0b7",
+    "bytes": 370
+  },
+  {
+    "name": "NODE_REVIEW_ARGV_TRANSPORT_V1.json",
+    "sha256": "5307e53aab919fbf260d064f2d5b247e3e9d639327b0b32a2837b88300ef08cb",
+    "bytes": 320
+  }
+]

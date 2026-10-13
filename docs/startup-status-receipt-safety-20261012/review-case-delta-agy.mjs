@@ -1,0 +1,11 @@
+import fs from 'node:fs';import crypto from 'node:crypto';import {spawn} from 'node:child_process';
+const root='E:/codex-artifacts/startup-status-receipt-safety-20261012/';
+const digest=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+const prompt=`同conversation上一轮源码审后作者发现必要一行收紧，供最终文本独立复审，禁止工具/生产/修改。PowerShell ValidateSet及switch接收大小写不敏感的Action，原草案Action -cmatch 'Status$'会遗漏小写status的域wrapper。已改为 $ReadOnly = $ReadOnly -or $Action -imatch 'Status$'；其它source不变。fixture的status-absent用小写status，PS5+PS7实际最终43/host，2/2通过3.4577秒，文件系统/CIM仍完全stub。新Django rawSHA ${digest('tools/django-local-service.ps1')}；Watchdog ${digest('tools/operations-system-watchdog.ps1')}；fixture ${digest('tests/startup-status-receipt-safety.fixture.ps1')}。原第一次审查源码/日志保持，不能追认旧case已拒。请150字内仅核此delta有无具体阻断，并纠正上一轮“调用图完备/彻底”等范围为实际7调用+43合成场景，非全应用或生产闭合。原未采用生产包/任务/旧binding均保持，安装新bundle会变Action路径但不变Triggers/RunLevel；本轮无操作。`;
+fs.writeFileSync(root+'AGY_CASE_DELTA_PROMPT.txt',prompt,{flag:'wx'});
+const out=fs.createWriteStream(root+'AGY_CASE_DELTA_STREAM.ndjson',{flags:'wx'}),err=fs.createWriteStream(root+'AGY_CASE_DELTA_STDERR.log',{flags:'wx'});
+await Promise.all([out,err].map(s=>new Promise((r,j)=>{s.once('open',r);s.once('error',j)})));
+const start=new Date().toISOString(),child=spawn('C:/Users/86137/AppData/Local/agy/bin/agy.exe',['--conversation','d154e0e3-9d9b-4439-a580-49b627cb5670','-p',prompt,'--mode','plan','--output-format','stream-json','--print-timeout','60s'],{windowsHide:true,stdio:['ignore','pipe','pipe']});child.stdout.pipe(out);child.stderr.pipe(err);
+const result=await new Promise((r,j)=>{child.once('error',j);child.once('close',(code,signal)=>r({code,signal}))});
+await Promise.all([out,err].map(s=>new Promise((r,j)=>{if(s.writableFinished)return r();s.once('finish',r);s.once('error',j)})));
+fs.writeFileSync(root+'AGY_CASE_DELTA_CALL.json',JSON.stringify({start,end:new Date().toISOString(),...result},null,2)+'\n',{flag:'wx'});console.log(result);

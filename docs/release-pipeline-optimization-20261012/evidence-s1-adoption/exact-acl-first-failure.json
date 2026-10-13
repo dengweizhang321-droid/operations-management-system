@@ -1,0 +1,1 @@
+{"status":"private-model-setup-failed","cause":"Copying production parent owner/group as well as ACL attempted an owner SID not assignable to the private object; strict ErrorAction Stop rejected before replacement. Model now copies Access/DACL only and keeps its own caller owner/group, then requires exact child descriptor equality. No production ACL/entrypoint changed"}

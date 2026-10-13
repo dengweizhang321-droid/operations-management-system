@@ -1,0 +1,11 @@
+import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
+import {fenceFixed,canonical,hash,makeFenceMarker} from './create-startup-repair-fence.mjs';
+const own=path.dirname(fileURLToPath(import.meta.url)),root='E:/codex-artifacts/startup-status-receipt-safety-20261012';
+const files=['create-startup-repair-fence.mjs','Read-RepairFenceActorAcl.ps1','fence-original-bootstrap.mjs'].map(name=>{const file=path.join(own,name);return {path:file,sha256:hash(fs.readFileSync(file))};});
+const intent={version:'startup-repair-fence-intent-v1',fixed:fenceFixed,files},raw=Buffer.from(canonical(intent)+'\n'),intentSha=hash(raw);
+const intentPath=path.join(root,'REPAIR_FENCE_INTENT_V1.json');fs.writeFileSync(intentPath,raw,{flag:'wx'});
+const marker=makeFenceMarker(intentSha),markerRaw=Buffer.from(canonical(marker)+'\n');
+fs.writeFileSync(path.join(root,'REPAIR_FENCE_EXPECTED_MARKER_V1.json'),markerRaw,{flag:'wx'});
+fs.mkdirSync(path.join(root,'repair-fence-v1'),{recursive:false});
+const handoff={version:'repair-fence-development-handoff-v1',intentPath,intentSha256:intentSha,repairId:fenceFixed.repairId,files,target:'D:/teruisi-runtime/django-sales/run/system-maintenance.json',expectedMarkerSha256:hash(markerRaw),marker,executeArgv:[path.join(own,'create-startup-repair-fence.mjs'),intentPath,intentSha],testLog:path.join(root,'FENCE_THREE_CONSUMER_TEST.log'),testsPassed:30,baseNegativeCases:25,productionExecuted:false,scope:'Create exactly one maintenance intention marker plus task evidence; no Stop/Start/Status/SQL/WAL/owner/drain/task/schedule changes',alreadyRunningDiagnosticsEnded:false};
+const bytes=Buffer.from(JSON.stringify(handoff,null,2)+'\n');fs.writeFileSync(path.join(root,'ASTRA_REPAIR_FENCE_HANDOFF_V1.json'),bytes,{flag:'wx'});console.log(JSON.stringify({intentSha256:intentSha,expectedMarkerSha256:hash(markerRaw),handoffSha256:hash(bytes),repairId:fenceFixed.repairId}));

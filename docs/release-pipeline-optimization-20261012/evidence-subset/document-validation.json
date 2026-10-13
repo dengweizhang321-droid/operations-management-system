@@ -1,0 +1,9 @@
+{
+  "markdownFiles": 18,
+  "localLinks": 164,
+  "jsonFilesParsed": 25,
+  "rawStreamsVerified": 10,
+  "failures": [],
+  "diffCheck": true,
+  "scope": "This independent subset only; original CI failure evidence remains pinned on dc94. Links include relative targets and heading anchors; no external URL liveness claim."
+}

@@ -1,0 +1,176 @@
+[
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/AGY_PATH_CORRECTION_V2_CALL.json",
+    "name": "AGY_PATH_CORRECTION_V2_CALL.json",
+    "bytes": 104,
+    "sha256": "98e5f70c492e67c9d582776750986f57e6e5ec0642b4a8f832ed157e1929fe70"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/AGY_PATH_CORRECTION_V2_PROMPT.txt",
+    "name": "AGY_PATH_CORRECTION_V2_PROMPT.txt",
+    "bytes": 12264,
+    "sha256": "111eefe82087dc5f2d13088118d51a3b9c918b7117319d4cc9f4ccd90db15969"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/AGY_PATH_CORRECTION_V2_STDERR.log",
+    "name": "AGY_PATH_CORRECTION_V2_STDERR.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/AGY_PATH_CORRECTION_V2_STREAM.ndjson",
+    "name": "AGY_PATH_CORRECTION_V2_STREAM.ndjson",
+    "bytes": 9778,
+    "sha256": "f466efaee372df9398747961c7d57b5814b3c7d707ad7f468aef6f519063aaa9"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/OUTPUT_ROOT_BINDING_FIRST_TEST.log",
+    "name": "OUTPUT_ROOT_BINDING_FIRST_TEST.log",
+    "bytes": 350,
+    "sha256": "130a474f735e8134396f674ccb14dc9c546dff4ccf60bf2fcf9ba29f172e583b"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/PATH_CORRECTION_V2.json",
+    "name": "PATH_CORRECTION_V2.json",
+    "bytes": 1334,
+    "sha256": "c0105c047ea1997fd63ee3dc9ce13c289cd83c5624a0b7d7b3b941a3ad92327f"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/ROOT_PATH_FAILURE_NO_INSTALL_EFFECT_V1.json",
+    "name": "ROOT_PATH_FAILURE_NO_INSTALL_EFFECT_V1.json",
+    "bytes": 858,
+    "sha256": "095cf5afb83941c549674dc496a41ea8da1d4990ecd8fada0fa3df48b8328976"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/INSTALL.stderr.log",
+    "name": "failure-v1/approved-install-v1/INSTALL.stderr.log",
+    "bytes": 551,
+    "sha256": "e30a0d397dee5f7904b0d3b61bfa999e275625787eeeae46e6a4c4d95a0c822b"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/INSTALL.stdout.json",
+    "name": "failure-v1/approved-install-v1/INSTALL.stdout.json",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/INSTALL_FINISHED.json",
+    "name": "failure-v1/approved-install-v1/INSTALL_FINISHED.json",
+    "bytes": 246,
+    "sha256": "2383920f01d3675ca8522f6b62c54ee0e45d765717c4303e844b19780200b69f"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/approved-install-v1/INSTALL_PROCESS.json",
+    "name": "failure-v1/approved-install-v1/INSTALL_PROCESS.json",
+    "bytes": 107,
+    "sha256": "b6ac868cc6ea5c2b0d0e0fc7f611939231996b78432f4511d013801b7a55e0c9"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/BOOTSTRAP.ps1",
+    "name": "failure-v1/final-closeout-v1/BOOTSTRAP.ps1",
+    "bytes": 5857,
+    "sha256": "d9b9068cc3fdba0950e0c202d0b6403a712e9aeabc43f14faaabe2566be499b4"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/CLOSEOUT_BINDING.json",
+    "name": "failure-v1/final-closeout-v1/CLOSEOUT_BINDING.json",
+    "bytes": 473,
+    "sha256": "35fcb44c86ccd44ff42f69745ec3bde764874a192e60beafb728c2400c441616"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/LAUNCH_HELD_BOOTSTRAP_V1.ps1",
+    "name": "failure-v1/final-closeout-v1/LAUNCH_HELD_BOOTSTRAP_V1.ps1",
+    "bytes": 4048,
+    "sha256": "89120be6fcc1f60f404f053b4bc17cf6af08d8d0af9a40c79897a1b0de0b75d8"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/RECONCILIATION.FINISHED.json",
+    "name": "failure-v1/final-closeout-v1/RECONCILIATION.FINISHED.json",
+    "bytes": 246,
+    "sha256": "3f23ef1f77f3277b8cd94dd4f5dcb6d63f5c938d056a80fa43cec7d62c1bc0c6"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/RECONCILIATION.STARTED.json",
+    "name": "failure-v1/final-closeout-v1/RECONCILIATION.STARTED.json",
+    "bytes": 458,
+    "sha256": "32cd97a2d79c3af490d9679a632a782e97bbfe0a925c11274c21e24ce5dc9420"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/RECONCILIATION.stderr.log",
+    "name": "failure-v1/final-closeout-v1/RECONCILIATION.stderr.log",
+    "bytes": 1129,
+    "sha256": "9d1fc9099c8c442ff7d15200870fc0c82d429dc0617cbd21fb4b9460a5440843"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/RECONCILIATION.stdout.log",
+    "name": "failure-v1/final-closeout-v1/RECONCILIATION.stdout.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/TRANSPORT_BINDING.json",
+    "name": "failure-v1/final-closeout-v1/TRANSPORT_BINDING.json",
+    "bytes": 61317,
+    "sha256": "bd89b465199c9589fc4fb49a5d5ba87823c0a3750cd18c69d50b2d1654d6f6d8"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/TRANSPORT_FINISHED.json",
+    "name": "failure-v1/final-closeout-v1/TRANSPORT_FINISHED.json",
+    "bytes": 138,
+    "sha256": "15c15078d1f7b5d30b343e34b05f58ca2fbd7965187add4e0910181703956874"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/TRANSPORT_STARTED.json",
+    "name": "failure-v1/final-closeout-v1/TRANSPORT_STARTED.json",
+    "bytes": 223,
+    "sha256": "3dd216b938540581e41869f9c2860bb58a48c7db1b6c510b1fc43390ce81333c"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/UAC_REQUESTED_V1.json",
+    "name": "failure-v1/final-closeout-v1/UAC_REQUESTED_V1.json",
+    "bytes": 372,
+    "sha256": "d693af9a151b3e3af1e55af865d91e50c7bf14e67d7a852468c0cf58b1ff723a"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/UAC_TRANSPORT_V1.finished.json",
+    "name": "failure-v1/final-closeout-v1/UAC_TRANSPORT_V1.finished.json",
+    "bytes": 61,
+    "sha256": "cfbb09f046eaf6d72d52f0c6a758c8fcfba33e961065ec3c83b46a874fe29dd2"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/UAC_TRANSPORT_V1.stderr.log",
+    "name": "failure-v1/final-closeout-v1/UAC_TRANSPORT_V1.stderr.log",
+    "bytes": 616,
+    "sha256": "2ce70d6c8c9ad6726c794690c8b14a2b83673648cac88edf4ff1acc50ec46348"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v1/UAC_TRANSPORT_V1.stdout.ndjson",
+    "name": "failure-v1/final-closeout-v1/UAC_TRANSPORT_V1.stdout.ndjson",
+    "bytes": 167,
+    "sha256": "a4bb3d6cf06af5671130722ce26c137ca3538656f6cf51e571aa257bdfa0ee39"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v2/TRANSPORT_BINDING.json",
+    "name": "corrected-v2/TRANSPORT_BINDING.json",
+    "bytes": 64558,
+    "sha256": "715ef3ac6af5ccf6f013dc1828bf7c3b53b216d95a4b4a62611f8817df09ee52"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v2/BOOTSTRAP.ps1",
+    "name": "corrected-v2/BOOTSTRAP.ps1",
+    "bytes": 5857,
+    "sha256": "867ab037160252fc1c5b2728e886dfcd8f204669db6472bea55469c50f5d6d35"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v2/CLOSEOUT_BINDING.json",
+    "name": "corrected-v2/CLOSEOUT_BINDING.json",
+    "bytes": 473,
+    "sha256": "35fcb44c86ccd44ff42f69745ec3bde764874a192e60beafb728c2400c441616"
+  },
+  {
+    "source": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v2/LAUNCH_HELD_BOOTSTRAP_V1.ps1",
+    "name": "corrected-v2/LAUNCH_HELD_BOOTSTRAP_V1.ps1",
+    "bytes": 4048,
+    "sha256": "fb08578cd42380ec50e185a4c69c50f5a2e444c4b05d4934a1470678881d8306"
+  }
+]

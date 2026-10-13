@@ -1,0 +1,95 @@
+{
+  "at1": "2026-10-12T10:41:05.1619983Z",
+  "at2": "2026-10-12T10:41:12.6325401Z",
+  "intervalSeconds": 7.4705418,
+  "processor1": {
+    "PercentProcessorTime": 47
+  },
+  "processor2": {
+    "PercentProcessorTime": 23
+  },
+  "memory1": {
+    "TotalVisibleMemorySize": 33206132,
+    "FreePhysicalMemory": 763288
+  },
+  "memory2": {
+    "TotalVisibleMemorySize": 33206132,
+    "FreePhysicalMemory": 760896
+  },
+  "processCpuDeltas": [
+    {
+      "id": 15340,
+      "name": "ChatGPT",
+      "cpuSecondsDelta": 1.125,
+      "workingSetBytes": 2328670208
+    },
+    {
+      "id": 26708,
+      "name": "python",
+      "cpuSecondsDelta": 1.03125,
+      "workingSetBytes": 115146752
+    },
+    {
+      "id": 28900,
+      "name": "pwsh",
+      "cpuSecondsDelta": 0.953125,
+      "workingSetBytes": 176939008
+    },
+    {
+      "id": 52172,
+      "name": "python",
+      "cpuSecondsDelta": 0.953125,
+      "workingSetBytes": 114376704
+    },
+    {
+      "id": 34764,
+      "name": "DingTalk",
+      "cpuSecondsDelta": 0.828125,
+      "workingSetBytes": 989794304
+    },
+    {
+      "id": 59968,
+      "name": "ChatGPT",
+      "cpuSecondsDelta": 0.828125,
+      "workingSetBytes": 187326464
+    },
+    {
+      "id": 43824,
+      "name": "python",
+      "cpuSecondsDelta": 0.671875,
+      "workingSetBytes": 141119488
+    },
+    {
+      "id": 49128,
+      "name": "codex",
+      "cpuSecondsDelta": 0.625,
+      "workingSetBytes": 810852352
+    },
+    {
+      "id": 64868,
+      "name": "ChatGPT",
+      "cpuSecondsDelta": 0.609375,
+      "workingSetBytes": 425889792
+    },
+    {
+      "id": 7372,
+      "name": "explorer",
+      "cpuSecondsDelta": 0.59375,
+      "workingSetBytes": 637018112
+    },
+    {
+      "id": 68908,
+      "name": "python",
+      "cpuSecondsDelta": 0.578125,
+      "workingSetBytes": 101113856
+    },
+    {
+      "id": 68832,
+      "name": "python",
+      "cpuSecondsDelta": 0.578125,
+      "workingSetBytes": 102182912
+    }
+  ],
+  "mutation": false,
+  "limitations": "Two bounded samples, no causal attribution or continuous resource profile."
+}

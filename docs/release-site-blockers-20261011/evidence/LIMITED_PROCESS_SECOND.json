@@ -1,0 +1,55 @@
+{
+  "version": "teruisi-readonly-limited-process-identity-probe-v1",
+  "at": "2026-10-11T11:19:04.0126420+00:00",
+  "elevatedAdministrator": false,
+  "records": [
+    {
+      "processId": 47936,
+      "name": "powershell.exe",
+      "sessionId": 1,
+      "parentProcessId": 37392,
+      "creationDate": "2026-10-06T08:51:18.567301+08:00",
+      "limitedAccessMask": "0x1000",
+      "openError": 0,
+      "imagePath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "queryError": null,
+      "identityStable": true,
+      "originalCimExecutableReadable": false,
+      "originalCimCommandReadable": false,
+      "commandLineValuesPersisted": false
+    },
+    {
+      "processId": 37392,
+      "name": "WindowsTerminal.exe",
+      "sessionId": 1,
+      "parentProcessId": 41612,
+      "creationDate": "2026-10-06T08:51:18.083054+08:00",
+      "limitedAccessMask": "0x1000",
+      "openError": 0,
+      "imagePath": "C:\\Program Files\\WindowsApps\\Microsoft.WindowsTerminal_1.24.12741.0_x64__8wekyb3d8bbwe\\WindowsTerminal.exe",
+      "queryError": null,
+      "identityStable": true,
+      "originalCimExecutableReadable": false,
+      "originalCimCommandReadable": false,
+      "commandLineValuesPersisted": false
+    },
+    {
+      "processId": 58568,
+      "name": "pwsh.exe",
+      "sessionId": 1,
+      "parentProcessId": 49128,
+      "creationDate": "2026-10-11T19:19:00.306006+08:00",
+      "limitedAccessMask": "0x1000",
+      "openError": 0,
+      "imagePath": "C:\\Users\\86137\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+      "queryError": null,
+      "identityStable": true,
+      "originalCimExecutableReadable": true,
+      "originalCimCommandReadable": true,
+      "commandLineValuesPersisted": false
+    }
+  ],
+  "privilegesAdjusted": false,
+  "processTerminations": 0,
+  "productionMutations": 0
+}

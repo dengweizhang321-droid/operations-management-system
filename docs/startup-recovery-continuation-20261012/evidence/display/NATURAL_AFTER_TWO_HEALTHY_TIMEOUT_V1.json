@@ -1,0 +1,79 @@
+{
+  "deadlineExceeded": true,
+  "stages": {
+    "control": {
+      "status": "failed",
+      "elapsedMs": 60063
+    }
+  },
+  "diagnosticMode": "readonly_driver",
+  "supervisor": "unprobed",
+  "healthy": false,
+  "portsObservation": {
+    "status": "unknown",
+    "reason": "not_checked"
+  },
+  "system": "unprobed",
+  "completedAt": "2026-10-12T07:16:26.9317178+00:00",
+  "business": {
+    "reason": "no_confirmed_failure",
+    "checkedAt": "2026-10-12T07:16:26.9374867+00:00",
+    "status": "unknown",
+    "version": "market-read-probe-v1"
+  },
+  "ports": [],
+  "processDiagnostic": {
+    "process": {
+      "deadlineUnixMs": 1791789386556,
+      "timeoutType": "direct-exit",
+      "code": "process_deadline_exhausted",
+      "processId": 63224,
+      "cleanup": "Direct",
+      "elapsedMs": 59979,
+      "stdoutBytes": 0,
+      "stderrBytes": 0,
+      "outputProtocol": "direct-exit-file-snapshot",
+      "stage": "direct-exit"
+    },
+    "code": "probe_stage_failed",
+    "stage": "control"
+  },
+  "admission": {
+    "mode": "running",
+    "fence": "3ab3aadc1893a024c894671943dd12875c02c32617188fcc2b64abc5917b27b1"
+  },
+  "worker": "unprobed",
+  "probeError": true,
+  "backend": "unprobed",
+  "elapsedMs": 60655,
+  "probes": {
+    "helper": {
+      "reason": "snapshot_deadline",
+      "ok": false,
+      "elapsedMs": 0,
+      "status": 0
+    },
+    "ready": {
+      "reason": "snapshot_deadline",
+      "ok": false,
+      "elapsedMs": 0,
+      "status": 0
+    },
+    "live": {
+      "reason": "snapshot_deadline",
+      "ok": false,
+      "elapsedMs": 0,
+      "status": 0
+    },
+    "homepage": {
+      "reason": "snapshot_deadline",
+      "ok": false,
+      "elapsedMs": 0,
+      "status": 0
+    }
+  },
+  "diagnosticReason": "exact_predecessor",
+  "supervisorHealth": "unprobed",
+  "at": "2026-10-12T07:15:26.2916028+00:00",
+  "components": {}
+}

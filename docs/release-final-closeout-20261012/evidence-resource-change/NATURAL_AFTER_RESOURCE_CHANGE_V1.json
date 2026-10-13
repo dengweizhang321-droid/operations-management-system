@@ -1,0 +1,42 @@
+{
+  "version": "natural-observation-after-user-resource-change-v1",
+  "parentReceiverSha256": "91442afaccb134c420d63ae330d1754ed244e6292dadf91a4966d8025644b71a",
+  "receiver": {
+    "path": "D:\\.codex\\worktrees\\release-final-closeout\\运营管理系统\\docs\\release-final-closeout-20261012\\run-natural-only-v2.mjs",
+    "sha256": "966a1d14ba946ab6bb9079d95b51f1a4c32e6f5132e0d5dd53353f21ffeee5c2"
+  },
+  "collector": {
+    "path": "D:\\.codex\\worktrees\\release-final-closeout\\运营管理系统\\docs\\release-final-closeout-20261012\\bounded-two-natural-v2.mjs",
+    "sha256": "824fcb858a25160bde38c288f3aedddb2d2e1a8a1352948d38c5d8cc6ca14dc1"
+  },
+  "chain": {
+    "path": "D:\\.codex\\worktrees\\release-final-closeout\\运营管理系统\\docs\\release-final-closeout-20261012\\run-final-closeout-v2.mjs",
+    "sha256": "cb1a5986914d69a9f9b6c00e05fa76b5889b259e7ec0a5f245ed2b8ab0f9fdf2"
+  },
+  "additionalEvidence": [
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/natural-only-v1/natural/FAILURE.json",
+      "sha256": "7f4538ea4a941ec2f8fb8b662a0d91bf4dbcbb7afc8b346ba74c0c5605eabad4"
+    },
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v3/RECONCILIATION.FINISHED.json",
+      "sha256": "a93e99de351df31e82dee05865d3891f9c2427b45f2793f5373bc65f46c0d4c7"
+    },
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/final-closeout-v3/TRANSPORT_FINISHED.json",
+      "sha256": "bf4e239484627f08412f08bba1fbbd8efec5fd8eba5896554958ffdcb37af3a4"
+    },
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/CONTROL_HEALTH_AFTER_RESOURCE_CHANGE_V1.stdout.json",
+      "sha256": "f2cb2a75a9ad3697c6deb61ea0b12c9845eb04a53f13227583867a1650add11a"
+    },
+    {
+      "path": "E:/codex-artifacts/watchdog-native-census-20261012/ROOT_RESOURCE_AFTER_USER_ACTION_V1.json",
+      "sha256": "6781598295be0c5fd28ddd2eb8acc7d0814082c948ddef04af4140aae3c9bf76"
+    }
+  ],
+  "installationRepeated": false,
+  "budgetsChanged": false,
+  "userReportedUnusedAppsClosed": true,
+  "doesNotProveAllFailureCausality": true
+}

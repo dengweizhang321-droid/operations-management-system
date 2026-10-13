@@ -1,0 +1,13 @@
+{
+  "version": "teruisi-no-running-wsl-reference-audit-v1",
+  "runId": "89879c3f-f625-4445-9b38-2ceff749e89a",
+  "at": "2026-10-12T01:32:44.376Z",
+  "status": "started",
+  "stages": [],
+  "references": [],
+  "unknown": [],
+  "classified": [],
+  "departed": [],
+  "productionActions": 0,
+  "rawProcessMetadataPersisted": false
+}

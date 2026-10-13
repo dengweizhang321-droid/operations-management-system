@@ -1,0 +1,14 @@
+{
+    "version":  "teruisi-live-process-identity-v1",
+    "at":  "2026-10-11T15:09:18.2566374+00:00",
+    "processes":  830,
+    "fallbackUsed":  17,
+    "missingImage":  5,
+    "missingCommand":  7,
+    "changedDuringCapture":  1,
+    "kernelConfirmedDepartures":  1,
+    "lateRows":  1,
+    "rawCommandLinesPersisted":  false,
+    "privilegesAdjusted":  false,
+    "productionMutations":  0
+}

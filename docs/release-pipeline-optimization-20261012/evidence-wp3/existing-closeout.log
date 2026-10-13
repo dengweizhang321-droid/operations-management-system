@@ -1,0 +1,11 @@
+✔ timing unions overlaps, excludes nested retries, keeps coordination and document completion separate (1.8668ms)
+✔ uncompleted batch never gets approval-to-complete or successful conclusion (0.1642ms)
+✔ offline report validates immutable journal, preserves unknown history and fails closed when steps missing (31.5062ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 878.584

@@ -1,0 +1,22 @@
+import {readFile,writeFile,open} from 'node:fs/promises';
+import {spawn} from 'node:child_process';
+import {createHash} from 'node:crypto';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+const root='E:/codex-artifacts/release-site-blockers-20261011';
+const specPath=root+'/ADOPTION_BATCH_LIVE_V1.json',spec=JSON.parse(await readFile(specPath));
+assert.equal(spec.productionApproved,false);assert.equal(spec.execution.mode,'fresh-no-reuse-v1');
+const entry=spec.batch.tests.evidence.filter(e=>e.kind==='first-adoption-execution');assert.equal(entry.length,1);
+assert.equal(createHash('sha256').update(await readFile(entry[0].path)).digest('hex'),entry[0].sha256);
+const argv=spec.execution.qualifyArgs;
+assert.equal(argv[0],entry[0].path);assert.equal(argv[1],'qualify');assert.equal(path.resolve(argv[2]),path.resolve(specPath));assert.equal(argv[3],spec.batch.batchSha256);assert.equal(argv.length,4);
+const stdoutPath=root+'/FRESH_LIVE_ACTUAL_QUALIFY_STDOUT.json',stderrPath=root+'/FRESH_LIVE_ACTUAL_QUALIFY_STDERR.log';
+const out=await open(stdoutPath,'wx'),err=await open(stderrPath,'wx'),startedAt=new Date().toISOString();
+const child=spawn(process.execPath,argv,{windowsHide:true,stdio:['ignore',out.fd,err.fd]});
+const exitCode=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',resolve);});
+await out.close();await err.close();const finishedAt=new Date().toISOString();
+const record={version:'teruisi-first-adoption-declared-entry-actual-qualification-v1',status:exitCode===0?'passed':'failed',startedAt,finishedAt,durationSeconds:(Date.parse(finishedAt)-Date.parse(startedAt))/1000,exitCode,entryPath:entry[0].path,entrySha256:entry[0].sha256,batchSha256:spec.batch.batchSha256,sourceSha256:spec.batch.binding.sourceSha256,candidateManifestSha256:spec.batch.binding.artifactSha256,argv,stdoutPath,stderrPath,productionMaintenanceSwitchBackupRestore:0,referenceGuardRemainsSeparate:true};
+if(exitCode===0){const current=JSON.parse(await readFile(stdoutPath));assert.equal(current.executionMode,'fresh-no-reuse-v1');assert.equal(current.batchSha256,record.batchSha256);record.current=current;}
+await writeFile(root+'/FRESH_LIVE_ACTUAL_QUALIFICATION.json',JSON.stringify(record,null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({status:record.status,durationSeconds:record.durationSeconds,exitCode,referenceGuardRemainsSeparate:true}));
+process.exitCode=exitCode===0?0:1;

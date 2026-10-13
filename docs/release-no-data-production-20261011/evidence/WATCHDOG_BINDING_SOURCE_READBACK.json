@@ -1,0 +1,69 @@
+{
+  "version": "astra-watchdog-binding-source-readback-v1",
+  "observedAt": "2026-10-12T02:18:41.033Z",
+  "binding": {
+    "path": "D:/teruisi-runtime/operations-watchdog/versions/add91c4aa03f8b81ef4f26e89bf082bd9a8de9c2b7f0b08bcfa32c75d54f2a68/driver-binding.json",
+    "sha256": "37259254dab89d8c3f0ec6b71392954e88b08fd5b8818c1a03f095d1e3642d44",
+    "value": {
+      "version": 1,
+      "assetHashes": {
+        "control": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+        "backend": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+        "worker": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+        "transport": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+      }
+    }
+  },
+  "assets": [
+    {
+      "key": "control",
+      "path": "D:/运营管理系统/tools/operations-system-control.ps1",
+      "expected": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "actual": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810"
+    },
+    {
+      "key": "backend",
+      "path": "D:/teruisi-runtime/django-sales/app/tools/django-local-service.ps1",
+      "expected": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+      "actual": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c"
+    },
+    {
+      "key": "worker",
+      "path": "D:/运营管理系统/tools/worker-local-service.ps1",
+      "expected": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "actual": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    },
+    {
+      "key": "transport",
+      "path": "D:/运营管理系统/tools/process-deadline.ps1",
+      "expected": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "actual": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    }
+  ],
+  "approvedPlan": {
+    "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-release-rotation-plans/0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881.json",
+    "sha256": "0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881",
+    "workerEntrypoint": {
+      "candidateSha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+      "predecessorSha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "relativePath": "tools/worker-local-service.ps1"
+    }
+  },
+  "oldWorker": {
+    "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261010T014638Z-97833d2f2b7e7bc9/tools/worker-local-service.ps1",
+    "sha256": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80"
+  },
+  "newWorker": {
+    "path": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261011T090355Z-21c2645a63247749/tools/worker-local-service.ps1",
+    "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+  },
+  "watchdog": {
+    "path": "D:/teruisi-runtime/operations-watchdog/versions/add91c4aa03f8b81ef4f26e89bf082bd9a8de9c2b7f0b08bcfa32c75d54f2a68/operations-system-watchdog.ps1",
+    "sha256": "2d4c7b01b6eca973a54c0a2c210ff3fd93b166978d5c86b0c52888946b070390"
+  },
+  "limits": [
+    "Task RunLevel and task execution identity reported by Root; not queried by this reviewer",
+    "Source fallback and exact four-file hashes independently read",
+    "No task/version/binding/schedule/runtime modifications"
+  ]
+}

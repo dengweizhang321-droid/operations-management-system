@@ -1,0 +1,17 @@
+✔ synthetic one-event successor with original 49 raw events is accepted (34.6981ms)
+✔ reject resume wronghead (26.4426ms)
+✔ reject resume proofchange (23.718ms)
+✔ reject resume obschange (24.5343ms)
+✔ reject resume gate (22.6316ms)
+✔ reject resume drain (24.1976ms)
+✔ reject resume owner (26.9264ms)
+✔ reject resume eventchange (23.6638ms)
+✔ reject resume extra (22.4489ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 335.8098

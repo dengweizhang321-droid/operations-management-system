@@ -2265,9 +2265,17 @@ function Remove-PreviousBootProcessRecordIfSafe(
 }
 
 function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
+  $metadataUnavailable = $false
   for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
-    $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
-    if ($process -and $process.ExecutablePath -and $process.CommandLine -and $process.CreationDate) {
+    $rows = @(Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction Stop)
+    if ($rows.Count -gt 1) { throw "Ambiguous process metadata: $ProcessId" }
+    $process = if ($rows.Count -eq 1) { $rows[0] } else { $null }
+    if ($process -and ([string]::IsNullOrWhiteSpace([string]$process.ExecutablePath) -or
+        [string]::IsNullOrWhiteSpace([string]$process.CommandLine) -or -not $process.CreationDate)) {
+      # A newly created process can appear before CIM fills its command/image.
+      # Preserve the existing bounded startup wait, but never call this absence.
+      $metadataUnavailable = $true
+    } elseif ($process) {
       return [pscustomobject]@{
         Process = $process
         ProcessId = [int]$process.ProcessId
@@ -2278,6 +2286,7 @@ function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
     }
     Start-Sleep -Milliseconds 100
   }
+  if ($metadataUnavailable) { throw "Process metadata is unavailable; absence is not established: $ProcessId" }
   return $null
 }
 
@@ -2416,8 +2425,12 @@ function Resolve-OwnedProcess(
   [string]$PidPath,
   [string]$ExpectedLauncher,
   [string[]]$ExpectedArguments = $null,
-  [string]$ExpectedFingerprint = ""
+  [string]$ExpectedFingerprint = "",
+  [switch]$ReadOnly
 ) {
+  # Domain status wrappers share this resolver; an observational action cannot
+  # opt back into PID-record cleanup, even when its caller omits the switch.
+  $ReadOnly = $ReadOnly -or $Action -imatch 'Status$'
   if (-not (Test-Path -LiteralPath $PidPath -PathType Leaf)) { return $null }
   $record = Read-JsonFile $PidPath "进程所有权记录"
   $processId = 0
@@ -2433,6 +2446,7 @@ function Resolve-OwnedProcess(
   $recordCreationDate = ConvertTo-CanonicalCreationDate $record.creationDate
   $snapshot = Get-ProcessSnapshot $processId 1
   if ($null -eq $snapshot) {
+    if ($ReadOnly) { return $null }
     Remove-Item -LiteralPath $PidPath -Force
     Write-LauncherEvent "WARN" "stale_process_record_removed" $PidPath
     return $null
@@ -2448,7 +2462,7 @@ function Resolve-OwnedProcess(
   if ($null -ne $ExpectedArguments) { $matches = $matches -and (Test-ExactStringArray $recordArguments $ExpectedArguments) }
   if ($ExpectedFingerprint) { $matches = $matches -and ([string]$record.configFingerprint -ceq $ExpectedFingerprint) }
   if (-not $matches) {
-    if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt) {
+    if (-not $ReadOnly -and (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt)) {
       return $null
     }
     throw "PID 已复用或进程身份与所有权记录不一致；拒绝接管或终止：$PidPath"
@@ -4173,12 +4187,12 @@ function Show-ServiceStatus {
   }
   $reader = "stopped"
   try {
-    if (Resolve-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress) { $reader = "running" }
+    if (Resolve-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
     elseif (@(Get-PortListeners 8001).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   $writer = "stopped"
   try {
-    if (Resolve-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress) { $writer = "running" }
+    if (Resolve-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress -ReadOnly) { $writer = "running" }
     elseif (@(Get-PortListeners 8002).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
@@ -4222,12 +4236,12 @@ function Show-ServiceStatus {
 function Show-FinanceServiceStatus {
   $reader = "stopped"
   try {
-    if (Resolve-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress) { $reader = "running" }
+    if (Resolve-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
     elseif (@(Get-PortListeners 8011).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   $writer = "stopped"
   try {
-    if (Resolve-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress) { $writer = "running" }
+    if (Resolve-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress -ReadOnly) { $writer = "running" }
     elseif (@(Get-PortListeners 8012).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
@@ -4297,13 +4311,13 @@ function Get-SimpleDjangoDomainStatus(
 ) {
   $reader = "stopped"
   try {
-    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress) { $reader = "running" }
+    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
     elseif (@(Get-PortListeners $ReaderPort).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   $writerService = $Service.Replace("-reader", "-writer")
   $writer = "stopped"
   try {
-    if (Resolve-OwnedProcess $writerService $WriterPidPath $Waitress) { $writer = "running" }
+    if (Resolve-OwnedProcess $writerService $WriterPidPath $Waitress -ReadOnly) { $writer = "running" }
     elseif (@(Get-PortListeners $WriterPort).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
@@ -4342,7 +4356,7 @@ function Get-SimpleDjangoReaderStatus(
 ) {
   $reader = "stopped"
   try {
-    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress) { $reader = "running" }
+    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
     elseif (@(Get-PortListeners $ReaderPort).Count -gt 0) { $reader = "foreign_port_owner" }
   } catch { $reader = "ownership_error" }
   $readerReady = "not_ready"

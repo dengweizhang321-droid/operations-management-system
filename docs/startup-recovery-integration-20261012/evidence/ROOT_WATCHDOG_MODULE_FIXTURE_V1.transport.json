@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-12T04:22:02.866Z",
+  "sourceSha256": "0c1b56a9f7a5351b424d98da5d33eb507a252e73a4aa1973e7675f19f134b4eb",
+  "hostSha256": "362a356ce7f0940ec74f73a8fc2c990a2cc24a38a11c90bbd8eca947110ad139",
+  "exitCode": 0,
+  "bundleId": "d0e9ebb640794e9680f978167354bb6f89b4917c96712c2cb638eb8dbfeb2554",
+  "stdoutSha256": "7489920541a275f759af0417fda48b8319cec819a8d6b2d89ad628dd0cbf70c9",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "nativeProductionCalls": 0,
+  "limits": "Original watchdog FunctionsOnly loaded; separate Django parameter-pollution module is synthetic; fixture uses a unique non-production named mutex, no task/Status/Plan/Install."
+}

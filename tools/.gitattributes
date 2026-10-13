@@ -1,0 +1,3 @@
+watchdog-native-metadata.ps1 -text whitespace=cr-at-eol
+prepare-watchdog-native-status-driver.mjs -text whitespace=cr-at-eol
+prepare-watchdog-supervisor-status-driver.mjs -text whitespace=cr-at-eol

@@ -1,0 +1,19 @@
+{
+  "version": "primary-live-reference-qualification-failure-v1",
+  "startedAt": "2026-10-11T14:44:18.937Z",
+  "finishedAt": "2026-10-11T14:44:32.050Z",
+  "message": "Empty or oversized namespace set",
+  "liveAudit": {
+    "runId": "b2776b46-a93b-46b1-88f3-58dcca6f5fc8",
+    "stages": [
+      "implementation-closure-pinned",
+      "live-native-and-cim-collected"
+    ],
+    "failure": {
+      "name": "AssertionError",
+      "messageSha256": "48a7dd460036a8e24ddb86f8b1498eac5d5224f80c4da639a181afd6ca5db37d",
+      "captureFailure": null
+    }
+  },
+  "productionActions": 0
+}

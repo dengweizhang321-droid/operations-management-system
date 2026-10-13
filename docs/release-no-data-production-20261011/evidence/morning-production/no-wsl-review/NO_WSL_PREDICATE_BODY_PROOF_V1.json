@@ -1,0 +1,87 @@
+{
+  "version": "original-previous-reference-predicate-body-comparison-v1",
+  "original": {
+    "path": "D:/.codex/worktrees/release-site-blockers/运营管理系统/docs/release-site-blockers-20261011/adoption-scope-live-guard.mjs",
+    "sha256": "f6ace5378036d4eccc809505f4af5831ffc1800c5fcea2a1358cdd75d08c6984"
+  },
+  "receiver": {
+    "path": "D:/.codex/worktrees/release-no-data-production/运营管理系统/docs/release-no-data-production-20261011/previous-no-wsl-receiver.mjs",
+    "sha256": "207e74b95f800c7f67c8f8dd5660b1f64fe31ab8b7e79426740bf38141076b89"
+  },
+  "entries": [
+    {
+      "name": "physicalReference",
+      "sourceSha256": "cb94c8cb2b774ea87eeba2b402ba7ffe950533e91aaf5637da01f8a22efe4394",
+      "receiverSha256": "cb94c8cb2b774ea87eeba2b402ba7ffe950533e91aaf5637da01f8a22efe4394",
+      "identical": true
+    },
+    {
+      "name": "inspectReferences",
+      "sourceSha256": "5fdc1fa2e956d5d7f6b2c2861285f7d6cac14d34b63cc7db9647fddb513b2e52",
+      "receiverSha256": "5fdc1fa2e956d5d7f6b2c2861285f7d6cac14d34b63cc7db9647fddb513b2e52",
+      "identical": true
+    },
+    {
+      "name": "inspectProcessReference",
+      "sourceSha256": "07ee70394fb474d56f7238250d9cbde8be30f8dfe7eb49fb0ae5a2a2abecd6ba",
+      "receiverSha256": "07ee70394fb474d56f7238250d9cbde8be30f8dfe7eb49fb0ae5a2a2abecd6ba",
+      "identical": true
+    },
+    {
+      "name": "visitValue",
+      "sourceSha256": "c0c0c827dc350348e14b1062f41518c6e82955b5bfe3d6009594bee6d19b9cf4",
+      "receiverSha256": "c0c0c827dc350348e14b1062f41518c6e82955b5bfe3d6009594bee6d19b9cf4",
+      "identical": true
+    },
+    {
+      "name": "scan",
+      "sourceSha256": "ccaea0e919597c55c0ea2b9f0fb737acf90eaa9b4794990a908111247b84645f",
+      "receiverSha256": "ccaea0e919597c55c0ea2b9f0fb737acf90eaa9b4794990a908111247b84645f",
+      "identical": true
+    },
+    {
+      "name": "interpreterNames",
+      "sourceSha256": "46cf86acb9f3e5cc0983d71e47b244593e3dd83d0c7351c89a0a094777a321e6",
+      "receiverSha256": "46cf86acb9f3e5cc0983d71e47b244593e3dd83d0c7351c89a0a094777a321e6",
+      "identical": true
+    },
+    {
+      "name": "nativeWindowsNames",
+      "sourceSha256": "9f635dd8a9747b4136e9b08a0845fbeeda5c81e2e409b0c8247288ea086fab9b",
+      "receiverSha256": "9f635dd8a9747b4136e9b08a0845fbeeda5c81e2e409b0c8247288ea086fab9b",
+      "identical": true
+    },
+    {
+      "name": "managedRoots",
+      "sourceSha256": "53914ba98f234446bacb84eaf6668344a09fb6ba17f8e5411ddb733a29ae0e05",
+      "receiverSha256": "53914ba98f234446bacb84eaf6668344a09fb6ba17f8e5411ddb733a29ae0e05",
+      "identical": true
+    },
+    {
+      "name": "atOrBelow",
+      "sourceSha256": "1bb583d900541d1509a2d8ec05ca026536d7a40f2193e909009604e3b62d5755",
+      "receiverSha256": "1bb583d900541d1509a2d8ec05ca026536d7a40f2193e909009604e3b62d5755",
+      "identical": true
+    },
+    {
+      "name": "isReference",
+      "sourceSha256": "ca509a261eb078f8dbb9200c33bb7034b5cfd1570e62b4eda41e5492ce30c783",
+      "receiverSha256": "ca509a261eb078f8dbb9200c33bb7034b5cfd1570e62b4eda41e5492ce30c783",
+      "identical": true
+    },
+    {
+      "name": "mentionsTarget",
+      "sourceSha256": "7a956ea7e472e64ca4a3a30f55fecfefc6a8f8450c8462aa89260bc9529c7100",
+      "receiverSha256": "7a956ea7e472e64ca4a3a30f55fecfefc6a8f8450c8462aa89260bc9529c7100",
+      "identical": true
+    },
+    {
+      "name": "shortAlias",
+      "sourceSha256": "29ccd3750f106d54357cfb604f6831040e90669943de21469dec575f1ceb0817",
+      "receiverSha256": "29ccd3750f106d54357cfb604f6831040e90669943de21469dec575f1ceb0817",
+      "identical": true
+    }
+  ],
+  "productionCalls": 0,
+  "method": "TypeScript AST getText on unnormalized source; exact function/declaration text comparison; no source execution"
+}

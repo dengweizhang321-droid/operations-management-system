@@ -1,0 +1,40 @@
+{
+  "observedAt": "2026-10-11T17:14:14.265Z",
+  "originalTenEventsUnchanged": true,
+  "actualEventSha256": "1dece550efb4af55b792426714af4338b0f95a400a77b7789af55e455f89be49",
+  "proofRawSha256": "086378566509ddc2e427c45ca97bdd68410fb3f9fe75b82137db8d9b26179605",
+  "proofCanonicalSha256": "6ae20e1bb36039330e3e0597f892dec3126eb1050581c7f1519324d160b51ff1",
+  "cipherActuallyAbsent": true,
+  "originalSameBatchEntryResumed": true,
+  "productionAcceptanceCompleted": false,
+  "entries": [
+    {
+      "rel": "reconciliation-v3/FINISHED.json",
+      "sha256": "70b4007ae3c9795cdb61f49adae6f72c8ecf551983fff6b28ade03d68b308571"
+    },
+    {
+      "rel": "reconciliation-v3/STDOUT.log",
+      "sha256": "9b1bc1bcb709c257c72108c1e72b7e0d76aa3b5e1f4b93f9da98a36c59825129"
+    },
+    {
+      "rel": "reconciliation-v3/STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "rel": "resume2/STARTED.json",
+      "sha256": "cdd189147adcf09ffdccab09d40900f43a8e007c8cb7126ce1059678df1a067c"
+    },
+    {
+      "rel": "resume2/DIRECT_PROCESS.json",
+      "sha256": "71b7cd5849f03ac66adcd54fcecf5509a748856b11eb063be0eed151c13f01f3"
+    },
+    {
+      "rel": "resume2/ENV_RESTORED.json",
+      "sha256": "038f4355e213e7235560bbf24a25c08566f0857c7672afcfdcbd748f2873c517"
+    },
+    {
+      "rel": "resume2/ACTUAL_RESUME_HEAD.json",
+      "sha256": "ad62c76dabeb5baadb367505f27ab78f3d034da6c6d644027dd90548b487748f"
+    }
+  ]
+}

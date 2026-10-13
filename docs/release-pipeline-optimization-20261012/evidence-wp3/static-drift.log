@@ -1,0 +1,14 @@
+✔ same-batch content evidence is bounded, forced at switch barriers and cannot be mutated by callers (4.8385ms)
+✔ content change invalidates sourceSha256 even with unchanged timestamps (0.7722ms)
+✔ content change invalidates sourceInventorySha256 even with unchanged timestamps (0.3042ms)
+✔ content change invalidates toolchain even with unchanged timestamps (0.3201ms)
+✔ content change invalidates configuration even with unchanged timestamps (0.2855ms)
+✔ evidence checked before work is rechecked after; other batches/concurrent use/disposal are refused (1.1848ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 355.314

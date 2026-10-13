@@ -1,0 +1,117 @@
+{
+  "version": "astra-cwd-consumer-control-v2",
+  "sourceSha256": "0901f108929cd223fc14a3b6371319a1bc6115606f96b020e0c60167a84ac2ed",
+  "guardSha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd",
+  "passed": 7,
+  "results": [
+    {
+      "name": "ordinary-absolute",
+      "blocked": false,
+      "expectedBlocked": false,
+      "passed": true,
+      "error": null,
+      "result": {
+        "cimCreationUtc": "2000-01-01T00:00:00.0000000Z",
+        "nativeCreationFileTime": "125911584000000000",
+        "processId": 47936,
+        "identityStable": true,
+        "readable": true,
+        "refersToPrevious": false,
+        "directorySha256": "4011894fdaee3c275cbfb7dfbfa1fcf5821870c4ff452d05da19cd5860b4aa20"
+      }
+    },
+    {
+      "name": "target-reference",
+      "blocked": true,
+      "expectedBlocked": true,
+      "passed": true,
+      "error": null,
+      "result": {
+        "cimCreationUtc": "2000-01-01T00:00:00.0000000Z",
+        "nativeCreationFileTime": "125911584000000000",
+        "processId": 47936,
+        "identityStable": true,
+        "readable": true,
+        "refersToPrevious": true,
+        "directorySha256": "b714731061f45a854565d6f9c8302f487dd6ead97682aa4983762966ee5cc073"
+      }
+    },
+    {
+      "name": "invalid-newline",
+      "blocked": true,
+      "expectedBlocked": true,
+      "passed": true,
+      "error": null,
+      "result": {
+        "cimCreationUtc": "2000-01-01T00:00:00.0000000Z",
+        "nativeCreationFileTime": "125911584000000000",
+        "processId": 47936,
+        "identityStable": true,
+        "readable": true,
+        "failure": "physical-directory-or-identity-unresolved"
+      }
+    },
+    {
+      "name": "wrong-identity",
+      "blocked": true,
+      "expectedBlocked": true,
+      "passed": true,
+      "error": null,
+      "result": {
+        "cimCreationUtc": "2000-01-01T00:00:00.0000000Z",
+        "nativeCreationFileTime": "125911584000000000",
+        "processId": 1,
+        "identityStable": false,
+        "readable": true,
+        "failure": "physical-directory-or-identity-unresolved"
+      }
+    },
+    {
+      "name": "unreadable",
+      "blocked": true,
+      "expectedBlocked": true,
+      "passed": true,
+      "error": null,
+      "result": {
+        "cimCreationUtc": "2000-01-01T00:00:00.0000000Z",
+        "nativeCreationFileTime": "125911584000000000",
+        "processId": 47936,
+        "identityStable": true,
+        "readable": false
+      }
+    },
+    {
+      "name": "different-birth",
+      "blocked": true,
+      "expectedBlocked": true,
+      "passed": true,
+      "error": null,
+      "result": {
+        "cimCreationUtc": "2000-01-01T00:00:01.0000000Z",
+        "nativeCreationFileTime": "125911584000000000",
+        "processId": 47936,
+        "identityStable": true,
+        "readable": true,
+        "failure": "physical-directory-or-identity-unresolved"
+      }
+    },
+    {
+      "name": "both-empty-birth",
+      "blocked": true,
+      "expectedBlocked": true,
+      "passed": true,
+      "error": null,
+      "result": {
+        "cimCreationUtc": "",
+        "nativeCreationFileTime": "125911584000000000",
+        "processId": 47936,
+        "identityStable": true,
+        "readable": true,
+        "failure": "physical-directory-or-identity-unresolved"
+      }
+    }
+  ],
+  "nativeCalls": 0,
+  "uacInvocations": 0,
+  "scope": "Actual selectedCwd consumer and frozen path predicate; synthetic physical resolver returns input; fixed synthetic actor/time DTO added to original five cases, plus different/empty birth negatives. No live process/path attestation."
+}

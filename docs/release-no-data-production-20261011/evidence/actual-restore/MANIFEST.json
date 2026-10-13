@@ -1,0 +1,59 @@
+{
+  "version": "astra-restore-safe-archive-v1",
+  "entries": [
+    {
+      "name": "operator-audit.json",
+      "source": "D:/teruisi-runtime/django-sales/audits/postgres-operations/ef627746ece34ad88a066d5af4083fe2.json",
+      "bytes": 1361,
+      "sha256": "58f819b7aa9b0fb1116fb1a6d0767bd792ddbb1d6019869fb524a2f9595c4b72"
+    },
+    {
+      "name": "rehearsal-result.json",
+      "source": "E:\\TERUISI-Postgres-Rehearsals\\restore-0d2c8cfba17c\\rehearsal-result.json",
+      "bytes": 1098,
+      "sha256": "0ab553b56878aadf67d1e7b0aa118ea2e74b8dee8b6f0ce76b392993e9631f1d"
+    },
+    {
+      "name": "rehearsal-result.json.sha256",
+      "source": "E:\\TERUISI-Postgres-Rehearsals\\restore-0d2c8cfba17c\\rehearsal-result.json.sha256",
+      "bytes": 66,
+      "sha256": "56e1cb7f209c1ebe13ead313ea3534fe4d8a99d692ac47a1be5b89d538b5bb5a"
+    },
+    {
+      "name": "wal-000010.json",
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000010.json",
+      "bytes": 859,
+      "sha256": "f5ed9adcca75869cd6db9cb3678b903b5ef3cb3a9be8512a35dd55d9e79a4607"
+    },
+    {
+      "name": "wal-000039.json",
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000039.json",
+      "bytes": 1225,
+      "sha256": "cc9ea872202d9ce9d18497b9c6fd316014bdf5b8d808d91135bf3fec233702ce"
+    },
+    {
+      "name": "wal-000040.json",
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000040.json",
+      "bytes": 1957,
+      "sha256": "4de88f7621b3daada06668a50e16ec9e70abe5f97fd1481880ef7bc0d6ea3460"
+    },
+    {
+      "name": "wal-000041.json",
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000041.json",
+      "bytes": 344,
+      "sha256": "6f8fd301ac55e8e9714714c4ccbfa5e3993e1ff8e499b95aeba681582914c528"
+    },
+    {
+      "name": "wal-000042.json",
+      "source": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000042.json",
+      "bytes": 1140,
+      "sha256": "30515054f93174dd7ea653be86348fc5664c9d123cc37e617fbc8099aa8751d2"
+    },
+    {
+      "name": "READBACK.json",
+      "source": "This read-only script",
+      "bytes": 34562,
+      "sha256": "1c41cc4eb6ae9db3634ba7f9889f2514e23210681bd8e86876721505926c870b"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "version": "primary-wsl-host-observation-crosscheck-v1",
+  "packetSha256": "6af6ec639f51242f3afc8290669fe83f9ea8a7cfab77794ceccead28445f67ad",
+  "captureSha256": "f11f84beed8e8f6645c19929f74fdd7ee88a2827dea93e72b2d2286e836eb1c4",
+  "scriptSha256": "4bce23bf0e09f05b26b3d24936111f8e0f8d68ff2ce985e6030e075b0dcfa0c1",
+  "recordedStatusUnchanged": "unproven",
+  "nativeIdentityStable": true,
+  "hcsSnapshotsIdentical": true,
+  "uniqueHcsRuntimeEqualsExactCommandGuid": true,
+  "interpretation": "Metadata collection succeeded; draft expected Linux in optional RuntimeOsType. Actual HCS omitted it. Preserve original refusal; new explicit nullable-field schema must be independently reviewed and wired to a fresh live collector. Guest Linux/epoch proof remains separate.",
+  "productionActions": 0
+}

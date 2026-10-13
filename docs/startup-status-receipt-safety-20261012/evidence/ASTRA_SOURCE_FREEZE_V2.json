@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "base": "65b98cb233743ab4a80f30176c9a9acf0c30acd8",
+  "runtimeScope": [
+    "tools/django-local-service.ps1",
+    "tools/operations-system-watchdog.ps1"
+  ],
+  "files": [
+    {
+      "path": "tools/django-local-service.ps1",
+      "sha256": "c38963671a02a224e3e537a9e13f70005e85e0e65a8616423c8e1f5fbed019af"
+    },
+    {
+      "path": "tools/operations-system-watchdog.ps1",
+      "sha256": "c8a635e3ea80b41251033c5f209d2f8b3ed5b0ad95f252f7dc6ec35482fabd2b"
+    },
+    {
+      "path": "tests/startup-status-receipt-safety.fixture.ps1",
+      "sha256": "d81b38bb8a779e2430804fad25d15944a8ab227bfc351a94ddc90dd544806731"
+    },
+    {
+      "path": "tests/startup-status-receipt-safety.test.mjs",
+      "sha256": "79113e2b4c4f814efaa3e3c374143708540541ffa79f06acba8d22341e189d96"
+    }
+  ],
+  "patchPath": "E:/codex-artifacts/startup-status-receipt-safety-20261012/FINAL_RUNTIME_PATCH_V2.diff",
+  "patchSha256": "d34b08b0a5550b7cf6c355cdbf9d0c97600a654cb8982e9dc7bcc1184f54c546",
+  "testCasesPerHost": 45,
+  "testHosts": [
+    "WindowsPowerShell5",
+    "PowerShell7"
+  ],
+  "nodeTestsPassed": 2,
+  "testLog": "E:/codex-artifacts/startup-status-receipt-safety-20261012/ASTRA_V2_TEST.log",
+  "supersedes": "E:/codex-artifacts/startup-status-receipt-safety-20261012/ASTRA_SOURCE_FREEZE.json",
+  "previousSources": "E:/codex-artifacts/startup-status-receipt-safety-20261012/V1_SOURCE_SNAPSHOT",
+  "productionActions": 0
+}

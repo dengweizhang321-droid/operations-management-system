@@ -1,0 +1,39 @@
+{
+  "observedAt": "2026-10-12T04:05:43.214Z",
+  "files": [
+    {
+      "path": "tools/startup-exact-instance-stop.ps1",
+      "sha256": "f26a1ec322ffd5aaeef42801db1d428cc766a69c60d57b464a0e960b3f040f73"
+    },
+    {
+      "path": "tools/startup-exact-instance-policy.mjs",
+      "sha256": "0ab41f6eca96c4d60b5231508bf2abe455451cd5cb91f199b340add07ad9886c"
+    },
+    {
+      "path": "tests/startup-exact-instance-stop.test.mjs",
+      "sha256": "2e05eb57cc6d6d29c1352d0558da94b5860643dfadda4032a28d43f965440721"
+    },
+    {
+      "path": "tests/startup-exact-stop-mocked.ps1",
+      "sha256": "292e54ad034b104bc6e27ae75fd64fac3e8c562665551363f00f65541a5f74e1"
+    },
+    {
+      "path": "tests/startup-exact-stop-private.ps1",
+      "sha256": "760d4281dc4bfda63c9d66e6aa8e487226d511c47f9a58aaefb903cd22fcb2b7"
+    }
+  ],
+  "independentTests": 15,
+  "hosts": [
+    "PS5",
+    "PS7"
+  ],
+  "actualStopTargets": "private newly created disposable processes only",
+  "productionStopExecuted": false,
+  "integratedRecoveryPackageReady": false,
+  "limitations": [
+    "Current stop core is a library, not the approved production wrapper.",
+    "No historic receipt fingerprint reconstruction.",
+    "Full closure observations do not establish continuous OS-wide exclusion.",
+    "Drain, owner, source, role, watchdog mutex, start/install and failure exits still require integrated scope."
+  ]
+}

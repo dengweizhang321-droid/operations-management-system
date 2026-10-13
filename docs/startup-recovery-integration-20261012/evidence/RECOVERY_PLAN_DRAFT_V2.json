@@ -1,0 +1,1573 @@
+{
+  "version": "startup-recovery-integration-v1",
+  "fixed": {
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "batchId": "first-adoption-live-guard-20261011",
+    "walHead": "1a614e58caf56a243ea8dead3ce1609993fd993c3ed39cac296bf83c64617bd4",
+    "walCount": 49,
+    "workerSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+    "djangoSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+    "serviceSha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+    "desiredSha256": "1cfe7abb6b6b4d16bba5745dc440e02068a8ddfe744ca8e96d5e5452345a9fc4",
+    "repairId": "12c465652dbc4b5f9f54d0b0f30eeb3a",
+    "bundleId": "3e46d2454ddb0879c36ead3b27305d5f128e6bacc40f245d0404324b21e07280",
+    "sid": "S-1-5-21-815909789-107973518-1379257801-1001"
+  },
+  "createdAt": "2026-10-12T05:05:14.397Z",
+  "watchdogPlan": {
+    "bundleId": "3e46d2454ddb0879c36ead3b27305d5f128e6bacc40f245d0404324b21e07280",
+    "files": {
+      "operations-system-watchdog.ps1": "1e651d0dc6d2a9cadd89f99989a047b5247c808908434ef1fb876b7ab26fdc05",
+      "process-deadline.ps1": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "watchdog-install.ps1": "253f3ff73abd108a2fc7e17e5e643af1014b2d74f0fdf6b20a5f75713dab8734",
+      "watchdog-launcher\\NoConsoleLauncher.cs": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7",
+      "watchdog-status-control.ps1": "effae9851b920e36f6b28e128dc83d01eafb607c146e7248ed24b55bd69481b3",
+      "watchdog-status-backend.ps1": "d4524b8974e1fd71d549f26ebb17fe0e8d69ea94f7cd3fb5ef62bc53d27e7aa8",
+      "watchdog-core-overlay.ps1": "c28a59e4c8ca6ce028c78ad8680573e0a0cf8af1eff7a12fcef2ecffb8b653f8",
+      "driver-binding.json": "a9d4de405578f6205eff2be570fff6e95227c44fd17fa90b0967ad13d6bf2846",
+      "Watchdog.NoConsole.exe": "0bcb6079d8d47689141d6165fd3c2b0dbb009ed18fc1959d2e5800b73b554834"
+    },
+    "predecessorTaskSha256": "86d748614c8d41c5c7e85f8f1f189ae241acfd23e9eb737c5d90481cb8c38b72",
+    "planId": "39e6df7e0608e78c641bb8941a84a6eb5a837ce85dc9fdd10b7d0cd3d5123097",
+    "version": 1,
+    "requiresProductionApproval": true,
+    "businessServicesRestarted": false,
+    "predecessorInstallationSha256": "c17fc866ad899f74cd87cdac211d74727b78413c96d6b33da0ccacfa4a29bc98"
+  },
+  "stopDeclaration": {
+    "version": "startup-exact-instance-stop-v1",
+    "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+    "walHead": "1a614e58caf56a243ea8dead3ce1609993fd993c3ed39cac296bf83c64617bd4",
+    "repairId": "12c465652dbc4b5f9f54d0b0f30eeb3a",
+    "sourceEvidenceSha256": "7174f4bdc0cd447313406268a1e535a4343a216157657587aabf12367c3e6146",
+    "sourceLaunchEvidenceSha256": "29fbbfec512d10444dbb202d913e6d233667ca7c7052cccda00e5b817a60383f",
+    "roots": [
+      {
+        "processId": 9440,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440732629292",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "7e619282fd45b3cfc842e0730e83f0cda01f0cd85ad239f1648bf8733f317711",
+        "service": "django-reader",
+        "startupRawSha256": "88af607dbc05afbfa9d30b9f1b7d4fe3381ab8aa4969df1e18278742c5377db1",
+        "removalRawSha256": "11058a5aee2578d880ab42c479d28d53b9559219cde61b7e180ba2b46a6eefce",
+        "depth": 0
+      },
+      {
+        "processId": 38400,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440740827279",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "6400f8402d23cb938bb5928085b80c8ec992492a0fbba1f842810e23626944b4",
+        "service": "django-writer",
+        "startupRawSha256": "3490cfc4ee1476597ed9fd4cba339ce0f2f30aa7b0990f25f27468f08875383c",
+        "removalRawSha256": "19680e1d6f053263284c81e8d1cbbc81c0d152282d4e5494b601a68e7b9dda61",
+        "depth": 0
+      },
+      {
+        "processId": 52220,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440767498628",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "11310da43d4863e34626183beaf2a218179857eb8c7d590487c48538d5aecf52",
+        "service": "django-finance-reader",
+        "startupRawSha256": "d0615cbee7edd4f4601c37f6662251c1ce43c5216f57892d950f2d2779513b42",
+        "removalRawSha256": "7bacd5fccf500bc6fd7b35fccdad13259e1d255552bac1a3fa9d68aba24c34c6",
+        "depth": 0
+      },
+      {
+        "processId": 53960,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440785720541",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "f2cc748b25430196225c76b6648bc811f10ffb0adea5d0cc0ac45f0b1a6efc92",
+        "service": "django-finance-writer",
+        "startupRawSha256": "627c477a015f8e02714ccc2584c04962e43dbcb916f3f7b17c8a7728d8fddd05",
+        "removalRawSha256": "e82d10475d4ae5bee6eb11350dbe6dd25a03fc8b6a0a2e028ab6edf6f8529bdd",
+        "depth": 0
+      },
+      {
+        "processId": 28016,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440827063478",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "22bb8fad0802e6eed9309a6f666f62aac22fe50fde3c1e5e43ec1beabb95443e",
+        "service": "django-netshop-reader",
+        "startupRawSha256": "871822221c10353a4608c51b99308f3623da02af065ff653a06f80a1554e4fdf",
+        "removalRawSha256": "7323380fbfea6d60ec7089488bf97c73df07f65dc53ca4f990c75b533743c4f3",
+        "depth": 0
+      },
+      {
+        "processId": 62716,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440834952633",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "a66872786fd51f5b14686e9af7a6f65649c412c6b72a8faf68e91c24d0f10613",
+        "service": "django-netshop-writer",
+        "startupRawSha256": "8ad525b71a7a504272ddd16f947ac8541dbdd4e1cde3d03933d06f20a80fb8b8",
+        "removalRawSha256": "a380423d0b176ca4cc8c60d5d10916d5d5fc70ae2332987ec075c53f9ba0ce9e",
+        "depth": 0
+      },
+      {
+        "processId": 36644,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440873535249",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "30e2059bd54eb7b1e9769d3c1bfc33eadce504186c62804d8325b0d23e09d84c",
+        "service": "django-market-reader",
+        "startupRawSha256": "a976b33e717aa8b1cce493504b3dc44a8997e7db41d69ae9f47e592a08f44ca3",
+        "removalRawSha256": "3d188a8bcdd4f5b5ea3e66f69b8e3b2f936f3244654afefbc79fd3572a8abc2f",
+        "depth": 0
+      },
+      {
+        "processId": 52636,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440882208015",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "371dc5aa9193d65df6fdc6b8f8195a1fa871054ef3bda6e348307da01d733ee1",
+        "service": "django-market-writer",
+        "startupRawSha256": "d1a1fa8b3c0b12c7102ade18d702a547a96ee9560cc0444ac175e27421627f5f",
+        "removalRawSha256": "b73fbbc463b07f5b4e4230f692a57d2202ea34ea1c424f3cc7168152b7ed9b98",
+        "depth": 0
+      },
+      {
+        "processId": 72676,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440921223345",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "61d5147c464d9443c216ebcac06646200b45176e491857ee29fe61b3a44b7ce5",
+        "service": "django-products-reader",
+        "startupRawSha256": "2d45f6d110e164c0a39e8b151a77f3f73f4712c6396b7115bc1c22dfe799770d",
+        "removalRawSha256": "80c7a17b1114a595128656ccea422dc496ef374fe04b92e172ad581d3e4c15ef",
+        "depth": 0
+      },
+      {
+        "processId": 70032,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440930534054",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "09a3ba743db974c732b687819c910073c84a1153c2c9e21e06b2b526006322c2",
+        "service": "django-products-writer",
+        "startupRawSha256": "ec9206755c640ee743306d5146ea263e5e9cbfa36919d224f5e93732027cd7ef",
+        "removalRawSha256": "244c05742ee91ef96c95acfbeaceb00ba61d17a2ce1f5405b6a67be677159161",
+        "depth": 0
+      },
+      {
+        "processId": 62748,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440973751910",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "5b53c76c49c8a423d36941f919c1dd9c16f20bfcf7459ffad9b8307303060115",
+        "service": "django-inventory-reader",
+        "startupRawSha256": "d3a6eaedb3ee0a6a905d1fea720ce4d713897138e8b1b1bb8695095fb86cc2c5",
+        "removalRawSha256": "72e9d48cdf048d152e3e890a295613a12204183aa4553da83403a5ced0d9464d",
+        "depth": 0
+      },
+      {
+        "processId": 41596,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362440982341244",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "1bcda3e9f4747d8ff3a7f8883137a277f101a576ea9f904b55bedb4beeed0319",
+        "service": "django-inventory-writer",
+        "startupRawSha256": "3582fa110e9785a507482548b70f7e10e8be082c3f306e96a31f8103450c60ba",
+        "removalRawSha256": "7107873530c51323e56891d2371d380f24051885dea85e4432c0106456445eb0",
+        "depth": 0
+      },
+      {
+        "processId": 12556,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362441031858961",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "b03d10fc9c4be6ed5c0b49dd36ba30a5690f8a87a5e1606be21b0967a3d1e222",
+        "service": "django-workflow-reader",
+        "startupRawSha256": "8455f689b3a1d10f63e132f9df3273570031fef57cf345dba6de3263752eec7a",
+        "removalRawSha256": "6ef4659b66e36a3690c8fdf98b8c7217dc6dd87a6bf37e537767df0c98f16f73",
+        "depth": 0
+      },
+      {
+        "processId": 31216,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362441040419919",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "60eab0d055ea47ad72d6e4c131977212c508e28b4982362fae38c759357d1b01",
+        "service": "django-workflow-writer",
+        "startupRawSha256": "5c6be8d1acb39d7ba6e7b46ecafe4f9ee95f6487ed788829e3572e6e6bb67b96",
+        "removalRawSha256": "def8c80d845bbc991924984861883e7c7aff4244f0e44b78ab3f05c33a4fb4d3",
+        "depth": 0
+      },
+      {
+        "processId": 28748,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362441078995326",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "4f53e2a5fd3db19afc13d5dfad76bf4a02e17d69e0f6a05b4874bdef102feb24",
+        "service": "django-customer-service-reader",
+        "startupRawSha256": "2bf7fd9f589dc7df19cdc8a5ad5d278e486059e879b73923cd5b2667d43d6c04",
+        "removalRawSha256": "be8abbfb9abf524b0d6a0619e0b72aec2f11c1521183c8a067b152ff497df3e3",
+        "depth": 0
+      },
+      {
+        "processId": 71524,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362441087331503",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "778598cb7dfef959973af186dd21c98ea7641d9d3b913903fdc7adf06973fea0",
+        "service": "django-customer-service-writer",
+        "startupRawSha256": "20a619cb6115275f2a08eec19cb5fd565fe52bf0b7b7ce01f11acf07d3d5af9f",
+        "removalRawSha256": "4bfa2845e631c3f8a69fe5a2198a9c458e60e890e9f9ab290637f95af6607a35",
+        "depth": 0
+      },
+      {
+        "processId": 53104,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362441129128065",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "097c0be5a36947f2bbd7fabbf1d2987085a2e2cd9e2be96a502d59fa8daf28dd",
+        "service": "django-access-control-reader",
+        "startupRawSha256": "d074e6b9bc648aaac0c60c02ba183cacdcb5dca39604030b0127cb4968910ea2",
+        "removalRawSha256": "a2652a806509b6297426d921b449fa7fdb3ee2ce5f17d921fd96a154792af65e",
+        "depth": 0
+      },
+      {
+        "processId": 67196,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362441137401328",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "96de72d824366e534564cb5e9b527405236b109de2d3a856b84f7940f4002869",
+        "service": "django-access-control-writer",
+        "startupRawSha256": "23727c0241547a44e76a591cf921b19bb5faf0cb9f507632d6730128610045e8",
+        "removalRawSha256": "1e1f10779d8b3565ccbb5f3f1672c6dc1d6cd0064c9da6a7ca2f1520fe2d6354",
+        "depth": 0
+      },
+      {
+        "processId": 60408,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362441329591699",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "1bf61014f3e025f5ddc0d84c68d3dfae1d1641fb26c816c132fa3f70833a2827",
+        "service": "django-erp-reference-reader",
+        "startupRawSha256": "8f24a8251dc10d2b00ccee5631f47dafb6e1c01d4b232e1dbd39d26ac5e04f48",
+        "removalRawSha256": "5d5ec5763111bc93ec4f77da5a19c62945a2dd141fb95aeedcc743b5ac5e177e",
+        "depth": 0
+      },
+      {
+        "processId": 68280,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362441338196767",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "a9b98192d10fe4a29835edff96c084bcc8aeb41bbc12a5eb1c4decd7490dec43",
+        "service": "django-erp-reference-writer",
+        "startupRawSha256": "5879cb104e34ec13aeec87769d31018e36f7c8ff459ef2cc1b8d3a36fa0d7746",
+        "removalRawSha256": "6610942b7c990057679572f39d4bc88362383792857c5a4ddc68f1a4efbd6515",
+        "depth": 0
+      },
+      {
+        "processId": 67472,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362441278621794",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "b976c49332f60426a17d9471695c0f05e37aa285a23f44d8a5440393f3494fc2",
+        "service": "django-ai-reader",
+        "startupRawSha256": "1043a3c0bfeadccaf2ce003099afb49a84857df011583b9f89f6b250b0d7993c",
+        "removalRawSha256": "25e50c9ad28635f819f5404c3d35ed24693c007ca4c35cd1b3c061ba4527fbd2",
+        "depth": 0
+      },
+      {
+        "processId": 10336,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362441287260942",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "100226ffb095ab304e7c96982edcb349df183c5011adce8afa33008fd360025d",
+        "service": "django-ai-writer",
+        "startupRawSha256": "56c99ed8b1d76fbe03e96f1d7f317e54fbb81ed31fed30e901e4da13cc6efba4",
+        "removalRawSha256": "1dd1661e31ebadea958dd90519994486c2c93b2567b9bb8abe1424791e176949",
+        "depth": 0
+      },
+      {
+        "processId": 48520,
+        "parentProcessId": 56560,
+        "nativeCreationFileTime": "134362441384343282",
+        "imageSha256": "8ab082eb0c97d16c6d6bc2fd995b3556fb61f8849a0e88eeeeac4a2260e3790b",
+        "commandSha256": "112220133729a16656998b51629be21e25061f408424bc2a86ba4b226747eb5c",
+        "service": "django-bi-reader",
+        "startupRawSha256": "7e386f85851cfc0d3c14bedfb48a31a40d211a42eac95892cb7934c0042ad682",
+        "removalRawSha256": "cb6d73ef6d7a7762505c9c5d2dc926c64269bbb198471f5a392f4b1a992da7d3",
+        "depth": 0
+      }
+    ],
+    "descendants": [
+      {
+        "processId": 7612,
+        "parentProcessId": 64676,
+        "nativeCreationFileTime": "134362440882892674",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "e9fd69b0b265fb0679dd2954fb2a7d2ce6658a9964065af505803a8d7e036d2b",
+        "rootProcessId": 52636,
+        "depth": 2
+      },
+      {
+        "processId": 8376,
+        "parentProcessId": 28016,
+        "nativeCreationFileTime": "134362440827604198",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "5d7c77e3f9d9113eaf5286d6622c4ab5cc734134ce55cc7cfea89c0cac65984f",
+        "rootProcessId": 28016,
+        "depth": 1
+      },
+      {
+        "processId": 8696,
+        "parentProcessId": 48844,
+        "nativeCreationFileTime": "134362441129799998",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "a979ff3a585b7aadf548948c556c003b9c8a51c521094006d18b90b15b2e06ea",
+        "rootProcessId": 53104,
+        "depth": 2
+      },
+      {
+        "processId": 8708,
+        "parentProcessId": 12556,
+        "nativeCreationFileTime": "134362441031933096",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 12556,
+        "depth": 1
+      },
+      {
+        "processId": 14432,
+        "parentProcessId": 9440,
+        "nativeCreationFileTime": "134362440733237678",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "eabbaf694ae8e173334ddd6a70ae64e73a5dfc2b3f5f4e217c59793df2bb83ee",
+        "rootProcessId": 9440,
+        "depth": 1
+      },
+      {
+        "processId": 14656,
+        "parentProcessId": 38400,
+        "nativeCreationFileTime": "134362440740893936",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 38400,
+        "depth": 1
+      },
+      {
+        "processId": 14964,
+        "parentProcessId": 28748,
+        "nativeCreationFileTime": "134362441079564198",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "365096b7768a862b56237b9819d6cf16f96484eb7d004c0428e7553611361e56",
+        "rootProcessId": 28748,
+        "depth": 1
+      },
+      {
+        "processId": 19192,
+        "parentProcessId": 22260,
+        "nativeCreationFileTime": "134362440931492208",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "f2d9327f0640fed352e06bcbe978546794c0b2d788102b68524bb4afbcea31ed",
+        "rootProcessId": 70032,
+        "depth": 2
+      },
+      {
+        "processId": 22260,
+        "parentProcessId": 70032,
+        "nativeCreationFileTime": "134362440931374514",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "042e07f35fb25337d059839a7b0d50ff8ae064dbe580014551a012a166a2d76d",
+        "rootProcessId": 70032,
+        "depth": 1
+      },
+      {
+        "processId": 25500,
+        "parentProcessId": 38400,
+        "nativeCreationFileTime": "134362440741378231",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "f412bfa3e69651efc3010a1b8d5041cea04cf3a0bb9f6aa0b71d8b1544fe10b0",
+        "rootProcessId": 38400,
+        "depth": 1
+      },
+      {
+        "processId": 25808,
+        "parentProcessId": 72676,
+        "nativeCreationFileTime": "134362440922077168",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "ac00f4004ac46badd2c86889d301a3f5bb21edcf140761772fb3e56fc1c9c24a",
+        "rootProcessId": 72676,
+        "depth": 1
+      },
+      {
+        "processId": 26108,
+        "parentProcessId": 9440,
+        "nativeCreationFileTime": "134362440732737195",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 9440,
+        "depth": 1
+      },
+      {
+        "processId": 27180,
+        "parentProcessId": 68280,
+        "nativeCreationFileTime": "134362441338749216",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "c841a87e6765afc0de2f31c15df026735738a8dfcc3640d58c4bb9df6c964af8",
+        "rootProcessId": 68280,
+        "depth": 1
+      },
+      {
+        "processId": 27708,
+        "parentProcessId": 25808,
+        "nativeCreationFileTime": "134362440922245414",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "6b6c0b20d60077527296c4acc813998b841000ab8d74e19e643e4e976504a1a6",
+        "rootProcessId": 72676,
+        "depth": 2
+      },
+      {
+        "processId": 28264,
+        "parentProcessId": 59036,
+        "nativeCreationFileTime": "134362441279426453",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "c41add07b09eb4d389f848757968a16a0f59a59ec313b680482f25a82e2492af",
+        "rootProcessId": 67472,
+        "depth": 2
+      },
+      {
+        "processId": 28640,
+        "parentProcessId": 48520,
+        "nativeCreationFileTime": "134362441384966302",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "bca3f4323edb5d8a81ecc1c7ff8ca3a79b685f04faefd62ffc19c22af3dc4b88",
+        "rootProcessId": 48520,
+        "depth": 1
+      },
+      {
+        "processId": 29820,
+        "parentProcessId": 50216,
+        "nativeCreationFileTime": "134362440974372452",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "d5ea8a604ff0156cc0adfa66b274e69cfc95c709e5e16c25592cdcf9ca96ca49",
+        "rootProcessId": 62748,
+        "depth": 2
+      },
+      {
+        "processId": 34856,
+        "parentProcessId": 71524,
+        "nativeCreationFileTime": "134362441087921464",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "c78f7d7fa4c6ce4d95643dac66bdb7db8e01abec3f7fa132cf43483df2f51913",
+        "rootProcessId": 71524,
+        "depth": 1
+      },
+      {
+        "processId": 34932,
+        "parentProcessId": 50116,
+        "nativeCreationFileTime": "134362441041042087",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "c96751d007196e89a9b128f1cdd1c34ce725b676e630a03ee95b84950b4a75c6",
+        "rootProcessId": 31216,
+        "depth": 2
+      },
+      {
+        "processId": 35148,
+        "parentProcessId": 53960,
+        "nativeCreationFileTime": "134362440786269948",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "0df3e7f9d0bf2be19ae1397e234f190c76d78659de7175ec2ae259646d1f2718",
+        "rootProcessId": 53960,
+        "depth": 1
+      },
+      {
+        "processId": 37196,
+        "parentProcessId": 34856,
+        "nativeCreationFileTime": "134362441088036013",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "6b3866f83db0a54a839f1bb6ecf1a2930fe700ad1c2ced56e1ee0587809307a7",
+        "rootProcessId": 71524,
+        "depth": 2
+      },
+      {
+        "processId": 38336,
+        "parentProcessId": 31216,
+        "nativeCreationFileTime": "134362441040483713",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 31216,
+        "depth": 1
+      },
+      {
+        "processId": 39668,
+        "parentProcessId": 10336,
+        "nativeCreationFileTime": "134362441287565144",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 10336,
+        "depth": 1
+      },
+      {
+        "processId": 42708,
+        "parentProcessId": 52636,
+        "nativeCreationFileTime": "134362440882276834",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 52636,
+        "depth": 1
+      },
+      {
+        "processId": 44504,
+        "parentProcessId": 36644,
+        "nativeCreationFileTime": "134362440873602952",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 36644,
+        "depth": 1
+      },
+      {
+        "processId": 44976,
+        "parentProcessId": 53104,
+        "nativeCreationFileTime": "134362441129203020",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 53104,
+        "depth": 1
+      },
+      {
+        "processId": 45116,
+        "parentProcessId": 8376,
+        "nativeCreationFileTime": "134362440827707330",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "dd390e29176ad2e074a0ed934a83873424418287df789abb7e27017c4d47d1d8",
+        "rootProcessId": 28016,
+        "depth": 2
+      },
+      {
+        "processId": 46172,
+        "parentProcessId": 62748,
+        "nativeCreationFileTime": "134362440973815975",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 62748,
+        "depth": 1
+      },
+      {
+        "processId": 46640,
+        "parentProcessId": 53960,
+        "nativeCreationFileTime": "134362440785786707",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 53960,
+        "depth": 1
+      },
+      {
+        "processId": 47260,
+        "parentProcessId": 54164,
+        "nativeCreationFileTime": "134362440835574296",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "4b74ee88a0e887a0c82c905aee7a807e95e3ad479361d8a641319e703d3ab263",
+        "rootProcessId": 62716,
+        "depth": 2
+      },
+      {
+        "processId": 47304,
+        "parentProcessId": 28640,
+        "nativeCreationFileTime": "134362441385085297",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "ca4ad2da849bd90ed3958a15fa021e3fa5a581ec8943ad73e8bfb3ef68a16698",
+        "rootProcessId": 48520,
+        "depth": 2
+      },
+      {
+        "processId": 47964,
+        "parentProcessId": 70072,
+        "nativeCreationFileTime": "134362440983286734",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "0ef49c295d2bc4e25c6dc4b227b8eca3c5ec8198582694d72460a5f67cbcc5aa",
+        "rootProcessId": 41596,
+        "depth": 2
+      },
+      {
+        "processId": 48564,
+        "parentProcessId": 25500,
+        "nativeCreationFileTime": "134362440741486243",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "775c77ea780797d88b2f68f657cafa9ac6e00579a6b35cb6e0a464468e826237",
+        "rootProcessId": 38400,
+        "depth": 2
+      },
+      {
+        "processId": 48844,
+        "parentProcessId": 53104,
+        "nativeCreationFileTime": "134362441129673415",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "dc3e76f91aa3568748c462b7a2244c876c2688f4d840670c81f1f22d378b56f6",
+        "rootProcessId": 53104,
+        "depth": 1
+      },
+      {
+        "processId": 48960,
+        "parentProcessId": 58648,
+        "nativeCreationFileTime": "134362441032517358",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "79cd0ac509a4c44e6b313f3d21d0cb07c84048663b5ed3756391c1f77d8b23b8",
+        "rootProcessId": 12556,
+        "depth": 2
+      },
+      {
+        "processId": 50116,
+        "parentProcessId": 31216,
+        "nativeCreationFileTime": "134362441040925552",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "146824e014152b0742c06a124904415f815b029547477c781048685c6a3001aa",
+        "rootProcessId": 31216,
+        "depth": 1
+      },
+      {
+        "processId": 50140,
+        "parentProcessId": 28748,
+        "nativeCreationFileTime": "134362441079060796",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 28748,
+        "depth": 1
+      },
+      {
+        "processId": 50216,
+        "parentProcessId": 62748,
+        "nativeCreationFileTime": "134362440974262412",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "550336b9a038bf2edf73222ab85909292a3bcf37bf5265da335fdbd17c26c934",
+        "rootProcessId": 62748,
+        "depth": 1
+      },
+      {
+        "processId": 51900,
+        "parentProcessId": 62716,
+        "nativeCreationFileTime": "134362440835015577",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 62716,
+        "depth": 1
+      },
+      {
+        "processId": 53100,
+        "parentProcessId": 36644,
+        "nativeCreationFileTime": "134362440874125970",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "8d59c9f3aed393fc5ec8de590e690ab0c7b154b0698e195d9d58762e42193ab3",
+        "rootProcessId": 36644,
+        "depth": 1
+      },
+      {
+        "processId": 53520,
+        "parentProcessId": 52220,
+        "nativeCreationFileTime": "134362440767566484",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 52220,
+        "depth": 1
+      },
+      {
+        "processId": 54164,
+        "parentProcessId": 62716,
+        "nativeCreationFileTime": "134362440835463618",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "5e0c739634bab071dbea2ce2447ca9755954bf2a4d286af0780a1776ec4f2829",
+        "rootProcessId": 62716,
+        "depth": 1
+      },
+      {
+        "processId": 54292,
+        "parentProcessId": 14432,
+        "nativeCreationFileTime": "134362440733335029",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "a6bb1d45ea267b78b5c7467ba8c64bc17dea5ec359329d696f37a3393963c58d",
+        "rootProcessId": 9440,
+        "depth": 2
+      },
+      {
+        "processId": 54796,
+        "parentProcessId": 67196,
+        "nativeCreationFileTime": "134362441137462464",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 67196,
+        "depth": 1
+      },
+      {
+        "processId": 55408,
+        "parentProcessId": 10336,
+        "nativeCreationFileTime": "134362441288036355",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "afd2d5ce7d74d16d18256b39204e7f0a172d844fade34dae4acc8f3dea477170",
+        "rootProcessId": 10336,
+        "depth": 1
+      },
+      {
+        "processId": 55752,
+        "parentProcessId": 68280,
+        "nativeCreationFileTime": "134362441338260687",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 68280,
+        "depth": 1
+      },
+      {
+        "processId": 55760,
+        "parentProcessId": 60408,
+        "nativeCreationFileTime": "134362441329660825",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 60408,
+        "depth": 1
+      },
+      {
+        "processId": 56524,
+        "parentProcessId": 41596,
+        "nativeCreationFileTime": "134362440982421934",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 41596,
+        "depth": 1
+      },
+      {
+        "processId": 58648,
+        "parentProcessId": 12556,
+        "nativeCreationFileTime": "134362441032387432",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "97e79c2cb5864cfc6ee8b68ed998cf46ab701242e6f4032e494f79c7f3d9aedf",
+        "rootProcessId": 12556,
+        "depth": 1
+      },
+      {
+        "processId": 59036,
+        "parentProcessId": 67472,
+        "nativeCreationFileTime": "134362441279299590",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "d3e29d21c186d59e3f4d1841724b237d3c66b21f819a47289934207d1a420e6e",
+        "rootProcessId": 67472,
+        "depth": 1
+      },
+      {
+        "processId": 59128,
+        "parentProcessId": 72676,
+        "nativeCreationFileTime": "134362440921319267",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 72676,
+        "depth": 1
+      },
+      {
+        "processId": 59900,
+        "parentProcessId": 27180,
+        "nativeCreationFileTime": "134362441338852500",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "328ee485d968186aa8b5014961bfc033a0a46ca2c3e1182abb5bf5050a6831bc",
+        "rootProcessId": 68280,
+        "depth": 2
+      },
+      {
+        "processId": 60620,
+        "parentProcessId": 67472,
+        "nativeCreationFileTime": "134362441278688414",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 67472,
+        "depth": 1
+      },
+      {
+        "processId": 60896,
+        "parentProcessId": 14964,
+        "nativeCreationFileTime": "134362441079665807",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "e3a63b8410cd7e8c70a9e40b0c2d60f9f54acb0114bee9f2c9b962b87decbe0e",
+        "rootProcessId": 28748,
+        "depth": 2
+      },
+      {
+        "processId": 60912,
+        "parentProcessId": 60408,
+        "nativeCreationFileTime": "134362441330173889",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "223b5482470e3ef25007d77156ad8446da5341349b881b9e61c4ff4f24e2fef8",
+        "rootProcessId": 60408,
+        "depth": 1
+      },
+      {
+        "processId": 63616,
+        "parentProcessId": 35148,
+        "nativeCreationFileTime": "134362440786378643",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "bdd411bd363fb92c1b229aa2e7453665a7827aa7dbf416aac1a196cea48473f3",
+        "rootProcessId": 53960,
+        "depth": 2
+      },
+      {
+        "processId": 64372,
+        "parentProcessId": 60912,
+        "nativeCreationFileTime": "134362441330281096",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "3bcb1eef244700d209cac7627edc79a0cb4ccab6c801d03013e6c55b06466772",
+        "rootProcessId": 60408,
+        "depth": 2
+      },
+      {
+        "processId": 64676,
+        "parentProcessId": 52636,
+        "nativeCreationFileTime": "134362440882774655",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "5ddceeeb5b87e999df003f792600699524b4497110ee0fdd6b5add7eb9392bc0",
+        "rootProcessId": 52636,
+        "depth": 1
+      },
+      {
+        "processId": 65800,
+        "parentProcessId": 67196,
+        "nativeCreationFileTime": "134362441137946791",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "3bd24c6ac2359112d35e35b8c4dd5496f75c0b3c35d3d8af5b835e2b2f18e361",
+        "rootProcessId": 67196,
+        "depth": 1
+      },
+      {
+        "processId": 66172,
+        "parentProcessId": 55408,
+        "nativeCreationFileTime": "134362441288140459",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "60216563f9de93328300d2abae47346a53bd1b51c98b82187dd21bc9b2701d93",
+        "rootProcessId": 10336,
+        "depth": 2
+      },
+      {
+        "processId": 67548,
+        "parentProcessId": 53100,
+        "nativeCreationFileTime": "134362440874236442",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "e6509af08a3d574bcc4e8511652637eb476166666d019173e6e486046a0f7554",
+        "rootProcessId": 36644,
+        "depth": 2
+      },
+      {
+        "processId": 68044,
+        "parentProcessId": 48520,
+        "nativeCreationFileTime": "134362441384417119",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 48520,
+        "depth": 1
+      },
+      {
+        "processId": 69592,
+        "parentProcessId": 71880,
+        "nativeCreationFileTime": "134362440768155533",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "a6daa227944a1a975a0405f7250a10d7dcfd9c60ed9eb218919566f56c003328",
+        "rootProcessId": 52220,
+        "depth": 2
+      },
+      {
+        "processId": 70072,
+        "parentProcessId": 41596,
+        "nativeCreationFileTime": "134362440983139848",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "a3c37d1dee18743f3cb32843e56f213e8ccf9d69ae6e43dc328deda4dafb4692",
+        "rootProcessId": 41596,
+        "depth": 1
+      },
+      {
+        "processId": 70276,
+        "parentProcessId": 65800,
+        "nativeCreationFileTime": "134362441138051637",
+        "imageSha256": "7a4de4d871ca1e2e28e39acb809edff26058de4ff2839b2e888c025b0b431c9c",
+        "commandSha256": "12a894ad52b64e431050cfbaf718ad2583912c2c3122240d6f9c8983d28d4c9d",
+        "rootProcessId": 67196,
+        "depth": 2
+      },
+      {
+        "processId": 70852,
+        "parentProcessId": 71524,
+        "nativeCreationFileTime": "134362441087399239",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 71524,
+        "depth": 1
+      },
+      {
+        "processId": 71880,
+        "parentProcessId": 52220,
+        "nativeCreationFileTime": "134362440768034200",
+        "imageSha256": "d9b1b5c75b2f6faa8e967b7d7be83ba81cb221310f5c912bd3e3272de0607e69",
+        "commandSha256": "3c9055997e9f3b742eeffc3904d55676460d018bcd568e50341c62add4fe2b26",
+        "rootProcessId": 52220,
+        "depth": 1
+      },
+      {
+        "processId": 72020,
+        "parentProcessId": 28016,
+        "nativeCreationFileTime": "134362440827128804",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 28016,
+        "depth": 1
+      },
+      {
+        "processId": 72200,
+        "parentProcessId": 70032,
+        "nativeCreationFileTime": "134362440930606994",
+        "imageSha256": "aa03be48d56288b3c3e98ea99e43843cdf93e54c1a37ba31c1ce8583eeef5222",
+        "commandSha256": "417222c4a0ecb4d60a457ebe8e26fddf3d5406bffb16a5c59af8eeb241beca51",
+        "rootProcessId": 70032,
+        "depth": 1
+      }
+    ]
+  },
+  "descendantEvidence": {
+    "path": "E:/codex-artifacts/startup-recovery-integration-20261012/RECOVERY_DESCENDANTS_V2.json",
+    "sha256": "31446f7def846aa52f4f92f5aa597415cdc45db6c7bc0013008ddea57a145228"
+  },
+  "pins": [
+    {
+      "path": "C:\\Program Files\\nodejs\\node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+    },
+    {
+      "path": "C:\\Users\\86137\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+      "sha256": "362a356ce7f0940ec74f73a8fc2c990a2cc24a38a11c90bbd8eca947110ad139"
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\capture-recovery-descendants.mjs",
+      "sha256": "b471d96054d3f5b71732d5e2e48a540a0ac85e15e58c304d810aa438f11dc9c6"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\Collect-RecoveryDescendants.ps1",
+      "sha256": "b33ae1dbebe1ddaca62e11a16d9aade9fa0bcbe0f3852e50fe027604ac3acfff"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\Invoke-ApprovedStartupRecovery.ps1",
+      "sha256": "a5a8fc7942efadb490e70a583fb6f84104e0d173c4e75143ef7fe5494eefbe01"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\prepare-approved-recovery-transport.mjs",
+      "sha256": "1b94973e138763f8c771dd81704cb4007bf0d7a056b8bab4a889f6da9333b783"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\recovery-context.mjs",
+      "sha256": "0c4ce937fda877cce98d3da153d52cd7564a02c4c8725405fece3937480312b0"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\recovery-transport.mjs",
+      "sha256": "e7afda902a07ab2c8ba5600994377687dfdb5c359e8e370e55fcfb7966c9c72f"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\Restore-RecoverySupervisorV2.ps1",
+      "sha256": "b4d0b755a481621385b6359d724e7ba453d6416f47765b747531ba289a979b01"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\run-startup-recovery.mjs",
+      "sha256": "03169d39d12cc0afe27590f8096fc45829a1867151ac6a79d6b9227bd7053a7c"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\startup-recovery-operations.psm1",
+      "sha256": "e5d24a1491cfb1137f188520d0f18c3188079e0d5789d732e5d5bd532a005c66"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\evidence\\actual-admin-metadata\\ADMIN_STARTUP_IDENTITY_V1.json",
+      "sha256": "7174f4bdc0cd447313406268a1e535a4343a216157657587aabf12367c3e6146"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\evidence\\actual-admin-metadata\\ASTRA_ACTUAL_READBACK.json",
+      "sha256": "29fbbfec512d10444dbb202d913e6d233667ca7c7052cccda00e5b817a60383f"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\fence-original-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\tools\\process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\tools\\startup-exact-instance-policy.mjs",
+      "sha256": "0ab41f6eca96c4d60b5231508bf2abe455451cd5cb91f199b340add07ad9886c"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\tools\\startup-exact-instance-stop.ps1",
+      "sha256": "701e496ffb9715403a1aa670cb0583b60ba9cafde444a56b7f1603c3b4fa9cbb"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\tools\\startup-recovery-sequence.ps1",
+      "sha256": "df6178d74ec8e8744b364d7f5b71cfea63316a104967d7d42ae87c53d49765f3"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\tools\\watchdog-native-metadata.ps1",
+      "sha256": "d8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\Observe-LegacyStatusActors.ps1",
+      "sha256": "e4ded82918f906fe7d44fb72cc0b23a397e035a7a23c84571747e22d2e2e2f09"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\tools\\watchdog-native-metadata.ps1",
+      "sha256": "d8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449"
+    },
+    {
+      "path": "D:\\运营管理系统-sales-django-release\\tools\\django-local-service.ps1",
+      "sha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c"
+    },
+    {
+      "path": "D:\\运营管理系统\\tools\\operations-system-control.ps1",
+      "sha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810"
+    },
+    {
+      "path": "D:\\运营管理系统\\tools\\worker-local-service.ps1",
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\ai-domain-snapshot.py",
+      "sha256": "59891d1ef4cecffd04f2ebda755ec3a5d68ad99ec5ddabfce89d27554ec6b88a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\bi_app_addition.py",
+      "sha256": "bd45ecbf8e9d6aefb8492cbaf50ad389f816757d48ad5cb72464e8dd2573bf46"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\bi-app-adopt.ps1",
+      "sha256": "0661b0812ca7c27a7b3b3d838cfb03b6509ac9ee4b9ac8e24b506dcf9c44867d"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-consumer-smoke.ts",
+      "sha256": "dd3c66cbf096535504f1b8f239773f811305a4bb0bb4452609a628a545770379"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-d1-authority-install.py",
+      "sha256": "d08f4037f0d1735385a4c7d4a540c2fccc49595c96d084f29513b1f486ab6ba1"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-d1-rejection-smoke.py",
+      "sha256": "3e57b3c4376fe1b39567eb028b4baf6147c9420139df5e52175ff9873ee7f6c6"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-d1-snapshot.py",
+      "sha256": "6e12d797ce09c7bec03d84e7e50d49f239e250fb1f71a2e30a1b367590b28f47"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-production-smoke.ps1",
+      "sha256": "b61eb4f4ce84c74c50ca31711014e67e4722b4e6c50631ca41a6cd4e3ec43db1"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-r2-retirement-evidence.py",
+      "sha256": "beba34c76ba50f5413ce63eecac2a1592792bb440f7d19807a85517ed88db0d4"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\d1-retirement-proof.mjs",
+      "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-access-control-cutover.ps1",
+      "sha256": "67c7d7988027d7c0cdca57c494103c8bfe17d93d70e87942047d0eacf939e158"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-access-control.ps1",
+      "sha256": "509b9fbd64250cdf7dd24ac6a246381e959363ce64b83890920bd0ef80c05488"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-ai-cutover.ps1",
+      "sha256": "4a4b6c84b899432b3039c6cd04a6ef3454c3ecf0f2d4e86619714a71f79b6513"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-ai.ps1",
+      "sha256": "7e641a213668dcf0810870a6075bbc7dbb7c781c75970d38566d7253713e8a26"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-bi-service.ps1",
+      "sha256": "b23b95c3c9a876b7411f5572ad4545f50cf1aa95a358552dc1aa81bdb4845769"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-customer-service-cutover.ps1",
+      "sha256": "85c42c14880def4b1cbd2c510bc9a2cd26a3f6672426cb5c73fcfd2093580da7"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-customer-service.ps1",
+      "sha256": "2cf726fc820cf950e7eb03f2273882e2ce80d543305e05d56a99bd23cd6b3b92"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-erp-reference-cutover.ps1",
+      "sha256": "a0aaf08ae9f96fce49ccd8b1d1cfa44156351612dc13cae5e722baace30d593c"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-erp-reference.ps1",
+      "sha256": "84e16fda6dc03ed5bd6eb972fbe8fe59ef5c75439216039edafd379f2e347074"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-finance-cutover.ps1",
+      "sha256": "a2ef3abdb000acf6d36b67f3429a6d922e78a89e40e6c82576e5f42f5823c8d2"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-integration-install.ps1",
+      "sha256": "c0f5ca005af79da9beccf52eeb7ffd3e1d89c6e66041805d228065837d71e2ec"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-inventory-cutover.ps1",
+      "sha256": "5b64e817b0868e66f67f45e0d499f5bd577fc14add2c5595049e6a079e462b1d"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-inventory-service.ps1",
+      "sha256": "79bafaeb10678aae4791384fe55b1631bb787d55aacf5d4192ec7ac96018050d"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-local-service.ps1",
+      "sha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-market-service.ps1",
+      "sha256": "0c26d6078577b0360076732145072e3e00f8a9d37cf98b771b614b288476cc32"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-netshop-service.ps1",
+      "sha256": "7424266ecb82e4ba87274bde4b19ece3db560bfa9752ff0c9450fdce935f8f93"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+      "sha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-products-service.ps1",
+      "sha256": "f3adc6012f7aac411e3f972325d4ad436159ad22103a7a69da0ee810dd3dc303"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-runtime-supervisor.ps1",
+      "sha256": "85d2bdd121a415ff3a2e3e0c1edf208fc0ba2304444d7d3cc69cb71bcb533a11"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-workflow-cutover.ps1",
+      "sha256": "6fa22f99ff6280646a9a0658064b226906e8338cef27a391f6f4f6fe4c35393d"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-workflow-operations-cutover.ps1",
+      "sha256": "3ac57594d6d1640625e53533fe45ab155c81890f709ba249b732da4eb431ca7b"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-workflow-service.ps1",
+      "sha256": "acf1a2a68af554a4158f3d8df1e21982850a4b6addefa6bb4f897986ee18b49a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-consumer-smoke.ts",
+      "sha256": "c0fd17d50ce3fa2cd877c2b2f3c125e6706f9693ccba48e376e9ff28cad2ecab"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-d1-authority-install.py",
+      "sha256": "120a8d356dccaa5c17eae4c48284e564f8f33c67ea5cd2b1b15e83bda3434dac"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-d1-rejection-smoke.py",
+      "sha256": "e422d0af479392e2d82a40c17c66af2a66a70d3e85292db0d1c4f3e5a43ec69e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-d1-snapshot.py",
+      "sha256": "0be1f988bc2ef06ceec49c56a1e27973bf08f681e938131ce4ba69ca080a7088"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-production-smoke.ps1",
+      "sha256": "0e251c58a525309372eec3e116e017ae65b0ef3c5c7d44c36cd76e88cac96067"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-r2-retirement-evidence.py",
+      "sha256": "18f732aa691957b7266be762e70f1977898e778ab3f994e93a1575f3262b8993"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\finance_d1_rehearsal_snapshot.py",
+      "sha256": "deb448c98b2962b2abf9a42dfd3df9b9107249c0145cb5e83265a39952facc81"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\finance-d1-authority-install.py",
+      "sha256": "43f9007627604452cdfed05d25a6db2c70818e01d0e8e8eac25b8a9bab3cabba"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\integration_migration_journal.py",
+      "sha256": "cd8b857c90ef113f264b8fcbdf024ce88e7a48b75265e0b70bf776c5b02bf8be"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\integration_migration_plan.py",
+      "sha256": "94893e1cd60fb2ad693948e8b2d1e686882bc14664310acf7c6b24b8f53a74ec"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\integration_release_gate.py",
+      "sha256": "2a6645215e529539a10589ef72ffa7a5e90df4649cdabd84cb84ba978541cbc8"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\inventory-d1-authority-install.py",
+      "sha256": "d5f17b9fe71ea10fdae8b1e32051f37362f0368ad1e1655bd490c377877feace"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\inventory-r2-retirement-evidence.py",
+      "sha256": "373bb48f66fcec3a68e5d0d25f2631d03306ce68c8addd4b2ae16a66ff7d27a7"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres_no_key_backup.py",
+      "sha256": "ee86b4a48eff411616256556c83734cd5aa282f7fc75551facf0d691336de8b8"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres_restore_semantics.py",
+      "sha256": "66dd0f5a2ab62ff819a73af76538430b74f511675a651a8100175d06082a3f57"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres-backup-continuity.ps1",
+      "sha256": "cd63b772bcfd9a3470cf6737d1e02097a79d69230a962393eff2e09fe4aba6ed"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres-backup-retention.ps1",
+      "sha256": "6a9de32ef4d204a8bcc7cecb57df03f97f45c26b36379bc062505d7134691287"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres-consistent-backup.py",
+      "sha256": "0a1449b329a4afe0261c662236a6aacae60a6e7a4120801fb42eea2322368483"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\protected_ai_shadow_evidence_0073.py",
+      "sha256": "8a542612c00061c71246d889f4f9c3a35d4dd8fa2d22e136ffcf13288cff985f"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\release-payload-retention.mjs",
+      "sha256": "d339fb1eaac511d66f05660c50ade8e6f1e45a525dedcc0be395ebd3636d7b6a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\release-payload-retention.ps1",
+      "sha256": "e5bab569143c13a0021e2c57f6f832a58455eec421374bbd261b7b119d813f78"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-cutover-snapshot-gate.py",
+      "sha256": "cb82a9b352eb9160bcb347724217ca29554f5af087b1f77d9496785f9e6e65ee"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-d1-retirement.ts",
+      "sha256": "337d3a7baee77229b48e4541bcd3f7ca452834e68d778d78f8fb3c2ca1041f65"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-d1-write-authority.ts",
+      "sha256": "04f02a8bd83113ee6ed7e49f2af8a0f852d36e97aeb04bfc3ca83dc24e8d69b7"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-legacy-r2-cleanup.ts",
+      "sha256": "eadd4598024bc42c95f6ee589a8f9d38a97765055eee0f7303f08b0e887418e7"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-backup-prune.ps1",
+      "sha256": "87ecbec697321783bebf4b96825e26645d32291612295ddc17e6cfbcefda94b6"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-backup.ps1",
+      "sha256": "5d9081022671cb5c68c3a880d672cd122a50c92a94e3c725c7b93a2b617e54d1"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-operator.ps1",
+      "sha256": "bd23777261feb418693a4f8c08932d90e2e643b10fe2c8a09b44c6ec77413f1e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-rehearsal.ps1",
+      "sha256": "7160e24153fbb84c9038db77ff765fea15478e31d1a3bed3ceedd1f99fc4dc3e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover.ts",
+      "sha256": "36a7fa792aff020ac152a42cfc68da1fab2bb149f85ee55d93b5116b060168fc"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sqlite-consistent-backup.py",
+      "sha256": "deeecabcd2c63eb96123d7d58ac1f104423f014bd9409eadb454bc3b23ac4bca"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release-rotation.mjs",
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release.mjs",
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-d1-authority-install.py",
+      "sha256": "c1db7f139216fbf1bb5185a321c1fac8e8a0e671d50e4abad69ae92580d99480"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-d1-snapshot.py",
+      "sha256": "d58d8d840e1da9403f8afff6ae3a52f3001c5b24b543fd8bc2b7a4643df4c66e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-launch-r2-retirement-evidence.py",
+      "sha256": "8c0511f25ac4be21b534d3ae341c57ce0b57a630f581bb826de52d6217c3a285"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-consumer-smoke.ts",
+      "sha256": "5b41843192c321df842971e26964f53f3d91225590826e2a0a31bda9da09e138"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-d1-authority-install.py",
+      "sha256": "fa63dd78a90eb4be9466a55eb8a404ba7009a844bcb63e5ce910d5e4ea62934a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-d1-rejection-smoke.py",
+      "sha256": "25259757bfd0213c8c0e3fcf324deef1657eb8956a3020a6e761d41212fea43e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-d1-snapshot.py",
+      "sha256": "8092277f4d20714990ccc42bdd176807cc452806f351d9f62fa3b7acca503640"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-production-smoke.ps1",
+      "sha256": "ccb9bf4e336b57d364e07e67bbc714d58ecf33eafbc8df19ee05a6df71374c6b"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\tools\\process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\tools\\release-lifecycle-step.ps1",
+      "sha256": "c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-site-blockers-20261011\\ADOPTION_BATCH_LIVE_V1.json",
+      "sha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\driver-binding.json",
+      "sha256": "a9d4de405578f6205eff2be570fff6e95227c44fd17fa90b0967ad13d6bf2846"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\operations-system-watchdog.ps1",
+      "sha256": "1e651d0dc6d2a9cadd89f99989a047b5247c808908434ef1fb876b7ab26fdc05"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-core-overlay.ps1",
+      "sha256": "c28a59e4c8ca6ce028c78ad8680573e0a0cf8af1eff7a12fcef2ecffb8b653f8"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-install.ps1",
+      "sha256": "253f3ff73abd108a2fc7e17e5e643af1014b2d74f0fdf6b20a5f75713dab8734"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-launcher\\NoConsoleLauncher.cs",
+      "sha256": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-status-backend.ps1",
+      "sha256": "d4524b8974e1fd71d549f26ebb17fe0e8d69ea94f7cd3fb5ef62bc53d27e7aa8"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-status-control.ps1",
+      "sha256": "effae9851b920e36f6b28e128dc83d01eafb607c146e7248ed24b55bd69481b3"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\Watchdog.NoConsole.exe",
+      "sha256": "0bcb6079d8d47689141d6165fd3c2b0dbb009ed18fc1959d2e5800b73b554834"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\RECOVERY_DESCENDANTS_V2.json",
+      "sha256": "31446f7def846aa52f4f92f5aa597415cdc45db6c7bc0013008ddea57a145228"
+    }
+  ],
+  "walPins": [
+    {
+      "name": "000000.json",
+      "sha256": "0f9b044aa3cf504c42509606e3358eda83094016609dc89f3d230342857663f6"
+    },
+    {
+      "name": "000001.json",
+      "sha256": "81e6cce0afbb8949a692367a03aba7689a065353a58225ff301acf3a201a97a2"
+    },
+    {
+      "name": "000002.json",
+      "sha256": "73e3bb2df739bb855f184f069ef6bb0ded103ae194c88e771b912a3a9bc62af6"
+    },
+    {
+      "name": "000003.json",
+      "sha256": "4f01fc11f7d5d0fa98be325c8dc5c6c0e8a5cf17eef9b4abfebe65ef086ed04f"
+    },
+    {
+      "name": "000004.json",
+      "sha256": "79724f784dfb862616fb7f6cb0eb81d0c5d60ca6bfeb532a0d56e215b59fb219"
+    },
+    {
+      "name": "000005.json",
+      "sha256": "56482df7442d0833b591e8494403bee2969bde92c7cce80f1417ad5f3bdafedb"
+    },
+    {
+      "name": "000006.json",
+      "sha256": "e4c911842abf19297c2e00aa9e35dd57e5fbde09444f3d335e3ac2b1b20436dc"
+    },
+    {
+      "name": "000007.json",
+      "sha256": "2e509166b1a70dd7192d8c1cb0aef79652f44da7f840d0ff8a11f1646b013d30"
+    },
+    {
+      "name": "000008.json",
+      "sha256": "0491d19d6fb9da61fbc3ee512296924ca35664c810e8f6314036f23f98becdac"
+    },
+    {
+      "name": "000009.json",
+      "sha256": "58d73d459afbb5c090f3cf593d10819aee42289bb23847166279ebc9d2dd36ca"
+    },
+    {
+      "name": "000010.json",
+      "sha256": "f5ed9adcca75869cd6db9cb3678b903b5ef3cb3a9be8512a35dd55d9e79a4607"
+    },
+    {
+      "name": "000011.json",
+      "sha256": "ec2fde65dccca20e05ea6c5c86de080de94f8d8a7b07cdd50674851757f111b7"
+    },
+    {
+      "name": "000012.json",
+      "sha256": "9a55d11d36a9216490eebd0ec2f32cf17a70d36293eeb46a94439163d62ee028"
+    },
+    {
+      "name": "000013.json",
+      "sha256": "467fd44fc005eb2d3ac6375c77e7349401cf17a95321872bcf79d345dddcb26f"
+    },
+    {
+      "name": "000014.json",
+      "sha256": "361d0e3fa43793a9f331ab857e1a8a8e74398acf083a0e75d7c2318b5d43485a"
+    },
+    {
+      "name": "000015.json",
+      "sha256": "7cc254aaef62183150949a3aa9ebc7a6cf4704b94c621d0b7b5e937bf6359ed7"
+    },
+    {
+      "name": "000016.json",
+      "sha256": "f436db0cdd041daa34e294290f717d1c34b2f584997518d810cba32c6398c6a8"
+    },
+    {
+      "name": "000017.json",
+      "sha256": "def4bd27652b0bd5ecefb0f4aeec0cec61154cf210534b48b71a5531f26aa76d"
+    },
+    {
+      "name": "000018.json",
+      "sha256": "541e7d274f997d3ce083bee04486f72c76a115c036872e2155a4652b6a60e14f"
+    },
+    {
+      "name": "000019.json",
+      "sha256": "f81900d324bd1807962630cc1fc70441fd71515d113f74fa5ccc8966d690160c"
+    },
+    {
+      "name": "000020.json",
+      "sha256": "1cbe3026754b153d6bb7a36fd855c821bbb4f51b52146492a75ffaaa6731b699"
+    },
+    {
+      "name": "000021.json",
+      "sha256": "773f41a6c09edada7aeb83fdb438dc6e0c1fbb1a49de118b6a5cf8fca3b6f74a"
+    },
+    {
+      "name": "000022.json",
+      "sha256": "21a1d57e6aac330253bd24b256a2fe5c5e2e1877d1c10ad04471693bdad8e31b"
+    },
+    {
+      "name": "000023.json",
+      "sha256": "0c2a6969b53d82e225e29b95808b60b6bd9a3d8297bd95ed6453a7ad446a1758"
+    },
+    {
+      "name": "000024.json",
+      "sha256": "a4298a9caccdc39386f13e6f1d7303c2730f350c2e76377a105c1c6f6fc46d77"
+    },
+    {
+      "name": "000025.json",
+      "sha256": "7aeaf8cc31707c47863e122b4dd8aae030dbc39fa14101961a02bab77eb6e9f5"
+    },
+    {
+      "name": "000026.json",
+      "sha256": "7bd5474c3f643e336b76d20b6c8fb8027fce160b3d1474cf70d783ceea6d282a"
+    },
+    {
+      "name": "000027.json",
+      "sha256": "031bcac0a4b50a84c0a6239167b6b77038af1450446d0810a925306d8b2cf708"
+    },
+    {
+      "name": "000028.json",
+      "sha256": "c7f5718b7843c51ea98e01135c0070d2f1b77beba2299d19ecee5b9985f17b2c"
+    },
+    {
+      "name": "000029.json",
+      "sha256": "980fa68b8d825f97af0fc4c8e4da11582260762e741568a4a23b9e245802198a"
+    },
+    {
+      "name": "000030.json",
+      "sha256": "383e137e1d66a1f4c246dd1a36fb65c3ccb1a269c24061ceae03a429ea79ba37"
+    },
+    {
+      "name": "000031.json",
+      "sha256": "f4410e620910396fa3f59ec8cb5cff924e4247daf0135ac4bddabd65b2e0b7e9"
+    },
+    {
+      "name": "000032.json",
+      "sha256": "f9bc1a63bde16c2f4afc9c87c14dad9825049cd982487f53c8614d6cd186ffdf"
+    },
+    {
+      "name": "000033.json",
+      "sha256": "49b20e5b9a02750575d1b6352b9f8747e70a4ef7bf322057d6bccf3b740bf6f4"
+    },
+    {
+      "name": "000034.json",
+      "sha256": "aad1ab51b267d64db449aab4846923866811df037ca46b53718dfa8aceaca0f9"
+    },
+    {
+      "name": "000035.json",
+      "sha256": "cf688efa0741fc7f8466e7d4eb913b9228d368be71311f5b1eaf15ff409d3ce7"
+    },
+    {
+      "name": "000036.json",
+      "sha256": "f60e3a5f75758ab1571b0ccd7088d9bf83d11782da3243b042d1dfe1dc70f887"
+    },
+    {
+      "name": "000037.json",
+      "sha256": "3cbe9583039393c362cf165865b44464a5a8544cc2b4f0af3c23e6da991e9b56"
+    },
+    {
+      "name": "000038.json",
+      "sha256": "151a2a9fe2e4831135699549cd23f4233875e79f8ca43b3c5805d7fdb2041341"
+    },
+    {
+      "name": "000039.json",
+      "sha256": "cc9ea872202d9ce9d18497b9c6fd316014bdf5b8d808d91135bf3fec233702ce"
+    },
+    {
+      "name": "000040.json",
+      "sha256": "4de88f7621b3daada06668a50e16ec9e70abe5f97fd1481880ef7bc0d6ea3460"
+    },
+    {
+      "name": "000041.json",
+      "sha256": "6f8fd301ac55e8e9714714c4ccbfa5e3993e1ff8e499b95aeba681582914c528"
+    },
+    {
+      "name": "000042.json",
+      "sha256": "30515054f93174dd7ea653be86348fc5664c9d123cc37e617fbc8099aa8751d2"
+    },
+    {
+      "name": "000043.json",
+      "sha256": "5be793c04230da83d4108c876b2c0f23f177737094156223d3297b3a6625de62"
+    },
+    {
+      "name": "000044.json",
+      "sha256": "07e426e2a30da146bb716014e21b663532d3f1bdecb6e8b5afe97cd177ecdf21"
+    },
+    {
+      "name": "000045.json",
+      "sha256": "e9550386b59522acef2568b7851a06f10c49259efb2dd9876bf427af04313ebd"
+    },
+    {
+      "name": "000046.json",
+      "sha256": "41d348a7657788708bcb003434f7029172cd41016e1aeaf7fa6ff59ec3a3a992"
+    },
+    {
+      "name": "000047.json",
+      "sha256": "ead9c365ae408550e79e1cdf88085a482d40ef9bd13ea7fd2b6a340398e47dd3"
+    },
+    {
+      "name": "000048.json",
+      "sha256": "8b4913ba70361e35087b09453a0ff200a662e9065aba795869d30da9492740d2"
+    }
+  ],
+  "evidenceRoot": "E:/codex-artifacts/startup-recovery-integration-20261012/approved-recovery-v1",
+  "deadlineMs": 1800000
+}

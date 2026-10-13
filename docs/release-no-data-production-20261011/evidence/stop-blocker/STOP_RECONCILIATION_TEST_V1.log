@@ -1,0 +1,33 @@
+✔ actual ordinary-role baseline cannot authorize reconciliation (1.6212ms)
+✔ controlled complete stopped postcondition accepted without claiming StopForRelease success (1.5096ms)
+✔ reject wrong head (0.6133ms)
+✔ reject extra event (0.4065ms)
+✔ reject wrong owner (0.7172ms)
+✔ reject maintenance failed (0.4176ms)
+✔ reject worker running (0.3951ms)
+✔ reject port listener (0.4643ms)
+✔ reject receipt appeared (0.4323ms)
+✔ reject supervisor alive (0.7171ms)
+✔ reject native access denied (0.6913ms)
+✔ reject PID substituted (0.4496ms)
+✔ reject PG stopped (0.3693ms)
+✔ reject reader running (0.3477ms)
+✔ reject gate missing stopped (0.35ms)
+✔ reject wrong maintenance (0.3527ms)
+✔ reject drain phase changed (0.8591ms)
+✔ reject old head changed (0.4438ms)
+✔ reject chain changed (0.3226ms)
+✔ reject Django changed (0.2851ms)
+✔ reject diagnostic alone cannot establish status (0.2866ms)
+✔ reject future receipt consumer introduced (0.2976ms)
+✔ normalizer rejects foreign SID, query failure, PG listener replacement and omitted native PID (1.0515ms)
+✔ physical evidence rejects wrong bytes, hardlinks and junction ancestors (26.649ms)
+✔ original reconcileOperation appends exactly one no-output event on private WAL and second call rejects (825.3255ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 981.6848

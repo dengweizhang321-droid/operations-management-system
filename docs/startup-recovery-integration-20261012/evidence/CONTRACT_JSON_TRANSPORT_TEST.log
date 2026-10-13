@@ -1,0 +1,21 @@
+✔ gate phase transition follows original stopped maintenance and preserves unknown Start (1.6779ms)
+✔ reject own marker foreign-owner (2.2111ms)
+✔ reject own marker wrong-intent (0.3235ms)
+✔ reject own marker fake-drained (0.3011ms)
+✔ reject own marker array-bool (0.6295ms)
+✔ reject own marker runtime-root (0.2315ms)
+✔ reject own marker unknown-field (0.2023ms)
+✔ failure containment permits only own extant gate, never treats missing gate as stopped (8.3196ms)
+✔ start and install refuse leftover admission; typed service binding remains fixed (0.6719ms)
+✔ fixed recovery order and failure containment: C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe (1236.3614ms)
+✔ fixed recovery order and failure containment: pwsh.exe (798.1538ms)
+✔ original fixed stage predicate powershell.exe (588.944ms)
+✔ original fixed stage predicate pwsh.exe (615.5025ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3519.94

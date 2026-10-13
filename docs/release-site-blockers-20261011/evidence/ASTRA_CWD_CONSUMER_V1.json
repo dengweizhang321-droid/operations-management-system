@@ -1,0 +1,68 @@
+{
+  "version": "astra-cwd-consumer-control-v1",
+  "sourceSha256": "590fa05aed9baedb790bec65ab5f7d4852d7b50db6ae37365c4246b67ed4e00d",
+  "guardSha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd",
+  "results": [
+    {
+      "name": "ordinary-absolute",
+      "blocked": false,
+      "error": null,
+      "result": {
+        "processId": 47936,
+        "identityStable": true,
+        "readable": true,
+        "refersToPrevious": false,
+        "directorySha256": "4011894fdaee3c275cbfb7dfbfa1fcf5821870c4ff452d05da19cd5860b4aa20"
+      }
+    },
+    {
+      "name": "target-reference",
+      "blocked": true,
+      "error": null,
+      "result": {
+        "processId": 47936,
+        "identityStable": true,
+        "readable": true,
+        "refersToPrevious": true,
+        "directorySha256": "b714731061f45a854565d6f9c8302f487dd6ead97682aa4983762966ee5cc073"
+      }
+    },
+    {
+      "name": "invalid-newline",
+      "blocked": false,
+      "error": null,
+      "result": {
+        "processId": 47936,
+        "identityStable": true,
+        "readable": true,
+        "refersToPrevious": false,
+        "directorySha256": "c97c2e3aef39f54baa90eb8fdecf2550883a57c1a633cff7acdc5d4f9db11f65"
+      }
+    },
+    {
+      "name": "wrong-identity",
+      "blocked": false,
+      "error": null,
+      "result": {
+        "processId": 1,
+        "identityStable": false,
+        "readable": true,
+        "refersToPrevious": false,
+        "directorySha256": "4011894fdaee3c275cbfb7dfbfa1fcf5821870c4ff452d05da19cd5860b4aa20"
+      }
+    },
+    {
+      "name": "unreadable",
+      "blocked": true,
+      "error": null,
+      "result": {
+        "processId": 47936,
+        "identityStable": true,
+        "readable": false
+      }
+    }
+  ],
+  "nativeCalls": 0,
+  "uacInvocations": 0,
+  "scope": "Actual selectedCwd consumer and frozen path predicate; synthetic physical resolver returns input, no live path or process proof."
+}

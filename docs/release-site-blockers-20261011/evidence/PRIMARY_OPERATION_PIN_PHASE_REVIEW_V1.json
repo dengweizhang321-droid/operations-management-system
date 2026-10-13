@@ -1,0 +1,157 @@
+{
+  "at": "2026-10-11T15:17:18.568Z",
+  "status": "phase-specific-pins-matched",
+  "matchedCurrentOccurrences": 904,
+  "futureOccurrences": 21,
+  "findings": [
+    {
+      "operation": "op-deployapp-switch",
+      "path": "D:\\运营管理系统\\tools\\worker-local-service.ps1",
+      "current": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "expectedAfterApprovedApply": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+      "provenance": "Original plan protectedEntrypoint CAS; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-hardenacl-switch",
+      "path": "D:\\运营管理系统\\tools\\worker-local-service.ps1",
+      "current": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "expectedAfterApprovedApply": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+      "provenance": "Original plan protectedEntrypoint CAS; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-hardenacl-switch",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release-rotation.mjs",
+      "current": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "expectedAfterApprovedDeploy": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-hardenacl-switch",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release.mjs",
+      "current": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "expectedAfterApprovedDeploy": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "restore-installed",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release-rotation.mjs",
+      "current": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "expectedAfterApprovedDeploy": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "restore-installed",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release.mjs",
+      "current": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "expectedAfterApprovedDeploy": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-exitmaintenance-switch",
+      "path": "D:\\运营管理系统\\tools\\worker-local-service.ps1",
+      "current": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "expectedAfterApprovedApply": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+      "provenance": "Original plan protectedEntrypoint CAS; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-exitmaintenance-switch",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release-rotation.mjs",
+      "current": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "expectedAfterApprovedDeploy": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-exitmaintenance-switch",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release.mjs",
+      "current": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "expectedAfterApprovedDeploy": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-startworker-switch",
+      "path": "D:\\运营管理系统\\tools\\worker-local-service.ps1",
+      "current": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "expectedAfterApprovedApply": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+      "provenance": "Original plan protectedEntrypoint CAS; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-startworker-switch",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release-rotation.mjs",
+      "current": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "expectedAfterApprovedDeploy": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-startworker-switch",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release.mjs",
+      "current": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "expectedAfterApprovedDeploy": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-verifystartup-acceptance",
+      "path": "D:\\运营管理系统\\tools\\worker-local-service.ps1",
+      "current": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "expectedAfterApprovedApply": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+      "provenance": "Original plan protectedEntrypoint CAS; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-verifystartup-acceptance",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release-rotation.mjs",
+      "current": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "expectedAfterApprovedDeploy": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-verifystartup-acceptance",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release.mjs",
+      "current": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "expectedAfterApprovedDeploy": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-aggregatestatus-acceptance",
+      "path": "D:\\运营管理系统\\tools\\worker-local-service.ps1",
+      "current": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "expectedAfterApprovedApply": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+      "provenance": "Original plan protectedEntrypoint CAS; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-aggregatestatus-acceptance",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release-rotation.mjs",
+      "current": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "expectedAfterApprovedDeploy": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-aggregatestatus-acceptance",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release.mjs",
+      "current": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "expectedAfterApprovedDeploy": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-verifystartup-closeout",
+      "path": "D:\\运营管理系统\\tools\\worker-local-service.ps1",
+      "current": "4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80",
+      "expectedAfterApprovedApply": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+      "provenance": "Original plan protectedEntrypoint CAS; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-verifystartup-closeout",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release-rotation.mjs",
+      "current": "638d5ecbc212da64d535dc60ae5f656f7184e33d17593ae49f65a48870a425bd",
+      "expectedAfterApprovedDeploy": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    },
+    {
+      "operation": "op-verifystartup-closeout",
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release.mjs",
+      "current": "0e5d1c45d215158a5b765e1ea47345a940a10b41fcd0d0b645dc89cc5fd48e32",
+      "expectedAfterApprovedDeploy": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce",
+      "provenance": "Complete before inventory and exact prepared app; unchanged phase-aware expected transition"
+    }
+  ],
+  "productionActions": 0,
+  "limits": "Preapproval static transition check only; actual future byte mismatch must still reject at its execution boundary. Earlier all-now checker was inapplicable to approved staged installation."
+}

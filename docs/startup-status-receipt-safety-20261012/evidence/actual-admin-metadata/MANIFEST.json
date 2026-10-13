@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "name": "ADMIN_METADATA_BINDING_V1.json",
+      "sha256": "a0a0986ee91c995634a6efbc6e94682fc9f5ea85c0ff8975f56d2e0f147872ad",
+      "bytes": 13306
+    },
+    {
+      "name": "ADMIN_METADATA_BOOTSTRAP_V1.ps1",
+      "sha256": "608d8f67acc6a744e09412522b856dcb73a5f048bf15f5076449c2b017845653",
+      "bytes": 1750
+    },
+    {
+      "name": "ASTRA_ADMIN_METADATA_STATIC_REVIEW_V1.json",
+      "sha256": "1506be8376ffa47c0094bd1a3990ea40eb0e2416579dde939f7c1fde86834a06",
+      "bytes": 14978
+    },
+    {
+      "name": "ADMIN_STARTUP_IDENTITY_V1.json",
+      "sha256": "7174f4bdc0cd447313406268a1e535a4343a216157657587aabf12367c3e6146",
+      "bytes": 55758
+    },
+    {
+      "name": "ADMIN_STARTUP_CAPTURE_TRANSPORT_V1.json",
+      "sha256": "30e9f36534e17362344df9eb6acd842b31d5ecda4dfe40e0876ee7972ebc2f2a",
+      "bytes": 261
+    },
+    {
+      "name": "ADMIN_STARTUP_NATIVE_SUMMARY_V1.json",
+      "sha256": "6a6614a18db814ce5133f9265a794bedfc9b4d36ac5c6a0a5fce9a52a94662bb",
+      "bytes": 409
+    },
+    {
+      "name": "ADMIN_STARTUP_OBSERVATION_ATTEMPT_V1.json",
+      "sha256": "d4bdd56cd35750323369dcc53f716f9c8abddb403115836def2d56f483fa08f2",
+      "bytes": 55798
+    },
+    {
+      "name": "ASTRA_ACTUAL_READBACK.json",
+      "sha256": "29fbbfec512d10444dbb202d913e6d233667ca7c7052cccda00e5b817a60383f",
+      "bytes": 20073
+    }
+  ]
+}

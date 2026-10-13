@@ -1,0 +1,81 @@
+﻿[CmdletBinding()]
+param([ValidateSet('Status','AggregateStatus')][string]$Action='Status',[switch]$Json,[ValidateSet('Backend','Worker','Supervisor')][string]$DiagnosticTarget='Backend')
+$ErrorActionPreference='Stop'
+$diagnosticRequestedAction=$Action
+if($DiagnosticTarget -in @('Worker','Supervisor') -and $Action -ne 'Status'){throw 'readonly_worker_status_only'}
+$diagnosticBackend='D:/teruisi-runtime/django-sales/app/tools/django-local-service.ps1'
+$diagnosticWorker='D:/运营管理系统/tools/worker-local-service.ps1'
+$diagnosticRoot='D:/teruisi-runtime/django-sales'
+$diagnosticSupervisor='D:/teruisi-runtime/django-sales/app/tools/django-runtime-supervisor.ps1'
+$diagnosticBinding=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'driver-binding.json') -Raw|ConvertFrom-Json
+function Assert-NativeDiagnosticSources {
+ if((Get-FileHash -LiteralPath $diagnosticBackend -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.backend -or
+    (Get-FileHash -LiteralPath $diagnosticWorker -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.worker -or
+    (Get-FileHash -LiteralPath $diagnosticSupervisor -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.supervisor){throw 'diagnostic_predecessor_changed'}
+}
+Assert-NativeDiagnosticSources
+if($DiagnosticTarget -eq 'Supervisor'){
+ $savedBackend=$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
+ $savedSupervisor=$env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY
+ try{
+  $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';$env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY='1'
+  . $diagnosticBackend -Action Status -RuntimeRoot $diagnosticRoot -Json
+  . $diagnosticSupervisor -Action Status -RuntimeRoot $diagnosticRoot
+ }finally{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY=$savedBackend;$env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY=$savedSupervisor}
+ . (Join-Path $PSScriptRoot 'watchdog-core-overlay.ps1')
+ $canonicalRuntime=Get-SupervisorCanonicalPath $diagnosticRoot
+ if($canonicalRuntime -ine $SupervisorFixedRuntimeRoot){throw 'supervisor_runtime_changed'}
+ $ServiceScriptPath=$diagnosticBackend;$SupervisorScriptPath=$diagnosticSupervisor
+ $SupervisorMonitorDirectory=Assert-RuntimeChildPath (Join-Path $canonicalRuntime 'monitoring\django-runtime')
+ $SupervisorAlertDirectory=Assert-RuntimeChildPath (Join-Path $SupervisorMonitorDirectory 'alerts\pending')
+ $SupervisorStatePath=Assert-RuntimeChildPath (Join-Path $SupervisorMonitorDirectory 'state.json')
+ $SupervisorPidPath=Assert-RuntimeChildPath (Join-Path $RunDirectory 'django-supervisor.pid.json')
+ $diagnosticResult=& {
+      $desired = Get-SupervisorDesiredState
+      $state = Read-SupervisorState
+      $process = $null
+      $processStatus = "stopped"
+      try {
+        $process = Resolve-SupervisorProcess
+        if ($null -ne $process) { $processStatus = "running" }
+      } catch {
+        $processStatus = "ownership_error"
+      }
+      [pscustomobject][ordered]@{
+        status = "completed"
+        desiredState = [string]$desired.desiredState
+        supervisorProcess = $processStatus
+        health = [string]$state.health
+        code = [string]$state.code
+        lastHealthyAt = [string]$state.lastHealthyAt
+        restartAttemptsInWindow = [int]$state.restartAttemptsInWindow
+        pendingAlertCount = if (Test-Path -LiteralPath $SupervisorAlertDirectory) {
+          @(
+            Get-ChildItem -LiteralPath $SupervisorAlertDirectory -File -Filter "alert-*.json"
+          ).Count
+        } else { 0 }
+        serviceStateChanged = $false
+      }
+ }
+ Assert-NativeDiagnosticSources
+ $diagnosticResult|ConvertTo-Json -Depth 10 -Compress
+}elseif($DiagnosticTarget -eq 'Worker'){
+ . $diagnosticWorker -Action Status -FunctionsOnly -Json
+ . (Join-Path $PSScriptRoot 'watchdog-core-overlay.ps1')
+ $diagnosticManifest=Get-CurrentManifestPath
+ $diagnosticIdentity=if($diagnosticManifest){Get-ManifestIdentity $diagnosticManifest}else{$null}
+ $diagnosticResult=Get-PublicStatus (Get-WorkerStatusInternal $diagnosticIdentity)
+ Assert-NativeDiagnosticSources
+ $diagnosticResult|ConvertTo-Json -Depth 8 -Compress
+}else{
+ $savedLibrary=$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
+ try{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';. $diagnosticBackend -Action Status -RuntimeRoot $diagnosticRoot -Json}finally{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY=$savedLibrary}
+ . (Join-Path $PSScriptRoot 'watchdog-core-overlay.ps1')
+ # Capability markers required by the original controller:
+ # "AggregateStatus" { Show-AggregateServiceStatus }
+ # teruisi-django-aggregate-status-v1
+ $script:Json=[switch]$true
+ $diagnosticResult=if($diagnosticRequestedAction -eq 'AggregateStatus'){Show-AggregateServiceStatus}else{Show-ServiceStatus}
+ Assert-NativeDiagnosticSources
+ $diagnosticResult
+}

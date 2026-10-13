@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -12,10 +12,10 @@ import { requestPolicy, installUiRequestAudit } from '../tools/release-acceptanc
 
 const at = ms => new Date(Date.UTC(2026, 9, 9) + ms).toISOString();
 const h = value => value.repeat(64);
-async function fixture(events, extras = {}) {
+async function fixture(events, extras = {}, coreExtras = {}) {
   const directory = await mkdtemp(path.join(tmpdir(), 'teruisi-independent-closeout-'));
   const core = { id: 'independent-batch', binding: { artifactSha256: h('a') },
-    operations: [{ id: 'final-status', phase: 'closeout', kind: 'command', mutating: false }] };
+    operations: [{ id: 'final-status', phase: 'closeout', kind: 'command', mutating: false }], ...coreExtras };
   const batch = { ...core, batchSha256: hash(core) };
   const batchPath = path.join(directory, 'batch.json'), journalDirectory = path.join(directory, 'journal');
   await writeFile(batchPath, canonical(batch)); await mkdir(journalDirectory);
@@ -28,6 +28,111 @@ async function fixture(events, extras = {}) {
   return { directory, input: { batchPath, journalDirectory, approvedSha256: batch.batchSha256, ...extras },
     dispose: () => rm(directory, { recursive: true, force: true }) };
 }
+
+async function wp3Fixture({ events, checks = ['domain','negative'], mutateTests, mutateCollector, runtimeAt = at(2000), versions = {} } = {}) {
+  const tests = { status:'passed', checks, validatorVersion:'teruisi-test-fixture-v1', sourceSha256:h('b'),artifactSha256:h('a') };
+  mutateTests?.(tests);
+  const collector = { transport:'in-process-content-evidence-v1', version:'teruisi-collector-fixture-v1',files:[{path:'C:/fixture/validator.mjs',sha256:h('e')}] };
+  const plan = { candidate:{releaseId:'20261009T000000Z-aaaaaaaaaaaaaaaa',manifestSha256:h('a')},
+    predecessor:{releaseId:'20261008T000000Z-bbbbbbbbbbbbbbbb',manifestSha256:h('c'),bindingSha256:h('d')} };
+  const planRaw = Buffer.from(canonical(plan));
+  const f = await fixture(events ?? [{at:at(0),phase:'queue',status:'approved'},
+    {at:at(2000),phase:'closeout',status:'passed',operationId:'final-status'},
+    {at:at(3000),phase:'closeout',status:'completed'}], {}, {
+      version:'teruisi-release-batch-v3',tests,requirements:{tests:['domain','negative']},collectorSha256:hash(collector),
+      binding:{artifactSha256:h('a'),sourceSha256:h('b'),predecessorSha256:h('d'),testsSha256:hash(tests),workerPlanSha256:hash(planRaw)} });
+  async function evidence(name, value) {
+    const bytes = Buffer.isBuffer(value) ? value : Buffer.from(canonical(value)), target = path.join(f.directory,name+'.json');
+    await writeFile(target,bytes);return {path:target,sha256:hash(bytes)};
+  }
+  mutateCollector?.(collector);
+  const batch = JSON.parse(await readFile(f.input.batchPath));
+  await writeFile(f.input.batchPath,canonical({batch,collector}));
+  f.input.batchFileSha256 = hash(Buffer.from(canonical({batch,collector})));
+  f.input.planEvidence = await evidence('plan',planRaw);
+  f.input.versionsEvidence = await evidence('versions',{sourceCommit:'a'.repeat(40),candidateReleaseId:plan.candidate.releaseId,
+    candidateManifestSha256:plan.candidate.manifestSha256,predecessorReleaseId:plan.predecessor.releaseId,
+    predecessorManifestSha256:plan.predecessor.manifestSha256,...versions});
+  f.input.runtimeEvidence = await evidence('runtime',{checkedAt:runtimeAt,releaseId:plan.candidate.releaseId,
+    state:'Running',backendState:'Ready',workerState:'exact_release',components:{core:true}});
+  return {...f,evidence};
+}
+
+test('WP3: failure, not-executed, unknown and independent reconciliation remain separate with original exit1', async () => {
+  const f = await fixture([{at:at(0),phase:'queue',status:'approved'},
+    {at:at(1000),phase:'closeout',operationId:'final-status',status:'unknown',processEvidence:{exitCode:1,timeoutType:null,code:'nonzero_exit',stdout:'SYNTHETIC-PRIVATE'}},
+    {at:at(2000),phase:'closeout',operationId:'final-status',status:'passed',reason:'independently-reconciled'},
+    {at:at(3000),phase:'closeout',operationId:'failed-op',status:'failed'},
+    {at:at(4000),phase:'closeout',operationId:'unknown-op',status:'unknown'}],{}, {operations:
+      ['final-status','failed-op','unknown-op','not-executed-op'].map(id=>({id,phase:'closeout',kind:'command',mutating:false}))});
+  try {
+    const report = await generateCloseoutDraft(f.input);
+    assert.deepEqual(report.operations.map(op=>op.status),['passed','failed','unknown','not-executed']);
+    assert.equal(report.failures[0].processEvidence.exitCode,1);assert.equal(report.failures[0].processEvidence.timeoutType,null);
+    assert.equal(report.operations[0].evidence[1].reason,'independently-reconciled');
+    assert.equal(report.acceptancePassed,null);assert.equal(report.status,'release-incomplete');
+    assert.deepEqual(report.unresolved,['unknown-op']);assert.deepEqual(report.notExecuted,['not-executed-op']);
+    const md=renderCloseoutDraft(report);assert.match(md,/原失败 \| 原未知 \| 独立协调/);assert.ok(!md.includes('SYNTHETIC-PRIVATE'));
+  } finally {await f.dispose();}
+});
+
+test('WP3: matching fingerprint cannot hide a missing required check',async()=>{
+  const f=await wp3Fixture({checks:['domain']});
+  try {const r=await generateCloseoutDraft(f.input,{now:()=>Date.parse(at(4000))});
+    assert.deepEqual(r.verification.missingRequiredChecks,['negative']);assert.equal(r.verification.checkInventoryComplete,false);
+    assert.ok(r.evidenceGaps.includes('missing-required-checks'));assert.equal(r.acceptancePassed,null);
+  } finally {await f.dispose();}
+});
+for(const field of ['sourceSha256','artifactSha256','predecessorSourceSha256'])test('WP3: recomputed test hash cannot hide '+field+' drift',async()=>{
+  const f=await wp3Fixture({mutateTests:value=>{value[field]=h('f');}});
+  try {await assert.rejects(generateCloseoutDraft(f.input),/test (evidence|predecessor) binding/);} finally {await f.dispose();}
+});
+test('WP3: validator version or byte closure must match its sealed digest',async()=>{
+  for(const mutateCollector of [value=>{value.version='teruisi-collector-fixture-v2';},value=>{value.files[0].sha256=h('f');}]) {
+    const f=await wp3Fixture({mutateCollector});
+    try {await assert.rejects(generateCloseoutDraft(f.input),/validator binding/);} finally {await f.dispose();}
+  }
+});
+for(const field of ['candidateReleaseId','predecessorReleaseId','predecessorManifestSha256'])test('WP3: exact plan rejects changed '+field,async()=>{
+  const f=await wp3Fixture({versions:{[field]:field.endsWith('Sha256')?h('f'):'20261007T000000Z-ffffffffffffffff'}});
+  try {await assert.rejects(generateCloseoutDraft(f.input),/candidate\/predecessor/);} finally {await f.dispose();}
+});
+test('WP3: changed plan bytes and batch bytes are rejected',async()=>{
+  const f=await wp3Fixture();
+  try {
+    await writeFile(f.input.planEvidence.path,'{}');await assert.rejects(generateCloseoutDraft(f.input),/plan bytes/);
+    await writeFile(f.input.batchPath,'{}');await assert.rejects(generateCloseoutDraft(f.input),/batch bytes/);
+  } finally {await f.dispose();}
+});
+test('WP3: runtime freshness is separate from static completeness, including unknown and future',async()=>{
+  for(const [runtimeAt,expected] of [[at(2000),'within-window'],[at(-5000),'expired'],[at(5000),'future'],[undefined,'unknown']]) {
+    const f=await wp3Fixture();
+    try {
+      f.input.runtimeEvidence=await f.evidence('runtime',{...(runtimeAt===undefined?{}:{checkedAt:runtimeAt}),releaseId:'20261009T000000Z-aaaaaaaaaaaaaaaa',components:{core:true}});
+      const r=await generateCloseoutDraft(f.input,{now:()=>Date.parse(at(4000))});
+      assert.equal(r.verification.checkInventoryComplete,true);assert.equal(r.observedRuntime.freshness.status,expected);
+      assert.equal(r.verification.testValidatorVersion,'teruisi-test-fixture-v1');assert.ok(!r.evidenceGaps.includes('missing-test-validator-version'));
+      assert.equal(r.observedRuntime.freshness.establishesCurrentReadiness,false);assert.equal(r.acceptancePassed,null);
+      assert.equal(r.evidenceGaps.includes('runtime-observation-not-fresh-at-report-generation'),expected!=='within-window');
+    } finally {await f.dispose();}
+  }
+});
+test('WP3: final V2 delivery preserves supersession and separates necessary, completed and delivery times',async()=>{
+  const f=await wp3Fixture();
+  const delivery={version:'release-final-delivery-receipt-v2',approvalAt:at(0),necessaryAcceptanceAt:at(2000),
+    productionCompletedAt:at(3000),deliveredAt:at(6000),operationsPassed:1,walRecords:3,supersedes:'FINAL_DELIVERY_RECEIPT_V1.json'};
+  try {
+    f.input.deliveryEvidence={...await f.evidence('delivery',delivery),format:'final-delivery-v2'};
+    const r=await generateCloseoutDraft(f.input);assert.equal(r.timing.approvedToDeliveryMs,6000);
+    assert.equal(r.timing.approvedToCompleteMs,3000);assert.equal(r.delivery.necessaryAcceptanceAt,at(2000));assert.equal(r.delivery.supersedes,delivery.supersedes);
+    f.input.deliveryEvidence={...await f.evidence('delivery',{...delivery,walRecords:4}),format:'final-delivery-v2'};
+    await assert.rejects(generateCloseoutDraft(f.input),/does not bind/);
+    f.input.deliveryEvidence={...await f.evidence('delivery',{...delivery,necessaryAcceptanceAt:at(2500)}),format:'final-delivery-v2'};
+    await assert.rejects(generateCloseoutDraft(f.input),/does not bind a passed/);
+    f.input.deliveryEvidence={...await f.evidence('delivery',{...delivery,deliveredAt:at(1000)}),format:'final-delivery-v2'};
+    await assert.rejects(generateCloseoutDraft(f.input),/must follow/);
+  } finally {await f.dispose();}
+});
 
 test('independent: completion interval cannot absorb work recorded after completion', () => {
   const result = closeoutAccounting([

@@ -1,0 +1,12 @@
+{
+  "version": "root-uac-launch-failure-stop-resume-v3",
+  "toolSessionId": 13679,
+  "error": "Start-Process: 操作已被用户取消。",
+  "toolProcessExitCode": 1,
+  "administratorProcessIdReturned": false,
+  "stopReconciliationStartedFileAbsent": true,
+  "observedAt": "2026-10-11T18:00:42Z",
+  "bootstrapSha256": "7d7b6d751c017dea4966a2f8aea2f83d4f6ececb3efc57b97154e0d77985ffaf",
+  "candidateScopeChanged": false,
+  "originalWALChangedByThisRequest": false
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "path": "D:\\.codex\\worktrees\\watchdog-native-census\\运营管理系统\\docs\\watchdog-native-census-20261012\\run-census-closeout-chain.mjs",
+    "sha256": "025ecd3a073f136ff55ddc5f7d9bdc4597d742142153748d6d7675904e999239"
+  },
+  {
+    "path": "D:\\.codex\\worktrees\\watchdog-native-census\\运营管理系统\\docs\\watchdog-native-census-20261012\\census-closeout-state.mjs",
+    "sha256": "c94a9548717115c750e5ec190fc24337ae536dc4d634a360c6124e9284f7df2d"
+  },
+  {
+    "path": "D:\\.codex\\worktrees\\watchdog-native-census\\运营管理系统\\docs\\watchdog-native-census-20261012\\prepare-census-transport.mjs",
+    "sha256": "f21b76270e62bbcc85bc68b77dce6b3ce0f99a372ce9f895d6064d128af58f8d"
+  }
+]

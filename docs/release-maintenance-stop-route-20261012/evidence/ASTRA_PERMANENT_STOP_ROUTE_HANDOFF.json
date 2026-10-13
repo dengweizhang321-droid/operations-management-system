@@ -1,0 +1,33 @@
+{
+  "version": "permanent-maintenance-stop-route-development-v1",
+  "root": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统",
+  "branch": "codex/release-maintenance-stop-route-20261012",
+  "base": "f5b19c01fc7bedc1750e96605924c54b58ab7cfd",
+  "files": [
+    {
+      "path": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统/tools/release-lifecycle-step.ps1",
+      "sha256": "6e67b4c83ae577f52ed94efeb5d8c21521a26b385afa5f7bd504b3c1a51509d5"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统/tests/release-maintenance-stop-route.test.mjs",
+      "sha256": "a281b4674aca4b1126213e17881d48b08225d364448ce39bc668ee8e7f8eb2e2"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统/docs/release-maintenance-stop-route-20261012/REPORT.md",
+      "sha256": "42219cf5456afad434192313e682b3b77713888fdd2e65e14c22fde4c6aa4175"
+    }
+  ],
+  "tests": {
+    "passed": 2,
+    "total": 2,
+    "shells": [
+      "Windows PowerShell5",
+      "PowerShell7"
+    ],
+    "routeScenariosPerShell": 10,
+    "log": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_TEST_V3.log"
+  },
+  "productionAdopted": false,
+  "originalF15Changed": false,
+  "committed": false
+}

@@ -1,0 +1,12 @@
+{
+  "observedAt": "2026-10-12T03:43:00.598Z",
+  "pairSha256": "b57bb5a982c73f5c39c07060d364cd4ef733c3305031ae9dfed71491d7acd6ff",
+  "sourcePinsExact": 8,
+  "createIntent": "dea1da5a29e1ecc0f6b226e150f16f0d7e16b68485334aef11a3247ffcafe095",
+  "retractIntent": "70f205c5991decd3a497b9d60d4719222bfcd060cf8577973ebb3d9214e494c6",
+  "markerAbsent": true,
+  "independentTests": 38,
+  "productionExecuted": false,
+  "readinessRestored": false,
+  "retractionScope": "Abort-only; unchanged49-event tuple; not recovery closeout or general gate removal"
+}

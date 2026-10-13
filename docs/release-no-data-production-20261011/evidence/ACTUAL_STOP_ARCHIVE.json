@@ -1,0 +1,73 @@
+{
+  "at": "2026-10-12T00:48:47.432Z",
+  "entries": [
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/stop-reconciliation/STARTED.json",
+      "target": "stop-reconciliation/STARTED.json",
+      "sha256": "7c1d090a6c0501b2e181fbc08306bfbfcc7f277ed12b743746f4bd27bb168f06",
+      "bytes": 133
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/stop-reconciliation/DIRECT_PROCESS.json",
+      "target": "stop-reconciliation/DIRECT_PROCESS.json",
+      "sha256": "42256d8ea5339bbcfe00310936bc3965f58d40b46ec4a85d03dfd98aaccf8d6a",
+      "bytes": 68
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/stop-reconciliation/FINISHED.json",
+      "target": "stop-reconciliation/FINISHED.json",
+      "sha256": "95ff007ba517d45e70646791dcd6a719f6956215c0718ca10ea2f8ecc182818d",
+      "bytes": 128
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/stop-reconciliation/STDOUT.log",
+      "target": "stop-reconciliation/STDOUT.log",
+      "sha256": "a08b3800bfdf3f1c4f3e32d63282b7b54d29da3c10d1a7767b29c692a27b69ad",
+      "bytes": 471
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/stop-reconciliation/STDERR.log",
+      "target": "stop-reconciliation/STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/stop-reconciliation/PROOF.json",
+      "target": "stop-reconciliation/PROOF.json",
+      "sha256": "6c0bf27ca22179b46fcdeeb051ab5e75454e36c08d0a7cf30cfbff3b8a0979b6",
+      "bytes": 437
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/stop-reconciliation/OBSERVATIONS.json",
+      "target": "stop-reconciliation/OBSERVATIONS.json",
+      "sha256": "9b99303346551591cb8671b44dec94697639a7d2eefff11dec82becbc7ee4f92",
+      "bytes": 10166
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/STARTED.json",
+      "target": "resume3/STARTED.json",
+      "sha256": "9ae6e4f5e9a7ad5eaad1fd62c59df597d2de37e3486267d4c5fed29e2b9175c1",
+      "bytes": 990
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/DIRECT_PROCESS.json",
+      "target": "resume3/DIRECT_PROCESS.json",
+      "sha256": "74b2d5f718ace976831ecddc8bd185bd4169f83459b8842ed8090038514b2d5f",
+      "bytes": 146
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume3/ENV_RESTORED.json",
+      "target": "resume3/ENV_RESTORED.json",
+      "sha256": "038f4355e213e7235560bbf24a25c08566f0857c7672afcfdcbd748f2873c517",
+      "bytes": 1094
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000019.json",
+      "target": "000019.json",
+      "sha256": "f81900d324bd1807962630cc1fc70441fd71515d113f74fa5ccc8966d690160c",
+      "bytes": 465
+    }
+  ],
+  "productionAccepted": false,
+  "cipherValuesOrBytesArchived": false
+}

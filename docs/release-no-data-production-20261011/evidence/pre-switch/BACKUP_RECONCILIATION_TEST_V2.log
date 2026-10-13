@@ -1,0 +1,36 @@
+✔ only exact PowerShell identity has exactly two links; all others single-link (1.1831ms)
+✔ both exact PIDs require CIM absence and OpenProcess error87; alive/denied/other/omitted reject (2.6165ms)
+✔ native source requests only0x1000 and closes any successful handle before rejecting (5.6119ms)
+✔ exact captured Backup stdout plus independent Verify yields only five original outputs (1.2719ms)
+✔ reject changed WAL head (0.9653ms)
+✔ reject extra WAL event / repeated invocation (0.3378ms)
+✔ reject wrong owner (0.3716ms)
+✔ reject maintenance present (0.3502ms)
+✔ reject drain present (0.3373ms)
+✔ reject old Node still alive (0.45ms)
+✔ reject backup process still alive (0.2865ms)
+✔ reject unconfirmed process exit (0.2569ms)
+✔ reject unrelated stdout (0.2201ms)
+✔ reject audit receipt edited (0.4599ms)
+✔ reject retention incomplete (0.3974ms)
+✔ reject release cleanup disguised as passed (0.3301ms)
+✔ reject wrong manifest backup (0.4034ms)
+✔ reject wrong dump (0.3359ms)
+✔ reject wrong content (0.2492ms)
+✔ reject Verify wrong backup (0.2405ms)
+✔ reject Verify claims state change (0.2363ms)
+✔ reject Verify failed (0.2708ms)
+✔ reject Verify old point args (0.2969ms)
+✔ reject Verify stdout drift (0.3149ms)
+✔ reject Verify predated failure (9.4654ms)
+✔ reject missing backup outputs cannot be called confirmed (0.3417ms)
+✔ maintenanceId cannot be fabricated into event (4.9637ms)
+✔ original writeOnce/journalState read the supplemental event and preserve unknown history; second append refuses (587.3229ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 737.2625

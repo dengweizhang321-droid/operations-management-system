@@ -1,0 +1,304 @@
+✔ lifecycle service stays parseable by Windows PowerShell 5.1 with Chinese text (2.2705ms)
+✔ Start never bypasses the unified controller and the single start engine (0.2743ms)
+✔ Stop halts the Worker through its identity gate before the Django stack, under the panel mutex (0.1443ms)
+✔ hot restart keeps Django/PostgreSQL running and performs one gated Worker restart (0.1528ms)
+✔ child scripts are waited on through file redirection, never an inherited pipeline (0.3332ms)
+✔ background mode detaches a hidden process and binds its receipt to the process start time (0.1541ms)
+✔ lifecycle service helpers pass their PowerShell unit test when a shell is available (1292.7427ms)
+✔ powershell.exe: lifecycle wrapper preserves failing direct exits and releases its lock (7101.0404ms)
+✔ pwsh.exe: lifecycle wrapper preserves failing direct exits and releases its lock (7404.5355ms)
+✔ batch launcher and npm scripts route every action to the lifecycle service (0.7957ms)
+✔ legacy launcher delegates browser opening to the Chrome-aware unified controller (0.1293ms)
+✔ batch launcher opens and exits its menu through real cmd.exe (586.2868ms)
+✔ transport deadline changes do not invalidate exact build environment identity (1.2032ms)
+✔ Node direct exit files: hold does not wait for inherited stdout/stderr (102.373ms)
+✔ Node direct exit files: hold-stdout does not wait for inherited stdout/stderr (87.8488ms)
+✔ Node direct exit files: hold-stderr does not wait for inherited stdout/stderr (114.1398ms)
+✔ Node direct exit files: nonzero-hold does not wait for inherited stdout/stderr (96.4165ms)
+✔ EOF transport retains exit0 but fails within the same deadline while both streams are held (809.579ms)
+✔ probe direct cleanup leaves its simulated service alive and no direct probe (975.1892ms)
+✔ an exhausted inherited deadline starts no child (2.0363ms)
+✔ ordinary isolated tree cleanup retains no child or detached grandchild (1398.7583ms)
+✖ approved runner rejects invalid and retains bounded diagnostics (379.8762ms)
+✖ approved runner rejects nonzero and retains bounded diagnostics (150.5667ms)
+✖ approved runner rejects flood and retains bounded diagnostics (137.4624ms)
+✔ powershell.exe: shared transport and watchdog hold both streams without a late EOF wait (2180.4583ms)
+✔ pwsh.exe: shared transport and watchdog hold both streams without a late EOF wait (3280.6551ms)
+✔ powershell.exe: concurrent lifecycle mutex obeys the original deadline (1262.4823ms)
+✔ pwsh.exe: concurrent lifecycle mutex obeys the original deadline (1475.9662ms)
+✖ watchdog deadline, safe diagnostics and unknown notification delivery remain bounded (3265.9019ms)
+✖ original nested PS5 adapter: ready (31.2946ms)
+✖ original nested PS5 adapter: engine-failed (49.91ms)
+✖ original nested PS5 adapter: wrong-version (31.1402ms)
+✖ original nested PS5 adapter: incomplete (37.315ms)
+✖ original nested PS5 adapter: bad-json (20.3392ms)
+✖ original nested PS5 adapter: maintenance (22.7689ms)
+✖ original nested PS5 adapter: deadline (21.8587ms)
+✖ original nested PS5 adapter: drain (21.4777ms)
+✖ original nested PS5 adapter: missing-identity (21.3006ms)
+✖ original nested PS5 adapter: fake-components (21.5209ms)
+✔ prepared Django deployment and overlapping readers (powershell.exe) (3586.1519ms)
+✔ prepared Django deployment and overlapping readers (pwsh.exe) (2650.2016ms)
+✔ online preparation verifies the exact predecessor at every boundary and propagates unknown process failures (0.9315ms)
+✔ lifecycle interleavings and persistent maintenance (powershell.exe) (4893.9705ms)
+✔ lifecycle interleavings and persistent maintenance (pwsh.exe) (8545.3791ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 30
+ℹ fail 14
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 55791.1404
+
+✖ failing tests:
+
+test at tests\release-process-deadline.test.mjs:67:50
+✖ approved runner rejects invalid and retains bounded diagnostics (379.8762ms)
+  AssertionError [ERR_ASSERTION]: undefined == true
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:72:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:71:3
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:67:50
+✖ approved runner rejects nonzero and retains bounded diagnostics (150.5667ms)
+  AssertionError [ERR_ASSERTION]: undefined == true
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:72:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:71:3
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:67:50
+✖ approved runner rejects flood and retains bounded diagnostics (137.4624ms)
+  AssertionError [ERR_ASSERTION]: undefined == true
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:72:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:71:3
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:125:1
+✖ watchdog deadline, safe diagnostics and unknown notification delivery remain bounded (3265.9019ms)
+  AssertionError [ERR_ASSERTION]: Exception: C:\Users\86137\AppData\Local\Temp\teruisi-deadline-test-UXMMru\watch-contracts.ps1:46
+  Line |
+    46 |  … ne 'process_deadline_exhausted'){throw 'late ports declared healthy'}
+       |                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       | late ports declared healthy
+  
+  
+  1 !== 0
+  
+      at file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:176:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: ready (31.2946ms)
+  TypeError: Cannot read properties of undefined (reading 'mode')
+      at runApprovedOperation (D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\tools\release-batch.mjs:517:21)
+      at file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:227:19
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: engine-failed (49.91ms)
+  AssertionError [ERR_ASSERTION]: undefined == true
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: wrong-version (31.1402ms)
+  AssertionError [ERR_ASSERTION]: undefined == true
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: incomplete (37.315ms)
+  AssertionError [ERR_ASSERTION]: undefined == true
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: bad-json (20.3392ms)
+  AssertionError [ERR_ASSERTION]: undefined == true
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: maintenance (22.7689ms)
+  AssertionError [ERR_ASSERTION]: undefined == true
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: deadline (21.8587ms)
+  AssertionError [ERR_ASSERTION]: undefined == true
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: drain (21.4777ms)
+  TypeError: Cannot read properties of undefined (reading 'mode')
+      at runApprovedOperation (D:\codex-isolated\release-wp5-reliability-20261012\运营管理系统\tools\release-batch.mjs:517:21)
+      at file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:227:19
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: missing-identity (21.3006ms)
+  AssertionError [ERR_ASSERTION]: undefined == true
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\release-process-deadline.test.mjs:179:160
+✖ original nested PS5 adapter: fake-components (21.5209ms)
+  AssertionError [ERR_ASSERTION]: undefined == true
+      at Object.<anonymous> (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:230:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:229:10
+      at async fixture (file:///D:/codex-isolated/release-wp5-reliability-20261012/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/release-process-deadline.test.mjs:23:8)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

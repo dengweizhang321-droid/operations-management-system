@@ -1,0 +1,10 @@
+{
+  "startedAt": "2026-10-11T17:40:40.440Z",
+  "finishedAt": "2026-10-11T17:40:49.868Z",
+  "collectorSha256": "89b752b1be12dc418d2f593332eabdad5e3ad5393ef4b06613a5b7d5f0690f1a",
+  "exitCode": 0,
+  "stdoutSha256": "d48b68f8eac2761cc9fe1b859e7d58c29be6f485e648fc9437d5a7ada7313111",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "normalRoleDiagnosticOnly": true,
+  "productionStateMutation": false
+}

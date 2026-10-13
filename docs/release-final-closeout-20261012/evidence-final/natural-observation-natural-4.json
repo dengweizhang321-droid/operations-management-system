@@ -1,0 +1,132 @@
+{
+  "business": {
+    "status": "unknown",
+    "reason": "no_confirmed_failure",
+    "version": "market-read-probe-v1",
+    "checkedAt": "2026-10-12T10:56:00.9569562+00:00"
+  },
+  "elapsedMs": 33077,
+  "workerPid": 17184,
+  "portsObservation": {
+    "status": "complete",
+    "at": "2026-10-12T10:56:58.8376119+00:00",
+    "elapsedMs": 1341,
+    "reason": "none"
+  },
+  "statusTimings": {
+    "httpMs": 1955,
+    "backendMs": 13927,
+    "workerMs": 10677
+  },
+  "system": "Running",
+  "ports": [
+    {
+      "port": 5791,
+      "pid": 23536
+    },
+    {
+      "port": 5432,
+      "pid": 4080
+    },
+    {
+      "port": 3000,
+      "pid": 17184
+    }
+  ],
+  "worker": "exact_release",
+  "components": {
+    "accessControl": true,
+    "market": true,
+    "finance": true,
+    "bi": true,
+    "netshop": true,
+    "products": true,
+    "workflow": true,
+    "inventory": true,
+    "erpReference": true,
+    "ai": true,
+    "customerService": true,
+    "core": true
+  },
+  "backend": "Ready",
+  "admission": {
+    "mode": "running",
+    "fence": "3ab3aadc1893a024c894671943dd12875c02c32617188fcc2b64abc5917b27b1"
+  },
+  "coreDiagnostics": {
+    "probes": {
+      "writer": {
+        "statusCode": 200,
+        "code": "none",
+        "elapsedMs": 655,
+        "timeoutMs": 2000
+      },
+      "reader": {
+        "statusCode": 200,
+        "code": "none",
+        "elapsedMs": 677,
+        "timeoutMs": 2000
+      }
+    },
+    "PostgreSQL": "running",
+    "DjangoWriter": "running",
+    "ReaderReadiness": "ready",
+    "WriterReadiness": "ready",
+    "elapsedMs": 4305,
+    "DjangoReader": "running",
+    "RuntimeAclVerification": "root_only_status",
+    "RuntimeAcl": "root_hardened"
+  },
+  "supervisorPid": 36568,
+  "processDiagnostic": null,
+  "at": "2026-10-12T10:56:25.7675680+00:00",
+  "releaseId": "20261011T090355Z-21c2645a63247749",
+  "diagnosticMode": "readonly_driver",
+  "healthy": true,
+  "completedAt": "2026-10-12T10:56:58.8393082+00:00",
+  "supervisorHealth": "healthy",
+  "diagnosticReason": "exact_predecessor",
+  "supervisor": "running",
+  "probeError": false,
+  "controllerHealthEvidence": null,
+  "stages": {
+    "control": {
+      "status": "completed",
+      "elapsedMs": 27646
+    },
+    "monitor": {
+      "status": "completed",
+      "elapsedMs": 9
+    },
+    "supervisor": {
+      "status": "completed",
+      "elapsedMs": 2216
+    }
+  },
+  "probes": {
+    "ready": {
+      "ok": true,
+      "elapsedMs": 1695,
+      "status": 200,
+      "reason": "none"
+    },
+    "live": {
+      "ok": true,
+      "elapsedMs": 135,
+      "status": 200,
+      "reason": "none"
+    },
+    "homepage": {
+      "ok": true,
+      "elapsedMs": 140,
+      "status": 200,
+      "reason": "none"
+    },
+    "helper": {
+      "ok": true,
+      "elapsedMs": 115,
+      "status": 200,
+      "reason": "none"
+    }
+  }
+}

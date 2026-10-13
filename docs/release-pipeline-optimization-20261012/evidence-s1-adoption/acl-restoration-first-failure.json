@@ -1,0 +1,1 @@
+{"status": "auxiliary-observation-failed", "cause": "Supplemental Python launcher inherited PowerShell 7 module paths; Windows PS5 Security could not autoload. Main isolation driver already uses explicit system PS5 ModulePath. Re-run with the same isolation environment; no product/ACL changed"}

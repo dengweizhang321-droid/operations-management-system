@@ -1,0 +1,34 @@
+{
+  "version": "actual-supervisor-candidate-validation-v2",
+  "bundleId": "3e46d2454ddb0879c36ead3b27305d5f128e6bacc40f245d0404324b21e07280",
+  "files": 9,
+  "results": [
+    {
+      "host": "powershell.exe",
+      "kind": "actual-six-script-parse",
+      "exitCode": 0
+    },
+    {
+      "host": "powershell.exe",
+      "kind": "actual-supervisor-non-status-rejected-before-binding-load",
+      "exitCode": 1,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "a3821b25120e62d975d697ca2c54b510c6b430ef4d6582855dee7daf2c914baa"
+    },
+    {
+      "host": "pwsh.exe",
+      "kind": "actual-six-script-parse",
+      "exitCode": 0
+    },
+    {
+      "host": "pwsh.exe",
+      "kind": "actual-supervisor-non-status-rejected-before-binding-load",
+      "exitCode": 1,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e7f6ee207898de18ff48a69f955ab22fe52ed5fa0c7d66cda41e6c71d49ddf2d"
+    }
+  ],
+  "productionActions": 0,
+  "receiptWrites": 0,
+  "actualStatusExecuted": false
+}

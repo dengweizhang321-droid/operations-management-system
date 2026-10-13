@@ -1,0 +1,19 @@
+{
+  "batchPath": "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+  "batchFileSha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b",
+  "approvedSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+  "journalDirectory": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011",
+  "planEvidence": {
+    "path": "D:/teruisi-runtime/teruisi-worker-sales/state/worker-release-rotation-plans/0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881.json",
+    "sha256": "0afdb3de501e415e707670a471d245c24a6043139571099a8b9433b617a89881"
+  },
+  "deliveryEvidence": {
+    "path": "E:/codex-artifacts/watchdog-native-census-20261012/FINAL_DELIVERY_RECEIPT_V2.json",
+    "sha256": "d9134646c97d75fe9f94b5adff7be474142bd4cc29854c36f07f96988ee9b394",
+    "format": "final-delivery-v2"
+  },
+  "unexecutedOrUncovered": [
+    "No new production acceptance or runtime query was executed.",
+    "Missing exact source commit, independent runtime observation and original backup/restore receipts remain gaps."
+  ]
+}

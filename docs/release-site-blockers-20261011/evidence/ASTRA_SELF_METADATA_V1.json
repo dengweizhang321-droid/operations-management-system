@@ -1,0 +1,28 @@
+{
+    "version":  "astra-self-native-metadata-layout-v1",
+    "sourceSha256":  "c6ee15d835d7a23418e8ec3ad1b0b0bdcbe7434e5dc88b4ea9a47de41da9e9b4",
+    "hostVersion":  "5.1.26100.9168",
+    "processId":  63636,
+    "selfOnly":  true,
+    "actualNativeParserExtracted":  true,
+    "result":  {
+                   "ntStatus":  0,
+                   "ntStatusHex":  "00000000",
+                   "returnedLength":  64,
+                   "structureSize":  64,
+                   "basicProcessId":  63636,
+                   "layoutValid":  true,
+                   "pebIsNull":  false,
+                   "flags":  0,
+                   "flagsHex":  "00000000",
+                   "isSecureProcess":  false,
+                   "isProtectedProcess":  false,
+                   "isSubsystemProcess":  false,
+                   "unknownFlagBits":  0,
+                   "protectionSucceeded":  true,
+                   "protectionLevel":  4294967294,
+                   "protectionLevelHex":  "fffffffe"
+               },
+    "productionActions":  0,
+    "limitations":  "Current self process validates this x64 response layout only; does not classify any of the five inaccessible target processes."
+}

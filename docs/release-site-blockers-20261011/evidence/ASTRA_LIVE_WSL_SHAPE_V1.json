@@ -1,0 +1,411 @@
+{
+  "runningBefore": [
+    "TERUISI-Pandas"
+  ],
+  "runningAfter": [
+    "TERUISI-Pandas"
+  ],
+  "before": {
+    "bootId": "4a67b065-2648-48ef-8821-72f272ceb41d",
+    "btime": "1791621408",
+    "pid1Start": "122",
+    "osrelease": "6.18.33.2-microsoft-standard-WSL2"
+  },
+  "after": {
+    "bootId": "4a67b065-2648-48ef-8821-72f272ceb41d",
+    "btime": "1791621408",
+    "pid1Start": "122",
+    "osrelease": "6.18.33.2-microsoft-standard-WSL2"
+  },
+  "selfNamespace": "mnt:[4026532219]",
+  "namespaces": {
+    "mnt:[4026532219]": [
+      1,
+      121519,
+      121563,
+      121564,
+      121588,
+      123108,
+      123110,
+      123113,
+      154,
+      155,
+      172,
+      174,
+      191,
+      2,
+      225,
+      243,
+      264,
+      317,
+      45,
+      5,
+      521,
+      523,
+      527,
+      530,
+      653,
+      985
+    ],
+    "mnt:[4026532222]": [
+      123109,
+      123111,
+      123112,
+      96
+    ],
+    "mnt:[4026532224]": [
+      142
+    ],
+    "mnt:[4026532225]": [
+      145
+    ],
+    "mnt:[4026532288]": [
+      162
+    ],
+    "mnt:[4026532297]": [
+      23514
+    ],
+    "mnt:[4026532230]": [
+      284,
+      324,
+      357
+    ],
+    "mnt:[4026532296]": [
+      702
+    ]
+  },
+  "mounts": [
+    {
+      "id": "77",
+      "parent": "82",
+      "device": "0:31",
+      "root": "/",
+      "mount": "/usr/lib/modules/6.18.33.2-microsoft-standard-WSL2",
+      "fstype": "overlay",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "78",
+      "parent": "82",
+      "device": "0:34",
+      "root": "/",
+      "mount": "/mnt/wsl",
+      "fstype": "tmpfs",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "79",
+      "parent": "82",
+      "device": "0:36",
+      "root": "/",
+      "mount": "/usr/lib/wsl/drivers",
+      "fstype": "9p",
+      "source": "drivers",
+      "options": "ro,aname=drivers;fmask=222;dmask=222,cache=0x5,access=client,msize=65536,trans=fd,rfd=8,wfd=8"
+    },
+    {
+      "id": "82",
+      "parent": "67",
+      "device": "8:48",
+      "root": "/",
+      "mount": "/",
+      "fstype": "ext4",
+      "source": "/dev/sdd",
+      "options": null
+    },
+    {
+      "id": "83",
+      "parent": "82",
+      "device": "0:40",
+      "root": "/",
+      "mount": "/mnt/wslg",
+      "fstype": "tmpfs",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "84",
+      "parent": "83",
+      "device": "8:48",
+      "root": "/",
+      "mount": "/mnt/wslg/distro",
+      "fstype": "ext4",
+      "source": "/dev/sdd",
+      "options": null
+    },
+    {
+      "id": "110",
+      "parent": "82",
+      "device": "0:57",
+      "root": "/",
+      "mount": "/usr/lib/wsl/lib",
+      "fstype": "overlay",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "111",
+      "parent": "82",
+      "device": "0:2",
+      "root": "/init",
+      "mount": "/init",
+      "fstype": "rootfs",
+      "source": "rootfs",
+      "options": null
+    },
+    {
+      "id": "112",
+      "parent": "82",
+      "device": "0:6",
+      "root": "/",
+      "mount": "/dev",
+      "fstype": "devtmpfs",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "113",
+      "parent": "82",
+      "device": "0:24",
+      "root": "/",
+      "mount": "/sys",
+      "fstype": "sysfs",
+      "source": "sysfs",
+      "options": null
+    },
+    {
+      "id": "114",
+      "parent": "82",
+      "device": "0:61",
+      "root": "/",
+      "mount": "/proc",
+      "fstype": "proc",
+      "source": "proc",
+      "options": null
+    },
+    {
+      "id": "115",
+      "parent": "112",
+      "device": "0:62",
+      "root": "/",
+      "mount": "/dev/pts",
+      "fstype": "devpts",
+      "source": "devpts",
+      "options": null
+    },
+    {
+      "id": "116",
+      "parent": "82",
+      "device": "0:63",
+      "root": "/",
+      "mount": "/run",
+      "fstype": "tmpfs",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "117",
+      "parent": "116",
+      "device": "0:64",
+      "root": "/",
+      "mount": "/run/lock",
+      "fstype": "tmpfs",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "118",
+      "parent": "116",
+      "device": "0:65",
+      "root": "/",
+      "mount": "/run/shm",
+      "fstype": "tmpfs",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "119",
+      "parent": "112",
+      "device": "0:65",
+      "root": "/",
+      "mount": "/dev/shm",
+      "fstype": "tmpfs",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "120",
+      "parent": "116",
+      "device": "0:66",
+      "root": "/",
+      "mount": "/run/user",
+      "fstype": "tmpfs",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "121",
+      "parent": "114",
+      "device": "0:35",
+      "root": "/",
+      "mount": "/proc/sys/fs/binfmt_misc",
+      "fstype": "binfmt_misc",
+      "source": "binfmt_misc",
+      "options": null
+    },
+    {
+      "id": "122",
+      "parent": "113",
+      "device": "0:25",
+      "root": "/",
+      "mount": "/sys/fs/cgroup",
+      "fstype": "cgroup2",
+      "source": "cgroup2",
+      "options": null
+    },
+    {
+      "id": "128",
+      "parent": "83",
+      "device": "0:42",
+      "root": "/etc/versions.txt",
+      "mount": "/mnt/wslg/versions.txt",
+      "fstype": "overlay",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "130",
+      "parent": "83",
+      "device": "0:42",
+      "root": "/usr/share/doc",
+      "mount": "/mnt/wslg/doc",
+      "fstype": "overlay",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "132",
+      "parent": "82",
+      "device": "0:40",
+      "root": "/.X11-unix",
+      "mount": "/tmp/.X11-unix",
+      "fstype": "tmpfs",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "133",
+      "parent": "120",
+      "device": "0:40",
+      "root": "/run/user",
+      "mount": "/run/user",
+      "fstype": "tmpfs",
+      "source": "none",
+      "options": null
+    },
+    {
+      "id": "134",
+      "parent": "112",
+      "device": "0:39",
+      "root": "/",
+      "mount": "/dev/mqueue",
+      "fstype": "mqueue",
+      "source": "mqueue",
+      "options": null
+    },
+    {
+      "id": "135",
+      "parent": "112",
+      "device": "0:71",
+      "root": "/",
+      "mount": "/dev/hugepages",
+      "fstype": "hugetlbfs",
+      "source": "hugetlbfs",
+      "options": null
+    },
+    {
+      "id": "136",
+      "parent": "113",
+      "device": "0:8",
+      "root": "/",
+      "mount": "/sys/kernel/debug",
+      "fstype": "debugfs",
+      "source": "debugfs",
+      "options": null
+    },
+    {
+      "id": "137",
+      "parent": "113",
+      "device": "0:13",
+      "root": "/",
+      "mount": "/sys/kernel/tracing",
+      "fstype": "tracefs",
+      "source": "tracefs",
+      "options": null
+    },
+    {
+      "id": "138",
+      "parent": "113",
+      "device": "0:72",
+      "root": "/",
+      "mount": "/sys/fs/fuse/connections",
+      "fstype": "fusectl",
+      "source": "fusectl",
+      "options": null
+    },
+    {
+      "id": "139",
+      "parent": "113",
+      "device": "0:22",
+      "root": "/",
+      "mount": "/sys/kernel/config",
+      "fstype": "configfs",
+      "source": "configfs",
+      "options": null
+    },
+    {
+      "id": "170",
+      "parent": "133",
+      "device": "0:78",
+      "root": "/",
+      "mount": "/run/user/1000",
+      "fstype": "tmpfs",
+      "source": "tmpfs",
+      "options": null
+    },
+    {
+      "id": "172",
+      "parent": "83",
+      "device": "0:78",
+      "root": "/",
+      "mount": "/mnt/wslg/run/user/1000",
+      "fstype": "tmpfs",
+      "source": "tmpfs",
+      "options": null
+    },
+    {
+      "id": "390",
+      "parent": "133",
+      "device": "0:84",
+      "root": "/",
+      "mount": "/run/user/0",
+      "fstype": "tmpfs",
+      "source": "tmpfs",
+      "options": null
+    },
+    {
+      "id": "392",
+      "parent": "83",
+      "device": "0:84",
+      "root": "/",
+      "mount": "/mnt/wslg/run/user/0",
+      "fstype": "tmpfs",
+      "source": "tmpfs",
+      "options": null
+    }
+  ],
+  "errors": [],
+  "scope": "Only proc epoch/mount/namespace metadata; no business file reads or service actions"
+}

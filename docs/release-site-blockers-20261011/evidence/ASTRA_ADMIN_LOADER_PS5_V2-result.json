@@ -1,0 +1,14 @@
+{
+    "version":  "astra-admin-loader-transport-v1",
+    "launcherSha256":  "247885399d23814093fef77c5313d2a0e0c49e932249fa97b2dbf3f927c117f3",
+    "hostVersion":  "5.1.26100.9168",
+    "actualTransportExtracted":  true,
+    "dummyEvaluatorOnly":  true,
+    "utf8RoundTrip":  true,
+    "argvRoundTrip":  true,
+    "inheritedCoverageFiles":  0,
+    "uacInvocations":  0,
+    "nativeProcessScans":  0,
+    "productionActions":  0,
+    "scope":  "Actual ProcessStartInfo/argv/stdin/wait block; dummy Node evaluator, no admin bootstrap or collector invoked."
+}

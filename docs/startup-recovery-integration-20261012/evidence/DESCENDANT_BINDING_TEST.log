@@ -1,0 +1,15 @@
+✔ actual safe metadata closes exactly 23 roots and 69 declared descendants, including parent birth ordering (5.117ms)
+✔ reject recomputed metadata digest omission (1.9649ms)
+✔ reject recomputed metadata digest unknown-native (1.3647ms)
+✔ reject recomputed metadata digest changed-census (1.2703ms)
+✔ reject recomputed metadata digest wrong-collector (1.4498ms)
+✔ reject recomputed metadata digest duplicate-instance (9.5839ms)
+✔ reject recomputed metadata digest root-birth (1.2703ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 127.0592

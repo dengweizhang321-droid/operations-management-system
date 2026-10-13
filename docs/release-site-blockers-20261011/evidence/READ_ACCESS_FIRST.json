@@ -1,0 +1,45 @@
+{
+  "version": "teruisi-readonly-process-access-capability-probe-v1",
+  "at": "2026-10-11T11:32:29.6820097+00:00",
+  "rows": [
+    {
+      "processId": 47936,
+      "accessMask": "0x1000",
+      "opened": true,
+      "errorCode": 0
+    },
+    {
+      "processId": 47936,
+      "accessMask": "0x1010",
+      "opened": false,
+      "errorCode": 5
+    },
+    {
+      "processId": 47936,
+      "accessMask": "0x0410",
+      "opened": false,
+      "errorCode": 5
+    },
+    {
+      "processId": 37392,
+      "accessMask": "0x1000",
+      "opened": true,
+      "errorCode": 0
+    },
+    {
+      "processId": 37392,
+      "accessMask": "0x1010",
+      "opened": false,
+      "errorCode": 5
+    },
+    {
+      "processId": 37392,
+      "accessMask": "0x0410",
+      "opened": false,
+      "errorCode": 5
+    }
+  ],
+  "processMemoryRead": false,
+  "privilegesAdjusted": false,
+  "productionMutations": 0
+}

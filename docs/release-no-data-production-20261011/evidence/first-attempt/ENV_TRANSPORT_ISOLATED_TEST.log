@@ -1,0 +1,70 @@
+TAP version 13
+# Subtest: only original deadline exclusion and NODE rejection
+ok 1 - only original deadline exclusion and NODE rejection
+  ---
+  duration_ms: 2.6044
+  type: 'test'
+  ...
+# Subtest: same-user real DPAPI roundtrip, ciphertext-only temp, exact child env and owned deletion
+ok 2 - same-user real DPAPI roundtrip, ciphertext-only temp, exact child env and owned deletion
+  ---
+  duration_ms: 4005.8395
+  type: 'test'
+  ...
+# Subtest: only exact known initial admission failure is resumable
+ok 3 - only exact known initial admission failure is resumable
+  ---
+  duration_ms: 2.8384
+  type: 'test'
+  ...
+# Subtest: reject extra event
+ok 4 - reject extra event
+  ---
+  duration_ms: 1.152
+  type: 'test'
+  ...
+# Subtest: reject operation appeared
+ok 5 - reject operation appeared
+  ---
+  duration_ms: 0.414
+  type: 'test'
+  ...
+# Subtest: reject different owner
+ok 6 - reject different owner
+  ---
+  duration_ms: 1.0107
+  type: 'test'
+  ...
+# Subtest: reject maintenance present
+ok 7 - reject maintenance present
+  ---
+  duration_ms: 0.2832
+  type: 'test'
+  ...
+# Subtest: reject drain present
+ok 8 - reject drain present
+  ---
+  duration_ms: 0.3082
+  type: 'test'
+  ...
+# Subtest: reject prior process still present
+ok 9 - reject prior process still present
+  ---
+  duration_ms: 0.2413
+  type: 'test'
+  ...
+# Subtest: reject prior exit not confirmed
+ok 10 - reject prior exit not confirmed
+  ---
+  duration_ms: 0.2382
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4116.4866

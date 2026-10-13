@@ -1,0 +1,97 @@
+{
+  "version": "teruisi-admin-readonly-reference-diagnostic-v1",
+  "at": "2026-10-11T12:59:01.066Z",
+  "status": "blocked",
+  "captureSummary": {
+    "version": "teruisi-native-process-fallback-diagnostic-v1",
+    "at": "2026-10-11T12:59:00.2124363+00:00",
+    "processes": 840,
+    "fallbackUsed": 17,
+    "missingImage": 5,
+    "missingCommand": 7,
+    "changedDuringCapture": 0,
+    "rawCommandLinesPersisted": false,
+    "privilegesAdjusted": false,
+    "productionMutations": 0
+  },
+  "selectedCwd": {
+    "processId": 47936,
+    "readable": true,
+    "openError": null,
+    "failure": null,
+    "identityStable": true,
+    "nativeCreationFileTime": "134357214785673015",
+    "cimCreationUtc": "2026-10-06T00:51:18.5673010Z",
+    "accessMask": "0x0410",
+    "scope": "Bounded x64 process-parameter metadata for one known interpreter, cross-checked native image/command; no memory dump",
+    "refersToPrevious": false,
+    "directorySha256": "43c50205e5d7b880551b68eb1d690c6dcd5a696c6c69f23fedb1920fbfb88ddf"
+  },
+  "originalGuardSha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd",
+  "unknown": [
+    {
+      "kind": "process-unknown",
+      "processId": 236,
+      "reason": "missing-or-invalid-executable",
+      "name": "Secure System",
+      "openError": null,
+      "imageError": 31,
+      "commandStatusFirst": -1073741275,
+      "commandStatus": -1073741275,
+      "nativeCreationFileTime": "134355974016662550",
+      "cimCreationUtc": "2026-10-04T14:23:21.6662550Z"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 280,
+      "reason": "missing-or-invalid-executable",
+      "name": "Registry",
+      "openError": null,
+      "imageError": 31,
+      "commandStatusFirst": -1073741275,
+      "commandStatus": -1073741275,
+      "nativeCreationFileTime": "134355974016977125",
+      "cimCreationUtc": "2026-10-04T14:23:21.6977120Z"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 1700,
+      "reason": "unproven-native-command-unreadable",
+      "name": "LsaIso.exe",
+      "openError": null,
+      "imageError": null,
+      "commandStatusFirst": -2147483635,
+      "commandStatus": -2147483635,
+      "nativeCreationFileTime": "134355974136433726",
+      "cimCreationUtc": "2026-10-04T14:23:33.6433720Z"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 6548,
+      "reason": "unproven-native-command-unreadable",
+      "name": "NgcIso.exe",
+      "openError": null,
+      "imageError": null,
+      "commandStatusFirst": -2147483635,
+      "commandStatus": -2147483635,
+      "nativeCreationFileTime": "134355974150851854",
+      "cimCreationUtc": "2026-10-04T14:23:35.0851850Z"
+    },
+    {
+      "kind": "process-unknown",
+      "processId": 53880,
+      "reason": "missing-or-invalid-executable",
+      "name": "vmmemWSL",
+      "openError": null,
+      "imageError": 31,
+      "commandStatusFirst": -1073741275,
+      "commandStatus": -1073741275,
+      "nativeCreationFileTime": "134360870965622198",
+      "cimCreationUtc": "2026-10-10T06:24:56.5622190Z"
+    }
+  ],
+  "references": [],
+  "rawCommandsNotPersisted": true,
+  "productionActions": 0,
+  "scope": "Diagnostic only; no batch execution, no mutation, no automatic production admission. Only PID47936 cwd supplement; all handles/other cwd/encoded and relative scripts remain outside frozen predicate."
+}

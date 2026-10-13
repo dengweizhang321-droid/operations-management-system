@@ -1,0 +1,203 @@
+继续独立文本复审，只阅读本提示词，不运行工具，不修改文件/生产。
+更正传输：上一轮主agent使用PS5 native argv。受控Node接收器证明 intended SHA ac1b1561…，received7e3f287c…，16个双引号全部丢失；这不能直接证明Go AGY实收字节，但足以否定上一轮C#缺引号结论。本轮改Node spawn argument array传入，受控receiver完全一致。原code DLL及x8都确实有双引号，不能将旧文本传输失败当源错误。
+当前实际self NtStatus0/ReturnLength64/Size64/PID一致，ProtectionNONE0xfffffffe成功；目标5PID普通token5/5error5。Astra与主agent拒绝未有primary/实测支持的48长度及WMI1ms容差，维持64/同native句柄birth/基线exact/两CIM微秒匹配失败关闭。官方跨平台无法读则unknown，不为求绿扩大条件。
+新V2只增加两个已知PID exact System32实际运行image+hash/signature，不是行为无引用证明，系统签名可沿系统trust/revocation配置，不能保证无网络。新包仅在用户现有管理员窗口手工执行；不RunAs不修改9e/f0/生产guard。实际生产仍blocked，0维护/服务/备份/演练/调度动作。
+请读Astra答复和最终probe/封包generator，逐条回应你上一轮的分歧，指出最终具体漏洞/最小纠正，最多700中文字符。不认可没有证据的白名单或放宽要求，不需批准生产。
+
+FILE ASTRA_RESIDUAL_METADATA_AND_WSL_REVIEW.md
+# 五 PID 元数据探针与 WSL 诊断复核
+
+2026-10-11。新增只读探针遵主 agent 授权，未提权或改变任何旧包/guard。
+
+## 实际五 PID 结果
+
+`Probe-ResidualProcessMetadata.ps1` SHA256 `c6ee15d835d7a23418e8ec3ad1b0b0bdcbe7434e5dc88b4ea9a47de41da9e9b4` 固定只查 236/280/1700/6548/53880，只申请 0x1000。原 diagnostic 完整 SHA `4e964f0e…` 静态绑定；预期 birth 从该已绑定原字节读取，成功时要求 native FILETIME 精确匹配。
+
+实际 Windows PowerShell 5.1.26100.9168、isAdministrator=false，**五项均 OpenProcess error=5**。没有进入 Nt/Protection 查询，不能将 null flags/PEB/level 解释成未隔离或不受保护。没有 Debug、ReadProcessMemory、注入或进程终止调用。
+
+证据 `E:/codex-artifacts/release-site-blockers-20261011/ASTRA_RESIDUAL_METADATA_V1.json` SHA256 `c6ce5d9d86a2f79a58169a48e3f5ede3401403999d09ba9bc465ba6088f9e465`。
+
+## 当前进程布局校验
+
+`Test-SelfProcessMetadata.ps1` 提取上述实际 P/Invoke 与解析代码，仅打开自己的 PID63636。结果：NtStatus=0、returnedLength=64、structureSize=64、BasicPID=63636、layoutValid=true、PEB 非 null、Flags=0，Protection 成功且 level=`0xfffffffe`。这验证当前 x64/PS5 的成功响应布局，不等于五个目标取得类型证据。
+
+证据 `ASTRA_SELF_METADATA_V1.json` SHA256 `8703060900074b92ec1ce65a5cdd89800f70a1d634ccc83b983ce2568fc81e7f`。x64 extended structure 的 Size 在0、BasicInfo在8、PID在40、PEB在16、Flags在56；只在返回状态/长度/Size/PID匹配后解码。只解释微软文档已给位，未知位保持原数值；保护级别与 secure-process 标志不互相替代。[Microsoft IUM/WDK 结构](https://learn.microsoft.com/en-us/windows/win32/procthread/isolated-user-mode--ium--processes)、[保护级别接口](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocessinformation)
+
+如后续管理员包使用此探针，必须新包绑定及相应只读授权；不能把9e旧包批准延伸为新源。若额外采集 LsaIso/NgcIso 系统二进制，应先取同实例 native image、核物理路径精确为预期系统文件，再对该文件 hash/签名，不能用按名字猜出的磁盘文件代替实际运行镜像。
+
+## WSL 已保存结果与代码边界
+
+已读取主 agent 的 `RUNNING_WSL_REFERENCE_DIAGNOSTIC_ROOT_V1.json`（SHA256 `0c6b76b4dff08ab4ddc1f7f89e2e5e4d6c530afd8a0d2fd515a1c0e9b4d11918`）：13:06:16.250673Z，root 身份，38 个观察进程、0 refs、0 metadataErrors，前后运行列表均为同一 TERUISI-Pandas 名称。其 Python 源 SHA `6558f31afb36788f2693eae33e156a402fe65fca2adb39c377eed7899559fac0` 与现存文件一致；Node wrapper SHA `3f36ad68a82927bda946bc4c5ba97586bd83305934d7795c1cf1d068c8705927`。
+
+只读代码只打开 `/proc` 的 stat/cmdline/mountinfo 与读取 cwd/exe/root/fd 链接，业务文件没有被此 Python 主体打开。范围仍有限：
+
+- 前后 running list 相同不是 VM/发行版实例 epoch；list 后到 `--exec` 前存在退出并隐式重新启动的窗口。不能称预检机械保证了“绝不会启动”。当前记录没有证明发生这种重启，也没有证明不可能发生。
+- `--exec /usr/bin/python3 -` 不经 shell profile，但默认 Python site 初始化仍可能加载 sitecustomize/usercustomize。今后精确只读入口建议 `-I -S -`；此次不能倒推已执行了额外 hook，须如实保留范围限制，不回写旧结果。
+- literal/proc-link 字符串检查未解析完整宿主别名、bind mount 与 mountinfo 转义；从另一 mount namespace 读出的路径也不能直接当 Windows 物理路径。
+- 单轮 PID 清单及 stat starttime 前后核对不是全系统连续快照；新进程、瞬时关闭 fd、进程中途变化仍可能未被覆盖。未来计划任务不在该 `/proc` 扫描中。
+- 超时杀掉 wsl.exe transport 不能据此宣称 guest Python 已结束。此次结果正常完成，未发生该超时。
+
+因此该 guest 结果提供补充的“当次未识别引用”，不使宿主五个未知自动豁免，不进入冻结 guard，也不是无引用的完整证明。本轮未重复 guest 查询、启动停止 WSL、修改服务/权限或读取业务内容。
+
+FILE Probe-ResidualProcessMetadataV2.ps1
+param([Parameter(Mandatory=$true)][string]$OutputPath)
+$ErrorActionPreference='Stop'
+if([IntPtr]::Size -ne 8){throw 'Only reviewed x64 layout is supported'}
+if(Test-Path -LiteralPath $OutputPath){throw 'Evidence is create-only'}
+Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public static class ReleaseResidualMetadata {
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern IntPtr OpenProcess(uint access,bool inherit,uint pid);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool CloseHandle(IntPtr h);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool GetProcessTimes(IntPtr h,out long c,out long e,out long k,out long u);
+ [DllImport("ntdll.dll")] public static extern int NtQueryInformationProcess(IntPtr h,int cl,IntPtr b,uint n,out uint returned);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool GetProcessInformation(IntPtr h,int cl,out uint info,uint size);
+ [DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode)] public static extern bool QueryFullProcessImageName(IntPtr h,uint flags,StringBuilder image,ref uint size);
+ public static string StatusHex(int status){return unchecked((uint)status).ToString("x8");}
+}
+'@
+$baselinePath='E:\codex-artifacts\release-site-blockers-20261011\ADMIN_REFERENCE_DIAGNOSTIC_V1.json'
+$baselineRaw=[IO.File]::ReadAllBytes($baselinePath)
+$algorithm=[Security.Cryptography.SHA256]::Create()
+try{$baselineSha=([BitConverter]::ToString($algorithm.ComputeHash($baselineRaw))).Replace('-','').ToLowerInvariant()}finally{$algorithm.Dispose()}
+if($baselineSha -cne '4e964f0ec062f07115728dc5cb09ec05a3a794a09a29f865494927dd8b3dbd69'){throw 'Baseline diagnostic drift'}
+$baseline=[Text.Encoding]::UTF8.GetString($baselineRaw)|ConvertFrom-Json
+function Assert-RegularPhysicalFile([string]$Path){
+ $cursor=[IO.Path]::GetFullPath($Path);$leaf=$true
+ while($cursor){
+  $item=Get-Item -LiteralPath $cursor -Force
+  if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Reparse path rejected'}
+  if($leaf -and $item.PSIsContainer){throw 'Image is not a regular file'}
+  $leaf=$false;$parent=[IO.Path]::GetDirectoryName($cursor)
+  if($parent -eq $cursor){break};$cursor=$parent
+ }
+}
+$records=@()
+foreach($taskPid in @(236,280,1700,6548,53880)){
+ $prior=@($baseline.unknown|Where-Object {$_.processId -eq $taskPid})
+ if($prior.Count -ne 1){throw 'Missing exact baseline PID'}
+ $before=Get-CimInstance Win32_Process -Filter "ProcessId=$taskPid"
+ $r=[ordered]@{processId=$taskPid;name=$before.Name;sessionId=$before.SessionId;accessMask='0x1000';openError=$null;timeBeforeError=$null;timeAfterError=$null;nativeCreationFileTime=$null;cimCreationUtc=$null;instanceMatchesBaseline=$false;identityStable=$false;ntStatus=$null;ntStatusHex=$null;returnedLength=$null;structureSize=$null;basicProcessId=$null;layoutValid=$false;pebIsNull=$null;flags=$null;flagsHex=$null;isSecureProcess=$null;isProtectedProcess=$null;isSubsystemProcess=$null;unknownFlagBits=$null;protectionSucceeded=$false;protectionError=$null;protectionLevel=$null;protectionLevelHex=$null}
+ $h=[ReleaseResidualMetadata]::OpenProcess(0x1000,$false,[uint32]$taskPid)
+ $buffer=[IntPtr]::Zero
+ try{
+  if($h -eq [IntPtr]::Zero){$r.openError=[Runtime.InteropServices.Marshal]::GetLastWin32Error()}
+  else{
+   $c1=0L;$c2=0L;$e=0L;$k=0L;$u=0L
+   $t1=[ReleaseResidualMetadata]::GetProcessTimes($h,[ref]$c1,[ref]$e,[ref]$k,[ref]$u)
+   if(!$t1){$r.timeBeforeError=[Runtime.InteropServices.Marshal]::GetLastWin32Error()}
+   $buffer=[Runtime.InteropServices.Marshal]::AllocHGlobal(64)
+   for($offset=0;$offset -lt 64;$offset+=8){[Runtime.InteropServices.Marshal]::WriteInt64($buffer,$offset,0L)}
+   [Runtime.InteropServices.Marshal]::WriteInt64($buffer,0,64L)
+   $returned=[uint32]0;$status=[ReleaseResidualMetadata]::NtQueryInformationProcess($h,0,$buffer,64,[ref]$returned)
+   $r.ntStatus=$status;$r.ntStatusHex=[ReleaseResidualMetadata]::StatusHex($status);$r.returnedLength=$returned
+   if($status -eq 0){
+    $r.structureSize=[Runtime.InteropServices.Marshal]::ReadInt64($buffer,0)
+    $r.basicProcessId=[Runtime.InteropServices.Marshal]::ReadInt64($buffer,40)
+    $r.layoutValid=$returned -eq 64 -and $r.structureSize -eq 64 -and $r.basicProcessId -eq $taskPid
+    if($r.layoutValid){
+     $r.pebIsNull=[Runtime.InteropServices.Marshal]::ReadInt64($buffer,16) -eq 0
+     $flags=[BitConverter]::ToUInt32([BitConverter]::GetBytes([Runtime.InteropServices.Marshal]::ReadInt32($buffer,56)),0)
+     $r.flags=$flags;$r.flagsHex=$flags.ToString('x8');$r.isSecureProcess=($flags -band 128) -ne 0;$r.isProtectedProcess=($flags -band 1) -ne 0;$r.isSubsystemProcess=($flags -band 256) -ne 0;$r.unknownFlagBits=$flags -band [uint32]4294966784
+    }
+   }
+   $level=[uint32]0;$r.protectionSucceeded=[ReleaseResidualMetadata]::GetProcessInformation($h,7,[ref]$level,4)
+   if($r.protectionSucceeded){$r.protectionLevel=$level;$r.protectionLevelHex=$level.ToString('x8')}else{$r.protectionError=[Runtime.InteropServices.Marshal]::GetLastWin32Error()}
+   $t2=[ReleaseResidualMetadata]::GetProcessTimes($h,[ref]$c2,[ref]$e,[ref]$k,[ref]$u)
+   if(!$t2){$r.timeAfterError=[Runtime.InteropServices.Marshal]::GetLastWin32Error()}
+   $after=Get-CimInstance Win32_Process -Filter "ProcessId=$taskPid"
+   if($t1){$r.nativeCreationFileTime=$c1.ToString([Globalization.CultureInfo]::InvariantCulture)}
+   if($null -ne $before.CreationDate){$r.cimCreationUtc=$before.CreationDate.ToUniversalTime().ToString('o')}
+   $r.instanceMatchesBaseline=$t1 -and $c1 -eq [long]$prior[0].nativeCreationFileTime
+   $r.identityStable=$t1 -and $t2 -and $c1 -eq $c2 -and $null -ne $before -and $null -ne $after -and $null -ne $before.CreationDate -and $null -ne $after.CreationDate -and $before.CreationDate -eq $after.CreationDate -and $before.Name -ceq $after.Name -and $before.SessionId -eq $after.SessionId -and [Math]::Floor([decimal]$c1/10) -eq [Math]::Floor([decimal]$before.CreationDate.ToUniversalTime().ToFileTimeUtc()/10)
+   if($taskPid -eq 1700 -or $taskPid -eq 6548){
+    $expectedImage=if($taskPid -eq 1700){'C:\Windows\System32\LsaIso.exe'}else{'C:\Windows\System32\NgcIso.exe'}
+    $imageRecord=[ordered]@{status='unproven';expectedPath=$expectedImage;actualPath=$null;queryError=$null;sha256=$null;signatureStatus=$null;signerSubject=$null;signerThumbprint=$null;signerIssuer=$null;postIdentityStable=$false;failure=$null}
+    $r.imageEvidence=$imageRecord
+    $imageFile=$null
+    try{
+     if(!$r.instanceMatchesBaseline -or !$r.identityStable){throw 'Instance does not match bound baseline'}
+     $imageBuffer=[Text.StringBuilder]::new(32768);$imageSize=[uint32]32768
+     if(![ReleaseResidualMetadata]::QueryFullProcessImageName($h,0,$imageBuffer,[ref]$imageSize)){$imageRecord.queryError=[Runtime.InteropServices.Marshal]::GetLastWin32Error();throw 'Image query failed'}
+     $imageRecord.actualPath=$imageBuffer.ToString()
+     if(![string]::Equals($imageRecord.actualPath,$expectedImage,[StringComparison]::OrdinalIgnoreCase)){throw 'Image is not the exact permitted system file'}
+     Assert-RegularPhysicalFile $expectedImage
+     $imageFile=[IO.File]::Open($expectedImage,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+     Assert-RegularPhysicalFile $expectedImage
+     $imageHasher=[Security.Cryptography.SHA256]::Create()
+     try{$imageRecord.sha256=([BitConverter]::ToString($imageHasher.ComputeHash($imageFile))).Replace('-','').ToLowerInvariant()}finally{$imageHasher.Dispose()}
+     $signature=Microsoft.PowerShell.Security\Get-AuthenticodeSignature -LiteralPath $expectedImage
+     $imageRecord.signatureStatus=[string]$signature.Status
+     if($null -ne $signature.SignerCertificate){$imageRecord.signerSubject=$signature.SignerCertificate.Subject;$imageRecord.signerThumbprint=$signature.SignerCertificate.Thumbprint;$imageRecord.signerIssuer=$signature.SignerCertificate.Issuer}
+     Assert-RegularPhysicalFile $expectedImage
+     $imageAfter=[Text.StringBuilder]::new(32768);$afterSize=[uint32]32768;$c3=0L
+     $imageStill=[ReleaseResidualMetadata]::QueryFullProcessImageName($h,0,$imageAfter,[ref]$afterSize)
+     if(!$imageStill){$imageRecord.queryError=[Runtime.InteropServices.Marshal]::GetLastWin32Error()}
+     $timeStill=[ReleaseResidualMetadata]::GetProcessTimes($h,[ref]$c3,[ref]$e,[ref]$k,[ref]$u)
+     $cimStill=Get-CimInstance Win32_Process -Filter "ProcessId=$taskPid"
+     $imageRecord.postIdentityStable=$imageStill -and $timeStill -and $c3 -eq $c1 -and [string]::Equals($imageAfter.ToString(),$expectedImage,[StringComparison]::OrdinalIgnoreCase) -and $null -ne $cimStill.CreationDate -and $cimStill.CreationDate -eq $before.CreationDate -and $cimStill.Name -ceq $before.Name -and $cimStill.SessionId -eq $before.SessionId
+     if(!$imageRecord.postIdentityStable){throw 'Image instance changed during metadata capture'}
+     if($imageRecord.signatureStatus -cne 'Valid'){throw 'Signature not reported Valid'}
+     $imageRecord.status='metadata-collected-not-admission'
+    }catch{$imageRecord.failure=$_.Exception.Message}
+    finally{if($null -ne $imageFile){$imageFile.Dispose()}}
+   }
+  }
+ }finally{if($buffer -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::FreeHGlobal($buffer)};if($h -ne [IntPtr]::Zero){[void][ReleaseResidualMetadata]::CloseHandle($h)}}
+ $records+=$r
+}
+$result=[ordered]@{version='astra-residual-process-metadata-v2';at=[DateTimeOffset]::UtcNow.ToString('o');baselineSha256=$baselineSha;hostVersion=$PSVersionTable.PSVersion.ToString();isAdministrator=([Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator);records=$records;debugPrivilegeEnabledByProbe=$false;readProcessMemoryCalls=0;productionActions=0;scope='Five fixed PIDs, only 0x1000 query access. Only PID1700/6548 with bound birth and exact System32 image may hash/signature-query that file under a read handle denying write/delete sharing. Extended-basic x64 layout follows Microsoft IUM/WDK example; flags/signature do not grant process-type exemption or admission. No raw pointers persisted; platform certificate validation may follow system trust/revocation configuration.'}
+$json=$result|ConvertTo-Json -Depth 7
+$stream=[IO.File]::Open($OutputPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+try{$bytes=[Text.UTF8Encoding]::new($false).GetBytes($json+[Environment]::NewLine);$stream.Write($bytes,0,$bytes.Length)}finally{$stream.Dispose()}
+$json
+
+FILE prepare-residual-admin-entry.mjs
+import {readFile,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import assert from 'node:assert/strict';
+const root='E:/codex-artifacts/release-site-blockers-20261011';
+const hash=b=>createHash('sha256').update(b).digest('hex');
+const originalRaw=await readFile(root+'/ADMIN_READONLY_PACKET_V2.json');
+assert.equal(hash(originalRaw),'9e906d1e53ee9acf67b909be0198520e137d9cc08d1b8fbc3aa5adf7f709df38');
+const script=path.resolve(fileURLToPath(new URL('./Probe-ResidualProcessMetadataV2.ps1',import.meta.url)));
+const baselinePath=root+'/ADMIN_REFERENCE_DIAGNOSTIC_V1.json';
+assert.equal(hash(await readFile(baselinePath)),'4e964f0ec062f07115728dc5cb09ec05a3a794a09a29f865494927dd8b3dbd69');
+const packet={version:'teruisi-five-process-readonly-packet-v1',preparedAt:new Date().toISOString(),
+  windowsSid:JSON.parse(originalRaw).windowsSid,productionApproved:false,
+  originalPacketSha256:hash(originalRaw),baselineSha256:hash(await readFile(baselinePath)),
+  script:{path:script,sha256:hash(await readFile(script))},
+  outputPath:root+'/ADMIN_RESIDUAL_METADATA_V2.json',
+  scope:['Five fixed PID instances from exact baseline; OpenProcess 0x1000 only, extended-basic and protection-level metadata',
+    'Only exact same-instance System32 LsaIso/NgcIso image metadata, file hash and built-in Authenticode signature',
+    'No Debug privilege, remote memory, injection, termination, services, batch, backup/restore, scheduler or business writes',
+    'Create-only redacted output in fixed E audit root; diagnosis does not grant production admission'],
+  requiresExistingAdministrator:true};
+const raw=Buffer.from(JSON.stringify(packet,null,2)+'\n'),packetSha=hash(raw);
+const bootstrap=`$ErrorActionPreference='Stop'
+function H([byte[]]$b){$s=[Security.Cryptography.SHA256]::Create();try{([BitConverter]::ToString($s.ComputeHash($b))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()}}
+$r=[IO.File]::ReadAllBytes('E:\\codex-artifacts\\release-site-blockers-20261011\\ADMIN_RESIDUAL_PACKET_V1.json')
+if((H $r) -cne '${packetSha}'){throw 'Packet drift'}
+$p=[Text.Encoding]::UTF8.GetString($r)|ConvertFrom-Json
+if($p.version -cne 'teruisi-five-process-readonly-packet-v1' -or $p.productionApproved -isnot [bool] -or $p.productionApproved){throw 'Wrong mode'}
+$i=[Security.Principal.WindowsIdentity]::GetCurrent()
+if($i.User.Value -cne $p.windowsSid -or -not ([Security.Principal.WindowsPrincipal]::new($i)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Use the existing approved administrator PowerShell; no automatic elevation'}
+function P($v){$c=[IO.Path]::GetFullPath($v);while($c){$x=Get-Item -LiteralPath $c -Force;if(($x.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Redirected path'};$a=[IO.Path]::GetDirectoryName($c);if($a -eq $c){break};$c=$a}}
+if([IO.Path]::GetFullPath($p.outputPath) -cne 'E:\\codex-artifacts\\release-site-blockers-20261011\\ADMIN_RESIDUAL_METADATA_V2.json'){throw 'Output scope changed'}
+P ([IO.Path]::GetDirectoryName($p.outputPath));if(Test-Path -LiteralPath $p.outputPath){throw 'Create-only output exists'}
+P $p.script.path
+$f=[IO.File]::Open($p.script.path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+try{$b=[IO.File]::ReadAllBytes($p.script.path);if((H $b) -cne $p.script.sha256){throw 'Script drift'};$env:PSModulePath='C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules;C:\\Program Files\\WindowsPowerShell\\Modules';& ([ScriptBlock]::Create([Text.Encoding]::UTF8.GetString($b))) -OutputPath $p.outputPath}finally{$f.Dispose()}
+`;
+const encoded=Buffer.from(bootstrap,'utf16le').toString('base64');
+const entry=`@echo off\r\necho TERUISI FIVE-PROCESS READ-ONLY TYPE AUDIT\r\necho Requires your existing administrator PowerShell. No production release or service action.\r\n"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -NonInteractive -EncodedCommand ${encoded}\r\necho.\r\necho Keep errors. Fixed audit result: E:\\codex-artifacts\\release-site-blockers-20261011\\ADMIN_RESIDUAL_METADATA_V2.json\r\npause\r\n`;
+assert.ok(entry.length<7900,'Visible entry command too long');
+await writeFile(root+'/ADMIN_RESIDUAL_PACKET_V1.json',raw,{flag:'wx'});
+await writeFile(root+'/ADMIN_RESIDUAL_BOOTSTRAP_V1.ps1',bootstrap,{flag:'wx'});
+await writeFile(root+'/RUN_READONLY_RESIDUAL_AUDIT.cmd',entry,{flag:'wx'});
+await writeFile(root+'/ADMIN_RESIDUAL_ENTRY_V1.json',JSON.stringify({packetSha256:packetSha,scriptSha256:packet.script.sha256,entrySha256:hash(entry),bootstrapSha256:hash(bootstrap),commandCharacters:entry.length,status:'prepared-not-executed',productionApproved:false},null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({packetSha256:packetSha,commandCharacters:entry.length,status:'prepared-not-executed'}));

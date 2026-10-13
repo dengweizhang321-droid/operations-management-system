@@ -1,0 +1,33 @@
+✔ complete synthetic no-VM boundary plus current census is eligible for remaining reference checks only (2.0316ms)
+✔ reject HCS start failure (1.0232ms)
+✔ reject HCS completion failure (0.2684ms)
+✔ reject missing HCS document (0.2543ms)
+✔ reject nonempty unknown compute system (0.564ms)
+✔ reject HCS count mismatch (0.2059ms)
+✔ reject VM present in census (0.2497ms)
+✔ reject VM parent present (0.2959ms)
+✔ reject old VM PID reused (0.9162ms)
+✔ reject native absence denied (0.5815ms)
+✔ reject old VM native metadata present (0.4867ms)
+✔ reject new running distro (0.3198ms)
+✔ reject WSL query failure (0.1984ms)
+✔ reject ordinary role (0.1497ms)
+✔ reject missing reviewed OS actor (0.1742ms)
+✔ reject OS birth drift (0.1589ms)
+✔ reject duplicate census PID (0.1534ms)
+✔ reject guest invocation (0.15ms)
+✔ reject clock regression (3.4292ms)
+✔ selected interpreter CWD and bound birth remain mandatory (1.7636ms)
+✔ selected absence requires both kernel/CIM absence and no census row; reuse is rejected (0.2368ms)
+✔ freshness uses real HCS completion and rejects timestamp laundering (0.2336ms)
+✔ exact original helper empty-array lexical check in powershell.exe (623.4388ms)
+✔ exact original helper empty-array lexical check in pwsh.exe (814.3561ms)
+✔ fixed NoVM audit contains no guest execution and preserves original Windows/task loop body (8.6754ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1568.5956

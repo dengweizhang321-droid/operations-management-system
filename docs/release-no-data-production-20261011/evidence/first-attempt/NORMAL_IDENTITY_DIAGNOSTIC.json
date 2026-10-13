@@ -1,0 +1,14 @@
+{
+  "version": "normal-source-identity-readonly-diagnostic-v1",
+  "began": "2026-10-11T15:45:11.053Z",
+  "finishedAt": "2026-10-11T15:45:25.484Z",
+  "status": "exact-original-identity",
+  "differences": [],
+  "expectedIdentitySha256": "18c8febbdbf211ba102d03e28447eb994b8b9718fd1f0154dd8b8d2751effad9",
+  "actualIdentitySha256": "18c8febbdbf211ba102d03e28447eb994b8b9718fd1f0154dd8b8d2751effad9",
+  "expectedEnvironmentSha256": "bc79f88a7e7b963179fe029dccf2f605f1bad855ad29873b58d43dfb96aac609",
+  "actualEnvironmentSha256": "bc79f88a7e7b963179fe029dccf2f605f1bad855ad29873b58d43dfb96aac609",
+  "sourceTreeSha256": "dc1dbeeded593980c6712e7afabde0a053dfd13d8f6c4bb9375718330af2b8fb",
+  "productionActions": 0,
+  "rawEnvironmentPersisted": false
+}

@@ -1,0 +1,33 @@
+{
+  "version": "teruisi-admin-readonly-packet-v1",
+  "preparedAt": "2026-10-11T11:46:10.626Z",
+  "windowsSid": "S-1-5-21-815909789-107973518-1379257801-1001",
+  "node": {
+    "path": "C:\\Program Files\\nodejs\\node.exe",
+    "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+  },
+  "collector": {
+    "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-ProcessIdentity.ps1",
+    "sha256": "c429887fc50610b0ccb444f9902cc3d6c5f1f3ff170515970f068ac7b66495af"
+  },
+  "evaluator": {
+    "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\evaluate-reference-capture.mjs",
+    "sha256": "f8614d083143670f2f7383a6536fa8c79a0e40bf1c827feed6314d904f72c8ce"
+  },
+  "launcher": {
+    "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Start-ReadOnlyAdminAudit.ps1",
+    "sha256": "77ef403c5eb50c231f7e48a8b85cad7163fb6d92a89f7389b3a25afeb56b021a"
+  },
+  "captureSummaryPath": "E:/codex-artifacts/release-site-blockers-20261011/ADMIN_CAPTURE_SUMMARY_V1.json",
+  "resultPath": "E:/codex-artifacts/release-site-blockers-20261011/ADMIN_REFERENCE_DIAGNOSTIC_V1.json",
+  "completionPath": "E:/codex-artifacts/release-site-blockers-20261011/ADMIN_READONLY_COMPLETED_V1.json",
+  "frozenGuardSha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd",
+  "productionApproved": false,
+  "scope": [
+    "Read process PID/session/name/creation/image/command and scheduled-task action metadata",
+    "Only PROCESS_QUERY_LIMITED_INFORMATION(0x1000); no Debug privileges, injection or process termination",
+    "Original frozen reference predicate used for diagnosis only; cwd/handles/encoded/relative inputs not fully covered",
+    "Write only create-only redacted audit records in this E evidence directory",
+    "No batch execute, maintenance, deployment, service start/stop, production backup/restore, business writes or task changes"
+  ]
+}

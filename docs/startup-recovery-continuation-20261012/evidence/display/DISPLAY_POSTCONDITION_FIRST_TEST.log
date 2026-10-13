@@ -1,0 +1,11 @@
+✔ fixed sealed operation rejects changed font/resources or write classification (3.7337ms)
+✔ private HTTP eight GET resources succeed, mismatch and redirect reject (166.4259ms)
+✔ page keeps original observer input 14px and does not pretend lazy styles consumed (0.9357ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 301.8333

@@ -1,0 +1,41 @@
+{
+  "version": "permanent-maintenance-stop-route-development-v2",
+  "root": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统",
+  "branch": "codex/release-maintenance-stop-route-20261012",
+  "base": "f5b19c01fc7bedc1750e96605924c54b58ab7cfd",
+  "files": [
+    {
+      "path": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统/tools/release-lifecycle-step.ps1",
+      "sha256": "55351e21ba760e835cb1930c4191140110a90d820b8ab9055bce74fafb8f82fa"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统/tests/release-maintenance-stop-route.test.mjs",
+      "sha256": "8ad66cde4866a3e7c09a060460154d3ffc8c84aa6a3028d114833f461c096084"
+    },
+    {
+      "path": "D:/.codex/worktrees/release-maintenance-stop-route/运营管理系统/docs/release-maintenance-stop-route-20261012/REPORT.md",
+      "sha256": "00811fc1e64e444b370e8feed1348cef42e1b55bcba13e2d7212cd49a16a7ebd"
+    }
+  ],
+  "tests": {
+    "passed": 2,
+    "total": 2,
+    "shells": [
+      "Windows PowerShell5",
+      "PowerShell7"
+    ],
+    "positiveRoutesPerShell": 2,
+    "negativeRoutesPerShell": 16,
+    "directTypeCasesPerShell": 2,
+    "log": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_TYPED_TEST_V2.log",
+    "logSha256": "362f3bedf66ed758ed013cd1b4890793c12c476ba49f1171b7eece14d3edd452"
+  },
+  "preservedV1": {
+    "handoff": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ASTRA_PERMANENT_STOP_ROUTE_HANDOFF.json",
+    "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_V1_FROZEN.ps1",
+    "sourceSha256": "6e67b4c83ae577f52ed94efeb5d8c21521a26b385afa5f7bd504b3c1a51509d5"
+  },
+  "productionAdopted": false,
+  "originalF15Changed": false,
+  "committed": false
+}

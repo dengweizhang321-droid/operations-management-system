@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-12T06:44:12.913Z",
+  "packageSha256": "e9d4ca56d1488e3a37435cedeac07642e06dadb3d90bee8e32cca05ec69713ed",
+  "pinsExact": 137,
+  "currentContext": {
+    "status": "exact-continuation-context",
+    "phase": "before-remove",
+    "workerSupervisorPid": 36568,
+    "workerReceiptSha256": "908bbdad5bab9384a06bbda51b8f7e19fa9d4208016238dc60c583314e1a4b74",
+    "originalWalCount": 49,
+    "originalWalHead": "1a614e58caf56a243ea8dead3ce1609993fd993c3ed39cac296bf83c64617bd4",
+    "markerPresent": true,
+    "drainAbsent": true
+  },
+  "remaining": [
+    "restore-supervisor",
+    "verify-ready",
+    "install-diagnostic",
+    "verify-installation"
+  ],
+  "bundleId": "0b8566624e19e44bdc4f556fb9f0baa541d3f35dbf695c00d06b00ba16de9abb",
+  "planId": "50999d5e653050d95cb860484538050c89a21819dcec8d14beecb80f07814bae",
+  "versionUpdateApproved": false,
+  "productionExecuted": false
+}

@@ -1,0 +1,13 @@
+{
+  "version": "teruisi-proposed-live-reference-audit-v1",
+  "runId": "b2776b46-a93b-46b1-88f3-58dcca6f5fc8",
+  "at": "2026-10-11T14:44:18.940Z",
+  "status": "started",
+  "stages": [],
+  "references": [],
+  "unknown": [],
+  "classified": [],
+  "departed": [],
+  "productionActions": 0,
+  "rawProcessMetadataPersisted": false
+}

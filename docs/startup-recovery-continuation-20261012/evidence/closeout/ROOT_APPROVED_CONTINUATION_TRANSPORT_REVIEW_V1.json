@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-12T06:50:47.529Z",
+  "packageSha256": "e9d4ca56d1488e3a37435cedeac07642e06dadb3d90bee8e32cca05ec69713ed",
+  "approvalSha256": "53616f6160e98b9143b889caa79149186cbff000552ed64436f99ba81cb17a12",
+  "bindingSha256": "738921be3249c2b111b599b8eb0a9b000eae61087515f7bd03cb88f70cd0ff55",
+  "bootSha256": "a6abc29f8a849b85662c722ef4d28bb77f2f874e13ea8c4e1c25f386ab91fb9d",
+  "heldFiles": 142,
+  "templateExact": true,
+  "launcherOnlyPathHashChanged": true,
+  "productionLaunched": false
+}

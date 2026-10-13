@@ -1,0 +1,10 @@
+✔ actual script argument binding rejects old slash and accepts normalized exact root powershell.exe (1437.6059ms)
+✔ actual script argument binding rejects old slash and accepts normalized exact root pwsh.exe (1905.9814ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3480.6821

@@ -1,0 +1,479 @@
+{
+  "version": "teruisi-proposed-live-reference-audit-v1",
+  "runId": "a0027b2c-7290-41bb-978c-de7ea4dc154c",
+  "at": "2026-10-11T14:53:22.723Z",
+  "status": "blocked",
+  "stages": [
+    "implementation-closure-pinned",
+    "live-native-and-cim-collected",
+    "guest-metadata-collected"
+  ],
+  "references": [],
+  "unknown": [],
+  "classified": [
+    {
+      "kind": "reviewed-system-instance",
+      "processId": 236,
+      "nativeCreationFileTime": "134355974016662550"
+    },
+    {
+      "kind": "reviewed-system-instance",
+      "processId": 280,
+      "nativeCreationFileTime": "134355974016977125"
+    },
+    {
+      "kind": "reviewed-ium-instance",
+      "processId": 1700,
+      "nativeCreationFileTime": "134355974136433726"
+    },
+    {
+      "kind": "reviewed-ium-instance",
+      "processId": 6548,
+      "nativeCreationFileTime": "134355974150851854"
+    }
+  ],
+  "departed": [
+    {
+      "kind": "kernel-confirmed-departure",
+      "processId": 32020,
+      "proof": {
+        "version": "teruisi-kernel-process-departure-v1",
+        "processId": 32020,
+        "kind": "pid-absent",
+        "accessMask": "0x1000",
+        "originalCimCreationUtc": "2026-10-11T14:53:07.5130840Z",
+        "originalNativeCreationFileTime": "",
+        "openError": 87,
+        "nativeCreationBefore": null,
+        "nativeCreationAfter": null,
+        "exitQuerySucceeded": false,
+        "exitCode": null,
+        "finalCimState": "absent",
+        "reason": "kernel-invalid-pid-and-cim-absent"
+      }
+    },
+    {
+      "kind": "kernel-confirmed-departure",
+      "processId": 59564,
+      "proof": {
+        "version": "teruisi-kernel-process-departure-v1",
+        "processId": 59564,
+        "kind": "pid-absent",
+        "accessMask": "0x1000",
+        "originalCimCreationUtc": "2026-10-11T14:53:24.5559570Z",
+        "originalNativeCreationFileTime": "",
+        "openError": 87,
+        "nativeCreationBefore": null,
+        "nativeCreationAfter": null,
+        "exitQuerySucceeded": false,
+        "exitCode": null,
+        "finalCimState": "absent",
+        "reason": "kernel-invalid-pid-and-cim-absent"
+      }
+    }
+  ],
+  "productionActions": 0,
+  "rawProcessMetadataPersisted": false,
+  "inventorySummary": {
+    "version": "teruisi-live-process-identity-v1",
+    "at": "2026-10-11T14:53:27.9356993+00:00",
+    "processes": 828,
+    "fallbackUsed": 17,
+    "missingImage": 6,
+    "missingCommand": 7,
+    "changedDuringCapture": 2,
+    "kernelConfirmedDepartures": 2,
+    "lateRows": 1,
+    "rawCommandLinesPersisted": false,
+    "privilegesAdjusted": false,
+    "productionMutations": 0
+  },
+  "guestObservation": {
+    "version": "teruisi-redacted-guest-shape-v1",
+    "processRecordCount": 36,
+    "namespaceCount": 9,
+    "inventoryBeforeCount": 36,
+    "inventoryAfterCount": 36,
+    "selfPid": 129348,
+    "selfIncludedInInventory": false,
+    "before": {
+      "bootId": "4a67b065-2648-48ef-8821-72f272ceb41d",
+      "pid1Start": "122",
+      "osrelease": "6.18.33.2-microsoft-standard-WSL2",
+      "btime": "1791621401"
+    },
+    "after": {
+      "bootId": "4a67b065-2648-48ef-8821-72f272ceb41d",
+      "pid1Start": "122",
+      "osrelease": "6.18.33.2-microsoft-standard-WSL2",
+      "btime": "1791621401"
+    },
+    "namespaces": [
+      {
+        "identity": "mnt:[4026532219]",
+        "mountSha256": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+        "mountBytes": 3540,
+        "processCount": 24,
+        "representatives": [
+          {
+            "pid": 1,
+            "startBefore": "122",
+            "startAfter": "122",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 2,
+            "startBefore": "127",
+            "startAfter": "127",
+            "flagsBefore": 4194624,
+            "flagsAfter": 4194624,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 5,
+            "startBefore": "182",
+            "startAfter": "182",
+            "flagsBefore": 4194304,
+            "flagsAfter": 4194304,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 45,
+            "startBefore": "208",
+            "startAfter": "208",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 154,
+            "startBefore": "242",
+            "startAfter": "242",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 155,
+            "startBefore": "242",
+            "startAfter": "242",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 172,
+            "startBefore": "248",
+            "startAfter": "248",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 174,
+            "startBefore": "249",
+            "startAfter": "249",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 191,
+            "startBefore": "254",
+            "startAfter": "254",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 225,
+            "startBefore": "261",
+            "startAfter": "261",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 243,
+            "startBefore": "275",
+            "startAfter": "275",
+            "flagsBefore": 4194624,
+            "flagsAfter": 4194624,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 264,
+            "startBefore": "291",
+            "startAfter": "291",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 317,
+            "startBefore": "305",
+            "startAfter": "305",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 521,
+            "startBefore": "376",
+            "startAfter": "376",
+            "flagsBefore": 4194624,
+            "flagsAfter": 4194624,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 523,
+            "startBefore": "376",
+            "startAfter": "376",
+            "flagsBefore": 4194624,
+            "flagsAfter": 4194624,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          },
+          {
+            "pid": 527,
+            "startBefore": "377",
+            "startAfter": "377",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532219]",
+            "mountSha256Before": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188",
+            "mountSha256After": "e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188"
+          }
+        ]
+      },
+      {
+        "identity": "mnt:[4026532222]",
+        "mountSha256": "41902b8e2cf713bc967b3f644cc8f9a8b09a47f32a438eb57a29acc771879ee2",
+        "mountBytes": 4404,
+        "processCount": 3,
+        "representatives": [
+          {
+            "pid": 96,
+            "startBefore": "218",
+            "startAfter": "218",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532222]",
+            "mountSha256Before": "41902b8e2cf713bc967b3f644cc8f9a8b09a47f32a438eb57a29acc771879ee2",
+            "mountSha256After": "41902b8e2cf713bc967b3f644cc8f9a8b09a47f32a438eb57a29acc771879ee2"
+          },
+          {
+            "pid": 129346,
+            "startBefore": "10901569",
+            "startAfter": "10901569",
+            "flagsBefore": 4194624,
+            "flagsAfter": 4194624,
+            "namespaceAfter": "mnt:[4026532222]",
+            "mountSha256Before": "41902b8e2cf713bc967b3f644cc8f9a8b09a47f32a438eb57a29acc771879ee2",
+            "mountSha256After": "41902b8e2cf713bc967b3f644cc8f9a8b09a47f32a438eb57a29acc771879ee2"
+          },
+          {
+            "pid": 129347,
+            "startBefore": "10901569",
+            "startAfter": "10901569",
+            "flagsBefore": 4194624,
+            "flagsAfter": 4194624,
+            "namespaceAfter": "mnt:[4026532222]",
+            "mountSha256Before": "41902b8e2cf713bc967b3f644cc8f9a8b09a47f32a438eb57a29acc771879ee2",
+            "mountSha256After": "41902b8e2cf713bc967b3f644cc8f9a8b09a47f32a438eb57a29acc771879ee2"
+          }
+        ]
+      },
+      {
+        "identity": "mnt:[4026532224]",
+        "mountSha256": "c96dff9c35deba377ff3bf61838235f0239f4c3f7036482ef5d8ea1d8c38c97c",
+        "mountBytes": 6143,
+        "processCount": 1,
+        "representatives": [
+          {
+            "pid": 142,
+            "startBefore": "229",
+            "startAfter": "229",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532224]",
+            "mountSha256Before": "c96dff9c35deba377ff3bf61838235f0239f4c3f7036482ef5d8ea1d8c38c97c",
+            "mountSha256After": "c96dff9c35deba377ff3bf61838235f0239f4c3f7036482ef5d8ea1d8c38c97c"
+          }
+        ]
+      },
+      {
+        "identity": "mnt:[4026532225]",
+        "mountSha256": "60f46d9a2900b58e4fc84e0ca114b6d2edc09fad085d4c4fa1b63ea47f2783f1",
+        "mountBytes": 6524,
+        "processCount": 1,
+        "representatives": [
+          {
+            "pid": 145,
+            "startBefore": "231",
+            "startAfter": "231",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532225]",
+            "mountSha256Before": "60f46d9a2900b58e4fc84e0ca114b6d2edc09fad085d4c4fa1b63ea47f2783f1",
+            "mountSha256After": "60f46d9a2900b58e4fc84e0ca114b6d2edc09fad085d4c4fa1b63ea47f2783f1"
+          }
+        ]
+      },
+      {
+        "identity": "mnt:[4026532288]",
+        "mountSha256": "1b2ac6d15ff3f578a426c01c1cdd501a9256297090af8410c4d38b922bbb3df9",
+        "mountBytes": 5884,
+        "processCount": 1,
+        "representatives": [
+          {
+            "pid": 162,
+            "startBefore": "244",
+            "startAfter": "244",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532288]",
+            "mountSha256Before": "1b2ac6d15ff3f578a426c01c1cdd501a9256297090af8410c4d38b922bbb3df9",
+            "mountSha256After": "1b2ac6d15ff3f578a426c01c1cdd501a9256297090af8410c4d38b922bbb3df9"
+          }
+        ]
+      },
+      {
+        "identity": "mnt:[4026532230]",
+        "mountSha256": "79c1d0e33fffdbbd56182db9f6e1f031cbe97f882f322b73123b37dfef714057",
+        "mountBytes": 5002,
+        "processCount": 3,
+        "representatives": [
+          {
+            "pid": 284,
+            "startBefore": "296",
+            "startAfter": "296",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532230]",
+            "mountSha256Before": "79c1d0e33fffdbbd56182db9f6e1f031cbe97f882f322b73123b37dfef714057",
+            "mountSha256After": "79c1d0e33fffdbbd56182db9f6e1f031cbe97f882f322b73123b37dfef714057"
+          },
+          {
+            "pid": 324,
+            "startBefore": "306",
+            "startAfter": "306",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532230]",
+            "mountSha256Before": "79c1d0e33fffdbbd56182db9f6e1f031cbe97f882f322b73123b37dfef714057",
+            "mountSha256After": "79c1d0e33fffdbbd56182db9f6e1f031cbe97f882f322b73123b37dfef714057"
+          },
+          {
+            "pid": 357,
+            "startBefore": "327",
+            "startAfter": "327",
+            "flagsBefore": 4194304,
+            "flagsAfter": 4194304,
+            "namespaceAfter": "mnt:[4026532230]",
+            "mountSha256Before": "79c1d0e33fffdbbd56182db9f6e1f031cbe97f882f322b73123b37dfef714057",
+            "mountSha256After": "79c1d0e33fffdbbd56182db9f6e1f031cbe97f882f322b73123b37dfef714057"
+          }
+        ]
+      },
+      {
+        "identity": "mnt:[4026532296]",
+        "mountSha256": "00a5c46107c834ab9c9cc90704a4a25e13593e6cb8a5d158e66d3955b4210cc5",
+        "mountBytes": 4507,
+        "processCount": 1,
+        "representatives": [
+          {
+            "pid": 702,
+            "startBefore": "440",
+            "startAfter": "440",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532296]",
+            "mountSha256Before": "00a5c46107c834ab9c9cc90704a4a25e13593e6cb8a5d158e66d3955b4210cc5",
+            "mountSha256After": "00a5c46107c834ab9c9cc90704a4a25e13593e6cb8a5d158e66d3955b4210cc5"
+          }
+        ]
+      },
+      {
+        "identity": "mnt:[4026532297]",
+        "mountSha256": "aaffa6b12395e736e7df967534404abad683bcde4cee816c44a0427c3b8b389e",
+        "mountBytes": 6926,
+        "processCount": 1,
+        "representatives": [
+          {
+            "pid": 23514,
+            "startBefore": "1860559",
+            "startAfter": "1860559",
+            "flagsBefore": 4194560,
+            "flagsAfter": 4194560,
+            "namespaceAfter": "mnt:[4026532297]",
+            "mountSha256Before": "aaffa6b12395e736e7df967534404abad683bcde4cee816c44a0427c3b8b389e",
+            "mountSha256After": "aaffa6b12395e736e7df967534404abad683bcde4cee816c44a0427c3b8b389e"
+          }
+        ]
+      },
+      {
+        "identity": "mnt:[4026532299]",
+        "mountSha256": "9745f6ec4272c1c03e31c2e4c8d1ed5f6b42dfa5690cedf447268958527683dd",
+        "mountBytes": 3563,
+        "processCount": 1,
+        "representatives": [
+          {
+            "pid": 129345,
+            "startBefore": "10901569",
+            "startAfter": "10901569",
+            "flagsBefore": 4194624,
+            "flagsAfter": 4194624,
+            "namespaceAfter": "mnt:[4026532299]",
+            "mountSha256Before": "9745f6ec4272c1c03e31c2e4c8d1ed5f6b42dfa5690cedf447268958527683dd",
+            "mountSha256After": "9745f6ec4272c1c03e31c2e4c8d1ed5f6b42dfa5690cedf447268958527683dd"
+          }
+        ]
+      }
+    ],
+    "errors": [],
+    "errorCount": 0,
+    "summaryTruncated": false,
+    "rawArgvCwdFdPersisted": false
+  },
+  "systemWslIdentity": {
+    "sha256": "7e9f5cee6d641481e5a942f0e08563bae9c17ee55f0aad888f9aa0be9a5d4757",
+    "evidencePath": "E:\\codex-artifacts\\release-site-blockers-20261011\\_live-reference-observations\\29d634d1-2def-406a-9056-5a3c3d010aec-system-wsl.json"
+  },
+  "failure": {
+    "name": "AssertionError",
+    "messageSha256": "48a7dd460036a8e24ddb86f8b1498eac5d5224f80c4da639a181afd6ca5db37d",
+    "captureFailure": null
+  }
+}

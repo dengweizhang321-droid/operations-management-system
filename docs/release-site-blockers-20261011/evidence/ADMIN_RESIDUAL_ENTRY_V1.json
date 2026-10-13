@@ -1,0 +1,9 @@
+{
+  "packetSha256": "cea94364113ca5f7904313a15e10c3b73e59341fa1e257ba104f5ff8ba1b5d7e",
+  "scriptSha256": "6cef0abc35f4c99300d9b36393add66191557715d14d3d4a930dc0627d0f3ff9",
+  "entrySha256": "5a2f31c3e93b181f90e6a3a923af947a725faa8fb35ea46470b0286a5713f40f",
+  "bootstrapSha256": "ca89ca2c1dda455817bfa835b25990793b4a9f2d7187ad3a307c0172b6873c06",
+  "commandCharacters": 5447,
+  "status": "prepared-not-executed",
+  "productionApproved": false
+}

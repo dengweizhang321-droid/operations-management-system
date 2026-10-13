@@ -1,0 +1,897 @@
+{
+  "version": "exact-display-postcondition-reconciliation-v1",
+  "files": [
+    {
+      "path": "C:\\Program Files\\nodejs\\node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+    },
+    {
+      "path": "C:\\Users\\86137\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+      "sha256": "362a356ce7f0940ec74f73a8fc2c990a2cc24a38a11c90bbd8eca947110ad139"
+    },
+    {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\collect-fixed-display-postcondition.mjs",
+      "sha256": "0462f67da7ca9ac9c3340b42b86bfad82bdc8887254616d2e2b6813259bb4d04"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\collect-original-start-postcondition.mjs",
+      "sha256": "721a77ca047170a293bd73cda1fc998d38e6a19c54d812da0d252f6e11caa54d"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\Collect-OriginalStartPostcondition.ps1",
+      "sha256": "d48a623cdc8e032e1d3cf947ada3f502638261a6b73d32bff16e5baa8667368b"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\continuation-context.mjs",
+      "sha256": "f4e48b1d29cb682bf63f8937f63216a19b0aad79b2aab13276d47e831cd179e5"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\continuation-transport.mjs",
+      "sha256": "688ca107424a57ff15d082ec683a22ae8b7c053522a76c10f2113c767574ec01"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\display-decision-state.mjs",
+      "sha256": "87e703cfaba3c2da7724f226d31c23afaa895dc6a8906d6868bd15724f3c9c76"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\display-postcondition.mjs",
+      "sha256": "d30bd82226bdb92f3d096cf36bcec0503883e62ff8f20a455dd545777aa6533e"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\Invoke-RecoveryContinuation.ps1",
+      "sha256": "4d5cdbf6be8a5f10c1d9a6feffb38300373c78ddc7429e379602576e1d124afa"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\prepare-continuation-package.mjs",
+      "sha256": "0ca8c4d60a1edc47b84b66517f5b1413c3e62ffc1a624eff1f441537db3fa6ee"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\prepare-continuation-transport.mjs",
+      "sha256": "adcdfc07412701cb65ea36ebca906f642e93e3636ebe270100240fa28190333d"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\prepare-display-intent.mjs",
+      "sha256": "c57a2224994751198e279a9561dd8ab676274cb315060e49ed6b2381561cb006"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\prepare-start-decision-intent.mjs",
+      "sha256": "6a41db01cea7ecef9a16e030af4d2761ffd500d20aec6ad46eb6ea2724395866"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\reconcile-display-once.mjs",
+      "sha256": "386bf4dca96c72ba04425ba2680fb3495eca35bc6a5a16b9edc6710f3dae25d0"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\reconcile-original-start-once.mjs",
+      "sha256": "20ef236136bf1ee7bb40ebc073070088bd7455b35491145473609e21db3b9c94"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\Restore-RecoverySupervisorV3.ps1",
+      "sha256": "00d3398eb4c105c038518a091d4a8b1db181d68bdc9cd5999c65e0f6309bfdd9"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\run-continuation.mjs",
+      "sha256": "081c053a6036a821030fb82dc64793c57133fa0130495c202292b011cffd7a05"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-continuation-20261012\\start-decision-state.mjs",
+      "sha256": "4920dee1a4d8e38b8f725d99b9991747b6c8ad78221fad2a8d4b032ce9f0ac87"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-integration-20261012\\recovery-context.mjs",
+      "sha256": "0c4ce937fda877cce98d3da153d52cd7564a02c4c8725405fece3937480312b0"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-integration-20261012\\recovery-transport.mjs",
+      "sha256": "e7afda902a07ab2c8ba5600994377687dfdb5c359e8e370e55fcfb7966c9c72f"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-recovery-integration-20261012\\startup-recovery-operations.psm1",
+      "sha256": "9a30b4a23001ad7e634af84058338cc25ae877154bd3011003e854a950ed606a"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\Remove-ExactRepairFence.ps1",
+      "sha256": "472d5b01e811cc63f891c7681fd96e6025c2f1f03944c6f19e2a6a5a80ec0fa0"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\tools\\process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\tools\\release-readonly-retry.mjs",
+      "sha256": "1139287b2f9633dce57d7ea0b525e082c66382f521577c594817119f3f234ef6"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\tools\\startup-exact-instance-policy.mjs",
+      "sha256": "0ab41f6eca96c4d60b5231508bf2abe455451cd5cb91f199b340add07ad9886c"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\tools\\startup-exact-instance-stop.ps1",
+      "sha256": "701e496ffb9715403a1aa670cb0583b60ba9cafde444a56b7f1603c3b4fa9cbb"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\tools\\startup-recovery-sequence.ps1",
+      "sha256": "df6178d74ec8e8744b364d7f5b71cfea63316a104967d7d42ae87c53d49765f3"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\tools\\watchdog-native-metadata.ps1",
+      "sha256": "d8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-continuation\\运营管理系统\\tools\\worker-local-release.mjs",
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\capture-recovery-descendants.mjs",
+      "sha256": "b471d96054d3f5b71732d5e2e48a540a0ac85e15e58c304d810aa438f11dc9c6"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\Collect-RecoveryDescendants.ps1",
+      "sha256": "b33ae1dbebe1ddaca62e11a16d9aade9fa0bcbe0f3852e50fe027604ac3acfff"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\Invoke-ApprovedStartupRecovery.ps1",
+      "sha256": "a5a8fc7942efadb490e70a583fb6f84104e0d173c4e75143ef7fe5494eefbe01"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\prepare-approved-recovery-transport.mjs",
+      "sha256": "1b94973e138763f8c771dd81704cb4007bf0d7a056b8bab4a889f6da9333b783"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\recovery-context.mjs",
+      "sha256": "0c4ce937fda877cce98d3da153d52cd7564a02c4c8725405fece3937480312b0"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\recovery-transport.mjs",
+      "sha256": "e7afda902a07ab2c8ba5600994377687dfdb5c359e8e370e55fcfb7966c9c72f"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\Restore-RecoverySupervisorV2.ps1",
+      "sha256": "b4d0b755a481621385b6359d724e7ba453d6416f47765b747531ba289a979b01"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\run-startup-recovery.mjs",
+      "sha256": "03169d39d12cc0afe27590f8096fc45829a1867151ac6a79d6b9227bd7053a7c"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\sample-recovery-availability.mjs",
+      "sha256": "bebfe46db3bbb82a32745f27261918ec260a11ff3138a397db84f0b95ff83748"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-recovery-integration-20261012\\startup-recovery-operations.psm1",
+      "sha256": "e5d24a1491cfb1137f188520d0f18c3188079e0d5789d732e5d5bd532a005c66"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\evidence\\actual-admin-metadata\\ADMIN_STARTUP_IDENTITY_V1.json",
+      "sha256": "7174f4bdc0cd447313406268a1e535a4343a216157657587aabf12367c3e6146"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\evidence\\actual-admin-metadata\\ASTRA_ACTUAL_READBACK.json",
+      "sha256": "29fbbfec512d10444dbb202d913e6d233667ca7c7052cccda00e5b817a60383f"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\fence-original-bootstrap.mjs",
+      "sha256": "13e6700181cad60e7576cd60a8f523c36c935f734f63cae5f348f025a5c5de25"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\tools\\process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\tools\\startup-exact-instance-policy.mjs",
+      "sha256": "0ab41f6eca96c4d60b5231508bf2abe455451cd5cb91f199b340add07ad9886c"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\tools\\startup-exact-instance-stop.ps1",
+      "sha256": "701e496ffb9715403a1aa670cb0583b60ba9cafde444a56b7f1603c3b4fa9cbb"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\tools\\startup-recovery-sequence.ps1",
+      "sha256": "df6178d74ec8e8744b364d7f5b71cfea63316a104967d7d42ae87c53d49765f3"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-recovery-integration\\运营管理系统\\tools\\watchdog-native-metadata.ps1",
+      "sha256": "d8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\docs\\startup-status-receipt-safety-20261012\\Observe-LegacyStatusActors.ps1",
+      "sha256": "e4ded82918f906fe7d44fb72cc0b23a397e035a7a23c84571747e22d2e2e2f09"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\startup-status-receipt-safety\\运营管理系统\\tools\\watchdog-native-metadata.ps1",
+      "sha256": "d8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449"
+    },
+    {
+      "path": "D:\\运营管理系统-sales-django-release\\tools\\django-local-service.ps1",
+      "sha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c"
+    },
+    {
+      "path": "D:\\运营管理系统\\tools\\operations-system-control.ps1",
+      "sha256": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810"
+    },
+    {
+      "path": "D:\\运营管理系统\\tools\\worker-local-service.ps1",
+      "sha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\ai-domain-snapshot.py",
+      "sha256": "59891d1ef4cecffd04f2ebda755ec3a5d68ad99ec5ddabfce89d27554ec6b88a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\bi_app_addition.py",
+      "sha256": "bd45ecbf8e9d6aefb8492cbaf50ad389f816757d48ad5cb72464e8dd2573bf46"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\bi-app-adopt.ps1",
+      "sha256": "0661b0812ca7c27a7b3b3d838cfb03b6509ac9ee4b9ac8e24b506dcf9c44867d"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-consumer-smoke.ts",
+      "sha256": "dd3c66cbf096535504f1b8f239773f811305a4bb0bb4452609a628a545770379"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-d1-authority-install.py",
+      "sha256": "d08f4037f0d1735385a4c7d4a540c2fccc49595c96d084f29513b1f486ab6ba1"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-d1-rejection-smoke.py",
+      "sha256": "3e57b3c4376fe1b39567eb028b4baf6147c9420139df5e52175ff9873ee7f6c6"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-d1-snapshot.py",
+      "sha256": "6e12d797ce09c7bec03d84e7e50d49f239e250fb1f71a2e30a1b367590b28f47"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-production-smoke.ps1",
+      "sha256": "b61eb4f4ce84c74c50ca31711014e67e4722b4e6c50631ca41a6cd4e3ec43db1"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\customer-service-r2-retirement-evidence.py",
+      "sha256": "beba34c76ba50f5413ce63eecac2a1592792bb440f7d19807a85517ed88db0d4"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\d1-retirement-proof.mjs",
+      "sha256": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-access-control-cutover.ps1",
+      "sha256": "67c7d7988027d7c0cdca57c494103c8bfe17d93d70e87942047d0eacf939e158"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-access-control.ps1",
+      "sha256": "509b9fbd64250cdf7dd24ac6a246381e959363ce64b83890920bd0ef80c05488"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-ai-cutover.ps1",
+      "sha256": "4a4b6c84b899432b3039c6cd04a6ef3454c3ecf0f2d4e86619714a71f79b6513"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-ai.ps1",
+      "sha256": "7e641a213668dcf0810870a6075bbc7dbb7c781c75970d38566d7253713e8a26"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-bi-service.ps1",
+      "sha256": "b23b95c3c9a876b7411f5572ad4545f50cf1aa95a358552dc1aa81bdb4845769"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-customer-service-cutover.ps1",
+      "sha256": "85c42c14880def4b1cbd2c510bc9a2cd26a3f6672426cb5c73fcfd2093580da7"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-customer-service.ps1",
+      "sha256": "2cf726fc820cf950e7eb03f2273882e2ce80d543305e05d56a99bd23cd6b3b92"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-erp-reference-cutover.ps1",
+      "sha256": "a0aaf08ae9f96fce49ccd8b1d1cfa44156351612dc13cae5e722baace30d593c"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-erp-reference.ps1",
+      "sha256": "84e16fda6dc03ed5bd6eb972fbe8fe59ef5c75439216039edafd379f2e347074"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-finance-cutover.ps1",
+      "sha256": "a2ef3abdb000acf6d36b67f3429a6d922e78a89e40e6c82576e5f42f5823c8d2"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-integration-install.ps1",
+      "sha256": "c0f5ca005af79da9beccf52eeb7ffd3e1d89c6e66041805d228065837d71e2ec"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-inventory-cutover.ps1",
+      "sha256": "5b64e817b0868e66f67f45e0d499f5bd577fc14add2c5595049e6a079e462b1d"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-inventory-service.ps1",
+      "sha256": "79bafaeb10678aae4791384fe55b1631bb787d55aacf5d4192ec7ac96018050d"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-local-service.ps1",
+      "sha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-market-service.ps1",
+      "sha256": "0c26d6078577b0360076732145072e3e00f8a9d37cf98b771b614b288476cc32"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-netshop-service.ps1",
+      "sha256": "7424266ecb82e4ba87274bde4b19ece3db560bfa9752ff0c9450fdce935f8f93"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-postgres-maintenance.ps1",
+      "sha256": "542e4fb67ed96a680f76f1de9f4b124bfb7f039094ff664fe25595b4a8fb48e6"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-products-service.ps1",
+      "sha256": "f3adc6012f7aac411e3f972325d4ad436159ad22103a7a69da0ee810dd3dc303"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-runtime-supervisor.ps1",
+      "sha256": "85d2bdd121a415ff3a2e3e0c1edf208fc0ba2304444d7d3cc69cb71bcb533a11"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-workflow-cutover.ps1",
+      "sha256": "6fa22f99ff6280646a9a0658064b226906e8338cef27a391f6f4f6fe4c35393d"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-workflow-operations-cutover.ps1",
+      "sha256": "3ac57594d6d1640625e53533fe45ab155c81890f709ba249b732da4eb431ca7b"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\django-workflow-service.ps1",
+      "sha256": "acf1a2a68af554a4158f3d8df1e21982850a4b6addefa6bb4f897986ee18b49a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-consumer-smoke.ts",
+      "sha256": "c0fd17d50ce3fa2cd877c2b2f3c125e6706f9693ccba48e376e9ff28cad2ecab"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-d1-authority-install.py",
+      "sha256": "120a8d356dccaa5c17eae4c48284e564f8f33c67ea5cd2b1b15e83bda3434dac"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-d1-rejection-smoke.py",
+      "sha256": "e422d0af479392e2d82a40c17c66af2a66a70d3e85292db0d1c4f3e5a43ec69e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-d1-snapshot.py",
+      "sha256": "0be1f988bc2ef06ceec49c56a1e27973bf08f681e938131ce4ba69ca080a7088"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-production-smoke.ps1",
+      "sha256": "0e251c58a525309372eec3e116e017ae65b0ef3c5c7d44c36cd76e88cac96067"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\erp-reference-r2-retirement-evidence.py",
+      "sha256": "18f732aa691957b7266be762e70f1977898e778ab3f994e93a1575f3262b8993"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\finance_d1_rehearsal_snapshot.py",
+      "sha256": "deb448c98b2962b2abf9a42dfd3df9b9107249c0145cb5e83265a39952facc81"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\finance-d1-authority-install.py",
+      "sha256": "43f9007627604452cdfed05d25a6db2c70818e01d0e8e8eac25b8a9bab3cabba"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\integration_migration_journal.py",
+      "sha256": "cd8b857c90ef113f264b8fcbdf024ce88e7a48b75265e0b70bf776c5b02bf8be"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\integration_migration_plan.py",
+      "sha256": "94893e1cd60fb2ad693948e8b2d1e686882bc14664310acf7c6b24b8f53a74ec"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\integration_release_gate.py",
+      "sha256": "2a6645215e529539a10589ef72ffa7a5e90df4649cdabd84cb84ba978541cbc8"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\inventory-d1-authority-install.py",
+      "sha256": "d5f17b9fe71ea10fdae8b1e32051f37362f0368ad1e1655bd490c377877feace"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\inventory-r2-retirement-evidence.py",
+      "sha256": "373bb48f66fcec3a68e5d0d25f2631d03306ce68c8addd4b2ae16a66ff7d27a7"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres_no_key_backup.py",
+      "sha256": "ee86b4a48eff411616256556c83734cd5aa282f7fc75551facf0d691336de8b8"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres_restore_semantics.py",
+      "sha256": "66dd0f5a2ab62ff819a73af76538430b74f511675a651a8100175d06082a3f57"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres-backup-continuity.ps1",
+      "sha256": "cd63b772bcfd9a3470cf6737d1e02097a79d69230a962393eff2e09fe4aba6ed"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres-backup-retention.ps1",
+      "sha256": "6a9de32ef4d204a8bcc7cecb57df03f97f45c26b36379bc062505d7134691287"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\postgres-consistent-backup.py",
+      "sha256": "0a1449b329a4afe0261c662236a6aacae60a6e7a4120801fb42eea2322368483"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\protected_ai_shadow_evidence_0073.py",
+      "sha256": "8a542612c00061c71246d889f4f9c3a35d4dd8fa2d22e136ffcf13288cff985f"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\release-payload-retention.mjs",
+      "sha256": "d339fb1eaac511d66f05660c50ade8e6f1e45a525dedcc0be395ebd3636d7b6a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\release-payload-retention.ps1",
+      "sha256": "e5bab569143c13a0021e2c57f6f832a58455eec421374bbd261b7b119d813f78"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-cutover-snapshot-gate.py",
+      "sha256": "cb82a9b352eb9160bcb347724217ca29554f5af087b1f77d9496785f9e6e65ee"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-d1-retirement.ts",
+      "sha256": "337d3a7baee77229b48e4541bcd3f7ca452834e68d778d78f8fb3c2ca1041f65"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-d1-write-authority.ts",
+      "sha256": "04f02a8bd83113ee6ed7e49f2af8a0f852d36e97aeb04bfc3ca83dc24e8d69b7"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-legacy-r2-cleanup.ts",
+      "sha256": "eadd4598024bc42c95f6ee589a8f9d38a97765055eee0f7303f08b0e887418e7"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-backup-prune.ps1",
+      "sha256": "87ecbec697321783bebf4b96825e26645d32291612295ddc17e6cfbcefda94b6"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-backup.ps1",
+      "sha256": "5d9081022671cb5c68c3a880d672cd122a50c92a94e3c725c7b93a2b617e54d1"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-operator.ps1",
+      "sha256": "bd23777261feb418693a4f8c08932d90e2e643b10fe2c8a09b44c6ec77413f1e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover-rehearsal.ps1",
+      "sha256": "7160e24153fbb84c9038db77ff765fea15478e31d1a3bed3ceedd1f99fc4dc3e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sales-local-cutover.ts",
+      "sha256": "36a7fa792aff020ac152a42cfc68da1fab2bb149f85ee55d93b5116b060168fc"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\sqlite-consistent-backup.py",
+      "sha256": "deeecabcd2c63eb96123d7d58ac1f104423f014bd9409eadb454bc3b23ac4bca"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release-rotation.mjs",
+      "sha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\worker-local-release.mjs",
+      "sha256": "3c18a8641b1364e3eee8fa7506f9bac0e2f57ec7f529a2d69a00a4410156bfce"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-d1-authority-install.py",
+      "sha256": "c1db7f139216fbf1bb5185a321c1fac8e8a0e671d50e4abad69ae92580d99480"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-d1-snapshot.py",
+      "sha256": "d58d8d840e1da9403f8afff6ae3a52f3001c5b24b543fd8bc2b7a4643df4c66e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-launch-r2-retirement-evidence.py",
+      "sha256": "8c0511f25ac4be21b534d3ae341c57ce0b57a630f581bb826de52d6217c3a285"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-consumer-smoke.ts",
+      "sha256": "5b41843192c321df842971e26964f53f3d91225590826e2a0a31bda9da09e138"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-d1-authority-install.py",
+      "sha256": "fa63dd78a90eb4be9466a55eb8a404ba7009a844bcb63e5ce910d5e4ea62934a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-d1-rejection-smoke.py",
+      "sha256": "25259757bfd0213c8c0e3fcf324deef1657eb8956a3020a6e761d41212fea43e"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-d1-snapshot.py",
+      "sha256": "8092277f4d20714990ccc42bdd176807cc452806f351d9f62fa3b7acca503640"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\django-sales\\app\\tools\\workflow-operations-production-smoke.ps1",
+      "sha256": "ccb9bf4e336b57d364e07e67bbc714d58ecf33eafbc8df19ee05a6df71374c6b"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\operations-watchdog\\installation.json",
+      "sha256": "d1d3e7d1814509eec5091f4416a3b6694dc3af890451cc831a774a2afd09a73a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\tools\\process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261011T090355Z-21c2645a63247749\\tools\\release-lifecycle-step.ps1",
+      "sha256": "c63e8fbaa5b02a13589538ab03468d07511b27a1dec44279a893d29c8467dbce"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\_observations\\first-adoption-live-guard-20261011-observe-display-53b44d9c-2e37-4953-8cd0-b1d652c83223\\failure.json",
+      "sha256": "9b7e08f9f722058bf0fd921d60a2a622848c1b8170799cb1130a7bb1f866a079"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\_observations\\first-adoption-live-guard-20261011-observe-display-53b44d9c-2e37-4953-8cd0-b1d652c83223\\started.json",
+      "sha256": "fc8687ac5417369dc0cf84943894a755780fcb8e8143b88b351154bb9d60d534"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000000.json",
+      "sha256": "0f9b044aa3cf504c42509606e3358eda83094016609dc89f3d230342857663f6"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000001.json",
+      "sha256": "81e6cce0afbb8949a692367a03aba7689a065353a58225ff301acf3a201a97a2"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000002.json",
+      "sha256": "73e3bb2df739bb855f184f069ef6bb0ded103ae194c88e771b912a3a9bc62af6"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000003.json",
+      "sha256": "4f01fc11f7d5d0fa98be325c8dc5c6c0e8a5cf17eef9b4abfebe65ef086ed04f"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000004.json",
+      "sha256": "79724f784dfb862616fb7f6cb0eb81d0c5d60ca6bfeb532a0d56e215b59fb219"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000005.json",
+      "sha256": "56482df7442d0833b591e8494403bee2969bde92c7cce80f1417ad5f3bdafedb"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000006.json",
+      "sha256": "e4c911842abf19297c2e00aa9e35dd57e5fbde09444f3d335e3ac2b1b20436dc"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000007.json",
+      "sha256": "2e509166b1a70dd7192d8c1cb0aef79652f44da7f840d0ff8a11f1646b013d30"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000008.json",
+      "sha256": "0491d19d6fb9da61fbc3ee512296924ca35664c810e8f6314036f23f98becdac"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000009.json",
+      "sha256": "58d73d459afbb5c090f3cf593d10819aee42289bb23847166279ebc9d2dd36ca"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000010.json",
+      "sha256": "f5ed9adcca75869cd6db9cb3678b903b5ef3cb3a9be8512a35dd55d9e79a4607"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000011.json",
+      "sha256": "ec2fde65dccca20e05ea6c5c86de080de94f8d8a7b07cdd50674851757f111b7"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000012.json",
+      "sha256": "9a55d11d36a9216490eebd0ec2f32cf17a70d36293eeb46a94439163d62ee028"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000013.json",
+      "sha256": "467fd44fc005eb2d3ac6375c77e7349401cf17a95321872bcf79d345dddcb26f"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000014.json",
+      "sha256": "361d0e3fa43793a9f331ab857e1a8a8e74398acf083a0e75d7c2318b5d43485a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000015.json",
+      "sha256": "7cc254aaef62183150949a3aa9ebc7a6cf4704b94c621d0b7b5e937bf6359ed7"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000016.json",
+      "sha256": "f436db0cdd041daa34e294290f717d1c34b2f584997518d810cba32c6398c6a8"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000017.json",
+      "sha256": "def4bd27652b0bd5ecefb0f4aeec0cec61154cf210534b48b71a5531f26aa76d"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000018.json",
+      "sha256": "541e7d274f997d3ce083bee04486f72c76a115c036872e2155a4652b6a60e14f"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000019.json",
+      "sha256": "f81900d324bd1807962630cc1fc70441fd71515d113f74fa5ccc8966d690160c"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000020.json",
+      "sha256": "1cbe3026754b153d6bb7a36fd855c821bbb4f51b52146492a75ffaaa6731b699"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000021.json",
+      "sha256": "773f41a6c09edada7aeb83fdb438dc6e0c1fbb1a49de118b6a5cf8fca3b6f74a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000022.json",
+      "sha256": "21a1d57e6aac330253bd24b256a2fe5c5e2e1877d1c10ad04471693bdad8e31b"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000023.json",
+      "sha256": "0c2a6969b53d82e225e29b95808b60b6bd9a3d8297bd95ed6453a7ad446a1758"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000024.json",
+      "sha256": "a4298a9caccdc39386f13e6f1d7303c2730f350c2e76377a105c1c6f6fc46d77"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000025.json",
+      "sha256": "7aeaf8cc31707c47863e122b4dd8aae030dbc39fa14101961a02bab77eb6e9f5"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000026.json",
+      "sha256": "7bd5474c3f643e336b76d20b6c8fb8027fce160b3d1474cf70d783ceea6d282a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000027.json",
+      "sha256": "031bcac0a4b50a84c0a6239167b6b77038af1450446d0810a925306d8b2cf708"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000028.json",
+      "sha256": "c7f5718b7843c51ea98e01135c0070d2f1b77beba2299d19ecee5b9985f17b2c"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000029.json",
+      "sha256": "980fa68b8d825f97af0fc4c8e4da11582260762e741568a4a23b9e245802198a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000030.json",
+      "sha256": "383e137e1d66a1f4c246dd1a36fb65c3ccb1a269c24061ceae03a429ea79ba37"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000031.json",
+      "sha256": "f4410e620910396fa3f59ec8cb5cff924e4247daf0135ac4bddabd65b2e0b7e9"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000032.json",
+      "sha256": "f9bc1a63bde16c2f4afc9c87c14dad9825049cd982487f53c8614d6cd186ffdf"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000033.json",
+      "sha256": "49b20e5b9a02750575d1b6352b9f8747e70a4ef7bf322057d6bccf3b740bf6f4"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000034.json",
+      "sha256": "aad1ab51b267d64db449aab4846923866811df037ca46b53718dfa8aceaca0f9"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000035.json",
+      "sha256": "cf688efa0741fc7f8466e7d4eb913b9228d368be71311f5b1eaf15ff409d3ce7"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000036.json",
+      "sha256": "f60e3a5f75758ab1571b0ccd7088d9bf83d11782da3243b042d1dfe1dc70f887"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000037.json",
+      "sha256": "3cbe9583039393c362cf165865b44464a5a8544cc2b4f0af3c23e6da991e9b56"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000038.json",
+      "sha256": "151a2a9fe2e4831135699549cd23f4233875e79f8ca43b3c5805d7fdb2041341"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000039.json",
+      "sha256": "cc9ea872202d9ce9d18497b9c6fd316014bdf5b8d808d91135bf3fec233702ce"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000040.json",
+      "sha256": "4de88f7621b3daada06668a50e16ec9e70abe5f97fd1481880ef7bc0d6ea3460"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000041.json",
+      "sha256": "6f8fd301ac55e8e9714714c4ccbfa5e3993e1ff8e499b95aeba681582914c528"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000042.json",
+      "sha256": "30515054f93174dd7ea653be86348fc5664c9d123cc37e617fbc8099aa8751d2"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000043.json",
+      "sha256": "5be793c04230da83d4108c876b2c0f23f177737094156223d3297b3a6625de62"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000044.json",
+      "sha256": "07e426e2a30da146bb716014e21b663532d3f1bdecb6e8b5afe97cd177ecdf21"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000045.json",
+      "sha256": "e9550386b59522acef2568b7851a06f10c49259efb2dd9876bf427af04313ebd"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000046.json",
+      "sha256": "41d348a7657788708bcb003434f7029172cd41016e1aeaf7fa6ff59ec3a3a992"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000047.json",
+      "sha256": "ead9c365ae408550e79e1cdf88085a482d40ef9bd13ea7fd2b6a340398e47dd3"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000048.json",
+      "sha256": "8b4913ba70361e35087b09453a0ff200a662e9065aba795869d30da9492740d2"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000049.json",
+      "sha256": "7b73c171530765e786ee1c9d9ceb26ec63d3ded92f34a1b73c7d10535b4d8797"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000050.json",
+      "sha256": "4004e5036dd7a36b975fc96777464bdcbfebd30fc74ad3dbd1a9f873ab62fe5a"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000051.json",
+      "sha256": "fdaf2ff69b2e1118c3aa485647d440cb10848ea9db0a5da9dec3f998a5b71272"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000052.json",
+      "sha256": "441d14b0536c259e89b4c29926059780e4832379d5989796ecdfe2be56cb6d8b"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000053.json",
+      "sha256": "b994e97d4cd21f5fe3d3629e486444cd4ff38ae9358abef49154dd8b796af97c"
+    },
+    {
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\release-batches\\first-adoption-live-guard-20261011\\000054.json",
+      "sha256": "04c4dfa96fb0f626f7cecde11d83b26706bea2d8e7abd149dff95827336d2351"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-site-blockers-20261011\\ADOPTION_BATCH_LIVE_V1.json",
+      "sha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-site-blockers-20261011\\production-f15d06a\\resume4\\FINISHED.json",
+      "sha256": "3a3e0178662259f9be68ed019611b7e02fcc4b7aab4e0fce38946a9d510e9e00"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\approved-continuation-v1\\CONTINUATION_FINISHED.json",
+      "sha256": "774bc992207e863c48ef172c5eadef757042e33553de00814c18371a0d97920f"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\approved-continuation-v1\\CONTINUATION_STAGES.jsonl",
+      "sha256": "308dd8fbc4ffc100613783b810437527fe38e3f9bc49661d0a2a0a9f4aead145"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\approved-continuation-v1\\TRANSPORT_FINISHED.json",
+      "sha256": "05d23bcfa447ea0c20ef7b3e9d2cef78f814482c8c886f000813bf976d5e0cb1"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\CONTINUATION_PACKAGE_V2.json",
+      "sha256": "e9d4ca56d1488e3a37435cedeac07642e06dadb3d90bee8e32cca05ec69713ed"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\DISPLAY_EXACT_DIAGNOSTIC_V1.json",
+      "sha256": "3f3b2ce7d30e84b21fedb05f11c6c888a5a291f9092a89c990efe445d53dead3"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\DISPLAY_SPLIT_DIAGNOSTIC_V1.json",
+      "sha256": "109008fedec8a583fc7af8a82c89f5605632e72ee634b0614cbf557887034ef9"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\native-watchdog-source-v3\\driver-binding.json",
+      "sha256": "a9d4de405578f6205eff2be570fff6e95227c44fd17fa90b0967ad13d6bf2846"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\native-watchdog-source-v3\\operations-system-watchdog.ps1",
+      "sha256": "1e651d0dc6d2a9cadd89f99989a047b5247c808908434ef1fb876b7ab26fdc05"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\native-watchdog-source-v3\\process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\native-watchdog-source-v3\\watchdog-core-overlay.ps1",
+      "sha256": "c28a59e4c8ca6ce028c78ad8680573e0a0cf8af1eff7a12fcef2ecffb8b653f8"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\native-watchdog-source-v3\\watchdog-install.ps1",
+      "sha256": "253f3ff73abd108a2fc7e17e5e643af1014b2d74f0fdf6b20a5f75713dab8734"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\native-watchdog-source-v3\\watchdog-launcher\\NoConsoleLauncher.cs",
+      "sha256": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\native-watchdog-source-v3\\watchdog-status-backend.ps1",
+      "sha256": "1c21be8a132a1e57482b05ee51e0795ecd2a346bd736b51994fdb74d5768a410"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\native-watchdog-source-v3\\watchdog-status-control.ps1",
+      "sha256": "effae9851b920e36f6b28e128dc83d01eafb607c146e7248ed24b55bd69481b3"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\native-watchdog-source-v3\\Watchdog.NoConsole.exe",
+      "sha256": "0bcb6079d8d47689141d6165fd3c2b0dbb009ed18fc1959d2e5800b73b554834"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\natural-post-continuation-v1\\natural-1.json",
+      "sha256": "47832d19464ac5047837d7097b0dfb5fe16af9f0da4cc1450576f681f8d16dea"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\natural-post-continuation-v1\\natural-2.json",
+      "sha256": "e7bee0fd90ad509af21ab24e923d8df279b6eba2ef882e21a491c29b6a97e4d1"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\natural-post-continuation-v1\\natural-3.json",
+      "sha256": "53b717074527c2557c4c6c7073c623c50b3a9876d787543d45c52564986fc3e2"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\natural-post-continuation-v1\\RESULT.json",
+      "sha256": "eefbd8badfbe2f94ef6c7dedab29cb3161cd77d9f4d428d34ceac095524cdcfe"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\natural-post-continuation-v1\\STARTED.json",
+      "sha256": "3a8ea4a801f66eb7ca9a974ab9b3bc235634fcbb8613bab91d04307267ab259b"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\original-closeout-v1\\ORIGINAL_ENTRY.FINISHED.json",
+      "sha256": "434b1985710cca8cd2fca84603ca5c1dcb7e099fa01ec7612350b05330b8ff1e"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\original-closeout-v1\\TRANSPORT_FINISHED.json",
+      "sha256": "10243769f6b97c0f3f8497da2ddf64c24f6a1263106eeb9967d9123d5edee1e9"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\ROOT_DISPLAY_SCOPE_REVIEW_V1.json",
+      "sha256": "cd75b5ff88b89f5082e2894b2fafa873afe2c41862a58b75141426f4f740683a"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-continuation-20261012\\START_DECISION_INTENT_V1.json",
+      "sha256": "52c2478ad8a0bd61d8468a723c203ae5655e9a04d4a750e1045c52b2b34d6cfe"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\driver-binding.json",
+      "sha256": "a9d4de405578f6205eff2be570fff6e95227c44fd17fa90b0967ad13d6bf2846"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\operations-system-watchdog.ps1",
+      "sha256": "1e651d0dc6d2a9cadd89f99989a047b5247c808908434ef1fb876b7ab26fdc05"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\process-deadline.ps1",
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-core-overlay.ps1",
+      "sha256": "c28a59e4c8ca6ce028c78ad8680573e0a0cf8af1eff7a12fcef2ecffb8b653f8"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-install.ps1",
+      "sha256": "253f3ff73abd108a2fc7e17e5e643af1014b2d74f0fdf6b20a5f75713dab8734"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-launcher\\NoConsoleLauncher.cs",
+      "sha256": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-status-backend.ps1",
+      "sha256": "d4524b8974e1fd71d549f26ebb17fe0e8d69ea94f7cd3fb5ef62bc53d27e7aa8"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-status-control.ps1",
+      "sha256": "effae9851b920e36f6b28e128dc83d01eafb607c146e7248ed24b55bd69481b3"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\Watchdog.NoConsole.exe",
+      "sha256": "0bcb6079d8d47689141d6165fd3c2b0dbb009ed18fc1959d2e5800b73b554834"
+    },
+    {
+      "path": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\RECOVERY_DESCENDANTS_V2.json",
+      "sha256": "31446f7def846aa52f4f92f5aa597415cdc45db6c7bc0013008ddea57a145228"
+    }
+  ]
+}

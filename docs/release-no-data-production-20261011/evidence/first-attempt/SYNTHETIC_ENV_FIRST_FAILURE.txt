@@ -1,0 +1,6 @@
+Actual first isolation test: DPAPI roundtrip, ciphertext-only contents, nonce/hash refusal and held-object deletion passed, but child-environment hash differed.
+Expected synthetic hash: 90f127bfba8337fc3663f4f92995955b2a641ea07486a6ff8b4ea1a0e7359839
+Actual child hash: a7618253c9e90449ef661da53772680834f1a9d1f707f94ebb06a612379cdd98
+Subsequent synthetic-only diagnostic reported extra field names: HOMEDRIVE,HOMEPATH,LOGONSERVER,PATH,USERDOMAIN,USERNAME,USERPROFILE,WINDIR. No values were printed.
+The incomplete synthetic environment was corrected with synthetic values for these Windows required fields. Production environment must still hash to original bc79 and retains every original key casing/value; no new exclusion or rebinding is allowed.
+Record written after actual tool output. No production/admin execution occurred.

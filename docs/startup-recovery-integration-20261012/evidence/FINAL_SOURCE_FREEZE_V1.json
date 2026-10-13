@@ -1,0 +1,50 @@
+[
+  {
+    "path": "tools/startup-exact-instance-stop.ps1",
+    "sha256": "701e496ffb9715403a1aa670cb0583b60ba9cafde444a56b7f1603c3b4fa9cbb"
+  },
+  {
+    "path": "tools/startup-recovery-sequence.ps1",
+    "sha256": "df6178d74ec8e8744b364d7f5b71cfea63316a104967d7d42ae87c53d49765f3"
+  },
+  {
+    "path": "tools/prepare-watchdog-supervisor-status-driver.mjs",
+    "sha256": "8e3125f6205f2d5ce64fa9947ba3144ee9f4d9fc5e5dcba63ff5cbdb78d558dc"
+  },
+  {
+    "path": "tools/prepare-recovery-supervisor.mjs",
+    "sha256": "a36e10415ec226eb7413eb3e2f28a6c319339fdc9906bfffdf9b475656740069"
+  },
+  {
+    "path": "docs/startup-recovery-integration-20261012/recovery-context.mjs",
+    "sha256": "0c4ce937fda877cce98d3da153d52cd7564a02c4c8725405fece3937480312b0"
+  },
+  {
+    "path": "docs/startup-recovery-integration-20261012/startup-recovery-operations.psm1",
+    "sha256": "e5d24a1491cfb1137f188520d0f18c3188079e0d5789d732e5d5bd532a005c66"
+  },
+  {
+    "path": "docs/startup-recovery-integration-20261012/Invoke-ApprovedStartupRecovery.ps1",
+    "sha256": "a5a8fc7942efadb490e70a583fb6f84104e0d173c4e75143ef7fe5494eefbe01"
+  },
+  {
+    "path": "docs/startup-recovery-integration-20261012/run-startup-recovery.mjs",
+    "sha256": "03169d39d12cc0afe27590f8096fc45829a1867151ac6a79d6b9227bd7053a7c"
+  },
+  {
+    "path": "docs/startup-recovery-integration-20261012/recovery-transport.mjs",
+    "sha256": "e7afda902a07ab2c8ba5600994377687dfdb5c359e8e370e55fcfb7966c9c72f"
+  },
+  {
+    "path": "docs/startup-recovery-integration-20261012/prepare-approved-recovery-transport.mjs",
+    "sha256": "1b94973e138763f8c771dd81704cb4007bf0d7a056b8bab4a889f6da9333b783"
+  },
+  {
+    "path": "docs/startup-recovery-integration-20261012/Restore-RecoverySupervisorV2.ps1",
+    "sha256": "b4d0b755a481621385b6359d724e7ba453d6416f47765b747531ba289a979b01"
+  },
+  {
+    "path": "docs/startup-recovery-integration-20261012/sample-recovery-availability.mjs",
+    "sha256": "bebfe46db3bbb82a32745f27261918ec260a11ff3138a397db84f0b95ff83748"
+  }
+]

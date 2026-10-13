@@ -1,0 +1,35 @@
+✖ actual generated branch dependency load powershell.exe (489.6206ms)
+✔ actual generated branch dependency load pwsh.exe (5621.6956ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6203.7215
+
+✖ failing tests:
+
+test at tests\recovery-generated-dependency.test.mjs:3:49
+✖ actual generated branch dependency load powershell.exe (489.6206ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /TEST_DEPENDENCY_PRESENT/. Input:
+  
+  'C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-dependency-sdObxV\\wrapper.ps1 : �޷�����Get-FileHash����ʶ��Ϊ cmdlet���������ű�\r\n' +
+    '�ļ�������г�������ơ��������Ƶ�ƴд���������·������ȷ��·����ȷ��Ȼ������һ�Ρ�\r\n' +
+    '    + CategoryInfo          : ObjectNotFound: (Get-FileHash:String) [wrapper.ps1], CommandNotFoundException\r\n' +
+    '    + FullyQualifiedErrorId : CommandNotFoundException,wrapper.ps1\r\n' +
+    ' \r\n'
+  
+      at TestContext.<anonymous> (file:///D:/.codex/worktrees/startup-recovery-continuation/%E8%BF%90%E8%90%A5%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F/tests/recovery-generated-dependency.test.mjs:3:2069)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'C:\\Users\\86137\\AppData\\Local\\Temp\\teruisi-dependency-sdObxV\\wrapper.ps1 : �޷�����Get-FileHash����ʶ��Ϊ cmdlet���������ű�\r\n�ļ�������г�������ơ��������Ƶ�ƴд���������·������ȷ��·����ȷ��Ȼ������һ�Ρ�\r\n    + CategoryInfo          : ObjectNotFound: (Get-FileHash:String) [wrapper.ps1], CommandNotFoundException\r\n    + FullyQualifiedErrorId : CommandNotFoundException,wrapper.ps1\r\n \r\n',
+    expected: /TEST_DEPENDENCY_PRESENT/,
+    operator: 'match',
+    diff: 'simple'
+  }

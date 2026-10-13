@@ -1,0 +1,67 @@
+{
+  "version": "teruisi-live-reference-readonly-qualification-v1",
+  "createdAt": "2026-10-11T14:17:27.825Z",
+  "windowsSid": "S-1-5-21-815909789-107973518-1379257801-1001",
+  "productionApproved": false,
+  "qualifier": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\run-live-reference-qualification.mjs",
+  "node": "C:/Program Files/nodejs/node.exe",
+  "entries": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\adoption-scope-live-guard.mjs",
+      "sha256": "3ed1df969753350d255be024dc598a90201cc585d8be4a11f6734d7acd05d70a"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-reference-audit.mjs",
+      "sha256": "2799a899465508c7d7dc80388580e013d3d2d8de45d1f7813990f3a44ad015c6"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-os-instance-policy.mjs",
+      "sha256": "0c8b999529a2156d227d79df04a866430b537695e9162c458648d33a87cae2f8"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-policy.mjs",
+      "sha256": "b039ec05bb43a88ea6af3c807f1514af729b4fb8770903966983fd9e0523053a"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-host-policy.mjs",
+      "sha256": "8f6a25dee5596750ca18dfd348a44f0b04e3c7dc77eff8e077f767de72123f4b"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\system-wsl-verifier.mjs",
+      "sha256": "96a975a02c010e1b018f2c00c9b345b2a602ff2581b5e7916fab050e23ca8819"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\collect-live-wsl.py",
+      "sha256": "81c2d00aec02bdc303ccb530182216d441be4f8abc79dfc443882c7492eece5d"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-ProcessIdentity.ps1",
+      "sha256": "764efb896666bac3656bbe7acc98833f98cf9babfbd2f20441803c368d84f50e"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Probe-ResidualProcessMetadataV2.ps1",
+      "sha256": "6cef0abc35f4c99300d9b36393add66191557715d14d3d4a930dc0627d0f3ff9"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-SystemWslIdentity.ps1",
+      "sha256": "b74dea4831ec04acb0ab8ee7634d677073d67a374107a80583b05078306b9d34"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-LiveWslHostAssociation.ps1",
+      "sha256": "667200760cbaea60ceeb75b20a328341889b293703c29541236d72e3e9a303f1"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\run-live-reference-qualification.mjs",
+      "sha256": "b68347fa3805e6e50d5dd2cd427394f18c4d7e80be20551eb4655836f8a3b627"
+    },
+    {
+      "path": "E:/codex-artifacts/release-first-adoption-targeted-20261011/adoption-scope-guard-ig04.mjs",
+      "sha256": "eb01db494d47d8e376af8d4a5fc69e823bbcf72672bdfbaf7f80a1cc914882bd"
+    },
+    {
+      "path": "C:/Program Files/nodejs/node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+    }
+  ],
+  "scope": "Same authorized process/task/cwd, five native OS instances and existing WSL/HCS metadata interfaces, specialized Windows WSL tool identity. Only redacted audit writes; no batch/lifecycle/backup/restore/business actions. Updated validators accept the observed optional HCS null field and exact known namespace subsets."
+}

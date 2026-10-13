@@ -1,0 +1,117 @@
+{
+  "at": "2026-10-11T16:21:33.065Z",
+  "entries": [
+    {
+      "name": "APPROVAL.json",
+      "sha256": "dfd9e3dc69b61c1fb7761fa058d5ee66a519782de1d8d830b28a57df29be835a",
+      "bytes": 865
+    },
+    {
+      "name": "ASTRA_ENV_RESUME_HANDOFF_V1.json",
+      "sha256": "12b48404b6fabfbf1fcbf6991b0545d08694c210fc4421c25ef2e709e305fc96",
+      "bytes": 2160
+    },
+    {
+      "name": "AVAILABILITY.ndjson",
+      "sha256": "2a496958797caa3bc3239248932fd82ba0cc2302b5d412f19903336fb0790efd",
+      "bytes": 5127
+    },
+    {
+      "name": "AVAILABILITY_FINISHED.json",
+      "sha256": "8db564b0a7c2437d1a970b7d179334dbae8278eec6aab28e74531f78e2f7d0ad",
+      "bytes": 148
+    },
+    {
+      "name": "AVAILABILITY_STARTED.json",
+      "sha256": "510ce5c01679957ed1e985f5a3d6e0b96d93259f8c175bf00b975766b73d2a0d",
+      "bytes": 514
+    },
+    {
+      "name": "BOOTSTRAP.ps1",
+      "sha256": "f420fb52fb8cd891f21a9f40fe83a0fd42a22ccb98324d99433a276d1d32aafb",
+      "bytes": 1739
+    },
+    {
+      "name": "BOOTSTRAP_BINDING.json",
+      "sha256": "034a40522ed68e7d43ea5e4aca3e5758573252e8d633c33ac8ed90b67f76559b",
+      "bytes": 354
+    },
+    {
+      "name": "BOOTSTRAP_BINDING_V2.json",
+      "sha256": "b764d54e543f077d3c67cfdfe34b7b03e5866947364d2ff8f71931de4e27ed41",
+      "bytes": 354
+    },
+    {
+      "name": "BOOTSTRAP_V2.ps1",
+      "sha256": "01641eac44098b6e55836fec7ebf51573214c79bc7ce53fd075822495902edd0",
+      "bytes": 1742
+    },
+    {
+      "name": "DIRECT_PROCESS.json",
+      "sha256": "324698368e1305fdfa7cf13d8b8016f8721820e47704a37b124052cb0905f79e",
+      "bytes": 159
+    },
+    {
+      "name": "ENV_TRANSPORT_FINAL_TEST.log",
+      "sha256": "be515277f08f7725968e7cc5113a4165c109da53a158ac9db318e254f3c1e4f1",
+      "bytes": 1625
+    },
+    {
+      "name": "ENV_TRANSPORT_ISOLATED_TEST.log",
+      "sha256": "cd0c74b7c3480f95bc8f842611ca4e71217170e2cc7fec4360d3c83dc5fecf79",
+      "bytes": 1623
+    },
+    {
+      "name": "FINISHED.json",
+      "sha256": "7030ccd7999ec5cf75aeb904998a6de490a53b26d7e592bb58fed20b41d300ee",
+      "bytes": 438
+    },
+    {
+      "name": "NORMAL_IDENTITY_DIAGNOSTIC.json",
+      "sha256": "d4220dd642377c28525fe5d0c90e1b25e11c28428b6807541d3217c2ec943df9",
+      "bytes": 746
+    },
+    {
+      "name": "ROOT_ENV_TRANSPORT_TEST.log",
+      "sha256": "818ed9681441659d446160955a242c77061f84800798e6ab214bda6f3b6a4e64",
+      "bytes": 1554
+    },
+    {
+      "name": "STARTED.json",
+      "sha256": "419f182c6666f93e5e7804c942afe1e8431fdd67eb93d69d07169f616b4264d3",
+      "bytes": 623
+    },
+    {
+      "name": "STDERR.log",
+      "sha256": "cdde833f3018bc9a5a7f2d0779968bc543c36c264cd5e9165c7ae1a18e8a1e47",
+      "bytes": 54
+    },
+    {
+      "name": "STDOUT.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "name": "SYNTHETIC_ENV_FIRST_FAILURE.txt",
+      "sha256": "28b99d73a17238bc5291d393a7fad81fa9273b2ab6c0d433d9ba9548ff782cce",
+      "bytes": 832
+    },
+    {
+      "name": "TRANSPORT_BINDING.json",
+      "sha256": "55bb79503d4f1922da7f237a52d0ac1fdf7c5cc05ae7a943aab2971a8ed16383",
+      "bytes": 1593
+    },
+    {
+      "name": "TRANSPORT_BINDING_V2.json",
+      "sha256": "5eb79ede184e8febed93beee0af1a53ec998b292e4ba8fd861384345263be46d",
+      "bytes": 1599
+    },
+    {
+      "name": "TRANSPORT_ENVIRONMENT_DIAGNOSTIC.json",
+      "sha256": "705fc1348d8f25ce4cf293ed9985cb79d0e23691b2f4f9f85041ebecce65af48",
+      "bytes": 817
+    }
+  ],
+  "plaintextEnvironmentArchived": false,
+  "ciphertextArchived": false
+}

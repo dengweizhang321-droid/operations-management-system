@@ -1,0 +1,18 @@
+{
+  "version": "teruisi-proposed-live-reference-audit-v1",
+  "runId": "c54c4384-5f0a-4cab-8eff-c2178e5f9e31",
+  "at": "2026-10-11T15:07:23.989Z",
+  "status": "blocked",
+  "stages": [],
+  "references": [],
+  "unknown": [],
+  "classified": [],
+  "departed": [],
+  "productionActions": 0,
+  "rawProcessMetadataPersisted": false,
+  "failure": {
+    "name": "AssertionError",
+    "messageSha256": "0758ae526e47319c749a06399b1b158828af573b0ac458f5286ab21dd3b33596",
+    "captureFailure": null
+  }
+}

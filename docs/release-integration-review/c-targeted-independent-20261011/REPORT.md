@@ -92,4 +92,4 @@
 
 main另有`c1d89b29347ce6868b6f86dd4276c06e226b5356`的watchdog变更；它**不在**本次5157→5160精确十工具候选差异中，不因Git合并顺带采用。精确批准范围应为前述W21c/manifest6cff/plan0afd/receipt4e2a/source dc1d/binding1168、D85cf/receipt10db/准备1e1138、batch f0bb/rawspec eec240与外置v2入口6989及明确argv，一次旧installed前备份＋一次新installed消费同点隔离恢复、完整19步保障与关闭。必须先解决真实引用未知及重新采集其他动态前置条件，再由统一发布任务取得精确用户批准；本报告不申请或执行生产上线。
 
-仍依赖的来源、候选、回退、工作树、原app.previous保全与未合3f独立窄修复分支保留。原记录、脚本、raw日志设置本目录局部`-text`，按Git blob/原文件/归档逐一hash保全。最终本任务文档提交与远端结果在独立交付记录中列明。
+仍依赖的来源、候选、回退、工作树、原app.previous保全与未合3f独立窄修复分支保留。原记录、脚本、raw日志设置本目录局部`-text`，按Git blob/原文件/归档逐一hash保全。最终本任务文档提交与远端结果见[独立交付记录](GIT_DELIVERY.md)。

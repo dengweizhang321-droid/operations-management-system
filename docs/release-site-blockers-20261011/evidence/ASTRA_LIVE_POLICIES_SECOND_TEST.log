@@ -1,0 +1,334 @@
+TAP version 13
+# Subtest: exact reviewed native instance 236
+ok 1 - exact reviewed native instance 236
+  ---
+  duration_ms: 2.3979
+  type: 'test'
+  ...
+# Subtest: exact reviewed native instance 280
+ok 2 - exact reviewed native instance 280
+  ---
+  duration_ms: 0.1725
+  type: 'test'
+  ...
+# Subtest: exact reviewed native instance 1700
+ok 3 - exact reviewed native instance 1700
+  ---
+  duration_ms: 0.1301
+  type: 'test'
+  ...
+# Subtest: exact reviewed native instance 6548
+ok 4 - exact reviewed native instance 6548
+  ---
+  duration_ms: 0.1382
+  type: 'test'
+  ...
+# Subtest: correct vmmem native tuple still requires guest supplement
+ok 5 - correct vmmem native tuple still requires guest supplement
+  ---
+  duration_ms: 0.1554
+  type: 'test'
+  ...
+# Subtest: identified reference cannot be waived
+ok 6 - identified reference cannot be waived
+  ---
+  duration_ms: 1.4304
+  type: 'test'
+  ...
+# Subtest: other PID/name cannot become OS exception
+ok 7 - other PID/name cannot become OS exception
+  ---
+  duration_ms: 0.2148
+  type: 'test'
+  ...
+# Subtest: reused PID native birth
+ok 8 - reused PID native birth
+  ---
+  duration_ms: 0.2255
+  type: 'test'
+  ...
+# Subtest: live CIM birth drift
+ok 9 - live CIM birth drift
+  ---
+  duration_ms: 0.2313
+  type: 'test'
+  ...
+# Subtest: live unstable
+ok 10 - live unstable
+  ---
+  duration_ms: 0.254
+  type: 'test'
+  ...
+# Subtest: native query access denied
+ok 11 - native query access denied
+  ---
+  duration_ms: 0.2219
+  type: 'test'
+  ...
+# Subtest: short layout
+ok 12 - short layout
+  ---
+  duration_ms: 0.1902
+  type: 'test'
+  ...
+# Subtest: wrong basic PID
+ok 13 - wrong basic PID
+  ---
+  duration_ms: 0.1454
+  type: 'test'
+  ...
+# Subtest: unknown new flag
+ok 14 - unknown new flag
+  ---
+  duration_ms: 0.1575
+  type: 'test'
+  ...
+# Subtest: ordinary unprotected actor is not IUM
+ok 15 - ordinary unprotected actor is not IUM
+  ---
+  duration_ms: 0.1536
+  type: 'test'
+  ...
+# Subtest: signature valid alone insufficient
+ok 16 - signature valid alone insufficient
+  ---
+  duration_ms: 0.1801
+  type: 'test'
+  ...
+# Subtest: Microsoft-named copied image outside System32
+ok 17 - Microsoft-named copied image outside System32
+  ---
+  duration_ms: 0.1642
+  type: 'test'
+  ...
+# Subtest: current captured image differs
+ok 18 - current captured image differs
+  ---
+  duration_ms: 0.1388
+  type: 'test'
+  ...
+# Subtest: image moved during query
+ok 19 - image moved during query
+  ---
+  duration_ms: 0.1252
+  type: 'test'
+  ...
+# Subtest: signature invalid
+ok 20 - signature invalid
+  ---
+  duration_ms: 0.1239
+  type: 'test'
+  ...
+# Subtest: forged signer identity
+ok 21 - forged signer identity
+  ---
+  duration_ms: 0.1233
+  type: 'test'
+  ...
+# Subtest: unresolved path reason cannot be waived
+ok 22 - unresolved path reason cannot be waived
+  ---
+  duration_ms: 0.1119
+  type: 'test'
+  ...
+# Subtest: booleans cannot replace raw flags
+ok 23 - booleans cannot replace raw flags
+  ---
+  duration_ms: 0.1242
+  type: 'test'
+  ...
+# Subtest: missing value is not numeric zero
+ok 24 - missing value is not numeric zero
+  ---
+  duration_ms: 0.1046
+  type: 'test'
+  ...
+# Subtest: kernel shape with new executable is refused
+ok 25 - kernel shape with new executable is refused
+  ---
+  duration_ms: 0.1629
+  type: 'test'
+  ...
+# Subtest: missing image cannot hide an explicit command reference
+ok 26 - missing image cannot hide an explicit command reference
+  ---
+  duration_ms: 0.1192
+  type: 'test'
+  ...
+# Subtest: opaque nonempty command cannot use kernel exception either
+ok 27 - opaque nonempty command cannot use kernel exception either
+  ---
+  duration_ms: 0.1126
+  type: 'test'
+  ...
+# Subtest: actual inspected mount bytes with synthetic stable actors verifies guest shape only
+ok 28 - actual inspected mount bytes with synthetic stable actors verifies guest shape only
+  ---
+  duration_ms: 3.2251
+  type: 'test'
+  ...
+# Subtest: guest restarted
+ok 29 - guest restarted
+  ---
+  duration_ms: 1.2546
+  type: 'test'
+  ...
+# Subtest: same distro with different known epoch
+ok 30 - same distro with different known epoch
+  ---
+  duration_ms: 0.4026
+  type: 'test'
+  ...
+# Subtest: PID1 changed
+ok 31 - PID1 changed
+  ---
+  duration_ms: 0.3997
+  type: 'test'
+  ...
+# Subtest: unknown Linux kernel
+ok 32 - unknown Linux kernel
+  ---
+  duration_ms: 0.3848
+  type: 'test'
+  ...
+# Subtest: permission error
+ok 33 - permission error
+  ---
+  duration_ms: 0.3788
+  type: 'test'
+  ...
+# Subtest: process arrived
+ok 34 - process arrived
+  ---
+  duration_ms: 0.3446
+  type: 'test'
+  ...
+# Subtest: omitted process
+ok 35 - omitted process
+  ---
+  duration_ms: 0.3927
+  type: 'test'
+  ...
+# Subtest: duplicated PID
+ok 36 - duplicated PID
+  ---
+  duration_ms: 0.3779
+  type: 'test'
+  ...
+# Subtest: new namespace
+ok 37 - new namespace
+  ---
+  duration_ms: 0.5189
+  type: 'test'
+  ...
+# Subtest: omitted namespace
+ok 38 - omitted namespace
+  ---
+  duration_ms: 0.3737
+  type: 'test'
+  ...
+# Subtest: mount bytes and caller digest both changed
+ok 39 - mount bytes and caller digest both changed
+  ---
+  duration_ms: 0.5624
+  type: 'test'
+  ...
+# Subtest: process switched namespace
+ok 40 - process switched namespace
+  ---
+  duration_ms: 0.6579
+  type: 'test'
+  ...
+# Subtest: native PID reused
+ok 41 - native PID reused
+  ---
+  duration_ms: 0.438
+  type: 'test'
+  ...
+# Subtest: cwd changed
+ok 42 - cwd changed
+  ---
+  duration_ms: 0.5126
+  type: 'test'
+  ...
+# Subtest: argv changed
+ok 43 - argv changed
+  ---
+  duration_ms: 1.0398
+  type: 'test'
+  ...
+# Subtest: file descriptor changed
+ok 44 - file descriptor changed
+  ---
+  duration_ms: 0.5587
+  type: 'test'
+  ...
+# Subtest: missing cwd evidence
+ok 45 - missing cwd evidence
+  ---
+  duration_ms: 0.5881
+  type: 'test'
+  ...
+# Subtest: null inside path
+ok 46 - null inside path
+  ---
+  duration_ms: 11.0608
+  type: 'test'
+  ...
+# Subtest: self used to omit another actor
+ok 47 - self used to omit another actor
+  ---
+  duration_ms: 0.7274
+  type: 'test'
+  ...
+# Subtest: original pinned predicate catches direct Windows reference
+ok 48 - original pinned predicate catches direct Windows reference
+  ---
+  duration_ms: 2.5143
+  type: 'test'
+  ...
+# Subtest: conventional Linux drive text reaches Windows physical predicate
+ok 49 - conventional Linux drive text reaches Windows physical predicate
+  ---
+  duration_ms: 0.9268
+  type: 'test'
+  ...
+# Subtest: cross-drive alias with spaces reaches original physical predicate
+ok 50 - cross-drive alias with spaces reaches original physical predicate
+  ---
+  duration_ms: 1.1263
+  type: 'test'
+  ...
+# Subtest: UNC alias unsupported, not silent nonreference
+ok 51 - UNC alias unsupported, not silent nonreference
+  ---
+  duration_ms: 0.9129
+  type: 'test'
+  ...
+# Subtest: unknown embedded Linux drive mapping rejected
+ok 52 - unknown embedded Linux drive mapping rejected
+  ---
+  duration_ms: 1.4905
+  type: 'test'
+  ...
+# Subtest: Windows path newline cannot be skipped
+ok 53 - Windows path newline cannot be skipped
+  ---
+  duration_ms: 1.055
+  type: 'test'
+  ...
+# Subtest: even clear guest references do not supply missing HCS association
+ok 54 - even clear guest references do not supply missing HCS association
+  ---
+  duration_ms: 0.6501
+  type: 'test'
+  ...
+1..54
+# tests 54
+# suites 0
+# pass 54
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 156.0594

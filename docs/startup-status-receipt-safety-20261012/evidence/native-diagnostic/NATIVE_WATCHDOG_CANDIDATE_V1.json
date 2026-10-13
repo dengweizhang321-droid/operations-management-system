@@ -1,0 +1,68 @@
+{
+  "version": "native-readonly-watchdog-candidate-v1",
+  "outputDirectory": "E:\\codex-artifacts\\startup-status-receipt-safety-20261012\\native-watchdog-source-v1",
+  "bundleId": "d0e9ebb640794e9680f978167354bb6f89b4917c96712c2cb638eb8dbfeb2554",
+  "files": {
+    "operations-system-watchdog.ps1": "c8a635e3ea80b41251033c5f209d2f8b3ed5b0ad95f252f7dc6ec35482fabd2b",
+    "process-deadline.ps1": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+    "watchdog-install.ps1": "253f3ff73abd108a2fc7e17e5e643af1014b2d74f0fdf6b20a5f75713dab8734",
+    "watchdog-launcher\\NoConsoleLauncher.cs": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7",
+    "watchdog-status-control.ps1": "effae9851b920e36f6b28e128dc83d01eafb607c146e7248ed24b55bd69481b3",
+    "watchdog-status-backend.ps1": "194ccb2f5f15c1a302fc654f1b8a263350b9bc5bbbc1215c0abac98958c8c912",
+    "watchdog-core-overlay.ps1": "34a8077992e170cfc4663a4eff5bfd9c459bd46952a651a7bff30855921c8925",
+    "driver-binding.json": "eb69f34cfdd9146737a92aabd63fff6e9766721a17d53cd3257d9e6c858814fa",
+    "Watchdog.NoConsole.exe": "0bcb6079d8d47689141d6165fd3c2b0dbb009ed18fc1959d2e5800b73b554834"
+  },
+  "originalSources": {
+    "controlFile": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+    "backendFile": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+    "workerFile": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+    "transportFile": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd"
+  },
+  "mechanicalProof": {
+    "backend": {
+      "originalBodySha256": "e319a6b208c5d5222866f39044734c1d5d07f610599e50dd7d78f36a90b1c900",
+      "generatedBodySha256": "eafc923c1ad4ea023b1596a504dbde62d5084637c71467fb1ec17b53751d0d52",
+      "revertedExact": true,
+      "edits": [
+        [
+          "  [string]$ExpectedFingerprint = \"\"",
+          "  [string]$ExpectedFingerprint = \"\",\n  [switch]$ReadOnly"
+        ],
+        [
+          "  $snapshot = Get-ProcessSnapshot $processId 1",
+          "  $snapshot = Get-ReadonlyDiagnosticSnapshot $processId 1"
+        ],
+        [
+          "    Remove-Item -LiteralPath $PidPath -Force\n    Write-LauncherEvent \"WARN\" \"stale_process_record_removed\" $PidPath",
+          "    # Diagnostic absence never deletes the ownership record."
+        ],
+        [
+          "    if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt) {\n      return $null\n    }",
+          "    # Diagnostic mismatch never invokes previous-boot cleanup."
+        ]
+      ]
+    },
+    "worker": {
+      "originalBodySha256": "e28c4ba0d963a0f555abf06ed2b0ceab5b0c62bd00cecf0cdd95319017d78ca5",
+      "generatedBodySha256": "bd84549ebb539770f521489b1f9a13ace250a32a54d53350b8a0aaf2e4525f3a",
+      "revertedExact": true,
+      "edits": [
+        [
+          "$processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)",
+          "$processes = @(Get-ReadonlyWorkerCensus $Identity)"
+        ]
+      ]
+    },
+    "backendSourceSha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+    "workerSourceSha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+    "nativeTemplateSha256": "d8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449",
+    "controlRouting": "one fixed Worker Status target replacement; other controller predicates unchanged"
+  },
+  "formalOriginalsUnchanged": true,
+  "productionInstalled": false,
+  "planId": null,
+  "planIdReason": "Original Get-WatchInstallPlan must still bind actual installed task XML/installation and chosen existing PowerShell host; no scheduler call made by preparer",
+  "taskScope": "Exact new Action target only through original installer; preserve existing triggers/RunLevel; no old bundle overwrite",
+  "ownershipRestored": false
+}

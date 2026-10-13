@@ -1,0 +1,35 @@
+{
+  "at": "2026-10-12T08:31:10.6217264Z",
+  "batch": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+  "walCount": 73,
+  "unknownOperation": "observe-natural-watchdog",
+  "unknownEventSha256": "5ae2756079dea7853701d3791afd99d98fb985719b5c8634f1b0033b37fe79fc",
+  "operationStartedAt": "2026-10-12T08:26:18.505Z",
+  "freshFailedFrameAt": "2026-10-12T08:27:29.310526Z",
+  "frameSha256": "c3296466da8915d1ff85c06333a46a5caa05366cfde09999836d20a4aa00faa9",
+  "reason": "Real fresh frame unhealthy because common snapshot deadline was exhausted; not second-stale-frame assertion.",
+  "timings": {
+    "backendMs": 37837,
+    "workerMs": 14193,
+    "controlMs": 55422,
+    "supervisorMs": 2087,
+    "httpMs": 2356,
+    "totalMs": 61011
+  },
+  "allTwelveComponents": true,
+  "allFourHttpProbes": true,
+  "system": "Running",
+  "backend": "Ready",
+  "worker": "exact_release",
+  "supervisor": "running",
+  "supervisorHealth": "healthy",
+  "portsObservation": "unknown",
+  "declaredRootCause": null,
+  "completedAcceptanceOperations": 17,
+  "remaining": [
+    "observe-natural-watchdog",
+    "op-verifystartup-closeout"
+  ],
+  "ownerRetained": true,
+  "batchClosed": false
+}

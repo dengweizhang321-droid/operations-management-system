@@ -1,0 +1,116 @@
+{
+  "version": "astra-startup-existing-log-readback-v1",
+  "observedAt": "2026-10-12T02:13:13.659Z",
+  "source": "D:/teruisi-runtime/django-sales/logs/launcher.jsonl",
+  "readBoundary": {
+    "fileSize": 2793879,
+    "tailBytes": 262144
+  },
+  "eventCount": 23,
+  "events": [
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:29.8125757+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-reader.pid.json\"}",
+      "sha256": "11058a5aee2578d880ab42c479d28d53b9559219cde61b7e180ba2b46a6eefce"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:30.7339719+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-writer.pid.json\"}",
+      "sha256": "19680e1d6f053263284c81e8d1cbbc81c0d152282d4e5494b601a68e7b9dda61"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:31.6960780+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-finance-reader.pid.json\"}",
+      "sha256": "7bacd5fccf500bc6fd7b35fccdad13259e1d255552bac1a3fa9d68aba24c34c6"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:32.7190247+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-finance-writer.pid.json\"}",
+      "sha256": "e82d10475d4ae5bee6eb11350dbe6dd25a03fc8b6a0a2e028ab6edf6f8529bdd"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:34.8235460+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-netshop-reader.pid.json\"}",
+      "sha256": "7323380fbfea6d60ec7089488bf97c73df07f65dc53ca4f990c75b533743c4f3"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:35.7201043+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-netshop-writer.pid.json\"}",
+      "sha256": "a380423d0b176ca4cc8c60d5d10916d5d5fc70ae2332987ec075c53f9ba0ce9e"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:36.6188464+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-market-reader.pid.json\"}",
+      "sha256": "3d188a8bcdd4f5b5ea3e66f69b8e3b2f936f3244654afefbc79fd3572a8abc2f"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:37.5154363+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-market-writer.pid.json\"}",
+      "sha256": "b73fbbc463b07f5b4e4230f692a57d2202ea34ea1c424f3cc7168152b7ed9b98"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:38.4578562+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-products-reader.pid.json\"}",
+      "sha256": "80c7a17b1114a595128656ccea422dc496ef374fe04b92e172ad581d3e4c15ef"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:39.3715961+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-products-writer.pid.json\"}",
+      "sha256": "244c05742ee91ef96c95acfbeaceb00ba61d17a2ce1f5405b6a67be677159161"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:40.2442341+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-inventory-reader.pid.json\"}",
+      "sha256": "72e9d48cdf048d152e3e890a295613a12204183aa4553da83403a5ced0d9464d"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:01:41.1446202+08:00\",\"runId\":\"20261012-100127-ffef52d2\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-inventory-writer.pid.json\"}",
+      "sha256": "7107873530c51323e56891d2371d380f24051885dea85e4432c0106456445eb0"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:02:37.7793915+08:00\",\"runId\":\"20261012-100227-d88f59f5\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-workflow-reader.pid.json\"}",
+      "sha256": "6ef4659b66e36a3690c8fdf98b8c7217dc6dd87a6bf37e537767df0c98f16f73"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:02:38.9277601+08:00\",\"runId\":\"20261012-100227-d88f59f5\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-workflow-writer.pid.json\"}",
+      "sha256": "def8c80d845bbc991924984861883e7c7aff4244f0e44b78ab3f05c33a4fb4d3"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:02:39.8607221+08:00\",\"runId\":\"20261012-100227-d88f59f5\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-customer-service-reader.pid.json\"}",
+      "sha256": "be8abbfb9abf524b0d6a0619e0b72aec2f11c1521183c8a067b152ff497df3e3"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:02:40.7647548+08:00\",\"runId\":\"20261012-100227-d88f59f5\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-customer-service-writer.pid.json\"}",
+      "sha256": "4bfa2845e631c3f8a69fe5a2198a9c458e60e890e9f9ab290637f95af6607a35"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:02:41.7424729+08:00\",\"runId\":\"20261012-100227-d88f59f5\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-access-control-reader.pid.json\"}",
+      "sha256": "a2652a806509b6297426d921b449fa7fdb3ee2ce5f17d921fd96a154792af65e"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:02:42.6854903+08:00\",\"runId\":\"20261012-100227-d88f59f5\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-access-control-writer.pid.json\"}",
+      "sha256": "1e1f10779d8b3565ccbb5f3f1672c6dc1d6cd0064c9da6a7ca2f1520fe2d6354"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:02:43.6523499+08:00\",\"runId\":\"20261012-100227-d88f59f5\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-erp-reference-reader.pid.json\"}",
+      "sha256": "5d5ec5763111bc93ec4f77da5a19c62945a2dd141fb95aeedcc743b5ac5e177e"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:02:44.6070864+08:00\",\"runId\":\"20261012-100227-d88f59f5\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-erp-reference-writer.pid.json\"}",
+      "sha256": "6610942b7c990057679572f39d4bc88362383792857c5a4ddc68f1a4efbd6515"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:02:45.6992958+08:00\",\"runId\":\"20261012-100227-d88f59f5\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-ai-reader.pid.json\"}",
+      "sha256": "25e50c9ad28635f819f5404c3d35ed24693c007ca4c35cd1b3c061ba4527fbd2"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:02:46.6949322+08:00\",\"runId\":\"20261012-100227-d88f59f5\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-ai-writer.pid.json\"}",
+      "sha256": "1dd1661e31ebadea958dd90519994486c2c93b2567b9bb8abe1424791e176949"
+    },
+    {
+      "raw": "{\"timestamp\":\"2026-10-12T10:02:48.0325319+08:00\",\"runId\":\"20261012-100227-d88f59f5\",\"action\":\"AggregateStatus\",\"level\":\"WARN\",\"event\":\"stale_process_record_removed\",\"message\":\"D:\\\\teruisi-runtime\\\\django-sales\\\\run\\\\django-bi-reader.pid.json\"}",
+      "sha256": "cb6d73ef6d7a7762505c9c5d2dc926c64269bbb198471f5a392f4b1a992da7d3"
+    }
+  ],
+  "runPidFilenames": [
+    "ai-pandas-wsl.pid.json",
+    "django-ai-dingtalk-schedule.pid.json",
+    "django-ai-dingtalk.pid.json",
+    "django.pid.json",
+    "projection-sync.pid.json"
+  ],
+  "limitations": [
+    "Existing log text does not establish actor token or whether a process was alive at removal",
+    "No process or Status API invoked",
+    "No PID receipt created or recovered"
+  ]
+}

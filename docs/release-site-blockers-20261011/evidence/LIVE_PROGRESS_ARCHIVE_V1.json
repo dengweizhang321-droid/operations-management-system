@@ -1,0 +1,264 @@
+{
+  "archived": [
+    {
+      "name": "ADMIN_RESIDUAL_METADATA_V2.json",
+      "sha256": "0c0c0b4074403c8b7d1a53e9d4c4ffdbdb97802bed6827bcd13e70fb264cf4d6",
+      "bytes": 10715
+    },
+    {
+      "name": "CURRENT_RUNTIME_ADMIN_FOLLOWUP.json",
+      "sha256": "92af27aaf4be64045da054fecd0e7a782287a3f0e1059dc102ac3f790480ccab",
+      "bytes": 17207
+    },
+    {
+      "name": "EFFECTIVE_CHAIN_ADMIN_FOLLOWUP.json",
+      "sha256": "17f1a722b58d92d33e2d5ed9ac251d75138826fb0eb8be80033ee82c3b9bf025",
+      "bytes": 1392
+    },
+    {
+      "name": "HCS_METADATA_CURRENT_V1.json",
+      "sha256": "73842dc60555cd29e5d488687e06e143c7dc0c1c11b48b53324543494ce2e525",
+      "bytes": 514
+    },
+    {
+      "name": "WSL_HOST_ASSOCIATION_ORDINARY_V1.json",
+      "sha256": "932712e2d92539e2f74a29c6243da04ba173432e066773d8b2d04f0ebf8a213b",
+      "bytes": 1954
+    },
+    {
+      "name": "WSL_HOST_ASSOCIATION_ADMIN_V1.json",
+      "sha256": "f11f84beed8e8f6645c19929f74fdd7ee88a2827dea93e72b2d2286e836eb1c4",
+      "bytes": 4963
+    },
+    {
+      "name": "PRIMARY_WSL_HOST_OBSERVATION_CROSSCHECK_V1.json",
+      "sha256": "f27debc847f8709ebe92fa50e9fa3b006b9394ea4bac485d0d24c08b1cf652f0",
+      "bytes": 800
+    },
+    {
+      "name": "SYSTEM_WSL_IDENTITY_V1.json",
+      "sha256": "0979916bc362a459f8f2bd30aa807d985eaa4eeab9f9b6d203bce50debc77d69",
+      "bytes": 777
+    },
+    {
+      "name": "WSL_HOST_READONLY_PACKET_V1.json",
+      "sha256": "0c7dfb0e4a865838dba0d13aac1d771022337031799295d1d2a32ee652402857",
+      "bytes": 1365
+    },
+    {
+      "name": "WSL_HOST_READONLY_PACKET_V2.json",
+      "sha256": "6af6ec639f51242f3afc8290669fe83f9ea8a7cfab77794ceccead28445f67ad",
+      "bytes": 1365
+    },
+    {
+      "name": "WSL_HOST_READONLY_BOOTSTRAP_V1.ps1",
+      "sha256": "f05c93049ce580a7cf92c22aea2eb1abc398ce2e44691a00c7b65b758ec1aa28",
+      "bytes": 2289
+    },
+    {
+      "name": "WSL_HOST_READONLY_BOOTSTRAP_V2.ps1",
+      "sha256": "6bbcc995b3dd36d0dbd4ca17a1546b29923130dc9f6a8c3dc51e64376290a7ac",
+      "bytes": 2289
+    },
+    {
+      "name": "RUN_READONLY_WSL_HOST_AUDIT_V1.cmd",
+      "sha256": "895655c3eeb11ed0372a8a82878281bae992faafdbe8d36c97186e1cc27a798d",
+      "bytes": 6488
+    },
+    {
+      "name": "RUN_READONLY_WSL_HOST_AUDIT_V2.cmd",
+      "sha256": "a288e0561b3352d30fa4101c3a261aee9d5bbc80821879aabeeb9359a9770394",
+      "bytes": 6488
+    },
+    {
+      "name": "WSL_HOST_READONLY_ENTRY_V1.json",
+      "sha256": "58dda1b5ad66cd7629ca00e5a9236441ba81615b5cf1d06ff1724c1b719a125a",
+      "bytes": 446
+    },
+    {
+      "name": "WSL_HOST_READONLY_ENTRY_V2.json",
+      "sha256": "75d214eb7a72ed3b988e1e2a4b9d6a3558d646377dacdf330270944c8435556c",
+      "bytes": 446
+    },
+    {
+      "name": "WSL_HOST_ENTRY_VERIFICATION_V1.json",
+      "sha256": "7f126c82945146c93a6476dec3af6c1e9dba33c5849645d6a2cc2bc53b508380",
+      "bytes": 404
+    },
+    {
+      "name": "WSL_HOST_ENTRY_VERIFICATION_V2.json",
+      "sha256": "6c0f9b0057c2d041d1a103dd8d0a57a3a6ecf71dad4b65b49a4c5b12903a8200",
+      "bytes": 404
+    },
+    {
+      "name": "ASTRA_WSL_HOST_ENTRY_CHAIN_CHECK_V2.json",
+      "sha256": "8e90415af2a8a95519daf089ffa205d7e8390c4ff09b3e384ef3aa7b56e9fc97",
+      "bytes": 906
+    },
+    {
+      "name": "ASTRA_LIVE_WSL_SHAPE_V1.json",
+      "sha256": "8c6fd9e04701ad452614a645e177078b906f5d1f0afc29b95d2458f92c65d916",
+      "bytes": 8189
+    },
+    {
+      "name": "ASTRA_LIVE_WSL_NAMESPACES_V1.json",
+      "sha256": "00042a47c5b35cf73c1dca56d25dec8fe6deae88c30352ffc96152acccdceab0",
+      "bytes": 84032
+    },
+    {
+      "name": "ASTRA_LIVE_GUEST_FIRST_OBSERVATION.json",
+      "sha256": "5729c78148bfdcac5768c5f431ae6dd4faf56c7c8ae3bd380ce27b5ca3ca6fc7",
+      "bytes": 44821
+    },
+    {
+      "name": "ASTRA_LIVE_GUEST_FLAGS_OBSERVATION.json",
+      "sha256": "f5df546525226278cfa2383df08d7dc0322e3868bda347a63082f66b821081a1",
+      "bytes": 44821
+    },
+    {
+      "name": "ASTRA_LIVE_GUARD_CORE_HANDOFF_V1.json",
+      "sha256": "d2b0442824f08976bd5db663e8dd99c9d493e6c4c7f11203a1bc52721dc77608",
+      "bytes": 4050
+    },
+    {
+      "name": "ASTRA_LIVE_GUARD_CORE_HANDOFF_V2.json",
+      "sha256": "be1f029d836c0391cadcf9a57f9aaefe60667e513a929fa23abc5bf879c69692",
+      "bytes": 4330
+    },
+    {
+      "name": "ASTRA_LIVE_GUARD_CORE_HANDOFF_V3.json",
+      "sha256": "e875e4715e15cec8dd15e6f2039adaf0ece553c6bc96d5f54546a5a1278ffbb8",
+      "bytes": 4508
+    },
+    {
+      "name": "ASTRA_LIVE_CORE_WRAPPER_FIRST_TEST.log",
+      "sha256": "bc9f4d43b2531d36479035005ef9778a1d8b37a8dce431b75f3f475942922e31",
+      "bytes": 9187
+    },
+    {
+      "name": "ASTRA_LIVE_HCS_SYSTEM_INTEGRATION_FIRST_TEST.log",
+      "sha256": "be1448bf9feaa725c8b5599fbfaac1a9ab61b6f98cb2f889581aaa1d57e6e676",
+      "bytes": 13182
+    },
+    {
+      "name": "ASTRA_LIVE_GUARD_V2_FINAL_TEST.log",
+      "sha256": "8d7e8bbf76450de78188717a3db5f12bd10b560cc8938ac21a1e3aedb32ddd9e",
+      "bytes": 14267
+    },
+    {
+      "name": "SITE_AGY5_PROMPT.txt",
+      "sha256": "b0857eb1fed4e15bd6b8ae33588fe27cdc4a0b30427f60688536d649fb537635",
+      "bytes": 21828
+    },
+    {
+      "name": "SITE_AGY5_STREAM.ndjson",
+      "sha256": "ed848b562f40955028d8f27b913ed01e3a3c62263fdfe6084081b56d76197134",
+      "bytes": 28905
+    },
+    {
+      "name": "SITE_AGY5_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "name": "SITE_AGY5_CALL.json",
+      "sha256": "917c79b68258db7bd8a64fe71e8511fd94dc9a41ed37bc0c0af7be59d9cb13d6",
+      "bytes": 265
+    },
+    {
+      "name": "SITE_AGY6_PROMPT.txt",
+      "sha256": "783c528b992bf8d2959d5122c47c8fb52ea2a6449c762951ae9103253e68742c",
+      "bytes": 27362
+    },
+    {
+      "name": "SITE_AGY6_STREAM.ndjson",
+      "sha256": "4b2578df7b211cf80616c5ef93493c8e8ec7bd4bf4954f8efdea6a57e6c2c337",
+      "bytes": 2022
+    },
+    {
+      "name": "SITE_AGY6_STDERR.log",
+      "sha256": "a534ee5682fb348186a27ac72d10b7f94bd46f96323a028430c26c8dc956f65a",
+      "bytes": 79
+    },
+    {
+      "name": "SITE_AGY6_CALL.json",
+      "sha256": "d8df1ca3da18bf479174bfe48eeeaa92617210dca0e1cb9845ef14b5d425bd07",
+      "bytes": 265
+    },
+    {
+      "name": "SITE_AGY7_PROMPT.txt",
+      "sha256": "08a502fe386f4893a20a1cee0a5509267bb18269bf0887bbed3f0f545037f847",
+      "bytes": 13374
+    },
+    {
+      "name": "SITE_AGY7_STREAM.ndjson",
+      "sha256": "b39cfce76805fe5d537a1a7a24566e8954e06dc1fa89265f1926f3e320a4afcd",
+      "bytes": 20793
+    },
+    {
+      "name": "SITE_AGY7_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "name": "SITE_AGY7_CALL.json",
+      "sha256": "cc228ce78d0a77a2f7f8b547875d98b8b79b1301d42c6806713eae6f6079db5e",
+      "bytes": 242
+    },
+    {
+      "name": "LIVE_REFERENCE_READONLY_QUALIFICATION_V1.json",
+      "sha256": "35777b8ca55078675edb99e07aa756371d20eb776a320587f9359173427af0e5",
+      "bytes": 4053
+    },
+    {
+      "name": "LIVE_REFERENCE_READONLY_BOOTSTRAP_V1.ps1",
+      "sha256": "622e010358f196f84aa4c2be929e7b2b3e649d6fae62be4ff3cbebd81691b2c2",
+      "bytes": 1702
+    },
+    {
+      "name": "LIVE_REFERENCE_READONLY_BINDING_V1.json",
+      "sha256": "7273274543a2f01d14d88a093c1f7823e54ab830f4281e7663d60dc59aa9bbc3",
+      "bytes": 209
+    },
+    {
+      "name": "PRIMARY_LIVE_REFERENCE_QUALIFICATION_FAILURE_V1.json",
+      "sha256": "1cfde87072c8c2375c3405e88c77da7fa24c91dd6b905bbb1dd13021b90093eb",
+      "bytes": 915
+    },
+    {
+      "name": "_live-reference-observations/7c6b889d-8d74-4538-b92b-8d2414e1b925-before-host.json",
+      "target": "FIRST_LIVE_AUDIT_before-host.json",
+      "sha256": "eddfb7d4abe3a967ff2f7a9ebbd51fdc1085baf32ab616c28a9a2f86004df9c9",
+      "bytes": 5134
+    },
+    {
+      "name": "_live-reference-observations/7c6b889d-8d74-4538-b92b-8d2414e1b925-failure.json",
+      "target": "FIRST_LIVE_AUDIT_failure.json",
+      "sha256": "5038703e739de70c5551f5f887365ebb99a4c9dfd62e51a119c68fe9adef8080",
+      "bytes": 1993
+    },
+    {
+      "name": "_live-reference-observations/7c6b889d-8d74-4538-b92b-8d2414e1b925-inventory-summary.json",
+      "target": "FIRST_LIVE_AUDIT_inventory-summary.json",
+      "sha256": "a1de32f14aaaa445edeb6ac7a4a33dbe7d2b881ceb1d05817542281816020428",
+      "bytes": 364
+    },
+    {
+      "name": "_live-reference-observations/7c6b889d-8d74-4538-b92b-8d2414e1b925-native.json",
+      "target": "FIRST_LIVE_AUDIT_native.json",
+      "sha256": "dd8d305f84cf512bf812803cc86b71145a1bc5d5bd2a721fa239a7421e5f27a4",
+      "bytes": 10715
+    },
+    {
+      "name": "_live-reference-observations/7c6b889d-8d74-4538-b92b-8d2414e1b925-started.json",
+      "target": "FIRST_LIVE_AUDIT_started.json",
+      "sha256": "10f1908b2d37e844750d49095e32951d32e07f3be9d1ad9a3debf60ca1366a96",
+      "bytes": 309
+    }
+  ],
+  "missing": [
+    "ASTRA_RESIDUAL_METADATA_V2_CROSSCHECK.json",
+    "ASTRA_LIVE_GUARD_V3_FINAL_TEST.log"
+  ],
+  "scope": "Explicit allowlist raw evidence; missing files are recorded rather than fabricated."
+}

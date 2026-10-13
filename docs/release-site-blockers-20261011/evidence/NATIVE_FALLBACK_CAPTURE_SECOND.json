@@ -1,0 +1,12 @@
+{
+    "version":  "teruisi-native-process-fallback-diagnostic-v1",
+    "at":  "2026-10-11T11:27:11.7847860+00:00",
+    "processes":  833,
+    "fallbackUsed":  18,
+    "missingImage":  181,
+    "missingCommand":  181,
+    "changedDuringCapture":  0,
+    "rawCommandLinesPersisted":  false,
+    "privilegesAdjusted":  false,
+    "productionMutations":  0
+}

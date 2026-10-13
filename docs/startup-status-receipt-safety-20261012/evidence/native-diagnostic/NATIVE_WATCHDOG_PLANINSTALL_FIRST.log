@@ -1,0 +1,5 @@
+Exception: E:\codex-artifacts\startup-status-receipt-safety-20261012\native-watchdog-source-v1\watchdog-install.ps1:70
+Line |
+  70 |  … te -eq 'Running'){throw 'wait_for_existing_watchdog_check_to_finish'}
+     |                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | wait_for_existing_watchdog_check_to_finish

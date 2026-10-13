@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { canonical, hash, safeRead } from './release-impact.mjs';
 import { safeObservationError } from './release-readonly-retry.mjs';
+import { safeProcessEvidence } from './worker-local-release.mjs';
 
 const instant = value => { const number = Date.parse(value); if (!Number.isFinite(number)) throw new Error('Invalid evidence timestamp'); return number; };
 function scalarProjection(value, keys) {
@@ -81,19 +82,69 @@ export async function readOriginalJournal(directory, batchSha256) {
 }
 const knownReasons = new Set(['independently-reconciled', 'operator-failed-or-result-unavailable', 'invalid-result',
   'live-predecessor-and-integrity-revalidation', 'operation-boundary-revalidation', 'operation-boundary-failed', 'explicit-zero-switch-cancellation']);
+function processProjection(value) {
+  const result = safeProcessEvidence(value);
+  if (!result) return null;
+  if (value.timeoutType === null) result.timeoutType = null;
+  // Reuse the transport whitelist; never copy stdout, stderr or arbitrary details.
+  if (Array.isArray(value.engine)) result.engine = value.engine.slice(0,8).map(safeProcessEvidence);
+  if (value.engineFailure) result.engineFailure = safeProcessEvidence(value.engineFailure);
+  return result;
+}
+function sealedVerification(batch, spec, gaps) {
+  const list = value => {
+    if (!Array.isArray(value) || value.some(item => typeof item !== 'string' || !/^[a-z0-9-]{1,80}$/.test(item))
+      || new Set(value).size !== value.length) throw new Error('Invalid sealed check inventory');
+    return value;
+  };
+  const requiredChecks = batch.requirements?.tests === undefined ? null : list(batch.requirements.tests);
+  const recordedChecks = batch.tests?.checks === undefined ? null : list(batch.tests.checks);
+  if (batch.tests && (hash(batch.tests) !== batch.binding.testsSha256
+    || batch.tests.sourceSha256 !== batch.binding.sourceSha256 || batch.tests.artifactSha256 !== batch.binding.artifactSha256)) {
+    throw new Error('Sealed test evidence binding changed');
+  }
+  const testPredecessorBound = !!batch.tests?.predecessorSourceSha256;
+  if (testPredecessorBound && batch.tests.predecessorSourceSha256 !== batch.binding.predecessorSourceSha256) throw new Error('Sealed test predecessor binding changed');
+  if (!testPredecessorBound) gaps.push('missing-test-predecessor-binding');
+  const missingRequiredChecks = requiredChecks?.filter(check => !recordedChecks?.includes(check)) ?? null;
+  if (!requiredChecks?.length || !recordedChecks || !batch.tests) gaps.push('missing-sealed-required-check-evidence');
+  if (missingRequiredChecks?.length) gaps.push('missing-required-checks');
+  if (batch.tests && batch.tests.status !== 'passed') gaps.push('sealed-tests-not-passed');
+  let collector = null;
+  if (spec.collector) {
+    if (hash(spec.collector) !== batch.collectorSha256) throw new Error('Sealed validator binding changed');
+    collector = { sha256: batch.collectorSha256,
+      ...scalarProjection(spec.collector,['transport','version']),
+      files: (spec.collector.files ?? []).map(file => {
+        const name = path.basename(file.path.replaceAll('\\','/'));
+        if (!/^[-A-Za-z0-9_.]{1,120}$/.test(name) || !/^[a-f0-9]{64}$/.test(file.sha256 ?? '')) throw new Error('Invalid validator file identity');
+        return {name,sha256:file.sha256};
+      }) };
+    if (!collector.files.length) gaps.push('missing-original-validator-file-inventory');
+  } else gaps.push('missing-original-validator-closure');
+  const testValidatorVersion = batch.tests?.validatorVersion ?? null;
+  if (testValidatorVersion === null) gaps.push('missing-test-validator-version');
+  else if (typeof testValidatorVersion !== 'string' || !/^teruisi-[a-z0-9-]{1,100}-v\d+$/.test(testValidatorVersion)) throw new Error('Invalid test validator version');
+  return { batchVersion: scalarProjection(batch,['version']).version ?? null, testValidatorVersion,
+    collector, testsSha256: batch.binding.testsSha256 ?? null, testPredecessorBound, requiredChecks, recordedChecks, missingRequiredChecks,
+    checkInventoryComplete: !!requiredChecks?.length && !!recordedChecks && missingRequiredChecks.length === 0 && batch.tests?.status === 'passed',
+    qualification: 'Sealed check declarations and pinned validator bytes only; no tests rerun or independent verification of the declared requirement policy.' };
+}
 function eventSummary(record) {
   return { at: record.at, phase: record.phase, operationId: record.operationId ?? record.operationRef ?? null, status: record.status,
     durationMs: record.durationMs ?? null, reason: knownReasons.has(record.reason) ? record.reason : null,
     reasonSha256: record.reason ? hash(record.reason) : null, receiptSha256: record.receiptSha256 ?? null,
     error: record.error ? safeObservationError(record.error) : null,
+    processEvidence: processProjection(record.processEvidence),
     observationAttempts: record.observationAttempts?.map(item => ({ stage: item.stage, attempt: item.attempt, durationMs: item.durationMs,
       status: item.status, error: item.error ? safeObservationError(item.error) : null })) ?? [],
     observation: record.observation ? {stage:record.observation.stage,attempt:record.observation.attempt,
       durationMs:record.observation.durationMs,status:record.observation.status,error:record.observation.error? safeObservationError(record.observation.error):null}:null,
     eventSha256: record.eventSha256 };
 }
-export async function generateCloseoutDraft(input) {
+export async function generateCloseoutDraft(input, { now = Date.now } = {}) {
   const raw = await safeRead(input.batchPath), spec = JSON.parse(raw), batch = spec.batch ?? spec;
+  if (input.batchFileSha256 && hash(raw) !== input.batchFileSha256) throw new Error('Original batch bytes changed');
   const { batchSha256, ...core } = batch;
   if (hash(core) !== batchSha256 || input.approvedSha256 !== batchSha256) throw new Error('Original approved batch changed');
   const journal = await readOriginalJournal(input.journalDirectory, batchSha256), { events } = journal;
@@ -106,6 +157,7 @@ export async function generateCloseoutDraft(input) {
   const incomplete = operations.filter(op => op.status !== 'passed');
   const completed = !!completedRecord && !incomplete.length && !events.some(record => record.status === 'cancelled');
   const evidenceFiles = [{ path: input.batchPath, bytes: raw.length, sha256: hash(raw) }, ...journal.files], receipts = [], gaps = [], executionLogs = [], observationReceipts=[];
+  const verification = sealedVerification(batch, spec, gaps);
   for(const ref of input.observationReceipts??[]) {
     const bytes=await safeRead(ref.path);
     if(hash(bytes)!==ref.sha256)throw new Error('Observation receipt bytes changed');
@@ -141,10 +193,23 @@ export async function generateCloseoutDraft(input) {
     const keys = ['status','backupId','manifestSha256','dumpSha256','contentSha256','backupManifestSha256',
       'expectedContentSha256','restoredContentSha256','profileRestoreVerified','sequenceHealthVerified',
       'productionDatabaseTouched','serviceStateChanged','cleanupStatus','policySyntaxEquivalenceVerified','batchSha256','operationId','observationsSha256','noReplay','independent'];
-    receipts.push({ operationId: ref.operationId, receiptSha256: hash(value), fields: scalarProjection(value,keys) });
+    receipts.push({ operationId: ref.operationId, receiptSha256: hash(value), fields: scalarProjection(value,keys),
+      processEvidence: processProjection(value.processEvidence), engineEvidence: value.engineEvidence?.slice(0,8).map(processProjection) ?? [] });
   }
   for (const op of operations.filter(op => ['backup','restore'].includes(op.kind))) if (!receipts.some(receipt => receipt.operationId === op.id)) gaps.push(`missing-original-receipt:${op.id}`);
-  let versions = null, deliveryAt = null;
+  let versions = null, deliveryAt = null, planIdentity = null, delivery = null;
+  if (input.planEvidence) {
+    const bytes = await safeRead(input.planEvidence.path);
+    if (hash(bytes) !== input.planEvidence.sha256 || hash(bytes) !== batch.binding.workerPlanSha256) throw new Error('Original plan bytes changed');
+    const plan = JSON.parse(bytes);
+    if (plan.candidate?.manifestSha256 !== batch.binding.artifactSha256 || plan.predecessor?.bindingSha256 !== batch.binding.predecessorSha256
+      || (batch.binding.predecessorArtifactSha256 && plan.predecessor.manifestSha256 !== batch.binding.predecessorArtifactSha256)) throw new Error('Candidate/predecessor plan binding changed');
+    planIdentity = scalarProjection({candidateReleaseId:plan.candidate.releaseId,candidateManifestSha256:plan.candidate.manifestSha256,
+      predecessorReleaseId:plan.predecessor.releaseId,predecessorManifestSha256:plan.predecessor.manifestSha256},
+      ['candidateReleaseId','candidateManifestSha256','predecessorReleaseId','predecessorManifestSha256']);
+    if (Object.keys(planIdentity).length !== 4) throw new Error('Incomplete original plan identity');
+    evidenceFiles.push({path:input.planEvidence.path,sha256:hash(bytes),bytes:bytes.length});
+  } else gaps.push('missing-original-candidate-predecessor-plan');
   if (input.versionsEvidence) {
     const bytes = await safeRead(input.versionsEvidence.path);
     if (hash(bytes) !== input.versionsEvidence.sha256) throw new Error('Version evidence changed');
@@ -156,6 +221,8 @@ export async function generateCloseoutDraft(input) {
     } : Object.fromEntries(['sourceCommit','candidateReleaseId','candidateManifestSha256','predecessorReleaseId','predecessorManifestSha256'].map(key=>[key,value[key]??null]));
     versions=scalarProjection(versions,['sourceCommit','candidateReleaseId','candidateManifestSha256','predecessorReleaseId','predecessorManifestSha256']);
     if (versions.candidateManifestSha256 !== batch.binding.artifactSha256 || !/^[a-f0-9]{40}$/.test(versions.sourceCommit ?? '')) throw new Error('Version evidence does not bind the batch');
+    if (planIdentity && Object.entries(planIdentity).some(([key,value]) => versions[key] !== value)) throw new Error('Version candidate/predecessor does not match original plan');
+    if (!planIdentity && batch.binding.predecessorArtifactSha256 && versions.predecessorManifestSha256 !== batch.binding.predecessorArtifactSha256) throw new Error('Version predecessor does not bind the batch');
     evidenceFiles.push({ path: input.versionsEvidence.path, sha256: hash(bytes), bytes: bytes.length });
   } else gaps.push('missing-exact-source-commit-and-release-versions');
   let observedRuntime=null;
@@ -163,6 +230,7 @@ export async function generateCloseoutDraft(input) {
     const bytes=await safeRead(input.runtimeEvidence.path);
     if(hash(bytes)!==input.runtimeEvidence.sha256)throw new Error('Runtime observation changed');
     const value=JSON.parse(bytes.toString('utf8').replace(/^\uFEFF/,''));
+    if(value.batchSha256 && value.batchSha256 !== batchSha256) throw new Error('Runtime observation belongs to another batch');
     const identity=scalarProjection(value,['checkedAt','releaseId','state','backendState','workerState']);
     observedRuntime={...identity,componentsReady:Object.values(value.components??{}).filter(v=>v===true).length,
       componentCount:Object.keys(value.components??{}).length};
@@ -174,15 +242,42 @@ export async function generateCloseoutDraft(input) {
     if (hash(bytes) !== input.deliveryEvidence.sha256) throw new Error('Delivery evidence changed');
     const value = JSON.parse(bytes.toString('utf8').replace(/^\uFEFF/, ''));
     deliveryAt = value.completedAt ?? value.deliveryCompletedAt;
+    if (input.deliveryEvidence.format === 'final-delivery-v2') {
+      const approval = events.find(record => record.status === 'approved');
+      if (value.version !== 'release-final-delivery-receipt-v2' || !completed || instant(value.approvalAt) !== instant(approval?.at)
+        || instant(value.productionCompletedAt) !== instant(completedRecord.at)
+        || value.operationsPassed !== operations.length || value.walRecords !== events.length) throw new Error('Final delivery does not bind original journal');
+      deliveryAt = value.deliveredAt;
+      delivery = { version:value.version, deliveredAt:deliveryAt, approvalAt:value.approvalAt, productionCompletedAt:value.productionCompletedAt,
+        necessaryAcceptanceAt:value.necessaryAcceptanceAt, supersedes:scalarProjection(value,['supersedes']).supersedes ?? null,
+        qualification:'Matched historical approval/completion/counts; not a new batch-specific acceptance or current runtime observation.' };
+      instant(value.necessaryAcceptanceAt);
+      if (instant(value.necessaryAcceptanceAt) > instant(completedRecord.at) || instant(value.necessaryAcceptanceAt) < instant(approval.at)) throw new Error('Invalid necessary acceptance boundary');
+      if (!events.some(record => record.status === 'passed' && ['acceptance','closeout'].includes(record.phase)
+        && instant(record.at) === instant(value.necessaryAcceptanceAt))) throw new Error('Necessary acceptance does not bind a passed journal event');
+    }
+    if (value.batchSha256 && value.batchSha256 !== batchSha256) throw new Error('Delivery belongs to another batch');
+    if (!value.batchSha256) gaps.push('delivery-receipt-lacks-batch-digest');
+    instant(deliveryAt);
     evidenceFiles.push({ path: input.deliveryEvidence.path, sha256: hash(bytes), bytes: bytes.length });
   } else gaps.push('missing-document-delivery-completion-time');
   const timing = closeoutAccounting(events.filter(record=>completed||!(record.status==='completed'&&record.phase==='closeout')), completed ? deliveryAt : null);
+  const generatedAtMs = now();
+  if (!Number.isSafeInteger(generatedAtMs)) throw new Error('Invalid report clock');
+  if (observedRuntime) {
+    const ageMs = observedRuntime.checkedAt ? generatedAtMs - instant(observedRuntime.checkedAt) : null;
+    observedRuntime.freshness = { assessedAt:new Date(generatedAtMs).toISOString(), ageMs, maxAgeMs:5000,
+      status:ageMs === null ? 'unknown' : ageMs < 0 ? 'future' : ageMs > 5000 ? 'expired' : 'within-window',
+      scope:'historical-observation-only', establishesCurrentReadiness:false };
+    if (ageMs === null || ageMs < 0 || ageMs > 5000) gaps.push('runtime-observation-not-fresh-at-report-generation');
+  }
   return { version: 'teruisi-release-closeout-draft-v1', draft: true,
     status: completed ? 'journal-completed-review-required' : 'release-incomplete', acceptancePassed: null,
     batchSha256, binding: scalarProjection(batch.binding,Object.keys(batch.binding).filter(key=>key.endsWith('Sha256')||['maintenanceId','djangoPreparedAppId'].includes(key))), versions, observedRuntime, journalHead: journal.head, operations,
     failures: events.filter(record => ['unknown','failed','admission-failed'].includes(record.status)).map(eventSummary),
     unresolved: operations.filter(op => ['started','unknown'].includes(op.status)).map(op => op.id),
     notExecuted: operations.filter(op => op.status === 'not-executed').map(op => op.id),
+    generatedAt:new Date(generatedAtMs).toISOString(), verification, planIdentity, delivery,
     receipts, executionLogs, observationReceipts, timing, evidenceFiles, evidenceGaps: gaps,
     unexecutedOrUncovered: input.unexecutedOrUncovered ?? [],
     limitations: ['Automatic report generation does not establish acceptance. Independent review and fact checking remain required.',
@@ -192,7 +287,7 @@ export async function generateCloseoutDraft(input) {
 }
 const cell = value => String(value ?? 'unknown').replaceAll('|', '\\|').replaceAll('\n', ' ');
 export function renderCloseoutDraft(report) {
-  return `# 发布证据与交付报告草稿\n\n状态：${report.status}。自动生成不等同于验收通过；须独立复核和事实检查。\n\n批次：${report.batchSha256}\n\n源码与版本：\n\n\`\`\`json\n${JSON.stringify({ binding: report.binding, versions: report.versions, observedRuntime:report.observedRuntime }, null, 2)}\n\`\`\`\n\n| 操作 | 阶段 | 状态 | 原失败/协调数 |\n| --- | --- | --- | ---: |\n${report.operations.map(op => `| ${cell(op.id)} | ${cell(op.phase)} | ${cell(op.status)} | ${op.evidence.filter(e => ['failed','unknown'].includes(e.status) || e.reason === 'independently-reconciled').length} |`).join('\n')}\n\n计时（毫秒）：\n\n\`\`\`json\n${JSON.stringify(report.timing, null, 2)}\n\`\`\`\n\n备份恢复及回执：\n\n\`\`\`json\n${JSON.stringify(report.receipts, null, 2)}\n\`\`\`\n\n未决：${report.unresolved.join(', ') || '无'}。未执行：${report.notExecuted.join(', ') || '无'}。\n\n证据缺口、未覆盖与限制：\n\n${[...report.evidenceGaps, ...report.unexecutedOrUncovered, ...report.limitations].map(item => `- ${cell(item)}`).join('\n')}\n\n完整步骤、原失败、协调、证据路径与 SHA 见同目录 report.json。\n`;
+  return `# 发布证据与交付报告草稿\n\n状态：${report.status}。自动生成不等同于验收通过；须独立复核和事实检查。\n\n批次：${report.batchSha256}\n\n源码与版本：\n\n\`\`\`json\n${JSON.stringify({ binding: report.binding, versions: report.versions, planIdentity:report.planIdentity, observedRuntime:report.observedRuntime, verification:report.verification, delivery:report.delivery }, null, 2)}\n\`\`\`\n\n| 操作 | 阶段 | 状态 | 原失败 | 原未知 | 独立协调 |\n| --- | --- | --- | ---: | ---: | ---: |\n${report.operations.map(op => `| ${cell(op.id)} | ${cell(op.phase)} | ${cell(op.status)} | ${op.evidence.filter(e => e.status === 'failed').length} | ${op.evidence.filter(e => e.status === 'unknown').length} | ${op.evidence.filter(e => e.reason === 'independently-reconciled').length} |`).join('\n')}\n\n原失败与未知（协调不改变旧退出码）：\n\n\`\`\`json\n${JSON.stringify(report.failures, null, 2)}\n\`\`\`\n\n计时（毫秒）：\n\n\`\`\`json\n${JSON.stringify(report.timing, null, 2)}\n\`\`\`\n\n备份恢复及回执：\n\n\`\`\`json\n${JSON.stringify(report.receipts, null, 2)}\n\`\`\`\n\n未决：${report.unresolved.join(', ') || '无'}。未执行：${report.notExecuted.join(', ') || '无'}。\n\n证据缺口、未覆盖与限制：\n\n${[...report.evidenceGaps, ...report.unexecutedOrUncovered, ...report.limitations].map(item => `- ${cell(item)}`).join('\n')}\n\n完整步骤、原失败、协调、证据路径与 SHA 见同目录 report.json。\n`;
 }
 async function writeNew(target, content) { const handle = await open(target, 'wx'); try { await handle.writeFile(content); await handle.sync(); } finally { await handle.close(); } }
 async function main() {

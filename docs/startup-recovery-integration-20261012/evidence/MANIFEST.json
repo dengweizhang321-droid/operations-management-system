@@ -1,0 +1,426 @@
+{
+  "version": "startup-recovery-integration-evidence-v1",
+  "productionRecoveryExecuted": false,
+  "files": [
+    {
+      "name": "ACTUAL_READONLY_SUPERVISOR_V2.json",
+      "bytes": 3421,
+      "sha256": "ad8e4e014e45405c80429c0bdc9d5cd56485c7aaf8c3e377616e6aa174d509f6",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\ACTUAL_READONLY_SUPERVISOR_V2.json"
+    },
+    {
+      "name": "ACTUAL_SUPERVISOR_CANDIDATE_VALIDATION_V2.json",
+      "bytes": 1097,
+      "sha256": "4607f1bd4ddc6524574af2bd139c60e987927e1e846e0197fa14f8f46fcff9f6",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\ACTUAL_SUPERVISOR_CANDIDATE_VALIDATION_V2.json"
+    },
+    {
+      "name": "AGY_INTEGRATION_V1_CALL.json",
+      "bytes": 182,
+      "sha256": "d806e191787281f5b72a8f8fe40273fd0bb5741f1e481fd20427cacd14c8b0c6",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_INTEGRATION_V1_CALL.json"
+    },
+    {
+      "name": "AGY_INTEGRATION_V1_PROMPT.txt",
+      "bytes": 69067,
+      "sha256": "c3948c47ec30a391a657e4455edb84862288091e72ea47962a4c8f9b0bb6877a",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_INTEGRATION_V1_PROMPT.txt"
+    },
+    {
+      "name": "AGY_INTEGRATION_V1_SOURCE_PINS.json",
+      "bytes": 1645,
+      "sha256": "bcaea88f895c7f6964ab410f1723e36d41de3864f171873da406c7592f52e219",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_INTEGRATION_V1_SOURCE_PINS.json"
+    },
+    {
+      "name": "AGY_INTEGRATION_V1_STDERR.log",
+      "bytes": 57,
+      "sha256": "ffd0d8328387bd6a2cef715213df59f88c317dbffc5606b0a2214384c1cad176",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_INTEGRATION_V1_STDERR.log"
+    },
+    {
+      "name": "AGY_INTEGRATION_V1_STREAM.ndjson",
+      "bytes": 1671,
+      "sha256": "deba17a1e2b0e8c2faa11c97d98ae9839818bad62a291a64b6007cc3aa3060a1",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_INTEGRATION_V1_STREAM.ndjson"
+    },
+    {
+      "name": "AGY_INTEGRATION_V2_CALL.json",
+      "bytes": 182,
+      "sha256": "33c9b81b618fc3807d9252a257f145d479d80dd4eeae602f0fbe245cd755fe5f",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_INTEGRATION_V2_CALL.json"
+    },
+    {
+      "name": "AGY_INTEGRATION_V2_PROMPT.txt",
+      "bytes": 69067,
+      "sha256": "c3948c47ec30a391a657e4455edb84862288091e72ea47962a4c8f9b0bb6877a",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_INTEGRATION_V2_PROMPT.txt"
+    },
+    {
+      "name": "AGY_INTEGRATION_V2_RESULT.md",
+      "bytes": 1510,
+      "sha256": "15bedafd4bc052c33b1a812ca4fec2fb60bd9f412f0259df00953e2198efa96d",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_INTEGRATION_V2_RESULT.md"
+    },
+    {
+      "name": "AGY_INTEGRATION_V2_SOURCE_PINS.json",
+      "bytes": 1645,
+      "sha256": "bcaea88f895c7f6964ab410f1723e36d41de3864f171873da406c7592f52e219",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_INTEGRATION_V2_SOURCE_PINS.json"
+    },
+    {
+      "name": "AGY_INTEGRATION_V2_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_INTEGRATION_V2_STDERR.log"
+    },
+    {
+      "name": "AGY_INTEGRATION_V2_STREAM.ndjson",
+      "bytes": 17774,
+      "sha256": "557b650a06fe153ac2c0b010ce847466261d5342fbb86a5140d166c5e7748a2d",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_INTEGRATION_V2_STREAM.ndjson"
+    },
+    {
+      "name": "AGY_PROTOCOL_EVENT_USER.json",
+      "bytes": 1961,
+      "sha256": "3a851413c93005c40689749541ea69e86a23644a91c91b04ee9c4530323244a9",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\AGY_PROTOCOL_EVENT_USER.json"
+    },
+    {
+      "name": "candidate-v2/driver-binding.json.source.txt",
+      "bytes": 460,
+      "sha256": "a9d4de405578f6205eff2be570fff6e95227c44fd17fa90b0967ad13d6bf2846",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\driver-binding.json"
+    },
+    {
+      "name": "candidate-v2/operations-system-watchdog.ps1.source.txt",
+      "bytes": 49713,
+      "sha256": "1e651d0dc6d2a9cadd89f99989a047b5247c808908434ef1fb876b7ab26fdc05",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\operations-system-watchdog.ps1"
+    },
+    {
+      "name": "candidate-v2/process-deadline.ps1.source.txt",
+      "bytes": 13723,
+      "sha256": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\process-deadline.ps1"
+    },
+    {
+      "name": "candidate-v2/watchdog-core-overlay.ps1.source.txt",
+      "bytes": 17740,
+      "sha256": "c28a59e4c8ca6ce028c78ad8680573e0a0cf8af1eff7a12fcef2ecffb8b653f8",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-core-overlay.ps1"
+    },
+    {
+      "name": "candidate-v2/watchdog-install.ps1.source.txt",
+      "bytes": 16363,
+      "sha256": "253f3ff73abd108a2fc7e17e5e643af1014b2d74f0fdf6b20a5f75713dab8734",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-install.ps1"
+    },
+    {
+      "name": "candidate-v2/watchdog-launcher/NoConsoleLauncher.cs.source.txt",
+      "bytes": 2424,
+      "sha256": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-launcher\\NoConsoleLauncher.cs"
+    },
+    {
+      "name": "candidate-v2/watchdog-status-backend.ps1.source.txt",
+      "bytes": 4763,
+      "sha256": "d4524b8974e1fd71d549f26ebb17fe0e8d69ea94f7cd3fb5ef62bc53d27e7aa8",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-status-backend.ps1"
+    },
+    {
+      "name": "candidate-v2/watchdog-status-control.ps1.source.txt",
+      "bytes": 45148,
+      "sha256": "effae9851b920e36f6b28e128dc83d01eafb607c146e7248ed24b55bd69481b3",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\watchdog-status-control.ps1"
+    },
+    {
+      "name": "candidate-v2/Watchdog.NoConsole.exe.artifact.bin",
+      "bytes": 5632,
+      "sha256": "0bcb6079d8d47689141d6165fd3c2b0dbb009ed18fc1959d2e5800b73b554834",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\native-watchdog-source-v2\\Watchdog.NoConsole.exe"
+    },
+    {
+      "name": "CONTRACT_FIRST_TEST.log",
+      "bytes": 1024,
+      "sha256": "b787d6e095929f3eead456b2da28b7fae16bf7d1ed4a85db309fbbfea7d46d37",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\CONTRACT_FIRST_TEST.log"
+    },
+    {
+      "name": "CONTRACT_JSON_TRANSPORT_TEST.log",
+      "bytes": 1024,
+      "sha256": "bfb92036dd04ef8c22bda4f9e9fa3ab1f384574932b75e838a6981d6d6c2265f",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\CONTRACT_JSON_TRANSPORT_TEST.log"
+    },
+    {
+      "name": "DECLARED_TOPOLOGY_FIRST_SOURCE.mjs.source.txt",
+      "bytes": 2282,
+      "sha256": "f9926cc6d4b5f5d43868da91e71bfb93b550395469c7edad156258782e509b23",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\DECLARED_TOPOLOGY_FIRST_SOURCE.mjs.source.txt"
+    },
+    {
+      "name": "DECLARED_TOPOLOGY_V1.json",
+      "bytes": 388,
+      "sha256": "52097cbb45579f49558c1809a4b4bf494412275e3ac7f99e0e7c66a183a0c8d1",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\DECLARED_TOPOLOGY_V1.json"
+    },
+    {
+      "name": "DECLARED_TOPOLOGY_V2.json",
+      "bytes": 806,
+      "sha256": "8559287664372d530df6b9bde82cfe2ba453ee7dfeb90e3fdd3e1e57f616b037",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\DECLARED_TOPOLOGY_V2.json"
+    },
+    {
+      "name": "DESCENDANT_BINDING_TEST.log",
+      "bytes": 627,
+      "sha256": "7ebfcca6ee9dd5254c474f82f10292235aea1a2f4ab5ad70c912e8772735e9f8",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\DESCENDANT_BINDING_TEST.log"
+    },
+    {
+      "name": "DESCENDANTS_CAPTURE_SOURCE_V1.mjs.source.txt",
+      "bytes": 1634,
+      "sha256": "d1e80ccc25095a0bf690920a4ada67bb9514f429e8962d9b37becf17fb647864",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\DESCENDANTS_CAPTURE_SOURCE_V1.mjs.source.txt"
+    },
+    {
+      "name": "DESCENDANTS_COLLECTOR_SOURCE_V1.ps1.source.txt",
+      "bytes": 4526,
+      "sha256": "b9e4a7314abfaa1b61296c4ad3ca8a7a9378144672910967f0d507ab4a3c0b23",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\DESCENDANTS_COLLECTOR_SOURCE_V1.ps1.source.txt"
+    },
+    {
+      "name": "EXACT_STOP_V3_FIRST_TEST.log",
+      "bytes": 989,
+      "sha256": "76e7ae0eba49d225a692b00b074d877ba224a34fab26f91b1f7572dab002b7eb",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\EXACT_STOP_V3_FIRST_TEST.log"
+    },
+    {
+      "name": "EXACT_STOP_V3_NATIVE_NEGATIVE_TEST.log",
+      "bytes": 985,
+      "sha256": "0722362dd33917af8de7788af9f103fe15bf9b13d883f83cca49d2d97d4eeb0f",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\EXACT_STOP_V3_NATIVE_NEGATIVE_TEST.log"
+    },
+    {
+      "name": "FINAL_SOURCE_FREEZE_V1.json",
+      "bytes": 2014,
+      "sha256": "19b063a4f04a162f6d25bc716e54ea4ef2e434d70760f180ad79b214e2675bda",
+      "source": "E:/codex-artifacts/startup-recovery-integration-20261012/FINAL_SOURCE_FREEZE_V1.json"
+    },
+    {
+      "name": "INTEGRATION_CURRENT_TEST.log",
+      "bytes": 1457,
+      "sha256": "03ae368fd10520810e94b150d5a3fb7e77334369f5e627ec2c75efe901d94a39",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\INTEGRATION_CURRENT_TEST.log"
+    },
+    {
+      "name": "NATIVE_WATCHDOG_CANDIDATE_V2.json",
+      "bytes": 5077,
+      "sha256": "78330dfbc52af9e85eab639f4de157f029ef62e9a4233d32cbb7234dd67ea911",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\NATIVE_WATCHDOG_CANDIDATE_V2.json"
+    },
+    {
+      "name": "OLD_STOP_NATURAL_CHAIN_JOURNAL.jsonl",
+      "bytes": 385,
+      "sha256": "dbf782de32bd7ad1fa32924e2a4dbd59d8307cb86a74843fe3f092da2eb410b7",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\OLD_STOP_NATURAL_CHAIN_JOURNAL.jsonl"
+    },
+    {
+      "name": "OLD_STOP_NATURAL_CHAIN_TRANSPORT.json",
+      "bytes": 48,
+      "sha256": "18db5a6beee4c00ffe79fe3a4e06ea63779d81477a71cc65136cc88a71c8762e",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\OLD_STOP_NATURAL_CHAIN_TRANSPORT.json"
+    },
+    {
+      "name": "OLD_STOP_NATURAL_CHAIN.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\OLD_STOP_NATURAL_CHAIN.stderr.log"
+    },
+    {
+      "name": "OLD_STOP_NATURAL_CHAIN.stdout.json",
+      "bytes": 185,
+      "sha256": "7571d7161970e30290ca2bf5c657a9009fef1b43a6785775d3db13de206cfcae",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\OLD_STOP_NATURAL_CHAIN.stdout.json"
+    },
+    {
+      "name": "PLAN_LEASE_FIRST_FAILURE.json",
+      "bytes": 141,
+      "sha256": "c437a8b2957fff462516651433d6748961a68a5d86f69dae744cec8b630cffbc",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\PLAN_LEASE_FIRST_FAILURE.json"
+    },
+    {
+      "name": "PLAN_LEASE_FIRST_SOURCE.ps1.source.txt",
+      "bytes": 3142,
+      "sha256": "55844789060ad21eeb19c8548bd27b6b9fc7b911f92a6259eb5dcd431dcbf68e",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\PLAN_LEASE_FIRST_SOURCE.ps1.source.txt"
+    },
+    {
+      "name": "RECOVERY_DESCENDANTS_V1.json",
+      "bytes": 37646,
+      "sha256": "840c3dd9b9647cc8f3db9a073e60f9853943b956b519007fb9a6ccb3e904866d",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\RECOVERY_DESCENDANTS_V1.json"
+    },
+    {
+      "name": "RECOVERY_DESCENDANTS_V2.json",
+      "bytes": 40664,
+      "sha256": "31446f7def846aa52f4f92f5aa597415cdc45db6c7bc0013008ddea57a145228",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\RECOVERY_DESCENDANTS_V2.json"
+    },
+    {
+      "name": "RECOVERY_PLAN_DRAFT_V1.json",
+      "bytes": 43855,
+      "sha256": "40b174d4aa1a6244983c3b01e9d7aa16e9b051f7ad2e4595f4aea746f002192b",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\RECOVERY_PLAN_DRAFT_V1.json"
+    },
+    {
+      "name": "RECOVERY_PLAN_DRAFT_V2.json",
+      "bytes": 70846,
+      "sha256": "35e89d1f3c0c469d5581d22c3317947d99bf820ce819ed8d7fc92ad179dcabc4",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\RECOVERY_PLAN_DRAFT_V2.json"
+    },
+    {
+      "name": "RECOVERY_PLAN_FINAL_V1.json",
+      "bytes": 71110,
+      "sha256": "dc4f2de71423097a53f26b37e4a10bdd6ee541f9aef3c8b9005c068239a7a5c2",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\RECOVERY_PLAN_FINAL_V1.json"
+    },
+    {
+      "name": "RECOVERY_SUPERVISOR_FIRST_TEST.log",
+      "bytes": 303,
+      "sha256": "5bc1b04054e303e114160f4cd5e80e869758e2e13390bfe133b8ab07b214102b",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\RECOVERY_SUPERVISOR_FIRST_TEST.log"
+    },
+    {
+      "name": "RECOVERY_SUPERVISOR_PROOF_V1.json",
+      "bytes": 1671,
+      "sha256": "0e372f7d23a2281b9c087074c84c6647bae3c76f4687c2f5d8da054c9c5f34b9",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\RECOVERY_SUPERVISOR_PROOF_V1.json"
+    },
+    {
+      "name": "RECOVERY_SUPERVISOR_PROOF_V2.json",
+      "bytes": 1874,
+      "sha256": "1241f520c7f56d3a7181ac427f8f1c4e7106c62a708af9f373b8f3479c95d7ae",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\RECOVERY_SUPERVISOR_PROOF_V2.json"
+    },
+    {
+      "name": "RECOVERY_SUPERVISOR_V2_TEST.log",
+      "bytes": 315,
+      "sha256": "1dcadd37c3f697c559f0006ec4cf98d002c9acded9602528d9fc3f344fe4c9f8",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\RECOVERY_SUPERVISOR_V2_TEST.log"
+    },
+    {
+      "name": "ROOT_DESCENDANT_DECLARATION_REVIEW_V2.json",
+      "bytes": 402,
+      "sha256": "a3bf8846b82fca2778302d91fd77d71d5d6e1b703a844e200b2f2b808f3e22ec",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\ROOT_DESCENDANT_DECLARATION_REVIEW_V2.json"
+    },
+    {
+      "name": "ROOT_DRAFT_PIN_RECHECK_V1.json",
+      "bytes": 1388,
+      "sha256": "e2530bafb95c846354759fd678948c9ddf261fc15fa0b32725927f98b8812ab5",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\ROOT_DRAFT_PIN_RECHECK_V1.json"
+    },
+    {
+      "name": "ROOT_FINAL_PLAN_REVIEW_V1.json",
+      "bytes": 591,
+      "sha256": "ae14d810026984478e61cf827975011ce0318df083a454da99302279e1dcc75b",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\ROOT_FINAL_PLAN_REVIEW_V1.json"
+    },
+    {
+      "name": "ROOT_ORIGINAL_PLAN_REVIEW_V1.json",
+      "bytes": 512,
+      "sha256": "579c9f240564083f9478c29a2ac91f5585bb9c9c8c5f570a7f3e938e50f21703",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\ROOT_ORIGINAL_PLAN_REVIEW_V1.json"
+    },
+    {
+      "name": "ROOT_SUPERVISOR_PLAN_REVIEW_V2.json",
+      "bytes": 551,
+      "sha256": "d1ef4a6a833f52a43297dd565809227a90f37a084246c8078475b7276d401cfe",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\ROOT_SUPERVISOR_PLAN_REVIEW_V2.json"
+    },
+    {
+      "name": "ROOT_WATCHDOG_MODULE_FIXTURE_V1.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\ROOT_WATCHDOG_MODULE_FIXTURE_V1.stderr.log"
+    },
+    {
+      "name": "ROOT_WATCHDOG_MODULE_FIXTURE_V1.stdout.json",
+      "bytes": 853,
+      "sha256": "7489920541a275f759af0417fda48b8319cec819a8d6b2d89ad628dd0cbf70c9",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\ROOT_WATCHDOG_MODULE_FIXTURE_V1.stdout.json"
+    },
+    {
+      "name": "ROOT_WATCHDOG_MODULE_FIXTURE_V1.transport.json",
+      "bytes": 701,
+      "sha256": "b2e8d55c8d4c65fba2dd45bda8bc7630be9a30563983b5c1b6f4a610c2d50a9f",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\ROOT_WATCHDOG_MODULE_FIXTURE_V1.transport.json"
+    },
+    {
+      "name": "SEQUENCE_FIRST_TEST.log",
+      "bytes": 1369,
+      "sha256": "555cc3cf00ed36bbfa2dcfca976e6ea1600d0682532f779819fd8a967b8d1127",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\SEQUENCE_FIRST_TEST.log"
+    },
+    {
+      "name": "SEQUENCE_SECOND_TEST.log",
+      "bytes": 317,
+      "sha256": "466996a1ed718af760cbef461fd5e9c61a29cf90d4185541284ca2c075f572e2",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\SEQUENCE_SECOND_TEST.log"
+    },
+    {
+      "name": "STAGE_TYPED_JSON_TEST.log",
+      "bytes": 244,
+      "sha256": "baa6d83e956619bf025e0c1cdeb9c2c5c876667e3b45285d59ee1e8573dda42c",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\STAGE_TYPED_JSON_TEST.log"
+    },
+    {
+      "name": "SUPERVISOR_FIRST_TEST.log",
+      "bytes": 360,
+      "sha256": "2a3fc3f2ad6ea210f8a6ef3d60fa1d29dff9fb4e1084b53996faebcc2f20ea4f",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\SUPERVISOR_FIRST_TEST.log"
+    },
+    {
+      "name": "TRANSPORT_FIRST_TEST.log",
+      "bytes": 416,
+      "sha256": "8abcf6c0515962ffb93bffefe24ad9bb332cb1b592927313a2ffe9552a3c055d",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\TRANSPORT_FIRST_TEST.log"
+    },
+    {
+      "name": "TRANSPORT_HELD_PARSE_TEST.log",
+      "bytes": 413,
+      "sha256": "291e6f5080980cb9db1af44d450d33c1d46a1d1a3a1dfaed408a1d8789c38bc5",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\TRANSPORT_HELD_PARSE_TEST.log"
+    },
+    {
+      "name": "TRANSPORT_NATIVE_FIRST_TEST.log",
+      "bytes": 565,
+      "sha256": "57f9c65d0662628f7f894122d5752810c9f6d892a19b589755f2277114155d0e",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\TRANSPORT_NATIVE_FIRST_TEST.log"
+    },
+    {
+      "name": "WATCHDOG_PLAN_FIRST.stderr.log",
+      "bytes": 342,
+      "sha256": "ab34b9e88f5677c3a3cf7a9b0c598676701544afa94268a3160315f6c62a7c96",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\WATCHDOG_PLAN_FIRST.stderr.log"
+    },
+    {
+      "name": "WATCHDOG_PLAN_FIRST.stdout.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\WATCHDOG_PLAN_FIRST.stdout.json"
+    },
+    {
+      "name": "WATCHDOG_PLAN_WITH_LEASE_V1.json",
+      "bytes": 1741,
+      "sha256": "105bcf14074b2938bc1534276002f322bd651c4f9b832dc1a6ddb86e22bab03f",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\WATCHDOG_PLAN_WITH_LEASE_V1.json"
+    },
+    {
+      "name": "WATCHDOG_SUPERVISOR_PLAN_WITH_LEASE_V2.json",
+      "bytes": 1741,
+      "sha256": "6a53f53381ce2d03e3d1a3f71c0f67dd8bb5e265075e45c27f25537e48a48df3",
+      "source": "E:\\codex-artifacts\\startup-recovery-integration-20261012\\WATCHDOG_SUPERVISOR_PLAN_WITH_LEASE_V2.json"
+    }
+  ]
+}

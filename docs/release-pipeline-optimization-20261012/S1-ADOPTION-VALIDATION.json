@@ -1,0 +1,12 @@
+{
+  "schema": "s1-plan-document-validation-v1",
+  "evidenceRecordsVerified": 39,
+  "sourceEnvelopesByteVerified": 13,
+  "localLinksVerified": 6,
+  "callerCases": 42,
+  "exactActualDescriptorShells": 2,
+  "ordinaryPolicy": "strict/full unchanged",
+  "allObservedHostFilesUnchanged": true,
+  "productionAdopted": false,
+  "scope": "New plan/evidence only; no old evidence overwritten or runtime code added. External Microsoft references checked separately."
+}

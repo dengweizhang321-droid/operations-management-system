@@ -1,0 +1,367 @@
+同conversation有限永久修复最终源码复审。仅文本，不调用任何工具/native/生产，不修改文件，不执行任何建议。用户授权必要开发，但当前生产f15/spec/运行包/watchdog immutable版本/任务/调度全未改。请600字内给具体阻断或有界结论，不称数学完备/绝对安全。
+已证事实：正式原watchdog driver绑定4c315Worker，合法批准Apply将入口更新717408（仅RequireReady后台/钉钉启动guard变化）。旧ResolveWatchStatusControl绑定失配自动legacy；Limited任务于是可调用原Django状态。旧GetProcessSnapshot在CIM存在但cmd/image不可读时返回null，ResolveOwned误删PID。原日志23个Status删除事件，不能仅log断言每PID当时活或具体actor；当前恢复尚未完成。
+本独立worktree最新main65b，仅两runtime文件：GetProcessSnapshot CIM ErrorActionStop，多个row拒绝，已有row缺exe/cmd/birth抛unknown；ResolveOwned ReadOnly显式或Action以Status结尾时绝不删除（含previousboot分支），7个核心/财务/简单域Status调用显式ReadOnly，所以Start内部调用状态也是只读。显式生命周期Start/Stop仍保持原正常CIM确认不存在和原PreviousBoot严格helper清理，本次不加kernelAPI/Debug权限。Watchdog只在4driver文件完全不存在且bundle未声明它们的历史未配置路径legacy；配置过driver缺件/绑定不符拒绝，不自动换hash。请审是否遗漏同图调用或边界。
+实际PS5及PS7抽取冻结函数运行43个synthetic场景/host，共2Node tests通过；AST提取仅把watchdog自动PSScriptRoot替为fixture变量，所有CIM/fs/task/HTTP均stub，非生产验收。首次test因AST无PSScriptRoot来源失败保留，修fixture后通过。另HEAD旧实际函数在两host都复现metadata不可读=>Remove调用1次、binding失配=>legacy。无重建包、没有生产采用。
+必要恢复草案（未执行）：先评估已有maintenance栅栏能否阻止限定unsafe调用，不手工编造owner/gate；真实Admin完整CIM/native实例+原startup证据才能有限恢复丢失ownership，不端口接管。新readonlyDriver/717精确绑定需单独审查采用。原watchdog installer可保留triggers/RunLevel但SetScheduledTask会改变Action到新immutable bundle；不能称完全不改TaskAction。若绝对不许改Action，就不能通过原installer采用新bundle，需先明确范围。不要建议覆写旧不可变版本或旧binding。
+请指出具体错误，区分source修复与生产恢复尚未批准/执行。
+RAW tools/django-local-service.ps1 SHA256 0ead799623fd307a89c461a270bf64dca930b1b6350555f30962b2d1cc3da40f
+RAW tools/operations-system-watchdog.ps1 SHA256 c8a635e3ea80b41251033c5f209d2f8b3ed5b0ad95f252f7dc6ec35482fabd2b
+RAW tests/startup-status-receipt-safety.fixture.ps1 SHA256 b702ba5dacb1cf88c13d88efe0704cb79e6a3b1227fd2f0129a910e7a84c8a34
+RAW tests/startup-status-receipt-safety.test.mjs SHA256 9cb9ba88179910f585103eb08b639df7d9142a4b44b922d13e112e0ea7aba774
+DIFF
+diff --git a/tools/django-local-service.ps1 b/tools/django-local-service.ps1
+index 1946d9fb..d3b2c67c 100644
+--- a/tools/django-local-service.ps1
++++ b/tools/django-local-service.ps1
+@@ -2266,8 +2266,14 @@ function Remove-PreviousBootProcessRecordIfSafe(
+ 
+ function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
+   for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+-    $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
+-    if ($process -and $process.ExecutablePath -and $process.CommandLine -and $process.CreationDate) {
++    $rows = @(Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction Stop)
++    if ($rows.Count -gt 1) { throw "Ambiguous process metadata: $ProcessId" }
++    $process = if ($rows.Count -eq 1) { $rows[0] } else { $null }
++    if ($process -and ([string]::IsNullOrWhiteSpace([string]$process.ExecutablePath) -or
++        [string]::IsNullOrWhiteSpace([string]$process.CommandLine) -or -not $process.CreationDate)) {
++      throw "Process metadata is unavailable; absence is not established: $ProcessId"
++    }
++    if ($process) {
+       return [pscustomobject]@{
+         Process = $process
+         ProcessId = [int]$process.ProcessId
+@@ -2416,8 +2422,12 @@ function Resolve-OwnedProcess(
+   [string]$PidPath,
+   [string]$ExpectedLauncher,
+   [string[]]$ExpectedArguments = $null,
+-  [string]$ExpectedFingerprint = ""
++  [string]$ExpectedFingerprint = "",
++  [switch]$ReadOnly
+ ) {
++  # Domain status wrappers share this resolver; an observational action cannot
++  # opt back into PID-record cleanup, even when its caller omits the switch.
++  $ReadOnly = $ReadOnly -or $Action -cmatch 'Status$'
+   if (-not (Test-Path -LiteralPath $PidPath -PathType Leaf)) { return $null }
+   $record = Read-JsonFile $PidPath "进程所有权记录"
+   $processId = 0
+@@ -2433,6 +2443,7 @@ function Resolve-OwnedProcess(
+   $recordCreationDate = ConvertTo-CanonicalCreationDate $record.creationDate
+   $snapshot = Get-ProcessSnapshot $processId 1
+   if ($null -eq $snapshot) {
++    if ($ReadOnly) { return $null }
+     Remove-Item -LiteralPath $PidPath -Force
+     Write-LauncherEvent "WARN" "stale_process_record_removed" $PidPath
+     return $null
+@@ -2448,7 +2459,7 @@ function Resolve-OwnedProcess(
+   if ($null -ne $ExpectedArguments) { $matches = $matches -and (Test-ExactStringArray $recordArguments $ExpectedArguments) }
+   if ($ExpectedFingerprint) { $matches = $matches -and ([string]$record.configFingerprint -ceq $ExpectedFingerprint) }
+   if (-not $matches) {
+-    if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt) {
++    if (-not $ReadOnly -and (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt)) {
+       return $null
+     }
+     throw "PID 已复用或进程身份与所有权记录不一致；拒绝接管或终止：$PidPath"
+@@ -4173,12 +4184,12 @@ function Show-ServiceStatus {
+   }
+   $reader = "stopped"
+   try {
+-    if (Resolve-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress) { $reader = "running" }
++    if (Resolve-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
+     elseif (@(Get-PortListeners 8001).Count -gt 0) { $reader = "foreign_port_owner" }
+   } catch { $reader = "ownership_error" }
+   $writer = "stopped"
+   try {
+-    if (Resolve-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress) { $writer = "running" }
++    if (Resolve-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress -ReadOnly) { $writer = "running" }
+     elseif (@(Get-PortListeners 8002).Count -gt 0) { $writer = "foreign_port_owner" }
+   } catch { $writer = "ownership_error" }
+   $readerReady = "not_ready"
+@@ -4222,12 +4233,12 @@ function Show-ServiceStatus {
+ function Show-FinanceServiceStatus {
+   $reader = "stopped"
+   try {
+-    if (Resolve-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress) { $reader = "running" }
++    if (Resolve-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
+     elseif (@(Get-PortListeners 8011).Count -gt 0) { $reader = "foreign_port_owner" }
+   } catch { $reader = "ownership_error" }
+   $writer = "stopped"
+   try {
+-    if (Resolve-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress) { $writer = "running" }
++    if (Resolve-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress -ReadOnly) { $writer = "running" }
+     elseif (@(Get-PortListeners 8012).Count -gt 0) { $writer = "foreign_port_owner" }
+   } catch { $writer = "ownership_error" }
+   $readerReady = "not_ready"
+@@ -4297,13 +4308,13 @@ function Get-SimpleDjangoDomainStatus(
+ ) {
+   $reader = "stopped"
+   try {
+-    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress) { $reader = "running" }
++    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
+     elseif (@(Get-PortListeners $ReaderPort).Count -gt 0) { $reader = "foreign_port_owner" }
+   } catch { $reader = "ownership_error" }
+   $writerService = $Service.Replace("-reader", "-writer")
+   $writer = "stopped"
+   try {
+-    if (Resolve-OwnedProcess $writerService $WriterPidPath $Waitress) { $writer = "running" }
++    if (Resolve-OwnedProcess $writerService $WriterPidPath $Waitress -ReadOnly) { $writer = "running" }
+     elseif (@(Get-PortListeners $WriterPort).Count -gt 0) { $writer = "foreign_port_owner" }
+   } catch { $writer = "ownership_error" }
+   $readerReady = "not_ready"
+@@ -4342,7 +4353,7 @@ function Get-SimpleDjangoReaderStatus(
+ ) {
+   $reader = "stopped"
+   try {
+-    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress) { $reader = "running" }
++    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
+     elseif (@(Get-PortListeners $ReaderPort).Count -gt 0) { $reader = "foreign_port_owner" }
+   } catch { $reader = "ownership_error" }
+   $readerReady = "not_ready"
+diff --git a/tools/operations-system-watchdog.ps1 b/tools/operations-system-watchdog.ps1
+index 9940300b..85c0d7fc 100644
+--- a/tools/operations-system-watchdog.ps1
++++ b/tools/operations-system-watchdog.ps1
+@@ -211,11 +211,22 @@ function Get-WatchProcessDiagnostic($Value){
+ }
+ function Resolve-WatchStatusControl {
+   $driver=Join-Path $PSScriptRoot 'watchdog-status-control.ps1'
+-  if(-not(Test-Path -LiteralPath $driver)){return @{path=$ControlPath;mode='legacy';reason='driver_not_installed'}}
++  $driverNames=@('watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json')
++  $present=@($driverNames|Where-Object {Test-Path -LiteralPath (Join-Path $PSScriptRoot $_)})
++  $bundle=Read-WatchJson (Join-Path $PSScriptRoot 'bundle.json')
++  $declared=@()
++  if($null -ne $bundle){
++    if($bundle.version -ne 1 -or $null -eq $bundle.files){throw 'invalid_diagnostic_bundle'}
++    $names=if($bundle.files -is [Collections.IDictionary]){@($bundle.files.Keys)}else{@($bundle.files.PSObject.Properties.Name)}
++    $declared=@($driverNames|Where-Object {$_ -cin $names})
++  }
++  # Only a genuinely never-configured historical driver may use legacy status.
++  if($present.Count -eq 0 -and $declared.Count -eq 0){return @{path=$ControlPath;mode='legacy';reason='driver_not_installed'}}
++  if($present.Count -ne $driverNames.Count){throw 'diagnostic_driver_incomplete'}
+   $binding=Read-WatchJson (Join-Path $PSScriptRoot 'driver-binding.json')
+   $sources=@{control=$ControlPath;worker=$WorkerPath;backend=(Join-Path $BackendRoot 'app\tools\django-local-service.ps1');transport=(Join-Path $ProjectRoot 'tools\process-deadline.ps1')}
+   if(-not $binding -or $binding.version -ne 1){throw 'invalid_diagnostic_binding'}
+-  foreach($name in $sources.Keys){if((Get-WatchHash $sources[$name]) -cne $binding.assetHashes.$name){return @{path=$ControlPath;mode='legacy';reason='diagnostic_predecessor_changed'}}}
++  foreach($name in $sources.Keys){if((Get-WatchHash $sources[$name]) -cne $binding.assetHashes.$name){throw 'diagnostic_predecessor_changed'}}
+   return @{path=$driver;mode='readonly_driver';reason='exact_predecessor'}
+ }
+ function Get-WatchSnapshot {
+
+FINAL SNAPSHOT
+function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
+  for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    $rows = @(Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction Stop)
+    if ($rows.Count -gt 1) { throw "Ambiguous process metadata: $ProcessId" }
+    $process = if ($rows.Count -eq 1) { $rows[0] } else { $null }
+    if ($process -and ([string]::IsNullOrWhiteSpace([string]$process.ExecutablePath) -or
+        [string]::IsNullOrWhiteSpace([string]$process.CommandLine) -or -not $process.CreationDate)) {
+      throw "Process metadata is unavailable; absence is not established: $ProcessId"
+    }
+    if ($process) {
+      return [pscustomobject]@{
+        Process = $process
+        ProcessId = [int]$process.ProcessId
+        CreationDate = Get-ProcessCreation $process
+        ExecutablePath = Get-CanonicalPath ([string]$process.ExecutablePath)
+        CommandLine = [string]$process.CommandLine
+      }
+    }
+    Start-Sleep -Milliseconds 100
+  }
+  return $null
+}
+
+function Resolve-OwnedProcess(
+  [string]$Service,
+  [string]$PidPath,
+  [string]$ExpectedLauncher,
+  [string[]]$ExpectedArguments = $null,
+  [string]$ExpectedFingerprint = "",
+  [switch]$ReadOnly
+) {
+  # Domain status wrappers share this resolver; an observational action cannot
+  # opt back into PID-record cleanup, even when its caller omits the switch.
+  $ReadOnly = $ReadOnly -or $Action -cmatch 'Status$'
+  if (-not (Test-Path -LiteralPath $PidPath -PathType Leaf)) { return $null }
+  $record = Read-JsonFile $PidPath "进程所有权记录"
+  $processId = 0
+  if (
+    [int]$record.version -ne 2 -or
+    [string]$record.service -cne $Service -or
+    -not [int]::TryParse([string]$record.processId, [ref]$processId) -or
+    -not ([string]$record.configFingerprint -match "^[0-9a-f]{64}$") -or
+    [string]::IsNullOrWhiteSpace([string]$record.launcherPath)
+  ) {
+    throw "进程所有权记录格式无效：$PidPath"
+  }
+  $recordCreationDate = ConvertTo-CanonicalCreationDate $record.creationDate
+  $snapshot = Get-ProcessSnapshot $processId 1
+  if ($null -eq $snapshot) {
+    if ($ReadOnly) { return $null }
+    Remove-Item -LiteralPath $PidPath -Force
+    Write-LauncherEvent "WARN" "stale_process_record_removed" $PidPath
+    return $null
+  }
+  $recordArguments = @($record.arguments | ForEach-Object { [string]$_ })
+  $matches = (
+    $snapshot.CreationDate -ceq $recordCreationDate -and
+    $snapshot.ExecutablePath -ieq (Get-CanonicalPath ([string]$record.executablePath)) -and
+    (Get-CanonicalPath ([string]$record.launcherPath)) -ieq (Get-CanonicalPath $ExpectedLauncher) -and
+    $snapshot.CommandLine -ceq [string]$record.commandLine -and
+    (Test-CommandLineReferencesPath $snapshot.CommandLine $ExpectedLauncher)
+  )
+  if ($null -ne $ExpectedArguments) { $matches = $matches -and (Test-ExactStringArray $recordArguments $ExpectedArguments) }
+  if ($ExpectedFingerprint) { $matches = $matches -and ([string]$record.configFingerprint -ceq $ExpectedFingerprint) }
+  if (-not $matches) {
+    if (-not $ReadOnly -and (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt)) {
+      return $null
+    }
+    throw "PID 已复用或进程身份与所有权记录不一致；拒绝接管或终止：$PidPath"
+  }
+  return $snapshot
+}
+
+function Resolve-WatchStatusControl {
+  $driver=Join-Path $PSScriptRoot 'watchdog-status-control.ps1'
+  $driverNames=@('watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json')
+  $present=@($driverNames|Where-Object {Test-Path -LiteralPath (Join-Path $PSScriptRoot $_)})
+  $bundle=Read-WatchJson (Join-Path $PSScriptRoot 'bundle.json')
+  $declared=@()
+  if($null -ne $bundle){
+    if($bundle.version -ne 1 -or $null -eq $bundle.files){throw 'invalid_diagnostic_bundle'}
+    $names=if($bundle.files -is [Collections.IDictionary]){@($bundle.files.Keys)}else{@($bundle.files.PSObject.Properties.Name)}
+    $declared=@($driverNames|Where-Object {$_ -cin $names})
+  }
+  # Only a genuinely never-configured historical driver may use legacy status.
+  if($present.Count -eq 0 -and $declared.Count -eq 0){return @{path=$ControlPath;mode='legacy';reason='driver_not_installed'}}
+  if($present.Count -ne $driverNames.Count){throw 'diagnostic_driver_incomplete'}
+  $binding=Read-WatchJson (Join-Path $PSScriptRoot 'driver-binding.json')
+  $sources=@{control=$ControlPath;worker=$WorkerPath;backend=(Join-Path $BackendRoot 'app\tools\django-local-service.ps1');transport=(Join-Path $ProjectRoot 'tools\process-deadline.ps1')}
+  if(-not $binding -or $binding.version -ne 1){throw 'invalid_diagnostic_binding'}
+  foreach($name in $sources.Keys){if((Get-WatchHash $sources[$name]) -cne $binding.assetHashes.$name){throw 'diagnostic_predecessor_changed'}}
+  return @{path=$driver;mode='readonly_driver';reason='exact_predecessor'}
+}
+CONTROLLED TEST
+param([string]$RepositoryRoot)
+$ErrorActionPreference='Stop'
+# Load only the real function bodies through the PowerShell AST. No service
+# top-level, CIM, HTTP, production filesystem, task or lifecycle is invoked.
+$asts=@{}
+foreach($file in @('django-local-service.ps1','operations-system-watchdog.ps1')){
+  $tokens=$null;$errors=$null
+  $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $RepositoryRoot "tools/$file"),[ref]$tokens,[ref]$errors)
+  if($errors.Count){throw "Invalid source: $file"};$asts[$file]=$ast
+}
+foreach($name in @('Get-ProcessSnapshot','Resolve-OwnedProcess','ConvertTo-CanonicalCreationDate')){
+  $fn=$asts['django-local-service.ps1'].Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name},$true)
+  Invoke-Expression $fn.Extent.Text
+}
+$resolver=$asts['django-local-service.ps1'].Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq 'Resolve-OwnedProcess'},$true).Extent.Text
+$watch=$asts['operations-system-watchdog.ps1'].Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq 'Resolve-WatchStatusControl'},$true).Extent.Text
+$cases=[Collections.Generic.List[string]]::new()
+function Check([string]$Name,[scriptblock]$Body){& $Body;$cases.Add($Name)}
+function MustThrow([scriptblock]$Body){$caught=$false;try{& $Body|Out-Null}catch{$caught=$true};if(-not $caught){throw 'Expected rejection'}}
+function Assert([bool]$Value){if(-not $Value){throw 'Assertion failed'}}
+function Start-Sleep{}
+function Get-CanonicalPath([string]$Path){return $Path}
+function Get-ProcessCreation($Process){return $Process.CreationDate}
+function Get-CimInstance {
+  [CmdletBinding()]param([string]$ClassName,[string]$Filter)
+  if($script:mode -eq 'error'){throw 'Synthetic CIM access denied'}
+  if($script:mode -eq 'absent'){return}
+  $p=[pscustomobject]@{ProcessId=123;ExecutablePath='C:\fixture\python.exe';CommandLine='fixture launch';CreationDate='2026-10-12T00:00:00.0000000Z'}
+  switch($script:mode){'image'{$p.ExecutablePath=$null};'command'{$p.CommandLine=$null};'birth'{$p.CreationDate=$null};'blank'{$p.CommandLine='  '};'duplicate'{return @($p,$p)}}
+  return $p
+}
+foreach($mode in @('valid','absent','image','command','birth','error','duplicate','blank')){
+  $script:mode=$mode
+  Check "snapshot-$mode" {
+    if($script:mode -eq 'valid'){Assert ((Get-ProcessSnapshot 123 1).ProcessId -eq 123)}
+    elseif($script:mode -eq 'absent'){Assert ($null -eq (Get-ProcessSnapshot 123 1))}
+    else{MustThrow {Get-ProcessSnapshot 123 1}}
+  }
+}
+function Test-Path {param([string]$LiteralPath,[string]$PathType);return $script:recordExists}
+function Read-JsonFile {return $script:record}
+function Remove-Item {param([string]$LiteralPath,[switch]$Force);$script:removed++}
+function Write-LauncherEvent {$script:logged++}
+function Remove-PreviousBootProcessRecordIfSafe {$script:previousCalls++;return $script:previousSafe}
+function Test-CommandLineReferencesPath {return $true}
+function Test-ExactStringArray($Left,$Right){return (($Left -join ',') -ceq ($Right -join ','))}
+function Reset-Resolver {
+  $script:mode='valid';$script:recordExists=$true;$script:removed=0;$script:logged=0;$script:previousCalls=0;$script:previousSafe=$false;$script:Action='Start'
+  $script:record=[pscustomobject]@{version=2;service='fixture';processId=123;configFingerprint=('a'*64);launcherPath='C:\fixture\python.exe';executablePath='C:\fixture\python.exe';commandLine='fixture launch';creationDate='2026-10-12T00:00:00.0000000Z';startedAt='2026-10-12T00:00:00.0000000Z';arguments=@('x')}
+}
+foreach($case in @('missing-record','readonly-absent','lifecycle-absent','readonly-image','lifecycle-image','readonly-error','lifecycle-error','readonly-reused','lifecycle-reused','readonly-previous-boot','lifecycle-previous-boot','readonly-valid','lifecycle-valid','wrong-service','wrong-fingerprint','status-absent','aggregate-absent','status-false-switch')){
+  Reset-Resolver
+  Check "resolver-$case" {
+    switch($case){
+      'missing-record'{$script:recordExists=$false;Assert ($null -eq (Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe' -ReadOnly))}
+      'readonly-absent'{$script:mode='absent';Assert ($null -eq (Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe' -ReadOnly))}
+      'lifecycle-absent'{$script:mode='absent';Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe'|Out-Null;Assert ($script:removed -eq 1 -and $script:logged -eq 1)}
+      'readonly-image'{$script:mode='image';MustThrow {Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe' -ReadOnly}}
+      'lifecycle-image'{$script:mode='image';MustThrow {Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe'}}
+      'readonly-error'{$script:mode='error';MustThrow {Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe' -ReadOnly}}
+      'lifecycle-error'{$script:mode='error';MustThrow {Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe'}}
+      'readonly-reused'{$script:record.creationDate='2026-10-11T00:00:00.0000000Z';MustThrow {Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe' -ReadOnly};Assert ($script:previousCalls -eq 0)}
+      'lifecycle-reused'{$script:record.creationDate='2026-10-11T00:00:00.0000000Z';MustThrow {Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe'}}
+      'readonly-previous-boot'{$script:previousSafe=$true;$script:record.commandLine='old';MustThrow {Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe' -ReadOnly};Assert ($script:previousCalls -eq 0)}
+      'lifecycle-previous-boot'{$script:previousSafe=$true;$script:record.commandLine='old';Assert ($null -eq (Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe'));Assert ($script:previousCalls -eq 1)}
+      'readonly-valid'{Assert ((Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe' -ReadOnly).ProcessId -eq 123)}
+      'lifecycle-valid'{Assert ((Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe').ProcessId -eq 123)}
+      'wrong-service'{$script:record.service='other';MustThrow {Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe' -ReadOnly}}
+      'wrong-fingerprint'{MustThrow {Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe' -ExpectedFingerprint ('b'*64) -ReadOnly}}
+      'status-absent'{$script:Action='Status';$script:mode='absent';Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe'|Out-Null}
+      'aggregate-absent'{$script:Action='AggregateStatus';$script:mode='absent';Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe'|Out-Null}
+      'status-false-switch'{$script:Action='FinanceStatus';$script:mode='absent';Resolve-OwnedProcess fixture fixture 'C:\fixture\python.exe' -ReadOnly:$false|Out-Null}
+    }
+    if($case -ne 'lifecycle-absent'){Assert ($script:removed -eq 0 -and $script:logged -eq 0)}
+  }
+}
+# Seven calls in the actual top-level/aggregate status helper graph explicitly
+# retain observational behavior even when invoked from a Start readiness check.
+$statusNames=@('Show-ServiceStatus','Show-FinanceServiceStatus','Get-SimpleDjangoDomainStatus','Get-SimpleDjangoReaderStatus')
+$calls=@($asts['django-local-service.ps1'].FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -cin $statusNames},$true)|ForEach-Object {$_.FindAll({param($n)$n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -ceq 'Resolve-OwnedProcess'},$true)})
+Assert ($calls.Count -eq 7)
+foreach($call in $calls){Assert (@($call.CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -ceq 'ReadOnly'}).Count -eq 1)}
+# AST extraction has no script file origin. Relocate only its automatic source
+# directory variable; all filesystem operations below remain controlled stubs.
+$FixtureDriverRoot='C:\fixture\driver'
+Invoke-Expression ($watch.Replace('$PSScriptRoot','$FixtureDriverRoot'))
+$ProjectRoot='C:\fixture';$ControlPath='C:\fixture\control.ps1';$WorkerPath='C:\fixture\worker.ps1';$BackendRoot='C:\fixture\backend'
+$driverNames=@('watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json')
+function Test-Path {param([string]$LiteralPath,[string]$PathType);return ((Split-Path -Leaf $LiteralPath) -cin $script:present)}
+function Read-WatchJson {param([string]$Path);if((Split-Path -Leaf $Path) -eq 'bundle.json'){return $script:bundle};return $script:binding}
+function Get-WatchHash {param([string]$Path);if($script:hashError){throw 'Synthetic unreadable asset'};return $script:actual[(Split-Path -Leaf $Path)]}
+function Reset-Watch {
+  $script:present=@($driverNames);$script:bundle=$null;$script:hashError=$false
+  $script:binding=[pscustomobject]@{version=1;assetHashes=[pscustomobject]@{control=('a'*64);worker='4c315221d5722b1b90abd8b25f16f95c3df588ab111f4ce4dd070f1b433ded80';backend=('c'*64);transport=('d'*64)}}
+  $script:actual=@{'control.ps1'=('a'*64);'worker.ps1'=$script:binding.assetHashes.worker;'django-local-service.ps1'=('c'*64);'process-deadline.ps1'=('d'*64)}
+}
+foreach($case in @('unconfigured','historical-five','valid-nine','mismatch-control','mismatch-worker','mismatch-backend','mismatch-transport','missing-control','missing-backend','missing-overlay','missing-binding','orphan-binding','all-missing-declared','invalid-version','missing-hash','unreadable-asset','invalid-bundle')){
+  Reset-Watch
+  Check "watch-$case" {
+    switch($case){
+      'unconfigured'{$script:present=@()}
+      'historical-five'{$script:present=@();$script:bundle=[pscustomobject]@{version=1;files=[pscustomobject]@{'operations-system-watchdog.ps1'='old'}}}
+      'valid-nine'{$script:bundle=[pscustomobject]@{version=1;files=[pscustomobject]@{'driver-binding.json'='fixed'}}}
+      'mismatch-control'{$script:actual['control.ps1']='b'*64}
+      'mismatch-worker'{$script:actual['worker.ps1']='717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e'}
+      'mismatch-backend'{$script:actual['django-local-service.ps1']='b'*64}
+      'mismatch-transport'{$script:actual['process-deadline.ps1']='b'*64}
+      'missing-control'{$script:present=@($driverNames|Where-Object {$_ -ne 'watchdog-status-control.ps1'})}
+      'missing-backend'{$script:present=@($driverNames|Where-Object {$_ -ne 'watchdog-status-backend.ps1'})}
+      'missing-overlay'{$script:present=@($driverNames|Where-Object {$_ -ne 'watchdog-core-overlay.ps1'})}
+      'missing-binding'{$script:present=@($driverNames|Where-Object {$_ -ne 'driver-binding.json'})}
+      'orphan-binding'{$script:present=@('driver-binding.json')}
+      'all-missing-declared'{$script:present=@();$script:bundle=[pscustomobject]@{version=1;files=[pscustomobject]@{'driver-binding.json'='fixed'}}}
+      'invalid-version'{$script:binding.version=2}
+      'missing-hash'{$script:binding.assetHashes.worker=$null}
+      'unreadable-asset'{$script:hashError=$true}
+      'invalid-bundle'{$script:bundle=[pscustomobject]@{version=2;files=[pscustomobject]@{}}}
+    }
+    if($case -in @('unconfigured','historical-five')){Assert ((Resolve-WatchStatusControl).mode -ceq 'legacy')}
+    elseif($case -eq 'valid-nine'){Assert ((Resolve-WatchStatusControl).mode -ceq 'readonly_driver')}
+    else{MustThrow {Resolve-WatchStatusControl}}
+  }
+}
+[pscustomobject]@{cases=$cases.Count;names=$cases.ToArray();explicitReadOnlyStatusCalls=$calls.Count;productionCalls=0}|ConvertTo-Json -Depth 4 -Compress

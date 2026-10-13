@@ -1,0 +1,13 @@
+{
+  "status": "prepared-for-final-production-approval",
+  "batch": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+  "specSha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b",
+  "source": "dc1dbeeded593980c6712e7afabde0a053dfd13d8f6c4bb9375718330af2b8fb",
+  "artifact": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+  "freshQualificationSha256": "048403298fbf044b9c899d763f61d12fbcf02fa879a7215564d75fdeaecb7e0f",
+  "durationSeconds": 568.653,
+  "admissionStageCount": 15,
+  "allStagesPassed": true,
+  "productionApproved": false,
+  "productionActions": 0
+}

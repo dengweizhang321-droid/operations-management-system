@@ -1,0 +1,31 @@
+{
+  "version": "teruisi-approved-production-transport-binding-v1",
+  "windowsSid": "S-1-5-21-815909789-107973518-1379257801-1001",
+  "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+  "approvalSha256": "dfd9e3dc69b61c1fb7761fa058d5ee66a519782de1d8d830b28a57df29be835a",
+  "runner": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\run-approved-batch-v2.mjs",
+  "node": "C:/Program Files/nodejs/node.exe",
+  "workingDirectory": "D:/.codex/worktrees/release-site-blockers/运营管理系统",
+  "files": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\run-approved-batch-v2.mjs",
+      "sha256": "34cd926401d09cbe806c586b4d426e6a5e9656c22192daeb838085957ce9a7b0"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/APPROVAL.json",
+      "sha256": "dfd9e3dc69b61c1fb7761fa058d5ee66a519782de1d8d830b28a57df29be835a"
+    },
+    {
+      "path": "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+      "sha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b"
+    },
+    {
+      "path": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\fresh-adoption-entry-v2.mjs",
+      "sha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99"
+    },
+    {
+      "path": "C:/Program Files/nodejs/node.exe",
+      "sha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de"
+    }
+  ]
+}

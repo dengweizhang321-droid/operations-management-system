@@ -1,0 +1,200 @@
+独立源码复审，只按本文给出中文结论(800字内)，不运行工具，不写文件，不操作生产。新会话、Node原生argv数组（受控字节接收器完整一致），避免旧PS5去引号问题。
+目标为精确首次采用发布策略候选：用户要求一次前Backup＋一次新已安装消费链同点隔离Restore，无后DB；所有生产仍等最终批准。旧f0 batch/9e/bb861 readonly包不可改，不改正式包/source。当前只读核查五OS对象实际API0/64/layout/birth同基线、两个Microsoft系统image签名/hash成功。下面拟外置有限policy仅基于精确已审实例，绝非名字白名单；解释器/业务actor未知仍拒、已识别引用不能覆盖、所有完整源/包/路径/ACL/身份/互斥/排空/现场复验继续保留。
+WSL真实8mount namespace，只有readonly drivers 9p、没有DrvFS/Windows盘；全部bounded proc读取一致37proc/0err，guestepoch前后一致。guest btime和Windows vmmem birth差2h11m，所以禁止用时间相等/扩大容差推host关联。新host关联helper使用官方ComputeCore API existing enumerate（无create/open/start/stop）；same-handle parentvmwp native image/command GUID、精确Windows签名和hash、nativebirth/CIM双验，与双HCS唯一WSL RuntimeId关联。普通权限HCS完成0x8037011b/进程error5，尚未有管理员真实关联证据；新sealed readonly admin包需要另行允许，不偷偷提权。缺证仍blocked，不以fixture/模型意见当现场通过。
+请找具体最小修正和危险反例：伪造字段、遗漏kernel argv目标、错误状态/指针、HCS返回空或identity race、System32父链换绑、newnamespace/mount变化、误称无副作用。范围明确支持现有无Windows盘guest，不先造泛化框架。生产guard包装尚未最终封存、pipeline仍工作中，不能替它给最终许可。
+
+FILE live-os-instance-policy.mjs
+// Task-specific, proposed live guard policy. This module grants no batch approval.
+import assert from 'node:assert/strict';
+const NONE=0xfffffffe;
+const pinned=[
+ {pid:236,name:'Secure System',birth:'134355974016662550',cim:'2026-10-04T14:23:21.6662550Z',flags:129,peb:true,level:5,reason:'missing-or-invalid-executable',kind:'reviewed-system-instance'},
+ {pid:280,name:'Registry',birth:'134355974016977125',cim:'2026-10-04T14:23:21.6977120Z',flags:1,peb:true,level:5,reason:'missing-or-invalid-executable',kind:'reviewed-system-instance'},
+ {pid:1700,name:'LsaIso.exe',birth:'134355974136433726',cim:'2026-10-04T14:23:33.6433720Z',flags:128,peb:false,level:NONE,reason:'unproven-native-command-unreadable',kind:'reviewed-ium-instance',image:'C:\\Windows\\System32\\LsaIso.exe',sha:'c6d056926edf6c5b531f1bb58a366794f95446bf35e40cf51c069bd068d0c967'},
+ {pid:6548,name:'NgcIso.exe',birth:'134355974150851854',cim:'2026-10-04T14:23:35.0851850Z',flags:128,peb:false,level:NONE,reason:'unproven-native-command-unreadable',kind:'reviewed-ium-instance',image:'C:\\Windows\\System32\\NgcIso.exe',sha:'a35439fab7d5188fe047b580e6ed3aea547453718a4fa854524a8d1d2c213203'},
+ {pid:53880,name:'vmmemWSL',birth:'134360870965622198',cim:'2026-10-10T06:24:56.5622190Z',flags:0,peb:true,level:NONE,reason:'missing-or-invalid-executable',kind:'requires-wsl-supplement'}
+];
+export const nativeEvidenceBinding=Object.freeze({
+ packetSha256:'bb861c8fecab8e5652029c6c509daba48b767344a0c494ea39bd281a83c4b0e0',
+ evidenceSha256:'0c0c0b4074403c8b7d1a53e9d4c4ffdbdb97802bed6827bcd13e70fb264cf4d6',
+ probeSha256:'6cef0abc35f4c99300d9b36393add66191557715d14d3d4a930dc0627d0f3ff9'
+});
+export function classifyBoundOsInstance(process,native,finding){
+ assert.equal(finding?.kind,'process-unknown','An identified reference cannot be overridden');
+ const expected=pinned.find(p=>p.pid===process?.ProcessId);
+ assert.ok(expected,'Process is outside the five reviewed instances');
+ assert.equal(finding.processId,expected.pid);assert.equal(finding.reason,expected.reason,'Unsupported unknown reason');
+ assert.equal(process.Name,expected.name);assert.equal(process.SessionId,0);assert.equal(process.identityStable,true);
+ // The old predicate may stop at missing ExecutablePath before inspecting
+ // CommandLine. Never let that early failure conceal a command/reference.
+ assert.ok(process.CommandLine==null||process.CommandLine==='','A nonempty command cannot use this metadata-absence exception');
+ assert.equal(process.cimCreationUtc,expected.cim,'Live CIM instance differs');
+ assert.equal(native?.processId,expected.pid);assert.equal(native.name,expected.name);assert.equal(native.sessionId,0);
+ assert.equal(native.nativeCreationFileTime,expected.birth);assert.equal(native.cimCreationUtc,expected.cim);
+ assert.equal(native.accessMask,'0x1000');assert.equal(native.instanceMatchesBaseline,true);assert.equal(native.identityStable,true);
+ for(const key of ['openError','timeBeforeError','timeAfterError','protectionError'])assert.equal(native[key],null,key);
+ assert.equal(native.ntStatus,0);assert.equal(native.ntStatusHex,'00000000');assert.equal(native.returnedLength,64);assert.equal(native.structureSize,64);
+ assert.equal(native.basicProcessId,expected.pid);assert.equal(native.layoutValid,true);assert.equal(native.pebIsNull,expected.peb);
+ assert.equal(native.flags,expected.flags);assert.equal(native.flagsHex,expected.flags.toString(16).padStart(8,'0'));assert.equal(native.unknownFlagBits,0);
+ assert.equal(native.isSecureProcess,!!(expected.flags&128));assert.equal(native.isProtectedProcess,!!(expected.flags&1));assert.equal(native.isSubsystemProcess,false);
+ assert.equal(native.protectionSucceeded,true);assert.equal(native.protectionLevel,expected.level);assert.equal(native.protectionLevelHex,expected.level.toString(16).padStart(8,'0'));
+ if(expected.image){
+  // The live collector queries the image on the same native handle, holds its
+  // exact system file open across hashing/signature, and brackets instance state.
+  assert.equal(process.ExecutablePath?.toLowerCase(),expected.image.toLowerCase());
+  const e=native.imageEvidence;assert.ok(e);assert.equal(e.status,'metadata-collected-not-admission');
+  assert.equal(e.expectedPath,expected.image);assert.equal(e.actualPath,expected.image);assert.equal(e.sha256,expected.sha);
+  assert.equal(e.queryError,null);assert.equal(e.failure,null);assert.equal(e.postIdentityStable,true);
+  assert.equal(e.signatureStatus,'Valid');assert.equal(e.signerSubject,'CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US');
+  assert.equal(e.signerIssuer,'CN=Microsoft Windows Production PCA 2011, O=Microsoft Corporation, L=Redmond, S=Washington, C=US');
+  assert.equal(e.signerThumbprint,'DC91E564D5BC1E3A8E02D6A8508682ABEA8A2443');
+ } else assert.ok(process.ExecutablePath==null||process.ExecutablePath==='','A new user image cannot use a kernel/VM exception');
+ // Even a correct native vmmem tuple is deliberately not an exemption.
+ return Object.freeze({kind:expected.kind,processId:expected.pid,nativeCreationFileTime:expected.birth});
+}
+
+FILE live-wsl-policy.mjs
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+const hash=v=>createHash('sha256').update(v).digest('hex');
+const epoch=Object.freeze({bootId:'4a67b065-2648-48ef-8821-72f272ceb41d',btime:'1791621408',pid1Start:'122',osrelease:'6.18.33.2-microsoft-standard-WSL2'});
+const mounts=Object.freeze({
+ 'mnt:[4026532219]':'e9e99aac5a773010f013e3cf2aa4dca895d064092617606b3267a012f356f188',
+ 'mnt:[4026532222]':'41902b8e2cf713bc967b3f644cc8f9a8b09a47f32a438eb57a29acc771879ee2',
+ 'mnt:[4026532224]':'c96dff9c35deba377ff3bf61838235f0239f4c3f7036482ef5d8ea1d8c38c97c',
+ 'mnt:[4026532225]':'60f46d9a2900b58e4fc84e0ca114b6d2edc09fad085d4c4fa1b63ea47f2783f1',
+ 'mnt:[4026532288]':'1b2ac6d15ff3f578a426c01c1cdd501a9256297090af8410c4d38b922bbb3df9',
+ 'mnt:[4026532230]':'79c1d0e33fffdbbd56182db9f6e1f031cbe97f882f322b73123b37dfef714057',
+ 'mnt:[4026532296]':'00a5c46107c834ab9c9cc90704a4a25e13593e6cb8a5d158e66d3955b4210cc5',
+ 'mnt:[4026532297]':'aaffa6b12395e736e7df967534404abad683bcde4cee816c44a0427c3b8b389e'
+});
+function ids(v){assert.ok(Array.isArray(v)&&v.length<=512);assert.ok(v.every(p=>Number.isSafeInteger(p)&&p>0));assert.equal(new Set(v).size,v.length);return [...v].sort((a,b)=>a-b);}
+function string(v){assert.equal(typeof v,'string');assert.ok(v.length<=1048576);assert.ok(!v.includes('\0'));return v;}
+export function validateLiveGuestShape(capture){
+ assert.equal(capture?.version,'teruisi-live-wsl-metadata-v1');assert.deepEqual(capture.errors,[]);
+ assert.deepEqual(capture.before,epoch,'Unsupported guest epoch');assert.deepEqual(capture.after,epoch,'Guest epoch changed');
+ assert.ok(Number.isSafeInteger(capture.selfPid)&&capture.selfPid>0);assert.ok(!capture.pidInventoryBefore.includes(capture.selfPid));
+ assert.deepEqual(ids(capture.pidInventoryBefore),ids(capture.pidInventoryAfter),'Process membership changed');
+ assert.ok(Array.isArray(capture.processes));assert.deepEqual(ids(capture.processes.map(p=>p.pid)),ids(capture.pidInventoryBefore),'Missing process evidence');
+ assert.ok(Array.isArray(capture.namespaces));assert.equal(new Set(capture.namespaces.map(n=>n.identity)).size,capture.namespaces.length);
+ assert.deepEqual(capture.namespaces.map(n=>n.identity).sort(),Object.keys(mounts).sort(),'Unsupported mount namespace');
+ for(const ns of capture.namespaces)assert.equal(hash(string(ns.mountinfo)),mounts[ns.identity],'Mount contents changed or unsupported');
+ const paths=[];
+ for(const p of capture.processes){
+  assert.match(p.startBefore,/^\d+$/);assert.equal(p.startBefore,p.startAfter);assert.equal(p.namespaceBefore,p.namespaceAfter);assert.ok(Object.hasOwn(mounts,p.namespaceBefore));
+  assert.equal(p.mountSha256Before,mounts[p.namespaceBefore]);assert.equal(p.mountSha256After,p.mountSha256Before);
+  assert.deepEqual(p.linksBefore,p.linksAfter);assert.deepEqual(Object.keys(p.linksBefore).sort(),['cwd','exe','root']);
+  assert.deepEqual(p.argvBefore,p.argvAfter);assert.ok(Array.isArray(p.argvBefore)&&p.argvBefore.length<=4096);
+  assert.deepEqual(p.fdsBefore,p.fdsAfter);assert.ok(p.fdsBefore&&typeof p.fdsBefore==='object'&&!Array.isArray(p.fdsBefore));assert.ok(Object.keys(p.fdsBefore).length<=4096);
+  for(const [kind,value] of Object.entries(p.linksBefore))paths.push({pid:p.pid,kind,value:string(value)});
+  for(const [fd,value] of Object.entries(p.fdsBefore)){assert.match(fd,/^\d+$/);paths.push({pid:p.pid,kind:'fd',value:string(value)});}
+  for(const value of p.argvBefore)paths.push({pid:p.pid,kind:'argv',value:string(value)});
+ }
+ // This release supports only the exact inspected namespaces with no Windows
+ // drive mounts. It does not attempt general mount/bind/namespace translation.
+ // Windows-style metadata must still pass the original physical reference
+ // predicate; this function never labels a complete guest or VM "safe".
+ return {kind:'guest-shape-verified-requires-reference-check-and-hcs-association',epoch:{...epoch},paths,processCount:capture.processes.length};
+}
+
+FILE Probe-WslHostAssociation.ps1
+param([Parameter(Mandatory=$true)][string]$OutputPath)
+$ErrorActionPreference='Stop'
+if([IntPtr]::Size -ne 8){throw 'Reviewed x64 host required'}
+if(Test-Path -LiteralPath $OutputPath){throw 'Create-only metadata'}
+Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public static class ReleaseWslHostQuery {
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern IntPtr OpenProcess(uint a,bool inherit,uint pid);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool CloseHandle(IntPtr h);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool GetProcessTimes(IntPtr h,out long c,out long e,out long k,out long u);
+ [DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode)] public static extern bool QueryFullProcessImageName(IntPtr h,uint flags,StringBuilder b,ref uint n);
+ [DllImport("ntdll.dll")] public static extern int NtQueryInformationProcess(IntPtr h,int cl,IntPtr b,uint n,out uint required);
+ [DllImport("computecore.dll",ExactSpelling=true)] public static extern IntPtr HcsCreateOperation(IntPtr context,IntPtr callback);
+ [DllImport("computecore.dll",ExactSpelling=true,CharSet=CharSet.Unicode)] public static extern int HcsEnumerateComputeSystems(string query,IntPtr operation);
+ [DllImport("computecore.dll",ExactSpelling=true)] public static extern int HcsWaitForOperationResult(IntPtr operation,uint timeout,out IntPtr result);
+ [DllImport("computecore.dll",ExactSpelling=true)] public static extern void HcsCloseOperation(IntPtr operation);
+ [DllImport("kernel32.dll",ExactSpelling=true)] public static extern IntPtr LocalFree(IntPtr data);
+ public static string Command(IntPtr h,out int status){
+  uint n;status=NtQueryInformationProcess(h,60,IntPtr.Zero,0,out n);
+  if(n<16||n>65536+64)return null;
+  IntPtr b=Marshal.AllocHGlobal((int)n);
+  try{uint allocated=n;status=NtQueryInformationProcess(h,60,b,allocated,out n);
+   if(status!=0||n<16||n>allocated)return null;
+   int length=(ushort)Marshal.ReadInt16(b),maximum=(ushort)Marshal.ReadInt16(b,2);
+   long p=Marshal.ReadIntPtr(b,8).ToInt64(),start=b.ToInt64();
+   if(length%2!=0||maximum%2!=0||length>maximum||p<start+16||p-start>allocated||maximum>allocated-(p-start)){status=unchecked((int)0xC000000D);return null;}
+   string v=Marshal.PtrToStringUni(new IntPtr(p),length/2);return String.IsNullOrWhiteSpace(v)?null:v;
+  }finally{Marshal.FreeHGlobal(b);}
+ }
+}
+'@
+function Get-HostAssociationHash([byte[]]$Bytes){$s=[Security.Cryptography.SHA256]::Create();try{([BitConverter]::ToString($s.ComputeHash($Bytes))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()}}
+function Read-HcsAssociationMetadata {
+ $op=[ReleaseWslHostQuery]::HcsCreateOperation([IntPtr]::Zero,[IntPtr]::Zero)
+ if($op -eq [IntPtr]::Zero){throw 'HCS query handle allocation failed'}
+ $doc=[IntPtr]::Zero;$done=$null;$systems=@()
+ try{
+  $start=[ReleaseWslHostQuery]::HcsEnumerateComputeSystems($null,$op)
+  if($start -eq 0){$done=[ReleaseWslHostQuery]::HcsWaitForOperationResult($op,10000,[ref]$doc)}
+  if($done -eq 0 -and $doc -ne [IntPtr]::Zero){
+   $text=[Runtime.InteropServices.Marshal]::PtrToStringUni($doc)
+   if($text.Length -gt 4194304 -or !$text.TrimStart().StartsWith('[')){throw 'HCS query shape/size rejected'}
+   foreach($system in @($text|ConvertFrom-Json)){
+    if($system.Owner -ceq 'WSL'){$systems+=[ordered]@{id=$system.Id;runtimeId=$system.RuntimeId;owner=$system.Owner;state=$system.State;systemType=$system.SystemType;runtimeOsType=$system.RuntimeOsType}}
+   }
+  }
+  return [pscustomobject]@{startStatus=$start;completionStatus=$done;wslSystems=$systems}
+ }finally{if($doc -ne [IntPtr]::Zero){[void][ReleaseWslHostQuery]::LocalFree($doc)};[ReleaseWslHostQuery]::HcsCloseOperation($op)}
+}
+function Assert-HostAssociationImagePath([string]$Path){$c=[IO.Path]::GetFullPath($Path);while($c){$item=Get-Item -LiteralPath $c -Force;if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Redirected system image'};$parent=[IO.Path]::GetDirectoryName($c);if($parent -eq $c){break};$c=$parent}}
+$firstHcs=Read-HcsAssociationMetadata
+$before=Get-CimInstance Win32_Process -Filter 'ProcessId=53880'
+$parentBefore=Get-CimInstance Win32_Process -Filter 'ProcessId=7788'
+$record=[ordered]@{status='unproven';vmmemProcessId=53880;vmmemCreationFileTime=$null;parentProcessId=7788;parentCreationFileTime=$null;parentCimCreationUtc=$null;accessMask='0x1000';vmmemOpenError=$null;parentOpenError=$null;imagePath=$null;imageSha256=$null;signatureStatus=$null;signerSubject=$null;commandStatusFirst=$null;commandStatusSecond=$null;commandSha256=$null;runtimeGuidCandidates=@();identityStable=$false;hcsBefore=$firstHcs;hcsAfter=$null;matchingRuntimeIds=@();failure=$null}
+$vm=[IntPtr]::Zero;$parent=[IntPtr]::Zero;$imageFile=$null
+try{
+ if($null -eq $before -or $before.Name -cne 'vmmemWSL' -or $before.SessionId -ne 0 -or $before.ParentProcessId -ne 7788){throw 'Bound host relationship changed'}
+ if($null -eq $parentBefore -or $parentBefore.Name -cne 'vmwp.exe' -or $parentBefore.SessionId -ne 0 -or $parentBefore.CreationDate.ToUniversalTime().ToString('o') -cne '2026-10-10T06:24:56.4681900Z'){throw 'Bound parent instance changed'}
+ $vm=[ReleaseWslHostQuery]::OpenProcess(0x1000,$false,53880);if($vm -eq [IntPtr]::Zero){$record.vmmemOpenError=[Runtime.InteropServices.Marshal]::GetLastWin32Error();throw 'vmmem handle unavailable'}
+ $parent=[ReleaseWslHostQuery]::OpenProcess(0x1000,$false,7788);if($parent -eq [IntPtr]::Zero){$record.parentOpenError=[Runtime.InteropServices.Marshal]::GetLastWin32Error();throw 'parent handle unavailable'}
+ $v1=0L;$v2=0L;$p1=0L;$p2=0L;$e=0L;$k=0L;$u=0L
+ if(![ReleaseWslHostQuery]::GetProcessTimes($vm,[ref]$v1,[ref]$e,[ref]$k,[ref]$u) -or $v1 -ne 134360870965622198L){throw 'vmmem birth not exact bound instance'}
+ if(![ReleaseWslHostQuery]::GetProcessTimes($parent,[ref]$p1,[ref]$e,[ref]$k,[ref]$u) -or [Math]::Floor([decimal]$p1/10) -ne [Math]::Floor([decimal]$parentBefore.CreationDate.ToUniversalTime().ToFileTimeUtc()/10)){throw 'parent birth inconsistent'}
+ $record.vmmemCreationFileTime=$v1.ToString();$record.parentCreationFileTime=$p1.ToString();$record.parentCimCreationUtc=$parentBefore.CreationDate.ToUniversalTime().ToString('o')
+ $b=[Text.StringBuilder]::new(32768);$n=[uint32]32768
+ if(![ReleaseWslHostQuery]::QueryFullProcessImageName($parent,0,$b,[ref]$n) -or ![string]::Equals($b.ToString(),'C:\Windows\System32\vmwp.exe',[StringComparison]::OrdinalIgnoreCase)){throw 'Actual parent image is not permitted System32 binary'}
+ $record.imagePath=$b.ToString();Assert-HostAssociationImagePath $record.imagePath
+ $imageFile=[IO.File]::Open($record.imagePath,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+ $s=[Security.Cryptography.SHA256]::Create();try{$record.imageSha256=([BitConverter]::ToString($s.ComputeHash($imageFile))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()}
+ if($record.imageSha256 -cne '62814079cc5a896142fc28d1084b7c22e97b4e35d3816b4e45f51c5bb0a88b7c'){throw 'Parent system file bytes changed'}
+ $signature=Microsoft.PowerShell.Security\Get-AuthenticodeSignature -LiteralPath $record.imagePath
+ $record.signatureStatus=[string]$signature.Status;$record.signerSubject=$signature.SignerCertificate.Subject
+ if($record.signatureStatus -cne 'Valid' -or $record.signerSubject -cne 'CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US'){throw 'Parent signature not exact reviewed Windows signer'}
+ $s1=0;$s2=0;$cmd1=[ReleaseWslHostQuery]::Command($parent,[ref]$s1);$cmd2=[ReleaseWslHostQuery]::Command($parent,[ref]$s2)
+ $record.commandStatusFirst=$s1;$record.commandStatusSecond=$s2
+ if($s1 -ne 0 -or $s2 -ne 0 -or $null -eq $cmd1 -or $cmd1 -cne $cmd2){throw 'Parent command metadata not stable/readable'}
+ $record.commandSha256=Get-HostAssociationHash ([Text.Encoding]::UTF8.GetBytes($cmd1))
+ $record.runtimeGuidCandidates=@([regex]::Matches($cmd1,'(?i)(?<![a-f0-9])[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}(?![a-f0-9])')|ForEach-Object{$_.Value.ToLowerInvariant()}|Select-Object -Unique)
+ if($record.runtimeGuidCandidates.Count -lt 1 -or $record.runtimeGuidCandidates.Count -gt 4){throw 'Parent runtime GUID shape unproven'}
+ $record.hcsAfter=Read-HcsAssociationMetadata
+ if($firstHcs.startStatus -ne 0 -or $firstHcs.completionStatus -ne 0 -or $record.hcsAfter.startStatus -ne 0 -or $record.hcsAfter.completionStatus -ne 0){throw 'HCS enumeration did not complete successfully'}
+ $beforeIds=@($firstHcs.wslSystems|ForEach-Object{([string]$_.runtimeId).ToLowerInvariant()}|Sort-Object)
+ $afterIds=@($record.hcsAfter.wslSystems|ForEach-Object{([string]$_.runtimeId).ToLowerInvariant()}|Sort-Object)
+ if($beforeIds.Count -ne 1 -or $afterIds.Count -ne 1 -or $beforeIds[0] -cne $afterIds[0]){throw 'WSL HCS identity inventory changed or is not uniquely supported'}
+ if($record.runtimeGuidCandidates -cnotcontains $beforeIds[0]){throw 'HCS RuntimeId not in exact parent command metadata'}
+ $record.matchingRuntimeIds=$beforeIds
+ $after=Get-CimInstance Win32_Process -Filter 'ProcessId=53880';$parentAfter=Get-CimInstance Win32_Process -Filter 'ProcessId=7788'
+ $record.identityStable=[ReleaseWslHostQuery]::GetProcessTimes($vm,[ref]$v2,[ref]$e,[ref]$k,[ref]$u) -and [ReleaseWslHostQuery]::GetProcessTimes($parent,[ref]$p2,[ref]$e,[ref]$k,[ref]$u) -and $v1 -eq $v2 -and $p1 -eq $p2 -and $after.CreationDate -eq $before.CreationDate -and $after.ParentProcessId -eq 7788 -and $parentAfter.CreationDate -eq $parentBefore.CreationDate
+ if(!$record.identityStable){throw 'Host instance changed during HCS capture'}
+ Assert-HostAssociationImagePath $record.imagePath
+ $record.status='association-metadata-collected-not-admission'
+}catch{$record.failure=$_.Exception.Message}
+finally{if($null -ne $imageFile){$imageFile.Dispose()};if($parent -ne [IntPtr]::Zero){[void][ReleaseWslHostQuery]::CloseHandle($parent)};if($vm -ne [IntPtr]::Zero){[void][ReleaseWslHostQuery]::CloseHandle($vm)}}
+$result=[ordered]@{version='teruisi-wsl-host-association-metadata-v1';at=[DateTimeOffset]::UtcNow.ToString('o');record=$record;rawCommandPersisted=$false;debugPrivilegesEnabled=$false;remoteMemoryReads=0;productionActionsRequested=0;scope='Only existing HCS enumeration and two fixed process metadata handles; one exact System32 file hash/signature. No VM create/open/start/stop, services, filesystems, business or batch operation. Association does not itself prove guest references absent.'}
+$json=$result|ConvertTo-Json -Depth 8
+$stream=[IO.File]::Open($OutputPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+try{$bytes=[Text.UTF8Encoding]::new($false).GetBytes($json+[Environment]::NewLine);$stream.Write($bytes,0,$bytes.Length)}finally{$stream.Dispose()}
+$json

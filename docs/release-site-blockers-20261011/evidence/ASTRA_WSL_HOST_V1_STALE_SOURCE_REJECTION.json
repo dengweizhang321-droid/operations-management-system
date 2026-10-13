@@ -1,0 +1,11 @@
+{
+  "version": "astra-readonly-review-first-rejection-v1",
+  "checker": "verify-wsl-host-entry-v1.mjs",
+  "status": "rejected-before-any-native-execution",
+  "expectedSourceSha256": "898b3332bf4f1f73f042a072b26f681e05d80068d7f5e01c0e78cfdf4b7b27e9",
+  "observedSourceSha256": "4bce23bf0e09f05b26b3d24936111f8e0f8d68ff2ce985e6030e075b0dcfa0c1",
+  "reason": "V1 packet still pins its original source; parent concurrently prepared a separate V2 and retained V1 snapshots. V1 was not retried or relabeled successful.",
+  "nativeCalls": 0,
+  "productionActions": 0,
+  "provenance": "Written after the actual node AssertionError output to preserve this review's first rejection; not a preexisting capture file."
+}

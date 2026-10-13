@@ -1,0 +1,143 @@
+{
+  "status": "fixed-display-business-postcondition-observed",
+  "resources": [
+    {
+      "path": "/assets/ai-report-workbench-view-Bxi_3wKB.css",
+      "bytes": 7802,
+      "sha256": "2680f8457818198e7f97334d5b75fb027117da13c494b8b92543d9c7edd7b6ce",
+      "status": 200
+    },
+    {
+      "path": "/assets/balanced-overview-DoRF5pkX.css",
+      "bytes": 12462,
+      "sha256": "38e13dc73aec2d3ce44d708856d3a5bc539acf5351a410619a8143285ddd15d3",
+      "status": 200
+    },
+    {
+      "path": "/assets/dashboard-module-view-DA9WWyPk.css",
+      "bytes": 8287,
+      "sha256": "9a44c75b5750c5676d3866c54cefbfd82a75b08768ed6cce48913416a8404492",
+      "status": 200
+    },
+    {
+      "path": "/assets/database-backups-DHGuS4tA.css",
+      "bytes": 1586,
+      "sha256": "c211bf28a98f5426d29591f963435954c85f95b3b94d9d873bc22d0cfa96667b",
+      "status": 200
+    },
+    {
+      "path": "/assets/import-module-view-DNAxARxD.css",
+      "bytes": 6142,
+      "sha256": "b970fcc3b21d8c3245e5c1ab1c7011b77ae8f32406d9f202d0168b062d731e53",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-BcwbDyNL.css",
+      "bytes": 419927,
+      "sha256": "f3840707d1b7958f81eae4655dc15bd271eb370298972939cda5e88f2bc24c15",
+      "status": 200
+    },
+    {
+      "path": "/assets/inventory-module-view-BXCDK0u3.css",
+      "bytes": 3572,
+      "sha256": "3702ef19ee81130bdfcdf48c23c837f36181d805f88b4e95f46609d81e1be9d5",
+      "status": 200
+    },
+    {
+      "path": "/assets/shop-module-view-DsXJk82J.css",
+      "bytes": 45445,
+      "sha256": "88dd06e03c0d5d77230e3a96196f7fd0f4f41b14ebe6dde8ef670e1ed7e4e551",
+      "status": 200
+    }
+  ],
+  "page": {
+    "resources": [
+      "/assets/index-BcwbDyNL.css"
+    ],
+    "assertions": 1,
+    "blockedRequests": [
+      {
+        "method": "GET",
+        "path": "/assets/layout-segment-context-BYQTqHKo.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/rolldown-runtime-S-ySWqyJ.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/index-BC6_anPL.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/framework-CXnKph_e.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/page-B2hCj78F.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/ai-page-context-provider-6aMBgYsu.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/module-view-shared-LkH5n_aL.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/api-error-CJCV3BJQ.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/shop-context-DZ299_pM.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/navigation-catalog-BdmV13Hd.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/reloadable-lazy-aHjF_Hxs.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/statistical-period-picker-Byam_3YT.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/dialog-Bm9QE-Sy.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/searchable-select-BZei-r9_.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/page-context-DCpMUIhX.js"
+      },
+      {
+        "method": "GET",
+        "path": "/assets/api-client-CMwaLUx9.js"
+      },
+      {
+        "method": "GET",
+        "path": "/favicon.svg"
+      },
+      {
+        "method": "GET",
+        "path": "/favicon.svg"
+      }
+    ],
+    "networkWrites": 0
+  },
+  "originalAllEightConsumedByHomepage": false,
+  "originalFailurePreserved": true,
+  "startedAt": "2026-10-12T07:42:30.743Z",
+  "completedAt": "2026-10-12T07:42:32.207Z",
+  "networkOrigin": "http://127.0.0.1:3000",
+  "fontSize": "14px",
+  "candidateSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+  "batchMutation": false,
+  "role": "ordinary-diagnostic-not-CAS"
+}

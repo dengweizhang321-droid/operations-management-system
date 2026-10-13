@@ -1,0 +1,35 @@
+{
+  "version": "astra-exact-env-resume-handoff-v1",
+  "status": "frozen-for-root-review-and-capture",
+  "files": [
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\run-approved-env-resume.mjs",
+      "sha256": "62a1518620576a893e450ce3988c5c8679f016cfc87e0973c40088c16f6b5462"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\resume-admission-state.mjs",
+      "sha256": "5e83e0df0dffcc6e90a0fa5919b889a75d0b46aa6e9bccff087704ac11e908f6"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\exact-env-transport.mjs",
+      "sha256": "6129a0f6387b9606ab47bd09bfb43bbbde7ef7a5eee2235fdf6a779ead155252"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\env-dpapi.ps1",
+      "sha256": "2c4f64ef6efef9dfd087e151b135f04304172dcdafa8fadac4f6bb46b6a09f59"
+    },
+    {
+      "path": "D:\\.codex\\worktrees\\release-no-data-production\\运营管理系统\\docs\\release-no-data-production-20261011\\capture-approved-env.mjs",
+      "sha256": "47da7e7beb8a93a119e1eef77b1f759b045bcf8fc1a473655e744882006e5a02"
+    }
+  ],
+  "tests": 10,
+  "failed": 0,
+  "testLog": "E:\\codex-artifacts\\release-site-blockers-20261011\\production-f15d06a\\ENV_TRANSPORT_FINAL_TEST.log",
+  "expectedEnvironmentSha256": "bc79f88a7e7b963179fe029dccf2f605f1bad855ad29873b58d43dfb96aac609",
+  "scope": "Same approved f15 initial-admission recovery only; no source/env rule change, no operation replay, no owner clearing. Full env except original deadline transported via same-user DPAPI private nonce temp cipher, consumed/deleted by verified held file object. Root must pin/hold all listed source files before producer and runner use.",
+  "realEnvironmentCapturedByAstra": false,
+  "administratorRunByAstra": false,
+  "productionActions": 0,
+  "firstFailure": "SYNTHETIC_ENV_FIRST_FAILURE.txt"
+}

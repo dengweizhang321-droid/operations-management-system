@@ -1,0 +1,12 @@
+{
+  "version": "teruisi-exact-human-production-approval-v1",
+  "humanApproved": true,
+  "humanMessage": "批准",
+  "approvalRecordedAt": "2026-10-11T15:25:28Z",
+  "timestampBasis": "First explicit approval observation clock after the human reply; not claimed exact UI click time",
+  "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+  "specPath": "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+  "specSha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b",
+  "scope": "Exact sealed 19 operations: one pre Backup, one same-point isolated Restore, original switch/acceptance/closeout; no post Backup/Restore or schedule change",
+  "context": "Human reply to final exact scope FINAL_PRODUCTION_SCOPE.md and batch f15d06a159…ca110f; UAC remains OS identity confirmation only"
+}

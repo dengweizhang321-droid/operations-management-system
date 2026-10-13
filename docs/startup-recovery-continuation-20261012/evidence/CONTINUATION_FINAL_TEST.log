@@ -1,0 +1,23 @@
+✔ actual continuation flow orders only four remaining stages and restores own fence on failure (758.7702ms)
+✔ synthetic version approval is exact and does not reuse original version approval (7.321ms)
+✔ existing transport template remains ASCII and keeps native continuous file holds (0.348ms)
+✔ actual immutable completed prefix permits only remaining continuation (1.465ms)
+✔ reject prefix omit-start (1.7372ms)
+✔ reject prefix extra-stop (0.5357ms)
+✔ reject prefix wrong-worker (0.4514ms)
+✔ reject prefix wrong-manifest (0.4586ms)
+✔ reject prefix wrong-fence (0.3108ms)
+✔ reject prefix other-failure (0.3594ms)
+✔ reject prefix wrong-exit-count (0.3379ms)
+✔ failed original process must really have ended, not merely started (0.3563ms)
+✔ closed package forbids expanded stages, foreign marker and missing source pin (17.1927ms)
+✔ actual optional readiness predicate StrictLatest powershell.exe (447.2988ms)
+✔ actual optional readiness predicate StrictLatest pwsh.exe (620.1752ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2200.8172

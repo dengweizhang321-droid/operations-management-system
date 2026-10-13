@@ -1,0 +1,10 @@
+✔ recovery supervisor preserves original predicates and pins the new diagnostic route (1.7331ms)
+✔ actual PS7 function: expiry, spawn error, restore env and ownership gates (2742.3101ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2842.2408

@@ -1,0 +1,82 @@
+[
+  {
+    "name": "ADMIN_READONLY_COMPLETED_V1.json",
+    "sha256": "cb3f1605238bf94eafc19f9f8fcbdeb30fb2461f00903f46daac9792c5d95310",
+    "bytes": 412
+  },
+  {
+    "name": "ADMIN_REFERENCE_DIAGNOSTIC_V1.json",
+    "sha256": "4e964f0ec062f07115728dc5cb09ec05a3a794a09a29f865494927dd8b3dbd69",
+    "bytes": 3352
+  },
+  {
+    "name": "ADMIN_CAPTURE_SUMMARY_V1.json",
+    "sha256": "35081bb894944f358ed14589a005294a4fbbb3032a1f57e25aa51f85385379f2",
+    "bytes": 363
+  },
+  {
+    "name": "ASTRA_ADMIN_RECORD_CROSSCHECK_V1.json",
+    "sha256": "fb0f6b91e778cc5dab9813f5e7d28f0ed7657bc13a4b96185db97a30cfec5490",
+    "bytes": 2098
+  },
+  {
+    "name": "VISIBLE_ENTRY_BOOTSTRAP.ps1",
+    "sha256": "3624aab0692c422070b1e1f67ee564654d0dd32b4c5d5058e3ce40c3bbf08b62",
+    "bytes": 1018
+  },
+  {
+    "name": "VISIBLE_ENTRY_MANIFEST.json",
+    "sha256": "0f1e58fc6ba238e3db01b59a8e7f8ec8097d1055c5905509703a86202c5683d7",
+    "bytes": 519
+  },
+  {
+    "name": "RUN_READONLY_ADMIN_AUDIT.cmd",
+    "sha256": "4955c79668be8aa2c37162879320c57b6b619a090c2a7aa8b15940e347299ad3",
+    "bytes": 3121
+  },
+  {
+    "name": "RUNNING_WSL_REFERENCE_DIAGNOSTIC_V1.json",
+    "sha256": "3ca449949cac99313f92ef14e170047102df549592379142e1803a93c30780be",
+    "bytes": 11625
+  },
+  {
+    "name": "RUNNING_WSL_REFERENCE_DIAGNOSTIC_ROOT_V1.json",
+    "sha256": "0c6b76b4dff08ab4ddc1f7f89e2e5e4d6c530afd8a0d2fd515a1c0e9b4d11918",
+    "bytes": 645
+  },
+  {
+    "name": "ASTRA_RESIDUAL_METADATA_V1.json",
+    "sha256": "c6ce5d9d86a2f79a58169a48e3f5ede3401403999d09ba9bc465ba6088f9e465",
+    "bytes": 7796
+  },
+  {
+    "name": "ASTRA_SELF_METADATA_V1.json",
+    "sha256": "8703060900074b92ec1ce65a5cdd89800f70a1d634ccc83b983ce2568fc81e7f",
+    "bytes": 1224
+  },
+  {
+    "name": "SITE_AGY3_PROMPT.txt",
+    "sha256": "ac1b1561a88e7495113042c20950b52d59ffafb425075d157c7db1b0b91d6f39",
+    "bytes": 8106
+  },
+  {
+    "name": "SITE_AGY3_STREAM.ndjson",
+    "sha256": "6c2e08f96f3f41b32dde123114dc9a7b489fb4a9e334cee9e3f2d2d9711e0b35",
+    "bytes": 37430
+  },
+  {
+    "name": "SITE_AGY3_STDERR.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "name": "SITE_AGY3_CALL.json",
+    "sha256": "403a743ea40302ee6d4156f371615efd8669b36e9788076ae9c0c534a7f683ea",
+    "bytes": 203
+  },
+  {
+    "name": "PS5_REVIEW_ARGV_TRANSPORT_V1.json",
+    "sha256": "5e10c78453cedfff342b7e6094878f32ecb44762a13d79a5bf39e21a15492cf6",
+    "bytes": 321
+  }
+]

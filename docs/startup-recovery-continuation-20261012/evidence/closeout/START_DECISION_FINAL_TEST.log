@@ -1,0 +1,11 @@
+✔ actual completed continuation has four stages, no replay (8.3306ms)
+✔ synthetic exact unresolved state and wrong owner/head/resolved/extra unknown refuse (0.846ms)
+✔ synthetic actual original predicate shape rejects role/types/gates/PIDs/manifest changes (17.645ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 124.5667

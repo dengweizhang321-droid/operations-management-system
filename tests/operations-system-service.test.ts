@@ -110,6 +110,16 @@ test("lifecycle service helpers pass their PowerShell unit test when a shell is 
   assert.match(result.stdout, /PASS: operations-system-service helpers/);
 });
 
+for (const shell of ["powershell.exe", "pwsh.exe"]) {
+  test(`${shell}: lifecycle wrapper preserves failing direct exits and releases its lock`, { skip: process.platform !== "win32" }, () => {
+    const result = spawnSync(shell, ["-NoProfile", "-NonInteractive", "-File", "tests/operations-system-service-exit.test.ps1"], {
+      encoding: "utf8", windowsHide: true, timeout: 20_000,
+    });
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /PASS: real exit0\/9\/259/);
+  });
+}
+
 test("batch launcher and npm scripts route every action to the lifecycle service", () => {
   assert.match(launcher, /tools\\operations-system-service\.ps1/);
   assert.ok([...Buffer.from(launcher, "utf8")].every((byte) => byte < 0x80), "cmd wrapper must remain ASCII-only");

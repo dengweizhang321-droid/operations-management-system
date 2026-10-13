@@ -1,0 +1,9 @@
+{
+  "version": "teruisi-admin-readonly-launch-cancelled-v1",
+  "at": "2026-10-11T12:22:27.7790399+00:00",
+  "packetSha256": "9e906d1e53ee9acf67b909be0198520e137d9cc08d1b8fbc3aa5adf7f709df38",
+  "windowsMessage": "操作已被用户取消",
+  "administratorCollectionStarted": false,
+  "productionActions": 0,
+  "automaticRetry": false
+}

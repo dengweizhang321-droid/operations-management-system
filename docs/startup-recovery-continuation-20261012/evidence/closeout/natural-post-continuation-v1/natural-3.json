@@ -1,0 +1,132 @@
+{
+  "supervisorPid": 36568,
+  "supervisor": "running",
+  "at": "2026-10-12T07:02:26.0189782+00:00",
+  "releaseId": "20261011T090355Z-21c2645a63247749",
+  "admission": {
+    "mode": "running",
+    "fence": "3ab3aadc1893a024c894671943dd12875c02c32617188fcc2b64abc5917b27b1"
+  },
+  "business": {
+    "status": "unknown",
+    "version": "market-read-probe-v1",
+    "reason": "no_confirmed_failure",
+    "checkedAt": "2026-10-12T07:00:21.8602998+00:00"
+  },
+  "completedAt": "2026-10-12T07:03:25.1483935+00:00",
+  "stages": {
+    "control": {
+      "status": "completed",
+      "elapsedMs": 46450
+    },
+    "supervisor": {
+      "status": "completed",
+      "elapsedMs": 8816
+    },
+    "monitor": {
+      "status": "completed",
+      "elapsedMs": 8
+    }
+  },
+  "ports": [
+    {
+      "port": 5791,
+      "pid": 23536
+    },
+    {
+      "port": 5432,
+      "pid": 4080
+    },
+    {
+      "port": 3000,
+      "pid": 17184
+    }
+  ],
+  "probeError": false,
+  "elapsedMs": 59134,
+  "statusTimings": {
+    "workerMs": 12316,
+    "backendMs": 30721,
+    "httpMs": 1995
+  },
+  "workerPid": 17184,
+  "coreDiagnostics": {
+    "PostgreSQL": "running",
+    "ReaderReadiness": "ready",
+    "RuntimeAcl": "root_hardened",
+    "elapsedMs": 7044,
+    "DjangoWriter": "running",
+    "probes": {
+      "reader": {
+        "code": "none",
+        "timeoutMs": 2000,
+        "elapsedMs": 1053,
+        "statusCode": 200
+      },
+      "writer": {
+        "code": "none",
+        "timeoutMs": 2000,
+        "elapsedMs": 951,
+        "statusCode": 200
+      }
+    },
+    "WriterReadiness": "ready",
+    "RuntimeAclVerification": "root_only_status",
+    "DjangoReader": "running"
+  },
+  "diagnosticMode": "readonly_driver",
+  "worker": "exact_release",
+  "portsObservation": {
+    "at": "2026-10-12T07:03:25.1465675+00:00",
+    "reason": "none",
+    "elapsedMs": 1476,
+    "status": "complete"
+  },
+  "system": "Running",
+  "probes": {
+    "homepage": {
+      "ok": true,
+      "reason": "none",
+      "elapsedMs": 163,
+      "status": 200
+    },
+    "live": {
+      "ok": true,
+      "reason": "none",
+      "elapsedMs": 154,
+      "status": 200
+    },
+    "helper": {
+      "ok": true,
+      "reason": "none",
+      "elapsedMs": 134,
+      "status": 200
+    },
+    "ready": {
+      "ok": true,
+      "reason": "none",
+      "elapsedMs": 2176,
+      "status": 200
+    }
+  },
+  "controllerHealthEvidence": null,
+  "diagnosticReason": "exact_predecessor",
+  "backend": "Ready",
+  "supervisorHealth": "healthy",
+  "healthy": true,
+  "components": {
+    "bi": true,
+    "netshop": true,
+    "erpReference": true,
+    "market": true,
+    "ai": true,
+    "accessControl": true,
+    "inventory": true,
+    "products": true,
+    "core": true,
+    "customerService": true,
+    "finance": true,
+    "workflow": true
+  },
+  "processDiagnostic": null
+}

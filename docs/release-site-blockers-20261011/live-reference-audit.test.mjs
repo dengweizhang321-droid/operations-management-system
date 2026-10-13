@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,readFile,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {runLiveReferenceAudit} from './live-reference-audit.mjs';
+const sourceRoot=path.dirname(fileURLToPath(import.meta.url));
+const dir='E:/codex-artifacts/release-site-blockers-20261011/_live-reference-observations';
+const names=['live-os-instance-policy.mjs','live-wsl-policy.mjs','system-wsl-verifier.mjs','live-wsl-host-policy.mjs','Collect-LiveWslHostAssociation.ps1','collect-live-wsl.py','Collect-LiveProcessIdentity.ps1','Probe-ResidualProcessMetadataV2.ps1'];
+async function closure(){const root=await mkdtemp('E:/codex-artifacts/release-site-blockers-20261011/controlled-closure-');for(const name of names)await writeFile(path.join(root,name),await readFile(path.join(sourceRoot,name)),{flag:'wx'});return root;}
+const noCalls=()=>{throw Error('Predicate must not run in rejected bootstrap');};
+test('tampered policy bytes fail before import/native transport and retain attempt',async()=>{const root=await closure();await writeFile(path.join(root,names[0]),'throw Error("untrusted-code-executed");');let caught;try{await runLiveReferenceAudit({sourceRoot:root,inspectProcessReference:noCalls,inspectReferences:noCalls});}catch(e){caught=e;}assert.ok(caught?.liveAudit);assert.deepEqual(caught.liveAudit.stages,[]);assert.ok(caught.message.includes('drift'));const saved=JSON.parse(await readFile(path.join(dir,caught.liveAudit.runId+'-failure.json')));assert.equal(saved.status,'blocked');assert.equal(saved.failure.captureFailure,null);});
+test('forged native snapshot JSON cannot substitute for captured PowerShell source',async()=>{const root=await closure();await writeFile(path.join(root,'Probe-ResidualProcessMetadataV2.ps1'),JSON.stringify({version:'astra-residual-process-metadata-v2',records:[],isAdministrator:true}));let caught;try{await runLiveReferenceAudit({sourceRoot:root,inspectProcessReference:noCalls,inspectReferences:noCalls});}catch(e){caught=e;}assert.ok(caught?.liveAudit);assert.deepEqual(caught.liveAudit.stages,[]);assert.ok(caught.message.includes('drift'));});
+test('ordinary token is rejected by actual encoded bootstrap before native inventory',async()=>{let caught;try{await runLiveReferenceAudit({sourceRoot,inspectProcessReference:noCalls,inspectReferences:noCalls});}catch(e){caught=e;}assert.ok(caught?.captureFailure?.requiresAdministrator,'This controlled test must run as ordinary token and reach exact role refusal');assert.deepEqual(caught.liveAudit.stages,['implementation-closure-pinned']);const saved=JSON.parse(await readFile(path.join(dir,caught.liveAudit.runId+'-failure.json')));assert.equal(saved.failure.captureFailure.requiresAdministrator,true);assert.equal(saved.status,'blocked');});

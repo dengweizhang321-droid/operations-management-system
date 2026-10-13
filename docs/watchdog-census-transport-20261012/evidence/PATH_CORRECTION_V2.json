@@ -1,0 +1,18 @@
+{
+  "version": "same-approved-scope-path-correction-v2",
+  "parentIntentSha256": "4601d0bc81a61f273a4294e6e863671cdc91abe1adc18779621bd5d0351286fb",
+  "parentApprovalSha256": "ae4def90ff770d86c9bb18899bac464f2b9acec26ee3327dc134e47611723754",
+  "originalRunner": {
+    "path": "D:/.codex/worktrees/watchdog-native-census/运营管理系统/docs/watchdog-native-census-20261012/run-census-install.mjs",
+    "sha256": "cdad19afce6cfc0b470972a548ed17729addde30002e68a51bbc9ef76ba83b18"
+  },
+  "correctedRunner": {
+    "path": "D:\\.codex\\worktrees\\watchdog-census-transport\\运营管理系统\\docs\\watchdog-census-transport-20261012\\run-census-install-corrected.mjs",
+    "sha256": "779127c4ed4177ffca1d09e5f9169ac6569f5518912025149f4e04562f6d09d6"
+  },
+  "semanticChange": "Only normalize the same fixed OutputRoot argument with path.resolve; original Install script and production target unchanged",
+  "evidenceChanges": "Preserve V1 logs and use approved-install-attempt-v2 for four transport logs; original module base stays explicit old pinned directory; prior actual pre-action failure is required",
+  "priorFailureSha256": "2383920f01d3675ca8522f6b62c54ee0e45d765717c4303e844b19780200b69f",
+  "priorStderrSha256": "e30a0d397dee5f7904b0d3b61bfa999e275625787eeeae46e6a4c4d95a0c822b",
+  "newHumanApprovalNotFabricated": true
+}

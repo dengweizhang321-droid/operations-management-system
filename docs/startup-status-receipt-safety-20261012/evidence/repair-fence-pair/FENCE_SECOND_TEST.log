@@ -1,0 +1,36 @@
+✔ exact synthetic context and maintenance intention accepted without stopped claim (3.5986ms)
+✔ context rejects count (0.924ms)
+✔ context rejects head (0.399ms)
+✔ context rejects owner-batch (0.6337ms)
+✔ context rejects owner-id (0.2685ms)
+✔ context rejects unknown (0.2471ms)
+✔ context rejects start-status (0.1838ms)
+✔ context rejects start-head (0.1758ms)
+✔ context rejects passed (0.2965ms)
+✔ context rejects worker (0.24ms)
+✔ context rejects django (0.2341ms)
+✔ context rejects desired-hash (0.1807ms)
+✔ context rejects desired-version (0.1368ms)
+✔ context rejects desired-stopped (0.1385ms)
+✔ context rejects desired-source (0.1213ms)
+✔ context rejects drain-present (0.1211ms)
+✔ actor rejects sid (0.2361ms)
+✔ actor rejects role (0.1644ms)
+✔ actor rejects root-acl (0.1001ms)
+✔ actor rejects parent-acl (0.1038ms)
+✔ actor rejects expired (0.1184ms)
+✔ marker rejects keep-postgres (0.2968ms)
+✔ marker rejects false-stopped-claim (0.1844ms)
+✔ marker rejects repair-id (0.1568ms)
+✔ marker rejects intent (0.1611ms)
+✔ create-only rejects existing synthetic marker and preserves exact bytes (31.6331ms)
+✔ original admission sees intent as maintenance and executes zero probes in powershell.exe (787.1412ms)
+✔ original admission sees intent as maintenance and executes zero probes in pwsh.exe (1005.71ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1931.8979

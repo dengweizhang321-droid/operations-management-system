@@ -1,0 +1,1 @@
+{"status":"private-model-descriptor-check-failed","cause":"DACL-only template got correct 4 inherited ACEs/owner/group but private automatic inheritance flag differed from actual original descriptor. Not counted as exact source-model success; native private model reproduces actual original descriptor before testing replacement"}

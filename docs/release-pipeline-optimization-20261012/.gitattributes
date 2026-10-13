@@ -1,0 +1,3 @@
+# Preserve this task's raw shell evidence without line-ending normalization.
+evidence-wp5/*.log -text -diff
+evidence-wp5/*.json -text

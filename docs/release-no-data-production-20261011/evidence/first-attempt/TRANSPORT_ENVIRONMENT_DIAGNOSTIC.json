@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-11T15:48:12.277Z",
+  "expectedEnvironmentSha256": "bc79f88a7e7b963179fe029dccf2f605f1bad855ad29873b58d43dfb96aac609",
+  "normalEnvironmentSha256": "bc79f88a7e7b963179fe029dccf2f605f1bad855ad29873b58d43dfb96aac609",
+  "modeledOldLiteralAssignmentEnvironmentSha256": "1118e43b3c65a17d01e4eeb0c25d79d811fbabd5e5ecbb6851b2392dc26ace4e",
+  "changedKey": "PSModulePath",
+  "oldValueSha256": "51cddb63e72c05c6e89e4e7c94a8b9f1b8cf6bc301f4344967c7bd0d7b254a81",
+  "forcedValueSha256": "f0e98053bf5525ccb7f1c688f4e7630e407fa039c4046a1fc99b30f80b5dd82b",
+  "assignmentAloneSufficientToMismatch": true,
+  "limits": "Proves the literal executed bootstrap assignment changes a bound input; not a retrospectively captured full Administrator environment",
+  "rawValuesPersisted": false,
+  "productionActions": 0
+}

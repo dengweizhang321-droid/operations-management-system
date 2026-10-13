@@ -1,0 +1,69 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {spawnSync} from 'node:child_process';import path from 'node:path';
+for(const shell of ['powershell.exe','pwsh.exe'])test(`release StopWorker uses the appropriate original engine in ${shell}`,()=>{
+ const file=path.resolve('tools/release-lifecycle-step.ps1').replaceAll("'","''"),worker=path.resolve('tools/worker-local-service.ps1').replaceAll("'","''");
+ const script=String.raw`
+$ErrorActionPreference='Stop'
+$tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile('__ADAPTER__',[ref]$tokens,[ref]$errors)
+if($errors.Count){throw 'parse failed'}
+$fn=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-ReleaseWorkerStopAction'},$true)
+Invoke-Expression $fn.Extent.Text
+$switch=$ast.Find({param($n) $n -is [Management.Automation.Language.SwitchStatementAst] -and $n.Condition.Extent.Text -eq '$Step'},$true)
+$clause=@($switch.Clauses|Where-Object {$_.Item1.Value -eq 'StopWorker'})[0].Item2
+$stopStep=[ScriptBlock]::Create($clause.Extent.Text.Substring(1,$clause.Extent.Text.Length-2))
+. '__WORKER__' -FunctionsOnly -AllowTestRuntimeRoot
+$MaintenanceId='a483894ad8d945298c866c74a06df6ff'
+$script:gate=[pscustomobject]@{maintenance=[pscustomobject]@{version='teruisi-system-maintenance-v1';id=$MaintenanceId;runtimeRoot='D:\teruisi-runtime\django-sales';keepPostgres=$true;drainedStopped=$true};automationDrain=[pscustomobject]@{version='teruisi-automation-drain-v1';id=$MaintenanceId;runtimeRoot='D:\teruisi-runtime\django-sales';phase='requests';keepPostgres=$true}}
+$script:calls=@();$script:workerStops=0;$script:backendStops=0;$script:rawOverride=$null
+function Read-WorkerSystemMaintenance{return $script:gate.maintenance}
+function Read-WorkerAutomationDrain{return $script:gate.automationDrain}
+function Stop-WorkerOnly([object]$Identity){$script:workerStops++;return @{status='already_stopped'}}
+function Invoke-DjangoLifecycleAction {$script:backendStops++;throw 'Backend stop forbidden'}
+function Invoke-OriginalEngine([string]$Script,[string[]]$Arguments){
+ $action=$Arguments[1];$script:calls+=,$Arguments
+ if($action -eq 'MaintenanceStatus'){if($null -ne $script:rawOverride){return $script:rawOverride};return ($script:gate|ConvertTo-Json -Depth 6 -Compress)}
+ if($Arguments -contains '-IncludeBackend'){throw 'Unexpected backend scope'}
+ if($action -eq 'StopForRelease'){Assert-WorkerReleaseDrain $MaintenanceId;return ((Stop-WorkerOnly @{})|ConvertTo-Json -Compress)}
+ if($action -eq 'Stop'){return ((Invoke-WorkerSystemStop @{})|ConvertTo-Json -Compress)}
+ throw 'Unexpected engine action'
+}
+$originalGateRejected=$false;try{Assert-WorkerReleaseDrain $MaintenanceId}catch{$originalGateRejected=$true}
+if(-not $originalGateRejected){throw 'Original full-maintenance incompatibility was not reproduced'}
+& $stopStep
+if($script:calls[-1][1] -cne 'Stop' -or $script:workerStops -ne 1 -or $script:backendStops -ne 0){throw 'Full-maintenance route wrong'}
+$full=$script:gate|ConvertTo-Json -Depth 5 -Compress
+$script:gate.maintenance=$null;& $stopStep
+if($script:calls[-1][1] -cne 'StopForRelease' -or $script:workerStops -ne 2){throw 'Worker-only route wrong'}
+$negativeCount=0
+foreach($case in @('wrong-id','not-drained','wrong-root','wrong-version','string-bool','drain-id','drain-phase','missing-status','root-array','root-array-space','drain-array','maintenance-array','drain-bool-array','maintenance-keep-array','maintenance-drained-array','unknown-status')){
+ $script:gate=$full|ConvertFrom-Json;$script:rawOverride=$null
+ switch($case){
+  'wrong-id'{$script:gate.maintenance.id='b'*32}
+  'not-drained'{$script:gate.maintenance.drainedStopped=$false}
+  'wrong-root'{$script:gate.maintenance.runtimeRoot='D:other'}
+  'wrong-version'{$script:gate.maintenance.version='other'}
+  'string-bool'{$script:gate.maintenance.drainedStopped='True'}
+  'drain-id'{$script:gate.automationDrain.id='b'*32}
+  'drain-phase'{$script:gate.automationDrain.phase='helpers'}
+  'missing-status'{$script:gate=[pscustomobject]@{}}
+  'root-array'{$script:rawOverride='['+$full+']'}
+  'root-array-space'{$script:rawOverride='  ['+$full+']'}
+  'drain-array'{$script:gate.automationDrain=@($script:gate.automationDrain)}
+  'maintenance-array'{$script:gate.maintenance=@($script:gate.maintenance)}
+  'drain-bool-array'{$script:gate.automationDrain.keepPostgres=@($true)}
+  'maintenance-keep-array'{$script:gate.maintenance.keepPostgres=@($true)}
+  'maintenance-drained-array'{$script:gate.maintenance.drainedStopped=@($true)}
+  'unknown-status'{$script:gate|Add-Member -NotePropertyName kind -NotePropertyValue 'unknownStatus'}
+ }
+ $before=$script:workerStops;$refused=$false;try{& $stopStep}catch{$refused=$true}
+ if(-not $refused -or $script:workerStops -ne $before){throw "Invalid state invoked mutating engine: $case"};$negativeCount++
+}
+$good=$full|ConvertFrom-Json;$directTypeRejected=0
+foreach($bad in @(@($good),@{maintenance=$good.maintenance;automationDrain=$good.automationDrain})){
+ $refused=$false;try{Get-ReleaseWorkerStopAction $bad $MaintenanceId|Out-Null}catch{$refused=$true}
+ if(-not $refused){throw 'Non-PCO state accepted'};$directTypeRejected++
+}
+[pscustomobject]@{fullMaintenanceOriginalGateRejected=$originalGateRejected;positiveRoutes=2;negativeRoutes=$negativeCount;directTypeRejected=$directTypeRejected;workerStops=$script:workerStops;backendStops=$script:backendStops}|ConvertTo-Json -Compress
+`.replace('__ADAPTER__',file).replace('__WORKER__',worker);
+ const result=spawnSync(shell,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{encoding:'utf8',windowsHide:true,timeout:30000});
+ assert.equal(result.error,undefined);assert.equal(result.status,0,`${shell}: ${result.stdout}\n${result.stderr}`);assert.deepEqual(JSON.parse(result.stdout.trim()),{fullMaintenanceOriginalGateRejected:true,positiveRoutes:2,negativeRoutes:16,directTypeRejected:2,workerStops:2,backendStops:0});
+});

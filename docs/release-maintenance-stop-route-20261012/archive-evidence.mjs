@@ -1,0 +1,5 @@
+import{readFile,writeFile,readdir,mkdir,lstat}from'node:fs/promises';import{createHash}from'node:crypto';import{fileURLToPath}from'node:url';import path from'node:path';import assert from'node:assert/strict';
+const base='E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/',dest=fileURLToPath(new URL('./evidence/',import.meta.url)),entries=[];
+await mkdir(dest,{recursive:true});for(const name of(await readdir(base)).sort())if(/^(PERMANENT_STOP_|AGY_PERMANENT_STOP_|ASTRA_PERMANENT_STOP_)/.test(name)){
+ const s=await lstat(base+name);assert.ok(s.isFile()&&!s.isSymbolicLink()&&s.nlink===1);const raw=await readFile(base+name),target=name.endsWith('.test.mjs')?name+'.source.txt':name;await writeFile(path.join(dest,target),raw,{flag:'wx'});entries.push({source:base+name,target,sha256:createHash('sha256').update(raw).digest('hex'),bytes:raw.length});
+}await writeFile(path.join(dest,'ARCHIVE.json'),JSON.stringify({at:new Date().toISOString(),entries,productionAdopted:false},null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({archived:entries.length}));

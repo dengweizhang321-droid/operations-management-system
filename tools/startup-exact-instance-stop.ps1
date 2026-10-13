@@ -1,0 +1,93 @@
+# Library only. No top-level stop or production CLI. A future approved wrapper
+# must validate the fixed 23-root policy and maintenance/drain/owner before use.
+function Read-ExactStopLibrary([string]$Path,[string]$Expected){
+ $held=[IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+ try{if($held.Length -gt 1048576){throw 'Library too large'};$memory=[IO.MemoryStream]::new();$held.CopyTo($memory);$raw=$memory.ToArray();$memory.Dispose();$s=[Security.Cryptography.SHA256]::Create();try{$actual=([BitConverter]::ToString($s.ComputeHash($raw))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()};if($actual -cne $Expected){throw 'Pinned library drift'};return [scriptblock]::Create(([Text.UTF8Encoding]::new($false,$true).GetString($raw)).TrimStart([char]0xFEFF))}finally{$held.Dispose()}
+}
+$deadlinePath=Join-Path $PSScriptRoot 'process-deadline.ps1'
+. (Read-ExactStopLibrary $deadlinePath '5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd')
+$nativePath=Join-Path $PSScriptRoot 'watchdog-native-metadata.ps1'
+. (Read-ExactStopLibrary $nativePath 'd8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449')
+if(-not ('Teruisi.ExactStop' -as [type])){Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace Teruisi { public static class ExactStop {
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool TerminateProcess(IntPtr h,uint code);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern uint WaitForSingleObject(IntPtr h,uint milliseconds);
+}}
+'@}
+function Get-StopTextHash([string]$Text){$s=[Security.Cryptography.SHA256]::Create();try{return ([BitConverter]::ToString($s.ComputeHash([Text.Encoding]::UTF8.GetBytes($Text)))).Replace('-','').ToLowerInvariant()}finally{$s.Dispose()}}
+function Read-ExactStopCensus {return @(CimCmdlets\Get-CimInstance Win32_Process -ErrorAction Stop|Select-Object ProcessId,ParentProcessId,CreationDate)}
+function Assert-ExactStopClosure([object[]]$Targets,[object[]]$Rows){
+ $ids=[Collections.Generic.HashSet[int]]::new();$byId=@{};foreach($target in $Targets){if(-not $ids.Add([int]$target.processId)){throw 'Duplicate stop PID'};$byId[[int]$target.processId]=$target}
+ foreach($target in $Targets){$parent=$byId[[int]$target.parentProcessId];if($null -ne $parent){if([int]$target.depth -ne [int]$parent.depth+1 -or [long]$target.nativeCreationFileTime -lt [long]$parent.nativeCreationFileTime){throw 'Declared depth or parent creation is invalid'}}elseif([int]$target.depth -ne 0){throw 'Unconnected descendant'}}
+ $seen=[Collections.Generic.HashSet[int]]::new();foreach($row in $Rows){if(-not $seen.Add([int]$row.ProcessId)){throw 'Duplicate census PID'};if($ids.Contains([int]$row.ProcessId)){$t=$byId[[int]$row.ProcessId];if($row.CreationDate -isnot [datetime] -or [int]$row.ParentProcessId -ne [int]$t.parentProcessId -or -not [Teruisi.ReadonlyProcessMetadata]::SameCreation([long]$t.nativeCreationFileTime,$row.CreationDate.ToUniversalTime().ToFileTimeUtc())){throw 'Census target identity changed'}}}
+ foreach($row in $Rows){if($ids.Contains([int]$row.ParentProcessId) -and -not $ids.Contains([int]$row.ProcessId)){throw 'Unapproved descendant; no automatic expansion'}}
+}
+function Assert-ExactStopLease([object]$Lease,[object[]]$Rows){
+ $target=$Lease.Target;$row=@($Rows|Where-Object {[int]$_.ProcessId -eq [int]$target.processId})
+ if($row.Count -ne 1 -or $row[0].CreationDate -isnot [datetime] -or [int]$row[0].ParentProcessId -ne [int]$target.parentProcessId){throw 'Current CIM identity unavailable or changed'}
+ $c1=0L;$c2=0L;$e=0L;$k=0L;$u=0L;$h=$Lease.Handle
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($h,[ref]$c1,[ref]$e,[ref]$k,[ref]$u)){throw 'Held creation unavailable'}
+ $image=[Text.StringBuilder]::new(32768);$n=[uint32]32768
+ if(-not [Teruisi.ReadonlyProcessMetadata]::QueryFullProcessImageName($h,0,$image,[ref]$n)){throw 'Held image unavailable'}
+ $s1=0;$s2=0;$cmd1=[Teruisi.ReadonlyProcessMetadata]::Command($h,[ref]$s1);$cmd2=[Teruisi.ReadonlyProcessMetadata]::Command($h,[ref]$s2)
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($h,[ref]$c2,[ref]$e,[ref]$k,[ref]$u)){throw 'Held creation unavailable'}
+ if($c1 -ne $c2 -or $c1.ToString([Globalization.CultureInfo]::InvariantCulture) -cne [string]$target.nativeCreationFileTime -or
+    -not [Teruisi.ReadonlyProcessMetadata]::SameCreation($c1,$row[0].CreationDate.ToUniversalTime().ToFileTimeUtc()) -or $s1 -ne 0 -or $s2 -ne 0 -or
+    [string]::IsNullOrWhiteSpace($cmd1) -or -not [string]::Equals($cmd1,$cmd2,[StringComparison]::Ordinal) -or
+    (Get-StopTextHash $cmd2) -cne $target.commandSha256 -or (Get-StopTextHash $image.ToString()) -cne $target.imageSha256){throw 'Held process does not match exact declaration'}
+ if([Teruisi.ExactStop]::WaitForSingleObject($h,0) -ne 258){throw 'Target is not confirmed live'}
+}
+function Open-ExactStopLease([object]$Target){
+ $h=[Teruisi.ReadonlyProcessMetadata]::OpenProcess(0x101001,$false,[uint32]$Target.processId)
+ if($h -eq [IntPtr]::Zero){throw ('Stop handle denied: '+[Runtime.InteropServices.Marshal]::GetLastWin32Error())}
+ return [pscustomobject]@{Target=$Target;Handle=$h}
+}
+function Close-ExactStopLease([object]$Lease){[void][Teruisi.ReadonlyProcessMetadata]::CloseHandle($Lease.Handle)}
+function Test-ExactHeldExited([object]$Lease){
+ # Only called by the loop AFTER all leases passed the original live identity
+ # validation. The retained kernel handle cannot refer to a reused PID.
+ $a=0L;$b=0L;$e=0L;$k=0L;$u=0L
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($Lease.Handle,[ref]$a,[ref]$e,[ref]$k,[ref]$u)){throw 'Held exit creation unavailable'}
+ $wait=[Teruisi.ExactStop]::WaitForSingleObject($Lease.Handle,0)
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($Lease.Handle,[ref]$b,[ref]$e,[ref]$k,[ref]$u) -or $a -ne $b -or $a.ToString([Globalization.CultureInfo]::InvariantCulture) -cne $Lease.Target.nativeCreationFileTime){throw 'Held exit creation changed'}
+ if($wait -eq 0){return $true};if($wait -eq 258){return $false};throw 'Held exit state unknown'
+}
+function Stop-ExactHeldInstance([object]$Lease,[long]$Deadline){
+ [void](Get-ProcessRemaining $Deadline)
+ if(-not [Teruisi.ExactStop]::TerminateProcess($Lease.Handle,1)){throw 'Held termination failed'}
+ $wait=[uint32][Math]::Min(10000,(Get-ProcessRemaining $Deadline))
+ if([Teruisi.ExactStop]::WaitForSingleObject($Lease.Handle,$wait) -ne 0){throw 'Held process exit not confirmed'}
+}
+function Invoke-ExactInstanceStop([object[]]$Targets,[string]$EvidencePath,[long]$Deadline=(Get-ProcessDeadline)){
+ if($Targets.Count -lt 1 -or $Targets.Count -gt 128){throw 'Stop set size invalid'}
+ foreach($t in $Targets){if(($t.processId -isnot [int] -and $t.processId -isnot [long]) -or [int]$t.processId -le 4 -or ($t.parentProcessId -isnot [int] -and $t.parentProcessId -isnot [long]) -or [int]$t.parentProcessId -lt 0 -or $t.depth -isnot [int] -or $t.depth -lt 0 -or $t.depth -gt 16 -or $t.nativeCreationFileTime -isnot [string] -or $t.nativeCreationFileTime -cnotmatch '^[0-9]{17,20}$' -or $t.commandSha256 -isnot [string] -or $t.commandSha256 -cnotmatch '^[a-f0-9]{64}$' -or $t.imageSha256 -isnot [string] -or $t.imageSha256 -cnotmatch '^[a-f0-9]{64}$'){throw 'Invalid exact stop declaration'}}
+ $leases=[Collections.Generic.List[object]]::new();$events=[Collections.Generic.List[object]]::new();$stream=[IO.File]::Open($EvidencePath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+ function Record-ExactStop([object]$Event){$events.Add($Event);$b=[Text.UTF8Encoding]::new($false).GetBytes(($Event|ConvertTo-Json -Compress -Depth 5)+[Environment]::NewLine);$stream.Write($b,0,$b.Length);$stream.Flush($true)}
+ try{
+  foreach($t in $Targets){[void](Get-ProcessRemaining $Deadline);$leases.Add((Open-ExactStopLease $t))}
+  $rows=@(Read-ExactStopCensus);Assert-ExactStopClosure $Targets $rows
+  foreach($lease in $leases){Assert-ExactStopLease $lease $rows}
+  Record-ExactStop @{stage='all-targets-validated';count=$Targets.Count;at=[DateTimeOffset]::UtcNow.ToString('o')}
+  foreach($lease in @($leases|Sort-Object {$_.Target.depth} -Descending)){
+   [void](Get-ProcessRemaining $Deadline);$rows=@(Read-ExactStopCensus);Assert-ExactStopClosure $Targets $rows
+   [void](Get-ProcessRemaining $Deadline)
+   if(Test-ExactHeldExited $lease){
+    [void](Get-ProcessRemaining $Deadline)
+    Record-ExactStop @{stage='exit-confirmed';mode='observed-exit';processId=$lease.Target.processId;nativeCreationFileTime=$lease.Target.nativeCreationFileTime;at=[DateTimeOffset]::UtcNow.ToString('o')}
+    continue
+   }
+   Assert-ExactStopLease $lease $rows
+   Record-ExactStop @{stage='stop-started';processId=$lease.Target.processId;nativeCreationFileTime=$lease.Target.nativeCreationFileTime;at=[DateTimeOffset]::UtcNow.ToString('o')}
+   [void](Get-ProcessRemaining $Deadline)
+   Stop-ExactHeldInstance $lease $Deadline
+   Record-ExactStop @{stage='exit-confirmed';mode='terminated';processId=$lease.Target.processId;at=[DateTimeOffset]::UtcNow.ToString('o')}
+  }
+  Assert-ExactStopClosure $Targets @(Read-ExactStopCensus)
+  return [pscustomobject]@{status='declared-instances-exited';count=$Targets.Count;terminatedCount=@($events|Where-Object {$_.stage -eq 'exit-confirmed' -and $_.mode -eq 'terminated'}).Count;observedExitCount=@($events|Where-Object {$_.stage -eq 'exit-confirmed' -and $_.mode -eq 'observed-exit'}).Count;events=$events.ToArray()}
+ }catch{
+  $failure=$_;try{Record-ExactStop @{stage='unknown';confirmedExits=@($events|Where-Object {$_.stage -eq 'exit-confirmed'}).Count;at=[DateTimeOffset]::UtcNow.ToString('o')}}catch{$failure.Exception.Data['EvidenceSaveFailed']=$true}
+  $failure.Exception.Data['StopEvents']=$events.ToArray();throw $failure
+ }finally{foreach($lease in $leases){Close-ExactStopLease $lease};$stream.Dispose()}
+}

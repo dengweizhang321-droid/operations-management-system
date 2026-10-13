@@ -1,0 +1,505 @@
+{
+  "at": "2026-10-12T02:27:10.736Z",
+  "status": "start-full-readiness-unresolved",
+  "productionComplete": false,
+  "entries": [
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/NO_WSL_GUARD_INTENT_V1.json",
+      "target": "no-wsl-review/NO_WSL_GUARD_INTENT_V1.json",
+      "bytes": 1602,
+      "sha256": "3cfd185f92d4bb3bb220dec721409f5e48d02462363d29d0e6341f6047dc7f74"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ASTRA_NO_WSL_HANDOFF_V1.json",
+      "target": "no-wsl-review/ASTRA_NO_WSL_HANDOFF_V1.json",
+      "bytes": 3769,
+      "sha256": "f6d886e8e00a2b922aa396cfbf8ee26a86998d337ae274a95826f624e0929f21"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/NO_WSL_PREDICATE_BODY_PROOF_V1.json",
+      "target": "no-wsl-review/NO_WSL_PREDICATE_BODY_PROOF_V1.json",
+      "bytes": 3747,
+      "sha256": "30ade9522fb11e120deace2348724dd0f22a0cf056949c8961a55e8a356f58ea"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/NO_RUNNING_WSL_TEST_V1.log",
+      "target": "no-wsl-review/NO_RUNNING_WSL_TEST_V1.log",
+      "bytes": 2033,
+      "sha256": "d0c596a048eedfce2b3bed70c136f009b60128cee6fba5d4eb093fbe673a5b57"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/NO_RUNNING_WSL_TEST_V2.log",
+      "target": "no-wsl-review/NO_RUNNING_WSL_TEST_V2.log",
+      "bytes": 1553,
+      "sha256": "620aed92bd10a4e3348d68df55fde5563c938459d5f120c7560ba7d0721226d6"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/NO_WSL_FINAL_TEST_V1.log",
+      "target": "no-wsl-review/NO_WSL_FINAL_TEST_V1.log",
+      "bytes": 2556,
+      "sha256": "2d81f2d110b75492618e6cce9be7f7ae43efee1f080739c609f380c95f5593f5"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_NO_RUNNING_WSL_PROMPT.txt",
+      "target": "no-wsl-review/AGY_NO_RUNNING_WSL_PROMPT.txt",
+      "bytes": 2626,
+      "sha256": "1a2042f3d133e69d5922befddbb6d9a8b1deed540a54a88289cbe07f07ef0afe"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_NO_RUNNING_WSL_STREAM.ndjson",
+      "target": "no-wsl-review/AGY_NO_RUNNING_WSL_STREAM.ndjson",
+      "bytes": 20938,
+      "sha256": "31af6124071e2aaa3d1e5480fc8f9b52695f5435ae5acce53258020c4960f072"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_NO_RUNNING_WSL_STDERR.log",
+      "target": "no-wsl-review/AGY_NO_RUNNING_WSL_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_NO_RUNNING_WSL_CALL.json",
+      "target": "no-wsl-review/AGY_NO_RUNNING_WSL_CALL.json",
+      "bytes": 206,
+      "sha256": "aca6619015a010faf8d5119a66e012b2c3fe5cd23105655610bfff513e0162e2"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_NO_RUNNING_WSL_RESULT.md",
+      "target": "no-wsl-review/AGY_NO_RUNNING_WSL_RESULT.md",
+      "bytes": 1838,
+      "sha256": "ea93a85bc6928a4b26622a2ed39d7acfda038a7c7b695d08b7aeda280dd277c9"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_NO_RUNNING_WSL_FINAL_PROMPT.txt",
+      "target": "no-wsl-review/AGY_NO_RUNNING_WSL_FINAL_PROMPT.txt",
+      "bytes": 30188,
+      "sha256": "66f19b2f096f2d97db526de2f440a30b7c10849ebe00c2e10fce6df5d9d11c86"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_NO_RUNNING_WSL_FINAL_STREAM.ndjson",
+      "target": "no-wsl-review/AGY_NO_RUNNING_WSL_FINAL_STREAM.ndjson",
+      "bytes": 20104,
+      "sha256": "f0ab153dac6d3503b884668d6ef11fe5bf61085a674394af1a49d5749a9ee06b"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_NO_RUNNING_WSL_FINAL_STDERR.log",
+      "target": "no-wsl-review/AGY_NO_RUNNING_WSL_FINAL_STDERR.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_NO_RUNNING_WSL_FINAL_CALL.json",
+      "target": "no-wsl-review/AGY_NO_RUNNING_WSL_FINAL_CALL.json",
+      "bytes": 206,
+      "sha256": "f4ec05bcc38606162f75f36653d52a6d65b2a49236d17d273a91a110509a1bc8"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_NO_RUNNING_WSL_FINAL_RESULT.md",
+      "target": "no-wsl-review/AGY_NO_RUNNING_WSL_FINAL_RESULT.md",
+      "bytes": 1672,
+      "sha256": "0f7972da1d27e2c7c2b7598224dd13c44f6e3c852a4e7bb57d0f7640cbb4405e"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/NO_WSL_REVIEW_ARCHIVE_MANIFEST_V1.json",
+      "target": "no-wsl-review/INDEX.json",
+      "bytes": 3348,
+      "sha256": "fd8c486276335a9a14467a6d88271dd577948bbb105785d5a82a930cd3870e71"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/BOOTSTRAP_BINDING_V1.json",
+      "target": "resume4/BOOTSTRAP_BINDING_V1.json",
+      "bytes": 290,
+      "sha256": "db228a67a2316bb693ab7f28a7f178254f4ff04417fdd123a756b4563352cffc"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/BOOTSTRAP_V1.ps1",
+      "target": "resume4/BOOTSTRAP_V1.ps1",
+      "bytes": 1984,
+      "sha256": "683f7319b0cc77e2837123d85209b681c321ae261e4b32199a744bc2a9d27372"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/CHAIN_BINDING_V1.json",
+      "target": "resume4/CHAIN_BINDING_V1.json",
+      "bytes": 12643,
+      "sha256": "e97351a1c23183bde4c34e1f10d21c24fc19d141c468522cd5e262b654a8b0b6"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/CAPTURE_NORMAL.ps1",
+      "target": "resume4/CAPTURE_NORMAL.ps1",
+      "bytes": 1884,
+      "sha256": "6373231f0b062d89054bb1e978da27fe7c8d44a1910c45b117ff2882b2b9ebc1"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/ADMIN_DISPATCHED_V2.json",
+      "target": "resume4/ADMIN_DISPATCHED_V2.json",
+      "bytes": 336,
+      "sha256": "c210ab4ad54f35f6aa6fd140f36b4636436befd77fcadbe8b77b2aebc7ea8884"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/UAC_CANCELLED_V1.json",
+      "target": "resume4/UAC_CANCELLED_V1.json",
+      "bytes": 383,
+      "sha256": "bc552fc8fe6fb4d5f9f7f1bd634ac6f12ace2decef00a65d7775a07b0c533415"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/ENV_RESTORED.json",
+      "target": "resume4/ENV_RESTORED.json",
+      "bytes": 1059,
+      "sha256": "cdc361b8d918a84d60c0560959e3a0b88e8e199bd5c04943933d17d8583e3744"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/STARTED.json",
+      "target": "resume4/STARTED.json",
+      "bytes": 1042,
+      "sha256": "a34e0affc90dfd9a368d3910b55a514bb1f18130799171cb277f83156ff05b2a"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/DIRECT_PROCESS.json",
+      "target": "resume4/DIRECT_PROCESS.json",
+      "bytes": 146,
+      "sha256": "e05f05f1e0b0a31ab8715aa40f3448abb009d7351c4cccbc7ff9a76db4c5c6b1"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/FINISHED.json",
+      "target": "resume4/FINISHED.json",
+      "bytes": 266,
+      "sha256": "3a3e0178662259f9be68ed019611b7e02fcc4b7aab4e0fce38946a9d510e9e00"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/CHAIN_FINISHED.json",
+      "target": "resume4/CHAIN_FINISHED.json",
+      "bytes": 85,
+      "sha256": "b3311c438a5f9c85225ecf99ad23a42370cb454e8fa80043594ed3d3cf74ebff"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/STDOUT.log",
+      "target": "resume4/STDOUT.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/resume4/STDERR.log",
+      "target": "resume4/STDERR.log",
+      "bytes": 51,
+      "sha256": "b4aee1edf53b3021558797979b17434f9bae233c75b8180b6923322b56c53cff"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/startup-diagnostic1/CONTROL_NORMAL.stdout.json",
+      "target": "startup-diagnostic1/CONTROL_NORMAL.stdout.json",
+      "bytes": 598,
+      "sha256": "dd5bfe576f9814f05508a5d24ca3a7fab05f84d67a48b80aaff91d6c9257a0b4"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/startup-diagnostic1/CONTROL_NORMAL.stderr.log",
+      "target": "startup-diagnostic1/CONTROL_NORMAL.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/startup-diagnostic1/CONTROL_NORMAL.exit.json",
+      "target": "startup-diagnostic1/CONTROL_NORMAL.exit.json",
+      "bytes": 116,
+      "sha256": "5ab16e2ea7092d0a1998a5d05bdec8a2eadc473bb052e22e6dd417dbb9ba2018"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000000.json",
+      "target": "wal-49/000000.json",
+      "bytes": 276,
+      "sha256": "0f9b044aa3cf504c42509606e3358eda83094016609dc89f3d230342857663f6"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000001.json",
+      "target": "wal-49/000001.json",
+      "bytes": 1289,
+      "sha256": "81e6cce0afbb8949a692367a03aba7689a065353a58225ff301acf3a201a97a2"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000002.json",
+      "target": "wal-49/000002.json",
+      "bytes": 341,
+      "sha256": "73e3bb2df739bb855f184f069ef6bb0ded103ae194c88e771b912a3a9bc62af6"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000003.json",
+      "target": "wal-49/000003.json",
+      "bytes": 2092,
+      "sha256": "4f01fc11f7d5d0fa98be325c8dc5c6c0e8a5cf17eef9b4abfebe65ef086ed04f"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000004.json",
+      "target": "wal-49/000004.json",
+      "bytes": 1957,
+      "sha256": "79724f784dfb862616fb7f6cb0eb81d0c5d60ca6bfeb532a0d56e215b59fb219"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000005.json",
+      "target": "wal-49/000005.json",
+      "bytes": 338,
+      "sha256": "56482df7442d0833b591e8494403bee2969bde92c7cce80f1417ad5f3bdafedb"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000006.json",
+      "target": "wal-49/000006.json",
+      "bytes": 518,
+      "sha256": "e4c911842abf19297c2e00aa9e35dd57e5fbde09444f3d335e3ac2b1b20436dc"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000007.json",
+      "target": "wal-49/000007.json",
+      "bytes": 1964,
+      "sha256": "2e509166b1a70dd7192d8c1cb0aef79652f44da7f840d0ff8a11f1646b013d30"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000008.json",
+      "target": "wal-49/000008.json",
+      "bytes": 341,
+      "sha256": "0491d19d6fb9da61fbc3ee512296924ca35664c810e8f6314036f23f98becdac"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000009.json",
+      "target": "wal-49/000009.json",
+      "bytes": 1465,
+      "sha256": "58d73d459afbb5c090f3cf593d10819aee42289bb23847166279ebc9d2dd36ca"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000010.json",
+      "target": "wal-49/000010.json",
+      "bytes": 859,
+      "sha256": "f5ed9adcca75869cd6db9cb3678b903b5ef3cb3a9be8512a35dd55d9e79a4607"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000011.json",
+      "target": "wal-49/000011.json",
+      "bytes": 341,
+      "sha256": "ec2fde65dccca20e05ea6c5c86de080de94f8d8a7b07cdd50674851757f111b7"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000012.json",
+      "target": "wal-49/000012.json",
+      "bytes": 2075,
+      "sha256": "9a55d11d36a9216490eebd0ec2f32cf17a70d36293eeb46a94439163d62ee028"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000013.json",
+      "target": "wal-49/000013.json",
+      "bytes": 2077,
+      "sha256": "467fd44fc005eb2d3ac6375c77e7349401cf17a95321872bcf79d345dddcb26f"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000014.json",
+      "target": "wal-49/000014.json",
+      "bytes": 351,
+      "sha256": "361d0e3fa43793a9f331ab857e1a8a8e74398acf083a0e75d7c2318b5d43485a"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000015.json",
+      "target": "wal-49/000015.json",
+      "bytes": 1476,
+      "sha256": "7cc254aaef62183150949a3aa9ebc7a6cf4704b94c621d0b7b5e937bf6359ed7"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000016.json",
+      "target": "wal-49/000016.json",
+      "bytes": 1961,
+      "sha256": "f436db0cdd041daa34e294290f717d1c34b2f584997518d810cba32c6398c6a8"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000017.json",
+      "target": "wal-49/000017.json",
+      "bytes": 347,
+      "sha256": "def4bd27652b0bd5ecefb0f4aeec0cec61154cf210534b48b71a5531f26aa76d"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000018.json",
+      "target": "wal-49/000018.json",
+      "bytes": 2084,
+      "sha256": "541e7d274f997d3ce083bee04486f72c76a115c036872e2155a4652b6a60e14f"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000019.json",
+      "target": "wal-49/000019.json",
+      "bytes": 465,
+      "sha256": "f81900d324bd1807962630cc1fc70441fd71515d113f74fa5ccc8966d690160c"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000020.json",
+      "target": "wal-49/000020.json",
+      "bytes": 340,
+      "sha256": "1cbe3026754b153d6bb7a36fd855c821bbb4f51b52146492a75ffaaa6731b699"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000021.json",
+      "target": "wal-49/000021.json",
+      "bytes": 2065,
+      "sha256": "773f41a6c09edada7aeb83fdb438dc6e0c1fbb1a49de118b6a5cf8fca3b6f74a"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000022.json",
+      "target": "wal-49/000022.json",
+      "bytes": 2064,
+      "sha256": "21a1d57e6aac330253bd24b256a2fe5c5e2e1877d1c10ad04471693bdad8e31b"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000023.json",
+      "target": "wal-49/000023.json",
+      "bytes": 335,
+      "sha256": "0c2a6969b53d82e225e29b95808b60b6bd9a3d8297bd95ed6453a7ad446a1758"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000024.json",
+      "target": "wal-49/000024.json",
+      "bytes": 515,
+      "sha256": "a4298a9caccdc39386f13e6f1d7303c2730f350c2e76377a105c1c6f6fc46d77"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000025.json",
+      "target": "wal-49/000025.json",
+      "bytes": 1948,
+      "sha256": "7aeaf8cc31707c47863e122b4dd8aae030dbc39fa14101961a02bab77eb6e9f5"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000026.json",
+      "target": "wal-49/000026.json",
+      "bytes": 351,
+      "sha256": "7bd5474c3f643e336b76d20b6c8fb8027fce160b3d1474cf70d783ceea6d282a"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000027.json",
+      "target": "wal-49/000027.json",
+      "bytes": 1463,
+      "sha256": "031bcac0a4b50a84c0a6239167b6b77038af1450446d0810a925306d8b2cf708"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000028.json",
+      "target": "wal-49/000028.json",
+      "bytes": 469,
+      "sha256": "c7f5718b7843c51ea98e01135c0070d2f1b77beba2299d19ecee5b9985f17b2c"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000029.json",
+      "target": "wal-49/000029.json",
+      "bytes": 341,
+      "sha256": "980fa68b8d825f97af0fc4c8e4da11582260762e741568a4a23b9e245802198a"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000030.json",
+      "target": "wal-49/000030.json",
+      "bytes": 2084,
+      "sha256": "383e137e1d66a1f4c246dd1a36fb65c3ccb1a269c24061ceae03a429ea79ba37"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000031.json",
+      "target": "wal-49/000031.json",
+      "bytes": 1957,
+      "sha256": "f4410e620910396fa3f59ec8cb5cff924e4247daf0135ac4bddabd65b2e0b7e9"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000032.json",
+      "target": "wal-49/000032.json",
+      "bytes": 346,
+      "sha256": "f9bc1a63bde16c2f4afc9c87c14dad9825049cd982487f53c8614d6cd186ffdf"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000033.json",
+      "target": "wal-49/000033.json",
+      "bytes": 1012,
+      "sha256": "49b20e5b9a02750575d1b6352b9f8747e70a4ef7bf322057d6bccf3b740bf6f4"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000034.json",
+      "target": "wal-49/000034.json",
+      "bytes": 1952,
+      "sha256": "aad1ab51b267d64db449aab4846923866811df037ca46b53718dfa8aceaca0f9"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000035.json",
+      "target": "wal-49/000035.json",
+      "bytes": 346,
+      "sha256": "cf688efa0741fc7f8466e7d4eb913b9228d368be71311f5b1eaf15ff409d3ce7"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000036.json",
+      "target": "wal-49/000036.json",
+      "bytes": 1419,
+      "sha256": "f60e3a5f75758ab1571b0ccd7088d9bf83d11782da3243b042d1dfe1dc70f887"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000037.json",
+      "target": "wal-49/000037.json",
+      "bytes": 1957,
+      "sha256": "3cbe9583039393c362cf165865b44464a5a8544cc2b4f0af3c23e6da991e9b56"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000038.json",
+      "target": "wal-49/000038.json",
+      "bytes": 354,
+      "sha256": "151a2a9fe2e4831135699549cd23f4233875e79f8ca43b3c5805d7fdb2041341"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000039.json",
+      "target": "wal-49/000039.json",
+      "bytes": 1225,
+      "sha256": "cc9ea872202d9ce9d18497b9c6fd316014bdf5b8d808d91135bf3fec233702ce"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000040.json",
+      "target": "wal-49/000040.json",
+      "bytes": 1957,
+      "sha256": "4de88f7621b3daada06668a50e16ec9e70abe5f97fd1481880ef7bc0d6ea3460"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000041.json",
+      "target": "wal-49/000041.json",
+      "bytes": 344,
+      "sha256": "6f8fd301ac55e8e9714714c4ccbfa5e3993e1ff8e499b95aeba681582914c528"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000042.json",
+      "target": "wal-49/000042.json",
+      "bytes": 1140,
+      "sha256": "30515054f93174dd7ea653be86348fc5664c9d123cc37e617fbc8099aa8751d2"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000043.json",
+      "target": "wal-49/000043.json",
+      "bytes": 1958,
+      "sha256": "5be793c04230da83d4108c876b2c0f23f177737094156223d3297b3a6625de62"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000044.json",
+      "target": "wal-49/000044.json",
+      "bytes": 352,
+      "sha256": "07e426e2a30da146bb716014e21b663532d3f1bdecb6e8b5afe97cd177ecdf21"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000045.json",
+      "target": "wal-49/000045.json",
+      "bytes": 1475,
+      "sha256": "e9550386b59522acef2568b7851a06f10c49259efb2dd9876bf427af04313ebd"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000046.json",
+      "target": "wal-49/000046.json",
+      "bytes": 1958,
+      "sha256": "41d348a7657788708bcb003434f7029172cd41016e1aeaf7fa6ff59ec3a3a992"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000047.json",
+      "target": "wal-49/000047.json",
+      "bytes": 348,
+      "sha256": "ead9c365ae408550e79e1cdf88085a482d40ef9bd13ea7fd2b6a340398e47dd3"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/first-adoption-live-guard-20261011/000048.json",
+      "target": "wal-49/000048.json",
+      "bytes": 2774,
+      "sha256": "8b4913ba70361e35087b09453a0ff200a662e9065aba795869d30da9492740d2"
+    },
+    {
+      "source": "D:/teruisi-runtime/teruisi-worker-sales/state/release-batches/active.json",
+      "target": "active.json",
+      "bytes": 125,
+      "sha256": "c20ab313d58f56b04fad78796311c51cdc25d02e70924563a171a5806958bfb8"
+    }
+  ]
+}

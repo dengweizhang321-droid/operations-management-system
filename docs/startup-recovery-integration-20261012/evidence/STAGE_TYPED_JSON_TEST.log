@@ -1,0 +1,10 @@
+✔ original fixed stage predicate powershell.exe (1001.8494ms)
+✔ original fixed stage predicate pwsh.exe (658.9519ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1786.775

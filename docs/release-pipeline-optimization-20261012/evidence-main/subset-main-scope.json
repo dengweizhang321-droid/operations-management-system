@@ -1,0 +1,45 @@
+{
+  "schema": "main-subset-scope-v1",
+  "preMergeMainSha": "5368e5014a418234bb2e8e436ce9e62012531c14",
+  "approvedSubsetSha": "c48411325e77adf81d445c05ffae6bf5178cb783",
+  "mergeSha": "9ccdae84d691b348d588821b153be586297d6777",
+  "mergeTree": "0be9f64c22e7fab24812d3fc2a0bb6ae82409db9",
+  "mergeTreeExactlyMatchesReviewedSubset": true,
+  "mergeRemoteReadbackSha": "9ccdae84d691b348d588821b153be586297d6777",
+  "approvedSubsetIncluded": true,
+  "fullCiAncestorIncluded": false,
+  "fullCiRetainedSha": "dc94e6492ce34457529581239f2b682bb6d36264",
+  "sourceManifestMembersVerified": 63,
+  "perFileCommitsVerified": true,
+  "baseToMergeFileCount": 64,
+  "newDocumentationPaths": [
+    "docs/release-pipeline-optimization-20261012/MAIN-SUBSET-DELIVERY.md",
+    "docs/release-pipeline-optimization-20261012/evidence-main/subset-main-scope.json"
+  ],
+  "baseToFinalFileCount": 66,
+  "changedNonDocumentationPaths": [
+    "tests/operations-system-service-exit.test.ps1",
+    "tests/operations-system-service.test.ts",
+    "tests/release-closeout-independent.test.mjs",
+    "tools/operations-system-service.ps1",
+    "tools/release-closeout-report.mjs"
+  ],
+  "newDocumentLocalLinksVerified": 8,
+  "newDocumentLinkFailures": [],
+  "newDocumentSha256": "ca2eeda490ab9a1514887f319611ec40a72f9040049119dab519590b070f1fef",
+  "newDocumentBytes": 8035,
+  "codeAndDependencyBytesChangedByMerge": false,
+  "testReuseQualification": "Exact reviewed c484 tree and dependency bytes unchanged; S1 17, S2 21, fingerprints 6, timing 3, changed lint exit0 remain applicable. No full CI/L3 or production capability declaration.",
+  "reviewApproval": {
+    "sourceThreadId": "01a13006-3f65-7b91-aa00-6a0a80594722",
+    "sourceThreadTitle": "评估发布流水线优化方案",
+    "scope": "Exact c484 S0/S1/S2 plus necessary final delivery documents; repository merge and ordinary push only; human delegated engineering decision evidence previously read",
+    "auxiliaryFirstReviewFailure": "Coordinator audit script initially used Windows default GBK for Git Chinese paths; explicit UTF-8 then succeeded; not a product test failure"
+  },
+  "mainCheckoutSynced": false,
+  "mainCheckoutChangesPreserved": true,
+  "productionAdopted": false,
+  "productionCandidatePrepared": false,
+  "cleanupExecuted": false,
+  "finalCommitBinding": "Final documentation commit and remote main SHA are bound by the external create-only MAIN-SUBSET-DELIVERY-V1.json receipt; this file excludes its own hash."
+}

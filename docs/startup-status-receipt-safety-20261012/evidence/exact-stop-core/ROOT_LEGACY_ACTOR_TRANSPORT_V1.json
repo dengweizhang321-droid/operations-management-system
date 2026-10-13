@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-10-12T04:02:11.733Z",
+  "exitCode": 0,
+  "sourceSha256": "e4ded82918f906fe7d44fb72cc0b23a397e035a7a23c84571747e22d2e2e2f09",
+  "stdoutSha256": "4ac9589897cbbe08af74c7d3942cca6a8194281a9873e181e0f8366e3e4ce72e",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderrBytes": 0,
+  "absenceEstablished": false,
+  "initialFailures": [
+    "PS5 decoded the no-BOM Chinese path incorrectly; failure before metadata API. Final source has UTF-8 BOM.",
+    "Node inherited non-SystemPS PSModulePath: Get-FileHash unavailable. Fixed child-only SystemPS Modules path; no global environment change."
+  ]
+}

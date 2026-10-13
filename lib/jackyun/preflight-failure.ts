@@ -7,6 +7,9 @@ export function classifyJackyunPreflightFailure(message: string): JackyunPreflig
     || message === "waiting_login：吉客云初始页面状态未在限定时间内确认。") return "automatic";
   if (/^waiting_login：吉客云 DPAPI 凭据配置或解密未完成（(?:initialize|binding|binding_input|binding_identity|binding_local_path|binding_vault_lookup|missing)(?: \/ [A-Za-z][A-Za-z0-9.,_-]{0,159})?(?: \/ lookup=provider:[01],file:[01],directory:[01])?）。$/.test(message)) return "credential_ready";
   if (/^waiting_login：吉客云登录已停止（(?:challenge_present|credential_rejected|tenant_mismatch|origin_mismatch|form_ambiguous)）。$/.test(message)
-    || message === "waiting_login：专用浏览器端口已占用，自动任务不会接管已打开的浏览器。") return "manual";
+    || message === "waiting_login：专用浏览器端口已占用，自动任务不会接管已打开的浏览器。"
+    // verifyJackyunBrowserBinding throws before credentials or the export callback.
+    // Keep PID validation strict and require a fresh manual execution with zero-effect proof.
+    || message === "waiting_login：调试端口不属于本次启动的独立浏览器，已停止接管。") return "manual";
   return null;
 }

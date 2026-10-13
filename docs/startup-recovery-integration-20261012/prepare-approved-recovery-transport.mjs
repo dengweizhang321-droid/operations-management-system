@@ -1,0 +1,4 @@
+// Generate only AFTER the exact human approval is recorded. Never launches UAC.
+import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';import {buildRecoveryTransport,recoveryBootstrap} from './recovery-transport.mjs';import {hash} from './recovery-context.mjs';
+assert.equal(process.argv.length,6);const binding=buildRecoveryTransport(...process.argv.slice(2));const root=binding.outputRoot;fs.mkdirSync(root,{recursive:false});
+const file=path.join(root,'TRANSPORT_BINDING.json'),raw=Buffer.from(JSON.stringify(binding,null,2)+'\n');fs.writeFileSync(file,raw,{flag:'wx'});const boot=recoveryBootstrap(file,hash(raw));assert(/^[\x00-\x7f]*$/.test(boot));fs.writeFileSync(path.join(root,'BOOTSTRAP.ps1'),boot,{flag:'wx'});console.log(JSON.stringify({bindingPath:file,bindingSha256:hash(raw),bootstrapSha256:hash(boot),heldFiles:binding.files.length,launched:false}));

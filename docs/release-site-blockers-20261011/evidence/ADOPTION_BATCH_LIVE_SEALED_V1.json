@@ -1,0 +1,143 @@
+{
+  "batchSha256": "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+  "specRawSha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b",
+  "specPath": "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+  "priorBatchSha256": "f0bb923070dc0741a6b76885b6fe08f54710928b0eda1398a9cab8452d1d6c9e",
+  "sourceSha256": "dc1dbeeded593980c6712e7afabde0a053dfd13d8f6c4bb9375718330af2b8fb",
+  "workerManifestSha256": "6cff8886e533244997b65d2a8668776cee5178b95e4e2a99ed14bd25bf2733f4",
+  "djangoManifestSha256": "85cf0699925aad21f98ae682f458789236d206723b10865939915d1bcacddd09",
+  "maintenanceId": "a483894ad8d945298c866c74a06df6ff",
+  "operations": [
+    {
+      "id": "op-prepare",
+      "kind": "worker-plan",
+      "phase": "prepare"
+    },
+    {
+      "id": "backup-pre",
+      "kind": "backup",
+      "phase": "backup-pre"
+    },
+    {
+      "id": "op-entermaintenance-drain",
+      "kind": "lifecycle",
+      "phase": "drain",
+      "step": "EnterMaintenance"
+    },
+    {
+      "id": "op-stopworker-switch",
+      "kind": "lifecycle",
+      "phase": "switch",
+      "step": "StopWorker"
+    },
+    {
+      "id": "op-apply",
+      "kind": "worker-apply",
+      "phase": "switch"
+    },
+    {
+      "id": "previous-reference-guard",
+      "kind": "task-acceptance",
+      "phase": "switch"
+    },
+    {
+      "id": "op-deployapp-switch",
+      "kind": "django-deploy",
+      "phase": "switch",
+      "step": "DeployApp"
+    },
+    {
+      "id": "op-hardenacl-switch",
+      "kind": "lifecycle",
+      "phase": "switch",
+      "step": "HardenAcl"
+    },
+    {
+      "id": "installed-recovery-consumer",
+      "kind": "recovery-consumer",
+      "phase": "switch"
+    },
+    {
+      "id": "restore-installed",
+      "kind": "restore",
+      "phase": "switch"
+    },
+    {
+      "id": "op-exitmaintenance-switch",
+      "kind": "lifecycle",
+      "phase": "switch",
+      "step": "ExitMaintenance"
+    },
+    {
+      "id": "op-startworker-switch",
+      "kind": "lifecycle",
+      "phase": "switch",
+      "step": "StartWorker"
+    },
+    {
+      "id": "observe-display",
+      "kind": "no-data-observation",
+      "phase": "acceptance"
+    },
+    {
+      "id": "observe-permissions",
+      "kind": "no-data-observation",
+      "phase": "acceptance"
+    },
+    {
+      "id": "unchanged-business-closure",
+      "kind": "task-acceptance",
+      "phase": "acceptance"
+    },
+    {
+      "id": "op-verifystartup-acceptance",
+      "kind": "lifecycle",
+      "phase": "acceptance",
+      "step": "VerifyStartup"
+    },
+    {
+      "id": "op-aggregatestatus-acceptance",
+      "kind": "lifecycle",
+      "phase": "acceptance",
+      "step": "AggregateStatus"
+    },
+    {
+      "id": "observe-natural-watchdog",
+      "kind": "no-data-observation",
+      "phase": "acceptance"
+    },
+    {
+      "id": "op-verifystartup-closeout",
+      "kind": "lifecycle",
+      "phase": "closeout",
+      "step": "VerifyStartup"
+    }
+  ],
+  "databaseOperations": {
+    "required": true,
+    "operationIds": [
+      "backup-pre",
+      "restore-installed"
+    ],
+    "policy": "teruisi-first-adoption-targeted-v1"
+  },
+  "execution": {
+    "mode": "fresh-no-reuse-v1",
+    "entryPath": "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\fresh-adoption-entry-v2.mjs",
+    "entrySha256": "69898b1be33a9e3ba0d30a2eab480a12ca05fe339bf373bc333eec7d10245b99",
+    "qualifyArgs": [
+      "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\fresh-adoption-entry-v2.mjs",
+      "qualify",
+      "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+      "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f"
+    ],
+    "executeArgs": [
+      "E:\\codex-artifacts\\release-first-adoption-targeted-20261011\\fresh-adoption-entry-v2.mjs",
+      "execute",
+      "E:/codex-artifacts/release-site-blockers-20261011/ADOPTION_BATCH_LIVE_V1.json",
+      "f15d06a159073927ba3565712027aa645869333a3210c54e1858738756ca110f",
+      "<explicit-approval-UTC-timestamp>"
+    ]
+  },
+  "productionApproved": false
+}

@@ -1,0 +1,3 @@
+# Preserve the original PowerShell observation/check JSON bytes and hashes.
+# Keep the normal whitespace checks; CR is the original PowerShell line ending.
+*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

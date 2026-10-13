@@ -1,0 +1,6 @@
+{
+  "oldBytesRestored": true,
+  "finalAclMatchesOriginal": true,
+  "finalAclSha256": "c842d067b703b9083e4487fb51e4b894c0374997b3ceaf5a41fdf7e3760c40c4",
+  "scope": "Retained private fixture target only; explicit PS5 system modules/private cache; no production write"
+}

@@ -1,0 +1,166 @@
+{
+  "at": "2026-10-12T06:15:42.355Z",
+  "exitCode": 0,
+  "error": null,
+  "stdoutSha256": "403d2036b08915ed458eaea788cdb3cb702030c1ea099ca7d9ddfa9bb021840a",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "before": {
+    "ai-pandas-wsl.pid.json": "ba2c2af05b2a45af1692d177c5ba76dee0d75cdf4f3f9aed0fce771dce436f4e",
+    "django-access-control-reader.pid.json": "f2fa59ec203bb1bbfb6d6142021dbfa654b5c7aca8e9e11df089c41a7c4a7e04",
+    "django-access-control-writer.pid.json": "603de78c37090db7cb41051f3227531822a71289c069cc16af248d3d9c5f8a4e",
+    "django-ai-dingtalk-schedule.pid.json": "c1be7cbb7464e0bb3c38ad6537a79a41df23d4561f778549c135d7e29bb3f837",
+    "django-ai-dingtalk.pid.json": "e0487def86f69cbf240e9beec2d22ab6347dfa2997aa1808c2e5b6acb373cfac",
+    "django-ai-reader.pid.json": "1cb2f79c68ed80c397b8eac81c7cb71f222b63c27e39ec635eb02b92fe4863a6",
+    "django-ai-writer.pid.json": "066db5fccc8d206db8cb60ac8df442c71a9b198ea72a7c7a04b41a2424bf3223",
+    "django-bi-reader.pid.json": "2ccbac7d7e5246472c6b11a8a62614f84424dcfbe4a7606419ce55819162c7f8",
+    "django-customer-service-reader.pid.json": "28681ecc020030be655d060551fe6eb64993ce1341613166976de3b0b16501ee",
+    "django-customer-service-writer.pid.json": "9a4a43cd2720d98f571d6356e16cdf0ab55c2323dd8d629a759f422c39993ece",
+    "django-erp-reference-reader.pid.json": "773a571de7eb4dd5675924aa8c7b80e20607ee1b8b22def5c28db7e7979ce827",
+    "django-erp-reference-writer.pid.json": "612223fa2b91bd63cb311e1b49854b9aba7a0d23f4b75e23fc08ae95036f76c9",
+    "django-finance-reader.pid.json": "d481edecc6bdb1af9c4847a5387c43d6a73fadf3c43b7e14a8f465a9e030ee24",
+    "django-finance-writer.pid.json": "26469186ee3bb730118b1ddf73fb3a52b8bc1fc6297b2304e2ea38d28fc056b6",
+    "django-inventory-reader.pid.json": "9f159d367137e9fbddf77d8ab46a13245fbbbb5162d6b809b9bb92989e362588",
+    "django-inventory-writer.pid.json": "c2fa1a903e7a1755b88599fc8debb5dd65ee674f369f9d2f2c242d3072e03afb",
+    "django-market-reader.pid.json": "c77106b9a494bcce1e9bfab86b12cce699c5e516bd9b20b3734e8556370d5b51",
+    "django-market-writer.pid.json": "39cc208464d4674478efa33ff9bc156b0d736d7d5828f56419fad96208226a1c",
+    "django-netshop-reader.pid.json": "634fc4b7b62d6fcbae070295fe46a3b74bbfc351c676bacd9687a312c3152064",
+    "django-netshop-writer.pid.json": "1ee160f3a1bea17e3e3f28d5adcbc0577fd76859ccc03cd47efbea5f3079a41e",
+    "django-products-reader.pid.json": "bd54158ecd992449cdc9025cb29f50dc0c604dd1359c306fbb26261477a5ffcc",
+    "django-products-writer.pid.json": "6c61c985864aa02d72702a7856aa18602a7c34e555dc19f8aec99e3523248889",
+    "django-reader.pid.json": "5542458ed887855f98f5700f3b4c6d34e21666d9f2721cae6ac56fecee815709",
+    "django-workflow-reader.pid.json": "eeb62a600e59bb3085b88e2bac0f7d6bc0b2b610acb23f4549ba70f22f3fb305",
+    "django-workflow-writer.pid.json": "984dc1facfe95d591469726aff6443d89f8f7774195dab3b16015127603e8c39",
+    "django-writer.pid.json": "dea1b511269dbfe34b35c607105f364da0484658ad8fb55405eb1a7a94ce7a37",
+    "django.pid.json": "d3673a5783f373125a5f9be1a1958d3ab747545498dfe324f4fc3d8f88d0adb8",
+    "projection-sync.pid.json": "606ceaa1258eb9ff1e47f4b0e122d012ee1deaf054a511a1cb1569b515108875"
+  },
+  "after": {
+    "ai-pandas-wsl.pid.json": "ba2c2af05b2a45af1692d177c5ba76dee0d75cdf4f3f9aed0fce771dce436f4e",
+    "django-access-control-reader.pid.json": "f2fa59ec203bb1bbfb6d6142021dbfa654b5c7aca8e9e11df089c41a7c4a7e04",
+    "django-access-control-writer.pid.json": "603de78c37090db7cb41051f3227531822a71289c069cc16af248d3d9c5f8a4e",
+    "django-ai-dingtalk-schedule.pid.json": "c1be7cbb7464e0bb3c38ad6537a79a41df23d4561f778549c135d7e29bb3f837",
+    "django-ai-dingtalk.pid.json": "e0487def86f69cbf240e9beec2d22ab6347dfa2997aa1808c2e5b6acb373cfac",
+    "django-ai-reader.pid.json": "1cb2f79c68ed80c397b8eac81c7cb71f222b63c27e39ec635eb02b92fe4863a6",
+    "django-ai-writer.pid.json": "066db5fccc8d206db8cb60ac8df442c71a9b198ea72a7c7a04b41a2424bf3223",
+    "django-bi-reader.pid.json": "2ccbac7d7e5246472c6b11a8a62614f84424dcfbe4a7606419ce55819162c7f8",
+    "django-customer-service-reader.pid.json": "28681ecc020030be655d060551fe6eb64993ce1341613166976de3b0b16501ee",
+    "django-customer-service-writer.pid.json": "9a4a43cd2720d98f571d6356e16cdf0ab55c2323dd8d629a759f422c39993ece",
+    "django-erp-reference-reader.pid.json": "773a571de7eb4dd5675924aa8c7b80e20607ee1b8b22def5c28db7e7979ce827",
+    "django-erp-reference-writer.pid.json": "612223fa2b91bd63cb311e1b49854b9aba7a0d23f4b75e23fc08ae95036f76c9",
+    "django-finance-reader.pid.json": "d481edecc6bdb1af9c4847a5387c43d6a73fadf3c43b7e14a8f465a9e030ee24",
+    "django-finance-writer.pid.json": "26469186ee3bb730118b1ddf73fb3a52b8bc1fc6297b2304e2ea38d28fc056b6",
+    "django-inventory-reader.pid.json": "9f159d367137e9fbddf77d8ab46a13245fbbbb5162d6b809b9bb92989e362588",
+    "django-inventory-writer.pid.json": "c2fa1a903e7a1755b88599fc8debb5dd65ee674f369f9d2f2c242d3072e03afb",
+    "django-market-reader.pid.json": "c77106b9a494bcce1e9bfab86b12cce699c5e516bd9b20b3734e8556370d5b51",
+    "django-market-writer.pid.json": "39cc208464d4674478efa33ff9bc156b0d736d7d5828f56419fad96208226a1c",
+    "django-netshop-reader.pid.json": "634fc4b7b62d6fcbae070295fe46a3b74bbfc351c676bacd9687a312c3152064",
+    "django-netshop-writer.pid.json": "1ee160f3a1bea17e3e3f28d5adcbc0577fd76859ccc03cd47efbea5f3079a41e",
+    "django-products-reader.pid.json": "bd54158ecd992449cdc9025cb29f50dc0c604dd1359c306fbb26261477a5ffcc",
+    "django-products-writer.pid.json": "6c61c985864aa02d72702a7856aa18602a7c34e555dc19f8aec99e3523248889",
+    "django-reader.pid.json": "5542458ed887855f98f5700f3b4c6d34e21666d9f2721cae6ac56fecee815709",
+    "django-workflow-reader.pid.json": "eeb62a600e59bb3085b88e2bac0f7d6bc0b2b610acb23f4549ba70f22f3fb305",
+    "django-workflow-writer.pid.json": "984dc1facfe95d591469726aff6443d89f8f7774195dab3b16015127603e8c39",
+    "django-writer.pid.json": "dea1b511269dbfe34b35c607105f364da0484658ad8fb55405eb1a7a94ce7a37",
+    "django.pid.json": "d3673a5783f373125a5f9be1a1958d3ab747545498dfe324f4fc3d8f88d0adb8",
+    "projection-sync.pid.json": "606ceaa1258eb9ff1e47f4b0e122d012ee1deaf054a511a1cb1569b515108875"
+  },
+  "receiptsUnchanged": true,
+  "data": {
+    "Version": "teruisi-django-aggregate-status-v1",
+    "Core": {
+      "PostgreSQL": "running",
+      "DjangoReader": "ownership_error",
+      "DjangoWriter": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "WriterReadiness": "not_ready",
+      "RuntimeAcl": "root_hardened",
+      "RuntimeAclVerification": "root_only_status",
+      "ReadinessEvidence": {
+        "reader": null,
+        "writer": null
+      },
+      "ElapsedMilliseconds": 3942,
+      "Startup": "installed",
+      "CheckedAt": "2026-10-12T14:15:30.9821876+08:00"
+    },
+    "Finance": {
+      "FinanceReader": "ownership_error",
+      "FinanceWriter": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "WriterReadiness": "not_ready",
+      "PostgreSQLAuthority": "postgres",
+      "CheckedAt": "2026-10-12T14:15:33.6807006+08:00"
+    },
+    "Netshop": {
+      "NetshopReader": "ownership_error",
+      "NetshopWriter": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "WriterReadiness": "not_ready",
+      "CheckedAt": "2026-10-12T06:15:34.4936124+00:00"
+    },
+    "Market": {
+      "MarketReader": "ownership_error",
+      "MarketWriter": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "WriterReadiness": "not_ready",
+      "CheckedAt": "2026-10-12T06:15:35.3679157+00:00"
+    },
+    "Products": {
+      "ProductsReader": "ownership_error",
+      "ProductsWriter": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "WriterReadiness": "not_ready",
+      "CheckedAt": "2026-10-12T06:15:36.2051022+00:00"
+    },
+    "Inventory": {
+      "InventoryReader": "ownership_error",
+      "InventoryWriter": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "WriterReadiness": "not_ready",
+      "CheckedAt": "2026-10-12T06:15:37.0486837+00:00"
+    },
+    "Workflow": {
+      "WorkflowReader": "ownership_error",
+      "WorkflowWriter": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "WriterReadiness": "not_ready",
+      "CheckedAt": "2026-10-12T06:15:37.8513494+00:00"
+    },
+    "CustomerService": {
+      "CustomerServiceReader": "ownership_error",
+      "CustomerServiceWriter": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "WriterReadiness": "not_ready",
+      "CheckedAt": "2026-10-12T06:15:38.5970719+00:00"
+    },
+    "AccessControl": {
+      "AccessControlReader": "ownership_error",
+      "AccessControlWriter": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "WriterReadiness": "not_ready",
+      "CheckedAt": "2026-10-12T06:15:39.3847881+00:00"
+    },
+    "Ai": {
+      "AiReader": "ownership_error",
+      "AiWriter": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "WriterReadiness": "not_ready",
+      "CheckedAt": "2026-10-12T06:15:41.5018432+00:00",
+      "PandasReadiness": "ready"
+    },
+    "ErpReference": {
+      "ErpReferenceReader": "ownership_error",
+      "ErpReferenceWriter": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "WriterReadiness": "not_ready",
+      "CheckedAt": "2026-10-12T06:15:40.5418287+00:00"
+    },
+    "Bi": {
+      "BiReader": "ownership_error",
+      "ReaderReadiness": "not_ready",
+      "CheckedAt": "2026-10-12T06:15:42.2910185+00:00"
+    },
+    "ElapsedMilliseconds": 15269,
+    "CheckedAt": "2026-10-12T06:15:42.2929929+00:00"
+  }
+}

@@ -1,0 +1,438 @@
+同conversation只文本独立审必要诊断性能修复，禁工具/生产。当前原f15 73WAL/000072自然观察unknown，原17项passed/剩自然和closeout。真实新帧而非stale：control55.4s、supervisor2.1s、HTTP2.3s+端口检查，总61.0s超原60s。12组件/4probe都好但整体deadline拒。原0b已采用不热改，不靠两绿帧掩盖持续超时，不加cap。定向ordinary只读profile：Backend46单PID-CIM17.913s，native23次63.6ms；Worker单PID9次4.041s+全Census406ms/native35.9ms。嵌套时间不可加总，28当时receipt前后同。
+现在新9filecandidate e033，仅backendwrapper/coreoverlay两个变化，watchdog/60s/installer/controller/launcher/deadline其余7字节原样。wrapper同次RAM上下文：before fullCIM唯一PID索引，目标全部登记，original Resolver/argv/exe/fingerprint/creation原判词逆变exact；缺metadata仍原native0x1000双读，句柄持至末；captured结果在RAM，after独立fullCIM对每target出生/父/Name/Session/已可读exe/cmd严格一致，缺失后出现、复用、消失都拒。Worker树原GetProcessTree集合前后相同，新/消失/父变拒。所有nativeheld同句柄末再次读取出生/image/command；新增GetExitCode前后259及ExitTime>0保守拒退出/unknown，真实自己spawn exit259已测试拒。Microsoft官方GetProcessTimes说明live ExitTime未定义，因此绝不能以0单独证明alive；当前PS5/7真实self稳定、私有child259退出正例通过。没有SYNCH/Terminate/VMRead/debug新增权限。finally所有句柄关闭/context销毁，无TTL/跨进程/跨轮复用，不说全OS排他。
+原mock双host20cases各/原predicate回归/监督路由回归共8NodePASS，另真实self/privateexit259两host2PASS，Root独立同样PASS。新actual ordinary候选GetWatchSnapshot（FunctionsOnly，没有Check/Install）一次38.073s，backend15.814/Worker10.495/http1.936，healthytrue/12/4全true/6cff PID17184,sup36568/29当前receipt前后相同/九文件前后同；与旧28仅截点差，不凭一轮宣称持续SLO或净节省。来源preview使用前后byte/nlink/realpath核和普通readfd，不冒Windows排他锁。原生产仍0b，需新原Plan/源码Git/对应版本批准才变TaskAction，Triggers/RunLevel不变。旧batch/source和DB操作不改。请找具体新增阻断，特别CIM视图前后/持handle退出/Deadline/提前输出；500字以内，不扩大通用框架。
+
+FILE tools/watchdog-native-metadata.ps1 SHA 9b44b33fe6b6b5894932086552efe15a6f5790ecb2cd33af9957274cc7fa0f18
+$script:ReadonlyCensus=$null
+# Diagnostic-only metadata supplementation. No receipt writes, process control,
+# privilege adjustment or VM_READ. Invoked only by the generated status wrappers.
+if (-not ('Teruisi.ReadonlyProcessMetadata' -as [type])) {
+  Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+namespace Teruisi { public static class ReadonlyProcessMetadata {
+ public static bool SameCreation(long native,long cim){return native/10==cim/10;}
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern IntPtr OpenProcess(uint access,bool inherit,uint pid);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool CloseHandle(IntPtr h);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool GetExitCodeProcess(IntPtr h,out uint code);
+ [DllImport("kernel32.dll",SetLastError=true)] public static extern bool GetProcessTimes(IntPtr h,out long c,out long e,out long k,out long u);
+ [DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode)] public static extern bool QueryFullProcessImageName(IntPtr h,uint flags,StringBuilder b,ref uint n);
+ [DllImport("ntdll.dll")] public static extern int NtQueryInformationProcess(IntPtr h,int cl,IntPtr b,uint n,out uint required);
+ public static string Command(IntPtr h,out int status){
+  uint n;status=NtQueryInformationProcess(h,60,IntPtr.Zero,0,out n);
+  if(n<16||n>65536+64)return null;
+  IntPtr b=Marshal.AllocHGlobal((int)n);
+  try{
+   uint allocated=n;status=NtQueryInformationProcess(h,60,b,allocated,out n);
+   if(status!=0||n<16||n>allocated)return null;
+   int length=(ushort)Marshal.ReadInt16(b),maximum=(ushort)Marshal.ReadInt16(b,2);
+   long p=Marshal.ReadIntPtr(b,8).ToInt64(),start=b.ToInt64();
+   if(length%2!=0||maximum%2!=0||length>maximum||p<start+16||p-start>allocated||maximum>allocated-(p-start)){status=unchecked((int)0xC000000D);return null;}
+   string value=Marshal.PtrToStringUni(new IntPtr(p),length/2);
+   return String.IsNullOrWhiteSpace(value)?null:value;
+  }finally{Marshal.FreeHGlobal(b);}
+ }
+}}
+'@
+}
+function Read-ReadonlyNativeHandle([IntPtr]$Handle) {
+    $exitCode=[uint32]0
+    if(-not [Teruisi.ReadonlyProcessMetadata]::GetExitCodeProcess($Handle,[ref]$exitCode) -or $exitCode -ne 259){throw 'diagnostic_native_not_running'}
+    $c1=0L;$c2=0L;$e=0L;$k=0L;$u=0L
+    if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($Handle,[ref]$c1,[ref]$e,[ref]$k,[ref]$u)){throw 'diagnostic_native_times_unavailable'}
+    if($e -gt 0){throw 'diagnostic_native_exit_time_or_unknown'}
+    $image1=[Text.StringBuilder]::new(32768);$n1=[uint32]32768
+    if(-not [Teruisi.ReadonlyProcessMetadata]::QueryFullProcessImageName($Handle,0,$image1,[ref]$n1)){throw 'diagnostic_native_image_unavailable'}
+    $s1=0;$s2=0;$cmd1=[Teruisi.ReadonlyProcessMetadata]::Command($Handle,[ref]$s1);$cmd2=[Teruisi.ReadonlyProcessMetadata]::Command($Handle,[ref]$s2)
+    $image2=[Text.StringBuilder]::new(32768);$n2=[uint32]32768
+    if(-not [Teruisi.ReadonlyProcessMetadata]::QueryFullProcessImageName($Handle,0,$image2,[ref]$n2)){throw 'diagnostic_native_image_unavailable'}
+    if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($Handle,[ref]$c2,[ref]$e,[ref]$k,[ref]$u)){throw 'diagnostic_native_times_unavailable'}
+    if($e -gt 0){throw 'diagnostic_native_exit_time_or_unknown'}
+    if($c1 -ne $c2 -or $s1 -ne 0 -or $s2 -ne 0 -or [string]::IsNullOrWhiteSpace($cmd1) -or
+       -not [string]::Equals($cmd1,$cmd2,[StringComparison]::Ordinal) -or
+       -not [string]::Equals($image1.ToString(),$image2.ToString(),[StringComparison]::OrdinalIgnoreCase)){throw 'diagnostic_native_identity_changed'}
+    if(-not [Teruisi.ReadonlyProcessMetadata]::GetExitCodeProcess($Handle,[ref]$exitCode) -or $exitCode -ne 259){throw 'diagnostic_native_not_running'}
+    [void](Get-ProcessRemaining (Get-ProcessDeadline))
+    return [pscustomobject]@{CreationFileTime=$c1;ExecutablePath=$image2.ToString();CommandLine=$cmd2}
+}
+function Get-ReadonlyNativeProcessFields([int]$ProcessId) {
+ if([IntPtr]::Size -ne 8 -or $ProcessId -le 4){throw 'diagnostic_native_target_invalid'}
+ [void](Get-ProcessRemaining (Get-ProcessDeadline))
+ $h=[Teruisi.ReadonlyProcessMetadata]::OpenProcess(0x1000,$false,[uint32]$ProcessId)
+ if($h -eq [IntPtr]::Zero){throw ('diagnostic_native_open_'+[Runtime.InteropServices.Marshal]::GetLastWin32Error())}
+ $deferred=$false
+ try {
+  $value=Read-ReadonlyNativeHandle $h
+  if($null -ne $script:ReadonlyCensus){$script:ReadonlyCensus.NativeHolds.Add(@{ProcessId=$ProcessId;Handle=$h;Value=$value});$deferred=$true}
+  return $value
+ }finally{if(-not $deferred){[void][Teruisi.ReadonlyProcessMetadata]::CloseHandle($h)}}
+}
+function Read-ReadonlyCimProcess([int]$ProcessId) {
+  if($null -ne $script:ReadonlyCensus){Register-ReadonlyCensusTarget $ProcessId;return @($script:ReadonlyCensus.Before[$ProcessId])|Where-Object {$null -ne $_}}
+  return @(CimCmdlets\Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop)
+}
+function Complete-ReadonlyProcessMetadata([object]$Process) {
+  if($null -ne $script:ReadonlyCensus){Register-ReadonlyCensusTarget ([int]$Process.ProcessId)}
+  if(-not [string]::IsNullOrWhiteSpace([string]$Process.ExecutablePath) -and
+     -not [string]::IsNullOrWhiteSpace([string]$Process.CommandLine)){return $Process}
+  if($Process.ProcessId -le 4 -or $Process.CreationDate -isnot [datetime]){throw 'diagnostic_cim_identity_missing'}
+  $native=Get-ReadonlyNativeProcessFields ([int]$Process.ProcessId)
+  $after=@(Read-ReadonlyCimProcess ([int]$Process.ProcessId))
+  if($after.Count -ne 1 -or $after[0].CreationDate -isnot [datetime] -or
+     $Process.CreationDate -ne $after[0].CreationDate -or
+     -not [Teruisi.ReadonlyProcessMetadata]::SameCreation([long]$native.CreationFileTime,$Process.CreationDate.ToUniversalTime().ToFileTimeUtc()) -or
+     $Process.Name -cne $after[0].Name -or $Process.SessionId -ne $after[0].SessionId -or $Process.ParentProcessId -ne $after[0].ParentProcessId){throw 'diagnostic_cim_native_identity_changed'}
+  foreach($row in @($Process,$after[0])){
+    if(-not [string]::IsNullOrWhiteSpace([string]$row.ExecutablePath) -and
+       -not [string]::Equals([string]$row.ExecutablePath,[string]$native.ExecutablePath,[StringComparison]::OrdinalIgnoreCase)){throw 'diagnostic_image_disagrees'}
+    if(-not [string]::IsNullOrWhiteSpace([string]$row.CommandLine) -and
+       -not [string]::Equals([string]$row.CommandLine,[string]$native.CommandLine,[StringComparison]::Ordinal)){throw 'diagnostic_command_disagrees'}
+  }
+  $copy=$Process|Select-Object *
+  $copy.ExecutablePath=$native.ExecutablePath;$copy.CommandLine=$native.CommandLine
+  return $copy
+}
+function Get-ReadonlyDiagnosticSnapshot([int]$ProcessId,[int]$Attempts=20) {
+  for($attempt=1;$attempt -le $Attempts;$attempt++){
+    $rows=@(Read-ReadonlyCimProcess $ProcessId)
+    if($rows.Count -gt 1){throw 'diagnostic_cim_ambiguous'}
+    if($rows.Count -eq 1){
+      $p=Complete-ReadonlyProcessMetadata $rows[0]
+      if($null -eq $p.CreationDate){throw 'diagnostic_cim_identity_missing'}
+      return [pscustomobject]@{Process=$p;ProcessId=[int]$p.ProcessId;CreationDate=Get-ProcessCreation $p;ExecutablePath=Get-CanonicalPath ([string]$p.ExecutablePath);CommandLine=[string]$p.CommandLine}
+    }
+    Start-Sleep -Milliseconds 100
+  }
+  return $null
+}
+function Get-ReadonlyWorkerCensus([object]$Identity) {
+  $receipt=Read-ProcessReceipt $Identity
+  $rows=@(Read-ReadonlyWorkerCimCensus)
+  if($null -eq $receipt){return $rows}
+  $tree=@(Get-ProcessTree ([int]$receipt.supervisorPid) $rows)
+  if($null -ne $script:ReadonlyCensus){$script:ReadonlyCensus.WorkerRoot=[int]$receipt.supervisorPid;$script:ReadonlyCensus.WorkerTree=@($tree|ForEach-Object {[int]$_.Process.ProcessId})}
+  if($tree.Count -gt 512){throw 'diagnostic_worker_tree_limit'}
+  $targets=[Collections.Generic.HashSet[int]]::new();[void]$targets.Add([int]$receipt.supervisorPid)
+  foreach($item in $tree){[void]$targets.Add([int]$item.Process.ProcessId)}
+  return @($rows|ForEach-Object {if($targets.Contains([int]$_.ProcessId)){Complete-ReadonlyProcessMetadata $_}else{$_}})
+}
+function Read-ReadonlyWorkerCimCensus {
+  if($null -ne $script:ReadonlyCensus){return $script:ReadonlyCensus.Rows}
+  return @(CimCmdlets\Get-CimInstance Win32_Process -ErrorAction Stop)
+}
+function Read-ReadonlyWholeCensus {
+ [void](Get-ProcessRemaining (Get-ProcessDeadline))
+ return @(CimCmdlets\Get-CimInstance Win32_Process -ErrorAction Stop)
+}
+function New-ReadonlyCensusMap([object[]]$Rows) {
+ if($Rows.Count -gt 8192){throw 'diagnostic_census_limit'}
+ $map=@{}
+ foreach($row in $Rows){
+  if($null -eq $row -or $row -is [array] -or ($row.ProcessId -isnot [int] -and $row.ProcessId -isnot [uint32] -and $row.ProcessId -isnot [long])){throw 'diagnostic_census_row'}
+  if([long]$row.ProcessId -gt [int]::MaxValue){throw 'diagnostic_census_pid_range'}
+  $id=[int]$row.ProcessId;if($id -lt 0 -or $map.ContainsKey($id)){throw 'diagnostic_census_duplicate'};$map[$id]=$row
+ }
+ return $map
+}
+function Register-ReadonlyCensusTarget([int]$ProcessId) {
+ if($ProcessId -le 4){throw 'diagnostic_census_target'}
+ [void]$script:ReadonlyCensus.Targets.Add($ProcessId)
+ if($script:ReadonlyCensus.Targets.Count -gt 512){throw 'diagnostic_census_target_limit'}
+}
+function Assert-ReadonlyCimPair($Before,$After) {
+ if($null -eq $Before -and $null -eq $After){return}
+ if($null -eq $Before -or $null -eq $After){throw 'diagnostic_census_presence_changed'}
+ foreach($r in @($Before,$After)){
+  if($r.CreationDate -isnot [datetime] -or $r.Name -isnot [string] -or [string]::IsNullOrWhiteSpace($r.Name)){throw 'diagnostic_census_identity_missing'}
+  foreach($k in @('ProcessId','ParentProcessId','SessionId')){if($r.$k -isnot [int] -and $r.$k -isnot [uint32] -and $r.$k -isnot [long]){throw 'diagnostic_census_integer'}}
+  foreach($k in @('ExecutablePath','CommandLine')){if($null -ne $r.$k -and $r.$k -isnot [string]){throw 'diagnostic_census_metadata_type'}}
+ }
+ foreach($k in @('ProcessId','ParentProcessId','SessionId','Name','CreationDate')){if($Before.$k -cne $After.$k){throw 'diagnostic_census_identity_changed'}}
+ foreach($k in @('ExecutablePath','CommandLine')){
+  if(-not [string]::IsNullOrWhiteSpace($Before.$k)){
+   if([string]::IsNullOrWhiteSpace($After.$k)){throw 'diagnostic_census_metadata_lost'}
+   $comparison=if($k -eq 'ExecutablePath'){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal}
+   if(-not [string]::Equals($Before.$k,$After.$k,$comparison)){throw 'diagnostic_census_metadata_changed'}
+  }
+ }
+}
+function Invoke-ReadonlyMetadataObservation([scriptblock]$ReadStatus) {
+ if($null -ne $script:ReadonlyCensus){throw 'diagnostic_census_nested'}
+ $rows=@(Read-ReadonlyWholeCensus);$before=New-ReadonlyCensusMap $rows
+ $script:ReadonlyCensus=@{Rows=$rows;Before=$before;Targets=[Collections.Generic.HashSet[int]]::new();NativeHolds=[Collections.Generic.List[object]]::new();WorkerRoot=$null;WorkerTree=$null}
+ try{
+  # No result is emitted before the second census and all held identities pass.
+  $captured=& $ReadStatus
+  $afterRows=@(Read-ReadonlyWholeCensus);$after=New-ReadonlyCensusMap $afterRows
+  foreach($id in $script:ReadonlyCensus.Targets){Assert-ReadonlyCimPair $before[$id] $after[$id]}
+  foreach($held in $script:ReadonlyCensus.NativeHolds){
+   $last=Read-ReadonlyNativeHandle $held.Handle;$first=$held.Value;$row=$after[[int]$held.ProcessId]
+   if($null -eq $row -or $first.CreationFileTime -ne $last.CreationFileTime -or
+      -not [string]::Equals($first.ExecutablePath,$last.ExecutablePath,[StringComparison]::OrdinalIgnoreCase) -or
+      -not [string]::Equals($first.CommandLine,$last.CommandLine,[StringComparison]::Ordinal) -or
+      -not [Teruisi.ReadonlyProcessMetadata]::SameCreation([long]$last.CreationFileTime,$row.CreationDate.ToUniversalTime().ToFileTimeUtc())){throw 'diagnostic_held_identity_changed'}
+   foreach($k in @('ExecutablePath','CommandLine')){if(-not [string]::IsNullOrWhiteSpace($row.$k)){$cmp=if($k -eq 'ExecutablePath'){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal};if(-not [string]::Equals($row.$k,$last.$k,$cmp)){throw 'diagnostic_census_native_disagrees'}}}
+  }
+  if($null -ne $script:ReadonlyCensus.WorkerRoot){
+   $tree=@(Get-ProcessTree $script:ReadonlyCensus.WorkerRoot $afterRows|ForEach-Object {[int]$_.Process.ProcessId})
+   if((@($tree|Sort-Object) -join ',') -cne (@($script:ReadonlyCensus.WorkerTree|Sort-Object) -join ',')){throw 'diagnostic_worker_tree_changed'}
+  }
+  [void](Get-ProcessRemaining (Get-ProcessDeadline))
+  return $captured
+ }finally{
+  foreach($held in $script:ReadonlyCensus.NativeHolds){[void][Teruisi.ReadonlyProcessMetadata]::CloseHandle($held.Handle)}
+  $script:ReadonlyCensus=$null
+ }
+}
+
+
+FILE tools/prepare-watchdog-native-status-driver.mjs SHA 37af0542228408861766e9172aaa4d13f076d542619d97615450247f7bd79408
+import {readFile,writeFile} from 'node:fs/promises';
+import path from 'node:path';import {fileURLToPath} from 'node:url';import {createHash} from 'node:crypto';
+import {prepareStatusDriver} from './prepare-watchdog-status-driver.mjs';
+const hash=x=>createHash('sha256').update(x).digest('hex');
+const quote=x=>"'"+x.replaceAll("'","''")+"'";
+function once(text,from,to){if(!text.includes(from)||text.indexOf(from)!==text.lastIndexOf(from))throw Error('native_diagnostic_source_shape_changed');return text.replace(from,()=>to);}
+export function body(text,name){const at=text.indexOf('function '+name+'(');if(at<0)throw Error('missing_function_'+name);const end=text.indexOf('\nfunction ',at+1);if(end<0)throw Error('unbounded_function_'+name);return text.slice(at,end);}
+export function readonlyBodies(backend,worker){
+ const resolver=body(backend,'Resolve-OwnedProcess'),workerStatus=body(worker,'Get-WorkerStatusInternal');
+ const newline=resolver.includes('\r\n')?'\r\n':'\n';
+ const edits=[
+  ['  [string]$ExpectedFingerprint = ""','  [string]$ExpectedFingerprint = "",'+newline+'  [switch]$ReadOnly'],
+  ['  $snapshot = Get-ProcessSnapshot $processId 1','  $snapshot = Get-ReadonlyDiagnosticSnapshot $processId 1'],
+  ['    Remove-Item -LiteralPath $PidPath -Force'+newline+'    Write-LauncherEvent "WARN" "stale_process_record_removed" $PidPath','    # Diagnostic absence never deletes the ownership record.'],
+  ['    if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt) {'+newline+'      return $null'+newline+'    }','    # Diagnostic mismatch never invokes previous-boot cleanup.'],
+ ];
+ let readResolver=resolver;for(const [from,to]of edits)readResolver=once(readResolver,from,to);
+ const workerFrom='$processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)',workerTo='$processes = @(Get-ReadonlyWorkerCensus $Identity)';
+ const readWorker=once(workerStatus,workerFrom,workerTo);
+ let reverted=readResolver;for(const [from,to]of [...edits].reverse())reverted=once(reverted,to,from);
+ if(reverted!==resolver||once(readWorker,workerTo,workerFrom)!==workerStatus)throw Error('original_predicate_changed');
+ return {readResolver,readWorker,proof:{backend:{originalBodySha256:hash(resolver),generatedBodySha256:hash(readResolver),revertedExact:true,edits},worker:{originalBodySha256:hash(workerStatus),generatedBodySha256:hash(readWorker),revertedExact:true,edits:[[workerFrom,workerTo]]}}};
+}
+export async function prepareNativeStatusDriver(options){
+ const [backend,worker,native]=await Promise.all([readFile(options.backendFile,'utf8'),readFile(options.workerFile,'utf8'),readFile(options.nativeTemplateFile??new URL('./watchdog-native-metadata.ps1',import.meta.url),'utf8')]);
+ const bodies=readonlyBodies(backend,worker);
+ const binding=await prepareStatusDriver(options);
+ const output=options.outputDirectory,controlPath=path.join(output,'watchdog-status-control.ps1'),overlayPath=path.join(output,'watchdog-core-overlay.ps1');
+ let control=await readFile(controlPath,'utf8');
+ control=once(control,'$releaseStatus = Invoke-JsonServiceAction -ScriptPath $LocalWorkerStarter -Arguments @("-Action", "Status") -Label',
+  '$releaseStatus = Invoke-JsonServiceAction -ScriptPath (Join-Path $PSScriptRoot "watchdog-status-backend.ps1") -Arguments @("-Action", "Status", "-DiagnosticTarget", "Worker") -Label');
+ const overlay=(await readFile(overlayPath,'utf8'))+'\n'+native.replace(/^\ufeff/,'')+'\n'+bodies.readResolver+'\n'+bodies.readWorker+'\n';
+ const wrapper=`[CmdletBinding()]
+param([ValidateSet('Status','AggregateStatus')][string]$Action='Status',[switch]$Json,[ValidateSet('Backend','Worker')][string]$DiagnosticTarget='Backend')
+$ErrorActionPreference='Stop'
+$diagnosticRequestedAction=$Action
+if($DiagnosticTarget -eq 'Worker' -and $Action -ne 'Status'){throw 'readonly_worker_status_only'}
+$diagnosticBackend=${quote(options.backendFile)}
+$diagnosticWorker=${quote(options.workerFile)}
+$diagnosticRoot=${quote(path.dirname(path.dirname(path.dirname(options.backendFile))))}
+$diagnosticBinding=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'driver-binding.json') -Raw|ConvertFrom-Json
+function Assert-NativeDiagnosticSources {
+ if((Get-FileHash -LiteralPath $diagnosticBackend -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.backend -or
+    (Get-FileHash -LiteralPath $diagnosticWorker -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.worker){throw 'diagnostic_predecessor_changed'}
+}
+Assert-NativeDiagnosticSources
+$diagnosticTransport=Join-Path $PSScriptRoot 'process-deadline.ps1'
+if((Get-FileHash -LiteralPath $diagnosticTransport -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.transport){throw 'diagnostic_transport_changed'}
+. $diagnosticTransport
+if($DiagnosticTarget -eq 'Worker'){
+ . $diagnosticWorker -Action Status -FunctionsOnly -Json
+ . (Join-Path $PSScriptRoot 'watchdog-core-overlay.ps1')
+ $diagnosticManifest=Get-CurrentManifestPath
+ $diagnosticIdentity=if($diagnosticManifest){Get-ManifestIdentity $diagnosticManifest}else{$null}
+ $diagnosticResult=Invoke-ReadonlyMetadataObservation { Get-PublicStatus (Get-WorkerStatusInternal $diagnosticIdentity) }
+ Assert-NativeDiagnosticSources
+ $diagnosticResult|ConvertTo-Json -Depth 8 -Compress
+}else{
+ $savedLibrary=$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
+ try{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';. $diagnosticBackend -Action Status -RuntimeRoot $diagnosticRoot -Json}finally{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY=$savedLibrary}
+ . (Join-Path $PSScriptRoot 'watchdog-core-overlay.ps1')
+ # Capability markers required by the original controller:
+ # "AggregateStatus" { Show-AggregateServiceStatus }
+ # teruisi-django-aggregate-status-v1
+ $script:Json=[switch]$true
+ $diagnosticResult=Invoke-ReadonlyMetadataObservation { if($diagnosticRequestedAction -eq 'AggregateStatus'){Show-AggregateServiceStatus}else{Show-ServiceStatus} }
+ Assert-NativeDiagnosticSources
+ $diagnosticResult
+}
+`;
+ await writeFile(controlPath,control);
+ await writeFile(overlayPath,overlay);
+ await writeFile(path.join(output,'watchdog-status-backend.ps1'),'\ufeff'+wrapper);
+ return {binding,proof:{...bodies.proof,backendSourceSha256:hash(Buffer.from(backend)),workerSourceSha256:hash(Buffer.from(worker)),nativeTemplateSha256:hash(Buffer.from(native)),controlRouting:'one fixed Worker Status target replacement; other controller predicates unchanged'},files:await Promise.all(['watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json'].map(async name=>({name,sha256:hash(await readFile(path.join(output,name)))})))};
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+ if(process.argv.length!==3)throw Error('Exact options file required');
+ console.log(JSON.stringify(await prepareNativeStatusDriver(JSON.parse(await readFile(process.argv[2],'utf8')))));
+}
+
+
+FILE tools/prepare-watchdog-supervisor-status-driver.mjs SHA 9d5e344adf04eb5eafd22761bb9137d21d012f73c876d6ed0dc962e941df624d
+import fs from 'node:fs/promises';import path from 'node:path';import {createHash} from 'node:crypto';
+import {prepareNativeStatusDriver} from './prepare-watchdog-native-status-driver.mjs';
+const hash=b=>createHash('sha256').update(b).digest('hex'),quote=s=>"'"+s.replaceAll("'","''")+"'";
+function once(text,from,to){if(text.indexOf(from)<0||text.indexOf(from)!==text.lastIndexOf(from))throw Error('supervisor_diagnostic_source_shape_changed');return text.replace(from,()=>to);}
+export function readonlySupervisor(source){
+ const start=source.indexOf('function Resolve-SupervisorProcess {'),end=source.indexOf('\nfunction ',start+1);if(start<0||end<0)throw Error('supervisor_resolver_missing');
+ const original=source.slice(start,end),nl=original.includes('\r\n')?'\r\n':'\n';
+ const edits=[['$snapshot = Get-ProcessSnapshot ([int]$receipt.processId) 1','$snapshot = Get-ReadonlyDiagnosticSnapshot ([int]$receipt.processId) 1'],['    Remove-Item -LiteralPath $SupervisorPidPath -Force'+nl,'    # A read-only missing snapshot never deletes the supervisor receipt.'+nl],['    if (Remove-PreviousBootProcessRecordIfSafe `'+nl+'          $SupervisorPidPath $receipt.creationDate $receipt.startedAt) {'+nl+'      return $null'+nl+'    }','    # A read-only identity mismatch never performs previous-boot cleanup.']];
+ let generated=original;for(const [a,b]of edits)generated=once(generated,a,b);let reversed=generated;for(const [a,b]of [...edits].reverse())reversed=once(reversed,b,a);if(reversed!==original)throw Error('Supervisor ownership predicate changed');
+ const statusStart=source.indexOf('    "Status" {\n')>=0?source.indexOf('    "Status" {\n'):source.indexOf('    "Status" {\r\n');
+ const statusEnd=source.indexOf(nl+'    }'+nl+'  }'+nl+'  if ($SupervisorRequest.Action',statusStart);if(statusStart<0||statusEnd<0)throw Error('supervisor_status_block_missing');
+ const status=source.slice(statusStart+'    "Status" {'.length,statusEnd);
+ return{generated,status,proof:{originalSha256:hash(original),generatedSha256:hash(generated),statusBodySha256:hash(status),edits,reversedExact:true}};
+}
+export async function prepareSupervisorStatusDriver(options){
+ const result=await prepareNativeStatusDriver(options),source=await fs.readFile(options.supervisorFile,'utf8'),parts=readonlySupervisor(source),out=options.outputDirectory;
+ const binding={...result.binding,assetHashes:{...result.binding.assetHashes,supervisor:hash(Buffer.from(source))}};
+ let wrapper=await fs.readFile(path.join(out,'watchdog-status-backend.ps1'),'utf8');
+ wrapper=once(wrapper,"[ValidateSet('Backend','Worker')]","[ValidateSet('Backend','Worker','Supervisor')]");
+ wrapper=once(wrapper,"if($DiagnosticTarget -eq 'Worker' -and $Action -ne 'Status')","if($DiagnosticTarget -in @('Worker','Supervisor') -and $Action -ne 'Status')");
+ wrapper=once(wrapper,'$diagnosticBinding=Get-Content',`$diagnosticSupervisor=${quote(options.supervisorFile)}\n$diagnosticBinding=Get-Content`);
+ wrapper=once(wrapper,"-cne $diagnosticBinding.assetHashes.worker){throw",`-cne $diagnosticBinding.assetHashes.worker -or\n    (Get-FileHash -LiteralPath $diagnosticSupervisor -Algorithm SHA256).Hash.ToLowerInvariant() -cne $diagnosticBinding.assetHashes.supervisor){throw`);
+ const branch=`if($DiagnosticTarget -eq 'Supervisor'){
+ $savedBackend=$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
+ $savedSupervisor=$env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY
+ try{
+  $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';$env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY='1'
+  . $diagnosticBackend -Action Status -RuntimeRoot $diagnosticRoot -Json
+  . $diagnosticSupervisor -Action Status -RuntimeRoot $diagnosticRoot
+ }finally{$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY=$savedBackend;$env:TERUISI_DJANGO_SUPERVISOR_LIBRARY_ONLY=$savedSupervisor}
+ . (Join-Path $PSScriptRoot 'watchdog-core-overlay.ps1')
+ $canonicalRuntime=Get-SupervisorCanonicalPath $diagnosticRoot
+ if($canonicalRuntime -ine $SupervisorFixedRuntimeRoot){throw 'supervisor_runtime_changed'}
+ $ServiceScriptPath=$diagnosticBackend;$SupervisorScriptPath=$diagnosticSupervisor
+ $SupervisorMonitorDirectory=Assert-RuntimeChildPath (Join-Path $canonicalRuntime 'monitoring\\django-runtime')
+ $SupervisorAlertDirectory=Assert-RuntimeChildPath (Join-Path $SupervisorMonitorDirectory 'alerts\\pending')
+ $SupervisorStatePath=Assert-RuntimeChildPath (Join-Path $SupervisorMonitorDirectory 'state.json')
+ $SupervisorPidPath=Assert-RuntimeChildPath (Join-Path $RunDirectory 'django-supervisor.pid.json')
+ $diagnosticResult=Invoke-ReadonlyMetadataObservation {${parts.status}
+ }
+ Assert-NativeDiagnosticSources
+ $diagnosticResult|ConvertTo-Json -Depth 10 -Compress
+}elseif($DiagnosticTarget -eq 'Worker'){`;
+ wrapper=once(wrapper,"if($DiagnosticTarget -eq 'Worker'){",branch);
+ await fs.writeFile(path.join(out,'watchdog-status-backend.ps1'),wrapper);
+ await fs.appendFile(path.join(out,'watchdog-core-overlay.ps1'),'\n'+parts.generated+'\n');
+ await fs.writeFile(path.join(out,'driver-binding.json'),JSON.stringify(binding,null,2));
+ let watchdog=await fs.readFile(options.watchdogTemplateFile,'utf8');
+ const from="Invoke-WatchScript $SupervisorPath @('-Action','Status')",to="Invoke-WatchScript (Join-Path $PSScriptRoot 'watchdog-status-backend.ps1') @('-Action','Status','-DiagnosticTarget','Supervisor')";
+ if(watchdog.split(from).length!==3)throw Error('Expected exactly two original supervisor Status calls');
+ watchdog=watchdog.replaceAll(from,to);
+ // Original Run path is deliberately unchanged: no lifecycle wrapper is used.
+ await fs.writeFile(path.join(out,'operations-system-watchdog.ps1'),watchdog);
+ return{...result,binding,proof:{...result.proof,supervisor:parts.proof,supervisorSourceSha256:hash(Buffer.from(source)),watchdogRouting:{count:2,from,to,runUnchanged:true}}};
+}
+
+
+FILE tests/watchdog-census.fixture.ps1 SHA e655b632b7eddf3472317f604123a8c6050828552d6c8f880c1b1d18109ea05c
+param([string]$Source)
+$ErrorActionPreference='Stop';Set-StrictMode -Version Latest
+Add-Type @'
+using System;using System.Text;namespace Teruisi {public static class ReadonlyProcessMetadata {
+public static int Closed=0; public static bool Exited=false; public static long Birth=134362368000000000;public static bool SameCreation(long a,long b){return a/10==b/10;}
+public static IntPtr OpenProcess(uint a,bool i,uint p){return new IntPtr((int)p);}public static bool CloseHandle(IntPtr h){Closed++;return true;}
+public static bool GetExitCodeProcess(IntPtr h,out uint c){c=Exited?0u:259u;return true;}
+public static bool GetProcessTimes(IntPtr h,out long c,out long e,out long k,out long u){c=Birth;e=Exited?Birth+1:0;k=0;u=0;return true;}
+public static bool QueryFullProcessImageName(IntPtr h,uint f,StringBuilder b,ref uint n){b.Append("C:\\fixture\\node.exe");return true;}
+public static string Command(IntPtr h,out int s){s=0;return "fixed argv";}
+}}
+'@
+. $Source
+$script:DeadlineExpired=$false
+function Get-ProcessDeadline {return 999}
+function Get-ProcessRemaining($d){if($script:DeadlineExpired){throw 'expired'};return 999}
+function Get-ProcessCreation($p){return $p.CreationDate.ToUniversalTime().ToString('o')}
+function Get-CanonicalPath($p){return $p}
+function Start-Sleep{}
+function Row([int]$Id=100){[pscustomobject]@{ProcessId=$Id;ParentProcessId=50;SessionId=1;Name='node.exe';CreationDate=[datetime]::FromFileTimeUtc([Teruisi.ReadonlyProcessMetadata]::Birth);ExecutablePath=$null;CommandLine=$null}}
+$script:Reads=0;$script:Case='valid'
+function Read-ReadonlyWholeCensus {
+ $script:Reads++;$r=Row
+ if($script:Case.StartsWith('tree-')){
+  $child=Row 101;$child.ParentProcessId=100
+  if($script:Reads -gt 1){
+   if($script:Case -eq 'tree-missing'){return ,$r}
+   if($script:Case -eq 'tree-parent'){$child.ParentProcessId=200}
+   if($script:Case -eq 'tree-new'){$extra=Row 102;$extra.ParentProcessId=100;return @($r,$child,$extra)}
+  }
+  return @($r,$child)
+ }
+ if($script:Reads -eq 1){if($script:Case -eq 'appeared'){return @()};return ,$r}
+ switch($script:Case){
+ 'disappeared'{return @()}
+ 'duplicate'{return @($r,$r)}
+ 'reused'{$r.CreationDate=$r.CreationDate.AddTicks(10)}
+ 'parent'{$r.ParentProcessId=99}
+ 'session'{$r.SessionId=2}
+ 'name'{$r.Name='other.exe'}
+ 'image'{$r.ExecutablePath='C:\wrong.exe'}
+ 'command'{$r.CommandLine='wrong argv'}
+ 'badtype'{$r.SessionId=@(1)}
+ 'held-exited'{[Teruisi.ReadonlyProcessMetadata]::Exited=$true}
+ 'deadline'{$script:DeadlineExpired=$true}
+ }
+ return ,$r
+}
+$checks=0
+foreach($case in @('valid','disappeared','appeared','duplicate','reused','parent','session','name','image','command','badtype','held-exited','deadline')){
+ $script:Case=$case;$script:Reads=0;$script:DeadlineExpired=$false;[Teruisi.ReadonlyProcessMetadata]::Exited=$false;$before=[Teruisi.ReadonlyProcessMetadata]::Closed;$rejected=$false;$output=@()
+ try{$output=@(Invoke-ReadonlyMetadataObservation {Get-ReadonlyDiagnosticSnapshot 100 1})}catch{$rejected=$true}
+ if(($case -eq 'valid') -eq $rejected){throw ('bad result '+$case)}
+ if($null -ne $script:ReadonlyCensus){throw 'scope retained'}
+ if($case -ne 'appeared' -and [Teruisi.ReadonlyProcessMetadata]::Closed -ne $before+1){throw ('handle not closed '+$case)}
+ if($case -ne 'valid' -and $output.Count -ne 0){throw 'premature published result'}
+ $checks++
+}
+foreach($rows in @(@((Row),(Row)),@([pscustomobject]@{ProcessId=[uint32]::MaxValue}),@([pscustomobject]@{ProcessId='100'}))){$caught=$false;try{New-ReadonlyCensusMap $rows|Out-Null}catch{$caught=$true};if(-not $caught){throw 'bad census accepted'};$checks++}
+function Read-ProcessReceipt($Identity){return [pscustomobject]@{supervisorPid=100}}
+function Get-ProcessTree([int]$RootId,[object[]]$Rows){return @($Rows|Where-Object {$_.ProcessId -eq $RootId -or $_.ParentProcessId -eq $RootId}|ForEach-Object {[pscustomobject]@{Process=$_}})}
+foreach($case in @('tree-valid','tree-new','tree-missing','tree-parent')){
+ $script:Case=$case;$script:Reads=0;$script:DeadlineExpired=$false;[Teruisi.ReadonlyProcessMetadata]::Exited=$false;$before=[Teruisi.ReadonlyProcessMetadata]::Closed;$rejected=$false;$output=@()
+ try{$output=@(Invoke-ReadonlyMetadataObservation {Get-ReadonlyWorkerCensus @{}})}catch{$rejected=$true}
+ if(($case -eq 'tree-valid') -eq $rejected){throw ('bad tree result '+$case)}
+ if($script:Reads -ne 2 -or [Teruisi.ReadonlyProcessMetadata]::Closed -ne $before+2 -or $null -ne $script:ReadonlyCensus){throw 'tree scope not closed'}
+ if($case -ne 'tree-valid' -and $output.Count -ne 0){throw 'tree result published early'}
+ $checks++
+}
+[pscustomobject]@{checks=$checks;productionActions=0;nativeMethodsSynthetic=$true}|ConvertTo-Json -Compress
+
+
+FILE tests/watchdog-census-native.fixture.ps1 SHA 6fbd60b7d6b50eed2b1f4fd23d118d3bfafbcbb6b2fd609ccc4975520c74ceec
+param([string]$Source,[string]$DeadlineSource,[string]$TempRoot)
+$ErrorActionPreference='Stop'
+. $DeadlineSource
+. $Source
+$env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()+20000)
+$h=[Teruisi.ReadonlyProcessMetadata]::OpenProcess(0x1000,$false,[uint32]$PID)
+if($h -eq [IntPtr]::Zero){throw 'self open failed'}
+try{
+ $self=Read-ReadonlyNativeHandle $h
+ $c=0L;$e=0L;$k=0L;$u=0L
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetProcessTimes($h,[ref]$c,[ref]$e,[ref]$k,[ref]$u)){throw 'self times failed'}
+ if($self.CreationFileTime -ne $c){throw 'self birth changed'}
+ $selfExitTime=$e
+}finally{[void][Teruisi.ReadonlyProcessMetadata]::CloseHandle($h)}
+$go=Join-Path $TempRoot 'go'
+$body="`$ErrorActionPreference='Stop';while(-not [IO.File]::Exists('"+$go.Replace("'","''")+"')){Start-Sleep -Milliseconds 20};exit 259"
+$hostPath=(Get-Process -Id $PID).Path
+$child=Start-Process -FilePath $hostPath -WindowStyle Hidden -ArgumentList @('-NoProfile','-NonInteractive','-EncodedCommand',[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($body))) -PassThru
+$held=[Teruisi.ReadonlyProcessMetadata]::OpenProcess(0x1000,$false,[uint32]$child.Id)
+if($held -eq [IntPtr]::Zero){throw 'private child open failed'}
+try{
+ $initial=$null;$limit=[DateTime]::UtcNow.AddSeconds(3)
+ do{try{$initial=Read-ReadonlyNativeHandle $held}catch{if([DateTime]::UtcNow -ge $limit){throw};Start-Sleep -Milliseconds 20}}while($null -eq $initial)
+ [IO.File]::WriteAllText($go,'exit')
+ if(-not $child.WaitForExit(5000)){throw 'private child did not exit'}
+ $exitCode=[uint32]0
+ if(-not [Teruisi.ReadonlyProcessMetadata]::GetExitCodeProcess($held,[ref]$exitCode) -or $exitCode -ne 259){throw 'private 259 reproduction failed'}
+ $rejected=$false;try{Read-ReadonlyNativeHandle $held|Out-Null}catch{$rejected=$true}
+ if(-not $rejected){throw 'exited private handle accepted'}
+ [pscustomobject]@{selfBirthStable=$true;selfExitTime=$selfExitTime;privateExitCode=$exitCode;exitedHandleRejected=$rejected;productionActions=0;rights='0x1000'}|ConvertTo-Json -Compress
+}finally{
+ if(-not [IO.File]::Exists($go)){[IO.File]::WriteAllText($go,'exit')}
+ [void]$child.WaitForExit(5000)
+ [void][Teruisi.ReadonlyProcessMetadata]::CloseHandle($held)
+}

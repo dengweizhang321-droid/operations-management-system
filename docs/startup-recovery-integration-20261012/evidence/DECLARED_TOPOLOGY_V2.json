@@ -1,0 +1,21 @@
+{
+  "exitCode": 0,
+  "spawnErrorCode": null,
+  "processId": 25636,
+  "stdoutSha256": "73f151f2027c96fc46030b210b7522370a595cd9c106743f4c7b39412dbba778",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "codeSha256": "44a2770c2fad05c16b4dec33ff97dc8e235317b90d4391039ad97d2cc514421d",
+  "sourceSha256": "35a98102c9b76c8a95232f3f07584dcba932a819eae683f2391c4345297fb8a3",
+  "observation": {
+    "closureAtSampleVerified": false,
+    "newTargetsDeclared": 0,
+    "observedRoots": 23,
+    "version": "current-declared-root-topology-v1",
+    "productionStops": 0,
+    "rawCommandsPersisted": false,
+    "declaredRoots": 23,
+    "reason": "Unapproved descendant; no automatic expansion",
+    "at": "2026-10-12T04:50:48.0084060+00:00",
+    "terminateHandlesOpened": 0
+  }
+}

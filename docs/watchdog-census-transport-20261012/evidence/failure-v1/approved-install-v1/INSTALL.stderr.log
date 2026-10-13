@@ -1,0 +1,5 @@
+[31;1mException: [0mD:\.codex\worktrees\watchdog-native-census\‘À”™π‹¿ÌœµÕ≥\docs\watchdog-native-census-20261012\Install-CensusVersion.ps1:4[0m
+[31;1m[0m[36;1mLine |[0m
+[31;1m[0m[36;1m[36;1m   4 | [0m °≠ lPath($OutputRoot) -cne $expectedRoot){[36;1mthrow 'Fixed output required'[0m}[0m
+[31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1mFixed output required[0m

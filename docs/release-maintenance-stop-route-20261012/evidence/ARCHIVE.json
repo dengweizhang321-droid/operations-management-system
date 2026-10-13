@@ -1,0 +1,174 @@
+{
+  "at": "2026-10-11T18:13:18.986Z",
+  "entries": [
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_PERMANENT_STOP_ROUTE_CALL.json",
+      "target": "AGY_PERMANENT_STOP_ROUTE_CALL.json",
+      "sha256": "4ac8ebd7f1e6f5ee91c403b5302a61e9502aa8efe139beda57859080ff365848",
+      "bytes": 206
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_PERMANENT_STOP_ROUTE_PROMPT.txt",
+      "target": "AGY_PERMANENT_STOP_ROUTE_PROMPT.txt",
+      "sha256": "5f1105eae0a374b34426dc8ea48298f81f7f4a4cbf3d5e8ee1e23733eef3b31f",
+      "bytes": 19942
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_PERMANENT_STOP_ROUTE_RESULT.md",
+      "target": "AGY_PERMANENT_STOP_ROUTE_RESULT.md",
+      "sha256": "0c4c566a11ed376d8601011751eddd912ac087ce77df44d3122c0ac9846a1eaa",
+      "bytes": 2338
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_PERMANENT_STOP_ROUTE_STDERR.log",
+      "target": "AGY_PERMANENT_STOP_ROUTE_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_PERMANENT_STOP_ROUTE_STREAM.ndjson",
+      "target": "AGY_PERMANENT_STOP_ROUTE_STREAM.ndjson",
+      "sha256": "80f8ade9f03fc1eff14a344e6e4f169f0b1729be377c9fd924e1ea9535c2c2f0",
+      "bytes": 26842
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_PERMANENT_STOP_ROUTE_V3_CALL.json",
+      "target": "AGY_PERMANENT_STOP_ROUTE_V3_CALL.json",
+      "sha256": "bee045fab6fdfb405a7c0e43a66f8ea2392fdca148fa20f8a829d8aa7a23a565",
+      "bytes": 206
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_PERMANENT_STOP_ROUTE_V3_PROMPT.txt",
+      "target": "AGY_PERMANENT_STOP_ROUTE_V3_PROMPT.txt",
+      "sha256": "8adb62c824d988626d10f44633911097db305040af483b0d430f759bf3c5b30f",
+      "bytes": 20089
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_PERMANENT_STOP_ROUTE_V3_RESULT.md",
+      "target": "AGY_PERMANENT_STOP_ROUTE_V3_RESULT.md",
+      "sha256": "ac02573e3663cdb38b2ab163617244fef77d8f01bf77a60ef8b449aa78249e1d",
+      "bytes": 1465
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_PERMANENT_STOP_ROUTE_V3_STDERR.log",
+      "target": "AGY_PERMANENT_STOP_ROUTE_V3_STDERR.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/AGY_PERMANENT_STOP_ROUTE_V3_STREAM.ndjson",
+      "target": "AGY_PERMANENT_STOP_ROUTE_V3_STREAM.ndjson",
+      "sha256": "c4f3be7d4066b4fee2ad2f0c89eec8e8fcb639454a1c94f3525a54379cd34be6",
+      "bytes": 18087
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ASTRA_PERMANENT_STOP_ROUTE_HANDOFF.json",
+      "target": "ASTRA_PERMANENT_STOP_ROUTE_HANDOFF.json",
+      "sha256": "80b3af5758ae3c396246f1bc5d7cd80d8bdfcc1e089036e18c875ba6abb77299",
+      "bytes": 1320
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ASTRA_PERMANENT_STOP_ROUTE_HANDOFF_V2.json",
+      "target": "ASTRA_PERMANENT_STOP_ROUTE_HANDOFF_V2.json",
+      "sha256": "7f66819ae8c25e545902eed9a8e09c01163c8f9ca0afe511968bc2792e9ded0c",
+      "bytes": 1837
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/ASTRA_PERMANENT_STOP_ROUTE_HANDOFF_V3.json",
+      "target": "ASTRA_PERMANENT_STOP_ROUTE_HANDOFF_V3.json",
+      "sha256": "1cb830fc6a9b4954127a3dadb852a199c0450cf0207b29b7d0312a1f5cd0af2a",
+      "bytes": 2144
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_DIAGNOSTIC.log",
+      "target": "PERMANENT_STOP_ROUTE_DIAGNOSTIC.log",
+      "sha256": "4abb050a2ef95ea326d96c5a76f4cca32eefb468ccdc46726979cc611a2241e4",
+      "bytes": 4818
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_DIAGNOSTIC.test.mjs",
+      "target": "PERMANENT_STOP_ROUTE_DIAGNOSTIC.test.mjs.source.txt",
+      "sha256": "825448e81ebb9ce8a1b496b99a2e1b20f5d1a0ef6588301a03deee3199263fbc",
+      "bytes": 4854
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_FIRST_PARSE_FAILURE.ps1",
+      "target": "PERMANENT_STOP_ROUTE_FIRST_PARSE_FAILURE.ps1",
+      "sha256": "4f47405876d7f0cb5d67f4e44e64ca5d6d02bff90194768e35b8cd525c09af8d",
+      "bytes": 18101
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_TEST_V1.log",
+      "target": "PERMANENT_STOP_ROUTE_TEST_V1.log",
+      "sha256": "7f269370a3f757e033b230393918d6673a93dd963ef28484cf2e1d397b032c0a",
+      "bytes": 3106
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_TEST_V2.log",
+      "target": "PERMANENT_STOP_ROUTE_TEST_V2.log",
+      "sha256": "59c93bf8ade52f493e2ce5285610a472a9019fb72029bf0d417342f7ce907205",
+      "bytes": 3938
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_TEST_V3.log",
+      "target": "PERMANENT_STOP_ROUTE_TEST_V3.log",
+      "sha256": "bd23cbf3156341ca2f15991dbc16979b8db51e5bc530a7f771bf7a8774af3e33",
+      "bytes": 302
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_TYPED_TEST_V1.log",
+      "target": "PERMANENT_STOP_ROUTE_TYPED_TEST_V1.log",
+      "sha256": "48cb6c3e63ba957c175c02cfc7a5a48e226efc764aea11483afdfbb8f246a49a",
+      "bytes": 301
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_TYPED_TEST_V2.log",
+      "target": "PERMANENT_STOP_ROUTE_TYPED_TEST_V2.log",
+      "sha256": "362f3bedf66ed758ed013cd1b4890793c12c476ba49f1171b7eece14d3edd452",
+      "bytes": 302
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_TYPED_TEST_V3.log",
+      "target": "PERMANENT_STOP_ROUTE_TYPED_TEST_V3.log",
+      "sha256": "28e20794d4c8a38be6c71d2a43cd2dda2e4278dbbae032de746945514ad56f8e",
+      "bytes": 302
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_V1_FROZEN.ps1",
+      "target": "PERMANENT_STOP_ROUTE_V1_FROZEN.ps1",
+      "sha256": "6e67b4c83ae577f52ed94efeb5d8c21521a26b385afa5f7bd504b3c1a51509d5",
+      "bytes": 11004
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_V1_FROZEN.test.mjs",
+      "target": "PERMANENT_STOP_ROUTE_V1_FROZEN.test.mjs.source.txt",
+      "sha256": "a281b4674aca4b1126213e17881d48b08225d364448ce39bc668ee8e7f8eb2e2",
+      "bytes": 4760
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_V2_FROZEN.ps1",
+      "target": "PERMANENT_STOP_ROUTE_V2_FROZEN.ps1",
+      "sha256": "55351e21ba760e835cb1930c4191140110a90d820b8ab9055bce74fafb8f82fa",
+      "bytes": 11515
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_ROUTE_V2_FROZEN.test.mjs",
+      "target": "PERMANENT_STOP_ROUTE_V2_FROZEN.test.mjs.source.txt",
+      "sha256": "8ad66cde4866a3e7c09a060460154d3ffc8c84aa6a3028d114833f461c096084",
+      "bytes": 6009
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_SCALAR_ARRAY_COUNTEREXAMPLE.log",
+      "target": "PERMANENT_STOP_SCALAR_ARRAY_COUNTEREXAMPLE.log",
+      "sha256": "f46244ee581bd75afc9333f8ecb5c625f01a17f5e2990600961c5a367c51576c",
+      "bytes": 4003
+    },
+    {
+      "source": "E:/codex-artifacts/release-site-blockers-20261011/production-f15d06a/PERMANENT_STOP_SCALAR_ARRAY_COUNTEREXAMPLE.test.mjs",
+      "target": "PERMANENT_STOP_SCALAR_ARRAY_COUNTEREXAMPLE.test.mjs.source.txt",
+      "sha256": "e8b8f174fc7d508b0d93390ab727e7bfc82a776280be204213ae94e8085b2492",
+      "bytes": 6020
+    }
+  ],
+  "productionAdopted": false
+}

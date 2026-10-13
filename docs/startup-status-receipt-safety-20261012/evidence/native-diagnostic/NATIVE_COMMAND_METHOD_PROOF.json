@@ -1,0 +1,23 @@
+{
+  "originalPath": "D:/.codex/worktrees/release-site-blockers/运营管理系统/docs/release-site-blockers-20261011/Collect-LiveProcessIdentity.ps1",
+  "originalSha256": "280fa1cd5b4c22b73743736e1b2c6d4b50f0a106e36e8fd8b139682666903c12",
+  "targetPath": "tools/watchdog-native-metadata.ps1",
+  "targetSha256": "d8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449",
+  "methods": [
+    {
+      "name": "string Command(IntPtr h,out int status)",
+      "originalRawSha256": "b7289d1f5baf4e4f52d6a54af0d21b8d375534eb4dc62ef4167ce73b04cb9543",
+      "newRawSha256": "b7289d1f5baf4e4f52d6a54af0d21b8d375534eb4dc62ef4167ce73b04cb9543",
+      "onlyEolNormalization": true,
+      "normalizedEqual": true
+    },
+    {
+      "name": "bool SameCreation(long native,long cim)",
+      "originalRawSha256": "e4836090537f6e0bc31d3bdfecf9143978b772e0d3b5b4d4ee1639ce4088f673",
+      "newRawSha256": "e4836090537f6e0bc31d3bdfecf9143978b772e0d3b5b4d4ee1639ce4088f673",
+      "onlyEolNormalization": true,
+      "normalizedEqual": true
+    }
+  ],
+  "scope": "Exact bounded NT60 Unicode command reader and integer microsecond creation comparison; no full collector or VM_READ included"
+}

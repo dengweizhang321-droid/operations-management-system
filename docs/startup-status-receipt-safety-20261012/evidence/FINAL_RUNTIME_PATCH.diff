@@ -1,0 +1,70 @@
+diff --git a/tools/django-local-service.ps1 b/tools/django-local-service.ps1
+index 1946d9fb..1d6db843 100644
+--- a/tools/django-local-service.ps1
++++ b/tools/django-local-service.ps1
+@@ -2269,2 +2269,8 @@ function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
+-    $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
+-    if ($process -and $process.ExecutablePath -and $process.CommandLine -and $process.CreationDate) {
++    $rows = @(Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction Stop)
++    if ($rows.Count -gt 1) { throw "Ambiguous process metadata: $ProcessId" }
++    $process = if ($rows.Count -eq 1) { $rows[0] } else { $null }
++    if ($process -and ([string]::IsNullOrWhiteSpace([string]$process.ExecutablePath) -or
++        [string]::IsNullOrWhiteSpace([string]$process.CommandLine) -or -not $process.CreationDate)) {
++      throw "Process metadata is unavailable; absence is not established: $ProcessId"
++    }
++    if ($process) {
+@@ -2419 +2425,2 @@ function Resolve-OwnedProcess(
+-  [string]$ExpectedFingerprint = ""
++  [string]$ExpectedFingerprint = "",
++  [switch]$ReadOnly
+@@ -2420,0 +2428,3 @@ function Resolve-OwnedProcess(
++  # Domain status wrappers share this resolver; an observational action cannot
++  # opt back into PID-record cleanup, even when its caller omits the switch.
++  $ReadOnly = $ReadOnly -or $Action -imatch 'Status$'
+@@ -2435,0 +2446 @@ function Resolve-OwnedProcess(
++    if ($ReadOnly) { return $null }
+@@ -2451 +2462 @@ function Resolve-OwnedProcess(
+-    if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt) {
++    if (-not $ReadOnly -and (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt)) {
+@@ -4176 +4187 @@ function Show-ServiceStatus {
+-    if (Resolve-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress) { $reader = "running" }
++    if (Resolve-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
+@@ -4181 +4192 @@ function Show-ServiceStatus {
+-    if (Resolve-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress) { $writer = "running" }
++    if (Resolve-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress -ReadOnly) { $writer = "running" }
+@@ -4225 +4236 @@ function Show-FinanceServiceStatus {
+-    if (Resolve-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress) { $reader = "running" }
++    if (Resolve-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
+@@ -4230 +4241 @@ function Show-FinanceServiceStatus {
+-    if (Resolve-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress) { $writer = "running" }
++    if (Resolve-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress -ReadOnly) { $writer = "running" }
+@@ -4300 +4311 @@ function Get-SimpleDjangoDomainStatus(
+-    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress) { $reader = "running" }
++    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
+@@ -4306 +4317 @@ function Get-SimpleDjangoDomainStatus(
+-    if (Resolve-OwnedProcess $writerService $WriterPidPath $Waitress) { $writer = "running" }
++    if (Resolve-OwnedProcess $writerService $WriterPidPath $Waitress -ReadOnly) { $writer = "running" }
+@@ -4345 +4356 @@ function Get-SimpleDjangoReaderStatus(
+-    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress) { $reader = "running" }
++    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress -ReadOnly) { $reader = "running" }
+diff --git a/tools/operations-system-watchdog.ps1 b/tools/operations-system-watchdog.ps1
+index 9940300b..85c0d7fc 100644
+--- a/tools/operations-system-watchdog.ps1
++++ b/tools/operations-system-watchdog.ps1
+@@ -214 +214,12 @@ function Resolve-WatchStatusControl {
+-  if(-not(Test-Path -LiteralPath $driver)){return @{path=$ControlPath;mode='legacy';reason='driver_not_installed'}}
++  $driverNames=@('watchdog-status-control.ps1','watchdog-status-backend.ps1','watchdog-core-overlay.ps1','driver-binding.json')
++  $present=@($driverNames|Where-Object {Test-Path -LiteralPath (Join-Path $PSScriptRoot $_)})
++  $bundle=Read-WatchJson (Join-Path $PSScriptRoot 'bundle.json')
++  $declared=@()
++  if($null -ne $bundle){
++    if($bundle.version -ne 1 -or $null -eq $bundle.files){throw 'invalid_diagnostic_bundle'}
++    $names=if($bundle.files -is [Collections.IDictionary]){@($bundle.files.Keys)}else{@($bundle.files.PSObject.Properties.Name)}
++    $declared=@($driverNames|Where-Object {$_ -cin $names})
++  }
++  # Only a genuinely never-configured historical driver may use legacy status.
++  if($present.Count -eq 0 -and $declared.Count -eq 0){return @{path=$ControlPath;mode='legacy';reason='driver_not_installed'}}
++  if($present.Count -ne $driverNames.Count){throw 'diagnostic_driver_incomplete'}
+@@ -218 +229 @@ function Resolve-WatchStatusControl {
+-  foreach($name in $sources.Keys){if((Get-WatchHash $sources[$name]) -cne $binding.assetHashes.$name){return @{path=$ControlPath;mode='legacy';reason='diagnostic_predecessor_changed'}}}
++  foreach($name in $sources.Keys){if((Get-WatchHash $sources[$name]) -cne $binding.assetHashes.$name){throw 'diagnostic_predecessor_changed'}}

@@ -1,0 +1,22 @@
+{
+  "version": "astra-actual-no-wsl-reconciliation-readback-v1",
+  "checkedAt": "2026-10-12T01:40:34.294Z",
+  "original28CanonicalBytesUnchanged": true,
+  "newEventSha256": "c7dfd925caa08213507d7903abd700b2e0b1373cec472c2ccbe265cd3767cd75",
+  "proofCanonicalSha256": "1480d10f3bb9383bed6faf44b693dba39dcbac378fcb3115f59243ba7632565b",
+  "observationsCanonicalSha256": "32dda5aba0455d64d1e26d4a71731e51d269cbd596224068cec58ff92e7fd870",
+  "nativeToAppendMs": 292.2373,
+  "hcsToAppendMs": 273.6077,
+  "runtimeJsonFiles": 1183,
+  "processes": 565,
+  "departed": 1,
+  "references": 0,
+  "unknown": 0,
+  "selectedCwdMode": "live-cwd-required",
+  "closureFiles": 51,
+  "cipherAbsent": true,
+  "resumeStartedAt": "2026-10-12T01:33:03.167Z",
+  "resumeProcessId": 60880,
+  "environmentFieldNamesDiffered": 34,
+  "queriesByReviewer": 0
+}

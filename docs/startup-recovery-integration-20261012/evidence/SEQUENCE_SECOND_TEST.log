@@ -1,0 +1,10 @@
+✔ fixed recovery order and failure containment: C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe (753.4985ms)
+✔ fixed recovery order and failure containment: pwsh.exe (850.5118ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1693.3257

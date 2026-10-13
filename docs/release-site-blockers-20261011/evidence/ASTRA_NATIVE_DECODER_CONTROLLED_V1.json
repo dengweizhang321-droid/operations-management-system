@@ -1,0 +1,84 @@
+{
+  "version": "astra-controlled-native-decoder-review-v1",
+  "sourcePath": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-ProcessIdentity.ps1",
+  "sourceSha256": "3a9a1f2d3397782ca6355d2619f37fd6f53d81c2debecc236ebe3ad04adb4e8d",
+  "cases": [
+    {
+      "case": 0,
+      "passed": true,
+      "returnedCommand": true,
+      "ntStatus": 0
+    },
+    {
+      "case": 1,
+      "passed": true,
+      "returnedCommand": false,
+      "ntStatus": -1073741790
+    },
+    {
+      "case": 2,
+      "passed": true,
+      "returnedCommand": false,
+      "ntStatus": 0
+    },
+    {
+      "case": 3,
+      "passed": true,
+      "returnedCommand": false,
+      "ntStatus": 0
+    },
+    {
+      "case": 4,
+      "passed": true,
+      "returnedCommand": false,
+      "ntStatus": -1073741811
+    },
+    {
+      "case": 5,
+      "passed": true,
+      "returnedCommand": false,
+      "ntStatus": -1073741811
+    },
+    {
+      "case": 6,
+      "passed": true,
+      "returnedCommand": false,
+      "ntStatus": -1073741811
+    },
+    {
+      "case": 7,
+      "passed": true,
+      "returnedCommand": false,
+      "ntStatus": -1073741811
+    },
+    {
+      "case": 8,
+      "passed": true,
+      "returnedCommand": false,
+      "ntStatus": -1073741811
+    },
+    {
+      "case": 9,
+      "passed": true,
+      "returnedCommand": false,
+      "ntStatus": -1073741811
+    },
+    {
+      "case": 10,
+      "passed": true,
+      "returnedCommand": false,
+      "ntStatus": 0
+    },
+    {
+      "case": 11,
+      "passed": true,
+      "returnedCommand": false,
+      "ntStatus": 0
+    }
+  ],
+  "creationCases": 3,
+  "passed": 15,
+  "nativeProcessCalls": 0,
+  "productionMutations": 0,
+  "limitations": "Actual C# Command and SameCreation functions extracted unchanged. Nt transport replaced with bounded in-memory response fixture; not a live-process or Windows compatibility attestation. PowerShell null checks and CIM acquisition reviewed separately."
+}

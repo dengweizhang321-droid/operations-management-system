@@ -1,0 +1,96 @@
+{
+  "version": "native-readonly-watchdog-supervisor-candidate-v3",
+  "outputDirectory": "E:/codex-artifacts/startup-recovery-continuation-20261012/native-watchdog-source-v3",
+  "bundleId": "0b8566624e19e44bdc4f556fb9f0baa541d3f35dbf695c00d06b00ba16de9abb",
+  "files": {
+    "operations-system-watchdog.ps1": "1e651d0dc6d2a9cadd89f99989a047b5247c808908434ef1fb876b7ab26fdc05",
+    "process-deadline.ps1": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+    "watchdog-install.ps1": "253f3ff73abd108a2fc7e17e5e643af1014b2d74f0fdf6b20a5f75713dab8734",
+    "watchdog-launcher\\NoConsoleLauncher.cs": "8a0bc0aed704b33fbe107194218704b7b5130893ce18cad9995b387f772a30c7",
+    "watchdog-status-control.ps1": "effae9851b920e36f6b28e128dc83d01eafb607c146e7248ed24b55bd69481b3",
+    "watchdog-status-backend.ps1": "1c21be8a132a1e57482b05ee51e0795ecd2a346bd736b51994fdb74d5768a410",
+    "watchdog-core-overlay.ps1": "c28a59e4c8ca6ce028c78ad8680573e0a0cf8af1eff7a12fcef2ecffb8b653f8",
+    "driver-binding.json": "a9d4de405578f6205eff2be570fff6e95227c44fd17fa90b0967ad13d6bf2846",
+    "Watchdog.NoConsole.exe": "0bcb6079d8d47689141d6165fd3c2b0dbb009ed18fc1959d2e5800b73b554834"
+  },
+  "binding": {
+    "version": 1,
+    "assetHashes": {
+      "control": "0e87b26637e4aac807580432025d6291bcf87ac26752eef96b784e420ac7a810",
+      "backend": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+      "worker": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+      "transport": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "supervisor": "85d2bdd121a415ff3a2e3e0c1edf208fc0ba2304444d7d3cc69cb71bcb533a11"
+    }
+  },
+  "proof": {
+    "backend": {
+      "originalBodySha256": "e319a6b208c5d5222866f39044734c1d5d07f610599e50dd7d78f36a90b1c900",
+      "generatedBodySha256": "eafc923c1ad4ea023b1596a504dbde62d5084637c71467fb1ec17b53751d0d52",
+      "revertedExact": true,
+      "edits": [
+        [
+          "  [string]$ExpectedFingerprint = \"\"",
+          "  [string]$ExpectedFingerprint = \"\",\n  [switch]$ReadOnly"
+        ],
+        [
+          "  $snapshot = Get-ProcessSnapshot $processId 1",
+          "  $snapshot = Get-ReadonlyDiagnosticSnapshot $processId 1"
+        ],
+        [
+          "    Remove-Item -LiteralPath $PidPath -Force\n    Write-LauncherEvent \"WARN\" \"stale_process_record_removed\" $PidPath",
+          "    # Diagnostic absence never deletes the ownership record."
+        ],
+        [
+          "    if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt) {\n      return $null\n    }",
+          "    # Diagnostic mismatch never invokes previous-boot cleanup."
+        ]
+      ]
+    },
+    "worker": {
+      "originalBodySha256": "e28c4ba0d963a0f555abf06ed2b0ceab5b0c62bd00cecf0cdd95319017d78ca5",
+      "generatedBodySha256": "bd84549ebb539770f521489b1f9a13ace250a32a54d53350b8a0aaf2e4525f3a",
+      "revertedExact": true,
+      "edits": [
+        [
+          "$processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)",
+          "$processes = @(Get-ReadonlyWorkerCensus $Identity)"
+        ]
+      ]
+    },
+    "backendSourceSha256": "95331de5035e8c7a284eb3a8508b547ff6511e3d712078822f2d74bd63087b1c",
+    "workerSourceSha256": "717408ad7b7880617967b5e230ea110c15c58b887532d02bef8eb42236f7bc1e",
+    "nativeTemplateSha256": "d8748a819bdeba1e46bf6df35973714bb996f3c51441a0481cd917b17f2e8449",
+    "controlRouting": "one fixed Worker Status target replacement; other controller predicates unchanged",
+    "supervisor": {
+      "originalSha256": "408f332a7b947cf1a362cb8cd79a32cba61eb8e9493ae2a867512edac61cf590",
+      "generatedSha256": "7b9b6a444931560be912f667d097e0d5a8efb92c4cea2adb3d6e9922fa71a274",
+      "statusBodySha256": "7b9db8edb66a2f20070c3a5d47e49bc8ea2d0f5d472a91529a8b0c80fa1b1c7a",
+      "edits": [
+        [
+          "$snapshot = Get-ProcessSnapshot ([int]$receipt.processId) 1",
+          "$snapshot = Get-ReadonlyDiagnosticSnapshot ([int]$receipt.processId) 1"
+        ],
+        [
+          "    Remove-Item -LiteralPath $SupervisorPidPath -Force\n",
+          "    # A read-only missing snapshot never deletes the supervisor receipt.\n"
+        ],
+        [
+          "    if (Remove-PreviousBootProcessRecordIfSafe `\n          $SupervisorPidPath $receipt.creationDate $receipt.startedAt) {\n      return $null\n    }",
+          "    # A read-only identity mismatch never performs previous-boot cleanup."
+        ]
+      ],
+      "reversedExact": true
+    },
+    "supervisorSourceSha256": "85d2bdd121a415ff3a2e3e0c1edf208fc0ba2304444d7d3cc69cb71bcb533a11",
+    "watchdogRouting": {
+      "count": 2,
+      "from": "Invoke-WatchScript $SupervisorPath @('-Action','Status')",
+      "to": "Invoke-WatchScript (Join-Path $PSScriptRoot 'watchdog-status-backend.ps1') @('-Action','Status','-DiagnosticTarget','Supervisor')",
+      "runUnchanged": true
+    }
+  },
+  "productionInstalled": false,
+  "actualPlanId": null,
+  "priorCandidatePreserved": "d0e9ebb640794e9680f978167354bb6f89b4917c96712c2cb638eb8dbfeb2554"
+}

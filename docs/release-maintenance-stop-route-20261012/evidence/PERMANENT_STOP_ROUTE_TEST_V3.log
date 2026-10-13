@@ -1,0 +1,10 @@
+✔ release StopWorker uses the appropriate original engine in powershell.exe (1374.0256ms)
+✔ release StopWorker uses the appropriate original engine in pwsh.exe (1904.6646ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3360.1273

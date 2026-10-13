@@ -1,0 +1,15 @@
+{
+  "version": "root-observed-uac-launch-failure-v1",
+  "bootstrapSha256": "e8a85823dc16fbafdfa2e3c57affa5552d930743e8d258822800fb2a1ac5d49d",
+  "toolSessionId": 39298,
+  "error": "Start-Process: 操作已被用户取消。",
+  "administratorProcessIdReturned": false,
+  "reconciliationOutputFilesCreated": false,
+  "freshJournalObservationAt": "2026-10-11T17:03:01.379Z",
+  "journalEventCount": 10,
+  "journalHead": "f59b6598f16ba14290b80fc2a3dc22e0c6ff6c30a33bb61d82dc8759a571ca99",
+  "maintenance": null,
+  "drain": null,
+  "productionSwitchStarted": false,
+  "note": "Launch-error evidence is distinct from the shell exit code, which was zero despite the nonterminating PowerShell error."
+}

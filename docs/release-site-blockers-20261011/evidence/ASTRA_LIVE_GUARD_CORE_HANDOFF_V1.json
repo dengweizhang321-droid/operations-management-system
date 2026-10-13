@@ -1,0 +1,69 @@
+{
+  "version": "astra-live-guard-core-handoff-v1",
+  "status": "source-frozen-pending-independent-live-qualification",
+  "files": [
+    {
+      "sha256": "639b93128c68cf610f9570d773359d68f9eb8c12e9864a3dbce92d33ee4f48d3",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\adoption-scope-live-guard.mjs",
+      "name": "adoption-scope-live-guard.mjs"
+    },
+    {
+      "sha256": "e12c4866b9995926f70a94973e0c0b064d329f98116f5cef37f4233af84ce856",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-reference-audit.mjs",
+      "name": "live-reference-audit.mjs"
+    },
+    {
+      "sha256": "0c8b999529a2156d227d79df04a866430b537695e9162c458648d33a87cae2f8",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-os-instance-policy.mjs",
+      "name": "live-os-instance-policy.mjs"
+    },
+    {
+      "sha256": "9ed0efd5b00e93658757fe492ea743cd3f9270ec1ae44aa3fa1a9658b4e09060",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-policy.mjs",
+      "name": "live-wsl-policy.mjs"
+    },
+    {
+      "sha256": "8f6a25dee5596750ca18dfd348a44f0b04e3c7dc77eff8e077f767de72123f4b",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\live-wsl-host-policy.mjs",
+      "name": "live-wsl-host-policy.mjs"
+    },
+    {
+      "sha256": "96a975a02c010e1b018f2c00c9b345b2a602ff2581b5e7916fab050e23ca8819",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\system-wsl-verifier.mjs",
+      "name": "system-wsl-verifier.mjs"
+    },
+    {
+      "sha256": "81c2d00aec02bdc303ccb530182216d441be4f8abc79dfc443882c7492eece5d",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\collect-live-wsl.py",
+      "name": "collect-live-wsl.py"
+    },
+    {
+      "sha256": "764efb896666bac3656bbe7acc98833f98cf9babfbd2f20441803c368d84f50e",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-ProcessIdentity.ps1",
+      "name": "Collect-ProcessIdentity.ps1"
+    },
+    {
+      "sha256": "6cef0abc35f4c99300d9b36393add66191557715d14d3d4a930dc0627d0f3ff9",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Probe-ResidualProcessMetadataV2.ps1",
+      "name": "Probe-ResidualProcessMetadataV2.ps1"
+    },
+    {
+      "sha256": "b74dea4831ec04acb0ab8ee7634d677073d67a374107a80583b05078306b9d34",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-SystemWslIdentity.ps1",
+      "name": "Collect-SystemWslIdentity.ps1"
+    },
+    {
+      "sha256": "667200760cbaea60ceeb75b20a328341889b293703c29541236d72e3e9a303f1",
+      "path": "D:\\.codex\\worktrees\\release-site-blockers\\运营管理系统\\docs\\release-site-blockers-20261011\\Collect-LiveWslHostAssociation.ps1",
+      "name": "Collect-LiveWslHostAssociation.ps1"
+    }
+  ],
+  "testCount": 89,
+  "testLog": "E:/codex-artifacts/release-site-blockers-20261011/ASTRA_LIVE_HCS_SYSTEM_INTEGRATION_FIRST_TEST.log",
+  "actualGuestObservation": "E:/codex-artifacts/release-site-blockers-20261011/ASTRA_LIVE_GUEST_FLAGS_OBSERVATION.json",
+  "administratorLiveAuditExecutedByAstra": false,
+  "sourcePackageChanged": false,
+  "oldBatchesChanged": false,
+  "productionActions": 0,
+  "note": "Includes genuine native execution wrapper with same-SID/Admin gate, source closure, two live host probes around guest metadata, exact system WSL identity. Full administrator wrapper remains for parent independent readonly qualification; no production approval."
+}

@@ -1,0 +1,23 @@
+{
+  "at": "2026-10-12T07:39:58.0219758Z",
+  "specSha256": "960c5c3e99da1f5cd7bacf57ae3aa0889fcecb9cd522d9165870560668c7678b",
+  "inventoryCount": 5160,
+  "changed": [
+    "tools/release-admission-timing.mjs",
+    "tools/release-batch-admission.mjs",
+    "tools/release-batch.mjs",
+    "tools/release-impact.mjs",
+    "tools/release-lifecycle-step.ps1",
+    "tools/release-no-data-observation.mjs",
+    "tools/release-preparation-evidence.mjs",
+    "tools/worker-local-release-rotation.mjs",
+    "tools/worker-local-release.mjs",
+    "tools/worker-local-service.ps1"
+  ],
+  "uiInventoryCount": 394,
+  "uiChanged": [],
+  "originalComputedStyleExpected": "14px",
+  "observedStylePassedBeforeFailure": true,
+  "originalResourceConsumptionAssertionPassed": false,
+  "conclusion": "Sealed first-adoption delta changes ten release tools; UI inventory has no changed member. Supplemental eight static GET byte checks plus actual homepage index CSS consumption are separate evidence, not the original all-eight-consumed assertion."
+}

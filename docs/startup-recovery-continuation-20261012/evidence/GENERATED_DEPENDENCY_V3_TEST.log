@@ -1,0 +1,10 @@
+✔ actual generated branch dependency load powershell.exe (3521.758ms)
+✔ actual generated branch dependency load pwsh.exe (5311.1917ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8934.9164

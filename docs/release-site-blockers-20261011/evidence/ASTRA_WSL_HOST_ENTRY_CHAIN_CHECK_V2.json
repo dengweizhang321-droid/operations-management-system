@@ -1,0 +1,27 @@
+{
+  "version": "astra-wsl-host-entry-chain-review-v2",
+  "files": [
+    {
+      "name": "WSL_HOST_READONLY_PACKET_V2.json",
+      "sha256": "6af6ec639f51242f3afc8290669fe83f9ea8a7cfab77794ceccead28445f67ad"
+    },
+    {
+      "name": "WSL_HOST_READONLY_BOOTSTRAP_V2.ps1",
+      "sha256": "6bbcc995b3dd36d0dbd4ca17a1546b29923130dc9f6a8c3dc51e64376290a7ac"
+    },
+    {
+      "name": "RUN_READONLY_WSL_HOST_AUDIT_V2.cmd",
+      "sha256": "a288e0561b3352d30fa4101c3a261aee9d5bbc80821879aabeeb9359a9770394"
+    },
+    {
+      "name": "WSL_HOST_READONLY_ENTRY_V2.json",
+      "sha256": "75d214eb7a72ed3b988e1e2a4b9d6a3558d646377dacdf330270944c8435556c"
+    }
+  ],
+  "scriptSha256": "4bce23bf0e09f05b26b3d24936111f8e0f8d68ff2ce985e6030e075b0dcfa0c1",
+  "decodedBootstrapExact": true,
+  "status": "byte-chain-verified-not-executed",
+  "administratorInvocations": 0,
+  "nativeCalls": 0,
+  "productionActions": 0
+}
