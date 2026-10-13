@@ -1041,7 +1041,8 @@ def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbou
                     emit("reset", {"stage": "正在生成回答" if final_turn else "正在分析问题", "ordinal": ordinal})
                     stream_options = {"on_text": lambda content: emit("delta", {"content": content})} if on_event else {}
                     execution["providerCalls"] += 1
-                    response = provider.turn(model, frames, turn_system, offered_tools, retain_reasoning=True, **stream_options)
+                    with provider.conversation_session(conv.id):
+                        response = provider.turn(model, frames, turn_system, offered_tools, retain_reasoning=True, **stream_options)
                     reported_usage = usage_numbers(response.get("usage"))
                     if reported_usage["inputTokens"] is not None and reported_usage["outputTokens"] is not None:
                         execution["usageReportedCalls"] += 1

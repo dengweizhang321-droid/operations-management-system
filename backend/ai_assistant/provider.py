@@ -4,6 +4,10 @@ import base64
 import struct
 import zlib
 import re
+import hashlib
+import uuid
+from contextlib import contextmanager
+from contextvars import ContextVar
 from urllib.parse import urlsplit
 from .configuration import endpoint, origin
 from .policy import AiError, passive
@@ -11,6 +15,22 @@ from .secrets import decrypt
 from .transport import bounded_json, bounded_sse
 from .provider_stream import ProviderStream
 from .model_capabilities import options, provider_parameters, fit_context, MAX_PROVIDER_BYTES
+
+
+_conversation_session = ContextVar("ai_provider_conversation_session", default=None)
+
+
+@contextmanager
+def conversation_session(identity):
+    """Bind an opaque, stable session to an internal conversation/execution ID."""
+    if not isinstance(identity, str) or not 1 <= len(identity) <= 200:
+        raise AiError("模型会话标识无效")
+    value = hashlib.sha256(("xiaote/session/v1/" + identity).encode()).hexdigest()
+    token = _conversation_session.set(value)
+    try:
+        yield
+    finally:
+        _conversation_session.reset(token)
 
 
 class EmptyProviderResponse(AiError):
@@ -47,7 +67,8 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
     key = decrypt(model.api_key_encrypted)
     def request(url, body, headers, *, timeout):
         if origin(base) == "https://opencode.ai" and urlsplit(base).path == "/zen/go/v1":
-            headers = {**headers, "User-Agent": "xiaote/1.0"}
+            headers = {**headers, "User-Agent": "xiaote/1.0",
+                       "x-opencode-session": _conversation_session.get() or str(uuid.uuid4())}
         if on_text is None:
             return bounded_json(url, body, headers, timeout=timeout, maximum=MAX_PROVIDER_BYTES)
         if model.protocol == "openai_compatible" and cfg["includeStreamUsage"]:

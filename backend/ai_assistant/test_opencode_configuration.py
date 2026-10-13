@@ -87,6 +87,7 @@ class OpenCodeRequestHeaderTests(SimpleTestCase):
                     self.assertEqual(method, "POST")
                     self.assertEqual(path, "/zen/go/v1/" + ("messages" if protocol == "anthropic" else "chat/completions"))
                     self.assertEqual(headers["User-Agent"], "xiaote/1.0")
+                    self.assertTrue(headers["x-opencode-session"])
                     self.assertEqual(headers["Accept"], "application/json")
                     self.assertEqual(headers.get("x-api-key") if protocol == "anthropic" else headers.get("Authorization"),
                                      "fixture-key" if protocol == "anthropic" else "Bearer fixture-key")
@@ -104,6 +105,7 @@ class OpenCodeRequestHeaderTests(SimpleTestCase):
                 connection.request.assert_called_once()
                 headers = connection.request.call_args.args[3]
                 self.assertEqual(headers["User-Agent"], "xiaote/1.0")
+                self.assertTrue(headers["x-opencode-session"])
                 self.assertEqual(headers["Accept"], "text/event-stream")
                 self.assertIs(json.loads(connection.request.call_args.args[2])["stream"], True)
 
@@ -123,6 +125,36 @@ class OpenCodeRequestHeaderTests(SimpleTestCase):
                 connection = self.wire("openai_compatible", False)
                 provider.probe(self.model(base))
                 self.assertNotIn("User-Agent", connection.request.call_args.args[3])
+                self.assertNotIn("x-opencode-session", connection.request.call_args.args[3])
+
+    def test_conversation_session_is_stable_distinct_and_restored(self):
+        connection = self.wire("openai_compatible", False)
+        def dispatch():
+            response = connection.getresponse.return_value
+            response.read1.side_effect = [json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode(), b""]
+            provider.probe(self.model())
+            return connection.request.call_args.args[3]["x-opencode-session"]
+        with provider.conversation_session("conversation-a"):
+            first = dispatch()
+            self.assertEqual(dispatch(), first)
+            with provider.conversation_session("conversation-b"):
+                self.assertNotEqual(dispatch(), first)
+            self.assertEqual(dispatch(), first)
+        with provider.conversation_session("conversation-a"):
+            self.assertEqual(dispatch(), first)
+        self.assertNotEqual(dispatch(), first)
+        self.assertNotEqual(dispatch(), dispatch())
+        self.assertNotIn("conversation-a", first)
+
+    def test_conversation_session_resets_after_failure_and_rejects_invalid_identity(self):
+        with self.assertRaises(RuntimeError):
+            with provider.conversation_session("failed-conversation"):
+                raise RuntimeError("fixture")
+        self.assertIsNone(provider._conversation_session.get())
+        for value in (None, 123, "", "a" * 201):
+            with self.subTest(value=value), self.assertRaises(AiError):
+                with provider.conversation_session(value):
+                    self.fail("invalid session accepted")
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="production")
