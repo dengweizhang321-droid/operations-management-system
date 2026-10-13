@@ -567,7 +567,7 @@ export function productionCommandArguments(executable, args) {
   if (canonical(args.slice(0,3)) !== canonical(['-NoProfile','-NonInteractive','-File'])
     || typeof args[3] !== 'string' || !path.win32.isAbsolute(args[3])) throw new Error('System PowerShell requires a reviewed File entrypoint');
   const parameters = {}, seen = new Set();
-  const switches = new Set(['execute','json','keeppostgres','confirmedisolatedrestore','confirmedprune']);
+  const switches = new Set(['execute','json','keeppostgres','confirmedisolatedrestore','confirmedprune','withoutnewbackup']);
   for (let i=4;i<args.length;i++) {
     const key=args[i];
     if (!/^-[A-Za-z][A-Za-z0-9]*$/.test(key)||seen.has(key.toLowerCase())) throw new Error('Invalid or duplicate approved script parameter');
