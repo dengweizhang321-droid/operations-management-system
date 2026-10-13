@@ -16,6 +16,17 @@ import { isExactStatusOperation, retryReadOnlyObservation, runReadOnlyProcess, p
 export const legacyBatchVersion = 'teruisi-release-batch-v2';
 export const batchVersion = 'teruisi-release-batch-v3';
 export const auditBatchVersion = 'teruisi-release-batch-jackyun-audit-v1';
+export const directedAuditBatchVersion = 'teruisi-release-batch-jackyun-audit-no-new-backup-v1';
+const isAuditBatch = version => [auditBatchVersion,directedAuditBatchVersion].includes(version);
+const directedPolicy = 'user-directed-no-new-backup-or-rehearsal';
+function batchRecovery(version,input) {
+  const value=recoveryDecision(input);
+  return version===directedAuditBatchVersion ? {...value,policy:directedPolicy,newBackupPerformed:false,newRehearsalPerformed:false} : value;
+}
+function batchRequirements(version,impact,input) {
+  const value=requirementsForImpact(impact,input);
+  return version===directedAuditBatchVersion ? {...value,backup:'user-directed-omission'} : value;
+}
 const ownTools=path.dirname(fileURLToPath(import.meta.url));
 export const noDataCollectorFiles = Object.freeze([
   ...['release-batch.mjs','release-batch-admission.mjs','release-impact.mjs','release-no-data-observation.mjs','release-preparation-evidence.mjs','release-admission-timing.mjs','release-daily-backup.mjs','release-readonly-retry.mjs','worker-local-release.mjs','worker-local-release-rotation.mjs','d1-retirement-proof.mjs','collect-d1-retirement-proof.mjs'].map(name=>path.join(ownTools,name)),
@@ -62,18 +73,18 @@ function validateNoDataOperations(batch) {
 }
 const phases = ['queue', 'prepare', 'backup-pre', 'restore-pre', 'drain', 'switch', 'acceptance', 'business', 'backup-post', 'restore-post', 'closeout'];
 const auditPhases = ['queue','prepare','drain','quiesce','backup-pre','restore-pre','switch','backup-post','restore-post','migration-finalize','acceptance','business','closeout'];
-const phasesFor = version => version===auditBatchVersion ? auditPhases : phases;
+const phasesFor = version => isAuditBatch(version) ? auditPhases : phases;
 const terminal = new Set(['passed', 'skipped']);
 export function makeBatch({ version = batchVersion, id, binding, before, after, witness, evidence, current, tests, acceptance, rollback, operations, collector, deploymentProof, sourceBinding, now = Date.now() }) {
   if (!/^[a-z0-9-]{8,80}$/.test(id ?? '')) throw new Error('Invalid batch ID');
   for (const k of ['sourceSha256', 'predecessorSourceSha256', 'sourceInventorySha256', 'predecessorInventorySha256', 'dependencySha256', 'configurationSha256', 'toolchainSha256', 'artifactSha256', 'testsSha256', 'predecessorSha256','workerPlanSha256']) requireHash(binding?.[k], k);
   if (sourceTreeDigest(after) !== binding.sourceSha256 || sourceTreeDigest(before) !== binding.predecessorSourceSha256) throw new Error('Impact inventory does not bind complete candidate/predecessor source');
   if (hash(sourceInventory(after)) !== binding.sourceInventorySha256 || hash(sourceInventory(before)) !== binding.predecessorInventorySha256) throw new Error('Impact inventory fingerprint changed');
-  if (![legacyBatchVersion,batchVersion,targetedBatchVersion,auditBatchVersion].includes(version)) throw new Error('Unknown batch protocol');
+  if (![legacyBatchVersion,batchVersion,targetedBatchVersion,auditBatchVersion,directedAuditBatchVersion].includes(version)) throw new Error('Unknown batch protocol');
   const impact = bindDeploymentImpact((version!==legacyBatchVersion?classifyImpactV3:classifyImpact)({ before, after, witness }),deploymentProof,binding,witness);
   const impactProof=makeImpactProof(before,after,witness);
-  const recovery = recoveryDecision({ impact, evidence, current, now,scopeValidation:tests?.scopeValidation,impactProof,binding,batchVersion:version });
-  const required = requirementsForImpact(impact,{scopeValidation:tests?.scopeValidation,impactProof,binding,batchVersion:version});
+  const recovery = batchRecovery(version,{ impact, evidence, current, now,scopeValidation:tests?.scopeValidation,impactProof,binding,batchVersion:version });
+  const required = batchRequirements(version,impact,{scopeValidation:tests?.scopeValidation,impactProof,binding,batchVersion:version});
   if(recovery.mode==='not-required'||version===targetedBatchVersion)validateNoDataCollector(collector);
   if (!tests || tests.status !== 'passed' || hash(tests) !== binding.testsSha256
     || tests.sourceSha256 !== binding.sourceSha256 || tests.artifactSha256 !== binding.artifactSha256
@@ -90,7 +101,7 @@ export function makeBatch({ version = batchVersion, id, binding, before, after, 
     position = next;
     validateOperation(op);
   }
-  for (const name of ['prepare', 'drain', 'switch', 'acceptance', 'closeout', ...(recovery.mode === 'full' ? ['backup-pre', 'restore-pre', 'backup-post', 'restore-post'] : [])]) {
+  for (const name of ['prepare', 'drain', 'switch', 'acceptance', 'closeout', ...(recovery.mode === 'full' && version!==directedAuditBatchVersion ? ['backup-pre', 'restore-pre', 'backup-post', 'restore-post'] : [])]) {
     if (!operations.some(o => o.phase === name)) throw new Error(`Missing ${name} phase`);
   }
   const core = { ...(sourceBinding?{sourceBinding}:{}), version, ...(version!==legacyBatchVersion?{state:'SEALED',deploymentProof:deploymentProof??null}:{}), id, createdAt: new Date(now).toISOString(), binding, impact, recovery,
@@ -103,7 +114,8 @@ export function makeBatch({ version = batchVersion, id, binding, before, after, 
 }
 
 function databaseOperationsFor(recovery,operations) {
-  return {required:['full','targeted-first-adoption'].includes(recovery.mode),operationIds:operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id),
+  return {required:['full','targeted-first-adoption'].includes(recovery.mode)&&recovery.policy!==directedPolicy,operationIds:operations.filter(o=>['backup','restore'].includes(o.kind)).map(o=>o.id),
+    ...(recovery.policy===directedPolicy?{policy:directedPolicy}:{}),
     ...(recovery.mode==='targeted-first-adoption'?{policy:targetedRecoveryPolicy}:{})};
 }
 const installedRecoveryTools='D:\\teruisi-runtime\\django-sales\\app\\tools';
@@ -234,12 +246,12 @@ export function verifyBatch(batch, approved) {
   if(!/^[a-f0-9]{32}$/.test(batch.binding.maintenanceId??''))throw new Error('Exact approved drain/maintenance owner required');
   workerSourceRootForBatch(batch);
   const { batchSha256, ...core } = batch;
-  if (![legacyBatchVersion,batchVersion,targetedBatchVersion,auditBatchVersion].includes(batch.version) || hash(core) !== batchSha256 || approved !== batchSha256) throw new Error('Batch scope changed');
+  if (![legacyBatchVersion,batchVersion,targetedBatchVersion,auditBatchVersion,directedAuditBatchVersion].includes(batch.version) || hash(core) !== batchSha256 || approved !== batchSha256) throw new Error('Batch scope changed');
   if(batch.version!==legacyBatchVersion&&batch.state!=='SEALED')throw new Error('New batch must be sealed');
   if(batch.version!==legacyBatchVersion)for(const key of ['djangoCandidateSha256','djangoPredecessorSha256'])requireHash(batch.binding[key],`Django ${key}`);
   const impact = bindDeploymentImpact(verifyImpactProof(batch.impactProof,batch.binding,batch.version!==legacyBatchVersion?noDataPolicyVersion:policyVersion),batch.deploymentProof,batch.binding,batch.impactProof.witness);
-  const required = requirementsForImpact(impact,{scopeValidation:batch.tests?.scopeValidation,impactProof:batch.impactProof,binding:batch.binding,batchVersion:batch.version});
-  const recovery = recoveryDecision({ impact, evidence:batch.recoveryEvidence, current:batch.recoveryCurrent, now:Date.parse(batch.createdAt),scopeValidation:batch.tests?.scopeValidation,impactProof:batch.impactProof,binding:batch.binding,batchVersion:batch.version });
+  const required = batchRequirements(batch.version,impact,{scopeValidation:batch.tests?.scopeValidation,impactProof:batch.impactProof,binding:batch.binding,batchVersion:batch.version});
+  const recovery = batchRecovery(batch.version,{ impact, evidence:batch.recoveryEvidence, current:batch.recoveryCurrent, now:Date.parse(batch.createdAt),scopeValidation:batch.tests?.scopeValidation,impactProof:batch.impactProof,binding:batch.binding,batchVersion:batch.version });
   if (canonical(impact) !== canonical(batch.impact) || canonical(recovery) !== canonical(batch.recovery)
     || canonical(required) !== canonical(batch.requirements)) throw new Error('Impact/recovery requirements were altered');
   if(canonical(batch.databaseOperations)!==canonical(databaseOperationsFor(recovery,batch.operations)))throw new Error('Sealed database operations changed');
@@ -253,7 +265,7 @@ export function verifyBatch(batch, approved) {
   if (!batch.operations?.length || new Set(batch.operations.map(o => o.id)).size !== batch.operations.length) throw new Error('Missing/duplicate operations');
   let order=-1;
   for (const op of batch.operations) { const next=phasesFor(batch.version).indexOf(op.phase); if (next<order || next<0) throw new Error('Invalid phase ordering'); order=next; }
-  for (const name of ['prepare','drain','switch','acceptance','closeout',...(recovery.mode==='full'?['backup-pre','restore-pre','backup-post','restore-post']:[])]) {
+  for (const name of ['prepare','drain','switch','acceptance','closeout',...(recovery.mode==='full'&&batch.version!==directedAuditBatchVersion?['backup-pre','restore-pre','backup-post','restore-post']:[])]) {
     if (!batch.operations.some(o=>o.phase===name)) throw new Error(`Missing ${name} phase`);
   }
   for (const op of batch.operations) {
@@ -302,10 +314,10 @@ export function verifyBatch(batch, approved) {
 export function assertAuditAdoptionBinding(op,batch) {
   const operation=batch.binding?.jackyunAuditOperationId;
   if(!operation) {
-    if(batch.version===auditBatchVersion||op.kind==='migration-addition'||op.command?.args?.some(a=>['jackyunaudit','-candidatesourceroot'].includes(a.toLowerCase())))throw new Error('Migration adoption requires an explicit batch identity');
+    if(isAuditBatch(batch.version)||op.kind==='migration-addition'||op.command?.args?.some(a=>['jackyunaudit','-candidatesourceroot'].includes(a.toLowerCase())))throw new Error('Migration adoption requires an explicit batch identity');
     return;
   }
-  if(batch.version!==auditBatchVersion||!/^[a-f0-9]{32}$/.test(operation))throw new Error('Invalid audit adoption identity');
+  if(!isAuditBatch(batch.version)||!/^[a-f0-9]{32}$/.test(operation))throw new Error('Invalid audit adoption identity');
   const value=name=>{
     const indexes=(op.command?.args??[]).flatMap((a,i)=>a.toLowerCase()===name.toLowerCase()?[i]:[]);
     if(indexes.length!==1||typeof op.command.args[indexes[0]+1]!=='string')throw new Error('Missing or duplicated audit adoption argument');
@@ -320,10 +332,12 @@ export function assertAuditAdoptionBinding(op,batch) {
     const action=value('-Action');
       if(!['Plan','Install','Finalize'].includes(action)|| (action==='Finalize')!==(op.phase==='migration-finalize'))throw new Error('Audit migration phase differs');
     if(action==='Plan'&&(value('-PreparedAppId')!==batch.binding.djangoPreparedAppId||value('-PreparedAppSha256')!==batch.binding.djangoPreparedReceiptSha256))throw new Error('Audit migration uses another prepared application');
+    if(op.command.args.includes('-WithoutNewBackup')!==(batch.version===directedAuditBatchVersion))throw new Error('Operator recovery policy differs from the sealed batch');
+    if(batch.version===directedAuditBatchVersion&&action==='Plan'&&value('-CandidateEvidenceSha256')!==batch.binding.jackyunAuditEvidenceSha256)throw new Error('Directed adoption evidence changed');
   }
 }
 export function validateAuditOperations(batch) {
-  if(batch.version!==auditBatchVersion) {
+  if(!isAuditBatch(batch.version)) {
     if(batch.binding?.jackyunAuditOperationId)throw new Error('Audit adoption requires its explicit protocol');
     return;
   }
@@ -332,6 +346,20 @@ export function validateAuditOperations(batch) {
   const one=predicate=>{const found=ops.filter(predicate);if(found.length!==1)throw new Error('Audit adoption requires each exact step once');return found[0];};
   const step=name=>one(o=>o.step===name), phase=name=>one(o=>o.phase===name), action=name=>one(o=>o.kind==='migration-addition'&&arg(o,'-Action')===name);
   const enter=step('EnterMaintenance'), stop=step('StopWorker'), plan=action('Plan'), install=action('Install'), finalize=action('Finalize'), deploy=step('DeployApp'), harden=step('HardenAcl');
+  if(batch.version===directedAuditBatchVersion) {
+    requireHash(batch.binding.noNewBackupAuthorizationSha256,'Explicit no-new-backup direction');
+    requireHash(batch.binding.jackyunAuditEvidenceSha256,'Directed audit candidate');
+    if(batch.recovery.policy!==directedPolicy||batch.recoveryEvidence!==null||batch.recoveryCurrent!==null
+      ||ops.some(o=>['backup','restore'].includes(o.kind)||['backup-pre','restore-pre','backup-post','restore-post'].includes(o.phase)))throw new Error('Directed adoption cannot perform or claim backup/restore');
+    const ordered=[enter,stop,plan,one(o=>o.kind==='worker-apply'),deploy,harden,install,finalize,step('ExitMaintenance'),step('StartWorker')];
+    if(ordered.some((o,i)=>i>0&&ops.indexOf(o)<=ops.indexOf(ordered[i-1]))||!enter.command.args.includes('-KeepPostgres'))throw new Error('Directed audit maintenance/install/finalize/start order changed');
+    for(const op of ops) {
+      assertAuditAdoptionBinding(op,batch);
+      if(op.command?.args?.some(a=>['-BackupDirectory','-BackupManifestSha256','-RestoreResultPath','-RestoreResultSha256'].includes(a)))throw new Error('Directed adoption cannot claim recovery receipts');
+      if(op.kind!=='migration-addition'&&arg(op,'-AdditionKind')==='JackyunAudit')throw new Error('Audit adoption cannot masquerade as another operation');
+    }
+    return;
+  }
   const pre=phase('backup-pre'), preRestore=phase('restore-pre'), post=phase('backup-post'), postRestore=phase('restore-post');
   const ordered=[enter,stop,pre,preRestore,plan,one(o=>o.kind==='worker-apply'),deploy,harden,install,post,postRestore,finalize,step('ExitMaintenance'),step('StartWorker')];
   if(ordered.some((o,i)=>i>0&&ops.indexOf(o)<=ops.indexOf(ordered[i-1]))||!enter.command.args.includes('-KeepPostgres'))throw new Error('Audit maintenance/backup/install/finalize/start order changed');

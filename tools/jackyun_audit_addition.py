@@ -18,6 +18,8 @@ import bi_app_addition as parent
 from jackyun_audit_catalog import FILES, STEPS, original_rows, verify_catalog
 
 VERSION = "teruisi-jackyun-audit-addition-v1"
+NO_BACKUP_VERSION = "teruisi-jackyun-audit-addition-no-new-backup-v1"
+NO_BACKUP_POLICY = "user-directed-no-new-backup-or-rehearsal"
 ACTIVE = "jackyun-audit-addition-active.json"
 CODE_FILES = ("tools/jackyun_audit_addition.py", "tools/jackyun_audit_catalog.py",
               "tools/postgres_no_key_backup.py", "tools/integration_release_gate.py",
@@ -81,11 +83,52 @@ def code_digest(root):
     return parent.digest({name: parent.sha(Path(root) / name) for name in CODE_FILES})
 
 
+def no_backup(value):
+    return value.get("version") == NO_BACKUP_VERSION
+
+
+def verify_direction(value):
+    direction = parent.read(value["authorization"], value["authorizationSha256"])
+    if direction != {"version": "jackyun-publication-direction-v1", "policy": NO_BACKUP_POLICY,
+                     "backup": False, "rehearsal": False, "publish": True,
+                     "steps": list(STEPS), "predecessorSha256": value["predecessorSha256"]}:
+        raise ValueError("Exact user-directed publication scope is required")
+
+
+def verify_code_review(root, value, proof):
+    import ast
+    review = parent.read(value["codeReview"], value["codeReviewSha256"])
+    before, after = review["before"], review["after"]
+    current = {name: parent.sha(Path(root) / name) for name in CODE_FILES}
+    if review.get("version") != "jackyun-audit-static-review-v1" or review.get("status") != "reviewed" \
+            or set(before) != set(CODE_FILES) or after != current \
+            or parent.digest(before) != proof["codeSha256"] or parent.digest(after) != value["codeSha256"] \
+            or {p for p in before if before[p] != after[p]} != {
+                "tools/jackyun_audit_addition.py", "tools/bi-app-adopt.ps1", "tools/release-batch.mjs", "tools/django-local-service.ps1"}:
+        raise ValueError("Exact static review delta does not match the prior tested code")
+    baseline = Path(review["baselineRoot"])
+    if any(parent.sha(baseline / name) != digest for name, digest in before.items()):
+        raise ValueError("Prior tested source changed")
+    # Reuse the original database/identity/transaction tests only for identical functions.
+    protected = {"publish", "source_delta", "parent_proof", "valid_rows", "complete_database", "apply_steps", "copy_proof"}
+    def functions(path):
+        tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+        return {n.name: ast.dump(n, include_attributes=False) for n in tree.body
+                if isinstance(n, ast.FunctionDef) and n.name in protected}
+    if functions(baseline / "tools/jackyun_audit_addition.py") != functions(Path(root) / "tools/jackyun_audit_addition.py"):
+        raise ValueError("Previously tested migration safety functions changed")
+
+
 def admission(root, runtime, evidence, evidence_sha):
     value = parent.read(evidence, evidence_sha)
     required = {"version", "status", "predecessorSha256", "parentReferenceSha256", "migrationSha256",
                 "steps", "stepFiles", "validation", "validationSha256", "codeSha256"}
-    if set(value) != required or value["version"] != VERSION or value["status"] != "reviewed" \
+    if no_backup(value):
+        required |= {"recoveryPolicy", "authorization", "authorizationSha256", "codeReview", "codeReviewSha256"}
+        if value.get("recoveryPolicy") != NO_BACKUP_POLICY:
+            raise ValueError("Unknown explicit recovery policy")
+        verify_direction(value)
+    if set(value) != required or value["version"] not in {VERSION, NO_BACKUP_VERSION} or value["status"] != "reviewed" \
             or value["steps"] != list(STEPS) or value["stepFiles"] != FILES:
         raise ValueError("Exact Jackyun addition review is required")
     _, parent_sha = parent_proof(runtime, Path(runtime) / "app")
@@ -95,8 +138,10 @@ def admission(root, runtime, evidence, evidence_sha):
             or value["codeSha256"] != code_digest(root):
         raise ValueError("Jackyun candidate, parent, or reviewed operator changed")
     proof = parent.read(value["validation"], value["validationSha256"])
+    if no_backup(value):
+        verify_code_review(root, value, proof)
     if proof.get("version") != "jackyun-audit-private-postgres-v1" or proof.get("status") != "passed" \
-            or proof.get("codeSha256") != value["codeSha256"] or proof.get("migrationSha256") != value["migrationSha256"] \
+            or (not no_backup(value) and proof.get("codeSha256") != value["codeSha256"]) or proof.get("migrationSha256") != value["migrationSha256"] \
             or proof.get("productionTouched") is not False or proof.get("steps") != list(STEPS) \
             or set(proof.get("checks", [])) != {"atomic-upgrade", "preserved-rows", "negative-catalogues", "legacy-140", "dump-restore-142", "rollback", "permissions"}:
         raise ValueError("Bound isolated PostgreSQL upgrade/restore evidence is incomplete")
@@ -108,7 +153,7 @@ def load_plan(runtime, operation):
     if any(folder.glob("*.tmp")) or any(Path(runtime).glob(ACTIVE + ".*.tmp")):
         raise ValueError("Unresolved evidence publication; preserve temporary files")
     plan = parent.read(folder / "plan.json")
-    if plan.get("version") != VERSION or plan.get("operationId") != operation or plan.get("steps") != list(STEPS):
+    if plan.get("version") not in {VERSION, NO_BACKUP_VERSION} or plan.get("operationId") != operation or plan.get("steps") != list(STEPS):
         raise ValueError("Jackyun plan identity changed")
     _, parent_sha = parent_proof(runtime, folder / "baseline")
     if parent_sha != plan["parentReferenceSha256"]:
@@ -116,8 +161,13 @@ def load_plan(runtime, operation):
     evidence = parent.read(folder / "candidate.json", plan["candidateEvidenceSha256"])
     if any(plan.get(key) != value for key, value in evidence.items() if key != "status"):
         raise ValueError("Plan no longer matches its reviewed candidate")
-    parent.checked_backup(folder / "before-backup.json", plan["beforeBackupSha256"],
-                          folder / "before-restore.json", plan["beforeRestoreSha256"], 140)
+    if no_backup(plan):
+        verify_direction(plan)
+        if plan.get("recoveryPolicy") != NO_BACKUP_POLICY or any(k in plan for k in ("beforeBackupSha256", "beforeRestoreSha256")):
+            raise ValueError("No-new-backup plan cannot contain backup claims")
+    else:
+        parent.checked_backup(folder / "before-backup.json", plan["beforeBackupSha256"],
+                              folder / "before-restore.json", plan["beforeRestoreSha256"], 140)
     return folder, plan
 
 
@@ -135,17 +185,21 @@ def valid_rows(value):
 
 def verify_active(root, runtime, *, installed=False):
     pointer = parent.read(Path(runtime) / ACTIVE)
-    if set(pointer) != {"version", "operationId", "receiptSha256"} or pointer["version"] != VERSION:
+    if set(pointer) != {"version", "operationId", "receiptSha256"} or pointer["version"] not in {VERSION, NO_BACKUP_VERSION}:
         raise ValueError("Invalid Jackyun active reference")
     folder, plan = load_plan(runtime, pointer["operationId"])
     receipt = parent.read(folder / ("installed.json" if installed else "finalized.json"), pointer["receiptSha256"])
-    if receipt.get("version") != VERSION or receipt.get("status") != ("schema_installed" if installed else "verified") \
+    if pointer["version"] != plan["version"] or receipt.get("version") != plan["version"] or receipt.get("status") != ("schema_installed" if installed else "verified") \
             or receipt.get("planSha256") != parent.sha(folder / "plan.json") or receipt.get("steps") != list(STEPS) \
             or receipt.get("migrationCount") != 142 or receipt.get("migrationSha256") != source_delta(root, folder / "baseline") \
             or receipt["migrationSha256"] != plan["migrationSha256"] or not valid_rows(receipt.get("beforeRows")) \
             or receipt.get("beforeRows") != receipt.get("afterRows"):
         raise ValueError("Jackyun migration receipt is incomplete or changed")
-    if not installed:
+    if no_backup(plan):
+        if receipt.get("backupPerformed") is not False or receipt.get("rehearsalPerformed") is not False \
+                or receipt.get("recoveryPolicy") != NO_BACKUP_POLICY or any(k in receipt for k in ("afterBackupSha256", "afterRestoreSha256")):
+            raise ValueError("No-new-backup receipt must honestly record omitted operations")
+    elif not installed:
         parent.checked_backup(folder / "after-backup.json", receipt["afterBackupSha256"], folder / "after-restore.json", receipt["afterRestoreSha256"], 142)
     return receipt, plan, folder
 
@@ -202,16 +256,18 @@ def apply_steps(connection, base, *, expected_before=None):
 
 
 def publish_installed(runtime, operation, folder, plan, before, after):
-    result = {"version": VERSION, "status": "schema_installed", "steps": list(STEPS), "migrationCount": 142,
+    result = {"version": plan["version"], "status": "schema_installed", "steps": list(STEPS), "migrationCount": 142,
               "migrationSha256": plan["migrationSha256"], "planSha256": parent.sha(folder / "plan.json"),
               "beforeRows": before, "afterRows": after}
+    if no_backup(plan):
+        result.update(recoveryPolicy=NO_BACKUP_POLICY, backupPerformed=False, rehearsalPerformed=False)
     file = folder / "installed.json"
     if file.exists():
         if parent.read(file) != result:
             raise ValueError("Existing installed receipt differs")
     else:
         publish(file, result)
-    pointer = {"version": VERSION, "operationId": operation, "receiptSha256": parent.sha(file)}
+    pointer = {"version": plan["version"], "operationId": operation, "receiptSha256": parent.sha(file)}
     active = Path(runtime) / ACTIVE
     if active.exists():
         if parent.read(active) != pointer:
@@ -246,23 +302,33 @@ def main(args):
     if args.command == "plan":
         evidence = admission(root, runtime, args.evidence, args.evidence_sha)
         window_sha = parent.maintenance(runtime, args.maintenance)
-        backup = parent.checked_backup(args.backup, args.backup_sha, args.restore, args.restore_sha, 140)
-        window = parent.read(runtime / "run/system-maintenance.json")
-        if backup["software"]["deploymentManifestSha256"] != evidence["predecessorSha256"] \
-                or datetime.fromisoformat(backup["createdAt"].replace("Z", "+00:00")) < datetime.fromisoformat(window["createdAt"].replace("Z", "+00:00")):
-            raise ValueError("Fresh backup within the exact maintenance window is required")
+        if getattr(args, "without_new_backup", False) != no_backup(evidence):
+            raise ValueError("Operator recovery policy differs from reviewed direction")
+        if not no_backup(evidence):
+            backup = parent.checked_backup(args.backup, args.backup_sha, args.restore, args.restore_sha, 140)
+            window = parent.read(runtime / "run/system-maintenance.json")
+            if backup["software"]["deploymentManifestSha256"] != evidence["predecessorSha256"] \
+                    or datetime.fromisoformat(backup["createdAt"].replace("Z", "+00:00")) < datetime.fromisoformat(window["createdAt"].replace("Z", "+00:00")):
+                raise ValueError("Fresh backup within the exact maintenance window is required")
         if folder.exists() or (runtime / ACTIVE).exists() or not parent.HEX.fullmatch(args.candidate_sha):
             raise ValueError("Addition exists or candidate manifest is invalid")
         folder.mkdir(parents=True)
         shutil.copytree(runtime / "app", folder / "baseline", ignore=shutil.ignore_patterns(".wrangler", "runtime-tools", "__pycache__"))
-        for name, file in [("candidate.json", args.evidence), ("before-backup.json", args.backup), ("before-restore.json", args.restore)]:
+        copies = [("candidate.json", args.evidence)]
+        if not no_backup(evidence):
+            copies += [("before-backup.json", args.backup), ("before-restore.json", args.restore)]
+        for name, file in copies:
             shutil.copyfile(file, folder / name)
         plan = {**evidence, "status": "prepared", "operationId": args.operation, "maintenanceId": args.maintenance,
                 "maintenanceSha256": window_sha, "candidateManifestSha256": args.candidate_sha,
-                "candidateEvidenceSha256": args.evidence_sha, "beforeBackupSha256": args.backup_sha, "beforeRestoreSha256": args.restore_sha}
+                "candidateEvidenceSha256": args.evidence_sha}
+        if not no_backup(evidence):
+            plan.update(beforeBackupSha256=args.backup_sha, beforeRestoreSha256=args.restore_sha)
         publish(folder / "plan.json", plan)
         return {"status": "prepared", "planSha256": parent.sha(folder / "plan.json")}
     folder, plan = load_plan(runtime, args.operation)
+    if args.command != "deployment" and getattr(args, "without_new_backup", False) != no_backup(plan):
+        raise ValueError("Operator recovery policy differs from sealed plan")
     if parent.maintenance(runtime, plan["maintenanceId"]) != plan["maintenanceSha256"] \
             or source_delta(root, folder / "baseline") != plan["migrationSha256"]:
         raise ValueError("Maintenance or exact migration source changed")
@@ -270,12 +336,12 @@ def main(args):
         if parent.sha(root / "deployment.json") != plan["candidateManifestSha256"] \
                 or parent.sha(runtime / "app/deployment.json") != plan["predecessorSha256"]:
             raise ValueError("Deployment binding changed")
-        parent.checked_backup(folder / "before-backup.json", plan["beforeBackupSha256"], folder / "before-restore.json", plan["beforeRestoreSha256"], 140)
+        if not no_backup(plan):
+            parent.checked_backup(folder / "before-backup.json", plan["beforeBackupSha256"], folder / "before-restore.json", plan["beforeRestoreSha256"], 140)
         return plan
     if parent.sha(runtime / "app/deployment.json") != plan["candidateManifestSha256"]:
         raise ValueError("Installed application does not match the migration plan")
     if args.command in {"install", "reconcile"}:
-        import os
         sys.path.insert(0, str(root / "backend")); os.environ["DJANGO_SETTINGS_MODULE"] = "teruisi_backend.settings"
         import django
         django.setup()
@@ -290,7 +356,7 @@ def main(args):
         intent_file = folder / "install-intent.json"
         if args.command == "reconcile":
             intent = parent.read(intent_file)
-            if intent.get("version") != VERSION or not valid_rows(intent.get("beforeRows")) or intent["planSha256"] != parent.sha(folder / "plan.json") or original_rows(connection) != intent["beforeRows"]:
+            if intent.get("version") != plan["version"] or not valid_rows(intent.get("beforeRows")) or intent["planSha256"] != parent.sha(folder / "plan.json") or original_rows(connection) != intent["beforeRows"]:
                 raise ValueError("Uncertain result no longer matches the original intent")
             if generation != 142:
                 raise ValueError("Migration not committed; preserve intent and review before another install")
@@ -298,7 +364,7 @@ def main(args):
         if intent_file.exists() or (runtime / ACTIVE).exists() or generation != 140:
             raise ValueError("An install intent or result already exists; reconcile, never blindly replay")
         before = original_rows(connection)
-        publish(intent_file, {"version": VERSION, "planSha256": parent.sha(folder / "plan.json"), "beforeRows": before, "at": datetime.now(timezone.utc).isoformat()})
+        publish(intent_file, {"version": plan["version"], "planSha256": parent.sha(folder / "plan.json"), "beforeRows": before, "at": datetime.now(timezone.utc).isoformat()})
         actual_before, after = apply_steps(connection, base, expected_before=before)
         if before != actual_before:
             raise ValueError("Audit data changed after the install intent")
@@ -308,25 +374,45 @@ def main(args):
         pointer_sha = parent.sha(pointer)
         if (folder / "finalized.json").exists() and parent.read(pointer).get("receiptSha256") == parent.sha(folder / "finalized.json"):
             done, _, done_folder = verify_active(root, runtime)
-            if done_folder != folder or done["afterBackupSha256"] != args.backup_sha or done["afterRestoreSha256"] != args.restore_sha:
+            if done_folder != folder or (not no_backup(plan) and (done["afterBackupSha256"] != args.backup_sha or done["afterRestoreSha256"] != args.restore_sha)):
                 raise ValueError("Completed adoption differs from requested finalization")
             return done
         receipt, _, active_folder = verify_active(root, runtime, installed=True)
         if active_folder != folder:
             raise ValueError("Different addition owns the installation")
-        backup = parent.checked_backup(args.backup, args.backup_sha, args.restore, args.restore_sha, 142)
-        if backup["software"]["deploymentManifestSha256"] != plan["candidateManifestSha256"]:
-            raise ValueError("Post-migration backup belongs to another application")
-        for name, file, digest in [("after-backup.json", args.backup, args.backup_sha), ("after-restore.json", args.restore, args.restore_sha)]:
-            copy_proof(file, folder / name, digest)
-        result = {**receipt, "status": "verified", "afterBackupSha256": args.backup_sha, "afterRestoreSha256": args.restore_sha}
+        if no_backup(plan):
+            # Inspect the committed result while maintenance still excludes business writes.
+            sys.path.insert(0, str(root / "backend")); os.environ["DJANGO_SETTINGS_MODULE"] = "teruisi_backend.settings"
+            import django
+            django.setup()
+            from django.db import connection
+            from django.db.migrations.executor import MigrationExecutor
+            from django.db.migrations.recorder import MigrationRecorder
+            from postgres_no_key_backup import verify_receipt_generation
+            base, _ = parent_proof(runtime, folder / "baseline")
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT current_database(),current_user,inet_server_port()")
+                if cursor.fetchone() != ("teruisi_sales", "teruisi_sales_owner", 5432) or verify_receipt_generation(cursor) != 142:
+                    raise ValueError("Committed migration database identity or catalogue changed")
+            if original_rows(connection) != receipt["afterRows"] \
+                    or {".".join(x) for x in MigrationRecorder(connection).applied_migrations()} != base | set(STEPS) \
+                    or MigrationExecutor(connection).migration_plan(MigrationExecutor(connection).loader.graph.leaf_nodes()):
+                raise ValueError("Committed migration or preserved data differs")
+            result = {**receipt, "status": "verified"}
+        else:
+            backup = parent.checked_backup(args.backup, args.backup_sha, args.restore, args.restore_sha, 142)
+            if backup["software"]["deploymentManifestSha256"] != plan["candidateManifestSha256"]:
+                raise ValueError("Post-migration backup belongs to another application")
+            for name, file, digest in [("after-backup.json", args.backup, args.backup_sha), ("after-restore.json", args.restore, args.restore_sha)]:
+                copy_proof(file, folder / name, digest)
+            result = {**receipt, "status": "verified", "afterBackupSha256": args.backup_sha, "afterRestoreSha256": args.restore_sha}
         final = folder / "finalized.json"
         if final.exists():
             if parent.read(final) != result:
                 raise ValueError("Interrupted finalization differs")
         else:
             publish(final, result)
-        publish(pointer, {"version": VERSION, "operationId": args.operation, "receiptSha256": parent.sha(final)}, previous=pointer_sha)
+        publish(pointer, {"version": plan["version"], "operationId": args.operation, "receiptSha256": parent.sha(final)}, previous=pointer_sha)
         return result
     raise ValueError("Unknown audit addition operation")
 
@@ -337,6 +423,7 @@ if __name__ == "__main__":
     for name in ["root", "runtime", "operation", "maintenance", "evidence", "evidence-sha", "candidate-sha", "backup", "backup-sha", "restore", "restore-sha"]:
         parser.add_argument("--" + name, default="")
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--without-new-backup", action="store_true")
     try:
         print(json.dumps({"status": "verified", "result": main(parser.parse_args())}, ensure_ascii=True))
     except Exception as error:

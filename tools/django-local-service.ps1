@@ -1752,7 +1752,7 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   $auditGate = Join-Path $candidateRoot 'tools\jackyun_audit_addition.py'
   $auditDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
     (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('jackyun-audit-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
-  if ([string]$biEvidence.version -ceq 'teruisi-jackyun-audit-addition-v1' -or
+  if ([string]$biEvidence.version -cin @('teruisi-jackyun-audit-addition-v1','teruisi-jackyun-audit-addition-no-new-backup-v1') -or
       $auditDeployment -or (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'jackyun-audit-addition-active.json'))) {
     if (-not (Test-Path -LiteralPath $auditGate -PathType Leaf)) { throw 'Jackyun audit generation requires its original verifier' }
     $auditCommand = if ($Operation -ceq 'PrepareApp') { if ($null -ne $biEvidence) {'admission'} else {'successor'} } elseif ($Operation -ceq 'DeployApp') { if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'} } elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported audit addition lifecycle operation'}

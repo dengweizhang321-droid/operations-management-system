@@ -1,6 +1,10 @@
 # 吉客云审计迁移采用准备
 
-本页记录步骤 1–3 的准备，不是生产批准。原统一恢复业务实现见 [REPORT](REPORT.md)，五表验收和补跑边界见 [ADOPTION](ADOPTION.md)。Windows 临时管理员执行能力已核实；不修改 UAC、永久权限或现有服务入口。
+用户最新明确授权代码检查后直接发布，且不新增备份或演练，覆盖下文早期准备方案中的备份和演练步骤。原统一恢复业务实现见 [REPORT](REPORT.md)，五表验收和补跑边界见 [ADOPTION](ADOPTION.md)。不修改 UAC、永久权限或现有服务入口。
+
+本次使用限定协议 `teruisi-release-batch-jackyun-audit-no-new-backup-v1` 和迁移证据 `teruisi-jackyun-audit-addition-no-new-backup-v1`：维护停稳 → 精确 Plan → 原 Worker apply → 原 DeployApp/HardenAcl → 两迁移原子 Install → 只读核验真实 142 与原数据摘要后 Finalize → ExitMaintenance/普通用户 Start → 正式 n8n 两原 ID 精确发布与上线验收。没有新 Backup/RestoreRehearsal 操作，不修改现有 E 盘恢复点或保护项，不生成虚假恢复成功回执。源代码静态审查绑定旧隔离证明和当前四工具差异；原迁移事务、安全函数及两迁移本身保持相同。
+
+两迁移已提交时保留 142 并修复应用，不自行倒退或恢复数据；应用采用失败保留维护、原意图与日志，仅按真实结果协调，未知不重放。备份和新恢复演练被本次指令明确省略，不声称具备本次新恢复点。发布后只读验收不等于真实五表补跑成功。
 
 ## 有限迁移与旧谱系
 
@@ -43,3 +47,19 @@ Install 先落 intent。超时或响应丢失不得重复 Install；Reconcile �
 现场生产前驱在本任务期间已两次前进；原 `21c2645a` 在线 plan 和后来的 `1513c2b2` 观察不得用于新采用。18:24 的 Worker 为 `20261013T091815Z-878966319497c4bd`，Django app fingerprint 为 `bafabc6e44d1dc9699e11b0d9738c286c83ec770b5ffb0c6b985fd56c6e54df1`。最终准备仍须再核身份和 manifest。
 
 新组合从实际不可变 source-snapshot 逐字节复制，仅叠加本任务及必要门禁文件。Git 中的前驱表示提交用于完整 diff，明确不是伪称生产原始开发提交；保持所有范围外生产字节。具体候选、范围计划、plan/prepared 收据及剩余事项在在线准备完成后补充。
+
+## OpenCode 发布后接续
+
+用户明确恢复工作后，只读回查确认 OpenCode 发布已完成、维护和排空已解除。Worker 前驱仍为 `878966319497c4bd`，Django 前驱 manifest 已为 `08695d0d67c45970a52032421650e859f3926d739aa2993ce896fdd7dc803b92`。采用源保留该 Django-only 发布的四个 AI 文件，不以旧 Worker 源快照覆盖它们。
+
+新的冻结源码在 `D:/codex-isolated/jackyun-audit-adoption-20261013/source-after-opencode`，候选表示提交 `ea3508e4837aec511b637338b5280d17e581c9e9`。完整差异 111 文件，范围计划 `9fb9643600d2b6ccda834c2aab17391f751b950eaf69e142b2567120158469b3`；仍只有两条审计 migration。
+
+实际普通用户上下文的原 Worker/Core Status 均退出 0、12 组件 ready。原 PS5 子进程确认 PowerShell 7 和 Get-Acl 可用。相同包锁的 Wrangler 闭包从已验证制品逐文件复用，原 PrepareApp 成功，准备 ID `8f80516fc95c47be9705b10586f021d8`、收据 SHA `40f053ae31a5c6d43b0f5e652e9324a2c7b80bda9dfe22635d89f364ee923810`、候选 Django manifest `7a332281c7f566bf45a0ace437b1f5579d6b71d7fa91140dd57229f61c662f06`。没有提升正式运行进程权限或执行生产切换。
+
+## 备份保护方案待批准
+
+现场 E 盘三点中，2026-09-28 和 2026-09-29 两个 138 代点受保护，第三点为 2026-10-13 的 140 代点。原保护策略最多两个 pins、三份恢复点。直接生成本次前后备份会让新的 140 前点在 142 后点轮换时被淘汰。
+
+采用包拟明确包含：本次新 140 前备份 Verify 和同点隔离恢复成功后，经原 Unprotect 解除较早 `daily-20260928T125351Z-31cb501bc72d` 的保护（manifest `36f3c99be1a9c23421547a70600006d0a05027e5bc40e5579e4d973189b14ad5`），经原 Protect 保护本次新 140 点；保留 2026-09-29 保护项，后备份成功后由原轮换保留该旧点、新 140 前点与新 142 后点。原父迁移证明引用封存的 manifest/restore 证据而非旧 dump 路径，这些历史证明保持原字节。解除保护和后续原轮换须在本次生产批准范围内，当前尚未执行。
+
+当前等待新 Worker 原准备收据和完整 batch 封存。日志及精确范围在 `D:/codex-artifacts/jackyun-migration-adoption-20261013/resume-after-opencode`。
