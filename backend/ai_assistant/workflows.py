@@ -709,19 +709,20 @@ def agent_tick(*, job_id=None):
                     row.provider_dispatch_started_at or timezone.now()
                 )
                 row.save(update_fields=["provider_dispatch_started_at"])
-        result = (
-            transport.execute_tool(
-                call["name"],
-                call["arguments"],
-                principal,
-                surface=surface,
-                request_id=dispatch.id if promotion_step is not None else dispatch.invocation_id,
-                provider_call_id=call["id"],
-                policy_digest=row.tool_policy_digest,
+        with provider.conversation_session(row.id):
+            result = (
+                transport.execute_tool(
+                    call["name"],
+                    call["arguments"],
+                    principal,
+                    surface=surface,
+                    request_id=dispatch.id if promotion_step is not None else dispatch.invocation_id,
+                    provider_call_id=call["id"],
+                    policy_digest=row.tool_policy_digest,
+                )
+                if pending
+                else provider.turn(model, frames, SYSTEM + execution_guidance(row.id), entries)
             )
-            if pending
-            else provider.turn(model, frames, SYSTEM + execution_guidance(row.id), entries)
-        )
         passive(result, 256 * 1024)
         if result.get("auditStatus") == "unavailable":
             raise AiError("工具审计不可用", "audit_unavailable", 503)
