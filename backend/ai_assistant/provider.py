@@ -4,7 +4,8 @@ import base64
 import struct
 import zlib
 import re
-from .configuration import endpoint
+from urllib.parse import urlsplit
+from .configuration import endpoint, origin
 from .policy import AiError, passive
 from .secrets import decrypt
 from .transport import bounded_json, bounded_sse
@@ -45,6 +46,8 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
     base = endpoint(model.base_url)
     key = decrypt(model.api_key_encrypted)
     def request(url, body, headers, *, timeout):
+        if origin(base) == "https://opencode.ai" and urlsplit(base).path == "/zen/go/v1":
+            headers = {**headers, "User-Agent": "xiaote/1.0"}
         if on_text is None:
             return bounded_json(url, body, headers, timeout=timeout, maximum=MAX_PROVIDER_BYTES)
         if model.protocol == "openai_compatible" and cfg["includeStreamUsage"]:

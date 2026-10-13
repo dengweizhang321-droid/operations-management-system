@@ -1,5 +1,8 @@
 """OpenCode Go configuration regression; synthetic DB and no provider traffic."""
-from unittest.mock import patch
+import json
+import socket
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
 
@@ -27,6 +30,99 @@ class OpenCodeEndpointTests(SimpleTestCase):
                 configuration.endpoint(value)
         self.assertEqual(configuration.endpoint("https://models.example.com/zen/go"), "https://models.example.com/zen/go")
         self.assertEqual(configuration.endpoint("https://opencode.ai/zen/v1"), "https://opencode.ai/zen/v1")
+
+
+@override_settings(DJANGO_ENVIRONMENT="production")
+class OpenCodeRequestHeaderTests(SimpleTestCase):
+    def model(self, base_url="https://opencode.ai/zen/go", protocol="openai_compatible"):
+        return SimpleNamespace(base_url=base_url, protocol=protocol, model_type="text",
+                               model_name="fixture", api_key_encrypted="fixture",
+                               max_tokens=1024, temperature_milli=700, reasoning_mode="auto")
+
+    def wire(self, protocol, streaming):
+        if protocol == "anthropic":
+            result = {"content": [{"type": "text", "text": "连接成功"}], "stop_reason": "end_turn"}
+            events = [
+                {"type": "message_start", "message": {"id": "fixture", "content": []}},
+                {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": "连接成功"}},
+                {"type": "content_block_stop", "index": 0},
+                {"type": "message_delta", "delta": {"stop_reason": "end_turn"}},
+                {"type": "message_stop"},
+            ]
+        else:
+            result = {"choices": [{"message": {"content": "连接成功"}, "finish_reason": "stop"}]}
+            events = [
+                {"choices": [{"index": 0, "delta": {"content": "连接成功"}, "finish_reason": None}]},
+                {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]},
+                "[DONE]",
+            ]
+        wire = ("".join("data: " + (value if isinstance(value, str) else json.dumps(value)) + "\n\n"
+                        for value in events).encode() if streaming else json.dumps(result).encode())
+        response = MagicMock(status=200)
+        response.isclosed.return_value = False
+        response.getheader.side_effect = lambda name, *args: "text/event-stream" if name == "Content-Type" and streaming else None
+        response.read1.side_effect = [wire, b""]
+        connection = MagicMock()
+        connection.getresponse.return_value = response
+        sock = MagicMock()
+        context = MagicMock()
+        context.wrap_socket.return_value = sock
+        self.enterContext(patch.object(transport, "resolve_addresses", return_value=[
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("8.8.4.4", 443))]))
+        self.enterContext(patch.object(transport.socket, "socket", return_value=sock))
+        self.enterContext(patch.object(transport.ssl, "create_default_context", return_value=context))
+        self.enterContext(patch.object(transport.http.client, "HTTPConnection", return_value=connection))
+        self.enterContext(patch.object(provider, "decrypt", return_value="fixture-key"))
+        return connection
+
+    def test_go_probe_and_json_turn_send_header_through_transport(self):
+        for protocol in ("openai_compatible", "anthropic"):
+            for base in ("https://opencode.ai/zen/go", "https://opencode.ai/zen/go/v1/",
+                         "https://OPENCODE.AI/zen/go"):
+                with self.subTest(protocol=protocol, base=base):
+                    connection = self.wire(protocol, False)
+                    self.assertEqual(provider.probe(self.model(base, protocol)), "文本连接成功")
+                    connection.request.assert_called_once()
+                    method, path, body, headers = connection.request.call_args.args
+                    self.assertEqual(method, "POST")
+                    self.assertEqual(path, "/zen/go/v1/" + ("messages" if protocol == "anthropic" else "chat/completions"))
+                    self.assertEqual(headers["User-Agent"], "xiaote/1.0")
+                    self.assertEqual(headers["Accept"], "application/json")
+                    self.assertEqual(headers.get("x-api-key") if protocol == "anthropic" else headers.get("Authorization"),
+                                     "fixture-key" if protocol == "anthropic" else "Bearer fixture-key")
+                    self.assertEqual(json.loads(body)["model"], "fixture")
+
+    def test_go_stream_sends_header_and_preserves_stream_contract(self):
+        for protocol in ("openai_compatible", "anthropic"):
+            with self.subTest(protocol=protocol):
+                connection = self.wire(protocol, True)
+                received = []
+                result = provider.turn(self.model(protocol=protocol), [{"role": "user", "content": "hello"}],
+                                       "system", [], on_text=received.append)
+                self.assertEqual(result["text"], "连接成功")
+                self.assertEqual(received, ["连接成功"])
+                connection.request.assert_called_once()
+                headers = connection.request.call_args.args[3]
+                self.assertEqual(headers["User-Agent"], "xiaote/1.0")
+                self.assertEqual(headers["Accept"], "text/event-stream")
+                self.assertIs(json.loads(connection.request.call_args.args[2])["stream"], True)
+
+    def test_go_http_failure_does_not_retry_provider_post(self):
+        connection = self.wire("openai_compatible", False)
+        connection.getresponse.return_value.status = 400
+        with self.assertRaises(AiError):
+            provider.probe(self.model())
+        connection.request.assert_called_once()
+        self.assertEqual(connection.request.call_args.args[3]["User-Agent"], "xiaote/1.0")
+
+    @patch.dict("os.environ", {"AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST": "https://models.example.com"})
+    def test_other_provider_and_opencode_paths_keep_existing_headers(self):
+        for base in ("https://api.openai.com/v1", "https://opencode.ai/zen/v1",
+                     "https://opencode.ai/zen/go/v10", "https://models.example.com/zen/go/v1"):
+            with self.subTest(base=base):
+                connection = self.wire("openai_compatible", False)
+                provider.probe(self.model(base))
+                self.assertNotIn("User-Agent", connection.request.call_args.args[3])
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="production")
