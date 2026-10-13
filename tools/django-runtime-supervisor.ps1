@@ -139,7 +139,8 @@ function Assert-SupervisorStatusPayload([object]$Status) {
   Assert-SupervisorExactPropertySet $Status @(
     "PostgreSQL", "DjangoReader", "DjangoWriter",
     "ReaderReadiness", "WriterReadiness", "RuntimeAcl",
-    "RuntimeAclVerification", "Startup", "CheckedAt"
+    "RuntimeAclVerification", "ReadinessEvidence",
+    "ElapsedMilliseconds", "Startup", "CheckedAt"
   ) "Django service status"
   if ([string]$Status.PostgreSQL -notin @(
         "stopped", "running", "not_ready", "foreign_or_unverified"
@@ -154,6 +155,10 @@ function Assert-SupervisorStatusPayload([object]$Status) {
       [string]$Status.WriterReadiness -notin @("ready", "not_ready") -or
       [string]$Status.RuntimeAcl -notin @("root_hardened", "not_hardened") -or
       [string]$Status.RuntimeAclVerification -cne "root_only_status" -or
+      $null -eq $Status.ReadinessEvidence -or
+      $Status.ElapsedMilliseconds -isnot [ValueType] -or
+      $Status.ElapsedMilliseconds -is [bool] -or
+      [long]$Status.ElapsedMilliseconds -lt 0 -or
       [string]$Status.Startup -notin @("installed", "not_installed")) {
     throw "Django service status 枚举无效"
   }

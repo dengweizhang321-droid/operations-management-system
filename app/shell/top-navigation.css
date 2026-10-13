@@ -72,6 +72,7 @@
 .shell-account-popover { position: fixed; inset: calc(var(--app-sticky-offset) + 6px) 18px auto auto; margin: 0; padding: 6px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface); box-shadow: var(--shadow-overlay); }
 .shell-account-popover > button { min-width: 112px; min-height: 40px; padding: 8px 14px; border: 0; border-radius: 6px; background: transparent; }
 .shell-account-popover > button:hover { background: var(--surface-soft); }
+.shell-account-version { display: block; padding: 4px 14px 8px; color: var(--muted); font-size: 12px; line-height: 1.4; white-space: nowrap; }
 
 /* Observe the actual masthead height: tool wrapping and zoom must not cover tabs. */
 .top-navigation-shell .module-stage .subnav,

@@ -38,6 +38,8 @@ function New-FixtureStatus {
     WriterReadiness = "ready"
     RuntimeAcl = "root_hardened"
     RuntimeAclVerification = "root_only_status"
+    ReadinessEvidence = [pscustomobject]@{ reader = $null; writer = $null }
+    ElapsedMilliseconds = 1
     Startup = "installed"
     CheckedAt = [DateTimeOffset]::UtcNow.ToString("o")
   }

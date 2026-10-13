@@ -2,6 +2,7 @@
 
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { ReactNode, RefObject } from "react";
+import packageInfo from "../package.json";
 import { requestJson } from "@/lib/http/api-client";
 import {
   createAiPageContext,
@@ -662,6 +663,7 @@ export default function Home() {
               <button ref={accountButtonRef} type="button" className="shell-account-avatar" popoverTarget="shell-account-actions" aria-label="打开账号操作" title="账号操作">章</button>
               <div id="shell-account-actions" className="shell-account-popover" popover="auto" role="group" aria-label="账号操作">
                 <button type="button" onClick={() => window.location.assign(currentUser ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F")}>{currentUser ? "退出登录" : "管理员登录"}</button>
+                <span className="shell-account-version">系统版本 v{packageInfo.version}</span>
               </div>
             </div>
           </>}
