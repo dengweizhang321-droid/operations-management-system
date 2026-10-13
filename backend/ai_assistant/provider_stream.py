@@ -77,6 +77,11 @@ class ProviderStream:
         if not isinstance(delta, dict):
             raise invalid()
         if self.reason is not None:
+            # Some compatible providers report usage with a single empty
+            # choice after the terminal choice, before [DONE]. This frame
+            # carries no further text, reasoning or tool arguments.
+            if isinstance(event.get("usage"), dict) and not delta and choice.get("finish_reason") is None:
+                return
             raise invalid()
         if delta.get("content") is not None:
             self.text(delta["content"])
