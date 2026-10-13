@@ -40,6 +40,16 @@ test("cancelled segmented timer cannot rearm and unlimited relay schedules no ti
   scheduleDeadlineTimer(()=>assert.fail("relay timer fired"),null)();assert.equal(calls,1);
 });
 
+test("ordinary first deadlines keep their requested timer bucket", t => {
+  let reads = 0;
+  const delays: number[] = [];
+  t.mock.method(globalThis,"setTimeout",(_callback:()=>void,delay:number)=>{delays.push(delay);return {};});
+  t.mock.method(globalThis,"clearTimeout",()=>undefined);
+  const cancel = scheduleDeadlineTimer(()=>assert.fail("unexpected timeout"),10,()=>1000 + reads++ * .25);
+  assert.deepEqual(delays,[10]);
+  cancel();
+});
+
 test("a relay without its own timeout still propagates explicit cancellation", async () => {
   const controller = new AbortController();
   const pending = fetchBoundedJson({url:"https://fixture.invalid",init:{},timeoutMs:null,signal:controller.signal,

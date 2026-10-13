@@ -9,8 +9,11 @@ export function scheduleDeadlineTimer(callback: () => void, timeoutMs: number | 
     if (cancelled) return;
     const remaining = deadline - now();
     if (remaining <= 0) { callback(); return; }
-    timer = setTimeout(check, Math.min(remaining, 2_147_483_647));
+    timer = setTimeout(check, Math.min(Math.ceil(remaining), 2_147_483_647));
   };
-  check();
+  // Preserve the original first timer delay. Recomputing it immediately can
+  // turn 10ms into 9.9ms, which Node truncates into an earlier timer bucket
+  // than an already-registered parent deadline.
+  timer = setTimeout(check, Math.min(timeoutMs, 2_147_483_647));
   return () => { cancelled = true; clearTimeout(timer); };
 }
