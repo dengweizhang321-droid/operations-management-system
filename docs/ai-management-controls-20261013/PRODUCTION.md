@@ -35,3 +35,9 @@ Django 在线准备正常退出 0。逐文件实包仅 3 个后端路径及原 R
 本次没有 EnterMaintenance、Stop、Worker apply、DeployApp、HardenAcl、Start、migration 或真实模型配置写入。没有清理原 active、修改原批准批次、将失败标成通过、补跑业务或发送业务消息。已完成的代码/验证/来源/后端准备和 backup Verify 保留；证据位于 `D:/codex-artifacts/ai-management-production-20261014`。
 
 原占用合法释放后，重新核当前前驱，执行原 Worker online plan，仅准备一次 Worker 制品，再走唯一生命周期入口按本次已授权范围切换。常态服务和监督器从普通用户入口恢复；只确认部署成功、目标版本和必要服务可用，不追加本次综合验收或等待自然监控。若生产前驱再次变化，旧准备收据失效，须按实际新基线保留已上线内容后重新准备。
+
+## 定时上下文诊断待确认
+
+原聊天在仅复核授权收尾后，确认普通会话控制命令可通过、自然任务却持续失败。一次性可审查诊断方案已保存为 `D:/codex-artifacts/jackyun-live-test-20261014/ONE_TIME_DIAGNOSTIC_PLAN.md`，任务尚未注册或执行：精确任务名 `TERUISI Jackyun Watchdog Diagnostic 20261014`、原普通用户 Limited/Interactive 权限、无触发器、原 NoConsole launcher、只运行一次状态探针、硬时限 2 分钟、调用器等待最多 95 秒、结束按精确身份停止及注销并确认不存在。
+
+探针 SHA `e3c953b2eafe3fa52cc3e441c86e687810c6d6e6806dd9ff5832c75c588bc186`，执行/清理脚本 SHA `687b8b4c8b214f732c9fdf873f60aafe2c86633710c2acf10d17866708b7508d`。不修改原任务、调度、频率、权限，不发送通知或触发业务；成功结果也不能计作原自然健康帧。该操作属于计划任务注册，超出之前两项只读收尾的授权，已向当前用户明确请求对应授权并保持待确认。AI 发布授权继续有效，尚未因本次执行完成发布。
