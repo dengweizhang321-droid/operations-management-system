@@ -1097,7 +1097,9 @@ function AiAssistantView({
   };
 
   const deleteConfiguration = async (type: "model" | "channel", id: string, name: string, expectedVersion?: number) => {
-    if (!window.confirm(`确定删除“${name}”吗？已保存的密钥和回调配置将一并删除。`)) return;
+    if (busyConfigId || !window.confirm(type === "model"
+      ? `确定删除模型“${name}”吗？密钥和配置将被删除，历史对话和执行记录会保留。原对话继续使用时需重新选择模型。`
+      : `确定删除“${name}”吗？已保存的密钥和回调配置将一并删除。`)) return;
     setBusyConfigId(`${type}:${id}`); setConfigurationError(""); setConfigurationNotice("");
     try {
       const query = type === "model"
@@ -1106,9 +1108,33 @@ function AiAssistantView({
       const response = await fetch(`${type === "model" ? "/api/ai/models" : "/api/ai/channels"}${query}`, { method: "DELETE" });
       const payload = await response.json().catch(() => null) as { error?: string } | null;
       if (!response.ok) throw new Error(payload?.error || "删除失败");
+      if (type === "model" && modelDraft.id === id) {
+        setModelDraft(newAiModelDraft());
+        setModelBaseUrlDirty(false);
+      }
       setConfigurationNotice(`“${name}”已删除。`);
       await loadConfiguration();
     } catch (reason) { setConfigurationError(reason instanceof Error ? reason.message : "删除失败"); }
+    finally { setBusyConfigId(""); }
+  };
+
+  const setDefaultModel = async (item: AiModelRecord) => {
+    if (busyConfigId) return;
+    setBusyConfigId(`model:${item.id}`); setConfigurationError(""); setConfigurationNotice("");
+    try {
+      const response = await fetch("/api/ai/models", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "set_default", id: item.id, expectedVersion: item.version }),
+      });
+      const payload = await response.json().catch(() => null) as { item?: AiModelRecord; error?: string } | null;
+      if (!response.ok || !payload?.item || payload.item.id !== item.id) throw new Error(payload?.error || "设置默认模型失败");
+      const saved = payload.item;
+      setModelDraft(current => current.id === saved.id
+        ? { ...current, expectedVersion: saved.version, isDefaultTextModel: saved.isDefaultTextModel }
+        : current);
+      setConfigurationNotice(`“${saved.name}”已设为默认对话模型。`);
+      await loadConfiguration();
+    } catch (reason) { setConfigurationError(reason instanceof Error ? reason.message : "设置默认模型失败"); }
     finally { setBusyConfigId(""); }
   };
 
@@ -1172,20 +1198,20 @@ function AiAssistantView({
         <form className="ai-config-form" onSubmit={(event) => void saveModel(event)}>
           <label><span>配置名称</span><input value={modelDraft.name} required maxLength={100} onChange={(event) => setModelDraft((current) => ({ ...current, name: event.target.value }))} placeholder="例如：生产文本模型" /></label>
           <label><span>协议</span><SearchableSelect value={modelDraft.protocol} onChange={(value) => setModelDraft((current) => ({ ...current, protocol: value as AiModelProtocol, reasoningMode: value === "openai_compatible" ? current.reasoningMode : "auto" }))} ariaLabel="模型协议" searchPlaceholder="搜索模型协议" options={[{ value: "openai_compatible", label: "OpenAI 兼容" }, { value: "anthropic", label: "Anthropic" }]} /></label>
-          <label><span>能力类型</span><SearchableSelect value={modelDraft.modelType} onChange={(value) => setModelDraft((current) => ({ ...current, modelType: value as AiModelType, isDefaultTextModel: value === "text" ? current.isDefaultTextModel : false }))} ariaLabel="模型能力类型" searchPlaceholder="搜索模型能力" options={[{ value: "text", label: "文本对话（不读取图片）" }, { value: "vision", label: "视觉识别（读取图片）" }]} /><small>市场主图价格识别必须选择“视觉识别”；连接测试会实际发送一张测试图。</small></label>
+          <label><span>能力类型</span><SearchableSelect value={modelDraft.modelType} onChange={(value) => setModelDraft((current) => ({ ...current, modelType: value as AiModelType }))} ariaLabel="模型能力类型" searchPlaceholder="搜索模型能力" options={[{ value: "text", label: "文本对话（不读取图片）" }, { value: "vision", label: "视觉识别（读取图片）" }]} /><small>市场主图价格识别必须选择“视觉识别”；连接测试会实际发送一张测试图。</small></label>
           <label><span>模型标识</span><input value={modelDraft.modelName} required maxLength={100} onChange={(event) => setModelDraft((current) => ({ ...current, modelName: event.target.value }))} placeholder="例如：gpt-4.1-mini" /></label>
           <label className="ai-form-wide"><span>API 地址</span><input value={modelDraft.baseUrl} required type="url" onChange={(event) => { setModelBaseUrlDirty(true); setModelDraft((current) => ({ ...current, baseUrl: event.target.value })); }} placeholder="https://api.example.com/v1" /><small>生产环境仅接受 HTTPS，且地址查询参数不能携带 API Key 或 Token；编辑时未修改地址会保留原配置。OpenCode Go 可填 https://opencode.ai/zen/go，系统自动补全 /v1；其他自定义来源须由管理员加入来源白名单。</small></label>
           <label><span>API Key</span><input value={modelDraft.apiKey} type="password" autoComplete="new-password" onChange={(event) => setModelDraft((current) => ({ ...current, apiKey: event.target.value }))} placeholder={isEditingModel ? "同一协议与 origin 可留空保留" : "输入模型密钥"} /><small>{isEditingModel ? "更换协议或服务 origin 时必须同时填写新密钥；原密钥不会转发。" : "保存后仅显示掩码。"}</small></label>
-          <label><span>状态</span><SearchableSelect value={modelDraft.status} onChange={(value) => setModelDraft((current) => ({ ...current, status: value as AiModelStatus }))} ariaLabel="模型状态" searchPlaceholder="搜索模型状态" options={[{ value: "enabled", label: "启用" }, { value: "disabled", label: "停用" }]} /></label>
+          <label><span>状态</span><SearchableSelect value={modelDraft.status} onChange={(value) => setModelDraft((current) => ({ ...current, status: value as AiModelStatus, isDefaultTextModel: value === "enabled" && current.isDefaultTextModel }))} ariaLabel="模型状态" searchPlaceholder="搜索模型状态" options={[{ value: "enabled", label: "启用" }, { value: "disabled", label: "停用" }]} /></label>
           <label><span>最大输出 Token</span><input type="number" min={1} step={1} value={modelDraft.maxTokens} onChange={(event) => setModelDraft((current) => ({ ...current, maxTokens: Number(event.target.value) }))} /><small>可自由填写，按供应商端点的输出能力配置。</small></label>
           <label><span>推理开关</span><SearchableSelect value={modelDraft.reasoningMode} onChange={(value) => setModelDraft((current) => ({ ...current, reasoningMode: value as AiModelReasoningMode }))} ariaLabel="文本推理模式" searchPlaceholder="搜索推理模式" disabled={modelDraft.protocol !== "openai_compatible"} options={[{ value: "auto", label: "跟随供应商默认" }, { value: "disabled", label: "关闭推理（端点须支持）" }]} /><small>仅在端点明确支持时关闭；需要更多思考空间可调整输出额度与下方推理参数。</small></label>
           <AiModelGenerationFields value={modelDraft.generationOptions} protocol={modelDraft.protocol} temperatureMilli={modelDraft.temperatureMilli} onTemperatureChange={temperatureMilli => setModelDraft(current => ({ ...current, temperatureMilli }))} onChange={generationOptions => setModelDraft(current => ({ ...current, generationOptions }))} />
-          <label><span>最大工具轮数</span><input type="number" min={1} step={1} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxToolRounds} onChange={(event) => setModelDraft((current) => ({ ...current, maxToolRounds: Number(event.target.value) }))} /><small>按复杂推理需要自由填写，不设固定轮数上限。</small></label>
-          <label><span>工具调用总数</span><input type="number" min={1} step={1} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxTotalToolCalls} onChange={(event) => setModelDraft((current) => ({ ...current, maxTotalToolCalls: Number(event.target.value) }))} /><small>按填写值执行，不设固定总数上限；每项工具仍遵守权限、取消和自身资源保护。</small></label>
-          <label className="ai-check-field"><input type="checkbox" checked={modelDraft.isDefaultTextModel} disabled={modelDraft.modelType !== "text" || modelDraft.status !== "enabled"} onChange={(event) => setModelDraft((current) => ({ ...current, isDefaultTextModel: event.target.checked }))} /><span>设为默认文本模型</span></label>
+          <label><span>最大工具轮数</span><input type="number" min={1} step={1} value={modelDraft.maxToolRounds} onChange={(event) => setModelDraft((current) => ({ ...current, maxToolRounds: Number(event.target.value) }))} /><small>按复杂推理需要自由填写，不设固定轮数上限。</small></label>
+          <label><span>工具调用总数</span><input type="number" min={1} step={1} value={modelDraft.maxTotalToolCalls} onChange={(event) => setModelDraft((current) => ({ ...current, maxTotalToolCalls: Number(event.target.value) }))} /><small>按填写值执行，不设固定总数上限；每项工具仍遵守权限、取消和自身资源保护。</small></label>
+          <label className="ai-check-field"><input type="checkbox" checked={modelDraft.isDefaultTextModel} disabled={modelDraft.status !== "enabled"} onChange={(event) => setModelDraft((current) => ({ ...current, isDefaultTextModel: event.target.checked }))} /><span>设为默认对话模型</span></label>
           <div className="ai-form-actions"><button type="submit" className="primary-button" disabled={savingModel}>{savingModel ? "保存中…" : isEditingModel ? "保存修改" : "新增模型"}</button></div>
         </form>
-        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{<small>输出 {item.maxTokens} · 上下文 {(item.generationOptions?.contextWindowTokens ?? DEFAULT_AI_GENERATION.contextWindowTokens).toLocaleString()} · 推理 {item.reasoningMode === "disabled" ? "关闭" : item.generationOptions?.reasoningFormat && item.generationOptions.reasoningFormat !== "default" ? "自定义" : "供应商默认"} · 温度 {item.generationOptions?.temperatureMode === "default" ? "供应商默认" : (item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认文本模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试连接"}</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name, item.version)}>删除</button></div></div>)}</div>
+        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{<small>输出 {item.maxTokens} · 上下文 {(item.generationOptions?.contextWindowTokens ?? DEFAULT_AI_GENERATION.contextWindowTokens).toLocaleString()} · 推理 {item.reasoningMode === "disabled" ? "关闭" : item.generationOptions?.reasoningFormat && item.generationOptions.reasoningFormat !== "default" ? "自定义" : "供应商默认"} · 温度 {item.generationOptions?.temperatureMode === "default" ? "供应商默认" : (item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认对话模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={Boolean(busyConfigId) || item.status !== "enabled" || item.isDefaultTextModel} onClick={() => void setDefaultModel(item)}>{item.isDefaultTextModel ? "当前默认" : "设为默认"}</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试连接"}</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name, item.version)}>删除</button></div></div>)}</div>
       </article>
       <article className="panel ai-admin-card data-refresh-region" aria-busy={configurationState === "loading"}>
         <div className="section-header"><div><h3>{isEditingChannel ? "编辑聊天渠道" : "新增聊天渠道"}</h3><p>钉钉和企业微信群机器人可主动发送测试消息；企业微信应用回调会验签、解密并只记录去重凭据，不会自动执行消息内容。</p></div>{isEditingChannel && <button type="button" className="text-button" onClick={() => setChannelDraft(newAiChannelDraft())}>取消编辑</button>}</div>

@@ -732,6 +732,8 @@ def mutate(parts, params, payload, principal, request_id, method):
     if root == "models":
         if method == "DELETE":
             return configuration.delete_model(params, principal), 200
+        if payload.get("action") == "set_default":
+            return {"item": configuration.set_default_model(payload, principal)}, 200
         if payload.get("action") == "test":
             fields(payload, {"id", "action"}, {"id", "action"})
             model = configuration.resolve_model(payload["id"])
