@@ -50,3 +50,10 @@
 - 新复核将原失败明确协调为 failed/noEffect，保全第二轮全部观测到 `observations/natural-attempt-after-repair-before-alignment`。目前 **exec session 28412** 正在执行 `resume-original-closeout.mjs aligned-retry`，日志 `original-closeout-aligned.log`。WAL 000075/000076 已追加，初始准入复核进行中。不要重复运行。
 - 唯一调整是原 executeBatch 的 beforeOperation 只读等待：task Ready、最新健康样本已完成且属于上一轮实际任务、下次触发还至少6秒，再调用完全不变的原封存观察器。等待≤180秒，运行意图摘要变化即停；不手动触发任务、不改变调度、不放宽原健康/新鲜度断言。完整静态/动态准入仍走原 collector。
 - 后端正式发布仍未执行；完整计划已就绪。等待 aligned result 成功及 release active 实际消失后，运行 `node docs/jackyun-live-test-20261014/publish-backend.mjs execute`；无需再生成计划或候选。
+
+### 09:43 原批次已闭合，后端正式发布中
+
+- aligned observer 成功，session28412 exit0。原 WAL 000080 `check-natural-watchdog: passed`，000081 `completed`（上海09:43:09）；原 release `active.json` 已由原引擎删除。两轮旧失败、对应 failed 协调、旧观察归档仍保留。
+- 正在运行 **exec session47987**：`publish-backend.mjs execute`，日志 `backend-publication.log`。原全局 rotation lock 覆盖全部步骤。新维护 ID **`f6237698e91042bb9214186425d879e2`**；当前是 EnterMaintenance/KeepPostgres 阶段。这个脚本 create-only 阶段审计且未知不重放，不能另开一次同脚本。
+- 发布源/准备收据仍是 d9ccdd82 / 2eac13dfda7e4938a87a7acf71f0af72 / 27ceef8d...；只改 Django 授权 GET 头。目标 manifest8b4fed2c...。后续脚本自动依序 DeployApp、HardenAcl、ExitMaintenance、Start、VerifyStartup；没有新迁移、备份、Worker apply 或 n8n 定义变更。
+- 脚本完成后确认当前 supervisor 已由原恢复链运行；必要时调用新安装看门狗中原 `Restore-WatchSupervisor`。随后 `retry-existing-authority.mjs check` 验证原授权GET由503变200且响应完全一致，再 `dispatch` 一次，跟踪新 n8n 执行及五类权威批次。不要重建授权 ID。
