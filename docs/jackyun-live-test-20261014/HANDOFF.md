@@ -43,3 +43,10 @@
 - `resume-original-closeout.mjs` 已运行，exec session **60925**，原 WAL 000069 将旧 unknown 协调为 failed/noEffect，旧观测字节已归档并记录映射；原批次完整初始身份复核 000071 通过（310 秒），正在做操作前第二轮复核，随后原 observer 自然观察两轮。不得再次运行该脚本或抢占发布锁。
 - 后端计划 `backend-publication-plan.json` 已生成；`publish-backend.mjs execute` **尚未执行**。只在原批次完成、active 消失后执行；使用原全局 rotation lock、原 PS5 传输、原生命周期入口和 direct-exit-files 协议。目标 manifest `8b4fed2c3cb8e0206ae8cc492e15f9646ef2dbbd7bbccde2b386fe9770ce02ac`，无新增迁移/备份。
 - 权威数据库只读核到唯一原授权（不在聊天/仓库存 UUID），保存 `existing-human-authority.json`，completed/200且未过期；真实 GET 基线仍503。后端上线后依次运行 `retry-existing-authority.mjs check`、`dispatch`，复用原 ID/请求体，create-only派发记录防止操作脚本重复执行。脚本通过应用原公开 POST，同一权限/回执/helper/锁链路，不直接拼 n8n 执行。
+
+### 09:32 原观察器时序边界与当前在途
+
+- session 60925 已结束，exit1。原 WAL 000074 unknown：原观察于09:27:03开始，第二个新写入样本本身 healthy=true/probeError=false，但09:26:27开始、09:27:08完成，因此原 validator 拒绝“基线之后出现新的窗口前样本”。生产监控保持健康，此失败不等于监控再次故障。
+- 新复核将原失败明确协调为 failed/noEffect，保全第二轮全部观测到 `observations/natural-attempt-after-repair-before-alignment`。目前 **exec session 28412** 正在执行 `resume-original-closeout.mjs aligned-retry`，日志 `original-closeout-aligned.log`。WAL 000075/000076 已追加，初始准入复核进行中。不要重复运行。
+- 唯一调整是原 executeBatch 的 beforeOperation 只读等待：task Ready、最新健康样本已完成且属于上一轮实际任务、下次触发还至少6秒，再调用完全不变的原封存观察器。等待≤180秒，运行意图摘要变化即停；不手动触发任务、不改变调度、不放宽原健康/新鲜度断言。完整静态/动态准入仍走原 collector。
+- 后端正式发布仍未执行；完整计划已就绪。等待 aligned result 成功及 release active 实际消失后，运行 `node docs/jackyun-live-test-20261014/publish-backend.mjs execute`；无需再生成计划或候选。
