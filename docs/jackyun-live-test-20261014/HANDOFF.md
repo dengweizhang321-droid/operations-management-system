@@ -35,3 +35,11 @@
 - 已执行原 EnterMaintenance，ID `628491c7c86b4e85a7fa2344b47899d2`，全部应用停稳，PostgreSQL 保持。归档器在原 Worker/Django/supervisor 锁下核对部署/脚本/旧状态摘要、无旧 PID/回执/实际 Run 进程、drainedStopped 后，原子归档 `state.previous-15b0e4bf5fd663322239ed7f8badc86ef120ab4e0e5e4cd350d2388a0a072058.json`，原字节保留。没有伪造新状态。
 - 正在运行原 ExitMaintenance → Start，exec session `75618`；日志 `recovery-exit-maintenance.log`、`recovery-start.log` 位于本次 artifact 根。完成后调用候选中原 `Restore-WatchSupervisor`，再检查候选健康、原 PlanInstall/Install 更新原定时任务 Action。原任务及触发器保留，无临时任务。
 - 下一步按 `resume-original-closeout.mjs`：把旧 natural 观察完整移至同观察目录下的 `natural-before-monitor-repair` 并记录原路径/摘要，原 WAL unknown 明确协调为 failed/noEffect，原检查用原代码/参数在原位置生成新一轮证据；只允许 check-natural-watchdog 重执行。然后用已准备 Django 单组件候选正常发布，最后同请求真实测试。
+
+### 09:24 进展
+
+- 第一轮维护已正常退出；原 Start PID 77400 写出 started，完整启动计时 completed。外层 pwsh 72936 因服务后代继承输出句柄等待，核验 native operator 已退出后仅结束该精确外壳，未终止服务树；证据 `recovery-start-wrapper-cleanup.json`。不能把旧 exec session 75618 的管道挂起当作仍有生命周期操作。
+- 当前 supervisor 已由原 Restore-WatchSupervisor 恢复，健康状态 `all_components_ready`、绑定当前严格脚本，候选快照全健康。原 PlanInstall/Install 已成功安装 `ceee38dabd66ea9cc77622679d35bf601367f0582ac00fcfe5074dc10940c940`，plan `bc24c6220488966f762d836bc1ed056f260e4da27a335f09ea0a9c8b2ad2c61f`。任务已启用，Limited/Interactive、2 触发器、PT1M 核对；已有自然 healthy 记录。
+- `resume-original-closeout.mjs` 已运行，exec session **60925**，原 WAL 000069 将旧 unknown 协调为 failed/noEffect，旧观测字节已归档并记录映射；原批次完整初始身份复核 000071 通过（310 秒），正在做操作前第二轮复核，随后原 observer 自然观察两轮。不得再次运行该脚本或抢占发布锁。
+- 后端计划 `backend-publication-plan.json` 已生成；`publish-backend.mjs execute` **尚未执行**。只在原批次完成、active 消失后执行；使用原全局 rotation lock、原 PS5 传输、原生命周期入口和 direct-exit-files 协议。目标 manifest `8b4fed2c3cb8e0206ae8cc492e15f9646ef2dbbd7bbccde2b386fe9770ce02ac`，无新增迁移/备份。
+- 权威数据库只读核到唯一原授权（不在聊天/仓库存 UUID），保存 `existing-human-authority.json`，completed/200且未过期；真实 GET 基线仍503。后端上线后依次运行 `retry-existing-authority.mjs check`、`dispatch`，复用原 ID/请求体，create-only派发记录防止操作脚本重复执行。脚本通过应用原公开 POST，同一权限/回执/helper/锁链路，不直接拼 n8n 执行。
