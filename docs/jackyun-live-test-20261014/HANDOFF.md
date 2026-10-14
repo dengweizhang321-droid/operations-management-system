@@ -1,5 +1,17 @@
 # 吉客云正式环境真实测试交接（进行中）
 
+## 当前唯一执行摘要（11:58，优先于下方历史）
+
+- 用户已明确收窄：只要修复版本正常、业务入口恢复、一次真实恢复及必要五表结果；不影响使用的监控/提速/外壳问题只记录，不再修、不自动开任务。
+- **正式版本已上线且业务已恢复**：Worker/helper `20261014T024227Z-c3a176ee85a03642` / manifest `81b84f00df90f29f86fdce50cbd8b5a8c4e2374cb0a9dba4030aef20799bb680`；Django `8b4fed2c3cb8e0206ae8cc492e15f9646ef2dbbd7bbccde2b386fe9770ce02ac`。11:44:37已由原EndWorkerDrain释放发布排空，业务入口/helper 200。没有在途发布进程，不要重跑任何publisher。
+- 授权头修复7785fdd2、旧未绑定回执v1/v2/v4复用8f9aefd2/1630fb51已推main并采用。最终46项前置回归通过；此前5项部分导入响应丢失回归通过，记录分开保留。
+- **唯一在途真实重试为n8n8993**，逻辑8548/失败8956，已正常授权POST一次。当前等待其他实际running的天猫任务释放共享helper，下一次领取12:01:32；未到A/B，不得重复dispatch或创建另一个请求。京东8979与天猫8985/8988/8991已success，天猫8995仍在运行。
+- 下一步只用 `node docs/jackyun-live-test-20261014/observe-retry.mjs resumed-human` 读8993进度，必要时只读helper health与其实际owner状态。进入业务后核对A/B/C/D/E与五类权威批次、真实日期；达到目标即收尾。
+- 业务active/计划/回执/临时证据全部保留，不手工改。发布scope-narrowing.json与narrowed-end-drain-result.json证明只取消了optional监控等待、原部署未重放、原drain合法释放。
+- **监控附带修复暂缓**：正式独立watchdog仍ceee；553dc0a5有界日志代码已合并但344候选未安装。不要执行任何stop-stalled-watchdog或install-bounded-watchdog脚本，也不要补写监控成功。8993结果是当前唯一剩余业务目标。
+
+---
+
 2026-10-14（Asia/Shanghai）。用户明确要求在当前正式环境真实测试，并进一步要求“先闭合，再执行一次”。不得把源码/隔离证明算作真实五表业务成功。
 
 - 原任务：n8n 8548 B 失败；今日 00:10 自然执行 8841 在 A 失败，未到 B/C/D/E。正式两条 n8n 流程仍为已发布版本 `80ea7e87-679f-42b6-a9ab-c990c92ecf5d` 和 `6c6482e0-2937-4117-9fbc-e31a716354e7`；开始前无 in-flight。
