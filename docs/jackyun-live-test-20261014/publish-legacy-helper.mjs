@@ -46,7 +46,7 @@ if(process.argv[2]==='plan'){
   const entered=await run('begin-worker-drain',['-Action','BeginWorkerDrain','-MaintenanceId',approval.maintenanceId,'-Json']);assert.equal(entered.maintenanceId,approval.maintenanceId);
   await run('stop-for-release',['-Action','StopForRelease','-MaintenanceId',approval.maintenanceId,'-Json']);
   await writeOnce(out+'/apply-started.json',{at:new Date().toISOString(),approvedPlanSha256:plan.planSha256});
-  try{const result=await applyApprovedRotationPlan({approvedPlanSha256:plan.planSha256,rotationLease});await writeOnce(out+'/apply-result.json',{at:new Date().toISOString(),result});console.log(JSON.stringify({step:'apply',status:'completed'}));}
+  try{const result=await applyApprovedRotationPlan({approvedPlanSha256:plan.planSha256,rotationLease});assert(['activated','already_activated'].includes(result.status));assert.equal(result.planSha256,plan.planSha256);assert.equal(result.releaseId,plan.candidateReleaseId);assert.equal(result.manifestSha256,plan.candidateManifestSha256);await writeOnce(out+'/apply-result.json',{at:new Date().toISOString(),result});console.log(JSON.stringify({step:'apply',status:'completed'}));}
   catch(error){await writeOnce(out+'/apply-failure.json',{at:new Date().toISOString(),error:error.message});throw error;}
   assert.equal(await safeFileDigest(django),djangoSha);
   const started=await run('start-new-worker',['-Action','Start','-BackendStartPolicy','RequireReady','-Json']);assert(['started','already_running'].includes(started.status));assert.equal(started.releaseId,plan.candidateReleaseId);assert.equal(started.manifestSha256,plan.candidateManifestSha256);
