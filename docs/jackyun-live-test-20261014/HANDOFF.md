@@ -27,3 +27,11 @@
 - 08:47 的正式 `operations-watchdog/latest.json` 仍是 `healthy=false`、`probeError=true`、`processDiagnostic.stage=control`，control 阶段 38 ms 失败且无子进程证据；计划任务 `LastTaskResult=0` 不能解释为健康。
 - 正式计划任务执行 immutable 版本 `ff4e25622f243fbf733a5cca14eaf0fd2712e03514e4d5dec5bfeffbdfa9ccf0`。其 `driver-binding.json` 对 `backend` 固定摘要 `c38963671a02a224e3e537a9e13f70005e85e0e65a8616423c8e1f5fbed019af`；这正是 `django-sales/app.previous/tools/django-local-service.ps1` 的实测 SHA。当前 `django-sales/app/tools/django-local-service.ps1` 为 `7e9a3a88421d4ba3c1c763e62677ab05f16e58ab9c686ff46f7491fa5a1a63fa`，与 desired-state 绑定一致。control、worker、transport 三个绑定摘要均与现有文件一致。已安装看门狗 `Resolve-WatchStatusControl` 因这个 backend 摘要变化抛 `diagnostic_predecessor_changed`，且该调用先于控制子进程启动；解释了每分钟控制阶段失败。不可直接改 immutable binding 或把失败标成功。
 - 现有受控 `watchdog-install.ps1` 的安装入口要求 `Get-WatchSnapshot.healthy=true`，所以当前源绑定漂移使常规重新安装也被阻断。需要对精确前驱设计并验证受控恢复路径，保留原任务身份和触发器；用户此前拒绝新增一次性诊断计划任务。旧发布 `active.json` 与失败 WAL 尚保留。未运行任何跳门禁闭合脚本；因错误理解删除目标所草拟的 3 个未追踪脚本/证明文件已精确删除。
+
+## 2026-10-14 已批准四步恢复（执行中，优先本段）
+
+- 用户明确批准按四步修复并发布/真实测试。安装器检查**候选**快照，不是必须旧绑定先健康；无需修改安装器。此前手工通过来自 root 旧 watchdog，正式计划任务来自 ff4e immutable 版本，入口差别已核实。
+- 候选已在 `D:\codex-artifacts\jackyun-live-test-20261014\watchdog-candidate-v1` 准备；所有可执行字节与 ff4e 保持一致。完整两文件差异已审查：backend 只加 17 行审计准入/打包；supervisor 只去掉允许 previous 状态摘要的兼容。候选绑定新 backend/supervisor，控制阶段实际通过 Running/Ready/exact_release，只剩 supervisor 旧状态失败。旧生成器不支持已具有 ReadOnly 的 resolver，原生成失败保留；复用已安装安全 wrapper 并核对其依赖函数完全不变。
+- 已执行原 EnterMaintenance，ID `628491c7c86b4e85a7fa2344b47899d2`，全部应用停稳，PostgreSQL 保持。归档器在原 Worker/Django/supervisor 锁下核对部署/脚本/旧状态摘要、无旧 PID/回执/实际 Run 进程、drainedStopped 后，原子归档 `state.previous-15b0e4bf5fd663322239ed7f8badc86ef120ab4e0e5e4cd350d2388a0a072058.json`，原字节保留。没有伪造新状态。
+- 正在运行原 ExitMaintenance → Start，exec session `75618`；日志 `recovery-exit-maintenance.log`、`recovery-start.log` 位于本次 artifact 根。完成后调用候选中原 `Restore-WatchSupervisor`，再检查候选健康、原 PlanInstall/Install 更新原定时任务 Action。原任务及触发器保留，无临时任务。
+- 下一步按 `resume-original-closeout.mjs`：把旧 natural 观察完整移至同观察目录下的 `natural-before-monitor-repair` 并记录原路径/摘要，原 WAL unknown 明确协调为 failed/noEffect，原检查用原代码/参数在原位置生成新一轮证据；只允许 check-natural-watchdog 重执行。然后用已准备 Django 单组件候选正常发布，最后同请求真实测试。
