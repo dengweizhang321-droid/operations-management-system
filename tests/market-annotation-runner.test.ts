@@ -18,7 +18,10 @@ const mocks = {
   infer: async (input: RecordValue) => {
     inferenceCalls += 1;
     assert.deepEqual(input.principal, owner);
+    assert.equal(input.jobId, "job");
     assert.ok(Number(input.deadlineAt) < Date.now() + 150_000);
+    if (mode === "protocol-error") throw Object.assign(new Error("unsupported response_format"), { failureCode: "model_configuration" });
+    if (mode === "unknown-model") throw Object.assign(new Error("模型请求已发出但响应未知"), { failureCode: "inference_result_unknown" });
     return { segment: "A", timing: {} };
   },
   request: async (_principal: AppPrincipal, request: { payload: RecordValue }, options: { requestId?: () => string }) => {
@@ -48,7 +51,7 @@ export const MARKET_COMMANDS_PATH = '/commands';
 export const MARKET_QUERIES_PATH = '/queries';
 export const requestDjangoMarketService = (...args) => globalThis.__marketRunnerMocks.request(...args);
 export const runVisionAnnotation = (...args) => globalThis.__marketRunnerMocks.infer(...args);
-export const visionAnnotationTiming = () => ({});
+export const visionAnnotationTiming = () => ({imageLoadMs: 1, imagePrepareMs: 2, modelCallMs: 3, totalMs: 6, inputBytes: 7});
 export const resolveAiBackgroundPrincipal = (...args) => globalThis.__marketRunnerMocks.resolve(...args);
 `;
 registerHooks({ resolve(specifier, context, next) {
@@ -85,3 +88,17 @@ test("actual Django runner refuses an unbound image before inference", async () 
   await assert.rejects(runClaimedDjangoMarketVisionTask({ principal: coordinator, jobId: "job", coordinatorToken: "dispatch-lease" }), /返回不完整/);
   assert.equal(inferenceCalls, 0);
 });
+
+for (const scenario of ["protocol-error", "unknown-model"]) {
+  test(`actual Django runner forwards bounded failure and timing contract: ${scenario}`, async () => {
+    mode = scenario; inferenceCalls = 0; completions = []; completionIds = [];
+    const result = await runClaimedDjangoMarketVisionTask({ principal: coordinator, jobId: "job", coordinatorToken: "dispatch-lease" });
+    assert.equal(result.data.result.processedCount, 0);
+    assert.equal(inferenceCalls, 1);
+    assert.equal(completions.length, 1);
+    assert.equal(completions[0].failureCode, scenario === "protocol-error" ? "model_configuration" : "inference_result_unknown");
+    assert.equal(completions[0].failureKind, scenario === "protocol-error" ? "permanent" : "unknown");
+    assert.deepEqual(completions[0].timing, { imageLoadMs: 1, imagePrepareMs: 2, modelCallMs: 3, totalMs: 6, inputBytes: 7 });
+    assert.equal(completions[0].result, undefined);
+  });
+}

@@ -164,6 +164,7 @@ export async function runClaimedDjangoMarketVisionTask(input: {
       }
       return runVisionAnnotation({
       principal: owner.principal,
+      jobId: task.jobId,
       modelId: task.modelId,
       promptBody: task.promptBody,
       segments: task.segments,
