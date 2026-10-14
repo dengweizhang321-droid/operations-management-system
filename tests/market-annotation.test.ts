@@ -248,7 +248,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(marketUi, /successesSinceFailure >= 3/);
   assert.match(marketUi, /自动恢复双通道价格识别/);
   assert.doesNotMatch(marketUi, /请刷新后继续原任务|再次点击将继续原任务/);
-  assert.match(model, /response_format: \{ type: "json_schema"/);
+  assert.match(model, /type: "json_schema", json_schema/);
   assert.match(model, /tool_choice: \{ type: "tool"/);
   assert.match(model, /MODEL_RESPONSE_MAX_BYTES = 2 \* 1024 \* 1024/);
   assert.match(model, /readBodyLimited\(response, MODEL_RESPONSE_MAX_BYTES\)/);

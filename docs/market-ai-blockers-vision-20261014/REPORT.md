@@ -16,7 +16,7 @@
 
 ## 当前验证
 
-以下命令在 B worktree 当前源码执行，结果 **126 tests / 126 pass / 0 fail / 0 skipped**，完整输出见 [定向测试](evidence/targeted-tests.log)，源码摘要见 [源绑定](evidence/source-binding.json)。
+首版 `8c20c4d7` 的以下命令在 B worktree 执行，结果 **126 tests / 126 pass / 0 fail / 0 skipped**，完整输出见 [定向测试](evidence/targeted-tests.log)，源码摘要见 [源绑定](evidence/source-binding.json)。后续真实对照引出的协议补修见文末。
 
 ```powershell
 node --import tsx --test tests/market-vision-adapter.test.ts tests/market-annotation-runner.test.ts tests/market-annotation-dispatch.test.ts tests/market-annotation-cached-image.test.ts tests/market-annotation.test.ts
@@ -33,3 +33,15 @@ git diff --check
 B 子任务真实付费模型调用 **0 次**。没有生产读取配置之外的真实模型请求、生产 ANALYZE、正式任务恢复、正式标注写入、服务操作、main 合并、制品准备或部署。真实适配和完整数据库链路须由总控在绑定最终候选的隔离样本验证；本测试不宣称生产吞吐或分类业务准确率。
 
 净水 Prompt 规则与正式分类枚举的业务冲突保持原状，建议业务确认唯一字典后再统一规则和金标样本。创建计划批量查询优化留第二轮。完整响应异常是已知失败；不能完整读回则保持未知隔离，剩余授权额度不用于自动重放未知请求。
+
+## 真实对照后的 JSON Mode 补修
+
+总控以组合候选实际适配器发出 12 次隔离样本请求，均得到明确 HTTP 400，新增有效结果为 0，既有账本累计 32/50。供应商给出 `invalid_request_error` 和 `This response_format type is unavailable now`，首版分类未识别该诊断，落为 `annotation_failed`。这些失败保持原记录，不能用先前历史成功替代本候选通过；原私有 trace 保留在总控的受限证据目录，不复制样本数据至仓库。
+
+补修把字段明确不可用（`unavailable` / `not available`）归为 `model_configuration`，同样覆盖 HTTP 200 错误信封。普通单图、未知 400 和限流分类保留。
+
+[DeepSeek 官方 JSON Mode](https://api-docs.deepseek.com/guides/json_mode/) 指定 Chat Completions 的 `response_format.type=json_object`，并要求输入明确指示 JSON 格式。基于该协议与本次实际拒绝，仅当精确 OpenCode Go Chat Completions endpoint 与 `model_name=deepseek-v4.1-flash` 同时匹配时，适配器直接选择 JSON-object。单次请求临时附加技术 JSON 输出/schema 约束；B 的 schema 仍只有一个固定分类。正式保存的业务 Prompt、字典和模型配置不改。其他路由或模型保持 json_schema；不做协议失败后的自动回退，不重发原模型请求。
+
+供应商 JSON-object 只约束 JSON 语法，本地严格 schema 字段、分类枚举、价格类型、数字/null、置信度、正常结束与空正文校验继续执行。技术协议适配不代表分类业务准确率验收。
+
+补修版定向 **129 tests / 129 pass / 0 fail / 0 skipped**，范围 ESLint、`git diff --check` 通过。[当前定向日志](evidence/json-mode-targeted-tests.log)和[当前源绑定](evidence/json-mode-source-binding.json)独立保留，首版证据不覆盖。新增实际适配器测试捕获精确模式选择、其他 route/model 维持 schema、A/B 技术 schema 约束和上述 unavailable 的暂停分类。B 仍发出真实模型请求 0 次；本补修组合候选的真实模型结果由总控另行记录。

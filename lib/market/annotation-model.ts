@@ -211,7 +211,7 @@ function confirmedConfigurationError(status: number, detail: string) {
   // required session, or unsupported request-option diagnostics stop the job.
   return /(?:missing|required|invalid).{0,45}x-opencode-session|x-opencode-session.{0,45}(?:missing|required|invalid)/i.test(detail)
     || /\b(?:model_not_found|unsupported_model|invalid_model)\b/i.test(detail)
-    || /(?:model.{0,35}(?:does not exist|not found|not supported|unsupported))|(?:(?:unsupported|not supported|unknown|unrecognized).{0,35}(?:response_format|json_schema|thinking|reasoning_effort))|(?:(?:response_format|json_schema|thinking|reasoning_effort).{0,35}(?:unsupported|not supported|not allowed))/i.test(detail);
+    || /(?:model.{0,35}(?:does not exist|not found|not supported|unsupported))|(?:(?:unsupported|not supported|unknown|unrecognized|unavailable|not available).{0,35}(?:response_format|json_schema|thinking|reasoning_effort))|(?:(?:response_format|json_schema|thinking|reasoning_effort).{0,35}(?:unsupported|not supported|not allowed|unavailable|not available))/i.test(detail);
 }
 
 function modelCallError(kind: "文本" | "视觉", status: number, data: unknown, retryAfter: string | null = null) {
@@ -237,6 +237,13 @@ function visionSessionHeaders(endpointUrl: string, sessionIdentity?: string) {
   return { "User-Agent": "xiaote-market/1.0", "x-opencode-session": digest(`xiaote/session/v1/${sessionIdentity}`) };
 }
 
+function deepSeekGoJsonMode(endpointUrl: string, modelName: string) {
+  const endpoint = new URL(endpointUrl);
+  return endpoint.origin === "https://opencode.ai"
+    && endpoint.pathname === "/zen/go/v1/chat/completions"
+    && modelName === "deepseek-v4.1-flash";
+}
+
 type OpenAiVisionEnvelope = { error?: unknown; choices?: Array<{ finish_reason?: unknown; message?: { content?: unknown; refusal?: unknown } }> };
 
 async function callOpenAiVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number, deadlineAt?: number, sessionIdentity?: string) {
@@ -244,7 +251,15 @@ async function callOpenAiVision(model: ModelRow, text: string, segments: readonl
   const endpointUrl = visionEndpoint(model, "openai_compatible", endpointSecurityContext);
   const key = await visionApiKey(model);
   if (!key) throw new Error("视觉模型 API Key 未配置");
-  const content: Array<Record<string, unknown>> = [{ type: "text", text }];
+  const schema = annotationJsonSchema(segments);
+  // Explicit provider capability selection, never a POST fallback/replay.
+  // DeepSeek chat JSON mode accepts json_object; local strict validation below
+  // still owns all field/type/enum/null constraints.
+  const jsonMode = deepSeekGoJsonMode(endpointUrl, model.model_name);
+  const technicalOutput = jsonMode
+    ? `\n\n技术输出协议：只返回一个严格 JSON 对象，不要 Markdown、推理文字或额外字段。结果必须符合以下 JSON Schema：${JSON.stringify(schema)}`
+    : "";
+  const content: Array<Record<string, unknown>> = [{ type: "text", text: text + technicalOutput }];
   if (image) content.push({ type: "image_url", image_url: { url: `data:${image.mimeType};base64,${image.base64}`, detail: "high" } });
   const { response, data } = await fetchJsonLimited<OpenAiVisionEnvelope>(endpointUrl, {
     method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${key}`, ...visionSessionHeaders(endpointUrl, sessionIdentity) },
@@ -256,7 +271,7 @@ async function callOpenAiVision(model: ModelRow, text: string, segments: readonl
       reasoningMode: "disabled",
     }, {
       messages: [{ role: "user", content }],
-      response_format: { type: "json_schema", json_schema: { name: "market_sku_annotation", strict: true, schema: annotationJsonSchema(segments) } },
+      response_format: jsonMode ? { type: "json_object" } : { type: "json_schema", json_schema: { name: "market_sku_annotation", strict: true, schema } },
     })),
   }, visionRequestTimeout(model, deadlineAt));
   if (!response.ok) throw modelCallError("视觉", response.status, data, response.headers.get("retry-after"));

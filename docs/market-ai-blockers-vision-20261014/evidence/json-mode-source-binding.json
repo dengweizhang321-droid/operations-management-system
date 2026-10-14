@@ -1,0 +1,34 @@
+{
+  "base": "8c20c4d7b01054db3890dc04baa12b0c8a3248ec",
+  "branch": "codex/market-ai-blockers-vision-20261014",
+  "tests": 129,
+  "passed": 129,
+  "agentRealModelCalls": 0,
+  "totalLedgerCallsBeforePatch": 32,
+  "files": [
+    {
+      "path": "lib/market/annotation-model.ts",
+      "sha256": "bbe60327a244c3550670fbfb877c0c56626c550c136bda113716034f0531dd1b"
+    },
+    {
+      "path": "lib/market/annotation-failure.ts",
+      "sha256": "e7575763a8930329962e15641f96c0cba28bae6bfe1bef0e972fa0e242496af9"
+    },
+    {
+      "path": "lib/market/django-annotation-runner.ts",
+      "sha256": "7604ffb445d325939236ba9d8612544ae6c8553e482cab7e613fb0a735b3f21b"
+    },
+    {
+      "path": "tests/market-vision-adapter.test.ts",
+      "sha256": "21b86172acf842b90b3ace20459d4029fbbb90229b6379a8d89758a81333a025"
+    },
+    {
+      "path": "tests/market-annotation-runner.test.ts",
+      "sha256": "ac2abba5c8d0c5a96bf3288d39f1e66944915ea1481dfcc9964db743c92ec686"
+    },
+    {
+      "path": "tests/market-annotation.test.ts",
+      "sha256": "c053dc61b27c073f92accd2ecc35f5d051084df29e75a8e3e41c4522187acb39"
+    }
+  ]
+}

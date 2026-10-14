@@ -37,6 +37,7 @@ const openAi = (value: unknown = prediction, finishReason: unknown = "stop") => 
 function setup(response: unknown = openAi(), status = 200) {
   requests = [];
   model.protocol = "openai_compatible";
+  model.model_name = "deepseek-v4.1-flash";
   model.base_url = "https://opencode.ai/zen/go";
   imageError = false;
   globalThis.fetch = async (url, init) => {
@@ -67,11 +68,15 @@ test("actual market adapter uses stable server job session, honest client, commo
   assert.equal(requests[1].body.max_tokens, 320);
   for (const request of requests) {
     assert.deepEqual(request.body.thinking, { type: "disabled" });
-    const schema = request.body.response_format as { json_schema: { strict: boolean; schema: { additionalProperties: boolean; properties: { segment: { enum: string[] } } } } };
-    assert.equal(schema.json_schema.strict, true);
-    assert.equal(schema.json_schema.schema.additionalProperties, false);
-    assert.deepEqual(schema.json_schema.schema.properties.segment.enum, request === requests[1] ? ["A"] : ["A", "B"]);
+    assert.deepEqual(request.body.response_format, { type: "json_object" });
     const messages = request.body.messages as Array<{ content: Array<{ type: string; text?: string }> }>;
+    const text = messages[0].content[0].text!;
+    const schema = JSON.parse(text.split("结果必须符合以下 JSON Schema：")[1]);
+    assert.equal(schema.additionalProperties, false);
+    assert.deepEqual(schema.properties.segment.enum, request === requests[1] ? ["A"] : ["A", "B"]);
+    assert.deepEqual(schema.required, ["segment", "image_price_yuan", "price_type", "price_low_yuan", "price_high_yuan", "confidence", "reason"]);
+    assert.match(text, /只返回一个严格 JSON 对象/);
+    assert.match(text, /不要 Markdown、推理文字或额外字段/);
     assert.equal(messages.length, 1);
     assert.equal(messages[0].content.filter((part) => part.type === "image_url").length, 1);
   }
@@ -90,6 +95,20 @@ test("exact OpenCode endpoint only: other routes and suppliers do not receive cl
     const headers = new Headers(requests[0].init.headers);
     assert.equal(headers.get("x-opencode-session"), null);
     assert.equal(headers.get("user-agent"), null);
+    assert.equal((requests[0].body.response_format as { type: string }).type, "json_schema");
+    assert.doesNotMatch(JSON.stringify(requests[0].body.messages), /技术输出协议/);
+  }
+});
+
+test("JSON-object selection requires exact DeepSeek model on exact OpenCode Go endpoint", async () => {
+  for (const modelName of ["deepseek-v4.1-flash-extra", "deepseek-v4.1-pro", "doubao-seed-2"]) {
+    setup(); model.model_name = modelName;
+    await runVisionAnnotation(input);
+    const format = requests[0].body.response_format as { type: string; json_schema: { strict: boolean } };
+    assert.equal(format.type, "json_schema");
+    assert.equal(format.json_schema.strict, true);
+    assert.doesNotMatch(JSON.stringify(requests[0].body.messages), /技术输出协议/);
+    assert.equal(requests.length, 1);
   }
 });
 
@@ -142,6 +161,8 @@ test("actual market adapter preserves null price and no-price evidence rules", a
 for (const [status, message, code] of [
   [400, "missing x-opencode-session header", "model_configuration"],
   [400, "response_format json_schema is not supported", "model_configuration"],
+  [400, "Upstream request failed: [invalid_request_error] This response_format type is unavailable now", "model_configuration"],
+  [400, "response_format is not available", "model_configuration"],
   [404, "model_not_found", "model_configuration"], [401, "invalid credential", "model_configuration"],
   [400, "image format invalid", "image_fetch"], [400, "bad request", "annotation_failed"],
   [429, "rate limit", "provider_rate_limit"], [503, "temporarily unavailable", "model_network"],
@@ -174,9 +195,11 @@ test("issued POST transport uncertainty is isolated without automatic replay", a
 });
 
 test("HTTP200 confirmed protocol diagnostics stop the job; output body limits retain unknown protection", async () => {
-  setup({ error: { message: "unsupported response_format json_schema" } });
-  await assert.rejects(runVisionAnnotation(input), (error) => annotationFailure(error).failureCode === "model_configuration");
-  assert.equal(requests.length, 1);
+  for (const message of ["unsupported response_format json_schema", "This response_format type is unavailable now"]) {
+    setup({ error: { message } });
+    await assert.rejects(runVisionAnnotation(input), (error) => annotationFailure(error).failureCode === "model_configuration");
+    assert.equal(requests.length, 1);
+  }
   for (const declared of [false, true]) {
     setup();
     globalThis.fetch = async (url, init) => {
