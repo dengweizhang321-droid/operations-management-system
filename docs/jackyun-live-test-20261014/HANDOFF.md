@@ -69,3 +69,13 @@
 - 开发树node_modules Junction已在精确路径/原Target/相同package-lock验证后，只删除并重建本链接，现指向旧统一开发树的完整依赖；未删除任何目标依赖。当前测试使用该有效依赖，源包锁无变化。
 - Worker准备应复用原prepare-worker.mjs模式：新来源绑定实际当前Worker head、完整源码清单和工具链，再原plan prepare-online；旧绑定与旧plan不可换绑。当前已有独立原batch active已解除。新真实重试须先复核8956的A零效果及reservation可由原机制接续，再由正常入口对当前失败尝试申请新授权；旧授权已绑定8956，不能把同一UUID换绑新execution。
 - 其他AI任务基于旧Django4fb的PrepareApp现在已过期，后续必须以实际8b4重新组合，保留授权头修复。没有向其他聊天发送消息。
+
+### 10:24：helper修复已通过回归并合入，候选在线准备中
+
+- session77414已exit0：三份回归共**49通过、0失败、0取消、0跳过**；5种部分导入/响应丢失恢复均通过。功能修复提交 **8f9aefd26dd947dac64e782db52dd71d6596ac86** 已合入并推送main/开发分支。开发源码已干净（最新后续提交仅操作脚本/交接）。
+- 实际Worker组合来源为 **`D:\codex-isolated\jackyun-legacy-closure-source-20261014`**（独立Git checkout），分支 `codex/jackyun-legacy-closure-source-20261014`、提交 **5f7475f9f9a497f70bb91acc480c9aa38d5e297e**，已推GitHub同名分支。基于实际Worker的178df20e仅拣入修复2文件。为保持原8265文件的实际字节，复用了冻结来源的本repo `info/attributes: *.bat -text`；没有改主库Git配置。全清单只允许2项差异，115个已部署helper输入及3份相关测试/夹具与实际受测源码一致，测试结果可复用。
+- 先前创建的 `jackyun-legacy-closure-adoption-20261014` worktree因主库text属性使历史CRLF blob产生虚差异，**没有用于构建/部署**，没有独有业务修改；保留待本轮安全清理。不要误用它。独立source checkout配置沿用已验证原来源，不放宽运行包字节校验。
+- **exec session62031** 正在执行 `prepare-legacy-helper.mjs`；artifact子目录 `legacy-helper-adoption`、外层日志 `legacy-helper-preparation.log`。progress目前`original_online_worker_preparation`，未切换生产。原工具正在复验前驱/完整运行包；后续按原npm ci、build和helper打包完成。禁止重复准备或覆盖失败证据。
+- `prepare-legacy-helper.mjs`已绑定当前Worker `20261013T145450Z-fe391dce49a258cf` /51aefd56...与当前Django8b4，准备前后都要求Django未变。新source-binding按真实当前链重新生成，没有复用旧plan或换绑旧收据。
+- 准备成功后运行 `publish-legacy-helper.mjs plan`，核验具体计划，再 `execute`。它持原rotation锁，依次原BeginWorkerDrain → StopForRelease → 精确原applyApprovedRotationPlan → Start RequireReady → VerifyStartup → EndWorkerDrain，Django8b4/PG保持，失败保留stage记录与原gate。运行前仍须查当前helper/n8n在途，不能强杀或删除他任务。
+- 新helper采用后，需通过原机制接续8956留下的reservation。旧授权已消费8956，下一次完整重试的目标是逻辑8548/失败8956；先精确证明A无业务效果，再由正常系统入口建立新的对应授权，不重复发送旧授权。真实业务仍未成功。
