@@ -158,6 +158,36 @@ test("actual market adapter preserves null price and no-price evidence rules", a
   await assert.rejects(runVisionAnnotation(input), /充分证据/);
 });
 
+test("model-response validation emits only fixed field codes without offending values", async () => {
+  const secretValue = "sensitive-field-value";
+  for (const [value, finishReason, code] of [
+    [{ ...prediction, segment: secretValue }, "stop", "segment_enum"],
+    [{ ...prediction, price_type: secretValue }, "stop", "price_type_enum"],
+    [{ ...prediction, image_price_yuan: secretValue }, "stop", "image_price_value"],
+    [{ ...prediction, price_low_yuan: secretValue }, "stop", "price_low_value"],
+    [{ ...prediction, price_high_yuan: secretValue }, "stop", "price_high_value"],
+    [{ ...prediction, confidence: secretValue }, "stop", "confidence_value"],
+    [{ ...prediction, reason: {} }, "stop", "reason_type"],
+    [{ ...prediction, extra: secretValue }, "stop", "schema_fields"],
+    [{ ...prediction, price_type: "明确无标价" }, "stop", "no_price_not_null"],
+    [{ ...prediction, price_type: "明确无标价", image_price_yuan: null, confidence: 0.5 }, "stop", "no_price_evidence"],
+    [prediction, "length", "output_truncated"],
+    [prediction, secretValue, "finish_reason"],
+    ["", "stop", "empty_response"],
+    ["{invalid", "stop", "invalid_json"],
+  ] as const) {
+    setup(openAi(value, finishReason));
+    await assert.rejects(runVisionAnnotation(input), (error) => {
+      const failure = annotationFailure(error);
+      assert.equal(failure.failureCode, "model_response");
+      assert.match(failure.failureMessage, new RegExp(`\\[validation_code=${code}\\]`));
+      assert.doesNotMatch(failure.failureMessage, /sensitive-field-value|reasoning_content|base64/);
+      return true;
+    });
+    assert.equal(requests.length, 1);
+  }
+});
+
 for (const [status, message, code] of [
   [400, "missing x-opencode-session header", "model_configuration"],
   [400, "response_format json_schema is not supported", "model_configuration"],
