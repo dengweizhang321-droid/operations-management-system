@@ -1,0 +1,73 @@
+{
+  "readerReceiptPayloadSelectDenied": true,
+  "writerSignedControl": true,
+  "writerQueryReadOnly": true,
+  "scopeAndRoleRejected": true,
+  "externalModelCalls": 0,
+  "productionWrites": 0,
+  "statistics": {
+    "modelSimulated": 1,
+    "history": 0,
+    "failed": 0,
+    "unknown": 0
+  },
+  "stages": [
+    {
+      "stage": "create_synthetic_plan",
+      "startedAt": 1792005677.7302213,
+      "endedAt": 1792005677.7829514,
+      "durationMs": 51.87,
+      "status": "succeeded"
+    },
+    {
+      "stage": "start_signed_control",
+      "startedAt": 1792005677.793953,
+      "endedAt": 1792005678.459685,
+      "durationMs": 665.786,
+      "status": "succeeded"
+    },
+    {
+      "stage": "claim_signed",
+      "startedAt": 1792005678.4687073,
+      "endedAt": 1792005678.4979146,
+      "durationMs": 29.66,
+      "status": "succeeded"
+    },
+    {
+      "stage": "image_simulated",
+      "startedAt": 1792005678.4979146,
+      "endedAt": 1792005678.4979146,
+      "durationMs": 0.001,
+      "status": "succeeded"
+    },
+    {
+      "stage": "model_simulated",
+      "startedAt": 1792005678.4979146,
+      "endedAt": 1792005678.4979146,
+      "durationMs": 0.001,
+      "status": "succeeded"
+    },
+    {
+      "stage": "validation_local",
+      "startedAt": 1792005678.4979146,
+      "endedAt": 1792005678.4979146,
+      "durationMs": 0.001,
+      "status": "succeeded"
+    },
+    {
+      "stage": "complete_signed",
+      "startedAt": 1792005678.4979146,
+      "endedAt": 1792005678.5352128,
+      "durationMs": 37.024,
+      "status": "succeeded"
+    },
+    {
+      "stage": "readback_reader",
+      "startedAt": 1792005678.5352128,
+      "endedAt": 1792005678.5525365,
+      "durationMs": 16.967,
+      "status": "succeeded"
+    }
+  ],
+  "parallelStagesSummed": false
+}

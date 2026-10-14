@@ -1,0 +1,127 @@
+--- a/backend/market/annotations.py
++++ b/backend/market/annotations.py
+@@ -20,6 +20,7 @@
+ 
+ from .annotation_runtime import FAILURE_MESSAGES, blocked_until, record_failure, record_success, retry_snapshot
+ from . import annotation_activity
++from .annotation_planning import build_job_items, record_human_reviews, record_selected_reviews
+ from teruisi_backend.automation_drain import AdmissionClosed, deployed_runtime, read_gate
+ from .errors import MarketApiError
+ from .models import (
+@@ -1014,96 +1015,7 @@
+         if existing.status in {"queued", "running", "failed"}:
+             return {**_job_value(existing), "reused": True}
+     job_id = f"market-annotation-job-{uuid.uuid4()}"
+-    items: list[MarketAnnotationItem] = []
+-    for row in _candidate_rows(category):
+-        if len(items) >= limit:
+-            break
+-        snapshot = MarketPriceSnapshot.objects.filter(
+-            category=row.category,
+-            scope=row.scope,
+-            sku_code=row.sku_code,
+-            ranking_dimension=row.ranking_dimension,
+-            month=row.period_end[:7],
+-        ).first()
+-        if snapshot is None:
+-            continue
+-        cache = MarketImageCache.objects.filter(source_url=snapshot.image_url, status="ready").first()
+-        image_hash = cache.content_sha256 if cache and cache.content_sha256 else snapshot.image_content_sha256
+-        if not image_hash:
+-            continue
+-        committed_annotation = MarketSkuAnnotation.objects.filter(
+-            category=row.category,
+-            scope=row.scope,
+-            sku_code=row.sku_code,
+-            ranking_dimension=row.ranking_dimension,
+-            image_content_sha256=image_hash,
+-        ).first()
+-        needs_price = snapshot.confirmed_market_price_cents is None
+-        if committed_annotation is not None and committed_annotation.segment in prompt.segments_json and not needs_price:
+-            continue
+-        exact_history = MarketAnnotationItem.objects.filter(
+-            category=row.category,
+-            scope=row.scope,
+-            sku_code=row.sku_code,
+-            ranking_dimension=row.ranking_dimension,
+-            image_content_sha256=image_hash,
+-            status="committed",
+-        ).exclude(reviewed_segment="").order_by("-reviewed_at").first()
+-        valid_segment = (
+-            committed_annotation.segment
+-            if committed_annotation and committed_annotation.segment in prompt.segments_json
+-            else exact_history.reviewed_segment
+-            if exact_history and exact_history.reviewed_segment in prompt.segments_json
+-            else ""
+-        )
+-        if not valid_segment:
+-            # A changed image may reuse only the confirmed classification, within
+-            # the original category/scope/SKU/dimension and current dictionary.
+-            valid_segment = MarketSkuAnnotation.objects.filter(
+-                category=row.category, scope=row.scope, sku_code=row.sku_code,
+-                ranking_dimension=row.ranking_dimension, segment__in=prompt.segments_json,
+-            ).order_by("-reviewed_at", "id").values_list("segment", flat=True).first() or ""
+-        # No-price reuse is bound to the same image, business identity and rules.
+-        history_job = MarketAnnotationJob.objects.filter(id=exact_history.job_id).first() if exact_history else None
+-        clear_no_price = bool(exact_history and valid_segment and history_job and history_job.prompt_version_id == prompt.id
+-                              and history_job.model_id == (model_id or None)
+-                              and exact_history.reviewed_price_type == "明确无标价"
+-                              and exact_history.ai_price_type == "明确无标价"
+-                              and exact_history.reviewed_image_price_cents is None
+-                              and exact_history.reviewed_price_low_cents is None and exact_history.reviewed_price_high_cents is None
+-                              and exact_history.ai_confidence_bps is not None and exact_history.ai_confidence_bps >= 9000
+-                              and exact_history.ai_reason)
+-        status = "review_pending" if valid_segment and exact_history and ((exact_history.reviewed_price_type in FORMAL_PRICE_TYPES and exact_history.reviewed_image_price_cents is not None) or clear_no_price) else "queued"
+-        items.append(
+-            MarketAnnotationItem(
+-                id=f"market-annotation-item-{uuid.uuid4()}",
+-                job_id=job_id,
+-                category=row.category,
+-                scope=row.scope,
+-                sku_code=row.sku_code,
+-                ranking_dimension=row.ranking_dimension,
+-                month=row.period_end[:7],
+-                image_content_sha256=image_hash,
+-                product_name=row.product_name,
+-                brand=row.brand,
+-                source_image_url=snapshot.image_url or row.image_url,
+-                status=status,
+-                ai_segment=valid_segment if status == "review_pending" else "",
+-                ai_confidence_bps=exact_history.ai_confidence_bps if status == "review_pending" else None,
+-                ai_reason=exact_history.ai_reason if status == "review_pending" else "",
+-                ai_image_price_cents=exact_history.reviewed_image_price_cents if status == "review_pending" else None,
+-                ai_price_type=exact_history.reviewed_price_type if status == "review_pending" else "",
+-                ai_price_low_cents=exact_history.reviewed_price_low_cents if status == "review_pending" else None,
+-                ai_price_high_cents=exact_history.reviewed_price_high_cents if status == "review_pending" else None,
+-                reviewed_segment=valid_segment,
+-                reviewed_image_price_cents=exact_history.reviewed_image_price_cents if status == "review_pending" else None,
+-                reviewed_price_type=exact_history.reviewed_price_type if status == "review_pending" else "",
+-                reviewed_price_low_cents=exact_history.reviewed_price_low_cents if status == "review_pending" else None,
+-                reviewed_price_high_cents=exact_history.reviewed_price_high_cents if status == "review_pending" else None,
+-                reviewed_by="history_same_image" if status == "review_pending" else "history_same_sku_segment" if valid_segment else "",
+-                reviewed_at=timezone.now() if status == "review_pending" else None,
+-            )
+-        )
++    items = build_job_items(_candidate_rows(category), prompt, job_id, model_id=model_id, executor=executor, local_model_name=local_model, limit=limit)
+     job = MarketAnnotationJob.objects.create(
+         id=job_id,
+         category=category,
+@@ -1681,6 +1593,7 @@
+             item.reviewed_at = timezone.now()
+             item.version += 1
+             item.save()
++            record_human_reviews([item], principal, prompt.id)
+             changed += 1
+         _refresh_job(job_id)
+     return {"ok": True, "changed": changed}
+@@ -1703,7 +1616,10 @@
+         raise _error(f"当前筛选结果超过 {MAX_FILTERED_SELECTION} 条")
+     query = query.exclude(selected=selected)
+     affected_jobs = list(query.values_list("job_id", flat=True).distinct())
++    changed_ids = list(query.values_list("id", flat=True)) if selected else []
+     changed = query.update(selected=selected, status="approved" if selected else "review_pending", reviewed_by=principal.email.lower(), reviewed_at=timezone.now(), version=F("version") + 1, updated_at=timezone.now())
++    if selected:
++        record_selected_reviews(changed_ids, principal)
+     for job_id in affected_jobs:
+         _refresh_job(job_id)
+     return {"ok": True, "changed": changed, "selected": selected}

@@ -8,6 +8,7 @@ import {
   MARKET_COMMANDS_PATH,
   MARKET_QUERIES_PATH,
   requestDjangoMarketService,
+  requestAnnotationControl,
 } from "@/lib/django/market-service";
 import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
 import { readBoundedJsonObject } from "@/lib/http/bounded-json";
@@ -17,6 +18,7 @@ import {
   runPromptTextCompletion,
 } from "@/lib/market/annotation-model";
 import { runClaimedDjangoMarketVisionTask } from "@/lib/market/django-annotation-runner";
+import { annotationControlCommand } from "@/lib/market/annotation-control-contract";
 
 type JsonRecord = Record<string, unknown>;
 const MARKET_ANNOTATION_BODY_BYTES_MAX = 256 * 1024;
@@ -165,6 +167,19 @@ export async function GET(request: Request) {
     requireUnrestrictedDataScope(principal, "市场 SKU AI 标注");
     const params = new URL(request.url).searchParams;
     const view = params.get("view") ?? "workspace";
+    if (view === "control_operation") {
+      const operator = await requireAppPrincipal(["operator", "admin"]);
+      requireUnrestrictedDataScope(operator, "市场 SKU AI 标注", "修改");
+      if (Array.from(params.keys()).some((key) => !["view", "jobId", "state", "expectedControlVersion", "operationId"].includes(key))
+          || Array.from(params.keys()).some((key) => params.getAll(key).length !== 1)) {
+        throw new PublicApiError(400, "invalid_request", "控制回执查询字段无效");
+      }
+      let command;
+      try { command = annotationControlCommand({ action: "set_cloud_run_state", jobId: params.get("jobId"), state: params.get("state"), expectedControlVersion: params.get("expectedControlVersion"), operationId: params.get("operationId") }); }
+      catch { throw new PublicApiError(400, "invalid_request", "控制回执查询身份或版本无效"); }
+      const result = await requestAnnotationControl<JsonRecord>(operator, command, true, { signal: request.signal });
+      return Response.json(result.data, { headers: { "cache-control": "no-store", "x-market-data-revision": result.revision } });
+    }
     if (!["workspace", "workspace_fast", "progress", "candidate_counts", "review", "catalog"].includes(view)) {
       throw new PublicApiError(400, "invalid_request", "不支持的市场标注视图");
     }
@@ -207,6 +222,13 @@ export async function POST(request: Request) {
       ? await requireAppPrincipal(["admin"])
       : preliminary;
     requireUnrestrictedDataScope(principal, "市场 SKU AI 标注", "修改");
+    if (action === "set_cloud_run_state") {
+      let control;
+      try { control = annotationControlCommand(command); }
+      catch { throw new PublicApiError(400, "invalid_request", "控制请求身份或版本无效"); }
+      const result = await requestAnnotationControl<JsonRecord>(principal, control, false, { signal: request.signal });
+      return Response.json(result.data, { status: result.status, headers: { "cache-control": "no-store", "x-market-data-revision": result.revision } });
+    }
     const result = action === "run_next" || action === "run_batch"
       ? await runClaimedDjangoMarketVisionTask({
           principal,

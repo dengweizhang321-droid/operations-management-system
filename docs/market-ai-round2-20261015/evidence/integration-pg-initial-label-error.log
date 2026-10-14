@@ -1,0 +1,295 @@
+Creating test database for alias 'default' ('test_market_annotation_rehearsal')...
+Found 66 test(s).
+Operations to perform:
+  Apply all migrations: access_control, ai_assistant, bi, contenttypes, customer_service, erp_reference, finance, inventory, market, netshop, products, sales, workflow
+Running migrations:
+  Applying access_control.0001_initial... OK
+  Applying netshop.0001_initial... OK
+  Applying netshop.0002_migration_run_time_order... OK
+  Applying netshop.0003_netshop_source_revision_guard... OK
+  Applying finance.0001_initial... OK
+  Applying finance.0002_finance_target_gross_margin... OK
+  Applying finance.0003_finance_source_revision_guard... OK
+  Applying finance.0004_finance_revision_monotonic... OK
+  Applying ai_assistant.0001_initial... OK
+  Applying ai_assistant.0002_seed_authority... OK
+  Applying ai_assistant.0003_runtime_fencing... OK
+  Applying ai_assistant.0004_terminal_control_guards... OK
+  Applying ai_assistant.0005_postgres_image_payload... OK
+  Applying ai_assistant.0006_conversation_workspaces... OK
+  Applying ai_assistant.0007_dingtalk_readonly... OK
+  Applying ai_assistant.0008_dingtalk_settings... OK
+  Applying ai_assistant.0009_model_generation_capabilities... OK
+  Applying ai_assistant.0010_dingtalk_schedules... OK
+  Applying ai_assistant.0011_prompt_settings... OK
+  Applying ai_assistant.0012_report_library... OK
+  Applying ai_assistant.0013_dingtalk_schedule_media... OK
+  Applying ai_assistant.0014_business_evidence... OK
+  Applying ai_assistant.0015_business_collection... OK
+  Applying ai_assistant.0016_business_files... OK
+  Applying ai_assistant.0017_business_file_renderer... OK
+  Applying ai_assistant.0018_business_excel_renderer... OK
+  Applying ai_assistant.0019_business_source_directory... OK
+  Applying ai_assistant.0020_business_volume_files... OK
+  Applying ai_assistant.0021_business_budget_plans... OK
+  Applying ai_assistant.0022_business_integrated_reports... OK
+  Applying ai_assistant.0023_business_screening_storage... OK
+  Applying ai_assistant.0024_business_screening_runtime... OK
+  Applying ai_assistant.0025_business_file_opc... OK
+  Applying ai_assistant.0026_business_promotion_profile... OK
+  Applying ai_assistant.0027_business_promotion_file_guard... OK
+  Applying ai_assistant.0028_business_finance_v3_gate... OK
+  Applying ai_assistant.0029_business_promotion_file_ready... OK
+  Applying ai_assistant.0030_business_finance_source_pages... OK
+  Applying ai_assistant.0031_business_daily_v3_source_pages... OK
+  Applying ai_assistant.0032_business_source_tool_receipts... OK
+  Applying ai_assistant.0033_business_v3_parent_seal... OK
+  Applying ai_assistant.0034_business_v3_report_intent... OK
+  Applying ai_assistant.0035_business_v4_ledger... OK
+  Applying ai_assistant.0036_business_v4_validation_segments... OK
+  Applying ai_assistant.0037_business_v4_seal_admission_read... OK
+  Applying ai_assistant.0038_business_v4_seal_writer_gate... OK
+  Applying ai_assistant.0039_business_v4_sealer_ledger_read... OK
+  Applying ai_assistant.0040_business_v4_sealer_narrow_stream... OK
+  Applying ai_assistant.0041_business_v4_seal_ticket... OK
+  Applying ai_assistant.0042_business_v4_claimed_read... OK
+  Applying ai_assistant.0043_business_v4_seal_consumption_candidate... OK
+  Applying ai_assistant.0044_business_market_v2_profile... OK
+  Applying ai_assistant.0045_business_market_v2_material_attestation... OK
+  Applying ai_assistant.0046_business_promotion_trial_file_guard... OK
+  Applying ai_assistant.0047_business_v4_sealer_replay_progress... OK
+  Applying ai_assistant.0048_business_v4_finance_replay_progress... OK
+  Applying ai_assistant.0049_business_v4_sealer_source_bridge... OK
+  Applying ai_assistant.0050_business_v4_replay_read_cast... OK
+  Applying ai_assistant.0051_business_v4_prior_claim_column... OK
+  Applying ai_assistant.0052_business_v4_commit_consumption... OK
+  Applying ai_assistant.0053_business_market_v2_admitted_paused... OK
+  Applying ai_assistant.0054_business_promotion_budget_file_staging... OK
+  Applying ai_assistant.0055_business_v4_period_plan_candidate... OK
+  Applying ai_assistant.0056_business_market_v2_material_role_bridge... OK
+  Applying ai_assistant.0057_business_promotion_budget_v10_attestation... OK
+  Applying ai_assistant.0058_business_promotion_budget_v10_publish_gate... OK
+  Applying ai_assistant.0059_business_promotion_budget_v10_reader_fence... OK
+  Applying ai_assistant.0060_business_market_v2_execution_snapshot... OK
+  Applying ai_assistant.0061_business_market_v2_context_proof... OK
+  Applying ai_assistant.0062_business_market_v2_read_receipt_candidate... OK
+  Applying ai_assistant.0063_business_market_v2_execution_plan... OK
+  Applying ai_assistant.0064_business_market_v2_synthetic_vertical... OK
+  Applying ai_assistant.0065_business_market_v2_model_cost_reservation... OK
+  Applying ai_assistant.0066_business_promotion_budget_v11_durable_stage... OK
+  Applying ai_assistant.0067_business_promotion_budget_v11_attestation... OK
+  Applying ai_assistant.0068_business_promotion_budget_v11_verifier_receipt... OK
+  Applying ai_assistant.0069_business_market_v2_paid_round_rehearsal... OK
+  Applying ai_assistant.0070_business_promotion_budget_v11_limited_identity... OK
+  Applying ai_assistant.0071_business_v4_report_source_link... OK
+  Applying ai_assistant.0072_business_market_v2_authority_proposals... OK
+  Applying ai_assistant.0073_business_promotion_budget_v11_login_attestation... OK
+  Applying ai_assistant.0074_business_market_v2_human_cap_approval... OK
+  Applying ai_assistant.0075_business_v4_report_restricted_page... OK
+  Applying ai_assistant.0076_business_promotion_budget_v11_ticket_bound_signer... OK
+  Applying ai_assistant.0077_business_market_v6_paused_topology... OK
+  Applying ai_assistant.0078_business_promotion_budget_v11_signed_publication... OK
+  Applying ai_assistant.0079_business_market_v6_source_ticket... OK
+  Applying ai_assistant.0080_model_tool_budget_300... OK
+  Applying ai_assistant.0081_readiness_catalog_probe... OK
+  Applying ai_assistant.0082_no_new_keys_profile... OK
+  Applying sales.0001_initial... OK
+  Applying sales.0002_sales_migration_approval... OK
+  Applying sales.0003_query_ready_projection... OK
+  Applying sales.0004_projection_sync... OK
+  Applying sales.0005_postgres_write_authority... OK
+  Applying sales.0006_drop_legacy_projection_checkpoint... OK
+  Applying sales.0007_legacy_upload_audit... OK
+  Applying sales.0008_sales_cutover_attestation... OK
+  Applying sales.0009_postgres_raw_upload_payload... OK
+  Applying inventory.0001_initial... OK
+  Applying inventory.0002_seed_control_rows... OK
+  Applying inventory.0003_replenishment_plan_details... OK
+  Applying inventory.0004_replenishment_dingtalk_sync... OK
+  Applying inventory.0005_stock_supplier_warehouse_mapping... OK
+  Applying inventory.0006_replenishment_group_delivery... OK
+  Applying bi.0001_initial... OK
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying customer_service.0001_initial... OK
+  Applying customer_service.0002_seed_control_rows... OK
+  Applying erp_reference.0001_initial... OK
+  Applying erp_reference.0002_erpproductmaster_erpreferenceimportscopehead_and_more... OK
+  Applying erp_reference.0003_jackyun_upload_audit_binding... OK
+  Applying finance.0005_raw_column_evidence_v2... OK
+  Applying finance.0006_raw_workbook_bytes_v2... OK
+  Applying finance.0007_finance_erp_targets... OK
+  Applying inventory.0007_guangdong_monitor... OK
+  Applying inventory.0008_guangdong_item_overrides... OK
+  Applying inventory.0009_guangdong_item_risk_overrides... OK
+  Applying inventory.0010_replenishment_health... OK
+  Applying inventory.0011_inventory_warehouse_mapping_settings... OK
+  Applying market.0001_initial... OK
+  Applying market.0002_seed_control_rows... OK
+  Applying market.0003_remove_marketannotationvalidationsample_mkt_validation_sample_uq_and_more... OK
+  Applying market.0004_projection_sync_fencing... OK
+  Applying market.0005_filter_facet_indexes... OK
+  Applying market.0006_analysis_options... OK
+  Applying netshop.0004_promotion_presence_cache... OK
+  Applying products.0001_initial... OK
+  Applying products.0002_seed_control_rows... OK
+  Applying products.0003_alter_productimportattempt_created_at_and_more... OK
+  Applying sales.0010_analysis_options... OK
+  Applying sales.0011_jackyun_upload_audit_binding... OK
+  Applying workflow.0001_initial... OK
+  Applying workflow.0002_seed_control_rows... OK
+  Applying workflow.0003_workflowmigrationrun_and_authority_run... OK
+  Applying workflow.0004_new_product_weekly_followup... OK
+  Applying workflow.0005_product_line_continuous_monitoring... OK
+  Applying workflow.0005_operations_domain... OK
+  Applying workflow.0006_merge_20260904_1700... OK
+  Applying workflow.0007_new_product_line_uploaded_image... OK
+  Applying workflow.0008_new_product_shop_plan...test_annotation_blockers (unittest.loader._FailedTest.test_annotation_blockers) ... ERROR
+test_candidate_and_provenance_transaction_rollback (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_candidate_and_provenance_transaction_rollback) ... ok
+test_capped_unknown_with_new_real_human_unknown_is_still_blocked (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_capped_unknown_with_new_real_human_unknown_is_still_blocked) ... ok
+test_category_and_sku_spu_identity_never_cross_reuse (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_category_and_sku_spu_identity_never_cross_reuse) ... ok
+test_changed_image_uses_only_classification_and_cache_hash_is_authoritative (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_changed_image_uses_only_classification_and_cache_hash_is_authoritative) ... ok
+test_effective_human_no_price_review_can_reuse_before_formal_commit (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_effective_human_no_price_review_can_reuse_before_formal_commit) ... ok
+test_existing_job_reuse_and_formal_price_reuse_remain_idempotent (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_existing_job_reuse_and_formal_price_reuse_remain_idempotent) ... ok
+test_gold_null_alone_is_not_a_no_price_assertion_and_stale_link_is_rejected (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_gold_null_alone_is_not_a_no_price_assertion_and_stale_link_is_rejected) ... ok
+test_history_sentinel_and_automatic_commit_dont_pollute_provenance (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_history_sentinel_and_automatic_commit_dont_pollute_provenance) ... ok
+test_human_clear_no_price_needs_no_model_assertion_or_confidence_and_stays_unselected (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_human_clear_no_price_needs_no_model_assertion_or_confidence_and_stays_unselected) ... ok
+test_identity_and_month_boundaries (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_identity_and_month_boundaries) ... ok
+test_invalid_first_chunks_do_not_truncate_candidates_and_order_is_preserved (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_invalid_first_chunks_do_not_truncate_candidates_and_order_is_preserved) ... ok
+test_model_claim_and_commit_actor_cannot_establish_human_review (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_model_claim_and_commit_actor_cannot_establish_human_review) ... ok
+test_new_manual_unknown_or_price_revision_invalidates_prior_no_price (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_new_manual_unknown_or_price_revision_invalidates_prior_no_price) ... ok
+test_newer_authoritative_annotation_invalidates_old_human_no_price (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_newer_authoritative_annotation_invalidates_old_human_no_price) ... ok
+test_newer_human_revision_beats_old_human_and_stale_gold (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_newer_human_revision_beats_old_human_and_stale_gold) ... ok
+test_nonnull_bounds_invalidate_explicit_no_price (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_nonnull_bounds_invalidate_explicit_no_price) ... ok
+test_prompt_model_executor_and_local_model_are_conservative_policy_boundaries (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_prompt_model_executor_and_local_model_are_conservative_policy_boundaries) ... ok
+test_real_master_editor_updated_at_fences_stale_reviewed_at (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_real_master_editor_updated_at_fences_stale_reviewed_at) ... ok
+test_unknown_and_deposit_cannot_be_reused_as_clear_no_price (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_unknown_and_deposit_cannot_be_reused_as_clear_no_price) ... ok
+test_unknown_capped_identity_is_not_replayed_but_changed_image_can_plan (market.test_annotation_planning_round2.AnnotationPlanningRulesTests.test_unknown_capped_identity_is_not_replayed_but_changed_image_can_plan) ... ok
+test_current_signed_roles_scope_and_human_review_provenance (market.test_annotation_planning_round2.AnnotationPlanningPermissionsTests.test_current_signed_roles_scope_and_human_review_provenance) ... 2026-10-15 03:19:20,564 level=WARNING logger=django.request message=Forbidden: /api/market/commands
+2026-10-15 03:19:20,565 level=WARNING logger=django.request message=Forbidden: /api/market/commands
+2026-10-15 03:19:20,566 level=WARNING logger=django.request message=Forbidden: /api/market/commands
+ok
+test_b_rejects_model_classification_change_and_completion_metrics_are_idempotent (market.tests.test_annotation_priority.AnnotationPriorityTests.test_b_rejects_model_classification_change_and_completion_metrics_are_idempotent) ... ok
+test_changed_image_reuses_only_classification_within_business_identity (market.tests.test_annotation_priority.AnnotationPriorityTests.test_changed_image_reuses_only_classification_within_business_identity) ... ok
+test_claim_exposes_only_matching_cache_and_rollbacks_preserve_mode_audits (market.tests.test_annotation_priority.AnnotationPriorityTests.test_claim_exposes_only_matching_cache_and_rollbacks_preserve_mode_audits) ... ok
+test_clear_no_price_reuse_requires_same_prompt_and_never_promotes_uncertain (market.tests.test_annotation_priority.AnnotationPriorityTests.test_clear_no_price_reuse_requires_same_prompt_and_never_promotes_uncertain) ... ok
+test_duplicate_receipt_with_other_lease_token_cannot_release_active_barrier (market.tests.test_annotation_priority.AnnotationPriorityTests.test_duplicate_receipt_with_other_lease_token_cannot_release_active_barrier) ... ok
+test_helper_drain_stops_claims_without_consuming_attempts (market.tests.test_annotation_priority.AnnotationPriorityTests.test_helper_drain_stops_claims_without_consuming_attempts) ... ok
+test_price_states_do_not_make_b_classification_pending (market.tests.test_annotation_priority.AnnotationPriorityTests.test_price_states_do_not_make_b_classification_pending) ... ok
+test_resume_quarantines_expired_before_running_and_keeps_old_unknown_rows (market.tests.test_annotation_priority.AnnotationPriorityTests.test_resume_quarantines_expired_before_running_and_keeps_old_unknown_rows) ... ok
+test_resume_with_only_expired_returns_actual_paused_state_and_persists_quarantine (market.tests.test_annotation_priority.AnnotationPriorityTests.test_resume_with_only_expired_returns_actual_paused_state_and_persists_quarantine) ... ok
+test_storage_failure_retains_activity_and_successful_receipt_releases_it (market.tests.test_annotation_priority.AnnotationPriorityTests.test_storage_failure_retains_activity_and_successful_receipt_releases_it) ... ok
+test_ten_thousand_mixed_units_claim_and_progress_share_complete_scope (market.tests.test_annotation_priority.AnnotationPriorityTests.test_ten_thousand_mixed_units_claim_and_progress_share_complete_scope) ... ok
+test_three_inflight_a_allow_nine_b_and_new_a_gets_next_slot (market.tests.test_annotation_priority.AnnotationPriorityTests.test_three_inflight_a_allow_nine_b_and_new_a_gets_next_slot) ... ok
+test_unknown_zero_model_price_stays_null (market.tests.test_annotation_priority.AnnotationPriorityTests.test_unknown_zero_model_price_stays_null) ... ok
+test_account_failure_pauses_before_consuming_more_items_and_keeps_retry_budget (market.tests.test_annotation_queue.AnnotationQueueTests.test_account_failure_pauses_before_consuming_more_items_and_keeps_retry_budget) ... ok
+test_cooled_first_five_plans_do_not_hide_a_ready_sixth_plan (market.tests.test_annotation_queue.AnnotationQueueTests.test_cooled_first_five_plans_do_not_hide_a_ready_sixth_plan) ... ok
+test_coordinator_fencing_pause_resume_and_stale_release (market.tests.test_annotation_queue.AnnotationQueueTests.test_coordinator_fencing_pause_resume_and_stale_release) ... ok
+test_cross_month_same_image_claims_once_and_diffuses_atomically (market.tests.test_annotation_queue.AnnotationQueueTests.test_cross_month_same_image_claims_once_and_diffuses_atomically) ... ok
+test_default_cloud_concurrency_is_ten_and_new_limit_applies_to_leases (market.tests.test_annotation_queue.AnnotationQueueTests.test_default_cloud_concurrency_is_ten_and_new_limit_applies_to_leases) ... ok
+test_dispatch_and_claim_without_expired_leases_skip_backlog_quarantine_update (market.tests.test_annotation_queue.AnnotationQueueTests.test_dispatch_and_claim_without_expired_leases_skip_backlog_quarantine_update) ... ok
+test_finished_stale_job_does_not_hide_runnable_job (market.tests.test_annotation_queue.AnnotationQueueTests.test_finished_stale_job_does_not_hide_runnable_job) ... ok
+test_full_oldest_job_does_not_starve_another_plan (market.tests.test_annotation_queue.AnnotationQueueTests.test_full_oldest_job_does_not_starve_another_plan) ... ok
+test_last_unknown_group_remains_paused_even_after_progress_refresh (market.tests.test_annotation_queue.AnnotationQueueTests.test_last_unknown_group_remains_paused_even_after_progress_refresh) ... ok
+test_late_final_failure_cannot_erase_another_items_unknown_quarantine (market.tests.test_annotation_queue.AnnotationQueueTests.test_late_final_failure_cannot_erase_another_items_unknown_quarantine) ... ok
+test_rate_limit_blocks_same_model_only_and_dispatch_obeys_cooldown (market.tests.test_annotation_queue.AnnotationQueueTests.test_rate_limit_blocks_same_model_only_and_dispatch_obeys_cooldown) ... ok
+test_retry_budget_is_shared_across_months_and_bad_image_does_not_pause_plan (market.tests.test_annotation_queue.AnnotationQueueTests.test_retry_budget_is_shared_across_months_and_bad_image_does_not_pause_plan) ... ok
+test_transient_lane_cooldown_does_not_block_other_lanes_or_plans (market.tests.test_annotation_queue.AnnotationQueueTests.test_transient_lane_cooldown_does_not_block_other_lanes_or_plans) ... ok
+test_unknown_expired_lease_quarantines_all_months_and_pauses (market.tests.test_annotation_queue.AnnotationQueueTests.test_unknown_expired_lease_quarantines_all_months_and_pauses) ... ok
+test_commit_then_response_loss_is_confirmed_without_second_post (market.test_annotation_resume_round2.ResumeReceiptTests.test_commit_then_response_loss_is_confirmed_without_second_post) ... 2026-10-15 03:19:25,739 level=INFO logger=market.views message=Market control phase=received request=annotation-control-1f19ac16-7ea9-4f97-91af-1e398fbf2521
+2026-10-15 03:19:25,742 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-1f19ac16-7ea9-4f97-91af-1e398fbf2521 elapsed_ms=0.000
+2026-10-15 03:19:25,756 level=INFO logger=market.annotations message=Market control phase=job_run_locked operation=1f19ac16-7ea9-4f97-91af-1e398fbf2521 elapsed_ms=11.892
+2026-10-15 03:19:25,757 level=INFO logger=market.annotations message=Market control phase=expired_claims_checked operation=1f19ac16-7ea9-4f97-91af-1e398fbf2521 elapsed_ms=12.772
+2026-10-15 03:19:25,761 level=INFO logger=market.annotations message=Market control phase=control_audited operation=1f19ac16-7ea9-4f97-91af-1e398fbf2521 elapsed_ms=16.797
+2026-10-15 03:19:25,763 level=INFO logger=market.views message=Market control phase=committed request=annotation-control-1f19ac16-7ea9-4f97-91af-1e398fbf2521 elapsed_ms=16.000
+2026-10-15 03:19:25,763 level=ERROR logger=market.views message=Unhandled market API error
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\views.py", line 445, in commands
+    return _replay_fenced_write(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\test_annotation_resume_round2.py", line 74, in lose_response
+    raise OSError("isolated response delivery seam")
+OSError: isolated response delivery seam
+2026-10-15 03:19:25,764 level=ERROR logger=django.request message=Internal Server Error: /api/market/commands
+ok
+test_configuration_pause_preserves_other_retry_metadata_and_fences_aba (market.test_annotation_resume_round2.ResumeReceiptTests.test_configuration_pause_preserves_other_retry_metadata_and_fences_aba) ... 2026-10-15 03:19:26,342 level=INFO logger=market.views message=Market control phase=received request=annotation-control-4519d674-66df-425a-a066-aae7cc0af353
+2026-10-15 03:19:26,346 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-4519d674-66df-425a-a066-aae7cc0af353 elapsed_ms=0.000
+2026-10-15 03:19:26,354 level=INFO logger=market.annotations message=Market control phase=job_run_locked operation=4519d674-66df-425a-a066-aae7cc0af353 elapsed_ms=5.935
+2026-10-15 03:19:26,355 level=INFO logger=market.annotations message=Market control phase=expired_claims_checked operation=4519d674-66df-425a-a066-aae7cc0af353 elapsed_ms=6.876
+2026-10-15 03:19:26,361 level=INFO logger=market.annotations message=Market control phase=control_audited operation=4519d674-66df-425a-a066-aae7cc0af353 elapsed_ms=13.474
+2026-10-15 03:19:26,364 level=INFO logger=market.views message=Market control phase=committed request=annotation-control-4519d674-66df-425a-a066-aae7cc0af353 elapsed_ms=31.000
+ok
+test_expired_quarantine_commits_even_when_no_resume_is_possible (market.test_annotation_resume_round2.ResumeReceiptTests.test_expired_quarantine_commits_even_when_no_resume_is_possible) ... 2026-10-15 03:19:27,043 level=INFO logger=market.views message=Market control phase=received request=annotation-control-20a214bf-65aa-4dde-a095-7c52455aef04
+2026-10-15 03:19:27,047 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-20a214bf-65aa-4dde-a095-7c52455aef04 elapsed_ms=0.000
+2026-10-15 03:19:27,055 level=INFO logger=market.annotations message=Market control phase=job_run_locked operation=20a214bf-65aa-4dde-a095-7c52455aef04 elapsed_ms=4.881
+2026-10-15 03:19:27,059 level=INFO logger=market.annotations message=Market control phase=expired_claims_checked operation=20a214bf-65aa-4dde-a095-7c52455aef04 elapsed_ms=9.504
+2026-10-15 03:19:27,068 level=INFO logger=market.annotations message=Market control phase=control_audited operation=20a214bf-65aa-4dde-a095-7c52455aef04 elapsed_ms=18.284
+2026-10-15 03:19:27,071 level=INFO logger=market.views message=Market control phase=committed request=annotation-control-20a214bf-65aa-4dde-a095-7c52455aef04 elapsed_ms=31.000
+ok
+test_heartbeat_preserves_token_pause_and_completion_advance_it (market.test_annotation_resume_round2.ResumeReceiptTests.test_heartbeat_preserves_token_pause_and_completion_advance_it) ... 2026-10-15 03:19:27,673 level=INFO logger=market.views message=Market control phase=received request=annotation-control-e051327a-da73-4a4a-bc3b-04796bfac6bb
+2026-10-15 03:19:27,677 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-e051327a-da73-4a4a-bc3b-04796bfac6bb elapsed_ms=16.000
+2026-10-15 03:19:27,684 level=INFO logger=market.annotations message=Market control phase=job_run_locked operation=e051327a-da73-4a4a-bc3b-04796bfac6bb elapsed_ms=4.378
+2026-10-15 03:19:27,684 level=INFO logger=market.annotations message=Market control phase=expired_claims_checked operation=e051327a-da73-4a4a-bc3b-04796bfac6bb elapsed_ms=5.259
+2026-10-15 03:19:27,690 level=INFO logger=market.annotations message=Market control phase=control_audited operation=e051327a-da73-4a4a-bc3b-04796bfac6bb elapsed_ms=10.624
+2026-10-15 03:19:27,693 level=INFO logger=market.views message=Market control phase=committed request=annotation-control-e051327a-da73-4a4a-bc3b-04796bfac6bb elapsed_ms=31.000
+ok
+test_malformed_control_token_fails_closed (market.test_annotation_resume_round2.ResumeReceiptTests.test_malformed_control_token_fails_closed) ... ok
+test_missing_processing_wrong_tuple_and_actor_are_not_false_success (market.test_annotation_resume_round2.ResumeReceiptTests.test_missing_processing_wrong_tuple_and_actor_are_not_false_success) ... 2026-10-15 03:19:29,038 level=WARNING logger=django.request message=Forbidden: /api/market/commands
+2026-10-15 03:19:29,039 level=WARNING logger=django.request message=Forbidden: /api/market/commands
+2026-10-15 03:19:29,039 level=WARNING logger=django.request message=Forbidden: /api/market/commands
+ok
+test_precommit_version_rejection_is_durable_and_has_zero_control_effect (market.test_annotation_resume_round2.ResumeReceiptTests.test_precommit_version_rejection_is_durable_and_has_zero_control_effect) ... 2026-10-15 03:19:29,656 level=INFO logger=market.views message=Market control phase=received request=annotation-control-2e4122cd-727d-404d-b839-8bc3459427f9
+2026-10-15 03:19:29,660 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-2e4122cd-727d-404d-b839-8bc3459427f9 elapsed_ms=0.000
+2026-10-15 03:19:29,668 level=WARNING logger=django.request message=Conflict: /api/market/commands
+ok
+test_same_id_changed_command_and_completed_invalid_audit_are_unknown (market.test_annotation_resume_round2.ResumeReceiptTests.test_same_id_changed_command_and_completed_invalid_audit_are_unknown) ... 2026-10-15 03:19:30,269 level=INFO logger=market.views message=Market control phase=received request=annotation-control-663cf973-05de-470c-8557-cbbd37c31255
+2026-10-15 03:19:30,274 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-663cf973-05de-470c-8557-cbbd37c31255 elapsed_ms=0.000
+2026-10-15 03:19:30,281 level=INFO logger=market.annotations message=Market control phase=job_run_locked operation=663cf973-05de-470c-8557-cbbd37c31255 elapsed_ms=4.943
+2026-10-15 03:19:30,282 level=INFO logger=market.annotations message=Market control phase=expired_claims_checked operation=663cf973-05de-470c-8557-cbbd37c31255 elapsed_ms=5.818
+2026-10-15 03:19:30,288 level=INFO logger=market.annotations message=Market control phase=control_audited operation=663cf973-05de-470c-8557-cbbd37c31255 elapsed_ms=11.724
+2026-10-15 03:19:30,292 level=INFO logger=market.views message=Market control phase=committed request=annotation-control-663cf973-05de-470c-8557-cbbd37c31255 elapsed_ms=16.000
+2026-10-15 03:19:30,293 level=INFO logger=market.views message=Market control phase=received request=annotation-control-663cf973-05de-470c-8557-cbbd37c31255
+2026-10-15 03:19:30,294 level=WARNING logger=django.request message=Conflict: /api/market/commands
+ok
+test_same_version_opposite_controls_only_one_commits (market.test_annotation_resume_round2.ResumeReceiptTests.test_same_version_opposite_controls_only_one_commits) ... 2026-10-15 03:19:30,994 level=INFO logger=market.annotations message=Market control phase=job_run_locked operation=71f18cfd-eefe-4ff1-a1ef-acae6c2b4ebc elapsed_ms=14.101
+2026-10-15 03:19:30,995 level=INFO logger=market.annotations message=Market control phase=expired_claims_checked operation=71f18cfd-eefe-4ff1-a1ef-acae6c2b4ebc elapsed_ms=14.227
+2026-10-15 03:19:31,004 level=INFO logger=market.annotations message=Market control phase=control_audited operation=71f18cfd-eefe-4ff1-a1ef-acae6c2b4ebc elapsed_ms=23.264
+ok
+test_success_exact_replay_and_read_only_query (market.test_annotation_resume_round2.ResumeReceiptTests.test_success_exact_replay_and_read_only_query) ... 2026-10-15 03:19:31,706 level=INFO logger=market.views message=Market control phase=received request=annotation-control-ed3cd374-f8bc-4895-8fae-735405fbeec9
+2026-10-15 03:19:31,710 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-ed3cd374-f8bc-4895-8fae-735405fbeec9 elapsed_ms=16.000
+2026-10-15 03:19:31,716 level=INFO logger=market.annotations message=Market control phase=job_run_locked operation=ed3cd374-f8bc-4895-8fae-735405fbeec9 elapsed_ms=4.354
+2026-10-15 03:19:31,717 level=INFO logger=market.annotations message=Market control phase=expired_claims_checked operation=ed3cd374-f8bc-4895-8fae-735405fbeec9 elapsed_ms=5.257
+2026-10-15 03:19:31,722 level=INFO logger=market.annotations message=Market control phase=control_audited operation=ed3cd374-f8bc-4895-8fae-735405fbeec9 elapsed_ms=10.218
+2026-10-15 03:19:31,724 level=INFO logger=market.views message=Market control phase=committed request=annotation-control-ed3cd374-f8bc-4895-8fae-735405fbeec9 elapsed_ms=32.000
+2026-10-15 03:19:31,725 level=INFO logger=market.views message=Market control phase=received request=annotation-control-ed3cd374-f8bc-4895-8fae-735405fbeec9
+ok
+test_terminal_before_late_resume_is_rejected (market.test_annotation_resume_round2.ResumeReceiptTests.test_terminal_before_late_resume_is_rejected) ... 2026-10-15 03:19:32,343 level=INFO logger=market.views message=Market control phase=received request=annotation-control-c9942372-fd66-418d-bb4e-5a221f5a6b2d
+2026-10-15 03:19:32,348 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-c9942372-fd66-418d-bb4e-5a221f5a6b2d elapsed_ms=16.000
+2026-10-15 03:19:32,354 level=WARNING logger=django.request message=Conflict: /api/market/commands
+ok
+test_known_validation_code_is_preserved_without_raw_field (market.test_annotation_diagnostics_round2.AnnotationDiagnosticsRound2Tests.test_known_validation_code_is_preserved_without_raw_field) ... ok
+test_price_and_finish_codes_are_safe_and_distinct (market.test_annotation_diagnostics_round2.AnnotationDiagnosticsRound2Tests.test_price_and_finish_codes_are_safe_and_distinct) ... ok
+test_unknown_or_suffixed_codes_do_not_enter_persistence (market.test_annotation_diagnostics_round2.AnnotationDiagnosticsRound2Tests.test_unknown_or_suffixed_codes_do_not_enter_persistence) ... ok
+test_prompt_lock_serializes_concurrent_creation_into_one_valid_job (market.test_annotation_planning_round2.AnnotationPlanningConcurrencyTests.test_prompt_lock_serializes_concurrent_creation_into_one_valid_job) ... ok
+test_simultaneous_claims_never_exceed_database_limit_or_duplicate_month_identity (market.tests.test_annotation_queue.AnnotationQueueConcurrencyTests.test_simultaneous_claims_never_exceed_database_limit_or_duplicate_month_identity) ... ok
+test_simultaneous_explicit_lanes_fill_configured_capacity (market.tests.test_annotation_queue.AnnotationQueueConcurrencyTests.test_simultaneous_explicit_lanes_fill_configured_capacity) ... ok
+
+======================================================================
+ERROR: test_annotation_blockers (unittest.loader._FailedTest.test_annotation_blockers)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_annotation_blockers
+Traceback (most recent call last):
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'market.tests.test_annotation_blockers'
+
+
+----------------------------------------------------------------------
+Ran 66 tests in 16.425s
+
+FAILED (errors=1)
+Destroying test database for alias 'default' ('test_market_annotation_rehearsal')...
+ OK
+System check identified no issues (0 silenced).
+SYNTHETIC_SCALE claim12Ms=1604.3 progress10000Ms=141.6

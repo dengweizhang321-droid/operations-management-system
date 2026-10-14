@@ -109,8 +109,9 @@ class AnnotationPriorityTests(QueueFixtures, TestCase):
         payload = {"category": job.category, "promptVersionId": job.prompt_version_id, "executor": "cloud", "modelId": "vision-test"}
         with patch("market.annotations._candidate_rows", return_value=[ranking]):
             created = _create_job(payload, PRINCIPAL)
-        self.assertEqual(MarketAnnotationItem.objects.get(job_id=created["id"]).status, "review_pending")
-        self.assertEqual(self.progress(MarketAnnotationJob.objects.get(pk=created["id"]))["historyReusedUnits"], 1)
+        # Model output and confidence alone are not a human-confirmed no-price fact.
+        self.assertEqual(MarketAnnotationItem.objects.get(job_id=created["id"]).status, "queued")
+        self.assertEqual(self.progress(MarketAnnotationJob.objects.get(pk=created["id"]))["historyReusedUnits"], 0)
         MarketAnnotationJob.objects.filter(pk=created["id"]).update(status="committed")
         MarketAnnotationItem.objects.filter(pk="history-result").update(reviewed_price_type="无法判断")
         with patch("market.annotations._candidate_rows", return_value=[ranking]):

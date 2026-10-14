@@ -1,0 +1,39 @@
+[
+  {
+    "path": "backend/market/annotations.py",
+    "sha256": "d5023bf7ab1caf4a2c410edf482795fb2824aebffbeae5e953fa288645750fe5"
+  },
+  {
+    "path": "backend/market/views.py",
+    "sha256": "d285ba568e585ea55c0648e199d55a73c11d044ed5a85a0ca3bcbbfd8278aea4"
+  },
+  {
+    "path": "backend/market/test_annotation_resume_round2.py",
+    "sha256": "f72e379c7ddc0cb7b088671fa6638cc8df910fd8d233383db18ef162a16fb661",
+    "finalFormatting": "removed extra EOF blank line; AST identical to tested source"
+  },
+  {
+    "path": "lib/django/market-service.ts",
+    "sha256": "7b2a50eb021eb779951345e61cfe55ccdd08c6a68a514b506944e6a10b3001e2"
+  },
+  {
+    "path": "app/api/market/annotations/route.ts",
+    "sha256": "2eb0eb1fec57b9d635ce53c27cc05b2f936eb95159c1595fe9716a36a08e2bc7"
+  },
+  {
+    "path": "app/market-annotation-view.tsx",
+    "sha256": "e5bfb930e3c011cc0db1263f389ff4bd248edfa19f482ded7272742a53023aa5"
+  },
+  {
+    "path": "lib/market/annotation-control-channel.ts",
+    "sha256": "d2bc27c25187a859bbadee926338c8df2329b7bf0a39166356d3f8b2c79495d9"
+  },
+  {
+    "path": "lib/market/annotation-control-contract.ts",
+    "sha256": "4152f96aed6e2c13a23b595184768356464dd0397b005521acdda20f65f648df"
+  },
+  {
+    "path": "tests/market-annotation-control.test.ts",
+    "sha256": "b7a65318fa6a26fb5a65ca24846f7fdbe8d6f49c71e726c9d1df09384f032536"
+  }
+]

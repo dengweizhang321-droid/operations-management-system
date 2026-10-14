@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import logging
 import re
 import secrets
 import time
@@ -11,7 +12,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.db import connection, transaction
-from django.db.models import Avg, BigIntegerField, Case, CharField, Count, Exists, F, Max, Min, OuterRef, Q, Subquery, Value, When
+from django.db.models import Avg, BigIntegerField, Case, CharField, Count, Exists, F, Func, JSONField, Max, Min, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Cast, Coalesce, Greatest, Substr
 from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone
@@ -20,6 +21,7 @@ from sales.auth import Principal
 
 from .annotation_runtime import FAILURE_MESSAGES, blocked_until, record_failure, record_success, retry_snapshot
 from . import annotation_activity
+from .annotation_planning import build_job_items, record_human_reviews, record_selected_reviews
 from teruisi_backend.automation_drain import AdmissionClosed, deployed_runtime, read_gate
 from .errors import MarketApiError
 from .models import (
@@ -68,6 +70,7 @@ VALID_PRICE_TYPES = {
     "明确无标价",
 }
 FORMAL_PRICE_TYPES = {"标准售价", "到手价", "券后价"}
+logger = logging.getLogger(__name__)
 
 
 def _error(message: str, *, code: str = "invalid_request", status: int = 400) -> MarketApiError:
@@ -120,8 +123,8 @@ def _digest(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def _audit(principal: Principal, action: str, entity_type: str, entity_id: str, before: object, after: object) -> None:
-    MarketMasterAuditLog.objects.create(
+def _audit(principal: Principal, action: str, entity_type: str, entity_id: str, before: object, after: object) -> MarketMasterAuditLog:
+    return MarketMasterAuditLog.objects.create(
         actor_email=principal.email.lower(),
         actor_role=principal.role,
         action=action,
@@ -130,6 +133,35 @@ def _audit(principal: Principal, action: str, entity_type: str, entity_id: str, 
         before_json=before if isinstance(before, (dict, list)) else {"value": before},
         after_json=after if isinstance(after, (dict, list)) else {"value": after},
     )
+
+
+def _control_version(run: MarketAnnotationCloudRun) -> str:
+    raw = run.retry_state_json
+    if not isinstance(raw, dict):
+        raise _error("任务控制版本容器无效，请核查后操作", code="version_conflict", status=409)
+    if "controlVersion" not in raw:
+        return _digest("market-control-initial:" + run.job_id)
+    token = raw["controlVersion"]
+    if not isinstance(token, str) or not re.fullmatch(r"[a-f0-9]{64}", token):
+        raise _error("任务控制版本无效，请核查后操作", code="version_conflict", status=409)
+    return token
+
+
+def _advance_control_version(run: MarketAnnotationCloudRun) -> None:
+    run.retry_state_json = {**run.retry_state_json, "controlVersion": secrets.token_hex(32)}
+
+
+def _run_retry_snapshot(run: MarketAnnotationCloudRun, configured: int) -> dict:
+    return {**retry_snapshot(run.retry_state_json, configured), "controlVersion": _control_version(run)}
+
+
+def _next_control_version_expression():
+    token = secrets.token_hex(32)
+    if connection.vendor == "postgresql":
+        return Func(F("retry_state_json"), Value("{controlVersion}"), Value(token, output_field=JSONField()),
+                    function="jsonb_set", output_field=JSONField())
+    return Func(F("retry_state_json"), Value("$.controlVersion"), Value(token),
+                function="json_set", output_field=JSONField())
 
 
 def _prompt_value(row: MarketAnnotationPromptVersion) -> dict[str, object]:
@@ -353,6 +385,7 @@ def _expire_cloud_claims(job: MarketAnnotationJob, run: MarketAnnotationCloudRun
     run.next_run_at = None
     run.last_failure_code = "inference_result_unknown"
     run.last_failure_message = FAILURE_MESSAGES["inference_result_unknown"]
+    _advance_control_version(run)
     run.save()
     return True
 
@@ -404,7 +437,7 @@ def _failure_reason(message: str, code: str) -> str:
     # arbitrary caller's free text. Worker errors are already sanitized, but the
     # signed domain endpoint remains a second defensive persistence boundary.
     safe = re.sub(r"https?://\S+|\bBearer\s+\S+", "", message, flags=re.IGNORECASE)
-    tokens = re.findall(r"\bHTTP\s*[1-5]\d{2}\b|x-opencode-(?:session|client)\b|\b(?:unsupported|missing|required|invalid)[ _-](?:parameter|session|model|endpoint)\b|\b(?:thinking|reasoning|response_format|max_tokens|finish_reason)[=: ]+(?:disabled|enabled|length|stop|unsupported)\b|\b(?:empty_response|output_truncated|invalid_json|image_hash_mismatch)\b",
+    tokens = re.findall(r"\bHTTP\s*[1-5]\d{2}\b|x-opencode-(?:session|client)\b|\b(?:unsupported|missing|required|invalid)[ _-](?:parameter|session|model|endpoint)\b|\b(?:thinking|reasoning|response_format|max_tokens|finish_reason)[=: ]+(?:disabled|enabled|length|stop|unsupported)\b|\b(?:empty_response|output_truncated|invalid_json|image_hash_mismatch)\b|\bvalidation_code=(?:choices_count|choice_shape|output_truncated|finish_reason|message_unavailable|empty_response|stop_reason|tool_result|invalid_json|object_shape|schema_fields|segment_enum|price_type_enum|image_price_value|price_low_value|price_high_value|confidence_value|reason_type|no_price_not_null|no_price_evidence|response_json)(?![A-Za-z0-9_])",
                         safe, flags=re.IGNORECASE)
     detail = "; ".join(dict.fromkeys(tokens))[:500]
     return (FAILURE_MESSAGES[code] + ("；" + detail if detail else ""))[:800]
@@ -490,6 +523,7 @@ def _cloud_run_value(row: MarketAnnotationCloudRun, configured: int) -> dict[str
     retry = retry_snapshot(row.retry_state_json, configured)
     return {
         "jobId": row.job_id,
+        "controlVersion": _control_version(row),
         "state": row.state,
         "runConcurrency": retry["currentConcurrency"],
         "targetConcurrency": configured,
@@ -526,15 +560,23 @@ def _summarize_job(job: MarketAnnotationJob) -> MarketAnnotationJob:
 
 
 def _refresh_job(job_id: str) -> MarketAnnotationJob:
-    job = _summarize_job(MarketAnnotationJob.objects.get(id=job_id))
+    job = MarketAnnotationJob.objects.get(id=job_id)
+    old_status = job.status
+    job = _summarize_job(job)
     if job.status in {"review_ready", "committed"}:
         job.completed_at = job.completed_at or timezone.now()
-        MarketAnnotationCloudRun.objects.filter(job_id=job_id).exclude(state="completed").exclude(
-            state="paused", last_failure_code="inference_result_unknown",
-        ).update(
-            state="completed", next_run_at=None, lease_token_hash="", lease_expires_at=None,
-            completed_at=job.completed_at, updated_at=timezone.now(),
-        )
+        runs = MarketAnnotationCloudRun.objects.select_for_update().filter(job_id=job_id)
+        for run in runs:
+            complete = not (run.state == "paused" and run.last_failure_code == "inference_result_unknown")
+            if job.status != old_status or (complete and run.state != "completed"):
+                if complete:
+                    run.state = "completed"
+                    run.next_run_at = None
+                    run.lease_token_hash = ""
+                    run.lease_expires_at = None
+                    run.completed_at = job.completed_at
+                _advance_control_version(run)
+                run.save()
     job.save()
     return job
 
@@ -1014,96 +1056,7 @@ def _create_job(payload: dict[str, object], principal: Principal) -> dict[str, o
         if existing.status in {"queued", "running", "failed"}:
             return {**_job_value(existing), "reused": True}
     job_id = f"market-annotation-job-{uuid.uuid4()}"
-    items: list[MarketAnnotationItem] = []
-    for row in _candidate_rows(category):
-        if len(items) >= limit:
-            break
-        snapshot = MarketPriceSnapshot.objects.filter(
-            category=row.category,
-            scope=row.scope,
-            sku_code=row.sku_code,
-            ranking_dimension=row.ranking_dimension,
-            month=row.period_end[:7],
-        ).first()
-        if snapshot is None:
-            continue
-        cache = MarketImageCache.objects.filter(source_url=snapshot.image_url, status="ready").first()
-        image_hash = cache.content_sha256 if cache and cache.content_sha256 else snapshot.image_content_sha256
-        if not image_hash:
-            continue
-        committed_annotation = MarketSkuAnnotation.objects.filter(
-            category=row.category,
-            scope=row.scope,
-            sku_code=row.sku_code,
-            ranking_dimension=row.ranking_dimension,
-            image_content_sha256=image_hash,
-        ).first()
-        needs_price = snapshot.confirmed_market_price_cents is None
-        if committed_annotation is not None and committed_annotation.segment in prompt.segments_json and not needs_price:
-            continue
-        exact_history = MarketAnnotationItem.objects.filter(
-            category=row.category,
-            scope=row.scope,
-            sku_code=row.sku_code,
-            ranking_dimension=row.ranking_dimension,
-            image_content_sha256=image_hash,
-            status="committed",
-        ).exclude(reviewed_segment="").order_by("-reviewed_at").first()
-        valid_segment = (
-            committed_annotation.segment
-            if committed_annotation and committed_annotation.segment in prompt.segments_json
-            else exact_history.reviewed_segment
-            if exact_history and exact_history.reviewed_segment in prompt.segments_json
-            else ""
-        )
-        if not valid_segment:
-            # A changed image may reuse only the confirmed classification, within
-            # the original category/scope/SKU/dimension and current dictionary.
-            valid_segment = MarketSkuAnnotation.objects.filter(
-                category=row.category, scope=row.scope, sku_code=row.sku_code,
-                ranking_dimension=row.ranking_dimension, segment__in=prompt.segments_json,
-            ).order_by("-reviewed_at", "id").values_list("segment", flat=True).first() or ""
-        # No-price reuse is bound to the same image, business identity and rules.
-        history_job = MarketAnnotationJob.objects.filter(id=exact_history.job_id).first() if exact_history else None
-        clear_no_price = bool(exact_history and valid_segment and history_job and history_job.prompt_version_id == prompt.id
-                              and history_job.model_id == (model_id or None)
-                              and exact_history.reviewed_price_type == "明确无标价"
-                              and exact_history.ai_price_type == "明确无标价"
-                              and exact_history.reviewed_image_price_cents is None
-                              and exact_history.reviewed_price_low_cents is None and exact_history.reviewed_price_high_cents is None
-                              and exact_history.ai_confidence_bps is not None and exact_history.ai_confidence_bps >= 9000
-                              and exact_history.ai_reason)
-        status = "review_pending" if valid_segment and exact_history and ((exact_history.reviewed_price_type in FORMAL_PRICE_TYPES and exact_history.reviewed_image_price_cents is not None) or clear_no_price) else "queued"
-        items.append(
-            MarketAnnotationItem(
-                id=f"market-annotation-item-{uuid.uuid4()}",
-                job_id=job_id,
-                category=row.category,
-                scope=row.scope,
-                sku_code=row.sku_code,
-                ranking_dimension=row.ranking_dimension,
-                month=row.period_end[:7],
-                image_content_sha256=image_hash,
-                product_name=row.product_name,
-                brand=row.brand,
-                source_image_url=snapshot.image_url or row.image_url,
-                status=status,
-                ai_segment=valid_segment if status == "review_pending" else "",
-                ai_confidence_bps=exact_history.ai_confidence_bps if status == "review_pending" else None,
-                ai_reason=exact_history.ai_reason if status == "review_pending" else "",
-                ai_image_price_cents=exact_history.reviewed_image_price_cents if status == "review_pending" else None,
-                ai_price_type=exact_history.reviewed_price_type if status == "review_pending" else "",
-                ai_price_low_cents=exact_history.reviewed_price_low_cents if status == "review_pending" else None,
-                ai_price_high_cents=exact_history.reviewed_price_high_cents if status == "review_pending" else None,
-                reviewed_segment=valid_segment,
-                reviewed_image_price_cents=exact_history.reviewed_image_price_cents if status == "review_pending" else None,
-                reviewed_price_type=exact_history.reviewed_price_type if status == "review_pending" else "",
-                reviewed_price_low_cents=exact_history.reviewed_price_low_cents if status == "review_pending" else None,
-                reviewed_price_high_cents=exact_history.reviewed_price_high_cents if status == "review_pending" else None,
-                reviewed_by="history_same_image" if status == "review_pending" else "history_same_sku_segment" if valid_segment else "",
-                reviewed_at=timezone.now() if status == "review_pending" else None,
-            )
-        )
+    items = build_job_items(_candidate_rows(category), prompt, job_id, model_id=model_id, executor=executor, local_model_name=local_model, limit=limit)
     job = MarketAnnotationJob.objects.create(
         id=job_id,
         category=category,
@@ -1144,25 +1097,52 @@ def _set_concurrency(payload: dict[str, object], principal: Principal) -> dict[s
 
 @transaction.atomic
 def _set_cloud_run(payload: dict[str, object], principal: Principal) -> dict[str, object]:
+    started = time.perf_counter()
     job_id = _text(payload.get("jobId"), "jobId", 128, required=True)
     state = _text(payload.get("state"), "state", 16, required=True)
     if state not in {"running", "paused"}:
         raise _error("云端后台状态必须是 running 或 paused")
     job = _locked_job(job_id)
-    if not job or job.executor != "cloud" or job.status in {"cancelled", "committed", "deleted"}:
+    if not job or job.executor != "cloud" or job.status in {"cancelled", "committed", "deleted", "review_ready"}:
         raise _error("云端标注任务不存在或已经结束", code="version_conflict", status=409)
     if state == "running" and not MarketAnnotationItem.objects.filter(job_id=job.id).filter(
         _retryable_items() | Q(status__in=["claimed", "inferencing"]),
     ).exists():
         raise _error("此批次已无可重试的识别项，请创建下一批", code="version_conflict", status=409)
     run, _ = MarketAnnotationCloudRun.objects.get_or_create(job_id=job_id, defaults={"state": "paused"})
+    run = MarketAnnotationCloudRun.objects.select_for_update().get(job_id=job_id)
+    before_version = _control_version(run)
+    operation_id = payload.get("operationId", "")
+    if operation_id and payload.get("expectedControlVersion") != before_version:
+        raise _error("任务控制版本已变化，请刷新状态后操作", code="version_conflict", status=409)
+    before = {"state": run.state, "controlVersion": before_version}
+    if operation_id:
+        logger.info("Market control phase=job_run_locked operation=%s elapsed_ms=%.3f", operation_id, (time.perf_counter() - started) * 1000)
+
+    def control_result(accepted: bool, quarantined: bool) -> dict[str, object]:
+        _advance_control_version(run)
+        run.save()
+        result = {**_cloud_run_value(run, _configured_concurrency(job)),
+                  "operationId": operation_id, "requestId": "annotation-control-" + operation_id if operation_id else "",
+                  "targetState": state, "beforeControlVersion": before_version,
+                  "afterControlVersion": _control_version(run), "effectiveState": run.state,
+                  "resumeAccepted": accepted, "quarantinedExpiredClaims": quarantined}
+        audit = _audit(principal, "set_market_annotation_cloud_run_state", "market_annotation_cloud_run", job_id,
+                       before, result)
+        if operation_id:
+            logger.info("Market control phase=control_audited operation=%s elapsed_ms=%.3f", operation_id, (time.perf_counter() - started) * 1000)
+        return {**result, "auditId": str(audit.id), "committedAt": iso(audit.created_at)}
+
     quarantined = _expire_cloud_claims(job, run, timezone.now()) if state == "running" else False
+    if operation_id:
+        logger.info("Market control phase=expired_claims_checked operation=%s elapsed_ms=%.3f", operation_id, (time.perf_counter() - started) * 1000)
     if state == "running" and not MarketAnnotationItem.objects.filter(job_id=job.id).filter(
         _retryable_items() | Q(status__in=["claimed", "inferencing"]),
     ).exists():
         # Persist quarantine and return its actual state; raising would roll it back.
         _refresh_job(job.id)
-        return {**_cloud_run_value(run, _configured_concurrency(job)), "resumeAccepted": False, "quarantinedExpiredClaims": quarantined}
+        run.refresh_from_db()
+        return control_result(False, quarantined)
     configured = _configured_concurrency(job)
     if state == "paused" or run.state != "running":
         run.lease_token_hash = ""
@@ -1171,7 +1151,7 @@ def _set_cloud_run(payload: dict[str, object], principal: Principal) -> dict[str
         if state == "running":
             # An explicit human resume starts recovery afresh. Repeated Start does not reset backoff.
             global_until = retry_snapshot(run.retry_state_json, configured)["globalRateLimitUntil"]
-            run.retry_state_json = retry_snapshot({}, configured)
+            run.retry_state_json = {**retry_snapshot({}, configured), "controlVersion": _control_version(run)}
             run.retry_state_json["globalRateLimitUntil"] = global_until
             run.last_failure_code = ""
             run.last_failure_message = ""
@@ -1181,9 +1161,7 @@ def _set_cloud_run(payload: dict[str, object], principal: Principal) -> dict[str
         run.last_failure_code = failure_code if failure_code in FAILURE_MESSAGES else "annotation_failed"
         run.last_failure_message = FAILURE_MESSAGES[run.last_failure_code]
     run.state = state
-    run.save()
-    _audit(principal, "set_market_annotation_cloud_run_state", "market_annotation_cloud_run", job_id, {}, {"state": state})
-    return {**_cloud_run_value(run, int(configured)), "resumeAccepted": state == "running", "quarantinedExpiredClaims": quarantined}
+    return control_result(state == "running", quarantined)
 
 
 @transaction.atomic
@@ -1363,7 +1341,7 @@ def _claim_job_item(
     if executor == "cloud":
         run.last_started_at = now
         run.last_heartbeat_at = now
-        run.retry_state_json = retry_snapshot(run.retry_state_json, configured)
+        run.retry_state_json = _run_retry_snapshot(run, configured)
         run.save(update_fields=["last_started_at", "last_heartbeat_at", "retry_state_json", "updated_at"])
     cache = MarketImageCache.objects.filter(source_url=item.source_image_url, status="ready", content_sha256=item.image_content_sha256).first()
     _audit(principal, "market_annotation_task_claimed", "market_annotation_dispatch", job.id, {},
@@ -1476,6 +1454,7 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
                 paused = MarketAnnotationCloudRun.objects.filter(job_id__in=same_model, state="running").exclude(
                     job_id=job.id,
                 ).update(state="paused", next_run_at=None, lease_token_hash="", lease_expires_at=None,
+                         retry_state_json=_next_control_version_expression(),
                          last_failure_code=failure_code, last_failure_message=item.error_message,
                          last_heartbeat_at=timezone.now(), updated_at=timezone.now())
                 _audit(principal, "market_annotation_model_dispatch_paused", "market_annotation_model_pause", job.model_id, {},
@@ -1486,13 +1465,14 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
                 _refresh_job(item.job_id)
                 return {"ok": True, "failed": True, "failureCode": failure_code}
             now = timezone.now()
-            retry = retry_snapshot(run.retry_state_json, _configured_concurrency(job))
+            retry = _run_retry_snapshot(run, _configured_concurrency(job))
             pause = record_failure(retry, failure_code, lane, int(now.timestamp() * 1000), retry_after)
             run.retry_state_json = retry
             run.last_failure_code = failure_code
             run.last_failure_message = item.error_message
             run.last_heartbeat_at = now
             if pause:
+                _advance_control_version(run)
                 run.state = "paused"
                 run.next_run_at = None
                 run.lease_token_hash = ""
@@ -1631,7 +1611,7 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
     ).update(**snapshot_updates)
     if job.executor == "cloud":
         run = MarketAnnotationCloudRun.objects.select_for_update().get(job_id=job.id)
-        retry = retry_snapshot(run.retry_state_json, _configured_concurrency(job))
+        retry = _run_retry_snapshot(run, _configured_concurrency(job))
         record_success(retry)
         run.retry_state_json = retry
         run.last_heartbeat_at = timezone.now()
@@ -1681,6 +1661,7 @@ def _update_review(payload: dict[str, object], principal: Principal) -> dict[str
             item.reviewed_at = timezone.now()
             item.version += 1
             item.save()
+            record_human_reviews([item], principal, prompt.id)
             changed += 1
         _refresh_job(job_id)
     return {"ok": True, "changed": changed}
@@ -1703,7 +1684,10 @@ def _select_filtered(payload: dict[str, object], principal: Principal) -> dict[s
         raise _error(f"当前筛选结果超过 {MAX_FILTERED_SELECTION} 条")
     query = query.exclude(selected=selected)
     affected_jobs = list(query.values_list("job_id", flat=True).distinct())
+    changed_ids = list(query.values_list("id", flat=True)) if selected else []
     changed = query.update(selected=selected, status="approved" if selected else "review_pending", reviewed_by=principal.email.lower(), reviewed_at=timezone.now(), version=F("version") + 1, updated_at=timezone.now())
+    if selected:
+        record_selected_reviews(changed_ids, principal)
     for job_id in affected_jobs:
         _refresh_job(job_id)
     return {"ok": True, "changed": changed, "selected": selected}
@@ -1967,11 +1951,15 @@ def execute_annotation_command(payload: dict[str, object], principal: Principal)
         prompt.save()
         return {"ok": True, "promptId": prompt.id}
     if action == "delete_job":
-        job = MarketAnnotationJob.objects.filter(id=_text(payload.get("jobId"), "jobId", 128, required=True)).first()
+        job = _locked_job(_text(payload.get("jobId"), "jobId", 128, required=True))
         if not job or job.status not in {"review_ready", "committed", "cancelled", "failed"}:
             raise _error("只能归档已结束的标注任务", code="version_conflict", status=409)
         job.status = "deleted"
         job.save()
+        run = MarketAnnotationCloudRun.objects.select_for_update().filter(job_id=job.id).first()
+        if run:
+            _advance_control_version(run)
+            run.save(update_fields=["retry_state_json", "updated_at"])
         return {"ok": True, "jobId": job.id}
     if action == "mark_gold":
         ids = _texts(payload.get("annotationIds"), "annotationIds", 500)

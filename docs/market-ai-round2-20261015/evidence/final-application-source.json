@@ -1,0 +1,15 @@
+{
+  "baseMain": "cabf97f1a29b097334cf91dcb1f1f8a55d385116",
+  "validation": "task-scoped, isolated; no paid model calls",
+  "files": {
+    "app/api/market/annotations/route.ts": "2eb0eb1fec57b9d635ce53c27cc05b2f936eb95159c1595fe9716a36a08e2bc7",
+    "app/market-annotation-view.tsx": "e5bfb930e3c011cc0db1263f389ff4bd248edfa19f482ded7272742a53023aa5",
+    "backend/market/annotations.py": "d5023bf7ab1caf4a2c410edf482795fb2824aebffbeae5e953fa288645750fe5",
+    "backend/market/annotation_planning.py": "294ab5ab12dcf7425425d7ba7c03a0da1bf9ffe4c7d77ca0a15fbba7662e0755",
+    "backend/market/views.py": "d285ba568e585ea55c0648e199d55a73c11d044ed5a85a0ca3bcbbfd8278aea4",
+    "lib/django/market-service.ts": "7b2a50eb021eb779951345e61cfe55ccdd08c6a68a514b506944e6a10b3001e2",
+    "lib/market/annotation-model.ts": "03a56943cb8e07d66472df802f7cda60f7ac9f26480b72148441ee44220b5d6b",
+    "lib/market/annotation-control-channel.ts": "d2bc27c25187a859bbadee926338c8df2329b7bf0a39166356d3f8b2c79495d9",
+    "lib/market/annotation-control-contract.ts": "4152f96aed6e2c13a23b595184768356464dd0397b005521acdda20f65f648df"
+  }
+}

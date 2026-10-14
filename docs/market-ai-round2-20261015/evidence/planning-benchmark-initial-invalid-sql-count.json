@@ -1,0 +1,64 @@
+{
+  "baseline": "cabf97f1a29b097334cf91dcb1f1f8a55d385116",
+  "frozenRankingRows": 7000,
+  "frozenArchiveItems": 27000,
+  "measurements": [
+    {
+      "size": 200,
+      "variant": "baseline",
+      "creationMs": 1333.502,
+      "sqlCount": 1141,
+      "returned": 200,
+      "candidateDigest": "92480b9f5e6bf289c8c36c5ef8ca5559693025b259e9e9ea0e39ddb85ddad13c",
+      "rolledBack": true
+    },
+    {
+      "size": 200,
+      "variant": "batched",
+      "creationMs": 542.431,
+      "sqlCount": 21,
+      "returned": 200,
+      "candidateDigest": "92480b9f5e6bf289c8c36c5ef8ca5559693025b259e9e9ea0e39ddb85ddad13c",
+      "rolledBack": true
+    },
+    {
+      "size": 1000,
+      "variant": "baseline",
+      "creationMs": 5253.567,
+      "sqlCount": 5658,
+      "returned": 1000,
+      "candidateDigest": "bb28f4ccd6c85731d8bac32a07ab253372ae548ef5ed5295b389d4d8c192fe41",
+      "rolledBack": true
+    },
+    {
+      "size": 1000,
+      "variant": "batched",
+      "creationMs": 2985.886,
+      "sqlCount": 59,
+      "returned": 1000,
+      "candidateDigest": "bb28f4ccd6c85731d8bac32a07ab253372ae548ef5ed5295b389d4d8c192fe41",
+      "rolledBack": true
+    },
+    {
+      "size": 5000,
+      "variant": "baseline",
+      "creationMs": 26193.949,
+      "sqlCount": 2116,
+      "returned": 5000,
+      "candidateDigest": "89c79d1f9b921c0ccc6ff2516e704fc9b3d4a44f624ff99efc2e60e423c8598e",
+      "rolledBack": true
+    },
+    {
+      "size": 5000,
+      "variant": "batched",
+      "creationMs": 13570.506,
+      "sqlCount": -1,
+      "returned": 5000,
+      "candidateDigest": "89c79d1f9b921c0ccc6ff2516e704fc9b3d4a44f624ff99efc2e60e423c8598e",
+      "rolledBack": true
+    }
+  ],
+  "completeCandidateContentEqual": true,
+  "externalModelCalls": 0,
+  "businessAccuracyEstablished": false
+}

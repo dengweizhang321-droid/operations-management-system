@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "actualReactComponent": true,
+  "syntheticHttp": true,
+  "productionWrites": 0,
+  "realModelCalls": 0,
+  "checks": [
+    "committed receipt after HTTP503 is confirmed, current paused state retained",
+    "unknown blocks substitute creation after model and job change; one POST only",
+    "cancel wait preserves identity and ignores late success; explicit GET confirms later",
+    "same-account scope restriction cancels control and ignores late success",
+    "job switch ignores late operation result and leaves new-job controls free of old busy",
+    "same-account scope restriction ignores late progress response"
+  ],
+  "consoleErrors": []
+}

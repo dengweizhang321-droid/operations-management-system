@@ -1,0 +1,11 @@
+{
+  "port": 55458,
+  "productionTouched": false,
+  "externalModelCalls": 0,
+  "tests": {
+    "count": 12,
+    "log": "D:\\.codex\\worktrees\\market-ai-round2-20261015\\运营管理系统\\.runtime\\market-annotation-pg-88ba901fe610\\tests.log"
+  },
+  "status": "passed",
+  "isolatedClusterStopped": true
+}

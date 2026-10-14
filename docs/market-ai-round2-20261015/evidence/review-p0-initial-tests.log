@@ -1,0 +1,304 @@
+Creating test database for alias 'default' ('test_teruisi_ai_rehearsal')...
+Found 14 test(s).
+Operations to perform:
+  Apply all migrations: access_control, ai_assistant, bi, contenttypes, customer_service, erp_reference, finance, inventory, market, netshop, products, sales, workflow
+Running migrations:
+  Applying access_control.0001_initial... OK
+  Applying netshop.0001_initial... OK
+  Applying netshop.0002_migration_run_time_order... OK
+  Applying netshop.0003_netshop_source_revision_guard... OK
+  Applying finance.0001_initial... OK
+  Applying finance.0002_finance_target_gross_margin... OK
+  Applying finance.0003_finance_source_revision_guard... OK
+  Applying finance.0004_finance_revision_monotonic... OK
+  Applying ai_assistant.0001_initial... OK
+  Applying ai_assistant.0002_seed_authority... OK
+  Applying ai_assistant.0003_runtime_fencing... OK
+  Applying ai_assistant.0004_terminal_control_guards... OK
+  Applying ai_assistant.0005_postgres_image_payload... OK
+  Applying ai_assistant.0006_conversation_workspaces... OK
+  Applying ai_assistant.0007_dingtalk_readonly... OK
+  Applying ai_assistant.0008_dingtalk_settings... OK
+  Applying ai_assistant.0009_model_generation_capabilities... OK
+  Applying ai_assistant.0010_dingtalk_schedules... OK
+  Applying ai_assistant.0011_prompt_settings... OK
+  Applying ai_assistant.0012_report_library... OK
+  Applying ai_assistant.0013_dingtalk_schedule_media... OK
+  Applying ai_assistant.0014_business_evidence... OK
+  Applying ai_assistant.0015_business_collection... OK
+  Applying ai_assistant.0016_business_files... OK
+  Applying ai_assistant.0017_business_file_renderer... OK
+  Applying ai_assistant.0018_business_excel_renderer... OK
+  Applying ai_assistant.0019_business_source_directory... OK
+  Applying ai_assistant.0020_business_volume_files... OK
+  Applying ai_assistant.0021_business_budget_plans... OK
+  Applying ai_assistant.0022_business_integrated_reports... OK
+  Applying ai_assistant.0023_business_screening_storage... OK
+  Applying ai_assistant.0024_business_screening_runtime... OK
+  Applying ai_assistant.0025_business_file_opc... OK
+  Applying ai_assistant.0026_business_promotion_profile... OK
+  Applying ai_assistant.0027_business_promotion_file_guard... OK
+  Applying ai_assistant.0028_business_finance_v3_gate... OK
+  Applying ai_assistant.0029_business_promotion_file_ready... OK
+  Applying ai_assistant.0030_business_finance_source_pages... OK
+  Applying ai_assistant.0031_business_daily_v3_source_pages... OK
+  Applying ai_assistant.0032_business_source_tool_receipts... OK
+  Applying ai_assistant.0033_business_v3_parent_seal... OK
+  Applying ai_assistant.0034_business_v3_report_intent... OK
+  Applying ai_assistant.0035_business_v4_ledger... OK
+  Applying ai_assistant.0036_business_v4_validation_segments... OK
+  Applying ai_assistant.0037_business_v4_seal_admission_read... OK
+  Applying ai_assistant.0038_business_v4_seal_writer_gate... OK
+  Applying ai_assistant.0039_business_v4_sealer_ledger_read... OK
+  Applying ai_assistant.0040_business_v4_sealer_narrow_stream... OK
+  Applying ai_assistant.0041_business_v4_seal_ticket... OK
+  Applying ai_assistant.0042_business_v4_claimed_read... OK
+  Applying ai_assistant.0043_business_v4_seal_consumption_candidate... OK
+  Applying ai_assistant.0044_business_market_v2_profile... OK
+  Applying ai_assistant.0045_business_market_v2_material_attestation... OK
+  Applying ai_assistant.0046_business_promotion_trial_file_guard... OK
+  Applying ai_assistant.0047_business_v4_sealer_replay_progress... OK
+  Applying ai_assistant.0048_business_v4_finance_replay_progress... OK
+  Applying ai_assistant.0049_business_v4_sealer_source_bridge... OK
+  Applying ai_assistant.0050_business_v4_replay_read_cast... OK
+  Applying ai_assistant.0051_business_v4_prior_claim_column... OK
+  Applying ai_assistant.0052_business_v4_commit_consumption... OK
+  Applying ai_assistant.0053_business_market_v2_admitted_paused... OK
+  Applying ai_assistant.0054_business_promotion_budget_file_staging... OK
+  Applying ai_assistant.0055_business_v4_period_plan_candidate... OK
+  Applying ai_assistant.0056_business_market_v2_material_role_bridge... OK
+  Applying ai_assistant.0057_business_promotion_budget_v10_attestation... OK
+  Applying ai_assistant.0058_business_promotion_budget_v10_publish_gate... OK
+  Applying ai_assistant.0059_business_promotion_budget_v10_reader_fence... OK
+  Applying ai_assistant.0060_business_market_v2_execution_snapshot... OK
+  Applying ai_assistant.0061_business_market_v2_context_proof... OK
+  Applying ai_assistant.0062_business_market_v2_read_receipt_candidate... OK
+  Applying ai_assistant.0063_business_market_v2_execution_plan... OK
+  Applying ai_assistant.0064_business_market_v2_synthetic_vertical... OK
+  Applying ai_assistant.0065_business_market_v2_model_cost_reservation... OK
+  Applying ai_assistant.0066_business_promotion_budget_v11_durable_stage... OK
+  Applying ai_assistant.0067_business_promotion_budget_v11_attestation... OK
+  Applying ai_assistant.0068_business_promotion_budget_v11_verifier_receipt... OK
+  Applying ai_assistant.0069_business_market_v2_paid_round_rehearsal... OK
+  Applying ai_assistant.0070_business_promotion_budget_v11_limited_identity... OK
+  Applying ai_assistant.0071_business_v4_report_source_link... OK
+  Applying ai_assistant.0072_business_market_v2_authority_proposals... OK
+  Applying ai_assistant.0073_business_promotion_budget_v11_login_attestation... OK
+  Applying ai_assistant.0074_business_market_v2_human_cap_approval... OK
+  Applying ai_assistant.0075_business_v4_report_restricted_page... OK
+  Applying ai_assistant.0076_business_promotion_budget_v11_ticket_bound_signer... OK
+  Applying ai_assistant.0077_business_market_v6_paused_topology... OK
+  Applying ai_assistant.0078_business_promotion_budget_v11_signed_publication... OK
+  Applying ai_assistant.0079_business_market_v6_source_ticket... OK
+  Applying ai_assistant.0080_model_tool_budget_300... OK
+  Applying ai_assistant.0081_readiness_catalog_probe... OK
+  Applying ai_assistant.0082_no_new_keys_profile... OK
+  Applying sales.0001_initial... OK
+  Applying sales.0002_sales_migration_approval... OK
+  Applying sales.0003_query_ready_projection... OK
+  Applying sales.0004_projection_sync... OK
+  Applying sales.0005_postgres_write_authority... OK
+  Applying sales.0006_drop_legacy_projection_checkpoint... OK
+  Applying sales.0007_legacy_upload_audit... OK
+  Applying sales.0008_sales_cutover_attestation... OK
+  Applying sales.0009_postgres_raw_upload_payload... OK
+  Applying inventory.0001_initial... OK
+  Applying inventory.0002_seed_control_rows... OK
+  Applying inventory.0003_replenishment_plan_details... OK
+  Applying inventory.0004_replenishment_dingtalk_sync... OK
+  Applying inventory.0005_stock_supplier_warehouse_mapping... OK
+  Applying inventory.0006_replenishment_group_delivery... OK
+  Applying bi.0001_initial... OK
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying customer_service.0001_initial... OK
+  Applying customer_service.0002_seed_control_rows... OK
+  Applying erp_reference.0001_initial... OK
+  Applying erp_reference.0002_erpproductmaster_erpreferenceimportscopehead_and_more... OK
+  Applying erp_reference.0003_jackyun_upload_audit_binding... OK
+  Applying finance.0005_raw_column_evidence_v2... OK
+  Applying finance.0006_raw_workbook_bytes_v2... OK
+  Applying finance.0007_finance_erp_targets... OK
+  Applying inventory.0007_guangdong_monitor... OK
+  Applying inventory.0008_guangdong_item_overrides... OK
+  Applying inventory.0009_guangdong_item_risk_overrides... OK
+  Applying inventory.0010_replenishment_health... OK
+  Applying inventory.0011_inventory_warehouse_mapping_settings... OK
+  Applying market.0001_initial... OK
+  Applying market.0002_seed_control_rows... OK
+  Applying market.0003_remove_marketannotationvalidationsample_mkt_validation_sample_uq_and_more... OK
+  Applying market.0004_projection_sync_fencing... OK
+  Applying market.0005_filter_facet_indexes... OK
+  Applying market.0006_analysis_options... OK
+  Applying netshop.0004_promotion_presence_cache... OK
+  Applying products.0001_initial... OK
+  Applying products.0002_seed_control_rows... OK
+  Applying products.0003_alter_productimportattempt_created_at_and_more... OK
+  Applying sales.0010_analysis_options... OK
+  Applying sales.0011_jackyun_upload_audit_binding... OK
+  Applying workflow.0001_initial... OK
+  Applying workflow.0002_seed_control_rows... OK
+  Applying workflow.0003_workflowmigrationrun_and_authority_run... OK
+  Applying workflow.0004_new_product_weekly_followup... OK
+  Applying workflow.0005_product_line_continuous_monitoring... OK
+  Applying workflow.0005_operations_domain... OK
+  Applying workflow.0006_merge_20260904_1700... OK
+  Applying workflow.0007_new_product_line_uploaded_image... OK
+  Applying workflow.0008_new_product_shop_plan...test_commit_then_response_loss_is_confirmed_without_second_post (market.test_annotation_resume_round2.ResumeReceiptTests.test_commit_then_response_loss_is_confirmed_without_second_post) ... 2026-10-15 03:09:24,566 level=INFO logger=market.views message=Market control phase=received request=annotation-control-72079e70-f9cb-4428-ace4-7e221b946752
+2026-10-15 03:09:24,571 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-72079e70-f9cb-4428-ace4-7e221b946752 elapsed_ms=15.000
+2026-10-15 03:09:24,577 level=INFO logger=market.annotations message=Market control phase=job_run_locked operation=72079e70-f9cb-4428-ace4-7e221b946752 elapsed_ms=4.888
+2026-10-15 03:09:24,579 level=INFO logger=market.annotations message=Market control phase=expired_claims_checked operation=72079e70-f9cb-4428-ace4-7e221b946752 elapsed_ms=6.210
+2026-10-15 03:09:24,585 level=INFO logger=market.annotations message=Market control phase=control_audited operation=72079e70-f9cb-4428-ace4-7e221b946752 elapsed_ms=12.662
+2026-10-15 03:09:24,587 level=INFO logger=market.views message=Market control phase=committed request=annotation-control-72079e70-f9cb-4428-ace4-7e221b946752 elapsed_ms=31.000
+2026-10-15 03:09:24,587 level=ERROR logger=market.views message=Unhandled market API error
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\views.py", line 445, in commands
+    return _replay_fenced_write(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\test_annotation_resume_round2.py", line 72, in lose_response
+    raise OSError("isolated response delivery seam")
+OSError: isolated response delivery seam
+2026-10-15 03:09:24,590 level=ERROR logger=django.request message=Internal Server Error: /api/market/commands
+ok
+test_configuration_pause_preserves_other_retry_metadata_and_fences_aba (market.test_annotation_resume_round2.ResumeReceiptTests.test_configuration_pause_preserves_other_retry_metadata_and_fences_aba) ... 2026-10-15 03:09:28,551 level=INFO logger=market.views message=Market control phase=received request=annotation-control-474954e8-8b97-413c-864d-b4c3087358a4
+2026-10-15 03:09:28,555 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-474954e8-8b97-413c-864d-b4c3087358a4 elapsed_ms=0.000
+2026-10-15 03:09:28,558 level=ERROR logger=django.request message=Service Unavailable: /api/market/commands
+ERROR
+test_expired_quarantine_commits_even_when_no_resume_is_possible (market.test_annotation_resume_round2.ResumeReceiptTests.test_expired_quarantine_commits_even_when_no_resume_is_possible) ... 2026-10-15 03:09:32,588 level=INFO logger=market.views message=Market control phase=received request=annotation-control-6d3ff449-a7d9-43c3-972a-fb9a61f7f3b6
+2026-10-15 03:09:32,592 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-6d3ff449-a7d9-43c3-972a-fb9a61f7f3b6 elapsed_ms=0.000
+2026-10-15 03:09:32,594 level=ERROR logger=django.request message=Service Unavailable: /api/market/commands
+FAIL
+test_heartbeat_preserves_token_pause_and_completion_advance_it (market.test_annotation_resume_round2.ResumeReceiptTests.test_heartbeat_preserves_token_pause_and_completion_advance_it) ... 2026-10-15 03:09:37,845 level=INFO logger=market.views message=Market control phase=received request=annotation-control-f2bb5d25-c0ef-47b2-933a-7f62259b85b4
+2026-10-15 03:09:37,850 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-f2bb5d25-c0ef-47b2-933a-7f62259b85b4 elapsed_ms=16.000
+2026-10-15 03:09:37,853 level=ERROR logger=django.request message=Service Unavailable: /api/market/commands
+ERROR
+test_malformed_control_token_fails_closed (market.test_annotation_resume_round2.ResumeReceiptTests.test_malformed_control_token_fails_closed) ... ok
+test_missing_processing_wrong_tuple_and_actor_are_not_false_success (market.test_annotation_resume_round2.ResumeReceiptTests.test_missing_processing_wrong_tuple_and_actor_are_not_false_success) ... 2026-10-15 03:09:46,316 level=ERROR logger=django.request message=Service Unavailable: /api/market/commands
+ERROR
+test_precommit_version_rejection_is_durable_and_has_zero_control_effect (market.test_annotation_resume_round2.ResumeReceiptTests.test_precommit_version_rejection_is_durable_and_has_zero_control_effect) ... 2026-10-15 03:09:50,772 level=INFO logger=market.views message=Market control phase=received request=annotation-control-4795c274-9dd3-4fc4-a1ce-b5003f220c64
+2026-10-15 03:09:50,776 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-4795c274-9dd3-4fc4-a1ce-b5003f220c64 elapsed_ms=0.000
+2026-10-15 03:09:50,781 level=ERROR logger=django.request message=Service Unavailable: /api/market/commands
+FAIL
+test_same_id_changed_command_and_completed_invalid_audit_are_unknown (market.test_annotation_resume_round2.ResumeReceiptTests.test_same_id_changed_command_and_completed_invalid_audit_are_unknown) ... 2026-10-15 03:09:54,756 level=INFO logger=market.views message=Market control phase=received request=annotation-control-b82b201a-3b75-43e0-9154-3e5220cc9067
+2026-10-15 03:09:54,760 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-b82b201a-3b75-43e0-9154-3e5220cc9067 elapsed_ms=0.000
+2026-10-15 03:09:54,764 level=ERROR logger=django.request message=Service Unavailable: /api/market/commands
+2026-10-15 03:09:54,764 level=INFO logger=market.views message=Market control phase=received request=annotation-control-b82b201a-3b75-43e0-9154-3e5220cc9067
+2026-10-15 03:09:54,766 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-b82b201a-3b75-43e0-9154-3e5220cc9067 elapsed_ms=0.000
+2026-10-15 03:09:54,769 level=ERROR logger=django.request message=Service Unavailable: /api/market/commands
+FAIL
+test_same_version_opposite_controls_only_one_commits (market.test_annotation_resume_round2.ResumeReceiptTests.test_same_version_opposite_controls_only_one_commits) ... 2026-10-15 03:10:00,018 level=INFO logger=market.annotations message=Market control phase=job_run_locked operation=a244827d-903e-4a72-817a-5876c8c9344e elapsed_ms=15.841
+2026-10-15 03:10:00,018 level=INFO logger=market.annotations message=Market control phase=expired_claims_checked operation=a244827d-903e-4a72-817a-5876c8c9344e elapsed_ms=16.035
+2026-10-15 03:10:00,027 level=INFO logger=market.annotations message=Market control phase=control_audited operation=a244827d-903e-4a72-817a-5876c8c9344e elapsed_ms=24.912
+ok
+test_success_exact_replay_and_read_only_query (market.test_annotation_resume_round2.ResumeReceiptTests.test_success_exact_replay_and_read_only_query) ... 2026-10-15 03:10:04,685 level=INFO logger=market.views message=Market control phase=received request=annotation-control-5cbf7ffa-fc1c-47ac-93fe-e164dd3b66e6
+2026-10-15 03:10:04,689 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-5cbf7ffa-fc1c-47ac-93fe-e164dd3b66e6 elapsed_ms=0.000
+2026-10-15 03:10:04,692 level=ERROR logger=django.request message=Service Unavailable: /api/market/commands
+FAIL
+test_terminal_before_late_resume_is_rejected (market.test_annotation_resume_round2.ResumeReceiptTests.test_terminal_before_late_resume_is_rejected) ... 2026-10-15 03:10:09,213 level=INFO logger=market.views message=Market control phase=received request=annotation-control-186327fe-6308-4add-994a-81d2187d41ba
+2026-10-15 03:10:09,218 level=INFO logger=market.views message=Market control phase=receipt_created request=annotation-control-186327fe-6308-4add-994a-81d2187d41ba elapsed_ms=0.000
+2026-10-15 03:10:09,223 level=ERROR logger=django.request message=Service Unavailable: /api/market/commands
+FAIL
+test_known_validation_code_is_preserved_without_raw_field (market.test_annotation_diagnostics_round2.AnnotationDiagnosticsRound2Tests.test_known_validation_code_is_preserved_without_raw_field) ... ok
+test_price_and_finish_codes_are_safe_and_distinct (market.test_annotation_diagnostics_round2.AnnotationDiagnosticsRound2Tests.test_price_and_finish_codes_are_safe_and_distinct) ... ok
+test_unknown_or_suffixed_codes_do_not_enter_persistence (market.test_annotation_diagnostics_round2.AnnotationDiagnosticsRound2Tests.test_unknown_or_suffixed_codes_do_not_enter_persistence) ... ok
+
+======================================================================
+ERROR: test_configuration_pause_preserves_other_retry_metadata_and_fences_aba (market.test_annotation_resume_round2.ResumeReceiptTests.test_configuration_pause_preserves_other_retry_metadata_and_fences_aba)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1861, in _inner
+    return f(*args, **kw)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\test_annotation_resume_round2.py", line 139, in test_configuration_pause_preserves_other_retry_metadata_and_fences_aba
+    self.complete(task, error="model unavailable", failureCode="model_configuration")
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\tests\test_annotation_queue.py", line 50, in complete
+    return _complete_job_item({"itemId": task["itemId"], "leaseToken": task["leaseToken"], "result": RESULT, **extra}, PRINCIPAL)
+                                         ~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+
+======================================================================
+ERROR: test_heartbeat_preserves_token_pause_and_completion_advance_it (market.test_annotation_resume_round2.ResumeReceiptTests.test_heartbeat_preserves_token_pause_and_completion_advance_it)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1861, in _inner
+    return f(*args, **kw)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\test_annotation_resume_round2.py", line 122, in test_heartbeat_preserves_token_pause_and_completion_advance_it
+    token = MarketAnnotationCloudRun.objects.get(job_id=self.target.id).retry_state_json["controlVersion"]
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'controlVersion'
+
+======================================================================
+ERROR: test_missing_processing_wrong_tuple_and_actor_are_not_false_success (market.test_annotation_resume_round2.ResumeReceiptTests.test_missing_processing_wrong_tuple_and_actor_are_not_false_success)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1861, in _inner
+    return f(*args, **kw)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\test_annotation_resume_round2.py", line 89, in test_missing_processing_wrong_tuple_and_actor_are_not_false_success
+    self.assertEqual(self.post(command, query=True).json()["outcome"], "unknown")
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+KeyError: 'outcome'
+
+======================================================================
+FAIL: test_expired_quarantine_commits_even_when_no_resume_is_possible (market.test_annotation_resume_round2.ResumeReceiptTests.test_expired_quarantine_commits_even_when_no_resume_is_possible)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1861, in _inner
+    return f(*args, **kw)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\test_annotation_resume_round2.py", line 113, in test_expired_quarantine_commits_even_when_no_resume_is_possible
+    self.assertEqual(response.status_code, 200, response.content)
+AssertionError: 503 != 200 : b'{"error": "\xe5\xb8\x82\xe5\x9c\xba\xe5\x86\x99\xe5\x85\xa5\xe6\x89\x80\xe6\x9c\x89\xe6\x9d\x83\xe5\xb0\x9a\xe6\x9c\xaa\xe9\x85\x8d\xe7\xbd\xae", "code": "service_unavailable"}'
+
+======================================================================
+FAIL: test_precommit_version_rejection_is_durable_and_has_zero_control_effect (market.test_annotation_resume_round2.ResumeReceiptTests.test_precommit_version_rejection_is_durable_and_has_zero_control_effect)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1861, in _inner
+    return f(*args, **kw)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\test_annotation_resume_round2.py", line 82, in test_precommit_version_rejection_is_durable_and_has_zero_control_effect
+    self.assertEqual(self.post(command).status_code, 409)
+AssertionError: 503 != 409
+
+======================================================================
+FAIL: test_same_id_changed_command_and_completed_invalid_audit_are_unknown (market.test_annotation_resume_round2.ResumeReceiptTests.test_same_id_changed_command_and_completed_invalid_audit_are_unknown)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1861, in _inner
+    return f(*args, **kw)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\test_annotation_resume_round2.py", line 103, in test_same_id_changed_command_and_completed_invalid_audit_are_unknown
+    self.assertEqual(self.post(changed).status_code, 409)
+AssertionError: 503 != 409
+
+======================================================================
+FAIL: test_success_exact_replay_and_read_only_query (market.test_annotation_resume_round2.ResumeReceiptTests.test_success_exact_replay_and_read_only_query)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1861, in _inner
+    return f(*args, **kw)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\test_annotation_resume_round2.py", line 51, in test_success_exact_replay_and_read_only_query
+    self.assertEqual(first.status_code, 200, first.content)
+AssertionError: 503 != 200 : b'{"error": "\xe5\xb8\x82\xe5\x9c\xba\xe5\x86\x99\xe5\x85\xa5\xe6\x89\x80\xe6\x9c\x89\xe6\x9d\x83\xe5\xb0\x9a\xe6\x9c\xaa\xe9\x85\x8d\xe7\xbd\xae", "code": "service_unavailable"}'
+
+======================================================================
+FAIL: test_terminal_before_late_resume_is_rejected (market.test_annotation_resume_round2.ResumeReceiptTests.test_terminal_before_late_resume_is_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\86137\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1861, in _inner
+    return f(*args, **kw)
+           ^^^^^^^^^^^^^^
+  File "D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\backend\market\test_annotation_resume_round2.py", line 167, in test_terminal_before_late_resume_is_rejected
+    command = self.command()
+AssertionError: 503 != 409
+
+----------------------------------------------------------------------
+Ran 14 tests in 48.931s
+
+FAILED (failures=5, errors=3)
+Destroying test database for alias 'default' ('test_teruisi_ai_rehearsal')...
+ OK
+System check identified no issues (0 silenced).

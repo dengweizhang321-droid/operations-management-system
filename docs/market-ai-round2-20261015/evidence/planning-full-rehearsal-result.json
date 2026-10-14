@@ -1,0 +1,35 @@
+{
+  "port": 55458,
+  "productionTouched": false,
+  "externalModelCalls": 0,
+  "tests": {
+    "count": 21,
+    "log": "D:\\.codex\\worktrees\\market-ai-round2-20261015\\运营管理系统\\.runtime\\market-annotation-pg-eb909d34772f\\tests.log"
+  },
+  "roles": [
+    {
+      "role": "teruisi_market_reader",
+      "readQueries": true,
+      "rankingPagination": true,
+      "independentFilters": true,
+      "promptVersionAllocation": false,
+      "claimComplete": false,
+      "commitExistingAnnotation": false,
+      "externalModelCalls": 0,
+      "negativePermissionsRejected": 5
+    },
+    {
+      "role": "teruisi_market_writer",
+      "readQueries": true,
+      "rankingPagination": true,
+      "independentFilters": true,
+      "promptVersionAllocation": true,
+      "claimComplete": true,
+      "commitExistingAnnotation": true,
+      "externalModelCalls": 0,
+      "negativePermissionsRejected": 4
+    }
+  ],
+  "status": "passed",
+  "isolatedClusterStopped": true
+}

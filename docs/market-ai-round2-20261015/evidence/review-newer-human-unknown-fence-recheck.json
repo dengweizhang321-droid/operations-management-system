@@ -1,0 +1,32 @@
+{
+  "helperSha256": "6b9accf3c1985201bdc0018b0ac8393bbe21e86e7bcb076f8d6fc32044ffecea",
+  "environment": "private SQLite :memory:",
+  "externalCalls": 0,
+  "before": {
+    "status": "review_pending",
+    "segment": "A",
+    "priceType": "明确无标价"
+  },
+  "newerMaster": {
+    "formalSegment": "B",
+    "snapshotStatus": "missing",
+    "planned": {
+      "status": "queued",
+      "segment": "B",
+      "priceType": ""
+    }
+  },
+  "newerApprovedHuman": {
+    "humanSegment": "B",
+    "humanPriceType": "无法判断",
+    "planned": {
+      "status": "queued",
+      "segment": "B",
+      "priceType": ""
+    }
+  },
+  "protectedUnknownWithNewerHumanUnknown": {
+    "protectedAttemptCount": 3,
+    "newPlanned": []
+  }
+}
