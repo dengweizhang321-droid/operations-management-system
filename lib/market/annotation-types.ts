@@ -71,16 +71,21 @@ export function parseVisionAnnotation(value: unknown, segments: readonly string[
   const record = parsed as Record<string, unknown>;
   const segment = typeof record.segment === "string" ? record.segment.trim() : "";
   if (!segments.includes(segment)) throw new Error(`视觉模型返回了品类枚举之外的结果：${segment || "空"}`);
-  const imagePriceCents = record.image_price_yuan !== undefined || record.imagePriceYuan !== undefined
+  let imagePriceCents = record.image_price_yuan !== undefined || record.imagePriceYuan !== undefined
     ? normalizeImagePriceYuan(record.image_price_yuan ?? record.imagePriceYuan)
     : normalizeImagePriceCents(record.image_price_cents ?? record.imagePriceCents);
-  const priceLowCents = record.price_low_yuan !== undefined || record.priceLowYuan !== undefined
+  let priceLowCents = record.price_low_yuan !== undefined || record.priceLowYuan !== undefined
     ? normalizeImagePriceYuan(record.price_low_yuan ?? record.priceLowYuan)
     : normalizeImagePriceCents(record.price_low_cents ?? record.priceLowCents);
-  const priceHighCents = record.price_high_yuan !== undefined || record.priceHighYuan !== undefined
+  let priceHighCents = record.price_high_yuan !== undefined || record.priceHighYuan !== undefined
     ? normalizeImagePriceYuan(record.price_high_yuan ?? record.priceHighYuan)
     : normalizeImagePriceCents(record.price_high_cents ?? record.priceHighCents);
   const priceType = normalizePriceType(record.price_type ?? record.priceType);
+  if (priceType === "无法判断") {
+    if (imagePriceCents === 0) imagePriceCents = null;
+    if (priceLowCents === 0) priceLowCents = null;
+    if (priceHighCents === 0) priceHighCents = null;
+  }
   const confidence = Number(record.confidence);
   if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) throw new Error("视觉模型 confidence 必须在 0 到 1 之间");
   const reason = typeof record.reason === "string" ? record.reason.trim().slice(0, 600) : "";
