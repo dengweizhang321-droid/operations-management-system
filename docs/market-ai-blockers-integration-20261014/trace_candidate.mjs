@@ -55,7 +55,9 @@ function safeError(error) {
   let text = String(error?.message || error || 'unknown');
   for (const value of secretValues) text = text.split(value).join('[redacted]');
   return text.replace(/\b(?:sk-|key-)[A-Za-z0-9_-]{8,}\b/gi, '[redacted]')
-    .replace(/(bearer\s+)\S+/gi, '$1[redacted]').slice(0, 300);
+    .replace(/(bearer\s+)\S+/gi, '$1[redacted]')
+    .replace(/https?:\/\/[^\s"'<>]+/gi, '[redacted-url]')
+    .replace(/data:[^\s"']+;base64,[A-Za-z0-9+/=]+/gi, '[redacted-image]').slice(0, 300);
 }
 const sampleContext = new AsyncLocalStorage();
 async function emit(row) {
@@ -137,6 +139,7 @@ globalThis.fetch = async (urlValue, init = {}) => {
   const intent = { callNumber: providerCalls, runId, variant, sampleId: sampleContext.getStore().sampleId,
     at: new Date().toISOString(), model: body.model, maxTokens: body.max_tokens,
     thinking: body.thinking ?? null, sessionHeaderPresent: new Headers(init.headers).has('x-opencode-session'),
+    sessionIdentity: new Headers(init.headers).get('x-opencode-session'), clientName: new Headers(init.headers).get('user-agent'),
     honestAuditUserAgent: true, sourceCommit, requestBytes: Buffer.byteLength(init.body),
     requestSha256: createHash('sha256').update(init.body).digest('hex') };
   await appendFile(ledgerPath, JSON.stringify(intent) + '\n');
