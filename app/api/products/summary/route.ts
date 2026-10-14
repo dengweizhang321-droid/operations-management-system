@@ -74,9 +74,9 @@ export async function GET(request: Request) {
     const categories = readSelections(searchParams, "category", { maximum: 10, label: "类目" });
     const marginBands = readSelections(searchParams, "marginBand", {
       maximum: 5,
-      allowed: ["below35", "35to40", "40to45", "atLeast45", "unavailable"],
+      allowed: ["below35", "35to40", "40to45", "atLeast45", "unavailable", "below38", "38to42", "42to46", "atLeast46"],
       label: "毛利率",
-    }) as Array<"below35" | "35to40" | "40to45" | "atLeast45" | "unavailable">;
+    }) as import("@/lib/products/query-contract").ProductMarginBand[];
     const allowedSorts = ["netSalesCents", "grossProfitCents", "grossMarginRate", "refundRate", "stockValueCents", "netQuantity"] as const;
     if (requestedSort !== null && !allowedSorts.includes(requestedSort as typeof allowedSorts[number])) {
       throw new ProductSummaryRequestError("商品排序字段不在允许清单中");

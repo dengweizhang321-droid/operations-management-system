@@ -11,6 +11,19 @@ export const fixture: ProductSummaryFullResponse = {
   items:[],metrics:{skuCount:0,grossSalesCents:0,netSalesCents:0,grossProfitCents:0,grossMarginRate:null,lossSkuCount:0,stockedSkuCount:0,marginBuckets:{below35Count:0,between35And40Count:0,between40And45Count:0,atLeast45Count:0}}
 };
 const query=()=>new URLSearchParams({range:"custom",startDate:"2026-09-01",endDate:"2026-09-30",page:"1",pageSize:"50",sortBy:"netSalesCents",direction:"desc"});
+
+test("bundle margin distribution is independent of detail totals and rejects wrong dimensions or malformed counts", () => {
+  const q=query();q.set("productKind","single");
+  const valid={...fixture,productKind:"single",comboMarginMetrics:{dimension:"combo",comboCount:6,marginBuckets:{below38Count:1,between38And42Count:2,between42And46Count:2,atLeast46Count:1}}};
+  assert.equal(decodeProductRead(valid,q),valid);
+  for (const mutate of [
+    (p:typeof valid)=>{p.comboMarginMetrics.dimension="single";},
+    (p:typeof valid)=>{p.comboMarginMetrics.comboCount=3;},
+    (p:typeof valid)=>{p.comboMarginMetrics.marginBuckets.below38Count=-1;},
+    (p:typeof valid)=>{p.comboMarginMetrics.marginBuckets.atLeast46Count=NaN;},
+    (p:typeof valid)=>{Reflect.deleteProperty(p.comboMarginMetrics.marginBuckets,"between38And42Count");},
+  ]) {const bad=structuredClone(valid);mutate(bad);assert.throws(()=>decodeProductRead(bad,q));}
+});
 test("progressive regions require their complete projection and range witnesses",()=>{
   const initial={...fixture,projection:"initial-page"}; const q=query();q.set("view","initial-page");
   assert.equal(decodeProductRead(initial,q),initial);

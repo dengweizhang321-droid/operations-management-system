@@ -99,6 +99,52 @@ class CombinationQueryTests(TestCase):
         self.principal = Principal("fixture@example.invalid", "Fixture", "viewer", None)
         self.options = dict(range="custom", startDate="2026-08-01", endDate="2026-08-02")
 
+    def test_combo_margin_cards_use_bundle_cost_margin_and_exact_boundaries_independent_of_details(self):
+        SalesOrderLine.objects.all().delete()
+        ErpComboItem.objects.all().delete()
+        # Import profit deliberately disagrees with the requested big-margin
+        # formula, proving fees/order profit do not drive these bands.
+        costs = [6201, 6200, 5801, 5800, 5401, 5400]
+        for i, cost in enumerate(costs):
+            code = f"KIT-{i}"
+            ErpProductMaster.objects.create(product_code=code, product_name=code,
+                category="组合装类目", source_row_number=i + 1, last_import_batch_id="fixture")
+            ErpComboItem.objects.create(**relation(code), source_row_number=i + 1)
+            make_line(501 + i, code, product_code=code, allocated_amount_cents=10000,
+                cost_amount_cents=cost, gross_profit_cents=1000, fee_allocation_cents=777).save()
+        make_line(600, "single", product_code="B", allocated_amount_cents=10000,
+            cost_amount_cents=5000, gross_profit_cents=1000).save()
+        single = product_summary(self.principal, {**self.options, "productKind": "single"})
+        combo = product_summary(self.principal, {**self.options, "productKind": "combo"})
+        expected = {"dimension": "combo", "comboCount": 6, "marginBuckets": {
+            "below38Count": 1, "between38And42Count": 2,
+            "between42And46Count": 2, "atLeast46Count": 1}}
+        self.assertEqual(single["comboMarginMetrics"], expected)
+        self.assertEqual(combo["comboMarginMetrics"], expected)
+        legacy = product_summary(self.principal, self.options)
+        self.assertEqual(legacy["metrics"]["grossMarginRate"], (70000 - sum(costs) - 5000) / 70000)
+        ordered = product_summary(self.principal, {**self.options, "productKind": "combo", "sortBy": "grossMarginRate"})
+        self.assertEqual([i["productCode"] for i in ordered["items"]], [f"KIT-{i}" for i in range(5, -1, -1)])
+        self.assertEqual(single["pagination"]["total"], 1)
+        rates = {i["productCode"]: i["grossMarginRate"] for i in combo["items"]}
+        self.assertEqual(rates, dict(zip([f"KIT-{i}" for i in range(6)], [.3799, .38, .4199, .42, .4599, .46])))
+        for band, codes in [("below38", ["KIT-0"]), ("38to42", ["KIT-1", "KIT-2"]),
+            ("42to46", ["KIT-3", "KIT-4"]), ("atLeast46", ["KIT-5"])]:
+            filtered = product_summary(self.principal, {**self.options, "productKind": "combo", "marginBands": [band]})
+            self.assertEqual(sorted(i["productCode"] for i in filtered["items"]), codes)
+            self.assertEqual(filtered["comboMarginMetrics"], expected)
+        self.assertIn("组合装类目", single["filters"]["categories"])
+        scoped = product_summary(self.principal, {**self.options, "productKind": "single", "query": "KIT-1"})
+        self.assertEqual(scoped["comboMarginMetrics"]["comboCount"], 1)
+        self.assertEqual(scoped["pagination"]["total"], 0)
+        zero = make_line(601, "zero", product_code="KIT-0", quantity=0,
+            allocated_amount_cents=-10000, cost_amount_cents=0, gross_profit_cents=0)
+        zero.save()
+        unavailable = product_summary(self.principal, {**self.options, "productKind": "combo", "marginBands": ["unavailable"]})
+        self.assertEqual([i["productCode"] for i in unavailable["items"]], ["KIT-0"])
+        self.assertIsNone(unavailable["items"][0]["grossMarginRate"])
+        self.assertEqual(unavailable["comboMarginMetrics"]["marginBuckets"]["below38Count"], 0)
+
     def test_split_matches_legacy_totals_and_child_query_keeps_full_bundle(self):
         legacy = product_summary(self.principal, self.options)
         single = product_summary(self.principal, {**self.options, "productKind": "single"})

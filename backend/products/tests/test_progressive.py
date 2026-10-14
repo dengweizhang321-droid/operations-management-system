@@ -1,3 +1,4 @@
+from copy import deepcopy
 import subprocess
 import types
 from urllib.parse import urlencode
@@ -52,13 +53,25 @@ class ProgressiveSummaryTests(TransactionTestCase):
         with patch.object(baseline,'execute_consumer_query',side_effect=lambda p,r: self.consumer.target.execute_consumer_query(p,r)):
             # The baseline consumer uses the same bounded deterministic sales
             # response; dimensions, fee and stock are real private PostgreSQL.
-            for sort in ['netSalesCents','grossProfitCents','grossMarginRate','refundRate','stockValueCents','netQuantity']:
+            for sort in ['netSalesCents','grossProfitCents','refundRate','stockValueCents','netQuantity']:
                 for direction in ['asc','desc']:
-                    for filters in [{},{'categories':['Category 1']},{'marginBands':['atLeast45']},{'query':'X-001,X-119'}]:
+                    for filters in [{},{'categories':['Category 1']},{'query':'X-001,X-119'}]:
                         opts={**self.options,**filters,'sortBy':sort,'direction':direction}
                         old=baseline.product_summary(self.principal,opts)
                         new=product_summary(self.principal,opts)
-                        self.assertEqual({k:v for k,v in new.items() if k!='salesSourceRevision'},old)
+                        def retained_fields(payload):
+                            result=deepcopy(payload)
+                            # User updated the margin definition and its source
+                            # protocol. Compare unchanged money/stock/identity
+                            # fields with the original implementation, then
+                            # verify the new definition independently below.
+                            result.pop('snapshotToken',None);result.pop('salesSourceRevision',None)
+                            result['metrics'].pop('grossMarginRate');result['metrics'].pop('marginBuckets')
+                            for item in result['items']:item.pop('grossMarginRate')
+                            return result
+                        self.assertEqual(retained_fields(new),retained_fields(old))
+                        for item in new['items']:
+                            self.assertEqual(item['grossMarginRate'],(item['netSalesCents']-item['costCents'])/item['netSalesCents'] if item['netSalesCents']>0 else None)
                         self.assertEqual(new['salesSourceRevision'],'1:1')
             before=len(self.calls)
             initial=product_summary(self.principal,{**self.options,'projection':'initial-page'})

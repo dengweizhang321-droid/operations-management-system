@@ -94,6 +94,11 @@ export type ProductSummaryMetrics = {
 };
 
 export type ProductSummaryFullResponse = {
+  comboMarginMetrics?: {
+    dimension: "combo";
+    comboCount: number;
+    marginBuckets: { below38Count: number; between38And42Count: number; between42And46Count: number; atLeast46Count: number };
+  };
   productKind?: "single" | "combo";
   projection: "full";
   snapshotToken: string;

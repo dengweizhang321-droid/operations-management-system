@@ -41,6 +41,12 @@ export function decodeProductRead(value: unknown, request: URLSearchParams): Pro
     if (applied.query !== (request.get("q") ?? "").trim() || !equal(applied.categories, request.getAll("category")) || !equal(applied.platforms, request.getAll("platform")) || !equal(applied.marginBands, request.getAll("marginBand")) || !Array.isArray(applied.shops) || !equal(applied.shops.map(s=>s.key), request.getAll("shop"))) throw new Error("商品筛选响应与请求不一致");
   }
   if (p.projection === "overview" || p.projection === "full") {
+    if (request.has("productKind")) {
+      const combo = p.comboMarginMetrics;
+      if (!combo || combo.dimension !== "combo" || !Number.isSafeInteger(combo.comboCount) || combo.comboCount < 0 || combo.comboCount > 20000 || !combo.marginBuckets) throw new Error("组合装毛利分布不完整");
+      const counts = [combo.marginBuckets.below38Count, combo.marginBuckets.between38And42Count, combo.marginBuckets.between42And46Count, combo.marginBuckets.atLeast46Count];
+      if (counts.some(n => !Number.isSafeInteger(n) || n < 0 || n > combo.comboCount) || counts.reduce((a,b) => a+b,0) > combo.comboCount) throw new Error("组合装毛利分布计数无效");
+    }
     const m=p.metrics;
     if (!m || m.skuCount !== pg.total || !m.marginBuckets || !p.filters
       || !Array.isArray(p.filters.categories) || !Array.isArray(p.filters.platforms) || !Array.isArray(p.filters.shops)
