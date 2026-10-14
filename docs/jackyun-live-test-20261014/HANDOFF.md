@@ -101,3 +101,10 @@
 - barrier出现后：先Disable原Windows任务下一次触发；确认当前旧检查是否自然结束。如果34912仍在上述Get-WatchEvidence且无业务子进程，保留已捕获失败、重新核验PID/创建时间/命令行/父NoConsole/当前用户、持有Handle并按CIM微秒精度核对后，仅停止该证据采集进程（不杀树），等旧launcher退出。若实际PID已变，必须重新只读核实，不沿用数字盲杀。
 - 确認原检查进程均结束后运行 **`install-bounded-watchdog.ps1 -Attempt drained-retry -DrainId f1dbd359ccd54bb2aeaa77c8054ee63c`**。此模式只接受上述ready barrier和同ID requests gate，不再停止41708，仍走原PlanInstall/Install新鲜健康门禁。结果原子发布至canonical result文件，父Node会校验后解除drain。若失败，原任务启用意图恢复、原安装事务负责回退；父超时则保留精确drain，需据实际完成步骤续接，不能重跑整个发布脚本。
 - 当前scope包含既有用户四步修复所需的监控证据采集修复和helper兼容修复，已准备/测试/提交；没有创建临时计划任务、没有新增备份/演练，也没有改n8n定义/调度。候选Worker源码内旧watchdog模板不是正式独立watchdog组件，二者分别绑定。
+
+### 11:38 紧接着要做的操作
+
+- session32819仍在途；`apply`已经completed，**当前effective Worker已切到c3a176ee /81b84f...**，正在Start RequireReady。旧fe39已成为前驱，不可直接启动旧包。Django8b4保持。
+- 一看到`unbound-helper-adoption/worker-ready-for-monitor.json`，5分钟监控窗口即开始。立即执行已审脚本 `& docs/jackyun-live-test-20261014/stop-stalled-watchdog-after-drain.ps1`：它复验typed gate f1dbd359...、PID34912/父45080/精确创建时间/用户、同一Get-WatchEvidence392调用栈、无业务子进程，保全新鲜失败后仅停止该进程并等launcher退出，保留任务Disabled供安装。任何身份变化会拒绝；不可删guard或盲改PID。
+- 停止脚本成功后立即执行 `& docs/jackyun-live-test-20261014/install-bounded-watchdog.ps1 -Attempt drained-retry -DrainId f1dbd359ccd54bb2aeaa77c8054ee63c`。它在同ID requests drain及新Worker就绪条件下走原PlanInstall/Install，成功原子写`watchdog-bounded-install-result.json`，父Node自行核验真实installation/scriptSHA344后EndWorkerDrain。
+- 若窗口超时，父会写monitor-install-unconfirmed并保留gate；应先核验当前实际Worker/安装结果，再从已完成阶段受控续接，不能重跑整个publisher。当前尚未超时、尚未执行这两个窗口脚本。
