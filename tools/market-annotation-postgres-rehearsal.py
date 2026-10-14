@@ -1,7 +1,9 @@
 """Run market regressions and real runtime-role probes in a disposable PostgreSQL cluster.
 
-Only PostgreSQL/Python executables are reused. No production configuration,
-credentials, data, listeners or service lifecycle commands are accessed.
+Default regressions only reuse PostgreSQL/Python executables. Explicitly approved
+chain-audit labels may read configured model/image inputs and make bounded model
+calls; the append-only audit ledger records these separately. Production database
+writes, listeners and service lifecycle commands are never used.
 """
 
 from __future__ import annotations
@@ -168,6 +170,17 @@ def main() -> None:
 
     started = False
     report = {"port": PORT, "productionTouched": False, "externalModelCalls": 0}
+    model_ledger = None
+    if environment.get("MARKET_CHAIN_AUDIT_APPROVAL") == "approved-up-to-50-20261014":
+        audit_root = Path(environment.get("MARKET_CHAIN_AUDIT_DIR", "")).resolve()
+        if not str(audit_root).startswith("D:\\codex-artifacts\\market-annotation-chain-audit-"):
+            raise RuntimeError("Approved model audit requires its external evidence directory")
+        model_ledger = audit_root / "provider-call-ledger.jsonl"
+        report.pop("productionTouched")
+        report.update(productionWrites=0, productionReadOnlyAccess=True)
+    def model_call_count():
+        return len(model_ledger.read_text(encoding="utf-8").splitlines()) if model_ledger and model_ledger.exists() else 0
+    model_calls_before = model_call_count()
     try:
         run([BIN / "initdb.exe", "-D", run_root / "data", "-U", ADMIN,
              "--auth=scram-sha-256", "--encoding=UTF8", "--locale=C", "--pwfile", password_file])
@@ -277,6 +290,7 @@ def main() -> None:
                     role_results[-1]["negativePermissionsRejected"] = rejected
             report["roles"] = role_results
         report["status"] = "passed"
+        report["externalModelCalls"] = model_call_count() - model_calls_before
     finally:
         if started:
             run([BIN / "pg_ctl.exe", "-D", run_root / "data", "-m", "fast", "-w", "-t", "30", "stop"], timeout=60, label="stop-isolated")
