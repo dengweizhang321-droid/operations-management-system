@@ -5,6 +5,7 @@ import type { ProductSummaryReadResponse } from "./summary";
 export function decodeProductRead(value: unknown, request: URLSearchParams): ProductSummaryReadResponse {
   if (!value || typeof value !== "object") throw new Error("商品响应格式无效");
   const p = value as ProductSummaryReadResponse;
+  if (request.has("productKind") && p.productKind !== request.get("productKind")) throw new Error("商品类型响应与请求不一致");
   const view = request.get("view") ?? "full";
   if ((p.projection !== view && !(view === "initial-page" && p.projection === "full")) || !/^[a-f0-9]{64}$/.test(p.snapshotToken)) throw new Error("商品响应缺少有效数据版本或视图");
   if (request.has("snapshotToken") && p.snapshotToken !== request.get("snapshotToken")) throw new Error("商品数据版本不一致");
@@ -20,6 +21,10 @@ export function decodeProductRead(value: unknown, request: URLSearchParams): Pro
   if (p.projection !== "overview") {
     if (!Array.isArray(p.items) || p.items.length !== pg.returned || new Set(p.items.map(i=>i.productCode)).size !== p.items.length) throw new Error("商品明细不完整或重复");
     for (const item of p.items) {
+      if (p.productKind && (item.productKind !== p.productKind || !Array.isArray(item.components)
+        || (item.productKind === "combo" && item.components.length === 0)
+        || item.components.some(child => !child || typeof child.productCode !== "string" || !child.productCode
+          || typeof child.productName !== "string" || !Number.isFinite(child.quantity) || child.quantity <= 0))) throw new Error("商品组合装构成无效");
       if (!item.productCode || !Array.isArray(item.outlets) || item.outlets.some(o=>!o || typeof o.platform !== "string" || typeof o.shop !== "string")) throw new Error("商品渠道身份无效");
       for (const field of ["productCode", "productName", "brand", "supplierName", "specification", "category"] as const) if (typeof item[field] !== "string") throw new Error("商品身份字段无效");
       for (const field of ["netQuantity", "grossSalesCents", "refundAmountCents", "netSalesCents", "costCents", "feeCents", "grossProfitCents"] as const) if (!Number.isSafeInteger(item[field])) throw new Error("商品金额或销量字段无效");

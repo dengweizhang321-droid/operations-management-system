@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { existsSync } from "node:fs";
+import { readFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium, type Page } from "playwright-core";
@@ -10,10 +11,10 @@ const chrome = "C:/Program Files/Google/Chrome/Application/chrome.exe";
 function response(url: string, total = 55, token = "a".repeat(64)) {
   const q = new URL(url).searchParams, page = Number(q.get("page") ?? 1), size = 50;
   const items = Array.from({length:Math.min(size,Math.max(0,total-(page-1)*size))},(_,i)=>({
-    productCode:`S-${(page-1)*size+i}`,productName:`合成商品 ${(page-1)*size+i}`,brand:"合成品牌",supplierName:"合成供应商",specification:"合成规格",category:"合成类目",outlets:[],
+    productKind:(q.get("productKind")??undefined) as "single"|"combo"|undefined,components:q.get("productKind")==="combo"?[{productCode:"CHILD-A",productName:"合成子件甲",quantity:2},{productCode:"CHILD-B",productName:"合成子件乙",quantity:1}]:[],productCode:`S-${(page-1)*size+i}`,productName:`合成商品 ${(page-1)*size+i}`,brand:"合成品牌",supplierName:"合成供应商",specification:"合成规格",category:"合成类目",outlets:[],
     netQuantity:1,grossSalesCents:10000,refundAmountCents:100,netSalesCents:9900,costCents:5000,feeCents:100,grossProfitCents:4900,grossMarginRate:4900/9900,refundRate:.01,shippingRate:null,averageSalePriceCents:9900,averageCostCents:5000,observedFeeRate:.01,availableQuantity:null,stockValueCents:null,knownStockValueCents:null,costCoverageRate:null,
   }));
-  const full:ProductSummaryFullResponse={projection:"full",snapshotToken:token,salesSourceRevision:"1:1",hasSales:true,range:"custom",
+  const full:ProductSummaryFullResponse={projection:"full",productKind:(q.get("productKind")??undefined) as "single"|"combo"|undefined,snapshotToken:token,salesSourceRevision:"1:1",hasSales:true,range:"custom",
     sync:{salesWindowStart:q.get("startDate"),salesThrough:q.get("endDate"),requestedStartDate:q.get("startDate"),requestedEndDate:q.get("endDate"),dataStartDate:"2026-09-01",dataCutoffDate:"2026-09-30",inventoryAsOf:null,latestSalesFile:"synthetic"},
     sort:{by:(q.get("sortBy")??"netSalesCents") as ProductSummaryFullResponse["sort"]["by"],direction:"desc"},
     pagination:{page,pageSize:size,total,returned:items.length,totalPages:Math.ceil(total/size),truncated:(page-1)*size+items.length<total},items,
@@ -22,7 +23,7 @@ function response(url: string, total = 55, token = "a".repeat(64)) {
   };
   if(q.get("view")==="initial-page"){const p={...full,projection:"initial-page"};Reflect.deleteProperty(p,"metrics");Reflect.deleteProperty(p,"filters");return p;}
   if(q.get("view")==="overview"){const p={...full,projection:"overview"};Reflect.deleteProperty(p,"items");return p;}
-  return {projection:"page",snapshotToken:token,salesSourceRevision:full.salesSourceRevision,sort:full.sort,pagination:full.pagination,items};
+  return {projection:"page",productKind:(q.get("productKind")??undefined) as "single"|"combo"|undefined,snapshotToken:token,salesSourceRevision:full.salesSourceRevision,sort:full.sort,pagination:full.pagination,items};
 }
 async function pending(page:Page, count:number){await page.waitForFunction(n=>((window as unknown as {pending:Array<unknown>}).pending?.length??0)>=n,count);}
 async function request(page:Page,index:number){return page.evaluate(i=>(window as unknown as {pending:Array<{url:string}>}).pending[i].url,index);}
@@ -35,6 +36,49 @@ async function fixturePage() {
   await page.evaluate(()=>{const state=window as unknown as {pending:Array<{url:string;resolve:(v:Response)=>void}>};state.pending=[];window.fetch=((url:unknown)=>new Promise(resolve=>state.pending.push({url:String(new URL(String(url),location.href)),resolve}))) as typeof fetch;});
   await page.addScriptTag({content:bundle.outputFiles[0].text});return {browser,page,errors};
 }
+
+test("product type switches isolate late reads, reset paging and show bundle components without a trend request", {skip:!existsSync(chrome),timeout:30000}, async () => {
+  const {browser,page,errors}=await fixturePage();
+  try {
+    await pending(page,1);
+    assert.equal(new URL(await request(page,0)).searchParams.get("productKind"),"single");
+    await reply(page,0,response(await request(page,0)));await pending(page,2);
+    await reply(page,1,response(await request(page,1)));await page.getByText("55 个",{exact:true}).waitFor();
+    await page.getByRole("button",{name:"下一页",exact:true}).click();await pending(page,3);
+    await page.getByRole("button",{name:"组合装",exact:true}).click();await pending(page,4);
+    const comboUrl=await request(page,3);
+    assert.equal(new URL(comboUrl).searchParams.get("productKind"),"combo");
+    assert.equal(new URL(comboUrl).searchParams.get("page"),"1");
+    await reply(page,3,response(comboUrl,1));await pending(page,5);await reply(page,4,response(await request(page,4),1));
+    await page.getByRole("button",{name:"查看构成",exact:true}).waitFor();
+    await reply(page,2,response(await request(page,2)));
+    assert.equal(await page.locator(".product-cell").count(),1);
+    await page.setViewportSize({width:1440,height:1000});
+    await page.addStyleTag({content:await readFile(new URL("../app/styles/tokens.css",import.meta.url),"utf8")});
+    await page.addStyleTag({content:await readFile(new URL("../app/globals.css",import.meta.url),"utf8")});
+    await page.addStyleTag({content:await readFile(new URL("../app/styles/shared-theme.css",import.meta.url),"utf8")});
+    await mkdir(new URL("../.runtime/product-kind/",import.meta.url),{recursive:true});
+    await page.screenshot({path:fileURLToPath(new URL("../.runtime/product-kind/preview.png",import.meta.url)),fullPage:true});
+    const before=await page.evaluate(()=>(window as unknown as {pending:unknown[]}).pending.length);
+    await page.getByRole("button",{name:"查看构成",exact:true}).click();
+    await page.getByText("合成子件甲",{exact:true}).waitFor();
+    assert.equal(await page.getByText("每套数量（件）",{exact:true}).count(),1);
+    assert.equal(await page.evaluate(()=>(window as unknown as {pending:unknown[]}).pending.length),before);
+    await page.getByRole("button",{name:"← 返回商品经营",exact:true}).click();
+    await page.getByRole("button",{name:"单品（单一规格）",exact:true}).click();await pending(page,6);
+    await reply(page,5,{...response(await request(page,5),1),productKind:"combo"});
+    await page.getByText("商品类型响应与请求不一致",{exact:false}).waitFor();
+    assert.equal(await page.locator(".product-cell").count(),0);
+    await page.getByRole("button",{name:"重试明细",exact:true}).click();await pending(page,7);
+    await reply(page,6,response(await request(page,6),1));await pending(page,8);await reply(page,7,response(await request(page,7),1));
+    await page.getByRole("button",{name:"详情",exact:true}).waitFor();
+    const queryField=page.getByRole("textbox",{name:/搜索一个或多个货品/});
+    await queryField.fill("S-0");
+    await page.getByRole("button",{name:"查询",exact:true}).click();await pending(page,9);
+    assert.equal(new URL(await request(page,8)).searchParams.get("q"),"S-0");
+    assert.deepEqual(errors,[]);
+  } finally {await browser.close();}
+});
 
 test("an interrupted distribution recovers even when the next page or refresh fails",{skip:!existsSync(chrome),timeout:30000},async()=>{
   const {browser,page,errors}=await fixturePage();try{

@@ -19,6 +19,7 @@ from .models import (
 )
 from .revisions import revision_value
 from .summary_cache import cached_base
+from .combinations import combination_performance
 
 
 MAX_PRODUCT_KEYS = 20_000
@@ -113,6 +114,7 @@ def normalize_options(raw: dict[str, object]) -> dict[str, object]:
         "direction",
         "projection",
         "expectedSnapshotToken",
+        "productKind",
     }
     if not set(raw).issubset(allowed):
         raise _error("商品汇总包含未知查询字段")
@@ -150,6 +152,9 @@ def normalize_options(raw: dict[str, object]) -> dict[str, object]:
     if not isinstance(sort_by, str) or sort_by not in SORTS:
         raise _error("商品排序字段不在允许清单中")
     direction = raw.get("direction") or "desc"
+    product_kind = raw.get("productKind")
+    if product_kind is not None and (not isinstance(product_kind, str) or product_kind not in {"single", "combo"}):
+        raise _error("productKind 必须是 single 或 combo")
     if direction not in {"asc", "desc"}:
         raise _error("商品排序方向必须是 asc 或 desc")
     projection = raw.get("projection") or "full"
@@ -178,6 +183,7 @@ def normalize_options(raw: dict[str, object]) -> dict[str, object]:
         "direction": direction,
         "projection": projection,
         "expectedSnapshotToken": snapshot,
+        "productKind": product_kind,
     }
 
 
@@ -367,6 +373,7 @@ def _merge(
         "refund_rate": _rate(refund, gross_sales) or 0,
         "shipping_rate": shipping_rate,
         "outlets": sales.get("outlets") if isinstance(sales.get("outlets"), list) else [],
+        **({"product_kind": sales["productKind"], "components": sales["components"]} if "productKind" in sales else {}),
     }
 
 
@@ -377,6 +384,8 @@ def _matches_text(row: dict[str, object], keywords: list[str]) -> bool:
         str(row.get(key) or "").lower()
         for key in ("product_code", "product_name", "brand", "supplier_name", "specification", "category")
     ]
+    fields.extend(str(child.get(field) or "").lower() for child in row.get("components", [])
+        for field in ("productCode", "productName"))
     return any(keyword in field for keyword in keywords for field in fields)
 
 
@@ -458,6 +467,7 @@ def _item(row: dict[str, object]) -> dict[str, object]:
         else min(1.0, max(0.0, int(row["priced_available_quantity"] or 0) / int(available)))
         if int(available) > 0
         else 1,
+        **({"productKind": row["product_kind"], "components": row["components"]} if "product_kind" in row else {}),
     }
 
 
@@ -518,9 +528,20 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
         period = _period(start, cutoff, options) if isinstance(start, str) and isinstance(cutoff, str) else None
         all_rows, outlets = [], {}
         if period and period["startDate"] and period["endDate"] and product_codes:
-            performance, outlets = _sales_performance(principal, product_codes,
-                str(period["startDate"]), str(period["endDate"]), options["platforms"],
-                options["shops"], freshness.get("latestBatch"))
+            if options["productKind"]:
+                groups = combination_performance(principal, str(period["startDate"]),
+                    (date.fromisoformat(str(period["endDate"])) + timedelta(days=1)).isoformat(),
+                    options["platforms"], options["shops"], loaded_control.active_revision)
+                performance = groups[options["productKind"]]
+                for group in groups.values():
+                    for row in group.values():
+                        for raw in row["outlets"]:
+                            outlet = canonical_outlet(raw.get("platform"), raw.get("shopName"), raw.get("channel"))
+                            outlets[shop_key(outlet)] = outlet
+            else:
+                performance, outlets = _sales_performance(principal, product_codes,
+                    str(period["startDate"]), str(period["endDate"]), options["platforms"],
+                    options["shops"], freshness.get("latestBatch"))
             all_rows = [_merge(row, erp.get(code), inventory.get(code), shipping.get(code))
                 for code, row in performance.items()]
         return {"freshness": freshness, "period": period, "rows": all_rows, "outlets": outlets, "hasProducts": bool(product_codes)}
@@ -550,6 +571,7 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
             "projection": "page",
             "snapshotToken": snapshot,
             "salesSourceRevision": sales_before,
+            **({"productKind": options["productKind"]} if options["productKind"] else {}),
             "sort": sort,
             "pagination": _pagination(page, page_size, 0, 0),
             "items": [],
@@ -633,6 +655,7 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
         "projection": "page",
         "snapshotToken": snapshot,
         "salesSourceRevision": sales_before,
+        **({"productKind": options["productKind"]} if options["productKind"] else {}),
         "sort": sort,
         "pagination": _pagination(page, page_size, len(filtered), len(selected)),
         "items": _page_items(selected) if options["projection"] != "overview" else [],

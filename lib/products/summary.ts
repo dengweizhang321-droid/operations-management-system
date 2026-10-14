@@ -16,6 +16,8 @@ export type { ProductSummaryRange } from "@/lib/products/query-contract";
 export { ProductSummaryContractError as ProductSummaryRequestError } from "@/lib/products/query-contract";
 
 export type ProductSummaryItem = {
+  productKind?: "single" | "combo";
+  components?: Array<{ productCode: string; productName: string; quantity: number }>;
   productCode: string;
   productName: string;
   brand: string;
@@ -66,6 +68,7 @@ export type ProductSummaryPagination = {
 };
 
 export type ProductSummaryPageResponse = {
+  productKind?: "single" | "combo";
   projection: "page";
   snapshotToken: string;
   salesSourceRevision?: string;
@@ -91,6 +94,7 @@ export type ProductSummaryMetrics = {
 };
 
 export type ProductSummaryFullResponse = {
+  productKind?: "single" | "combo";
   projection: "full";
   snapshotToken: string;
   salesSourceRevision?: string;
@@ -143,6 +147,7 @@ function appendList(params: URLSearchParams, name: string, values: readonly stri
 
 function summaryQuery(options: ProductSummaryOptions) {
   const params = new URLSearchParams();
+  if (options.productKind) params.set("productKind", options.productKind);
   if (options.range) params.set("range", options.range);
   if (options.startDate) params.set("startDate", options.startDate);
   if (options.endDate) params.set("endDate", options.endDate);

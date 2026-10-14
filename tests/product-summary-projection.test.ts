@@ -63,6 +63,7 @@ test("商品汇总只向独立 Django products reader 传递有界查询", async
     },
   };
   const result = await getProductSummary(principal, {
+    productKind: "combo",
     range: "custom",
     startDate: "2026-08-01",
     endDate: "2026-08-31",
@@ -81,6 +82,7 @@ test("商品汇总只向独立 Django products reader 传递有界查询", async
   assert.equal(calls.length, 1);
   const query = new URLSearchParams(calls[0]?.rawQuery);
   assert.equal(query.get("range"), "custom");
+  assert.equal(query.get("productKind"), "combo");
   assert.equal(query.get("startDate"), "2026-08-01");
   assert.equal(query.get("endDate"), "2026-08-31");
   assert.deepEqual(query.getAll("platform"), ["京东"]);

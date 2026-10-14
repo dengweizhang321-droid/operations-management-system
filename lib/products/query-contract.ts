@@ -5,6 +5,7 @@ export type ProductMarginBand = "below35" | "35to40" | "40to45" | "atLeast45" | 
 export const PRODUCT_SUMMARY_QUERY_MAX_LENGTH = 1000;
 
 export type ProductSummaryQueryOptions = {
+  productKind?: "single" | "combo";
   range?: ProductSummaryRange;
   startDate?: string | null;
   endDate?: string | null;

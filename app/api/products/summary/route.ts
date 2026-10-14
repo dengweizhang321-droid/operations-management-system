@@ -29,6 +29,10 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "商品经营汇总");
     const searchParams = new URL(request.url).searchParams;
+    const productKinds = searchParams.getAll("productKind");
+    if (productKinds.length > 1 || productKinds.some(value => value !== "single" && value !== "combo")) {
+      throw new ProductSummaryRequestError("productKind 必须是 single 或 combo，且不能重复");
+    }
     const requestedViews = searchParams.getAll("view");
     if (requestedViews.length > 1) {
       throw new ProductSummaryRequestError("view 参数不能重复");
@@ -81,6 +85,7 @@ export async function GET(request: Request) {
       throw new ProductSummaryRequestError("商品排序方向必须是 asc 或 desc");
     }
     const payload = await getProductSummary(principal, {
+      productKind: productKinds[0] as "single" | "combo" | undefined,
       range: requestedRange ? requestedRange as ProductSummaryRange : undefined,
       startDate: searchParams.get("startDate"),
       endDate: searchParams.get("endDate"),
