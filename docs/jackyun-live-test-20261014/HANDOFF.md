@@ -57,3 +57,15 @@
 - 正在运行 **exec session47987**：`publish-backend.mjs execute`，日志 `backend-publication.log`。原全局 rotation lock 覆盖全部步骤。新维护 ID **`f6237698e91042bb9214186425d879e2`**；当前是 EnterMaintenance/KeepPostgres 阶段。这个脚本 create-only 阶段审计且未知不重放，不能另开一次同脚本。
 - 发布源/准备收据仍是 d9ccdd82 / 2eac13dfda7e4938a87a7acf71f0af72 / 27ceef8d...；只改 Django 授权 GET 头。目标 manifest8b4fed2c...。后续脚本自动依序 DeployApp、HardenAcl、ExitMaintenance、Start、VerifyStartup；没有新迁移、备份、Worker apply 或 n8n 定义变更。
 - 脚本完成后确认当前 supervisor 已由原恢复链运行；必要时调用新安装看门狗中原 `Restore-WatchSupervisor`。随后 `retry-existing-authority.mjs check` 验证原授权GET由503变200且响应完全一致，再 `dispatch` 一次，跟踪新 n8n 执行及五类权威批次。不要重建授权 ID。
+
+### 10:10：Django已上线；真实执行暴露旧闭合回执兼容缺陷，修复验证中
+
+- **session47987 exit0，正式上线完成**。`backend-publication-result.json` 时间09:55:45，Django manifest **8b4fed2c3cb8e0206ae8cc492e15f9646ef2dbbd7bbccde2b386fe9770ce02ac**，Worker仍51aefd56...。维护/排空均退出，supervisor经原Restore恢复healthy，正式看门狗已再次自然healthy。原授权GET从503变200且原响应完全一致。
+- 用唯一原请求ID真实派发一次，HTTP200 accepted_pending_execution；主n8n **8956**（09:56:42–09:56:48）在A失败，未到B/C/D/E；错误触发器8957 success只表示过滤完成，不能算业务成功。
+- 原因已复现：8548已有有效version1 operator闭合回执，新统一采集分支仍调用publishHumanPreflightClosure以create-only写同路径，Windows拒绝覆盖。不是管理员/浏览器/导出故障。旧回执原字节、临时v5文件、active仍8548、新计划8956、collection-reservations/8548/8956.json及recovery-control/8548/0001.json全部保留；**不能删除/覆盖/手工推进active或重新POST旧已消费授权**。
+- 隔离源码修复在当前开发树：`lib/jackyun/preflight-recovery.ts`新增仅针对version1的完整旧证明复验/原样复用，人工及自动publisher在新执行/授权和新鲜零效果证明核验后调用；原子writer/fence不改，其他绑定版不放宽。测试 `tests/jackyun-automatic-preflight-recovery.test.ts`新增完整统一A复现（人工/自动）及损坏旧证明拒绝。before-fix日志精确复现同一错误；after-fix 2/2通过。
+- **exec session77414** 正在运行三份直接相关回归（automatic-preflight、preflight、unified-pipeline），日志 `legacy-closure-focused-regression.log`；尚未取得最终退出码，不能提交这两个源码文件或宣称全部通过。当前在合成五表不同模块响应丢失恢复测试，已见products/inventory通过。无生产导入测试副作用。
+- 下一步回归通过后提交/合并/推送这两个文件，再准备Worker/helper-only制品；Django8b4保持，不重新部署。已创建独立组合树 `D:\codex-isolated\jackyun-legacy-closure-adoption-20261014`，分支 `codex/jackyun-legacy-closure-adoption-20261014`，基础为真实Worker来源178df20e；还未拣入修复。checkout有3个.bat CRLF虚差异，须按真实冻结来源逐字节校正，不纳入改造。此树node_modules只有空目录（误判需要复制npm后发现全局bundled npm才是工具链来源，无生产变更）。
+- 开发树node_modules Junction已在精确路径/原Target/相同package-lock验证后，只删除并重建本链接，现指向旧统一开发树的完整依赖；未删除任何目标依赖。当前测试使用该有效依赖，源包锁无变化。
+- Worker准备应复用原prepare-worker.mjs模式：新来源绑定实际当前Worker head、完整源码清单和工具链，再原plan prepare-online；旧绑定与旧plan不可换绑。当前已有独立原batch active已解除。新真实重试须先复核8956的A零效果及reservation可由原机制接续，再由正常入口对当前失败尝试申请新授权；旧授权已绑定8956，不能把同一UUID换绑新execution。
+- 其他AI任务基于旧Django4fb的PrepareApp现在已过期，后续必须以实际8b4重新组合，保留授权头修复。没有向其他聊天发送消息。
