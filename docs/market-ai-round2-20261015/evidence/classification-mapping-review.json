@@ -1,0 +1,143 @@
+{
+  "reviewDateShanghai": "2026-10-15",
+  "status": "passed_for_document_delivery_and_business_review",
+  "baselineMainCommit": "aca51d7cefca8a8ded370aedcbfbae994a37d07e",
+  "reviewerRole": "critical-review",
+  "modelMappingVersion": "2026-10-15-v2",
+  "requestedModel": "gpt-6.1-sol",
+  "requestedReasoningEffort": "xhigh",
+  "actualModelIndependentlyConfirmed": false,
+  "independence": "Reviewer did not author the current11 mapping proposal or its scheme; reviewed the complete proposal and directly changed documentation independently.",
+  "scope": "This docs-only follow-up, its proposal, direction-decision JSON, navigation and necessary historical/source references only. Existing publication/source tests and frozen artifacts were not rerun or repackaged.",
+  "inputSha256": {
+    "docs/market-ai-round2-20261015/candidates/current11-mapping-proposal.md": "bda2de294ae7992e0dfadfa234d86294877c7fb7d863f822b776648007464518",
+    "docs/market-ai-round2-20261015/evidence/prompt-taxonomy-current.json": "48f6b4e2d8c2a78ec9b51905e9858efdebb76cda2a3e123a6ee540dc7e51004c",
+    "docs/market-ai-round2-20261015/candidates/netwater-A-current11.txt": "63e725fb4b1a9f7d7d404f1efebdbc8966f662fd9a913ca9c5e1f740e6800647",
+    "lib/market/default-taxonomy.ts": "73130df5fe7719a12f527d439d668edef22d8a11e96ce3a4fc433770422d1f9a",
+    "docs/market-ai-round2-20261015/evidence/classification-direction-decision.json": "871283689335df1906a786e22d5ed52900cdedbd3e9479811aeee3d327a29476",
+    "docs/market-ai-round2-20261015/evidence/classification-checkout-byte-observation.json": "bfd77e729960dbfceeb8e0f2828a83d2cc64a0e71d15c9ce7f5ce0916fe3194f",
+    "docs/market-ai-round2-20261015/evidence/classification-mapping-check.json": "28f7ec2746b5f8bbaacd46bf19a3cee29b0616d069f35f70caf05d97c0f22d54",
+    "docs/market-ai-round2-20261015/PRODUCTION.md": "35bbb909eb65eb286db48efcc598baa3bdfce1e0bec94c3f0c8e9cf0c313a7da",
+    "docs/market-ai-round2-20261015/PROMPT_REVIEW.md": "c7f3375c045bed41caac91b27c95a067370f8495040ab12c24c29b0c8cb30cde",
+    "docs/market-ai-round2-20261015/REPORT.md": "c6360ba340da66fcb3b02eb74fc7da5dc30beda5dcd54c5afb2a4d0d85d33493",
+    "docs/market-ai-round2-20261015/candidates/CLASSIFICATION_OPTIONS.md": "e017e61a43ce05183e4b229c3a5b40f4bb878b45481596b58fc86cb5dcc0dccd",
+    "docs/任务记录/README.md": "a67af48eb5391ded49de31eaadc946a053a5e9add2309a519d6e178122e53862",
+    "docs/文档目录.md": "69534da1ee4d93596d4ba0e728400ae8eda9dcc9a725dbd508d708bd1087e099"
+  },
+  "checks": {
+    "oldRuleCount": 25,
+    "proposalRowCount": 25,
+    "originalLabelsAndOrderMatchHistoricalSnapshotAndPromptReview": true,
+    "eachOldRuleAppearsExactlyOnce": true,
+    "all25MappingsAwaitHumanApproval": true,
+    "sameNameAutomaticWaterVendingAlsoUnapproved": true,
+    "legalOutputSpaceCount": 11,
+    "allProposedTargetsBelongToCurrentEleven": true,
+    "sourceDictionaryAndHistoricalSnapshotAndDirectionJsonAgree": true,
+    "historicalSnapshotObservedAt": "2026-10-15T02:55:03.474107+08:00",
+    "snapshotIsHistoricalNotFollowupProductionQuery": true,
+    "noShapeOrTitleOnlyInferenceOfHiddenPurificationTechnology": true,
+    "overlapPrioritiesRemainUnapproved": true,
+    "otherNotAutomaticBulkFallback": true,
+    "independentCategoriesNotAutomaticSkuMigrationAuthority": true,
+    "noFilteringHistoricalRelabelingOrReuseBoundaryExpansion": true,
+    "fourQuestionGroupsAreAnswerableWithExplicitRowsConditionsAndConflictRules": true,
+    "groupDirectionAnswerCannotApproveUnspecifiedRows": true,
+    "businessMappingApprovalStillSeparateFromPromptActivation": true,
+    "noClaimedGoldLabelsQualitySpeedCostOrThroughputResults": true,
+    "old48of50LedgerNotReused": true,
+    "originalCandidateUtf8Bytes": 993,
+    "originalCandidateExactBytesEqualGitHead": true,
+    "priorEvidenceHasNoGitDiff": true,
+    "productFilesHaveNoGitDiff": true,
+    "proposalLocalLinksVerified": 7,
+    "taskMarkdownCount": 12,
+    "projectMarkdownCount": 1026,
+    "productionHistoricalRecordOnlyAppended": true,
+    "gitDiffCheck": "passed"
+  },
+  "applicationGitBlobChecks": [
+    {
+      "path": "app/api/market/annotations/route.ts",
+      "gitBlobIdenticalToApplicationMain0288": true,
+      "checkoutRawMatchesPriorTested": true,
+      "checkoutReencodedAsCrlfMatchesPriorTested": false
+    },
+    {
+      "path": "app/market-annotation-view.tsx",
+      "gitBlobIdenticalToApplicationMain0288": true,
+      "checkoutRawMatchesPriorTested": true,
+      "checkoutReencodedAsCrlfMatchesPriorTested": false
+    },
+    {
+      "path": "backend/market/annotations.py",
+      "gitBlobIdenticalToApplicationMain0288": true,
+      "checkoutRawMatchesPriorTested": false,
+      "checkoutReencodedAsCrlfMatchesPriorTested": true
+    },
+    {
+      "path": "backend/market/annotation_planning.py",
+      "gitBlobIdenticalToApplicationMain0288": true,
+      "checkoutRawMatchesPriorTested": true,
+      "checkoutReencodedAsCrlfMatchesPriorTested": false
+    },
+    {
+      "path": "backend/market/views.py",
+      "gitBlobIdenticalToApplicationMain0288": true,
+      "checkoutRawMatchesPriorTested": true,
+      "checkoutReencodedAsCrlfMatchesPriorTested": false
+    },
+    {
+      "path": "lib/django/market-service.ts",
+      "gitBlobIdenticalToApplicationMain0288": true,
+      "checkoutRawMatchesPriorTested": true,
+      "checkoutReencodedAsCrlfMatchesPriorTested": false
+    },
+    {
+      "path": "lib/market/annotation-model.ts",
+      "gitBlobIdenticalToApplicationMain0288": true,
+      "checkoutRawMatchesPriorTested": true,
+      "checkoutReencodedAsCrlfMatchesPriorTested": false
+    },
+    {
+      "path": "lib/market/annotation-control-channel.ts",
+      "gitBlobIdenticalToApplicationMain0288": true,
+      "checkoutRawMatchesPriorTested": true,
+      "checkoutReencodedAsCrlfMatchesPriorTested": false
+    },
+    {
+      "path": "lib/market/annotation-control-contract.ts",
+      "gitBlobIdenticalToApplicationMain0288": true,
+      "checkoutRawMatchesPriorTested": true,
+      "checkoutReencodedAsCrlfMatchesPriorTested": false
+    }
+  ],
+  "checkoutByteBoundary": "Eight checkout application files match prior tested raw SHA. annotations.py does not; its LF checkout transformed to CRLF matches the prior tested SHA and both main commits contain identical Git bytes. This is not a new prepared artifact, does not change deployed artifacts and is not a passing raw-byte comparison. No product bytes were changed to satisfy hashes.",
+  "reviewerHarnessObservations": [
+    {
+      "status": "original_attempt_interrupted",
+      "reason": "Python default GBK decoding of UTF-8 Git paths raised UnicodeDecodeError after semantic, direction and historical byte assertions passed. Explicit UTF-8 was used in the follow-up; not a product failure."
+    },
+    {
+      "status": "scope_assumption_failure_preserved",
+      "reason": "The second check expected exactly two untracked inputs while the coordinator concurrently added two classification evidence JSON files. The follow-up explicitly included those docs-only evidence files; no product exception was introduced."
+    }
+  ],
+  "findings": {
+    "reproducedDefects": [],
+    "evidenceSupportedBlockingRisks": [],
+    "unclosedBlockers": [],
+    "businessConfirmationPending": [
+      "Every mapping row 01-25 including automatic water vending",
+      "Overlap selection and positive definitions for central, soft water and water treatment",
+      "Pure heating and accessory scope plus actual sale-unit and bundle rules",
+      "Human gold examples and separate future activation or real-model experiment authorization"
+    ]
+  },
+  "authorizationConclusion": "The human answer confirms retention of the existing eleven-category direction only. This review approves the proposal as pending business-review material, and approves no individual mapping, priority, exclusion, relabeling, production prompt activation or real model experiment.",
+  "productionQueries": 0,
+  "productionWrites": 0,
+  "realModelCalls": 0,
+  "pgOrHttpOrProductTestsRun": 0,
+  "reviewerOnlyWrittenPath": "docs/market-ai-round2-20261015/evidence/classification-mapping-review.json"
+}

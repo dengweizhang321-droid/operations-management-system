@@ -1,0 +1,42 @@
+{
+  "decisionDateShanghai": "2026-10-15",
+  "source": "human answer to original asynchronous question in this chat",
+  "selectedAnswer": "保留当前11类，逐项确认映射（推荐）",
+  "scope": {
+    "retainCurrentElevenCategoryDirectionConfirmed": true,
+    "individualMappingsApproved": false,
+    "overlapPrioritiesApproved": false,
+    "categoryScopeChangesApproved": false,
+    "productionPromptAdoptionApproved": false,
+    "historicalRelabelingApproved": false,
+    "additionalRealModelExperimentsApproved": false
+  },
+  "segments": [
+    "RO反渗透净水设备",
+    "超滤净水设备",
+    "工业纯水设备",
+    "中央净水设备",
+    "软水设备",
+    "水处理设备",
+    "自动售水机",
+    "餐饮净水器",
+    "商用净饮一体机",
+    "滤芯及净水配件",
+    "其他"
+  ],
+  "baselineMainCommit": "aca51d7cefca8a8ded370aedcbfbae994a37d07e",
+  "taxonomySource": "lib/market/default-taxonomy.ts",
+  "taxonomySourceSha256": "73130df5fe7719a12f527d439d668edef22d8a11e96ce3a4fc433770422d1f9a",
+  "historicalAuthoritySnapshot": "prompt-taxonomy-current.json",
+  "historicalSnapshotObservedAt": "2026-10-15T02:55:03.474107+08:00",
+  "historicalSnapshotSha256": "48f6b4e2d8c2a78ec9b51905e9858efdebb76cda2a3e123a6ee540dc7e51004c",
+  "productionQueriedInThisFollowup": false,
+  "candidatePromptBytesPreserved": true,
+  "candidatePromptSha256": "63e725fb4b1a9f7d7d404f1efebdbc8966f662fd9a913ca9c5e1f740e6800647",
+  "productionOperationsPerformed": false,
+  "requestedPlanningRole": {
+    "model": "gpt-6-astra",
+    "reasoningEffort": "high",
+    "actualModelIndependentlyConfirmed": false
+  }
+}

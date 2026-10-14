@@ -1,0 +1,101 @@
+{
+  "status": "original_raw_byte_check_failed_due_to_checkout_line_endings",
+  "originalCheckScriptSha256": "0d936f6909d9684ec386ebd0a2b14255859e05d4a5593026a4c7746d4301def7",
+  "originalFailure": "AssertionError at original line 19 comparing new checkout raw file bytes to prior deployed source manifest; copied observation from tool output, not a new execution",
+  "rows": [
+    {
+      "path": "app/api/market/annotations/route.ts",
+      "originalArtifactSha256": "2eb0eb1fec57b9d635ce53c27cc05b2f936eb95159c1595fe9716a36a08e2bc7",
+      "checkoutRawSha256": "2eb0eb1fec57b9d635ce53c27cc05b2f936eb95159c1595fe9716a36a08e2bc7",
+      "rawBytesEqualOriginalArtifact": true,
+      "checkoutCRLFCount": 0,
+      "artifactSourceCRLFCount": 0,
+      "normalizedLFBytesEqual": true,
+      "currentHeadAndApplicationMainGitBlobsIdentical": true
+    },
+    {
+      "path": "app/market-annotation-view.tsx",
+      "originalArtifactSha256": "e5bfb930e3c011cc0db1263f389ff4bd248edfa19f482ded7272742a53023aa5",
+      "checkoutRawSha256": "e5bfb930e3c011cc0db1263f389ff4bd248edfa19f482ded7272742a53023aa5",
+      "rawBytesEqualOriginalArtifact": true,
+      "checkoutCRLFCount": 0,
+      "artifactSourceCRLFCount": 0,
+      "normalizedLFBytesEqual": true,
+      "currentHeadAndApplicationMainGitBlobsIdentical": true
+    },
+    {
+      "path": "backend/market/annotations.py",
+      "originalArtifactSha256": "d5023bf7ab1caf4a2c410edf482795fb2824aebffbeae5e953fa288645750fe5",
+      "checkoutRawSha256": "a2941e369784bc39d4b2b33bf96b2562303358529346128979cbf795e29fa34b",
+      "rawBytesEqualOriginalArtifact": false,
+      "checkoutCRLFCount": 0,
+      "artifactSourceCRLFCount": 1992,
+      "normalizedLFBytesEqual": true,
+      "currentHeadAndApplicationMainGitBlobsIdentical": true
+    },
+    {
+      "path": "backend/market/annotation_planning.py",
+      "originalArtifactSha256": "294ab5ab12dcf7425425d7ba7c03a0da1bf9ffe4c7d77ca0a15fbba7662e0755",
+      "checkoutRawSha256": "294ab5ab12dcf7425425d7ba7c03a0da1bf9ffe4c7d77ca0a15fbba7662e0755",
+      "rawBytesEqualOriginalArtifact": true,
+      "checkoutCRLFCount": 0,
+      "artifactSourceCRLFCount": 0,
+      "normalizedLFBytesEqual": true,
+      "currentHeadAndApplicationMainGitBlobsIdentical": true
+    },
+    {
+      "path": "backend/market/views.py",
+      "originalArtifactSha256": "d285ba568e585ea55c0648e199d55a73c11d044ed5a85a0ca3bcbbfd8278aea4",
+      "checkoutRawSha256": "d285ba568e585ea55c0648e199d55a73c11d044ed5a85a0ca3bcbbfd8278aea4",
+      "rawBytesEqualOriginalArtifact": true,
+      "checkoutCRLFCount": 0,
+      "artifactSourceCRLFCount": 0,
+      "normalizedLFBytesEqual": true,
+      "currentHeadAndApplicationMainGitBlobsIdentical": true
+    },
+    {
+      "path": "lib/django/market-service.ts",
+      "originalArtifactSha256": "7b2a50eb021eb779951345e61cfe55ccdd08c6a68a514b506944e6a10b3001e2",
+      "checkoutRawSha256": "7b2a50eb021eb779951345e61cfe55ccdd08c6a68a514b506944e6a10b3001e2",
+      "rawBytesEqualOriginalArtifact": true,
+      "checkoutCRLFCount": 0,
+      "artifactSourceCRLFCount": 0,
+      "normalizedLFBytesEqual": true,
+      "currentHeadAndApplicationMainGitBlobsIdentical": true
+    },
+    {
+      "path": "lib/market/annotation-model.ts",
+      "originalArtifactSha256": "03a56943cb8e07d66472df802f7cda60f7ac9f26480b72148441ee44220b5d6b",
+      "checkoutRawSha256": "03a56943cb8e07d66472df802f7cda60f7ac9f26480b72148441ee44220b5d6b",
+      "rawBytesEqualOriginalArtifact": true,
+      "checkoutCRLFCount": 0,
+      "artifactSourceCRLFCount": 0,
+      "normalizedLFBytesEqual": true,
+      "currentHeadAndApplicationMainGitBlobsIdentical": true
+    },
+    {
+      "path": "lib/market/annotation-control-channel.ts",
+      "originalArtifactSha256": "d2bc27c25187a859bbadee926338c8df2329b7bf0a39166356d3f8b2c79495d9",
+      "checkoutRawSha256": "d2bc27c25187a859bbadee926338c8df2329b7bf0a39166356d3f8b2c79495d9",
+      "rawBytesEqualOriginalArtifact": true,
+      "checkoutCRLFCount": 0,
+      "artifactSourceCRLFCount": 0,
+      "normalizedLFBytesEqual": true,
+      "currentHeadAndApplicationMainGitBlobsIdentical": true
+    },
+    {
+      "path": "lib/market/annotation-control-contract.ts",
+      "originalArtifactSha256": "4152f96aed6e2c13a23b595184768356464dd0397b005521acdda20f65f648df",
+      "checkoutRawSha256": "4152f96aed6e2c13a23b595184768356464dd0397b005521acdda20f65f648df",
+      "rawBytesEqualOriginalArtifact": true,
+      "checkoutCRLFCount": 0,
+      "artifactSourceCRLFCount": 0,
+      "normalizedLFBytesEqual": true,
+      "currentHeadAndApplicationMainGitBlobsIdentical": true
+    }
+  ],
+  "productGitBlobsUnchanged": true,
+  "deployedSourceBytesUnchanged": true,
+  "newCheckoutIsNotAPreparedArtifact": true,
+  "productFilesModifiedToMatchHashes": false
+}

@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "sourceRules": 25,
+  "mappingRows": 25,
+  "allRowsPendingHumanConfirmation": true,
+  "directionConfirmedOnly": true,
+  "allProposedTargetsInCurrentEleven": true,
+  "candidatePromptSha256": "63e725fb4b1a9f7d7d404f1efebdbc8966f662fd9a913ca9c5e1f740e6800647",
+  "candidatePromptBytes": 993,
+  "proposalSha256": "bda2de294ae7992e0dfadfa234d86294877c7fb7d863f822b776648007464518",
+  "productGitSourcesUnchanged": true,
+  "originalRawByteCheckFailurePreserved": "classification-checkout-byte-observation.json",
+  "newCheckoutIsNotAPreparedArtifact": true,
+  "taskMarkdownCount": 12,
+  "catalogRows": 1026,
+  "localLinksChecked": 88,
+  "brokenLinks": [],
+  "productionOperations": 0,
+  "realModelExperiments": 0
+}
