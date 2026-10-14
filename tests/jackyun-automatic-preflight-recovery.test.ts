@@ -8,7 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import { recoverPreviousJackyunPreflight } from "../lib/jackyun/automatic-preflight-recovery";
 import { readN8nReplacementEvidence } from "../lib/jackyun/n8n-preflight-evidence";
 import { classifyJackyunPreflightFailure } from "../lib/jackyun/preflight-failure";
-import { assertClosedPreflight, preflightClosurePath, jackyunWorkflowId, inspectPreflightClosure, publishPreflightClosure, recoverySha } from "../lib/jackyun/preflight-recovery";
+import { assertClosedPreflight, preflightClosurePath, jackyunWorkflowId, inspectPreflightClosure, publishPreflightClosure, publishAutomatedCredentialClosure, publishAutomatedPageClosure, publishReplacementPreflightClosure, recoverySha } from "../lib/jackyun/preflight-recovery";
 import { runJackyunExportFirstAction } from "../tools/jackyun-export-first-pipeline";
 import { readRecoveryControl, recoveryProtocol, type RecoveryRequest } from "../lib/jackyun/recovery-control";
 import { importRecoveryScope } from "../lib/jackyun/publication-baseline";
@@ -269,6 +269,33 @@ test("existing legacy closure with changed proof cannot be reused or overwritten
     recoveryEvidence: f.recovery.readEvidence, readOwnerState: () => "error", request: baselineRequest() }));
   assert.deepEqual(await readFile(closurePath), changed);
   assert.deepEqual(await readFile(f.activePath), active);
+});
+
+test("existing automatic page closure remains immutable during cross-day unified recovery", async t => {
+  const f = await fixture(t, "API_LOGIN_PAGE_NOT_UNIQUE", "trigger");
+  await publishAutomatedPageClosure(f.root, "9000", "2026-09-27T02:00:12.000Z", "API_LOGIN_PAGE_NOT_UNIQUE");
+  const closure = preflightClosurePath(f.root, "9000"), bytes = await readFile(closure);
+  const result = await runJackyunExportFirstAction("plan-api", "9001", { ...f.deps,
+    recoveryRequest: { version: recoveryProtocol, kind: "retry", logicalExecutionId: "9000", failedExecutionId: "9000" },
+    recoveryEvidence: f.recovery.readEvidence, readOwnerState: () => "error", request: baselineRequest() });
+  assert.equal(result.runId, "n8n-export-first-9001");
+  assert.equal(JSON.parse(await readFile(f.activePath, "utf8")).executionId, "9001");
+  assert.deepEqual(await readFile(closure), bytes);
+});
+
+test("existing automatic credential closure still requires readiness and preserves its original proof", async t => {
+  const f = await fixture(t, missing, "trigger");
+  await publishAutomatedCredentialClosure(f.root, "9000", "2026-09-27T02:00:12.000Z");
+  const closure = preflightClosurePath(f.root, "9000"), bytes = await readFile(closure);
+  const context = f.recovery.readEvidence("9000", "9001");
+  const proof = await inspectPreflightClosure(f.root, "9000", context.evidence, at);
+  await assert.rejects(publishReplacementPreflightClosure(f.root, proof, context.replacement, false));
+  assert.deepEqual(await readFile(closure), bytes);
+  await publishReplacementPreflightClosure(f.root, proof, context.replacement, true);
+  assert.deepEqual(await readFile(closure), bytes);
+  await mkdir(path.join(f.download, "jackyun", f.plan.runId), { recursive: true });
+  await assert.rejects(publishReplacementPreflightClosure(f.root, proof, context.replacement, true));
+  assert.deepEqual(await readFile(closure), bytes);
 });
 
 test("browser PID recovery rejects any business effect, concurrent run, wrong stage or lookalike error", async t => {

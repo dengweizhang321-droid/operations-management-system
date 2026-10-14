@@ -455,7 +455,7 @@ function assertHumanPreflightAuthority(receipt: HumanPreflightClosure, previousI
   }
 }
 
-async function reuseValidatedLegacyClosure(root: string, executionId: string, replacementId: string) {
+async function reuseValidatedUnboundClosure(root: string, executionId: string, replacementId: string) {
   const target = preflightClosurePath(root, executionId);
   const exists = await lstat(target).then(() => true, error => {
     if (error.code === "ENOENT") return false;
@@ -463,8 +463,9 @@ async function reuseValidatedLegacyClosure(root: string, executionId: string, re
   });
   if (!exists) return false;
   const value = parse<{ version?: unknown }>(await readRegular(target));
-  if (value.version !== 1) return false;
-  // Keep the operator's immutable receipt. The caller already rechecked the
+  if (value.version !== 1 && value.version !== 2 && value.version !== 4) return false;
+  // Keep the operator/automatic immutable receipt. Bound replacement receipts
+  // are deliberately excluded. The caller already rechecked the
   // new execution/authority; this independently revalidates every old proof
   // field and absence of effects before the run-lock owner advances active.
   await assertClosedPreflight(root, executionId, replacementId);
@@ -477,7 +478,7 @@ export async function publishHumanPreflightClosure(root: string, proof: Prefligh
     replacementExecutionId: replacementId, replacementMode: "webhook", humanAuthority, credentialReadinessVerified };
   assertHumanPreflightAuthority(receipt, proof.executionId, replacementId);
   if (!isDeepStrictEqual(await inspectPreflightClosure(root, proof.executionId, proof.evidence, proof.closedAt), proof)) throw new Error("人工恢复零效果证据已变化。");
-  if (await reuseValidatedLegacyClosure(root, proof.executionId, replacementId)) return;
+  if (await reuseValidatedUnboundClosure(root, proof.executionId, replacementId)) return;
   await writeJsonDurable(preflightClosurePath(root, proof.executionId), receipt, true);
   await assertClosedPreflight(root, proof.executionId, replacementId);
 }
@@ -491,7 +492,7 @@ export async function publishReplacementPreflightClosure(root: string, proof: Pr
     || !/^[1-9]\d{0,19}$/.test(replacement.executionId) || BigInt(replacement.executionId) <= BigInt(proof.executionId)) throw new Error("旧任务未满足安全恢复条件。");
   const actual = await inspectPreflightClosure(root, proof.executionId, proof.evidence, proof.closedAt);
   if (!isDeepStrictEqual(actual, proof)) throw new Error("旧任务恢复证据已变化。");
-  if (await reuseValidatedLegacyClosure(root, proof.executionId, replacement.executionId)) return;
+  if (await reuseValidatedUnboundClosure(root, proof.executionId, replacement.executionId)) return;
   const receipt: ReplacementClosure = { version: 3, reason: "verified_preflight_for_fresh_execution",
     replacementExecutionId: replacement.executionId, replacementMode: replacement.mode, credentialReadinessVerified, proof };
   const target = preflightClosurePath(root, proof.executionId);
