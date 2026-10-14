@@ -1,6 +1,6 @@
 # 现有系统研究与正式接线清单
 
-基线31d0d806，远端main精确核实一致；原聊天worktree detached/clean，未切换或修改。生产状态依据最新版采用文档，不依据旧规划猜测。近期有效记录：`docs/JACKYUN_OCT4_RECOVERY_PRODUCTION_20261005.md` Worker10c9153e/Djangoe4f48e98/139；`docs/netshop-refactor/execution/20261004-all-shops-production.md` 五网店栏目指定范围资格，缺源仍保留。本阶段未对生产进行部署或维护验证。
+基线31d0d806，远端main精确核实一致；原聊天worktree detached/clean，未切换或修改。生产状态依据最新版采用文档，不依据旧规划猜测。近期有效记录：`docs/历史记录/自动化/吉客云/jackyun-oct4-recovery-production-20261005.md` Worker10c9153e/Djangoe4f48e98/139；`docs/netshop-refactor/execution/20261004-all-shops-production.md` 五网店栏目指定范围资格，缺源仍保留。本阶段未对生产进行部署或维护验证。
 
 ## 已有可复用
 

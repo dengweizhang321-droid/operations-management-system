@@ -17,8 +17,8 @@
 | --- | --- | --- |
 | E1 | [最终报告](../release-final-closeout-20261012/FINAL_REPORT.md)、[当前报告](../release-final-closeout-20261012/CURRENT_RELEASE_REPORT.md)，2026-10-12；固定 baseSha | f15 首次采用；不是所有今后发布 |
 | E2 | [Root原回读](../release-final-closeout-20261012/evidence-final/ROOT_FINAL_BATCH_READBACK_V1.json) at 2026-10-12T11:09:43.511Z；[作者回读](../release-final-closeout-20261012/evidence-final/FINAL_CLOSEOUT_READBACK_V1.json) at 11:09:01.553Z；[原件清单](../release-final-closeout-20261012/evidence-final/MANIFEST.json) | 80条WAL、19项最新passed、六次unknown历史及73原字节保全；不代替当前live检查 |
-| E3 | [v3实施报告](../release-no-data-policy-20261010/REPORT.md)，2026-10-10；[现行协议](../RELEASE_BATCH_WORKFLOW.md)，固定 baseSha | 10-10未采用结论已被E1覆盖；保留其隔离试验/未测范围 |
-| E4 | [启动优化](../STARTUP_RELEASE_OPTIMIZATION.md)、[9-21生产回执](../evidence/startup-release-optimization-production-20260921.json)，2026-09-21 | 在线准备、同域重叠；历史单次启动不代表常态发布时长 |
+| E3 | [v3实施报告](../release-no-data-policy-20261010/REPORT.md)，2026-10-10；[现行协议](../运维/部署与启动/release-batch-workflow.md)，固定 baseSha | 10-10未采用结论已被E1覆盖；保留其隔离试验/未测范围 |
+| E4 | [启动优化](../运维/部署与启动/startup-release-optimization.md)、[9-21生产回执](../evidence/startup-release-optimization-production-20260921.json)，2026-09-21 | 在线准备、同域重叠；历史单次启动不代表常态发布时长 |
 | E5 | [进程期限交付](../release-process-deadline/DELIVERY.md)、[独立复审](../release-process-deadline/INDEPENDENT_REVIEW.md)，2026-10-10；固定 baseSha | helper隔离/原链复核；生产采用另看E1/E2 |
 | E6 | [收尾机制报告](../release-acceptance-closeout/REPORT.md)、[历史离线报告](../release-acceptance-closeout/historical-draft-final/REPORT.md)、[历史JSON](../release-acceptance-closeout/historical-draft-final/report.json)，2026-10-10 | 真正离线生成样本，不是f15自动报告采用证据 |
 | E7 | [停止选路修复](../release-maintenance-stop-route-20261012/REPORT.md)、[独立复审](../release-maintenance-stop-route-20261012/ROOT_REVIEW.md)，2026-10-12 | 修复未插入f15冻结包；原失败有限reconcile闭合 |

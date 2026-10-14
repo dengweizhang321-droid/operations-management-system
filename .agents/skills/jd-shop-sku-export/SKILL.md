@@ -64,7 +64,7 @@ POST http://localhost:3000/api/netshop/import
 ## 相关文件
 
 - 自动化脚本：`tools/jackyun-ware-export.ts`
-- 可复制操作手册：`docs/京东店铺SKU下载和导出智能体.md`
+- 可复制操作手册：`docs/自动化/京东/京东商品主数据SKU导出智能体.md`
 - 下载目录：`outputs/jd-ware-export/downloads/`
 - 审计目录：`outputs/jd-ware-export/`
 ## 多店铺顺序执行

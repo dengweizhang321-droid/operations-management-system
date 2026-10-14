@@ -39,7 +39,7 @@
 
 #### P1：备份证据复用闭环与 Worker-only 轻量切换（近期推进）
 - **改动点**：
-  1. 依据 [`DAILY_BACKUP_ADOPTION.md`](file:///D:/.codex/worktrees/release-plan-agent-discussion-20261010/运营管理系统/DAILY_BACKUP_ADOPTION.md) 正式启用日常备份调度，使 26h 调度回执与 7 天内同点隔离演练回执处于合法有效状态，激活 [`RELEASE_BATCH_WORKFLOW.md`](file:///D:/.codex/worktrees/release-plan-agent-discussion-20261010/运营管理系统/docs/RELEASE_BATCH_WORKFLOW.md) 的展示快路径，减免批次内 2 次新备份与 2 次隔离恢复。
+  1. 依据 [`DAILY_BACKUP_ADOPTION.md`](file:///D:/.codex/worktrees/release-plan-agent-discussion-20261010/运营管理系统/DAILY_BACKUP_ADOPTION.md) 正式启用日常备份调度，使 26h 调度回执与 7 天内同点隔离演练回执处于合法有效状态，激活 [`RELEASE_BATCH_WORKFLOW.md`](file:///D:/.codex/worktrees/release-plan-agent-discussion-20261010/运营管理系统/docs/运维/部署与启动/release-batch-workflow.md) 的展示快路径，减免批次内 2 次新备份与 2 次隔离恢复。
   2. 对 Django deployment 无变动的发布，在 [`tools/release-batch.mjs`](file:///D:/.codex/worktrees/release-plan-agent-discussion-20261010/运营管理系统/tools/release-batch.mjs) 中启用 `BeginWorkerDrain → StopForRelease → apply → Start → EndWorkerDrain` 的 Worker-only 流程，免除后端整体 maintenance 停启。
 - **保留保障**：数据库 profile 校验、序列单调性断言、三份归档淘汰策略不变。
 - **前置条件**：日常备份调度健康运行，候选分类被严谨证明无后端 models/SQL/权限影响。

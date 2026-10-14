@@ -10,7 +10,7 @@ description: Download, validate, and import JD Business Intelligence product-det
 先完整阅读：
 
 - [`docs/OPERATIONS_DATA_QUERY.md`](../../../docs/OPERATIONS_DATA_QUERY.md)
-- [`docs/京东商智商品明细SPU日数据下载与API导入.md`](../../../docs/京东商智商品明细SPU日数据下载与API导入.md)
+- [`docs/自动化/京东/京东商智商品明细SPU日数据下载与API导入.md`](../../../docs/自动化/京东/京东商智商品明细SPU日数据下载与API导入.md)
 
 把文档作为详细操作与故障处理参考；以下步骤是强制执行顺序。
 

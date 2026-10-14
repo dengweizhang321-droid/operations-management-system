@@ -2,7 +2,7 @@
 
 用户确认组合范围为“发布流程提速实现＋客服四店手动导入修复”。本报告记录开发交付和候选准备；尚未获得本组合候选的明确生产上线授权。
 
-基础实现、隔离同条件计时和完整保障见[发布提速报告](../release-wait-optimization-20261008/REPORT.md)、[客服修复报告](../customer-service-store-binding-20261009/REPORT.md)及[发布批次协议](../RELEASE_BATCH_WORKFLOW.md)。
+基础实现、隔离同条件计时和完整保障见[发布提速报告](../release-wait-optimization-20261008/REPORT.md)、[客服修复报告](../customer-service-store-binding-20261009/REPORT.md)及[发布批次协议](../运维/部署与启动/release-batch-workflow.md)。
 
 ## 精确范围与来源
 

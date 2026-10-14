@@ -2,7 +2,7 @@
 
 2026-10-10。起始远端 main `99eaa0b90149a860d3e286c678ea4b2ab0a27160`，专用 `codex/release-acceptance-closeout` 分支。授权限于开发、隔离验证、独立复审、提交合并推送。主检出原改动及 E 盘封存材料保持；未操作生产生命周期、部署、业务写入、调度或外发。
 
-依据：[客服发布](../release-customer-ps5-fix-20261009/PRODUCTION.md)、[原独立复审](../release-customer-ps5-fix-20261009/PRODUCTION_REVIEW.md)、[交互发布](../priority-interactions-20261009/PRODUCTION.md)、[风险审计](../runtime-risk-readonly-audit-20261009/REPORT.md)、[批次协议](../RELEASE_BATCH_WORKFLOW.md)。按实际 AGENTS 读取共享记忆、README、开发交付、验证发布、业务口径、导入、安全和存储规范。
+依据：[客服发布](../release-customer-ps5-fix-20261009/PRODUCTION.md)、[原独立复审](../release-customer-ps5-fix-20261009/PRODUCTION_REVIEW.md)、[交互发布](../priority-interactions-20261009/PRODUCTION.md)、[风险审计](../runtime-risk-readonly-audit-20261009/REPORT.md)、[批次协议](../运维/部署与启动/release-batch-workflow.md)。按实际 AGENTS 读取共享记忆、README、开发交付、验证发布、业务口径、导入、安全和存储规范。
 
 ## 历史保全
 

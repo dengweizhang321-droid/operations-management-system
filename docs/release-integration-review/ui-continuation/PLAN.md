@@ -42,7 +42,7 @@ D5兼容回退必须以当前AB实际前驱重新准备原受控计划；生产�
 
 ## 审批与操作交接
 
-[发布批次协议](../../RELEASE_BATCH_WORKFLOW.md#一批批准范围编排与续接)要求“第一轮采用的现场适配／任务验收脚本也在独立复审和批次批准范围内”。修正版脚本摘要和新增补充控制器超出原9精确范围，因此需要用户对上述唯一补充SHA的明确批准；原AB批准不重复索取。建议回复：**“批准补充方案 0bcad05b 并续接 AB。”**
+[发布批次协议](../../运维/部署与启动/release-batch-workflow.md#一批批准范围编排与续接)要求“第一轮采用的现场适配／任务验收脚本也在独立复审和批次批准范围内”。修正版脚本摘要和新增补充控制器超出原9精确范围，因此需要用户对上述唯一补充SHA的明确批准；原AB批准不重复索取。建议回复：**“批准补充方案 0bcad05b 并续接 AB。”**
 
 收到该批准后，依据真实user item ID/time保存E final `human-supplement-approval.json`（explicitHumanApproval=true、精确supplement SHA、实际approvedAt、新的userItemId），原AB item和旧时间不能复用。执行工作目录固定为 `D:\运营管理系统-sales-django-release`；不更改其5fa源码。以实际新批准时间替换下列占位值，单次运行封存控制器：
 

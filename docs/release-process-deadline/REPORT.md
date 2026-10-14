@@ -6,7 +6,7 @@
 
 ## 证据与归因
 
-已读取 [客服发布](../release-customer-ps5-fix-20261009/PRODUCTION.md)、[吉客云发布](../jackyun-download-recovery-20261009/PRODUCTION.md)、[交互发布](../priority-interactions-20261009/PRODUCTION.md)、[夜审](../runtime-risk-readonly-audit-20261009/REPORT.md)、[watchdog 调查](../runtime-risk-readonly-audit-20261009/WATCHDOG.md) 和 [批次协议](../RELEASE_BATCH_WORKFLOW.md)。
+已读取 [客服发布](../release-customer-ps5-fix-20261009/PRODUCTION.md)、[吉客云发布](../jackyun-download-recovery-20261009/PRODUCTION.md)、[交互发布](../priority-interactions-20261009/PRODUCTION.md)、[夜审](../runtime-risk-readonly-audit-20261009/REPORT.md)、[watchdog 调查](../runtime-risk-readonly-audit-20261009/WATCHDOG.md) 和 [批次协议](../运维/部署与启动/release-batch-workflow.md)。
 
 | 历史观察 | 启动主体 | 外围与协调证据 |
 | --- | ---: | --- |

@@ -14,7 +14,7 @@
 
 ## 历史闭合与根因、采用分别判断
 
-先读 [最终报告](../release-final-closeout-20261012/FINAL_REPORT.md)、同目录 SCOPE/REVIEW/CURRENT_RELEASE_REPORT及 [最终原回读](../release-final-closeout-20261012/evidence-final/FINAL_CLOSEOUT_READBACK_V1.json)，再回溯四份指定历史报告与 [9月29日采用记录](../OPTIMIZATION_PRODUCTION_20260929.md)。最终原回执：80条WAL、19个最新状态passed、19:08:10.976上海completed、旧73条字节保留。这闭合 **f15批次事件**，不是全类缺陷关闭证明。
+先读 [最终报告](../release-final-closeout-20261012/FINAL_REPORT.md)、同目录 SCOPE/REVIEW/CURRENT_RELEASE_REPORT及 [最终原回读](../release-final-closeout-20261012/evidence-final/FINAL_CLOSEOUT_READBACK_V1.json)，再回溯四份指定历史报告与 [9月29日采用记录](../历史记录/性能与发布/optimization-production-20260929.md)。最终原回执：80条WAL、19个最新状态passed、19:08:10.976上海completed、旧73条字节保留。这闭合 **f15批次事件**，不是全类缺陷关闭证明。
 
 | 问题 | 历史事件及实际闭合范围 | 根因/修复/采用判断 | 剩余边界 |
 | --- | --- | --- | --- |
@@ -29,10 +29,10 @@
 
 | 指定回溯项 | 已证根因和修复范围 | 采用及未证范围 |
 | --- | --- | --- |
-| [SUPERVISOR_EXIT_DIAGNOSTICS_20260929](../SUPERVISOR_EXIT_DIAGNOSTICS_20260929.md) | 真实断管复现未处理EPIPE，窄处理EPIPE及有界诊断修复该独立错误路径 | 9月29日已采用；两次历史supervisor消失根因仍未明，未发现日志不能证明OOM或外部终止者 |
-| [WORKER_LIVENESS_RECOVERY](../WORKER_LIVENESS_RECOVERY.md) | outer Wrangler仍存活而inner workerd不响应时，通过原live连续失败、身份/端口/退役门及预算恢复 | 当前supervisor已接该机制；早期文档“待采用”不是当前完整状态。只覆盖HTTP存活，不拿Django readiness失败触发Worker恢复；不证明内存泄漏已解决 |
-| [WRANGLER_SELF_CHECK_STABILITY_20260929](../WRANGLER_SELF_CHECK_STABILITY_20260929.md) | 无响应横幅版本请求真实维持socket；固定版本子环境隐藏横幅阻断此路径，保留完整R2门 | 9月29日真实Prepare/Deploy自检采用；错误路径仍可能联网，长persist路径失败未确定底层Windows根因；不能泛化全部历史自检超时同源 |
-| [WORKERD_INSPECTOR_RETENTION_FIX_20260929](../WORKERD_INSPECTOR_RETENTION_FIX_20260929.md) | 真实SDK调试代理无前端仍Network.enable及强引用消息缓存；连接门和双限额回移修复可复现累积 | 9月29日已采用；改善属于代理而非业务isolate，历史三次OOM不能逐次归因，短实验不证明任意负载或整机内存上限 |
+| [SUPERVISOR_EXIT_DIAGNOSTICS_20260929](../历史记录/性能与发布/supervisor-exit-diagnostics-20260929.md) | 真实断管复现未处理EPIPE，窄处理EPIPE及有界诊断修复该独立错误路径 | 9月29日已采用；两次历史supervisor消失根因仍未明，未发现日志不能证明OOM或外部终止者 |
+| [WORKER_LIVENESS_RECOVERY](../运维/监控与恢复/worker-liveness-recovery.md) | outer Wrangler仍存活而inner workerd不响应时，通过原live连续失败、身份/端口/退役门及预算恢复 | 当前supervisor已接该机制；早期文档“待采用”不是当前完整状态。只覆盖HTTP存活，不拿Django readiness失败触发Worker恢复；不证明内存泄漏已解决 |
+| [WRANGLER_SELF_CHECK_STABILITY_20260929](../历史记录/性能与发布/wrangler-self-check-stability-20260929.md) | 无响应横幅版本请求真实维持socket；固定版本子环境隐藏横幅阻断此路径，保留完整R2门 | 9月29日真实Prepare/Deploy自检采用；错误路径仍可能联网，长persist路径失败未确定底层Windows根因；不能泛化全部历史自检超时同源 |
+| [WORKERD_INSPECTOR_RETENTION_FIX_20260929](../历史记录/性能与发布/workerd-inspector-retention-fix-20260929.md) | 真实SDK调试代理无前端仍Network.enable及强引用消息缓存；连接门和双限额回移修复可复现累积 | 9月29日已采用；改善属于代理而非业务isolate，历史三次OOM不能逐次归因，短实验不证明任意负载或整机内存上限 |
 
 ## helper与实际调用图：四合同
 

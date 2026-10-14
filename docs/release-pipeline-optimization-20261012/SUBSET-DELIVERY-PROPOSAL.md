@@ -28,8 +28,8 @@
 | docs/release-pipeline-optimization-20261012/WP4-TIMING-EVIDENCE.json | 同上 |
 | docs/规范/验证与发布.md | `f03cf9395d2a8bc7e4c471a9f6f7877e550e74f3` |
 | docs/规范/数据存储与迁移.md | 同上 |
-| docs/RELEASE_BATCH_WORKFLOW.md | 同上 |
-| docs/STARTUP_RELEASE_OPTIMIZATION.md | 同上 |
+| docs/运维/部署与启动/release-batch-workflow.md | 同上 |
+| docs/运维/部署与启动/startup-release-optimization.md | 同上 |
 | docs/release-pipeline-optimization-20261012/WP2-CLASSIFICATION-AUDIT.md | 同上 |
 | docs/release-pipeline-optimization-20261012/HISTORICAL-SOURCES.json | 同上 |
 | docs/release-pipeline-optimization-20261012/WP5-RELIABILITY-FIX.md | WP-5固定交付`4968baedd7ac3fa0948258cdc854fd25045fe8cd`的原报告 |
@@ -95,8 +95,8 @@ main合并、主检出同步、生产采用是三个状态。此次均未执行�
 
 | 文件 | 确定来源提交 |
 | --- | --- |
-| docs/RELEASE_BATCH_WORKFLOW.md | `f03cf9395d2a8bc7e4c471a9f6f7877e550e74f3` |
-| docs/STARTUP_RELEASE_OPTIMIZATION.md | `f03cf9395d2a8bc7e4c471a9f6f7877e550e74f3` |
+| docs/运维/部署与启动/release-batch-workflow.md | `f03cf9395d2a8bc7e4c471a9f6f7877e550e74f3` |
+| docs/运维/部署与启动/startup-release-optimization.md | `f03cf9395d2a8bc7e4c471a9f6f7877e550e74f3` |
 | docs/release-pipeline-optimization-20261012/.gitattributes | `4968baedd7ac3fa0948258cdc854fd25045fe8cd` |
 | docs/release-pipeline-optimization-20261012/DELIVERIES.json | `7ccb0f111555912a1554d0d5ceabaa57265d8f1f` |
 | docs/release-pipeline-optimization-20261012/DELIVERY-TABLE.md | `7ccb0f111555912a1554d0d5ceabaa57265d8f1f` |

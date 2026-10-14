@@ -42,7 +42,7 @@
 
 当前正式 Django 为 318/139、Worker 为 87；本轮仅源码调整、隔离验证及在线候选准备，不执行维护、部署、迁移、回填、服务重启或业务补跑。在线 Prepare 只生成后继候选并绑定当前前驱，不能当作已经采用。
 
-采用需按 `docs/STARTUP_RELEASE_OPTIMIZATION.md` 和 `docs/NETSHOP_READINESS_GATES.md`：批准本次后继应用维护后，排空、前备份/Verify/独立恢复、精确 Prepared Deploy/Harden、后备份/独立恢复、Exit/唯一 Start、12 组件及启动绑定；最后分别验收京东推广全部店铺 9月20–24日、天猫全景目录 9月20–26日、京东新总览全部店铺 9月20–26日及原月/单店功能。不可省略原门禁，不重复139迁移或缓存回填。
+采用需按 `docs/运维/部署与启动/startup-release-optimization.md` 和 `docs/技术专题/网店分析/netshop-readiness-gates.md`：批准本次后继应用维护后，排空、前备份/Verify/独立恢复、精确 Prepared Deploy/Harden、后备份/独立恢复、Exit/唯一 Start、12 组件及启动绑定；最后分别验收京东推广全部店铺 9月20–24日、天猫全景目录 9月20–26日、京东新总览全部店铺 9月20–26日及原月/单店功能。不可省略原门禁，不重复139迁移或缓存回填。
 
 市场 projection identity 去重计数的周期性超时属于另一个已记录问题；本次没有修改其 consumer、调度或任务，不声称已证明其为截图失败的负载根因。
 

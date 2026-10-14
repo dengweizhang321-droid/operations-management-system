@@ -2,7 +2,7 @@
 
 本目录承载按领域隔离的 Django 后端。当前本机销售、财务、网店、市场、商品经营、库存、运营事务和客服分析均已完成 Django/PostgreSQL 正式单写切换；BI 是不持有上游事实的只读聚合 app。用户、角色、数据范围与权限审计域的 Django 实现及隔离迁移演练已完成，但生产 authority 与 D1 退役尚未切换。各写领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界；BI 使用独立只读角色与组合 revision。已退出生产路径的 D1/R2 数据不得作为 fallback 或回滚来源。
 
-2026-08-29/30，本机销售域迁移、单写切换与 D1 `0092` 退役已经完成；现场证据、动态水位和本机限制见 [迁移与切换手册](../docs/DJANGO_SALES_MIGRATION.md)。本文后续命令仍作为新环境重建、受控升级和恢复骨架，不能据此重复执行已经完成的不可逆切换。
+2026-08-29/30，本机销售域迁移、单写切换与 D1 `0092` 退役已经完成；现场证据、动态水位和本机限制见 [迁移与切换手册](../docs/技术专题/领域迁移/django-sales-migration.md)。本文后续命令仍作为新环境重建、受控升级和恢复骨架，不能据此重复执行已经完成的不可逆切换。
 
 ## 组件边界
 
@@ -69,9 +69,9 @@ python manage.py test sales finance netshop market products inventory workflow c
 
 `backend/access_control/` 负责固定角色目录、用户状态、仓库/渠道/平台 scope、权限变更审计、revision、幂等写回执、迁移 run 和 write authority。Worker 不再查询或自动补建 D1 `app_users`；普通登录和后台 Agent 都必须从 reader 获取实时账号状态并在服务漂移时失败关闭。管理写入仅由无限制管理员经 writer 执行，并要求变更原因与 `expectedVersion`。
 
-`8101/8102` 使用独立最小权限数据库角色和 DPAPI 凭据。生产 writer 只有在 `access_control_write_authority.status=postgres`、authority epoch/cutover ID 与进程环境完全一致后才就绪。2026-09-05 的当前 D1 水位已在独立端口 PostgreSQL 17 镜像完成三阶段迁移复验，但生产切权、服务启用和 `0112` 终态退役未执行；完整契约与受控步骤见 [权限控制迁移手册](../docs/DJANGO_ACCESS_CONTROL_MIGRATION.md)。
+`8101/8102` 使用独立最小权限数据库角色和 DPAPI 凭据。生产 writer 只有在 `access_control_write_authority.status=postgres`、authority epoch/cutover ID 与进程环境完全一致后才就绪。2026-09-05 的当前 D1 水位已在独立端口 PostgreSQL 17 镜像完成三阶段迁移复验，但生产切权、服务启用和 `0112` 终态退役未执行；完整契约与受控步骤见 [权限控制迁移手册](../docs/技术专题/领域迁移/django-access-control-migration.md)。
 
-商品经营终态架构、`8041/8042` 最小权限边界、正式切换、D1 退役、备份和恢复演练证据见 [商品经营迁移手册](../docs/DJANGO_PRODUCTS_MIGRATION.md)。历史迁移命令只用于审计和受控恢复研究，不得对已经跨过 PNR 的正式域重新执行或恢复 D1 authority。
+商品经营终态架构、`8041/8042` 最小权限边界、正式切换、D1 退役、备份和恢复演练证据见 [商品经营迁移手册](../docs/技术专题/领域迁移/django-products-migration.md)。历史迁移命令只用于审计和受控恢复研究，不得对已经跨过 PNR 的正式域重新执行或恢复 D1 authority。
 
 ## 本机服务管理
 
@@ -120,9 +120,9 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 一旦 D1 销售写入所有权完成终态切换并退役，不支持把销售读写重新指向 D1。故障恢复只能使用兼容的代码版本、PostgreSQL 备份/WAL 和经审批的数据修复流程；ERP 主数据仍按 D1 权威 + ERP-only bridge 的独立链路恢复。
 
-持续逻辑备份、备份复验、独立临时 PostgreSQL cluster 恢复演练和保留清理使用 `tools/django-postgres-maintenance.ps1`，详细门禁见[持续备份与隔离恢复手册](../docs/DJANGO_POSTGRES_OPERATIONS.md)。日常备份不会自动启停本机服务；恢复演练不得在生产 cluster 内创建、覆盖或删除数据库。
+持续逻辑备份、备份复验、独立临时 PostgreSQL cluster 恢复演练和保留清理使用 `tools/django-postgres-maintenance.ps1`，详细门禁见[持续备份与隔离恢复手册](../docs/运维/备份与存储/django-postgres-operations.md)。日常备份不会自动启停本机服务；恢复演练不得在生产 cluster 内创建、覆盖或删除数据库。
 
-受控进程守护使用 `tools/django-runtime-supervisor.ps1`，其 desired-state、停止竞态 fencing、恢复预算、主动探针、告警 outbox、安装与回退门禁见[运行守护手册](../docs/DJANGO_RUNTIME_SUPERVISION.md)。它只对明确停止的本 runtime 进程调用既有 `Start`；数据分歧、readiness 失败、端口冲突和所有权异常都不会触发自动重启。
+受控进程守护使用 `tools/django-runtime-supervisor.ps1`，其 desired-state、停止竞态 fencing、恢复预算、主动探针、告警 outbox、安装与回退门禁见[运行守护手册](../docs/运维/监控与恢复/django-runtime-supervision.md)。它只对明确停止的本 runtime 进程调用既有 `Start`；数据分歧、readiness 失败、端口冲突和所有权异常都不会触发自动重启。
 
 公开 Worker 的 `GET /api/sales/data-health` 只复用 reader 上已有的有界 `freshness` consumer，面向无数据 scope 的 `operator/admin` 返回动态 revision、业务日期、覆盖区间和最近成功批次。它不授予 reader 新表权限、不读取本机监控/备份目录，也不把机械 lag 天数静默解释为业务过期结论。
 
@@ -132,19 +132,19 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 公开路径继续保持 `/api/imports/finance`、`/api/finance/analysis` 和 `/api/finance/targets`，Worker 只做鉴权、现有 Excel 解析、HMAC 和薄适配。内部 Django 路径为 `/api/finance/imports`、`/api/finance/analysis`、`/api/finance/targets` 和固定操作集合的 `/api/finance/consumers/query`。当前 `TERUISI_DJANGO_FINANCE_MODE` 必须保持 `django`；`legacy`/`shadow` 不再是生产回退路径，任何异常都失败关闭。
 
-历史迁移和 D1 单写 authority 使用 `migrate_finance_from_d1`、`finance_write_authority` 与 operator-only `drizzle/0093_finance_write_authority.sql`。正式切换已跨过 PNR，完整证据和恢复边界见[财务后端迁移手册](../docs/DJANGO_FINANCE_MIGRATION.md)。
+历史迁移和 D1 单写 authority 使用 `migrate_finance_from_d1`、`finance_write_authority` 与 operator-only `drizzle/0093_finance_write_authority.sql`。正式切换已跨过 PNR，完整证据和恢复边界见[财务后端迁移手册](../docs/技术专题/领域迁移/django-finance-migration.md)。
 
 ## 网店域正式单写实现
 
-网店 reader/writer 固定使用 `8021/8022` 和独立最小权限角色，PostgreSQL 是网店事实、批次、SKU/SPU、推广、上传、revision 和审计的唯一权威。旧 D1 网店路径不得作为读取、写入或回滚来源；市场只通过固定 Django consumer 获取有界投影。完整证据见[网店后端迁移手册](../docs/DJANGO_NETSHOP_MIGRATION.md)。
+网店 reader/writer 固定使用 `8021/8022` 和独立最小权限角色，PostgreSQL 是网店事实、批次、SKU/SPU、推广、上传、revision 和审计的唯一权威。旧 D1 网店路径不得作为读取、写入或回滚来源；市场只通过固定 Django consumer 获取有界投影。完整证据见[网店后端迁移手册](../docs/技术专题/领域迁移/django-netshop-migration.md)。
 
 ## 市场域正式单写实现
 
-市场 app 位于 `backend/market/`，reader/writer 固定为 `8031/8032`。现有 React 页面和同源公开 API 保留；Worker 负责真实 principal、解析、HMAC、体积/超时边界和需要 R2/模型的边缘执行，Django/PostgreSQL 是市场事实、批次、幂等、任务、revision、authority 与查询的唯一权威。切换已跨过 PNR，旧 D1 市场对象已终态退役；完整证据和恢复步骤见[市场后端迁移手册](../docs/DJANGO_MARKET_MIGRATION.md)。
+市场 app 位于 `backend/market/`，reader/writer 固定为 `8031/8032`。现有 React 页面和同源公开 API 保留；Worker 负责真实 principal、解析、HMAC、体积/超时边界和需要 R2/模型的边缘执行，Django/PostgreSQL 是市场事实、批次、幂等、任务、revision、authority 与查询的唯一权威。切换已跨过 PNR，旧 D1 市场对象已终态退役；完整证据和恢复步骤见[市场后端迁移手册](../docs/技术专题/领域迁移/django-market-migration.md)。
 
 ## 商品经营域终态实现
 
-商品经营 app 位于 `backend/products/`，正式 reader/writer 固定为 `8041/8042`。现有 React 页面、公开汇总和快递费率导入路径保留；商品查询复用 PostgreSQL 销售/ERP 权威，并消费 D1 库存导入后的版本化投影，库存域本身不迁移。PostgreSQL 是商品费率、批次、审计、原始分片、revision、投影和商品读写的唯一权威；`products-service-enabled.json` 绑定正式 authority 加入启动链，服务启动还要求 PostgreSQL `max_connections>=80`。旧 D1 商品对象仅保留空 tombstone、永久 guard 和退役 receipt，商品在线路径不使用 R2。正式迁移、系统测试、`0099/0100`、PNR、退役、备份和恢复证据见[商品经营迁移手册](../docs/DJANGO_PRODUCTS_MIGRATION.md)。
+商品经营 app 位于 `backend/products/`，正式 reader/writer 固定为 `8041/8042`。现有 React 页面、公开汇总和快递费率导入路径保留；商品查询复用 PostgreSQL 销售/ERP 权威，并消费 D1 库存导入后的版本化投影，库存域本身不迁移。PostgreSQL 是商品费率、批次、审计、原始分片、revision、投影和商品读写的唯一权威；`products-service-enabled.json` 绑定正式 authority 加入启动链，服务启动还要求 PostgreSQL `max_connections>=80`。旧 D1 商品对象仅保留空 tombstone、永久 guard 和退役 receipt，商品在线路径不使用 R2。正式迁移、系统测试、`0099/0100`、PNR、退役、备份和恢复证据见[商品经营迁移手册](../docs/技术专题/领域迁移/django-products-migration.md)。
 
 ## 运营事务 Django 实现
 
@@ -154,7 +154,7 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 2026-09-04，本分支又在同一 `workflow` app 中实现工作计划、评论/活动/提醒/关联、任务模板、附件元数据/清理队列和巡店/评价记录，并把公开 API、AI、全局搜索与库存执行事项改为 Django 薄适配。附件字节仍由 Worker 管理现有 R2 `workflow-attachments/` 命名空间。该范围只完成隔离迁移演练，尚未执行生产 `workflow_operations_write_authority` 切换；生产 D1 仍是这些事实的当前权威，不能把代码合并或演练结果称为正式迁移完成。
 
-新品切换已跨过 PNR，不支持改回 `legacy`、恢复 D1/R2 新品路径或双写。全板块剩余范围的 PNR、双 authority、迁移、系统测试和退役门禁见[运营事务迁移手册](../docs/DJANGO_WORKFLOW_MIGRATION.md)。
+新品切换已跨过 PNR，不支持改回 `legacy`、恢复 D1/R2 新品路径或双写。全板块剩余范围的 PNR、双 authority、迁移、系统测试和退役门禁见[运营事务迁移手册](../docs/技术专题/领域迁移/django-workflow-migration.md)。
 
 ## 客服分析 Django 实现
 
@@ -164,10 +164,10 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 客服历史迁移采用 `plan → apply → verify`，源必须是冻结的 `.sqlite/.sqlite3` 权威 D1 快照，目标写入必须使用 `migration_writer`，并在源计数、规范摘要、scope head、幂等尝试和 revision 全部回查后才可批准。旧客服配对上传复用过 `inventory-upload/` R2 前缀，终态退役必须提供该前缀及 multipart 均为空的独立证据，并将证据哈希绑定 retirement plan；全局 R2 binding 继续供其他域使用。`0107_customer_service_write_authority.sql` 与 `0108_customer_service_domain_retirement.sql` 均为 operator-only，不进入普通 Drizzle journal。
 
-2026-09-05，本机客服域已完成正式切权和终态退役：cutover ID `customer-service-pg-20260905T012130Z-5e02b476b398`、authority epoch `6fbe9992-5f8d-44a3-8569-2f90f49a40e5`。正式 run `customer-service-5e02b476b3984cb590f46fd11081c6d9` 迁移并复验 29,018 条会话、7 个批次和 1 个 scope head；旧 D1 对象现为 5 个空 tombstone view，18 个永久 guard 拒绝客服事实和共享上传命名空间复活，历史 R2 前缀为空。该切换已跨过 PNR，只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复。正式证据、受控命令和恢复边界见 [客服分析迁移手册](../docs/DJANGO_CUSTOMER_SERVICE_MIGRATION.md)。
+2026-09-05，本机客服域已完成正式切权和终态退役：cutover ID `customer-service-pg-20260905T012130Z-5e02b476b398`、authority epoch `6fbe9992-5f8d-44a3-8569-2f90f49a40e5`。正式 run `customer-service-5e02b476b3984cb590f46fd11081c6d9` 迁移并复验 29,018 条会话、7 个批次和 1 个 scope head；旧 D1 对象现为 5 个空 tombstone view，18 个永久 guard 拒绝客服事实和共享上传命名空间复活，历史 R2 前缀为空。该切换已跨过 PNR，只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复。正式证据、受控命令和恢复边界见 [客服分析迁移手册](../docs/技术专题/领域迁移/django-customer-service-migration.md)。
 
 ## 当前本机终态记录
 
 本机 cutover `sales-pg-20260829T204417Z-d9896e904d8092cb` 已完成 PostgreSQL 单写激活及 D1 `0092` 销售对象退役；`0092` SHA-256 为 `f981a62efd0515a7f64dd9f174151b8cfeb0c4b071d8236c481b5459761a3b8f`。正式切换快照为 `572,015` 条销售事实、`88` 个销售批次、`8,443` 条 ERP 参照和 revision `8:5`。这些是切换时水位，不是代码常量；当前查询仍须动态核验新鲜度。
 
-正式备份 manifest SHA-256 为 `b665eb7109b66127dbcd1507fe569910f80ab6a86ac085fed70b086cd6392901`，成功恢复演练 run ID 为 `5f2d0669317c`，结果 SHA-256 为 `f3b8f1e2efa59f50394e9f3efa1dc53b4adaad6428e104c6f3d84a1466ffb935`。Django 应用部署 fingerprint 为 `774936c5efe8365a370dc6b29a6110a3e97d3868a1a04e1ec879ff16a84f30c7`，最终 Worker effective head 为 `20260830T020314Z-16b6c1b89ed012a9`。最终全量回归、公开 API 冒烟、并发性能和完整的 D1/PostgreSQL/R2、attestation、forward-recovery、retirement 证据见[迁移与切换手册](../docs/DJANGO_SALES_MIGRATION.md#133-最终运行发布与复核补录)。该记录只适用于当前 Windows 主机和销售域。
+正式备份 manifest SHA-256 为 `b665eb7109b66127dbcd1507fe569910f80ab6a86ac085fed70b086cd6392901`，成功恢复演练 run ID 为 `5f2d0669317c`，结果 SHA-256 为 `f3b8f1e2efa59f50394e9f3efa1dc53b4adaad6428e104c6f3d84a1466ffb935`。Django 应用部署 fingerprint 为 `774936c5efe8365a370dc6b29a6110a3e97d3868a1a04e1ec879ff16a84f30c7`，最终 Worker effective head 为 `20260830T020314Z-16b6c1b89ed012a9`。最终全量回归、公开 API 冒烟、并发性能和完整的 D1/PostgreSQL/R2、attestation、forward-recovery、retirement 证据见[迁移与切换手册](../docs/技术专题/领域迁移/django-sales-migration.md#133-最终运行发布与复核补录)。该记录只适用于当前 Windows 主机和销售域。

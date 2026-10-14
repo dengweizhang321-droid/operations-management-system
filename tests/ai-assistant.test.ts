@@ -253,8 +253,8 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
     readFile(new URL("../drizzle/0041_ai_tool_execution_runtime.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0042_ai_knowledge_and_artifacts.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0043_ai_model_tool_budget_increase.sql", import.meta.url), "utf8"),
-    readFile(new URL("../docs/AI_ASSISTANT_SETUP.md", import.meta.url), "utf8"),
-    readFile(new URL("../docs/AI能力重构6-7层推进文档.md", import.meta.url), "utf8"),
+    readFile(new URL("../docs/使用手册/AI助手/ai-assistant-setup.md", import.meta.url), "utf8"),
+    readFile(new URL("../docs/技术专题/AI助手/AI能力重构-第6至7层.md", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /新增模型配置/);

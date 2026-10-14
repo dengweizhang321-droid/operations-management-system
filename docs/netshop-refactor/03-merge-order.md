@@ -77,7 +77,7 @@ M1未完成时，后续角色仍可整理需求、接口消费样例和合成数
 
 M8只执行已获范围内的候选准备，不能调用apply、DeployApp、EnterMaintenance、Stop/Start、生产migrate或业务工作流。准备脚本若有共享固定发布目录，同一时间只允许I使用，并复核既有发布状态，不能多个角色各自生成“最终包”。
 
-M9需按最新 `docs/STARTUP_RELEASE_OPTIMIZATION.md` 及AGENTS执行，包含当前要求的前后备份、恢复校验、版本绑定、组件与页面验收。这里不复制可能过期的命令序列，不把本工作包当未来停服授权。
+M9需按最新 `docs/运维/部署与启动/startup-release-optimization.md` 及AGENTS执行，包含当前要求的前后备份、恢复校验、版本绑定、组件与页面验收。这里不复制可能过期的命令序列，不把本工作包当未来停服授权。
 
 ## 合并记录模板
 

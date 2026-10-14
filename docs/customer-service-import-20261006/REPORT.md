@@ -7,7 +7,7 @@
 - 京麦平均响应时间等数值字段的ASCII `-` 表示缺失，按null保存，0、负值和未知文本继续沿用原规则。
 - 存在多个候选的聊天片段独立标记ambiguous/review，避免同时计入chat_only与ambiguous，满足原PostgreSQL汇总互斥契约；不强行匹配。
 
-生产代码只修改 `lib/customer-service/import-service.ts`，不改变权限、数据库结构、导入预算或后端业务实现。来源与文件核验见原 `docs/JD_CUSTOMER_SERVICE_WORKFLOW.md` 所在开发树。
+生产代码只修改 `lib/customer-service/import-service.ts`，不改变权限、数据库结构、导入预算或后端业务实现。来源与文件核验见原 `docs/自动化/京东/jd-customer-service-workflow.md` 所在开发树。
 
 ## 已验证与本次待采用
 
