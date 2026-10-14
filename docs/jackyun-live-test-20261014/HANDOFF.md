@@ -88,3 +88,16 @@
 - **当前在途exec session43808**：`prepare-legacy-helper.mjs`已指向最终unbound源码和新证据目录；日志`unbound-helper-preparation.log`、artifact子目录`unbound-helper-adoption`。生产Worker仍fe39、Django8b4、watchdog ceee。没有新停服/部署，等待此准备结果，不重开。
 - `publish-legacy-helper.mjs`与`resume-after-8956.mjs`已改为只接受最终unbound目录；prepared结果必须scope=`verified-unbound-closures-v1-v2-v4`，不会误采用v1候选。准备成功后先plan，再execute，说明见HELPER_REPAIR.md。
 - `resume-after-8956.mjs inspect`已只读通过，proof=`8956-zero-business-reservation-proof.json`；dispatch会重新完整验证，并在正常系统入口使用针对已终态8956的新授权。`observe-retry.mjs resumed-human`观察新请求。目前尚未派发第二次，不得改旧UUID或手工移动active。
+
+### 11:30 当前生产切换与监控窗口（优先本段，必须续接）
+
+- 最终准备session43808已exit0；最终Worker **20261014T024227Z-c3a176ee85a03642**，manifest **81b84f00df90f29f86fdce50cbd8b5a8c4e2374cb0a9dba4030aef20799bb680**，原plan SHA **1a19b38e3ea8a1b2d236e72799ecb71520e3a25dcac16619d86eb90c8ea454aa**，证据`unbound-helper-adoption/result.json`。Django8b4保持。
+- 另发现独立watchdog停滞：旧ceee进程41708于10:40完成一次Worker status_error快照后，在Get-WatchEvidence第392行Get-Content -Tail160读取含超长行的Postgres日志，持续CPU不推进。通过同用户NamedPipeConnectionInfo只读CallStack.InvocationInfo.BoundParameters保全完整原失败快照到`watchdog-stuck-callsite-1040.json`；不读取/输出凭据局部变量。GetFrameVariables曾超时，已停止的仅诊断pipeline。
+- 主线 **553dc0a5** 新增最多256KiB/160完整行的附加日志读取，显式truncated/unavailable，原健康/身份判定不改。8项边界测试、36项原watchdog回归通过；实际12MB日志只读读取256KiB约114ms。候选`watchdog-bounded-candidate`仅替换已安装ceee的Get-WatchEvidence段及新函数，其他8文件/driver绑定相同，main script SHA **344daf4c8c21b18bc7b993b33bba0e62c03aaed97859826439f001f1e09de115**。
+- 第一次停旧监控被native/CIM创建时间6个100ns tick精度差拦截，无进程停止，任务重新启用；第二次按已有CIM微秒比对、同用户、无业务子进程、持有原进程句柄条件，仅结束41708。原Install在另一次新鲜快照不健康时拒绝，未安装，任务又启用。两失败日志/JSON均保留。**当前正式watchdog仍ceee，不是344新版本。**
+- 之后旧任务新实例 **PID34912/父45080/创建11:20:24.571216+08** 又停在同一第392行；原快照11:20:31为BackendUnavailable（worker exact_release、supervisor healthy），已保存`watchdog-stuck-callsite-1120.json`。不要把旧健康latest当当前健康，也不要改失败快照。当前helper当时有京东8979使用，不能强停其他业务。
+- **当前在途exec session32819** 运行`publish-legacy-helper.mjs execute`，日志 **`unbound-helper-publication.log`**，使用 **`publication-plan-with-monitor.json`**（旧publication-plan.json未执行）。持原rotation锁；**drain ID=f1dbd359ccd54bb2aeaa77c8054ee63c**。BeginWorkerDrain与StopForRelease已completed，正在原apply/后续启动。Django/PG不停止。禁止另开发布或删除drain。
+- 发布脚本在新Worker Start RequireReady和VerifyStartup通过后，会写 **`unbound-helper-adoption/worker-ready-for-monitor.json`**，保留requests drain并等待**最多5分钟**，此窗口内应恢复/安装bounded watchdog。之后只有原安装receipt=`watchdog-bounded-install-result.json`且实际installation.bundleId和scriptSHA344精确匹配，父脚本才EndWorkerDrain并写publication-result。需及时查看barrier文件，不能空等超时。
+- barrier出现后：先Disable原Windows任务下一次触发；确认当前旧检查是否自然结束。如果34912仍在上述Get-WatchEvidence且无业务子进程，保留已捕获失败、重新核验PID/创建时间/命令行/父NoConsole/当前用户、持有Handle并按CIM微秒精度核对后，仅停止该证据采集进程（不杀树），等旧launcher退出。若实际PID已变，必须重新只读核实，不沿用数字盲杀。
+- 确認原检查进程均结束后运行 **`install-bounded-watchdog.ps1 -Attempt drained-retry -DrainId f1dbd359ccd54bb2aeaa77c8054ee63c`**。此模式只接受上述ready barrier和同ID requests gate，不再停止41708，仍走原PlanInstall/Install新鲜健康门禁。结果原子发布至canonical result文件，父Node会校验后解除drain。若失败，原任务启用意图恢复、原安装事务负责回退；父超时则保留精确drain，需据实际完成步骤续接，不能重跑整个发布脚本。
+- 当前scope包含既有用户四步修复所需的监控证据采集修复和helper兼容修复，已准备/测试/提交；没有创建临时计划任务、没有新增备份/演练，也没有改n8n定义/调度。候选Worker源码内旧watchdog模板不是正式独立watchdog组件，二者分别绑定。
