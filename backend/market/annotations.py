@@ -1452,6 +1452,10 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
         raise _error("标注价格类型无效")
     low = _integer(result.get("priceLowCents"), "priceLowCents", nullable=True)
     high = _integer(result.get("priceHighCents"), "priceHighCents", nullable=True)
+    if price_type == "无法判断":
+        price = None if price == 0 else price
+        low = None if low == 0 else low
+        high = None if high == 0 else high
     confidence = _integer(result.get("confidenceBps"), "confidenceBps", nullable=True, maximum=10_000)
     reason = _text(result.get("reason", ""), "reason", 1_000)
     if price_type == "明确无标价" and (price is not None or low is not None or high is not None or not reason or confidence is None or confidence < 9000):

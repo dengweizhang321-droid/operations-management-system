@@ -48,5 +48,6 @@ test("clear no-price is distinct from uncertainty and never zero", () => {
   const prediction = { segment: "A", image_price_yuan: null, price_low_yuan: null, price_high_yuan: null, price_type: "明确无标价", confidence: 0.95, reason: "完整清晰主图没有商品标价" };
   assert.equal(parseVisionAnnotation(prediction, ["A"]).imagePriceCents, null);
   assert.equal(parseVisionAnnotation({ ...prediction, price_type: "无法判断", confidence: 0.2 }, ["A"]).priceType, "无法判断");
+  assert.equal(parseVisionAnnotation({ ...prediction, price_type: "无法判断", image_price_yuan: 0 }, ["A"]).imagePriceCents, null);
   for (const bad of [{ confidence: 0.5 }, { image_price_yuan: 0 }, { reason: "" }]) assert.throws(() => parseVisionAnnotation({ ...prediction, ...bad }, ["A"]), /充分证据/);
 });

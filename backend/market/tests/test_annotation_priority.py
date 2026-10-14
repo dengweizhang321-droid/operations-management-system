@@ -137,6 +137,14 @@ class AnnotationPriorityTests(QueueFixtures, TestCase):
             self.assertTrue(self.claim(job)["stopped"])
         self.assertEqual(MarketAnnotationItem.objects.get(pk="one").attempt_count, 0)
 
+    def test_unknown_zero_model_price_stays_null(self):
+        job = self.job("unknown-zero")
+        self.item(job, "one")
+        task = self.claim(job)["task"]
+        self.complete(task, result={**RESULT, "imagePriceCents": 0, "priceLowCents": 0, "priceHighCents": 0, "priceType": "无法判断"})
+        row = MarketAnnotationItem.objects.get(pk="one")
+        self.assertEqual((row.ai_image_price_cents, row.reviewed_image_price_cents, row.ai_price_low_cents, row.ai_price_high_cents), (None, None, None, None))
+
     def test_changed_image_reuses_only_classification_within_business_identity(self):
         job = self.job("changed-image")
         MarketAnnotationJob.objects.filter(pk=job.id).update(status="committed")
