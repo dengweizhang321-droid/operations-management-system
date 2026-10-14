@@ -54,3 +54,9 @@ Django 在线准备正常退出 0。逐文件实包仅 3 个后端路径及原 R
 随后原聊天转达用户“允许，通知它让吉客云先发布”，本聊天通过 read_thread 实际 userMessage 核实该指令，按本次优先级暂停后续 AI 发布。当前准备进程 38640 已结束，原 plan 的 finally 已释放自己的 rotation 租约；不会再次领取锁，不开始维护、Worker/Django 切换或服务启停。12:21:14 现场仍为上述正式前驱，无本次 publication-started、无维护 gate；rotation pipe 已存在，不将它宣称为此时无人持有（可能是接续发布者）。保留全部新制品和原证据，状态见 `D:/codex-artifacts/ai-management-release-current/WINDOW_YIELDED.json`。
 
 **AI 尚未上线。** 当前是按已核实的用户发布优先级让出窗口，不再是代码检查未完成。吉客云先发布后这些 plan/收据必须重新核对前驱；保留新吉客云修复再准备必要组件，不可直接重放旧计划。该指令仅调度本次窗口，原 AI 上线授权仍保留，不自动授予其他代码或业务发布。
+
+## 吉客云优先发布完成后的前驱更新
+
+原聊天通知新 Worker/helper 正式采用；本聊天独立回读正式进程回执及 `D:/codex-artifacts/jackyun-live-test-20261014/wrapper-helper-adoption-2/publication-result.json`：Worker 已为 `20261014T042045Z-3fa896145ddb534d` / manifest `9b55e7afe806e6f8a2ebeae3bf0610b0fddb88ca311a049d8f8c86c1eb58de6e`，来源 `8872ae460b7b4536fed6e5e505ca169143066f50`；Django 仍 `8b4fed2c…`。原结果 deployed，现场 maintenance/drain 均不存在。不把它说成 AI 已发布。
+
+原任务报告唯一真实恢复 9011 已过 A 并持有共享 helper，要求继续让业务优先。本聊天未查询经营内容或触发业务，只保持 AI 不维护、不切换、不领取发布锁，保留全部制品。旧 `54fc9b40…` plan 绑定 c3a 前驱，现已不能直接采用；后续 source 组合必须保留已上线的 `15ac8282` 前置证明兼容修复及当前 Django 内容。9011 当前运行状态属于原任务报告，业务完成与发布完成分别记录，不自行补跑或干预其 owner。
