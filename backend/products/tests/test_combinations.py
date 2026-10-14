@@ -33,6 +33,12 @@ class AllocationTests(SimpleTestCase):
             self.assertEqual(sum(r[target] for r in rows), sum(line[source] for line in lines))
         self.assertEqual(sum(r["grossSalesCents"] for r in rows), sum(max(0, l["allocated_amount_cents"]) for l in lines))
         self.assertEqual(sum(r["refundAmountCents"] for r in rows), sum(max(0, -l["allocated_amount_cents"]) for l in lines))
+        for row in result["combo"].values():
+            if all(child["sales"] is not None for child in row["components"]):
+                for field in (*AMOUNTS, "grossSalesCents", "refundAmountCents"):
+                    self.assertEqual(sum(child["sales"][field] for child in row["components"]), row[field])
+                for child in row["components"]:
+                    self.assertEqual(child["sales"]["netQuantity"], row["netQuantity"] * child["quantity"])
 
     def test_full_partial_and_rounding_conserve_every_cent(self):
         lines = [fact("A", 3, 1001, "1"), fact("B", 2, 799, "2")]
@@ -41,6 +47,11 @@ class AllocationTests(SimpleTestCase):
         self.assertEqual(result["combo"]["KIT"]["netQuantity"], 2)
         self.assertEqual(result["single"]["A"]["netQuantity"], 1)
         self.assertEqual(result["combo"]["KIT"]["netSalesCents"], 1466)
+        children = result["combo"]["KIT"]["components"]
+        self.assertEqual([child["sales"]["netQuantity"] for child in children], [2, 2])
+        self.assertEqual([child["sales"]["netSalesCents"] for child in children], [667, 799])
+        for field in (*AMOUNTS, "grossSalesCents", "refundAmountCents"):
+            self.assertEqual(sum(child["sales"][field] for child in children), result["combo"]["KIT"][field])
         self.assert_conserved(lines, result)
         self.assertEqual(lines, original)
 
@@ -78,6 +89,7 @@ class AllocationTests(SimpleTestCase):
         self.assertFalse(updated["combo"])
         direct = infer_combinations([fact("KIT", 1, 100, "P")], [relation()])
         self.assertEqual(direct["combo"]["KIT"]["netQuantity"], 1)
+        self.assertIsNone(direct["combo"]["KIT"]["components"][0]["sales"])
 
 
 @override_settings(DJANGO_INTERNAL_SECRET=TEST_SECRET)
@@ -124,14 +136,17 @@ class CombinationQueryTests(TestCase):
         legacy = product_summary(self.principal, self.options)
         self.assertEqual(legacy["metrics"]["grossMarginRate"], (70000 - sum(costs) - 5000) / 70000)
         ordered = product_summary(self.principal, {**self.options, "productKind": "combo", "sortBy": "grossMarginRate"})
-        self.assertEqual([i["productCode"] for i in ordered["items"]], [f"KIT-{i}" for i in range(5, -1, -1)])
+        self.assertEqual([i["productCode"] for i in ordered["items"] if i["productKind"] == "combo"], [f"KIT-{i}" for i in range(5, -1, -1)])
         self.assertEqual(single["pagination"]["total"], 1)
-        rates = {i["productCode"]: i["grossMarginRate"] for i in combo["items"]}
+        self.assertEqual(single["productMarginMetrics"]["productCount"], 1)
+        self.assertEqual(single["productMarginMetrics"]["marginBuckets"]["atLeast46Count"], 1)
+        self.assertEqual(combo["productMarginMetrics"]["productCount"], 6)
+        rates = {i["productCode"]: i["grossMarginRate"] for i in combo["items"] if i["productKind"] == "combo"}
         self.assertEqual(rates, dict(zip([f"KIT-{i}" for i in range(6)], [.3799, .38, .4199, .42, .4599, .46])))
         for band, codes in [("below38", ["KIT-0"]), ("38to42", ["KIT-1", "KIT-2"]),
             ("42to46", ["KIT-3", "KIT-4"]), ("atLeast46", ["KIT-5"])]:
             filtered = product_summary(self.principal, {**self.options, "productKind": "combo", "marginBands": [band]})
-            self.assertEqual(sorted(i["productCode"] for i in filtered["items"]), codes)
+            self.assertEqual(sorted(i["productCode"] for i in filtered["items"] if i["productKind"] == "combo"), codes)
             self.assertEqual(filtered["comboMarginMetrics"], expected)
         self.assertIn("组合装类目", single["filters"]["categories"])
         scoped = product_summary(self.principal, {**self.options, "productKind": "single", "query": "KIT-1"})
@@ -152,9 +167,10 @@ class CombinationQueryTests(TestCase):
         self.assertEqual(combo["items"][0]["netQuantity"], 2)
         self.assertEqual(combo["items"][0]["components"][0]["quantity"], 1)
         for field in ("grossSalesCents", "netSalesCents", "grossProfitCents"):
-            self.assertEqual(single["metrics"][field] + combo["metrics"][field], legacy["metrics"][field])
+            self.assertEqual(combo["metrics"][field], legacy["metrics"][field])
+        self.assertEqual([i for i in combo["items"] if i["productKind"] == "single"], single["items"])
         queried = product_summary(self.principal, {**self.options, "productKind": "combo", "query": "B"})
-        self.assertEqual(queried["items"], combo["items"])
+        self.assertEqual({i["productCode"] for i in queried["items"]}, {"KIT", "B"})
         page = product_summary(self.principal, {**self.options, "productKind": "combo", "projection": "page", "expectedSnapshotToken": combo["snapshotToken"]})
         self.assertEqual(page["items"], combo["items"])
 
@@ -164,7 +180,7 @@ class CombinationQueryTests(TestCase):
         SalesDataRevision.objects.filter(domain="erp").update(revision=4)
         with self.assertRaises(ProductsApiError):
             product_summary(self.principal, {**self.options, "productKind": "combo", "projection": "page", "expectedSnapshotToken": old["snapshotToken"]})
-        self.assertEqual(product_summary(self.principal, {**self.options, "productKind": "combo"})["items"], [])
+        self.assertTrue(all(item["productKind"] == "single" for item in product_summary(self.principal, {**self.options, "productKind": "combo"})["items"]))
         for kind in ("single", "combo"):
             scoped = Principal(self.principal.email, "Fixture", "viewer", {"platforms": ["京东"]})
             with self.assertRaises(ProductsApiError):

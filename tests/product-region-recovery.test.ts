@@ -11,7 +11,7 @@ const chrome = "C:/Program Files/Google/Chrome/Application/chrome.exe";
 function response(url: string, total = 55, token = "a".repeat(64)) {
   const q = new URL(url).searchParams, page = Number(q.get("page") ?? 1), size = 50;
   const items = Array.from({length:Math.min(size,Math.max(0,total-(page-1)*size))},(_,i)=>({
-    productKind:(q.get("productKind")??undefined) as "single"|"combo"|undefined,components:q.get("productKind")==="combo"?[{productCode:"CHILD-A",productName:"合成子件甲",quantity:2},{productCode:"CHILD-B",productName:"合成子件乙",quantity:1}]:[],productCode:`S-${(page-1)*size+i}`,productName:`合成商品 ${(page-1)*size+i}`,brand:"合成品牌",supplierName:"合成供应商",specification:"合成规格",category:"合成类目",outlets:[],
+    productKind:(q.get("productKind")??undefined) as "single"|"combo"|undefined,components:q.get("productKind")==="combo"?[{productCode:"CHILD-A",productName:"合成子件甲",quantity:2,sales:null},{productCode:"CHILD-B",productName:"合成子件乙",quantity:1,sales:null}]:[],productCode:`S-${(page-1)*size+i}`,productName:`合成商品 ${(page-1)*size+i}`,brand:"合成品牌",supplierName:"合成供应商",specification:"合成规格",category:"合成类目",outlets:[],
     netQuantity:1,grossSalesCents:10000,refundAmountCents:100,netSalesCents:9900,costCents:5000,feeCents:100,grossProfitCents:4900,grossMarginRate:4900/9900,refundRate:.01,shippingRate:null,averageSalePriceCents:9900,averageCostCents:5000,observedFeeRate:.01,availableQuantity:null,stockValueCents:null,knownStockValueCents:null,costCoverageRate:null,
   }));
   const full:ProductSummaryFullResponse={projection:"full",productKind:(q.get("productKind")??undefined) as "single"|"combo"|undefined,snapshotToken:token,salesSourceRevision:"1:1",hasSales:true,range:"custom",
@@ -19,7 +19,7 @@ function response(url: string, total = 55, token = "a".repeat(64)) {
     sort:{by:(q.get("sortBy")??"netSalesCents") as ProductSummaryFullResponse["sort"]["by"],direction:"desc"},
     pagination:{page,pageSize:size,total,returned:items.length,totalPages:Math.ceil(total/size),truncated:(page-1)*size+items.length<total},items,
     filters:{platforms:[],shops:[],categories:[]},filtersApplied:{platforms:[],shops:[],query:q.get("q")??"",categories:[],marginBands:q.getAll("marginBand")},
-    comboMarginMetrics:{dimension:"combo",comboCount:total,marginBuckets:{below38Count:0,between38And42Count:0,between42And46Count:0,atLeast46Count:total}},metrics:{skuCount:total,grossSalesCents:10000*total,netSalesCents:9900*total,grossProfitCents:4900*total,grossMarginRate:4900/9900,lossSkuCount:0,stockedSkuCount:0,marginBuckets:{below35Count:0,between35And40Count:0,between40And45Count:0,atLeast45Count:total}},
+    productMarginMetrics:{dimension:q.get("productKind") as "single"|"combo",productCount:total,marginBuckets:{below38Count:0,between38And42Count:0,between42And46Count:0,atLeast46Count:total}},comboMarginMetrics:{dimension:"combo",comboCount:total,marginBuckets:{below38Count:0,between38And42Count:0,between42And46Count:0,atLeast46Count:total}},metrics:{skuCount:total,grossSalesCents:10000*total,netSalesCents:9900*total,grossProfitCents:4900*total,grossMarginRate:4900/9900,lossSkuCount:0,stockedSkuCount:0,marginBuckets:{below35Count:0,between35And40Count:0,between40And45Count:0,atLeast45Count:total}},
   };
   if(q.get("view")==="initial-page"){const p={...full,projection:"initial-page"};Reflect.deleteProperty(p,"metrics");Reflect.deleteProperty(p,"filters");return p;}
   if(q.get("view")==="overview"){const p={...full,projection:"overview"};Reflect.deleteProperty(p,"items");return p;}
@@ -43,9 +43,9 @@ test("product type switches isolate late reads, reset paging and show bundle com
     await pending(page,1);
     assert.equal(new URL(await request(page,0)).searchParams.get("productKind"),"single");
     await reply(page,0,response(await request(page,0)));await pending(page,2);
-    await reply(page,1,response(await request(page,1)));await page.getByText("55 个组合装",{exact:true}).waitFor();
+    await reply(page,1,response(await request(page,1)));await page.getByText("55 个单品",{exact:true}).waitFor();
     await page.getByRole("button",{name:"下一页",exact:true}).click();await pending(page,3);
-    await page.getByRole("button",{name:"组合装",exact:true}).click();await pending(page,4);
+    await page.getByRole("tab",{name:"组合装",exact:true}).click();await pending(page,4);
     const comboUrl=await request(page,3);
     assert.equal(new URL(comboUrl).searchParams.get("productKind"),"combo");
     assert.equal(new URL(comboUrl).searchParams.get("page"),"1");
@@ -65,7 +65,7 @@ test("product type switches isolate late reads, reset paging and show bundle com
     assert.equal(await page.getByText("每套数量（件）",{exact:true}).count(),1);
     assert.equal(await page.evaluate(()=>(window as unknown as {pending:unknown[]}).pending.length),before);
     await page.getByRole("button",{name:"← 返回商品经营",exact:true}).click();
-    await page.getByRole("button",{name:"单品（单一规格）",exact:true}).click();await pending(page,6);
+    await page.getByRole("tab",{name:"单品",exact:true}).click();await pending(page,6);
     await reply(page,5,{...response(await request(page,5),1),productKind:"combo"});
     await page.getByText("商品类型响应与请求不一致",{exact:false}).waitFor();
     assert.equal(await page.locator(".product-cell").count(),0);
@@ -80,11 +80,11 @@ test("product type switches isolate late reads, reset paging and show bundle com
   } finally {await browser.close();}
 });
 
-test("margin cards stay on bundles in single detail mode and drill into the new bundle interval", {skip:!existsSync(chrome),timeout:30000}, async () => {
+test("margin cards follow the selected kind and keep it when filtering", {skip:!existsSync(chrome),timeout:30000}, async () => {
   const {browser,page,errors}=await fixturePage();
   const metrics={dimension:"combo",comboCount:6,marginBuckets:{below38Count:1,between38And42Count:2,between42And46Count:2,atLeast46Count:1}};
   const body=(url:string,total:number)=>{
-    const payload={...response(url,total),comboMarginMetrics:metrics};
+    const payload={...response(url,total),comboMarginMetrics:metrics,productMarginMetrics:{dimension:new URL(url).searchParams.get("productKind"),productCount:6,marginBuckets:metrics.marginBuckets}};
     if (new URL(url).searchParams.getAll("marginBand").includes("38to42")) {
       if ("items" in payload) payload.items=payload.items.map(item=>({...item,costCents:5940,averageCostCents:5940,grossProfitCents:3860,grossMarginRate:.4}));
       if ("metrics" in payload) payload.metrics={...payload.metrics,grossProfitCents:3860*total,grossMarginRate:.4,marginBuckets:{below35Count:0,between35And40Count:0,between40And45Count:total,atLeast45Count:0}};
@@ -94,26 +94,50 @@ test("margin cards stay on bundles in single detail mode and drill into the new 
   try {
     await pending(page,1);await reply(page,0,body(await request(page,0),1));await pending(page,2);await reply(page,1,body(await request(page,1),1));
     const band=page.getByRole("button",{name:/实际大毛利率38%–42%/});
-    await page.getByText("2 个组合装",{exact:true}).first().waitFor();
-    assert.equal(await page.getByRole("button",{name:"单品（单一规格）",exact:true}).getAttribute("aria-pressed"),"true");
+    await page.getByText("2 个单品",{exact:true}).first().waitFor();
+    assert.equal(await page.getByRole("tab",{name:"单品",exact:true}).getAttribute("aria-selected"),"true");
     assert.equal(await page.locator(".product-cell").count(),1);
-    assert.equal(await page.getByText("2 个组合装",{exact:true}).count(),2);
+    assert.equal(await page.getByText("2 个单品",{exact:true}).count(),2);
     await band.click();await pending(page,3);
     const q=new URL(await request(page,2)).searchParams;
-    assert.equal(q.get("productKind"),"combo");assert.deepEqual(q.getAll("marginBand"),["38to42"]);
+    assert.equal(q.get("productKind"),"single");assert.deepEqual(q.getAll("marginBand"),["38to42"]);
     await reply(page,2,body(await request(page,2),2));await pending(page,4);await reply(page,3,body(await request(page,3),2));
-    await page.getByRole("button",{name:"查看构成",exact:true}).first().waitFor();
+    await page.getByRole("button",{name:"详情",exact:true}).first().waitFor();
     assert.equal(await band.getAttribute("aria-pressed"),"true");
-    assert.equal(await page.getByText("2 个组合装",{exact:true}).count(),2);
-    await page.getByRole("button",{name:"单品（单一规格）",exact:true}).click();await pending(page,5);
+    assert.equal(await page.getByText("2 个单品",{exact:true}).count(),2);
+    await page.getByRole("tab",{name:"组合装",exact:true}).click();await pending(page,5);
     await reply(page,4,body(await request(page,4),1));await pending(page,6);await reply(page,5,body(await request(page,5),1));
-    await page.getByRole("button",{name:"详情",exact:true}).waitFor();
-    assert.equal(await band.getAttribute("aria-pressed"),"false");
+    await page.getByRole("button",{name:"查看构成",exact:true}).waitFor();
+    assert.equal(await band.getAttribute("aria-pressed"),"true");
     assert.equal(await page.getByText("2 个组合装",{exact:true}).count(),2);
     for (const label of ["实际大毛利率低于38%","实际大毛利率42%–46%","实际大毛利率46%以上"]) assert.equal(await page.getByText(label,{exact:true}).count(),1);
     await page.setViewportSize({width:1440,height:1000});
     for(const file of ["styles/tokens.css","globals.css","styles/shared-theme.css"]) await page.addStyleTag({content:await readFile(new URL(`../app/${file}`,import.meta.url),"utf8")});
     await page.screenshot({path:fileURLToPath(new URL("../.runtime/product-kind/preview-margin.png",import.meta.url)),fullPage:true});
+    assert.deepEqual(errors,[]);
+  } finally {await browser.close();}
+});
+
+test("combo list includes residual singles and expands allocated child data inline", {skip:!existsSync(chrome),timeout:30000}, async () => {
+  const {browser,page,errors}=await fixturePage();
+  try {
+    await pending(page,1);await reply(page,0,response(await request(page,0),1));await pending(page,2);await reply(page,1,response(await request(page,1),1));
+    await page.getByRole("tab",{name:"组合装",exact:true}).click();await pending(page,3);
+    const payload=response(await request(page,2),2);
+    const items=(payload as ProductSummaryFullResponse).items;
+    items[1]={...items[1],productKind:"single",components:[]};
+    items[0].components=items[0].components!.map((child,i)=>({...child,sales:{netQuantity:i===0?2:1,grossSalesCents:5000,refundAmountCents:50,netSalesCents:4950,costCents:2500,feeCents:50,grossProfitCents:2450,grossMarginRate:2450/4950}}));
+    await reply(page,2,payload);await pending(page,4);await reply(page,3,response(await request(page,3),2));
+    await page.getByRole("button",{name:"展开S-0组合装构成",exact:true}).waitFor();
+    assert.equal(await page.locator(".product-cell").count(),2);
+    assert.equal(await page.getByRole("button",{name:"详情",exact:true}).count(),1);
+    assert.equal(await page.getByText("1 套",{exact:true}).count(),1);
+    const requests=await page.evaluate(()=>(window as unknown as {pending:unknown[]}).pending.length);
+    await page.getByRole("button",{name:"展开S-0组合装构成",exact:true}).click();
+    const table=page.getByRole("table",{name:"S-0组合装构成及数据",exact:true});
+    await table.waitFor();assert.equal(await table.getByText(/49\.50$/).count(),2);
+    assert.equal(await page.evaluate(()=>(window as unknown as {pending:unknown[]}).pending.length),requests);
+    await page.getByRole("button",{name:"收起S-0组合装构成",exact:true}).click();assert.equal(await table.count(),0);
     assert.deepEqual(errors,[]);
   } finally {await browser.close();}
 });
@@ -125,10 +149,10 @@ test("an interrupted distribution recovers even when the next page or refresh fa
     await reply(page,2,{error:"合成明细暂不可用",code:"service_unavailable"},503);await pending(page,4);
     assert.equal(new URL(await request(page,3)).searchParams.get("view"),"overview");
     await reply(page,3,response(await request(page,3)));
-    await page.getByText("55 个组合装",{exact:true}).waitFor();assert.equal(await page.locator(".product-cell").count(),50);
+    await page.getByText("55 个单品",{exact:true}).waitFor();assert.equal(await page.locator(".product-cell").count(),50);
     assert.equal(await page.locator(".product-kpi-grid").getAttribute("aria-busy"),"false");
     await reply(page,1,{...response(await request(page,1)),metrics:{...(response(await request(page,1)) as ProductSummaryFullResponse).metrics,marginBuckets:{below35Count:0,between35And40Count:0,between40And45Count:0,atLeast45Count:20}}});
-    assert.equal(await page.getByText("55 个组合装",{exact:true}).count(),1);
+    assert.equal(await page.getByText("55 个单品",{exact:true}).count(),1);
     await page.getByRole("button",{name:"重试明细",exact:true}).click();await pending(page,5);
     await reply(page,4,response(await request(page,4)));await page.getByText("第 2 / 2 页",{exact:true}).waitFor();
     await page.getByRole("button",{name:"排序方式",exact:true}).click();await page.getByRole("option",{name:"按订单毛利",exact:true}).click();await pending(page,6);
@@ -148,7 +172,7 @@ test("same snapshot with conflicting sales source witness fails the affected reg
     await pending(page,1);await reply(page,0,response(await request(page,0)));await pending(page,2);
     const wrong={...response(await request(page,1)),salesSourceRevision:"2:1"};await reply(page,1,wrong);
     await page.getByText("商品分布与明细全集合不一致",{exact:false}).waitFor();assert.equal(await page.locator('.product-cell').count(),50);
-    await page.getByRole('button',{name:'重试分布与筛选',exact:true}).click();await pending(page,3);await reply(page,2,response(await request(page,2)));await page.getByText('55 个组合装',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'重试分布与筛选',exact:true}).click();await pending(page,3);await reply(page,2,response(await request(page,2)));await page.getByText('55 个单品',{exact:true}).waitFor();
     await page.getByRole('button',{name:'下一页',exact:true}).click();await pending(page,4);await reply(page,3,{...response(await request(page,3)),salesSourceRevision:'2:1'});
     await page.getByText('商品分页缺少同范围汇总',{exact:false}).waitFor();assert.equal(await page.locator('.product-cell').count(),50);assert.deepEqual(errors,[]);
   } finally {await browser.close();}
@@ -159,10 +183,10 @@ test("first/new scope failures show blocked statistics, and a changed snapshot r
     await pending(page,1);await reply(page,0,{error:"合成首读失败",code:"service_unavailable"},503);
     await page.getByText("等待明细快照恢复",{exact:true}).first().waitFor();
     assert.equal(await page.locator(".product-kpi-grid").getAttribute("aria-busy"),"false");
-    await page.getByRole("button",{name:"重试明细",exact:true}).click();await pending(page,2);await reply(page,1,response(await request(page,1)));await pending(page,3);await reply(page,2,response(await request(page,2)));await page.getByText("55 个组合装",{exact:true}).waitFor();
+    await page.getByRole("button",{name:"重试明细",exact:true}).click();await pending(page,2);await reply(page,1,response(await request(page,1)));await pending(page,3);await reply(page,2,response(await request(page,2)));await page.getByText("55 个单品",{exact:true}).waitFor();
     await page.getByRole("button",{name:"改日期",exact:true}).click();await pending(page,4);await reply(page,3,{error:"合成新范围失败",code:"service_unavailable"},503);
-    await page.getByText("等待明细快照恢复",{exact:true}).first().waitFor();assert.equal(await page.locator(".product-cell").count(),0);assert.equal(await page.getByText("55 个组合装",{exact:true}).count(),0);
-    await page.getByRole("button",{name:"重试明细",exact:true}).click();await pending(page,5);await reply(page,4,response(await request(page,4)));await pending(page,6);await reply(page,5,response(await request(page,5)));await page.getByText("55 个组合装",{exact:true}).waitFor();
+    await page.getByText("等待明细快照恢复",{exact:true}).first().waitFor();assert.equal(await page.locator(".product-cell").count(),0);assert.equal(await page.getByText("55 个单品",{exact:true}).count(),0);
+    await page.getByRole("button",{name:"重试明细",exact:true}).click();await pending(page,5);await reply(page,4,response(await request(page,4)));await pending(page,6);await reply(page,5,response(await request(page,5)));await page.getByText("55 个单品",{exact:true}).waitFor();
     await page.getByRole("button",{name:"下一页",exact:true}).click();await pending(page,7);await reply(page,6,response(await request(page,6)));await page.getByText("第 2 / 2 页",{exact:true}).waitFor();
     await page.getByRole("button",{name:/同步数据/}).click();await pending(page,8);await reply(page,7,{error:"数据版本变化",code:"version_conflict"},503);await pending(page,9);
     assert.equal(new URL(await request(page,8)).searchParams.get("page"),"1");
