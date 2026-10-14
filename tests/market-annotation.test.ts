@@ -227,8 +227,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(model, /VISION_ANNOTATION_OUTPUT_TOKEN_MAX = 600/);
   assert.match(model, /VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX = 320/);
   assert.match(model, /fixedSegment \? VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX : VISION_ANNOTATION_OUTPUT_TOKEN_MAX/);
-  assert.match(model, /disableVisionThinking\(model\)/);
-  assert.match(model, /thinking: \{ type: "disabled" \}/);
+  assert.match(model, /buildOpenAiChatRequestBody/);
+  assert.match(model, /reasoningMode: "disabled"/);
   assert.match(model, /visionAnnotationTiming/);
   assert.match(model, /不要重新分类，只识别当前新主图价格/);
   assert.match(model, /boundedModelSetting\(model\.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000\)/);

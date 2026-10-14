@@ -5,11 +5,12 @@ import {
   loadAiEndpointSecurityContext,
   resolveAiModelEndpointUrl,
 } from "@/lib/ai/endpoint-security";
-import { completeText, type AiTextModelRuntimeConfig } from "@/lib/ai/model-gateway";
+import { buildOpenAiChatRequestBody, completeText, type AiTextModelRuntimeConfig } from "@/lib/ai/model-gateway";
 import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
 import { fetchAnnotationImage } from "@/lib/market/annotation-image";
 import type { AnnotationImageCacheReference } from "./annotation-cached-image";
-import { digest, parseVisionAnnotation, type VisionAnnotation } from "@/lib/market/annotation-types";
+import { digest, marketAiPriceTypes, parseVisionAnnotation, type VisionAnnotation } from "@/lib/market/annotation-types";
+import { sanitizeAnnotationFailureMessage } from "./annotation-failure";
 
 export type AnnotationModelConfig = {
   id: string; name: string; protocol: string; model_type: string; model_name: string;
@@ -49,7 +50,8 @@ export async function probeVisionModelConnection(model: AnnotationModelConfig): 
   const prompt = "请观察随请求发送的测试图片主色。segment 只能返回“红色”或“其他”；图片中没有商品价格，因此价格和价格区间返回 null，price_type 返回“无法判断”，并给出置信度和简短依据。不要根据文字猜测颜色。";
   const raw = model.protocol === "anthropic"
     ? await callAnthropicVision(model, prompt, segments, image)
-    : await callOpenAiVision(model, prompt, segments, image);
+    : await callOpenAiVision(model, prompt, segments, image, undefined, undefined, `market/probe/${crypto.randomUUID()}`);
+  validateVisionOutput(raw, segments);
   const parsed = parseVisionAnnotation(raw, segments);
   if (parsed.segment !== "红色") throw new Error("模型接口可连接，但未能识别测试图片；请确认模型标识支持图片输入");
   return "图片识别成功";
@@ -58,10 +60,12 @@ export async function probeVisionModelConnection(model: AnnotationModelConfig): 
 export async function runVisionAnnotation(input: {
   principal?: AppPrincipal; modelId: string; promptBody: string; segments: readonly string[];
   skuCode: string; productName: string; brand: string; imageUrl: string; fixedSegment?: string;
-  deadlineAt?: number;
+  deadlineAt?: number; jobId?: string;
   imageContentSha256?: string; imageCache?: AnnotationImageCacheReference | null;
 }): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string; timing: VisionAnnotationTiming }> {
   const startedAt = Date.now();
+  const measuredAt = performance.now();
+  const elapsed = (since: number) => Math.max(0, Math.round(performance.now() - since));
   const timing: VisionAnnotationTiming = { imageLoadMs: 0, imagePrepareMs: 0, modelCallMs: 0, totalMs: 0, inputBytes: 0 };
   const deadlineAt = Math.min(input.deadlineAt ?? startedAt + 140_000, startedAt + 140_000);
   const remaining = () => {
@@ -71,33 +75,33 @@ export async function runVisionAnnotation(input: {
   };
   try {
     const model = await getModel(input.modelId, "vision", input.principal, AbortSignal.timeout(Math.min(15_000, remaining())));
-    const imageLoadStartedAt = Date.now();
+    const imageLoadStartedAt = performance.now();
     const { loadAnnotationImageWithRuntime } = await import("./annotation-image-runtime");
-    const sourceImage = await loadAnnotationImageWithRuntime({ imageUrl: input.imageUrl, imageContentSha256: input.imageContentSha256, cache: input.imageCache, deadlineAt });
-    timing.imageLoadMs = Date.now() - imageLoadStartedAt;
-    const imagePrepareStartedAt = Date.now();
+    const sourceImage = await loadAnnotationImageWithRuntime({ imageUrl: input.imageUrl, imageContentSha256: input.imageContentSha256, cache: input.imageCache, deadlineAt })
+      .finally(() => { timing.imageLoadMs = elapsed(imageLoadStartedAt); });
+    const imagePrepareStartedAt = performance.now();
     let preparationTimer: ReturnType<typeof setTimeout> | undefined;
     const image = await Promise.race([
       prepareAnnotationModelImage(sourceImage),
       new Promise<never>((_resolve, reject) => { preparationTimer = setTimeout(() => reject(new Error("图片处理超时")), remaining()); }),
-    ]).finally(() => { if (preparationTimer) clearTimeout(preparationTimer); });
-    timing.imagePrepareMs = Date.now() - imagePrepareStartedAt;
+    ]).finally(() => { if (preparationTimer) clearTimeout(preparationTimer); timing.imagePrepareMs = elapsed(imagePrepareStartedAt); });
     timing.inputBytes = image.bytes.byteLength;
     const fixedSegment = input.fixedSegment?.trim() ?? "";
     if (fixedSegment && !input.segments.includes(fixedSegment)) throw new Error("历史细分品类已失效，不能执行价格专用识别");
     const outputSegments = fixedSegment ? [fixedSegment] : input.segments;
     const text = `${fixedSegment ? priceOnlyAnnotationPrompt(fixedSegment) : `${input.promptBody}\n\n允许的细分品类：${input.segments.join("、")}`}\nSKU：${input.skuCode}\n商品名称：${input.productName}\n品牌：${input.brand || "未知"}\n必须返回主图中清晰可见且可作为完整商品售价的价格（人民币元，可带两位小数；没有则 null）、价格类型、价格区间最低/最高值（同样使用人民币元）、0到1置信度和简短证据。忽略销量、优惠券面额、补贴金额、划线原价及赠品价格；分期每期金额、定金、起售价和最低规格价必须如实标记，不能冒充完整商品售价。价格类型只能是：标准售价、到手价、券后价、起售价、价格区间、定金、分期金额、最低规格价格、无法判断、明确无标价。只有图片清晰完整且确定没有商品标价时才能返回“明确无标价”，价格及区间必须为 null、置信度至少 0.9 并给出图像证据；看不清、遮挡或不能确定时返回“无法判断”。`;
-    const modelCallStartedAt = Date.now();
+    const modelCallStartedAt = performance.now();
     let raw: unknown;
     try {
       raw = model.protocol === "anthropic"
         ? await callAnthropicVision(model, text, outputSegments, image, fixedSegment ? VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX : VISION_ANNOTATION_OUTPUT_TOKEN_MAX, deadlineAt)
-        : await callOpenAiVision(model, text, outputSegments, image, fixedSegment ? VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX : VISION_ANNOTATION_OUTPUT_TOKEN_MAX, deadlineAt);
+        : await callOpenAiVision(model, text, outputSegments, image, fixedSegment ? VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX : VISION_ANNOTATION_OUTPUT_TOKEN_MAX, deadlineAt, input.jobId ? `market/job/${input.jobId}` : undefined);
     } finally {
-      timing.modelCallMs = Date.now() - modelCallStartedAt;
+      timing.modelCallMs = elapsed(modelCallStartedAt);
     }
+    validateVisionOutput(raw, outputSegments);
     const parsed = parseVisionAnnotation(raw, outputSegments);
-    timing.totalMs = Date.now() - startedAt;
+    timing.totalMs = elapsed(measuredAt);
     return {
       ...parsed,
       imageSource: image.source,
@@ -106,7 +110,7 @@ export async function runVisionAnnotation(input: {
       timing,
     };
   } catch (error) {
-    timing.totalMs = Date.now() - startedAt;
+    timing.totalMs = elapsed(measuredAt);
     throw new VisionAnnotationExecutionError(error instanceof Error ? error.message : "视觉识别失败", timing, error);
   }
 }
@@ -122,12 +126,14 @@ export type VisionAnnotationTiming = {
 export class VisionAnnotationExecutionError extends Error {
   readonly status?: number;
   readonly retryAfterMs?: number;
+  readonly failureCode?: string;
   constructor(message: string, readonly timing: VisionAnnotationTiming, cause?: unknown) {
-    super(message);
+    super(sanitizeAnnotationFailureMessage(message));
     this.name = "VisionAnnotationExecutionError";
     if (cause && typeof cause === "object") {
       if ("status" in cause) this.status = Number(cause.status);
       if ("retryAfterMs" in cause) this.retryAfterMs = Number(cause.retryAfterMs);
+      if ("failureCode" in cause && typeof cause.failureCode === "string") this.failureCode = cause.failureCode;
     }
   }
 }
@@ -191,11 +197,21 @@ function modelErrorDetail(data: unknown) {
   const message = typeof error === "string" ? error : typeof error?.message === "string" ? error.message : typeof envelope.message === "string" ? envelope.message : "";
   const code = typeof error === "object" && error && typeof error.code === "string" ? error.code : "";
   const detail = [code, message].filter(Boolean).join(" · ").replace(/\s+/g, " ").trim();
-  return detail
-    .replace(/\b(sk-|key-)[A-Za-z0-9_-]{8,}\b/gi, "$1…")
-    .replace(/(authorization\s*[:=]?\s*bearer\s+)\S+/gi, "$1…")
-    .replace(/(api[_ -]?key\s*[:=]\s*)\S+/gi, "$1…")
-    .slice(0, 180);
+  return sanitizeAnnotationFailureMessage(detail, 180);
+}
+
+function visionFailure(message: string, failureCode: "model_configuration" | "model_response") {
+  return Object.assign(new Error(message), { failureCode });
+}
+
+function confirmedConfigurationError(status: number, detail: string) {
+  if (status === 401 || status === 403) return true;
+  if (status !== 400 && status !== 404 && status !== 422) return false;
+  // A rejected image/content can be specific to one item. Only explicit model,
+  // required session, or unsupported request-option diagnostics stop the job.
+  return /(?:missing|required|invalid).{0,45}x-opencode-session|x-opencode-session.{0,45}(?:missing|required|invalid)/i.test(detail)
+    || /\b(?:model_not_found|unsupported_model|invalid_model)\b/i.test(detail)
+    || /(?:model.{0,35}(?:does not exist|not found|not supported|unsupported))|(?:(?:unsupported|not supported|unknown|unrecognized).{0,35}(?:response_format|json_schema|thinking|reasoning_effort))|(?:(?:response_format|json_schema|thinking|reasoning_effort).{0,35}(?:unsupported|not supported|not allowed))/i.test(detail);
 }
 
 function modelCallError(kind: "文本" | "视觉", status: number, data: unknown, retryAfter: string | null = null) {
@@ -203,45 +219,71 @@ function modelCallError(kind: "文本" | "视觉", status: number, data: unknown
   const hint = status === 429
     ? "模型供应商限流或额度不足，请稍后重试并检查额度"
     : status === 400
-      ? "请求被接口拒绝，请核对模型标识、图片输入及结构化输出兼容性"
+      ? "请求被接口拒绝，请核对请求参数及模型兼容性"
       : "请检查模型服务状态和接口配置";
   const parsed = retryAfter && /^\d+(?:\.\d+)?$/.test(retryAfter) ? Number(retryAfter) * 1_000 : Date.parse(retryAfter ?? "") - Date.now();
   return Object.assign(new Error(`${kind}模型调用失败（状态码 ${status}：${detail || hint}）`), {
     status, retryAfterMs: Number.isFinite(parsed) ? Math.min(300_000, Math.max(0, parsed)) : 0,
+    ...(confirmedConfigurationError(status, detail) ? { failureCode: "model_configuration" } : {}),
   });
 }
 
-async function callOpenAiVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number, deadlineAt?: number) {
+function visionSessionHeaders(endpointUrl: string, sessionIdentity?: string) {
+  const endpoint = new URL(endpointUrl);
+  if (endpoint.origin !== "https://opencode.ai" || endpoint.pathname !== "/zen/go/v1/chat/completions") return {};
+  if (!sessionIdentity || sessionIdentity.length > 200) throw visionFailure("视觉模型配置缺少有效的服务端任务会话标识", "model_configuration");
+  // Same opaque SHA session convention as Django AI provider.conversation_session.
+  // Job/probe namespaces distinguish honest task identities from connection tests.
+  return { "User-Agent": "xiaote-market/1.0", "x-opencode-session": digest(`xiaote/session/v1/${sessionIdentity}`) };
+}
+
+type OpenAiVisionEnvelope = { error?: unknown; choices?: Array<{ finish_reason?: unknown; message?: { content?: unknown; refusal?: unknown } }> };
+
+async function callOpenAiVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number, deadlineAt?: number, sessionIdentity?: string) {
   const endpointSecurityContext = await loadAiEndpointSecurityContext();
-  const endpointUrl = resolveAiModelEndpointUrl(model.base_url, "openai_compatible", endpointSecurityContext);
-  const key = await decryptSecret(model.api_key_encrypted);
+  const endpointUrl = visionEndpoint(model, "openai_compatible", endpointSecurityContext);
+  const key = await visionApiKey(model);
   if (!key) throw new Error("视觉模型 API Key 未配置");
   const content: Array<Record<string, unknown>> = [{ type: "text", text }];
   if (image) content.push({ type: "image_url", image_url: { url: `data:${image.mimeType};base64,${image.base64}`, detail: "high" } });
-  const { response, data } = await fetchJsonLimited<{ choices?: Array<{ message?: { content?: string | Array<{ text?: string }> } }> }>(endpointUrl, {
-    method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model: model.model_name, temperature: 0,
-      max_tokens: Math.min(boundedModelSetting(model.max_tokens, VISION_ANNOTATION_OUTPUT_TOKEN_MAX, 128, 1_600), outputTokenCap ?? VISION_ANNOTATION_OUTPUT_TOKEN_MAX),
-      ...(disableVisionThinking(model) ? { thinking: { type: "disabled" } } : {}),
+  const { response, data } = await fetchJsonLimited<OpenAiVisionEnvelope>(endpointUrl, {
+    method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${key}`, ...visionSessionHeaders(endpointUrl, sessionIdentity) },
+    body: JSON.stringify(buildOpenAiChatRequestBody({
+      modelName: model.model_name, temperature: 0,
+      maxTokens: Math.min(boundedModelSetting(model.max_tokens, VISION_ANNOTATION_OUTPUT_TOKEN_MAX, 128, 1_600), outputTokenCap ?? VISION_ANNOTATION_OUTPUT_TOKEN_MAX),
+      // Annotation extraction has its own fixed reasoning policy; saved settings
+      // and other AI functions retain their configured reasoning behavior.
+      reasoningMode: "disabled",
+    }, {
       messages: [{ role: "user", content }],
       response_format: { type: "json_schema", json_schema: { name: "market_sku_annotation", strict: true, schema: annotationJsonSchema(segments) } },
-    }),
+    })),
   }, visionRequestTimeout(model, deadlineAt));
   if (!response.ok) throw modelCallError("视觉", response.status, data, response.headers.get("retry-after"));
-  const contentValue = data?.choices?.[0]?.message?.content;
-  return typeof contentValue === "string" ? contentValue : contentValue?.map((part) => part.text ?? "").join("") || "";
+  if (data?.error) throw visionFailure(`视觉模型响应包含供应商错误：${modelErrorDetail(data) || "未产生识别结果"}`, confirmedConfigurationError(400, modelErrorDetail(data)) ? "model_configuration" : "model_response");
+  if (!Array.isArray(data?.choices) || data.choices.length !== 1) throw visionFailure("视觉模型响应 choices 无效", "model_response");
+  const choice = data.choices[0];
+  if (!choice || typeof choice !== "object" || Array.isArray(choice)) throw visionFailure("视觉模型响应 choice 无效", "model_response");
+  if (choice.finish_reason === "length") throw visionFailure("视觉模型输出截断（finish_reason=length）", "model_response");
+  if (choice.finish_reason !== "stop") throw visionFailure("视觉模型响应缺少正常完成状态", "model_response");
+  if (!choice.message || choice.message.refusal) throw visionFailure("视觉模型响应未提供可用正文", "model_response");
+  const contentValue = choice.message.content;
+  const answer = typeof contentValue === "string" ? contentValue : Array.isArray(contentValue)
+    && contentValue.every((part) => part && typeof part === "object" && part.type === "text" && typeof part.text === "string")
+    ? contentValue.map((part) => part.text).join("") : "";
+  if (!answer.trim()) throw visionFailure("视觉模型响应正文为空", "model_response");
+  return answer;
 }
 
 async function callAnthropicVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number, deadlineAt?: number) {
   const endpointSecurityContext = await loadAiEndpointSecurityContext();
-  const endpointUrl = resolveAiModelEndpointUrl(model.base_url, "anthropic", endpointSecurityContext);
-  const key = await decryptSecret(model.api_key_encrypted);
+  const endpointUrl = visionEndpoint(model, "anthropic", endpointSecurityContext);
+  const key = await visionApiKey(model);
   if (!key) throw new Error("视觉模型 API Key 未配置");
   const content: Array<Record<string, unknown>> = [];
   if (image) content.push({ type: "image", source: { type: "base64", media_type: image.mimeType, data: image.base64 } });
   content.push({ type: "text", text });
-  const { response, data } = await fetchJsonLimited<{ content?: Array<{ type?: string; name?: string; input?: unknown }> }>(endpointUrl, {
+  const { response, data } = await fetchJsonLimited<{ error?: unknown; stop_reason?: unknown; content?: Array<{ type?: string; name?: string; input?: unknown }> }>(endpointUrl, {
     method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model: model.model_name, max_tokens: Math.min(boundedModelSetting(model.max_tokens, VISION_ANNOTATION_OUTPUT_TOKEN_MAX, 128, 1_600), outputTokenCap ?? VISION_ANNOTATION_OUTPUT_TOKEN_MAX), messages: [{ role: "user", content }],
@@ -250,9 +292,23 @@ async function callAnthropicVision(model: ModelRow, text: string, segments: read
     }),
   }, visionRequestTimeout(model, deadlineAt));
   if (!response.ok) throw modelCallError("视觉", response.status, data, response.headers.get("retry-after"));
-  const tool = data?.content?.find((part) => part.type === "tool_use" && part.name === "submit_market_sku_annotation");
-  if (!tool?.input) throw new Error("Anthropic 视觉模型没有返回结构化工具结果");
+  if (data?.error) throw visionFailure(`Anthropic 视觉模型响应包含供应商错误：${modelErrorDetail(data) || "未产生识别结果"}`, confirmedConfigurationError(400, modelErrorDetail(data)) ? "model_configuration" : "model_response");
+  if (data?.stop_reason === "max_tokens") throw visionFailure("Anthropic 视觉模型输出截断（stop_reason=max_tokens）", "model_response");
+  if (data?.stop_reason !== "tool_use" || !Array.isArray(data.content)) throw visionFailure("Anthropic 视觉模型响应缺少正常工具完成状态", "model_response");
+  const tools = data.content.filter((part) => part?.type === "tool_use");
+  const tool = tools[0];
+  if (tools.length !== 1 || tool?.name !== "submit_market_sku_annotation" || !tool.input) throw visionFailure("Anthropic 视觉模型没有返回唯一结构化工具结果", "model_response");
   return tool.input;
+}
+
+function visionEndpoint(model: ModelRow, protocol: "openai_compatible" | "anthropic", context: Awaited<ReturnType<typeof loadAiEndpointSecurityContext>>) {
+  try { return resolveAiModelEndpointUrl(model.base_url, protocol, context); }
+  catch { throw visionFailure("视觉模型配置的接口地址未通过安全校验", "model_configuration"); }
+}
+
+async function visionApiKey(model: ModelRow) {
+  try { return await decryptSecret(model.api_key_encrypted); }
+  catch { throw visionFailure("视觉模型配置的 API Key 无法解密", "model_configuration"); }
 }
 
 function visionRequestTimeout(model: ModelRow, deadlineAt?: number) {
@@ -261,10 +317,22 @@ function visionRequestTimeout(model: ModelRow, deadlineAt?: number) {
   return Math.min(remaining, boundedModelSetting(model.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000), VISION_ANNOTATION_TIMEOUT_MAX_MS);
 }
 
-function disableVisionThinking(model: ModelRow) {
-  // 标注是严格 JSON 的分类/抽取任务。豆包 Seed 的默认思考会明显增加首 token
-  // 与完整响应时间，但不会改变可用枚举；显式关闭后仍由 schema 和人工复核兜底。
-  return model.reasoning_mode === "disabled" || /^doubao-seed-/i.test(model.model_name.trim());
+function validateVisionOutput(raw: unknown, segments: readonly string[]) {
+  let value = raw;
+  if (typeof raw === "string") {
+    try { value = JSON.parse(raw); } catch { throw visionFailure("视觉模型没有返回严格 JSON", "model_response"); }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw visionFailure("视觉模型结果必须是 JSON 对象", "model_response");
+  const record = value as Record<string, unknown>;
+  const required = ["segment", "image_price_yuan", "price_type", "price_low_yuan", "price_high_yuan", "confidence", "reason"];
+  if (Object.keys(record).length !== required.length || required.some((key) => !Object.hasOwn(record, key))) throw visionFailure("视觉模型结果字段与严格 schema 不一致", "model_response");
+  if (typeof record.segment !== "string" || !segments.includes(record.segment)) throw visionFailure("视觉模型品类枚举无效", "model_response");
+  if (typeof record.price_type !== "string" || !(marketAiPriceTypes as readonly string[]).includes(record.price_type)) throw visionFailure("视觉模型价格类型无效", "model_response");
+  for (const key of ["image_price_yuan", "price_low_yuan", "price_high_yuan"]) {
+    const price = record[key];
+    if (price !== null && (typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 1_000_000)) throw visionFailure("视觉模型价格必须是数字或 null", "model_response");
+  }
+  if (typeof record.confidence !== "number" || !Number.isFinite(record.confidence) || record.confidence < 0 || record.confidence > 1 || typeof record.reason !== "string") throw visionFailure("视觉模型 confidence 或证据类型无效", "model_response");
 }
 
 function annotationJsonSchema(segments: readonly string[]) {
@@ -282,26 +350,27 @@ async function fetchJsonLimited<T>(url: string, init: RequestInit, timeoutMs: nu
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { ...init, redirect: "manual", signal: controller.signal });
-    if (response.status >= 300 && response.status < 400) throw new Error("模型接口禁止重定向");
+    if (response.status >= 300 && response.status < 400) throw visionFailure("模型接口禁止重定向", "model_configuration");
     const declared = response.headers.get("content-length");
-    if (declared && (!/^\d+$/.test(declared.trim()) || Number(declared) > MODEL_RESPONSE_MAX_BYTES)) throw new Error("模型响应超过安全上限");
+    if (declared && (!/^\d+$/.test(declared.trim()) || Number(declared) > MODEL_RESPONSE_MAX_BYTES)) throw Object.assign(new Error("模型响应未完整读取，声明大小无效或超过安全上限，推理结果未知"), { failureCode: "inference_result_unknown" });
     const bytes = await readBodyLimited(response, MODEL_RESPONSE_MAX_BYTES);
     let data: T | null = null;
     try { data = JSON.parse(new TextDecoder().decode(bytes)) as T; } catch {
-      if (response.ok) throw new Error("模型响应不是有效 JSON");
+      if (response.ok) throw visionFailure("模型响应不是有效 JSON", "model_response");
     }
     return { response, data };
   } catch (error) {
-    if (controller.signal.aborted) throw new Error("模型调用超时");
-    if (error instanceof Error && /^(模型接口禁止重定向|模型响应超过安全上限|模型响应不是有效 JSON)/.test(error.message)) throw error;
-    throw new Error("模型接口网络错误");
+    if (error && typeof error === "object" && "failureCode" in error) throw error;
+    // POST is never replayed. Missing acknowledgement cannot prove that model
+    // inference did not happen; isolate the current lease's unknown result.
+    throw Object.assign(new Error(controller.signal.aborted ? "模型请求已发出但调用超时，推理结果未知" : "模型请求已发出但未完整收到响应，推理结果未知"), { failureCode: "inference_result_unknown" });
   } finally { clearTimeout(timer); }
 }
 
 async function readBodyLimited(response: Response, maxBytes: number): Promise<Uint8Array> {
   if (!response.body) {
     const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > maxBytes) throw new Error("模型响应超过安全上限");
+    if (bytes.byteLength > maxBytes) throw Object.assign(new Error("模型响应超过安全上限，推理结果未知"), { failureCode: "inference_result_unknown" });
     return bytes;
   }
   const reader = response.body.getReader();
@@ -312,7 +381,7 @@ async function readBodyLimited(response: Response, maxBytes: number): Promise<Ui
     if (done) break;
     if (!value) continue;
     size += value.byteLength;
-    if (size > maxBytes) { await reader.cancel().catch(() => undefined); throw new Error("模型响应超过安全上限"); }
+    if (size > maxBytes) { await reader.cancel().catch(() => undefined); throw Object.assign(new Error("模型响应未完整读取且超过安全上限，推理结果未知"), { failureCode: "inference_result_unknown" }); }
     chunks.push(value);
   }
   const bytes = new Uint8Array(size);
