@@ -12,6 +12,7 @@ import { assertClosedPreflight, preflightClosurePath, jackyunWorkflowId, inspect
 import { runJackyunExportFirstAction } from "../tools/jackyun-export-first-pipeline";
 import { readRecoveryControl, recoveryProtocol, type RecoveryRequest } from "../lib/jackyun/recovery-control";
 import { importRecoveryScope } from "../lib/jackyun/publication-baseline";
+import type { BoundHumanAuthority, HumanRetryAuthority } from "../lib/jackyun/human-retry";
 
 const missing = "waiting_login：吉客云 DPAPI 凭据配置或解密未完成（missing）。";
 const challenge = "waiting_login：吉客云登录已停止（challenge_present）。";
@@ -229,6 +230,45 @@ test("browser PID operator closure is create-only, preserves the exact error and
   assert.deepEqual(await readFile(f.activePath), originalActive);
   await mkdir(path.join(f.download, "jackyun", f.plan.runId), { recursive: true });
   await assert.rejects(assertClosedPreflight(f.root, "9000"), /禁止/);
+});
+
+test("existing legacy closure is reused by unified manual and automatic collection without replacing history", async t => {
+  for (const human of [false, true]) {
+    const f = await fixture(t, human ? browserPidMismatch : "API_LOGIN_PAGE_NOT_UNIQUE", human ? "webhook" : "trigger");
+    const evidence = f.recovery.readEvidence("9000", "9001").evidence;
+    const proposal = await inspectPreflightClosure(f.root, "9000", evidence, at);
+    await publishPreflightClosure(f.root, proposal, evidence, recoverySha(JSON.stringify(proposal)));
+    const closurePath = preflightClosurePath(f.root, "9000"), original = await readFile(closurePath);
+    const authority: HumanRetryAuthority = { ok: true, version: "jackyun-human-retry-authority-v1", authorizationId: "12345678-1234-4234-8234-123456789abc",
+      workflowId: jackyunWorkflowId, kind: "retry", logicalExecutionId: "9000", failedExecutionId: "9000", createdAt: "2026-09-28T00:59:00.000Z", expiresAt: "2026-09-28T02:00:00.000Z" };
+    const humanAuthority: BoundHumanAuthority = { authority, executionId: "9001", proofDigest: recoverySha(JSON.stringify(authority)) };
+    let exports = 0;
+    const result = await runJackyunExportFirstAction("plan-api", "9001", { ...f.deps,
+      recoveryRequest: { version: recoveryProtocol, kind: "retry", logicalExecutionId: "9000", failedExecutionId: "9000" },
+      recoveryEvidence: f.recovery.readEvidence, readOwnerState: () => "error", request: baselineRequest(),
+      ...(human ? { humanAuthority } : {}), runApi: async () => { exports++; throw new Error("A must not export"); } });
+    assert.equal(result.runId, "n8n-export-first-9001");
+    assert.equal(JSON.parse(await readFile(f.activePath, "utf8")).executionId, "9001");
+    assert.equal((await readRecoveryControl(f.root, "9000"))?.record.sourceExecutionId, "9001");
+    assert.deepEqual(await readFile(closurePath), original);
+    assert.equal(exports, 0);
+    await assert.rejects(runJackyunExportFirstAction("export-all", "9000", f.deps));
+  }
+});
+
+test("existing legacy closure with changed proof cannot be reused or overwritten", async t => {
+  const f = await fixture(t, "API_LOGIN_PAGE_NOT_UNIQUE", "trigger");
+  const evidence = f.recovery.readEvidence("9000", "9001").evidence;
+  const proposal = await inspectPreflightClosure(f.root, "9000", evidence, at);
+  await publishPreflightClosure(f.root, proposal, evidence, recoverySha(JSON.stringify(proposal)));
+  const closurePath = preflightClosurePath(f.root, "9000");
+  await writeFile(closurePath, JSON.stringify({ ...proposal, planSha256: "0".repeat(64) }));
+  const changed = await readFile(closurePath), active = await readFile(f.activePath);
+  await assert.rejects(runJackyunExportFirstAction("plan-api", "9001", { ...f.deps,
+    recoveryRequest: { version: recoveryProtocol, kind: "retry", logicalExecutionId: "9000", failedExecutionId: "9000" },
+    recoveryEvidence: f.recovery.readEvidence, readOwnerState: () => "error", request: baselineRequest() }));
+  assert.deepEqual(await readFile(closurePath), changed);
+  assert.deepEqual(await readFile(f.activePath), active);
 });
 
 test("browser PID recovery rejects any business effect, concurrent run, wrong stage or lookalike error", async t => {
