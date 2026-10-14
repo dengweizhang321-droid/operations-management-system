@@ -230,7 +230,7 @@ def _snapshot_token(
 ) -> str:
     raw = json.dumps(
         {
-            "version": 6,
+            "version": 7,
             "salesRevision": sales_revision,
             "productRevision": product_revision,
             "inventoryRevision": control.active_revision,
@@ -549,7 +549,8 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
                 groups = combination_performance(principal, str(period["startDate"]),
                     (date.fromisoformat(str(period["endDate"])) + timedelta(days=1)).isoformat(),
                     options["platforms"], options["shops"], loaded_control.active_revision)
-                performance = groups[options["productKind"]]
+                performance = ({**groups["single"], **groups["combo"]}
+                    if options["productKind"] == "combo" else groups["single"])
                 combo_rows = [_merge(row, erp.get(code), inventory.get(code), shipping.get(code))
                     for code, row in groups["combo"].items()]
                 for group in groups.values():
@@ -575,7 +576,7 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
             # inline while still sending only this one requested page of rows.
             if not reusable:
                 return payload
-            return {k:v for k,v in {**payload, "projection": "initial-page"}.items() if k not in {"metrics", "filters", "comboMarginMetrics"}}
+            return {k:v for k,v in {**payload, "projection": "initial-page"}.items() if k not in {"metrics", "filters", "comboMarginMetrics", "productMarginMetrics"}}
         if options["projection"] == "overview":
             return {k:v for k,v in {**payload, "projection": "overview"}.items() if k != "items"}
         return payload
@@ -628,6 +629,8 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
             },
             "metrics": empty_metrics(),
             **({"comboMarginMetrics": combo_margin_metrics([])} if options["productKind"] else {}),
+            **({"productMarginMetrics": {"dimension": options["productKind"], "productCount": 0,
+                "marginBuckets": combo_margin_metrics([])["marginBuckets"]}} if options["productKind"] else {}),
         })
 
     data_start = freshness.get("dataStartDate")
@@ -644,10 +647,13 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
     keywords = list(dict.fromkeys(value.lower() for value in re.split(r"[\s,，;；]+", str(options["query"])) if value))
     facet_rows = [row for row in all_rows if _matches_text(row, keywords)]
     combo_facets = [row for row in base["comboRows"] if _matches_text(row, keywords)]
-    # Card counts always describe bundles, independent of the detail type and
-    # selected margin bands; clicking a card drills into that bundle band.
+    # Keep legacy bundle metrics for existing consumers; the page uses the
+    # selected-kind distribution, independent of selected margin bands.
     combo_filtered = [row for row in combo_facets
         if not options["categories"] or row["category"] in options["categories"]]
+    kind_filtered = [row for row in facet_rows
+        if row.get("product_kind") == options["productKind"]
+        and (not options["categories"] or row["category"] in options["categories"])]
     filtered = [
         row
         for row in facet_rows
@@ -754,4 +760,7 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
         },
         "metrics": metrics,
         **({"comboMarginMetrics": combo_margin_metrics(combo_filtered)} if options["productKind"] and needs_metrics else {}),
+        **({"productMarginMetrics": {"dimension": options["productKind"], "productCount": len(kind_filtered),
+            "marginBuckets": combo_margin_metrics(kind_filtered)["marginBuckets"]}}
+            if options["productKind"] and needs_metrics else {}),
     })

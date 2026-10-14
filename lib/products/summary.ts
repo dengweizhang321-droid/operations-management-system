@@ -17,7 +17,11 @@ export { ProductSummaryContractError as ProductSummaryRequestError } from "@/lib
 
 export type ProductSummaryItem = {
   productKind?: "single" | "combo";
-  components?: Array<{ productCode: string; productName: string; quantity: number }>;
+  components?: Array<{ productCode: string; productName: string; quantity: number; sales: {
+    netQuantity: number; grossSalesCents: number; refundAmountCents: number;
+    netSalesCents: number; costCents: number; feeCents: number; grossProfitCents: number;
+    grossMarginRate: number | null;
+  } | null }>;
   productCode: string;
   productName: string;
   brand: string;
@@ -94,6 +98,11 @@ export type ProductSummaryMetrics = {
 };
 
 export type ProductSummaryFullResponse = {
+  productMarginMetrics?: {
+    dimension: "single" | "combo";
+    productCount: number;
+    marginBuckets: { below38Count: number; between38And42Count: number; between42And46Count: number; atLeast46Count: number };
+  };
   comboMarginMetrics?: {
     dimension: "combo";
     comboCount: number;

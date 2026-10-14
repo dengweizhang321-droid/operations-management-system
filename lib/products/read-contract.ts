@@ -21,10 +21,19 @@ export function decodeProductRead(value: unknown, request: URLSearchParams): Pro
   if (p.projection !== "overview") {
     if (!Array.isArray(p.items) || p.items.length !== pg.returned || new Set(p.items.map(i=>i.productCode)).size !== p.items.length) throw new Error("商品明细不完整或重复");
     for (const item of p.items) {
-      if (p.productKind && (item.productKind !== p.productKind || !Array.isArray(item.components)
+      if (p.productKind && ((item.productKind !== p.productKind && !(p.productKind === "combo" && item.productKind === "single")) || !Array.isArray(item.components)
         || (item.productKind === "combo" && item.components.length === 0)
         || item.components.some(child => !child || typeof child.productCode !== "string" || !child.productCode
           || typeof child.productName !== "string" || !Number.isFinite(child.quantity) || child.quantity <= 0))) throw new Error("商品组合装构成无效");
+      if (p.productKind && item.components?.some(child => child.sales !== null && (!child.sales
+        || ["netQuantity", "grossSalesCents", "refundAmountCents", "netSalesCents", "costCents", "feeCents", "grossProfitCents"].some(field => !Number.isSafeInteger(child.sales?.[field as keyof typeof child.sales]))
+        || (child.sales.grossMarginRate !== null && !Number.isFinite(child.sales.grossMarginRate))))) throw new Error("组合装子件数据无效");
+      if (p.productKind && item.productKind === "single" && item.components?.length) throw new Error("单品不能包含组合装子件");
+      if (p.productKind && item.productKind === "combo" && item.components?.every(child => child.sales !== null)) {
+        for (const field of ["grossSalesCents", "refundAmountCents", "netSalesCents", "costCents", "feeCents", "grossProfitCents"] as const) {
+          if (item.components.reduce((sum, child) => sum + child.sales![field], 0) !== item[field]) throw new Error("组合装子件金额与整套不一致");
+        }
+      }
       if (!item.productCode || !Array.isArray(item.outlets) || item.outlets.some(o=>!o || typeof o.platform !== "string" || typeof o.shop !== "string")) throw new Error("商品渠道身份无效");
       for (const field of ["productCode", "productName", "brand", "supplierName", "specification", "category"] as const) if (typeof item[field] !== "string") throw new Error("商品身份字段无效");
       for (const field of ["netQuantity", "grossSalesCents", "refundAmountCents", "netSalesCents", "costCents", "feeCents", "grossProfitCents"] as const) if (!Number.isSafeInteger(item[field])) throw new Error("商品金额或销量字段无效");
@@ -42,6 +51,10 @@ export function decodeProductRead(value: unknown, request: URLSearchParams): Pro
   }
   if (p.projection === "overview" || p.projection === "full") {
     if (request.has("productKind")) {
+      const selected = p.productMarginMetrics;
+      if (!selected || selected.dimension !== p.productKind || !Number.isSafeInteger(selected.productCount) || selected.productCount < 0 || selected.productCount > 20000 || !selected.marginBuckets) throw new Error("当前商品类型毛利分布不完整");
+      const selectedCounts = [selected.marginBuckets.below38Count, selected.marginBuckets.between38And42Count, selected.marginBuckets.between42And46Count, selected.marginBuckets.atLeast46Count];
+      if (selectedCounts.some(n => !Number.isSafeInteger(n) || n < 0 || n > selected.productCount) || selectedCounts.reduce((a,b) => a+b,0) > selected.productCount) throw new Error("当前商品类型毛利分布计数无效");
       const combo = p.comboMarginMetrics;
       if (!combo || combo.dimension !== "combo" || !Number.isSafeInteger(combo.comboCount) || combo.comboCount < 0 || combo.comboCount > 20000 || !combo.marginBuckets) throw new Error("组合装毛利分布不完整");
       const counts = [combo.marginBuckets.below38Count, combo.marginBuckets.between38And42Count, combo.marginBuckets.between42And46Count, combo.marginBuckets.atLeast46Count];

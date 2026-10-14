@@ -48,16 +48,31 @@ def infer_combinations(facts, relations):
             grossSalesCents=0, refundAmountCents=0, netSalesCents=0, costCents=0,
             feeCents=0, grossProfitCents=0, absoluteQuantity=0, absoluteCostCents=0,
             outlets=[], productKind=kind, components=[dict(productCode=r["child_code"],
-                productName=r["child_name"], quantity=r["child_quantity_milli"] / 1000)
+                productName=r["child_name"], quantity=r["child_quantity_milli"] / 1000,
+                sales=dict(netQuantity=0, grossSalesCents=0, refundAmountCents=0,
+                    **{field: 0 for field in AMOUNTS}))
                 for r in definitions[code]] if kind == "combo" else []))
-        row["netQuantity"] += quantity
-        row["absoluteQuantity"] += abs(quantity)
+        if kind == "single" or source["product_code"] == code:
+            row["netQuantity"] += quantity
+            row["absoluteQuantity"] += abs(quantity)
         for field, value in parts.items():
             row[field] += value
         sale = parts["netSalesCents"]
         row["grossSalesCents"] += max(sale, 0)
         row["refundAmountCents"] += max(-sale, 0)
         row["absoluteCostCents"] += abs(parts["costCents"])
+        if kind == "combo":
+            for child in row["components"]:
+                # A directly sold parent has no child amount allocation in
+                # the source. Never invent an allocation from ERP ratios.
+                if source["product_code"] == code:
+                    child["sales"] = None
+                elif child["productCode"] == source["product_code"] and child["sales"] is not None:
+                    child["sales"]["netQuantity"] += (-1 if source["quantity"] < 0 else 1) * quantity
+                    for field, value in parts.items():
+                        child["sales"][field] += value
+                    child["sales"]["grossSalesCents"] += max(sale, 0)
+                    child["sales"]["refundAmountCents"] += max(-sale, 0)
         outlet = dict(platform=source["platform"], shopName=source["shop_name"], channel=source["channel"])
         if outlet not in row["outlets"]:
             row["outlets"].append(outlet)
@@ -105,7 +120,7 @@ def infer_combinations(facts, relations):
                 for line in by_code[code]:
                     count = min(needed, remaining[line["source_line_key"]])
                     if count:
-                        add("combo", parent, children[0]["parent_name"] or parent, 0, take(line, count), line)
+                        add("combo", parent, children[0]["parent_name"] or parent, count, take(line, count), line)
                         needed -= count
                     if not needed:
                         break
@@ -119,6 +134,12 @@ def infer_combinations(facts, relations):
                 code = line["product_code"]
                 kind = "combo" if code in definitions else "single"
                 add(kind, code, line["product_name"] or code, sign * count, take(line, count), line)
+    for row in result["combo"].values():
+        for child in row["components"]:
+            sales = child["sales"]
+            if sales is not None:
+                sales["grossMarginRate"] = ((sales["netSalesCents"] - sales["costCents"]) / sales["netSalesCents"]
+                    if sales["netSalesCents"] > 0 else None)
     return result
 
 
