@@ -79,3 +79,12 @@
 - `prepare-legacy-helper.mjs`已绑定当前Worker `20261013T145450Z-fe391dce49a258cf` /51aefd56...与当前Django8b4，准备前后都要求Django未变。新source-binding按真实当前链重新生成，没有复用旧plan或换绑旧收据。
 - 准备成功后运行 `publish-legacy-helper.mjs plan`，核验具体计划，再 `execute`。它持原rotation锁，依次原BeginWorkerDrain → StopForRelease → 精确原applyApprovedRotationPlan → Start RequireReady → VerifyStartup → EndWorkerDrain，Django8b4/PG保持，失败保留stage记录与原gate。运行前仍须查当前helper/n8n在途，不能强杀或删除他任务。
 - 新helper采用后，需通过原机制接续8956留下的reservation。旧授权已消费8956，下一次完整重试的目标是逻辑8548/失败8956；先精确证明A无业务效果，再由正常系统入口建立新的对应授权，不重复发送旧授权。真实业务仍未成功。
+
+### 10:44 最终候选选择（优先本段）
+
+- 完整复审确认同一冲突也适用于自动credential v2/page v4闭合；两项新测试在修复前复现同一错误。最终仅复用未绑定v1/v2/v4，通过原assertClosed完整复验，绑定v3/v5/v6/v7不扩大。补充主线修复1630fb51f259d7c28adb58351b99eef1075240d0已推；最终前置回归46/46、exit0（session48854结束），日志`unbound-closures-final-regression.log`。此前5项导入响应丢失回归保留，不改称最终源码全套。
+- v1-only准备session62031已exit0，候选19974 / plan a627...未采用且不再选择；source5f和证据保留，禁止发布旧artifact子目录。
+- 最终组合目录`D:\codex-isolated\jackyun-unbound-closure-source-20261014`，分支同名codex前缀，commit22df75fdb375cd825dab6bcf2b3f6924025dcd12已推远端。它是独立source repo中的worktree，继承正确bat属性、Git干净；相较真实Worker178df20e仍仅2文件差异。
+- **当前在途exec session43808**：`prepare-legacy-helper.mjs`已指向最终unbound源码和新证据目录；日志`unbound-helper-preparation.log`、artifact子目录`unbound-helper-adoption`。生产Worker仍fe39、Django8b4、watchdog ceee。没有新停服/部署，等待此准备结果，不重开。
+- `publish-legacy-helper.mjs`与`resume-after-8956.mjs`已改为只接受最终unbound目录；prepared结果必须scope=`verified-unbound-closures-v1-v2-v4`，不会误采用v1候选。准备成功后先plan，再execute，说明见HELPER_REPAIR.md。
+- `resume-after-8956.mjs inspect`已只读通过，proof=`8956-zero-business-reservation-proof.json`；dispatch会重新完整验证，并在正常系统入口使用针对已终态8956的新授权。`observe-retry.mjs resumed-human`观察新请求。目前尚未派发第二次，不得改旧UUID或手工移动active。
