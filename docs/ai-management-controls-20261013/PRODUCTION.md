@@ -1,6 +1,6 @@
 # AI 管理发布执行状态
 
-2026-10-14（Asia/Shanghai）。用户明确授权“发布上线”，范围为模型删除、默认模型选择及工具预算自由调整；此前用户暂缓的 Agnes 流式修复继续单独保留。当前状态：尚未上线，生产切换未开始。
+2026-10-14（Asia/Shanghai）。用户明确授权“发布上线”，范围为模型删除、默认模型选择及工具预算自由调整；此前用户暂缓的 Agnes 流式修复继续单独保留。当前状态：14:17:26 发布完成，目标版本与必要服务可用已确认；下文保留各历史截点，不将旧阻断改写为成功。
 
 ## 当前生产基线与候选
 
@@ -60,3 +60,31 @@ Django 在线准备正常退出 0。逐文件实包仅 3 个后端路径及原 R
 原聊天通知新 Worker/helper 正式采用；本聊天独立回读正式进程回执及 `D:/codex-artifacts/jackyun-live-test-20261014/wrapper-helper-adoption-2/publication-result.json`：Worker 已为 `20261014T042045Z-3fa896145ddb534d` / manifest `9b55e7afe806e6f8a2ebeae3bf0610b0fddb88ca311a049d8f8c86c1eb58de6e`，来源 `8872ae460b7b4536fed6e5e505ca169143066f50`；Django 仍 `8b4fed2c…`。原结果 deployed，现场 maintenance/drain 均不存在。不把它说成 AI 已发布。
 
 原任务报告唯一真实恢复 9011 已过 A 并持有共享 helper，要求继续让业务优先。本聊天未查询经营内容或触发业务，只保持 AI 不维护、不切换、不领取发布锁，保留全部制品。旧 `54fc9b40…` plan 绑定 c3a 前驱，现已不能直接采用；后续 source 组合必须保留已上线的 `15ac8282` 前置证明兼容修复及当前 Django 内容。9011 当前运行状态属于原任务报告，业务完成与发布完成分别记录，不自行补跑或干预其 owner。
+
+## 13:13 制品完成与 13:59 发布接续
+
+原聊天确认优先窗口结束；独立回读其完成证据，9011 为 success、helper 为 idle。本次不重放业务。实际 Worker 前驱为 `20261014T042045Z-3fa896145ddb534d` / manifest `9b55e7afe806e6f8a2ebeae3bf0610b0fddb88ca311a049d8f8c86c1eb58de6e`，Django 仍为 `8b4fed2c3cb8e0206ae8cc492e15f9646ef2dbbd7bbccde2b386fe9770ce02ac`。
+
+以当前 Worker 实际来源 `8872ae460b7b4536fed6e5e505ca169143066f50` 和当前 Django 的两工作流文件组成基线 `71d3ce4e2ba62c909a3833e27ed6aeded72040e4`，叠加 AI 4 文件得到 `860fd97025ac4e1e92cc64903e70bc09c5b2cd4c`，已推远端 `codex/ai-management-after-jackyun`。保留最新 `15ac8282` helper/preflight 修复及 Django 授权回执头；4 个 AI 文件与已验证候选逐字节相同。范围计划 `3baedc45bb631ce05c940918e20f17472161aa5cf691069e1ae666e4c126ff93` 为 Worker + Django、无 migration。复用已有功能验证，不重跑综合检查。
+
+新 Worker 在线准备 12:58 启动、13:13:41 完成，准备进程 52656 正常退出、stderr 为空。原计划 `385a82a421debc486dacd639c5cc5f5341cb9151caa2fe7855f7a973af271ab7`，候选 `20261014T045841Z-0084b48bfe8257bf`，manifest `c0b19a73fbd55532f59ce158cc050458ab34c56738d417ca6147595bfbf8cf96`，guard `7beed2e681839cb4ba2deafde05c64025fa41c1d8be2c748148dd0a2163fd373`，来源绑定 `e20deddaf4ced4f2192bd8de162c84b6e6c7d0d46bdf77d0845e064c67b465f3`。Django 前驱未变，复用 b058214d 准备包及 6632f8f2 收据，不重新打包。
+
+13:57 用户要求核查停滞。现场没有发布启动记录或发布进程，旧准备进程已经退出，实际生产版本未变化；停滞是本聊天在准备完成后未接续启动发布的执行遗漏，不是尚未完成构建或生产锁错误。保留此事实，不把空档计作后台发布。13:59:06 按已有授权启动发布进程 33524，原入口取得 rotation 租约并核验上述前驱、原收据和无 active/maintenance/drain；维护 ID `63711e8e69c74faf8b1cad1e80f70967`。13:59:51 原入口建立 KeepPostgres 应用维护，按原协议排空、停止应用并切换；无 migration、业务补跑或模型配置写入。证据目录 `D:/codex-artifacts/ai-management-after-jackyun`。
+
+## 14:17 发布完成
+
+| 原步骤 | 完成时间（上海） | 结果 |
+| --- | --- | --- |
+| EnterMaintenance / KeepPostgres | 14:03:48 | exit 0；同 ID 排空和应用停止完成 |
+| Worker 原 approved plan apply | 14:10:04 | activated；目标 release/manifest 匹配 |
+| Django 原 DeployApp / b058 收据 | 14:11:59 | exit 0；目标 manifest 为 53c63261 |
+| 已安装 Django HardenAcl | 14:12:28 | exit 0 |
+| 同 ID ExitMaintenance | 14:13:05 | exit 0 |
+| 普通用户原 Start | 14:17:20 | exit 0；started，新 Worker manifest 匹配 |
+| 原 VerifyStartup | 14:17:26 | exit 0；verified / startupVerified=true |
+
+最终 `PUBLICATION_RESULT.json` 为 deployed：Worker `20261014T045841Z-0084b48bfe8257bf` / manifest `c0b19a73fbd55532f59ce158cc050458ab34c56738d417ca6147595bfbf8cf96`，Django manifest `53c63261c3d646b3dcfdb06d17c6385aa22f3b244ea9a23a7b2f7610ed3368f9`。14:18:00 必要可用性回读：3000 网页、8111 AI reader readiness、8112 AI writer readiness 均 HTTP 200，证据 `NECESSARY_AVAILABILITY.json`。发布进程 33524 已退出，publish stderr 为空，本次 failure 记录 0，maintenance/drain/active 均不存在。
+
+本次上线恢复模型删除、支持设置启用的文本/视觉默认模型、放开最大工具轮数与工具调用总数的固定产品上限；权限、进行中任务保护及有效数值校验保持。复用 53 个去重后端用例、46 个前端/工具用例及 6 项隔离浏览器检查等已记录有效结果；未重新运行这些功能检查。最新吉客云 helper/preflight 与 Django 授权回执头保留，不需要重新配对。实际密钥、默认模型和预算未改写；无新增 migration、Backup/Restore、业务补跑或供应商请求；暂缓的 Agnes 流式修复仍未夹带发布。不追加综合验收或自然看门狗等待。
+
+已将完成结果及新前驱同步至用户授权联系的原发布聊天。制品准备来源与原收据仍有追溯/恢复引用，相关 managed worktree 保留；不强制清理未完整合入或有在用引用的来源。主检出用户已有改动未修改。此次 13:13 至 13:59 的衔接空档与 13:59 至 14:17 的实际发布分开记录，后者主要耗时来自原域停止、Worker 完整校验及启动入口，不据此另插入发布工具优化。
