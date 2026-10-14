@@ -13,8 +13,9 @@ if($Attempt -eq 'native-time-retry'){
 }
 if($Attempt -eq 'drained-retry'){
  $barrier=Get-Content (Join-Path $out 'unbound-helper-adoption\worker-ready-for-monitor.json') -Raw|ConvertFrom-Json
- $gate=Get-Content 'D:\teruisi-runtime\django-sales\run\automation-drain.json' -Raw|ConvertFrom-Json
- if($DrainId -cnotmatch '^[a-f0-9]{32}$' -or $barrier.status -cne 'ready_with_drain_retained' -or $barrier.maintenanceId -cne $DrainId -or $gate.id -cne $DrainId -or $gate.phase -cne 'requests' -or $gate.keepPostgres -cne $true){throw 'Exact ready Worker drain required'}
+ $gateRaw=Get-Content 'D:\teruisi-runtime\django-sales\run\automation-drain.json' -Raw
+ if(-not $gateRaw.TrimStart().StartsWith('{')){throw 'Drain must be an object'};$gate=$gateRaw|ConvertFrom-Json
+ if($DrainId -cnotmatch '^[a-f0-9]{32}$' -or $barrier.status -cne 'ready_with_drain_retained' -or $barrier.maintenanceId -cne $DrainId -or $gate.version -cne 'teruisi-automation-drain-v1' -or $gate.runtimeRoot -cne 'D:\teruisi-runtime\django-sales' -or $gate.id -isnot [string] -or $gate.id -cne $DrainId -or $gate.phase -isnot [string] -or $gate.phase -cne 'requests' -or $gate.keepPostgres -isnot [bool] -or -not $gate.keepPostgres){throw 'Exact ready Worker drain required'}
  $remaining=@(Get-CimInstance Win32_Process -Filter "Name='pwsh.exe' OR Name='powershell.exe'"|Where-Object {$_.CommandLine -match ('versions[\\/]'+$oldBundle+'[\\/]operations-system-watchdog.ps1')})
  if($remaining.Count){throw 'Original check must finish or be independently recovered before drained installation'}
 }

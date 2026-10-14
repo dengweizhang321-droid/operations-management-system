@@ -1,8 +1,9 @@
 $ErrorActionPreference='Stop'
 $out='D:\codex-artifacts\jackyun-live-test-20261014'
 $barrier=Get-Content (Join-Path $out 'unbound-helper-adoption\worker-ready-for-monitor.json') -Raw|ConvertFrom-Json
-$gate=Get-Content 'D:\teruisi-runtime\django-sales\run\automation-drain.json' -Raw|ConvertFrom-Json
-if($barrier.status -cne 'ready_with_drain_retained' -or $barrier.maintenanceId -cne 'f1dbd359ccd54bb2aeaa77c8054ee63c' -or $gate.id -cne $barrier.maintenanceId -or $gate.phase -cne 'requests'){throw 'Exact ready drain required'}
+$gateRaw=Get-Content 'D:\teruisi-runtime\django-sales\run\automation-drain.json' -Raw
+if(-not $gateRaw.TrimStart().StartsWith('{')){throw 'Drain must be an object'};$gate=$gateRaw|ConvertFrom-Json
+if($barrier.status -cne 'ready_with_drain_retained' -or $barrier.maintenanceId -cne 'f1dbd359ccd54bb2aeaa77c8054ee63c' -or $gate.version -cne 'teruisi-automation-drain-v1' -or $gate.runtimeRoot -cne 'D:\teruisi-runtime\django-sales' -or $gate.id -isnot [string] -or $gate.id -cne $barrier.maintenanceId -or $gate.phase -isnot [string] -or $gate.phase -cne 'requests' -or $gate.keepPostgres -isnot [bool] -or -not $gate.keepPostgres){throw 'Exact ready drain required'}
 $taskName='TERUISI Operations Watchdog'
 $oldRoot='D:\teruisi-runtime\operations-watchdog\versions\ceee38dabd66ea9cc77622679d35bf601367f0582ac00fcfe5074dc10940c940'
 $task=Get-ScheduledTask -TaskName $taskName
