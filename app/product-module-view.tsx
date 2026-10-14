@@ -30,15 +30,8 @@ import {
 
 type ProductTab = ModuleViewKey<"product">;
 type ProductCalculatorInput = { salePrice: number; unitCost: number; feeRate: number; promotionCost: number };
-type ProductMarginFilter = "低于38%" | "38%-42%" | "42%-46%" | "46%以上" | "暂无有效毛利率";
+type ProductMarginFilter = "低于35%" | "35%-40%" | "40%-45%" | "45%以上" | "暂无有效毛利率";
 type ProductDetailSnapshot = { requestKey: string; detail: SalesSummaryResponse };
-
-function ComboDetailView({ item, onBack }: { item: ProductSummaryItem; onBack: () => void }) {
-  return <section className="panel product-filter-panel">
-    <div className="table-toolbar"><div><button type="button" className="product-detail-back" onClick={onBack}>← 返回商品经营</button><h2>{item.productName} · 组合装构成</h2><p>组合装编号：{item.productCode}。以下为当前配比；历史订单也按当前配比推断。订单明细没有组合装编号，暂不提供逐日趋势。</p></div></div>
-    <div className="data-table-wrap"><table className="data-table"><thead><tr><th>子件编号</th><th>子件名称</th><th>每套数量（件）</th></tr></thead><tbody>{item.components?.map(child => <tr key={child.productCode}><td>{child.productCode}</td><td>{child.productName || child.productCode}</td><td>{formatCount(child.quantity)}</td></tr>)}</tbody></table></div>
-  </section>;
-}
 const productSortLabels = {
   netSalesCents: "销售净额", grossProfitCents: "订单毛利", grossMarginRate: "实际毛利率",
   refundRate: "退货率", stockValueCents: "库存货值", netQuantity: "净销量",
@@ -69,7 +62,7 @@ function ProductDetailView({
     <section className="panel product-detail-heading">
       <button type="button" className="product-detail-back" onClick={onBack}>← 返回商品经营</button>
       <div className="product-detail-heading-main"><div className="product-thumb gradient-thumb">{item.productName.slice(0, 1) || "货"}</div><div><span className="eyebrow">SPECIFICATION DETAIL</span><h2 title={item.productName}>{item.productName}</h2><p><b>规格代码：{item.productCode}</b>{item.specification ? ` · ${item.specification}` : " · 默认规格"}</p></div></div>
-      <div className="product-detail-heading-meta"><strong>{rangeLabel}</strong><span>{detail ? `${detail.startDate} 至 ${detail.endDate}` : "正在载入统计周期"}</span><small>可通过上方周期切换查看趋势；此处按规格原始订单统计，包含作为组合装子件的销量</small></div>
+      <div className="product-detail-heading-meta"><strong>{rangeLabel}</strong><span>{detail ? `${detail.startDate} 至 ${detail.endDate}` : "正在载入统计周期"}</span><small>可通过上方周期切换查看趋势</small></div>
     </section>
 
     {waitingForSummary && <section className="panel data-state product-detail-state" role="status"><strong>等待当前范围的商品快照</strong><p>快照校验完成后读取规格详情。</p><button className="secondary-button" onClick={onRetry}>重新加载</button></section>}
@@ -104,8 +97,6 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [productKind, setProductKind] = useState<"single" | "combo">("single");
-  const effectiveProductKind = productKind;
   const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
   const [platformFilters, setPlatformFilters] = useState<string[]>([]);
   const [shopFilters, setShopFilters] = useState<string[]>([]);
@@ -133,14 +124,13 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
   const productDetailControllerRef = useRef<AbortController | null>(null);
   const debouncedProductQuery = useDebouncedValue(query);
   const marginFilterKeys = useMemo(() => marginFilters.map((value) => ({
-    "低于38%": "below38",
-    "38%-42%": "38to42",
-    "42%-46%": "42to46",
-    "46%以上": "atLeast46",
+    "低于35%": "below35",
+    "35%-40%": "35to40",
+    "40%-45%": "40to45",
+    "45%以上": "atLeast45",
     "暂无有效毛利率": "unavailable",
   }[value])), [marginFilters]);
   const productPageScopeKey = useMemo(() => JSON.stringify({
-    productKind: effectiveProductKind,
     startDate: customStartDate,
     endDate: customEndDate,
     query: debouncedProductQuery.trim(),
@@ -149,15 +139,14 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
     platforms: [...platformFilters].sort(),
     shops: [...shopFilters].sort(),
     sortBy,
-  }), [effectiveProductKind, categoryFilters, customEndDate, customStartDate, debouncedProductQuery, marginFilterKeys, platformFilters, shopFilters, sortBy]);
+  }), [categoryFilters, customEndDate, customStartDate, debouncedProductQuery, marginFilterKeys, platformFilters, shopFilters, sortBy]);
   const [committedProductPageScopeKey, setCommittedProductPageScopeKey] = useState(productPageScopeKey);
   const effectiveProductPage = effectivePageForScope(productPage, productPageScopeKey, committedProductPageScopeKey);
   const bootstrapKey = useMemo(() => JSON.stringify({
-    productKind: effectiveProductKind,
     startDate: customStartDate, endDate: customEndDate, query: debouncedProductQuery.trim(),
     categories: [...categoryFilters].sort(), marginBands: [...marginFilterKeys].sort(),
     platforms: [...platformFilters].sort(), shops: [...shopFilters].sort(),
-  }), [effectiveProductKind, customStartDate, customEndDate, debouncedProductQuery, categoryFilters, marginFilterKeys, platformFilters, shopFilters]);
+  }), [customStartDate, customEndDate, debouncedProductQuery, categoryFilters, marginFilterKeys, platformFilters, shopFilters]);
   // Hide old scopes synchronously, before the effect starts the next request.
   const summary = summaryScope === bootstrapKey ? storedSummary : null;
   const currentOverview = summary && overviewScope === bootstrapKey && overview?.snapshotToken === summary.snapshotToken ? overview : null;
@@ -176,7 +165,6 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
   };
   const automatic = useAutomaticFilter({ draft, pending, scope: filterDraftKey, onApply: () => applyFilters() });
   const resetFilters = () => {
-    setProductKind("single");
     setDraft({ query: "", categoryFilters: [], platformFilters: [], shopFilters: [], marginFilters: [] });
     text.setDraft(""); setQuery(""); setCategoryFilters([]); setPlatformFilters([]);
     setShopFilters([]); setMarginFilters([]); setProductPage(1);
@@ -212,7 +200,6 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
     };
     try {
       const params = new URLSearchParams({ range: "custom", startDate: customStartDate, endDate: customEndDate, page: String(effectiveProductPage), pageSize: "50" });
-      if (effectiveProductKind) params.set("productKind", effectiveProductKind);
       if (debouncedProductQuery.trim()) params.set("q", debouncedProductQuery.trim());
       categoryFilters.forEach((category) => params.append("category", category));
       marginFilterKeys.forEach((margin) => params.append("marginBand", margin));
@@ -296,7 +283,7 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
         if (productSummaryControllerRef.current === controller) productSummaryControllerRef.current = null;
       }
     }
-  }, [effectiveProductKind, bootstrapKey, categoryFilters, customEndDate, customStartDate, debouncedProductQuery, effectiveProductPage, marginFilterKeys, platformFilters, shopFilters, sortBy]);
+  }, [bootstrapKey, categoryFilters, customEndDate, customStartDate, debouncedProductQuery, effectiveProductPage, marginFilterKeys, platformFilters, shopFilters, sortBy]);
 
   const queryConfirmationPending = query !== debouncedProductQuery;
   useEffect(() => {
@@ -336,12 +323,12 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
     period: detailOpen ? (detailStartDate && detailEndDate ? { startDate: detailStartDate, endDate: detailEndDate } : null) : { startDate: customStartDate, endDate: customEndDate },
     filters: detailOpen
       ? { dataset: "sales_summary", productCodes: detailProductCode ? [detailProductCode] : [] }
-      : { dataset: "product_performance", productKind: effectiveProductKind, query: debouncedProductQuery.trim(), platforms: platformFilters, shops: shopFilters, categories: categoryFilters, marginFilterKeys,
+      : { dataset: "product_performance", query: debouncedProductQuery.trim(), platforms: platformFilters, shops: shopFilters, categories: categoryFilters, marginFilterKeys,
         ...(activeTab === "calculator" && selectedProduct ? { selectedIds: [selectedProduct.productCode] } : {}) },
   });
 
   const loadProductDetail = useCallback(async () => {
-    if (detailItem?.productKind === "combo" || !detailProductCode || !detailStartDate || !detailEndDate) return;
+    if (!detailProductCode || !detailStartDate || !detailEndDate) return;
     const requestedProductCode = detailProductCode;
     const requestedStartDate = detailStartDate;
     const requestedEndDate = detailEndDate;
@@ -382,7 +369,7 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
         if (productDetailControllerRef.current === controller) productDetailControllerRef.current = null;
       }
     }
-  }, [detailItem?.productKind, detailEndDate, detailProductCode, detailStartDate, detailRequestKey, detailSalesRevision]);
+  }, [detailEndDate, detailProductCode, detailStartDate, detailRequestKey, detailSalesRevision]);
   useEffect(() => {
     if (!detailOpen || !detailProductCode || !detailStartDate || !detailEndDate) return;
     void loadProductDetail();
@@ -437,17 +424,17 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
     const shops = applied.shops.map((shop) => `${shop.platform} · ${shop.shop}`);
     return shops.length > 0 ? shops.join("；") : applied.platforms.join("、");
   }, [summary?.filtersApplied]);
-  const marginBuckets = currentOverview?.comboMarginMetrics?.marginBuckets ?? {
-    below38Count: 0,
-    between38And42Count: 0,
-    between42And46Count: 0,
-    atLeast46Count: 0,
+  const marginBuckets = currentOverview?.metrics.marginBuckets ?? {
+    below35Count: 0,
+    between35And40Count: 0,
+    between40And45Count: 0,
+    atLeast45Count: 0,
   };
   const marginBucketCards: Array<{ filter: ProductMarginFilter; label: string; value: number; note: string; tone: "blue" | "green" | "orange" | "purple"; icon: string }> = [
-    { filter: "低于38%", label: "实际大毛利率低于38%", value: marginBuckets.below38Count, note: "按组合装统计，包含低毛利与亏损组合装", tone: "orange", icon: "<38" },
-    { filter: "38%-42%", label: "实际大毛利率38%–42%", value: marginBuckets.between38And42Count, note: "按当前统计周期组合装实际大毛利率", tone: "blue", icon: "38" },
-    { filter: "42%-46%", label: "实际大毛利率42%–46%", value: marginBuckets.between42And46Count, note: "按当前统计周期组合装实际大毛利率", tone: "green", icon: "42" },
-    { filter: "46%以上", label: "实际大毛利率46%以上", value: marginBuckets.atLeast46Count, note: "按当前统计周期组合装实际大毛利率", tone: "purple", icon: "46" },
+    { filter: "低于35%", label: "实际大毛利率低于35%", value: marginBuckets.below35Count, note: "包含低毛利与亏损货品", tone: "orange", icon: "<35" },
+    { filter: "35%-40%", label: "实际大毛利率35%–40%", value: marginBuckets.between35And40Count, note: "按当前统计周期实际毛利率", tone: "blue", icon: "35" },
+    { filter: "40%-45%", label: "实际大毛利率40%–45%", value: marginBuckets.between40And45Count, note: "按当前统计周期实际毛利率", tone: "green", icon: "40" },
+    { filter: "45%以上", label: "实际大毛利率45%以上", value: marginBuckets.atLeast45Count, note: "按当前统计周期实际毛利率", tone: "purple", icon: "45" },
   ];
 
   const estimatedFee = calculator.salePrice * calculator.feeRate / 100;
@@ -466,7 +453,7 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
     setSelectedCode(productCode);
     setDetailItem(item);
     setDetailProductCode(productCode);
-    setDetailLoading(item.productKind !== "combo");
+    setDetailLoading(true);
     setDetailError("");
     setDetailOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -483,41 +470,39 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
     void loadSummary(true);
     if (detailOpen) setDetailRefreshKey((value) => value + 1);
   };
-  const subnav = <div className="subnav product-subnav" role="tablist" aria-label="商品管理子版块"><button type="button" role="tab" aria-selected={activeTab === "overview" && !detailOpen} className={activeTab === "overview" && !detailOpen ? "active" : ""} onClick={() => changeProductTab("overview")}>商品经营</button><button type="button" role="tab" aria-selected={activeTab === "calculator" && !detailOpen} className={activeTab === "calculator" && !detailOpen ? "active" : ""} onClick={() => changeProductTab("calculator")}>毛利测算</button>{detailOpen && <button type="button" role="tab" aria-selected className="active">{detailItem?.productKind === "combo" ? "组合装构成" : "规格详情"}</button>}</div>;
+  const subnav = <div className="subnav product-subnav" role="tablist" aria-label="商品管理子版块"><button type="button" role="tab" aria-selected={activeTab === "overview" && !detailOpen} className={activeTab === "overview" && !detailOpen ? "active" : ""} onClick={() => changeProductTab("overview")}>商品经营</button><button type="button" role="tab" aria-selected={activeTab === "calculator" && !detailOpen} className={activeTab === "calculator" && !detailOpen ? "active" : ""} onClick={() => changeProductTab("calculator")}>毛利测算</button>{detailOpen && <button type="button" role="tab" aria-selected className="active">规格详情</button>}</div>;
 
-  const viewOwner = JSON.stringify([activeTab, detailOpen, effectiveProductKind, customStartDate, customEndDate]);
+  const viewOwner = JSON.stringify([activeTab, detailOpen, customStartDate, customEndDate]);
   return (
     <>
       {subnav}
-      <section className="product-search-hero product-live-hero"><div><span className="eyebrow">商品经营中心</span><h2>商品表现与实际毛利实时汇总</h2><p>全局统计周期 {customStartDate} 至 {customEndDate} · {summary ? `实际数据 ${summary.sync.salesWindowStart ?? "无覆盖"} 至 ${summary.sync.salesThrough ?? "无覆盖"} · 库存快照 ${summary.sync.inventoryAsOf ?? "未同步"}` : "正在核验当前范围的销售与库存快照…"}</p></div><div className="product-hero-actions"><span className="global-period-badge">{range} · 全局同步</span><button className="secondary-button product-refresh" onClick={refreshProduct} disabled={loading || overviewLoading || (detailOpen && detailItem?.productKind !== "combo" && detailBusy)}>{loading || overviewLoading || (detailOpen && detailItem?.productKind !== "combo" && detailBusy) ? "同步中…" : "↻ 同步数据"}</button></div></section>
+      <section className="product-search-hero product-live-hero"><div><span className="eyebrow">商品经营中心</span><h2>商品表现与实际毛利实时汇总</h2><p>全局统计周期 {customStartDate} 至 {customEndDate} · {summary ? `实际数据 ${summary.sync.salesWindowStart ?? "无覆盖"} 至 ${summary.sync.salesThrough ?? "无覆盖"} · 库存快照 ${summary.sync.inventoryAsOf ?? "未同步"}` : "正在核验当前范围的销售与库存快照…"}</p></div><div className="product-hero-actions"><span className="global-period-badge">{range} · 全局同步</span><button className="secondary-button product-refresh" onClick={refreshProduct} disabled={loading || overviewLoading || (detailOpen && detailBusy)}>{loading || overviewLoading || (detailOpen && detailBusy) ? "同步中…" : "↻ 同步数据"}</button></div></section>
 
       {summary && !summary.hasSales && <section className="panel" role="status">还没有可用于毛利测算的销售明细，请先在“数据导入”同步销售单明细账。</section>}
 
       {activeTab === "overview" && !detailOpen ? <>
 <StableReadContent owner={viewOwner} identity={identity} pending={overviewLoading || !currentOverview} complete={Boolean(currentOverview)} error={Boolean(error || overviewError)} preserveViewport={false}>
-        <section className="inventory-kpi-grid product-kpi-grid data-refresh-region" aria-busy={overviewLoading || (!currentOverview && !error && !overviewError)} aria-label="组合装实际大毛利率分布">
-          {marginBucketCards.map((bucket) => <button type="button" disabled={!currentOverview} aria-pressed={productKind === "combo" && marginFilters.includes(bucket.filter)} onClick={() => { setProductKind("combo"); setProductPage(1); setMarginFilters(current => productKind === "combo" && current.includes(bucket.filter) ? current.filter(value => value !== bucket.filter) : current.includes(bucket.filter) ? current : [...current, bucket.filter]); }} className={`inventory-kpi-card summary-filter-card product-margin-kpi ${productKind === "combo" && marginFilters.includes(bucket.filter) ? "active" : ""}`} key={bucket.filter}><div><span>{bucket.label}</span><i className={`inventory-kpi-icon ${bucket.tone}`}>{bucket.icon}</i></div><strong>{currentOverview ? `${formatCount(bucket.value)} 个组合装` : "—"}</strong><p>{bucket.note}</p><span className="summary-filter-hint">{!currentOverview ? overviewError ? "加载失败，可重试" : error && !overviewLoading ? "等待明细快照恢复" : "正在加载全量分布…" : overviewLoading ? "正在更新…" : productKind === "combo" && marginFilters.includes(bucket.filter) ? "取消筛选" : "加入筛选 →"}</span></button>)}
+        <section className="inventory-kpi-grid product-kpi-grid data-refresh-region" aria-busy={overviewLoading || (!currentOverview && !error && !overviewError)} aria-label="毛利分布">
+          {marginBucketCards.map((bucket) => <button type="button" disabled={!currentOverview} aria-pressed={marginFilters.includes(bucket.filter)} onClick={() => setMarginFilters((current) => current.includes(bucket.filter) ? current.filter((value) => value !== bucket.filter) : [...current, bucket.filter])} className={`inventory-kpi-card summary-filter-card product-margin-kpi ${marginFilters.includes(bucket.filter) ? "active" : ""}`} key={bucket.filter}><div><span>{bucket.label}</span><i className={`inventory-kpi-icon ${bucket.tone}`}>{bucket.icon}</i></div><strong>{currentOverview ? `${formatCount(bucket.value)} 个` : "—"}</strong><p>{bucket.note}</p><span className="summary-filter-hint">{!currentOverview ? overviewError ? "加载失败，可重试" : error && !overviewLoading ? "等待明细快照恢复" : "正在加载全量分布…" : overviewLoading ? "正在更新…" : marginFilters.includes(bucket.filter) ? "取消筛选" : "加入筛选 →"}</span></button>)}
         </section>
         </StableReadContent>
 
         <section className="panel product-filter-panel">
           <div className="table-toolbar"><div><h2>商品经营明细</h2><p>{summary ? `已按 ${appliedScope} 汇总；净销量已扣除退货。` : "正在更新条件，当前范围的明细尚未就绪。"}快递费率来自最近一次“SKU累计”全量导入，其余金额与毛利来自订单明细。</p></div><span className="soft-tag">{multiCodeQueryCount > 1 ? `已查询 ${formatCount(multiCodeQueryCount)} 个规格代码 · ` : ""}显示 {formatCount(productItems.length)} / {summary ? formatCount(summary.pagination.total) : "—"}</span></div>
-          <div className="filter-row product-filter-row" {...automatic.compositionHandlers}><div className="search-box compact product-multi-query">⌕ <textarea rows={1} maxLength={PRODUCT_SUMMARY_QUERY_MAX_LENGTH} value={text.draft} onChange={event => text.setDraft(event.target.value)} onKeyDown={event => confirmFilterText(event, { composing: automatic.isComposing(), onConfirm: () => applyFilters(text.draft) })} placeholder="输入或粘贴货品规格代码、名称或规格（空格、逗号或换行分隔，最多1000字符）" aria-label="搜索一个或多个货品规格代码、名称、品牌、供应商、规格或品类" /></div><button type="button" className="primary-button" onClick={() => applyFilters(text.draft)}>查询</button><div className="segmented product-kind-toggle" role="group" aria-label="商品类型"><button type="button" aria-pressed={productKind === "single"} className={productKind === "single" ? "active" : ""} onClick={() => { setProductKind("single"); setProductPage(1); }}>单品（单一规格）</button><button type="button" aria-pressed={productKind === "combo"} className={productKind === "combo" ? "active" : ""} onClick={() => { setProductKind("combo"); setProductPage(1); }}>组合装</button></div><fieldset disabled={!filterOptions} className="product-dependent-filters" aria-label="依赖数据的筛选"><legend>{filterOptions ? "销售范围筛选" : overviewError ? "筛选选项加载失败" : error && !overviewLoading ? "请先恢复明细快照" : "筛选选项正在加载"}</legend><MultiFilterSelect label="品类" allLabel="全部品类" ariaLabel="商品品类" options={categories} selected={draft.categoryFilters} onChange={values => setDraft({ ...draft, categoryFilters: values })} /><MultiFilterSelect label="平台" allLabel="全部平台" ariaLabel="销售平台" options={platformOptions} selected={draft.platformFilters} onChange={changeDraftPlatforms} /><MultiFilterSelect label="店铺" allLabel="全部店铺" ariaLabel="销售店铺" options={shopOptions} selected={draft.shopFilters} onChange={values => setDraft({ ...draft, shopFilters: values })} /></fieldset><SearchableMultiSelect className="filter-select" values={draft.marginFilters} onChange={values => setDraft({ ...draft, marginFilters: values as ProductMarginFilter[] })} ariaLabel="实际大毛利率区间" allLabel="全部毛利" searchPlaceholder="搜索毛利率区间" options={["低于38%", "38%-42%", "42%-46%", "46%以上", "暂无有效毛利率"].map((value) => ({ value, label: value }))} /><SearchableSelect className="filter-select" value={sortBy} onChange={setSortBy} ariaLabel="排序方式" searchPlaceholder="搜索排序方式" options={[{ value: "sales", label: "按销售净额" }, { value: "profit", label: "按订单毛利" }, { value: "margin", label: "按毛利率" }, { value: "refund", label: "按退货率" }]} /></div>
+          <div className="filter-row product-filter-row" {...automatic.compositionHandlers}><div className="search-box compact product-multi-query">⌕ <textarea rows={1} maxLength={PRODUCT_SUMMARY_QUERY_MAX_LENGTH} value={text.draft} onChange={event => text.setDraft(event.target.value)} onKeyDown={event => confirmFilterText(event, { composing: automatic.isComposing(), onConfirm: () => applyFilters(text.draft) })} placeholder="输入或粘贴货品规格代码、名称或规格（空格、逗号或换行分隔，最多1000字符）" aria-label="搜索一个或多个货品规格代码、名称、品牌、供应商、规格或品类" /></div><fieldset disabled={!filterOptions} className="product-dependent-filters" aria-label="依赖数据的筛选"><legend>{filterOptions ? "销售范围筛选" : overviewError ? "筛选选项加载失败" : error && !overviewLoading ? "请先恢复明细快照" : "筛选选项正在加载"}</legend><MultiFilterSelect label="品类" allLabel="全部品类" ariaLabel="商品品类" options={categories} selected={draft.categoryFilters} onChange={values => setDraft({ ...draft, categoryFilters: values })} /><MultiFilterSelect label="平台" allLabel="全部平台" ariaLabel="销售平台" options={platformOptions} selected={draft.platformFilters} onChange={changeDraftPlatforms} /><MultiFilterSelect label="店铺" allLabel="全部店铺" ariaLabel="销售店铺" options={shopOptions} selected={draft.shopFilters} onChange={values => setDraft({ ...draft, shopFilters: values })} /></fieldset><SearchableMultiSelect className="filter-select" values={draft.marginFilters} onChange={values => setDraft({ ...draft, marginFilters: values as ProductMarginFilter[] })} ariaLabel="实际大毛利率区间" allLabel="全部毛利" searchPlaceholder="搜索毛利率区间" options={["低于35%", "35%-40%", "40%-45%", "45%以上", "暂无有效毛利率"].map((value) => ({ value, label: value }))} /><SearchableSelect className="filter-select" value={sortBy} onChange={setSortBy} ariaLabel="排序方式" searchPlaceholder="搜索排序方式" options={[{ value: "sales", label: "按销售净额" }, { value: "profit", label: "按订单毛利" }, { value: "margin", label: "按毛利率" }, { value: "refund", label: "按退货率" }]} /></div>
           <div className="product-filter-apply"><button type="button" className="secondary-button" onClick={resetFilters}>恢复默认</button><AutomaticFilterFeedback pending={pending} textPending={text.pending} composing={automatic.composing} /></div>
-          <p className="product-kind-note">上方区间卡片统一按组合装统计，大毛利率＝（销售净额－货品成本）÷销售净额，不扣费用分摊。{productKind === "combo" ? "组合装按套统计，金额为整套金额；子件单买恰好凑满配比也会被识别为组合装。" : "单品按件统计，为订单凑套后的剩余规格。"}数量不能与另一类型直接相加。按行筛选命中组合装时显示整套金额，明细合计可能高于相同筛选下的原始规格汇总。</p>
-          <details className="product-kind-note"><summary>组合装计算口径</summary><p>按同一店铺、渠道、订单分别凑正向销售与退货；当前配比不分时间版本，重新导入后历史结果会变化。共用子件优先分给子件种类更多的组合装，再按组合装编号排序，子件只分配一次。此维度不显示“其余 N 个”合计行。</p><p>货品监控的组合装出库属于上限估计，会包含瓶颈子件单卖部分；组合装与子件同时监控时相加会重复计算。</p></details>
           {error && <div className="inventory-feedback inventory-feedback-error" role="alert"><div><strong>商品明细刷新失败</strong><p>{error}{summary ? " · 保留上次成功明细" : ""}</p></div><button className="row-action" disabled={loading} onClick={() => void loadSummary(!summary)}>重试明细</button></div>}
           {(loading || query.trim() !== debouncedProductQuery.trim()) && <p role="status" className="product-list-progress">{query.trim() !== debouncedProductQuery.trim() ? "搜索条件正在应用；当前显示上次成功范围。" : summary ? `正在更新明细；当前保留上次成功第 ${summary.pagination.page} 页（${productSortLabels[summary.sort.by]}）` : "正在加载当前范围的商品明细…"}</p>}
         {overviewError && <section className="inventory-feedback inventory-feedback-error" role="alert"><div><strong>毛利分布与筛选刷新失败</strong><p>{overviewError}{currentOverview ? " · 保留上次成功统计" : ""}</p></div><button className="row-action" disabled={!summary || loading || overviewLoading} onClick={() => void loadSummary(false, true)}>重试分布与筛选</button></section>}
 <StableReadContent owner={viewOwner} identity={identity} pending={loading || !summary} complete={Boolean(summary)} error={Boolean(error)}>
-          <div className="data-table-wrap data-refresh-region product-list-region" aria-busy={loading}><table className="data-table product-live-table"><thead><tr><th>货品 / 规格代码</th><th>品牌</th><th>供应商</th><th>品类</th><th>{rangeLabel}销量（{productKind === "combo" ? "套" : "件"}）</th><th>销售净额</th><th>均价 / 均成本</th><th>订单毛利</th><th>实际大毛利率</th><th>退货率</th><th>快递费率</th><th>操作</th></tr></thead><tbody>
-            {productItems.map((item) => { const loss = item.grossProfitCents < 0; const bigLoss = item.grossMarginRate !== null && item.grossMarginRate < 0; return <tr key={item.productCode}><td><div className="product-cell"><span className="product-thumb gradient-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productKind === "combo" ? "组合装编号" : "规格代码"}：{item.productCode}{item.specification ? ` · ${item.specification}` : " · 默认规格"}</small></span></div></td><td><span className="product-dimension" title={item.brand || "品牌未同步"}>{item.brand || "—"}</span></td><td><span className="product-dimension" title={item.supplierName || "供应商未同步"}>{item.supplierName || "—"}</span></td><td><span className="soft-tag">{item.category}</span></td><td>{formatCount(item.netQuantity)} {item.productKind === "combo" ? "套" : "件"}</td><td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td><td><div className="product-money-pair"><strong>{item.averageSalePriceCents === null ? "—" : formatCurrencyFromCents(item.averageSalePriceCents)}</strong><small>成本 {item.averageCostCents === null ? "—" : formatCurrencyFromCents(item.averageCostCents)}</small></div></td><td className={loss ? "red-text" : "green-text"}><strong>{formatCurrencyFromCents(item.grossProfitCents)}</strong></td><td><span className={`product-margin ${bigLoss ? "loss" : item.grossMarginRate !== null && item.grossMarginRate < 0.38 ? "low" : ""}`}>{item.grossMarginRate === null ? "—" : formatRate(item.grossMarginRate)}</span></td><td className={item.refundRate > 0.1 ? "orange-text" : ""}><strong>{formatRate(item.refundRate)}</strong></td><td className={item.shippingRate !== null && (item.shippingRate < 0 || item.shippingRate > 1) ? "orange-text" : ""}><strong>{item.shippingRate === null ? "—" : formatRate(item.shippingRate)}</strong></td><td><button className="row-action" onClick={() => openProductDetail(item.productCode)}>{item.productKind === "combo" ? "查看构成" : "详情"}</button></td></tr>; })}
+          <div className="data-table-wrap data-refresh-region product-list-region" aria-busy={loading}><table className="data-table product-live-table"><thead><tr><th>货品 / 规格代码</th><th>品牌</th><th>供应商</th><th>品类</th><th>{rangeLabel}销量</th><th>销售净额</th><th>均价 / 均成本</th><th>订单毛利</th><th>实际毛利率</th><th>退货率</th><th>快递费率</th><th>操作</th></tr></thead><tbody>
+            {productItems.map((item) => { const loss = item.grossProfitCents < 0; return <tr key={item.productCode}><td><div className="product-cell"><span className="product-thumb gradient-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>规格代码：{item.productCode}{item.specification ? ` · ${item.specification}` : " · 默认规格"}</small></span></div></td><td><span className="product-dimension" title={item.brand || "品牌未同步"}>{item.brand || "—"}</span></td><td><span className="product-dimension" title={item.supplierName || "供应商未同步"}>{item.supplierName || "—"}</span></td><td><span className="soft-tag">{item.category}</span></td><td>{formatCount(item.netQuantity)}</td><td><strong>{formatCurrencyFromCents(item.netSalesCents)}</strong></td><td><div className="product-money-pair"><strong>{item.averageSalePriceCents === null ? "—" : formatCurrencyFromCents(item.averageSalePriceCents)}</strong><small>成本 {item.averageCostCents === null ? "—" : formatCurrencyFromCents(item.averageCostCents)}</small></div></td><td className={loss ? "red-text" : "green-text"}><strong>{formatCurrencyFromCents(item.grossProfitCents)}</strong></td><td><span className={`product-margin ${loss ? "loss" : item.grossMarginRate !== null && item.grossMarginRate < 0.35 ? "low" : ""}`}>{item.grossMarginRate === null ? "—" : formatRate(item.grossMarginRate)}</span></td><td className={item.refundRate > 0.1 ? "orange-text" : ""}><strong>{formatRate(item.refundRate)}</strong></td><td className={item.shippingRate !== null && (item.shippingRate < 0 || item.shippingRate > 1) ? "orange-text" : ""}><strong>{item.shippingRate === null ? "—" : formatRate(item.shippingRate)}</strong></td><td><button className="row-action" onClick={() => openProductDetail(item.productCode)}>详情</button></td></tr>; })}
             {productItems.length === 0 && <tr><td colSpan={12}><div className="table-state">{!summary ? error ? "明细加载失败，请重试。" : "正在读取完整授权集合，明细就绪后显示…" : "没有符合当前筛选条件的商品。"}</div></td></tr>}
           </tbody></table></div>
           {summary && <footer className="jd-sku-pagination"><span>第 {summary.pagination.page} / {Math.max(1, summary.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={loading || summary.pagination.page <= 1} onClick={() => changeProductPage(Math.max(1, summary.pagination.page - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || summary.pagination.page >= Math.max(1, summary.pagination.totalPages)} onClick={() => changeProductPage(summary.pagination.page + 1)}>下一页</button></div></footer>}
           </StableReadContent>
         </section>
-      </> : detailOpen && selectedDetailItem?.productKind === "combo" ? summary?.items.some(item => item.productCode === detailProductCode) ? <ComboDetailView item={selectedDetailItem} onBack={() => setDetailOpen(false)} /> : <section className="panel data-state"><button type="button" className="product-detail-back" onClick={() => setDetailOpen(false)}>← 返回商品经营</button><p>{summary ? "当前范围没有该组合装的推断结果，请返回重新选择。" : error || "正在更新当前范围的组合装构成…"}</p></section> : detailOpen && selectedDetailItem ? <ProductDetailView item={selectedDetailItem} detail={productDetail} loading={!!detailStartDate && !!detailEndDate && (detailBusy || (!productDetail && !currentDetailError))} error={currentDetailError} waitingForSummary={!summary} emptyRange={!!summary && (!detailStartDate || !detailEndDate)} rangeLabel={rangeLabel} onBack={() => setDetailOpen(false)} onRetry={() => summary ? void loadProductDetail() : void loadSummary(true)} /> : !summary ? <section className="panel data-state" role="status">{error || "正在准备毛利测算的商品数据…"}</section> : <>
+      </> : detailOpen && selectedDetailItem ? <ProductDetailView item={selectedDetailItem} detail={productDetail} loading={!!detailStartDate && !!detailEndDate && (detailBusy || (!productDetail && !currentDetailError))} error={currentDetailError} waitingForSummary={!summary} emptyRange={!!summary && (!detailStartDate || !detailEndDate)} rangeLabel={rangeLabel} onBack={() => setDetailOpen(false)} onRetry={() => summary ? void loadProductDetail() : void loadSummary(true)} /> : !summary ? <section className="panel data-state" role="status">{error || "正在准备毛利测算的商品数据…"}</section> : <>
         <section className="product-calculator-grid data-refresh-region" aria-busy={loading}>
           <article className="panel calculator-input-panel"><SectionHeader title="毛利测算" note="默认带入所选商品近期开单均价、成本与费用率，可按活动方案调整" /><div className="calculator-fields"><label><span>选择商品</span><SearchableSelect value={selectedCode} onChange={setSelectedCode} ariaLabel="选择用于测算的商品" searchPlaceholder="搜索商品名称或规格代码" options={summary.items.map((item) => ({ value: item.productCode, label: `${item.productName} · ${item.productCode}`, searchText: `${item.productName} ${item.productCode} ${item.specification}` }))} /></label><label><span>预计成交价（元）</span><input type="number" min={0} step="0.01" value={calculator.salePrice} onChange={(event) => updateCalculator("salePrice", Number(event.target.value))} /></label><label><span>单位成本（元）</span><input type="number" min={0} step="0.01" value={calculator.unitCost} onChange={(event) => updateCalculator("unitCost", Number(event.target.value))} /></label><label><span>平台综合费率（%）</span><input type="number" min={0} step="0.01" value={calculator.feeRate} onChange={(event) => updateCalculator("feeRate", Number(event.target.value))} /></label><label><span>单件促销/履约成本（元）</span><input type="number" min={0} step="0.01" value={calculator.promotionCost} onChange={(event) => updateCalculator("promotionCost", Number(event.target.value))} /></label></div><div className="calculator-source"><Dot tone="blue" /><span>{selectedProduct ? `${selectedProduct.productName} · 最近实际毛利率 ${selectedProduct.grossMarginRate === null ? "—" : formatRate(selectedProduct.grossMarginRate)}` : "请选择商品"}</span></div></article>
           <article className="panel calculator-result-panel"><SectionHeader title="预计单件收益" note="成交价 − 单位成本 − 平台费 − 促销/履约成本" /><div className="calculator-result"><div><span>预计单件毛利</span><strong className={estimatedProfit < 0 ? "red-text" : "green-text"}>{formatCurrency(estimatedProfit)}</strong></div><div><span>预计毛利率</span><strong className={estimatedMargin === null ? "" : estimatedMargin < 0 ? "red-text" : "green-text"}>{estimatedMargin === null ? "—" : formatRate(estimatedMargin)}</strong></div><div><span>预计平台费用</span><strong>{formatCurrency(estimatedFee)}</strong></div></div><div className={`calculator-decision ${estimatedMargin !== null && estimatedMargin < 0 ? "danger" : estimatedMargin !== null && estimatedMargin < 0.2 ? "warning" : "success"}`}><strong>{estimatedMargin === null ? "请输入成交价" : estimatedMargin < 0 ? "该方案预计亏损" : estimatedMargin < 0.2 ? "该方案毛利偏低" : "该方案毛利健康"}</strong><p>{estimatedMargin === null ? "成交价大于 0 后即可得到测算结果。" : `每售出 1 件，预计保留 ${formatCurrency(estimatedProfit)} 毛利。`}</p></div></article>

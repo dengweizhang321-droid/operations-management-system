@@ -62,7 +62,7 @@ def cached_base(principal, options, snapshot, loader, validate, *, with_status=F
     identity = tuple(str(db.get(k, "")) for k in ("ENGINE", "HOST", "PORT", "NAME", "USER"))
     authority = tuple(str(getattr(settings, k, "")) for k in (
         "SALES_WRITE_AUTHORITY_EPOCH", "ERP_WRITE_AUTHORITY_EPOCH", "PRODUCTS_WRITE_AUTHORITY_EPOCH"))
-    scope = {k:options.get(k) for k in ("range", "rangeExplicit", "startDate", "endDate", "days", "platforms", "shops", "productKind")}
+    scope = {k:options[k] for k in ("range", "rangeExplicit", "startDate", "endDate", "days", "platforms", "shops")}
     key = (identity, authority, principal.email, principal.role,
         json.dumps(principal.scope, sort_keys=True), json.dumps(scope, sort_keys=True), snapshot)
     return cache.read(key, loader, validate, with_status=with_status)

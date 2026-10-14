@@ -19,14 +19,13 @@ from .models import (
 )
 from .revisions import revision_value
 from .summary_cache import cached_base
-from .combinations import combination_performance
 
 
 MAX_PRODUCT_KEYS = 20_000
 PRODUCT_CHUNK_SIZE = 1_000
 SHOP_SEPARATOR = "\x1f"
 RANGES = {"last30", "last90", "halfYear", "custom"}
-MARGIN_BANDS = {"below35", "35to40", "40to45", "atLeast45", "unavailable", "below38", "38to42", "42to46", "atLeast46"}
+MARGIN_BANDS = {"below35", "35to40", "40to45", "atLeast45", "unavailable"}
 SORTS = {
     "netSalesCents",
     "grossProfitCents",
@@ -114,7 +113,6 @@ def normalize_options(raw: dict[str, object]) -> dict[str, object]:
         "direction",
         "projection",
         "expectedSnapshotToken",
-        "productKind",
     }
     if not set(raw).issubset(allowed):
         raise _error("商品汇总包含未知查询字段")
@@ -152,9 +150,6 @@ def normalize_options(raw: dict[str, object]) -> dict[str, object]:
     if not isinstance(sort_by, str) or sort_by not in SORTS:
         raise _error("商品排序字段不在允许清单中")
     direction = raw.get("direction") or "desc"
-    product_kind = raw.get("productKind")
-    if product_kind is not None and (not isinstance(product_kind, str) or product_kind not in {"single", "combo"}):
-        raise _error("productKind 必须是 single 或 combo")
     if direction not in {"asc", "desc"}:
         raise _error("商品排序方向必须是 asc 或 desc")
     projection = raw.get("projection") or "full"
@@ -183,7 +178,6 @@ def normalize_options(raw: dict[str, object]) -> dict[str, object]:
         "direction": direction,
         "projection": projection,
         "expectedSnapshotToken": snapshot,
-        "productKind": product_kind,
     }
 
 
@@ -230,7 +224,7 @@ def _snapshot_token(
 ) -> str:
     raw = json.dumps(
         {
-            "version": 6,
+            "version": 4,
             "salesRevision": sales_revision,
             "productRevision": product_revision,
             "inventoryRevision": control.active_revision,
@@ -369,11 +363,10 @@ def _merge(
         "stock_value_cents": known_value if available is not None and priced is not None and available <= priced else None,
         "known_stock_value_cents": known_value,
         "priced_available_quantity": priced,
-        "gross_margin_rate": _rate(net_sales - int(sales["costCents"]), net_sales),
+        "gross_margin_rate": _rate(int(sales["grossProfitCents"]), net_sales),
         "refund_rate": _rate(refund, gross_sales) or 0,
         "shipping_rate": shipping_rate,
         "outlets": sales.get("outlets") if isinstance(sales.get("outlets"), list) else [],
-        **({"product_kind": sales["productKind"], "components": sales["components"]} if "productKind" in sales else {}),
     }
 
 
@@ -384,8 +377,6 @@ def _matches_text(row: dict[str, object], keywords: list[str]) -> bool:
         str(row.get(key) or "").lower()
         for key in ("product_code", "product_name", "brand", "supplier_name", "specification", "category")
     ]
-    fields.extend(str(child.get(field) or "").lower() for child in row.get("components", [])
-        for field in ("productCode", "productName"))
     return any(keyword in field for keyword in keywords for field in fields)
 
 
@@ -399,14 +390,6 @@ def _matches_margin(row: dict[str, object], bands: list[str]) -> bool:
         if margin is None:
             continue
         value = float(margin)
-        if band == "below38" and value < 0.38:
-            return True
-        if band == "38to42" and 0.38 <= value < 0.42:
-            return True
-        if band == "42to46" and 0.42 <= value < 0.46:
-            return True
-        if band == "atLeast46" and value >= 0.46:
-            return True
         if band == "below35" and value < 0.35:
             return True
         if band == "35to40" and 0.35 <= value < 0.4:
@@ -434,15 +417,6 @@ def empty_metrics() -> dict[str, object]:
             "atLeast45Count": 0,
         },
     }
-
-
-def combo_margin_metrics(rows):
-    return {"dimension": "combo", "comboCount": len(rows), "marginBuckets": {
-        "below38Count": sum(_matches_margin(row, ["below38"]) for row in rows),
-        "between38And42Count": sum(_matches_margin(row, ["38to42"]) for row in rows),
-        "between42And46Count": sum(_matches_margin(row, ["42to46"]) for row in rows),
-        "atLeast46Count": sum(_matches_margin(row, ["atLeast46"]) for row in rows),
-    }}
 
 
 def _item(row: dict[str, object]) -> dict[str, object]:
@@ -484,7 +458,6 @@ def _item(row: dict[str, object]) -> dict[str, object]:
         else min(1.0, max(0.0, int(row["priced_available_quantity"] or 0) / int(available)))
         if int(available) > 0
         else 1,
-        **({"productKind": row["product_kind"], "components": row["components"]} if "product_kind" in row else {}),
     }
 
 
@@ -543,27 +516,14 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
             raise _error("商品公共数据版本已变化", code="version_conflict", status=503)
         start, cutoff = freshness.get("dataStartDate"), freshness.get("dataCutoffDate")
         period = _period(start, cutoff, options) if isinstance(start, str) and isinstance(cutoff, str) else None
-        all_rows, combo_rows, outlets = [], [], {}
+        all_rows, outlets = [], {}
         if period and period["startDate"] and period["endDate"] and product_codes:
-            if options["productKind"]:
-                groups = combination_performance(principal, str(period["startDate"]),
-                    (date.fromisoformat(str(period["endDate"])) + timedelta(days=1)).isoformat(),
-                    options["platforms"], options["shops"], loaded_control.active_revision)
-                performance = groups[options["productKind"]]
-                combo_rows = [_merge(row, erp.get(code), inventory.get(code), shipping.get(code))
-                    for code, row in groups["combo"].items()]
-                for group in groups.values():
-                    for row in group.values():
-                        for raw in row["outlets"]:
-                            outlet = canonical_outlet(raw.get("platform"), raw.get("shopName"), raw.get("channel"))
-                            outlets[shop_key(outlet)] = outlet
-            else:
-                performance, outlets = _sales_performance(principal, product_codes,
-                    str(period["startDate"]), str(period["endDate"]), options["platforms"],
-                    options["shops"], freshness.get("latestBatch"))
+            performance, outlets = _sales_performance(principal, product_codes,
+                str(period["startDate"]), str(period["endDate"]), options["platforms"],
+                options["shops"], freshness.get("latestBatch"))
             all_rows = [_merge(row, erp.get(code), inventory.get(code), shipping.get(code))
                 for code, row in performance.items()]
-        return {"freshness": freshness, "period": period, "rows": all_rows, "comboRows": combo_rows, "outlets": outlets, "hasProducts": bool(product_codes)}
+        return {"freshness": freshness, "period": period, "rows": all_rows, "outlets": outlets, "hasProducts": bool(product_codes)}
 
     base, reusable = cached_base(principal, options, snapshot, load_base, stable, with_status=True)
     freshness, period, all_rows, outlet_options = (base[k] for k in ("freshness", "period", "rows", "outlets"))
@@ -575,7 +535,7 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
             # inline while still sending only this one requested page of rows.
             if not reusable:
                 return payload
-            return {k:v for k,v in {**payload, "projection": "initial-page"}.items() if k not in {"metrics", "filters", "comboMarginMetrics"}}
+            return {k:v for k,v in {**payload, "projection": "initial-page"}.items() if k not in {"metrics", "filters"}}
         if options["projection"] == "overview":
             return {k:v for k,v in {**payload, "projection": "overview"}.items() if k != "items"}
         return payload
@@ -590,7 +550,6 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
             "projection": "page",
             "snapshotToken": snapshot,
             "salesSourceRevision": sales_before,
-            **({"productKind": options["productKind"]} if options["productKind"] else {}),
             "sort": sort,
             "pagination": _pagination(page, page_size, 0, 0),
             "items": [],
@@ -627,7 +586,6 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
                 "marginBands": options["marginBands"],
             },
             "metrics": empty_metrics(),
-            **({"comboMarginMetrics": combo_margin_metrics([])} if options["productKind"] else {}),
         })
 
     data_start = freshness.get("dataStartDate")
@@ -643,11 +601,6 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
     # The validated 1000-character query bounds this list; never silently drop later codes.
     keywords = list(dict.fromkeys(value.lower() for value in re.split(r"[\s,，;；]+", str(options["query"])) if value))
     facet_rows = [row for row in all_rows if _matches_text(row, keywords)]
-    combo_facets = [row for row in base["comboRows"] if _matches_text(row, keywords)]
-    # Card counts always describe bundles, independent of the detail type and
-    # selected margin bands; clicking a card drills into that bundle band.
-    combo_filtered = [row for row in combo_facets
-        if not options["categories"] or row["category"] in options["categories"]]
     filtered = [
         row
         for row in facet_rows
@@ -680,7 +633,6 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
         "projection": "page",
         "snapshotToken": snapshot,
         "salesSourceRevision": sales_before,
-        **({"productKind": options["productKind"]} if options["productKind"] else {}),
         "sort": sort,
         "pagination": _pagination(page, page_size, len(filtered), len(selected)),
         "items": _page_items(selected) if options["projection"] != "overview" else [],
@@ -700,7 +652,7 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
         "grossSalesCents": gross_sales,
         "netSalesCents": net_sales,
         "grossProfitCents": gross_profit,
-        "grossMarginRate": _rate(net_sales - sum(int(row["cost_cents"]) for row in filtered), net_sales),
+        "grossMarginRate": _rate(gross_profit, net_sales),
         "lossSkuCount": sum(
             1 for row in filtered if int(row["net_sales_cents"]) > 0 and int(row["gross_profit_cents"]) < 0
         ),
@@ -739,7 +691,7 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
                 for value in sorted_outlets
             ],
             "categories": sorted(
-                set(str(row["category"] or "未分类") for row in [*facet_rows, *combo_facets]), key=lambda value: value.encode("utf-8")
+                set(str(row["category"] or "未分类") for row in facet_rows), key=lambda value: value.encode("utf-8")
             )[:500] if needs_metrics else [],
         },
         "filtersApplied": {
@@ -753,5 +705,4 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
             "marginBands": options["marginBands"],
         },
         "metrics": metrics,
-        **({"comboMarginMetrics": combo_margin_metrics(combo_filtered)} if options["productKind"] and needs_metrics else {}),
     })

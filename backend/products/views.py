@@ -179,7 +179,7 @@ def summary(request: HttpRequest) -> JsonResponse:
         principal = _principal(request, {"viewer", "analyst", "operator", "admin"})
         allowed = {
             "range", "startDate", "endDate", "days", "platform", "shop", "page", "pageSize",
-            "q", "category", "marginBand", "sortBy", "direction", "view", "snapshotToken", "productKind",
+            "q", "category", "marginBand", "sortBy", "direction", "view", "snapshotToken",
         }
         if any(key not in allowed for key in request.GET):
             raise ProductsApiError("商品汇总包含未知查询参数")
@@ -198,7 +198,7 @@ def summary(request: HttpRequest) -> JsonResponse:
         }
         for query_name, option_name in {
             "range": "range", "startDate": "startDate", "endDate": "endDate",
-            "sortBy": "sortBy", "direction": "direction", "snapshotToken": "expectedSnapshotToken", "productKind": "productKind",
+            "sortBy": "sortBy", "direction": "direction", "snapshotToken": "expectedSnapshotToken",
         }.items():
             value = _one(request, query_name)
             if value is not None:

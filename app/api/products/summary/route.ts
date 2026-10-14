@@ -29,10 +29,6 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "商品经营汇总");
     const searchParams = new URL(request.url).searchParams;
-    const productKinds = searchParams.getAll("productKind");
-    if (productKinds.length > 1 || productKinds.some(value => value !== "single" && value !== "combo")) {
-      throw new ProductSummaryRequestError("productKind 必须是 single 或 combo，且不能重复");
-    }
     const requestedViews = searchParams.getAll("view");
     if (requestedViews.length > 1) {
       throw new ProductSummaryRequestError("view 参数不能重复");
@@ -74,9 +70,9 @@ export async function GET(request: Request) {
     const categories = readSelections(searchParams, "category", { maximum: 10, label: "类目" });
     const marginBands = readSelections(searchParams, "marginBand", {
       maximum: 5,
-      allowed: ["below35", "35to40", "40to45", "atLeast45", "unavailable", "below38", "38to42", "42to46", "atLeast46"],
+      allowed: ["below35", "35to40", "40to45", "atLeast45", "unavailable"],
       label: "毛利率",
-    }) as import("@/lib/products/query-contract").ProductMarginBand[];
+    }) as Array<"below35" | "35to40" | "40to45" | "atLeast45" | "unavailable">;
     const allowedSorts = ["netSalesCents", "grossProfitCents", "grossMarginRate", "refundRate", "stockValueCents", "netQuantity"] as const;
     if (requestedSort !== null && !allowedSorts.includes(requestedSort as typeof allowedSorts[number])) {
       throw new ProductSummaryRequestError("商品排序字段不在允许清单中");
@@ -85,7 +81,6 @@ export async function GET(request: Request) {
       throw new ProductSummaryRequestError("商品排序方向必须是 asc 或 desc");
     }
     const payload = await getProductSummary(principal, {
-      productKind: productKinds[0] as "single" | "combo" | undefined,
       range: requestedRange ? requestedRange as ProductSummaryRange : undefined,
       startDate: searchParams.get("startDate"),
       endDate: searchParams.get("endDate"),
