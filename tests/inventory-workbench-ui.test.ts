@@ -123,7 +123,7 @@ test("库存健康明细与备货计划钉钉协作使用统一受控口径", as
 test("库存工作台继续披露既有数据质量与业务边界", async () => {
   const [panels, docs] = await Promise.all([
     source("../app/inventory-workbench-panels.tsx"),
-    source("../docs/INVENTORY_MANAGEMENT.md"),
+    source("../docs/使用手册/商品库存/inventory-management.md"),
   ]);
 
   assert.match(docs, /`刷刷仓` 始终排除/);

@@ -1,0 +1,1827 @@
+[
+  {
+    "old": "docs/AI_ASSISTANT_SETUP.md",
+    "new": "docs/使用手册/AI助手/ai-assistant-setup.md",
+    "title": "AI 助理、AI 空间与聊天渠道接入"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ANALYSIS.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-analysis.md",
+    "title": "多 Agent 深度经营分析：分阶段实施"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ANALYSIS_CAPACITY.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-analysis-capacity.md",
+    "title": "完整经营分析容量：独立审查与后续实施"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ANALYSIS_INTEGRATED.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-analysis-integrated.md",
+    "title": "经营分析集成协议与候选实现"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ATTRIBUTED_SKU_RELATION_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-attributed-sku-relation-candidate.md",
+    "title": "关键词—搜索词—计划—跟单 SKU 关系候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ATTRIBUTED_SKU_RELATION_V4_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-attributed-sku-relation-v4-candidate.md",
+    "title": "v4 跟单 SKU 关系纯候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ATTRIBUTED_SKU_SCALE_20260925.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-attributed-sku-scale-20260925.md",
+    "title": "跟单 SKU 关系候选：合成容量与边界"
+  },
+  {
+    "old": "docs/AI_BUSINESS_B2B_DAILY_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-b2b-daily-candidate.md",
+    "title": "京东 B 端逐日与期间候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_B2B_REPORT_OWNING_MATERIAL.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-b2b-report-owning-material.md",
+    "title": "已封存报告内的京东 B 端逐日材料"
+  },
+  {
+    "old": "docs/AI_BUSINESS_CATEGORY_SPU_COMPARE_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-category-spu-compare-candidate.md",
+    "title": "品类与 SPU 三窗口对照候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_COMPARISON_RULES.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-comparison-rules.md",
+    "title": "经营分析比较期间规则候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_COMPLETION_GATE_20260925.md",
+    "new": "docs/技术专题/AI经营分析/集成与交接/ai-business-completion-gate-20260925.md",
+    "title": "AI 经营深度诊断五阶段完成门槛"
+  },
+  {
+    "old": "docs/AI_BUSINESS_CROSS_SOURCE_DAILY_COLUMNS.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-cross-source-daily-columns.md",
+    "title": "跨来源逐日指标并列候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_CROSS_SOURCE_DAILY_OWNING.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-cross-source-daily-owning.md",
+    "title": "跨来源逐日并列的封存报告入口"
+  },
+  {
+    "old": "docs/AI_BUSINESS_CROSS_SOURCE_KPI_PLAN.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-cross-source-kpi-plan.md",
+    "title": "单店跨来源 KPI 选择候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_CROSS_SOURCE_SKU_OWNING.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-cross-source-sku-owning.md",
+    "title": "三窗口 SKU 并列：封存 v2 拥有方候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_CROSS_SOURCE_SKU_WINDOWS.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-cross-source-sku-windows.md",
+    "title": "SKU 三窗口逐来源对照纯候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_CROSS_SOURCE_WINDOW_COMPARE.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-cross-source-window-compare.md",
+    "title": "店铺逐来源三窗口对照候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_CURSOR_RENEWAL_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-cursor-renewal-design.md",
+    "title": "过期来源游标：候选纯合同"
+  },
+  {
+    "old": "docs/AI_BUSINESS_CURSOR_RUNTIME_INTEGRATION.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-cursor-runtime-integration.md",
+    "title": "网店过期游标接入实际 v2 采集器：最小实现设计"
+  },
+  {
+    "old": "docs/AI_BUSINESS_DERIVED_REUSE_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-derived-reuse-design.md",
+    "title": "封存证据派生结果复用设计"
+  },
+  {
+    "old": "docs/AI_BUSINESS_DIAGNOSTIC_ACCEPTANCE.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-diagnostic-acceptance.md",
+    "title": "经营诊断质量验收卡"
+  },
+  {
+    "old": "docs/AI_BUSINESS_DIAGNOSTIC_ACTION_PLAN_CONTRACT.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-diagnostic-action-plan-contract.md",
+    "title": "深度诊断调整计划纯合同（候选，默认关闭）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_DIAGNOSTIC_COVERAGE_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-diagnostic-coverage-design.md",
+    "title": "确定性全量诊断筛查与覆盖证明设计"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ERP_FACT_ASSIGNMENT.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-erp-fact-assignment.md",
+    "title": "ERP逐事实归属候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ERP_FACT_ROLLUPS.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-erp-fact-rollups.md",
+    "title": "ERP 逐事实五层级回卷候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ERP_OPTIONS_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-erp-options-design.md",
+    "title": "ERP 精确来源选项：设计与候选纯合同"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ERP_OPTIONS_REBUILD.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-erp-options-rebuild.md",
+    "title": "ERP来源目录显式重建入口"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ERP_ROLLUP_OWNING.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-erp-rollup-owning.md",
+    "title": "ERP 逐事实回卷的封存报告入口"
+  },
+  {
+    "old": "docs/AI_BUSINESS_EVIDENCE_V3_OWNING_PLAN.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-evidence-v3-owning-plan.md",
+    "title": "v3 财务上下文来源的内部计划目录"
+  },
+  {
+    "old": "docs/AI_BUSINESS_EVIDENCE_V3_PLAN.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-evidence-v3-plan.md",
+    "title": "日经营来源与月度财报并列的 v3 纯计划"
+  },
+  {
+    "old": "docs/AI_BUSINESS_EXCEL_NATIVE_ACCEPTANCE.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-excel-native-acceptance.md",
+    "title": "Excel 原生兼容性候选验收"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_B2B_SOURCE_PROOF_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-b2b-source-proof-candidate.md",
+    "title": "财报自然月与京东 B 端三期来源证明表候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_COLLECTION_STATE.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-collection-state.md",
+    "title": "财报页纯续读检查点候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_EVIDENCE_CONTRACT.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-evidence-contract.md",
+    "title": "月度财报纯证据合同候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_INTERNAL_BRIDGE.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-internal-bridge.md",
+    "title": "财报证据内部读取桥接候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_OWNED_PAGES.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-owned-pages.md",
+    "title": "财报 owning 有界页候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_OWNING_SOURCE.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-owning-source.md",
+    "title": "财务 owning 内存来源候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_RAW_BYTES_V2_0006.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-raw-bytes-v2-0006.md",
+    "title": "finance.0006 原始工作簿字节验真侧车（默认关闭）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_RAW_COLUMN_EVIDENCE_V2.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-raw-column-evidence-v2.md",
+    "title": "财报原始列证据 v2 候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_RAW_COLUMN_V2_SIDECAR_0005.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-raw-column-v2-sidecar-0005.md",
+    "title": "finance.0005 原始列证据摘要侧车候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_SHOP_MAPPING_DIAGNOSTIC.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-shop-mapping-diagnostic.md",
+    "title": "财报店铺映射只读诊断候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_SOURCE.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-source.md",
+    "title": "月度财报证据源与店铺 UV 边界"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_V3_PHYSICAL_LEDGER.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-v3-physical-ledger.md",
+    "title": "v3 财务来源物理页账本候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_V3_REPORT_MATERIAL.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-v3-report-material.md",
+    "title": "v3 同封存报告意图的财务月度材料候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_V3_SIGNED_COLLECTION.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-v3-signed-collection.md",
+    "title": "v3 财报签名分页的内部单步采集"
+  },
+  {
+    "old": "docs/AI_BUSINESS_FINANCE_V3_STORAGE_GATE.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-finance-v3-storage-gate.md",
+    "title": "财务 v3 目录存储门禁候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_HANDOFF_0059_20260925.md",
+    "new": "docs/技术专题/AI经营分析/集成与交接/ai-business-handoff-0059-20260925.md",
+    "title": "AI 经营分析续工交接：预算 v10 窄下载栅栏（0059）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_HANDOFF_20260925.md",
+    "new": "docs/技术专题/AI经营分析/集成与交接/ai-business-handoff-20260925.md",
+    "title": "AI 经营分析推广专项：小阶段交接（2026-09-25）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_HANDOFF_20260926.md",
+    "new": "docs/技术专题/AI经营分析/集成与交接/ai-business-handoff-20260926.md",
+    "title": "AI 经营深度诊断续工交接（2026-09-26）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_HANDOFF_MARKET_V2_FIVE_TOOLS_20260925.md",
+    "new": "docs/技术专题/AI经营分析/集成与交接/ai-business-handoff-market-v2-five-tools-20260925.md",
+    "title": "AI 经营分析续工交接：市场 v2 五工具预览目录"
+  },
+  {
+    "old": "docs/AI_BUSINESS_HANDOFF_V4_READ_CAST_20260925.md",
+    "new": "docs/技术专题/AI经营分析/集成与交接/ai-business-handoff-v4-read-cast-20260925.md",
+    "title": "AI 经营分析 v4 候选封存读取：续工交接（2026-09-25）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_INTEGRATION_STATUS.md",
+    "new": "docs/技术专题/AI经营分析/集成与交接/ai-business-integration-status.md",
+    "title": "AI 经营分析：当前主线整合交付清单"
+  },
+  {
+    "old": "docs/AI_BUSINESS_JD_SHOP_OVERVIEW_UV_GAP.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-jd-shop-overview-uv-gap.md",
+    "title": "京东店铺交易概况与 UV 来源接线前置核对"
+  },
+  {
+    "old": "docs/AI_BUSINESS_KEYWORD_SKU_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-keyword-sku-design.md",
+    "title": "关键词 × 明确推广 SKU：第 55 批候选纯合同"
+  },
+  {
+    "old": "docs/AI_BUSINESS_KEYWORD_SKU_OWNING.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-keyword-sku-owning.md",
+    "title": "关键词 × 明确推广 SKU：封存服务候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_KEYWORD_THREE_WINDOW_OWNING_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-keyword-three-window-owning-candidate.md",
+    "title": "三期关键词×明确推广 SKU 拥有方候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_LARGE_EVIDENCE_V4_PLAN.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-large-evidence-v4-plan.md",
+    "title": "大规模经营证据 v4 设计备忘（部分候选已实施）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_DYNAMICS.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-dynamics.md",
+    "title": "市场样本价格带与进出榜：纯计算候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_EXPORT.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-export.md",
+    "title": "市场深诊断完整材料与报告表候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_MODEL_COST_ENVELOPE.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-model-cost-envelope.md",
+    "title": "市场五 Agent 付费模型费用上界候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_OPTIONS_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-options-design.md",
+    "title": "市场权威来源选项：下一切片设计"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_OWN_MAPPING.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-own-mapping.md",
+    "title": "市场榜单与本店商品的人工复核候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_PICKER.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-picker.md",
+    "title": "市场来源选择候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_RATE_SOURCE_V1.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-rate-source-v1.md",
+    "title": "市场模型与费率来源候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_REPORT_OWNING_MATERIAL.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-report-owning-material.md",
+    "title": "同一封存 v2 报告的市场材料"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_SELECTOR.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-selector.md",
+    "title": "正式报告市场视图选择候选合同"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_ADMITTED_PAUSED.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-admitted-paused.md",
+    "title": "市场 v2 材料已准入报告根：0053 隔离候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_AUTHORITY_ADOPTION_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-authority-adoption-design.md",
+    "title": "市场 v2 正式费率与单报告上限采纳边界"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_FIFTH_READ_PREVIEW.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-fifth-read-preview.md",
+    "title": "市场 v2 第五工具未注册读取候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_FIVE_TOOL_CATALOG.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-five-tool-catalog.md",
+    "title": "市场 v2 新 surface 五项只读工具目录候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_HUMAN_CAP_0074.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-human-cap-0074.md",
+    "title": "市场五 Agent 单报告人民币上限：0074 隔离候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_MATERIAL_ATTESTATION_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-material-attestation-candidate.md",
+    "title": "市场 v2 三表材料准入候选（0045）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_PAID_0069_INDEPENDENT_REVIEW.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-paid-0069-independent-review.md",
+    "title": "0069 市场 v2 逐轮预留独立静态审查"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_PAID_RESERVATION_NEXT_SLICE.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-paid-reservation-next-slice.md",
+    "title": "市场 v2 五 Agent 逐轮费用预留：下一切片合同"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_PARKED_PREVIEW.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-parked-preview.md",
+    "title": "市场 v2 停放报告预览候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_PARKED_PROFILE.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-parked-profile.md",
+    "title": "市场 v2 报告停放画像（0044）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_REGISTRY_GATE.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-registry-gate.md",
+    "title": "市场 v2 第五工具目录门禁候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_REPORT_CREATION_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-report-creation-candidate.md",
+    "title": "市场 v2 新报告创建候选（默认关闭）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_RESULT_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-result-candidate.md",
+    "title": "市场 v2 五 Agent 结果校验候选（未启用）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_ROLE_BRIDGE_0056.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-role-bridge-0056.md",
+    "title": "市场 v2 材料权限窄桥（0056 候选）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V2_TRANSPORT_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v2-transport-candidate.md",
+    "title": "市场 v2 第五工具未注册传输合同"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V6_PAUSED_TOPOLOGY_0077.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v6-paused-topology-0077.md",
+    "title": "0077 市场 v6 同报告五 Agent 持久暂停拓扑（隔离候选）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V6_PAUSED_TOPOLOGY_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v6-paused-topology-design.md",
+    "title": "市场 v6 同报告五角色暂停拓扑：未安装设计"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V6_SOURCE_TICKET_0079.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v6-source-ticket-0079.md",
+    "title": "市场 v6 同报告来源页票据（0079 候选）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MARKET_V6_TOOL_OBSERVATION.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-market-v6-tool-observation.md",
+    "title": "市场 v6 工具读取观察候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MODEL_CREDENTIAL_ROUTE.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-model-credential-route.md",
+    "title": "AI 模型凭据读取与 reader 列级权限"
+  },
+  {
+    "old": "docs/AI_BUSINESS_MVP_PAUSE_HANDOFF_20260927.md",
+    "new": "docs/技术专题/AI经营分析/集成与交接/ai-business-mvp-pause-handoff-20260927.md",
+    "title": "AI 经营分析受控暂停与首版交接（2026-09-27）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_NETSHOP_CURSOR_READ.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-netshop-cursor-read.md",
+    "title": "网店过期游标内部续读候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PAUSE_HANDOFF_20260924.md",
+    "new": "docs/技术专题/AI经营分析/集成与交接/ai-business-pause-handoff-20260924.md",
+    "title": "AI 经营分析续工暂停交接（2026-09-24）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PAUSE_POINT.md",
+    "new": "docs/技术专题/AI经营分析/集成与交接/ai-business-pause-point.md",
+    "title": "经营分析开发暂停点"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PERIOD_BOUND_PLAN_V1.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-period-bound-plan-v1.md",
+    "title": "v4 京东推广三期日期包络候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-renderer10-candidate.md",
+    "title": "推广预算 renderer 10 纯候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_STAGE.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-renderer10-stage.md",
+    "title": "推广预算 renderer 10 持久暂存（默认关闭）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_VOLUMES.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-renderer10-volumes.md",
+    "title": "推广预算 renderer 10 临时多卷候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V10_ATTESTATION_0057.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v10-attestation-0057.md",
+    "title": "0057：renderer 10 发布前不可变证明（仍禁止 ready）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V10_DOWNLOAD_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v10-download-candidate.md",
+    "title": "renderer 10 默认关闭的签名分卷读取候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V10_PAGE_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v10-page-candidate.md",
+    "title": "预算 renderer 10 页面分卷入口候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V10_PUBLISH_GATE_0058.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v10-publish-gate-0058.md",
+    "title": "0058：renderer 10 原子发布门禁（默认不可用）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V10_READER_FENCE_0059.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v10-reader-fence-0059.md",
+    "title": "0059：版本 10 当前态下载栅栏与 reader 窄回执"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V10_SLIM_575K_ACCEPTANCE.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v10-slim-575k-acceptance.md",
+    "title": "renderer 10 瘦身 HTML：57.5 万行合成容量验收"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V10_SLIM_HTML_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v10-slim-html-candidate.md",
+    "title": "renderer 10 离线 HTML 瘦身候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V10_STATIC_SCALE.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v10-static-scale.md",
+    "title": "renderer 10 合成文件静态规模验收"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V11_0069_PUBLICATION_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v11-0069-publication-design.md",
+    "title": "renderer 11 的 0069 发布与下载设计门槛"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V11_ATTESTATION_0067.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v11-attestation-0067.md",
+    "title": "renderer 11 独立暂存证明：0067 候选交接"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V11_DURABLE_STAGE_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v11-durable-stage-candidate.md",
+    "title": "renderer 11 持久暂存但不发布：0066 候选交接"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V11_IDENTITY_0070.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v11-identity-0070.md",
+    "title": "0070：预算 v11 受限身份与一次性证明票据候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V11_IDENTITY_V2_ISOLATED_PROOF.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v11-identity-v2-isolated-proof.md",
+    "title": "renderer 11 三身份 v2 窄读：仅隔离试验"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V11_LIMITED_IDENTITY_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v11-limited-identity-design.md",
+    "title": "renderer 11 受限生产身份：发布前设计门槛"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V11_PROTECTED_VERIFIER_0068.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v11-protected-verifier-0068.md",
+    "title": "renderer 11 受保护验证器回执：0068 候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V11_PUBLICATION_BLOCKER_0068.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v11-publication-blocker-0068.md",
+    "title": "renderer 11 发布门禁：0068 仅验证回执，仍不开放发布"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_BUDGET_V11_SLIM_STAGE_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-promotion-budget-v11-slim-stage-candidate.md",
+    "title": "renderer 11 压缩 HTML 临时未发布候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_CAPACITY_PREFLIGHT.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-capacity-preflight.md",
+    "title": "词货五 Agent 必读内容容量预检"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_FILE_GUARD.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-file-guard.md",
+    "title": "词货 renderer 7 的文件存储门禁候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_FILE_READY.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-file-ready.md",
+    "title": "词货 renderer 7 内部发布候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_FILE_TABLES.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-file-tables.md",
+    "title": "词货材料转工程表：流式纯候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_MARKET_ADMISSION.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-promotion-market-admission.md",
+    "title": "市场 v2 报告准入 owning 候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_MARKET_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-promotion-market-candidate.md",
+    "title": "词货报告市场动态候选（纯协议，未接入正式运行）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_MARKET_RUNTIME_V2.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-promotion-market-runtime-v2.md",
+    "title": "市场 v2 五 Agent 运行合同候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_MARKET_TOOL_PREVIEW.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/ai-business-promotion-market-tool-preview.md",
+    "title": "市场 v2 内部只读工具预览"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_MIGRATION.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-migration.md",
+    "title": "词货多 Agent 报告的数据库迁移边界"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_RELATION_V2.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-relation-v2.md",
+    "title": "京东推广完整词链候选 v2"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_RELATION_V4_STREAM.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-relation-v4-stream.md",
+    "title": "v4 规模京东推广完整词链纯流式候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_RUNTIME_INTEGRATION.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-runtime-integration.md",
+    "title": "关键词深诊断接入多 Agent 与工程文件：最小版本化路径"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_TRIAL_FILE_DB_GUARD.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-trial-file-db-guard.md",
+    "title": "推广专项可试用版 renderer 9：数据库约束候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_TRIAL_RENDERER9.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-trial-renderer9.md",
+    "title": "推广专项试用文件候选（renderer 9）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_VIEWS_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-views-design.md",
+    "title": "推广计划与单元派生视图设计"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROMOTION_WORKBENCH.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-promotion-workbench.md",
+    "title": "京东推广词货专项工作台入口"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROTECTED_ARCHIVE_STREAM_V2.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-protected-archive-stream-v2.md",
+    "title": "受保护归档流式格式候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROTECTED_MIGRATION_INSTALLER_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-protected-migration-installer-candidate.md",
+    "title": "0067–0073 受保护迁移安装器候选（仅隔离）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROTECTED_RESTORE_AUDIT_20260926.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-protected-restore-audit-20260926.md",
+    "title": "0068–0073 受保护 SQL 侧表的正式备份与异集群恢复阻断审查"
+  },
+  {
+    "old": "docs/AI_BUSINESS_PROTECTED_SHADOW_SNAPSHOT_0073.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-protected-shadow-snapshot-0073.md",
+    "title": "0073 隔离 shadow snapshot 候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_QUESTION_SUGGESTIONS.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-question-suggestions.md",
+    "title": "经营分析问题范围候选（整合候选）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_REFERENCE_PARITY_GAPS.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-reference-parity-gaps.md",
+    "title": "参考推广诊断与系统能力差距"
+  },
+  {
+    "old": "docs/AI_BUSINESS_REFERENCE_QUALITY.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-reference-quality.md",
+    "title": "原始参考报告与候选能力的验收对照"
+  },
+  {
+    "old": "docs/AI_BUSINESS_REMAINING_ACCEPTANCE.md",
+    "new": "docs/技术专题/AI经营分析/集成与交接/ai-business-remaining-acceptance.md",
+    "title": "五阶段经营分析：剩余开发与验收顺序"
+  },
+  {
+    "old": "docs/AI_BUSINESS_REPORT_COMPOSITION_OWNING_PREVIEW.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-report-composition-owning-preview.md",
+    "title": "同一封存 v2 报告的 13 表预览候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_REPORT_COMPOSITION_SOURCE_BRIDGE.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-report-composition-source-bridge.md",
+    "title": "推广来源逐页读取与 13 表分卷接线候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_REPORT_COMPOSITION_TABLE_DELIVERY_V1.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-report-composition-table-delivery-v1.md",
+    "title": "三期经营组合表格交付候选（v2 小规模）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_REPORT_COMPOSITION_V1_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-report-composition-v1-candidate.md",
+    "title": "经营报告组合候选 v1（仅纯数据，未注册）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_REPORT_COMPOSITION_VOLUME_STREAM.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-report-composition-volume-stream.md",
+    "title": "经营报告推广明细有界分卷候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_REPORT_DETAIL_WRITER_READ.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-report-detail-writer-read.md",
+    "title": "报告详情精确 writer 只读路径"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SALES_PICKER.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-sales-picker.md",
+    "title": "ERP 精确来源选择候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCOPE_OPTIONS_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-scope-options-design.md",
+    "title": "经营分析权威范围选项：最小接口设计"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_ADMISSION.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-admission.md",
+    "title": "实际模型与完整角色包容量准入"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_CHECKPOINT.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-checkpoint.md",
+    "title": "完整筛查的合作式中断"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_CLAIMS.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-claims.md",
+    "title": "固定候选数值引用"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_CONTENT.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-content.md",
+    "title": "五角色诊断与完整筛查内容"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_CREATION.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-creation.md",
+    "title": "固定筛查报告的创建与幂等"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_EXECUTION.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-execution.md",
+    "title": "固定筛查的公开入口与实际五 Agent 调度"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_FILES.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-files.md",
+    "title": "筛查报告的完整多卷 HTML/XLSX"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_INTEGRATION.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-integration.md",
+    "title": "封存证据全量筛查的内部服务接入设计"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_INTENT.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-intent.md",
+    "title": "新筛查报告的固定准备意图"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_PACKAGES.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-packages.md",
+    "title": "五角色的完整筛查阅读包"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_PERMISSION.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-permission.md",
+    "title": "本进程的筛查容量许可复用"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_PREFLIGHT.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-preflight.md",
+    "title": "完整筛查报告的容量预检"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_READINESS.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-readiness.md",
+    "title": "工作流筛查准备租约"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_RECEIPTS.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-receipts.md",
+    "title": "每个 Agent 的独立筛查读取证明"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_ROUTES.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-routes.md",
+    "title": "固定筛查签名只读入口"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_RUNTIME_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-runtime-design.md",
+    "title": "全量筛查接入新版经营报告运行时设计"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_STORAGE.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-storage.md",
+    "title": "完整筛查的固定存储"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_STORAGE_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-storage-design.md",
+    "title": "全量筛查结果持久复用的最小设计"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_TOOLS.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-tools.md",
+    "title": "固定筛查的只读工具服务"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SCREENING_WORKBENCH.md",
+    "new": "docs/技术专题/AI经营分析/筛查与报告/ai-business-screening-workbench.md",
+    "title": "完整规则筛查工作台"
+  },
+  {
+    "old": "docs/AI_BUSINESS_SHOP_KEYWORD_PERIOD_SOURCE_AUDIT_20260925.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-shop-keyword-period-source-audit-20260925.md",
+    "title": "店铺与关键词多期来源接线核查（2026-09-25）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V10_ATTESTATION_OWNING_PREFLIGHT.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-v10-attestation-owning-preflight.md",
+    "title": "renderer 10 暂存文件的拥有方预检候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V10_ATTEST_PUBLISH_STEP.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-v10-attest-publish-step.md",
+    "title": "renderer 10 证明与发布两步编排候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V11_LIMITED_SIGNER_BRIDGE_0076_DESIGN.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-v11-limited-signer-bridge-0076-design.md",
+    "title": "v11 受限签发读取桥与后继 0076 协议（隔离候选）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V11_LOGIN_ATTESTATION_0073.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-v11-login-attestation-0073.md",
+    "title": "v11 独立登录证明侧车（0073，默认关闭）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V11_SIGNED_PUBLICATION_0078.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-v11-signed-publication-0078.md",
+    "title": "0078 签名发布与只读分块候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V11_TICKET_BOUND_SIGNER_0076.md",
+    "new": "docs/技术专题/AI经营分析/推广预算/ai-business-v11-ticket-bound-signer-0076.md",
+    "title": "0076 v11 票据绑定签发候选（默认关闭）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V3_DAILY_PHYSICAL_LEDGER.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v3-daily-physical-ledger.md",
+    "title": "v3 日来源物理页与混合目录候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V3_DAILY_SIGNED_COLLECTION.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v3-daily-signed-collection.md",
+    "title": "v3 日来源内部签名单页采集候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V3_PARENT_SEAL.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v3-parent-seal.md",
+    "title": "v3 混合来源内部封存（0033）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V3_REPORT_ADMISSION.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v3-report-admission.md",
+    "title": "v3 报告准入候选（内部只读）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V3_REPORT_INTENT.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v3-report-intent.md",
+    "title": "v3 报告准入意图（0034，内部暂停）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V3_SOURCE_READ.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v3-source-read.md",
+    "title": "v3 封存来源内部签名读取候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V3_TOOL_RECEIPTS.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v3-tool-receipts.md",
+    "title": "v3 来源页的签名工具审计收据（0032）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_ATTRIBUTED_SKU_OWNING_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-v4-attributed-sku-owning-candidate.md",
+    "title": "v4 跟单 SKU 关系拥有方只读候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_CAPACITY_CONTRACT.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-capacity-contract.md",
+    "title": "v4 大规模证据纯容量合同（测量仍未获业务授权验证）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_CLAIMED_READ.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-claimed-read.md",
+    "title": "v4 领取票据后的内部只读流：0042"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_COMMIT_CONSUMPTION.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-commit-consumption.md",
+    "title": "v4 父封印与票据消费候选（0052）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_FINAL_COMMIT_CONTRACT.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-final-commit-contract.md",
+    "title": "v4 最终封存请求纯契约候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_FINAL_COMMIT_STEP.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-final-commit-step.md",
+    "title": "v4 最终封印调用层候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_FINANCE_MONTHLY_COLLECTION.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-v4-finance-monthly-collection.md",
+    "title": "v4 财务自然月来源：内部单页采集与完整重放候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_FINANCE_REPLAY_PROGRESS.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-v4-finance-replay-progress.md",
+    "title": "v4 财报段重放进度候选回执（0048）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_FINANCE_SEGMENT_PURE.md",
+    "new": "docs/技术专题/AI经营分析/财报数据/ai-business-v4-finance-segment-pure.md",
+    "title": "v4 财报分段纯重放候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_JD_PROMOTION_COLLECTION.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-v4-jd-promotion-collection.md",
+    "title": "v4 京东网店推广单页采集（内部候选）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_LEDGER_FOUNDATION.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-ledger-foundation.md",
+    "title": "v4 大规模证据独立物理账（0035，未启用）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_PERIOD_PLAN_SIDECAR.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-period-plan-sidecar.md",
+    "title": "v4 三期日期候选持久侧表（0055）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_PRIOR_CLAIM_COLUMN.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-prior-claim-column.md",
+    "title": "v4 跨票据前段 claim 查询修复（0051，隔离候选）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_PROMOTION_OWNING_CAPACITY_BRIDGE.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-v4-promotion-owning-capacity-bridge.md",
+    "title": "v4 推广页容量的拥有方内部接线候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_PROMOTION_PAGE_CAPACITY_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-v4-promotion-page-capacity-candidate.md",
+    "title": "v4 推广拥有方页容量测量候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_PROMOTION_REPLAY.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-v4-promotion-replay.md",
+    "title": "v4 京东推广完整来源只读重放候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_PROMOTION_WINDOWS.md",
+    "new": "docs/技术专题/AI经营分析/推广数据/ai-business-v4-promotion-windows.md",
+    "title": "v4 京东推广三窗口精确选择（纯候选）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_REPLAY_READ_CAST.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-replay-read-cast.md",
+    "title": "AI v4 replay READ return type repair"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_RESTRICTED_PAGES_0075.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-restricted-pages-0075.md",
+    "title": "0075 同报告受限 sealed-v4 页读取：隔离候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SAME_REPORT_SOURCE_BRIDGE.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-same-report-source-bridge.md",
+    "title": "v4 大容量来源与同报告文件流：封闭桥接候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEALER_EXECUTION_PLAN.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-sealer-execution-plan.md",
+    "title": "v4 独立封存器执行接线：默认关闭设计"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEALER_LEDGER_READ.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-sealer-ledger-read.md",
+    "title": "v4 独立封存身份的最小账本读取候选（0039）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEALER_NARROW_STREAM.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-sealer-narrow-stream.md",
+    "title": "v4 封存身份窄流读取候选（0040）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEALER_REPLAY_PROGRESS.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-sealer-replay-progress.md",
+    "title": "v4 推广段重放进度候选回执（0047）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEALER_SEGMENT_REPLAY_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-sealer-segment-replay-candidate.md",
+    "title": "v4 独立封存器：推广单段重放纯候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEALER_SOURCE_BRIDGE.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-sealer-source-bridge.md",
+    "title": "v4 sealer 来源身份窄读边界"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEALER_STEP_CORE.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-sealer-step-core.md",
+    "title": "v4 单段 sealer 候选编排（默认关闭）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEAL_ADMISSION_READ.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-seal-admission-read.md",
+    "title": "v4 封存准入只读候选（0037）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEAL_CONSUMPTION_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-seal-consumption-candidate.md",
+    "title": "v4 封存消费候选：0043 默认关闭"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEAL_TICKET.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-seal-ticket.md",
+    "title": "v4 封存单次票据：0041 安全闭合候选"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEAL_VERIFICATION.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-seal-verification.md",
+    "title": "v4 规范封存正文与内部只读复核"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_SEAL_WRITER_GATE.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-seal-writer-gate.md",
+    "title": "v4 独立封存数据库门禁（0038，默认关闭）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_V4_VALIDATION_SEGMENTS.md",
+    "new": "docs/技术专题/AI经营分析/证据与采集/ai-business-v4-validation-segments.md",
+    "title": "v4 大来源可恢复候选证明（0036，未封存）"
+  },
+  {
+    "old": "docs/AI_BUSINESS_ZHIGAO_TRIAL_ACCEPTANCE_20260925.md",
+    "new": "docs/技术专题/AI经营分析/总体设计/ai-business-zhigao-trial-acceptance-20260925.md",
+    "title": "志高商用设备旗舰店：推广专项试用验收记录"
+  },
+  {
+    "old": "docs/AI_CHAT_RELIABILITY_REVIEW_20260910.md",
+    "new": "docs/历史记录/AI助手/ai-chat-reliability-review-20260910.md",
+    "title": "AI 无法回复的复盘与稳定性改造建议"
+  },
+  {
+    "old": "docs/AI_CHAT_WORKBENCH.md",
+    "new": "docs/使用手册/AI助手/ai-chat-workbench.md",
+    "title": "AI 对话工作台"
+  },
+  {
+    "old": "docs/AI_DINGTALK_INDEPENDENT_EXECUTION.md",
+    "new": "docs/技术专题/AI助手/ai-dingtalk-independent-execution.md",
+    "title": "企业机器人独立认证与定时任务独立执行"
+  },
+  {
+    "old": "docs/AI_DINGTALK_SCHEDULES.md",
+    "new": "docs/使用手册/AI助手/ai-dingtalk-schedules.md",
+    "title": "AI 助理 → AI定时任务"
+  },
+  {
+    "old": "docs/AI_INTEGRATION_PLAN.md",
+    "new": "docs/历史记录/AI助手/ai-integration-plan.md",
+    "title": "运营管理系统 AI 接入设计"
+  },
+  {
+    "old": "docs/AI_MODEL_GENERATION_CAPABILITIES.md",
+    "new": "docs/使用手册/AI助手/ai-model-generation-capabilities.md",
+    "title": "模型生成能力配置"
+  },
+  {
+    "old": "docs/AI_MODULE_CONVERSATIONS.md",
+    "new": "docs/使用手册/AI助手/ai-module-conversations.md",
+    "title": "AI 板块独立会话：首批实现与后续工作"
+  },
+  {
+    "old": "docs/AI_PANDAS_SANDBOX.md",
+    "new": "docs/技术专题/AI助手/ai-pandas-sandbox.md",
+    "title": "小特 pandas 容器分析工具"
+  },
+  {
+    "old": "docs/AI_PLATFORM_ARCHITECTURE.md",
+    "new": "docs/技术专题/AI助手/ai-platform-architecture.md",
+    "title": "TERUISI AI 平台架构"
+  },
+  {
+    "old": "docs/AI_PROMOTION_CHAT_DELIVERY.md",
+    "new": "docs/技术专题/AI助手/ai-promotion-chat-delivery.md",
+    "title": "京东推广诊断接入 AI 对话：交付清单"
+  },
+  {
+    "old": "docs/AI_PROMOTION_CHAT_PAUSE_HANDOFF_20260927.md",
+    "new": "docs/技术专题/AI助手/ai-promotion-chat-pause-handoff-20260927.md",
+    "title": "AI 对话推广诊断暂停交接（2026-09-27）"
+  },
+  {
+    "old": "docs/AI_PROMOTION_SIXDAY_DATA_GAPS.md",
+    "new": "docs/技术专题/AI助手/ai-promotion-sixday-data-gaps.md",
+    "title": "志高商用设备旗舰店六天诊断：系统数据缺口"
+  },
+  {
+    "old": "docs/AI_PROMOTION_SIXDAY_MVP.md",
+    "new": "docs/技术专题/AI助手/ai-promotion-sixday-mvp.md",
+    "title": "京东推广深度诊断六天首版候选"
+  },
+  {
+    "old": "docs/AI_PROMOTION_TRIAL_RENDERER9_DELIVERY.md",
+    "new": "docs/技术专题/AI助手/ai-promotion-trial-renderer9-delivery.md",
+    "title": "推广专项试用版 renderer9 文件交付（隔离候选）"
+  },
+  {
+    "old": "docs/AI_PROMPT_SETTINGS.md",
+    "new": "docs/使用手册/AI助手/ai-prompt-settings.md",
+    "title": "AI 对话布局与配置设置"
+  },
+  {
+    "old": "docs/AI_REPORT_LIBRARY.md",
+    "new": "docs/使用手册/AI助手/ai-report-library.md",
+    "title": "报告模板、Skill 与 AI 流水线"
+  },
+  {
+    "old": "docs/AI能力重构1-3层推进文档.md",
+    "new": "docs/技术专题/AI助手/AI能力重构-第1至3层.md",
+    "title": "TERUISI 运营管理系统 AI 能力重构：1—3 层推进文档"
+  },
+  {
+    "old": "docs/AI能力重构4-5层推进文档.md",
+    "new": "docs/技术专题/AI助手/AI能力重构-第4至5层.md",
+    "title": "TERUISI 运营管理系统 AI 能力重构：4—5 层推进文档"
+  },
+  {
+    "old": "docs/AI能力重构6-7层推进文档.md",
+    "new": "docs/技术专题/AI助手/AI能力重构-第6至7层.md",
+    "title": "TERUISI 运营管理系统 AI 能力重构：6—7 层推进文档"
+  },
+  {
+    "old": "docs/BACKUP_CAPACITY_RELEASE_FIX_20260929.md",
+    "new": "docs/历史记录/性能与发布/backup-capacity-release-fix-20260929.md",
+    "title": "上线验收发现的备份容量预检修正"
+  },
+  {
+    "old": "docs/BACKUP_CONTINUITY_OPTIMIZATION_20260929.md",
+    "new": "docs/历史记录/性能与发布/backup-continuity-optimization-20260929.md",
+    "title": "第 1 项：备份持续运行与轮换闭环"
+  },
+  {
+    "old": "docs/BACKUP_RETENTION.md",
+    "new": "docs/运维/备份与存储/backup-retention.md",
+    "title": "发布与数据库备份保留"
+  },
+  {
+    "old": "docs/BI_COCKPIT_IMPLEMENTATION.md",
+    "new": "docs/技术专题/BI看板/bi-cockpit-implementation.md",
+    "title": "BI 综合经营驾驶舱：正式实现与接线契约"
+  },
+  {
+    "old": "docs/BI_COCKPIT_PRODUCTION_20261006.md",
+    "new": "docs/历史记录/性能与发布/bi-cockpit-production-20261006.md",
+    "title": "BI 综合经营驾驶舱生产采用：2026-10-06"
+  },
+  {
+    "old": "docs/BUSINESS_MARKET_V2_CONTEXT_PROOF.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/business-market-v2-context-proof.md",
+    "title": "市场 v2 context 独立证明（0061 候选）"
+  },
+  {
+    "old": "docs/BUSINESS_MARKET_V2_COST_LEDGER_0065.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/business-market-v2-cost-ledger-0065.md",
+    "title": "市场五 Agent 模型费用需求账（0065 候选）"
+  },
+  {
+    "old": "docs/BUSINESS_MARKET_V2_EXECUTION_PLAN_V3.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/business-market-v2-execution-plan-v3.md",
+    "title": "市场 v2 五 Agent 执行计划 v3（0063 候选）"
+  },
+  {
+    "old": "docs/BUSINESS_MARKET_V2_EXECUTION_SNAPSHOT.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/business-market-v2-execution-snapshot.md",
+    "title": "京东市场 v2 五工具执行档案候选（0060）"
+  },
+  {
+    "old": "docs/BUSINESS_MARKET_V2_PAID_PREFLIGHT.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/business-market-v2-paid-preflight.md",
+    "title": "市场 v2 真实 Agent 调用前门禁（开发候选）"
+  },
+  {
+    "old": "docs/BUSINESS_MARKET_V2_READ_BRIDGE_0073_BLOCKER.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/business-market-v2-read-bridge-0073-blocker.md",
+    "title": "市场五角色同报告已读链：0073 前置阻断合同"
+  },
+  {
+    "old": "docs/BUSINESS_MARKET_V2_READ_PLAN_V6.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/business-market-v2-read-plan-v6.md",
+    "title": "市场 v2 新报告同任务已读：v6 创建前候选"
+  },
+  {
+    "old": "docs/BUSINESS_MARKET_V2_READ_RECEIPT_CANDIDATE.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/business-market-v2-read-receipt-candidate.md",
+    "title": "市场 v2 同任务已读回执门禁（0062 候选）"
+  },
+  {
+    "old": "docs/BUSINESS_MARKET_V2_SYNTHETIC_VERTICAL_0064.md",
+    "new": "docs/技术专题/AI经营分析/市场数据/business-market-v2-synthetic-vertical-0064.md",
+    "title": "市场 v2 合成持久纵向切片（0064 候选）"
+  },
+  {
+    "old": "docs/COLD_START_COORDINATION.md",
+    "new": "docs/运维/部署与启动/cold-start-coordination.md",
+    "title": "开机后首次打开的并发启动等待"
+  },
+  {
+    "old": "docs/DINGTALK_READONLY_ASK.md",
+    "new": "docs/使用手册/AI助手/dingtalk-readonly-ask.md",
+    "title": "志高助手：钉钉只读问数"
+  },
+  {
+    "old": "docs/DJANGO_ACCESS_CONTROL_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-access-control-migration.md",
+    "title": "用户、角色、数据范围与权限审计域 Django 迁移手册"
+  },
+  {
+    "old": "docs/DJANGO_AGGREGATE_CUTOVER.md",
+    "new": "docs/技术专题/领域迁移/django-aggregate-cutover.md",
+    "title": "聚合层 D1 依赖清理与受控发布"
+  },
+  {
+    "old": "docs/DJANGO_AI_ASSISTANT_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-ai-assistant-migration.md",
+    "title": "AI 助理完整数据域 Django/PostgreSQL 迁移"
+  },
+  {
+    "old": "docs/DJANGO_AI_R2_RETIREMENT.md",
+    "new": "docs/技术专题/领域迁移/django-ai-r2-retirement.md",
+    "title": "AI 图片 R2 退役"
+  },
+  {
+    "old": "docs/DJANGO_BI_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-bi-migration.md",
+    "title": "BI 看板 Django 只读聚合契约"
+  },
+  {
+    "old": "docs/DJANGO_CUSTOMER_SERVICE_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-customer-service-migration.md",
+    "title": "客服分析 Django/PostgreSQL 重构与迁移手册"
+  },
+  {
+    "old": "docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md",
+    "new": "docs/技术专题/领域迁移/django-data-import-architecture.md",
+    "title": "Django 数据导入架构契约"
+  },
+  {
+    "old": "docs/DJANGO_ERP_REFERENCE_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-erp-reference-migration.md",
+    "title": "ERP 主数据 Django/PostgreSQL 重构与迁移手册"
+  },
+  {
+    "old": "docs/DJANGO_FINANCE_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-finance-migration.md",
+    "title": "财务分析 Django 后端迁移手册"
+  },
+  {
+    "old": "docs/DJANGO_INVENTORY_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-inventory-migration.md",
+    "title": "库存管理 Django/PostgreSQL 重构与迁移"
+  },
+  {
+    "old": "docs/DJANGO_MARKET_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-market-migration.md",
+    "title": "市场分析 Django/PostgreSQL 迁移手册"
+  },
+  {
+    "old": "docs/DJANGO_NETSHOP_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-netshop-migration.md",
+    "title": "网店分析 Django/PostgreSQL 迁移手册"
+  },
+  {
+    "old": "docs/DJANGO_POSTGRES_OPERATIONS.md",
+    "new": "docs/运维/备份与存储/django-postgres-operations.md",
+    "title": "Django/PostgreSQL 持续备份与隔离恢复"
+  },
+  {
+    "old": "docs/DJANGO_PRODUCTS_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-products-migration.md",
+    "title": "商品经营 Django/PostgreSQL 重构与迁移"
+  },
+  {
+    "old": "docs/DJANGO_RUNTIME_SUPERVISION.md",
+    "new": "docs/运维/监控与恢复/django-runtime-supervision.md",
+    "title": "Django 本机运行守护与主动健康监控"
+  },
+  {
+    "old": "docs/DJANGO_SALES_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-sales-migration.md",
+    "title": "Django/PostgreSQL 销售域单写切换手册"
+  },
+  {
+    "old": "docs/DJANGO_WORKFLOW_MIGRATION.md",
+    "new": "docs/技术专题/领域迁移/django-workflow-migration.md",
+    "title": "运营事务 Django/PostgreSQL 全板块迁移与切换手册"
+  },
+  {
+    "old": "docs/ERP销售自动导入说明.md",
+    "new": "docs/使用手册/数据导入/ERP销售自动导入说明.md",
+    "title": "ERP 销售明细自动导入"
+  },
+  {
+    "old": "docs/FILTER_REFRESH_EXPERIENCE.md",
+    "new": "docs/技术专题/公共能力/filter-refresh-experience.md",
+    "title": "筛选刷新与静态缓存交互规范"
+  },
+  {
+    "old": "docs/FINANCE_IMPORT_COLUMN_CONTRACT.md",
+    "new": "docs/技术专题/公共能力/finance-import-column-contract.md",
+    "title": "财报导入内部列号字段修复"
+  },
+  {
+    "old": "docs/GLOBAL_D1_CONTROL_RETIREMENT.md",
+    "new": "docs/技术专题/数据存储/global-d1-control-retirement.md",
+    "title": "全局 D1 控制链脱钩"
+  },
+  {
+    "old": "docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md",
+    "new": "docs/技术专题/数据存储/global-d1-retirement-assessment.md",
+    "title": "全局 D1 退役评估与 Django/PostgreSQL 统一边界"
+  },
+  {
+    "old": "docs/GLOBAL_SEARCH.md",
+    "new": "docs/使用手册/运营协同/global-search.md",
+    "title": "全系统分组搜索"
+  },
+  {
+    "old": "docs/IMPORT_MONITOR.md",
+    "new": "docs/使用手册/数据导入/import-monitor.md",
+    "title": "数据导入：运行记录与链路规则"
+  },
+  {
+    "old": "docs/INTEGRATION_PRODUCTION_READINESS.md",
+    "new": "docs/历史记录/性能与发布/integration-production-readiness.md",
+    "title": "集成分支的本机发布门槛"
+  },
+  {
+    "old": "docs/INVENTORY_MANAGEMENT.md",
+    "new": "docs/使用手册/商品库存/inventory-management.md",
+    "title": "库存管理板块说明"
+  },
+  {
+    "old": "docs/ISOLATED_PREVIEW.md",
+    "new": "docs/运维/部署与启动/isolated-preview.md",
+    "title": "一键本机演示预览"
+  },
+  {
+    "old": "docs/JACKYUN_4098_RECOVERY.md",
+    "new": "docs/历史记录/自动化/吉客云/jackyun-4098-recovery.md",
+    "title": "吉客云 4098 导出前失败安全关闭"
+  },
+  {
+    "old": "docs/JACKYUN_4726_RECOVERY.md",
+    "new": "docs/历史记录/自动化/吉客云/jackyun-4726-recovery.md",
+    "title": "吉客云 4726 凭据查找失败：恢复与验收"
+  },
+  {
+    "old": "docs/JACKYUN_5399_ZERO_COST_RECOVERY.md",
+    "new": "docs/历史记录/自动化/吉客云/jackyun-5399-zero-cost-recovery.md",
+    "title": "吉客云 5399 零成本口径与校验失败恢复"
+  },
+  {
+    "old": "docs/JACKYUN_5478_IMPORT_RECOVERY.md",
+    "new": "docs/历史记录/自动化/吉客云/jackyun-5478-import-recovery.md",
+    "title": "吉客云 5478 原文件续导"
+  },
+  {
+    "old": "docs/JACKYUN_5478_PRODUCTION_20261005.md",
+    "new": "docs/历史记录/自动化/吉客云/jackyun-5478-production-20261005.md",
+    "title": "吉客云 5478 正式采用与原文件恢复"
+  },
+  {
+    "old": "docs/JACKYUN_HTTP_EXPORT.md",
+    "new": "docs/自动化/吉客云/jackyun-http-export.md",
+    "title": "吉客云网页校验与 HTTP 导出"
+  },
+  {
+    "old": "docs/JACKYUN_LOGIN_PAGE_RECOVERY.md",
+    "new": "docs/自动化/吉客云/jackyun-login-page-recovery.md",
+    "title": "吉客云登录页面就绪与失败恢复"
+  },
+  {
+    "old": "docs/JACKYUN_OCT4_RECOVERY_PRODUCTION_20261005.md",
+    "new": "docs/历史记录/自动化/吉客云/jackyun-oct4-recovery-production-20261005.md",
+    "title": "吉客云补齐至 10 月 4 日：正式采用与原库存任务恢复"
+  },
+  {
+    "old": "docs/JACKYUN_REPEAT_RUN_ASSESSMENT.md",
+    "new": "docs/技术专题/自动化评估/jackyun-repeat-run-assessment.md",
+    "title": "吉客云每日多次运行与最新文件导入评估"
+  },
+  {
+    "old": "docs/JACKYUN_SAFE_PREFLIGHT_RECOVERY.md",
+    "new": "docs/自动化/吉客云/jackyun-safe-preflight-recovery.md",
+    "title": "吉客云通用安全恢复与登录准备重试"
+  },
+  {
+    "old": "docs/JACKYUN_SALES_ROLLING_WINDOW.md",
+    "new": "docs/自动化/吉客云/jackyun-sales-rolling-window.md",
+    "title": "吉客云销售明细最近 45 天滚动同步"
+  },
+  {
+    "old": "docs/JACKYUN_SESSION_API_EXPORT.md",
+    "new": "docs/自动化/吉客云/jackyun-session-api-export.md",
+    "title": "吉客云五表会话接口下载"
+  },
+  {
+    "old": "docs/JD_CUSTOMER_SERVICE_RELEASE_20261007.md",
+    "new": "docs/历史记录/自动化/京东/jd-customer-service-release-20261007.md",
+    "title": "京东客服每日工作流：2026-10-07 上线验收"
+  },
+  {
+    "old": "docs/JD_CUSTOMER_SERVICE_WORKFLOW.md",
+    "new": "docs/自动化/京东/jd-customer-service-workflow.md",
+    "title": "京东志高四店客服工作流"
+  },
+  {
+    "old": "docs/JD_INITIAL_QUERY_RECOVERY_20261004.md",
+    "new": "docs/历史记录/自动化/京东/jd-initial-query-recovery-20261004.md",
+    "title": "京东四店首屏查询超时：候选修正"
+  },
+  {
+    "old": "docs/JD_QUERY_SOURCE_ADOPTION_20261004.md",
+    "new": "docs/历史记录/自动化/京东/jd-query-source-adoption-20261004.md",
+    "title": "京东查询修正采用与跨月补缺"
+  },
+  {
+    "old": "docs/MARKET_ANNOTATION_RELIABILITY.md",
+    "new": "docs/使用手册/市场分析/market-annotation-reliability.md",
+    "title": "市场 AI 标注调度与复核修复"
+  },
+  {
+    "old": "docs/MARKET_FINANCE_FILTER_RELEASE_20260907.md",
+    "new": "docs/历史记录/性能与发布/market-finance-filter-release-20260907.md",
+    "title": "市场任务与销售筛选受控发布记录"
+  },
+  {
+    "old": "docs/MARKET_QUERY_PAGINATION.md",
+    "new": "docs/使用手册/市场分析/market-query-pagination.md",
+    "title": "市场榜单分页与错误恢复"
+  },
+  {
+    "old": "docs/MARKET_QUERY_PERFORMANCE_20260929.md",
+    "new": "docs/历史记录/性能与发布/market-query-performance-20260929.md",
+    "title": "第五项：市场筛选及榜单性能"
+  },
+  {
+    "old": "docs/MARKET_QUERY_WATCHDOG_RECOVERY.md",
+    "new": "docs/历史记录/性能与发布/market-query-watchdog-recovery.md",
+    "title": "市场查询与看门狗优化上线（2026-09-20）"
+  },
+  {
+    "old": "docs/N8N_HOURLY_SAFE_RETRY.md",
+    "new": "docs/自动化/通用/n8n-hourly-safe-retry.md",
+    "title": "n8n 数据下载导入工作流每小时安全重试"
+  },
+  {
+    "old": "docs/N8N_NO_CONSOLE_STARTUP.md",
+    "new": "docs/运维/部署与启动/n8n-no-console-startup.md",
+    "title": "n8n 无控制台启动"
+  },
+  {
+    "old": "docs/NETSHOP_OVERVIEW_01_CANDIDATE.md",
+    "new": "docs/技术专题/网店分析/netshop-overview-01-candidate.md",
+    "title": "网店总览 01 隔离开发候选"
+  },
+  {
+    "old": "docs/NETSHOP_READINESS_GATES.md",
+    "new": "docs/技术专题/网店分析/netshop-readiness-gates.md",
+    "title": "网店真实启动与业务就绪验收"
+  },
+  {
+    "old": "docs/NEW_PRODUCT_WEEKLY_FOLLOWUP.md",
+    "new": "docs/使用手册/运营协同/new-product-weekly-followup.md",
+    "title": "上新销售周跟进与钉钉同步"
+  },
+  {
+    "old": "docs/OPERATIONS_WATCHDOG.md",
+    "new": "docs/运维/监控与恢复/operations-watchdog.md",
+    "title": "运营管理系统独立看门狗"
+  },
+  {
+    "old": "docs/OPTIMIZATION_4_RELEASE_AUTOMATION_COORDINATION_20260929.md",
+    "new": "docs/历史记录/性能与发布/optimization-4-release-automation-coordination-20260929.md",
+    "title": "第 4 项：发布与自动化协调（独立候选）"
+  },
+  {
+    "old": "docs/OPTIMIZATION_INTEGRATION_RELEASE_20260929.md",
+    "new": "docs/历史记录/性能与发布/optimization-integration-release-20260929.md",
+    "title": "第 1—7 项统一集成与上线送审"
+  },
+  {
+    "old": "docs/OPTIMIZATION_PRODUCTION_20260929.md",
+    "new": "docs/历史记录/性能与发布/optimization-production-20260929.md",
+    "title": "第 1—7 项统一生产采用记录"
+  },
+  {
+    "old": "docs/OPTIMIZATION_TASK3_FOLLOWUP_20260929.md",
+    "new": "docs/历史记录/性能与发布/optimization-task3-followup-20260929.md",
+    "title": "第 3 项增量补合并、组合验证与候选更新"
+  },
+  {
+    "old": "docs/PERFORMANCE_FIVE_PRODUCTION_20261006.md",
+    "new": "docs/历史记录/性能与发布/performance-five-production-20261006.md",
+    "title": "五项性能优化：2026-10-06 本次生产采用"
+  },
+  {
+    "old": "docs/PRODUCT_OVERVIEW_SPEED_PILOT_20261005.md",
+    "new": "docs/历史记录/性能与发布/product-overview-speed-pilot-20261005.md",
+    "title": "商品经营总览打开速度试点（2026-10-05）"
+  },
+  {
+    "old": "docs/PRODUCT_OVERVIEW_SPEED_PRODUCTION_20261005.md",
+    "new": "docs/历史记录/性能与发布/product-overview-speed-production-20261005.md",
+    "title": "商品经营总览速度试点：本次批准的生产采用"
+  },
+  {
+    "old": "docs/RACE_CONDITION_FIXES.md",
+    "new": "docs/历史记录/性能与发布/race-condition-fixes.md",
+    "title": "维护、周报读取与 Prompt 版本并发修复"
+  },
+  {
+    "old": "docs/RELEASE_BATCH_WORKFLOW.md",
+    "new": "docs/运维/部署与启动/release-batch-workflow.md",
+    "title": "按影响分级的发布批次与等待时间"
+  },
+  {
+    "old": "docs/STARTUP_RELEASE_OPTIMIZATION.md",
+    "new": "docs/运维/部署与启动/startup-release-optimization.md",
+    "title": "启动与发布诊断复核及优化"
+  },
+  {
+    "old": "docs/STARTUP_SPEED_OPTIMIZATION_20260929.md",
+    "new": "docs/历史记录/性能与发布/startup-speed-optimization-20260929.md",
+    "title": "第七项：启动速度候选与交付"
+  },
+  {
+    "old": "docs/STORAGE_RETENTION.md",
+    "new": "docs/运维/备份与存储/storage-retention.md",
+    "title": "本机存储保留与 GitHub 归档"
+  },
+  {
+    "old": "docs/SUMMARY_CARD_FILTERS.md",
+    "new": "docs/历史记录/性能与发布/summary-card-filters.md",
+    "title": "分类统计卡片筛选（开发预览）"
+  },
+  {
+    "old": "docs/SUPERVISOR_EXIT_DIAGNOSTICS_20260929.md",
+    "new": "docs/历史记录/性能与发布/supervisor-exit-diagnostics-20260929.md",
+    "title": "第 2 项：supervisor 意外退出诊断与修复候选"
+  },
+  {
+    "old": "docs/SYSTEM_DATASETS_API.md",
+    "new": "docs/技术专题/公共能力/system-datasets-api.md",
+    "title": "系统实时数据集 API"
+  },
+  {
+    "old": "docs/SYSTEM_DATASETS_COVERAGE.md",
+    "new": "docs/技术专题/公共能力/system-datasets-coverage.md",
+    "title": "系统数据集覆盖清单"
+  },
+  {
+    "old": "docs/SYSTEM_HEALTH_FIXES_BATCH1.md",
+    "new": "docs/历史记录/性能与发布/system-health-fixes-batch1.md",
+    "title": "系统体检修复：第一批"
+  },
+  {
+    "old": "docs/SYSTEM_HEALTH_FIXES_BATCH2.md",
+    "new": "docs/历史记录/性能与发布/system-health-fixes-batch2.md",
+    "title": "系统体检第二批：市场查询性能"
+  },
+  {
+    "old": "docs/SYSTEM_HEALTH_RELEASE.md",
+    "new": "docs/历史记录/性能与发布/system-health-release.md",
+    "title": "系统体检第一、二批正式采用"
+  },
+  {
+    "old": "docs/SYSTEM_OPTIMIZATION_ASSESSMENT_20260928.md",
+    "new": "docs/历史记录/性能与发布/system-optimization-assessment-20260928.md",
+    "title": "系统优化核查与实施优先级评估"
+  },
+  {
+    "old": "docs/TMALL_LILI_THREAD_DIAGNOSIS_20260926.md",
+    "new": "docs/历史记录/自动化/天猫/tmall-lili-thread-diagnosis-20260926.md",
+    "title": "丽力货品线程异常：诊断版本已采用，原 M 异常仍待复现"
+  },
+  {
+    "old": "docs/TMALL_STORE_ISOLATION.md",
+    "new": "docs/自动化/天猫/tmall-store-isolation.md",
+    "title": "丽力每日接口分批与天猫店铺独立执行"
+  },
+  {
+    "old": "docs/UNIFIED_THEME_CROSS_APP_SANDBOX.md",
+    "new": "docs/技术专题/公共能力/unified-theme-cross-app-sandbox.md",
+    "title": "统一主题与跨模块沙箱计算"
+  },
+  {
+    "old": "docs/WORKERD_INSPECTOR_RETENTION_FIX_20260929.md",
+    "new": "docs/历史记录/性能与发布/workerd-inspector-retention-fix-20260929.md",
+    "title": "第 3 项：Wrangler 调试代理内存保留修复候选"
+  },
+  {
+    "old": "docs/WORKERD_MEMORY_ATTRIBUTION_20260929.md",
+    "new": "docs/历史记录/性能与发布/workerd-memory-attribution-20260929.md",
+    "title": "第 3 项续工：负载拆分与堆对象保留分析"
+  },
+  {
+    "old": "docs/WORKERD_MEMORY_DIAGNOSIS_20260929.md",
+    "new": "docs/历史记录/性能与发布/workerd-memory-diagnosis-20260929.md",
+    "title": "第 3 项：workerd 内存增长诊断（独立交付）"
+  },
+  {
+    "old": "docs/WORKER_HEAP_LIMIT.md",
+    "new": "docs/运维/监控与恢复/worker-heap-limit.md",
+    "title": "本机 workerd 内存堆配置"
+  },
+  {
+    "old": "docs/WORKER_LIVENESS_RECOVERY.md",
+    "new": "docs/运维/监控与恢复/worker-liveness-recovery.md",
+    "title": "不可变 Worker 存活自愈"
+  },
+  {
+    "old": "docs/WORKER_SUCCESSOR_CAPACITY.md",
+    "new": "docs/历史记录/性能与发布/worker-successor-capacity.md",
+    "title": "Worker successor 有界容量评审（2026-09-10）"
+  },
+  {
+    "old": "docs/WORKFLOW_ANNUAL_TARGETS.md",
+    "new": "docs/使用手册/运营协同/workflow-annual-targets.md",
+    "title": "上新跟进与店铺年度目标"
+  },
+  {
+    "old": "docs/WORKFLOW_DINGTALK_NOTIFICATIONS.md",
+    "new": "docs/自动化/通用/workflow-dingtalk-notifications.md",
+    "title": "工作流钉钉通知规则"
+  },
+  {
+    "old": "docs/WRANGLER_SELF_CHECK_STABILITY_20260929.md",
+    "new": "docs/历史记录/性能与发布/wrangler-self-check-stability-20260929.md",
+    "title": "第 6 项：Wrangler 自检稳定性"
+  },
+  {
+    "old": "docs/一键销售导入操作说明.md",
+    "new": "docs/使用手册/数据导入/一键销售导入操作说明.md",
+    "title": "一键销售导入"
+  },
+  {
+    "old": "docs/京东商智商品明细SKU日数据下载.md",
+    "new": "docs/自动化/京东/京东商智商品明细SKU日数据下载.md",
+    "title": "京东商智商品明细 SKU 日数据下载"
+  },
+  {
+    "old": "docs/京东商智商品明细SPU日数据下载与API导入.md",
+    "new": "docs/自动化/京东/京东商智商品明细SPU日数据下载与API导入.md",
+    "title": "京东商智商品明细 SPU 日数据下载与 API 导入"
+  },
+  {
+    "old": "docs/京东多店铺统一下载与导入-审查修复与稳定性手册.md",
+    "new": "docs/自动化/京东/京东多店铺统一下载与导入-审查修复与稳定性手册.md",
+    "title": "京东多店铺统一下载与导入：审查、修复与稳定性手册"
+  },
+  {
+    "old": "docs/京东多店铺账号切换与串行执行手册.md",
+    "new": "docs/自动化/京东/京东多店铺账号切换与串行执行手册.md",
+    "title": "京东多店铺账号切换与串行执行手册"
+  },
+  {
+    "old": "docs/京东市场商品榜单SKU日数据n8n工作流.md",
+    "new": "docs/自动化/京东/京东市场商品榜单SKU日数据n8n工作流.md",
+    "title": "京东市场商品榜单 SKU 日数据 n8n 工作流"
+  },
+  {
+    "old": "docs/京东店铺SKU下载和导出智能体.md",
+    "new": "docs/自动化/京东/京东商品主数据SKU导出智能体.md",
+    "title": "京东商品主数据 SKU 导出智能体"
+  },
+  {
+    "old": "docs/京东店铺商品SKU下载-自动导入.md",
+    "new": "docs/自动化/京东/京东商品主数据SKU下载与自动导入.md",
+    "title": "京东商品主数据 SKU 下载与自动导入"
+  },
+  {
+    "old": "docs/京东店铺商品SKU下载.md",
+    "new": "docs/自动化/京东/京东商品主数据SKU下载手册.md",
+    "title": "京东商品主数据 SKU 下载手册"
+  },
+  {
+    "old": "docs/京准通AI推广数据n8n工作流.md",
+    "new": "docs/自动化/京准通/京准通AI推广数据n8n工作流.md",
+    "title": "京准通 AI 推广数据 n8n 工作流"
+  },
+  {
+    "old": "docs/京准通志高切肉机AI推广数据n8n工作流.md",
+    "new": "docs/自动化/京准通/京准通志高切肉机AI推广数据n8n工作流.md",
+    "title": "京准通志高切肉机 AI 推广数据 n8n 工作流"
+  },
+  {
+    "old": "docs/全系统对抗性正确性审查.md",
+    "new": "docs/历史记录/性能与发布/全系统对抗性正确性审查.md",
+    "title": "TERUISI 运营管理系统全板块对抗性正确性审查"
+  },
+  {
+    "old": "docs/分仓库存导出剔除与导入操作手册.md",
+    "new": "docs/使用手册/数据导入/吉客云分仓库存导出剔除与导入手册.md",
+    "title": "吉客云「分仓库存」导出、精确剔除与导入操作手册"
+  },
+  {
+    "old": "docs/吉客云DPAPI登录配置.md",
+    "new": "docs/自动化/吉客云/吉客云DPAPI登录配置.md",
+    "title": "吉客云 Windows DPAPI 登录配置"
+  },
+  {
+    "old": "docs/吉客云Playwright状态机执行规范.md",
+    "new": "docs/自动化/吉客云/吉客云Playwright状态机执行规范.md",
+    "title": "吉客云五类数据导入：Playwright 状态机执行规范"
+  },
+  {
+    "old": "docs/吉客云n8n五表先导出后导入.md",
+    "new": "docs/自动化/吉客云/吉客云n8n五表先导出后导入.md",
+    "title": "吉客云 n8n 五表先导出后导入"
+  },
+  {
+    "old": "docs/吉客云五类数据导入可复用工作流.md",
+    "new": "docs/自动化/吉客云/吉客云五类数据导入可复用工作流.md",
+    "title": "吉客云五类数据导入可复用工作流"
+  },
+  {
+    "old": "docs/吉客云导入系统多AI多方法跑通测试-2026-08-06.md",
+    "new": "docs/历史记录/自动化/吉客云/吉客云导入多AI多方法验证-20260806.md",
+    "title": "吉客云导入系统多 AI、多方法跑通测试（2026-08-06）"
+  },
+  {
+    "old": "docs/吉客云每日自动化执行卡.md",
+    "new": "docs/自动化/吉客云/吉客云每日自动化执行卡.md",
+    "title": "吉客云每日自动化执行卡"
+  },
+  {
+    "old": "docs/吉客云自动化状态机与下载后处理.md",
+    "new": "docs/自动化/吉客云/吉客云自动化状态机与下载后处理.md",
+    "title": "吉客云自动化状态机与下载后处理"
+  },
+  {
+    "old": "docs/天猫n8n每日导入监控与安全恢复手册.md",
+    "new": "docs/自动化/天猫/天猫n8n每日导入监控与安全恢复手册.md",
+    "title": "天猫 n8n 每日导入监控与安全恢复手册"
+  },
+  {
+    "old": "docs/天猫亿玖P-M直连候选工作流.md",
+    "new": "docs/自动化/天猫/天猫亿玖P-M直连现行工作流.md",
+    "title": "天猫亿玖 P/M 直连现行工作流"
+  },
+  {
+    "old": "docs/天猫亿用直连每日M试点.md",
+    "new": "docs/自动化/天猫/天猫亿用直连每日M试点.md",
+    "title": "亿用 P/M 直连与每日 M 试点"
+  },
+  {
+    "old": "docs/天猫商品与推广缺失日规划.md",
+    "new": "docs/自动化/天猫/天猫商品与推广缺失日规划.md",
+    "title": "天猫商品日与推广日缺口规划"
+  },
+  {
+    "old": "docs/天猫生意参谋SPU多店铺工作流.md",
+    "new": "docs/自动化/天猫/天猫生意参谋SPU多店铺工作流.md",
+    "title": "天猫生意参谋 SPU 多店铺工作流"
+  },
+  {
+    "old": "docs/天猫阿里妈妈DPAPI登录.md",
+    "new": "docs/自动化/天猫/天猫阿里妈妈DPAPI登录.md",
+    "title": "阿里妈妈 DPAPI 登录保护"
+  },
+  {
+    "old": "docs/市场SKU细分品类AI标注.md",
+    "new": "docs/使用手册/市场分析/市场SKU细分品类AI标注.md",
+    "title": "市场 SKU 细分品类 AI 标注"
+  },
+  {
+    "old": "docs/市场分析模块2.0.md",
+    "new": "docs/使用手册/市场分析/市场分析模块2.0.md",
+    "title": "市场分析模块 2.0"
+  },
+  {
+    "old": "docs/组合装及子件导出导入操作手册.md",
+    "new": "docs/使用手册/数据导入/吉客云组合装及子件导出与导入手册.md",
+    "title": "吉客云「组合装及子件」导出与导入操作手册"
+  },
+  {
+    "old": "docs/货品导出导入操作手册.md",
+    "new": "docs/使用手册/数据导入/吉客云货品导出与导入手册.md",
+    "title": "吉客云「货品」导出与导入操作手册"
+  },
+  {
+    "old": "自动导入-京东自营网店数据(1).md",
+    "new": "docs/历史记录/旧流程/京东/京东特睿思自营店数据导入-Cowork旧流程-20260714.md",
+    "title": "京东特睿思自营店数据导入：Cowork 旧流程（2026-07-14）"
+  },
+  {
+    "old": "龙虾每日吉客云五类数据导入.md",
+    "new": "docs/历史记录/旧流程/吉客云/吉客云五类数据导入-旧入口-已停用.md",
+    "title": "吉客云五类数据导入旧入口（已停用）"
+  }
+]

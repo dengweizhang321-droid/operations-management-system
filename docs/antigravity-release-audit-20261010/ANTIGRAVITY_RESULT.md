@@ -47,7 +47,7 @@ flowchart TD
   3. 日常启动与快捷方式必须绑定到该不可变有效 Head，主工作区发生任何 Git pull、切分支或文件修改，均不会直接破坏或影响运行中的生产服务。
 
 #### 3. 自动化发布编排与生产门禁
-根据 [tools/release-batch.mjs](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/tools/release-batch.mjs)、[tools/release-lifecycle-step.ps1](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/tools/release-lifecycle-step.ps1) 及 [docs/RELEASE_BATCH_WORKFLOW.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/RELEASE_BATCH_WORKFLOW.md)：
+根据 [tools/release-batch.mjs](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/tools/release-batch.mjs)、[tools/release-lifecycle-step.ps1](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/tools/release-lifecycle-step.ps1) 及 [docs/运维/部署与启动/release-batch-workflow.md](file:///D:/.codex/worktrees/antigravity-release-audit-20261010/运营管理系统/docs/运维/部署与启动/release-batch-workflow.md)：
 - **单一发布互斥**：全系统由 `TERUISI.Worker.ReleaseRotation.v1` 进程互斥保护，任何时刻仅允许一个发布批次执行，排队请求在 `_queue` 记录，杜绝并发切换。
 - **阶段写前日志 (Phase WAL Journal)**：每个批次使用 `batchSha256` 封存完整操作清单。每步执行前必须 `fsync` 写入 `started` 事件，完成后记录 `passed`、`durationMs` 与输出收据哈希；若异常中断则保持 `unknown`，禁止静默重放，必须经独立只读证据协调（`reconcileOperation`）。
 - **严格排空与停机协议**：

@@ -27,7 +27,7 @@ for (const node of nodes) {
 nodes.push({ id: "jd-cs-anchor", name: "固定本轮时间", type: "n8n-nodes-base.code", typeVersion: 2,
   position: [-510, 0], parameters: { jsCode: "return [{ json: { scheduledAt: new Date().toISOString() } }];" } });
 nodes.push({ id: "jd-cs-boundaries", name: "采用前检查", type: "n8n-nodes-base.stickyNote", typeVersion: 1, position: [-760, 340],
-  parameters: { width: 700, height: 260, content: "## 开发候选，禁止直接启用\n每天上海09:00，截止昨天滚动30天。只绑定志高商用设备旗舰店。复用京东共享helper与Chromium锁；双视图先导出，再按日验证完整业务值等价、串行导入和回查。\n\n需先采用helper与客服解析修复、验证专用Profile和真实完整execution，并接通失败累计第4次的AI修复及本人单聊通知。当前未接通AI执行/投递，不设置无条件自动重试，不把未知提交重放。详见docs/JD_CUSTOMER_SERVICE_WORKFLOW.md。" } });
+  parameters: { width: 700, height: 260, content: "## 开发候选，禁止直接启用\n每天上海09:00，截止昨天滚动30天。只绑定志高商用设备旗舰店。复用京东共享helper与Chromium锁；双视图先导出，再按日验证完整业务值等价、串行导入和回查。\n\n需先采用helper与客服解析修复、验证专用Profile和真实完整execution，并接通失败累计第4次的AI修复及本人单聊通知。当前未接通AI执行/投递，不设置无条件自动重试，不把未知提交重放。详见docs/自动化/京东/jd-customer-service-workflow.md。" } });
 const connections = {};
 for (const [name, edges] of Object.entries(baseline.connections)) {
   if (!nodes.some(node => node.name === (renamed.get(name) ?? name))) continue;

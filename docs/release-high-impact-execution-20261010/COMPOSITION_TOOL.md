@@ -66,7 +66,7 @@ console.log({ sourceSha256: sourceTreeDigest(files), inventorySha256: hash(sourc
 
 各完整源按顺序读取并绑定声明摘要，不能代表全局原子现场快照；读取后变化须由原 rotation/batch/admission 再次完整复验。没有TTL、旧成功缓存或hash不匹配自动接受。没有真实独立展示见证时报告保持strict。
 
-后续沿用[发布批次协议](../RELEASE_BATCH_WORKFLOW.md)的候选构建、联验、独立复审与精确批准。不能把这个报告直接传给execute，不把main全部功能自动纳入，也不换绑旧批准。
+后续沿用[发布批次协议](../运维/部署与启动/release-batch-workflow.md)的候选构建、联验、独立复审与精确批准。不能把这个报告直接传给execute，不把main全部功能自动纳入，也不换绑旧批准。
 
 ## 本次实际用例
 

@@ -24,4 +24,4 @@
 
 每条输出：用户等待可移出的成本（历史参考）、替代成本（已测/未知）、日常机器成本、适用范围/频率、首次投入和依赖、风险边界、失败回退、收益验证与停止投入标准。没有配对数据，给条件性预算/算式或毛成本，不给保证、不要把互斥重叠收益加总。重点给1条首选、1条可并行支持、1条延后/不值得路线；不要再把全部方案顺序固定为先投入5～15分钟的复杂P0。
 
-精确选读：docs/RELEASE_BATCH_WORKFLOW.md、docs/release-fastpath-evidence/{REPORT,DESIGN,DAILY_BACKUP_ADOPTION}.md、docs/release-integration-review/EXACT_AB_BATCH_PLAN.md及BATCH_V2_FINAL_INDEPENDENT_REVIEW.md、tools/release-preparation-evidence.mjs、release-batch-admission.mjs、docs/release-integration-review/batch-v2/collector.mjs、原五份时间证据。不要通读巨大全系统/原客户数据/凭据。
+精确选读：docs/运维/部署与启动/release-batch-workflow.md、docs/release-fastpath-evidence/{REPORT,DESIGN,DAILY_BACKUP_ADOPTION}.md、docs/release-integration-review/EXACT_AB_BATCH_PLAN.md及BATCH_V2_FINAL_INDEPENDENT_REVIEW.md、tools/release-preparation-evidence.mjs、release-batch-admission.mjs、docs/release-integration-review/batch-v2/collector.mjs、原五份时间证据。不要通读巨大全系统/原客户数据/凭据。

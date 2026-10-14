@@ -77,7 +77,7 @@
 
 ### B．五项性能组合：10-06上海凌晨
 
-来源 [PERFORMANCE_FIVE_PRODUCTION_20261006](../PERFORMANCE_FIVE_PRODUCTION_20261006.md)，组合源码2f46、Django c51/139、Worker463d。原控制器数据在 `E:/codex-artifacts/five-performance-production-20261006`；这不是随后BI140批次。
+来源 [PERFORMANCE_FIVE_PRODUCTION_20261006](../历史记录/性能与发布/performance-five-production-20261006.md)，组合源码2f46、Django c51/139、Worker463d。原控制器数据在 `E:/codex-artifacts/five-performance-production-20261006`；这不是随后BI140批次。
 
 | 原控制器/阶段 | 开始 | 结束 | 控制器墙钟秒 | 结果 |
 | --- | --- | --- | --- | --- |
@@ -101,7 +101,7 @@
 
 ### C．商品经营试点：10-05上海晚间
 
-来源 [PRODUCT_OVERVIEW_SPEED_PRODUCTION_20261005](../PRODUCT_OVERVIEW_SPEED_PRODUCTION_20261005.md)，Django426/139、Worker62c/d2b；原控制器在 `E:/codex-artifacts/product-overview-production-20261005/operations`。
+来源 [PRODUCT_OVERVIEW_SPEED_PRODUCTION_20261005](../历史记录/性能与发布/product-overview-speed-production-20261005.md)，Django426/139、Worker62c/d2b；原控制器在 `E:/codex-artifacts/product-overview-production-20261005/operations`。
 
 | 原控制器/阶段 | 开始 | 结束 | 控制器墙钟秒 | 结果 |
 | --- | --- | --- | --- | --- |
@@ -124,7 +124,7 @@
 
 ### D1．BI首次追加：10-06上海上午，含139→140迁移
 
-来源 [BI_COCKPIT_PRODUCTION_20261006](../BI_COCKPIT_PRODUCTION_20261006.md)，Worker94、首次有限追加ID7a977；原件 `E:/codex-artifacts/bi-production-20261006`。这个窗口的前Backup/Restore均在维护内，不能误标在线前置。
+来源 [BI_COCKPIT_PRODUCTION_20261006](../历史记录/性能与发布/bi-cockpit-production-20261006.md)，Worker94、首次有限追加ID7a977；原件 `E:/codex-artifacts/bi-production-20261006`。这个窗口的前Backup/Restore均在维护内，不能误标在线前置。
 
 | 原控制器/阶段 | 开始 | 结束 | 控制器墙钟秒 | 结果 |
 | --- | --- | --- | --- | --- |
@@ -170,7 +170,7 @@ Plan首尝试09:46:18.767→09:46:53.118 exit1、34.351秒；git-fixed Plan09:55
 
 ### E．9-21启动优化首次采用
 
-来源 [STARTUP_RELEASE_OPTIMIZATION](../STARTUP_RELEASE_OPTIMIZATION.md) 与 [生产回执](../evidence/startup-release-optimization-production-20260921.json)。Worker c49、Django26e，旧版完整维护；保留PG应用维护能力已部署，但本次未另演示该完整周期。
+来源 [STARTUP_RELEASE_OPTIMIZATION](../运维/部署与启动/startup-release-optimization.md) 与 [生产回执](../evidence/startup-release-optimization-production-20260921.json)。Worker c49、Django26e，旧版完整维护；保留PG应用维护能力已部署，但本次未另演示该完整周期。
 
 | 阶段 | 起止/证据 | 缺口 |
 | --- | --- | --- |
@@ -186,7 +186,7 @@ Plan首尝试09:46:18.767→09:46:53.118 exit1、34.351秒；git-fixed Plan09:55
 
 ### F．吉客云5478采用及业务恢复：10-05上海凌晨
 
-来源 [JACKYUN_5478_PRODUCTION_20261005](../JACKYUN_5478_PRODUCTION_20261005.md)、[脱敏摘要](../evidence/jackyun-5478-production-20261005.json)，原件 `D:/codex-artifacts/jackyun-5478-production-20261005`。Worker5a6、DjangoE4/139保持；业务恢复另有明确授权，是业务数据操作，不能作为纯代码发布基线。
+来源 [JACKYUN_5478_PRODUCTION_20261005](../历史记录/自动化/吉客云/jackyun-5478-production-20261005.md)、[脱敏摘要](../evidence/jackyun-5478-production-20261005.json)，原件 `D:/codex-artifacts/jackyun-5478-production-20261005`。Worker5a6、DjangoE4/139保持；业务恢复另有明确授权，是业务数据操作，不能作为纯代码发布基线。
 
 | 阶段 | 上海起止/结果 | 口径限制 |
 | --- | --- | --- |

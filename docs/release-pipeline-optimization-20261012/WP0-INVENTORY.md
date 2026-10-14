@@ -149,7 +149,7 @@ codex/bi-cockpit-implementation的同名远端tip不同，不能把同名存在�
 ### D:/运营管理系统
 
 ```text
- M docs/JD_CUSTOMER_SERVICE_WORKFLOW.md
+ M docs/自动化/京东/jd-customer-service-workflow.md
  M tools/operations-system-control.ps1
  M tools/worker-authority-guard.mjs
  M tools/worker-local-release-rotation.mjs

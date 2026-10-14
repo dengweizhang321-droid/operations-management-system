@@ -2,7 +2,7 @@
 
 本任务实施影响分级、恢复证据复用、不可变制品复用、唯一批准批次、原引擎冻结排空及阶段计时。**尚未生产采用**：未停止／重启正式服务、部署新代码、创建正式备份、恢复调度、改生产数据或发送外部消息。原正式启动入口和运行包保持；最终上线候选与 Git/现场绑定见本轮受保护外部 `E:\codex-artifacts\release-wait-optimization-20261008\candidate-handoff.json`，在生成后不回写源码造成候选失效。
 
-稳定规则见 [发布批次协议](../RELEASE_BATCH_WORKFLOW.md)；[现场核查](EVIDENCE_AUDIT.md)、[独立复审](INDEPENDENT_REVIEW.md)、[计时数据](isolated-timing.json)分别保留事实、审查和测量边界。
+稳定规则见 [发布批次协议](../运维/部署与启动/release-batch-workflow.md)；[现场核查](EVIDENCE_AUDIT.md)、[独立复审](INDEPENDENT_REVIEW.md)、[计时数据](isolated-timing.json)分别保留事实、审查和测量边界。
 
 ## 实现与适用边界
 

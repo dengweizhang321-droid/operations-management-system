@@ -61,7 +61,7 @@ const hex64 = /^[0-9a-f]{64}$/;
 const releaseIdPattern = /^\d{8}T\d{6}Z-[0-9a-f]{16}$/;
 const cutoverIdPattern = /^[A-Za-z0-9._:-]{8,128}$/;
 // Reviewed bounded extension; retain and validate the complete original chain.
-// See docs/WORKER_SUCCESSOR_CAPACITY.md. No environment/CLI override is allowed.
+// See docs/历史记录/性能与发布/worker-successor-capacity.md. No environment/CLI override is allowed.
 const maximumSuccessors = 256;
 const rotationLockPipe = "\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1";
 const rotationLeases = new WeakSet();

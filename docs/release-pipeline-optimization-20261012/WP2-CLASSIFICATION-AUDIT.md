@@ -36,24 +36,24 @@
 | 09-26 [DPAPI重试](../evidence/jackyun-dpapi-retry-production-20260926.json) | 073d/e45、真实有限登录重试与共享错误分类器采用；前备份/隔离恢复及原完整业务验证 | 自动化/凭据与失败重试路径有真实变化，不能按Worker-only减免；精确策略无法据现有证据判定；真实运行未触发新增重试分支 |
 | 09-27 [4726](../evidence/jackyun-4726-production-20260927.json) | e03d/816、精确关闭及一次原完整工作流，原plan/successor与启动绑定 | 写链/零效果关闭与业务补跑并非被动展示；精确减免无法据现有证据判定，不覆盖旧error |
 | 09-27 [安全恢复](../evidence/jackyun-safe-recovery-production-20260927.json) | 75a8/945；一次Worker/helper切换；PG/Django/n8n保持；前点Verify/隔离恢复 | 恢复逻辑不受v3窄展示证明支持；缺完整非源码输入，精确策略无法据现有证据判定；自然失败分支当时待验 |
-| 09-27 [推广聊天暂停](../AI_PROMOTION_CHAT_PAUSE_HANDOFF_20260927.md) | 旧固定源误读后只重新准备bb4候选，前备份恢复；新工具未apply | **准备未采用**，不能算一轮完成发布；无法据现有证据判定减免；不以候选误认运行包 |
+| 09-27 [推广聊天暂停](../技术专题/AI助手/ai-promotion-chat-pause-handoff-20260927.md) | 旧固定源误读后只重新准备bb4候选，前备份恢复；新工具未apply | **准备未采用**，不能算一轮完成发布；无法据现有证据判定减免；不以候选误认运行包 |
 | 09-28 [统一安装](../evidence/integration-production-20260928.json) | 4aec组合、a649 Worker；迁移收据62→138、76步，前/installed独立恢复与受控安装gate | 受保护迁移实际发生，显然不能凭页面名称not-required；不重演现行精确classifier或宣称旧版本符合新v4 |
-| 09-28 [备份保留](../BACKUP_RETENTION.md#2026-09-28-生产验收) | 新备份链、E根ACL/中文运输/后台模块修复，四维护、实际导出上传/隔离恢复；原自动清理blocked保留 | 备份/生命周期机制实际变化，需要该链独立资格；当前精确减免无法据现有证据判定，最终成功不追认原blocked |
-| 09-29 [七项组合与容量追加](../OPTIMIZATION_PRODUCTION_20260929.md) | 2f1b/e980、e92追加Django；生命周期、Inspector、备份、12工作流；前Backup/恢复，后容量预检失败后单独采用修复并Backup/Verify | 工具/自动化/备份机制正面变化，不是展示免保；旧完整策略不升级；自然调度e仍PAUSED、历史退出根因及长期内存待验 |
+| 09-28 [备份保留](../运维/备份与存储/backup-retention.md#2026-09-28-生产验收) | 新备份链、E根ACL/中文运输/后台模块修复，四维护、实际导出上传/隔离恢复；原自动清理blocked保留 | 备份/生命周期机制实际变化，需要该链独立资格；当前精确减免无法据现有证据判定，最终成功不追认原blocked |
+| 09-29 [七项组合与容量追加](../历史记录/性能与发布/optimization-production-20260929.md) | 2f1b/e980、e92追加Django；生命周期、Inspector、备份、12工作流；前Backup/恢复，后容量预检失败后单独采用修复并Backup/Verify | 工具/自动化/备份机制正面变化，不是展示免保；旧完整策略不升级；自然调度e仍PAUSED、历史退出根因及长期内存待验 |
 | 09-30 [5400零成本](../evidence/jackyun-5400-zero-cost-production-20260930.json) | 精确业务任务修复/补跑的生产摘要，不是“零成本=零DB效果” | 部署输入/完整闭包缺失，无法据现有证据判定；业务授权不外延到未来重放 |
 | 10-02 [网店方案二](../netshop-refactor/execution/20261002-production-adoption.md) | 22a/4dc、Django692；KeepPG Prepare/Deploy/apply/Start、前Backup/恢复、后Backup；实际五栏仍503 | API/跨域/来源与后端部署事实成立；无法据现有证据判定精确减免；已采用不等于业务全部验收，外壳尾挂exit-1保留 |
 | 10-03 [SQL组合](../netshop-refactor/execution/20261003-combined-sql-production.md) | 8707 peer URL＋21d期限SQL；Django76f，Worker87保持，应用维护/前后保障 | GET查询/配置不能自动免保；完整非源码输入不足，无法据现有证据判定；不把已有索引或隔离速度当生产P95 |
 | 10-03 [presence](../netshop-refactor/execution/20261003-presence-production.md) | f9/6b、迁移138→139，cache字段/回填/revision变化；295表比较、后Backup/恢复；财务真实403 | 存储/缓存/迁移明确变化，不能按读取命名not-required；实际身份缺口与外壳exit不可得保留 |
 | 10-03 [财务兼容](../netshop-refactor/execution/20261003-finance-edge-production.md) | 精确本地签名身份兼容候选及实际采用/权限和业务验收 | 鉴权行为不属v3展示证明；缺完整部署输入，精确策略无法据现有证据判定；不据兼容补丁开放其他权限 |
 | 10-04 [全部店铺](../netshop-refactor/execution/20261004-all-shops-production.md) | 5686/e4f Django、Worker87保持；原KeepPG；前后全部295表等价与各同点恢复；Start退出码未知 | 全表相等说明当时比较范围，不证明源码/部署影响无副作用；无法据现有证据判定not-required；月DTO取消和自然守护未闭合截点保留 |
-| 10-04 [京东来源](../JD_QUERY_SOURCE_ADOPTION_20261004.md) | 原读取来源修复/后端消费者采用记录 | 传输/所属查询需契约及权限验证；非完整前后准备输入，无法据现有证据判定减免；不能凭GET或来源标题分类 |
-| 10-05 [5478](../JACKYUN_5478_PRODUCTION_20261005.md)、[10-04任务恢复](../JACKYUN_OCT4_RECOVERY_PRODUCTION_20261005.md) | helper/任务安全恢复与原n8n完整执行，原前/后保障；部分外壳输出另回查 | 安全恢复与实际导入属于独立作用范围；精确减免无法据现有证据判定；不把独立底层成功改写外壳码 |
-| 10-05 [商品试点](../PRODUCT_OVERVIEW_SPEED_PRODUCTION_20261005.md) | Django426/139、Worker62c；前后Backup/Restore；原Exit锁拒绝/Start维护拒绝，外壳误exit0 | 后端查询/分区/契约实际变化，非被动显示；完整前manifest此前未保全，无法据现有证据判定精确减免；[WP4](WP4-TIMING-ANALYSIS.md)保留错误码冲突 |
-| 10-06 [五项组合](../PERFORMANCE_FIVE_PRODUCTION_20261006.md) | 2f46/Django c51/139/Worker463d，冻结范围/业务四域/UI31验收；两Backup＋两Restore | 存储/查询/生命周期组合必须按实际闭包核；缺完整前后准备输入无法据现有证据判定精确减免；首Restore缺ID失败36.516秒保留 |
-| 10-06 [BI两窗口](../BI_COCKPIT_PRODUCTION_20261006.md) | 首139→140迁移/源查询；Plan34.351秒失败、真实传输漏准入，后继修复另采用；两个完整保障窗口 | 迁移和真实来源接缝有证，不能按驾驶舱展示减免；两个窗口不拼成一次成功；不凭最终Ready覆盖首次业务失败 |
+| 10-04 [京东来源](../历史记录/自动化/京东/jd-query-source-adoption-20261004.md) | 原读取来源修复/后端消费者采用记录 | 传输/所属查询需契约及权限验证；非完整前后准备输入，无法据现有证据判定减免；不能凭GET或来源标题分类 |
+| 10-05 [5478](../历史记录/自动化/吉客云/jackyun-5478-production-20261005.md)、[10-04任务恢复](../历史记录/自动化/吉客云/jackyun-oct4-recovery-production-20261005.md) | helper/任务安全恢复与原n8n完整执行，原前/后保障；部分外壳输出另回查 | 安全恢复与实际导入属于独立作用范围；精确减免无法据现有证据判定；不把独立底层成功改写外壳码 |
+| 10-05 [商品试点](../历史记录/性能与发布/product-overview-speed-production-20261005.md) | Django426/139、Worker62c；前后Backup/Restore；原Exit锁拒绝/Start维护拒绝，外壳误exit0 | 后端查询/分区/契约实际变化，非被动显示；完整前manifest此前未保全，无法据现有证据判定精确减免；[WP4](WP4-TIMING-ANALYSIS.md)保留错误码冲突 |
+| 10-06 [五项组合](../历史记录/性能与发布/performance-five-production-20261006.md) | 2f46/Django c51/139/Worker463d，冻结范围/业务四域/UI31验收；两Backup＋两Restore | 存储/查询/生命周期组合必须按实际闭包核；缺完整前后准备输入无法据现有证据判定精确减免；首Restore缺ID失败36.516秒保留 |
+| 10-06 [BI两窗口](../历史记录/性能与发布/bi-cockpit-production-20261006.md) | 首139→140迁移/源查询；Plan34.351秒失败、真实传输漏准入，后继修复另采用；两个完整保障窗口 | 迁移和真实来源接缝有证，不能按驾驶舱展示减免；两个窗口不拼成一次成功；不凭最终Ready覆盖首次业务失败 |
 | 10-06～07 [公共筛选/布局](../shared-filter-20261006/PRODUCTION.md) | ed208/339及后继布局组合，Worker/helper切换、Django d739/140保持；十UI文件、真实行为/原响应与资源、前后保障 | 事件/URL/filter/消费者语义不是v3被动TSX；完整非源码输入未齐，无法据现有证据判定减免；原生输入法未验保留 |
 | 10-07 [广东入口](../guangdong-plan-entry-20261006/PRODUCTION_20261007.md) | 5cb/316，仅两UI＋导出列名，复用备货保存入口；只读实际UI/合成保存、前后Backup/恢复 | “UI入口”连接真实保存，不能按文本分类；缺前完整部署输入，无法据现有证据判定not-required；真实保存/外发未测 |
-| 10-07 [京东客服](../JD_CUSTOMER_SERVICE_RELEASE_20261007.md) | 716f/8d7 Worker/helper＋新n8n图启用，真实30日导入6947；前后Backup/恢复 | 自动化/导入和渠道变化明确，不按Worker-only减免；原失败6941、歧义与来源差保留，首自然执行当时未验 |
+| 10-07 [京东客服](../历史记录/自动化/京东/jd-customer-service-release-20261007.md) | 716f/8d7 Worker/helper＋新n8n图启用，真实30日导入6947；前后Backup/恢复 | 自动化/导入和渠道变化明确，不按Worker-only减免；原失败6941、歧义与来源差保留，首自然执行当时未验 |
 | 10-08 [天猫七日循环](../tmall-seven-day-gap-loop-20261008/PRODUCTION.md) | 5430/cff＋ff203/c203后继、Django02f/140；六图发布/真实补数/序列变化、前中后保障；末恢复 | 循环、幂等、真实导入/定义与机制变化明确；非GET/display；原部分M失败、自然runner失败、可选策略语法见证未验保留 |
 | 10-08 [AI客服库存链](../ai-customer-inventory-chain-20261008/PRODUCTION.md)、[客服四店](../jd-customer-service-four-stores-20261008/PRODUCTION.md) | 由对应固定源码/候选/真实渠道与导入采用记录限定，不混入前一批天猫包 | 权限/工具或多店执行不能按业务页名称减免；本次未取得各完整前后非源码部署输入，无法据现有证据判定精确策略；限定已验与未验按原记录 |
 

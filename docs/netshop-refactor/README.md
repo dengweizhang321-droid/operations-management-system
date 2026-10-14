@@ -38,6 +38,6 @@
 
 ## 适用工程规范
 
-执行时先读项目 [AGENTS.md](../../AGENTS.md) 与 [README.md](../../README.md)。隔离演示遵守[预览规范](../ISOLATED_PREVIEW.md)，当前数据查询遵守[查询规范](../OPERATIONS_DATA_QUERY.md)，网店权威边界见[迁移与架构说明](../DJANGO_NETSHOP_MIGRATION.md)，发布遵守[受控发布流程](../STARTUP_RELEASE_OPTIMIZATION.md)。本工作包不降低这些要求。
+执行时先读项目 [AGENTS.md](../../AGENTS.md) 与 [README.md](../../README.md)。隔离演示遵守[预览规范](../运维/部署与启动/isolated-preview.md)，当前数据查询遵守[查询规范](../OPERATIONS_DATA_QUERY.md)，网店权威边界见[迁移与架构说明](../技术专题/领域迁移/django-netshop-migration.md)，发布遵守[受控发布流程](../运维/部署与启动/startup-release-optimization.md)。本工作包不降低这些要求。
 
 所有相对路径均相对于各 Agent 自己的工作树。文中标为“建议新增”的路径和接口不是已实现事实，须由 F 与 I 在公共底座验收时冻结。

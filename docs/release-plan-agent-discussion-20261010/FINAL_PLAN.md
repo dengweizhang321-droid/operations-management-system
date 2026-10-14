@@ -28,7 +28,7 @@ Worker receipt显示AB `20261010T014638Z-97833d2f2b7e7bc9` / manifest `f4e537eb�
 | 全PG前后严格相等 | 有安全目的，但前快照在维护前、后快照在服务恢复后，合法写入也会造成阻断。第19步在截点尚未执行，本轮没有发现生产数据破坏或宣称它已误报。未来必须先明确证明目标与完整来源证据。 |
 | 当前UI两次失败 | 只证实nonzero_exit/unknown，具体原因未确定。不能认定是误报，也不能因新receipt正确或缺少失败断言而记通过。 |
 
-依据：[精确原方案](../release-integration-review/EXACT_AB_BATCH_PLAN.md)、[封存终审](../release-integration-review/BATCH_V2_FINAL_INDEPENDENT_REVIEW.md)、[批次协议](../RELEASE_BATCH_WORKFLOW.md)。本轮不另行指挥原执行者或调用其操作入口。
+依据：[精确原方案](../release-integration-review/EXACT_AB_BATCH_PLAN.md)、[封存终审](../release-integration-review/BATCH_V2_FINAL_INDEPENDENT_REVIEW.md)、[批次协议](../运维/部署与启动/release-batch-workflow.md)。本轮不另行指挥原执行者或调用其操作入口。
 
 ## 优化路线与交付要求
 

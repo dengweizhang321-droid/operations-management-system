@@ -22,6 +22,6 @@
 4. 后续优化按P0/P1/P2列明确改动点、复用已有实现、保护门禁、验收与实际测量、前置条件、依赖次序。讨论同批完整内容复用、源/工具/环境全部重算、恢复资格、准入分项、排期/队列、报告收尾；业务补数与R2/n8n边界单列。
 5. 两位评审需要互相质疑再作答：区分一致意见、已纠正意见、保留分歧和待实测。不能仅两份报告拼接或因都赞同就宣称验证通过。
 
-必要材料（精确阅读相关部分即可）：README.md、docs/规范/验证与发布.md、docs/RELEASE_BATCH_WORKFLOW.md、docs/release-integration-review/EXACT_AB_BATCH_PLAN.md、BATCH_V2_FINAL_INDEPENDENT_REVIEW.md、batch-v2/adapter.mjs、batch-v2/collector.mjs、batch-v2/validators.mjs、batch-v2/ui-audit.mjs；tools/release-batch.mjs、release-batch-admission.mjs、release-readonly-retry.mjs；docs/release-process-deadline/REPORT.md、docs/release-acceptance-closeout/REPORT.md、docs/release-fastpath-evidence/REPORT.md、DAILY_BACKUP_ADOPTION.md；docs/antigravity-release-audit-20261010/REPORT.md及AGY_FACT_CHECK.md。
+必要材料（精确阅读相关部分即可）：README.md、docs/规范/验证与发布.md、docs/运维/部署与启动/release-batch-workflow.md、docs/release-integration-review/EXACT_AB_BATCH_PLAN.md、BATCH_V2_FINAL_INDEPENDENT_REVIEW.md、batch-v2/adapter.mjs、batch-v2/collector.mjs、batch-v2/validators.mjs、batch-v2/ui-audit.mjs；tools/release-batch.mjs、release-batch-admission.mjs、release-readonly-retry.mjs；docs/release-process-deadline/REPORT.md、docs/release-acceptance-closeout/REPORT.md、docs/release-fastpath-evidence/REPORT.md、DAILY_BACKUP_ADOPTION.md；docs/antigravity-release-audit-20261010/REPORT.md及AGY_FACT_CHECK.md。
 
 禁止读取凭据/.env/.dev.vars/原始客户数据。只访问讨论worktree内材料；当前执行材料由上游脱敏只读摘要提供。不要执行测试或shell命令去检查生产，更不能启停/恢复/补跑。

@@ -30,7 +30,7 @@
 | D5 底座 → 新 AB 5faac815 | 124 | 16 | 20 | 88 | 0 |
 | D5 底座 → ABC | 164 | 18 | 22 | 124 | 0 |
 
-两份源码的 `app/`、`backend/`、`lib/`、`worker/`、`package.json`、`package-lock.json` 相对 D5 底座均 **零差异**。没有改 AGENTS、根配置或运行入口以外的业务源，也没有删除原底座文件。新增测试/夹具和 A/B/C 报告日志分别只在 tests/docs 内；ABC 的协议正文更新是 `docs/RELEASE_BATCH_WORKFLOW.md`。完整改变集合没有主线后来新增的业务或依赖路径，因此不会把那些功能顺带加入这两份源码。
+两份源码的 `app/`、`backend/`、`lib/`、`worker/`、`package.json`、`package-lock.json` 相对 D5 底座均 **零差异**。没有改 AGENTS、根配置或运行入口以外的业务源，也没有删除原底座文件。新增测试/夹具和 A/B/C 报告日志分别只在 tests/docs 内；ABC 的协议正文更新是 `docs/运维/部署与启动/release-batch-workflow.md`。完整改变集合没有主线后来新增的业务或依赖路径，因此不会把那些功能顺带加入这两份源码。
 
 | 改变运行工具 | AB | ABC | 范围说明 |
 | --- | --- | --- | --- |
