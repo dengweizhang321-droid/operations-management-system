@@ -40,8 +40,8 @@ if(process.argv[2]==='inspect'){
  await fs.writeFile(out+'/8956-zero-business-reservation-proof.json',JSON.stringify(proof,null,2),{flag:'wx'});
  console.log(JSON.stringify({status:'verified_A_only_interruption',logicalExecutionId:'8548',failedExecutionId:'8956',businessEffects:0,reservationPreserved:true}));
 }else if(process.argv[2]==='dispatch'){
- const adopted=await read(out+'/legacy-helper-adoption/publication-result.json');assert.equal(adopted.status,'deployed');
- const {resolveEffectiveReleaseChain}=await import(pathToFileURL('D:/codex-isolated/jackyun-legacy-closure-source-20261014/tools/worker-local-release-rotation.mjs'));
+ const adopted=await read(out+'/unbound-helper-adoption/publication-result.json');assert.equal(adopted.status,'deployed');
+ const {resolveEffectiveReleaseChain}=await import(pathToFileURL('D:/codex-isolated/jackyun-unbound-closure-source-20261014/tools/worker-local-release-rotation.mjs'));
  const chain=await resolveEffectiveReleaseChain({verifyInstalledHead:true});assert.equal(chain.head.releaseId,adopted.candidateReleaseId);assert.equal(chain.head.manifestSha256,adopted.candidateManifestSha256);
  const requestId=randomUUID();
  await fs.writeFile(out+'/resumed-human-dispatch-started.json',JSON.stringify({at:new Date().toISOString(),requestId,logicalExecutionId:'8548',failedExecutionId:'8956',proof}),{flag:'wx'});
