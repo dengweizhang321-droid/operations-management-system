@@ -67,7 +67,7 @@
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
 | `market-ai-blockers-django-20261014` | 1 | [市场 AI 标注第一轮阻断修复：Django 子任务](../market-ai-blockers-django-20261014/REPORT.md) |
-| `market-ai-blockers-integration-20261014` | 2 | [市场 AI 标注第一轮阻断修复](../market-ai-blockers-integration-20261014/REPORT.md) |
+| `market-ai-blockers-integration-20261014` | 4 | [市场 AI 标注第一轮阻断修复](../market-ai-blockers-integration-20261014/REPORT.md) |
 | `market-ai-blockers-vision-20261014` | 1 | [市场 AI 标注第一轮阻断修复：视觉适配子任务 B](../market-ai-blockers-vision-20261014/REPORT.md) |
 | `market-annotation-chain-audit-20261014` | 1 | [市场图片识别全流程审查](../market-annotation-chain-audit-20261014/REPORT.md) |
 | `market-annotation-priority-20261014` | 2 | [市场 AI 分类优先与持续补位](../market-annotation-priority-20261014/REPORT.md) |
