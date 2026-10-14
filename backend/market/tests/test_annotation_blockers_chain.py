@@ -238,7 +238,6 @@ class AnnotationBlockersChain(TransactionTestCase):
         with self.stage("release_coordinator"):
             self.command({"action":"end_dispatch", "jobId":job_id,"coordinatorToken":coordinator})
         successes = [r for r in results if r["outcome"]=="success"]
-        self.assertEqual(len(successes), len(samples), "All candidate samples must validate and persist")
         for result in successes:
             row = MarketAnnotationItem.objects.get(pk=tasks[result["sampleId"]]["itemId"])
             with self.stage("human_review_simulated", sampleId=result["sampleId"]):
@@ -265,7 +264,12 @@ class AnnotationBlockersChain(TransactionTestCase):
                 "Review is a simulated human acceptance in a disposable database, not semantic quality approval"]}
         (self.output/(self.run+".json")).write_text(json.dumps(summary,ensure_ascii=False,default=str,indent=2),encoding="utf-8")
         print("CHAIN_AUDIT "+json.dumps({k:summary[k] for k in ("run","variant","sampleCount","successCount","failureCount")}),flush=True)
+        self.assertEqual(len(successes), len(samples), "All candidate samples must validate and persist")
 
     @patch.dict(os.environ,{"TERUISI_DJANGO_INTERNAL_SECRET":TEST_SECRET})
     def test_final_candidate_chain(self):
-        self.run_chain([f"{mode}{n}" for mode in ("A","B") for n in range(1,7)],"candidate")
+        allowed = [f"{mode}{n}" for mode in ("A","B") for n in range(1,7)]
+        names = os.environ.get("MARKET_BLOCKERS_SAMPLE_IDS", ",".join(allowed)).split(",")
+        if not names or len(names) != len(set(names)) or any(name not in allowed for name in names):
+            raise RuntimeError("Use distinct, approved isolated sample identities")
+        self.run_chain(names,"candidate")
