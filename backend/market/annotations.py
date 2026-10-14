@@ -1349,13 +1349,13 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
         raise _error("标注候选不存在", code="not_found", status=404)
     job = _locked_job(item_job)
     item = _recognition_items(MarketAnnotationItem.objects.select_for_update()).get(id=item_id)
-    # Only successful transaction commit releases the activity barrier. A failed
-    # storage receipt retains it for retry, bounded by the original image lease.
-    transaction.on_commit(lambda: annotation_activity.release(_digest(token)))
     if item.status in {"review_pending", "approved", "committed"}:
         return {"ok": True, "duplicate": True, "itemId": item.id}
     if item.status != "claimed" or item.lease_token_hash != _digest(token) or item.lease_expires_at is None or item.lease_expires_at <= timezone.now():
         raise _error("标注执行租约已失效", code="version_conflict", status=409)
+    # Register only for this validated lease. A duplicate item with another
+    # active item's token must not release that other item's maintenance barrier.
+    transaction.on_commit(lambda: annotation_activity.release(_digest(token)))
     error_message = _text(payload.get("error", ""), "error", 800)
     if error_message:
         failure_code = _text(payload.get("failureCode", "annotation_failed"), "failureCode", 64)

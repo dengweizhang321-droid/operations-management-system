@@ -145,6 +145,17 @@ class AnnotationPriorityTests(QueueFixtures, TestCase):
         row = MarketAnnotationItem.objects.get(pk="one")
         self.assertEqual((row.ai_image_price_cents, row.reviewed_image_price_cents, row.ai_price_low_cents, row.ai_price_high_cents), (None, None, None, None))
 
+    def test_duplicate_receipt_with_other_lease_token_cannot_release_active_barrier(self):
+        job = self.job("foreign-duplicate")
+        self.item(job, "one")
+        self.item(job, "two")
+        first = self.claim(job)["task"]
+        second = self.claim(job)["task"]
+        self.complete(first)
+        with patch("market.annotation_activity.release") as released, self.captureOnCommitCallbacks(execute=True):
+            self.assertTrue(self.complete({**first, "leaseToken": second["leaseToken"]})["duplicate"])
+        released.assert_not_called()
+
     def test_changed_image_reuses_only_classification_within_business_identity(self):
         job = self.job("changed-image")
         MarketAnnotationJob.objects.filter(pk=job.id).update(status="committed")

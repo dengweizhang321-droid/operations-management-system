@@ -3,10 +3,10 @@
   "sourceFiles": {
     "app/market-annotation-view.tsx": "22b26be75e841dfb7919f7b94b8898258abcfb4594249cfca32878d8836ca42e",
     "backend/market/annotation_activity.py": "5a97fd7b9350e435fcaf940dfad50566c44985728f68f724980fbf510389841d",
-    "backend/market/annotations.py": "e219bfcb23128ab2469a526b1520bd20d82b220cc2f648c7df5b3e2eb35a18b4",
+    "backend/market/annotations.py": "480947a34203ad242c3db448075000aaa62bb712eb5d80b834ee01e2c8a9c54f",
     "backend/market/tests/test_annotation_activity.py": "8523482afe6f9bca277655ef54106314ed52b7e78aeee635169cb80fe61ead9e",
     "backend/market/tests/test_annotation_commit_receipts.py": "fd341a129bf1c3a10a8b4a777e57b7f34ab47fc2edf8e05e535f69c9815bb83c",
-    "backend/market/tests/test_annotation_priority.py": "1d687f7694c6d5130991a20191ca862a295937a4de27355192e600d2f2c5faf7",
+    "backend/market/tests/test_annotation_priority.py": "242d5b3f61cadeaabbf3d9f386a3eb2b612c4174ee6122dcc44040f43e3bbeee",
     "backend/market/tests/test_annotation_queue.py": "607f3e766446fea05ccce23b6570b32116f8232ab5b41131f05a720fc31d95ad",
     "lib/market/annotation-cached-image.ts": "ca0783111ceb7f750315067b19aad1839e1ad5a886d3a3085ee6b4e308c9cc9c",
     "lib/market/annotation-dispatch.ts": "ea4e3e2523b15631f89b2ebdc73e445f6658bf66284c55ffbfb19487a66280dc",
@@ -40,9 +40,10 @@
     "leastPrivilegeReaderNegativeChecks": 5,
     "leastPrivilegeWriterNegativeChecks": 4,
     "allIsolatedClustersStopped": true,
-    "distinctCoveredCases": 71,
+    "distinctCoveredCases": 72,
     "finalProgressFollowupCount": 11,
-    "unknownZeroFollowupCount": 1
+    "unknownZeroFollowupCount": 1,
+    "receiptBarrierFollowupCount": 2
   },
   "realModelCalls": 0,
   "productionWrites": 0,
