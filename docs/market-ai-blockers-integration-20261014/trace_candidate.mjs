@@ -60,6 +60,7 @@ function safeError(error) {
     .replace(/data:[^\s"']+;base64,[A-Za-z0-9+/=]+/gi, '[redacted-image]').slice(0, 300);
 }
 const sampleContext = new AsyncLocalStorage();
+const validationStarts = new Map();
 async function emit(row) {
   const value = { runId, variant, sampleId: sampleContext.getStore()?.sampleId, at: new Date().toISOString(), ...row };
   rows.push(value);
@@ -156,6 +157,8 @@ globalThis.fetch = async (urlValue, init = {}) => {
       usage: boundedUsage(data?.usage),
       errorCode: data?.error?.code ?? null,
       errorMessage: data?.error ? safeError(data.error) : null });
+    validationStarts.set(sampleContext.getStore().sampleId, performance.now());
+    await emit({ stage: 'response_validation', phase: 'start', httpStatus: response.status });
     return response;
   } catch (error) {
     await emit({ stage: 'provider_post', phase: 'end', outcome: 'unknown_transport_result',
@@ -209,6 +212,7 @@ async function runOne(sample) {
   await emit({ stage: 'vision_attempt', phase: 'start', mode: sample.mode, imageBytes: sample.imageCache.sizeBytes });
   try {
     const prediction = await runVisionAnnotation({ ...sample, jobId: taskManifest[sample.sampleId].jobId, principal, deadlineAt: Math.min(Date.now() + 140_000, Date.parse(taskManifest[sample.sampleId].leaseExpiresAt) - 15000) });
+    await emit({stage:'response_validation',phase:'end',outcome:'ok',durationMs:Math.round((performance.now()-validationStarts.get(sample.sampleId))*1000)/1000});
     const result = { sampleId: sample.sampleId, variant, outcome: 'success',
       durationMs: Math.round(performance.now() - start), providerCalls: rows.filter(r => r.sampleId === sample.sampleId && r.stage === 'provider_post' && r.phase === 'start').length,
       prediction: { segment: prediction.segment, imagePriceCents: prediction.imagePriceCents,
@@ -218,6 +222,7 @@ async function runOne(sample) {
     results.push(result);
     await emit({ stage: 'vision_attempt', phase: 'end', ...result });
   } catch (error) {
+    if (validationStarts.has(sample.sampleId)) await emit({stage:'response_validation',phase:'end',outcome:'error',durationMs:Math.round((performance.now()-validationStarts.get(sample.sampleId))*1000)/1000,error:annotationFailure(error)});
     const result = { sampleId: sample.sampleId, variant, outcome: 'error', durationMs: Math.round(performance.now() - start),
       providerCalls: rows.filter(r => r.sampleId === sample.sampleId && r.stage === 'provider_post' && r.phase === 'start').length,
       failure: annotationFailure(error), errorName: error.name, message: safeError(error), timing: error.timing ?? null };
