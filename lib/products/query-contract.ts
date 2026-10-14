@@ -1,11 +1,10 @@
 export type ProductSummaryRange = "last30" | "last90" | "halfYear" | "custom";
 export type ProductSummarySort = "netSalesCents" | "grossProfitCents" | "grossMarginRate" | "refundRate" | "stockValueCents" | "netQuantity";
 export type ProductSummaryDirection = "asc" | "desc";
-export type ProductMarginBand = "below35" | "35to40" | "40to45" | "atLeast45" | "unavailable" | "below38" | "38to42" | "42to46" | "atLeast46";
+export type ProductMarginBand = "below35" | "35to40" | "40to45" | "atLeast45" | "unavailable";
 export const PRODUCT_SUMMARY_QUERY_MAX_LENGTH = 1000;
 
 export type ProductSummaryQueryOptions = {
-  productKind?: "single" | "combo";
   range?: ProductSummaryRange;
   startDate?: string | null;
   endDate?: string | null;

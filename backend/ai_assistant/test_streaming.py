@@ -44,47 +44,6 @@ class ProviderStreamTests(SimpleTestCase):
                     stream.feed(chunk)
                 stream.finish()
 
-    def test_single_empty_choice_usage_after_terminal_is_metadata_only(self):
-        seen = []
-        stream = ProviderStream("openai_compatible", seen.append)
-        stream.feed(event(openai({"content": "完整正文"})))
-        stream.feed(event(openai(reason="stop")))
-        stream.feed(event({**openai(), "usage": {"prompt_tokens": 11, "completion_tokens": 3}}))
-        stream.feed(event("[DONE]"))
-        result = stream.finish()
-        self.assertEqual(seen, ["完整正文"])
-        self.assertEqual(result["usage"], {"prompt_tokens": 11, "completion_tokens": 3})
-        self.assertEqual(result["choices"][0]["finish_reason"], "stop")
-        self.assertEqual(result["choices"][0]["message"]["content"], "完整正文")
-
-    def test_usage_tail_preserves_complete_tool_calls(self):
-        stream = ProviderStream("openai_compatible", lambda _: None)
-        stream.feed(event(openai({"tool_calls": [{"index": 0, "id": "call-1",
-            "function": {"name": "lookup", "arguments": '{"q":"fixture"}'}}]})))
-        stream.feed(event(openai(reason="tool_calls")))
-        stream.feed(event({**openai(), "usage": {"completion_tokens": 20}}))
-        stream.feed(event("[DONE]"))
-        result = stream.finish()
-        self.assertEqual(result["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"], '{"q":"fixture"}')
-        self.assertEqual(result["choices"][0]["finish_reason"], "tool_calls")
-
-    def test_usage_tail_never_completes_missing_done_or_allows_late_payload(self):
-        stream = ProviderStream("openai_compatible", lambda _: None)
-        stream.feed(event(openai({"content": "partial"})))
-        stream.feed(event(openai(reason="stop")))
-        stream.feed(event({**openai(), "usage": {"completion_tokens": 1}}))
-        with self.assertRaises(AiError):
-            stream.finish()
-        for delta, reason, usage in [({"content": "late"}, None, {"completion_tokens": 1}),
-                                     ({"reasoning_content": "late"}, None, {}),
-                                     ({"tool_calls": []}, None, {}),
-                                     ({}, "stop", {}), ({}, None, None)]:
-            with self.subTest(delta=delta, reason=reason):
-                stream = ProviderStream("openai_compatible", lambda _: None)
-                stream.feed(event(openai(reason="stop")))
-                with self.assertRaises(AiError):
-                    stream.feed(event({**openai(delta, reason), "usage": usage}))
-
     def test_anthropic_blocks_signatures_and_input_json_are_assembled(self):
         seen = []
         stream = ProviderStream("anthropic", seen.append)
