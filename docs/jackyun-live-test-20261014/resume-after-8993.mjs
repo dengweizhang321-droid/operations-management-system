@@ -7,6 +7,7 @@ import {homedir} from 'node:os';
 import {createRequire} from 'node:module';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
+import {pathToFileURL} from 'node:url';
 import {withJackyunRunLock,defaultJackyunRunLockDirectory} from '../../lib/jackyun/run-lock.ts';
 import {verifyJackyunBrowserBinding,resolveJackyunChromiumExecutable} from '../../lib/jackyun/dpapi-login.ts';
 import {closeChromeBrowser,listChromeTargets} from '../../lib/jackyun/cdp-client.ts';
@@ -49,12 +50,27 @@ if(process.argv[2]==='close-orphan'){
   await write('8993-orphan-close-result.json',{at:new Date().toISOString(),closed:true,pid:58748,port:9223,method:'original_closeChromeBrowser'});
   console.log(JSON.stringify({closed:true,pid:58748,port:9223,zeroBusinessEffects:true}));
  });
-}else if(process.argv[2]==='dispatch'){
+}else if(['dispatch','dispatch-after-wrapper'].includes(process.argv[2])){
  const closed=JSON.parse(await fs.readFile(out+'/8993-orphan-close-result.json','utf8'));assert.equal(closed.closed,true);
  const proof=await inspect();await idle();
- const requestId=randomUUID();await write('browser-recovered-dispatch-started.json',{at:new Date().toISOString(),requestId,logicalExecutionId:'8548',failedExecutionId:'8993',proof});
+ const afterWrapper=process.argv[2]==='dispatch-after-wrapper';
+ if(afterWrapper){
+  const adopted=JSON.parse(await fs.readFile(out+'/wrapper-helper-adoption-2/publication-result.json','utf8'));assert.equal(adopted.status,'deployed');
+  const {resolveEffectiveReleaseChain}=await import(pathToFileURL('D:/codex-isolated/jackyun-wrapper-source-20261014/tools/worker-local-release-rotation.mjs'));
+  const chain=await resolveEffectiveReleaseChain({verifyInstalledHead:true});assert.equal(chain.head.releaseId,adopted.candidateReleaseId);assert.equal(chain.head.manifestSha256,adopted.candidateManifestSha256);
+  const db=new DatabaseSync(path.join(homedir(),'.n8n/database.sqlite'),{readOnly:true});
+  try{
+   const row=db.prepare('SELECT status,workflowId FROM execution_entity WHERE id=9001 AND deletedAt IS NULL').get();assert.equal(row.status,'error');assert.equal(row.workflowId,'J8kY2mQ5vR7sT4pN');
+   const data=parse(db.prepare('SELECT data FROM execution_data WHERE executionId=9001').get().data);
+   assert.equal(data.resultData.lastNodeExecuted,'A·固定采集日和销售日期');
+   assert.equal(data.resultData.error.description,'仅允许闭合 API 五表下载前、没有导出意图或业务产物的精确登录安全验证失败。');
+   assert(Object.keys(data.resultData.runData).every(n=>['失败后每小时安全重试入口','固定原执行计划时间','领取共享 helper','helper 领取成功？','A·固定采集日和销售日期'].includes(n)));
+  }finally{db.close();}
+ }
+ const prefix=afterWrapper?'wrapper-recovered':'browser-recovered';
+ const requestId=randomUUID();await write(prefix+'-dispatch-started.json',{at:new Date().toISOString(),requestId,logicalExecutionId:'8548',failedExecutionId:'8993',proof});
  const r=await fetch('http://localhost:3000/api/imports/recovery/run',{method:'POST',redirect:'error',headers:{'content-type':'application/json',origin:'http://localhost:3000','x-teruisi-recovery-request-id':requestId},body:JSON.stringify({kind:'retry',logicalExecutionId:'8548',failedExecutionId:'8993'}),signal:AbortSignal.timeout(30000)});
- const payload=await r.json();await write('browser-recovered-dispatch-result.json',{at:new Date().toISOString(),httpStatus:r.status,body:payload});
+ const payload=await r.json();await write(prefix+'-dispatch-result.json',{at:new Date().toISOString(),httpStatus:r.status,body:payload});
  console.log(JSON.stringify({httpStatus:r.status,ok:payload.ok,dispatchStatus:payload.dispatchStatus,error:payload.error??payload.message??null}));
  assert(r.ok&&payload.ok===true);
 }else throw Error('Use close-orphan or dispatch; each mutation is create-only and must not be replayed blindly');

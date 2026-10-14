@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 import fs from 'node:fs/promises';
 const out='D:/codex-artifacts/jackyun-live-test-20261014';
 const prefix=process.argv[2]??'original-human';
-if(!['original-human','resumed-human','browser-recovered'].includes(prefix))throw Error('Unknown authorized attempt');
+if(!['original-human','resumed-human','browser-recovered','wrapper-recovered'].includes(prefix))throw Error('Unknown authorized attempt');
 const started=JSON.parse(await fs.readFile(out+'/'+prefix+'-dispatch-started.json','utf8'));
 const require=createRequire(path.join(process.env.APPDATA,'npm/node_modules/n8n/package.json'));
 const {parse}=require('flatted');
