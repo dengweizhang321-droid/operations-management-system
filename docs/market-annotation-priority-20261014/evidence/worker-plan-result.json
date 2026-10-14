@@ -1,11 +1,11 @@
 {
   "status": "planned",
   "version": "teruisi-local-worker-release-rotation-plan-v1",
-  "planSha256": "5e73e560a025e9556e6253488888eb6a81763e0c92d5abf57682ec17f15dfd2f",
-  "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\5e73e560a025e9556e6253488888eb6a81763e0c92d5abf57682ec17f15dfd2f.json",
+  "planSha256": "e34d7bb460180a59119c6a52a00be06a1170ba97efba94308ce760681adf2562",
+  "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\e34d7bb460180a59119c6a52a00be06a1170ba97efba94308ce760681adf2562.json",
   "predecessorReleaseId": "20261014T045841Z-0084b48bfe8257bf",
-  "candidateReleaseId": "20261014T105240Z-8a66e528f077fbdf",
-  "candidateManifestSha256": "f5f8f31cde355143fe9f3defa51e9c5a979d6c1f2a296d8616a4bdf8e85cb238",
-  "candidateGuardReceiptSha256": "bb0a72d6f9d8024170ee154d5eff5f2280fd373528ee17fb62a0041636ae7f75",
+  "candidateReleaseId": "20261014T112215Z-9aa39933d2a878fe",
+  "candidateManifestSha256": "5320f531c5ca9266ff4f4d3985077d656dc81e7ac55494306fdb27c0dab3f49f",
+  "candidateGuardReceiptSha256": "640610d9f0931ed209d49f2ce7ca421276fb18281cc23468b9ea8db6a6e3279d",
   "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
 }

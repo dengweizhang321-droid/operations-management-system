@@ -1,0 +1,37 @@
+{
+  "id": "8fa6bccecf764207be66be01fadf84c7",
+  "receiptSha256": "e9acda1c6aa7b1a894c3f3fe8d70861fa3b18386d016ec1493f8196182d14b74",
+  "appFingerprint": "749eb97145494f159c70f3e7c9111b3caaa27c288b84c1bdab0fb19d56172b07",
+  "deploymentManifestSha256": "01d7d1cf0c28d7caa462cd06af63775b35cbda067c7b6d9903984d5de98d4f56",
+  "differences": [
+    {
+      "path": ".wrangler/cache/cf.json",
+      "before": "d725ff29bd51248917d2865ad4b06581ae8aa54dd42d743e75fc9d499d5677cc",
+      "after": "a311bbb88bcfb371e619da568d8f39d90e1fda8431e0653a040f7db8f5185e53"
+    },
+    {
+      "path": "backend/market/annotation_activity.py",
+      "before": null,
+      "after": "5a97fd7b9350e435fcaf940dfad50566c44985728f68f724980fbf510389841d"
+    },
+    {
+      "path": "backend/market/annotations.py",
+      "before": "ee306098de91fe4e0c988ba3b5b0dc632a2abc76dcb72a51d330c05f23ca48e2",
+      "after": "480947a34203ad242c3db448075000aaa62bb712eb5d80b834ee01e2c8a9c54f"
+    },
+    {
+      "path": "deployment.json",
+      "before": "53c63261c3d646b3dcfdb06d17c6385aa22f3b244ea9a23a7b2f7610ed3368f9",
+      "after": "01d7d1cf0c28d7caa462cd06af63775b35cbda067c7b6d9903984d5de98d4f56"
+    },
+    {
+      "path": "runtime-tools/wrangler-dependencies.json",
+      "before": "033f21a3a406e5d8ea66b3c9586100d3996a05ac4b020631336edb598b20c4b4",
+      "after": "629bf0a93dd929981fbe5cdd82e315a63456afa9ab0a3719816dda1c2bb76b1c"
+    }
+  ],
+  "migrationDifferences": [],
+  "runtimeDependencyFileBytesUnchanged": true,
+  "dependencyManifestDifference": "same package records, ordering only",
+  "sourceCommit": "2154f9e4bafbe343b809ec3783fcd5925386dc72"
+}
