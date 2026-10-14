@@ -21,14 +21,15 @@ assert.equal(prepared.status,'prepared_not_deployed');assert.equal(prepared.work
 assert.equal(prepared.scope,'verified-unbound-closures-v1-v2-v4');
 assert.equal(plan.predecessorReleaseId,'20261013T145450Z-fe391dce49a258cf');
 assert.match(plan.candidateReleaseId,/^\d{8}T\d{6}Z-[a-f0-9]{16}$/);
-const planFile=out+'/publication-plan.json';
+const monitorScriptSha='344daf4c8c21b18bc7b993b33bba0e62c03aaed97859826439f001f1e09de115';
+const planFile=out+'/publication-plan-with-monitor.json';
 if(process.argv[2]==='plan'){
  assert.equal(await safeFileDigest(django),djangoSha);
  const pins={};for(const f of [worker,shell,source+'/tools/worker-local-release.mjs',source+'/tools/worker-local-release-rotation.mjs'])pins[f]=await safeFileDigest(f);
- await writeOnce(planFile,{version:1,workerPlanSha256:plan.planSha256,maintenanceId:randomUUID().replaceAll('-',''),djangoSha,pins,steps:['BeginWorkerDrain','StopForRelease','applyApprovedRotationPlan','Start RequireReady','VerifyStartup','EndWorkerDrain'],backendStop:false,postgresStop:false,newBackup:false,migration:false});
+ await writeOnce(planFile,{version:1,workerPlanSha256:plan.planSha256,maintenanceId:randomUUID().replaceAll('-',''),djangoSha,pins,monitorScriptSha,steps:['BeginWorkerDrain','StopForRelease','applyApprovedRotationPlan','Start RequireReady','VerifyStartup','Install bounded watchdog under retained drain','EndWorkerDrain'],backendStop:false,postgresStop:false,newBackup:false,migration:false});
  console.log(JSON.stringify({status:'plan_ready',candidateReleaseId:plan.candidateReleaseId,planFile}));
 }else if(process.argv[2]==='execute'){
- const approval=await read(planFile);assert.equal(approval.workerPlanSha256,plan.planSha256);assert.equal(approval.djangoSha,djangoSha);assert.match(approval.maintenanceId,/^[a-f0-9]{32}$/);
+ const approval=await read(planFile);assert.equal(approval.workerPlanSha256,plan.planSha256);assert.equal(approval.djangoSha,djangoSha);assert.equal(approval.monitorScriptSha,monitorScriptSha);assert.match(approval.maintenanceId,/^[a-f0-9]{32}$/);
  await withRotationLock(async rotationLease=>{
   assert.equal(await exists(runtime+'/state/release-batches/active.json'),false);assert.equal(await exists(drain),false);
   assert.equal(await exists('D:/teruisi-runtime/django-sales/run/system-maintenance.json'),false);assert.equal(await safeFileDigest(django),djangoSha);
@@ -52,6 +53,20 @@ if(process.argv[2]==='plan'){
   assert.equal(await safeFileDigest(django),djangoSha);
   const started=await run('start-new-worker',['-Action','Start','-BackendStartPolicy','RequireReady','-Json']);assert(['started','already_running'].includes(started.status));assert.equal(started.releaseId,plan.candidateReleaseId);assert.equal(started.manifestSha256,plan.candidateManifestSha256);
   await run('verify-startup',['-Action','VerifyStartup','-Json']);
+  await writeOnce(out+'/worker-ready-for-monitor.json',{status:'ready_with_drain_retained',at:new Date().toISOString(),maintenanceId:approval.maintenanceId,releaseId:plan.candidateReleaseId,manifestSha256:plan.candidateManifestSha256,djangoSha});
+  console.log(JSON.stringify({step:'bounded-watchdog-installation-window',status:'ready_with_drain_retained'}));
+  const monitorDeadline=Date.now()+300000;let monitorConfirmed=false;
+  while(Date.now()<monitorDeadline){
+   const resultFile=path.resolve(out,'../watchdog-bounded-install-result.json');
+   if(await exists(resultFile)){
+    const receipt=await read(resultFile),installed=await read('D:/teruisi-runtime/operations-watchdog/installation.json');
+    assert.equal(receipt.status,'installed');assert.equal(installed.bundleId,receipt.bundleId);assert.equal(installed.scriptSha256,monitorScriptSha);
+    assert.equal(await safeFileDigest('D:/teruisi-runtime/operations-watchdog/versions/'+installed.bundleId+'/operations-system-watchdog.ps1'),monitorScriptSha);
+    await writeOnce(out+'/monitor-install-confirmed.json',{at:new Date().toISOString(),bundleId:installed.bundleId,scriptSha256:monitorScriptSha,receiptSha256:await safeFileDigest(resultFile)});monitorConfirmed=true;break;
+   }
+   await new Promise(resolve=>setTimeout(resolve,1000));
+  }
+  if(!monitorConfirmed){await writeOnce(out+'/monitor-install-unconfirmed.json',{at:new Date().toISOString(),maintenanceId:approval.maintenanceId});throw Error('Monitor repair not confirmed within the bounded window; exact drain retained');}
   const ended=await run('end-worker-drain',['-Action','EndWorkerDrain','-MaintenanceId',approval.maintenanceId,'-Json']);assert.equal(ended.status,'worker_drain_ended');
   assert.equal(await exists(drain),false);assert.equal(await safeFileDigest(django),djangoSha);
   await writeOnce(out+'/publication-result.json',{status:'deployed',at:new Date().toISOString(),candidateReleaseId:plan.candidateReleaseId,candidateManifestSha256:plan.candidateManifestSha256,djangoRetained:djangoSha});

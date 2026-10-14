@@ -1,4 +1,4 @@
-param([ValidateSet('initial','native-time-retry')][string]$Attempt='initial')
+param([ValidateSet('initial','native-time-retry','drained-retry')][string]$Attempt='initial',[string]$DrainId)
 $ErrorActionPreference='Stop'
 $out='D:\codex-artifacts\jackyun-live-test-20261014'
 $candidate=Join-Path $out 'watchdog-bounded-candidate\operations-system-watchdog.ps1'
@@ -6,10 +6,17 @@ $taskName='TERUISI Operations Watchdog'
 $oldBundle='ceee38dabd66ea9cc77622679d35bf601367f0582ac00fcfe5074dc10940c940'
 $oldAction='D:\teruisi-runtime\operations-watchdog\versions\'+$oldBundle+'\Watchdog.NoConsole.exe'
 $targetProcessId=41708
-$suffix=if($Attempt -eq 'native-time-retry'){'-native-time-retry'}else{''}
+$suffix=if($Attempt -eq 'initial'){''}else{'-'+$Attempt}
 if($Attempt -eq 'native-time-retry'){
  $prior=Get-Content (Join-Path $out 'watchdog-bounded-install-failure.json') -Raw|ConvertFrom-Json
  if($prior.error -cne 'Held process birth changed'){throw 'Prior failure is not the pre-stop timestamp comparison'}
+}
+if($Attempt -eq 'drained-retry'){
+ $barrier=Get-Content (Join-Path $out 'unbound-helper-adoption\worker-ready-for-monitor.json') -Raw|ConvertFrom-Json
+ $gate=Get-Content 'D:\teruisi-runtime\django-sales\run\automation-drain.json' -Raw|ConvertFrom-Json
+ if($DrainId -cnotmatch '^[a-f0-9]{32}$' -or $barrier.status -cne 'ready_with_drain_retained' -or $barrier.maintenanceId -cne $DrainId -or $gate.id -cne $DrainId -or $gate.phase -cne 'requests' -or $gate.keepPostgres -cne $true){throw 'Exact ready Worker drain required'}
+ $remaining=@(Get-CimInstance Win32_Process -Filter "Name='pwsh.exe' OR Name='powershell.exe'"|Where-Object {$_.CommandLine -match ('versions[\\/]'+$oldBundle+'[\\/]operations-system-watchdog.ps1')})
+ if($remaining.Count){throw 'Original check must finish or be independently recovered before drained installation'}
 }
 if((Get-FileHash -LiteralPath $candidate).Hash.ToLowerInvariant() -cne '344daf4c8c21b18bc7b993b33bba0e62c03aaed97859826439f001f1e09de115'){throw 'Candidate changed'}
 $health=Get-Content (Join-Path $out 'watchdog-bounded-current-health.json') -Raw|ConvertFrom-Json
@@ -22,7 +29,7 @@ if((Test-Path (Join-Path $out ('watchdog-bounded-install-started'+$suffix+'.json
 [IO.File]::WriteAllText((Join-Path $out ('watchdog-bounded-install-started'+$suffix+'.json')),(@{at=[DateTimeOffset]::UtcNow.ToString('o');oldBundle=$oldBundle;failedSnapshotSha256=(Get-FileHash (Join-Path $out 'watchdog-stuck-callsite-1040.json')).Hash.ToLowerInvariant();targetProcessId=$targetProcessId;businessServicesStopped=$false}|ConvertTo-Json),[Text.UTF8Encoding]::new($false))
 Disable-ScheduledTask -TaskName $taskName|Out-Null
 try{
- $p=Get-CimInstance Win32_Process -Filter ('ProcessId='+$targetProcessId)
+ $p=if($Attempt -eq 'drained-retry'){$null}else{Get-CimInstance Win32_Process -Filter ('ProcessId='+$targetProcessId)}
  if($p){
   if($p.Name -cne 'pwsh.exe' -or $p.ParentProcessId -ne 69124 -or $p.CreationDate.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss') -cne '2026-10-14T02:40:24' -or $p.CommandLine -notmatch [regex]::Escape($oldBundle)){throw 'Stalled process identity changed'}
   $owner=Invoke-CimMethod -InputObject $p -MethodName GetOwnerSid
@@ -49,7 +56,8 @@ try{
  $plan=$planText|ConvertFrom-Json
  $planText|Set-Content (Join-Path $out ('watchdog-bounded-install-plan'+$suffix+'.json')) -Encoding utf8
  $result=& $candidate -Action Install -Execute -ApprovedInstallPlanId $plan.planId;if(-not $?){throw 'Install failed'}
- $result|Set-Content (Join-Path $out 'watchdog-bounded-install-result.json') -Encoding utf8
+ $resultPath=Join-Path $out 'watchdog-bounded-install-result.json';$temporaryResult=$resultPath+'.'+[guid]::NewGuid().ToString('N')+'.tmp'
+ [IO.File]::WriteAllText($temporaryResult,($result -join "`n"),[Text.UTF8Encoding]::new($false));[IO.File]::Move($temporaryResult,$resultPath)
  $result
 }catch{
  # The original task is restored to its previous enabled intent even if the
