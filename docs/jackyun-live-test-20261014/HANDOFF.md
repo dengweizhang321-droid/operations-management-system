@@ -108,3 +108,13 @@
 - 一看到`unbound-helper-adoption/worker-ready-for-monitor.json`，5分钟监控窗口即开始。立即执行已审脚本 `& docs/jackyun-live-test-20261014/stop-stalled-watchdog-after-drain.ps1`：它复验typed gate f1dbd359...、PID34912/父45080/精确创建时间/用户、同一Get-WatchEvidence392调用栈、无业务子进程，保全新鲜失败后仅停止该进程并等launcher退出，保留任务Disabled供安装。任何身份变化会拒绝；不可删guard或盲改PID。
 - 停止脚本成功后立即执行 `& docs/jackyun-live-test-20261014/install-bounded-watchdog.ps1 -Attempt drained-retry -DrainId f1dbd359ccd54bb2aeaa77c8054ee63c`。它在同ID requests drain及新Worker就绪条件下走原PlanInstall/Install，成功原子写`watchdog-bounded-install-result.json`，父Node自行核验真实installation/scriptSHA344后EndWorkerDrain。
 - 若窗口超时，父会写monitor-install-unconfirmed并保留gate；应先核验当前实际Worker/安装结果，再从已完成阶段受控续接，不能重跑整个publisher。当前尚未超时、尚未执行这两个窗口脚本。
+
+### 11:49 用户明确收窄，业务已恢复；只跟踪8993（最高优先级）
+
+- 用户在复盘聊天01a13872-f816-76d3-af48-c8dee969044c明确要求反馈“不影响使用的，没必要修复来影响工作时间”，只完成helper修复上线、业务可用和一次真实恢复/必要五表核对。本聊天已通过read_thread确认其转达授权。**监控完善/提速/外壳等全部暂缓，不再作为放行条件，不自动另开任务；不要执行上面停watchdog或drained安装脚本。**
+- 核验原publisher已完成apply、Start、VerifyStartup并仅在只读等待monitor结果，PID68180无在途子进程；持进程句柄、精确创建时间和用户核验后，仅结束该协调器等待，未停业务服务。scope-narrowing.json明确monitor=deferred_not_passed，不伪造成功。原exec32819因主动取消等待读取返回-1，不代表部署失败。
+- `close-narrowed-publication.mjs`（session12161 exit0）重新持原rotation锁，复核新head/真实ready回执及同ID requests gate，调用**原EndWorkerDrain**解除f1dbd359...；无手工删锁/删drain、无重放apply。`publication-result.json`于11:44:37确认deployed_and_business_available，Worker **c3a176ee/81b84f...**、Django **8b4fed2c...**，helper与业务恢复入口200，drain不存在。
+- **bounded watchdog 344未安装**，原ceee仍启用；34912停滞及其失败快照/已准备代码仅记录为待办，不插入本次业务恢复。原41708曾经受控结束；当前34912没有按后续脚本结束。`watchdog-bounded-install-result.json`不存在，不能补写假的成功。
+- 新helper下`resume-after-8956.mjs dispatch`已按原逻辑8548/失败8956、零业务效果证明和实际新head复核，正常POST一次，HTTP200 accepted_pending_execution；**新n8n执行8993**绑定这次新授权。不得再次dispatch或创建另一个请求。
+- 8993当前等待前序共享helper释放（11:46:28启动，下一次领取检查11:51:30），尚未进入A/B。11:49读回helper有天猫8991/8985/8988在next_day；n8n均实际running，京东8979已success。正常等其完成，不关闭/删除他任务或修改调度。
+- 下一步只运行`node docs/jackyun-live-test-20261014/observe-retry.mjs resumed-human`跟踪8993。取得helper后核对A接续、B/C/D/E、五类精确批次和真实日期。达到版本正常、入口恢复、真实结果核实即收尾；不恢复监控完善工作。

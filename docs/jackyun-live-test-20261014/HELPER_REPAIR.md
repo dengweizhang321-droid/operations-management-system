@@ -1,5 +1,7 @@
 # 完整恢复中的既有闭合回执兼容修复
 
+**11:49最新执行边界：用户明确要求非使用阻断项不拖延业务。Worker/helper修复已采用、业务排空已由原入口解除；本文监控附加采集修复只保留代码与证据，未安装，不再作为本次放行条件，也不继续执行其后续操作。当前只跟踪真实恢复8993及必要五表结果。**
+
 2026-10-14。Django授权头修复已采用为manifest `8b4fed2c3cb8e0206ae8cc492e15f9646ef2dbbd7bbccde2b386fe9770ce02ac`。真实执行8956在A遇到既有version1回执与新create-only回执的路径冲突，未进入B/C/D/E。原回执、临时文件、预备计划、reservation、control及失败execution全部保留。
 
 最终修复只在原publisher完成新执行/人工授权、适用的凭据就绪和新鲜零效果核验后，调用原`assertClosedPreflight`，原样复用未绑定消费者的version1/2/4回执。绑定执行的3/5/6/7和未知版本不扩大；没有删除回执、修改active、取消create-only或放宽owner/fence。
