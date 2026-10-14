@@ -41,3 +41,16 @@ Django 在线准备正常退出 0。逐文件实包仅 3 个后端路径及原 R
 原聊天在仅复核授权收尾后，确认普通会话控制命令可通过、自然任务却持续失败。一次性可审查诊断方案已保存为 `D:/codex-artifacts/jackyun-live-test-20261014/ONE_TIME_DIAGNOSTIC_PLAN.md`，任务尚未注册或执行：精确任务名 `TERUISI Jackyun Watchdog Diagnostic 20261014`、原普通用户 Limited/Interactive 权限、无触发器、原 NoConsole launcher、只运行一次状态探针、硬时限 2 分钟、调用器等待最多 95 秒、结束按精确身份停止及注销并确认不存在。
 
 探针 SHA `e3c953b2eafe3fa52cc3e441c86e687810c6d6e6806dd9ff5832c75c588bc186`，执行/清理脚本 SHA `687b8b4c8b214f732c9fdf873f60aafe2c86633710c2acf10d17866708b7508d`。不修改原任务、调度、频率、权限，不发送通知或触发业务；成功结果也不能计作原自然健康帧。该操作属于计划任务注册，超出之前两项只读收尾的授权，已向当前用户明确请求对应授权并保持待确认。AI 发布授权继续有效，尚未因本次执行完成发布。
+
+## 12:21 当前制品就绪并按用户优先级让出窗口
+
+用户再次询问检查完成后是否可直接发布。最新只读核对：旧 active 已释放；正式 Django 已是 `8b4fed2c3cb8e0206ae8cc492e15f9646ef2dbbd7bbccde2b386fe9770ce02ac` / 来源 `d9ccdd82`，Worker 是 `20261014T024227Z-c3a176ee85a03642` / manifest `81b84f00df90f29f86fdce50cbd8b5a8c4e2374cb0a9dba4030aef20799bb680` / 来源 `22df75fd`。这两个组件实际来源不同，不能直接从 Worker 来源部署 Django，否则会覆盖已采用的授权查询版本回执头。
+
+从实际两组件来源形成基线 `e14b5fea`，仅把当前已安装 Django 的两工作流文件原样保留，之后叠加 AI 4 文件，候选 `9dfedcb0c9d0fe0dd87340fe7e58c907ee57ec0a` 已推 `codex/ai-management-release-current`。新范围计划 `1a2c8edf413dddbf817389bcabb14f9d80c62eb2d491514784cf2455fc9ac3ca`，无 migration。运行后端包逐文件只有 AI 配置、路由、新测试及原 smoke 的 cf 缓存差异，工作流修复保留；原有效功能验证复用，不新增综合验收。
+
+- Django 准备正常退出 0，82.244 秒；ID `b058214d6ac04ba3bd167f5786899dc0`，收据 SHA `6632f8f20935ba4a959864e3c3f848673f55c6e0e58ad25ef401ac9a59b7b87f`，manifest `53c63261c3d646b3dcfdb06d17c6385aa22f3b244ea9a23a7b2f7610ed3368f9`，指纹 `50adae4e8eefa400653ab9bf76691b4f42c974082000b9450afb83c480c8ac39`。
+- 原 Worker 在线准备 12:18:06 正常完成，plan `54fc9b40ea1ae3bb145363ca971be9f1e4e7207442ff3b95af8bcc41d0a1f615`，制品 `20261014T040249Z-f92c0e4f91af265b`，manifest `a6bbb9e14233831620d37cc1f89b0193e915ebbc18470991386663ea1fe49599`。来源绑定 `521c478f3882c34b1abc21f00bc72de067103c13a74d3365e932cae109e48100`。
+
+随后原聊天转达用户“允许，通知它让吉客云先发布”，本聊天通过 read_thread 实际 userMessage 核实该指令，按本次优先级暂停后续 AI 发布。当前准备进程 38640 已结束，原 plan 的 finally 已释放自己的 rotation 租约；不会再次领取锁，不开始维护、Worker/Django 切换或服务启停。12:21:14 现场仍为上述正式前驱，无本次 publication-started、无维护 gate；rotation pipe 已存在，不将它宣称为此时无人持有（可能是接续发布者）。保留全部新制品和原证据，状态见 `D:/codex-artifacts/ai-management-release-current/WINDOW_YIELDED.json`。
+
+**AI 尚未上线。** 当前是按已核实的用户发布优先级让出窗口，不再是代码检查未完成。吉客云先发布后这些 plan/收据必须重新核对前驱；保留新吉客云修复再准备必要组件，不可直接重放旧计划。该指令仅调度本次窗口，原 AI 上线授权仍保留，不自动授予其他代码或业务发布。
