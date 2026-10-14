@@ -382,33 +382,6 @@ function Invoke-WatchRecovery([string]$ExpectedFence) {
     }finally{if($held){$lease.ReleaseMutex()};$lease.Dispose()}
   } $WorkerPath $ExpectedFence $DesiredPath ${function:Restore-WatchSupervisor}
 }
-function Get-WatchPostgresRecoveryTail([string]$FilePath){
-  $limit=262144;$stream=$null
-  if([string]::IsNullOrWhiteSpace($FilePath)){return @{records=@();observation=@{status='missing';byteLimit=$limit;bytesRead=0;truncated=$false}}}
-  try{
-    $stream=[IO.FileStream]::new($FilePath,[IO.FileMode]::Open,[IO.FileAccess]::Read,([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
-    $length=$stream.Length;$start=[Math]::Max(0,$length-$limit);[void]$stream.Seek($start,[IO.SeekOrigin]::Begin)
-    $buffer=[byte[]]::new([int]($length-$start));$read=0
-    while($read -lt $buffer.Length){$n=$stream.Read($buffer,$read,$buffer.Length-$read);if($n -eq 0){break};$read+=$n}
-    $first=0;$last=$read
-    # Discard partial edge lines before strict UTF-8 decoding. A huge SQL line
-    # is omitted as incomplete evidence, never read backwards without a bound.
-    if($start -gt 0){while($first -lt $read -and $buffer[$first] -ne 10){$first++};if($first -lt $read){$first++}}
-    while($last -gt $first -and $buffer[$last-1] -ne 10){$last--}
-    $text=if($last -gt $first){[Text.UTF8Encoding]::new($false,$true).GetString($buffer,$first,$last-$first)}else{''}
-    $lines=@($text -split "`n" | Where-Object {$_.Length -gt 0} | Select-Object -Last 160)
-    $records=@(foreach($line in $lines){
-      $tag=$line.IndexOf(' LOG: ',[StringComparison]::Ordinal)
-      if($tag -lt 0 -or $tag -gt 256){continue}
-      $message=$line.Substring($tag+6).TrimStart()
-      if($message -match '^(database system was interrupted|database system was not properly shut down|redo done|database system is ready to accept connections)'){
-        $line.Substring(0,$tag)+' '+$(if($message -match '^database system is ready'){'database_ready'}else{'database_recovery'})
-      }
-    })
-    return @{records=$records;observation=@{status='read';sourceBytes=$length;byteLimit=$limit;bytesRead=$read;completeLinesObserved=$lines.Count;truncated=($start -gt 0 -or $last -lt $read -or $read -ne $buffer.Length)}}
-  }catch{return @{records=@();observation=@{status='unavailable';reason='bounded_log_tail_read_failed';byteLimit=$limit}}}
-  finally{if($null -ne $stream){$stream.Dispose()}}
-}
 function Get-WatchEvidence($Snapshot){
   $events=@()
   foreach($log in @('System','Application')){
@@ -416,8 +389,8 @@ function Get-WatchEvidence($Snapshot){
     $events+=@(Get-WinEvent -FilterHashtable $filter -MaxEvents 30 -ErrorAction SilentlyContinue|ForEach-Object {@{time=$_.TimeCreated.ToUniversalTime().ToString('o');id=$_.Id;provider=$_.ProviderName}})
   }
   $postgres=Get-ChildItem -LiteralPath (Join-Path $BackendRoot 'logs') -Filter 'postgresql-*.log' -File|Sort-Object LastWriteTime -Descending|Select-Object -First 1
-  $tail=Get-WatchPostgresRecoveryTail $(if($postgres){$postgres.FullName}else{''})
-  return @{snapshot=$Snapshot;events=$events;databaseRecovery=$tail.records;databaseLogObservation=$tail.observation;capturedAt=[DateTimeOffset]::UtcNow.ToString('o')}
+  $recovery=@();if($postgres){$recovery=@(Get-Content -LiteralPath $postgres.FullName -Tail 160|Where-Object {$_ -match 'database system was interrupted|not properly shut down|redo done|ready to accept connections'}|ForEach-Object {($_ -split ' LOG: ',2)[0]+' '+ $(if($_ -match 'ready to accept'){'database_ready'}else{'database_recovery'})})}
+  return @{snapshot=$Snapshot;events=$events;databaseRecovery=$recovery;capturedAt=[DateTimeOffset]::UtcNow.ToString('o')}
 }
 function Invoke-WatchDws([string[]]$Arguments){
   $result=Invoke-WatchProcess $DwsPath ($Arguments+@('--format','json','--timeout','15')) 25

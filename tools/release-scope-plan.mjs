@@ -40,15 +40,10 @@ export function classifyRelease(changes){
   const components=[state.worker&&'worker',state.django&&'django'].filter(Boolean);
   const code=components.length>0;
   const scope=!code?'non-production':state.migrate?'database-migration':state.full?'full':state.worker&&state.django?'combined':state.django?'backend':state.persistence?'worker-persistence':'frontend-worker';
-  const validation=['git-diff-check',...(state.worker?['worker-affected-tests']:[]),...(state.django?['django-affected-tests']:[]),...(state.full?['affected-integration-tests']:[]),...(state.migrate?['django-system-check','migration-dry-run','isolated-postgresql-migration-rehearsal']:[])];
+  const validation=['git-diff-check',...(state.worker?['worker-affected-tests','worker-lint','worker-production-build','backend-boundary']:[]),...(state.django?['django-affected-tests','django-system-check','migration-dry-run']:[]),...(state.migrate?['isolated-postgresql-migration-rehearsal']:[])];
   const packaging=[...(state.worker?['prepare-worker-immutable-release']:[]),...(state.django?['prepare-django-app']:[])];
   const deployment=!code?[]:[...(state.persistence?['verify-current-database-backup']:[]),...(state.migrate?['create-pre-migration-backup','apply-approved-migrations']:[]),...(state.worker?['activate-worker-release']:[]),...(state.django?['deploy-django-app']:[]),'verify-startup','verify-affected-function'];
-  const workflow=[
-    {step:4,id:'validate-change',actions:validation},
-    {step:5,id:'merge-and-package',actions:['merge-main','push-main',...packaging]},
-    {step:6,id:'publish',actions:deployment},
-  ];
-  return {scope,components,migrate:state.migrate,databaseProtection:state.migrate?'fresh-pre-migration':state.persistence?'verified-current':'not-required',validation,packaging,deployment,workflow,domains:[...state.domains].sort(),unknown:state.unknown,reasons:state.reasons};
+  return {scope,components,migrate:state.migrate,databaseProtection:state.migrate?'fresh-pre-migration':state.persistence?'verified-current':'not-required',validation:[...new Set(validation)],packaging,deployment:[...new Set(deployment)],domains:[...state.domains].sort(),unknown:state.unknown,reasons:state.reasons};
 }
 
 export function makeReleasePlan({base,head='HEAD',cwd=root}){
@@ -56,7 +51,7 @@ export function makeReleasePlan({base,head='HEAD',cwd=root}){
   if(!base||base.startsWith('-')||head.startsWith('-'))throw new Error('必须提供明确的 --base Git 提交');
   const baseSha=git(['rev-parse','--verify',`${base}^{commit}`]).trim(),headSha=git(['rev-parse','--verify',`${head}^{commit}`]).trim();
   const changes=parseNameStatus(git(['diff','--name-status','--find-renames=50%','-z',baseSha,headSha]));
-  const core={version:'teruisi-scoped-release-plan-v2',baseSha,headSha,changes,...classifyRelease(changes)};
+  const core={version:'teruisi-scoped-release-plan-v1',baseSha,headSha,changes,...classifyRelease(changes)};
   return {...core,planSha256:hash(core)};
 }
 
