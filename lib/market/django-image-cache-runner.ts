@@ -106,7 +106,7 @@ async function cacheClaim(
           contentType: optimized.mimeType,
           cacheControl: "private, max-age=31536000, immutable",
         },
-        customMetadata: { source: "market-annotation-model-input", sha256: contentSha256 },
+        customMetadata: { source: "market-annotation-model-input", sha256: contentSha256, contentSha256: await sha256(optimized.bytes) },
       });
     })().catch(() => undefined);
     await command({

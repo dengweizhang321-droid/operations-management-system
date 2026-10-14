@@ -20,7 +20,7 @@ type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "a
 type Model = { id: string; name: string; protocol: string; modelName: string };
 type Prompt = { id: string; category: string; version: number; parentId: string | null; source: string; status: string; segments: string[]; promptBody: string; changeNote: string; metrics: Record<string, unknown>; createdAt: string };
 type Job = { id: string; category: string; promptVersionId: string; executor: string; modelId: string | null; localModelName: string; status: string; totalCount: number; completedCount: number; failedCount: number; reviewedCount: number; committedCount: number; remainingInferenceCount: number; createdAt: string };
-type Item = { id: string; candidateId: string; jobId: string; category: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string; resolvedImageUrl: string; imageSource: string; status: string; aiSegment: string; aiImagePriceCents: number | null; aiConfidenceBps: number | null; aiReason: string; modelInputBytes: number; imageLoadMs: number; imagePrepareMs: number; modelCallMs: number; totalInferenceMs: number; reviewedSegment: string; reviewedImagePriceCents: number | null; reviewPriceSource: "history_same_image" | "ai" | "manual"; reviewJobReady: boolean; reviewSegments: string[]; snapshotValid?: boolean; selected: boolean; version: number; errorMessage: string; createdAt: string };
+type Item = { id: string; candidateId: string; jobId: string; category: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string; resolvedImageUrl: string; imageSource: string; status: string; classificationStatus?: string; priceStatus?: string; aiPriceType?: string; reviewedPriceType?: string; aiSegment: string; aiImagePriceCents: number | null; aiConfidenceBps: number | null; aiReason: string; modelInputBytes: number; imageLoadMs: number; imagePrepareMs: number; modelCallMs: number; totalInferenceMs: number; reviewedSegment: string; reviewedImagePriceCents: number | null; reviewPriceSource: "history_same_image" | "ai" | "manual"; reviewJobReady: boolean; reviewSegments: string[]; snapshotValid?: boolean; selected: boolean; version: number; errorMessage: string; createdAt: string };
 type ValidationRun = { id: string; category: string; candidatePromptId: string; baselinePromptId?: string; status: string; sampleCount: number; sampleHash: string; metrics: Record<string, unknown>; gate: { passed?: boolean; reasons?: string[] } };
 type ValidationResult = { id: string; runId: string; status: string; skuCode: string; productName: string; goldSegment: string; predictedSegment: string; isCorrect: number; errorMessage: string };
 type CloudRun = { jobId: string; state: "running" | "paused" | "completed"; runConcurrency: number; targetConcurrency: number; recovering: boolean; nextRunAt: string | null; lastFailureCode: string; lastFailureMessage: string; lastStartedAt: string | null; lastHeartbeatAt: string | null; completedAt: string | null; updatedAt: string };
@@ -35,7 +35,8 @@ function handleRovingTabKey(event: KeyboardEvent<HTMLButtonElement>) {
   const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index - 1 + tabs.length) % tabs.length : -1;
   if (nextIndex >= 0) { event.preventDefault(); tabs[nextIndex]?.focus(); tabs[nextIndex]?.click(); }
 }
-type JobProgress = { job: Job; activeClaims: number; uniqueInferenceUnits: number; remainingInferenceUnits: number; cloudRun: CloudRun | null; performance: { measuredCount: number; averageImageLoadMs: number; averageImagePrepareMs: number; averageModelCallMs: number; averageTotalInferenceMs: number; averageModelInputBytes: number }; error?: string };
+type QueueCounts = { pending: number; processing: number; completed: number; exception: number };
+type JobProgress = { legacyUnclassifiedUnits?: number; queues?: { A: QueueCounts; B: QueueCounts }; historyReusedUnits?: number; modelCompletedUnits?: number; newCompletedLastMinute?: number; legacyCompletedUnits?: number; job: Job; activeClaims: number; uniqueInferenceUnits: number; remainingInferenceUnits: number; cloudRun: CloudRun | null; performance: { measuredCount: number; averageImageLoadMs: number; averageImagePrepareMs: number; averageModelCallMs: number; averageTotalInferenceMs: number; averageModelInputBytes: number }; error?: string };
 type Draft = { segment: string; price: string; selected: boolean; version: number };
 
 const LOAD_TIMEOUT_MS = 30_000;
@@ -56,8 +57,9 @@ const annotationRecognitionLabel = (item: Pick<Item, "status" | "aiSegment" | "a
   if (recognized) return "AI 已识别";
   return item.status === "failed" ? "AI 识别失败" : "未生成 AI 结果";
 };
-const annotationResultMessage = (item: Pick<Item, "aiReason" | "errorMessage" | "status" | "reviewPriceSource" | "snapshotValid">) => {
+const annotationResultMessage = (item: Pick<Item, "aiReason" | "errorMessage" | "status" | "reviewPriceSource" | "snapshotValid" | "priceStatus">) => {
   if (item.snapshotValid === false && ["review_pending", "approved", "rejected"].includes(item.status)) return "图片或对应月份数据已变化，已排除入库；请按当前图片重新识别并复核。";
+  if (item.reviewPriceSource === "history_same_image" && item.priceStatus === "no_price") return "已复用同图、同规则与模型的明确无标价证据，价格为空；请人工复核后入库";
   if (item.reviewPriceSource === "history_same_image") return "主图与历史已确认图片一致，默认沿用上次标准售价，请人工复核后入库";
   if (item.aiReason) return item.aiReason;
   if (/状态码\s*429/.test(item.errorMessage)) return `${item.errorMessage}：模型供应商限流或额度不足，请稍后重试并检查额度`;
@@ -405,7 +407,13 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     return () => progressReader.cancel();
   }, [backgroundJobId, progressReader]);
   useEffect(() => {
-    if (!backgroundJobId || backgroundExecutor !== "cloud" || !currentCloudRunIsRunning) return;
+    if (!backgroundJobId || backgroundExecutor !== "cloud") return;
+    const controller = new AbortController();
+    void loadJobProgress(backgroundJobId, controller.signal).catch(() => undefined);
+    return () => controller.abort();
+  }, [backgroundJobId, backgroundExecutor, loadJobProgress]);
+  useEffect(() => {
+    if (!backgroundJobId || backgroundExecutor !== "cloud" || (!currentCloudRunIsRunning && !(cloudProgress?.activeClaims))) return;
     let disposed = false;
     const controller = new AbortController();
     let polling = false;
@@ -429,7 +437,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     void tick();
     const timer = window.setInterval(() => void tick(), 5_000);
     return () => { disposed = true; controller.abort(); window.clearInterval(timer); };
-  }, [backgroundExecutor, backgroundJobId, currentCloudRunIsRunning, loadJobProgress, loadReview, reviewReader]);
+  }, [backgroundExecutor, backgroundJobId, currentCloudRunIsRunning, cloudProgress?.activeClaims, loadJobProgress, loadReview, reviewReader]);
   const concurrencyFor = (targetCategory: string, targetExecutor: MarketAnnotationExecutor) => {
     const key = annotationConcurrencyKey(targetCategory, targetExecutor);
     const stored = data?.concurrencySettings.find((item) => item.category === targetCategory && item.executor === targetExecutor)?.concurrency;
@@ -523,10 +531,12 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       await load(id, 1);
       setJobId(id);
       setCloudProgress(progress);
-      setNotice(progress.remainingInferenceUnits === 0
+      setNotice(executor === "cloud" && progress.cloudRun?.state === "paused"
+        ? `兼容任务未恢复：${progress.cloudRun.lastFailureMessage || "请核查暂停原因"}`
+        : progress.remainingInferenceUnits === 0
         ? "兼容任务已处理完毕，现在可以创建下一批任务"
         : executor === "cloud"
-          ? `已切换到兼容任务并重新唤醒云端后台（目标并发 ${savedConcurrency}），剩余推理 ${progress.remainingInferenceUnits} 条`
+          ? `已切换到兼容任务，恢复请求已接受，等待派发（目标并发 ${savedConcurrency}），剩余推理 ${progress.remainingInferenceUnits} 条`
           : `已切换到兼容任务，剩余推理 ${progress.remainingInferenceUnits} 条；本地 Ollama agent 可继续领取`);
       return;
     }
@@ -541,14 +551,16 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     if (!currentJob || currentJob.executor !== "cloud") throw new Error("请选择需要继续的云端标注任务");
     const alreadyRunning = currentCloudRunIsRunning;
     const savedConcurrency = await persistConcurrency(currentJob.category, "cloud", concurrencyFor(currentJob.category, "cloud"));
-    await post({ action: "set_cloud_run_state", jobId: currentJob.id, state: "running" });
+    const resume = await post({ action: "set_cloud_run_state", jobId: currentJob.id, state: "running" });
     const progress = await loadJobProgress(currentJob.id);
     if (!progress) return;
-    setNotice(progress.cloudRun?.state === "completed" || progress.job.status === "review_ready"
+    setNotice(resume?.resumeAccepted === false || progress.cloudRun?.state === "paused"
+      ? `恢复未开始：${progress.cloudRun?.lastFailureMessage || "任务已暂停，请核查状态"}`
+      : progress.cloudRun?.state === "completed" || progress.job.status === "review_ready"
       ? "云端识别队列已经处理完毕，可进入人工复核与批量入库"
       : alreadyRunning
-        ? `已安全唤醒云端后台（目标并发 ${savedConcurrency}）；如已有执行器正在工作，本次不会重置并发退避或重复领取。`
-        : `云端后台已接管任务（目标并发 ${savedConcurrency}），将由后台定时领取；关闭浏览器可继续，本机部署需要电脑和运营系统保持运行。`);
+        ? `唤醒请求已接受，等待派发（目标并发 ${savedConcurrency}）；如已有执行器正在工作，本次不会重置并发退避或重复领取。`
+        : `恢复请求已接受，等待后台派发（目标并发 ${savedConcurrency}），将由后台定时领取；关闭浏览器可继续，本机部署需要电脑和运营系统保持运行。`);
   });
   const pauseCloud = () => act("pause-cloud", async () => {
     if (!currentJob || currentJob.executor !== "cloud") throw new Error("请选择需要暂停的云端标注任务");
@@ -752,8 +764,14 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       </div>
 
       {currentJob && <div className="annotation-current-run">
-        <div className="annotation-current-run-summary"><span>当前任务</span><strong>{currentJob.category}</strong><small>{currentJob.executor} · {currentJob.status} · {currentJob.completedCount}/{currentJob.totalCount}</small>{cloudProgress?.job.id === currentJob.id && <small>有效租约 {cloudProgress.activeClaims} · 唯一推理单元剩余 {cloudProgress.remainingInferenceUnits}/{cloudProgress.uniqueInferenceUnits}</small>}{currentJob.executor === "cloud" && <small>云端后台：{currentCloudRunHasUnknownResult ? "结果待核验（已暂停）" : currentCloudRunIsRunning ? `运行中（当前 ${currentCloudRun!.runConcurrency}/${currentCloudRun!.targetConcurrency} 路）` : currentCloudRunHasUnfinishedItems ? currentCloudRun?.state === "completed" ? "已停止（仍有未完成项，可恢复）" : "已暂停" : "已完成"}</small>}{cloudProgress?.job.id === currentJob.id && cloudProgress.performance.measuredCount > 0 && <small>最近 {cloudProgress.performance.measuredCount} 张平均：总耗时 {duration(cloudProgress.performance.averageTotalInferenceMs)} · 模型 {duration(cloudProgress.performance.averageModelCallMs)} · 取图 {duration(cloudProgress.performance.averageImageLoadMs)} · 图片处理 {duration(cloudProgress.performance.averageImagePrepareMs)} · 输入 {bytes(cloudProgress.performance.averageModelInputBytes)}</small>}{currentCloudRun?.lastFailureMessage && <small>最近异常：{currentCloudRun.lastFailureMessage}</small>}</div>
-        <label><span>当前任务并发（可运行中调整）</span><div className="annotation-concurrency-control"><input aria-label="当前 AI 标注任务模型并发数" type="number" min={MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum} max={MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum} value={currentJobConcurrency} disabled={!canEdit || savingConcurrencyKey === currentJobConcurrencyKey} onChange={(event) => setConcurrencyDrafts((current) => ({ ...current, [currentJobConcurrencyKey]: Number(event.target.value) }))} /><button className="secondary-button" disabled={!canEdit || !isValidAnnotationConcurrency(currentJobConcurrency) || savingConcurrencyKey !== ""} onClick={() => void saveConcurrency(currentJob.category, currentJobExecutor)}>{savingConcurrencyKey === currentJobConcurrencyKey ? "保存中…" : "保存并应用"}</button></div></label>
+        <div className="annotation-current-run-summary"><span>当前任务</span><strong>{currentJob.category}</strong><small>{currentJob.executor} · {currentJob.status} · {currentJob.completedCount}/{currentJob.totalCount}</small>{cloudProgress?.job.id === currentJob.id && <small>有效租约 {cloudProgress.activeClaims} · 唯一推理单元剩余 {cloudProgress.remainingInferenceUnits}/{cloudProgress.uniqueInferenceUnits}</small>}{currentJob.executor === "cloud" && <small>云端后台：{currentCloudRunHasUnknownResult ? "结果待核验（已暂停）" : currentCloudRunIsRunning ? cloudProgress?.activeClaims ? `正在处理 ${cloudProgress.activeClaims} 张（目标 ${currentCloudRun!.targetConcurrency}）` : "等待派发" : currentCloudRunHasUnfinishedItems ? currentCloudRun?.state === "completed" ? "已停止（仍有未完成项，可恢复）" : "已暂停" : "已完成"}</small>}{cloudProgress?.job.id === currentJob.id && cloudProgress.performance.measuredCount > 0 && <small>最近 {cloudProgress.performance.measuredCount} 张平均：总耗时 {duration(cloudProgress.performance.averageTotalInferenceMs)} · 模型 {duration(cloudProgress.performance.averageModelCallMs)} · 取图 {duration(cloudProgress.performance.averageImageLoadMs)} · 图片处理 {duration(cloudProgress.performance.averageImagePrepareMs)} · 输入 {bytes(cloudProgress.performance.averageModelInputBytes)}</small>}{currentCloudRun?.lastFailureMessage && <small>最近异常：{currentCloudRun.lastFailureMessage}</small>}</div>
+        {cloudProgress?.job.id === currentJob.id && cloudProgress.queues && <div className="annotation-current-run-summary" aria-label="分类与价格队列进度">
+        {(["A", "B"] as const).map((key) => { const queue = cloudProgress.queues![key]; return <small key={key}>{key === "A" ? "A · 分类与价格" : "B · 仅补价格（分类已完成）"}：待处理 {queue.pending} · 执行中 {queue.processing} · 完成 {queue.completed} · 异常 {queue.exception}</small>; })}
+        <small>目标并发 {currentCloudRun?.targetConcurrency ?? currentJobConcurrency} · 实际执行 {cloudProgress.activeClaims} · 最近每分钟新完成 {cloudProgress.newCompletedLastMinute ?? 0}</small>
+        <small>历史同图复用 {cloudProgress.historyReusedUnits ?? 0} · 本轮模型识别完成 {cloudProgress.modelCompletedUnits ?? 0}{Boolean(cloudProgress.legacyCompletedUnits) && ` · 旧版模型完成（无精确完成时间）${cloudProgress.legacyCompletedUnits}`}</small>
+        <small>{Boolean(cloudProgress.legacyUnclassifiedUnits) && `旧版完成 ${cloudProgress.legacyUnclassifiedUnits} 项未记录原识别模式，单独计数。`}A 类优先；无可领取 A 类时 B 类立即补位，两类共享并发。数量按同图推理单元统计，跨月扩散不重复计数。</small>
+      </div>}
+      <label><span>当前任务并发（可运行中调整）</span><div className="annotation-concurrency-control"><input aria-label="当前 AI 标注任务模型并发数" type="number" min={MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum} max={MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum} value={currentJobConcurrency} disabled={!canEdit || savingConcurrencyKey === currentJobConcurrencyKey} onChange={(event) => setConcurrencyDrafts((current) => ({ ...current, [currentJobConcurrencyKey]: Number(event.target.value) }))} /><button className="secondary-button" disabled={!canEdit || !isValidAnnotationConcurrency(currentJobConcurrency) || savingConcurrencyKey !== ""} onClick={() => void saveConcurrency(currentJob.category, currentJobExecutor)}>{savingConcurrencyKey === currentJobConcurrencyKey ? "保存中…" : "保存并应用"}</button></div></label>
         {currentJob.executor === "cloud" ? currentCloudRunHasUnfinishedItems ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? (currentCloudRunIsRunning ? `正在安全唤醒云端后台（目标并发 ${currentJobConcurrency}）…` : `正在交给云端后台（目标并发 ${currentJobConcurrency}）…`) : currentCloudRun?.state === "completed" ? "恢复剩余识别" : currentCloudRunIsRunning ? `重新唤醒云端后台（并发 ${currentJobConcurrency}）` : `开始/恢复云端后台识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={!canEdit || busy !== "" || !currentCloudRunIsRunning} onClick={pauseCloud}>{busy === "pause-cloud" ? "正在暂停…" : "完成当前条后暂停"}</button></div> : <small className="annotation-current-run-local">{currentJobSettledMessage}</small> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
       </div>}
 
@@ -805,7 +823,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
           <td>{imageUrl ? (href ? <a className="annotation-image-link" href={href} target="_blank" rel="noreferrer" aria-label={`打开商品 ${item.productName || item.skuCode}`}><img className="annotation-image" src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <img className="annotation-image" src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" />) : <span className="annotation-no-image">无图</span>}<small className={item.imageSource === "imgzone" ? "green-text" : "orange-text"}>{item.imageSource === "imgzone" ? "imgzone 大图" : item.imageSource === "n5" ? "n5 回退" : "未取到安全图片"}</small></td>
           <td>{href ? <a className="annotation-product-link" href={href} target="_blank" rel="noreferrer"><strong>{item.skuCode}</strong><small title={item.productName}>{item.productName || "未命名商品"}</small><span>打开商品链接 ↗</span></a> : <><strong>{item.skuCode}</strong><small title={item.productName}>{item.productName}</small></>}<code>{item.candidateId}</code></td>
           <td><strong>{itemJob?.createdAt?.slice(0, 10) || item.createdAt.slice(0, 10)}</strong><small>{itemJob?.executor || "—"} · {itemJob?.status || "—"}</small><code>{item.jobId.slice(0, 18)}…</code></td>
-          <td><strong>{item.aiSegment || "—"}</strong><small>{annotationResultMessage(item)}</small>{annotationTimingMessage(item) && <small>{annotationTimingMessage(item)}</small>}</td>
+          <td><strong>{item.aiSegment || item.reviewedSegment || "—"}</strong><small>分类：{item.classificationStatus === "completed" ? "已完成" : item.classificationStatus === "processing" ? "处理中" : item.classificationStatus === "failed" ? "执行失败" : "待处理"} · 价格：{item.priceStatus === "no_price" ? "明确无标价" : item.priceStatus === "uncertain" ? "无法判断" : item.priceStatus === "completed" ? "已完成" : item.priceStatus === "processing" ? "处理中" : item.priceStatus === "failed" ? "执行失败" : "尚未处理"}</small><small>{annotationResultMessage(item)}</small>{annotationTimingMessage(item) && <small>{annotationTimingMessage(item)}</small>}</td>
           <td><select value={draft?.segment ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { segment: event.target.value })}><option value="">请选择</option>{itemSegments.map((value) => <option key={value}>{value}</option>)}</select></td>
           <td><input type="number" min={0} step="0.01" value={draft?.price ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { price: event.target.value })} /><small>{item.reviewPriceSource === "history_same_image" ? `历史同图：${money(item.reviewedImagePriceCents)}` : `AI：${money(item.aiImagePriceCents)}`}</small></td>
           <td><strong>{item.aiConfidenceBps === null ? "—" : (item.aiConfidenceBps / 100).toFixed(1) + "%"}</strong><small>{annotationRecognitionLabel(item)} · {item.status} · v{item.version}</small></td>
@@ -827,7 +845,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
           <p>{annotationResultMessage(item)}</p>{annotationTimingMessage(item) && <small>{annotationTimingMessage(item)}</small>}
           <label><span>细分品类</span><select value={draft?.segment ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { segment: event.target.value })}><option value="">请选择</option>{itemSegments.map((value) => <option key={value}>{value}</option>)}</select></label>
           <label><span>主图价格（元）</span><input type="number" min={0} step="0.01" value={draft?.price ?? ""} disabled={!canEdit || !reviewable} onChange={(event) => updateDraft(item.id, { price: event.target.value })} /><small>{item.reviewPriceSource === "history_same_image" ? `历史同图默认：${money(item.reviewedImagePriceCents)}` : `AI：${money(item.aiImagePriceCents)}`}</small></label>
-          <footer><strong>{item.aiSegment || "未识别"}</strong><span>{item.aiConfidenceBps === null ? "—" : (item.aiConfidenceBps / 100).toFixed(1) + "%"}</span></footer>
+          <footer><strong>{item.aiSegment || item.reviewedSegment || "未识别"}</strong><span>{item.aiConfidenceBps === null ? "—" : (item.aiConfidenceBps / 100).toFixed(1) + "%"}</span></footer>
         </article>;
       })}{!data.items.length && <div className="table-state" role="status">当前筛选范围没有候选项。</div>}</div>}
     </section>

@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "actualReactComponent": true,
+  "syntheticHttp": true,
+  "checks": [
+    "paused counts",
+    "separate classification/price",
+    "resume accepted/waiting",
+    "actual active/throughput",
+    "pause",
+    "resume refused/actual state"
+  ],
+  "productionWrites": 0,
+  "realModelCalls": 0,
+  "consoleErrors": []
+}

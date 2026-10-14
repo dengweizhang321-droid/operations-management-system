@@ -8,6 +8,7 @@ import {
 import { completeText, type AiTextModelRuntimeConfig } from "@/lib/ai/model-gateway";
 import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
 import { fetchAnnotationImage } from "@/lib/market/annotation-image";
+import type { AnnotationImageCacheReference } from "./annotation-cached-image";
 import { digest, parseVisionAnnotation, type VisionAnnotation } from "@/lib/market/annotation-types";
 
 export type AnnotationModelConfig = {
@@ -58,6 +59,7 @@ export async function runVisionAnnotation(input: {
   principal?: AppPrincipal; modelId: string; promptBody: string; segments: readonly string[];
   skuCode: string; productName: string; brand: string; imageUrl: string; fixedSegment?: string;
   deadlineAt?: number;
+  imageContentSha256?: string; imageCache?: AnnotationImageCacheReference | null;
 }): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string; timing: VisionAnnotationTiming }> {
   const startedAt = Date.now();
   const timing: VisionAnnotationTiming = { imageLoadMs: 0, imagePrepareMs: 0, modelCallMs: 0, totalMs: 0, inputBytes: 0 };
@@ -70,17 +72,21 @@ export async function runVisionAnnotation(input: {
   try {
     const model = await getModel(input.modelId, "vision", input.principal, AbortSignal.timeout(Math.min(15_000, remaining())));
     const imageLoadStartedAt = Date.now();
-    const sourceImage = (input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" });
+    const { loadAnnotationImageWithRuntime } = await import("./annotation-image-runtime");
+    const sourceImage = await loadAnnotationImageWithRuntime({ imageUrl: input.imageUrl, imageContentSha256: input.imageContentSha256, cache: input.imageCache, deadlineAt });
     timing.imageLoadMs = Date.now() - imageLoadStartedAt;
-    if (sourceImage.kind !== "image") throw new Error(`主图获取失败：${sourceImage.message}`);
     const imagePrepareStartedAt = Date.now();
-    const image = await prepareAnnotationModelImage(sourceImage);
+    let preparationTimer: ReturnType<typeof setTimeout> | undefined;
+    const image = await Promise.race([
+      prepareAnnotationModelImage(sourceImage),
+      new Promise<never>((_resolve, reject) => { preparationTimer = setTimeout(() => reject(new Error("图片处理超时")), remaining()); }),
+    ]).finally(() => { if (preparationTimer) clearTimeout(preparationTimer); });
     timing.imagePrepareMs = Date.now() - imagePrepareStartedAt;
     timing.inputBytes = image.bytes.byteLength;
     const fixedSegment = input.fixedSegment?.trim() ?? "";
     if (fixedSegment && !input.segments.includes(fixedSegment)) throw new Error("历史细分品类已失效，不能执行价格专用识别");
     const outputSegments = fixedSegment ? [fixedSegment] : input.segments;
-    const text = `${fixedSegment ? priceOnlyAnnotationPrompt(fixedSegment) : `${input.promptBody}\n\n允许的细分品类：${input.segments.join("、")}`}\nSKU：${input.skuCode}\n商品名称：${input.productName}\n品牌：${input.brand || "未知"}\n必须返回主图中清晰可见且可作为完整商品售价的价格（人民币元，可带两位小数；没有则 null）、价格类型、价格区间最低/最高值（同样使用人民币元）、0到1置信度和简短证据。忽略销量、优惠券面额、补贴金额、划线原价及赠品价格；分期每期金额、定金、起售价和最低规格价必须如实标记，不能冒充完整商品售价。价格类型只能是：标准售价、到手价、券后价、起售价、价格区间、定金、分期金额、最低规格价格、无法判断。`;
+    const text = `${fixedSegment ? priceOnlyAnnotationPrompt(fixedSegment) : `${input.promptBody}\n\n允许的细分品类：${input.segments.join("、")}`}\nSKU：${input.skuCode}\n商品名称：${input.productName}\n品牌：${input.brand || "未知"}\n必须返回主图中清晰可见且可作为完整商品售价的价格（人民币元，可带两位小数；没有则 null）、价格类型、价格区间最低/最高值（同样使用人民币元）、0到1置信度和简短证据。忽略销量、优惠券面额、补贴金额、划线原价及赠品价格；分期每期金额、定金、起售价和最低规格价必须如实标记，不能冒充完整商品售价。价格类型只能是：标准售价、到手价、券后价、起售价、价格区间、定金、分期金额、最低规格价格、无法判断、明确无标价。只有图片清晰完整且确定没有商品标价时才能返回“明确无标价”，价格及区间必须为 null、置信度至少 0.9 并给出图像证据；看不清、遮挡或不能确定时返回“无法判断”。`;
     const modelCallStartedAt = Date.now();
     let raw: unknown;
     try {
@@ -264,7 +270,7 @@ function disableVisionThinking(model: ModelRow) {
 function annotationJsonSchema(segments: readonly string[]) {
   return { type: "object", additionalProperties: false, properties: {
     segment: { type: "string", enum: segments }, image_price_yuan: { anyOf: [{ type: "number", minimum: 0, maximum: 1_000_000 }, { type: "null" }] },
-    price_type: { type: "string", enum: ["标准售价", "到手价", "券后价", "起售价", "价格区间", "定金", "分期金额", "最低规格价格", "无法判断"] },
+    price_type: { type: "string", enum: ["标准售价", "到手价", "券后价", "起售价", "价格区间", "定金", "分期金额", "最低规格价格", "无法判断", "明确无标价"] },
     price_low_yuan: { anyOf: [{ type: "number", minimum: 0, maximum: 1_000_000 }, { type: "null" }] },
     price_high_yuan: { anyOf: [{ type: "number", minimum: 0, maximum: 1_000_000 }, { type: "null" }] },
     confidence: { type: "number", minimum: 0, maximum: 1 }, reason: { type: "string" },

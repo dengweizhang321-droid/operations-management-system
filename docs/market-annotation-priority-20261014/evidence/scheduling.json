@@ -1,0 +1,70 @@
+{
+  "kind": "synthetic-scheduling-only",
+  "baseline": "3711d54989cafac557ea7ee0a6c9d1c8512fc71e",
+  "candidates": 240,
+  "aCandidates": 24,
+  "concurrency": 12,
+  "realModelCalls": 0,
+  "original": {
+    "aCompletedMs": 792000,
+    "allCompletedMs": 792000,
+    "idleSlotMs": 7920000,
+    "averageNewCompletedPerMinute": 18.181818181818183,
+    "completedPerMinute": {
+      "0": 23,
+      "1": 23,
+      "2": 23,
+      "4": 22,
+      "5": 23,
+      "6": 23,
+      "7": 11,
+      "8": 12,
+      "9": 23,
+      "10": 23,
+      "11": 22,
+      "12": 1,
+      "13": 11
+    },
+    "modelCalls": 240,
+    "errors": 0,
+    "peakConcurrency": 12
+  },
+  "priorityOnly": {
+    "aCompletedMs": 84000,
+    "allCompletedMs": 732000,
+    "idleSlotMs": 7200000,
+    "averageNewCompletedPerMinute": 19.672131147540984,
+    "completedPerMinute": {
+      "0": 12,
+      "1": 12,
+      "2": 24,
+      "3": 24,
+      "4": 12,
+      "5": 12,
+      "6": 24,
+      "7": 24,
+      "8": 24,
+      "9": 24,
+      "10": 12,
+      "11": 12,
+      "12": 24
+    },
+    "modelCalls": 240,
+    "errors": 0,
+    "peakConcurrency": 12
+  },
+  "priorityAndRefill": {
+    "aCompletedMs": 24000,
+    "allCompletedMs": 132000,
+    "idleSlotMs": 0,
+    "averageNewCompletedPerMinute": 109.0909090909091,
+    "completedPerMinute": {
+      "0": 84,
+      "1": 120,
+      "2": 36
+    },
+    "modelCalls": 240,
+    "errors": 0,
+    "peakConcurrency": 12
+  }
+}

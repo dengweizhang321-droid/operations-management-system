@@ -11,6 +11,7 @@ export type AnnotationStepResult = {
   waiting?: boolean;
   done?: boolean;
   failureCode?: string;
+  stopped?: unknown;
 };
 
 export async function dispatchAnnotationJobs<Handle>(input: {
@@ -20,8 +21,11 @@ export async function dispatchAnnotationJobs<Handle>(input: {
   run: (job: AnnotationDispatchJob, handle: Handle) => Promise<AnnotationStepResult>;
   release: (job: AnnotationDispatchJob, handle: Handle) => Promise<void>;
   now?: () => number;
+  signal?: AbortSignal;
+  wait?: (ms: number) => Promise<void>;
 }) {
   const now = input.now ?? Date.now;
+  const wait = input.wait ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const preparationStartedAt = now();
   const jobs = input.jobs.slice(0, 50).map((job) => {
     if (!job.jobId || !job.ownerEmail || !Number.isSafeInteger(job.availableSlots)
@@ -54,17 +58,22 @@ export async function dispatchAnnotationJobs<Handle>(input: {
     totals.preparationMs = Math.max(0, preparedAt - preparationStartedAt);
     // Authorization and coordinator acquisition have their own request limits.
     // A slower preparation must not exhaust every prepared job's launch window.
-    const deadline = preparedAt + 10_000;
+    // Remains below the 110s coordinator lease. Each HTTP inference has its own
+    // single-image lease/deadline; the tail settles before releasing coordination.
+    const deadline = preparedAt + 70_000;
     const lane = async (entry: typeof jobs[number]) => {
-      while (entry.handle !== null && launches < 200 && now() < deadline) {
+      while (entry.handle !== null && launches < 200 && now() < deadline && !input.signal?.aborted) {
         launches += 1;
         let result: AnnotationStepResult;
         try { result = await input.run(entry.job, entry.handle); }
         catch { totals.dispatchErrors += 1; break; }
         totals.processedCount += Math.max(0, result.processedCount ?? 0);
         totals.failedCount += Math.max(0, result.failedCount ?? 0);
-        if (result.waiting || result.done || result.failureCode
-          || !(Number(result.processedCount) > 0)) break;
+        if (result.done || result.stopped || ["authorization_revoked", "model_configuration", "provider_rate_limit", "inference_result_unknown"].includes(result.failureCode ?? "")) break;
+        // Ordinary image failures free their slot immediately. Django decides
+        // whether a retry lane is cooled; polling cannot override that decision.
+        if (result.waiting) { await wait(Math.min(1_000, Math.max(0, deadline - now()))); continue; }
+        if (!(Number(result.processedCount) > 0) && !(Number(result.failedCount) > 0)) break;
       }
     };
     await Promise.all(jobs.flatMap((entry) => Array.from({ length: entry.handle === null ? 0 : entry.lanes }, () => lane(entry))));

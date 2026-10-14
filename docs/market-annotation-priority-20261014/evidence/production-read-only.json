@@ -1,0 +1,24 @@
+{
+  "source": "local public read-only API (operations MCP unavailable)",
+  "at": "2026-10-14",
+  "jobs": [
+    {
+      "category": "商用净水设备",
+      "total": 8558,
+      "completed": 47,
+      "remaining": 8506,
+      "run": "paused"
+    }
+  ],
+  "prompt": {
+    "version": 4,
+    "segmentsCount": 11,
+    "literalSegmentsPlaceholder": true,
+    "segmentsPresentInBody": [
+      "自动售水机",
+      "其他"
+    ],
+    "sha256": "56801a42296610ce56517414abaff095485868944f069ad79ed09be8e303d2bb",
+    "numberedLines": 0
+  }
+}

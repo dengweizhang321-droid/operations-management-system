@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { loadAnnotationImage } from "./annotation-cached-image";
 
 import {
   optimizeAnnotationImageForModel,
@@ -13,4 +14,8 @@ export function annotationImagesBinding() {
 
 export function optimizeAnnotationImageWithRuntime<T extends AnnotationImageForModel>(image: T) {
   return optimizeAnnotationImageForModel(image, annotationImagesBinding());
+}
+
+export function loadAnnotationImageWithRuntime(input: Omit<Parameters<typeof loadAnnotationImage>[0], "bucket">) {
+  return loadAnnotationImage({ ...input, bucket: env.SALES_IMPORT_FILES });
 }

@@ -258,6 +258,9 @@ class AnnotationQueueTests(QueueFixtures, TestCase):
 
 @skipUnless(connection.vendor == "postgresql", "Requires real PostgreSQL row and advisory locks")
 class AnnotationQueueConcurrencyTests(QueueFixtures, TransactionTestCase):
+    # Only this domain is mutated; unrelated unmanaged AI proof tables must not
+    # participate in this fixture's flush.
+    available_apps = ["market"]
     def parallel_claims(self, job, count=4):
         barrier = Barrier(count)
         def claim_one(_):

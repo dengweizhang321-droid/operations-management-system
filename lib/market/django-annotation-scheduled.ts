@@ -9,14 +9,15 @@ const INTERNAL_ANNOTATION_PRINCIPAL: AppPrincipal = {
   scope: null,
 };
 
-export async function runScheduledDjangoMarketAnnotation() {
+export async function runScheduledDjangoMarketAnnotation(signal?: AbortSignal) {
   const response = await annotationQuery<{ jobs: AnnotationDispatchJob[] }>(
     INTERNAL_ANNOTATION_PRINCIPAL, "dispatch", { limit: 5 },
   );
   if (!Array.isArray(response.data.jobs) || response.data.jobs.length > 5) throw new Error("Django 市场派发列表无效");
   const { resolveAiBackgroundPrincipal } = await import("@/lib/ai/background-principal");
-  return dispatchAnnotationJobs<{ principal: AppPrincipal; coordinatorToken: string }>({
+  const dispatched = await dispatchAnnotationJobs<{ principal: AppPrincipal; coordinatorToken: string }>({
     jobs: response.data.jobs,
+    signal,
     prepare: async (job) => {
       // The scheduler identity may coordinate the market queue, but may not
       // impersonate a user when requesting a paid model runtime from AI.
@@ -41,4 +42,6 @@ export async function runScheduledDjangoMarketAnnotation() {
       await annotationCommand(handle.principal, { action: "end_dispatch", jobId: job.jobId, coordinatorToken: handle.coordinatorToken }, AbortSignal.timeout(5_000));
     },
   });
+  const remaining = await annotationQuery<{ jobs: AnnotationDispatchJob[] }>(INTERNAL_ANNOTATION_PRINCIPAL, "dispatch", { limit: 5 }, AbortSignal.timeout(5_000));
+  return { ...dispatched, continueImmediately: !signal?.aborted && remaining.data.jobs.length > 0 };
 }

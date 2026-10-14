@@ -9,13 +9,16 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.db import connection, transaction
-from django.db.models import Avg, BigIntegerField, Count, Exists, F, Max, OuterRef, Q, Subquery
+from django.db.models import Avg, BigIntegerField, Case, CharField, Count, Exists, F, Max, Min, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Cast, Coalesce, Substr
+from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone
 
 from sales.auth import Principal
 
 from .annotation_runtime import FAILURE_MESSAGES, blocked_until, record_failure, record_success, retry_snapshot
+from . import annotation_activity
+from teruisi_backend.automation_drain import AdmissionClosed, deployed_runtime, read_gate
 from .errors import MarketApiError
 from .models import (
     MarketAnnotationCloudRun,
@@ -58,6 +61,7 @@ VALID_PRICE_TYPES = {
     "定金",
     "分期金额",
     "无法判断",
+    "明确无标价",
 }
 FORMAL_PRICE_TYPES = {"标准售价", "到手价", "券后价"}
 
@@ -169,7 +173,7 @@ def _job_value(row: MarketAnnotationJob) -> dict[str, object]:
     }
 
 
-def _item_value(row: MarketAnnotationItem) -> dict[str, object]:
+def _item_value(row: MarketAnnotationItem, segments=None) -> dict[str, object]:
     ai_recognition = bool(
         row.ai_segment
         or row.ai_image_price_cents is not None
@@ -191,6 +195,9 @@ def _item_value(row: MarketAnnotationItem) -> dict[str, object]:
         "resolvedImageUrl": row.resolved_image_url,
         "imageSource": row.image_source,
         "status": row.status,
+        "recognitionMode": row.recognition_mode,
+        "classificationStatus": "completed" if any(s and (segments is None or s in segments) for s in (row.fixed_segment, row.reviewed_segment, row.ai_segment)) else "failed" if row.status == "failed" else "processing" if row.status in {"claimed", "inferencing"} else "pending",
+        "priceStatus": "no_price" if row.reviewed_price_type == "明确无标价" else "uncertain" if row.reviewed_price_type == "无法判断" else "completed" if row.status in {"review_pending", "approved", "rejected", "committed"} else "failed" if row.status == "failed" else "processing" if row.status in {"claimed", "inferencing"} else "pending",
         "aiSegment": row.ai_segment,
         "aiImagePriceCents": row.ai_image_price_cents,
         "aiPriceType": row.ai_price_type,
@@ -208,7 +215,7 @@ def _item_value(row: MarketAnnotationItem) -> dict[str, object]:
         "reviewedPriceType": row.reviewed_price_type,
         "reviewedPriceLowCents": row.reviewed_price_low_cents,
         "reviewedPriceHighCents": row.reviewed_price_high_cents,
-        "reviewPriceSource": "ai" if ai_recognition else "manual",
+        "reviewPriceSource": "history_same_image" if row.reviewed_by == "history_same_image" and row.attempt_count == 0 else "ai" if ai_recognition else "manual",
         "selected": bool(row.selected),
         "reviewedBy": row.reviewed_by,
         "reviewedAt": iso(row.reviewed_at),
@@ -228,6 +235,75 @@ def _configured_concurrency(job: MarketAnnotationJob) -> int:
 
 def _retryable_items():
     return Q(status__in=["queued", "failed"], attempt_count__lt=3)
+
+
+def _mode_expression(segments):
+    # Existing tasks are classified lazily; quarantined rows are never rewritten.
+    return Case(
+        When(recognition_mode__in=["full", "price_only"], then=F("recognition_mode")),
+        When(Q(status__in=["review_pending", "approved", "rejected", "committed"]) & ~Q(reviewed_by="history_same_image"), then=Value("legacy")),
+        When(reviewed_segment__in=[s for s in segments if s], then=Value("price_only")),
+        default=Value("full"), output_field=CharField(),
+    )
+
+
+def _recognition_items(query):
+    mode = MarketMasterAuditLog.objects.filter(entity_type="market_annotation_mode", entity_id=OuterRef("id")).order_by("created_at", "id")
+    return query.annotate(
+        recognition_mode=Coalesce(Subquery(mode.annotate(value=KeyTextTransform("recognitionMode", "after_json")).values("value")[:1]), Value(""), output_field=CharField()),
+        fixed_segment=Coalesce(Subquery(mode.annotate(value=KeyTextTransform("fixedSegment", "after_json")).values("value")[:1]), Value(""), output_field=CharField()),
+    )
+
+
+def _record_recognition_modes(items, prompt, principal):
+    records = []
+    for item in items:
+        if getattr(item, "recognition_mode", ""):
+            continue
+        fixed = item.reviewed_segment if item.reviewed_segment in prompt.segments_json else ""
+        records.append(MarketMasterAuditLog(actor_email=principal.email.lower(), actor_role=principal.role,
+            action="market_annotation_recognition_mode", entity_type="market_annotation_mode", entity_id=item.id,
+            after_json={"jobId": item.job_id, "recognitionMode": "price_only" if fixed else "full", "fixedSegment": fixed,
+                        "historyReused": item.reviewed_by == "history_same_image" and item.attempt_count == 0}))
+    MarketMasterAuditLog.objects.bulk_create(records, batch_size=500)
+
+
+def _fixed_segment(item, prompt):
+    segment = item.fixed_segment or item.reviewed_segment
+    return segment if segment and segment in prompt.segments_json and item.recognition_mode != "full" else ""
+
+
+def _queue_progress(base, prompt, now):
+    completed = Q(status__in=["review_pending", "approved", "rejected", "committed"])
+    identity = ("category", "scope", "sku_code", "ranking_dimension", "image_content_sha256")
+    queues = {key: {"pending": 0, "processing": 0, "completed": 0, "exception": 0} for key in ("A", "B")}
+    # SQL first folds other months into one inference unit, just as claiming does.
+    units = _recognition_items(base).values(*identity).annotate(
+        mode=Min(_mode_expression(prompt.segments_json if prompt else [])),
+        active=Count("id", filter=Q(status__in=["claimed", "inferencing"], lease_expires_at__gt=now)),
+        expired=Count("id", filter=Q(status__in=["claimed", "inferencing"]) & (Q(lease_expires_at__lte=now) | Q(lease_expires_at__isnull=True))),
+        pending=Count("id", filter=Q(status="queued")),
+        failed=Count("id", filter=Q(status="failed")),
+        completed=Count("id", filter=completed),
+    )
+    legacy_units = 0
+    for unit in units:
+        if unit["mode"] == "legacy":
+            legacy_units += 1
+            continue
+        stage = "processing" if unit["active"] else "exception" if unit["failed"] or unit["expired"] else "pending" if unit["pending"] else "completed"
+        queues["A" if unit["mode"] == "full" else "B"][stage] += 1
+    events = MarketMasterAuditLog.objects.filter(entity_type="market_annotation_execution", entity_id=base.first().job_id) if base.exists() else MarketMasterAuditLog.objects.none()
+    history = MarketMasterAuditLog.objects.filter(entity_type="market_annotation_mode", after_json__historyReused=True)
+    event_items = events.annotate(item_id=KeyTextTransform("itemId", "after_json")).values("item_id")
+    return {
+        "queues": queues,
+        "legacyUnclassifiedUnits": legacy_units,
+        "historyReusedUnits": base.filter(Q(reviewed_by="history_same_image", attempt_count=0) | Q(id__in=history.values("entity_id"))).values(*identity).distinct().count(),
+        "modelCompletedUnits": events.count(),
+        "newCompletedLastMinute": events.filter(created_at__gte=now - timedelta(minutes=1)).count(),
+        "legacyCompletedUnits": base.filter(completed).exclude(reviewed_by="history_same_image").exclude(id__in=event_items).filter(total_inference_ms__gt=0).count(),
+    }
 
 
 def _inference_identity(item: MarketAnnotationItem) -> dict:
@@ -303,6 +379,9 @@ def _model_cooldowns(model_ids: list[str]) -> dict[str, int]:
 
 
 def _dispatch(params: dict[str, object]) -> dict[str, object]:
+    runtime = deployed_runtime()
+    if runtime is not None and read_gate(runtime):
+        return {"jobs": [], "hasMore": False}
     limit = int(_integer(params.get("limit"), "limit", fallback=MAX_DISPATCH_JOBS, minimum=1, maximum=MAX_DISPATCH_JOBS))
     now = timezone.now()
     now_ms = int(now.timestamp() * 1000)
@@ -629,11 +708,11 @@ def _review(params: dict[str, object]) -> dict[str, object]:
     eligibility, contexts = _review_eligibility(scope_query)
     selectable = query.filter(eligibility)
     total = query.count()
-    page_rows = list(query.annotate(snapshot_valid=Exists(_matching_snapshot())).order_by("-created_at", "id")[(item_page - 1) * item_page_size : item_page * item_page_size])
+    page_rows = list(_recognition_items(query).annotate(snapshot_valid=Exists(_matching_snapshot())).order_by("-created_at", "id")[(item_page - 1) * item_page_size : item_page * item_page_size])
     items = []
     for row in page_rows:
         context = contexts.get(row.job_id, {"segments": [], "ready": False})
-        items.append({**_item_value(row), "reviewJobReady": context["ready"], "reviewSegments": context["segments"], "snapshotValid": row.snapshot_valid})
+        items.append({**_item_value(row, context["segments"]), "reviewJobReady": context["ready"], "reviewSegments": context["segments"], "snapshotValid": row.snapshot_valid})
     reviewable = selectable.count()
     selected = selectable.filter(selected=True).count()
     return {
@@ -768,6 +847,7 @@ def execute_annotation_query(payload: dict[str, object], principal: Principal) -
             lease_expires_at__gt=now,
         ).count()
         base = MarketAnnotationItem.objects.filter(job_id=job_id).exclude(status="superseded")
+        prompt = MarketAnnotationPromptVersion.objects.filter(id=job.prompt_version_id).first()
         unique_units = base.values(
             "category", "scope", "sku_code", "ranking_dimension", "image_content_sha256"
         ).distinct().count()
@@ -795,6 +875,7 @@ def execute_annotation_query(payload: dict[str, object], principal: Principal) -
             "uniqueInferenceUnits": unique_units,
             "remainingInferenceUnits": remaining_units,
             "cloudRun": _cloud_run_value(cloud_run, int(configured)) if cloud_run else None,
+            **_queue_progress(base, prompt, now),
             "performance": {
                 "measuredCount": measured.count(),
                 "averageImageLoadMs": round(performance["imageLoadMs"] or 0),
@@ -908,7 +989,7 @@ def _create_job(payload: dict[str, object], principal: Principal) -> dict[str, o
             image_content_sha256=image_hash,
         ).first()
         needs_price = snapshot.confirmed_market_price_cents is None
-        if committed_annotation is not None and not needs_price:
+        if committed_annotation is not None and committed_annotation.segment in prompt.segments_json and not needs_price:
             continue
         exact_history = MarketAnnotationItem.objects.filter(
             category=row.category,
@@ -925,7 +1006,24 @@ def _create_job(payload: dict[str, object], principal: Principal) -> dict[str, o
             if exact_history and exact_history.reviewed_segment in prompt.segments_json
             else ""
         )
-        status = "review_pending" if exact_history and exact_history.reviewed_price_type in FORMAL_PRICE_TYPES and exact_history.reviewed_image_price_cents is not None else "queued"
+        if not valid_segment:
+            # A changed image may reuse only the confirmed classification, within
+            # the original category/scope/SKU/dimension and current dictionary.
+            valid_segment = MarketSkuAnnotation.objects.filter(
+                category=row.category, scope=row.scope, sku_code=row.sku_code,
+                ranking_dimension=row.ranking_dimension, segment__in=prompt.segments_json,
+            ).order_by("-reviewed_at", "id").values_list("segment", flat=True).first() or ""
+        # No-price reuse is bound to the same image, business identity and rules.
+        history_job = MarketAnnotationJob.objects.filter(id=exact_history.job_id).first() if exact_history else None
+        clear_no_price = bool(exact_history and valid_segment and history_job and history_job.prompt_version_id == prompt.id
+                              and history_job.model_id == (model_id or None)
+                              and exact_history.reviewed_price_type == "明确无标价"
+                              and exact_history.ai_price_type == "明确无标价"
+                              and exact_history.reviewed_image_price_cents is None
+                              and exact_history.reviewed_price_low_cents is None and exact_history.reviewed_price_high_cents is None
+                              and exact_history.ai_confidence_bps is not None and exact_history.ai_confidence_bps >= 9000
+                              and exact_history.ai_reason)
+        status = "review_pending" if valid_segment and exact_history and ((exact_history.reviewed_price_type in FORMAL_PRICE_TYPES and exact_history.reviewed_image_price_cents is not None) or clear_no_price) else "queued"
         items.append(
             MarketAnnotationItem(
                 id=f"market-annotation-item-{uuid.uuid4()}",
@@ -941,6 +1039,8 @@ def _create_job(payload: dict[str, object], principal: Principal) -> dict[str, o
                 source_image_url=snapshot.image_url or row.image_url,
                 status=status,
                 ai_segment=valid_segment if status == "review_pending" else "",
+                ai_confidence_bps=exact_history.ai_confidence_bps if status == "review_pending" else None,
+                ai_reason=exact_history.ai_reason if status == "review_pending" else "",
                 ai_image_price_cents=exact_history.reviewed_image_price_cents if status == "review_pending" else None,
                 ai_price_type=exact_history.reviewed_price_type if status == "review_pending" else "",
                 ai_price_low_cents=exact_history.reviewed_price_low_cents if status == "review_pending" else None,
@@ -970,6 +1070,7 @@ def _create_job(payload: dict[str, object], principal: Principal) -> dict[str, o
         completed_at=timezone.now() if not items else None,
     )
     MarketAnnotationItem.objects.bulk_create(items, batch_size=500)
+    _record_recognition_modes(items, prompt, principal)
     if executor == "cloud":
         MarketAnnotationCloudRun.objects.create(job_id=job.id, state="paused", retry_state_json={})
     _audit(principal, "create_market_annotation_job", "market_annotation_job", job.id, {}, {"category": category, "promptVersionId": prompt_id, "executor": executor, "totalCount": len(items)})
@@ -1005,6 +1106,13 @@ def _set_cloud_run(payload: dict[str, object], principal: Principal) -> dict[str
     ).exists():
         raise _error("此批次已无可重试的识别项，请创建下一批", code="version_conflict", status=409)
     run, _ = MarketAnnotationCloudRun.objects.get_or_create(job_id=job_id, defaults={"state": "paused"})
+    quarantined = _expire_cloud_claims(job, run, timezone.now()) if state == "running" else False
+    if state == "running" and not MarketAnnotationItem.objects.filter(job_id=job.id).filter(
+        _retryable_items() | Q(status__in=["claimed", "inferencing"]),
+    ).exists():
+        # Persist quarantine and return its actual state; raising would roll it back.
+        _refresh_job(job.id)
+        return {**_cloud_run_value(run, _configured_concurrency(job)), "resumeAccepted": False, "quarantinedExpiredClaims": quarantined}
     configured = _configured_concurrency(job)
     if state == "paused" or run.state != "running":
         run.lease_token_hash = ""
@@ -1025,7 +1133,7 @@ def _set_cloud_run(payload: dict[str, object], principal: Principal) -> dict[str
     run.state = state
     run.save()
     _audit(principal, "set_market_annotation_cloud_run_state", "market_annotation_cloud_run", job_id, {}, {"state": state})
-    return _cloud_run_value(run, int(configured))
+    return {**_cloud_run_value(run, int(configured)), "resumeAccepted": state == "running", "quarantinedExpiredClaims": quarantined}
 
 
 @transaction.atomic
@@ -1073,6 +1181,9 @@ def _claim_job_item(
     *,
     agent_id: str = "",
 ) -> dict[str, object]:
+    runtime = deployed_runtime()
+    if runtime is not None and read_gate(runtime):
+        return {"task": None, "waiting": False, "stopped": True}
     executor = _text(payload.get("executor", "cloud"), "executor", 16, required=True)
     job_id = _text(payload.get("jobId", ""), "jobId", 128)
     if executor not in {"cloud", "local"}:
@@ -1148,9 +1259,12 @@ def _claim_job_item(
             **{field: OuterRef(field) for field in ("job_id", "category", "scope", "sku_code", "ranking_dimension", "image_content_sha256")},
             status__in=["claimed", "inferencing"], lease_expires_at__gt=now,
         )
-        item = MarketAnnotationItem.objects.select_for_update().filter(job_id=job.id).filter(
+        prompt = MarketAnnotationPromptVersion.objects.filter(id=job.prompt_version_id).first()
+        if not prompt:
+            raise _error("任务绑定的 Prompt 不存在", code="version_conflict", status=409)
+        item = _recognition_items(MarketAnnotationItem.objects.select_for_update().filter(job_id=job.id)).filter(
             _retryable_items(),
-        ).filter(~Exists(in_flight)).order_by("updated_at", "id").first()
+        ).filter(~Exists(in_flight)).annotate(queue_mode=_mode_expression(prompt.segments_json)).order_by("queue_mode", "updated_at", "id").first()
         if item is not None:
             break
         _refresh_job(job.id)
@@ -1160,10 +1274,18 @@ def _claim_job_item(
     if not prompt:
         raise _error("任务绑定的 Prompt 不存在", code="version_conflict", status=409)
     token = secrets.token_hex(32)
+    fixed_segment = _fixed_segment(item, prompt)
+    siblings = _recognition_items(MarketAnnotationItem.objects.filter(**_inference_identity(item)).filter(_retryable_items()))
+    _record_recognition_modes(siblings, prompt, principal)
     item.status = "claimed"
     item.lease_token_hash = _digest(token)
     item.lease_agent_id = f"cloud:{lane}" if executor == "cloud" else agent_id or principal.email.lower()
     item.lease_expires_at = now + timedelta(minutes=LEASE_MINUTES)
+    if executor == "cloud":
+        try:
+            annotation_activity.hold(item.lease_token_hash, item.lease_expires_at)
+        except AdmissionClosed:
+            return {"task": None, "waiting": False, "stopped": True}
     item.attempt_count += 1
     item.error_message = ""
     item.version += 1
@@ -1171,7 +1293,9 @@ def _claim_job_item(
     # Keep the retry budget on the inference identity, including its other months.
     MarketAnnotationItem.objects.filter(**_inference_identity(item)).filter(
         status__in=["queued", "failed"],
-    ).exclude(id=item.id).update(attempt_count=item.attempt_count, version=F("version") + 1, updated_at=now)
+        attempt_count__lt=3,
+    ).exclude(id=item.id).update(
+        attempt_count=item.attempt_count, version=F("version") + 1, updated_at=now)
     job.status = "running"
     job.started_at = job.started_at or now
     job.save()
@@ -1180,7 +1304,7 @@ def _claim_job_item(
         run.last_heartbeat_at = now
         run.retry_state_json = retry_snapshot(run.retry_state_json, configured)
         run.save(update_fields=["last_started_at", "last_heartbeat_at", "retry_state_json", "updated_at"])
-    fixed_segment = item.reviewed_segment if item.reviewed_by == "history_same_sku_segment" and item.reviewed_segment in prompt.segments_json else ""
+    cache = MarketImageCache.objects.filter(source_url=item.source_image_url, status="ready", content_sha256=item.image_content_sha256).first()
     return {
         "workerConcurrency": effective,
         "task": {
@@ -1196,6 +1320,8 @@ def _claim_job_item(
             "productName": item.product_name,
             "brand": item.brand,
             "sourceImageUrl": item.source_image_url,
+            "imageCache": {"objectKey": cache.object_key, "contentSha256": cache.content_sha256,
+                           "mimeType": cache.mime_type, "sizeBytes": cache.size_bytes} if cache else None,
             "imageCandidates": (
                 [{"source": "imgzone", "url": item.source_image_url}]
                 if item.source_image_url
@@ -1222,7 +1348,10 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
     if not item_job:
         raise _error("标注候选不存在", code="not_found", status=404)
     job = _locked_job(item_job)
-    item = MarketAnnotationItem.objects.select_for_update().get(id=item_id)
+    item = _recognition_items(MarketAnnotationItem.objects.select_for_update()).get(id=item_id)
+    # Only successful transaction commit releases the activity barrier. A failed
+    # storage receipt retains it for retry, bounded by the original image lease.
+    transaction.on_commit(lambda: annotation_activity.release(_digest(token)))
     if item.status in {"review_pending", "approved", "committed"}:
         return {"ok": True, "duplicate": True, "itemId": item.id}
     if item.status != "claimed" or item.lease_token_hash != _digest(token) or item.lease_expires_at is None or item.lease_expires_at <= timezone.now():
@@ -1244,7 +1373,7 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
         item.version += 1
         item.save()
         MarketAnnotationItem.objects.filter(**_inference_identity(item)).filter(
-            status__in=["queued", "failed"],
+            Q(status="queued") | Q(status="failed", attempt_count__lt=3),
         ).exclude(id=item.id).update(status=item.status, attempt_count=item.attempt_count,
                                    error_message=item.error_message, version=F("version") + 1, updated_at=timezone.now())
         if job.executor == "cloud":
@@ -1314,6 +1443,9 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
     segment = _text(result.get("segment"), "segment", 200, required=True)
     if segment not in prompt.segments_json:
         raise _error("标注结果细分品类不在 Prompt 枚举中")
+    fixed_segment = _fixed_segment(item, prompt)
+    if fixed_segment and segment != fixed_segment:
+        raise _error("价格专用识别不得修改已有分类")
     price = _integer(result.get("imagePriceCents"), "imagePriceCents", nullable=True)
     price_type = _text(result.get("priceType", ""), "priceType", 32)
     if price_type not in VALID_PRICE_TYPES:
@@ -1322,6 +1454,8 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
     high = _integer(result.get("priceHighCents"), "priceHighCents", nullable=True)
     confidence = _integer(result.get("confidenceBps"), "confidenceBps", nullable=True, maximum=10_000)
     reason = _text(result.get("reason", ""), "reason", 1_000)
+    if price_type == "明确无标价" and (price is not None or low is not None or high is not None or not reason or confidence is None or confidence < 9000):
+        raise _error("明确无标价必须有充分证据、至少90%置信度且价格为空")
     raw_digest = _text(result.get("rawDigest", ""), "rawDigest", 64)
     if raw_digest and (len(raw_digest) != 64 or any(char not in "0123456789abcdef" for char in raw_digest)):
         raise _error("模型原始响应摘要无效")
@@ -1354,8 +1488,8 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
     item.lease_expires_at = None
     item.version += 1
     item.save()
-    followers = MarketAnnotationItem.objects.filter(**_inference_identity(item)).filter(
-        status__in=["queued", "failed"],
+    followers = _recognition_items(MarketAnnotationItem.objects.filter(**_inference_identity(item))).filter(
+        Q(status="queued") | Q(status="failed", attempt_count__lt=3),
     ).exclude(id=item.id)
     follower_ids = list(followers.values_list("id", flat=True))
     copied = {field: getattr(item, field) for field in (
@@ -1363,8 +1497,13 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
         "ai_confidence_bps", "ai_reason", "ai_raw_digest", "reviewed_segment", "reviewed_image_price_cents",
         "reviewed_price_type", "reviewed_price_low_cents", "reviewed_price_high_cents", "resolved_image_url", "image_source",
     )}
+    # A full recognition may satisfy a price-only sibling's price, never its classification.
+    for field in ("ai_segment", "reviewed_segment"):
+        copied[field] = Case(When(~Q(fixed_segment=""), then=F("fixed_segment")), default=Value(segment), output_field=CharField())
     reused = followers.update(**copied, status="review_pending", error_message="", selected=False,
                              version=F("version") + 1, updated_at=timezone.now())
+    _audit(principal, "market_annotation_model_completed", "market_annotation_execution", job.id, {},
+           {"itemId": item.id, "recognitionMode": "price_only" if fixed_segment else "full", "reusedCount": reused})
     # All months publish together. Rollback leaves the original lease valid for replaying
     # the same completion payload; the caller must never re-run the model to retry this write.
     affected = MarketAnnotationItem.objects.filter(id__in=[item.id, *follower_ids])
@@ -1549,7 +1688,8 @@ def _commit(payload: dict[str, object], principal: Principal) -> dict[str, objec
             )
             if not created:
                 annotation.segment = segment
-                annotation.image_price_cents = item.reviewed_image_price_cents
+                if item.reviewed_image_price_cents is not None or (item.reviewed_price_type or item.ai_price_type) not in {"明确无标价", "无法判断"}:
+                    annotation.image_price_cents = item.reviewed_image_price_cents
                 annotation.image_url = item.resolved_image_url or item.source_image_url
                 annotation.image_source = item.image_source
                 annotation.confidence_bps = item.ai_confidence_bps

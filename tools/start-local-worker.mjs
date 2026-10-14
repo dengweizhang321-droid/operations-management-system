@@ -370,9 +370,9 @@ export async function triggerLocalScheduledEvent({
     headers: { "x-teruisi-local-scheduled": "1" },
     signal,
   });
-  await response.arrayBuffer();
   if (!response.ok) throw new Error(`本地定时事件触发失败：HTTP ${response.status}`);
-  return response.status;
+  const data = await response.json();
+  return { status: response.status, continueImmediately: data?.result?.annotations?.ok === true && data.result.annotations.result?.continueImmediately === true };
 }
 
 export function createLocalScheduledTriggerSupervisor({
@@ -403,7 +403,8 @@ export function createLocalScheduledTriggerSupervisor({
     activeController = controller;
     let nextDelay = intervalMs;
     try {
-      await trigger({ signal: controller.signal });
+      const result = await trigger({ signal: controller.signal });
+      if (result?.continueImmediately === true) nextDelay = 0;
     } catch (error) {
       nextDelay = retryDelayMs;
       if (!stopping && !(error instanceof Error && error.name === "AbortError")) {

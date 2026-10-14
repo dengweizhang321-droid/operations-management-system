@@ -510,11 +510,11 @@ test("local Worker triggers the loopback Cloudflare scheduled handler without cr
   const status = await triggerLocalScheduledEvent({
     fetchImpl: async (url, init) => {
       request = { url: String(url), init: init ?? {} };
-      return new Response("ok", { status: 200 });
+      return Response.json({ ok: true, result: { annotations: { ok: true, result: { continueImmediately: true } } } });
     },
   });
 
-  assert.equal(status, 200);
+  assert.deepEqual(status, { status: 200, continueImmediately: true });
   assert.equal(request?.url, "http://127.0.0.1:3000/_teruisi/local/market-annotation-scheduled");
   assert.equal(request?.init.method, "POST");
   assert.deepEqual(request?.init.headers, { "x-teruisi-local-scheduled": "1" });

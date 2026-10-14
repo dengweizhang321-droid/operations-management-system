@@ -7,6 +7,7 @@ import {
 import { PublicApiError } from "@/lib/http/api-error";
 import { annotationFailure } from "@/lib/market/annotation-failure";
 import { executeAnnotationAttempt } from "@/lib/market/annotation-attempt";
+import type { AnnotationImageCacheReference } from "./annotation-cached-image";
 import {
   runVisionAnnotation,
   visionAnnotationTiming,
@@ -28,6 +29,8 @@ type ClaimedTask = {
   leaseToken: string;
   ownerEmail: string;
   leaseExpiresAt: string;
+  imageContentSha256: string;
+  imageCache: AnnotationImageCacheReference | null;
 };
 
 function text(value: unknown): string {
@@ -57,10 +60,13 @@ function claimedTask(value: unknown): ClaimedTask | null {
     leaseToken: text(task.leaseToken),
     ownerEmail: text(task.ownerEmail),
     leaseExpiresAt: text(task.leaseExpiresAt),
+    imageContentSha256: text(task.imageContentSha256),
+    imageCache: task.imageCache && typeof task.imageCache === "object" && !Array.isArray(task.imageCache) ? task.imageCache as AnnotationImageCacheReference : null,
   };
   if (!normalized.itemId || !normalized.jobId || !normalized.skuCode
     || !normalized.promptBody || !normalized.segments.length
     || !normalized.modelId || !normalized.leaseToken || !normalized.ownerEmail
+    || !/^[a-f0-9]{64}$/.test(normalized.imageContentSha256)
     || !Number.isFinite(Date.parse(normalized.leaseExpiresAt))) {
     throw new PublicApiError(503, "service_unavailable", "Django 市场标注任务返回不完整。");
   }
@@ -111,7 +117,7 @@ export async function runClaimedDjangoMarketVisionTask(input: {
   signal?: AbortSignal;
   coordinatorToken?: string;
 }) {
-  const claimed = await annotationCommand<{ task: unknown }>(
+  const claimed = await annotationCommand<{ task: unknown; waiting?: boolean; stopped?: boolean }>(
     input.principal,
     { action: "claim_task", executor: "cloud", jobId: text(input.jobId), ...(input.coordinatorToken ? { coordinatorToken: input.coordinatorToken } : {}) },
     input.signal,
@@ -130,7 +136,8 @@ export async function runClaimedDjangoMarketVisionTask(input: {
         ok: true,
         result: {
           done: Boolean(progress) && remaining === 0,
-          waiting: true,
+          waiting: claimed.data.result.waiting === true,
+          stopped: claimed.data.result.stopped === true || Boolean(progress?.data.cloudRun && (progress.data.cloudRun as JsonRecord).state !== "running"),
           processedCount: 0,
           job: progress?.data.job ?? null,
         },
@@ -164,6 +171,8 @@ export async function runClaimedDjangoMarketVisionTask(input: {
       productName: task.productName,
       brand: task.brand,
       imageUrl: task.sourceImageUrl,
+      imageContentSha256: task.imageContentSha256,
+      imageCache: task.imageCache,
       fixedSegment: task.fixedSegment ?? undefined,
       deadlineAt: inferenceDeadline,
       });

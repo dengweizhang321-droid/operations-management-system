@@ -56,8 +56,12 @@ async function runScheduledMarketTask(
 }
 
 async function runScheduledMarketMaintenance(
-  input: { marketImageBucket?: R2Bucket } = {},
+  input: { marketImageBucket?: R2Bucket; signal?: AbortSignal } = {},
 ) {
+  const annotationsPending = runScheduledMarketTask(
+    "market annotation scheduled runner failed",
+    () => runScheduledDjangoMarketAnnotation(input.signal),
+  );
   // 文件构建独立推进；等待大文件不得阻塞取数、Agent 或市场维护。
   const aiFilesPending = runScheduledMarketTask(
     "AI business file runner failed",
@@ -91,10 +95,7 @@ async function runScheduledMarketMaintenance(
     "AI space scheduled runner failed",
     () => wakeAiQueue("space"),
   );
-  const annotations = await runScheduledMarketTask(
-    "market annotation scheduled runner failed",
-    () => runScheduledDjangoMarketAnnotation(),
-  );
+  const annotations = await annotationsPending;
   return { aiFiles: await aiFilesPending, aiEvidence, aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace };
 }
 
@@ -163,6 +164,7 @@ const worker = {
         // 本地触发器不会重叠执行，因此限制标注时间片，让图片缓存也能按分钟持续推进。
         const result = await runScheduledMarketMaintenance({
           marketImageBucket: env.SALES_IMPORT_FILES,
+          signal: request.signal,
         });
         return Response.json({ ok: true, result }, { headers: { "cache-control": "no-store" } });
       } catch (error) {

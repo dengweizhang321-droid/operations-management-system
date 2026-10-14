@@ -49,12 +49,12 @@ test("dispatch does not spin on full leases, model failures or an expired launch
   const result = await dispatchAnnotationJobs({
     jobs: [{ jobId: "a", ownerEmail: "owner@example.test", availableSlots: 1 }],
     prepare: async () => true,
-    run: async () => { launches += 1; clock = 10_001; return { processedCount: 1 }; },
+    run: async () => { launches += 1; clock = 70_001; return { processedCount: 1 }; },
     release: async () => {}, now: () => clock,
   });
   assert.equal(launches, 1);
   assert.equal(result.processedCount, 1);
-  for (const step of [{ waiting: true }, { failureCode: "provider_rate_limit", failedCount: 1 }, {}]) {
+  for (const step of [{ waiting: true, stopped: true }, { failureCode: "provider_rate_limit", failedCount: 1 }, {}]) {
     launches = 0;
     await dispatchAnnotationJobs({
       jobs: [{ jobId: "a", ownerEmail: "owner@example.test", availableSlots: 1 }],
@@ -82,7 +82,7 @@ test("slow bounded preparation leaves a full launch window and releases its leas
   const result = await dispatchAnnotationJobs({
     jobs: [{ jobId: "a", ownerEmail: "owner@example.test", availableSlots: 1 }],
     prepare: async () => { clock = 10_001; return true; }, now: () => clock,
-    run: async () => { launched += 1; clock += 10_001; return { processedCount: 1 }; },
+    run: async () => { launched += 1; clock += 70_001; return { processedCount: 1 }; },
     release: async () => { released += 1; },
   });
   assert.equal(launched, 1);
@@ -140,6 +140,35 @@ test("a database acknowledgement failure never becomes a second model/failure co
   }), /lost completion/);
   assert.equal(inferred, 1);
   assert.equal(failed, 0);
+});
+
+test("continuous refill outlives old 10s window and ordinary bad images do not idle the lane", async () => {
+  let clock = 0;
+  let calls = 0;
+  const result = await dispatchAnnotationJobs({
+    jobs: [{ jobId: "a", ownerEmail: "owner@example.test", availableSlots: 1 }],
+    now: () => clock, prepare: async () => true, release: async () => {},
+    run: async () => { calls++; clock += 20_000; return calls === 1 ? { failedCount: 1, failureCode: "image_fetch" } : { processedCount: 1, done: calls === 3 }; },
+  });
+  assert.equal(calls, 3);
+  assert.equal(result.failedCount, 1);
+  assert.equal(result.processedCount, 2);
+});
+
+test("pause/maintenance cancellation stops new claims and cooldown waits remain bounded", async () => {
+  const controller = new AbortController();
+  let calls = 0;
+  await dispatchAnnotationJobs({ jobs: [{ jobId: "a", ownerEmail: "owner@example.test", availableSlots: 1 }], signal: controller.signal,
+    prepare: async () => true, release: async () => {}, run: async () => { calls++; controller.abort(); return { processedCount: 1 }; },
+  });
+  assert.equal(calls, 1);
+  let clock = 0;
+  calls = 0;
+  await dispatchAnnotationJobs({ jobs: [{ jobId: "a", ownerEmail: "owner@example.test", availableSlots: 1 }], now: () => clock,
+    prepare: async () => true, release: async () => {}, wait: async (ms) => { clock += ms; }, run: async () => { calls++; return { waiting: true }; },
+  });
+  assert.equal(clock, 70_000);
+  assert.equal(calls, 70);
 });
 
 test("model exceptions retain retry class and bounded diagnostics", async () => {

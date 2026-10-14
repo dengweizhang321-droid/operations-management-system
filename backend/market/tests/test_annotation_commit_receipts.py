@@ -83,6 +83,7 @@ class MarketAnnotationCommitReceiptTests(TestCase):
         second = MarketAnnotationCommitReceipt.objects.get(job_item_id="2026-09")
         self.assertEqual(second.before_json["version"], 5)
         self.assertEqual(second.before_json["image_price_cents"], 19900)
+
         self.assertEqual(second.before_json["created_at"], expected["created_at"])
         self.assertTrue(second.before_json["reviewed_at"].endswith("Z"))
         self.annotation.refresh_from_db()
@@ -100,6 +101,17 @@ class MarketAnnotationCommitReceiptTests(TestCase):
         self.assertEqual(MarketAnnotationCommitReceipt.objects.count(), 3)
         self.assertEqual(MarketAnnotationItem.objects.filter(status="committed", selected=False).count(), 2)
         self.assertEqual(MarketPriceSnapshot.objects.filter(confirmed_market_price_cents=19900).count(), 2)
+
+    def test_uncertain_or_clear_no_price_does_not_clear_confirmed_amount(self):
+        MarketSkuAnnotation.objects.filter(pk=self.annotation.pk).update(image_price_cents=19900)
+        MarketPriceSnapshot.objects.all().update(confirmed_market_price_cents=19900, confirmation_status="confirmed")
+        MarketAnnotationItem.objects.filter(pk="2026-08").update(reviewed_image_price_cents=None, reviewed_price_type="明确无标价")
+        MarketAnnotationItem.objects.filter(pk="2026-09").update(reviewed_image_price_cents=None, reviewed_price_type="无法判断")
+        response = self.commit()
+        self.assertEqual(response.status_code, 200, response.content)
+        self.annotation.refresh_from_db()
+        self.assertEqual(self.annotation.image_price_cents, 19900)
+        self.assertEqual(set(MarketPriceSnapshot.objects.values_list("confirmed_market_price_cents", flat=True)), {19900})
 
     def test_receipt_failure_rolls_back_entire_batch_and_same_request_can_retry(self):
         revision = MarketDataRevision.objects.values().get(domain="market")

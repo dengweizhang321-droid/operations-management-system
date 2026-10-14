@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "actualVisionAdapter": true,
+  "syntheticModelPosts": 3,
+  "realModelCalls": 0,
+  "checks": [
+    "A one image/one POST/two results",
+    "B fixed classification/price prompt",
+    "invalid B response fails without second inference"
+  ]
+}

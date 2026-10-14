@@ -106,6 +106,7 @@ def role_probe() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tests-only", action="store_true", help="Skip synthetic role probes")
+    parser.add_argument("--test-label", action="append", help="Targeted Django test labels; defaults to market")
     parser.add_argument("--role-probe", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     root = ROOT.resolve()
@@ -175,8 +176,13 @@ def main() -> None:
         run([BIN / "pg_ctl.exe", "-D", run_root / "data", "-l", run_root / "postgres.log", "-w", "-t", "30", "start"], timeout=60)
         started = True
         run([BIN / "createdb.exe", DATABASE])
+        run([BIN / "psql.exe", "-v", "ON_ERROR_STOP=1", "-c",
+             "CREATE ROLE teruisi_ai_seal_writer NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"])
+        for role in ("teruisi_ai_reader", "teruisi_ai_writer", "teruisi_finance_reader", "teruisi_finance_writer", "teruisi_netshop_reader", "teruisi_netshop_writer"):
+            run([BIN / "psql.exe", "-v", "ON_ERROR_STOP=1", "-c",
+                 f"CREATE ROLE {role} NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"])
         print(json.dumps({"stage": "isolated_cluster_started", **report}), flush=True)
-        tests = manage("test", "market", "--noinput", "--verbosity", "2", label="market-tests")
+        tests = manage("test", *(args.test_label or ["market"]), "--noinput", "--verbosity", "2", label="market-tests")
         (run_root / "tests.log").write_text(tests, encoding="utf-8")
         summary = re.search(r"Ran (\d+) tests in ([\d.]+)s", tests)
         report["tests"] = {"count": int(summary[1]) if summary else None, "log": str(run_root / "tests.log")}

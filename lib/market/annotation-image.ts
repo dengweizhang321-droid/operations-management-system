@@ -222,7 +222,7 @@ async function fetchCandidate(
   }
 }
 
-function hasExpectedMagic(bytes: Uint8Array, mimeType: string): boolean {
+export function hasExpectedMagic(bytes: Uint8Array, mimeType: string): boolean {
   if (mimeType === "image/jpeg") return bytes.byteLength >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
   if (mimeType === "image/png") return bytes.byteLength >= 8 && [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((value, index) => bytes[index] === value);
   return bytes.byteLength >= 12

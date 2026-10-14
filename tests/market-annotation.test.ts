@@ -264,8 +264,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /model_input_bytes=\?, image_load_ms=\?, image_prepare_ms=\?, model_call_ms=\?, total_inference_ms=\?/);
   assert.match(workerEntry, /async scheduled\(_controller: ScheduledController, env: Env, _ctx: ExecutionContext\)/);
   assert.match(workerEntry, /runScheduledMarketMaintenance\(\{/);
-  assert.match(workerEntry, /runScheduledDjangoMarketAnnotation\(\)/);
-  assert.match(workerEntry, /const aiSpace = await runScheduledMarketTask\([\s\S]*?const annotations = await runScheduledMarketTask\(/);
+  assert.match(workerEntry, /runScheduledDjangoMarketAnnotation\(input.signal\)/);
+  assert.ok(workerEntry.indexOf("const annotationsPending") < workerEntry.indexOf("const aiEvidence"));
   assert.match(workerEntry, /\/_teruisi\/local\/market-annotation-scheduled/);
   assert.match(workerEntry, /TERUISI_RUNTIME_ENV === "development"/);
   assert.match(workerEntry, /TERUISI_LOCAL_DIRECT_ACCESS === "true"/);

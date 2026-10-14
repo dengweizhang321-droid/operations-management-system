@@ -40,7 +40,7 @@ export function normalizeImagePriceYuan(value: unknown): number | null {
   return Math.round(number * 100);
 }
 
-export const marketAiPriceTypes = ["标准售价", "到手价", "券后价", "起售价", "价格区间", "定金", "分期金额", "最低规格价格", "无法判断"] as const;
+export const marketAiPriceTypes = ["标准售价", "到手价", "券后价", "起售价", "价格区间", "定金", "分期金额", "最低规格价格", "无法判断", "明确无标价"] as const;
 export type MarketAiPriceType = (typeof marketAiPriceTypes)[number];
 
 function normalizePriceType(value: unknown): MarketAiPriceType {
@@ -84,6 +84,7 @@ export function parseVisionAnnotation(value: unknown, segments: readonly string[
   const confidence = Number(record.confidence);
   if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) throw new Error("视觉模型 confidence 必须在 0 到 1 之间");
   const reason = typeof record.reason === "string" ? record.reason.trim().slice(0, 600) : "";
+  if (priceType === "明确无标价" && (imagePriceCents !== null || priceLowCents !== null || priceHighCents !== null || confidence < 0.9 || !reason)) throw new Error("明确无标价缺少充分证据或价格不为空");
   return { segment, imagePriceCents, priceLowCents, priceHighCents, priceType, confidenceBps: Math.round(confidence * 10_000), reason, rawText };
 }
 

@@ -27,6 +27,7 @@ const mocks = {
       return { status: 200, revision: "1:test", data: { result: { task: {
         jobId: "job", itemId: "item", skuCode: "sku", productName: "synthetic", brand: "test",
         sourceImageUrl: "https://img10.360buyimg.com/synthetic.jpg", promptBody: "classify",
+        imageContentSha256: mode === "bad-hash" ? "" : "a".repeat(64), imageCache: null,
         segments: ["A"], fixedSegment: null, modelId: "model", leaseToken: "lease",
         ownerEmail: owner.email, leaseExpiresAt: new Date(Date.now() + 180_000).toISOString(),
       } } } };
@@ -77,3 +78,10 @@ for (const scenario of ["success", "ack-lost", "ack-unavailable", "revoked"]) {
     assert.equal(new Set(completionIds).size, 1);
   });
 }
+
+test("actual Django runner refuses an unbound image before inference", async () => {
+  mode = "bad-hash";
+  inferenceCalls = 0;
+  await assert.rejects(runClaimedDjangoMarketVisionTask({ principal: coordinator, jobId: "job", coordinatorToken: "dispatch-lease" }), /返回不完整/);
+  assert.equal(inferenceCalls, 0);
+});
