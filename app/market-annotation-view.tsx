@@ -3,7 +3,7 @@
 import { useAiPageDetails } from "./ai-page-context-provider";
 /* eslint-disable @next/next/no-img-element -- JD competitor images are external audited sources. */
 
-import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   defaultMarketAnnotationConcurrency,
   MARKET_ANNOTATION_CONCURRENCY_LIMITS,
@@ -15,15 +15,17 @@ import { defaultAnnotationPromptBody } from "@/lib/market/annotation-prompt-temp
 import { remainingInferenceUnitsForJob } from "@/lib/market/annotation-progress";
 import { AnnotationReadError, createAnnotationReadChannel } from "@/lib/market/annotation-read-channel";
 import { canSelectAnnotationReviewItem } from "@/lib/market/annotation-review-state";
+import { createAnnotationControlChannel } from "@/lib/market/annotation-control-channel";
+import type { AnnotationControlOutcome } from "@/lib/market/annotation-control-contract";
 
-type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
+type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin"; scopeRestricted?: boolean } | null;
 type Model = { id: string; name: string; protocol: string; modelName: string };
 type Prompt = { id: string; category: string; version: number; parentId: string | null; source: string; status: string; segments: string[]; promptBody: string; changeNote: string; metrics: Record<string, unknown>; createdAt: string };
 type Job = { id: string; category: string; promptVersionId: string; executor: string; modelId: string | null; localModelName: string; status: string; totalCount: number; completedCount: number; failedCount: number; reviewedCount: number; committedCount: number; remainingInferenceCount: number; createdAt: string };
 type Item = { id: string; candidateId: string; jobId: string; category: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string; resolvedImageUrl: string; imageSource: string; status: string; classificationStatus?: string; priceStatus?: string; aiPriceType?: string; reviewedPriceType?: string; aiSegment: string; aiImagePriceCents: number | null; aiConfidenceBps: number | null; aiReason: string; modelInputBytes: number; imageLoadMs: number; imagePrepareMs: number; modelCallMs: number; totalInferenceMs: number; reviewedSegment: string; reviewedImagePriceCents: number | null; reviewPriceSource: "history_same_image" | "ai" | "manual"; reviewJobReady: boolean; reviewSegments: string[]; snapshotValid?: boolean; selected: boolean; version: number; errorMessage: string; createdAt: string };
 type ValidationRun = { id: string; category: string; candidatePromptId: string; baselinePromptId?: string; status: string; sampleCount: number; sampleHash: string; metrics: Record<string, unknown>; gate: { passed?: boolean; reasons?: string[] } };
 type ValidationResult = { id: string; runId: string; status: string; skuCode: string; productName: string; goldSegment: string; predictedSegment: string; isCorrect: number; errorMessage: string };
-type CloudRun = { jobId: string; state: "running" | "paused" | "completed"; runConcurrency: number; targetConcurrency: number; recovering: boolean; nextRunAt: string | null; lastFailureCode: string; lastFailureMessage: string; lastStartedAt: string | null; lastHeartbeatAt: string | null; completedAt: string | null; updatedAt: string };
+type CloudRun = { jobId: string; controlVersion: string; state: "running" | "paused" | "completed"; runConcurrency: number; targetConcurrency: number; recovering: boolean; nextRunAt: string | null; lastFailureCode: string; lastFailureMessage: string; lastStartedAt: string | null; lastHeartbeatAt: string | null; completedAt: string | null; updatedAt: string };
 type Workspace = { categories: Array<{ value: string; count: number; candidateCount: number | null }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; cloudRuns: CloudRun[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number; staleSelectedCount?: number }; models: Model[]; textModels: Model[]; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
 type ReviewWorkspace = Pick<Workspace, "items" | "itemPagination" | "reviewSummary" | "selection"> & { error?: string };
 type CandidateCountsPayload = { categories: Array<{ value: string; candidateCount: number }>; error?: string };
@@ -120,6 +122,11 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [busy, setBusy] = useState("");
   const [savingConcurrencyKey, setSavingConcurrencyKey] = useState("");
   const [notice, setNotice] = useState("");
+  const [controlOutcome, setControlOutcome] = useState<AnnotationControlOutcome | null>(null);
+  const controlGenerationRef = useRef(0);
+  const activeControlScopeRef = useRef("");
+  const [controlChannel] = useState(() => createAnnotationControlChannel());
+  const controlAccount = currentUser ? `${currentUser.email.toLowerCase()}|${currentUser.role}|${Boolean(currentUser.scopeRestricted)}` : "";
   const [error, setError] = useState("");
   const [progressError, setProgressError] = useState("");
   const [reviewError, setReviewError] = useState("");
@@ -139,7 +146,19 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const mountedRef = useRef(false);
   const initialReadyRef = useRef(false);
   const isAdmin = currentUser?.role === "admin";
-  const canEdit = currentUser?.role === "admin" || currentUser?.role === "operator";
+  const canEdit = !currentUser?.scopeRestricted && (currentUser?.role === "admin" || currentUser?.role === "operator");
+  useLayoutEffect(() => {
+    activeControlScopeRef.current = `${controlAccount}|${jobId}`;
+    controlChannel.onChange((value, scope) => {
+      if (activeControlScopeRef.current === scope) setControlOutcome(value);
+    });
+    controlGenerationRef.current += 1;
+    controlChannel.selectScope(controlAccount, jobId);
+    progressReader.cancel();
+    reviewReader.cancel();
+    setBusy((value) => ["run-cloud", "pause-cloud", "query-control"].includes(value) ? "" : value);
+    return () => { controlGenerationRef.current += 1; controlChannel.cancel(); };
+  }, [controlChannel, controlAccount, jobId, progressReader, reviewReader]);
 
   const loadCandidateCounts = useCallback(async (workspaceGeneration: number, categoryScopeKey: string) => {
     const requestGeneration = ++candidateCountsGenerationRef.current;
@@ -284,10 +303,12 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   }, [itemPage, itemPageSize, reviewCategories, itemSegments, storageStatuses, recognitionSources, reviewReader]);
 
   const loadJobProgress = useCallback(async (targetJobId: string, signal?: AbortSignal) => {
+    const startedScope = activeControlScopeRef.current;
     const params = new URLSearchParams({ view: "progress", jobId: targetJobId });
     return progressReader.read<JobProgress>("/api/market/annotations?" + params,
       (value): value is JobProgress => Boolean(value && typeof value === "object" && (value as JobProgress).job?.id === targetJobId),
       (payload) => {
+        if (activeControlScopeRef.current !== startedScope) return;
         setCloudProgress(payload);
         setData((current) => current ? {
           ...current,
@@ -350,7 +371,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         payload = null;
       }
     } catch (reason) {
-      if (controller.signal.aborted) throw new Error("操作等待超时；系统将自动刷新任务状态并续跑原任务");
+      if (controller.signal.aborted) throw new Error("操作等待超时，结果尚未确认；请核实当前任务，勿重复提交");
       throw reason;
     } finally {
       window.clearTimeout(timeout);
@@ -386,6 +407,9 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const categoryReviewReadyJob = data?.jobs.find((item) => item.category === category && item.status === "review_ready");
   const currentJob = data?.jobs.find((item) => item.id === jobId);
   const currentCloudRun = data?.cloudRuns.find((item) => item.jobId === currentJob?.id) ?? null;
+  const currentCloudControlConcurrency = currentCloudRun?.targetConcurrency
+    ?? data?.concurrencySettings.find((item) => item.category === currentJob?.category && item.executor === "cloud")?.concurrency
+    ?? defaultMarketAnnotationConcurrency("cloud");
   const currentRemainingInferenceCount = remainingInferenceUnitsForJob(currentJob, cloudProgress);
   const currentCloudRunHasUnfinishedItems = currentJob?.executor === "cloud" && currentRemainingInferenceCount > 0;
   const currentCloudRunIsRunning = currentCloudRun?.state === "running" && currentCloudRunHasUnfinishedItems;
@@ -490,6 +514,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   // 创建任务有多个前置条件，早期版本只是把按钮置灰，用户点下去没有任何反馈。
   // 这里统一算出唯一的阻塞原因：页面上直接显示，点击时也用同一句话报错。
   const createJobBlockReason = () => {
+    if (controlChannel.hasPending()) return "有控制请求结果未确认，请先查询原请求，不能创建替代任务";
     if (!canEdit) return "当前账号只读，创建标注任务需要 operator 或 admin 角色";
     if (!category) return "“全部三级类目”仅用于浏览和筛选，创建任务前请先选择一个具体三级类目";
     if (candidateCountsStatus !== "ready") return candidateCountsStatus === "error"
@@ -511,6 +536,29 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     if (!data) return;
     void loadCandidateCounts(loadSequenceRef.current, annotationCandidateScopeKey(data.categories));
   };
+  const runCloudControl = async (id: string, state: "running" | "paused", queryOnly = false) => {
+    const scope = `${controlAccount}|${id}`;
+    const mine = ++controlGenerationRef.current;
+    const current = () => mountedRef.current && mine === controlGenerationRef.current && activeControlScopeRef.current === scope;
+    setBusy(queryOnly ? "query-control" : state === "running" ? "run-cloud" : "pause-cloud");
+    setError(""); setNotice("");
+    try {
+      if (!canEdit) throw new Error("当前账号无权控制此任务");
+      let outcome;
+      if (queryOnly) outcome = await controlChannel.query();
+      else {
+        if (controlChannel.pending()) throw new Error("原控制请求尚未确认，请继续查询原请求");
+        const latest = await loadJobProgress(id);
+        if (!current() || !latest?.cloudRun) return;
+        outcome = await controlChannel.submit({ jobId: id, state, expectedControlVersion: latest.cloudRun.controlVersion });
+      }
+      if (!current() || !outcome) return;
+      // Current progress is read separately; a committed old receipt never
+      // supplies the live run state, which may already have paused/completed.
+      await loadJobProgress(id);
+    } catch (reason) { if (current()) setError(reason instanceof Error ? reason.message : "控制请求结果未确认"); }
+    finally { if (current()) setBusy(""); }
+  };
   const createJob = () => act("create-job", async () => {
     const blocked = createJobBlockReason();
     if (blocked) throw new Error(blocked);
@@ -524,7 +572,6 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       let savedConcurrency = concurrency;
       if (executor === "cloud") {
         savedConcurrency = await persistConcurrency(category, "cloud", concurrency);
-        await post({ action: "set_cloud_run_state", jobId: id, state: "running" });
       }
       const progress = await loadJobProgress(id);
       if (!progress) return;
@@ -536,7 +583,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         : progress.remainingInferenceUnits === 0
         ? "兼容任务已处理完毕，现在可以创建下一批任务"
         : executor === "cloud"
-          ? `已切换到兼容任务，恢复请求已接受，等待派发（目标并发 ${savedConcurrency}），剩余推理 ${progress.remainingInferenceUnits} 条`
+          ? `已切换到兼容任务（目标并发 ${savedConcurrency}），剩余推理 ${progress.remainingInferenceUnits} 条；请使用当前任务的开始/恢复按钮`
           : `已切换到兼容任务，剩余推理 ${progress.remainingInferenceUnits} 条；本地 Ollama agent 可继续领取`);
       return;
     }
@@ -547,27 +594,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     setNotice(categoryReviewReadyJob ? "下一批标注任务已创建；上一批可继续人工复核" : "标注任务已创建");
     await load(id, 1);
   });
-  const pumpCloud = () => act("run-cloud", async () => {
-    if (!currentJob || currentJob.executor !== "cloud") throw new Error("请选择需要继续的云端标注任务");
-    const alreadyRunning = currentCloudRunIsRunning;
-    const savedConcurrency = await persistConcurrency(currentJob.category, "cloud", concurrencyFor(currentJob.category, "cloud"));
-    const resume = await post({ action: "set_cloud_run_state", jobId: currentJob.id, state: "running" });
-    const progress = await loadJobProgress(currentJob.id);
-    if (!progress) return;
-    setNotice(resume?.resumeAccepted === false || progress.cloudRun?.state === "paused"
-      ? `恢复未开始：${progress.cloudRun?.lastFailureMessage || "任务已暂停，请核查状态"}`
-      : progress.cloudRun?.state === "completed" || progress.job.status === "review_ready"
-      ? "云端识别队列已经处理完毕，可进入人工复核与批量入库"
-      : alreadyRunning
-        ? `唤醒请求已接受，等待派发（目标并发 ${savedConcurrency}）；如已有执行器正在工作，本次不会重置并发退避或重复领取。`
-        : `恢复请求已接受，等待后台派发（目标并发 ${savedConcurrency}），将由后台定时领取；关闭浏览器可继续，本机部署需要电脑和运营系统保持运行。`);
-  });
-  const pauseCloud = () => act("pause-cloud", async () => {
-    if (!currentJob || currentJob.executor !== "cloud") throw new Error("请选择需要暂停的云端标注任务");
-    await post({ action: "set_cloud_run_state", jobId: currentJob.id, state: "paused" });
-    await loadJobProgress(currentJob.id);
-    setNotice("已请求暂停；在途图片完成后不会再领取新图片，可随时恢复同一任务。 ");
-  });
+  const pumpCloud = () => currentJob?.executor === "cloud" && void runCloudControl(currentJob.id, "running");
+  const pauseCloud = () => currentJob?.executor === "cloud" && void runCloudControl(currentJob.id, "paused");
   const saveReviewGroups = async (ids: string[]) => {
     const groups = new Map<string, Array<{ id: string; version: number; segment: string; imagePriceCents: number | null; selected: boolean }>>();
     for (const id of ids) {
@@ -758,9 +786,9 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       <div className="annotation-task-footer">
         {createBlockReason
           ? <small className="orange-text">无法创建任务：{createBlockReason}</small>
-          : <small>{compatibleExistingJob ? `将切换并续跑兼容任务，剩余推理 ${compatibleExistingJob.remainingInferenceCount} 条；完成后可创建下一批` : `当前可新建 ${selectedCategorySummary?.candidateCount ?? 0} 条，单批最多 ${MARKET_ANNOTATION_JOB_LIMITS.maximum} 条`} · 激活 Prompt：v{activePrompt!.version}</small>}
+          : <small>{compatibleExistingJob ? `将切换到兼容任务，剩余推理 ${compatibleExistingJob.remainingInferenceCount} 条；完成后可创建下一批` : `当前可新建 ${selectedCategorySummary?.candidateCount ?? 0} 条，单批最多 ${MARKET_ANNOTATION_JOB_LIMITS.maximum} 条`} · 激活 Prompt：v{activePrompt!.version}</small>}
         {candidateCountsStatus === "error" && <button className="secondary-button" disabled={busy !== ""} onClick={retryCandidateCounts}>重新读取候选数量</button>}
-        <button className="primary-button" disabled={busy !== "" || candidateCountsStatus !== "ready"} onClick={createJob}>{busy === "create-job" ? (compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "正在恢复并唤醒…" : "正在恢复任务…") : "正在创建任务（候选较多时需几十秒）…") : candidateCountsStatus === "loading" || candidateCountsStatus === "idle" ? "正在计算可新建候选…" : compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "恢复兼容任务并续跑" : "恢复兼容任务") : categoryReviewReadyJob ? "创建下一批任务" : "创建任务"}</button>
+        <button className="primary-button" disabled={busy !== "" || candidateCountsStatus !== "ready"} onClick={createJob}>{busy === "create-job" ? (compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "正在切换任务…" : "正在切换任务…") : "正在创建任务（候选较多时需几十秒）…") : candidateCountsStatus === "loading" || candidateCountsStatus === "idle" ? "正在计算可新建候选…" : compatibleExistingJob ? (compatibleExistingJob.executor === "cloud" ? "切换到兼容任务" : "切换到兼容任务") : categoryReviewReadyJob ? "创建下一批任务" : "创建任务"}</button>
       </div>
 
       {currentJob && <div className="annotation-current-run">
@@ -772,10 +800,20 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         <small>{Boolean(cloudProgress.legacyUnclassifiedUnits) && `旧版完成 ${cloudProgress.legacyUnclassifiedUnits} 项未记录原识别模式，单独计数。`}A 类优先；无可领取 A 类时 B 类立即补位，两类共享并发。数量按同图推理单元统计，跨月扩散不重复计数。</small>
       </div>}
       <label><span>当前任务并发（可运行中调整）</span><div className="annotation-concurrency-control"><input aria-label="当前 AI 标注任务模型并发数" type="number" min={MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum} max={MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum} value={currentJobConcurrency} disabled={!canEdit || savingConcurrencyKey === currentJobConcurrencyKey} onChange={(event) => setConcurrencyDrafts((current) => ({ ...current, [currentJobConcurrencyKey]: Number(event.target.value) }))} /><button className="secondary-button" disabled={!canEdit || !isValidAnnotationConcurrency(currentJobConcurrency) || savingConcurrencyKey !== ""} onClick={() => void saveConcurrency(currentJob.category, currentJobExecutor)}>{savingConcurrencyKey === currentJobConcurrencyKey ? "保存中…" : "保存并应用"}</button></div></label>
-        {currentJob.executor === "cloud" ? currentCloudRunHasUnfinishedItems ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? (currentCloudRunIsRunning ? `正在安全唤醒云端后台（目标并发 ${currentJobConcurrency}）…` : `正在交给云端后台（目标并发 ${currentJobConcurrency}）…`) : currentCloudRun?.state === "completed" ? "恢复剩余识别" : currentCloudRunIsRunning ? `重新唤醒云端后台（并发 ${currentJobConcurrency}）` : `开始/恢复云端后台识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={!canEdit || busy !== "" || !currentCloudRunIsRunning} onClick={pauseCloud}>{busy === "pause-cloud" ? "正在暂停…" : "完成当前条后暂停"}</button></div> : <small className="annotation-current-run-local">{currentJobSettledMessage}</small> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
+        {currentJob.executor === "cloud" ? currentCloudRunHasUnfinishedItems ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== "" || (Boolean(controlChannel.pending()) || Boolean(controlChannel.problem()))} onClick={pumpCloud}>{busy === "run-cloud" ? (currentCloudRunIsRunning ? `正在安全唤醒云端后台（目标并发 ${currentCloudControlConcurrency}）…` : `正在交给云端后台（目标并发 ${currentCloudControlConcurrency}）…`) : currentCloudRun?.state === "completed" ? "恢复剩余识别" : currentCloudRunIsRunning ? `重新唤醒云端后台（并发 ${currentCloudControlConcurrency}）` : `开始/恢复云端后台识别（并发 ${currentCloudControlConcurrency}）`}</button><button className="secondary-button" disabled={!canEdit || busy !== "" || (Boolean(controlChannel.pending()) || Boolean(controlChannel.problem())) || !currentCloudRunIsRunning} onClick={pauseCloud}>{busy === "pause-cloud" ? "正在暂停…" : "完成当前条后暂停"}</button></div> : <small className="annotation-current-run-local">{currentJobSettledMessage}</small> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
       </div>}
 
       <div className="annotation-job-heading"><strong>任务记录</strong><small>{visibleJobs.length} 个任务；推理已结束或已全部入库的任务可由管理员归档，运行中的任务不能删除，正式入库结果不会受影响</small></div>
+      {controlChannel.problem() && <p role="alert">{controlChannel.problem()}</p>}
+      {controlOutcome?.command.jobId === jobId && <div role="status" className="annotation-current-run-summary">
+        {controlOutcome.outcome === "succeeded" ? <span>该{controlOutcome.command.state === "running" ? "恢复" : "暂停"}请求已于 {controlOutcome.result?.committedAt} 提交{controlOutcome.result?.resumeAccepted === false && controlOutcome.command.state === "running" ? "，已处理但恢复未开始" : ""}；当前状态以上方任务进度为准。</span>
+          : controlOutcome.outcome === "rejected" ? <span>控制请求已明确拒绝：{controlOutcome.error}。请刷新任务状态后操作。</span>
+          : <span>{busy ? "正在确认原控制请求结果…" : "原控制请求结果未确认。请继续查询原请求，勿重复恢复或创建替代任务。"}</span>}
+        {["unknown", "processing"].includes(controlOutcome.outcome) && <>
+          <button className="secondary-button" disabled={!canEdit || busy !== ""} onClick={() => void runCloudControl(jobId, controlOutcome.command.state, true)}>继续查询原请求</button>
+          {busy && <button className="secondary-button" onClick={() => { controlGenerationRef.current += 1; controlChannel.cancel(); setBusy(""); setControlOutcome({ ...controlOutcome, outcome: "unknown" }); }}>取消等待</button>}
+        </>}
+      </div>}
       <div className="annotation-job-list">{visibleJobs.map((item) => <div className={`annotation-job-entry ${jobId === item.id ? "active" : ""}`} key={item.id}><button className="annotation-job-select" onClick={() => { dirtyDraftIdsRef.current.clear(); setJobId(item.id); }}><strong>{item.category}</strong><span>{item.executor} · 并发 {concurrencyFor(item.category, item.executor === "local" ? "local" : "cloud")} · {item.status}</span><small>{item.completedCount}/{item.totalCount} · 失败 {item.failedCount} · 入库 {item.committedCount}</small></button>{["review_ready", "committed"].includes(item.status) && <button className="annotation-job-delete" disabled={!isAdmin || busy !== ""} title={isAdmin ? "归档任务记录；正式入库结果、任务明细、回执和审计都会保留" : "仅管理员可归档已结束任务"} onClick={() => void deleteJob(item)}>{busy === "delete-job" ? "归档中…" : item.status === "committed" ? "删除记录" : "归档旧任务"}</button>}</div>)}</div>
     </section>
 

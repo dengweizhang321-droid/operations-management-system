@@ -1,0 +1,26 @@
+{
+  "port": 55460,
+  "productionTouched": false,
+  "externalModelCalls": 0,
+  "sourceBefore": {
+    "backend/market/annotations.py": "4231d129bcd83895932217c1e5ba9fd5c50bbb7811e486198b41bfcd70c47001",
+    "backend/market/views.py": "7d91269cd815d918469a88dd2d60b0eb0ffd04a997c3dda9b2f7aa2fa50ae50e",
+    "backend/market/annotation_planning.py": "6b9accf3c1985201bdc0018b0ac8393bbe21e86e7bcb076f8d6fc32044ffecea",
+    "backend/market/test_annotation_resume_round2.py": "238e0f9a461c43095d45c57ce44ecd7d7c8374ca49321bf48c22dbaf4913d601",
+    "backend/market/test_annotation_diagnostics_round2.py": "20efcc4242c501836e037c770ad2b44293f5c1318b5e6e042a5a39f61bd50d39"
+  },
+  "tests": {
+    "count": 14,
+    "log": "D:\\.codex\\worktrees\\market-ai-round2-20261015\\运营管理系统\\.runtime\\market-annotation-pg-2eaac61948df\\tests.log"
+  },
+  "status": "passed",
+  "isolatedClusterStopped": true,
+  "sourceAfter": {
+    "backend/market/annotations.py": "4231d129bcd83895932217c1e5ba9fd5c50bbb7811e486198b41bfcd70c47001",
+    "backend/market/views.py": "7d91269cd815d918469a88dd2d60b0eb0ffd04a997c3dda9b2f7aa2fa50ae50e",
+    "backend/market/annotation_planning.py": "6b9accf3c1985201bdc0018b0ac8393bbe21e86e7bcb076f8d6fc32044ffecea",
+    "backend/market/test_annotation_resume_round2.py": "238e0f9a461c43095d45c57ce44ecd7d7c8374ca49321bf48c22dbaf4913d601",
+    "backend/market/test_annotation_diagnostics_round2.py": "20efcc4242c501836e037c770ad2b44293f5c1318b5e6e042a5a39f61bd50d39"
+  },
+  "sourceStable": true
+}

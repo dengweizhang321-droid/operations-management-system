@@ -1,0 +1,118 @@
+{
+  "applicationFilesUnchanged": [
+    "app/api/market/annotations/route.ts",
+    "app/market-annotation-view.tsx",
+    "backend/market/annotations.py",
+    "backend/market/views.py",
+    "backend/market/annotation_planning.py",
+    "lib/django/market-service.ts",
+    "lib/market/annotation-model.ts",
+    "lib/market/annotation-control-channel.ts",
+    "lib/market/annotation-control-contract.ts"
+  ],
+  "testOnlyDelta": {
+    "path": "backend/market/test_annotation_resume_round2.py",
+    "beforeSha256": "9faffd50e8daeabc3f999ad884aae4ea7102657df16e042619a0e38e4b40a01d",
+    "afterSha256": "f72e379c7ddc0cb7b088671fa6638cc8df910fd8d233383db18ef162a16fb661",
+    "formatChanges": [
+      "LF to CRLF in the worktree",
+      "removed one EOF blank line"
+    ],
+    "astIdentical": true
+  },
+  "evidenceAttributesLocalOnly": true,
+  "rawCapturedFiles": [
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/affected-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/integration-blocker-tests.log",
+      "bytes": 12588,
+      "sha256": "7f771fabe01d0e8c350e108346199d238a7e0be009633f48ac70e8d6ebb29f98",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/integration-pg-initial-label-error.log",
+      "bytes": 32497,
+      "sha256": "da50f4957f389834dd8765bb13313f09424b7efc94d09a9f114529c3d5f47d00",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/planning-archived-source-tests.log",
+      "bytes": 10879,
+      "sha256": "ce1ff564848017d88d46bf6e92aa2d74da0b3d7e8ed33e482c14802bfeea2770",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/planning-domain-combination-tests.log",
+      "bytes": 20782,
+      "sha256": "c7a24c5fe1e96324987e0dc6f0e1efbedde52c6b5de296d7f5b492c086702a33",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/planning-full-tests.log",
+      "bytes": 15400,
+      "sha256": "8f54859d653f4dbdf4cfcf88eb0eb2fccaa8cba35b510bd9453ed4a381beae4b",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/planning-incremental-tests.log",
+      "bytes": 14117,
+      "sha256": "90f7290348b9fff648ae936cb9478457f11a979329b724c8884b1ccec2488afa",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/planning-initial-fixture-failures.log",
+      "bytes": 29164,
+      "sha256": "e8368f7234155657a2cdf4cb3181dd82185a0e36186f4413a47dd39f082384f4",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/planning-initial-missing-dependency.log",
+      "bytes": 16050,
+      "sha256": "f249a06d7e18385e2b78023e52310e7114c0f5c83e01ff02d0a04d405495c6c5",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/planning-integration.patch",
+      "bytes": 7865,
+      "sha256": "28d2e5fde53a138711ee6fb26fd6f72c5e92a03b1f3a854893619192f0ccf0a8",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/resume-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/resume-ts-tests.log",
+      "bytes": 2193,
+      "sha256": "294983ef5aef229a44f6a2e41902200f62999976e17e86ae71f540de178330b3",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/review-p0-initial-tests.log",
+      "bytes": 25421,
+      "sha256": "f6e968e6f299802c6c1aaf0594742502c2e8d021ed259441672eaf896be87f00",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/review-p0-tests.log",
+      "bytes": 21155,
+      "sha256": "b221f618f8b034293d024bb967391db858f9d5e9a5d552786c84a9b607a55140",
+      "indexExact": true
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/worker-targeted-tests.log",
+      "bytes": 9011,
+      "sha256": "cb5f1dff2a944d219c8ab401259c332eefa7be6adae05b5ce72707a3f42c0f36",
+      "indexExact": true
+    }
+  ],
+  "businessTestsRepeated": false,
+  "sourceReviewStillPassed": true
+}

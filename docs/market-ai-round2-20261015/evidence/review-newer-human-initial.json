@@ -1,0 +1,28 @@
+{
+  "helperSha256": "046cb38c9952e206420331bc4237e0ad7c5b20b6e5d9a6299ddb1e97e76e4f30",
+  "environment": "private SQLite :memory:",
+  "externalCalls": 0,
+  "before": {
+    "status": "review_pending",
+    "segment": "A",
+    "priceType": "��ȷ�ޱ��"
+  },
+  "newerMaster": {
+    "formalSegment": "B",
+    "snapshotStatus": "missing",
+    "planned": {
+      "status": "review_pending",
+      "segment": "A",
+      "priceType": "��ȷ�ޱ��"
+    }
+  },
+  "newerApprovedHuman": {
+    "humanSegment": "B",
+    "humanPriceType": "�޷��ж�",
+    "planned": {
+      "status": "review_pending",
+      "segment": "A",
+      "priceType": "��ȷ�ޱ��"
+    }
+  }
+}

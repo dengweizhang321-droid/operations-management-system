@@ -1,0 +1,50 @@
+{
+  "baseline": "cabf97f1a29b097334cf91dcb1f1f8a55d385116",
+  "externalModelCalls": 0,
+  "port": 55458,
+  "files": [
+    {
+      "path": "backend/market/annotation_planning.py",
+      "sha256": "294ab5ab12dcf7425425d7ba7c03a0da1bf9ffe4c7d77ca0a15fbba7662e0755",
+      "bytes": 15138
+    },
+    {
+      "path": "backend/market/test_annotation_planning_round2.py",
+      "sha256": "5b08977de6690b2ffcfa408e41e64fc45c5bf84d11ce279d318f36a7f8f2cebb",
+      "bytes": 32088
+    },
+    {
+      "path": "docs/market-ai-round2-20261015/evidence/planning-rehearsal.py",
+      "sha256": "fd2aaeed844be1e056b6bce747f499f88835cd927c0aeacfab4a77cf831bc914",
+      "bytes": 19941
+    }
+  ],
+  "integrationFunctions": [
+    {
+      "name": "_create_job",
+      "sourceSha256": "b9e9be1d6b55e7633c41c40f3ab5e92d3ac059b788fe8410a021d5a35e898b78"
+    },
+    {
+      "name": "_update_review",
+      "sourceSha256": "ce31d1b3f47ead765367157c171a4fb26cb3578513bbfc2cc8cd9c32228d5a96"
+    },
+    {
+      "name": "_select_filtered",
+      "sourceSha256": "606f31e82996e4e21837a3243c070ecf4d797fd3bfdb5600abcd08b1998f0e6a"
+    }
+  ],
+  "evidence": {
+    "completeRun": "planning-full-rehearsal-result.json",
+    "incrementalRun": "planning-incremental-rehearsal-result.json",
+    "domainCombination": "planning-domain-combination-result.json",
+    "benchmark": "planning-benchmark.json"
+  },
+  "benchmarkHelperSha256": "6b9accf3c1985201bdc0018b0ac8393bbe21e86e7bcb076f8d6fc32044ffecea",
+  "finalP1Increment": {
+    "reason": "Archived or cancelled noncommitted drafts cannot establish classification or no-price provenance; committed facts unchanged",
+    "queryChanges": false,
+    "targetedTests": 7,
+    "result": "planning-archived-source-result.json",
+    "benchmarkRepeated": false
+  }
+}

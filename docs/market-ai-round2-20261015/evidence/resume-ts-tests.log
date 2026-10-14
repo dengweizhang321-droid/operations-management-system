@@ -1,0 +1,30 @@
+✔ market reader signs a bounded revisioned request and preserves exact payload (47.9481ms)
+✔ market consumer remains reader-only while commands and imports use the writer (6.9205ms)
+✔ market reader/writer allowlists and loopback configuration fail closed before fetch (0.9637ms)
+✔ market upstream errors and malformed success responses never fall back to D1 (3.0793ms)
+✔ commit with lost response is confirmed through GET, with exactly one POST (31.1568ms)
+✔ missing receipt and permission failure remain unknown and prevent duplicate/new intent (3.1381ms)
+✔ explicit persisted rejection permits only a new human intent (0.9399ms)
+✔ unknown operation survives refresh and role/scope changes for same actor without POST replay (1.3376ms)
+✔ cancellation plus late response cannot publish or clear another scope's operation (0.7976ms)
+✔ same job double click is fenced while first POST is pending (0.5764ms)
+✔ foreign tuple, malformed success and current running do not prove original commit (0.3596ms)
+✔ signed SDK binds one operation to writer requestId and preserves exact command bytes (17.6897ms)
+✔ twenty pending controls are preserved; the twenty-first and malformed storage fail closed (0.8368ms)
+✔ storage write failure stops transmission, and ignored abort is still bounded (37.785ms)
+✔ 503 preserves the last good progress and clears only after a successful retry (20.909ms)
+✔ progress recovery cannot erase review errors (0.9923ms)
+✔ a superseded task cannot publish late data or clear the new task's failure (1.3755ms)
+✔ late failure from an old filter cannot replace the current successful result (0.6549ms)
+✔ cleanup cancels both network and pending body reads without displaying an error (0.5452ms)
+✔ timeout releases polling even when a fetch ignores cancellation, and next read recovers (10.4742ms)
+✔ malformed or wrong-job responses remain failures and do not erase prior data (1.0171ms)
+✔ annotation UI uses independent read errors and preserves command errors during refresh (5.2747ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 355.6075

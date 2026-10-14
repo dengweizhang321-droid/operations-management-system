@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import {createServer} from 'node:http';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {build} from 'esbuild';
+import {chromium} from 'playwright-core';
+const root=process.cwd(), folder=resolve('.runtime/round2-browser');
+await mkdir(folder,{recursive:true});
+await writeFile(resolve(folder,'entry.tsx'), `import React from 'react'; import {createRoot} from 'react-dom/client'; import View from '../../app/market-annotation-view'; const root=createRoot(document.getElementById('root')!); window.fixtureUser=(restricted=false)=>root.render(<View currentUser={{email:'fixture@example.invalid',role:'admin',scopeRestricted:restricted}}/>); window.fixtureUser();`);
+await build({entryPoints:[resolve(folder,'entry.tsx')],bundle:true,outfile:resolve(folder,'bundle.js'),alias:{'@':root},jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'}});
+const server=createServer(async(req,res)=>{const file=req.url==='/bundle.js'?resolve(folder,'bundle.js'):req.url==='/style.css'?resolve('app/globals.css'):null;res.setHeader('Content-Type',file?req.url.endsWith('.css')?'text/css':'application/javascript':'text/html');res.end(file?await readFile(file):'<html><meta charset="utf-8"><link rel="stylesheet" href="/style.css"><body><div id="root"></div><script src="/bundle.js"></script></body></html>');});
+await new Promise(done=>server.listen(0,'127.0.0.1',done));
+const origin=`http://127.0.0.1:${server.address().port}`;
+const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const report={status:'started',actualReactComponent:true,syntheticHttp:true,productionWrites:0,realModelCalls:0,checks:[],consoleErrors:[]};
+const token='a'.repeat(64), stamp='2026-10-15T00:00:00Z';
+const jobs=['A','B'].map((k,i)=>({id:'synthetic-job-'+k,category:'合成类目'+k,promptVersionId:'prompt-'+k,executor:'cloud',modelId:'model',localModelName:'',status:'running',totalCount:20,completedCount:i+1,failedCount:0,reviewedCount:0,committedCount:0,remainingInferenceCount:18,createdAt:stamp}));
+const runs=jobs.map(j=>({jobId:j.id,state:'paused',controlVersion:token,runConcurrency:12,targetConcurrency:12,recovering:false,lastFailureCode:'',lastFailureMessage:'',updatedAt:stamp}));
+const review={items:[],itemPagination:{page:1,pageSize:20,total:0,pageCount:1},reviewSummary:{jobCount:2,recordCount:0,uniqueCandidateCount:0},selection:{filteredReviewableCount:0,filteredSelectedCount:0,scopeSelectedCount:0,staleSelectedCount:0}};
+const workspace={categories:jobs.map(j=>({value:j.category,count:20,candidateCount:18})),reviewCategories:[],taxonomy:jobs.map(j=>({category:j.category,value:'固定分类'})),prompts:jobs.map(j=>({id:j.promptVersionId,category:j.category,version:1,status:'active',segments:['固定分类'],promptBody:'合成规则',metrics:{}})),jobs,concurrencySettings:jobs.map(j=>({category:j.category,executor:'cloud',concurrency:12})),cloudRuns:runs,...review,models:[{id:'model',name:'合成模型',modelName:'no-real-model'},{id:'model2',name:'合成模型二',modelName:'no-real-model'}],textModels:[],validationRuns:[],validationResults:[],agents:[]};
+const progress=id=>({job:jobs.find(j=>j.id===id),activeClaims:0,uniqueInferenceUnits:20,remainingInferenceUnits:18,cloudRun:runs.find(j=>j.jobId===id),performance:{measuredCount:0}});
+const success=c=>({outcome:'succeeded',operationId:c.operationId,requestId:'annotation-control-'+c.operationId,jobId:c.jobId,targetState:c.state,result:{operationId:c.operationId,requestId:'annotation-control-'+c.operationId,jobId:c.jobId,targetState:c.state,beforeControlVersion:c.expectedControlVersion,afterControlVersion:'b'.repeat(64),auditId:'11111111-1111-4111-8111-111111111111',committedAt:stamp,effectiveState:c.state,resumeAccepted:c.state==='running',quarantinedExpiredClaims:false}});
+const checks=report.checks;
+async function scenario(name,mode,act){
+ const page=await browser.newPage({viewport:{width:1440,height:1000}});const writes=[];let command,held,settleHeld,receipt='unknown',progressReads=0;
+ const heldPromise=new Promise(done=>settleHeld=done);
+ page.on('pageerror',e=>report.consoleErrors.push(e.message));
+ await page.route('**/*',async route=>{const u=new URL(route.request().url());if(u.origin!==origin)return route.abort();if(u.pathname!=='/api/market/annotations')return route.continue();
+  if(route.request().method()==='POST'){const c=route.request().postDataJSON();writes.push(c.action);if(c.action==='set_cloud_run_state'){command=c;if(mode==='held'){held=route;settleHeld();return;}return route.fulfill({status:503,json:{error:'synthetic response lost',code:'service_unavailable'}});}if(c.action==='set_concurrency')return route.fulfill({json:{ok:true,result:c}});throw new Error('Unexpected write '+c.action);}
+  const view=u.searchParams.get('view');if(view==='control_operation'){const c={action:'set_cloud_run_state',jobId:u.searchParams.get('jobId'),state:u.searchParams.get('state'),expectedControlVersion:u.searchParams.get('expectedControlVersion'),operationId:u.searchParams.get('operationId')};return route.fulfill({json:mode==='receipt'||receipt==='success'?success(c):{outcome:receipt,operationId:c.operationId,requestId:'annotation-control-'+c.operationId,jobId:c.jobId,targetState:c.state}});}
+  if(mode==='progress-held' && view==='progress') {progressReads++; if(progressReads===1)return route.fulfill({status:503,json:{error:'synthetic progress loss'}});held=route;settleHeld();return;}
+  return route.fulfill({json:view==='progress'?progress(u.searchParams.get('jobId')):view==='review'?review:view==='candidate_counts'?{categories:workspace.categories}:workspace});
+ });
+ await page.goto(origin);await page.getByText('云端后台：已暂停',{exact:false}).first().waitFor();
+ await act({page,writes,heldPromise,command:()=>command,release:async()=>{await held.fulfill({json:mode==='progress-held'?{...progress(jobs[0].id),activeClaims:999}:{ok:true,result:success(command).result}}).catch(()=>{});},setReceipt:v=>receipt=v});
+ checks.push(name);await page.close();
+}
+const resume=p=>p.getByRole('button',{name:'开始/恢复云端后台识别（并发 12）',exact:true});
+const create=p=>p.getByRole('button',{name:/^(创建任务|创建下一批任务|恢复兼容任务并续跑|切换到兼容任务)$/}).first();
+try{
+ await scenario('committed receipt after HTTP503 is confirmed, current paused state retained','receipt',async({page,writes})=>{await resume(page).click();await page.getByText(/该恢复请求已于.*提交/).first().waitFor();assert.equal(writes.filter(a=>a==='set_cloud_run_state').length,1);await page.getByText('云端后台：已暂停',{exact:false}).first().waitFor();});
+ await scenario('unknown blocks substitute creation after model and job change; one POST only','unknown',async({page,writes})=>{await resume(page).click();await page.getByText('原控制请求结果未确认',{exact:false}).first().waitFor();await page.locator('.annotation-task-fields label').filter({hasText:'enabled vision 模型'}).locator('select').selectOption('model2');await create(page).click();await page.getByText('有控制请求结果未确认',{exact:false}).first().waitFor();await page.locator('.annotation-task-fields label').filter({hasText:'三级类目'}).locator('select').first().selectOption(jobs[1].category);await create(page).click();await page.getByText('有控制请求结果未确认',{exact:false}).first().waitFor();assert.equal(writes.filter(a=>a==='set_cloud_run_state').length,1);assert(!writes.includes('create_job'));});
+ await scenario('cancel wait preserves identity and ignores late success; explicit GET confirms later','held',async({page,writes,heldPromise,release,setReceipt})=>{await resume(page).click();await heldPromise;await page.getByRole('button',{name:'取消等待',exact:true}).click();await release();await page.getByText('原控制请求结果未确认',{exact:false}).first().waitFor();assert.equal(await page.getByText(/该恢复请求已于.*提交/).count(),0);setReceipt('success');await page.getByRole('button',{name:'继续查询原请求',exact:true}).click();await page.getByText(/该恢复请求已于.*提交/).first().waitFor();assert.equal(writes.filter(a=>a==='set_cloud_run_state').length,1);});
+ await scenario('same-account scope restriction cancels control and ignores late success','held',async({page,writes,heldPromise,release})=>{await resume(page).click();await heldPromise;await page.evaluate(()=>window.fixtureUser(true));await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='开始/恢复云端后台识别（并发 12）'&&b.disabled));await release();assert.equal(await page.getByText(/该恢复请求已于.*提交/).count(),0);assert(await resume(page).isDisabled());assert.equal(writes.filter(a=>a==='set_cloud_run_state').length,1);});
+ await scenario('job switch ignores late operation result and leaves new-job controls free of old busy','held',async({page,writes,heldPromise,release})=>{await resume(page).click();await heldPromise;await page.locator('.annotation-task-fields label').filter({hasText:'三级类目'}).locator('select').first().selectOption(jobs[1].category);await release();await page.getByText('云端后台：已暂停',{exact:false}).first().waitFor();assert.equal(await page.getByText(/该恢复请求已于.*提交/).count(),0);assert.equal(writes.filter(a=>a==='set_cloud_run_state').length,1);assert(!writes.includes('create_job'));});
+ await scenario('same-account scope restriction ignores late progress response','progress-held',async({page,writes,heldPromise,release})=>{await page.getByRole('button',{name:'重新读取进度',exact:true}).click();await heldPromise;await page.evaluate(()=>window.fixtureUser(true));await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='开始/恢复云端后台识别（并发 12）'&&b.disabled));await release();assert.equal(await page.getByText('有效租约 999',{exact:false}).count(),0);assert.equal(writes.length,0);});
+ assert.deepEqual(report.consoleErrors,[]);report.status='passed';
+ await writeFile(resolve('docs/market-ai-round2-20261015/evidence/browser-result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
+}catch(error){report.status='failed';report.error=String(error.message);await writeFile(resolve(folder,'failure.json'),JSON.stringify(report,null,2));throw error;}
+finally{await browser.close();await new Promise(done=>server.close(done));}

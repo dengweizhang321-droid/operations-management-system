@@ -200,8 +200,9 @@ function modelErrorDetail(data: unknown) {
   return sanitizeAnnotationFailureMessage(detail, 180);
 }
 
-function visionFailure(message: string, failureCode: "model_configuration" | "model_response") {
-  return Object.assign(new Error(message), { failureCode });
+function visionFailure(message: string, failureCode: "model_configuration" | "model_response", validationCode?: string) {
+  // Codes are fixed at the validation sites; never include a returned field value.
+  return Object.assign(new Error(message + (validationCode ? ` [validation_code=${validationCode}]` : "")), { failureCode });
 }
 
 function confirmedConfigurationError(status: number, detail: string) {
@@ -276,17 +277,17 @@ async function callOpenAiVision(model: ModelRow, text: string, segments: readonl
   }, visionRequestTimeout(model, deadlineAt));
   if (!response.ok) throw modelCallError("视觉", response.status, data, response.headers.get("retry-after"));
   if (data?.error) throw visionFailure(`视觉模型响应包含供应商错误：${modelErrorDetail(data) || "未产生识别结果"}`, confirmedConfigurationError(400, modelErrorDetail(data)) ? "model_configuration" : "model_response");
-  if (!Array.isArray(data?.choices) || data.choices.length !== 1) throw visionFailure("视觉模型响应 choices 无效", "model_response");
+  if (!Array.isArray(data?.choices) || data.choices.length !== 1) throw visionFailure("视觉模型响应 choices 无效", "model_response", "choices_count");
   const choice = data.choices[0];
-  if (!choice || typeof choice !== "object" || Array.isArray(choice)) throw visionFailure("视觉模型响应 choice 无效", "model_response");
-  if (choice.finish_reason === "length") throw visionFailure("视觉模型输出截断（finish_reason=length）", "model_response");
-  if (choice.finish_reason !== "stop") throw visionFailure("视觉模型响应缺少正常完成状态", "model_response");
-  if (!choice.message || choice.message.refusal) throw visionFailure("视觉模型响应未提供可用正文", "model_response");
+  if (!choice || typeof choice !== "object" || Array.isArray(choice)) throw visionFailure("视觉模型响应 choice 无效", "model_response", "choice_shape");
+  if (choice.finish_reason === "length") throw visionFailure("视觉模型输出截断（finish_reason=length）", "model_response", "output_truncated");
+  if (choice.finish_reason !== "stop") throw visionFailure("视觉模型响应缺少正常完成状态", "model_response", "finish_reason");
+  if (!choice.message || choice.message.refusal) throw visionFailure("视觉模型响应未提供可用正文", "model_response", "message_unavailable");
   const contentValue = choice.message.content;
   const answer = typeof contentValue === "string" ? contentValue : Array.isArray(contentValue)
     && contentValue.every((part) => part && typeof part === "object" && part.type === "text" && typeof part.text === "string")
     ? contentValue.map((part) => part.text).join("") : "";
-  if (!answer.trim()) throw visionFailure("视觉模型响应正文为空", "model_response");
+  if (!answer.trim()) throw visionFailure("视觉模型响应正文为空", "model_response", "empty_response");
   return answer;
 }
 
@@ -308,11 +309,11 @@ async function callAnthropicVision(model: ModelRow, text: string, segments: read
   }, visionRequestTimeout(model, deadlineAt));
   if (!response.ok) throw modelCallError("视觉", response.status, data, response.headers.get("retry-after"));
   if (data?.error) throw visionFailure(`Anthropic 视觉模型响应包含供应商错误：${modelErrorDetail(data) || "未产生识别结果"}`, confirmedConfigurationError(400, modelErrorDetail(data)) ? "model_configuration" : "model_response");
-  if (data?.stop_reason === "max_tokens") throw visionFailure("Anthropic 视觉模型输出截断（stop_reason=max_tokens）", "model_response");
-  if (data?.stop_reason !== "tool_use" || !Array.isArray(data.content)) throw visionFailure("Anthropic 视觉模型响应缺少正常工具完成状态", "model_response");
+  if (data?.stop_reason === "max_tokens") throw visionFailure("Anthropic 视觉模型输出截断（stop_reason=max_tokens）", "model_response", "output_truncated");
+  if (data?.stop_reason !== "tool_use" || !Array.isArray(data.content)) throw visionFailure("Anthropic 视觉模型响应缺少正常工具完成状态", "model_response", "stop_reason");
   const tools = data.content.filter((part) => part?.type === "tool_use");
   const tool = tools[0];
-  if (tools.length !== 1 || tool?.name !== "submit_market_sku_annotation" || !tool.input) throw visionFailure("Anthropic 视觉模型没有返回唯一结构化工具结果", "model_response");
+  if (tools.length !== 1 || tool?.name !== "submit_market_sku_annotation" || !tool.input) throw visionFailure("Anthropic 视觉模型没有返回唯一结构化工具结果", "model_response", "tool_result");
   return tool.input;
 }
 
@@ -335,19 +336,24 @@ function visionRequestTimeout(model: ModelRow, deadlineAt?: number) {
 function validateVisionOutput(raw: unknown, segments: readonly string[]) {
   let value = raw;
   if (typeof raw === "string") {
-    try { value = JSON.parse(raw); } catch { throw visionFailure("视觉模型没有返回严格 JSON", "model_response"); }
+    try { value = JSON.parse(raw); } catch { throw visionFailure("视觉模型没有返回严格 JSON", "model_response", "invalid_json"); }
   }
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw visionFailure("视觉模型结果必须是 JSON 对象", "model_response");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw visionFailure("视觉模型结果必须是 JSON 对象", "model_response", "object_shape");
   const record = value as Record<string, unknown>;
   const required = ["segment", "image_price_yuan", "price_type", "price_low_yuan", "price_high_yuan", "confidence", "reason"];
-  if (Object.keys(record).length !== required.length || required.some((key) => !Object.hasOwn(record, key))) throw visionFailure("视觉模型结果字段与严格 schema 不一致", "model_response");
-  if (typeof record.segment !== "string" || !segments.includes(record.segment)) throw visionFailure("视觉模型品类枚举无效", "model_response");
-  if (typeof record.price_type !== "string" || !(marketAiPriceTypes as readonly string[]).includes(record.price_type)) throw visionFailure("视觉模型价格类型无效", "model_response");
+  if (Object.keys(record).length !== required.length || required.some((key) => !Object.hasOwn(record, key))) throw visionFailure("视觉模型结果字段与严格 schema 不一致", "model_response", "schema_fields");
+  if (typeof record.segment !== "string" || !segments.includes(record.segment)) throw visionFailure("视觉模型品类枚举无效", "model_response", "segment_enum");
+  if (typeof record.price_type !== "string" || !(marketAiPriceTypes as readonly string[]).includes(record.price_type)) throw visionFailure("视觉模型价格类型无效", "model_response", "price_type_enum");
   for (const key of ["image_price_yuan", "price_low_yuan", "price_high_yuan"]) {
     const price = record[key];
-    if (price !== null && (typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 1_000_000)) throw visionFailure("视觉模型价格必须是数字或 null", "model_response");
+    if (price !== null && (typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 1_000_000)) throw visionFailure("视觉模型价格必须是数字或 null", "model_response", key === "image_price_yuan" ? "image_price_value" : key === "price_low_yuan" ? "price_low_value" : "price_high_value");
   }
-  if (typeof record.confidence !== "number" || !Number.isFinite(record.confidence) || record.confidence < 0 || record.confidence > 1 || typeof record.reason !== "string") throw visionFailure("视觉模型 confidence 或证据类型无效", "model_response");
+  if (typeof record.confidence !== "number" || !Number.isFinite(record.confidence) || record.confidence < 0 || record.confidence > 1) throw visionFailure("视觉模型 confidence 类型或范围无效", "model_response", "confidence_value");
+  if (typeof record.reason !== "string") throw visionFailure("视觉模型证据类型无效", "model_response", "reason_type");
+  if (record.price_type === "明确无标价") {
+    if ([record.image_price_yuan, record.price_low_yuan, record.price_high_yuan].some((price) => price !== null)) throw visionFailure("明确无标价缺少充分证据或价格不为空", "model_response", "no_price_not_null");
+    if (record.confidence < 0.9 || !record.reason.trim()) throw visionFailure("明确无标价缺少充分证据或价格不为空", "model_response", "no_price_evidence");
+  }
 }
 
 function annotationJsonSchema(segments: readonly string[]) {
@@ -371,7 +377,7 @@ async function fetchJsonLimited<T>(url: string, init: RequestInit, timeoutMs: nu
     const bytes = await readBodyLimited(response, MODEL_RESPONSE_MAX_BYTES);
     let data: T | null = null;
     try { data = JSON.parse(new TextDecoder().decode(bytes)) as T; } catch {
-      if (response.ok) throw visionFailure("模型响应不是有效 JSON", "model_response");
+      if (response.ok) throw visionFailure("模型响应不是有效 JSON", "model_response", "response_json");
     }
     return { response, data };
   } catch (error) {

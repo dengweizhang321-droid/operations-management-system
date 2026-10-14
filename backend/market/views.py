@@ -3,11 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from time import monotonic
 from collections.abc import Callable
 from datetime import timedelta
 
 from django.db import connection, transaction
+from django.core.exceptions import ValidationError
 from django.http import HttpRequest, JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
@@ -20,7 +22,7 @@ from .consumers import execute_consumer_query, validate_consumer_request
 from .errors import MarketApiError
 from .images import execute_image_command, execute_image_query
 from .import_service import import_market_payload
-from .models import MarketWriteRequestReceipt
+from .models import MarketWriteRequestReceipt, MarketMasterAuditLog
 from .projection import execute_projection_command
 from .query import daily_coverage, filter_options, item_trend, overview
 from .revisions import assert_write_authority, revision_value
@@ -28,6 +30,73 @@ from .read_health import record as record_read_health
 
 
 logger = logging.getLogger(__name__)
+
+
+def _control_command(raw: object) -> dict[str, object]:
+    keys = {"action", "jobId", "state", "expectedControlVersion", "operationId"}
+    if not isinstance(raw, dict) or set(raw) != keys or raw.get("action") != "set_cloud_run_state":
+        raise MarketApiError("恢复控制命令字段无效")
+    if (not isinstance(raw["jobId"], str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", raw["jobId"])
+            or not isinstance(raw["state"], str) or raw["state"] not in {"running", "paused"}
+            or not isinstance(raw["operationId"], str) or not re.fullmatch(r"[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}", raw["operationId"])
+            or not isinstance(raw["expectedControlVersion"], str) or not re.fullmatch(r"[a-f0-9]{64}", raw["expectedControlVersion"])):
+        raise MarketApiError("恢复控制命令身份或版本无效")
+    return {key: raw[key] for key in ("action", "jobId", "state", "expectedControlVersion", "operationId")}
+
+
+def _control_operation_query(request: HttpRequest, principal: Principal, payload: dict) -> JsonResponse:
+    if set(payload) != {"contractVersion", "command"}:
+        raise MarketApiError("控制回执查询字段无效")
+    command = _control_command(payload["command"])
+    request_id = "annotation-control-" + command["operationId"]
+    expected_body = {"contractVersion": "market-command-v1", "domain": "annotations", "command": command}
+    body_digest = hashlib.sha256(json.dumps(expected_body, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
+    result = {"outcome": "unknown", "operationId": command["operationId"], "requestId": request_id,
+              "jobId": command["jobId"], "targetState": command["state"]}
+    with transaction.atomic():
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL transaction_read_only = on")
+                cursor.execute("SET LOCAL statement_timeout = '3000ms'")
+                cursor.execute("SET LOCAL lock_timeout = '1000ms'")
+        assert_write_authority()
+        receipt = MarketWriteRequestReceipt.objects.filter(request_id=request_id).first()
+        if receipt is None:
+            return _json(result, revision=revision_value())
+        if receipt.actor_email != principal.email.strip().lower():
+            raise PrincipalEnvelopeError("无权核实此控制请求", status=403, code="access_denied")
+        if (receipt.body_sha256 != body_digest or receipt.query_sha256 != hashlib.sha256(b"").hexdigest()
+                or receipt.method != "POST" or receipt.path != "/api/market/commands"):
+            return _json(result, revision=revision_value())
+        if receipt.status == "processing":
+            return _json({**result, "outcome": "processing"}, revision=revision_value())
+        response = receipt.response_payload
+        if receipt.status != "completed" or not isinstance(response, dict) or receipt.completed_at is None:
+            return _json(result, revision=revision_value())
+        if response.get("controlOutcome") == "rejected" and 400 <= receipt.response_status < 500:
+            return _json({**result, "outcome": "rejected", "code": response.get("code"), "error": response.get("error")}, revision=revision_value())
+        value = response.get("result")
+        if not (receipt.response_status == 200 and response.get("ok") is True and isinstance(value, dict)
+                and value.get("operationId") == command["operationId"] and value.get("requestId") == request_id
+                and value.get("jobId") == command["jobId"] and value.get("targetState") == command["state"]
+                and value.get("beforeControlVersion") == command["expectedControlVersion"]
+                and isinstance(value.get("afterControlVersion"), str) and re.fullmatch(r"[a-f0-9]{64}", value["afterControlVersion"])
+                and isinstance(value.get("resumeAccepted"), bool) and isinstance(value.get("quarantinedExpiredClaims"), bool)
+                and value.get("effectiveState") in {"running", "paused", "completed"}):
+            return _json(result, revision=revision_value())
+        try:
+            audit = MarketMasterAuditLog.objects.filter(id=value.get("auditId"), entity_id=command["jobId"],
+                entity_type="market_annotation_cloud_run", action="set_market_annotation_cloud_run_state",
+                actor_email=principal.email.strip().lower()).first()
+        except (ValueError, TypeError, ValidationError):
+            audit = None
+        if audit is None or any(audit.after_json.get(key) != value.get(key) for key in
+                ("operationId", "requestId", "jobId", "targetState", "beforeControlVersion", "afterControlVersion", "effectiveState", "resumeAccepted")):
+            return _json(result, revision=revision_value())
+        safe_keys = ("operationId", "requestId", "jobId", "targetState", "beforeControlVersion", "afterControlVersion",
+                     "effectiveState", "resumeAccepted", "quarantinedExpiredClaims", "auditId")
+        return _json({**result, "outcome": "succeeded", "result": {**{key: value[key] for key in safe_keys},
+                      "committedAt": receipt.completed_at.isoformat()}}, revision=revision_value())
 
 
 @require_GET
@@ -174,10 +243,14 @@ def _replay_fenced_write(
     callback: Callable[[], tuple[dict[str, object], int]],
     *,
     atomic_completion: bool = False,
+    control: dict[str, object] | None = None,
 ) -> JsonResponse:
+    started = monotonic()
     request_id = request.headers.get("X-Teruisi-Request-Id", "").strip()
     body_digest = request.headers.get("X-Teruisi-Content-SHA256", "").strip().lower()
     query_digest = hashlib.sha256(request.META.get("QUERY_STRING", "").encode()).hexdigest()
+    if control:
+        logger.info("Market control phase=received request=%s", request_id)
 
     def same_binding(receipt: MarketWriteRequestReceipt) -> bool:
         return (
@@ -218,6 +291,8 @@ def _replay_fenced_write(
             path=request.path,
             actor_email=principal.email.strip().lower(),
         )
+    if control:
+        logger.info("Market control phase=receipt_created request=%s elapsed_ms=%.3f", request_id, (monotonic() - started) * 1000)
 
     try:
         if atomic_completion:
@@ -237,15 +312,26 @@ def _replay_fenced_write(
                 receipt.response_status = status
                 receipt.response_payload = payload
                 receipt.completed_at = timezone.now()
+                if control and isinstance(payload.get("result"), dict):
+                    payload["result"]["committedAt"] = receipt.completed_at.isoformat()
+                    receipt.response_payload = payload
                 receipt.save()
-                return _json(payload, status, revision=revision_value())
+                response = _json(payload, status, revision=revision_value())
+            if control:
+                logger.info("Market control phase=committed request=%s elapsed_ms=%.3f", request_id, (monotonic() - started) * 1000)
+            return response
         payload, status = callback()
-    except Exception:
+    except Exception as error:
         with transaction.atomic():
             _lock_request_id(request_id)
-            MarketWriteRequestReceipt.objects.filter(
-                request_id=request_id, status="processing"
-            ).delete()
+            receipts = MarketWriteRequestReceipt.objects.filter(request_id=request_id, status="processing")
+            if control and isinstance(error, MarketApiError) and 400 <= error.status < 500:
+                # The callback transaction has rolled back. Persist only a known
+                # business rejection, never a transport/commit failure.
+                receipts.update(status="completed", response_status=error.status, completed_at=timezone.now(),
+                    response_payload={"error": str(error), "code": error.code, "controlOutcome": "rejected"})
+            else:
+                receipts.delete()
         raise
 
     with transaction.atomic():
@@ -327,6 +413,8 @@ def commands(request: HttpRequest) -> JsonResponse:
     try:
         preliminary = _principal(request, {"operator", "admin"})
         payload = _body(request)
+        if payload.get("contractVersion") == "market-annotation-control-query-v1":
+            return _control_operation_query(request, preliminary, payload)
         if set(payload) != {"contractVersion", "domain", "command"}:
             raise MarketApiError("市场写命令字段集合无效")
         if payload["contractVersion"] != "market-command-v1":
@@ -336,6 +424,9 @@ def commands(request: HttpRequest) -> JsonResponse:
         if domain not in {"master", "annotations", "images", "projection"} or not isinstance(command, dict):
             raise MarketApiError("市场写命令领域无效")
         action = command.get("action")
+        control = _control_command(command) if action == "set_cloud_run_state" and "operationId" in command else None
+        if control and request.headers.get("X-Teruisi-Request-Id") != "annotation-control-" + control["operationId"]:
+            raise MarketApiError("控制请求标识绑定无效")
         admin_required = domain in {"master", "images", "projection"} or action in ADMIN_ANNOTATION_ACTIONS
         principal = preliminary if not admin_required else _principal(request, {"admin"})
 
@@ -357,6 +448,7 @@ def commands(request: HttpRequest) -> JsonResponse:
             principal,
             execute,
             atomic_completion=True,
+            control=control,
         )
     except Exception as error:
         return _error(error, "市场写命令执行失败")

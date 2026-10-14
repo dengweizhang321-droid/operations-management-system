@@ -5,6 +5,7 @@ import {
   salesGatewayBodySha256,
 } from "@/lib/django/sales-gateway";
 import { PublicApiError } from "@/lib/http/api-error";
+import { annotationControlCommand, annotationControlRequestId, type AnnotationControlCommand } from "@/lib/market/annotation-control-contract";
 
 export const MARKET_QUERIES_PATH = "/api/market/queries";
 export const MARKET_CONSUMER_QUERY_PATH = "/api/market/consumers/query";
@@ -282,6 +283,16 @@ export function createDjangoMarketService(config?: DjangoMarketServiceConfig) {
       options: Omit<DjangoMarketServiceOptions, "config"> = {},
     ) => requestDjangoMarketService<T>(principal, input, { ...options, config }),
   };
+}
+
+export async function requestAnnotationControl<T>(principal: AppPrincipal, raw: AnnotationControlCommand,
+  queryOnly: boolean, options: DjangoMarketServiceOptions = {}) {
+  const command = annotationControlCommand(raw);
+  return requestDjangoMarketService<T>(principal, {
+    path: MARKET_COMMANDS_PATH, service: "writer",
+    payload: queryOnly ? { contractVersion: "market-annotation-control-query-v1", command }
+      : { contractVersion: "market-command-v1", domain: "annotations", command },
+  }, { ...options, ...(!queryOnly ? { requestId: () => annotationControlRequestId(command) } : {}) });
 }
 
 /** A fixed read-only endpoint; existing POST query/command contracts stay closed. */
