@@ -299,12 +299,26 @@ function assertEmptyPlan(plan: EmptyPlan, executionId: string) {
     || plan.baseUrl !== "http://localhost:3000" || plan.runDate !== jackyunCaptureDate(plan.createdAt)
     || plan.asOfDate !== date.toISOString().slice(0, 10)) throw new Error("原计划不属于无业务结果的首次登录失败。");
 }
+function isApiPreflightNodeSequence(nodes: string[]) {
+  const claim = "helper 领取成功？", plan = "A·固定采集日和销售日期";
+  const queue = "等待前序流程释放 helper", check = `${plan}·恢复等待？`, wait = `${plan}·等待原任务`;
+  const index = (name: string) => nodes.indexOf(name);
+  if (new Set(nodes).size !== nodes.length) return false;
+  if (nodes.includes(check) && !(index(check) > index(plan) && index(check) < index(apiDownloadNode))) return false;
+  if (nodes.includes(wait) && !(nodes.includes(check) && index(wait) > index(check) && index(wait) < index(apiDownloadNode))) return false;
+  if (nodes.includes(queue) && !(index(queue) > index(claim) && index(queue) < index(apiDownloadNode)
+    && (index(queue) < index(plan) || (nodes.includes(wait) && index(queue) > index(wait))))) return false;
+  // Only published non-business wrappers may be removed for shape matching.
+  // The original sequence remains in the hashed evidence; all effect checks remain mandatory.
+  const businessNodes = nodes.filter(name => ![queue, check, wait].includes(name));
+  const expected = [nodes[0], "领取共享 helper", claim, plan, apiDownloadNode];
+  return isDeepStrictEqual(businessNodes, expected)
+    || isDeepStrictEqual(businessNodes, [nodes[0], "固定原执行计划时间", ...expected.slice(1)]);
+}
 function assertEmptyApiChallengePlan(plan: EmptyPlan & { exportTransport?: string }, executionId: string, evidence: PreflightEvidence,
   errorAllowed: (error: string) => boolean = (error) => error === apiLoginChallengeFailure || error === apiBrowserOccupiedFailure) {
   jackyunSalesPeriod(plan.asOfDate, plan.salesStartDate);
   const date = new Date(`${plan.runDate}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - 1);
-  const expectedRunNodes = [evidence.runNodes[0], "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", apiDownloadNode];
-  const expectedRunNodesWithScheduledAt = [evidence.runNodes[0], "固定原执行计划时间", ...expectedRunNodes.slice(1)];
   if (![1, 2].includes(plan.version) || (plan.version === 2 ? plan.salesStartDate === undefined : plan.salesStartDate !== undefined)
     || plan.protocol !== jackyunExportFirstPolicyVersion || plan.executionId !== executionId
     || plan.runId !== `n8n-export-first-${executionId}` || plan.phase !== "exporting" || plan.exportTransport !== "session_api_v1"
@@ -316,8 +330,7 @@ function assertEmptyApiChallengePlan(plan: EmptyPlan & { exportTransport?: strin
     || evidence.executionId !== executionId || evidence.workflowId !== jackyunWorkflowId || evidence.status !== "error"
     || evidence.retrySuccessId !== null || evidence.activeExecutions !== 0 || evidence.lastNode !== apiDownloadNode
     || !apiPlanTriggers.has(evidence.runNodes[0] ?? "")
-    || (!isDeepStrictEqual(evidence.runNodes, expectedRunNodes)
-      && !isDeepStrictEqual(evidence.runNodes, expectedRunNodesWithScheduledAt))
+    || !isApiPreflightNodeSequence(evidence.runNodes)
     || !errorAllowed(evidence.error) || evidence.httpCode !== "500"
     || evidence.requestUrl !== "http://127.0.0.1:5791/jackyun/export-first/export-all"
     || !/^[a-f0-9]{64}$/.test(evidence.executionDataSha256)
