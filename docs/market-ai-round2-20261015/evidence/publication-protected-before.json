@@ -1,0 +1,236 @@
+{
+  "observedAt": "2026-10-14T19:30:41.731145+00:00",
+  "source": "market reader; REPEATABLE READ READ ONLY",
+  "jobId": "market-annotation-job-45660b50-598a-4f29-b097-38f3749322ad",
+  "protected": [
+    {
+      "identityDigest": "30ac970f4e69f62d9adf2a1f950b7da6b0b72658547b327ba527d90b6cf84e4f",
+      "rowSha256": "6fee93a4adea7a33151d6742e7b1387ed69b507180e17fe602ff056ef169333e",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "e561584de4a8e1a4141d23a730c9a0fdfadc5b12985730ee32cdb9c953f1ac1a",
+      "rowSha256": "2dd92883c2fa6774c2a24aca0092c585eb9ef31c15303a6589af749ebc89be2b",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "a09af6aad8fde06f9297d5db330c095b506e693ed7c95c6f30987ce0ef36b483",
+      "rowSha256": "3d0f27b5cb3add23942999347202c2fdfa00cc6eacd3e454c7c2a2310c530343",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "da38e6fbb6e73ba48adaf1cce476a5f3b6ad108590f3c50a745186720c6d7543",
+      "rowSha256": "246f7b95eae4192e8c25738d40b11647a0c08f76d46139bd155e02c3264dee36",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "1782197db984696a679aae6f123849e6e1d02fb2b4d7f9ba45332439c2941fa3",
+      "rowSha256": "fbd882fea8879cb8638ede71d1c1f22cfb5737df2c5642c8946e1dadbed65da4",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "6cfe0829812fd765205ee4dded05796510d31f2c6cfc11568b41a215e155a652",
+      "rowSha256": "0bccd7470479c0e5e4ae254e64803af24eeee5f1118f4aa8264cd488197271da",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "1a62f8b1c71c179e8639e0b0411d32c0fc489e1bfa0ae972b8002c63dd4849cb",
+      "rowSha256": "83109c3c91694705f43e719acb8edf5e140119971208133d9f63fa255fb79d0d",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "0cebe4f21b3afdd95f90f6984709c8354f6e0b0561d293f4152c4ac62125f3e6",
+      "rowSha256": "8c2a13a3a698e51e809a260e0f0b2526b0ff717eae768a8bdf9153332d4fbe6f",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "e9f8ddcb2812c441b565a9d4a195f559de4926cd93ccb191e67e8afa438c4237",
+      "rowSha256": "8e8d21c6929cc438f706fa29c4a1996c484737b7c1223a9a7e7f7c7778d963d6",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "26b350cda03da09db13d20092b92e06fa849bd173c75526e8db1bbffd790fee8",
+      "rowSha256": "26069ee10b7d35b11114a5d82cf52f26ae9a1df0c274edb46cdccbe810a2dd81",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "abadb4e08988231774b239f40000453b665ad24cca71c787e7f3f7a7e4782d60",
+      "rowSha256": "67db1a4eff1049d8ce6b2e27a3b0126dd6cf99f663105260c0d8d3be7610b7ea",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "f6ece66ef37e541b1a7feb68c7e5a701acaae7c5913bf877baffb28fe46d5ba8",
+      "rowSha256": "da25222b558429b338839ed922a6e8d4d4766a5bf98d871f9f8486ac614233c4",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "a1e406235907eb6dd092d44a84309d3a1b9e20f962244fa4aea8dc23418c7ff2",
+      "rowSha256": "243e737285dea1f3aeaf4763db33918ebcf9fbc26bc9771cb1582e1528be202e",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "c0a2cd9607cd6f30ae697913f58703144da54d74b5d1efbfecd312e65f4fb68b",
+      "rowSha256": "735f1144916a1ef3de8a731c5b0a5e141ade3587fa4d6a9c28ad6203707480da",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "49c450d12822aabb65419f19607e30603a0d18a0cfc89124e05cad93e051d7e9",
+      "rowSha256": "1d1733058da46417d3c45d8d108346430aa3569b45bbdda6844dc92fafcda46c",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "015de7d0d935e4eb450fbff32ae9db960b73af8adb1a6ede3b0e4f59f0bc2205",
+      "rowSha256": "4d37d8b7d381cd3d1d2b188d144f519e5f797a0295bde918425050f1f6079476",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "5dccea9425562d380f2d7183abbf16a3eb170b1c3194a03ef91591adf0d4dba2",
+      "rowSha256": "9eabdf9f45ecb3683acebcb4e783bd8051e7252cc911627309a543ac9a98a058",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "edad3358c72798ba39bf1ca4b874cab24faea80163cd4f255867214e9fd2192b",
+      "rowSha256": "35de7e1d7d951ea745c8666727a2de0c3a8312acf75b4102848a6f575cdda4e6",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "6d6a0b060fbb0247958ea12b5cbc7f771965b1e142f471dd8d3c1d63b0064ce6",
+      "rowSha256": "0ca6565fe9b7166fc823cb7d75d000f4275c2e53d1e4681fda9992a43f7c7bce",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "13be20087d2dccdf269e2cf54b781de49c671984af3cbb46205a36fa1fb3ffdc",
+      "rowSha256": "f7571fd357f3f763c6a85c469c25fbead451f51ca8d1906f78f1081f122c7ae6",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "7680b49c3362180461f5703127bdd16787ca889be785c7fe06989461b9830e7e",
+      "rowSha256": "4042aed738d4dae02634463a4b0f204782499a97744d488875c0240b8dd3664e",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "f361fd790b0ddb2be31194e2a0a68a48127bcfc9a429f175bbec70807b49837e",
+      "rowSha256": "2cf5f4a0ce60e6b3db998f9c5cdc9837fc1a5312948f5e3ce952050d6fc2f549",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "f7c089cf4ce27a4c2dc6f23e5042c5c6d7f3856069a35a3193bdda5a065e4587",
+      "rowSha256": "af8eb7486a4e2da7194f2eb614ec746e60b36dd32999b5e800902452fd30d9f4",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "395a5fefde172eb693f410cf11a5d67a5628b69cdaffe4386a467d18074db02c",
+      "rowSha256": "4c9db70a78ddae93f046704eb9f769b670f2ef92f09cfe7fe8c36bdbedc6366f",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "d3fdb1f6013f197530855e0f05a8c88060b983eb95c7347ab56ca59ca047b667",
+      "rowSha256": "d4452bc367893a8f5533d3ce3c00a3352a0bb7481e82f3be79f51da33e46b92c",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    },
+    {
+      "identityDigest": "9f70ab3cefc84a59314c44b06c02f581fe43ee5cdb8a3e5dfee0f36dce5b4e1c",
+      "rowSha256": "2d832260985bcd6d98a58c3a2f9715443bc63014c9bf2a8dc5c88f74b6547588",
+      "status": "failed",
+      "attemptCount": 3,
+      "hasLease": false,
+      "leaseExpiresAt": null
+    }
+  ],
+  "protectedEventsSinceResume": [],
+  "states": [
+    [
+      "failed",
+      77,
+      77
+    ],
+    [
+      "review_pending",
+      8481,
+      0
+    ]
+  ],
+  "job": [
+    "review_ready",
+    8558,
+    8481,
+    77,
+    0,
+    0
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "temporaryProtected": false,
+  "groupSame": true,
+  "targetProtected": false,
+  "targetRedacted": "O:<SID>G:<SID>D:(A;ID;FA;;;BA)(A;ID;FA;;;SY)(A;ID;0x1301bf;;;AU)(A;ID;0x1200a9;;;BU)",
+  "ownerSame": true,
+  "temporaryRedacted": "O:<SID>G:<SID>D:AI(A;ID;FA;;;BA)(A;ID;FA;;;SY)(A;ID;0x1301bf;;;AU)(A;ID;0x1200a9;;;BU)"
+}

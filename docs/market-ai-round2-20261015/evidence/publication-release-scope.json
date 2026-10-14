@@ -1,0 +1,370 @@
+{
+  "version": "teruisi-scoped-release-plan-v1",
+  "baseSha": "86fa943dceef009c674a0ea46573101c76787016",
+  "headSha": "d3c664cd18ada5eaf6a5a1d376e4681db47919ca",
+  "changes": [
+    {
+      "status": "M",
+      "path": "app/api/market/annotations/route.ts"
+    },
+    {
+      "status": "M",
+      "path": "app/market-annotation-view.tsx"
+    },
+    {
+      "status": "A",
+      "path": "backend/market/annotation_planning.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/market/annotations.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/market/test_annotation_diagnostics_round2.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/market/test_annotation_planning_round2.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/market/test_annotation_resume_round2.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/market/tests/test_annotation_priority.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/market/views.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/DESIGN_P0.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/FACTS.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/INDEPENDENT_REVIEW.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/PLANNING_REUSE.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/PRODUCTION.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/PROMPT_REVIEW.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/RESUME.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/TASK.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/candidates/CLASSIFICATION_OPTIONS.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/candidates/netwater-A-current11.txt"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/candidates/netwater-B-price-only.txt"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/.gitattributes"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/affected-lint.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/browser-rehearsal.mjs"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/browser-result.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/current-backup-verify.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/final-application-source.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/integration-blocker-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/integration-pg-initial-label-error.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-archived-source-result.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-archived-source-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-benchmark-initial-invalid-sql-count.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-benchmark.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-domain-combination-result.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-domain-combination-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-full-rehearsal-result.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-full-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-incremental-rehearsal-result.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-incremental-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-initial-fixture-failures.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-initial-missing-dependency.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-integration.patch"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-rehearsal-initial-result.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-rehearsal-result.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-rehearsal.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-source-manifest.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/prompt-taxonomy-current.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/resume-final-lifecycle.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/resume-final-pg.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/resume-lint.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/resume-pg-harness.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/resume-role-probe.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/resume-source-manifest.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/resume-ts-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-format-only-result.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-format-only.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-freeze-result.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-freeze.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-archive-fence-recheck.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-archived-source.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-initial.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-result.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-revision-check.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-unknown-combination.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-unknown-fence-recheck.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-p0-initial-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-p0-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-pg-rehearsal.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/review-pg-result.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-round2-20261015/evidence/worker-targeted-tests.log"
+    },
+    {
+      "status": "M",
+      "path": "lib/django/market-service.ts"
+    },
+    {
+      "status": "A",
+      "path": "lib/market/annotation-control-channel.ts"
+    },
+    {
+      "status": "A",
+      "path": "lib/market/annotation-control-contract.ts"
+    },
+    {
+      "status": "M",
+      "path": "lib/market/annotation-model.ts"
+    },
+    {
+      "status": "A",
+      "path": "tests/market-annotation-control.test.ts"
+    },
+    {
+      "status": "M",
+      "path": "tests/market-vision-adapter.test.ts"
+    },
+    {
+      "status": "M",
+      "path": "tools/worker-local-release-rotation.mjs"
+    }
+  ],
+  "scope": "full",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "migrate": false,
+  "databaseProtection": "verified-current",
+  "validation": [
+    "git-diff-check",
+    "worker-affected-tests",
+    "worker-lint",
+    "worker-production-build",
+    "backend-boundary",
+    "django-affected-tests",
+    "django-system-check",
+    "migration-dry-run"
+  ],
+  "packaging": [
+    "prepare-worker-immutable-release",
+    "prepare-django-app"
+  ],
+  "deployment": [
+    "verify-current-database-backup",
+    "activate-worker-release",
+    "deploy-django-app",
+    "verify-startup",
+    "verify-affected-function"
+  ],
+  "domains": [
+    "market"
+  ],
+  "unknown": [],
+  "reasons": [
+    "Worker/API:app/api/market/annotations/route.ts",
+    "前端:app/market-annotation-view.tsx",
+    "后端:backend/market/annotation_planning.py",
+    "后端:backend/market/annotations.py",
+    "后端:backend/market/test_annotation_diagnostics_round2.py",
+    "后端:backend/market/test_annotation_planning_round2.py",
+    "后端:backend/market/test_annotation_resume_round2.py",
+    "后端:backend/market/tests/test_annotation_priority.py",
+    "后端:backend/market/views.py",
+    "共享运行库:lib/django/market-service.ts",
+    "共享运行库:lib/market/annotation-control-channel.ts",
+    "共享运行库:lib/market/annotation-control-contract.ts",
+    "共享运行库:lib/market/annotation-model.ts",
+    "测试:tests/market-annotation-control.test.ts",
+    "测试:tests/market-vision-adapter.test.ts",
+    "运行或发布工具:tools/worker-local-release-rotation.mjs"
+  ],
+  "planSha256": "d072887cd8fe42eea5329bd4e9efe7334ddd7613adb708747f376ab5e5e5d97e"
+}

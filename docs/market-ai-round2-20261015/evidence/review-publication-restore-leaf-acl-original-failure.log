@@ -1,0 +1,8 @@
+Guard ACL changed during replacement
+所在位置 D:\.codex\worktrees\market-ai-round2-20261015\运营管理系统\.runtime\review-guard-leaf-3c8e924e09c044e0a80befaa
+115bff1b\private-prior-acl-failure.ps1:43 字符: 75
++ ... ne $taskOriginalAcl) { throw 'Guard ACL changed during replacement' }
++                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Guard ACL changed during replacement:String) [], RuntimeException
+    + FullyQualifiedErrorId : Guard ACL changed during replacement
+ 

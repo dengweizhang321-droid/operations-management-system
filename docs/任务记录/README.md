@@ -66,7 +66,7 @@
 
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
-| `market-ai-round2-20261015` | 10 | [市场AI第二轮回执、无价复用与计划创建](../market-ai-round2-20261015/REPORT.md) |
+| `market-ai-round2-20261015` | 11 | [市场AI第二轮回执、无价复用与计划创建](../market-ai-round2-20261015/REPORT.md) |
 | `market-ai-blockers-django-20261014` | 1 | [市场 AI 标注第一轮阻断修复：Django 子任务](../market-ai-blockers-django-20261014/REPORT.md) |
 | `market-ai-blockers-integration-20261014` | 4 | [市场 AI 标注第一轮阻断修复](../market-ai-blockers-integration-20261014/REPORT.md) |
 | `market-ai-blockers-vision-20261014` | 1 | [市场 AI 标注第一轮阻断修复：视觉适配子任务 B](../market-ai-blockers-vision-20261014/REPORT.md) |

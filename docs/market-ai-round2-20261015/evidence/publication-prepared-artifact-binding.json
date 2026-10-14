@@ -1,0 +1,34 @@
+{
+  "mainCommit": "028804a43bde2598e34c8a2b2668bf014f2e3f6e",
+  "releaseSourceCommit": "d3c664cd18ada5eaf6a5a1d376e4681db47919ca",
+  "mainApplicationHashes": {
+    "app/api/market/annotations/route.ts": "2eb0eb1fec57b9d635ce53c27cc05b2f936eb95159c1595fe9716a36a08e2bc7",
+    "app/market-annotation-view.tsx": "e5bfb930e3c011cc0db1263f389ff4bd248edfa19f482ded7272742a53023aa5",
+    "backend/market/annotations.py": "d5023bf7ab1caf4a2c410edf482795fb2824aebffbeae5e953fa288645750fe5",
+    "backend/market/annotation_planning.py": "294ab5ab12dcf7425425d7ba7c03a0da1bf9ffe4c7d77ca0a15fbba7662e0755",
+    "backend/market/views.py": "d285ba568e585ea55c0648e199d55a73c11d044ed5a85a0ca3bcbbfd8278aea4",
+    "lib/django/market-service.ts": "7b2a50eb021eb779951345e61cfe55ccdd08c6a68a514b506944e6a10b3001e2",
+    "lib/market/annotation-model.ts": "03a56943cb8e07d66472df802f7cda60f7ac9f26480b72148441ee44220b5d6b",
+    "lib/market/annotation-control-channel.ts": "d2bc27c25187a859bbadee926338c8df2329b7bf0a39166356d3f8b2c79495d9",
+    "lib/market/annotation-control-contract.ts": "4152f96aed6e2c13a23b595184768356464dd0397b005521acdda20f65f648df"
+  },
+  "worker": {
+    "candidateReleaseId": "20261014T202834Z-1943995b435ba5c7",
+    "candidateManifestSha256": "f1e8c5a67790535092afdbfd5063f74a3e2918e6b10a19612e914940a5a9639e",
+    "candidateGuardReceiptSha256": "da038e8b20466719228b3b0b1ada26946d497ca7871f491688a9fb59da95dd65",
+    "planSha256": "3475f5b7b1a7c267da78e08fa19f028d385f918a0f7bd2373c1b444056f31736",
+    "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\3475f5b7b1a7c267da78e08fa19f028d385f918a0f7bd2373c1b444056f31736.json"
+  },
+  "django": {
+    "id": "722fdc383e98498f898e135b5d10edbb",
+    "receiptSha256": "e0b6e8892565c88672f56ce3ea4e8480374127821b8bba2e33ad4d5a10686f96",
+    "appFingerprint": "276566a88a3c07b08ee74e036b7532e179032699f55a3ff1a432e9ec0cebecf0"
+  },
+  "scope": "full component preparation; Worker+Django; one previously merged comment binding and market round2",
+  "migrationChanged": false,
+  "allUnrelatedRuntimeBytesUnchanged": true,
+  "sourceBindingSha256": "e06dfee7992e705b90e131d47c0a86109a68bae40554ada2e349b0a883dc1be2",
+  "providerExperimentCalls": 0,
+  "businessAccuracyEstablished": false,
+  "published": false
+}

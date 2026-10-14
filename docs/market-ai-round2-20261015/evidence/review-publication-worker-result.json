@@ -1,0 +1,21 @@
+{
+  "workerRelease": "20261014T202834Z-1943995b435ba5c7",
+  "manifestSha256": "f1e8c5a67790535092afdbfd5063f74a3e2918e6b10a19612e914940a5a9639e",
+  "guardReceiptSha256": "da038e8b20466719228b3b0b1ada26946d497ca7871f491688a9fb59da95dd65",
+  "planSha256": "3475f5b7b1a7c267da78e08fa19f028d385f918a0f7bd2373c1b444056f31736",
+  "sourceBindingSha256": "e06dfee7992e705b90e131d47c0a86109a68bae40554ada2e349b0a883dc1be2",
+  "sourceCommit": "d3c664cd18ada5eaf6a5a1d376e4681db47919ca",
+  "sourceTree": {
+    "algorithm": "sha256-ordinal-path-length-content-v1",
+    "fileCount": 8424,
+    "sha256": "31a248b2c28b3778a181ebf1cee7d73ad1968d458a5b416c872763aa94a1abe6"
+  },
+  "candidateToolExactlyPreservesUserBytes": true,
+  "reviewedApplicationSourcesEqual": 9,
+  "prepareRootOriginalRestored": true,
+  "publisherSha256": "479cf2621cc3d387816c4064c8550f43711e333ce4ece24b6f8ff93d47aaa99b",
+  "earlyOriginalOwnerFence": true,
+  "preparationOnlyNoApply": true,
+  "productionWritesByReviewer": 0,
+  "readyForAuthorizedSwitch": true
+}

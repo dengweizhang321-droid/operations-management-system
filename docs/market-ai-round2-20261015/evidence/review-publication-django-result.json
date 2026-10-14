@@ -1,0 +1,70 @@
+{
+  "preparedId": "722fdc383e98498f898e135b5d10edbb",
+  "receiptSha256": "e0b6e8892565c88672f56ce3ea4e8480374127821b8bba2e33ad4d5a10686f96",
+  "candidateManifestSha256": "79a9d21add467114cc54149e233f6e5310953f3f306b462540c537d8b9ecf10b",
+  "appFingerprint": "276566a88a3c07b08ee74e036b7532e179032699f55a3ff1a432e9ec0cebecf0",
+  "canonicalFingerprintRecomputed": true,
+  "fileCount": 2951,
+  "differences": [
+    {
+      "path": ".wrangler/cache/cf.json",
+      "beforeSha256": "9e81f03148a291a2fdb755f839405d45f1f0562ec3e8ae6de3811bc979bd44ba",
+      "afterSha256": "18dc2d2e695588b89e189b1a6a727c37a3877ff2b3e8632fa60f9b6c5dd65c72"
+    },
+    {
+      "path": "backend/market/annotation_planning.py",
+      "beforeSha256": null,
+      "afterSha256": "294ab5ab12dcf7425425d7ba7c03a0da1bf9ffe4c7d77ca0a15fbba7662e0755"
+    },
+    {
+      "path": "backend/market/annotations.py",
+      "beforeSha256": "d6155dc93314b4611e1499325bcbe1b3791d9263322c008150411e2de7a81cb2",
+      "afterSha256": "d5023bf7ab1caf4a2c410edf482795fb2824aebffbeae5e953fa288645750fe5"
+    },
+    {
+      "path": "backend/market/test_annotation_diagnostics_round2.py",
+      "beforeSha256": null,
+      "afterSha256": "20efcc4242c501836e037c770ad2b44293f5c1318b5e6e042a5a39f61bd50d39"
+    },
+    {
+      "path": "backend/market/test_annotation_planning_round2.py",
+      "beforeSha256": null,
+      "afterSha256": "5b08977de6690b2ffcfa408e41e64fc45c5bf84d11ce279d318f36a7f8f2cebb"
+    },
+    {
+      "path": "backend/market/test_annotation_resume_round2.py",
+      "beforeSha256": null,
+      "afterSha256": "f72e379c7ddc0cb7b088671fa6638cc8df910fd8d233383db18ef162a16fb661"
+    },
+    {
+      "path": "backend/market/views.py",
+      "beforeSha256": "d58afe57263059cee7a86ccc0b92b494e8ff900227e09100e1b85e48d4e19b15",
+      "afterSha256": "d285ba568e585ea55c0648e199d55a73c11d044ed5a85a0ca3bcbbfd8278aea4"
+    },
+    {
+      "path": "deployment.json",
+      "beforeSha256": "a28626fef72a099cd0fd631928a94539668219d2c57da82bbc4d1c32d1226530",
+      "afterSha256": "79a9d21add467114cc54149e233f6e5310953f3f306b462540c537d8b9ecf10b"
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "beforeSha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+      "afterSha256": "7dd49103f5b672dae484d3b5e70207d6644657701a5b6be23c85203cad62b72f"
+    }
+  ],
+  "cfChangedLeaves": [
+    "tlsClientRandom",
+    "tlsExportedAuthenticator.clientHandshake",
+    "tlsExportedAuthenticator.serverHandshake",
+    "tlsExportedAuthenticator.clientFinished",
+    "tlsExportedAuthenticator.serverFinished",
+    "edgeL4.deliveryRate"
+  ],
+  "cfShapeAndLeafTypesEqual": true,
+  "migrationAndUnrelatedBytesEqual": true,
+  "candidateSourceBytesEqual": true,
+  "oldInstalledManifestUnchanged": true,
+  "notDeployed": true,
+  "workerCandidateNotYetReviewed": true,
+  "productionWrites": 0
+}

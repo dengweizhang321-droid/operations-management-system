@@ -1,0 +1,64 @@
+{
+  "restorationScriptSha256": "28e9f77f35e83e1301fed5c836545f60c75d5da4426d163ecae2466ea469c4f4",
+  "guardedPrepareScriptSha256": "fc9b54c583fded2906c8dfcdde4757407470997dddb5c40b82b8f75d0c8db565",
+  "ordinaryUser": true,
+  "checks": [
+    {
+      "case": "current_to_old",
+      "aclMode": "inherited-private",
+      "passed": true,
+      "aclUnchanged": true
+    },
+    {
+      "case": "old_to_original",
+      "aclMode": "inherited-private",
+      "passed": true,
+      "aclUnchanged": true
+    },
+    {
+      "case": "changed_source_refused_before_target_write",
+      "aclMode": "inherited-private",
+      "passed": true,
+      "targetUnchanged": true
+    },
+    {
+      "case": "post_write_failure_rolls_back_with_same_handle",
+      "aclMode": "inherited-private",
+      "passed": true,
+      "targetUnchanged": true
+    },
+    {
+      "case": "current_to_old",
+      "aclMode": "protected-private",
+      "passed": true,
+      "aclUnchanged": true
+    },
+    {
+      "case": "old_to_original",
+      "aclMode": "protected-private",
+      "passed": true,
+      "aclUnchanged": true
+    },
+    {
+      "case": "changed_source_refused_before_target_write",
+      "aclMode": "protected-private",
+      "passed": true,
+      "targetUnchanged": true
+    },
+    {
+      "case": "post_write_failure_rolls_back_with_same_handle",
+      "aclMode": "protected-private",
+      "passed": true,
+      "targetUnchanged": true
+    }
+  ],
+  "fixture": "D:\\.codex\\worktrees\\market-ai-round2-20261015\\运营管理系统\\.runtime\\review-guard-leaf-3c8e924e09c044e0a80befaa115bff1b",
+  "fixtureAdaptation": "only fixed paths/parent allowlist; exact approved SHA literals preserved; post-write failure case explicitly injects a private seam",
+  "replacementMethod": "exclusive-file-handle",
+  "priorReplaceAclFailureReproduced": true,
+  "powershellEnvironment": "fixed native PS5 Modules, matching productionCommandEnvironment; initial inherited Core module-path run failed before Replace",
+  "productionWrites": 0,
+  "productionLifecycleCalls": 0,
+  "realModelCalls": 0,
+  "rawSddlPersisted": false
+}

@@ -1,0 +1,64 @@
+{
+  "reviewDate": "2026-10-15",
+  "status": "passed_conditional_single_recovery",
+  "scope": "First EnterMaintenance unknown reconciliation and three recovery leaves only; prior source and exact artifact reviews reused",
+  "maintenanceId": "21ecd2f7d60b483380d65b56a36a14bc",
+  "originalFailure": {
+    "status": "unknown",
+    "scriptSha256": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "exitCode": 1,
+    "processId": 29268,
+    "engineFailureCode": "worker_gate_failed",
+    "elapsedMs": 34871,
+    "historicalUnderlyingExceptionKnown": false,
+    "mutexBusyIsHypothesisOnly": true
+  },
+  "physicalEvidenceSha256": {
+    "PUBLICATION_STARTED.json": "e1f5f79f968bdaedb0f01f0e7121ad4216f924e69e77d86ffab60edd49c739b9",
+    "EnterMaintenance-started.json": "afe54820371eaf5b3e5bb726c89dcae1da7188d4c51ba7a57168ec66508ce072",
+    "EnterMaintenance-failure.json": "0a6122d98dd7b2a06f22471945d74974d0650dbfdc4f86bf13da5e877fd7cbf7",
+    "publication-guard-restored.json": "b37c78f328b4d63f5e9b0c596682913b1e773106ccd23893dda48fcf95bd93ca"
+  },
+  "frozenRecoveryScriptsSha256": {
+    "publish-recovery1.mjs": "ec8fd8e815cce7a632ac2220b1d890309351e4ced94db26efa9325fdcfd1dbfa",
+    "recovery-preflight.ps1": "56a5b8ea31bbf34c0306f5f7e0479b90987627fb34db6b37ffa14dd6289611ff",
+    "mutex-readiness.ps1": "b3bdd30a5dfb81a9cef351fef8aeb85d3b80c60f842092cdcaf0a62369166d3f"
+  },
+  "independentReadOnlyPreflight": {
+    "at": "2026-10-14T21:14:28.3481630+00:00",
+    "exitCode": 0,
+    "originalProcessExited": true,
+    "originalDirectChildrenAbsent": true,
+    "oldWorkerState": "exact_release",
+    "workerReceiptPayloadSha256": "75bdd328cc505036d9d3622bbc2550ee7c73f44bb1c8be0731dae44abe4203ee",
+    "workerReceiptRawSha256": "4f60db1622b5ca157c04a8b5807e655482892b2c4f0d6220cb64cde6c9138213",
+    "oldWorkerSupervisorPid": 45004,
+    "oldWorkerCreation": "2026-10-14T17:31:14.4978970Z",
+    "djangoManifestSha256": "a28626fef72a099cd0fd631928a94539668219d2c57da82bbc4d1c32d1226530",
+    "djangoAppFingerprint": "abeaee20a07a991e4a725c1cfb633efe6a673eb45153ede332056bc4f3ad3c14",
+    "gatesAndActiveOwnerAbsent": true,
+    "maintenanceIdEventsAbsent": true,
+    "guardSddlSha256": "bcbf364117252a4c31bfb9b6cb9a94f2e5fb5d70aa5ed2d5d98958b1b56dd4ea",
+    "productionStateChanges": 0
+  },
+  "independentGuardRead": {
+    "entrypointCount": 12,
+    "allPhysicalHashesMatchOldReceipt": true,
+    "rotationRootSha256": "ec5254ee24eed93639c2a819037b41356ea6351e7f22c0ba71402b0edc6b1f3a",
+    "activationFenceSha256": "81f5c78b1ccaa7db8ec02b581c53d2a39f0fd4e31f1fc3183ffa0d3125c3f7ac"
+  },
+  "syntaxChecks": { "publisherNode": "passed", "preflightPowerShell": "passed", "readinessPowerShell": "passed" },
+  "causalProof": "BeginMaintenance runs in the failed process. Before the durable helpers gate it only acquires the original mutex and validates identity/application/ACL; manifest resolution is read-only and awaited. WaitAutomationDrain writes its durable helpers gate before helper admission changes, any stop or deployment; exceptions do not delete it. Only exact-owner Cancel/End remove gates, and no such call/event or later Stop/Deploy/apply stage exists. Combined with exited original process, unchanged exact running Worker receipt/lineage and Django bytes, both gates absent and all guard/fence hashes unchanged, first attempt is reconciliable as failed_zero_effect for maintenance and switching. Event absence alone is not the proof.",
+  "requiredAtActualExecution": [
+    "New original rotation lease; active-owner check first; repeat exact old head/chain/all twelve entrypoints and Django/Worker receipt/PID creation preflight",
+    "Preserve first unknown/raw originals; create RECOVERY1_RECONCILIATION.json once inside actual lease with failed_zero_effect and same maintenanceId",
+    "Archive readiness first; busy or abandoned aborts without invoking lifecycle; never hold Django mutex across the child process",
+    "Invoke original EnterMaintenance once with same id and KeepPostgres; no extra root restoration while old bytes match",
+    "Keep original Deploy/Harden/apply/Exit/Start/Verify tuple and gates; original apply restores user bytes; any new unknown stops for exact reconciliation"
+  ],
+  "reviewerExecutedMutexProbe": false,
+  "reviewerProductionWrites": 0,
+  "reviewerProviderCalls": 0,
+  "publicationAlreadyCompletedByThisEvidence": false,
+  "unclosedReproducedBlockers": []
+}
