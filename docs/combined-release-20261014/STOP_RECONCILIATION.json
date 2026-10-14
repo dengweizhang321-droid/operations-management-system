@@ -1,0 +1,20 @@
+{
+  "absentProcessIds": [
+    13860,
+    14840,
+    6656
+  ],
+  "continuation": "same-owner original idempotent EnterMaintenance; no business replay",
+  "originalMaintenanceId": "83411114d3854fe6899422f9b0e494aa",
+  "outcome": "failed-partial-stop",
+  "originalAttempt": "enter-maintenance",
+  "applicationNotDeployed": true,
+  "absentPorts": [
+    3000,
+    5791,
+    8041,
+    8042
+  ],
+  "failurePreserved": true,
+  "at": "2026-10-14T13:08:41.2746083+00:00"
+}

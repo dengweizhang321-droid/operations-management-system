@@ -1,0 +1,11 @@
+{
+  "status": "planned",
+  "version": "teruisi-local-worker-release-rotation-plan-v1",
+  "planSha256": "31f08ca440cb6bd7e8c84da139ce7e370e1dabba7c6b318b97ec960b2e726158",
+  "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\31f08ca440cb6bd7e8c84da139ce7e370e1dabba7c6b318b97ec960b2e726158.json",
+  "predecessorReleaseId": "20261014T045841Z-0084b48bfe8257bf",
+  "candidateReleaseId": "20261014T124800Z-49f5ec9db80e195b",
+  "candidateManifestSha256": "f99c40b1b12abdf84d597f914ef50624139eb80279063cfb600040bf62cd1f7e",
+  "candidateGuardReceiptSha256": "3fa016ef534b5555646e1887013c0006bb9c615f81d2b0e67641c02013307738",
+  "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+}

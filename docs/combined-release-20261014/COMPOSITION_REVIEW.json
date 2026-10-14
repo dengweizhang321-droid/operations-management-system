@@ -1,0 +1,128 @@
+{
+  "sourceCommit": "fa711c5a8679b3c8e28fafa217d5117552c30e65",
+  "checks": [
+    {
+      "path": "app/api/products/summary/route.ts",
+      "reference": "8b18ba22",
+      "sha256": "ab62ad4ac7c5148698383396acfa618ec6fe945da4a536eb14dcd0f7f94cf159"
+    },
+    {
+      "path": "app/globals.css",
+      "reference": "8b18ba22",
+      "sha256": "9ffc35b71412e04ff2cd00be03076fd451030582077c6f98df5be483189863ce"
+    },
+    {
+      "path": "app/product-module-view.tsx",
+      "reference": "8b18ba22",
+      "sha256": "61c25b94403f046c3511b69ff592eb4c2c233d49f901fa87cbb64ffec35e3032"
+    },
+    {
+      "path": "backend/products/combinations.py",
+      "reference": "8b18ba22",
+      "sha256": "7fad73aefafaed382483298601147875c4cb3f0bb8f70417c3d583a6d5a70435"
+    },
+    {
+      "path": "backend/products/query.py",
+      "reference": "8b18ba22",
+      "sha256": "39ed5cc05c2dcccc7123abf5ebc0f91ed430aa7ab8e41f1b7023c7e09bdd9404"
+    },
+    {
+      "path": "backend/products/summary_cache.py",
+      "reference": "8b18ba22",
+      "sha256": "334d462abdd8053c4659db7ae137125ef1962b7b634506b74cfd055662422fca"
+    },
+    {
+      "path": "backend/products/views.py",
+      "reference": "8b18ba22",
+      "sha256": "04044770937f69999f6c3c3a55c8a13eb68d593ada213db5474488a1670eb19b"
+    },
+    {
+      "path": "lib/products/query-contract.ts",
+      "reference": "8b18ba22",
+      "sha256": "10aa66ca0dac66d0d428bd5dc8b653b7e7eaebddb149764b129884bca1c77358"
+    },
+    {
+      "path": "lib/products/read-contract.ts",
+      "reference": "8b18ba22",
+      "sha256": "8a630a8a7fabfc95cde10656e6933f151591d7133dd63af975355bc2d89af7ff"
+    },
+    {
+      "path": "lib/products/summary.ts",
+      "reference": "8b18ba22",
+      "sha256": "73668970110e302c282a4565c263d024f3e405ca5b370056f20ce993bbe6d279"
+    },
+    {
+      "path": "backend/market/annotations.py",
+      "reference": "2154f9e4",
+      "sha256": "480947a34203ad242c3db448075000aaa62bb712eb5d80b834ee01e2c8a9c54f"
+    },
+    {
+      "path": "backend/market/annotation_activity.py",
+      "reference": "2154f9e4",
+      "sha256": "5a97fd7b9350e435fcaf940dfad50566c44985728f68f724980fbf510389841d"
+    },
+    {
+      "path": "app/market-annotation-view.tsx",
+      "reference": "2154f9e4",
+      "sha256": "22b26be75e841dfb7919f7b94b8898258abcfb4594249cfca32878d8836ca42e"
+    },
+    {
+      "path": "lib/market/annotation-cached-image.ts",
+      "reference": "2154f9e4",
+      "sha256": "ca0783111ceb7f750315067b19aad1839e1ad5a886d3a3085ee6b4e308c9cc9c"
+    },
+    {
+      "path": "lib/market/annotation-dispatch.ts",
+      "reference": "2154f9e4",
+      "sha256": "ea4e3e2523b15631f89b2ebdc73e445f6658bf66284c55ffbfb19487a66280dc"
+    },
+    {
+      "path": "lib/market/annotation-image-runtime.ts",
+      "reference": "2154f9e4",
+      "sha256": "663aaf072b6dda69d7736df881f778044fe32b953222190acfec981d3ae51b23"
+    },
+    {
+      "path": "lib/market/annotation-image.ts",
+      "reference": "2154f9e4",
+      "sha256": "27a6eed196749037e130e74f2bc3447ca210edf7af63e0dcb48fb2f1fc13d823"
+    },
+    {
+      "path": "lib/market/annotation-model.ts",
+      "reference": "2154f9e4",
+      "sha256": "ad07396c9eff913468af68ccd29c05a4efd25f6230d6043e2d8a2d23ce1db3c7"
+    },
+    {
+      "path": "lib/market/annotation-types.ts",
+      "reference": "2154f9e4",
+      "sha256": "b6a5417ad7feb9fa151483eabcf3aeb4e5ae7b9f8c23bea74340173a0e3c6f5b"
+    },
+    {
+      "path": "lib/market/django-annotation-runner.ts",
+      "reference": "2154f9e4",
+      "sha256": "fb93c52e4f065a1791cd37968df6a474fb473ca486281e778e0dfa08072a50bf"
+    },
+    {
+      "path": "lib/market/django-annotation-scheduled.ts",
+      "reference": "2154f9e4",
+      "sha256": "0c37f37fae3dabb1d25c9e572af53a0b06bedd4ee7510d9aaf9783849e4d1d84"
+    },
+    {
+      "path": "lib/market/django-image-cache-runner.ts",
+      "reference": "2154f9e4",
+      "sha256": "7df68a8595204e2da4e332c0eca7f27a80eb30babfb8598c44a467be3e1976bc"
+    },
+    {
+      "path": "tools/start-local-worker.mjs",
+      "reference": "2154f9e4",
+      "sha256": "965f319e2eaa58611fa772749bf04e13600b25e78e84bac82cba6afd7ee78de2"
+    },
+    {
+      "path": "worker/index.ts",
+      "reference": "2154f9e4",
+      "sha256": "eb96d610b9a2165c4b42d8154b5ea5e5b21fcf21181d836a49ca449aa3fed6ca"
+    }
+  ],
+  "domainsDisjoint": true,
+  "paidCalls": 0,
+  "migrationChanges": []
+}

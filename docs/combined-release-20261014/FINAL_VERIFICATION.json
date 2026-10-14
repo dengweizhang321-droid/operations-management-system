@@ -1,0 +1,36 @@
+{
+  "at": "2026-10-14T13:22:24.222Z",
+  "status": "deployed",
+  "homepageHttpStatus": 200,
+  "workerReceiptMatches": true,
+  "djangoManifestMatches": true,
+  "installedFeatureFiles": [
+    {
+      "path": "backend/market/annotation_activity.py",
+      "sha256": "5a97fd7b9350e435fcaf940dfad50566c44985728f68f724980fbf510389841d"
+    },
+    {
+      "path": "backend/market/annotations.py",
+      "sha256": "480947a34203ad242c3db448075000aaa62bb712eb5d80b834ee01e2c8a9c54f"
+    },
+    {
+      "path": "backend/products/combinations.py",
+      "sha256": "7fad73aefafaed382483298601147875c4cb3f0bb8f70417c3d583a6d5a70435"
+    },
+    {
+      "path": "backend/products/query.py",
+      "sha256": "39ed5cc05c2dcccc7123abf5ebc0f91ed430aa7ab8e41f1b7023c7e09bdd9404"
+    },
+    {
+      "path": "backend/products/summary_cache.py",
+      "sha256": "334d462abdd8053c4659db7ae137125ef1962b7b634506b74cfd055662422fca"
+    },
+    {
+      "path": "backend/products/views.py",
+      "sha256": "04044770937f69999f6c3c3a55c8a13eb68d593ada213db5474488a1670eb19b"
+    }
+  ],
+  "maintenanceCleared": true,
+  "startupVerified": true,
+  "paidBusinessReplayRequested": false
+}
