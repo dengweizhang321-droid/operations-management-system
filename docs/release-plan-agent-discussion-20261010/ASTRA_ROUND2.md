@@ -2,15 +2,15 @@
 
 2026-10-10，已阅读全文[对方第一轮](AGY_ROUND1.md)，并重新核对协调、transport、内容会话与Worker-only实现。仅讨论；当前事实仍限于共同机器截点，未新增生产观察。
 
-**答1：UI未决如何继续。** “未发现业务断言失败”不能证明四项交互已完成。独立证据须绑定同batch/operation/候选/实际运行身份，保存原输出摘要、进程完成与浏览器退出状态，核对全部UI断言、资源、请求审计及零写入；缺任何必需证据不得判passed。若证明精确操作已结束、零效果且未通过，才按原协调规则记failed；随后能否续接仍由原新鲜准入决定。若足以证明全部操作完成，可独立协调passed，但不得捏造原exit0。无法证明则保留unknown并走原异常处理，不因新Worker receipt正确自动推进。[协调](../../tools/release-batch.mjs)
+**答1：UI未决如何继续。** “未发现业务断言失败”不能证明四项交互已完成。独立证据须绑定同batch/operation/候选/实际运行身份，保存原输出摘要、进程完成与浏览器退出状态，核对全部UI断言、资源、请求审计及零写入；缺任何必需证据不得判passed。若证明精确操作已结束、零效果且未通过，才按原协调规则记failed；随后能否续接仍由原新鲜准入决定。若足以证明全部操作完成，可独立协调passed，但不得捏造原exit0。无法证明则保留unknown并走原异常处理，不因新Worker receipt正确自动推进。[协调](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-batch.mjs)
 
-不采纳把当前UI直接加入240秒自动重试：现实现只接受精确Status和有限瞬态码，nonzero_exit不在自动放行依据内。未来可研究单独协议，但须证明前次浏览器/请求已终止、无写入、仅白名单传输故障、总期限包含清理和审计；真实断言、权限、版本、制品及未知仍不重试。当前失败根因未知。[只读重试](../../tools/release-readonly-retry.mjs)
+不采纳把当前UI直接加入240秒自动重试：现实现只接受精确Status和有限瞬态码，nonzero_exit不在自动放行依据内。未来可研究单独协议，但须证明前次浏览器/请求已终止、无写入、仅白名单传输故障、总期限包含清理和审计；真实断言、权限、版本、制品及未知仍不重试。当前失败根因未知。[只读重试](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-readonly-retry.mjs)
 
-**答2：准入能否只留动态检查。** 不同意。发布互斥只排斥遵守它的发布者，不能冻结编辑器、外部工具或文件系统；watcher无事件也不是无变化证明。C复用准备身份的派生计算，每轮仍读完整源码、Node/npm、配置和环境，前后完整盘点；首次、drain、apply、Start、closeout重算完整身份，WAL前和动作前检查。完整制品不在新缓存内，动态Status也没有被取消。[会话](../../tools/release-preparation-evidence.mjs)、[准入](../../tools/release-batch-admission.mjs)
+**答2：准入能否只留动态检查。** 不同意。发布互斥只排斥遵守它的发布者，不能冻结编辑器、外部工具或文件系统；watcher无事件也不是无变化证明。C复用准备身份的派生计算，每轮仍读完整源码、Node/npm、配置和环境，前后完整盘点；首次、drain、apply、Start、closeout重算完整身份，WAL前和动作前检查。完整制品不在新缓存内，动态Status也没有被取消。[会话](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-preparation-evidence.mjs)、[准入](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-batch-admission.mjs)
 
 7918文件Python闭包属于wrapper，当前AB/ABC都走子进程；标准内存transport只接受精确入口和已pin闭包，不会自动吸收wrapper。可采纳测量与受控接缝优化，不能跳过Python每字节复验或称“无差别全制品重算”。取消重复Status需另证每个边界的时效和失效条件，保留真实就绪检查，现证据不足。21–24秒是三阶段身份的配对改善，不能推出单步毫秒级。[wrapper](../release-integration-review/batch-v2/collector.mjs)、[C设计](../release-fastpath-evidence/DESIGN.md)
 
-**答3：是否彻底废除Django维护。** 对经完整闭包证明的展示批次支持既有Worker-only；对“Django摘要未变”这一条件不支持。Worker仍可能改变签名转发、鉴权、导入、helper或生命周期，AB属于严格工具变更；C首次采用也必为严格。Worker-only已存在，不是缺协议。采用必须复用原owner及互斥、冻结新任务、排空helper/业务/备份/background/request leases；gate覆盖Stop/apply/Start，确认新helper及无在途后才解除，失败保留gate。无法证明全部写入口受控就不能以此保证数据库无竞争。[批次约束](../../tools/release-batch.mjs)
+**答3：是否彻底废除Django维护。** 对经完整闭包证明的展示批次支持既有Worker-only；对“Django摘要未变”这一条件不支持。Worker仍可能改变签名转发、鉴权、导入、helper或生命周期，AB属于严格工具变更；C首次采用也必为严格。Worker-only已存在，不是缺协议。采用必须复用原owner及互斥、冻结新任务、排空helper/业务/备份/background/request leases；gate覆盖Stop/apply/Start，确认新helper及无在途后才解除，失败保留gate。无法证明全部写入口受控就不能以此保证数据库无竞争。[批次约束](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-batch.mjs)
 
 **答4：全库相等还是业务白名单。** 这不是二选一。原门禁能证明两截点字节相等，但在合法写入发生时也会阻断；它不保证在在线环境总能通过。未来应保全完整快照，逐项证明新增/修改/删除的身份、内容及原独立来源回执，历史未授权变化仍拒绝。整表白名单不可接受；LSN/WAL只能证明变化次序，不能单独证明业务授权和内容正确。没有完整来源账本时保留不可证明，或另行批准可控全写入静默窗口，不能偷偷扩展维护。本项应由P2提前到P0，当前已批比较不豁免。[比较](../release-integration-review/batch-v2/validators.mjs)
 

@@ -6,7 +6,7 @@
 
 ## 历史保全
 
-新增 [release-history-preservation.py](../../tools/release-history-preservation.py)。其 `capture(connection, scope, key, cutoff=None)` 只接收原域 reader 的独立空闲 DB-API 连接，不提供凭据入口。单笔 Repeatable Read READ ONLY 事务核验 reader、事务隔离及无 INSERT/UPDATE/DELETE 权限，按精确店铺和上海业务时间左闭右开查询现有表；无 API、表结构或写 SQL。查询有 200000 行边界，始终 ROLLBACK。
+新增 [release-history-preservation.py](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-history-preservation.py)。其 `capture(connection, scope, key, cutoff=None)` 只接收原域 reader 的独立空闲 DB-API 连接，不提供凭据入口。单笔 Repeatable Read READ ONLY 事务核验 reader、事务隔离及无 INSERT/UPDATE/DELETE 权限，按精确店铺和上海业务时间左闭右开查询现有表；无 API、表结构或写 SQL。查询有 200000 行边界，始终 ROLLBACK。
 
 首次采集在该一致性快照固定 creation cutoff；后采集必须沿用前证据的 scope、cutoff 和外置随机 256 位 HMAC key。旧行集合两次都使用 `created_at < baseline.cutoff`，不以维护开始时间代替旧截点。捕获整个业务范围用于另外辨认新增，记录 cutoff 恰好相等的行而不把它算入旧集合。业务日期、主键、创建时间、导入批次与版本是范围/来源元数据；会话身份及全部导入字段、人工/AI标注字段、migration generation 用 HMAC，原客户值不持久化，key 不写报告。
 
@@ -16,7 +16,7 @@
 
 ## UI 请求
 
-新增 [release-acceptance-ui.mjs](../../tools/release-acceptance-ui.mjs)。静态资源只从批准候选逐路径 SHA inventory 放行，业务 GET 是任务复审过的精确 API pathname 清单，页面只限精确 HTTP 回环 origin。所有非 GET、其他 origin、额外端口、query 图标、fetch 图标、未批准后缀/路径保持 abort。
+新增 [release-acceptance-ui.mjs](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-acceptance-ui.mjs)。静态资源只从批准候选逐路径 SHA inventory 放行，业务 GET 是任务复审过的精确 API pathname 清单，页面只限精确 HTTP 回环 origin。所有非 GET、其他 origin、额外端口、query 图标、fetch 图标、未批准后缀/路径保持 abort。
 
 唯一图标例外是**已经 abort**的同 hostname/port、HTTPS、无 query、`/favicon.svg`、resourceType other/image，且批准 inventory 内确有该图标。它不获得网络许可。结束时必须另核验正常 HTTP 图标200与批准SHA；正常资源失败、缺失或SHA错误仍失败，不用图标分类证明那些资源已展示。
 
@@ -24,7 +24,7 @@
 
 ## 只读重试
 
-新增 [release-readonly-retry.mjs](../../tools/release-readonly-retry.mjs)。初次+最多3次、固定2秒等待，总预算最多240000ms，包含慢Status查询、文件重新校验、等待及证据落盘。单探针最多60000ms，实际剩余期限更短则按剩余值。53秒×4+6秒=218秒，不是6秒总耗时，也不代表生产必然成功。
+新增 [release-readonly-retry.mjs](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-readonly-retry.mjs)。初次+最多3次、固定2秒等待，总预算最多240000ms，包含慢Status查询、文件重新校验、等待及证据落盘。单探针最多60000ms，实际剩余期限更短则按剩余值。53秒×4+6秒=218秒，不是6秒总耗时，也不代表生产必然成功。
 
 仅程序产生的 STATUS_TIMEOUT 及明确 OS code ECONNRESET/ETIMEDOUT/EAI_AGAIN 暂态可重试；普通非零退出、未知stderr、JSON错误、身份/权限/制品/完整性/就绪断言立即失败。不把旧查询未知归因于暂态。每次记录 stage、序号、耗时、固定脱敏code；不落原stdout/stderr、URL、argv或客户正文。Status runner只管理自己创建的只读探针，输出EOF也有界，不使用taskkill /T或触碰服务进程。同步文件系统/OS调用不能强制抢占，但返回后复验期限并禁止后续探针/成功结论。
 
@@ -32,7 +32,7 @@
 
 ## 自动收尾
 
-新增 [release-closeout-report.mjs](../../tools/release-closeout-report.mjs)。只读离线 input，核验批准批次摘要、原canonical journal sequence/chain/bytes、所有声明回执的实际字节SHA及其WAL receipt SHA。副本日志采用固定marker投影而不复制正文；源、候选、前驱、运行观察、备份恢复、原失败、独立协调、每次尝试、未决及未执行均纳入JSON。严格类型和枚举投影避免嵌套原内容进入报告；CLI错误输出固定code。
+新增 [release-closeout-report.mjs](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-closeout-report.mjs)。只读离线 input，核验批准批次摘要、原canonical journal sequence/chain/bytes、所有声明回执的实际字节SHA及其WAL receipt SHA。副本日志采用固定marker投影而不复制正文；源、候选、前驱、运行观察、备份恢复、原失败、独立协调、每次尝试、未决及未执行均纳入JSON。严格类型和枚举投影避免嵌套原内容进入报告；CLI错误输出固定code。
 
 计时以最早原批准时刻到真正completed墙钟为主，分别列原阶段duration、区间并集execution、等待/协调/未打点残差及批次完成后的文档交付；原重试记录为父duration内证据，不重复累加。协调跨度另列，不再次加到墙钟或执行。完成后的事件按真实区间裁剪，不向前平移。缺必要步骤、latest未知或取消时，没有成功/完成时长结论；`acceptancePassed:null`始终保留人工判断。封存前份元数据不代表dump仍可恢复。
 

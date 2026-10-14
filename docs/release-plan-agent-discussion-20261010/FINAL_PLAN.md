@@ -36,7 +36,7 @@ Worker receipt显示AB `20261010T014638Z-97833d2f2b7e7bc9` / manifest `f4e537eb�
 
 **工作包1：UI错误与环境证据。** 复用现有A的进程完成协议、B的审计分类及D的运行副本绑定，提前核对浏览器、Python、Playwright、fixture、实际安装来源和版本。每个步骤记录脱敏阶段/断言码、准确进程及后代身份、期限、输出完成状态、请求终态与资源摘要；按具体页面就绪条件等待，避免只依赖笼统networkidle。正常导航主动取消与真正未完成业务请求需不同证据，但不扩大任意ERR_ABORTED白名单。
 
-- 改动入口：[UI审计](../release-integration-review/batch-v2/ui-audit.mjs)、[适配器](../release-integration-review/batch-v2/adapter.mjs)、[只读重试](../../tools/release-readonly-retry.mjs)及当前日志接缝。
+- 改动入口：[UI审计](../release-integration-review/batch-v2/ui-audit.mjs)、[适配器](../release-integration-review/batch-v2/adapter.mjs)、[只读重试](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-readonly-retry.mjs)及当前日志接缝。
 - 验收：版本/资源错配、权限失败、业务请求失败、导航/输入替换取消、迟到响应、输出丢失、残留浏览器等负例可被区分；未授权请求和业务写入始终阻断。
 - `productionWrites:0`固定输出本身不是独立效果证明。证据不足保留unknown；只有精确零效果或完整完成证据才经原协调入口闭合。现工具仅对封存Status与有限瞬态码重试，UI未知不能直接加入自动重试。独立UI容错协议是另一个待审候选。
 
@@ -51,7 +51,7 @@ Worker receipt显示AB `20261010T014638Z-97833d2f2b7e7bc9` / manifest `f4e537eb�
 
 **工作包3：C接缝和分项计时。** 当前AB/ABC wrapper每轮复验7918个Python文件后启动外部collector；[封存终审第44行](../release-integration-review/BATCH_V2_FINAL_INDEPENDENT_REVIEW.md)明确没有启用C内存transport。标准transport只接受精确入口及闭包，不能简单加一个参数就缓存任意wrapper。
 
-- 在 [collector wrapper](../release-integration-review/batch-v2/collector.mjs)、[标准准入](../../tools/release-batch-admission.mjs)与 [批次transport](../../tools/release-batch.mjs)之间设计受控接缝；保持Python及源码/工具/环境完整字节核验，研究有界读取、解析/归一化及派生身份复用。原制品、动作前检查、动态身份/权限/就绪/排空保持。
+- 在 [collector wrapper](../release-integration-review/batch-v2/collector.mjs)、[标准准入](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-batch-admission.mjs)与 [批次transport](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-batch.mjs)之间设计受控接缝；保持Python及源码/工具/环境完整字节核验，研究有界读取、解析/归一化及派生身份复用。原制品、动作前检查、动态身份/权限/就绪/排空保持。
 - 验收：编辑器外部改字节、增加启动hook、短期变化后恢复、角色/fence/进程变化、并发、过期或跨批复用均拒绝。记录wrapper、Python、源码/工具、制品、Status、恢复资格各层成本，子项不重复累计。
 - 同源码、同制品、同数据规模、同保障做配对测量。C的既往身份阶段秒数不能乘21步当生产收益，也不保证单步毫秒级。
 

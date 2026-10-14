@@ -12,7 +12,7 @@ AB先采用、再按新前驱准备C合理：先验证完成协议和验收工�
 
 UI未来应在封存前固定运行副本、浏览器/依赖/拥有方及fixture，给错误增加脱敏阶段和断言码；导航完成、未完成业务请求和主动取消分别取证。复用现有精确图标阻断与合成搜索恢复见证，未知请求失败、权限拒绝和任何写请求仍阻断。不要扩大ERR_ABORTED白名单或自动重跑UI；当前仅凭nonzero_exit不能判定误报。验收须覆盖版本错配、导航取消与真实请求失败负例，减少协调次数且零危险请求放行。[UI](../release-integration-review/batch-v2/ui-audit.mjs)
 
-**P1：再减少重复计算和人工串接。** wrapper每次复验7918份Python库存并启动原collector；终审明确AB/ABC都未启用C内存transport。因此下一批须先解决与标准collector的受控接缝，保留Python闭包，不能仅“采用C”就宣称缓存生效。复用C的10分钟/24次私有会话：完整源/工具/配置/环境重采样及前后盘点，变更即失效；动态进程、权限、排空、恢复资格仍现场检查，完整制品与原apply门禁不减。先记录各层耗时，包括wrapper，再做同源同载荷配对；不得按21步乘隔离秒数。[collector](../release-integration-review/batch-v2/collector.mjs)、[准入](../../tools/release-batch-admission.mjs)、[transport](../../tools/release-batch.mjs)
+**P1：再减少重复计算和人工串接。** wrapper每次复验7918份Python库存并启动原collector；终审明确AB/ABC都未启用C内存transport。因此下一批须先解决与标准collector的受控接缝，保留Python闭包，不能仅“采用C”就宣称缓存生效。复用C的10分钟/24次私有会话：完整源/工具/配置/环境重采样及前后盘点，变更即失效；动态进程、权限、排空、恢复资格仍现场检查，完整制品与原apply门禁不减。先记录各层耗时，包括wrapper，再做同源同载荷配对；不得按21步乘隔离秒数。[collector](../release-integration-review/batch-v2/collector.mjs)、[准入](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-batch-admission.mjs)、[transport](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-batch.mjs)
 
 恢复复用须在C严格采用后另行授权日备份：最新自然尝试成功、26小时内仍保留的点、7天同点完整恢复及目录/权限/软件/序列匹配。三份策略可能次日淘汰已演练点，须绑定新自然点完成演练；不能用旧成功覆盖新失败。合格展示才适用，严格影响仍完整保障。[前置方案](../release-fastpath-evidence/DAILY_BACKUP_ADOPTION.md)
 

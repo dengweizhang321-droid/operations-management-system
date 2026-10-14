@@ -16,7 +16,7 @@
 
 **答3：不认同UI失败能证明数据灾难或所有交互一概不可证明。** 当前仅知道nonzero_exit及协调failed，网络/DOM原因未知，不能据此推断数据破坏概率。现分类已能证明受限布尔交互；泛化fetch/useEffect仍不放行。延后高成本扩分类，保留对具体高频、完整闭包可证明子集的小范围研究；没证据则strict，而不是预断言不可能。
 
-另须纠正准入方案：不是100%自动适用，标准transport要求精确入口/闭包，当前wrapper仍是Node子collector，Python库存由JS读文件，未证明主要成本是反复拉Python进程。每字节IO保留，C只是派生计算复用；8～15分钟仍无依据的预算，不作为收益依据。内容hash不匹配须拒绝，不能自动全扫后认可新字节；普通到期可重新完整识别并仍匹配原批准，动作前失效继续原unknown协调。[实现](../../tools/release-preparation-evidence.mjs)
+另须纠正准入方案：不是100%自动适用，标准transport要求精确入口/闭包，当前wrapper仍是Node子collector，Python库存由JS读文件，未证明主要成本是反复拉Python进程。每字节IO保留，C只是派生计算复用；8～15分钟仍无依据的预算，不作为收益依据。内容hash不匹配须拒绝，不能自动全扫后认可新字节；普通到期可重新完整识别并仍匹配原批准，动作前失效继续原unknown协调。[实现](https://github.com/dengweizhang321-droid/operations-management-system/blob/561ca738ea6cec785a59d340064d52210f788d17/tools/release-preparation-evidence.mjs)
 
 建议共同采用三步：① 先从真实同时就绪清单形成合批/分批对照，当前AB独立闭合；② 并行做展示适用率、自然资格成本和准入分项小调查，再选一个值得投入的接缝；③ 小范围验收矩阵与报告复用，批准前准备、切换后动态门禁不减。合批只按最终剩余步骤再测C收益，不能与被合批消除的准入“完美叠加”。
 
