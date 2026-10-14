@@ -250,6 +250,33 @@ test("API run refuses an already-open manual browser before business effects and
   assert.equal(next.exportTransport, "session_api_v1");
 });
 
+test("API preflight accepts the published coordination and A recovery wrappers without changing the proof", async () => {
+  const f = await fixture2902(), before = await readFile(f.planPath), active = await readFile(f.activePath);
+  for (const queued of [false, true]) for (const recovered of [false, true]) {
+    const runNodes = [proof2902.runNodes[0], "固定原执行计划时间", "领取共享 helper", "helper 领取成功？",
+      ...(queued ? ["等待前序流程释放 helper"] : []), "A·固定采集日和销售日期", "A·固定采集日和销售日期·恢复等待？",
+      ...(recovered ? ["A·固定采集日和销售日期·等待原任务"] : []), "B·接口校验与五表下载"];
+    const proposal = await inspectPreflightClosure(f.root, "2902", { ...proof2902, runNodes }, "2026-09-17T17:50:00Z");
+    assert.deepEqual(proposal.evidence.runNodes, runNodes);
+    assert.equal(proposal.absentPaths.length, 4);
+    assert.equal(proposal.reason, "verified_api_browser_occupied_without_business_effects");
+  }
+  assert.deepEqual(await readFile(f.planPath), before); assert.deepEqual(await readFile(f.activePath), active);
+});
+
+test("API preflight wrappers never admit later business nodes, duplicate nodes or misplaced waits", async () => {
+  const f = await fixture2902();
+  const base = proof2902.runNodes;
+  const rejected = [
+    [...base, "C·五表导入"], [...base, "B·接口校验与五表下载·恢复等待？"],
+    [...base.slice(0, 4), "A·固定采集日和销售日期·等待原任务", base[4]],
+    [base[0], "等待前序流程释放 helper", ...base.slice(1)],
+    [...base, "A·固定采集日和销售日期·恢复等待？"],
+    [...base.slice(0, 4), "A·固定采集日和销售日期·恢复等待？", "A·固定采集日和销售日期·恢复等待？", base[4]],
+  ];
+  for (const runNodes of rejected) await assert.rejects(inspectPreflightClosure(f.root, "2902", { ...proof2902, runNodes }, "2026-09-17T17:50:00Z"));
+});
+
 test("API login challenge closure rejects any uncertain identity, stage, intent or business artifact", async () => {
   for (const fault of ["intent", "export", "phase", "transport", "extra-key", "active", "live", "retry", "hash", "trigger", "node", "later-node", "error", "request", "time", "events", "imports", "validation", "download", "late-effect"]) {
     const f = await fixture2879(), evidence = { ...proof2879, runNodes: [...proof2879.runNodes] };
