@@ -54,7 +54,7 @@ def blocked_until(retry: dict, lane: int) -> int:
 
 def record_failure(retry: dict, code: str, lane: int, now_ms: int, retry_after_ms: int = 0) -> bool:
     """Return whether this run must pause; repeated failures in a window count once."""
-    if code in {"authorization_revoked", "model_configuration"}:
+    if code in {"authorization_revoked", "model_configuration", "inference_result_unknown"}:
         return True
     if code not in {"provider_rate_limit", "model_timeout", "model_network"}:
         return False

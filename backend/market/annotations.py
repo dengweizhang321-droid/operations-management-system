@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 import secrets
+import time
 import uuid
 from collections import Counter
 from datetime import datetime, timedelta
@@ -10,7 +12,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.db import connection, transaction
 from django.db.models import Avg, BigIntegerField, Case, CharField, Count, Exists, F, Max, Min, OuterRef, Q, Subquery, Value, When
-from django.db.models.functions import Cast, Coalesce, Substr
+from django.db.models.functions import Cast, Coalesce, Greatest, Substr
 from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone
 
@@ -49,6 +51,8 @@ MAX_PAGE_SIZE = 200
 MAX_FILTERED_SELECTION = 50_000
 LEASE_MINUTES = 3
 DISPATCH_LEASE_SECONDS = 110
+# The existing Worker permits 140s inference and reserves 15s for settlement.
+MIN_CLAIM_BUDGET_SECONDS = 155
 MAX_DISPATCH_JOBS = 50
 VALID_PRICE_TYPES = {
     "",
@@ -337,9 +341,9 @@ def _expire_cloud_claims(job: MarketAnnotationJob, run: MarketAnnotationCloudRun
     )})
     MarketAnnotationItem.objects.filter(job_id=job.id, status__in=["queued", "failed"]).filter(
         Exists(same_unknown),
-    ).update(status="failed", attempt_count=3, error_message=FAILURE_MESSAGES["inference_result_unknown"],
+    ).update(status="failed", attempt_count=Greatest(F("attempt_count"), Value(3)), error_message=FAILURE_MESSAGES["inference_result_unknown"],
              version=F("version") + 1, updated_at=now)
-    expired = unknown.update(status="failed", attempt_count=3, lease_token_hash="", lease_agent_id="", lease_expires_at=None,
+    expired = unknown.update(status="failed", attempt_count=Greatest(F("attempt_count"), Value(3)), lease_token_hash="", lease_agent_id="", lease_expires_at=None,
              error_message=FAILURE_MESSAGES["inference_result_unknown"], version=F("version") + 1, updated_at=now)
     if not expired:
         return False
@@ -353,11 +357,57 @@ def _expire_cloud_claims(job: MarketAnnotationJob, run: MarketAnnotationCloudRun
     return True
 
 
-def _locked_job(job_id: str, *, wait: bool = True) -> MarketAnnotationJob | None:
+def _locked_job(job_id: str, *, wait: bool = True, model_lock: bool = True) -> MarketAnnotationJob | None:
     job = MarketAnnotationJob.objects.filter(id=job_id).first()
-    if job is None or not _lock_model(job, wait=wait):
+    if job is None or (model_lock and not _lock_model(job, wait=wait)):
         return None
     return MarketAnnotationJob.objects.select_for_update(skip_locked=not wait).filter(id=job_id).first()
+
+
+INFERENCE_FIELDS = ("category", "scope", "sku_code", "ranking_dimension", "image_content_sha256")
+
+
+def _claim_candidates(job_id: str, prompt: MarketAnnotationPromptVersion, now, *, capacity: int = 50):
+    # Read the small active set once through job/status indexes. A correlated
+    # NOT EXISTS can choose a nested loop that rescans an 8,500-row new job for
+    # every candidate when pg_stats still describes the historical jobs.
+    active = list(MarketAnnotationItem.objects.filter(
+        job_id=job_id, status__in=["claimed", "inferencing"], lease_expires_at__gt=now,
+    ).values_list(*INFERENCE_FIELDS).distinct()[:capacity + 1])
+    # Over-capacity historical state blocks admission. Never truncate identities
+    # and then claim an image that was omitted from the exclusion set.
+    if len(active) >= capacity:
+        return MarketAnnotationItem.objects.none()
+    blocked = Q()
+    for identity in active:
+        blocked |= Q(**dict(zip(INFERENCE_FIELDS, identity)))
+    candidates = _recognition_items(MarketAnnotationItem.objects.filter(job_id=job_id)).filter(_retryable_items())
+    if blocked:
+        candidates = candidates.exclude(blocked)
+    return candidates.annotate(queue_mode=_mode_expression(prompt.segments_json)).order_by("queue_mode", "updated_at", "id")
+
+
+def _save_inference_timing(item: MarketAnnotationItem, timing: object) -> dict[str, int]:
+    if not isinstance(timing, dict):
+        raise _error("标注性能数据必须是对象")
+    values = {}
+    for key, field in (("inputBytes", "model_input_bytes"), ("imageLoadMs", "image_load_ms"),
+                       ("imagePrepareMs", "image_prepare_ms"), ("modelCallMs", "model_call_ms"),
+                       ("totalMs", "total_inference_ms")):
+        values[key] = _integer(timing.get(key, 0), key, minimum=0) or 0
+        setattr(item, field, values[key])
+    return values
+
+
+def _failure_reason(message: str, code: str) -> str:
+    # Extract only known diagnostic tokens, never persist a vendor body or an
+    # arbitrary caller's free text. Worker errors are already sanitized, but the
+    # signed domain endpoint remains a second defensive persistence boundary.
+    safe = re.sub(r"https?://\S+|\bBearer\s+\S+", "", message, flags=re.IGNORECASE)
+    tokens = re.findall(r"\bHTTP\s*[1-5]\d{2}\b|x-opencode-(?:session|client)\b|\b(?:unsupported|missing|required|invalid)[ _-](?:parameter|session|model|endpoint)\b|\b(?:thinking|reasoning|response_format|max_tokens|finish_reason)[=: ]+(?:disabled|enabled|length|stop|unsupported)\b|\b(?:empty_response|output_truncated|invalid_json|image_hash_mismatch)\b",
+                        safe, flags=re.IGNORECASE)
+    detail = "; ".join(dict.fromkeys(tokens))[:500]
+    return (FAILURE_MESSAGES[code] + ("；" + detail if detail else ""))[:800]
 
 
 def _available_channels(run: MarketAnnotationCloudRun, configured: int, active_agents: list[str], now) -> list[int]:
@@ -1181,6 +1231,10 @@ def _claim_job_item(
     *,
     agent_id: str = "",
 ) -> dict[str, object]:
+    received_at = timezone.now()
+    started = time.perf_counter()
+    lock_wait_ms = 0.0
+    selection_ms = 0.0
     runtime = deployed_runtime()
     if runtime is not None and read_gate(runtime):
         return {"task": None, "waiting": False, "stopped": True}
@@ -1211,10 +1265,14 @@ def _claim_job_item(
     for candidate in candidates:
         # Explicit dispatch lanes wait for the very short claim transaction; a busy
         # lock is not an occupied inference slot. Generic polling skips busy plans.
+        lock_started = time.perf_counter()
         job = _locked_job(candidate, wait=bool(job_id))
+        lock_wait_ms += (time.perf_counter() - lock_started) * 1000
         if job is None:
             waiting = True
             continue
+        # Lock waits must never spend a lease that is about to be issued.
+        now = timezone.now()
         if job.status not in {"queued", "running", "failed"}:
             continue
         configured = _configured_concurrency(job)
@@ -1222,7 +1280,7 @@ def _claim_job_item(
         run = None
         active_agents = list(MarketAnnotationItem.objects.filter(
             job_id=job.id, status__in=["claimed", "inferencing"], lease_expires_at__gt=now,
-        ).values_list("lease_agent_id", flat=True))
+        ).values_list("lease_agent_id", flat=True)[:configured])
         lane = 0
         if executor == "cloud":
             run = MarketAnnotationCloudRun.objects.select_for_update().filter(job_id=job.id, state="running").first()
@@ -1255,16 +1313,12 @@ def _claim_job_item(
                 job_id=job.id, status__in=["claimed", "inferencing"], lease_expires_at__lte=now,
             ).update(status="failed", lease_token_hash="", lease_agent_id="", lease_expires_at=None,
                      error_message="标注执行租约已过期", version=F("version") + 1, updated_at=now)
-        in_flight = MarketAnnotationItem.objects.filter(
-            **{field: OuterRef(field) for field in ("job_id", "category", "scope", "sku_code", "ranking_dimension", "image_content_sha256")},
-            status__in=["claimed", "inferencing"], lease_expires_at__gt=now,
-        )
         prompt = MarketAnnotationPromptVersion.objects.filter(id=job.prompt_version_id).first()
         if not prompt:
             raise _error("任务绑定的 Prompt 不存在", code="version_conflict", status=409)
-        item = _recognition_items(MarketAnnotationItem.objects.select_for_update().filter(job_id=job.id)).filter(
-            _retryable_items(),
-        ).filter(~Exists(in_flight)).annotate(queue_mode=_mode_expression(prompt.segments_json)).order_by("queue_mode", "updated_at", "id").first()
+        selection_started = time.perf_counter()
+        item = _claim_candidates(job.id, prompt, now, capacity=configured).select_for_update().first()
+        selection_ms += (time.perf_counter() - selection_started) * 1000
         if item is not None:
             break
         _refresh_job(job.id)
@@ -1275,6 +1329,13 @@ def _claim_job_item(
         raise _error("任务绑定的 Prompt 不存在", code="version_conflict", status=409)
     token = secrets.token_hex(32)
     fixed_segment = _fixed_segment(item, prompt)
+    now = timezone.now()
+    if executor == "cloud" and coordinator_token and (
+        run.lease_expires_at is None or run.lease_expires_at <= now
+    ):
+        return {"task": None, "waiting": True}
+    if runtime is not None and read_gate(runtime):
+        return {"task": None, "waiting": False, "stopped": True}
     siblings = _recognition_items(MarketAnnotationItem.objects.filter(**_inference_identity(item)).filter(_retryable_items()))
     _record_recognition_modes(siblings, prompt, principal)
     item.status = "claimed"
@@ -1305,6 +1366,19 @@ def _claim_job_item(
         run.retry_state_json = retry_snapshot(run.retry_state_json, configured)
         run.save(update_fields=["last_started_at", "last_heartbeat_at", "retry_state_json", "updated_at"])
     cache = MarketImageCache.objects.filter(source_url=item.source_image_url, status="ready", content_sha256=item.image_content_sha256).first()
+    _audit(principal, "market_annotation_task_claimed", "market_annotation_dispatch", job.id, {},
+           {"itemId": item.id, "attemptId": item.lease_token_hash, "attemptCount": item.attempt_count,
+            "recognitionMode": "price_only" if fixed_segment else "full", "receivedAt": iso(received_at),
+            "recordedAt": iso(timezone.now()), "lockWaitMs": round(lock_wait_ms, 3),
+            "candidateSelectionMs": round(selection_ms, 3), "admissionElapsedMs": round((time.perf_counter()-started)*1000, 3)})
+    issued_at = timezone.now()
+    if (item.lease_expires_at < issued_at + timedelta(seconds=MIN_CLAIM_BUDGET_SECONDS)
+        or (executor == "cloud" and coordinator_token and run.lease_expires_at <= issued_at)):
+        # Roll back the entire claim (including attempt/mode/audit writes), and
+        # release its host barrier. A stalled DB write must not emit stale work.
+        if executor == "cloud":
+            annotation_activity.release(item.lease_token_hash)
+        raise _error("领取处理预算已过期，请重新派发", code="version_conflict", status=409)
     return {
         "workerConcurrency": effective,
         "task": {
@@ -1342,12 +1416,19 @@ def _claim_job_item(
 
 @transaction.atomic
 def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict[str, object]:
+    received_at = timezone.now()
     item_id = _text(payload.get("itemId"), "itemId", 128, required=True)
     token = _text(payload.get("leaseToken"), "leaseToken", 128, required=True)
     item_job = MarketAnnotationItem.objects.filter(id=item_id).values_list("job_id", flat=True).first()
     if not item_job:
         raise _error("标注候选不存在", code="not_found", status=404)
-    job = _locked_job(item_job)
+    error_message = _text(payload.get("error", ""), "error", 800)
+    # Success changes only this job's slot/result state. It need not queue behind
+    # other jobs' admissions on the same model; failures keep the model lock for
+    # atomic provider cooldown propagation. All paths retain job/item fencing.
+    lock_started = time.perf_counter()
+    job = _locked_job(item_job, model_lock=bool(error_message))
+    lock_wait_ms = round((time.perf_counter()-lock_started)*1000, 3)
     item = _recognition_items(MarketAnnotationItem.objects.select_for_update()).get(id=item_id)
     if item.status in {"review_pending", "approved", "committed"}:
         return {"ok": True, "duplicate": True, "itemId": item.id}
@@ -1356,17 +1437,26 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
     # Register only for this validated lease. A duplicate item with another
     # active item's token must not release that other item's maintenance barrier.
     transaction.on_commit(lambda: annotation_activity.release(_digest(token)))
-    error_message = _text(payload.get("error", ""), "error", 800)
     if error_message:
         failure_code = _text(payload.get("failureCode", "annotation_failed"), "failureCode", 64)
         if failure_code not in FAILURE_MESSAGES:
             failure_code = "annotation_failed"
         retry_after = int(_integer(payload.get("retryAfterMs"), "retryAfterMs", fallback=0, maximum=300_000))
         lane = int(item.lease_agent_id.split(":", 1)[1]) if item.lease_agent_id.startswith("cloud:") and item.lease_agent_id.split(":", 1)[1].isdigit() else 0
+        attempt_count = item.attempt_count
         item.status = "queued" if failure_code in {"authorization_revoked", "model_configuration"} else "failed"
         if item.status == "queued":
             item.attempt_count = max(0, item.attempt_count - 1)
-        item.error_message = FAILURE_MESSAGES[failure_code]
+        elif failure_code == "inference_result_unknown":
+            item.attempt_count = max(3, item.attempt_count)
+        item.error_message = _failure_reason(error_message, failure_code)
+        timing = _save_inference_timing(item, payload.get("timing", {}))
+        failure_kind = payload.get("failureKind")
+        failure_kind = failure_kind if failure_kind in {"permanent", "transient", "rate_limit", "unknown"} else "unknown"
+        _audit(principal, "market_annotation_model_failed", "market_annotation_execution_failure", job.id, {},
+               {"itemId": item.id, "attemptId": _digest(token), "attemptCount": attempt_count, "failureCode": failure_code,
+                "failureKind": failure_kind, "error": item.error_message, "timing": timing,
+                "receivedAt": iso(received_at), "resultRecordedAt": iso(timezone.now()), "lockWaitMs": lock_wait_ms})
         item.lease_token_hash = ""
         item.lease_agent_id = ""
         item.lease_expires_at = None
@@ -1378,6 +1468,18 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
                                    error_message=item.error_message, version=F("version") + 1, updated_at=timezone.now())
         if job.executor == "cloud":
             run = MarketAnnotationCloudRun.objects.select_for_update().get(job_id=job.id)
+            if failure_code == "model_configuration":
+                # The model lock fences admissions across plans for this exact
+                # saved model. Pause new dispatch only: already-issued leases
+                # may settle, and no other plan's attempt budget is changed.
+                same_model = MarketAnnotationJob.objects.filter(executor="cloud", model_id=job.model_id).values("id")
+                paused = MarketAnnotationCloudRun.objects.filter(job_id__in=same_model, state="running").exclude(
+                    job_id=job.id,
+                ).update(state="paused", next_run_at=None, lease_token_hash="", lease_expires_at=None,
+                         last_failure_code=failure_code, last_failure_message=item.error_message,
+                         last_heartbeat_at=timezone.now(), updated_at=timezone.now())
+                _audit(principal, "market_annotation_model_dispatch_paused", "market_annotation_model_pause", job.model_id, {},
+                       {"sourceJobId": job.id, "failureCode": failure_code, "otherPlansPaused": paused})
             if run.state == "paused" and run.last_failure_code == "inference_result_unknown":
                 # Other leases may still finish after an unknown result pauses the run.
                 # Their item outcome cannot erase the outstanding quarantine reason.
@@ -1472,14 +1574,7 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
     item.ai_confidence_bps = confidence
     item.ai_reason = reason
     item.ai_raw_digest = raw_digest
-    timing = result.get("timing", {})
-    if not isinstance(timing, dict):
-        raise _error("标注性能数据必须是对象")
-    item.model_input_bytes = _integer(timing.get("inputBytes", 0), "inputBytes", minimum=0) or 0
-    item.image_load_ms = _integer(timing.get("imageLoadMs", 0), "imageLoadMs", minimum=0) or 0
-    item.image_prepare_ms = _integer(timing.get("imagePrepareMs", 0), "imagePrepareMs", minimum=0) or 0
-    item.model_call_ms = _integer(timing.get("modelCallMs", 0), "modelCallMs", minimum=0) or 0
-    item.total_inference_ms = _integer(timing.get("totalMs", 0), "totalMs", minimum=0) or 0
+    timing = _save_inference_timing(item, result.get("timing", {}))
     item.resolved_image_url = _text(result.get("resolvedImageUrl", ""), "resolvedImageUrl", 2_048)
     item.image_source = _text(result.get("imageSource", "none"), "imageSource", 32)
     item.reviewed_segment = segment
@@ -1507,7 +1602,9 @@ def _complete_job_item(payload: dict[str, object], principal: Principal) -> dict
     reused = followers.update(**copied, status="review_pending", error_message="", selected=False,
                              version=F("version") + 1, updated_at=timezone.now())
     _audit(principal, "market_annotation_model_completed", "market_annotation_execution", job.id, {},
-           {"itemId": item.id, "recognitionMode": "price_only" if fixed_segment else "full", "reusedCount": reused})
+           {"itemId": item.id, "attemptId": _digest(token), "attemptCount": item.attempt_count, "recognitionMode": "price_only" if fixed_segment else "full",
+            "reusedCount": reused, "timing": timing, "receivedAt": iso(received_at),
+            "resultRecordedAt": iso(timezone.now()), "lockWaitMs": lock_wait_ms})
     # All months publish together. Rollback leaves the original lease valid for replaying
     # the same completion payload; the caller must never re-run the model to retry this write.
     affected = MarketAnnotationItem.objects.filter(id__in=[item.id, *follower_ids])
