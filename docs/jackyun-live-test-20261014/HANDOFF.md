@@ -1,15 +1,16 @@
-# 吉客云正式环境真实测试交接（进行中）
+# 吉客云正式环境真实恢复交接（已完成）
 
-## 当前唯一执行摘要（12:21，优先于下方历史）
+## 当前唯一执行摘要（2026-10-14 12:54，优先于下方历史）
 
-- 用户要求优先本任务，继续只处理阻断使用的问题；监控、提速、启动外壳仍暂缓。不要安装 bounded watchdog 或重跑旧 publisher。
-- Worker/helper 正式仍为 20261014T024227Z-c3a176ee85a03642 / 81b84f00df90f29f86fdce50cbd8b5a8c4e2374cb0a9dba4030aef20799bb680；Django 8b4fed2c3cb8e0206ae8cc492e15f9646ef2dbbd7bbccde2b386fe9770ce02ac，业务可用、无发布排空。
-- 8993 于12:06领取helper，A通过，B因9223残留浏览器端口占用失败，无导出/下载/导入。已通过原运行锁、当前用户/路径/Profile/CDP PID/创建时间/父进程缺失复核，正常关闭昨天00:10启动的专用headless PID58748；没有关闭用户普通浏览器。证据8993-orphan-close-*.json。
-- 之后正常POST一次产生9001，A拒绝旧前置证明：源码白名单遗漏正式helper排队和A恢复判断节点。9001已error，不能重复派发；8993原plan/active保持，根逻辑8548。browser-recovered-dispatch-*.json保存唯一请求。
-- 最小修复15ac8282已推main/开发分支：仅识别已发布非业务节点及合法顺序，未知/后续/重复/错位节点仍拒绝，零效果/身份/授权检查保持。48项回归通过（exit0，0失败/取消）；实际8993只读证明通过，无手工闭合。失败复现日志preflight-wrappers-before.log保留。
-- 从实际Worker源22df组合隔离来源 D:/codex-isolated/jackyun-wrapper-source-20261014，提交8872ae460b7b4536fed6e5e505ca169143066f50已推来源分支，只增加同一修复及测试。首次准备exit1，原因仅rotation锁被AI管理在线准备PID38640占用；wrapper-helper-adoption保留失败及完整源码核验。无在途本任务进程，无生产切换。下次脚本采用全新wrapper-helper-adoption-2目录，不能覆盖旧失败。
-- 用户已明确授权发消息让吉客云先发布，消息已发送至01a1348d-c304-7e12-8139-6bb3cc854836。其准备12:18完成、PID38640退出、尚未切换；已收到协调消息。吉客云12:20已通过原入口取得锁，prepare-wrapper-helper.mjs在途exec session53410，日志wrapper-prepare-2.log，输出wrapper-helper-adoption-2；等待原准备完成，不重复启动。如前驱变化必须重组合，不能覆盖AI新发布。prepare通过后按publish-wrapper-helper.mjs plan/execute执行原BeginWorkerDrain/StopForRelease/apply/Start/VerifyStartup/EndWorkerDrain，只改Worker/helper、保留Django，不增加监控门槛。然后重新核对9001的A-only失败与8993源计划。公开target仍是logical8548/failed8993/source8993，9001未推进control。通过正式完整重试入口执行一次；不改n8n SQLite、不删active、不伪造回执。
-- 前一批脚本已随42995bcb推main；本轮仅新增发布后dispatch-after-wrapper模式及观察prefix，必须先核对publication-result与实际head，保留9001失败，不重放旧派发。五表业务恢复尚未成功。
+- **本次修复已上线、真实恢复已成功。** Worker/helper为20261014T042045Z-3fa896145ddb534d，manifest9b55e7afe806e6f8a2ebeae3bf0610b0fddb88ca311a049d8f8c86c1eb58de6e；Django保持8b4fed2c3cb8e0206ae8cc492e15f9646ef2dbbd7bbccde2b386fe9770ce02ac。原BeginWorkerDrain/StopForRelease/apply/Start/VerifyStartup/EndWorkerDrain全部完成，发布exit0，正式业务恢复。
+- 最终业务执行9011于12:51:55 success，A–E通过，五表completed且E精确批次、日期、归属与内容摘要回查通过。逻辑8548公开target=completed，12:52 helper空闲。库存/库龄真实采集日2026-10-14，销售2026-08-30至2026-10-13；详情FINAL_REPORT.md及本地9011-business-completed.json。
+- 数据告警保留：库存6项、销售110项、组合装2项，货品/库龄0项。销售为金额与单价乘数量差异提示；不是无告警完成，不以重试掩盖数据问题。没有新增数据修正任务。
+- 本轮必要修复15ac8282已合并main并推送，48项相关测试通过，真实8993证据只读复验通过；最初失败复现保留。实际前驱来源22df之上仅叠加修复/测试，来源提交8872ae460b7b4536fed6e5e505ca169143066f50已推。
+- 用户明确授权通知AI管理让出窗口，目标聊天01a1348d-c304-7e12-8139-6bb3cc854836已确认暂停。12:53已通知吉客云发布及真实恢复完成、窗口让出，提醒它按新Worker前驱重核并保留恢复修复；不得采用旧54fc9b40计划。没有接管其锁、维护或服务。
+- **无本任务在途进程。** prepare session53410与publish session81035均exit0。所有dispatch脚本均已使用，各请求create-only留证，禁止再运行旧dispatch/close-orphan/publisher。以后重试用正常页面和当前目标。
+- 首次wrapper-helper-adoption准备因对方rotation锁失败、零切换，原证据保留；成功采用包wrapper-helper-adoption-2，plan5419c4b928a0ca67eeaec3be1a8b12b29c4c78c7f3fdef99b470321f8b94cd87。此前8993端口占用/9001A失败、原计划active与回执保持历史；仅严格身份复核后正常关闭遗留专用浏览器。
+- 用户收窄要求继续有效：不影响使用的监控/提速/启动外壳只记录，bounded watchdog未安装；不再追补综合验收。不新增备份、演练、数据库迁移、正式n8n更新、调度或外部业务消息。
+- 现有来源worktree已绑定正式制品，AI后续重组合仍可能引用；旧开发树/日志/用户改动保留，不在本轮强制清理。主目录未重置或暂存。下一步仅供日常使用或由用户另行提出问题，本任务不再自动补跑。
 
 ---
 
