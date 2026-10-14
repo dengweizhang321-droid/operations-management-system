@@ -1,0 +1,75 @@
+{
+  "root": "D:\\codex-artifacts\\market-annotation-chain-audit-blockers-20261014",
+  "files": [
+    {
+      "name": "budget-before.json",
+      "bytes": 197,
+      "sha256": "61f289b81bd5c1d174b046ed6103a2b2f3409840f1f63732000f8ebf7a819c46"
+    },
+    {
+      "name": "chain-test_final_candidate_chain-12e51ad9.jsonl",
+      "bytes": 48175,
+      "sha256": "30be45766441db4382db3a68790885e8c12ee07c74db2cf829517f07d37edbac"
+    },
+    {
+      "name": "chain-test_final_candidate_chain-b9dd1c35.json",
+      "bytes": 3154,
+      "sha256": "9429a1ee331375496e86fe49b0099fcd737466e2034eb1758a964c9277c9e0a8"
+    },
+    {
+      "name": "chain-test_final_candidate_chain-b9dd1c35.jsonl",
+      "bytes": 59402,
+      "sha256": "83d5dabc2624ba4edf2981d3fb244a3247addecae84b891c8b32e76ba8af42b0"
+    },
+    {
+      "name": "chain-test_final_candidate_chain-e0e67f07.json",
+      "bytes": 3032,
+      "sha256": "35908495b2146db6264203d01eca6c10d8516dbafb6e16623685d688a76a69c0"
+    },
+    {
+      "name": "chain-test_final_candidate_chain-e0e67f07.jsonl",
+      "bytes": 18310,
+      "sha256": "4fb9db702b5cf52a4cfa2c73f678a662a545691bc8cc3f28149b393886260233"
+    },
+    {
+      "name": "FINAL_CHAIN_SUMMARY.json",
+      "bytes": 11205,
+      "sha256": "0cae63790917ae13224a9e8eeb675842459ed5c5b57628381b55f86b002619b7"
+    },
+    {
+      "name": "first-candidate-failure-summary.json",
+      "bytes": 489,
+      "sha256": "def09ba56adf83600bf1d3668bae82e9e28d584337d79daa941a0779dcdd79d6"
+    },
+    {
+      "name": "model-trace-143920a2-f57d-41df-9187-40ff716b4db8.json",
+      "bytes": 19995,
+      "sha256": "fd2a41fbdfae4856abfbf92e0b39cc22c9920156723bf1227fb57c38dec431ba"
+    },
+    {
+      "name": "model-trace-c05ee37f-6c07-43f6-a21c-6ddb96322c66.json",
+      "bytes": 82727,
+      "sha256": "bb35d55455f373cdca1b8d8c5d3faddf6f8bb96aa94e2947629b12ab2b49cc41"
+    },
+    {
+      "name": "model-trace-e5acce43-7055-4172-8c63-96bdbabbb09a.json",
+      "bytes": 88893,
+      "sha256": "5e4594b6b853211d3dd40ccd9dd7bdf901525d4b9b9ef01a63d8f0e98d481b98"
+    },
+    {
+      "name": "model-trace.jsonl",
+      "bytes": 110766,
+      "sha256": "54066b67a2aa6a2d82fbc916dad41798a24bd87c6e06a7465d46c4d1d230207a"
+    },
+    {
+      "name": "production-baseline-comparison.json",
+      "bytes": 224,
+      "sha256": "908702f9109cae3acf163459244f7403d8df7cc404faa74225eec9544dbb9788"
+    },
+    {
+      "name": "release-scope.json",
+      "bytes": 4061,
+      "sha256": "8c01951e726676ff772567d2adc81ac59b8b85fd49b345af7d9d6060832c38a1"
+    }
+  ]
+}

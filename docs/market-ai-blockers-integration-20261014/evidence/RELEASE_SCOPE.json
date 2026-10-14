@@ -1,0 +1,159 @@
+{
+  "version": "teruisi-scoped-release-plan-v2",
+  "baseSha": "1d848e8fe3142766129d2536bb68d84d5f2dcbfe",
+  "headSha": "86fa943dceef009c674a0ea46573101c76787016",
+  "changes": [
+    {
+      "status": "M",
+      "path": "backend/market/annotation_runtime.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/market/annotations.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/market/tests/test_annotation_blockers_chain.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/market/tests/test_annotation_blockers_django.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-blockers-django-20261014/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-blockers-django-20261014/metrics-summary.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-blockers-django-20261014/run_rehearsal.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-blockers-integration-20261014/CONTRACT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-blockers-integration-20261014/trace_candidate.mjs"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-blockers-vision-20261014/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-blockers-vision-20261014/evidence/json-mode-source-binding.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-blockers-vision-20261014/evidence/json-mode-targeted-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-blockers-vision-20261014/evidence/source-binding.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-ai-blockers-vision-20261014/evidence/targeted-tests.log"
+    },
+    {
+      "status": "M",
+      "path": "lib/market/annotation-failure.ts"
+    },
+    {
+      "status": "M",
+      "path": "lib/market/annotation-model.ts"
+    },
+    {
+      "status": "M",
+      "path": "lib/market/django-annotation-runner.ts"
+    },
+    {
+      "status": "M",
+      "path": "tests/market-annotation-runner.test.ts"
+    },
+    {
+      "status": "M",
+      "path": "tests/market-annotation.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "tests/market-vision-adapter.test.ts"
+    }
+  ],
+  "scope": "combined",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "migrate": false,
+  "databaseProtection": "verified-current",
+  "validation": [
+    "git-diff-check",
+    "worker-affected-tests",
+    "django-affected-tests"
+  ],
+  "packaging": [
+    "prepare-worker-immutable-release",
+    "prepare-django-app"
+  ],
+  "deployment": [
+    "verify-current-database-backup",
+    "activate-worker-release",
+    "deploy-django-app",
+    "verify-startup",
+    "verify-affected-function"
+  ],
+  "workflow": [
+    {
+      "step": 4,
+      "id": "validate-change",
+      "actions": [
+        "git-diff-check",
+        "worker-affected-tests",
+        "django-affected-tests"
+      ]
+    },
+    {
+      "step": 5,
+      "id": "merge-and-package",
+      "actions": [
+        "merge-main",
+        "push-main",
+        "prepare-worker-immutable-release",
+        "prepare-django-app"
+      ]
+    },
+    {
+      "step": 6,
+      "id": "publish",
+      "actions": [
+        "verify-current-database-backup",
+        "activate-worker-release",
+        "deploy-django-app",
+        "verify-startup",
+        "verify-affected-function"
+      ]
+    }
+  ],
+  "domains": [
+    "market"
+  ],
+  "unknown": [],
+  "reasons": [
+    "后端:backend/market/annotation_runtime.py",
+    "后端:backend/market/annotations.py",
+    "后端:backend/market/tests/test_annotation_blockers_chain.py",
+    "后端:backend/market/tests/test_annotation_blockers_django.py",
+    "共享运行库:lib/market/annotation-failure.ts",
+    "共享运行库:lib/market/annotation-model.ts",
+    "共享运行库:lib/market/django-annotation-runner.ts",
+    "测试:tests/market-annotation-runner.test.ts",
+    "测试:tests/market-annotation.test.ts",
+    "测试:tests/market-vision-adapter.test.ts"
+  ],
+  "planSha256": "39e3c504f5983b8ed7a0eaf1362afb6913e261a7ee2b740ae935b977367242ff"
+}

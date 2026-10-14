@@ -1,0 +1,17 @@
+{
+  "originalTimeline": "D:/codex-artifacts/market-annotation-chain-audit-blockers-20261014/chain-test_final_candidate_chain-12e51ad9.jsonl",
+  "sourceCommit": "8b8f514dc5392b4422c612e6b642c79f49225a6d",
+  "sampleCount": 12,
+  "providerPosts": 12,
+  "http400": 12,
+  "validResults": 0,
+  "storedFailures": 12,
+  "actualNewCompleted": 0,
+  "reviewed": 0,
+  "committed": 0,
+  "unknownResults": 0,
+  "ledgerAfter": 32,
+  "assertion": "0 != 12",
+  "status": "failed",
+  "productionWrites": 0
+}
