@@ -26,7 +26,9 @@ function start(data: Snapshot) {
   const department = data.options.departments[0].id;
   window.fetch = async (input, init) => {
     if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.href);
+    // Resolve virtual API paths without inheriting a Windows file URL's drive.
+    // This origin is a parser base only; this adapter never performs a network fetch.
+    const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, "https://offline.invalid");
     const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
     if (url.pathname !== "/api/inventory/jd-logistics" || method !== "GET") return Response.json({ success: false, error: "离线HTML不执行导入、保存、采集或推送。" }, { status: 403 });
     if (url.searchParams.has("departmentId") && url.searchParams.get("departmentId") !== department) return Response.json({ success: false, error: "文件不包含该事业部范围" }, { status: 403 });
