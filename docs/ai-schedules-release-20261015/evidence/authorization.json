@@ -1,0 +1,16 @@
+{
+  "version": "ai-schedule-publication-authorization-v1",
+  "authorization": "合并主线main，并发布上线；",
+  "authorizedAt": "2026-10-15T02:32:54Z",
+  "timestampSource": "current app turn startedAt=1792031574",
+  "backupDecision": "替换9月28日保护点，保留9月29日",
+  "backupDecisionRecordedAt": "2026-10-15T02:48:16.016607+00:00",
+  "replaceOnly": {
+    "backupId": "daily-20260928T125351Z-31cb501bc72d",
+    "manifestSha256": "36f3c99be1a9c23421547a70600006d0a05027e5bc40e5579e4d973189b14ad5"
+  },
+  "retainProtected": "daily-20260929T012900Z-ad2817875f20",
+  "precondition": "new 142 pre-migration backup, verify and exact isolated restore passed before replacing pin",
+  "noManualReplay": true,
+  "noNewProviderProbe": true
+}

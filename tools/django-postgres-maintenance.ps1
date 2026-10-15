@@ -11,6 +11,9 @@ param(
   [ValidateSet('D','E')][string]$RehearsalDrive = 'D',
   [string]$PreparedToolAppId = '',
   [string]$PreparedToolAppSha256 = '',
+  [string]$AiScheduleEvidencePath = '',
+  [string]$AiScheduleEvidenceSha256 = '',
+  [string]$AiScheduleMaintenanceId = '',
   [string]$PolicySyntaxWitnessPath = '',
   [string]$PolicySyntaxWitnessSha256 = '',
   [ValidateRange(7, 3650)]
@@ -28,6 +31,7 @@ $MaintenanceFixedRuntimeRoot = "D:\teruisi-runtime\django-sales"
 $MaintenanceBackupVersion = "teruisi-postgres-daily-backup-v1"
 $MaintenanceNoKeyBackupVersion = "teruisi-postgres-daily-backup-v2-no-keys"
 $script:MaintenanceRun = $null
+$script:MaintenancePreparedAiScheduleTools = $null
 $MaintenanceRestoreVersion = "teruisi-postgres-restore-rehearsal-v1"
 $MaintenancePruneVersion = "teruisi-postgres-backup-prune-v1"
 . (Join-Path $PSScriptRoot "postgres-backup-retention.ps1")
@@ -68,6 +72,9 @@ $MaintenanceRequest = [pscustomobject][ordered]@{
   RehearsalDrive = $RehearsalDrive
   PreparedToolAppId = $PreparedToolAppId
   PreparedToolAppSha256 = $PreparedToolAppSha256
+  AiScheduleEvidencePath = $AiScheduleEvidencePath
+  AiScheduleEvidenceSha256 = $AiScheduleEvidenceSha256
+  AiScheduleMaintenanceId = $AiScheduleMaintenanceId
   PolicySyntaxWitnessPath = $PolicySyntaxWitnessPath
   PolicySyntaxWitnessSha256 = $PolicySyntaxWitnessSha256
   RetentionDays = $RetentionDays
@@ -276,16 +283,114 @@ function Assert-MaintenanceRuntimeContext {
   }
   $toolRoot = $InstalledAppRoot
   if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId)) {
-    if ($MaintenanceRequest.Action -cnotin @('Verify','RestoreRehearsal')) {
-      throw 'Prepared maintenance tools are limited to verification and isolated restoration'
+    if ($MaintenanceRequest.Action -cnotin @('Verify','RestoreRehearsal','Backup','Protect')) {
+      throw 'Prepared maintenance tools are limited to verification, isolated restoration and the exact AI schedule backup'
     }
     $toolRoot = Get-PreparedApplication $MaintenanceRequest.PreparedToolAppId $MaintenanceRequest.PreparedToolAppSha256
+    if ($MaintenanceRequest.Action -cin @('Backup','Protect')) { Assert-MaintenanceAiSchedulePreparedBackup $toolRoot }
   }
   $expectedTool = Join-Path $toolRoot "tools\postgres-consistent-backup.py"
   if (-not (Test-Path -LiteralPath $expectedTool -PathType Leaf)) {
     throw "runtime app 缺少一致性备份工具"
   }
   return $expectedTool
+}
+
+function Assert-MaintenanceAiSchedulePreparedBackup([string]$ToolRoot) {
+  if ($MaintenanceRequest.Action -cnotin @('Backup','Protect') -or -not $MaintenanceRequest.Execute -or
+      $MaintenanceRequest.PreparedToolAppId -cnotmatch '^[0-9a-f]{32}$' -or
+      $MaintenanceRequest.PreparedToolAppSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+      [string]::IsNullOrWhiteSpace($MaintenanceRequest.AiScheduleEvidencePath) -or
+      $MaintenanceRequest.AiScheduleEvidenceSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+      $MaintenanceRequest.AiScheduleMaintenanceId -cnotmatch '^[0-9a-f]{32}$') {
+    throw 'Prepared Backup requires the exact AI schedule evidence, prepared receipt and maintenance owner'
+  }
+  Assert-MaintenanceOperationAdmission
+  $window = Read-SystemMaintenance
+  if (-not $window -or $window.id -cne $MaintenanceRequest.AiScheduleMaintenanceId -or
+      $window.keepPostgres -isnot [bool] -or $window.keepPostgres -ne $true -or
+      $window.drainedStopped -isnot [bool] -or $window.drainedStopped -ne $true) {
+    throw 'Prepared AI schedule backup requires the matching stopped KeepPostgres maintenance'
+  }
+  $gate = Join-Path $ToolRoot 'tools\ai_schedule_addition.py'
+  $gateArgs = @($gate,'backup-admission','--root',$ToolRoot,'--runtime',$MaintenanceRequest.RuntimeRoot,
+    '--evidence',$MaintenanceRequest.AiScheduleEvidencePath,'--evidence-sha',$MaintenanceRequest.AiScheduleEvidenceSha256,
+    '--maintenance',$MaintenanceRequest.AiScheduleMaintenanceId)
+  $run = Invoke-BoundedNativeProcess $Python $gateArgs $InstalledAppRoot
+  $proof = ConvertFrom-UniqueNativeJson $run 'Bind prepared AI schedule backup tools'
+  if ([string]$proof.status -cne 'verified' -or [string]$proof.result.status -cne 'verified' -or
+      [int]$proof.result.migrationCount -ne 142 -or
+      [string]$proof.result.predecessorSha256 -cne (Get-FileSha256 $DeploymentManifestPath) -or
+      [string]$proof.result.maintenanceId -cne $MaintenanceRequest.AiScheduleMaintenanceId) {
+    throw 'Prepared AI schedule backup admission refused'
+  }
+  $script:MaintenancePreparedAiScheduleTools = [pscustomobject][ordered]@{
+    version = 'teruisi-ai-schedule-prepared-backup-v1'
+    preparedAppId = $MaintenanceRequest.PreparedToolAppId
+    preparedReceiptSha256 = $MaintenanceRequest.PreparedToolAppSha256
+    preparedManifestSha256 = Get-FileSha256 (Join-Path $ToolRoot 'deployment.json')
+    candidateEvidenceSha256 = $MaintenanceRequest.AiScheduleEvidenceSha256
+    maintenanceId = $MaintenanceRequest.AiScheduleMaintenanceId
+  }
+  if ($MaintenanceRequest.Action -ceq 'Protect') {
+    $archive = Resolve-MaintenanceBackupArchive $MaintenanceRequest.BackupDirectory $MaintenanceRequest.ApprovedManifestSha256 -RequireCurrentDeployment
+    if ($MaintenanceRequest.ApprovedManifestSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        $null -eq $archive.Manifest.preparedAiScheduleTools -or
+        (ConvertTo-Json -InputObject $archive.Manifest.preparedAiScheduleTools -Compress) -cne
+        (ConvertTo-Json -InputObject $script:MaintenancePreparedAiScheduleTools -Compress) -or
+        [DateTimeOffset]::Parse([string]$archive.Manifest.createdAt) -lt [DateTimeOffset]::Parse([string]$window.createdAt)) {
+      throw 'Prepared Protect is confined to this exact fresh AI schedule 142 point'
+    }
+  }
+}
+
+function Assert-MaintenanceNoKeyGeneration([object]$Evidence) {
+  # Exactly the original reviewed138 catalogue, optionally plus the single
+  # owning presence-cache migration. A count alone cannot prove generation.
+  $migrationIdentities = [Collections.Generic.List[string]]::new()
+  $presenceCount = 0
+  $erpGoalCount = 0
+  $auditErpCount = 0
+  $auditSalesCount = 0
+  $scheduleCount = 0
+  foreach ($migration in @($Evidence.migrations)) {
+    if ($migration -isnot [pscustomobject] -or $migration.app -isnot [string] -or $migration.name -isnot [string]) {
+      throw "无新增密钥备份迁移必须为标量字符串身份"
+    }
+    $app = [string]$migration.app; $name = [string]$migration.name
+    if ($app -cnotmatch '^[a-z][a-z0-9_]*$' -or $name -cnotmatch '^[0-9]{4}_[a-zA-Z0-9_]+$') {
+      throw "无新增密钥备份迁移身份无效"
+    }
+    if ($app -ceq 'netshop' -and $name -ceq '0004_promotion_presence_cache') { $presenceCount++ }
+    elseif ($app -ceq 'finance' -and $name -ceq '0007_finance_erp_targets') { $erpGoalCount++ }
+    elseif ($app -ceq 'erp_reference' -and $name -ceq '0003_jackyun_upload_audit_binding') { $auditErpCount++ }
+    elseif ($app -ceq 'sales' -and $name -ceq '0011_jackyun_upload_audit_binding') { $auditSalesCount++ }
+    elseif ($app -ceq 'ai_assistant' -and $name -ceq '0083_schedule_execution_profile') { $scheduleCount++ }
+    else { $migrationIdentities.Add($app + '.' + $name) }
+  }
+  $generation = @($Evidence.migrations).Count
+  if (($generation -cnotin @(138,139,140,142,143)) -or
+      ($generation -eq 138 -and ($presenceCount -ne 0 -or $erpGoalCount -ne 0)) -or
+      ($generation -eq 139 -and ($presenceCount -ne 1 -or $erpGoalCount -ne 0)) -or
+      ($generation -cin @(140,142,143) -and ($presenceCount -ne 1 -or $erpGoalCount -ne 1)) -or
+      ($generation -cin @(138,139,140) -and ($auditErpCount -ne 0 -or $auditSalesCount -ne 0 -or $scheduleCount -ne 0)) -or
+      ($generation -cin @(142,143) -and ($auditErpCount -ne 1 -or $auditSalesCount -ne 1)) -or
+      ($generation -eq 142 -and $scheduleCount -ne 0) -or ($generation -eq 143 -and $scheduleCount -ne 1) -or
+      $migrationIdentities.Count -ne 138 -or
+      [long]$Evidence.tables.django_migrations -ne $generation) {
+    throw "无新增密钥备份迁移代际未获核验"
+  }
+  $migrationIdentities.Sort([StringComparer]::Ordinal)
+  $catalogueJson = ConvertTo-Json -InputObject @($migrationIdentities.ToArray()) -Compress
+  $catalogueHasher = [Security.Cryptography.SHA256]::Create()
+  try { $catalogueSha256 = [BitConverter]::ToString($catalogueHasher.ComputeHash([Text.UTF8Encoding]::new($false).GetBytes($catalogueJson))).Replace('-','').ToLowerInvariant() }
+  finally { $catalogueHasher.Dispose() }
+  if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and
+        $_.name -ceq "0082_no_new_keys_profile" }).Count -ne 1 -or
+      $catalogueSha256 -cne '99dd6bdeb44bc558c5077e2eefefea64c68ae6fbc5dc814bc186c9684237d86b') {
+    throw "无新增密钥备份迁移代际未获核验"
+  }
+  return $generation
 }
 
 function Assert-MaintenanceEvidence(
@@ -429,42 +534,8 @@ function Assert-MaintenanceEvidence(
   )
   $protectedTables = @()
   if ($NoKeys) {
-    # Exactly the original reviewed138 catalogue, optionally plus the single
-    # owning presence-cache migration. A count alone cannot prove generation.
-    $migrationIdentities = [Collections.Generic.List[string]]::new()
-    $presenceCount = 0
-    $erpGoalCount = 0
-    foreach ($migration in @($Evidence.migrations)) {
-      if ($migration -isnot [pscustomobject] -or $migration.app -isnot [string] -or $migration.name -isnot [string]) {
-        throw "无新增密钥备份迁移必须为标量字符串身份"
-      }
-      $app = [string]$migration.app; $name = [string]$migration.name
-      if ($app -cnotmatch '^[a-z][a-z0-9_]*$' -or $name -cnotmatch '^[0-9]{4}_[a-zA-Z0-9_]+$') {
-        throw "无新增密钥备份迁移身份无效"
-      }
-      if ($app -ceq 'netshop' -and $name -ceq '0004_promotion_presence_cache') { $presenceCount++ }
-      elseif ($app -ceq 'finance' -and $name -ceq '0007_finance_erp_targets') { $erpGoalCount++ }
-      else { $migrationIdentities.Add($app + '.' + $name) }
-    }
-    $generation = @($Evidence.migrations).Count
-    if (($generation -ne 138 -and $generation -ne 139 -and $generation -ne 140) -or
-        ($generation -eq 138 -and ($presenceCount -ne 0 -or $erpGoalCount -ne 0)) -or
-        ($generation -eq 139 -and ($presenceCount -ne 1 -or $erpGoalCount -ne 0)) -or
-        ($generation -eq 140 -and ($presenceCount -ne 1 -or $erpGoalCount -ne 1)) -or $migrationIdentities.Count -ne 138 -or
-        [long]$Evidence.tables.django_migrations -ne $generation) {
-      throw "无新增密钥备份迁移代际未获核验"
-    }
-    if ($generation -eq 140) { $requiredTables += 'finance_erp_targets' }
-    $migrationIdentities.Sort([StringComparer]::Ordinal)
-    $catalogueJson = ConvertTo-Json -InputObject @($migrationIdentities.ToArray()) -Compress
-    $catalogueHasher = [Security.Cryptography.SHA256]::Create()
-    try { $catalogueSha256 = [BitConverter]::ToString($catalogueHasher.ComputeHash([Text.UTF8Encoding]::new($false).GetBytes($catalogueJson))).Replace('-','').ToLowerInvariant() }
-    finally { $catalogueHasher.Dispose() }
-    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and
-          $_.name -ceq "0082_no_new_keys_profile" }).Count -ne 1 -or
-        $catalogueSha256 -cne '99dd6bdeb44bc558c5077e2eefefea64c68ae6fbc5dc814bc186c9684237d86b') {
-      throw "无新增密钥备份迁移代际未获核验"
-    }
+    $generation = Assert-MaintenanceNoKeyGeneration $Evidence
+    if ($generation -cin @(140,142,143)) { $requiredTables += 'finance_erp_targets' }
     $protectedTables = @(
       "protected_business_budget_v11_verifier_keys", "protected_business_budget_v11_proof_tickets",
       "protected_business_budget_v11_proof_ticket_claims", "protected_business_v4_report_link_intents",
@@ -1072,6 +1143,15 @@ function Assert-MaintenanceBackupPayload([object]$Payload, [bool]$NoKeys = $fals
   if ($NoKeys) { Assert-MaintenanceNoKeyEvidence $Payload.profileEvidence }
 }
 
+function Test-MaintenanceAiSchedulePreparedRetention {
+  $bound = $script:MaintenancePreparedAiScheduleTools
+  return ($MaintenanceRequest.Action -ceq 'Backup' -and $null -ne $bound -and
+    $bound.preparedAppId -ceq $MaintenanceRequest.PreparedToolAppId -and
+    $bound.preparedReceiptSha256 -ceq $MaintenanceRequest.PreparedToolAppSha256 -and
+    $bound.candidateEvidenceSha256 -ceq $MaintenanceRequest.AiScheduleEvidenceSha256 -and
+    $bound.maintenanceId -ceq $MaintenanceRequest.AiScheduleMaintenanceId)
+}
+
 function Read-MaintenanceArchive(
   [string]$Directory,
   [string]$ApprovedSha256 = "",
@@ -1080,7 +1160,7 @@ function Read-MaintenanceArchive(
 ) {
   if ($RetentionInventory -and ($RequireCurrentDeployment -or
       $MaintenanceRequest.Action -cnotin @('Backup','Retain','Prune') -or
-      -not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId))) {
+      (-not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId) -and -not (Test-MaintenanceAiSchedulePreparedRetention)))) {
     throw 'Container-only validation is confined to retention inventory; never Verify or restore'
   }
   $manifestPath = Join-Path $Directory "backup-manifest.json"
@@ -1121,7 +1201,18 @@ function Read-MaintenanceArchive(
     "dump", "evidence", "software"
   )
   if ($noKeys) { $manifestProperties += "profileEvidence" }
+  if ($null -ne $manifest.preparedAiScheduleTools) { $manifestProperties += 'preparedAiScheduleTools' }
   Assert-MaintenanceExactPropertySet $manifest $manifestProperties "PostgreSQL 备份 manifest"
+  if ($null -ne $manifest.preparedAiScheduleTools) {
+    $prepared = $manifest.preparedAiScheduleTools
+    Assert-MaintenanceExactPropertySet $prepared @('version','preparedAppId','preparedReceiptSha256','preparedManifestSha256','candidateEvidenceSha256','maintenanceId') 'Prepared AI schedule backup tools'
+    if (-not $noKeys -or $prepared.version -cne 'teruisi-ai-schedule-prepared-backup-v1' -or
+        [string]$prepared.preparedAppId -cnotmatch '^[0-9a-f]{32}$' -or [string]$prepared.maintenanceId -cnotmatch '^[0-9a-f]{32}$' -or
+        @($manifest.evidence.migrations).Count -ne 142) {throw 'Invalid prepared AI schedule backup binding'}
+    foreach ($name in @('preparedReceiptSha256','preparedManifestSha256','candidateEvidenceSha256')) {
+      if ($prepared.$name -isnot [string] -or $prepared.$name -cnotmatch '^[0-9a-f]{64}$') {throw 'Invalid prepared AI schedule tool hash'}
+    }
+  }
   if (([string]$manifest.version -cne $MaintenanceBackupVersion -and -not $noKeys) -or
       [string]$manifest.status -cne "completed" -or
       [string]$manifest.backupId -cnotmatch "^daily-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$") {
@@ -1371,6 +1462,9 @@ function Invoke-MaintenanceBackup {
       }
     }
     if ($noKeys) { $manifest | Add-Member -NotePropertyName profileEvidence -NotePropertyValue $payload.profileEvidence }
+    if ($null -ne $script:MaintenancePreparedAiScheduleTools) {
+      $manifest | Add-Member -NotePropertyName preparedAiScheduleTools -NotePropertyValue $script:MaintenancePreparedAiScheduleTools
+    }
     $manifestPath = Join-Path $workingDirectory "backup-manifest.json"
     Write-AtomicJson $manifestPath $manifest
     Write-MaintenanceAtomicText (
@@ -1417,6 +1511,14 @@ function Invoke-MaintenanceNoKeyPreflight([switch]$ReleaseCatalog) {
       PGAPPNAME = "teruisi_no_key_backup_preflight"
       PGOPTIONS = "-c statement_timeout=30000 -c idle_in_transaction_session_timeout=60000"
     } {
+      if ($MaintenanceRequest.Action -ceq 'Backup' -and -not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId)) {
+        $gate = Join-Path (Split-Path -Parent (Split-Path -Parent $evidenceTool)) 'tools\ai_schedule_addition.py'
+        $check = Invoke-BoundedNativeProcess $Python @($gate,'backup-database','--root',(Split-Path -Parent (Split-Path -Parent $evidenceTool)),
+          '--runtime',$MaintenanceRequest.RuntimeRoot,'--evidence',$MaintenanceRequest.AiScheduleEvidencePath,
+          '--evidence-sha',$MaintenanceRequest.AiScheduleEvidenceSha256,'--maintenance',$MaintenanceRequest.AiScheduleMaintenanceId) $InstalledAppRoot
+        $proof = ConvertFrom-UniqueNativeJson $check 'Check exact prepared-backup 142 database'
+        if ([string]$proof.status -cne 'verified' -or [int]$proof.result.migrationCount -ne 142 -or $proof.result.readOnly -cne $true) {throw 'Prepared AI schedule predecessor catalogue refused'}
+      }
       $command = if ($ReleaseCatalog) { 'release-catalog' } else { 'no-key-preflight' }
       $run = Invoke-BoundedNativeProcess $Python @($evidenceTool, $command,
         "--expected-database", "teruisi_sales", "--expected-user", "postgres", "--port", "5432") $InstalledAppRoot
@@ -2166,7 +2268,7 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
   $expectedSelf = Join-Path $canonicalRuntime "app\tools\django-postgres-maintenance.ps1"
   if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId) -or
       -not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppSha256)) {
-    if ($MaintenanceRequest.Action -cnotin @('Verify','RestoreRehearsal') -or
+    if ($MaintenanceRequest.Action -cnotin @('Verify','RestoreRehearsal','Backup','Protect') -or
         $MaintenanceRequest.PreparedToolAppId -cnotmatch '^[0-9a-f]{32}$' -or
         $MaintenanceRequest.PreparedToolAppSha256 -cnotmatch '^[0-9a-f]{64}$') {
       throw 'Invalid read-only prepared maintenance request'
@@ -2194,10 +2296,16 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
     Get-PreparedApplication $MaintenanceRequest.PreparedToolAppId $MaintenanceRequest.PreparedToolAppSha256 | Out-Null
   }
 
+  $schedulePreparedBackup = $MaintenanceRequest.Action -cin @('Backup','Protect') -and -not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId)
+  if ((-not [string]::IsNullOrEmpty($MaintenanceRequest.AiScheduleEvidencePath) -or
+       -not [string]::IsNullOrEmpty($MaintenanceRequest.AiScheduleEvidenceSha256) -or
+       -not [string]::IsNullOrEmpty($MaintenanceRequest.AiScheduleMaintenanceId)) -and -not $schedulePreparedBackup) {
+    throw 'AI schedule backup evidence is confined to the exact prepared Backup request'
+  }
   $script:MaintenancePhase = 'admission'
   $script:MaintenanceRun = $null
   try {
-  $output = Invoke-MaintenanceMutex {
+  $maintenanceBody = {
     if ($MaintenanceRequest.Execute -and $MaintenanceRequest.Action -cin @('Backup','RestoreRehearsal')) {
       Assert-MaintenanceRuntimeContext | Out-Null
       Start-MaintenanceRun
@@ -2234,6 +2342,9 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
       "Status" { Show-MaintenanceStatus }
     }
   }
+  if ($schedulePreparedBackup) {
+    $output = Invoke-WithServiceMutex { Invoke-MaintenanceMutex $maintenanceBody }
+  } else { $output = Invoke-MaintenanceMutex $maintenanceBody }
   # Release cleanup remains outside the PG mutex: never invert lifecycle lock order.
   if ($MaintenanceRequest.Action -ceq 'Backup' -and $null -ne (Get-MaintenanceRetentionPolicy)) {
     Set-MaintenancePhase 'release_retention'

@@ -21,6 +21,7 @@
 
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
+| `ai-schedules-release-20261015` | 3 | [AI定时任务与广东仓正式采用](../ai-schedules-release-20261015/PLAN.md) |
 | `abc-execution-timing-review-20261010` | 8 | [ABC 执行耗时合理性评估](../abc-execution-timing-review-20261010/REPORT.md) |
 | `antigravity-release-audit-20261010` | 3 | [Antigravity 系统理解与 2026-10-09 上线耗时复核](../antigravity-release-audit-20261010/REPORT.md) |
 | `combined-release-20261014` | 1 | [两项功能同时生产采用](../combined-release-20261014/REPORT.md) |

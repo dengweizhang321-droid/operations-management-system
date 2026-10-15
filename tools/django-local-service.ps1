@@ -1749,6 +1749,21 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  $scheduleGate = Join-Path $candidateRoot 'tools\ai_schedule_addition.py'
+  $scheduleDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('ai-schedule-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-ai-schedule-addition-v1' -or $scheduleDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'ai-schedule-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $scheduleGate -PathType Leaf)) { throw 'AI schedule generation requires its exact verifier' }
+    $scheduleCommand = if ($Operation -ceq 'PrepareApp') { if ($null -ne $biEvidence) {'admission'} else {'successor'} } elseif ($Operation -ceq 'DeployApp') { if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'} } elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported AI schedule addition lifecycle operation'}
+    $scheduleArgs = @($scheduleGate,$scheduleCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($scheduleCommand -ceq 'admission') {$scheduleArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($scheduleCommand -ceq 'deployment') {$scheduleArgs += @('--operation',$IntegrationOperationId)}
+    $scheduleRun = Invoke-BoundedNativeProcess $Python $scheduleArgs $candidateRoot
+    $scheduleProof = ConvertFrom-UniqueNativeJson $scheduleRun 'Verify finite AI schedule addition'
+    if ([string]$scheduleProof.status -cne 'verified') {throw 'AI schedule addition gate refused'}
+    return
+  }
   $auditGate = Join-Path $candidateRoot 'tools\jackyun_audit_addition.py'
   $auditDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
     (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('jackyun-audit-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
@@ -1983,6 +1998,10 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\ai_schedule_addition.py",
+      "tools\ai_schedule_addition_catalog.py",
+      "tools\ai_schedule_addition_rehearsal.py",
+      "tools\ai_schedule_addition_private.py",
       "tools\bi-app-adopt.ps1",
       "tools\integration_migration_plan.py",
       "tools\integration_migration_journal.py",

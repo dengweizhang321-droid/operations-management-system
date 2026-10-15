@@ -1,0 +1,122 @@
+{
+  "version": "ai-schedule-private-postgres-v1",
+  "status": "passed",
+  "productionTouched": false,
+  "steps": [
+    "ai_assistant.0083_schedule_execution_profile"
+  ],
+  "codeSha256": "ad495305af1d6a2901bdb77e32c36041bc385393b14ac6ac271ce8354c17dd5f",
+  "migrationSha256": "eeeca0033aba72e1ccb7dee6021dae57fda4ddb0b9eb42b9544e2b23fc697a63",
+  "checks": [
+    "atomic-upgrade",
+    "closed-keys",
+    "defaults",
+    "dump-restore-142",
+    "dump-restore-143",
+    "legacy-generations",
+    "negative-catalogues",
+    "permissions",
+    "preserved-rows",
+    "rollback",
+    "unknown-no-replay"
+  ],
+  "before": {
+    "generation": 142,
+    "sourcePort": 55940,
+    "restorePort": 55950,
+    "contentSha256": "e08bc3c85f3776bcdd911dd67f121d22e73aeb0bcdecc0aaf0d4d98068bc800e",
+    "dumpSha256": "f57366effa8209b8d0bece340c1f3aaafc1b2e993a7aee3ffa7112d83de0ab62",
+    "roleAclAndCatalogueVerified": true,
+    "productionTouched": false
+  },
+  "after": {
+    "generation": 143,
+    "sourcePort": 55940,
+    "restorePort": 55950,
+    "contentSha256": "cbec8ab273382d583dcd47f4e21585b8a8d4a5f6f6efb7ba959506b77753ba07",
+    "dumpSha256": "bfb7cf8596856ed9549e82178d583ebabe35648c04d7e6838a7428fc2ea5c9e5",
+    "roleAclAndCatalogueVerified": true,
+    "productionTouched": false
+  },
+  "beforeRows": {
+    "ai_dingtalk_schedules": {
+      "columns": [
+        "id",
+        "name",
+        "prompt",
+        "cadence",
+        "hour",
+        "minute",
+        "day",
+        "target_type",
+        "target_id",
+        "sender_id",
+        "owner_email",
+        "enabled",
+        "version",
+        "next_run_at",
+        "last_run_at",
+        "updated_at",
+        "content_type",
+        "source_ref"
+      ],
+      "rows": 2,
+      "sha256": "2664936aa932f956c62cab3e64e622c9bc46265e80492accd86ac0c96122f933"
+    },
+    "ai_dingtalk_schedule_runs": {
+      "columns": [
+        "id",
+        "schedule_id",
+        "schedule_version",
+        "scheduled_at",
+        "status",
+        "error_code",
+        "created_at",
+        "completed_at"
+      ],
+      "rows": 2,
+      "sha256": "e47f1031f5ddda481f42f301460983ee8ed8748bc969d8639f1ea9778028659b"
+    }
+  },
+  "afterRows": {
+    "ai_dingtalk_schedules": {
+      "columns": [
+        "id",
+        "name",
+        "prompt",
+        "cadence",
+        "hour",
+        "minute",
+        "day",
+        "target_type",
+        "target_id",
+        "sender_id",
+        "owner_email",
+        "enabled",
+        "version",
+        "next_run_at",
+        "last_run_at",
+        "updated_at",
+        "content_type",
+        "source_ref"
+      ],
+      "rows": 2,
+      "sha256": "2664936aa932f956c62cab3e64e622c9bc46265e80492accd86ac0c96122f933"
+    },
+    "ai_dingtalk_schedule_runs": {
+      "columns": [
+        "id",
+        "schedule_id",
+        "schedule_version",
+        "scheduled_at",
+        "status",
+        "error_code",
+        "created_at",
+        "completed_at"
+      ],
+      "rows": 2,
+      "sha256": "e47f1031f5ddda481f42f301460983ee8ed8748bc969d8639f1ea9778028659b"
+    }
+  },
+  "legacyGenerationTestsSha256": "53ebd222a07a680016f63a36ce7ba7ec035eb21b8f596788609cd2575d932509"
+}

@@ -114,7 +114,7 @@ class AuditAdditionTests(unittest.TestCase):
         folder = addition.directory(self.base, op); folder.mkdir(parents=True)
         (folder / 'plan.json').write_text('{}')
         rows = {name: {'columns': ['id'], 'rows': 1, 'sha256': 'a' * 64} for name in COLUMNS}
-        plan = {'migrationSha256': 'b' * 64}
+        plan = {'version': addition.VERSION, 'migrationSha256': 'b' * 64}
         result = addition.publish_installed(self.base, op, folder, plan, rows, rows)
         original = (folder / 'installed.json').read_bytes()
         (self.base / addition.ACTIVE).unlink()

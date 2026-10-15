@@ -1,0 +1,20 @@
+Terminal result transcription; no production access.
+
+python -m unittest discover -s tools -p test_ai_schedule_addition.py -v
+Ran 8 tests in 0.157s — OK
+
+python -m unittest discover -s tools -p test_jackyun_audit_addition.py -v
+Ran 10 tests in 0.657s — OK
+The original missing-version test fixture was corrected; runtime parent code was not changed.
+
+python -m unittest discover -s tests -p test_postgres_no_key_backup.py -v
+Ran 7 tests in 0.032s — OK
+
+powershell.exe -NoProfile -NonInteractive -File tests/ai-schedule-prepared-maintenance.test.ps1
+{"productionTouched":false,"status":"passed","negativeChecks":9}
+
+pwsh.exe -NoProfile -NonInteractive -File tests/ai-schedule-prepared-maintenance.test.ps1
+{"status":"passed","productionTouched":false,"negativeChecks":9}
+
+Frozen PostgreSQL rehearsal: ai-schedule-addition-fmunc4gi
+Actual raw logs for both generations under both PowerShell versions are saved alongside this transcript.

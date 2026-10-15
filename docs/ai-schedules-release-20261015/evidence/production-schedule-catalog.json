@@ -1,0 +1,578 @@
+{
+  "version": "ai-schedule-production-catalog-readonly-v1",
+  "identity": {
+    "database": "teruisi_sales",
+    "role": "teruisi_sales_owner",
+    "port": 5432
+  },
+  "tables": {
+    "ai_dingtalk_schedules": {
+      "owner": "teruisi_sales_owner",
+      "columns": [
+        [
+          "id",
+          "character varying(64)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "name",
+          "character varying(100)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "prompt",
+          "text",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "cadence",
+          "character varying(8)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "hour",
+          "smallint",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "minute",
+          "smallint",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "day",
+          "smallint",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "target_type",
+          "character varying(8)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "target_id",
+          "character varying(256)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "sender_id",
+          "character varying(160)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "owner_email",
+          "character varying(320)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "enabled",
+          "boolean",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "version",
+          "integer",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "next_run_at",
+          "timestamp with time zone",
+          false,
+          false,
+          "",
+          ""
+        ],
+        [
+          "last_run_at",
+          "timestamp with time zone",
+          false,
+          false,
+          "",
+          ""
+        ],
+        [
+          "updated_at",
+          "timestamp with time zone",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "content_type",
+          "character varying(16)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "source_ref",
+          "character varying(160)",
+          true,
+          false,
+          "",
+          ""
+        ]
+      ],
+      "constraints": [
+        [
+          "ai_ding_schedule_bound",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK (((octet_length(prompt) <= 16000) AND ((cadence)::text = ANY ((ARRAY['daily'::character varying, 'weekly'::character varying, 'monthly'::character varying])::text[])) AND ((target_type)::text = ANY ((ARRAY['group'::character varying, 'person'::character varying])::text[])) AND (hour <= 23) AND (minute <= 59) AND ((day >= 1) AND (day <= 28)) AND (version >= 1)))"
+        ],
+        [
+          "ai_ding_schedule_media_bound",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK ((((content_type)::text = ANY ((ARRAY['text'::character varying, 'screenshot'::character varying, 'report_file'::character varying])::text[])) AND (octet_length((source_ref)::text) <= 160) AND ((((content_type)::text = 'text'::text) AND ((source_ref)::text = ''::text)) OR (((content_type)::text <> 'text'::text) AND ((source_ref)::text <> ''::text)))))"
+        ],
+        [
+          "ai_dingtalk_schedules_day_check",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK ((day >= 0))"
+        ],
+        [
+          "ai_dingtalk_schedules_hour_check",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK ((hour >= 0))"
+        ],
+        [
+          "ai_dingtalk_schedules_minute_check",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK ((minute >= 0))"
+        ],
+        [
+          "ai_dingtalk_schedules_pkey",
+          "p",
+          true,
+          false,
+          false,
+          "PRIMARY KEY (id)"
+        ],
+        [
+          "ai_dingtalk_schedules_version_check",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK ((version >= 0))"
+        ]
+      ],
+      "indexes": [
+        [
+          "ai_ding_schedule_due",
+          "CREATE INDEX ai_ding_schedule_due ON public.ai_dingtalk_schedules USING btree (enabled, next_run_at)"
+        ],
+        [
+          "ai_dingtalk_schedules_id_eed4c837_like",
+          "CREATE INDEX ai_dingtalk_schedules_id_eed4c837_like ON public.ai_dingtalk_schedules USING btree (id varchar_pattern_ops)"
+        ],
+        [
+          "ai_dingtalk_schedules_pkey",
+          "CREATE UNIQUE INDEX ai_dingtalk_schedules_pkey ON public.ai_dingtalk_schedules USING btree (id)"
+        ]
+      ],
+      "triggers": [
+        [
+          "ai_immutable_identity",
+          19,
+          "O",
+          false,
+          false,
+          "6964006f776e65725f656d61696c00",
+          "CREATE TRIGGER ai_immutable_identity BEFORE UPDATE ON public.ai_dingtalk_schedules FOR EACH ROW EXECUTE FUNCTION ai_immutable_record_guard('id', 'owner_email')"
+        ],
+        [
+          "ai_write_fence",
+          31,
+          "O",
+          false,
+          false,
+          "",
+          "CREATE TRIGGER ai_write_fence BEFORE INSERT OR DELETE OR UPDATE ON public.ai_dingtalk_schedules FOR EACH ROW EXECUTE FUNCTION ai_runtime_write_fence()"
+        ]
+      ],
+      "acl": [
+        [
+          "teruisi_ai_reader",
+          "SELECT",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "INSERT",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "SELECT",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "UPDATE",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "DELETE",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "INSERT",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "MAINTAIN",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "REFERENCES",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "SELECT",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "TRIGGER",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "TRUNCATE",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "UPDATE",
+          false
+        ]
+      ],
+      "columnAcl": []
+    },
+    "ai_dingtalk_schedule_runs": {
+      "owner": "teruisi_sales_owner",
+      "columns": [
+        [
+          "id",
+          "character varying(64)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "schedule_id",
+          "character varying(64)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "schedule_version",
+          "integer",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "scheduled_at",
+          "timestamp with time zone",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "status",
+          "character varying(16)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "error_code",
+          "character varying(64)",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "created_at",
+          "timestamp with time zone",
+          true,
+          false,
+          "",
+          ""
+        ],
+        [
+          "completed_at",
+          "timestamp with time zone",
+          false,
+          false,
+          "",
+          ""
+        ]
+      ],
+      "constraints": [
+        [
+          "ai_ding_run_status",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK (((status)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying, 'ready'::character varying, 'sending'::character varying, 'sent'::character varying, 'unknown'::character varying, 'denied'::character varying, 'failed'::character varying])::text[])))"
+        ],
+        [
+          "ai_ding_schedule_slot_uq",
+          "u",
+          true,
+          false,
+          false,
+          "UNIQUE (schedule_id, scheduled_at)"
+        ],
+        [
+          "ai_dingtalk_schedule_runs_pkey",
+          "p",
+          true,
+          false,
+          false,
+          "PRIMARY KEY (id)"
+        ],
+        [
+          "ai_dingtalk_schedule_runs_schedule_version_check",
+          "c",
+          true,
+          false,
+          false,
+          "CHECK ((schedule_version >= 0))"
+        ],
+        [
+          "ai_dingtalk_schedule_schedule_id_d1b30a18_fk_ai_dingta",
+          "f",
+          true,
+          true,
+          true,
+          "FOREIGN KEY (schedule_id) REFERENCES ai_dingtalk_schedules(id) DEFERRABLE INITIALLY DEFERRED"
+        ]
+      ],
+      "indexes": [
+        [
+          "ai_ding_schedule_history",
+          "CREATE INDEX ai_ding_schedule_history ON public.ai_dingtalk_schedule_runs USING btree (schedule_id, created_at)"
+        ],
+        [
+          "ai_ding_schedule_slot_uq",
+          "CREATE UNIQUE INDEX ai_ding_schedule_slot_uq ON public.ai_dingtalk_schedule_runs USING btree (schedule_id, scheduled_at)"
+        ],
+        [
+          "ai_dingtalk_schedule_runs_id_b7c7ee51_like",
+          "CREATE INDEX ai_dingtalk_schedule_runs_id_b7c7ee51_like ON public.ai_dingtalk_schedule_runs USING btree (id varchar_pattern_ops)"
+        ],
+        [
+          "ai_dingtalk_schedule_runs_pkey",
+          "CREATE UNIQUE INDEX ai_dingtalk_schedule_runs_pkey ON public.ai_dingtalk_schedule_runs USING btree (id)"
+        ],
+        [
+          "ai_dingtalk_schedule_runs_schedule_id_d1b30a18",
+          "CREATE INDEX ai_dingtalk_schedule_runs_schedule_id_d1b30a18 ON public.ai_dingtalk_schedule_runs USING btree (schedule_id)"
+        ],
+        [
+          "ai_dingtalk_schedule_runs_schedule_id_d1b30a18_like",
+          "CREATE INDEX ai_dingtalk_schedule_runs_schedule_id_d1b30a18_like ON public.ai_dingtalk_schedule_runs USING btree (schedule_id varchar_pattern_ops)"
+        ]
+      ],
+      "triggers": [
+        [
+          "ai_immutable_identity",
+          19,
+          "O",
+          false,
+          false,
+          "6964007363686564756c655f6964007363686564756c655f76657273696f6e007363686564756c65645f617400637265617465645f617400",
+          "CREATE TRIGGER ai_immutable_identity BEFORE UPDATE ON public.ai_dingtalk_schedule_runs FOR EACH ROW EXECUTE FUNCTION ai_immutable_record_guard('id', 'schedule_id', 'schedule_version', 'scheduled_at', 'created_at')"
+        ],
+        [
+          "ai_write_fence",
+          31,
+          "O",
+          false,
+          false,
+          "",
+          "CREATE TRIGGER ai_write_fence BEFORE INSERT OR DELETE OR UPDATE ON public.ai_dingtalk_schedule_runs FOR EACH ROW EXECUTE FUNCTION ai_runtime_write_fence()"
+        ]
+      ],
+      "acl": [
+        [
+          "teruisi_ai_reader",
+          "SELECT",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "INSERT",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "SELECT",
+          false
+        ],
+        [
+          "teruisi_ai_writer",
+          "UPDATE",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "DELETE",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "INSERT",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "MAINTAIN",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "REFERENCES",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "SELECT",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "TRIGGER",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "TRUNCATE",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "UPDATE",
+          false
+        ]
+      ],
+      "columnAcl": []
+    }
+  },
+  "functions": {
+    "public.ai_runtime_write_fence()": {
+      "owner": "teruisi_sales_owner",
+      "securityDefiner": false,
+      "volatility": "v",
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "bodySha256": "1a6bc526c781b99db0252d43b56745a21112885f2252954dba201192e753bf49",
+      "acl": [
+        [
+          "PUBLIC",
+          "EXECUTE",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "EXECUTE",
+          false
+        ]
+      ]
+    },
+    "public.ai_immutable_record_guard()": {
+      "owner": "teruisi_sales_owner",
+      "securityDefiner": false,
+      "volatility": "v",
+      "config": [
+        "search_path=pg_catalog, public"
+      ],
+      "bodySha256": "92545d64941248fa1fdb7eb0e3fbc29257300062db28680e44565102802f0dae",
+      "acl": [
+        [
+          "PUBLIC",
+          "EXECUTE",
+          false
+        ],
+        [
+          "teruisi_sales_owner",
+          "EXECUTE",
+          false
+        ]
+      ]
+    }
+  }
+}
