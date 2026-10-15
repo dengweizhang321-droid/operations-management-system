@@ -17,7 +17,7 @@ const LOCAL_BACKGROUND_OWNER = "local-admin@teruisi.local";
 
 export type AiBackgroundPrincipalResult =
   | { ok: true; principal: AppPrincipal; actorRole: AppRole; localDirect: boolean }
-  | { ok: false; code: "authorization_revoked" | "scope_invalid"; message: string };
+  | { ok: false; code: "authorization_revoked" | "scope_invalid"; message: string; retryable?: boolean };
 
 export async function resolveAiBackgroundPrincipal(
   ownerEmailInput: string,
@@ -66,7 +66,8 @@ export async function resolveAiBackgroundPrincipal(
     const message = error instanceof AccessControlServiceError && error.status === 403
       ? error.message
       : "权限服务不可用，后台任务已失败关闭。";
-    return { ok: false, code: "authorization_revoked", message };
+    return { ok: false, code: "authorization_revoked", message,
+      ...(error instanceof AccessControlServiceError && error.status === 503 ? { retryable: true } : {}) };
   }
   if (row.email !== ownerEmail || typeof row.displayName !== "string"
     || typeof row.role !== "string" || !isBackgroundRole(row.role)

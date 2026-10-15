@@ -22,6 +22,9 @@ export async function runScheduledDjangoMarketAnnotation(signal?: AbortSignal) {
       // The scheduler identity may coordinate the market queue, but may not
       // impersonate a user when requesting a paid model runtime from AI.
       const owner = await resolveAiBackgroundPrincipal(job.ownerEmail, "null");
+      // A service/maintenance outage is not a change to the user's run intent.
+      // No lease/model is started; the existing scheduler rechecks next round.
+      if (!owner.ok && owner.retryable) return null;
       if (!owner.ok || !["operator", "admin"].includes(owner.principal.role) || owner.principal.scope !== null) {
         await annotationCommand(INTERNAL_ANNOTATION_PRINCIPAL, {
           action: "set_cloud_run_state", jobId: job.jobId, state: "paused",
@@ -43,5 +46,5 @@ export async function runScheduledDjangoMarketAnnotation(signal?: AbortSignal) {
     },
   });
   const remaining = await annotationQuery<{ jobs: AnnotationDispatchJob[] }>(INTERNAL_ANNOTATION_PRINCIPAL, "dispatch", { limit: 5 }, AbortSignal.timeout(5_000));
-  return { ...dispatched, continueImmediately: !signal?.aborted && remaining.data.jobs.length > 0 };
+  return { ...dispatched, continueImmediately: !signal?.aborted && dispatched.jobCount > 0 && remaining.data.jobs.length > 0 };
 }

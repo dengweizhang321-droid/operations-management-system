@@ -132,8 +132,23 @@ test("annotation UI uses independent read errors and preserves command errors du
   const polling = source.slice(source.indexOf("    let disposed = false;"), source.indexOf("  const concurrencyFor"));
   assert.doesNotMatch(polling, /setError/);
   assert.match(polling, /loadJobProgress\(backgroundJobId, controller.signal\)/);
-  assert.match(polling, /reviewReader.hasError\(\)/);
+  assert.doesNotMatch(polling, /loadReview\(|reviewReader.hasError\(\)/, "polling never re-runs the heavy review query");
   assert.match(polling, /controller.abort\(\)/);
   assert.match(source, /重新读取进度/);
   assert.match(source, /重新读取复核列表/);
+});
+
+test("maintenance is a typed read issue and a successful read clears it without sending commands", async () => {
+  let maintenance = true;
+  let issue: unknown;
+  const channel = createAnnotationReadChannel({ label: "任务进度读取", onError: () => undefined, onIssue: (value) => { issue = value; },
+    fetchImpl: async (_url, init) => {
+      assert.equal(init?.method, undefined);
+      return maintenance ? Response.json({ code: "maintenance_wait" }, { status: 503 }) : response("job");
+    } });
+  await assert.rejects(channel.read("/progress", valid, () => undefined), AnnotationReadError);
+  assert.deepEqual(issue, { kind: "maintenance", status: 503 });
+  maintenance = false;
+  await channel.read("/progress", valid, () => undefined);
+  assert.equal(issue, null);
 });
