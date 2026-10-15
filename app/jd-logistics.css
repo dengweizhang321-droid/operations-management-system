@@ -2,6 +2,7 @@
 .jd-logistics-module .outlet-subnav { margin: 0; }
 .jd-logistics-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px; }
 .jd-logistics-heading h2 { margin: 0 0 6px; font-size: 18px; }
+.jd-logistics-heading-actions { display: flex; align-items: center; gap: 10px; }
 .jd-logistics-heading p, .jd-logistics-import p, .jd-logistics-dialog p { margin: 0; color: var(--color-text-secondary); line-height: 1.7; }
 .jd-logistics-filters { display: grid; grid-template-columns: minmax(200px,1.5fr) minmax(180px,1.2fr) repeat(2,minmax(140px,.8fr)) minmax(180px,1.1fr); gap: 12px; padding: 16px; align-items: end; }
 .jd-logistics-c-filters, .jd-logistics-c-kpis { grid-template-columns: repeat(3,minmax(0,1fr)); }

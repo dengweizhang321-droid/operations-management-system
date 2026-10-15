@@ -12,7 +12,7 @@ import { InventoryKpiCard } from "./module-view-business-ui";
 import GuangdongInventoryView from "./inventory-guangdong-view";
 import JdLogisticsView from "./jd-logistics-view";
 import JdLogisticsCwarehouseView from "./jd-logistics-cwarehouse-view";
-import { readJdLogisticsLocation, writeJdLogisticsLocation } from "@/lib/inventory/jd-logistics-contract";
+import { canonicalizeJdLogisticsLocation, readJdLogisticsLocation, writeJdLogisticsLocation } from "@/lib/inventory/jd-logistics-contract";
 import InventoryFilterBar, {
   readInventorySharedFilters,
   writeInventorySharedFilters,
@@ -457,20 +457,26 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const syncInputRef = useRef<HTMLInputElement>(null);
   const planImportInputRef = useRef<HTMLInputElement>(null);
   const activeTab = moduleView;
-  const [jdInboundMode, setJdInboundMode] = useState(() => typeof window === "undefined" ? "erp" : readJdLogisticsLocation(window.location.href).inbound);
+  const [jdLocation, setJdLocation] = useState(() => readJdLogisticsLocation(typeof window === "undefined" ? "/?module=inventory&view=inbound" : window.location.href));
+  const jdInboundMode = jdLocation.inbound;
   const jdPop = jdInboundMode === "pop";
   const jdCwarehouse = jdInboundMode === "cwarehouse";
-  const selectJdInbound = (mode: "erp" | "pop" | "cwarehouse") => {
+  const selectJdInbound = (mode: "pop" | "cwarehouse") => {
     if (mode === jdInboundMode) return;
-    setJdInboundMode(mode); writeJdLogisticsLocation({ inbound: mode });
-    const url = new URL(window.location.href); url.searchParams.set("jdPage", "1");
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    writeJdLogisticsLocation({ inbound: mode });
+    setJdLocation(readJdLogisticsLocation(window.location.href));
   };
   useEffect(() => {
-    const restore = () => setJdInboundMode(readJdLogisticsLocation(window.location.href).inbound);
+    const restore = () => {
+      const canonical = canonicalizeJdLogisticsLocation(window.location.href);
+      const location = readJdLogisticsLocation(canonical);
+      if (activeTab === "inbound" && location.workspace === "import") { window.location.replace(canonical); return; }
+      if (canonical !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(window.history.state, "", canonical);
+      setJdLocation(location);
+    };
     restore(); window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
-  }, []);
+  }, [activeTab]);
   const usesInventoryOverview = activeTab === "overview" || activeTab === "plan";
   const usesInventoryAgeAnalysis = activeTab === "age" || activeTab === "stale";
   const usesInboundMonitor = activeTab === "inbound" && !jdPop && !jdCwarehouse;
@@ -1516,7 +1522,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       <button type="button" role="tab" aria-selected={activeTab === "stale"} className={activeTab === "stale" ? "active" : ""} onClick={() => onModuleViewChange("stale")}>滞销清理</button>
       <button type="button" role="tab" aria-selected={activeTab === "inbound"} className={activeTab === "inbound" ? "active" : ""} onClick={() => onModuleViewChange("inbound")}>京东入仓监控</button>
       <button type="button" role="tab" aria-selected={activeTab === "guangdong"} className={activeTab === "guangdong" ? "active" : ""} onClick={() => onModuleViewChange("guangdong")}>广东入仓监控</button>
-    </div>{activeTab === "inbound" && <div className="subnav outlet-subnav" role="tablist" aria-label="京东入仓监控来源"><button type="button" role="tab" aria-selected={jdInboundMode === "erp"} className={jdInboundMode === "erp" ? "active" : ""} onClick={() => selectJdInbound("erp")}>ERP 京东仓</button><button type="button" role="tab" aria-selected={jdPop} className={jdPop ? "active" : ""} onClick={() => selectJdInbound("pop")}>京东 POP</button><button type="button" role="tab" aria-selected={jdCwarehouse} className={jdCwarehouse ? "active" : ""} onClick={() => selectJdInbound("cwarehouse")}>C仓监控</button></div>}</>
+    </div>{activeTab === "inbound" && <div className="subnav outlet-subnav" role="tablist" aria-label="京东入仓监控来源"><button type="button" role="tab" aria-selected={jdPop} className={jdPop ? "active" : ""} onClick={() => selectJdInbound("pop")}>京东 POP</button><button type="button" role="tab" aria-selected={jdCwarehouse} className={jdCwarehouse ? "active" : ""} onClick={() => selectJdInbound("cwarehouse")}>C仓监控</button></div>}</>
   );
 
   const planModal = planDraft && planDraftScope === `${principalKey}:${activeTab}` && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !planSaving) setPlanDraft(null); }}>
@@ -1555,7 +1561,8 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       </div>;
 
   if (activeTab === "guangdong") return <>{subnav}<GuangdongInventoryView identity={currentUser} key={principalKey} canManage={currentUser?.role === "operator" || currentUser?.role === "admin"} filters={filters} onFiltersChange={updateFilters} onAskAi={onAskAi} onCreatePlan={openGuangdongPlan} planActionId={planActionId} planSaving={planSaving} refreshKey={guangdongRefresh} />{syncFeedback && <div className={`sync-feedback ${syncFeedback.tone}`} role="status"><strong>{syncFeedback.title}</strong><p>{syncFeedback.message}</p></div>}{planModal}</>;
-  if (activeTab === "inbound" && jdPop) return <>{subnav}<JdLogisticsView key={principalKey} currentUser={currentUser} customStartDate={customStartDate} customEndDate={customEndDate} /></>;
+  if (activeTab === "inbound" && jdLocation.workspace === "import") return <>{subnav}<section className="panel data-state" role="status">正在转到数据导入运行记录…</section></>;
+  if (activeTab === "inbound" && jdPop) return <>{subnav}<JdLogisticsView key={principalKey} fixedTab="mappings" currentUser={currentUser} customStartDate={customStartDate} customEndDate={customEndDate} /></>;
   if (activeTab === "inbound" && jdCwarehouse) return <>{subnav}<JdLogisticsCwarehouseView key={principalKey} currentUser={currentUser} /></>;
 
   const activeInventoryHasData = usesInventoryAgeAnalysis ? ageAnalysis?.hasInventory : usesInboundMonitor ? inboundMonitor?.hasInventory : overview?.hasInventory;

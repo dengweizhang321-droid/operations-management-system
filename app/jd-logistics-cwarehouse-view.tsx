@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type FormEvent } from "react";
 import Link from "next/link";
 import type { CurrentUser } from "./module-view-shared";
 import { InventoryKpiCard } from "./module-view-business-ui";
 import { SearchableSelect } from "./ui/searchable-select";
-import { requestJdLogistics } from "./jd-logistics-view";
+import JdLogisticsView, { requestJdLogistics } from "./jd-logistics-view";
+import Dialog from "./ui/dialog";
 import JdLogisticsProductMatrix, { decodeCwarehouseProductMonitor, displayCwarehouseValue, type CwarehouseProductMonitor } from "./jd-logistics-product-matrix";
-import { readJdLogisticsLocation, writeJdLogisticsLocation, type JdLogisticsFilters, type JdLogisticsOptions } from "@/lib/inventory/jd-logistics-contract";
+import { readJdLogisticsLocation, writeJdLogisticsLocation, type JdCwarehouseTab, type JdLogisticsFilters, type JdLogisticsOptions } from "@/lib/inventory/jd-logistics-contract";
 import "./jd-logistics.css";
 
 function followShellLink(event: MouseEvent<HTMLAnchorElement>) {
@@ -19,6 +20,20 @@ function followShellLink(event: MouseEvent<HTMLAnchorElement>) {
 }
 
 export default function JdLogisticsCwarehouseView({ currentUser }: { currentUser: CurrentUser | null }) {
+  const [tab, setTab] = useState<JdCwarehouseTab>(() => typeof window === "undefined" ? "monitor" : readJdLogisticsLocation(window.location.href).cTab);
+  useEffect(() => {
+    const restore = () => setTab(readJdLogisticsLocation(window.location.href).cTab);
+    window.addEventListener("popstate", restore); return () => window.removeEventListener("popstate", restore);
+  }, []);
+  const select = (next: JdCwarehouseTab) => {
+    if (next === tab) return;
+    writeJdLogisticsLocation({ cTab: next }); setTab(next);
+  };
+  return <><div className="subnav outlet-subnav" role="tablist" aria-label="C仓监控工作区">{([ ["monitor", "库存监控"], ["flows", "库存流水"], ["transfers", "调拨核对"] ] as const).map(([key, label]) => <button type="button" key={key} role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""} onClick={() => select(key)}>{label}</button>)}</div>
+    {tab === "monitor" ? <CwarehouseMonitor currentUser={currentUser} /> : <JdLogisticsView key={`${JSON.stringify(currentUser)}:${tab}`} currentUser={currentUser} fixedTab={tab} />}</>;
+}
+
+function CwarehouseMonitor({ currentUser }: { currentUser: CurrentUser | null }) {
   const [filters, setFilters] = useState<JdLogisticsFilters>({ departmentId: "", warehouseCode: "", startDate: "", endDate: "", q: "", page: 1 });
   const [query, setQuery] = useState("");
   const [salesWindow, setSalesWindow] = useState<7 | 30>(30);
@@ -29,11 +44,28 @@ export default function JdLogisticsCwarehouseView({ currentUser }: { currentUser
   const [optionsError, setOptionsError] = useState("");
   const [loading, setLoading] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [thresholdDraft, setThresholdDraft] = useState<{ scope: string; departmentId: string; revision: number; value: string } | null>(null);
+  const [thresholdSaving, setThresholdSaving] = useState(false);
+  const [thresholdFeedback, setThresholdFeedback] = useState<{ scope: string; message: string; error: boolean } | null>(null);
+  const committedScope = useRef("");
   const generation = useRef(0);
   const principalKey = JSON.stringify(currentUser);
   const department = options?.departments.find(value => value.id === filters.departmentId);
   const key = JSON.stringify([principalKey, department?.id ?? "", filters.warehouseCode, filters.q, filters.page, salesWindow]);
   const result = data?.key === key ? data.value : null;
+  const canManageThreshold = currentUser?.role === "admin";
+  useLayoutEffect(() => { committedScope.current = key; return () => { committedScope.current = ""; }; }, [key]);
+  const saveThreshold = async (event: FormEvent) => {
+    event.preventDefault(); if (!thresholdDraft || thresholdSaving || !canManageThreshold || thresholdDraft.scope !== committedScope.current) return;
+    const draft = thresholdDraft;
+    setThresholdSaving(true); setThresholdFeedback(null);
+    try {
+      await requestJdLogistics(new URLSearchParams(), { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ operation: "settings", departmentId: draft.departmentId, expectedRevision: draft.revision, stockoutThresholdDays: draft.value === "" ? null : Number(draft.value) }) });
+      if (committedScope.current !== draft.scope) return;
+      setThresholdDraft(null); setThresholdFeedback({ scope: draft.scope, message: "缺货阈值已保存，正在回查当前范围。", error: false }); setRefresh(value => value + 1);
+    } catch (reason) { if (committedScope.current === draft.scope) setThresholdFeedback({ scope: draft.scope, message: reason instanceof Error ? reason.message : "阈值保存失败", error: true }); }
+    finally { setThresholdSaving(false); }
+  };
   useEffect(() => {
     const restore = () => {
       const url = new URL(window.location.href), restored = readJdLogisticsLocation(url.href).filters;
@@ -77,8 +109,9 @@ export default function JdLogisticsCwarehouseView({ currentUser }: { currentUser
     return { key, ids };
   });
   const retry = <button type="button" className="row-action" disabled={loading} onClick={() => setRefresh(value => value + 1)}>刷新数据</button>;
+  const thresholdControl = <button type="button" className="row-action" disabled={!canManageThreshold || !department || thresholdSaving} onClick={() => { if (department) { setThresholdFeedback(null); setThresholdDraft({ scope: key, departmentId: department.id, revision: department.revision, value: department.stockoutThresholdDays == null ? "" : String(department.stockoutThresholdDays) }); } }}>缺货阈值</button>;
   return <div className="jd-logistics-module">
-    <section className="panel jd-logistics-heading"><div><h2>京东 C仓监控</h2><p>单品横向看分布，展开查看分仓依据；实时与快照分别标注日期。</p></div>{retry}</section>
+    <section className="panel jd-logistics-heading"><div><h2>京东 C仓监控</h2><p>单品横向看分布，展开查看分仓依据；实时与快照分别标注日期。</p></div><div className="jd-logistics-heading-actions">{thresholdControl}{retry}</div></section>
     <section className="panel jd-logistics-filters jd-cwarehouse-product-filters" aria-label="C仓单品筛选">
       <label><span>事业部库存池</span><SearchableSelect ariaLabel="C仓事业部" value={department?.id ?? ""} options={[{ value: "", label: "请选择事业部" }, ...(options?.departments ?? []).map(row => ({ value: row.id, label: `${row.name} · ${row.businessUnitCode}` }))]} onChange={value => update({ departmentId: value, warehouseCode: "" })} /></label>
       <label><span>仓库范围</span><SearchableSelect ariaLabel="C仓仓库" value={filters.warehouseCode} options={[{ value: "", label: "全部仓库" }, ...(options?.warehouses ?? []).map(row => ({ value: row.key ?? `code:${row.code}`, label: row.code ? `${row.name} · ${row.code}` : `${row.name}（来源仓名）` }))]} onChange={value => update({ warehouseCode: value })} /></label>
@@ -88,11 +121,12 @@ export default function JdLogisticsCwarehouseView({ currentUser }: { currentUser
     </section>
     {optionsError && <div className="inventory-feedback inventory-feedback-error" role="alert">{optionsError} {retry}</div>}
     {!options && !optionsError && <section className="panel data-state" role="status">正在读取物流账号…</section>}
-    {options && !department && <section className="panel data-state"><strong>{options.departments.length ? "请选择事业部库存池" : "尚未配置C仓来源账号"}</strong><p>先登记来源账号并导入实时库存及库存快照，才能形成单品矩阵。</p><Link prefetch={false} onClick={followShellLink} className="secondary-button" href="/?module=inventory&view=inbound&jdInbound=pop&jdPopTab=settings">账号与阈值设置</Link></section>}
+    {options && !department && <section className="panel data-state"><strong>{options.departments.length ? "请选择事业部库存池" : "尚无C仓来源数据"}</strong><p>来源准备完成后，可在数据导入模块上传实时库存及库存快照。</p></section>}
+    {thresholdFeedback?.scope === key && <div className={`inventory-feedback ${thresholdFeedback.error ? "inventory-feedback-error" : ""}`} role={thresholdFeedback.error ? "alert" : "status"}>{thresholdFeedback.message}</div>}
     {department && <>
       <section className="inventory-kpi-grid jd-logistics-c-kpis"><InventoryKpiCard label="当前范围单品" value={result ? displayCwarehouseValue(result.total) : "—"} note="服务端按单品分组后分页" tone="blue" icon="货" /><InventoryKpiCard label="当前范围可用库存" value={result ? displayCwarehouseValue(result.totals.availableQuantity) : "—"} note="完整筛选范围，非当前页合计" tone="green" icon="仓" /><InventoryKpiCard label="缺货风险仓项" value={result ? displayCwarehouseValue(result.summary.stockoutRiskCount) : "—"} note="按30日可用库存可售天数阈值判断" tone="orange" icon="险" /></section>
-      <section className="inventory-feedback inventory-feedback-warning"><div><strong>来源与提醒</strong><p>{result ? "实时与快照日期分别展示，缺失数据以 — 表示。" : "当前范围数据尚未核实。"} {result?.notificationAvailable ? "专用钉钉渠道已启用；实际发送以投递结果为准。" : "专用钉钉渠道未启用；页面风险提示不代表已发送。"}</p>{result?.coverageWarnings.length ? <details><summary>查看指标口径与来源限制</summary><p>{result.coverageWarnings.join("；")}</p></details> : null}</div><Link prefetch={false} onClick={followShellLink} className="row-action" href="/?module=inventory&view=inbound&jdInbound=pop&jdPopTab=settings">阈值设置</Link></section>
-      <section className="panel table-panel" aria-busy={loading}><div className="table-toolbar"><div><h2>单品库存分布</h2><p>每行一个京东 SKU，点左侧 + 展开分仓；可用、采购在途和调拨在途分开展示。{loading && result ? " 正在刷新当前范围…" : ""}</p></div><Link prefetch={false} onClick={followShellLink} className="secondary-button" href="/?module=inventory&view=inbound&jdInbound=pop&jdPopTab=batches">导入来源数据</Link></div>
+      <section className="inventory-feedback inventory-feedback-warning"><div><strong>来源与提醒</strong><p>{result ? "实时与快照日期分别展示，缺失数据以 — 表示。" : "当前范围数据尚未核实。"} {result?.notificationAvailable ? "专用钉钉渠道已启用；实际发送以投递结果为准。" : "专用钉钉渠道未启用；页面风险提示不代表已发送。"}</p>{result?.coverageWarnings.length ? <details><summary>查看指标口径与来源限制</summary><p>{result.coverageWarnings.join("；")}</p></details> : null}</div></section>
+      <section className="panel table-panel" aria-busy={loading}><div className="table-toolbar"><div><h2>单品库存分布</h2><p>每行一个京东 SKU，点左侧 + 展开分仓；可用、采购在途和调拨在途分开展示。{loading && result ? " 正在刷新当前范围…" : ""}</p></div><Link prefetch={false} onClick={followShellLink} className="secondary-button" href="/?module=import&view=files&jdImport=logistics">导入来源数据</Link></div>
         {error && <div className="inventory-feedback inventory-feedback-error" role="alert">{error} {retry}</div>}
         {result ? <JdLogisticsProductMatrix data={result} expandedIds={expanded.key === key ? expanded.ids : new Set()} onToggle={toggleProduct} />
           : loading ? <div className="jd-cwarehouse-loading" role="status" aria-label="正在加载单品矩阵"><span>正在读取完整范围的单品与来源列…</span>{[0, 1, 2, 3].map(row => <i key={row} aria-hidden="true" />)}</div>
@@ -100,5 +134,8 @@ export default function JdLogisticsCwarehouseView({ currentUser }: { currentUser
         <footer className="jd-sku-pagination"><span>{result ? `${result.total} 个单品 · 第 ${result.page} / ${Math.max(1, Math.ceil(result.total / result.pageSize))} 页 · ${result.columns.length} 个来源列` : "—"}</span><div><button type="button" className="row-action" disabled={loading || !result || result.page <= 1} onClick={() => update({ page: filters.page - 1 })}>上一页</button><button type="button" className="row-action" disabled={loading || !result || result.page * result.pageSize >= result.total} onClick={() => update({ page: filters.page + 1 })}>下一页</button></div></footer>
       </section>
     </>}
+    <Dialog open={Boolean(thresholdDraft && thresholdDraft.scope === key)} dialogId="jd-cwarehouse-threshold" ariaLabel="C仓缺货阈值" className="panel jd-logistics-dialog" onClose={() => { if (!thresholdSaving) setThresholdDraft(null); }}>
+      {thresholdDraft && thresholdDraft.scope === key && <form onSubmit={saveThreshold}><header><h2>C仓缺货阈值</h2><button type="button" className="row-action" disabled={thresholdSaving} onClick={() => setThresholdDraft(null)}>关闭</button></header><p>只调整所选事业部的30日可用库存可售天数阈值，不改动其他来源配置。</p><div className="jd-logistics-fields"><label><span>30日可用库存可售天数阈值（留空关闭）</span><input type="number" min="1" max="3650" step="1" disabled={!canManageThreshold || thresholdSaving} value={thresholdDraft.value} onChange={event => setThresholdDraft({ ...thresholdDraft, value: event.target.value })} /></label></div>{thresholdFeedback?.scope === key && thresholdFeedback.error && <p role="alert" className="jd-logistics-error">{thresholdFeedback.message}</p>}<footer><small>保存按当前版本校验，成功后回查当前范围。</small><button type="submit" className="primary-button" disabled={!canManageThreshold || thresholdSaving}>{thresholdSaving ? "保存中…" : "保存并回查"}</button></footer></form>}
+    </Dialog>
   </div>;
 }

@@ -10,10 +10,7 @@ import { JD_LOGISTICS_PATH, jdLogisticsSources, jdLogisticsSourceLabels, readJdL
   type JdLogisticsFilters, type JdLogisticsTab, type JdLogisticsSource } from "@/lib/inventory/jd-logistics-contract";
 import "./jd-logistics.css";
 
-const tabs: Array<{ key: JdLogisticsTab; label: string }> = [
-  { key: "flows", label: "库存流水" }, { key: "transfers", label: "调拨核对" }, { key: "mappings", label: "商品映射" },
-  { key: "batches", label: "导入记录" }, { key: "settings", label: "账号设置" },
-];
+const tabLabels: Record<JdLogisticsTab, string> = { flows: "库存流水", transfers: "调拨核对", mappings: "商品对照", batches: "京东物流导入记录" };
 const emptyFilters: JdLogisticsFilters = { departmentId: "", warehouseCode: "", startDate: "", endDate: "", q: "", page: 1 };
 const text = (value: unknown): string => value === null || value === undefined || value === "" ? "—" : Array.isArray(value) ? value.map(text).join("、") : typeof value === "object" ? "—" : String(value);
 const statusLabels: Record<string, string> = { pending: "待核对", completed: "人工已调拨", ignored: "已忽略", confirmed: "已确认", unconfirmed: "待维护", in_transit: "已出库在途", partial: "部分入库", quantity_anomaly: "数量异常", review: "待检查", imported: "已导入", duplicate: "内容重复" };
@@ -28,11 +25,11 @@ export async function requestJdLogistics<T>(query: URLSearchParams, init: Reques
   return value.data as T;
 }
 
-type Editor = { operation: "mapping" | "manual" | "settings"; row: JdLogisticsItem; draft: Record<string, string | boolean> };
-export default function JdLogisticsView({ currentUser, customStartDate, customEndDate, importOnly = false }: {
-  currentUser: CurrentUser | null; customStartDate?: string; customEndDate?: string; importOnly?: boolean;
+type Editor = { operation: "mapping" | "manual"; row: JdLogisticsItem; draft: Record<string, string | boolean> };
+export default function JdLogisticsView({ currentUser, customStartDate, customEndDate, fixedTab = "mappings", presentation = "table" }: {
+  currentUser: CurrentUser | null; customStartDate?: string; customEndDate?: string; fixedTab?: JdLogisticsTab; presentation?: "table" | "import" | "records";
 }) {
-  const [tab, setTab] = useState<JdLogisticsTab>(importOnly ? "batches" : "flows");
+  const tab = fixedTab;
   const [filters, setFilters] = useState<JdLogisticsFilters>({ ...emptyFilters, startDate: customStartDate ?? "", endDate: customEndDate ?? "" });
   const [queryDraft, setQueryDraft] = useState("");
   const [ready, setReady] = useState(false);
@@ -55,13 +52,12 @@ export default function JdLogisticsView({ currentUser, customStartDate, customEn
   useEffect(() => {
     const restore = () => {
       const location = readJdLogisticsLocation(window.location.href);
-      setTab(importOnly ? "batches" : location.tab);
       setFilters({ ...location.filters, startDate: location.filters.startDate || customStartDate || "", endDate: location.filters.endDate || customEndDate || "" });
       setQueryDraft(location.filters.q); setEditor(null); setFeedback(""); setReady(true);
     };
     restore(); window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
-  }, [importOnly, customStartDate, customEndDate]);
+  }, [fixedTab, customStartDate, customEndDate]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -76,23 +72,23 @@ export default function JdLogisticsView({ currentUser, customStartDate, customEn
 
   const department = options?.departments.find(value => value.id === filters.departmentId);
   const effectiveFilters = { ...filters, departmentId: department?.id ?? "" };
-  const requestKey = JSON.stringify([principalKey, tab, effectiveFilters]);
+  const requestKey = JSON.stringify([principalKey, tab, presentation, effectiveFilters]);
   useLayoutEffect(() => {
     currentScope.current = requestKey;
     return () => { currentScope.current = ""; };
   }, [requestKey]);
   const list = result?.key === requestKey ? result.data : null;
   useEffect(() => {
-    if (!ready || !options || tab === "settings" || !department) { setLoading(false); return; }
+    if (!ready || !options || !department || presentation === "import") { setLoading(false); return; }
     const id = ++generation.current;
     const controller = new AbortController();
     const query = new URLSearchParams({ operation: tab, departmentId: department.id, businessUnitCode: department.businessUnitCode, page: String(filters.page), pageSize: "50" });
-    if (tab !== "batches") {
+    if (tab === "flows" || tab === "transfers") {
       if (filters.warehouseCode) query.set("warehouseCode", filters.warehouseCode);
       if (filters.startDate) query.set("startDate", filters.startDate);
       if (filters.endDate) query.set("endDate", addIsoDays(filters.endDate, 1));
-      if (filters.q) query.set("q", filters.q);
     }
+    if (tab !== "batches" && filters.q) query.set("q", filters.q);
     setLoading(true); setError("");
     requestJdLogistics<JdLogisticsList>(query, { signal: controller.signal }).then(value => {
       if (controller.signal.aborted || id !== generation.current) return;
@@ -101,29 +97,22 @@ export default function JdLogisticsView({ currentUser, customStartDate, customEn
     }).catch(reason => { if (!controller.signal.aborted && id === generation.current) setError(reason instanceof Error ? reason.message : "列表读取失败"); })
       .finally(() => { if (!controller.signal.aborted && id === generation.current) setLoading(false); });
     return () => { controller.abort(); generation.current += 1; };
-  }, [requestKey, ready, options, refresh, tab, department, filters.page, filters.warehouseCode, filters.startDate, filters.endDate, filters.q]);
+  }, [requestKey, ready, options, refresh, tab, presentation, department, filters.page, filters.warehouseCode, filters.startDate, filters.endDate, filters.q]);
 
   const changeFilters = (patch: Partial<JdLogisticsFilters>) => {
     const next = { ...filters, ...patch, page: patch.page ?? 1 };
     setFilters(next); setFeedback(""); setEditor(null); writeJdLogisticsLocation({ filters: next });
   };
-  const changeTab = (next: JdLogisticsTab) => { const nextFilters = { ...filters, page: 1 }; setTab(next); setFilters(nextFilters); setEditor(null); setFeedback(""); writeJdLogisticsLocation({ tab: next, filters: nextFilters }); };
   const startEdit = (operation: Editor["operation"], row: JdLogisticsItem) => {
-    const draft: Editor["draft"] = operation === "mapping" ? { erpGoodsCode: String(row.erpGoodsCode ?? ""), erpGoodsName: String(row.erpGoodsName ?? ""), status: row.status === "ignored" ? "ignored" : "confirmed", note: String(row.note ?? "") }
-      : operation === "manual" ? { transferStatus: String(row.transferStatus ?? "pending"), erpDocumentNo: String(row.erpDocumentNo ?? ""), note: String(row.note ?? "") }
-      : { id: String(row.id ?? ""), name: String(row.name ?? ""), businessUnitCode: String(row.businessUnitCode ?? ""), storeKeys: Array.isArray(row.storeKeys) ? row.storeKeys.join(",") : "", stockoutThresholdDays: row.stockoutThresholdDays == null ? "" : String(row.stockoutThresholdDays), logisticsEnabled: row.logisticsEnabled === true, monitorEnabled: row.monitorEnabled === true, pushEnabled: row.pushEnabled === true,
-        ...Object.fromEntries(jdLogisticsSources.map(key => [key, rowRecord(row.capabilities)[key] === true])) };
+    const draft: Editor["draft"] = operation === "mapping"
+      ? { erpGoodsCode: String(row.erpGoodsCode ?? ""), erpGoodsName: String(row.erpGoodsName ?? ""), status: row.status === "ignored" ? "ignored" : "confirmed", note: String(row.note ?? "") }
+      : { transferStatus: String(row.transferStatus ?? "pending"), erpDocumentNo: String(row.erpDocumentNo ?? ""), note: String(row.note ?? "") };
     setEditor({ operation, row, draft }); setEditError("");
   };
   const saveEditor = async (event: FormEvent) => {
     event.preventDefault(); if (!editor || saving) return;
     const scope = requestKey;
-    const body = editor.operation === "settings" ? { operation: "settings", departmentId: editor.draft.id, name: editor.draft.name, businessUnitCode: editor.draft.businessUnitCode,
-      storeKeys: String(editor.draft.storeKeys).split(",").map(value => value.trim()).filter(Boolean),
-      capabilities: Object.fromEntries(jdLogisticsSources.map(key => [key, editor.draft[key] === true])),
-      logisticsEnabled: editor.draft.logisticsEnabled, monitorEnabled: editor.draft.monitorEnabled, pushEnabled: editor.draft.pushEnabled,
-      stockoutThresholdDays: editor.draft.stockoutThresholdDays === "" ? null : Number(editor.draft.stockoutThresholdDays), expectedRevision: editor.row.revision ?? 0 }
-      : { operation: editor.operation, departmentId: editor.row.departmentId ?? department?.id, goodsCode: editor.row.goodsCode, documentNo: editor.row.documentNo,
+    const body = { operation: editor.operation, departmentId: editor.row.departmentId ?? department?.id, goodsCode: editor.row.goodsCode, documentNo: editor.row.documentNo,
         ...(editor.operation === "mapping" ? { goodsCodeKind: editor.row.goodsCodeKind ?? "department_product" } : {}),
         ...editor.draft, expectedRevision: editor.row.revision ?? 0, ...(editor.operation === "manual" ? { expectedFlowRevision: editor.row.flowRevision } : {}) };
     setSaving(true); setEditError("");
@@ -134,7 +123,6 @@ export default function JdLogisticsView({ currentUser, customStartDate, customEn
     } catch (reason) { if (currentScope.current === scope) setEditError(reason instanceof Error ? reason.message : "保存失败"); }
     finally { setSaving(false); }
   };
-  const settingsRows = options?.departments ?? [];
   const retry = <button type="button" className="row-action" onClick={() => setRefresh(value => value + 1)} disabled={loading || saving}>刷新</button>;
   const cell = (row: JdLogisticsItem, key: string) => <td key={key}>{text(row[key])}</td>;
   let columns: string[] = [], renderRow: (row: JdLogisticsItem) => ReactNode = () => null;
@@ -153,31 +141,28 @@ export default function JdLogisticsView({ currentUser, customStartDate, customEn
   }
 
   return <div className="jd-logistics-module">
-    {!importOnly && <div className="subnav outlet-subnav" role="tablist" aria-label="京东POP工作区">{tabs.map(item => <button type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? "active" : ""} disabled={saving} key={item.key} onClick={() => changeTab(item.key)}>{item.label}</button>)}</div>}
-    <section className="panel jd-logistics-heading"><div><h2>{importOnly ? "京东物流文件导入" : "京东 POP · 流水与 ERP 建单核对"}</h2><p>事业部数据只保留一份；人工状态用于跟进，ERP 实际建单尚未接入核验。</p></div>{retry}</section>
+    <section className="panel jd-logistics-heading"><div><h2>{presentation === "import" ? "京东物流文件导入" : tab === "mappings" ? "京东 POP · 商品对照" : tabLabels[tab]}</h2><p>按事业部读取权威来源；人工核对状态不代表ERP实际建单或过账。</p></div>{retry}</section>
     {optionsError && <section className="inventory-feedback inventory-feedback-error" role="alert"><div><strong>物流账号读取失败</strong><p>{optionsError}</p></div>{retry}</section>}
     {feedback && <div className="inventory-feedback" role="status">{feedback}</div>}
-    {tab !== "settings" && <section className="panel jd-logistics-filters" aria-label="京东POP筛选"><label><span>事业部 / 来源账号</span><SearchableSelect ariaLabel="京东物流事业部" value={effectiveFilters.departmentId} disabled={saving || !options} options={[{ value: "", label: "请选择已登记事业部" }, ...(options?.departments ?? []).map(item => ({ value: item.id, label: `${item.name} · ${item.businessUnitCode}` }))]} onChange={value => changeFilters({ departmentId: value, warehouseCode: "" })} /></label>
-      {tab !== "batches" && <><label><span>京东仓库</span><SearchableSelect ariaLabel="京东物流仓库" value={filters.warehouseCode} disabled={saving || !department} options={[{ value: "", label: "全部仓库" }, ...(options?.warehouses ?? []).filter(item => item.code).map(item => ({ value: item.code, label: `${item.name} · ${item.code}` }))]} onChange={value => changeFilters({ warehouseCode: value })} /></label>
+    <section className="panel jd-logistics-filters" aria-label="京东物流筛选"><label><span>事业部 / 来源账号</span><SearchableSelect ariaLabel="京东物流事业部" value={effectiveFilters.departmentId} disabled={saving || !options} options={[{ value: "", label: "请选择已登记事业部" }, ...(options?.departments ?? []).map(item => ({ value: item.id, label: `${item.name} · ${item.businessUnitCode}` }))]} onChange={value => changeFilters({ departmentId: value, warehouseCode: "" })} /></label>
+      {(tab === "flows" || tab === "transfers") && <><label><span>京东仓库</span><SearchableSelect ariaLabel="京东物流仓库" value={filters.warehouseCode} disabled={saving || !department} options={[{ value: "", label: "全部仓库" }, ...(options?.warehouses ?? []).filter(item => item.code).map(item => ({ value: item.code, label: `${item.name} · ${item.code}` }))]} onChange={value => changeFilters({ warehouseCode: value })} /></label>
       <label><span>业务开始日</span><input type="date" value={filters.startDate} disabled={saving} max={filters.endDate || undefined} onChange={event => changeFilters({ startDate: event.target.value })} /></label><label><span>业务结束日</span><input type="date" value={filters.endDate} disabled={saving} min={filters.startDate || undefined} onChange={event => changeFilters({ endDate: event.target.value })} /></label>
-      <form onSubmit={event => { event.preventDefault(); changeFilters({ q: queryDraft.trim() }); }}><label><span>商品 / 单据，Enter 确认</span><input type="search" maxLength={100} value={queryDraft} disabled={saving} onChange={event => setQueryDraft(event.target.value)} /></label></form></>}
-    </section>}
+      </>}{tab !== "batches" && <form onSubmit={event => { event.preventDefault(); changeFilters({ q: queryDraft.trim() }); }}><label><span>商品 / 单据，Enter 确认</span><input type="search" maxLength={100} value={queryDraft} disabled={saving} onChange={event => setQueryDraft(event.target.value)} /></label></form>}
+    </section>
     {!options && !optionsError && <section className="panel data-state" role="status">正在读取物流账号…</section>}
-    {options && options.departments.length === 0 && tab !== "settings" && <section className="panel data-state"><strong>尚未配置京东物流账号</strong><p>登记事业部与来源账号后可导入。新增账号的采集、监控和推送默认关闭。</p>{!importOnly && <button type="button" className="secondary-button" onClick={() => changeTab("settings")}>账号设置</button>}</section>}
-    {options && options.departments.length > 0 && !department && tab !== "settings" && <section className="panel data-state"><strong>请选择事业部</strong><p>按真实事业部身份读取流水、商品关系和导入批次。</p></section>}
-    {tab === "batches" && department && options && <JdLogisticsImportPanel department={department} options={options} canImport={canImport} onCompleted={() => setRefresh(value => value + 1)} />}
-    {tab === "settings" && <section className="panel table-panel"><div className="table-toolbar"><div><h2>物流来源账号</h2><p>仅记录来源范围及开关；登录凭据使用既有本机受控配置。</p><p>{options?.notification ? `缺货提醒专用群：${options.notification.groupName || "未配置"} · ${options.notification.enabled && options.notification.configured ? "渠道已启用，投递结果需回查" : "渠道未启用"}` : "缺货提醒渠道状态待核实"}</p></div><button type="button" className="primary-button" disabled={!canImport || saving || !options} onClick={() => startEdit("settings", {})}>登记账号</button></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>名称 / 事业部</th><th>来源账号键</th><th>来源能力</th><th>采集 / 监控 / 推送</th><th>操作</th></tr></thead><tbody>{settingsRows.map(row => <tr key={row.id}><td>{row.name}<small className="cell-note">{row.businessUnitCode}</small></td><td>{row.storeKeys.join("、") || "未绑定"}</td><td>{jdLogisticsSources.filter(key => row.capabilities[key]).map(key => jdLogisticsSourceLabels[key]).join("、") || "均未开启"}</td><td>{[row.logisticsEnabled, row.monitorEnabled, row.pushEnabled].map(value => value ? "开启" : "关闭").join(" / ")}<small className="cell-note">30日可用库存可售天数阈值：{row.stockoutThresholdDays == null ? "未设置" : `${row.stockoutThresholdDays}天`}</small></td><td><button className="row-action" type="button" disabled={!canImport || saving} onClick={() => startEdit("settings", row as unknown as JdLogisticsItem)}>维护</button></td></tr>)}{!settingsRows.length && <tr><td colSpan={5}><div className="table-state">尚未登记物流来源账号。</div></td></tr>}</tbody></table></div></section>}
-    {tab !== "settings" && department && <section className="panel table-panel" aria-busy={loading}><div className="table-toolbar"><div><h2>{tabs.find(value => value.key === tab)?.label}</h2><p>{tab === "transfers" ? "按事业部 + 京东单据 + 事业部商品分行维护；人工已调拨不等于ERP已过账。" : "查询结果来自当前事业部的权威导入数据。"}</p></div><span className="soft-tag">{list ? `${list.items.length} / ${list.total} 条` : "尚未读取"}</span></div>
+    {options && options.departments.length === 0 && <section className="panel data-state"><strong>暂无可用物流来源</strong><p>请通过既有受控来源配置准备事业部数据。</p></section>}
+    {options && options.departments.length > 0 && !department && <section className="panel data-state"><strong>请选择事业部</strong><p>按真实事业部身份读取流水、商品关系和导入批次。</p></section>}
+    {tab === "batches" && presentation === "import" && department && options && (canImport ? <JdLogisticsImportPanel department={department} options={options} canImport={canImport} onCompleted={() => setRefresh(value => value + 1)} /> : <section className="panel data-state"><strong>文件导入仅管理员可操作</strong><p>当前账号可在运行记录中查看京东物流批次。</p></section>)}
+    {presentation !== "import" && department && <section className="panel table-panel" aria-busy={loading}><div className="table-toolbar"><div><h2>{tabLabels[tab]}</h2><p>{tab === "transfers" ? "按事业部 + 京东单据 + 事业部商品分行维护；人工已调拨不等于ERP已过账。" : "查询结果来自当前事业部的权威导入数据。"}</p></div><span className="soft-tag">{list ? `${list.items.length} / ${list.total} 条` : "尚未读取"}</span></div>
       {error && <div className="inventory-feedback inventory-feedback-error" role="alert">{error} {retry}</div>}
       <div className="data-table-wrap"><table className="data-table jd-logistics-table"><thead><tr>{columns.map(value => <th key={value}>{value}</th>)}</tr></thead><tbody>{list?.items.map((row, index) => <tr key={String(row.id ?? row.batchId ?? row.sourceRelationKey ?? `${row.goodsCode}:${index}`)}>{renderRow(row)}</tr>)}{!list?.items.length && <tr><td colSpan={columns.length}><div className="table-state">{loading ? "正在读取当前范围…" : error ? "当前范围数据无法核实，请重试。" : "当前范围暂无已导入数据。"}</div></td></tr>}</tbody></table></div>
       <footer className="jd-sku-pagination"><span>{list ? `第 ${list.page} 页 · 共 ${list.total} 条${list.truncated ? "（范围截断）" : ""}` : "—"}</span><div><button className="row-action" disabled={saving || loading || !list || list.page <= 1} onClick={() => changeFilters({ page: filters.page - 1 })}>上一页</button><button className="row-action" disabled={saving || loading || !list || list.page * list.pageSize >= list.total} onClick={() => changeFilters({ page: filters.page + 1 })}>下一页</button></div></footer>
     </section>}
-    <Dialog open={Boolean(editor)} dialogId="jd-logistics-editor" ariaLabel={editor?.operation === "settings" ? "物流账号设置" : editor?.operation === "mapping" ? "维护ERP商品映射" : "维护ERP人工调拨状态"} className="panel jd-logistics-dialog" onClose={() => { if (!saving) setEditor(null); }}>
-      {editor && <form onSubmit={saveEditor}><header><h2>{editor.operation === "settings" ? "物流账号设置" : editor.operation === "mapping" ? "维护ERP商品映射" : "维护人工ERP调拨状态"}</h2><button type="button" className="row-action" disabled={saving} onClick={() => setEditor(null)}>关闭</button></header><p>{editor.operation === "settings" ? "新增账号默认关闭全部能力与开关。" : `稳定商品键：${text(editor.row.goodsCode)}${editor.row.documentNo ? ` · ${text(editor.row.documentNo)}` : ""}`}</p><div className="jd-logistics-fields">
-        {editor.operation === "settings" ? <>{[ ["id", "登记键"], ["name", "显示名称"], ["businessUnitCode", "事业部编码"], ["storeKeys", "受控账号键（逗号分隔）"] ].map(([key, title]) => <label key={key}><span>{title}</span><input required={key !== "storeKeys"} disabled={saving || Boolean(editor.row.id) && ["id", "businessUnitCode"].includes(key)} value={String(editor.draft[key])} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, [key]: event.target.value } })} /></label>)}<label><span>30日可用库存可售天数阈值（留空关闭）</span><input type="number" min="1" max="3650" step="1" value={String(editor.draft.stockoutThresholdDays)} disabled={saving} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, stockoutThresholdDays: event.target.value } })} /></label>{[...jdLogisticsSources.map(key => [key, jdLogisticsSourceLabels[key]]), ["logisticsEnabled", "启用自动采集"], ["monitorEnabled", "启用监控"], ["pushEnabled", "启用缺货推送（还需专用渠道启用）"]].map(([key, title]) => <label className="jd-logistics-check" key={key}><input type="checkbox" checked={editor.draft[key] === true} disabled={saving || !editor.row.id} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, [key]: event.target.checked } })} /><span>{title}</span></label>)}</>
-          : editor.operation === "mapping" ? <><label><span>ERP货品编号（C）</span><input value={String(editor.draft.erpGoodsCode)} maxLength={160} disabled={saving} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, erpGoodsCode: event.target.value } })} /></label><label><span>ERP货品名称（D）</span><input value={String(editor.draft.erpGoodsName)} maxLength={300} disabled={saving} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, erpGoodsName: event.target.value } })} /></label><label><span>映射状态</span><select value={String(editor.draft.status)} disabled={saving} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, status: event.target.value } })}><option value="confirmed">已确认</option><option value="ignored">忽略</option></select></label></>
+    <Dialog open={Boolean(editor)} dialogId="jd-logistics-editor" ariaLabel={editor?.operation === "mapping" ? "维护ERP商品映射" : "维护ERP人工调拨状态"} className="panel jd-logistics-dialog" onClose={() => { if (!saving) setEditor(null); }}>
+      {editor && <form onSubmit={saveEditor}><header><h2>{editor.operation === "mapping" ? "维护ERP商品映射" : "维护人工ERP调拨状态"}</h2><button type="button" className="row-action" disabled={saving} onClick={() => setEditor(null)}>关闭</button></header><p>{`稳定商品键：${text(editor.row.goodsCode)}${editor.row.documentNo ? ` · ${text(editor.row.documentNo)}` : ""}`}</p><div className="jd-logistics-fields">
+          {editor.operation === "mapping" ? <><label><span>ERP货品编号（C）</span><input value={String(editor.draft.erpGoodsCode)} maxLength={160} disabled={saving} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, erpGoodsCode: event.target.value } })} /></label><label><span>ERP货品名称（D）</span><input value={String(editor.draft.erpGoodsName)} maxLength={300} disabled={saving} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, erpGoodsName: event.target.value } })} /></label><label><span>映射状态</span><select value={String(editor.draft.status)} disabled={saving} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, status: event.target.value } })}><option value="confirmed">已确认</option><option value="ignored">忽略</option></select></label></>
           : <><label><span>人工ERP调拨状态（C）</span><select value={String(editor.draft.transferStatus)} disabled={saving} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, transferStatus: event.target.value } })}><option value="pending">待核对</option><option value="completed">人工已调拨</option><option value="ignored">忽略</option></select></label><label><span>人工记录的ERP单号</span><input value={String(editor.draft.erpDocumentNo)} disabled={saving} maxLength={160} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, erpDocumentNo: event.target.value } })} /></label></>}
-        {editor.operation !== "settings" && <label className="jd-logistics-wide"><span>核对备注</span><textarea maxLength={1000} value={String(editor.draft.note)} disabled={saving} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, note: event.target.value } })} /></label>}
+        <label className="jd-logistics-wide"><span>核对备注</span><textarea maxLength={1000} value={String(editor.draft.note)} disabled={saving} onChange={event => setEditor({ ...editor, draft: { ...editor.draft, note: event.target.value } })} /></label>
       </div>{editError && <p role="alert" className="jd-logistics-error">{editError}</p>}<footer><small>保存按服务端版本核验；冲突时请关闭并刷新后重试。</small><button type="submit" className="primary-button" disabled={saving}>{saving ? "保存中…" : "保存并回查"}</button></footer></form>}
     </Dialog>
   </div>;

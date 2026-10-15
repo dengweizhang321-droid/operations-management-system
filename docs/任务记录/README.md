@@ -53,6 +53,7 @@
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
 | `jd-logistics-integration-20261015` | 6 | [京东物流四源接入与 POP / C仓监控](../jd-logistics-integration-20261015/REPORT.md) |
+| `jd-logistics-layout-20261015` | 2 | [京东物流页面归属调整与HTML交付](../jd-logistics-layout-20261015/REPORT.md) |
 | `guangdong-plan-entry-20261006` | 2 | [广东入仓型号明细备货入口](../guangdong-plan-entry-20261006/REPORT.md) |
 | `product-combo-details-20261014` | 2 | [商品经营类型、补充单品与组合装展开](../product-combo-details-20261014/REPORT.md) |
 | `product-kind-filter-20261014` | 1 | [商品经营明细：单品／组合装筛选](../product-kind-filter-20261014/REPORT.md) |
