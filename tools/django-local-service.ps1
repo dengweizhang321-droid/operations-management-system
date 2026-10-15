@@ -1749,6 +1749,21 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  $jdGate = Join-Path $candidateRoot 'tools\jd_logistics_addition.py'
+  $jdDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('jd-logistics-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-jd-logistics-schema-addition-v1' -or $jdDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'jd-logistics-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $jdGate -PathType Leaf)) {throw 'JD schema generation requires its exact verifier'}
+    $jdCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported JD schema lifecycle operation'}
+    $jdArgs = @($jdGate,$jdCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($jdCommand -ceq 'admission') {$jdArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($jdCommand -ceq 'deployment') {$jdArgs += @('--operation',$IntegrationOperationId)}
+    $jdRun = Invoke-BoundedNativeProcess $Python $jdArgs $candidateRoot
+    $jdProof = ConvertFrom-UniqueNativeJson $jdRun 'Verify finite JD schema addition'
+    if ([string]$jdProof.status -cne 'verified') {throw 'JD schema addition gate refused'}
+    return
+  }
   $scheduleGate = Join-Path $candidateRoot 'tools\ai_schedule_addition.py'
   $scheduleDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
     (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('ai-schedule-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
@@ -1998,6 +2013,9 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\jd_logistics_addition.py",
+      "tools\jd_logistics_catalog.py",
+      "tools\jd_logistics_catalog.json",
       "tools\ai_schedule_addition.py",
       "tools\ai_schedule_addition_catalog.py",
       "tools\ai_schedule_addition_rehearsal.py",
@@ -2008,6 +2026,7 @@ function Prepare-Application {
       "tools\django-integration-install.ps1",
       "config\integration-migration-policy-v3.json",
       "config\integration-migration-policy-v4-netshop-presence.json",
+      "config\jd-logistics-notifications.json",
       "drizzle\0090_sales_write_authority.sql",
       "drizzle\0091_erp_reference_projection.sql",
       "drizzle\0092_sales_domain_retirement.sql",

@@ -353,6 +353,7 @@ function Assert-MaintenanceNoKeyGeneration([object]$Evidence) {
   $auditErpCount = 0
   $auditSalesCount = 0
   $scheduleCount = 0
+  $jd12Count = 0; $jd13Count = 0; $jd14Count = 0
   foreach ($migration in @($Evidence.migrations)) {
     if ($migration -isnot [pscustomobject] -or $migration.app -isnot [string] -or $migration.name -isnot [string]) {
       throw "无新增密钥备份迁移必须为标量字符串身份"
@@ -366,16 +367,21 @@ function Assert-MaintenanceNoKeyGeneration([object]$Evidence) {
     elseif ($app -ceq 'erp_reference' -and $name -ceq '0003_jackyun_upload_audit_binding') { $auditErpCount++ }
     elseif ($app -ceq 'sales' -and $name -ceq '0011_jackyun_upload_audit_binding') { $auditSalesCount++ }
     elseif ($app -ceq 'ai_assistant' -and $name -ceq '0083_schedule_execution_profile') { $scheduleCount++ }
+    elseif ($app -ceq 'inventory' -and $name -ceq '0012_jd_logistics') { $jd12Count++ }
+    elseif ($app -ceq 'inventory' -and $name -ceq '0013_jd_logistics_notifications') { $jd13Count++ }
+    elseif ($app -ceq 'inventory' -and $name -ceq '0014_jd_logistics_replenishment_cycle') { $jd14Count++ }
     else { $migrationIdentities.Add($app + '.' + $name) }
   }
   $generation = @($Evidence.migrations).Count
-  if (($generation -cnotin @(138,139,140,142,143)) -or
+  if (($generation -cnotin @(138,139,140,142,143,146)) -or
       ($generation -eq 138 -and ($presenceCount -ne 0 -or $erpGoalCount -ne 0)) -or
       ($generation -eq 139 -and ($presenceCount -ne 1 -or $erpGoalCount -ne 0)) -or
-      ($generation -cin @(140,142,143) -and ($presenceCount -ne 1 -or $erpGoalCount -ne 1)) -or
+      ($generation -cin @(140,142,143,146) -and ($presenceCount -ne 1 -or $erpGoalCount -ne 1)) -or
       ($generation -cin @(138,139,140) -and ($auditErpCount -ne 0 -or $auditSalesCount -ne 0 -or $scheduleCount -ne 0)) -or
-      ($generation -cin @(142,143) -and ($auditErpCount -ne 1 -or $auditSalesCount -ne 1)) -or
-      ($generation -eq 142 -and $scheduleCount -ne 0) -or ($generation -eq 143 -and $scheduleCount -ne 1) -or
+      ($generation -cin @(142,143,146) -and ($auditErpCount -ne 1 -or $auditSalesCount -ne 1)) -or
+      ($generation -eq 142 -and $scheduleCount -ne 0) -or ($generation -cin @(143,146) -and $scheduleCount -ne 1) -or
+      ($generation -eq 146 -and ($jd12Count -ne 1 -or $jd13Count -ne 1 -or $jd14Count -ne 1)) -or
+      ($generation -ne 146 -and ($jd12Count -ne 0 -or $jd13Count -ne 0 -or $jd14Count -ne 0)) -or
       $migrationIdentities.Count -ne 138 -or
       [long]$Evidence.tables.django_migrations -ne $generation) {
     throw "无新增密钥备份迁移代际未获核验"
@@ -535,7 +541,7 @@ function Assert-MaintenanceEvidence(
   $protectedTables = @()
   if ($NoKeys) {
     $generation = Assert-MaintenanceNoKeyGeneration $Evidence
-    if ($generation -cin @(140,142,143)) { $requiredTables += 'finance_erp_targets' }
+    if ($generation -cin @(140,142,143,146)) { $requiredTables += 'finance_erp_targets' }
     $protectedTables = @(
       "protected_business_budget_v11_verifier_keys", "protected_business_budget_v11_proof_tickets",
       "protected_business_budget_v11_proof_ticket_claims", "protected_business_v4_report_link_intents",
@@ -732,6 +738,22 @@ function Assert-MaintenanceEvidence(
     )
   }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
+  if (@($Evidence.migrations | Where-Object { $_.app -ceq "inventory" -and $_.name -ceq "0013_jd_logistics_notifications" }).Count -eq 1) {
+    $requiredTables += "inventory_jd_logistics_deliveries"
+  } elseif ($tableNames -ccontains "inventory_jd_logistics_deliveries") {
+    throw "JD logistics delivery table lacks its inventory migration receipt"
+  }
+  $jdLogisticsTables = @(
+    "inventory_jd_logistics_departments", "inventory_jd_logistics_scopes",
+    "inventory_jd_logistics_batches", "inventory_jd_logistics_facts",
+    "inventory_jd_logistics_mappings", "inventory_jd_logistics_manual_states",
+    "inventory_jd_logistics_audits"
+  )
+  if (@($Evidence.migrations | Where-Object { $_.app -ceq "inventory" -and $_.name -ceq "0012_jd_logistics" }).Count -eq 1) {
+    $requiredTables += $jdLogisticsTables
+  } elseif (@($tableNames | Where-Object { $_ -cin $jdLogisticsTables }).Count -gt 0) {
+    throw "JD logistics tables lack their inventory migration receipt"
+  }
   $salesOptionsMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "sales" -and $_.name -ceq "0010_analysis_options" }).Count
   $salesOptionsTables = @("sales_analysis_options", "sales_analysis_options_state")
   if ($salesOptionsMigration -eq 1) {

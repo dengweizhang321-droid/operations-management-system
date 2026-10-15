@@ -5,6 +5,8 @@ import uuid
 from django.db import models
 from django.utils import timezone
 
+from .jd_logistics_models import (JdLogisticsDepartment, JdLogisticsScope, JdLogisticsBatch, JdLogisticsFact, JdLogisticsProductMapping, JdLogisticsTransferManual, JdLogisticsAudit, JdLogisticsDelivery)
+
 
 class GuangdongMonitorItem(models.Model):
     product_code = models.CharField(primary_key=True, max_length=200)

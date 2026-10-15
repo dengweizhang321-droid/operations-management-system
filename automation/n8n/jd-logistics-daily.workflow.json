@@ -1,0 +1,505 @@
+{
+  "id": "JdLogisticsDaily2026",
+  "name": "京东物流四类数据受控下载与导入",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "jdl-manual",
+      "name": "手动完整运行",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "50 10 * * *"
+            }
+          ]
+        }
+      },
+      "id": "jdl-schedule",
+      "name": "每天10:50计划入口",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -760,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/coordination/claim",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "jd-logistics"
+            },
+            {
+              "name": "X-TERUISI-COORDINATION-ATTEMPT",
+              "value": "={{ $runIndex }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "jdl-claim-领",
+      "name": "领取共享 helper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "jdl-granted",
+              "leftValue": "={{ $json.coordinationStatus }}",
+              "rightValue": "granted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "jdl-granted",
+      "name": "已领取执行所有权？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "id": "jdl-wait",
+      "name": "等待5分钟后重新领取",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -300,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd-logistics/plan",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "jd-logistics"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "jdl-plan-A",
+      "name": "A·冻结事业部来源与日期计划",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -60,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd-logistics/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "jd-logistics"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 1800000
+        }
+      },
+      "id": "jdl-run-B",
+      "name": "B·串行下载全文件校验并导入",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd-logistics/verify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "jd-logistics"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "jdl-verify-C",
+      "name": "C·独立核验文件精确批次和当前版本",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd-logistics/notify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "jd-logistics"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "jdl-notify-D",
+      "name": "D·缺货提醒与精确投递回查",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd-logistics/release",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "jd-logistics"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "jdl-release-成",
+      "name": "成功后释放 helper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/jd-logistics/release",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "jd-logistics"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "jdl-release-失",
+      "name": "失败后释放原执行 helper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        240
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "errorMessage": "京东物流流程未完成；原计划与未决任务已保留，禁止自动重发导出或导入。请核验原 execution、manifest 与源任务。"
+      },
+      "id": "jdl-stop",
+      "name": "保留证据并明确失败",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 默认关闭的京东物流候选模板\n来源：库存流水、店铺商品、实时库存、T-1库存快照。只使用后端独立物流开关与受控来源绑定；新账号和未知契约默认不可运行。\n手动与定时共用 claim → A → B → C → D → release，失败也释放原 execution 的 helper。等待上限72次，由原协调接口执行；不设置业务节点自动重试。\nB先验证所有文件再导入；submitting/importing未知保留原清单，不换账号、不重发。C重读原文件、精确batch与当前范围版本。disabled/duplicate分别报告，不表示新导入。真实下载契约缺失时失败关闭。\n此模板默认停用，不包含凭据；安装与发布状态以当前n8n画布为准，生产启用、业务写入和部署需对应授权。\nD在C全计划verified后才处理固定『测试群聊／志高助手』缺货提醒。全局默认关闭、无计划、未配置或无本轮双库存合格事业部均零notify POST；sent/duplicate须精确投递ledger回读。notifying/unknown不得自动重发。C数据核验完成不等于D完成。",
+        "height": 300,
+        "width": 1400,
+        "color": 3
+      },
+      "id": "jdl-note",
+      "name": "范围与恢复边界",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -420
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "手动完整运行": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每天10:50计划入口": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "领取共享 helper": {
+      "main": [
+        [
+          {
+            "node": "已领取执行所有权？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "已领取执行所有权？": {
+      "main": [
+        [
+          {
+            "node": "A·冻结事业部来源与日期计划",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "等待5分钟后重新领取",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "等待5分钟后重新领取": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A·冻结事业部来源与日期计划": {
+      "main": [
+        [
+          {
+            "node": "B·串行下载全文件校验并导入",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "失败后释放原执行 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B·串行下载全文件校验并导入": {
+      "main": [
+        [
+          {
+            "node": "C·独立核验文件精确批次和当前版本",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "失败后释放原执行 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C·独立核验文件精确批次和当前版本": {
+      "main": [
+        [
+          {
+            "node": "D·缺货提醒与精确投递回查",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "失败后释放原执行 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "成功后释放 helper": {
+      "main": [
+        [],
+        [
+          {
+            "node": "保留证据并明确失败",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "失败后释放原执行 helper": {
+      "main": [
+        [
+          {
+            "node": "保留证据并明确失败",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D·缺货提醒与精确投递回查": {
+      "main": [
+        [
+          {
+            "node": "成功后释放 helper",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "失败后释放原执行 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai"
+  },
+  "versionId": "9bb9f30d-7a0a-46f9-b7c2-dca96e1c655c",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "protocolVersion": "jd-logistics-pipeline-v1"
+  },
+  "tags": []
+}

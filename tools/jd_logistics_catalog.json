@@ -1,0 +1,2134 @@
+{
+  "inventory_jd_logistics_audits": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "id",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "department_id",
+        "character varying(80)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "operation",
+        "character varying(32)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "object_key",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "actor",
+        "character varying(320)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "before",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "after",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "created_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ]
+    ],
+    "constraints": [
+      [
+        "inventory_jd_logistics_audits_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (id)"
+      ]
+    ],
+    "indexes": [
+      [
+        "inventory_jd_logistics_audits_id_88c70553_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_audits_id_88c70553_like ON public.inventory_jd_logistics_audits USING btree (id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_audits_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inventory_jd_logistics_audits_pkey ON public.inventory_jd_logistics_audits USING btree (id)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "INSERT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "SELECT",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  },
+  "inventory_jd_logistics_batches": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "id",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "source_kind",
+        "character varying(32)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "range_start",
+        "date",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "range_end",
+        "date",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "warehouse_code",
+        "character varying(100)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "warehouse_key",
+        "character varying(256)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "raw_file_hash",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "content_hash",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "file_name",
+        "character varying(255)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "row_count",
+        "integer",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "status",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "reference_batch_id",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "scope_revision",
+        "bigint",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "origin",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "store_key",
+        "character varying(100)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "identity_evidence",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "collector_evidence",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "collected_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "source_as_of",
+        "character varying(40)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "actor",
+        "character varying(320)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "created_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "department_id",
+        "character varying(80)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ]
+    ],
+    "constraints": [
+      [
+        "inventory_jd_logisti_department_id_20d9fed1_fk_inventory",
+        "f",
+        true,
+        true,
+        true,
+        "FOREIGN KEY (department_id) REFERENCES inventory_jd_logistics_departments(id) DEFERRABLE INITIALLY DEFERRED"
+      ],
+      [
+        "inventory_jd_logistics_batches_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (id)"
+      ],
+      [
+        "inventory_jd_logistics_batches_row_count_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"row_count >= 0\"]"
+      ],
+      [
+        "inventory_jd_logistics_batches_scope_revision_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"scope_revision >= 0\"]"
+      ]
+    ],
+    "indexes": [
+      [
+        "inv_jdl_batch_idx",
+        true,
+        true,
+        false,
+        "CREATE INDEX inv_jdl_batch_idx ON public.inventory_jd_logistics_batches USING btree (department_id, source_kind, created_at)"
+      ],
+      [
+        "inventory_jd_logistics_batches_department_id_20d9fed1",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_batches_department_id_20d9fed1 ON public.inventory_jd_logistics_batches USING btree (department_id)"
+      ],
+      [
+        "inventory_jd_logistics_batches_department_id_20d9fed1_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_batches_department_id_20d9fed1_like ON public.inventory_jd_logistics_batches USING btree (department_id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_batches_id_8e28e11b_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_batches_id_8e28e11b_like ON public.inventory_jd_logistics_batches USING btree (id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_batches_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inventory_jd_logistics_batches_pkey ON public.inventory_jd_logistics_batches USING btree (id)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ],
+      [
+        "teruisi_inventory_reader",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "INSERT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "SELECT",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  },
+  "inventory_jd_logistics_deliveries": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "id",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "idempotency_key",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "business_date",
+        "date",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "department_ids",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "status",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "owner_token",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "risk_count",
+        "integer",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "displayed_count",
+        "integer",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "risk_snapshot",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "scope_snapshot",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "run_metadata",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "message_text",
+        "text",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "message_hash",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "config_digest",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "source_digest",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "scope_digest",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "target_digest",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "receipt_hash",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "error_code",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "actor",
+        "character varying(320)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "created_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "updated_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "sent_at",
+        "timestamp with time zone",
+        false,
+        null,
+        "",
+        "",
+        null
+      ]
+    ],
+    "constraints": [
+      [
+        "inv_jdl_delivery_status_ck",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"(status)::text = ANY (ARRAY['sending'::text, 'sent'::text, 'unknown'::text, 'denied'::text])\"]"
+      ],
+      [
+        "inventory_jd_logistics_deliveries_displayed_count_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"displayed_count >= 0\"]"
+      ],
+      [
+        "inventory_jd_logistics_deliveries_idempotency_key_key",
+        "u",
+        true,
+        false,
+        false,
+        "UNIQUE (idempotency_key)"
+      ],
+      [
+        "inventory_jd_logistics_deliveries_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (id)"
+      ],
+      [
+        "inventory_jd_logistics_deliveries_risk_count_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"risk_count >= 0\"]"
+      ]
+    ],
+    "indexes": [
+      [
+        "inv_jdl_delivery_guard_idx",
+        true,
+        true,
+        false,
+        "CREATE INDEX inv_jdl_delivery_guard_idx ON public.inventory_jd_logistics_deliveries USING btree (business_date, status)"
+      ],
+      [
+        "inventory_jd_logistics_deliveries_id_03299292_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_deliveries_id_03299292_like ON public.inventory_jd_logistics_deliveries USING btree (id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_deliveries_idempotency_key_9cbb825e_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_deliveries_idempotency_key_9cbb825e_like ON public.inventory_jd_logistics_deliveries USING btree (idempotency_key varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_deliveries_idempotency_key_key",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inventory_jd_logistics_deliveries_idempotency_key_key ON public.inventory_jd_logistics_deliveries USING btree (idempotency_key)"
+      ],
+      [
+        "inventory_jd_logistics_deliveries_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inventory_jd_logistics_deliveries_pkey ON public.inventory_jd_logistics_deliveries USING btree (id)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ],
+      [
+        "teruisi_inventory_reader",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "INSERT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "UPDATE",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  },
+  "inventory_jd_logistics_departments": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "id",
+        "character varying(80)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "name",
+        "character varying(200)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "business_unit_code",
+        "character varying(100)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "store_keys",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "capabilities",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "logistics_enabled",
+        "boolean",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "monitor_enabled",
+        "boolean",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "push_enabled",
+        "boolean",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "stockout_threshold_days",
+        "integer",
+        false,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "revision",
+        "bigint",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "updated_by",
+        "character varying(320)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "updated_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "replenishment_cycle_days",
+        "integer",
+        true,
+        null,
+        "",
+        "",
+        null
+      ]
+    ],
+    "constraints": [
+      [
+        "inv_jdl_replen_cycle_ck",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"AND\",[[\"atom\",\"replenishment_cycle_days >= 1\"],[\"atom\",\"replenishment_cycle_days <= 3650\"]]]"
+      ],
+      [
+        "inventory_jd_logistics_departmen_replenishment_cycle_days_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"replenishment_cycle_days >= 0\"]"
+      ],
+      [
+        "inventory_jd_logistics_department_stockout_threshold_days_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"stockout_threshold_days >= 0\"]"
+      ],
+      [
+        "inventory_jd_logistics_departments_business_unit_code_key",
+        "u",
+        true,
+        false,
+        false,
+        "UNIQUE (business_unit_code)"
+      ],
+      [
+        "inventory_jd_logistics_departments_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (id)"
+      ],
+      [
+        "inventory_jd_logistics_departments_revision_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"revision >= 0\"]"
+      ]
+    ],
+    "indexes": [
+      [
+        "inventory_jd_logistics_d_business_unit_code_46a12a0e_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_d_business_unit_code_46a12a0e_like ON public.inventory_jd_logistics_departments USING btree (business_unit_code varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_departments_business_unit_code_key",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inventory_jd_logistics_departments_business_unit_code_key ON public.inventory_jd_logistics_departments USING btree (business_unit_code)"
+      ],
+      [
+        "inventory_jd_logistics_departments_id_cf8950a0_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_departments_id_cf8950a0_like ON public.inventory_jd_logistics_departments USING btree (id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_departments_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inventory_jd_logistics_departments_pkey ON public.inventory_jd_logistics_departments USING btree (id)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ],
+      [
+        "teruisi_inventory_reader",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "INSERT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "UPDATE",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  },
+  "inventory_jd_logistics_facts": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "id",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "source_kind",
+        "character varying(32)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "business_date",
+        "date",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "warehouse_code",
+        "character varying(100)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "warehouse_key",
+        "character varying(256)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "goods_code",
+        "character varying(160)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "goods_code_kind",
+        "character varying(32)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "document_no",
+        "character varying(160)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "row_hash",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "occurrence",
+        "integer",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "data",
+        "jsonb",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "batch_id",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "department_id",
+        "character varying(80)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ]
+    ],
+    "constraints": [
+      [
+        "inv_jdl_fact_occ_uq",
+        "u",
+        true,
+        false,
+        false,
+        "UNIQUE (batch_id, row_hash, occurrence)"
+      ],
+      [
+        "inventory_jd_logisti_batch_id_0a4128d7_fk_inventory",
+        "f",
+        true,
+        true,
+        true,
+        "FOREIGN KEY (batch_id) REFERENCES inventory_jd_logistics_batches(id) DEFERRABLE INITIALLY DEFERRED"
+      ],
+      [
+        "inventory_jd_logisti_department_id_0088f6c0_fk_inventory",
+        "f",
+        true,
+        true,
+        true,
+        "FOREIGN KEY (department_id) REFERENCES inventory_jd_logistics_departments(id) DEFERRABLE INITIALLY DEFERRED"
+      ],
+      [
+        "inventory_jd_logistics_facts_occurrence_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"occurrence >= 0\"]"
+      ],
+      [
+        "inventory_jd_logistics_facts_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (id)"
+      ]
+    ],
+    "indexes": [
+      [
+        "inv_jdl_fact_doc_idx",
+        true,
+        true,
+        false,
+        "CREATE INDEX inv_jdl_fact_doc_idx ON public.inventory_jd_logistics_facts USING btree (department_id, document_no, goods_code)"
+      ],
+      [
+        "inv_jdl_fact_occ_uq",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inv_jdl_fact_occ_uq ON public.inventory_jd_logistics_facts USING btree (batch_id, row_hash, occurrence)"
+      ],
+      [
+        "inv_jdl_fact_scope_idx",
+        true,
+        true,
+        false,
+        "CREATE INDEX inv_jdl_fact_scope_idx ON public.inventory_jd_logistics_facts USING btree (department_id, source_kind, business_date)"
+      ],
+      [
+        "inventory_jd_logistics_facts_batch_id_0a4128d7",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_facts_batch_id_0a4128d7 ON public.inventory_jd_logistics_facts USING btree (batch_id)"
+      ],
+      [
+        "inventory_jd_logistics_facts_batch_id_0a4128d7_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_facts_batch_id_0a4128d7_like ON public.inventory_jd_logistics_facts USING btree (batch_id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_facts_department_id_0088f6c0",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_facts_department_id_0088f6c0 ON public.inventory_jd_logistics_facts USING btree (department_id)"
+      ],
+      [
+        "inventory_jd_logistics_facts_department_id_0088f6c0_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_facts_department_id_0088f6c0_like ON public.inventory_jd_logistics_facts USING btree (department_id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_facts_id_d1e40a93_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_facts_id_d1e40a93_like ON public.inventory_jd_logistics_facts USING btree (id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_facts_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inventory_jd_logistics_facts_pkey ON public.inventory_jd_logistics_facts USING btree (id)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ],
+      [
+        "teruisi_inventory_reader",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "DELETE",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "INSERT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "SELECT",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  },
+  "inventory_jd_logistics_manual_states": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "id",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "document_no",
+        "character varying(160)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "goods_code",
+        "character varying(160)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "transfer_status",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "erp_document_no",
+        "character varying(160)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "note",
+        "character varying(1000)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "flow_revision",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "revision",
+        "bigint",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "updated_by",
+        "character varying(320)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "updated_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "department_id",
+        "character varying(80)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ]
+    ],
+    "constraints": [
+      [
+        "inv_jdl_manual_uq",
+        "u",
+        true,
+        false,
+        false,
+        "UNIQUE (department_id, document_no, goods_code)"
+      ],
+      [
+        "inventory_jd_logisti_department_id_13e500f6_fk_inventory",
+        "f",
+        true,
+        true,
+        true,
+        "FOREIGN KEY (department_id) REFERENCES inventory_jd_logistics_departments(id) DEFERRABLE INITIALLY DEFERRED"
+      ],
+      [
+        "inventory_jd_logistics_manual_states_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (id)"
+      ],
+      [
+        "inventory_jd_logistics_manual_states_revision_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"revision >= 0\"]"
+      ]
+    ],
+    "indexes": [
+      [
+        "inv_jdl_manual_uq",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inv_jdl_manual_uq ON public.inventory_jd_logistics_manual_states USING btree (department_id, document_no, goods_code)"
+      ],
+      [
+        "inventory_jd_logistics_m_department_id_13e500f6_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_m_department_id_13e500f6_like ON public.inventory_jd_logistics_manual_states USING btree (department_id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_manual_states_department_id_13e500f6",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_manual_states_department_id_13e500f6 ON public.inventory_jd_logistics_manual_states USING btree (department_id)"
+      ],
+      [
+        "inventory_jd_logistics_manual_states_id_e0787117_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_manual_states_id_e0787117_like ON public.inventory_jd_logistics_manual_states USING btree (id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_manual_states_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inventory_jd_logistics_manual_states_pkey ON public.inventory_jd_logistics_manual_states USING btree (id)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ],
+      [
+        "teruisi_inventory_reader",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "INSERT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "UPDATE",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  },
+  "inventory_jd_logistics_mappings": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "id",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "goods_code",
+        "character varying(160)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "goods_code_kind",
+        "character varying(32)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "erp_goods_code",
+        "character varying(160)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "erp_goods_name",
+        "character varying(500)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "status",
+        "character varying(16)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "note",
+        "character varying(1000)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "revision",
+        "bigint",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "updated_by",
+        "character varying(320)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "updated_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "department_id",
+        "character varying(80)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ]
+    ],
+    "constraints": [
+      [
+        "inv_jdl_mapping_uq",
+        "u",
+        true,
+        false,
+        false,
+        "UNIQUE (department_id, goods_code_kind, goods_code)"
+      ],
+      [
+        "inventory_jd_logisti_department_id_5d4b4b98_fk_inventory",
+        "f",
+        true,
+        true,
+        true,
+        "FOREIGN KEY (department_id) REFERENCES inventory_jd_logistics_departments(id) DEFERRABLE INITIALLY DEFERRED"
+      ],
+      [
+        "inventory_jd_logistics_mappings_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (id)"
+      ],
+      [
+        "inventory_jd_logistics_mappings_revision_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"revision >= 0\"]"
+      ]
+    ],
+    "indexes": [
+      [
+        "inv_jdl_mapping_uq",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inv_jdl_mapping_uq ON public.inventory_jd_logistics_mappings USING btree (department_id, goods_code_kind, goods_code)"
+      ],
+      [
+        "inventory_jd_logistics_mappings_department_id_5d4b4b98",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_mappings_department_id_5d4b4b98 ON public.inventory_jd_logistics_mappings USING btree (department_id)"
+      ],
+      [
+        "inventory_jd_logistics_mappings_department_id_5d4b4b98_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_mappings_department_id_5d4b4b98_like ON public.inventory_jd_logistics_mappings USING btree (department_id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_mappings_id_537bc995_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_mappings_id_537bc995_like ON public.inventory_jd_logistics_mappings USING btree (id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_mappings_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inventory_jd_logistics_mappings_pkey ON public.inventory_jd_logistics_mappings USING btree (id)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ],
+      [
+        "teruisi_inventory_reader",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "INSERT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "UPDATE",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  },
+  "inventory_jd_logistics_scopes": {
+    "identity": [
+      "teruisi_sales_owner",
+      "r",
+      "p",
+      false,
+      false
+    ],
+    "columns": [
+      [
+        "id",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "source_kind",
+        "character varying(32)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "revision",
+        "bigint",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "owner_token",
+        "character varying(64)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ],
+      [
+        "updated_at",
+        "timestamp with time zone",
+        true,
+        null,
+        "",
+        "",
+        null
+      ],
+      [
+        "department_id",
+        "character varying(80)",
+        true,
+        null,
+        "",
+        "",
+        "\"default\""
+      ]
+    ],
+    "constraints": [
+      [
+        "inv_jdl_scope_uq",
+        "u",
+        true,
+        false,
+        false,
+        "UNIQUE (department_id, source_kind)"
+      ],
+      [
+        "inventory_jd_logisti_department_id_0281408f_fk_inventory",
+        "f",
+        true,
+        true,
+        true,
+        "FOREIGN KEY (department_id) REFERENCES inventory_jd_logistics_departments(id) DEFERRABLE INITIALLY DEFERRED"
+      ],
+      [
+        "inventory_jd_logistics_scopes_pkey",
+        "p",
+        true,
+        false,
+        false,
+        "PRIMARY KEY (id)"
+      ],
+      [
+        "inventory_jd_logistics_scopes_revision_check",
+        "c",
+        true,
+        false,
+        false,
+        "CHECK-TREE [\"atom\",\"revision >= 0\"]"
+      ]
+    ],
+    "indexes": [
+      [
+        "inv_jdl_scope_uq",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inv_jdl_scope_uq ON public.inventory_jd_logistics_scopes USING btree (department_id, source_kind)"
+      ],
+      [
+        "inventory_jd_logistics_scopes_department_id_0281408f",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_scopes_department_id_0281408f ON public.inventory_jd_logistics_scopes USING btree (department_id)"
+      ],
+      [
+        "inventory_jd_logistics_scopes_department_id_0281408f_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_scopes_department_id_0281408f_like ON public.inventory_jd_logistics_scopes USING btree (department_id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_scopes_id_4a2a2b9a_like",
+        true,
+        true,
+        false,
+        "CREATE INDEX inventory_jd_logistics_scopes_id_4a2a2b9a_like ON public.inventory_jd_logistics_scopes USING btree (id varchar_pattern_ops)"
+      ],
+      [
+        "inventory_jd_logistics_scopes_pkey",
+        true,
+        true,
+        true,
+        "CREATE UNIQUE INDEX inventory_jd_logistics_scopes_pkey ON public.inventory_jd_logistics_scopes USING btree (id)"
+      ]
+    ],
+    "triggers": [],
+    "acl": [
+      [
+        "OWNER",
+        "DELETE",
+        false
+      ],
+      [
+        "OWNER",
+        "INSERT",
+        false
+      ],
+      [
+        "OWNER",
+        "MAINTAIN",
+        false
+      ],
+      [
+        "OWNER",
+        "REFERENCES",
+        false
+      ],
+      [
+        "OWNER",
+        "SELECT",
+        false
+      ],
+      [
+        "OWNER",
+        "TRIGGER",
+        false
+      ],
+      [
+        "OWNER",
+        "TRUNCATE",
+        false
+      ],
+      [
+        "OWNER",
+        "UPDATE",
+        false
+      ],
+      [
+        "teruisi_inventory_reader",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "INSERT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "SELECT",
+        false
+      ],
+      [
+        "teruisi_inventory_writer",
+        "UPDATE",
+        false
+      ]
+    ],
+    "columnAcl": [],
+    "policies": []
+  }
+}

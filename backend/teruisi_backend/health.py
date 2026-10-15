@@ -483,6 +483,13 @@ PRODUCTS_WRITER_AUTO_ID_TABLES = (
     "product_import_fingerprints", "product_inventory_projection", "product_raw_upload_chunks",
 )
 REQUIRED_INVENTORY_COLUMNS = {
+    "inventory_jd_logistics_deliveries": {"id", "idempotency_key", "business_date", "department_ids", "status", "owner_token", "risk_count", "displayed_count", "risk_snapshot", "scope_snapshot", "run_metadata", "message_text", "message_hash", "config_digest", "source_digest", "scope_digest", "target_digest", "receipt_hash", "error_code", "actor", "created_at", "updated_at", "sent_at"},
+    "inventory_jd_logistics_departments": {"id", "name", "business_unit_code", "store_keys", "capabilities", "logistics_enabled", "monitor_enabled", "push_enabled", "stockout_threshold_days", "replenishment_cycle_days", "revision", "updated_by", "updated_at"},
+    "inventory_jd_logistics_scopes": {"id", "department_id", "source_kind", "revision", "owner_token", "updated_at"},
+    "inventory_jd_logistics_batches": {"id", "department_id", "source_kind", "range_start", "range_end", "warehouse_code", "warehouse_key", "raw_file_hash", "content_hash", "file_name", "row_count", "status", "reference_batch_id", "scope_revision", "origin", "store_key", "identity_evidence", "collector_evidence", "collected_at", "source_as_of", "actor", "created_at"},
+    "inventory_jd_logistics_facts": {"id", "department_id", "batch_id", "source_kind", "business_date", "warehouse_code", "warehouse_key", "goods_code", "goods_code_kind", "document_no", "row_hash", "occurrence", "data"},
+    "inventory_jd_logistics_mappings": {"id", "department_id", "goods_code", "goods_code_kind", "erp_goods_code", "erp_goods_name", "status", "note", "revision", "updated_by", "updated_at"},
+    "inventory_jd_logistics_manual_states": {"id", "department_id", "document_no", "goods_code", "transfer_status", "erp_document_no", "note", "flow_revision", "revision", "updated_by", "updated_at"},
     "inventory_guangdong_monitor_items": {"product_code", "active", "notes", "lead_days_override", "buffer_days_override", "operator_name_override", "buyer_override", "risk_override", "risk_reason_override", "updated_by", "updated_at"},
     "inventory_guangdong_supplier_cycles": {"supplier", "lead_days", "buffer_days", "updated_by", "updated_at"},
     "sales_order_lines": {"business_date", "product_code", "platform", "shop_name"},
@@ -517,6 +524,7 @@ REQUIRED_INVENTORY_COLUMNS = {
     },
 }
 REQUIRED_INVENTORY_WRITER_COLUMNS = {
+    "inventory_jd_logistics_audits": {"id", "department_id", "operation", "object_key", "actor", "before", "after", "created_at"},
     "inventory_guangdong_monitor_audits": {"id", "action", "source", "raw_hash", "content_hash", "actor", "status", "result", "created_at"},
     **REQUIRED_INVENTORY_COLUMNS,
     "inventory_import_scope_heads": {
@@ -549,6 +557,8 @@ REQUIRED_INVENTORY_WRITER_COLUMNS = {
     },
 }
 REQUIRED_INVENTORY_READER_INDEXES = {
+    "inv_jdl_delivery_guard_idx",
+    "inv_jdl_batch_idx", "inv_jdl_fact_scope_idx", "inv_jdl_fact_doc_idx",
     "inv_batch_scope_idx", "inv_batch_created_idx", "inv_stock_lookup_idx",
     "inv_stock_product_idx", "inv_age_lookup_idx", "inv_age_product_idx",
     "inv_plan_status_idx",
@@ -559,6 +569,14 @@ REQUIRED_INVENTORY_WRITER_INDEXES = REQUIRED_INVENTORY_READER_INDEXES | {
     "inv_group_delivery_status_idx",
 }
 INVENTORY_WRITER_TABLE_PRIVILEGES = {
+    "inventory_jd_logistics_deliveries": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_jd_logistics_departments": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_jd_logistics_scopes": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_jd_logistics_batches": ("SELECT", "INSERT"),
+    "inventory_jd_logistics_facts": ("SELECT", "INSERT", "DELETE"),
+    "inventory_jd_logistics_mappings": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_jd_logistics_manual_states": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_jd_logistics_audits": ("SELECT", "INSERT"),
     "inventory_guangdong_monitor_items": ("SELECT", "INSERT", "UPDATE"),
     "inventory_guangdong_supplier_cycles": ("SELECT", "INSERT", "UPDATE"),
     "inventory_guangdong_monitor_audits": ("SELECT", "INSERT"),
@@ -1731,6 +1749,8 @@ def _validate_inventory_schema(cursor, *, writer: bool) -> None:
         "inventory_import_attempts", "inventory_raw_upload_sessions",
         "inventory_raw_upload_chunks", "replenishment_plan_items",
         "inventory_replenishment_group_deliveries",
+        "inventory_jd_logistics_batches", "inventory_jd_logistics_facts",
+        "inventory_jd_logistics_deliveries",
     )
     present_indexes: set[str] = set()
     for table in indexed_tables:
@@ -1822,6 +1842,23 @@ def _validate_inventory_writer_authority(cursor) -> None:
         raise ReadinessError("inventory_writer_authority_mismatch")
 
 
+def _validate_inventory_notification_authority_permissions(cursor) -> None:
+    # PostgreSQL row locking needs UPDATE on at least one column. The writer
+    # gets only the non-authoritative timestamp column, never authority state.
+    cursor.execute("SELECT has_table_privilege(current_user,'inventory_write_authority','UPDATE')")
+    if cursor.fetchone()[0]:
+        raise ReadinessError("inventory_writer_database_privilege_excessive")
+    cursor.execute(
+        "SELECT a.attname FROM pg_catalog.pg_attribute a "
+        "WHERE a.attrelid='inventory_write_authority'::regclass "
+        "AND a.attnum>0 AND NOT a.attisdropped "
+        "AND has_column_privilege(current_user,a.attrelid,a.attname,'UPDATE')"
+    )
+    columns = {str(row[0]) for row in cursor.fetchall()}
+    if columns != {"updated_at"}:
+        raise ReadinessError("inventory_writer_database_privilege_excessive" if columns - {"updated_at"} else "inventory_writer_database_privilege_missing")
+
+
 def _validate_inventory_writer_permissions(cursor) -> None:
     if connection.vendor != "postgresql":
         if settings.DJANGO_ENVIRONMENT == "production":
@@ -1838,6 +1875,7 @@ def _validate_inventory_writer_permissions(cursor) -> None:
     )
     if any(bool(value) for value in cursor.fetchone()):
         raise ReadinessError("inventory_writer_database_privilege_excessive")
+    _validate_inventory_notification_authority_permissions(cursor)
     for table, privileges in INVENTORY_WRITER_TABLE_PRIVILEGES.items():
         for privilege in privileges:
             cursor.execute(
@@ -1873,6 +1911,10 @@ def _validate_inventory_writer_permissions(cursor) -> None:
             if schema_name == application_schema
             else set()
         )
+        if schema_name == application_schema and table_name == "inventory_write_authority" and not bool(row[3]):
+            # Exact permitted column set was proved above; this is not a grant
+            # of table UPDATE or any status/epoch/cutover field to the writer.
+            actual["UPDATE"] = False
         if any(granted and privilege not in allowed for privilege, granted in actual.items()):
             raise ReadinessError("inventory_writer_database_privilege_excessive")
     for table in INVENTORY_WRITER_AUTO_ID_TABLES:

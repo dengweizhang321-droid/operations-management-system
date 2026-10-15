@@ -17703,6 +17703,14 @@
     }
   ],
   "excludedModels": [
+    {"model": "inventory.JdLogisticsDelivery", "coveredBy": null, "reason": "京东缺货通知投递账本仅经管理员精确ID回查，禁止通过通用AI数据集暴露"},
+    {"model": "inventory.JdLogisticsDepartment", "coveredBy": null, "reason": "京东物流来源绑定与采集授权仅通过库存域专用接口访问"},
+    {"model": "inventory.JdLogisticsScope", "coveredBy": null, "reason": "京东物流导入所有权和版本栅栏，不作为通用AI数据集公开"},
+    {"model": "inventory.JdLogisticsBatch", "coveredBy": null, "reason": "京东物流批次通过库存域专用有界接口读取"},
+    {"model": "inventory.JdLogisticsFact", "coveredBy": null, "reason": "京东物流事实通过库存域专用范围与投影接口读取"},
+    {"model": "inventory.JdLogisticsProductMapping", "coveredBy": null, "reason": "京东物流人工映射通过专用CAS接口维护和读取"},
+    {"model": "inventory.JdLogisticsTransferManual", "coveredBy": null, "reason": "京东物流人工状态不等于ERP证据，仅经专用接口读取"},
+    {"model": "inventory.JdLogisticsAudit", "coveredBy": null, "reason": "京东物流导入与人工变更内部审计，不通过通用AI数据集公开"},
     {"model": "ai_assistant.AiLibraryRevision", "coveredBy": null, "reason": "AI报告、方法配置与执行证据仅经本人或管理员专用接口读取"},
     {"model": "ai_assistant.AiExecutionGuidance", "coveredBy": null, "reason": "AI报告、方法配置与执行证据仅经本人或管理员专用接口读取"},
     {"model": "ai_assistant.AiReportRun", "coveredBy": null, "reason": "AI报告、方法配置与执行证据仅经本人或管理员专用接口读取"},
