@@ -1,0 +1,48 @@
+{
+  "type": "offline-dom-verification",
+  "date": "2026-10-16",
+  "htmlFiles": 6,
+  "screensExercised": 186,
+  "assertions": 956,
+  "network": "disabled",
+  "documentUrl": "Windows file:///D:/... parsed in JSDOM only",
+  "visualValidation": "not performed; native browser file URL blocked by policy",
+  "results": [
+    {
+      "file": "01-balanced.html",
+      "sectionCount": 9,
+      "screenCount": 31,
+      "scriptErrors": []
+    },
+    {
+      "file": "02-workbench.html",
+      "sectionCount": 9,
+      "screenCount": 31,
+      "scriptErrors": []
+    },
+    {
+      "file": "03-object-focus.html",
+      "sectionCount": 9,
+      "screenCount": 31,
+      "scriptErrors": []
+    },
+    {
+      "file": "04-comparison.html",
+      "sectionCount": 9,
+      "screenCount": 31,
+      "scriptErrors": []
+    },
+    {
+      "file": "05-diagnostics.html",
+      "sectionCount": 9,
+      "screenCount": 31,
+      "scriptErrors": []
+    },
+    {
+      "file": "06-review.html",
+      "sectionCount": 9,
+      "screenCount": 31,
+      "scriptErrors": []
+    }
+  ]
+}
