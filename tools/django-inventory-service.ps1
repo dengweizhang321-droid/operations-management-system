@@ -145,8 +145,20 @@ reader_tables = (
     "inventory_import_batches", "inventory_stock_lines", "inventory_age_lines",
     "inventory_data_revisions", "replenishment_plan_items",
     "inventory_operating_settings",
+    "inventory_jd_logistics_departments", "inventory_jd_logistics_scopes",
+    "inventory_jd_logistics_batches", "inventory_jd_logistics_facts",
+    "inventory_jd_logistics_mappings", "inventory_jd_logistics_manual_states",
+    "inventory_jd_logistics_deliveries",
 )
 writer_privileges = {
+    "inventory_jd_logistics_departments": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_jd_logistics_scopes": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_jd_logistics_batches": ("SELECT", "INSERT"),
+    "inventory_jd_logistics_facts": ("SELECT", "INSERT", "DELETE"),
+    "inventory_jd_logistics_mappings": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_jd_logistics_manual_states": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_jd_logistics_audits": ("SELECT", "INSERT"),
+    "inventory_jd_logistics_deliveries": ("SELECT", "INSERT", "UPDATE"),
     "inventory_guangdong_monitor_items": ("SELECT", "INSERT", "UPDATE"),
     "inventory_guangdong_supplier_cycles": ("SELECT", "INSERT", "UPDATE"),
     "inventory_guangdong_monitor_audits": ("SELECT", "INSERT"),
@@ -198,6 +210,17 @@ with connection.cursor() as cursor:
         cursor.execute(sql.SQL(
             "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {}"
         ).format(sql.Identifier(role)))
+        # Table-level REVOKE does not remove earlier column grants. Keep the
+        # authority lock exception exact when this provisioner is reapplied.
+        cursor.execute(
+            "SELECT attname FROM pg_catalog.pg_attribute "
+            "WHERE attrelid='public.inventory_write_authority'::regclass "
+            "AND attnum>0 AND NOT attisdropped ORDER BY attnum"
+        )
+        authority_columns = [sql.Identifier(row[0]) for row in cursor.fetchall()]
+        cursor.execute(sql.SQL(
+            "REVOKE UPDATE ({}) ON inventory_write_authority FROM {}"
+        ).format(sql.SQL(",").join(authority_columns), sql.Identifier(role)))
         cursor.execute(sql.SQL(
             "REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {}"
         ).format(sql.Identifier(role)))
@@ -235,6 +258,11 @@ with connection.cursor() as cursor:
             sql.SQL(",").join(sql.SQL(value) for value in privileges),
             sql.Identifier(table),
         ))
+    # PostgreSQL row locking requires UPDATE on at least one column. This
+    # timestamp-only permission cannot change the active backend/epoch proof.
+    cursor.execute(
+        "GRANT UPDATE (updated_at) ON inventory_write_authority TO teruisi_inventory_writer"
+    )
     for table in auto_id_tables:
         cursor.execute("SELECT pg_get_serial_sequence(%s,'id')", (f"public.{table}",))
         row = cursor.fetchone()
@@ -285,6 +313,14 @@ with connection.cursor() as cursor:
         raise RuntimeError("inventory reader revision RLS policy is invalid")
 
     cursor.execute(
+        "SELECT attname FROM pg_catalog.pg_attribute "
+        "WHERE attrelid='public.inventory_write_authority'::regclass "
+        "AND attnum>0 AND NOT attisdropped "
+        "AND has_column_privilege('teruisi_inventory_writer',attrelid,attnum,'UPDATE')"
+    )
+    if {row[0] for row in cursor.fetchall()} != {"updated_at"}:
+        raise RuntimeError("inventory authority writer column lock permission is not exact")
+    cursor.execute(
         "SELECT n.nspname,c.relname,"
         "has_table_privilege('teruisi_inventory_writer',c.oid,'INSERT'),"
         "has_table_privilege('teruisi_inventory_writer',c.oid,'UPDATE'),"
@@ -300,7 +336,7 @@ with connection.cursor() as cursor:
         allowed = set(writer_privileges.get(table, ())) if schema == "public" else set()
         actual = {
             "INSERT": bool(insert) or bool(column_insert),
-            "UPDATE": bool(update) or bool(column_update),
+            "UPDATE": bool(update) or (bool(column_update) and not (schema == "public" and table == "inventory_write_authority")),
             "DELETE": bool(delete),
             "TRUNCATE": bool(truncate),
         }

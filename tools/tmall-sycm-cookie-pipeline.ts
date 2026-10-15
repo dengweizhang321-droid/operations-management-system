@@ -107,6 +107,8 @@ import {
   type JdPromotionN8nPlan,
   type JdPromotionN8nStage,
 } from "./jd-promotion-n8n-pipeline";
+import { jdLogisticsHelperRequestError, notifyJdLogisticsN8nPlan, planJdLogisticsN8nRun, publicJdLogisticsPlan, runJdLogisticsN8nPlan, verifyJdLogisticsN8nPlan } from "./jd-logistics-n8n-pipeline";
+import type { JdLogisticsManifest } from "../lib/jd/logistics-manifest";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-sycm-cookie-pipeline");
@@ -174,9 +176,9 @@ const sycmExportPath = "/cc/item/view/excel/top.json";
 const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
 
 type PipelineCommand = "master" | "plan" | "fetch" | "import" | "promotion" | "serve";
-export type HelperStage = "ready" | "planned" | "fetched" | "imported" | "promoted" | "running" | "executed" | "completed" | "failed";
+export type HelperStage = "ready" | "planned" | "fetched" | "imported" | "promoted" | "running" | "executed" | "verified" | "notifying" | "completed" | "failed";
 export type HelperRoute = "/plan" | "/plan-backfill" | typeof tmallSevenDayBackfillRoute | "/next-day" | "/fetch" | "/import" | "/promotion" | "/product-master" | TmallDirectPmRoute;
-export type CoordinatedWorkflow = "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion";
+export type CoordinatedWorkflow = "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion" | "jd-logistics";
 export type CookieSourceStatus = "ready" | "missing" | "invalid";
 export type TmallProfileStatus = "ready" | "missing" | "invalid";
 
@@ -875,7 +877,7 @@ export function normalizeN8nExecutionId(value: string | string[] | undefined) {
 }
 
 export function parseWorkflowCoordinationKey(value: string | string[] | undefined): CoordinatedWorkflow | null {
-  return typeof value === "string" && ["tmall", "jackyun", "jd", "jd-market", "jd-promotion"].includes(value)
+  return typeof value === "string" && ["tmall", "jackyun", "jd", "jd-market", "jd-promotion", "jd-logistics"].includes(value)
     ? value as CoordinatedWorkflow
     : null;
 }
@@ -1311,6 +1313,8 @@ async function serveCommand(argv: string[]) {
   let jdPlan: JdN8nPlan | null = null;
   let jdMarketPlan: JdMarketDailyPlan | null = null;
   let jdPromotionPlan: JdPromotionN8nPlan | null = null;
+  let jdLogisticsPlan: JdLogisticsManifest | null = null;
+  let jdLogisticsCleanupFailed = false;
   let jdCustomerServicePlan: CustomerServiceN8nPlan | null = null;
   let claimedTmallExecutionId: string | null = null;
   let claimedTmallStoreKey: string | null = null;
@@ -1319,6 +1323,7 @@ async function serveCommand(argv: string[]) {
   let claimedJdExecutionId: string | null = null;
   let claimedJdMarketExecutionId: string | null = null;
   let claimedJdPromotionExecutionId: string | null = null;
+  let claimedJdLogisticsExecutionId: string | null = null;
   let inactivityReaper: ReturnType<typeof createHelperInactivityReaper> | null = null;
   const server = createServer(async (request, response) => {
     const reply = (status: number, payload: unknown) => {
@@ -1371,6 +1376,8 @@ async function serveCommand(argv: string[]) {
               ? claimedJdMarketExecutionId
               : requestedWorkflow === "jd-promotion"
                 ? claimedJdPromotionExecutionId
+                : requestedWorkflow === "jd-logistics"
+                  ? claimedJdLogisticsExecutionId
                 : null;
       const decision = workflowClaimDecision({
         stage,
@@ -1411,6 +1418,7 @@ async function serveCommand(argv: string[]) {
         if (coordinatedWorkflow === "jd") claimedJdExecutionId = coordinatedExecutionId;
         if (coordinatedWorkflow === "jd-market") claimedJdMarketExecutionId = coordinatedExecutionId;
         if (coordinatedWorkflow === "jd-promotion") claimedJdPromotionExecutionId = coordinatedExecutionId;
+        if (coordinatedWorkflow === "jd-logistics") claimedJdLogisticsExecutionId = coordinatedExecutionId;
         inactivityReaper?.arm();
       }
       reply(200, {
@@ -1441,7 +1449,8 @@ async function serveCommand(argv: string[]) {
     const jdRoutes = ["/jd/plan", "/jd/run", "/jd/verify", ...jdCustomerServiceRoutes];
     const jdMarketRoutes = ["/jd-market/plan", "/jd-market/run", "/jd-market/verify"];
     const jdPromotionRoutes = ["/jd-promotion/plan", "/jd-promotion-cut-meat/plan", "/jd-promotion/run", "/jd-promotion/verify"];
-    if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes, ...jdRoutes, ...jdMarketRoutes, ...jdPromotionRoutes].includes(request.url ?? "")) {
+    const jdLogisticsRoutes = ["/jd-logistics/plan", "/jd-logistics/run", "/jd-logistics/verify", "/jd-logistics/notify", "/jd-logistics/release"];
+    if (request.method !== "POST" || ![...tmallRoutes, ...jackyunRoutes, ...jdRoutes, ...jdMarketRoutes, ...jdPromotionRoutes, ...jdLogisticsRoutes].includes(request.url ?? "")) {
       reply(404, { ok: false, error: "not_found" });
       return;
     }
@@ -1451,7 +1460,8 @@ async function serveCommand(argv: string[]) {
     const isJdCustomerService = jdCustomerServiceRoutes.includes(request.url ?? "");
     const isJdMarket = jdMarketRoutes.includes(request.url ?? "");
     const isJdPromotion = jdPromotionRoutes.includes(request.url ?? "");
-    const workflow = isJackyun ? "jackyun" : isJd ? "jd" : isJdMarket ? "jd-market" : isJdPromotion ? "jd-promotion" : "tmall";
+    const isJdLogistics = jdLogisticsRoutes.includes(request.url ?? "");
+    const workflow = isJackyun ? "jackyun" : isJd ? "jd" : isJdMarket ? "jd-market" : isJdPromotion ? "jd-promotion" : isJdLogistics ? "jd-logistics" : "tmall";
     if (activeWorkflow && activeWorkflow !== workflow) {
       reply(409, { ok: false, error: "workflow_conflict", activeWorkflow });
       return;
@@ -1461,7 +1471,9 @@ async function serveCommand(argv: string[]) {
     const requestTmallStoreKey = workflow === "tmall"
       ? normalizeTmallStoreKey(request.headers[tmallStoreKeyHeader])
       : null;
-    const requestStateError = isJdCustomerService
+    const requestStateError = isJdLogistics
+      ? jdLogisticsHelperRequestError(stage, busy, request.url!, requestExecutionId, claimedJdLogisticsExecutionId)
+      : isJdCustomerService
       ? customerServiceHelperError(stage, busy, request.url!, requestExecutionId, claimedJdExecutionId)
       : isJackyunExportFirst
       ? (!requestExecutionId ? { error: "missing_or_invalid_execution_id" }
@@ -1566,6 +1578,35 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         if (stage === "completed" || "recoveryDecision" in result && result.recoveryDecision === "wait") scheduleOneShotServerClose(server, 500);
         else inactivityReaper?.arm();
+      } else if (request.url === "/jd-logistics/plan") {
+        jdLogisticsPlan = await planJdLogisticsN8nRun({ root: projectRoot, now: planTime, executionId: requestExecutionId! });
+        stage = jdLogisticsPlan.stage;
+        reply(200, publicJdLogisticsPlan(jdLogisticsPlan));
+        inactivityReaper?.arm();
+      } else if (request.url === "/jd-logistics/run") {
+        if (!jdLogisticsPlan) throw new Error("JD_LOGISTICS_PLAN_MISSING");
+        stage = "running";
+        const result = await runJdLogisticsN8nPlan(jdLogisticsPlan, { root: projectRoot, executionId: requestExecutionId! });
+        stage = "executed";
+        reply(200, result);
+        inactivityReaper?.arm();
+      } else if (request.url === "/jd-logistics/verify") {
+        if (!jdLogisticsPlan) throw new Error("JD_LOGISTICS_PLAN_MISSING");
+        const result = await verifyJdLogisticsN8nPlan(jdLogisticsPlan, { root: projectRoot, executionId: requestExecutionId! });
+        stage = result.stage;
+        reply(200, result);
+        inactivityReaper?.arm();
+      } else if (request.url === "/jd-logistics/notify") {
+        if (!jdLogisticsPlan) throw new Error("JD_LOGISTICS_PLAN_MISSING");
+        stage = "notifying";
+        const result = await notifyJdLogisticsN8nPlan(jdLogisticsPlan, { root: projectRoot, executionId: requestExecutionId! });
+        stage = "completed";
+        reply(200, result);
+        inactivityReaper?.arm();
+      } else if (request.url === "/jd-logistics/release") {
+        reply(jdLogisticsCleanupFailed ? 409 : 200, { ok: !jdLogisticsCleanupFailed, stage: "released", workflow: "jd-logistics",
+          ...(jdLogisticsCleanupFailed ? { error: "JD_LOGISTICS_BROWSER_CLEANUP_FAILED" } : {}) });
+        scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/jd-promotion/plan" || request.url === "/jd-promotion-cut-meat/plan") {
         jdPromotionPlan = await planJdPromotionN8nRun({
           now: planTime,
@@ -1751,6 +1792,7 @@ async function serveCommand(argv: string[]) {
       }
     } catch (error) {
       stage = "failed";
+      if (isJdLogistics && error instanceof Error && error.message === "JD_LOGISTICS_BROWSER_CLEANUP_FAILED") jdLogisticsCleanupFailed = true;
       inactivityReaper?.clear();
       let tmallBrowserCloseError: string | null = null;
       if (workflow === "tmall" && !tmallBrowserClosure) {
@@ -1775,7 +1817,8 @@ async function serveCommand(argv: string[]) {
           ...(tmallBackfill ? { dailyBackfill: publicTmallBackfill(tmallBackfill) } : {}),
         } : {}),
       });
-      scheduleOneShotServerClose(server, 500);
+      if (isJdLogistics) inactivityReaper?.arm();
+      else scheduleOneShotServerClose(server, 500);
     } finally {
       busy = false;
     }
@@ -1787,6 +1830,7 @@ async function serveCommand(argv: string[]) {
   server.once("close", () => {
     inactivityReaper?.clear();
     const finish = async () => {
+      if (jdLogisticsCleanupFailed) throw new Error("JD_LOGISTICS_BROWSER_CLEANUP_FAILED");
       if (slotIdentity.storeKey && tmallBrowserMayBeOpen) await closeTmallWorkflowBrowser(await getRegisteredTmallStore(slotIdentity.storeKey));
     };
     const timeout = setTimeout(() => parentPort?.postMessage({ type: "finished", clean: false }), 30_000);
@@ -1818,7 +1862,8 @@ async function helperProfileHealth() {
     getJdStore("jd-yiyong-director").then(store => getJdProfilesStatus([store])).catch(() => "invalid" as const),
     getJdStore("jd-maidehao-operator1").then(store => getJdProfilesStatus([store])).catch(() => "invalid" as const),
   ]);
-  return { cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile, jdPromotionCutMeatProfile };
+  return { cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile, jdPromotionCutMeatProfile,
+    jdLogisticsProfile: jdProfiles };
 }
 
 async function main() {

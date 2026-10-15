@@ -2008,6 +2008,7 @@ function Prepare-Application {
       "tools\django-integration-install.ps1",
       "config\integration-migration-policy-v3.json",
       "config\integration-migration-policy-v4-netshop-presence.json",
+      "config\jd-logistics-notifications.json",
       "drizzle\0090_sales_write_authority.sql",
       "drizzle\0091_erp_reference_projection.sql",
       "drizzle\0092_sales_domain_retirement.sql",

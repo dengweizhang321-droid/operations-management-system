@@ -4,8 +4,10 @@ from django.urls import path
 from . import views
 from . import guangdong_views as gd
 from . import bi_projection
+from . import jd_logistics_views
 
 read_patterns = [
+    path("jd-logistics", jd_logistics_views.endpoint, name="inventory-jd-logistics"),
     path("bi-cockpit", bi_projection.cockpit, name="inventory-bi-cockpit"),
     path("guangdong-monitor", gd.monitor),
     path("guangdong-monitor/watchlist", gd.watchlist),
@@ -23,6 +25,7 @@ read_patterns = [
     path("consumers/query", views.consumer_query, name="inventory-consumer-query"),
 ]
 write_patterns = [
+    path("jd-logistics", jd_logistics_views.endpoint, name="inventory-jd-logistics-write"),
     path("imports/recovery", views.import_recovery, name="inventory-import-recovery"),
     path("guangdong-monitor/import", gd.imports),
     path("guangdong-monitor/items", gd.items),

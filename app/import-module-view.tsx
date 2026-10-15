@@ -419,6 +419,7 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
         <button type="button" role="tab" aria-selected={activeSection === "chains"} className={activeSection === "chains" ? "active" : ""} onClick={() => onModuleViewChange("chains")}>链路规则</button>
       </div>
       {activeSection === "files" && <>
+      <section className="panel customer-service-data-source"><div><strong>京东物流四类报表</strong><p>库存流水、店铺商品、实时库存与库存快照按事业部校验、导入并回查批次。</p></div><a className="secondary-button" href="/?module=inventory&view=inbound&jdInbound=pop&jdPopTab=batches">打开物流导入</a></section>
       <section className="import-grid">
         <article className="panel import-panel">
           <span className="eyebrow">第 1 步</span><h2>选择数据类型</h2><p>销售、库存、主数据、京东与天猫网店数据使用同一套批次校验和导入历史。</p>

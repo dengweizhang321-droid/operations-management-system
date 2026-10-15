@@ -1,0 +1,66 @@
+.jd-logistics-module { display: grid; gap: 14px; }
+.jd-logistics-module .outlet-subnav { margin: 0; }
+.jd-logistics-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px; }
+.jd-logistics-heading h2 { margin: 0 0 6px; font-size: 18px; }
+.jd-logistics-heading p, .jd-logistics-import p, .jd-logistics-dialog p { margin: 0; color: var(--color-text-secondary); line-height: 1.7; }
+.jd-logistics-filters { display: grid; grid-template-columns: minmax(200px,1.5fr) minmax(180px,1.2fr) repeat(2,minmax(140px,.8fr)) minmax(180px,1.1fr); gap: 12px; padding: 16px; align-items: end; }
+.jd-logistics-c-filters, .jd-logistics-c-kpis { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.jd-logistics-filters label, .jd-logistics-fields label { display: grid; gap: 6px; min-width: 0; color: var(--color-text-secondary); }
+.jd-logistics-filters input, .jd-logistics-fields input:not([type=checkbox]), .jd-logistics-fields select, .jd-logistics-fields textarea { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--color-border-default); border-radius: 8px; background: var(--surface); color: var(--color-text-primary); font: inherit; }
+.jd-logistics-table { min-width: 1100px; }
+.jd-logistics-table td { vertical-align: top; }
+.jd-logistics-import form { padding: 0 18px 18px; }
+.jd-logistics-import fieldset { padding: 0; margin: 0; border: 0; }
+.jd-logistics-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.jd-logistics-wide { grid-column: 1 / -1; }
+.jd-logistics-fields .jd-logistics-check { display: flex; align-items: center; gap: 8px; }
+.jd-logistics-check input { flex: 0 0 auto; }
+.jd-logistics-import footer, .jd-logistics-dialog footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 18px; }
+.jd-logistics-import small, .jd-logistics-dialog small { color: var(--color-text-secondary); }
+.jd-logistics-dialog { width: min(760px,calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; padding: 24px; }
+.jd-logistics-dialog header { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.jd-logistics-dialog h2 { margin: 0; }
+.jd-logistics-dialog p { margin: 12px 0; }
+.jd-logistics-error { color: var(--color-danger,#b91c1c) !important; }
+.jd-cwarehouse-product-filters { grid-template-columns: minmax(220px,1.3fr) minmax(200px,1.1fr) 126px minmax(190px,1.3fr); }
+.jd-cwarehouse-window { display: grid; gap: 6px; color: var(--color-text-secondary); }
+.jd-cwarehouse-window>div { display: flex; padding: 3px; min-height: 38px; border: 1px solid var(--color-border-default); border-radius: 8px; background: var(--color-bg-subtle); }
+.jd-cwarehouse-window button { flex: 1; border: 0; border-radius: 5px; color: var(--color-text-secondary); background: transparent; font: inherit; cursor: pointer; }
+.jd-cwarehouse-window button.active { color: var(--color-brand); background: var(--surface); box-shadow: var(--shadow-sm); }
+.jd-cwarehouse-filter-footer { grid-column: 1/-1; display: flex; gap: 12px; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--color-border-default); color: var(--color-text-secondary); font-size: 12px; }
+.jd-cwarehouse-filter-footer>div { display: flex; gap: 8px; flex-wrap: wrap; }
+.jd-cwarehouse-product-table { min-width: 760px; border-collapse: separate; border-spacing: 0; }
+.jd-cwarehouse-product-table th { min-width: 176px; }
+.jd-cwarehouse-product-table .jd-cwarehouse-product-column { position: sticky; left: 0; z-index: 2; width: 280px; min-width: 280px; max-width: 280px; background: var(--surface); box-shadow: 1px 0 0 var(--color-border-default); }
+.jd-cwarehouse-product-table thead .jd-cwarehouse-product-column { z-index: 3; background: var(--color-bg-subtle); }
+.jd-cwarehouse-product-row>td { padding-top: 20px; padding-bottom: 20px; vertical-align: top; }
+.jd-cwarehouse-product-row.expanded>td { background: var(--color-brand-soft); }
+.jd-cwarehouse-product-identity { display: flex; align-items: flex-start; gap: 9px; }
+.jd-cwarehouse-product-identity>div { min-width: 0; display: grid; gap: 4px; }
+.jd-cwarehouse-product-identity strong { overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; }
+.jd-cwarehouse-product-identity small { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.jd-cwarehouse-product-identity .product-thumb { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 8px; color: var(--color-brand); background: var(--color-brand-soft); object-fit: contain; }
+.jd-cwarehouse-expand { flex: 0 0 24px; width: 24px; height: 26px; margin-top: 4px; padding: 0; border: 1px solid var(--color-border-default); border-radius: 6px; color: var(--color-brand); background: var(--surface); font-size: 18px; cursor: pointer; }
+.jd-cwarehouse-expand:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+.jd-cwarehouse-stock-cell { display: grid; gap: 7px; min-width: 150px; }
+.jd-cwarehouse-stock-cell>strong { color: var(--color-text-primary); font-size: 20px; font-variant-numeric: tabular-nums; }
+.jd-cwarehouse-stock-cell>strong small { color: var(--color-text-secondary); font-size: 11px; font-weight: 400; }
+.jd-cwarehouse-stock-cell>span:not(.status),.jd-cwarehouse-stock-cell>small { color: var(--color-text-secondary); font-size: 11px; }
+.jd-cwarehouse-stock-cell .status { width: fit-content; }
+.jd-cwarehouse-total-cell { background: color-mix(in srgb,var(--color-brand) 3%,var(--surface)); }
+.jd-cwarehouse-risk-cell,.jd-cwarehouse-product-row.expanded>.jd-cwarehouse-risk-cell { background: color-mix(in srgb,var(--color-danger,#b91c1c) 5%,var(--surface)); }
+.jd-cwarehouse-no-source { display: grid; gap: 8px; color: var(--color-text-secondary); }
+.jd-cwarehouse-no-source>small { font-size: 11px; }
+.jd-cwarehouse-details-row>td { padding: 0 !important; }
+.jd-cwarehouse-expanded { min-width: 0; contain: inline-size; padding: 18px; background: var(--color-bg-subtle); border-top: 1px solid var(--color-border-default); }
+.jd-cwarehouse-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.jd-cwarehouse-detail-heading>span { color: var(--color-text-secondary); font-size: 12px; }
+.jd-cwarehouse-detail-table { min-width: 1900px; background: var(--surface); }
+.jd-cwarehouse-detail-table td { vertical-align: top; }
+.jd-cwarehouse-detail-table th:nth-child(1) { min-width: 200px; }.jd-cwarehouse-detail-table th:nth-child(2) { min-width: 240px; }.jd-cwarehouse-detail-table th:last-child { min-width: 250px; }
+.jd-cwarehouse-loading { display: grid; gap: 14px; padding: 24px; color: var(--color-text-secondary); }
+.jd-cwarehouse-loading i { height: 64px; border-radius: 8px; background: var(--color-bg-subtle); animation: jd-cwarehouse-pulse 1.2s ease-in-out infinite alternate; }
+@keyframes jd-cwarehouse-pulse { to { opacity: .4; } }
+@media(prefers-reduced-motion:reduce) { .jd-cwarehouse-loading i { animation: none; } }
+@media(max-width:1200px) { .jd-logistics-filters { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media(max-width:720px) { .jd-logistics-filters,.jd-logistics-fields,.jd-logistics-c-kpis { grid-template-columns: 1fr; }.jd-logistics-wide { grid-column:auto; }.jd-logistics-import footer,.jd-logistics-dialog footer,.jd-cwarehouse-filter-footer,.jd-cwarehouse-detail-heading { align-items: stretch; flex-direction: column; }.jd-cwarehouse-product-table .jd-cwarehouse-product-column { min-width: 220px; width: 220px; max-width: 220px; } }

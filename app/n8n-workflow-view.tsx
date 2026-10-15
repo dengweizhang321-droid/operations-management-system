@@ -7,11 +7,12 @@ import jdWorkflowDefinition from "@/automation/n8n/jd-multi-store-daily.workflow
 import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json";
 import jdPromotionWorkflowDefinition from "@/automation/n8n/jd-promotion-daily.workflow.json";
 import jdPromotionCutMeatWorkflowDefinition from "@/automation/n8n/jd-promotion-cut-meat-20260813-14.workflow.json";
+import jdLogisticsWorkflowDefinition from "@/automation/n8n/jd-logistics-daily.workflow.json";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { JackyunRecoveryControls } from "./jackyun-recovery-controls";
 
 type AppRole = "viewer" | "analyst" | "operator" | "admin";
-type WorkflowKey = "jackyun" | "tmall" | "jd" | "jd_market" | "jd_promotion" | "jd_promotion_cut_meat";
+type WorkflowKey = "jackyun" | "tmall" | "jd" | "jd_market" | "jd_promotion" | "jd_promotion_cut_meat" | "jd_logistics";
 
 type N8nWorkflowViewProps = {
   currentUser: { role: AppRole } | null;
@@ -34,7 +35,8 @@ type HelperHealthPayload = {
   ok?: boolean;
   stage?: string;
   busy?: boolean;
-  activeWorkflow?: "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion" | null;
+  activeWorkflow?: "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion" | "jd-logistics" | null;
+  jdLogisticsProfile?: "ready" | "missing" | "invalid";
   cookieSource?: "ready" | "missing" | "invalid";
   tmallProfile?: "ready" | "missing" | "invalid";
   jackyunProfile?: "ready" | "missing" | "invalid";
@@ -72,6 +74,27 @@ type WorkflowConfig = {
 const helperHealthUrl = "http://127.0.0.1:5791/health";
 
 const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
+  jd_logistics: {
+    key: "jd_logistics",
+    definition: jdLogisticsWorkflowDefinition as N8nWorkflowDefinition,
+    subtitle: "京东物流库存流水、店铺商品、C 仓实时明细与分仓快照的串行采集和导入。",
+    tags: ["京东物流", "Asia/Shanghai", "新店默认关闭"],
+    flowLabel: "A → B → C → D",
+    pipelineTitle: "京东物流四类数据导入",
+    pipelineDescription: "按事业部去重计划，依次下载、导入和回查四类数据；独立开关允许时，再发送缺货提醒。",
+    workflowMetric: "京东物流导入",
+    scheduleMetric: "默认关闭",
+    scheduleDescription: "新账号、数据集和工作流均需显式启用",
+    scheduleTriggerLabel: "每日（待启用）",
+    iframeTitle: "京东物流四类数据下载与导入 n8n 工作流",
+    safetyNote: "工作流定义默认停用，页面展示不代表已安装或启用。采集账号与事业部分别核验，共享来源只保存一份；实时库存保留真实采集时刻，快照使用核验后的业务日期。任务提交未决时停止重发，下载成功后仍须导入并回查批次。",
+    stageDetails: {
+      A: { title: "冻结来源与日期", description: "读取独立开关、绑定受控账号和事业部，核对数据集能力、日期与执行所有者。" },
+      B: { title: "串行下载并导入", description: "任务基线、唯一绑定、文件完整性和来源核验通过后，调用库存域导入接口。" },
+      C: { title: "独立精确回查", description: "重新校验文件哈希、业务范围、行数、批次及当前版本；任一不一致停止。" },
+      D: { title: "专用群缺货提醒", description: "仅已核验的C仓范围进入提醒；渠道与账号均需启用，精确回查投递记录，未知结果不重复发送。" },
+    },
+  },
   jackyun: {
     key: "jackyun",
     definition: jackyunWorkflowDefinition as N8nWorkflowDefinition,
@@ -210,6 +233,7 @@ export function shouldMountN8nWorkflowEditor(
 }
 
 function checkingHelper(key: WorkflowKey): HelperAvailability {
+  if (key === "jd_logistics") return { kind: "checking", label: "正在检测物流辅助服务", detail: "正在确认物流路由、受控账号会话与默认关闭的来源绑定。" };
   return {
     kind: "checking",
     label: "正在检测辅助服务",
@@ -229,6 +253,11 @@ function checkingHelper(key: WorkflowKey): HelperAvailability {
 
 function helperAvailability(payload: HelperHealthPayload, key: WorkflowKey): HelperAvailability {
   if (payload.ok !== true) throw new Error("invalid_health_response");
+  if (key === "jd_logistics") {
+    if (payload.jdLogisticsProfile !== "ready") return { kind: "cookie-missing", label: "京东物流来源待配置", detail: "辅助服务尚未报告物流来源就绪。请先配置事业部与受控账号、核验文件契约；新店默认关闭。" };
+    if (payload.busy || payload.stage !== "ready") return { kind: "running", label: "共享采集器忙碌", detail: "等待当前串行流程结束，物流任务不得抢占其他店铺会话。" };
+    return { kind: "ready", label: "物流采集器已就绪", detail: "仅运行显式启用的事业部与数据集；n8n 工作流仍需单独安装并启用。" };
+  }
   if (key === "jackyun" && payload.jackyunProfile !== "ready") {
     return {
       kind: "cookie-missing",

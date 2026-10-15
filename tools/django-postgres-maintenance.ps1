@@ -732,6 +732,22 @@ function Assert-MaintenanceEvidence(
     )
   }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
+  if (@($Evidence.migrations | Where-Object { $_.app -ceq "inventory" -and $_.name -ceq "0013_jd_logistics_notifications" }).Count -eq 1) {
+    $requiredTables += "inventory_jd_logistics_deliveries"
+  } elseif ($tableNames -ccontains "inventory_jd_logistics_deliveries") {
+    throw "JD logistics delivery table lacks its inventory migration receipt"
+  }
+  $jdLogisticsTables = @(
+    "inventory_jd_logistics_departments", "inventory_jd_logistics_scopes",
+    "inventory_jd_logistics_batches", "inventory_jd_logistics_facts",
+    "inventory_jd_logistics_mappings", "inventory_jd_logistics_manual_states",
+    "inventory_jd_logistics_audits"
+  )
+  if (@($Evidence.migrations | Where-Object { $_.app -ceq "inventory" -and $_.name -ceq "0012_jd_logistics" }).Count -eq 1) {
+    $requiredTables += $jdLogisticsTables
+  } elseif (@($tableNames | Where-Object { $_ -cin $jdLogisticsTables }).Count -gt 0) {
+    throw "JD logistics tables lack their inventory migration receipt"
+  }
   $salesOptionsMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "sales" -and $_.name -ceq "0010_analysis_options" }).Count
   $salesOptionsTables = @("sales_analysis_options", "sales_analysis_options_state")
   if ($salesOptionsMigration -eq 1) {

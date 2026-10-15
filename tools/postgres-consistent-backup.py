@@ -840,6 +840,21 @@ def collect_evidence(
         }
         if inventory_tables:
             required.update(inventory_required)
+        jd_logistics_tables = {
+            "inventory_jd_logistics_departments", "inventory_jd_logistics_scopes",
+            "inventory_jd_logistics_batches", "inventory_jd_logistics_facts",
+            "inventory_jd_logistics_mappings", "inventory_jd_logistics_manual_states",
+            "inventory_jd_logistics_audits",
+        }
+        inventory_migrations = {item["name"] for item in migrations if item["app"] == "inventory"}
+        if "0013_jd_logistics_notifications" in inventory_migrations:
+            required.add("inventory_jd_logistics_deliveries")
+        elif "inventory_jd_logistics_deliveries" in tables:
+            raise RuntimeError("JD logistics delivery table lacks its inventory migration receipt")
+        if "0012_jd_logistics" in inventory_migrations:
+            required.update(jd_logistics_tables)
+        elif set(tables) & jd_logistics_tables:
+            raise RuntimeError("JD logistics tables lack their inventory migration receipt")
         workflow_required = {
             "workflow_data_revisions",
             "workflow_write_authority",

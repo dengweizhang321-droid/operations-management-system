@@ -10,6 +10,9 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { InventoryKpiCard } from "./module-view-business-ui";
 import GuangdongInventoryView from "./inventory-guangdong-view";
+import JdLogisticsView from "./jd-logistics-view";
+import JdLogisticsCwarehouseView from "./jd-logistics-cwarehouse-view";
+import { readJdLogisticsLocation, writeJdLogisticsLocation } from "@/lib/inventory/jd-logistics-contract";
 import InventoryFilterBar, {
   readInventorySharedFilters,
   writeInventorySharedFilters,
@@ -454,9 +457,23 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const syncInputRef = useRef<HTMLInputElement>(null);
   const planImportInputRef = useRef<HTMLInputElement>(null);
   const activeTab = moduleView;
+  const [jdInboundMode, setJdInboundMode] = useState(() => typeof window === "undefined" ? "erp" : readJdLogisticsLocation(window.location.href).inbound);
+  const jdPop = jdInboundMode === "pop";
+  const jdCwarehouse = jdInboundMode === "cwarehouse";
+  const selectJdInbound = (mode: "erp" | "pop" | "cwarehouse") => {
+    if (mode === jdInboundMode) return;
+    setJdInboundMode(mode); writeJdLogisticsLocation({ inbound: mode });
+    const url = new URL(window.location.href); url.searchParams.set("jdPage", "1");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  };
+  useEffect(() => {
+    const restore = () => setJdInboundMode(readJdLogisticsLocation(window.location.href).inbound);
+    restore(); window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
   const usesInventoryOverview = activeTab === "overview" || activeTab === "plan";
   const usesInventoryAgeAnalysis = activeTab === "age" || activeTab === "stale";
-  const usesInboundMonitor = activeTab === "inbound";
+  const usesInboundMonitor = activeTab === "inbound" && !jdPop && !jdCwarehouse;
   const activeInventoryTabRef = useRef(activeTab);
   const [overviewState, setOverviewState] = useState<InventoryRegionState<InventoryOverviewResponse> | null>(null);
   const [ageState, setAgeState] = useState<InventoryRegionState<InventoryAgeAnalysisResponse> | null>(null);
@@ -519,7 +536,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const [inboundCard, setInboundCard] = useState<"" | "stale">("");
   useAiPageDetails("inventory", {
     period: null,
-    blockedReason: ((activeTab === "age" || activeTab === "stale") && ageCard) || (activeTab === "inbound" && inboundCard) ? "当前统计卡片的精确条件尚未接入 AI 页面取数；请取消卡片筛选后提问，或移除页面上下文。" : undefined,
+    blockedReason: activeTab === "inbound" && (jdPop || jdCwarehouse) ? "京东物流当前页面范围尚未接入AI取数，请移除页面上下文后提问。" : ((activeTab === "age" || activeTab === "stale") && ageCard) || (activeTab === "inbound" && inboundCard) ? "当前统计卡片的精确条件尚未接入 AI 页面取数；请取消卡片筛选后提问，或移除页面上下文。" : undefined,
     filters: {
       query: debouncedInventoryQuery.trim(), warehouses: filters.warehouses, brands: filters.brands, categories: filters.categories,
       ...(activeTab === "overview" ? { warehouseTypes: filters.warehouseTypes, healthStatuses: filters.healthStatuses } : {}),
@@ -1492,14 +1509,14 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   /></Fragment>;
 
   const subnav = (
-    <div className="subnav inventory-subnav" role="tablist" aria-label="库存管理子版块">
+    <><div className="subnav inventory-subnav" role="tablist" aria-label="库存管理子版块">
       <button type="button" role="tab" aria-selected={activeTab === "overview"} className={activeTab === "overview" ? "active" : ""} onClick={() => onModuleViewChange("overview")}>库存总览</button>
       <button type="button" role="tab" aria-selected={activeTab === "age"} className={activeTab === "age" ? "active" : ""} onClick={() => onModuleViewChange("age")}>库龄分析</button>
       <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => onModuleViewChange("plan")}>备货计划</button>
       <button type="button" role="tab" aria-selected={activeTab === "stale"} className={activeTab === "stale" ? "active" : ""} onClick={() => onModuleViewChange("stale")}>滞销清理</button>
       <button type="button" role="tab" aria-selected={activeTab === "inbound"} className={activeTab === "inbound" ? "active" : ""} onClick={() => onModuleViewChange("inbound")}>京东入仓监控</button>
       <button type="button" role="tab" aria-selected={activeTab === "guangdong"} className={activeTab === "guangdong" ? "active" : ""} onClick={() => onModuleViewChange("guangdong")}>广东入仓监控</button>
-    </div>
+    </div>{activeTab === "inbound" && <div className="subnav outlet-subnav" role="tablist" aria-label="京东入仓监控来源"><button type="button" role="tab" aria-selected={jdInboundMode === "erp"} className={jdInboundMode === "erp" ? "active" : ""} onClick={() => selectJdInbound("erp")}>ERP 京东仓</button><button type="button" role="tab" aria-selected={jdPop} className={jdPop ? "active" : ""} onClick={() => selectJdInbound("pop")}>京东 POP</button><button type="button" role="tab" aria-selected={jdCwarehouse} className={jdCwarehouse ? "active" : ""} onClick={() => selectJdInbound("cwarehouse")}>C仓监控</button></div>}</>
   );
 
   const planModal = planDraft && planDraftScope === `${principalKey}:${activeTab}` && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !planSaving) setPlanDraft(null); }}>
@@ -1538,6 +1555,8 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       </div>;
 
   if (activeTab === "guangdong") return <>{subnav}<GuangdongInventoryView identity={currentUser} key={principalKey} canManage={currentUser?.role === "operator" || currentUser?.role === "admin"} filters={filters} onFiltersChange={updateFilters} onAskAi={onAskAi} onCreatePlan={openGuangdongPlan} planActionId={planActionId} planSaving={planSaving} refreshKey={guangdongRefresh} />{syncFeedback && <div className={`sync-feedback ${syncFeedback.tone}`} role="status"><strong>{syncFeedback.title}</strong><p>{syncFeedback.message}</p></div>}{planModal}</>;
+  if (activeTab === "inbound" && jdPop) return <>{subnav}<JdLogisticsView key={principalKey} currentUser={currentUser} customStartDate={customStartDate} customEndDate={customEndDate} /></>;
+  if (activeTab === "inbound" && jdCwarehouse) return <>{subnav}<JdLogisticsCwarehouseView key={principalKey} currentUser={currentUser} /></>;
 
   const activeInventoryHasData = usesInventoryAgeAnalysis ? ageAnalysis?.hasInventory : usesInboundMonitor ? inboundMonitor?.hasInventory : overview?.hasInventory;
   const activeInventoryAsOf = usesInventoryAgeAnalysis ? ageAnalysis?.sync.inventoryAsOf : usesInboundMonitor ? inboundMonitor?.sync.inventoryAsOf : overview?.sync.inventoryAsOf;

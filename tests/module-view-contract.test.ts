@@ -25,7 +25,7 @@ import {
 const expectedViews = {
   n8n_workflows: {
     defaultView: "jackyun",
-    views: ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat"],
+    views: ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat", "jd_logistics"],
   },
   dashboard: { defaultView: "overview", views: ["overview"] },
   shop: { defaultView: "analysis", views: ["analysis", "outlets", "platforms", "products", "promotion"] },
