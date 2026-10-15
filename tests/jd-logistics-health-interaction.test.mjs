@@ -77,6 +77,30 @@ test("file cycle Dialog applies only the local callback without submit or PATCH"
   } finally { await f.close(); }
 });
 
+test("file cycle Dialog accepts nonpreset integer days with boundary validation", async () => {
+  const f = await fixture({ fileSnapshot: true }); const applied = [];
+  try {
+    delete f.props.fileCycleOptions;
+    f.props.onFileCycleChange = days => { applied.push(days); f.props.fileCycleDays = days; f.w.mount({ ...f.props }); };
+    f.w.mount({ ...f.props });
+    await until(() => !button(f, "库存周转设置").disabled, "manual cycle enabled");
+    button(f, "库存周转设置").click();
+    await until(() => f.w.document.querySelector('[role="dialog"] input[type="number"]'), "manual cycle input");
+    const input = f.w.document.querySelector('[role="dialog"] input[type="number"]');
+    const setter = Object.getOwnPropertyDescriptor(f.w.HTMLInputElement.prototype, "value").set;
+    for (const value of ["", "0", "-1", "1.5", "3651"]) {
+      setter.call(input, value); input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+      await until(() => button(f, "应用本地试算").disabled, `reject ${value}`);
+    }
+    setter.call(input, "42"); input.dispatchEvent(new f.w.Event("input", { bubbles: true }));
+    await until(() => !button(f, "应用本地试算").disabled, "42 valid");
+    button(f, "应用本地试算").click();
+    await until(() => f.w.document.body.textContent.includes("当前 42 天"), "42 applied");
+    assert.deepEqual(applied, [42]);
+    assert.equal(f.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await f.close(); }
+});
+
 test("formal cycle save keeps the existing admin CAS payload and discards a delayed role-change success", async () => {
   const f = await fixture();
   try {

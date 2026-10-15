@@ -735,6 +735,34 @@ def _health_filter_scope(items, state):
     return [row for row in items if (row["departmentId"], row["goodsCode"]) in selected], counts, filter_counts
 
 
+def _replenishment_quantity(metrics, suggested_reasons, replenishment_cycle_days):
+    """Shared authoritative quantity projection, including offline day vectors."""
+    cycle = _integer(replenishment_cycle_days, "补货周期天数", 3650, minimum=1)
+    suggested_reasons = list(suggested_reasons)
+    if metrics["sales30dQuantity"] is not None and metrics["sales30dQuantity"] < 0:
+        suggested_reasons = _reasons(suggested_reasons, ["negative_sales30dQuantity"])
+    suggested = None
+    if not suggested_reasons:
+        # Integer numerator retains exact ceiling semantics even for large
+        # quantities or fractional daily demand; zero demand follows the same
+        # formula so a known negative net stock still produces a shortage.
+        shortage_numerator = metrics["sales30dQuantity"] * cycle - 30 * sum(metrics[key] for key in ("availableQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity"))
+        suggested = max(0, (shortage_numerator + 29) // 30)
+    return suggested, suggested_reasons, cycle
+
+
+def _aggregate_replenishment(rows):
+    """Sum warehouse shortages without netting stock across warehouses."""
+    suggested_reasons = _reasons(*(row["metricQualifications"]["suggestedReplenishmentQuantity"] for row in rows))
+    if not rows:
+        suggested_reasons = ["empty_scope"]
+    quantity = sum(row["suggestedReplenishmentQuantity"] for row in rows) if not suggested_reasons else None
+    cycles = sorted({row["replenishmentCycleDays"] for row in rows})
+    if len(cycles) > 1:
+        suggested_reasons = _reasons(suggested_reasons, ["mixed_replenishment_cycles"])
+    return quantity, suggested_reasons, cycles
+
+
 def _warehouse_metrics(live, snapshot, date_qualifications, sales_window, replenishment_cycle_days=30):
     live_data = live.data if live else {}
     snapshot_data = snapshot.data if snapshot else {}
@@ -759,17 +787,8 @@ def _warehouse_metrics(live, snapshot, date_qualifications, sales_window, replen
     native, native_reasons = _native_turnover(snapshot_data)
     metrics["nativeTurnover30d"] = native
     reasons["nativeTurnover30d"] = _reasons(snapshot_reasons, native_reasons)
-    cycle = _integer(replenishment_cycle_days, "补货周期天数", 3650, minimum=1)
     suggested_reasons = _reasons(*(reasons[key] for key in ("availableQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity", "sales30dQuantity")), date_qualifications)
-    if metrics["sales30dQuantity"] is not None and metrics["sales30dQuantity"] < 0:
-        suggested_reasons = _reasons(suggested_reasons, ["negative_sales30dQuantity"])
-    suggested = None
-    if not suggested_reasons:
-        # Integer numerator retains exact ceiling semantics even for large
-        # quantities or fractional daily demand; zero demand follows the same
-        # formula so a known negative net stock still produces a shortage.
-        shortage_numerator = metrics["sales30dQuantity"] * cycle - 30 * sum(metrics[key] for key in ("availableQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity"))
-        suggested = max(0, (shortage_numerator + 29) // 30)
+    suggested, suggested_reasons, cycle = _replenishment_quantity(metrics, suggested_reasons, replenishment_cycle_days)
     metrics["suggestedReplenishmentQuantity"] = suggested
     reasons["suggestedReplenishmentQuantity"] = suggested_reasons
     result = {**metrics, "metricQualifications": reasons, "replenishmentCycleDays": cycle, "replenishmentCycleDaysValues": [cycle]}
@@ -810,13 +829,7 @@ def _aggregate_metrics(rows, sales_window, *, scope_total=False):
     reasons["nativeTurnover30d"] = ["native_turnover_not_additive"]
     # Each warehouse owns its shortage. An excess at a different warehouse is
     # not transferable replenishment, so do not subtract across warehouses.
-    suggested_reasons = _reasons(*(row["metricQualifications"]["suggestedReplenishmentQuantity"] for row in rows))
-    if not rows:
-        suggested_reasons = ["empty_scope"]
-    metrics["suggestedReplenishmentQuantity"] = sum(row["suggestedReplenishmentQuantity"] for row in rows) if not suggested_reasons else None
-    cycles = sorted({row["replenishmentCycleDays"] for row in rows})
-    if len(cycles) > 1:
-        suggested_reasons = _reasons(suggested_reasons, ["mixed_replenishment_cycles"])
+    metrics["suggestedReplenishmentQuantity"], suggested_reasons, cycles = _aggregate_replenishment(rows)
     reasons["suggestedReplenishmentQuantity"] = suggested_reasons
     thresholds = {row["stockoutThresholdDays"] for row in rows}
     threshold = next(iter(thresholds)) if len(thresholds) == 1 else None

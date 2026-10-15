@@ -19,6 +19,7 @@ if (values["real-data"]) {
     if (!/^[a-f0-9]{64}$/.test(source.sha256) || !Number.isInteger(source.rows) || source.rows < 1) throw new Error("文件来源摘要无效");
   }
   for (const matrix of Object.values(snapshot.matrices ?? {})) if (!Array.isArray(matrix.items) || matrix.items.some(row => row.departmentId !== provenance.departmentId)) throw new Error("文件快照混入其他事业部");
+  if (snapshot.arbitraryCycles && (snapshot.arbitraryCycles.min !== 1 || snapshot.arbitraryCycles.max !== 3650 || snapshot.arbitraryCycles.default !== 30 || !snapshot.arbitraryCycles.groups || !snapshot.arbitraryCycles.masks?.[""]?.length)) throw new Error("手动周期快照范围不完整");
 } else {
 if (snapshot.options?.departments?.length !== 1 || snapshot.options.departments[0].businessUnitCode !== "SYNTHETIC-MATRIX"
   || !Array.isArray(snapshot.catalog) || snapshot.catalog.some(item => !item.code?.startsWith("MATRIX-JD-"))

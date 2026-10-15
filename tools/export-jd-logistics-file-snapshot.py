@@ -11,10 +11,13 @@ import json
 import os
 from pathlib import Path
 import sys
+from jd_cycle_projection import MAX_CYCLE, MIN_CYCLE, DEFAULT_CYCLE, HEALTH_FIELDS, warehouse_cycles, mask_events, member_cycles, event_value
+from integer_series_codec import decode
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input', required=True)
 parser.add_argument('--output', required=True)
+parser.add_argument('--verification-output', help='Optional non-sensitive count-only verification evidence')
 args = parser.parse_args()
 payload = json.loads(Path(args.input).read_text(encoding='utf8'))
 assert set(s['kind'] for s in payload['sources']) == {'flow', 'shop_products', 'realtime_inventory', 'inventory_snapshot'}
@@ -103,20 +106,10 @@ def register_preview(metric, members):
     metric['replenishmentPreviewKey'] = key
 
 inventory_warehouses = sorted({row['warehouseKey'] for row in full['items']})
-cycle_rows_by_day = {}
-result['healthFilterMasks'] = {warehouse:{} for warehouse in ('', *inventory_warehouses)}
-for cycle in (7, 14, 30, 45, 60, 90):
-    models.JdLogisticsDepartment.objects.filter(id=identifier).update(replenishment_cycle_days=cycle)
-    cycle_rows = service.inventory_monitor({**filters, 'layout':'warehouse', 'salesWindow':30})['items']
-    cycle_rows_by_day[cycle] = {row['id']:row for row in cycle_rows}
-    for warehouse in ('', *inventory_warehouses):
-        members = [row for row in cycle_rows if not warehouse or row['warehouseKey'] == warehouse]
-        masks = {}
-        for state in service.HEALTH_FILTER_STATES:
-            selected, _counts, _filter_counts = service._health_filter_scope(members, state)
-            masks[state] = format(sum(1 << index[code] for code in {row['goodsCode'] for row in selected}), 'x')
-        result['healthFilterMasks'][warehouse][str(cycle)] = masks
-models.JdLogisticsDepartment.objects.filter(id=identifier).update(replenishment_cycle_days=30)
+base_rows = {row['id']:row for row in full['items']}
+warehouse_groups = warehouse_cycles(service, list(base_rows.values()))
+result['arbitraryCycles'] = {'min':MIN_CYCLE, 'max':MAX_CYCLE, 'default':DEFAULT_CYCLE, 'groups':{}, 'masks':mask_events(service, list(base_rows.values()), warehouse_groups, inventory_warehouses, index)}
+print(json.dumps({'warehouseVectors':len(warehouse_groups), 'daysPerVector':MAX_CYCLE, 'maskEvents':sum(len(events) for events in result['arbitraryCycles']['masks'].values())}), flush=True)
 for window in (7, 30):
     full = service.inventory_monitor({**filters, 'layout':'warehouse', 'salesWindow':window})
     for warehouse in ('', *inventory_warehouses):
@@ -135,8 +128,8 @@ for window in (7, 30):
                 register_preview(detail, [detail])
         result['searchScopes'][scope] = {}
         scoped_selections = {selection & available_mask for selection in selections}
-        for masks in result['healthFilterMasks'][warehouse].values():
-            for health_mask in masks.values():
+        for event in result['arbitraryCycles']['masks'][warehouse]:
+            for health_mask in event['values'].values():
                 scoped_selections.update(selection & available_mask & int(health_mask, 16) for selection in selections)
         for mask in scoped_selections:
             chosen = [row for row in rows if mask & (1 << index[row['goodsCode']])]
@@ -148,15 +141,52 @@ for window in (7, 30):
                 result['aggregateValues'].append(aggregate)
             result['searchScopes'][scope][format(mask, 'x')] = aggregate_ids[digest]
     print(json.dumps({'window':window, 'warehouseScopes':len(inventory_warehouses)+1, 'aggregateValues':len(result['aggregateValues'])}), flush=True)
-result['replenishmentPreviews'] = {}
-for cycle in (7, 14, 30, 45, 60, 90):
-    cycle_rows = cycle_rows_by_day[cycle]
-    values = {}
-    for key, ids in preview_members.items():
-        aggregate = service._aggregate_metrics([cycle_rows[row_id] for row_id in ids], 30)
-        values[key] = {'quantity':aggregate['suggestedReplenishmentQuantity'], 'days':aggregate['replenishmentCycleDays'], 'cycles':aggregate['replenishmentCycleDaysValues'], 'reasons':aggregate['metricQualifications']['suggestedReplenishmentQuantity'], **{field:aggregate[field] for field in ('inventoryHealthState', 'inventoryHealthReasons', 'healthCounts', 'hasStockout', 'hasReplenishmentNeed')}}
-    result['replenishmentPreviews'][str(cycle)] = values
-models.JdLogisticsDepartment.objects.filter(id=identifier).update(replenishment_cycle_days=30)
+for key, ids in preview_members.items():
+    result['arbitraryCycles']['groups'][key] = member_cycles(service, [base_rows[row_id] for row_id in ids], warehouse_groups)
+print(json.dumps({'memberGroups':len(preview_members), 'phase':'verify'}), flush=True)
+# Verify arbitrary days and every health/mask transition on both sides. Live
+# reader samples independently exercise source pairing and the extracted helper.
+boundaries = {event['from'] for group in warehouse_groups.values() for event in group['healthEvents']}
+sample_days = {1, 2, 7, 13, 14, 30, 31, 35, 37, 42, 45, 60, 90, 91, 179, 180, 181, 3649, 3650}
+verification_days = sorted(sample_days | {day for boundary in boundaries for day in (boundary - 1, boundary, boundary + 1) if MIN_CYCLE <= day <= MAX_CYCLE})
+warehouse_values = {row_id:decode(group['quantitySeries'], MAX_CYCLE) for row_id, group in warehouse_groups.items()}
+# Reuse the same immutable warehouse-day witnesses across the many search
+# groups; creating full source-row copies for every assertion is unnecessary.
+verification_rows = {day:{row_id:{'suggestedReplenishmentQuantity':warehouse_values[row_id][day-1], 'metricQualifications':row['metricQualifications'], 'replenishmentCycleDays':day, **event_value(warehouse_groups[row_id]['healthEvents'], day)} for row_id, row in base_rows.items()} for day in verification_days}
+group_checks = 0
+for key, ids in preview_members.items():
+    group = result['arbitraryCycles']['groups'][key]
+    values = decode(group['quantitySeries'], MAX_CYCLE)
+    group_boundaries = {event['from'] for row_id in ids for event in warehouse_groups[row_id]['healthEvents']}
+    group_days = sample_days | {day for boundary in group_boundaries for day in (boundary - 1, boundary, boundary + 1) if MIN_CYCLE <= day <= MAX_CYCLE}
+    for day in group_days:
+        members = [verification_rows[day][row_id] for row_id in ids]
+        quantity, reasons, cycles = service._aggregate_replenishment(members)
+        assert values[day-1] == quantity and reasons == group['reasons']
+        assert event_value(group['healthEvents'], day) == service._aggregate_inventory_health(members)
+        assert cycles == ([day] if members else [])
+        group_checks += 1
+live_checks = 0
+for cycle in (1, 13, 31, 35, 37, 42, 91, 181, 3649, 3650):
+    models.JdLogisticsDepartment.objects.filter(id=identifier).update(replenishment_cycle_days=cycle)
+    live_rows = service.inventory_monitor({**filters, 'layout':'warehouse', 'salesWindow':30})['items']
+    for row in live_rows:
+        assert row['suggestedReplenishmentQuantity'] == warehouse_values[row['id']][cycle-1]
+        assert {field:row[field] for field in HEALTH_FIELDS} == event_value(warehouse_groups[row['id']]['healthEvents'], cycle)
+        live_checks += 1
+    for warehouse in ('', *inventory_warehouses):
+        members = [row for row in live_rows if not warehouse or row['warehouseKey'] == warehouse]
+        masks = event_value(result['arbitraryCycles']['masks'][warehouse], cycle, 'values')
+        for state in service.HEALTH_FILTER_STATES:
+            selected, _counts, _filter_counts = service._health_filter_scope(members, state)
+            assert masks[state] == format(sum(1 << index[code] for code in {row['goodsCode'] for row in selected}), 'x')
+models.JdLogisticsDepartment.objects.filter(id=identifier).update(replenishment_cycle_days=DEFAULT_CYCLE)
+verification = {'ramDatabaseOnly':True, 'businessWrites':False, 'cycleMin':MIN_CYCLE, 'cycleMax':MAX_CYCLE, 'warehouseVectorsLossless':len(warehouse_groups), 'warehouseVectorValues':len(warehouse_groups)*MAX_CYCLE, 'memberGroups':len(preview_members), 'memberVectorValues':len(preview_members)*MAX_CYCLE, 'healthTransitionDays':len(boundaries), 'verificationDays':verification_days, 'groupDayChecks':group_checks, 'liveWarehouseChecks':live_checks, 'maskEvents':sum(len(events) for events in result['arbitraryCycles']['masks'].values())}
+if args.verification_output:
+    evidence = Path(args.verification_output)
+    evidence.parent.mkdir(parents=True, exist_ok=True)
+    evidence.write_text(json.dumps(verification, indent=2), encoding='utf8')
+print(json.dumps(verification), flush=True)
 result['provenance']['notes'].append('库存周转周期表示目标库存覆盖天数，默认30天，沿用补货周期；健康状态与TAB成员由后台计算，HTML只切换预计算结果，不修改系统配置或推送。')
 output = Path(args.output)
 output.parent.mkdir(parents=True, exist_ok=True)

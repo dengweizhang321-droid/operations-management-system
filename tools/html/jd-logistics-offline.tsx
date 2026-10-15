@@ -5,6 +5,7 @@ import InboundMonitor from "../../app/jd-logistics-cwarehouse-view";
 import { canonicalizeJdLogisticsLocation, readJdLogisticsLocation, type JdLogisticsOptions, type JdLogisticsList } from "../../lib/inventory/jd-logistics-contract";
 import type { CwarehouseProductMonitor } from "../../app/jd-logistics-product-matrix";
 import type { CurrentUser } from "../../app/module-view-shared";
+import { cyclePreviewAt, eventAt, validCycleDay, type ArbitraryCycleData, type CyclePreview } from "./jd-offline-cycle-data";
 
 type Aggregate = Pick<CwarehouseProductMonitor, "totals" | "summary">;
 type Snapshot = {
@@ -13,6 +14,7 @@ type Snapshot = {
   aggregateValues?: Aggregate[]; searchScopes?: Record<string, Record<string, number>>; transferScopes?: Record<string, JdLogisticsList>;
   replenishmentPreviews?: Record<string, Record<string, { quantity: number | null; days: number | null; cycles: number[]; reasons: string[]; inventoryHealthState: string; inventoryHealthReasons: string[]; healthCounts: Record<string, number>; hasStockout: boolean; hasReplenishmentNeed: boolean }>>;
   healthFilterMasks?: Record<string, Record<string, Record<string, string>>>;
+  arbitraryCycles?: ArbitraryCycleData;
 };
 
 async function loadSnapshot(): Promise<Snapshot> {
@@ -26,6 +28,8 @@ async function loadSnapshot(): Promise<Snapshot> {
 function start(data: Snapshot) {
   const real = data.provenance?.mode === "local-files";
   const department = data.options.departments[0].id;
+  const cycleSupported = (day: number) => data.arbitraryCycles ? validCycleDay(day, data.arbitraryCycles) : Boolean(data.replenishmentPreviews?.[String(day)]);
+  const previewAt = (key: string, day: number): CyclePreview | undefined => data.arbitraryCycles ? cyclePreviewAt(data.arbitraryCycles, key, day) : data.replenishmentPreviews?.[String(day)]?.[key];
   window.fetch = async (input, init) => {
     if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
     // Resolve virtual API paths without inheriting a Windows file URL's drive.
@@ -44,8 +48,9 @@ function start(data: Snapshot) {
         const scope = JSON.stringify([warehouse, windowDays]), base = data.matrices[scope];
         if (base) {
           const cycle = url.searchParams.get("replenishmentCycleDays") ?? "30", healthState = url.searchParams.get("healthState") ?? "all";
-          const healthMasks = data.healthFilterMasks?.[warehouse]?.[cycle], preview = data.replenishmentPreviews?.[cycle];
-          if (!healthMasks || !Object.hasOwn(healthMasks, healthState) || !preview) return Response.json({ success: false, error: "该健康筛选或周期没有离线结果。" }, { status: 400 });
+          const day = Number(cycle);
+          const healthMasks = data.arbitraryCycles ? eventAt(data.arbitraryCycles.masks[warehouse], day)?.values : data.healthFilterMasks?.[warehouse]?.[cycle];
+          if (!cycleSupported(day) || !healthMasks || !Object.hasOwn(healthMasks, healthState)) return Response.json({ success: false, error: "请输入1–3650之间的整数天数，并选择有效健康筛选。" }, { status: 400 });
           const codeBits = new Map(data.catalog.map((item, index) => [item.code, BigInt(1) << BigInt(index)]));
           const matches = new Set(data.catalog.filter(item => `${item.code} ${item.name}`.toLowerCase().includes(q)).map(item => item.code));
           const queried = base.items.filter(item => matches.has(item.goodsCode));
@@ -53,7 +58,7 @@ function start(data: Snapshot) {
           const items = queried.filter(item => Boolean((codeBits.get(item.goodsCode) ?? BigInt(0)) & allowedMask));
           const healthFilterCounts = Object.fromEntries(Object.entries(healthMasks).map(([state, bits]) => [state, queried.filter(item => Boolean((codeBits.get(item.goodsCode) ?? BigInt(0)) & BigInt(`0x${bits}`))).length]));
           const healthCounts = Object.fromEntries(Object.keys(healthMasks).map(state => [state, 0])); healthCounts.all = queried.length;
-          for (const product of queried) { const state = preview[String(Reflect.get(product.summary, "replenishmentPreviewKey"))]?.inventoryHealthState; if (state && state in healthCounts && state !== "all") healthCounts[state] += 1; }
+          for (const product of queried) { const state = previewAt(String(Reflect.get(product.summary, "replenishmentPreviewKey")), day)?.inventoryHealthState; if (state && state in healthCounts && state !== "all") healthCounts[state] += 1; }
           const scopeCodes = new Set(items.map(item => item.goodsCode));
           const mask = data.catalog.reduce((bits, item, index) => scopeCodes.has(item.code) ? bits | (BigInt(1) << BigInt(index)) : bits, BigInt(0)).toString(16);
           const aggregateId = data.searchScopes?.[scope]?.[mask];
@@ -83,15 +88,15 @@ function start(data: Snapshot) {
     }
     if (!value) return Response.json({ success: false, error: "该范围没有离线文件快照" }, { status: 400 });
     const projected = structuredClone(value);
-    if (real && operation === "inventory_monitor" && data.replenishmentPreviews) {
-      const cycle = url.searchParams.get("replenishmentCycleDays") ?? "30", preview = data.replenishmentPreviews[cycle];
-      if (!preview) return Response.json({ success: false, error: "该周期没有离线试算结果，请选择列表中的周期。" }, { status: 400 });
+    if (real && operation === "inventory_monitor" && (data.arbitraryCycles || data.replenishmentPreviews)) {
+      const cycle = Number(url.searchParams.get("replenishmentCycleDays") ?? "30");
+      if (!cycleSupported(cycle)) return Response.json({ success: false, error: "请输入1–3650之间的整数天数。" }, { status: 400 });
       const apply = (object: unknown) => {
         if (!object || typeof object !== "object") return;
         if (Array.isArray(object)) { object.forEach(apply); return; }
         const row = object as Record<string, unknown>;
         if (typeof row.replenishmentPreviewKey === "string") {
-          const selected = preview[row.replenishmentPreviewKey];
+          const selected = previewAt(row.replenishmentPreviewKey, cycle);
           if (!selected) throw new Error("补货试算范围缺失");
           row.suggestedReplenishmentQuantity = selected.quantity; row.replenishmentCycleDays = selected.days; row.replenishmentCycleDaysValues = selected.cycles;
           row.inventoryHealthState = selected.inventoryHealthState; row.inventoryHealthReasons = selected.inventoryHealthReasons; row.healthCounts = selected.healthCounts; row.hasStockout = selected.hasStockout; row.hasReplenishmentNeed = selected.hasReplenishmentNeed;
@@ -114,7 +119,7 @@ function start(data: Snapshot) {
   // Local display identity only. It is never sent to an operating service.
   const user = { id: "offline-viewer", email: "offline@example.invalid", displayName: "文件快照", role: real ? "viewer" : "admin", scope: null } as unknown as CurrentUser;
   type Target = { module: "inventory" } | { module: "import"; view: "files" | "history" } | { module: "workflow" };
-  const readCycle = () => { const value = new URL(location.href).searchParams.get("jdReplenishmentDays") ?? "30"; return data.replenishmentPreviews?.[value] ? Number(value) : 30; };
+  const readCycle = () => { const value = Number(new URL(location.href).searchParams.get("jdReplenishmentDays") ?? "30"); return cycleSupported(value) ? value : 30; };
 
   function App() {
     const [route, setRoute] = useState(() => readJdLogisticsLocation(location.href));
@@ -156,7 +161,7 @@ function start(data: Snapshot) {
         {notice && <div className="inventory-feedback" role="status">{notice}</div>}
         {workflow ? <section className="panel offline-workflow"><h2>京东物流四源工作流说明</h2><p>此处仅展示流程，不表示已经执行。</p><div className="offline-steps">{[["A", "冻结来源与日期", "核对事业部、来源能力、采集范围及执行所有者"], ["B", "下载、校验、导入", "库存流水 / 店铺商品 / 实时库存 / 分仓快照"], ["C", "精确批次回查", "核对原文件、内容摘要、行数及当前有效批次"], ["D", "缺货提醒", "按固定30日可用库存可售天数判断，结果未知不重发"]].map(([n, title, note]) => <article key={n}><strong>{n}</strong><h3>{title}</h3><p>{note}</p></article>)}</div></section>
           : imported ? <><JdLogisticsView key={`import:${route.importView}`} currentUser={user} fixedTab="batches" fileSnapshot={real} presentation={route.importView === "history" ? "records" : "import"} />{real && <p className="offline-note">此文件没有查询正式系统导入批次；源文件行数不代表已导入成功。</p>}</>
-            : <InboundMonitor key="inbound" currentUser={user} fileSnapshot={real} fileCycleDays={real ? cycleDays : undefined} fileCycleOptions={real && data.replenishmentPreviews ? Object.keys(data.replenishmentPreviews).map(Number) : undefined} onFileCycleChange={real ? value => { if (value === cycleDays) return; setCycleDays(value); const url = new URL(location.href); url.searchParams.set("jdReplenishmentDays", String(value)); url.searchParams.set("jdPage", "1"); history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`); window.dispatchEvent(new PopStateEvent("popstate")); } : undefined} />}
+            : <InboundMonitor key="inbound" currentUser={user} fileSnapshot={real} fileCycleDays={real ? cycleDays : undefined} fileCycleOptions={real && !data.arbitraryCycles && data.replenishmentPreviews ? Object.keys(data.replenishmentPreviews).map(Number) : undefined} onFileCycleChange={real ? value => { if (!cycleSupported(value) || value === cycleDays) return; setCycleDays(value); const url = new URL(location.href); url.searchParams.set("jdReplenishmentDays", String(value)); url.searchParams.set("jdPage", "1"); history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`); window.dispatchEvent(new PopStateEvent("popstate")); } : undefined} />}
         <footer className="offline-footer">TERUISI 京东入仓监控 · 2026-10-15 · 缺货依据：可用库存 ÷ 近30日销售出库件数 × 30</footer>
       </main>
     </div>;
