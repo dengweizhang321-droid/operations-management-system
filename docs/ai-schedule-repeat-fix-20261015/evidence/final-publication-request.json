@@ -1,0 +1,43 @@
+{
+  "executionScripts": {
+    "deliver.mjs": "f3f04c44d371e9462472bfcb241e39bf9bd10d5070b3a96cef8a89f379834ad7",
+    "prepare.mjs": "93e63cd16de1130a3e03df0f687445e260f386fd7d7c58298580ceb70566cc0a",
+    "publish.mjs": "3e3a7f9cea8cbc332cbd1fb5804847acef76c6e8f6092764c656147894368bbd",
+    "seal-publication.mjs": "72a4df7ca42b736dd7e42961e5b02f5ea03999151681d84c22a3b3dd6e509f1d",
+    "delivery-review-gate.mjs": "ecceecdee186568528fab1d25bec9433ffb027a750bc870ba373c595dc0f9167"
+  },
+  "version": "ai-schedule-repeat-publication-v1",
+  "sourceCommit": "5cfdc9e346f83cddbe96bc2e21720cc67217e53f",
+  "mainCommit": "895b175569cd7d0e1d83d19b2d6b2752d7e3b9e0",
+  "inputFiles": {
+    "composition-final.json": "e8408bedda81607bda2b97025d6b5c069c090e4b789db9d28888163cb9b321c3",
+    "release-scope-current.json": "05e2d3e1665609604ccb9c8e4a396fc9a4fdf37c2b9e9c70a874d3a608ff266c",
+    "PREPARATION_READY.json": "204f2b87314efb9341d1702bc9f8af90822152effdfc1a46ccea343b5b3286ec",
+    "worker-plan.json": "ca83f35b566bbf388c6bdef3b4f1c09f5f891a934d8d7c8463e6dc4e922080ca",
+    "django-prepared.json": "23c34ff83b14dc0734ae4bd25d904439385b903bc76b2a3de61d4be1a386dc60",
+    "predecessor-observation.json": "100bb338765f4f9152396cde4c5512fdb27645b046c6c921f64ebdc3e49b34ae",
+    "validation.json": "f65ec69a2c39a5bc39429b9bba628d8da230e0dff7fa11213b6079271f015bcf",
+    "composition-byte-validation.json": "518636abe71c0c6e4bddcc0ce065208e0943ecc735300a7eba5e53fe8637af91",
+    "composition-tests.log": "db877f201ab293b3d4d9143256345cd86a6cddbe5c1d17a7cc100d45d8416962",
+    "required-field-tests.log": "923094a263552cfa6d5b150fbb16f95896f9909745d546e4e7a9202d0ec0d0ec",
+    "network/validation.json": "6f50f2640414e9a665fbab6ba58497c32adb73d3800710e2412c799d4d246bc0",
+    "wrangler-closure-copy.json": "145abcef08ac75f8570b5bfd65d3e89fc596309e7c77867ea0c54a72aaead3ec",
+    "provider-composition-result.json": "d58810f755430c5c7a51395e2cadc2d16d341ec05afa1530606826c27526c911",
+    "validation-reuse.json": "33dae1d0d91d13d8b36fe5501664a106cce39e8c96c869981d1822aff38ea1cd"
+  },
+  "stageScripts": {
+    "EnterMaintenance": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "Stop": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "ExitMaintenance": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "Start": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "VerifyStartup": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "DeployApp": "bb795dcef502f27dd4c970ce63f61c8818b9c3ecdcc26b92e4d85189457289e1",
+    "HardenAcl": "bb795dcef502f27dd4c970ce63f61c8818b9c3ecdcc26b92e4d85189457289e1"
+  },
+  "nodeExecutableSha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+  "shellExecutableSha256": "8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e",
+  "publishScriptSha256": "3e3a7f9cea8cbc332cbd1fb5804847acef76c6e8f6092764c656147894368bbd",
+  "maintenanceId": "a5e9a05d9bba4626bafd95946f49d5fb",
+  "noNewBackupOrRestore": true,
+  "noMigrationChanges": true
+}

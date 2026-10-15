@@ -1,0 +1,9 @@
+{
+  "status": "failed_before_publication",
+  "error": "EADDRINUSE at acquireRotationLock",
+  "processExitCode": 1,
+  "publicationStarted": false,
+  "productionStageStarted": false,
+  "predecessorNotMutatedByThisAttempt": true,
+  "unknownStages": []
+}

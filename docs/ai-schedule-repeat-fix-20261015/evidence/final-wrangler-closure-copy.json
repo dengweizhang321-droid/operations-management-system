@@ -1,0 +1,12 @@
+{
+  "version": "reused-pinned-wrangler-closure-v1",
+  "source": "D:\\codex-isolated\\ai-schedule-repeat-fix-20261015\\source\\node_modules",
+  "destination": "D:\\codex-isolated\\ai-schedule-repeat-fix-20261015-v2\\source\\node_modules",
+  "packageLockSha256": "486154660ca7b1c32822078584c7938ae5de172a0dc8bcd47891100563af935e",
+  "files": 1573,
+  "bytes": 166940928,
+  "inventorySha256": "5f1360d92858b2ecb577e7df4bafc71cc8a0e9aea06304a496cf5f2c4436b664",
+  "copyExact": true,
+  "noInstallOrJunction": true,
+  "originalVerifiedCopyEvidenceSha256": "f41598ad83e2faab95dca5ba91b8aa2284186a81ba801d0ab1ef831951c9ac6f"
+}

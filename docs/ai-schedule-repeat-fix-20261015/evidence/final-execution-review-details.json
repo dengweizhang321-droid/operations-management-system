@@ -1,0 +1,135 @@
+{
+  "version": "ai-schedule-v2-execution-review-details-v1",
+  "recordedAt": "2026-10-15T08:07:15.266Z",
+  "reviewer": "/root/critical_review",
+  "requestedModel": "gpt-6.1-sol",
+  "requestedReasoningEffort": "xhigh",
+  "actualUnderlyingModelIndependentlyConfirmed": false,
+  "status": "approved-exact-same-lease-publication-once-subject-to-original-live-gates",
+  "signal": {
+    "version": "ai-schedule-execution-review-v1",
+    "status": "passed",
+    "requestSha256": "a1141d50d7f4c8a612883f3af14f5ed6435d53b9486385fadb61c071da6522db",
+    "readySha256": "204f2b87314efb9341d1702bc9f8af90822152effdfc1a46ccea343b5b3286ec",
+    "sourceCommit": "5cfdc9e346f83cddbe96bc2e21720cc67217e53f",
+    "workerManifestSha256": "47eed428f371f8d307282a90ed1cdff2472cfeeb714139a723575b423eee74a2",
+    "djangoManifestSha256": "212f87590e977ea66975abf84e7d53c7c11b044dbebf0f1875382737105498eb",
+    "driverSha256": "f3f04c44d371e9462472bfcb241e39bf9bd10d5070b3a96cef8a89f379834ad7"
+  },
+  "maintenanceId": "a5e9a05d9bba4626bafd95946f49d5fb",
+  "inputFiles": {
+    "composition-final.json": "e8408bedda81607bda2b97025d6b5c069c090e4b789db9d28888163cb9b321c3",
+    "release-scope-current.json": "05e2d3e1665609604ccb9c8e4a396fc9a4fdf37c2b9e9c70a874d3a608ff266c",
+    "PREPARATION_READY.json": "204f2b87314efb9341d1702bc9f8af90822152effdfc1a46ccea343b5b3286ec",
+    "worker-plan.json": "ca83f35b566bbf388c6bdef3b4f1c09f5f891a934d8d7c8463e6dc4e922080ca",
+    "django-prepared.json": "23c34ff83b14dc0734ae4bd25d904439385b903bc76b2a3de61d4be1a386dc60",
+    "predecessor-observation.json": "100bb338765f4f9152396cde4c5512fdb27645b046c6c921f64ebdc3e49b34ae",
+    "validation.json": "f65ec69a2c39a5bc39429b9bba628d8da230e0dff7fa11213b6079271f015bcf",
+    "composition-byte-validation.json": "518636abe71c0c6e4bddcc0ce065208e0943ecc735300a7eba5e53fe8637af91",
+    "composition-tests.log": "db877f201ab293b3d4d9143256345cd86a6cddbe5c1d17a7cc100d45d8416962",
+    "required-field-tests.log": "923094a263552cfa6d5b150fbb16f95896f9909745d546e4e7a9202d0ec0d0ec",
+    "network/validation.json": "6f50f2640414e9a665fbab6ba58497c32adb73d3800710e2412c799d4d246bc0",
+    "wrangler-closure-copy.json": "145abcef08ac75f8570b5bfd65d3e89fc596309e7c77867ea0c54a72aaead3ec",
+    "provider-composition-result.json": "d58810f755430c5c7a51395e2cadc2d16d341ec05afa1530606826c27526c911",
+    "validation-reuse.json": "33dae1d0d91d13d8b36fe5501664a106cce39e8c96c869981d1822aff38ea1cd"
+  },
+  "executionScripts": {
+    "deliver.mjs": "f3f04c44d371e9462472bfcb241e39bf9bd10d5070b3a96cef8a89f379834ad7",
+    "prepare.mjs": "93e63cd16de1130a3e03df0f687445e260f386fd7d7c58298580ceb70566cc0a",
+    "publish.mjs": "3e3a7f9cea8cbc332cbd1fb5804847acef76c6e8f6092764c656147894368bbd",
+    "seal-publication.mjs": "72a4df7ca42b736dd7e42961e5b02f5ea03999151681d84c22a3b3dd6e509f1d",
+    "delivery-review-gate.mjs": "ecceecdee186568528fab1d25bec9433ffb027a750bc870ba373c595dc0f9167"
+  },
+  "stageScripts": {
+    "EnterMaintenance": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "Stop": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "ExitMaintenance": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "Start": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "VerifyStartup": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "DeployApp": "bb795dcef502f27dd4c970ce63f61c8818b9c3ecdcc26b92e4d85189457289e1",
+    "HardenAcl": "bb795dcef502f27dd4c970ce63f61c8818b9c3ecdcc26b92e4d85189457289e1"
+  },
+  "worker": {
+    "releaseId": "20261015T074548Z-58e44a5126de6bba",
+    "manifestSha256": "47eed428f371f8d307282a90ed1cdff2472cfeeb714139a723575b423eee74a2",
+    "guardReceiptSha256": "74e16fd28c19972af5b2ae4dc908c65f431c931cbfb78ddfc575e05999458a7c",
+    "planSha256": "8320bc83ed9788ce23a63484033cd1cba6cefc69d4b87f377c17c0401afaf9c5",
+    "predecessor": {
+      "bindingSha256": "0b2c9e395caee21976038349daf97ae3fc51131b83c2bfbc9f5b3fe0922b8526",
+      "guardReceiptSha256": "6651adb075f2b34d5337246973edd48326991603ee7bf55efdca9d99972de4c6",
+      "manifestSha256": "77c90b06278d6a66b8ba838e4a58c3ad72984e579d5d8cd5791b9ebd6d1d747e",
+      "releaseId": "20261015T062310Z-4259d14f596d2a40",
+      "version": "teruisi-local-worker-release-binding-v1"
+    },
+    "predecessorChainStateSha256": "09a960314570f0f778fb155fada8f2f98087726a4694d2f3c2ca7c37ae305a25"
+  },
+  "django": {
+    "preparedId": "f790306b6a7249bfbf9c5176af10184d",
+    "receiptSha256": "8c12ac16d4752bf547280f9f230eea56401f6fd369053c2fb7ceb312d3228046",
+    "manifestSha256": "212f87590e977ea66975abf84e7d53c7c11b044dbebf0f1875382737105498eb",
+    "predecessorManifestSha256": "f37675ee601fab50eaca916f38b265c9660446f1c3906829aa350024c417d2e3",
+    "processEvidence": {
+      "cleanup": "preserve",
+      "code": "completed",
+      "deadlineUnixMs": 1792052516153,
+      "elapsedMs": 89122,
+      "exitCode": 0,
+      "nativeCode": null,
+      "outputProtocol": "direct-exit-files",
+      "processId": 27024,
+      "signal": null,
+      "stage": "completed",
+      "stderrBytes": 616,
+      "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+      "stdoutBytes": 210,
+      "stdoutSha256": "e8add7b34718aaa305dbf174ae455b8a89130710199b54f6ad2b76fcdbbb3567",
+      "timeoutType": null,
+      "treeCleanupExitCode": null,
+      "treeCleanupPending": false,
+      "version": 1
+    }
+  },
+  "actualCompletedChecks": {
+    "inputFiles": 14,
+    "rawCompositionMembers": 25,
+    "testedRawFiles": 12,
+    "preservedInstalledMarketRuntimeFiles": [
+      "backend/market/annotations.py",
+      "backend/market/views.py"
+    ],
+    "preservedMarketTestSource": {
+      "path": "backend/market/tests/test_annotation_progress_light.py",
+      "actualInstalled": false,
+      "source": "D:\\codex-isolated\\market-progress-django-20261015\\source",
+      "sha256": "a93b115e3fb98bdfa581d208d70b971e8b89f083db0d8661ff084a001267e937"
+    },
+    "executionScripts": 5,
+    "stageScripts": 7,
+    "protectedRootEntrypoints": 12,
+    "actualNodeAndPowerShellSha": true,
+    "actualWorkerPlanAndCandidateManifestAndGuard": true,
+    "actualDjangoPrepareReceiptAndCandidateManifest": true,
+    "originalPrepareExit0": true,
+    "sourceHeadAndClean": true,
+    "readyAndWaitingTupleMatch": true
+  },
+  "reusedTests": {
+    "network": 49,
+    "schedule": 73,
+    "scheduleSkipped": 2,
+    "priorActualComposition": 65,
+    "requiredFieldsIncrement": 1,
+    "gateAndPrivateLease": 13
+  },
+  "readonlyInitialCheckCorrection": "An initial reviewer script assumed the market test source was packaged in installed Django and exited ENOENT before writing any signal. Original packaging excludes tests; two business modules were checked against installed Django, the test source against the installed manifest sourceRoot. No production action or artifact rebuild was required.",
+  "limitations": [
+    "Approval is for the exact fixed request, not deployed success. Root must write the separate exact EXECUTE signal while the same original private lease remains valid.",
+    "Original publisher must still recheck dynamic predecessor, owner, ordinary privilege, all hashes and maintenance/candidate gates before production stages.",
+    "No Backup, Restore, Install, new migration source, paid model probe or manual real message send.",
+    "Unknown/failure retains original records and gates and stops dependent actions; do not replay attempts.",
+    "Other market component effects are preserved; its unresolved market endpoint503 is not declared repaired by this AI task."
+  ],
+  "productionActionsPerformedByReviewer": false,
+  "executeWrittenByReviewer": false,
+  "repeatedBuildOrFullTreeValidation": false
+}

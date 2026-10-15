@@ -1,0 +1,13 @@
+{
+  "version": "execution-code-freeze-v1",
+  "scripts": {
+    "deliver.mjs": "f3f04c44d371e9462472bfcb241e39bf9bd10d5070b3a96cef8a89f379834ad7",
+    "prepare.mjs": "93e63cd16de1130a3e03df0f687445e260f386fd7d7c58298580ceb70566cc0a",
+    "publish.mjs": "3e3a7f9cea8cbc332cbd1fb5804847acef76c6e8f6092764c656147894368bbd",
+    "seal-publication.mjs": "72a4df7ca42b736dd7e42961e5b02f5ea03999151681d84c22a3b3dd6e509f1d",
+    "delivery-review-gate.mjs": "ecceecdee186568528fab1d25bec9433ffb027a750bc870ba373c595dc0f9167"
+  },
+  "tests": "delivery-gate-tests.log",
+  "testCount": 13,
+  "productionStagesStarted": false
+}

@@ -1,0 +1,8 @@
+{
+  "status": "deferred_before_publication",
+  "reason": "Another authorized release is holding original rotation lease and has entered DeployApp; original predecessor binding must be re-read after its normal completion.",
+  "preparedArtifactsAdopted": false,
+  "ownStagesStarted": false,
+  "oldRequestPreserved": true,
+  "action": "preserve original attempt and prepared inputs; integrate this fix onto stable actual successor before any switch"
+}

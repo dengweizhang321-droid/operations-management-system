@@ -1,0 +1,98 @@
+{
+  "version": "ai-schedule-predecessor-observation-v1",
+  "observedAt": "2026-10-15T07:40:51.311Z",
+  "workerHead": {
+    "bindingSha256": "0b2c9e395caee21976038349daf97ae3fc51131b83c2bfbc9f5b3fe0922b8526",
+    "guardReceiptSha256": "6651adb075f2b34d5337246973edd48326991603ee7bf55efdca9d99972de4c6",
+    "manifestSha256": "77c90b06278d6a66b8ba838e4a58c3ad72984e579d5d8cd5791b9ebd6d1d747e",
+    "releaseId": "20261015T062310Z-4259d14f596d2a40",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "headManifestPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261015T062310Z-4259d14f596d2a40\\deployment-manifest.json",
+  "chainStateSha256": "09a960314570f0f778fb155fada8f2f98087726a4694d2f3c2ca7c37ae305a25",
+  "djangoManifestSha256": "f37675ee601fab50eaca916f38b265c9660446f1c3906829aa350024c417d2e3",
+  "django": {
+    "version": 2,
+    "deployedAt": "2026-10-15T14:25:37.0666812+08:00",
+    "sourceRoot": "D:\\codex-isolated\\market-progress-django-20261015\\source",
+    "fingerprintAlgorithm": "relative-path-file-sha256-ordinal-v2",
+    "fileCount": 2962,
+    "appFingerprint": "63514ca333d1c88ae88d1b5c1756e5722a6b5a8601cfc4d31af299b372ba3667"
+  },
+  "guardEntries": [
+    {
+      "path": "package.json",
+      "expected": "85eac295b32f2846a1cbe78cfdf70b768c68dcefbcb316313342ed496691cb9b",
+      "actual": "85eac295b32f2846a1cbe78cfdf70b768c68dcefbcb316313342ed496691cb9b",
+      "match": true
+    },
+    {
+      "path": "运行项目.bat",
+      "expected": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "actual": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "match": true
+    },
+    {
+      "path": "tools/operations-system-control.ps1",
+      "expected": "b7acd2bc6c9c92dc80eb9f4730fd8037ba83df6b3bc951769f9d368d15252b6d",
+      "actual": "b7acd2bc6c9c92dc80eb9f4730fd8037ba83df6b3bc951769f9d368d15252b6d",
+      "match": true
+    },
+    {
+      "path": "tools/start-local-worker.mjs",
+      "expected": "965f319e2eaa58611fa772749bf04e13600b25e78e84bac82cba6afd7ee78de2",
+      "actual": "965f319e2eaa58611fa772749bf04e13600b25e78e84bac82cba6afd7ee78de2",
+      "match": true
+    },
+    {
+      "path": "tools/worker-authority-guard.mjs",
+      "expected": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+      "actual": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+      "match": true
+    },
+    {
+      "path": "tools/d1-retirement-proof.mjs",
+      "expected": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+      "actual": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+      "match": true
+    },
+    {
+      "path": "tools/collect-d1-retirement-proof.mjs",
+      "expected": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+      "actual": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+      "match": true
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "expected": "0f2d229f58b988dc9591699e0d73362ad1f1f8df5367e19844d82d931a99c108",
+      "actual": "0f2d229f58b988dc9591699e0d73362ad1f1f8df5367e19844d82d931a99c108",
+      "match": true
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "expected": "7dd49103f5b672dae484d3b5e70207d6644657701a5b6be23c85203cad62b72f",
+      "actual": "7dd49103f5b672dae484d3b5e70207d6644657701a5b6be23c85203cad62b72f",
+      "match": true
+    },
+    {
+      "path": "tools/worker-local-service.ps1",
+      "expected": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+      "actual": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+      "match": true
+    },
+    {
+      "path": ".runtime/worker-release-activation-fence.json",
+      "expected": "e7b4189558af3c8d7dbbd2522b666110c86c2711f962ea3bb7119170066bb09a",
+      "actual": "e7b4189558af3c8d7dbbd2522b666110c86c2711f962ea3bb7119170066bb09a",
+      "match": true
+    },
+    {
+      "path": "tools/process-deadline.ps1",
+      "expected": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "actual": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "match": true
+    }
+  ],
+  "assertedProductionBase": "63698b2202e311180994b488fc01ef41c4a67bc9",
+  "productionStateChanged": false
+}

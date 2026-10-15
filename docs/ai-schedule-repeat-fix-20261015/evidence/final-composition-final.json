@@ -1,0 +1,75 @@
+{
+  "version": "ai-schedule-repeat-composition-v2",
+  "mainCommit": "895b175569cd7d0e1d83d19b2d6b2752d7e3b9e0",
+  "sourceCommit": "5cfdc9e346f83cddbe96bc2e21720cc67217e53f",
+  "productionBase": "63698b2202e311180994b488fc01ef41c4a67bc9",
+  "actualWorkerSource": "323cc7b515adc79b87faef3e246b47be23922d31",
+  "actualDjangoSource": "83d4afa6ef598431556f0a4effde40d7d0778676",
+  "files": {
+    "app/ai-dingtalk-schedules-view.tsx": "1f60c9ecdad751065e5b3388d5b9c596b96b5a332f89c28d031cdac26960897a",
+    "backend/ai_assistant/chat.py": "e50c884abfd31f11784472e0a939706e7edc0adf7ca8af7583039d3b3717c6d9",
+    "backend/ai_assistant/dingtalk_schedules.py": "164ceb9eea52aa8ca839a0dd521020dc8f416645cb88790e8fea03365be39d63",
+    "backend/ai_assistant/provider.py": "8560e4f5207b7f2c5594540b5b61614eff9d51537d2c22c9355e815e80a0fcdb",
+    "backend/ai_assistant/provider_contract.py": "693367573587b8e3b4a3a8f5b4ebfa5e5c8fc56107979c4febe2cb5afc283ddf",
+    "backend/ai_assistant/schedule_monitor.py": "b5773a3fe611a69a183a2435ceb49e59fac1d6ea304bc12d87ec99634d08ff20",
+    "backend/ai_assistant/test_provider_roundtrip.py": "1a9f85a75fb2f1a9a3c5a3959cac378dd40c836a10074b6f6d03aa89344d309b",
+    "backend/ai_assistant/test_schedule_monitor.py": "eb706d733d3ea905e42d88d2c677b416cd0c48224b451a9f368dad7e99c83b5f",
+    "backend/ai_assistant/test_transport.py": "383bb634ddfa79119a565bcc13066d55f8633e558d647ae39a66ba9636ad91c2",
+    "backend/ai_assistant/test_transport_dns_phase.py": "844f9c05e3be40abfaa58d19d159981be6e3a638726460b106ac31a045c1d624",
+    "backend/ai_assistant/transport.py": "ec3ad59ae6e649391fee387886bdf964b52eee312c9424425872a12c00bf4427",
+    "backend/market/annotations.py": "8f9073dbd3f3d78630567fbd442408a1ea63180fca2981de277aefca91c28519",
+    "backend/market/tests/test_annotation_progress_light.py": "a93b115e3fb98bdfa581d208d70b971e8b89f083db0d8661ff084a001267e937",
+    "backend/market/views.py": "4e377c0ffea3db6d913ff9a552c9209ef27cb4563448a606c1eb420b7e11fcda",
+    "docs/ai-schedule-repeat-fix-20261015/.gitattributes": "2b171475c5852338c2d9ae2c7f3d5eb8974922099eccd1e5a968d1ea53860f60",
+    "docs/ai-schedule-repeat-fix-20261015/REPORT.md": "bac7f8fa6dcebe836d54498e8541a3c8eb41e9f9dabacf3b6526d36299dea3da",
+    "docs/ai-schedule-repeat-fix-20261015/REVIEW.md": "3f8227a841a8f9c8dba07ce7ece1d3e516c13371f578a02f1ef9ecfa56036328",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/network-tests.stderr.log": "d2513f464526c6df93c6b605a91eadd99547806f6a7b7d3e568b2b135e249179",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/network-tests.stdout.log": "fc31ee76ed38aca762cb6b4182c51b483a69b52bef2f9ac3ad0d92c67330c9fa",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/network-validation.json": "6f50f2640414e9a665fbab6ba58497c32adb73d3800710e2412c799d4d246bc0",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/required-field-tests.log": "cd756fb0eadea491f61a436e2d4684d362d76cc68fbaf56b202985b89fecaa6e",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/schedule-tests.log": "5e167f51e499f892185cbaf7e0fbb1c4e066bd3daf558a32d5a8188690aef0af",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/scope.json": "d4f68ceaccadabbd09cc303059cb596164b6180730026a24d2eaba1b929c795a",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/validation.json": "dfa4bd2d5bf0ce8f98444760664a9b684b3650b1dcfd09facaff56228c60cc4a",
+    "lib/ai/schedule-presentation.ts": "0a136bfb66ffd9679d772128d065994fb2c3a07612de60dbfd2b926f08188c93"
+  },
+  "taskFiles": [
+    "app/ai-dingtalk-schedules-view.tsx",
+    "backend/ai_assistant/chat.py",
+    "backend/ai_assistant/dingtalk_schedules.py",
+    "backend/ai_assistant/provider.py",
+    "backend/ai_assistant/provider_contract.py",
+    "backend/ai_assistant/schedule_monitor.py",
+    "backend/ai_assistant/test_provider_roundtrip.py",
+    "backend/ai_assistant/test_schedule_monitor.py",
+    "backend/ai_assistant/test_transport.py",
+    "backend/ai_assistant/test_transport_dns_phase.py",
+    "backend/ai_assistant/transport.py",
+    "docs/ai-schedule-repeat-fix-20261015/.gitattributes",
+    "docs/ai-schedule-repeat-fix-20261015/REPORT.md",
+    "docs/ai-schedule-repeat-fix-20261015/REVIEW.md",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/network-tests.stderr.log",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/network-tests.stdout.log",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/network-validation.json",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/required-field-tests.log",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/schedule-tests.log",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/scope.json",
+    "docs/ai-schedule-repeat-fix-20261015/evidence/validation.json",
+    "lib/ai/schedule-presentation.ts"
+  ],
+  "preservedDjango": {
+    "backend/market/annotations.py": {
+      "sha256": "8f9073dbd3f3d78630567fbd442408a1ea63180fca2981de277aefca91c28519",
+      "installedByteEqual": true
+    },
+    "backend/market/tests/test_annotation_progress_light.py": {
+      "sha256": "a93b115e3fb98bdfa581d208d70b971e8b89f083db0d8661ff084a001267e937",
+      "installedByteEqual": false
+    },
+    "backend/market/views.py": {
+      "sha256": "4e377c0ffea3db6d913ff9a552c9209ef27cb4563448a606c1eb420b7e11fcda",
+      "installedByteEqual": true
+    }
+  },
+  "noMigrationChanges": true,
+  "noNewBackupOrRestore": true
+}

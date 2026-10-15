@@ -1,0 +1,15 @@
+{
+  "status": "offline candidate pending normal external publication closure",
+  "testedRawFilesExact": true,
+  "count": 12,
+  "gitIndexBlobChanges": false,
+  "preservedDjangoComponentFiles": [
+    "backend/market/annotations.py",
+    "backend/market/tests/test_annotation_progress_light.py",
+    "backend/market/views.py"
+  ],
+  "workerPhysicalBaseline": "20261015T062310Z-4259d14f596d2a40",
+  "djangoGitBaseline": "83d4afa6ef598431556f0a4effde40d7d0778676",
+  "rawByteStatAlignments": 43,
+  "originalTestsReused": true
+}

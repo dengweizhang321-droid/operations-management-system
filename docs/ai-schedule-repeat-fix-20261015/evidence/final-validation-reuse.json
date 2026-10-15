@@ -1,0 +1,19 @@
+{
+  "version": "exact-code-validation-reuse-v1",
+  "candidateSource": "5cfdc9e346f83cddbe96bc2e21720cc67217e53f",
+  "originalMain": "895b175569cd7d0e1d83d19b2d6b2752d7e3b9e0",
+  "originalComposition": "1e2a74a143b377621fcb86bc0a3da5a849b0048b",
+  "taskGitBlobsUnchanged": 22,
+  "testedRawTaskFilesUnchanged": 12,
+  "testEvidenceReused": {
+    "network": 49,
+    "schedule": {
+      "count": 73,
+      "skipped": 2
+    },
+    "originalComposition": 65,
+    "lastRequiredFieldCase": 1
+  },
+  "independentReview": "critical_review independently verified both component preservation and background-principal ok:false behavior; no new permissions or replay",
+  "newTestExecutions": 0
+}

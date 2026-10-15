@@ -1,6 +1,6 @@
 # AI定时任务再次执行与报告输出修复
 
-状态：功能验证通过，独立审查及生产交付进行中；尚未上线本修复。
+状态：已合并并上线；目标版本及必要服务可用已确认。
 
 用户要求修好后直接合main、打包和发布，不新增Backup/Restore；编辑保存的执行内容决定输出方式。本次不扩展长任务队列，不改模型的大输出、长上下文、长时限和工具预算，不触发付费模型试问或真实测试发送。
 
@@ -17,4 +17,15 @@
 
 [冻结源码及验证清单](evidence/validation.json)。网络49项纯合成测试通过；调度/报告/能力证据与receipt专项73项通过、2项SQLite不适用跳过；最后必需字段/有限数值增量对应case通过。涵盖跨页和末页、完整三风险、超过5报警、两种输出排版、错组错列、合法null、数字编码与伪造数量、零预警、超限、撤权/版本变化、发送unknown不重放及模型适配版本证据失效。未宣称本轮完成真实供应商闭环或PostgreSQL锁并发实测。
 
-实际生产前驱来源1e23af06，Django manifest46619c42；本修复将在实际前驱上叠加本任务差异，不带入main其他未采用功能。无migration变化，按原143 successor门禁准备与部署，不新增备份或恢复。具体版本/制品/采用事实待生产操作完成后补入。
+首套候选以前驱1e23af06/46619c42完成准备但未采用；因并行发布已实际切换前驱，最终按下节双组件基线重新组合。无migration变化，采用原143 successor门禁，不新增备份或恢复。
+
+
+## 实际采用
+
+- 应用main提交 `895b175569cd7d0e1d83d19b2d6b2752d7e3b9e0` 已推送；实际冻结组合 `5cfdc9e346f83cddbe96bc2e21720cc67217e53f` 已推 `codex/ai-schedule-repeat-final`。采用时间 `2026-10-15T08:25:13.824Z`。
+- Worker `20261015T074548Z-58e44a5126de6bba`；manifest `47eed428f371f8d307282a90ed1cdff2472cfeeb714139a723575b423eee74a2`。Django manifest `212f87590e977ea66975abf84e7d53c7c11b044dbebf0f1875382737105498eb`。原唯一Start/VerifyStartup、目标head/manifest及首页200通过。
+- 第一套候选在取得发布锁前因另一发布占锁以EADDRINUSE退出，零生产stage。旧q、准备包和原失败完整保留，没有重放。另一流程随后已实际切换Worker/Django并启动，但其市场progress_light检查503，不能称其整项成功；AI直接依赖两个只读接口200，本次未代替它修复或重放。
+- 最终组合以实际Worker323cc7/Django83d4两个来源保全：双组件基线63698b→本修复5cfdc9，22任务文件blob未变；相对Worker immutable snapshot另有3个已安装Django市场文件的保全差异，逐原始字节核验。旧代码测试复用，未重复试模型或发送。
+- 本次外部协调器在同一原rotation lease内完成在线准备、真实q独审信号和串行发布；13项隔离信号/唯一锁/原lease测试及独审通过。不修改已安装生命周期工具；未知保原记录，不自动重领、重建或重放。
+- 没有新增Backup/Restore、迁移变更、模型参数/任务配置改写或真实测试投递。来源事实校验、权限、防重和未知不重放保留。实际供应商输出与真实投递效果仍由后续任务执行确认，本次不以合成测试冒充真实回传。
+- [最终发布结果](evidence/final-PUBLICATION_RESULT.json)、[最终组合](evidence/final-composition-final.json)、[最终请求](evidence/final-publication-request.json)。完整原操作日志保留在 `D:/codex-artifacts/ai-schedule-repeat-fix-20261015-v2`。

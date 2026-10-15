@@ -1,0 +1,21 @@
+✔ exact review and root signal permit one action only; late reuse expires (13.9397ms)
+✔ mismatched/rejected review is zero stages {"status":"rejected"} (6.999ms)
+✔ mismatched/rejected review is zero stages {"requestSha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"} (6.1506ms)
+✔ mismatched/rejected review is zero stages {"readySha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"} (5.8147ms)
+✔ mismatched/rejected review is zero stages {"sourceCommit":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"} (6.1893ms)
+✔ mismatched/rejected review is zero stages {"driverSha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"} (5.8374ms)
+✔ mismatched/rejected review is zero stages {"workerManifestSha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"} (5.9383ms)
+✔ mismatched/rejected review is zero stages {"djangoManifestSha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"} (6.0119ms)
+✔ mismatched/rejected review is zero stages {"extra":true} (6.3617ms)
+✔ missing signal times out without starting a stage (28.1333ms)
+✔ duplicate JSON keys, wrong execute digest, stale timestamp and changed READY all reject (27.3144ms)
+✔ exact approval cannot suppress final CAS drift or trigger retries (6.0103ms)
+✔ original rotation lease stays private and exclusive through prepare/review/publish and releases in finally (214.1986ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 430.815

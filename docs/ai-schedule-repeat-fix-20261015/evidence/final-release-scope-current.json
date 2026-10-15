@@ -1,0 +1,169 @@
+{
+  "version": "teruisi-scoped-release-plan-v2",
+  "baseSha": "63698b2202e311180994b488fc01ef41c4a67bc9",
+  "headSha": "5cfdc9e346f83cddbe96bc2e21720cc67217e53f",
+  "changes": [
+    {
+      "status": "M",
+      "path": "app/ai-dingtalk-schedules-view.tsx"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/chat.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/dingtalk_schedules.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/provider.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/provider_contract.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/schedule_monitor.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/test_provider_roundtrip.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/test_schedule_monitor.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/test_transport.py"
+    },
+    {
+      "status": "A",
+      "path": "backend/ai_assistant/test_transport_dns_phase.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/transport.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/ai-schedule-repeat-fix-20261015/.gitattributes"
+    },
+    {
+      "status": "A",
+      "path": "docs/ai-schedule-repeat-fix-20261015/REPORT.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/ai-schedule-repeat-fix-20261015/REVIEW.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/ai-schedule-repeat-fix-20261015/evidence/network-tests.stderr.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/ai-schedule-repeat-fix-20261015/evidence/network-tests.stdout.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/ai-schedule-repeat-fix-20261015/evidence/network-validation.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/ai-schedule-repeat-fix-20261015/evidence/required-field-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/ai-schedule-repeat-fix-20261015/evidence/schedule-tests.log"
+    },
+    {
+      "status": "A",
+      "path": "docs/ai-schedule-repeat-fix-20261015/evidence/scope.json"
+    },
+    {
+      "status": "A",
+      "path": "docs/ai-schedule-repeat-fix-20261015/evidence/validation.json"
+    },
+    {
+      "status": "M",
+      "path": "lib/ai/schedule-presentation.ts"
+    }
+  ],
+  "scope": "combined",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "migrate": false,
+  "databaseProtection": "verified-current",
+  "validation": [
+    "git-diff-check",
+    "worker-affected-tests",
+    "django-affected-tests"
+  ],
+  "packaging": [
+    "prepare-worker-immutable-release",
+    "prepare-django-app"
+  ],
+  "deployment": [
+    "verify-current-database-backup",
+    "activate-worker-release",
+    "deploy-django-app",
+    "verify-startup",
+    "verify-affected-function"
+  ],
+  "workflow": [
+    {
+      "step": 4,
+      "id": "validate-change",
+      "actions": [
+        "git-diff-check",
+        "worker-affected-tests",
+        "django-affected-tests"
+      ]
+    },
+    {
+      "step": 5,
+      "id": "merge-and-package",
+      "actions": [
+        "merge-main",
+        "push-main",
+        "prepare-worker-immutable-release",
+        "prepare-django-app"
+      ]
+    },
+    {
+      "step": 6,
+      "id": "publish",
+      "actions": [
+        "verify-current-database-backup",
+        "activate-worker-release",
+        "deploy-django-app",
+        "verify-startup",
+        "verify-affected-function"
+      ]
+    }
+  ],
+  "domains": [
+    "ai_assistant"
+  ],
+  "unknown": [],
+  "reasons": [
+    "前端:app/ai-dingtalk-schedules-view.tsx",
+    "后端:backend/ai_assistant/chat.py",
+    "后端:backend/ai_assistant/dingtalk_schedules.py",
+    "后端:backend/ai_assistant/provider.py",
+    "后端:backend/ai_assistant/provider_contract.py",
+    "后端:backend/ai_assistant/schedule_monitor.py",
+    "后端:backend/ai_assistant/test_provider_roundtrip.py",
+    "后端:backend/ai_assistant/test_schedule_monitor.py",
+    "后端:backend/ai_assistant/test_transport.py",
+    "后端:backend/ai_assistant/test_transport_dns_phase.py",
+    "后端:backend/ai_assistant/transport.py",
+    "共享运行库:lib/ai/schedule-presentation.ts"
+  ],
+  "planSha256": "8d8bf54224451bc2a22993a2d51d998ad613808aec59b75492d2d68054745b06"
+}
