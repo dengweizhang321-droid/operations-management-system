@@ -228,6 +228,31 @@ def _consistent_read(loader: Callable[[], dict[str, object]]) -> tuple[dict[str,
     )
 
 
+def _progress_light_read(loader: Callable[[], dict[str, object]]) -> tuple[dict[str, object], str]:
+    """Read this small projection and its revision from one bounded snapshot."""
+    if connection.in_atomic_block or not connection.get_autocommit():
+        # Never change isolation/read-only settings of a caller's transaction.
+        raise MarketApiError("轻进度读取需要独立事务", code="service_unavailable", status=503)
+    started = monotonic()
+    with transaction.atomic():
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+                cursor.execute("SELECT name, setting::bigint FROM pg_settings WHERE name IN "
+                    "('statement_timeout', 'lock_timeout', 'idle_in_transaction_session_timeout')")
+                existing = dict(cursor.fetchall())
+                for name, maximum in (("statement_timeout", 3000), ("lock_timeout", 1000),
+                        ("idle_in_transaction_session_timeout", 5000)):
+                    bounded = min(existing[name] or maximum, maximum)
+                    cursor.execute("SELECT set_config(%s, %s, true)", [name, str(bounded)])
+        assert_write_authority()
+        revision = revision_value()
+        payload = loader()
+        if monotonic() - started > 5:
+            raise MarketApiError("轻进度读取超时，请稍后重试", code="query_timeout", status=503)
+        return payload, revision
+
+
 def _lock_request_id(request_id: str) -> None:
     if connection.vendor != "postgresql":
         return
@@ -380,7 +405,8 @@ def queries(request: HttpRequest) -> JsonResponse:
         principal = _principal(request, {"viewer", "analyst", "operator", "admin"})
         payload = _body(request)
         operation = "ranking" if payload.get("operation") == "overview" and payload.get("view") == "ranking" else payload.get("operation")
-        result, revision = _consistent_read(lambda: _execute_query(principal, payload))
+        reader = _progress_light_read if payload.get("operation") == "annotations" and payload.get("view") == "progress_light" else _consistent_read
+        result, revision = reader(lambda: _execute_query(principal, payload))
         record_read_health(operation, started)
         return _json(result, revision=revision)
     except Exception as error:

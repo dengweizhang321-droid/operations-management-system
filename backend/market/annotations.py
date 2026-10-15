@@ -183,10 +183,12 @@ def _prompt_value(row: MarketAnnotationPromptVersion) -> dict[str, object]:
     }
 
 
-def _job_value(row: MarketAnnotationJob) -> dict[str, object]:
-    remaining = MarketAnnotationItem.objects.filter(job_id=row.id).filter(
-        _retryable_items() | Q(status__in=["claimed", "inferencing"])
-    ).count()
+def _job_value(row: MarketAnnotationJob, *, remaining_count: int | None = None) -> dict[str, object]:
+    remaining = remaining_count
+    if remaining is None:
+        remaining = MarketAnnotationItem.objects.filter(job_id=row.id).filter(
+            _retryable_items() | Q(status__in=["claimed", "inferencing"])
+        ).count()
     return {
         "id": row.id,
         "category": row.category,
@@ -542,8 +544,13 @@ def _summarize_job(job: MarketAnnotationJob) -> MarketAnnotationJob:
     """Derive live progress without writing through the reader connection."""
     items = MarketAnnotationItem.objects.filter(job_id=job.id).exclude(status="superseded")
     counts = Counter({row["status"]: row["count"] for row in items.values("status").annotate(count=Count("id"))})
-    total = sum(counts.values())
     remaining = sum(counts[item] for item in ("claimed", "inferencing")) + items.filter(_retryable_items()).count()
+    return _apply_job_counts(job, counts, remaining)
+
+
+def _apply_job_counts(job: MarketAnnotationJob, counts: Counter, remaining: int) -> MarketAnnotationJob:
+    """Apply the existing record-count/status projection without persisting it."""
+    total = sum(counts.values())
     job.total_count = total
     job.completed_count = sum(counts[item] for item in ("review_pending", "approved", "rejected", "committed"))
     job.failed_count = counts["failed"]
@@ -557,6 +564,37 @@ def _summarize_job(job: MarketAnnotationJob) -> MarketAnnotationJob:
         else:
             job.status = "running" if job.started_at else "queued"
     return job
+
+
+def _progress_light(params: dict[str, object]) -> dict[str, object]:
+    if set(params) != {"jobId"}:
+        raise _error("轻进度查询只接受 jobId")
+    job_id = _text(params.get("jobId"), "jobId", 128, required=True)
+    job = MarketAnnotationJob.objects.filter(id=job_id).first()
+    if job is None:
+        raise _error("标注任务不存在", code="not_found", status=404)
+    now = timezone.now()
+    # These are records, including separate months of the same inference identity.
+    # Detailed deduplicated units, recognition audits and timings stay in progress.
+    rows = list(MarketAnnotationItem.objects.filter(job_id=job_id).exclude(status="superseded")
+        .values("status").annotate(
+            count=Count("id"),
+            retryable=Count("id", filter=_retryable_items()),
+            active=Count("id", filter=Q(status__in=["claimed", "inferencing"], lease_expires_at__gt=now)),
+        ))
+    counts = Counter({row["status"]: row["count"] for row in rows})
+    remaining = sum(counts[status] for status in ("claimed", "inferencing")) + sum(row["retryable"] for row in rows)
+    job = _apply_job_counts(job, counts, remaining)
+    cloud_run = MarketAnnotationCloudRun.objects.filter(job_id=job_id).first()
+    configured = MarketAnnotationConcurrencySetting.objects.filter(
+        category=job.category, executor="cloud",
+    ).values_list("concurrency", flat=True).first() or 10
+    return {
+        "job": _job_value(job, remaining_count=remaining),
+        "activeClaims": sum(row["active"] for row in rows),
+        "cloudRun": _cloud_run_value(cloud_run, int(configured)) if cloud_run else None,
+        "sampledAt": iso(now),
+    }
 
 
 def _refresh_job(job_id: str) -> MarketAnnotationJob:
@@ -926,6 +964,8 @@ def execute_annotation_query(payload: dict[str, object], principal: Principal) -
         return candidate_counts()
     if view == "dispatch":
         return _dispatch(params)
+    if view == "progress_light":
+        return _progress_light(params)
     if view == "progress":
         job_id = _text(params.get("jobId"), "jobId", 128, required=True)
         job = MarketAnnotationJob.objects.filter(id=job_id).first()
