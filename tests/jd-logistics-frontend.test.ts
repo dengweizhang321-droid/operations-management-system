@@ -92,9 +92,9 @@ test("workbook parser rejects formulas, ambiguous headers and empty collections"
   assert.throws(() => parseJdLogisticsGrid([data[0]], "flow", "D001"), /1–20000/);
 });
 
-test("POP location restores scope and limits arbitrary pages/tabs", () => {
+test("JD location restores scope and limits arbitrary pages/tabs", () => {
   const value = readJdLogisticsLocation("/?module=inventory&view=inbound&jdInbound=pop&jdPopTab=mappings&jdDepartment=D1&jdWarehouse=W1&jdPage=2&jdQuery=0001");
-  assert.equal(value.pop, true); assert.equal(value.tab, "mappings"); assert.equal(value.filters.page, 1); assert.equal(value.filters.q, "0001"); assert.equal(value.filters.warehouseCode, "");
+  assert.equal(value.jdTab, "mappings"); assert.equal(value.tab, "mappings"); assert.equal(value.filters.page, 1); assert.equal(value.filters.q, "0001"); assert.equal(value.filters.warehouseCode, "");
   assert.equal(readJdLogisticsLocation("/?jdPopTab=garbage&jdPage=-3").tab, "mappings");
   assert.equal(readJdLogisticsLocation("/?jdPage=99999999999999999").filters.page, 1);
 });

@@ -26,8 +26,8 @@ export async function requestJdLogistics<T>(query: URLSearchParams, init: Reques
 }
 
 type Editor = { operation: "mapping" | "manual"; row: JdLogisticsItem; draft: Record<string, string | boolean> };
-export default function JdLogisticsView({ currentUser, customStartDate, customEndDate, fixedTab = "mappings", presentation = "table" }: {
-  currentUser: CurrentUser | null; customStartDate?: string; customEndDate?: string; fixedTab?: JdLogisticsTab; presentation?: "table" | "import" | "records";
+export default function JdLogisticsView({ currentUser, customStartDate, customEndDate, fixedTab = "mappings", presentation = "table", fileSnapshot = false }: {
+  currentUser: CurrentUser | null; customStartDate?: string; customEndDate?: string; fixedTab?: JdLogisticsTab; presentation?: "table" | "import" | "records"; fileSnapshot?: boolean;
 }) {
   const tab = fixedTab;
   const [filters, setFilters] = useState<JdLogisticsFilters>({ ...emptyFilters, startDate: customStartDate ?? "", endDate: customEndDate ?? "" });
@@ -141,7 +141,7 @@ export default function JdLogisticsView({ currentUser, customStartDate, customEn
   }
 
   return <div className="jd-logistics-module">
-    <section className="panel jd-logistics-heading"><div><h2>{presentation === "import" ? "京东物流文件导入" : tab === "mappings" ? "京东 POP · 商品对照" : tabLabels[tab]}</h2><p>按事业部读取权威来源；人工核对状态不代表ERP实际建单或过账。</p></div>{retry}</section>
+    <section className="panel jd-logistics-heading"><div><h2>{presentation === "import" ? "京东物流文件导入" : tabLabels[tab]}</h2><p>{fileSnapshot ? "按事业部展示本机报表文件快照，未读取正式ERP核对和导入记录。" : "按事业部读取权威来源；人工核对状态不代表ERP实际建单或过账。"}</p></div>{retry}</section>
     {optionsError && <section className="inventory-feedback inventory-feedback-error" role="alert"><div><strong>物流账号读取失败</strong><p>{optionsError}</p></div>{retry}</section>}
     {feedback && <div className="inventory-feedback" role="status">{feedback}</div>}
     <section className="panel jd-logistics-filters" aria-label="京东物流筛选"><label><span>事业部 / 来源账号</span><SearchableSelect ariaLabel="京东物流事业部" value={effectiveFilters.departmentId} disabled={saving || !options} options={[{ value: "", label: "请选择已登记事业部" }, ...(options?.departments ?? []).map(item => ({ value: item.id, label: `${item.name} · ${item.businessUnitCode}` }))]} onChange={value => changeFilters({ departmentId: value, warehouseCode: "" })} /></label>
@@ -153,7 +153,7 @@ export default function JdLogisticsView({ currentUser, customStartDate, customEn
     {options && options.departments.length === 0 && <section className="panel data-state"><strong>暂无可用物流来源</strong><p>请通过既有受控来源配置准备事业部数据。</p></section>}
     {options && options.departments.length > 0 && !department && <section className="panel data-state"><strong>请选择事业部</strong><p>按真实事业部身份读取流水、商品关系和导入批次。</p></section>}
     {tab === "batches" && presentation === "import" && department && options && (canImport ? <JdLogisticsImportPanel department={department} options={options} canImport={canImport} onCompleted={() => setRefresh(value => value + 1)} /> : <section className="panel data-state"><strong>文件导入仅管理员可操作</strong><p>当前账号可在运行记录中查看京东物流批次。</p></section>)}
-    {presentation !== "import" && department && <section className="panel table-panel" aria-busy={loading}><div className="table-toolbar"><div><h2>{tabLabels[tab]}</h2><p>{tab === "transfers" ? "按事业部 + 京东单据 + 事业部商品分行维护；人工已调拨不等于ERP已过账。" : "查询结果来自当前事业部的权威导入数据。"}</p></div><span className="soft-tag">{list ? `${list.items.length} / ${list.total} 条` : "尚未读取"}</span></div>
+    {presentation !== "import" && department && <section className="panel table-panel" aria-busy={loading}><div className="table-toolbar"><div><h2>{tabLabels[tab]}</h2><p>{fileSnapshot ? tab === "batches" ? "未查询正式导入记录，本页空表不代表系统没有导入。" : "本机原始报表投影；ERP字段未核实，文件记录不代表正式导入或ERP过账。" : tab === "transfers" ? "按事业部 + 京东单据 + 事业部商品分行维护；人工已调拨不等于ERP已过账。" : "查询结果来自当前事业部的权威导入数据。"}</p></div><span className="soft-tag">{list ? `${list.items.length} / ${list.total} 条` : "尚未读取"}</span></div>
       {error && <div className="inventory-feedback inventory-feedback-error" role="alert">{error} {retry}</div>}
       <div className="data-table-wrap"><table className="data-table jd-logistics-table"><thead><tr>{columns.map(value => <th key={value}>{value}</th>)}</tr></thead><tbody>{list?.items.map((row, index) => <tr key={String(row.id ?? row.batchId ?? row.sourceRelationKey ?? `${row.goodsCode}:${index}`)}>{renderRow(row)}</tr>)}{!list?.items.length && <tr><td colSpan={columns.length}><div className="table-state">{loading ? "正在读取当前范围…" : error ? "当前范围数据无法核实，请重试。" : "当前范围暂无已导入数据。"}</div></td></tr>}</tbody></table></div>
       <footer className="jd-sku-pagination"><span>{list ? `第 ${list.page} 页 · 共 ${list.total} 条${list.truncated ? "（范围截断）" : ""}` : "—"}</span><div><button className="row-action" disabled={saving || loading || !list || list.page <= 1} onClick={() => changeFilters({ page: filters.page - 1 })}>上一页</button><button className="row-action" disabled={saving || loading || !list || list.page * list.pageSize >= list.total} onClick={() => changeFilters({ page: filters.page + 1 })}>下一页</button></div></footer>

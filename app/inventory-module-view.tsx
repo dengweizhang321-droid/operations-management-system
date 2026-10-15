@@ -10,9 +10,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { InventoryKpiCard } from "./module-view-business-ui";
 import GuangdongInventoryView from "./inventory-guangdong-view";
-import JdLogisticsView from "./jd-logistics-view";
 import JdLogisticsCwarehouseView from "./jd-logistics-cwarehouse-view";
-import { canonicalizeJdLogisticsLocation, readJdLogisticsLocation, writeJdLogisticsLocation } from "@/lib/inventory/jd-logistics-contract";
+import { canonicalizeJdLogisticsLocation, readJdLogisticsLocation } from "@/lib/inventory/jd-logistics-contract";
 import InventoryFilterBar, {
   readInventorySharedFilters,
   writeInventorySharedFilters,
@@ -458,14 +457,6 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const planImportInputRef = useRef<HTMLInputElement>(null);
   const activeTab = moduleView;
   const [jdLocation, setJdLocation] = useState(() => readJdLogisticsLocation(typeof window === "undefined" ? "/?module=inventory&view=inbound" : window.location.href));
-  const jdInboundMode = jdLocation.inbound;
-  const jdPop = jdInboundMode === "pop";
-  const jdCwarehouse = jdInboundMode === "cwarehouse";
-  const selectJdInbound = (mode: "pop" | "cwarehouse") => {
-    if (mode === jdInboundMode) return;
-    writeJdLogisticsLocation({ inbound: mode });
-    setJdLocation(readJdLogisticsLocation(window.location.href));
-  };
   useEffect(() => {
     const restore = () => {
       const canonical = canonicalizeJdLogisticsLocation(window.location.href);
@@ -479,7 +470,8 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   }, [activeTab]);
   const usesInventoryOverview = activeTab === "overview" || activeTab === "plan";
   const usesInventoryAgeAnalysis = activeTab === "age" || activeTab === "stale";
-  const usesInboundMonitor = activeTab === "inbound" && !jdPop && !jdCwarehouse;
+  // The legacy ERP renderer is retained, but the merged JD workspace owns this entry.
+  const usesInboundMonitor = false;
   const activeInventoryTabRef = useRef(activeTab);
   const [overviewState, setOverviewState] = useState<InventoryRegionState<InventoryOverviewResponse> | null>(null);
   const [ageState, setAgeState] = useState<InventoryRegionState<InventoryAgeAnalysisResponse> | null>(null);
@@ -542,7 +534,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const [inboundCard, setInboundCard] = useState<"" | "stale">("");
   useAiPageDetails("inventory", {
     period: null,
-    blockedReason: activeTab === "inbound" && (jdPop || jdCwarehouse) ? "京东物流当前页面范围尚未接入AI取数，请移除页面上下文后提问。" : ((activeTab === "age" || activeTab === "stale") && ageCard) || (activeTab === "inbound" && inboundCard) ? "当前统计卡片的精确条件尚未接入 AI 页面取数；请取消卡片筛选后提问，或移除页面上下文。" : undefined,
+    blockedReason: activeTab === "inbound" ? "京东物流当前页面范围尚未接入AI取数，请移除页面上下文后提问。" : ((activeTab === "age" || activeTab === "stale") && ageCard) ? "当前统计卡片的精确条件尚未接入 AI 页面取数；请取消卡片筛选后提问，或移除页面上下文。" : undefined,
     filters: {
       query: debouncedInventoryQuery.trim(), warehouses: filters.warehouses, brands: filters.brands, categories: filters.categories,
       ...(activeTab === "overview" ? { warehouseTypes: filters.warehouseTypes, healthStatuses: filters.healthStatuses } : {}),
@@ -1522,7 +1514,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       <button type="button" role="tab" aria-selected={activeTab === "stale"} className={activeTab === "stale" ? "active" : ""} onClick={() => onModuleViewChange("stale")}>滞销清理</button>
       <button type="button" role="tab" aria-selected={activeTab === "inbound"} className={activeTab === "inbound" ? "active" : ""} onClick={() => onModuleViewChange("inbound")}>京东入仓监控</button>
       <button type="button" role="tab" aria-selected={activeTab === "guangdong"} className={activeTab === "guangdong" ? "active" : ""} onClick={() => onModuleViewChange("guangdong")}>广东入仓监控</button>
-    </div>{activeTab === "inbound" && <div className="subnav outlet-subnav" role="tablist" aria-label="京东入仓监控来源"><button type="button" role="tab" aria-selected={jdPop} className={jdPop ? "active" : ""} onClick={() => selectJdInbound("pop")}>京东 POP</button><button type="button" role="tab" aria-selected={jdCwarehouse} className={jdCwarehouse ? "active" : ""} onClick={() => selectJdInbound("cwarehouse")}>C仓监控</button></div>}</>
+    </div></>
   );
 
   const planModal = planDraft && planDraftScope === `${principalKey}:${activeTab}` && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !planSaving) setPlanDraft(null); }}>
@@ -1562,8 +1554,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
 
   if (activeTab === "guangdong") return <>{subnav}<GuangdongInventoryView identity={currentUser} key={principalKey} canManage={currentUser?.role === "operator" || currentUser?.role === "admin"} filters={filters} onFiltersChange={updateFilters} onAskAi={onAskAi} onCreatePlan={openGuangdongPlan} planActionId={planActionId} planSaving={planSaving} refreshKey={guangdongRefresh} />{syncFeedback && <div className={`sync-feedback ${syncFeedback.tone}`} role="status"><strong>{syncFeedback.title}</strong><p>{syncFeedback.message}</p></div>}{planModal}</>;
   if (activeTab === "inbound" && jdLocation.workspace === "import") return <>{subnav}<section className="panel data-state" role="status">正在转到数据导入运行记录…</section></>;
-  if (activeTab === "inbound" && jdPop) return <>{subnav}<JdLogisticsView key={principalKey} fixedTab="mappings" currentUser={currentUser} customStartDate={customStartDate} customEndDate={customEndDate} /></>;
-  if (activeTab === "inbound" && jdCwarehouse) return <>{subnav}<JdLogisticsCwarehouseView key={principalKey} currentUser={currentUser} /></>;
+  if (activeTab === "inbound") return <>{subnav}<JdLogisticsCwarehouseView key={principalKey} currentUser={currentUser} /></>;
 
   const activeInventoryHasData = usesInventoryAgeAnalysis ? ageAnalysis?.hasInventory : usesInboundMonitor ? inboundMonitor?.hasInventory : overview?.hasInventory;
   const activeInventoryAsOf = usesInventoryAgeAnalysis ? ageAnalysis?.sync.inventoryAsOf : usesInboundMonitor ? inboundMonitor?.sync.inventoryAsOf : overview?.sync.inventoryAsOf;
@@ -1719,7 +1710,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           <footer className="jd-sku-pagination"><span>第 {overview.plansPagination.page} / {Math.max(1, overview.plansPagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={loading || overview.plansPagination.page <= 1} onClick={() => setPlanPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || overview.plansPagination.page >= Math.max(1, overview.plansPagination.totalPages)} onClick={() => setPlanPage((value) => value + 1)}>下一页</button></div></footer>
         </section>
 
-      </> : activeTab === "inbound" && inboundMonitor ? <>
+      </> : usesInboundMonitor && inboundMonitor ? <>
         <section hidden={!summaryReady} style={summaryReady ? undefined : { display: "none" }} className="inventory-kpi-grid inbound-kpi-grid data-refresh-region" aria-busy={inboundLoading}>
           <InventoryKpiCard label="京东入仓库存" value={`${formatCount(inboundMonitor.metrics.availableQuantity)} 件`} note={`${formatCount(inboundMonitor.metrics.itemCount)} 个 SKU × 仓库 · ${formatCount(inboundMonitor.metrics.warehouseCount)} 个仓`} tone="blue" icon="仓" />
           <InventoryKpiCard label="固定成本货值" value={formatCurrencyFromCents(inboundMonitor.metrics.knownStockValueCents)} note={`成本覆盖 ${formatRate(inboundMonitor.metrics.costCoverageRate)} · 暂无供应价口径`} tone="purple" icon="值" />
