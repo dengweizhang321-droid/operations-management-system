@@ -1,0 +1,41 @@
+{
+  "publication": {
+    "at": "2026-10-15T10:16:16.317Z",
+    "status": "published",
+    "planSha256": "7c28f1dc987889d7abef7134901e8c095cd3fdee7d3d200840813d6a97998910",
+    "releaseId": "20261015T092526Z-d90afd0d40109cc3",
+    "manifestSha256": "ab6fb58f599eb905baefeae1c4e7df716f0cb1e3b4f8c66f444d075f7e4fa180",
+    "maintenanceId": "6b56f697f38441a7a933f12568b0c83f",
+    "worker": {
+      "version": "teruisi-local-worker-status-v1",
+      "state": "exact_release",
+      "releaseId": "20261015T092526Z-d90afd0d40109cc3",
+      "manifestSha256": "ab6fb58f599eb905baefeae1c4e7df716f0cb1e3b4f8c66f444d075f7e4fa180",
+      "supervisorProcessId": 50060,
+      "portProcessId": 47476,
+      "reason": null
+    },
+    "httpStatus": 200,
+    "gatesCleared": true,
+    "djangoManifestUnchanged": true,
+    "djangoSha256": "d59fbd6a08536aac62045cc0214b600c1b961c229c0f4a834f35ea8cdf57d175",
+    "originalStartReturn": "not_received",
+    "startEffectResolution": "independently_observed_no_replay",
+    "coordinationSha256": "5b92e5c2181fc1383478dea02e780e81bf586ef08e4ef319044a3a7148d8cbe6",
+    "noStartReplay": true,
+    "noApplyReplay": true,
+    "administrator": false
+  },
+  "ui": {
+    "observedAt": "2026-10-15T10:18:53.3354545+00:00",
+    "source": "Original Chrome AI page refreshed with cua_repl",
+    "workspaceVisible": true,
+    "composerVisible": true,
+    "conversationDetailsVisible": true,
+    "missingConfigurationNoticeVisible": true,
+    "unrecordedExecutionFields": 2,
+    "newTypeErrors": 0,
+    "modelRequestSent": false,
+    "chatContentStored": false
+  }
+}
