@@ -36,6 +36,8 @@ export function AiMarkdown({ content, partial = false }: { content: string; part
 
 function ExecutionDetails({ value }: { value?: AiExecutionInfo }) {
   if (!value?.durationMs && !value?.providerCalls) return null;
+  const guidance = executionSelection(value.guidance, "rules");
+  const skills = executionSelection(value.skills, "skills");
   const number = (n: number | null | undefined) => n == null ? "未报告" : n.toLocaleString();
   const stops: Record<string, string> = { stop: "正常完成", end_turn: "正常完成", completed: "正常完成", length: "达到输出上限", max_tokens: "达到输出上限", output_limit: "达到输出上限", shortcut: "快捷回复", stop_sequence: "停止序列", tool_calls: "工具调用", tool_use: "工具调用" };
   return <details className="ai-workbench-execution"><summary>{((value.durationMs ?? 0) / 1000).toFixed(1)} 秒 · {value.outputTruncated ? "达到输出上限" : stops[value.stopReason ?? ""] ?? "已完成"} · 执行详情</summary><dl>
@@ -44,10 +46,25 @@ function ExecutionDetails({ value }: { value?: AiExecutionInfo }) {
     <div><dt>模型 / 工具调用</dt><dd>{value.providerCalls ?? 0} / {value.toolCalls ?? 0}</dd></div>
     <div><dt>本轮估算输入 / 上下文预算</dt><dd>{number(value.context?.estimatedInputTokens)} / {number(value.context?.contextWindowTokens)}</dd></div>
     {!!value.context?.droppedMessages && <div><dt>因预算移出上下文的旧消息</dt><dd>{value.context.droppedMessages} 条（历史记录保留）</dd></div>}
-    {value.guidance && <div><dt>配置版本</dt><dd>{value.guidance.version === 0 ? "系统默认" : `v${value.guidance.version}`}</dd></div>}
-    {value.guidance && <div><dt>本次业务口径</dt><dd>{value.guidance.rules.length ? value.guidance.rules.map(rule => rule.name).join("、") : "通用口径"}</dd></div>}
-    {value.skills && <div><dt>本次技能 · v{value.skills.version}</dt><dd>{value.skills.skills.length ? value.skills.skills.map(skill => skill.name).join("、") : "未匹配技能"}</dd></div>}
+    <div><dt>配置版本</dt><dd>{guidance ? guidance.version === 0 ? "系统默认" : `v${guidance.version}` : "未记录"}</dd></div>
+    {guidance && <div><dt>本次业务口径</dt><dd>{guidance.names.join("、") || "通用口径"}</dd></div>}
+    <div><dt>本次技能{skills ? ` · v${skills.version}` : ""}</dt><dd>{skills ? skills.names.join("、") || "未匹配技能" : "未记录"}</dd></div>
   </dl><small>上下文为估算值，实际用量以供应商返回为准。{(value.usageReportedCalls ?? 0) < (value.providerCalls ?? 0) ? "部分调用未报告完整用量，以上不代表总计。" : ""}</small></details>;
+}
+
+// Scheduled and older replies can omit selection evidence or persist an empty object.
+// Missing evidence must not be presented as the default configuration or an empty selection.
+function executionSelection(value: unknown, key: "rules" | "skills"): { version: number; names: string[] } | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const items = record[key];
+  if (typeof record.version !== "number" || !Number.isSafeInteger(record.version) || record.version < 0 || !Array.isArray(items)) return null;
+  const names: string[] = [];
+  for (const item of items) {
+    if (!item || typeof item !== "object" || typeof item.name !== "string") return null;
+    names.push(item.name);
+  }
+  return { version: record.version, names };
 }
 
 function date(value: string) { const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); }
@@ -82,7 +99,7 @@ export default function AiChatWorkbench(props: AiWorkbenchProps) {
   }, [props.draft]);
   const visible = props.messages.filter(m => m.conversationId === props.activeConversationId);
   const lastMessage = visible.at(-1);
-  const latestGuidance = visible.filter(m => m.role === "assistant").at(-1)?.execution?.guidance;
+  const latestGuidance = executionSelection(visible.filter(m => m.role === "assistant").at(-1)?.execution?.guidance, "rules");
   const showPendingPrompt = lastMessage?.role !== "user" || lastMessage.content !== props.liveAnswer?.prompt;
   const canSend = props.canChat && !props.busy && !props.recoveryBlocked && !(props.contextError && props.context) && !!props.draft.trim();
   async function copy(message: Message) {
@@ -125,7 +142,7 @@ export default function AiChatWorkbench(props: AiWorkbenchProps) {
           </div><div className="ai-workbench-composer-note"><span>回答请结合数据来源与统计口径复核</span><span>Shift + Enter 换行</span></div>
         </div>
       </section>
-      {detailsOpen && <aside className="ai-workbench-details"><header><h3>对话详情</h3><button type="button" className="ai-workbench-icon" aria-label="关闭对话详情" onClick={() => setDetailsOpen(false)}><Symbol name="close" /></button></header><h4>当前模型</h4><p>{props.models.find(model => model.id === props.selectedModelId)?.name || "尚未选择"}</p><small>切换模型后从下一条消息起生效。</small><h4>页面上下文</h4>{props.context ? <><p>{props.context.moduleLabel}</p><ul>{aiPageFilterSummary(props.context.filters).map(item => <li key={item}>{item}</li>)}</ul><small>页面筛选不是查询结果，回复以实际读取的数据为准。</small></> : <p>未附加页面条件。</p>}<h4>最近回复采用的配置</h4>{latestGuidance ? <p>{latestGuidance.version === 0 ? "系统默认" : `版本 v${latestGuidance.version}`} · {latestGuidance.rules.map(r => r.name).join("、") || "通用口径"}</p> : <p>暂无配置版本记录。新回复将在执行详情中记录。</p>}<h4>会话与权限</h4><p>仅显示你有权访问的个人会话。查询按当前账号的数据范围执行。</p><small>断线后核对原请求回执，不自动重发模型请求。</small></aside>}
+      {detailsOpen && <aside className="ai-workbench-details"><header><h3>对话详情</h3><button type="button" className="ai-workbench-icon" aria-label="关闭对话详情" onClick={() => setDetailsOpen(false)}><Symbol name="close" /></button></header><h4>当前模型</h4><p>{props.models.find(model => model.id === props.selectedModelId)?.name || "尚未选择"}</p><small>切换模型后从下一条消息起生效。</small><h4>页面上下文</h4>{props.context ? <><p>{props.context.moduleLabel}</p><ul>{aiPageFilterSummary(props.context.filters).map(item => <li key={item}>{item}</li>)}</ul><small>页面筛选不是查询结果，回复以实际读取的数据为准。</small></> : <p>未附加页面条件。</p>}<h4>最近回复采用的配置</h4>{latestGuidance ? <p>{latestGuidance.version === 0 ? "系统默认" : `版本 v${latestGuidance.version}`} · {latestGuidance.names.join("、") || "通用口径"}</p> : <p>暂无配置版本记录。新回复将在执行详情中记录。</p>}<h4>会话与权限</h4><p>仅显示你有权访问的个人会话。查询按当前账号的数据范围执行。</p><small>断线后核对原请求回执，不自动重发模型请求。</small></aside>}
     </div>{copied === "failed" && <p role="status" className="ai-workbench-feedback">复制不可用，请选择正文手动复制。</p>}
   </article>;
 }
