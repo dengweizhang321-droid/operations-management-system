@@ -1,0 +1,56 @@
+{
+  "at": "2026-10-15T08:47:29.207Z",
+  "status": "deployed",
+  "mainCommit": "c839aa28a111efa14530dde3c7844f4f6cba1e19",
+  "sourceCommit": "843457334d767dce855db01bffa572c16a894e6b",
+  "workerRelease": "20261015T074548Z-58e44a5126de6bba",
+  "workerManifestSha256": "47eed428f371f8d307282a90ed1cdff2472cfeeb714139a723575b423eee74a2",
+  "workerRebuilt": false,
+  "workerRotated": false,
+  "djangoPreparedId": "b538659808eb4511af1e396a2380addf",
+  "djangoReceiptSha256": "1856c05d1cfc59154749a51fa238fd7e650e5e4dc04eb699e6da5810a85f328b",
+  "djangoManifestSha256": "d59fbd6a08536aac62045cc0214b600c1b961c229c0f4a834f35ea8cdf57d175",
+  "djangoAppFingerprint": "b9a0713e05be65b7207b1d6d30667ef47e4995900870e469d767db6a2d205d3b",
+  "administrator": false,
+  "homepageHttpStatus": 200,
+  "startupVerified": true,
+  "postgresPreserved": true,
+  "newMigrationFiles": 0,
+  "adapterMigrationCommands": 0,
+  "nativeStartMigrateAndGrants": "original unmodified startup contract",
+  "newBackups": 0,
+  "newModelExperimentCalls": 0,
+  "manualTaskResumes": 0,
+  "progress": [
+    {
+      "jobId": "market-annotation-job-d87ab772-9e6f-42a4-8275-957f397f4e82",
+      "httpStatus": 200,
+      "state": "completed",
+      "activeClaims": 0,
+      "completed": 5965,
+      "total": 6023,
+      "sampledAt": "2026-10-15T08:47:28.844003Z",
+      "sameControlVersion": true
+    },
+    {
+      "jobId": "market-annotation-job-822622c5-400c-41ac-a356-c64c814331cb",
+      "httpStatus": 200,
+      "state": "paused",
+      "activeClaims": 0,
+      "completed": 6,
+      "total": 4338,
+      "sampledAt": "2026-10-15T08:47:29.062169Z",
+      "sameControlVersion": true
+    },
+    {
+      "jobId": "market-annotation-job-40719fe4-dae9-478c-8222-0e2fabaacac2",
+      "httpStatus": 200,
+      "state": "paused",
+      "activeClaims": 0,
+      "completed": 14,
+      "total": 4338,
+      "sampledAt": "2026-10-15T08:47:29.157519Z",
+      "sameControlVersion": true
+    }
+  ]
+}

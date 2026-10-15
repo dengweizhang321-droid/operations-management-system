@@ -1,5 +1,7 @@
 # 交付状态
 
+> 本页保留当时开发与交付事实；后续正式采用及 reader 边界修正见[生产记录](PRODUCTION.md)和[reader 修正](reader-fix.md)。
+
 2026-10-15，三项优化源码已完成、验证、独审，并快进合入远端 main：`33592f918a6e0b67aabd920fde85dc4e25ffcbcf`。生产尚未采用；候选包尚未就绪，未调用 apply、DeployApp、Start、Stop 或正式任务恢复。
 
 ## 验证

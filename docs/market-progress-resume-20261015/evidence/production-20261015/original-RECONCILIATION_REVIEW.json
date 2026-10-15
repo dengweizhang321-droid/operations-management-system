@@ -1,0 +1,97 @@
+{
+  "version": "market-progress-independent-reconciliation-review-v1",
+  "recordedAt": "2026-10-15T06:56:05Z",
+  "reviewScope": "Independent observation of the first EnterMaintenance failure; no production mutation or operation replay",
+  "maintenanceId": "f4f1001a381149c582e4349f2b6d3ef9",
+  "reviewConclusion": "Combined evidence supports zero maintenance-gate, service-stop and deployment effects from this attempt. A single controlled continuation with the same maintenance ID may be considered after its changed execution binding is independently reviewed and fresh original admission checks pass.",
+  "originalOutcomeRemains": "unknown",
+  "underlyingFailureCause": "not established",
+  "originalEvidenceSha256": {
+    "PUBLICATION_STARTED.json": "284ef0b70ed800e75e68877d256436443b90582c994a17ff7a150a9561270a68",
+    "EnterMaintenance-started.json": "5c246ced659f4103792009a449c68d5d0e2bf5e3013e2595eafb45fbecc26180",
+    "EnterMaintenance-failure.json": "2420004dc972bee72e56eeff28d0402f51d7f812db192eb17f869a162e29c639",
+    "PUBLICATION_FAILED.json": "41d5c506e80c629d23c05dd5c3ce038f684251b2e5c3b71d0ff06188e091c951",
+    "READY.json": "a1075b7c2be534d03a7ab6577256c62425541b8d0e2f7d54a2cd869b252fa4dd"
+  },
+  "observationWindowUtc": {
+    "firstRecordedProcessCensus": "2026-10-15T06:47:14.3448093Z",
+    "combinedFileAndLineageCheckCompleted": "2026-10-15T06:51:52.537Z",
+    "notAFutureAdmissionOrContinuousAvailabilityProof": true
+  },
+  "failedProcess": {
+    "pid": 3892,
+    "actualManagedProcessExitCode": 1,
+    "elapsedMs": 36518,
+    "engineReportedExitCode": null,
+    "engineFailureCode": "worker_gate_failed",
+    "engineFailureStage": "EnterMaintenance",
+    "historicalCreationDate": null,
+    "historicalCreationDateBoundary": "The original attempt records do not contain PID 3892's historical CreationDate. It has not been reconstructed or invented. The managed child exit event reports actual exit 1, and independent current censuses find neither PID 3892 nor its direct children.",
+    "currentPidAbsent": true,
+    "currentDirectChildrenAbsent": true,
+    "otherLiveMatchingMaintenanceOrPublicationExecutors": 0,
+    "censusSelfExcluded": true,
+    "controlFlowEvidence": "BeginMaintenance executes in the Worker controller's process through the Django library. The original publication awaited this failed operation before any Stop, DeployApp, HardenAcl or apply call. No downstream operation marker was found."
+  },
+  "workerObservation": {
+    "releaseId": "20261015T031454Z-bfb561e8e06db72e",
+    "manifestSha256": "89330271301ea111322053cab647bc243b2928c255220b01f204426aac37d374",
+    "entireLineageStateSha256": "8fc6c53462a50f8b32b7a0d8ac3a7bba396e782a70f1b9d5eb4ef4bee9d77687",
+    "headAndEntireLineageMatchFrozenReady": true,
+    "protectedEntrypointsCompared": 12,
+    "allProtectedEntrypointsMatchPredecessor": true,
+    "supervisorPid": 5884,
+    "supervisorCreationDateLiteral": "2026-10-15T05:46:14.5284870Z",
+    "supervisorCreationMatchesCimUtcTicks": true,
+    "processReceiptRawSha256": "65ab0f3935d925dd847778c98361080779da1c4974195db67ae2c33ff9aaeec4",
+    "processReceiptPayloadSha256": "2a163f91a2f7b5531c38f56bca3d55102b896702c3c601c7d04c3ca5651965e5",
+    "processReceiptLastWriteUtc": "2026-10-15T05:46:14.9564401Z",
+    "receiptAndCurrentSupervisorPredateFailedAttempt": true,
+    "observedTreeCreationTimesMonotonicAndBeforeAttempt": true,
+    "port3000OwnerPid": 45888,
+    "port5791OwnerPid": 29308,
+    "bothPortOwnersInExistingSupervisorTree": true,
+    "dateParsingBoundary": "One intermediate diagnostic comparison was invalid because PowerShell ConvertFrom-Json converted the ISO string to DateTime before string parsing. A follow-up read used JsonDocument.GetString and compared UTC ticks; the exact creation identities match. The invalid diagnostic is not evidence of a process change."
+  },
+  "djangoObservation": {
+    "manifestSha256": "46619c42b4ab4555ee7e60b8529e355c9c33c44dee08618e7fd2744a3cd64323",
+    "appFingerprint": "415626cdf0423a6ae422e8c46df4748369502168a6575041c62187e69a0553d0",
+    "fingerprintedFiles": 2962,
+    "fullFingerprintIndependentlyRecomputed": true,
+    "manifestAndFingerprintUnchanged": true,
+    "generatedCachesExcludedOnlyAsSpecifiedByExistingFingerprintProtocol": true
+  },
+  "gatesAndAudits": {
+    "systemMaintenanceAbsent": true,
+    "automationDrainAbsent": true,
+    "activeReleaseBatchOwnerAbsent": true,
+    "launcherFilesSearched": 4,
+    "eventsContainingExactMaintenanceId": 0,
+    "sameIdBeginCancelAndEndEventsFound": false,
+    "downstreamStageMarkersFound": []
+  },
+  "executionPathReview": {
+    "originalRootWorkerSha256": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "originalPreferredRootDjangoLibrarySha256": "156da476c47af9d9b2c2ff01f1cfa84ae9e4b327abb02533e131ba23540e52f3",
+    "installedDjangoLibrarySha256": "bb795dcef502f27dd4c970ce63f61c8818b9c3ecdcc26b92e4d85189457289e1",
+    "rootSiblingDifferenceIsNotAnEstablishedFailureCause": true,
+    "currentImmutableController": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261015T031454Z-bfb561e8e06db72e/tools/worker-local-service.ps1",
+    "candidateImmutableController": "D:/teruisi-runtime/teruisi-worker-sales/releases/20261015T062310Z-4259d14f596d2a40/tools/worker-local-service.ps1",
+    "bothImmutableControllerSha256": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+    "bothImmutableDjangoSiblingPathsAbsent": true,
+    "nativeFallback": "worker-local-service.ps1:1608-1639 selects its sibling Django library when present, otherwise the fixed installed DjangoService. Both immutable release tools directories lack that sibling, so the existing fallback selects the installed library.",
+    "proposedPathIsSupportedNativeEntry": true,
+    "changedPathRequiresNewExactExecutionBinding": true
+  },
+  "continuationConditions": [
+    "Keep the original unknown/failure records byte-for-byte and record reconciliation separately.",
+    "Bind and independently review Recovery1 script, preflight and READY hashes, including both immutable controllers and the installed Django fallback dependencies.",
+    "Use the same maintenance ID f4f1001a381149c582e4349f2b6d3ef9 for at most one controlled continuation; do not run the original publish script again.",
+    "Revalidate original ordinary-user, mutex, process identity, complete predecessor lineage, prepared package/plan, protected entrypoints, backup binding and gate admission immediately before the operation through the original engines.",
+    "Use the current effective immutable Worker engine for EnterMaintenance and Stop, and the new effective immutable engine after apply for ExitMaintenance, Start and VerifyStartup.",
+    "Do not delete or manufacture a gate, receipt or owner, rebuild an already bound artifact, reset attempts, resume formal annotation tasks, or call a model as a diagnostic.",
+    "If any required evidence conflicts or the continuation fails/returns unknown, stop dependent operations, preserve actual gates and original records, and do not loop or automatically replay."
+  ],
+  "reviewerProductionActions": 0,
+  "reviewerArtifactWriteScope": "This independent review record only; authorized explicitly by the parent task"
+}

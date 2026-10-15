@@ -1,0 +1,29 @@
+{
+  "at": "2026-10-15T08:41:09.445Z",
+  "administrator": false,
+  "data": {
+    "status": "maintenance_ended",
+    "maintenanceId": "66b302136b8b4cc5a8c62e307610991c"
+  },
+  "stdoutSha256": "cf8116170cb7bf37e8b6fa871d9bd65e76d92cf7e521b06f1a30e441d007535e",
+  "processEvidence": {
+    "version": 1,
+    "code": "completed",
+    "stage": "completed",
+    "processId": 37828,
+    "exitCode": 0,
+    "signal": null,
+    "timeoutType": null,
+    "deadlineUnixMs": 1792055414518,
+    "elapsedMs": 54927,
+    "outputProtocol": "direct-exit-files",
+    "cleanup": "preserve",
+    "stdoutBytes": 83,
+    "stderrBytes": 8301,
+    "treeCleanupExitCode": null,
+    "treeCleanupPending": false,
+    "nativeCode": null,
+    "stdoutSha256": "cf8116170cb7bf37e8b6fa871d9bd65e76d92cf7e521b06f1a30e441d007535e",
+    "stderrSha256": "4899a6a06e208ef6ea8c2d47f8c03403264673c49f37be4ec919a8b05fbeea60"
+  }
+}

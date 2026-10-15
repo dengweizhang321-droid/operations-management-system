@@ -1,0 +1,32 @@
+{
+  "at": "2026-10-15T08:47:24.968Z",
+  "administrator": false,
+  "data": {
+    "status": "verified",
+    "version": "teruisi-local-worker-status-v1",
+    "releaseId": "20261015T074548Z-58e44a5126de6bba",
+    "manifestSha256": "47eed428f371f8d307282a90ed1cdff2472cfeeb714139a723575b423eee74a2",
+    "startupVerified": true
+  },
+  "stdoutSha256": "11693dd35cd3b4e1d7e4ddd59e5a0ca1b084b823f728379eaa3d6675fa165b99",
+  "processEvidence": {
+    "version": 1,
+    "code": "completed",
+    "stage": "completed",
+    "processId": 38816,
+    "exitCode": 0,
+    "signal": null,
+    "timeoutType": null,
+    "deadlineUnixMs": 1792055839266,
+    "elapsedMs": 5701,
+    "outputProtocol": "direct-exit-files",
+    "cleanup": "preserve",
+    "stdoutBytes": 221,
+    "stderrBytes": 616,
+    "treeCleanupExitCode": null,
+    "treeCleanupPending": false,
+    "nativeCode": null,
+    "stdoutSha256": "11693dd35cd3b4e1d7e4ddd59e5a0ca1b084b823f728379eaa3d6675fa165b99",
+    "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4"
+  }
+}

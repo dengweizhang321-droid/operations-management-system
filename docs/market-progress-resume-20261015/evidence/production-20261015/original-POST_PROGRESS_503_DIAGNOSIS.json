@@ -1,0 +1,8 @@
+{
+  "at": "2026-10-15T07:29:53.500Z",
+  "status": 503,
+  "body": {
+    "error": "市场写入所有权与当前进程不一致",
+    "code": "service_unavailable"
+  }
+}

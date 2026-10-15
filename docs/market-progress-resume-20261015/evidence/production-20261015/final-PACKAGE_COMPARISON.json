@@ -1,0 +1,25 @@
+{
+  "id": "b538659808eb4511af1e396a2380addf",
+  "receiptSha256": "1856c05d1cfc59154749a51fa238fd7e650e5e4dc04eb699e6da5810a85f328b",
+  "appFingerprint": "b9a0713e05be65b7207b1d6d30667ef47e4995900870e469d767db6a2d205d3b",
+  "oldFileCount": 2964,
+  "newFileCount": 2964,
+  "changed": [
+    ".wrangler/cache/cf.json",
+    "backend/market/views.py",
+    "deployment.json"
+  ],
+  "cfChangedLeaves": [
+    "clientTcpRtt",
+    "tlsClientRandom",
+    "tlsExportedAuthenticator.clientHandshake",
+    "tlsExportedAuthenticator.serverHandshake",
+    "tlsExportedAuthenticator.clientFinished",
+    "tlsExportedAuthenticator.serverFinished",
+    "edgeL4.deliveryRate"
+  ],
+  "cfLeafTypesUnchanged": true,
+  "allMigrationBytesUnchanged": true,
+  "allUnrelatedRuntimeBytesUnchanged": true,
+  "candidateManifestSha256": "d59fbd6a08536aac62045cc0214b600c1b961c229c0f4a834f35ea8cdf57d175"
+}

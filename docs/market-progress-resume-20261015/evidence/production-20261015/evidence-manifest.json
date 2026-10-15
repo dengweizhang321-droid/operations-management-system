@@ -1,0 +1,126 @@
+{
+  "at": "2026-10-15T08:53:39.651Z",
+  "status": "deployed",
+  "applicationCommit": "c839aa28a111efa14530dde3c7844f4f6cba1e19",
+  "sourceCommit": "843457334d767dce855db01bffa572c16a894e6b",
+  "originalUnknownAndFailuresRetained": true,
+  "copied": {
+    "final-PUBLICATION_RESULT.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/PUBLICATION_RESULT.json",
+      "sha256": "340be3a4abb86eaefef5e19cc4f6b086a068f50ea00ced5aa85f124659e9c37c",
+      "bytes": 1945
+    },
+    "final-PUBLICATION_STARTED.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/PUBLICATION_STARTED.json",
+      "sha256": "014107bf1757af4e42d88230d38652d01e0c5ed31d1548a49cc8bf91db47a123",
+      "bytes": 560
+    },
+    "final-READY.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/READY.json",
+      "sha256": "ea87ac44eb4b289733e86e7b12ea6f831159cb67bc72abc416ae8e367cb0cf98",
+      "bytes": 7182
+    },
+    "final-PUBLISH_REVIEWED.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/PUBLISH_REVIEWED.json",
+      "sha256": "a01b346df3f850af2b3eb068e7c4e89580297c5d714a22edefba48e4dbd6f074",
+      "bytes": 300
+    },
+    "final-PACKAGE_COMPARISON.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/PACKAGE_COMPARISON.json",
+      "sha256": "cd24f66808e6fbd807672f8630c08c447c416e7f6b05048c3c1451849f62098e",
+      "bytes": 872
+    },
+    "final-COMPOSITION_FINAL.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/COMPOSITION_FINAL.json",
+      "sha256": "1d5af71741bb0737858a25db593fddb402b7e1e78fe8082089007fd443b32db8",
+      "bytes": 10389
+    },
+    "final-PRESERVED_SOURCE_BYTES.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/PRESERVED_SOURCE_BYTES.json",
+      "sha256": "87bd7fe5492546077ddfd96174051213dca8eb60acb63c82dc7229c86767af6e",
+      "bytes": 6222
+    },
+    "final-APPLICATION_SCOPE.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/APPLICATION_SCOPE.json",
+      "sha256": "dd36d341a08a8749f534e9497af03630038ae97ce481c8e7c311a9e4a99cb735",
+      "bytes": 1643
+    },
+    "final-RAW_SOURCE_SCOPE.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/RAW_SOURCE_SCOPE.json",
+      "sha256": "ee99b2a26a8260058ae223c7995af7b77c485f04013b9016f70144c6137dc1fe",
+      "bytes": 8157
+    },
+    "final-SCOPE_EXPLANATION.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/SCOPE_EXPLANATION.json",
+      "sha256": "9e3d4564e0b527059fe3fe5be10a4df9a805abb0cb58773b31000b5fddee7812",
+      "bytes": 1075
+    },
+    "final-NATIVE_START_MIGRATION_METADATA.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/NATIVE_START_MIGRATION_METADATA.json",
+      "sha256": "2bc815356a7d7b6236944a4236c887266453a8c9358e8fe0336f1ed07b6f49cf",
+      "bytes": 937
+    },
+    "final-CF_LEAF_DIFFERENCE.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/CF_LEAF_DIFFERENCE.json",
+      "sha256": "70ac64d15d2f2e82154fe82a2761eeb3deeac58154b57360e941a81424a48db0",
+      "bytes": 2298
+    },
+    "final-Start-result.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/Start-result.json",
+      "sha256": "576dd68a6be29e544bdb8062141448fdfba8e9ca4d5d1488fdc45d1fa3268790",
+      "bytes": 1049
+    },
+    "final-VerifyStartup-result.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/VerifyStartup-result.json",
+      "sha256": "1a7733d23ee4a7dbf49ff1921d76efb5cba0191c2d086effef9a7e1d720863d9",
+      "bytes": 1042
+    },
+    "final-ExitMaintenance-result.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/ExitMaintenance-result.json",
+      "sha256": "ab741fc1f0c103189ea32383afdc6db7476288f4ca116fe289ffc0d8debd83a6",
+      "bytes": 887
+    },
+    "final-PrepareApp-result.json": {
+      "source": "D:/codex-artifacts/market-progress-reader-final-20261015/PrepareApp-result.json",
+      "sha256": "5523028ce732c2ca630174776706b83d0bbcdef090f46890fa41ee5bca90cdd8",
+      "bytes": 1020
+    },
+    "original-PUBLICATION_FAILED.json": {
+      "source": "D:/codex-artifacts/market-progress-production-20261015/PUBLICATION_FAILED.json",
+      "sha256": "41d5c506e80c629d23c05dd5c3ce038f684251b2e5c3b71d0ff06188e091c951",
+      "bytes": 1944
+    },
+    "original-PUBLICATION_STARTED.json": {
+      "source": "D:/codex-artifacts/market-progress-production-20261015/PUBLICATION_STARTED.json",
+      "sha256": "284ef0b70ed800e75e68877d256436443b90582c994a17ff7a150a9561270a68",
+      "bytes": 792
+    },
+    "original-RECOVERY1_FAILED.json": {
+      "source": "D:/codex-artifacts/market-progress-production-20261015/RECOVERY1_FAILED.json",
+      "sha256": "ad1e6b83e6d3e4e68a785808ebeb8250537a654b20c6d9acd9dfc3ceaa582477",
+      "bytes": 228
+    },
+    "original-RECONCILIATION_REVIEW.json": {
+      "source": "D:/codex-artifacts/market-progress-production-20261015/RECONCILIATION_REVIEW.json",
+      "sha256": "3b74067259c0ac085393ac4d87656e93c8d29c4e2f7dc5f9e1cd701741807f13",
+      "bytes": 7246
+    },
+    "original-RECOVERY1_ADMISSION_REJECTED.json": {
+      "source": "D:/codex-artifacts/market-progress-production-20261015/RECOVERY1_ADMISSION_REJECTED.json",
+      "sha256": "2cbecbd718c456c400fa7b9543dcf4079a88ca7af072cb84985b523d787a485a",
+      "bytes": 716
+    },
+    "original-POST_PROGRESS_503_DIAGNOSIS.json": {
+      "source": "D:/codex-artifacts/market-progress-production-20261015/POST_PROGRESS_503_DIAGNOSIS.json",
+      "sha256": "256a3f0928bdf8eb16a95963988dcb684ea37127f28fb39d494e289f8be51923",
+      "bytes": 168
+    }
+  },
+  "externalHashes": {
+    "D:/codex-artifacts/market-progress-production-20261015/reader-regression-before-fix-tests.log": "655bb4ed2e2c8a7165b29aa33b31f6b157a48c0ea0ce2c987814e5f9bcf09798",
+    "D:/codex-artifacts/market-progress-production-20261015/reader-regression-after-fix-tests.log": "e6004e3bbde4a64789c2c78b00bbc0966895e6200fa9941b2cbd98917b086a83",
+    "D:/codex-artifacts/market-progress-production-20261015/reader-regression-after-fix-result.json": "021d35658dba8cc79bbacc605086dc9139bf7f3d31ebe9219def5895d92ea250"
+  },
+  "validation": "Original targeted 26 behavioral / 42 distinct PG / 9 React scenarios retained; 13 targeted PG reader regressions passed; these sets overlap and are not summed",
+  "postRelease": "Original lifecycle receipts, exact component bindings, homepage and three light-progress GETs only"
+}

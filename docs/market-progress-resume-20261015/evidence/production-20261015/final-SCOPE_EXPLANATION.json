@@ -1,0 +1,16 @@
+{
+  "applicationCommit": "c839aa28a111efa14530dde3c7844f4f6cba1e19",
+  "applicationScope": "backend",
+  "effectiveComponents": ["django"],
+  "newMigrationFiles": 0,
+  "rawSourcePlanRetained": "RAW_SOURCE_SCOPE.json",
+  "applicationPlanRetained": "APPLICATION_SCOPE.json",
+  "physicalEvidence": ["COMPOSITION_FINAL.json", "PRESERVED_SOURCE_BYTES.json"],
+  "representationDifference": "43 predecessor files retain their exact deployed physical bytes; root attributes preserve that Git representation and are not packaged by the original Django producer.",
+  "independentReview": "Critical reviewer confirmed this Django-only scope from actual deployed bytes and runtime closure; both original plans remain and the prepared package must enforce the declared differences.",
+  "failureBoundary": "Any actual runtime, dependency, configuration or migration byte change outside the declared reader patch and existing allowed CF metadata must fail closed.",
+  "workerRebuild": false,
+  "workerRotation": false,
+  "newBackup": false,
+  "existingVerifiedBackupBindingRequired": true
+}

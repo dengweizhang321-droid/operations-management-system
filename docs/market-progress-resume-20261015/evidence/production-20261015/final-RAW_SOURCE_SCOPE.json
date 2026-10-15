@@ -1,0 +1,288 @@
+{
+  "version": "teruisi-scoped-release-plan-v2",
+  "baseSha": "5cfdc9e346f83cddbe96bc2e21720cc67217e53f",
+  "headSha": "843457334d767dce855db01bffa572c16a894e6b",
+  "changes": [
+    {
+      "status": "M",
+      "path": ".gitattributes"
+    },
+    {
+      "status": "M",
+      "path": "app/ai-dingtalk-schedules-view.tsx"
+    },
+    {
+      "status": "M",
+      "path": "app/product-module-view.tsx"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/schedule_monitor.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/ai_assistant/test_schedule_monitor.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/erp_reference/migrations/0003_jackyun_upload_audit_binding.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/market/test_annotation_resume_round2.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/market/tests/test_annotation_progress_light.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/market/views.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/sales/migrations/0011_jackyun_upload_audit_binding.py"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/browser-rehearsal.mjs"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/current-backup-verify.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/final-application-source.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-archived-source-result.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-benchmark-initial-invalid-sql-count.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-benchmark.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-domain-combination-result.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-full-rehearsal-result.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-incremental-rehearsal-result.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-rehearsal-initial-result.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-rehearsal-result.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-rehearsal.py"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/planning-source-manifest.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/prompt-taxonomy-current.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/resume-final-lifecycle.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/resume-final-pg.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/resume-source-manifest.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/review-format-only-result.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/review-freeze-result.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-archive-fence-recheck.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-archived-source.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-initial.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-result.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-revision-check.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-unknown-combination.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/review-newer-human-unknown-fence-recheck.json"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/review-pg-rehearsal.py"
+    },
+    {
+      "status": "M",
+      "path": "docs/market-ai-round2-20261015/evidence/review-pg-result.json"
+    },
+    {
+      "status": "M",
+      "path": "tests/ai-schedule-no-key-evidence.test.ps1"
+    },
+    {
+      "status": "M",
+      "path": "tests/ai-schedule-prepared-maintenance.test.ps1"
+    },
+    {
+      "status": "M",
+      "path": "tests/product-detail-performance.test.ts"
+    },
+    {
+      "status": "M",
+      "path": "tests/product-progressive-contract.test.ts"
+    },
+    {
+      "status": "M",
+      "path": "tests/product-region-recovery.test.ts"
+    },
+    {
+      "status": "M",
+      "path": "tools/ai_schedule_addition_catalog.py"
+    },
+    {
+      "status": "M",
+      "path": "tools/ai_schedule_addition_private.py"
+    },
+    {
+      "status": "M",
+      "path": "tools/test_jackyun_audit_addition.py"
+    }
+  ],
+  "scope": "database-migration",
+  "components": [
+    "worker",
+    "django"
+  ],
+  "migrate": true,
+  "databaseProtection": "fresh-pre-migration",
+  "validation": [
+    "git-diff-check",
+    "worker-affected-tests",
+    "django-affected-tests",
+    "affected-integration-tests",
+    "django-system-check",
+    "migration-dry-run",
+    "isolated-postgresql-migration-rehearsal"
+  ],
+  "packaging": [
+    "prepare-worker-immutable-release",
+    "prepare-django-app"
+  ],
+  "deployment": [
+    "verify-current-database-backup",
+    "create-pre-migration-backup",
+    "apply-approved-migrations",
+    "activate-worker-release",
+    "deploy-django-app",
+    "verify-startup",
+    "verify-affected-function"
+  ],
+  "workflow": [
+    {
+      "step": 4,
+      "id": "validate-change",
+      "actions": [
+        "git-diff-check",
+        "worker-affected-tests",
+        "django-affected-tests",
+        "affected-integration-tests",
+        "django-system-check",
+        "migration-dry-run",
+        "isolated-postgresql-migration-rehearsal"
+      ]
+    },
+    {
+      "step": 5,
+      "id": "merge-and-package",
+      "actions": [
+        "merge-main",
+        "push-main",
+        "prepare-worker-immutable-release",
+        "prepare-django-app"
+      ]
+    },
+    {
+      "step": 6,
+      "id": "publish",
+      "actions": [
+        "verify-current-database-backup",
+        "create-pre-migration-backup",
+        "apply-approved-migrations",
+        "activate-worker-release",
+        "deploy-django-app",
+        "verify-startup",
+        "verify-affected-function"
+      ]
+    }
+  ],
+  "domains": [
+    "ai_assistant",
+    "erp_reference",
+    "market",
+    "sales"
+  ],
+  "unknown": [
+    ".gitattributes"
+  ],
+  "reasons": [
+    "未知路径升级完整流程:.gitattributes",
+    "前端:app/ai-dingtalk-schedules-view.tsx",
+    "前端:app/product-module-view.tsx",
+    "后端:backend/ai_assistant/schedule_monitor.py",
+    "后端:backend/ai_assistant/test_schedule_monitor.py",
+    "后端:backend/erp_reference/migrations/0003_jackyun_upload_audit_binding.py",
+    "后端:backend/market/test_annotation_resume_round2.py",
+    "后端:backend/market/tests/test_annotation_progress_light.py",
+    "后端:backend/market/views.py",
+    "后端:backend/sales/migrations/0011_jackyun_upload_audit_binding.py",
+    "测试:tests/ai-schedule-no-key-evidence.test.ps1",
+    "测试:tests/ai-schedule-prepared-maintenance.test.ps1",
+    "测试:tests/product-detail-performance.test.ts",
+    "测试:tests/product-progressive-contract.test.ts",
+    "测试:tests/product-region-recovery.test.ts",
+    "运行或发布工具:tools/ai_schedule_addition_catalog.py",
+    "运行或发布工具:tools/ai_schedule_addition_private.py",
+    "运行或发布工具:tools/test_jackyun_audit_addition.py"
+  ],
+  "planSha256": "96fa43c5dc00f519f5475d3ac86d601aa7783119d43dc8f198843f3ccc29e39f"
+}

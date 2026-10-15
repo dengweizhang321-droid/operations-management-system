@@ -21,6 +21,7 @@
 
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
+| `market-progress-resume-20261015` | 5 | [市场进度状态、轻读与维护续接发布](../market-progress-resume-20261015/PRODUCTION.md) |
 | `ai-schedules-release-20261015` | 4 | [AI定时任务与广东仓正式采用记录](../ai-schedules-release-20261015/PRODUCTION.md) |
 | `abc-execution-timing-review-20261010` | 8 | [ABC 执行耗时合理性评估](../abc-execution-timing-review-20261010/REPORT.md) |
 | `antigravity-release-audit-20261010` | 3 | [Antigravity 系统理解与 2026-10-09 上线耗时复核](../antigravity-release-audit-20261010/REPORT.md) |

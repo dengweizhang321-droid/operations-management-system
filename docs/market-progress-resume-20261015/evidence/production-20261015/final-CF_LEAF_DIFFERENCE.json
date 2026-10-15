@@ -1,0 +1,61 @@
+{
+  "at": "2026-10-15T08:29:10.104Z",
+  "preparedId": "b538659808eb4511af1e396a2380addf",
+  "keysUnchanged": true,
+  "typesUnchanged": true,
+  "changed": [
+    {
+      "path": "clientTcpRtt",
+      "beforeType": "number",
+      "afterType": "number",
+      "beforeHash": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+      "afterHash": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "before": 2,
+      "after": 1
+    },
+    {
+      "path": "tlsClientRandom",
+      "beforeType": "string",
+      "afterType": "string",
+      "beforeHash": "0270f5fe26a23871eeb6cce1c8de4660678f432391b32997876934116151fa71",
+      "afterHash": "d77f3fc4bd7727c4f91dc59cb1125fba9e399dc379fde9e267c6dd540a8c279a"
+    },
+    {
+      "path": "tlsExportedAuthenticator.clientHandshake",
+      "beforeType": "string",
+      "afterType": "string",
+      "beforeHash": "055072ea800690f872019d9c9bb5a70fd1eeb10eb5cbc5ebf1ab26e6401949ea",
+      "afterHash": "ffe23a558d2aba72fdd8f9e0e568cfee7313dcedd1c0f54c117e6f59e7a00d52"
+    },
+    {
+      "path": "tlsExportedAuthenticator.serverHandshake",
+      "beforeType": "string",
+      "afterType": "string",
+      "beforeHash": "1b50f39cd716a9694a2552dfa41c5c28309b4367f1904745e8a275d8541b9a13",
+      "afterHash": "db5f73ea42fee61cd53653b2445c31b31a7aba729368347975018e6899f51b3b"
+    },
+    {
+      "path": "tlsExportedAuthenticator.clientFinished",
+      "beforeType": "string",
+      "afterType": "string",
+      "beforeHash": "d0337fcc6837ee80992ec5cdc2f1d12d1110099c4e4391815b3787bda2bfd79b",
+      "afterHash": "242d3305dd0dda9d4e531636f3ebd6c0e6ddcdf2a6788ed37a90b627a6e317ec"
+    },
+    {
+      "path": "tlsExportedAuthenticator.serverFinished",
+      "beforeType": "string",
+      "afterType": "string",
+      "beforeHash": "6f960e0d3eaf4df890eada466242cb361bea74ee584a81d467566e020972cbb2",
+      "afterHash": "3ce33ea237350db70952c7a92b290a146a4933b7a5125ade23b461cdb336a9b2"
+    },
+    {
+      "path": "edgeL4.deliveryRate",
+      "beforeType": "number",
+      "afterType": "number",
+      "beforeHash": "650110458432a7ecfc7c74774a6d0e95d3fa5640245bc219b5ebf11bad0ccf7b",
+      "afterHash": "35c722e4a6030c65b786da07fa8adeedb8b063b707e74566361b0c70b3aff483",
+      "before": 2063657,
+      "after": 2842931
+    }
+  ]
+}

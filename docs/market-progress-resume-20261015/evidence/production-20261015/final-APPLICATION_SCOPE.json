@@ -1,0 +1,76 @@
+{
+  "version": "teruisi-scoped-release-plan-v2",
+  "baseSha": "895b175569cd7d0e1d83d19b2d6b2752d7e3b9e0",
+  "headSha": "c839aa28a111efa14530dde3c7844f4f6cba1e19",
+  "changes": [
+    {
+      "status": "M",
+      "path": "backend/market/tests/test_annotation_progress_light.py"
+    },
+    {
+      "status": "M",
+      "path": "backend/market/views.py"
+    },
+    {
+      "status": "A",
+      "path": "docs/market-progress-resume-20261015/READER_FIX.md"
+    }
+  ],
+  "scope": "backend",
+  "components": [
+    "django"
+  ],
+  "migrate": false,
+  "databaseProtection": "verified-current",
+  "validation": [
+    "git-diff-check",
+    "django-affected-tests"
+  ],
+  "packaging": [
+    "prepare-django-app"
+  ],
+  "deployment": [
+    "verify-current-database-backup",
+    "deploy-django-app",
+    "verify-startup",
+    "verify-affected-function"
+  ],
+  "workflow": [
+    {
+      "step": 4,
+      "id": "validate-change",
+      "actions": [
+        "git-diff-check",
+        "django-affected-tests"
+      ]
+    },
+    {
+      "step": 5,
+      "id": "merge-and-package",
+      "actions": [
+        "merge-main",
+        "push-main",
+        "prepare-django-app"
+      ]
+    },
+    {
+      "step": 6,
+      "id": "publish",
+      "actions": [
+        "verify-current-database-backup",
+        "deploy-django-app",
+        "verify-startup",
+        "verify-affected-function"
+      ]
+    }
+  ],
+  "domains": [
+    "market"
+  ],
+  "unknown": [],
+  "reasons": [
+    "后端:backend/market/tests/test_annotation_progress_light.py",
+    "后端:backend/market/views.py"
+  ],
+  "planSha256": "2a05605eff8d0aaaed849d1c77ab8bc2ac5bba73d58993a02dda42008485db41"
+}

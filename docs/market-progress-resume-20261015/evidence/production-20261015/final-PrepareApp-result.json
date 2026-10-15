@@ -1,0 +1,30 @@
+{
+  "at": "2026-10-15T08:27:52.847Z",
+  "administrator": false,
+  "data": {
+    "id": "b538659808eb4511af1e396a2380addf",
+    "receiptSha256": "1856c05d1cfc59154749a51fa238fd7e650e5e4dc04eb699e6da5810a85f328b",
+    "appFingerprint": "b9a0713e05be65b7207b1d6d30667ef47e4995900870e469d767db6a2d205d3b"
+  },
+  "stdoutSha256": "f77531586b9259a33354079209f5174d9ab4fae541182fdeedbe4e79ab275af2",
+  "processEvidence": {
+    "version": 1,
+    "code": "completed",
+    "stage": "completed",
+    "processId": 39620,
+    "exitCode": 0,
+    "signal": null,
+    "timeoutType": null,
+    "deadlineUnixMs": 1792054595078,
+    "elapsedMs": 77768,
+    "outputProtocol": "direct-exit-files",
+    "cleanup": "preserve",
+    "stdoutBytes": 210,
+    "stderrBytes": 616,
+    "treeCleanupExitCode": null,
+    "treeCleanupPending": false,
+    "nativeCode": null,
+    "stdoutSha256": "f77531586b9259a33354079209f5174d9ab4fae541182fdeedbe4e79ab275af2",
+    "stderrSha256": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-15T08:35:38.997Z",
+  "authorization": "User requested 发布上线; corrective Django-only patch after required progress check failed",
+  "maintenanceId": "66b302136b8b4cc5a8c62e307610991c",
+  "readySha256": "ea87ac44eb4b289733e86e7b12ea6f831159cb67bc72abc416ae8e367cb0cf98",
+  "workerReleaseUnchanged": "20261015T074548Z-58e44a5126de6bba",
+  "mainCommit": "c839aa28a111efa14530dde3c7844f4f6cba1e19",
+  "sourceCommit": "843457334d767dce855db01bffa572c16a894e6b",
+  "preparedId": "b538659808eb4511af1e396a2380addf",
+  "administrator": false
+}

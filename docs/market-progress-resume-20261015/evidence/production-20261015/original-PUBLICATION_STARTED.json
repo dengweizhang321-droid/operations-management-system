@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-15T06:45:05.464Z",
+  "authorization": "User explicitly requested 发布上线 in this chat",
+  "authorizationFirstObservedAtLocal": "2026-10-15T14:16:07+08:00",
+  "maintenanceId": "f4f1001a381149c582e4349f2b6d3ef9",
+  "administrator": false,
+  "mainApplicationCommit": "33592f918a6e0b67aabd920fde85dc4e25ffcbcf",
+  "workerSourceCommit": "323cc7b515adc79b87faef3e246b47be23922d31",
+  "djangoSourceCommit": "83d4afa6ef598431556f0a4effde40d7d0778676",
+  "workerPlanSha256": "ea72972dff9f1bcec0f2ac9776ef55a9ed585e8765f9c57aea90a4cd04dd2b5a",
+  "djangoPreparedId": "7afb8bbba8fd45b0a0fe402ce66e51e6",
+  "djangoReceiptSha256": "bc4dcc37a77a575a89f204d0c980fbab2a9f7f7c165739107022ebf9c7ff1a72",
+  "explicitMigration": false,
+  "backupId": "daily-20261015T041546Z-e45dddeb5a15"
+}

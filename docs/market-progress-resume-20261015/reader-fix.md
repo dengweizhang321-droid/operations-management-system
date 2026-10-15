@@ -1,5 +1,7 @@
 # 轻进度正式 reader 边界修复
 
+采用状态：2026-10-15 16:47:29已上线，三项任务的真实轻进度请求均200，详见[生产记录](PRODUCTION.md)。本说明替代早期BACKEND报告中“轻读也检查writer epoch/cutover”的设计假设；旧报告与测试原证据按当时状态保留。
+
 2026-10-15发布后的必要确认发现：目标Worker和Django已启动、首页200，但首个progress_light返回503，错误为“市场写入所有权与当前进程不一致”。原Recovery1失败回执保留，没有重放发布、重启或手工恢复识别任务。
 
 根因是新增轻读事务内调用assert_write_authority，将写进程epoch/cutover身份要求用于reader；正式django-market-service启动reader时明确给两项传空值。原普通progress没有此写身份要求，原测试虽验证了SQL reader角色，却统一设置了writer身份，遗漏了进程配置边界。

@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-15T07:03:53.9322322+00:00",
+  "status": "admission_rejected_before_callback",
+  "error": "EADDRINUSE",
+  "originalLogSha256": "7f6eabc4dffaa0d9445f09f62e5c12f8e000984902a98d2113dbf72ac751cbba",
+  "recoveryLifecycleCalls": 0,
+  "recoveryPreflightMarkers": 0,
+  "otherObservedPreparePid": 39436,
+  "otherObservedPrepareCreationLocal": "2026-10-15T14:52:20.729728+08:00",
+  "action": "Wait for original lock naturally; retry same frozen adapter admission once available; predecessor CAS remains required",
+  "independentReview": "Critical reviewer confirmed no EnterMaintenance attempt consumed and same frozen Recovery1 admission may continue; no lock deletion or process termination"
+}

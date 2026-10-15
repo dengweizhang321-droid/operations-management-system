@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-15T08:46:16.7936202+00:00",
+  "originalLog": "D:\\teruisi-runtime\\django-sales\\logs\\django-migrate.teruisi_sales.20261015-164130-94f529d9.log",
+  "sha256": "19d99e37c988ae7b809e898c03c8fc5720cb5bd061192434b8699786b6f3e37a",
+  "metadata": [
+    "operation=django_migrate; exitCode=0; launchFailed=False; outputRecordCount=4; capturedRecordCount=4; outputTruncated=False; outputSha256=399ca85b74683b00381c069dec120f62e2e5e85a3138d513daecabb0bbadc45f",
+    "operation=django_runtime_grants; exitCode=0; launchFailed=False; outputRecordCount=2; capturedRecordCount=2; outputTruncated=False; outputSha256=a33b742a6473b72c0efc145eb8762a2cc941aed953f9496e650fc1834306bcf8"
+  ],
+  "newMigrationFiles": 0,
+  "adapterMigrationCommands": 0,
+  "originalStartMigrateAndGrantsExecuted": true,
+  "outputBodyRetained": false,
+  "applicationCountFromMetadata": "not observable; do not claim migrate command never ran"
+}
