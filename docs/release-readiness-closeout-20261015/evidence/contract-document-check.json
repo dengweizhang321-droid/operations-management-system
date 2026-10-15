@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "localLinksChecked": 60,
+  "brokenLinks": [],
+  "reviewEvidenceNotYetWritten": [],
+  "catalogRows": 1036,
+  "taskMarkdownFiles": 2,
+  "initialCloseoutTemplateRejected": true,
+  "inertTemplateOutputDirectoryNotCreated": true,
+  "scope": {
+    "scope": "non-production",
+    "components": [],
+    "migrate": false,
+    "databaseProtection": "not-required",
+    "validation": [
+      "git-diff-check"
+    ],
+    "packaging": [],
+    "deployment": [],
+    "workflow": [
+      {
+        "step": 4,
+        "id": "validate-change",
+        "actions": [
+          "git-diff-check"
+        ]
+      },
+      {
+        "step": 5,
+        "id": "merge-and-package",
+        "actions": [
+          "merge-main",
+          "push-main"
+        ]
+      },
+      {
+        "step": 6,
+        "id": "publish",
+        "actions": []
+      }
+    ],
+    "domains": [],
+    "unknown": [],
+    "reasons": []
+  },
+  "onlyDocumentsAndAgentEntryChanged": true,
+  "runtimeActions": 0,
+  "applicationBuilds": 0,
+  "productionFifteenMinuteTargetMeasured": false,
+  "independentReviewPresent": true,
+  "independentReviewSha256": "12af4a231f7409608c2d9b4ef2b92b23459fa010e0763816f267137cb29d542d"
+}

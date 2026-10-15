@@ -25,6 +25,7 @@
 | `abc-execution-timing-review-20261010` | 8 | [ABC 执行耗时合理性评估](../abc-execution-timing-review-20261010/REPORT.md) |
 | `antigravity-release-audit-20261010` | 3 | [Antigravity 系统理解与 2026-10-09 上线耗时复核](../antigravity-release-audit-20261010/REPORT.md) |
 | `combined-release-20261014` | 1 | [两项功能同时生产采用](../combined-release-20261014/REPORT.md) |
+| `release-readiness-closeout-20261015` | 2 | [统一发布交付契约与就绪/收尾模板](../release-readiness-closeout-20261015/REPORT.md) |
 | `release-acceptance-closeout` | 7 | [发布优化 B 交付报告](../release-acceptance-closeout/REPORT.md) |
 | `release-c-preparation` | 8 | [稳定性排查与 C 准备阶段](../release-c-preparation/REPORT.md) |
 | `release-customer-combined-20261009` | 3 | [发布提速与客服四店修复组合候选](../release-customer-combined-20261009/REPORT.md) |

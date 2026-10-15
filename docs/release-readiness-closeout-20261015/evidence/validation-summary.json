@@ -1,0 +1,31 @@
+{
+  "baselineMain": "60ddfc3b910e301ef3916c4e9c585a97791f14b9",
+  "scope": "agent-contract-templates-and-documents-only",
+  "existingCloseoutSelectedCasesPassed": 20,
+  "existingScopePlanCasesPassed": 10,
+  "initialModuleResolutionFailurePreserved": "original-module-resolution-failure.log",
+  "initialFailureWasBeforeTestExecution": true,
+  "dependencyResolution": "temporary junction to existing main workspace node_modules; no install/build",
+  "newToolCode": false,
+  "productionOperations": 0,
+  "databaseOperations": 0,
+  "realModelExperiments": 0,
+  "fifteenMinuteProductionTargetMeasured": false,
+  "requestedPlanningModel": "gpt-6-astra",
+  "requestedPlanningEffort": "high",
+  "actualPlanningModelIndependentlyConfirmed": false,
+  "logs": [
+    {
+      "path": "existing-closeout-regression.log",
+      "sha256": "a3cfce58185a4e6153c5da27ad46cb7ff152225de70b3d7b1fb14aee690a671d"
+    },
+    {
+      "path": "existing-scope-plan-regression.log",
+      "sha256": "b70f0cc1a880340a09ecc7a6b8a1703ce63b48a5e945405fbdcef33148ead261"
+    },
+    {
+      "path": "original-module-resolution-failure.log",
+      "sha256": "9ef0b5b6be4faacfcf21f5c8bf1b211309933fdff20a6812715a1aa4a71f39ef"
+    }
+  ]
+}
