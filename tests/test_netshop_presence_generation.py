@@ -27,6 +27,8 @@ class ReceiptCursor:
     def execute(self, sql, params=None):
         if "SELECT app,name" in sql:
             self.rows = [tuple(item.split(".", 1)) for item in sorted(self.receipts)]
+        elif "inventory_jd_logistics_" in sql and "pg_class" in sql:
+            self.rows = []  # The legacy fixture contains no unrecorded JD objects.
         elif "a.attname,format_type" in sql:
             self.rows = []  # Legacy generations have no Jackyun audit columns.
         elif "FROM pg_constraint" in sql:

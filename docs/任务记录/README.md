@@ -58,6 +58,7 @@
 | `jd-monitor-compact-20261015` | 2 | [京东库存紧凑布局与补货周期](../jd-monitor-compact-20261015/REPORT.md) |
 | `jd-inventory-health-20261015` | 2 | [京东库存健康TAB与周转设置](../jd-inventory-health-20261015/REPORT.md) |
 | `jd-manual-cycle-20261015` | 2 | [京东入仓监控手动周转周期](../jd-manual-cycle-20261015/REPORT.md) |
+| `jd-pop-release-20261015` | 2 | [京东入仓监控首次正式发布](../jd-pop-release-20261015/REPORT.md) |
 | `guangdong-plan-entry-20261006` | 2 | [广东入仓型号明细备货入口](../guangdong-plan-entry-20261006/REPORT.md) |
 | `product-combo-details-20261014` | 2 | [商品经营类型、补充单品与组合装展开](../product-combo-details-20261014/REPORT.md) |
 | `product-kind-filter-20261014` | 1 | [商品经营明细：单品／组合装筛选](../product-kind-filter-20261014/REPORT.md) |
