@@ -1,0 +1,36 @@
+{
+  "version": "ai-schedule-repeat-fix-validation-v1",
+  "files": {
+    "app/ai-dingtalk-schedules-view.tsx": "1f60c9ecdad751065e5b3388d5b9c596b96b5a332f89c28d031cdac26960897a",
+    "backend/ai_assistant/chat.py": "e50c884abfd31f11784472e0a939706e7edc0adf7ca8af7583039d3b3717c6d9",
+    "backend/ai_assistant/dingtalk_schedules.py": "164ceb9eea52aa8ca839a0dd521020dc8f416645cb88790e8fea03365be39d63",
+    "backend/ai_assistant/provider.py": "8560e4f5207b7f2c5594540b5b61614eff9d51537d2c22c9355e815e80a0fcdb",
+    "backend/ai_assistant/provider_contract.py": "693367573587b8e3b4a3a8f5b4ebfa5e5c8fc56107979c4febe2cb5afc283ddf",
+    "backend/ai_assistant/schedule_monitor.py": "b5773a3fe611a69a183a2435ceb49e59fac1d6ea304bc12d87ec99634d08ff20",
+    "backend/ai_assistant/test_provider_roundtrip.py": "1a9f85a75fb2f1a9a3c5a3959cac378dd40c836a10074b6f6d03aa89344d309b",
+    "backend/ai_assistant/test_schedule_monitor.py": "eb706d733d3ea905e42d88d2c677b416cd0c48224b451a9f368dad7e99c83b5f",
+    "backend/ai_assistant/test_transport.py": "383bb634ddfa79119a565bcc13066d55f8633e558d647ae39a66ba9636ad91c2",
+    "backend/ai_assistant/test_transport_dns_phase.py": "844f9c05e3be40abfaa58d19d159981be6e3a638726460b106ac31a045c1d624",
+    "backend/ai_assistant/transport.py": "ec3ad59ae6e649391fee387886bdf964b52eee312c9424425872a12c00bf4427",
+    "lib/ai/schedule-presentation.ts": "0a136bfb66ffd9679d772128d065994fb2c3a07612de60dbfd2b926f08188c93"
+  },
+  "networkTests": {
+    "count": 49,
+    "result": "passed",
+    "evidence": "network/validation.json"
+  },
+  "scheduleTests": {
+    "count": 73,
+    "skipped": 2,
+    "result": "passed",
+    "database": "isolated SQLite :memory:",
+    "evidence": "schedule-tests.log",
+    "subsequentChange": "Only required-field and optional numeric input validation; corresponding case re-run passed in required-field-tests.log"
+  },
+  "uiLabelAssertions": 3,
+  "diffCheck": "passed",
+  "paidProviderCalls": 0,
+  "realDeliveries": 0,
+  "newBackupOrRestore": 0,
+  "migrationChanges": false
+}

@@ -59,8 +59,9 @@ class ModelDnsTests(SimpleTestCase):
                 URL, addresses("198.18.0.234"), 60
             )
         self.assertEqual(
-            [row[4][0] for row in result], ["8.8.4.4", "2606:4700:4700::1111"]
+            [row[4][0] for row in result], ["8.8.4.4"]
         )
+        dns.assert_called_once()
         for call in dns.call_args_list:
             self.assertTrue(call.args[0].startswith("https://1.1.1.1/dns-query?"))
             self.assertIsNone(call.args[1])
@@ -144,14 +145,21 @@ class ModelDnsTests(SimpleTestCase):
             with self.assertRaises(AiError):
                 transport.public_model_addresses(URL, addresses("198.18.0.234"), 60)
 
-    def test_private_ipv6_poisoning_rejects_public_ipv4_answer(self):
+    def test_complete_a_answer_is_validated_before_returning_any_public_address(self):
         with patch.object(
             transport,
             "_bounded_json",
-            side_effect=[dns_answer(1, "8.8.4.4"), dns_answer(28, "::1")],
-        ):
+            return_value=dns_answer(1, "8.8.4.4", "127.0.0.1"),
+        ) as dns:
             with self.assertRaises(AiError):
                 transport.public_model_addresses(URL, addresses("198.18.0.234"), 60)
+        dns.assert_called_once()
+
+    def test_empty_a_falls_back_to_aaaa_but_private_ipv6_is_rejected(self):
+        with patch.object(transport, "_bounded_json", side_effect=[dns_answer(1), dns_answer(28, "::1")]) as dns:
+            with self.assertRaises(AiError):
+                transport.public_model_addresses(URL, addresses("198.18.0.234"), 60)
+        self.assertEqual(dns.call_count, 2)
 
     def test_expired_dns_budget_never_queries_or_retries(self):
         with patch.object(transport, "_bounded_json") as dns:
@@ -191,7 +199,7 @@ class ModelDnsTests(SimpleTestCase):
 
     def test_full_request_uses_real_ip_original_tls_host_and_one_provider_post(self):
         sock, context, connections = self.wire(
-            dns_answer(1, "8.8.4.4"), dns_answer(28), {"choices": []}
+            dns_answer(1, "8.8.4.4"), {"choices": []}
         )
         with patch.object(
             transport, "resolve_addresses", return_value=addresses("198.18.0.234")
@@ -203,17 +211,17 @@ class ModelDnsTests(SimpleTestCase):
         self.assertEqual(system_dns.call_count, 1)
         self.assertEqual(
             [call.args[0] for call in sock.connect.call_args_list],
-            [("1.1.1.1", 443), ("1.1.1.1", 443), ("8.8.4.4", 443)],
+            [("1.1.1.1", 443), ("8.8.4.4", 443)],
         )
         self.assertEqual(context.wrap_socket.call_args.kwargs["server_hostname"], HOST)
-        for conn in connections[:2]:
+        for conn in connections[:1]:
             args = conn.request.call_args.args
             self.assertEqual(args[0], "GET")
             self.assertIsNone(args[2])
             self.assertNotIn("Authorization", args[3])
-        connections[2].request.assert_called_once()
+        connections[1].request.assert_called_once()
         self.assertEqual(
-            connections[2].request.call_args.args[0:2], ("POST", "/v1/chat/completions")
+            connections[1].request.call_args.args[0:2], ("POST", "/v1/chat/completions")
         )
 
     def test_redirect_or_oversized_doh_stops_before_provider_post(self):
@@ -303,7 +311,6 @@ class ModelDnsTests(SimpleTestCase):
     def test_model_turn_returns_reply_after_synthetic_dns_recovery(self):
         self.wire(
             dns_answer(1, "8.8.4.4"),
-            dns_answer(28),
             {"choices": [{"message": {"role": "assistant", "content": "连接成功"}}]},
         )
         model = SimpleNamespace(

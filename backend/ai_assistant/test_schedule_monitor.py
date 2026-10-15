@@ -15,16 +15,17 @@ from .tests import ADMIN
 
 def sample(day=None, count=1):
     day = day or timezone.localdate().isoformat()
-    rows = [{"productCode": "P" + str(i), "productName": "合成型号", "warehouse": "广东仓", "risk": "healthy",
-             "riskSource": "备货跟进", "autoRisk": "urgent", "riskReason": "待实物库存增加",
-             "availableQuantity": 10, "inTransitQuantity": 5} for i in range(min(count, 20))]
+    rows = [{"productCode": "P" + str(i), "productName": "合成型号", "specification": "标准型",
+             "warehouse": "广东仓", "risk": "urgent", "turnoverDays": 12.5, "inventoryAgeDays": 45,
+             "riskSource": "系统判定", "autoRisk": "urgent", "riskReason": "待核实补货",
+             "availableQuantity": 10, "inTransitQuantity": 5} for i in range(count)]
     data = {"page": "inventory.guangdong", "currency": "CNY", "monetaryUnit": "cents",
         "version": "inventory/sales", "sourceSnapshot": "a" * 64,
         "sync": {"inventoryAsOf": day, "inventoryAgeAsOf": day, "salesThrough": day,
                  "inventoryStale": False, "latestInventoryBatchId": "fixture-batch"},
         "metrics": {"itemCount": count, "availableQuantity": 10 * count, "inTransitQuantity": 5 * count,
                     "knownStockValueCents": 12345, "missingCostCount": 0, "missingStockCount": 0},
-        "distribution": [{"risk": risk, "itemCount": count if risk == "healthy" else 0} for risk in sorted(monitor.RISKS)],
+        "distribution": [{"risk": risk, "itemCount": count if risk == "urgent" else 0} for risk in sorted(monitor.RISKS)],
         "pagination": {"page": 1, "pageSize": 20, "total": count, "totalPages": (count + 19) // 20},
         "items": rows, "disclosures": ["人工清单"]}
     fresh = {"timezone": "Asia/Shanghai", "currentBusinessDate": day,
@@ -33,16 +34,23 @@ def sample(day=None, count=1):
 
 
 def bridge(fresh, data):
-    def execute(name, *args, **kwargs):
-        return {"ok": True, "toolName": name, "data": copy.deepcopy(fresh if name == "get_data_freshness" else data)}
+    def execute(name, arguments=None, *args, **kwargs):
+        payload = copy.deepcopy(fresh if name == "get_data_freshness" else data)
+        if name == "get_inventory_page_data":
+            number = (arguments or {}).get("page", 1)
+            payload["pagination"]["page"] = number
+            payload["items"] = payload["items"][(number - 1) * 20:number * 20]
+        return {"ok": True, "toolName": name, "data": payload}
     return execute
 
 
-def analysis(facts, **changes):
-    return canonical({"factsDigest": facts["factsDigest"], "summary": "已关注的备货仍需核实实物到仓。",
-        "observations": [{"productCode": "P0", "evidenceIds": ["gd-1"], "interpretation": "当前为备货跟进，不能据此认定现货充足。"}],
-        "actions": [{"productCode": "P0", "evidenceIds": ["gd-1"], "suggestion": "请负责人核实到仓进展。", "condition": "以实物库存变化为准。"}],
-        "limitations": ["无可比历史，无法判断趋势。"], **changes})
+def analysis(facts, summary=None, **changes):
+    blocks = [{"type": "heading", "text": "广东仓库存预警"}, {"type": "risk_counts"}]
+    if summary:
+        blocks.append({"type": "paragraph", "text": summary})
+    blocks.append({"type": "item_list", "columns": ["productName", "productCode", "turnoverDays", "inventoryAgeDays"],
+                   "rowIds": [row["evidenceId"] for row in monitor.alerts(facts)], "layout": "single_line"})
+    return canonical({"factsDigest": facts["factsDigest"], "blocks": blocks, **changes})
 
 
 class MonitorContractTests(SimpleTestCase):
@@ -53,16 +61,101 @@ class MonitorContractTests(SimpleTestCase):
                 patch.object(monitor.transport, "execute_tool", side_effect=bridge(fresh, data)):
             return monitor.collect(Principal("fixture@example.invalid", "Fixture", "analyst", None), "run", baseline[0]["currentBusinessDate"], Mock(), **kw)
 
-    def test_full_aggregates_and_partial_detail_are_explicit_and_stable(self):
+    def test_complete_detail_and_all_alerts_are_independent_of_ai_selection(self):
         fresh, data = sample(count=23)
         facts = self.collect(fresh, data)
-        self.assertEqual((facts["detailReturned"], facts["detailTotal"], facts["detailComplete"]), (20, 23, False))
+        self.assertEqual((facts["detailReturned"], facts["detailTotal"], facts["detailComplete"]), (23, 23, True))
         self.assertEqual(facts, self.collect(fresh, data, verify=True))
         content = monitor.render(facts, analysis(facts))
-        self.assertIn("23 个型号", content)
-        self.assertIn("20/23", content)
-        self.assertIn("healthy（备货跟进，原判urgent）", content)
-        self.assertIn("123.45 元", content)
+        self.assertIn("紧急补货：23 个", content)
+        self.assertIn("规格编码：P22", content)
+        self.assertEqual(content.count("销售周转：12.5 天；库龄：45 天"), 23)
+        self.assertNotIn("urgent", content)
+        self.assertNotIn("成本", content)
+
+    def test_final_risk_filter_null_and_numeric_code_reference(self):
+        fresh, data = sample(count=2)
+        data["items"][0].update(productCode="123", turnoverDays=None, inventoryAgeDays=None)
+        data["items"][1].update(risk="healthy", riskSource="备货跟进")
+        for group in data["distribution"]:
+            group["itemCount"] = 1 if group["risk"] in ("urgent", "healthy") else 0
+        facts = self.collect(fresh, data)
+        reply = analysis(facts, summary="请核实【编码:123】的实物到仓进展。")
+        content = monitor.render(facts, reply)
+        self.assertIn("规格编码：123", content)
+        self.assertIn("销售周转：待核算；库龄：待核算", content)
+        self.assertNotIn("规格编码：P1", content)
+        for text in ("补货123台", "【编码:123】补货123台", "【编码:other】需跟进", "【编码:123】预计两天到货"):
+            with self.subTest(text=text), self.assertRaises(AiError):
+                monitor.render(facts, analysis(facts, summary=text))
+
+    def test_saved_output_choices_control_layout_without_default_sections(self):
+        facts = self.collect()
+        columns = ["productCode", "productName", "inventoryAgeDays", "turnoverDays"]
+        content = monitor.render(facts, analysis(facts, blocks=[{"type": "table", "columns": columns, "rowIds": ["gd-1"]}]))
+        self.assertTrue(content.startswith("规格编码 | 商品名称 | 库龄 | 销售周转\nP0 | 合成型号 | 45 天 | 12.5 天"))
+        self.assertNotIn("AI解读", content)
+        self.assertNotIn("库存预警", content)
+        self.assertNotIn("建议", content)
+        content = monitor.render(facts, analysis(facts, blocks=[{"type": "heading", "text": "我的补货清单"},
+            {"type": "item_list", "columns": columns, "rowIds": ["gd-1"], "layout": "multi_line", "riskGroup": "urgent"}]))
+        self.assertTrue(content.startswith("我的补货清单\n紧急补货\n规格编码：P0\n商品名称：合成型号\n库龄：45 天\n销售周转：12.5 天"))
+        with self.assertRaises(AiError) as raised:
+            monitor.render(facts, canonical({"factsDigest": facts["factsDigest"], "error": "format_unsupported"}))
+        self.assertEqual(raised.exception.code, "schedule_format_unsupported")
+
+    def test_missing_duplicate_wrong_group_and_arbitrary_column_labels_are_rejected(self):
+        facts = self.collect(*sample(count=2))
+        for change in ({"rowIds": ["gd-1"]}, {"rowIds": ["gd-1", "gd-1"]},
+                       {"riskGroup": "warning"}, {"columns": ["商品名称", "productCode", "turnoverDays", "inventoryAgeDays"]}):
+            reply = json.loads(analysis(facts))
+            reply["blocks"][-1].update(change)
+            with self.subTest(change=change), self.assertRaises(AiError):
+                monitor.render(facts, canonical(reply))
+
+    def test_missing_duplicate_drift_and_distribution_mismatch_on_later_page(self):
+        for fault in ("missing", "duplicate", "drift", "distribution"):
+            fresh, data = sample(count=23)
+            execute = bridge(fresh, data)
+            def changed(name, arguments, *args, **kwargs):
+                result = execute(name, arguments)
+                if arguments.get("page") == 2:
+                    payload = result["data"]
+                    if fault == "missing": payload["items"].pop()
+                    if fault == "duplicate": payload["items"][0]["productCode"] = "P0"
+                    if fault == "drift": payload["sourceSnapshot"] = "b" * 64
+                    if fault == "distribution": payload["items"][0]["risk"] = "warning"
+                return result
+            with self.subTest(fault=fault), patch.object(monitor.transport, "catalog", return_value=[{"name": "get_data_freshness"}, {"name": "get_inventory_page_data"}]), patch.object(monitor.transport, "execute_tool", side_effect=changed), self.assertRaises(AiError):
+                monitor.collect(Principal("fixture@example.invalid", "Fixture", "analyst", None), "run", fresh["currentBusinessDate"], Mock())
+
+    def test_oversize_report_fails_before_analysis_and_no_alerts_are_valid(self):
+        fresh, data = sample(count=50)
+        for row in data["items"]:
+            row["productName"] = "合成型号" * 10
+        with self.assertRaises(AiError) as raised:
+            facts = self.collect(fresh, data)
+            monitor.render(facts, analysis(facts))
+        self.assertEqual(raised.exception.code, "schedule_content_too_large")
+        fresh, data = sample(count=0)
+        self.assertEqual(monitor.alerts(self.collect(fresh, data)), [])
+
+    def test_alarm_on_last_page_and_all_three_categories_are_included(self):
+        fresh, data = sample(count=50)
+        for row in data["items"]:
+            row["risk"] = "healthy"
+        for index, risk in ((0, "no_stock"), (25, "urgent"), (49, "warning")):
+            data["items"][index]["risk"] = risk
+        for group in data["distribution"]:
+            group["itemCount"] = sum(row["risk"] == group["risk"] for row in data["items"])
+        facts = self.collect(fresh, data)
+        content = monitor.render(facts, analysis(facts))
+        self.assertEqual((facts["detailReturned"], facts["detailComplete"]), (50, True))
+        self.assertIn("无库存可用：1 个", content)
+        self.assertIn("紧急补货：1 个", content)
+        self.assertIn("补货预警：1 个", content)
+        self.assertIn("规格编码：P49", content)
+        self.assertEqual(content.count("规格编码："), 3)
 
     def test_invalid_source_dates_coverage_stock_and_identity_fail_closed(self):
         for mutate in (
@@ -73,6 +166,8 @@ class MonitorContractTests(SimpleTestCase):
             lambda f, d: d["distribution"][0].update(itemCount=42),
             lambda f, d: d["items"][0].update(warehouse="广东仓-欧洲站"),
             lambda f, d: d["items"][0].pop("riskSource"),
+            lambda f, d: d["items"][0].pop("turnoverDays"),
+            lambda f, d: d["items"][0].update(inventoryAgeDays=float("inf")),
             lambda f, d: d.update(sourceSnapshot=""),
             lambda f, d: f.update(currentBusinessDate="2020-01-01"),
             lambda f, d: f["sales"].update(through="2020-01-01"),
@@ -95,9 +190,9 @@ class MonitorContractTests(SimpleTestCase):
                analysis(facts, summary="库存共有一千台"), analysis(facts, summary="周转三百天"),
                analysis(facts, summary="需求增加百分之五"), analysis(facts, summary="预计两天到货"),
                analysis(facts, summary="https://example.invalid"), analysis(facts, summary="长" * 501)]
-        for field, value in (("productCode", "other"), ("evidenceIds", ["gd-other"])):
+        for field, value in (("rowIds", ["gd-other"]), ("columns", ["productName", "productCode"])):
             decoded = json.loads(analysis(facts))
-            decoded["actions"][0][field] = value
+            decoded["blocks"][-1][field] = value
             bad.append(canonical(decoded))
         for reply in bad:
             with self.subTest(reply=reply[:60]), self.assertRaises(AiError):
@@ -167,7 +262,7 @@ class SchedulePilotTests(TestCase):
         paid.assert_called_once(); sender.assert_called_once()
         run.refresh_from_db()
         self.assertEqual((run.status, run.data_status, run.analysis_status, run.delivery_status), ("sent", "succeeded", "succeeded", "succeeded"))
-        self.assertIn("广东仓库存监控", run.content_text)
+        self.assertIn("广东仓库存预警", run.content_text)
         self.assertIn("factsDigest", json.loads(run.facts_json))
         self.assertIn("completedAt", json.loads(run.stage_details_json)["delivery"])
 
@@ -215,3 +310,22 @@ class SchedulePilotTests(TestCase):
         schedules.recover_interrupted()
         run.refresh_from_db()
         self.assertEqual((run.status, run.data_status, run.analysis_status, run.delivery_status), ("unknown", "succeeded", "succeeded", "unknown"))
+
+    def test_no_alerts_complete_without_generation_or_delivery(self):
+        item, run = self.prepare(executionMode="guangdong_monitor")
+        fresh, data = sample()
+        data["items"][0].update(risk="healthy", riskSource="备货跟进")
+        for group in data["distribution"]:
+            group["itemCount"] = int(group["risk"] == "healthy")
+        def edge(action, payload, principal):
+            if action == "authorize_background": return fixture.background()
+            if action == "catalog": return {"entries": [{"name": "get_data_freshness"}, {"name": "get_inventory_page_data"}]}
+            return bridge(fresh, data)(payload["name"], payload["arguments"])
+        sender = Mock()
+        with patch("ai_assistant.transport.edge", side_effect=edge), patch.object(schedules.chat, "answer") as paid:
+            schedules.step(lambda: dingtalk_settings.effective(self.config), sender)
+            self.assertFalse(schedules.step(lambda: dingtalk_settings.effective(self.config), sender))
+        paid.assert_not_called(); sender.assert_not_called()
+        run.refresh_from_db()
+        self.assertEqual((run.status, run.error_code, run.data_status, run.analysis_status, run.delivery_status),
+                         ("denied", "schedule_no_alerts", "succeeded", "not_required", "not_required"))

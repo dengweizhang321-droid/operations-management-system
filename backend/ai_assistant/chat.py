@@ -1081,7 +1081,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbou
                             principal, request_id, "ai_chat_provider", "failed",
                             arguments={**provider_arguments,
                                        **({"responseDiagnostics": error.diagnostics}
-                                          if isinstance(error, (provider.EmptyProviderResponse, transport.ProviderHttpError, InvalidProviderResponse)) else {})},
+                                          if isinstance(error, (provider.EmptyProviderResponse, transport.ProviderHttpError, transport.ProviderTransportError, InvalidProviderResponse)) else {})},
                             duration=int((time.monotonic() - provider_started) * 1000),
                             error_code=(error.code if isinstance(error, AiError)
                                         else "provider_timeout" if isinstance(error, TimeoutError)

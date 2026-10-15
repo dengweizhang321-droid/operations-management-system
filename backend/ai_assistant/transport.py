@@ -18,13 +18,39 @@ from threading import BoundedSemaphore, Event, Thread
 from urllib.parse import urlencode, urlsplit
 from django.conf import settings
 from .policy import AiError, canonical, current_principal, uid
-from .provider_contract import InvalidProviderResponse
+from .provider_contract import InvalidProviderResponse, PROVIDER_ADAPTER_VERSION
 
 _deadline = ContextVar("ai_network_deadline", default=None)
 _cancel_check = ContextVar("ai_network_cancel_check", default=None)
 _dns_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ai-dns")
 _dns_slots = BoundedSemaphore(4)
 _synthetic_network = ipaddress.ip_network("198.18.0.0/15")
+
+
+class ProviderTransportError(AiError):
+    """Fixed network metadata only; no upstream text, addresses or credentials."""
+    def __init__(self, *, stage, reason, request_started=False, resolver_phase=None):
+        dns = stage in {"system_dns", "dns_recovery"}
+        timeout = reason == "timeout"
+        code = ("provider_dns_timeout" if timeout else "provider_dns_unavailable") if dns else (
+            "provider_timeout" if timeout else "provider_unavailable")
+        message = ("模型或工具域名解析超时，本次请求未自动重试" if timeout else "模型或工具域名解析失败，本次请求未自动重试") if dns else (
+            "模型或工具服务等待超时，本次请求未自动重试" if timeout else "模型或工具服务连接失败，本次请求未自动重试")
+        super().__init__(message, code, 503)
+        self.diagnostics = {"adapterVersion": PROVIDER_ADAPTER_VERSION,
+                            "stage": stage, "reason": reason,
+                            "requestStarted": request_started}
+        if resolver_phase in {"connect", "tls", "request_send", "response_headers", "response_body"}:
+            self.diagnostics["resolverPhase"] = resolver_phase
+
+
+def _network_budget(timeout, stage, request_started=False):
+    try:
+        return remaining_budget(timeout)
+    except AiError as error:
+        if error.code == "provider_timeout":
+            raise ProviderTransportError(stage=stage, reason="timeout", request_started=request_started) from error
+        raise
 
 
 class ProviderHttpError(AiError):
@@ -124,13 +150,15 @@ def bounded_sse(url, body, headers, *, timeout, collector):
 
 def resolve_addresses(host, port, timeout):
     if not _dns_slots.acquire(blocking=False):
-        raise AiError("DNS 请求繁忙", "service_unavailable", 503)
+        raise ProviderTransportError(stage="system_dns", reason="busy")
     future = _dns_pool.submit(socket.getaddrinfo, host, port, 0, socket.SOCK_STREAM)
     future.add_done_callback(lambda _: _dns_slots.release())
     try:
         return future.result(timeout=min(5, timeout))
-    except (OSError, FutureTimeout) as error:
-        raise AiError("DNS 查询失败或超时", "service_unavailable", 503) from error
+    except FutureTimeout as error:
+        raise ProviderTransportError(stage="system_dns", reason="timeout") from error
+    except OSError as error:
+        raise ProviderTransportError(stage="system_dns", reason="unavailable") from error
 
 
 def bounded_json(
@@ -169,27 +197,39 @@ def _public_addresses(url, addresses, timeout, origin_guard):
     for record_type in (1, 28):
         remaining = budget - (time.monotonic() - started)
         if remaining <= 0:
-            raise AiError("DNS 查询超时", "service_unavailable", 503)
+            raise ProviderTransportError(stage="dns_recovery", reason="timeout")
         # Fixed public IP avoids the same intercepted OS lookup. TLS verifies
         # this IP's certificate. No provider headers/body are sent to DNS.
-        answer = _bounded_json(
-            "https://1.1.1.1/dns-query?"
-            + urlencode({"name": host, "type": record_type}),
-            None,
-            {"Accept": "application/dns-json"},
-            timeout=remaining,
-            maximum=16 * 1024,
-            method="GET",
-            fixed_addresses=[
-                (
-                    socket.AF_INET,
-                    socket.SOCK_STREAM,
-                    socket.IPPROTO_TCP,
-                    "",
-                    ("1.1.1.1", 443),
-                )
-            ],
-        )
+        try:
+            answer = _bounded_json(
+                "https://1.1.1.1/dns-query?"
+                + urlencode({"name": host, "type": record_type}),
+                None,
+                {"Accept": "application/dns-json"},
+                timeout=remaining,
+                maximum=16 * 1024,
+                method="GET",
+                fixed_addresses=[
+                    (
+                        socket.AF_INET,
+                        socket.SOCK_STREAM,
+                        socket.IPPROTO_TCP,
+                        "",
+                        ("1.1.1.1", 443),
+                    )
+                ],
+            )
+        except AiError as error:
+            # Reclassify only fixed transport/protocol failures from this DNS
+            # GET. Permission changes and cancellation still propagate intact.
+            if error.code not in {"provider_timeout", "provider_unavailable", "provider_error",
+                                  "provider_rate_limited", "provider_subscription_invalid", "provider_redirect", "response_too_large",
+                                  "invalid_provider_response"}:
+                raise
+            reason = "timeout" if error.code == "provider_timeout" else (
+                "invalid_response" if error.code == "invalid_provider_response" else "unavailable")
+            raise ProviderTransportError(stage="dns_recovery", reason=reason,
+                resolver_phase=getattr(error, "diagnostics", {}).get("stage")) from error
         question = answer.get("Question")
         records = answer.get("Answer", [])
         if (
@@ -206,22 +246,20 @@ def _public_addresses(url, addresses, timeout, origin_guard):
             or not isinstance(records, list)
             or len(records) > 32
         ):
-            raise AiError("公网 DNS 响应无效", "service_unavailable", 503)
+            raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
         for record in records:
             if not isinstance(record, dict):
-                raise AiError("公网 DNS 记录无效", "service_unavailable", 503)
+                raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
             if type(record.get("type")) is not int:
-                raise AiError("公网 DNS 记录类型无效", "service_unavailable", 503)
+                raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
             if record["type"] not in (1, 28):
                 continue
             if record["type"] != record_type or not isinstance(record.get("data"), str):
-                raise AiError("公网 DNS 地址类型无效", "service_unavailable", 503)
+                raise ProviderTransportError(stage="dns_recovery", reason="invalid_response")
             try:
                 ip = ipaddress.ip_address(record.get("data"))
             except ValueError as error:
-                raise AiError(
-                    "公网 DNS 地址无效", "service_unavailable", 503
-                ) from error
+                raise ProviderTransportError(stage="dns_recovery", reason="invalid_response") from error
             if (
                 not ip.is_global
                 or ip.is_multicast
@@ -235,8 +273,14 @@ def _public_addresses(url, addresses, timeout, origin_guard):
             item = (family, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", target)
             if item not in result:
                 result.append(item)
+        if budget - (time.monotonic() - started) <= 0:
+            raise ProviderTransportError(stage="dns_recovery", reason="timeout")
+        # A is sufficient for the single pinned connection. Validate the whole
+        # A response first; query AAAA only for a valid, empty A response.
+        if result:
+            break
     if not result or len(result) > 32:
-        raise AiError("公网 DNS 未返回有效地址", "service_unavailable", 503)
+        raise ProviderTransportError(stage="dns_recovery", reason="no_addresses")
     return result
 
 
@@ -272,7 +316,7 @@ def _bounded_json(
         raise AiError("内部执行桥必须使用回环地址", "service_unavailable", 503)
     if parts.scheme == "http" and not (local and permit_local):
         raise AiError("请求必须使用 HTTPS")
-    timeout = remaining_budget(timeout)
+    timeout = _network_budget(timeout, "connect" if fixed_addresses is not None else "system_dns")
     started = time.monotonic()
     addresses = (
         fixed_addresses
@@ -280,7 +324,7 @@ def _bounded_json(
         else resolve_addresses(host, port, timeout)
     )
     if not addresses or len(addresses) > 32:
-        raise AiError("DNS 结果异常", "service_unavailable", 503)
+        raise ProviderTransportError(stage="system_dns", reason="invalid_response")
     if not internal and fixed_addresses is None and not local:
         addresses = public_model_addresses(
             url, addresses, timeout - (time.monotonic() - started)
@@ -294,24 +338,29 @@ def _bounded_json(
     family, socktype, proto, _, target = addresses[0]
     remaining = timeout - (time.monotonic() - started)
     if remaining <= 0:
-        raise AiError("请求超时", "provider_timeout", 503)
+        raise ProviderTransportError(stage="system_dns", reason="timeout")
     sock = socket.socket(family, socktype, proto)
     sock.settimeout(remaining)
     connection = None
+    phase = "connect"
+    request_started = False
     stop_watching = watch_socket_cancellation(lambda: sock)
 
     def bounded_socket():
+        _network_budget(timeout, phase, request_started)
         remaining = timeout - (time.monotonic() - started)
         if remaining <= 0:
-            raise AiError("请求超时", "provider_timeout", 503)
+            raise ProviderTransportError(stage=phase, reason="timeout", request_started=request_started)
         sock.settimeout(remaining)
 
     try:
+        bounded_socket()
         sock.connect(target)
         if parts.scheme == "https":
+            phase = "tls"
             bounded_socket()
             sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host, do_handshake_on_connect=False)
-            remaining_budget(timeout)
+            bounded_socket()
             sock.do_handshake()
         connection = http.client.HTTPConnection(host, port, timeout=remaining)
         connection.sock = sock
@@ -325,22 +374,28 @@ def _bounded_json(
             "Accept": "application/json",
             **(headers or {}),
         }
+        phase = "request_send"
         bounded_socket()
+        # The request may be partially written even if request() raises. This
+        # marks an attempt, never proof of provider receipt or permission to retry.
+        request_started = True
         connection.request(
             method,
             parts.path + ("?" + parts.query if parts.query else ""),
             data,
             request_headers,
         )
+        phase = "response_headers"
         bounded_socket()
         response = connection.getresponse()
+        phase = "response_body"
         if 300 <= response.status < 400:
             raise AiError("拒绝重定向", "provider_redirect", 503)
         if not 200 <= response.status < 300:
             # The same bounded rejection handling applies to JSON and SSE.
             rejected = bytearray()
             while not response.isclosed() and len(rejected) <= 16384:
-                remaining_budget(timeout)
+                _network_budget(timeout, phase, request_started)
                 bounded_socket()
                 part = response.read1(16385 - len(rejected))
                 if not part:
@@ -356,10 +411,10 @@ def _bounded_json(
         chunks = []
         count = 0
         while not response.isclosed():
-            remaining_budget(timeout)
+            _network_budget(timeout, phase, request_started)
             remaining = timeout - (time.monotonic() - started)
             if remaining <= 0:
-                raise AiError("请求超时", "provider_timeout", 503)
+                raise ProviderTransportError(stage=phase, reason="timeout", request_started=request_started)
             sock.settimeout(remaining)
             part = response.read1(min(65536, maximum - count + 1))
             if not part:
@@ -373,28 +428,23 @@ def _bounded_json(
                 stream_collector.feed(part)
                 if stream_collector.done:
                     break
-        remaining_budget(timeout)
+        _network_budget(timeout, phase, request_started)
         value = (stream_collector.finish() if stream_collector is not None
                  else json.loads(b"".join(chunks).decode("utf-8")))
         if not isinstance(value, dict):
             raise InvalidProviderResponse("json_root_shape", stage="transport", mode="json")
         return value
     except TimeoutError as error:
-        remaining_budget(timeout)
-        raise AiError(
-            "模型或工具服务等待超时，本次请求未自动重试。请稍后重新发送或缩小分析范围。",
-            "provider_timeout", 503,
-        ) from error
+        _network_budget(timeout, phase, request_started)
+        raise ProviderTransportError(stage=phase, reason="timeout", request_started=request_started) from error
     except (json.JSONDecodeError, UnicodeDecodeError, RecursionError) as error:
         raise InvalidProviderResponse(
             "utf8_invalid" if isinstance(error, UnicodeDecodeError) else "json_invalid",
             stage="transport", mode="sse" if stream_collector is not None else "json",
         ) from error
     except (OSError, ValueError, http.client.HTTPException) as error:
-        remaining_budget(timeout)
-        raise AiError(
-            "服务请求失败或响应格式无效", "provider_unavailable", 503
-        ) from error
+        _network_budget(timeout, phase, request_started)
+        raise ProviderTransportError(stage=phase, reason="unavailable", request_started=request_started) from error
     finally:
         stop_watching()
         if connection:
