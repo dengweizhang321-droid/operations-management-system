@@ -25,3 +25,15 @@
 143→146提交后，旧143 Django包会正确拒绝启动；恢复必须使用保留JD146验证器的兼容前向包，不自动删表、逆迁移、重发安装或恢复生产数据库。现场失败保留原intent、owner、维护、原始输出与未知状态，先独立只读核对后再按精确原协议续接。
 
 当前源码状态为发布准备；正式采用结果、版本和时刻仅在真实操作及必要服务确认后填写。所有完整原始证据保存在`D:/codex-artifacts/jd-pop-release-20261015/`，原始业务数据及凭据不入Git。
+
+## 10月16日身份检查修正与原服务恢复
+
+首次调用器未把`SchemaOnly`识别为switch，尚未调用原生SchemaPlan即被拒绝。保留失败及独立零效果观察后，以固定typed PowerShell适配器通过PS5/PS7六项Contract验证，沿原维护/操作身份从Plan续接，不重复Enter/Stop。Plan、DeployApp、HardenAcl成功。
+
+SchemaInstall随后在创建intent之前被数据库身份检查拒绝。原单条错误JSON摘要与重建的identity错误完全一致；真实独立PG确认`inet_server_addr()::text`返回带`/32`的字符串。只读正式观察确认精确143代、无JD对象或迁移、无在途append事务，所有文件准入检查通过，未执行schema追加。
+
+最小运行修正仅把该查询改为`host(inet_server_addr())`，不改变数据库、角色、IPv4地址和5432端口限制。新增真实PG表达式回归及身份正负例；修正组合以原6a6b6dae为底，仅改guard一行与测试/演练。新code摘要`0d3367fb90e8444598032fc1df898daf3f8653d147f4e0469ef937fdadcbafd5`，migration摘要仍`7f2bcb8886666c99c11824e51910df70e8e9cce2318b91ff757f4cb4e4e5dda8`；隔离证明`88cd577ab7b54cace86ca7045689364ade38d37f4a62bbf76b1e581fe0ebb95d`，独立增量审查通过。
+
+为缩短继续维护时间，先用原RollbackApp恢复d59代码。第一次因调用工作目录位于app/tools内，Move-Item被PS provider在首次rename之前拒绝；独立核两包/无holding/控制器同字节后，从runtime之外的source/tools调用同一个原函数成功，继而由旧d90入口恢复原服务。这里是应用代码回退，不是数据库恢复。各原失败、未执行草稿、独立协调及成功阶段分别保留，不能改写为首次成功。
+
+后继发布只新准备Django修正包，原Worker B27计划/前端制品保持；在旧服务恢复后重新绑定实际前驱和新attempt身份，不覆盖原失败plan或原READY。未导入真实报表、启用采集或外发通知。此段只记录已观察阶段，不宣称新京东版本已采用。

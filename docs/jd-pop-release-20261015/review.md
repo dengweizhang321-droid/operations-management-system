@@ -9,3 +9,7 @@
 对实际Worker8458个成员及组合来源逐字节核对，允许的JD67/Django10路径以外没有差异，所有任务摘要匹配。原143与组合的CRLF代码摘要不同，审查要求在保留实际字节的最终组合上重新运行隔离验证，不直接改写旧proof。最终原始证明与只读审查记录随制品在私有证据目录保留。
 
 发布前还须核最终组合proof/源码/准备收据/候选/READY摘要、原生命周期调用顺序与异常边界；只有真实发布回执、目标组件和必要服务均通过后才报告上线。本文初始提交不冒称已经采用或已经完成最终制品审查。
+
+10月16日增量：首次READY和实际24个Django差异、CF六个请求元数据叶均独立通过。参数转换失败的零native效果、typed wrapper及恢复V2的计划/收据绑定分别核验；SchemaInstall identity失败随后以原输出SHA、无intent与成功正式READ ONLY 143目录观察闭合为零schema效果。恢复入口的首次CWD拒绝也在首次rename前，源目录同字节原RollbackApp续接通过审查。
+
+身份修正的运行差异只有`host(inet_server_addr())`一行；独立检查精确原身份限制、直接正负测试、最终code/migration/proof摘要和真实私有PG SQL回归，结论通过。证据位于`D:/codex-artifacts/jd-pop-identity-fix-20261016/independent-identity-fix-review.json`。已准备Worker无变化，后继仅准备Django；最终采用仍以后续真实操作为准。

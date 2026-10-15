@@ -1,6 +1,7 @@
 """Finite JD boundaries; fixtures own their paths and never use production DSNs."""
 import copy
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -16,6 +17,45 @@ import bi_app_addition as common
 
 
 class JdSchemaTests(unittest.TestCase):
+    def test_database_identity_accepts_only_exact_production_identity(self):
+        connection=MagicMock()
+        cursor=connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value=("teruisi_sales","teruisi_sales_owner","127.0.0.1",5432)
+        addition.database_identity(connection)
+        cursor.execute.assert_called_once_with("SELECT current_database(),current_user,host(inet_server_addr()),inet_server_port()")
+
+    def test_database_identity_rejects_wrong_database_role_host_and_port(self):
+        expected=("teruisi_sales","teruisi_sales_owner","127.0.0.1",5432)
+        changes={0:["postgres",None],1:["postgres","teruisi_inventory_writer",None],
+                 2:["127.0.0.1/32","127.0.0.2","::1","192.0.2.1",None],3:[55969,"5432",None]}
+        for index,values in changes.items():
+            for value in values:
+                actual=list(expected);actual[index]=value
+                connection=MagicMock()
+                connection.cursor.return_value.__enter__.return_value.fetchone.return_value=tuple(actual)
+                with self.subTest(field=index,value=value),self.assertRaises(ValueError):
+                    addition.database_identity(connection)
+
+    @unittest.skipUnless(os.environ.get("JD_SCHEMA_REHEARSAL_DIR"),"Requires the owned private PostgreSQL rehearsal")
+    def test_postgres_identity_expression_returns_host_without_mask(self):
+        from django.db import connection
+        params=connection.settings_dict
+        self.assertEqual(params["HOST"],"127.0.0.1")
+        self.assertEqual(params["NAME"],"teruisi_jd_schema_rehearsal")
+        self.assertTrue(55960<=int(params["PORT"])<55970)
+        # Execute the production function's actual SQL against the private DB;
+        # do not pretend this fixture has the production name/role/5432 port.
+        queries=[value for value in addition.database_identity.__code__.co_consts
+                 if isinstance(value,str) and value.startswith("SELECT ")]
+        self.assertEqual(len(queries),1)
+        with connection.cursor() as cursor:
+            cursor.execute(queries[0]);identity=cursor.fetchone()
+            self.assertEqual(identity,(params["NAME"],params["USER"],"127.0.0.1",int(params["PORT"])))
+            cursor.execute("SELECT inet_server_addr()::text,host(inet_server_addr())")
+            self.assertEqual(cursor.fetchone(),("127.0.0.1/32","127.0.0.1"))
+        with self.assertRaises(ValueError):
+            addition.database_identity(connection)
+
     def test_exact_delta_and_each_parent_addition_mutation(self):
         before = {"backend/old/migrations/0001.py": "a" * 64}
         after = {**before, **catalog.FILES}
