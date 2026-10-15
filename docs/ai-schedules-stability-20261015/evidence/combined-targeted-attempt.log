@@ -1,0 +1,30 @@
+Creating test database for alias 'default'...
+......2026-10-15 10:11:36,025 level=WARNING logger=django.request message=Conflict: /api/ai/memories
+...........2026-10-15 10:11:36,387 level=WARNING logger=django.request message=Too Many Requests: /api/ai/chat
+.......2026-10-15 10:11:36,565 level=WARNING logger=django.request message=Unauthorized: /api/ai/consumer
+............2026-10-15 10:11:37,328 level=WARNING logger=django.request message=Forbidden: /api/ai/dingtalk-schedules
+2026-10-15 10:11:37,331 level=WARNING logger=django.request message=Forbidden: /api/ai/dingtalk-schedules
+..................2026-10-15 10:11:38,982 level=ERROR logger=django.request message=Service Unavailable: /api/ai/models
+2026-10-15 10:11:38,990 level=WARNING logger=django.request message=Forbidden: /api/ai/models
+.......F.....2026-10-15 10:11:39,625 level=WARNING logger=django.request message=Unauthorized: /api/inventory/guangdong-monitor
+.........................
+======================================================================
+FAIL: test_monitor_source_snapshot_includes_erp_revision_without_changing_risk_rules (inventory.tests.test_guangdong.GuangdongTests.test_monitor_source_snapshot_includes_erp_revision_without_changing_risk_rules)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\.codex\worktrees\ai-schedules-stability\运营管理系统\backend\inventory\tests\test_guangdong.py", line 88, in test_monitor_source_snapshot_includes_erp_revision_without_changing_risk_rules
+    self.assertEqual(before["version"], after["version"])
+AssertionError: '1:ceaecc17eac1/sales:0/erp:1' != '1:ceaecc17eac1/sales:0/erp:2'
+- 1:ceaecc17eac1/sales:0/erp:1
+?                            ^
++ 1:ceaecc17eac1/sales:0/erp:2
+?                            ^
+
+
+----------------------------------------------------------------------
+Ran 92 tests in 38.918s
+
+FAILED (failures=1)
+Destroying test database for alias 'default'...
+Found 92 test(s).
+System check identified no issues (0 silenced).

@@ -1,0 +1,23 @@
+Creating test database for alias 'default'...
+.2026-10-15 10:02:02,596 level=WARNING logger=django.request message=Conflict: /api/ai/models
+2026-10-15 10:02:02,616 level=WARNING logger=django.request message=Conflict: /api/ai/models
+2026-10-15 10:02:02,635 level=WARNING logger=django.request message=Conflict: /api/ai/models
+2026-10-15 10:02:02,684 level=WARNING logger=django.request message=Conflict: /api/ai/models
+2026-10-15 10:02:02,699 level=WARNING logger=django.request message=Conflict: /api/ai/models
+2026-10-15 10:02:02,719 level=WARNING logger=django.request message=Conflict: /api/ai/models
+2026-10-15 10:02:02,747 level=WARNING logger=django.request message=Conflict: /api/ai/models
+2026-10-15 10:02:02,763 level=WARNING logger=django.request message=Conflict: /api/ai/models
+2026-10-15 10:02:02,779 level=WARNING logger=django.request message=Conflict: /api/ai/models
+..2026-10-15 10:02:02,828 level=WARNING logger=django.request message=Conflict: /api/ai/models
+2026-10-15 10:02:02,832 level=WARNING logger=django.request message=Bad Request: /api/ai/models
+2026-10-15 10:02:02,836 level=WARNING logger=django.request message=Bad Request: /api/ai/models
+2026-10-15 10:02:02,841 level=WARNING logger=django.request message=Bad Request: /api/ai/models
+2026-10-15 10:02:02,848 level=WARNING logger=django.request message=Forbidden: /api/ai/models
+.....
+----------------------------------------------------------------------
+Ran 8 tests in 0.525s
+
+OK
+Destroying test database for alias 'default'...
+Found 8 test(s).
+System check identified no issues (0 silenced).

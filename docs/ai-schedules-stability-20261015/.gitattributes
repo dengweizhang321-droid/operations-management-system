@@ -1,0 +1,2 @@
+# Preserve original Windows test evidence bytes; CR/CR/LF is diagnostic data.
+evidence/* -text -diff

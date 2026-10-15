@@ -1,0 +1,4 @@
+{
+  "backend/ai_assistant/provider.py": "09881b23687f465b4adf812c0a334e3ab5534dd36e643f8f216f5151d3b977a8",
+  "backend/ai_assistant/test_provider_roundtrip.py": "67ece671d0807eca6deb5e9d4adc2fe93366006470ad250db5c83a4ed756f35c"
+}

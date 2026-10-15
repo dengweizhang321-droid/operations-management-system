@@ -735,30 +735,10 @@ def mutate(parts, params, payload, principal, request_id, method):
         if payload.get("action") == "set_default":
             return {"item": configuration.set_default_model(payload, principal)}, 200
         if payload.get("action") == "test":
-            fields(payload, {"id", "action"}, {"id", "action"})
+            fields(payload, {"id", "action", "testMode"}, {"id", "action"})
             model = configuration.resolve_model(payload["id"])
-            with mutation(principal):
-                chat.dispatch_budget(principal.email.lower(), model.id)
-                chat.audit(
-                    principal,
-                    request_id,
-                    "model_probe",
-                    "started",
-                    arguments={"modelId": model.id},
-                )
-            message = provider.probe(model)
-            with mutation(principal):
-                m.AiModels.objects.filter(id=model.id, version=model.version).update(
-                    last_test_result=message, last_tested_at=timezone.now()
-                )
-                chat.audit(
-                    principal,
-                    request_id,
-                    "model_probe",
-                    "succeeded",
-                    result={"message": message},
-                )
-            return {"ok": True, "message": message}, 200
+            from . import capability_probes
+            return capability_probes.run(model, principal, request_id, payload.get("testMode", "connection")), 200
         return {"item": configuration.save_model(payload, principal)}, 200
     if root == "channels":
         if method == "DELETE":

@@ -8,10 +8,11 @@ import json
 import re
 from .policy import AiError
 from .model_capabilities import MAX_REPLY_CHARACTERS
+from .provider_contract import InvalidProviderResponse
 
 
-def invalid():
-    return AiError("模型流式响应无效或未完整结束，本次请求未自动重试", "invalid_provider_response", 503)
+def invalid(reason="sse_event_shape"):
+    return InvalidProviderResponse(reason, stage="stream", mode="sse")
 
 
 class ProviderStream:
@@ -26,7 +27,7 @@ class ProviderStream:
 
     def text(self, value):
         if not isinstance(value, str):
-            raise invalid()
+            raise invalid("sse_content_text_shape")
         self.text_count += len(value)
         if self.text_count > MAX_REPLY_CHARACTERS:
             raise AiError("模型回复超过系统消息上限", "response_too_large", 503)
@@ -46,21 +47,21 @@ class ProviderStream:
                 continue
             if data == "[DONE]":
                 if self.protocol == "anthropic" or self.reason not in {"stop", "length", "tool_calls"}:
-                    raise invalid()
+                    raise invalid("sse_terminal_order")
                 self.done = True
                 break
             try:
                 event = json.loads(data)
-            except ValueError as error:
-                raise invalid() from error
+            except (ValueError, RecursionError) as error:
+                raise invalid("sse_event_json") from error
             if not isinstance(event, dict) or event.get("error"):
-                raise invalid()
+                raise invalid("sse_error_event" if isinstance(event, dict) and event.get("error") else "sse_event_shape")
             if self.protocol == "anthropic":
                 self.anthropic(event)
             else:
                 self.openai(event)
         if len(self.buffer.encode()) > 256 * 1024:
-            raise invalid()
+            raise invalid("sse_event_size")
 
     def openai(self, event):
         if "id" in event:
@@ -71,44 +72,48 @@ class ProviderStream:
         if choices == [] and event.get("usage"):
             return
         if not isinstance(choices, list) or len(choices) != 1 or not isinstance(choices[0], dict) or choices[0].get("index", 0) != 0:
-            raise invalid()
+            raise invalid("sse_choices_shape")
         choice = choices[0]
         delta = choice.get("delta", {})
         if not isinstance(delta, dict):
-            raise invalid()
+            raise invalid("sse_delta_shape")
         if self.reason is not None:
             # Some compatible providers report usage with a single empty
             # choice after the terminal choice, before [DONE]. This frame
             # carries no further text, reasoning or tool arguments.
             if isinstance(event.get("usage"), dict) and not delta and choice.get("finish_reason") is None:
                 return
-            raise invalid()
+            raise invalid("sse_payload_after_terminal")
         if delta.get("content") is not None:
             self.text(delta["content"])
             self.message["content"] += delta["content"]
         if delta.get("reasoning_content") is not None:
             if not isinstance(delta["reasoning_content"], str):
-                raise invalid()
+                raise invalid("sse_reasoning_shape")
             self.message["reasoning_content"] += delta["reasoning_content"]
-        updates = delta.get("tool_calls", [])
+        updates = delta.get("tool_calls")
+        if updates is None:
+            updates = []
         if not isinstance(updates, list) or len(updates) > 8:
-            raise invalid()
+            raise invalid("sse_tool_calls_shape")
         for update in updates:
             if not isinstance(update, dict) or type(update.get("index")) is not int or not 0 <= update["index"] < 8:
-                raise invalid()
+                raise invalid("sse_tool_index")
+            if update.get("type", "function") != "function":
+                raise invalid("sse_tool_type")
             call = self.calls.setdefault(update["index"], {"id": "", "type": "function", "function": {"name": "", "arguments": ""}})
             function = update.get("function", {})
             if not isinstance(function, dict):
-                raise invalid()
+                raise invalid("sse_tool_function_shape")
             for container, key, value in [(call, "id", update.get("id")), (call["function"], "name", function.get("name")), (call["function"], "arguments", function.get("arguments"))]:
                 if value is not None:
                     if not isinstance(value, str):
-                        raise invalid()
+                        raise invalid("sse_tool_fragment_shape")
                     container[key] += value
         if choice.get("finish_reason") is not None:
             self.reason = choice["finish_reason"]
             if self.reason not in {"stop", "length", "tool_calls"}:
-                raise invalid()
+                raise invalid("sse_finish_reason")
 
     def anthropic(self, event):
         kind = event.get("type")
@@ -154,8 +159,8 @@ class ProviderStream:
             if index in self.partial_json:
                 try:
                     self.blocks[index]["input"] = json.loads(self.partial_json.pop(index))
-                except ValueError as error:
-                    raise invalid() from error
+                except (ValueError, RecursionError) as error:
+                    raise invalid("sse_tool_arguments_json") from error
         elif kind == "message_delta":
             if not isinstance(event.get("delta"), dict) or not isinstance(event.get("usage", {}), dict):
                 raise invalid()
@@ -171,9 +176,11 @@ class ProviderStream:
     def finish(self):
         self.decoder.decode(b"", final=True)
         if not self.done:
-            raise invalid()
+            raise invalid("sse_incomplete")
         if self.protocol == "anthropic":
             return {**self.result, "content": [self.blocks[k] for k in sorted(self.blocks)], "stop_reason": self.reason}
         if self.calls:
             self.message["tool_calls"] = [self.calls[k] for k in sorted(self.calls)]
+        if self.reason == "tool_calls" and not self.calls:
+            raise invalid("sse_missing_tool_calls")
         return {**self.result, "choices": [{"message": self.message, "finish_reason": self.reason}]}

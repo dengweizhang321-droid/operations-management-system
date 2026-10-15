@@ -18,6 +18,7 @@ from threading import BoundedSemaphore, Event, Thread
 from urllib.parse import urlencode, urlsplit
 from django.conf import settings
 from .policy import AiError, canonical, current_principal, uid
+from .provider_contract import InvalidProviderResponse
 
 _deadline = ContextVar("ai_network_deadline", default=None)
 _cancel_check = ContextVar("ai_network_cancel_check", default=None)
@@ -351,7 +352,7 @@ def _bounded_json(
             raise AiError("响应超限", "response_too_large", 503)
         if stream_collector is not None:
             if "text/event-stream" not in (response.getheader("Content-Type") or "").lower():
-                raise AiError("模型端点未返回 SSE，未自动重发请求", "invalid_provider_response", 503)
+                raise InvalidProviderResponse("sse_content_type", stage="transport", mode="sse")
         chunks = []
         count = 0
         while not response.isclosed():
@@ -376,7 +377,7 @@ def _bounded_json(
         value = (stream_collector.finish() if stream_collector is not None
                  else json.loads(b"".join(chunks).decode("utf-8")))
         if not isinstance(value, dict):
-            raise AiError("响应 JSON 无效", "invalid_provider_response", 503)
+            raise InvalidProviderResponse("json_root_shape", stage="transport", mode="json")
         return value
     except TimeoutError as error:
         remaining_budget(timeout)
@@ -384,9 +385,10 @@ def _bounded_json(
             "模型或工具服务等待超时，本次请求未自动重试。请稍后重新发送或缩小分析范围。",
             "provider_timeout", 503,
         ) from error
-    except (json.JSONDecodeError, UnicodeDecodeError) as error:
-        raise AiError(
-            "服务返回了无效的 JSON 响应", "invalid_provider_response", 503
+    except (json.JSONDecodeError, UnicodeDecodeError, RecursionError) as error:
+        raise InvalidProviderResponse(
+            "utf8_invalid" if isinstance(error, UnicodeDecodeError) else "json_invalid",
+            stage="transport", mode="sse" if stream_collector is not None else "json",
         ) from error
     except (OSError, ValueError, http.client.HTTPException) as error:
         remaining_budget(timeout)

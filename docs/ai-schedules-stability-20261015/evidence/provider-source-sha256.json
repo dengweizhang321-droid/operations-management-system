@@ -1,0 +1,12 @@
+{
+  "app/ai-assistant-view.tsx": "519d912b54a81b53675347a774f57933c2a5ed879682cefa707b5514f3aa8333",
+  "backend/ai_assistant/provider.py": "a623b7a738b438df4067a80b2dd281249c2080c4c4d3491b5eafd97796b3485a",
+  "backend/ai_assistant/provider_stream.py": "73341f79b9a801ab574fbe88164bdc2ee63048760d69a972e22ed8ba9147e412",
+  "backend/ai_assistant/transport.py": "7a018d0a26210dd4a9c579d449766e00212bdb473911e1efdce54f3abfc14640",
+  "backend/ai_assistant/provider_contract.py": "f639b797a2d1b48c985139b55bb4c73369ebe71a98363e3fd6239ccaf06aa2b9",
+  "backend/ai_assistant/capability_probes.py": "38023cb802ced727c1cfe9bc77b95ad838c482ee90a7358b561da505b4aced70",
+  "backend/ai_assistant/configuration.py": "f277a20e886b6a980189536087330fceabce80f02054f922ad3330caa15c2c58",
+  "backend/ai_assistant/chat.py": "c8f5641574389ff8bd06fa38b3921cc8816a8c972a8635dc9bc31beb6994ab0e",
+  "backend/ai_assistant/views.py": "017989c92eb4965a73639f676b53386cf73bb8628889c3919398851fc71a9989",
+  "backend/ai_assistant/test_provider_roundtrip.py": "8d65373d3d5c90529493263c73b3785732f6a9fe690a5b117a2d7e5338bc1961"
+}

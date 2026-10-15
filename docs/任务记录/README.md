@@ -8,6 +8,7 @@
 
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
+| `ai-schedules-stability-20261015` | 4 | [AI定时任务稳定性与广东仓隔离试点](../ai-schedules-stability-20261015/REPORT.md) |
 | `agnes-stream-compatibility-20261013` | 2 | [Agnes 流式统计尾帧兼容修复](../agnes-stream-compatibility-20261013/REPORT.md) |
 | `ai-customer-inventory-chain-20261008` | 2 | [客服 AI、广东仓定时分析与京东四店链路监管](../ai-customer-inventory-chain-20261008/REPORT.md) |
 | `ai-management-controls-20261013` | 3 | [AI 管理模型配置操作修复](../ai-management-controls-20261013/REPORT.md) |

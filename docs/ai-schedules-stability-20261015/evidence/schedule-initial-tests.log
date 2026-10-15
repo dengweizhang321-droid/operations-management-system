@@ -1,0 +1,15 @@
+Creating test database for alias 'default'...
+......2026-10-15 10:02:34,137 level=WARNING logger=django.request message=Conflict: /api/ai/memories
+...........2026-10-15 10:02:34,713 level=WARNING logger=django.request message=Too Many Requests: /api/ai/chat
+.......2026-10-15 10:02:35,063 level=WARNING logger=django.request message=Unauthorized: /api/ai/consumer
+............2026-10-15 10:02:36,141 level=WARNING logger=django.request message=Forbidden: /api/ai/dingtalk-schedules
+2026-10-15 10:02:36,147 level=WARNING logger=django.request message=Forbidden: /api/ai/dingtalk-schedules
+........................2026-10-15 10:02:38,322 level=WARNING logger=django.request message=Unauthorized: /api/inventory/guangdong-monitor
+............
+----------------------------------------------------------------------
+Ran 72 tests in 5.377s
+
+OK
+Destroying test database for alias 'default'...
+Found 72 test(s).
+System check identified no issues (0 silenced).

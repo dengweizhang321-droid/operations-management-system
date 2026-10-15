@@ -76,6 +76,19 @@ class GuangdongTests(TestCase):
         result.update(updates)
         return result
 
+    def test_monitor_source_snapshot_includes_erp_revision_without_changing_risk_rules(self):
+        from sales.models import SalesDataRevision
+        self.save_rows([{"productCode": "00123"}])
+        self.batch()
+        SalesDataRevision.objects.update_or_create(domain="erp", defaults={"revision": 1})
+        with patch.object(gd, "_sales_query", return_value=self.sales()):
+            before = gd.monitor(self.principal, {})
+            SalesDataRevision.objects.filter(domain="erp").update(revision=2)
+            after = gd.monitor(self.principal, {})
+        self.assertNotEqual(before["version"], after["version"])
+        self.assertNotEqual(before["sourceSnapshot"], after["sourceSnapshot"])
+        self.assertEqual(before["distribution"], after["distribution"])
+
     def age_batch(self, age=45):
         batch = InventoryImportBatch.objects.create(id="gd-age", dataset="age", source="test", file_name="age.xlsx", file_size_bytes=1, file_hash="d" * 64, raw_file_hash="e" * 64, content_hash="f" * 64, scope_key="age", sheet_name="test", snapshot_date=self.today - timedelta(days=1), status="completed", completed_at=timezone.now())
         InventoryAgeLine.objects.create(batch_id=batch.id, row_key="00123广东仓", source_row_number=1, snapshot_date=batch.snapshot_date, warehouse="广东仓", product_code="00123", inventory_age_days=age)

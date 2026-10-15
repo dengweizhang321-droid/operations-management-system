@@ -1,0 +1,10 @@
+Terminal result transcription; no database or provider network used.
+Command: manage.py test ai_assistant.test_provider_roundtrip.ProviderRoundtripWireTests --verbosity 1
+Environment: TERUISI_DJANGO_ENVIRONMENT=test; TERUISI_DJANGO_DATABASE_URL=''
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.027s
+
+OK
+Found 6 test(s).
+System check identified no issues (0 silenced).

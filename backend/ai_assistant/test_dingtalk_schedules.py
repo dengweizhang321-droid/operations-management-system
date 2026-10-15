@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone as utc
+import copy
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
 from django.test import TestCase, override_settings
@@ -50,8 +51,10 @@ class DingTalkScheduleTests(TestCase):
         item = schedules.save({**self.payload, "enabled": True}, ADMIN)["item"]
         schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
         sender = Mock()
+        new_default = copy.copy(self.model)
+        new_default.id = "new-default"
         with patch("ai_assistant.transport.edge", side_effect=background), \
-                patch.object(schedules, "resolve_model", return_value=SimpleNamespace(id="new-default")), \
+                patch.object(schedules, "resolve_model", return_value=new_default), \
                 patch.object(schedules.chat, "answer", return_value={"reply": "合成结果"}) as answer:
             schedules.step(lambda: dingtalk_settings.effective(self.config), sender)
         self.assertEqual(answer.call_args.args[0]["modelId"], "new-default")

@@ -1,0 +1,11 @@
+Creating test database for alias 'default'...
+....2026-10-15 10:00:49,699 level=ERROR logger=django.request message=Service Unavailable: /api/ai/models
+2026-10-15 10:00:49,703 level=WARNING logger=django.request message=Forbidden: /api/ai/models
+..........................................................
+----------------------------------------------------------------------
+Ran 62 tests in 18.934s
+
+OK
+Destroying test database for alias 'default'...
+Found 62 test(s).
+System check identified no issues (0 silenced).
