@@ -122,7 +122,7 @@ def _department(identifier):
 
 
 def _department_payload(row):
-    return {"id": row.id, "name": row.name, "businessUnitCode": row.business_unit_code, "storeKeys": row.store_keys, "capabilities": {kind: row.capabilities.get(kind) is True for kind in SOURCE_KINDS}, "logisticsEnabled": row.logistics_enabled, "monitorEnabled": row.monitor_enabled, "pushEnabled": row.push_enabled, "stockoutThresholdDays": row.stockout_threshold_days, "revision": row.revision, "updatedAt": row.updated_at.isoformat()}
+    return {"id": row.id, "name": row.name, "businessUnitCode": row.business_unit_code, "storeKeys": row.store_keys, "capabilities": {kind: row.capabilities.get(kind) is True for kind in SOURCE_KINDS}, "logisticsEnabled": row.logistics_enabled, "monitorEnabled": row.monitor_enabled, "pushEnabled": row.push_enabled, "stockoutThresholdDays": row.stockout_threshold_days, "replenishmentCycleDays": row.replenishment_cycle_days, "revision": row.revision, "updatedAt": row.updated_at.isoformat()}
 
 
 def _mapping_payload(row):
@@ -379,7 +379,7 @@ def mutate(payload, actor):
     if not isinstance(operation, str) or operation not in {"settings", "mapping", "manual"}:
         _error("维护操作无效")
     common = {"operation", "departmentId", "expectedRevision"}
-    fields = {"settings": {"name", "businessUnitCode", "storeKeys", "capabilities", "logisticsEnabled", "monitorEnabled", "pushEnabled", "stockoutThresholdDays"}, "mapping": {"goodsCode", "goodsCodeKind", "erpGoodsCode", "erpGoodsName", "status", "note"}, "manual": {"documentNo", "goodsCode", "transferStatus", "erpDocumentNo", "note", "expectedFlowRevision"}}
+    fields = {"settings": {"name", "businessUnitCode", "storeKeys", "capabilities", "logisticsEnabled", "monitorEnabled", "pushEnabled", "stockoutThresholdDays", "replenishmentCycleDays"}, "mapping": {"goodsCode", "goodsCodeKind", "erpGoodsCode", "erpGoodsName", "status", "note"}, "manual": {"documentNo", "goodsCode", "transferStatus", "erpDocumentNo", "note", "expectedFlowRevision"}}
     _keys(payload, common | fields[operation], common)
     identifier = _text(payload["departmentId"], "事业部ID", 80)
     expected = _integer(payload["expectedRevision"], "人工版本", minimum=0)
@@ -421,6 +421,8 @@ def mutate(payload, actor):
                 setattr(row, key, value)
             threshold = payload.get("stockoutThresholdDays", row.stockout_threshold_days)
             row.stockout_threshold_days = None if threshold is None else _integer(threshold, "缺货提醒天数", 3650, minimum=1)
+            cycle = payload.get("replenishmentCycleDays", row.replenishment_cycle_days)
+            row.replenishment_cycle_days = _integer(cycle, "补货周期天数", 3650, minimum=1)
             row.revision = expected + 1
             row.updated_by, row.updated_at = actor, timezone.now()
             row.save()
@@ -629,7 +631,7 @@ def _inventory_date_pair(live, snapshot):
 
 LIVE_METRICS = ("onHandQuantity", "availableQuantity", "lockedQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity")
 SALES_METRICS = ("sales7dQuantity", "sales30dQuantity")
-DERIVED_METRICS = ("postReplenishmentQuantity", "turnoverDays", "availableDays", "availableWithTransitDays", "nativeTurnover30d", "stockoutAvailableDays30d")
+DERIVED_METRICS = ("postReplenishmentQuantity", "turnoverDays", "availableDays", "availableWithTransitDays", "nativeTurnover30d", "stockoutAvailableDays30d", "suggestedReplenishmentQuantity")
 MATRIX_METRICS = LIVE_METRICS + SALES_METRICS + DERIVED_METRICS
 MAX_MATRIX_COLUMNS = 200
 MAX_PRODUCT_DETAILS = 200
@@ -650,7 +652,7 @@ def _native_turnover(data):
     return (parsed, []) if math.isfinite(parsed) else (None, ["invalid_native_turnover"])
 
 
-def _warehouse_metrics(live, snapshot, date_qualifications, sales_window):
+def _warehouse_metrics(live, snapshot, date_qualifications, sales_window, replenishment_cycle_days=30):
     live_data = live.data if live else {}
     snapshot_data = snapshot.data if snapshot else {}
     metrics = {key: live_data.get(key) for key in LIVE_METRICS}
@@ -674,7 +676,20 @@ def _warehouse_metrics(live, snapshot, date_qualifications, sales_window):
     native, native_reasons = _native_turnover(snapshot_data)
     metrics["nativeTurnover30d"] = native
     reasons["nativeTurnover30d"] = _reasons(snapshot_reasons, native_reasons)
-    return {**metrics, "metricQualifications": reasons}
+    cycle = _integer(replenishment_cycle_days, "补货周期天数", 3650, minimum=1)
+    suggested_reasons = _reasons(*(reasons[key] for key in ("availableQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity", "sales30dQuantity")), date_qualifications)
+    if metrics["sales30dQuantity"] is not None and metrics["sales30dQuantity"] < 0:
+        suggested_reasons = _reasons(suggested_reasons, ["negative_sales30dQuantity"])
+    suggested = None
+    if not suggested_reasons:
+        # Integer numerator retains exact ceiling semantics even for large
+        # quantities or fractional daily demand; zero demand follows the same
+        # formula so a known negative net stock still produces a shortage.
+        shortage_numerator = metrics["sales30dQuantity"] * cycle - 30 * sum(metrics[key] for key in ("availableQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity"))
+        suggested = max(0, (shortage_numerator + 29) // 30)
+    metrics["suggestedReplenishmentQuantity"] = suggested
+    reasons["suggestedReplenishmentQuantity"] = suggested_reasons
+    return {**metrics, "metricQualifications": reasons, "replenishmentCycleDays": cycle, "replenishmentCycleDaysValues": [cycle]}
 
 
 def _monitor_warning(available_days_30d, threshold, enabled):
@@ -709,6 +724,16 @@ def _aggregate_metrics(rows, sales_window, *, scope_total=False):
         metrics[target] = round(metrics[numerator] / metrics[denominator] * window, 2) if not field_reasons else None
     metrics["nativeTurnover30d"] = None
     reasons["nativeTurnover30d"] = ["native_turnover_not_additive"]
+    # Each warehouse owns its shortage. An excess at a different warehouse is
+    # not transferable replenishment, so do not subtract across warehouses.
+    suggested_reasons = _reasons(*(row["metricQualifications"]["suggestedReplenishmentQuantity"] for row in rows))
+    if not rows:
+        suggested_reasons = ["empty_scope"]
+    metrics["suggestedReplenishmentQuantity"] = sum(row["suggestedReplenishmentQuantity"] for row in rows) if not suggested_reasons else None
+    cycles = sorted({row["replenishmentCycleDays"] for row in rows})
+    if len(cycles) > 1:
+        suggested_reasons = _reasons(suggested_reasons, ["mixed_replenishment_cycles"])
+    reasons["suggestedReplenishmentQuantity"] = suggested_reasons
     thresholds = {row["stockoutThresholdDays"] for row in rows}
     threshold = next(iter(thresholds)) if len(thresholds) == 1 else None
     enabled = bool(rows) and all(row["monitorEnabled"] for row in rows)
@@ -716,7 +741,7 @@ def _aggregate_metrics(rows, sales_window, *, scope_total=False):
     qualifications = _reasons(*(row["qualifications"] for row in rows), *(reasons[key] for key in MATRIX_METRICS))
     if len({row["realtimeDate"] for row in rows}) > 1 or len({row["snapshotDate"] for row in rows}) > 1:
         qualifications = _reasons(qualifications, ["period_mismatch"])
-    return {**metrics, "metricQualifications": reasons, "qualifications": qualifications, "warningState": warning, "stockoutThresholdDays": threshold, "realtimeDates": sorted({row["realtimeDate"] for row in rows if row["realtimeDate"]}), "snapshotDates": sorted({row["snapshotDate"] for row in rows if row["snapshotDate"]})}
+    return {**metrics, "metricQualifications": reasons, "qualifications": qualifications, "warningState": warning, "stockoutThresholdDays": threshold, "replenishmentCycleDays": cycles[0] if len(cycles) == 1 else None, "replenishmentCycleDaysValues": cycles, "realtimeDates": sorted({row["realtimeDate"] for row in rows if row["realtimeDate"]}), "snapshotDates": sorted({row["snapshotDate"] for row in rows if row["snapshotDate"]})}
 
 
 def _product_matrix(items, filters, sales_window):
@@ -789,7 +814,7 @@ def inventory_monitor(filters):
             qualifications.append("unconfirmed_product_mapping")
         data = live.data if live else {}
         snapshot_data = snap.data if snap else {}
-        metrics = _warehouse_metrics(live, snap, date_qualifications, sales_window)
+        metrics = _warehouse_metrics(live, snap, date_qualifications, sales_window, department.replenishment_cycle_days)
         if any(metrics[key] is None for key in LIVE_METRICS + SALES_METRICS):
             qualifications.append("missing_quantity_components")
         if metrics["sales30dQuantity"] is not None and metrics["sales30dQuantity"] <= 0:

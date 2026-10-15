@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import ProductMatrix, { cwarehouseMetricFields, cwarehouseQualificationLabel, decodeCwarehouseProductMonitor, type CwarehouseMetricSet, type CwarehouseProductMonitor } from "../app/jd-logistics-product-matrix";
+import ProductMatrix, { compactProductTitle, cwarehouseMetricFields, cwarehouseQualificationLabel, decodeCwarehouseProductMonitor, type CwarehouseMetricSet, type CwarehouseProductMonitor } from "../app/jd-logistics-product-matrix";
 
 function metrics(overrides: Partial<CwarehouseMetricSet> = {}): CwarehouseMetricSet {
   return { ...Object.fromEntries(cwarehouseMetricFields.map(key => [key, null])), metricQualifications: {}, qualifications: [], warningState: "insufficient_evidence", ...overrides } as CwarehouseMetricSet;
@@ -51,4 +51,32 @@ test("backend metric reason codes have Chinese explanations", () => {
   assert.equal(cwarehouseQualificationLabel("native_turnover_not_additive"), "京东原生周转不跨仓平均");
   assert.equal(cwarehouseQualificationLabel("period_mismatch"), "成员来源日期不一致，天数不可合并计算");
   assert.equal(cwarehouseQualificationLabel("missing_stockoutAvailableDays30d"), "缺少30日可用库存可售天数");
+});
+
+test("compact identity preserves full source title and places complete-scope total at the right", () => {
+  const data = fixture();
+  const full = "合成品牌😀 商用研磨机粉碎机超长商品标题及完整型号不会被覆盖";
+  data.items[0].goodsName = full;
+  const before = JSON.stringify(data);
+  const html = render(data);
+  assert.equal(Array.from(compactProductTitle(full)).length, 25);
+  assert.ok(compactProductTitle(full).endsWith("…"));
+  assert.ok(html.includes(`title="${full}"`));
+  const header = html.slice(html.indexOf("<thead>"), html.indexOf("</thead>"));
+  assert.ok(header.indexOf("当前范围合计") > header.indexOf("无省市仓乙"));
+  assert.equal(JSON.stringify(data), before);
+});
+
+test("compact detail table displays backend suggestion and full-scope summary without deriving a recommendation", () => {
+  const data = fixture();
+  data.items[0].details[0].suggestedReplenishmentQuantity = 3;
+  data.items[0].details[0].replenishmentCycleDays = 30;
+  data.items[0].summary.suggestedReplenishmentQuantity = 41;
+  data.items[0].summary.replenishmentCycleDays = 30;
+  const html = render(data, true);
+  assert.match(html, /城市 \/ 仓/); assert.match(html, /建议补货/);
+  assert.match(html, /jd-cwarehouse-suggestion[^>]*><span[^>]*>3<\/span>/);
+  assert.match(html, /jd-cwarehouse-detail-total[\s\S]*?jd-cwarehouse-suggestion[^>]*><span[^>]*>41<\/span>/);
+  assert.match(html, /数据日期与计算依据/);
+  assert.doesNotMatch(html, /全国/);
 });

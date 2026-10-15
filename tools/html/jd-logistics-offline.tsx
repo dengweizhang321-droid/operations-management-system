@@ -11,6 +11,7 @@ type Snapshot = {
   options: JdLogisticsOptions; lists: Record<string, JdLogisticsList>; matrices: Record<string, CwarehouseProductMonitor>; catalog: { code: string; name: string }[];
   provenance?: { mode: "local-files"; departmentId: string; notes: string[]; sources: { kind: string; fileName: string; rows: number; startDate: string; endDateExclusive: string; collectedAt: string }[] };
   aggregateValues?: Aggregate[]; searchScopes?: Record<string, Record<string, number>>; transferScopes?: Record<string, JdLogisticsList>;
+  replenishmentPreviews?: Record<string, Record<string, { quantity: number | null; days: number | null; cycles: number[]; reasons: string[] }>>;
 };
 
 async function loadSnapshot(): Promise<Snapshot> {
@@ -70,7 +71,26 @@ function start(data: Snapshot) {
       }
       value = list;
     }
-    return value ? Response.json({ success: true, data: structuredClone(value) }) : Response.json({ success: false, error: "该范围没有离线文件快照" }, { status: 400 });
+    if (!value) return Response.json({ success: false, error: "该范围没有离线文件快照" }, { status: 400 });
+    const projected = structuredClone(value);
+    if (real && operation === "inventory_monitor" && data.replenishmentPreviews) {
+      const cycle = url.searchParams.get("replenishmentCycleDays") ?? "30", preview = data.replenishmentPreviews[cycle];
+      if (!preview) return Response.json({ success: false, error: "该周期没有离线试算结果，请选择列表中的周期。" }, { status: 400 });
+      const apply = (object: unknown) => {
+        if (!object || typeof object !== "object") return;
+        if (Array.isArray(object)) { object.forEach(apply); return; }
+        const row = object as Record<string, unknown>;
+        if (typeof row.replenishmentPreviewKey === "string") {
+          const selected = preview[row.replenishmentPreviewKey];
+          if (!selected) throw new Error("补货试算范围缺失");
+          row.suggestedReplenishmentQuantity = selected.quantity; row.replenishmentCycleDays = selected.days; row.replenishmentCycleDaysValues = selected.cycles;
+          (row.metricQualifications as Record<string, string[]>).suggestedReplenishmentQuantity = selected.reasons;
+        }
+        Object.values(row).forEach(apply);
+      };
+      apply(projected);
+    }
+    return Response.json({ success: true, data: projected });
   };
   const initial = new URL(location.href);
   if (!initial.searchParams.has("module")) { initial.searchParams.set("module", "inventory"); initial.searchParams.set("view", "inbound"); }
@@ -79,12 +99,14 @@ function start(data: Snapshot) {
   // Local display identity only. It is never sent to an operating service.
   const user = { id: "offline-viewer", email: "offline@example.invalid", displayName: "文件快照", role: real ? "viewer" : "admin", scope: null } as unknown as CurrentUser;
   type Target = { module: "inventory" } | { module: "import"; view: "files" | "history" } | { module: "workflow" };
+  const readCycle = () => { const value = new URL(location.href).searchParams.get("jdReplenishmentDays") ?? "30"; return data.replenishmentPreviews?.[value] ? Number(value) : 30; };
 
   function App() {
     const [route, setRoute] = useState(() => readJdLogisticsLocation(location.href));
     const [workflow, setWorkflow] = useState(new URL(location.href).searchParams.get("module") === "n8n_workflows");
     const [notice, setNotice] = useState("");
-    const restore = useCallback(() => { setRoute(readJdLogisticsLocation(location.href)); setWorkflow(new URL(location.href).searchParams.get("module") === "n8n_workflows"); }, []);
+    const [cycleDays, setCycleDays] = useState(readCycle);
+    const restore = useCallback(() => { setRoute(readJdLogisticsLocation(location.href)); setWorkflow(new URL(location.href).searchParams.get("module") === "n8n_workflows"); setCycleDays(readCycle()); }, []);
     const navigate = useCallback((target: Target) => {
       const url = new URL(location.href), p = url.searchParams;
       const before = readJdLogisticsLocation(url.href), wasWorkflow = p.get("module") === "n8n_workflows";
@@ -100,6 +122,7 @@ function start(data: Snapshot) {
     }, [restore]);
     useEffect(() => {
       const handleLink = (event: MouseEvent) => {
+        if (event.target instanceof Element && event.target.closest('[aria-label="京东入仓监控工作区"] button')) { queueMicrotask(restore); return; }
         const anchor = event.target instanceof Element ? event.target.closest("a") : null; if (!anchor) return;
         event.preventDefault(); event.stopPropagation();
         const target = readJdLogisticsLocation(new URL(anchor.getAttribute("href") ?? "/", location.href).href);
@@ -116,9 +139,10 @@ function start(data: Snapshot) {
         {!workflow && (imported ? <nav className="subnav outlet-subnav offline-parent" aria-label="数据导入子版块"><button className={route.importView === "files" ? "active" : ""} onClick={() => navigate({ module: "import", view: "files" })}>文件导入</button><button className={route.importView === "history" ? "active" : ""} onClick={() => navigate({ module: "import", view: "history" })}>运行记录</button></nav> : <nav className="subnav outlet-subnav offline-parent" aria-label="库存管理子版块">{["库存总览", "库龄分析", "备货计划", "滞销清理", "京东入仓监控", "广东入仓监控"].map(label => <span key={label} className={label === "京东入仓监控" ? "active" : ""}>{label}</span>)}</nav>)}
         <div className="offline-note">{real ? <>真实报表文件快照：实时库存 2026-10-15，销售出库快照截至 2026-10-14。未读取正式ERP对照与导入记录；缺货阈值未配置，当前未判定缺货风险。<details><summary>数据来源与范围</summary>{data.provenance!.sources.map(source => <p key={source.kind}>{source.fileName} · {source.rows} 行</p>)}{data.provenance!.notes.map(note => <p key={note}>{note}</p>)}</details></> : "样式、脚本与合成样例均已内嵌，可直接打开。此HTML不连接后台，不执行真实导入、保存、采集或推送。"}</div>
         {notice && <div className="inventory-feedback" role="status">{notice}</div>}
+        {real && !imported && !workflow && route.jdTab === "monitor" && data.replenishmentPreviews && <div className="offline-note offline-cycle-control"><label>补货周期（离线试算） <select aria-label="补货周期离线试算" value={cycleDays} onChange={event => { const value = Number(event.target.value); setCycleDays(value); const url = new URL(location.href); url.searchParams.set("jdReplenishmentDays", String(value)); history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`); }}>{Object.keys(data.replenishmentPreviews).map(value => <option key={value} value={value}>{value}天</option>)}</select></label><span>只在本文件试算，不修改系统设置。正式页面可设置1至3650天。</span></div>}
         {workflow ? <section className="panel offline-workflow"><h2>京东物流四源工作流说明</h2><p>此处仅展示流程，不表示已经执行。</p><div className="offline-steps">{[["A", "冻结来源与日期", "核对事业部、来源能力、采集范围及执行所有者"], ["B", "下载、校验、导入", "库存流水 / 店铺商品 / 实时库存 / 分仓快照"], ["C", "精确批次回查", "核对原文件、内容摘要、行数及当前有效批次"], ["D", "缺货提醒", "按固定30日可用库存可售天数判断，结果未知不重发"]].map(([n, title, note]) => <article key={n}><strong>{n}</strong><h3>{title}</h3><p>{note}</p></article>)}</div></section>
           : imported ? <><JdLogisticsView key={`import:${route.importView}`} currentUser={user} fixedTab="batches" fileSnapshot={real} presentation={route.importView === "history" ? "records" : "import"} />{real && <p className="offline-note">此文件没有查询正式系统导入批次；源文件行数不代表已导入成功。</p>}</>
-            : <InboundMonitor key="inbound" currentUser={user} fileSnapshot={real} />}
+            : <InboundMonitor key="inbound" currentUser={user} fileSnapshot={real} fileCycleDays={real ? cycleDays : undefined} />}
         <footer className="offline-footer">TERUISI 京东入仓监控 · 2026-10-15 · 缺货依据：可用库存 ÷ 近30日销售出库件数 × 30</footer>
       </main>
     </div>;

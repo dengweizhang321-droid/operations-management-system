@@ -16,12 +16,14 @@ class JdLogisticsDepartment(models.Model):
     monitor_enabled = models.BooleanField(default=False)
     push_enabled = models.BooleanField(default=False)
     stockout_threshold_days = models.PositiveIntegerField(null=True, blank=True)
+    replenishment_cycle_days = models.PositiveIntegerField(default=30)
     revision = models.PositiveBigIntegerField(default=1)
     updated_by = models.CharField(max_length=320)
     updated_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         db_table = "inventory_jd_logistics_departments"
+        constraints = [models.CheckConstraint(condition=models.Q(replenishment_cycle_days__gte=1, replenishment_cycle_days__lte=3650), name="inv_jdl_replen_cycle_ck")]
 
 
 class JdLogisticsScope(models.Model):

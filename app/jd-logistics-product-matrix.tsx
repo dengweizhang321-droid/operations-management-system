@@ -3,11 +3,11 @@
 import { Fragment } from "react";
 import type { JdLogisticsItem } from "@/lib/inventory/jd-logistics-contract";
 
-export const cwarehouseMetricFields = ["onHandQuantity", "availableQuantity", "lockedQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity", "postReplenishmentQuantity", "sales7dQuantity", "sales30dQuantity", "turnoverDays", "stockoutAvailableDays30d", "availableDays", "availableWithTransitDays", "nativeTurnover30d"] as const;
+export const cwarehouseMetricFields = ["onHandQuantity", "availableQuantity", "lockedQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity", "postReplenishmentQuantity", "sales7dQuantity", "sales30dQuantity", "turnoverDays", "stockoutAvailableDays30d", "availableDays", "availableWithTransitDays", "nativeTurnover30d", "suggestedReplenishmentQuantity"] as const;
 export type CwarehouseMetricField = typeof cwarehouseMetricFields[number];
 export type CwarehouseMetricSet = Record<CwarehouseMetricField, number | null> & {
   metricQualifications: Record<string, string[]>; qualifications: string[]; warningState: string;
-  stockoutThresholdDays?: number | null; qualified?: boolean;
+  stockoutThresholdDays?: number | null; replenishmentCycleDays?: number | null; qualified?: boolean;
 };
 export type CwarehouseMatrixColumn = { key: string; label: string; kind: "source_province_city" | "warehouse"; sourceProvinceCity?: string | null; warehouseKeys: string[] };
 export type CwarehouseProduct = {
@@ -28,8 +28,9 @@ export const cwarehouseQualificationLabels: Record<string, string> = {
   realtime_collection_date_mismatch: "实时业务日与采集日不符", snapshot_source_as_of_mismatch: "快照业务日与来源截至日不符", snapshot_business_date_in_future: "快照业务日超出采集日",
   missing_metric_component: "当前指标依据不齐", nonpositive_sales: "对应窗口销量不大于零", native_turnover_not_aggregatable: "原生周转不跨仓平均",
   period_mismatch: "成员来源日期不一致，天数不可合并计算", native_turnover_not_additive: "京东原生周转不跨仓平均", native_turnover_not_provided: "来源未提供京东原生周转", invalid_native_turnover: "京东原生周转不是有效数值",
+  negative_sales30dQuantity: "30日销售出库为负，无法计算建议补货", mixed_replenishment_cycles: "成员补货周期不同，合计采用逐仓缺口之和",
 };
-const metricLabels: Record<string, string> = { onHandQuantity: "现有库存", availableQuantity: "可用库存", lockedQuantity: "锁定库存", purchaseInTransitQuantity: "采购在途", transferInTransitQuantity: "调拨在途", postReplenishmentQuantity: "补货后库存", sales7dQuantity: "7日销量", sales30dQuantity: "30日销量", turnoverDays: "系统30日周转", stockoutAvailableDays30d: "30日可用库存可售天数", availableDays: "可售天数", availableWithTransitDays: "含在途可售天数", nativeTurnover30d: "京东原生30天周转" };
+const metricLabels: Record<string, string> = { onHandQuantity: "现有库存", availableQuantity: "可用库存", lockedQuantity: "锁定库存", purchaseInTransitQuantity: "采购在途", transferInTransitQuantity: "调拨在途", postReplenishmentQuantity: "补货后库存", sales7dQuantity: "7日销量", sales30dQuantity: "30日销量", turnoverDays: "系统30日周转", stockoutAvailableDays30d: "30日可用库存可售天数", availableDays: "可售天数", availableWithTransitDays: "含在途可售天数", nativeTurnover30d: "京东原生30天周转", suggestedReplenishmentQuantity: "建议补货" };
 export function cwarehouseQualificationLabel(value: string) {
   if (cwarehouseQualificationLabels[value]) return cwarehouseQualificationLabels[value];
   if (value.startsWith("missing_") && metricLabels[value.slice(8)]) return `缺少${metricLabels[value.slice(8)]}`;
@@ -86,34 +87,49 @@ function Metric({ metrics, field, suffix = "" }: { metrics: CwarehouseMetricSet;
   const reasons = metrics.metricQualifications[field] ?? [];
   return <span title={reasons.map(cwarehouseQualificationLabel).join("；")}>{displayCwarehouseValue(metrics[field])}{metrics[field] === null ? "" : suffix}</span>;
 }
-function StockCell({ metrics, window }: { metrics: CwarehouseMetricSet; window: 7 | 30 }) {
-  return <div className="jd-cwarehouse-stock-cell"><strong><Metric metrics={metrics} field="availableQuantity" /><small> 可用</small></strong>
-    <span>采 <Metric metrics={metrics} field="purchaseInTransitQuantity" /> · 调 <Metric metrics={metrics} field="transferInTransitQuantity" /></span>
-    <small>{window}日销 <Metric metrics={metrics} field={window === 7 ? "sales7dQuantity" : "sales30dQuantity"} /> · 可售 <Metric metrics={metrics} field="availableDays" suffix="天" /></small>
-    <Health value={metrics.warningState} stockoutDays={metrics.stockoutAvailableDays30d} /></div>;
+export function compactProductTitle(value: string, limit = 24) {
+  const title = value.replace(/\s+/g, " ").trim();
+  const characters = Array.from(title);
+  return characters.length > limit ? `${characters.slice(0, limit).join("")}…` : title;
 }
 
-export function CwarehouseDetails({ rows, complete, count, productName }: { rows: CwarehouseProduct["details"]; complete: boolean; count: number; productName: string }) {
-  const labels = ["来源省市 / 仓库", "实时 / 快照日", "现有", "可用", "锁定", "采购在途", "调拨在途", "补货后", "7日销量", "30日销量", "系统30日周转", "缺货依据（30日可售）", "可售天数", "含在途可售", "京东原生30天周转", "健康与依据"];
-  const metrics: CwarehouseMetricField[] = ["onHandQuantity", "availableQuantity", "lockedQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity", "postReplenishmentQuantity", "sales7dQuantity", "sales30dQuantity", "turnoverDays", "stockoutAvailableDays30d", "availableDays", "availableWithTransitDays", "nativeTurnover30d"];
-  return <section className="jd-cwarehouse-expanded" aria-label={`${productName}的分仓明细`}><div className="jd-cwarehouse-detail-heading"><strong>分仓来源明细</strong><span>显示 {rows.length} / {count} 个仓库身份 · 系统天数与京东原生周转分列</span></div>
+function compactWarehouseTitle(value: unknown, provinceCity = false) {
+  const full = String(value ?? "");
+  if (provinceCity) return full.replace(/[市区]$/, "");
+  const city = full.match(/^(.{1,12}?)(?:常温|冷链|冷冻|C平台|平台仓)/)?.[1];
+  return city ? `${city}${full.match(/\d+号库/) ? `·${full.match(/\d+号库/)![0]}` : ""}` : compactProductTitle(full, 12);
+}
+
+function StockCell({ metrics }: { metrics: CwarehouseMetricSet }) {
+  const title = `可用 ${displayCwarehouseValue(metrics.availableQuantity)}；采购在途 ${displayCwarehouseValue(metrics.purchaseInTransitQuantity)}；调拨在途 ${displayCwarehouseValue(metrics.transferInTransitQuantity)}；${cwarehouseWarningLabels[metrics.warningState] ?? metrics.warningState}`;
+  const visibleTransit = (["purchaseInTransitQuantity", "transferInTransitQuantity"] as const).filter(field => metrics[field] !== null && metrics[field] !== 0);
+  const unknownTransit = metrics.purchaseInTransitQuantity === null || metrics.transferInTransitQuantity === null;
+  return <div className={`jd-cwarehouse-stock-cell${metrics.availableQuantity === 0 ? " zero-available" : ""}`} title={title}>
+    <strong><Metric metrics={metrics} field="availableQuantity" /></strong>{visibleTransit.map(field => <sup key={field}>{metrics[field]! >= 0 ? "+" : ""}<Metric metrics={metrics} field={field} /></sup>)}{unknownTransit && <sup>+—</sup>}
+  </div>;
+}
+
+export function CwarehouseDetails({ rows, complete, count, productName, summary }: { rows: CwarehouseProduct["details"]; complete: boolean; count: number; productName: string; summary?: CwarehouseMetricSet }) {
+  const labels = ["城市 / 仓", "现有", "可用", "锁定", "采购在途", "调拨在途", "补货后", "7日销量", "30日销量", "可售天数", "含在途可售", "京东30天周转", "健康", "建议补货"];
+  const metrics: CwarehouseMetricField[] = ["onHandQuantity", "availableQuantity", "lockedQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity", "postReplenishmentQuantity", "sales7dQuantity", "sales30dQuantity", "availableDays", "availableWithTransitDays", "nativeTurnover30d"];
+  const metricCells = (row: CwarehouseMetricSet) => <>{metrics.map(field => <td key={field}><Metric metrics={row} field={field} suffix={field === "availableDays" || field === "availableWithTransitDays" ? "天" : ""} /></td>)}<td><Health value={row.warningState} stockoutDays={row.stockoutAvailableDays30d} /></td><td className="jd-cwarehouse-suggestion" title={`补货周期 ${displayCwarehouseValue(row.replenishmentCycleDays)} 天；按近30日销售出库与可用、采购和调拨在途计算，逐仓缺口向上取整。`}><Metric metrics={row} field="suggestedReplenishmentQuantity" /></td></>;
+  return <section className="jd-cwarehouse-expanded" aria-label={`${productName}的分仓明细`}><div className="jd-cwarehouse-detail-heading"><strong>分仓来源明细</strong><span>显示 {rows.length} / {count} 个仓库身份 · 日期与天数口径见下方依据</span></div>
     {!complete && <p className="inventory-feedback inventory-feedback-warning" role="alert">当前商品分仓明细未完整返回，不能据此判断完整仓库分布。</p>}
-    <div className="data-table-wrap"><table className="data-table jd-cwarehouse-detail-table" data-column-filter-scope="none"><thead><tr>{labels.map(label => <th key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={String(row.id ?? `${row.warehouseKey}:${index}`)}>
-      <td><strong>{displayCwarehouseValue(row.sourceProvinceCity)}</strong><small className="cell-note">{displayCwarehouseValue(row.warehouseName)}{row.warehouseCode ? ` · ${row.warehouseCode}` : "（来源仓名）"}</small></td>
-      <td>{displayCwarehouseValue(row.realtimeDate)} / {displayCwarehouseValue(row.snapshotDate)}<small className="cell-note" title={displayCwarehouseValue(row.realtimeCollectedAt)}>采集 {formatCwarehouseCollectionTime(row.realtimeCollectedAt)}（上海）</small><small className="cell-note">销量截至 {displayCwarehouseValue(row.salesAsOfDate)}{row.datePairing === "previous_day" ? "（T-1）" : ""}</small></td>
-      {metrics.map(field => <td key={field}><Metric metrics={row} field={field} /></td>)}<td><Health value={row.warningState} stockoutDays={row.stockoutAvailableDays30d} /><small className="cell-note">{row.qualifications.map(cwarehouseQualificationLabel).join("；") || "各指标按服务端资格显示"}</small></td>
-    </tr>)}</tbody></table></div></section>;
+    <div className="data-table-wrap"><table className="data-table jd-cwarehouse-detail-table" data-column-filter-scope="none"><thead><tr>{labels.map(label => <th key={label} title={label === "京东30天周转" ? "京东原生30天周转，保留来源单仓原值，不跨仓求和或平均" : undefined}>{label}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={String(row.id ?? `${row.warehouseKey}:${index}`)}>
+      <td title={`${displayCwarehouseValue(row.sourceProvinceCity)} · ${displayCwarehouseValue(row.warehouseName)} · ${displayCwarehouseValue(row.warehouseCode)}`}>{compactWarehouseTitle(row.warehouseName) || displayCwarehouseValue(row.sourceProvinceCity)}</td>{metricCells(row)}
+    </tr>)}{summary && <tr className="jd-cwarehouse-detail-total"><td>当前范围合计</td>{metricCells(summary)}</tr>}</tbody></table></div>
+    <details className="jd-cwarehouse-source-notes"><summary>数据日期与计算依据</summary>{rows.map((row, index) => <p key={String(row.id ?? index)}><strong>{displayCwarehouseValue(row.warehouseName)}</strong> · 实时 {displayCwarehouseValue(row.realtimeDate)} / 快照 {displayCwarehouseValue(row.snapshotDate)} · <span title={displayCwarehouseValue(row.realtimeCollectedAt)}>采集 {formatCwarehouseCollectionTime(row.realtimeCollectedAt)}（上海）</span> · 销量截至 {displayCwarehouseValue(row.salesAsOfDate)}{row.datePairing === "previous_day" ? "（T-1）" : ""} · 系统30日周转 <Metric metrics={row} field="turnoverDays" />天 · 缺货依据（30日可售） <Metric metrics={row} field="stockoutAvailableDays30d" />天 · {row.qualifications.map(cwarehouseQualificationLabel).join("；") || "各指标按来源资格显示"}</p>)}</details></section>;
 }
 
 export default function JdLogisticsProductMatrix({ data, expandedIds, onToggle }: { data: CwarehouseProductMonitor; expandedIds: ReadonlySet<string>; onToggle: (id: string) => void }) {
-  return <div className="data-table-wrap jd-cwarehouse-matrix-wrap"><table className="data-table jd-cwarehouse-product-table" data-column-filter-scope="none"><thead><tr><th className="jd-cwarehouse-product-column">单品 / 京东 SKU</th><th>当前范围总计</th>{data.columns.map(column => <th key={column.key} title={column.kind === "source_province_city" ? "按来源省市原文归集" : "未提供省市，按明确仓库身份单列"}>{column.label}<small className="cell-note">{column.kind === "source_province_city" ? "来源省市" : "来源仓库"}</small></th>)}</tr></thead>
+  return <div className="data-table-wrap jd-cwarehouse-matrix-wrap"><table className="data-table jd-cwarehouse-product-table" data-column-filter-scope="none"><thead><tr><th className="jd-cwarehouse-product-column">商品</th>{data.columns.map(column => <th key={column.key} title={`${column.label} · ${column.kind === "source_province_city" ? "按来源省市原文归集" : "未提供省市，按明确仓库身份单列"}`}>{compactWarehouseTitle(column.label, column.kind === "source_province_city")}<small className="cell-note">{column.warehouseKeys.length} 个源仓</small></th>)}<th className="jd-cwarehouse-total-cell">当前范围合计</th></tr></thead>
     <tbody>{data.items.map((product, index) => { const expanded = expandedIds.has(product.id); const detailsId = `jd-cwarehouse-product-details-${index}`;
       return <Fragment key={product.id}><tr className={expanded ? "jd-cwarehouse-product-row expanded" : "jd-cwarehouse-product-row"}>
         <td className="jd-cwarehouse-product-column"><div className="jd-cwarehouse-product-identity"><button type="button" className="jd-cwarehouse-expand" aria-expanded={expanded} aria-controls={detailsId} aria-label={`${expanded ? "收起" : "展开"}${product.goodsName || product.goodsCode}的分仓明细`} onClick={() => onToggle(product.id)}>{expanded ? "−" : "+"}</button>
           {/* eslint-disable-next-line @next/next/no-img-element -- Source image URLs are dynamic; render the supplied source directly, and use a placeholder when absent. */}
-          {product.imageUrl && /^https?:\/\//.test(product.imageUrl) ? <img className="product-thumb" src={product.imageUrl} alt="" loading="lazy" /> : <span className="product-thumb" aria-hidden="true">货</span>}<div><strong>{product.goodsName || product.goodsCode}</strong><small>{product.goodsCode}</small><small>ERP {displayCwarehouseValue(product.erpGoodsCode)}</small><small>{product.detailCount} 个仓库身份</small></div></div></td>
-        <td className="jd-cwarehouse-total-cell"><StockCell metrics={product.summary} window={data.salesWindow} /></td>
-        {data.columns.map(column => { const cell = product.cells.find(value => value.columnKey === column.key); return <td key={column.key} className={cell?.warningState === "stockout_risk" ? "jd-cwarehouse-risk-cell" : undefined}>{cell ? <StockCell metrics={cell} window={data.salesWindow} /> : <span className="jd-cwarehouse-no-source">—<small>暂无该范围来源</small></span>}</td>; })}
-      </tr>{expanded && <tr id={detailsId} className="jd-cwarehouse-details-row"><td colSpan={data.columns.length + 2}><CwarehouseDetails rows={product.details} complete={product.detailsComplete} count={product.detailCount} productName={product.goodsName || product.goodsCode} /></td></tr>}</Fragment>;
+          {product.imageUrl && /^https?:\/\//.test(product.imageUrl) ? <img className="product-thumb" src={product.imageUrl} alt="" loading="lazy" /> : <span className="product-thumb" aria-hidden="true">货</span>}<div><strong className="jd-cwarehouse-short-title" title={product.goodsName || product.goodsCode}>{compactProductTitle(product.goodsName || product.goodsCode)}</strong><small>京东 SKU：{product.goodsCode}</small><small title={product.erpGoodsName}>{product.erpGoodsCode ? `ERP：${product.erpGoodsCode}` : "ERP待对照"} · {product.detailCount} 个源仓</small></div></div></td>
+        {data.columns.map(column => { const cell = product.cells.find(value => value.columnKey === column.key); return <td key={column.key} className={cell?.warningState === "stockout_risk" ? "jd-cwarehouse-risk-cell" : undefined}>{cell ? <StockCell metrics={cell} /> : <span className="jd-cwarehouse-no-source" title="暂无该范围来源">—</span>}</td>; })}
+        <td className="jd-cwarehouse-total-cell"><StockCell metrics={product.summary} /></td>
+      </tr>{expanded && <tr id={detailsId} className="jd-cwarehouse-details-row"><td colSpan={data.columns.length + 2}><CwarehouseDetails rows={product.details} complete={product.detailsComplete} count={product.detailCount} productName={product.goodsName || product.goodsCode} summary={product.summary} /></td></tr>}</Fragment>;
     })}{!data.items.length && <tr><td colSpan={data.columns.length + 2}><div className="table-state">当前范围暂无已导入单品。</div></td></tr>}</tbody></table></div>;
 }

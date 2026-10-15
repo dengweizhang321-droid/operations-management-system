@@ -9,6 +9,7 @@ export type JdLogisticsDepartment = {
   capabilities: Record<JdLogisticsSource, boolean>; logisticsEnabled: boolean; monitorEnabled: boolean;
   pushEnabled: boolean; revision: number;
   stockoutThresholdDays?: number | null;
+  replenishmentCycleDays?: number;
 };
 export type JdLogisticsOptions = { departments: JdLogisticsDepartment[]; warehouses: Array<{ code: string; name: string; key?: string; identityKind?: "code" | "name" }>; scopeRevisions: Array<{ departmentId: string; sourceKind: JdLogisticsSource; revision: number }>; notification?: { implemented: boolean; enabled: boolean; configured: boolean; groupName: string; robotName: string; configDigest: string; reason: string } };
 export type JdLogisticsRow = Record<string, string | number | boolean | null | Record<string, string | null>>;

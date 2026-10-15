@@ -95,6 +95,13 @@ for code in codes:
 selections = set(terms.values()) | {0, (1 << len(codes)) - 1}
 del terms
 aggregate_ids = {}
+preview_members = {}
+def register_preview(metric, members):
+    ids = sorted(row['id'] for row in members)
+    key = service._hash(ids)
+    preview_members[key] = ids
+    metric['replenishmentPreviewKey'] = key
+
 inventory_warehouses = sorted({row['warehouseKey'] for row in full['items']})
 for window in (7, 30):
     full = service.inventory_monitor({**filters, 'layout':'warehouse', 'salesWindow':window})
@@ -103,16 +110,37 @@ for window in (7, 30):
         available_mask = sum(1 << index[code] for code in {row['goodsCode'] for row in rows})
         scope = json.dumps([warehouse, window], ensure_ascii=False, separators=(',', ':'))
         result['matrices'][scope] = {**full, **service._product_matrix(rows, filters, window)}
+        matrix = result['matrices'][scope]
+        register_preview(matrix['totals'], rows)
+        for product in matrix['items']:
+            assert product['detailsComplete'], 'Cycle preview requires complete product membership'
+            register_preview(product['summary'], product['details'])
+            for cell in product['cells']:
+                register_preview(cell, [row for row in product['details'] if row['columnKey'] == cell['columnKey']])
+            for detail in product['details']:
+                register_preview(detail, [detail])
         result['searchScopes'][scope] = {}
         for mask in {selection & available_mask for selection in selections}:
             chosen = [row for row in rows if mask & (1 << index[row['goodsCode']])]
             aggregate = {'totals':service._aggregate_metrics(chosen, window, scope_total=True), 'summary':{'monitoredCount':len(chosen), 'qualifiedCount':sum(row['qualified'] for row in chosen), 'stockoutRiskCount':sum(row['warningState'] == 'stockout_risk' for row in chosen)}}
+            register_preview(aggregate['totals'], chosen)
             digest = service._hash(aggregate)
             if digest not in aggregate_ids:
                 aggregate_ids[digest] = len(result['aggregateValues'])
                 result['aggregateValues'].append(aggregate)
             result['searchScopes'][scope][format(mask, 'x')] = aggregate_ids[digest]
     print(json.dumps({'window':window, 'warehouseScopes':len(inventory_warehouses)+1, 'aggregateValues':len(result['aggregateValues'])}), flush=True)
+result['replenishmentPreviews'] = {}
+for cycle in (7, 14, 30, 45, 60, 90):
+    models.JdLogisticsDepartment.objects.filter(id=identifier).update(replenishment_cycle_days=cycle)
+    cycle_rows = {row['id']:row for row in service.inventory_monitor({**filters, 'layout':'warehouse', 'salesWindow':30})['items']}
+    values = {}
+    for key, ids in preview_members.items():
+        aggregate = service._aggregate_metrics([cycle_rows[row_id] for row_id in ids], 30)
+        values[key] = {'quantity':aggregate['suggestedReplenishmentQuantity'], 'days':aggregate['replenishmentCycleDays'], 'cycles':aggregate['replenishmentCycleDaysValues'], 'reasons':aggregate['metricQualifications']['suggestedReplenishmentQuantity']}
+    result['replenishmentPreviews'][str(cycle)] = values
+models.JdLogisticsDepartment.objects.filter(id=identifier).update(replenishment_cycle_days=30)
+result['provenance']['notes'].append('建议补货默认30天，当前按近30日销量与可用库存、采购和调拨在途扣减试算；HTML只切换后台预计算结果，不修改系统配置。')
 output = Path(args.output)
 output.parent.mkdir(parents=True, exist_ok=True)
 output.write_text(json.dumps(result, ensure_ascii=False, separators=(',', ':')), encoding='utf8')
