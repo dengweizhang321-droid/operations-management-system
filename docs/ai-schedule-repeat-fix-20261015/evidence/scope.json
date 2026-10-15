@@ -1,0 +1,9 @@
+{
+  "authorization": "User authorized fix, merge main, build and deploy; no new Backup or Restore; no paid provider probe or real test delivery.",
+  "currentProductionSource": "1e23af06d38d39eb29b0db3950918e0e5a18b916",
+  "developmentBase": "3904325ed0f4b356fd07e9bcdabe95202f32f6b1",
+  "schemaChanges": false,
+  "queueIsolation": false,
+  "standingModelParametersPreserved": true,
+  "userSteering": "Saved task prompt controls output style; system owns source data and validation."
+}

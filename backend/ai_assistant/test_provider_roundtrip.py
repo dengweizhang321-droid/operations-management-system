@@ -347,3 +347,16 @@ class ScheduledAnalysisSeamTests(TransactionTestCase):
         self.assertIn('"reason":"message_shape"', failure.arguments_json)
         self.assertIn(PROVIDER_ADAPTER_VERSION, failure.arguments_json)
         self.assertFalse(m.AiConversationMessages.objects.filter(role="assistant").exists())
+
+    def test_network_phase_is_audited_without_replaying_unknown_dispatch(self):
+        for index, (stage, started) in enumerate((("dns_recovery", False), ("response_body", True))):
+            error = transport.ProviderTransportError(stage=stage, reason="timeout", request_started=started)
+            request_id = "network-phase-" + str(index)
+            with self.subTest(stage=stage), self.assertRaises(transport.ProviderTransportError):
+                self.invoke(provider_error=error, client_id=request_id)
+            self.http.assert_called_once()
+            failure = m.AiToolAuditLogs.objects.get(request_id=request_id, status="failed", tool_name="ai_chat_provider")
+            self.assertEqual(failure.error_code, "provider_dns_timeout" if not started else "provider_timeout")
+            diagnostics = json.loads(failure.arguments_json)["responseDiagnostics"]
+            self.assertEqual(diagnostics, error.diagnostics)
+        self.assertFalse(m.AiConversationMessages.objects.filter(role="assistant").exists())

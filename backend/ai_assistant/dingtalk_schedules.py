@@ -287,6 +287,22 @@ def step(config_reader, sender, media_sender=None):
                     run.facts_json = canonical(facts)
                     run.save(update_fields=["facts_json"])
                 stage(run, "data", "succeeded")
+                if not schedule_monitor.alerts(facts):
+                    # Existing terminal denied state represents this explicit
+                    # no-op; never claim a message was sent or call the model.
+                    channel_guard()
+                    with mutation(principal):
+                        locked_task = m.AiDingTalkSchedule.objects.select_for_update().get(pk=row.id)
+                        locked_run = m.AiDingTalkScheduleRun.objects.select_for_update().get(pk=run.id)
+                        if not locked_task.enabled or locked_task.version != version or locked_run.status != "running":
+                            raise AiError("任务或执行槽已变化", "access_denied", 403)
+                        stage(run, "analysis", "not_required", "schedule_no_alerts")
+                        stage(run, "delivery", "not_required", "schedule_no_alerts")
+                        run.status, run.error_code, run.completed_at = "denied", "schedule_no_alerts", timezone.now()
+                        run.save(update_fields=["status", "error_code", "completed_at"])
+                        locked_task.last_run_at = run.scheduled_at
+                        locked_task.save(update_fields=["last_run_at"])
+                    return True
                 analysis_args["scheduled_analysis"] = {"facts": facts, "systemPrompt": schedule_monitor.SYSTEM_PROMPT}
             else:
                 stage(run, "data", "not_required", "data_within_open_analysis")

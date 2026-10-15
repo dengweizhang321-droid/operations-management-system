@@ -1,0 +1,3 @@
+# Preserve original synthetic test and review evidence bytes.
+evidence/* -text -diff
+REVIEW.md -text

@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from .configuration import endpoint, origin
 from .policy import AiError, passive
 from .secrets import decrypt
-from .transport import bounded_json, bounded_sse
+from .transport import bounded_json, bounded_sse, ProviderTransportError
 from .provider_stream import ProviderStream
 from .provider_contract import InvalidProviderResponse
 from .model_capabilities import options, provider_parameters, fit_context, MAX_PROVIDER_BYTES
@@ -80,7 +80,7 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
                 body = {**body, "stream_options": {"include_usage": True}}
             return bounded_sse(url, body, headers, timeout=timeout,
                                collector=ProviderStream(model.protocol, on_text))
-        except InvalidProviderResponse as error:
+        except (InvalidProviderResponse, ProviderTransportError) as error:
             error.diagnostics.update(protocol=model.protocol, responseMode=mode)
             raise
     if model.protocol == "anthropic":
