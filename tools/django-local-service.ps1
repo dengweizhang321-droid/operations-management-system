@@ -23,12 +23,18 @@ param(
   [string]$IntegrationEvidencePath = "",
   [string]$IntegrationEvidenceSha256 = "",
   [string]$IntegrationOperationId = "",
+  [string]$RecoveryProofPath = "",
+  [string]$RecoveryProofSha256 = "",
   [switch]$KeepPostgres,
   [switch]$Json,
   [switch]$Execute
 )
 
 $ErrorActionPreference = "Stop"
+if (($RecoveryProofPath -or $RecoveryProofSha256) -and
+    ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -cne "1" -or [string]::IsNullOrWhiteSpace($RecoveryProofPath) -or $RecoveryProofSha256 -cnotmatch "^[a-f0-9]{64}$")) {
+  throw "Recovery proof is restricted to the paired internal maintenance library request"
+}
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $ExecutionRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $BackendRoot = Join-Path $ExecutionRoot "backend"
@@ -4655,13 +4661,203 @@ function Set-AutomationDrainPhase([string]$Phase) {
   })
 }
 
+function Invoke-AbsentHelperRecoveryRead([string]$Executable,[string[]]$Arguments) {
+  $run = Invoke-DeadlineProcess -Executable $Executable -Arguments $Arguments -WorkingDirectory $ExecutionRoot -Deadline (Get-ProcessDeadline 30000) -Cleanup Direct
+  if ($run.ExitCode -ne 0) { throw 'Exact read-only recovery evidence process failed' }
+  return ConvertFrom-ExactJson $run.Stdout 'Absent-helper read-only evidence'
+}
+
+function Read-AbsentHelperRecoveryJson([string]$Path, [string]$Sha256) {
+  # The approved digest pins the original bytes; Python rejects duplicate keys,
+  # root arrays, links and oversized input before PS5 can enumerate JSON arrays.
+  $code = @'
+import hashlib,json,sys
+from pathlib import Path
+p=Path(sys.argv[1]);expected=sys.argv[2]
+if not p.is_absolute() or any(x.is_symlink() or getattr(x,'is_junction',lambda:False)() for x in (p,*p.parents)) or not p.is_file() or p.stat().st_nlink!=1 or p.stat().st_size>4194304:raise ValueError('Unsafe recovery evidence')
+raw=p.read_bytes()
+if hashlib.sha256(raw).hexdigest()!=expected:raise ValueError('Recovery evidence bytes changed')
+def unique(items):
+ r={}
+ for k,v in items:
+  if k in r:raise ValueError('Duplicate recovery evidence key')
+  r[k]=v
+ return r
+value=json.loads(raw.decode('utf-8-sig'),object_pairs_hook=unique)
+if type(value) is not dict:raise ValueError('Recovery evidence must be an object')
+print(json.dumps(value,ensure_ascii=True,separators=(',',':')))
+'@
+  if ($Sha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid recovery evidence hash' }
+  $launcher = ConvertTo-PythonBase64Launcher $code 'absent_helper_evidence.py'
+  return Invoke-AbsentHelperRecoveryRead $Python @('-c',$launcher,$Path,$Sha256)
+}
+
+function Get-AbsentHelperRecoveryExecutionFiles {
+  $result = [ordered]@{}
+  foreach ($name in @('worker-local-service.ps1','django-local-service.ps1','process-deadline.ps1',
+      'worker-local-release-rotation.mjs','worker-local-release.mjs','d1-retirement-proof.mjs',
+      'postgres-backup-continuity.ps1')) {
+    $path = Join-Path $ExecutionRoot ('tools\' + $name)
+    $result[$path] = Get-FileSha256 $path
+  }
+  $node = (Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+  $result[$node] = Get-FileSha256 $node
+  return [pscustomobject]$result
+}
+
+function Assert-AbsentHelperRecoveryProcessInventory([object[]]$Processes, [object[]]$Listeners, [int[]]$OwnAncestors) {
+  if (@($Listeners | Where-Object { $_.Port -in @(3000,5791) }).Count) { throw 'Worker/helper listener is present on a controlled port' }
+  $related = [Collections.Generic.HashSet[int]]::new();[void]$related.Add(9080)
+  do {
+    $changed = $false
+    foreach ($process in $Processes) {
+      if ($related.Contains([int]$process.ParentProcessId) -and $related.Add([int]$process.ProcessId)) { $changed=$true }
+    }
+  } while ($changed)
+  if (@($Processes | Where-Object { $related.Contains([int]$_.ProcessId) }).Count) { throw 'Original unknown actor or related descendant is present or reused' }
+  foreach ($process in $Processes) {
+    if ($OwnAncestors -contains [int]$process.ProcessId) { continue }
+    $name = ([string]$process.Name).ToLowerInvariant()
+    # These are the manifest's actual Worker/helper native hosts. Opaque
+    # unrelated control shells are outside this service-absence proof scope.
+    if ($name -match '^(node|workerd|esbuild)(\.exe)?$') {
+      if ([string]::IsNullOrWhiteSpace([string]$process.CommandLine) -or
+          [string]::IsNullOrWhiteSpace([string]$process.ExecutablePath)) { throw 'Relevant process identity is unreadable; helper absence is unknown' }
+    }
+    $command = ([string]$process.CommandLine).Replace('/','\')
+    $executable = ([string]$process.ExecutablePath).Replace('/','\')
+    if ($command -match '(?i)teruisi-runtime\\teruisi-worker-sales\\|worker-local-runtime-supervisor\.mjs|tmall-workflow-helper\.(mjs|ts)' -or
+        $executable -match '(?i)teruisi-runtime\\teruisi-worker-sales\\') { throw 'A Worker/helper process or descendant owner remains present' }
+  }
+}
+
+function Assert-AbsentHelperRecoverySnapshot {
+  if (Test-Path -LiteralPath 'D:\teruisi-runtime\teruisi-worker-sales\state\worker-process.json') { throw 'Worker process receipt is present' }
+  $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+  if ($processes.Count -lt 1 -or $processes.Count -gt 100000) { throw 'Process inventory is unavailable or unbounded' }
+  $ancestors = [Collections.Generic.List[int]]::new()
+  $current = [int]$PID
+  while ($current -gt 0) {
+    if ($ancestors.Contains($current)) { throw 'Current process ancestry is ambiguous' }
+    $ancestors.Add($current)
+    $entry = @($processes | Where-Object { $_.ProcessId -eq $current })
+    if ($entry.Count -ne 1) { throw 'Current process ancestry is unreadable' }
+    $parent = @($processes | Where-Object { $_.ProcessId -eq $entry[0].ParentProcessId })
+    if ($parent.Count -eq 0) { break }
+    if ($parent.Count -ne 1 -or $null -eq $entry[0].CreationDate -or $null -eq $parent[0].CreationDate) { throw 'Current process ancestry is ambiguous' }
+    if ([datetime]$parent[0].CreationDate -gt [datetime]$entry[0].CreationDate) { break }
+    $current = [int]$parent[0].ProcessId
+  }
+  $listeners = @([Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners())
+  Assert-AbsentHelperRecoveryProcessInventory $processes $listeners $ancestors.ToArray()
+}
+
+function Assert-AbsentHelperRecoveryWorkerOwner {
+  $workerEntry = Join-Path $ExecutionRoot 'tools\worker-local-service.ps1'
+  $workerFrames = @(Get-PSCallStack | Where-Object { $_.FunctionName -ceq 'Invoke-DjangoLifecycleAction' -and $_.ScriptName -ieq $workerEntry })
+  if ($workerFrames.Count -ne 1 -or $ServiceMutex -isnot [Threading.Mutex] -or $lockAcquired -cne $true) { throw 'Recovery requires the original same-thread Worker lifecycle owner' }
+}
+
+function Assert-AbsentHelperRecoveryBindings([ValidateSet('Initial','Requests','Final')][string]$Stage) {
+  # Initial is an observation-only preflight. Actual intent publication and all
+  # later transitions additionally require the original Worker mutex owner.
+  if ($Stage -cne 'Initial') { Assert-AbsentHelperRecoveryWorkerOwner }
+  if ($Action -cne 'BeginMaintenance' -or -not $KeepPostgres -or
+      $MaintenanceId -cne '779dd3efea0e485aa58aac3acc9e324f' -or
+      (Get-CanonicalPath $RuntimeRoot) -ine 'D:\teruisi-runtime\django-sales' -or
+      [IO.Path]::GetFullPath($RecoveryProofPath) -ine 'D:\codex-artifacts\jd-bi-readiness-20261016\recovery-proof.json') { throw 'Absent-helper recovery is limited to the exact approved maintenance request' }
+  $proof = Read-AbsentHelperRecoveryJson $RecoveryProofPath $RecoveryProofSha256
+  if (-not (Test-ExactObjectPropertyNames $proof @('version','operationId','ready','priorDrainSha256','priorFailure',
+      'startNeverSpawnedEvidence','executionFiles','validation','recoveryAttemptId')) -or
+      $proof.version -cne 'teruisi-absent-helper-maintenance-recovery-v1' -or $proof.operationId -cne $MaintenanceId -or
+      [string]$proof.recoveryAttemptId -cnotmatch '^[a-f0-9]{32}$') { throw 'Recovery proof has an invalid closed identity' }
+  $anchors = @{
+    ready = @('D:\codex-artifacts\jd-bi-readiness-20261016\final\READY.json','e1004eb842b2bbc0aeab83256c714c5ff769505866cc006a17d97ac0673e57b3')
+    priorFailure = @('D:\codex-artifacts\jd-bi-readiness-20261016\final\EnterMaintenance-failure.json','629929cec40d1d441556ec20f5b53b61fb5e06c6902a42dffe4dbcdfeac6a764')
+    startNeverSpawnedEvidence = @('D:\codex-artifacts\jd-bi-readiness-20261016\recovery-facts.json','6a0f72199d44dd412abbb165d053b146ad24a695018fd2bbcbe256c0c4062eaa')
+  }
+  $values = @{}
+  foreach ($name in $anchors.Keys) {
+    $reference = $proof.$name
+    if (-not (Test-ExactObjectPropertyNames $reference @('path','sha256')) -or
+        [IO.Path]::GetFullPath([string]$reference.path) -ine $anchors[$name][0] -or $reference.sha256 -cne $anchors[$name][1]) { throw 'An original recovery evidence reference changed' }
+    $values[$name] = Read-AbsentHelperRecoveryJson $reference.path $reference.sha256
+  }
+  $ready = $values.ready
+  if ($ready.status -cne 'ready' -or $ready.schemaGeneration -ne 146 -or $ready.maintenanceId -cne $MaintenanceId -or
+      $values.priorFailure.processEvidence.processId -ne 9080 -or $values.priorFailure.processEvidence.exitCode -ne 1 -or
+      $values.priorFailure.processEvidence.outputProtocol -cne 'direct-exit-files') { throw 'Original READY or terminated actor proof differs' }
+  foreach ($file in $values.startNeverSpawnedEvidence.files.PSObject.Properties) {
+    if ((Get-FileSha256 $file.Name) -cne $file.Value) { throw 'Original Start/Stop/failure evidence changed' }
+  }
+  foreach ($file in $ready.executionTools.PSObject.Properties) {
+    if ((Get-FileSha256 $file.Name) -cne $file.Value) { throw 'Frozen publication evidence or tool changed' }
+  }
+  $execution = Get-AbsentHelperRecoveryExecutionFiles
+  if (-not (Test-ExactObjectPropertyNames $proof.executionFiles @($execution.PSObject.Properties.Name))) { throw 'Recovery execution closure inventory changed' }
+  foreach ($file in $execution.PSObject.Properties) {
+    if ($file.Value -cnotmatch '^[a-f0-9]{64}$' -or $proof.executionFiles.PSObject.Properties[$file.Name].Value -isnot [string] -or
+        $proof.executionFiles.PSObject.Properties[$file.Name].Value -cne $file.Value) { throw 'Recovery execution bytes changed' }
+  }
+  if (-not (Test-ExactObjectPropertyNames $proof.validation @('path','sha256'))) { throw 'Recovery isolated validation is missing' }
+  $validation = Read-AbsentHelperRecoveryJson $proof.validation.path $proof.validation.sha256
+  if ($validation.version -cne 'teruisi-absent-helper-recovery-tests-v1' -or $validation.status -cne 'passed' -or
+      $validation.productionTouched -isnot [bool] -or $validation.productionTouched -cne $false -or
+      -not (Test-ExactObjectPropertyNames $validation.executionFiles @($execution.PSObject.Properties.Name))) { throw 'Recovery isolated validation is incomplete' }
+  foreach ($file in $execution.PSObject.Properties) {
+    if ($validation.executionFiles.PSObject.Properties[$file.Name].Value -isnot [string] -or
+        $validation.executionFiles.PSObject.Properties[$file.Name].Value -cne $file.Value) { throw 'Recovery validation belongs to different execution bytes' }
+  }
+  if ((Get-FileSha256 $DeploymentManifestPath) -cne $ready.predecessorManifestSha256 -or
+      (Get-FileSha256 (Join-Path $RuntimeRoot 'jd-logistics-addition-active.json')) -cne $ready.schemaActiveSha256 -or
+      (Get-FileSha256 (Join-Path $RuntimeRoot ('app.prepare-' + $ready.preparedAppId + '.json'))) -cne $ready.receiptSha256 -or
+      (Get-FileSha256 (Join-Path $RuntimeRoot ('app.deploy-' + $ready.preparedAppId + '\deployment.json'))) -cne $ready.candidateManifestSha256) { throw 'Installed146, prepared application or original receipt changed' }
+  $rotation = Join-Path $ExecutionRoot 'tools\worker-local-release-rotation.mjs'
+  $node = (Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+  $resolved = Invoke-AbsentHelperRecoveryRead $node @($rotation,'resolve','--json')
+  if ($resolved.status -cne 'resolved' -or $resolved.manifestSha256 -cne $ready.workerHead.manifestSha256 -or
+      $resolved.guardReceiptSha256 -cne $ready.workerHead.guardReceiptSha256 -or
+      $resolved.chainStateSha256 -cne $ready.workerChainStateSha256 -or $resolved.releaseId -cne $ready.workerHead.releaseId) { throw 'Original effective Worker head or chain changed' }
+  if (Read-SystemMaintenance) { throw 'Recovery cannot replace or replay an existing maintenance marker' }
+  $gate = Read-AutomationDrain
+  if (-not (Test-ExactObjectPropertyNames $gate @('version','id','runtimeRoot','phase','keepPostgres','createdAt')) -or
+      $gate.id -cne $MaintenanceId -or $gate.keepPostgres -isnot [bool] -or $gate.keepPostgres -cne $true) { throw 'Original automation drain ownership changed' }
+  $intentPath = Assert-RuntimeChildPath (Join-Path $RunDirectory ('absent-helper-recovery-' + $MaintenanceId + '.intent.json'))
+  if ($Stage -ceq 'Initial') {
+    if ((Test-Path -LiteralPath $intentPath) -or $gate.phase -cne 'helpers' -or
+        $proof.priorDrainSha256 -cne 'fbfb6facd04e50ac824fac34dccc2b4e836ad40450c2dc0fd8ba9c76541a5ae7' -or
+        (Get-FileSha256 (Join-Path $RunDirectory 'automation-drain.json')) -cne $proof.priorDrainSha256) { throw 'Recovery intent exists or the original helper drain changed; no replay' }
+  } else {
+    if (-not $script:AbsentHelperRecoveryContext -or $gate.phase -cne 'requests' -or
+        $gate.createdAt -cne $script:AbsentHelperRecoveryContext.drainCreatedAt -or
+        (Get-FileSha256 $intentPath) -cne $script:AbsentHelperRecoveryContext.intentSha256) { throw 'Recovery intent or controlled requests transition changed' }
+  }
+  Assert-AbsentHelperRecoverySnapshot
+  return [pscustomobject]@{ proof=$proof; gate=$gate; intentPath=$intentPath }
+}
+
+function Begin-AbsentHelperRecoveryIntent {
+  Assert-AbsentHelperRecoveryWorkerOwner
+  $state = Assert-AbsentHelperRecoveryBindings 'Initial'
+  $intent = [ordered]@{version='teruisi-absent-helper-maintenance-recovery-intent-v1';operationId=$MaintenanceId;
+    recoveryAttemptId=$state.proof.recoveryAttemptId;proofSha256=$RecoveryProofSha256;
+    readySha256=$state.proof.ready.sha256;priorDrainSha256=$state.proof.priorDrainSha256;
+    drainCreatedAt=$state.gate.createdAt;createdAt=[DateTimeOffset]::UtcNow.ToString('o')}
+  $bytes = $Utf8NoBom.GetBytes(($intent | ConvertTo-Json -Depth 8 -Compress))
+  $stream = [IO.FileStream]::new($state.intentPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+  try { $stream.Write($bytes,0,$bytes.Length);$stream.Flush($true) } finally { $stream.Dispose() }
+  $script:AbsentHelperRecoveryContext = [pscustomobject]@{intentSha256=(Get-FileSha256 $state.intentPath);drainCreatedAt=$state.gate.createdAt}
+}
+
 function Wait-AutomationDrain([int]$TimeoutSeconds = 900) {
   # Refuse mixed-version adoption: an old backend does not hold activity leases.
   if (-not (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'app\backend\teruisi_backend\automation_drain.py') -PathType Leaf)) {
     throw 'Backend drain capability is not installed; use the reviewed first-adoption procedure'
   }
+  if ($RecoveryProofPath) { Begin-AbsentHelperRecoveryIntent }
   Set-AutomationDrainPhase 'helpers'
   $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
+  if (-not $RecoveryProofPath) {
   do {
     $health = Invoke-RestMethod -Uri 'http://127.0.0.1:5791/health' -TimeoutSec 5
     if ($health.drainProtocol -cne 'teruisi-automation-drain-v1' -or $health.drain.id -cne $MaintenanceId -or $health.ok -ne $true) {
@@ -4672,6 +4868,7 @@ function Wait-AutomationDrain([int]$TimeoutSeconds = 900) {
     if ([DateTimeOffset]::UtcNow -ge $deadline) { throw 'Helper drain timed out; admission remains closed, services remain running' }
     Start-Sleep -Milliseconds 500
   } while ($true)
+  }
   do {
     try { Invoke-BackupConsoleMaintenanceFence {}; break } catch {
       if ($_.Exception.Message -cne 'Backup task is still active or unresolved; maintenance refused' -or [DateTimeOffset]::UtcNow -ge $deadline) { throw }
@@ -4681,6 +4878,7 @@ function Wait-AutomationDrain([int]$TimeoutSeconds = 900) {
   Wait-AutomationActivityLock 'automation-background.lock' $deadline
   Set-AutomationDrainPhase 'requests'
   Wait-AutomationActivityLock 'automation-activity.lock' $deadline
+  if ($RecoveryProofPath) { [void](Assert-AbsentHelperRecoveryBindings 'Requests') }
 }
 
 function Wait-AutomationActivityLock([string]$Name, [DateTimeOffset]$deadline) {
@@ -4752,12 +4950,14 @@ function Begin-SystemMaintenance {
   Assert-RuntimeAclHardened
   $existing = Read-SystemMaintenance
   if ($existing) {
+    if ($RecoveryProofPath) { throw 'Absent-helper recovery cannot replay an existing maintenance operation' }
     if ($existing.id -cne $MaintenanceId) { throw "Another maintenance operation is active: $($existing.id)" }
     if ((Test-MaintenanceKeepsPostgres $existing) -ne [bool]$KeepPostgres) { throw "Maintenance scope changed" }
     return
   }
   Wait-AutomationDrain
   Invoke-AutomationPgDrainFence { Invoke-BackupConsoleMaintenanceFence {
+    if ($RecoveryProofPath) { [void](Assert-AbsentHelperRecoveryBindings 'Final') }
     Write-AtomicJson $MaintenancePath ([ordered]@{
       version = "teruisi-system-maintenance-v1"; id = $MaintenanceId
       runtimeRoot = Get-CanonicalPath $RuntimeRoot; createdAt = [DateTimeOffset]::UtcNow.ToString("o")
