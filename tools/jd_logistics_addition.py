@@ -162,7 +162,7 @@ def verify_active(root, runtime, *, installed=False):
 
 def database_identity(connection):
     with connection.cursor() as cursor:
-        cursor.execute("SELECT current_database(),current_user,inet_server_addr()::text,inet_server_port()")
+        cursor.execute("SELECT current_database(),current_user,host(inet_server_addr()),inet_server_port()")
         if cursor.fetchone() != ("teruisi_sales", "teruisi_sales_owner", "127.0.0.1", 5432):
             raise ValueError("JD schema database identity changed")
 

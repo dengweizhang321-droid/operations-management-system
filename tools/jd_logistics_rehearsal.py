@@ -36,6 +36,14 @@ def capture():
     params = connection.settings_dict
     if params["HOST"] != "127.0.0.1" or not 55960 <= int(params["PORT"]) < 55970 or params["NAME"] != "teruisi_jd_schema_rehearsal":
         raise RuntimeError("Unexpected isolated JD database")
+    import importlib.util, unittest
+    spec=importlib.util.spec_from_file_location("jd_schema_identity_regression", ROOT / "tests/test_jd_schema_addition.py")
+    tests=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tests)
+    identity_result=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite([
+        tests.JdSchemaTests("test_postgres_identity_expression_returns_host_without_mask")]))
+    if not identity_result.wasSuccessful():
+        raise RuntimeError("Real PostgreSQL identity expression regression failed")
     executor = MigrationExecutor(connection)
     targets = [node for node in executor.loader.graph.leaf_nodes() if node[0] != "inventory"] + [("inventory", "0011_inventory_warehouse_mapping_settings")]
     executor.migrate(targets)
