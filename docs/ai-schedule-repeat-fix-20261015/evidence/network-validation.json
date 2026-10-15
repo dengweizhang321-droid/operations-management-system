@@ -1,0 +1,88 @@
+{
+  "version": "ai-schedule-network-fix-validation-v1",
+  "baseCommit": "3904325ed0f4b356fd07e9bcdabe95202f32f6b1",
+  "adapterVersion": "2026-10-15-dns-phase-v2",
+  "requestedRole": {
+    "role": "complex",
+    "model": "gpt-6.1-sol",
+    "reasoningEffort": "xhigh",
+    "mappingVersion": "2026-10-15-v2",
+    "actualModelIndependentlyVerified": false
+  },
+  "files": {
+    "backend/ai_assistant/transport.py": "ec3ad59ae6e649391fee387886bdf964b52eee312c9424425872a12c00bf4427",
+    "backend/ai_assistant/provider.py": "8560e4f5207b7f2c5594540b5b61614eff9d51537d2c22c9355e815e80a0fcdb",
+    "backend/ai_assistant/provider_contract.py": "693367573587b8e3b4a3a8f5b4ebfa5e5c8fc56107979c4febe2cb5afc283ddf",
+    "backend/ai_assistant/chat.py": "e50c884abfd31f11784472e0a939706e7edc0adf7ca8af7583039d3b3717c6d9",
+    "backend/ai_assistant/test_transport.py": "383bb634ddfa79119a565bcc13066d55f8633e558d647ae39a66ba9636ad91c2",
+    "backend/ai_assistant/test_transport_dns_phase.py": "844f9c05e3be40abfaa58d19d159981be6e3a638726460b106ac31a045c1d624",
+    "backend/ai_assistant/test_provider_roundtrip.py": "1a9f85a75fb2f1a9a3c5a3959cac378dd40c836a10074b6f6d03aa89344d309b"
+  },
+  "codeDigest": "34db9364f3f9441ad9ef76cf0a6984ae94708298cb2e90d10d41f970148ec692",
+  "tests": {
+    "exitCode": 0,
+    "count": 49,
+    "seconds": 0.166,
+    "databaseUsed": false,
+    "externalNetworkUsed": false,
+    "labels": [
+      "ai_assistant.test_transport",
+      "ai_assistant.test_transport_dns_phase",
+      "ai_assistant.test_provider_roundtrip.ProviderRoundtripWireTests",
+      "ai_assistant.test_dingtalk_transport"
+    ],
+    "logs": {
+      "tests.stdout.log": "495cd9ca2ca984795f438f9e1706ee7a031c1d5116443be89213a5c167778232",
+      "tests.stderr.log": "31d91032f3eddaa17aadb77e87fa14fc8a342ad45a32bf217e8216639de5aeef"
+    }
+  },
+  "dbAuditTestDelegatedToRoot": [
+    "ai_assistant.test_provider_roundtrip.ScheduledAnalysisSeamTests",
+    "ai_assistant.test_provider_roundtrip.CapabilityProbeApiTests"
+  ],
+  "priorReadOnlyDnsProbe": {
+    "evidenceKind": "captured child tool output, not a historical run trace",
+    "date": "2026-10-15",
+    "originalTransportSha256": "7a018d0a26210dd4a9c579d449766e00212bdb473911e1efdce54f3abfc14640",
+    "probe1": {
+      "osDnsElapsedMs": 16,
+      "osAddressClasses": [
+        "synthetic"
+      ],
+      "recoveryElapsedMs": 5031,
+      "code": "provider_timeout",
+      "failedPhase": "AAAA TLS",
+      "aGetCompleted": true,
+      "aAddressCountNotRecorded": true,
+      "modelPostRequests": 0
+    },
+    "probe2": {
+      "osDnsElapsedMs": 15,
+      "osAddressClasses": [
+        "synthetic"
+      ],
+      "recoveryElapsedMs": 4703,
+      "publicARecords": 4,
+      "publicAAAARecords": 4,
+      "modelPostRequests": 0
+    }
+  },
+  "scope": {
+    "completeAValidationThenReturn": true,
+    "aaaaOnlyAfterValidEmptyA": true,
+    "dnsRecoveryBudgetSeconds": 5,
+    "cacheAdded": false,
+    "largeModelParametersUnchanged": true,
+    "exactOriginTlsPublicUnicastGuardsRetained": true,
+    "automaticModelPostReplay": false,
+    "productionWritten": false,
+    "liveProviderCalled": false,
+    "committed": false,
+    "deployed": false
+  },
+  "limitations": [
+    "Historical failed runs have no network stage evidence; no claim that their exact failure branch is proven.",
+    "Synthetic transport/JSON/SSE checks do not certify real provider capability or production performance.",
+    "No database semantics were verified by the network-only suite; audit tests are handed to the root isolated runner."
+  ]
+}

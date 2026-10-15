@@ -2,7 +2,7 @@
 from .policy import AiError
 
 
-PROVIDER_ADAPTER_VERSION = "2026-10-15-tool-roundtrip-v1"
+PROVIDER_ADAPTER_VERSION = "2026-10-15-dns-phase-v2"
 
 
 class InvalidProviderResponse(AiError):
