@@ -40,7 +40,9 @@
 | 作者定向检查 | 复用作者5导航+4矩阵+1既有URL leaf共10项通过、受影响TS闭包和页面范围lint结果；未重复旧parser/exporter/pipeline/PG套件。父新组合build、682模块边界0违例及HTML工具类型/lint通过；最终提交与制品由主代理绑定，本报告不把历史构建当作后续变更的制品证明。 |
 | 离线HTML DOM | 复读父`html-runtime-verification.json`：实际组件POP-only、C三tabs、展开/7日、搜索/仓库筛选、阈值提交阻断、C流水/调拨、files/history及工作流说明通过；记录页无上传。UI写请求0、外部请求0、脚本错误0，Request对象PATCH也403。没有运行浏览器或服务。 |
 
-独立DOM证据为 `D:/codex-artifacts/jd-logistics-layout-20261015/independent-frontend-dom.json`、`import-active-tab-before.json`、`import-active-tab-after.json`。复核脚本保留在本树忽略目录 `.codex-tmp/review-jd-layout.mjs` 和 `.codex-tmp/review-import-active-tab.mjs`；后者的回归副本仅在内存bundle中生成。jsdom仅作为已安装依赖只读加载，没有启动n8n或读取其业务数据。
+独立DOM证据为 `D:/codex-artifacts/jd-logistics-layout-20261015/independent-frontend-dom.json`、`import-active-tab-before.json`、`import-active-tab-after.json`。复核脚本为 `review-jd-layout.mjs` 和 `review-import-active-tab.mjs`，均已从本树忽略目录复制到同一外置证据目录，便于归档工作树；后者的回归副本仅在内存bundle中生成。jsdom仅作为已安装依赖只读加载，没有启动n8n或读取其业务数据。
+
+主代理最后回执确认：same-section guard及离线路由早返回后，最终组合构建、HTML重新生成、程序DOM、导出工具及import页lint均通过；开发规范的旧默认预览段落也已改为引用HTML默认交付规则。未因该收口重跑后台或数据库套件。
 
 ## HTML安全及交付边界
 
