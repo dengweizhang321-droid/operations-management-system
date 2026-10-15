@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { jdInventoryHealthStates, type JdInventoryHealthCounts } from "../lib/inventory/jd-logistics-contract";
 import ProductMatrix, { compactProductTitle, cwarehouseMetricFields, cwarehouseQualificationLabel, decodeCwarehouseProductMonitor, type CwarehouseMetricSet, type CwarehouseProductMonitor } from "../app/jd-logistics-product-matrix";
 
+const healthCounts = (): JdInventoryHealthCounts => Object.fromEntries(["all", ...jdInventoryHealthStates].map(state => [state, 0])) as JdInventoryHealthCounts;
 function metrics(overrides: Partial<CwarehouseMetricSet> = {}): CwarehouseMetricSet {
-  return { ...Object.fromEntries(cwarehouseMetricFields.map(key => [key, null])), metricQualifications: {}, qualifications: [], warningState: "insufficient_evidence", ...overrides } as CwarehouseMetricSet;
+  return { ...Object.fromEntries(cwarehouseMetricFields.map(key => [key, null])), metricQualifications: {}, qualifications: [], warningState: "unconfigured", inventoryHealthState: "insufficient_evidence", inventoryHealthReasons: [], healthCounts: healthCounts(), hasStockout: false, hasReplenishmentNeed: false, ...overrides } as CwarehouseMetricSet;
 }
 function fixture(): CwarehouseProductMonitor {
-  const detail = { ...metrics({ onHandQuantity: 5, availableQuantity: 0, lockedQuantity: 0, transferInTransitQuantity: 5, sales7dQuantity: 2, sales30dQuantity: 2, turnoverDays: 75, stockoutAvailableDays30d: 0, nativeTurnover30d: 12.5, warningState: "stockout_risk" }), id: "detail-one", warehouseKey: "name:合成甲仓", warehouseName: "合成甲仓", warehouseCode: "", sourceProvinceCity: "原文省市甲", realtimeDate: "2026-10-15", realtimeCollectedAt: "2026-10-15T07:59:21.571581+00:00", snapshotDate: "2026-10-14", datePairing: "previous_day", salesAsOfDate: "2026-10-14" };
-  return { layout: "product", salesWindow: 30, columns: [{ key: "raw-city", label: "原文省市甲", kind: "source_province_city", sourceProvinceCity: "原文省市甲", warehouseKeys: ["name:合成甲仓"] }, { key: "warehouse-one", label: "无省市仓甲", kind: "warehouse", warehouseKeys: ["name:无省市仓甲"] }, { key: "warehouse-two", label: "无省市仓乙", kind: "warehouse", warehouseKeys: ["name:无省市仓乙"] }], items: [{ id: "product-one", departmentId: "synthetic", businessUnitCode: "SYNTHETIC", goodsCodeKind: "jd_sku", goodsCode: "SYNTHETIC-SKU", goodsName: "合成矩阵商品", erpGoodsCode: "", erpGoodsName: "", imageUrl: null, summary: metrics({ availableQuantity: 999, purchaseInTransitQuantity: 20, transferInTransitQuantity: 5 }), cells: [{ ...metrics({ availableQuantity: 11, warningState: "stockout_risk" }), columnKey: "raw-city" }, { ...metrics({ availableQuantity: -3 }), columnKey: "warehouse-one" }], details: [detail], detailCount: 1, detailsComplete: true }], total: 61, page: 2, pageSize: 25, summary: { monitoredCount: 80, qualifiedCount: 40, stockoutRiskCount: 2 }, totals: metrics({ availableQuantity: 12345 }), coverageWarnings: ["合成验证"], notificationAvailable: false };
+  const detail = { ...metrics({ onHandQuantity: 5, availableQuantity: 0, lockedQuantity: 0, transferInTransitQuantity: 5, sales7dQuantity: 2, sales30dQuantity: 2, turnoverDays: 75, stockoutAvailableDays30d: 0, nativeTurnover30d: 12.5, warningState: "unconfigured", inventoryHealthState: "stockout", hasStockout: true }), id: "detail-one", warehouseKey: "name:合成甲仓", warehouseName: "合成甲仓", warehouseCode: "", sourceProvinceCity: "原文省市甲", realtimeDate: "2026-10-15", realtimeCollectedAt: "2026-10-15T07:59:21.571581+00:00", snapshotDate: "2026-10-14", datePairing: "previous_day", salesAsOfDate: "2026-10-14" };
+  return { layout: "product", salesWindow: 30, healthState: "all", healthCounts: { ...healthCounts(), all: 61, stockout: 20, replenish: 41 }, healthFilterCounts: { ...healthCounts(), all: 61, stockout: 20, replenish: 55 }, columns: [{ key: "raw-city", label: "原文省市甲", kind: "source_province_city", sourceProvinceCity: "原文省市甲", warehouseKeys: ["name:合成甲仓"] }, { key: "warehouse-one", label: "无省市仓甲", kind: "warehouse", warehouseKeys: ["name:无省市仓甲"] }, { key: "warehouse-two", label: "无省市仓乙", kind: "warehouse", warehouseKeys: ["name:无省市仓乙"] }], items: [{ ...metrics(), id: "product-one", departmentId: "synthetic", businessUnitCode: "SYNTHETIC", goodsCodeKind: "jd_sku", goodsCode: "SYNTHETIC-SKU", goodsName: "合成矩阵商品", erpGoodsCode: "", erpGoodsName: "", imageUrl: null, summary: metrics({ availableQuantity: 999, purchaseInTransitQuantity: 20, transferInTransitQuantity: 5 }), cells: [{ ...metrics({ availableQuantity: 11, warningState: "unconfigured", inventoryHealthState: "stockout", hasStockout: true }), columnKey: "raw-city" }, { ...metrics({ availableQuantity: -3 }), columnKey: "warehouse-one" }], details: [detail], detailCount: 1, detailsComplete: true }], total: 61, page: 2, pageSize: 25, summary: { monitoredCount: 80, qualifiedCount: 40, stockoutRiskCount: 2 }, totals: metrics({ availableQuantity: 12345 }), coverageWarnings: ["合成验证"], notificationAvailable: false };
 }
 function render(data: CwarehouseProductMonitor, expanded = false) {
   return renderToStaticMarkup(createElement(ProductMatrix, { data, expandedIds: new Set(expanded ? ["product-one"] : []), onToggle: () => undefined }));
@@ -29,7 +31,7 @@ test("expanded product retains warehouse sources, original turnover and separate
   const html = render(fixture(), true);
   assert.match(html, /aria-expanded="true"/); assert.match(html, /合成矩阵商品的分仓明细/);
   assert.match(html, /京东原生30天周转/); assert.match(html, /系统30日周转/); assert.match(html, /12.5<\/span>/);
-  assert.match(html, /缺货依据（30日可售）/); assert.match(html, /30日可用库存可售天数 0 天/); assert.match(html, /75<\/span>/);
+  assert.match(html, /缺货依据（30日可售）/); assert.match(html, /缺货依据（30日可售）[^<]*<span[^>]*>0<\/span>天/); assert.match(html, /75<\/span>/);
   assert.match(html, /15:59:21/); assert.match(html, /title="2026-10-15T07:59:21.571581\+00:00"/);
   assert.match(html, /显示 1 \/ 1 个仓库身份/); assert.match(html, /2026-10-14/); assert.match(html, /T-1/);
   assert.match(html, /锁定/); assert.match(html, /含在途可售/); assert.match(html, /—/);
@@ -79,4 +81,26 @@ test("compact detail table displays backend suggestion and full-scope summary wi
   assert.match(html, /jd-cwarehouse-detail-total[\s\S]*?jd-cwarehouse-suggestion[^>]*><span[^>]*>41<\/span>/);
   assert.match(html, /数据日期与计算依据/);
   assert.doesNotMatch(html, /全国/);
+});
+
+
+test("independent inventory health stays visible when notification threshold is unconfigured", () => {
+  const data = fixture();
+  Object.assign(data.items[0].summary, { inventoryHealthState: "stockout", hasStockout: true, hasReplenishmentNeed: true, warningState: "unconfigured", inventoryHealthReasons: ["available_nonpositive_with_positive_demand"] });
+  const html = render(data, true);
+  assert.match(html, /jd-cwarehouse-product-identity[\s\S]*?status-danger[^>]*>缺货<\/span>/);
+  assert.match(html, /需补货/); assert.match(html, /30日有销量且可用库存不大于零/);
+  assert.doesNotMatch(html, /未配置阈值/);
+  const decoded = decodeCwarehouseProductMonitor(data);
+  assert.equal(decoded.healthFilterCounts.replenish, 55);
+  assert.equal(decoded.items.length, 1);
+});
+
+test("health contract rejects missing counts, invalid states and coerced boolean flags", () => {
+  const counts = fixture(); delete (counts.healthFilterCounts as Partial<JdInventoryHealthCounts>).stockout;
+  assert.throws(() => decodeCwarehouseProductMonitor(counts), /响应不完整/);
+  const state = fixture(); Reflect.set(state.items[0].summary, "inventoryHealthState", "unconfigured");
+  assert.throws(() => decodeCwarehouseProductMonitor(state), /响应不完整/);
+  const flag = fixture(); Reflect.set(flag.items[0].details[0], "hasStockout", "true");
+  assert.throws(() => decodeCwarehouseProductMonitor(flag), /响应不完整/);
 });

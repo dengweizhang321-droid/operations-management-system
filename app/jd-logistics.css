@@ -77,3 +77,16 @@
 @media(prefers-reduced-motion:reduce) { .jd-cwarehouse-loading i { animation: none; } }
 @media(max-width:1200px) { .jd-logistics-filters { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media(max-width:720px) { .jd-logistics-filters,.jd-logistics-fields,.jd-logistics-c-kpis { grid-template-columns: 1fr; }.jd-logistics-wide { grid-column:auto; }.jd-logistics-import footer,.jd-logistics-dialog footer,.jd-cwarehouse-filter-footer,.jd-cwarehouse-detail-heading { align-items: stretch; flex-direction: column; }.jd-cwarehouse-product-table .jd-cwarehouse-product-column { min-width: 220px; width: 220px; max-width: 220px; } }
+
+.jd-cwarehouse-cycle-current { color: var(--color-brand); font-size: 15px; font-weight: 650; white-space: nowrap; }
+.jd-cwarehouse-cycle-button { border-color: var(--color-brand); color: var(--color-brand); background: var(--color-brand-soft); }
+.jd-cwarehouse-health-filter { padding: 12px 16px; }
+.jd-cwarehouse-health-tabs { display: flex; flex-wrap: wrap; gap: 7px; }
+.jd-cwarehouse-health-tabs button { display: inline-flex; gap: 12px; align-items: center; padding: 7px 11px; border: 1px solid var(--color-border-default); border-radius: 6px; background: var(--surface); color: var(--color-text-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.jd-cwarehouse-health-tabs button.active { color: var(--color-brand); border-color: var(--color-brand); background: var(--color-brand-soft); }
+.jd-cwarehouse-health-tabs button:disabled { cursor: default; opacity: .6; }
+.jd-cwarehouse-health-tabs strong { font-variant-numeric: tabular-nums; }
+.jd-cwarehouse-health-filter>p { margin: 9px 0 0; color: var(--color-text-secondary); font-size: 11px; }
+.jd-cwarehouse-health-badges { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.jd-cwarehouse-product-identity .jd-cwarehouse-health-badges { margin-top: 1px; }
+.jd-cwarehouse-health-badges .status { font-size: 10px; padding: 2px 5px; white-space: nowrap; }

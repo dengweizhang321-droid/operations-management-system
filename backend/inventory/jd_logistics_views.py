@@ -22,7 +22,7 @@ def endpoint(request):
         if request.method == "GET":
             if settings.DJANGO_PROCESS_ROLE not in {"inventory_reader", "development"}:
                 raise InventoryApiError("当前进程不是库存读取服务", code="inventory_reader_process_required", status=503)
-            _unknown(request, {"operation", "departmentId", "businessUnitCode", "warehouseCode", "warehouseKey", "goodsCodeKind", "startDate", "endDate", "q", "page", "pageSize", "sourceKind", "batchId", "layout", "salesWindow", "deliveryId"}, "京东物流")
+            _unknown(request, {"operation", "departmentId", "businessUnitCode", "warehouseCode", "warehouseKey", "goodsCodeKind", "startDate", "endDate", "q", "page", "pageSize", "sourceKind", "batchId", "layout", "salesWindow", "healthState", "deliveryId"}, "京东物流")
             operation = _one(request, "operation") or "overview"
             _principal(request, {"admin"} if operation == "notifications" else {"viewer", "analyst", "operator", "admin"})
             filters = {}
@@ -41,6 +41,10 @@ def endpoint(request):
             if layout not in {"warehouse", "product"} or window not in {"7", "30"}:
                 raise InventoryApiError("库存布局或销量窗口无效")
             filters["layout"], filters["salesWindow"] = layout, int(window)
+            health_state = _one(request, "healthState")
+            if health_state is not None and health_state not in service.HEALTH_FILTER_STATES:
+                raise InventoryApiError("库存健康筛选无效")
+            filters["healthState"] = health_state if health_state is not None else "all"
             if filters.get("startDate") and filters.get("endDate") and not 0 < (filters["endDate"] - filters["startDate"]).days <= 366:
                 raise InventoryApiError("日期范围必须为1到366天，结束日期不包含")
             filters["page"] = _positive(_one(request, "page"), 1, "page", 10000)

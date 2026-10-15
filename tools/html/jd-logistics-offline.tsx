@@ -11,7 +11,8 @@ type Snapshot = {
   options: JdLogisticsOptions; lists: Record<string, JdLogisticsList>; matrices: Record<string, CwarehouseProductMonitor>; catalog: { code: string; name: string }[];
   provenance?: { mode: "local-files"; departmentId: string; notes: string[]; sources: { kind: string; fileName: string; rows: number; startDate: string; endDateExclusive: string; collectedAt: string }[] };
   aggregateValues?: Aggregate[]; searchScopes?: Record<string, Record<string, number>>; transferScopes?: Record<string, JdLogisticsList>;
-  replenishmentPreviews?: Record<string, Record<string, { quantity: number | null; days: number | null; cycles: number[]; reasons: string[] }>>;
+  replenishmentPreviews?: Record<string, Record<string, { quantity: number | null; days: number | null; cycles: number[]; reasons: string[]; inventoryHealthState: string; inventoryHealthReasons: string[]; healthCounts: Record<string, number>; hasStockout: boolean; hasReplenishmentNeed: boolean }>>;
+  healthFilterMasks?: Record<string, Record<string, Record<string, string>>>;
 };
 
 async function loadSnapshot(): Promise<Snapshot> {
@@ -42,15 +43,24 @@ function start(data: Snapshot) {
       if (real) {
         const scope = JSON.stringify([warehouse, windowDays]), base = data.matrices[scope];
         if (base) {
+          const cycle = url.searchParams.get("replenishmentCycleDays") ?? "30", healthState = url.searchParams.get("healthState") ?? "all";
+          const healthMasks = data.healthFilterMasks?.[warehouse]?.[cycle], preview = data.replenishmentPreviews?.[cycle];
+          if (!healthMasks || !Object.hasOwn(healthMasks, healthState) || !preview) return Response.json({ success: false, error: "该健康筛选或周期没有离线结果。" }, { status: 400 });
+          const codeBits = new Map(data.catalog.map((item, index) => [item.code, BigInt(1) << BigInt(index)]));
           const matches = new Set(data.catalog.filter(item => `${item.code} ${item.name}`.toLowerCase().includes(q)).map(item => item.code));
-          const items = base.items.filter(item => matches.has(item.goodsCode));
+          const queried = base.items.filter(item => matches.has(item.goodsCode));
+          const allowedMask = BigInt(`0x${healthMasks[healthState]}`);
+          const items = queried.filter(item => Boolean((codeBits.get(item.goodsCode) ?? BigInt(0)) & allowedMask));
+          const healthFilterCounts = Object.fromEntries(Object.entries(healthMasks).map(([state, bits]) => [state, queried.filter(item => Boolean((codeBits.get(item.goodsCode) ?? BigInt(0)) & BigInt(`0x${bits}`))).length]));
+          const healthCounts = Object.fromEntries(Object.keys(healthMasks).map(state => [state, 0])); healthCounts.all = queried.length;
+          for (const product of queried) { const state = preview[String(Reflect.get(product.summary, "replenishmentPreviewKey"))]?.inventoryHealthState; if (state && state in healthCounts && state !== "all") healthCounts[state] += 1; }
           const scopeCodes = new Set(items.map(item => item.goodsCode));
           const mask = data.catalog.reduce((bits, item, index) => scopeCodes.has(item.code) ? bits | (BigInt(1) << BigInt(index)) : bits, BigInt(0)).toString(16);
           const aggregateId = data.searchScopes?.[scope]?.[mask];
           const aggregate = aggregateId === undefined ? undefined : data.aggregateValues?.[aggregateId];
           if (!aggregate) return Response.json({ success: false, error: "该搜索范围的后台汇总快照缺失，请清空搜索。" }, { status: 400 });
           const columns = new Set(items.flatMap(item => item.cells.map(cell => cell.columnKey)));
-          value = { ...base, ...aggregate, items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize, columns: base.columns.filter(column => columns.has(column.key)) };
+          value = { ...base, ...aggregate, healthState, healthCounts, healthFilterCounts, items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize, columns: base.columns.filter(column => columns.has(column.key)) };
         }
       } else {
         const mask = data.catalog.reduce((bits, item, index) => `${item.code} ${item.name}`.toLowerCase().includes(q) ? bits | (1 << index) : bits, 0);
@@ -84,9 +94,14 @@ function start(data: Snapshot) {
           const selected = preview[row.replenishmentPreviewKey];
           if (!selected) throw new Error("补货试算范围缺失");
           row.suggestedReplenishmentQuantity = selected.quantity; row.replenishmentCycleDays = selected.days; row.replenishmentCycleDaysValues = selected.cycles;
+          row.inventoryHealthState = selected.inventoryHealthState; row.inventoryHealthReasons = selected.inventoryHealthReasons; row.healthCounts = selected.healthCounts; row.hasStockout = selected.hasStockout; row.hasReplenishmentNeed = selected.hasReplenishmentNeed;
           (row.metricQualifications as Record<string, string[]>).suggestedReplenishmentQuantity = selected.reasons;
         }
         Object.values(row).forEach(apply);
+        const summary = row.summary as Record<string, unknown> | undefined;
+        if (typeof row.goodsCode === "string" && typeof summary?.inventoryHealthState === "string") {
+          for (const field of ["inventoryHealthState", "inventoryHealthReasons", "healthCounts", "hasStockout", "hasReplenishmentNeed"]) row[field] = summary[field];
+        }
       };
       apply(projected);
     }
@@ -137,12 +152,11 @@ function start(data: Snapshot) {
       <header className="shell-masthead"><nav className="offline-mainnav" aria-label="系统导航">{["AI 对话", "运营事务", "自动化中心", "BI 看板", "网店分析", "市场分析", "客服分析", "销售分析", "库存管理", "商品经营", "数据导入", "系统设置"].map(label => label === "库存管理" || label === "数据导入" || label === "自动化中心" ? <button key={label} className={(label === "库存管理" && !imported && !workflow) || (label === "数据导入" && imported) || (label === "自动化中心" && workflow) ? "selected" : ""} onClick={() => navigate(label === "数据导入" ? { module: "import", view: "files" } : label === "自动化中心" ? { module: "workflow" } : { module: "inventory" })}>{label}</button> : <span key={label}>{label}</span>)}</nav><span className="offline-badge">离线HTML · {real ? "真实文件快照" : "合成数据"}</span></header>
       <main className="workspace offline-workspace">
         {!workflow && (imported ? <nav className="subnav outlet-subnav offline-parent" aria-label="数据导入子版块"><button className={route.importView === "files" ? "active" : ""} onClick={() => navigate({ module: "import", view: "files" })}>文件导入</button><button className={route.importView === "history" ? "active" : ""} onClick={() => navigate({ module: "import", view: "history" })}>运行记录</button></nav> : <nav className="subnav outlet-subnav offline-parent" aria-label="库存管理子版块">{["库存总览", "库龄分析", "备货计划", "滞销清理", "京东入仓监控", "广东入仓监控"].map(label => <span key={label} className={label === "京东入仓监控" ? "active" : ""}>{label}</span>)}</nav>)}
-        <div className="offline-note">{real ? <>真实报表文件快照：实时库存 2026-10-15，销售出库快照截至 2026-10-14。未读取正式ERP对照与导入记录；缺货阈值未配置，当前未判定缺货风险。<details><summary>数据来源与范围</summary>{data.provenance!.sources.map(source => <p key={source.kind}>{source.fileName} · {source.rows} 行</p>)}{data.provenance!.notes.map(note => <p key={note}>{note}</p>)}</details></> : "样式、脚本与合成样例均已内嵌，可直接打开。此HTML不连接后台，不执行真实导入、保存、采集或推送。"}</div>
+        <div className="offline-note">{real ? <>真实报表文件快照：实时库存 2026-10-15，销售出库快照截至 2026-10-14。未读取正式ERP对照与导入记录；提醒阈值未配置、推送未启用，页面库存健康独立判断。<details><summary>数据来源与范围</summary>{data.provenance!.sources.map(source => <p key={source.kind}>{source.fileName} · {source.rows} 行</p>)}{data.provenance!.notes.map(note => <p key={note}>{note}</p>)}</details></> : "样式、脚本与合成样例均已内嵌，可直接打开。此HTML不连接后台，不执行真实导入、保存、采集或推送。"}</div>
         {notice && <div className="inventory-feedback" role="status">{notice}</div>}
-        {real && !imported && !workflow && route.jdTab === "monitor" && data.replenishmentPreviews && <div className="offline-note offline-cycle-control"><label>补货周期（离线试算） <select aria-label="补货周期离线试算" value={cycleDays} onChange={event => { const value = Number(event.target.value); setCycleDays(value); const url = new URL(location.href); url.searchParams.set("jdReplenishmentDays", String(value)); history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`); }}>{Object.keys(data.replenishmentPreviews).map(value => <option key={value} value={value}>{value}天</option>)}</select></label><span>只在本文件试算，不修改系统设置。正式页面可设置1至3650天。</span></div>}
         {workflow ? <section className="panel offline-workflow"><h2>京东物流四源工作流说明</h2><p>此处仅展示流程，不表示已经执行。</p><div className="offline-steps">{[["A", "冻结来源与日期", "核对事业部、来源能力、采集范围及执行所有者"], ["B", "下载、校验、导入", "库存流水 / 店铺商品 / 实时库存 / 分仓快照"], ["C", "精确批次回查", "核对原文件、内容摘要、行数及当前有效批次"], ["D", "缺货提醒", "按固定30日可用库存可售天数判断，结果未知不重发"]].map(([n, title, note]) => <article key={n}><strong>{n}</strong><h3>{title}</h3><p>{note}</p></article>)}</div></section>
           : imported ? <><JdLogisticsView key={`import:${route.importView}`} currentUser={user} fixedTab="batches" fileSnapshot={real} presentation={route.importView === "history" ? "records" : "import"} />{real && <p className="offline-note">此文件没有查询正式系统导入批次；源文件行数不代表已导入成功。</p>}</>
-            : <InboundMonitor key="inbound" currentUser={user} fileSnapshot={real} fileCycleDays={real ? cycleDays : undefined} />}
+            : <InboundMonitor key="inbound" currentUser={user} fileSnapshot={real} fileCycleDays={real ? cycleDays : undefined} fileCycleOptions={real && data.replenishmentPreviews ? Object.keys(data.replenishmentPreviews).map(Number) : undefined} onFileCycleChange={real ? value => { if (value === cycleDays) return; setCycleDays(value); const url = new URL(location.href); url.searchParams.set("jdReplenishmentDays", String(value)); url.searchParams.set("jdPage", "1"); history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`); window.dispatchEvent(new PopStateEvent("popstate")); } : undefined} />}
         <footer className="offline-footer">TERUISI 京东入仓监控 · 2026-10-15 · 缺货依据：可用库存 ÷ 近30日销售出库件数 × 30</footer>
       </main>
     </div>;

@@ -74,3 +74,17 @@ test("canonical pagination and browser history restores the original scoped page
   const unrelated = "/?module=inventory&view=overview&jdInbound=erp&jdPopTab=flows&jdPage=7";
   assert.equal(canonicalizeJdLogisticsLocation(unrelated), unrelated);
 });
+
+
+test("health filters restore from URL and reset only their own pagination", () => {
+  const original = `${base}&jdTab=monitor&jdDepartment=D1&jdWarehouse=name%3AWH&jdHealth=stockout&jdPage=3`;
+  assert.equal(readJdLogisticsLocation(original).healthState, "stockout");
+  assert.equal(readJdLogisticsLocation(original).filters.page, 3);
+  const next = buildJdLogisticsLocation(original, { healthState: "replenish" });
+  assert.equal(readJdLogisticsLocation(next).healthState, "replenish"); assert.equal(readJdLogisticsLocation(next).filters.page, 1);
+  assert.equal(readJdLogisticsLocation(next).filters.warehouseCode, "name:WH");
+  assert.equal(readJdLogisticsLocation(original).filters.page, 3);
+  assert.equal(buildJdLogisticsLocation(original, { healthState: "stockout" }), original);
+  assert.equal(readJdLogisticsLocation(buildJdLogisticsLocation(original, { jdTab: "flows" })).healthState, "all");
+  assert.equal(readJdLogisticsLocation(canonicalizeJdLogisticsLocation(`${base}&jdTab=monitor&jdHealth=bad&jdPage=4`)).filters.page, 1);
+});

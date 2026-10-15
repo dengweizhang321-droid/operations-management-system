@@ -18,7 +18,7 @@ function render(input: string) {
 test("actual JD workspace exposes exactly four direct tabs with inventory monitor as default", () => {
   const html = render("?module=inventory&view=inbound");
   assert.match(html, /aria-label="京东入仓监控工作区"/);
-  assert.equal((html.match(/role="tab"/g) ?? []).length, 4);
+  assert.equal((html.slice(0, html.indexOf("</div>")).match(/role="tab"/g) ?? []).length, 4);
   assert.match(html, /aria-selected="true"[^>]*>库存监控<\/button>/);
   for (const label of ["库存监控", "商品对照", "库存流水", "调拨核对"]) assert.ok(html.includes(`>${label}</button>`));
   assert.doesNotMatch(html, /京东 POP|C仓监控|账号设置|导入记录<\/button>/);
@@ -33,7 +33,7 @@ test("actual workspace selects legacy and canonical links without an intermediat
     const html = render(`?module=inventory&view=inbound&${query}`);
     assert.match(html, new RegExp(`aria-selected="true"[^>]*>${label}</button>`));
     assert.match(html, new RegExp(`<h2>${label}</h2>`));
-    assert.equal((html.match(/role="tab"/g) ?? []).length, 4);
+    assert.equal((html.slice(0, html.indexOf("</div>")).match(/role="tab"/g) ?? []).length, 4);
     assert.doesNotMatch(html, /京东入仓监控来源|京东 POP|<h2>C仓/);
   }
 });

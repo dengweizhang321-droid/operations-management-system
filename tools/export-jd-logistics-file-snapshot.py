@@ -103,6 +103,20 @@ def register_preview(metric, members):
     metric['replenishmentPreviewKey'] = key
 
 inventory_warehouses = sorted({row['warehouseKey'] for row in full['items']})
+cycle_rows_by_day = {}
+result['healthFilterMasks'] = {warehouse:{} for warehouse in ('', *inventory_warehouses)}
+for cycle in (7, 14, 30, 45, 60, 90):
+    models.JdLogisticsDepartment.objects.filter(id=identifier).update(replenishment_cycle_days=cycle)
+    cycle_rows = service.inventory_monitor({**filters, 'layout':'warehouse', 'salesWindow':30})['items']
+    cycle_rows_by_day[cycle] = {row['id']:row for row in cycle_rows}
+    for warehouse in ('', *inventory_warehouses):
+        members = [row for row in cycle_rows if not warehouse or row['warehouseKey'] == warehouse]
+        masks = {}
+        for state in service.HEALTH_FILTER_STATES:
+            selected, _counts, _filter_counts = service._health_filter_scope(members, state)
+            masks[state] = format(sum(1 << index[code] for code in {row['goodsCode'] for row in selected}), 'x')
+        result['healthFilterMasks'][warehouse][str(cycle)] = masks
+models.JdLogisticsDepartment.objects.filter(id=identifier).update(replenishment_cycle_days=30)
 for window in (7, 30):
     full = service.inventory_monitor({**filters, 'layout':'warehouse', 'salesWindow':window})
     for warehouse in ('', *inventory_warehouses):
@@ -120,7 +134,11 @@ for window in (7, 30):
             for detail in product['details']:
                 register_preview(detail, [detail])
         result['searchScopes'][scope] = {}
-        for mask in {selection & available_mask for selection in selections}:
+        scoped_selections = {selection & available_mask for selection in selections}
+        for masks in result['healthFilterMasks'][warehouse].values():
+            for health_mask in masks.values():
+                scoped_selections.update(selection & available_mask & int(health_mask, 16) for selection in selections)
+        for mask in scoped_selections:
             chosen = [row for row in rows if mask & (1 << index[row['goodsCode']])]
             aggregate = {'totals':service._aggregate_metrics(chosen, window, scope_total=True), 'summary':{'monitoredCount':len(chosen), 'qualifiedCount':sum(row['qualified'] for row in chosen), 'stockoutRiskCount':sum(row['warningState'] == 'stockout_risk' for row in chosen)}}
             register_preview(aggregate['totals'], chosen)
@@ -132,15 +150,14 @@ for window in (7, 30):
     print(json.dumps({'window':window, 'warehouseScopes':len(inventory_warehouses)+1, 'aggregateValues':len(result['aggregateValues'])}), flush=True)
 result['replenishmentPreviews'] = {}
 for cycle in (7, 14, 30, 45, 60, 90):
-    models.JdLogisticsDepartment.objects.filter(id=identifier).update(replenishment_cycle_days=cycle)
-    cycle_rows = {row['id']:row for row in service.inventory_monitor({**filters, 'layout':'warehouse', 'salesWindow':30})['items']}
+    cycle_rows = cycle_rows_by_day[cycle]
     values = {}
     for key, ids in preview_members.items():
         aggregate = service._aggregate_metrics([cycle_rows[row_id] for row_id in ids], 30)
-        values[key] = {'quantity':aggregate['suggestedReplenishmentQuantity'], 'days':aggregate['replenishmentCycleDays'], 'cycles':aggregate['replenishmentCycleDaysValues'], 'reasons':aggregate['metricQualifications']['suggestedReplenishmentQuantity']}
+        values[key] = {'quantity':aggregate['suggestedReplenishmentQuantity'], 'days':aggregate['replenishmentCycleDays'], 'cycles':aggregate['replenishmentCycleDaysValues'], 'reasons':aggregate['metricQualifications']['suggestedReplenishmentQuantity'], **{field:aggregate[field] for field in ('inventoryHealthState', 'inventoryHealthReasons', 'healthCounts', 'hasStockout', 'hasReplenishmentNeed')}}
     result['replenishmentPreviews'][str(cycle)] = values
 models.JdLogisticsDepartment.objects.filter(id=identifier).update(replenishment_cycle_days=30)
-result['provenance']['notes'].append('建议补货默认30天，当前按近30日销量与可用库存、采购和调拨在途扣减试算；HTML只切换后台预计算结果，不修改系统配置。')
+result['provenance']['notes'].append('库存周转周期表示目标库存覆盖天数，默认30天，沿用补货周期；健康状态与TAB成员由后台计算，HTML只切换预计算结果，不修改系统配置或推送。')
 output = Path(args.output)
 output.parent.mkdir(parents=True, exist_ok=True)
 output.write_text(json.dumps(result, ensure_ascii=False, separators=(',', ':')), encoding='utf8')

@@ -17,6 +17,14 @@ export type JdLogisticsItem = Record<string, unknown>;
 export type JdLogisticsList = { items: JdLogisticsItem[]; total: number; page: number; pageSize: number; truncated?: boolean };
 export type JdLogisticsTab = "flows" | "transfers" | "mappings" | "batches";
 export type JdInboundTab = "monitor" | "mappings" | "flows" | "transfers";
+export const jdInventoryHealthStates = ["stockout", "replenish", "insufficient_evidence", "in_transit_cover", "slow_turnover", "no_sales", "healthy"] as const;
+export type JdInventoryHealthState = typeof jdInventoryHealthStates[number];
+export type JdInventoryHealthFilter = "all" | JdInventoryHealthState;
+export type JdInventoryHealthCounts = Record<JdInventoryHealthFilter, number>;
+export const jdInventoryHealthLabels: Record<JdInventoryHealthFilter, string> = { all: "全部", stockout: "缺货", replenish: "补货", insufficient_evidence: "待补充依据", in_transit_cover: "在途可覆盖", slow_turnover: "低周转", no_sales: "无销量", healthy: "健康" };
+function inventoryHealthFilter(value: string | null): JdInventoryHealthFilter {
+  return jdInventoryHealthStates.includes(value as JdInventoryHealthState) ? value as JdInventoryHealthState : "all";
+}
 export type JdLogisticsFilters = { departmentId: string; warehouseCode: string; startDate: string; endDate: string; q: string; page: number };
 export type JdLogisticsEnvelope<T> = { success: true; data: T };
 
@@ -27,6 +35,7 @@ export function readJdLogisticsLocation(input: string) {
   const jdTab = inboundTab(params.get("jdTab")) ?? "monitor";
   return {
     jdTab,
+    healthState: inventoryHealthFilter(params.get("jdHealth")),
     workspace: imported ? "import" as const : "inventory" as const,
     importView: params.get("view") === "history" ? "history" as const : "files" as const,
     tab: (imported ? "batches" : jdTab === "monitor" ? "mappings" : jdTab) as JdLogisticsTab,
@@ -71,6 +80,8 @@ export function canonicalizeJdLogisticsLocation(input: string) {
     }
   }
   p.delete("jdInbound"); p.delete("jdPopTab"); p.delete("jdCTab");
+  if (p.get("module") !== "inventory" || p.get("jdTab") !== "monitor") p.delete("jdHealth");
+  else if (p.has("jdHealth") && p.get("jdHealth") !== inventoryHealthFilter(p.get("jdHealth"))) { p.delete("jdHealth"); p.set("jdPage", "1"); }
   if (before !== route()) p.set("jdPage", "1");
   return `${url.pathname}${url.search}${url.hash}`;
 }
@@ -81,10 +92,11 @@ function locationDate(value: string | null) {
   return Number.isFinite(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value ? value : "";
 }
 
-export function buildJdLogisticsLocation(input: string, values: { jdTab?: JdInboundTab; filters?: JdLogisticsFilters }) {
+export function buildJdLogisticsLocation(input: string, values: { jdTab?: JdInboundTab; healthState?: JdInventoryHealthFilter; filters?: JdLogisticsFilters }) {
   const before = readJdLogisticsLocation(input);
   const url = new URL(canonicalizeJdLogisticsLocation(input), "http://localhost");
   if (values.jdTab) url.searchParams.set("jdTab", values.jdTab);
+  if (values.healthState) { if (values.healthState === "all") url.searchParams.delete("jdHealth"); else url.searchParams.set("jdHealth", values.healthState); }
   if (values.filters) {
     const f = values.filters;
     for (const [key, value] of Object.entries({ jdDepartment: f.departmentId, jdWarehouse: f.warehouseCode, jdStart: f.startDate, jdEnd: f.endDate, jdQuery: f.q, jdPage: String(f.page) })) {
@@ -96,7 +108,7 @@ export function buildJdLogisticsLocation(input: string, values: { jdTab?: JdInbo
   }
   const result = new URL(canonicalizeJdLogisticsLocation(url.href), "http://localhost");
   const after = readJdLogisticsLocation(result.href);
-  if (before.jdTab !== after.jdTab || before.workspace !== after.workspace) result.searchParams.set("jdPage", "1");
+  if (before.jdTab !== after.jdTab || before.workspace !== after.workspace || before.healthState !== after.healthState) result.searchParams.set("jdPage", "1");
   const family = (tab: JdInboundTab) => tab === "flows" || tab === "transfers" ? "ledger" : tab;
   if (before.workspace !== after.workspace || family(before.jdTab) !== family(after.jdTab)) {
     for (const key of ["jdWarehouse", "jdStart", "jdEnd", "jdQuery"]) result.searchParams.delete(key);

@@ -636,6 +636,8 @@ MATRIX_METRICS = LIVE_METRICS + SALES_METRICS + DERIVED_METRICS
 MAX_MATRIX_COLUMNS = 200
 MAX_PRODUCT_DETAILS = 200
 MAX_MATRIX_DETAILS = 5_000
+HEALTH_STATES = ("stockout", "replenish", "insufficient_evidence", "in_transit_cover", "slow_turnover", "no_sales", "healthy")
+HEALTH_FILTER_STATES = ("all",) + HEALTH_STATES
 
 
 def _reasons(*collections):
@@ -650,6 +652,87 @@ def _native_turnover(data):
         return None, ["invalid_native_turnover"]
     parsed = float(value)
     return (parsed, []) if math.isfinite(parsed) else (None, ["invalid_native_turnover"])
+
+
+def _health_counts():
+    return {state: 0 for state in HEALTH_FILTER_STATES}
+
+
+def _warehouse_inventory_health(metrics):
+    """Classify one warehouse from its own fixed-30-day evidence only."""
+    qualifications = metrics["metricQualifications"]
+    available, demand = metrics["availableQuantity"], metrics["sales30dQuantity"]
+    base_reasons = _reasons(qualifications["availableQuantity"], qualifications["sales30dQuantity"])
+    if demand is not None and demand < 0:
+        base_reasons = _reasons(base_reasons, ["negative_sales30dQuantity"])
+    has_stockout = not base_reasons and available <= 0 and demand > 0
+    suggested = metrics["suggestedReplenishmentQuantity"]
+    has_replenishment = suggested is not None and suggested > 0 and not qualifications["suggestedReplenishmentQuantity"]
+    state, reasons = "insufficient_evidence", base_reasons
+    if not base_reasons:
+        if has_stockout:
+            state, reasons = "stockout", ["available_nonpositive_with_positive_demand"]
+        elif demand == 0:
+            state, reasons = "no_sales", ["zero_sales30dQuantity"]
+        elif has_replenishment:
+            state, reasons = "replenish", ["positive_replenishment_quantity"]
+        elif qualifications["suggestedReplenishmentQuantity"]:
+            reasons = qualifications["suggestedReplenishmentQuantity"]
+        elif available * 30 < demand * metrics["replenishmentCycleDays"]:
+            post = metrics["postReplenishmentQuantity"]
+            reasons = qualifications["postReplenishmentQuantity"]
+            if not reasons and post * 30 >= demand * metrics["replenishmentCycleDays"]:
+                state, reasons = "in_transit_cover", ["in_transit_meets_coverage_target"]
+            elif not reasons:
+                reasons = ["coverage_target_not_verified"]
+        elif qualifications["turnoverDays"]:
+            reasons = qualifications["turnoverDays"]
+        elif metrics["onHandQuantity"] * 30 > demand * 180:
+            state, reasons = "slow_turnover", ["turnover_over_180_days"]
+        else:
+            state, reasons = "healthy", ["coverage_target_met"]
+    counts = _health_counts()
+    counts["all"], counts[state] = 1, 1
+    return {"inventoryHealthState": state, "inventoryHealthReasons": list(reasons), "healthCounts": counts, "hasStockout": has_stockout, "hasReplenishmentNeed": has_replenishment}
+
+
+def _aggregate_inventory_health(rows):
+    """Keep warehouse shortages visible even when another member is unknown."""
+    members = [row if "inventoryHealthState" in row else _warehouse_inventory_health(row) for row in rows]
+    counts = _health_counts()
+    for member in members:
+        for state in HEALTH_FILTER_STATES:
+            counts[state] += member["healthCounts"][state]
+    state = next((state for state in HEALTH_STATES if counts[state]), "insufficient_evidence")
+    return {"inventoryHealthState": state, "inventoryHealthReasons": _reasons(*(member["inventoryHealthReasons"] for member in members)) if members else ["empty_scope"], "healthCounts": counts, "hasStockout": any(member["hasStockout"] for member in members), "hasReplenishmentNeed": any(member["hasReplenishmentNeed"] for member in members)}
+
+
+def _matches_health_filter(summary, state):
+    """Shared by the live projection and the offline precomputed member masks."""
+    if state not in HEALTH_FILTER_STATES:
+        _error("库存健康筛选无效")
+    if state == "all":
+        return True
+    if state == "stockout":
+        return summary["hasStockout"]
+    if state == "replenish":
+        return summary["hasReplenishmentNeed"]
+    return summary["inventoryHealthState"] == state
+
+
+def _health_filter_scope(items, state):
+    groups = defaultdict(list)
+    for row in items:
+        groups[(row["departmentId"], row["goodsCode"])].append(row)
+    summaries = {key: _aggregate_inventory_health(rows) for key, rows in groups.items()}
+    counts, filter_counts = _health_counts(), _health_counts()
+    for summary in summaries.values():
+        counts["all"] += 1
+        counts[summary["inventoryHealthState"]] += 1
+        for candidate in HEALTH_FILTER_STATES:
+            filter_counts[candidate] += int(_matches_health_filter(summary, candidate))
+    selected = {key for key, summary in summaries.items() if _matches_health_filter(summary, state)}
+    return [row for row in items if (row["departmentId"], row["goodsCode"]) in selected], counts, filter_counts
 
 
 def _warehouse_metrics(live, snapshot, date_qualifications, sales_window, replenishment_cycle_days=30):
@@ -689,7 +772,8 @@ def _warehouse_metrics(live, snapshot, date_qualifications, sales_window, replen
         suggested = max(0, (shortage_numerator + 29) // 30)
     metrics["suggestedReplenishmentQuantity"] = suggested
     reasons["suggestedReplenishmentQuantity"] = suggested_reasons
-    return {**metrics, "metricQualifications": reasons, "replenishmentCycleDays": cycle, "replenishmentCycleDaysValues": [cycle]}
+    result = {**metrics, "metricQualifications": reasons, "replenishmentCycleDays": cycle, "replenishmentCycleDaysValues": [cycle]}
+    return {**result, **_warehouse_inventory_health(result)}
 
 
 def _monitor_warning(available_days_30d, threshold, enabled):
@@ -741,7 +825,7 @@ def _aggregate_metrics(rows, sales_window, *, scope_total=False):
     qualifications = _reasons(*(row["qualifications"] for row in rows), *(reasons[key] for key in MATRIX_METRICS))
     if len({row["realtimeDate"] for row in rows}) > 1 or len({row["snapshotDate"] for row in rows}) > 1:
         qualifications = _reasons(qualifications, ["period_mismatch"])
-    return {**metrics, "metricQualifications": reasons, "qualifications": qualifications, "warningState": warning, "stockoutThresholdDays": threshold, "replenishmentCycleDays": cycles[0] if len(cycles) == 1 else None, "replenishmentCycleDaysValues": cycles, "realtimeDates": sorted({row["realtimeDate"] for row in rows if row["realtimeDate"]}), "snapshotDates": sorted({row["snapshotDate"] for row in rows if row["snapshotDate"]})}
+    return {**metrics, "metricQualifications": reasons, "qualifications": qualifications, "warningState": warning, "stockoutThresholdDays": threshold, "replenishmentCycleDays": cycles[0] if len(cycles) == 1 else None, "replenishmentCycleDaysValues": cycles, "realtimeDates": sorted({row["realtimeDate"] for row in rows if row["realtimeDate"]}), "snapshotDates": sorted({row["snapshotDate"] for row in rows if row["snapshotDate"]}), **_aggregate_inventory_health(rows)}
 
 
 def _product_matrix(items, filters, sales_window):
@@ -763,7 +847,7 @@ def _product_matrix(items, filters, sales_window):
         cells = defaultdict(list)
         for row in details:
             cells[row["columnKey"]].append(row)
-        products.append({"id": _hash([department_id, "jd_sku", goods]), "departmentId": department_id, "businessUnitCode": reference["businessUnitCode"], "goodsCodeKind": "jd_sku", "goodsCode": goods, "goodsName": reference["goodsName"], "erpGoodsCode": reference["erpGoodsCode"], "erpGoodsName": reference["erpGoodsName"], "imageUrl": None, "price": None, "summary": _aggregate_metrics(details, sales_window), "cells": [{"columnKey": key, **_aggregate_metrics(values, sales_window)} for key, values in sorted(cells.items())], "details": details[:MAX_PRODUCT_DETAILS], "detailCount": len(details), "detailsComplete": len(details) <= MAX_PRODUCT_DETAILS, "detailsTruncated": len(details) > MAX_PRODUCT_DETAILS})
+        products.append({"id": _hash([department_id, "jd_sku", goods]), "departmentId": department_id, "businessUnitCode": reference["businessUnitCode"], "goodsCodeKind": "jd_sku", "goodsCode": goods, "goodsName": reference["goodsName"], "erpGoodsCode": reference["erpGoodsCode"], "erpGoodsName": reference["erpGoodsName"], "imageUrl": None, "price": None, "summary": _aggregate_metrics(details, sales_window), **_aggregate_inventory_health(details), "cells": [{"columnKey": key, **_aggregate_metrics(values, sales_window)} for key, values in sorted(cells.items())], "details": details[:MAX_PRODUCT_DETAILS], "detailCount": len(details), "detailsComplete": len(details) <= MAX_PRODUCT_DETAILS, "detailsTruncated": len(details) > MAX_PRODUCT_DETAILS})
     page = _page(products, filters)
     if sum(len(item["details"]) for item in page["items"]) > MAX_MATRIX_DETAILS:
         _error("当前页展开明细超过5000行，请缩小每页单品数", "query_too_large", 413)
@@ -776,6 +860,9 @@ def inventory_monitor(filters):
     sales_window = filters.get("salesWindow", 30)
     if layout not in {"warehouse", "product"} or isinstance(sales_window, bool) or sales_window not in {7, 30}:
         _error("库存布局或销量窗口无效")
+    health_state = filters.get("healthState", "all")
+    if health_state not in HEALTH_FILTER_STATES:
+        _error("库存健康筛选无效")
     # Bound the actual current projection, not months of unrelated flow history.
     # The correlated latest day is per business unit and source, before the cap.
     latest_day = JdLogisticsFact.objects.filter(department_id=OuterRef("department_id"), source_kind=OuterRef("source_kind")).order_by("-business_date").values("business_date")[:1]
@@ -825,8 +912,10 @@ def inventory_monitor(filters):
         threshold = department.stockout_threshold_days
         warning = _monitor_warning(metrics["stockoutAvailableDays30d"], threshold, department.monitor_enabled)
         items.append({"id": _hash([department_id, goods, warehouse_key]), "departmentId": department_id, "businessUnitCode": department.business_unit_code, "goodsCode": goods, "goodsName": reference.data["goodsName"], "goodsCodeKind": "jd_sku", "warehouseCode": reference.warehouse_code, "warehouseKey": warehouse_key, "warehouseIdentityKind": reference.data["warehouseIdentityKind"], "warehouseName": reference.data["warehouseName"], "regionCode": reference.data.get("regionCode") or None, "regionName": reference.data.get("regionName") or None, "sourceProvinceCity": snapshot_data.get("sourceProvinceCity") or None, "datePairing": date_pairing, "sourceDateLagDays": date_lag, "salesAsOfDate": snap.business_date.isoformat() if snap else None, "erpGoodsCode": mapping.erp_goods_code if mapping else "", "erpGoodsName": mapping.erp_goods_name if mapping else "", "realtimeDate": live.business_date.isoformat() if live else None, "snapshotDate": snap.business_date.isoformat() if snap else None, "realtimeBatchId": live.batch_id if live else None, "snapshotBatchId": snap.batch_id if snap else None, "realtimeCollectedAt": live.batch.collected_at.isoformat() if live else None, "snapshotSourceAsOf": snap.batch.source_as_of if snap else None, **metrics, "monitorEnabled": department.monitor_enabled, "stockoutThresholdDays": threshold, "warningState": warning, "qualifications": qualifications, "qualified": qualified})
+    items, health_counts, health_filter_counts = _health_filter_scope(items, health_state)
     summary = {"monitoredCount": len(items), "qualifiedCount": sum(item["qualified"] for item in items), "stockoutRiskCount": sum(item["warningState"] == "stockout_risk" for item in items)}
-    projection = _product_matrix(items, filters, sales_window) if layout == "product" else {**_page(items, filters), "layout": "warehouse", "salesWindow": sales_window}
+    projection = _product_matrix(items, filters, sales_window) if layout == "product" else {**_page(items, filters), "layout": "warehouse", "salesWindow": sales_window, "totals": _aggregate_metrics(items, sales_window, scope_total=True)}
+    projection.update(healthState=health_state, healthCounts=health_counts, healthFilterCounts=health_filter_counts)
     from .jd_logistics_notifications import notification_available
     return _base(**projection, summary=summary, notificationAvailable=notification_available(), coverageWarnings=["本页销量采用京东销售出库件数，不是店铺成交订单数。各指标仅按自身依赖计算：缺少7日销量、ERP标签或快照不抹去可计算的实时库存与补货后库存；ERP待对照单独披露。", "系统周转采用现货÷30日销售出库×30；缺货提醒独立采用可用÷30日销售出库×30，固定30日不随7/30显示窗口切换。可售天数采用所选窗口，补货后采用可用＋采购在途＋调拨在途；均先合计数量及需求，不平均分仓天数。", "实时日T可配对截至T或T-1的快照销量，两个日期分别展示；来源时期不可比时合计天数为未知，范围数量只对完整成员求和。汇总表示当前范围，不代表全国。", "列使用源省市原文；缺省市时按独立来源仓显示，不猜测大区。京东原生30天周转只在来源单仓明细显示，不对其求和或平均；图片和价格缺少来源时为空；通知须独立全局渠道及事业部三开配置，并经服务端当前风险重算、动态目标核验和投递账本约束。"])
 
