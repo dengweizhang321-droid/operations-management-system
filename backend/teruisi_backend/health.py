@@ -482,7 +482,7 @@ PRODUCTS_WRITER_TABLE_PRIVILEGES = {
 PRODUCTS_WRITER_AUTO_ID_TABLES = (
     "product_import_fingerprints", "product_inventory_projection", "product_raw_upload_chunks",
 )
-REQUIRED_INVENTORY_COLUMNS = {
+REQUIRED_JD_INVENTORY_READER_COLUMNS = {
     "inventory_jd_logistics_deliveries": {"id", "idempotency_key", "business_date", "department_ids", "status", "owner_token", "risk_count", "displayed_count", "risk_snapshot", "scope_snapshot", "run_metadata", "message_text", "message_hash", "config_digest", "source_digest", "scope_digest", "target_digest", "receipt_hash", "error_code", "actor", "created_at", "updated_at", "sent_at"},
     "inventory_jd_logistics_departments": {"id", "name", "business_unit_code", "store_keys", "capabilities", "logistics_enabled", "monitor_enabled", "push_enabled", "stockout_threshold_days", "replenishment_cycle_days", "revision", "updated_by", "updated_at"},
     "inventory_jd_logistics_scopes": {"id", "department_id", "source_kind", "revision", "owner_token", "updated_at"},
@@ -490,6 +490,9 @@ REQUIRED_INVENTORY_COLUMNS = {
     "inventory_jd_logistics_facts": {"id", "department_id", "batch_id", "source_kind", "business_date", "warehouse_code", "warehouse_key", "goods_code", "goods_code_kind", "document_no", "row_hash", "occurrence", "data"},
     "inventory_jd_logistics_mappings": {"id", "department_id", "goods_code", "goods_code_kind", "erp_goods_code", "erp_goods_name", "status", "note", "revision", "updated_by", "updated_at"},
     "inventory_jd_logistics_manual_states": {"id", "department_id", "document_no", "goods_code", "transfer_status", "erp_document_no", "note", "flow_revision", "revision", "updated_by", "updated_at"},
+}
+# BI consumes the established inventory overview, not JD logistics facts.
+REQUIRED_BI_INVENTORY_COLUMNS = {
     "inventory_guangdong_monitor_items": {"product_code", "active", "notes", "lead_days_override", "buffer_days_override", "operator_name_override", "buyer_override", "risk_override", "risk_reason_override", "updated_by", "updated_at"},
     "inventory_guangdong_supplier_cycles": {"supplier", "lead_days", "buffer_days", "updated_by", "updated_at"},
     "sales_order_lines": {"business_date", "product_code", "platform", "shop_name"},
@@ -522,6 +525,10 @@ REQUIRED_INVENTORY_COLUMNS = {
         "warehouse_mapping_json", "warehouse_mapping_updated_by",
         "warehouse_mapping_updated_at",
     },
+}
+REQUIRED_INVENTORY_COLUMNS = {
+    **REQUIRED_BI_INVENTORY_COLUMNS,
+    **REQUIRED_JD_INVENTORY_READER_COLUMNS,
 }
 REQUIRED_INVENTORY_WRITER_COLUMNS = {
     "inventory_jd_logistics_audits": {"id", "department_id", "operation", "object_key", "actor", "before", "after", "created_at"},
@@ -556,12 +563,14 @@ REQUIRED_INVENTORY_WRITER_COLUMNS = {
         "error_code", "claimed_by", "created_at", "updated_at", "delivered_at",
     },
 }
-REQUIRED_INVENTORY_READER_INDEXES = {
-    "inv_jdl_delivery_guard_idx",
-    "inv_jdl_batch_idx", "inv_jdl_fact_scope_idx", "inv_jdl_fact_doc_idx",
+REQUIRED_BI_INVENTORY_INDEXES = {
     "inv_batch_scope_idx", "inv_batch_created_idx", "inv_stock_lookup_idx",
     "inv_stock_product_idx", "inv_age_lookup_idx", "inv_age_product_idx",
     "inv_plan_status_idx",
+}
+REQUIRED_INVENTORY_READER_INDEXES = REQUIRED_BI_INVENTORY_INDEXES | {
+    "inv_jdl_delivery_guard_idx", "inv_jdl_batch_idx",
+    "inv_jdl_fact_scope_idx", "inv_jdl_fact_doc_idx",
 }
 REQUIRED_INVENTORY_WRITER_INDEXES = REQUIRED_INVENTORY_READER_INDEXES | {
     "inv_attempt_scope_idx", "inv_upload_fingerprint_idx", "inv_upload_expiry_idx",
@@ -1732,9 +1741,10 @@ def _validate_products_writer_permissions(cursor) -> None:
                 raise ReadinessError("products_writer_database_privilege_missing")
 
 
-def _validate_inventory_schema(cursor, *, writer: bool) -> None:
+def _validate_inventory_schema(cursor, *, writer: bool, bi_consumer: bool = False) -> None:
     tables = set(connection.introspection.table_names(cursor))
-    expected = REQUIRED_INVENTORY_WRITER_COLUMNS if writer else REQUIRED_INVENTORY_COLUMNS
+    expected = (REQUIRED_BI_INVENTORY_COLUMNS if bi_consumer else
+                REQUIRED_INVENTORY_WRITER_COLUMNS if writer else REQUIRED_INVENTORY_COLUMNS)
     for table, expected_columns in expected.items():
         if table not in tables:
             raise ReadinessError(
@@ -1754,15 +1764,14 @@ def _validate_inventory_schema(cursor, *, writer: bool) -> None:
     )
     present_indexes: set[str] = set()
     for table in indexed_tables:
-        if table in tables:
+        if table in tables and (not bi_consumer or table in expected):
             constraints = connection.introspection.get_constraints(cursor, table)
             present_indexes.update(
                 name for name, value in constraints.items() if value.get("index")
             )
     required_indexes = (
-        REQUIRED_INVENTORY_WRITER_INDEXES
-        if writer
-        else REQUIRED_INVENTORY_READER_INDEXES
+        REQUIRED_BI_INVENTORY_INDEXES if bi_consumer else
+        REQUIRED_INVENTORY_WRITER_INDEXES if writer else REQUIRED_INVENTORY_READER_INDEXES
     )
     if not required_indexes.issubset(present_indexes):
         raise ReadinessError("inventory_indexes_incomplete")
@@ -1789,7 +1798,7 @@ def _validate_bi_reader_state(cursor) -> None:
     if "bi_migration_status_idx" not in constraints:
         raise ReadinessError("bi_reader_indexes_incomplete")
     # BI uses the same Guangdong health rules as the inventory overview.
-    _validate_inventory_schema(cursor, writer=False)
+    _validate_inventory_schema(cursor, writer=False, bi_consumer=True)
     _validate_bi_monitor_permissions(cursor)
     _validate_inventory_revision(cursor)
     _validate_reader_state(cursor)
