@@ -1,1 +1,6 @@
 *.bat text eol=crlf
+backend/erp_reference/migrations/0003_jackyun_upload_audit_binding.py -text
+backend/market/test_annotation_resume_round2.py -text
+backend/sales/migrations/0011_jackyun_upload_audit_binding.py -text
+tools/ai_schedule_addition_catalog.py -text
+tools/ai_schedule_addition_private.py -text
