@@ -15,10 +15,20 @@
   [ValidateSet("EnsureReady", "RequireReady")]
   [string]$BackendStartPolicy = "EnsureReady",
   [string]$MaintenanceId,
+  [string]$RecoveryProofPath,
+  [string]$RecoveryProofSha256,
   [switch]$FunctionsOnly
 )
 
 $ErrorActionPreference = "Stop"
+if ($RecoveryProofPath -or $RecoveryProofSha256) {
+  if ([string]::IsNullOrWhiteSpace($RecoveryProofPath) -or $RecoveryProofSha256 -cnotmatch '^[a-f0-9]{64}$' -or
+      $Action -cne 'EnterMaintenance' -or -not $KeepPostgres -or $AllowTestRuntimeRoot -or
+      $MaintenanceId -cne '779dd3efea0e485aa58aac3acc9e324f') {
+    throw 'Absent-helper recovery requires its paired proof, exact EnterMaintenance and KeepPostgres'
+  }
+}
+
 if ($BackendStartPolicy -eq "RequireReady" -and $Action -ne "Start") { throw "BackendStartPolicy RequireReady is restricted to Start" }
 . (Join-Path $PSScriptRoot "process-deadline.ps1")
 $WorkerOperationDeadline = Get-ProcessDeadline
@@ -1611,6 +1621,8 @@ function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$Operation
     # A reviewed source checkout can establish the gate for its first upgrade;
     # immutable Worker releases use the already-deployed Django controller.
     $maintenanceLibrary = Join-Path $PSScriptRoot "django-local-service.ps1"
+    if ($RecoveryProofPath -and $ControlAction -ceq 'BeginMaintenance' -and
+        -not (Test-Path -LiteralPath $maintenanceLibrary -PathType Leaf)) { throw 'Recovery requires its exact same-source Django controller' }
     if ($ControlAction -eq 'BeginWorkerDrain') { $maintenanceLibrary = $DjangoService }
     if (-not (Test-Path -LiteralPath $maintenanceLibrary -PathType Leaf)) { $maintenanceLibrary = $DjangoService }
     Assert-NoReparsePath $maintenanceLibrary
@@ -1618,11 +1630,16 @@ function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$Operation
     # mutation has no separate CLI path that could bypass the Worker mutex.
     # Library scope prevents Django variables from changing Worker bindings.
     & {
-      param($maintenanceController, $maintenanceRuntime, $maintenanceOperation, $maintenanceOperationId, $preserveDatabase)
+      param($maintenanceController, $maintenanceRuntime, $maintenanceOperation, $maintenanceOperationId, $preserveDatabase, $recoveryPath, $recoverySha)
       $previousLibraryMode = $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
       try {
         $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = "1"
-        . $maintenanceController -RuntimeRoot $maintenanceRuntime -MaintenanceId $maintenanceOperationId
+        if ($recoveryPath) {
+          if ($maintenanceOperation -cne 'BeginMaintenance') { throw 'Recovery proof cannot enter another Django lifecycle operation' }
+          . $maintenanceController -RuntimeRoot $maintenanceRuntime -MaintenanceId $maintenanceOperationId -RecoveryProofPath $recoveryPath -RecoveryProofSha256 $recoverySha
+        } else {
+          . $maintenanceController -RuntimeRoot $maintenanceRuntime -MaintenanceId $maintenanceOperationId
+        }
         $KeepPostgres = [bool]$preserveDatabase
         # Dot-sourcing creates the base controller's ValidateSet on Action.
         # The internal library operation is deliberately not a public CLI verb.
@@ -1636,7 +1653,9 @@ function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$Operation
           else { End-SystemMaintenance }
         }
       } finally { $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = $previousLibraryMode }
-    } $maintenanceLibrary $FixedDjangoRuntimeRoot $ControlAction $OperationId ([bool]$PreservePostgres)
+    } $maintenanceLibrary $FixedDjangoRuntimeRoot $ControlAction $OperationId ([bool]$PreservePostgres) `
+      $(if ($ControlAction -ceq 'BeginMaintenance') { $RecoveryProofPath } else { '' }) `
+      $(if ($ControlAction -ceq 'BeginMaintenance') { $RecoveryProofSha256 } else { '' })
     return
   }
   $result = Invoke-DjangoStartProcess $DjangoService $ControlAction -PreservePostgres:$PreservePostgres
