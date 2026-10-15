@@ -114,7 +114,7 @@ class ProgressLightTests(QueueFixtures, TransactionTestCase):
         self.assertNotIn("uniqueInferenceUnits", light)
         self.assertNotIn("remainingInferenceUnits", light)
 
-    def test_contract_roles_scope_authority_revision_and_not_found(self):
+    def test_contract_roles_scope_revision_and_not_found(self):
         job = self.job("contract")
         self.item(job, "queued")
         for role in ("viewer", "analyst", "operator", "admin"):
@@ -126,7 +126,9 @@ class ProgressLightTests(QueueFixtures, TransactionTestCase):
             self.assertEqual(self.post({**self.payload(job.id), "params": params}).status_code, 400)
         self.assertEqual(self.post({**self.payload(job.id), "extra": 1}).status_code, 400)
         MarketWriteAuthority.objects.filter(id=1).update(cutover_id="foreign")
-        self.assertEqual(self.post(self.payload(job.id)).status_code, 503)
+        # Reads follow the existing reader contract, not the writer's epoch.
+        for view in ("progress", "progress_light"):
+            self.assertEqual(self.post(self.payload(job.id, view)).status_code, 200)
         MarketWriteAuthority.objects.filter(id=1).update(cutover_id=CUTOVER)
         MarketDataRevision.objects.filter(domain="market").update(source_digest="")
         self.assertEqual(self.post(self.payload(job.id)).status_code, 503)
@@ -335,7 +337,7 @@ class ProgressLightTests(QueueFixtures, TransactionTestCase):
             cursor.execute(sql.SQL("CREATE ROLE {} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS").format(sql.Identifier(role)))
             cursor.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(sql.Identifier(role)))
             for table in ("market_annotation_jobs", "market_annotation_items", "market_annotation_cloud_runs",
-                    "market_annotation_concurrency_settings", "market_data_revisions", "market_write_authority"):
+                    "market_annotation_concurrency_settings", "market_data_revisions"):
                 cursor.execute(sql.SQL("GRANT SELECT ON {} TO {}").format(sql.Identifier(table), sql.Identifier(role)))
         observed = []
         def inspect_snapshot(principal, payload):
@@ -351,7 +353,10 @@ class ProgressLightTests(QueueFixtures, TransactionTestCase):
         try:
             with connection.cursor() as cursor:
                 cursor.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(role)))
-            with patch.object(views, "_execute_query", side_effect=inspect_snapshot):
+            # The production reader does not receive the writer-only epoch or
+            # cutover configuration. SQL grants alone cannot model that boundary.
+            with override_settings(MARKET_WRITE_AUTHORITY_EPOCH="", MARKET_WRITE_CUTOVER_ID=""), \
+                    patch.object(views, "_execute_query", side_effect=inspect_snapshot):
                 response = self.post(self.payload(job.id))
             self.assertEqual(response.status_code, 200, response.content)
             self.assertEqual(observed, [True])
