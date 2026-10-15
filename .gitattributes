@@ -1,1 +1,6 @@
 *.bat text eol=crlf
+backend/erp_reference/migrations/0003_jackyun_upload_audit_binding.py -text whitespace=cr-at-eol
+backend/market/test_annotation_resume_round2.py -text whitespace=cr-at-eol
+backend/sales/migrations/0011_jackyun_upload_audit_binding.py -text whitespace=cr-at-eol
+tools/ai_schedule_addition_catalog.py -text whitespace=cr-at-eol
+tools/ai_schedule_addition_private.py -text whitespace=cr-at-eol
