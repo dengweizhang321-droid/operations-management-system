@@ -1,0 +1,21 @@
+{
+  "version": "ai-schedule-afterbackup-recovery-validation-v1",
+  "status": "passed",
+  "productionWritePerformed": false,
+  "powershell": "5.1.26100.9444",
+  "tests": 16,
+  "nativePipeOwnerTests": 1,
+  "testsUseProductionPipe": false,
+  "sourceNormsRef": "origin/main 2c3619c0e84de68d03ff224a92ab84f64947aee1",
+  "files": {
+    "reconcile-afterbackup-audit.ps1": "4495e4ed3ea2e1a0eb9ceac23898053bf2986881e8ac71f5020eec3a08817e5f",
+    "exact-afterbackup-settlement.psm1": "c01efb4d17c152744205b2d70a9710e17a27a617b1ae090467b8f15d7ba45028",
+    "test-exact-afterbackup-settlement.ps1": "cdd597d2a15973140dcebe2ee8923294cd682814fe8f81aa349190c3ba4ca807",
+    "test-rotation-pipe-owner.ps1": "5c8f133a0177c331329bfd88c287ddb4dbf4879e16b3cff20b4cc6e5aea89ee8",
+    "isolated-tests-2.stdout.log": "1c0983bf43410031d57dd77e16b882f894b128578d9064558403176c01e964c2",
+    "isolated-tests-2.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "pipe-owner-test.stdout.log": "32e52390afc33e7e1df2e5c642f0b59b25dde7e729163d4472ad6c40ea57e9ec",
+    "pipe-owner-test.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "isolated-4ee8942789e14994b958bbcb2060d13b/summary.json": "67bb6b2ad0251d02d0ef1262d3087546b4c6bf82732eaf703af98b6a88d15874"
+  }
+}

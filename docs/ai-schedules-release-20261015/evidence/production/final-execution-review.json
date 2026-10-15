@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "teruisi-ai-schedule-final-execution-review-v1",
+  "recordedAt": "2026-10-15T03:41:29.0038849+00:00",
+  "reviewCompletedAt": null,
+  "timeNote": "recordedAt is the actual time this record was written; no retrospective completion timestamp was invented.",
+  "reviewer": "/root/critical_review",
+  "requestedModel": "gpt-6.1-sol",
+  "requestedReasoningEffort": "xhigh",
+  "actualUnderlyingModelIndependentlyConfirmed": false,
+  "conclusion": "approved-fixed-publication-request-once",
+  "blockingFindings": [],
+  "remainingInputRequirements": [],
+  "reviewNature": "Independent read-only review completed before this record; this write does not repeat validation or perform production actions.",
+  "executionTuple": {
+    "requestFile": "publication-request.json",
+    "requestSha256": "a3eeed1adb7dd411c1a9473f6f1018fae9d986f68fb17bfa646fca78fccf52a9",
+    "publisherFile": "publish.mjs",
+    "publisherSha256": "79ce3f93eac552709739b89fcb982af1782b48a4e41df47a5137772ed48913dc",
+    "maintenanceId": "e1e1c62daf4c4bc4835401e53b287761",
+    "operationId": "c464667d87a162bc34c4a3365ea56b5c",
+    "sourceRoot": "D:/codex-isolated/ai-schedules-release-20261015/source",
+    "sourceCommit": "1e23af06d38d39eb29b0db3950918e0e5a18b916",
+    "mergedApplicationCommit": "60ddfc3b910e301ef3916c4e9c585a97791f14b9",
+    "productionBaseCommit": "d3c664cd18ada5eaf6a5a1d376e4681db47919ca",
+    "compositionSha256": "636814c77bda38a4d2a11b6af89bfc1815695d85974e1a927548407d6d4f028c",
+    "candidateAdmissionSha256": "5c110c1a57746d94fa1039590caf068598e94b7b6135d63f7c96db8c5c353a2a",
+    "admissionCodeSha256": "ad495305af1d6a2901bdb77e32c36041bc385393b14ac6ac271ce8354c17dd5f",
+    "validationSha256": "5e3e855754f134c0f554b8761b8bc8bd195b37eb50abcde3116062bee43a92be",
+    "migrationInventorySha256": "eeeca0033aba72e1ccb7dee6021dae57fda4ddb0b9eb42b9544e2b23fc697a63",
+    "preparationReadySha256": "239eea55d53ac49dcff0bec814225fb9e8d2e65abeb54b9c2307cd1b95af89f4",
+    "nodeExecutableSha256": "9a4eb5f1c29c6a2e93852ead46b999e284a6a5ca8bab4d4e241d587d025a52de",
+    "powershellExecutableSha256": "8bb6fa8c283b4d92120b1ef249a9b311b0f804d4cabbe9981159976c8be76a5e",
+    "worker": {
+      "candidateReleaseId": "20261015T031454Z-bfb561e8e06db72e",
+      "candidateManifestSha256": "89330271301ea111322053cab647bc243b2928c255220b01f204426aac37d374",
+      "guardReceiptSha256": "2289d5f97d771d0cf8cb8fefc8a68500289f004b775a47596732779cdd7ccc62",
+      "planSha256": "39816e6b360a1f8b73e65e9b6b2f17b052fcb3ab4c44c3fb0a0df90168616a8b",
+      "sourceBindingSha256": "fc0e70832de8077bfe4d2eda0cf0e2f4272173e934530be0c9045bed0782415c",
+      "predecessorReleaseId": "20261014T202834Z-1943995b435ba5c7",
+      "predecessorManifestSha256": "f1e8c5a67790535092afdbfd5063f74a3e2918e6b10a19612e914940a5a9639e",
+      "predecessorChainStateSha256": "d87738b0f46d2f9fe75775a746bf0851399ae16992ad16ebbcfb13a6da3ea373"
+    },
+    "django": {
+      "preparedId": "b36adb51699249fb9b09dede8580eef5",
+      "preparedReceiptSha256": "04bc55f0ca50268adf6fa4175643cb8309eeec2c9edd6f8ad959c240a4f18bca",
+      "candidateManifestSha256": "46619c42b4ab4555ee7e60b8529e355c9c33c44dee08618e7fd2744a3cd64323",
+      "predecessorManifestSha256": "79a9d21add467114cc54149e233f6e5310953f3f306b462540c537d8b9ecf10b"
+    },
+    "backupAuthorization": {
+      "replaceOnlyAfterFresh142Verification": "daily-20260928T125351Z-31cb501bc72d",
+      "replaceManifestSha256": "36f3c99be1a9c23421547a70600006d0a05027e5bc40e5579e4d973189b14ad5",
+      "retainProtectedPoint": "daily-20260929T012900Z-ad2817875f20",
+      "retainManifestSha256": "b93fa5c4c939f5dfbec9758b4d8fe7d7274465cbb1df0eb16028ba55d0f61e40",
+      "maximumProtectedPoints": 2,
+      "maximumRecoveryPoints": 3
+    },
+    "postPublicationModeCas": {
+      "scriptFile": "adopt-guangdong-mode.mjs",
+      "scriptSha256": "fd6859493aca28af779dccef06eea632caf1b85bbeee5636fffd1b4c97941e4e",
+      "scheduleId": "ding-schedule-69839c2a-73d9-4fe5-9d71-7bc3e730255e",
+      "expectedVersion": 2,
+      "resultingVersion": 3,
+      "fromMode": "open_analysis",
+      "toMode": "guangdong_monitor",
+      "requiresSuccessfulPublicationResultAndSamePhysicalDjangoManifest": true,
+      "runNowOrProviderProbeAuthorizedByThisReview": false
+    }
+  },
+  "actuallyCompletedChecks": [
+    "Read the frozen publisher, publication sealer and final mode-CAS script; reviewed operation order, original controllers, source/target/predecessor fences and unknown handling.",
+    "Independently compared all 10 sealed input file hashes and all 18 stage-script bindings with actual files, including the prepared candidate path for post-install scripts.",
+    "Independently compared the current Node and native PowerShell executable hashes with the sealed request.",
+    "Read the real Worker plan and checked candidate manifest, guard, source binding, predecessor and chain bindings without rebuilding or rerunning dependency validation.",
+    "Read the real Django PrepareApp receipt and candidate manifest; checked actual receipt and manifest file hashes, prepared ID and predecessor/candidate bindings.",
+    "Checked PREPARATION_READY and reviewed the actual clean source commit, source/composition/admission linkage and the previously validated fixed code/proof hashes.",
+    "Checked the original observed predecessor against actual live Django manifest and the sealed Worker predecessor information; dynamic live fences remain the original publisher responsibility under its lock.",
+    "Checked the actual two protected recovery points, their exact manifest hashes, policy limits and the explicit authorization to replace only the September 28 point after successful fresh before-point verification.",
+    "Read latest main eda935cf AGENTS, unified delivery contract and work-sheet template; confirmed the increment is documentation-only and does not change application or execution-tool bytes.",
+    "Read RELEASE-DRAFT.md: fixed tuple, original authorization timing, pause/evidence boundaries, allowed closeout paths and retention/cleanup scope are stated without asserting unexecuted success."
+  ],
+  "reusedEvidence": [
+    "Previously completed pilot independent review and directly affected feature tests.",
+    "Admission source independent review, independent unit and PS5/PS7 negative tests, and finalized real PostgreSQL generation-142 and generation-143 isolated restore evidence, all bound by the fixed validation and code hashes above.",
+    "Successful original Worker producer and Django PrepareApp outputs; no duplicate build, full-tree validation or additional business acceptance was requested or performed for this record."
+  ],
+  "executionOrderReviewed": [
+    "Original Worker EnterMaintenance KeepPostgres, then Stop.",
+    "Prepared generation-142 Backup, Verify and same-point isolated Restore; only after success, original exact September-28 Unprotect, then Protect the new before point.",
+    "AiSchedule Plan bound to actual candidate, evidence, before point and restore; DeployApp and HardenAcl while maintenance remains active; unique Install of migration 0083.",
+    "Installed generation-143 Backup, Verify and same-point isolated Restore; Finalize.",
+    "Original approved Worker rotation apply; ExitMaintenance with the same maintenance identity; original Start and VerifyStartup.",
+    "Necessary exact Worker/Django version and service confirmation, expected recovery-point retention, immutable publication result; only then the separately fenced Guangdong mode CAS."
+  ],
+  "limitationsAndRequiredRuntimeBehavior": [
+    "This is approval of the exact frozen request for one original publication attempt, not proof of a completed deployment.",
+    "The original publisher must recheck dynamic predecessor, lock, owner, ordinary privilege, maintenance/stopped state and candidate gates inside the original lock.",
+    "If an operation fails or becomes unknown, retain original started/unknown/output and owner/gates, stop dependent writes and inspect the original process and effect before any original-protocol continuation; do not rerun the publisher or replay Install.",
+    "The production source intentionally excludes the separately deferred five-line Agnes terminal-usage compatibility change; it is not byte-identical to the entire main tree.",
+    "No real supplier question, paid model probe, task run_now, additional external send, database restore to production or old failed/unknown replay is approved by this review.",
+    "Preparation and review evidence is reused only for the exact frozen identities above; later scope or byte changes require targeted assessment.",
+    "The 15-minute target is not a deadline or permission to omit backup, same-point restore or other original gates; retain the original 2026-10-15T02:32:54Z authorization boundary and actual subsequent timestamps."
+  ],
+  "productionActionsPerformedByReviewer": false,
+  "repeatedValidationPerformedForThisRecord": false
+}

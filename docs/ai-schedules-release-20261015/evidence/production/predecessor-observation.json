@@ -1,0 +1,98 @@
+{
+  "version": "ai-schedule-predecessor-observation-v1",
+  "observedAt": "2026-10-15T02:40:09.683Z",
+  "workerHead": {
+    "bindingSha256": "1c5d2b4a1a8965804d05280ef28226870b5e9f1e9d4650d6a8083e77f47733a6",
+    "guardReceiptSha256": "da038e8b20466719228b3b0b1ada26946d497ca7871f491688a9fb59da95dd65",
+    "manifestSha256": "f1e8c5a67790535092afdbfd5063f74a3e2918e6b10a19612e914940a5a9639e",
+    "releaseId": "20261014T202834Z-1943995b435ba5c7",
+    "version": "teruisi-local-worker-release-binding-v1"
+  },
+  "headManifestPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20261014T202834Z-1943995b435ba5c7\\deployment-manifest.json",
+  "chainStateSha256": "d87738b0f46d2f9fe75775a746bf0851399ae16992ad16ebbcfb13a6da3ea373",
+  "djangoManifestSha256": "79a9d21add467114cc54149e233f6e5310953f3f306b462540c537d8b9ecf10b",
+  "django": {
+    "version": 2,
+    "deployedAt": "2026-10-15T04:27:57.1608035+08:00",
+    "sourceRoot": "D:\\codex-isolated\\market-ai-round2-release-20261015\\source",
+    "fingerprintAlgorithm": "relative-path-file-sha256-ordinal-v2",
+    "fileCount": 2951,
+    "appFingerprint": "276566a88a3c07b08ee74e036b7532e179032699f55a3ff1a432e9ec0cebecf0"
+  },
+  "guardEntries": [
+    {
+      "path": "package.json",
+      "expected": "85eac295b32f2846a1cbe78cfdf70b768c68dcefbcb316313342ed496691cb9b",
+      "actual": "85eac295b32f2846a1cbe78cfdf70b768c68dcefbcb316313342ed496691cb9b",
+      "match": true
+    },
+    {
+      "path": "运行项目.bat",
+      "expected": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "actual": "3184e1461c07463cd8c12bb7d7813a4d5bcc15448fd64c2a0caba809d17b28e2",
+      "match": true
+    },
+    {
+      "path": "tools/operations-system-control.ps1",
+      "expected": "b7acd2bc6c9c92dc80eb9f4730fd8037ba83df6b3bc951769f9d368d15252b6d",
+      "actual": "b7acd2bc6c9c92dc80eb9f4730fd8037ba83df6b3bc951769f9d368d15252b6d",
+      "match": true
+    },
+    {
+      "path": "tools/start-local-worker.mjs",
+      "expected": "965f319e2eaa58611fa772749bf04e13600b25e78e84bac82cba6afd7ee78de2",
+      "actual": "965f319e2eaa58611fa772749bf04e13600b25e78e84bac82cba6afd7ee78de2",
+      "match": true
+    },
+    {
+      "path": "tools/worker-authority-guard.mjs",
+      "expected": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+      "actual": "bbd18513fbeb3b6d7adb9956809f768458805b80959daba94669b31b87035210",
+      "match": true
+    },
+    {
+      "path": "tools/d1-retirement-proof.mjs",
+      "expected": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+      "actual": "87cf58e5ab5cac1dd9e77a4502e24b2769e4a121b5bb173dd53d45d913f6bc76",
+      "match": true
+    },
+    {
+      "path": "tools/collect-d1-retirement-proof.mjs",
+      "expected": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+      "actual": "38117cb4405d64d6250e68d7ee22521029244bb6e2e283ac5e56a0cbc6b72295",
+      "match": true
+    },
+    {
+      "path": "tools/worker-local-release.mjs",
+      "expected": "0f2d229f58b988dc9591699e0d73362ad1f1f8df5367e19844d82d931a99c108",
+      "actual": "0f2d229f58b988dc9591699e0d73362ad1f1f8df5367e19844d82d931a99c108",
+      "match": true
+    },
+    {
+      "path": "tools/worker-local-release-rotation.mjs",
+      "expected": "7dd49103f5b672dae484d3b5e70207d6644657701a5b6be23c85203cad62b72f",
+      "actual": "7dd49103f5b672dae484d3b5e70207d6644657701a5b6be23c85203cad62b72f",
+      "match": true
+    },
+    {
+      "path": "tools/worker-local-service.ps1",
+      "expected": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+      "actual": "ca155b4cae5f1952a1da6addb6ad5e2d3ba8290b31ab9bee24b70aef1cb6040e",
+      "match": true
+    },
+    {
+      "path": ".runtime/worker-release-activation-fence.json",
+      "expected": "2cb99b02f89508adbe629019a3168d595c2c8a16952461de7cb106e15a88ca9d",
+      "actual": "2cb99b02f89508adbe629019a3168d595c2c8a16952461de7cb106e15a88ca9d",
+      "match": true
+    },
+    {
+      "path": "tools/process-deadline.ps1",
+      "expected": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "actual": "5ae9617f8526197979a4f30585e055f05d38ca41ae69e52515256f13be4cb0fd",
+      "match": true
+    }
+  ],
+  "assertedProductionBase": "d3c664cd18ada5eaf6a5a1d376e4681db47919ca",
+  "productionStateChanged": false
+}

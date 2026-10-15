@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-15T05:48:21.385Z",
+  "status": "configured",
+  "taskId": "ding-schedule-69839c2a-73d9-4fe5-9d71-7bc3e730255e",
+  "taskName": "广东仓库存监控",
+  "version": 3,
+  "executionMode": "guangdong_monitor",
+  "nextRunAt": "2026-10-16T01:00:00+00:00",
+  "invariantSha256": "beea543e71d06a46098ff39b4c8f548870947ae066f82dbdcb56b8e7c9ff8a40",
+  "allOtherTaskFieldsUnchanged": true,
+  "otherTaskUnchanged": true,
+  "oldRunsUnchanged": true,
+  "noManualRunOrProviderProbe": true
+}

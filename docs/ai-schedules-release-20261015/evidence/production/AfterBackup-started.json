@@ -1,0 +1,1 @@
+{"administrator":false,"args":["-Action","Backup","-Execute"],"at":"2026-10-15T04:15:16.337Z","maintenanceId":"e1e1c62daf4c4bc4835401e53b287761","operationId":"c464667d87a162bc34c4a3365ea56b5c","script":"D:/teruisi-runtime/django-sales/app/tools/django-postgres-maintenance.ps1","scriptSha256":"54d52dc66c4258cb616aa4d9358c8c0d3a4a163cb9c55117f9d0572671858f54"}

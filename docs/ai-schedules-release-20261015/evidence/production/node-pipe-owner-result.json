@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "productionWrites": false,
+  "productionPipeUsed": false,
+  "nodeServerOwnerVerified": true,
+  "nodeLeaseClosed": true,
+  "stdout": "native-node-owner-verified\r\n"
+}
