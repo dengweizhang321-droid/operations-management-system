@@ -245,7 +245,6 @@ def _progress_light_read(loader: Callable[[], dict[str, object]]) -> tuple[dict[
                         ("idle_in_transaction_session_timeout", 5000)):
                     bounded = min(existing[name] or maximum, maximum)
                     cursor.execute("SELECT set_config(%s, %s, true)", [name, str(bounded)])
-        assert_write_authority()
         revision = revision_value()
         payload = loader()
         if monotonic() - started > 5:
