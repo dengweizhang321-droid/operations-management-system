@@ -7,6 +7,7 @@ import {
 import {
   MARKET_COMMANDS_PATH,
   MARKET_QUERIES_PATH,
+  DjangoMarketServiceResponseError,
   requestDjangoMarketService,
   requestAnnotationControl,
 } from "@/lib/django/market-service";
@@ -180,13 +181,13 @@ export async function GET(request: Request) {
       const result = await requestAnnotationControl<JsonRecord>(operator, command, true, { signal: request.signal });
       return Response.json(result.data, { headers: { "cache-control": "no-store", "x-market-data-revision": result.revision } });
     }
-    if (!["workspace", "workspace_fast", "progress", "candidate_counts", "review", "catalog"].includes(view)) {
+    if (!["workspace", "workspace_fast", "progress", "progress_light", "candidate_counts", "review", "catalog"].includes(view)) {
       throw new PublicApiError(400, "invalid_request", "不支持的市场标注视图");
     }
     const result = await marketQuery<JsonRecord>(
       principal,
       view,
-      annotationParams(params),
+      view === "progress_light" ? { jobId: params.get("jobId")?.trim() ?? "" } : annotationParams(params),
       request.signal,
     );
     let payload = result.data;
@@ -206,6 +207,9 @@ export async function GET(request: Request) {
   } catch (error) {
     const auth = authorizationErrorResponse(error);
     if (auth) return auth;
+    if (error instanceof DjangoMarketServiceResponseError && error.status === 503 && error.upstreamCode === "maintenance_wait") {
+      return Response.json({ code: "maintenance_wait", error: "系统正在维护或排空，请等待服务恢复。" }, { status: 503, headers: { "cache-control": "no-store" } });
+    }
     return safeApiErrorResponse(error, "读取 SKU AI 标注工作台失败", {
       headers: { "cache-control": "no-store" },
     });
