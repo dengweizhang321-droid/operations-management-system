@@ -49,6 +49,14 @@ def verify_receipt_generation(cursor):
     cursor.execute("SELECT app,name FROM public.django_migrations ORDER BY app,name")
     receipts = [".".join(row) for row in cursor.fetchall()]
     from jackyun_audit_catalog import STEPS as audit_steps, verify_catalog as verify_audit_catalog
+    from ai_schedule_addition_catalog import STEPS as schedule_steps, verify_catalog as verify_schedule_catalog
+    parent140 = sorted([*baseline, DELTA_STEP, "finance.0007_finance_erp_targets"])
+    parent142 = sorted([*parent140, *audit_steps])
+    generation143 = sorted([*parent142, *schedule_steps])
+    schedule_installed = receipts == generation143
+    # A receipt-free/partial 0083 must never be mistaken for an old backup.
+    # This read-only catalogue has no dependency on adoption finalization.
+    verify_schedule_catalog(cursor, installed=schedule_installed)
     if receipts == baseline:
         verify_audit_catalog(cursor, installed=False)
         # A 138 receipt set with partial/unrecorded cache schema is not legacy.
@@ -68,8 +76,7 @@ def verify_receipt_generation(cursor):
         from netshop.promotion_presence import verify_cache_catalog
         verify_cache_catalog(cursor)
         return 139
-    parent140 = sorted([*baseline, DELTA_STEP, "finance.0007_finance_erp_targets"])
-    if receipts in (parent140, sorted([*parent140, *audit_steps])):
+    if receipts in (parent140, parent142, generation143):
         audit_installed = receipts != parent140
         verify_audit_catalog(cursor, installed=audit_installed)
         from netshop.promotion_presence import verify_cache_catalog
@@ -83,7 +90,7 @@ def verify_receipt_generation(cursor):
         cursor.execute("SELECT t.tgtype,p.proname,t.tgenabled FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid=to_regclass('public.finance_erp_targets') AND t.tgname='finance_erp_target_revision_required' AND NOT t.tgisinternal")
         if cursor.fetchall()!=[(30,"finance_source_mark_revision_required","O")]:
             raise RuntimeError("ERP-goal addition revision guard differs")
-        return 142 if audit_installed else 140
+        return 143 if schedule_installed else 142 if audit_installed else 140
     raise RuntimeError("no-key backup migration catalogue is not a reviewed generation")
 
 

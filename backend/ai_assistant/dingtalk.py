@@ -136,7 +136,7 @@ def guard(session, config):
     return principal
 
 
-def plain_reply(value):
+def plain_reply(value, *, truncate=True):
     # Do not cause clients to fetch model-controlled images or links.
     value = text(value, "回复", 48000)
     value = re.sub(r"!\[[^\]]*\]\([^)]*\)", "[图片未外发]", value)
@@ -144,6 +144,8 @@ def plain_reply(value):
     value = re.sub(r"(?:https?://|www\.)\S+", "[链接未外发]", value, flags=re.I)
     value = value.replace("@", "＠").replace("<", "＜").replace(">", "＞")
     if len(value) > 3000:
+        if not truncate:
+            raise AiError("已校验的监控内容超过渠道容量，未截断投递", "schedule_content_too_large", 409)
         value = value[:2900] + "\n（回复较长，已截断；请缩小范围继续提问。）"
     return value
 

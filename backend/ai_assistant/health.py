@@ -663,8 +663,9 @@ def check():
             ("ai_dingtalk_settings", {"ai_ding_settings_singleton", "ai_ding_settings_version", "ai_ding_settings_size"}),
             ("ai_dingtalk_sessions", {"ai_ding_session_type", "ai_ding_scope_size"}),
             ("ai_dingtalk_receipts", {"ai_ding_receipt_status", "ai_ding_ack_status", "ai_ding_content_size"}),
-            ("ai_dingtalk_schedules", {"ai_ding_schedule_bound", "ai_ding_schedule_media_bound"}),
-            ("ai_dingtalk_schedule_runs", {"ai_ding_run_status", "ai_ding_schedule_slot_uq"}),
+            ("ai_dingtalk_schedules", {"ai_ding_schedule_bound", "ai_ding_schedule_media_bound", "ai_schedule_execution_mode"}),
+            ("ai_dingtalk_schedule_runs", {"ai_ding_run_status", "ai_ding_schedule_slot_uq", "ai_schedule_artifacts_bound",
+                "ai_schedule_data_status", "ai_schedule_analysis_status", "ai_schedule_delivery_status"}),
         ):
             cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid=%s::regclass AND convalidated", [table])
             if not expected <= {row[0] for row in cursor.fetchall()}:

@@ -85,12 +85,12 @@ export async function getInventoryGuangdongPageData(args: unknown, context: Page
     method: "GET", path: INVENTORY_GUANGDONG_PATH, service: "reader", rawQuery: query.toString(),
   }, { signal: context.signal })).data);
   return {
-    page: "inventory.guangdong", currency: "CNY", monetaryUnit: "cents", version: result.version,
-    sync: pickScalars(result.sync, ["inventoryAsOf", "salesThrough", "inventoryStale"]),
+    page: "inventory.guangdong", currency: "CNY", monetaryUnit: "cents", version: result.version, sourceSnapshot: result.sourceSnapshot,
+    sync: pickScalars(result.sync, ["inventoryAsOf", "inventoryAgeAsOf", "salesThrough", "inventoryStale", "latestInventoryBatchId"]),
     metrics: pickScalars(result.metrics, ["itemCount", "availableQuantity", "inTransitQuantity", "knownStockValueCents", "missingCostCount", "missingStockCount"]),
     distribution: boundedRecords(result.distribution, 6, ["risk", "label", "itemCount", "quantity", "knownStockValueCents", "itemRate", "quantityRate", "valueRate"]),
     pagination: projectPagination(result.pagination),
-    items: boundedRecords(result.items, pageInput.pageSize, ["productCode", "productName", "specification", "supplier", "operatorName", "buyer", "warehouse", "availableQuantity", "inTransitQuantity", "outbound7dQuantity", "outbound15dQuantity", "outbound30dQuantity", "turnoverDays", "inventoryAgeDays", "leadDays", "bufferDays", "latestOrderDate", "replenishmentQuantity", "latestReplenishmentOrderDate", "replenishmentStockIncreaseQuantity", "replenishmentRemainingQuantity", "replenishmentRemainingReason", "risk", "riskLabel", "riskReason"]),
+    items: boundedRecords(result.items, pageInput.pageSize, ["productCode", "productName", "specification", "supplier", "operatorName", "buyer", "warehouse", "availableQuantity", "inTransitQuantity", "outbound7dQuantity", "outbound15dQuantity", "outbound30dQuantity", "turnoverDays", "inventoryAgeDays", "leadDays", "bufferDays", "latestOrderDate", "replenishmentQuantity", "latestReplenishmentOrderDate", "replenishmentStockIncreaseQuantity", "replenishmentRemainingQuantity", "replenishmentRemainingReason", "risk", "riskLabel", "riskReason", "autoRisk", "autoRiskLabel", "riskSource", "riskOverride", "riskReasonOverride"]),
     disclosures: boundedStrings(result.disclosures, 8),
   };
 }

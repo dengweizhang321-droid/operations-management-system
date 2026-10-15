@@ -29,6 +29,8 @@ class ReceiptCursor:
             self.rows = [tuple(item.split(".", 1)) for item in sorted(self.receipts)]
         elif "a.attname,format_type" in sql:
             self.rows = []  # Legacy generations have no Jackyun audit columns.
+        elif "FROM pg_constraint" in sql:
+            self.rows = []  # Legacy generations have no AI 0083 constraints.
         elif "FROM pg_attribute" in sql:
             self.rows = [(self.columns,)]
         elif "FROM pg_trigger" in sql:
@@ -58,6 +60,10 @@ class NetshopPresenceGenerationTests(unittest.TestCase):
                 file.write_bytes(files.read(name))
         policy.verify_source(cls.source)
     def setUp(self):
+        # Old-generation tests below own the historical cache/journal
+        # boundaries; the new two-table 0083 schema is covered by its separate
+        # complete catalogue and real PostgreSQL rehearsal.
+        self.enterContext(patch("ai_schedule_addition_catalog.verify_catalog"))
         self.policy = plans.load_policy(ROOT / gate.DELTA_POLICY)
         self.baseline = list(self.policy.baseline)
         self.witness = {key: "a" * 64 for key in (

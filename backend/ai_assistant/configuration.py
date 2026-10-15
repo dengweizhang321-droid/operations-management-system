@@ -3,7 +3,9 @@ import ipaddress
 import os
 from urllib.parse import urlsplit, urlunsplit
 from django.conf import settings
-from django.db.models import F
+from django.db.models import F, JSONField, CharField
+from django.db.models.functions import Cast
+from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone
 from . import models as m
 from .policy import (
@@ -103,6 +105,10 @@ def model_record(row, *, available=False):
         bool_fields={"is_default_text_model"},
     )
     result["generationOptions"] = capabilities.options(row)
+    from . import capability_probes
+    result["capabilityProbe"] = capability_probes.record(row)
+    if capability_probes.stored(row):
+        result["lastTestResult"] = capability_probes.summary(row)
     return result
 
 
@@ -133,6 +139,9 @@ def model_has_active_execution(model_ids):
             status__in=["queued", "running", "paused", "waiting_review"]).exists()
         or m.AiChatRequestReceipts.objects.filter(model_id__in=model_ids,
             status__in=["processing", "dispatched"]).exists()
+        or m.AiDingTalkScheduleRun.objects.filter(status__in=["queued", "running", "ready", "sending"])
+            .annotate(_active_model_id=Cast(KeyTextTransform("id", Cast("model_snapshot_json", JSONField())), CharField()))
+            .filter(_active_model_id__in=model_ids).exists()
     )
 
 
@@ -311,6 +320,8 @@ def delete_model(params, principal, *, image=False):
             or m.AiSpaceTemplates.objects.filter(model_profile_id=row.id).exists()
         )
     else:
+        if m.AiDingTalkSchedule.objects.filter(model_id=row.id).exists():
+            raise AiError("模型仍被定时任务引用，请先修改任务的模型绑定后再删除", "conflict", 409)
         used = model_has_active_execution([row.id])
     if used:
         raise AiError("配置仍被历史或活动记录引用，可将其停用" if image else

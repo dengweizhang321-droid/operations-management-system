@@ -28,6 +28,9 @@ type AiMessagePagination = { pageSize: number; total: number; returned: number; 
 type AiConfigurationState = "idle" | "loading" | "ready" | "error";
 type AiFetch = (input: string, init?: RequestInit) => Promise<Response>;
 
+type AiCapabilityProbeStatus = "passed" | "failed" | "expired" | "unverified";
+const capabilityProbeLabel = (status?: AiCapabilityProbeStatus) => ({ passed: "通过", failed: "失败", expired: "已过期，需重测", unverified: "未验证" }[status || "unverified"]);
+
 type AiModelRecord = {
   id: string;
   version: number;
@@ -41,6 +44,7 @@ type AiModelRecord = {
   status: AiModelStatus;
   maxTokens: number;
   generationOptions: AiGenerationOptions;
+  capabilityProbe?: { adapterVersion: string; connection: { status: AiCapabilityProbeStatus }; nonStreaming: { status: AiCapabilityProbeStatus }; sse: { status: AiCapabilityProbeStatus } };
   reasoningMode: AiModelReasoningMode;
   temperatureMilli: number;
   maxToolRounds: number;
@@ -1084,15 +1088,15 @@ function AiAssistantView({
     finally { setSavingChannel(false); }
   };
 
-  const testConfiguration = async (type: "model" | "channel", id: string) => {
+  const testConfiguration = async (type: "model" | "channel", id: string, testMode = "connection") => {
     setBusyConfigId(`${type}:${id}`); setConfigurationError(""); setConfigurationNotice("");
     try {
-      const response = await fetch(type === "model" ? "/api/ai/models" : "/api/ai/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "test", id }) });
+      const response = await fetch(type === "model" ? "/api/ai/models" : "/api/ai/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "test", id, ...(type === "model" ? { testMode } : {}) }) });
       const payload = await response.json().catch(() => null) as { message?: string; error?: string } | null;
       if (!response.ok) throw new Error(payload?.error || "连通性测试失败");
       setConfigurationNotice(payload?.message || "连通性测试成功。");
       await loadConfiguration();
-    } catch (reason) { setConfigurationError(reason instanceof Error ? reason.message : "连通性测试失败"); }
+    } catch (reason) { setConfigurationError(reason instanceof Error ? reason.message : "能力测试失败"); await loadConfiguration(); }
     finally { setBusyConfigId(""); }
   };
 
@@ -1211,7 +1215,7 @@ function AiAssistantView({
           <label className="ai-check-field"><input type="checkbox" checked={modelDraft.isDefaultTextModel} disabled={modelDraft.status !== "enabled"} onChange={(event) => setModelDraft((current) => ({ ...current, isDefaultTextModel: event.target.checked }))} /><span>设为默认对话模型</span></label>
           <div className="ai-form-actions"><button type="submit" className="primary-button" disabled={savingModel}>{savingModel ? "保存中…" : isEditingModel ? "保存修改" : "新增模型"}</button></div>
         </form>
-        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{<small>输出 {item.maxTokens} · 上下文 {(item.generationOptions?.contextWindowTokens ?? DEFAULT_AI_GENERATION.contextWindowTokens).toLocaleString()} · 推理 {item.reasoningMode === "disabled" ? "关闭" : item.generationOptions?.reasoningFormat && item.generationOptions.reasoningFormat !== "default" ? "自定义" : "供应商默认"} · 温度 {item.generationOptions?.temperatureMode === "default" ? "供应商默认" : (item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认对话模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={Boolean(busyConfigId) || item.status !== "enabled" || item.isDefaultTextModel} onClick={() => void setDefaultModel(item)}>{item.isDefaultTextModel ? "当前默认" : "设为默认"}</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试连接"}</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name, item.version)}>删除</button></div></div>)}</div>
+        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{<small>输出 {item.maxTokens} · 上下文 {(item.generationOptions?.contextWindowTokens ?? DEFAULT_AI_GENERATION.contextWindowTokens).toLocaleString()} · 推理 {item.reasoningMode === "disabled" ? "关闭" : item.generationOptions?.reasoningFormat && item.generationOptions.reasoningFormat !== "default" ? "自定义" : "供应商默认"} · 温度 {item.generationOptions?.temperatureMode === "default" ? "供应商默认" : (item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认对话模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small><small>非流式工具闭环：{capabilityProbeLabel(item.capabilityProbe?.nonStreaming.status)} · SSE 工具闭环：{capabilityProbeLabel(item.capabilityProbe?.sse.status)}。普通连接成功不代表工具闭环通过。</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={Boolean(busyConfigId) || item.status !== "enabled" || item.isDefaultTextModel} onClick={() => void setDefaultModel(item)}>{item.isDefaultTextModel ? "当前默认" : "设为默认"}</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试普通连接"}</button><button type="button" className="row-action" disabled={Boolean(busyConfigId)} onClick={() => void testConfiguration("model", item.id, "tool_roundtrip_json")}>测试非流式工具闭环</button><button type="button" className="row-action" disabled={Boolean(busyConfigId)} onClick={() => void testConfiguration("model", item.id, "tool_roundtrip_sse")}>测试 SSE 工具闭环</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name, item.version)}>删除</button></div></div>)}</div>
       </article>
       <article className="panel ai-admin-card data-refresh-region" aria-busy={configurationState === "loading"}>
         <div className="section-header"><div><h3>{isEditingChannel ? "编辑聊天渠道" : "新增聊天渠道"}</h3><p>钉钉和企业微信群机器人可主动发送测试消息；企业微信应用回调会验签、解密并只记录去重凭据，不会自动执行消息内容。</p></div>{isEditingChannel && <button type="button" className="text-button" onClick={() => setChannelDraft(newAiChannelDraft())}>取消编辑</button>}</div>
