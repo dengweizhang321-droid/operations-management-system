@@ -111,11 +111,16 @@ async function setInputDate(surface: Surface, placeholder: string, value: string
   await input.fill(value); await input.press("Tab");
   if (await input.inputValue() !== value) fail("JD_LOGISTICS_DATE_READBACK_FAILED");
 }
-async function visibleRangeDates(surface: Surface, start: string, end: string, openPlaceholder: string) {
+export async function visibleRangeDates(surface: Surface, start: string, end: string, openPlaceholder: string) {
   const trigger = surface.getByPlaceholder(openPlaceholder, { exact: true });
   if (await trigger.count() !== 1) fail("JD_LOGISTICS_DATE_CONTROL_AMBIGUOUS");
   await trigger.click();
   const picker = surface.locator(".el-date-range-picker:visible");
+  if (await picker.count() > 1) fail("JD_LOGISTICS_DATE_CONTROL_AMBIGUOUS");
+  // Element's popper may still be mounting/animating after the trigger click.
+  // Wait for that same panel once; never retry the click or select a duplicate.
+  try { await picker.first().waitFor({ state: "visible", timeout: 10000 }); }
+  catch { fail("JD_LOGISTICS_DATE_CONTROL_NOT_READY"); }
   if (await picker.count() !== 1) fail("JD_LOGISTICS_DATE_CONTROL_AMBIGUOUS");
   const left = picker.locator(".el-date-range-picker__content.is-left");
   const month = async () => {
