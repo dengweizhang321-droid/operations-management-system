@@ -18,6 +18,24 @@ import {
 } from "../lib/django/workflow-service";
 import { readDjangoWorkflowConsumer } from "../lib/django/workflow-consumer-reader";
 import { PublicApiError } from "../lib/http/api-error";
+import { learningOperationPath } from "../lib/workflow/learning-operation";
+
+test("manual learning receipt query uses writer-only GET and retains exact signed path", async () => {
+  const operationId = "40000000-0000-4000-8000-000000000001";
+  const path = learningOperationPath(operationId);
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const request = new Request(input, init);
+    assert.equal(new URL(request.url).origin, config.writerBaseUrl);
+    verifySignature(request, path);
+    return Response.json({ operationId, status: "unconfirmed" }, { headers: { "x-workflow-data-revision": "4:abcdef123456" } });
+  };
+  await requestDjangoWorkflowJson(principal, { method: "GET", path, service: "writer" }, { config, fetchImpl });
+  for (const input of [
+    { method: "GET" as const, path, service: "reader" as const },
+    { method: "POST" as const, path, service: "writer" as const, payload: {} },
+    { method: "GET" as const, path: path + "/extra", service: "writer" as const },
+  ]) await assert.rejects(requestDjangoWorkflowJson(principal, input, { config, fetchImpl }));
+});
 
 const principal: AppPrincipal = {
   email: "admin@example.test",

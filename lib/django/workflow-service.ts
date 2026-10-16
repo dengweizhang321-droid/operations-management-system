@@ -6,6 +6,7 @@ import {
   salesGatewayBodySha256,
 } from "@/lib/django/sales-gateway";
 import { PublicApiError } from "@/lib/http/api-error";
+import { LEARNING_OPERATION_ID_RE, LEARNING_PATH } from "@/lib/workflow/learning-operation";
 
 export const WORKFLOW_LAUNCH_PROJECTS_PATH = "/api/workflow/launch-projects";
 export const WORKFLOW_CONSUMER_QUERY_PATH = "/api/workflow/consumers/query";
@@ -193,6 +194,8 @@ function validateRequest(input: WorkflowServiceRequest) {
   const productLine = PRODUCT_LINE_PATH_RE.test(input.path);
   const productLineImage = PRODUCT_LINE_IMAGE_PATH_RE.test(input.path);
   const productLineLearning = input.path === WORKFLOW_NEW_PRODUCT_LINE_LEARN_PATH;
+  const learningOperation = input.path.startsWith(`${LEARNING_PATH}/operations/`)
+    && LEARNING_OPERATION_ID_RE.test(input.path.slice(`${LEARNING_PATH}/operations/`.length));
   const weeklyFollowup = input.path === WORKFLOW_NEW_PRODUCT_WEEKLY_FOLLOWUP_PATH;
   const weeklyReportConfig = input.path === WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH;
   const tasks = input.path === WORKFLOW_TASKS_PATH;
@@ -210,7 +213,7 @@ function validateRequest(input: WorkflowServiceRequest) {
     ? (input.method === "GET" && (collection || project || productLines || productLineImage || productLineLearning || weeklyFollowup || weeklyReportConfig
       || input.path === WORKFLOW_IMPORT_CHAIN_STATUS_PATH || tasks || taskSubresource || taskAttachment || templates || records || record || recordActivity))
       || (input.method === "POST" && consumer)
-    : (input.method === "GET" && (attachmentCleanup || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH))
+    : (input.method === "GET" && (learningOperation || attachmentCleanup || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH))
       || (input.method === "POST" && (collection || productLines || productLineLearning || tasks || taskWritableCollection
         || templates || records || attachmentCleanup || inventoryWorkItems || input.path === WORKFLOW_JACKYUN_RECOVERY_AUTHORITY_PATH))
       || (input.method === "PATCH" && (project || stage || productLine || weeklyReportConfig || tasks || templates || record))

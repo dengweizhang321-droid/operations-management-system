@@ -19,6 +19,8 @@ from .models import (
 
 RECEIPT_TTL = timedelta(days=7)
 PROCESSING_STALE_AGE = timedelta(minutes=5)
+MANUAL_LEARNING_PREFIX = "workflow-learning:"
+MANUAL_LEARNING_PATH = "/api/workflow/new-product-lines/learn"
 
 
 @dataclass(frozen=True)
@@ -138,10 +140,16 @@ def claim_write_request(
     body_sha256: str,
     query_sha256: str,
     authority_scope: str = "launch",
+    durable_learning: bool = False,
 ) -> WorkflowWriteClaim:
     require_workflow_writer_process()
     if not request_id or len(request_id) > 128:
         raise WorkflowApiError("内部请求标识无效")
+    if durable_learning and not (
+        request_id.startswith(MANUAL_LEARNING_PREFIX)
+        and method == "POST" and path == MANUAL_LEARNING_PATH and authority_scope == "launch"
+    ):
+        raise WorkflowApiError("新品学习回执范围无效", status=503)
     now = timezone.now()
     with transaction.atomic():
         if authority_scope == "operations":
@@ -153,6 +161,7 @@ def claim_write_request(
         _lock_request_identity(request_id)
         expired_ids = list(
             WorkflowWriteRequestReceipt.objects.filter(expires_at__lte=now)
+            .exclude(request_id__startswith=MANUAL_LEARNING_PREFIX, method="POST", path=MANUAL_LEARNING_PATH)
             .order_by("expires_at")
             .values_list("request_id", flat=True)[:20]
         )
@@ -185,6 +194,10 @@ def claim_write_request(
                     replay_status=receipt.response_status,
                     replay_payload=receipt.response_payload,
                 )
+            if durable_learning:
+                # An unresolved manual operation never becomes a new execution
+                # merely because a timeout, cleanup window or browser changed.
+                raise WorkflowApiError("本次学习结果尚未确认，请查询原操作", code="conflict", status=409)
             if receipt.status == "processing" and receipt.updated_at > now - PROCESSING_STALE_AGE:
                 raise WorkflowApiError("相同运营事务写请求仍在处理中", code="conflict", status=409)
             claim_token = uuid.uuid4().hex

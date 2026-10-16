@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { requestJson } from "@/lib/http/api-client";
+import { createLearningOperationClient, type LearningState } from "@/lib/workflow/learning-operation-client";
+import { LEARNING_PATH, learningOperationPath } from "@/lib/workflow/learning-operation";
 import Dialog from "./ui/dialog";
 
 type ProductCode = {
@@ -437,7 +439,7 @@ export function ProductLineEditor({ line, saving, onClose, onSave }: {
   </Dialog>;
 }
 
-export default function NewProductSalesFollowupView({ canWrite }: { canWrite: boolean }) {
+export default function NewProductSalesFollowupView({ canWrite, actorEmail }: { canWrite: boolean; actorEmail: string }) {
   const searchParams = useSearchParams();
   const captureReport = searchParams.get("reportCapture") === "weekly";
   const [lines, setLines] = useState<ProductLine[]>([]);
@@ -448,7 +450,9 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [learning, setLearning] = useState(false);
+  const [learningState, setLearningState] = useState<LearningState>({ phase: "idle", message: "" });
+  const learningClientRef = useRef<ReturnType<typeof createLearningOperationClient> | null>(null);
+  const learning = learningState.phase === "submitting" || learningState.phase === "confirming";
   const [exporting, setExporting] = useState(false);
   const [togglingLineId, setTogglingLineId] = useState("");
   const [error, setError] = useState("");
@@ -504,19 +508,36 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
     setWeekStart(value);
   };
 
-  const learn = async (quiet = false) => {
-    if (!canWrite || learning) return;
-    setLearning(true);
-    if (!quiet) setFeedback("");
+  useEffect(() => {
+    if (!canWrite || !actorEmail || captureReport) return;
+    let active = true;
+    let client: ReturnType<typeof createLearningOperationClient>;
     try {
-      const payload = await requestJson<{ result: { added: unknown[]; ambiguous: unknown[]; scanned: number } }>("/api/workflow/new-product-lines/learn", { method: "POST", body: {} });
-      if (!quiet || payload.result.added.length > 0 || payload.result.ambiguous.length > 0) {
-        setFeedback(`已扫描 ${payload.result.scanned} 个吉客云货品，新增 ${payload.result.added.length} 个监控代码，${payload.result.ambiguous.length} 个多产品线命中未自动归类。`);
-      }
-      if (payload.result.added.length > 0) await load();
-    } catch (reason) { if (!quiet) setFeedback(messageOf(reason, "吉客云代码学习失败。")); }
-    finally { setLearning(false); }
-  };
+      client = createLearningOperationClient({
+        ownerEmail: actorEmail, storage: window.sessionStorage,
+        request: (operationId, method, signal) => method === "POST"
+          ? requestJson(LEARNING_PATH, { method, body: { operationId }, signal })
+          : requestJson(learningOperationPath(operationId), { signal }),
+        onState: (state) => { if (active) { setLearningState(state); if (state.message) setFeedback(state.message); } },
+        onCompleted: (result) => { if (active && result.added.length > 0) void load(); },
+      });
+    } catch {
+      setLearningState({ phase: "blocked", message: "浏览器存储不可用，尚未提交学习。" });
+      setFeedback("浏览器存储不可用，尚未提交学习。请允许浏览器存储后重新打开页面。");
+      return;
+    }
+    learningClientRef.current = client;
+    client.restore();
+    const resume = () => { if (document.visibilityState === "visible") client.confirm(); };
+    window.addEventListener("online", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      active = false; client.dispose();
+      if (learningClientRef.current === client) learningClientRef.current = null;
+      window.removeEventListener("online", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [actorEmail, canWrite, captureReport, load]);
 
   const saveLine = async (draft: LineDraft) => {
     if (saving) return;
@@ -575,8 +596,8 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
   const currentByLine = useMemo(() => new Map(report?.items.map((item) => [item.id, item]) ?? []), [report]);
 
   return <div className="new-product-followup-view" data-report-state={error ? "error" : loading ? "loading" : "ready"}>
-    <section className="workflow-toolbar workflow-section-hero launch-followup-hero"><div><span className="eyebrow">NEW PRODUCT WEEKLY SALES</span><h2>上新销售跟进</h2><p>以吉客云货品代码归集销售，由你定义产品线名称；周报周期使用运行机器的本地时间。</p></div><div className="workflow-hero-actions"><span>{report?.timezone ?? "读取本机时区中"}</span><button type="button" className="secondary-button" disabled={learning || !canWrite} onClick={() => void learn()}>{learning ? "学习中…" : "学习新代码"}</button><button type="button" className="primary-button" disabled={!canWrite} onClick={() => setEditor("create")}>＋ 新建产品线</button></div></section>
-    {feedback && <div className="workflow-feedback" role="status"><span>i</span><p>{feedback}</p><button type="button" aria-label="关闭提示" onClick={() => setFeedback("")}>×</button></div>}
+    <section className="workflow-toolbar workflow-section-hero launch-followup-hero"><div><span className="eyebrow">NEW PRODUCT WEEKLY SALES</span><h2>上新销售跟进</h2><p>以吉客云货品代码归集销售，由你定义产品线名称；周报周期使用运行机器的本地时间。</p></div><div className="workflow-hero-actions"><span>{report?.timezone ?? "读取本机时区中"}</span><button type="button" className="secondary-button" disabled={learning || !canWrite || !actorEmail || learningState.phase === "blocked"} onClick={() => void learningClientRef.current?.start()}>{learningState.phase === "submitting" ? "学习中…" : learningState.phase === "confirming" ? "正在确认…" : learningState.phase === "unconfirmed" ? "继续本次学习" : "学习新代码"}</button><button type="button" className="primary-button" disabled={!canWrite} onClick={() => setEditor("create")}>＋ 新建产品线</button></div></section>
+    {feedback && <div className="workflow-feedback" role="status"><span>i</span><p>{feedback}</p>{learningState.phase === "unconfirmed" && <button type="button" className="secondary-button" onClick={() => learningClientRef.current?.confirm()}>查询学习结果</button>}<button type="button" aria-label="关闭提示" onClick={() => setFeedback("")}>×</button></div>}
     <section className="panel launch-followup-controls"><label><span>报告周（星期一）</span><input type="date" min={REPORT_TIMELINE_START} value={weekStart} onChange={(event) => changeWeek(event.target.value)} /></label><button type="button" className="secondary-button" disabled={loading} onClick={() => void load()}>刷新周报</button><span>周维度自 {REPORT_TIMELINE_START} 起持续累积 · 销售数据截至：{report?.dataCutoffDate ?? "暂无"}</span>{report?.dataIncomplete && <strong>本周数据尚未完整</strong>}</section>
     {error && <section className="panel data-state operations-data-state operations-data-state-error" role="alert"><span className="state-symbol">!</span><strong>新品销售跟进加载失败</strong><p>{error}</p><button type="button" className="secondary-button" onClick={() => void load()}>重新加载</button></section>}
     {loading && !report ? <section className="panel data-state operations-data-state"><span className="state-spinner" /><strong>正在生成新品销售周报</strong><p>读取产品线、吉客云代码与销售事实…</p></section> : report && <>
