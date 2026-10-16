@@ -1755,6 +1755,22 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (-not [string]::IsNullOrWhiteSpace($IntegrationEvidencePath) -and (Test-Path -LiteralPath $IntegrationEvidencePath)) {
     $biEvidence = Read-JsonFile $IntegrationEvidencePath 'BI addition evidence'
   }
+  # Explicit147 dispatch precedes146; the old verifier and its receipt stay exact.
+  $preferencesGate = Join-Path $candidateRoot 'tools\jd_monitor_preferences_addition.py'
+  $preferencesDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
+    (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('jd-monitor-preferences-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
+  if ([string]$biEvidence.version -ceq 'teruisi-jd-monitor-preferences-schema-addition-v1' -or $preferencesDeployment -or
+      (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'jd-monitor-preferences-addition-active.json'))) {
+    if (-not (Test-Path -LiteralPath $preferencesGate -PathType Leaf)) {throw 'JD147 requires its exact verifier'}
+    $preferencesCommand = if ($Operation -ceq 'PrepareApp') {if ($null -ne $biEvidence) {'admission'} else {'successor'}} elseif ($Operation -ceq 'DeployApp') {if ([string]::IsNullOrWhiteSpace($IntegrationOperationId)) {'successor'} else {'deployment'}} elseif ($Operation -ceq 'Django migrate') {'release'} else {throw 'Unsupported JD147 lifecycle operation'}
+    $preferencesArgs = @($preferencesGate,$preferencesCommand,'--root',$candidateRoot,'--runtime',$RuntimeRoot)
+    if ($preferencesCommand -ceq 'admission') {$preferencesArgs += @('--evidence',$IntegrationEvidencePath,'--evidence-sha',$IntegrationEvidenceSha256)}
+    if ($preferencesCommand -ceq 'deployment') {$preferencesArgs += @('--operation',$IntegrationOperationId)}
+    $preferencesRun = Invoke-BoundedNativeProcess $Python $preferencesArgs $candidateRoot
+    $preferencesProof = ConvertFrom-UniqueNativeJson $preferencesRun 'Verify finite JD147 schema addition'
+    if ([string]$preferencesProof.status -cne 'verified') {throw 'JD147 schema addition gate refused'}
+    return
+  }
   $jdGate = Join-Path $candidateRoot 'tools\jd_logistics_addition.py'
   $jdDeployment = $Operation -ceq 'DeployApp' -and $IntegrationOperationId -cmatch '^[a-f0-9]{32}$' -and
     (Test-Path -LiteralPath (Join-Path $RuntimeRoot ('jd-logistics-additions\' + $IntegrationOperationId + '\plan.json')) -PathType Leaf)
@@ -2019,6 +2035,9 @@ function Prepare-Application {
       "tools\bi_app_addition.py",
       "tools\jackyun_audit_addition.py",
       "tools\jackyun_audit_catalog.py",
+      "tools\jd_monitor_preferences_addition.py",
+      "tools\jd_monitor_preferences_catalog.py",
+      "tools\jd_monitor_preferences_catalog.json",
       "tools\jd_logistics_addition.py",
       "tools\jd_logistics_catalog.py",
       "tools\jd_logistics_catalog.json",

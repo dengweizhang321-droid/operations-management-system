@@ -55,9 +55,15 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
     generation143 = sorted([*parent142, *schedule_steps])
     from jd_logistics_catalog import STEPS as jd_steps, verify_catalog as verify_jd_catalog
     generation146 = sorted([*generation143, *jd_steps])
+    from jd_monitor_preferences_catalog import STEPS as preferences_steps, verify_catalog as verify_preferences_catalog
+    generation147 = sorted([*generation146, *preferences_steps])
+    preferences_installed = receipts == generation147
     jd_installed = receipts == generation146
-    verify_jd_catalog(cursor, installed=jd_installed, permissions=jd_installed and jd_permissions)
-    schedule_installed = receipts in (generation143, generation146)
+    if preferences_installed:
+        verify_preferences_catalog(cursor, permissions=jd_permissions)
+    else:
+        verify_jd_catalog(cursor, installed=jd_installed, permissions=jd_installed and jd_permissions)
+    schedule_installed = receipts in (generation143, generation146, generation147)
     # A receipt-free/partial 0083 must never be mistaken for an old backup.
     # This read-only catalogue has no dependency on adoption finalization.
     verify_schedule_catalog(cursor, installed=schedule_installed)
@@ -80,7 +86,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         from netshop.promotion_presence import verify_cache_catalog
         verify_cache_catalog(cursor)
         return 139
-    if receipts in (parent140, parent142, generation143, generation146):
+    if receipts in (parent140, parent142, generation143, generation146, generation147):
         audit_installed = receipts != parent140
         verify_audit_catalog(cursor, installed=audit_installed)
         from netshop.promotion_presence import verify_cache_catalog
@@ -94,7 +100,7 @@ def verify_receipt_generation(cursor, *, jd_permissions=True):
         cursor.execute("SELECT t.tgtype,p.proname,t.tgenabled FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid=to_regclass('public.finance_erp_targets') AND t.tgname='finance_erp_target_revision_required' AND NOT t.tgisinternal")
         if cursor.fetchall()!=[(30,"finance_source_mark_revision_required","O")]:
             raise RuntimeError("ERP-goal addition revision guard differs")
-        return 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
+        return 147 if preferences_installed else 146 if jd_installed else 143 if schedule_installed else 142 if audit_installed else 140
     raise RuntimeError("no-key backup migration catalogue is not a reviewed generation")
 
 
