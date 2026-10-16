@@ -17,8 +17,9 @@ execFileSync('git',['-c','user.name=fixture','-c','user.email=fixture@example.in
 const mainCommit=execFileSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).trim();
 const directory='D:/codex-isolated/main-manual-release-20261016/control-host';
 const digest=createHash('sha256').update(await fs.readFile(path.join(directory,'pwsh.exe'))).digest('hex');
+const cache=path.join(root,'npm-cache');await fs.mkdir(path.join(cache,'_cacache','content-v2'),{recursive:true});
 async function check(values){
- await fs.writeFile(path.join(root,'main-release-request.json'),JSON.stringify({mainCommit,pwshDirectory:directory,pwshSha256:digest,...values}));
+ await fs.writeFile(path.join(root,'main-release-request.json'),JSON.stringify({mainCommit,pwshDirectory:directory,pwshSha256:digest,npmCacheDirectory:cache,...values}));
  return spawnSync(process.execPath,[script,'--check'],{cwd:os.tmpdir(),encoding:'utf8',timeout:30000,windowsHide:true});
 }
 test('check refuses a missing PowerShell before any release starts',async()=>{
@@ -29,6 +30,10 @@ test('check keeps the executable hash requirement',async()=>{
 });
 test('check starts the packaged engine and remains read-only',async()=>{
  const result=await check({});assert.equal(result.status,0,result.stderr);const data=JSON.parse(result.stdout);assert.equal(data.powerShellHostVerified,true);assert.equal(data.powerShellVersion,'7.6.5');assert.equal(data.productionExecuted,false);
+ await assert.rejects(fs.access(path.join(root,'publish-'+mainCommit.slice(0,12))),{code:'ENOENT'});
+});
+test('check refuses an absent offline cache without starting a release',async()=>{
+ const result=await check({npmCacheDirectory:path.join(root,'absent-cache')});assert.equal(result.status,1);assert.doesNotMatch(result.stdout,/productionExecuted.*true/);
  await assert.rejects(fs.access(path.join(root,'publish-'+mainCommit.slice(0,12))),{code:'ENOENT'});
 });
 test('normal entry logs a preflight failure without reporting success or starting a release',async()=>{

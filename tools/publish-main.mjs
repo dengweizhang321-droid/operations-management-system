@@ -22,13 +22,19 @@ async function verifyPowerShellHost(request,smoke=false){
  return {executable,version};
 }
 
+async function verifyOfflineCache(request){
+ assert.ok(typeof request.npmCacheDirectory==='string'&&path.isAbsolute(request.npmCacheDirectory),'发布包缺少离线依赖缓存配置，请使用更新后的入口');
+ const cache=path.join(request.npmCacheDirectory,'_cacache','content-v2');
+ assert.ok((await fs.stat(cache)).isDirectory(),'发布包离线依赖缓存不存在：'+cache);
+}
+
 async function main(){
  if(!process.argv.includes('--check')){progress=createReleaseProgress(path.resolve(source,'..','logs'));progress.begin('准备发布');}
  const request=await read(requestFile);
  const head=execFileSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).trim();
  assert.equal(head,request.mainCommit,'main来源版本已变化，请使用本次合并后生成的入口');
  assert.equal(execFileSync('git',['status','--porcelain'],{cwd:source,encoding:'utf8'}).trim(),'','发布来源有未提交修改');
- if(process.argv.includes('--check')){const host=await verifyPowerShellHost(request,true);console.log(JSON.stringify({powerShellHostVerified:true,powerShellVersion:host.version,sourceCommit:head,mode:'manual-main-build-and-publish',steps:['构建打包','部署','必要的结构迁移','启动及必要服务确认'],backup:false,fullTests:false,productionExecuted:false}));return;}
+ if(process.argv.includes('--check')){const host=await verifyPowerShellHost(request,true);await verifyOfflineCache(request);console.log(JSON.stringify({powerShellHostVerified:true,powerShellVersion:host.version,dependencyMode:'offline',sourceCommit:head,mode:'manual-main-build-and-publish',steps:['构建打包','部署','必要的结构迁移','启动及必要服务确认'],backup:false,fullTests:false,productionExecuted:false}));return;}
  const out=path.resolve(source,'..','publish-'+head.slice(0,12));await fs.mkdir(out,{recursive:true});
  const save=async(name,value)=>fs.writeFile(path.join(out,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
  progress.log('main版本：'+head+'；步骤详细日志：'+out);
@@ -39,10 +45,14 @@ async function main(){
  const transport=await import(pathToFileURL(path.join(source,'tools/release-batch.mjs')));
  const sha=async file=>api.sha256Bytes(await fs.readFile(file));
  await verifyPowerShellHost(request);
+ await verifyOfflineCache(request);
  process.env.PATH=request.pwshDirectory+';'+(process.env.PATH??process.env.Path??'');process.env.WRANGLER_HIDE_BANNER='true';
- // Keep native npm ci and lockfile integrity checks; avoid cache revalidation downloads.
+ // This frozen delivery carries its lockfile-verified cache; never fall back to network.
+ process.env.npm_config_cache=request.npmCacheDirectory;
+ process.env.npm_config_offline='true';
+ process.env.npm_config_prefer_online='false';
  process.env.npm_config_prefer_offline='true';
- progress.log('依赖安装优先使用本机缓存，缺失时才下载；继续按锁文件安装和校验。');
+ progress.log('依赖安装使用发布包内缓存（离线模式，不联网下载），继续按锁文件安装和校验。');
  const shell='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe';
  const token=await api.runProcess(shell,['-NoProfile','-NonInteractive','-Command','[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)'],{timeoutMs:30000});
  assert.equal(token.stdout.trim(),'False','请使用普通用户双击，不需要管理员权限');
