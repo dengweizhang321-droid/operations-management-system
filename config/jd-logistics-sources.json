@@ -1,4 +1,51 @@
 {
   "version": 1,
-  "bindings": []
+  "bindings": [
+    {
+      "sourceKind": "flow",
+      "departmentId": "jd-yiyong-4418046540089",
+      "businessUnitCode": "EBU4418046540089",
+      "enabled": true,
+      "sourceVerified": true,
+      "contractVersion": "jd-logistics-v1",
+      "collectorStoreKey": "jd-yiyong-director",
+      "authorizedStoreKeys": ["jd-yiyong-director"],
+      "warehouseCode": "",
+      "initialStartDate": "2026-10-15",
+      "maxSpanDays": 366
+    },
+    {
+      "sourceKind": "shop_products",
+      "departmentId": "jd-yiyong-4418046540089",
+      "businessUnitCode": "EBU4418046540089",
+      "enabled": true,
+      "sourceVerified": true,
+      "contractVersion": "jd-logistics-v1",
+      "collectorStoreKey": "jd-yiyong-director",
+      "authorizedStoreKeys": ["jd-yiyong-director"],
+      "warehouseCode": ""
+    },
+    {
+      "sourceKind": "realtime_inventory",
+      "departmentId": "jd-yiyong-4418046540089",
+      "businessUnitCode": "EBU4418046540089",
+      "enabled": true,
+      "sourceVerified": true,
+      "contractVersion": "jd-logistics-v1",
+      "collectorStoreKey": "jd-yiyong-director",
+      "authorizedStoreKeys": ["jd-yiyong-director"],
+      "warehouseCode": ""
+    },
+    {
+      "sourceKind": "inventory_snapshot",
+      "departmentId": "jd-yiyong-4418046540089",
+      "businessUnitCode": "EBU4418046540089",
+      "enabled": true,
+      "sourceVerified": true,
+      "contractVersion": "jd-logistics-v1",
+      "collectorStoreKey": "jd-yiyong-director",
+      "authorizedStoreKeys": ["jd-yiyong-director"],
+      "warehouseCode": ""
+    }
+  ]
 }
