@@ -4,6 +4,12 @@
 
 返回 [文档首页](../README.md) · [逐篇文档目录](../文档目录.md)
 
+## 运营事务
+
+| 任务目录 | 文档数 | 入口 |
+| --- | --- | --- |
+| `new-product-learning-receipts-20261016` | 2 | [手动学习操作回执与断线恢复](../new-product-learning-receipts-20261016/REPORT.md) · [交付与发布准备](../new-product-learning-receipts-20261016/DELIVERY.md) |
+
 ## AI助手
 
 | 任务目录 | 文档数 | 入口 |
