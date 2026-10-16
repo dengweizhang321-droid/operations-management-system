@@ -4,7 +4,7 @@ import { readN8nReplacementEvidence } from "./n8n-preflight-evidence";
 import { classifyJackyunPreflightFailure } from "./preflight-failure";
 import { assertClosedPreflight, inspectPreflightClosure, preflightClosurePath, publishReplacementPreflightClosure, publishHumanPreflightClosure } from "./preflight-recovery";
 import type { BoundHumanAuthority } from "./human-retry";
-import { manageJackyunCredential, readJackyunLoginConfig } from "./windows-dpapi";
+import { credentialReadinessFailure, requireJackyunCredentialReadiness } from "./windows-dpapi";
 
 type RecoveryEvidence = ReturnType<typeof readN8nReplacementEvidence>;
 export type AutomaticPreflightDependencies = {
@@ -12,6 +12,15 @@ export type AutomaticPreflightDependencies = {
   credentialReady?: () => Promise<boolean>;
   humanAuthority?: BoundHumanAuthority;
 };
+
+async function requireCredentialReady(root: string, deps: AutomaticPreflightDependencies) {
+  if (!deps.credentialReady) return requireJackyunCredentialReadiness(root);
+  let ready: boolean;
+  try { ready = await deps.credentialReady() === true; }
+  catch { throw credentialReadinessFailure(null); }
+  if (!ready) throw credentialReadinessFailure(null);
+  return true;
+}
 
 export async function inspectAutomaticPreflightReplacement(root: string, previousId: string, replacementId: string, closedAt: string,
   deps: AutomaticPreflightDependencies = {}) {
@@ -24,11 +33,7 @@ export async function inspectAutomaticPreflightReplacement(root: string, previou
   const proof = await inspectPreflightClosure(root, previousId, context.evidence, closedAt);
   let credentialReadinessVerified = false;
   if (policy === "credential_ready") {
-    credentialReadinessVerified = await (deps.credentialReady ?? (async () => {
-      const status = await manageJackyunCredential("status", await readJackyunLoginConfig(root));
-      return status.ok && status.ready && status.status === "ready";
-    }))().catch(() => false);
-    if (!credentialReadinessVerified) throw new Error("吉客云凭据仍未就绪，需要人工处理；保留旧任务。");
+    credentialReadinessVerified = await requireCredentialReady(root, deps);
   }
   if (!isDeepStrictEqual(readEvidence(previousId, replacementId), context)) throw new Error("前置恢复执行证据已变化。");
   return { proof, context, credentialReadinessVerified };
@@ -62,13 +67,7 @@ export async function recoverPreviousJackyunPreflight(root: string, previousId: 
   const proof = await inspectPreflightClosure(root, previousId, context.evidence, closedAt);
   let credentialReadinessVerified = false;
   if (policy === "credential_ready") {
-    try {
-      credentialReadinessVerified = await (deps.credentialReady ?? (async () => {
-        const status = await manageJackyunCredential("status", await readJackyunLoginConfig(root));
-        return status.ok && status.ready && status.status === "ready";
-      }))() === true;
-    } catch { /* The status probe cannot expose raw credential/parser diagnostics. */ }
-    if (!credentialReadinessVerified) throw new Error("吉客云凭据仍未就绪，需要人工处理；保留旧任务。");
+    credentialReadinessVerified = await requireCredentialReady(root, deps);
   }
   if (!isDeepStrictEqual(readEvidence(previousId, replacementId), context)) throw new Error("恢复期间 n8n 执行证据变化，需要人工核查。");
   if (deps.humanAuthority) {

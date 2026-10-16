@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { chromium } from "playwright-core";
 import { assertJackyunBrowserIdentity, inspectJackyunLoginSurface, isJackyunLoginOrigin, submitJackyunDpapiLogin, waitForJackyunDpapiSession, resolveJackyunChromiumExecutable, jackyunBrowserIdentityProgram, type JackyunLoginSurface } from "../lib/jackyun/dpapi-login";
-import { assertJackyunLoginConfig, invokeJackyunVault, readJackyunRuntimeCredential, isRetryableJackyunCredentialPreparationFailure, windowsPowerShellEnvironment, type JackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
+import { assertJackyunLoginConfig, invokeJackyunVault, readJackyunRuntimeCredential, isRetryableJackyunCredentialPreparationFailure, windowsPowerShellEnvironment, credentialReadinessFailure, JackyunCredentialProbeError, type JackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
 import { jackyunDpapiProgram } from "../lib/jackyun/dpapi-program";
 
 const config: JackyunLoginConfig = { version: 1, loginMode: "windows_dpapi_credentials", tenantId: "771168",
@@ -69,6 +69,15 @@ test("DPAPI config and site binding reject invalid modes, ports and lookalike ho
     assert.equal(isJackyunLoginOrigin(url), false);
   }
   assert.ok(Buffer.from(jackyunDpapiProgram, "utf16le").toString("base64").length < 30000);
+});
+
+test("readiness failures preserve only typed fixed diagnostics and never raw messages", () => {
+  const detail = "missing / lookup=provider:0,file:0,directory:0 / win32=file:5,directory:5 / finish=close,exit=1,ms=100,bytes=80";
+  assert.match(credentialReadinessFailure(new JackyunCredentialProbeError(detail, "synthetic-secret")).message, /win32=file:5,directory:5/);
+  for (const error of [new Error("synthetic-secret"), new JackyunCredentialProbeError("synthetic-secret", "synthetic-secret")]) {
+    const message = credentialReadinessFailure(error).message;
+    assert.match(message, /probe_error/); assert.doesNotMatch(message, /synthetic-secret/);
+  }
 });
 
 test("credential preparation retries only before browser use and stops after a bounded budget", async () => {
@@ -300,10 +309,23 @@ test("Windows DPAPI roundtrip rejects copied bindings, corrupted ciphertext and 
     JSON.stringify({ action: "read", vaultRoot: root, tenantId: config.tenantId, profileDirectory: config.profileDirectory }));
     assert.equal(forcedMissing.status, 1);
     assert.equal(JSON.parse(forcedMissing.stdout).stage, "missing");
-    assert.deepEqual(JSON.parse(forcedMissing.stdout).lookup, { provider: false, file: true, directory: true });
+    assert.deepEqual(JSON.parse(forcedMissing.stdout).lookup, { provider: false, file: true, directory: true, fileError: 0, directoryError: 0 });
     assert.doesNotMatch(forcedMissing.stdout + forcedMissing.stderr, /模拟账号|模拟密码|ciphertext|vaultRoot|profileDirectory/);
     const absentRoot = path.join(root, "absent-vault");
     await assert.rejects(invokeJackyunVault("read", config, absentRoot), /missing.*lookup=provider:0,file:0,directory:0/);
+    const absentStatus = JSON.parse(await invokeJackyunVault("status", config, absentRoot));
+    assert.equal(absentStatus.ready, false); assert.equal(absentStatus.status, "missing");
+    assert.equal(absentStatus.lookup.file, false); assert.equal(absentStatus.lookup.directory, false);
+    assert([2, 3].includes(absentStatus.lookup.fileError)); assert([2, 3].includes(absentStatus.lookup.directoryError));
+    const accessDeniedStatus = runWithoutConsole(jackyunDpapiProgram.replace(
+      "if (-not (Test-Path -LiteralPath $vaultFile)) {", "if ($true) {").replace(
+      "[void][IO.File]::GetAttributes($entry[1])", "throw [UnauthorizedAccessException]::new()"),
+    JSON.stringify({ action: "status", vaultRoot: root, tenantId: config.tenantId, profileDirectory: config.profileDirectory }));
+    assert.equal(accessDeniedStatus.status, 0);
+    assert.equal(JSON.parse(accessDeniedStatus.stdout).ready, false);
+    assert.equal(JSON.parse(accessDeniedStatus.stdout).lookup.fileError, 5);
+    assert.equal(JSON.parse(accessDeniedStatus.stdout).lookup.directoryError, 5);
+    assert.doesNotMatch(accessDeniedStatus.stdout + accessDeniedStatus.stderr, /模拟账号|模拟密码|ciphertext|vaultRoot|profileDirectory/);
     const file = path.join(root, `${key}.json`);
     const bytes = await readFile(file, "utf8");
     assert.doesNotMatch(bytes, /模拟账号|模拟密码/);
