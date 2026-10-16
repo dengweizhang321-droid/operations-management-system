@@ -1,0 +1,61 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const {pathToFileURL}=require('node:url');
+const {JSDOM,VirtualConsole}=require(process.argv[2]||'jsdom');
+const file=path.join(__dirname,'netshop-integrated.html'),html=fs.readFileSync(file,'utf8');
+let checks=0;const check=(v,m)=>{assert.ok(v,m);checks++;};
+const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
+const dom=new JSDOM(html,{url:pathToFileURL(file).href,runScripts:'outside-only',virtualConsole:vc});
+const w=dom.window,d=w.document;w.HTMLElement.prototype.scrollIntoView=function(){};w.scrollTo=function(){};w.requestAnimationFrame=fn=>fn();
+w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+w.fetch=()=>{throw Error('Network forbidden');};
+w.eval(d.querySelector('script').textContent);
+const click=s=>{let el=d.querySelector(s);assert.ok(el,'Missing '+s);if(el.click)el.click();else el.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));};
+const choose=(id,value)=>{let el=d.getElementById(id);assert.ok(el,'Missing '+id);el.value=value;el.dispatchEvent(new w.Event('change',{bubbles:true}));};
+const sumRows=(rows,key)=>rows.reduce((a,r)=>a+(r[key]??0),0);
+const content=()=>d.getElementById('content').textContent;
+const submit=id=>d.getElementById(id).dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+const active=()=>d.querySelector('.tabs [aria-selected=true]').dataset.view;
+const search=q=>{let el=d.getElementById('query');el.value=q;el.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));};
+check(!/<script[^>]+src=|<link[^>]+href=|<img[^>]+src=/i.test(html),'Single-file resources');
+check(d.querySelectorAll('.tabs [role=tab]').length===5,'Five real module roles');
+check(active()==='analysis','Starts at store analysis');
+check(d.querySelectorAll('.kpi').length===6,'Six summary metrics');
+let first=w.aggregate(w.getRows());check(first.amount>0&&first.spend>0,'Synthetic data present');
+for(let shop=0;shop<4;shop++){choose('shop',String(shop));let a=w.aggregate(w.getRows());check(a.amount>0,'Shop data '+shop);check(d.getElementById('shop').value===String(shop),'Scope selector matches');}
+choose('shop','0');let spu=w.aggregate(w.getRows());choose('dimension','sku');let sku=w.aggregate(w.getRows());
+for(const k of ['amount','visitors','buyers','qty','spend','attributed','previous'])check(sku[k]===spu[k],'SKU/SPU conservation '+k);
+check(w.getRows().length===16,'SKU details split');choose('dimension','spu');
+for(const view of ['analysis','overview','comparison','products','promotion']){
+ click(`.tabs [data-view=${view}]`);check(active()===view,'Active '+view);check(content().trim().length>100,'Content '+view);check(!/NaN|undefined|Invalid Date/.test(content()),'Valid values '+view);
+ const ids=[...d.querySelectorAll('[id]')].map(x=>x.id);check(new Set(ids).size===ids.length,'Unique IDs '+view);
+}
+click('.tabs [data-view=overview]');click('[data-act=open-shop][data-shop="2"]');check(active()==='analysis'&&d.getElementById('shop').value==='2','Overview to exact shop');
+choose('shop','0');click('[data-act=period][data-days="7"]');check(d.querySelector('.rangebar').textContent.includes('2026-10-09'),'Seven-day period');let period=w.aggregate(w.getRows());check(period.amount<first.amount,'Period changes numbers');
+click('[data-act=custom]');let f=d.getElementById('date-form');f.elements.from.value='2026-10-14';f.elements.to.value='2026-10-10';submit('date-form');check(d.getElementById('date-error').textContent.length>0,'Bad date order rejected');
+f.elements.from.value='2026-10-01';f.elements.to.value='2026-10-10';submit('date-form');check(d.querySelector('.rangebar').textContent.includes('2026-10-01'),'Custom dates applied');
+let custom=w.aggregate(w.getRows());
+click('[data-act=product][data-id="P1"]');check(active()==='products','Store to product');check(content().includes('对象范围：当前SPU'),'Explicit object range');check(d.getElementById('shop').value==='0'&&d.querySelector('.rangebar').textContent.includes('2026-10-01'),'Drill keeps scope');
+click('[data-act=expand]');check(d.querySelector('.expanded'),'Inline expansion');click('[data-act=product-ad]');check(active()==='promotion','Product to promotion');check(content().includes('关联商品范围'),'Ad object filter visible');check(w.aggregate(w.getRows()).amount===custom.amount,'Drill does not silently change shop summary');
+click('[data-act=return]');check(active()==='products','Return to product');check(d.querySelector('.expanded'),'Return restores expansion');click('[data-act=return]');check(active()==='analysis','Return to original store');
+click('.tabs [data-view=products]');let before=d.querySelector('.kpi strong').textContent,query=d.getElementById('query');query.value='不存在';query.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true}));check(!content().includes('没有符合条件的商品'),'IME enter ignored');query.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));check(content().includes('没有符合条件的商品'),'Empty search');check(d.querySelector('.kpi strong').textContent===before,'Search leaves summary unchanged');click('[data-act=clear-query]');
+click('[data-act=attention]');check(d.querySelectorAll('#product-table tbody tr:not(.expanded)').length===2,'Watchlist filters real matching items');click('[data-act=clear-watch]');
+click('[data-act=columns]');let boxes=[...d.querySelectorAll('#columns-form [type=checkbox]')];boxes.forEach(x=>x.checked=false);submit('columns-form');check(d.getElementById('columns-error').textContent.includes('至少'),'At least one column');boxes[0].checked=true;submit('columns-form');check(d.querySelectorAll('#product-table th').length===3,'Columns applied');
+click('[data-act=preset][data-value=traffic]');check(d.querySelectorAll('#product-table th').length===8,'Column groups distinct');click('[data-act=preset][data-value=sales]');check(d.querySelectorAll('#product-table th').length===3,'Column choice restored per group');
+click('[data-act=columns]');click('[data-act=reset-columns]');check(d.querySelectorAll('#product-table th').length===10,'Reset columns');
+choose('scenario','partial');check(content().includes('平台商品数据少1个日期'),'Partial source warning');check(content().includes('基期不可比'),'Partial platform comparison unavailable');check(w.aggregate(w.getRows()).share===null,'No fee rate from incomplete pairing');click('[data-act=health]');check(d.getElementById('data-health').open,'Source details expand');
+choose('scenario','ready');choose('compare','year');check(content().includes('同期未提供'),'No invented yearly comparison');choose('compare','none');check(content().includes('未开启比较'),'No comparison state');choose('compare','previous');
+for(const mode of ['empty','error']){choose('scenario',mode);check(d.querySelector('.state-empty'),'Explicit '+mode+' state');click('[data-act=restore]');check(d.querySelector('.kpis'),'Scope preserved after restore');}
+click('.tabs [data-view=promotion]');let plans=w.adRows(),total=w.aggregate(w.getRows());check(sumRows(plans,'spend')===total.spend&&sumRows(plans,'attributed')===total.attributed,'Plan totals equal summary');
+click('[data-act=ad-tab][data-value=unit]');check(sumRows(w.adRows(),'spend')===total.spend,'Units preserve spend');click('[data-act=ad-tab][data-value=keyword]');check(content().includes('关键词示例子集'),'Keyword subset labeled');check(w.adRows().some(r=>r.attributed===0&&r.orders===0),'Real zero-conversion example');
+click('[data-act=ad-detail]');check(d.getElementById('dialog').open,'Ad evidence dialog');click('[data-act=close]');check(!d.getElementById('dialog').open,'Dialog closes');
+click('.tabs [data-view=comparison]');let old=d.querySelector('.compare-table').textContent;choose('compare-b','3');check(d.querySelector('.compare-table').textContent!==old,'Comparison object updates');
+click('.tabs [data-view=analysis]');click('[data-act=point]');check(d.querySelector('.chart-caption').textContent.includes('合成趋势点'),'Chart point feedback');
+check(w.aggregate(w.getRows()).amount===sumRows(w.getRows(),'amount'),'All financial summaries aggregate full current rows');
+let vals=w.seriesData(w.aggregate(w.getRows()),'amount');check(vals.reduce((a,b)=>a+(b||0),0)===w.aggregate(w.getRows()).amount,'Trend total equals KPI');
+// A single missing platform day is unknown, not a zero observation.
+click('[data-act=custom]');let single=d.getElementById('date-form');single.elements.from.value='2026-10-10';single.elements.to.value='2026-10-10';submit('date-form');choose('scenario','partial');let absent=w.aggregate(w.getRows());check(absent.amount===null,'Zero coverage platform total is unknown');check(w.seriesData(absent,'amount')[0]===null,'Zero coverage has no zero trend point');check(!d.querySelector('#chart-main [data-act=point]'),'No point is drawn for missing day');check(absent.roi>0,'Independent complete ad source remains available');
+choose('scenario','ready');click('[data-act=period][data-days="30"]');click('.tabs [data-view=products]');choose('compare','year');
+let csv='';w.Blob=class {constructor(parts){csv=parts.join('');}};w.URL.createObjectURL=()=> 'blob:offline-demo';w.URL.revokeObjectURL=()=>{};w.HTMLAnchorElement.prototype.click=function(){};click('[data-act=export]');let csvRows=csv.split('\r\n'),headers=[...csvRows[0].matchAll(/"((?:[^"]|"")*)"(?:,|$)/g)].map(x=>x[1]),cells=[...csvRows[1].matchAll(/"((?:[^"]|"")*)"(?:,|$)/g)].map(x=>x[1]);check(cells[headers.indexOf('成交增量')]==='—','CSV uses the same unavailable comparison state as UI');click('[data-act=sort]');check(d.querySelector('[data-act=sort]').textContent.includes('成交额'),'Incomparable growth sort is disabled');
+check(errors.length===0,'No script errors: '+errors.join(';'));
+const report={date:'2026-10-16',file:'netshop-integrated.html',assertions:checks,scriptErrors:errors,validation:'Offline DOM under Windows file document URL; network disabled',visualValidation:'Not performed: browser tool file URL policy rejected in prior task; no workaround used',coverage:['five views','four shops','period/date validation','SKU/SPU conservation','shop-product-promotion return','search/IME','column groups','partial/unavailable/empty/error','attribution subsets','chart/KPI totals']};
+console.log(JSON.stringify(report,null,2));if(process.argv[3])fs.writeFileSync(process.argv[3],JSON.stringify(report,null,2)+'\n');dom.window.close();

@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-16",
+  "file": "netshop-integrated.html",
+  "assertions": 92,
+  "scriptErrors": [],
+  "validation": "Offline DOM under Windows file document URL; network disabled",
+  "visualValidation": "Not performed: browser tool file URL policy rejected in prior task; no workaround used",
+  "coverage": [
+    "five views",
+    "four shops",
+    "period/date validation",
+    "SKU/SPU conservation",
+    "shop-product-promotion return",
+    "search/IME",
+    "column groups",
+    "partial/unavailable/empty/error",
+    "attribution subsets",
+    "chart/KPI totals"
+  ]
+}
