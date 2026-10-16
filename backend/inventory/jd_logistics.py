@@ -6,7 +6,7 @@ occurrences: the source has not supplied a proven stable event identifier.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timezone as datetime_timezone
 import hashlib
 import json
 import math
@@ -227,7 +227,7 @@ def _content_hash(rows):
 
 
 def _batch_payload(row):
-    return {"batchId": str(row.id), "sourceKind": row.source_kind, "sourceStatus": "enabled" if row.source_kind == "shop_products" else None, "departmentId": row.department_id, "businessUnitCode": row.department.business_unit_code, "rangeStart": row.range_start.isoformat(), "rangeEnd": row.range_end.isoformat(), "warehouseCode": row.warehouse_code, "warehouseKey": row.warehouse_key, "fileName": row.file_name, "rawFileHash": row.raw_file_hash, "contentHash": row.content_hash, "rowCount": row.row_count, "status": row.status, "referenceBatchId": row.reference_batch_id, "scopeRevision": row.scope_revision, "origin": row.origin, "storeKey": row.store_key, "sourceBindingVerified": False, "collectedAt": row.collected_at.isoformat(), "sourceAsOf": row.source_as_of, "collectorEvidence": row.collector_evidence, "createdAt": row.created_at.isoformat()}
+    return {"batchId": str(row.id), "sourceKind": row.source_kind, "sourceStatus": "enabled" if row.source_kind == "shop_products" else None, "departmentId": row.department_id, "businessUnitCode": row.department.business_unit_code, "rangeStart": row.range_start.isoformat(), "rangeEnd": row.range_end.isoformat(), "warehouseCode": row.warehouse_code, "warehouseKey": row.warehouse_key, "fileName": row.file_name, "rawFileHash": row.raw_file_hash, "contentHash": row.content_hash, "rowCount": row.row_count, "status": row.status, "referenceBatchId": row.reference_batch_id, "scopeRevision": row.scope_revision, "origin": row.origin, "storeKey": row.store_key, "sourceBindingVerified": False, "collectedAt": row.collected_at.astimezone(datetime_timezone.utc).isoformat(), "sourceAsOf": row.source_as_of, "collectorEvidence": row.collector_evidence, "createdAt": row.created_at.isoformat()}
 
 
 def _current_selection(batch):

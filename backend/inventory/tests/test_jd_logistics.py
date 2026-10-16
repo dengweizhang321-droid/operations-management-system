@@ -251,6 +251,39 @@ class JdLogisticsTests(TestCase):
         self.assertEqual(result.json()["data"]["items"][0]["rawFileHash"], "a" * 64)
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_signed_http_import_and_reloaded_batch_keep_exact_utc_collect_time(self):
+        cases = (
+            ("2026-10-02T13:58:27.116123+08:00", "2026-10-02T05:58:27.116123+00:00"),
+            ("2026-10-02T13:58:27+08:00", "2026-10-02T05:58:27+00:00"),
+            ("2026-10-02T00:00:00.000001+08:00", "2026-10-01T16:00:00.000001+00:00"),
+            ("2026-10-01T22:30:00.654321-05:30", "2026-10-02T04:00:00.654321+00:00"),
+            ("2026-10-02T05:58:27.116123Z", "2026-10-02T05:58:27.116123+00:00"),
+        )
+        previous_id = None
+        for index, (collected_at, expected) in enumerate(cases):
+            with self.subTest(collectedAt=collected_at):
+                body = json.dumps(payload([flow(goods=f"offset-{index}")], collectedAt=collected_at, sourceAsOf="2026-10-01", expectedScopeRevision=index))
+                response = self.client.post(BASE, data=body, content_type="application/json", headers=signed_headers(BASE, method="POST", body=body, request_id=f"jdl-offset-{index}"))
+                self.assertEqual(response.status_code, 200, response.content)
+                batch = response.json()["data"]
+                self.assertEqual(batch["status"], "imported")
+                self.assertEqual(batch["scopeRevision"], index + 1)
+                self.assertEqual(batch["collectedAt"], expected)
+                stored = JdLogisticsBatch.objects.get(id=batch["batchId"])
+                self.assertEqual(stored.collected_at.isoformat(), expected)
+                url = BASE + "?operation=batches&batchId=" + batch["batchId"]
+                result = self.client.get(url, headers=signed_headers(url))
+                self.assertEqual(result.status_code, 200, result.content)
+                readback = result.json()["data"]["items"][0]
+                selection = readback.pop("currentSelection")
+                self.assertEqual(readback, {key: batch[key] for key in readback})
+                self.assertEqual(selection, {"current": True, "verifiedRowCount": 1, "contentHash": batch["contentHash"], "scopeRevision": index + 1})
+                if previous_id:
+                    previous = service.read("batches", {**self.filters, "batchId": previous_id})["items"][0]
+                    self.assertFalse(previous["currentSelection"]["current"])
+                previous_id = batch["batchId"]
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_permissions_signatures_roles_scope_and_query_strictness(self):
         self.assertEqual(self.client.get(BASE).status_code, 401)
         body = json.dumps(payload())
