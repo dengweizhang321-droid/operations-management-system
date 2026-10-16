@@ -407,10 +407,18 @@ async function observedJhExport(page: Page, surface: Surface, options: JdLogisti
     return { observedBusinessUnitCode: options.businessUnitCode, requestedAt: requests[0].at, requestHash };
   } finally { page.off("request", record); }
 }
+export async function resetJhSourceDocument(page: Page) {
+  // A JH hash-route return may expose a source iframe that is about to detach.
+  // Finish discarding that document before observing any fresh source query.
+  await page.goto("about:blank", { waitUntil: "domcontentloaded", timeout: 30000 });
+  if (page.url() !== "about:blank" || page.frames().length !== 1) fail("JD_LOGISTICS_JH_DOCUMENT_NOT_RESET");
+}
 async function exportJhSource(page: Page, options: JdLogisticsExportOptions, manifestPath: string, identityHash: string, navigate: () => Promise<Surface>, observedCodes: Set<string>) {
   const first = await readJhTaskPage(page, options), baseline = await readJhTaskPage(page, options);
   if (logisticsHash(first.records.map(jhLogisticsTaskIdentity)) !== logisticsHash(baseline.records.map(jhLogisticsTaskIdentity))
     || first.total !== baseline.total) fail("JD_LOGISTICS_TASK_BASELINE_UNSTABLE");
+  await options.assertOwner();
+  await resetJhSourceDocument(page);
   const fresh = watchJhFreshQuery(page, options);
   let surface: Surface, fullScopeHash: string, count: number, observedBusinessUnitCode: string;
   let queryEvidence: { requestHash: string; total: number; observedAt: string };
