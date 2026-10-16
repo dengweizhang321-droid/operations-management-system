@@ -90,3 +90,16 @@
 .jd-cwarehouse-health-badges { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .jd-cwarehouse-product-identity .jd-cwarehouse-health-badges { margin-top: 1px; }
 .jd-cwarehouse-health-badges .status { font-size: 10px; padding: 2px 5px; white-space: nowrap; }
+.jd-monitor-drag { cursor: grab; flex: 0 0 auto; padding: 4px 6px; font-size: 20px; touch-action: none; }
+.jd-monitor-drag:active { cursor: grabbing; }
+.jd-monitor-warehouse-dialog { width: min(850px, calc(100vw - 32px)); }
+.jd-monitor-warehouse-list { display: grid; gap: 8px; max-height: 55vh; overflow: auto; margin-top: 16px; }
+.jd-monitor-warehouse-row { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--color-border-default); border-radius: 8px; }
+.jd-monitor-warehouse-row.disabled { background: var(--color-bg-subtle, #f6f7f9); }
+.jd-monitor-warehouse-name { display: grid; flex: 1; gap: 6px; min-width: 0; }
+.jd-monitor-warehouse-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jd-monitor-warehouse-name input { padding: 8px 10px; width: 100%; min-height: 38px; border: 1px solid var(--color-border-default); border-radius: 8px; background: var(--surface); color: var(--color-text-primary); font: inherit; }
+.jd-monitor-switch, .jd-monitor-order-buttons { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.jd-monitor-switch input { width: 18px; height: 18px; accent-color: var(--color-brand, #4265db); }
+.jd-cwarehouse-product-row:has(.jd-monitor-drag):hover { background: var(--color-bg-subtle, #f6f7f9); }
+@media (max-width: 650px) { .jd-monitor-warehouse-row { flex-wrap: wrap; } .jd-logistics-heading-actions { flex-wrap: wrap; } }

@@ -1,0 +1,11 @@
+import { build } from "esbuild";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { resolve } from "node:path";
+const result = await build({ entryPoints: ["docs/jd-monitor-preferences-20261016/demo.tsx"], bundle: true, write: false, conditions: ["style", "browser"], outdir: ".codex-tmp/jd-monitor-demo", format: "iife", platform: "browser", target: "es2022", minify: true, define: { "process.env.NODE_ENV": '"production"' }, plugins: [{ name: "file-next-link", setup(api) { api.onResolve({ filter: /^next\/link$/ }, () => ({ path: "link", namespace: "demo" })); api.onLoad({ filter: /.*/, namespace: "demo" }, () => ({ contents: "import React from 'react';export default function Link({prefetch,...props}){return React.createElement('a',props)}", resolveDir: process.cwd(), loader: "js" })); } }] });
+const js = result.outputFiles.find(file => file.path.endsWith(".js")).text;
+const css = result.outputFiles.find(file => file.path.endsWith(".css")).text;
+const data = readFileSync(".codex-tmp/jd-monitor-demo.json.gz").toString("base64");
+const directory = resolve("D:/codex-artifacts/jd-monitor-preferences-20261016"); mkdirSync(directory, { recursive: true });
+const output = resolve(directory, "京东入仓监控-仓库配置与排序.html");
+writeFileSync(output, `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>京东入仓监控 · 仓库配置与排序</title><style>${css.replace(/<\/style/gi, "<\\/style")}</style></head><body><div id="app"></div><script id="demo-data" type="application/octet-stream">${data}</script><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`);
+console.log(output);

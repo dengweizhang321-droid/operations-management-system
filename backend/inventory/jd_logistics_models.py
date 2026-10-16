@@ -17,6 +17,8 @@ class JdLogisticsDepartment(models.Model):
     push_enabled = models.BooleanField(default=False)
     stockout_threshold_days = models.PositiveIntegerField(null=True, blank=True)
     replenishment_cycle_days = models.PositiveIntegerField(default=30)
+    warehouse_preferences = models.JSONField(default=list)
+    product_order = models.JSONField(default=list)
     revision = models.PositiveBigIntegerField(default=1)
     updated_by = models.CharField(max_length=320)
     updated_at = models.DateTimeField(default=timezone.now)

@@ -1,0 +1,35 @@
+import { chromium } from "playwright-core";
+import assert from "node:assert/strict";
+const directory = "D:/codex-artifacts/jd-monitor-preferences-20261016";
+const browser = await chromium.launch({ channel: "chrome", headless: true });
+try {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1050 } });
+  const failures = []; const requests = [];
+  page.on("pageerror", error => failures.push(error.message));
+  page.on("request", request => { if (/^https?:/.test(request.url())) requests.push(request.url()); });
+  await page.goto(`file:///${directory}/京东入仓监控-仓库配置与排序.html`);
+  await page.locator('[data-goods-code="A"]').waitFor();
+  await page.getByRole("button", { name: "仓库设置", exact: true }).click();
+  await page.getByLabel("来源仓W3的自定义名称", { exact: true }).fill("优先自定义仓");
+  await page.getByRole("switch", { name: "来源仓W1显示开关" }).uncheck();
+  await page.getByRole("button", { name: "拖动来源仓W3", exact: true }).dragTo(page.locator(".jd-monitor-warehouse-row").first());
+  await page.screenshot({ path: `${directory}/warehouse-dialog.png`, fullPage: true });
+  await page.getByRole("button", { name: "保存仓库设置", exact: true }).click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  const firstColumn = page.locator(".jd-cwarehouse-product-table thead th").nth(1);
+  await firstColumn.getByText("优先自定义仓", { exact: false }).waitFor();
+  assert.equal(await page.locator('.jd-cwarehouse-product-table thead').getByText("来源仓W1").count(), 0);
+  await page.getByRole("button", { name: "拖动合成商品A排序", exact: true }).dragTo(page.locator('[data-goods-code="B"] .jd-cwarehouse-short-title'));
+  await page.waitForFunction(() => document.querySelector(".jd-cwarehouse-product-row")?.getAttribute("data-goods-code") === "B");
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector(".jd-cwarehouse-product-row")?.getAttribute("data-goods-code") === "B");
+  await page.getByRole("button", { name: "展开合成商品B的分仓明细", exact: true }).click();
+  await page.locator(".jd-cwarehouse-detail-table").waitFor();
+  assert.equal(await page.locator(".jd-cwarehouse-detail-table tbody tr").first().locator("td").first().textContent(), "优先自定义仓");
+  await page.screenshot({ path: `${directory}/monitor.png`, fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "仓库设置", exact: true }).click();
+  await page.screenshot({ path: `${directory}/mobile.png`, fullPage: true });
+  assert.deepEqual(failures, []); assert.deepEqual(requests, []);
+  console.log(JSON.stringify({ windowsFileUrl: true, warehouseDrag: true, alias: true, hiddenWarehouse: true, productDownwardDrag: true, localRefreshPersistence: true, detailOrder: true, desktopAndMobileScreenshots: true, externalRequests: requests.length, pageErrors: failures }));
+} finally { await browser.close(); }
