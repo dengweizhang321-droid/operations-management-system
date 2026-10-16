@@ -62,6 +62,7 @@
 | `jd-logistics-layout-20261015` | 2 | [京东物流页面归属调整与HTML交付](../jd-logistics-layout-20261015/REPORT.md) |
 | `jd-inbound-real-20261015` | 3 | [京东入仓三级菜单与真实文件HTML](../jd-inbound-real-20261015/REPORT.md)、[本地文件读取修复](../jd-inbound-real-20261015/file-protocol-fix.md) |
 | `jd-monitor-compact-20261015` | 2 | [京东库存紧凑布局与补货周期](../jd-monitor-compact-20261015/REPORT.md) |
+| `jd-monitor-hide-no-warehouse-20261017` | 1 | [隐藏无库存数值商品与范围合计](../jd-monitor-hide-no-warehouse-20261017/REPORT.md) |
 | `jd-inventory-health-20261015` | 2 | [京东库存健康TAB与周转设置](../jd-inventory-health-20261015/REPORT.md) |
 | `jd-manual-cycle-20261015` | 2 | [京东入仓监控手动周转周期](../jd-manual-cycle-20261015/REPORT.md) |
 | `jd-pop-release-20261015` | 2 | [京东入仓监控首次正式发布](../jd-pop-release-20261015/REPORT.md) |

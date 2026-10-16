@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from inventory import jd_logistics as service
 from inventory.errors import InventoryApiError
-from inventory.jd_logistics_models import JdLogisticsDepartment, JdLogisticsAudit
+from inventory.jd_logistics_models import JdLogisticsDepartment, JdLogisticsAudit, JdLogisticsFact
 from inventory.models import InventoryWriteAuthority
 from sales.tests.factories import TEST_SECRET, signed_headers
 
@@ -33,6 +33,61 @@ class MonitorPreferencesTests(TestCase):
     def save(self, **values):
         row = JdLogisticsDepartment.objects.get(id="ONE")
         return service.mutate({"operation": "settings", "departmentId": row.id, "expectedRevision": row.revision, **values}, ACTOR)
+
+    def test_products_without_warehouse_values_are_hidden_before_counts_and_pagination(self):
+        # Snapshot sales and warehouse identity alone do not populate stock cells.
+        JdLogisticsFact.objects.filter(department_id="ONE", goods_code="A", source_kind="realtime_inventory").delete()
+        data = service.inventory_monitor(self.filters)
+        self.assertEqual(data["total"], 3)
+        self.assertEqual([row["goodsCode"] for row in data["items"]], ["B", "C"])
+        self.assertEqual([row["goodsCode"] for row in service.inventory_monitor({**self.filters, "page": 2})["items"]], ["D"])
+        self.assertEqual(data["healthFilterCounts"]["all"], 3)
+        self.assertEqual(data["healthFilterCounts"]["stockout"], 3)
+        self.assertEqual(data["summary"]["monitoredCount"], 9)
+        self.assertEqual(data["totals"]["availableQuantity"], 180)
+        self.assertEqual(service.inventory_monitor({**self.filters, "layout": "warehouse"})["total"], 9)
+        hidden = service.inventory_monitor({**self.filters, "q": "合成商品A"})
+        self.assertEqual((hidden["total"], hidden["items"], hidden["columns"]), (0, [], []))
+        self.assertEqual(hidden["healthFilterCounts"]["all"], 0)
+        self.assertEqual(service.inventory_monitor({**self.filters, "departmentId": "TWO"})["total"], 4)
+        self.assertEqual(JdLogisticsFact.objects.filter(department_id="ONE", goods_code="A").count(), 3)
+        self.assertEqual(service.inventory_monitor({**self.filters, "applyWarehousePreferences": False})["total"], 4)
+
+    def test_zero_stock_and_transit_only_products_remain_visible_in_current_scope(self):
+        for row in JdLogisticsFact.objects.filter(department_id="ONE", source_kind="realtime_inventory"):
+            row.data = {**row.data, "availableQuantity": 0 if row.goods_code == "A" else None,
+                        "purchaseInTransitQuantity": 5 if row.goods_code == "B" and row.warehouse_code == "W2" else None,
+                        "transferInTransitQuantity": -2 if row.goods_code == "C" else None}
+            row.save(update_fields=["data"])
+        data = service.inventory_monitor({**self.filters, "pageSize": 10})
+        self.assertEqual([row["goodsCode"] for row in data["items"]], ["A", "B", "C"])
+        self.assertEqual(data["items"][0]["summary"]["availableQuantity"], 0)
+        self.assertEqual(data["items"][1]["summary"]["purchaseInTransitQuantity"], 5)
+        self.assertIsNone(data["items"][1]["summary"]["availableQuantity"])
+        self.assertEqual(data["items"][2]["summary"]["transferInTransitQuantity"], -6)
+        narrowed = service.inventory_monitor({**self.filters, "warehouseKey": "code:W1", "pageSize": 10})
+        self.assertEqual([row["goodsCode"] for row in narrowed["items"]], ["A", "C"])
+        self.save(warehousePreferences=[{"warehouseKey": "code:W2", "displayName": "隐藏在途仓", "enabled": False}])
+        self.assertEqual(service.inventory_monitor(self.filters)["total"], 2)
+
+    def test_partial_totals_sum_known_values_without_guessing_ratios_or_replenishment(self):
+        JdLogisticsFact.objects.filter(department_id="ONE", goods_code="A", source_kind="realtime_inventory", warehouse_key="code:W1").delete()
+        for row in JdLogisticsFact.objects.filter(department_id="ONE", goods_code="A", source_kind="realtime_inventory"):
+            row.data = {**row.data, "availableQuantity": {"W2": 3, "W3": 5}[row.warehouse_code]}
+            row.save(update_fields=["data"])
+        data = service.inventory_monitor(self.filters)
+        product = data["items"][0]
+        self.assertEqual(product["detailCount"], 3)  # Keep unknown warehouses of a visible product.
+        self.assertEqual(product["summary"]["availableQuantity"], 8)
+        self.assertIn("partial_quantity_sum", product["summary"]["metricQualifications"]["availableQuantity"])
+        self.assertIsNone(product["summary"]["turnoverDays"])
+        self.assertIsNone(product["summary"]["postReplenishmentQuantity"])
+        self.assertIsNone(product["summary"]["suggestedReplenishmentQuantity"])
+        self.assertIsNone(product["details"][0]["availableQuantity"])
+        self.assertEqual(data["healthFilterCounts"]["stockout"], 3)
+        self.assertEqual(data["totals"]["availableQuantity"], 188)
+        self.assertEqual(data["totals"], service.inventory_monitor({**self.filters, "page": 2})["totals"])
+        self.assertIsNone(service.inventory_monitor({**self.filters, "applyWarehousePreferences": False, "layout": "warehouse"})["totals"]["availableQuantity"])
 
     def test_warehouse_order_alias_hidden_totals_health_and_department_isolation(self):
         first = service.inventory_monitor(self.filters)

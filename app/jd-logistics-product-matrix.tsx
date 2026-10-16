@@ -31,6 +31,7 @@ export const cwarehouseQualificationLabels: Record<string, string> = {
   realtime_collection_date_mismatch: "实时业务日与采集日不符", snapshot_source_as_of_mismatch: "快照业务日与来源截至日不符", snapshot_business_date_in_future: "快照业务日超出采集日",
   missing_metric_component: "当前指标依据不齐", nonpositive_sales: "对应窗口销量不大于零", native_turnover_not_aggregatable: "原生周转不跨仓平均",
   period_mismatch: "成员来源日期不一致，天数不可合并计算", native_turnover_not_additive: "京东原生周转不跨仓平均", native_turnover_not_provided: "来源未提供京东原生周转", invalid_native_turnover: "京东原生周转不是有效数值",
+  partial_quantity_sum: "仅合计已有数值的仓库，缺失数据未按零计入",
   negative_sales30dQuantity: "30日销售出库为负，无法计算建议补货", mixed_replenishment_cycles: "成员补货周期不同，合计采用逐仓缺口之和",
   available_nonpositive_with_positive_demand: "30日有销量且可用库存不大于零", zero_sales30dQuantity: "近30日无销售出库", positive_replenishment_quantity: "按目标覆盖天数计算仍需补货",
   in_transit_meets_coverage_target: "可用加在途可覆盖目标天数", coverage_target_not_verified: "目标覆盖依据尚未核实", turnover_over_180_days: "系统30日周转超过180天", coverage_target_met: "库存已满足目标覆盖天数", empty_scope: "当前范围尚无可判定仓项",
@@ -98,9 +99,9 @@ export function InventoryHealth({ metrics }: { metrics: CwarehouseInventoryHealt
   const reasons = metrics.inventoryHealthReasons.map(cwarehouseQualificationLabel).join("；");
   return <span className="jd-cwarehouse-health-badges"><span title={reasons || "库存健康按当前来源与目标覆盖天数判断，独立于消息提醒阈值"} className={`status ${tone}`}>{jdInventoryHealthLabels[state]}</span>{metrics.hasStockout && state !== "stockout" && <span className="status status-danger">含缺货仓</span>}{metrics.hasReplenishmentNeed && state !== "replenish" && <span className="status status-warning">需补货</span>}</span>;
 }
-function Metric({ metrics, field, suffix = "" }: { metrics: CwarehouseMetricSet; field: CwarehouseMetricField; suffix?: string }) {
+function Metric({ metrics, field, suffix = "", partialLabel = true }: { metrics: CwarehouseMetricSet; field: CwarehouseMetricField; suffix?: string; partialLabel?: boolean }) {
   const reasons = metrics.metricQualifications[field] ?? [];
-  return <span title={reasons.map(cwarehouseQualificationLabel).join("；")}>{displayCwarehouseValue(metrics[field])}{metrics[field] === null ? "" : suffix}</span>;
+  return <span title={reasons.map(cwarehouseQualificationLabel).join("；")}>{displayCwarehouseValue(metrics[field])}{metrics[field] === null ? "" : suffix}{partialLabel && metrics[field] !== null && reasons.includes("partial_quantity_sum") && <small className="cell-note">部分数据</small>}</span>;
 }
 export function compactProductTitle(value: string, limit = 24) {
   const title = value.replace(/\s+/g, " ").trim();
@@ -116,11 +117,12 @@ function compactWarehouseTitle(value: unknown, provinceCity = false) {
 }
 
 function StockCell({ metrics }: { metrics: CwarehouseMetricSet }) {
-  const title = `可用 ${displayCwarehouseValue(metrics.availableQuantity)}；采购在途 ${displayCwarehouseValue(metrics.purchaseInTransitQuantity)}；调拨在途 ${displayCwarehouseValue(metrics.transferInTransitQuantity)}；${jdInventoryHealthLabels[metrics.inventoryHealthState]}`;
+  const partial = (["availableQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity"] as const).some(field => metrics.metricQualifications[field]?.includes("partial_quantity_sum"));
+  const title = `可用 ${displayCwarehouseValue(metrics.availableQuantity)}；采购在途 ${displayCwarehouseValue(metrics.purchaseInTransitQuantity)}；调拨在途 ${displayCwarehouseValue(metrics.transferInTransitQuantity)}；${jdInventoryHealthLabels[metrics.inventoryHealthState]}${partial ? "；部分数据：仅合计已有数值的仓库，缺失数据未按零计入" : ""}`;
   const visibleTransit = (["purchaseInTransitQuantity", "transferInTransitQuantity"] as const).filter(field => metrics[field] !== null && metrics[field] !== 0);
   const unknownTransit = metrics.purchaseInTransitQuantity === null || metrics.transferInTransitQuantity === null;
   return <div className={`jd-cwarehouse-stock-cell${metrics.availableQuantity === 0 ? " zero-available" : ""}`} title={title}>
-    <strong><Metric metrics={metrics} field="availableQuantity" /></strong>{visibleTransit.map(field => <sup key={field}>{metrics[field]! >= 0 ? "+" : ""}<Metric metrics={metrics} field={field} /></sup>)}{unknownTransit && <sup>+—</sup>}
+    <strong><Metric metrics={metrics} field="availableQuantity" partialLabel={false} /></strong>{visibleTransit.map(field => <sup key={field}>{metrics[field]! >= 0 ? "+" : ""}<Metric metrics={metrics} field={field} partialLabel={false} /></sup>)}{unknownTransit && <sup>+—</sup>}{partial && <small className="cell-note">部分数据</small>}
   </div>;
 }
 

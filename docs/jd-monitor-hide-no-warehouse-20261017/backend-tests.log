@@ -1,0 +1,69 @@
+test_partial_totals_sum_known_values_without_guessing_ratios_or_replenishment (inventory.tests.test_jd_monitor_preferences.MonitorPreferencesTests.test_partial_totals_sum_known_values_without_guessing_ratios_or_replenishment) ... ok
+test_product_move_is_global_before_filter_and_pagination_preserving_hidden_codes (inventory.tests.test_jd_monitor_preferences.MonitorPreferencesTests.test_product_move_is_global_before_filter_and_pagination_preserving_hidden_codes) ... ok
+test_products_without_warehouse_values_are_hidden_before_counts_and_pagination (inventory.tests.test_jd_monitor_preferences.MonitorPreferencesTests.test_products_without_warehouse_values_are_hidden_before_counts_and_pagination) ... ok
+test_validation_permissions_cas_and_audit (inventory.tests.test_jd_monitor_preferences.MonitorPreferencesTests.test_validation_permissions_cas_and_audit) ... Forbidden: /api/inventory/jd-logistics
+2026-10-17 04:35:13,874 level=WARNING logger=django.request message=Forbidden: /api/inventory/jd-logistics
+Forbidden: /api/inventory/jd-logistics
+2026-10-17 04:35:13,875 level=WARNING logger=django.request message=Forbidden: /api/inventory/jd-logistics
+Conflict: /api/inventory/jd-logistics
+2026-10-17 04:35:13,884 level=WARNING logger=django.request message=Conflict: /api/inventory/jd-logistics
+ok
+test_warehouse_order_alias_hidden_totals_health_and_department_isolation (inventory.tests.test_jd_monitor_preferences.MonitorPreferencesTests.test_warehouse_order_alias_hidden_totals_health_and_department_isolation) ... ok
+test_zero_stock_and_transit_only_products_remain_visible_in_current_scope (inventory.tests.test_jd_monitor_preferences.MonitorPreferencesTests.test_zero_stock_and_transit_only_products_remain_visible_in_current_scope) ... ok
+test_known_stockout_replenish_and_transit_do_not_require_on_hand_or_push_setup (inventory.tests.test_jd_inventory_health.InventoryHealthMathTests.test_known_stockout_replenish_and_transit_do_not_require_on_hand_or_push_setup) ... ok
+test_missing_own_dependencies_stays_unknown_without_blocking_other_states (inventory.tests.test_jd_inventory_health.InventoryHealthMathTests.test_missing_own_dependencies_stays_unknown_without_blocking_other_states) ... ok
+test_product_filter_counts_overlap_and_keep_all_matching_product_warehouses (inventory.tests.test_jd_inventory_health.InventoryHealthMathTests.test_product_filter_counts_overlap_and_keep_all_matching_product_warehouses) ... ok
+test_seven_states_and_strict_slow_turnover_boundary (inventory.tests.test_jd_inventory_health.InventoryHealthMathTests.test_seven_states_and_strict_slow_turnover_boundary) ... ok
+test_worst_warehouse_and_overlapping_flags_survive_unknown_totals (inventory.tests.test_jd_inventory_health.InventoryHealthMathTests.test_worst_warehouse_and_overlapping_flags_survive_unknown_totals) ... ok
+test_base_scope_and_warehouse_layout_use_same_product_membership_and_default (inventory.tests.test_jd_inventory_health.InventoryHealthProjectionTests.test_base_scope_and_warehouse_layout_use_same_product_membership_and_default) ... ok
+test_filter_before_product_page_keeps_all_details_and_complete_filtered_totals (inventory.tests.test_jd_inventory_health.InventoryHealthProjectionTests.test_filter_before_product_page_keeps_all_details_and_complete_filtered_totals) ... ok
+test_signed_get_new_filter_respects_roles_scope_and_strict_validation (inventory.tests.test_jd_inventory_health.InventoryHealthProjectionTests.test_signed_get_new_filter_respects_roles_scope_and_strict_validation) ... Unauthorized: /api/inventory/jd-logistics
+2026-10-17 04:35:14,136 level=WARNING logger=django.request message=Unauthorized: /api/inventory/jd-logistics
+Forbidden: /api/inventory/jd-logistics
+2026-10-17 04:35:14,136 level=WARNING logger=django.request message=Forbidden: /api/inventory/jd-logistics
+Bad Request: /api/inventory/jd-logistics
+2026-10-17 04:35:14,136 level=WARNING logger=django.request message=Bad Request: /api/inventory/jd-logistics
+Bad Request: /api/inventory/jd-logistics
+2026-10-17 04:35:14,138 level=WARNING logger=django.request message=Bad Request: /api/inventory/jd-logistics
+Bad Request: /api/inventory/jd-logistics
+2026-10-17 04:35:14,139 level=WARNING logger=django.request message=Bad Request: /api/inventory/jd-logistics
+Bad Request: /api/inventory/jd-logistics
+2026-10-17 04:35:14,139 level=WARNING logger=django.request message=Bad Request: /api/inventory/jd-logistics
+ok
+test_authority_revocation_in_final_preflight_never_reaches_send (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_authority_revocation_in_final_preflight_never_reaches_send) ... ok
+test_business_day_unknown_fence_survives_new_raw_files_settings_and_source (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_business_day_unknown_fence_survives_new_raw_files_settings_and_source) ... ok
+test_change_before_claim_or_inactive_authority_never_reserves_or_sends (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_change_before_claim_or_inactive_authority_never_reserves_or_sends) ... ok
+test_change_during_final_preflight_denies_before_external_send (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_change_during_final_preflight_denies_before_external_send) ... ok
+test_config_is_independent_default_off_and_invalid_config_is_not_ready (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_config_is_independent_default_off_and_invalid_config_is_not_ready) ... ok
+test_fully_known_no_risk_is_empty_without_preflight_or_delivery (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_fully_known_no_risk_is_empty_without_preflight_or_delivery) ... ok
+test_http_notifications_are_admin_only_and_receipt_is_exact (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_http_notifications_are_admin_only_and_receipt_is_exact) ... Forbidden: /api/inventory/jd-logistics
+2026-10-17 04:35:14,345 level=WARNING logger=django.request message=Forbidden: /api/inventory/jd-logistics
+Forbidden: /api/inventory/jd-logistics
+2026-10-17 04:35:14,345 level=WARNING logger=django.request message=Forbidden: /api/inventory/jd-logistics
+Forbidden: /api/inventory/jd-logistics
+2026-10-17 04:35:14,346 level=WARNING logger=django.request message=Forbidden: /api/inventory/jd-logistics
+Forbidden: /api/inventory/jd-logistics
+2026-10-17 04:35:14,346 level=WARNING logger=django.request message=Forbidden: /api/inventory/jd-logistics
+Forbidden: /api/inventory/jd-logistics
+2026-10-17 04:35:14,347 level=WARNING logger=django.request message=Forbidden: /api/inventory/jd-logistics
+Forbidden: /api/inventory/jd-logistics
+2026-10-17 04:35:14,347 level=WARNING logger=django.request message=Forbidden: /api/inventory/jd-logistics
+Bad Request: /api/inventory/jd-logistics
+2026-10-17 04:35:14,373 level=WARNING logger=django.request message=Bad Request: /api/inventory/jd-logistics
+ok
+test_jd_controlled_profile_does_not_require_replenishment_enable_or_table (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_jd_controlled_profile_does_not_require_replenishment_enable_or_table) ... ok
+test_metadata_objects_or_failed_envelopes_cannot_impersonate_real_targets (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_metadata_objects_or_failed_envelopes_cannot_impersonate_real_targets) ... ok
+test_no_known_risk_with_unknown_is_not_a_false_empty (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_no_known_risk_with_unknown_is_not_a_false_empty) ... ok
+test_owner_loss_never_sends_or_finishes_a_new_owner_record (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_owner_loss_never_sends_or_finishes_a_new_owner_record) ... ok
+test_real_gateway_pagination_and_robot_fields_fail_closed (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_real_gateway_pagination_and_robot_fields_fail_closed) ... ok
+test_requested_business_unit_is_isolated_from_other_unit_risks (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_requested_business_unit_is_isolated_from_other_unit_risks) ... ok
+test_same_business_content_new_raw_and_display_revision_stays_duplicate (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_same_business_content_new_raw_and_display_revision_stays_duplicate) ... ok
+test_sent_duplicate_and_independent_exact_receipt_read (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_sent_duplicate_and_independent_exact_receipt_read) ... ok
+test_unknown_receipts_and_errors_are_durable_and_never_resent (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_unknown_receipts_and_errors_are_durable_and_never_resent) ... ok
+test_workflow_metadata_complete_bindings_and_no_arbitrary_message (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_workflow_metadata_complete_bindings_and_no_arbitrary_message) ... ok
+test_zero_sales_and_missing_post_do_not_suppress_known_turnover_risk (inventory.tests.test_jd_logistics_notifications.NotificationTests.test_zero_sales_and_missing_post_do_not_suppress_known_turnover_risk) ... ok
+
+----------------------------------------------------------------------
+Ran 32 tests in 2.019s
+
+OK

@@ -858,13 +858,18 @@ def _monitor_warning(available_days_30d, threshold, enabled):
     return "stockout_risk" if available_days_30d < threshold else "within_threshold"
 
 
-def _aggregate_metrics(rows, sales_window, *, scope_total=False):
+def _aggregate_metrics(rows, sales_window, *, scope_total=False, partial_quantities=False):
     metrics, reasons = {}, {}
     for key in LIVE_METRICS + SALES_METRICS:
         field_reasons = _reasons(*(row["metricQualifications"][key] for row in rows))
         if not rows:
             field_reasons = ["empty_scope"]
         metrics[key] = sum(row[key] for row in rows) if not field_reasons else None
+        if partial_quantities and field_reasons:
+            known = [row[key] for row in rows if row[key] is not None]
+            metrics[key] = sum(known) if known else None
+            if known and len(known) < len(rows):
+                field_reasons = _reasons(field_reasons, ["partial_quantity_sum"])
         reasons[key] = field_reasons
     reasons["postReplenishmentQuantity"] = _reasons(*(reasons[key] for key in ("availableQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity")))
     metrics["postReplenishmentQuantity"] = sum(metrics[key] for key in ("availableQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity")) if not reasons["postReplenishmentQuantity"] else None
@@ -915,14 +920,22 @@ def _product_matrix(items, filters, sales_window):
         cells = defaultdict(list)
         for row in details:
             cells[row["columnKey"]].append(row)
-        products.append({"id": _hash([department_id, "jd_sku", goods]), "departmentId": department_id, "businessUnitCode": reference["businessUnitCode"], "goodsCodeKind": "jd_sku", "goodsCode": goods, "goodsName": reference["goodsName"], "erpGoodsCode": reference["erpGoodsCode"], "erpGoodsName": reference["erpGoodsName"], "imageUrl": None, "price": None, "summary": _aggregate_metrics(details, sales_window), **_aggregate_inventory_health(details), "cells": [{"columnKey": key, **_aggregate_metrics(values, sales_window)} for key, values in sorted(cells.items())], "details": details[:MAX_PRODUCT_DETAILS], "detailCount": len(details), "detailsComplete": len(details) <= MAX_PRODUCT_DETAILS, "detailsTruncated": len(details) > MAX_PRODUCT_DETAILS})
+        products.append({"id": _hash([department_id, "jd_sku", goods]), "departmentId": department_id, "businessUnitCode": reference["businessUnitCode"], "goodsCodeKind": "jd_sku", "goodsCode": goods, "goodsName": reference["goodsName"], "erpGoodsCode": reference["erpGoodsCode"], "erpGoodsName": reference["erpGoodsName"], "imageUrl": None, "price": None, "summary": _aggregate_metrics(details, sales_window, partial_quantities=True), **_aggregate_inventory_health(details), "cells": [{"columnKey": key, **_aggregate_metrics(values, sales_window)} for key, values in sorted(cells.items())], "details": details[:MAX_PRODUCT_DETAILS], "detailCount": len(details), "detailsComplete": len(details) <= MAX_PRODUCT_DETAILS, "detailsTruncated": len(details) > MAX_PRODUCT_DETAILS})
     departments = {row.id: {code: index for index, code in enumerate(row.product_order)} for row in JdLogisticsDepartment.objects.filter(id__in={key[0] for key in groups})}
     products.sort(key=lambda item: (item["departmentId"], departments[item["departmentId"]].get(item["goodsCode"], MAX_ROWS), item["goodsCode"]))
     page = _page(products, filters)
     if sum(len(item["details"]) for item in page["items"]) > MAX_MATRIX_DETAILS:
         _error("当前页展开明细超过5000行，请缩小每页单品数", "query_too_large", 413)
     ordered_columns = sorted(columns.values(), key=lambda column: (column["sortOrder"], column["label"], column["key"]))
-    return {**page, "layout": "product", "salesWindow": sales_window, "columns": [{**column, "warehouseKeys": sorted(column["warehouseKeys"])} for column in ordered_columns], "totals": _aggregate_metrics(items, sales_window, scope_total=True)}
+    return {**page, "layout": "product", "salesWindow": sales_window, "columns": [{**column, "warehouseKeys": sorted(column["warehouseKeys"])} for column in ordered_columns], "totals": _aggregate_metrics(items, sales_window, scope_total=True, partial_quantities=True)}
+
+
+def _products_with_inventory_values(items):
+    # Keep all warehouses of retained products so missing evidence stays visible.
+    visible_goods = {(row["departmentId"], row["goodsCode"]) for row in items if any(
+        row[key] is not None for key in ("availableQuantity", "purchaseInTransitQuantity", "transferInTransitQuantity")
+    )}
+    return [row for row in items if (row["departmentId"], row["goodsCode"]) in visible_goods]
 
 
 def inventory_monitor(filters):
@@ -987,12 +1000,15 @@ def inventory_monitor(filters):
         threshold = department.stockout_threshold_days
         warning = _monitor_warning(metrics["stockoutAvailableDays30d"], threshold, department.monitor_enabled)
         items.append({"id": _hash([department_id, goods, warehouse_key]), "departmentId": department_id, "businessUnitCode": department.business_unit_code, "goodsCode": goods, "goodsName": reference.data["goodsName"], "goodsCodeKind": "jd_sku", "warehouseCode": reference.warehouse_code, "warehouseKey": warehouse_key, "warehouseSortOrder": warehouse_order, "warehouseDisplayName": preference.get("displayName", ""), "warehouseIdentityKind": reference.data["warehouseIdentityKind"], "warehouseName": reference.data["warehouseName"], "regionCode": reference.data.get("regionCode") or None, "regionName": reference.data.get("regionName") or None, "sourceProvinceCity": snapshot_data.get("sourceProvinceCity") or None, "datePairing": date_pairing, "sourceDateLagDays": date_lag, "salesAsOfDate": snap.business_date.isoformat() if snap else None, "erpGoodsCode": mapping.erp_goods_code if mapping else "", "erpGoodsName": mapping.erp_goods_name if mapping else "", "realtimeDate": live.business_date.isoformat() if live else None, "snapshotDate": snap.business_date.isoformat() if snap else None, "realtimeBatchId": live.batch_id if live else None, "snapshotBatchId": snap.batch_id if snap else None, "realtimeCollectedAt": live.batch.collected_at.isoformat() if live else None, "snapshotSourceAsOf": snap.batch.source_as_of if snap else None, **metrics, "monitorEnabled": department.monitor_enabled, "stockoutThresholdDays": threshold, "warningState": warning, "qualifications": qualifications, "qualified": qualified})
+    if filters.get("applyWarehousePreferences", True):
+        # Hide all-dash products in the current warehouse scope, before TABs/pages.
+        items = _products_with_inventory_values(items)
     items, health_counts, health_filter_counts = _health_filter_scope(items, health_state)
     summary = {"monitoredCount": len(items), "qualifiedCount": sum(item["qualified"] for item in items), "stockoutRiskCount": sum(item["warningState"] == "stockout_risk" for item in items)}
     projection = _product_matrix(items, filters, sales_window) if layout == "product" else {**_page(items, filters), "layout": "warehouse", "salesWindow": sales_window, "totals": _aggregate_metrics(items, sales_window, scope_total=True)}
     projection.update(healthState=health_state, healthCounts=health_counts, healthFilterCounts=health_filter_counts)
     from .jd_logistics_notifications import notification_available
-    return _base(**projection, summary=summary, notificationAvailable=notification_available(), coverageWarnings=["本页销量采用京东销售出库件数，不是店铺成交订单数。各指标仅按自身依赖计算：缺少7日销量、ERP标签或快照不抹去可计算的实时库存与补货后库存；ERP待对照单独披露。", "系统周转采用现货÷30日销售出库×30；缺货提醒独立采用可用÷30日销售出库×30，固定30日不随7/30显示窗口切换。可售天数采用所选窗口，补货后采用可用＋采购在途＋调拨在途；均先合计数量及需求，不平均分仓天数。", "实时日T可配对截至T或T-1的快照销量，两个日期分别展示；来源时期不可比时合计天数为未知，范围数量只对完整成员求和。汇总表示当前范围，不代表全国。", "列按独立来源仓及事业部仓库设置显示，关闭仓库不参与本页明细、合计及健康统计；来源身份与原始名称保留。京东原生30天周转只在来源单仓明细显示，不对其求和或平均；图片和价格缺少来源时为空；通知须独立全局渠道及事业部三开配置，并经服务端当前风险重算、动态目标核验和投递账本约束。"])
+    return _base(**projection, summary=summary, notificationAvailable=notification_available(), coverageWarnings=["本页销量采用京东销售出库件数，不是店铺成交订单数。各指标仅按自身依赖计算：缺少7日销量、ERP标签或快照不抹去可计算的实时库存与补货后库存；ERP待对照单独披露。", "系统周转采用现货÷30日销售出库×30；缺货提醒独立采用可用÷30日销售出库×30，固定30日不随7/30显示窗口切换。可售天数采用所选窗口，补货后采用可用＋采购在途＋调拨在途；均先合计数量及需求，不平均分仓天数。", "实时日T可配对截至T或T-1的快照销量，两个日期分别展示；来源时期不可比时合计天数为未知，单品矩阵及其范围合计展示已知数量之和，缺失成员保留依据并标为部分数据；全部未知仍显示未知，不将缺失当零。汇总表示当前范围，不代表全国。", "列按独立来源仓及事业部仓库设置显示，关闭仓库不参与本页明细、合计及健康统计；来源身份与原始名称保留。京东原生30天周转只在来源单仓明细显示，不对其求和或平均；图片和价格缺少来源时为空；通知须独立全局渠道及事业部三开配置，并经服务端当前风险重算、动态目标核验和投递账本约束。"])
 
 
 

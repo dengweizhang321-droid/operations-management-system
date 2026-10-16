@@ -27,6 +27,28 @@ test("single-product matrix uses server totals and complete source columns witho
   assert.doesNotMatch(html, /<img|中山|昆山|15日|京东原生30天周转/);
 });
 
+test("current-scope total shows the backend known sum and marks partial data without filling unknown values", () => {
+  const data = fixture();
+  data.items[0].summary = metrics({ availableQuantity: 8, metricQualifications: { availableQuantity: ["missing_realtime_source", "partial_quantity_sum"] } });
+  const html = render(decodeCwarehouseProductMonitor(data), true);
+  assert.match(html, /jd-cwarehouse-total-cell[\s\S]*?8<\/span><\/strong>[\s\S]*?<small class="cell-note">部分数据<\/small>/);
+  assert.match(html, /仅合计已有数值的仓库，缺失数据未按零计入/);
+  assert.match(html, /jd-cwarehouse-detail-total[\s\S]*?8<small class="cell-note">部分数据<\/small>/);
+  assert.match(html, /采购在途 —/);
+  data.items[0].summary = metrics();
+  assert.doesNotMatch(render(data), /部分数据/);
+});
+
+test("folded total discloses a partial zero transit sum even when zero superscripts are hidden", () => {
+  const data = fixture();
+  data.items[0].summary = metrics({ availableQuantity: 8, purchaseInTransitQuantity: 0, transferInTransitQuantity: 0,
+    metricQualifications: { purchaseInTransitQuantity: ["missing_purchaseInTransitQuantity", "partial_quantity_sum"] } });
+  const html = render(decodeCwarehouseProductMonitor(data));
+  assert.match(html, /部分数据：仅合计已有数值的仓库，缺失数据未按零计入/);
+  assert.match(html, /8<\/span><\/strong><small class="cell-note">部分数据<\/small>/);
+  assert.doesNotMatch(html, /<sup>\+0/);
+});
+
 test("expanded product retains warehouse sources, original turnover and separate unknown metrics", () => {
   const html = render(fixture(), true);
   assert.match(html, /aria-expanded="true"/); assert.match(html, /合成矩阵商品的分仓明细/);
