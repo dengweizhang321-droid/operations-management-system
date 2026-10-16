@@ -12,7 +12,8 @@ const source=path.join(root,'source');await fs.mkdir(path.join(source,'tools'),{
 const script=path.join(source,'tools/publish-main.mjs');
 await fs.copyFile(fileURLToPath(new URL('../tools/publish-main.mjs',import.meta.url)),script);
 await fs.copyFile(fileURLToPath(new URL('../tools/publish-main-progress.mjs',import.meta.url)),path.join(source,'tools/publish-main-progress.mjs'));
-execFileSync('git',['init','--quiet'],{cwd:source});execFileSync('git',['add','tools/publish-main.mjs','tools/publish-main-progress.mjs'],{cwd:source});
+await fs.copyFile(fileURLToPath(new URL('../tools/publish-main-known-resume.mjs',import.meta.url)),path.join(source,'tools/publish-main-known-resume.mjs'));
+execFileSync('git',['init','--quiet'],{cwd:source});execFileSync('git',['add','tools'],{cwd:source});
 execFileSync('git',['-c','user.name=fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','fixture'],{cwd:source});
 const mainCommit=execFileSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).trim();
 const directory='D:/codex-isolated/main-manual-release-20261016/control-host';

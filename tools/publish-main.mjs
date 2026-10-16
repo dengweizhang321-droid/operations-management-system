@@ -6,9 +6,12 @@ import {execFileSync} from 'node:child_process';
 import {randomUUID,createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {createReleaseProgress} from './publish-main-progress.mjs';
+import {knownResume,loadKnownResume} from './publish-main-known-resume.mjs';
 
-const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const requestFile=path.resolve(source,'..','main-release-request.json');
+const controlRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const resumeMode=process.argv.includes('--resume-premaintenance');
+const source=resumeMode?knownResume.source:controlRoot;
+const requestFile=path.resolve(controlRoot,'..','main-release-request.json');
 const read=async file=>JSON.parse(await fs.readFile(file,'utf8'));
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
 let progress;
@@ -34,8 +37,19 @@ async function main(){
  const head=execFileSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).trim();
  assert.equal(head,request.mainCommit,'main来源版本已变化，请使用本次合并后生成的入口');
  assert.equal(execFileSync('git',['status','--porcelain'],{cwd:source,encoding:'utf8'}).trim(),'','发布来源有未提交修改');
- if(process.argv.includes('--check')){const host=await verifyPowerShellHost(request,true);await verifyOfflineCache(request);console.log(JSON.stringify({powerShellHostVerified:true,powerShellVersion:host.version,dependencyMode:'offline',sourceCommit:head,mode:'manual-main-build-and-publish',steps:['构建打包','部署','必要的结构迁移','启动及必要服务确认'],backup:false,fullTests:false,productionExecuted:false}));return;}
- const out=path.resolve(source,'..','publish-'+head.slice(0,12));await fs.mkdir(out,{recursive:true});
+ const originalOut=path.resolve(source,'..','publish-'+head.slice(0,12));
+ const resumedOut=path.join(originalOut,'resume-'+knownResume.maintenanceId);
+ if(resumeMode&&await exists(path.join(resumedOut,'SUCCESS.json'))){
+  const completed=await read(path.join(resumedOut,'SUCCESS.json'));
+  assert.equal(completed.mainCommit,knownResume.commit);assert.equal(completed.maintenanceId,knownResume.maintenanceId);
+  assert.equal(completed.resumedOriginalFailureSha256,knownResume.records['FAILED.json']);
+  if(process.argv.includes('--check'))console.log(JSON.stringify({mode:'already-published',productionExecuted:false}));
+  else progress.success('此main版本已经成功发布，无需重复部署。结果：'+path.join(resumedOut,'SUCCESS.json'));
+  return;
+ }
+ const resume=resumeMode?await loadKnownResume(originalOut,request,head):null;
+ if(process.argv.includes('--check')){const host=await verifyPowerShellHost(request,true);await verifyOfflineCache(request);console.log(JSON.stringify({powerShellHostVerified:true,powerShellVersion:host.version,dependencyMode:'offline',sourceCommit:head,mode:resume?'resume-reviewed-premaintenance':'manual-main-build-and-publish',steps:['构建打包','部署','必要的结构迁移','启动及必要服务确认'],backup:false,fullTests:false,productionExecuted:false}));return;}
+ const out=resume?resumedOut:originalOut;await fs.mkdir(out,{recursive:true});
  const save=async(name,value)=>fs.writeFile(path.join(out,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
  progress.log('main版本：'+head+'；步骤详细日志：'+out);
  if(await exists(path.join(out,'SUCCESS.json'))){progress.success('此main版本已经成功发布，无需重复部署。结果：'+path.join(out,'SUCCESS.json'));return;}
@@ -59,11 +73,13 @@ async function main(){
  const installed='D:/teruisi-runtime/django-sales/app';
  const needsMigration=Boolean(request.schemaEvidencePath);
  const schemaArgs=needsMigration?['-IntegrationEvidencePath',request.schemaEvidencePath,'-IntegrationEvidenceSha256',request.schemaEvidenceSha256]:[];
- const maintenanceId=randomUUID().replaceAll('-',''),operationId=randomUUID().replaceAll('-','');
+ const maintenanceId=resume?resume.started.maintenanceId:randomUUID().replaceAll('-',''),operationId=resume?resume.started.operationId:randomUUID().replaceAll('-','');
  let phase='准备',maintenanceStarted=false;
  const step=async(label,script,action,extra=[],{json=true,addJson=true}={})=>{
   phase=label;progress.begin(label);await save(label+'-started.json',{at:new Date().toISOString(),script,action,extra});
-  const args=['-NoProfile','-NonInteractive','-File',script,'-Action',action,...extra,...(addJson?['-Json']:[])];
+  const args=resume&&action==='EnterMaintenance'
+   ?['-NoProfile','-NonInteractive','-File',path.join(controlRoot,'tools/manual-maintenance-entry.ps1'),'-WorkerScript',script,'-MaintenanceId',maintenanceId,'-ReviewPath',resume.reviewFile,'-ReviewSha256',resume.reviewSha256]
+   :['-NoProfile','-NonInteractive','-File',script,'-Action',action,...extra,...(addJson?['-Json']:[])];
   const result=await api.runProcess(shell,transport.productionCommandArguments(shell,args),{cwd:path.dirname(script),env:transport.productionCommandEnvironment(shell),timeoutMs:1800000,outputProtocol:'direct-exit-files',cleanup:'preserve',label:'manual-main-'+label});
   await fs.writeFile(path.join(out,label+'.stdout.log'),result.stdout,{flag:'wx'});await fs.writeFile(path.join(out,label+'.stderr.log'),result.stderr,{flag:'wx'});
   const value=json?JSON.parse(result.stdout.trim()):null;await save(label+'-result.json',{at:new Date().toISOString(),value,processEvidence:result.processEvidence});progress.complete();return value;
@@ -73,15 +89,21 @@ async function main(){
   const before=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});
   assert.deepEqual(before.head,request.predecessorWorker,'运行版本已被其他发布改变');
   assert.equal(await sha(installed+'/deployment.json'),request.predecessorDjangoSha256,'后台版本已被其他发布改变');
-  await save('STARTED.json',{at:new Date().toISOString(),mainCommit:head,maintenanceId,operationId,manual:true});
+  await save('STARTED.json',{at:new Date().toISOString(),mainCommit:head,maintenanceId,operationId,manual:true,...(resume?{reviewSha256:resume.reviewSha256,originalFailureSha256:knownResume.records['FAILED.json']}: {})});
   try{
-   progress.complete();phase='构建前端';progress.begin('构建前端原生发布包');
-   const identity=await api.workerPreparationIdentity(source);
-   const binding={version:api.workerSourceBindingVersion,sourceRoot:source,sourceRootPathSha256:api.windowsPathSha256(source),predecessor:before.head,predecessorChainStateSha256:before.chainStateSha256,identity};
-   const raw=api.canonicalJson(binding)+'\n',bindingFile=path.join(out,'source-binding.json');await fs.writeFile(bindingFile,raw,{flag:'wx'});
-   const plan=await rotation.planWorkerReleaseRotation({prepareOnline:true,sourceBindingFile:bindingFile,sourceBindingSha256:api.sha256Bytes(Buffer.from(raw)),rotationLease});await save('worker-plan.json',plan);assert.equal(plan.status,'planned');
+   progress.complete();phase=resume?'复用已准备制品':'构建前端';progress.begin(resume?'复用已准备的前后台包':'构建前端原生发布包');
+   let bindingFile,bindingSha;
+   if(resume){bindingFile=path.join(originalOut,'source-binding.json');bindingSha=knownResume.records['source-binding.json'];}
+   else{
+    const identity=await api.workerPreparationIdentity(source);
+    const binding={version:api.workerSourceBindingVersion,sourceRoot:source,sourceRootPathSha256:api.windowsPathSha256(source),predecessor:before.head,predecessorChainStateSha256:before.chainStateSha256,identity};
+    const raw=api.canonicalJson(binding)+'\n';bindingFile=path.join(out,'source-binding.json');await fs.writeFile(bindingFile,raw,{flag:'wx'});bindingSha=api.sha256Bytes(Buffer.from(raw));
+   }
+   const plan=await rotation.planWorkerReleaseRotation({prepareOnline:true,sourceBindingFile:bindingFile,sourceBindingSha256:bindingSha,rotationLease,...(resume?{reusePlanSha256:resume.plan.planSha256}:{})});await save('worker-plan.json',plan);assert.equal(plan.status,'planned');
+   if(resume){assert.equal(plan.reused,true);assert.equal(plan.planSha256,resume.plan.planSha256);assert.equal(plan.candidateReleaseId,resume.plan.candidateReleaseId);}
    progress.complete();
-   const pkg=await step('准备后台',path.join(source,'tools/django-local-service.ps1'),'PrepareApp',schemaArgs);
+   const pkg=resume?resume.pkg:await step('准备后台',path.join(source,'tools/django-local-service.ps1'),'PrepareApp',schemaArgs);
+   if(resume)assert.equal(await sha('D:/teruisi-runtime/django-sales/app.prepare-'+pkg.id+'.json'),pkg.receiptSha256,'原后台准备收据变化');
    const candidateDjangoSha256=await sha('D:/teruisi-runtime/django-sales/app.deploy-'+pkg.id+'/deployment.json');
    const oldWorker=path.join(api.workerRuntimeRoot,'releases',before.head.releaseId,'tools/worker-local-service.ps1');
    const newWorker=path.join(api.workerRuntimeRoot,'releases',plan.candidateReleaseId,'tools/worker-local-service.ps1');
@@ -110,7 +132,7 @@ async function main(){
    const after=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});assert.equal(after.head.releaseId,plan.candidateReleaseId);assert.equal(after.head.manifestSha256,plan.candidateManifestSha256);
    const response=await fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{signal:AbortSignal.timeout(15000)});assert.equal(response.status,200);await response.body.cancel();
    progress.complete();
-   await save('SUCCESS.json',{at:new Date().toISOString(),mainCommit:head,workerRelease:after.head.releaseId,djangoPreparedId:pkg.id,migration:needsMigration?'inventory.0015_jd_monitor_preferences':null,backupPerformed:false});
+   await save('SUCCESS.json',{at:new Date().toISOString(),mainCommit:head,workerRelease:after.head.releaseId,djangoPreparedId:pkg.id,migration:needsMigration?'inventory.0015_jd_monitor_preferences':null,backupPerformed:false,...(resume?{maintenanceId,resumedOriginalFailureSha256:knownResume.records['FAILED.json']}: {})});
    progress.success('main版本：'+head+'；步骤详细日志：'+out);
   }catch(error){await save('FAILED.json',{at:new Date().toISOString(),phase,error:String(error.message).slice(0,1600),processEvidence:error.processEvidence??null,maintenanceStarted,automaticRetry:false});throw error;}
  });
