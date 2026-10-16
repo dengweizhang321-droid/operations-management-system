@@ -60,6 +60,9 @@ async function main(){
    const oldWorker=path.join(api.workerRuntimeRoot,'releases',before.head.releaseId,'tools/worker-local-service.ps1');
    const newWorker=path.join(api.workerRuntimeRoot,'releases',plan.candidateReleaseId,'tools/worker-local-service.ps1');
    const adoption=['-AdditionKind','JdMonitorPreferences','-SourceRoot',source,'-OperationId',operationId,'-MaintenanceId',maintenanceId,'-SchemaOnly','-Execute'];
+   const {DatabaseSync}=await import('node:sqlite');
+   const workflowDb=new DatabaseSync('C:/Users/86137/.n8n/database.sqlite',{readOnly:true});
+   try{workflowDb.exec('PRAGMA query_only=ON');assert.equal(workflowDb.prepare("SELECT COUNT(*) n FROM execution_entity WHERE workflowId=? AND status IN ('new','running','waiting')").get('JdLogisticsDaily2026').n,0,'京东采集任务尚在运行，请等待完成');}finally{workflowDb.close();}
    maintenanceStarted=true;
    const entered=await step('进入维护',oldWorker,'EnterMaintenance',['-MaintenanceId',maintenanceId,'-KeepPostgres']);assert.equal(entered.status,'maintenance');assert.equal(entered.maintenanceId,maintenanceId);assert.equal(entered.postgresPreserved,true);
    await step('停止旧前端',oldWorker,'Stop');
