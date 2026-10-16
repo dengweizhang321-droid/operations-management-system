@@ -7,6 +7,8 @@ import {randomUUID,createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {createReleaseProgress} from './publish-main-progress.mjs';
 import {knownResume,loadKnownResume} from './publish-main-known-resume.mjs';
+import {confirmCompletedTask} from './publish-main-completed.mjs';
+import {manualStepCommand} from './publish-main-command.mjs';
 
 const controlRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const resumeMode=process.argv.includes('--resume-premaintenance');
@@ -37,6 +39,15 @@ async function main(){
  const head=execFileSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).trim();
  assert.equal(head,request.mainCommit,'main来源版本已变化，请使用本次合并后生成的入口');
  assert.equal(execFileSync('git',['status','--porcelain'],{cwd:source,encoding:'utf8'}).trim(),'','发布来源有未提交修改');
+ if(request.completedTask){
+  const completed=await confirmCompletedTask(request,{getHead:async()=>{
+   const rotation=await import(pathToFileURL(path.join(source,'tools/worker-local-release-rotation.mjs')));
+   return (await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true})).head;
+  }});
+  if(process.argv.includes('--check'))console.log(JSON.stringify(completed));
+  else{progress.success('本任务已发布，无需重复打包或部署。线上版本：'+completed.publishedCommit+'；成功回执：'+completed.receiptPath);progress.log('库存配置文件核对通过，结构迁移147，服务就绪。');}
+  return;
+ }
  const originalOut=path.resolve(source,'..','publish-'+head.slice(0,12));
  const resumedOut=path.join(originalOut,'resume-'+knownResume.maintenanceId);
  if(resumeMode&&await exists(path.join(resumedOut,'SUCCESS.json'))){
@@ -77,10 +88,11 @@ async function main(){
  let phase='准备',maintenanceStarted=false;
  const step=async(label,script,action,extra=[],{json=true,addJson=true}={})=>{
   phase=label;progress.begin(label);await save(label+'-started.json',{at:new Date().toISOString(),script,action,extra});
+  const command=manualStepCommand({systemHost:shell,powerShellDirectory:request.pwshDirectory,script,action,extra,addJson});
   const args=resume&&action==='EnterMaintenance'
    ?['-NoProfile','-NonInteractive','-File',path.join(controlRoot,'tools/manual-maintenance-entry.ps1'),'-WorkerScript',script,'-MaintenanceId',maintenanceId,'-ReviewPath',resume.reviewFile,'-ReviewSha256',resume.reviewSha256]
-   :['-NoProfile','-NonInteractive','-File',script,'-Action',action,...extra,...(addJson?['-Json']:[])];
-  const result=await api.runProcess(shell,transport.productionCommandArguments(shell,args),{cwd:path.dirname(script),env:transport.productionCommandEnvironment(shell),timeoutMs:1800000,outputProtocol:'direct-exit-files',cleanup:'preserve',label:'manual-main-'+label});
+   :command.args;
+  const result=await api.runProcess(command.host,transport.productionCommandArguments(command.host,args),{cwd:path.dirname(script),env:transport.productionCommandEnvironment(command.host),timeoutMs:1800000,outputProtocol:'direct-exit-files',cleanup:'preserve',label:'manual-main-'+label});
   await fs.writeFile(path.join(out,label+'.stdout.log'),result.stdout,{flag:'wx'});await fs.writeFile(path.join(out,label+'.stderr.log'),result.stderr,{flag:'wx'});
   const value=json?JSON.parse(result.stdout.trim()):null;await save(label+'-result.json',{at:new Date().toISOString(),value,processEvidence:result.processEvidence});progress.complete();return value;
  };

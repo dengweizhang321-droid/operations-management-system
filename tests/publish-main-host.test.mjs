@@ -13,6 +13,7 @@ const script=path.join(source,'tools/publish-main.mjs');
 await fs.copyFile(fileURLToPath(new URL('../tools/publish-main.mjs',import.meta.url)),script);
 await fs.copyFile(fileURLToPath(new URL('../tools/publish-main-progress.mjs',import.meta.url)),path.join(source,'tools/publish-main-progress.mjs'));
 await fs.copyFile(fileURLToPath(new URL('../tools/publish-main-known-resume.mjs',import.meta.url)),path.join(source,'tools/publish-main-known-resume.mjs'));
+for(const name of ['publish-main-completed.mjs','publish-main-command.mjs'])await fs.copyFile(fileURLToPath(new URL('../tools/'+name,import.meta.url)),path.join(source,'tools',name));
 execFileSync('git',['init','--quiet'],{cwd:source});execFileSync('git',['add','tools'],{cwd:source});
 execFileSync('git',['-c','user.name=fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','fixture'],{cwd:source});
 const mainCommit=execFileSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).trim();
