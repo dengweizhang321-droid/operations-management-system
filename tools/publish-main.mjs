@@ -40,6 +40,9 @@ async function main(){
  const sha=async file=>api.sha256Bytes(await fs.readFile(file));
  await verifyPowerShellHost(request);
  process.env.PATH=request.pwshDirectory+';'+(process.env.PATH??process.env.Path??'');process.env.WRANGLER_HIDE_BANNER='true';
+ // Keep native npm ci and lockfile integrity checks; avoid cache revalidation downloads.
+ process.env.npm_config_prefer_offline='true';
+ progress.log('依赖安装优先使用本机缓存，缺失时才下载；继续按锁文件安装和校验。');
  const shell='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe';
  const token=await api.runProcess(shell,['-NoProfile','-NonInteractive','-Command','[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)'],{timeoutMs:30000});
  assert.equal(token.stdout.trim(),'False','请使用普通用户双击，不需要管理员权限');
