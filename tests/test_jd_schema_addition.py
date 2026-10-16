@@ -149,7 +149,7 @@ class JdSchemaTests(unittest.TestCase):
                 'erp_reference.0003_jackyun_upload_audit_binding','sales.0011_jackyun_upload_audit_binding',
                 'ai_assistant.0083_schedule_execution_profile',*catalog.STEPS]
         cases=[(138,baseline),(139,baseline+extras[:1]),(140,baseline+extras[:2]),
-               (142,baseline+extras[:4]),(143,baseline+extras[:5]),(146,baseline+extras)]
+               (142,baseline+extras[:4]),(143,baseline+extras[:5]),(146,baseline+extras),(147,baseline+extras+["inventory.0015_jd_monitor_preferences"])]
         cases += [(0,baseline+extras[:-1]),(0,baseline+extras[:-1]+['inventory.9999_unknown']),
                   (0,baseline+extras+[catalog.STEPS[0]])]
         source=(ROOT/'tools/django-postgres-maintenance.ps1').as_posix()
