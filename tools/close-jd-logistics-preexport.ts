@@ -241,6 +241,10 @@ async function moveNoReplace(from: string, to: string) {
   const quote = (v: string) => `'${v.replaceAll("'", "''")}'`;
   await exec("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `$ErrorActionPreference='Stop';[System.IO.File]::Move(${quote(from)},${quote(to)})`], { timeout: 10000, windowsHide: true });
 }
+// Shared read-only evidence and filesystem primitives. This does not broaden
+// the old operator's target set, eligibility predicates, or CLI.
+export const jdPreexportEvidence = { ordinary, bytes, absent, createOnly, jsonBytes, object, samePath,
+  inspectHelperProcess, portClosed, readGet, installedEvidence, moveNoReplace };
 export async function closeJdLogisticsPreexport(options: PreexportOptions, action: "inspect" | "apply" = "inspect") {
   const target = options.target ?? jdPreexportTarget, root = path.resolve(options.root), directory = path.join(root, "outputs/jd-logistics-pipeline");
   if (!path.isAbsolute(options.root) || !path.isAbsolute(options.runtime) || !path.isAbsolute(options.databasePath)) fail("ABSOLUTE_PATH_REQUIRED");
