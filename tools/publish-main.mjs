@@ -130,7 +130,7 @@ async function main(){
    const startup=await step('确认启动版本',newWorker,'VerifyStartup');assert.equal(startup.startupVerified,true);
    phase='确认服务可用';progress.begin(phase);
    const after=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});assert.equal(after.head.releaseId,plan.candidateReleaseId);assert.equal(after.head.manifestSha256,plan.candidateManifestSha256);
-   const response=await fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{signal:AbortSignal.timeout(15000)});assert.equal(response.status,200);await response.body.cancel();
+   const response=await fetch('http://127.0.0.1:3000/_teruisi/local/health/ready',{headers:{'x-teruisi-local-health':'1'},signal:AbortSignal.timeout(15000)});assert.equal(response.status,200);await response.body.cancel();
    progress.complete();
    await save('SUCCESS.json',{at:new Date().toISOString(),mainCommit:head,workerRelease:after.head.releaseId,djangoPreparedId:pkg.id,migration:needsMigration?'inventory.0015_jd_monitor_preferences':null,backupPerformed:false,...(resume?{maintenanceId,resumedOriginalFailureSha256:knownResume.records['FAILED.json']}: {})});
    progress.success('main版本：'+head+'；步骤详细日志：'+out);

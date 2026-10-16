@@ -9,3 +9,9 @@
 - 隔离验证：9项host/progress/限定观察测试通过；13项真实PS5私有mutex用例有效通过（主体11项及修正测试夹具后两项直接exit增量），覆盖顺序、重入、子进程Django准入、exit/异常释放、超时/废弃、等待后事实变化及全程持Django的负例。父代理首次恰在新增夹具修正前运行的两项语法失败保留，非模块失败。
 - 真实只读wrapper `-CheckOnly` 等待当前后台锁释放后返回`premaintenance_admission_verified`；没有执行维护。真正Explorer Desktop ShellExecute的只读环境探针与原候选环境SHA完全匹配，实际BAT须同此环境启动，不能修改原绑定来兼容Codex进程环境。
 - 用户最新明确要求修复后实际运行BAT测试。本提交为执行前控制工具交付，实际运行结果以同包新resume目录回执为准，不能据代码合并声称上线成功。
+
+## 实际入口运行与并发阻塞
+
+- 01:28（上海时间）已从真正Explorer环境启动原`发布main.bat --no-pause`。在rotation唯一锁获取时收到EADDRINUSE并停止；新resume目录没有STARTED，不涉及维护或生产切换。
+- 只读定位持锁进程属于另一份`jackyun-credential-release-20261017`发布包，用户已在对应聊天授权上线，其业务源码与本包app/backend/lib/config/package依赖一致。未终止或修改该任务，等待串行结果；它若已切换前驱，本旧前驱续接必须停止，不能再次部署。
+- 修复最终就绪检查缺失既有`x-teruisi-local-health: 1`请求头的问题。实际只读验证：同一ready端点无头404、带头200；该头为原本机health协议，不是新增鉴权绕过或降低就绪条件。
