@@ -9,18 +9,20 @@ import { withJdChromiumRunLock, defaultJdChromiumRunLockDirectory } from "../lib
 import { jdBrowserLaunchMode } from "../lib/jd/browser-mode";
 import { launchDedicatedChrome, closeChromeBrowser, waitForChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
-import { logisticsDebugPortClosed } from "./jd-logistics-export";
+import { logisticsDebugPortClosed, visibleRangeDates } from "./jd-logistics-export";
 
 const root = "D:/运营管理系统";
 const output = process.argv[2];
 if (!output || !path.isAbsolute(output)) throw new Error("An absolute private evidence output is required");
+if (process.argv.length > 4 || process.argv[3] !== undefined && process.argv[3] !== "--dates") throw new Error("Unsupported probe arguments");
+const verifyDates = process.argv[3] === "--dates";
 const stores = validateJdStoreRegistry(JSON.parse(await readFile(path.join(root, "config/jd-store-accounts.json"), "utf8")), root);
 const store = stores.find(s => s.storeKey === "jd-yiyong-director" && s.enabled);
 if (!store || store.shopId !== "701455" || store.browser.profileName !== "Default") throw new Error("Equipment profile identity differs");
 const report = { at: new Date().toISOString(), storeKey: store.storeKey, expectedBusinessUnitCode: "EBU4418046540089",
   visibleBusinessUnitCodes: [] as string[], queryBusinessUnitCodes: [] as string[], accountLabelVisible: false,
   businessFrameReady: false, challengeOrLogin: false, samples: 0, browserClosed: false, portClosed: false,
-  exportClicks: 0, businessImports: 0 };
+  exportClicks: 0, businessImports: 0, dateReadback: null as null | { start: string; end: string } };
 await withJdChromiumRunLock(`jd-logistics-identity-probe:${randomUUID()}`, async () => {
   let browser: Browser | null = null; let owned = false;
   try {
@@ -59,6 +61,16 @@ await withJdChromiumRunLock(`jd-logistics-identity-probe:${randomUUID()}`, async
       stable = current === previous ? stable + 1 : 0; previous = current;
       if (stable >= 3 && (report.visibleBusinessUnitCodes.length || report.queryBusinessUnitCodes.length)) break;
       await page.waitForTimeout(400);
+    }
+    if (verifyDates) {
+      if (report.challengeOrLogin || report.visibleBusinessUnitCodes.length !== 1 || report.visibleBusinessUnitCodes[0] !== report.expectedBusinessUnitCode) throw new Error("Probe identity unavailable");
+      const frames = page.frames().filter(f => /scsw\.jdl\.com\/stockBusiness\/warehouseInventoryRunningQuery(?:New)?/.test(f.url()));
+      if (frames.length !== 1) throw new Error("Probe frame ambiguous");
+      await visibleRangeDates(frames[0], "2026-10-15", "2026-10-15", "起始时间");
+      const start = await frames[0].getByPlaceholder("起始时间", { exact: true }).inputValue();
+      const end = await frames[0].getByPlaceholder("结束时间", { exact: true }).inputValue();
+      if (start !== "2026-10-15" || end !== start) throw new Error("Probe date readback failed");
+      report.dateReadback = { start, end };
     }
   } finally {
     await browser?.close().catch(() => undefined);
