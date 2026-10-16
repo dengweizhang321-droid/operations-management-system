@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { connect } from "node:net";
-import type { Browser, BrowserContext, Download, Frame, Page, Response } from "playwright-core";
+import type { Browser, BrowserContext, Download, Frame, Locator, Page, Response } from "playwright-core";
 import { withJdChromiumRunLock, defaultJdChromiumRunLockDirectory } from "../lib/jd/chromium-run-lock";
 import { jdBrowserLaunchMode } from "../lib/jd/browser-mode";
 import { JD_LOGISTICS_MAX_FILE_BYTES, parseJdLogisticsWorkbook } from "../lib/inventory/jd-logistics-workbook";
@@ -12,7 +12,7 @@ import { writeJsonDurable } from "../lib/jackyun/json-file";
 import { jdLogisticsSourceUrls, logisticsHash, logisticsDayAfter, jdLogisticsContractVersion,
   type JdLogisticsExportOptions, type JdLogisticsExportResult } from "../lib/jd/logistics-policy";
 import { jhLogisticsDownloadUrl, jhLogisticsTaskIdentity, parseJhLogisticsTaskPage, selectJhLogisticsTask,
-  parseProductLogisticsTaskPage, productLogisticsExportTaskId, productLogisticsQueryTotal, selectProductLogisticsTask,
+  parseProductLogisticsTaskPage, productLogisticsExportTaskId, productLogisticsQueryTotal, selectProductLogisticsTask, productLogisticsTaskCompleted, exactNumericId,
   assertFlowLogisticsRequest, flowLogisticsAttachment, flowLogisticsQueryTotal,
   jhLogisticsExportRequest, jhLogisticsQueryRequest, jhLogisticsQueryTotal,
   productLogisticsDownloadAck, productLogisticsDownloadAttachment,
@@ -148,6 +148,29 @@ export async function visibleRangeDates(surface: Surface, start: string, end: st
     await cell.click();
   }
 }
+async function uniqueVisibleScopeControl(control: Locator, error: string) {
+  if (await control.count() > 1) fail(error);
+  try { await control.first().waitFor({ state: "visible", timeout: 5000 }); } catch { fail(error); }
+  if (await control.count() !== 1 || !await control.isEnabled() || /(?:^|\s)is-disabled(?:\s|$)/.test(await control.getAttribute("class") ?? "")) fail(error);
+  return control;
+}
+async function waitForScopeReadback(check: () => Promise<boolean>, error: string) {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    if (await check()) return;
+    if (attempt < 39) await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  fail(error);
+}
+async function ensureScopeTab(surface: Surface, name: string, error: string) {
+  const tab = await uniqueVisibleScopeControl(surface.getByRole("tab", { name, exact: true }).filter({ visible: true }), error);
+  if (await tab.getAttribute("aria-selected") !== "true") {
+    await tab.click();
+    await waitForScopeReadback(async () => {
+      if (await tab.count() !== 1 || !await tab.isEnabled()) fail(error);
+      return await tab.getAttribute("aria-selected") === "true";
+    }, error);
+  }
+}
 async function setScope(surface: Surface, options: JdLogisticsExportOptions) {
   if (options.warehouseCode) fail("JD_LOGISTICS_WAREHOUSE_FILTER_NOT_VERIFIED");
   if (options.sourceKind === "flow") {
@@ -156,6 +179,8 @@ async function setScope(surface: Surface, options: JdLogisticsExportOptions) {
       || await surface.getByPlaceholder("结束时间", { exact: true }).inputValue() !== logisticsDayAfter(options.rangeEnd, -1)) fail("JD_LOGISTICS_DATE_READBACK_FAILED");
     await options.assertOwner(); await (await uniqueButton(surface, "查询")).click();
   } else if (options.sourceKind === "inventory_snapshot") {
+    const mismatch = "JD_LOGISTICS_SNAPSHOT_GRANULARITY_MISMATCH";
+    await ensureScopeTab(surface, "C仓", mismatch); await ensureScopeTab(surface, "明细表", mismatch); await ensureScopeTab(surface, "分仓", mismatch);
     if (logisticsDayAfter(options.rangeStart) !== options.rangeEnd) fail("JD_LOGISTICS_SNAPSHOT_SINGLE_DAY_REQUIRED");
     const date = surface.getByPlaceholder("选择日期", { exact: true });
     if (await date.inputValue() !== options.rangeStart) await setInputDate(surface, "选择日期", options.rangeStart);
@@ -163,6 +188,8 @@ async function setScope(surface: Surface, options: JdLogisticsExportOptions) {
       || await surface.getByRole("tab", { name: "明细表", exact: true }).getAttribute("aria-selected") !== "true"
       || await surface.getByRole("tab", { name: "分仓", exact: true }).getAttribute("aria-selected") !== "true") fail("JD_LOGISTICS_SNAPSHOT_GRANULARITY_MISMATCH");
   } else if (options.sourceKind === "realtime_inventory") {
+    const mismatch = "JD_LOGISTICS_REALTIME_GRANULARITY_MISMATCH";
+    await ensureScopeTab(surface, "C仓", mismatch); await ensureScopeTab(surface, "明细表", mismatch);
     if (await surface.getByRole("tab", { name: "C仓", exact: true }).getAttribute("aria-selected") !== "true"
       || await surface.getByRole("tab", { name: "明细表", exact: true }).getAttribute("aria-selected") !== "true") fail("JD_LOGISTICS_REALTIME_GRANULARITY_MISMATCH");
   }
@@ -187,8 +214,8 @@ export function assertLogisticsFullScope(controls: LogisticsScopeReadback[], opt
 }
 async function fullScopeReadback(surface: Surface, options: JdLogisticsExportOptions) {
   const controls = await surface.locator(".el-form-item:visible").evaluateAll(items => items.map(item => {
-    const visible = (element: Element) => (element as HTMLElement).offsetWidth > 0 || (element as HTMLElement).offsetHeight > 0;
-    const inputs = [...item.querySelectorAll("input:not([type=password]):not([type=hidden]),textarea")].filter(visible) as HTMLInputElement[];
+    const inputs = [...item.querySelectorAll("input:not([type=password]):not([type=hidden]),textarea")]
+      .filter(element => (element as HTMLElement).offsetWidth > 0 || (element as HTMLElement).offsetHeight > 0) as HTMLInputElement[];
     return { label: item.querySelector(".el-form-item__label")?.textContent?.replace(/\s+/g, "").trim() ?? "",
       values: inputs.filter(input => !["checkbox", "radio"].includes(input.type)).map(input => input.value.trim())
         .concat(inputs.filter(input => input.type === "radio" && input.checked).map(input => input.closest("label")?.innerText.trim() ?? "unverified_radio")),
@@ -199,28 +226,42 @@ async function fullScopeReadback(surface: Surface, options: JdLogisticsExportOpt
 async function selectAllWarehouseStatus(surface: Surface, options: JdLogisticsExportOptions) {
   if (options.sourceKind !== "inventory_snapshot") return;
   const field = surface.locator(".el-form-item:visible").filter({ has: surface.locator(".el-form-item__label", { hasText: /^\s*仓库状态\s*[:：]?\s*$/ }) });
-  if (await field.count() !== 1) fail("JD_LOGISTICS_WAREHOUSE_STATUS_CONTROL_AMBIGUOUS");
-  const input = field.locator("input:visible");
-  if (await input.count() !== 1) fail("JD_LOGISTICS_WAREHOUSE_STATUS_CONTROL_AMBIGUOUS");
-  if (await input.inputValue() !== "全部") {
-    await input.click();
-    const option = surface.locator(".el-select-dropdown__item:visible").filter({ hasText: /^\s*全部\s*$/ });
-    if (await option.count() !== 1) fail("JD_LOGISTICS_WAREHOUSE_STATUS_CONTROL_AMBIGUOUS");
-    await option.click();
-  }
-  if (await input.inputValue() !== "全部") fail("JD_LOGISTICS_WAREHOUSE_STATUS_NOT_ALL");
+  await selectScopeStatus(surface, field, "全部", "JD_LOGISTICS_WAREHOUSE_STATUS_CONTROL_AMBIGUOUS", "JD_LOGISTICS_WAREHOUSE_STATUS_NOT_ALL");
 }
 async function selectEnabledProductStatus(surface: Surface) {
   const field = surface.locator(".el-form-item:visible").filter({ has: surface.locator(".el-form-item__label", { hasText: /^\s*商品状态\s*[:：]?\s*$/ }) });
-  if (await field.count() !== 1) fail("JD_LOGISTICS_PRODUCT_STATUS_CONTROL_AMBIGUOUS");
-  const input = field.locator("input:visible");
-  if (await input.count() !== 1) fail("JD_LOGISTICS_PRODUCT_STATUS_CONTROL_AMBIGUOUS");
-  if (await input.inputValue() !== "启用") {
-    await input.click(); const option = surface.locator(".el-select-dropdown__item:visible").filter({ hasText: /^\s*启用\s*$/ });
-    if (await option.count() !== 1) fail("JD_LOGISTICS_PRODUCT_STATUS_CONTROL_AMBIGUOUS");
-    await option.click();
+  if (await field.count() === 0) {
+    const expand = await uniqueVisibleScopeControl(surface.getByText("展开", { exact: true }).filter({ visible: true }), "JD_LOGISTICS_PRODUCT_STATUS_CONTROL_AMBIGUOUS");
+    await expand.click(); // Only open the collapsed advanced area; never toggle an already-visible field.
   }
-  if (await input.inputValue() !== "启用") fail("JD_LOGISTICS_ENABLED_PRODUCT_SCOPE_MISMATCH");
+  await selectScopeStatus(surface, field, "启用", "JD_LOGISTICS_PRODUCT_STATUS_CONTROL_AMBIGUOUS", "JD_LOGISTICS_ENABLED_PRODUCT_SCOPE_MISMATCH");
+}
+async function selectScopeStatus(surface: Surface, field: Locator, value: "全部" | "启用", ambiguous: string, mismatch: string) {
+  await uniqueVisibleScopeControl(field, ambiguous);
+  const input = await uniqueVisibleScopeControl(field.locator("input:visible"), ambiguous);
+  if (await input.inputValue() !== value) {
+    await input.click();
+    const panel = await uniqueVisibleScopeControl(surface.locator(".el-select-dropdown:visible"), ambiguous);
+    const option = await uniqueVisibleScopeControl(panel.locator(".el-select-dropdown__item:visible").filter({ hasText: value === "全部" ? /^\s*全部\s*$/ : /^\s*启用\s*$/ }), ambiguous);
+    await option.click();
+    await waitForScopeReadback(async () => {
+      if (await input.count() !== 1 || !await input.isEnabled()) fail(ambiguous);
+      return await input.inputValue() === value;
+    }, mismatch);
+  }
+  if (await input.inputValue() !== value) fail(mismatch);
+}
+/** Set only the observed product/JH scope controls, then validate the complete
+ * visible scope. Shared by the real exporter and read-only source probes. */
+export async function prepareJdLogisticsSourceScope(surface: Surface, options: JdLogisticsExportOptions) {
+  if (options.warehouseCode) fail("JD_LOGISTICS_WAREHOUSE_FILTER_NOT_VERIFIED");
+  if (options.sourceKind === "shop_products") {
+    if (options.sourceStatus !== "enabled") fail("JD_LOGISTICS_ENABLED_PRODUCT_SCOPE_MISMATCH");
+    await selectEnabledProductStatus(surface);
+  } else if (options.sourceKind === "realtime_inventory" || options.sourceKind === "inventory_snapshot") {
+    await setScope(surface, options); await selectAllWarehouseStatus(surface, options);
+  } else fail("JD_LOGISTICS_SCOPE_SOURCE_NOT_SUPPORTED");
+  return fullScopeReadback(surface, options);
 }
 async function sourceRowCount(surface: Surface) {
   const counts = [...new Set([...(await visibleText(surface)).matchAll(/共\s*([\d,]+)\s*条/g)].map(match => Number(match[1].replaceAll(",", ""))))];
@@ -376,8 +417,7 @@ async function exportJhSource(page: Page, options: JdLogisticsExportOptions, man
   try {
     observedCodes.clear(); surface = await navigate();
     observedBusinessUnitCode = await identity(surface, observedCodes, options.businessUnitCode);
-    await selectAllWarehouseStatus(surface, options); await setScope(surface, options);
-    fullScopeHash = await fullScopeReadback(surface, options);
+    fullScopeHash = await prepareJdLogisticsSourceScope(surface, options);
     // The response observer was installed before navigation. Realtime may
     // legitimately satisfy it through its one fresh initial query.
     if (!fresh.ready()) { await options.assertOwner(); await (await uniqueButton(surface, "查询")).click(); }
@@ -424,11 +464,12 @@ function productTaskQueue(page: Page) {
     else { queued.length = 0; queued.push(new Error("JD_LOGISTICS_PRODUCTS_TASK_QUEUE_OVERFLOW")); }
   };
   const observe = (response: Response) => {
-    if (response.url() !== productTaskEndpoint || response.request().method() !== "POST") return;
+    if (response.url() !== productTaskEndpoint) return;
+    if (response.request().method() !== "POST") { publish(new Error("JD_LOGISTICS_PRODUCTS_TASK_QUERY_MISMATCH")); return; }
     void (async () => {
       if (response.status() !== 200) fail("JD_LOGISTICS_PRODUCTS_TASK_LIST_UNAVAILABLE");
       const raw = await response.text(); if (Buffer.byteLength(raw) > 512 * 1024) fail("JD_LOGISTICS_PRODUCTS_TASK_LIST_TOO_LARGE");
-      publish(parseProductLogisticsTaskPage(JSON.parse(raw), response.request().postDataJSON()));
+      publish(parseProductLogisticsTaskPage(JSON.parse(raw), response.request().postDataJSON(), response.request().method()));
     })().catch(() => publish(new Error("JD_LOGISTICS_PRODUCTS_TASK_LIST_UNVERIFIED")));
   };
   page.on("response", observe);
@@ -440,7 +481,7 @@ function productTaskQueue(page: Page) {
     if (value instanceof Error) throw value; return value;
   } };
 }
-function productDownloadWatch(page: Page, context: BrowserContext) {
+export function productDownloadWatch(page: Page, context: BrowserContext) {
   const files = new Set<Download>(); const pages = new Set<Page>(); let closed = false;
   const record = (file: Download) => { if (!closed) files.add(file); };
   const attach = (candidate: Page) => { if (!closed && !pages.has(candidate)) { pages.add(candidate); candidate.on("download", record); } };
@@ -455,34 +496,89 @@ function productDownloadWatch(page: Page, context: BrowserContext) {
       return [...files][0];
     }, assertUnique: () => { if (files.size !== 1) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_AMBIGUOUS"); } };
 }
-function productDownloadProof(context: BrowserContext) {
-  const records: Array<{ endpoint: "ack" | "url"; request: unknown; response: unknown }> = [];
+function allowedProductAttachment(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === "https://s3.cn-north-1.jdcloud-oss.com" && !parsed.username && !parsed.password && !parsed.hash
+      && /^\/ka-admin-web\/report\/shop_goods_task_list_report-[^/?#\\]+\.csv$/.test(parsed.pathname);
+  } catch { return false; }
+}
+export async function assertProductLogisticsDownloadBytes(downloadUrl: string, boundUrl: string, bytes: Uint8Array, responses: Response[]) {
+  let download: URL, bound: URL;
+  try { download = new URL(downloadUrl); bound = new URL(boundUrl); } catch { return fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH"); }
+  if (!allowedProductAttachment(bound.href) || !bytes.length || bytes.length > JD_LOGISTICS_MAX_FILE_BYTES) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH");
+  if (download.protocol !== "blob:") {
+    if (download.href !== bound.href) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH");
+    return;
+  }
+  if (download.origin !== "https://scsw.jdl.com") fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH");
+  const matching = () => responses.filter(response => response.url() === bound.href && response.request().method() === "GET");
+  const observed = matching();
+  if (observed.length !== 1 || observed[0].status() !== 200) fail("JD_LOGISTICS_PRODUCTS_ATTACHMENT_GET_UNPROVEN");
+  const declaredLength = observed[0].headers()["content-length"];
+  if (declaredLength !== undefined && (!/^\d+$/.test(declaredLength) || Number(declaredLength) > JD_LOGISTICS_MAX_FILE_BYTES)) fail("JD_LOGISTICS_PRODUCTS_ATTACHMENT_GET_UNPROVEN");
+  // Only the now-bound response body is read. No replay, fetch or signed URL is persisted.
+  let attachment: Buffer;
+  try { attachment = await observed[0].body(); } catch { return fail("JD_LOGISTICS_PRODUCTS_ATTACHMENT_GET_UNPROVEN"); }
+  if (!attachment.length || attachment.length > JD_LOGISTICS_MAX_FILE_BYTES || attachment.length !== bytes.length || digest(attachment) !== digest(bytes)
+    || matching().length !== 1) fail("JD_LOGISTICS_PRODUCTS_ATTACHMENT_BYTES_MISMATCH");
+}
+export function productDownloadProof(context: BrowserContext) {
+  const records: Array<{ endpoint: "ack" | "url"; taskId: string; request: unknown; pending: boolean; response?: unknown }> = [];
+  const attachments: Response[] = [];
   let closed = false, invalid = false;
   const observe = (response: Response) => {
+    if (closed) return;
+    if (response.request().method() === "GET" && allowedProductAttachment(response.url())) {
+      if (attachments.length >= 32) invalid = true; else attachments.push(response);
+      return;
+    }
     const endpoint = response.url() === productDownloadEndpoint ? "ack" : response.url() === productAttachmentEndpoint ? "url" : null;
     if (!endpoint || response.request().method() !== "POST" || closed) return;
+    // Headers are already an observed proof attempt. Register its raw request
+    // identity synchronously so a slow duplicate body cannot disappear at close.
+    let record: (typeof records)[number];
+    try {
+      const request = response.request().postDataJSON();
+      if (records.length >= 32 || !Array.isArray(request) || request.length !== 1 || !request[0] || typeof request[0] !== "object" || Array.isArray(request[0])) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_UNAVAILABLE");
+      const allowed = endpoint === "ack" ? ["taskId"] : ["downloadUrl", "id"];
+      if (Object.keys(request[0]).some(key => !allowed.includes(key))) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_UNAVAILABLE");
+      record = { endpoint, taskId: exactNumericId(endpoint === "ack" ? request[0].taskId : request[0].id), request, pending: true };
+      records.push(record);
+    } catch { invalid = true; return; }
     void (async () => {
       if (response.status() !== 200) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_UNAVAILABLE");
       const raw = await response.text(); if (Buffer.byteLength(raw) > 64 * 1024) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_UNAVAILABLE");
       if (!closed) {
-        if (records.length >= 32) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_UNAVAILABLE");
-        records.push({ endpoint, request: response.request().postDataJSON(), response: JSON.parse(raw) });
+        record.response = JSON.parse(raw); record.pending = false;
       }
     })().catch(() => { invalid = true; });
   };
   context.on("response", observe);
-  return { close: () => { closed = true; context.off("response", observe); records.length = 0; }, take: async (taskId: string) => {
+  return { close: () => { closed = true; context.off("response", observe); records.length = 0; attachments.length = 0; }, take: async (taskId: string) => {
+    taskId = exactNumericId(taskId);
     const deadline = Date.now() + 45000;
     while (Date.now() < deadline) {
-      if (invalid) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_UNAVAILABLE");
-      const matching = records.filter(record => Array.isArray(record.request) && record.request.length === 1 && record.request[0]
-        && (record.endpoint === "ack" ? record.request[0].taskId === taskId : record.request[0].id === taskId));
+      if (closed || invalid) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_UNAVAILABLE");
+      const matching = records.filter(record => record.taskId === taskId);
       const ack = matching.filter(record => record.endpoint === "ack"), attachment = matching.filter(record => record.endpoint === "url");
       if (ack.length > 1 || attachment.length > 1) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_AMBIGUOUS");
-      if (ack.length === 1 && attachment.length === 1) {
+      if (ack.length === 1 && attachment.length === 1 && !ack[0].pending && !attachment[0].pending) {
         const ackHash = productLogisticsDownloadAck(ack[0].response, ack[0].request, taskId);
         const url = productLogisticsDownloadAttachment(attachment[0].response, attachment[0].request, taskId);
-        return { url, bindingHash: logisticsHash({ taskId, ackHash, attachmentHash: logisticsHash(url) }) };
+        const assertStillUnique = () => {
+          const current = records.filter(record => record.taskId === taskId);
+          if (current.filter(record => record.endpoint === "ack").length !== 1 || current.filter(record => record.endpoint === "url").length !== 1) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_AMBIGUOUS");
+          if (current.some(record => record.pending)) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_UNAVAILABLE");
+        };
+        return { url, bindingHash: logisticsHash({ taskId, ackHash, attachmentHash: logisticsHash(url) }),
+          assertDownload: async (downloadUrl: string, bytes: Uint8Array) => {
+            if (closed || invalid) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_UNAVAILABLE");
+            assertStillUnique();
+            await assertProductLogisticsDownloadBytes(downloadUrl, url, bytes, attachments);
+            assertStillUnique();
+            if (closed || invalid) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_PROOF_UNAVAILABLE");
+          } };
       }
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -491,7 +587,7 @@ function productDownloadProof(context: BrowserContext) {
 }
 async function exportEnabledProducts(page: Page, context: BrowserContext, surface: Surface, options: JdLogisticsExportOptions, manifestPath: string, identityHash: string, observedCodes: Set<string>) {
   if (options.sourceStatus !== "enabled") fail("JD_LOGISTICS_ENABLED_PRODUCT_SCOPE_MISMATCH");
-  await selectEnabledProductStatus(surface); const fullScopeHash = await fullScopeReadback(surface, options);
+  const fullScopeHash = await prepareJdLogisticsSourceScope(surface, options);
   await options.assertOwner();
   const queryPending = page.waitForResponse(response => response.url() === productQueryEndpoint && response.request().method() === "POST", { timeout: 30000 }); void queryPending.catch(() => undefined);
   await (await uniqueButton(surface, "查询")).click(); const queryResponse = await queryPending;
@@ -522,16 +618,17 @@ async function exportEnabledProducts(page: Page, context: BrowserContext, surfac
     for (let attempt = 0; attempt < 20; attempt++) {
       await options.assertOwner();
       const candidate = selectProductLogisticsTask(await tasks.next(), taskId, options, { submittedAt: collectedAt, observedAt: new Date().toISOString() });
-      if (candidate?.taskStatus === "2") { selected = candidate; break; }
+      if (candidate && productLogisticsTaskCompleted(candidate)) { selected = candidate; break; }
     }
     if (!selected || selected.recordCount !== expectedRowCount) fail("JD_LOGISTICS_PRODUCTS_TASK_COUNT_MISMATCH");
     manifest.productTaskEvidence = selected; await writeJsonDurable(manifestPath, manifest);
     const binding = await attachmentProof.take(taskId);
     manifest.requestEvidence.attachmentHash = binding.bindingHash; await writeJsonDurable(manifestPath, manifest);
     const file = await downloads.take();
-    if (new URL(file.url()).href !== new URL(binding.url).href || await file.failure()) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH");
+    if (await file.failure()) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH");
     const filePath = path.join(options.downloadDirectory, "source.csv"); await file.saveAs(filePath); downloads.assertUnique();
     const bytes = new Uint8Array(await readFile(filePath));
+    await binding.assertDownload(file.url(), bytes); downloads.assertUnique();
     const rows = parseJdLogisticsWorkbook(bytes, "shop_products", options.businessUnitCode, { collectedAt, allowDeclaredBusinessUnit: true }); assertLogisticsEnabledProducts(rows);
     if (rows.length !== expectedRowCount) fail("JD_LOGISTICS_EXPORT_ROW_COUNT_NOT_CONFIRMED");
     const result: JdLogisticsExportResult = { filePath, taskIdentity: manifest.taskIdentity, complete: true, browserClosed: true, collectedAt, sourceStatus: "enabled",

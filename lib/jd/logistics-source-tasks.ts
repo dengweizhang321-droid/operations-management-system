@@ -120,7 +120,7 @@ export function jhLogisticsDownloadUrl(value: string | null) {
   return decoded;
 }
 export type ProductLogisticsTask = { id: string; deptId: string; taskStatus: string; recordCount: number; successCount: number; createTime: string; shopSetHash: string; shopCount: number };
-function exactNumericId(value: unknown) {
+export function exactNumericId(value: unknown) {
   if (typeof value === "number") {
     if (!Number.isSafeInteger(value) || value < 1) fail("JD_LOGISTICS_PRODUCTS_TASK_ID_INVALID");
     return String(value);
@@ -149,15 +149,16 @@ export function productLogisticsQueryTotal(response: unknown, request: unknown, 
   return Number(payload.data.iTotalRecords);
 }
 export function productLogisticsDownloadAck(response: unknown, request: unknown, taskId: string) {
-  if (logisticsHash(request) !== logisticsHash([{ taskId }])) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH");
+  if (!Array.isArray(request) || request.length !== 1 || !request[0] || typeof request[0] !== "object" || Array.isArray(request[0])
+    || exactNumericId(request[0].taskId) !== taskId || logisticsHash(request) !== logisticsHash([{ taskId: request[0].taskId }])) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH");
   const payload = response as { code?: unknown; success?: unknown; data?: unknown } | null;
   if (!payload || payload.code !== 0 || payload.success !== true || exactNumericId(payload.data) !== taskId) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH");
   return logisticsHash({ taskId, code: 0, success: true });
 }
 export function productLogisticsDownloadAttachment(response: unknown, request: unknown, taskId: string) {
-  if (!Array.isArray(request) || request.length !== 1 || !request[0] || typeof request[0] !== "object") fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH");
+  if (!Array.isArray(request) || request.length !== 1 || !request[0] || typeof request[0] !== "object" || Array.isArray(request[0])) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH");
   const params = request[0] as Record<string, unknown>;
-  if (Object.keys(params).some(key => !["downloadUrl", "id"].includes(key)) || params.id !== taskId || typeof params.downloadUrl !== "string"
+  if (Object.keys(params).some(key => !["downloadUrl", "id"].includes(key)) || exactNumericId(params.id) !== taskId || typeof params.downloadUrl !== "string"
     || !/^report\/shop_goods_task_list_report-[^/?#\\]+\.csv$/.test(params.downloadUrl) || params.downloadUrl.length > 500) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_TASK_MISMATCH");
   const payload = response as { code?: unknown; success?: unknown; data?: unknown } | null;
   if (!payload || payload.code !== 0 || payload.success !== true || typeof payload.data !== "string" || !payload.data.startsWith("//")) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_URL_UNPROVEN");
@@ -166,13 +167,27 @@ export function productLogisticsDownloadAttachment(response: unknown, request: u
   if (url.pathname !== expected || !url.pathname.startsWith("/ka-admin-web/report/") || !url.pathname.endsWith(".csv")) fail("JD_LOGISTICS_PRODUCTS_DOWNLOAD_URL_UNPROVEN");
   return decoded;
 }
-export function parseProductLogisticsTaskPage(value: unknown, request: unknown) {
-  const expected = [{ ids: [], pageNo: 0, pageSize: 10, taskNameList: ["店铺商品列表"], bizTypeList: ["111"] }];
+export function parseProductLogisticsTaskPage(value: unknown, request: unknown, method = "POST") {
+  if (method !== "POST" || !Array.isArray(request) || request.length !== 1 || !request[0] || typeof request[0] !== "object"
+    || !Array.isArray(request[0].ids) || request[0].ids.length > 200) fail("JD_LOGISTICS_PRODUCTS_TASK_QUERY_MISMATCH");
+  const ids = request[0].ids as unknown[];
+  let canonicalIds: string[];
+  try { canonicalIds = ids.map(exactNumericId); } catch { return fail("JD_LOGISTICS_PRODUCTS_TASK_QUERY_MISMATCH"); }
+  if (new Set(canonicalIds).size !== ids.length) fail("JD_LOGISTICS_PRODUCTS_TASK_QUERY_MISMATCH");
+  const pageSize = ids.length || 10;
+  const expected = [{ ids, pageNo: 0, pageSize, taskNameList: ["店铺商品列表"], bizTypeList: ["111"] }];
   if (logisticsHash(request) !== logisticsHash(expected)) fail("JD_LOGISTICS_PRODUCTS_TASK_QUERY_MISMATCH");
   const payload = value as { success?: unknown; data?: { aaData?: unknown; iDisplayStart?: unknown; iDisplayLength?: unknown; iTotalRecords?: unknown } } | null;
   if (!payload || payload.success !== true || !payload.data || !Array.isArray(payload.data.aaData) || payload.data.iDisplayStart !== 0
-    || payload.data.iDisplayLength !== 10 || !Number.isSafeInteger(payload.data.iTotalRecords) || Number(payload.data.iTotalRecords) < payload.data.aaData.length
-    || payload.data.aaData.length > 10) fail("JD_LOGISTICS_PRODUCTS_TASK_PAGE_INVALID");
+    || payload.data.iDisplayLength !== pageSize || !Number.isSafeInteger(payload.data.iTotalRecords) || Number(payload.data.iTotalRecords) < payload.data.aaData.length
+    || payload.data.aaData.length > pageSize || ids.length > 0 && Number(payload.data.iTotalRecords) !== payload.data.aaData.length) fail("JD_LOGISTICS_PRODUCTS_TASK_PAGE_INVALID");
+  const seen = new Set<string>();
+  for (const record of payload.data.aaData) {
+    if (!record || typeof record !== "object" || Array.isArray(record)) fail("JD_LOGISTICS_PRODUCTS_TASK_PAGE_INVALID");
+    const id = exactNumericId(record.id);
+    if (seen.has(id) || ids.length > 0 && !canonicalIds.includes(id)) fail("JD_LOGISTICS_PRODUCTS_TASK_PAGE_INVALID");
+    seen.add(id);
+  }
   return payload.data.aaData as Array<Record<string, unknown>>;
 }
 export function selectProductLogisticsTask(records: Array<Record<string, unknown>>, taskId: string, scope: JdLogisticsScope, window: LogisticsSubmissionWindow): ProductLogisticsTask | undefined {
@@ -180,7 +195,7 @@ export function selectProductLogisticsTask(records: Array<Record<string, unknown
   if (matching.length > 1) fail("JD_LOGISTICS_DOWNLOAD_TASK_AMBIGUOUS");
   const task = matching[0]; if (!task) return undefined;
   if (task.taskName !== "店铺商品列表" || String(task.bizType) !== "111" || exactNumericId(task.deptId) !== productLogisticsDepartmentId(scope.businessUnitCode)
-    || typeof task.createTime !== "string" || !inWindow(task.createTime, window) || typeof task.taskStatus !== "string") fail("JD_LOGISTICS_PRODUCTS_TASK_SCOPE_MISMATCH");
+    || typeof task.createTime !== "string" || !inWindow(task.createTime, window) || !["2", "3", "4"].includes(String(task.taskStatus)) || typeof task.taskStatus !== "string") fail("JD_LOGISTICS_PRODUCTS_TASK_SCOPE_MISMATCH");
   const count = (value: unknown) => typeof value === "string" && /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : fail("JD_LOGISTICS_PRODUCTS_TASK_COUNT_INVALID");
   let params: Record<string, unknown>;
   try { if (typeof task.taskParams !== "string") fail("JD_LOGISTICS_PRODUCTS_TASK_SCOPE_MISMATCH"); params = JSON.parse(task.taskParams); } catch { return fail("JD_LOGISTICS_PRODUCTS_TASK_SCOPE_MISMATCH"); }
@@ -192,6 +207,12 @@ export function selectProductLogisticsTask(records: Array<Record<string, unknown
   if (new Set(shops).size !== shops.length || !Number.isSafeInteger(task.successCount) || Number(task.successCount) < 0) fail("JD_LOGISTICS_PRODUCTS_TASK_SCOPE_MISMATCH");
   return { id: taskId, deptId: String(task.deptId), taskStatus: task.taskStatus, recordCount: count(task.recordCount), successCount: Number(task.successCount),
     createTime: logisticsSourceTime(task.createTime), shopSetHash: logisticsHash(shops), shopCount: shops.length };
+}
+export function productLogisticsTaskCompleted(task: ProductLogisticsTask) {
+  if (task.taskStatus === "4") fail("JD_LOGISTICS_PRODUCTS_EXPORT_TASK_FAILED");
+  if (task.taskStatus === "3") return true;
+  if (task.taskStatus !== "2") fail("JD_LOGISTICS_PRODUCTS_TASK_SCOPE_MISMATCH");
+  return false;
 }
 export function flowLogisticsRequest(scope: JdLogisticsScope) {
   return [{ pledgeStockFlowDataType: null, source: "seller", deptRequest: { deptIdList: [productLogisticsDepartmentId(scope.businessUnitCode)] },
