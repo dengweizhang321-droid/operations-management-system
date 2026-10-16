@@ -85,13 +85,25 @@ async function businessSurface(page: Page, kind: JdLogisticsExportOptions["sourc
   }
   return fail("JD_LOGISTICS_BUSINESS_FRAME_NOT_READY");
 }
+export async function waitForJdLogisticsIdentity(readVisibleCodes: () => Promise<string[]>, codes: Set<string>, expected: string,
+  waitForNext: () => Promise<void> = () => new Promise(resolve => setTimeout(resolve, 250))) {
+  // A visible iframe body can precede its hydrated department field. Missing
+  // evidence may wait; a different or ambiguous identity never does.
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const shown = [...new Set(await readVisibleCodes())];
+    const observed = shown.length ? shown : [...codes];
+    if (observed.length > 1 || observed.length === 1 && observed[0] !== expected) fail("JD_LOGISTICS_BUSINESS_UNIT_MISMATCH");
+    if (observed.length === 1) return observed[0];
+    if (attempt < 39) await waitForNext();
+  }
+  return fail("JD_LOGISTICS_BUSINESS_UNIT_NOT_READY");
+}
 async function identity(surface: Surface, codes: Set<string>, expected: string) {
-  const text = await visibleText(surface);
-  const values = await surface.locator("input:visible:not([type=password])").evaluateAll(elements => elements.map(e => (e as HTMLInputElement).value));
-  const shown = [...new Set((`${text}\n${values.join("\n")}`).match(/\bEBU[A-Za-z0-9]+\b/g) ?? [])];
-  const observed = shown.length ? shown : [...codes];
-  if (observed.length !== 1 || observed[0] !== expected) fail("JD_LOGISTICS_BUSINESS_UNIT_MISMATCH");
-  return observed[0];
+  return waitForJdLogisticsIdentity(async () => {
+    const text = await visibleText(surface);
+    const values = await surface.locator("input:visible:not([type=password])").evaluateAll(elements => elements.map(e => (e as HTMLInputElement).value));
+    return (`${text}\n${values.join("\n")}`).match(/\bEBU[A-Za-z0-9]+\b/g) ?? [];
+  }, codes, expected);
 }
 async function setInputDate(surface: Surface, placeholder: string, value: string) {
   const input = surface.getByPlaceholder(placeholder, { exact: true });
