@@ -15,6 +15,7 @@ import { validateJdStoreRegistry } from "../lib/jd/store-registry";
 // A one-execution operator, deliberately outside helper/n8n routes. This does
 // not authorize replay of 9542, mark it completed, or repair arbitrary runs.
 export const jdPreexportTarget = Object.freeze({
+  failureCode: "JD_LOGISTICS_BUSINESS_UNIT_MISMATCH",
   executionId: "9542", workflowId: "JdLogisticsDaily2026", runId: "jdl-774dfd3a-5597-4a3b-b1a3-8e876f55587f",
   planHash: "97eecd4f2528d2a4c40a290f2cbcccae27207b7b5a9bcf96734493dd04e460ac",
   activeSha256: "49621c19dfb1ec720b45d6bf517e0152e54fa7b89a4f820a81693c0642d5d656",
@@ -27,6 +28,21 @@ export const jdPreexportTarget = Object.freeze({
   exporterSha256: "10fbdc133abee4e19d342cb134c62dcf7531da99c9b1655542f8ee6614d0b742",
   supervisorPid: 25832, supervisorCreationDate: "2026-10-15T17:55:50.7274130Z",
   helperPid: 52200, helperCreationDate: "2026-10-15T17:55:58.5894940Z",
+});
+// Second exact pre-export failure; still no arbitrary run/root overrides in CLI.
+export const jdDatePreexportTarget = Object.freeze({
+  ...jdPreexportTarget, failureCode: "JD_LOGISTICS_DATE_CONTROL_AMBIGUOUS",
+  executionId: "9556", runId: "jdl-de6e61c0-210b-4798-b259-fbfb80b2ac8c",
+  planHash: "1ad57e11734aa5336e88165c5672e504e3465d75557a17d4e223ef3f68226097",
+  activeSha256: "5fdb619a47ac2e56cfc9419cbbbfada8197d81242e1990920cbb35de9d7b7fd3",
+  manifestSha256: "0fc728fcc3f80c82233e199d0739f0f9642a97e52df9325e56837c38797928f1",
+  executionDataSha256: "f06f80a31411a57189e777638d3dab8c2fd2f1c557617e88d0264a2d9e035288",
+  releaseId: "20261016T012126Z-dc89c4ec5bfabd85", releaseManifestSha256: "6d6bde6546ad9aa67b629962890bc7771ff26854abf2032d33ad7c2d3c7599fe",
+  helperReceiptSha256: "03b24d97f66fac32935d35b1f45913a0a365cabf050b65ed75828e3eff0af847",
+  helperTreeSha256: "ab9736c2f5992eb420b87060316a421eccb0c014bfa4ed87fa417af563db6583",
+  exporterSha256: "cfa6ec5f0c7af04b9304534a1c2a1dfa3fcc7b969e37da85e308ba6d988e68c9",
+  supervisorPid: 32688, supervisorCreationDate: "2026-10-16T02:00:32.2873450Z",
+  helperPid: 51472, helperCreationDate: "2026-10-16T02:00:42.5925950Z",
 });
 export type PreexportTarget = { -readonly [K in keyof typeof jdPreexportTarget]: (typeof jdPreexportTarget)[K] extends number ? number : string };
 export const preexportSha256 = (bytes: string | Uint8Array) => createHash("sha256").update(bytes).digest("hex");
@@ -100,7 +116,7 @@ export function readJdPreexportN8n(databasePath: string, target: PreexportTarget
     if ([a, b, release].some(t => deref(t.executionStatus) !== "success") || deref(final.executionStatus) !== "error"
       || !(Number(a.executionIndex) < Number(b.executionIndex) && Number(b.executionIndex) < Number(release.executionIndex) && Number(release.executionIndex) < Number(final.executionIndex))
       || deref(ap.runId) !== target.runId || deref(ap.stage) !== "planned" || deref(ap.operationCount) !== 4
-      || deref(bp.runId) !== target.runId || deref(bpError.status) !== 500 || !String(deref(bpError.message)).includes("JD_LOGISTICS_BUSINESS_UNIT_MISMATCH")
+      || deref(bp.runId) !== target.runId || deref(bpError.status) !== 500 || !String(deref(bpError.message)).includes(target.failureCode)
       || deref(rp.ok) !== true || deref(rp.stage) !== "released" || deref(rp.workflow) !== "jd-logistics") fail("N8N_FAILURE_OR_RELEASE_REJECTED");
     return { executionId: target.executionId, workflowId: target.workflowId, status: "error", active: false, activeExecutions: 0,
       executionDataSha256: target.executionDataSha256, stoppedAt: execution.stoppedAt };
@@ -175,7 +191,7 @@ async function inspect(options: PreexportOptions, target: PreexportTarget, archi
   if (canonicalLogisticsJson(active) !== canonicalLogisticsJson({ runId: target.runId, executionId: target.executionId, planHash: target.planHash })) fail("ACTIVE_IDENTITY_REJECTED");
   assertLogisticsManifest(plan, target.executionId);
   if (plan.runId !== target.runId || logisticsPlanHash(plan) !== target.planHash || plan.stage !== "failed" || plan.outcome !== "pending"
-    || plan.failure?.code !== "JD_LOGISTICS_BUSINESS_UNIT_MISMATCH" || plan.failure.stage !== "run"
+    || plan.failure?.code !== target.failureCode || plan.failure.stage !== "run"
     || canonicalLogisticsJson(plan.notification) !== canonicalLogisticsJson({ stage: "pending" }) || plan.notificationPlan.enabled !== false || plan.notificationPlan.departmentIds.length) fail("FAILED_STAGE_REJECTED");
   if (plan.operations.length !== 4 || plan.operations.some((op, i) => op.stage !== (i === 0 ? "exporting" : "planned") || op.departmentId !== target.departmentId
     || op.businessUnitCode !== target.businessUnitCode || op.collectorStoreKey !== target.storeKey || op.initialScopeRevision !== 0
@@ -263,15 +279,16 @@ export async function closeJdLogisticsPreexport(options: PreexportOptions, actio
       await options.checkpoint?.("before_committed");
       await absent(activePath);
       const committed = { ...intent, status: "committed", committedAt: new Date().toISOString(), intentSha256: preexportSha256(jsonBytes(intent)),
-        nextAction: "A new full n8n execution only after operator review; never retry 9542" };
+        nextAction: `A new full n8n execution only after operator review; never retry ${target.executionId}` };
       await createOnly(path.join(recovery, "committed.json"), jsonBytes(committed));
       return committed;
     }));
 }
 async function main() {
   const action = process.argv[2];
-  if (!["inspect", "apply"].includes(action) || process.argv.length !== 3) fail("USAGE_INSPECT_OR_APPLY_ONLY");
-  const result = await closeJdLogisticsPreexport({ root: "D:/运营管理系统", runtime: "D:/teruisi-runtime/teruisi-worker-sales", databasePath: "C:/Users/86137/.n8n/database.sqlite" }, action as "inspect" | "apply");
+  if (!["inspect", "apply"].includes(action) || ![3, 4].includes(process.argv.length) || process.argv.length === 4 && process.argv[3] !== "9556") fail("USAGE_INSPECT_OR_APPLY_ONLY");
+  const target = process.argv[3] === "9556" ? jdDatePreexportTarget : jdPreexportTarget;
+  const result = await closeJdLogisticsPreexport({ root: "D:/运营管理系统", runtime: "D:/teruisi-runtime/teruisi-worker-sales", databasePath: "C:/Users/86137/.n8n/database.sqlite", target }, action as "inspect" | "apply");
   console.log(JSON.stringify(result));
 }
 if (process.argv[1] && samePath(process.argv[1], fileURLToPath(import.meta.url))) main().catch(error => {

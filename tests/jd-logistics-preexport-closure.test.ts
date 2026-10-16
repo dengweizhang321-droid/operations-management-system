@@ -9,15 +9,15 @@ import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { logisticsPlanHash, type JdLogisticsManifest } from "../lib/jd/logistics-manifest";
 import { jdLogisticsProtocol, parseJdLogisticsSettings, planJdLogisticsNotifications, selectJdLogisticsOperations } from "../lib/jd/logistics-policy";
 import { validateJdStoreRegistry } from "../lib/jd/store-registry";
-import { closeJdLogisticsPreexport, jdPreexportTarget, preexportSha256, type PreexportOptions, type PreexportTarget } from "../tools/close-jd-logistics-preexport";
+import { closeJdLogisticsPreexport, jdPreexportTarget, jdDatePreexportTarget, preexportSha256, type PreexportOptions, type PreexportTarget } from "../tools/close-jd-logistics-preexport";
 
 const json = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
 const kinds = ["flow", "shop_products", "realtime_inventory", "inventory_snapshot"] as const;
-async function fixture(t: test.TestContext) {
+async function fixture(t: test.TestContext, preset: PreexportTarget = jdPreexportTarget) {
   const root = await mkdtemp(path.join(tmpdir(), "jd-preexport-private-"));
   t.after(async () => { await rm(root, { recursive: true, force: true }); });
   const runtime = path.join(root, "runtime"), directory = path.join(root, "outputs/jd-logistics-pipeline");
-  const target: PreexportTarget = { ...jdPreexportTarget };
+  const target: PreexportTarget = { ...preset };
   target.supervisorPid = 111; target.helperPid = 222;
   const release = path.join(runtime, "releases", target.releaseId), databasePath = path.join(root, "n8n.sqlite");
   await Promise.all([mkdir(path.join(root, "config"), { recursive: true }), mkdir(directory, { recursive: true }),
@@ -36,7 +36,7 @@ async function fixture(t: test.TestContext) {
   const plan: JdLogisticsManifest = { protocolVersion: jdLogisticsProtocol, workflowKey: "jd-logistics", runId: target.runId, executionId: target.executionId,
     createdAt: "2026-10-16T01:04:16.066Z", updatedAt: "2026-10-16T01:04:22.836Z", anchorAt: "2026-10-16T01:04:16.066Z", baseUrl: "http://localhost:3000",
     planHash: "", stage: "failed", outcome: "pending", notificationPlan: planJdLogisticsNotifications(settings, selections), notification: { stage: "pending" },
-    failure: { code: "JD_LOGISTICS_BUSINESS_UNIT_MISMATCH", stage: "run", at: "2026-10-16T01:04:22.836Z" },
+    failure: { code: target.failureCode, stage: "run", at: "2026-10-16T01:04:22.836Z" },
     operations: selections.map((op, i) => ({ ...op, stage: i === 0 ? "exporting" : "planned" })) };
   plan.planHash = logisticsPlanHash(plan); target.planHash = plan.planHash;
   const manifestRaw = json(plan), activeRaw = json({ runId: target.runId, executionId: target.executionId, planHash: target.planHash });
@@ -50,7 +50,7 @@ async function fixture(t: test.TestContext) {
   const executionData = JSON.stringify([{ resultData: { lastNodeExecuted: "保留证据并明确失败", runData: {
     "手动完整运行": [task(0, {})], "领取共享 helper": [task(1, {})], "已领取执行所有权？": [task(2, {})],
     [aName]: [task(3, { runId: target.runId, stage: "planned", operationCount: 4 })],
-    [bName]: [task(4, { runId: target.runId, error: { status: 500, message: "PIPELINE_FAILED JD_LOGISTICS_BUSINESS_UNIT_MISMATCH" } }, 1)],
+    [bName]: [task(4, { runId: target.runId, error: { status: 500, message: `PIPELINE_FAILED ${target.failureCode}` } }, 1)],
     [releaseName]: [task(5, { ok: true, stage: "released", workflow: "jd-logistics" })], "保留证据并明确失败": [task(6)],
   } } }]);
   target.executionDataSha256 = preexportSha256(executionData);
@@ -71,7 +71,7 @@ async function fixture(t: test.TestContext) {
   const receipt = json({ status: "passed", helperTree: { fileCount: 4, sha256: target.helperTreeSha256 }, evidence: { inputFiles: [{ relativePath: "tools/jd-logistics-export.ts", sha256: target.exporterSha256 }] } });
   target.helperReceiptSha256 = preexportSha256(receipt); await writeFile(path.join(release, "audit/helper-build-receipt.json"), receipt);
   const deployment = json({ fixture: true }); target.releaseManifestSha256 = preexportSha256(deployment); await writeFile(path.join(release, "deployment-manifest.json"), deployment);
-  await writeFile(path.join(runtime, "state/worker-process.json"), json({ releaseId: target.releaseId, manifestSha256: target.releaseManifestSha256, supervisorPid: 111, supervisorCreationDate: "2026-10-15T17:55:50.7274130Z" }));
+  await writeFile(path.join(runtime, "state/worker-process.json"), json({ releaseId: target.releaseId, manifestSha256: target.releaseManifestSha256, supervisorPid: 111, supervisorCreationDate: target.supervisorCreationDate }));
   const state = { batchTotal: 0, helperBusy: false, requests: [] as string[], portClosed: true, processPid: 222 };
   const request: typeof fetch = async (input, init) => {
     assert.equal(init?.method, "GET"); assert.equal(init?.body, undefined); assert.equal(init?.redirect, "manual");
@@ -84,7 +84,7 @@ async function fixture(t: test.TestContext) {
     return Response.json({ success: true, data: { items: [], total: state.batchTotal, page: 1, pageSize: 1 } });
   };
   const options: PreexportOptions = { root, runtime, databasePath, target, request, portProbe: async p => { assert.equal(p, 9224); return state.portClosed; },
-    processProbe: async () => ({ pid: state.processPid, parentPid: 111, creationDate: "2026-10-15T17:55:58.5894940Z", supervisorCreationDate: "2026-10-15T17:55:50.7274130Z",
+    processProbe: async () => ({ pid: state.processPid, parentPid: 111, creationDate: target.helperCreationDate, supervisorCreationDate: target.supervisorCreationDate,
       commandLine: `"C:\\Program Files\\nodejs\\node.exe" ${path.join(release, "helper/tmall-workflow-helper.mjs")} serve --port 5791` }) };
   const recovery = path.join(directory, `preexport-${target.executionId}-${target.activeSha256.slice(0, 16)}`);
   return { root, runtime, release, directory, databasePath, plan, settings, state, options, target, recovery, activeRaw, manifestRaw };
@@ -100,6 +100,26 @@ test("9542 closure preserves byte-exact failed evidence and commits only an arch
   assert.equal(await readFile(path.join(f.recovery, "manifest.original.json"), "utf8"), f.manifestRaw);
   const db = new DatabaseSync(f.databasePath, { readOnly: true }); assert.equal(db.prepare("SELECT status FROM execution_entity WHERE id=9542").get()?.status, "error"); db.close();
   assert.ok(f.state.requests.length); await assert.rejects(closeJdLogisticsPreexport(f.options, "apply"), /PATH_ALREADY_EXISTS/);
+});
+
+test("9556 closure accepts only its exact date failure and retains terminal error", async t => {
+  const f = await fixture(t, jdDatePreexportTarget);
+  const committed = await closeJdLogisticsPreexport(f.options, "apply");
+  assert.equal(committed.status, "committed");
+  assert.ok("nextAction" in committed);
+  assert.match(committed.nextAction as string, /never retry 9556/);
+  assert.equal(await readFile(path.join(f.directory, `${f.target.runId}.json`), "utf8"), f.manifestRaw);
+  const db = new DatabaseSync(f.databasePath, { readOnly: true });
+  assert.equal(db.prepare("SELECT status FROM execution_entity WHERE id=9556").get()?.status, "error"); db.close();
+});
+
+test("9556 refuses a different failure code even with the updated manifest hash", async t => {
+  const f = await fixture(t, jdDatePreexportTarget);
+  f.plan.failure!.code = "JD_LOGISTICS_BUSINESS_UNIT_MISMATCH";
+  const raw = json(f.plan); f.target.manifestSha256 = preexportSha256(raw);
+  await writeFile(path.join(f.directory, `${f.target.runId}.json`), raw);
+  await assert.rejects(closeJdLogisticsPreexport(f.options, "apply"), /FAILED_STAGE_REJECTED/);
+  assert.equal(await readFile(path.join(f.directory, "active.json"), "utf8"), f.activeRaw);
 });
 test("wrong original SHA, failure phase or terminal n8n status refuses closure", async t => {
   for (const mode of ["sha", "stage", "n8n", "waiting"] as const) await t.test(mode, async t => {
