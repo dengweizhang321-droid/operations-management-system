@@ -42,6 +42,7 @@ from .new_products import (
 )
 from .revisions import revision_value
 from .write_requests import claim_write_request, complete_write_request, fail_write_request
+from .learning_operations import execute_learning_operation, learning_operation_status
 
 
 logger = logging.getLogger(__name__)
@@ -359,6 +360,15 @@ def new_product_line_learning(request: HttpRequest) -> JsonResponse:
             ))
             return _json(payload, revision=revision)
         payload = _body(request)
+        if "operationId" in payload:
+            _unknown(request, set(), "新品代码学习")
+            if set(payload) != {"operationId"}:
+                raise WorkflowApiError("新品代码学习参数无效")
+            result = execute_learning_operation(
+                payload["operationId"], principal,
+                body_sha256=request.headers.get("X-Teruisi-Content-SHA256", "").strip().lower(),
+            )
+            return _json(result, revision=revision_value())
         if not isinstance(payload, dict) or not set(payload).issubset({"expectedSourceBatchId"}):
             raise WorkflowApiError("新品代码学习参数无效")
         expected_batch = payload.get("expectedSourceBatchId", "")
@@ -371,6 +381,18 @@ def new_product_line_learning(request: HttpRequest) -> JsonResponse:
         )
     except Exception as error:
         return _error(error, "新品代码学习失败")
+
+
+@require_http_methods(["GET"])
+def new_product_learning_operation(request: HttpRequest, operation_id: str) -> JsonResponse:
+    try:
+        principal = _principal(request, {"operator", "admin"})
+        _unknown(request, set(), "新品学习结果查询")
+        # writer already owns SELECT on its receipts; reader permissions stay
+        # unchanged. This GET performs no claims, cleanup, learning or retries.
+        return _json(learning_operation_status(operation_id, principal), revision=revision_value())
+    except Exception as error:
+        return _error(error, "新品学习结果暂时无法确认")
 
 
 @require_http_methods(["GET"])
