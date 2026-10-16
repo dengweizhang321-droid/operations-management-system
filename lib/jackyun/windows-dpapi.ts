@@ -13,7 +13,52 @@ export type JackyunLoginConfig = {
   afterSubmitWaitMs: number;
 };
 export type JackyunCredential = { username: string; password: string };
-export type JackyunCredentialStatus = { ok: boolean; ready?: boolean; status: string };
+type CredentialLookup = { provider: boolean; file: boolean; directory: boolean; fileError?: number; directoryError?: number };
+export type JackyunCredentialStatus = { ok: boolean; ready?: boolean; status: string; lookup?: CredentialLookup };
+
+function credentialLookup(value: unknown): CredentialLookup | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const row = value as Record<string, unknown>;
+  if (!["provider", "file", "directory"].every(key => typeof row[key] === "boolean")) return undefined;
+  const result: CredentialLookup = { provider: row.provider as boolean, file: row.file as boolean, directory: row.directory as boolean };
+  for (const key of ["fileError", "directoryError"] as const) {
+    if (Number.isInteger(row[key]) && Number(row[key]) >= 0 && Number(row[key]) <= 65535) result[key] = Number(row[key]);
+  }
+  return result;
+}
+
+function lookupDescription(value: unknown) {
+  const lookup = credentialLookup(value);
+  if (!lookup) return "";
+  const flags = ` / lookup=provider:${Number(lookup.provider)},file:${Number(lookup.file)},directory:${Number(lookup.directory)}`;
+  return flags + (lookup.fileError !== undefined && lookup.directoryError !== undefined
+    ? ` / win32=file:${lookup.fileError},directory:${lookup.directoryError}` : "");
+}
+
+export class JackyunCredentialProbeError extends Error {
+  readonly diagnostic: string;
+  constructor(diagnostic: string, message: string) {
+    super(message);
+    this.diagnostic = /^(?:initialize|binding(?:_input|_fields|_paths|_identity|_local_path|_vault_lookup)?|path_integrity|missing|setup_(?:acl|form|encrypt|verify)|read|transport|configuration|response_parse|response_shape|status=(?:ready|missing|stored|cancelled))(?: \/ lookup=provider:[01],file:[01],directory:[01](?: \/ win32=file:\d{1,5},directory:\d{1,5})?)?(?: \/ finish=(?:timeout|output_limit|spawn_error|stdin_error|close),exit=(?:none|-?\d{1,10}),ms=\d{1,13},bytes=\d{1,9})?$/.test(diagnostic)
+      ? diagnostic : "probe_error";
+  }
+}
+
+export function credentialReadinessFailure(error: unknown) {
+  const detail = error instanceof JackyunCredentialProbeError ? error.diagnostic : "probe_error";
+  return new Error(`吉客云凭据仍未就绪（${detail}），需要人工处理；保留旧任务。`);
+}
+
+export async function requireJackyunCredentialReadiness(root: string) {
+  let config: JackyunLoginConfig;
+  try { config = await readJackyunLoginConfig(root); }
+  catch { throw credentialReadinessFailure(new JackyunCredentialProbeError("configuration", "")); }
+  let status: JackyunCredentialStatus;
+  try { status = await manageJackyunCredential("status", config); }
+  catch (error) { throw credentialReadinessFailure(error); }
+  if (status.ok && status.ready && status.status === "ready") return true;
+  throw credentialReadinessFailure(new JackyunCredentialProbeError(`status=${status.status}${lookupDescription(status.lookup)}`, ""));
+}
 
 export function windowsPowerShellEnvironment() {
   const environment = { ...process.env };
@@ -67,8 +112,9 @@ export async function invokeJackyunVault(
     });
     let stdout = "";
     let settled = false;
-    const timeout = setTimeout(() => finish(false), action === "setup" ? 15 * 60_000 : 15000);
-    const finish = (ok: boolean) => {
+    const startedAt = Date.now();
+    const timeout = setTimeout(() => finish(false, "timeout"), action === "setup" ? 15 * 60_000 : 15000);
+    const finish = (ok: boolean, reason: "timeout" | "output_limit" | "spawn_error" | "stdin_error" | "close", exitCode: number | null = null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
@@ -84,20 +130,19 @@ export async function invokeJackyunVault(
           const diagnostic = JSON.parse(result) as { stage?: string; errorId?: string; lookup?: Record<string, unknown> };
           if (["initialize", "binding", "binding_input", "binding_fields", "binding_paths", "binding_identity", "binding_local_path", "binding_vault_lookup", "path_integrity", "missing", "setup_acl", "setup_form", "setup_encrypt", "setup_verify", "read"].includes(diagnostic.stage ?? "")) stage = diagnostic.stage!;
           if (/^[A-Za-z][A-Za-z0-9.,_-]{0,159}$/.test(diagnostic.errorId ?? "")) errorId = diagnostic.errorId!;
-          if (stage === "missing" && diagnostic.lookup && ["provider", "file", "directory"].every(key => typeof diagnostic.lookup![key] === "boolean")) {
-            lookup = ` / lookup=${["provider", "file", "directory"].map(key => `${key}:${Number(diagnostic.lookup![key])}`).join(",")}`;
-          }
+          if (stage === "missing") lookup = lookupDescription(diagnostic.lookup);
         } catch { /* secret-bearing output and raw errors are never propagated */ }
-        reject(new Error(`waiting_login：吉客云 DPAPI 凭据配置或解密未完成（${stage}${errorId ? ` / ${errorId}` : ""}${lookup}）。`));
+        const message = `waiting_login：吉客云 DPAPI 凭据配置或解密未完成（${stage}${errorId ? ` / ${errorId}` : ""}${lookup}）。`;
+        reject(new JackyunCredentialProbeError(`${stage}${lookup} / finish=${reason},exit=${exitCode ?? "none"},ms=${Date.now() - startedAt},bytes=${Buffer.byteLength(result)}`, message));
       }
     };
     child.stdout.setEncoding("utf8");
-    child.stdout.on("data", chunk => { stdout += chunk; if (stdout.length > 32768) finish(false); });
+    child.stdout.on("data", chunk => { stdout += chunk; if (stdout.length > 32768) finish(false, "output_limit"); });
     // Never propagate PowerShell diagnostics or child output in an error object.
     child.stderr.resume();
-    child.once("error", () => finish(false));
-    child.stdin.on("error", () => finish(false));
-    child.once("close", code => finish(code === 0));
+    child.once("error", () => finish(false, "spawn_error"));
+    child.stdin.on("error", () => finish(false, "stdin_error"));
+    child.once("close", code => finish(code === 0, "close", code));
     child.stdin.end(request);
   });
 }
@@ -150,6 +195,13 @@ export async function readJackyunRuntimeCredential(config: JackyunLoginConfig, d
 }
 
 export async function manageJackyunCredential(action: "setup" | "status", config: JackyunLoginConfig) {
-  const status = JSON.parse(await invokeJackyunVault(action, config)) as JackyunCredentialStatus;
-  return { ok: status.ok === true, ready: status.ready === true, status: String(status.status) };
+  const raw = await invokeJackyunVault(action, config);
+  let status: JackyunCredentialStatus;
+  try { status = JSON.parse(raw) as JackyunCredentialStatus; }
+  catch { throw new JackyunCredentialProbeError("response_parse", "吉客云凭据状态响应无效。"); }
+  if (!status || !["ready", "missing", "stored", "cancelled"].includes(status.status)) {
+    throw new JackyunCredentialProbeError("response_shape", "吉客云凭据状态响应无效。");
+  }
+  const lookup = status.status === "missing" ? credentialLookup(status.lookup) : undefined;
+  return { ok: status.ok === true, ready: status.ready === true, status: status.status, ...(lookup ? { lookup } : {}) };
 }

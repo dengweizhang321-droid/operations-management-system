@@ -195,11 +195,15 @@ if ($request.action -eq 'setup') {
 }
 $stage = 'binding_vault_lookup'
 if (-not (Test-Path -LiteralPath $vaultFile)) {
-  if ($request.action -eq 'status') { $pipeWriter.WriteLine((@{ok=$true;ready=$false;status='missing'} | ConvertTo-Json -Compress)); exit 0 }
   $stage = 'missing'
   # Diagnostic only: neither alternate lookup may authorize reading a file
   # that the original provider check rejected. Never emit paths or bindings.
   $lookupDiagnostic = @{provider=$false;file=[IO.File]::Exists($vaultFile);directory=[IO.Directory]::Exists($vaultRoot)}
+  foreach ($entry in @(@('fileError',$vaultFile),@('directoryError',$vaultRoot))) {
+    try { [void][IO.File]::GetAttributes($entry[1]); $lookupDiagnostic[$entry[0]]=0 }
+    catch { $cause=$_.Exception; while ($cause.InnerException) { $cause=$cause.InnerException }; $lookupDiagnostic[$entry[0]]=($cause.HResult -band 65535) }
+  }
+  if ($request.action -eq 'status') { $pipeWriter.WriteLine((@{ok=$true;ready=$false;status='missing';lookup=$lookupDiagnostic} | ConvertTo-Json -Compress)); exit 0 }
   throw 'Credential missing'
 }
 $stage = 'read'
