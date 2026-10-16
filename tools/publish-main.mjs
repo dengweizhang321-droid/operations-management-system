@@ -42,7 +42,8 @@ async function main(){
   await fs.writeFile(path.join(out,label+'.stdout.log'),result.stdout,{flag:'wx'});await fs.writeFile(path.join(out,label+'.stderr.log'),result.stderr,{flag:'wx'});
   const value=json?JSON.parse(result.stdout.trim()):null;await save(label+'-result.json',{at:new Date().toISOString(),value,processEvidence:result.processEvidence});console.log(label+' 完成');return value;
  };
- await rotation.withRotationLock(async rotationLease=>{
+ const startedAt=Date.now();const progress=setInterval(()=>console.log('['+phase+'] 已运行 '+Math.floor((Date.now()-startedAt)/1000)+' 秒，请保持窗口打开。'),30000);progress.unref();
+ try{await rotation.withRotationLock(async rotationLease=>{
   await rotation.assertActiveBatchOwnership(api.workerRuntimeRoot);
   const before=await rotation.resolveEffectiveReleaseChain({verifyInstalledHead:true});
   assert.deepEqual(before.head,request.predecessorWorker,'运行版本已被其他发布改变');
@@ -80,6 +81,6 @@ async function main(){
    await save('SUCCESS.json',{at:new Date().toISOString(),mainCommit:head,workerRelease:after.head.releaseId,djangoPreparedId:pkg.id,migration:needsMigration?'inventory.0015_jd_monitor_preferences':null,backupPerformed:false});
    console.log('\n发布成功。main版本：'+head+'\n日志：'+out);
   }catch(error){await save('FAILED.json',{at:new Date().toISOString(),phase,error:String(error.message).slice(0,1600),processEvidence:error.processEvidence??null,maintenanceStarted,automaticRetry:false});throw error;}
- });
+ });}finally{clearInterval(progress);}
 }
 main().catch(error=>{console.error('\n发布已停止：'+error.message);process.exitCode=1;});
