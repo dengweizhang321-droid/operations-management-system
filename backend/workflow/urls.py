@@ -30,6 +30,7 @@ read_patterns = [
     path("operations-records/<str:record_id>/activity", operations_views.operation_record_activity, name="workflow-operation-record-activity"),
 ]
 write_patterns = [
+    path("new-product-lines/learn/operations/<str:operation_id>", views.new_product_learning_operation, name="workflow-new-product-learning-operation"),
     path("jackyun-recovery-authority", views.jackyun_recovery_authority, name="jackyun-recovery-authority"),
     path("launch-projects", views.launch_projects, name="workflow-launch-projects"),
     path("launch-projects/<uuid:project_id>", views.launch_project, name="workflow-launch-project"),

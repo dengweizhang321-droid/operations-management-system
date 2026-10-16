@@ -717,7 +717,7 @@ function TemplateWorkspace({ templates, loading, error, canWrite, onReload, onUs
 }
 
 export default function OperationsView({ currentUser, moduleView, onModuleViewChange }: {
-  currentUser: { role: Role } | null;
+  currentUser: { role: Role; email?: string } | null;
   moduleView: ModuleViewKey<"workflow">;
   onModuleViewChange: (view: ModuleViewKey<"workflow">) => void;
 }) {
@@ -1071,7 +1071,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   >{label}</button>)}</div>;
   if (activeTab === "inspection" || activeTab === "reviews") return <>{subnav}<div role="tabpanel" id={`operations-panel-${activeTab}`} aria-labelledby={`operations-tab-${activeTab}`}><OperationsRecordWorkspace key={activeTab} type={activeTab === "reviews" ? "review" : activeTab} canWrite={canWrite} /></div></>;
   if (activeTab === "launch") return <>{subnav}<div role="tabpanel" id="operations-panel-launch" aria-labelledby="operations-tab-launch"><NewProductLaunchView canWrite={canWrite} /></div></>;
-  if (activeTab === "launch-followup") return <>{subnav}<div role="tabpanel" id="operations-panel-launch-followup" aria-labelledby="operations-tab-launch-followup"><NewProductSalesFollowupView canWrite={canWrite} /></div></>;
+  if (activeTab === "launch-followup") return <>{subnav}<div role="tabpanel" id="operations-panel-launch-followup" aria-labelledby="operations-tab-launch-followup"><NewProductSalesFollowupView key={currentUser?.email ?? ""} canWrite={canWrite} actorEmail={currentUser?.email ?? ""} /></div></>;
   if (activeTab === "variables") return <>{subnav}<div role="tabpanel" id="operations-panel-variables" aria-labelledby="operations-tab-variables"><TemplateWorkspace templates={templates} loading={templatesLoading} error={templatesError} canWrite={canWrite} onReload={() => void loadTemplates()} onUse={useTemplate} /></div></>;
 
   const listTitle = statusFilter === "all" ? "全部工作事项" : statusFilter === "overdue" ? "已逾期事项" : statusFilter === "today" ? "今日到期事项" : statusFilter === "open" ? "工作事项清单" : statusFilter === "pending" ? "未开始事项" : statusFilter === "active" ? "进行中事项" : "已完成事项";
