@@ -447,8 +447,8 @@ class JdLogisticsTests(TestCase):
         second = service.read("inventory_monitor", {**self.filters, "layout": "product", "salesWindow": 7, "pageSize": 1, "page": 2})
         self.assertEqual((first["total"], len(first["items"]), first["items"][0]["goodsCode"]), (2, 1, "P-A"))
         self.assertEqual(first["columns"], second["columns"])
-        self.assertEqual({column["label"] for column in first["columns"]}, {"广东省", "浙江省"})
-        self.assertTrue(all(column["kind"] == "source_province_city" for column in first["columns"]))
+        self.assertEqual({column["label"] for column in first["columns"]}, {"W-A1来源仓", "W-A2来源仓", "W-B1来源仓"})
+        self.assertTrue(all(column["kind"] == "warehouse" for column in first["columns"]))
         product = first["items"][0]
         self.assertEqual((product["detailCount"], len(product["details"]), product["detailsComplete"]), (2, 2, True))
         self.assertEqual(product["summary"]["onHandQuantity"], 100)

@@ -10,8 +10,12 @@ export type JdLogisticsDepartment = {
   pushEnabled: boolean; revision: number;
   stockoutThresholdDays?: number | null;
   replenishmentCycleDays?: number;
+  warehousePreferences?: JdWarehousePreference[];
+  productOrder?: string[];
 };
-export type JdLogisticsOptions = { departments: JdLogisticsDepartment[]; warehouses: Array<{ code: string; name: string; key?: string; identityKind?: "code" | "name" }>; scopeRevisions: Array<{ departmentId: string; sourceKind: JdLogisticsSource; revision: number }>; notification?: { implemented: boolean; enabled: boolean; configured: boolean; groupName: string; robotName: string; configDigest: string; reason: string } };
+export type JdWarehousePreference = { warehouseKey: string; enabled: boolean; displayName: string };
+export type JdMonitorWarehouse = { departmentId: string; key: string; code: string; name: string };
+export type JdLogisticsOptions = { monitorWarehouses?: JdMonitorWarehouse[]; departments: JdLogisticsDepartment[]; warehouses: Array<{ code: string; name: string; key?: string; identityKind?: "code" | "name" }>; scopeRevisions: Array<{ departmentId: string; sourceKind: JdLogisticsSource; revision: number }>; notification?: { implemented: boolean; enabled: boolean; configured: boolean; groupName: string; robotName: string; configDigest: string; reason: string } };
 export type JdLogisticsRow = Record<string, string | number | boolean | null | Record<string, string | null>>;
 export type JdLogisticsItem = Record<string, unknown>;
 export type JdLogisticsList = { items: JdLogisticsItem[]; total: number; page: number; pageSize: number; truncated?: boolean };

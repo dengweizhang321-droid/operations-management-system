@@ -484,7 +484,7 @@ PRODUCTS_WRITER_AUTO_ID_TABLES = (
 )
 REQUIRED_JD_INVENTORY_READER_COLUMNS = {
     "inventory_jd_logistics_deliveries": {"id", "idempotency_key", "business_date", "department_ids", "status", "owner_token", "risk_count", "displayed_count", "risk_snapshot", "scope_snapshot", "run_metadata", "message_text", "message_hash", "config_digest", "source_digest", "scope_digest", "target_digest", "receipt_hash", "error_code", "actor", "created_at", "updated_at", "sent_at"},
-    "inventory_jd_logistics_departments": {"id", "name", "business_unit_code", "store_keys", "capabilities", "logistics_enabled", "monitor_enabled", "push_enabled", "stockout_threshold_days", "replenishment_cycle_days", "revision", "updated_by", "updated_at"},
+    "inventory_jd_logistics_departments": {"id", "name", "business_unit_code", "store_keys", "capabilities", "logistics_enabled", "monitor_enabled", "push_enabled", "stockout_threshold_days", "replenishment_cycle_days", "warehouse_preferences", "product_order", "revision", "updated_by", "updated_at"},
     "inventory_jd_logistics_scopes": {"id", "department_id", "source_kind", "revision", "owner_token", "updated_at"},
     "inventory_jd_logistics_batches": {"id", "department_id", "source_kind", "range_start", "range_end", "warehouse_code", "warehouse_key", "raw_file_hash", "content_hash", "file_name", "row_count", "status", "reference_batch_id", "scope_revision", "origin", "store_key", "identity_evidence", "collector_evidence", "collected_at", "source_as_of", "actor", "created_at"},
     "inventory_jd_logistics_facts": {"id", "department_id", "batch_id", "source_kind", "business_date", "warehouse_code", "warehouse_key", "goods_code", "goods_code_kind", "document_no", "row_hash", "occurrence", "data"},

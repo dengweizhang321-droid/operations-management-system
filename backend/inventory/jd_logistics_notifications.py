@@ -232,7 +232,7 @@ def _capture(ids, metadata):
         if department.stockout_threshold_days is None:
             return {"status": "not_configured", "reason": "threshold_not_configured", "riskCount": 0}
     _verify_bindings(metadata)
-    monitor = source.inventory_monitor({"departmentIds": ids, "page": 1, "pageSize": source.MAX_READ_ROWS, "salesWindow": 30})
+    monitor = source.inventory_monitor({"departmentIds": ids, "page": 1, "pageSize": source.MAX_READ_ROWS, "salesWindow": 30, "applyWarehousePreferences": False})
     items = monitor["items"]
     today = timezone.localdate(timezone=source.SHANGHAI)
     # A zero-sales/unknown SKU cannot veto another SKU's known stockout risk.

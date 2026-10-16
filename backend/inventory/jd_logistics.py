@@ -122,7 +122,7 @@ def _department(identifier):
 
 
 def _department_payload(row):
-    return {"id": row.id, "name": row.name, "businessUnitCode": row.business_unit_code, "storeKeys": row.store_keys, "capabilities": {kind: row.capabilities.get(kind) is True for kind in SOURCE_KINDS}, "logisticsEnabled": row.logistics_enabled, "monitorEnabled": row.monitor_enabled, "pushEnabled": row.push_enabled, "stockoutThresholdDays": row.stockout_threshold_days, "replenishmentCycleDays": row.replenishment_cycle_days, "revision": row.revision, "updatedAt": row.updated_at.isoformat()}
+    return {"id": row.id, "name": row.name, "businessUnitCode": row.business_unit_code, "storeKeys": row.store_keys, "capabilities": {kind: row.capabilities.get(kind) is True for kind in SOURCE_KINDS}, "logisticsEnabled": row.logistics_enabled, "monitorEnabled": row.monitor_enabled, "pushEnabled": row.push_enabled, "stockoutThresholdDays": row.stockout_threshold_days, "replenishmentCycleDays": row.replenishment_cycle_days, "warehousePreferences": row.warehouse_preferences, "productOrder": row.product_order, "revision": row.revision, "updatedAt": row.updated_at.isoformat()}
 
 
 def _mapping_payload(row):
@@ -374,12 +374,53 @@ def _flow_revision_map(keys):
     return {key: _hash([sorted(digests), mapping_versions.get((key[0], key[2]), 0)]) for key, digests in grouped.items()}
 
 
+def _warehouse_preferences(values, department):
+    if not isinstance(values, list) or len(values) > 500:
+        _error("仓库设置须为不超过500项的列表")
+    known = set(JdLogisticsFact.objects.filter(department=department, source_kind__in=["realtime_inventory", "inventory_snapshot"]).values_list("warehouse_key", flat=True).distinct()[:501])
+    known.update(value["warehouseKey"] for value in department.warehouse_preferences)
+    result, seen = [], set()
+    for value in values:
+        if not isinstance(value, dict):
+            _error("仓库设置格式无效")
+        _keys(value, {"warehouseKey", "enabled", "displayName"}, {"warehouseKey", "enabled", "displayName"})
+        key = _text(value["warehouseKey"], "仓库身份", 256)
+        if key not in known or key in seen or not isinstance(value["enabled"], bool):
+            _error("仓库身份未知、重复或开关无效")
+        seen.add(key)
+        result.append({"warehouseKey": key, "enabled": value["enabled"], "displayName": _text(value["displayName"], "仓库显示名称", 80, required=False)})
+    return result
+
+
+def _move_product(value, department):
+    if not isinstance(value, dict):
+        _error("商品排序格式无效")
+    _keys(value, {"goodsCode", "targetGoodsCode", "placement"}, {"goodsCode", "targetGoodsCode"})
+    goods = _text(value["goodsCode"], "移动商品")
+    target = _text(value["targetGoodsCode"], "目标商品")
+    codes = list(JdLogisticsFact.objects.filter(department=department, source_kind__in=["realtime_inventory", "inventory_snapshot"], goods_code_kind="jd_sku").order_by("goods_code").values_list("goods_code", flat=True).distinct()[:MAX_ROWS + 1])
+    if len(codes) > MAX_ROWS:
+        _error("商品排序超过20000项，请联系管理员", "query_too_large", 413)
+    if goods == target or goods not in codes or target not in codes:
+        _error("移动商品与目标必须是当前事业部的不同库存商品")
+    placement = value.get("placement", "before")
+    if not isinstance(placement, str) or placement not in {"before", "after"}:
+        _error("商品排序位置无效")
+    known = set(codes)
+    ordered = [code for code in department.product_order if code in known]
+    existing = set(ordered)
+    ordered.extend(code for code in codes if code not in existing)
+    ordered.remove(goods)
+    ordered.insert(ordered.index(target) + (1 if placement == "after" else 0), goods)
+    return ordered
+
+
 def mutate(payload, actor):
     operation = payload.get("operation")
     if not isinstance(operation, str) or operation not in {"settings", "mapping", "manual"}:
         _error("维护操作无效")
     common = {"operation", "departmentId", "expectedRevision"}
-    fields = {"settings": {"name", "businessUnitCode", "storeKeys", "capabilities", "logisticsEnabled", "monitorEnabled", "pushEnabled", "stockoutThresholdDays", "replenishmentCycleDays"}, "mapping": {"goodsCode", "goodsCodeKind", "erpGoodsCode", "erpGoodsName", "status", "note"}, "manual": {"documentNo", "goodsCode", "transferStatus", "erpDocumentNo", "note", "expectedFlowRevision"}}
+    fields = {"settings": {"name", "businessUnitCode", "storeKeys", "capabilities", "logisticsEnabled", "monitorEnabled", "pushEnabled", "stockoutThresholdDays", "replenishmentCycleDays", "warehousePreferences", "productMove"}, "mapping": {"goodsCode", "goodsCodeKind", "erpGoodsCode", "erpGoodsName", "status", "note"}, "manual": {"documentNo", "goodsCode", "transferStatus", "erpDocumentNo", "note", "expectedFlowRevision"}}
     _keys(payload, common | fields[operation], common)
     identifier = _text(payload["departmentId"], "事业部ID", 80)
     expected = _integer(payload["expectedRevision"], "人工版本", minimum=0)
@@ -423,6 +464,10 @@ def mutate(payload, actor):
             row.stockout_threshold_days = None if threshold is None else _integer(threshold, "缺货提醒天数", 3650, minimum=1)
             cycle = payload.get("replenishmentCycleDays", row.replenishment_cycle_days)
             row.replenishment_cycle_days = _integer(cycle, "补货周期天数", 3650, minimum=1)
+            if "warehousePreferences" in payload:
+                row.warehouse_preferences = _warehouse_preferences(payload["warehousePreferences"], row)
+            if "productMove" in payload:
+                row.product_order = _move_product(payload["productMove"], row)
             row.revision = expected + 1
             row.updated_by, row.updated_at = actor, timezone.now()
             row.save()
@@ -494,6 +539,16 @@ def import_payload(payload, actor):
         raise
 
 
+def _monitor_warehouses():
+    rows = list(JdLogisticsFact.objects.filter(source_kind__in=["realtime_inventory", "inventory_snapshot"]).exclude(warehouse_key="").values_list("department_id", "warehouse_key", "warehouse_code", "data__warehouseName").distinct().order_by("department_id", "warehouse_key")[:10001])
+    if len(rows) > 10000:
+        _error("仓库目录超过10000项", "query_too_large", 413)
+    catalog = {}
+    for department_id, key, code, name in rows:
+        catalog[(department_id, key)] = {"departmentId": department_id, "key": key, "code": code, "name": name or code or key}
+    return list(catalog.values())
+
+
 def options():
     from .jd_logistics_notifications import notification_policy
     departments = list(JdLogisticsDepartment.objects.order_by("name", "id")[:201])
@@ -503,7 +558,7 @@ def options():
     for key, code, name in JdLogisticsFact.objects.exclude(warehouse_key="").values_list("warehouse_key", "warehouse_code", "data__warehouseName").distinct()[:501]:
         warehouses[key] = {"key": key, "code": code, "name": name or code, "identityKind": "code" if code else "name"}
     policy = notification_policy()
-    return _base(departments=[_department_payload(row) for row in departments], warehouses=[value for _key, value in sorted(warehouses.items())[:500]], scopeRevisions=[{"departmentId": row.department_id, "sourceKind": row.source_kind, "revision": row.revision} for row in JdLogisticsScope.objects.order_by("id")[:800]], sourceKinds=list(SOURCE_KINDS), erpVerificationAvailable=False, notification=policy, notificationAvailable=policy["enabled"] and policy["configured"])
+    return _base(departments=[_department_payload(row) for row in departments], warehouses=[value for _key, value in sorted(warehouses.items())[:500]], monitorWarehouses=_monitor_warehouses(), scopeRevisions=[{"departmentId": row.department_id, "sourceKind": row.source_kind, "revision": row.revision} for row in JdLogisticsScope.objects.order_by("id")[:800]], sourceKinds=list(SOURCE_KINDS), erpVerificationAvailable=False, notification=policy, notificationAvailable=policy["enabled"] and policy["configured"])
 
 
 def _query(options, kind=None):
@@ -845,9 +900,9 @@ def _product_matrix(items, filters, sales_window):
     columns, groups = {}, defaultdict(list)
     for row in items:
         province = row["sourceProvinceCity"]
-        identity = ["source_province_city", province] if province else ["warehouse", row["departmentId"], row["warehouseKey"]]
+        identity = ["warehouse", row["departmentId"], row["warehouseKey"]]
         column_key = _hash(identity)
-        column = columns.setdefault(column_key, {"key": column_key, "label": province or row["warehouseName"] or row["warehouseKey"], "kind": "source_province_city" if province else "warehouse", "sourceProvinceCity": province or None, "warehouseKeys": set()})
+        column = columns.setdefault(column_key, {"key": column_key, "label": row.get("warehouseDisplayName") or row["warehouseName"] or row["warehouseKey"], "kind": "warehouse", "sortOrder": row.get("warehouseSortOrder", 500), "sourceProvinceCity": province or None, "warehouseKeys": set()})
         column["warehouseKeys"].add(row["warehouseKey"])
         row = {**row, "columnKey": column_key}
         groups[(row["departmentId"], row["goodsCode"])].append(row)
@@ -855,16 +910,18 @@ def _product_matrix(items, filters, sales_window):
         _error("当前库存矩阵超过200列，请选择事业部或仓库", "query_too_large", 413)
     products = []
     for (department_id, goods), details in sorted(groups.items()):
-        details.sort(key=lambda row: (row["warehouseName"], row["warehouseKey"]))
+        details.sort(key=lambda row: (row.get("warehouseSortOrder", 500), row["warehouseName"], row["warehouseKey"]))
         reference = details[0]
         cells = defaultdict(list)
         for row in details:
             cells[row["columnKey"]].append(row)
         products.append({"id": _hash([department_id, "jd_sku", goods]), "departmentId": department_id, "businessUnitCode": reference["businessUnitCode"], "goodsCodeKind": "jd_sku", "goodsCode": goods, "goodsName": reference["goodsName"], "erpGoodsCode": reference["erpGoodsCode"], "erpGoodsName": reference["erpGoodsName"], "imageUrl": None, "price": None, "summary": _aggregate_metrics(details, sales_window), **_aggregate_inventory_health(details), "cells": [{"columnKey": key, **_aggregate_metrics(values, sales_window)} for key, values in sorted(cells.items())], "details": details[:MAX_PRODUCT_DETAILS], "detailCount": len(details), "detailsComplete": len(details) <= MAX_PRODUCT_DETAILS, "detailsTruncated": len(details) > MAX_PRODUCT_DETAILS})
+    departments = {row.id: {code: index for index, code in enumerate(row.product_order)} for row in JdLogisticsDepartment.objects.filter(id__in={key[0] for key in groups})}
+    products.sort(key=lambda item: (item["departmentId"], departments[item["departmentId"]].get(item["goodsCode"], MAX_ROWS), item["goodsCode"]))
     page = _page(products, filters)
     if sum(len(item["details"]) for item in page["items"]) > MAX_MATRIX_DETAILS:
         _error("当前页展开明细超过5000行，请缩小每页单品数", "query_too_large", 413)
-    ordered_columns = sorted(columns.values(), key=lambda column: (column["kind"], column["label"], column["key"]))
+    ordered_columns = sorted(columns.values(), key=lambda column: (column["sortOrder"], column["label"], column["key"]))
     return {**page, "layout": "product", "salesWindow": sales_window, "columns": [{**column, "warehouseKeys": sorted(column["warehouseKeys"])} for column in ordered_columns], "totals": _aggregate_metrics(items, sales_window, scope_total=True)}
 
 
@@ -893,6 +950,7 @@ def inventory_monitor(filters):
             groups[(row.department_id, row.goods_code, row.warehouse_key)][row.source_kind].append(row)
     mappings, _manuals = _manual_maps(rows)
     departments = {row.id: row for row in JdLogisticsDepartment.objects.filter(id__in={key[0] for key in groups})}
+    preferences_by_department = {key: {value["warehouseKey"]: (index, value) for index, value in enumerate(department.warehouse_preferences)} for key, department in departments.items()}
     items = []
     for (department_id, goods, warehouse_key), sources in sorted(groups.items()):
         live_rows, snapshot_rows = sources.get("realtime_inventory", []), sources.get("inventory_snapshot", [])
@@ -901,6 +959,10 @@ def inventory_monitor(filters):
         reference = (live_rows or snapshot_rows)[0]
         mapping = mappings.get((department_id, "jd_sku", goods))
         department = departments[department_id]
+        preferences = preferences_by_department[department_id] if filters.get("applyWarehousePreferences", True) else {}
+        warehouse_order, preference = preferences.get(warehouse_key, (500, {}))
+        if preference.get("enabled") is False:
+            continue
         qualifications = []
         if not live_rows:
             qualifications.append("missing_realtime_source")
@@ -924,13 +986,13 @@ def inventory_monitor(filters):
         qualified = metrics["turnoverDays"] is not None and metrics["postReplenishmentQuantity"] is not None
         threshold = department.stockout_threshold_days
         warning = _monitor_warning(metrics["stockoutAvailableDays30d"], threshold, department.monitor_enabled)
-        items.append({"id": _hash([department_id, goods, warehouse_key]), "departmentId": department_id, "businessUnitCode": department.business_unit_code, "goodsCode": goods, "goodsName": reference.data["goodsName"], "goodsCodeKind": "jd_sku", "warehouseCode": reference.warehouse_code, "warehouseKey": warehouse_key, "warehouseIdentityKind": reference.data["warehouseIdentityKind"], "warehouseName": reference.data["warehouseName"], "regionCode": reference.data.get("regionCode") or None, "regionName": reference.data.get("regionName") or None, "sourceProvinceCity": snapshot_data.get("sourceProvinceCity") or None, "datePairing": date_pairing, "sourceDateLagDays": date_lag, "salesAsOfDate": snap.business_date.isoformat() if snap else None, "erpGoodsCode": mapping.erp_goods_code if mapping else "", "erpGoodsName": mapping.erp_goods_name if mapping else "", "realtimeDate": live.business_date.isoformat() if live else None, "snapshotDate": snap.business_date.isoformat() if snap else None, "realtimeBatchId": live.batch_id if live else None, "snapshotBatchId": snap.batch_id if snap else None, "realtimeCollectedAt": live.batch.collected_at.isoformat() if live else None, "snapshotSourceAsOf": snap.batch.source_as_of if snap else None, **metrics, "monitorEnabled": department.monitor_enabled, "stockoutThresholdDays": threshold, "warningState": warning, "qualifications": qualifications, "qualified": qualified})
+        items.append({"id": _hash([department_id, goods, warehouse_key]), "departmentId": department_id, "businessUnitCode": department.business_unit_code, "goodsCode": goods, "goodsName": reference.data["goodsName"], "goodsCodeKind": "jd_sku", "warehouseCode": reference.warehouse_code, "warehouseKey": warehouse_key, "warehouseSortOrder": warehouse_order, "warehouseDisplayName": preference.get("displayName", ""), "warehouseIdentityKind": reference.data["warehouseIdentityKind"], "warehouseName": reference.data["warehouseName"], "regionCode": reference.data.get("regionCode") or None, "regionName": reference.data.get("regionName") or None, "sourceProvinceCity": snapshot_data.get("sourceProvinceCity") or None, "datePairing": date_pairing, "sourceDateLagDays": date_lag, "salesAsOfDate": snap.business_date.isoformat() if snap else None, "erpGoodsCode": mapping.erp_goods_code if mapping else "", "erpGoodsName": mapping.erp_goods_name if mapping else "", "realtimeDate": live.business_date.isoformat() if live else None, "snapshotDate": snap.business_date.isoformat() if snap else None, "realtimeBatchId": live.batch_id if live else None, "snapshotBatchId": snap.batch_id if snap else None, "realtimeCollectedAt": live.batch.collected_at.isoformat() if live else None, "snapshotSourceAsOf": snap.batch.source_as_of if snap else None, **metrics, "monitorEnabled": department.monitor_enabled, "stockoutThresholdDays": threshold, "warningState": warning, "qualifications": qualifications, "qualified": qualified})
     items, health_counts, health_filter_counts = _health_filter_scope(items, health_state)
     summary = {"monitoredCount": len(items), "qualifiedCount": sum(item["qualified"] for item in items), "stockoutRiskCount": sum(item["warningState"] == "stockout_risk" for item in items)}
     projection = _product_matrix(items, filters, sales_window) if layout == "product" else {**_page(items, filters), "layout": "warehouse", "salesWindow": sales_window, "totals": _aggregate_metrics(items, sales_window, scope_total=True)}
     projection.update(healthState=health_state, healthCounts=health_counts, healthFilterCounts=health_filter_counts)
     from .jd_logistics_notifications import notification_available
-    return _base(**projection, summary=summary, notificationAvailable=notification_available(), coverageWarnings=["本页销量采用京东销售出库件数，不是店铺成交订单数。各指标仅按自身依赖计算：缺少7日销量、ERP标签或快照不抹去可计算的实时库存与补货后库存；ERP待对照单独披露。", "系统周转采用现货÷30日销售出库×30；缺货提醒独立采用可用÷30日销售出库×30，固定30日不随7/30显示窗口切换。可售天数采用所选窗口，补货后采用可用＋采购在途＋调拨在途；均先合计数量及需求，不平均分仓天数。", "实时日T可配对截至T或T-1的快照销量，两个日期分别展示；来源时期不可比时合计天数为未知，范围数量只对完整成员求和。汇总表示当前范围，不代表全国。", "列使用源省市原文；缺省市时按独立来源仓显示，不猜测大区。京东原生30天周转只在来源单仓明细显示，不对其求和或平均；图片和价格缺少来源时为空；通知须独立全局渠道及事业部三开配置，并经服务端当前风险重算、动态目标核验和投递账本约束。"])
+    return _base(**projection, summary=summary, notificationAvailable=notification_available(), coverageWarnings=["本页销量采用京东销售出库件数，不是店铺成交订单数。各指标仅按自身依赖计算：缺少7日销量、ERP标签或快照不抹去可计算的实时库存与补货后库存；ERP待对照单独披露。", "系统周转采用现货÷30日销售出库×30；缺货提醒独立采用可用÷30日销售出库×30，固定30日不随7/30显示窗口切换。可售天数采用所选窗口，补货后采用可用＋采购在途＋调拨在途；均先合计数量及需求，不平均分仓天数。", "实时日T可配对截至T或T-1的快照销量，两个日期分别展示；来源时期不可比时合计天数为未知，范围数量只对完整成员求和。汇总表示当前范围，不代表全国。", "列按独立来源仓及事业部仓库设置显示，关闭仓库不参与本页明细、合计及健康统计；来源身份与原始名称保留。京东原生30天周转只在来源单仓明细显示，不对其求和或平均；图片和价格缺少来源时为空；通知须独立全局渠道及事业部三开配置，并经服务端当前风险重算、动态目标核验和投递账本约束。"])
 
 
 
