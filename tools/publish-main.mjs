@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {execFileSync} from 'node:child_process';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -11,12 +11,21 @@ const requestFile=path.resolve(source,'..','main-release-request.json');
 const read=async file=>JSON.parse(await fs.readFile(file,'utf8'));
 const exists=async file=>{try{await fs.access(file);return true;}catch(error){if(error.code==='ENOENT')return false;throw error;}};
 
+async function verifyPowerShellHost(request,smoke=false){
+ const executable=path.join(request.pwshDirectory,'pwsh.exe');
+ let bytes;
+ try{bytes=await fs.readFile(executable);}catch(error){if(error.code==='ENOENT')throw Error('发布所需的PowerShell文件不存在：'+executable);throw error;}
+ assert.equal(createHash('sha256').update(bytes).digest('hex'),request.pwshSha256,'受控PowerShell运行环境已变化');
+ const version=smoke?execFileSync(executable,['-NoProfile','-NonInteractive','-Command','$PSVersionTable.PSVersion.ToString()'],{encoding:'utf8',windowsHide:true,timeout:15000}).trim():null;
+ return {executable,version};
+}
+
 async function main(){
  const request=await read(requestFile);
  const head=execFileSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).trim();
  assert.equal(head,request.mainCommit,'main来源版本已变化，请使用本次合并后生成的入口');
  assert.equal(execFileSync('git',['status','--porcelain'],{cwd:source,encoding:'utf8'}).trim(),'','发布来源有未提交修改');
- if(process.argv.includes('--check')){console.log(JSON.stringify({sourceCommit:head,mode:'manual-main-build-and-publish',steps:['构建打包','部署','必要的结构迁移','启动及必要服务确认'],backup:false,fullTests:false,productionExecuted:false}));return;}
+ if(process.argv.includes('--check')){const host=await verifyPowerShellHost(request,true);console.log(JSON.stringify({powerShellHostVerified:true,powerShellVersion:host.version,sourceCommit:head,mode:'manual-main-build-and-publish',steps:['构建打包','部署','必要的结构迁移','启动及必要服务确认'],backup:false,fullTests:false,productionExecuted:false}));return;}
  const out=path.resolve(source,'..','publish-'+head.slice(0,12));await fs.mkdir(out,{recursive:true});
  const save=async(name,value)=>fs.writeFile(path.join(out,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
  if(await exists(path.join(out,'SUCCESS.json'))){console.log('此main版本已经成功发布。结果：'+path.join(out,'SUCCESS.json'));return;}
@@ -25,7 +34,7 @@ async function main(){
  const rotation=await import(pathToFileURL(path.join(source,'tools/worker-local-release-rotation.mjs')));
  const transport=await import(pathToFileURL(path.join(source,'tools/release-batch.mjs')));
  const sha=async file=>api.sha256Bytes(await fs.readFile(file));
- assert.equal(await sha(path.join(request.pwshDirectory,'pwsh.exe')),request.pwshSha256,'受控PowerShell运行环境已变化');
+ await verifyPowerShellHost(request);
  process.env.PATH=request.pwshDirectory+';'+(process.env.PATH??process.env.Path??'');process.env.WRANGLER_HIDE_BANNER='true';
  const shell='C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe';
  const token=await api.runProcess(shell,['-NoProfile','-NonInteractive','-Command','[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)'],{timeoutMs:30000});
