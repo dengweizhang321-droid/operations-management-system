@@ -251,7 +251,14 @@ async function sourceRowCount(surface: Surface) {
   if (counts.length !== 1 || !Number.isSafeInteger(counts[0]) || counts[0] < 1 || counts[0] > 20000) fail("JD_LOGISTICS_SOURCE_ROW_COUNT_UNPROVEN");
   return counts[0];
 }
-async function stableSourceRows(page: Page, surface: Surface, options: JdLogisticsExportOptions, expected: number, scopeHash: string) {
+export async function confirmLogisticsSourceReadiness(page: Page, surface: Surface, options: JdLogisticsExportOptions, expected: number, scopeHash: string) {
+  if (options.sourceKind === "inventory_snapshot") {
+    // Snapshot export uses the current full filters, independently of the
+    // rendered list. A late default query can overwrite that list's count.
+    // Keep the exact fresh API total for the downloaded workbook check.
+    if (await fullScopeReadback(surface, options) !== scopeHash) fail("JD_LOGISTICS_SOURCE_SCOPE_CHANGED");
+    return;
+  }
   let stable = 0;
   for (let attempt = 0; attempt < 30; attempt++) {
     let count: number | undefined;
@@ -413,7 +420,7 @@ async function exportJhSource(page: Page, options: JdLogisticsExportOptions, man
     // legitimately satisfy it through its one fresh initial query.
     if (!fresh.ready()) { await options.assertOwner(); await (await uniqueButton(surface, "查询")).click(); }
     queryEvidence = await fresh.promise; count = queryEvidence.total;
-    await stableSourceRows(page, surface, options, count, fullScopeHash);
+    await confirmLogisticsSourceReadiness(page, surface, options, count, fullScopeHash);
   } finally { fresh.close(); }
   const manifest: LogisticsExportManifest = { version: 2, identity: identityHash, stage: "baseline", runId: options.runId, executionId: options.executionId,
     operationId: options.operationId, baseline: baseline.records.map(task => String(task.id)), observedBusinessUnitCode, expectedRowCount: count, fullScopeHash, queryEvidence };
@@ -585,7 +592,7 @@ async function exportEnabledProducts(page: Page, context: BrowserContext, surfac
   if (queryResponse.status() !== 200) fail("JD_LOGISTICS_PRODUCTS_QUERY_TOTAL_UNPROVEN");
   const queryRaw = await queryResponse.text(); if (Buffer.byteLength(queryRaw) > 2 * 1024 * 1024) fail("JD_LOGISTICS_PRODUCTS_QUERY_TOTAL_UNPROVEN");
   const queryTotal = productLogisticsQueryTotal(JSON.parse(queryRaw), queryResponse.request().postDataJSON(), options.businessUnitCode);
-  const expectedRowCount = queryTotal; await stableSourceRows(page, surface, options, expectedRowCount, fullScopeHash);
+  const expectedRowCount = queryTotal; await confirmLogisticsSourceReadiness(page, surface, options, expectedRowCount, fullScopeHash);
   const observedBusinessUnitCode = await identity(surface, observedCodes, options.businessUnitCode);
   const manifest: LogisticsExportManifest = { version: 2, identity: identityHash, stage: "baseline", runId: options.runId, executionId: options.executionId,
     operationId: options.operationId, baseline: [], observedBusinessUnitCode, sourceStatus: "enabled", expectedRowCount, fullScopeHash,
@@ -639,7 +646,7 @@ async function exportFlowSource(page: Page, context: BrowserContext, surface: Su
   if (queryResponse.status() !== 200) fail("JD_LOGISTICS_FLOW_QUERY_TOTAL_UNPROVEN");
   const queryRaw = await queryResponse.text(); if (Buffer.byteLength(queryRaw) > 2 * 1024 * 1024) fail("JD_LOGISTICS_FLOW_QUERY_TOTAL_UNPROVEN");
   const expectedRowCount = flowLogisticsQueryTotal(JSON.parse(queryRaw), queryResponse.request().postDataJSON(), options);
-  await stableSourceRows(page, surface, options, expectedRowCount, fullScopeHash);
+  await confirmLogisticsSourceReadiness(page, surface, options, expectedRowCount, fullScopeHash);
   const observedBusinessUnitCode = await identity(surface, observedCodes, options.businessUnitCode);
   const manifest: LogisticsExportManifest = { version: 2, identity: identityHash, stage: "baseline", runId: options.runId, executionId: options.executionId,
     operationId: options.operationId, baseline: [], observedBusinessUnitCode, expectedRowCount, fullScopeHash, directRequestId: randomUUID(),
