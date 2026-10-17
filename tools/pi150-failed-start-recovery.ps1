@@ -232,6 +232,60 @@ function Assert-Pi150FailedStartRecoverySnapshot {
   if(-not (Test-PostgresReady)){throw 'Owned PostgreSQL is not ready'}
 }
 
+function Get-Pi150WslReadAdapterCode {
+  return @'
+import base64,json,os,subprocess,sys,time
+try:
+    if len(sys.argv)!=3:raise ValueError('adapter_arguments')
+    raw=base64.b64decode(sys.argv[1],validate=True)
+    if len(raw)>8192:raise ValueError('adapter_arguments')
+    args=json.loads(raw.decode('utf-8'))
+    prefix=['-d','TERUISI-Pandas','-u','teruisi-pandas','--exec']
+    commands={
+      'list':['--list','--running','--quiet'],
+      'unit':prefix+['/usr/bin/env','-i','HOME=/home/teruisi-pandas','PATH=/usr/bin:/bin','XDG_RUNTIME_DIR=/run/user/1000','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus','/usr/bin/systemctl','--user','show','teruisi-pandas.service','--property=ActiveState','--property=SubState','--property=MainPID','--property=ControlPID'],
+      'containers':prefix+['/usr/bin/docker','--host=unix:///run/user/1000/docker.sock','ps','-aq','--filter','label=teruisi.pandas-broker=v1']}
+    if type(args) is not list or any(type(a) is not str for a in args):raise ValueError('adapter_arguments')
+    command=next((name for name,value in commands.items() if args==value),None)
+    if command is None:raise ValueError('adapter_command')
+    deadline=int(sys.argv[2])
+    remaining=min(15.0,deadline/1000-time.time())
+    if remaining<=0:raise ValueError('adapter_deadline')
+    env={k:v for k,v in os.environ.items() if k.upper() in {'SYSTEMROOT','WINDIR','TEMP','TMP','USERPROFILE','PATH'}}
+    # subprocess's Windows list2cmdline leaves WSL flags unquoted; no shell and
+    # no caller-controlled executable or command string is admitted here.
+    result=subprocess.run([r'C:\Windows\System32\wsl.exe']+args,stdin=subprocess.DEVNULL,capture_output=True,timeout=remaining,env=env)
+    if result.returncode!=0 or len(result.stdout)>65536 or len(result.stderr)!=0:raise ValueError('adapter_result')
+    data=result.stdout
+    if command=='list' and (data.startswith(b'\xff\xfe') or b'\x00' in data):
+        output=data.decode('utf-16' if data.startswith(b'\xff\xfe') else 'utf-16-le',errors='strict')
+    else:
+        output=data.decode('utf-8-sig',errors='strict')
+    if '\x00' in output:raise ValueError('adapter_encoding')
+    print(json.dumps({'status':'verified','command':command,'stdout':output,'stdoutBytes':len(data),'stderrBytes':0,'exitCode':0},ensure_ascii=True,separators=(',',':')))
+except Exception:
+    print('{"status":"unverified"}')
+    raise SystemExit(1)
+'@
+}
+
+function Invoke-Pi150WslRead([string[]]$Arguments,[long]$Deadline) {
+  $limit=[Math]::Min($Deadline,([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()+15000))
+  [void](Get-ProcessRemaining $limit)
+  $payload=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -InputObject @($Arguments) -Compress)))
+  $launcher=ConvertTo-PythonBase64Launcher (Get-Pi150WslReadAdapterCode) 'pi150_wsl_readonly_adapter.py'
+  $run=Invoke-DeadlineProcess -Executable $Python -Arguments @('-B','-c',$launcher,$payload,[string]$limit) -WorkingDirectory $ExecutionRoot -Deadline $limit -MaxOutputBytes 65536 -Cleanup Preserve
+  if($run.ExitCode -ne 0 -or $run.Stderr.Length -ne 0){throw 'Pandas read-only Linux observation failed'}
+  $record=ConvertFrom-ExactJson $run.Stdout 'Pi150 WSL read-only observation'
+  if(-not (Test-ExactObjectPropertyNames $record @('status','command','stdout','stdoutBytes','stderrBytes','exitCode')) -or
+      $record.status -isnot [string] -or $record.status -cne 'verified' -or $record.command -isnot [string] -or
+      $record.command -cnotin @('list','unit','containers') -or $record.stdout -isnot [string] -or
+      ($record.stdoutBytes -isnot [int] -and $record.stdoutBytes -isnot [long]) -or $record.stdoutBytes -lt 0 -or $record.stdoutBytes -gt 65536 -or
+      ($record.stderrBytes -isnot [int] -and $record.stderrBytes -isnot [long]) -or $record.stderrBytes -ne 0 -or
+      ($record.exitCode -isnot [int] -and $record.exitCode -isnot [long]) -or $record.exitCode -ne 0){throw 'Pandas read-only Linux observation is unverified'}
+  return $record.stdout
+}
+
 function Assert-Pi150FailedStartRecoveryPandas {
   $configPath=Join-Path $RuntimeRoot 'config\pandas-sandbox.json'
   $config=Read-AbsentHelperRecoveryJson $configPath '6266a095263d7c227ed3466bf013cf2579bfc9e33c548bb59554dfba4af09864'
@@ -239,19 +293,13 @@ function Assert-Pi150FailedStartRecoveryPandas {
       $config.image -isnot [string] -or $config.image -cnotmatch '^sha256:[a-f0-9]{64}$' -or
       (Get-FileSha256 (Join-Path $RuntimeRoot 'secrets\pandas-sandbox.dpapi.json')) -cne $config.keySha256){throw 'Pandas scope or credential fingerprint changed'}
   $deadline=Get-ProcessDeadline -TimeoutMilliseconds 60000
-  function Invoke-Pi150WslRead([string[]]$Arguments){
-    $limit=[Math]::Min($deadline,([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()+15000))
-    $run=Invoke-DeadlineProcess -Executable (Join-Path $env:SystemRoot 'System32\wsl.exe') -Arguments $Arguments -WorkingDirectory $ExecutionRoot -Deadline $limit -MaxOutputBytes 65536 -Cleanup Preserve
-    if($run.ExitCode -ne 0 -or $run.Stderr.Trim()){throw 'Pandas read-only Linux observation failed'}
-    return $run.Stdout
-  }
-  $running=Invoke-Pi150WslRead @('--list','--running','--quiet')
+  $running=Invoke-Pi150WslRead @('--list','--running','--quiet') $deadline
   if(($running.Replace([string][char]0,'') -split '\r?\n'|ForEach-Object {$_.Trim().TrimStart([char]0xFFFD,[char]0xFEFF)}) -cnotcontains 'TERUISI-Pandas'){throw 'Cannot obtain bound running Pandas Linux observation'}
   $prefix=@('-d','TERUISI-Pandas','-u','teruisi-pandas','--exec')
-  $linux=Invoke-Pi150WslRead ($prefix+@('/usr/bin/env','-i','HOME=/home/teruisi-pandas','PATH=/usr/bin:/bin','XDG_RUNTIME_DIR=/run/user/1000','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus','/usr/bin/systemctl','--user','show','teruisi-pandas.service','--property=ActiveState','--property=SubState','--property=MainPID','--property=ControlPID'))
+  $linux=Invoke-Pi150WslRead ($prefix+@('/usr/bin/env','-i','HOME=/home/teruisi-pandas','PATH=/usr/bin:/bin','XDG_RUNTIME_DIR=/run/user/1000','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus','/usr/bin/systemctl','--user','show','teruisi-pandas.service','--property=ActiveState','--property=SubState','--property=MainPID','--property=ControlPID')) $deadline
   $fields=@{};foreach($line in ($linux -split '\r?\n')){if($line -match '^(ActiveState|SubState|MainPID|ControlPID)=(.*)$'){if($fields.ContainsKey($Matches[1])){throw 'Duplicate Pandas Linux state field'};$fields[$Matches[1]]=$Matches[2]}elseif($line.Trim()){throw 'Unexpected Pandas Linux state field'}}
   if($fields.Count -ne 4 -or $fields.ActiveState -cne 'inactive' -or $fields.SubState -cne 'dead' -or $fields.MainPID -cne '0' -or $fields.ControlPID -cne '0'){throw 'Pandas Linux service is not stopped'}
-  if((Invoke-Pi150WslRead ($prefix+@('/usr/bin/docker','--host=unix:///run/user/1000/docker.sock','ps','-aq','--filter','label=teruisi.pandas-broker=v1'))).Trim()){throw 'Pandas Linux container cleanup is incomplete or unknown'}
+  if((Invoke-Pi150WslRead ($prefix+@('/usr/bin/docker','--host=unix:///run/user/1000/docker.sock','ps','-aq','--filter','label=teruisi.pandas-broker=v1')) $deadline).Trim()){throw 'Pandas Linux container cleanup is incomplete or unknown'}
 }
 
 function Assert-Pi150FailedStartRecoveryShortcut([object]$Record) {
@@ -287,7 +335,7 @@ function Assert-Pi150FailedStartRecoveryBindings([ValidateSet('Initial','Request
   if($Stage -cne 'Initial'){Assert-AbsentHelperRecoveryWorkerOwner}
   if($Action -cne 'BeginMaintenance' -or $KeepPostgres -ne $true -or $MaintenanceId -cne 'ca1bc9efd18d4263aeb298353ca93714' -or
       (Get-CanonicalPath $RuntimeRoot) -ine 'D:\teruisi-runtime\django-sales' -or
-      [IO.Path]::GetFullPath($RecoveryProofPath) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v2\absent-helper-proof.json'){
+      [IO.Path]::GetFullPath($RecoveryProofPath) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v3\absent-helper-proof.json'){
     throw 'Pi150 absent-helper recovery is limited to the exact original operation'
   }
   if(-not (Test-ExactObjectPropertyNames $Proof @('version','operationId','recoveryAttemptId','files','executionFiles','preparedAppId','preparedAppSha256','workerResolved','shortcut','validation','ready')) -or
@@ -315,7 +363,7 @@ function Assert-Pi150FailedStartRecoveryBindings([ValidateSet('Initial','Request
       $validation.powershell7 -isnot [bool] -or $validation.powershell7 -cne $true){throw 'Pi150 private PS5/PS7 validation is incomplete'}
   Assert-Pi150FailedStartRecoveryFileMap $validation.executionFiles $execution
   if(-not (Test-ExactObjectPropertyNames $Proof.ready @('path','sha256')) -or $Proof.ready.path -isnot [string] -or
-      [IO.Path]::GetFullPath($Proof.ready.path) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v2\READY.json'){throw 'Pi150 forward READY reference changed'}
+      [IO.Path]::GetFullPath($Proof.ready.path) -ine 'D:\codex-artifacts\pi-publish-recovery-20261017-v3\READY.json'){throw 'Pi150 forward READY reference changed'}
   $ready=Read-AbsentHelperRecoveryJson $Proof.ready.path $Proof.ready.sha256
   if($ready.version -isnot [string] -or $ready.version -cne 'pi150-forward-recovery-v1' -or
       $ready.source -isnot [string] -or (Get-CanonicalPath $ready.source) -ine (Get-CanonicalPath $ExecutionRoot) -or

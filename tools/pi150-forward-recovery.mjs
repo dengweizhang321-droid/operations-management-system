@@ -10,7 +10,7 @@ import {makeReleasePlan} from './release-scope-plan.mjs';
 import {manualStepCommand} from './publish-main-command.mjs';
 
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const output='D:/codex-artifacts/pi-publish-recovery-20261017-v2';
+const output='D:/codex-artifacts/pi-publish-recovery-20261017-v3';
 const original='D:/codex-isolated/main-release-packages/f3748d8e03e2-60dc61d1-622cb632';
 const attempt=path.join(original,'publish-f3748d8e03e2');
 const django='D:/teruisi-runtime/django-sales',worker='D:/teruisi-runtime/teruisi-worker-sales';

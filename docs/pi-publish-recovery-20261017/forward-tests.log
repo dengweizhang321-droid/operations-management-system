@@ -1,20 +1,20 @@
-✔ full forward flow binds success and catalog, applies only new plan (277.0297ms)
-✔ unknown VerifyPreparedApp stops, preserves failure and never creates success (261.823ms)
-✔ unknown Reuse stops, preserves failure and never creates success (253.366ms)
-✔ unknown EnterMaintenance stops, preserves failure and never creates success (277.7876ms)
-✔ unknown DeployApp stops, preserves failure and never creates success (262.1726ms)
-✔ unknown HardenAcl stops, preserves failure and never creates success (244.8641ms)
-✔ unknown Apply stops, preserves failure and never creates success (254.1896ms)
-✔ unknown ExitMaintenance stops, preserves failure and never creates success (255.1225ms)
-✔ unknown Start stops, preserves failure and never creates success (248.4263ms)
-✔ unknown VerifyStartup stops, preserves failure and never creates success (253.2733ms)
-✔ unknown Ready stops, preserves failure and never creates success (247.5785ms)
-✔ mismatched or previously started recovery refuses before native action {"badProof":true} (131.1227ms)
-✔ mismatched or previously started recovery refuses before native action {"badChain":true} (129.7878ms)
-✔ mismatched or previously started recovery refuses before native action {"started":true} (142.8652ms)
-✔ mismatched or previously started recovery refuses before native action {"badOriginal":true} (136.8457ms)
-✔ mismatched or previously started recovery refuses before native action {"badDjango":true} (128.2761ms)
-✔ mismatched or previously started recovery refuses before native action {"badSource":true} (123.7885ms)
+✔ full forward flow binds success and catalog, applies only new plan (269.3249ms)
+✔ unknown VerifyPreparedApp stops, preserves failure and never creates success (251.7464ms)
+✔ unknown Reuse stops, preserves failure and never creates success (248.6104ms)
+✔ unknown EnterMaintenance stops, preserves failure and never creates success (288.5375ms)
+✔ unknown DeployApp stops, preserves failure and never creates success (259.2041ms)
+✔ unknown HardenAcl stops, preserves failure and never creates success (251.1052ms)
+✔ unknown Apply stops, preserves failure and never creates success (251.3423ms)
+✔ unknown ExitMaintenance stops, preserves failure and never creates success (244.7513ms)
+✔ unknown Start stops, preserves failure and never creates success (262.7532ms)
+✔ unknown VerifyStartup stops, preserves failure and never creates success (255.0507ms)
+✔ unknown Ready stops, preserves failure and never creates success (243.9287ms)
+✔ mismatched or previously started recovery refuses before native action {"badProof":true} (126.0344ms)
+✔ mismatched or previously started recovery refuses before native action {"badChain":true} (127.3286ms)
+✔ mismatched or previously started recovery refuses before native action {"started":true} (127.416ms)
+✔ mismatched or previously started recovery refuses before native action {"badOriginal":true} (123.957ms)
+✔ mismatched or previously started recovery refuses before native action {"badDjango":true} (121.8552ms)
+✔ mismatched or previously started recovery refuses before native action {"badSource":true} (132.7009ms)
 ℹ tests 17
 ℹ suites 0
 ℹ pass 17
@@ -22,4 +22,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 3720.8315
+ℹ duration_ms 3674.4651

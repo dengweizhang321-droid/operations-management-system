@@ -10,6 +10,21 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class Pi150AbsentHelperRecoveryTests(unittest.TestCase):
+    def test_readonly_wsl_transport_ps5_and_ps7(self):
+        shells = [r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe", shutil.which("pwsh.exe")]
+        self.assertTrue(all(shells), "Both PowerShell runtimes are required")
+        for shell in shells:
+            with self.subTest(shell=shell), tempfile.TemporaryDirectory(prefix="pi150-wsl-") as tmp:
+                script = Path(tmp) / "transport.ps1"
+                script.write_text(WSL_SCRIPT, encoding="utf-8-sig")
+                env = dict(os.environ)
+                env.pop("TERUISI_DJANGO_SERVICE_LIBRARY_ONLY", None)
+                result = subprocess.run([shell, "-NoProfile", "-NonInteractive", "-File", str(script), str(ROOT), tmp],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", errors="replace", timeout=90, env=env)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("PI150_WSL_TRANSPORT_PASSED", result.stdout)
+                print(result.stdout.strip())
+
     def test_private_powershell_contracts(self):
         shells = [r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe", shutil.which("pwsh.exe")]
         self.assertTrue(all(shells), "Both PowerShell runtimes are required")
@@ -23,6 +38,110 @@ class Pi150AbsentHelperRecoveryTests(unittest.TestCase):
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", errors="replace", timeout=90, env=env)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("PI150_PRIVATE_CONTRACTS_PASSED", result.stdout)
+
+
+WSL_SCRIPT = r'''
+param($Source,$Scratch)
+$ErrorActionPreference='Stop'
+[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
+function Check($ok,$label){if(-not $ok){throw ('Check failed: '+$label)}}
+function Reject([scriptblock]$call,$label){$failed=$false;try{& $call}catch{$failed=$true};Check $failed ('expected rejection: '+$label)}
+function Load($file,$names){
+ $errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($file,[ref]$null,[ref]$errors)
+ Check ($errors.Count -eq 0) ('source syntax '+$file)
+ foreach($name in $names){$fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name},$true);Check ($null -ne $fn) $name;Invoke-Expression ($fn.Extent.Text.Replace(('function '+$name),('function script:'+$name)))}
+}
+Load (Join-Path $Source 'tools\django-local-service.ps1') @('ConvertTo-PythonBase64Launcher','Test-ExactObjectPropertyNames','Get-FileSha256','Invoke-AbsentHelperRecoveryRead','Read-AbsentHelperRecoveryJson')
+Load (Join-Path $Source 'tools\worker-local-service.ps1') @('ConvertFrom-ExactJson')
+. (Join-Path $Source 'tools\process-deadline.ps1')
+. (Join-Path $Source 'tools\pi150-failed-start-recovery.ps1')
+$ExecutionRoot=$Source;$Python='D:\teruisi-runtime\django-sales\venv\Scripts\python.exe';$RuntimeRoot='D:\teruisi-runtime\django-sales'
+# Real native path: PS5/PS7 -> unchanged Deadline -> Python -> three fixed WSL
+# observations. --list is checked first so these reads never start a stopped distro.
+$running=Invoke-Pi150WslRead @('--list','--running','--quiet') (Get-ProcessDeadline -TimeoutMilliseconds 15000)
+Check (($running -split '\r?\n'|ForEach-Object {$_.Trim()}) -ccontains 'TERUISI-Pandas') 'bound distro already running; no start'
+Assert-Pi150FailedStartRecoveryPandas
+Reject {Invoke-Pi150WslRead @('--shutdown') (Get-ProcessDeadline -TimeoutMilliseconds 15000)} 'unknown WSL command'
+Reject {Invoke-Pi150WslRead @('-d','another-distro','--exec','/bin/true') (Get-ProcessDeadline -TimeoutMilliseconds 15000)} 'foreign distro command'
+Reject {Invoke-Pi150WslRead @('--list','--running','--quiet') ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()-1)} 'expired outer deadline'
+# Run the exact adapter against a private Python argv probe. Only the fixed WSL
+# subprocess seam is replaced here; real list2cmdline and all native transports run.
+$probe=Join-Path $Scratch 'argv probe.py'
+[IO.File]::WriteAllText($probe,'import json,sys;print(json.dumps(sys.argv[1:]))',[Text.UTF8Encoding]::new($false))
+$cases=@('plain','with space','C:\with space\','embedded"quote','before\"quote','',"中文路径")
+$probeInput=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -InputObject @($cases) -Compress)))
+$adapter=Get-Pi150WslReadAdapterCode
+$adapterEncoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($adapter))
+$privateCode=@'
+import base64,json,subprocess,sys,time
+adapter=base64.b64decode(sys.argv[1]).decode('utf-8')
+probe=sys.argv[2]
+cases=json.loads(base64.b64decode(sys.argv[3]).decode('utf-8'))
+run=subprocess.run
+def private_run(command,**kw):
+    assert command==[r'C:\Windows\System32\wsl.exe','--list','--running','--quiet']
+    assert 'shell' not in kw and 0<kw['timeout']<=15 and kw['capture_output'] is True
+    return run([sys.executable,'-B',probe]+cases,**kw)
+subprocess.run=private_run
+sys.argv=['adapter',base64.b64encode(b'["--list","--running","--quiet"]').decode(),str(int(time.time()*1000)+10000)]
+exec(compile(adapter,'private_adapter_argv.py','exec'))
+'@
+$launcher=ConvertTo-PythonBase64Launcher $privateCode 'private_wsl_argv.py'
+$capture=Invoke-DeadlineProcess -Executable $Python -Arguments @('-B','-c',$launcher,$adapterEncoded,$probe,$probeInput) -WorkingDirectory $Scratch -Deadline (Get-ProcessDeadline -TimeoutMilliseconds 15000) -MaxOutputBytes 65536 -Cleanup Preserve
+Check ($capture.ExitCode -eq 0 -and $capture.Stderr.Length -eq 0) 'private argv probe completed'
+$record=ConvertFrom-ExactJson $capture.Stdout 'Private adapter argv';$actual=ConvertFrom-Json -InputObject $record.stdout
+Check ($actual.Count -eq $cases.Count) ('private argv count '+$actual.Count+'/'+$cases.Count+' '+$record.stdout)
+for($i=0;$i -lt $cases.Count;$i++){Check ([string]::Equals($actual[$i],$cases[$i],[StringComparison]::Ordinal)) ('private argv '+$i)}
+# Encoding, output, zero-stderr, exact-command and timeout contracts execute the
+# same embedded Python code without invoking Linux or sleeping.
+$negativeCode=@'
+import base64,contextlib,io,json,subprocess,sys,time
+adapter=base64.b64decode(sys.argv[1]).decode('utf-8')
+prefix=['-d','TERUISI-Pandas','-u','teruisi-pandas','--exec']
+commands={
+ 'list':['--list','--running','--quiet'],
+ 'unit':prefix+['/usr/bin/env','-i','HOME=/home/teruisi-pandas','PATH=/usr/bin:/bin','XDG_RUNTIME_DIR=/run/user/1000','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus','/usr/bin/systemctl','--user','show','teruisi-pandas.service','--property=ActiveState','--property=SubState','--property=MainPID','--property=ControlPID'],
+ 'containers':prefix+['/usr/bin/docker','--host=unix:///run/user/1000/docker.sock','ps','-aq','--filter','label=teruisi.pandas-broker=v1']}
+def check(name,raw,stderr=b'',code=0,expect=True,timeout=False,expired=False):
+ calls=[]
+ def fake(command,**kw):
+  calls.append(command)
+  assert command==[r'C:\Windows\System32\wsl.exe']+commands[name]
+  assert 0<kw['timeout']<=15 and kw['stdin']==subprocess.DEVNULL
+  if timeout:raise subprocess.TimeoutExpired(command,kw['timeout'])
+  return subprocess.CompletedProcess(command,code,raw,stderr)
+ subprocess.run=fake
+ sys.argv=['adapter',base64.b64encode(json.dumps(commands[name]).encode()).decode(),str(int(time.time()*1000)+(-1 if expired else 9999))]
+ output=io.StringIO();exited=0
+ with contextlib.redirect_stdout(output):
+  try:exec(compile(adapter,'private_adapter_contract.py','exec'),{})
+  except SystemExit as e:exited=e.code
+ value=json.loads(output.getvalue())
+ assert (exited==0 and value['status']=='verified') is expect
+ if expect:
+  assert value['stdoutBytes']==len(raw) and value['stderrBytes']==0 and value['command']==name
+  assert '\x00' not in value['stdout']
+ if expired:assert not calls
+check('list','TERUISI-Pandas\r\n'.encode('utf-16-le'))
+check('list',b'\xff\xfe'+'中文\r\n'.encode('utf-16-le'))
+check('list',b'\xff\xfe\x00',expect=False)
+check('unit',b'ActiveState=inactive\n')
+check('containers',b'')
+check('containers',b'x'*65537,expect=False)
+check('unit',b'',stderr=b' ',expect=False)
+check('unit',b'',code=127,expect=False)
+check('unit',b'\xff',expect=False)
+check('unit',b'',timeout=True,expect=False)
+check('list',b'',expired=True,expect=False)
+print('{"status":"passed"}')
+'@
+$launcher=ConvertTo-PythonBase64Launcher $negativeCode 'private_wsl_contract.py'
+$capture=Invoke-DeadlineProcess -Executable $Python -Arguments @('-B','-c',$launcher,$adapterEncoded) -WorkingDirectory $Scratch -Deadline (Get-ProcessDeadline -TimeoutMilliseconds 15000) -MaxOutputBytes 65536 -Cleanup Preserve
+Check ($capture.ExitCode -eq 0 -and $capture.Stderr.Length -eq 0) 'private adapter contracts'
+$previous=$env:TERUISI_PROCESS_DEADLINE_UNIX_MS
+try{$env:TERUISI_PROCESS_DEADLINE_UNIX_MS=[string]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()-1);Reject {Invoke-Pi150WslRead @('--list','--running','--quiet') (Get-ProcessDeadline -TimeoutMilliseconds 15000)} 'inherited deadline'}finally{$env:TERUISI_PROCESS_DEADLINE_UNIX_MS=$previous}
+('PI150_WSL_TRANSPORT_PASSED PS'+$PSVersionTable.PSVersion.Major+' list/unit/containers=verified argv/UTF16/limits/deadline=verified')
+'''
 
 
 PS_SCRIPT = r'''
@@ -135,7 +254,7 @@ Remove-Variable -Name ReadonlyCensus -Scope Script
 $script:events=[Collections.Generic.List[string]]::new()
 $RuntimeRoot='D:\teruisi-runtime\django-sales';$RunDirectory=$Scratch;$ExecutionRoot=$Source
 $Action='BeginMaintenance';$KeepPostgres=$true;$MaintenanceId='ca1bc9efd18d4263aeb298353ca93714'
-$RecoveryProofPath='D:\codex-artifacts\pi-publish-recovery-20261017-v2\absent-helper-proof.json';$RecoveryProofSha256='a'*64
+$RecoveryProofPath='D:\codex-artifacts\pi-publish-recovery-20261017-v3\absent-helper-proof.json';$RecoveryProofSha256='a'*64
 $Utf8NoBom=[Text.UTF8Encoding]::new($false)
 $script:gate=$null;$script:maintenance=$null;$script:late=$false
 $script:execution=[pscustomobject]@{}
@@ -143,7 +262,7 @@ foreach($name in @('pi150-failed-start-recovery.ps1','django-local-service.ps1',
  $script:execution|Add-Member -NotePropertyName (Join-Path $Source ('tools\'+$name)) -NotePropertyValue ('b'*64)
 }
 $script:resolved=[pscustomobject]@{status='resolved';releaseId='20261017T100706Z-1090ea88f6fe3094';manifestSha256='5bc9c99602822aa3342e1548e33a7b2ba2b42bb1a446af381bfdcf6a4203041d';guardReceiptSha256=('c'*64);chainStateSha256=('d'*64);successorCount=245}
-$script:proof=[pscustomobject]@{version='teruisi-pi150-failed-start-absent-helper-v1';operationId=$MaintenanceId;recoveryAttemptId=('f'*32);files=$pins;executionFiles=$script:execution;preparedAppId=('e'*32);preparedAppSha256=('a'*64);workerResolved=($script:resolved|ConvertTo-Json|ConvertFrom-Json);shortcut=[pscustomobject]@{path='fixture';sha256=('a'*64)};validation=[pscustomobject]@{path='fixture-validation';sha256=('a'*64)};ready=[pscustomobject]@{path='D:\codex-artifacts\pi-publish-recovery-20261017-v2\READY.json';sha256=('a'*64)}}
+$script:proof=[pscustomobject]@{version='teruisi-pi150-failed-start-absent-helper-v1';operationId=$MaintenanceId;recoveryAttemptId=('f'*32);files=$pins;executionFiles=$script:execution;preparedAppId=('e'*32);preparedAppSha256=('a'*64);workerResolved=($script:resolved|ConvertTo-Json|ConvertFrom-Json);shortcut=[pscustomobject]@{path='fixture';sha256=('a'*64)};validation=[pscustomobject]@{path='fixture-validation';sha256=('a'*64)};ready=[pscustomobject]@{path='D:\codex-artifacts\pi-publish-recovery-20261017-v3\READY.json';sha256=('a'*64)}}
 $script:ready=[pscustomobject]@{version='pi150-forward-recovery-v1';source=$Source;sourceIdentity=[pscustomobject]@{commit=('a'*40);tree=('b'*40)};pkg=[pscustomobject]@{id=('e'*32);receiptSha256=('a'*64)};predecessorDjangoSha256='67696b506801744faf048141b5b4e342e1afa062e48d97669f6e44cf3634fbc2';djangoManifestSha256=('b'*64);facts=[pscustomobject]@{maintenanceId=$MaintenanceId;schemaOperationId='ff28fd7d584547dea301b9f3561ae2aa'}}
 $script:validation=[pscustomobject]@{version='teruisi-pi150-absent-helper-tests-v1';status='passed';productionTouched=$false;powershell5=$true;powershell7=$true;executionFiles=$script:execution}
 function Get-Pi150FailedStartRecoveryExecutionFiles{return $script:execution}
