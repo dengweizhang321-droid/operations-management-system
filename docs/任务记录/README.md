@@ -58,6 +58,7 @@
 
 | 任务目录 | 文档数 | 入口 |
 | --- | --- | --- |
+| `jd-logistics-login-20261017` | 2 | [京东物流登录守护与失败诊断](../jd-logistics-login-20261017/REPORT.md) · [独立审查](../jd-logistics-login-20261017/review.md) |
 | `jd-logistics-integration-20261015` | 6 | [京东物流四源接入与 POP / C仓监控](../jd-logistics-integration-20261015/REPORT.md) |
 | `jd-logistics-layout-20261015` | 2 | [京东物流页面归属调整与HTML交付](../jd-logistics-layout-20261015/REPORT.md) |
 | `jd-inbound-real-20261015` | 3 | [京东入仓三级菜单与真实文件HTML](../jd-inbound-real-20261015/REPORT.md)、[本地文件读取修复](../jd-inbound-real-20261015/file-protocol-fix.md) |

@@ -18,6 +18,7 @@ import { jhLogisticsDownloadUrl, jhLogisticsTaskIdentity, parseJhLogisticsTaskPa
   productLogisticsDownloadAck, productLogisticsDownloadAttachment,
   type JhLogisticsTask, type JhLogisticsTaskPage } from "../lib/jd/logistics-source-tasks";
 import { assertLogisticsEnabledProducts } from "../lib/jd/logistics-manifest";
+import { createJdLogisticsSessionGuard } from "./jd-logistics-session";
 export { exactTaskCandidates } from "../lib/jd/logistics-source-tasks";
 
 type Surface = Page | Frame;
@@ -32,12 +33,6 @@ export type LogisticsExportManifest = {
   sourceStatus?: "enabled"; productTaskEvidence?: { id: string; deptId: string; taskStatus: string; recordCount: number; successCount: number; createTime: string };
   directRequestId?: string;
   queryEvidence?: { requestHash: string; total: number; observedAt: string };
-};
-const sources = {
-  flow: { frame: /scsw\.jdl\.com\/stockBusiness\/warehouseInventoryRunningQuery(?:New)?/, heading: "仓库库存流水", report: "库存流水" },
-  shop_products: { frame: /scsw\.jdl\.com\/storeGoods\/list/, heading: "店铺商品", report: "店铺商品" },
-  realtime_inventory: { frame: /kadashboard\.jdl\.com\/Storage\/RealInventory/, heading: "实时库存", report: "实时库存" },
-  inventory_snapshot: { frame: /kadashboard\.jdl\.com\/Storage\/OfflineInventorySmall/, heading: "库存快照", report: "库存快照" },
 };
 const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const jhDownloadCenter = "https://jh.jdl.com/#/downloadCenterVev";
@@ -72,18 +67,6 @@ async function uniqueButton(surface: Surface, name: RegExp | string) {
   const button = surface.getByRole("button", { name, exact: typeof name === "string" }).filter({ visible: true });
   if (await button.count() !== 1 || !await button.isEnabled()) fail("JD_LOGISTICS_CONTROL_AMBIGUOUS");
   return button;
-}
-async function businessSurface(page: Page, kind: JdLogisticsExportOptions["sourceKind"]): Promise<Surface> {
-  const rule = sources[kind];
-  for (let attempt = 0; attempt < 45; attempt++) {
-    const frames = page.frames().filter(frame => rule.frame.test(frame.url()));
-    if (frames.length === 1 && await frames[0].locator("body").isVisible().catch(() => false)) return frames[0];
-    if (frames.length > 1) fail("JD_LOGISTICS_BUSINESS_FRAME_AMBIGUOUS");
-    const text = await page.locator("body").innerText({ timeout: 1000 }).catch(() => "");
-    if (/验证码|扫码登录|短信验证|安全验证|密码登录/.test(text)) fail("JD_LOGISTICS_LOGIN_REQUIRED");
-    await page.waitForTimeout(400);
-  }
-  return fail("JD_LOGISTICS_BUSINESS_FRAME_NOT_READY");
 }
 export async function waitForJdLogisticsIdentity(readVisibleCodes: () => Promise<string[]>, codes: Set<string>, expected: string,
   waitForNext: () => Promise<void> = () => new Promise(resolve => setTimeout(resolve, 250))) {
@@ -733,7 +716,8 @@ export async function exportJdLogistics(options: JdLogisticsExportOptions): Prom
         if (!/^https:\/\/kaweb\.jdl\.com\/(?:integration\/storage|storage\/realtimeStock)\//.test(request.url())) return;
         try { const data = request.postDataJSON(); if (typeof data?.deptNo === "string") observedCodes.add(data.deptNo); } catch { /* non-business request is not identity evidence */ }
       });
-      const navigate = async () => { await page.goto(jdLogisticsSourceUrls[options.sourceKind], { waitUntil: "domcontentloaded", timeout: 60000 }); return businessSurface(page, options.sourceKind); };
+      const session = createJdLogisticsSessionGuard(options.store, options.assertOwner);
+      const navigate = async () => { await page.goto(jdLogisticsSourceUrls[options.sourceKind], { waitUntil: "domcontentloaded", timeout: 60000 }); return session(page, options.sourceKind); };
       const business = await navigate();
       await identity(business, observedCodes, options.businessUnitCode);
       if (options.sourceKind === "realtime_inventory" || options.sourceKind === "inventory_snapshot") {
