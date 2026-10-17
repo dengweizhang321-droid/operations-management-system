@@ -16,6 +16,9 @@ $DingTalkConfigPath=Join-Path $fixture 'config.json'
 $AiStartupPath=Join-Path $fixture 'ai.json'
 $LogDirectory=$fixture
 $script:calls=@(); $script:checkFails=$false
+$OrchestratedLifecycleAclContextVariable='TERUISI_TEST_DINGTALK_ACL_CONTEXT'
+function New-OrchestratedLifecycleAclToken { 'a'*64 }
+function Set-OrchestratedLifecycleAclContext($Token) { Set-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable -Value $Token -Force }
 function Assert-AiRuntimeEntry { $script:calls += 'guard' }
 function Read-JsonFile($Path,$Label) { Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json }
 function Get-FileSha256($Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }

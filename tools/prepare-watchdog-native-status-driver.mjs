@@ -8,7 +8,13 @@ export function body(text,name){const at=text.indexOf('function '+name+'(');if(a
 export function readonlyBodies(backend,worker){
  const resolver=body(backend,'Resolve-OwnedProcess'),workerStatus=body(worker,'Get-WorkerStatusInternal');
  const newline=resolver.includes('\r\n')?'\r\n':'\n';
- const edits=[
+ const edits=resolver.includes('$ReadOnly = $ReadOnly -or $Action -imatch')?[
+  ['$ReadOnly = $ReadOnly -or $Action -imatch \'Status$\'','$ReadOnly = $true'],
+  ['  $snapshot = Get-ProcessSnapshot $processId 1','  $snapshot = Get-ReadonlyDiagnosticSnapshot $processId 1'],
+  ['    Remove-Item -LiteralPath $PidPath -Force'+newline+'    Write-LauncherEvent "WARN" "stale_process_record_removed" $PidPath','    # Diagnostic absence preserves the receipt.'],
+  [newline+'    if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt $record) { return $null }',newline+'    # Diagnostic metadata failure preserves the receipt.'],
+  [newline+'      if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt $record) { return $null }',newline+'      # Diagnostic identity mismatch preserves the receipt.'],
+ ]:[
   ['  [string]$ExpectedFingerprint = ""','  [string]$ExpectedFingerprint = "",'+newline+'  [switch]$ReadOnly'],
   ['  $snapshot = Get-ProcessSnapshot $processId 1','  $snapshot = Get-ReadonlyDiagnosticSnapshot $processId 1'],
   ['    Remove-Item -LiteralPath $PidPath -Force'+newline+'    Write-LauncherEvent "WARN" "stale_process_record_removed" $PidPath','    # Diagnostic absence never deletes the ownership record.'],

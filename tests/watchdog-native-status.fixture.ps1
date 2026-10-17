@@ -43,6 +43,7 @@ $script:removed=0;$script:previous=0;$script:exists=$true
 function Test-Path {param([string]$LiteralPath,[string]$PathType);return $script:exists}
 function Remove-Item {$script:removed++}
 function Remove-PreviousBootProcessRecordIfSafe {$script:previous++;return $true}
+function Test-ProcessRecordFromPreviousBoot { return $false }
 function Write-LauncherEvent {throw 'diagnostic must not write launcher audit'}
 function Read-JsonFile {return [pscustomobject]@{version=2;service='fixture';processId=100;configFingerprint=('a'*64);launcherPath='C:\fixture\node.exe';executablePath='C:\fixture\node.exe';creationDate='2026-10-12T00:00:00.0000000Z';commandLine='fixed argv';arguments=@()}}
 function ConvertTo-CanonicalCreationDate($v){return [string]$v}

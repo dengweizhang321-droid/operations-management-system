@@ -5,7 +5,14 @@ function once(text,from,to){if(text.indexOf(from)<0||text.indexOf(from)!==text.l
 export function readonlySupervisor(source){
  const start=source.indexOf('function Resolve-SupervisorProcess {'),end=source.indexOf('\nfunction ',start+1);if(start<0||end<0)throw Error('supervisor_resolver_missing');
  const original=source.slice(start,end),nl=original.includes('\r\n')?'\r\n':'\n';
- const edits=[['$snapshot = Get-ProcessSnapshot ([int]$receipt.processId) 1','$snapshot = Get-ReadonlyDiagnosticSnapshot ([int]$receipt.processId) 1'],['    Remove-Item -LiteralPath $SupervisorPidPath -Force'+nl,'    # A read-only missing snapshot never deletes the supervisor receipt.'+nl],['    if (Remove-PreviousBootProcessRecordIfSafe `'+nl+'          $SupervisorPidPath $receipt.creationDate $receipt.startedAt) {'+nl+'      return $null'+nl+'    }','    # A read-only identity mismatch never performs previous-boot cleanup.']];
+ const snapshot=['$snapshot = Get-ProcessSnapshot ([int]$receipt.processId) 1','$snapshot = Get-ReadonlyDiagnosticSnapshot ([int]$receipt.processId) 1'];
+ const edits=original.includes('$readOnly = $SupervisorRequest.Action -ceq "Status"')?[
+  snapshot,
+  ['$readOnly = $SupervisorRequest.Action -ceq "Status"','$readOnly = $true'],
+  ['    if (-not $readOnly) { Remove-Item -LiteralPath $SupervisorPidPath -Force }','    # Diagnostic absence preserves the receipt.'],
+  ['    if (Remove-PreviousBootProcessRecordIfSafe $SupervisorPidPath $receipt.creationDate $receipt.startedAt $receipt) { return $null }','    # Diagnostic metadata failure preserves the receipt.'],
+  ['      if (Remove-PreviousBootProcessRecordIfSafe `'+nl+'            $SupervisorPidPath $receipt.creationDate $receipt.startedAt $receipt) { return $null }','      # Diagnostic identity mismatch preserves the receipt.'],
+ ]:[snapshot,['    Remove-Item -LiteralPath $SupervisorPidPath -Force'+nl,'    # A read-only missing snapshot never deletes the supervisor receipt.'+nl],['    if (Remove-PreviousBootProcessRecordIfSafe `'+nl+'          $SupervisorPidPath $receipt.creationDate $receipt.startedAt) {'+nl+'      return $null'+nl+'    }','    # A read-only identity mismatch never performs previous-boot cleanup.']];
  let generated=original;for(const [a,b]of edits)generated=once(generated,a,b);let reversed=generated;for(const [a,b]of [...edits].reverse())reversed=once(reversed,b,a);if(reversed!==original)throw Error('Supervisor ownership predicate changed');
  const statusStart=source.indexOf('    "Status" {\n')>=0?source.indexOf('    "Status" {\n'):source.indexOf('    "Status" {\r\n');
  const statusEnd=source.indexOf(nl+'    }'+nl+'  }'+nl+'  if ($SupervisorRequest.Action',statusStart);if(statusStart<0||statusEnd<0)throw Error('supervisor_status_block_missing');

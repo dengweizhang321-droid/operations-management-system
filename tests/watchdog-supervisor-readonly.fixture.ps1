@@ -12,6 +12,7 @@ function ConvertTo-CanonicalCreationDate($p){return $p}
 function Test-CommandLineReferencesPath($c,$p){return ($c -ceq 'command')}
 function Remove-Item {$script:deleted++;throw 'Unexpected deletion'}
 function Remove-PreviousBootProcessRecordIfSafe {$script:cleanup++;return $true}
+function Test-ProcessRecordFromPreviousBoot { return $false }
 function Get-ReadonlyDiagnosticSnapshot($p,$n){switch($script:mode){'absent'{return $null};'denied'{throw 'native denied'};'reused'{return [pscustomobject]@{CreationDate='newBirth';ExecutablePath='image';CommandLine='command'}};default{return [pscustomobject]@{CreationDate='birth';ExecutablePath='image';CommandLine='command'}}}}
 $checks=0
 if((Resolve-SupervisorProcess).CreationDate -cne 'birth'){throw 'valid identity rejected'};$checks++

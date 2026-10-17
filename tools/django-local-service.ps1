@@ -2414,14 +2414,33 @@ function Test-ProcessRecordFromPreviousBoot(
 function Remove-PreviousBootProcessRecordIfSafe(
   [string]$PidPath,
   [object]$CreationDate,
-  [object]$StartedAt
+  [object]$StartedAt,
+  [object]$ExpectedRecord = $null
 ) {
-  if (-not (Test-ProcessRecordFromPreviousBoot $PidPath $CreationDate $StartedAt)) {
-    return $false
+  # Reentrant on the original lifecycle mutex. A Status caller never enters
+  # this write path; a reused numeric PID is never queried or terminated here.
+  Invoke-WithServiceMutex {
+    if ((Get-CanonicalPath (Split-Path -Parent $PidPath)) -ine (Get-CanonicalPath $RunDirectory)) {
+      throw "Previous-boot process receipt is outside the runtime run directory"
+    }
+    $recordSha = Get-FileSha256 $PidPath
+    if ($null -ne $ExpectedRecord) {
+      $currentRecord = Read-JsonFile $PidPath "previous-boot process receipt"
+      if (($currentRecord | ConvertTo-Json -Depth 16 -Compress) -cne
+          ($ExpectedRecord | ConvertTo-Json -Depth 16 -Compress)) {
+        throw "Previous-boot process receipt changed; refusing cleanup"
+      }
+    }
+    if (-not (Test-ProcessRecordFromPreviousBoot $PidPath $CreationDate $StartedAt)) {
+      return $false
+    }
+    if ((Get-FileSha256 $PidPath) -cne $recordSha) {
+      throw "Previous-boot process receipt changed during verification"
+    }
+    Remove-Item -LiteralPath $PidPath -Force
+    Write-LauncherEvent "WARN" "previous_boot_process_record_removed" $PidPath
+    return $true
   }
-  Remove-Item -LiteralPath $PidPath -Force
-  Write-LauncherEvent "WARN" "previous_boot_process_record_removed" $PidPath
-  return $true
 }
 
 function Get-ProcessSnapshot([int]$ProcessId, [int]$Attempts = 20) {
@@ -2604,7 +2623,18 @@ function Resolve-OwnedProcess(
     throw "进程所有权记录格式无效：$PidPath"
   }
   $recordCreationDate = ConvertTo-CanonicalCreationDate $record.creationDate
-  $snapshot = Get-ProcessSnapshot $processId 1
+  try {
+    $snapshot = Get-ProcessSnapshot $processId 1
+  } catch {
+    # A protected Windows process can reuse a pre-reboot PID and hide its
+    # metadata. Prove the old receipt expired before propagating that error.
+    # Live, healthy receipts incur no additional boot-time lookup or scan.
+    if (-not (Test-ProcessRecordFromPreviousBoot $PidPath $record.creationDate $record.startedAt)) { throw }
+    if ((Get-CanonicalPath ([string]$record.launcherPath)) -ine (Get-CanonicalPath $ExpectedLauncher)) { throw }
+    if ($ReadOnly) { return $null }
+    if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt $record) { return $null }
+    throw
+  }
   if ($null -eq $snapshot) {
     if ($ReadOnly) { return $null }
     Remove-Item -LiteralPath $PidPath -Force
@@ -2622,8 +2652,10 @@ function Resolve-OwnedProcess(
   if ($null -ne $ExpectedArguments) { $matches = $matches -and (Test-ExactStringArray $recordArguments $ExpectedArguments) }
   if ($ExpectedFingerprint) { $matches = $matches -and ([string]$record.configFingerprint -ceq $ExpectedFingerprint) }
   if (-not $matches) {
-    if (-not $ReadOnly -and (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt)) {
-      return $null
+    if ((Get-CanonicalPath ([string]$record.launcherPath)) -ieq (Get-CanonicalPath $ExpectedLauncher) -and
+        (Test-ProcessRecordFromPreviousBoot $PidPath $record.creationDate $record.startedAt)) {
+      if ($ReadOnly) { return $null }
+      if (Remove-PreviousBootProcessRecordIfSafe $PidPath $record.creationDate $record.startedAt $record) { return $null }
     }
     throw "PID 已复用或进程身份与所有权记录不一致；拒绝接管或终止：$PidPath"
   }
@@ -2735,14 +2767,20 @@ function Assert-DjangoSupervisorStopped([string]$Operation) {
         [string]$receipt.version -cne "teruisi-django-supervisor-process-v1") {
       throw "$Operation 发现无效 Django supervisor process receipt；拒绝修改运行环境"
     }
-    $snapshot = Get-ProcessSnapshot ([int]$receipt.processId) 1
+    try {
+      $snapshot = Get-ProcessSnapshot ([int]$receipt.processId) 1
+    } catch {
+      if (-not (Remove-PreviousBootProcessRecordIfSafe `
+            $DjangoSupervisorPidPath $receipt.creationDate $receipt.startedAt $receipt)) { throw }
+      $snapshot = $null
+    }
     if ($null -ne $snapshot) {
       $creation = ConvertTo-CanonicalCreationDate $receipt.creationDate
       if ([string]$snapshot.CreationDate -cne $creation -or
           [string]$snapshot.ExecutablePath -ine [string]$receipt.executablePath -or
           [string]$snapshot.CommandLine -cne [string]$receipt.commandLine) {
         if (-not (Remove-PreviousBootProcessRecordIfSafe `
-              $DjangoSupervisorPidPath $receipt.creationDate $receipt.startedAt)) {
+              $DjangoSupervisorPidPath $receipt.creationDate $receipt.startedAt $receipt)) {
           throw "$Operation 发现 Django supervisor PID 复用或身份变化"
         }
         $snapshot = $null

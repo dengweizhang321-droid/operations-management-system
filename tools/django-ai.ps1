@@ -618,7 +618,22 @@ function Start-ConfiguredDingTalkReceiver {
     Write-Output "DingTalk automatic startup is disabled."
     return
   }
-  Start-DingTalkWorkers (Read-JsonFile $DingTalkStartupPath "DingTalk automatic startup")
+  $previousContextVariable = Get-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable -ErrorAction SilentlyContinue
+  $hadPreviousContext = $null -ne $previousContextVariable
+  $previousContext = if ($hadPreviousContext) { $previousContextVariable.Value } else { $null }
+  try {
+    # The full entry check above completed under the service mutex. Only these
+    # two children may reuse its existing same-process, manifest-bound proof.
+    $lifecycleAclToken = New-OrchestratedLifecycleAclToken
+    Set-OrchestratedLifecycleAclContext $lifecycleAclToken
+    Start-DingTalkWorkers (Read-JsonFile $DingTalkStartupPath "DingTalk automatic startup") -LifecycleAclToken $lifecycleAclToken
+  } finally {
+    if ($hadPreviousContext) {
+      Set-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable -Value $previousContext -Force
+    } else {
+      Remove-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable -ErrorAction SilentlyContinue
+    }
+  }
 }
 
 function Assert-DingTalkScreenshotProfile {
@@ -658,10 +673,10 @@ function Assert-DingTalkScreenshotProfile {
   }
 }
 
-function Start-DingTalkWorkers([object]$StartupApproval = $null) {
+function Start-DingTalkWorkers([object]$StartupApproval = $null, [string]$LifecycleAclToken = "") {
   # Start schedules first: an unavailable Stream SDK/connection cannot stop dispatch.
-  Invoke-DingTalkReceiver $false $StartupApproval -Schedules
-  Invoke-DingTalkReceiver $false $StartupApproval
+  Invoke-DingTalkReceiver $false $StartupApproval -Schedules -LifecycleAclToken $LifecycleAclToken
+  Invoke-DingTalkReceiver $false $StartupApproval -LifecycleAclToken $LifecycleAclToken
 }
 
 function Configure-DingTalkBotCredentials {
@@ -682,8 +697,8 @@ function Configure-DingTalkBotCredentials {
   } finally { $runtimeSecrets = $null; $aiSecrets = $null; $url = $null }
 }
 
-function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval = $null, [switch]$Schedules) {
-  Assert-AiRuntimeEntry
+function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval = $null, [switch]$Schedules, [string]$LifecycleAclToken = "") {
+  Assert-AiRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪" }
   $config = Read-JsonFile $DingTalkConfigPath "钉钉只读问数配置"

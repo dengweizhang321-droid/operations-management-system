@@ -695,6 +695,7 @@ function Write-SupervisorProcessReceipt {
 }
 
 function Resolve-SupervisorProcess {
+  $readOnly = $SupervisorRequest.Action -ceq "Status"
   if (-not (Test-Path -LiteralPath $SupervisorPidPath -PathType Leaf)) { return $null }
   $receipt = Read-JsonFile $SupervisorPidPath "Django supervisor process receipt"
   Assert-SupervisorExactPropertySet $receipt @(
@@ -708,9 +709,16 @@ function Resolve-SupervisorProcess {
       [string]$receipt.scriptSha256 -cne (Get-FileSha256 $SupervisorScriptPath)) {
     throw "Django supervisor process receipt 与当前 operator 不一致"
   }
-  $snapshot = Get-ProcessSnapshot ([int]$receipt.processId) 1
+  try {
+    $snapshot = Get-ProcessSnapshot ([int]$receipt.processId) 1
+  } catch {
+    if (-not (Test-ProcessRecordFromPreviousBoot $SupervisorPidPath $receipt.creationDate $receipt.startedAt)) { throw }
+    if ($readOnly) { return $null }
+    if (Remove-PreviousBootProcessRecordIfSafe $SupervisorPidPath $receipt.creationDate $receipt.startedAt $receipt) { return $null }
+    throw
+  }
   if ($null -eq $snapshot) {
-    Remove-Item -LiteralPath $SupervisorPidPath -Force
+    if (-not $readOnly) { Remove-Item -LiteralPath $SupervisorPidPath -Force }
     return $null
   }
   $creation = ConvertTo-CanonicalCreationDate $receipt.creationDate
@@ -718,9 +726,10 @@ function Resolve-SupervisorProcess {
       [string]$snapshot.ExecutablePath -ine [string]$receipt.executablePath -or
       [string]$snapshot.CommandLine -cne [string]$receipt.commandLine -or
       -not (Test-CommandLineReferencesPath $snapshot.CommandLine $SupervisorScriptPath)) {
-    if (Remove-PreviousBootProcessRecordIfSafe `
-          $SupervisorPidPath $receipt.creationDate $receipt.startedAt) {
-      return $null
+    if (Test-ProcessRecordFromPreviousBoot $SupervisorPidPath $receipt.creationDate $receipt.startedAt) {
+      if ($readOnly) { return $null }
+      if (Remove-PreviousBootProcessRecordIfSafe `
+            $SupervisorPidPath $receipt.creationDate $receipt.startedAt $receipt) { return $null }
     }
     throw "Django supervisor PID 已复用或进程身份不一致"
   }
