@@ -81,7 +81,7 @@ export function classifyInventoryWarehouse(warehouse: string, mapping: Inventory
   if (configured) {
     const warehouseType: ClassifiedInventoryWarehouseType = configured.category === "jd"
       ? "jd_rdc"
-      : ["guangdong", "afterSales", "sample"].includes(configured.category)
+      : ["guangdong", "afterSales", "sample", "selfOperated"].includes(configured.category)
         ? "owned"
         : "other";
     return {

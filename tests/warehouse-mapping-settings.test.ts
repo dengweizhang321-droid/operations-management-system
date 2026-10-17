@@ -16,6 +16,48 @@ import {
   WarehouseMappingWorkbookError,
 } from "../lib/inventory/warehouse-mapping-workbook";
 import { parseWarehouseMappingPayload } from "../lib/inventory/warehouse-mapping-contract";
+import { parseInventoryStockXlsx } from "../lib/imports/inventory-stock";
+import { createXlsxWorkbookBytes } from "../lib/imports/xlsx-write";
+import type { InventoryWarehouseMapping } from "../lib/inventory/warehouse-classification";
+
+test("configured self-operated warehouses use owned type and preserve inventory exclusion", () => {
+  for (const warehouse of ["润心仓", "自营测试点", "京东转自营测试仓"]) {
+    for (const included of [true, false]) {
+      assert.deepEqual(classifyInventoryWarehouse(warehouse, {
+        [warehouse]: { category: "selfOperated", label: "自营仓", includeInInventory: included },
+      }), {
+        warehouseType: "owned", warehouseCategory: "selfOperated", includeInInventory: included,
+        mappingLabel: "自营仓", mappingSource: "configured",
+      });
+    }
+  }
+});
+
+test("inventory workbook parsing sends configured self-operated stock as owned without changing its facts", () => {
+  const mapping: InventoryWarehouseMapping = {
+    "润心仓": { category: "selfOperated", label: "自营仓", includeInInventory: true },
+    "代发测试仓": { category: "dropship", label: "代发仓", includeInInventory: false },
+  };
+  const bytes = createXlsxWorkbookBytes([{ name: "库存", rows: [
+    ["仓库", "货品编号", "货品名称", "库存数量", "可用库存", "固定成本价"],
+    ["润心仓", "FIXTURE-1", "模拟货品", 12, 9, 25.5],
+    ["代发测试仓", "FIXTURE-2", "模拟货品二", 7, 6, 10],
+  ] }]);
+  const parsed = parseInventoryStockXlsx(bytes, { warehouseMapping: mapping });
+  assert.deepEqual(parsed.errors, []);
+  assert.equal(parsed.rows.length, 2);
+  const row = parsed.rows[0]!;
+  assert.equal(row.warehouseType, "owned");
+  assert.equal(row.warehouseCategory, "selfOperated");
+  assert.equal(row.includeInInventory, true);
+  assert.equal(row.sourceRowNumber, 2);
+  assert.equal(row.rowKey, "润心仓\u001fFIXTURE-1");
+  assert.equal(row.onHandQuantity, 12);
+  assert.equal(row.availableQuantity, 9);
+  assert.equal(row.unitCostCents, 2550);
+  assert.equal(parsed.rows[1]!.warehouseType, "other");
+  assert.equal(parsed.rows[1]!.includeInInventory, false);
+});
 
 test("warehouse mapping workspace exposes the complete verified source", () => {
   assert.equal(warehouseMappingRows.length, 284);

@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "rows": 24456,
+  "warehouseCount": 255,
+  "changedRows": 1,
+  "originalFileSha256": "83c3f5a44216e50de072f0ea601b5920a2a9fde2ab31d3647668c476f63cd687",
+  "originalFileUnchanged": true,
+  "row7075": {
+    "warehouse": "润心仓",
+    "type": "owned",
+    "category": "selfOperated",
+    "included": true
+  },
+  "businessWrites": 0
+}
