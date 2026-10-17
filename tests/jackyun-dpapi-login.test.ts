@@ -80,6 +80,24 @@ test("readiness failures preserve only typed fixed diagnostics and never raw mes
   }
 });
 
+test("native current-user vault refuses unavailable folders and ambiguous overrides", {
+  skip: process.platform !== "win32", timeout: 15000,
+}, () => {
+  const native = "[Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)";
+  for (const folder of ["", "relative", "C:relative", "\\\\server\\share"]) {
+    const program = jackyunDpapiProgram.replace(native, `'${folder}'`);
+    const result = runWithoutConsole(program, JSON.stringify({ action: "status", currentUserVault: true,
+      tenantId: config.tenantId, profileDirectory: config.profileDirectory }));
+    assert.equal(result.status, 1); assert.equal(JSON.parse(result.stdout).stage, "binding_fields");
+  }
+  for (const patch of [{ currentUserVault: "true" }, { currentUserVault: false },
+    { currentUserVault: true, vaultRoot: "C:\\fixture" }]) {
+    const result = runWithoutConsole(jackyunDpapiProgram, JSON.stringify({ action: "status", ...patch,
+      tenantId: config.tenantId, profileDirectory: config.profileDirectory }));
+    assert.equal(result.status, 1); assert.equal(JSON.parse(result.stdout).stage, "binding_fields");
+  }
+});
+
 test("credential preparation retries only before browser use and stops after a bounded budget", async () => {
   let calls = 0;
   const delays: number[] = [];

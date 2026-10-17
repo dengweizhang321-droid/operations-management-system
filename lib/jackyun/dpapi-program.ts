@@ -29,11 +29,18 @@ $request = $pipeReader.ReadToEnd() | ConvertFrom-Json
 $stage = 'binding_fields'
 if ($request.action -notin @('setup','status','read')) { throw 'Invalid action' }
 if ($request.tenantId -notmatch '^[0-9]{4,12}$') { throw 'Invalid tenant binding' }
-foreach ($value in @($request.vaultRoot, $request.profileDirectory)) {
+if ($request.PSObject.Properties.Name -contains 'currentUserVault') {
+  if ($request.currentUserVault -isnot [bool] -or -not $request.currentUserVault -or
+      $request.PSObject.Properties.Name -contains 'vaultRoot') { throw 'Invalid vault selection' }
+  $vaultBase = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+  if ($vaultBase -notmatch '^[A-Za-z]:[\\/]') { throw 'Current user folder unavailable' }
+  $requestedVaultRoot = Join-Path $vaultBase 'TERUISI\JackyunCredentials'
+} else { $requestedVaultRoot = $request.vaultRoot }
+foreach ($value in @($requestedVaultRoot, $request.profileDirectory)) {
   if (-not [IO.Path]::IsPathRooted($value) -or $value.StartsWith('\\')) { throw 'Invalid local binding' }
 }
 $stage = 'binding_paths'
-$vaultRoot = [IO.Path]::GetFullPath($request.vaultRoot)
+$vaultRoot = [IO.Path]::GetFullPath($requestedVaultRoot)
 $profile = [IO.Path]::GetFullPath($request.profileDirectory).TrimEnd('\').ToLowerInvariant()
 $binding = 'TERUISI-JACKYUN:v1:' + $request.tenantId + ':' + $profile
 $entropy = $utf8.GetBytes($binding)
@@ -212,4 +219,4 @@ try {
   if ($request.action -eq 'status') { $pipeWriter.WriteLine((@{ok=$true;ready=$true;status='ready'} | ConvertTo-Json -Compress)) }
   else { $pipeWriter.WriteLine((@{username=$credential.username;password=$credential.password} | ConvertTo-Json -Compress)) }
 } finally { $credential.username=''; $credential.password='' }
-`;
+`.replace(/^[ \t]+/gm, ""); // Preserve the Windows encoded-command size budget.

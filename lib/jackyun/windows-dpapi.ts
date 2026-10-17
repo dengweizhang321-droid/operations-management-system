@@ -39,7 +39,7 @@ export class JackyunCredentialProbeError extends Error {
   readonly diagnostic: string;
   constructor(diagnostic: string, message: string) {
     super(message);
-    this.diagnostic = /^(?:initialize|binding(?:_input|_fields|_paths|_identity|_local_path|_vault_lookup)?|path_integrity|missing|setup_(?:acl|form|encrypt|verify)|read|transport|configuration|response_parse|response_shape|status=(?:ready|missing|stored|cancelled))(?: \/ lookup=provider:[01],file:[01],directory:[01](?: \/ win32=file:\d{1,5},directory:\d{1,5})?)?(?: \/ finish=(?:timeout|output_limit|spawn_error|stdin_error|close),exit=(?:none|-?\d{1,10}),ms=\d{1,13},bytes=\d{1,9})?$/.test(diagnostic)
+    this.diagnostic = /^(?:initialize|binding(?:_input|_fields|_paths|_identity|_local_path|_vault_lookup)?|path_integrity|missing|setup_(?:acl|form|encrypt|verify)|read|transport|configuration|response_parse|response_shape|status=(?:ready|missing|stored|cancelled))(?: \/ lookup=provider:[01],file:[01],directory:[01](?: \/ win32=file:\d{1,5},directory:\d{1,5})?)?(?: \/ finish=(?:timeout|output_limit|spawn_error|stdin_error|close|cancelled),exit=(?:none|-?\d{1,10}),ms=\d{1,13},bytes=\d{1,9})?$/.test(diagnostic)
       ? diagnostic : "probe_error";
   }
 }
@@ -84,41 +84,50 @@ export async function readJackyunLoginConfig(root: string) {
   return assertJackyunLoginConfig(await readJsonFile<JackyunLoginConfig>(path.join(root, "config", "jackyun-login.json")));
 }
 
-export function jackyunVaultRoot() {
-  const local = process.env.LOCALAPPDATA;
-  if (process.platform !== "win32" || !local || !path.win32.isAbsolute(local)) {
-    throw new Error("吉客云 DPAPI 需要当前 Windows 用户的本机配置目录。");
-  }
-  return path.join(local, "TERUISI", "JackyunCredentials");
-}
-
 /** A fixed encoded program; arguments, stdin metadata and diagnostics contain no credential. */
 export async function invokeJackyunVault(
-  action: "setup" | "status" | "read", config: JackyunLoginConfig, vaultRoot = jackyunVaultRoot(),
+  action: "setup" | "status" | "read", config: JackyunLoginConfig, vaultRoot?: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   assertJackyunLoginConfig(config);
-  if (!["setup", "status", "read"].includes(action) || !path.win32.isAbsolute(vaultRoot) || vaultRoot.startsWith("\\\\")) {
+  if (process.platform !== "win32" || !["setup", "status", "read"].includes(action)
+    || vaultRoot !== undefined && (!path.win32.isAbsolute(vaultRoot) || vaultRoot.startsWith("\\\\"))) {
     throw new Error("吉客云凭据库操作无效。");
   }
   const program = Buffer.from(jackyunDpapiProgram, "utf16le").toString("base64");
   if (program.length > 30000) throw new Error("DPAPI 固定程序超出 Windows 命令长度预算。");
-  const request = JSON.stringify({ action, tenantId: config.tenantId, profileDirectory: config.profileDirectory, vaultRoot });
+  // Resolve the default inside the CurrentUser DPAPI process. Do not inherit
+  // a credential location from a long-lived launcher's environment. Explicit
+  // roots remain an internal fixture seam, never a CLI/HTTP/config override.
+  const request = JSON.stringify({ action, tenantId: config.tenantId, profileDirectory: config.profileDirectory,
+    ...(vaultRoot === undefined ? { currentUserVault: true } : { vaultRoot }) });
   // A pwsh parent can pass its Core-only module search path to Windows
   // PowerShell, breaking Get-Acl/Set-Acl autoload. Let the child use its defaults.
   const environment = windowsPowerShellEnvironment();
+  if (signal?.aborted) throw new JackyunCredentialProbeError("transport", "吉客云凭据检查已取消。");
   return new Promise<string>((resolve, reject) => {
     const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-STA", "-EncodedCommand", program], {
       windowsHide: action !== "setup", env: environment, stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";
     let settled = false;
+    let stopping: "timeout" | "output_limit" | "stdin_error" | "cancelled" | undefined;
     const startedAt = Date.now();
-    const timeout = setTimeout(() => finish(false, "timeout"), action === "setup" ? 15 * 60_000 : 15000);
-    const finish = (ok: boolean, reason: "timeout" | "output_limit" | "spawn_error" | "stdin_error" | "close", exitCode: number | null = null) => {
+    // kill() is only a request. Keep ownership until close confirms that this
+    // exact child and its pipes have exited, including cancellation by a probe.
+    const stop = (reason: NonNullable<typeof stopping>) => {
+      if (settled || stopping) return;
+      stopping = reason;
+      clearTimeout(timeout);
+      child.kill();
+    };
+    const timeout = setTimeout(() => stop("timeout"), action === "setup" ? 15 * 60_000 : 15000);
+    const cancel = () => stop("cancelled");
+    const finish = (ok: boolean, reason: "timeout" | "output_limit" | "spawn_error" | "stdin_error" | "close" | "cancelled", exitCode: number | null = null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
-      if (!ok) child.kill();
+      signal?.removeEventListener("abort", cancel);
       const result = stdout.trim();
       stdout = "";
       if (ok) resolve(result);
@@ -137,12 +146,18 @@ export async function invokeJackyunVault(
       }
     };
     child.stdout.setEncoding("utf8");
-    child.stdout.on("data", chunk => { stdout += chunk; if (stdout.length > 32768) finish(false, "output_limit"); });
+    child.stdout.on("data", chunk => { if (!stopping) stdout += chunk; if (stdout.length > 32768) stop("output_limit"); });
     // Never propagate PowerShell diagnostics or child output in an error object.
     child.stderr.resume();
-    child.once("error", () => finish(false, "spawn_error"));
-    child.stdin.on("error", () => finish(false, "stdin_error"));
-    child.once("close", code => finish(code === 0, "close", code));
+    child.once("error", () => {
+      if (!child.pid) finish(false, "spawn_error");
+      // A kill error on an existing process is not evidence of its exit.
+      else { stopping ??= "stdin_error"; clearTimeout(timeout); }
+    });
+    child.stdin.on("error", () => stop("stdin_error"));
+    child.once("close", code => finish(!stopping && code === 0, stopping ?? "close", code));
+    signal?.addEventListener("abort", cancel, { once: true });
+    if (signal?.aborted) cancel();
     child.stdin.end(request);
   });
 }
@@ -194,8 +209,8 @@ export async function readJackyunRuntimeCredential(config: JackyunLoginConfig, d
   } finally { stdout = ""; }
 }
 
-export async function manageJackyunCredential(action: "setup" | "status", config: JackyunLoginConfig) {
-  const raw = await invokeJackyunVault(action, config);
+export async function manageJackyunCredential(action: "setup" | "status", config: JackyunLoginConfig, signal?: AbortSignal) {
+  const raw = await invokeJackyunVault(action, config, undefined, signal);
   let status: JackyunCredentialStatus;
   try { status = JSON.parse(raw) as JackyunCredentialStatus; }
   catch { throw new JackyunCredentialProbeError("response_parse", "吉客云凭据状态响应无效。"); }

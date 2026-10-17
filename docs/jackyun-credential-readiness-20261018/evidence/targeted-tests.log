@@ -1,0 +1,36 @@
+✔ credential monitor coalesces checks and accepts only complete exited worker results (542.1401ms)
+✔ expired probe cannot publish late ready or start before authorization (418.7682ms)
+✔ delayed probe bootstrap cancels and reaps its own hanging PowerShell before worker exit (5128.6486ms)
+✔ background child reproduces old console failure and can verify process ownership with UTF-8 pipes (1625.9084ms)
+✔ DPAPI config and site binding reject invalid modes, ports and lookalike hosts (0.4848ms)
+✔ readiness failures preserve only typed fixed diagnostics and never raw messages (0.773ms)
+✔ native current-user vault refuses unavailable folders and ambiguous overrides (7381.4519ms)
+✔ credential preparation retries only before browser use and stops after a bounded budget (1.6643ms)
+✔ missing lookup retries only after fresh same-binding readiness and remains bounded (0.6618ms)
+✔ browser process must match the Windows owner, executable, profile and exact unique port flags (0.6457ms)
+✔ scheduled API login requires independent Chromium and an unambiguous headless process (0.7292ms)
+✔ initial loading waits for an actual login page and a successful tenant shell (0.3741ms)
+✔ existing session and read-only probes never decrypt or submit (0.2486ms)
+✔ unknown pages time out and a submitted login is never retried (0.2544ms)
+✔ wrong tenant, challenges, rejected credentials and uncertain submission stop immediately (0.3103ms)
+✔ aborted login cannot consume a credential (0.1697ms)
+✔ observed Jackyun three-field DOM, hidden recovery forms, tenant gate and error redaction (1382.7298ms)
+✔ Windows DPAPI roundtrip rejects copied bindings, corrupted ciphertext and exposed ACLs (11195.6118ms)
+✔ six independent Tmall slots start without waiting for another store (1.2438ms)
+✔ simultaneous same-store claims reserve synchronously and spawn once (0.7755ms)
+✔ one failed/finished store releases only itself, and late callbacks cannot remove a replacement (0.3256ms)
+✔ unknown termination quarantines that store while other Tmall stores run (0.2985ms)
+✔ legacy workflows retain shared exclusion; disabled/unknown stores cannot allocate (0.1657ms)
+✔ router rejects missing/array identities and never infers Tmall from a legacy route (0.3851ms)
+{"event":"helper_thread_unclean_exit","workflow":"tmall","storeKey":"tmall-yijiu","executionId":"yijiu-first","phase":"ready","ready":true,"exitCode":1}
+{"event":"helper_thread_unclean_exit","workflow":"tmall","storeKey":"tmall-lili","executionId":"lili-retry","phase":"ready","ready":true,"exitCode":1}
+{"event":"helper_thread_unclean_exit","workflow":"tmall","storeKey":"tmall-yiyong","executionId":"yiyong-first","phase":"ready","ready":true,"exitCode":1}
+✔ real worker exits release only a clean store; a crash quarantines only its own store (513.0592ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22241.6896

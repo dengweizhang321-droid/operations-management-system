@@ -1,0 +1,2 @@
+{"main":true,"result":{"ok":true,"ready":false,"status":"missing","lookup":{"provider":false,"file":false,"directory":false,"fileError":3,"directoryError":3}},"inheritedPathDeliberatelyWrong":true}
+{"main":false,"result":{"ok":true,"ready":false,"status":"missing","lookup":{"provider":false,"file":false,"directory":false,"fileError":3,"directoryError":3}},"inheritedPathDeliberatelyWrong":true}

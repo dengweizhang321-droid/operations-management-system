@@ -10,6 +10,7 @@ import { promisify } from "node:util";
 import { createServer } from "node:net";
 import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
+import { createPrivateJackyunVault, substituteKnownFolder } from "../tests/fixtures/jackyun-private-vault.mjs";
 
 if (process.platform !== "win32") { console.log(JSON.stringify({ skipped: true, reason: "Windows runtime fixture" })); process.exit(0); }
 const scenario = process.argv[2] ?? "page";
@@ -21,6 +22,11 @@ const sourceRoot = process.cwd(), temp = await mkdtemp(path.join(tmpdir(), "jack
 const root = path.join(temp, "mirror"), n8nUserRoot = path.join(temp, "user"), profile = path.join(root, "profile");
 for (const p of [path.join(root, "config"), path.join(n8nUserRoot, ".n8n"), path.join(profile, "Default"), path.join(root, "outputs/jackyun-export-first")]) await mkdir(p, { recursive: true });
 await writeFile(path.join(profile, "Local State"), "{}");
+const login = { version: 1, loginMode: "windows_dpapi_credentials", tenantId: "999992", profileDirectory: profile,
+  debuggingPort: 29224, initialWaitMs: 1000, afterSubmitWaitMs: 1000 };
+const knownFolder = path.join(temp, "native-user-folder");
+await createPrivateJackyunVault(knownFolder, login);
+await writeFile(path.join(root, "config/jackyun-login.json"), JSON.stringify(login));
 await symlink(path.join(sourceRoot, "node_modules"), path.join(temp, "node_modules"), "junction");
 const registry = JSON.parse(await readFile(path.join(sourceRoot, "config/tmall-store-accounts.json"), "utf8"));
 for (const [i, store] of registry.stores.entries()) {
@@ -43,13 +49,20 @@ insert.run(99000, "J8kY2mQ5vR7sT4pN", "error", "trigger", sqliteTime(-130000), s
 insert.run(99001, "J8kY2mQ5vR7sT4pN", "running", replacementMode, sqliteTime(-10000), null, null, null);
 const nodes = ["每天本机时间 00:10", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"];
 db.prepare("INSERT INTO execution_data VALUES(?,?)").run(99000, JSON.stringify([{ resultData: "1" }, { error: "2", runData: "3", lastNodeExecuted: "4" }, { description: "5", httpCode: "6", node: "7" }, Object.fromEntries(nodes.map(n => [n, []])), nodes[4], browserPidScenario ? "waiting_login：调试端口不属于本次启动的独立浏览器，已停止接管。" : "API_LOGIN_PAGE_NOT_UNIQUE: no_context", "500", { parameters: "8" }, { url: "9" }, "http://127.0.0.1:5791/jackyun/export-first/export-all"])); db.close();
+const schemaDb = new DatabaseSync(database);
+schemaDb.exec("ALTER TABLE execution_data ADD COLUMN workflowData TEXT");
+schemaDb.prepare("UPDATE execution_data SET workflowData=?").run(JSON.stringify({ id: "J8kY2mQ5vR7sT4pN" }));
+schemaDb.prepare("INSERT INTO execution_data(executionId,data,workflowData) VALUES(?,?,?)").run(99001, "[]", JSON.stringify({ id: "J8kY2mQ5vR7sT4pN" }));
+schemaDb.close();
 const beforeDb = await readFile(database), shim = path.join(temp, "mock-health.mjs"), counter = path.join(temp, "health-reads.txt");
 await writeFile(shim, `import {appendFileSync} from 'node:fs'; const original=globalThis.fetch; globalThis.fetch=async (input,options)=>{const u=new URL(typeof input==='string'?input:input.url??input); if(u.href==='http://localhost:3000/api/sales/data-health'){appendFileSync(${JSON.stringify(counter)},'health\\n');return Response.json({status:'available'});} if(u.hostname==='127.0.0.1'&&!['3000','5791','5678','5432'].includes(u.port)&&['/health','/coordination/claim','/jackyun/export-first/plan-api'].includes(u.pathname))return original(input,options);throw new Error('Synthetic smoke disallows other network access');};`);
 const bundle = path.join(temp, "helper.mjs");
 await promisify(execFile)(process.execPath, ["tools/build-worker-helper.mjs", "--source-root", sourceRoot, "--output", bundle], { cwd: sourceRoot, windowsHide: true, timeout: 120000 });
+await writeFile(bundle, substituteKnownFolder(await readFile(bundle, "utf8")));
 const server = createServer(); await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); const port = server.address().port; await new Promise(resolve => server.close(resolve));
 const env = Object.fromEntries(["SystemRoot", "WINDIR", "PATH", "TEMP", "TMP"].flatMap(key => process.env[key] ? [[key, process.env[key]]] : []));
 Object.assign(env, { USERPROFILE: n8nUserRoot, LOCALAPPDATA: path.join(temp, "local"), APPDATA: path.join(temp, "roaming"), TERUISI_HELPER_MUTABLE_ROOT: root });
+env.TERUISI_TEST_KNOWN_FOLDER = knownFolder;
 const child = spawn(process.execPath, ["--import", pathToFileURL(shim).href, bundle, "serve", "--port", String(port)], { cwd: root, env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
 let output = ""; child.stdout.on("data", part => { output = (output + part.toString()).slice(-16000); }); child.stderr.resume(); const exited = new Promise(resolve => child.once("exit", resolve));
 async function call(route) { const r = await fetch(`http://127.0.0.1:${port}${route}`, { method: "POST", headers: { "X-TERUISI-WORKFLOW-KEY": "jackyun", "X-TERUISI-N8N-EXECUTION-ID": "99001" }, signal: AbortSignal.timeout(40000) }); return { status: r.status, body: await r.json() }; }

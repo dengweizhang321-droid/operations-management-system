@@ -14,6 +14,8 @@ import { isolatedHelperProtocol, isolatedHelperTokenHeader, isolatedRequestIdent
 import { closeChromeBrowser, connectChromeBrowser } from "../lib/jackyun/cdp-client";
 import { jackyunExportFirstActions, jackyunExportFirstPrefix, runJackyunExportFirstAction } from "./jackyun-export-first-pipeline";
 import { recoverPreviousJackyunPreflight } from "../lib/jackyun/automatic-preflight-recovery";
+import { requireJackyunCredentialReadiness } from "../lib/jackyun/windows-dpapi";
+import { createJackyunCredentialMonitor, jackyunCredentialProbeProtocol, runJackyunCredentialProbeWorker } from "../lib/jackyun/credential-health";
 import { readN8nJackyunRecoveryEntry, assertN8nJackyunAAdmission, n8nJackyunRequiresRecoveryHeader, readN8nJackyunAutomaticDispatch } from "../lib/jackyun/n8n-preflight-evidence";
 import { claimJackyunAutomaticDispatch } from "../lib/jackyun/retry-budget";
 import { parseRecoveryRequest } from "../lib/jackyun/recovery-control";
@@ -1285,12 +1287,18 @@ function scheduleOneShotServerClose(server: Pick<Server, "close" | "closeAllConn
 async function serveCommand(argv: string[]) {
   if (isMainThread) {
     const stores = (await loadTmallStores()).filter(store => store.enabled);
+    const credentialMonitor = createJackyunCredentialMonitor(process.argv[1]!);
+    void credentialMonitor.refresh();
     return serveIsolatedHelper({
       port: integerPort(cliValue(argv, "--port")), entryFile: process.argv[1]!,
       mutableRoot: projectRoot,
       allowedStores: new Set(stores.map(store => store.storeKey)),
-      health: helperProfileHealth, cors: helperHealthCorsHeaders,
+      health: async () => ({ ...await helperProfileHealth(), jackyunCredential: credentialMonitor.snapshot() }), cors: helperHealthCorsHeaders,
     });
+  }
+  if (workerData?.protocol === jackyunCredentialProbeProtocol) {
+    await runJackyunCredentialProbeWorker(projectRoot);
+    return { ok: true, stage: "credential_probe_finished" };
   }
   if (workerData?.protocol !== isolatedHelperProtocol || typeof workerData.token !== "string"
     || !/^[a-f0-9]{64}$/.test(workerData.token) || !workerData.identity) throw new Error("invalid_helper_slot_bootstrap");
@@ -1560,6 +1568,7 @@ async function serveCommand(argv: string[]) {
         const recoveryRequest = typeof recoveryHeader === "string" ? parseRecoveryRequest(recoveryHeader) : undefined;
         let failureRetryAttempt: number | undefined;
         if (recoveryRequest && !isDeepStrictEqual(recoveryRequest, readN8nJackyunRecoveryEntry(requestExecutionId!))) throw new Error("完整恢复请求与原入口证据不一致。");
+        if (action === "plan" || action === "plan-api") await requireJackyunCredentialReadiness(projectRoot);
         if (recoveryRequest) {
           const automatic = readN8nJackyunAutomaticDispatch(requestExecutionId!);
           if (automatic) failureRetryAttempt = (await claimJackyunAutomaticDispatch(projectRoot, { workflowId: "J8kY2mQ5vR7sT4pN",

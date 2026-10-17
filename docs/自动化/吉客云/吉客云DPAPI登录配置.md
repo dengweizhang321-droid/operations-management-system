@@ -30,11 +30,13 @@ npm run jackyun:authenticate
 ## 绑定与保密边界
 
 - 非敏感配置在 `config/jackyun-login.json`，包括吉客号、独立 Profile、调试端口及等待预算；当前绑定吉客号为 `771168`。
-- 密文在 `%LOCALAPPDATA%\TERUISI\JackyunCredentials`。文件名是绑定摘要，文件不保存明文账号或密码；DPAPI 使用 `CurrentUser`，加密附加信息和内容同时绑定吉客号与规范化 Profile 路径。目录关闭权限继承，仅允许当前用户、SYSTEM 和管理员；重解析路径、所有者/ACL 异常、内容损坏或绑定不符均拒绝读取。
+- 密文位于 Windows 当前用户的 LocalApplicationData 已知文件夹下的 `TERUISI\JackyunCredentials`（通常与 `%LOCALAPPDATA%` 相同）。设置、状态检查和读取均在 DPAPI 子进程中通过 Windows 已知文件夹解析，避免继承启动器的错误目录变量；不扫描其他用户、不回退到环境变量，也不在检查时创建凭据库。文件名是绑定摘要，文件不保存明文账号或密码；DPAPI 使用 `CurrentUser`，加密附加信息和内容同时绑定吉客号与规范化 Profile 路径。目录关闭权限继承，仅允许当前用户、SYSTEM 和管理员；重解析路径、所有者/ACL 异常、内容损坏或绑定不符均拒绝读取。
 - n8n 继续只调用 helper，不持有账号、密码、Cookie、环境变量或解密接口。固定 DPAPI 程序随不可变 helper 编译，未放宽 release builder、verifier 或 Django 发布门禁。
 - 更换 Windows 用户、吉客号或 Profile 后，需重新配置相应绑定。不得复制别人的凭据文件或将旧密文伪装为新账号。
 
 ## 失败处理
+
+helper 启动后在独立只读工作线程执行凭据检查，`GET /health` 的 `jackyunCredential` 返回 `checking/ready/blocked`、固定原因和检查时间；健康轮询最多每五分钟刷新一次，检查失败只影响吉客云就绪状态。它不领取业务执行单元、不打开浏览器、不导出或导入，也不输出路径、身份标识或凭据。每次五表 A 节点在原 execution/owner/恢复入口核验后、恢复派发记账与新计划写入前再次检查；不能用缓存的启动成功替代这次新鲜检查。该状态只证明本地凭据可用，不证明平台登录或五表导入成功。源码采用与真实定时验证状态见 [2026-10-18 修复记录](../../jackyun-credential-readiness-20261018/REPORT.md)。
 
 后台凭据读取及浏览器进程核验通过显式 UTF-8 标准输入输出流通信，不依赖控制台句柄。不要恢复 `[Console]::InputEncoding/OutputEncoding` 设置：无控制台进程可能在读取凭据前报“句柄无效”，终端中的 `ready=true` 不能排除此类后台兼容性问题。Node 必须流式解码 UTF-8，防止中文或其他多字节字符在分块边界损坏。初始化、绑定和实际解密分别使用 `initialize`、`binding`、`read` 诊断阶段，原始凭据和 PowerShell 错误正文不透传。
 
