@@ -148,7 +148,7 @@ export async function deployReadyMain(prepared,{progress,run=runPublisher,git=gi
  const readiness=await inspectMainPreparation(prepared,{git});
  if(readiness.status==='not-ready'){
   progress.log('========== 发布包尚未就绪，本次未发布 ==========');
-  progress.log('目标main：'+prepared.targetCommit+'。自动打包尚未完成；请等待打包日志显示“打包完成，等待手动发布”后再点击。');
+  progress.log('目标main：'+prepared.targetCommit+'。原生制品尚未完成；准备成功后由发布负责人继续。');
   progress.log('打包日志目录：'+readiness.logsDirectory+'；若原打包已报错，请保留日志处理，不要重复启动。');
   return readiness;
  }
@@ -174,13 +174,16 @@ async function main(){
    console.log(JSON.stringify(prepared));return;
   }
   if(prepared.status==='non-production'){progress.log('最新main没有生产载荷变更，本次未执行发布。');console.log(JSON.stringify(prepared));return;}
-  await fs.writeFile(path.join(config.stateDirectory,'LATEST-PREPARED.json'),JSON.stringify(prepared,null,2)+'\n');
+  await writeMainPreparationPointer(config,prepared,'request-frozen');
   if(values.check){await runPublisher(prepared.source,['--check'],config.gitDirectory,config.publisherBaseEnvironment);const readiness=await inspectMainPreparation(prepared);progress.log('检查通过：有新main待发布；'+(readiness.status==='not-ready'?'发布包尚未准备完成':'已有准备记录，正式发布时仍需原生复验')+'；本次未打包、未部署。');console.log(JSON.stringify({status:prepared.status,preparationStatus:readiness.status,targetCommit:prepared.targetCommit,currentCommit:prepared.currentCommit,packet:prepared.packet,source:prepared.source,components:prepared.request.components,migrate:prepared.request.migrate,publicationPerformed:false}));return;}
   if(values['prepare-only']){
    progress.begin('准备对应main制品');const result=await runPublisher(prepared.source,['--prepare-only'],config.gitDirectory,config.publisherBaseEnvironment);assert.equal(result.mainCommit,prepared.targetCommit);progress.complete();
    if(result.status==='already-current'){assert.equal(result.publicationPerformed,false);progress.log('当前线上已经是目标main '+prepared.targetCommit+'；本次没有执行发布。');return;}
    assert.equal(result.status,'prepared-only');assert.equal(result.publicationPerformed,false);
-   progress.log('打包完成，等待手动发布。目标main：'+prepared.targetCommit+'；本次未部署。');return;
+   const readiness=await inspectMainPreparation(prepared);
+   assert.equal(readiness.status,'ready-for-native-verification');
+   await writeMainPreparationPointer(config,prepared,'prepared');
+   progress.log('打包完成，等待发布负责人执行。目标main：'+prepared.targetCommit+'；本次未部署。');return;
   }
   const result=await deployReadyMain(prepared,{progress,gitDirectory:config.gitDirectory,baseEnvironment:config.publisherBaseEnvironment});
   if(result.status==='not-ready'){process.exitCode=2;return;}
@@ -201,5 +204,11 @@ async function main(){
   await fs.writeFile(temporary,JSON.stringify(catalog,null,2)+'\n',{flag:'wx'});await fs.rename(temporary,catalogFile);
   progress.success('已确认本次目标main '+prepared.targetCommit+' 已切换，成功记录属于本次发布。');
  }catch(error){progress.fail(error);process.exitCode=1;}finally{progress.close();}
+}
+export async function writeMainPreparationPointer(config,prepared,status){
+ assert.ok(['request-frozen','prepared'].includes(status));
+ const file=path.join(config.stateDirectory,'LATEST-PREPARED.json'),temporary=file+'.'+randomUUID()+'.tmp';
+ await fs.writeFile(temporary,JSON.stringify({...prepared,status,nativePreparationVerified:status==='prepared'},null,2)+'\n',{flag:'wx'});
+ await fs.rename(temporary,file);
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===path.resolve(fileURLToPath(import.meta.url)))main().catch(error=>{console.error(error.message);process.exitCode=1;});

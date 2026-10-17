@@ -172,6 +172,12 @@ function Get-Sha256Text([string]$Value) {
 
 function Get-FileSha256([string]$Path) {
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return "missing" }
+  return Get-ExistingFileSha256 $Path
+}
+
+function Get-ExistingFileSha256([string]$Path) {
+  # Call only for a leaf just enumerated by the caller. Open still rejects a
+  # disappeared/unreadable file; no metadata or previous digest is reused.
   $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
   $algorithm = [Security.Cryptography.SHA256]::Create()
   try {
@@ -1205,7 +1211,7 @@ function Get-ApplicationTreeFingerprintEvidence([string]$AppRoot) {
     $segments = $relative -split "/"
     if (@($segments | Where-Object { $_ -in @("__pycache__", ".pytest_cache", ".mypy_cache") }).Count -gt 0) { continue }
     if ($file.Extension -in @(".pyc", ".pyo")) { continue }
-    $rows.Add("$relative`n$(Get-FileSha256 $file.FullName)")
+    $rows.Add("$relative`n$(Get-ExistingFileSha256 $file.FullName)")
   }
   $rows.Sort([StringComparer]::Ordinal)
   $rowArray = [string[]]$rows.ToArray()

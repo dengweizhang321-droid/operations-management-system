@@ -962,11 +962,10 @@ export async function workerPreparationIdentity(sourceRoot, devVarsSource = work
     externalNpmConfiguration[key] = { pathSha256: windowsPathSha256(target), contentSha256: await pathExists(target) ? sha256Bytes(await readStableRegularFile(target, "npm external configuration")) : null };
   }
   const sourceFiles = await listGitSourceFiles(sourceRoot);
-  const sourceInventory = {};
-  for (const name of sourceFiles) sourceInventory[name] = sha256Bytes(await readStableRegularFile(path.join(sourceRoot,...name.split('/')), "preparation source inventory"));
+  const { tree: sourceTree, inventory: sourceInventory } = await hashRelativeFilesWithInventory(sourceRoot, sourceFiles);
   return {
     version: "teruisi-worker-preparation-identity-v1",
-    sourceTree: await hashRelativeFiles(sourceRoot, sourceFiles),
+    sourceTree,
     sourceInventorySha256: sha256Canonical(sourceInventory),
     nodeExecutableSha256: sha256Bytes(await readStableRegularFile(process.execPath, "preparation Node executable")),
     runtimeConfigurationSha256: sha256Bytes(await readStableRegularFile(devVarsSource, "preparation runtime configuration")),
@@ -1011,6 +1010,81 @@ export async function hashRelativeFiles(root, relativeFiles) {
     start = end;
   }
   return { algorithm: treeHashAlgorithm, fileCount: metadata.length, sha256: digest.digest("hex") };
+}
+
+// Source tree and inventory consume the same controlled bytes. No contents or
+// file identities survive this call. Keep the published ordinal/path/length/
+// content protocol; large files are streamed alone to bound retained bytes.
+export async function hashRelativeFilesWithInventory(root, relativeFiles) {
+  const digest = createHash("sha256"), inventory = Object.create(null);
+  const metadata = await mapBounded([...relativeFiles].sort(ordinalCompare), treeHashMetadataConcurrency, async (relative) => {
+    const normalized = relative.replaceAll("\\", "/");
+    if (!normalized || normalized.split("/").some((part) => !part || part === "." || part === "..")
+      || path.posix.isAbsolute(normalized) || path.win32.isAbsolute(normalized) || normalized.includes(":")) fail("哈希文件路径越界");
+    const absolute = path.join(root, ...normalized.split("/"));
+    const before = await assertRegularFile(absolute, "source digest file");
+    if (before.nlink !== 1 || !Number.isSafeInteger(before.size) || before.size < 0) fail("Source digest requires a single-link bounded regular file");
+    return { normalized, absolute, before, size: before.size };
+  });
+  const sameFile = (left, right) => ["dev", "ino", "size", "mtimeMs", "ctimeMs", "nlink"].every((key) => left[key] === right[key]);
+  function prefix(item) {
+    const name = Buffer.from(item.normalized, "utf8"), nameLength = Buffer.alloc(4), contentLength = Buffer.alloc(8);
+    nameLength.writeUInt32BE(name.length);
+    contentLength.writeBigUInt64BE(BigInt(item.size));
+    digest.update(nameLength).update(name).update(contentLength);
+  }
+  async function readControlled(item, streamed) {
+    const handle = await open(item.absolute, "r");
+    try {
+      const opened = await handle.stat();
+      if (!opened.isFile() || !sameFile(item.before, opened)) fail("Source digest file changed before reading");
+      const fileDigest = createHash("sha256");
+      const content = Buffer.alloc(streamed ? Math.min(item.size, 1024 * 1024) : item.size);
+      let position = 0;
+      if (streamed) prefix(item);
+      while (position < item.size) {
+        const offset = streamed ? 0 : position;
+        const length = Math.min(content.length - offset, item.size - position);
+        const { bytesRead } = await handle.read(content, offset, length, position);
+        if (bytesRead === 0) fail("Source digest file truncated while reading");
+        const bytes = content.subarray(offset, offset + bytesRead);
+        fileDigest.update(bytes);
+        if (streamed) digest.update(bytes);
+        position += bytesRead;
+      }
+      const extra = await handle.read(Buffer.alloc(1), 0, 1, position);
+      const afterHandle = await handle.stat(), afterPath = await assertRegularFile(item.absolute, "source digest file");
+      if (extra.bytesRead !== 0 || !sameFile(item.before, afterHandle) || !sameFile(item.before, afterPath)) fail("Source digest file changed while reading");
+      return { content, sha256: fileDigest.digest("hex") };
+    } finally {
+      await handle.close();
+    }
+  }
+  let start = 0;
+  while (start < metadata.length) {
+    const first = metadata[start];
+    if (first.size > treeHashReadBatchBytes) {
+      inventory[first.normalized] = (await readControlled(first, true)).sha256;
+      start += 1;
+      continue;
+    }
+    let end = start, batchBytes = 0;
+    while (end < metadata.length && end - start < treeHashReadConcurrency) {
+      const nextBytes = metadata[end].size;
+      if (batchBytes + nextBytes > treeHashReadBatchBytes) break;
+      batchBytes += nextBytes;
+      end += 1;
+    }
+    const batch = metadata.slice(start, end);
+    const contents = await mapBounded(batch, treeHashReadConcurrency, (item) => readControlled(item, false));
+    for (let index = 0; index < batch.length; index += 1) {
+      prefix(batch[index]);
+      digest.update(contents[index].content);
+      inventory[batch[index].normalized] = contents[index].sha256;
+    }
+    start = end;
+  }
+  return { tree: { algorithm: treeHashAlgorithm, fileCount: metadata.length, sha256: digest.digest("hex") }, inventory };
 }
 
 async function mapBounded(items, concurrency, operation) {
@@ -2228,14 +2302,16 @@ function validatePayloadSha(record, fieldName, label) {
   if (sha256Canonical(core) !== value) fail(`${label}自哈希无效`);
 }
 
-async function validateTree(root, expected, label, options) {
+async function validateTree(root, expected, label, options, withInventory = false) {
   assertExactKeys(expected, ["algorithm", "fileCount", "sha256"], `${label} tree`);
   if (expected.algorithm !== treeHashAlgorithm || !Number.isSafeInteger(expected.fileCount) || expected.fileCount < 1 || !hex64.test(expected.sha256)) {
     fail(`${label} tree 契约无效`);
   }
   await assertNoReparsePoint(root, { label: `${label} root` });
-  const actual = await hashTree(root, options);
+  const digests = withInventory ? await hashRelativeFilesWithInventory(root, await listRegularTreeFiles(root, options)) : null;
+  const actual = digests ? digests.tree : await hashTree(root, options);
   if (canonicalJson(actual) !== canonicalJson(expected)) fail(`${label} tree 内容与 manifest 不一致`);
+  return digests;
 }
 
 async function verifyHardLinks(manifest, releaseRoot) {
@@ -2923,11 +2999,9 @@ async function verifyWorkerReleaseInternal({
 
   if (manifest.source.snapshotRoot !== "source-snapshot") fail("manifest source snapshot 路径无效");
   const sourceSnapshotRoot = path.join(releaseRoot, manifest.source.snapshotRoot);
-  await validateTree(sourceSnapshotRoot, manifest.source.tree, "source snapshot");
+  const sourceDigests = await validateTree(sourceSnapshotRoot, manifest.source.tree, "source snapshot", undefined, Boolean(manifest.source.sourceBinding));
   if(manifest.source.sourceBinding) {
-    const inventory=Object.create(null);
-    for(const name of await listRegularTreeFiles(sourceSnapshotRoot))inventory[name]=sha256Bytes(await readBoundRegularFile(path.join(sourceSnapshotRoot,...name.split("/")),"bound source snapshot"));
-    if(sha256Canonical(inventory)!==validateWorkerSourceBinding(manifest.source.sourceBinding).identity.sourceInventorySha256)fail("Bound source snapshot inventory changed");
+    if(sha256Canonical(sourceDigests.inventory)!==validateWorkerSourceBinding(manifest.source.sourceBinding).identity.sourceInventorySha256)fail("Bound source snapshot inventory changed");
   }
   const snapshotPackageLock = path.join(sourceSnapshotRoot, "package-lock.json");
   await assertRegularFile(snapshotPackageLock, "source snapshot package-lock.json");

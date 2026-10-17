@@ -13,6 +13,23 @@ const exists=async file=>{try{await fs.access(file);return true;}catch(error){if
 const read=async file=>JSON.parse(await fs.readFile(file,'utf8'));
 const noProgress={begin(){},complete(){},log(){},success(){}};
 
+// A production CLI invocation either prepares or deploys. Its default must
+// never turn a missing package into a build inside the publication attempt.
+export function mainPublicationMode(args){
+ const prepareOnly=args.includes('--prepare-only');
+ const deployOnly=args.includes('--deploy-only');
+ assert.ok(!(prepareOnly&&deployOnly),'准备与发布模式不能同时使用');
+ return {prepareOnly,deployOnly:!prepareOnly};
+}
+
+export async function requireMainPreparation(out){
+ if(await exists(path.join(out,'STARTED.json'))&&!await exists(path.join(out,'SUCCESS.json')))
+  throw Error('此发布已有STARTED且无SUCCESS，结果未知；禁止自动重试：'+out);
+ if(await exists(path.join(out,'SUCCESS.json')))return;
+ assert.ok(await exists(path.join(out,'preparation','PREPARED.json')),
+  '目标main尚未准备好；先完成 --prepare-only，再执行发布。本次未构建、未部署');
+}
+
 export function preparedComponents(request){
  assert.match(request.mainCommit??'',/^[a-f0-9]{40}$/,'发布目标必须是冻结的完整提交');
  schemaForRequest(request);
@@ -23,6 +40,10 @@ export function preparedComponents(request){
 
 /** Optional seams runStep/sourceIdentity/sha/fetch are for private fixture engines. */
 export async function publishPreparedMain(request,context){
+ assert.ok(!(context.prepareOnly&&context.deployOnly),'准备与发布模式不能同时使用');
+ // Explicit false is retained for private, in-process orchestration fixtures;
+ // omitted mode and every production CLI are deploy-only.
+ const deployOnly=context.deployOnly??!context.prepareOnly;
  const components=preparedComponents(request);
  const schema=schemaForRequest(request);
  const {source,out,api,rotation,transport}=context;
@@ -128,7 +149,7 @@ export async function publishPreparedMain(request,context){
     }
     progress.log('复用本次main已准备的包，不再构建或安装依赖。');
    }else{
-    assert.ok(!context.deployOnly,'目标main尚未准备好，请等待自动打包完成，或运行准备main.bat；本次未部署');
+    assert.ok(!deployOnly,'目标main尚未准备好；先完成 --prepare-only，再执行发布。本次未部署');
     if(await exists(path.join(preparationOut,'PREPARING.json')))throw Error('准备包有未完成记录，请查看原准备日志，不能自动重放：'+preparationOut);
     await fs.writeFile(path.join(preparationOut,'PREPARING.json'),JSON.stringify({at:new Date().toISOString(),requestSha256,sourceIdentity:identity}),{flag:'wx'});
    if(components.worker){
@@ -154,7 +175,7 @@ export async function publishPreparedMain(request,context){
     await fs.rename(temporary,preparationFile);
    }
    if(context.prepareOnly){
-    progress.log('打包完成，等待手动发布。目标main：'+request.mainCommit+'；准备记录：'+preparationFile);
+    progress.log('打包完成，等待发布负责人执行。目标main：'+request.mainCommit+'；准备记录：'+preparationFile);
     return {status:'prepared-only',mainCommit:request.mainCommit,publicationPerformed:false,preparationFile};
    }
    // Recheck both predecessor bindings after potentially long preparation.

@@ -1,4 +1,4 @@
-/** Manual main build/deploy entry. Uses the existing lifecycle and finite migration operators. */
+/** Frozen main prepare/deploy entry. Uses the existing lifecycle and finite migration operators. */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
@@ -48,6 +48,10 @@ async function main(){
   const schema=schemaForRequest(request);assert.equal(request.releasePlan.migrate,Boolean(schema));
   await verifyPowerShellHost(request,process.argv.includes('--check'));await verifyOfflineCache(request);
   if(process.argv.includes('--check')){if(schema)await verifyMainSchemaRelease(request,source);console.log(JSON.stringify({mode:'frozen-latest-main',targetCommit:head,migration:schema?.steps[0]??null,publicationPerformed:false}));return;}
+  const {publishPreparedMain,mainPublicationMode,requireMainPreparation}=await import('./publish-prepared-main.mjs');
+  const mode=mainPublicationMode(process.argv.slice(2));
+  const out=path.resolve(source,'..','publish-'+head.slice(0,12));
+  if(mode.deployOnly&&request.components.length)await requireMainPreparation(out);
   process.env.PATH=request.pwshDirectory+';'+(process.env.PATH??process.env.Path??'');process.env.WRANGLER_HIDE_BANNER='true';
   process.env.npm_config_cache=request.npmCacheDirectory;process.env.npm_config_offline='true';process.env.npm_config_prefer_online='false';process.env.npm_config_prefer_offline='true';
   const api=await import(pathToFileURL(path.join(source,'tools/worker-local-release.mjs')));
@@ -55,8 +59,6 @@ async function main(){
   const transport=await import(pathToFileURL(path.join(source,'tools/release-batch.mjs')));
   const token=await api.runProcess('C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',['-NoProfile','-NonInteractive','-Command','[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)'],{timeoutMs:30000});
   assert.equal(token.stdout.trim(),'False','请用普通用户执行固定发布入口，不需要管理员权限');
-  const {publishPreparedMain}=await import('./publish-prepared-main.mjs');
-  const out=path.resolve(source,'..','publish-'+head.slice(0,12));
   const resultIndex=process.argv.indexOf('--result-file');
   let resultFile;
   if(resultIndex!==-1){
@@ -64,7 +66,7 @@ async function main(){
    assert.equal(path.dirname(resultFile),path.resolve(source,'..','invocations'),'调用结果必须写入本包独立记录目录');
    assert.equal(await exists(resultFile),false,'调用结果文件已存在，禁止覆盖或开始部署');
   }
-  const result=await publishPreparedMain(request,{source,out,progress,api,rotation,transport,prepareOnly:process.argv.includes('--prepare-only'),deployOnly:process.argv.includes('--deploy-only')});
+  const result=await publishPreparedMain(request,{source,out,progress,api,rotation,transport,...mode});
   if(resultFile){
    await fs.writeFile(resultFile,JSON.stringify({status:result.status,mainCommit:request.mainCommit,publicationPerformed:result.status==='deployed_and_ready'})+'\n',{flag:'wx'});
   }
@@ -86,6 +88,7 @@ async function main(){
  }
  const resume=resumeMode?await loadKnownResume(originalOut,request,head):null;
  if(process.argv.includes('--check')){const host=await verifyPowerShellHost(request,true);await verifyOfflineCache(request);console.log(JSON.stringify({powerShellHostVerified:true,powerShellVersion:host.version,dependencyMode:'offline',sourceCommit:head,mode:resume?'resume-reviewed-premaintenance':'manual-main-build-and-publish',steps:['构建打包','部署','必要的结构迁移','启动及必要服务确认'],backup:false,fullTests:false,productionExecuted:false}));return;}
+ if(!resumeMode)throw Error('旧构建并发布入口已停止接收新发布；请使用冻结main入口先准备制品再发布。本次未构建、未部署');
  const out=resume?resumedOut:originalOut;await fs.mkdir(out,{recursive:true});
  const save=async(name,value)=>fs.writeFile(path.join(out,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
  progress.log('main版本：'+head+'；步骤详细日志：'+out);

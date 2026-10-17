@@ -57,7 +57,7 @@ async function readTargetStatus(config,targetCommit){
   assert.equal(receipt.sourceIdentity?.commit,targetCommit);assert.match(receipt.sourceIdentity?.tree??'',/^[a-f0-9]{40}$/);
   assert.equal(Boolean(receipt.workerPlan),request.components.includes('worker'));assert.equal(Boolean(receipt.djangoPackage),request.components.includes('django'));
   const changed=await terminalState();if(changed)return changed;
-  return {...withPaths,status:'prepared',message:'打包完成，等待手动发布（发布前仍会原生复验）',preparedAt:receipt.at??null,preparationSha256:sha(raw)};
+  return {...withPaths,status:'prepared',message:'打包完成，等待发布负责人执行（发布前仍会原生复验）',preparedAt:receipt.at??null,preparationSha256:sha(raw)};
  }
  if(await exists(path.join(preparation,'PREPARING.json')))return {...withPaths,status:'preparing',message:'打包尚未完成：已有准备开始记录（中断时也会保留此记录）'};
  return {...withPaths,status:'waiting',message:'尚无原生准备记录：可能排队或前置检查已停止，请查看准备日志'};
@@ -65,7 +65,7 @@ async function readTargetStatus(config,targetCommit){
 export function popupCommand(state){
  assert.ok(['prepared','failed','attention'].includes(state.status));assert.match(state.targetCommit,/^[a-f0-9]{40}$/);
  const ready=state.status==='prepared',title=ready?'TERUISI 打包完成':'TERUISI 打包需要处理';
- const message=ready?'版本 '+state.targetCommit.slice(0,12)+' 打包完成。请双击发布main.bat手动发布；发布入口会重新核对最新main。':'版本 '+state.targetCommit.slice(0,12)+' 打包或发布状态需要处理。请查看状态窗口和日志，不要重复发布。';
+ const message=ready?'版本 '+state.targetCommit.slice(0,12)+' 打包完成。由发布负责人按本次授权执行；发布入口会重新核对最新main。':'版本 '+state.targetCommit.slice(0,12)+' 打包或发布状态需要处理。请查看状态窗口和日志，不要重复发布。';
  const quote=value=>"'"+value.replaceAll("'","''")+"'";
  const code='[void](New-Object -ComObject WScript.Shell).Popup('+quote(message)+',0,'+quote(title)+','+(ready?64:16)+')';
  return {host:'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',args:['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')]};

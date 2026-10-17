@@ -14,7 +14,7 @@ async function fixture(t,components=['worker'],failAt=null){
  const target={releaseId:'new',manifestSha256:'3'.repeat(64)};
  const event=name=>{events.push(name);if(name===failAt)throw Error('fixture failure: '+name);};
  const request={mainCommit:'a'.repeat(40),components,predecessorWorker:{...head},predecessorDjangoSha256:django};
- const context={source:root,out,installedRoot:installed,workerRuntimeRoot:runtime,
+ const context={source:root,out,installedRoot:installed,workerRuntimeRoot:runtime,deployOnly:false,
   sourceIdentity:async()=>({commit:request.mainCommit,tree:'b'.repeat(40)}),
   sha:async file=>file===path.join(installed,'deployment.json')?django:path.basename(file).startsWith('app.prepare-')?'9'.repeat(64):'4'.repeat(64),
   progress:{begin(){},complete(){},log(){},success(){event('success');successes++;}},
@@ -138,6 +138,12 @@ test('deploy-only without a prepared artifact never builds or starts publication
  await assert.rejects(publishPreparedMain(f.request,{...f.context,deployOnly:true}),/尚未准备好/);
  assert.deepEqual(operations(f.events),[]);await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));
  await publishPreparedMain(f.request,{...f.context,prepareOnly:true});
+});
+test('omitted programmatic mode also refuses inline preparation',async t=>{
+ const f=await fixture(t,['worker','django']);delete f.context.deployOnly;
+ await assert.rejects(publishPreparedMain(f.request,f.context),/尚未准备好/);
+ assert.deepEqual(operations(f.events),[]);
+ await assert.rejects(fs.access(path.join(f.out,'STARTED.json')));
 });
 for(const failure of ['identity','plan','PrepareApp'])test('preparation failure '+failure+' preserves preparation evidence without a deployment STARTED',async t=>{
  const f=await fixture(t,['worker','django'],failure);
