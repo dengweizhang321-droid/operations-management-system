@@ -24,3 +24,5 @@ node tools/verify-release-candidate.mjs --base cdb2ae60 --out <工作树外不�
 私有合成暖缓存基准共841文件、87,162,897字节，5轮交错测量：旧准备双读中位3232ms、旧snapshot双读4691ms，新合并单读903ms。仅是该合成语料局部结果，不能外推生产总时长或15分钟目标。原始值与可复现实验脚本分别为上述证据目录的 `worker-read-benchmark.json`、`worker-read-benchmark.mjs`。
 
 合并、正式制品就绪与生产采用分别报告。仓库交付不代表已安装入口、现有不可变运行包或正在执行的批次已更新；后续生产采用仍需本次对应授权，不回溯阻断既有三个业务任务。
+
+首次真实验证保留两类原失败：旧通知断言/PS7模块环境不齐；随后私有包在长用户TEMP拓扑中 local R2 put 返回 Network connection lost。补充保留底层诊断后，既有短卷根独立Wrangler真实roundtrip通过；包夹具采用该已验证的短路径及独立TEMP/XDG/日志拓扑再验。这里没有断言已经定位该通用错误的唯一底层原因，也不把私有环境调整称为生产缺陷修复。
