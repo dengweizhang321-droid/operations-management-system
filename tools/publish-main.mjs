@@ -33,7 +33,7 @@ async function verifyOfflineCache(request){
 }
 
 async function main(){
- if(!process.argv.includes('--check')){progress=createReleaseProgress(path.resolve(source,'..','logs'));progress.begin('准备发布');}
+ if(!process.argv.includes('--check')){progress=createReleaseProgress(path.resolve(source,'..','logs'),{taskName:process.argv.includes('--prepare-only')?'打包':'发布'});progress.begin('准备发布');}
  const request=await read(requestFile);
  const head=execFileSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).trim();
  assert.equal(head,request.mainCommit,'main来源版本已变化，请使用本次合并后生成的入口');
@@ -55,8 +55,20 @@ async function main(){
   assert.equal(token.stdout.trim(),'False','请用普通用户执行固定发布入口，不需要管理员权限');
   const {publishPreparedMain}=await import('./publish-prepared-main.mjs');
   const out=path.resolve(source,'..','publish-'+head.slice(0,12));
-  await publishPreparedMain(request,{source,out,progress,api,rotation,transport});return;
+  const resultIndex=process.argv.indexOf('--result-file');
+  let resultFile;
+  if(resultIndex!==-1){
+   resultFile=path.resolve(process.argv[resultIndex+1]??'');
+   assert.equal(path.dirname(resultFile),path.resolve(source,'..','invocations'),'调用结果必须写入本包独立记录目录');
+   assert.equal(await exists(resultFile),false,'调用结果文件已存在，禁止覆盖或开始部署');
+  }
+  const result=await publishPreparedMain(request,{source,out,progress,api,rotation,transport,prepareOnly:process.argv.includes('--prepare-only'),deployOnly:process.argv.includes('--deploy-only')});
+  if(resultFile){
+   await fs.writeFile(resultFile,JSON.stringify({status:result.status,mainCommit:request.mainCommit,publicationPerformed:result.status==='deployed_and_ready'})+'\n',{flag:'wx'});
+  }
+  return;
  }
+ if(process.argv.includes('--prepare-only')||process.argv.includes('--deploy-only'))throw Error('准备/只发布模式仅支持冻结的最新main请求，禁止用旧发布入口执行');
  if(request.completedTask){
   throw Error('这是旧任务的历史完成入口，不能发布最新main；请使用固定发布main.bat入口。本次未执行发布。');
  }

@@ -1064,12 +1064,16 @@ export async function hashTree(root, options = {}) {
 }
 
 async function copySourceSnapshot(sourceRoot, destination, files) {
-  for (const relative of files) {
+  await mapBounded(files, 8, async (relative) => {
     const source = path.join(sourceRoot, ...relative.split("/"));
     const target = path.join(destination, ...relative.split("/"));
     await mkdir(path.dirname(target), { recursive: true });
     await copyFile(source, target);
-  }
+  });
+}
+
+function buildTiming(label,started,details='') {
+  console.log(`[${new Date().toISOString()}] [构建明细] ${label}：${Date.now()-started} ms${details?'；'+details:''}`);
 }
 
 async function listIsolatedSourceFiles(root) {
@@ -1909,6 +1913,7 @@ async function buildWorkerReleaseInternal({
   const buildRoot = path.join(stageRoot, "build");
   const releaseStage = path.join(stageRoot, "release");
   try {
+    const sourceStarted=Date.now();
     await mkdir(buildRoot, { recursive: true });
     const sourceFiles = await listGitSourceFiles(sourceRoot);
     assertNoWranglerSourceConflict(sourceFiles);
@@ -1919,6 +1924,7 @@ async function buildWorkerReleaseInternal({
     if (canonicalJson(copiedSourceTree) !== canonicalJson(sourceTree)) fail("隔离源快照在复制后发生变化");
     await mkdir(path.join(releaseStage, "source-snapshot"), { recursive: true });
     await copySourceSnapshot(buildRoot, path.join(releaseStage, "source-snapshot"), sourceFiles);
+    buildTiming('源码完整快照及两次复制',sourceStarted);
 
     const projectPackageJsonPath = path.join(buildRoot, "package.json");
     const projectPackageLockPath = path.join(buildRoot, "package-lock.json");
@@ -1929,18 +1935,22 @@ async function buildWorkerReleaseInternal({
     validatePackageLock(packageJson, packageLock);
     const packageLockSha256 = sha256Bytes(packageLockRaw);
 
+    let detailStarted=Date.now();
     await runProcess(npmToolchain.nodeExecutablePath, [npmToolchain.npmCliPath, ...npmCiArguments], {
       cwd: buildRoot,
       label: "隔离 node_modules 闭包安装",
     });
+    buildTiming('离线依赖安装',detailStarted);
     await assertBundledNpmToolchainProvenance(npmToolchain.provenance);
     await assertNoReparsePoint(path.join(buildRoot, "node_modules"), { label: "构建 node_modules" });
     await assertVinextScratchAbsent(buildRoot, sourceFiles);
+    detailStarted=Date.now();
     await runProcess(process.execPath, [path.join(buildRoot, "node_modules", "vinext", "dist", "cli.js"), "build"], {
       cwd: buildRoot,
       env: { ...process.env, VITE_TERUISI_LOCAL_BUILD: "true" },
       label: "Vinext Worker 构建",
     });
+    buildTiming('Vinext编译',detailStarted);
     await consumeVinextBuildScratch(buildRoot, sourceFiles);
     const postBuildSourceTree = await assertIsolatedSourceClosure(
       buildRoot, sourceFiles, sourceTree, "npm ci/Vinext 构建后的 source closure",
@@ -1948,11 +1958,15 @@ async function buildWorkerReleaseInternal({
     if (canonicalJson(postBuildSourceTree) !== canonicalJson(sourceTree)) {
       fail("npm ci/Vinext 构建修改了隔离 source snapshot，拒绝生成证据");
     }
+    detailStarted=Date.now();
     const helperBuild = await buildWorkerHelperBundle(buildRoot, stageRoot);
+    buildTiming('helper构建',detailStarted);
     await assertIsolatedSourceClosure(buildRoot, sourceFiles, sourceTree, "immutable helper build 后的 source closure");
 
+    detailStarted=Date.now();
     const distTree = await hashTree(path.join(buildRoot, "dist"), { excluded: new Set(["server/.dev.vars"]) });
     const nodeModulesTree = await hashTree(path.join(buildRoot, "node_modules"));
+    buildTiming('产物完整哈希',detailStarted);
     const buildFingerprint = sha256Canonical({
       packageLockSha256,
       distTree,
@@ -1961,7 +1975,9 @@ async function buildWorkerReleaseInternal({
       helperBuildEvidenceSha256: helperBuild.evidenceSha256,
       npmToolchain: npmToolchain.provenance,
     });
+    detailStarted=Date.now();
     const contractTests = await runSalesContractTests(buildRoot, sourceFingerprint, buildFingerprint);
+    buildTiming('原构建合约检查',detailStarted);
     await assertIsolatedSourceClosure(buildRoot, sourceFiles, sourceTree, "sales contract tests 后的 source closure");
     const createdAt = now.toISOString();
     const contractReceipt = await buildSalesRetiredCodeReceipt(
@@ -2000,8 +2016,11 @@ async function buildWorkerReleaseInternal({
     }, "receiptPayloadSha256");
     await mkdir(path.join(releaseStage, "tools"), { recursive: true });
     await mkdir(path.join(releaseStage, "audit"), { recursive: true });
+    detailStarted=Date.now();
     await cp(path.join(buildRoot, "dist"), path.join(releaseStage, "dist"), { recursive: true, errorOnExist: true, force: false });
-    await cp(path.join(buildRoot, "node_modules"), path.join(releaseStage, "node_modules"), { recursive: true, errorOnExist: true, force: false });
+    // Same-volume private staging directory: transfer ownership instead of
+    // copying another 31k files. No links and no changes to the final tree.
+    await rename(path.join(buildRoot, "node_modules"), path.join(releaseStage, "node_modules"));
     await cp(helperBuild.helperRoot, path.join(releaseStage, "helper"), { recursive: true, errorOnExist: true, force: false });
     await copyWorkerReleaseRuntimeArtifacts(buildRoot, releaseStage);
     const contractRelativePath = "audit/sales-retired-code-receipt.json";
@@ -2019,6 +2038,7 @@ async function buildWorkerReleaseInternal({
     await validateTree(path.join(releaseStage, "dist"), distTree, "copied dist", { excluded: new Set(["server/.dev.vars"]) });
     await validateTree(path.join(releaseStage, "node_modules"), nodeModulesTree, "copied node_modules");
     await validateTree(path.join(releaseStage, "helper"), helperBuild.helperTree, "copied helper bundle");
+    buildTiming('封包转移及完整复验',detailStarted);
     const releaseId = `${timestampId(now)}-${sha256Canonical({
       sourceFingerprint, buildFingerprint, contractReceiptSha256, guardReceiptSha256,
       ...(retirementProof ? { retirementProofSha256: retirementProof.proofSha256 } : {}),
@@ -2127,6 +2147,7 @@ async function buildWorkerReleaseInternal({
     await rename(releaseStage, releaseRoot);
     const manifestPath = path.join(releaseRoot, manifestFileName);
     const manifestSha256 = sha256Bytes(await readFile(manifestPath));
+    detailStarted=Date.now();
     try {
       await verifyWorkerReleaseInternal({
         manifestPath,
@@ -2143,6 +2164,7 @@ async function buildWorkerReleaseInternal({
       await rm(releaseRoot, { recursive: true, force: true }).catch(() => {});
       throw error;
     }
+    buildTiming('原生候选完整复验',detailStarted);
     if (verifyPreparationPredecessor) {
       await verifyPreparationPredecessor();
     } else {

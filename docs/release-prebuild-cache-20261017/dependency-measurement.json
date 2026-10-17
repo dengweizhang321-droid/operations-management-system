@@ -1,0 +1,36 @@
+[
+  {
+    "name": "baseline",
+    "status": "installed",
+    "elapsedMs": 49713,
+    "nodeModulesTree": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 31248,
+      "sha256": "9fed34ef1096350805a458f75452c328c3c6fd2262f8d6960fafb5ccd4aee2eb"
+    },
+    "workerd": "workerd 2026-05-15"
+  },
+  {
+    "name": "cache-created",
+    "status": "cache-created",
+    "elapsedMs": 146417,
+    "nodeModulesTree": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 31248,
+      "sha256": "9fed34ef1096350805a458f75452c328c3c6fd2262f8d6960fafb5ccd4aee2eb"
+    },
+    "workerd": "workerd 2026-05-15"
+  },
+  {
+    "name": "cache-hit",
+    "status": "cache-hit",
+    "elapsedMs": 162923,
+    "nodeModulesTree": {
+      "algorithm": "sha256-ordinal-path-length-content-v1",
+      "fileCount": 31248,
+      "sha256": "9fed34ef1096350805a458f75452c328c3c6fd2262f8d6960fafb5ccd4aee2eb"
+    },
+    "workerd": "workerd 2026-05-15"
+  }
+]
+
