@@ -21,7 +21,7 @@ let hooksPath='';try{hooksPath=git(['config','--get','core.hooksPath']);}catch(e
 assert.equal(hooksPath,'','已有自定义hooksPath，请先合并钩子，不能覆盖');
 const common=git(['rev-parse','--path-format=absolute','--git-common-dir']),hook=path.join(common,'hooks','reference-transaction');
 const target=path.join(config.stateDirectory,'control','tools');await fs.mkdir(target,{recursive:true});
-const names=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs'];
+const names=['publish-latest-main.mjs','publish-main-progress.mjs','release-scope-plan.mjs','main-prebuild-hook.mjs','main-schema-release.mjs','main-prebuild-status.mjs'];
 const hashes={};
 for(const name of names){const bytes=await fs.readFile(path.join(source,'tools',name));await fs.writeFile(path.join(target,name),bytes);hashes[name]=createHash('sha256').update(bytes).digest('hex');}
 const quote=value=>"'"+value.replaceAll('\\','/').replaceAll("'","'\\''")+"'";
@@ -32,6 +32,8 @@ await fs.writeFile(hook,hookText,{mode:0o755});
 await fs.writeFile(configFile,JSON.stringify(config,null,2)+'\n');
 const bat='@echo off\r\nsetlocal\r\nchcp 65001 >nul\r\n"'+process.execPath+'" "%~dp0control\\tools\\publish-latest-main.mjs" --config "%~dp0main-publisher-config.json" --prepare-only %*\r\nset "release_exit=%errorlevel%"\r\necho.\r\nif /i not "%~1"=="--no-pause" pause\r\nexit /b %release_exit%\r\n';
 await fs.writeFile(path.join(config.stateDirectory,'准备main.bat'),bat);
+const statusBat='@echo off\r\nsetlocal\r\nchcp 65001 >nul\r\n"'+process.execPath+'" "%~dp0control\\tools\\main-prebuild-status.mjs" --config "%~dp0main-publisher-config.json" %*\r\necho.\r\nif /i not "%~1"=="--no-pause" if /i not "%~2"=="--no-pause" pause\r\n';
+await fs.writeFile(path.join(config.stateDirectory,'查看打包状态.bat'),statusBat);
 const commit=execFileSync('git',['-C',source,'rev-parse','HEAD'],{encoding:'utf8',windowsHide:true}).trim();
 await fs.writeFile(path.join(config.stateDirectory,'CONTROL-TOOLS.json'),JSON.stringify({version:'teruisi-main-prebuild-control-v1',commit,hashes,hook,preparationOnly:true},null,2)+'\n');
 console.log('已安装main更新自动打包。发布main.bat仅发布准备好的包；准备main.bat可手动打包。本次没有部署。');
