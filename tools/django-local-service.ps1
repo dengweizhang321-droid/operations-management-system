@@ -2099,6 +2099,7 @@ function Prepare-Application {
       "tools\manual-maintenance-lock.psm1",
       "tools\manual-maintenance-continuation.mjs",
       "tools\manual-maintenance-continuation.ps1",
+      "tools\pi150-failed-start-recovery.ps1",
       "tools\jd_product_monitoring_addition.py",
       "tools\jd_product_monitoring_catalog.py",
       "tools\jd_monitor_preferences_addition.py",
@@ -4858,6 +4859,13 @@ function Assert-AbsentHelperRecoveryWorkerOwner {
 }
 
 function Assert-AbsentHelperRecoveryBindings([ValidateSet('Initial','Requests','Final')][string]$Stage) {
+  if ($RecoveryProofPath) {
+    $recoveryProof = Read-AbsentHelperRecoveryJson $RecoveryProofPath $RecoveryProofSha256
+    if ($recoveryProof.version -ceq 'teruisi-pi150-failed-start-absent-helper-v1') {
+      . (Join-Path $ExecutionRoot 'tools\pi150-failed-start-recovery.ps1')
+      return Assert-Pi150FailedStartRecoveryBindings $Stage $recoveryProof
+    }
+  }
   # Initial is an observation-only preflight. Actual intent publication and all
   # later transitions additionally require the original Worker mutex owner.
   if ($Stage -cne 'Initial') { Assert-AbsentHelperRecoveryWorkerOwner }
@@ -4952,6 +4960,14 @@ function Wait-AutomationDrain([int]$TimeoutSeconds = 900) {
   # Refuse mixed-version adoption: an old backend does not hold activity leases.
   if (-not (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'app\backend\teruisi_backend\automation_drain.py') -PathType Leaf)) {
     throw 'Backend drain capability is not installed; use the reviewed first-adoption procedure'
+  }
+  if ($RecoveryProofPath) {
+    $recoveryProof = Read-AbsentHelperRecoveryJson $RecoveryProofPath $RecoveryProofSha256
+    if ($recoveryProof.version -ceq 'teruisi-pi150-failed-start-absent-helper-v1') {
+      . (Join-Path $ExecutionRoot 'tools\pi150-failed-start-recovery.ps1')
+      Wait-Pi150FailedStartRecoveryDrain $TimeoutSeconds $recoveryProof
+      return
+    }
   }
   if ($RecoveryProofPath) { Begin-AbsentHelperRecoveryIntent }
   Set-AutomationDrainPhase 'helpers'

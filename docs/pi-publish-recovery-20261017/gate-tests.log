@@ -1,0 +1,15 @@
+test_candidate_requires_explicit_digest_before_source_access (test_integration_release_gate.ReleaseProofTests.test_candidate_requires_explicit_digest_before_source_access) ... ok
+test_changed_proof_or_duplicate_json_key_is_rejected (test_integration_release_gate.ReleaseProofTests.test_changed_proof_or_duplicate_json_key_is_rejected) ... ok
+test_deployment_binds_maintenance_predecessor_and_prepared_app (test_integration_release_gate.ReleaseProofTests.test_deployment_binds_maintenance_predecessor_and_prepared_app) ... ok
+test_exact_success_and_reject_unverified_protected_recovery (test_integration_release_gate.ReleaseProofTests.test_exact_success_and_reject_unverified_protected_recovery) ... ok
+test_incomplete_release_never_reaches_backup_acceptance (test_integration_release_gate.ReleaseProofTests.test_incomplete_release_never_reaches_backup_acceptance) ... ok
+test_parent_database_and_release_dispatch_remain_available_without_pi (test_integration_release_gate.ReleaseProofTests.test_parent_database_and_release_dispatch_remain_available_without_pi) ... ok
+test_pi_database_startup_uses_complete_check_and_never_parent_on_failure (test_integration_release_gate.ReleaseProofTests.test_pi_database_startup_uses_complete_check_and_never_parent_on_failure) ... ok
+test_pi_release_precedes_retained_parent_and_rejection_never_falls_back (test_integration_release_gate.ReleaseProofTests.test_pi_release_precedes_retained_parent_and_rejection_never_falls_back) ... ok
+test_successor_requires_verified_original_generation_and_same_migrations (test_integration_release_gate.ReleaseProofTests.test_successor_requires_verified_original_generation_and_same_migrations) ... ok
+test_wrong_backup_generation_or_database_is_rejected (test_integration_release_gate.ReleaseProofTests.test_wrong_backup_generation_or_database_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.531s
+
+OK

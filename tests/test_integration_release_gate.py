@@ -130,6 +130,53 @@ class ReleaseProofTests(unittest.TestCase):
             with self.assertRaises(PlanBlocked):
                 gate.verify_deployment(stage,runtime)
 
+    def test_pi_release_precedes_retained_parent_and_rejection_never_falls_back(self):
+        self.write("pi-agent-addition-active.json", {})
+        self.write("tmall-warehouse-addition-active.json", {})
+        receipt = {"status": "verified", "migrationCount": 150}
+        with patch("pi_agent_addition.verify_active", return_value=(receipt, {}, self.root)) as pi, \
+                patch("tmall_warehouse_addition.verify_active") as parent:
+            self.assertEqual(gate.verify_release(self.root, self.root), receipt)
+            pi.assert_called_once_with(self.root, self.root)
+            parent.assert_not_called()
+            pi.side_effect = ValueError("invalid Pi receipt")
+            with self.assertRaisesRegex(ValueError, "invalid Pi receipt"):
+                gate.verify_release(self.root, self.root)
+            parent.assert_not_called()
+            with self.assertRaises(PlanBlocked):
+                gate.verify_release(self.root, self.root, allow_addition=False)
+            self.assertEqual(pi.call_count, 2)
+
+    def test_pi_database_startup_uses_complete_check_and_never_parent_on_failure(self):
+        self.write("pi-agent-addition-active.json", {})
+        self.write("tmall-warehouse-addition-active.json", {})
+        complete = {"status": "complete", "migrationCount": 150}
+        with patch("django.setup"), \
+                patch("pi_agent_addition.complete_database", return_value=complete) as pi, \
+                patch("tmall_warehouse_addition.complete_database") as parent:
+            self.assertEqual(gate.verify_database_complete(self.root, self.root), complete)
+            pi.assert_called_once_with(self.root, self.root)
+            parent.assert_not_called()
+            pi.side_effect = ValueError("pending or unknown migrations")
+            with self.assertRaisesRegex(ValueError, "pending or unknown"):
+                gate.verify_database_complete(self.root, self.root)
+            parent.assert_not_called()
+
+    def test_parent_database_and_release_dispatch_remain_available_without_pi(self):
+        self.write("tmall-warehouse-addition-active.json", {})
+        receipt = {"status": "verified", "migrationCount": 149}
+        with patch("tmall_warehouse_addition.verify_active", return_value=(receipt, {}, self.root)) as parent, \
+                patch("pi_agent_addition.verify_active") as pi:
+            self.assertEqual(gate.verify_release(self.root, self.root), receipt)
+            parent.assert_called_once_with(self.root, self.root)
+            pi.assert_not_called()
+        with patch("django.setup"), \
+                patch("tmall_warehouse_addition.complete_database", return_value={"migrationCount": 149}) as parent, \
+                patch("pi_agent_addition.complete_database") as pi:
+            self.assertEqual(gate.verify_database_complete(self.root, self.root), {"migrationCount": 149})
+            parent.assert_called_once_with(self.root, self.root)
+            pi.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

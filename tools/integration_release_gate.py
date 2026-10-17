@@ -326,6 +326,9 @@ def verify_deployment(root, runtime, *, after_deployment=False):
 
 
 def verify_release(root, runtime, *, allow_delta=True, allow_addition=True):
+    if allow_addition and (Path(runtime) / "pi-agent-addition-active.json").exists():
+        from pi_agent_addition import verify_active
+        return verify_active(root, runtime)[0]
     if allow_addition and (Path(runtime) / "tmall-warehouse-addition-active.json").exists():
         from tmall_warehouse_addition import verify_active
         return verify_active(root, runtime)[0]
@@ -386,6 +389,9 @@ def verify_database_complete(root, runtime=None):
     from django.db import connection
     from django.db.migrations.executor import MigrationExecutor
     from django.db.migrations.recorder import MigrationRecorder
+    if runtime is not None and (Path(runtime) / "pi-agent-addition-active.json").exists():
+        from pi_agent_addition import complete_database
+        return complete_database(root, runtime)
     if runtime is not None and (Path(runtime) / "tmall-warehouse-addition-active.json").exists():
         from tmall_warehouse_addition import complete_database
         return complete_database(root, runtime)
