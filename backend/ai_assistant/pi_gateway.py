@@ -16,6 +16,8 @@ from . import pi_service as service
 from .policy import AiError, canonical, digest, fields, identifier, mutation, passive, uid
 
 LOCAL_TOOLS = {"bash", "read", "write", "edit", "grep", "find", "ls"}
+LOCAL_ARGUMENT_BYTES = 256 * 1024  # Per-call code budget; aggregate Runner byte limits still apply.
+LOCAL_CODE_TOOLS = {"bash", "write", "edit"}
 
 
 def remaining_seconds(op):
@@ -31,11 +33,11 @@ def remaining_seconds(op):
     return remaining
 
 
-def freeze(operation, code):
+def freeze(operation, code, diagnostics=None):
     with mutation():
         session = PiSession.objects.select_for_update().get(pk=operation.session_id)
         op = PiOperation.objects.select_for_update().get(pk=operation.id)
-        if op.status not in service.ACTIVE or (session.active_operation_id, session.epoch, session.generation) != (op.id, op.epoch, op.generation):
+        if op.status not in service.ACTIVE or op.status == "unknown" or (session.active_operation_id, session.epoch, session.generation) != (op.id, op.epoch, op.generation):
             return
         op.status, op.error_code, op.capability_hash = "unknown", code, ""
         op.updated_at = timezone.now()
@@ -43,7 +45,8 @@ def freeze(operation, code):
         service.request_freeze(op)
         session.status = "unknown"
         session.save(update_fields=["status"])
-        service.event(session, "error", {"code": code, "status": "unknown"}, op)
+        service.event(session, "error", {"code": code, "status": "unknown",
+            **({"responseDiagnostics": diagnostics} if diagnostics else {})}, op)
 
 
 def capability(payload):
@@ -157,7 +160,8 @@ def _model(payload, op, principal):
             if foreign_thread:
                 connection.close()
     with transport.request_cancellation(cancellation), transport.request_budget(min(remaining_seconds(op), options(model)["taskTimeoutMs"] / 1000)), provider.conversation_session(f"pi/{op.session_id}/{op.generation}"):
-        value = provider.turn(model, messages, system, tools, retain_reasoning=True, preserve_context=True)
+        value = provider.turn(model, messages, system, tools, retain_reasoning=True, preserve_context=True,
+            tool_argument_limits={item["name"]: LOCAL_ARGUMENT_BYTES for item in tools if item["name"] in LOCAL_CODE_TOOLS})
     service.principal_for(PiOperation.objects.get(pk=op.pk))
     central = {item["name"] for item in entries}
     content = ([{"type": "text", "text": value["text"]}] if value["text"] else []) + [
@@ -256,10 +260,19 @@ def execute(payload, nonce):
             dispatch.save()
         return result
     except Exception as error:
+        from .provider_contract import InvalidProviderResponse
+        # These classes construct fixed, content-free diagnostics. Never retain
+        # an arbitrary exception body or supplier response in this public ledger.
+        diagnostics = ({key: value for key, value in error.diagnostics.items() if key in {
+            "adapterVersion", "stage", "reason", "protocol", "responseMode", "httpStatus",
+            "requestStarted", "resolverPhase", "finishReason", "hasReasoning", "completionUnits", "outputUnits"}}
+            if isinstance(error, (InvalidProviderResponse, transport.ProviderTransportError,
+                transport.ProviderHttpError, provider.EmptyProviderResponse)) else {})
         with mutation():
             dispatch.status, dispatch.error_code, dispatch.completed_at = "unknown", getattr(error, "code", "pi_gateway_unknown"), timezone.now()
+            dispatch.response_json = canonical({"responseDiagnostics": diagnostics}) if diagnostics else "{}"
             dispatch.save()
-        freeze(op, getattr(error, "code", "pi_gateway_unknown"))
+        freeze(op, getattr(error, "code", "pi_gateway_unknown"), diagnostics)
         if isinstance(error, AiError):
             raise
         raise AiError("Pi 网关结果未知，禁止重发", "pi_gateway_unknown", 503) from error

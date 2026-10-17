@@ -122,7 +122,9 @@ class PiRealStackTests(TransactionTestCase):
                 call("get_pi_dataset_export", {"exportId": row.id})
             if all(row.status == "succeeded" for row in exports): self.stage = 2
         elif self.stage == 2:
-            script = """import glob,json,pathlib,subprocess
+            # Exercise a real report script above the former 8 KB business-tool
+            # argument budget, through provider validation and native Pi bash.
+            script = "# isolated report-code padding\n" * 1000 + """import glob,json,pathlib,subprocess
 inputs=[json.loads(pathlib.Path(p).read_text()) for p in glob.glob('/workspace/inputs/*/*.json')]
 assert inputs, 'missing exported data'
 rows=[]

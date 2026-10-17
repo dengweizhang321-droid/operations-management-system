@@ -188,6 +188,68 @@ class PiRuntimeTests(TestCase):
         self.assertEqual(model.call_count, 1)
         self.assertEqual(PiOperation.objects.get(pk=op.pk).status, "unknown")
 
+    @patch.dict("os.environ", {"AI_SECRET_ENCRYPTION_KEY": "isolated-script-response-cache-key-123456789"})
+    def test_real_provider_adapter_accepts_large_pi_code_for_both_protocols(self):
+        from .test_dataset_chat import wire
+        from .provider_contract import InvalidProviderResponse
+        for protocol in ("openai_compatible", "anthropic"):
+            self.model.protocol = protocol
+            self.model.save(update_fields=["protocol"])
+            op, token = self.running(clientRequestId="large-code-"+protocol)
+            for index, name in enumerate(("write", "bash", "edit")):
+                args = {"content" if name == "write" else "command" if name == "bash" else "newText": "print('合成脚本')\n"*1800}
+                offered = [{"name": name, "description": "synthetic", "inputSchema": {"type": "object"}}]
+                response = wire(protocol, name, args)
+                with patch.object(gateway, "catalog", return_value=([], [])), patch.object(gateway.provider, "decrypt", return_value="synthetic"), patch.object(gateway.provider, "bounded_json", return_value=response) as post:
+                    # The old, ordinary-tool path reproduces the same failure
+                    # class seen in production; it must remain bounded.
+                    with self.assertRaises(InvalidProviderResponse) as failure:
+                        gateway.provider.turn(self.model, [], "fixture", offered)
+                    self.assertEqual(failure.exception.diagnostics["reason"], "tool_arguments_bounds")
+                    result = gateway.execute(self.request(op, token, requestId=f"code-{index}", tools=offered), secrets.token_hex(16))
+                    self.assertEqual(result["message"]["content"][0]["arguments"], args)
+                    self.assertEqual(post.call_count, 2)  # No automatic POST retry.
+            with mutation():
+                PiOperation.objects.filter(pk=op.pk).update(status="succeeded")
+                PiSession.objects.filter(pk=op.session_id).update(status="idle", active_operation_id="")
+
+    def test_pi_large_code_budget_cannot_widen_business_or_unoffered_tools(self):
+        from .test_dataset_chat import wire
+        from .provider_contract import InvalidProviderResponse
+        for protocol in ("openai_compatible", "anthropic"):
+            self.model.protocol = protocol
+            for name, offered, limits, args in (
+                ("query_system_dataset", [{"name": "query_system_dataset", "description": "synthetic", "inputSchema": {"type": "object"}}], {"write": gateway.LOCAL_ARGUMENT_BYTES}, {"query": "x"*9000}),
+                ("write", [], {"write": gateway.LOCAL_ARGUMENT_BYTES}, {"content": "x"*9000}),
+                ("write", [{"name": "write", "description": "synthetic", "inputSchema": {"type": "object", "maxLength": 99999999}}], {}, {"content": "x"*9000}),
+                ("write", [{"name": "write", "description": "synthetic", "inputSchema": {"type": "object"}}], {"write": gateway.LOCAL_ARGUMENT_BYTES}, {"content": "x"*gateway.LOCAL_ARGUMENT_BYTES}),
+                ("write", [{"name": "write", "description": "synthetic", "inputSchema": {"type": "object"}}], {"write": gateway.LOCAL_ARGUMENT_BYTES}, {"__proto__": "x"}),
+            ):
+                with patch.object(gateway.provider, "decrypt", return_value="synthetic"), patch.object(gateway.provider, "bounded_json", return_value=wire(protocol, name, args)), self.assertRaises(InvalidProviderResponse):
+                    gateway.provider.turn(self.model, [], "fixture", offered, tool_argument_limits=limits)
+
+    def test_provider_diagnostics_survive_duplicate_freeze_and_refresh_without_replay(self):
+        from .provider_contract import InvalidProviderResponse
+        op, token = self.running()
+        payload = self.request(op, token)
+        error = InvalidProviderResponse("tool_arguments_bounds", stage="tool_calls", protocol="openai_compatible", mode="json")
+        error.diagnostics["privatePayload"] = "synthetic-secret-never-persist"
+        with patch.object(gateway, "_model", side_effect=error) as model:
+            with self.assertRaises(AiError): gateway.execute(payload, secrets.token_hex(16))
+            gateway.freeze(op, "pi_worker_unknown")  # The worker catches the same error.
+            with self.assertRaises(AiError): gateway.execute(payload, secrets.token_hex(16))
+            self.assertEqual(model.call_count, 1)
+        row = PiOperation.objects.get(pk=op.pk)
+        self.assertEqual((row.status, row.error_code), ("unknown", "invalid_provider_response"))
+        record = PiDispatch.objects.get(operation=op, kind="model")
+        self.assertNotIn("synthetic-secret", record.response_json)
+        self.assertEqual(json.loads(record.response_json)["responseDiagnostics"]["reason"], "tool_arguments_bounds")
+        errors = [item for item in service.events(op.session_id, {}, self.owner)["items"] if item["type"] == "error"]
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0]["data"]["responseDiagnostics"]["reason"], "tool_arguments_bounds")
+        self.assertNotIn("privatePayload", errors[0]["data"]["responseDiagnostics"])
+        self.assertEqual(service.detail(op.session_id, self.owner)["operations"][0]["errorCode"], "invalid_provider_response")
+
     def test_model_transport_cancel_guard_reads_user_abort_while_in_flight(self):
         op, token = self.running()
         def active_round(*args, **kwargs):

@@ -3,11 +3,20 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { build } from "esbuild";
 import { isPublicAiPath, requestDjangoAi } from "../lib/django/ai-service";
-import { mergePiEvents, piOperationBlocksSend, piScopeFromDraft, reconcilePiPending, type PiEvent, type PiPending } from "../app/ai-pi-agent-view";
+import { mergePiEvents, piOperationBlocksSend, piScopeFromDraft, reconcilePiPending, piFailureLabel, piEventDetail, type PiEvent, type PiPending } from "../app/ai-pi-agent-view";
 
 const principal = { email: "pi-fixture@example.invalid", displayName: "镜像", role: "analyst" as const, scope: { platforms: ["京东"], warehouses: [], channels: [] } };
 const environment = { TERUISI_DJANGO_INTERNAL_SECRET: "Isolated-Pi-hmac-secret-at-least-32-bytes", TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18111", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18112" };
 const paths = ["skills", "sessions", "sessions/s_1", "sessions/s_1/messages", "sessions/s_1/events", "sessions/s_1/abort", "sessions/s_1/files", "files/f_1", "files/f_1/content"];
+
+test("Pi failure cause is visible ahead of unknown status, including after refresh", () => {
+  const data = JSON.parse(JSON.stringify({code: "invalid_provider_response", status: "unknown", responseDiagnostics: { reason: "tool_arguments_bounds" }}));
+  assert.match(piEventDetail(data), /模型响应校验失败.*tool_arguments_bounds/);
+  assert.equal(piEventDetail({ errorCode: "legacy_code", status: "unknown" }), "legacy_code");
+  assert.equal(piEventDetail({status: "running"}), "执行中");
+  assert.equal(piFailureLabel("invalid_provider_response"), "模型响应校验失败，执行已暂停。");
+  assert.equal(piOperationBlocksSend("unknown"), true);
+});
 
 test("Pi recovery only reconciles the exact durable request and keeps unknown operations fenced", () => {
   for (const status of ["queued", "running", "canceling", "unknown", "new-unrecognized-status"]) assert.equal(piOperationBlocksSend(status), true);

@@ -91,7 +91,13 @@ test("actual Pi UI persists request identity and restores by GET after a lost PO
     assert.deepEqual(next.shopSelection, { platform: "京东", shop: "合成旗舰店" });
     assert.equal(next.scope, undefined);
     assert.equal(await page.getByRole("article").getByText("/skill:source-audit 核对来源", { exact: true }).count(), 0);
-    await page.evaluate(() => { window.fixture.frozen = true; });
+    await page.evaluate(() => { window.fixture.operations[0].status = "unknown"; window.fixture.operations[0].errorCode = "invalid_provider_response"; });
+    await page.getByRole("button", { name: "刷新记录" }).click();
+    await page.getByRole("alert").filter({ hasText: "模型响应校验失败，执行已暂停。" }).waitFor();
+    assert.equal(await page.getByRole("button", { name: "发送任务", exact: true }).isDisabled(), true);
+    await page.reload();
+    await page.getByRole("alert").filter({ hasText: "模型响应校验失败，执行已暂停。" }).waitFor();
+    await page.evaluate(() => { window.fixture.frozen = true; window.fixture.operations = []; });
     await page.getByRole("button", { name: "刷新记录" }).click();
     await page.getByText("当前环境因权限变化或未知结果被冻结", { exact: false }).waitFor();
     assert.equal(await page.getByRole("article").count(), 0);

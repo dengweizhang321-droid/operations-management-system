@@ -17,6 +17,21 @@ type PiScope = Record<"warehouses" | "channels" | "platforms", string[]> | null;
 export type PiPending = { clientRequestId: string; sessionId: string; kind: "create" | "message" | "abort" | "file" };
 const labels: Record<string, string> = { ready: "可用", available: "可用", idle: "就绪", active: "就绪", queued: "排队中", running: "执行中", completed: "已完成", succeeded: "已完成", failed: "失败", cancelled: "已停止", canceled: "已停止", aborted: "已停止", aborting: "正在停止", canceling: "正在停止", unknown: "结果待核实", frozen: "环境已冻结", revoked: "权限已变更", disabled: "未启用", enabled: "可用", unavailable: "不可用" };
 const stateLabel = (value: string) => labels[value] ?? value;
+export const piFailureLabel = (code?: string) => ({
+  invalid_provider_response: "模型响应校验失败，执行已暂停。",
+  provider_output_limit: "模型输出达到配置上限，执行已暂停。",
+  provider_empty_response: "模型未返回正文或工具调用，执行已暂停。",
+  provider_timeout: "等待模型响应超时，执行已暂停。",
+  ai_context_budget_exceeded: "对话上下文超过模型配置预算，执行已暂停。",
+} as Record<string, string>)[code ?? ""];
+export function piEventDetail(data: Record<string, unknown>) {
+  const code = typeof data.code === "string" ? data.code : typeof data.errorCode === "string" ? data.errorCode : "";
+  if (code) {
+    const diagnostics = data.responseDiagnostics as Record<string, unknown> | undefined;
+    return `${piFailureLabel(code) ?? code}${typeof diagnostics?.reason === "string" ? `（${diagnostics.reason}）` : ""}`;
+  }
+  return typeof data.status === "string" ? stateLabel(data.status) : typeof data.toolName === "string" ? data.toolName : typeof data.name === "string" ? data.name : "";
+}
 export const piOperationBlocksSend = (status: string) => !["completed", "succeeded", "failed", "cancelled", "canceled", "aborted", "frozen"].includes(status);
 export function mergePiEvents(previous: PiEvent[], incoming: PiEvent[]) {
   return [...new Map([...previous, ...incoming].map(event => [event.eventSeq, event])).values()].sort((a, b) => a.eventSeq - b.eventSeq);
@@ -267,13 +282,13 @@ export default function AiPiAgentView({ currentUser, initialContextPrompt = "" }
         {!!detail?.operations[0]?.skills?.length && <p className="ai-workbench-subtitle" role="status">本轮技能{detail.operations[0].skillsLoaded ? "已加载" : "等待加载"}：{detail.operations[0].skills.map(skill => `${skill.id} v${skill.version}`).join("、")}</p>}
         {error && <div className="ai-workbench-feedback is-error" role="alert">{error}</div>}
         {notice && <div className="ai-workbench-feedback" role="status">{notice}</div>}
-        {frozen && <div className="ai-workbench-feedback is-error" role="alert">当前环境因权限变化或未知结果被冻结，不能继续执行。{detail?.session.status === "unknown" || detail?.operations.some(operation => operation.status === "unknown") ? "请先核实原操作，不要重发原任务。" : "请创建新环境，并重新选择当前授权范围。"}</div>}
+        {frozen && <div className="ai-workbench-feedback is-error" role="alert">{piFailureLabel(detail?.operations.find(operation => operation.status === "unknown")?.errorCode) ?? "当前环境因权限变化或未知结果被冻结，不能继续执行。"}{detail?.session.status === "unknown" || detail?.operations.some(operation => operation.status === "unknown") ? "请先核实原操作，不要重发原任务。" : "请创建新环境，并重新选择当前授权范围。"}</div>}
         {currentPending && <div className="ai-workbench-feedback" role="status">原请求正在核实中。请使用刷新记录查看；同一环境暂不接收新消息。</div>}
         <div className="ai-workbench-scroll"><div className="ai-workbench-messages">
           {!messages.length && <p className="ai-workbench-subtitle">选择模型与真实技能后提交任务。技能也可以通过 /skill:技能标识 指定。经营结果与生成文件需要人工复核。</p>}
           {messages.map(item => <article key={item.eventSeq} className={`ai-workbench-message ai-workbench-${item.type === "user_message" ? "user" : "assistant"}`}><div className="ai-workbench-message-content">{item.type === "user_message" ? <p>{eventText(item)}</p> : <AiMarkdown content={eventText(item)} />}</div></article>)}
           {liveText && <article className="ai-workbench-message ai-workbench-assistant" aria-live="polite"><AiMarkdown content={liveText} partial /></article>}
-          {!!process.length && <details className="ai-workbench-execution"><summary>执行过程 · {process.length} 条事件</summary><ol className="ai-pi-events">{process.map(item => <li key={item.eventSeq}><strong>#{item.eventSeq} {({ status: "状态", tool_start: "工具开始", tool_end: "工具完成", error: "执行异常", file_ready: "文件就绪" } as Record<string, string>)[item.type] || item.type}</strong><span>{typeof item.data.status === "string" ? stateLabel(item.data.status) : typeof item.data.toolName === "string" ? item.data.toolName : typeof item.data.name === "string" ? item.data.name : typeof item.data.errorCode === "string" ? item.data.errorCode : ""}</span></li>)}</ol></details>}
+          {!!process.length && <details className="ai-workbench-execution"><summary>执行过程 · {process.length} 条事件</summary><ol className="ai-pi-events">{process.map(item => <li key={item.eventSeq}><strong>#{item.eventSeq} {({ status: "状态", tool_start: "工具开始", tool_end: "工具完成", error: "执行异常", file_ready: "文件就绪" } as Record<string, string>)[item.type] || item.type}</strong><span>{piEventDetail(item.data)}</span></li>)}</ol></details>}
           {!!detail?.files.length && <section className="ai-pi-files" aria-label="附件与来源"><h3>附件与来源</h3>{detail.files.map(file => <div key={file.id}><a href={`/api/ai/pi/files/${encodeURIComponent(file.id)}/content`} download>{file.fileName}</a><small>{file.direction === "input" ? "上传" : "产物"} · {file.sizeBytes.toLocaleString()} 字节</small>{file.direction === "input" && <label><input type="checkbox" checked={fileIds.includes(file.id)} disabled={!writable || active || attachmentEnvironmentChanged} onChange={() => setFileIds(items => items.includes(file.id) ? items.filter(id => id !== file.id) : [...items, file.id])} />本轮使用</label>}<details><summary>来源清单与校验</summary><pre>{safeManifest(file.manifest)}</pre><code>SHA-256: {file.sha256}</code></details></div>)}</section>}
         </div></div>
         <form className="ai-pi-composer" onSubmit={event => { void send(event); }}>

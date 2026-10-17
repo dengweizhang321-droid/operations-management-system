@@ -60,7 +60,8 @@ def system_prompt(model, system):
     return system
 
 
-def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=None, preserve_context=False):
+def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=None, preserve_context=False,
+         tool_argument_limits=None):
     cfg = options(model)
     system = system_prompt(model, system)
     if preserve_context:
@@ -232,6 +233,13 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
         )
         declared = query_schema.get("maxLength")
         limit = 8000
+        # Only the trusted caller can grant a different transport budget. Pi's
+        # local write/bash code is not a business-tool query; its executor stays
+        # inside the existing isolated container. A model schema grants nothing.
+        offered = any(t["name"] == c["name"] for t in tools)
+        caller_limit = (tool_argument_limits or {}).get(c["name"])
+        if offered and type(caller_limit) is int and 8000 < caller_limit < MAX_PROVIDER_BYTES:
+            limit = caller_limit
         if (
             query_schema.get("type") == "string"
             and type(declared) is int
