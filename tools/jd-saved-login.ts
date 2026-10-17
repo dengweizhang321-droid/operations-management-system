@@ -95,7 +95,7 @@ async function secureLoginForm(frame: Frame) {
   return { frame, account: accounts[0]!, password: passwords[0]! };
 }
 
-async function selectUniquePasswordLoginMode(page: Page) {
+async function selectUniquePasswordLoginMode(page: Page, authorize?: (frame: Frame) => Promise<void>) {
   const candidates: Array<{ frame: Frame; control: Locator }> = [];
   for (const frame of page.frames()) {
     // The current JD merchant login renders the account/password tab as a
@@ -112,7 +112,10 @@ async function selectUniquePasswordLoginMode(page: Page) {
   }
   if (candidates.length > 1) return "ambiguous" as const;
   if (candidates.length === 0) return "missing" as const;
-  await candidates[0]!.control.click();
+  const control = authorize ? await candidates[0]!.control.elementHandle() : candidates[0]!.control;
+  if (!control) return "missing" as const;
+  await authorize?.(candidates[0]!.frame);
+  await control.click();
   await page.waitForTimeout(250);
   return "selected" as const;
 }
@@ -127,6 +130,7 @@ export async function autoLoginJdWithWindowsDpapiCredential(
   storeKey: string,
   loadCredential: (key: string) => Promise<JdRuntimeCredential> = readJdRuntimeCredential,
   waitMs = jdAutomatedLoginFormWaitMs,
+  authorize?: (frame: Frame) => Promise<void>,
 ): Promise<JdAutomatedLoginResult> {
   const deadline = Date.now() + Math.max(0, waitMs);
   let passwordModeSelected = false;
@@ -143,7 +147,7 @@ export async function autoLoginJdWithWindowsDpapiCredential(
     }
     if (forms.length === 1) break;
     if (!passwordModeSelected) {
-      const mode = await selectUniquePasswordLoginMode(page);
+      const mode = await selectUniquePasswordLoginMode(page, authorize);
       if (mode === "ambiguous") {
         return { attempted: false, submitted: false, reason: "login_control_ambiguous" };
       }
@@ -158,12 +162,21 @@ export async function autoLoginJdWithWindowsDpapiCredential(
   }
 
   const form = forms[0]!;
+  // A Locator can re-resolve in a new document while waiting to fill/click.
+  // Guarded callers bind the original elements so navigation detaches them
+  // instead of transferring a credential action to the replacement document.
+  const accountField = authorize ? await form.account.elementHandle() : form.account;
+  const passwordField = authorize ? await form.password.elementHandle() : form.password;
+  if (!accountField || !passwordField) return { attempted: false, submitted: false, reason: "login_form_missing" };
+  await authorize?.(form.frame);
   const credential = await loadCredential(storeKey);
   let username = credential.username;
   let password = credential.password;
   try {
-    await form.account.fill(username);
-    await form.password.fill(password);
+    await authorize?.(form.frame);
+    await accountField.fill(username);
+    await authorize?.(form.frame);
+    await passwordField.fill(password);
   } finally {
     username = "";
     password = "";
@@ -190,7 +203,10 @@ export async function autoLoginJdWithWindowsDpapiCredential(
       reason: exact.length > 1 ? "login_control_ambiguous" : "login_control_missing",
     };
   }
-  await exact[0]!.click();
+  const submitControl = authorize ? await exact[0]!.elementHandle() : exact[0]!;
+  if (!submitControl) return { attempted: true, submitted: false, reason: "login_control_missing" };
+  await authorize?.(form.frame);
+  await submitControl.click();
   return { attempted: true, submitted: true, reason: "submitted" };
 }
 
